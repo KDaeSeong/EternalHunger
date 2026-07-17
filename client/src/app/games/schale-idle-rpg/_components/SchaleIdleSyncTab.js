@@ -2,6 +2,10 @@ import {
   ActionButton,
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
+import {
+  SchaleIdleIconRow,
+  SchaleIdlePanelTitle,
+} from './SchaleIdleVisuals';
 
 export default function SchaleIdleSyncTab(props) {
   const {
@@ -16,10 +20,7 @@ export default function SchaleIdleSyncTab(props) {
   return (
     <section className="games-dashboard">
                   <section className="games-panel">
-                    <div className="games-panel-title">
-                      <h2>동기화 상태</h2>
-                      <span>{syncReport.statusLabel}</span>
-                    </div>
+                    <SchaleIdlePanelTitle action="sync" title="동기화 상태" meta={syncReport.statusLabel} />
                     <div className="games-rank-split" style={{ marginBottom: 12 }}>
                       <SmallStat label="동기화 점수" value={`${syncReport.syncScore}%`} />
                       <SmallStat label="미저장" value={syncReport.dirtyMinutes ? `${syncReport.dirtyMinutes}분` : '없음'} />
@@ -41,39 +42,33 @@ export default function SchaleIdleSyncTab(props) {
                     ) : null}
                     <div className="game-save-list">
                       {syncReport.syncRows.map((row) => (
-                        <article className="game-save-row" key={row.id}>
+                        <SchaleIdleIconRow action={row.status === 'complete' ? 'complete' : row.status === 'ready' ? 'wait' : 'status'} key={row.id}>
                           <div>
                             <span>{row.status === 'complete' ? '완료' : row.status === 'ready' ? '대기' : '참고'}</span>
                             <strong>{row.label} · {row.value}</strong>
                             <small>{row.detail}</small>
                           </div>
                           <strong>{row.status === 'complete' ? 'OK' : row.status === 'ready' ? '처리' : '정보'}</strong>
-                        </article>
+                        </SchaleIdleIconRow>
                       ))}
                     </div>
                   </section>
                   <section className="games-panel">
-                    <div className="games-panel-title">
-                      <h2>동기화 payload</h2>
-                      <span>저장 · 전적 · 복귀</span>
-                    </div>
+                    <SchaleIdlePanelTitle action="archive" title="동기화 payload" meta="저장 · 전적 · 복귀" />
                     <div className="game-save-list">
                       {syncReport.payloadRows.map((row) => (
-                        <article className="game-save-row" key={row.label}>
+                        <SchaleIdleIconRow action="archive" key={row.label}>
                           <div>
                             <span>{row.label}</span>
                             <strong>{row.value}</strong>
                             <small>{row.detail}</small>
                           </div>
-                        </article>
+                        </SchaleIdleIconRow>
                       ))}
                     </div>
                   </section>
                   <section className="games-panel">
-                    <div className="games-panel-title">
-                      <h2>동기화 추천</h2>
-                      <span>다음 순서</span>
-                    </div>
+                    <SchaleIdlePanelTitle action="advisor" title="동기화 추천" meta="다음 순서" />
                     <div className="games-activity-list">
                       {syncReport.recommendations.map((line) => (
                         <div key={line}><strong>{line}</strong></div>

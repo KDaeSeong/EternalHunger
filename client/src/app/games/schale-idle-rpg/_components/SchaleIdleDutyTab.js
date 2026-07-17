@@ -16,6 +16,10 @@ import {
   setEnhanceSettingsAction,
   slotLabel,
 } from '../_lib/schaleIdleEngine';
+import {
+  SchaleIdleIconRow,
+  SchaleIdlePanelTitle,
+} from './SchaleIdleVisuals';
 
 export default function SchaleIdleDutyTab(props) {
   const {
@@ -47,10 +51,7 @@ export default function SchaleIdleDutyTab(props) {
     <>
         <section className="games-detail-grid schale-duty-grid">
           <section className="games-panel schale-duty-panel--report">
-            <div className="games-panel-title">
-              <h2>성장 리포트</h2>
-              <span>{growthReport.summary}</span>
-            </div>
+            <SchaleIdlePanelTitle action="analysis" title="성장 리포트" meta={growthReport.summary} />
             <div className="games-rank-split">
               <SmallStat label="메인 승률" value={`${growthReport.combat.mainProbabilityPct}%`} />
               <SmallStat label="탑 승률" value={`${growthReport.combat.towerProbabilityPct}%`} />
@@ -61,22 +62,19 @@ export default function SchaleIdleDutyTab(props) {
             </div>
             <div className="game-save-list" style={{ marginTop: 12 }}>
               {growthReport.recommendations.slice(0, 4).map((item) => (
-                <article className="game-save-row" key={item.id}>
+                <SchaleIdleIconRow action={item.priority === 'high' ? 'warning' : 'advisor'} key={item.id}>
                   <div>
                     <span>{item.priority === 'high' ? '우선' : item.priority === 'low' ? '보류' : '권장'}</span>
                     <strong>{item.title}</strong>
                     <small>{item.detail}</small>
                   </div>
-                </article>
+                </SchaleIdleIconRow>
               ))}
             </div>
           </section>
 
           <section className="games-panel schale-duty-panel--roadmap">
-            <div className="games-panel-title">
-              <h2>성장 로드맵</h2>
-              <span>{growthRoadmap.headline}</span>
-            </div>
+            <SchaleIdlePanelTitle action="growth" title="성장 로드맵" meta={growthRoadmap.headline} />
             <div className="games-rank-split" style={{ marginBottom: 12 }}>
               <SmallStat label="전체" value={`${growthRoadmap.completionPct}%`} />
               {growthRoadmap.sections.map((section) => (
@@ -98,23 +96,20 @@ export default function SchaleIdleDutyTab(props) {
             ) : null}
             <div className="game-save-list">
               {growthRoadmap.sections.map((section) => (
-                <article className="game-save-row" key={section.id}>
+                <SchaleIdleIconRow action={section.pct >= 100 ? 'complete' : 'growth'} key={section.id}>
                   <div>
                     <span>{section.label} · 완료 {section.done}/{section.total} · {section.pct}%</span>
                     <strong>{section.steps.map((step) => step.title).join(' / ')}</strong>
                     <small>{section.steps.find((step) => step.status !== 'complete')?.detail || '해당 구간 목표를 모두 완료했습니다.'}</small>
                   </div>
                   <strong>{section.steps.find((step) => step.priority === 'high' && step.status !== 'complete') ? '우선' : section.pct >= 100 ? '완료' : '진행'}</strong>
-                </article>
+                </SchaleIdleIconRow>
               ))}
             </div>
           </section>
 
           <section className="games-panel schale-duty-panel--settle">
-            <div className="games-panel-title">
-              <h2>방치 정산</h2>
-              <span>{leader.name}</span>
-            </div>
+            <SchaleIdlePanelTitle action="settle" title="방치 정산" meta={leader.name} />
             <div className="games-rank-split">
               <SmallStat label="스태미나" value={`${state.stamina}/100`} />
               <SmallStat label="보스 처치" value={state.counters.KILL_BOSS} />
@@ -136,10 +131,11 @@ export default function SchaleIdleDutyTab(props) {
           </section>
 
           <section className="games-panel schale-duty-panel--offline">
-            <div className="games-panel-title">
-              <h2>오프라인 보상</h2>
-              <span>{state.offlineLastSummary?.waves ? `${Math.floor(Number(state.offlineLastSummary.deltaMs || 0) / 60000)}분` : '없음'}</span>
-            </div>
+            <SchaleIdlePanelTitle
+              action="reward"
+              title="오프라인 보상"
+              meta={state.offlineLastSummary?.waves ? `${Math.floor(Number(state.offlineLastSummary.deltaMs || 0) / 60000)}분` : '없음'}
+            />
             {state.offlineLastSummary?.waves ? (
               <div className="games-rank-split">
                 <SmallStat label="웨이브" value={state.offlineLastSummary.waves} />
@@ -151,10 +147,11 @@ export default function SchaleIdleDutyTab(props) {
           </section>
 
           <section className="games-panel schale-duty-panel--craft">
-            <div className="games-panel-title">
-              <h2>제작</h2>
-              <span>{Number(state.credits || 0).toLocaleString('ko-KR')} / {selectedRecipe.credits.toLocaleString('ko-KR')} Cr</span>
-            </div>
+            <SchaleIdlePanelTitle
+              action="craft"
+              title="제작"
+              meta={`${Number(state.credits || 0).toLocaleString('ko-KR')} / ${selectedRecipe.credits.toLocaleString('ko-KR')} Cr`}
+            />
             <label className="game-save-json-field">
               <span>레시피</span>
               <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
@@ -179,10 +176,11 @@ export default function SchaleIdleDutyTab(props) {
           </section>
 
           <section className="games-panel schale-duty-panel--tower">
-            <div className="games-panel-title">
-              <h2>강화 / 탑</h2>
-              <span>열쇠 {Number(state.inventory.itm_tower_key || 0)} · 연패 {Number(state.towerLossStreak || 0)}</span>
-            </div>
+            <SchaleIdlePanelTitle
+              action="tower"
+              title="강화 / 탑"
+              meta={`열쇠 ${Number(state.inventory.itm_tower_key || 0)} · 연패 ${Number(state.towerLossStreak || 0)}`}
+            />
             <label className="game-save-json-field">
               <span>강화 슬롯</span>
               <select value={selectedSlot} onChange={(event) => setEnhanceSlot(event.target.value)} disabled={!enhanceSlots.length}>
@@ -319,13 +317,10 @@ export default function SchaleIdleDutyTab(props) {
           </section>
 
           <section className="games-panel schale-duty-panel--research">
-            <div className="games-panel-title">
-              <h2>상시 연구</h2>
-              <span>총 Lv.{totalUpgradeLevel}</span>
-            </div>
+            <SchaleIdlePanelTitle action="research" title="상시 연구" meta={`총 Lv.${totalUpgradeLevel}`} />
             <div className="game-save-list">
               {upgrades.map((upgrade) => (
-                <article className="game-save-row" key={upgrade.id}>
+                <SchaleIdleIconRow action={upgrade.canUpgrade ? 'research' : 'lock'} key={upgrade.id}>
                   <div>
                     <span>Lv.{upgrade.level} → Lv.{upgrade.nextLevel} · {Number(upgrade.costCredits || 0).toLocaleString('ko-KR')} Cr</span>
                     <strong>{upgrade.name}</strong>
@@ -333,7 +328,7 @@ export default function SchaleIdleDutyTab(props) {
                     <small>필요: {upgrade.costItemText || '없음'}</small>
                   </div>
                   <GameControlButton action="research" disabled={!upgrade.canUpgrade} onClick={() => setState((current) => applyUpgradeAction(current, upgrade.id))}>연구</GameControlButton>
-                </article>
+                </SchaleIdleIconRow>
               ))}
             </div>
           </section>

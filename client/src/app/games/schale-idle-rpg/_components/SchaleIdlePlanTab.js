@@ -2,6 +2,10 @@ import {
   GameControlButton,
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
+import {
+  SchaleIdleIconRow,
+  SchaleIdlePanelTitle,
+} from './SchaleIdleVisuals';
 
 const PLAN_ACTION_KINDS = {
   'buy-offer': 'shop',
@@ -24,10 +28,7 @@ export default function SchaleIdlePlanTab(props) {
     <>
         <section className="games-detail-grid">
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>오늘 플랜</h2>
-              <span>{dailyPlan.headline}</span>
-            </div>
+            <SchaleIdlePanelTitle action="calendar" title="오늘 플랜" meta={dailyPlan.headline} />
             <div className="games-rank-split" style={{ marginBottom: 12 }}>
               <SmallStat label="준비도" value={`${dailyPlan.readinessPct}%`} />
               <SmallStat label="상태" value={dailyPlan.riskLabel} />
@@ -38,7 +39,7 @@ export default function SchaleIdlePlanTab(props) {
             </div>
             <div className="game-save-list">
               {dailyPlan.priorityActions.map((action, index) => (
-                <article className="game-save-row" key={action.id}>
+                <SchaleIdleIconRow action={PLAN_ACTION_KINDS[action.command?.type] || 'advisor'} key={action.id}>
                   <div>
                     <span>{index + 1}순위 · {action.priority === 'high' ? '즉시' : action.priority === 'low' ? '보류' : '권장'}</span>
                     <strong>{action.title}</strong>
@@ -47,35 +48,29 @@ export default function SchaleIdlePlanTab(props) {
                   <GameControlButton action={PLAN_ACTION_KINDS[action.command?.type] || 'execute'} disabled={!action.command} onClick={() => runPlanCommand(action.command)}>
                     {action.buttonLabel || '실행'}
                   </GameControlButton>
-                </article>
+                </SchaleIdleIconRow>
               ))}
             </div>
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>운영 체크</h2>
-              <span>{dailyPlan.roadmapHeadline}</span>
-            </div>
+            <SchaleIdlePanelTitle action="status" title="운영 체크" meta={dailyPlan.roadmapHeadline} />
             <div className="game-save-list">
               {dailyPlan.checkCards.map((item) => (
-                <article className="game-save-row" key={item.id}>
+                <SchaleIdleIconRow action={item.status === 'complete' ? 'complete' : item.status === 'ready' ? 'wait' : 'status'} key={item.id}>
                   <div>
                     <span>{item.status === 'complete' ? '완료' : item.status === 'ready' ? '대기' : '진행'}</span>
                     <strong>{item.label} · {item.value}</strong>
                     <small>{item.detail}</small>
                   </div>
                   <strong>{item.status === 'complete' ? 'OK' : item.status === 'ready' ? '확인' : '진행'}</strong>
-                </article>
+                </SchaleIdleIconRow>
               ))}
             </div>
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>다음 목표</h2>
-              <span>{dailyPlan.nextAction?.title || '안정 루프'}</span>
-            </div>
+            <SchaleIdlePanelTitle action="target" title="다음 목표" meta={dailyPlan.nextAction?.title || '안정 루프'} />
             <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
               {dailyPlan.nextAction ? (
                 <>
@@ -92,13 +87,13 @@ export default function SchaleIdlePlanTab(props) {
             </div>
             {dailyPlan.blockers.length ? (
               <div className="game-save-list" style={{ marginTop: 12 }}>
-                <article className="game-save-row">
+                <SchaleIdleIconRow action="warning">
                   <div>
                     <span>현재 병목</span>
                     <strong>{dailyPlan.blockers.join(' / ')}</strong>
                   </div>
                   <strong>점검</strong>
-                </article>
+                </SchaleIdleIconRow>
               </div>
             ) : null}
           </section>

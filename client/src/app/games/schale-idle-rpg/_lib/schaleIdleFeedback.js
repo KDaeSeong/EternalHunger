@@ -20,9 +20,19 @@ function towerResultPresentation(text) {
     return { action: 'tower', cue: 'towerFail', label: '탑 도전 실패', tone: 'danger' };
   }
   if (failureCount > 0) {
-    return { action: 'tower', cue: 'towerClear', label: '탑 배치 종료', tone: 'warning' };
+    return { action: 'tower-partial', cue: 'towerPartial', label: '탑 일부 돌파', tone: 'warning' };
   }
   return { action: 'tower', cue: 'towerClear', label: '탑 돌파', tone: 'success' };
+}
+
+function dutyFailurePresentation(value) {
+  const cleared = Array.isArray(value?.lastDutyReport?.details)
+    ? value.lastDutyReport.details.filter((entry) => entry?.kind === 'FLOOR_CLEAR').length
+    : 0;
+  if (cleared > 0) {
+    return { action: 'duty-partial', cue: 'dutyPartial', label: '정산 일부 진행', tone: 'warning' };
+  }
+  return { action: 'duty-defeat', cue: 'dutyDefeat', label: '정산 실패', tone: 'danger' };
 }
 
 export function schaleIdleFeedbackPresentation(value) {
@@ -34,7 +44,8 @@ export function schaleIdleFeedbackPresentation(value) {
   let presentation;
   if (/샬레 당직이 시작/.test(detail)) presentation = { action: 'growth', cue: '', label: '당직 시작', tone: 'highlight' };
   else if (/^시련의 탑\s+\d+회 요청:/.test(detail)) presentation = towerResultPresentation(detail);
-  else if (/층 정산 실패/.test(detail)) presentation = { action: 'defeat', cue: 'defeat', label: '정산 실패', tone: 'danger' };
+  else if (/층 정산 실패/.test(detail)) presentation = dutyFailurePresentation(value);
+  else if (/방치 정산.*0층 클리어/.test(detail)) presentation = { action: 'wait', cue: 'settle', label: '정산 결과 없음', tone: 'warning' };
   else if (/방치 정산/.test(detail)) presentation = { action: 'settle', cue: 'dutyComplete', label: '방치 정산 완료', tone: 'success' };
   else if (/오프라인 진행/.test(detail)) presentation = { action: 'settle', cue: 'settle', label: '오프라인 보상', tone: 'success' };
   else if (/재정비/.test(detail)) presentation = { action: 'rest', cue: 'rest', label: '재정비 완료', tone: 'success' };
@@ -73,15 +84,20 @@ export function schaleIdleResultCue(previous, next) {
   const previousTowerAt = Number(previous.towerLastBatchReport?.at || 0);
   const nextTowerAt = Number(next.towerLastBatchReport?.at || 0);
   if (nextTowerAt > previousTowerAt) {
-    return Number(next.towerLastBatchReport?.successes || 0) > 0 ? 'towerClear' : 'towerFail';
+    const successes = Number(next.towerLastBatchReport?.successes || 0);
+    const failures = Number(next.towerLastBatchReport?.failures || 0);
+    if (successes > 0 && failures > 0) return 'towerPartial';
+    return successes > 0 ? 'towerClear' : 'towerFail';
   }
 
   const previousDutyAt = Number(previous.lastDutyReport?.at || 0);
   const nextDutyAt = Number(next.lastDutyReport?.at || 0);
   if (nextDutyAt > previousDutyAt) {
-    return counter(next, 'CLEAR_FLOOR') > counter(previous, 'CLEAR_FLOOR')
-      ? 'dutyComplete'
-      : 'defeat';
+    const cleared = counter(next, 'CLEAR_FLOOR') > counter(previous, 'CLEAR_FLOOR');
+    if (next.lastDutyReport?.stoppedReason === 'FAILED') {
+      return cleared ? 'dutyPartial' : 'dutyDefeat';
+    }
+    return cleared ? 'dutyComplete' : 'settle';
   }
 
   if (counter(next, 'ENHANCE_TRY') > counter(previous, 'ENHANCE_TRY')) {

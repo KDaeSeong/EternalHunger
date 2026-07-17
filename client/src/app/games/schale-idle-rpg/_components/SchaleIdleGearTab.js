@@ -24,6 +24,10 @@ import {
   formatAffixes,
   formatRolls,
 } from '../_lib/schaleEquipmentTuning';
+import {
+  SchaleIdleIconRow,
+  SchaleIdlePanelTitle,
+} from './SchaleIdleVisuals';
 
 export default function SchaleIdleGearTab(props) {
   const {
@@ -62,10 +66,7 @@ export default function SchaleIdleGearTab(props) {
 
         <section className="games-dashboard">
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>장비 정비 판단</h2>
-              <span>{equipmentTuning.headline}</span>
-            </div>
+            <SchaleIdlePanelTitle action="analysis" title="장비 정비 판단" meta={equipmentTuning.headline} />
             <div className="games-rank-split" style={{ marginBottom: 12 }}>
               <SmallStat label="평균 옵션" value={`${equipmentTuning.avgOptionScore}점`} />
               <SmallStat label="고점 미잠금" value={`${equipmentTuning.highUnlockedCount}개`} />
@@ -80,7 +81,7 @@ export default function SchaleIdleGearTab(props) {
             </div>
             <div className="game-save-list">
               {equipmentTuning.actions.map((action) => (
-                <article className="game-save-row" key={action.id}>
+                <SchaleIdleIconRow action={action.type === 'idle' ? 'wait' : action.type} key={action.id}>
                   <div>
                     <span>{action.label}</span>
                     <strong>{action.title}</strong>
@@ -120,7 +121,7 @@ export default function SchaleIdleGearTab(props) {
                     </GameControlButton>
                   ) : null}
                   {action.type === 'idle' ? <strong>대기</strong> : null}
-                </article>
+                </SchaleIdleIconRow>
               ))}
             </div>
             {equipmentTuning.lockPlans.length ? (
@@ -133,7 +134,7 @@ export default function SchaleIdleGearTab(props) {
                 </div>
                 <div className="game-save-list" style={{ marginTop: 12 }}>
                   {equipmentTuning.lockPlans.slice(0, 4).map((plan) => (
-                    <article className="game-save-row" key={plan.id}>
+                    <SchaleIdleIconRow action={plan.canRerollAfterLock ? 'lock' : 'warning'} key={plan.id}>
                       <div>
                         <span>{slotLabel(plan.slot)} · {plan.rarity} · 비용 압박 {plan.pressure}</span>
                         <strong>{plan.label} x{plan.value} · 점수 {plan.score}</strong>
@@ -144,7 +145,7 @@ export default function SchaleIdleGearTab(props) {
                         </small>
                       </div>
                       <strong>{plan.canRerollAfterLock ? '추천' : '재화 필요'}</strong>
-                    </article>
+                    </SchaleIdleIconRow>
                   ))}
                 </div>
               </>
@@ -152,10 +153,11 @@ export default function SchaleIdleGearTab(props) {
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>장비 보관함</h2>
-              <span>보유 {equipmentVaultSummary.total} · 예비 {equipmentVaultSummary.reserve}</span>
-            </div>
+            <SchaleIdlePanelTitle
+              action="inventory"
+              title="장비 보관함"
+              meta={`보유 ${equipmentVaultSummary.total} · 예비 ${equipmentVaultSummary.reserve}`}
+            />
             <div className="games-rank-split" style={{ marginBottom: 12 }}>
               <SmallStat label="장착" value={`${equipmentVaultSummary.equipped}개`} />
               <SmallStat label="보관" value={`${equipmentVaultSummary.reserve}개`} />
@@ -214,10 +216,7 @@ export default function SchaleIdleGearTab(props) {
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>장비</h2>
-              <span>{equipped.length}개</span>
-            </div>
+            <SchaleIdlePanelTitle action="equip" title="장비" meta={`${equipped.length}개`} />
             {equipped.length ? (
               <div className="game-save-list">
                 {equipped.map((equip) => (
@@ -250,10 +249,7 @@ export default function SchaleIdleGearTab(props) {
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>장비 프리셋</h2>
-              <span>{presets.length}/12</span>
-            </div>
+            <SchaleIdlePanelTitle action="preset" title="장비 프리셋" meta={`${presets.length}/12`} />
             <label className="game-save-json-field">
               <span>프리셋 이름</span>
               <input value={presetName} onChange={(event) => setPresetName(event.target.value)} placeholder="프리셋 이름" />
@@ -308,10 +304,7 @@ export default function SchaleIdleGearTab(props) {
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>인벤토리</h2>
-              <span>{rows.length}종</span>
-            </div>
+            <SchaleIdlePanelTitle action="inventory" title="인벤토리" meta={`${rows.length}종`} />
             <div className="game-save-list">
               {rows.slice(0, 14).map((row) => (
                 <article className="game-save-row" key={row.itemId}>
@@ -326,10 +319,7 @@ export default function SchaleIdleGearTab(props) {
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>타워 상점</h2>
-              <span>토큰 {shopRotation.tokenCount}</span>
-            </div>
+            <SchaleIdlePanelTitle action="shop" title="타워 상점" meta={`토큰 ${shopRotation.tokenCount}`} />
             <div className="games-rank-split" style={{ marginBottom: 12 }}>
               <SmallStat label="오늘 픽업" value={`${shopRotation.dailyCount}개`} />
               <SmallStat label="오늘 리셋" value={`${shopRotation.dailyResetsUsed}/${shopRotation.dailyResetMax}`} />
@@ -378,12 +368,11 @@ export default function SchaleIdleGearTab(props) {
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>분해 대기열</h2>
+            <SchaleIdlePanelTitle action="salvage" title="분해 대기열">
               <GameControlButton action="salvage" className="tcg-primary-action" disabled={!salvageInfo.executableCount} onClick={runAutoSalvage}>
                 자동 분해{salvageInfo.candidateOnly ? ' · 후보만' : ''}
               </GameControlButton>
-            </div>
+            </SchaleIdlePanelTitle>
             {salvage.length ? (
               <>
                 <div className="games-chip-row" style={{ marginBottom: 12 }}>
@@ -497,10 +486,9 @@ export default function SchaleIdleGearTab(props) {
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>미션</h2>
+            <SchaleIdlePanelTitle action="target" title="미션">
               <GameControlButton action="claim" className="tcg-primary-action" onClick={() => setState((current) => claimMissionRewardsAction(current))}>보상 수령</GameControlButton>
-            </div>
+            </SchaleIdlePanelTitle>
             <div className="game-save-list">
               {missions.map((mission) => (
                 <article className="game-save-row" key={mission.id}>
@@ -515,12 +503,11 @@ export default function SchaleIdleGearTab(props) {
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>업적</h2>
+            <SchaleIdlePanelTitle action="trophy" title="업적">
               <GameControlButton action="claim" className="tcg-primary-action" disabled={!claimableAchievements} onClick={() => setState((current) => claimAchievementRewardsAction(current))}>
                 {claimableAchievements ? `${claimableAchievements}개 수령` : '수령 없음'}
               </GameControlButton>
-            </div>
+            </SchaleIdlePanelTitle>
             <div className="game-save-list">
               {achievements.map((achievement) => (
                 <article className="game-save-row" key={achievement.id}>
@@ -536,10 +523,7 @@ export default function SchaleIdleGearTab(props) {
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>칭호</h2>
-              <span>{equippedTitle ? equippedTitle.name : '미장착'}</span>
-            </div>
+            <SchaleIdlePanelTitle action="title" title="칭호" meta={equippedTitle ? equippedTitle.name : '미장착'} />
             <div className="game-save-list">
               {titles.map((title) => (
                 <article className="game-save-row" key={title.id}>

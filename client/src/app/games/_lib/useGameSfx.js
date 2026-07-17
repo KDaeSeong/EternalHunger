@@ -1440,11 +1440,26 @@ const CUE_PROFILES = {
     { frequency: 630, start: 0.035, duration: 0.055, type: 'triangle', gain: 0.043 },
     { frequency: 840, start: 0.08, duration: 0.09, type: 'sine', gain: 0.038 },
   ],
+  dutyPartial: [
+    { frequency: 360, duration: 0.045, type: 'triangle', gain: 0.045 },
+    { frequency: 570, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.04 },
+    { frequency: 390, endFrequency: 280, start: 0.09, duration: 0.1, type: 'sine', gain: 0.038 },
+  ],
+  dutyDefeat: [
+    { source: 'noise', filterType: 'lowpass', frequency: 430, duration: 0.07, gain: 0.055 },
+    { frequency: 270, endFrequency: 170, duration: 0.105, type: 'triangle', gain: 0.045 },
+    { frequency: 150, endFrequency: 95, start: 0.08, duration: 0.13, type: 'sine', gain: 0.04 },
+  ],
   towerClear: [
     { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.055, gain: 0.03 },
     { frequency: 330, duration: 0.045, type: 'triangle', gain: 0.05 },
     { frequency: 550, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.048 },
     { frequency: 880, start: 0.095, duration: 0.11, type: 'sine', gain: 0.04 },
+  ],
+  towerPartial: [
+    { frequency: 310, duration: 0.04, type: 'triangle', gain: 0.048 },
+    { frequency: 520, start: 0.038, duration: 0.055, type: 'triangle', gain: 0.044 },
+    { frequency: 430, endFrequency: 320, start: 0.09, duration: 0.105, type: 'sine', gain: 0.038 },
   ],
   towerFail: [
     { frequency: 410, endFrequency: 290, duration: 0.09, type: 'triangle', gain: 0.05 },

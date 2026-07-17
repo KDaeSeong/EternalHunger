@@ -18,6 +18,11 @@ const feedback = await import(feedbackUrl);
 
 const gearSource = await readFile(new URL('SchaleIdleGearTab.js', componentRootUrl), 'utf8');
 const dutySource = await readFile(new URL('SchaleIdleDutyTab.js', componentRootUrl), 'utf8');
+const planSource = await readFile(new URL('SchaleIdlePlanTab.js', componentRootUrl), 'utf8');
+const seasonSource = await readFile(new URL('SchaleIdleSeasonTab.js', componentRootUrl), 'utf8');
+const recordsSource = await readFile(new URL('SchaleIdleRecordsTab.js', componentRootUrl), 'utf8');
+const syncSource = await readFile(new URL('SchaleIdleSyncTab.js', componentRootUrl), 'utf8');
+const visualsSource = await readFile(new URL('SchaleIdleVisuals.js', componentRootUrl), 'utf8');
 const featureSource = await readFile(new URL('SchaleIdleFeatureTabs.js', componentRootUrl), 'utf8');
 const pageSource = await readFile(new URL('../src/app/games/schale-idle-rpg/play/page.js', import.meta.url), 'utf8');
 const iconSource = await readFile(new URL('GameActionIcon.js', sharedComponentRootUrl), 'utf8');
@@ -298,11 +303,15 @@ cueForCounter('PRESET', 'preset');
 
 assert.equal(feedback.schaleIdleResultCue(base, {
   ...base,
-  towerLastBatchReport: { at: 1, successes: 1 },
+  towerLastBatchReport: { at: 1, successes: 1, failures: 0 },
 }), 'towerClear', '탑 승리는 전용 클리어 큐를 사용해야 합니다.');
 assert.equal(feedback.schaleIdleResultCue(base, {
   ...base,
-  towerLastBatchReport: { at: 1, successes: 0 },
+  towerLastBatchReport: { at: 1, successes: 2, failures: 1 },
+}), 'towerPartial', '탑 일부 성공은 전용 부분 돌파 큐를 사용해야 합니다.');
+assert.equal(feedback.schaleIdleResultCue(base, {
+  ...base,
+  towerLastBatchReport: { at: 1, successes: 0, failures: 1 },
 }), 'towerFail', '탑 패배는 전용 실패 큐를 사용해야 합니다.');
 assert.equal(feedback.schaleIdleResultCue(base, {
   ...base,
@@ -311,8 +320,17 @@ assert.equal(feedback.schaleIdleResultCue(base, {
 }), 'dutyComplete', '당직 클리어는 완료 큐를 사용해야 합니다.');
 assert.equal(feedback.schaleIdleResultCue(base, {
   ...base,
-  lastDutyReport: { at: 1 },
-}), 'defeat', '당직 실패는 패배 큐를 사용해야 합니다.');
+  lastDutyReport: { at: 1, stoppedReason: 'FAILED' },
+}), 'dutyDefeat', '당직 즉시 실패는 전용 패배 큐를 사용해야 합니다.');
+assert.equal(feedback.schaleIdleResultCue(base, {
+  ...base,
+  lastDutyReport: { at: 1, stoppedReason: 'FAILED' },
+  counters: { ...base.counters, CLEAR_FLOOR: 1 },
+}), 'dutyPartial', '일부 층을 진행한 뒤 패배하면 전용 부분 진행 큐를 사용해야 합니다.');
+assert.equal(feedback.schaleIdleResultCue(base, {
+  ...base,
+  lastDutyReport: { at: 1, stoppedReason: 'NONE' },
+}), 'settle', '클리어와 패배가 없는 정산은 차분한 정산 큐를 사용해야 합니다.');
 assert.equal(feedback.schaleIdleResultCue(base, {
   ...base,
   counters: { ...base.counters, ENHANCE_TRY: 1, ENHANCE_SUCCESS: 1 },
@@ -327,7 +345,7 @@ assert.equal(feedback.schaleIdleResultCue(base, {
 }), 'reward', '보상 수령은 보상 큐를 사용해야 합니다.');
 
 const presentationCases = [
-  ['시련의 탑 10회 요청: 성공 7, 실패 3, +420 Cr.', 'tower', '탑 배치 종료', 'warning', 'towerClear'],
+  ['시련의 탑 10회 요청: 성공 7, 실패 3, +420 Cr.', 'tower-partial', '탑 일부 돌파', 'warning', 'towerPartial'],
   ['강화 보호권 제작 완료.', 'craft', '제작 완료', 'success', 'craftComplete'],
   ['녹슨 소총 +4 강화 성공. 하드 천장 발동으로 +5 달성.', 'enhance-pity', '강화 천장 성공', 'success', 'enhancePity'],
   ['현장 방호복 +8 강화 실패. 강화 보호 부적 사용으로 1단계 하락 패널티 방지.', 'enhance-protected', '보호권 발동', 'highlight', 'enhanceProtected'],
@@ -336,6 +354,7 @@ const presentationCases = [
   ['강화 실패. 강화석이 부족합니다.', 'upgrade', '장비 강화 실패', 'danger', 'enhanceFail'],
   ['미션 2개 보상 수령. +360 Cr.', 'claim', '보상 수령', 'success', 'reward'],
   ['재정비로 스태미나를 35 회복했습니다.', 'rest', '재정비 완료', 'success', 'rest'],
+  ['30분 방치 정산: 0층 클리어, +0 Cr, 보스 0회. 추가 클리어는 없었습니다.', 'wait', '정산 결과 없음', 'warning', 'settle'],
 ];
 presentationCases.forEach(([text, action, label, tone, cue]) => {
   const presentation = feedback.schaleIdleFeedbackPresentation(text);
@@ -355,6 +374,23 @@ assert.equal(feedback.schaleIdleResultCue(
   { ...base, log: ['녹슨 소총 제작 실패. 필요한 재료가 부족합니다.'] },
 ), 'warning', '재료 부족처럼 카운터가 변하지 않는 실패도 경고음을 재생해야 합니다.');
 
+const dutyPartialPresentation = feedback.schaleIdleFeedbackPresentation({
+  log: ['4층 정산 실패. 전열이 무너졌습니다.'],
+  lastDutyReport: {
+    details: [{ kind: 'FLOOR_CLEAR' }, { kind: 'FAILED' }],
+  },
+});
+assert.deepEqual(
+  {
+    action: dutyPartialPresentation.action,
+    label: dutyPartialPresentation.label,
+    tone: dutyPartialPresentation.tone,
+    cue: dutyPartialPresentation.cue,
+  },
+  { action: 'duty-partial', label: '정산 일부 진행', tone: 'warning', cue: 'dutyPartial' },
+  '일부 진행 후 패배는 즉시 패배와 다른 결과 표현을 사용해야 합니다.',
+);
+
 assert.match(gearSource, /장비 보관함/, '장비 탭에 UID 보관함이 표시되어야 합니다.');
 assert.match(gearSource, /equipEquipmentAction/, '보관함에서 직접 장착 동작을 제공해야 합니다.');
 assert.match(gearSource, /toggleEquipmentProtectionAction/, '장비 잠금과 즐겨찾기 동작을 제공해야 합니다.');
@@ -373,15 +409,29 @@ assert.match(iconSource, /'enhance-pity':\s*Sparkles/, '하드 천장 성공은 
 assert.match(iconSource, /'enhance-protected':\s*ShieldCheck/, '보호권 발동은 방패 아이콘을 사용해야 합니다.');
 assert.match(iconSource, /'enhance-downgrade':\s*TrendingDown/, '강화 하락은 하락 아이콘을 사용해야 합니다.');
 assert.match(iconSource, /'enhance-destroyed':\s*Skull/, '장비 파괴는 파괴 아이콘을 사용해야 합니다.');
+assert.match(iconSource, /'duty-defeat':\s*HeartCrack/, '당직 즉시 패배는 전용 피해 아이콘을 사용해야 합니다.');
+assert.match(iconSource, /'duty-partial':\s*TrendingUp/, '당직 일부 진행은 진행 아이콘을 사용해야 합니다.');
+assert.match(iconSource, /'tower-partial':\s*TrendingUp/, '탑 일부 돌파는 진행 아이콘을 사용해야 합니다.');
+assert.match(iconSource, /reward:\s*Gift/, '오프라인 보상 패널은 선물 아이콘을 사용해야 합니다.');
 assert.match(sfxSource, /favorite:\s*\[/, '즐겨찾기 전용 효과음이 있어야 합니다.');
 assert.match(sfxSource, /shopRefresh:\s*\[/, '상점 갱신 전용 효과음이 있어야 합니다.');
 assert.match(sfxSource, /enhancePity:\s*\[/, '하드 천장 전용 효과음이 있어야 합니다.');
 assert.match(sfxSource, /enhanceProtected:\s*\[/, '보호권 발동 전용 효과음이 있어야 합니다.');
 assert.match(sfxSource, /enhanceDowngrade:\s*\[/, '강화 하락 전용 효과음이 있어야 합니다.');
 assert.match(sfxSource, /enhanceDestroyed:\s*\[/, '장비 파괴 전용 효과음이 있어야 합니다.');
+assert.match(sfxSource, /dutyPartial:\s*\[/, '당직 일부 진행 전용 효과음이 있어야 합니다.');
+assert.match(sfxSource, /dutyDefeat:\s*\[/, '당직 즉시 패배 전용 효과음이 있어야 합니다.');
+assert.match(sfxSource, /towerPartial:\s*\[/, '탑 일부 돌파 전용 효과음이 있어야 합니다.');
 assert.match(pageSource, /schaleIdleFeedbackPresentation/, '플레이 화면은 상태별 결과 표현을 사용해야 합니다.');
+assert.match(pageSource, /schaleIdleFeedbackPresentation\(state\)/, '최근 결과는 보고서 세부 상태까지 전달해야 합니다.');
 assert.match(pageSource, /action=\{resultPresentation\.action\}/, '최근 결과는 상태별 아이콘을 표시해야 합니다.');
 assert.match(pageSource, /tone=\{resultPresentation\.tone\}/, '최근 결과는 성공, 경고, 실패 상태를 구분해야 합니다.');
+assert.match(visualsSource, /GameActionIcon/, '샬레 전용 시각 컴포넌트는 공용 행동 아이콘을 사용해야 합니다.');
+const visualTabSource = [dutySource, gearSource, planSource, seasonSource, recordsSource, syncSource].join('\n');
+assert.ok((visualTabSource.match(/<SchaleIdlePanelTitle/g) || []).length >= 31, '샬레의 주요 패널 제목 31곳에 의미 아이콘이 있어야 합니다.');
+assert.ok((visualTabSource.match(/<SchaleIdleIconRow/g) || []).length >= 14, '핵심 판단 행에는 상태별 의미 아이콘이 있어야 합니다.');
+assert.match(styleSource, /\.schale-idle-panel-title h2/, '샬레 패널 제목 아이콘 정렬 스타일이 있어야 합니다.');
+assert.match(styleSource, /\.schale-idle-icon-row > \.game-action-icon/, '샬레 판단 행 아이콘 스타일이 있어야 합니다.');
 assert.doesNotMatch(engineSource, /이\(가\)|은\(는\)|을\(를\)|\(으\)로/, '플레이어 로그에 병기형 조사가 남으면 안 됩니다.');
 
 console.log(JSON.stringify({
@@ -392,5 +442,7 @@ console.log(JSON.stringify({
   protectedLocked: Boolean(afterLockedSalvage.equipmentInventory[previousUid]),
   protectedFavorite: Boolean(afterFavoriteSalvage.equipmentInventory[previousUid]),
   presetRestored: presetApplied.equipment.WEAPON === reserveUid,
-  feedbackCues: 23,
+  feedbackCues: 26,
+  semanticPanelTitles: (visualTabSource.match(/<SchaleIdlePanelTitle/g) || []).length,
+  semanticIconRows: (visualTabSource.match(/<SchaleIdleIconRow/g) || []).length,
 }, null, 2));

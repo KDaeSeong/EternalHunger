@@ -1,6 +1,10 @@
 import {
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
+import {
+  SchaleIdleIconRow,
+  SchaleIdlePanelTitle,
+} from './SchaleIdleVisuals';
 
 export default function SchaleIdleRecordsTab(props) {
   const {
@@ -13,10 +17,11 @@ export default function SchaleIdleRecordsTab(props) {
 
         <section className="games-dashboard">
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>성장 판단</h2>
-              <span>{growthReport.statusTone === 'good' ? '안정' : growthReport.statusTone === 'warn' ? '점검 필요' : '위험'}</span>
-            </div>
+            <SchaleIdlePanelTitle
+              action="analysis"
+              title="성장 판단"
+              meta={growthReport.statusTone === 'good' ? '안정' : growthReport.statusTone === 'warn' ? '점검 필요' : '위험'}
+            />
             <div className="games-rank-split" style={{ marginBottom: 12 }}>
               <SmallStat label="전투력" value={growthReport.combat.power.toLocaleString('ko-KR')} />
               <SmallStat label="연패 보정" value={`+${growthReport.combat.towerCatchupPct}%`} />
@@ -27,46 +32,47 @@ export default function SchaleIdleRecordsTab(props) {
             </div>
             <div className="game-save-list">
               {growthReport.nextMission ? (
-                <article className="game-save-row">
+                <SchaleIdleIconRow action="target">
                   <div>
                     <span>미션 {growthReport.nextMission.progress}/{growthReport.nextMission.target} · {growthReport.nextMission.pct}%</span>
                     <strong>{growthReport.nextMission.name}</strong>
                   </div>
-                </article>
+                </SchaleIdleIconRow>
               ) : null}
               {growthReport.nextAchievement ? (
-                <article className="game-save-row">
+                <SchaleIdleIconRow action="trophy">
                   <div>
                     <span>업적 {growthReport.nextAchievement.progress}/{growthReport.nextAchievement.target} · {growthReport.nextAchievement.pct}%</span>
                     <strong>{growthReport.nextAchievement.name}</strong>
                   </div>
-                </article>
+                </SchaleIdleIconRow>
               ) : null}
               {growthReport.blockers.length ? (
-                <article className="game-save-row">
+                <SchaleIdleIconRow action="warning">
                   <div>
                     <span>병목</span>
                     <strong>{growthReport.blockers.join(' / ')}</strong>
                   </div>
                   <strong>점검</strong>
-                </article>
+                </SchaleIdleIconRow>
               ) : (
-                <article className="game-save-row">
+                <SchaleIdleIconRow action="complete">
                   <div>
                     <span>병목 없음</span>
                     <strong>현재 루프는 안정적으로 이어갈 수 있습니다.</strong>
                   </div>
                   <strong>안정</strong>
-                </article>
+                </SchaleIdleIconRow>
               )}
             </div>
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>근무 보고서</h2>
-              <span>{state.lastDutyReport ? `${state.lastDutyReport.fromFloor}-${state.lastDutyReport.toFloor}층` : '없음'}</span>
-            </div>
+            <SchaleIdlePanelTitle
+              action="settle"
+              title="근무 보고서"
+              meta={state.lastDutyReport ? `${state.lastDutyReport.fromFloor}-${state.lastDutyReport.toFloor}층` : '없음'}
+            />
             {state.lastDutyReport ? (
               <div className="games-activity-list">
                 <div>
@@ -82,10 +88,11 @@ export default function SchaleIdleRecordsTab(props) {
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>탑 보고서</h2>
-              <span>{state.towerLastBatchReport ? `${state.towerLastBatchReport.successes}승 ${state.towerLastBatchReport.failures}패` : '없음'}</span>
-            </div>
+            <SchaleIdlePanelTitle
+              action="tower"
+              title="탑 보고서"
+              meta={state.towerLastBatchReport ? `${state.towerLastBatchReport.successes}승 ${state.towerLastBatchReport.failures}패` : '없음'}
+            />
             {state.towerLastBatchReport ? (
               <div className="games-activity-list">
                 <div>
@@ -106,10 +113,7 @@ export default function SchaleIdleRecordsTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>최근 로그</h2>
-            <span>{state.runId}</span>
-          </div>
+          <SchaleIdlePanelTitle action="logs" title="최근 로그" meta={state.runId} />
           <div className="games-activity-list">
             {state.log.slice(0, 12).map((line, index) => (
               <div key={`${line}-${index}`}>

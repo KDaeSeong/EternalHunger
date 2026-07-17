@@ -70,7 +70,6 @@ export default function SchaleIdlePlayPage() {
     missions,
     power,
     presets,
-    recentActionText,
     rows,
     salvage,
     salvageInfo,
@@ -93,8 +92,8 @@ export default function SchaleIdlePlayPage() {
     validSelectedSalvageUids,
   } = viewModel;
   const resultPresentation = useMemo(
-    () => schaleIdleFeedbackPresentation(recentActionText),
-    [recentActionText],
+    () => schaleIdleFeedbackPresentation(state),
+    [state],
   );
 
   const {
