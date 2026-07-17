@@ -6,6 +6,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import useGameSfx from '../../_lib/useGameSfx';
@@ -15,6 +16,10 @@ import {
   baSrpgFeedbackPresentation,
   createBaSrpgFeedbackSnapshot,
 } from '../_lib/baSrpgFeedback';
+import {
+  baSrpgResultMusic,
+  resolveBaSrpgBgmScene,
+} from '../_lib/baSrpgSoundtrack';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -75,21 +80,18 @@ export default function BaSrpgPlayPage() {
   const [propertyId, setPropertyId] = useState(PROPERTIES[0].id);
   const [edictId, setEdictId] = useState(EDICTS[0].id);
   const [skillId, setSkillId] = useState(TACTICAL_SKILLS[0].id);
+  const [activeTabId, setActiveTabId] = useState('mission');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const { setMusicScene } = useGameBgm();
   const playGameSfx = useGameSfx({ theme: 'tactical', volume: 0.18 });
   const feedbackRef = useRef(null);
+  const musicSceneTimerRef = useRef(null);
   const feedbackSnapshot = useMemo(() => createBaSrpgFeedbackSnapshot(state), [state]);
   const resultPresentation = useMemo(
     () => baSrpgFeedbackPresentation(feedbackSnapshot),
     [feedbackSnapshot],
   );
-
-  useEffect(() => {
-    const cue = baSrpgFeedbackCue(feedbackRef.current, feedbackSnapshot);
-    feedbackRef.current = feedbackSnapshot;
-    if (cue) playGameSfx(cue);
-  }, [feedbackSnapshot, playGameSfx]);
 
   const battle = state.battle;
   const mission = getMission(battle.missionId);
@@ -114,6 +116,38 @@ export default function BaSrpgPlayPage() {
   const battleForecast = useMemo(() => getBattleForecast(state), [state]);
   const battleMissionOverlay = useMemo(() => getBattleMissionOverlay(state), [state]);
   const battlePresentation = useMemo(() => getBattlePresentationReport(state), [state]);
+  const baseMusicScene = useMemo(
+    () => resolveBaSrpgBgmScene({ activeTabId, battle, battleForecast }),
+    [activeTabId, battle, battleForecast],
+  );
+
+  useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
+
+  useEffect(() => {
+    const cue = baSrpgFeedbackCue(feedbackRef.current, feedbackSnapshot);
+    feedbackRef.current = feedbackSnapshot;
+    if (cue) playGameSfx(cue);
+
+    const musicTransition = cue ? baSrpgResultMusic(resultPresentation, cue) : null;
+    if (musicTransition) {
+      if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+      setMusicScene(musicTransition.theme);
+      musicSceneTimerRef.current = window.setTimeout(() => {
+        setMusicScene(baseMusicScene);
+        musicSceneTimerRef.current = null;
+      }, musicTransition.durationMs);
+    }
+  }, [baseMusicScene, feedbackSnapshot, playGameSfx, resultPresentation, setMusicScene]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
+
   const score = scoreState(state);
   const power = battlePower(state);
   const selectedRecipe = recipes.find((recipe) => recipe.id === recipeId) || recipes[0];
@@ -218,6 +252,7 @@ export default function BaSrpgPlayPage() {
     setPropertyId(PROPERTIES[0].id);
     setEdictId(EDICTS[0].id);
     setSkillId(TACTICAL_SKILLS[0].id);
+    setActiveTabId('mission');
     setMessage('');
   };
 
@@ -315,6 +350,7 @@ export default function BaSrpgPlayPage() {
       />
 
       <BaSrpgFeatureTabs
+        activeTabId={activeTabId}
         battle={battle}
         battleForecast={battleForecast}
         battleMissionOverlay={battleMissionOverlay}
@@ -333,6 +369,7 @@ export default function BaSrpgPlayPage() {
         mission={mission}
         missionId={missionId}
         operationBriefing={operationBriefing}
+        onTabChange={setActiveTabId}
         properties={properties}
         propertyId={propertyId}
         quests={quests}

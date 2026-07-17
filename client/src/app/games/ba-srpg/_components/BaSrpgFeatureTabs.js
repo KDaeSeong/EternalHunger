@@ -7,15 +7,19 @@ import BaSrpgInventoryTab from './BaSrpgInventoryTab';
 
 export default function BaSrpgFeatureTabs(props) {
   const {
+    activeTabId,
     battle,
     campaignExpansion,
     formationCount,
     guildRank,
+    onTabChange,
     rows,
   } = props;
 
   return (
     <GameFeatureTabs
+      activeTabId={activeTabId}
+      onTabChange={onTabChange}
       tabs={[
         {
           id: 'mission',
