@@ -30,7 +30,7 @@ const dualAcademyTrack = (file, options = {}) => renderedTrack('dual-academy-tcg
   ...options,
 });
 const tonkatsuTeacherTrack = (file, options = {}) => renderedTrack('tonkatsu-teacher', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 const schaleIdleTrack = (file, options = {}) => renderedTrack('schale-idle-rpg', file, {
