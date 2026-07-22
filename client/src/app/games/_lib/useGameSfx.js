@@ -1280,6 +1280,12 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 1.7, start: 0.085, duration: 0.038, gain: 0.065 },
     { frequency: 250, endFrequency: 160, start: 0.085, duration: 0.065, type: 'sawtooth', gain: 0.042 },
   ],
+  objectivePending: [
+    { frequency: 740, endFrequency: 980, duration: 0.045, type: 'square', gain: 0.036, pan: -0.28 },
+    { frequency: 980, endFrequency: 740, start: 0.065, duration: 0.045, type: 'square', gain: 0.036, pan: 0.28 },
+    { frequency: 185, start: 0.13, duration: 0.16, type: 'sine', gain: 0.038, reverb: 0.22 },
+    { source: 'noise', filterType: 'bandpass', frequency: 1320, start: 0.16, duration: 0.08, gain: 0.025, reverb: 0.18 },
+  ],
   objectiveCapture: [
     { source: 'noise', filterType: 'highpass', frequency: 1900, duration: 0.04, gain: 0.025 },
     { frequency: 440, duration: 0.055, type: 'triangle', gain: 0.045 },
@@ -1998,6 +2004,12 @@ const THEME_CUE_PROFILES = {
       { frequency: 440, start: 0.035, duration: 0.05, type: 'square', gain: 0.04, pan: -0.1 },
       { frequency: 550, start: 0.078, duration: 0.06, type: 'triangle', gain: 0.042, pan: 0.12 },
       { frequency: 880, start: 0.13, duration: 0.1, type: 'sine', gain: 0.032, pan: 0.3, reverb: 0.24 },
+    ],
+    objectivePending: [
+      { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.06, gain: 0.024, pan: -0.36, reverb: 0.2 },
+      { frequency: 698, endFrequency: 988, duration: 0.05, type: 'square', gain: 0.04, pan: -0.3 },
+      { frequency: 988, endFrequency: 698, start: 0.07, duration: 0.05, type: 'square', gain: 0.04, pan: 0.3 },
+      { frequency: 174, start: 0.14, duration: 0.18, type: 'sine', gain: 0.043, reverb: 0.28 },
     ],
     objectiveCapture: [
       { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.1, gain: 0.028, pan: -0.42, reverb: 0.24 },

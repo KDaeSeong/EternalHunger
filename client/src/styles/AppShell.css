@@ -10123,6 +10123,20 @@
   font-size: 0.92rem;
 }
 
+.ba-srpg-panel-title h2,
+.ba-srpg-panel-title h3 {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ba-srpg-panel-title h2 .game-action-icon,
+.ba-srpg-panel-title h3 .game-action-icon {
+  flex: 0 0 auto;
+  color: #215f82;
+}
+
 .game-save-row.srpg-icon-row {
   grid-template-columns: 28px minmax(0, 1fr) auto;
   gap: 10px;

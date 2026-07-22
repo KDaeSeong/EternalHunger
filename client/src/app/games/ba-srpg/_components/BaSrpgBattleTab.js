@@ -13,6 +13,7 @@ import {
   refreshShopAction,
   selectEnemyAction,
 } from '../_lib/baSrpgEngine';
+import { BaSrpgIconRow, BaSrpgPanelTitle } from './BaSrpgVisuals';
 
 function BoardCell({ content, selected, target, onClick }) {
   const statusText = content.actor ? actorStatusText(content.actor) : '';
@@ -87,10 +88,7 @@ export default function BaSrpgBattleTab(props) {
   return (
     <>
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>전장</h2>
-          <span>{battle.lastResult || mission.caution}</span>
-        </div>
+        <BaSrpgPanelTitle action="srpg-battle" title="전장" meta={battle.lastResult || mission.caution} />
         <div className={`srpg-battle-signal is-${battleSignal.tone}`} role="status" aria-live="polite">
           <GameActionIcon action={battleSignal.action} label={battleSignal.label} />
           <span>
@@ -120,10 +118,7 @@ export default function BaSrpgBattleTab(props) {
       </section>
 
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>미션 오버레이</h2>
-          <span>{battleMissionOverlay.headline}</span>
-        </div>
+        <BaSrpgPanelTitle action={battleMissionOverlay.objectiveStatus.action} title="미션 오버레이" meta={battleMissionOverlay.headline} />
         <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
           <strong>{battleMissionOverlay.objective}</strong>
           <br />
@@ -148,82 +143,76 @@ export default function BaSrpgBattleTab(props) {
         </div>
         <div className="srpg-mission-brief-grid">
           <section>
-            <div className="games-panel-title">
-              <h3>미션 사건</h3>
-              <span>{battleMissionOverlay.eventRows.filter((row) => row.triggered).length}/{battleMissionOverlay.eventRows.length}</span>
-            </div>
+            <BaSrpgPanelTitle
+              action="srpg-event"
+              heading="h3"
+              title="미션 사건"
+              meta={`${battleMissionOverlay.eventRows.filter((row) => row.triggered).length}/${battleMissionOverlay.eventRows.length}`}
+            />
             <div className="game-save-list">
               {battleMissionOverlay.eventRows.map((row) => (
-                <article className="game-save-row srpg-icon-row" key={row.id}>
-                  <GameActionIcon action={row.action} label={row.label} />
+                <BaSrpgIconRow action={row.action} label={row.label} key={row.id}>
                   <div>
                     <span>{row.triggered ? '발생 완료' : `${row.turn}턴 예정`}</span>
                     <strong>{row.label}</strong>
                     <small>{row.detail}</small>
                   </div>
                   <strong>{row.triggered ? 'OK' : row.due ? '발생' : `${row.turn}T`}</strong>
-                </article>
+                </BaSrpgIconRow>
               ))}
             </div>
           </section>
           <section>
-            <div className="games-panel-title">
-              <h3>적 전용 패턴</h3>
-              <span>{battleMissionOverlay.enemyPatternRows.length}개</span>
-            </div>
+            <BaSrpgPanelTitle action="srpg-enemy-command" heading="h3" title="적 전용 패턴" meta={`${battleMissionOverlay.enemyPatternRows.length}개`} />
             <div className="game-save-list">
               {battleMissionOverlay.enemyPatternRows.slice(0, 5).map((row) => (
-                <article className="game-save-row srpg-icon-row" key={row.id}>
-                  <GameActionIcon action={row.action} label={row.name} />
+                <BaSrpgIconRow action={row.action} label={row.name} key={row.id}>
                   <div>
                     <span>{row.enemyName} · {row.interval}턴 주기</span>
                     <strong>{row.name}</strong>
                     <small>{row.detail}</small>
                   </div>
                   <strong>{row.ready ? '준비' : `${row.nextTurn}T`}</strong>
-                </article>
+                </BaSrpgIconRow>
               ))}
             </div>
           </section>
         </div>
         <div className="game-save-list">
           {battleMissionOverlay.starRows.map((row) => (
-            <article className="game-save-row" key={row.id}>
+            <BaSrpgIconRow action={row.done ? 'complete' : 'target'} label={row.label} key={row.id}>
               <div>
                 <span>{row.done ? '달성' : '진행 중'}</span>
                 <strong>{row.label}</strong>
                 <small>{row.value}</small>
               </div>
               <strong>{row.done ? 'OK' : '-'}</strong>
-            </article>
+            </BaSrpgIconRow>
           ))}
           {battleMissionOverlay.recommendations.map((line, index) => (
-            <article className="game-save-row" key={`${line}-${index}`}>
+            <BaSrpgIconRow action="advisor" label={`작전 추천 ${index + 1}`} key={`${line}-${index}`}>
               <div>
                 <span>작전 추천 {index + 1}</span>
                 <strong>{line}</strong>
               </div>
-            </article>
+            </BaSrpgIconRow>
           ))}
           {battleMissionOverlay.threatRows.map((row) => (
-            <article className="game-save-row" key={row.id}>
+            <BaSrpgIconRow action="target" label={row.name} key={row.id}>
               <div>
                 <span>우선 표적 · 사거리 {row.range} · 공격 {row.atk}</span>
                 <strong>{row.name}</strong>
                 <small>HP {row.hp}. 장거리/고화력 적은 전투판에서 먼저 위치를 확인하세요.</small>
               </div>
               <strong>{row.range >= 4 ? '원거리' : '접근'}</strong>
-            </article>
+            </BaSrpgIconRow>
           ))}
         </div>
       </section>
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>전투 연출</h2>
-            <span>{battlePresentation.headline}</span>
-          </div>
+          <BaSrpgPanelTitle action="effect" title="전투 연출" meta={battlePresentation.headline} />
           <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
             <strong>{battlePresentation.latestCue.title}</strong> · {battlePresentation.latestCue.detail}
           </div>
@@ -235,23 +224,20 @@ export default function BaSrpgBattleTab(props) {
           </div>
           <div className="game-save-list">
             {battlePresentation.presentationRows.map((row) => (
-              <article className="game-save-row" key={row.id}>
+              <BaSrpgIconRow action={row.ready ? 'complete' : 'warning'} label={row.label} key={row.id}>
                 <div>
                   <span>{row.ready ? '연결됨' : '점검 필요'} · {row.value}</span>
                   <strong>{row.label}</strong>
                   <small>{row.detail}</small>
                 </div>
                 <strong>{row.ready ? 'OK' : '확인'}</strong>
-              </article>
+              </BaSrpgIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>전투 예측</h2>
-            <span>{battleForecast.headline}</span>
-          </div>
+          <BaSrpgPanelTitle action="analysis" title="전투 예측" meta={battleForecast.headline} />
           <div className="games-rank-split" style={{ marginBottom: 12 }}>
             <SmallStat label="위협" value={battleForecast.threatLevel} />
             <SmallStat label="예상 피해" value={battleForecast.incomingTotal} />
@@ -267,42 +253,36 @@ export default function BaSrpgBattleTab(props) {
           </div>
           <div className="game-save-list">
             {battleForecast.recommendations.map((line, index) => (
-              <article className="game-save-row" key={`${line}-${index}`}>
+              <BaSrpgIconRow action="advisor" label={`권장 ${index + 1}`} key={`${line}-${index}`}>
                 <div>
                   <span>권장 {index + 1}</span>
                   <strong>{line}</strong>
                 </div>
-              </article>
+              </BaSrpgIconRow>
             ))}
           </div>
         </section>
 
         {battleForecast.statusRows?.length ? (
           <section className="games-panel srpg-status-panel">
-            <div className="games-panel-title">
-              <h2>전술 효과 예고</h2>
-              <span>{battleForecast.statusSummary}</span>
-            </div>
+            <BaSrpgPanelTitle action="status" title="전술 효과 예고" meta={battleForecast.statusSummary} />
             <div className="game-save-list">
               {battleForecast.statusRows.map((row) => (
-                <article className="game-save-row" key={row.id}>
+                <BaSrpgIconRow action="status" label={row.label} key={row.id}>
                   <div>
                     <span>{row.sideLabel} · {row.actorName}</span>
                     <strong>{row.label}</strong>
                     <small>{row.detail}</small>
                   </div>
                   <strong>{row.value}</strong>
-                </article>
+                </BaSrpgIconRow>
               ))}
             </div>
           </section>
         ) : null}
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>전술 HUD</h2>
-            <span>{battleForecast.bestAction?.badge || '대기'}</span>
-          </div>
+          <BaSrpgPanelTitle action="srpg-command" title="전술 HUD" meta={battleForecast.bestAction?.badge || '대기'} />
           <div className="games-rank-split" style={{ marginBottom: 12 }}>
             <SmallStat label="최우선" value={battleForecast.bestAction?.label || '-'} />
             <SmallStat label="점수" value={battleForecast.bestAction?.score ?? 0} />
@@ -311,7 +291,7 @@ export default function BaSrpgBattleTab(props) {
           </div>
           <div className="game-save-list">
             {(battleForecast.actionRows || []).map((action) => (
-              <article className="game-save-row" key={action.id}>
+              <BaSrpgIconRow action={action.type === 'attack' ? 'combat' : action.action || 'skill'} label={action.title} key={action.id}>
                 <div>
                   <span>{action.badge} · 점수 {action.score}</span>
                   <strong>{action.title}</strong>
@@ -338,20 +318,16 @@ export default function BaSrpgBattleTab(props) {
                 >
                   실행
                 </ActionButton>
-              </article>
+              </BaSrpgIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>적 턴 예상</h2>
-            <span>{battleForecast.enemyPlans.length}개 행동</span>
-          </div>
+          <BaSrpgPanelTitle action="srpg-enemy-command" title="적 턴 예상" meta={`${battleForecast.enemyPlans.length}개 행동`} />
           <div className="game-save-list">
             {battleForecast.enemyPlans.slice(0, 6).map((plan) => (
-              <article className="game-save-row srpg-icon-row" key={plan.enemyId}>
-                <GameActionIcon action={plan.patternAction || 'combat'} label={plan.patternName || plan.rule} />
+              <BaSrpgIconRow action={plan.patternAction || 'combat'} label={plan.patternName || plan.rule} key={plan.enemyId}>
                 <div>
                   <span>{plan.patternName || plan.rule} · {plan.moveText} · {plan.priority === 'high' ? '위험' : plan.priority === 'low' ? '낮음' : '주의'}</span>
                   <strong>{plan.enemyName} → {plan.targetName}</strong>
@@ -361,90 +337,75 @@ export default function BaSrpgBattleTab(props) {
                   ) : null}
                 </div>
                 <strong>{plan.lethal ? '위험' : plan.expectedHpDamage || '-'}</strong>
-              </article>
+              </BaSrpgIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>아군 위험도</h2>
-            <span>{battleForecast.unitThreats[0]?.riskLabel || '안정'}</span>
-          </div>
+          <BaSrpgPanelTitle action="srpg-crisis" title="아군 위험도" meta={battleForecast.unitThreats[0]?.riskLabel || '안정'} />
           <div className="game-save-list">
             {battleForecast.unitThreats.map((unit) => (
-              <article className="game-save-row" key={unit.unitId}>
+              <BaSrpgIconRow action={unit.lethal ? 'unit-down' : 'guard'} label={unit.unitName} key={unit.unitId}>
                 <div>
                   <span>{unit.riskLabel} · 예상 피해 {unit.incomingExpected} · 피격 후 {unit.hpRatioAfter}%</span>
                   <strong>{unit.unitName}</strong>
                   <small>공격 예정: {unit.attackersText}{unit.inCover ? ' · 엄폐 중' : ' · 노출'}</small>
                 </div>
                 <strong>{unit.lethal ? '격파' : unit.riskScore}</strong>
-              </article>
+              </BaSrpgIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>공격 후보</h2>
-            <span>{battleForecast.selectedUnitName || '선택 없음'}</span>
-          </div>
+          <BaSrpgPanelTitle action="target" title="공격 후보" meta={battleForecast.selectedUnitName || '선택 없음'} />
           <div className="game-save-list">
             {battleForecast.selectedAttacks.slice(0, 5).map((attack) => (
-              <article className="game-save-row" key={attack.enemyId}>
+              <BaSrpgIconRow action={attack.lethal ? 'elimination' : 'target'} label={attack.enemyName} key={attack.enemyId}>
                 <div>
                   <span>{attack.inRange ? '사거리 안' : '사거리 밖'} · 거리 {attack.distance} · {attack.coverText}</span>
                   <strong>{attack.enemyName}</strong>
                   <small>피해 {attack.hpDamage} · 기대 {attack.expectedHpDamage} · 명중 {attack.hitChancePct}%{attack.lethal ? ' · 마무리 가능' : ''}</small>
                 </div>
                 <strong>{attack.lethal ? '킬각' : attack.inRange ? attack.expectedHpDamage : '-'}</strong>
-              </article>
+              </BaSrpgIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>학생</h2>
-            <span>{battle.units.filter((unit) => unit.hp > 0).length}/{battle.units.length}</span>
-          </div>
+          <BaSrpgPanelTitle action="players" title="학생" meta={`${battle.units.filter((unit) => unit.hp > 0).length}/${battle.units.length}`} />
           <div className="game-save-list">
             {battle.units.map((unit) => (
-              <article className="game-save-row" key={unit.id}>
+              <BaSrpgIconRow action={unit.hp > 0 ? 'players' : 'unit-down'} label={unit.name} key={unit.id}>
                 <div>
                   <span>{unit.role} · AP {unit.ap}{actorStatusText(unit) ? ` · ${actorStatusText(unit)}` : ''}</span>
                   <strong>{unit.name}</strong>
                 </div>
                 <strong>{unit.hp}/{unit.maxHp}</strong>
-              </article>
+              </BaSrpgIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>적</h2>
-            <span>{battle.enemies.filter((enemy) => enemy.hp > 0).length}/{battle.enemies.length}</span>
-          </div>
+          <BaSrpgPanelTitle action="combat" title="적" meta={`${battle.enemies.filter((enemy) => enemy.hp > 0).length}/${battle.enemies.length}`} />
           <div className="game-save-list">
             {battle.enemies.map((enemy) => (
-              <article className="game-save-row" key={enemy.id}>
+              <BaSrpgIconRow action={enemy.hp > 0 ? 'combat' : 'elimination'} label={enemy.name} key={enemy.id}>
                 <div>
                   <span>사거리 {enemy.range} · 이동 {enemy.move}{actorStatusText(enemy) ? ` · ${actorStatusText(enemy)}` : ''}</span>
                   <strong>{enemy.name}</strong>
                 </div>
                 <strong>{enemy.hp}/{enemy.maxHp}</strong>
-              </article>
+              </BaSrpgIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>제작 / 상점</h2>
-            <span>{state.guildRep} Rep</span>
-          </div>
+          <BaSrpgPanelTitle action="craft" title="제작 / 상점" meta={`${state.guildRep} Rep`} />
           <label className="game-save-json-field">
             <span>제작</span>
             <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>

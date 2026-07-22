@@ -16,7 +16,7 @@ function resultSignal(lastResult) {
   if (/클리어|승리/.test(text)) return { action: 'victory', cue: 'victory', label: '임무 클리어', tone: 'success' };
   if (/임무 실패|작전 실패|전멸/.test(text)) return { action: 'defeat', cue: 'defeat', label: '작전 실패', tone: 'danger' };
   if (/\[목표 확보:/.test(text)) return { action: 'srpg-objective-command', cue: 'objectiveCapture', label: '목표 확보', tone: 'success' };
-  if (/\[목표 대기:/.test(text)) return { action: 'srpg-objective-recon', cue: 'warning', label: '목표 점령 필요', tone: 'warning' };
+  if (/\[목표 대기:/.test(text)) return { action: 'srpg-objective-recon', cue: 'objectivePending', label: '목표 점령 필요', tone: 'warning' };
   if (/\[미션 사건:/.test(text)) return { action: 'srpg-event', cue: 'missionEvent', label: '미션 사건', tone: 'highlight' };
   if (/\[적 스킬: 표적 분석\]/.test(text)) return { action: 'srpg-enemy-mark', cue: 'enemyMark', label: '표적 분석', tone: 'warning' };
   if (/\[적 스킬: 제압 사격\]/.test(text)) return { action: 'srpg-enemy-suppress', cue: 'enemySuppress', label: '제압 사격', tone: 'danger' };

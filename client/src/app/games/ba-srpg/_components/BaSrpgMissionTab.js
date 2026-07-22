@@ -13,6 +13,7 @@ import {
   setFormationAction,
   waitSelectedUnitAction,
 } from '../_lib/baSrpgEngine';
+import { BaSrpgIconRow, BaSrpgPanelTitle } from './BaSrpgVisuals';
 
 export default function BaSrpgMissionTab(props) {
   const {
@@ -47,10 +48,7 @@ export default function BaSrpgMissionTab(props) {
               <>
       <section className="games-detail-grid">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>작전 선택</h2>
-            <span>{mission.region}</span>
-          </div>
+          <BaSrpgPanelTitle action="srpg-deployment" title="작전 선택" meta={mission.region} />
           <label className="game-save-json-field">
             <span>임무</span>
             <select value={missionId} onChange={(event) => setMissionId(event.target.value)}>
@@ -83,10 +81,7 @@ export default function BaSrpgMissionTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>작전 브리핑</h2>
-            <span>{operationBriefing.headline}</span>
-          </div>
+          <BaSrpgPanelTitle action="guide" title="작전 브리핑" meta={operationBriefing.headline} />
           <div className="games-rank-split">
             <SmallStat label="준비도" value={`${operationBriefing.readinessPct}%`} />
             <SmallStat label="전투력" value={operationBriefing.power.toLocaleString('ko-KR')} />
@@ -99,7 +94,7 @@ export default function BaSrpgMissionTab(props) {
           </div>
           <div className="game-save-list">
             {operationBriefing.missionRows.slice(0, 4).map((row) => (
-              <article className="game-save-row" key={row.id}>
+              <BaSrpgIconRow action={row.locked ? 'lock' : 'target'} label={row.name} key={row.id}>
                 <div>
                   <span>CH.{row.chapter} · {row.difficultyLabel} · {row.riskLabel} · 평균 {row.avgCredit}Cr</span>
                   <strong>{row.name}</strong>
@@ -113,16 +108,13 @@ export default function BaSrpgMissionTab(props) {
                 >
                   선택
                 </ActionButton>
-              </article>
+              </BaSrpgIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>캠페인 진행</h2>
-            <span>{campaignReport.progressPct}% · ★{campaignReport.starTotal}/{campaignReport.starMax}</span>
-          </div>
+          <BaSrpgPanelTitle action="map" title="캠페인 진행" meta={`${campaignReport.progressPct}% · ★${campaignReport.starTotal}/${campaignReport.starMax}`} />
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55, margin: 0 }}>
             {campaignReport.headline}
           </p>
@@ -135,7 +127,7 @@ export default function BaSrpgMissionTab(props) {
           </div>
           <div className="game-save-list">
             {campaignReport.missionRows.map((row) => (
-              <article className="game-save-row" key={row.id}>
+              <BaSrpgIconRow action={row.cleared ? 'complete' : row.locked ? 'lock' : 'target'} label={row.name} key={row.id}>
                 <div>
                   <span>CH.{row.chapter} · {row.difficultyLabel} · {row.statusLabel} · 권장 {row.recommendedPower}</span>
                   <strong>{row.name}</strong>
@@ -154,20 +146,17 @@ export default function BaSrpgMissionTab(props) {
                 >
                   선택
                 </ActionButton>
-              </article>
+              </BaSrpgIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>출전 편성</h2>
-            <span>{formationCount}/{MAX_FORMATION_SIZE}</span>
-          </div>
+          <BaSrpgPanelTitle action="formation" title="출전 편성" meta={`${formationCount}/${MAX_FORMATION_SIZE}`} />
           {Array.isArray(formationPresets) && formationPresets.length ? (
             <div className="game-save-list" style={{ marginBottom: 12 }}>
               {formationPresets.slice(0, 4).map((preset) => (
-                <article className="game-save-row" key={preset.id}>
+                <BaSrpgIconRow action={preset.recommended ? 'advisor' : 'formation'} label={preset.name} key={preset.id}>
                   <div>
                     <span>{preset.recommended ? '추천' : preset.badge} · 적합도 {preset.fitScore} · 예상 {preset.successPct}%</span>
                     <strong>{preset.name}</strong>
@@ -182,13 +171,13 @@ export default function BaSrpgMissionTab(props) {
                   >
                     적용
                   </ActionButton>
-                </article>
+                </BaSrpgIconRow>
               ))}
             </div>
           ) : null}
           <div className="game-save-list">
             {formation.map((student) => (
-              <article className="game-save-row" key={student.id}>
+              <BaSrpgIconRow action={student.selected ? 'formation' : 'players'} label={student.name} key={student.id}>
                 <div>
                   <span>{student.role} · 전투력 {student.power}{student.selected ? ` · ${student.order}번` : ''}</span>
                   <strong>{student.name}</strong>
@@ -203,16 +192,13 @@ export default function BaSrpgMissionTab(props) {
                 >
                   {student.selected ? '제외' : '편성'}
                 </ActionButton>
-              </article>
+              </BaSrpgIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>선택 유닛</h2>
-            <span>{selectedUnit?.name || '-'}</span>
-          </div>
+          <BaSrpgPanelTitle action="players" title="선택 유닛" meta={selectedUnit?.name || '-'} />
           <div className="games-rank-split">
             <SmallStat label="HP" value={selectedUnit ? `${selectedUnit.hp}/${selectedUnit.maxHp}` : '-'} />
             <SmallStat label="AP" value={selectedUnit?.ap ?? 0} />
@@ -228,10 +214,7 @@ export default function BaSrpgMissionTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>전술 명령</h2>
-            <span>{battle.phase}</span>
-          </div>
+          <BaSrpgPanelTitle action="srpg-command" title="전술 명령" meta={battle.phase} />
           <div className="games-rank-split">
             <SmallStat label="대상" value={targetEnemy?.name || '없음'} />
             <SmallStat label="적 생존" value={battle.enemies.filter((enemy) => enemy.hp > 0).length} />

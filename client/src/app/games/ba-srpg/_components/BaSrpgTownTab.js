@@ -8,6 +8,7 @@ import {
   toggleLeasePropertyAction,
   upgradePropertyAction,
 } from '../_lib/baSrpgEngine';
+import { BaSrpgPanelTitle } from './BaSrpgVisuals';
 
 const DISTRICTS = [
   { id: 'plaza', title: '광장', desc: '길드, 칙령, 평판 업무' },
@@ -115,10 +116,7 @@ export default function BaSrpgTownTab(props) {
     <>
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>타운 허브</h2>
-            <span>{town.activeEdictName}</span>
-          </div>
+          <BaSrpgPanelTitle action="srpg-town" title="타운 허브" meta={town.activeEdictName} />
           <div className="games-rank-split games-rank-split--compact">
             <SmallStat label="휴식" value={`${town.restCost}Cr`} />
             <SmallStat label="상점" value={`${town.shopDiscountPct}%`} />
@@ -136,10 +134,7 @@ export default function BaSrpgTownTab(props) {
         </section>
 
         <section className="games-panel srpg-town-map-panel">
-          <div className="games-panel-title">
-            <h2>시설 지도</h2>
-            <span>{credit.toLocaleString('ko-KR')} Cr</span>
-          </div>
+          <BaSrpgPanelTitle action="map" title="시설 지도" meta={`${credit.toLocaleString('ko-KR')} Cr`} />
           <div className="srpg-town-district-grid">
             {DISTRICTS.map((district) => {
               const districtProperties = properties.filter((property) => property.district === district.id);
@@ -186,10 +181,7 @@ export default function BaSrpgTownTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>부동산 상세</h2>
-            <span>{selectedProperty.status}</span>
-          </div>
+          <BaSrpgPanelTitle action="property" title="부동산 상세" meta={selectedProperty.status} />
           <label className="game-save-json-field">
             <span>시설</span>
             <select value={propertyId} onChange={(event) => setPropertyId(event.target.value)}>
@@ -221,10 +213,7 @@ export default function BaSrpgTownTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>칙령 상세</h2>
-            <span>{town.activeEdictName}</span>
-          </div>
+          <BaSrpgPanelTitle action="edict" title="칙령 상세" meta={town.activeEdictName} />
           <label className="game-save-json-field">
             <span>월간 칙령</span>
             <select value={edictId} onChange={(event) => setEdictId(event.target.value)}>
