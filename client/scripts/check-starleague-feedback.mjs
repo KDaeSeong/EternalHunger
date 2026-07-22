@@ -40,8 +40,11 @@ const leagueSource = await readFile(new URL('MyAnimeCraftLeagueTab.js', componen
 const cupsSource = await readFile(new URL('MyAnimeCraftCupsTab.js', componentUrl), 'utf8');
 const teamSource = await readFile(new URL('MyAnimeCraftTeamTab.js', componentUrl), 'utf8');
 const marketSource = await readFile(new URL('MyAnimeCraftMarketTab.js', componentUrl), 'utf8');
+const recordsSource = await readFile(new URL('MyAnimeCraftRecordsTab.js', componentUrl), 'utf8');
+const visualsSource = await readFile(new URL('MyAnimeCraftVisuals.js', componentUrl), 'utf8');
 const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
 const soundSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
+const styleSource = await readFile(new URL('../src/styles/AppShell.css', import.meta.url), 'utf8');
 
 const teams = [
   { id: 'team-a', name: '알파' },
@@ -334,9 +337,11 @@ for (const cue of resultCues) {
 for (const icon of [
   'match', 'comeback', 'victory', 'defeat', 'champion', 'season', 'event', 'verdict',
   'cup', 'winners', 'sponsor', 'training', 'recruit', 'contract', 'release', 'transfer',
-  'shop', 'equip', 'unequip', 'consume', 'rest', 'warning', 'new',
+  'shop', 'equip', 'unequip', 'consume', 'rest', 'warning', 'new', 'analysis',
+  'advisor', 'clock', 'replay', 'calendar', 'players', 'map', 'tournament', 'inventory',
+  'finance', 'logs', 'trophy',
 ]) {
-  assert.match(iconSource, new RegExp(`\\n  ${icon}: `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
+  assert.match(iconSource, new RegExp(`\\n  ['"]?${icon}['"]?: `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
 }
 
 assert.match(pageSource, /const stateRef = useRef\(state\)/, '연속 운영 행동은 최신 상태 참조를 사용해야 합니다.');
@@ -358,10 +363,24 @@ for (const match of actionSources.matchAll(/applyStateAction\(/g)) {
 assert.match(teamSource, /TEAM_ACTION_ICONS/, '특훈·휴식·팬미팅은 행동별 아이콘을 선택해야 합니다.');
 assert.match(leagueSource, /data-game-sfx="select"/, '경기 다시보기 선택에는 짧은 선택음을 제공해야 합니다.');
 
+const visualComponentsSource = [leagueSource, cupsSource, teamSource, marketSource, recordsSource].join('\n');
+const semanticPanelTitles = (visualComponentsSource.match(/<MyAnimeCraftPanelTitle\b/g) || []).length;
+const semanticIconRows = (visualComponentsSource.match(/<MyAnimeCraftIconRow\b/g) || []).length;
+assert.equal(semanticPanelTitles, 27, '스타리그의 27개 패널 제목에 의미 아이콘을 표시해야 합니다.');
+assert.equal(semanticIconRows, 27, '스타리그의 27개 반복 정보 행에 의미 아이콘을 표시해야 합니다.');
+assert.doesNotMatch(visualComponentsSource, /className="games-panel-title"/, '스타리그 기능 탭에 아이콘 없는 기존 패널 제목이 남으면 안 됩니다.');
+assert.doesNotMatch(visualComponentsSource, /className="game-save-row"/, '스타리그 기능 탭에 아이콘 없는 기존 정보 행이 남으면 안 됩니다.');
+assert.match(visualsSource, /export function MyAnimeCraftPanelTitle/, '스타리그 전용 패널 제목 컴포넌트가 있어야 합니다.');
+assert.match(visualsSource, /export function MyAnimeCraftIconRow/, '스타리그 전용 정보 행 컴포넌트가 있어야 합니다.');
+assert.match(styleSource, /\.starleague-panel-title h2/, '스타리그 패널 제목 아이콘 레이아웃이 있어야 합니다.');
+assert.match(styleSource, /\.game-save-row\.starleague-icon-row/, '스타리그 정보 행 아이콘 레이아웃이 있어야 합니다.');
+
 console.log(JSON.stringify({
   feedbackCues: resultCues.length,
   managementProfiles: 15,
   cupProfiles: 7,
   commentaryCharacters: commentaryText.length,
   browserResultPanels: 4,
+  semanticPanelTitles,
+  semanticIconRows,
 }, null, 2));

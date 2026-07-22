@@ -1,5 +1,6 @@
 import { SmallStat } from '../../_components/GamePlayPrimitives';
 import { MAPS, RACE_LABELS } from '../_lib/myAnimeCraftEngine';
+import { MyAnimeCraftIconRow, MyAnimeCraftPanelTitle } from './MyAnimeCraftVisuals';
 
 export default function MyAnimeCraftRecordsTab(props) {
   const {
@@ -20,10 +21,7 @@ export default function MyAnimeCraftRecordsTab(props) {
               <>
 
       <section className="games-panel" style={{ marginBottom: 14 }}>
-        <div className="games-panel-title">
-          <h2>시즌 결산 보드</h2>
-          <span>{seasonFinaleReport.stageLabel}</span>
-        </div>
+        <MyAnimeCraftPanelTitle action="champion" title="시즌 결산 보드" meta={seasonFinaleReport.stageLabel} />
         <p style={{ color: '#5f6c78', fontWeight: 850, lineHeight: 1.5, margin: 0 }}>
           {seasonFinaleReport.headline}
         </p>
@@ -42,13 +40,13 @@ export default function MyAnimeCraftRecordsTab(props) {
         </div>
         <div className="game-save-list">
           {seasonFinaleReport.highlights.slice(0, 5).map((line, index) => (
-            <article className="game-save-row" key={`season-finale-highlight-${index}`}>
+            <MyAnimeCraftIconRow action="event" label={`결산 하이라이트 ${index + 1}`} key={`season-finale-highlight-${index}`}>
               <div>
                 <span>결산 하이라이트</span>
                 <strong>{line}</strong>
               </div>
               <strong>{index + 1}</strong>
-            </article>
+            </MyAnimeCraftIconRow>
           ))}
         </div>
         {seasonFinaleReport.recommendations.length ? (
@@ -63,16 +61,13 @@ export default function MyAnimeCraftRecordsTab(props) {
       </section>
 
       <section className="games-panel" style={{ marginBottom: 14 }}>
-        <div className="games-panel-title">
-          <h2>라이벌리 기록소</h2>
-          <span>{rivalryReport.sampleLabel}</span>
-        </div>
+        <MyAnimeCraftPanelTitle action="match" title="라이벌리 기록소" meta={rivalryReport.sampleLabel} />
         <p style={{ color: '#5f6c78', fontWeight: 850, lineHeight: 1.5, margin: 0 }}>
           {rivalryReport.headline}
         </p>
         <div className="game-save-list">
           {rivalryReport.rows.length ? rivalryReport.rows.slice(0, 6).map((row, index) => (
-            <article className="game-save-row" key={row.key}>
+            <MyAnimeCraftIconRow action="match" label={`${row.playerAName} 대 ${row.playerBName}`} key={row.key}>
               <div>
                 <span>
                   {index + 1}위 · {RACE_LABELS[row.playerARace] || row.playerARace || '-'} vs {RACE_LABELS[row.playerBRace] || row.playerBRace || '-'}
@@ -86,46 +81,40 @@ export default function MyAnimeCraftRecordsTab(props) {
                 </small>
               </div>
               <strong>{row.recordLabel}</strong>
-            </article>
+            </MyAnimeCraftIconRow>
           )) : (
-            <article className="game-save-row">
+            <MyAnimeCraftIconRow action="clock" label="라이벌리 표본 대기">
               <div>
                 <span>세트 결과 누적 후 자동 생성</span>
                 <strong>아직 라이벌리 표본이 없습니다.</strong>
               </div>
               <strong>대기</strong>
-            </article>
+            </MyAnimeCraftIconRow>
           )}
         </div>
       </section>
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>순위표</h2>
-            <span>{standings.length}팀</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="trophy" title="순위표" meta={`${standings.length}팀`} />
           <div className="game-save-list">
             {standings.map((row, index) => (
-              <article className="game-save-row" key={row.teamId}>
+              <MyAnimeCraftIconRow action={index === 0 ? 'champion' : 'players'} label={`${index + 1}위 ${row.teamName}`} key={row.teamId}>
                 <div>
                   <span>{index + 1}위 · {row.coach}</span>
                   <strong>{row.teamName}</strong>
                 </div>
                 <strong>{row.wins}승 {row.losses}패 · {row.diff >= 0 ? '+' : ''}{row.diff}</strong>
-              </article>
+              </MyAnimeCraftIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>시즌 리포트</h2>
-            <span>{seasonReports.length}개</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="archive" title="시즌 리포트" meta={`${seasonReports.length}개`} />
           <div className="game-save-list">
             {seasonReports.length ? seasonReports.map((report) => (
-              <article className="game-save-row" key={`season-report-${report.seasonNo}`}>
+              <MyAnimeCraftIconRow action="archive" label={`시즌 ${report.seasonNo} 리포트`} key={`season-report-${report.seasonNo}`}>
                 <div>
                   <span>
                     시즌 {report.seasonNo} · 경기 {report.played}/{report.total} · 수지 {report.net >= 0 ? '+' : ''}{report.net.toLocaleString('ko-KR')} Cr
@@ -142,27 +131,24 @@ export default function MyAnimeCraftRecordsTab(props) {
                   </small>
                 </div>
                 <strong>{report.score.toLocaleString('ko-KR')}</strong>
-              </article>
+              </MyAnimeCraftIconRow>
             )) : (
-              <article className="game-save-row">
+              <MyAnimeCraftIconRow action="clock" label="시즌 리포트 대기">
                 <div>
                   <span>시즌 종료 후 자동 생성</span>
                   <strong>아직 시즌 리포트가 없습니다.</strong>
                 </div>
                 <strong>대기</strong>
-              </article>
+              </MyAnimeCraftIconRow>
             )}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>선수 랭킹</h2>
-            <span>{playerRankings.length}명</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="players" title="선수 랭킹" meta={`${playerRankings.length}명`} />
           <div className="game-save-list">
             {playerRankings.map((row, index) => (
-              <article className="game-save-row" key={row.playerId}>
+              <MyAnimeCraftIconRow action={index === 0 ? 'champion' : 'players'} label={`${index + 1}위 ${row.playerName}`} key={row.playerId}>
                 <div>
                   <span>
                     {index + 1}위 · {row.teamName} · {RACE_LABELS[row.race] || row.race}
@@ -173,21 +159,18 @@ export default function MyAnimeCraftRecordsTab(props) {
                   <span>전력 {row.skill} · 승률 {row.winRate}% · 명성 {row.fame.toLocaleString('ko-KR')}</span>
                 </div>
                 <strong>{row.score.toLocaleString('ko-KR')}</strong>
-              </article>
+              </MyAnimeCraftIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>{selectedTeam.name} 로스터</h2>
-            <span>{selectedTeam.roster.length}명</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="players" title={`${selectedTeam.name} 로스터`} meta={`${selectedTeam.roster.length}명`} />
           <div className="game-save-list">
             {selectedTeam.roster.slice(0, 8).map((member) => {
               const contract = selectedContracts.find((item) => item.playerId === member.id);
               return (
-                <article className="game-save-row" key={member.id}>
+                <MyAnimeCraftIconRow action="players" label={member.name} key={member.id}>
                   <div>
                     <span>
                       {RACE_LABELS[member.race] || member.race} · Lv.{member.level} · 컨디션 {member.condition}
@@ -196,17 +179,14 @@ export default function MyAnimeCraftRecordsTab(props) {
                     <strong>{member.name}</strong>
                   </div>
                   <strong>{member.fame.toLocaleString('ko-KR')}</strong>
-                </article>
+                </MyAnimeCraftIconRow>
               );
             })}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>최근 로그</h2>
-            <span>{state.runId}</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="logs" title="최근 로그" meta={state.runId} />
           <div className="games-activity-list">
             {state.log.slice(0, 12).map((line, index) => (
               <div key={`${line}-${index}`}>
@@ -214,10 +194,7 @@ export default function MyAnimeCraftRecordsTab(props) {
               </div>
             ))}
           </div>
-          <div className="games-panel-title" style={{ marginTop: 16 }}>
-            <h2>경제 로그</h2>
-            <span>{selectedEconomy.count}건</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="finance" title="경제 로그" meta={`${selectedEconomy.count}건`} style={{ marginTop: 16 }} />
           <div className="games-activity-list">
             {selectedEconomy.last.length ? selectedEconomy.last.map((entry) => (
               <div key={entry.id}>
@@ -230,10 +207,7 @@ export default function MyAnimeCraftRecordsTab(props) {
               </div>
             )}
           </div>
-          <div className="games-panel-title" style={{ marginTop: 16 }}>
-            <h2>시즌 맵풀</h2>
-            <span>{MAPS.length}개</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="map" title="시즌 맵풀" meta={`${MAPS.length}개`} style={{ marginTop: 16 }} />
           <div className="games-chip-row">
             {MAPS.map((map) => <span className="games-tag" key={map.id}>{map.name}</span>)}
           </div>

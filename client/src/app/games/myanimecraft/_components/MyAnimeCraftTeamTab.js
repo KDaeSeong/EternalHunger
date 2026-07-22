@@ -13,6 +13,7 @@ import {
   signFreeAgentAction,
   teamPower,
 } from '../_lib/myAnimeCraftEngine';
+import { MyAnimeCraftIconRow, MyAnimeCraftPanelTitle } from './MyAnimeCraftVisuals';
 
 const TEAM_ACTION_ICONS = {
   SPECIAL_TRAINING: 'training',
@@ -44,10 +45,7 @@ export default function MyAnimeCraftTeamTab(props) {
       <section className="games-detail-grid">
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>팀 분석</h2>
-            <span>{selectedStanding ? `${selectedStanding.wins}승 ${selectedStanding.losses}패` : '대기'}</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="analysis" title="팀 분석" meta={selectedStanding ? `${selectedStanding.wins}승 ${selectedStanding.losses}패` : '대기'} />
           <label className="game-save-json-field">
             <span>팀</span>
             <select value={selectedTeamId} onChange={(event) => setSelectedTeamId(event.target.value)}>
@@ -78,13 +76,10 @@ export default function MyAnimeCraftTeamTab(props) {
             <ActionButton action="training" cue="off" disabled={ended} onClick={() => applyStateAction('훈련 투자', (current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
             <ActionButton action="recruit" cue="off" disabled={ended} onClick={() => applyStateAction('FA 영입', (current) => signFreeAgentAction(current, selectedTeam.id))}>FA 영입</ActionButton>
           </div>
-          <div className="games-panel-title" style={{ marginTop: 16 }}>
-            <h2>계약 관리</h2>
-            <span>만료 임박 {selectedEconomy.expiringCount}명</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="contract" title="계약 관리" meta={`만료 임박 ${selectedEconomy.expiringCount}명`} style={{ marginTop: 16 }} />
           <div className="game-save-list">
             {selectedContracts.slice(0, 6).map((contract) => (
-              <article className="game-save-row" key={contract.playerId}>
+              <MyAnimeCraftIconRow action={contract.canRenew ? 'contract' : 'warning'} label={contract.playerName} key={contract.playerId}>
                 <div>
                   <span>
                     {contract.riskLabel} · 연봉 {contract.salary}Cr · {contract.yearsLeft}년
@@ -102,14 +97,11 @@ export default function MyAnimeCraftTeamTab(props) {
                     방출
                   </GameControlButton>
                 </div>
-              </article>
+              </MyAnimeCraftIconRow>
             ))}
           </div>
           <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
-          <div className="games-panel-title" style={{ marginTop: 16 }}>
-            <h2>주간 운영</h2>
-            <span>{selectedPlayer?.name || '선수 없음'}</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="calendar" title="주간 운영" meta={selectedPlayer?.name || '선수 없음'} style={{ marginTop: 16 }} />
           <div style={{ display: 'grid', gap: 8 }}>
             {teamActions.map((action) => (
               <ActionButton

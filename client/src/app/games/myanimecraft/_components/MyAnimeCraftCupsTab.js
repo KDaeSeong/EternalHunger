@@ -6,6 +6,7 @@ import {
   startWinnersLeagueAction,
 } from '../_lib/myAnimeCraftEngine';
 import { BroadcastTimeline } from './MyAnimeCraftPlayPanels';
+import { MyAnimeCraftIconRow, MyAnimeCraftPanelTitle } from './MyAnimeCraftVisuals';
 
 export default function MyAnimeCraftCupsTab(props) {
   const {
@@ -26,16 +27,15 @@ export default function MyAnimeCraftCupsTab(props) {
       <section className="games-detail-grid">
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>개인리그</h2>
-            <span>
-              {personalSummary.stage === 'NOT_STARTED'
-                ? '대기'
-                : personalSummary.stage === 'DONE'
-                  ? '완료'
-                  : personalSummary.phaseLabel || personalSummary.phase}
-            </span>
-          </div>
+          <MyAnimeCraftPanelTitle
+            action="cup"
+            title="개인리그"
+            meta={personalSummary.stage === 'NOT_STARTED'
+              ? '대기'
+              : personalSummary.stage === 'DONE'
+                ? '완료'
+                : personalSummary.phaseLabel || personalSummary.phase}
+          />
           <div className="games-rank-split">
             <SmallStat label="참가" value={`${personalSummary.participants || 0}명`} />
             <SmallStat label="진행" value={`${personalSummary.played}/${personalSummary.total || 0}`} />
@@ -59,7 +59,7 @@ export default function MyAnimeCraftCupsTab(props) {
           {personalSummary.stageReports?.length ? (
             <div className="game-save-list" style={{ marginTop: 16 }}>
               {personalSummary.stageReports.map((report) => (
-                <article className="game-save-row" key={`${report.phase}-${report.playedAt}`}>
+                <MyAnimeCraftIconRow action="cup" label={report.label} key={`${report.phase}-${report.playedAt}`}>
                   <div>
                     <span>{report.label} · 참가 {report.entrantCount}명</span>
                     <strong>{report.summary}</strong>
@@ -69,13 +69,13 @@ export default function MyAnimeCraftCupsTab(props) {
                     <small>진출 {report.qualifierNames.slice(0, 8).join(' / ')}</small>
                   </div>
                   <strong>완료</strong>
-                </article>
+                </MyAnimeCraftIconRow>
               ))}
             </div>
           ) : null}
           <div className="game-save-list" style={{ marginTop: 16 }}>
             {personalRows.length ? personalRows.map((match) => (
-              <article className="game-save-row" key={match.id}>
+              <MyAnimeCraftIconRow action={match.played ? 'match' : 'clock'} label={match.roundLabel} key={match.id}>
                 <div>
                   <span>{match.roundLabel} · {match.played ? '완료' : '대기'}</span>
                   <strong>{match.playerAName} {match.played ? match.scoreA : '-'}:{match.played ? match.scoreB : '-'} {match.playerBName}</strong>
@@ -88,7 +88,7 @@ export default function MyAnimeCraftCupsTab(props) {
                   ) : null}
                 </div>
                 <strong>{match.played ? '결과' : '예정'}</strong>
-              </article>
+              </MyAnimeCraftIconRow>
             )) : (
               <div className="games-empty">개인리그 대진이 아직 없습니다.</div>
             )}
@@ -96,16 +96,15 @@ export default function MyAnimeCraftCupsTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>위너스리그</h2>
-            <span>
-              {winnersSummary.stage === 'NOT_STARTED'
-                ? '대기'
-                : winnersSummary.stage === 'DONE'
-                  ? '완료'
-                  : `${winnersSummary.scoreHome}:${winnersSummary.scoreAway}`}
-            </span>
-          </div>
+          <MyAnimeCraftPanelTitle
+            action="winners"
+            title="위너스리그"
+            meta={winnersSummary.stage === 'NOT_STARTED'
+              ? '대기'
+              : winnersSummary.stage === 'DONE'
+                ? '완료'
+                : `${winnersSummary.scoreHome}:${winnersSummary.scoreAway}`}
+          />
           <div className="games-rank-split">
             <SmallStat label="HOME" value={winnersSummary.homeTeamName || selectedTeam.name} />
             <SmallStat label="AWAY" value={winnersSummary.awayTeamName || '상위 팀'} />
@@ -128,7 +127,7 @@ export default function MyAnimeCraftCupsTab(props) {
           </div>
           <div className="game-save-list" style={{ marginTop: 16 }}>
             {winnersRows.length ? winnersRows.map((setResult) => (
-              <article className="game-save-row" key={setResult.id}>
+              <MyAnimeCraftIconRow action="winners" label={setResult.label} key={setResult.id}>
                 <div>
                   <span>{setResult.label} · {setResult.mapName} · 홈 승률 {setResult.probabilityHome}%</span>
                   <strong>{setResult.homePlayerName} vs {setResult.awayPlayerName}</strong>
@@ -144,7 +143,7 @@ export default function MyAnimeCraftCupsTab(props) {
                   <BroadcastTimeline lines={setResult.timeline} />
                 </div>
                 <strong>{setResult.winnerTeamName}</strong>
-              </article>
+              </MyAnimeCraftIconRow>
             )) : (
               <div className="games-empty">위너스리그 세트 기록이 아직 없습니다.</div>
             )}

@@ -6399,6 +6399,34 @@
   color: #762342;
 }
 
+.starleague-panel-title h2,
+.starleague-panel-title h3 {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.starleague-panel-title h2 .game-action-icon,
+.starleague-panel-title h3 .game-action-icon {
+  flex: 0 0 auto;
+  color: #246f9b;
+}
+
+.game-save-row.starleague-icon-row {
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 9px;
+}
+
+.starleague-icon-row > .game-action-icon {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(36, 111, 155, 0.18);
+  border-radius: 6px;
+  background: rgba(36, 111, 155, 0.08);
+  color: #246f9b;
+}
+
 .game-save-row-actions {
   display: flex;
   flex-wrap: wrap;

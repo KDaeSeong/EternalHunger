@@ -13,6 +13,7 @@ import {
   equipInventoryItemAction,
   unequipSlotAction,
 } from '../_lib/myAnimeCraftEngine';
+import { MyAnimeCraftIconRow, MyAnimeCraftPanelTitle } from './MyAnimeCraftVisuals';
 
 export default function MyAnimeCraftMarketTab(props) {
   const {
@@ -47,10 +48,7 @@ export default function MyAnimeCraftMarketTab(props) {
       <section className="games-detail-grid">
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>프런트 오피스</h2>
-            <span>{marketOfficeReport?.warnings?.length ? '주의' : '권장'}</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="advisor" title="프런트 오피스" meta={marketOfficeReport?.warnings?.length ? '주의' : '권장'} />
           <RecentActionResult label="시장 판단" text={marketOfficeReport?.summary || '상대 팀과 선수를 선택하면 시장 판단 리포트가 표시됩니다.'} />
           <div className="games-rank-split" style={{ marginTop: 12 }}>
             {officeTradeRows.length ? officeTradeRows.map((row) => (
@@ -62,24 +60,24 @@ export default function MyAnimeCraftMarketTab(props) {
           {officeTradeRows.length ? (
             <div className="game-save-list" style={{ marginTop: 12 }}>
               {officeTradeRows.map((row) => (
-                <article className="game-save-row" key={`${row.label}-detail`}>
+                <MyAnimeCraftIconRow action="analysis" label={row.label} key={`${row.label}-detail`}>
                   <div>
                     <span>{row.label}</span>
                     <strong>{row.detail}</strong>
                   </div>
-                </article>
+                </MyAnimeCraftIconRow>
               ))}
             </div>
           ) : null}
           {marketOfficeReport?.warnings?.length ? (
             <div className="game-save-list" style={{ marginTop: 12 }}>
               {marketOfficeReport.warnings.map((warning) => (
-                <article className="game-save-row" key={warning}>
+                <MyAnimeCraftIconRow action="warning" label="시장 리스크" key={warning}>
                   <div>
                     <span>리스크</span>
                     <strong>{warning}</strong>
                   </div>
-                </article>
+                </MyAnimeCraftIconRow>
               ))}
             </div>
           ) : null}
@@ -88,13 +86,10 @@ export default function MyAnimeCraftMarketTab(props) {
               추천 보정 {suggestedCash} Cr 적용
             </GameControlButton>
           </div>
-          <div className="games-panel-title" style={{ marginTop: 16 }}>
-            <h2>추천 상점</h2>
-            <span>{officeShopRows.length}개</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="shop" title="추천 상점" meta={`${officeShopRows.length}개`} style={{ marginTop: 16 }} />
           <div className="game-save-list">
             {officeShopRows.map((row) => (
-              <article className="game-save-row" key={`office-shop-${row.offerId}`}>
+              <MyAnimeCraftIconRow action="shop" label={row.title} key={`office-shop-${row.offerId}`}>
                 <div>
                   <span>{row.price} Cr · 점수 {row.score}</span>
                   <strong>{row.title}</strong>
@@ -108,19 +103,16 @@ export default function MyAnimeCraftMarketTab(props) {
                 >
                   구매
                 </GameControlButton>
-              </article>
+              </MyAnimeCraftIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>주간 상점</h2>
-            <span>{state.shop?.week || state.week}주차</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="shop" title="주간 상점" meta={`${state.shop?.week || state.week}주차`} />
           <div className="game-save-list">
             {shopRows.map((offer) => (
-              <article className="game-save-row" key={offer.offerId}>
+              <MyAnimeCraftIconRow action={offer.stock > 0 ? 'shop' : 'warning'} label={offer.name} key={offer.offerId}>
                 <div>
                   <span>
                     {offer.featured ? '추천 · ' : ''}{EQUIPMENT_SLOT_LABELS[offer.slot] || offer.kind}
@@ -136,17 +128,14 @@ export default function MyAnimeCraftMarketTab(props) {
                 <GameControlButton action="shop" cue="off" disabled={ended || offer.stock <= 0} onClick={() => applyStateAction('상점 구매', (current) => buyShopItemAction(current, selectedTeam.id, offer.offerId))}>
                   {offer.stock <= 0 ? '품절' : `${offer.price} Cr`}
                 </GameControlButton>
-              </article>
+              </MyAnimeCraftIconRow>
             ))}
           </div>
           <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>트레이드</h2>
-            <span>{tradeInfo ? `${Math.round(tradeInfo.acceptChance * 100)}%` : '대기'}</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="transfer" title="트레이드" meta={tradeInfo ? `${Math.round(tradeInfo.acceptChance * 100)}%` : '대기'} />
           <label className="game-save-json-field">
             <span>상대 팀</span>
             <select value={tradeTargetTeam?.teamId || ''} onChange={(event) => {
@@ -204,10 +193,7 @@ export default function MyAnimeCraftMarketTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>장비 관리</h2>
-            <span>{selectedPlayer?.name || '선수 없음'}</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="equip" title="장비 관리" meta={selectedPlayer?.name || '선수 없음'} />
           <label className="game-save-json-field">
             <span>대상 선수</span>
             <select value={selectedPlayer?.id || ''} onChange={(event) => setSelectedPlayerId(event.target.value)}>
@@ -218,22 +204,19 @@ export default function MyAnimeCraftMarketTab(props) {
           </label>
           <div className="game-save-list">
             {equipmentRows.map((row) => (
-              <article className="game-save-row" key={row.slot}>
+              <MyAnimeCraftIconRow action={row.itemId ? 'equip' : 'unequip'} label={row.label} key={row.slot}>
                 <div>
                   <span>{row.label}</span>
                   <strong>{row.itemName || '미장착'}</strong>
                 </div>
                 <GameControlButton action="unequip" cue="off" disabled={!row.itemId} onClick={() => applyStateAction('장비 해제', (current) => unequipSlotAction(current, selectedTeam.id, selectedPlayer.id, row.slot))}>해제</GameControlButton>
-              </article>
+              </MyAnimeCraftIconRow>
             ))}
           </div>
-          <div className="games-panel-title" style={{ marginTop: 16 }}>
-            <h2>인벤토리</h2>
-            <span>{inventoryRows.reduce((sum, item) => sum + Number(item.qty || 0), 0)}개</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="inventory" title="인벤토리" meta={`${inventoryRows.reduce((sum, item) => sum + Number(item.qty || 0), 0)}개`} style={{ marginTop: 16 }} />
           <div className="game-save-list">
             {inventoryRows.length ? inventoryRows.map((item) => (
-              <article className="game-save-row" key={item.itemId}>
+              <MyAnimeCraftIconRow action={item.slot ? 'equip' : 'consume'} label={item.name} key={item.itemId}>
                 <div>
                   <span>
                     {EQUIPMENT_SLOT_LABELS[item.slot] || '소모품'} · 보유 {item.qty}
@@ -246,7 +229,7 @@ export default function MyAnimeCraftMarketTab(props) {
                 ) : (
                   <GameControlButton action="consume" cue="off" disabled={!selectedPlayer || item.qty <= 0} onClick={() => applyStateAction('아이템 사용', (current) => consumeInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>사용</GameControlButton>
                 )}
-              </article>
+              </MyAnimeCraftIconRow>
             )) : (
               <div className="games-empty">보유 아이템이 없습니다.</div>
             )}

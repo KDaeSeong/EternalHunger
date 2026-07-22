@@ -9,6 +9,7 @@ import {
   startNextSeasonAction,
 } from '../_lib/myAnimeCraftEngine';
 import { BroadcastTimeline } from './MyAnimeCraftPlayPanels';
+import { MyAnimeCraftIconRow, MyAnimeCraftPanelTitle } from './MyAnimeCraftVisuals';
 
 export default function MyAnimeCraftLeagueTab(props) {
   const {
@@ -37,10 +38,7 @@ export default function MyAnimeCraftLeagueTab(props) {
               <>
       <section className="games-detail-grid">
         <section className="games-panel starleague-league-main">
-          <div className="games-panel-title">
-            <h2>진행</h2>
-            <span>{seasonStage.label}</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="match" title="진행" meta={seasonStage.label} />
           <div className={`starleague-broadcast-signal is-${broadcastSignal.tone}`} role="status" aria-live="polite">
             <GameActionIcon action={broadcastSignal.action} label={broadcastSignal.label} />
             <span>
@@ -65,9 +63,11 @@ export default function MyAnimeCraftLeagueTab(props) {
           {matchArchiveRows.length ? (
             <div className="game-save-list" style={{ marginTop: 16 }}>
               {matchArchiveRows.slice(0, 6).map((match) => (
-                <button
+                <MyAnimeCraftIconRow
+                  action="replay"
+                  as="button"
+                  label={`${match.homeTeamName} 대 ${match.awayTeamName} 다시보기`}
                   type="button"
-                  className="game-save-row"
                   data-game-sfx="select"
                   key={match.id}
                   onClick={() => setSelectedArchiveMatchId(match.id)}
@@ -78,11 +78,11 @@ export default function MyAnimeCraftLeagueTab(props) {
                   }}
                 >
                   <div>
-                    <span><GameActionIcon action="replay" label="경기 다시보기" /> {match.stageLabel} · {match.setCount}세트{match.aceSetLabel ? ' · 에이스전' : ''}</span>
+                    <span>{match.stageLabel} · {match.setCount}세트{match.aceSetLabel ? ' · 에이스전' : ''}</span>
                     <strong>{match.homeTeamName} {match.scoreHome}:{match.scoreAway} {match.awayTeamName}</strong>
                   </div>
                   <strong>{match.winnerTeamName}</strong>
-                </button>
+                </MyAnimeCraftIconRow>
               ))}
             </div>
           ) : null}
@@ -93,10 +93,7 @@ export default function MyAnimeCraftLeagueTab(props) {
                 <span>{selectedArchiveMatch.homeTeamName} {selectedArchiveMatch.scoreHome}:{selectedArchiveMatch.scoreAway} {selectedArchiveMatch.awayTeamName}</span>
               </div>
               <div style={{ display: 'grid', gap: 10, padding: '4px 0' }}>
-                <div className="games-panel-title">
-                  <h2>시리즈 총평</h2>
-                  <span>{seriesReplayReport.tempoLabel}</span>
-                </div>
+                <MyAnimeCraftPanelTitle action="analysis" title="시리즈 총평" meta={seriesReplayReport.tempoLabel} />
                 <p style={{ color: '#5f6c78', fontWeight: 850, lineHeight: 1.5, margin: 0 }}>
                   {seriesReplayReport.headline}
                 </p>
@@ -107,12 +104,12 @@ export default function MyAnimeCraftLeagueTab(props) {
                 </div>
                 <div className="game-save-list">
                   {seriesReplayReport.highlights.map((line, index) => (
-                    <article className="game-save-row" key={`series-replay-${selectedArchiveMatch.id}-${index}`}>
+                    <MyAnimeCraftIconRow action="replay" label={`리플레이 포인트 ${index + 1}`} key={`series-replay-${selectedArchiveMatch.id}-${index}`}>
                       <div>
                         <span>리플레이 포인트 {index + 1}</span>
                         <strong>{line}</strong>
                       </div>
-                    </article>
+                    </MyAnimeCraftIconRow>
                   ))}
                 </div>
               </div>
@@ -147,10 +144,7 @@ export default function MyAnimeCraftLeagueTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>포스트시즌 브리핑</h2>
-            <span>{postseasonBriefing.sampleLabel}</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="analysis" title="포스트시즌 브리핑" meta={postseasonBriefing.sampleLabel} />
           <p style={{ color: '#5f6c78', fontWeight: 850, lineHeight: 1.5, margin: 0 }}>
             {postseasonBriefing.headline}
           </p>
@@ -161,12 +155,12 @@ export default function MyAnimeCraftLeagueTab(props) {
           </div>
           <div className="game-save-list">
             {postseasonBriefing.storyLines.length ? postseasonBriefing.storyLines.map((line, index) => (
-              <article className="game-save-row" key={`postseason-brief-${index}`}>
+              <MyAnimeCraftIconRow action="advisor" label={`포스트시즌 브리핑 ${index + 1}`} key={`postseason-brief-${index}`}>
                 <div>
                   <span>브리핑 {index + 1}</span>
                   <strong>{line}</strong>
                 </div>
-              </article>
+              </MyAnimeCraftIconRow>
             )) : (
               <div className="games-empty">정규리그를 진행하면 포스트시즌 브리핑이 누적됩니다.</div>
             )}
@@ -174,23 +168,20 @@ export default function MyAnimeCraftLeagueTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>라이벌리 브리핑</h2>
-            <span>{rivalryReport.sampleLabel}</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="match" title="라이벌리 브리핑" meta={rivalryReport.sampleLabel} />
           <p style={{ color: '#5f6c78', fontWeight: 800, lineHeight: 1.5, margin: 0 }}>
             {rivalryReport.headline}
           </p>
           <div className="game-save-list">
             {rivalryReport.rows.length ? rivalryReport.rows.slice(0, 3).map((row) => (
-              <article className="game-save-row" key={row.key}>
+              <MyAnimeCraftIconRow action="match" label={`${row.playerAName} 대 ${row.playerBName}`} key={row.key}>
                 <div>
                   <span>{row.playerATeamName || '무소속'} · {row.playerBTeamName || '무소속'}</span>
                   <strong>{row.playerAName} vs {row.playerBName}</strong>
                   <small>{row.detail || '추가 표본 대기'}</small>
                 </div>
                 <strong>{row.recordLabel}</strong>
-              </article>
+              </MyAnimeCraftIconRow>
             )) : (
               <div className="games-empty">경기를 진행하면 맞대결 브리핑이 표시됩니다.</div>
             )}
@@ -198,10 +189,7 @@ export default function MyAnimeCraftLeagueTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>시즌 메타</h2>
-            <span>{buildMetaReport.sampleLabel}</span>
-          </div>
+          <MyAnimeCraftPanelTitle action="analysis" title="시즌 메타" meta={buildMetaReport.sampleLabel} />
           <p style={{ color: '#5f6c78', fontWeight: 800, lineHeight: 1.5, margin: 0 }}>
             {buildMetaReport.insight}
           </p>
@@ -216,28 +204,28 @@ export default function MyAnimeCraftLeagueTab(props) {
           </div>
           <div className="game-save-list">
             {buildMetaReport.playerRows.length ? buildMetaReport.playerRows.slice(0, 3).map((row) => (
-              <article className="game-save-row" key={row.playerId}>
+              <MyAnimeCraftIconRow action="players" label={`${row.playerName} 메타`} key={row.playerId}>
                 <div>
                   <span>{row.teamName || '소속 없음'} · {row.styleLabel}</span>
                   <strong>{row.playerName}</strong>
                   <small>{row.styleLabel} {row.count}회 · 승률 {row.winRate}% · 전체 표본 {row.total}세트</small>
                 </div>
                 <strong>{row.winRate}%</strong>
-              </article>
+              </MyAnimeCraftIconRow>
             )) : (
               <div className="games-empty">경기를 진행하면 선수별 강세 빌드가 표시됩니다.</div>
             )}
           </div>
           <div className="game-save-list">
             {buildMetaReport.mapRows.length ? buildMetaReport.mapRows.slice(0, 3).map((row) => (
-              <article className="game-save-row" key={row.mapKey}>
+              <MyAnimeCraftIconRow action="map" label={`${row.mapName} 메타`} key={row.mapKey}>
                 <div>
                   <span>맵 메타 · {row.total}표본</span>
                   <strong>{row.mapName}</strong>
                   <small>{row.styleLabel} {row.count}회 · 승률 {row.winRate}%</small>
                 </div>
                 <strong>{row.styleLabel}</strong>
-              </article>
+              </MyAnimeCraftIconRow>
             )) : (
               <div className="games-empty">맵별 빌드 메타가 아직 없습니다.</div>
             )}
@@ -245,32 +233,30 @@ export default function MyAnimeCraftLeagueTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>{seasonStage.stage === 'POSTSEASON' ? '포스트시즌 일정' : '이번 주 일정'}</h2>
-            <span>{currentFixtures.filter((fixture) => fixture.played).length}/{currentFixtures.length}</span>
-          </div>
+          <MyAnimeCraftPanelTitle
+            action="calendar"
+            title={seasonStage.stage === 'POSTSEASON' ? '포스트시즌 일정' : '이번 주 일정'}
+            meta={`${currentFixtures.filter((fixture) => fixture.played).length}/${currentFixtures.length}`}
+          />
           <div className="game-save-list">
             {currentFixtures.map((fixture) => (
-              <article className="game-save-row" key={fixture.id}>
+              <MyAnimeCraftIconRow action={fixture.played ? 'match' : 'clock'} label={fixtureLabel(state, fixture)} key={fixture.id}>
                 <div>
                   <span>{fixture.id}</span>
                   <strong>{fixtureLabel(state, fixture)}</strong>
                 </div>
                 <strong>{fixture.played ? '완료' : '대기'}</strong>
-              </article>
+              </MyAnimeCraftIconRow>
             ))}
           </div>
         </section>
 
         {postseasonRows.length ? (
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>포스트시즌</h2>
-              <span>{seasonStage.postseasonPlayed}/{seasonStage.postseasonTotal}</span>
-            </div>
+            <MyAnimeCraftPanelTitle action="tournament" title="포스트시즌" meta={`${seasonStage.postseasonPlayed}/${seasonStage.postseasonTotal}`} />
             <div className="game-save-list">
               {postseasonRows.map((fixture) => (
-                <article className="game-save-row" key={fixture.id}>
+                <MyAnimeCraftIconRow action={fixture.played ? 'tournament' : 'clock'} label={fixture.label} key={fixture.id}>
                   <div>
                     <span>{fixture.label}</span>
                     <strong>
@@ -285,20 +271,20 @@ export default function MyAnimeCraftLeagueTab(props) {
                     ) : null}
                   </div>
                   <strong>{fixture.played ? '완료' : fixture.awayTeamId === '__TBD__' ? '대기' : '예정'}</strong>
-                </article>
+                </MyAnimeCraftIconRow>
               ))}
             </div>
             {postseasonBriefing.rows.length ? (
               <div className="game-save-list" style={{ marginTop: 12 }}>
                 {postseasonBriefing.rows.map((row) => (
-                  <article className="game-save-row" key={`postseason-route-${row.id}`}>
+                  <MyAnimeCraftIconRow action={row.played ? 'tournament' : 'clock'} label={row.label} key={`postseason-route-${row.id}`}>
                     <div>
                       <span>{row.seedText}</span>
                       <strong>{row.label} · {row.resultText}</strong>
                       <small>{row.note}</small>
                     </div>
                     <strong>{row.winnerTeamName || (row.played ? '완료' : '대기')}</strong>
-                  </article>
+                  </MyAnimeCraftIconRow>
                 ))}
               </div>
             ) : null}
