@@ -8,6 +8,7 @@ import {
   simulateWeekAction,
   startNextSeasonAction,
 } from '../_lib/myAnimeCraftEngine';
+import { starleagueBuildAction } from '../_lib/starleaguePresentation';
 import { BroadcastTimeline } from './MyAnimeCraftPlayPanels';
 import { MyAnimeCraftIconRow, MyAnimeCraftPanelTitle } from './MyAnimeCraftVisuals';
 
@@ -204,7 +205,7 @@ export default function MyAnimeCraftLeagueTab(props) {
           </div>
           <div className="game-save-list">
             {buildMetaReport.playerRows.length ? buildMetaReport.playerRows.slice(0, 3).map((row) => (
-              <MyAnimeCraftIconRow action="players" label={`${row.playerName} 메타`} key={row.playerId}>
+              <MyAnimeCraftIconRow action={starleagueBuildAction(row.style)} label={`${row.playerName} 메타`} key={row.playerId}>
                 <div>
                   <span>{row.teamName || '소속 없음'} · {row.styleLabel}</span>
                   <strong>{row.playerName}</strong>
@@ -218,7 +219,7 @@ export default function MyAnimeCraftLeagueTab(props) {
           </div>
           <div className="game-save-list">
             {buildMetaReport.mapRows.length ? buildMetaReport.mapRows.slice(0, 3).map((row) => (
-              <MyAnimeCraftIconRow action="map" label={`${row.mapName} 메타`} key={row.mapKey}>
+              <MyAnimeCraftIconRow action={starleagueBuildAction(row.style)} label={`${row.mapName} 메타`} key={row.mapKey}>
                 <div>
                   <span>맵 메타 · {row.total}표본</span>
                   <strong>{row.mapName}</strong>

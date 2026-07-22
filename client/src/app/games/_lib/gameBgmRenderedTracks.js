@@ -50,7 +50,7 @@ const companyReportTrack = (file, options = {}) => renderedTrack('company-report
   ...options,
 });
 const starleagueTrack = (file, options = {}) => renderedTrack('starleague', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 const rail3dTrack = (file, options = {}) => renderedTrack('rail3d-sim', file, {

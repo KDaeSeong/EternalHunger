@@ -1,5 +1,6 @@
 import { SmallStat } from '../../_components/GamePlayPrimitives';
 import { MAPS, RACE_LABELS } from '../_lib/myAnimeCraftEngine';
+import { starleagueRaceAction } from '../_lib/starleaguePresentation';
 import { MyAnimeCraftIconRow, MyAnimeCraftPanelTitle } from './MyAnimeCraftVisuals';
 
 export default function MyAnimeCraftRecordsTab(props) {
@@ -148,7 +149,7 @@ export default function MyAnimeCraftRecordsTab(props) {
           <MyAnimeCraftPanelTitle action="players" title="선수 랭킹" meta={`${playerRankings.length}명`} />
           <div className="game-save-list">
             {playerRankings.map((row, index) => (
-              <MyAnimeCraftIconRow action={index === 0 ? 'champion' : 'players'} label={`${index + 1}위 ${row.playerName}`} key={row.playerId}>
+              <MyAnimeCraftIconRow action={starleagueRaceAction(row.race)} label={`${index + 1}위 ${row.playerName}`} key={row.playerId}>
                 <div>
                   <span>
                     {index + 1}위 · {row.teamName} · {RACE_LABELS[row.race] || row.race}
@@ -170,7 +171,7 @@ export default function MyAnimeCraftRecordsTab(props) {
             {selectedTeam.roster.slice(0, 8).map((member) => {
               const contract = selectedContracts.find((item) => item.playerId === member.id);
               return (
-                <MyAnimeCraftIconRow action="players" label={member.name} key={member.id}>
+                <MyAnimeCraftIconRow action={starleagueRaceAction(member.race)} label={member.name} key={member.id}>
                   <div>
                     <span>
                       {RACE_LABELS[member.race] || member.race} · Lv.{member.level} · 컨디션 {member.condition}

@@ -9,6 +9,11 @@ import {
   starleagueTextPresentation,
 } from '../src/app/games/myanimecraft/_lib/starleagueFeedback.js';
 import {
+  starleagueBroadcastLineAction,
+  starleagueBuildAction,
+  starleagueRaceAction,
+} from '../src/app/games/myanimecraft/_lib/starleaguePresentation.js';
+import {
   advancePersonalLeagueAction,
   advanceWinnersLeagueAction,
   buyShopItemAction,
@@ -38,6 +43,7 @@ const componentUrl = new URL('_components/', routeUrl);
 const pageSource = await readFile(new URL('play/page.js', routeUrl), 'utf8');
 const leagueSource = await readFile(new URL('MyAnimeCraftLeagueTab.js', componentUrl), 'utf8');
 const cupsSource = await readFile(new URL('MyAnimeCraftCupsTab.js', componentUrl), 'utf8');
+const playPanelsSource = await readFile(new URL('MyAnimeCraftPlayPanels.js', componentUrl), 'utf8');
 const teamSource = await readFile(new URL('MyAnimeCraftTeamTab.js', componentUrl), 'utf8');
 const marketSource = await readFile(new URL('MyAnimeCraftMarketTab.js', componentUrl), 'utf8');
 const recordsSource = await readFile(new URL('MyAnimeCraftRecordsTab.js', componentUrl), 'utf8');
@@ -325,6 +331,43 @@ assert.doesNotMatch(
   '실제 중계와 다시보기 문장에 잘못된 한국어 조사나 병기형 조사가 남으면 안 됩니다.',
 );
 
+assert.deepEqual(
+  ['T', 'Z', 'P'].map((race) => starleagueRaceAction(race)),
+  ['starleague-race-terran', 'starleague-race-zerg', 'starleague-race-protoss'],
+  '테란·저그·프로토스는 서로 다른 종족 아이콘을 사용해야 합니다.',
+);
+assert.deepEqual(
+  ['rush', 'harass', 'macro', 'tech', 'balanced'].map((style) => starleagueBuildAction(style)),
+  [
+    'starleague-build-rush',
+    'starleague-build-harass',
+    'starleague-build-macro',
+    'starleague-build-tech',
+    'starleague-build-balanced',
+  ],
+  '다섯 빌드 성향은 서로 다른 전략 아이콘을 사용해야 합니다.',
+);
+const broadcastIconCases = [
+  ['캐스터', '초반 러시가 들어갑니다.', 'starleague-build-rush'],
+  ['해설', '멀티를 늘리며 운영합니다.', 'starleague-build-macro'],
+  ['데이터', '빠른 테크 전환입니다.', 'starleague-build-tech'],
+  ['해설', '드랍 견제로 흔듭니다.', 'starleague-build-harass'],
+  ['캐스터', '에이스전이 시작됩니다.', 'starleague-ace'],
+  ['캐스터', '오늘 최대 이변입니다.', 'starleague-upset'],
+  ['캐스터', '마지막에 역전합니다.', 'starleague-comeback'],
+  ['캐스터', '정면 교전이 열립니다.', 'starleague-clash'],
+  ['해설', '준비한 수를 확인합니다.', 'starleague-analysis'],
+  ['캐스터', '선수들이 입장합니다.', 'starleague-caster'],
+  ['진행', '경기를 이어갑니다.', 'starleague-broadcast'],
+];
+for (const [caster, text, expectedAction] of broadcastIconCases) {
+  assert.equal(
+    starleagueBroadcastLineAction(caster, text),
+    expectedAction,
+    `중계 문맥 아이콘 오류: ${caster} / ${text}`,
+  );
+}
+
 const resultCues = [
   'match', 'comeback', 'victory', 'defeat', 'champion', 'season', 'event', 'verdict',
   'cupStart', 'cupMatch', 'winnersStart', 'winnersSet', 'sponsor', 'training', 'recruit',
@@ -339,7 +382,12 @@ for (const icon of [
   'cup', 'winners', 'sponsor', 'training', 'recruit', 'contract', 'release', 'transfer',
   'shop', 'equip', 'unequip', 'consume', 'rest', 'warning', 'new', 'analysis',
   'advisor', 'clock', 'replay', 'calendar', 'players', 'map', 'tournament', 'inventory',
-  'finance', 'logs', 'trophy',
+  'finance', 'logs', 'trophy', 'starleague-ace', 'starleague-analysis',
+  'starleague-broadcast', 'starleague-build-balanced', 'starleague-build-harass',
+  'starleague-build-macro', 'starleague-build-rush', 'starleague-build-tech',
+  'starleague-caster', 'starleague-clash', 'starleague-comeback',
+  'starleague-race-protoss', 'starleague-race-terran', 'starleague-race-zerg',
+  'starleague-upset',
 ]) {
   assert.match(iconSource, new RegExp(`\\n  ['"]?${icon}['"]?: `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
 }
@@ -362,6 +410,13 @@ for (const match of actionSources.matchAll(/applyStateAction\(/g)) {
 }
 assert.match(teamSource, /TEAM_ACTION_ICONS/, '특훈·휴식·팬미팅은 행동별 아이콘을 선택해야 합니다.');
 assert.match(leagueSource, /data-game-sfx="select"/, '경기 다시보기 선택에는 짧은 선택음을 제공해야 합니다.');
+assert.match(leagueSource, /starleagueBuildAction\(row\.style\)/, '빌드 메타 행은 실제 빌드 성향 아이콘을 사용해야 합니다.');
+assert.match(recordsSource, /starleagueRaceAction\((?:row|member)\.race\)/, '선수 행은 실제 종족 아이콘을 사용해야 합니다.');
+assert.match(
+  playPanelsSource,
+  /starleagueBroadcastLineAction\(line\.caster, line\.text\)/,
+  '중계 타임라인은 발화 내용과 역할을 함께 반영한 아이콘을 사용해야 합니다.',
+);
 
 const visualComponentsSource = [leagueSource, cupsSource, teamSource, marketSource, recordsSource].join('\n');
 const semanticPanelTitles = (visualComponentsSource.match(/<MyAnimeCraftPanelTitle\b/g) || []).length;
@@ -380,6 +435,9 @@ console.log(JSON.stringify({
   managementProfiles: 15,
   cupProfiles: 7,
   commentaryCharacters: commentaryText.length,
+  raceIconKinds: 3,
+  buildIconKinds: 5,
+  broadcastIconKinds: new Set(broadcastIconCases.map((row) => row[2])).size,
   browserResultPanels: 4,
   semanticPanelTitles,
   semanticIconRows,

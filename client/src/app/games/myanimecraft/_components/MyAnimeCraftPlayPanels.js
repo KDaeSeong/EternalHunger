@@ -2,19 +2,13 @@
 
 import GameActionIcon from '../../_components/GameActionIcon';
 import { getMatchArchiveRows, getPlayedCount, getTeam } from '../_lib/myAnimeCraftEngine';
+import { starleagueBroadcastLineAction } from '../_lib/starleaguePresentation';
 
 function formatTimelineTime(seconds) {
   const safe = Math.max(0, Math.floor(Number(seconds || 0)));
   const minutes = Math.floor(safe / 60);
   const rest = safe % 60;
   return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`;
-}
-
-function broadcastLineAction(caster) {
-  const label = String(caster || '').toLowerCase();
-  if (label.includes('해설') || label.includes('데이터')) return 'analysis';
-  if (label.includes('캐스터')) return 'signal';
-  return 'match';
 }
 
 export function BroadcastTimeline({ lines, title = '중계 타임라인' }) {
@@ -29,7 +23,7 @@ export function BroadcastTimeline({ lines, title = '중계 타임라인' }) {
         {lines.map((line, index) => (
           <li key={`${line.t}-${index}`}>
             <span className="games-broadcast-line-meta">
-              <GameActionIcon action={broadcastLineAction(line.caster)} label={line.caster || '중계'} />
+              <GameActionIcon action={starleagueBroadcastLineAction(line.caster, line.text)} label={line.caster || '중계'} />
               {formatTimelineTime(line.t)} · {line.caster || '중계'}
             </span>
             <p>{line.text}</p>
