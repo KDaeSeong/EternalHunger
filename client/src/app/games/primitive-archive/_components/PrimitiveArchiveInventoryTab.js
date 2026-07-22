@@ -10,6 +10,11 @@ import {
   totalCarryWeight,
 } from '../_lib/primitiveArchiveEngine';
 import PrimitiveArchiveWorkspaceTabs from './PrimitiveArchiveWorkspaceTabs';
+import {
+  PrimitiveArchiveIconRow,
+  PrimitiveArchivePanelTitle,
+  primitiveItemAction,
+} from './PrimitiveArchiveVisuals';
 
 export default function PrimitiveArchiveInventoryTab(props) {
   const [activeWorkspace, setActiveWorkspace] = useState('items');
@@ -47,20 +52,17 @@ export default function PrimitiveArchiveInventoryTab(props) {
 
       {activeWorkspace === 'items' ? (
         <section className="games-panel primitive-workspace-panel" role="tabpanel">
-          <div className="games-panel-title">
-            <h2>인벤토리</h2>
-            <span>{totalCarryWeight(state).toLocaleString('ko-KR')} 무게</span>
-          </div>
+          <PrimitiveArchivePanelTitle action="inventory" title="인벤토리" meta={`${totalCarryWeight(state).toLocaleString('ko-KR')} 무게`} />
           {inventoryRows.length ? (
             <div className="primitive-inventory-grid">
               {inventoryRows.map(([id, qty]) => (
-                <article className="game-save-row" key={id}>
+                <PrimitiveArchiveIconRow action={primitiveItemAction(ITEMS[id])} label={itemName(id)} key={id}>
                   <div>
                     <span>{ITEMS[id]?.icon || 'item'}</span>
                     <strong>{itemName(id)}</strong>
                   </div>
                   <strong>{Number(qty || 0).toLocaleString('ko-KR')}</strong>
-                </article>
+                </PrimitiveArchiveIconRow>
               ))}
             </div>
           ) : <div className="games-empty">보유 아이템이 없습니다.</div>}
@@ -69,10 +71,11 @@ export default function PrimitiveArchiveInventoryTab(props) {
 
       {activeWorkspace === 'equipment' ? (
         <section className="games-panel primitive-workspace-panel" role="tabpanel">
-          <div className="games-panel-title">
-            <h2>장비</h2>
-            <span>{actor?.name || '대상'} · 보온 {actor ? currentEquipmentRows.reduce((sum, row) => sum + Number(row.insulation || 0), 0) : 0}</span>
-          </div>
+          <PrimitiveArchivePanelTitle
+            action="primitive-equip"
+            title="장비"
+            meta={`${actor?.name || '대상'} · 보온 ${actor ? currentEquipmentRows.reduce((sum, row) => sum + Number(row.insulation || 0), 0) : 0}`}
+          />
           <div className="primitive-equipment-toolbar">
             <label className="game-save-json-field">
               <span>대상</span>
@@ -129,10 +132,7 @@ export default function PrimitiveArchiveInventoryTab(props) {
 
       {activeWorkspace === 'log' ? (
         <section className="games-panel primitive-workspace-panel" role="tabpanel">
-          <div className="games-panel-title">
-            <h2>로그</h2>
-            <span>{state.log.length}/{currentLogCapacity}</span>
-          </div>
+          <PrimitiveArchivePanelTitle action="logs" title="로그" meta={`${state.log.length}/${currentLogCapacity}`} />
           <div className="games-activity-list primitive-log-list">
             {state.log.slice(0, 18).map((line, index) => (
               <div key={`${line}-${index}`}><strong>{line}</strong></div>

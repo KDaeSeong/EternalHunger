@@ -14,13 +14,20 @@ const playSource = await readFile(new URL('PrimitiveArchivePlayContent.js', comp
 const actionSource = await readFile(new URL('PrimitiveArchiveActionWorkspace.js', componentUrl), 'utf8');
 const campSource = await readFile(new URL('PrimitiveArchiveCampWorkspace.js', componentUrl), 'utf8');
 const growthSource = await readFile(new URL('PrimitiveArchiveGrowthTab.js', componentUrl), 'utf8');
+const partySource = await readFile(new URL('PrimitiveArchivePartyWorkspace.js', componentUrl), 'utf8');
 const projectSource = await readFile(new URL('PrimitiveArchiveProjectsPanel.js', componentUrl), 'utf8');
+const researchPreviewSource = await readFile(new URL('PrimitiveArchiveResearchTreePreview.js', componentUrl), 'utf8');
 const tribeSource = await readFile(new URL('PrimitiveArchiveTribeTab.js', componentUrl), 'utf8');
 const inventorySource = await readFile(new URL('PrimitiveArchiveInventoryTab.js', componentUrl), 'utf8');
 const reportSource = await readFile(new URL('PrimitiveArchiveReportTab.js', componentUrl), 'utf8');
+const runSource = await readFile(new URL('PrimitiveArchiveRunTab.js', componentUrl), 'utf8');
+const turnHorizonSource = await readFile(new URL('PrimitiveArchiveTurnHorizon.js', componentUrl), 'utf8');
+const visualSource = await readFile(new URL('PrimitiveArchiveVisuals.js', componentUrl), 'utf8');
+const worldMapSource = await readFile(new URL('PrimitiveArchiveWorldMap.js', componentUrl), 'utf8');
 const primitiveSource = await readFile(new URL('../src/app/games/_components/GamePlayPrimitives.js', import.meta.url), 'utf8');
 const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
 const soundSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
+const styleSource = await readFile(new URL('../src/styles/AppShell.css', import.meta.url), 'utf8');
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -147,6 +154,13 @@ for (const icon of [
   assert.match(iconSource, new RegExp(`\\n  '${icon}': `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
 }
 
+for (const icon of [
+  'analysis', 'archive', 'complete', 'formation', 'guide', 'inventory',
+  'lock', 'logs', 'settings', 'status', 'target',
+]) {
+  assert.match(iconSource, new RegExp(`\\n  ${icon}: `), `${icon} 문명 아카이브 UI 아이콘 매핑이 있어야 합니다.`);
+}
+
 assert.match(playSource, /const stateRef = useRef\(state\)/, '빠른 연속 행동은 최신 상태 참조를 사용해야 합니다.');
 assert.match(playSource, /const replaceState = useCallback/, '불러온 런은 상태와 이정표 기준을 함께 교체해야 합니다.');
 assert.match(playSource, /primitiveActionResultPresentation\(previousState, nextState, label/, '모든 행동은 공통 결과 프레젠테이션을 계산해야 합니다.');
@@ -169,6 +183,33 @@ assert.equal([...reportSource.matchAll(/<SmallStat icon=/g)].length >= 11, true,
 assert.match(reportSource, /CHAPTER_ICONS/, '기록서 챕터마다 의미 아이콘을 선택해야 합니다.');
 assert.equal([...reportSource.matchAll(/game-save-row game-save-row--icon/g)].length >= 2, true, '인계와 챕터 행에 아이콘 레이아웃이 필요합니다.');
 
+const semanticSources = [
+  actionSource,
+  campSource,
+  growthSource,
+  inventorySource,
+  partySource,
+  projectSource,
+  reportSource,
+  researchPreviewSource,
+  runSource,
+  tribeSource,
+  turnHorizonSource,
+  worldMapSource,
+].join('\n');
+const semanticPanelTitles = [...semanticSources.matchAll(/<PrimitiveArchivePanelTitle\b/g)].length;
+const semanticIconRows = [...semanticSources.matchAll(/<PrimitiveArchiveIconRow\b/g)].length;
+assert.equal(semanticPanelTitles, 27, '문명 아카이브 패널 제목 27개가 의미 아이콘을 사용해야 합니다.');
+assert.equal(semanticIconRows, 6, '문명 아카이브 핵심 정보 행 6개가 의미 아이콘을 사용해야 합니다.');
+assert.doesNotMatch(semanticSources, /className="games-panel-title"/, '아이콘 없는 원시 패널 제목을 남기면 안 됩니다.');
+assert.doesNotMatch(semanticSources, /className="game-save-row"/, '아이콘 없는 원시 핵심 정보 행을 남기면 안 됩니다.');
+assert.match(visualSource, /export function PrimitiveArchivePanelTitle/, '문명 아카이브 공통 패널 제목 컴포넌트가 필요합니다.');
+assert.match(visualSource, /export function PrimitiveArchiveIconRow/, '문명 아카이브 공통 정보 행 컴포넌트가 필요합니다.');
+assert.match(visualSource, /export function primitiveItemAction/, '인벤토리 항목 종류별 아이콘 선택기가 필요합니다.');
+assert.match(styleSource, /\.primitive-archive-panel-title__copy/, '패널 제목 아이콘 레이아웃 스타일이 필요합니다.');
+assert.match(styleSource, /\.game-save-row\.primitive-archive-icon-row/, '정보 행 아이콘 레이아웃 스타일이 필요합니다.');
+assert.match(styleSource, /\.primitive-archive-icon-row\.is-locked/, '잠긴 발전 후보의 시각 상태가 필요합니다.');
+
 const resultPanels = [actionSource, campSource, growthSource, projectSource, tribeSource, inventorySource]
   .reduce((sum, source) => sum + [...source.matchAll(/<RecentActionResult\b/g)].length, 0);
 assert.equal(resultPanels, 7, '행동 화면 전반에 7개 결과 패널이 있어야 합니다.');
@@ -177,6 +218,8 @@ console.log(JSON.stringify({
   actionProfiles: actionRows.length,
   milestoneProfiles: 12,
   resultPanels,
+  semanticIconRows,
+  semanticPanelTitles,
   semanticStatIcons: 25,
   latestStateWrapper: true,
 }, null, 2));

@@ -7143,6 +7143,74 @@
   color: #a62f36;
 }
 
+.primitive-archive-panel-title h2,
+.primitive-archive-panel-title h3 {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.primitive-archive-panel-title h2 .game-action-icon,
+.primitive-archive-panel-title h3 .game-action-icon {
+  flex: 0 0 auto;
+  color: #34755f;
+}
+
+.primitive-archive-panel-title__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.primitive-archive-panel-title__copy > span {
+  color: #64717d;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.game-save-row.primitive-archive-icon-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 9px;
+  padding: 10px;
+}
+
+.primitive-archive-icon-row > .game-action-icon {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(52, 117, 95, 0.22);
+  border-radius: 7px;
+  background: #eef7f2;
+  color: #34755f;
+}
+
+.primitive-archive-icon-row.is-good > .game-action-icon,
+.primitive-archive-icon-row.is-complete > .game-action-icon {
+  border-color: rgba(54, 140, 95, 0.24);
+  background: #eaf8ef;
+  color: #2e8658;
+}
+
+.primitive-archive-icon-row.is-watch > .game-action-icon,
+.primitive-archive-icon-row.is-warning > .game-action-icon {
+  border-color: rgba(190, 125, 35, 0.24);
+  background: #fff6df;
+  color: #9b641f;
+}
+
+.primitive-archive-icon-row.is-critical > .game-action-icon,
+.primitive-archive-icon-row.is-danger > .game-action-icon {
+  border-color: rgba(190, 61, 61, 0.24);
+  background: #fff0ef;
+  color: #a62f36;
+}
+
+.primitive-archive-icon-row.is-locked > .game-action-icon {
+  border-color: rgba(84, 96, 107, 0.18);
+  background: #f0f2f4;
+  color: #687580;
+}
+
 .games-activity-list {
   display: grid;
   gap: 8px;
@@ -12857,6 +12925,22 @@
   .rail3d-icon-row > .tcg-primary-action,
   .rail3d-icon-row > .game-save-chip,
   .rail3d-icon-row > strong:last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .game-save-row.primitive-archive-icon-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .primitive-archive-icon-row > .game-action-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .primitive-archive-icon-row > .tcg-primary-action,
+  .primitive-archive-icon-row > .game-save-chip,
+  .primitive-archive-icon-row > strong:last-child {
     grid-column: 2;
     justify-self: start;
   }

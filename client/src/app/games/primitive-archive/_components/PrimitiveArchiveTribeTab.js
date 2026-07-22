@@ -7,6 +7,7 @@ import {
   RecentActionResult,
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
+import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
 function diplomacyDisabledText(rival, action) {
   if (rival.actedToday) return '오늘 교섭을 완료했습니다.';
@@ -40,13 +41,13 @@ export default function PrimitiveArchiveTribeTab({
       <RecentActionResult action={actionFeedback?.action || 'primitive-job'} label={actionFeedback?.label || '최근 부족 운영 결과'} text={recentActionText} tone={actionFeedback?.tone || 'ready'} pinned />
 
       <section className="games-panel primitive-tribe-overview">
-        <div className="games-panel-title">
-          <div>
-            <h2>부족 운영</h2>
-            <span>Day {tribe.productionSerial}회 정산 · 접촉 {knownCount}/{rivals.length}</span>
-          </div>
+        <PrimitiveArchivePanelTitle
+          action="primitive-growth"
+          title="부족 운영"
+          meta={`Day ${tribe.productionSerial}회 정산 · 접촉 ${knownCount}/${rivals.length}`}
+        >
           <strong>{tribe.population}/{tribe.capacity}명</strong>
-        </div>
+        </PrimitiveArchivePanelTitle>
         <div className="games-rank-split games-rank-split--compact primitive-tribe-stats">
           <SmallStat label="인구" value={`${tribe.population}/${tribe.capacity}`} />
           <SmallStat label="배치" value={`${tribe.assigned}/${tribe.population}`} />
@@ -67,10 +68,7 @@ export default function PrimitiveArchiveTribeTab({
       </section>
 
       <section className="games-panel primitive-job-panel">
-        <div className="games-panel-title">
-          <h2>직업 배치</h2>
-          <span>미배치 {tribe.unassigned}명 · AP 소모 없음</span>
-        </div>
+        <PrimitiveArchivePanelTitle action="primitive-job" title="직업 배치" meta={`미배치 ${tribe.unassigned}명 · AP 소모 없음`} />
         <div className="primitive-job-grid">
           {tribe.jobs.map((job) => (
             <article key={job.id}>
@@ -116,10 +114,7 @@ export default function PrimitiveArchiveTribeTab({
       </section>
 
       <section className="games-panel primitive-diplomacy-panel">
-        <div className="games-panel-title">
-          <h2>경쟁 부족 외교</h2>
-          <span>접촉 {knownCount}/{rivals.length}</span>
-        </div>
+        <PrimitiveArchivePanelTitle action="primitive-diplomacy" title="경쟁 부족 외교" meta={`접촉 ${knownCount}/${rivals.length}`} />
         <div className="primitive-rival-list">
           {rivals.map((rival) => (
             <article className={`${rival.known ? `is-${rival.relationTone}` : 'is-unknown'}`} key={rival.id}>

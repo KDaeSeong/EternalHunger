@@ -7,6 +7,7 @@ import {
   Waves,
   Wheat,
 } from 'lucide-react';
+import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
 const REGION_ICONS = {
   forest: Trees,
@@ -35,13 +36,13 @@ export default function PrimitiveArchiveWorldMap({
 
   return (
     <section className="games-panel primitive-world-map-panel">
-      <div className="games-panel-title">
-        <div>
-          <h2>부족의 세계</h2>
-          <span>{exploration?.label || '탐사 기록 없음'} · 경계 {exploration?.frontier || 0}곳</span>
-        </div>
+      <PrimitiveArchivePanelTitle
+        action="primitive-region"
+        title="부족의 세계"
+        meta={`${exploration?.label || '탐사 기록 없음'} · 경계 ${exploration?.frontier || 0}곳`}
+      >
         <strong>{selectionUnlocked ? '지도 제작 완료' : '행동 지역 무작위'}</strong>
-      </div>
+      </PrimitiveArchivePanelTitle>
       <div className="primitive-world-map-scroll" tabIndex={0} aria-label="가로로 스크롤 가능한 탐사 지도">
         <div className="primitive-world-map-canvas">
           <svg className="primitive-world-map-edges" viewBox="0 0 1000 650" aria-hidden="true">

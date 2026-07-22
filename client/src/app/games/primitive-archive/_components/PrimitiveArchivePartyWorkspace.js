@@ -6,6 +6,7 @@ import {
   actionLabel,
   chanceText,
 } from '../_lib/primitiveArchivePageRuntime';
+import { PrimitiveArchiveIconRow, PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
 export default function PrimitiveArchivePartyWorkspace(props) {
   const {
@@ -27,10 +28,11 @@ export default function PrimitiveArchivePartyWorkspace(props) {
   return (
     <section className="games-detail-grid primitive-workspace-panel" role="tabpanel">
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>파티</h2>
-          <span>{state.party.length}/{partyCap} · {state.weather.name} · {state.weather.temp}°C</span>
-        </div>
+        <PrimitiveArchivePanelTitle
+          action="formation"
+          title="파티"
+          meta={`${state.party.length}/${partyCap} · ${state.weather.name} · ${state.weather.temp}°C`}
+        />
         <div className="primitive-party-toolbar">
           <label className="game-save-json-field">
             <span>정렬</span>
@@ -72,19 +74,25 @@ export default function PrimitiveArchivePartyWorkspace(props) {
       </section>
 
       <section className="games-panel primitive-objective-panel">
-        <div className="games-panel-title">
-          <h2>아카이브 목표</h2>
-          <span>{archiveVictory.label}</span>
-        </div>
+        <PrimitiveArchivePanelTitle
+          action={archiveVictory.canComplete ? 'primitive-victory' : 'target'}
+          title="아카이브 목표"
+          meta={archiveVictory.label}
+        />
         <div className="game-save-list">
           {archiveVictory.rows.map((row) => (
-            <article className="game-save-row" key={row.id}>
+            <PrimitiveArchiveIconRow
+              action={row.done ? 'primitive-victory' : 'target'}
+              className={row.done ? 'is-good' : 'is-watch'}
+              label={row.label}
+              key={row.id}
+            >
               <div>
                 <span>{row.done ? '완료' : '진행 중'}</span>
                 <strong>{row.label}</strong>
               </div>
               <strong>{row.current}/{row.target}</strong>
-            </article>
+            </PrimitiveArchiveIconRow>
           ))}
         </div>
         <ActionButton action="complete" disabled={!archiveVictory.canComplete} onClick={() => applyAction('아카이브 완성', (current) => completeArchiveAction(current))}>

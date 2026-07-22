@@ -1,6 +1,7 @@
 import { ActionButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import { formatRequires } from '../_lib/primitiveArchiveEngine';
 import PrimitiveArchiveTurnHorizon from './PrimitiveArchiveTurnHorizon';
+import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
 function actingCondition(actor) {
   if (!actor || Number(actor.hp || 0) <= 0) return { label: '행동 불가', tone: 'danger' };
@@ -51,10 +52,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
   return (
     <div className="primitive-workspace-panel" role="tabpanel">
       <section className="games-panel games-action-dock primitive-action-workspace">
-        <div className="games-panel-title">
-          <h2>빠른 행동</h2>
-          <span>AP {state.ap}/{state.apMax}</span>
-        </div>
+        <PrimitiveArchivePanelTitle action="primitive-day" title="빠른 행동" meta={`AP ${state.ap}/${state.apMax}`} />
         <div className="primitive-acting-status" data-tone={condition.tone}>
           <label>
             <span>행동 캐릭터</span>

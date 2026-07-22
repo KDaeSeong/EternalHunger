@@ -10,6 +10,7 @@ import {
   multiplierText,
   startInventoryText,
 } from '../_lib/primitiveArchivePageRuntime';
+import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
 export default function PrimitiveArchiveRunTab(props) {
   const {
@@ -28,13 +29,13 @@ export default function PrimitiveArchiveRunTab(props) {
 
   return (
     <section className="games-panel primitive-run-management" role="tabpanel">
-      <div className="games-panel-title">
-        <div>
-          <h2>런 관리</h2>
-          <span>현재 {currentDifficulty.label} · 다음 {selectedDifficulty.label}</span>
-        </div>
+      <PrimitiveArchivePanelTitle
+        action="settings"
+        title="런 관리"
+        meta={`현재 ${currentDifficulty.label} · 다음 ${selectedDifficulty.label}`}
+      >
         <strong>난이도는 새 런부터 적용</strong>
-      </div>
+      </PrimitiveArchivePanelTitle>
 
       <div className="primitive-difficulty-grid">
         {difficultyRows().map((row) => (

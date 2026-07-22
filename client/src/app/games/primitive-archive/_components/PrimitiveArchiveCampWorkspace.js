@@ -5,6 +5,7 @@ import {
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
 import GameActionIcon from '../../_components/GameActionIcon';
+import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
 function MaterialStatus({ rows = [] }) {
   return (
@@ -54,10 +55,11 @@ export default function PrimitiveArchiveCampWorkspace(props) {
   return (
     <section className="games-detail-grid primitive-workspace-panel" role="tabpanel">
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>런 리포트</h2>
-          <span>{runProgressReport.riskLevel} · 목표 {runProgressReport.objectivePct}%</span>
-        </div>
+        <PrimitiveArchivePanelTitle
+          action={runProgressReport.riskTone === 'danger' ? 'primitive-survival-fail' : 'status'}
+          title="런 리포트"
+          meta={`${runProgressReport.riskLevel} · 목표 ${runProgressReport.objectivePct}%`}
+        />
         <p className="primitive-run-headline">{runProgressReport.headline}</p>
         <div className="games-rank-split games-rank-split--compact primitive-run-stat-grid">
           <SmallStat icon="target" label="목표" value={runProgressReport.objectiveLabel} />
@@ -105,10 +107,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
       </section>
 
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>캠프</h2>
-          <span>연료 {state.camp.fuel}</span>
-        </div>
+        <PrimitiveArchivePanelTitle action="primitive-camp" title="캠프" meta={`연료 ${state.camp.fuel}`} />
         <div className="games-rank-split games-rank-split--compact primitive-camp-stat-grid">
           <SmallStat icon="fuel" label="모닥불" value={`Lv.${state.camp.fireLevel}`} />
           <SmallStat icon="camp" label="대피소" value={`Lv.${state.camp.shelterLevel}`} />

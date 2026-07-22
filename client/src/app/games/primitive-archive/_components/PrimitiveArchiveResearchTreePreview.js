@@ -9,6 +9,7 @@ import {
   advancementAction,
 } from '../_lib/primitiveArchivePageRuntime';
 import PrimitiveArchiveAdvancementQuote from './PrimitiveArchiveAdvancementQuote';
+import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
 export default function PrimitiveArchiveResearchTreePreview({ researchMap, track = 'technology' }) {
   const isCivics = track === 'civics';
@@ -36,13 +37,13 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
       className={`games-panel primitive-research-workspace primitive-research-preview ${isCivics ? 'is-civics' : ''}`}
       id={`primitive-${track}-tree-preview`}
     >
-      <div className="games-panel-title">
-        <div>
-          <h2>{trackLabel} 트리 미리보기</h2>
-          <span>{researchMap.nodes.length}개 {trackLabel} · {researchMap.rangeLabel} 전체 공개</span>
-        </div>
+      <PrimitiveArchivePanelTitle
+        action={isCivics ? 'primitive-civic' : 'primitive-research'}
+        title={`${trackLabel} 트리 미리보기`}
+        meta={`${researchMap.nodes.length}개 ${trackLabel} · ${researchMap.rangeLabel} 전체 공개`}
+      >
         <strong>목표 지정 잠김</strong>
-      </div>
+      </PrimitiveArchivePanelTitle>
 
       <div className="primitive-research-preview__notice">
         <GameActionIcon action="lock" label={`${trackLabel} 잠김`} />

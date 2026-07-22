@@ -18,6 +18,7 @@ import {
 import PrimitiveArchiveAdvancementQuote from './PrimitiveArchiveAdvancementQuote';
 import PrimitiveArchiveProjectsPanel from './PrimitiveArchiveProjectsPanel';
 import PrimitiveArchiveResearchTreePreview from './PrimitiveArchiveResearchTreePreview';
+import { PrimitiveArchiveIconRow, PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
 function AdvancementTrackSwitch({ activeTrack, civics, onChange, research }) {
   const rows = [
@@ -60,13 +61,15 @@ function AdvancementTrackSwitch({ activeTrack, civics, onChange, research }) {
 function PerkPanel({ buyPerk, perks, perkPoints }) {
   return (
     <section className="games-panel">
-      <div className="games-panel-title">
-        <h2>특전</h2>
-        <span>{perkPoints} pt</span>
-      </div>
+      <PrimitiveArchivePanelTitle action="primitive-perk" title="특전" meta={`${perkPoints} pt`} />
       <div className="game-save-list">
         {perks.map((perk) => (
-          <article className="game-save-row" key={perk.id}>
+          <PrimitiveArchiveIconRow
+            action={perk.maxed ? 'complete' : perk.canBuy ? 'primitive-perk' : 'lock'}
+            className={perk.maxed ? 'is-good' : perk.canBuy ? '' : 'is-locked'}
+            label={perk.name}
+            key={perk.id}
+          >
             <div>
               <span>Lv.{perk.level}/{perk.maxLevel} · 비용 {perk.cost}</span>
               <strong>{perk.name}</strong>
@@ -75,11 +78,25 @@ function PerkPanel({ buyPerk, perks, perkPoints }) {
             <GameControlButton action="upgrade" cue="off" disabled={!perk.canBuy} onClick={() => buyPerk(perk)}>
               {perk.maxed ? '완료' : '구매'}
             </GameControlButton>
-          </article>
+          </PrimitiveArchiveIconRow>
         ))}
       </div>
     </section>
   );
+}
+
+function advancementStatusAction(advancement, isCivics) {
+  if (advancement.completed) return 'complete';
+  if (advancement.selected) return 'target';
+  if (!advancement.available) return 'lock';
+  return isCivics ? 'primitive-civic' : 'primitive-research';
+}
+
+function advancementStatusClassName(advancement) {
+  if (advancement.completed) return 'is-good';
+  if (advancement.selected) return 'is-watch';
+  if (!advancement.available) return 'is-locked';
+  return '';
 }
 
 export default function PrimitiveArchiveGrowthTab(props) {
@@ -182,13 +199,9 @@ export default function PrimitiveArchiveGrowthTab(props) {
         <RecentActionResult action={actionFeedback?.action || (isCivics ? 'policy' : 'research')} label={actionFeedback?.label || '최근 연구/성장 결과'} text={recentActionText} tone={actionFeedback?.tone || 'ready'} pinned />
         <AdvancementTrackSwitch activeTrack={activeTrack} civics={civics} onChange={setTrack} research={research} />
         <section className="games-panel primitive-research-gate">
-          <div className="games-panel-title">
-            <div>
-              <h2>부족 발전 필요</h2>
-              <span>{summary.headline}</span>
-            </div>
+          <PrimitiveArchivePanelTitle action="lock" title="부족 발전 필요" meta={summary.headline}>
             <strong>{summary.gateCompleted}/{summary.gateTotal}</strong>
-          </div>
+          </PrimitiveArchivePanelTitle>
           <p>{summary.reason}</p>
           <div className="primitive-research-gate__requirements">
             {summary.gateRows.map((row) => (
@@ -230,10 +243,11 @@ export default function PrimitiveArchiveGrowthTab(props) {
 
       <section className={`games-dashboard primitive-advancement-dashboard ${isCivics ? 'is-civics' : ''}`}>
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>{isCivics ? '사회 제도' : '기술 연구'}</h2>
-            <span>핵심 {summary.archiveCompleted}/{summary.archiveTotal} · 전체 {summary.completed}/{summary.total}</span>
-          </div>
+          <PrimitiveArchivePanelTitle
+            action={isCivics ? 'primitive-civic' : 'primitive-research'}
+            title={isCivics ? '사회 제도' : '기술 연구'}
+            meta={`핵심 ${summary.archiveCompleted}/${summary.archiveTotal} · 전체 ${summary.completed}/${summary.total}`}
+          />
           <label className="game-save-json-field">
             <span>목표 {trackLabel}</span>
             <select value={selectedId} onChange={(event) => selectTarget(event.target.value)}>
@@ -268,13 +282,22 @@ export default function PrimitiveArchiveGrowthTab(props) {
           </div>
           <div className="game-save-list primitive-breakthrough-list">
             {breakthroughRows.slice(0, 4).map((row) => (
-              <article className="game-save-row" key={row.id}>
+              <PrimitiveArchiveIconRow
+                action={row.completed
+                  ? 'complete'
+                  : row.blocked
+                    ? 'lock'
+                    : isCivics ? 'primitive-inspiration' : 'primitive-eureka'}
+                className={row.completed || row.breakthroughDone ? 'is-good' : row.blocked ? 'is-locked' : 'is-watch'}
+                label={row.techName}
+                key={row.id}
+              >
                 <div>
                   <span>{row.kindLabel} · {row.statusLabel} · {row.current}/{row.target}</span>
                   <strong>{row.techName}</strong>
                   <small>{row.note || row.desc} · {row.progressPct}%</small>
                 </div>
-              </article>
+              </PrimitiveArchiveIconRow>
             ))}
           </div>
           <ActionButton
@@ -287,10 +310,11 @@ export default function PrimitiveArchiveGrowthTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>{trackLabel} 플래너</h2>
-            <span>{selectedPlan?.priorityLabel || '대기'}</span>
-          </div>
+          <PrimitiveArchivePanelTitle
+            action={isCivics ? 'primitive-civic' : 'primitive-research'}
+            title={`${trackLabel} 플래너`}
+            meta={selectedPlan?.priorityLabel || '대기'}
+          />
           {selectedPlan ? (
             <>
               <div className="games-rank-split">
@@ -334,13 +358,15 @@ export default function PrimitiveArchiveGrowthTab(props) {
             </>
           ) : <div className="games-empty">{trackLabel} 플래너 정보가 없습니다.</div>}
 
-          <div className="games-panel-title" style={{ marginTop: 16 }}>
-            <h2>다음 후보</h2>
-            <span>{priorityRows.length}개</span>
-          </div>
+          <PrimitiveArchivePanelTitle action="target" title="다음 후보" meta={`${priorityRows.length}개`} style={{ marginTop: 16 }} />
           <div className="game-save-list">
             {priorityRows.map((advancement) => (
-              <article className="game-save-row" key={advancement.id}>
+              <PrimitiveArchiveIconRow
+                action={advancementStatusAction(advancement, isCivics)}
+                className={advancementStatusClassName(advancement)}
+                label={advancement.name}
+                key={advancement.id}
+              >
                 <div>
                   <span>{advancementTierLabel(advancement, activeTrack)} · {advancement.priorityLabel} · 우선도 {advancement.priorityScore} · {advancement.progressPct}%</span>
                   <strong>{advancement.name}</strong>
@@ -349,7 +375,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                 <GameControlButton action="target" disabled={!advancement.available || advancement.completed || advancement.selected} onClick={() => selectTarget(advancement.id)}>
                   {advancement.selected ? '선택 중' : advancement.available ? '목표' : '대기'}
                 </GameControlButton>
-              </article>
+              </PrimitiveArchiveIconRow>
             ))}
           </div>
         </section>
@@ -366,10 +392,11 @@ export default function PrimitiveArchiveGrowthTab(props) {
         />
 
         <section className={`games-panel primitive-research-workspace ${isCivics ? 'is-civics' : ''}`}>
-          <div className="games-panel-title">
-            <h2>{trackLabel} 트리</h2>
-            <span>핵심 {summary.archiveCompleted}/{summary.archiveTotal} · 전체 {summary.completed}/{summary.total} · {advancementMap.tierCount}단계</span>
-          </div>
+          <PrimitiveArchivePanelTitle
+            action={isCivics ? 'primitive-civic' : 'primitive-research'}
+            title={`${trackLabel} 트리`}
+            meta={`핵심 ${summary.archiveCompleted}/${summary.archiveTotal} · 전체 ${summary.completed}/${summary.total} · ${advancementMap.tierCount}단계`}
+          />
           <div className="primitive-research-toolbar">
             <label className="game-save-json-field">
               <span>{trackLabel} 검색</span>
@@ -554,13 +581,14 @@ export default function PrimitiveArchiveGrowthTab(props) {
       {researchPlannerOpen && selectedPlan ? (
         <div className="primitive-research-modal-backdrop" role="presentation" onClick={closePlanner}>
           <section className={`primitive-research-modal games-panel ${isCivics ? 'is-civics' : ''}`} role="dialog" aria-modal="true" aria-labelledby="primitive-research-modal-title" onClick={(event) => event.stopPropagation()}>
-            <div className="games-panel-title">
-              <div>
-                <h2 id="primitive-research-modal-title">{selectedPlan.name}</h2>
-                <span>{trackLabel} · {selectedPlan.priorityLabel} · 우선도 {selectedPlan.priorityScore}</span>
-              </div>
+            <PrimitiveArchivePanelTitle
+              action={isCivics ? 'primitive-civic' : 'primitive-research'}
+              headingProps={{ id: 'primitive-research-modal-title' }}
+              title={selectedPlan.name}
+              meta={`${trackLabel} · ${selectedPlan.priorityLabel} · 우선도 ${selectedPlan.priorityScore}`}
+            >
               <GameControlButton action="close" className="primitive-research-modal__close" onClick={closePlanner}>닫기</GameControlButton>
-            </div>
+            </PrimitiveArchivePanelTitle>
             <div className="games-rank-split">
               <SmallStat label="시대" value={RESEARCH_ERA_LABELS[selectedPlan.era] || selectedPlan.era || '-'} />
               <SmallStat label="진행" value={`${selectedPlan.progress}/${selectedPlan.cost}${pointLabel}`} />
@@ -579,10 +607,15 @@ export default function PrimitiveArchiveGrowthTab(props) {
               </article>
               <article><span>다음 행동</span><strong>{selectedPlan.nextAction}</strong><small>선행 발전은 기술과 사회 제도 양쪽에서 판정됩니다.</small></article>
             </section>
-            <div className="games-panel-title"><h2>후보 비교</h2><span>{plannerRows.length}개</span></div>
+            <PrimitiveArchivePanelTitle action="analysis" title="후보 비교" meta={`${plannerRows.length}개`} />
             <div className="game-save-list">
               {plannerRows.slice(0, 8).map((advancement) => (
-                <article className="game-save-row" key={`modal-${advancement.id}`}>
+                <PrimitiveArchiveIconRow
+                  action={advancementStatusAction(advancement, isCivics)}
+                  className={advancementStatusClassName(advancement)}
+                  label={advancement.name}
+                  key={`modal-${advancement.id}`}
+                >
                   <div>
                     <span>{advancement.priorityLabel} · 우선도 {advancement.priorityScore} · {advancement.progressPct}%</span>
                     <strong>{advancement.name}</strong>
@@ -591,7 +624,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                   <GameControlButton action="target" disabled={!advancement.available || advancement.completed || advancement.selected} onClick={() => selectTarget(advancement.id)}>
                     {advancement.selected ? '선택 중' : advancement.available ? '목표' : '대기'}
                   </GameControlButton>
-                </article>
+                </PrimitiveArchiveIconRow>
               ))}
             </div>
           </section>

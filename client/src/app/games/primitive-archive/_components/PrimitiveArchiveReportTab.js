@@ -2,6 +2,7 @@ import {
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
 import GameActionIcon from '../../_components/GameActionIcon';
+import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
 const CHAPTER_ICONS = Object.freeze({
   survival: 'survival',
@@ -23,10 +24,11 @@ export default function PrimitiveArchiveReportTab(props) {
 
           <section className="games-detail-grid primitive-report-workspace">
             <section className="games-panel">
-              <div className="games-panel-title">
-                <h2>{archiveReport.title}</h2>
-                <span>{archiveReport.grade}등급 · {archiveReport.archiveScore}%</span>
-              </div>
+              <PrimitiveArchivePanelTitle
+                action={archiveReport.status === 'complete' ? 'primitive-victory' : 'archive'}
+                title={archiveReport.title}
+                meta={`${archiveReport.grade}등급 · ${archiveReport.archiveScore}%`}
+              />
               <div className="games-rank-split">
                 <SmallStat icon="target" label="목표" value={`${archiveReport.objectivePct}%`} />
                 <SmallStat icon="title" label="점수" value={archiveReport.score.toLocaleString('ko-KR')} />
@@ -49,10 +51,11 @@ export default function PrimitiveArchiveReportTab(props) {
             </section>
 
             <section className="games-panel">
-              <div className="games-panel-title">
-                <h2>아카이브 챕터</h2>
-                <span>{archiveReport.chapters.filter((chapter) => chapter.status === '완성').length}/{archiveReport.chapters.length}</span>
-              </div>
+              <PrimitiveArchivePanelTitle
+                action="guide"
+                title="아카이브 챕터"
+                meta={`${archiveReport.chapters.filter((chapter) => chapter.status === '완성').length}/${archiveReport.chapters.length}`}
+              />
               <div className="game-save-list">
                 {archiveReport.chapters.map((chapter) => (
                   <article className="game-save-row game-save-row--icon" key={chapter.id}>
@@ -69,10 +72,7 @@ export default function PrimitiveArchiveReportTab(props) {
             </section>
 
             <section className="games-panel">
-              <div className="games-panel-title">
-                <h2>전적 요약</h2>
-                <span>저장/전적 payload</span>
-              </div>
+              <PrimitiveArchivePanelTitle action="archive" title="전적 요약" meta="저장/전적 payload" />
               <div className="games-rank-split">
                 <SmallStat icon="research" label="연구" value={`${archiveReport.recordSummary.researchPct}%`} />
                 <SmallStat icon="survival" label="생존" value={`${archiveReport.recordSummary.survivalPct}%`} />

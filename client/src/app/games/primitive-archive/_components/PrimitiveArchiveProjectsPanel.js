@@ -3,6 +3,7 @@ import {
   GameControlButton,
   RecentActionResult,
 } from '../../_components/GamePlayPrimitives';
+import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
 export default function PrimitiveArchiveProjectsPanel({
   actionFeedback,
@@ -17,13 +18,13 @@ export default function PrimitiveArchiveProjectsPanel({
   const completed = projects.filter((project) => project.completed).length;
   return (
     <section className="games-panel primitive-projects-panel">
-      <div className="games-panel-title">
-        <div>
-          <h2>부족 공동 프로젝트</h2>
-          <span>한 번에 하나의 장기 사업에 행동력을 투자합니다.</span>
-        </div>
+      <PrimitiveArchivePanelTitle
+        action="primitive-project"
+        title="부족 공동 프로젝트"
+        meta="한 번에 하나의 장기 사업에 행동력을 투자합니다."
+      >
         <strong>{completed}/{projects.length} 완성</strong>
-      </div>
+      </PrimitiveArchivePanelTitle>
 
       {selectedProject ? (
         <div className={`primitive-project-focus${selectedProject.completed ? ' is-complete' : ''}`}>
