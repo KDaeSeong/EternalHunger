@@ -6,7 +6,7 @@ import { RacingLogosPanelTitle } from './RacingLogosVisuals';
 const QUEUE_ACTION_ICONS = {
   draft: 'draft',
   calendar: 'calendar',
-  'event-card': 'race-card',
+  'event-card': 'event-card',
   'season-card': 'season-card',
 };
 

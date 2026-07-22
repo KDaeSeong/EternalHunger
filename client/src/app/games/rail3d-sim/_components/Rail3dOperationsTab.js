@@ -2,15 +2,6 @@ import { ActionButton, GameControlButton, SmallStat } from '../../_components/Ga
 import { runForAction, stepAction } from '../_lib/rail3dEngine';
 import { Rail3dIconRow, Rail3dPanelTitle } from './Rail3dVisuals';
 
-const DISPATCH_ACTION_ICONS = {
-  'focus-train': 'dispatch',
-  'apply-lookahead': 'guard',
-  'show-analysis': 'analysis',
-  step: 'turn',
-  'run-5': 'advance',
-  record: 'archive',
-};
-
 export default function Rail3dOperationsTab(props) {
   const {
     applyRailAction,
@@ -60,7 +51,7 @@ export default function Rail3dOperationsTab(props) {
                   <div className="game-save-list">
                     {dispatchPlan.items.map((item) => (
                       <Rail3dIconRow
-                        action={DISPATCH_ACTION_ICONS[item.action] || 'dispatch'}
+                        action={item.action || 'dispatch'}
                         label={item.title}
                         key={item.id}
                       >
@@ -70,7 +61,7 @@ export default function Rail3dOperationsTab(props) {
                           <small>{item.detail}</small>
                         </div>
                         <GameControlButton
-                          action={DISPATCH_ACTION_ICONS[item.action] || 'dispatch'}
+                          action={item.action || 'dispatch'}
                           className="tcg-primary-action"
                           cue={['apply-lookahead', 'step', 'run-5'].includes(item.action) ? 'off' : undefined}
                           onClick={() => runDispatchAction(item)}

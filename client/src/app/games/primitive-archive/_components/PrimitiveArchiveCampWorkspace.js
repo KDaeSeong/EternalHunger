@@ -113,8 +113,8 @@ export default function PrimitiveArchiveCampWorkspace(props) {
           <SmallStat icon="camp" label="대피소" value={`Lv.${state.camp.shelterLevel}`} />
           <SmallStat icon="craft" label="작업대" value={`Lv.${state.camp.workbenchLevel}`} />
           <SmallStat icon="archive" label="기록실" value={`Lv.${state.camp.archiveRoomLevel || 0}`} />
-          <SmallStat icon="document-review" label="필사대" value={`Lv.${state.camp.scribeDeskLevel || 0}`} />
-          <SmallStat icon="guide" label="서가" value={`Lv.${state.camp.libraryShelfLevel || 0}`} />
+          <SmallStat icon="scribe" label="필사대" value={`Lv.${state.camp.scribeDeskLevel || 0}`} />
+          <SmallStat icon="library" label="서가" value={`Lv.${state.camp.libraryShelfLevel || 0}`} />
         </div>
         <div className="primitive-camp-action-grid">
           {(campActions || []).map((action) => (

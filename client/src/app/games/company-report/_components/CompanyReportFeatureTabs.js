@@ -36,19 +36,6 @@ import {
 import { getMarketName, getProductName } from '../_lib/companyReportPlayHelpers';
 import { CompanyReportPanelTitle } from './CompanyReportVisuals';
 
-const OPERATION_ACTION_ICONS = {
-  'collect-receivable': 'collection',
-  'ship-order': 'shipment',
-  'pay-vat': 'tax',
-  'collect-foreign': 'collection',
-  'settle-global': 'settle',
-  disclosure: 'disclosure',
-  snapshot: 'snapshot',
-  'restore-dry-run': 'analysis',
-  bookmark: 'bookmark',
-  close: 'closing',
-};
-
 const RISK_ACTION_ICONS = [
   { pattern: /현금|런웨이/, action: 'finance' },
   { pattern: /채권|미수/, action: 'collection' },
@@ -361,7 +348,7 @@ export default function CompanyReportFeatureTabs({
                     {operationQueue.rows.map((item) => (
                       <article className="game-save-row company-report-icon-row" key={item.id}>
                         <GameActionIcon
-                          action={OPERATION_ACTION_ICONS[item.action] || 'execute'}
+                          action={item.action || 'execute'}
                           label={item.kind}
                         />
                         <div>
@@ -370,7 +357,7 @@ export default function CompanyReportFeatureTabs({
                           <small>{item.detail}</small>
                         </div>
                         <GameControlButton
-                          action={OPERATION_ACTION_ICONS[item.action] || 'execute'}
+                          action={item.action || 'execute'}
                           cue="off"
                           className="tcg-primary-action"
                           onClick={() => runOperationQueueAction(item)}
