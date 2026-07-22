@@ -54,7 +54,7 @@ const starleagueTrack = (file, options = {}) => renderedTrack('starleague', file
   ...options,
 });
 const rail3dTrack = (file, options = {}) => renderedTrack('rail3d-sim', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 const racingLogosTrack = (file, options = {}) => renderedTrack('racing-logos-demo', file, {
