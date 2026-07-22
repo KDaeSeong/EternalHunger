@@ -48,6 +48,7 @@
     "render:starleague-audio": "node ./scripts/render-starleague-instrumental.mjs",
     "render:rail3d-audio": "node ./scripts/render-rail3d-instrumental.mjs",
     "render:racing-logos-audio": "node ./scripts/render-racing-logos-instrumental.mjs",
+    "render:twenty-questions-audio": "node ./scripts/render-twenty-questions-instrumental.mjs",
     "check:game-feedback-shell": "node ./scripts/check-game-feedback-shell.mjs",
     "check:game-action-vocabulary": "node ./scripts/check-game-action-vocabulary.mjs",
     "check:game-orchestration": "node ./scripts/check-game-orchestration.mjs",
@@ -66,7 +67,7 @@
     "check:si-coding-feedback": "node ./scripts/check-si-coding-feedback.mjs",
     "check:si-coding-soundtrack": "node ./scripts/check-si-coding-soundtrack.mjs && node ./scripts/check-si-coding-rendered-audio.mjs",
     "check:twenty-questions-feedback": "node ./scripts/check-twenty-questions-feedback.mjs",
-    "check:twenty-questions-soundtrack": "node ./scripts/check-twenty-questions-soundtrack.mjs",
+    "check:twenty-questions-soundtrack": "node ./scripts/check-twenty-questions-soundtrack.mjs && node ./scripts/check-twenty-questions-rendered-audio.mjs",
     "diagnose:simulation": "node ./scripts/simulation-diagnostics.mjs"
   },
   "dependencies": {

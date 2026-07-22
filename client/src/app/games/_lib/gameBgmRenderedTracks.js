@@ -58,6 +58,10 @@ const racingLogosTrack = (file, options = {}) => renderedTrack('racing-logos-dem
   renderer: 'physical-model-v2-orchestra',
   ...options,
 });
+const twentyQuestionsTrack = (file, options = {}) => renderedTrack('twenty-questions', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
@@ -157,6 +161,13 @@ export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'racing-red-flag': racingLogosTrack('red-flag', { gain: 1.12 }),
   'racing-podium': racingLogosTrack('podium', { gain: 1.18 }),
   'racing-archive': racingLogosTrack('archive', { gain: 1.24 }),
+  'twenty-lobby': twentyQuestionsTrack('lobby', { gain: 1.24 }),
+  'twenty-create': twentyQuestionsTrack('create', { gain: 1.22 }),
+  'twenty-inquiry': twentyQuestionsTrack('inquiry', { gain: 1.22 }),
+  'twenty-pending': twentyQuestionsTrack('pending', { gain: 1.18 }),
+  'twenty-guess': twentyQuestionsTrack('guess', { gain: 1.14 }),
+  'twenty-reveal': twentyQuestionsTrack('reveal', { gain: 1.2 }),
+  'twenty-setback': twentyQuestionsTrack('setback', { gain: 1.24 }),
 });
 
 export function gameBgmRenderedTrack(theme) {

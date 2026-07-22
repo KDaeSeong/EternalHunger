@@ -93,8 +93,10 @@ const ADDITIVE_INSTRUMENTS = Object.freeze({
   flute: Object.freeze({ partials: [[1, 1], [2, 0.18], [3, 0.08], [4, 0.035]], attack: 0.055, attackRatio: 0.18, release: 0.24, releaseRatio: 0.28, decay: 0.12, level: 0.58, vibrato: 0.0018, vibratoRate: 5.15, airNoise: 0.018 }),
   oboe: Object.freeze({ partials: [[1, 0.86], [2, 0.31], [3, 0.58], [4, 0.2], [5, 0.34], [6, 0.1], [7, 0.16]], attack: 0.045, attackRatio: 0.16, release: 0.24, releaseRatio: 0.26, decay: 0.1, level: 0.46, vibrato: 0.0016, vibratoRate: 4.9, airNoise: 0.012 }),
   clarinet: Object.freeze({ partials: [[1, 1], [2, 0.08], [3, 0.56], [4, 0.04], [5, 0.3], [6, 0.025], [7, 0.16]], attack: 0.05, attackRatio: 0.17, release: 0.28, releaseRatio: 0.28, decay: 0.08, level: 0.52, vibrato: 0.0012, vibratoRate: 4.7, airNoise: 0.008 }),
+  bassoon: Object.freeze({ partials: [[1, 1], [2, 0.42], [3, 0.54], [4, 0.2], [5, 0.31], [6, 0.12], [7, 0.14]], attack: 0.075, attackRatio: 0.2, release: 0.34, releaseRatio: 0.3, decay: 0.075, level: 0.56, vibrato: 0.0011, vibratoRate: 4.25, airNoise: 0.009 }),
   bell: Object.freeze({ partials: [[1, 1], [2.01, 0.52], [2.98, 0.34], [4.13, 0.22], [5.42, 0.14], [6.79, 0.07]], attack: 0.003, attackRatio: 1, release: 0.48, releaseRatio: 0.42, decay: 1.05, level: 0.58, partialDecay: 0.32 }),
   celesta: Object.freeze({ partials: [[1, 1], [2.015, 0.46], [3.04, 0.27], [4.11, 0.14], [5.28, 0.08]], attack: 0.004, attackRatio: 1, release: 0.5, releaseRatio: 0.4, decay: 0.82, level: 0.56, transient: 0.08, partialDecay: 0.24 }),
+  vibraphone: Object.freeze({ partials: [[1, 1], [2.01, 0.34], [3.93, 0.28], [6.12, 0.15], [8.18, 0.08]], attack: 0.004, attackRatio: 1, release: 0.78, releaseRatio: 0.46, decay: 0.68, level: 0.56, transient: 0.06, partialDecay: 0.18, vibrato: 0.0015, vibratoRate: 5.8 }),
 });
 
 function clamp(value, min, max) {
@@ -207,7 +209,8 @@ function pluckedSample(kind, frequency, duration, variant) {
 function tonalSample(kind, frequency, duration, variant = 0) {
   const safeKind = [
     'piano', 'strings', 'violin', 'viola', 'cello', 'brass', 'horn', 'trumpet', 'trombone',
-    'choir', 'flute', 'oboe', 'clarinet', 'bell', 'celesta', 'harp', 'pluck', 'guitar', 'bass',
+    'choir', 'flute', 'oboe', 'clarinet', 'bassoon', 'bell', 'celesta', 'vibraphone',
+    'harp', 'pluck', 'guitar', 'bass',
   ].includes(kind)
     ? kind
     : 'piano';
@@ -362,12 +365,14 @@ const INSTRUMENT_PAN = Object.freeze({
   flute: -0.34,
   oboe: -0.12,
   clarinet: 0.16,
+  bassoon: 0.08,
   horn: 0.34,
   trumpet: 0.5,
   trombone: 0.22,
   choir: 0,
   bell: 0.42,
   celesta: 0.46,
+  vibraphone: 0.32,
   pluck: -0.36,
   guitar: 0.4,
 });
