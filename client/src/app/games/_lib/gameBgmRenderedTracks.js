@@ -13,7 +13,10 @@ const eternalHungerTrack = (file, options = {}) => renderedTrack('eternal-hunger
   renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
-const primitiveArchiveTrack = (file, options) => renderedTrack('primitive-archive', file, options);
+const primitiveArchiveTrack = (file, options = {}) => renderedTrack('primitive-archive', file, {
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
+  ...options,
+});
 const baVanguardTrack = (file, options = {}) => renderedTrack('ba-vanguard', file, {
   renderer: 'physical-model-v2-orchestra',
   ...options,
