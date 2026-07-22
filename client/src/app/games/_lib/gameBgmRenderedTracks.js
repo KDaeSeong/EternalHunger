@@ -22,7 +22,7 @@ const baVanguardTrack = (file, options = {}) => renderedTrack('ba-vanguard', fil
   ...options,
 });
 const baSrpgTrack = (file, options = {}) => renderedTrack('ba-srpg', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 const dualAcademyTrack = (file, options = {}) => renderedTrack('dual-academy-tcg', file, {
