@@ -34,6 +34,10 @@ const schaleIdleTrack = (file, options = {}) => renderedTrack('schale-idle-rpg',
   renderer: 'physical-model-v2-orchestra',
   ...options,
 });
+const schoolSimulatorTrack = (file, options = {}) => renderedTrack('school-simulator', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
@@ -91,6 +95,14 @@ export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'idle-breakthrough': schaleIdleTrack('breakthrough', { gain: 1.18 }),
   'idle-reward': schaleIdleTrack('reward', { gain: 1.2 }),
   'idle-setback': schaleIdleTrack('setback', { gain: 1.18 }),
+  'school-morning': schoolSimulatorTrack('morning', { gain: 1.2 }),
+  'school-classroom': schoolSimulatorTrack('classroom', { gain: 1.2 }),
+  'school-counseling-room': schoolSimulatorTrack('counseling', { gain: 1.22 }),
+  'school-campus': schoolSimulatorTrack('campus', { gain: 1.2 }),
+  'school-festival': schoolSimulatorTrack('festival', { gain: 1.16 }),
+  'school-incident-alert': schoolSimulatorTrack('incident', { gain: 1.14 }),
+  'school-semester-finale': schoolSimulatorTrack('semester', { gain: 1.2 }),
+  'school-afterschool': schoolSimulatorTrack('afterschool', { gain: 1.22 }),
 });
 
 export function gameBgmRenderedTrack(theme) {
