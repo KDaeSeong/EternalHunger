@@ -18,7 +18,7 @@ const primitiveArchiveTrack = (file, options = {}) => renderedTrack('primitive-a
   ...options,
 });
 const baVanguardTrack = (file, options = {}) => renderedTrack('ba-vanguard', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 const baSrpgTrack = (file, options = {}) => renderedTrack('ba-srpg', file, {

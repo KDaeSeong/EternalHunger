@@ -10,20 +10,20 @@ const OUTPUT_DIR = path.resolve(SCRIPT_DIR, '..', 'public', 'audio', 'ba-vanguar
 export const BA_VANGUARD_RENDER_TRACKS = Object.freeze([
   {
     theme: 'vanguard-ready', file: 'ready', title: '셔플 전의 정적', bars: 36,
-    lead: 'piano', counter: 'clarinet', pad: 'strings', highStrings: 'violin', midStrings: 'viola',
+    lead: 'vibraphone', counter: 'flute', pad: 'strings', highStrings: 'violin', midStrings: 'viola',
     lowStrings: 'cello', woodwind: 'flute', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
     percussion: 'orchestral', drumScale: 0.48, room: 0.28,
   },
   {
     theme: 'vanguard-ride', file: 'ride', title: '라이드 더 뱅가드', bars: 40,
-    lead: 'violin', counter: 'guitar', pad: 'strings', highStrings: 'violin', midStrings: 'viola',
+    lead: 'violin', counter: 'bell', pad: 'strings', highStrings: 'violin', midStrings: 'viola',
     lowStrings: 'cello', woodwind: 'flute', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
     percussion: 'hybrid-orchestra', drumScale: 0.94, room: 0.2,
   },
   {
     theme: 'vanguard-battle', file: 'battle', title: '트윈 드라이브', bars: 44,
     lead: 'trumpet', counter: 'violin', pad: 'strings', highStrings: 'violin', midStrings: 'viola',
-    lowStrings: 'cello', woodwind: 'clarinet', brassSection: 'trumpet', lowBrass: 'trombone', harp: 'harp',
+    lowStrings: 'cello', woodwind: 'oboe', brassSection: 'trumpet', lowBrass: 'trombone', harp: 'harp',
     percussion: 'hybrid-orchestra', drumScale: 1.16, room: 0.16,
   },
   {
@@ -46,8 +46,8 @@ export const BA_VANGUARD_RENDER_TRACKS = Object.freeze([
   },
   {
     theme: 'vanguard-defeat', file: 'defeat', title: '엔드 페이즈', bars: 28,
-    lead: 'piano', counter: 'cello', pad: 'choir', highStrings: 'violin', midStrings: 'viola',
-    lowStrings: 'cello', woodwind: 'oboe', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
+    lead: 'harp', counter: 'cello', pad: 'strings', highStrings: 'violin', midStrings: 'viola',
+    lowStrings: 'cello', woodwind: 'bassoon', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
     percussion: 'orchestral', drumScale: 0.28, room: 0.34,
   },
 ]);
@@ -56,6 +56,6 @@ await renderPhysicalModelSoundtrack({
   tracks: BA_VANGUARD_RENDER_TRACKS,
   outputDir: OUTPUT_DIR,
   soundtrackName: 'BA Vanguard',
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   channels: 2,
 });
