@@ -17,7 +17,7 @@
     "check:auth-session": "node ./scripts/check-auth-session.mjs",
     "check:build:ci": "npm ci --no-audit --no-fund && npm run prebuild && next build --webpack",
     "check:company-report-feedback": "node ./scripts/check-company-report-feedback.mjs",
-    "check:company-report-soundtrack": "node ./scripts/check-company-report-soundtrack.mjs && node ./scripts/check-company-report-rendered-audio.mjs",
+    "check:company-report-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-company-report-soundtrack.mjs && node ./scripts/check-company-report-rendered-audio.mjs",
     "check:custom-roster": "node ./scripts/check-custom-roster.mjs",
     "check:lumia-minimap": "node ./scripts/check-lumia-minimap-geometry.mjs",
     "check:revive": "node ./scripts/check-revival-rules.mjs",

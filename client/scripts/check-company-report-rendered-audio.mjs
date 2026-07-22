@@ -21,7 +21,11 @@ const manifest = JSON.parse(await readFile(
   'utf8',
 ));
 
-assert.equal(manifest.renderer, 'physical-model-v2-orchestra');
+assert.equal(manifest.renderer, 'sampled-orchestra-v3-vsco2-ce');
+assert.equal(manifest.sampleLibrary?.name, 'VS Chamber Orchestra 2 Community Edition - 50 Sample Pack');
+assert.equal(manifest.sampleLibrary?.license, 'CC0-1.0');
+assert.equal(manifest.sampleLibrary?.sampledTonalInstruments?.length >= 15, true);
+assert.equal(manifest.sampleLibrary?.sampledPercussion?.length >= 6, true);
 assert.equal(manifest.tracks.length, 7, '회사 리포트 렌더 트랙은 7곡이어야 합니다.');
 assert.equal(
   Object.keys(GAME_BGM_RENDERED_TRACKS).filter((theme) => theme.startsWith('company-')).length,
@@ -32,12 +36,15 @@ assert.equal(new Set(manifest.tracks.map((track) => track.file)).size, 7);
 
 let totalBytes = 0;
 const soundtrackInstruments = new Set();
+const sampledInstruments = new Set();
+const sampledSourceFiles = new Set();
+let sampledEvents = 0;
 for (const soundtrackRow of COMPANY_REPORT_SOUNDTRACK) {
   const renderedTrack = gameBgmRenderedTrack(soundtrackRow.theme);
   const manifestTrack = manifest.tracks.find((track) => track.theme === soundtrackRow.theme);
   assert.ok(renderedTrack, `렌더 트랙 매핑 누락: ${soundtrackRow.theme}`);
   assert.ok(manifestTrack, `렌더 manifest 누락: ${soundtrackRow.theme}`);
-  assert.equal(renderedTrack.renderer, 'physical-model-v2-orchestra');
+  assert.equal(renderedTrack.renderer, 'sampled-orchestra-v3-vsco2-ce');
   assert.equal(renderedTrack.loop, true);
   assert.equal(renderedTrack.loopStartSeconds, 0.85);
   assert.match(renderedTrack.src, /^\/audio\/company-report\/[a-z-]+\.wav$/);
@@ -49,6 +56,12 @@ for (const soundtrackRow of COMPANY_REPORT_SOUNDTRACK) {
     `장면 오케스트라 편성이 부족합니다: ${soundtrackRow.theme}`,
   );
   for (const instrument of manifestTrack.instruments) soundtrackInstruments.add(instrument);
+  assert.equal(manifestTrack.sampleUsage?.events >= 90, true, `실제 연주 샘플 이벤트가 부족합니다: ${soundtrackRow.theme}`);
+  assert.equal(Object.keys(manifestTrack.sampleUsage?.instruments || {}).length >= 12, true, `실제로 소리 난 샘플 악기 종류가 부족합니다: ${soundtrackRow.theme}`);
+  assert.equal(Object.keys(manifestTrack.sampleUsage?.files || {}).length >= 16, true, `실제로 소리 난 원본 샘플 종류가 부족합니다: ${soundtrackRow.theme}`);
+  for (const instrument of manifestTrack.sampledInstruments) sampledInstruments.add(instrument);
+  for (const file of Object.keys(manifestTrack.sampleUsage.files)) sampledSourceFiles.add(file);
+  sampledEvents += manifestTrack.sampleUsage.events;
 
   const filePath = path.join(publicRoot, ...renderedTrack.src.split('/').filter(Boolean));
   const wave = await readFile(filePath);
@@ -106,35 +119,53 @@ assert.equal(
   '회사 리포트 렌더 음원 용량이 예상 범위를 벗어났습니다.',
 );
 for (const instrument of [
-  'piano', 'guitar', 'violin', 'viola', 'cello', 'flute', 'oboe', 'clarinet', 'horn',
-  'trumpet', 'trombone', 'harp', 'celesta', 'choir', 'timpani', 'taiko',
+  'vibraphone', 'bell', 'violin', 'viola', 'cello', 'flute', 'oboe', 'bassoon', 'horn',
+  'trumpet', 'trombone', 'harp', 'celesta', 'strings', 'timpani', 'taiko',
 ]) {
   assert.equal(soundtrackInstruments.has(instrument), true, `전체 편성 악기 누락: ${instrument}`);
 }
+for (const instrument of [
+  'vibraphone', 'bell', 'violin', 'viola', 'cello', 'flute', 'oboe', 'bassoon', 'horn',
+  'trumpet', 'trombone', 'harp', 'celesta', 'strings', 'bass', 'timpani',
+  'orchestral-snare', 'taiko', 'cymbal', 'tom',
+]) {
+  assert.equal(sampledInstruments.has(instrument), true, `실제 연주 샘플 편성 누락: ${instrument}`);
+}
+assert.equal(sampledSourceFiles.size >= 27, true, '전체 OST에서 실제 원본 샘플 종류가 부족합니다.');
+assert.equal(sampledEvents >= 750, true, '전체 OST에서 실제 연주 샘플 이벤트가 부족합니다.');
 assert.match(
   rendererSource,
-  /theme: 'company-board'[\s\S]*lead: 'piano'[\s\S]*counter: 'clarinet'/,
-  '개장 전 브리핑에는 피아노와 클라리넷 편성이 필요합니다.',
-);
-assert.match(rendererSource, /theme: 'company-trade'[\s\S]*lead: 'guitar'/, '주문 흐름에는 기타 주선율이 필요합니다.');
-assert.match(
-  rendererSource,
-  /theme: 'company-closing'[\s\S]*lead: 'cello'[\s\S]*counter: 'piano'/,
-  '월말 결산에는 첼로와 피아노 편성이 필요합니다.',
-);
-assert.match(rendererSource, /theme: 'company-capital'[\s\S]*lead: 'trumpet'/, '시장 개장에는 트럼펫 주선율이 필요합니다.');
-assert.match(
-  rendererSource,
-  /theme: 'company-audit'[\s\S]*lead: 'oboe'[\s\S]*counter: 'celesta'/,
-  '원장 감사에는 오보에와 첼레스타 편성이 필요합니다.',
+  /theme: 'company-board'[\s\S]*lead: 'celesta'[\s\S]*counter: 'bassoon'/,
+  '개장 전 브리핑에는 첼레스타와 바순 편성이 필요합니다.',
 );
 assert.match(
   rendererSource,
-  /theme: 'company-crisis'[\s\S]*lead: 'horn'[\s\S]*pad: 'choir'/,
-  '현금 위기에는 호른과 합창 편성이 필요합니다.',
+  /theme: 'company-trade'[\s\S]*lead: 'vibraphone'[\s\S]*counter: 'flute'[\s\S]*woodwind: 'bassoon'/,
+  '주문 흐름에는 비브라폰·플루트·바순 편성이 필요합니다.',
+);
+assert.match(
+  rendererSource,
+  /theme: 'company-closing'[\s\S]*lead: 'cello'[\s\S]*counter: 'harp'[\s\S]*pad: 'strings'/,
+  '월말 결산에는 첼로·하프·현악 편성이 필요합니다.',
+);
+assert.match(
+  rendererSource,
+  /theme: 'company-capital'[\s\S]*lead: 'trumpet'[\s\S]*counter: 'bell'/,
+  '시장 개장에는 트럼펫과 벨 편성이 필요합니다.',
+);
+assert.match(
+  rendererSource,
+  /theme: 'company-audit'[\s\S]*lead: 'oboe'[\s\S]*counter: 'celesta'[\s\S]*woodwind: 'bassoon'/,
+  '원장 감사에는 오보에·첼레스타·바순 편성이 필요합니다.',
+);
+assert.match(
+  rendererSource,
+  /theme: 'company-crisis'[\s\S]*lead: 'horn'[\s\S]*counter: 'trumpet'[\s\S]*pad: 'strings'/,
+  '현금 위기에는 호른·트럼펫·현악 편성이 필요합니다.',
 );
 assert.match(rendererSource, /percussion: 'hybrid-orchestra'/, '거래·시장·위기 장면에는 하이브리드 타악기가 필요합니다.');
 assert.match(rendererSource, /channels: 2/, '스테레오 렌더링 설정이 필요합니다.');
+assert.match(rendererSource, /sampled-orchestra-v3-vsco2-ce/, '샘플 오케스트라 렌더러 식별자가 필요합니다.');
 
 console.log(JSON.stringify({
   renderedTracks: manifest.tracks.length,
@@ -142,4 +173,7 @@ console.log(JSON.stringify({
   totalMiB: Number((totalBytes / 1_048_576).toFixed(2)),
   instrumentCount: soundtrackInstruments.size,
   renderer: manifest.renderer,
+  sampledInstrumentCount: sampledInstruments.size,
+  sampledSourceFiles: sampledSourceFiles.size,
+  sampledEvents,
 }, null, 2));

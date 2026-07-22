@@ -46,7 +46,7 @@ const siCodingTrack = (file, options = {}) => renderedTrack('si-coding-sim', fil
   ...options,
 });
 const companyReportTrack = (file, options = {}) => renderedTrack('company-report', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 const starleagueTrack = (file, options = {}) => renderedTrack('starleague', file, {
