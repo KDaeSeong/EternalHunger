@@ -38,7 +38,7 @@ const schaleIdleTrack = (file, options = {}) => renderedTrack('schale-idle-rpg',
   ...options,
 });
 const schoolSimulatorTrack = (file, options = {}) => renderedTrack('school-simulator', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 const siCodingTrack = (file, options = {}) => renderedTrack('si-coding-sim', file, {
