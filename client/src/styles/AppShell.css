@@ -12288,16 +12288,30 @@
   font-size: 0.8rem;
 }
 
-.si-coding-panel-title h2 {
+.si-coding-panel-title h2,
+.si-coding-panel-title h3 {
   min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 7px;
 }
 
-.si-coding-panel-title h2 .game-action-icon {
+.si-coding-panel-title h2 .game-action-icon,
+.si-coding-panel-title h3 .game-action-icon {
   flex: 0 0 auto;
   color: #2673a6;
+}
+
+.si-coding-panel-title__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.si-coding-panel-title__copy > span {
+  color: #64717d;
+  font-size: 0.82rem;
+  font-weight: 900;
 }
 
 .si-coding-icon-row > .game-action-icon {
@@ -12308,6 +12322,26 @@
   border-radius: 7px;
   background: #edf6fb;
   color: #22668f;
+}
+
+.si-coding-icon-row.is-good > .game-action-icon {
+  background: #eaf8ef;
+  color: #2e8658;
+}
+
+.si-coding-icon-row.is-warning > .game-action-icon {
+  background: #fff6df;
+  color: #9b641f;
+}
+
+.si-coding-icon-row.is-danger > .game-action-icon {
+  background: #fff0ef;
+  color: #a62f36;
+}
+
+.si-coding-icon-row.is-locked > .game-action-icon {
+  background: #f0f2f4;
+  color: #687580;
 }
 
 .schale-idle-panel-title h2 {
@@ -12992,6 +13026,17 @@
   .primitive-archive-icon-row > .tcg-primary-action,
   .primitive-archive-icon-row > .game-save-chip,
   .primitive-archive-icon-row > strong:last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .game-save-row.si-coding-icon-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .si-coding-icon-row > .tcg-primary-action,
+  .si-coding-icon-row > .game-save-chip,
+  .si-coding-icon-row > strong:last-child {
     grid-column: 2;
     justify-self: start;
   }

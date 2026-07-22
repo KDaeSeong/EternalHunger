@@ -1,6 +1,22 @@
 import { ActionButton, GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import { ResultRow } from './SiCodingSubmissionReadinessPanel';
 import { applyCompanySupportAction, evaluateProjectAction, selectProjectSeedAction, toggleDocumentReviewAction, updateFileAction, updateReportAction } from '../_lib/siCodingSimEngine';
+import { SiCodingIconRow, SiCodingPanelTitle } from './SiCodingVisuals';
+
+function evaluationAction(evaluation) {
+  if (!evaluation) return 'project';
+  if (evaluation.grade === 'FAIL') return 'coding-blocked';
+  if (evaluation.grade === '보류') return 'project-held';
+  if (evaluation.grade === 'A') return 'trophy';
+  return 'coding-audit';
+}
+
+function evaluationClassName(evaluation) {
+  if (!evaluation) return '';
+  if (evaluation.grade === 'FAIL') return 'is-danger';
+  if (evaluation.grade === '보류') return 'is-warning';
+  return 'is-good';
+}
 
 export default function SiCodingAdvancedTab({
   activeContent,
@@ -47,21 +63,31 @@ export default function SiCodingAdvancedTab({
     <>
               <section className="games-detail-grid">
                 <section className="games-panel" ref={documentPanelRef}>
-                  <div className="games-panel-title">
-                    <h2>문서 체크포인트</h2>
-                    <span>{task.documents?.length || 0}개 문서</span>
-                  </div>
+                  <SiCodingPanelTitle action="document-review" title="문서 체크포인트" meta={`${task.documents?.length || 0}개 문서`} />
                   {documentPlay ? (
                     <div className="game-save-list" style={{ marginBottom: 14 }}>
-                      <article className="game-save-row">
+                      <SiCodingIconRow
+                        action={documentProgress?.passed ? 'coding-test-pass' : 'document-review'}
+                        className={documentProgress?.passed ? 'is-good' : 'is-warning'}
+                        label={documentPlay.title}
+                      >
                         <div>
                           <span>{documentPlay.summary}</span>
                           <strong>{documentPlay.title}</strong>
                         </div>
                         <strong>{documentProgress?.checkedRequiredCount || 0}/{documentProgress?.requiredCount || 0}</strong>
-                      </article>
+                      </SiCodingIconRow>
                       {(documentPlay.reviewItems || []).map((item) => (
-                        <article className="game-save-row" key={item.id}>
+                        <SiCodingIconRow
+                          action={documentProgress?.selectedIds?.includes(item.id)
+                            ? item.required ? 'document-review' : 'coding-blocked'
+                            : item.required ? 'coding-ready' : 'warning'}
+                          className={documentProgress?.selectedIds?.includes(item.id)
+                            ? item.required ? 'is-good' : 'is-danger'
+                            : item.required ? 'is-warning' : ''}
+                          label={item.title}
+                          key={item.id}
+                        >
                           <div>
                             <span>{item.detail} · 출처 {item.sourceDocId}</span>
                             <strong>{item.title}</strong>
@@ -75,7 +101,7 @@ export default function SiCodingAdvancedTab({
                             />
                             {item.required ? '필수' : '함정'}
                           </label>
-                        </article>
+                        </SiCodingIconRow>
                       ))}
                       {documentProgress && !documentProgress.passed ? (
                         <div className="games-empty">
@@ -84,49 +110,46 @@ export default function SiCodingAdvancedTab({
                       ) : null}
                     </div>
                   ) : null}
-                  <div className="game-save-list">
+                    <div className="game-save-list">
                     {(task.documents || []).map((doc) => (
-                      <article className="game-save-row" key={doc.id}>
+                      <SiCodingIconRow action="archive" label={doc.title} key={doc.id}>
                         <div>
                           <span>{doc.id}</span>
                           <strong>{doc.title}</strong>
                           <span style={{ whiteSpace: 'pre-wrap' }}>{doc.content}</span>
                         </div>
-                      </article>
+                      </SiCodingIconRow>
                     ))}
                     {!(task.documents || []).length ? <div className="games-empty">연결된 문서가 없습니다.</div> : null}
                   </div>
                 </section>
         
                 <section className="games-panel" ref={executionPanelRef}>
-                  <div className="games-panel-title">
-                    <h2>실행/채점 피드백</h2>
-                    <span>{execution?.mockType || task.judgeMode || 'static'}</span>
-                  </div>
+                  <SiCodingPanelTitle action="coding-audit" title="실행/채점 피드백" meta={execution?.mockType || task.judgeMode || 'static'} />
                   <div className="games-rank-split">
-                    <SmallStat label="공개 테스트" value={execution?.tests?.length || 0} />
-                    <SmallStat label="숨김 테스트" value={execution?.hiddenTests?.length || 0} />
-                    <SmallStat label="정적 체크" value={task.judge?.checks?.length || 0} />
-                    <SmallStat label="엔트리" value={execution?.entryFileId || '-'} />
+                    <SmallStat icon="coding-test-pass" label="공개 테스트" value={execution?.tests?.length || 0} />
+                    <SmallStat icon="lock" label="숨김 테스트" value={execution?.hiddenTests?.length || 0} />
+                    <SmallStat icon="coding-audit" label="정적 체크" value={task.judge?.checks?.length || 0} />
+                    <SmallStat icon="coding-file" label="엔트리" value={execution?.entryFileId || '-'} />
                   </div>
                   <div className="game-save-list" style={{ marginTop: 12 }}>
                     {(execution?.tests || []).map((test, index) => (
-                      <article className="game-save-row" key={`${test.description}-${index}`}>
+                      <SiCodingIconRow action="execute" label={test.description} key={`${test.description}-${index}`}>
                         <div>
                           <span>{test.assertions?.length || 0}개 assertion</span>
                           <strong>{test.description}</strong>
                         </div>
                         <strong>{test.invoke?.type || 'none'}</strong>
-                      </article>
+                      </SiCodingIconRow>
                     ))}
                     {(task.judge?.checks || []).map((check) => (
-                      <article className="game-save-row" key={check.id || check.description}>
+                      <SiCodingIconRow action="coding-audit" label={check.description || check.label} key={check.id || check.description}>
                         <div>
                           <span>{check.failReason || '정적 규칙 검사'}</span>
                           <strong>{check.description || check.label}</strong>
                         </div>
                         <strong>{check.rules?.length || 0}</strong>
-                      </article>
+                      </SiCodingIconRow>
                     ))}
                     {!execution?.tests?.length && !task.judge?.checks?.length ? <div className="games-empty">실행 또는 정적 채점 규칙이 없습니다.</div> : null}
                   </div>
@@ -135,10 +158,7 @@ export default function SiCodingAdvancedTab({
         
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>현재 과제</h2>
-                    <span>{task.difficulty}</span>
-                  </div>
+                  <SiCodingPanelTitle action="task-select" title="현재 과제" meta={task.difficulty} />
                   <label className="game-save-json-field">
                     <span>원본 챕터</span>
                     <select
@@ -162,15 +182,15 @@ export default function SiCodingAdvancedTab({
                     </select>
                   </label>
                   <div className="games-rank-split">
-                    <SmallStat label="고객" value={task.client} />
-                    <SmallStat label="검수" value={outcome ? `${outcome.score}점` : '미제출'} />
-                    <SmallStat label="힌트" value={`${revealedHints.length}/${task.hints?.length || 0}`} />
-                    <SmallStat label="마감" value={task.deadline} />
-                    <SmallStat label="파일" value={`${files.length}개`} />
-                    <SmallStat label="문서/체크" value={`${currentTaskRow?.documentCount || 0}/${currentTaskRow?.checkpointCount || 0}`} />
-                    <SmallStat label="문서확인" value={documentProgress ? `${documentProgress.checkedRequiredCount}/${documentProgress.requiredCount}` : '-'} />
-                    <SmallStat label="실행/정적" value={`${(currentTaskRow?.executionCount || 0) + (currentTaskRow?.hiddenExecutionCount || 0)}/${currentTaskRow?.checkCount || 0}`} />
-                    <SmallStat label="상태" value={currentTaskRow?.status || '미제출'} />
+                    <SmallStat icon="sponsor" label="고객" value={task.client} />
+                    <SmallStat icon="coding-audit" label="검수" value={outcome ? `${outcome.score}점` : '미제출'} />
+                    <SmallStat icon="hint" label="힌트" value={`${revealedHints.length}/${task.hints?.length || 0}`} />
+                    <SmallStat icon="clock" label="마감" value={task.deadline} />
+                    <SmallStat icon="coding-file" label="파일" value={`${files.length}개`} />
+                    <SmallStat icon="archive" label="문서/체크" value={`${currentTaskRow?.documentCount || 0}/${currentTaskRow?.checkpointCount || 0}`} />
+                    <SmallStat icon="document-review" label="문서확인" value={documentProgress ? `${documentProgress.checkedRequiredCount}/${documentProgress.requiredCount}` : '-'} />
+                    <SmallStat icon="execute" label="실행/정적" value={`${(currentTaskRow?.executionCount || 0) + (currentTaskRow?.hiddenExecutionCount || 0)}/${currentTaskRow?.checkCount || 0}`} />
+                    <SmallStat icon="status" label="상태" value={currentTaskRow?.status || '미제출'} />
                   </div>
                   <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{task.summary}</p>
                   <div className="games-chip-row">
@@ -179,27 +199,21 @@ export default function SiCodingAdvancedTab({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>요구사항</h2>
-                    <span>{task.goals?.length || 0}개</span>
-                  </div>
+                  <SiCodingPanelTitle action="target" title="요구사항" meta={`${task.goals?.length || 0}개`} />
                   <div className="game-save-list">
                     {(task.goals || []).map((goal, index) => (
-                      <article className="game-save-row" key={`${goal}-${index}`}>
+                      <SiCodingIconRow action="target" label={goal} key={`${goal}-${index}`}>
                         <div>
                           <span>목표 {index + 1}</span>
                           <strong>{goal}</strong>
                         </div>
-                      </article>
+                      </SiCodingIconRow>
                     ))}
                   </div>
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>실행</h2>
-                    <span>{latestEvaluation?.grade || '진행 중'}</span>
-                  </div>
+                  <SiCodingPanelTitle action="coding-submit" title="실행" meta={latestEvaluation?.grade || '진행 중'} />
                   <div style={{ display: 'grid', gap: 8 }}>
                     <ActionButton action="coding-submit" cue="codeSubmit" onClick={submitCurrentTask}>현재 과제 검수</ActionButton>
                     <ActionButton action="hint" onClick={revealCurrentHint} disabled={!canRevealHint}>힌트 열기</ActionButton>
@@ -209,19 +223,21 @@ export default function SiCodingAdvancedTab({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>회사 지원</h2>
-                    <span>예비비 {support.cashReserve}pt</span>
-                  </div>
+                  <SiCodingPanelTitle action="sponsor" title="회사 지원" meta={`예비비 ${support.cashReserve}pt`} />
                   <div className="games-rank-split">
-                    <SmallStat label="누적 지원비" value={`${support.totalSpent}pt`} />
-                    <SmallStat label="힌트 보전" value={`${support.usage?.hintCredits || 0}회`} />
-                    <SmallStat label="QA 완충" value={`${support.usage?.riskReliefCredits || 0}회`} />
-                    <SmallStat label="열린 리스크" value={`${support.openRiskCount || 0}건`} />
+                    <SmallStat icon="sponsor" label="누적 지원비" value={`${support.totalSpent}pt`} />
+                    <SmallStat icon="support-hint" label="힌트 보전" value={`${support.usage?.hintCredits || 0}회`} />
+                    <SmallStat icon="support-risk" label="QA 완충" value={`${support.usage?.riskReliefCredits || 0}회`} />
+                    <SmallStat icon="coding-blocked" label="열린 리스크" value={`${support.openRiskCount || 0}건`} />
                   </div>
                   <div className="game-save-list" style={{ marginTop: 12 }}>
                     {(support.actions || []).map((item) => (
-                      <article className="game-save-row" key={item.key}>
+                      <SiCodingIconRow
+                        action={item.key === 'hint' ? 'support-hint' : 'support-risk'}
+                        className={item.disabled ? 'is-locked' : ''}
+                        label={item.title}
+                        key={item.key}
+                      >
                         <div>
                           <span>{item.detail}</span>
                           <strong>{item.title}</strong>
@@ -234,16 +250,16 @@ export default function SiCodingAdvancedTab({
                         >
                           {item.key === 'hint' ? '지식 지원' : 'QA 지원'} · {item.cost}pt
                         </GameControlButton>
-                      </article>
+                      </SiCodingIconRow>
                     ))}
                     {(support.entries || []).slice(0, 3).map((entry) => (
-                      <article className="game-save-row" key={entry.id}>
+                      <SiCodingIconRow action="sponsor" label={entry.title} key={entry.id}>
                         <div>
                           <span>{entry.detail}</span>
                           <strong>{entry.title}</strong>
                         </div>
                         <strong>-{entry.amount}pt</strong>
-                      </article>
+                      </SiCodingIconRow>
                     ))}
                   </div>
                 </section>
@@ -251,15 +267,12 @@ export default function SiCodingAdvancedTab({
         
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>플레이어 성장</h2>
-                    <span>{profileSummary.career.rankTitle}</span>
-                  </div>
+                  <SiCodingPanelTitle action="growth" title="플레이어 성장" meta={profileSummary.career.rankTitle} />
                   <div className="games-rank-split">
-                    <SmallStat label="평판" value={profileSummary.career.reputationLabel} />
-                    <SmallStat label="성장 제출" value={`${profileSummary.totalImprovedRuns}회`} />
-                    <SmallStat label="완전 통과" value={`${profileSummary.perfectRuns}회`} />
-                    <SmallStat label="시작 보정" value={`체력 ${profileSummary.career.nextStartBonus.stamina >= 0 ? '+' : ''}${profileSummary.career.nextStartBonus.stamina}`} />
+                    <SmallStat icon="title" label="평판" value={profileSummary.career.reputationLabel} />
+                    <SmallStat icon="growth" label="성장 제출" value={`${profileSummary.totalImprovedRuns}회`} />
+                    <SmallStat icon="trophy" label="완전 통과" value={`${profileSummary.perfectRuns}회`} />
+                    <SmallStat icon="status" label="시작 보정" value={`체력 ${profileSummary.career.nextStartBonus.stamina >= 0 ? '+' : ''}${profileSummary.career.nextStartBonus.stamina}`} />
                   </div>
                   {profileSummary.lastProgressLog.length ? (
                     <div className="games-empty" style={{ textAlign: 'left', marginTop: 12 }}>
@@ -268,22 +281,23 @@ export default function SiCodingAdvancedTab({
                   ) : null}
                   <div className="game-save-list" style={{ marginTop: 12 }}>
                     {profileSummary.statRows.map((item) => (
-                      <article className="game-save-row" key={item.key}>
+                      <SiCodingIconRow action="growth" className="is-good" label={item.label} key={item.key}>
                         <div>
                           <span>{item.summary}</span>
                           <strong>{item.label}</strong>
                         </div>
                         <strong>Lv.{item.level}</strong>
-                      </article>
+                      </SiCodingIconRow>
                     ))}
                   </div>
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>숙련도와 특성</h2>
-                    <span>{profileSummary.traitRows.filter((item) => item.unlocked).length}/{profileSummary.traitRows.length}</span>
-                  </div>
+                  <SiCodingPanelTitle
+                    action="upgrade"
+                    title="숙련도와 특성"
+                    meta={`${profileSummary.traitRows.filter((item) => item.unlocked).length}/${profileSummary.traitRows.length}`}
+                  />
                   <div className="games-chip-row">
                     {profileSummary.domainRows.map((item) => (
                       <span className="game-save-chip" key={item.key}>{item.label} Lv.{item.level}</span>
@@ -291,13 +305,19 @@ export default function SiCodingAdvancedTab({
                   </div>
                   <div className="game-save-list" style={{ marginTop: 12 }}>
                     {profileSummary.traitRows.map((item) => (
-                      <article className="game-save-row" key={item.key} style={!item.unlocked ? { opacity: 0.5 } : null}>
+                      <SiCodingIconRow
+                        action={item.unlocked ? 'complete' : 'lock'}
+                        className={item.unlocked ? 'is-good' : 'is-locked'}
+                        label={item.label}
+                        key={item.key}
+                        style={!item.unlocked ? { opacity: 0.5 } : null}
+                      >
                         <div>
                           <span>{item.unlocked ? '해금됨' : '잠김'}</span>
                           <strong>{item.label}</strong>
                           <span>{item.description}</span>
                         </div>
-                      </article>
+                      </SiCodingIconRow>
                     ))}
                   </div>
                 </section>
@@ -305,13 +325,16 @@ export default function SiCodingAdvancedTab({
         
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>프로젝트 진행도</h2>
-                    <span>{projectRows.length}개 프로젝트</span>
-                  </div>
+                  <SiCodingPanelTitle action="project" title="프로젝트 진행도" meta={`${projectRows.length}개 프로젝트`} />
                   <div className="game-save-list">
                     {projectRows.map((project) => (
-                      <article className="game-save-row" key={project.projectName} style={project.active ? { borderColor: '#2673a6' } : null}>
+                      <SiCodingIconRow
+                        action={project.active ? 'project-select' : 'project'}
+                        className={project.active ? 'is-good' : ''}
+                        label={project.projectName}
+                        key={project.projectName}
+                        style={project.active ? { borderColor: '#2673a6' } : null}
+                      >
                         <div>
                           <span>완료 {project.submittedTasks}/{project.totalTasks} · 문서 {project.documentTasks} · 실행 {project.executionTasks}</span>
                           <strong>{project.projectName}</strong>
@@ -320,24 +343,21 @@ export default function SiCodingAdvancedTab({
                         <GameControlButton action="project" className="tcg-primary-action" onClick={() => selectTask(project.firstTaskId, 'code')}>
                           열기 · {project.progressPct}%
                         </GameControlButton>
-                      </article>
+                      </SiCodingIconRow>
                     ))}
                   </div>
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>현재 과제 인사이트</h2>
-                    <span>{task.cardSummary?.execution || 'static-check'}</span>
-                  </div>
+                  <SiCodingPanelTitle action="analysis" title="현재 과제 인사이트" meta={task.cardSummary?.execution || 'static-check'} />
                   <div className="game-save-list">
                     {insightRows.length ? insightRows.map((item) => (
-                      <article className="game-save-row" key={item.id}>
+                      <SiCodingIconRow action="analysis" label={item.label} key={item.id}>
                         <div>
                           <span>{item.label}</span>
                           <strong>{item.detail}</strong>
                         </div>
-                      </article>
+                      </SiCodingIconRow>
                     )) : <div className="games-empty">이 과제에는 별도 인사이트가 없습니다.</div>}
                   </div>
                 </section>
@@ -345,10 +365,7 @@ export default function SiCodingAdvancedTab({
         
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>과제 목록</h2>
-                    <span>{filteredRows.length}/{rows.length}개</span>
-                  </div>
+                  <SiCodingPanelTitle action="task-select" title="과제 목록" meta={`${filteredRows.length}/${rows.length}개`} />
                   <div className="games-rank-split" style={{ marginBottom: 12 }}>
                     <label className="game-save-json-field" style={{ margin: 0 }}>
                       <span>검색</span>
@@ -400,7 +417,12 @@ export default function SiCodingAdvancedTab({
                   </div>
                   <div className="game-save-list">
                     {filteredRows.map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <SiCodingIconRow
+                        action={row.score === null ? 'task-select' : row.score >= 75 ? 'coding-test-pass' : 'coding-test-fail'}
+                        className={row.score === null ? '' : row.score >= 75 ? 'is-good' : 'is-danger'}
+                        label={row.id}
+                        key={row.id}
+                      >
                         <div>
                           <span>{row.difficulty} / {row.modeLabel} · 문서 {row.documentCount} · 체크 {row.checkpointCount} · 실행 {row.executionCount + row.hiddenExecutionCount} · 정적 {row.checkCount}</span>
                           <strong>{row.id}</strong>
@@ -418,25 +440,22 @@ export default function SiCodingAdvancedTab({
                         <GameControlButton action="target" className="tcg-primary-action" onClick={() => selectTask(row.id, 'code')}>
                           열기 · {row.score === null ? row.status : `${row.score}점`}
                         </GameControlButton>
-                      </article>
+                      </SiCodingIconRow>
                     ))}
                     {!filteredRows.length ? <div className="games-empty">현재 필터에 맞는 과제가 없습니다.</div> : null}
                   </div>
                 </section>
         
                 <section className="games-panel" ref={hintPanelRef}>
-                  <div className="games-panel-title">
-                    <h2>힌트</h2>
-                    <span>{revealedHints.length}/{task.hints?.length || 0}</span>
-                  </div>
+                  <SiCodingPanelTitle action="hint" title="힌트" meta={`${revealedHints.length}/${task.hints?.length || 0}`} />
                   <div className="game-save-list">
                     {revealedHints.length ? revealedHints.map((hint, index) => (
-                      <article className="game-save-row" key={`${hint}-${index}`}>
+                      <SiCodingIconRow action="hint" className="is-warning" label={`힌트 ${index + 1}`} key={`${hint}-${index}`}>
                         <div>
                           <span>힌트 {index + 1}</span>
                           <strong>{hint}</strong>
                         </div>
-                      </article>
+                      </SiCodingIconRow>
                     )) : <div className="games-empty">아직 열람한 힌트가 없습니다.</div>}
                   </div>
                 </section>
@@ -444,10 +463,7 @@ export default function SiCodingAdvancedTab({
         
               <section className="games-detail-grid">
                 <section className="games-panel" ref={codePanelRef}>
-                  <div className="games-panel-title">
-                    <h2>코드 파일</h2>
-                    <span>{activeFile?.path || activeFileId}</span>
-                  </div>
+                  <SiCodingPanelTitle action="coding-file" title="코드 파일" meta={activeFile?.path || activeFileId} />
                   <label className="game-save-json-field">
                     <span>파일</span>
                     <select value={activeFileId} onChange={(event) => setSelectedFileId(event.target.value)} data-game-sfx-change="codeFileSelect">
@@ -468,10 +484,7 @@ export default function SiCodingAdvancedTab({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>작업 보고</h2>
-                    <span>{reportText.trim().length}/{task.reportMinLength || 0}자</span>
-                  </div>
+                  <SiCodingPanelTitle action="archive" title="작업 보고" meta={`${reportText.trim().length}/${task.reportMinLength || 0}자`} />
                   <label className="game-save-json-field">
                     <span>검수 보고</span>
                     <textarea
@@ -482,10 +495,12 @@ export default function SiCodingAdvancedTab({
                     />
                   </label>
         
-                  <div className="games-panel-title" style={{ marginTop: 18 }}>
-                    <h2>검수 결과</h2>
-                    <span>{outcome ? `${outcome.passCount}/${outcome.totalChecks}` : '미실행'}</span>
-                  </div>
+                  <SiCodingPanelTitle
+                    action={outcome ? outcome.score >= 75 ? 'coding-test-pass' : 'coding-test-fail' : 'coding-audit'}
+                    title="검수 결과"
+                    meta={outcome ? `${outcome.passCount}/${outcome.totalChecks}` : '미실행'}
+                    style={{ marginTop: 18 }}
+                  />
                   <div className="game-save-list">
                     {outcome ? outcome.results.map((result, index) => (
                       <ResultRow result={result} key={`${result.label}-${index}`} />
@@ -496,31 +511,25 @@ export default function SiCodingAdvancedTab({
         
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>프로젝트 판정</h2>
-                    <span>{latestEvaluation?.grade || '대기'}</span>
-                  </div>
+                  <SiCodingPanelTitle action={evaluationAction(latestEvaluation)} title="프로젝트 판정" meta={latestEvaluation?.grade || '대기'} />
                   {latestEvaluation ? (
                     <div className="games-rank-split">
-                      <SmallStat label="등급" value={latestEvaluation.grade} />
-                      <SmallStat label="제출" value={`${latestEvaluation.submittedTasks}/${latestEvaluation.totalTasks}`} />
-                      <SmallStat label="완전 통과" value={latestEvaluation.fullPassCount} />
-                      <SmallStat label="리스크" value={latestEvaluation.openRiskCount} />
-                      <SmallStat label="문서 누락" value={latestEvaluation.documentMetrics?.missingRequiredCount || 0} />
-                      <SmallStat label="문서 재확인" value={latestEvaluation.documentMetrics?.wrongSelectedCount || 0} />
+                      <SmallStat icon={evaluationAction(latestEvaluation)} label="등급" value={latestEvaluation.grade} />
+                      <SmallStat icon="coding-submit" label="제출" value={`${latestEvaluation.submittedTasks}/${latestEvaluation.totalTasks}`} />
+                      <SmallStat icon="trophy" label="완전 통과" value={latestEvaluation.fullPassCount} />
+                      <SmallStat icon="coding-blocked" label="리스크" value={latestEvaluation.openRiskCount} />
+                      <SmallStat icon="document-unreview" label="문서 누락" value={latestEvaluation.documentMetrics?.missingRequiredCount || 0} />
+                      <SmallStat icon="document-review" label="문서 재확인" value={latestEvaluation.documentMetrics?.wrongSelectedCount || 0} />
                     </div>
                   ) : <div className="games-empty">프로젝트 종료 판정을 실행하면 전체 제출 상태와 리스크 기준으로 등급이 계산됩니다.</div>}
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>후속 현장 후보</h2>
-                    <span>{seedRoadmap.generatedSeeds.length}종</span>
-                  </div>
+                  <SiCodingPanelTitle action="project-select" title="후속 현장 후보" meta={`${seedRoadmap.generatedSeeds.length}종`} />
                   {seedRoadmap.followUpPlan ? (
                     <>
                       <div className="game-save-list" style={{ marginBottom: 12 }}>
-                        <article className="game-save-row">
+                        <SiCodingIconRow action={evaluationAction(latestEvaluation)} className={evaluationClassName(latestEvaluation)} label={seedRoadmap.followUpPlan.title}>
                           <div>
                             <span>{seedRoadmap.followUpPlan.badge} · {seedRoadmap.followUpPlan.contract} · {seedRoadmap.followUpPlan.duration}</span>
                             <strong>{seedRoadmap.followUpPlan.title}</strong>
@@ -529,7 +538,7 @@ export default function SiCodingAdvancedTab({
                             <span>이월 정산: {seedRoadmap.followUpPlan.carryOverSummary}</span>
                           </div>
                           <strong>{seedRoadmap.followUpPlan.code}</strong>
-                        </article>
+                        </SiCodingIconRow>
                       </div>
                       <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
                         <ActionButton action="deploy" onClick={startSelectedSeed} disabled={!seedRoadmap.selectedSeed}>
@@ -538,7 +547,13 @@ export default function SiCodingAdvancedTab({
                       </div>
                       <div className="game-save-list">
                         {seedRoadmap.generatedSeeds.map((seed) => (
-                          <article className="game-save-row" key={seed.id} style={seed.id === seedRoadmap.selectedSeed?.id ? { borderColor: '#2673a6' } : null}>
+                          <SiCodingIconRow
+                            action={seed.id === seedRoadmap.selectedSeed?.id ? 'project-select' : 'project'}
+                            className={seed.id === seedRoadmap.selectedSeed?.id ? 'is-good' : ''}
+                            label={seed.projectName}
+                            key={seed.id}
+                            style={seed.id === seedRoadmap.selectedSeed?.id ? { borderColor: '#2673a6' } : null}
+                          >
                             <div>
                               <span>{seed.recommendation} · 적합도 {seed.fitBand} {seed.fitScore}점 · 압박 {seed.pressure}</span>
                               <strong>{seed.projectName}</strong>
@@ -554,7 +569,7 @@ export default function SiCodingAdvancedTab({
                             <GameControlButton action="target" className="tcg-primary-action" onClick={() => setState((current) => selectProjectSeedAction(current, seed.id))}>
                               {seed.id === seedRoadmap.selectedSeed?.id ? '선택됨' : `선택 · ${seed.rewardScore}pt`}
                             </GameControlButton>
-                          </article>
+                          </SiCodingIconRow>
                         ))}
                       </div>
                     </>
@@ -564,10 +579,7 @@ export default function SiCodingAdvancedTab({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>최근 로그</h2>
-                    <span>{state.runId}</span>
-                  </div>
+                  <SiCodingPanelTitle action="logs" title="최근 로그" meta={state.runId} />
                   <div className="games-activity-list">
                     {state.log.slice(0, 10).map((line, index) => (
                       <div key={`${line}-${index}`}>
