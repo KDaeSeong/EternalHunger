@@ -1,8 +1,8 @@
 import {
+  CardTypeBadge,
   KeywordBadges,
   cardAtk,
   cardKind,
-  subType,
 } from './TcgPlayBoard';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 
@@ -42,7 +42,7 @@ export default function DualAcademyTcgHandTab(props) {
                 <article className={`tcg-card is-${card.tone} ${selectedHandId === card.instanceId ? 'is-selected' : ''}`} key={card.instanceId}>
                   <div className="tcg-card-head">
                     <span>{card.cost ?? '-'}</span>
-                    <strong>{cardKind(card)} {subType(card)}</strong>
+                    <CardTypeBadge card={card} />
                   </div>
                   <div className="tcg-card-art" />
                   <h3>{card.name}</h3>

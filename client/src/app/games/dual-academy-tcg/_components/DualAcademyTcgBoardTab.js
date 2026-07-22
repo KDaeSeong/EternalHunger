@@ -50,11 +50,11 @@ export default function DualAcademyTcgBoardTab(props) {
               </div>
               <dl className="tcg-small-stats">
                 <div>
-                  <dt><GameActionIcon action="grave" label="내 묘지" />내 묘지</dt>
+                  <dt><GameActionIcon action="tcg-zone-grave" label="내 묘지" />내 묘지</dt>
                   <dd>{state.players.player.grave.length}</dd>
                 </div>
                 <div>
-                  <dt><GameActionIcon action="banish" label="내 제외" />내 제외</dt>
+                  <dt><GameActionIcon action="tcg-zone-banished" label="내 제외" />내 제외</dt>
                   <dd>{state.players.player.banished.length}</dd>
                 </div>
                 <div>
@@ -63,14 +63,14 @@ export default function DualAcademyTcgBoardTab(props) {
                 </div>
               </dl>
               <div className="tcg-action-controls" style={{ marginTop: 12 }}>
-                <GameControlButton action="zone" onClick={() => openZoneView('player', 'deck', true)}>내 덱</GameControlButton>
-                <GameControlButton action="zone" onClick={() => openZoneView('player', 'grave', true)}>내 묘지</GameControlButton>
-                <GameControlButton action="zone" onClick={() => openZoneView('player', 'banished', true)}>내 제외</GameControlButton>
-                <GameControlButton action="zone" onClick={() => openZoneView('enemy', 'deck', false)}>AI 덱</GameControlButton>
-                <GameControlButton action="zone" onClick={() => openZoneView('enemy', 'grave', true)}>AI 묘지</GameControlButton>
-                <GameControlButton action="zone" onClick={() => openZoneView('enemy', 'banished', true)}>AI 제외</GameControlButton>
+                <GameControlButton action="tcg-zone-deck" onClick={() => openZoneView('player', 'deck', true)}>내 덱</GameControlButton>
+                <GameControlButton action="tcg-zone-grave" onClick={() => openZoneView('player', 'grave', true)}>내 묘지</GameControlButton>
+                <GameControlButton action="tcg-zone-banished" onClick={() => openZoneView('player', 'banished', true)}>내 제외</GameControlButton>
+                <GameControlButton action="tcg-zone-deck" onClick={() => openZoneView('enemy', 'deck', false)}>AI 덱</GameControlButton>
+                <GameControlButton action="tcg-zone-grave" onClick={() => openZoneView('enemy', 'grave', true)}>AI 묘지</GameControlButton>
+                <GameControlButton action="tcg-zone-banished" onClick={() => openZoneView('enemy', 'banished', true)}>AI 제외</GameControlButton>
               </div>
-              <GameControlButton action="effect" className="tcg-primary-action" onClick={() => act((current) => activateFieldIgnition(current, 'player'))} disabled={!canMain || !state.players.player.field}>
+              <GameControlButton action="tcg-card-field" className="tcg-primary-action" onClick={() => act((current) => activateFieldIgnition(current, 'player'))} disabled={!canMain || !state.players.player.field}>
                 필드 효과
               </GameControlButton>
               <GameControlButton
@@ -88,7 +88,7 @@ export default function DualAcademyTcgBoardTab(props) {
               <div className="tcg-action-controls" style={{ marginTop: 12 }}>
                 {monsterEffectRows.map((row) => (
                   <GameControlButton
-                    action="effect"
+                    action={row.action === 'hina' ? 'tcg-hina-discipline' : 'tcg-yuuka-guard'}
                     key={row.id}
                     onClick={() => act((current) => (
                       row.action === 'hina'

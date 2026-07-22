@@ -21,7 +21,11 @@ const manifest = JSON.parse(await readFile(
   'utf8',
 ));
 
-assert.equal(manifest.renderer, 'physical-model-v2-orchestra');
+assert.equal(manifest.renderer, 'sampled-orchestra-v3-vsco2-ce');
+assert.equal(manifest.sampleLibrary?.name, 'VS Chamber Orchestra 2 Community Edition - 50 Sample Pack');
+assert.equal(manifest.sampleLibrary?.license, 'CC0-1.0');
+assert.equal(manifest.sampleLibrary?.sampledTonalInstruments?.length >= 15, true);
+assert.equal(manifest.sampleLibrary?.sampledPercussion?.length >= 6, true);
 assert.equal(manifest.tracks.length, 10, '듀얼 아카데미 렌더 트랙은 10곡이어야 합니다.');
 assert.equal(
   Object.keys(GAME_BGM_RENDERED_TRACKS).filter((theme) => theme.startsWith('academy-')).length,
@@ -32,19 +36,36 @@ assert.equal(new Set(manifest.tracks.map((track) => track.file)).size, 10);
 
 let totalBytes = 0;
 const soundtrackInstruments = new Set();
+const sampledInstruments = new Set();
+const sampledSourceFiles = new Set();
+let sampledEvents = 0;
 for (const soundtrackRow of DUAL_ACADEMY_SOUNDTRACK) {
   const renderedTrack = gameBgmRenderedTrack(soundtrackRow.theme);
   const manifestTrack = manifest.tracks.find((track) => track.theme === soundtrackRow.theme);
   assert.ok(renderedTrack, `렌더 트랙 매핑 누락: ${soundtrackRow.theme}`);
   assert.ok(manifestTrack, `렌더 manifest 누락: ${soundtrackRow.theme}`);
-  assert.equal(renderedTrack.renderer, 'physical-model-v2-orchestra');
+  assert.equal(renderedTrack.renderer, 'sampled-orchestra-v3-vsco2-ce');
   assert.equal(renderedTrack.loop, true);
   assert.equal(renderedTrack.loopStartSeconds, 0.85);
   assert.match(renderedTrack.src, /^\/audio\/dual-academy-tcg\/[a-z-]+\.wav$/);
   assert.equal(manifestTrack.channels, 2, `스테레오 manifest 오류: ${soundtrackRow.theme}`);
   assert.equal(manifestTrack.sampleRate, 22_050, `샘플레이트 오류: ${soundtrackRow.theme}`);
   assert.equal(manifestTrack.instruments.length >= 15, true, `장면 오케스트라 편성이 부족합니다: ${soundtrackRow.theme}`);
+  assert.equal(manifestTrack.sampleUsage?.events >= 90, true, `실제 연주 샘플 이벤트가 부족합니다: ${soundtrackRow.theme}`);
+  assert.equal(
+    Object.keys(manifestTrack.sampleUsage?.instruments || {}).length >= 12,
+    true,
+    `실제로 소리 난 샘플 악기 종류가 부족합니다: ${soundtrackRow.theme}`,
+  );
+  assert.equal(
+    Object.keys(manifestTrack.sampleUsage?.files || {}).length >= 16,
+    true,
+    `실제로 소리 난 원본 샘플 종류가 부족합니다: ${soundtrackRow.theme}`,
+  );
   for (const instrument of manifestTrack.instruments) soundtrackInstruments.add(instrument);
+  for (const instrument of manifestTrack.sampledInstruments) sampledInstruments.add(instrument);
+  for (const file of Object.keys(manifestTrack.sampleUsage.files)) sampledSourceFiles.add(file);
+  sampledEvents += manifestTrack.sampleUsage.events;
 
   const filePath = path.join(publicRoot, ...renderedTrack.src.split('/').filter(Boolean));
   const wave = await readFile(filePath);
@@ -86,15 +107,27 @@ for (const soundtrackRow of DUAL_ACADEMY_SOUNDTRACK) {
 
 assert.equal(totalBytes >= 60_000_000 && totalBytes <= 78_000_000, true, '듀얼 아카데미 렌더 음원 용량이 예상 범위를 벗어났습니다.');
 for (const instrument of [
-  'piano', 'guitar', 'violin', 'viola', 'cello', 'flute', 'oboe', 'clarinet', 'horn',
-  'trumpet', 'trombone', 'harp', 'celesta', 'choir', 'timpani', 'taiko',
+  'vibraphone', 'bell', 'violin', 'viola', 'cello', 'flute', 'oboe', 'bassoon', 'horn',
+  'trumpet', 'trombone', 'harp', 'celesta', 'timpani', 'taiko',
 ]) {
   assert.equal(soundtrackInstruments.has(instrument), true, `전체 편성 악기 누락: ${instrument}`);
 }
+for (const instrument of [
+  'vibraphone', 'bell', 'violin', 'viola', 'cello', 'flute', 'oboe', 'bassoon', 'horn',
+  'trumpet', 'trombone', 'harp', 'celesta', 'timpani', 'orchestral-snare', 'cymbal', 'tom',
+]) {
+  assert.equal(sampledInstruments.has(instrument), true, `실제 연주 샘플 편성 누락: ${instrument}`);
+}
+assert.equal(sampledSourceFiles.size >= 29, true, '전체 OST에서 실제 원본 샘플 종류가 부족합니다.');
+assert.equal(sampledEvents >= 1_050, true, '전체 OST에서 실제 연주 샘플 이벤트가 부족합니다.');
 assert.match(rendererSource, /theme: 'academy-mika'[\s\S]*lead: 'celesta'/, '미카 테마에 셀레스타가 필요합니다.');
 assert.match(rendererSource, /theme: 'academy-hina'[\s\S]*lead: 'trumpet'/, '히나 테마에 트럼펫이 필요합니다.');
-assert.match(rendererSource, /theme: 'academy-yuuka'[\s\S]*lead: 'piano'/, '유우카 테마에 피아노가 필요합니다.');
+assert.match(rendererSource, /theme: 'academy-ready'[\s\S]*lead: 'vibraphone'/, '준비 테마에 비브라폰이 필요합니다.');
+assert.match(rendererSource, /theme: 'academy-main'[\s\S]*lead: 'bell'/, '필드 전개 테마에 벨이 필요합니다.');
+assert.match(rendererSource, /theme: 'academy-yuuka'[\s\S]*lead: 'vibraphone'/, '유우카 테마에 비브라폰이 필요합니다.');
+assert.match(rendererSource, /theme: 'academy-defeat'[\s\S]*woodwind: 'bassoon'/, '패배 테마에 바순이 필요합니다.');
 assert.match(rendererSource, /percussion: 'hybrid-orchestra'/, '전투 장면에 하이브리드 오케스트라 타악기가 필요합니다.');
+assert.match(rendererSource, /sampled-orchestra-v3-vsco2-ce/, '샘플 오케스트라 렌더러 식별자가 필요합니다.');
 assert.match(rendererSource, /channels: 2/, '스테레오 렌더링 설정이 필요합니다.');
 
 console.log(JSON.stringify({
@@ -102,5 +135,8 @@ console.log(JSON.stringify({
   durationSeconds: manifest.tracks.map((track) => track.durationSeconds),
   totalMiB: Number((totalBytes / 1_048_576).toFixed(2)),
   instrumentCount: soundtrackInstruments.size,
+  sampledInstrumentCount: sampledInstruments.size,
+  sampledSourceFiles: sampledSourceFiles.size,
+  sampledEvents,
   renderer: manifest.renderer,
 }, null, 2));

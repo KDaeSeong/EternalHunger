@@ -5894,6 +5894,19 @@
   font-weight: 950;
 }
 
+.tcg-card-type,
+.tcg-lane-title h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tcg-card-type .game-action-icon,
+.tcg-lane-title h2 .game-action-icon {
+  width: 15px;
+  height: 15px;
+}
+
 .tcg-card-art {
   min-height: 70px;
   border-radius: 7px;

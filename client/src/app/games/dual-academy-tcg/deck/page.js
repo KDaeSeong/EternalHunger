@@ -28,6 +28,15 @@ function KeywordBadges({ card }) {
   );
 }
 
+function deckCardAction(card) {
+  if (card?.role === 'Unit') return 'tcg-card-monster';
+  if (card?.tags?.includes('field')) return 'tcg-card-field';
+  if (card?.tags?.includes('counter')) return 'tcg-card-counter';
+  if (card?.tags?.includes('quick')) return 'tcg-card-quick';
+  if (card?.tags?.includes('trap')) return 'tcg-card-trap';
+  return 'tcg-card-spell';
+}
+
 function countCards(cardIds) {
   return cardIds.reduce((map, id) => {
     map.set(id, (map.get(id) || 0) + 1);
@@ -227,15 +236,15 @@ export default function DualAcademyTcgDeckPage() {
             </section>
             <dl className="tcg-small-stats">
               <div>
-                <dt>유닛</dt>
+                <dt><GameActionIcon action="tcg-card-monster" label="유닛" />유닛</dt>
                 <dd>{summary.unitCount}</dd>
               </div>
               <div>
-                <dt>전술</dt>
+                <dt><GameActionIcon action="tcg-card-spell" label="전술" />전술</dt>
                 <dd>{summary.tacticCount}</dd>
               </div>
               <div>
-                <dt>평균 비용</dt>
+                <dt><GameActionIcon action="gauge" label="평균 비용" />평균 비용</dt>
                 <dd>{summary.averageCost}</dd>
               </div>
             </dl>
@@ -289,7 +298,10 @@ export default function DualAcademyTcgDeckPage() {
                   <article className={`tcg-card is-${card.tone}`} key={card.id}>
                     <div className="tcg-card-head">
                       <span>{card.cost}</span>
-                      <strong>{card.role}</strong>
+                      <strong className="tcg-card-type">
+                        <GameActionIcon action={deckCardAction(card)} label={card.role} />
+                        {card.role}
+                      </strong>
                     </div>
                     <div className="tcg-card-art" />
                     <h3>{card.name}</h3>

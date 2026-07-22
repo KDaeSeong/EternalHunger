@@ -1,5 +1,6 @@
 'use client';
 
+import GameActionIcon from '../../_components/GameActionIcon';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { TCG_CHARACTER_LIST, keywordLabels } from '../_lib/tcgCatalog';
 import {
@@ -28,6 +29,41 @@ export function subType(card) {
   if (card.tags?.includes('counter')) return 'Counter';
   if (card.tags?.includes('quick')) return 'Quick';
   return '';
+}
+
+export function cardSemanticAction(card) {
+  if (!card) return 'tcg-zone-empty';
+  if (card.face === 'down' || card.face === 'FaceDown') return 'tcg-card-set';
+  const kind = cardKind(card);
+  const subtype = subType(card);
+  if (subtype === 'Field') return 'tcg-card-field';
+  if (subtype === 'Counter') return 'tcg-card-counter';
+  if (subtype === 'Quick') return 'tcg-card-quick';
+  if (kind === 'Monster') return 'tcg-card-monster';
+  if (kind === 'Trap') return 'tcg-card-trap';
+  return 'tcg-card-spell';
+}
+
+export function zoneSemanticAction(zone) {
+  return {
+    deck: 'tcg-zone-deck',
+    hand: 'tcg-zone-hand',
+    monster: 'tcg-zone-monster',
+    spellTrap: 'tcg-zone-spell-trap',
+    field: 'tcg-zone-field',
+    grave: 'tcg-zone-grave',
+    banished: 'tcg-zone-banished',
+  }[zone] || 'zone';
+}
+
+export function CardTypeBadge({ card, label = '' }) {
+  const text = label || (card ? `${cardKind(card)} ${subType(card)}`.trim() : 'EMPTY');
+  return (
+    <strong className="tcg-card-type">
+      <GameActionIcon action={cardSemanticAction(card)} label={text} />
+      {text}
+    </strong>
+  );
 }
 
 export function cardAtk(card) {
@@ -143,7 +179,7 @@ export function ZoneButton({ card, label, active, highlight, cue = 'select', onC
     >
       <div className="tcg-card-head">
         <span>{label}</span>
-        <strong>{card ? cardKind(card) : 'EMPTY'}</strong>
+        <CardTypeBadge card={card} />
       </div>
       <div className="tcg-card-art" />
       {children || <CardFace card={card} small />}
@@ -168,7 +204,10 @@ function ArchiveCard({ card, index, reveal }) {
       <article className="tcg-card">
         <div className="tcg-card-head">
           <span>#{index + 1}</span>
-          <strong>비공개</strong>
+          <strong className="tcg-card-type">
+            <GameActionIcon action="tcg-card-set" label="비공개" />
+            비공개
+          </strong>
         </div>
         <div className="tcg-card-art" />
         <h3>덱 카드</h3>
@@ -181,7 +220,7 @@ function ArchiveCard({ card, index, reveal }) {
     <article className={`tcg-card is-${card?.tone || 'blue'}`}>
       <div className="tcg-card-head">
         <span>#{index + 1}</span>
-        <strong>{cardKind(card)} {subType(card)}</strong>
+        <CardTypeBadge card={card} />
       </div>
       <div className="tcg-card-art" />
       <CardFace card={card} />
@@ -199,7 +238,7 @@ export function ZoneArchivePanel({ state, zoneView, onClose }) {
   return (
     <section className="tcg-panel">
       <div className="tcg-lane-title">
-        <h2>{PLAYER_LABELS[zoneView.player]} {zoneLabel}</h2>
+        <h2><GameActionIcon action={zoneSemanticAction(zoneView.zone)} label={zoneLabel} />{PLAYER_LABELS[zoneView.player]} {zoneLabel}</h2>
         <span>{shownCards.length}장</span>
         <GameControlButton action="close" onClick={onClose}>닫기</GameControlButton>
       </div>
@@ -328,7 +367,7 @@ export function PlayerField({
           </GameControlButton>
         ) : null}
         {selectedAttacker && playerKey !== state.turnPlayer && !player.monster.some(Boolean) ? (
-          <GameControlButton action="attack" className="tcg-core-target" unwrapped onClick={() => onAttack(selectedAttacker.slot, null)}>
+          <GameControlButton action="tcg-direct-attack" className="tcg-core-target" unwrapped onClick={() => onAttack(selectedAttacker.slot, null)}>
             <strong>직접 공격</strong>
             <span>{PLAYER_LABELS[playerKey]} LP를 공격합니다.</span>
           </GameControlButton>
@@ -365,7 +404,7 @@ export function PromptPanel({ state, setState }) {
           <span>체인 {state.chain.length}개가 대기 중입니다.</span>
           <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
             {counterSlots.map(({ card, slot }) => (
-              <GameControlButton action="trap" key={card.instanceId} onClick={() => setState((current) => activateCounterTrap(current, player, slot))}>
+              <GameControlButton action="tcg-card-counter" key={card.instanceId} onClick={() => setState((current) => activateCounterTrap(current, player, slot))}>
                 {card.name} 발동
               </GameControlButton>
             ))}
@@ -391,7 +430,7 @@ export function PromptPanel({ state, setState }) {
           <span>필드에서 강조된 카드를 누르거나 아래 대상 버튼을 누르세요.</span>
           <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
             {prompt.options.map((option) => (
-              <GameControlButton action="target" key={`${option.player}-${option.zone}-${option.slot}`} onClick={() => setState((current) => chooseTarget(current, option))}>
+              <GameControlButton action="tcg-prompt-target" key={`${option.player}-${option.zone}-${option.slot}`} onClick={() => setState((current) => chooseTarget(current, option))}>
                 {option.label}
               </GameControlButton>
             ))}
@@ -404,7 +443,7 @@ export function PromptPanel({ state, setState }) {
           <span>덱에서 가져올 카드를 선택하세요.</span>
           <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
             {prompt.options.map((option) => (
-              <GameControlButton action="cards" key={`${option.deckIndex}-${option.cardId}`} onClick={() => setState((current) => chooseFromDeck(current, option.deckIndex))}>
+              <GameControlButton action="tcg-prompt-deck" key={`${option.deckIndex}-${option.cardId}`} onClick={() => setState((current) => chooseFromDeck(current, option.deckIndex))}>
                 {option.label}
               </GameControlButton>
             ))}
@@ -432,13 +471,13 @@ export function PromptPanel({ state, setState }) {
         <>
           <strong>{prompt.title}</strong>
           <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
-            <GameControlButton action="effect" onClick={() => setState((current) => confirmTrigger(current, true))}>발동</GameControlButton>
+            <GameControlButton action="tcg-prompt-trigger" onClick={() => setState((current) => confirmTrigger(current, true))}>발동</GameControlButton>
             <GameControlButton action="pass" onClick={() => setState((current) => confirmTrigger(current, false))}>넘기기</GameControlButton>
           </div>
         </>
       ) : null}
       {prompt.kind === 'NONE' && state.chain.length ? (
-        <GameControlButton action="chain" onClick={() => setState((current) => resolveChain(current))}>체인 해결</GameControlButton>
+        <GameControlButton action="tcg-chain-resolve" onClick={() => setState((current) => resolveChain(current))}>체인 해결</GameControlButton>
       ) : null}
     </section>
   );

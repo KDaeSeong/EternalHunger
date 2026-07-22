@@ -12,6 +12,15 @@ const PROMPT_LABELS = {
   TRIGGER_CONFIRM: '효과 확인',
 };
 
+const PROMPT_ACTIONS = {
+  NONE: 'phase',
+  RESPOND: 'tcg-prompt-response',
+  SELECT_TARGET: 'tcg-prompt-target',
+  SELECT_FROM_DECK: 'tcg-prompt-deck',
+  SELECT_COST_MIKA_NEGATE: 'tcg-prompt-cost',
+  TRIGGER_CONFIRM: 'tcg-prompt-trigger',
+};
+
 function zoneCount(state, side, zone) {
   const rows = state?.players?.[side]?.[zone];
   return Array.isArray(rows) ? rows.length : 0;
@@ -181,7 +190,7 @@ export function dualAcademyTcgEventPresentation(event) {
   if (effect === 'heal' || /LP 회복/.test(text)) return { action: 'tcg-heal', label: 'LP 회복' };
   if (type === 'DRAW') return { action: 'draw', label: '드로우' };
   if (type === 'SUMMON') return { action: 'summon', label: '소환' };
-  if (type === 'SET') return { action: 'set', label: '카드 세트' };
+  if (type === 'SET') return { action: 'tcg-card-set', label: '카드 세트' };
   if (type === 'POSITION_CHANGE') return { action: 'position', label: '표시 변경' };
   if (type === 'ATTACK_DECLARE') {
     if (/직접 공격/.test(text)) return { action: 'tcg-direct-attack', label: '직접 공격' };
@@ -232,7 +241,7 @@ export function dualAcademyTcgPulse(state) {
       : String(event?.text || '듀얼 이벤트를 기다리고 있습니다.'),
     meta: `T${Number(event?.turn || state?.turn || 1)} · ${String(event?.phase || state?.phase || 'MAIN1')} · ${PLAYER_LABELS[actor] || actor}`,
     promptLabel,
-    promptAction: promptKind === 'RESPOND' ? 'tcg-counter' : promptKind === 'NONE' ? 'phase' : 'target',
+    promptAction: PROMPT_ACTIONS[promptKind] || 'tcg-prompt-target',
     chainLabel: `체인 ${chainCount}`,
     chainAction: chainCount > 0 ? 'chain' : 'tcg-chain-resolve',
     tone: winner === 'player'

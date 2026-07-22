@@ -32,7 +32,7 @@
     "check:tonkatsu-teacher-feedback": "node ./scripts/check-tonkatsu-teacher-feedback.mjs",
     "check:tonkatsu-teacher-soundtrack": "node ./scripts/check-tonkatsu-teacher-soundtrack.mjs && node ./scripts/check-tonkatsu-teacher-rendered-audio.mjs",
     "check:dual-academy-feedback": "node ./scripts/check-dual-academy-feedback.mjs",
-    "check:dual-academy-soundtrack": "node ./scripts/check-dual-academy-soundtrack.mjs && node ./scripts/check-dual-academy-rendered-audio.mjs",
+    "check:dual-academy-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-dual-academy-soundtrack.mjs && node ./scripts/check-dual-academy-rendered-audio.mjs",
     "check:eternal-hunger-feedback": "node ./scripts/check-eternal-hunger-feedback.mjs",
     "check:eternal-hunger-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-eternal-hunger-soundtrack.mjs && node ./scripts/check-eternal-hunger-rendered-audio.mjs",
     "check:sampled-orchestra": "node ./scripts/check-sampled-orchestra.mjs",

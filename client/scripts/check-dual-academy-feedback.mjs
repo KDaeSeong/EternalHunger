@@ -13,6 +13,8 @@ const advisorUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAc
 const inspectUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAcademyTcgInspectTab.js', import.meta.url);
 const logsUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAcademyTcgLogsTab.js', import.meta.url);
 const pulseUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAcademyTcgDuelPulse.js', import.meta.url);
+const handUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAcademyTcgHandTab.js', import.meta.url);
+const deckUrl = new URL('../src/app/games/dual-academy-tcg/deck/page.js', import.meta.url);
 const iconUrl = new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url);
 const sfxUrl = new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url);
 
@@ -25,6 +27,8 @@ const [
   inspectSource,
   logsSource,
   pulseSource,
+  handSource,
+  deckSource,
   iconSource,
   sfxSource,
 ] = await Promise.all([
@@ -36,6 +40,8 @@ const [
   readFile(inspectUrl, 'utf8'),
   readFile(logsUrl, 'utf8'),
   readFile(pulseUrl, 'utf8'),
+  readFile(handUrl, 'utf8'),
+  readFile(deckUrl, 'utf8'),
   readFile(iconUrl, 'utf8'),
   readFile(sfxUrl, 'utf8'),
 ]);
@@ -80,6 +86,22 @@ const summonState = duel({
 });
 assert.equal(cueFor(summonState), 'tcgSummon');
 assert.equal(feedback.dualAcademyTcgPulse(summonState).action, 'summon');
+
+assert.equal(feedback.dualAcademyTcgPulse(duel({
+  prompt: { kind: 'RESPOND', player: 'player' },
+})).promptAction, 'tcg-prompt-response');
+assert.equal(feedback.dualAcademyTcgPulse(duel({
+  prompt: { kind: 'SELECT_TARGET', player: 'player' },
+})).promptAction, 'tcg-prompt-target');
+assert.equal(feedback.dualAcademyTcgPulse(duel({
+  prompt: { kind: 'SELECT_FROM_DECK', player: 'player' },
+})).promptAction, 'tcg-prompt-deck');
+assert.equal(feedback.dualAcademyTcgPulse(duel({
+  prompt: { kind: 'SELECT_COST_MIKA_NEGATE', player: 'player' },
+})).promptAction, 'tcg-prompt-cost');
+assert.equal(feedback.dualAcademyTcgPulse(duel({
+  prompt: { kind: 'TRIGGER_CONFIRM', player: 'player' },
+})).promptAction, 'tcg-prompt-trigger');
 
 assert.equal(cueFor(duel({
   events: [{ id: 'e2', type: 'SET', actor: 'player', text: '카운터 카드 세트', turn: 2, phase: 'MAIN1' }],
@@ -359,6 +381,35 @@ for (const token of ['tcg-mika-cost', 'tcg-mika-negate', 'tcg-mika-burst', 'tcg-
   assert.equal(iconSource.includes(token), true, `Shared action icon map is missing ${token}`);
 }
 for (const token of [
+  'tcg-card-counter',
+  'tcg-card-field',
+  'tcg-card-monster',
+  'tcg-card-quick',
+  'tcg-card-set',
+  'tcg-card-spell',
+  'tcg-card-trap',
+  'tcg-prompt-cost',
+  'tcg-prompt-deck',
+  'tcg-prompt-response',
+  'tcg-prompt-target',
+  'tcg-prompt-trigger',
+  'tcg-zone-banished',
+  'tcg-zone-deck',
+  'tcg-zone-empty',
+  'tcg-zone-field',
+  'tcg-zone-grave',
+  'tcg-zone-hand',
+  'tcg-zone-monster',
+  'tcg-zone-spell-trap',
+]) {
+  assert.equal(iconSource.includes(token), true, `Shared action icon map is missing ${token}`);
+}
+for (const token of ['cardSemanticAction', 'zoneSemanticAction', 'CardTypeBadge']) {
+  assert.equal(boardSource.includes(token), true, `TCG card presentation is missing ${token}`);
+}
+assert.equal(handSource.includes('<CardTypeBadge card={card} />'), true, 'Hand cards must show semantic card-type icons');
+assert.equal(deckSource.includes('deckCardAction'), true, 'Deck cards must show semantic card-type icons');
+for (const token of [
   'tcg-direct-attack',
   'tcg-pierce',
   'tcg-clash',
@@ -393,9 +444,9 @@ for (const token of [
   assert.equal(sfxSource.includes(token), true, `Shared SFX library is missing ${token}`);
 }
 
-const semanticIconCount = [boardSource, advisorSource, inspectSource, logsSource, pulseSource]
+const semanticIconCount = [boardSource, advisorSource, inspectSource, logsSource, pulseSource, handSource, deckSource]
   .reduce((sum, source) => sum + (source.match(/<GameActionIcon\b/g) || []).length, 0);
-assert.ok(semanticIconCount >= 25, `Expected at least 25 semantic TCG icons, found ${semanticIconCount}`);
+assert.ok(semanticIconCount >= 32, `Expected at least 32 semantic TCG icons, found ${semanticIconCount}`);
 assert.equal(logsSource.includes('dualAcademyTcgEventPresentation'), true, 'TCG event log must use semantic event presentations');
 assert.equal(pulseSource.includes('pulse.promptAction'), true, 'TCG pulse must show a semantic prompt icon');
 assert.equal(pulseSource.includes('pulse.chainAction'), true, 'TCG pulse must show a semantic chain icon');
@@ -404,6 +455,7 @@ console.log(JSON.stringify({
   eventCues: 19,
   characterEffectCues: 6,
   semanticIcons: semanticIconCount,
+  cardAndZoneIconKinds: 20,
   mikaCostOptions: mikaReadiness.options.length,
   mikaNegateResolved: true,
   mikaBattleAttack: 9,

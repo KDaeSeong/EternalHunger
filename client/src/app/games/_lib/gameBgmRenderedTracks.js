@@ -26,7 +26,7 @@ const baSrpgTrack = (file, options = {}) => renderedTrack('ba-srpg', file, {
   ...options,
 });
 const dualAcademyTrack = (file, options = {}) => renderedTrack('dual-academy-tcg', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 const tonkatsuTeacherTrack = (file, options = {}) => renderedTrack('tonkatsu-teacher', file, {
