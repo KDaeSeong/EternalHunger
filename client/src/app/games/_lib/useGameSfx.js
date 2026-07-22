@@ -2366,6 +2366,35 @@ const THEME_CUE_PROFILES = {
   },
 };
 
+THEME_CUE_PROFILES.starleague = {
+  ...THEME_CUE_PROFILES.broadcast,
+  accent: [
+    ...THEME_CUE_PROFILES.broadcast.accent,
+    { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 0.65, duration: 0.12, gain: 0.012, pan: -0.56, reverb: 0.3 },
+    { source: 'noise', filterType: 'bandpass', frequency: 2050, q: 0.72, start: 0.025, duration: 0.13, gain: 0.011, pan: 0.56, reverb: 0.3 },
+  ],
+  match: [
+    ...THEME_CUE_PROFILES.broadcast.match,
+    { frequency: 1176, start: 0.2, duration: 0.13, type: 'sine', gain: 0.024, pan: 0.38, reverb: 0.34 },
+  ],
+  comeback: [
+    ...THEME_CUE_PROFILES.broadcast.comeback,
+    { frequency: 1568, start: 0.31, duration: 0.18, type: 'sine', gain: 0.022, pan: 0.4, reverb: 0.36 },
+  ],
+  victory: [
+    ...THEME_CUE_PROFILES.broadcast.victory,
+    { frequency: 1568, start: 0.31, duration: 0.22, type: 'sine', gain: 0.024, pan: 0.42, reverb: 0.38 },
+  ],
+  defeat: [
+    ...THEME_CUE_PROFILES.broadcast.defeat,
+    { source: 'noise', filterType: 'lowpass', frequency: 260, start: 0.08, duration: 0.28, gain: 0.018, pan: 0.34, reverb: 0.28 },
+  ],
+  champion: [
+    ...THEME_CUE_PROFILES.broadcast.champion,
+    { frequency: 1764, start: 0.48, duration: 0.3, type: 'sine', gain: 0.024, pan: 0.44, reverb: 0.42 },
+  ],
+};
+
 const THEME_SPATIAL_MIXES = {
   default: { panSpread: 0.24, reverb: 0.1 },
   battle: { panSpread: 0.34, reverb: 0.08 },
@@ -2378,6 +2407,7 @@ const THEME_SPATIAL_MIXES = {
   idle: { panSpread: 0.4, reverb: 0.23 },
   tactical: { panSpread: 0.52, reverb: 0.15 },
   broadcast: { panSpread: 0.3, reverb: 0.19 },
+  starleague: { panSpread: 0.46, reverb: 0.26 },
   school: { panSpread: 0.24, reverb: 0.18 },
   coding: { panSpread: 0.38, reverb: 0.06 },
   rail: { panSpread: 0.44, reverb: 0.15 },

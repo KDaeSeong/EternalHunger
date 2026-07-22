@@ -13,6 +13,7 @@ import {
   starleagueBuildAction,
   starleagueRaceAction,
 } from '../src/app/games/myanimecraft/_lib/starleaguePresentation.js';
+import { gameAudioThemeForPath } from '../src/app/games/_lib/gameAudioThemes.js';
 import {
   advancePersonalLeagueAction,
   advanceWinnersLeagueAction,
@@ -377,6 +378,18 @@ const resultCues = [
 for (const cue of resultCues) {
   assert.match(soundSource, new RegExp(`\\n  ${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
 }
+assert.equal(
+  gameAudioThemeForPath('/games/myanimecraft/play'),
+  'starleague',
+  '스타리그 라우트는 전용 효과음 테마를 사용해야 합니다.',
+);
+assert.match(pageSource, /useGameSfx\(\{ theme: 'starleague' \}\)/, '플레이 화면은 스타리그 전용 효과음을 사용해야 합니다.');
+assert.match(soundSource, /THEME_CUE_PROFILES\.starleague = \{/, '스타리그 전용 경기 결과음 프로필이 있어야 합니다.');
+assert.match(
+  soundSource,
+  /starleague: \{ panSpread: 0\.46, reverb: 0\.26 \}/,
+  '스타리그 전용 경기장 공간 믹스가 있어야 합니다.',
+);
 for (const icon of [
   'match', 'comeback', 'victory', 'defeat', 'champion', 'season', 'event', 'verdict',
   'cup', 'winners', 'sponsor', 'training', 'recruit', 'contract', 'release', 'transfer',
@@ -432,6 +445,8 @@ assert.match(styleSource, /\.game-save-row\.starleague-icon-row/, '스타리그 
 
 console.log(JSON.stringify({
   feedbackCues: resultCues.length,
+  sfxTheme: gameAudioThemeForPath('/games/myanimecraft/play'),
+  spatialMix: 'arena-broadcast',
   managementProfiles: 15,
   cupProfiles: 7,
   commentaryCharacters: commentaryText.length,

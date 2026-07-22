@@ -71,7 +71,7 @@ export default function MyAnimeCraftPlayPage() {
   const hydrated = useHydrated();
   const { showToast } = useToast();
   const { setMusicScene } = useGameBgm();
-  const playGameSfx = useGameSfx({ theme: 'broadcast' });
+  const playGameSfx = useGameSfx({ theme: 'starleague' });
   const [state, setState] = useState(() => createNewState());
   const stateRef = useRef(state);
   const [selectedTeamId, setSelectedTeamId] = useState(() => createNewState().teams[0].id);
