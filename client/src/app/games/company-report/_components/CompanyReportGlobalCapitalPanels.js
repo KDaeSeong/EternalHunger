@@ -15,6 +15,7 @@ import {
   settleGlobalTradeAction,
 } from '../_lib/companyReportEngine';
 import { StatusBadge, getMarketName, getProductName } from '../_lib/companyReportPlayHelpers';
+import { CompanyReportIconRow, CompanyReportPanelTitle } from './CompanyReportVisuals';
 
 export default function CompanyReportGlobalCapitalPanels({
   applyLedgerAction,
@@ -42,10 +43,7 @@ export default function CompanyReportGlobalCapitalPanels({
     <>
       <section className="games-detail-grid">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>글로벌 수출입</h2>
-            <span>{globalSummary.activeExports + globalSummary.activeImports} active</span>
-          </div>
+          <CompanyReportPanelTitle action="trade" title="글로벌 수출입" meta={`${globalSummary.activeExports + globalSummary.activeImports} active`} />
           <label className="game-save-json-field">
             <span>시장</span>
             <select value={globalMarketId} onChange={(event) => setGlobalMarketId(event.target.value)}>
@@ -79,10 +77,7 @@ export default function CompanyReportGlobalCapitalPanels({
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>상장 / 투자자</h2>
-            <span>신뢰 {capitalSummary.investorTrust}</span>
-          </div>
+          <CompanyReportPanelTitle action="capital" title="상장 / 투자자" meta={`신뢰 ${capitalSummary.investorTrust}`} />
           <label className="game-save-json-field">
             <span>공시 대응</span>
             <select value={disclosureTypeId} onChange={(event) => setDisclosureTypeId(event.target.value)}>
@@ -113,10 +108,7 @@ export default function CompanyReportGlobalCapitalPanels({
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>글로벌 성과</h2>
-            <span>StepD slice</span>
-          </div>
+          <CompanyReportPanelTitle action="export" title="글로벌 성과" meta="StepD slice" />
           <div className="games-rank-split">
             <SmallStat label="수출매출" value={formatMoney(globalSummary.exportSalesKrw)} />
             <SmallStat label="수출손익" value={formatMoney(globalSummary.exportProfitKrw)} />
@@ -125,44 +117,38 @@ export default function CompanyReportGlobalCapitalPanels({
           </div>
           <div className="game-save-list">
             {state.global.exportResults.slice(0, 4).map((row) => (
-              <article className="game-save-row" key={row.id}>
+              <CompanyReportIconRow action="export" key={row.id}>
                 <div>
                   <span>{row.year}-{String(row.month).padStart(2, '0')} / {getMarketName(row.marketId)}</span>
                   <strong>{getProductName(row.productId)} 수출</strong>
                   <span>{row.soldUnits}개 / 비용 {formatMoney(row.exportCostKrw)}</span>
                 </div>
                 <strong>{formatMoney(row.salesKrw)}</strong>
-              </article>
+              </CompanyReportIconRow>
             ))}
             {!state.global.exportResults.length ? <div className="games-empty">수출 계획을 등록하고 글로벌 정산을 실행하면 성과가 표시됩니다.</div> : null}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>외화채권 / 수입</h2>
-            <span>{formatMoney(globalSummary.openForeignReceivableKrw)}</span>
-          </div>
+          <CompanyReportPanelTitle action="collection" title="외화채권 / 수입" meta={formatMoney(globalSummary.openForeignReceivableKrw)} />
           <div className="game-save-list">
             {foreignReceivables.slice(0, 5).map((ar) => (
-              <article className="game-save-row" key={ar.id}>
+              <CompanyReportIconRow action="collection" key={ar.id}>
                 <div>
                   <span>{ar.marketName} / {ar.currency}</span>
                   <strong>{ar.id}</strong>
                   <span>{ar.productName} / 회수 {formatMoney(ar.collectedKrw)}</span>
                 </div>
                 <StatusBadge value={ar.status} />
-              </article>
+              </CompanyReportIconRow>
             ))}
             {!foreignReceivables.length ? <div className="games-empty">해외 매출 정산 후 외화채권이 생성됩니다.</div> : null}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>자본시장</h2>
-            <span>StepE slice</span>
-          </div>
+          <CompanyReportPanelTitle action="finance" title="자본시장" meta="StepE slice" />
           <div className="games-rank-split">
             <SmallStat label="주가" value={formatMoney(capitalSummary.sharePrice)} />
             <SmallStat label="변동" value={formatMoney(capitalSummary.priceDelta)} />
@@ -177,28 +163,29 @@ export default function CompanyReportGlobalCapitalPanels({
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>공시 / 조달 이력</h2>
-            <span>{capitalSummary.disclosureCount + capitalSummary.financingCount + capitalSummary.dividendCount}건</span>
-          </div>
+          <CompanyReportPanelTitle
+            action="disclosure"
+            title="공시 / 조달 이력"
+            meta={`${capitalSummary.disclosureCount + capitalSummary.financingCount + capitalSummary.dividendCount}건`}
+          />
           <div className="game-save-list">
             {state.capitalMarket.disclosures.slice(0, 3).map((row) => (
-              <article className="game-save-row" key={row.id}>
+              <CompanyReportIconRow action="disclosure" key={row.id}>
                 <div>
                   <span>{row.type} / 비용 {formatMoney(row.costKrw)}</span>
                   <strong>{row.label}</strong>
                 </div>
                 <strong>{row.trustDelta >= 0 ? '+' : ''}{row.trustDelta}</strong>
-              </article>
+              </CompanyReportIconRow>
             ))}
             {state.capitalMarket.financingPlans.slice(0, 3).map((row) => (
-              <article className="game-save-row" key={row.id}>
+              <CompanyReportIconRow action="capital" key={row.id}>
                 <div>
                   <span>{row.type} / 부채 {formatMoney(row.debtKrw)}</span>
                   <strong>{row.label}</strong>
                 </div>
                 <strong>{formatMoney(row.cashKrw)}</strong>
-              </article>
+              </CompanyReportIconRow>
             ))}
             {!state.capitalMarket.disclosures.length && !state.capitalMarket.financingPlans.length ? <div className="games-empty">공시 대응이나 자금 조달을 실행하면 이력이 표시됩니다.</div> : null}
           </div>

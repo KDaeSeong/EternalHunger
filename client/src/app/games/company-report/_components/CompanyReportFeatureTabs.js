@@ -34,6 +34,7 @@ import {
   shipOrderAction,
 } from '../_lib/companyReportEngine';
 import { getMarketName, getProductName } from '../_lib/companyReportPlayHelpers';
+import { CompanyReportPanelTitle } from './CompanyReportVisuals';
 
 const OPERATION_ACTION_ICONS = {
   'collect-receivable': 'collection',
@@ -338,10 +339,7 @@ export default function CompanyReportFeatureTabs({
             children: (
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>경영 요약</h2>
-                    <span>{state.company.year}-{String(state.company.month).padStart(2, '0')}</span>
-                  </div>
+                  <CompanyReportPanelTitle action="finance" title="경영 요약" meta={`${state.company.year}-${String(state.company.month).padStart(2, '0')}`} />
                   <div className="games-rank-split">
                     <SmallStat label="매출" value={formatMoney(management.income.sales)} />
                     <SmallStat label="영업손익" value={formatMoney(management.income.operatingProfit)} />
@@ -355,10 +353,7 @@ export default function CompanyReportFeatureTabs({
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>운영 큐</h2>
-                    <span>{operationQueue.rows.length}개</span>
-                  </div>
+                  <CompanyReportPanelTitle action="order" title="운영 큐" meta={`${operationQueue.rows.length}개`} />
                   <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
                     <strong>{operationQueue.headline}</strong>
                   </div>
@@ -387,10 +382,7 @@ export default function CompanyReportFeatureTabs({
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>리스크</h2>
-                    <span>{management.riskRows.length}개 지표</span>
-                  </div>
+                  <CompanyReportPanelTitle action="warning" title="리스크" meta={`${management.riskRows.length}개 지표`} />
                   <div className="game-save-list">
                     {management.riskRows.map((row) => (
                       <article className="game-save-row company-report-icon-row is-risk" key={row.label}>
@@ -415,10 +407,7 @@ export default function CompanyReportFeatureTabs({
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>빠른 주문</h2>
-                    <span>{getProductName(productId)}</span>
-                  </div>
+                  <CompanyReportPanelTitle action="order" title="빠른 주문" meta={getProductName(productId)} />
                   <div className="games-rank-split">
                     <SmallStat label="수량" value={quantity} />
                     <SmallStat label="재고" value={stocks.find((row) => row.id === productId)?.onHand || 0} />
@@ -432,10 +421,7 @@ export default function CompanyReportFeatureTabs({
                   <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>출고/회수</h2>
-                    <span>{formatMoney(report.receivableAmount)}</span>
-                  </div>
+                  <CompanyReportPanelTitle action="shipment" title="출고/회수" meta={formatMoney(report.receivableAmount)} />
                   <div className="games-rank-split">
                     <SmallStat label="미수 채권" value={report.openReceivables} />
                     <SmallStat label="출고 주문" value={report.shippedOrders} />
@@ -457,10 +443,7 @@ export default function CompanyReportFeatureTabs({
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>월말 결산</h2>
-                    <span>{latestSettlement ? '정산 있음' : '대기'}</span>
-                  </div>
+                  <CompanyReportPanelTitle action="closing" title="월말 결산" meta={latestSettlement ? '정산 있음' : '대기'} />
                   <div className="games-rank-split">
                     <SmallStat label="자산" value={formatMoney(report.assets)} />
                     <SmallStat label="부채" value={formatMoney(report.liabilities)} />
@@ -473,10 +456,7 @@ export default function CompanyReportFeatureTabs({
                   <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>VAT 납부</h2>
-                    <span>{selectedVatRow?.status || 'NO_TAX'}</span>
-                  </div>
+                  <CompanyReportPanelTitle action="tax" title="VAT 납부" meta={selectedVatRow?.status || 'NO_TAX'} />
                   <div className="games-rank-split">
                     <SmallStat label="과세월" value={selectedVatRow ? `${selectedVatRow.targetYear}-${String(selectedVatRow.targetMonth).padStart(2, '0')}` : '-'} />
                     <SmallStat label="잔액" value={formatMoney(selectedVatRow?.remainingAmount || 0)} />
@@ -502,10 +482,7 @@ export default function CompanyReportFeatureTabs({
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>수출입</h2>
-                    <span>{getMarketName(globalMarketId)}</span>
-                  </div>
+                  <CompanyReportPanelTitle action="trade" title="수출입" meta={getMarketName(globalMarketId)} />
                   <div className="games-rank-split">
                     <SmallStat label="수출손익" value={formatMoney(globalSummary.exportProfitKrw)} />
                     <SmallStat label="외화채권" value={formatMoney(globalSummary.openForeignReceivableKrw)} />
@@ -519,10 +496,7 @@ export default function CompanyReportFeatureTabs({
                   <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>외화채권/헤지</h2>
-                    <span>{foreignReceivables.length}건</span>
-                  </div>
+                  <CompanyReportPanelTitle action="hedge" title="외화채권/헤지" meta={`${foreignReceivables.length}건`} />
                   <div style={{ display: 'grid', gap: 8 }}>
                     <ActionButton action="hedge" cue="off" onClick={() => applyLedgerAction('환헤지 체결', (current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
                     <ActionButton action="collection" cue="off" disabled={!selectedForeignAr || selectedForeignAr.remainingKrw <= 0} onClick={() => applyLedgerAction('외화채권 회수', (current) => collectForeignReceivableAction(current, selectedForeignAr?.id))}>외화채권 회수</ActionButton>
@@ -539,10 +513,7 @@ export default function CompanyReportFeatureTabs({
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>상장 상태</h2>
-                    <span>{formatMoney(capitalSummary.marketCapKrw)}</span>
-                  </div>
+                  <CompanyReportPanelTitle action="capital" title="상장 상태" meta={formatMoney(capitalSummary.marketCapKrw)} />
                   <div className="games-rank-split">
                     <SmallStat label="주가" value={formatMoney(capitalSummary.sharePrice)} />
                     <SmallStat label="공시위험" value={`${capitalSummary.disclosureRisk}/100`} />
@@ -555,10 +526,11 @@ export default function CompanyReportFeatureTabs({
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>투자자 액션</h2>
-                    <span>{CAPITAL_DISCLOSURE_TYPES.find((type) => type.id === disclosureTypeId)?.label || disclosureTypeId}</span>
-                  </div>
+                  <CompanyReportPanelTitle
+                    action="finance"
+                    title="투자자 액션"
+                    meta={CAPITAL_DISCLOSURE_TYPES.find((type) => type.id === disclosureTypeId)?.label || disclosureTypeId}
+                  />
                   <div style={{ display: 'grid', gap: 8 }}>
                     <ActionButton action="disclosure" cue="off" onClick={() => applyLedgerAction('공시 대응', (current) => createDisclosureAction(current, disclosureTypeId))}>공시 대응 실행</ActionButton>
                     <ActionButton action="dividend" cue="off" onClick={() => applyLedgerAction('배당 결정', (current) => decideDividendAction(current))}>배당 결정</ActionButton>
@@ -578,10 +550,11 @@ export default function CompanyReportFeatureTabs({
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>장기 리포트 추세</h2>
-                    <span>{reportTrend.latest?.period || '현재'} · {reportTrend.latest?.trend || '유지'}</span>
-                  </div>
+                  <CompanyReportPanelTitle
+                    action="analysis"
+                    title="장기 리포트 추세"
+                    meta={`${reportTrend.latest?.period || '현재'} · ${reportTrend.latest?.trend || '유지'}`}
+                  />
                   <div className="games-rank-split">
                     <SmallStat label="이력 점수" value={`${reportTrend.archiveScore}%`} />
                     <SmallStat label="월 수" value={reportTrend.rows.length} />
@@ -602,10 +575,7 @@ export default function CompanyReportFeatureTabs({
                   <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>월별 추세</h2>
-                    <span>{reportTrend.rows.length}개 기간</span>
-                  </div>
+                  <CompanyReportPanelTitle action="analysis" title="월별 추세" meta={`${reportTrend.rows.length}개 기간`} />
                   <div className="game-save-list">
                     {reportTrend.rows.map((row) => (
                       <article className="game-save-row" key={row.id}>
@@ -620,10 +590,7 @@ export default function CompanyReportFeatureTabs({
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>저장형 리포트</h2>
-                    <span>{reportTrend.bookmarkRows.length + reportTrend.exportRows.length}건</span>
-                  </div>
+                  <CompanyReportPanelTitle action="archive" title="저장형 리포트" meta={`${reportTrend.bookmarkRows.length + reportTrend.exportRows.length}건`} />
                   <div className="game-save-list">
                     {reportTrend.bookmarkRows.map((bookmark) => (
                       <article className="game-save-row" key={bookmark.id}>
@@ -649,10 +616,7 @@ export default function CompanyReportFeatureTabs({
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>스냅샷 기준</h2>
-                    <span>{reportTrend.snapshotRows.length}건</span>
-                  </div>
+                  <CompanyReportPanelTitle action="snapshot" title="스냅샷 기준" meta={`${reportTrend.snapshotRows.length}건`} />
                   <div className="game-save-list">
                     {reportTrend.snapshotRows.map((snapshot) => (
                       <article className="game-save-row" key={snapshot.id}>
@@ -678,10 +642,7 @@ export default function CompanyReportFeatureTabs({
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>스냅샷</h2>
-                    <span>{latestSnapshot?.checksum || '대기'}</span>
-                  </div>
+                  <CompanyReportPanelTitle action="snapshot" title="스냅샷" meta={latestSnapshot?.checksum || '대기'} />
                   <div className="games-rank-split">
                     <SmallStat label="diff" value={ledgerDiff.length} />
                     <SmallStat label="북마크" value={state.reportBookmarks.length} />
@@ -697,10 +658,7 @@ export default function CompanyReportFeatureTabs({
                   <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>복원 계획</h2>
-                    <span>{restorePlan.dryRunStatus}</span>
-                  </div>
+                  <CompanyReportPanelTitle action="restore" title="복원 계획" meta={restorePlan.dryRunStatus} />
                   <div className="games-rank-split">
                     <SmallStat label="모드" value={restorePlan.restoreModeLabel} />
                     <SmallStat label="테이블" value={restorePlan.targetTables.length} />

@@ -1,5 +1,6 @@
 import { SmallStat } from '../../_components/GamePlayPrimitives';
 import { formatMoney } from '../_lib/companyReportEngine';
+import { CompanyReportIconRow, CompanyReportPanelTitle } from './CompanyReportVisuals';
 
 export default function CompanyReportManagementPanels({
   ledgerDiff,
@@ -10,10 +11,7 @@ export default function CompanyReportManagementPanels({
   return (
     <section className="games-dashboard">
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>경영 리포트</h2>
-          <span>손익 / 현금흐름</span>
-        </div>
+        <CompanyReportPanelTitle action="finance" title="경영 리포트" meta="손익 / 현금흐름" />
         <div className="games-rank-split">
           <SmallStat label="매출" value={formatMoney(management.income.sales)} />
           <SmallStat label="매출총이익" value={formatMoney(management.income.grossProfit)} />
@@ -34,19 +32,16 @@ export default function CompanyReportManagementPanels({
       </section>
 
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>매출 분석</h2>
-          <span>상품 / 캐릭터</span>
-        </div>
+        <CompanyReportPanelTitle action="sales" title="매출 분석" meta="상품 / 캐릭터" />
         <div className="game-save-list">
           {management.productRows.length ? management.productRows.map((row) => (
-            <article className="game-save-row" key={row.label}>
+            <CompanyReportIconRow action="sales" key={row.label}>
               <div>
                 <span>상품 매출</span>
                 <strong>{row.label}</strong>
               </div>
               <strong>{row.formatted}</strong>
-            </article>
+            </CompanyReportIconRow>
           )) : <div className="games-empty">출고된 상품 매출이 없습니다.</div>}
         </div>
         <div className="games-rank-split" style={{ marginTop: 12 }}>
@@ -57,46 +52,37 @@ export default function CompanyReportManagementPanels({
       </section>
 
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>리스크 체크</h2>
-          <span>{management.riskRows.length}개 지표</span>
-        </div>
+        <CompanyReportPanelTitle action="warning" title="리스크 체크" meta={`${management.riskRows.length}개 지표`} />
         <div className="game-save-list">
           {management.riskRows.map((row) => (
-            <article className="game-save-row" key={row.label}>
+            <CompanyReportIconRow action="warning" className="is-risk" key={row.label}>
               <div>
                 <span>관리 지표</span>
                 <strong>{row.label}</strong>
               </div>
               <strong>{row.value}</strong>
-            </article>
+            </CompanyReportIconRow>
           ))}
         </div>
       </section>
 
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>스냅샷 diff</h2>
-          <span>{latestSnapshot?.checksum || '스냅샷 없음'}</span>
-        </div>
+        <CompanyReportPanelTitle action="analysis" title="스냅샷 diff" meta={latestSnapshot?.checksum || '스냅샷 없음'} />
         <div className="game-save-list">
           {ledgerDiff.length ? ledgerDiff.map((row) => (
-            <article className="game-save-row" key={row.label}>
+            <CompanyReportIconRow action="analysis" key={row.label}>
               <div>
                 <span>{row.before} → {row.after}</span>
                 <strong>{row.label}</strong>
               </div>
               <strong>{row.deltaText}</strong>
-            </article>
+            </CompanyReportIconRow>
           )) : <div className="games-empty">스냅샷을 생성하면 현재 원장과의 차이를 볼 수 있습니다.</div>}
         </div>
       </section>
 
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>복원 dry-run</h2>
-          <span>{restorePlan.dryRunStatus}</span>
-        </div>
+        <CompanyReportPanelTitle action="restore" title="복원 dry-run" meta={restorePlan.dryRunStatus} />
         <div className="games-rank-split">
           <SmallStat label="모드" value={restorePlan.restoreModeLabel} />
           <SmallStat label="대상 테이블" value={restorePlan.targetTables.length} />
@@ -105,38 +91,38 @@ export default function CompanyReportManagementPanels({
           <SmallStat label="FK 순환" value={restorePlan.cycleDetected ? '감지' : '없음'} />
         </div>
         <div className="game-save-list" style={{ marginTop: 12 }}>
-          <article className="game-save-row">
+          <CompanyReportIconRow action="restore">
             <div>
               <span>checksum {restorePlan.snapshotChecksum || '-'}</span>
               <strong>{restorePlan.message}</strong>
             </div>
             <strong>{restorePlan.beforeDiffStatus}</strong>
-          </article>
-          <article className="game-save-row">
+          </CompanyReportIconRow>
+          <CompanyReportIconRow action="restore">
             <div>
               <span>delete</span>
               <strong>{restorePlan.deleteOrder.slice(0, 5).join(' → ') || '-'}</strong>
             </div>
             <strong>{restorePlan.deleteOrder.length}</strong>
-          </article>
-          <article className="game-save-row">
+          </CompanyReportIconRow>
+          <CompanyReportIconRow action="restore">
             <div>
               <span>insert</span>
               <strong>{restorePlan.insertOrder.slice(0, 5).join(' → ') || '-'}</strong>
             </div>
             <strong>{restorePlan.insertOrder.length}</strong>
-          </article>
+          </CompanyReportIconRow>
           {restorePlan.warnings.slice(0, 3).map((warning) => (
-            <article className="game-save-row" key={warning}>
+            <CompanyReportIconRow action="warning" className="is-risk" key={warning}>
               <div>
                 <span>warning</span>
                 <strong>{warning}</strong>
               </div>
               <strong>검토</strong>
-            </article>
+            </CompanyReportIconRow>
           ))}
           {restorePlan.tableDiffs.slice(0, 8).map((row) => (
-            <article className="game-save-row" key={row.tableName}>
+            <CompanyReportIconRow action="analysis" key={row.tableName}>
               <div>
                 <span>{row.snapshotRowCount} rows snapshot / {row.currentRowCount} rows current</span>
                 <strong>{row.label}</strong>
@@ -144,7 +130,7 @@ export default function CompanyReportManagementPanels({
                 <span>{row.snapshotChecksum} → {row.currentChecksum}</span>
               </div>
               <strong>{row.diffStatus}</strong>
-            </article>
+            </CompanyReportIconRow>
           ))}
         </div>
       </section>

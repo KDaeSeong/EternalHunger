@@ -19,6 +19,7 @@ import {
   collectReceivableAction,
 } from '../_lib/companyReportEngine';
 import { StatusBadge } from '../_lib/companyReportPlayHelpers';
+import { CompanyReportIconRow, CompanyReportPanelTitle } from './CompanyReportVisuals';
 
 export default function CompanyReportArchiveLedgerPanels({
   applyLedgerAction,
@@ -57,10 +58,7 @@ export default function CompanyReportArchiveLedgerPanels({
     <>
       <section className="games-detail-grid">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>주문 생성</h2>
-            <span>{quantity}개</span>
-          </div>
+          <CompanyReportPanelTitle action="order" title="주문 생성" meta={`${quantity}개`} />
           <label className="game-save-json-field">
             <span>거래처</span>
             <select value={partnerId} onChange={(event) => setPartnerId(event.target.value)}>
@@ -86,10 +84,7 @@ export default function CompanyReportArchiveLedgerPanels({
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>출고 / 회수</h2>
-            <span>{selectedOrder?.status || '-'}</span>
-          </div>
+          <CompanyReportPanelTitle action="shipment" title="출고 / 회수" meta={selectedOrder?.status || '-'} />
           <label className="game-save-json-field">
             <span>출고 주문</span>
             <select value={selectedOrder?.id || ''} onChange={(event) => setSelectedOrderId(event.target.value)}>
@@ -109,10 +104,7 @@ export default function CompanyReportArchiveLedgerPanels({
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>결산 / 스냅샷</h2>
-            <span>{latestSnapshot?.checksum || '대기'}</span>
-          </div>
+          <CompanyReportPanelTitle action="closing" title="결산 / 스냅샷" meta={latestSnapshot?.checksum || '대기'} />
           <div className="games-rank-split">
             <SmallStat label="평판" value={state.company.reputation} />
             <SmallStat label="팬덤" value={state.company.fanBase.toLocaleString('ko-KR')} />
@@ -155,10 +147,11 @@ export default function CompanyReportArchiveLedgerPanels({
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>재무 요약</h2>
-            <span>{latestSettlement ? `${latestSettlement.year}-${String(latestSettlement.month).padStart(2, '0')}` : '결산 전'}</span>
-          </div>
+          <CompanyReportPanelTitle
+            action="finance"
+            title="재무 요약"
+            meta={latestSettlement ? `${latestSettlement.year}-${String(latestSettlement.month).padStart(2, '0')}` : '결산 전'}
+          />
           <div className="games-rank-split">
             <SmallStat label="총자산" value={formatMoney(report.assets)} />
             <SmallStat label="부채" value={formatMoney(report.liabilities)} />
@@ -169,43 +162,37 @@ export default function CompanyReportArchiveLedgerPanels({
           </div>
           {latestSettlement ? (
             <div className="game-save-list">
-              <article className="game-save-row">
+              <CompanyReportIconRow action="closing">
                 <div>
                   <span>최근 월말 결산</span>
                   <strong>영업손익 {formatMoney(latestSettlement.operatingProfit)}</strong>
                 </div>
                 <strong>{formatMoney(latestSettlement.netProfit)}</strong>
-              </article>
+              </CompanyReportIconRow>
             </div>
           ) : <div className="games-empty">월말 결산을 실행하면 손익과 현금흐름이 표시됩니다.</div>}
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>스냅샷</h2>
-            <span>{state.ledgerSnapshots.length}개</span>
-          </div>
+          <CompanyReportPanelTitle action="snapshot" title="스냅샷" meta={`${state.ledgerSnapshots.length}개`} />
           <div className="game-save-list">
             {state.ledgerSnapshots.length ? state.ledgerSnapshots.map((snapshot) => (
-              <article className="game-save-row" key={snapshot.id}>
+              <CompanyReportIconRow action="snapshot" key={snapshot.id}>
                 <div>
                   <span>{snapshot.rowCount} rows / {snapshot.checksum}</span>
                   <strong>{snapshot.label}</strong>
                 </div>
                 <strong>{new Date(snapshot.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</strong>
-              </article>
+              </CompanyReportIconRow>
             )) : <div className="games-empty">아직 원장 스냅샷이 없습니다.</div>}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>복원 이력</h2>
-            <span>{latestRestore?.status || '기록 없음'}</span>
-          </div>
+          <CompanyReportPanelTitle action="restore" title="복원 이력" meta={latestRestore?.status || '기록 없음'} />
           <div className="game-save-list">
             {state.restoreHistory.length ? state.restoreHistory.slice(0, 5).map((item) => (
-              <article className="game-save-row" key={item.id}>
+              <CompanyReportIconRow action="restore" key={item.id}>
                 <div>
                   <span>{item.type} / {item.restoreMode} / {item.targetTableCount} tables</span>
                   <strong>{item.message || `${item.beforeDiffStatus || '-'} → ${item.afterDiffStatus || '-'}`}</strong>
@@ -213,45 +200,39 @@ export default function CompanyReportArchiveLedgerPanels({
                   <span>{item.checksum || '-'}</span>
                 </div>
                 <strong>{item.status}</strong>
-              </article>
+              </CompanyReportIconRow>
             )) : <div className="games-empty">dry-run 또는 복원을 실행하면 감사 이력이 남습니다.</div>}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>리포트 아카이브</h2>
-            <span>{latestBookmark?.label || '북마크 없음'}</span>
-          </div>
+          <CompanyReportPanelTitle action="archive" title="리포트 아카이브" meta={latestBookmark?.label || '북마크 없음'} />
           <div className="game-save-list">
             {state.reportBookmarks.length ? state.reportBookmarks.slice(0, 5).map((bookmark) => (
-              <article className="game-save-row" key={bookmark.id}>
+              <CompanyReportIconRow action="bookmark" key={bookmark.id}>
                 <div>
                   <span>{bookmark.favorite ? '즐겨찾기' : '일반'} / {bookmark.note}</span>
                   <strong>{bookmark.label}</strong>
                   <span>자산 {formatMoney(bookmark.assets)} / 채권 {formatMoney(bookmark.receivableAmount)}</span>
                 </div>
                 <strong>{Number(bookmark.score || 0).toLocaleString('ko-KR')}</strong>
-              </article>
+              </CompanyReportIconRow>
             )) : <div className="games-empty">중요한 결산이나 진행 리포트를 북마크할 수 있습니다.</div>}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>내보내기 기록</h2>
-            <span>{latestExport?.checksum || '기록 없음'}</span>
-          </div>
+          <CompanyReportPanelTitle action="download" title="내보내기 기록" meta={latestExport?.checksum || '기록 없음'} />
           <div className="game-save-list">
             {state.exportHistory.length ? state.exportHistory.slice(0, 5).map((item) => (
-              <article className="game-save-row" key={item.id}>
+              <CompanyReportIconRow action="download" key={item.id}>
                 <div>
                   <span>{item.exportType} / {item.itemCount} items</span>
                   <strong>{item.exportNote}</strong>
                   <span>{String(item.content || '').split('\n').slice(0, 2).join(' / ')}</span>
                 </div>
                 <strong>{item.checksum}</strong>
-              </article>
+              </CompanyReportIconRow>
             )) : <div className="games-empty">진행 내보내기를 실행하면 감사용 기록이 남습니다.</div>}
           </div>
         </section>
@@ -259,39 +240,33 @@ export default function CompanyReportArchiveLedgerPanels({
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>주문 원장</h2>
-            <span>{orders.length}건</span>
-          </div>
+          <CompanyReportPanelTitle action="order" title="주문 원장" meta={`${orders.length}건`} />
           <div className="game-save-list">
             {orders.slice(0, 8).map((order) => (
-              <article className="game-save-row" key={order.id}>
+              <CompanyReportIconRow action="order" key={order.id}>
                 <div>
                   <span>{order.partnerName} / {order.productName}</span>
                   <strong>{order.no}</strong>
                   <span>{order.quantity}개 / {formatMoney(order.totalAmount)}</span>
                 </div>
                 <StatusBadge value={order.status} />
-              </article>
+              </CompanyReportIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>매출채권</h2>
-            <span>{formatMoney(report.receivableAmount)}</span>
-          </div>
+          <CompanyReportPanelTitle action="collection" title="매출채권" meta={formatMoney(report.receivableAmount)} />
           <div className="game-save-list">
             {receivables.slice(0, 8).map((ar) => (
-              <article className="game-save-row" key={ar.id}>
+              <CompanyReportIconRow action="collection" key={ar.id}>
                 <div>
                   <span>{ar.partnerName} / 회수 {formatMoney(ar.collected)}</span>
                   <strong>{ar.id}</strong>
                   <span>잔액 {formatMoney(ar.remaining)}</span>
                 </div>
                 <StatusBadge value={ar.status} />
-              </article>
+              </CompanyReportIconRow>
             ))}
           </div>
         </section>
@@ -299,29 +274,23 @@ export default function CompanyReportArchiveLedgerPanels({
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>재고 원장</h2>
-            <span>{stocks.length}품목</span>
-          </div>
+          <CompanyReportPanelTitle action="inventory" title="재고 원장" meta={`${stocks.length}품목`} />
           <div className="game-save-list">
             {stocks.map((stock) => (
-              <article className="game-save-row" key={stock.id}>
+              <CompanyReportIconRow action="inventory" key={stock.id}>
                 <div>
                   <span>{stock.category} / {stock.character}</span>
                   <strong>{stock.name}</strong>
                   <span>평균원가 {formatMoney(stock.avgCost)} / 장부 {formatMoney(stock.amount)}</span>
                 </div>
                 <strong>{stock.onHand}개</strong>
-              </article>
+              </CompanyReportIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>운영 로그</h2>
-            <span>{state.runId}</span>
-          </div>
+          <CompanyReportPanelTitle action="logs" title="운영 로그" meta={state.runId} />
           <div className="games-activity-list">
             {state.log.slice(0, 12).map((line, index) => (
               <div key={`${line}-${index}`}>

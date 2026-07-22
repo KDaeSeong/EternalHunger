@@ -1,6 +1,7 @@
 import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import { closeInventoryValuationAction, formatMoney } from '../_lib/companyReportEngine';
 import { StatusBadge } from '../_lib/companyReportPlayHelpers';
+import { CompanyReportIconRow, CompanyReportPanelTitle } from './CompanyReportVisuals';
 
 export default function CompanyReportVatInventoryPanels({
   applyLedgerAction,
@@ -22,10 +23,7 @@ export default function CompanyReportVatInventoryPanels({
   return (
     <section className="games-dashboard">
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>VAT 예정표</h2>
-          <span>{formatMoney(report.vatPayableAmount)} 미납</span>
-        </div>
+        <CompanyReportPanelTitle action="tax" title="VAT 예정표" meta={`${formatMoney(report.vatPayableAmount)} 미납`} />
         <div className="games-rank-split">
           <SmallStat label="과세월" value={selectedVatRow ? `${selectedVatRow.targetYear}-${String(selectedVatRow.targetMonth).padStart(2, '0')}` : '-'} />
           <SmallStat label="세액" value={formatMoney(selectedVatRow?.invoiceVatAmount || 0)} />
@@ -73,29 +71,23 @@ export default function CompanyReportVatInventoryPanels({
       </section>
 
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>VAT 납부 이력</h2>
-          <span>{vatPayments.length}건</span>
-        </div>
+        <CompanyReportPanelTitle action="tax" title="VAT 납부 이력" meta={`${vatPayments.length}건`} />
         <div className="game-save-list">
           {vatPayments.length ? vatPayments.slice(0, 6).map((payment) => (
-            <article className="game-save-row" key={payment.id}>
+            <CompanyReportIconRow action="tax" label={`${payment.targetYear}-${String(payment.targetMonth).padStart(2, '0')} 부가세`} key={payment.id}>
               <div>
                 <span>{payment.paymentDate} / {payment.referenceNo}</span>
                 <strong>{payment.targetYear}-{String(payment.targetMonth).padStart(2, '0')} 부가세</strong>
                 <span>납부 후 잔액 {formatMoney(payment.remainingAfter)}</span>
               </div>
               <strong>{formatMoney(payment.paymentAmount)}</strong>
-            </article>
+            </CompanyReportIconRow>
           )) : <div className="games-empty">VAT를 납부하면 이력이 표시됩니다.</div>}
         </div>
       </section>
 
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>재고평가 / 손상</h2>
-          <span>{inventoryValuations.length} rows</span>
-        </div>
+        <CompanyReportPanelTitle action="valuation" title="재고평가 / 손상" meta={`${inventoryValuations.length} rows`} />
         <div className="games-rank-split">
           <SmallStat label="평가행" value={inventoryValuations.length} />
           <SmallStat label="손상/환입" value={inventoryWriteDowns.length} />
@@ -106,23 +98,28 @@ export default function CompanyReportVatInventoryPanels({
         <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
         <div className="game-save-list">
           {inventoryWriteDowns.length ? inventoryWriteDowns.slice(0, 6).map((row) => (
-            <article className="game-save-row" key={row.id}>
+            <CompanyReportIconRow
+              action={Number(row.netEffectAmount || 0) > 0 ? 'inventory-write-down' : 'valuation'}
+              className={Number(row.netEffectAmount || 0) > 0 ? 'is-risk' : ''}
+              label={row.productName}
+              key={row.id}
+            >
               <div>
                 <span>{row.year}-{String(row.month).padStart(2, '0')} / {row.eventType}</span>
                 <strong>{row.productName}</strong>
                 <span>{row.note}</span>
               </div>
               <strong>{formatMoney(row.netEffectAmount)}</strong>
-            </article>
+            </CompanyReportIconRow>
           )) : inventoryValuations.length ? inventoryValuations.slice(0, 6).map((row) => (
-            <article className="game-save-row" key={row.id}>
+            <CompanyReportIconRow action="valuation" label={row.productName} key={row.id}>
               <div>
                 <span>{row.year}-{String(row.month).padStart(2, '0')} / {row.valuationStatus}</span>
                 <strong>{row.productName}</strong>
                 <span>NRV {formatMoney(row.nrvTotalAmount)} / 장부 {formatMoney(row.closingInventoryAmount)}</span>
               </div>
               <strong>{row.onHand}개</strong>
-            </article>
+            </CompanyReportIconRow>
           )) : <div className="games-empty">월말 재고평가를 실행하면 평가와 손상/환입 이력이 표시됩니다.</div>}
         </div>
       </section>

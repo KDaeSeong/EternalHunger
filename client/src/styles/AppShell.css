@@ -6965,6 +6965,32 @@
   font-variant-numeric: tabular-nums;
 }
 
+.company-report-panel-title h2,
+.company-report-panel-title h3 {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.company-report-panel-title h2 .game-action-icon,
+.company-report-panel-title h3 .game-action-icon {
+  flex: 0 0 auto;
+  color: #1b6fa2;
+}
+
+.company-report-panel-title__copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.company-report-panel-title__copy > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .game-save-row.racing-logo-icon-row {
   grid-template-columns: 34px minmax(0, 1fr) auto;
   gap: 9px;

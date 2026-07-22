@@ -271,6 +271,12 @@ const CUE_PROFILES = {
     { frequency: 560, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.038 },
     { frequency: 700, start: 0.09, duration: 0.085, type: 'sine', gain: 0.034 },
   ],
+  inventoryWriteDown: [
+    { source: 'noise', filterType: 'lowpass', frequency: 580, duration: 0.11, gain: 0.036, pan: -0.28, reverb: 0.16 },
+    { frequency: 392, endFrequency: 294, duration: 0.1, type: 'triangle', gain: 0.042, pan: -0.18 },
+    { frequency: 220, endFrequency: 147, start: 0.085, duration: 0.16, type: 'sine', gain: 0.04, pan: 0.16, reverb: 0.2 },
+    { frequency: 98, start: 0.2, duration: 0.14, type: 'sine', gain: 0.034, pan: 0.28, reverb: 0.22 },
+  ],
   campaignLaunched: [
     { frequency: 660, endFrequency: 880, duration: 0.075, type: 'triangle', gain: 0.042 },
     { frequency: 1180, start: 0.06, duration: 0.08, type: 'sine', gain: 0.034 },

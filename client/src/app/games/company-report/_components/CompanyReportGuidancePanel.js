@@ -4,6 +4,7 @@ import { useState } from 'react';
 import GameActionIcon from '../../_components/GameActionIcon';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { formatMoney } from '../_lib/companyReportEngine';
+import { CompanyReportIconRow, CompanyReportPanelTitle } from './CompanyReportVisuals';
 
 export const COMPANY_REPORT_GUIDANCE_LEVELS = [
   {
@@ -308,11 +309,11 @@ export function CompanyReportGuidancePanel({ guidance, level, onLevelChange }) {
 
   return (
     <section className={`games-panel company-report-guidance${expanded ? ' is-expanded' : ''}`}>
-      <div className="games-panel-title">
-        <div>
-          <h2>경영 도움말</h2>
-          <span>{guidance.period} · {guidance.levelDescription}</span>
-        </div>
+      <CompanyReportPanelTitle
+        action="guide"
+        title="경영 도움말"
+        meta={`${guidance.period} · ${guidance.levelDescription}`}
+      >
         <div className="company-report-guidance__controls">
           <label>
             <span>숙련도</span>
@@ -330,7 +331,7 @@ export function CompanyReportGuidancePanel({ guidance, level, onLevelChange }) {
             {expanded ? '도움말 접기' : '자세히'}
           </GameControlButton>
         </div>
-      </div>
+      </CompanyReportPanelTitle>
 
       <div className="company-report-guidance__summary">
         <GameActionIcon action="finance" label="다음 경영 판단" />
@@ -372,10 +373,7 @@ export function CompanyReportGuidancePanel({ guidance, level, onLevelChange }) {
 
           <div className="company-guidance-policy">
             <section>
-              <div className="games-panel-title">
-                <h3>숙련도별 표시 정책</h3>
-                <span>{guidance.levelShortLabel}</span>
-              </div>
+              <CompanyReportPanelTitle action="policy" heading="h3" title="숙련도별 표시 정책" meta={guidance.levelShortLabel} />
               <div className="game-advisor-policy-grid">
                 {guidance.visibilityRows.map((row) => (
                   <div key={row.label} className={row.value === '노출' ? 'is-visible' : 'is-hidden'}>
@@ -387,19 +385,16 @@ export function CompanyReportGuidancePanel({ guidance, level, onLevelChange }) {
               </div>
             </section>
             <section>
-              <div className="games-panel-title">
-                <h3>판단 체크</h3>
-                <span>현재 모드</span>
-              </div>
+              <CompanyReportPanelTitle action="inspect" heading="h3" title="판단 체크" meta="현재 모드" />
               <div className="game-save-list">
                 {guidance.decisionRows.map((row) => (
-                  <article className="game-save-row" key={row.title}>
+                  <CompanyReportIconRow action="inspect" label={row.title} key={row.title}>
                     <div>
                       <span>체크</span>
                       <strong>{row.title}</strong>
                       <small>{row.detail}</small>
                     </div>
-                  </article>
+                  </CompanyReportIconRow>
                 ))}
               </div>
             </section>
@@ -407,10 +402,7 @@ export function CompanyReportGuidancePanel({ guidance, level, onLevelChange }) {
 
           <div className="games-detail-grid">
             <section className="company-report-guidance__detail-section">
-              <div className="games-panel-title">
-                <h3>판단 가이드</h3>
-                <span>{guidance.levelShortLabel}</span>
-              </div>
+              <CompanyReportPanelTitle action="advisor" heading="h3" title="판단 가이드" meta={guidance.levelShortLabel} />
               <div className="games-activity-list">
                 {guidance.coachLines.map((line) => (
                   <div key={line}><strong>{line}</strong></div>
@@ -418,19 +410,16 @@ export function CompanyReportGuidancePanel({ guidance, level, onLevelChange }) {
               </div>
             </section>
             <section className="company-report-guidance__detail-section">
-              <div className="games-panel-title">
-                <h3>표기 방식</h3>
-                <span>{guidance.levelDescription}</span>
-              </div>
+              <CompanyReportPanelTitle action="guide" heading="h3" title="표기 방식" meta={guidance.levelDescription} />
               <div className="game-save-list">
                 {guidance.glossaryRows.map(([term, text]) => (
-                  <article className="game-save-row" key={term}>
+                  <CompanyReportIconRow action="guide" label={term} key={term}>
                     <div>
                       <span>용어</span>
                       <strong>{term}</strong>
                       <small>{text}</small>
                     </div>
-                  </article>
+                  </CompanyReportIconRow>
                 ))}
               </div>
             </section>

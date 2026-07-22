@@ -36,7 +36,7 @@ const TRADE_RESULTS = new Set([
   'inventoryInbound',
   'campaignLaunched',
 ]);
-const CLOSING_RESULTS = new Set(['inventoryValued', 'vatPaid', 'monthClosed']);
+const CLOSING_RESULTS = new Set(['inventoryValued', 'inventoryWrittenDown', 'vatPaid', 'monthClosed']);
 const GLOBAL_RESULTS = new Set(['exportPlanned', 'importPlanned', 'hedgeSigned', 'globalSettled', 'foreignCollected']);
 const CAPITAL_RESULTS = new Set(['disclosureFiled', 'dividendDeclared', 'capitalRaised', 'capitalClosed']);
 const AUDIT_RESULTS = new Set(['snapshotSaved', 'restorePreviewed', 'ledgerRestored', 'reportBookmarked', 'reportExported']);

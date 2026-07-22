@@ -49,6 +49,7 @@ assert.equal(resolveCompanyReportBgmScene({ ...safeCompany, activeTabId: 'board'
 
 assert.equal(companyReportResultMusic({ key: 'orderCreated' })?.theme, COMPANY_REPORT_BGM_SCENES.trade);
 assert.equal(companyReportResultMusic({ key: 'monthClosed' })?.theme, COMPANY_REPORT_BGM_SCENES.closing);
+assert.equal(companyReportResultMusic({ key: 'inventoryWrittenDown' })?.theme, COMPANY_REPORT_BGM_SCENES.closing);
 assert.equal(companyReportResultMusic({ key: 'globalSettled' })?.theme, COMPANY_REPORT_BGM_SCENES.global);
 assert.equal(companyReportResultMusic({ key: 'capitalRaised' })?.theme, COMPANY_REPORT_BGM_SCENES.capital);
 assert.equal(companyReportResultMusic({ key: 'snapshotSaved' })?.theme, COMPANY_REPORT_BGM_SCENES.audit);

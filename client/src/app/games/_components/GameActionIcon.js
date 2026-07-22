@@ -242,6 +242,7 @@ const ACTION_ICONS = {
   host: Crown,
   'hyperloop-jump': Plane,
   inventory: PackageOpen,
+  'inventory-write-down': TrendingDown,
   import: PackagePlus,
   inspect: Microscope,
   judge: Gavel,

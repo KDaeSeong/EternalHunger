@@ -27,6 +27,7 @@ const FEEDBACK_PROFILES = {
   receivableCollected: { action: 'collection', cue: 'cashCollect', label: '매출채권 회수', tone: 'success' },
   inventoryInbound: { action: 'production', cue: 'productionPosted', label: '생산 입고 반영', tone: 'success' },
   inventoryValued: { action: 'valuation', cue: 'inventoryValued', label: '재고평가 완료', tone: 'highlight' },
+  inventoryWrittenDown: { action: 'inventory-write-down', cue: 'inventoryWriteDown', label: '재고평가손실 반영', tone: 'warning' },
   campaignLaunched: { action: 'sales', cue: 'campaignLaunched', label: '상품 캠페인 집행', tone: 'highlight' },
   vatPaid: { action: 'tax', cue: 'taxPaid', label: '부가세 납부', tone: 'success' },
   exportPlanned: { action: 'export', cue: 'exportPlanned', label: '수출 계획 등록', tone: 'highlight' },
@@ -56,6 +57,11 @@ const TEXT_PRESENTATIONS = [
 ];
 
 const BLOCKED_LOG = /부족|없습니다|입력하세요|초과|먼저|이미 |차단|불가|할 수 없습니다|실패/;
+
+function inventoryWriteDownAmount(log) {
+  const matched = String(log || '').match(/손상\s+([\d,]+)원/);
+  return Number(String(matched?.[1] || '0').replaceAll(',', '')) || 0;
+}
 
 export function companyReportFeedbackSnapshot(state) {
   const global = state?.global || {};
@@ -106,7 +112,9 @@ function transitionFromLog(log) {
   if (/복원했습니다|복원 완료|테이블.*복원/.test(log)) return 'ledgerRestored';
   if (/월말 결산 완료/.test(log)) return 'monthClosed';
   if (/자본시장 월마감 완료/.test(log)) return 'capitalClosed';
-  if (/재고평가 완료/.test(log)) return 'inventoryValued';
+  if (/재고평가 완료/.test(log)) {
+    return inventoryWriteDownAmount(log) > 0 ? 'inventoryWrittenDown' : 'inventoryValued';
+  }
   if (/부가세 .*납부 완료/.test(log)) return 'vatPaid';
   if (/외화채권 .*회수/.test(log)) return 'foreignCollected';
   if (/채권 .*회수/.test(log)) return 'receivableCollected';
@@ -145,7 +153,8 @@ export function companyReportFeedbackTransition(previousValue, currentValue) {
   if (current.orderCount > previous.orderCount) return 'orderCreated';
   if (current.shippedCount > previous.shippedCount) return 'shipmentPosted';
   if (current.receivableCollected > previous.receivableCollected) return 'receivableCollected';
-  if (current.inventoryValuationCount > previous.inventoryValuationCount || current.inventoryWriteDownCount > previous.inventoryWriteDownCount) return 'inventoryValued';
+  if (current.inventoryWriteDownCount > previous.inventoryWriteDownCount) return 'inventoryWrittenDown';
+  if (current.inventoryValuationCount > previous.inventoryValuationCount) return 'inventoryValued';
   if (current.exportResultCount > previous.exportResultCount || current.importResultCount > previous.importResultCount) return 'globalSettled';
   if (current.inventoryUnits > previous.inventoryUnits) return 'inventoryInbound';
   if (current.exportPlanCount > previous.exportPlanCount) return 'exportPlanned';
