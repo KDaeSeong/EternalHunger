@@ -69,7 +69,7 @@
     "check:si-coding-feedback": "node ./scripts/check-si-coding-feedback.mjs",
     "check:si-coding-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-si-coding-soundtrack.mjs && node ./scripts/check-si-coding-rendered-audio.mjs",
     "check:twenty-questions-feedback": "node ./scripts/check-twenty-questions-feedback.mjs",
-    "check:twenty-questions-soundtrack": "node ./scripts/check-twenty-questions-soundtrack.mjs && node ./scripts/check-twenty-questions-rendered-audio.mjs",
+    "check:twenty-questions-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-twenty-questions-soundtrack.mjs && node ./scripts/check-twenty-questions-rendered-audio.mjs",
     "diagnose:simulation": "node ./scripts/simulation-diagnostics.mjs"
   },
   "dependencies": {

@@ -62,7 +62,7 @@ const racingLogosTrack = (file, options = {}) => renderedTrack('racing-logos-dem
   ...options,
 });
 const twentyQuestionsTrack = (file, options = {}) => renderedTrack('twenty-questions', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 
