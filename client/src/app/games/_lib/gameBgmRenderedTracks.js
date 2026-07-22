@@ -18,6 +18,10 @@ const baVanguardTrack = (file, options = {}) => renderedTrack('ba-vanguard', fil
   renderer: 'physical-model-v2-orchestra',
   ...options,
 });
+const baSrpgTrack = (file, options = {}) => renderedTrack('ba-srpg', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
@@ -43,6 +47,13 @@ export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'vanguard-trigger': baVanguardTrack('trigger', { gain: 1.16 }),
   'vanguard-victory': baVanguardTrack('victory', { gain: 1.2 }),
   'vanguard-defeat': baVanguardTrack('defeat', { gain: 1.2 }),
+  'srpg-command': baSrpgTrack('command', { gain: 1.18 }),
+  'srpg-deployment': baSrpgTrack('deployment', { gain: 1.2 }),
+  'srpg-town': baSrpgTrack('town', { gain: 1.2 }),
+  'srpg-battle': baSrpgTrack('battle', { gain: 1.16 }),
+  'srpg-crisis': baSrpgTrack('crisis', { gain: 1.14 }),
+  'srpg-victory': baSrpgTrack('victory', { gain: 1.2 }),
+  'srpg-defeat': baSrpgTrack('defeat', { gain: 1.2 }),
 });
 
 export function gameBgmRenderedTrack(theme) {
