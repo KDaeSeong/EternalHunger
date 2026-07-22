@@ -1,4 +1,5 @@
 import { getAtRiskStudents, getAverages, scoreState } from './schoolSimulatorEngine';
+import { SchoolSimulatorIconRow } from '../_components/SchoolSimulatorVisuals';
 
 function schoolActionSnapshot(value) {
   const averages = getAverages(value);
@@ -43,8 +44,13 @@ export function actionFeedbackText(previous, next, label, fallback = '') {
 
 export function ScoreBar({ label, value }) {
   const safeValue = Math.max(0, Math.min(100, Number(value || 0)));
+  const tone = safeValue >= 70 ? 'good' : safeValue >= 45 ? 'watch' : 'critical';
   return (
-    <div className="game-save-row">
+    <SchoolSimulatorIconRow
+      action={safeValue >= 70 ? 'school-recovery' : safeValue >= 45 ? 'analysis' : 'school-crisis'}
+      className={`is-${tone}`}
+      label={label}
+    >
       <div>
         <span>{label}</span>
         <strong>{safeValue}</strong>
@@ -68,6 +74,6 @@ export function ScoreBar({ label, value }) {
           }}
         />
       </div>
-    </div>
+    </SchoolSimulatorIconRow>
   );
 }

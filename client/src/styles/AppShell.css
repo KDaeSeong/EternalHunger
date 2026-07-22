@@ -7045,6 +7045,20 @@
   font-variant-numeric: tabular-nums;
 }
 
+.school-panel-title h2,
+.school-panel-title h3 {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.school-panel-title h2 .game-action-icon,
+.school-panel-title h3 .game-action-icon {
+  flex: 0 0 auto;
+  color: #2f78a6;
+}
+
 .game-save-row.school-icon-row {
   grid-template-columns: 34px minmax(0, 1fr) auto;
   gap: 9px;

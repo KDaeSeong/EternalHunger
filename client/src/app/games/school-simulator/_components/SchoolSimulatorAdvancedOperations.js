@@ -3,6 +3,7 @@ import {
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
 import SchoolSimulatorActionResult from './SchoolSimulatorActionResult';
+import { SchoolSimulatorPanelTitle } from './SchoolSimulatorVisuals';
 import {
   POLICY_PRESETS,
   RECRUITMENT_STRATEGIES,
@@ -57,10 +58,7 @@ export default function SchoolSimulatorAdvancedOperations({
     <>
     <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>주간 운영</h2>
-                    <span>{weekInfo.label}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-week" title="주간 운영" meta={weekInfo.label} />
                   <label className="game-save-json-field">
                     <span>운영 행동</span>
                     <select value={actionId} onChange={(event) => setActionId(event.target.value)}>
@@ -85,10 +83,7 @@ export default function SchoolSimulatorAdvancedOperations({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>정책 프리셋</h2>
-                    <span>{selectedPolicy.label}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-policy" title="정책 프리셋" meta={selectedPolicy.label} />
                   <label className="game-save-json-field">
                     <span>정책</span>
                     <select value={policyId} onChange={(event) => setPolicyId(event.target.value)}>
@@ -112,10 +107,7 @@ export default function SchoolSimulatorAdvancedOperations({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>주차 정산</h2>
-                    <span>{weekInfo.examType ? '시험 주간' : '일반 주간'}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-operation" title="주차 정산" meta={weekInfo.examType ? '시험 주간' : '일반 주간'} />
                   <div className="games-rank-split">
                     <SmallStat label="스트레스" value={averages.stress} />
                     <SmallStat label="만족도" value={averages.satisfaction} />
@@ -132,10 +124,7 @@ export default function SchoolSimulatorAdvancedOperations({
 
     <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>과목 운영</h2>
-                    <span>{selectedSubject.teacherName}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-lesson" title="과목 운영" meta={selectedSubject.teacherName} />
                   <label className="game-save-json-field">
                     <span>교과</span>
                     <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)}>
@@ -196,10 +185,7 @@ export default function SchoolSimulatorAdvancedOperations({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>입학 모집</h2>
-                    <span>{selectedRecruitment.label}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-admission" title="입학 모집" meta={selectedRecruitment.label} />
                   <label className="game-save-json-field">
                     <span>모집 전략</span>
                     <select value={recruitmentStrategyId} onChange={(event) => setRecruitmentStrategyId(event.target.value)}>
@@ -219,10 +205,7 @@ export default function SchoolSimulatorAdvancedOperations({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>진로 지도</h2>
-                    <span>{selectedCareer.label}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-career" title="진로 지도" meta={selectedCareer.label} />
                   <label className="game-save-json-field">
                     <span>트랙</span>
                     <select value={careerTrackId} onChange={(event) => setCareerTrackId(event.target.value)}>

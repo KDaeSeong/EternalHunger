@@ -3,6 +3,7 @@ import {
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
 import SchoolSimulatorActionResult from './SchoolSimulatorActionResult';
+import { SchoolSimulatorIconRow, SchoolSimulatorPanelTitle } from './SchoolSimulatorVisuals';
 import {
   applySchoolVisionAction,
   applyWeeklyEventChoice,
@@ -24,10 +25,7 @@ export default function SchoolSimulatorAdvancedVisionEvents({
     <>
     <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>장기 학교 비전</h2>
-                    <span>{longTerm.evaluation.visionLabel}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-vision" title="장기 학교 비전" meta={longTerm.evaluation.visionLabel} />
                   <label className="game-save-json-field">
                     <span>비전</span>
                     <select value={state.school.vision} onChange={(event) => applySchoolAction('장기 학교 비전', (current) => applySchoolVisionAction(current, event.target.value))}>
@@ -44,10 +42,7 @@ export default function SchoolSimulatorAdvancedVisionEvents({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>장기 지표</h2>
-                    <span>{longTerm.evaluation.note}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="analysis" title="장기 지표" meta={longTerm.evaluation.note} />
                   <div className="game-save-list">
                     <ScoreBar label="학업" value={longTerm.evaluation.metrics.academic} />
                     <ScoreBar label="복지" value={longTerm.evaluation.metrics.wellbeing} />
@@ -59,28 +54,25 @@ export default function SchoolSimulatorAdvancedVisionEvents({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>위기와 성취</h2>
-                    <span>기록 {longTerm.evaluationHistory.length}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-crisis" title="위기와 성취" meta={`기록 ${longTerm.evaluationHistory.length}`} />
                   <div className="game-save-list">
                     {longTerm.risks.slice(0, 3).map((risk) => (
-                      <article className="game-save-row" key={`${risk.level}-${risk.title}`}>
+                      <SchoolSimulatorIconRow action={risk.level === 'good' ? 'school-recovery' : 'school-crisis'} label={risk.title} className={`is-${risk.level}`} key={`${risk.level}-${risk.title}`}>
                         <div>
                           <span>{risk.detail}</span>
                           <strong>{risk.title}</strong>
                         </div>
                         <strong>{risk.level === 'critical' ? '긴급' : risk.level === 'warn' ? '주의' : '안정'}</strong>
-                      </article>
+                      </SchoolSimulatorIconRow>
                     ))}
                     {longTerm.achievements.slice(0, 2).map((achievement) => (
-                      <article className="game-save-row" key={achievement.id}>
+                      <SchoolSimulatorIconRow action="school-resolution" label={achievement.label} className="is-good" key={achievement.id}>
                         <div>
                           <span>{achievement.year}년 {achievement.semester}학기 {achievement.week}주</span>
                           <strong>{achievement.label}</strong>
                         </div>
                         <strong>성과</strong>
-                      </article>
+                      </SchoolSimulatorIconRow>
                     ))}
                   </div>
                 </section>
@@ -88,20 +80,17 @@ export default function SchoolSimulatorAdvancedVisionEvents({
 
     <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>주간 사건 대응</h2>
-                    <span>{events.status}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-incident" title="주간 사건 대응" meta={events.status} />
                   {events.pending ? (
                     <>
-                      <div className="game-save-row">
+                      <SchoolSimulatorIconRow action={events.pending.tone === 'good' ? 'school-recovery' : 'school-incident'} label={events.pending.title} className={`is-${events.pending.tone}`}>
                         <div>
                           <span>{events.pending.category} · {events.pending.weekLabel} · {events.pending.targetLabel}</span>
                           <strong>{events.pending.title}</strong>
                           <small>{events.pending.summary}</small>
                         </div>
                         <strong>{events.pending.tone === 'good' ? '호재' : events.pending.tone === 'critical' ? '긴급' : '주의'}</strong>
-                      </div>
+                      </SchoolSimulatorIconRow>
                       <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
                         {events.pending.choices.map((choice) => (
                           <ActionButton
@@ -123,29 +112,23 @@ export default function SchoolSimulatorAdvancedVisionEvents({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>사건 처리 기록</h2>
-                    <span>{events.history.length}건</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-resolution" title="사건 처리 기록" meta={`${events.history.length}건`} />
                   <div className="game-save-list">
                     {events.history.length ? events.history.slice(0, 4).map((event) => (
-                      <article className="game-save-row" key={`${event.id}-${event.resolvedAt || event.choiceId}`}>
+                      <SchoolSimulatorIconRow action="school-resolution" label={event.title} className="is-good" key={`${event.id}-${event.resolvedAt || event.choiceId}`}>
                         <div>
                           <span>{event.category} · {event.choiceLabel || '대응 완료'}</span>
                           <strong>{event.title}</strong>
                           <small>{event.result || event.summary}</small>
                         </div>
                         <strong>{event.weekLabel}</strong>
-                      </article>
+                      </SchoolSimulatorIconRow>
                     )) : <div className="games-empty">아직 처리한 사건이 없습니다.</div>}
                   </div>
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>사건 영향</h2>
-                    <span>운영 변수</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="analysis" title="사건 영향" meta="운영 변수" />
                   <div className="game-save-list">
                     <ScoreBar label="위험 억제" value={100 - state.school.riskLevel} />
                     <ScoreBar label="안전 평판" value={state.school.reputation.safety} />

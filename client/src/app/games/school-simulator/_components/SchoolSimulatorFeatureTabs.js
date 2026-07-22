@@ -2,6 +2,7 @@ import GameActionIcon from '../../_components/GameActionIcon';
 import { GameFeatureTabs } from '../../_components/GamePlayShell';
 import SchoolSimulatorAdvancedTab from './SchoolSimulatorAdvancedTab';
 import SchoolSimulatorActionResult from './SchoolSimulatorActionResult';
+import { SchoolSimulatorIconRow, SchoolSimulatorPanelTitle } from './SchoolSimulatorVisuals';
 import {
   ActionButton,
   GameControlButton,
@@ -88,10 +89,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
             children: (
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>이번 주 운영 판단</h2>
-                    <span>{report.headline}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-operation" title="이번 주 운영 판단" meta={report.headline} />
                   <div className="games-rank-split">
                     <SmallStat label="운영 점수" value={report.score.toLocaleString('ko-KR')} />
                     <SmallStat label="예산 여유" value={`${report.operations.budgetRunwayWeeks}주`} />
@@ -112,10 +110,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>추천 행동</h2>
-                    <span>{recommendedAction.label}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="advisor" title="추천 행동" meta={recommendedAction.label} />
                   <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>
                     {primaryRisk?.detail || recommendedAction.description}
                   </p>
@@ -143,10 +138,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
             children: (
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>초반 운영 체크</h2>
-                    <span>{report.tutorialPct}%</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="guide" title="초반 운영 체크" meta={`${report.tutorialPct}%`} />
                   <div className="game-save-list">
                     {report.tutorialRows.map((row) => (
                       <article className="game-save-row school-icon-row" key={row.id}>
@@ -163,10 +155,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>학기 밸런스</h2>
-                    <span>{report.balanceScore}%</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="analysis" title="학기 밸런스" meta={`${report.balanceScore}%`} />
                   <div className="game-save-list">
                     {report.balanceRows.map((row) => (
                       <article className={`game-save-row school-icon-row is-${row.tone}`} key={row.id}>
@@ -192,10 +181,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
             children: (
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>학교별 시나리오</h2>
-                    <span>{scenarioReport.schoolScenario}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-vision" title="학교별 시나리오" meta={scenarioReport.schoolScenario} />
                   <div className="games-rank-split" style={{ marginBottom: 12 }}>
                     <SmallStat label="장면 점수" value={`${scenarioReport.sceneScore}%`} />
                     <SmallStat label="시나리오" value={scenarioReport.scenarioRows.length} />
@@ -217,46 +203,37 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>학년별 이벤트 변형</h2>
-                    <span>1·2·3학년</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-incident" title="학년별 이벤트 변형" meta="1·2·3학년" />
                   <div className="game-save-list">
                     {scenarioReport.gradeRows.map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <SchoolSimulatorIconRow action="school-incident" label={row.title} key={row.id}>
                         <div>
                           <span>{row.focus} · {row.pct}%</span>
                           <strong>{row.title}</strong>
                           <small>{row.detail}</small>
                         </div>
                         <strong>{row.tone === 'risk' ? '회복' : row.tone === 'ready' ? '진행' : '준비'}</strong>
-                      </article>
+                      </SchoolSimulatorIconRow>
                     ))}
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>연출 컷</h2>
-                    <span>수업 · 행사 · 시험</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-lesson" title="연출 컷" meta="수업 · 행사 · 시험" />
                   <div className="game-save-list">
                     {scenarioReport.productionRows.map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <SchoolSimulatorIconRow action="school-lesson" label={row.title} key={row.id}>
                         <div>
                           <span>{row.focus} · {row.pct}%</span>
                           <strong>{row.title}</strong>
                           <small>{row.detail}</small>
                         </div>
                         <strong>{row.tone === 'risk' ? '점검' : row.tone === 'ready' ? '연출' : '대기'}</strong>
-                      </article>
+                      </SchoolSimulatorIconRow>
                     ))}
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>사운드 큐</h2>
-                    <span>{scenarioReport.soundCues.length}개</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="audio" title="사운드 큐" meta={`${scenarioReport.soundCues.length}개`} />
                   <div className="game-save-list">
                     {scenarioReport.soundCues.map((cue) => (
                       <article className="game-save-row school-icon-row" key={cue.id}>
@@ -271,10 +248,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>다음 장면 추천</h2>
-                    <span>추천</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="advisor" title="다음 장면 추천" meta="추천" />
                   <div className="games-activity-list">
                     {scenarioReport.recommendations.map((line) => (
                       <div key={line}><strong>{line}</strong></div>
@@ -292,10 +266,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>미해결 사건</h2>
-                    <span>{events.status}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-incident" title="미해결 사건" meta={events.status} />
                   {events.pending ? (
                     <>
                       <div className="game-save-row school-icon-row is-critical">
@@ -324,10 +295,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   ) : <div className="games-empty">미해결 사건이 없습니다.</div>}
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>최근 처리</h2>
-                    <span>{events.history.length}건</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-resolution" title="최근 처리" meta={`${events.history.length}건`} />
                   <div className="game-save-list">
                     {events.history.length ? events.history.slice(0, 4).map((event) => (
                       <article className="game-save-row school-icon-row" key={`${event.id}-${event.resolvedAt || event.choiceId}`}>
@@ -352,10 +320,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>수업 운영</h2>
-                    <span>{selectedSubject.label}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-lesson" title="수업 운영" meta={selectedSubject.label} />
                   <div className="games-rank-split">
                     <SmallStat label="현재 방식" value={selectedSubject.modeLabel} />
                     <SmallStat label="평균" value={selectedSubject.averageScore} />
@@ -375,10 +340,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   <SchoolSimulatorActionResult fallbackLabel="최근 수업 결과" resultPresentation={resultPresentation} text={recentActionText} />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>입학 모집</h2>
-                    <span>{selectedRecruitment.label}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-admission" title="입학 모집" meta={selectedRecruitment.label} />
                   <div className="games-rank-split">
                     <SmallStat label="지원자" value={state.school.admissions.applications} />
                     <SmallStat label="경쟁률" value={`${state.school.admissions.competitionRate}:1`} />
@@ -400,10 +362,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>학생 케어 보드</h2>
-                    <span>{careReport.headline}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-counseling" title="학생 케어 보드" meta={careReport.headline} />
                   <div className="games-rank-split" style={{ marginBottom: 12 }}>
                     <SmallStat label="위험 학생" value={`${careReport.highStudentCount}명`} />
                     <SmallStat label="최우선" value={careReport.studentRows[0]?.name || '-'} />
@@ -412,7 +371,12 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                   <div className="game-save-list">
                     {careReport.studentRows.slice(0, 4).map((student) => (
-                      <article className="game-save-row" key={student.id}>
+                      <SchoolSimulatorIconRow
+                        action={student.score >= 70 ? 'school-recovery' : student.score >= 45 ? 'school-counseling' : 'school-crisis'}
+                        className={student.score >= 70 ? 'is-good' : student.score >= 45 ? 'is-watch' : 'is-critical'}
+                        label={student.name}
+                        key={student.id}
+                      >
                         <div>
                           <span>{student.tone} · {student.grade}학년 {student.classNo}반 · 케어 {student.score}</span>
                           <strong>{student.name}</strong>
@@ -427,16 +391,13 @@ export default function SchoolSimulatorFeatureTabs(props) {
                         >
                           {student.command.label}
                         </GameControlButton>
-                      </article>
+                      </SchoolSimulatorIconRow>
                     ))}
                   </div>
                 </section>
 
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>학생 상태</h2>
-                    <span>{state.students.length}명</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="players" title="학생 상태" meta={`${state.students.length}명`} />
                   <div className="game-save-list">
                     <ScoreBar label="이해도" value={averages.understanding} />
                     <ScoreBar label="만족도" value={averages.satisfaction} />
@@ -445,10 +406,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>진로 지도</h2>
-                    <span>{selectedCareer.label}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-career" title="진로 지도" meta={selectedCareer.label} />
                   <div className="games-rank-split">
                     <SmallStat label="평균 준비" value={careerRows.find((track) => track.id === careerTrackId)?.averageReadiness || 0} />
                     <SmallStat label="진로 기록" value={state.careerReports.length} />
@@ -470,10 +428,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>교사/시설 케어 보드</h2>
-                    <span>{careReport.highStaffCount ? `${careReport.highStaffCount}건 위험` : '안정'}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-maintenance" title="교사/시설 케어 보드" meta={careReport.highStaffCount ? `${careReport.highStaffCount}건 위험` : '안정'} />
                   <div className="games-rank-split" style={{ marginBottom: 12 }}>
                     <SmallStat label="운영 위험" value={`${careReport.highStaffCount}건`} />
                     <SmallStat label="시설 점검" value={`${careReport.facilityRiskCount}곳`} />
@@ -482,7 +437,12 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                   <div className="game-save-list">
                     {careReport.staffRows.slice(0, 5).map((row) => (
-                      <article className="game-save-row" key={`${row.kind}-${row.id}`}>
+                      <SchoolSimulatorIconRow
+                        action={row.score >= 70 ? 'school-recovery' : row.kind === 'teacher' ? 'school-teacher' : 'school-maintenance'}
+                        className={row.score >= 70 ? 'is-good' : row.score >= 45 ? 'is-watch' : 'is-critical'}
+                        label={row.name}
+                        key={`${row.kind}-${row.id}`}
+                      >
                         <div>
                           <span>{row.tone} · {row.label} · 점수 {row.score}</span>
                           <strong>{row.name}</strong>
@@ -496,16 +456,13 @@ export default function SchoolSimulatorFeatureTabs(props) {
                         >
                           {row.command.label}
                         </GameControlButton>
-                      </article>
+                      </SchoolSimulatorIconRow>
                     ))}
                   </div>
                 </section>
 
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>교사 액션</h2>
-                    <span>{selectedTeacher?.name || '교사'}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-teacher" title="교사 액션" meta={selectedTeacher?.name || '교사'} />
                   <div className="games-rank-split">
                     <SmallStat label="평가" value={`${selectedTeacher?.evaluationGrade || '-'} / ${selectedTeacher?.evaluationScore || 0}`} />
                     <SmallStat label="피로" value={selectedTeacher?.fatigue || 0} />
@@ -522,10 +479,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   <SchoolSimulatorActionResult fallbackLabel="최근 교사 결과" resultPresentation={resultPresentation} text={recentActionText} />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>시설 상태</h2>
-                    <span>{state.facilities.length}곳</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-maintenance" title="시설 상태" meta={`${state.facilities.length}곳`} />
                   <div className="game-save-list">
                     {state.facilities.slice(0, 4).map((facility) => (
                       <article className="game-save-row school-icon-row" key={facility.id}>
@@ -550,10 +504,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>동아리 운영</h2>
-                    <span>{selectedClub.label}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-club" title="동아리 운영" meta={selectedClub.label} />
                   <div className="games-rank-split">
                     <SmallStat label="회원" value={`${selectedClub.memberCount}/${selectedClub.capacity}`} />
                     <SmallStat label="분위기" value={selectedClub.clubMood} />
@@ -566,10 +517,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   <SchoolSimulatorActionResult fallbackLabel="최근 동아리 결과" resultPresentation={resultPresentation} text={recentActionText} />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>축제</h2>
-                    <span>{festival.active ? `${festival.active.weeksRemaining}주 남음` : '대기'}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-festival-start" title="축제" meta={festival.active ? `${festival.active.weeksRemaining}주 남음` : '대기'} />
                   <div className="games-rank-split">
                     <SmallStat label="선택" value={selectedFestival.label} />
                     <SmallStat label="기간" value={`${selectedFestival.weeks}주`} />

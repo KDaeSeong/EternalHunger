@@ -4,6 +4,7 @@ import {
 import {
   ScoreBar,
 } from '../_lib/schoolSimulatorPlayHelpers';
+import { SchoolSimulatorIconRow, SchoolSimulatorPanelTitle } from './SchoolSimulatorVisuals';
 
 export default function SchoolSimulatorAdvancedReports({
   averages,
@@ -16,10 +17,7 @@ export default function SchoolSimulatorAdvancedReports({
     <>
     <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>학기 리포트</h2>
-                    <span>{report.headline} · {report.status}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-semester" title="학기 리포트" meta={`${report.headline} · ${report.status}`} />
                   <div className="games-rank-split">
                     <SmallStat label="운영 점수" value={report.score.toLocaleString('ko-KR')} />
                     <SmallStat label="교과 평균" value={report.academic.subjectAverage} />
@@ -36,37 +34,31 @@ export default function SchoolSimulatorAdvancedReports({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>운영 위험</h2>
-                    <span>{report.risks.length}건</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-crisis" title="운영 위험" meta={`${report.risks.length}건`} />
                   <div className="game-save-list">
                     {report.risks.slice(0, 4).map((risk) => (
-                      <article className="game-save-row" key={`${risk.level}-${risk.title}`}>
+                      <SchoolSimulatorIconRow action={risk.level === 'good' ? 'school-recovery' : 'school-crisis'} label={risk.title} className={`is-${risk.level}`} key={`${risk.level}-${risk.title}`}>
                         <div>
                           <span>{risk.detail}</span>
                           <strong>{risk.title}</strong>
                         </div>
                         <strong>{risk.level === 'critical' ? '긴급' : risk.level === 'warn' ? '주의' : '양호'}</strong>
-                      </article>
+                      </SchoolSimulatorIconRow>
                     ))}
                   </div>
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>하위 교과</h2>
-                    <span>보강 우선순위</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-lesson" title="하위 교과" meta="보강 우선순위" />
                   <div className="game-save-list">
                     {report.subjectRows.slice(0, 4).map((subject) => (
-                      <article className="game-save-row" key={subject.id}>
+                      <SchoolSimulatorIconRow action="school-lesson" label={subject.label} key={subject.id}>
                         <div>
                           <span>{subject.modeLabel} / 약점 {subject.weakCount}명 / 우수 {subject.highCount}명</span>
                           <strong>{subject.label}</strong>
                         </div>
                         <strong>{subject.averageScore}</strong>
-                      </article>
+                      </SchoolSimulatorIconRow>
                     ))}
                   </div>
                 </section>
@@ -74,28 +66,22 @@ export default function SchoolSimulatorAdvancedReports({
 
     <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>진로 트랙 진단</h2>
-                    <span>준비도 {report.operations.careerAverage}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-career" title="진로 트랙 진단" meta={`준비도 ${report.operations.careerAverage}`} />
                   <div className="game-save-list">
                     {report.careerRows.filter((track) => track.count > 0).slice(0, 5).map((track) => (
-                      <article className="game-save-row" key={track.id}>
+                      <SchoolSimulatorIconRow action="school-career" label={track.label} key={track.id}>
                         <div>
                           <span>만족 {track.averageSatisfaction} / 스트레스 {track.averageStress}</span>
                           <strong>{track.label} · {track.count}명</strong>
                         </div>
                         <strong>{track.averageReadiness}</strong>
-                      </article>
+                      </SchoolSimulatorIconRow>
                     ))}
                   </div>
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>학업/회복 밸런스</h2>
-                    <span>최근 시험 {report.academic.recentExamAverage || '없음'}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-recovery" title="학업/회복 밸런스" meta={`최근 시험 ${report.academic.recentExamAverage || '없음'}`} />
                   <div className="game-save-list">
                     <ScoreBar label="이해도" value={report.academic.understanding} />
                     <ScoreBar label="성실도" value={report.academic.diligence} />
@@ -105,10 +91,7 @@ export default function SchoolSimulatorAdvancedReports({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>운영 체력</h2>
-                    <span>동아리 영향 {report.operations.clubInfluence}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-operation" title="운영 체력" meta={`동아리 영향 ${report.operations.clubInfluence}`} />
                   <div className="game-save-list">
                     <ScoreBar label="교사 사기" value={report.operations.teacherMorale} />
                     <ScoreBar label="교사 피로 역산" value={100 - report.operations.teacherFatigue} />
@@ -120,10 +103,7 @@ export default function SchoolSimulatorAdvancedReports({
 
     <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>학교 문화</h2>
-                    <span>위험 {state.school.riskLevel}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-vision" title="학교 문화" meta={`위험 ${state.school.riskLevel}`} />
                   <div className="game-save-list">
                     <ScoreBar label="학업" value={state.school.culture.academic} />
                     <ScoreBar label="복지" value={state.school.culture.welfare} />
@@ -133,10 +113,7 @@ export default function SchoolSimulatorAdvancedReports({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>평판</h2>
-                    <span>브랜드 {state.school.admissions.brandAwareness}</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="school-admission" title="평판" meta={`브랜드 ${state.school.admissions.brandAwareness}`} />
                   <div className="game-save-list">
                     <ScoreBar label="학업 평판" value={state.school.reputation.academic} />
                     <ScoreBar label="안전 평판" value={state.school.reputation.safety} />
@@ -146,10 +123,7 @@ export default function SchoolSimulatorAdvancedReports({
                 </section>
         
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>평균 지표</h2>
-                    <span>{state.students.length}명</span>
-                  </div>
+                  <SchoolSimulatorPanelTitle action="analysis" title="평균 지표" meta={`${state.students.length}명`} />
                   <div className="game-save-list">
                     <ScoreBar label="성실도" value={averages.diligence} />
                     <ScoreBar label="이해도" value={averages.understanding} />

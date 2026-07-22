@@ -6,19 +6,36 @@ const iconSourceUrl = new URL('../src/app/games/_components/GameActionIcon.js', 
 const sfxSourceUrl = new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url);
 const resultSourceUrl = new URL('../src/app/games/school-simulator/_components/SchoolSimulatorActionResult.js', import.meta.url);
 const pageSourceUrl = new URL('../src/app/games/school-simulator/play/page.js', import.meta.url);
+const visualSourceUrl = new URL('../src/app/games/school-simulator/_components/SchoolSimulatorVisuals.js', import.meta.url);
+const helperSourceUrl = new URL('../src/app/games/school-simulator/_lib/schoolSimulatorPlayHelpers.js', import.meta.url);
+const styleSourceUrl = new URL('../src/styles/AppShell.css', import.meta.url);
 const componentSourceUrls = [
   new URL('../src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js', import.meta.url),
   new URL('../src/app/games/school-simulator/_components/SchoolSimulatorAdvancedOperations.js', import.meta.url),
   new URL('../src/app/games/school-simulator/_components/SchoolSimulatorAdvancedPeople.js', import.meta.url),
   new URL('../src/app/games/school-simulator/_components/SchoolSimulatorAdvancedVisionEvents.js', import.meta.url),
+  new URL('../src/app/games/school-simulator/_components/SchoolSimulatorAdvancedReports.js', import.meta.url),
 ];
 
-const [source, iconSource, sfxSource, resultSource, pageSource, ...componentSources] = await Promise.all([
+const [
+  source,
+  iconSource,
+  sfxSource,
+  resultSource,
+  pageSource,
+  visualSource,
+  helperSource,
+  styleSource,
+  ...componentSources
+] = await Promise.all([
   readFile(sourceUrl, 'utf8'),
   readFile(iconSourceUrl, 'utf8'),
   readFile(sfxSourceUrl, 'utf8'),
   readFile(resultSourceUrl, 'utf8'),
   readFile(pageSourceUrl, 'utf8'),
+  readFile(visualSourceUrl, 'utf8'),
+  readFile(helperSourceUrl, 'utf8'),
+  readFile(styleSourceUrl, 'utf8'),
   ...componentSourceUrls.map((url) => readFile(url, 'utf8')),
 ]);
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
@@ -214,6 +231,22 @@ for (const [index, componentSource] of componentSources.entries()) {
 const localResultCount = componentSources
   .reduce((sum, componentSource) => sum + (componentSource.match(/<SchoolSimulatorActionResult\b/g) || []).length, 0);
 assert.equal(localResultCount, 18, '모든 학교 기능 패널이 행동별 결과 아이콘을 공유해야 합니다.');
+const semanticSources = [...componentSources, helperSource].join('\n');
+const semanticPanelTitleCount = (semanticSources.match(/<SchoolSimulatorPanelTitle\b/g) || []).length;
+const semanticIconRowCount = (semanticSources.match(/<SchoolSimulatorIconRow\b/g) || []).length;
+assert.equal(semanticPanelTitleCount, 51, '학교 기능 제목 51곳에 의미 아이콘이 있어야 합니다.');
+assert.equal(semanticIconRowCount, 20, '학교 상태 정보 행 20곳에 의미 아이콘이 있어야 합니다.');
+assert.doesNotMatch(semanticSources, /className="games-panel-title"/, '학교 기능 제목에 원시 제목 마크업이 남아 있으면 안 됩니다.');
+assert.doesNotMatch(semanticSources, /className="game-save-row"/, '학교 상태 정보에 원시 행 마크업이 남아 있으면 안 됩니다.');
+assert.match(visualSource, /export function SchoolSimulatorPanelTitle/);
+assert.match(visualSource, /export function SchoolSimulatorIconRow/);
+assert.match(styleSource, /\.school-panel-title h2/);
+assert.match(styleSource, /\.game-save-row\.school-icon-row/);
+
+for (const action of ['advisor', 'guide', 'analysis', 'audio', 'players', 'archive', 'logs']) {
+  assert.match(iconSource, new RegExp(`\\n\\s*${action}\\s*:`), `${action} 공통 아이콘이 등록되어 있어야 합니다.`);
+}
+
 assert.match(resultSource, /action=\{resultPresentation\?\.action/);
 assert.match(resultSource, /tone=\{resultPresentation\?\.tone/);
 assert.match(pageSource, /<GameControlButton action="new" cue="off"/);
@@ -224,5 +257,7 @@ console.log(JSON.stringify({
   dedicatedCues: dedicatedProfiles.length,
   dedicatedIcons: dedicatedProfiles.length,
   contextualResultPanels: localResultCount + 1,
+  semanticPanelTitles: semanticPanelTitleCount,
+  semanticIconRows: semanticIconRowCount,
   singleResultCueControls: true,
 }, null, 2));
