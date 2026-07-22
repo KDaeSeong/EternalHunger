@@ -1,17 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiGetCached, apiPost, clearApiGetCache } from '../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../utils/client-auth';
 import GameActionIcon from '../games/_components/GameActionIcon';
+import { useGameBgm } from '../games/_components/GameBgmProvider';
 import { GameControlButton } from '../games/_components/GamePlayPrimitives';
 import { useGameSfxEventHandlers } from '../games/_lib/useGameSfx';
 import TwentyQuestionsFeedbackBar from './_components/TwentyQuestionsFeedbackBar';
 import { twentyQuestionsFeedback } from './_lib/twentyQuestionsFeedback';
+import {
+  resolveTwentyQuestionsLobbyBgmScene,
+  twentyQuestionsResultMusic,
+} from './_lib/twentyQuestionsSoundtrack';
 
 const CATEGORIES = [
   { value: 'free', label: '자유' },
@@ -102,6 +107,7 @@ export default function TwentyQuestionsPage() {
   const token = useAuthToken();
   const user = useAuthUser();
   const { showToast } = useToast();
+  const { setMusicScene } = useGameBgm();
 
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -113,16 +119,42 @@ export default function TwentyQuestionsPage() {
   const [query, setQuery] = useState('');
   const [form, setForm] = useState({ title: '', category: 'free', hint: '', answer: '' });
   const [actionFeedback, setActionFeedback] = useState(null);
+  const musicBaseSceneRef = useRef('');
+  const musicSceneTimerRef = useRef(null);
   const {
     handleGameSfxChangeCapture,
     handleGameSfxPointerDownCapture,
     playGameSfx,
   } = useGameSfxEventHandlers({ theme: 'twenty' });
+  const baseMusicScene = useMemo(() => resolveTwentyQuestionsLobbyBgmScene({
+    writerOpen,
+    loadError,
+  }), [loadError, writerOpen]);
+
+  useEffect(() => {
+    musicBaseSceneRef.current = baseMusicScene;
+    if (musicSceneTimerRef.current) return;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
 
   const announce = (action, result = {}) => {
     const feedback = twentyQuestionsFeedback(action, result);
     setActionFeedback(feedback);
     playGameSfx(feedback.cue);
+    const transition = twentyQuestionsResultMusic(feedback);
+    if (transition) {
+      if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+      setMusicScene(transition.theme);
+      musicSceneTimerRef.current = window.setTimeout(() => {
+        setMusicScene(musicBaseSceneRef.current);
+        musicSceneTimerRef.current = null;
+      }, transition.durationMs);
+    }
     return feedback;
   };
 

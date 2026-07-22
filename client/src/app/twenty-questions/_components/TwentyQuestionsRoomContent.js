@@ -1,16 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiGet, apiPost, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../utils/client-auth';
 import GameActionIcon from '../../games/_components/GameActionIcon';
+import { useGameBgm } from '../../games/_components/GameBgmProvider';
 import { GameControlButton } from '../../games/_components/GamePlayPrimitives';
 import { useGameSfxEventHandlers } from '../../games/_lib/useGameSfx';
 import { twentyQuestionsFeedback } from '../_lib/twentyQuestionsFeedback';
+import {
+  resolveTwentyQuestionsRoomBgmScene,
+  twentyQuestionsResultMusic,
+} from '../_lib/twentyQuestionsSoundtrack';
 import TwentyQuestionsFeedbackBar from './TwentyQuestionsFeedbackBar';
 
 const RESPONSE_OPTIONS = [
@@ -116,6 +121,7 @@ export default function TwentyQuestionsRoomContent() {
   const hydrated = useHydrated();
   const token = useAuthToken();
   const { showToast } = useToast();
+  const { setMusicScene } = useGameBgm();
 
   const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -124,18 +130,13 @@ export default function TwentyQuestionsRoomContent() {
   const [hintText, setHintText] = useState('');
   const [submitting, setSubmitting] = useState('');
   const [actionFeedback, setActionFeedback] = useState(null);
+  const musicBaseSceneRef = useRef('');
+  const musicSceneTimerRef = useRef(null);
   const {
     handleGameSfxChangeCapture,
     handleGameSfxPointerDownCapture,
     playGameSfx,
   } = useGameSfxEventHandlers({ theme: 'twenty' });
-
-  const announce = (action, result = {}) => {
-    const feedback = twentyQuestionsFeedback(action, result);
-    setActionFeedback(feedback);
-    playGameSfx(feedback.cue);
-    return feedback;
-  };
 
   const loadRoom = useCallback(async () => {
     if (!id) {
@@ -171,6 +172,41 @@ export default function TwentyQuestionsRoomContent() {
   const attemptsLeft = Math.max(0, Number(room?.remainingCount != null ? room.remainingCount : Number(room?.maxQuestions || 20) - Number(room?.attemptCount || 0)));
   const canInteract = hydrated && token && active;
   const canUseAttempt = canInteract && attemptsLeft > 0;
+  const baseMusicScene = useMemo(() => resolveTwentyQuestionsRoomBgmScene({
+    status: room?.status,
+    answerRevealed: room?.answerRevealed,
+    attemptsLeft,
+    pendingCount: pendingQuestions.length,
+    isHost: room?.isHost,
+    submitting,
+  }), [attemptsLeft, pendingQuestions.length, room?.answerRevealed, room?.isHost, room?.status, submitting]);
+
+  useEffect(() => {
+    musicBaseSceneRef.current = baseMusicScene;
+    if (musicSceneTimerRef.current) return;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
+
+  const announce = (action, result = {}) => {
+    const feedback = twentyQuestionsFeedback(action, result);
+    setActionFeedback(feedback);
+    playGameSfx(feedback.cue);
+    const transition = twentyQuestionsResultMusic(feedback);
+    if (transition) {
+      if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+      setMusicScene(transition.theme);
+      musicSceneTimerRef.current = window.setTimeout(() => {
+        setMusicScene(musicBaseSceneRef.current);
+        musicSceneTimerRef.current = null;
+      }, transition.durationMs);
+    }
+    return feedback;
+  };
 
   const applyRoomResponse = (data) => {
     const nextRoom = normalizeRoom(data);

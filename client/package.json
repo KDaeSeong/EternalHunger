@@ -53,6 +53,7 @@
     "check:si-coding-feedback": "node ./scripts/check-si-coding-feedback.mjs",
     "check:si-coding-soundtrack": "node ./scripts/check-si-coding-soundtrack.mjs",
     "check:twenty-questions-feedback": "node ./scripts/check-twenty-questions-feedback.mjs",
+    "check:twenty-questions-soundtrack": "node ./scripts/check-twenty-questions-soundtrack.mjs",
     "diagnose:simulation": "node ./scripts/simulation-diagnostics.mjs"
   },
   "dependencies": {
