@@ -42,6 +42,10 @@ const siCodingTrack = (file, options = {}) => renderedTrack('si-coding-sim', fil
   renderer: 'physical-model-v2-orchestra',
   ...options,
 });
+const companyReportTrack = (file, options = {}) => renderedTrack('company-report', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
@@ -114,6 +118,13 @@ export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'coding-risk': siCodingTrack('risk', { gain: 1.14 }),
   'coding-success': siCodingTrack('success', { gain: 1.2 }),
   'coding-delivery': siCodingTrack('delivery', { gain: 1.18 }),
+  'company-board': companyReportTrack('board', { gain: 1.2 }),
+  'company-trade': companyReportTrack('trade', { gain: 1.2 }),
+  'company-closing': companyReportTrack('closing', { gain: 1.22 }),
+  'company-global': companyReportTrack('global', { gain: 1.18 }),
+  'company-capital': companyReportTrack('capital', { gain: 1.16 }),
+  'company-audit': companyReportTrack('audit', { gain: 1.22 }),
+  'company-crisis': companyReportTrack('crisis', { gain: 1.14 }),
 });
 
 export function gameBgmRenderedTrack(theme) {
