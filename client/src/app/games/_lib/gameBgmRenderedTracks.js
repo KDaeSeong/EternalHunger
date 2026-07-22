@@ -58,7 +58,7 @@ const rail3dTrack = (file, options = {}) => renderedTrack('rail3d-sim', file, {
   ...options,
 });
 const racingLogosTrack = (file, options = {}) => renderedTrack('racing-logos-demo', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 const twentyQuestionsTrack = (file, options = {}) => renderedTrack('twenty-questions', file, {

@@ -61,7 +61,7 @@
     "check:rail3d-feedback": "node ./scripts/check-rail3d-feedback.mjs",
     "check:rail3d-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-rail3d-soundtrack.mjs && node ./scripts/check-rail3d-rendered-audio.mjs",
     "check:racing-logos-feedback": "node ./scripts/check-racing-logos-feedback.mjs",
-    "check:racing-logos-soundtrack": "node ./scripts/check-racing-logos-soundtrack.mjs && node ./scripts/check-racing-logos-rendered-audio.mjs",
+    "check:racing-logos-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-racing-logos-soundtrack.mjs && node ./scripts/check-racing-logos-rendered-audio.mjs",
     "check:schale-idle-feedback": "node ./scripts/check-schale-idle-feedback.mjs",
     "check:schale-idle-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-schale-idle-soundtrack.mjs && node ./scripts/check-schale-idle-rendered-audio.mjs",
     "check:school-simulator-feedback": "node ./scripts/check-school-simulator-feedback.mjs",

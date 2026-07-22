@@ -25,7 +25,11 @@ const manifest = JSON.parse(await readFile(
   'utf8',
 ));
 
-assert.equal(manifest.renderer, 'physical-model-v2-orchestra');
+assert.equal(manifest.renderer, 'sampled-orchestra-v3-vsco2-ce');
+assert.equal(manifest.sampleLibrary?.name, 'VS Chamber Orchestra 2 Community Edition - 50 Sample Pack');
+assert.equal(manifest.sampleLibrary?.license, 'CC0-1.0');
+assert.equal(manifest.sampleLibrary?.sampledTonalInstruments?.length >= 15, true);
+assert.equal(manifest.sampleLibrary?.sampledPercussion?.length >= 6, true);
 assert.equal(manifest.tracks.length, 7, 'Racing Logos 렌더 트랙은 7곡이어야 합니다.');
 assert.equal(
   Object.keys(GAME_BGM_RENDERED_TRACKS).filter((theme) => theme.startsWith('racing-')).length,
@@ -36,12 +40,15 @@ assert.equal(new Set(manifest.tracks.map((track) => track.file)).size, 7);
 
 let totalBytes = 0;
 const soundtrackInstruments = new Set();
+const sampledInstruments = new Set();
+const sampledSourceFiles = new Set();
+let sampledEvents = 0;
 for (const soundtrackRow of RACING_LOGOS_SOUNDTRACK) {
   const renderedTrack = gameBgmRenderedTrack(soundtrackRow.theme);
   const manifestTrack = manifest.tracks.find((track) => track.theme === soundtrackRow.theme);
   assert.ok(renderedTrack, `렌더 트랙 매핑 누락: ${soundtrackRow.theme}`);
   assert.ok(manifestTrack, `렌더 manifest 누락: ${soundtrackRow.theme}`);
-  assert.equal(renderedTrack.renderer, 'physical-model-v2-orchestra');
+  assert.equal(renderedTrack.renderer, 'sampled-orchestra-v3-vsco2-ce');
   assert.equal(renderedTrack.loop, true);
   assert.equal(renderedTrack.loopStartSeconds, 0.85);
   assert.match(renderedTrack.src, /^\/audio\/racing-logos-demo\/[a-z-]+\.wav$/);
@@ -53,6 +60,12 @@ for (const soundtrackRow of RACING_LOGOS_SOUNDTRACK) {
     `장면 오케스트라 편성이 부족합니다: ${soundtrackRow.theme}`,
   );
   for (const instrument of manifestTrack.instruments) soundtrackInstruments.add(instrument);
+  assert.equal(manifestTrack.sampleUsage?.events >= 90, true, `실제 연주 샘플 이벤트가 부족합니다: ${soundtrackRow.theme}`);
+  assert.equal(Object.keys(manifestTrack.sampleUsage?.instruments || {}).length >= 12, true, `실제로 소리 난 샘플 악기 종류가 부족합니다: ${soundtrackRow.theme}`);
+  assert.equal(Object.keys(manifestTrack.sampleUsage?.files || {}).length >= 16, true, `실제로 소리 난 원본 샘플 종류가 부족합니다: ${soundtrackRow.theme}`);
+  for (const instrument of manifestTrack.sampledInstruments) sampledInstruments.add(instrument);
+  for (const file of Object.keys(manifestTrack.sampleUsage.files)) sampledSourceFiles.add(file);
+  sampledEvents += manifestTrack.sampleUsage.events;
 
   const filePath = path.join(publicRoot, ...renderedTrack.src.split('/').filter(Boolean));
   const wave = await readFile(filePath);
@@ -106,49 +119,59 @@ assert.equal(
   'Racing Logos 렌더 음원 용량이 예상 범위를 벗어났습니다.',
 );
 for (const instrument of [
-  'piano', 'guitar', 'violin', 'viola', 'cello', 'flute', 'oboe', 'clarinet', 'horn',
-  'trumpet', 'trombone', 'harp', 'celesta', 'choir', 'timpani', 'taiko', 'engine-pulse',
+  'vibraphone', 'bell', 'violin', 'viola', 'cello', 'flute', 'oboe', 'bassoon', 'horn',
+  'trumpet', 'trombone', 'harp', 'celesta', 'strings', 'timpani', 'taiko', 'engine-pulse',
 ]) {
   assert.equal(soundtrackInstruments.has(instrument), true, `전체 편성 악기 누락: ${instrument}`);
 }
+for (const instrument of [
+  'vibraphone', 'bell', 'violin', 'viola', 'cello', 'flute', 'oboe', 'bassoon', 'horn',
+  'trumpet', 'trombone', 'harp', 'celesta', 'strings', 'bass', 'timpani',
+  'orchestral-snare', 'taiko', 'cymbal', 'tom',
+]) {
+  assert.equal(sampledInstruments.has(instrument), true, `실제 연주 샘플 편성 누락: ${instrument}`);
+}
+assert.equal(sampledSourceFiles.size >= 27, true, '전체 OST에서 실제 원본 샘플 종류가 부족합니다.');
+assert.equal(sampledEvents >= 750, true, '전체 OST에서 실제 연주 샘플 이벤트가 부족합니다.');
 assert.match(
   rendererSource,
-  /theme: 'racing-garage'[\s\S]*lead: 'guitar'[\s\S]*counter: 'piano'/,
-  '피트 장면에는 기타와 피아노 편성이 필요합니다.',
+  /theme: 'racing-garage'[\s\S]*lead: 'vibraphone'[\s\S]*counter: 'bassoon'/,
+  '피트 장면에는 비브라폰과 바순 편성이 필요합니다.',
 );
 assert.match(
   rendererSource,
-  /theme: 'racing-telemetry'[\s\S]*lead: 'celesta'[\s\S]*counter: 'piano'/,
-  '텔레메트리에는 첼레스타와 피아노 편성이 필요합니다.',
+  /theme: 'racing-telemetry'[\s\S]*lead: 'celesta'[\s\S]*counter: 'vibraphone'/,
+  '텔레메트리에는 첼레스타와 비브라폰 편성이 필요합니다.',
 );
 assert.match(
   rendererSource,
-  /theme: 'racing-grid'[\s\S]*lead: 'trumpet'[\s\S]*counter: 'guitar'/,
-  '스타팅 그리드에는 트럼펫과 기타 편성이 필요합니다.',
+  /theme: 'racing-grid'[\s\S]*lead: 'trumpet'[\s\S]*counter: 'bell'[\s\S]*pad: 'strings'/,
+  '스타팅 그리드에는 트럼펫·벨·현악 편성이 필요합니다.',
 );
 assert.match(
   rendererSource,
-  /theme: 'racing-circuit'[\s\S]*lead: 'guitar'[\s\S]*counter: 'violin'/,
-  '서킷에는 기타와 바이올린 편성이 필요합니다.',
+  /theme: 'racing-circuit'[\s\S]*lead: 'violin'[\s\S]*counter: 'vibraphone'/,
+  '서킷에는 바이올린과 비브라폰 편성이 필요합니다.',
 );
 assert.match(
   rendererSource,
-  /theme: 'racing-red-flag'[\s\S]*lead: 'trumpet'[\s\S]*counter: 'cello'/,
-  '레드 플래그에는 트럼펫과 첼로 편성이 필요합니다.',
+  /theme: 'racing-red-flag'[\s\S]*lead: 'trumpet'[\s\S]*counter: 'cello'[\s\S]*pad: 'strings'/,
+  '레드 플래그에는 트럼펫·첼로·현악 편성이 필요합니다.',
 );
 assert.match(
   rendererSource,
-  /theme: 'racing-podium'[\s\S]*lead: 'trumpet'[\s\S]*counter: 'violin'[\s\S]*pad: 'choir'/,
-  '포디엄에는 트럼펫·바이올린·합창 편성이 필요합니다.',
+  /theme: 'racing-podium'[\s\S]*lead: 'trumpet'[\s\S]*counter: 'violin'[\s\S]*pad: 'strings'/,
+  '포디엄에는 트럼펫·바이올린·현악 편성이 필요합니다.',
 );
 assert.match(
   rendererSource,
-  /theme: 'racing-archive'[\s\S]*lead: 'piano'[\s\S]*counter: 'celesta'/,
-  '경기 기록에는 피아노와 첼레스타 편성이 필요합니다.',
+  /theme: 'racing-archive'[\s\S]*lead: 'harp'[\s\S]*counter: 'celesta'[\s\S]*woodwind: 'bassoon'/,
+  '경기 기록에는 하프·첼레스타·바순 편성이 필요합니다.',
 );
 assert.match(rendererSource, /percussion: 'motorsport-orchestra'/, '주행 장면에는 모터스포츠 오케스트라 타악기가 필요합니다.');
 assert.match(sharedRendererSource, /'engine-pulse'/, '공용 렌더러에 엔진 저역 펄스가 필요합니다.');
 assert.match(rendererSource, /channels: 2/, '스테레오 렌더링 설정이 필요합니다.');
+assert.match(rendererSource, /sampled-orchestra-v3-vsco2-ce/, '샘플 오케스트라 렌더러 식별자가 필요합니다.');
 
 console.log(JSON.stringify({
   renderedTracks: manifest.tracks.length,
@@ -156,4 +179,7 @@ console.log(JSON.stringify({
   totalMiB: Number((totalBytes / 1_048_576).toFixed(2)),
   instrumentCount: soundtrackInstruments.size,
   renderer: manifest.renderer,
+  sampledInstrumentCount: sampledInstruments.size,
+  sampledSourceFiles: sampledSourceFiles.size,
+  sampledEvents,
 }, null, 2));
