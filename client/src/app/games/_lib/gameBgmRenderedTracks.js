@@ -38,6 +38,10 @@ const schoolSimulatorTrack = (file, options = {}) => renderedTrack('school-simul
   renderer: 'physical-model-v2-orchestra',
   ...options,
 });
+const siCodingTrack = (file, options = {}) => renderedTrack('si-coding-sim', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
@@ -103,6 +107,13 @@ export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'school-incident-alert': schoolSimulatorTrack('incident', { gain: 1.14 }),
   'school-semester-finale': schoolSimulatorTrack('semester', { gain: 1.2 }),
   'school-afterschool': schoolSimulatorTrack('afterschool', { gain: 1.22 }),
+  'coding-focus': siCodingTrack('focus', { gain: 1.2 }),
+  'coding-docs': siCodingTrack('docs', { gain: 1.22 }),
+  'coding-execution': siCodingTrack('execution', { gain: 1.18 }),
+  'coding-audit': siCodingTrack('audit', { gain: 1.2 }),
+  'coding-risk': siCodingTrack('risk', { gain: 1.14 }),
+  'coding-success': siCodingTrack('success', { gain: 1.2 }),
+  'coding-delivery': siCodingTrack('delivery', { gain: 1.18 }),
 });
 
 export function gameBgmRenderedTrack(theme) {
