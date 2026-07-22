@@ -3,6 +3,7 @@ import {
   runJudgeBatchAction,
   startJudgeMatchAction,
 } from '../_lib/tonkatsuTeacherEngine';
+import { TonkatsuPanelTitle } from './TonkatsuVisuals';
 
 export default function TonkatsuJudgeTab(props) {
   const {
@@ -20,10 +21,7 @@ export default function TonkatsuJudgeTab(props) {
     <>
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>심사 빠른 실행</h2>
-                    <span>{judge.rank}</span>
-                  </div>
+                  <TonkatsuPanelTitle action="tonkatsu-judge" title="심사 빠른 실행" meta={judge.rank} />
                   <div className="games-rank-split">
                     <SmallStat label="심사" value={judge.judged} />
                     <SmallStat label="정답" value={judge.correct} />

@@ -1,4 +1,5 @@
 import { SmallStat } from '../../_components/GamePlayPrimitives';
+import { TonkatsuIconRow, TonkatsuPanelTitle } from './TonkatsuVisuals';
 
 export default function TonkatsuOperationsTab(props) {
   const {
@@ -9,10 +10,7 @@ export default function TonkatsuOperationsTab(props) {
     <>
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>운영 상태</h2>
-                    <span>{operationsReport.headline} · {operationsReport.riskLabel}</span>
-                  </div>
+                  <TonkatsuPanelTitle action="tonkatsu-service" title="운영 상태" meta={`${operationsReport.headline} · ${operationsReport.riskLabel}`} />
                   <div className="games-rank-split">
                     {operationsReport.businessRows.map((row) => (
                       <SmallStat label={row.label} value={row.value} key={row.label} />
@@ -20,21 +18,18 @@ export default function TonkatsuOperationsTab(props) {
                   </div>
                   <div className="game-save-list" style={{ marginTop: 12 }}>
                     {operationsReport.recommendations.map((item) => (
-                      <article className="game-save-row" key={item.id}>
+                      <TonkatsuIconRow action={item.priority === 'high' ? 'warning' : 'advisor'} label={item.title} key={item.id}>
                         <div>
                           <span>{item.priority === 'high' ? '우선' : item.priority === 'medium' ? '추천' : '보조'}</span>
                           <strong>{item.title}</strong>
                           <small>{item.detail}</small>
                         </div>
-                      </article>
+                      </TonkatsuIconRow>
                     ))}
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>주요 지표</h2>
-                    <span>제작 · 성장 · 전투</span>
-                  </div>
+                  <TonkatsuPanelTitle action="analysis" title="주요 지표" meta="제작 · 성장 · 전투" />
                   <div className="games-rank-split">
                     {[...operationsReport.kitchenRows, ...operationsReport.growthRows, ...operationsReport.battleRows].map((row) => (
                       <SmallStat label={row.label} value={row.value} key={`${row.label}-${row.value}`} />

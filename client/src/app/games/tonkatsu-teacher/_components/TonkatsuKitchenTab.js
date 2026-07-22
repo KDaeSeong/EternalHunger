@@ -9,6 +9,7 @@ import {
   sellRecipeAction,
 } from '../_lib/tonkatsuTeacherEngine';
 import TonkatsuMethodStrip from './TonkatsuMethodStrip';
+import { TonkatsuIconRow, TonkatsuPanelTitle } from './TonkatsuVisuals';
 
 export default function TonkatsuKitchenTab(props) {
   const {
@@ -33,10 +34,7 @@ export default function TonkatsuKitchenTab(props) {
     <>
               <>
               <section className="games-panel">
-                <div className="games-panel-title">
-                  <h2>선택 메뉴 운영 판단</h2>
-                  <span>{selectedRecipePlan.planScore}% · {selectedRecipePlan.salesMode}</span>
-                </div>
+                <TonkatsuPanelTitle action="advisor" title="선택 메뉴 운영 판단" meta={`${selectedRecipePlan.planScore}% · ${selectedRecipePlan.salesMode}`} />
                 <div className="tonkatsu-quick-selectors">
                   <label className="game-save-json-field">
                     <span>운영 메뉴</span>
@@ -69,31 +67,25 @@ export default function TonkatsuKitchenTab(props) {
                 </p>
                 <div className="game-save-list" style={{ marginTop: 12 }}>
                   {selectedRecipePlan.rows.map((row) => (
-                    <article className="game-save-row" key={row.label}>
+                    <TonkatsuIconRow action="advisor" label={row.label} key={row.label}>
                       <div>
                         <span>{row.label}</span>
                         <strong>{row.value}</strong>
                         <small>{row.detail}</small>
                       </div>
-                    </article>
+                    </TonkatsuIconRow>
                   ))}
                 </div>
               </section>
 
               <section className="games-panel tonkatsu-method-panel">
-                <div className="games-panel-title">
-                  <h2>조리 공정</h2>
-                  <span>성공 {methodProfile.successPct}% · 숙련 생산 {methodProfile.productionText}</span>
-                </div>
+                <TonkatsuPanelTitle action="tonkatsu-kitchen" title="조리 공정" meta={`성공 ${methodProfile.successPct}% · 숙련 생산 ${methodProfile.productionText}`} />
                 <TonkatsuMethodStrip rows={methodRows.filter((row) => row.selected)} />
               </section>
 
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>빠른 제작</h2>
-                    <span>{recipe.name}</span>
-                  </div>
+                  <TonkatsuPanelTitle action={methodProfile.methods[0]?.action || 'cook'} title="빠른 제작" meta={recipe.name} />
                   <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
                     필요: {formatNeeds(recipe.needs)}
                   </p>
@@ -112,10 +104,7 @@ export default function TonkatsuKitchenTab(props) {
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>빠른 매입</h2>
-                    <span>{ingredient.name}</span>
-                  </div>
+                  <TonkatsuPanelTitle action="trade" title="빠른 매입" meta={ingredient.name} />
                   <div className="games-rank-split">
                     <SmallStat label="가격" value={`${ingredient.price}G`} />
                     <SmallStat label="보유 재료" value={inventoryCount(state)} />

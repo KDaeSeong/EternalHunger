@@ -26,6 +26,7 @@ import {
   submitJudgePickAction,
   upgradeFacilityAction,
 } from '../_lib/tonkatsuTeacherEngine';
+import { TonkatsuIconRow, TonkatsuPanelTitle } from './TonkatsuVisuals';
 
 export default function TonkatsuAdvancedTab(props) {
   const {
@@ -82,10 +83,7 @@ export default function TonkatsuAdvancedTab(props) {
               <>
       <section className="games-detail-grid">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>주방</h2>
-            <span>제작비 {recipe.craftCost}G</span>
-          </div>
+          <TonkatsuPanelTitle action="tonkatsu-kitchen" title="주방" meta={`제작비 ${recipe.craftCost}G`} />
           <label className="game-save-json-field">
             <span>레시피</span>
             <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
@@ -123,10 +121,7 @@ export default function TonkatsuAdvancedTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>재료 상점</h2>
-            <span>재료 {inventoryCount(state)}</span>
-          </div>
+          <TonkatsuPanelTitle action="trade" title="재료 상점" meta={`재료 ${inventoryCount(state)}`} />
           <label className="game-save-json-field">
             <span>재료</span>
             <select value={ingredientId} onChange={(event) => setIngredientId(event.target.value)}>
@@ -147,16 +142,13 @@ export default function TonkatsuAdvancedTab(props) {
             <SmallStat label="영업 배율" value={`x${facilityContext.goldMultFromOrders.toFixed(2)}`} />
           </div>
           <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-            <ActionButton action="sales" cue="off" disabled={!canAct || state.businessMode === 'hall'} onClick={() => setState((current) => setBusinessModeAction(current, 'hall'))}>홀 영업</ActionButton>
-            <ActionButton action="sales" cue="off" disabled={!canAct || state.businessMode === 'delivery'} onClick={() => setState((current) => setBusinessModeAction(current, 'delivery'))}>배달 영업</ActionButton>
+            <ActionButton action="tonkatsu-service" cue="off" disabled={!canAct || state.businessMode === 'hall'} onClick={() => setState((current) => setBusinessModeAction(current, 'hall'))}>홀 영업</ActionButton>
+            <ActionButton action="tonkatsu-service" cue="off" disabled={!canAct || state.businessMode === 'delivery'} onClick={() => setState((current) => setBusinessModeAction(current, 'delivery'))}>배달 영업</ActionButton>
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>학생 지원</h2>
-            <span>예상 승률 {winRatePreview}%</span>
-          </div>
+          <TonkatsuPanelTitle action="tonkatsu-service" title="학생 지원" meta={`예상 승률 ${winRatePreview}%`} />
           <label className="game-save-json-field">
             <span>학생</span>
             <select value={studentId} onChange={(event) => setStudentId(event.target.value)}>
@@ -180,50 +172,41 @@ export default function TonkatsuAdvancedTab(props) {
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>인벤토리</h2>
-            <span>{inventoryRows.length}종</span>
-          </div>
+          <TonkatsuPanelTitle action="inventory" title="인벤토리" meta={`${inventoryRows.length}종`} />
           {inventoryRows.length ? (
             <div className="game-save-list">
               {inventoryRows.map(([id, qty]) => (
-                <article className="game-save-row" key={id}>
+                <TonkatsuIconRow action="inventory" label={ingredientName(id)} key={id}>
                   <div>
                     <span>재료</span>
                     <strong>{ingredientName(id)}</strong>
                   </div>
                   <strong>{Number(qty || 0).toLocaleString('ko-KR')}</strong>
-                </article>
+                </TonkatsuIconRow>
               ))}
             </div>
           ) : <div className="games-empty">보유 재료가 없습니다.</div>}
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>준비된 메뉴</h2>
-            <span>{tokenRows.length}종</span>
-          </div>
+          <TonkatsuPanelTitle action="cook" title="준비된 메뉴" meta={`${tokenRows.length}종`} />
           {tokenRows.length ? (
             <div className="game-save-list">
               {tokenRows.map(([id, qty]) => (
-                <article className="game-save-row" key={id}>
+                <TonkatsuIconRow action="cook" label={recipeName(id)} key={id}>
                   <div>
                     <span>메뉴</span>
                     <strong>{recipeName(id)}</strong>
                   </div>
                   <strong>{Number(qty || 0).toLocaleString('ko-KR')}</strong>
-                </article>
+                </TonkatsuIconRow>
               ))}
             </div>
           ) : <div className="games-empty">준비된 메뉴가 없습니다.</div>}
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>코스메틱</h2>
-            <span>보유 {ownedCosmetics.length}/{cosmetics.length}</span>
-          </div>
+          <TonkatsuPanelTitle action="equip" title="코스메틱" meta={`보유 ${ownedCosmetics.length}/${cosmetics.length}`} />
           <div className="games-rank-split" style={{ marginBottom: 12 }}>
             {equippedCosmetics.map((row) => (
               <SmallStat key={row.slot} label={row.label} value={row.item?.name || '없음'} />
@@ -235,7 +218,7 @@ export default function TonkatsuAdvancedTab(props) {
                 ? `${cosmetic.price.gold}G · 조각 ${cosmetic.price.recipeShards}`
                 : `${cosmetic.price.gold}G`;
               return (
-                <article className="game-save-row" key={cosmetic.id}>
+                <TonkatsuIconRow action={cosmetic.owned ? 'equip' : 'shop'} label={cosmetic.name} key={cosmetic.id}>
                   <div>
                     <span>{cosmetic.slotLabel} · 희귀도 {cosmetic.rarity} · {cosmetic.owned ? '보유' : priceText}</span>
                     <strong>{cosmetic.name}</strong>
@@ -250,55 +233,46 @@ export default function TonkatsuAdvancedTab(props) {
                       구매
                     </GameControlButton>
                   )}
-                </article>
+                </TonkatsuIconRow>
               );
             })}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>시설</h2>
-            <span>{facilities.length}종</span>
-          </div>
+          <TonkatsuPanelTitle action="upgrade" title="시설" meta={`${facilities.length}종`} />
           <div className="game-save-list">
             {facilities.map((facility) => (
-              <article className="game-save-row" key={facility.id}>
+              <TonkatsuIconRow action="upgrade" label={facility.name} key={facility.id}>
                 <div>
                   <span>{facility.effect} · Lv.{facility.level}/{facility.maxLevel}</span>
                   <strong>{facility.name}</strong>
                   <small>{facility.maxed ? '최대 레벨' : `다음 비용 ${facility.nextCost}G`}</small>
                 </div>
                 <GameControlButton action="upgrade" cue="off" disabled={!canAct || facility.maxed || !facility.canUpgrade} onClick={() => setState((current) => upgradeFacilityAction(current, facility.id))}>업그레이드</GameControlButton>
-              </article>
+              </TonkatsuIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>연구</h2>
-            <span>조각 {Number(state.recipeShards || 0)}</span>
-          </div>
+          <TonkatsuPanelTitle action="research" title="연구" meta={`조각 ${Number(state.recipeShards || 0)}`} />
           <div className="game-save-list">
             {researches.map((project) => (
-              <article className="game-save-row" key={project.recipeId}>
+              <TonkatsuIconRow action={project.done ? 'complete' : 'research'} label={project.name} key={project.recipeId}>
                 <div>
                   <span>{project.gold}G · 조각 {project.recipeShards}</span>
                   <strong>{project.name}</strong>
                   <small>{project.done ? '완료' : project.recipeName}</small>
                 </div>
                 <GameControlButton action="research" cue="off" disabled={!canAct || project.done || !project.canResearch} onClick={() => setState((current) => researchRecipeAction(current, project.recipeId))}>연구</GameControlButton>
-              </article>
+              </TonkatsuIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>대회</h2>
-            <span>{tournament.theme.name}</span>
-          </div>
+          <TonkatsuPanelTitle action="tonkatsu-contest" title="대회" meta={tournament.theme.name} />
           <label className="game-save-json-field">
             <span>티어</span>
             <select value={tournamentTierId} onChange={(event) => setTournamentTierId(event.target.value)}>
@@ -317,10 +291,7 @@ export default function TonkatsuAdvancedTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>심사위원</h2>
-            <span>{judge.rank}</span>
-          </div>
+          <TonkatsuPanelTitle action="tonkatsu-judge" title="심사위원" meta={judge.rank} />
           <div className="games-rank-split">
             <SmallStat label="심사" value={judge.judged} />
             <SmallStat label="정답" value={judge.correct} />
@@ -395,22 +366,22 @@ export default function TonkatsuAdvancedTab(props) {
                 <SmallStat label="티어" value={judgeMatch.tierName || judgeMatch.tierId} />
                 <SmallStat label="결과" value={judgeMatch.resolved ? (judgeMatch.correct ? '정답' : '오답') : '판정 대기'} />
               </div>
-              <article className="game-save-row">
+              <TonkatsuIconRow action="tonkatsu-judge" label={`${judgeMatch.aiAName} 제출작`}>
                 <div>
                   <span>A · {judgeMatch.aiAName}</span>
                   <strong>{judgeMatch.aiARecipeName || recipeName(judgeMatch.aiARecipeId)}</strong>
                   <small>{judgeMatch.aiAAppeal}</small>
                 </div>
                 <strong>{judgeMatch.resolved ? `${judgeMatch.aiATotal}점` : '비공개'}</strong>
-              </article>
-              <article className="game-save-row">
+              </TonkatsuIconRow>
+              <TonkatsuIconRow action="tonkatsu-judge" label={`${judgeMatch.aiBName} 제출작`}>
                 <div>
                   <span>B · {judgeMatch.aiBName}</span>
                   <strong>{judgeMatch.aiBRecipeName || recipeName(judgeMatch.aiBRecipeId)}</strong>
                   <small>{judgeMatch.aiBAppeal}</small>
                 </div>
                 <strong>{judgeMatch.resolved ? `${judgeMatch.aiBTotal}점` : '비공개'}</strong>
-              </article>
+              </TonkatsuIconRow>
               <label className="game-save-json-field">
                 <span>선택</span>
                 <select value={judgePick} onChange={(event) => setJudgePick(event.target.value)}>
@@ -431,14 +402,14 @@ export default function TonkatsuAdvancedTab(props) {
           {judgeRecent.rows.length ? (
             <div className="game-save-list" style={{ marginTop: 14 }}>
               {judgeRecent.rows.map((entry, index) => (
-                <article className="game-save-row" key={`${entry.id || entry.judgedAt}-${index}`}>
+                <TonkatsuIconRow action={entry.correct ? 'complete' : 'warning'} label={`${entry.aiAName} 대 ${entry.aiBName}`} key={`${entry.id || entry.judgedAt}-${index}`}>
                   <div>
                     <span>{entry.themeName || entry.themeId} · {JUDGE_HISTORY_MODE_LABELS[entry.judgeMode] || '기록'} · {entry.judgePick} 선택</span>
                     <strong>{entry.correct ? '정답' : '오답'} · {entry.aiAName} vs {entry.aiBName}</strong>
                     <small>{entry.judgeText || '메모 없음'}</small>
                   </div>
                   <strong>{entry.aiATotal}:{entry.aiBTotal}</strong>
-                </article>
+                </TonkatsuIconRow>
               ))}
             </div>
           ) : judge.judged ? (
@@ -447,10 +418,7 @@ export default function TonkatsuAdvancedTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>로그</h2>
-            <span>{state.runId}</span>
-          </div>
+          <TonkatsuPanelTitle action="logs" title="로그" meta={state.runId} />
           <div className="games-activity-list">
             {state.log.slice(0, 12).map((line, index) => (
               <div key={`${line}-${index}`}>

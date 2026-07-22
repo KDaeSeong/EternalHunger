@@ -12789,6 +12789,34 @@
   overflow: hidden;
 }
 
+.tonkatsu-panel-title h2,
+.tonkatsu-panel-title h3 {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tonkatsu-panel-title h2 .game-action-icon,
+.tonkatsu-panel-title h3 .game-action-icon {
+  flex: 0 0 auto;
+  color: #b85f20;
+}
+
+.game-save-row.tonkatsu-icon-row {
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 9px;
+}
+
+.tonkatsu-icon-row > .game-action-icon {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(184, 95, 32, 0.18);
+  border-radius: 6px;
+  background: #fff2e5;
+  color: #b85f20;
+}
+
 .tonkatsu-quick-selectors {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

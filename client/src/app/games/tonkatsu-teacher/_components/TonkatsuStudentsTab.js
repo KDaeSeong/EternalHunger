@@ -4,6 +4,7 @@ import {
   feedStudentAction,
   nextDayAction,
 } from '../_lib/tonkatsuTeacherEngine';
+import { TonkatsuPanelTitle } from './TonkatsuVisuals';
 
 export default function TonkatsuStudentsTab(props) {
   const {
@@ -21,10 +22,7 @@ export default function TonkatsuStudentsTab(props) {
     <>
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>학생 지원</h2>
-                    <span>{student.name}</span>
-                  </div>
+                  <TonkatsuPanelTitle action="tonkatsu-service" title="학생 지원" meta={student.name} />
                   <label className="game-save-json-field tonkatsu-student-selector">
                     <span>지원 학생</span>
                     <select value={studentId} onChange={(event) => setStudentId(event.target.value)}>

@@ -42,7 +42,7 @@ const FEEDBACK_PROFILES = {
   cosmeticEquip: { action: 'equip', cue: 'equip', label: '장식 장착', tone: 'highlight' },
   sale: { action: 'sales', cue: 'sales', label: '메뉴 판매', tone: 'success' },
   purchase: { action: 'trade', cue: 'trade', label: '재료 매입', tone: 'highlight' },
-  businessMode: { action: 'sales', cue: 'sales', label: '영업 방식 변경', tone: 'highlight' },
+  businessMode: { action: 'tonkatsu-service', cue: 'businessMode', label: '영업 방식 변경', tone: 'highlight' },
   complete: { action: 'trophy', cue: 'complete', label: '14일 운영 완료', tone: 'champion' },
   nextDay: { action: 'advance', cue: 'advance', label: '다음 영업일', tone: 'highlight' },
   blocked: { action: 'warning', cue: 'warning', label: '실행 불가', tone: 'warning' },

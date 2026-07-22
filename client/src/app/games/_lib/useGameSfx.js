@@ -212,6 +212,12 @@ const CUE_PROFILES = {
     { frequency: 920, duration: 0.035, type: 'sine', gain: 0.05 },
     { frequency: 1240, start: 0.03, duration: 0.065, type: 'sine', gain: 0.038 },
   ],
+  businessMode: [
+    { source: 'noise', filterType: 'highpass', frequency: 2200, duration: 0.045, gain: 0.022, pan: -0.32 },
+    { frequency: 392, endFrequency: 523, duration: 0.065, type: 'triangle', gain: 0.043, pan: -0.2 },
+    { frequency: 659, start: 0.06, duration: 0.08, type: 'triangle', gain: 0.042, pan: 0.12 },
+    { frequency: 1047, start: 0.13, duration: 0.12, type: 'sine', gain: 0.034, pan: 0.32, reverb: 0.24 },
+  ],
   sales: [
     { frequency: 980, duration: 0.032, type: 'square', gain: 0.04 },
     { frequency: 1320, start: 0.03, duration: 0.055, type: 'triangle', gain: 0.04 },
@@ -1972,6 +1978,12 @@ const THEME_CUE_PROFILES = {
     confirm: [
       { frequency: 840, duration: 0.04, type: 'triangle', gain: 0.06 },
       { frequency: 1260, start: 0.035, duration: 0.06, type: 'sine', gain: 0.045 },
+    ],
+    businessMode: [
+      { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.055, gain: 0.025, pan: -0.42, reverb: 0.18 },
+      { frequency: 330, endFrequency: 494, duration: 0.07, type: 'triangle', gain: 0.045, pan: -0.26 },
+      { frequency: 659, start: 0.065, duration: 0.09, type: 'triangle', gain: 0.045, pan: 0.1 },
+      { frequency: 988, start: 0.145, duration: 0.14, type: 'sine', gain: 0.036, pan: 0.34, reverb: 0.28 },
     ],
   },
   idle: {

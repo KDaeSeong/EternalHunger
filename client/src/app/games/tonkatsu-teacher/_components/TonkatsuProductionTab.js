@@ -1,5 +1,6 @@
 import { SmallStat } from '../../_components/GamePlayPrimitives';
 import TonkatsuMethodStrip from './TonkatsuMethodStrip';
+import { TonkatsuIconRow, TonkatsuPanelTitle } from './TonkatsuVisuals';
 
 export default function TonkatsuProductionTab(props) {
   const {
@@ -11,10 +12,7 @@ export default function TonkatsuProductionTab(props) {
     <>
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>현재 장면</h2>
-                    <span>{productionReport.phase}</span>
-                  </div>
+                  <TonkatsuPanelTitle action="tonkatsu-opening" title="현재 장면" meta={productionReport.phase} />
                   <div className="games-rank-split">
                     <SmallStat label="연출 점수" value={`${productionReport.productionScore}%`} />
                     <SmallStat label="장면 수" value={productionReport.sceneCues.length} />
@@ -23,64 +21,52 @@ export default function TonkatsuProductionTab(props) {
                   </div>
                   <div className="game-save-list" style={{ marginTop: 12 }}>
                     {productionReport.sceneCues.map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <TonkatsuIconRow action={row.tone === 'ready' ? 'tonkatsu-opening' : 'effect'} label={row.title} key={row.id}>
                         <div>
                           <span>{row.trigger} · {row.pct}%</span>
                           <strong>{row.title}</strong>
                           <small>{row.detail}</small>
                         </div>
                         <strong>{row.tone === 'ready' ? '준비' : '세팅'}</strong>
-                      </article>
+                      </TonkatsuIconRow>
                     ))}
                   </div>
                 </section>
                 <section className="games-panel tonkatsu-method-panel">
-                  <div className="games-panel-title">
-                    <h2>조리 숙련도</h2>
-                    <span>{methodRows.filter((row) => row.level > 0).length}/{methodRows.length} 숙련 시작</span>
-                  </div>
+                  <TonkatsuPanelTitle action="tonkatsu-growth" title="조리 숙련도" meta={`${methodRows.filter((row) => row.level > 0).length}/${methodRows.length} 숙련 시작`} />
                   <TonkatsuMethodStrip rows={methodRows} compact />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>장기 이벤트 변형</h2>
-                    <span>영업 · 전투 · 심사</span>
-                  </div>
+                  <TonkatsuPanelTitle action="tonkatsu-contest" title="장기 이벤트 변형" meta="영업 · 전투 · 심사" />
                   <div className="game-save-list">
                     {productionReport.eventRows.map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <TonkatsuIconRow action={row.tone === 'ready' ? 'tonkatsu-contest' : 'tonkatsu-setback'} label={row.title} key={row.id}>
                         <div>
                           <span>{row.trigger} · {row.pct}%</span>
                           <strong>{row.title}</strong>
                           <small>{row.detail}</small>
                         </div>
                         <strong>{row.tone === 'ready' ? '발동권' : '준비중'}</strong>
-                      </article>
+                      </TonkatsuIconRow>
                     ))}
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>사운드 큐</h2>
-                    <span>{productionReport.soundCues.length}개</span>
-                  </div>
+                  <TonkatsuPanelTitle action="audio" title="사운드 큐" meta={`${productionReport.soundCues.length}개`} />
                   <div className="game-save-list">
                     {productionReport.soundCues.map((cue) => (
-                      <article className="game-save-row" key={cue.id}>
+                      <TonkatsuIconRow action="audio" label={cue.cue} key={cue.id}>
                         <div>
                           <span>{cue.target}</span>
                           <strong>{cue.cue}</strong>
                           <small>{cue.detail}</small>
                         </div>
-                      </article>
+                      </TonkatsuIconRow>
                     ))}
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>다음 연출 포인트</h2>
-                    <span>추천</span>
-                  </div>
+                  <TonkatsuPanelTitle action="advisor" title="다음 연출 포인트" meta="추천" />
                   <div className="games-activity-list">
                     {productionReport.recommendations.map((line) => (
                       <div key={line}><strong>{line}</strong></div>
