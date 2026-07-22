@@ -21,18 +21,81 @@ const SINE_TABLE = Float32Array.from(
 );
 
 export const ETERNAL_HUNGER_RENDER_TRACKS = Object.freeze([
-  { theme: 'eternal-ready', file: 'ready', title: '출전 대기', bars: 20, lead: 'piano', counter: 'bell', pad: 'strings', drumScale: 0.54, room: 0.2 },
-  { theme: 'eternal-day', file: 'day', title: '루미아의 낮', bars: 24, lead: 'pluck', counter: 'piano', pad: 'strings', drumScale: 0.82, room: 0.15 },
-  { theme: 'eternal-night', file: 'night', title: '금지구역 경보', bars: 24, lead: 'strings', counter: 'brass', pad: 'choir', drumScale: 1, room: 0.18 },
-  { theme: 'eternal-combat', file: 'combat', title: '교전 개시', bars: 28, lead: 'guitar', counter: 'brass', pad: 'strings', drumScale: 1.18, room: 0.1 },
-  { theme: 'eternal-rift', file: 'rift', title: '차원의 틈', bars: 24, lead: 'bell', counter: 'pluck', pad: 'choir', drumScale: 1.02, room: 0.24 },
-  { theme: 'eternal-boss', file: 'boss', title: '변이체 강림', bars: 28, lead: 'brass', counter: 'guitar', pad: 'choir', drumScale: 1.24, room: 0.16 },
-  { theme: 'eternal-final', file: 'final', title: '마지막 안전지대', bars: 28, lead: 'guitar', counter: 'strings', pad: 'strings', drumScale: 1.22, room: 0.14 },
-  { theme: 'eternal-result', file: 'result', title: '생존 기록', bars: 20, lead: 'piano', counter: 'bell', pad: 'strings', drumScale: 0.3, room: 0.26 },
-  { theme: 'eternal-defeat', file: 'defeat', title: '전멸 기록', bars: 20, lead: 'piano', counter: 'strings', pad: 'choir', drumScale: 0.2, room: 0.3 },
+  {
+    theme: 'eternal-ready', file: 'ready', title: '출전 대기', bars: 36,
+    lead: 'piano', counter: 'clarinet', pad: 'strings', highStrings: 'violin', midStrings: 'viola',
+    lowStrings: 'cello', woodwind: 'clarinet', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
+    percussion: 'orchestral', drumScale: 0.54, room: 0.25,
+  },
+  {
+    theme: 'eternal-day', file: 'day', title: '루미아의 낮', bars: 40,
+    lead: 'violin', counter: 'piano', pad: 'strings', highStrings: 'violin', midStrings: 'viola',
+    lowStrings: 'cello', woodwind: 'flute', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
+    percussion: 'orchestral', drumScale: 0.82, room: 0.2,
+  },
+  {
+    theme: 'eternal-night', file: 'night', title: '금지구역 경보', bars: 40,
+    lead: 'viola', counter: 'horn', pad: 'choir', highStrings: 'violin', midStrings: 'viola',
+    lowStrings: 'cello', woodwind: 'oboe', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
+    percussion: 'orchestral', drumScale: 1, room: 0.24,
+  },
+  {
+    theme: 'eternal-combat', file: 'combat', title: '교전 개시', bars: 44,
+    lead: 'violin', counter: 'trumpet', pad: 'strings', highStrings: 'violin', midStrings: 'viola',
+    lowStrings: 'cello', woodwind: 'clarinet', brassSection: 'trumpet', lowBrass: 'trombone', harp: 'harp',
+    percussion: 'hybrid-orchestra', drumScale: 1.18, room: 0.16,
+  },
+  {
+    theme: 'eternal-rift', file: 'rift', title: '차원의 틈', bars: 44,
+    lead: 'celesta', counter: 'harp', pad: 'choir', highStrings: 'violin', midStrings: 'viola',
+    lowStrings: 'cello', woodwind: 'flute', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
+    percussion: 'hybrid-orchestra', drumScale: 1.02, room: 0.3,
+  },
+  {
+    theme: 'eternal-boss', file: 'boss', title: '변이체 강림', bars: 48,
+    lead: 'horn', counter: 'trumpet', pad: 'choir', highStrings: 'violin', midStrings: 'viola',
+    lowStrings: 'cello', woodwind: 'oboe', brassSection: 'trumpet', lowBrass: 'trombone', harp: 'harp',
+    percussion: 'hybrid-orchestra', drumScale: 1.24, room: 0.2,
+  },
+  {
+    theme: 'eternal-final', file: 'final', title: '마지막 안전지대', bars: 48,
+    lead: 'violin', counter: 'horn', pad: 'strings', highStrings: 'violin', midStrings: 'viola',
+    lowStrings: 'cello', woodwind: 'flute', brassSection: 'trumpet', lowBrass: 'trombone', harp: 'harp',
+    percussion: 'hybrid-orchestra', drumScale: 1.22, room: 0.19,
+  },
+  {
+    theme: 'eternal-result', file: 'result', title: '생존 기록', bars: 32,
+    lead: 'piano', counter: 'clarinet', pad: 'strings', highStrings: 'violin', midStrings: 'viola',
+    lowStrings: 'cello', woodwind: 'flute', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
+    percussion: 'orchestral', drumScale: 0.3, room: 0.32,
+  },
+  {
+    theme: 'eternal-defeat', file: 'defeat', title: '전멸 기록', bars: 32,
+    lead: 'piano', counter: 'cello', pad: 'choir', highStrings: 'violin', midStrings: 'viola',
+    lowStrings: 'cello', woodwind: 'oboe', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
+    percussion: 'orchestral', drumScale: 0.2, room: 0.35,
+  },
 ]);
 
 const sampleCache = new Map();
+
+const ADDITIVE_INSTRUMENTS = Object.freeze({
+  piano: Object.freeze({ partials: [[1, 1], [2.004, 0.56], [3.012, 0.31], [4.025, 0.17], [5.04, 0.09], [6.07, 0.045]], attack: 0.006, attackRatio: 1, release: 0.42, releaseRatio: 0.35, decay: 1.25, level: 0.62, transient: 0.18, partialDecay: 0.32 }),
+  strings: Object.freeze({ partials: [[1, 1], [2, 0.38], [3, 0.22], [4, 0.13], [5, 0.08], [6, 0.045]], attack: 0.18, attackRatio: 0.2, release: 0.45, releaseRatio: 0.3, decay: 0.08, level: 0.54, vibrato: 0.0028, bowNoise: 0.009 }),
+  violin: Object.freeze({ partials: [[1, 1], [2, 0.64], [3, 0.46], [4, 0.32], [5, 0.22], [6, 0.14], [7, 0.08]], attack: 0.095, attackRatio: 0.18, release: 0.38, releaseRatio: 0.3, decay: 0.055, level: 0.43, vibrato: 0.0038, vibratoRate: 5.25, bowNoise: 0.014 }),
+  viola: Object.freeze({ partials: [[1, 1], [2, 0.5], [3, 0.34], [4, 0.22], [5, 0.13], [6, 0.07]], attack: 0.12, attackRatio: 0.2, release: 0.44, releaseRatio: 0.32, decay: 0.045, level: 0.5, vibrato: 0.0033, vibratoRate: 4.85, bowNoise: 0.012 }),
+  cello: Object.freeze({ partials: [[1, 1], [2, 0.43], [3, 0.29], [4, 0.18], [5, 0.1], [6, 0.05]], attack: 0.14, attackRatio: 0.22, release: 0.52, releaseRatio: 0.36, decay: 0.04, level: 0.58, vibrato: 0.003, vibratoRate: 4.35, bowNoise: 0.01 }),
+  brass: Object.freeze({ partials: [[1, 1], [2, 0.62], [3, 0.42], [4, 0.26], [5, 0.16], [6, 0.1]], attack: 0.065, attackRatio: 0.16, release: 0.2, releaseRatio: 0.25, decay: 0.16, level: 0.5, saturation: 0.9 }),
+  horn: Object.freeze({ partials: [[1, 1], [2, 0.4], [3, 0.32], [4, 0.17], [5, 0.12], [6, 0.06]], attack: 0.09, attackRatio: 0.2, release: 0.35, releaseRatio: 0.3, decay: 0.08, level: 0.56, saturation: 0.66, vibrato: 0.0014, vibratoRate: 4.6 }),
+  trumpet: Object.freeze({ partials: [[1, 1], [2, 0.72], [3, 0.54], [4, 0.37], [5, 0.25], [6, 0.15], [7, 0.08]], attack: 0.035, attackRatio: 0.14, release: 0.22, releaseRatio: 0.24, decay: 0.12, level: 0.4, saturation: 1.05, vibrato: 0.0013, vibratoRate: 5.1 }),
+  trombone: Object.freeze({ partials: [[1, 1], [2, 0.56], [3, 0.39], [4, 0.24], [5, 0.14], [6, 0.08]], attack: 0.065, attackRatio: 0.18, release: 0.3, releaseRatio: 0.28, decay: 0.1, level: 0.5, saturation: 0.82, vibrato: 0.0012, vibratoRate: 4.45 }),
+  choir: Object.freeze({ partials: [[1, 1], [2, 0.26], [3, 0.38], [4, 0.12], [5, 0.24], [6, 0.08], [7, 0.12]], attack: 0.28, attackRatio: 0.24, release: 0.55, releaseRatio: 0.36, decay: 0.03, level: 0.5, vibrato: 0.0021, vibratoRate: 4.2, airNoise: 0.006 }),
+  flute: Object.freeze({ partials: [[1, 1], [2, 0.18], [3, 0.08], [4, 0.035]], attack: 0.055, attackRatio: 0.18, release: 0.24, releaseRatio: 0.28, decay: 0.12, level: 0.58, vibrato: 0.0018, vibratoRate: 5.15, airNoise: 0.018 }),
+  oboe: Object.freeze({ partials: [[1, 0.86], [2, 0.31], [3, 0.58], [4, 0.2], [5, 0.34], [6, 0.1], [7, 0.16]], attack: 0.045, attackRatio: 0.16, release: 0.24, releaseRatio: 0.26, decay: 0.1, level: 0.46, vibrato: 0.0016, vibratoRate: 4.9, airNoise: 0.012 }),
+  clarinet: Object.freeze({ partials: [[1, 1], [2, 0.08], [3, 0.56], [4, 0.04], [5, 0.3], [6, 0.025], [7, 0.16]], attack: 0.05, attackRatio: 0.17, release: 0.28, releaseRatio: 0.28, decay: 0.08, level: 0.52, vibrato: 0.0012, vibratoRate: 4.7, airNoise: 0.008 }),
+  bell: Object.freeze({ partials: [[1, 1], [2.01, 0.52], [2.98, 0.34], [4.13, 0.22], [5.42, 0.14], [6.79, 0.07]], attack: 0.003, attackRatio: 1, release: 0.48, releaseRatio: 0.42, decay: 1.05, level: 0.58, partialDecay: 0.32 }),
+  celesta: Object.freeze({ partials: [[1, 1], [2.015, 0.46], [3.04, 0.27], [4.11, 0.14], [5.28, 0.08]], attack: 0.004, attackRatio: 1, release: 0.5, releaseRatio: 0.4, decay: 0.82, level: 0.56, transient: 0.08, partialDecay: 0.24 }),
+});
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Number(value || 0)));
@@ -71,67 +134,33 @@ function additiveSample(kind, frequency, duration, variant) {
   const frameCount = Math.max(1, Math.ceil(duration * SAMPLE_RATE));
   const samples = new Float32Array(frameCount);
   const random = seededRandom(variant * 9_973 + Math.round(frequency * 17));
-  let partials;
-  let attack;
-  let release;
-  let decay;
-
-  if (kind === 'piano') {
-    partials = [[1, 1], [2.004, 0.56], [3.012, 0.31], [4.025, 0.17], [5.04, 0.09], [6.07, 0.045]];
-    attack = 0.006;
-    release = Math.min(0.42, duration * 0.35);
-    decay = 1.25;
-  } else if (kind === 'strings') {
-    partials = [[1, 1], [2, 0.38], [3, 0.22], [4, 0.13], [5, 0.08], [6, 0.045]];
-    attack = Math.min(0.18, duration * 0.2);
-    release = Math.min(0.45, duration * 0.3);
-    decay = 0.08;
-  } else if (kind === 'brass') {
-    partials = [[1, 1], [2, 0.62], [3, 0.42], [4, 0.26], [5, 0.16], [6, 0.1]];
-    attack = Math.min(0.065, duration * 0.16);
-    release = Math.min(0.2, duration * 0.25);
-    decay = 0.16;
-  } else if (kind === 'choir') {
-    partials = [[1, 1], [2, 0.26], [3, 0.38], [4, 0.12], [5, 0.24], [6, 0.08], [7, 0.12]];
-    attack = Math.min(0.28, duration * 0.24);
-    release = Math.min(0.55, duration * 0.36);
-    decay = 0.03;
-  } else if (kind === 'flute') {
-    partials = [[1, 1], [2, 0.18], [3, 0.08], [4, 0.035]];
-    attack = Math.min(0.055, duration * 0.18);
-    release = Math.min(0.24, duration * 0.28);
-    decay = 0.12;
-  } else if (kind === 'bell') {
-    partials = [[1, 1], [2.01, 0.52], [2.98, 0.34], [4.13, 0.22], [5.42, 0.14], [6.79, 0.07]];
-    attack = 0.003;
-    release = Math.min(0.48, duration * 0.42);
-    decay = 1.05;
-  } else {
-    partials = [[1, 1], [2, 0.22], [3, 0.1]];
-    attack = 0.008;
-    release = Math.min(0.2, duration * 0.3);
-    decay = 0.55;
-  }
+  const preset = ADDITIVE_INSTRUMENTS[kind] || ADDITIVE_INSTRUMENTS.piano;
+  const { partials } = preset;
+  const attack = Math.min(preset.attack, duration * preset.attackRatio);
+  const release = Math.min(preset.release, duration * preset.releaseRatio);
 
   const phases = partials.map(() => random());
   for (let index = 0; index < frameCount; index += 1) {
     const t = index / SAMPLE_RATE;
-    const vibrato = kind === 'strings' || kind === 'choir'
-      ? 1 + sine(t * (4.7 + variant * 0.08)) * 0.0028
+    const vibrato = preset.vibrato
+      ? 1 + sine(t * ((preset.vibratoRate || 4.7) + variant * 0.08)) * preset.vibrato
       : 1;
     let value = 0;
     for (let partialIndex = 0; partialIndex < partials.length; partialIndex += 1) {
       const [ratio, level] = partials[partialIndex];
-      const partialDecay = kind === 'piano' || kind === 'bell'
-        ? Math.exp(-t * partialIndex * 0.32)
+      const partialDecay = preset.partialDecay
+        ? Math.exp(-t * partialIndex * preset.partialDecay)
         : 1;
       value += sine(t * frequency * ratio * vibrato + phases[partialIndex]) * level * partialDecay;
     }
-    if (kind === 'piano' && t < 0.018) value += (random() * 2 - 1) * (1 - t / 0.018) * 0.18;
-    if (kind === 'flute') value += (random() * 2 - 1) * 0.018;
-    const env = envelope(t, duration, attack, release, decay);
-    const saturation = kind === 'brass' ? Math.tanh(value * 0.9) : value;
-    samples[index] = saturation * env * (kind === 'choir' ? 0.52 : 0.62);
+    if (preset.transient && t < 0.018) {
+      value += (random() * 2 - 1) * (1 - t / 0.018) * preset.transient;
+    }
+    if (preset.airNoise) value += (random() * 2 - 1) * preset.airNoise;
+    if (preset.bowNoise) value += (random() * 2 - 1) * preset.bowNoise * (0.7 + 0.3 * sine(t * frequency));
+    const env = envelope(t, duration, attack, release, preset.decay);
+    const voiced = preset.saturation ? Math.tanh(value * preset.saturation) : value;
+    samples[index] = voiced * env * preset.level;
   }
   return samples;
 }
@@ -148,32 +177,48 @@ function pluckedSample(kind, frequency, duration, variant) {
     previous = previous * 0.42 + noise * 0.58;
     ring[index] = previous;
   }
-  const damping = kind === 'guitar' ? 0.9962 : kind === 'bass' ? 0.998 : 0.9948;
+  const damping = kind === 'guitar'
+    ? 0.9962
+    : kind === 'bass'
+      ? 0.998
+      : kind === 'harp'
+        ? 0.9971
+        : 0.9948;
   for (let index = 0; index < frameCount; index += 1) {
     const ringIndex = index % delayLength;
     const nextIndex = (ringIndex + 1) % delayLength;
     const next = (ring[ringIndex] + ring[nextIndex]) * 0.5 * damping;
     ring[ringIndex] = next;
     const t = index / SAMPLE_RATE;
-    const env = envelope(t, duration, 0.003, Math.min(0.28, duration * 0.34), kind === 'bass' ? 0.34 : 0.58);
-    const body = next + sine(t * frequency) * (kind === 'bass' ? 0.34 : 0.08);
-    output[index] = (kind === 'guitar' ? Math.tanh(body * 1.9) : body) * env * 0.72;
+    const env = envelope(
+      t,
+      duration,
+      0.003,
+      Math.min(kind === 'harp' ? 0.48 : 0.28, duration * 0.34),
+      kind === 'bass' ? 0.34 : kind === 'harp' ? 0.42 : 0.58,
+    );
+    const body = next + sine(t * frequency) * (kind === 'bass' ? 0.34 : kind === 'harp' ? 0.14 : 0.08);
+    const voiced = kind === 'guitar' ? Math.tanh(body * 1.9) : body;
+    output[index] = voiced * env * (kind === 'harp' ? 0.62 : 0.72);
   }
   return output;
 }
 
 function tonalSample(kind, frequency, duration, variant = 0) {
-  const safeKind = ['piano', 'strings', 'brass', 'choir', 'bell', 'flute', 'pluck', 'guitar', 'bass'].includes(kind)
+  const safeKind = [
+    'piano', 'strings', 'violin', 'viola', 'cello', 'brass', 'horn', 'trumpet', 'trombone',
+    'choir', 'flute', 'oboe', 'clarinet', 'bell', 'celesta', 'harp', 'pluck', 'guitar', 'bass',
+  ].includes(kind)
     ? kind
     : 'piano';
   const safeFrequency = clamp(frequencyKey(frequency), 28, 4_200);
-  const safeDuration = clamp(Math.round(duration * 100) / 100, 0.08, 5.5);
+  const safeDuration = clamp(Math.round(duration * 20) / 20, 0.08, 5.5);
   const safeVariant = Math.abs(Math.trunc(variant)) % 4;
   const key = `${safeKind}:${safeFrequency}:${safeDuration}:${safeVariant}`;
   if (!sampleCache.has(key)) {
     sampleCache.set(
       key,
-      ['pluck', 'guitar', 'bass'].includes(safeKind)
+      ['harp', 'pluck', 'guitar', 'bass'].includes(safeKind)
         ? pluckedSample(safeKind, safeFrequency, safeDuration, safeVariant)
         : additiveSample(safeKind, safeFrequency, safeDuration, safeVariant),
     );
@@ -184,7 +229,16 @@ function tonalSample(kind, frequency, duration, variant = 0) {
 function percussionSample(kind, variant = 0) {
   const key = `drum:${kind}:${variant % 4}`;
   if (sampleCache.has(key)) return sampleCache.get(key);
-  const durations = { kick: 0.42, snare: 0.34, hat: 0.12, cymbal: 1.35, tom: 0.5 };
+  const durations = {
+    kick: 0.42,
+    snare: 0.34,
+    'orchestral-snare': 0.42,
+    hat: 0.12,
+    cymbal: 1.35,
+    tom: 0.5,
+    timpani: 1.15,
+    taiko: 0.82,
+  };
   const duration = durations[kind] || 0.25;
   const frameCount = Math.ceil(duration * SAMPLE_RATE);
   const output = new Float32Array(frameCount);
@@ -198,13 +252,19 @@ function percussionSample(kind, variant = 0) {
     if (kind === 'kick') {
       const frequency = 142 * Math.exp(-t * 19) + 43;
       output[index] = (sine(t * frequency) * 0.92 + noise * Math.exp(-t * 70) * 0.13) * Math.exp(-t * 9.2);
-    } else if (kind === 'snare') {
+    } else if (kind === 'snare' || kind === 'orchestral-snare') {
       output[index] = (highNoise * 0.72 + sine(t * 184) * 0.28) * Math.exp(-t * 12.5);
     } else if (kind === 'hat') {
       output[index] = highNoise * Math.exp(-t * 36) * 0.62;
     } else if (kind === 'cymbal') {
       const metal = highNoise * 0.48 + sine(t * 3_731) * 0.13 + sine(t * 5_069) * 0.09;
       output[index] = metal * Math.exp(-t * 3.4);
+    } else if (kind === 'timpani') {
+      const frequency = 104 * Math.exp(-t * 2.8) + 43;
+      output[index] = (sine(t * frequency) * 0.86 + sine(t * frequency * 1.48) * 0.16 + noise * 0.08) * Math.exp(-t * 3.4);
+    } else if (kind === 'taiko') {
+      const frequency = 118 * Math.exp(-t * 4.2) + 48;
+      output[index] = Math.tanh((sine(t * frequency) * 0.88 + noise * 0.16) * 1.45) * Math.exp(-t * 5.2);
     } else {
       const frequency = 164 * Math.exp(-t * 4.5) + 58;
       output[index] = (sine(t * frequency) * 0.8 + noise * 0.12) * Math.exp(-t * 7.4);
@@ -214,16 +274,56 @@ function percussionSample(kind, variant = 0) {
   return output;
 }
 
-function mixSample(target, sample, startSeconds, gain = 1, wrap = true) {
+function createMixTarget(frameCount, channels) {
+  if (channels === 2) {
+    return {
+      channels: 2,
+      left: new Float32Array(frameCount),
+      right: new Float32Array(frameCount),
+    };
+  }
+  return new Float32Array(frameCount);
+}
+
+function targetFrameCount(target) {
+  return target instanceof Float32Array ? target.length : target.left.length;
+}
+
+function wrappedFrame(index, frameCount, wrap) {
+  if (index < 0) return null;
+  if (index < frameCount) return index;
+  if (!wrap) return null;
+  return index % frameCount;
+}
+
+function mixSample(target, sample, startSeconds, gain = 1, wrap = true, pan = 0, widthSeconds = 0) {
   const startFrame = Math.round(startSeconds * SAMPLE_RATE);
-  for (let index = 0; index < sample.length; index += 1) {
-    let targetIndex = startFrame + index;
-    if (targetIndex >= target.length) {
-      if (!wrap) break;
-      targetIndex %= target.length;
+  const frameCount = targetFrameCount(target);
+  if (target instanceof Float32Array) {
+    for (let index = 0; index < sample.length; index += 1) {
+      const targetIndex = wrappedFrame(startFrame + index, frameCount, wrap);
+      if (targetIndex === null) {
+        if (!wrap && startFrame + index >= frameCount) break;
+        continue;
+      }
+      target[targetIndex] += sample[index] * gain;
     }
-    if (targetIndex < 0) continue;
-    target[targetIndex] += sample[index] * gain;
+    return;
+  }
+
+  const safePan = clamp(pan, -1, 1);
+  const angle = ((safePan + 1) * Math.PI) / 4;
+  const leftGain = Math.cos(angle) * gain;
+  const rightGain = Math.sin(angle) * gain;
+  const widthFrames = Math.round(clamp(widthSeconds, 0, 0.03) * SAMPLE_RATE);
+  const leftDelay = safePan > 0 ? widthFrames : 0;
+  const rightDelay = safePan <= 0 ? widthFrames : 0;
+  for (let index = 0; index < sample.length; index += 1) {
+    const leftIndex = wrappedFrame(startFrame + index + leftDelay, frameCount, wrap);
+    const rightIndex = wrappedFrame(startFrame + index + rightDelay, frameCount, wrap);
+    if (leftIndex !== null) target.left[leftIndex] += sample[index] * leftGain;
+    if (rightIndex !== null) target.right[rightIndex] += sample[index] * rightGain;
+    if (!wrap && startFrame + index >= frameCount) break;
   }
 }
 
@@ -237,13 +337,39 @@ function patternForLead(profile, section, sectionBarIndex) {
   return profile.lead;
 }
 
-function renderTrack(config) {
+const INSTRUMENT_PAN = Object.freeze({
+  piano: -0.08,
+  strings: 0,
+  violin: -0.5,
+  viola: -0.22,
+  cello: 0.28,
+  bass: 0,
+  harp: -0.62,
+  flute: -0.34,
+  oboe: -0.12,
+  clarinet: 0.16,
+  horn: 0.34,
+  trumpet: 0.5,
+  trombone: 0.22,
+  choir: 0,
+  bell: 0.42,
+  celesta: 0.46,
+  pluck: -0.36,
+  guitar: 0.4,
+});
+
+function instrumentPan(kind, fallback = 0) {
+  return Number.isFinite(INSTRUMENT_PAN[kind]) ? INSTRUMENT_PAN[kind] : fallback;
+}
+
+function renderTrack(config, { channels = 1, orchestral = false } = {}) {
   const profile = gameBgmProfile(config.theme);
   const stepDuration = gameBgmStepDuration(profile);
   const totalSteps = config.bars * 16;
   const duration = totalSteps * stepDuration;
-  const target = new Float32Array(Math.ceil(duration * SAMPLE_RATE));
+  const target = createMixTarget(Math.ceil(duration * SAMPLE_RATE), channels);
   const human = seededRandom(config.theme.length * 65_537);
+  const orchestraLevel = clamp(profile.orchestraLevel || 0.9, 0.5, 1.2);
 
   for (let absoluteStep = 0; absoluteStep < totalSteps; absoluteStep += 1) {
     const state = gameBgmArrangementState(profile, absoluteStep);
@@ -262,20 +388,123 @@ function renderTrack(config) {
       for (let noteIndex = 0; noteIndex < voicing.length; noteIndex += 1) {
         const frequency = gameBgmNoteFrequency(profile, chordRoot + voicing[noteIndex], profile.padOctave + 1);
         const padGain = (config.pad === 'choir' ? 0.034 : 0.029) * energy / Math.sqrt(voicing.length);
-        mixSample(target, tonalSample(config.pad, frequency, chordDuration, noteIndex), start, padGain);
+        const padPan = (noteIndex - (voicing.length - 1) / 2) * 0.14;
+        mixSample(target, tonalSample(config.pad, frequency, chordDuration, noteIndex), start, padGain, true, padPan, 0.009);
+      }
+    }
+
+    if (orchestral && patternStep === 0) {
+      const chordDuration = stepDuration * 16 + 0.8;
+      const voicing = gameBgmChordVoicing(profile, state).slice(0, 4);
+      const sectionStrings = Number(section.strings || 0);
+      const stringPresence = clamp(Math.max(sectionStrings, section.pad ? 0.34 : 0), 0, 1.15);
+      if (stringPresence > 0.08) {
+        const stringGain = stringPresence * energy * orchestraLevel;
+        for (let noteIndex = 0; noteIndex < Math.min(3, voicing.length); noteIndex += 1) {
+          const degree = chordRoot + voicing[noteIndex];
+          const highFrequency = gameBgmNoteFrequency(profile, degree, profile.padOctave + 2);
+          const midFrequency = gameBgmNoteFrequency(profile, degree, profile.padOctave + 1);
+          mixSample(
+            target,
+            tonalSample(config.highStrings, highFrequency, chordDuration, noteIndex),
+            start,
+            0.017 * stringGain / Math.sqrt(voicing.length),
+            true,
+            instrumentPan(config.highStrings, -0.46) + noteIndex * 0.05,
+            0.012,
+          );
+          mixSample(
+            target,
+            tonalSample(config.midStrings, midFrequency, chordDuration, noteIndex + 1),
+            start + 0.012,
+            0.019 * stringGain / Math.sqrt(voicing.length),
+            true,
+            instrumentPan(config.midStrings, -0.18) + noteIndex * 0.04,
+            0.01,
+          );
+        }
+        const lowFrequency = gameBgmNoteFrequency(profile, chordRoot, profile.padOctave);
+        mixSample(
+          target,
+          tonalSample(config.lowStrings, lowFrequency, chordDuration, state.sectionBarIndex),
+          start + 0.018,
+          0.025 * stringGain,
+          true,
+          instrumentPan(config.lowStrings, 0.28),
+          0.008,
+        );
+      }
+
+      const brassPresence = clamp(
+        Math.max(Number(section.brass || 0), energy > 0.86 ? (energy - 0.72) * 0.9 : 0),
+        0,
+        1.15,
+      );
+      if (brassPresence > 0.1) {
+        const brassDuration = stepDuration * (energy > 0.95 ? 7.5 : 5.5);
+        const rootFrequency = gameBgmNoteFrequency(profile, chordRoot, profile.padOctave + 1);
+        const lowFrequency = gameBgmNoteFrequency(profile, chordRoot + 4, profile.padOctave);
+        mixSample(
+          target,
+          tonalSample(config.brassSection, rootFrequency, brassDuration, variant),
+          start,
+          0.027 * brassPresence * orchestraLevel * energy,
+          true,
+          instrumentPan(config.brassSection, 0.36),
+          0.008,
+        );
+        mixSample(
+          target,
+          tonalSample(config.lowBrass, lowFrequency, brassDuration * 1.08, variant + 1),
+          start + 0.016,
+          0.021 * brassPresence * orchestraLevel * energy,
+          true,
+          instrumentPan(config.lowBrass, 0.2),
+          0.006,
+        );
+      }
+
+      const choirPresence = clamp(Math.max(Number(section.choir || 0), config.pad === 'choir' ? 0.38 : 0), 0, 1.1);
+      if (choirPresence > 0.08) {
+        for (let noteIndex = 0; noteIndex < Math.min(3, voicing.length); noteIndex += 1) {
+          const frequency = gameBgmNoteFrequency(profile, chordRoot + voicing[noteIndex], profile.padOctave + 1);
+          mixSample(
+            target,
+            tonalSample('choir', frequency, chordDuration, noteIndex),
+            start + 0.024,
+            0.014 * choirPresence * orchestraLevel * energy,
+            true,
+            (noteIndex - 1) * 0.24,
+            0.014,
+          );
+        }
       }
     }
 
     const bassDegree = section.bass ? profile.bass[patternStep] : null;
     if (bassDegree !== null && bassDegree !== undefined) {
       const frequency = gameBgmNoteFrequency(profile, bassDegree + keyShift, profile.bassOctave);
-      mixSample(target, tonalSample('bass', frequency, stepDuration * 2.8, variant), start, 0.105 * energy);
+      mixSample(target, tonalSample('bass', frequency, stepDuration * 2.8, variant), start, 0.105 * energy, true, 0, 0.002);
     }
 
     const arpDegree = section.arp ? profile.arp[patternStep] : null;
     if (arpDegree !== null && arpDegree !== undefined) {
       const frequency = gameBgmNoteFrequency(profile, arpDegree + keyShift, profile.arpOctave);
-      mixSample(target, tonalSample('pluck', frequency, stepDuration * 1.5, variant), start, 0.044 * energy);
+      const arpPan = patternStep % 4 < 2 ? -0.36 : 0.34;
+      mixSample(target, tonalSample('pluck', frequency, stepDuration * 1.5, variant), start, 0.044 * energy, true, arpPan, 0.004);
+      if (orchestral && config.harp) {
+        const harpFrequency = gameBgmNoteFrequency(profile, arpDegree + keyShift, profile.arpOctave + 1);
+        const harpPresence = clamp(Math.max(Number(section.pluck || 0), 0.32), 0.2, 1);
+        mixSample(
+          target,
+          tonalSample(config.harp, harpFrequency, stepDuration * 2.1, variant + 1),
+          start + stepDuration * 0.025,
+          0.017 * energy * harpPresence * orchestraLevel,
+          true,
+          instrumentPan(config.harp, -0.62) + (patternStep % 4) * 0.04,
+          0.009,
+        );
+      }
     }
 
     const leadPattern = patternForLead(profile, section, state.sectionBarIndex);
@@ -288,6 +517,9 @@ function renderTrack(config) {
         tonalSample(config.lead, frequency, stepDuration * Number(profile.leadLength || 1.8), variant),
         start,
         0.092 * energy * accent,
+        true,
+        instrumentPan(config.lead, -0.16),
+        0.006,
       );
     }
 
@@ -299,6 +531,23 @@ function renderTrack(config) {
         tonalSample(config.counter, frequency, stepDuration * Number(profile.counterLength || 1.4), variant + 1),
         start + stepDuration * 0.07,
         0.055 * energy,
+        true,
+        instrumentPan(config.counter, 0.22),
+        0.007,
+      );
+    }
+
+    if (orchestral && config.woodwind && patternStep % 4 === 2 && (section.counter || section.lead)) {
+      const sourceDegree = profile.counter[patternStep] ?? chordRoot + 4;
+      const frequency = gameBgmNoteFrequency(profile, sourceDegree + keyShift, profile.counterOctave + 1);
+      mixSample(
+        target,
+        tonalSample(config.woodwind, frequency, stepDuration * 3.2, variant + 2),
+        start + stepDuration * 0.04,
+        0.018 * energy * orchestraLevel,
+        true,
+        instrumentPan(config.woodwind, -0.1),
+        0.01,
       );
     }
 
@@ -308,24 +557,39 @@ function renderTrack(config) {
       const snare = Number(profile.drums.snare[patternStep] || 0);
       const hat = Number(profile.drums.hat[patternStep] || 0);
       const perc = Number(profile.drums.perc[patternStep] || 0);
-      const kickKind = config.percussion === 'tribal' ? 'tom' : 'kick';
-      if (kick > 0) mixSample(target, percussionSample(kickKind, variant), start, kick * drumLevel * (config.percussion === 'tribal' ? 0.2 : 0.28));
-      if (snare > 0) mixSample(target, percussionSample('snare', variant), start, snare * drumLevel * (config.percussion === 'tribal' ? 0.14 : 0.2));
-      if (hat > 0) mixSample(target, percussionSample('hat', variant), start, hat * drumLevel * 0.12);
-      if (perc > 0) mixSample(target, percussionSample('tom', variant), start, perc * drumLevel * 0.15);
+      const usesOrchestra = config.percussion?.includes('orchestra');
+      const kickKind = config.percussion === 'tribal'
+        ? 'tom'
+        : config.percussion === 'hybrid-orchestra'
+          ? 'taiko'
+          : 'kick';
+      const snareKind = usesOrchestra ? 'orchestral-snare' : 'snare';
+      if (kick > 0) mixSample(target, percussionSample(kickKind, variant), start, kick * drumLevel * (config.percussion === 'tribal' ? 0.2 : 0.28), true, -0.05, 0.002);
+      if (snare > 0) mixSample(target, percussionSample(snareKind, variant), start, snare * drumLevel * (config.percussion === 'tribal' ? 0.14 : 0.2), true, 0.08, 0.003);
+      if (hat > 0) mixSample(target, percussionSample('hat', variant), start, hat * drumLevel * 0.12, true, 0.5, 0.004);
+      if (perc > 0) mixSample(target, percussionSample('tom', variant), start, perc * drumLevel * 0.15, true, patternStep % 4 < 2 ? -0.28 : 0.3, 0.005);
+      if (orchestral && usesOrchestra && (patternStep === 0 || patternStep === 8) && (kick > 0 || Number(section.timpani || 0) > 0.12)) {
+        const timpaniGain = (0.1 + Number(section.timpani || 0) * 0.06) * drumLevel * orchestraLevel;
+        mixSample(target, percussionSample('timpani', variant), start, timpaniGain, true, 0.18, 0.006);
+      }
       if (patternStep === 0 && state.sectionBarIndex === 0 && Number(section.energy || 0) >= 0.65) {
-        mixSample(target, percussionSample('cymbal', variant), start, drumLevel * 0.12);
+        mixSample(target, percussionSample('cymbal', variant), start, drumLevel * 0.12, true, 0.42, 0.012);
       }
     }
 
     if (patternStep % 4 === 0 && (config.theme === 'eternal-boss' || config.theme === 'eternal-final')) {
       const frequency = gameBgmNoteFrequency(profile, chordRoot, -1);
-      mixSample(target, tonalSample('brass', frequency, stepDuration * 3.4, variant), start, 0.04 * energy);
+      mixSample(target, tonalSample('brass', frequency, stepDuration * 3.4, variant), start, 0.04 * energy, true, 0.18, 0.006);
     }
   }
 
-  applyCircularRoom(target, config.room);
-  masterTrack(target);
+  if (channels === 2) {
+    applyStereoRoom(target, config.room);
+    masterStereoTrack(target);
+  } else {
+    applyCircularRoom(target, config.room);
+    masterTrack(target);
+  }
   return { duration, profile, samples: target };
 }
 
@@ -342,6 +606,28 @@ function applyCircularRoom(samples, amount) {
     for (let index = 0; index < samples.length; index += 1) {
       const sourceIndex = (index - delay + samples.length) % samples.length;
       samples[index] += dry[sourceIndex] * gain * amount;
+    }
+  }
+}
+
+function applyStereoRoom(target, amount) {
+  const { left, right } = target;
+  const dryLeft = left.slice();
+  const dryRight = right.slice();
+  const taps = [
+    [0.061, 0.073, 0.17, 0.22],
+    [0.109, 0.127, 0.13, 0.3],
+    [0.181, 0.211, 0.095, 0.38],
+    [0.271, 0.307, 0.065, 0.46],
+  ];
+  for (const [leftSeconds, rightSeconds, gain, crossfeed] of taps) {
+    const leftDelay = Math.round(leftSeconds * SAMPLE_RATE);
+    const rightDelay = Math.round(rightSeconds * SAMPLE_RATE);
+    for (let index = 0; index < left.length; index += 1) {
+      const leftIndex = (index - leftDelay + left.length) % left.length;
+      const rightIndex = (index - rightDelay + right.length) % right.length;
+      left[index] += (dryLeft[leftIndex] + dryRight[rightIndex] * crossfeed) * gain * amount;
+      right[index] += (dryRight[rightIndex] + dryLeft[leftIndex] * crossfeed) * gain * amount;
     }
   }
 }
@@ -370,9 +656,52 @@ function masterTrack(samples) {
   }
 }
 
-function encodePcmWave(samples) {
+function masterStereoTrack(target) {
+  const { left, right } = target;
+  let previousLeftInput = 0;
+  let previousLeftOutput = 0;
+  let previousRightInput = 0;
+  let previousRightOutput = 0;
+  let peak = 0;
+
+  for (let index = 0; index < left.length; index += 1) {
+    const highPassedLeft = left[index] - previousLeftInput + previousLeftOutput * 0.996;
+    const highPassedRight = right[index] - previousRightInput + previousRightOutput * 0.996;
+    previousLeftInput = left[index];
+    previousRightInput = right[index];
+    previousLeftOutput = highPassedLeft;
+    previousRightOutput = highPassedRight;
+
+    const mid = (highPassedLeft + highPassedRight) * 0.5;
+    const side = (highPassedLeft - highPassedRight) * 0.55;
+    const compressedLeft = Math.tanh((mid + side) * 1.12);
+    const compressedRight = Math.tanh((mid - side) * 1.12);
+    left[index] = compressedLeft;
+    right[index] = compressedRight;
+    peak = Math.max(peak, Math.abs(compressedLeft), Math.abs(compressedRight));
+  }
+
+  const gain = peak > 0 ? 0.88 / peak : 1;
+  for (let index = 0; index < left.length; index += 1) {
+    left[index] *= gain;
+    right[index] *= gain;
+  }
+
+  const crossfadeFrames = Math.min(left.length / 4, Math.round(SAMPLE_RATE * 0.85));
+  const headLeft = left.slice(0, crossfadeFrames);
+  const headRight = right.slice(0, crossfadeFrames);
+  for (let index = 0; index < crossfadeFrames; index += 1) {
+    const ratio = smoothstep(index / Math.max(1, crossfadeFrames - 1));
+    const tailIndex = left.length - crossfadeFrames + index;
+    left[tailIndex] = left[tailIndex] * (1 - ratio) + headLeft[index] * ratio;
+    right[tailIndex] = right[tailIndex] * (1 - ratio) + headRight[index] * ratio;
+  }
+}
+
+function encodePcmWave(samples, channels = 1) {
   const bytesPerSample = 2;
-  const dataSize = samples.length * bytesPerSample;
+  const frameCount = samples instanceof Float32Array ? samples.length : samples.left.length;
+  const dataSize = frameCount * channels * bytesPerSample;
   const output = Buffer.allocUnsafe(44 + dataSize);
   output.write('RIFF', 0, 'ascii');
   output.writeUInt32LE(36 + dataSize, 4);
@@ -380,31 +709,66 @@ function encodePcmWave(samples) {
   output.write('fmt ', 12, 'ascii');
   output.writeUInt32LE(16, 16);
   output.writeUInt16LE(1, 20);
-  output.writeUInt16LE(1, 22);
+  output.writeUInt16LE(channels, 22);
   output.writeUInt32LE(SAMPLE_RATE, 24);
-  output.writeUInt32LE(SAMPLE_RATE * bytesPerSample, 28);
-  output.writeUInt16LE(bytesPerSample, 32);
+  output.writeUInt32LE(SAMPLE_RATE * channels * bytesPerSample, 28);
+  output.writeUInt16LE(channels * bytesPerSample, 32);
   output.writeUInt16LE(16, 34);
   output.write('data', 36, 'ascii');
   output.writeUInt32LE(dataSize, 40);
-  for (let index = 0; index < samples.length; index += 1) {
-    const value = clamp(samples[index], -1, 1);
-    output.writeInt16LE(Math.round(value * (value < 0 ? 32_768 : 32_767)), 44 + index * 2);
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    for (let channel = 0; channel < channels; channel += 1) {
+      const source = samples instanceof Float32Array
+        ? samples[frame]
+        : channel === 0
+          ? samples.left[frame]
+          : samples.right[frame];
+      const value = clamp(source, -1, 1);
+      const offset = 44 + (frame * channels + channel) * bytesPerSample;
+      output.writeInt16LE(Math.round(value * (value < 0 ? 32_768 : 32_767)), offset);
+    }
   }
   return output;
+}
+
+function trackInstrumentList(track, orchestral) {
+  const instruments = [track.lead, track.counter, track.pad, 'bass', 'pluck'];
+  if (orchestral) {
+    instruments.push(
+      track.highStrings,
+      track.midStrings,
+      track.lowStrings,
+      track.woodwind,
+      track.brassSection,
+      track.lowBrass,
+      track.harp,
+      'choir',
+      'timpani',
+      'orchestral-snare',
+    );
+    if (track.percussion === 'hybrid-orchestra') instruments.push('taiko');
+  } else {
+    instruments.push(track.percussion === 'tribal' ? 'tom' : 'kick', 'snare');
+  }
+  instruments.push('hat', 'cymbal', 'tom');
+  return [...new Set(instruments.filter(Boolean))];
 }
 
 export async function renderPhysicalModelSoundtrack({
   tracks,
   outputDir,
   soundtrackName = 'game',
+  renderer = 'physical-model-v1',
+  channels = 1,
 }) {
+  if (![1, 2].includes(channels)) throw new Error(`Unsupported channel count: ${channels}`);
+  const orchestral = renderer === 'physical-model-v2-orchestra';
   await mkdir(outputDir, { recursive: true });
   const manifest = [];
   for (const track of tracks) {
     const startedAt = performance.now();
-    const rendered = renderTrack(track);
-    const wave = encodePcmWave(rendered.samples);
+    const rendered = renderTrack(track, { channels, orchestral });
+    const wave = encodePcmWave(rendered.samples, channels);
     const outputPath = path.join(outputDir, `${track.file}.wav`);
     await writeFile(outputPath, wave);
     manifest.push({
@@ -415,14 +779,16 @@ export async function renderPhysicalModelSoundtrack({
       bpm: rendered.profile.bpm,
       durationSeconds: Number(rendered.duration.toFixed(3)),
       sampleRate: SAMPLE_RATE,
-      channels: 1,
+      channels,
+      instruments: trackInstrumentList(track, orchestral),
       bytes: wave.length,
     });
+    sampleCache.clear();
     console.log(`${track.theme}: ${rendered.duration.toFixed(1)}s / ${(wave.length / 1_048_576).toFixed(2)} MiB / ${(performance.now() - startedAt).toFixed(0)}ms`);
   }
   await writeFile(
     path.join(outputDir, 'manifest.json'),
-    `${JSON.stringify({ renderer: 'physical-model-v1', tracks: manifest }, null, 2)}\n`,
+    `${JSON.stringify({ renderer, tracks: manifest }, null, 2)}\n`,
     'utf8',
   );
   console.log(`Rendered ${manifest.length} ${soundtrackName} instrumental tracks.`);
@@ -436,5 +802,7 @@ if (isDirectRun) {
     tracks: ETERNAL_HUNGER_RENDER_TRACKS,
     outputDir: OUTPUT_DIR,
     soundtrackName: 'Eternal Hunger',
+    renderer: 'physical-model-v2-orchestra',
+    channels: 2,
   });
 }

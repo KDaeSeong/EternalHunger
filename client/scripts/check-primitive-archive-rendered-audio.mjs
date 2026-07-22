@@ -78,7 +78,7 @@ assert.equal(totalBytes >= 12_000_000 && totalBytes <= 22_000_000, true, '문명
 assert.match(rendererSource, /renderPhysicalModelSoundtrack/, '공용 물리 모델 렌더러를 사용해야 합니다.');
 assert.match(rendererSource, /lead: 'flute'/, '개척 장면에 플루트 편성이 필요합니다.');
 assert.match(rendererSource, /percussion: 'tribal'/, '부족 타악기 편성이 필요합니다.');
-assert.match(sharedRendererSource, /kind === 'flute'/, '공용 렌더러에 플루트 음색이 필요합니다.');
+assert.match(sharedRendererSource, /flute: Object\.freeze/, '공용 렌더러에 플루트 음색이 필요합니다.');
 assert.match(sharedRendererSource, /config\.percussion === 'tribal'/, '공용 렌더러에 부족 타악기 분기가 필요합니다.');
 
 console.log(JSON.stringify({

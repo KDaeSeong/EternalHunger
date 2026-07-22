@@ -9,7 +9,10 @@ function renderedTrack(folder, file, options = {}) {
   });
 }
 
-const eternalHungerTrack = (file, options) => renderedTrack('eternal-hunger', file, options);
+const eternalHungerTrack = (file, options = {}) => renderedTrack('eternal-hunger', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 const primitiveArchiveTrack = (file, options) => renderedTrack('primitive-archive', file, options);
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
