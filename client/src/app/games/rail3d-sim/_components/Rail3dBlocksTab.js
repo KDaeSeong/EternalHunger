@@ -1,4 +1,10 @@
 import { SmallStat } from '../../_components/GamePlayPrimitives';
+import {
+  Rail3dIconRow,
+  Rail3dPanelTitle,
+  railSegmentAction,
+  railSegmentTone,
+} from './Rail3dVisuals';
 
 export default function Rail3dBlocksTab(props) {
   const {
@@ -10,10 +16,7 @@ export default function Rail3dBlocksTab(props) {
   return (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>블록 상태</h2>
-                    <span>{blocks.OCCUPIED}/{blocks.total}</span>
-                  </div>
+                  <Rail3dPanelTitle action="signal" title="블록 상태" meta={`${blocks.OCCUPIED}/${blocks.total}`} />
                   <div className="games-rank-split">
                     <SmallStat label="FREE" value={blocks.FREE} />
                     <SmallStat label="OCCUPIED" value={blocks.OCCUPIED} />
@@ -22,19 +25,21 @@ export default function Rail3dBlocksTab(props) {
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>세그먼트 토큰</h2>
-                    <span>{segments.length}개</span>
-                  </div>
+                  <Rail3dPanelTitle action="rail-token" title="세그먼트 토큰" meta={`${segments.length}개`} />
                   <div className="game-save-list">
                     {segments.map((segment) => (
-                      <article className="game-save-row" key={segment.id}>
+                      <Rail3dIconRow
+                        action={railSegmentAction(segment)}
+                        className={railSegmentTone(segment)}
+                        label={segment.name}
+                        key={segment.id}
+                      >
                         <div>
                           <span>{segment.id} · {segment.edgeIds.join(', ')} · 진입 {segment.entryStations.join(', ') || '-'}</span>
                           <strong>{segment.name}</strong>
                         </div>
                         <strong>{segment.owner ? `${segment.owner} 점유` : 'FREE'}{segment.waiting.length ? ` · 대기 ${segment.waiting.join(', ')}` : ''}</strong>
-                      </article>
+                      </Rail3dIconRow>
                     ))}
                   </div>
                 </section>

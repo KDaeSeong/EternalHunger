@@ -1,5 +1,6 @@
 import GameActionIcon from '../../_components/GameActionIcon';
 import { RailMap } from './Rail3dPlayPanels';
+import { Rail3dPanelTitle } from './Rail3dVisuals';
 
 export default function Rail3dMapTab(props) {
   const {
@@ -19,10 +20,7 @@ export default function Rail3dMapTab(props) {
 
   return (
     <section className="games-panel">
-      <div className="games-panel-title">
-        <h2>노선 미니맵</h2>
-        <span>점유 {blocks.OCCUPIED} · 예약 {blocks.RESERVED}</span>
-      </div>
+      <Rail3dPanelTitle action="map" title="노선 미니맵" meta={`점유 ${blocks.OCCUPIED} · 예약 ${blocks.RESERVED}`} />
       <div className="rail-map-shell">
         <RailMap
           state={state}

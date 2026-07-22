@@ -1,5 +1,6 @@
 import { ActionButton, GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import { runForAction, stepAction } from '../_lib/rail3dEngine';
+import { Rail3dIconRow, Rail3dPanelTitle } from './Rail3dVisuals';
 
 const DISPATCH_ACTION_ICONS = {
   'focus-train': 'dispatch',
@@ -29,10 +30,11 @@ export default function Rail3dOperationsTab(props) {
   return (
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>운행 판단</h2>
-                    <span>{completed === rows.length ? '운행 완료' : stopped ? '정지 발생' : '운행 중'}</span>
-                  </div>
+                  <Rail3dPanelTitle
+                    action={completed === rows.length ? 'rail-clear' : stopped ? 'signal' : 'analysis'}
+                    title="운행 판단"
+                    meta={completed === rows.length ? '운행 완료' : stopped ? '정지 발생' : '운행 중'}
+                  />
                   <div className="games-rank-split">
                     <SmallStat label="종착" value={`${completed}/${rows.length}`} />
                     <SmallStat label="STOP" value={stopped} />
@@ -51,16 +53,17 @@ export default function Rail3dOperationsTab(props) {
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>관제 플랜</h2>
-                    <span>{bottleneck.grade}등급 · {dispatchPlan.items.length}개</span>
-                  </div>
+                  <Rail3dPanelTitle action="dispatch" title="관제 플랜" meta={`${bottleneck.grade}등급 · ${dispatchPlan.items.length}개`} />
                   <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
                     <strong>{dispatchPlan.headline}</strong>
                   </div>
                   <div className="game-save-list">
                     {dispatchPlan.items.map((item) => (
-                      <article className="game-save-row" key={item.id}>
+                      <Rail3dIconRow
+                        action={DISPATCH_ACTION_ICONS[item.action] || 'dispatch'}
+                        label={item.title}
+                        key={item.id}
+                      >
                         <div>
                           <span>{item.kind}</span>
                           <strong>{item.title}</strong>
@@ -74,15 +77,12 @@ export default function Rail3dOperationsTab(props) {
                         >
                           {item.actionLabel}
                         </GameControlButton>
-                      </article>
+                      </Rail3dIconRow>
                     ))}
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>빠른 제어</h2>
-                    <span>Step {state.stepSeconds}s · Lookahead {state.lookaheadBlocks}</span>
-                  </div>
+                  <Rail3dPanelTitle action="settings" title="빠른 제어" meta={`Step ${state.stepSeconds}s · Lookahead ${state.lookaheadBlocks}`} />
                   <div style={{ display: 'grid', gap: 8 }}>
                     <ActionButton action="turn" cue="off" onClick={() => applyRailAction('1 Step', (current) => stepAction(current))}>1 Step</ActionButton>
                     <ActionButton action="advance" cue="off" onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>

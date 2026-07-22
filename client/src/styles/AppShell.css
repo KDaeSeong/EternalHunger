@@ -7094,6 +7094,55 @@
   color: #a62f36;
 }
 
+.rail3d-panel-title h2,
+.rail3d-panel-title h3 {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.rail3d-panel-title h2 .game-action-icon,
+.rail3d-panel-title h3 .game-action-icon {
+  flex: 0 0 auto;
+  color: #2673a6;
+}
+
+.game-save-row.rail3d-icon-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 9px;
+  padding: 10px;
+}
+
+.rail3d-icon-row > .game-action-icon {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(38, 115, 166, 0.22);
+  border-radius: 7px;
+  background: #eaf5fb;
+  color: #2673a6;
+}
+
+.rail3d-icon-row.is-good > .game-action-icon {
+  border-color: rgba(54, 140, 95, 0.22);
+  background: #eaf8ef;
+  color: #2e8658;
+}
+
+.rail3d-icon-row.is-watch > .game-action-icon,
+.rail3d-icon-row.is-warn > .game-action-icon {
+  border-color: rgba(190, 125, 35, 0.24);
+  background: #fff6df;
+  color: #9b641f;
+}
+
+.rail3d-icon-row.is-critical > .game-action-icon,
+.rail3d-icon-row.is-risk > .game-action-icon {
+  border-color: rgba(190, 61, 61, 0.24);
+  background: #fff0ef;
+  color: #a62f36;
+}
+
 .games-activity-list {
   display: grid;
   gap: 8px;
@@ -12792,6 +12841,22 @@
 
   .school-icon-row > .game-save-chip,
   .school-icon-row > strong:last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .game-save-row.rail3d-icon-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .rail3d-icon-row > .game-action-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .rail3d-icon-row > .tcg-primary-action,
+  .rail3d-icon-row > .game-save-chip,
+  .rail3d-icon-row > strong:last-child {
     grid-column: 2;
     justify-self: start;
   }

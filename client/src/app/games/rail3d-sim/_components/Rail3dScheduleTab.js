@@ -1,6 +1,7 @@
 import GameActionIcon from '../../_components/GameActionIcon';
 import { SmallStat } from '../../_components/GamePlayPrimitives';
 import { formatTime } from '../_lib/rail3dEngine';
+import { Rail3dPanelTitle } from './Rail3dVisuals';
 
 function trainStatus(train) {
   if (train.phase === 'DONE') return { action: 'rail-clear', label: '종착', tone: 'is-complete' };
@@ -18,10 +19,11 @@ export default function Rail3dScheduleTab(props) {
   return (
     <section className="rail-schedule-layout">
       <section className="games-panel rail-schedule-summary">
-        <div className="games-panel-title">
-          <h2>시간표 리포트</h2>
-          <span>{report.totals.arrivedStops}/{report.totals.totalStops} 정차</span>
-        </div>
+        <Rail3dPanelTitle
+          action={report.totals.totalDelayS ? 'rail-delay' : 'rail-clear'}
+          title="시간표 리포트"
+          meta={`${report.totals.arrivedStops}/${report.totals.totalStops} 정차`}
+        />
         <div className="games-rank-split">
           <SmallStat label="종착" value={`${report.totals.completed}/${report.totals.trains}`} />
           <SmallStat label="누적 지연" value={`${report.totals.totalDelayS}s`} />
@@ -31,10 +33,7 @@ export default function Rail3dScheduleTab(props) {
       </section>
 
       <section className="games-panel rail-timetable-panel">
-        <div className="games-panel-title">
-          <h2>운행 다이아</h2>
-          <span>양방향 {report.trains.length}편성</span>
-        </div>
+        <Rail3dPanelTitle action="rail-junction" title="운행 다이아" meta={`양방향 ${report.trains.length}편성`} />
         <div className="rail-timetable-grid">
           {report.trains.map((train) => {
             const status = trainStatus(train);
@@ -70,10 +69,7 @@ export default function Rail3dScheduleTab(props) {
       </section>
 
       <section className="games-panel rail-station-board-panel">
-        <div className="games-panel-title">
-          <h2>역별 운행판</h2>
-          <span>{stationBoard.length}역</span>
-        </div>
+        <Rail3dPanelTitle action="station" title="역별 운행판" meta={`${stationBoard.length}역`} />
         <div className="rail-station-board-grid">
           {stationBoard.map((station) => (
             <article className="rail-station-board-card" key={station.stationId}>

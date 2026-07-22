@@ -1,4 +1,10 @@
 import { GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import {
+  Rail3dIconRow,
+  Rail3dPanelTitle,
+  railTrainAction,
+  railTrainTone,
+} from './Rail3dVisuals';
 
 export default function Rail3dTrainsTab(props) {
   const {
@@ -11,10 +17,11 @@ export default function Rail3dTrainsTab(props) {
   return (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>선택 열차</h2>
-                    <span>{selectedTrain?.signalState || '-'}</span>
-                  </div>
+                  <Rail3dPanelTitle
+                    action={railTrainAction(selectedTrain)}
+                    title="선택 열차"
+                    meta={selectedTrain?.signalState || '-'}
+                  />
                   <label className="game-save-json-field">
                     <span>열차</span>
                     <select data-game-sfx="select" value={selectedTrain?.id || selectedTrainId} onChange={(event) => focusTrain(event.target.value, 'trains')}>
@@ -32,26 +39,32 @@ export default function Rail3dTrainsTab(props) {
                         <SmallStat label="세그먼트" value={selectedTrain.segmentId || '-'} />
                       </div>
                       <div className="game-save-list" style={{ marginTop: 12 }}>
-                        <article className="game-save-row">
+                        <Rail3dIconRow
+                          action={railTrainAction(selectedTrain)}
+                          className={railTrainTone(selectedTrain)}
+                          label={selectedTrain.id}
+                        >
                           <div>
                             <span>{selectedTrain.pose.edgeId} / {Math.round(selectedTrain.pose.headS)}m</span>
                             <strong>{selectedTrain.blockedBy ? `${selectedTrain.blockedBy} 때문에 대기` : '진행 가능'}</strong>
                             <small>{selectedTrain.stopReason ? selectedTrain.stopReason.kind : '신호 대기 없음'}</small>
                           </div>
                           <strong>{selectedTrain.signalState}</strong>
-                        </article>
+                        </Rail3dIconRow>
                       </div>
                     </>
                   ) : <div className="games-empty">선택할 열차가 없습니다.</div>}
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>열차 목록</h2>
-                    <span>{rows.length}편성</span>
-                  </div>
+                  <Rail3dPanelTitle action="dispatch" title="열차 목록" meta={`${rows.length}편성`} />
                   <div className="game-save-list">
                     {rows.map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <Rail3dIconRow
+                        action={railTrainAction(row)}
+                        className={railTrainTone(row)}
+                        label={row.id}
+                        key={row.id}
+                      >
                         <div>
                           <span>{row.serviceName} · 다음 {row.nextStation}</span>
                           <strong>{row.id} {row.signalState} · {row.phase}</strong>
@@ -65,7 +78,7 @@ export default function Rail3dTrainsTab(props) {
                         >
                           보기 · {row.waitSeconds}s
                         </GameControlButton>
-                      </article>
+                      </Rail3dIconRow>
                     ))}
                   </div>
                 </section>

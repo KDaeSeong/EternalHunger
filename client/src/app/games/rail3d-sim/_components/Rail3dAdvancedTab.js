@@ -8,6 +8,14 @@ import {
   stepAction,
 } from '../_lib/rail3dEngine';
 import { RailMap } from './Rail3dPlayPanels';
+import {
+  Rail3dIconRow,
+  Rail3dPanelTitle,
+  railSegmentAction,
+  railSegmentTone,
+  railTrainAction,
+  railTrainTone,
+} from './Rail3dVisuals';
 
 export default function Rail3dAdvancedTab(props) {
   const {
@@ -27,10 +35,7 @@ export default function Rail3dAdvancedTab(props) {
               <>
       <section className="games-detail-grid">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>운행 제어</h2>
-            <span>{formatTime(state.nowS)}</span>
-          </div>
+          <Rail3dPanelTitle action="settings" title="운행 제어" meta={formatTime(state.nowS)} />
           <div className="games-rank-split">
             <SmallStat label="노드" value={TRACK.nodes.length} />
             <SmallStat label="엣지" value={TRACK.edges.length} />
@@ -63,10 +68,7 @@ export default function Rail3dAdvancedTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>블록 상태</h2>
-            <span>{blocks.OCCUPIED}/{blocks.total}</span>
-          </div>
+          <Rail3dPanelTitle action="signal" title="블록 상태" meta={`${blocks.OCCUPIED}/${blocks.total}`} />
           <div className="games-rank-split">
             <SmallStat label="FREE" value={blocks.FREE} />
             <SmallStat label="OCCUPIED" value={blocks.OCCUPIED} />
@@ -75,23 +77,25 @@ export default function Rail3dAdvancedTab(props) {
           </div>
           <div className="game-save-list">
             {segments.map((segment) => (
-              <article className="game-save-row" key={segment.id}>
+              <Rail3dIconRow
+                action={railSegmentAction(segment)}
+                className={railSegmentTone(segment)}
+                label={segment.id}
+                key={segment.id}
+              >
                 <div>
                   <span>{segment.edgeIds.join(', ')} · entry {segment.entryStations.join(', ') || '-'}</span>
                   <strong>{segment.id}</strong>
                 </div>
                 <strong>{segment.owner ? `${segment.owner} 점유` : 'FREE'}{segment.waiting.length ? ` · 대기 ${segment.waiting.join(', ')}` : ''}</strong>
-              </article>
+              </Rail3dIconRow>
             ))}
           </div>
         </section>
       </section>
 
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>미니맵</h2>
-          <span>sampleTrack.json</span>
-        </div>
+        <Rail3dPanelTitle action="map" title="미니맵" meta="sampleTrack.json" />
         <RailMap
           state={state}
           selectedTrainId={selectedTrain?.id || selectedTrainId}
@@ -102,10 +106,11 @@ export default function Rail3dAdvancedTab(props) {
       {selectedTrain ? (
         <section className="games-dashboard">
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>선택 열차 디버그</h2>
-              <span>{selectedTrain.id} / {selectedTrain.signalState}</span>
-            </div>
+            <Rail3dPanelTitle
+              action={railTrainAction(selectedTrain)}
+              title="선택 열차 디버그"
+              meta={`${selectedTrain.id} / ${selectedTrain.signalState}`}
+            />
             <div className="games-rank-split">
               <SmallStat label="상태" value={selectedTrain.phase} />
               <SmallStat label="현재 역" value={selectedTrain.currentStation} />
@@ -118,7 +123,11 @@ export default function Rail3dAdvancedTab(props) {
               <SmallStat label="토큰" value={selectedTrain.segmentOwner ? `${selectedTrain.segmentOwner} 점유` : 'FREE'} />
             </div>
             <div className="game-save-list" style={{ marginTop: 12 }}>
-              <article className="game-save-row">
+              <Rail3dIconRow
+                action={railTrainAction(selectedTrain)}
+                className={railTrainTone(selectedTrain)}
+                label={selectedTrain.id}
+              >
                 <div>
                   <span>{selectedTrain.pose.edgeId} / {Math.round(selectedTrain.pose.headS)}m / dir {selectedTrain.pose.dir}</span>
                   <strong>{selectedTrain.blockedBy ? `${selectedTrain.blockedBy} 때문에 대기` : '진행 가능'}</strong>
@@ -129,26 +138,32 @@ export default function Rail3dAdvancedTab(props) {
                   </small>
                 </div>
                 <strong>{selectedTrain.waitSeconds || 0}s</strong>
-              </article>
-              <article className="game-save-row">
+              </Rail3dIconRow>
+              <Rail3dIconRow
+                action={selectedTrain.reservedBlocks.length ? 'signal' : 'rail-clear'}
+                className={selectedTrain.reservedBlocks.length ? 'is-watch' : 'is-good'}
+                label={`${selectedTrain.id} 블록 예약`}
+              >
                 <div>
                   <span>{selectedTrain.segmentEdges.length ? selectedTrain.segmentEdges.join(', ') : '세그먼트 edge 없음'}</span>
                   <strong>예약: {selectedTrain.reservedBlocks.map((block) => block.id).join(', ') || '없음'}</strong>
                   <small>점유: {selectedTrain.occupiedBlocks.map((block) => block.id).join(', ') || '없음'}</small>
                 </div>
                 <strong>{selectedTrain.segmentEntries.join(', ') || '-'}</strong>
-              </article>
+              </Rail3dIconRow>
             </div>
           </section>
 
           <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>선택 열차 정차표</h2>
-              <span>{selectedTrain.stops.length} stops</span>
-            </div>
+            <Rail3dPanelTitle action="station" title="선택 열차 정차표" meta={`${selectedTrain.stops.length} stops`} />
             <div className="game-save-list">
               {selectedTrain.stops.map((stop) => (
-                <article className="game-save-row" key={`${selectedTrain.id}-${stop.index}`}>
+                <Rail3dIconRow
+                  action={stop.arriveDelayS > 0 ? 'rail-delay' : stop.actualArriveS !== null ? 'station' : 'wait'}
+                  className={stop.arriveDelayS > 0 ? 'is-watch' : stop.actualArriveS !== null ? 'is-good' : ''}
+                  label={stop.stationName}
+                  key={`${selectedTrain.id}-${stop.index}`}
+                >
                   <div>
                     <span>
                       {formatTime(stop.scheduledArriveS)} 도착 / {formatTime(stop.scheduledDepartS)} 출발
@@ -162,7 +177,7 @@ export default function Rail3dAdvancedTab(props) {
                     </small>
                   </div>
                   <strong>{stop.status}</strong>
-                </article>
+                </Rail3dIconRow>
               ))}
             </div>
           </section>
@@ -171,10 +186,11 @@ export default function Rail3dAdvancedTab(props) {
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>시간표 리포트</h2>
-            <span>{report.totals.arrivedStops}/{report.totals.totalStops} stops</span>
-          </div>
+          <Rail3dPanelTitle
+            action={report.totals.totalDelayS ? 'rail-delay' : 'rail-clear'}
+            title="시간표 리포트"
+            meta={`${report.totals.arrivedStops}/${report.totals.totalStops} stops`}
+          />
           <div className="games-rank-split">
             <SmallStat label="종착" value={`${report.totals.completed}/${report.totals.trains}`} />
             <SmallStat label="누적 지연" value={`${report.totals.totalDelayS}s`} />
@@ -189,13 +205,15 @@ export default function Rail3dAdvancedTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>열차별 시간표</h2>
-            <span>{report.trains.length}편성</span>
-          </div>
+          <Rail3dPanelTitle action="dispatch" title="열차별 시간표" meta={`${report.trains.length}편성`} />
           <div className="game-save-list">
             {report.trains.map((train) => (
-              <article className="game-save-row" key={train.id}>
+              <Rail3dIconRow
+                action={railTrainAction(train)}
+                className={railTrainTone(train)}
+                label={train.id}
+                key={train.id}
+              >
                 <div>
                   <span>{train.serviceName} · 다음 {train.nextStation} · {train.arrived}/{train.totalStops} stop</span>
                   <strong>{train.id} {train.signalState} · {train.phase}</strong>
@@ -205,19 +223,21 @@ export default function Rail3dAdvancedTab(props) {
                   </small>
                 </div>
                 <strong>{train.remaining ? `${train.remaining} 남음` : '완료'}</strong>
-              </article>
+              </Rail3dIconRow>
             ))}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>역별 운행판</h2>
-            <span>{stationBoard.length}역</span>
-          </div>
+          <Rail3dPanelTitle action="station" title="역별 운행판" meta={`${stationBoard.length}역`} />
           <div className="game-save-list">
             {stationBoard.map((station) => (
-              <article className="game-save-row" key={station.stationId}>
+              <Rail3dIconRow
+                action={station.maxDelayS ? 'rail-delay' : station.open ? 'station' : 'rail-clear'}
+                className={station.maxDelayS ? 'is-watch' : station.open ? '' : 'is-good'}
+                label={station.stationName}
+                key={station.stationId}
+              >
                 <div>
                   <span>
                     도착 {station.arrived}/{station.totalCalls} · 출발 {station.departed}/{station.totalCalls}
@@ -231,7 +251,7 @@ export default function Rail3dAdvancedTab(props) {
                   </small>
                 </div>
                 <strong>{station.open ? `${station.open} 대기` : '완료'}</strong>
-              </article>
+              </Rail3dIconRow>
             ))}
           </div>
         </section>
@@ -240,10 +260,11 @@ export default function Rail3dAdvancedTab(props) {
       <section className="games-dashboard">
         {rows.map((row) => (
           <section className="games-panel" key={row.id}>
-            <div className="games-panel-title">
-              <h2>{row.id} / {row.serviceName}</h2>
-              <span>{row.signalState}</span>
-            </div>
+            <Rail3dPanelTitle
+              action={railTrainAction(row)}
+              title={`${row.id} / ${row.serviceName}`}
+              meta={row.signalState}
+            />
             <div className="games-rank-split">
               <SmallStat label="상태" value={row.phase} />
               <SmallStat label="다음 역" value={row.nextStation} />
@@ -252,23 +273,24 @@ export default function Rail3dAdvancedTab(props) {
               <SmallStat label="Lookahead" value={row.reservationLookahead} />
             </div>
             <div className="game-save-list">
-              <article className="game-save-row">
+              <Rail3dIconRow
+                action={railTrainAction(row)}
+                className={railTrainTone(row)}
+                label={row.id}
+              >
                 <div>
                   <span>{row.edgeId} / {row.headS}m · {row.segmentId || 'segment 없음'}</span>
                   <strong>{row.blockedBy ? `${row.blockedBy} 때문에 대기` : '진행 가능'}</strong>
                 </div>
                 <strong>{row.stopReason?.kind === 'TOKEN_WAIT' ? 'TOKEN_WAIT' : row.lastArrivalDelay > 0 ? `+${row.lastArrivalDelay}s` : '정시'}</strong>
-              </article>
+              </Rail3dIconRow>
             </div>
           </section>
         ))}
       </section>
 
       <section className="games-panel">
-        <div className="games-panel-title">
-          <h2>운행 로그</h2>
-          <span>{state.runId}</span>
-        </div>
+        <Rail3dPanelTitle action="logs" title="운행 로그" meta={state.runId} />
         <div className="games-activity-list">
           {state.log.slice(0, 10).map((line, index) => (
             <div key={`${line}-${index}`}>

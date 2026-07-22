@@ -1,3 +1,5 @@
+import { Rail3dPanelTitle } from './Rail3dVisuals';
+
 export default function Rail3dLogTab(props) {
   const {
     state,
@@ -5,10 +7,7 @@ export default function Rail3dLogTab(props) {
 
   return (
               <section className="games-panel">
-                <div className="games-panel-title">
-                  <h2>운행 로그</h2>
-                  <span>{state.runId}</span>
-                </div>
+                <Rail3dPanelTitle action="logs" title="운행 로그" meta={state.runId} />
                 <div className="games-activity-list">
                   {state.log.slice(0, 12).map((line, index) => (
                     <div key={`${line}-${index}`}><strong>{line}</strong></div>
