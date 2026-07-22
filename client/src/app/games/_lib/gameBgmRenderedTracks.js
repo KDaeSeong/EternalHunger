@@ -30,6 +30,10 @@ const tonkatsuTeacherTrack = (file, options = {}) => renderedTrack('tonkatsu-tea
   renderer: 'physical-model-v2-orchestra',
   ...options,
 });
+const schaleIdleTrack = (file, options = {}) => renderedTrack('schale-idle-rpg', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
@@ -80,6 +84,13 @@ export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'tonkatsu-judge': tonkatsuTeacherTrack('judge', { gain: 1.18 }),
   'tonkatsu-celebration': tonkatsuTeacherTrack('celebration', { gain: 1.2 }),
   'tonkatsu-setback': tonkatsuTeacherTrack('setback', { gain: 1.2 }),
+  'idle-briefing': schaleIdleTrack('briefing', { gain: 1.2 }),
+  'idle-patrol': schaleIdleTrack('patrol', { gain: 1.2 }),
+  'idle-workshop': schaleIdleTrack('workshop', { gain: 1.2 }),
+  'idle-tower': schaleIdleTrack('tower', { gain: 1.14 }),
+  'idle-breakthrough': schaleIdleTrack('breakthrough', { gain: 1.18 }),
+  'idle-reward': schaleIdleTrack('reward', { gain: 1.2 }),
+  'idle-setback': schaleIdleTrack('setback', { gain: 1.18 }),
 });
 
 export function gameBgmRenderedTrack(theme) {
