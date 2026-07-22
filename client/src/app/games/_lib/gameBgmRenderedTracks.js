@@ -46,6 +46,10 @@ const companyReportTrack = (file, options = {}) => renderedTrack('company-report
   renderer: 'physical-model-v2-orchestra',
   ...options,
 });
+const starleagueTrack = (file, options = {}) => renderedTrack('starleague', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
@@ -125,6 +129,13 @@ export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'company-capital': companyReportTrack('capital', { gain: 1.16 }),
   'company-audit': companyReportTrack('audit', { gain: 1.22 }),
   'company-crisis': companyReportTrack('crisis', { gain: 1.14 }),
+  'starleague-office': starleagueTrack('office', { gain: 1.2 }),
+  'starleague-broadcast': starleagueTrack('broadcast', { gain: 1.16 }),
+  'starleague-personal': starleagueTrack('personal', { gain: 1.18 }),
+  'starleague-winners': starleagueTrack('winners', { gain: 1.16 }),
+  'starleague-finals': starleagueTrack('finals', { gain: 1.12 }),
+  'starleague-ceremony': starleagueTrack('ceremony', { gain: 1.18 }),
+  'starleague-archive': starleagueTrack('archive', { gain: 1.22 }),
 });
 
 export function gameBgmRenderedTrack(theme) {
