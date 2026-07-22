@@ -1,5 +1,6 @@
 import { SmallStat } from '../../_components/GamePlayPrimitives';
 import { CardSummary, DeckEntryLine } from './BaVanguardBoard';
+import { BaVanguardIconRow, BaVanguardPanelTitle } from './BaVanguardVisuals';
 import { getCard } from '../_lib/baVanguardCatalog';
 
 export default function BaVanguardDeckTab(props) {
@@ -24,10 +25,7 @@ export default function BaVanguardDeckTab(props) {
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>검증</h2>
-            <span>{valid ? '통과' : '오류 있음'}</span>
-          </div>
+          <BaVanguardPanelTitle action="inspect" title="검증" meta={valid ? '통과' : '오류 있음'} />
           <div className="games-activity-list">
             {validation.errors.length ? validation.errors.map((row) => <div key={row}><strong>{row}</strong></div>) : <div><strong>내 덱 필수 규칙 오류가 없습니다.</strong></div>}
             {validation.warnings.map((row) => <div key={row}><strong>{row}</strong></div>)}
@@ -37,20 +35,14 @@ export default function BaVanguardDeckTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>오프닝 핸드</h2>
-            <span>Seed {seed}</span>
-          </div>
+          <BaVanguardPanelTitle action="hand" title="오프닝 핸드" meta={`Seed ${seed}`} />
           <div className="game-save-list">
             {openingHand.map((cardId, index) => <CardSummary cardId={cardId} key={`${cardId}-${index}`} right={`G${getCard(cardId)?.grade ?? '-'}`} />)}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>덱 요약</h2>
-            <span>{summary.mainCount}/{rules.mainSize}</span>
-          </div>
+          <BaVanguardPanelTitle action="deck" title="덱 요약" meta={`${summary.mainCount}/${rules.mainSize}`} />
           <div className="games-rank-split">
             <SmallStat label="평균 파워" value={summary.averagePower.toLocaleString('ko-KR')} />
             <SmallStat label="실드 총합" value={summary.totalShield.toLocaleString('ko-KR')} />
@@ -62,10 +54,11 @@ export default function BaVanguardDeckTab(props) {
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>매치업 실험실</h2>
-            <span>{matchupReport.samples ? `${matchupReport.samples}판 자동 실험` : '대기'}</span>
-          </div>
+          <BaVanguardPanelTitle
+            action="analysis"
+            title="매치업 실험실"
+            meta={matchupReport.samples ? `${matchupReport.samples}판 자동 실험` : '대기'}
+          />
           <div className="games-rank-split">
             <SmallStat label="승률" value={`${matchupReport.winRate}%`} />
             <SmallStat label="전적" value={`${matchupReport.wins}승 ${matchupReport.losses}패`} />
@@ -82,24 +75,21 @@ export default function BaVanguardDeckTab(props) {
           {matchupReport.rows.length ? (
             <div className="game-save-list" style={{ marginTop: 12 }}>
               {matchupReport.rows.slice(0, 4).map((row) => (
-                <article className="game-save-row" key={row.index}>
+                <BaVanguardIconRow action="match" key={row.index}>
                   <div>
                     <span>{row.first === 'me' ? '내 선공' : 'AI 선공'} · {row.turn}턴</span>
                     <strong>{row.winner === 'me' ? '승리' : row.winner === 'opp' ? '패배' : '미결'}</strong>
                     <small>피해 {row.meDamage}/{row.oppDamage} · 덱 {row.meDeck}/{row.oppDeck}</small>
                   </div>
                   <strong>#{row.index}</strong>
-                </article>
+                </BaVanguardIconRow>
               ))}
             </div>
           ) : null}
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>덱 분석</h2>
-            <span>{openingStats.samples}회 샘플</span>
-          </div>
+          <BaVanguardPanelTitle action="tactics" title="덱 분석" meta={`${openingStats.samples}회 샘플`} />
           <div className="games-rank-split">
             <SmallStat label="G1 확보" value={`${openingStats.grade1Rate}%`} />
             <SmallStat label="G2 확보" value={`${openingStats.grade2Rate}%`} />
@@ -120,20 +110,17 @@ export default function BaVanguardDeckTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>구성표</h2>
-            <span>{compositionRows.length}개 묶음</span>
-          </div>
+          <BaVanguardPanelTitle action="cards" title="구성표" meta={`${compositionRows.length}개 묶음`} />
           <div className="game-save-list">
             {compositionRows.map((row) => (
-              <article className="game-save-row" key={row.key}>
+              <BaVanguardIconRow action="cards" key={row.key}>
                 <div>
                   <span>{row.label}</span>
                   <strong>{row.count}장</strong>
                   <small>평균 파워 {row.averagePower.toLocaleString('ko-KR')} · 실드 합계 {row.shieldTotal.toLocaleString('ko-KR')}</small>
                 </div>
                 <strong>{row.zoneLabel}</strong>
-              </article>
+              </BaVanguardIconRow>
             ))}
           </div>
         </section>
@@ -141,30 +128,21 @@ export default function BaVanguardDeckTab(props) {
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>메인 덱</h2>
-            <span>{summary.mainCount}장</span>
-          </div>
+          <BaVanguardPanelTitle action="deck" title="메인 덱" meta={`${summary.mainCount}장`} />
           <div className="game-save-list">
             {deck.main.map((entry) => <DeckEntryLine cardId={entry.cardId} count={entry.count} key={entry.cardId} />)}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>G존</h2>
-            <span>{summary.gCount}장</span>
-          </div>
+          <BaVanguardPanelTitle action="vanguard-stride" title="G존" meta={`${summary.gCount}장`} />
           <div className="game-save-list">
             {deck.gzone.map((entry) => <DeckEntryLine cardId={entry.cardId} count={entry.count} key={entry.cardId} />)}
           </div>
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>카드 라이브러리</h2>
-            <span>{visibleCards.length}장</span>
-          </div>
+          <BaVanguardPanelTitle action="library" title="카드 라이브러리" meta={`${visibleCards.length}장`} />
           <div className="game-save-list">
             {visibleCards.map((card) => <CardSummary cardId={card.id} key={card.id} />)}
           </div>

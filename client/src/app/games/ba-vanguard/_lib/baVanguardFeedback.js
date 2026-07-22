@@ -18,6 +18,7 @@ const FEEDBACK_PROFILES = {
   phase: { action: 'phase', cue: 'vanguardPhase', label: '페이즈 진행', tone: 'highlight' },
   draw: { action: 'vanguard-draw', cue: 'vanguardDraw', label: '카드 드로우', tone: 'success' },
   ride: { action: 'vanguard-ride', cue: 'vanguardRide', label: '라이드 성공', tone: 'success' },
+  rideAssist: { action: 'vanguard-ride-assist', cue: 'vanguardRideAssist', label: '라이드 어시스트', tone: 'success' },
   call: { action: 'vanguard-call', cue: 'vanguardCall', label: '리어가드 콜', tone: 'success' },
   stride: { action: 'vanguard-stride', cue: 'vanguardStride', label: '스트라이드 성공', tone: 'champion' },
   skill: { action: 'vanguard-skill', cue: 'vanguardSkill', label: 'VC 스킬 발동', tone: 'highlight' },
@@ -27,6 +28,10 @@ const FEEDBACK_PROFILES = {
   perfectGuard: { action: 'vanguard-perfect-guard', cue: 'vanguardPerfectGuard', label: '완전 가드', tone: 'champion' },
   attackBlocked: { action: 'vanguard-blocked', cue: 'vanguardBlocked', label: '공격 차단', tone: 'success' },
   trigger: { action: 'vanguard-trigger', cue: 'vanguardTrigger', label: '트리거 발동', tone: 'champion' },
+  triggerCritical: { action: 'vanguard-trigger-critical', cue: 'vanguardTriggerCritical', label: '크리티컬 트리거', tone: 'champion' },
+  triggerDraw: { action: 'vanguard-trigger-draw', cue: 'vanguardTriggerDraw', label: '드로우 트리거', tone: 'success' },
+  triggerStand: { action: 'vanguard-trigger-stand', cue: 'vanguardTriggerStand', label: '스탠드 트리거', tone: 'highlight' },
+  triggerHeal: { action: 'vanguard-trigger-heal', cue: 'vanguardTriggerHeal', label: '힐 트리거', tone: 'success' },
   attackHit: { action: 'vanguard-hit', cue: 'vanguardHit', label: '공격 히트', tone: 'success' },
   damageTaken: { action: 'vanguard-damage', cue: 'vanguardDamage', label: '데미지 발생', tone: 'danger' },
   retired: { action: 'vanguard-retire', cue: 'vanguardRetire', label: '유닛 퇴각', tone: 'warning' },
@@ -92,6 +97,7 @@ export function baVanguardFeedbackSnapshot(duel) {
     turn: Number(duel?.turn || 0),
     winner: String(duel?.winner || ''),
     latestLog: String(duel?.log?.[0] || ''),
+    recentLogs: safeArray(duel?.log).slice(0, 6).map((row) => String(row || '')),
     logCount: safeArray(duel?.log).length,
     meDamage: damageCount(duel, 'me'),
     oppDamage: damageCount(duel, 'opp'),
@@ -118,10 +124,15 @@ function transitionFromLog(latestLog) {
   if (BLOCKED_LOG.test(text)) return 'invalid';
   if (/공격이 막혔/.test(text)) return 'attackBlocked';
   if (/공격이 히트/.test(text)) return 'attackHit';
+  if (/크리티컬 트리거/.test(text)) return 'triggerCritical';
+  if (/드로우 트리거/.test(text)) return 'triggerDraw';
+  if (/스탠드 트리거/.test(text)) return 'triggerStand';
+  if (/힐 트리거/.test(text)) return 'triggerHeal';
   if (/트리거/.test(text)) return 'trigger';
   if (/G 가디언|가드에 사용/.test(text)) return 'guardAdded';
   if (/퇴각/.test(text)) return 'retired';
   if (/스트라이드/.test(text)) return 'stride';
+  if (/라이드 어시스트/.test(text)) return 'rideAssist';
   if (/라이드/.test(text)) return 'ride';
   if (/콜했습니다/.test(text)) return 'call';
   if (/VC 스킬| 스킬:/.test(text)) return 'skill';
@@ -159,6 +170,9 @@ export function baVanguardFeedbackTransition(previousValue, currentValue) {
   }
 
   if (current.latestLog && logChanged) {
+    const addedLogCount = Math.max(1, current.logCount - previous.logCount);
+    const addedLogs = safeArray(current.recentLogs).slice(0, addedLogCount);
+    if (addedLogs.some((row) => /라이드 어시스트/.test(row))) return 'rideAssist';
     const logTransition = transitionFromLog(current.latestLog);
     if (logTransition) return logTransition;
   }
@@ -182,6 +196,10 @@ export function baVanguardResultPresentation(previousValue, currentValue) {
   }
   if (key === 'phase') {
     return { ...profile, detail: `${SIDE_LABELS[current.active] || current.active} ${PHASE_LABELS[current.phase] || current.phase} 페이즈입니다.` };
+  }
+  if (key === 'rideAssist') {
+    const assistLog = safeArray(current.recentLogs).find((row) => /라이드 어시스트/.test(row));
+    return { ...profile, detail: assistLog || current.latestLog || '라이드 어시스트로 다음 그레이드 유닛을 확보했습니다.' };
   }
   if (key === 'guardWindow') {
     return {

@@ -1,5 +1,6 @@
 import { GameControlButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { CardSummary } from './BaVanguardBoard';
+import { BaVanguardIconRow, BaVanguardPanelTitle } from './BaVanguardVisuals';
 import { CIRCLES, cardName } from '../_lib/baVanguardCatalog';
 
 export default function BaVanguardHandLogTab(props) {
@@ -28,10 +29,7 @@ export default function BaVanguardHandLogTab(props) {
 
       <section className="games-dashboard">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>내 패</h2>
-            <span>{me.hand.length}장</span>
-          </div>
+          <BaVanguardPanelTitle action="hand" title="내 패" meta={`${me.hand.length}장`} />
           <div className="game-save-list">
             {me.hand.length ? me.hand.map((cardId, index) => (
               <CardSummary
@@ -46,10 +44,7 @@ export default function BaVanguardHandLogTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>패 액션</h2>
-            <span>{selectedHandId ? cardName(selectedHandId) : '미선택'}</span>
-          </div>
+          <BaVanguardPanelTitle action="action" title="패 액션" meta={selectedHandId ? cardName(selectedHandId) : '미선택'} />
           {selectedHandId ? <CardSummary cardId={selectedHandId} /> : <p style={{ color: '#cbd5e1', fontWeight: 800 }}>패에서 카드를 선택하세요.</p>}
           {selectedHandId ? (
             <p style={{ margin: '10px 0 0', color: selectedRideState.canRide ? '#a7f3d0' : '#fbbf24', fontWeight: 800, lineHeight: 1.45 }}>
@@ -84,10 +79,7 @@ export default function BaVanguardHandLogTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>리플레이 흐름</h2>
-            <span>{replayReport.headline}</span>
-          </div>
+          <BaVanguardPanelTitle action="replay" title="리플레이 흐름" meta={replayReport.headline} />
           <div className="games-rank-split" style={{ marginBottom: 12 }}>
             <SmallStat label="로그" value={replayReport.logCount} />
             <SmallStat label="턴" value={replayReport.turnCount} />
@@ -105,13 +97,13 @@ export default function BaVanguardHandLogTab(props) {
           </div>
           <div className="game-save-list" style={{ marginBottom: 12 }}>
             {replayExport.auditRows.map((row) => (
-              <article className="game-save-row" key={`vg-replay-export-${row.id}`}>
+              <BaVanguardIconRow action="replay" key={`vg-replay-export-${row.id}`}>
                 <div>
                   <span>{row.label}</span>
                   <strong>{row.detail}</strong>
                 </div>
                 <strong>{row.status}</strong>
-              </article>
+              </BaVanguardIconRow>
             ))}
           </div>
           <section className={`tcg-event-callout is-${portingCoverage.ready && concurrencyAudit.ready ? 'green' : 'gold'}`} style={{ marginBottom: 12 }}>
@@ -121,24 +113,24 @@ export default function BaVanguardHandLogTab(props) {
           </section>
           <div className="game-save-list" style={{ marginBottom: 12 }}>
             {portingCoverage.typeRows.map((row) => (
-              <article className="game-save-row" key={`vg-port-type-${row.type}`}>
+              <BaVanguardIconRow action="inspect" key={`vg-port-type-${row.type}`}>
                 <div>
                   <span>{row.label} · {row.covered}/{row.total}</span>
                   <strong>{row.detail}</strong>
                 </div>
                 <strong>{row.status}</strong>
-              </article>
+              </BaVanguardIconRow>
             ))}
           </div>
           <div className="game-save-list" style={{ marginBottom: 12 }}>
             {concurrencyAudit.rows.map((row) => (
-              <article className="game-save-row" key={`vg-room-audit-${row.id}`}>
+              <BaVanguardIconRow action="sync" key={`vg-room-audit-${row.id}`}>
                 <div>
                   <span>{row.label}</span>
                   <strong>{row.detail}</strong>
                 </div>
                 <strong>{row.status}</strong>
-              </article>
+              </BaVanguardIconRow>
             ))}
           </div>
           <div className="games-activity-list" style={{ marginBottom: 12 }}>
@@ -148,7 +140,7 @@ export default function BaVanguardHandLogTab(props) {
           </div>
           {replayReport.guardAudit ? (
             <div className="game-save-list" style={{ marginBottom: 12 }}>
-              <article className="game-save-row">
+              <BaVanguardIconRow action="guard">
                 <div>
                   <span>{replayReport.guardAudit.defenderLabel} 방어 · {replayReport.guardAudit.attackerCircle} 공격</span>
                   <strong>
@@ -169,12 +161,12 @@ export default function BaVanguardHandLogTab(props) {
                   </small>
                 </div>
                 <strong>{replayReport.guardAudit.perfectGuard ? 'PG' : 'GUARD'}</strong>
-              </article>
+              </BaVanguardIconRow>
             </div>
           ) : null}
           <div className="game-save-list">
             {replayReport.turnRows.slice(0, 5).map((row) => (
-              <article className="game-save-row" key={`vg-replay-${row.turn}`}>
+              <BaVanguardIconRow action="turn" key={`vg-replay-${row.turn}`}>
                 <div>
                   <span>T{row.turn} · {row.summary}</span>
                   <strong>템포 {row.tempoDelta >= 0 ? '+' : ''}{row.tempoDelta} · 압박 {row.guardPressure >= 0 ? '+' : ''}{row.guardPressure}</strong>
@@ -185,7 +177,7 @@ export default function BaVanguardHandLogTab(props) {
                   </small>
                 </div>
                 <strong>{row.decisive ? '결정' : row.hits ? '히트' : '진행'}</strong>
-              </article>
+              </BaVanguardIconRow>
             ))}
           </div>
           <label className="game-save-json-field" style={{ marginTop: 12 }}>
@@ -201,10 +193,7 @@ export default function BaVanguardHandLogTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>로그</h2>
-            <span>최근 {Math.min(duel.log.length, 80)}개</span>
-          </div>
+          <BaVanguardPanelTitle action="logs" title="로그" meta={`최근 ${Math.min(duel.log.length, 80)}개`} />
           <div className="games-activity-list">
             {duel.log.slice(0, 80).map((row, index) => (
               <div key={`${row}-${index}`}><strong>{row}</strong></div>

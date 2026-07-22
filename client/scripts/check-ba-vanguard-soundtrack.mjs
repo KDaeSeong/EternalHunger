@@ -136,6 +136,7 @@ assert.equal(resolve({ activeTabId: 'duel', duel: duel({ winner: 'me' }) }), sce
 assert.equal(resolve({ activeTabId: 'duel', duel: duel({ winner: 'opp' }) }), scenes.defeat);
 
 assert.deepEqual(soundtrack.baVanguardResultMusic({ key: 'ride' }), { theme: scenes.ride, durationMs: 7_000 });
+assert.deepEqual(soundtrack.baVanguardResultMusic({ key: 'rideAssist' }), { theme: scenes.ride, durationMs: 7_000 });
 assert.deepEqual(
   soundtrack.baVanguardResultMusic({ key: 'phase', detail: '나 배틀 페이즈입니다.' }),
   { theme: scenes.battle, durationMs: 9_000 },
@@ -144,6 +145,9 @@ assert.equal(soundtrack.baVanguardResultMusic({ key: 'phase', detail: '나 메�
 assert.deepEqual(soundtrack.baVanguardResultMusic({ key: 'attackDeclared' }), { theme: scenes.battle, durationMs: 9_000 });
 assert.deepEqual(soundtrack.baVanguardResultMusic({ key: 'perfectGuard' }), { theme: scenes.guard, durationMs: 9_000 });
 assert.deepEqual(soundtrack.baVanguardResultMusic({ key: 'trigger' }), { theme: scenes.trigger, durationMs: 11_000 });
+for (const key of ['triggerCritical', 'triggerDraw', 'triggerStand', 'triggerHeal']) {
+  assert.deepEqual(soundtrack.baVanguardResultMusic({ key }), { theme: scenes.trigger, durationMs: 11_000 });
+}
 assert.deepEqual(soundtrack.baVanguardResultMusic({ key: 'victory' }), { theme: scenes.victory, durationMs: 18_000 });
 assert.deepEqual(soundtrack.baVanguardResultMusic({ key: 'defeat' }), { theme: scenes.defeat, durationMs: 16_000 });
 assert.equal(soundtrack.baVanguardResultMusic({ key: 'invalid' }), null);
@@ -158,8 +162,9 @@ assert.match(themeSource, /\['ba-vanguard', 'vanguard'\]/, '라우트의 공용 
 assert.match(soundSource, /vanguard: \{ panSpread: 0\.52, reverb: 0\.18 \}/, '전용 스테레오 공간 음향 설정이 필요합니다.');
 
 for (const cue of [
-  'vanguardStart', 'vanguardRide', 'vanguardStride', 'vanguardAttack', 'vanguardGuardWindow',
-  'vanguardPerfectGuard', 'vanguardTrigger', 'vanguardHit', 'vanguardDamage',
+  'vanguardStart', 'vanguardRide', 'vanguardRideAssist', 'vanguardStride', 'vanguardAttack', 'vanguardGuardWindow',
+  'vanguardPerfectGuard', 'vanguardTrigger', 'vanguardTriggerCritical', 'vanguardTriggerDraw',
+  'vanguardTriggerStand', 'vanguardTriggerHeal', 'vanguardHit', 'vanguardDamage',
   'vanguardVictory', 'vanguardDefeat', 'vanguardDeckOut',
 ]) {
   assert.match(soundSource, new RegExp(`\\n    ${cue}: \\[`), `${cue} 전용 다층 효과음이 있어야 합니다.`);

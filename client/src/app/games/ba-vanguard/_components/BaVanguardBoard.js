@@ -2,6 +2,7 @@
 
 import { GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import { SIDE_LABELS, cardName, getCard } from '../_lib/baVanguardCatalog';
+import { BaVanguardIconRow, BaVanguardPanelTitle } from './BaVanguardVisuals';
 
 function unitPower(unit) {
   if (!unit) return 0;
@@ -365,10 +366,7 @@ export function ZoneExplorer({ duel, zoneView, gzoneFilter, onFilterChange, onCl
 
   return (
     <section className="games-panel">
-      <div className="games-panel-title">
-        <h2>{sideLabel} {zoneLabel}</h2>
-        <span>{shownCards.length}/{cards.length}장</span>
-      </div>
+      <BaVanguardPanelTitle action="zone" title={`${sideLabel} ${zoneLabel}`} meta={`${shownCards.length}/${cards.length}장`} />
       <div className="games-rank-split games-rank-split--compact" style={{ marginBottom: 12 }}>
         {insightRows.map((row) => <SmallStat label={row.label} value={row.value} key={row.label} />)}
       </div>
@@ -377,23 +375,23 @@ export function ZoneExplorer({ duel, zoneView, gzoneFilter, onFilterChange, onCl
       </div>
       <div className="game-save-list" style={{ marginBottom: 12 }}>
         {breakdownRows.map((row) => (
-          <article className="game-save-row" key={`${zoneView.zone}-${row.label}`}>
+          <BaVanguardIconRow action="analysis" key={`${zoneView.zone}-${row.label}`}>
             <div>
               <span>{row.label}</span>
               <strong>{row.value}</strong>
             </div>
-          </article>
+          </BaVanguardIconRow>
         ))}
       </div>
       <div className="game-save-list" style={{ marginBottom: 12 }}>
         {adviceRows.map((row) => (
-          <article className="game-save-row" key={`${zoneView.zone}-${row.title}`}>
+          <BaVanguardIconRow action="advisor" key={`${zoneView.zone}-${row.title}`}>
             <div>
               <span>판단 포인트</span>
               <strong>{row.title}</strong>
               <small>{row.detail}</small>
             </div>
-          </article>
+          </BaVanguardIconRow>
         ))}
       </div>
       <div className="game-save-actions" style={{ marginBottom: 12 }}>
@@ -430,10 +428,7 @@ export function Field({ title, player, side, selectedAttacker, zoneView, onCircl
   const zoneActive = (zone) => zoneView?.side === side && zoneView?.zone === zone;
   return (
     <section className="games-panel">
-      <div className="games-panel-title">
-        <h2>{title}</h2>
-        <span>{player.isStrided ? 'STRIDE' : 'NORMAL'}</span>
-      </div>
+      <BaVanguardPanelTitle action={side === 'me' ? 'board' : 'target'} title={title} meta={player.isStrided ? 'STRIDE' : 'NORMAL'} />
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <ZonePill label="덱" value={zoneCardIds(player, 'deck').length} active={zoneActive('deck')} onClick={() => onZoneClick(side, 'deck')} />
         <ZonePill label="패" value={zoneCardIds(player, 'hand').length} />
@@ -486,10 +481,7 @@ export function BattlePanel({ battle, selectedHandId, onGuardAdd, onGGuard, onGu
   if (!battle) return null;
   return (
     <section className="games-panel">
-      <div className="games-panel-title">
-        <h2>배틀 처리</h2>
-        <span>{SIDE_LABELS[battle.attackerSide]} 공격</span>
-      </div>
+      <BaVanguardPanelTitle action="combat" title="배틀 처리" meta={`${SIDE_LABELS[battle.attackerSide]} 공격`} />
       <div className="games-rank-split">
         <SmallStat label="공격" value={`${battle.attackerCircle}${battle.boosterCircle ? ` + ${battle.boosterCircle}` : ''}`} />
         <SmallStat label="방어" value={`${battle.defenderCircle}`} />

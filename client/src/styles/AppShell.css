@@ -12384,6 +12384,28 @@
   margin-top: 0;
 }
 
+.ba-vanguard-panel-title h2 {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ba-vanguard-panel-title h2 .game-action-icon {
+  flex: 0 0 auto;
+  color: #38bdf8;
+}
+
+.ba-vanguard-icon-row > .game-action-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+}
+
 .rail-schedule-layout {
   display: grid;
   grid-template-columns: minmax(250px, 0.38fr) minmax(0, 1.62fr);

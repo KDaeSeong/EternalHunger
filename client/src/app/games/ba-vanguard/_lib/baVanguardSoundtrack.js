@@ -56,7 +56,7 @@ export function baVanguardResultMusic(presentation) {
     return { theme: BA_VANGUARD_BGM_SCENES.battle, durationMs: 9_000 };
   }
   if (key === 'turn' || key === 'phase') return null;
-  if (['draw', 'ride', 'call'].includes(key)) {
+  if (['draw', 'ride', 'rideAssist', 'call'].includes(key)) {
     return { theme: BA_VANGUARD_BGM_SCENES.ride, durationMs: 7_000 };
   }
   if (['attackDeclared', 'attackHit', 'damageTaken', 'retired'].includes(key)) {
@@ -65,7 +65,7 @@ export function baVanguardResultMusic(presentation) {
   if (['guardWindow', 'guardAdded', 'perfectGuard', 'attackBlocked'].includes(key)) {
     return { theme: BA_VANGUARD_BGM_SCENES.guard, durationMs: 9_000 };
   }
-  if (['trigger', 'stride', 'skill'].includes(key)) {
+  if (['trigger', 'triggerCritical', 'triggerDraw', 'triggerStand', 'triggerHeal', 'stride', 'skill'].includes(key)) {
     return { theme: BA_VANGUARD_BGM_SCENES.trigger, durationMs: 11_000 };
   }
   if (key === 'victory' || key === 'deckOutVictory') {

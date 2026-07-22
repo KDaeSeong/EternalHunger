@@ -34,8 +34,12 @@ const pageSource = await readFile(new URL('BaVanguardPlayContent.js', componentU
 const duelSource = await readFile(new URL('BaVanguardDuelTab.js', componentUrl), 'utf8');
 const handSource = await readFile(new URL('BaVanguardHandLogTab.js', componentUrl), 'utf8');
 const boardSource = await readFile(new URL('BaVanguardBoard.js', componentUrl), 'utf8');
+const deckSource = await readFile(new URL('BaVanguardDeckTab.js', componentUrl), 'utf8');
+const tacticsSource = await readFile(new URL('BaVanguardTacticsTab.js', componentUrl), 'utf8');
+const visualSource = await readFile(new URL('BaVanguardVisuals.js', componentUrl), 'utf8');
 const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
 const soundSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
+const styleSource = await readFile(new URL('../src/styles/AppShell.css', import.meta.url), 'utf8');
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -106,7 +110,8 @@ assert.equal(assistedRideState.players.me.hand.length, assistedHandCount - 1, '�
 assert.equal(assistedRideState.players.me.deck.length, assistedDeckCount, '라이드 어시스트 교환은 덱 장수를 유지해야 합니다.');
 assert.equal(assistedRideState.players.me.soul.length, assistedSoulCount + 1, '이전 스타터는 소울로 이동해야 합니다.');
 assert.equal(assistedRideState.players.me.rideTurn, assistedRideState.turn, '라이드한 턴을 기록해야 합니다.');
-expectResult(mainState, assistedRideState, { key: 'ride', action: 'vanguard-ride', cue: 'vanguardRide', tone: 'success' });
+const assistedRidePresentation = expectResult(mainState, assistedRideState, { key: 'rideAssist', action: 'vanguard-ride-assist', cue: 'vanguardRideAssist', tone: 'success' });
+assert.match(assistedRidePresentation.detail, /라이드 어시스트/, '어시스트 결과는 교환 과정을 직접 설명해야 합니다.');
 const assistedRideLogCount = assistedRideState.log.length;
 assert.equal(autoRide(assistedRideState, 'me'), false, '같은 턴에 두 번 라이드할 수 없어야 합니다.');
 assert.equal(assistedRideState.log.length, assistedRideLogCount + 1, '중복 라이드 거절 사유를 로그에 남겨야 합니다.');
@@ -192,8 +197,19 @@ assert.equal(guardEnd(incoming), true, '가드 없이 AI 공격을 해결할 수
 expectResult(guardWindow, incoming, { key: 'damageTaken', action: 'vanguard-damage', cue: 'vanguardDamage', tone: 'danger' });
 
 const triggerState = clone(base);
-triggerState.log = ['[나] 크리티컬 트리거가 발동했습니다. (드라이브 체크)', ...triggerState.log];
+triggerState.log = ['[나] 파워 트리거가 발동했습니다. (드라이브 체크)', ...triggerState.log];
 expectResult(base, triggerState, { key: 'trigger', action: 'vanguard-trigger', cue: 'vanguardTrigger', tone: 'champion' });
+
+for (const trigger of [
+  { label: '크리티컬', key: 'triggerCritical', action: 'vanguard-trigger-critical', cue: 'vanguardTriggerCritical', tone: 'champion' },
+  { label: '드로우', key: 'triggerDraw', action: 'vanguard-trigger-draw', cue: 'vanguardTriggerDraw', tone: 'success' },
+  { label: '스탠드', key: 'triggerStand', action: 'vanguard-trigger-stand', cue: 'vanguardTriggerStand', tone: 'highlight' },
+  { label: '힐', key: 'triggerHeal', action: 'vanguard-trigger-heal', cue: 'vanguardTriggerHeal', tone: 'success' },
+]) {
+  const state = clone(base);
+  state.log = [`[나] ${trigger.label} 트리거가 발동했습니다. (드라이브 체크)`, ...state.log];
+  expectResult(base, state, trigger);
+}
 
 const invalid = clone(mainState);
 assert.equal(strideWithAutoCost(invalid, 'me'), false, 'G0 VC에서는 스트라이드가 거절되어야 합니다.');
@@ -234,18 +250,20 @@ assert.equal(baVanguardTextPresentation('플레이테스트 결과를 전적에 
 
 for (const cue of [
   'vanguardStart', 'vanguardPhase', 'vanguardInvalid', 'vanguardTurn', 'vanguardDraw',
-  'vanguardRide', 'vanguardStride', 'vanguardCall', 'vanguardSkill', 'vanguardAttack',
+  'vanguardRide', 'vanguardRideAssist', 'vanguardStride', 'vanguardCall', 'vanguardSkill', 'vanguardAttack',
   'vanguardGuardWindow', 'vanguardGuard', 'vanguardPerfectGuard', 'vanguardBlocked',
-  'vanguardTrigger', 'vanguardHit', 'vanguardDamage', 'vanguardVictory', 'vanguardDefeat',
+  'vanguardTrigger', 'vanguardTriggerCritical', 'vanguardTriggerDraw', 'vanguardTriggerStand',
+  'vanguardTriggerHeal', 'vanguardHit', 'vanguardDamage', 'vanguardVictory', 'vanguardDefeat',
   'vanguardRetire', 'vanguardDeckOut', 'vanguardReplay',
 ]) {
   assert.match(soundSource, new RegExp(`\\n  ${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
 }
 
 for (const icon of [
-  'vanguard-turn', 'vanguard-draw', 'vanguard-ride', 'vanguard-call', 'vanguard-stride',
+  'vanguard-turn', 'vanguard-draw', 'vanguard-ride', 'vanguard-ride-assist', 'vanguard-call', 'vanguard-stride',
   'vanguard-skill', 'vanguard-attack', 'vanguard-guard-window', 'vanguard-guard',
-  'vanguard-perfect-guard', 'vanguard-blocked', 'vanguard-trigger', 'vanguard-hit',
+  'vanguard-perfect-guard', 'vanguard-blocked', 'vanguard-trigger', 'vanguard-trigger-critical',
+  'vanguard-trigger-draw', 'vanguard-trigger-stand', 'vanguard-trigger-heal', 'vanguard-hit',
   'vanguard-damage', 'vanguard-retire', 'vanguard-victory', 'vanguard-defeat',
   'vanguard-deck-out', 'vanguard-invalid', 'vanguard-replay',
 ]) {
@@ -279,10 +297,23 @@ for (const source of [duelSource, handSource, boardSource]) {
 }
 assert.match(boardSource, /side === 'opp' && selectedAttacker \? 'off'/, '공격 목표 클릭은 전투 결과음과 선행음을 겹치지 않아야 합니다.');
 
+const visualSources = [boardSource, deckSource, duelSource, handSource, tacticsSource];
+const panelTitleCount = visualSources.reduce((count, source) => count + [...source.matchAll(/<BaVanguardPanelTitle\b/g)].length, 0);
+const iconRowCount = visualSources.reduce((count, source) => count + [...source.matchAll(/<BaVanguardIconRow\b/g)].length, 0);
+assert.equal(panelTitleCount, 23, 'BA Vanguard의 23개 기능 패널 제목에 의미 아이콘이 있어야 합니다.');
+assert.equal(iconRowCount, 12, '판단·분석·전투 핵심 행 12곳에 의미 아이콘이 있어야 합니다.');
+assert.doesNotMatch(visualSources.join('\n'), /<div className="games-panel-title">/, '기존 무아이콘 패널 제목이 남으면 안 됩니다.');
+assert.match(visualSource, /export function BaVanguardPanelTitle/, '전용 패널 제목 컴포넌트가 있어야 합니다.');
+assert.match(visualSource, /export function BaVanguardIconRow/, '전용 판단 행 컴포넌트가 있어야 합니다.');
+assert.match(styleSource, /\.ba-vanguard-panel-title h2 \.game-action-icon/, '패널 제목 아이콘 스타일이 있어야 합니다.');
+assert.match(styleSource, /\.ba-vanguard-icon-row > \.game-action-icon/, '판단 행 아이콘 스타일이 있어야 합니다.');
+
 console.log(JSON.stringify({
-  feedbackTransitions: 23,
-  resultCues: 22,
+  feedbackTransitions: 28,
+  resultCues: 27,
   resultPanels: 3,
+  semanticPanelTitles: panelTitleCount,
+  semanticRows: iconRowCount,
   loadedStateWrapper: true,
   rideAssistRegression: true,
 }, null, 2));

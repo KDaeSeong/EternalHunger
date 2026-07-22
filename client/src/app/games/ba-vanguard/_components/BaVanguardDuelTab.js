@@ -1,5 +1,6 @@
 import { GameControlButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { BattlePanel, Field, ZoneExplorer } from './BaVanguardBoard';
+import { BaVanguardPanelTitle } from './BaVanguardVisuals';
 import { PRESET_DECKS, SIDE_LABELS } from '../_lib/baVanguardCatalog';
 
 export default function BaVanguardDuelTab(props) {
@@ -49,10 +50,7 @@ export default function BaVanguardDuelTab(props) {
     <>
       <section className="games-detail-grid">
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>플레이 설정</h2>
-            <span>{deck.clan}</span>
-          </div>
+          <BaVanguardPanelTitle action="settings" title="플레이 설정" meta={deck.clan} />
           <label className="game-save-json-field">
             <span>내 프리셋</span>
             <select value={presetId} onChange={(event) => {
@@ -105,10 +103,11 @@ export default function BaVanguardDuelTab(props) {
         </section>
 
         <section className="games-panel">
-          <div className="games-panel-title">
-            <h2>진행 컨트롤</h2>
-            <span>{duel.winner ? `${SIDE_LABELS[duel.winner]} 승리` : `${SIDE_LABELS[duel.active]} 차례`}</span>
-          </div>
+          <BaVanguardPanelTitle
+            action="turn"
+            title="진행 컨트롤"
+            meta={duel.winner ? `${SIDE_LABELS[duel.winner]} 승리` : `${SIDE_LABELS[duel.active]} 차례`}
+          />
           <div className="games-rank-split">
             <SmallStat label="선공 제한" value={rules.firstTurnNoDraw ? 'ON' : 'OFF'} />
             <SmallStat label="혼합 클랜" value={rules.allowMixedClan ? '허용' : '금지'} />
