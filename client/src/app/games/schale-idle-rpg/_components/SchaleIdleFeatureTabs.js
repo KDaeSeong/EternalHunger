@@ -20,8 +20,10 @@ import SchaleIdleRecordsTab from './SchaleIdleRecordsTab';
 
 export default function SchaleIdleFeatureTabs(props) {
   const {
+    activeTabId,
     dailyPlan,
     equipped,
+    onTabChange,
     seasonReport,
     setRecipeId,
     setSelectedSalvageUids,
@@ -97,6 +99,8 @@ export default function SchaleIdleFeatureTabs(props) {
   return (
     <section className="schale-idle-workspace">
       <GameFeatureTabs
+        activeTabId={activeTabId}
+        onTabChange={onTabChange}
         tabs={[
         {
           id: 'duty',

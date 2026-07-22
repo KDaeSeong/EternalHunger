@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
 import useGameSfx from '../../_lib/useGameSfx';
 import {
@@ -22,14 +23,20 @@ import {
   schaleIdleFeedbackPresentation,
   schaleIdleResultCue,
 } from '../_lib/schaleIdleFeedback';
+import {
+  resolveSchaleIdleBgmScene,
+  schaleIdleResultMusic,
+} from '../_lib/schaleIdleSoundtrack';
 
 
 export default function SchaleIdlePlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const { setMusicScene } = useGameBgm();
   const playGameSfx = useGameSfx({ theme: 'idle' });
   const [state, setState] = useState(() => createNewState());
+  const [activeFeatureTabId, setActiveFeatureTabId] = useState('duty');
   const [recipeId, setRecipeId] = useState(RECIPES[0].id);
   const [enhanceSlot, setEnhanceSlot] = useState('');
   const [towerBatchCount, setTowerBatchCount] = useState(10);
@@ -38,6 +45,8 @@ export default function SchaleIdlePlayPage() {
   const [presetName, setPresetName] = useState('탑 등반 세트');
   const [selectedPresetId, setSelectedPresetId] = useState('');
   const feedbackRef = useRef(state);
+  const musicResultRef = useRef(String(state.log?.[0] || ''));
+  const musicSceneTimerRef = useRef(null);
 
   useEffect(() => {
     const cue = schaleIdleResultCue(feedbackRef.current, state);
@@ -95,6 +104,37 @@ export default function SchaleIdlePlayPage() {
     () => schaleIdleFeedbackPresentation(state),
     [state],
   );
+  const baseMusicScene = useMemo(() => resolveSchaleIdleBgmScene({
+    activeTabId: activeFeatureTabId,
+    stamina: state.stamina,
+    riskLabel: dailyPlan.riskLabel,
+    readinessPct: dailyPlan.readinessPct,
+  }), [activeFeatureTabId, dailyPlan.readinessPct, dailyPlan.riskLabel, state.stamina]);
+
+  useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
+
+  useEffect(() => {
+    const detail = String(resultPresentation.detail || '');
+    if (!detail || detail === musicResultRef.current) return;
+    musicResultRef.current = detail;
+    const transition = schaleIdleResultMusic(resultPresentation);
+    if (!transition) return;
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene(transition.theme);
+    musicSceneTimerRef.current = window.setTimeout(() => {
+      setMusicScene(baseMusicScene);
+      musicSceneTimerRef.current = null;
+    }, transition.durationMs);
+  }, [baseMusicScene, resultPresentation, setMusicScene]);
 
   const {
     busy,
@@ -114,6 +154,7 @@ export default function SchaleIdlePlayPage() {
 
   const startNewRun = () => {
     setState(createNewState());
+    setActiveFeatureTabId('duty');
     setRecipeId(RECIPES[0].id);
     setEnhanceSlot('');
     setTowerBatchCount(10);
@@ -197,6 +238,7 @@ export default function SchaleIdlePlayPage() {
       />
 
       <SchaleIdleFeatureTabs
+        activeTabId={activeFeatureTabId}
         achievements={achievements}
         activePresetId={activePresetId}
         busy={busy}
@@ -213,6 +255,7 @@ export default function SchaleIdlePlayPage() {
         hydrated={hydrated}
         leader={leader}
         missions={missions}
+        onTabChange={setActiveFeatureTabId}
         presetName={presetName}
         presets={presets}
         recipeId={recipeId}
