@@ -26,6 +26,10 @@ const dualAcademyTrack = (file, options = {}) => renderedTrack('dual-academy-tcg
   renderer: 'physical-model-v2-orchestra',
   ...options,
 });
+const tonkatsuTeacherTrack = (file, options = {}) => renderedTrack('tonkatsu-teacher', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
@@ -68,6 +72,14 @@ export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'academy-yuuka': dualAcademyTrack('yuuka', { gain: 1.2 }),
   'academy-victory': dualAcademyTrack('victory', { gain: 1.2 }),
   'academy-defeat': dualAcademyTrack('defeat', { gain: 1.2 }),
+  'tonkatsu-opening': tonkatsuTeacherTrack('opening', { gain: 1.2 }),
+  'tonkatsu-kitchen': tonkatsuTeacherTrack('kitchen', { gain: 1.2 }),
+  'tonkatsu-service': tonkatsuTeacherTrack('service', { gain: 1.2 }),
+  'tonkatsu-growth': tonkatsuTeacherTrack('growth', { gain: 1.2 }),
+  'tonkatsu-contest': tonkatsuTeacherTrack('contest', { gain: 1.16 }),
+  'tonkatsu-judge': tonkatsuTeacherTrack('judge', { gain: 1.18 }),
+  'tonkatsu-celebration': tonkatsuTeacherTrack('celebration', { gain: 1.2 }),
+  'tonkatsu-setback': tonkatsuTeacherTrack('setback', { gain: 1.2 }),
 });
 
 export function gameBgmRenderedTrack(theme) {
