@@ -50,6 +50,10 @@ const starleagueTrack = (file, options = {}) => renderedTrack('starleague', file
   renderer: 'physical-model-v2-orchestra',
   ...options,
 });
+const rail3dTrack = (file, options = {}) => renderedTrack('rail3d-sim', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
@@ -136,6 +140,12 @@ export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'starleague-finals': starleagueTrack('finals', { gain: 1.12 }),
   'starleague-ceremony': starleagueTrack('ceremony', { gain: 1.18 }),
   'starleague-archive': starleagueTrack('archive', { gain: 1.22 }),
+  'rail-yard': rail3dTrack('yard', { gain: 1.22 }),
+  'rail-mainline': rail3dTrack('mainline', { gain: 1.18 }),
+  'rail-dispatch': rail3dTrack('dispatch', { gain: 1.16 }),
+  'rail-congestion': rail3dTrack('congestion', { gain: 1.12 }),
+  'rail-arrival': rail3dTrack('arrival', { gain: 1.2 }),
+  'rail-archive': rail3dTrack('archive', { gain: 1.24 }),
 });
 
 export function gameBgmRenderedTrack(theme) {

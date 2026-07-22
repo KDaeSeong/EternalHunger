@@ -238,6 +238,7 @@ function percussionSample(kind, variant = 0) {
     tom: 0.5,
     timpani: 1.15,
     taiko: 0.82,
+    'rail-clank': 0.68,
   };
   const duration = durations[kind] || 0.25;
   const frameCount = Math.ceil(duration * SAMPLE_RATE);
@@ -259,6 +260,13 @@ function percussionSample(kind, variant = 0) {
     } else if (kind === 'cymbal') {
       const metal = highNoise * 0.48 + sine(t * 3_731) * 0.13 + sine(t * 5_069) * 0.09;
       output[index] = metal * Math.exp(-t * 3.4);
+    } else if (kind === 'rail-clank') {
+      const metal = sine(t * 661) * 0.46
+        + sine(t * 947) * 0.34
+        + sine(t * 1_487) * 0.22
+        + sine(t * 2_093) * 0.1
+        + highNoise * 0.2;
+      output[index] = Math.tanh(metal * 1.35) * Math.exp(-t * 7.6);
     } else if (kind === 'timpani') {
       const frequency = 104 * Math.exp(-t * 2.8) + 43;
       output[index] = (sine(t * frequency) * 0.86 + sine(t * frequency * 1.48) * 0.16 + noise * 0.08) * Math.exp(-t * 3.4);
@@ -558,9 +566,10 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
       const hat = Number(profile.drums.hat[patternStep] || 0);
       const perc = Number(profile.drums.perc[patternStep] || 0);
       const usesOrchestra = config.percussion?.includes('orchestra');
+      const usesIndustrial = config.percussion === 'industrial-orchestra';
       const kickKind = config.percussion === 'tribal'
         ? 'tom'
-        : config.percussion === 'hybrid-orchestra'
+        : config.percussion === 'hybrid-orchestra' || usesIndustrial
           ? 'taiko'
           : 'kick';
       const snareKind = usesOrchestra ? 'orchestral-snare' : 'snare';
@@ -568,6 +577,17 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
       if (snare > 0) mixSample(target, percussionSample(snareKind, variant), start, snare * drumLevel * (config.percussion === 'tribal' ? 0.14 : 0.2), true, 0.08, 0.003);
       if (hat > 0) mixSample(target, percussionSample('hat', variant), start, hat * drumLevel * 0.12, true, 0.5, 0.004);
       if (perc > 0) mixSample(target, percussionSample('tom', variant), start, perc * drumLevel * 0.15, true, patternStep % 4 < 2 ? -0.28 : 0.3, 0.005);
+      if (usesIndustrial && patternStep % 4 === 2) {
+        mixSample(
+          target,
+          percussionSample('rail-clank', variant),
+          start + stepDuration * 0.08,
+          drumLevel * (patternStep % 8 === 2 ? 0.085 : 0.065),
+          true,
+          patternStep % 8 === 2 ? -0.38 : 0.4,
+          0.009,
+        );
+      }
       if (orchestral && usesOrchestra && (patternStep === 0 || patternStep === 8) && (kick > 0 || Number(section.timpani || 0) > 0.12)) {
         const timpaniGain = (0.1 + Number(section.timpani || 0) * 0.06) * drumLevel * orchestraLevel;
         mixSample(target, percussionSample('timpani', variant), start, timpaniGain, true, 0.18, 0.006);
@@ -746,7 +766,8 @@ function trackInstrumentList(track, orchestral) {
       'timpani',
       'orchestral-snare',
     );
-    if (track.percussion === 'hybrid-orchestra') instruments.push('taiko');
+    if (['hybrid-orchestra', 'industrial-orchestra'].includes(track.percussion)) instruments.push('taiko');
+    if (track.percussion === 'industrial-orchestra') instruments.push('rail-clank');
   } else {
     instruments.push(track.percussion === 'tribal' ? 'tom' : 'kick', 'snare');
   }
