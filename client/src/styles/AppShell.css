@@ -7045,6 +7045,47 @@
   font-variant-numeric: tabular-nums;
 }
 
+.racing-logos-panel-title h2,
+.racing-logos-panel-title h3 {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.racing-logos-panel-title h2 .game-action-icon,
+.racing-logos-panel-title h3 .game-action-icon {
+  flex: 0 0 auto;
+  color: #a62f36;
+}
+
+.racing-logos-panel-title__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.racing-logos-panel-title__copy > span {
+  color: #64717d;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.racing-logo-icon-row.is-good > .game-action-icon {
+  border-color: rgba(54, 140, 95, 0.24);
+  background: #eaf8ef;
+  color: #2e8658;
+}
+
+.game-save-row.racing-logo-preview-row {
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.racing-logo-preview-row > .games-logo-preview {
+  justify-self: start;
+}
+
 .school-panel-title h2,
 .school-panel-title h3 {
   min-width: 0;
@@ -12894,6 +12935,16 @@
   .racing-logo-icon-row > .tcg-primary-action,
   .racing-logo-icon-row > .game-save-chip,
   .racing-logo-icon-row > strong:last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .game-save-row.racing-logo-preview-row {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .racing-logo-preview-row > .game-save-chip,
+  .racing-logo-preview-row > strong:last-child {
     grid-column: 2;
     justify-self: start;
   }

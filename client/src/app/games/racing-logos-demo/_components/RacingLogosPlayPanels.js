@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
+import { RacingLogosInfoRow } from './RacingLogosVisuals';
 
 export function LogoPreview({ alt, fallbackLogo, localCandidates, preferLocalLogos, showDebug }) {
   const sources = useMemo(() => {
@@ -42,42 +43,46 @@ export function LogoPreview({ alt, fallbackLogo, localCandidates, preferLocalLog
 
 export function TrackCard({ track, filters }) {
   return (
-    <article className="game-save-row">
-      <LogoPreview
+    <RacingLogosInfoRow
+      label={track.name}
+      leading={<LogoPreview
         key={`${track.logoKey}:${track.fallbackLogo}:${filters.preferLocalLogos ? 'local' : 'placeholder'}`}
         alt={track.name}
         fallbackLogo={track.fallbackLogo}
         localCandidates={track.localCandidates}
         preferLocalLogos={filters.preferLocalLogos}
         showDebug={filters.showDebug}
-      />
+      />}
+    >
       <div>
         <span>{track.regionLabel} / {track.surfaceName} / {track.directionName}</span>
         <strong>{track.name}</strong>
         <span>{track.distanceM.toLocaleString('ko-KR')}m / logoKey: {track.logoKey}</span>
       </div>
       <span className="game-save-chip">{track.hasLogoOverride ? '로컬키' : 'placeholder'}</span>
-    </article>
+    </RacingLogosInfoRow>
   );
 }
 
 export function EventRow({ event, filters }) {
   return (
-    <article className="game-save-row">
-      <LogoPreview
+    <RacingLogosInfoRow
+      label={event.raceName}
+      leading={<LogoPreview
         key={`${event.trackLogoKey}:${event.fallbackLogo}:${filters.preferLocalLogos ? 'local' : 'placeholder'}`}
         alt={event.trackName}
         fallbackLogo={event.fallbackLogo}
         localCandidates={event.localCandidates}
         preferLocalLogos={filters.preferLocalLogos}
         showDebug={filters.showDebug}
-      />
+      />}
+    >
       <div>
         <span>{event.trackName}</span>
         <strong>{event.raceName}</strong>
         <span>{event.regionLabel} / {event.surfaceName} / {event.directionName} / {event.distanceM.toLocaleString('ko-KR')}m</span>
       </div>
       <span className="game-save-chip">{event.hasLocalName ? '실명' : 'core id'}</span>
-    </article>
+    </RacingLogosInfoRow>
   );
 }

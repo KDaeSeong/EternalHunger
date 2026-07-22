@@ -1,6 +1,7 @@
 import GameActionIcon from '../../_components/GameActionIcon';
 import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { generateRaceCardAction, generateSeasonCardAction } from '../_lib/racingLogosEngine';
+import { RacingLogosPanelTitle } from './RacingLogosVisuals';
 
 export default function RacingLogosDataPackTab(props) {
   const {
@@ -13,15 +14,16 @@ export default function RacingLogosDataPackTab(props) {
   return (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>배포 단위</h2>
-                    <span>{dataPack.releaseScore}%</span>
-                  </div>
+                  <RacingLogosPanelTitle
+                    action={dataPack.releaseScore >= 100 ? 'release-ready' : 'release'}
+                    title="배포 단위"
+                    meta={`${dataPack.releaseScore}%`}
+                  />
                   <div className="games-rank-split" style={{ marginBottom: 12 }}>
-                    <SmallStat label="시즌 카드" value={dataPack.seasonCards} />
-                    <SmallStat label="이벤트 카드" value={dataPack.eventCards} />
-                    <SmallStat label="결과 행" value={dataPack.resultRows.length} />
-                    <SmallStat label="평균 레이팅" value={dataPack.avgRating || '-'} />
+                    <SmallStat icon="season-card" label="시즌 카드" value={dataPack.seasonCards} />
+                    <SmallStat icon="race-card" label="이벤트 카드" value={dataPack.eventCards} />
+                    <SmallStat icon="logs" label="결과 행" value={dataPack.resultRows.length} />
+                    <SmallStat icon="trophy" label="평균 레이팅" value={dataPack.avgRating || '-'} />
                   </div>
                   <div className="game-save-list">
                     {dataPack.packRows.map((row) => (
@@ -38,10 +40,7 @@ export default function RacingLogosDataPackTab(props) {
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>장기 결과 모델</h2>
-                    <span>event · season · ledger</span>
-                  </div>
+                  <RacingLogosPanelTitle action="analysis" title="장기 결과 모델" meta="event · season · ledger" />
                   <div className="game-save-list">
                     {dataPack.modelRows.map((row) => (
                       <article className="game-save-row racing-logo-icon-row" key={row.id}>
@@ -62,10 +61,7 @@ export default function RacingLogosDataPackTab(props) {
                   <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>결과 원장</h2>
-                    <span>{dataPack.resultRows.length}행</span>
-                  </div>
+                  <RacingLogosPanelTitle action="archive" title="결과 원장" meta={`${dataPack.resultRows.length}행`} />
                   <div className="game-save-list">
                     {dataPack.resultRows.length ? dataPack.resultRows.slice(0, 8).map((row) => (
                       <article className="game-save-row racing-logo-icon-row" key={row.id}>
@@ -81,10 +77,7 @@ export default function RacingLogosDataPackTab(props) {
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>다음 분리 작업</h2>
-                    <span>추천</span>
-                  </div>
+                  <RacingLogosPanelTitle action="target" title="다음 분리 작업" meta="추천" />
                   <div className="games-activity-list">
                     {dataPack.recommendations.map((line) => (
                       <div key={line}><strong>{line}</strong></div>

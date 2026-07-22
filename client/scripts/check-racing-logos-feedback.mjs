@@ -29,8 +29,22 @@ const componentSources = await Promise.all([
   'RacingLogosDataPackTab.js',
   'RacingLogosAdvancedTab.js',
 ].map((name) => readFile(new URL(name, componentUrl), 'utf8')));
+const semanticComponentSources = await Promise.all([
+  'RacingLogosAdvancedTab.js',
+  'RacingLogosAuditTab.js',
+  'RacingLogosCalendarTab.js',
+  'RacingLogosDataPackTab.js',
+  'RacingLogosEventsTab.js',
+  'RacingLogosLocalPackTab.js',
+  'RacingLogosLogTab.js',
+  'RacingLogosMatrixTab.js',
+  'RacingLogosPlayPanels.js',
+  'RacingLogosTracksTab.js',
+].map((name) => readFile(new URL(name, componentUrl), 'utf8')));
+const visualSource = await readFile(new URL('RacingLogosVisuals.js', componentUrl), 'utf8');
 const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
 const soundSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
+const styleSource = await readFile(new URL('../src/styles/AppShell.css', import.meta.url), 'utf8');
 
 function seed(runId = 'racing-feedback') {
   return createNewState({ now: '2026-07-12T00:00:00.000Z', runId });
@@ -107,6 +121,12 @@ for (const icon of [
   const escaped = icon.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   assert.match(iconSource, new RegExp(`\\n  (?:'${escaped}'|${escaped}): `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
 }
+for (const icon of [
+  'analysis', 'calendar', 'complete', 'filter', 'logs', 'map', 'search', 'settings',
+  'status', 'tactics', 'target', 'title', 'trophy',
+]) {
+  assert.match(iconSource, new RegExp(`\\n  ${icon}: `), `${icon} 레이싱 UI 아이콘 매핑이 있어야 합니다.`);
+}
 
 assert.match(pageSource, /const stateRef = useRef\(state\)/, '연속 에셋 행동은 최신 상태 참조를 사용해야 합니다.');
 assert.match(pageSource, /racingLogosResultPresentation\(previousState, nextState\)/, '상태 행동마다 결과 프레젠테이션을 계산해야 합니다.');
@@ -124,9 +144,28 @@ for (const source of componentSources) {
   }
 }
 
+const semanticSource = semanticComponentSources.join('\n');
+const semanticPanelTitles = [...semanticSource.matchAll(/<RacingLogosPanelTitle\b/g)].length;
+const semanticInfoRows = [...semanticSource.matchAll(/<RacingLogosInfoRow\b/g)].length;
+const semanticStatIcons = [...semanticSource.matchAll(/<SmallStat icon=/g)].length;
+assert.equal(semanticPanelTitles, 25, '레이싱 로고 패널 제목 25개가 의미 아이콘을 사용해야 합니다.');
+assert.equal(semanticInfoRows, 7, '레이싱 로고 핵심 정보 행 7개가 공통 시각 행을 사용해야 합니다.');
+assert.equal(semanticStatIcons, 28, '레이싱 로고 요약 통계 28개가 의미 아이콘을 사용해야 합니다.');
+assert.doesNotMatch(semanticSource, /className="games-panel-title"/, '아이콘 없는 원시 패널 제목을 남기면 안 됩니다.');
+assert.doesNotMatch(semanticSource, /className="game-save-row"/, '공통 시각 요소가 없는 원시 정보 행을 남기면 안 됩니다.');
+assert.equal([...semanticSource.matchAll(/leading=\{<LogoPreview/g)].length, 3, '트랙·이벤트·라운드 행은 실제 로고 미리보기를 보존해야 합니다.');
+assert.match(visualSource, /export function RacingLogosPanelTitle/, '레이싱 로고 공통 패널 제목 컴포넌트가 필요합니다.');
+assert.match(visualSource, /export function RacingLogosInfoRow/, '레이싱 로고 공통 정보 행 컴포넌트가 필요합니다.');
+assert.match(visualSource, /leading \? 'racing-logo-preview-row' : 'racing-logo-icon-row'/, '정보 행은 로고와 의미 아이콘 레이아웃을 구분해야 합니다.');
+assert.match(styleSource, /\.racing-logos-panel-title__copy/, '레이싱 패널 제목 아이콘 레이아웃이 필요합니다.');
+assert.match(styleSource, /\.game-save-row\.racing-logo-preview-row/, '실제 로고 미리보기 행 레이아웃이 필요합니다.');
+
 console.log(JSON.stringify({
   feedbackTransitions: 10,
   resultCues: 10,
   resultPanels: componentSources.length + 1,
   releaseReady: true,
+  semanticInfoRows,
+  semanticPanelTitles,
+  semanticStatIcons,
 }, null, 2));

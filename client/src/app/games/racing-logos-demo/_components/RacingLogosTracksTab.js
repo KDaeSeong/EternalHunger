@@ -1,4 +1,5 @@
 import { TrackCard } from './RacingLogosPlayPanels';
+import { RacingLogosPanelTitle } from './RacingLogosVisuals';
 
 export default function RacingLogosTracksTab(props) {
   const {
@@ -8,10 +9,7 @@ export default function RacingLogosTracksTab(props) {
 
   return (
               <section className="games-panel">
-                <div className="games-panel-title">
-                  <h2>트랙 로고</h2>
-                  <span>{tracks.length}개</span>
-                </div>
+                <RacingLogosPanelTitle action="map" title="트랙 로고" meta={`${tracks.length}개`} />
                 <div className="game-save-list">
                   {tracks.map((track) => <TrackCard key={track.id} track={track} filters={state.filters} />)}
                 </div>

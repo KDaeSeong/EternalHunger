@@ -1,3 +1,5 @@
+import { RacingLogosInfoRow, RacingLogosPanelTitle } from './RacingLogosVisuals';
+
 export default function RacingLogosMatrixTab(props) {
   const {
     packMatrix,
@@ -5,13 +7,15 @@ export default function RacingLogosMatrixTab(props) {
 
   return (
               <section className="games-panel">
-                <div className="games-panel-title">
-                  <h2>로컬팩 매트릭스</h2>
-                  <span>{packMatrix.totals.completed}/{packMatrix.totals.rows}</span>
-                </div>
+                <RacingLogosPanelTitle action="tactics" title="로컬팩 매트릭스" meta={`${packMatrix.totals.completed}/${packMatrix.totals.rows}`} />
                 <div className="game-save-list">
                   {packMatrix.rows.map((row) => (
-                    <article className="game-save-row" key={row.id}>
+                    <RacingLogosInfoRow
+                      action={row.complete ? 'complete' : 'draft'}
+                      className={row.complete ? 'is-good' : 'is-warning'}
+                      label={row.name}
+                      key={row.id}
+                    >
                       <div>
                         <span>{row.kindLabel} / {row.requiredKey}</span>
                         <strong>{row.name}</strong>
@@ -19,7 +23,7 @@ export default function RacingLogosMatrixTab(props) {
                         <small>{row.candidateText}</small>
                       </div>
                       <span className="game-save-chip">{row.status}</span>
-                    </article>
+                    </RacingLogosInfoRow>
                   ))}
                 </div>
               </section>

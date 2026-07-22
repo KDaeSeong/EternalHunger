@@ -1,5 +1,6 @@
 import GameActionIcon from '../../_components/GameActionIcon';
 import { EventRow } from './RacingLogosPlayPanels';
+import { RacingLogosPanelTitle } from './RacingLogosVisuals';
 
 export default function RacingLogosEventsTab(props) {
   const {
@@ -11,19 +12,13 @@ export default function RacingLogosEventsTab(props) {
   return (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>이벤트</h2>
-                    <span>{events.length}개</span>
-                  </div>
+                  <RacingLogosPanelTitle action="calendar" title="이벤트" meta={`${events.length}개`} />
                   <div className="game-save-list">
                     {events.map((event) => <EventRow key={event.id} event={event} filters={state.filters} />)}
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>이벤트 카드</h2>
-                    <span>{latestRaceCard ? latestRaceCard.results.length : 0} races</span>
-                  </div>
+                  <RacingLogosPanelTitle action="race-card" title="이벤트 카드" meta={`${latestRaceCard ? latestRaceCard.results.length : 0} races`} />
                   <div className="game-save-list">
                     {latestRaceCard ? latestRaceCard.results.map((result, index) => (
                       <article className="game-save-row racing-logo-icon-row" key={`${result.eventId}-${result.week || index}`}>

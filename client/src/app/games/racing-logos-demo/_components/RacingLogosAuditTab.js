@@ -1,6 +1,7 @@
 import GameActionIcon from '../../_components/GameActionIcon';
 import { ActionButton, GameControlButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { auditLogoPackAction, generateRaceCardAction, generateSeasonCardAction } from '../_lib/racingLogosEngine';
+import { RacingLogosPanelTitle } from './RacingLogosVisuals';
 
 const QUEUE_ACTION_ICONS = {
   draft: 'draft',
@@ -28,17 +29,14 @@ export default function RacingLogosAuditTab(props) {
   return (
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>완성도</h2>
-                    <span>{audit.id}</span>
-                  </div>
+                  <RacingLogosPanelTitle action={audit.completeness >= 100 ? 'logo-perfect' : 'logo-audit'} title="완성도" meta={audit.id} />
                   <div className="games-rank-split">
-                    <SmallStat label="트랙 실명" value={`${audit.namedTracks}/${audit.tracks}`} />
-                    <SmallStat label="이벤트 실명" value={`${audit.namedEvents}/${audit.events}`} />
-                    <SmallStat label="로고키" value={`${audit.overriddenLogos}/${audit.tracks}`} />
-                    <SmallStat label="placeholder" value={audit.placeholderOnly} />
-                    <SmallStat label="후보 경로" value={audit.localCandidateCount} />
-                    <SmallStat label="점수" value={score.toLocaleString('ko-KR')} />
+                    <SmallStat icon="map" label="트랙 실명" value={`${audit.namedTracks}/${audit.tracks}`} />
+                    <SmallStat icon="race-card" label="이벤트 실명" value={`${audit.namedEvents}/${audit.events}`} />
+                    <SmallStat icon="logo-audit" label="로고키" value={`${audit.overriddenLogos}/${audit.tracks}`} />
+                    <SmallStat icon="pack-invalid" label="placeholder" value={audit.placeholderOnly} />
+                    <SmallStat icon="search" label="후보 경로" value={audit.localCandidateCount} />
+                    <SmallStat icon="title" label="점수" value={score.toLocaleString('ko-KR')} />
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
                     <ActionButton action="logo-audit" cue="off" onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
@@ -48,10 +46,7 @@ export default function RacingLogosAuditTab(props) {
                   <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>에셋 제작 큐</h2>
-                    <span>{productionQueue.rows.length}개</span>
-                  </div>
+                  <RacingLogosPanelTitle action="draft" title="에셋 제작 큐" meta={`${productionQueue.rows.length}개`} />
                   <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
                     <strong>{productionQueue.headline}</strong>
                   </div>
@@ -81,15 +76,12 @@ export default function RacingLogosAuditTab(props) {
                   </div>
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>보강 우선순위</h2>
-                    <span>{packMatrix.totals.completed}/{packMatrix.totals.rows}</span>
-                  </div>
+                  <RacingLogosPanelTitle action="target" title="보강 우선순위" meta={`${packMatrix.totals.completed}/${packMatrix.totals.rows}`} />
                   <div className="games-rank-split">
-                    <SmallStat label="누락 이름" value={packMatrix.totals.missingNames} />
-                    <SmallStat label="누락 로고키" value={packMatrix.totals.missingLogoOverrides} />
-                    <SmallStat label="트랙명" value={packMatrix.totals.trackNameCount} />
-                    <SmallStat label="이벤트명" value={packMatrix.totals.eventNameCount} />
+                    <SmallStat icon="draft" label="누락 이름" value={packMatrix.totals.missingNames} />
+                    <SmallStat icon="pack-invalid" label="누락 로고키" value={packMatrix.totals.missingLogoOverrides} />
+                    <SmallStat icon="map" label="트랙명" value={packMatrix.totals.trackNameCount} />
+                    <SmallStat icon="race-card" label="이벤트명" value={packMatrix.totals.eventNameCount} />
                   </div>
                   <div className="game-save-list" style={{ marginTop: 12 }}>
                     {packMatrix.rows.filter((row) => !row.complete).slice(0, 4).map((row) => (

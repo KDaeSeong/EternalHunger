@@ -1,5 +1,6 @@
 import { ActionButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import { clearLocalPackAction, setFilterAction } from '../_lib/racingLogosEngine';
+import { RacingLogosPanelTitle } from './RacingLogosVisuals';
 
 export default function RacingLogosLocalPackTab(props) {
   const {
@@ -20,10 +21,7 @@ export default function RacingLogosLocalPackTab(props) {
   return (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>real_names.json</h2>
-                    <span>{Object.keys(state.localPack.eventNames).length} events</span>
-                  </div>
+                  <RacingLogosPanelTitle action="pack-apply" title="real_names.json" meta={`${Object.keys(state.localPack.eventNames).length} events`} />
                   <label className="game-save-json-field">
                     <span>JSON</span>
                     <textarea
@@ -43,10 +41,7 @@ export default function RacingLogosLocalPackTab(props) {
                   <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
-                  <div className="games-panel-title">
-                    <h2>필터</h2>
-                    <span>{state.filters.preferLocalLogos ? 'local first' : 'fallback only'}</span>
-                  </div>
+                  <RacingLogosPanelTitle action="filter" title="필터" meta={state.filters.preferLocalLogos ? 'local first' : 'fallback only'} />
                   <label className="game-save-json-field">
                     <span>지역</span>
                     <select value={state.filters.region} onChange={(event) => setState((current) => setFilterAction(current, { region: event.target.value }))}>
