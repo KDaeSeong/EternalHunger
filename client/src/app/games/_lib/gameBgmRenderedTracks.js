@@ -10,7 +10,7 @@ function renderedTrack(folder, file, options = {}) {
 }
 
 const eternalHungerTrack = (file, options = {}) => renderedTrack('eternal-hunger', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 const primitiveArchiveTrack = (file, options) => renderedTrack('primitive-archive', file, options);

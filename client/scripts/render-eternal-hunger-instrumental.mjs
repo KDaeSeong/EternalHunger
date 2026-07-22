@@ -9,6 +9,15 @@ import {
   gameBgmProfile,
   gameBgmStepDuration,
 } from '../src/app/games/_lib/gameBgmProfiles.js';
+import {
+  clearSampledOrchestraRenderCache,
+  resetSampledOrchestraUsage,
+  sampledOrchestraMetadata,
+  sampledOrchestraPercussion,
+  sampledOrchestraSupportsInstrument,
+  sampledOrchestraTone,
+  sampledOrchestraUsageSnapshot,
+} from './audio/sampledOrchestra.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = path.resolve(SCRIPT_DIR, '..', 'public', 'audio', 'eternal-hunger');
@@ -19,6 +28,22 @@ const SINE_TABLE = Float32Array.from(
   { length: TABLE_SIZE },
   (_, index) => Math.sin((index / TABLE_SIZE) * TWO_PI),
 );
+
+async function writeFileWithRetry(filePath, data, encoding) {
+  const retryableCodes = new Set(['EBUSY', 'EPERM', 'EACCES', 'UNKNOWN']);
+  let lastError = null;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      await writeFile(filePath, data, encoding);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!retryableCodes.has(error?.code) || attempt === 7) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 120 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
 
 export const ETERNAL_HUNGER_RENDER_TRACKS = Object.freeze([
   {
@@ -72,7 +97,7 @@ export const ETERNAL_HUNGER_RENDER_TRACKS = Object.freeze([
   {
     theme: 'eternal-defeat', file: 'defeat', title: '전멸 기록', bars: 32,
     lead: 'piano', counter: 'cello', pad: 'choir', highStrings: 'violin', midStrings: 'viola',
-    lowStrings: 'cello', woodwind: 'oboe', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
+    lowStrings: 'cello', woodwind: 'bassoon', brassSection: 'horn', lowBrass: 'trombone', harp: 'harp',
     percussion: 'orchestral', drumScale: 0.2, room: 0.35,
   },
 ]);
@@ -206,7 +231,7 @@ function pluckedSample(kind, frequency, duration, variant) {
   return output;
 }
 
-function tonalSample(kind, frequency, duration, variant = 0) {
+function tonalSample(kind, frequency, duration, variant = 0, useSampledOrchestra = false) {
   const safeKind = [
     'piano', 'strings', 'violin', 'viola', 'cello', 'brass', 'horn', 'trumpet', 'trombone',
     'choir', 'flute', 'oboe', 'clarinet', 'bassoon', 'bell', 'celesta', 'vibraphone',
@@ -217,21 +242,33 @@ function tonalSample(kind, frequency, duration, variant = 0) {
   const safeFrequency = clamp(frequencyKey(frequency), 28, 4_200);
   const safeDuration = clamp(Math.round(duration * 20) / 20, 0.08, 5.5);
   const safeVariant = Math.abs(Math.trunc(variant)) % 4;
-  const key = `${safeKind}:${safeFrequency}:${safeDuration}:${safeVariant}`;
+  const key = `${useSampledOrchestra ? 'sampled' : 'synth'}:${safeKind}:${safeFrequency}:${safeDuration}:${safeVariant}`;
   if (!sampleCache.has(key)) {
+    const sampled = useSampledOrchestra
+      ? sampledOrchestraTone(safeKind, safeFrequency, safeDuration, safeVariant)
+      : null;
     sampleCache.set(
       key,
-      ['harp', 'pluck', 'guitar', 'bass'].includes(safeKind)
-        ? pluckedSample(safeKind, safeFrequency, safeDuration, safeVariant)
-        : additiveSample(safeKind, safeFrequency, safeDuration, safeVariant),
+      sampled || (
+        ['harp', 'pluck', 'guitar', 'bass'].includes(safeKind)
+          ? pluckedSample(safeKind, safeFrequency, safeDuration, safeVariant)
+          : additiveSample(safeKind, safeFrequency, safeDuration, safeVariant)
+      ),
     );
   }
   return sampleCache.get(key);
 }
 
-function percussionSample(kind, variant = 0) {
-  const key = `drum:${kind}:${variant % 4}`;
+function percussionSample(kind, variant = 0, useSampledOrchestra = false) {
+  const key = `${useSampledOrchestra ? 'sampled' : 'synth'}:drum:${kind}:${variant % 4}`;
   if (sampleCache.has(key)) return sampleCache.get(key);
+  if (useSampledOrchestra) {
+    const sampled = sampledOrchestraPercussion(kind, variant);
+    if (sampled) {
+      sampleCache.set(key, sampled);
+      return sampled;
+    }
+  }
   const durations = {
     kick: 0.42,
     snare: 0.34,
@@ -306,6 +343,15 @@ function targetFrameCount(target) {
   return target instanceof Float32Array ? target.length : target.left.length;
 }
 
+function sourceFrameCount(sample) {
+  return sample instanceof Float32Array ? sample.length : sample.left.length;
+}
+
+function sourceChannelSample(sample, channel, index) {
+  if (sample instanceof Float32Array) return sample[index];
+  return channel === 0 ? sample.left[index] : sample.right[index];
+}
+
 function wrappedFrame(index, frameCount, wrap) {
   if (index < 0) return null;
   if (index < frameCount) return index;
@@ -316,14 +362,18 @@ function wrappedFrame(index, frameCount, wrap) {
 function mixSample(target, sample, startSeconds, gain = 1, wrap = true, pan = 0, widthSeconds = 0) {
   const startFrame = Math.round(startSeconds * SAMPLE_RATE);
   const frameCount = targetFrameCount(target);
+  const sourceFrames = sourceFrameCount(sample);
   if (target instanceof Float32Array) {
-    for (let index = 0; index < sample.length; index += 1) {
+    for (let index = 0; index < sourceFrames; index += 1) {
       const targetIndex = wrappedFrame(startFrame + index, frameCount, wrap);
       if (targetIndex === null) {
         if (!wrap && startFrame + index >= frameCount) break;
         continue;
       }
-      target[targetIndex] += sample[index] * gain;
+      const sourceValue = sample instanceof Float32Array
+        ? sample[index]
+        : (sample.left[index] + sample.right[index]) * 0.5;
+      target[targetIndex] += sourceValue * gain;
     }
     return;
   }
@@ -335,11 +385,11 @@ function mixSample(target, sample, startSeconds, gain = 1, wrap = true, pan = 0,
   const widthFrames = Math.round(clamp(widthSeconds, 0, 0.03) * SAMPLE_RATE);
   const leftDelay = safePan > 0 ? widthFrames : 0;
   const rightDelay = safePan <= 0 ? widthFrames : 0;
-  for (let index = 0; index < sample.length; index += 1) {
+  for (let index = 0; index < sourceFrames; index += 1) {
     const leftIndex = wrappedFrame(startFrame + index + leftDelay, frameCount, wrap);
     const rightIndex = wrappedFrame(startFrame + index + rightDelay, frameCount, wrap);
-    if (leftIndex !== null) target.left[leftIndex] += sample[index] * leftGain;
-    if (rightIndex !== null) target.right[rightIndex] += sample[index] * rightGain;
+    if (leftIndex !== null) target.left[leftIndex] += sourceChannelSample(sample, 0, index) * leftGain;
+    if (rightIndex !== null) target.right[rightIndex] += sourceChannelSample(sample, 1, index) * rightGain;
     if (!wrap && startFrame + index >= frameCount) break;
   }
 }
@@ -381,7 +431,7 @@ function instrumentPan(kind, fallback = 0) {
   return Number.isFinite(INSTRUMENT_PAN[kind]) ? INSTRUMENT_PAN[kind] : fallback;
 }
 
-function renderTrack(config, { channels = 1, orchestral = false } = {}) {
+function renderTrack(config, { channels = 1, orchestral = false, sampled = false } = {}) {
   const profile = gameBgmProfile(config.theme);
   const stepDuration = gameBgmStepDuration(profile);
   const totalSteps = config.bars * 16;
@@ -389,6 +439,14 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
   const target = createMixTarget(Math.ceil(duration * SAMPLE_RATE), channels);
   const human = seededRandom(config.theme.length * 65_537);
   const orchestraLevel = clamp(profile.orchestraLevel || 0.9, 0.5, 1.2);
+  const tone = (kind, frequency, duration, variant = 0) => tonalSample(
+    kind,
+    frequency,
+    duration,
+    variant,
+    sampled,
+  );
+  const drum = (kind, variant = 0) => percussionSample(kind, variant, sampled);
 
   for (let absoluteStep = 0; absoluteStep < totalSteps; absoluteStep += 1) {
     const state = gameBgmArrangementState(profile, absoluteStep);
@@ -408,7 +466,7 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
         const frequency = gameBgmNoteFrequency(profile, chordRoot + voicing[noteIndex], profile.padOctave + 1);
         const padGain = (config.pad === 'choir' ? 0.034 : 0.029) * energy / Math.sqrt(voicing.length);
         const padPan = (noteIndex - (voicing.length - 1) / 2) * 0.14;
-        mixSample(target, tonalSample(config.pad, frequency, chordDuration, noteIndex), start, padGain, true, padPan, 0.009);
+        mixSample(target, tone(config.pad, frequency, chordDuration, noteIndex), start, padGain, true, padPan, 0.009);
       }
     }
 
@@ -425,7 +483,7 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
           const midFrequency = gameBgmNoteFrequency(profile, degree, profile.padOctave + 1);
           mixSample(
             target,
-            tonalSample(config.highStrings, highFrequency, chordDuration, noteIndex),
+            tone(config.highStrings, highFrequency, chordDuration, noteIndex),
             start,
             0.017 * stringGain / Math.sqrt(voicing.length),
             true,
@@ -434,7 +492,7 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
           );
           mixSample(
             target,
-            tonalSample(config.midStrings, midFrequency, chordDuration, noteIndex + 1),
+            tone(config.midStrings, midFrequency, chordDuration, noteIndex + 1),
             start + 0.012,
             0.019 * stringGain / Math.sqrt(voicing.length),
             true,
@@ -445,7 +503,7 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
         const lowFrequency = gameBgmNoteFrequency(profile, chordRoot, profile.padOctave);
         mixSample(
           target,
-          tonalSample(config.lowStrings, lowFrequency, chordDuration, state.sectionBarIndex),
+          tone(config.lowStrings, lowFrequency, chordDuration, state.sectionBarIndex),
           start + 0.018,
           0.025 * stringGain,
           true,
@@ -465,7 +523,7 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
         const lowFrequency = gameBgmNoteFrequency(profile, chordRoot + 4, profile.padOctave);
         mixSample(
           target,
-          tonalSample(config.brassSection, rootFrequency, brassDuration, variant),
+          tone(config.brassSection, rootFrequency, brassDuration, variant),
           start,
           0.027 * brassPresence * orchestraLevel * energy,
           true,
@@ -474,7 +532,7 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
         );
         mixSample(
           target,
-          tonalSample(config.lowBrass, lowFrequency, brassDuration * 1.08, variant + 1),
+          tone(config.lowBrass, lowFrequency, brassDuration * 1.08, variant + 1),
           start + 0.016,
           0.021 * brassPresence * orchestraLevel * energy,
           true,
@@ -489,7 +547,7 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
           const frequency = gameBgmNoteFrequency(profile, chordRoot + voicing[noteIndex], profile.padOctave + 1);
           mixSample(
             target,
-            tonalSample('choir', frequency, chordDuration, noteIndex),
+            tone('choir', frequency, chordDuration, noteIndex),
             start + 0.024,
             0.014 * choirPresence * orchestraLevel * energy,
             true,
@@ -503,20 +561,20 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
     const bassDegree = section.bass ? profile.bass[patternStep] : null;
     if (bassDegree !== null && bassDegree !== undefined) {
       const frequency = gameBgmNoteFrequency(profile, bassDegree + keyShift, profile.bassOctave);
-      mixSample(target, tonalSample('bass', frequency, stepDuration * 2.8, variant), start, 0.105 * energy, true, 0, 0.002);
+      mixSample(target, tone('bass', frequency, stepDuration * 2.8, variant), start, 0.105 * energy, true, 0, 0.002);
     }
 
     const arpDegree = section.arp ? profile.arp[patternStep] : null;
     if (arpDegree !== null && arpDegree !== undefined) {
       const frequency = gameBgmNoteFrequency(profile, arpDegree + keyShift, profile.arpOctave);
       const arpPan = patternStep % 4 < 2 ? -0.36 : 0.34;
-      mixSample(target, tonalSample('pluck', frequency, stepDuration * 1.5, variant), start, 0.044 * energy, true, arpPan, 0.004);
+      mixSample(target, tone('pluck', frequency, stepDuration * 1.5, variant), start, 0.044 * energy, true, arpPan, 0.004);
       if (orchestral && config.harp) {
         const harpFrequency = gameBgmNoteFrequency(profile, arpDegree + keyShift, profile.arpOctave + 1);
         const harpPresence = clamp(Math.max(Number(section.pluck || 0), 0.32), 0.2, 1);
         mixSample(
           target,
-          tonalSample(config.harp, harpFrequency, stepDuration * 2.1, variant + 1),
+          tone(config.harp, harpFrequency, stepDuration * 2.1, variant + 1),
           start + stepDuration * 0.025,
           0.017 * energy * harpPresence * orchestraLevel,
           true,
@@ -533,7 +591,7 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
       const accent = patternStep % 4 === 0 ? 1.12 : 0.94;
       mixSample(
         target,
-        tonalSample(config.lead, frequency, stepDuration * Number(profile.leadLength || 1.8), variant),
+        tone(config.lead, frequency, stepDuration * Number(profile.leadLength || 1.8), variant),
         start,
         0.092 * energy * accent,
         true,
@@ -547,7 +605,7 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
       const frequency = gameBgmNoteFrequency(profile, counterDegree + keyShift, profile.counterOctave);
       mixSample(
         target,
-        tonalSample(config.counter, frequency, stepDuration * Number(profile.counterLength || 1.4), variant + 1),
+        tone(config.counter, frequency, stepDuration * Number(profile.counterLength || 1.4), variant + 1),
         start + stepDuration * 0.07,
         0.055 * energy,
         true,
@@ -561,7 +619,7 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
       const frequency = gameBgmNoteFrequency(profile, sourceDegree + keyShift, profile.counterOctave + 1);
       mixSample(
         target,
-        tonalSample(config.woodwind, frequency, stepDuration * 3.2, variant + 2),
+        tone(config.woodwind, frequency, stepDuration * 3.2, variant + 2),
         start + stepDuration * 0.04,
         0.018 * energy * orchestraLevel,
         true,
@@ -585,14 +643,14 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
           ? 'taiko'
           : 'kick';
       const snareKind = usesOrchestra ? 'orchestral-snare' : 'snare';
-      if (kick > 0) mixSample(target, percussionSample(kickKind, variant), start, kick * drumLevel * (config.percussion === 'tribal' ? 0.2 : 0.28), true, -0.05, 0.002);
-      if (snare > 0) mixSample(target, percussionSample(snareKind, variant), start, snare * drumLevel * (config.percussion === 'tribal' ? 0.14 : 0.2), true, 0.08, 0.003);
-      if (hat > 0) mixSample(target, percussionSample('hat', variant), start, hat * drumLevel * 0.12, true, 0.5, 0.004);
-      if (perc > 0) mixSample(target, percussionSample('tom', variant), start, perc * drumLevel * 0.15, true, patternStep % 4 < 2 ? -0.28 : 0.3, 0.005);
+      if (kick > 0) mixSample(target, drum(kickKind, variant), start, kick * drumLevel * (config.percussion === 'tribal' ? 0.2 : 0.28), true, -0.05, 0.002);
+      if (snare > 0) mixSample(target, drum(snareKind, variant), start, snare * drumLevel * (config.percussion === 'tribal' ? 0.14 : 0.2), true, 0.08, 0.003);
+      if (hat > 0) mixSample(target, drum('hat', variant), start, hat * drumLevel * 0.12, true, 0.5, 0.004);
+      if (perc > 0) mixSample(target, drum('tom', variant), start, perc * drumLevel * 0.15, true, patternStep % 4 < 2 ? -0.28 : 0.3, 0.005);
       if (usesIndustrial && patternStep % 4 === 2) {
         mixSample(
           target,
-          percussionSample('rail-clank', variant),
+          drum('rail-clank', variant),
           start + stepDuration * 0.08,
           drumLevel * (patternStep % 8 === 2 ? 0.085 : 0.065),
           true,
@@ -603,7 +661,7 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
       if (usesMotorsport && patternStep % 4 === 0) {
         mixSample(
           target,
-          percussionSample('engine-pulse', variant),
+          drum('engine-pulse', variant),
           start,
           drumLevel * (patternStep % 8 === 0 ? 0.07 : 0.05),
           true,
@@ -613,16 +671,16 @@ function renderTrack(config, { channels = 1, orchestral = false } = {}) {
       }
       if (orchestral && usesOrchestra && (patternStep === 0 || patternStep === 8) && (kick > 0 || Number(section.timpani || 0) > 0.12)) {
         const timpaniGain = (0.1 + Number(section.timpani || 0) * 0.06) * drumLevel * orchestraLevel;
-        mixSample(target, percussionSample('timpani', variant), start, timpaniGain, true, 0.18, 0.006);
+        mixSample(target, drum('timpani', variant), start, timpaniGain, true, 0.18, 0.006);
       }
       if (patternStep === 0 && state.sectionBarIndex === 0 && Number(section.energy || 0) >= 0.65) {
-        mixSample(target, percussionSample('cymbal', variant), start, drumLevel * 0.12, true, 0.42, 0.012);
+        mixSample(target, drum('cymbal', variant), start, drumLevel * 0.12, true, 0.42, 0.012);
       }
     }
 
     if (patternStep % 4 === 0 && (config.theme === 'eternal-boss' || config.theme === 'eternal-final')) {
       const frequency = gameBgmNoteFrequency(profile, chordRoot, -1);
-      mixSample(target, tonalSample('brass', frequency, stepDuration * 3.4, variant), start, 0.04 * energy, true, 0.18, 0.006);
+      mixSample(target, tone('brass', frequency, stepDuration * 3.4, variant), start, 0.04 * energy, true, 0.18, 0.006);
     }
   }
 
@@ -807,15 +865,18 @@ export async function renderPhysicalModelSoundtrack({
   channels = 1,
 }) {
   if (![1, 2].includes(channels)) throw new Error(`Unsupported channel count: ${channels}`);
-  const orchestral = renderer === 'physical-model-v2-orchestra';
+  const sampled = renderer === 'sampled-orchestra-v3-vsco2-ce';
+  const orchestral = sampled || renderer === 'physical-model-v2-orchestra';
   await mkdir(outputDir, { recursive: true });
   const manifest = [];
   for (const track of tracks) {
     const startedAt = performance.now();
-    const rendered = renderTrack(track, { channels, orchestral });
+    resetSampledOrchestraUsage();
+    const rendered = renderTrack(track, { channels, orchestral, sampled });
+    const sampleUsage = sampled ? sampledOrchestraUsageSnapshot() : null;
     const wave = encodePcmWave(rendered.samples, channels);
     const outputPath = path.join(outputDir, `${track.file}.wav`);
-    await writeFile(outputPath, wave);
+    await writeFileWithRetry(outputPath, wave);
     manifest.push({
       file: `${track.file}.wav`,
       theme: track.theme,
@@ -826,14 +887,26 @@ export async function renderPhysicalModelSoundtrack({
       sampleRate: SAMPLE_RATE,
       channels,
       instruments: trackInstrumentList(track, orchestral),
+      sampledInstruments: sampled
+        ? trackInstrumentList(track, orchestral).filter(sampledOrchestraSupportsInstrument)
+        : [],
+      synthesisFallbackInstruments: sampled
+        ? trackInstrumentList(track, orchestral).filter((instrument) => !sampledOrchestraSupportsInstrument(instrument))
+        : trackInstrumentList(track, orchestral),
+      sampleUsage,
       bytes: wave.length,
     });
     sampleCache.clear();
+    clearSampledOrchestraRenderCache();
     console.log(`${track.theme}: ${rendered.duration.toFixed(1)}s / ${(wave.length / 1_048_576).toFixed(2)} MiB / ${(performance.now() - startedAt).toFixed(0)}ms`);
   }
-  await writeFile(
+  await writeFileWithRetry(
     path.join(outputDir, 'manifest.json'),
-    `${JSON.stringify({ renderer, tracks: manifest }, null, 2)}\n`,
+    `${JSON.stringify({
+      renderer,
+      sampleLibrary: sampled ? sampledOrchestraMetadata() : null,
+      tracks: manifest,
+    }, null, 2)}\n`,
     'utf8',
   );
   console.log(`Rendered ${manifest.length} ${soundtrackName} instrumental tracks.`);
@@ -847,7 +920,7 @@ if (isDirectRun) {
     tracks: ETERNAL_HUNGER_RENDER_TRACKS,
     outputDir: OUTPUT_DIR,
     soundtrackName: 'Eternal Hunger',
-    renderer: 'physical-model-v2-orchestra',
+    renderer: 'sampled-orchestra-v3-vsco2-ce',
     channels: 2,
   });
 }

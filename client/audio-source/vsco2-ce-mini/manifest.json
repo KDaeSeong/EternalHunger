@@ -1,0 +1,462 @@
+{
+  "name": "VS Chamber Orchestra 2 Community Edition - 50 Sample Pack",
+  "shortName": "VSCO 2 CE Mini",
+  "version": "2.1.1",
+  "license": "CC0-1.0",
+  "sourcePage": "https://versilian-studios.com/vsco-community/",
+  "sourceArchive": "https://s3.amazonaws.com/VersilianStudios/50OrchestralSamples.rar",
+  "sampleRate": 22050,
+  "preparedFormat": "PCM 16-bit stereo WAV",
+  "files": [
+    {
+      "file": "7TbnEns_Stac_Bb2_ff_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 25438,
+      "durationSeconds": 1.154,
+      "peak": 0.34479,
+      "bytes": 101796
+    },
+    {
+      "file": "7TbnEns_Stac_Bb2_mf_2.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 23814,
+      "durationSeconds": 1.08,
+      "peak": 0.10669,
+      "bytes": 95300
+    },
+    {
+      "file": "7TbnEns_Sus_Bb2_fff.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 80482,
+      "durationSeconds": 3.65,
+      "peak": 0.4144,
+      "bytes": 321972
+    },
+    {
+      "file": "7TbnEns_Sus_Bb3_fff.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 93784,
+      "durationSeconds": 4.253,
+      "peak": 0.58093,
+      "bytes": 375180
+    },
+    {
+      "file": "CelloEns_spic_C1_v2_5.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 66361,
+      "durationSeconds": 3.01,
+      "peak": 0.72835,
+      "bytes": 265488
+    },
+    {
+      "file": "CelloEns_spic_C3_v2_4.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 38830,
+      "durationSeconds": 1.761,
+      "peak": 0.38598,
+      "bytes": 155364
+    },
+    {
+      "file": "CelloEns_susvib_C1_v1_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 187292,
+      "durationSeconds": 8.494,
+      "peak": 0.16965,
+      "bytes": 749212
+    },
+    {
+      "file": "CelloEns_susvib_C3_v1_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 198155,
+      "durationSeconds": 8.987,
+      "peak": 0.09291,
+      "bytes": 792664
+    },
+    {
+      "file": "cymbal_crash1_ff3.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 277798,
+      "durationSeconds": 12.599,
+      "peak": 0.75897,
+      "bytes": 1111236
+    },
+    {
+      "file": "cymbal_crash2_fff1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 210451,
+      "durationSeconds": 9.544,
+      "peak": 0.95898,
+      "bytes": 841848
+    },
+    {
+      "file": "Euph1_vib-solo_A#2_v1_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 106885,
+      "durationSeconds": 4.847,
+      "peak": 0.13287,
+      "bytes": 427584
+    },
+    {
+      "file": "glock_medium_C6_01.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 48672,
+      "durationSeconds": 2.207,
+      "peak": 0.02286,
+      "bytes": 194732
+    },
+    {
+      "file": "gong_2_f.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 308700,
+      "durationSeconds": 14,
+      "peak": 0.10272,
+      "bytes": 1234844
+    },
+    {
+      "file": "KHOboe_stac_Ab4_ff2.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 11850,
+      "durationSeconds": 0.537,
+      "peak": 0.71548,
+      "bytes": 47444
+    },
+    {
+      "file": "KHOboe_stac_Bb3_ff2.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 9664,
+      "durationSeconds": 0.438,
+      "peak": 0.54639,
+      "bytes": 38700
+    },
+    {
+      "file": "KHOboe_stac_D4_ff2.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 8278,
+      "durationSeconds": 0.375,
+      "peak": 0.76624,
+      "bytes": 33156
+    },
+    {
+      "file": "KHOboe_vib_Ab4_ff1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 142624,
+      "durationSeconds": 6.468,
+      "peak": 0.51212,
+      "bytes": 570540
+    },
+    {
+      "file": "KHOboe_vib_Ab5_ff1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 128020,
+      "durationSeconds": 5.806,
+      "peak": 0.46686,
+      "bytes": 512124
+    },
+    {
+      "file": "KHOboe_vib_D5_ff1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 124462,
+      "durationSeconds": 5.645,
+      "peak": 0.53351,
+      "bytes": 497892
+    },
+    {
+      "file": "KSHarp_A2_f1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 244436,
+      "durationSeconds": 11.086,
+      "peak": 0.09131,
+      "bytes": 977788
+    },
+    {
+      "file": "KSHarp_A4_mf1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 166057,
+      "durationSeconds": 7.531,
+      "peak": 0.15802,
+      "bytes": 664272
+    },
+    {
+      "file": "LDFlute_expvib_A3_v1_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 236433,
+      "durationSeconds": 10.723,
+      "peak": 0.08785,
+      "bytes": 945776
+    },
+    {
+      "file": "LDFlute_expvib_A4_v1_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 245880,
+      "durationSeconds": 11.151,
+      "peak": 0.19248,
+      "bytes": 983564
+    },
+    {
+      "file": "LDFlute_expvib_D4_v1_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 224270,
+      "durationSeconds": 10.171,
+      "peak": 0.08612,
+      "bytes": 897124
+    },
+    {
+      "file": "LDFlute_trillW_C4_v1_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 130301,
+      "durationSeconds": 5.909,
+      "peak": 0.09261,
+      "bytes": 521248
+    },
+    {
+      "file": "LLVln_ArcoVib_A3_mf.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 308700,
+      "durationSeconds": 14,
+      "peak": 0.12277,
+      "bytes": 1234844
+    },
+    {
+      "file": "LLVln_ArcoVib_A4_mf.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 307863,
+      "durationSeconds": 13.962,
+      "peak": 0.1821,
+      "bytes": 1231496
+    },
+    {
+      "file": "LLVln_ArcoVib_A5_mf.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 308700,
+      "durationSeconds": 14,
+      "peak": 0.2558,
+      "bytes": 1234844
+    },
+    {
+      "file": "Marimba_hit_Outrigger_C4_loud_01.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 38913,
+      "durationSeconds": 1.765,
+      "peak": 0.11235,
+      "bytes": 155696
+    },
+    {
+      "file": "Marimba_hit_Outrigger_G2_loud_01.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 74666,
+      "durationSeconds": 3.386,
+      "peak": 0.05353,
+      "bytes": 298708
+    },
+    {
+      "file": "piccolo_C5_sustain1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 174524,
+      "durationSeconds": 7.915,
+      "peak": 0.10204,
+      "bytes": 698140
+    },
+    {
+      "file": "piccolo_C6_sustain1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 268001,
+      "durationSeconds": 12.154,
+      "peak": 0.21951,
+      "bytes": 1072048
+    },
+    {
+      "file": "PSBassoon_A#0_v2_2.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 164479,
+      "durationSeconds": 7.459,
+      "peak": 0.30585,
+      "bytes": 657960
+    },
+    {
+      "file": "PSBassoon_A#1_v2_2.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 133959,
+      "durationSeconds": 6.075,
+      "peak": 0.35529,
+      "bytes": 535880
+    },
+    {
+      "file": "snare3_f_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 12235,
+      "durationSeconds": 0.555,
+      "peak": 0.30499,
+      "bytes": 48984
+    },
+    {
+      "file": "snareNew_hit_fff1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 15877,
+      "durationSeconds": 0.72,
+      "peak": 0.28986,
+      "bytes": 63552
+    },
+    {
+      "file": "snareNew_roll_fff1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 308700,
+      "durationSeconds": 14,
+      "peak": 0.39011,
+      "bytes": 1234844
+    },
+    {
+      "file": "susCymb1_cresc_4s.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 253941,
+      "durationSeconds": 11.517,
+      "peak": 0.3237,
+      "bytes": 1015808
+    },
+    {
+      "file": "susCymb2_bowed_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 265691,
+      "durationSeconds": 12.049,
+      "peak": 0.01184,
+      "bytes": 1062808
+    },
+    {
+      "file": "TB_hit_A4_v4_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 253831,
+      "durationSeconds": 11.512,
+      "peak": 0.44418,
+      "bytes": 1015368
+    },
+    {
+      "file": "TB_hit_F5_v2_2.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 90393,
+      "durationSeconds": 4.099,
+      "peak": 0.01019,
+      "bytes": 361616
+    },
+    {
+      "file": "timpani_2_hit_ff2.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 154147,
+      "durationSeconds": 6.991,
+      "peak": 0.72845,
+      "bytes": 616632
+    },
+    {
+      "file": "timpani_3_hit_fff4.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 140258,
+      "durationSeconds": 6.361,
+      "peak": 0.48116,
+      "bytes": 561076
+    },
+    {
+      "file": "trem_C3_v1_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 178777,
+      "durationSeconds": 8.108,
+      "peak": 0.02628,
+      "bytes": 715152
+    },
+    {
+      "file": "trem_F4_v1_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 165008,
+      "durationSeconds": 7.483,
+      "peak": 0.01754,
+      "bytes": 660076
+    },
+    {
+      "file": "trumpet_loud_F5_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 254205,
+      "durationSeconds": 11.529,
+      "peak": 0.44818,
+      "bytes": 1016864
+    },
+    {
+      "file": "Tuba1_Stac_Bb1_f2.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 29594,
+      "durationSeconds": 1.342,
+      "peak": 0.45944,
+      "bytes": 118420
+    },
+    {
+      "file": "Tuba2_sus_A#0_v3_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 134780,
+      "durationSeconds": 6.112,
+      "peak": 0.19885,
+      "bytes": 539164
+    },
+    {
+      "file": "Tuba2_sus_A#1_v3_1.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 16,
+      "frames": 148981,
+      "durationSeconds": 6.757,
+      "peak": 0.28073,
+      "bytes": 595968
+    },
+    {
+      "file": "Xylo_Medium_G4_ff_01_far.wav",
+      "sourceSampleRate": 44100,
+      "sourceBitsPerSample": 24,
+      "frames": 37586,
+      "durationSeconds": 1.705,
+      "peak": 0.42099,
+      "bytes": 150388
+    }
+  ]
+}

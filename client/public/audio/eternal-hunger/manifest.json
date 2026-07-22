@@ -1,5 +1,41 @@
 {
-  "renderer": "physical-model-v2-orchestra",
+  "renderer": "sampled-orchestra-v3-vsco2-ce",
+  "sampleLibrary": {
+    "name": "VS Chamber Orchestra 2 Community Edition - 50 Sample Pack",
+    "shortName": "VSCO 2 CE Mini",
+    "version": "2.1.1",
+    "license": "CC0-1.0",
+    "sourcePage": "https://versilian-studios.com/vsco-community/",
+    "sourceArchive": "https://s3.amazonaws.com/VersilianStudios/50OrchestralSamples.rar",
+    "sampleRate": 22050,
+    "sampleDirectory": "audio-source/vsco2-ce-mini",
+    "sampledTonalInstruments": [
+      "strings",
+      "violin",
+      "viola",
+      "cello",
+      "bass",
+      "flute",
+      "oboe",
+      "bassoon",
+      "horn",
+      "trumpet",
+      "trombone",
+      "brass",
+      "harp",
+      "bell",
+      "celesta",
+      "vibraphone"
+    ],
+    "sampledPercussion": [
+      "snare",
+      "orchestral-snare",
+      "cymbal",
+      "timpani",
+      "taiko",
+      "tom"
+    ]
+  },
   "tracks": [
     {
       "file": "ready.wav",
@@ -29,6 +65,62 @@
         "cymbal",
         "tom"
       ],
+      "sampledInstruments": [
+        "strings",
+        "bass",
+        "violin",
+        "viola",
+        "cello",
+        "horn",
+        "trombone",
+        "harp",
+        "timpani",
+        "orchestral-snare",
+        "cymbal",
+        "tom"
+      ],
+      "synthesisFallbackInstruments": [
+        "piano",
+        "clarinet",
+        "pluck",
+        "choir",
+        "hat"
+      ],
+      "sampleUsage": {
+        "events": 77,
+        "instruments": {
+          "bass": 6,
+          "cello": 6,
+          "cymbal": 2,
+          "harp": 7,
+          "horn": 6,
+          "orchestral-snare": 2,
+          "strings": 14,
+          "timpani": 2,
+          "tom": 2,
+          "trombone": 6,
+          "viola": 12,
+          "violin": 12
+        },
+        "files": {
+          "7TbnEns_Sus_Bb2_fff.wav": 4,
+          "7TbnEns_Sus_Bb3_fff.wav": 2,
+          "CelloEns_susvib_C1_v1_1.wav": 2,
+          "CelloEns_susvib_C3_v1_1.wav": 7,
+          "cymbal_crash1_ff3.wav": 1,
+          "cymbal_crash2_fff1.wav": 1,
+          "Euph1_vib-solo_A#2_v1_1.wav": 6,
+          "KSHarp_A4_mf1.wav": 7,
+          "LLVln_ArcoVib_A3_mf.wav": 14,
+          "LLVln_ArcoVib_A4_mf.wav": 18,
+          "LLVln_ArcoVib_A5_mf.wav": 5,
+          "snare3_f_1.wav": 1,
+          "snareNew_hit_fff1.wav": 1,
+          "timpani_2_hit_ff2.wav": 2,
+          "timpani_3_hit_fff4.wav": 2,
+          "Tuba2_sus_A#1_v3_1.wav": 4
+        }
+      },
       "bytes": 9293316
     },
     {
@@ -59,6 +151,65 @@
         "cymbal",
         "tom"
       ],
+      "sampledInstruments": [
+        "violin",
+        "strings",
+        "bass",
+        "viola",
+        "cello",
+        "flute",
+        "horn",
+        "trombone",
+        "harp",
+        "timpani",
+        "orchestral-snare",
+        "cymbal",
+        "tom"
+      ],
+      "synthesisFallbackInstruments": [
+        "piano",
+        "pluck",
+        "choir",
+        "hat"
+      ],
+      "sampleUsage": {
+        "events": 114,
+        "instruments": {
+          "bass": 6,
+          "cello": 8,
+          "cymbal": 2,
+          "flute": 8,
+          "harp": 8,
+          "horn": 12,
+          "orchestral-snare": 2,
+          "strings": 16,
+          "timpani": 2,
+          "tom": 2,
+          "trombone": 12,
+          "viola": 14,
+          "violin": 22
+        },
+        "files": {
+          "7TbnEns_Sus_Bb2_fff.wav": 5,
+          "7TbnEns_Sus_Bb3_fff.wav": 7,
+          "CelloEns_susvib_C1_v1_1.wav": 1,
+          "CelloEns_susvib_C3_v1_1.wav": 9,
+          "cymbal_crash1_ff3.wav": 1,
+          "cymbal_crash2_fff1.wav": 1,
+          "Euph1_vib-solo_A#2_v1_1.wav": 12,
+          "KSHarp_A4_mf1.wav": 8,
+          "LLVln_ArcoVib_A3_mf.wav": 20,
+          "LLVln_ArcoVib_A4_mf.wav": 24,
+          "LLVln_ArcoVib_A5_mf.wav": 7,
+          "piccolo_C5_sustain1.wav": 4,
+          "piccolo_C6_sustain1.wav": 4,
+          "snare3_f_1.wav": 1,
+          "snareNew_hit_fff1.wav": 1,
+          "timpani_2_hit_ff2.wav": 2,
+          "timpani_3_hit_fff4.wav": 2,
+          "Tuba2_sus_A#1_v3_1.wav": 5
+        }
+      },
       "bytes": 7987972
     },
     {
@@ -87,6 +238,61 @@
         "cymbal",
         "tom"
       ],
+      "sampledInstruments": [
+        "viola",
+        "horn",
+        "bass",
+        "violin",
+        "cello",
+        "oboe",
+        "trombone",
+        "harp",
+        "timpani",
+        "orchestral-snare",
+        "cymbal",
+        "tom"
+      ],
+      "synthesisFallbackInstruments": [
+        "choir",
+        "pluck",
+        "hat"
+      ],
+      "sampleUsage": {
+        "events": 96,
+        "instruments": {
+          "bass": 6,
+          "cello": 6,
+          "cymbal": 2,
+          "harp": 8,
+          "horn": 16,
+          "oboe": 8,
+          "orchestral-snare": 2,
+          "timpani": 2,
+          "tom": 2,
+          "trombone": 10,
+          "viola": 21,
+          "violin": 13
+        },
+        "files": {
+          "7TbnEns_Sus_Bb2_fff.wav": 6,
+          "7TbnEns_Sus_Bb3_fff.wav": 4,
+          "CelloEns_susvib_C1_v1_1.wav": 2,
+          "CelloEns_susvib_C3_v1_1.wav": 6,
+          "cymbal_crash1_ff3.wav": 1,
+          "cymbal_crash2_fff1.wav": 1,
+          "Euph1_vib-solo_A#2_v1_1.wav": 16,
+          "KHOboe_stac_Ab4_ff2.wav": 8,
+          "KSHarp_A4_mf1.wav": 8,
+          "LLVln_ArcoVib_A3_mf.wav": 17,
+          "LLVln_ArcoVib_A4_mf.wav": 12,
+          "LLVln_ArcoVib_A5_mf.wav": 5,
+          "snare3_f_1.wav": 1,
+          "snareNew_hit_fff1.wav": 1,
+          "timpani_2_hit_ff2.wav": 2,
+          "timpani_3_hit_fff4.wav": 2,
+          "Tuba2_sus_A#1_v3_1.wav": 4
+        }
+      },
       "bytes": 7427416
     },
     {
@@ -117,6 +323,64 @@
         "cymbal",
         "tom"
       ],
+      "sampledInstruments": [
+        "violin",
+        "trumpet",
+        "strings",
+        "bass",
+        "viola",
+        "cello",
+        "trombone",
+        "harp",
+        "timpani",
+        "orchestral-snare",
+        "taiko",
+        "cymbal",
+        "tom"
+      ],
+      "synthesisFallbackInstruments": [
+        "pluck",
+        "clarinet",
+        "choir",
+        "hat"
+      ],
+      "sampleUsage": {
+        "events": 113,
+        "instruments": {
+          "bass": 6,
+          "cello": 7,
+          "cymbal": 2,
+          "harp": 10,
+          "orchestral-snare": 2,
+          "strings": 16,
+          "taiko": 2,
+          "timpani": 2,
+          "tom": 2,
+          "trombone": 11,
+          "trumpet": 16,
+          "viola": 14,
+          "violin": 23
+        },
+        "files": {
+          "7TbnEns_Stac_Bb2_mf_2.wav": 4,
+          "7TbnEns_Sus_Bb2_fff.wav": 5,
+          "7TbnEns_Sus_Bb3_fff.wav": 2,
+          "CelloEns_susvib_C1_v1_1.wav": 2,
+          "CelloEns_susvib_C3_v1_1.wav": 9,
+          "cymbal_crash1_ff3.wav": 1,
+          "cymbal_crash2_fff1.wav": 1,
+          "KSHarp_A4_mf1.wav": 10,
+          "LLVln_ArcoVib_A3_mf.wav": 23,
+          "LLVln_ArcoVib_A4_mf.wav": 22,
+          "LLVln_ArcoVib_A5_mf.wav": 6,
+          "snare3_f_1.wav": 1,
+          "snareNew_hit_fff1.wav": 1,
+          "timpani_2_hit_ff2.wav": 3,
+          "timpani_3_hit_fff4.wav": 3,
+          "trumpet_loud_F5_1.wav": 16,
+          "Tuba2_sus_A#1_v3_1.wav": 4
+        }
+      },
       "bytes": 6251000
     },
     {
@@ -147,6 +411,70 @@
         "cymbal",
         "tom"
       ],
+      "sampledInstruments": [
+        "celesta",
+        "harp",
+        "bass",
+        "violin",
+        "viola",
+        "cello",
+        "flute",
+        "horn",
+        "trombone",
+        "timpani",
+        "orchestral-snare",
+        "taiko",
+        "cymbal",
+        "tom"
+      ],
+      "synthesisFallbackInstruments": [
+        "choir",
+        "pluck",
+        "hat"
+      ],
+      "sampleUsage": {
+        "events": 135,
+        "instruments": {
+          "bass": 9,
+          "celesta": 13,
+          "cello": 9,
+          "cymbal": 2,
+          "flute": 11,
+          "harp": 21,
+          "horn": 15,
+          "orchestral-snare": 2,
+          "taiko": 2,
+          "timpani": 2,
+          "tom": 2,
+          "trombone": 15,
+          "viola": 16,
+          "violin": 16
+        },
+        "files": {
+          "7TbnEns_Stac_Bb2_mf_2.wav": 6,
+          "7TbnEns_Sus_Bb2_fff.wav": 6,
+          "7TbnEns_Sus_Bb3_fff.wav": 3,
+          "CelloEns_susvib_C1_v1_1.wav": 3,
+          "CelloEns_susvib_C3_v1_1.wav": 9,
+          "cymbal_crash1_ff3.wav": 1,
+          "cymbal_crash2_fff1.wav": 1,
+          "Euph1_vib-solo_A#2_v1_1.wav": 15,
+          "KSHarp_A2_f1.wav": 1,
+          "KSHarp_A4_mf1.wav": 20,
+          "LDFlute_expvib_A4_v1_1.wav": 2,
+          "LLVln_ArcoVib_A3_mf.wav": 11,
+          "LLVln_ArcoVib_A4_mf.wav": 13,
+          "LLVln_ArcoVib_A5_mf.wav": 8,
+          "piccolo_C5_sustain1.wav": 4,
+          "piccolo_C6_sustain1.wav": 5,
+          "snare3_f_1.wav": 1,
+          "snareNew_hit_fff1.wav": 1,
+          "TB_hit_A4_v4_1.wav": 13,
+          "timpani_2_hit_ff2.wav": 3,
+          "timpani_3_hit_fff4.wav": 3,
+          "Tuba2_sus_A#1_v3_1.wav": 6
+        }
+      },
       "bytes": 6749264
     },
     {
@@ -177,6 +505,68 @@
         "cymbal",
         "tom"
       ],
+      "sampledInstruments": [
+        "horn",
+        "trumpet",
+        "bass",
+        "violin",
+        "viola",
+        "cello",
+        "oboe",
+        "trombone",
+        "harp",
+        "timpani",
+        "orchestral-snare",
+        "taiko",
+        "cymbal",
+        "tom"
+      ],
+      "synthesisFallbackInstruments": [
+        "choir",
+        "pluck",
+        "hat"
+      ],
+      "sampleUsage": {
+        "events": 138,
+        "instruments": {
+          "bass": 8,
+          "brass": 9,
+          "cello": 9,
+          "cymbal": 2,
+          "harp": 12,
+          "horn": 13,
+          "oboe": 11,
+          "orchestral-snare": 2,
+          "taiko": 2,
+          "timpani": 2,
+          "tom": 2,
+          "trombone": 15,
+          "trumpet": 21,
+          "viola": 15,
+          "violin": 15
+        },
+        "files": {
+          "7TbnEns_Stac_Bb2_mf_2.wav": 6,
+          "7TbnEns_Sus_Bb2_fff.wav": 16,
+          "7TbnEns_Sus_Bb3_fff.wav": 2,
+          "CelloEns_susvib_C1_v1_1.wav": 5,
+          "CelloEns_susvib_C3_v1_1.wav": 8,
+          "cymbal_crash1_ff3.wav": 1,
+          "cymbal_crash2_fff1.wav": 1,
+          "Euph1_vib-solo_A#2_v1_1.wav": 13,
+          "KHOboe_stac_Ab4_ff2.wav": 11,
+          "KSHarp_A4_mf1.wav": 12,
+          "LLVln_ArcoVib_A3_mf.wav": 13,
+          "LLVln_ArcoVib_A4_mf.wav": 12,
+          "LLVln_ArcoVib_A5_mf.wav": 5,
+          "snare3_f_1.wav": 1,
+          "snareNew_hit_fff1.wav": 1,
+          "timpani_2_hit_ff2.wav": 3,
+          "timpani_3_hit_fff4.wav": 3,
+          "trumpet_loud_F5_1.wav": 21,
+          "Tuba2_sus_A#1_v3_1.wav": 4
+        }
+      },
       "bytes": 6684676
     },
     {
@@ -208,6 +598,71 @@
         "cymbal",
         "tom"
       ],
+      "sampledInstruments": [
+        "violin",
+        "horn",
+        "strings",
+        "bass",
+        "viola",
+        "cello",
+        "flute",
+        "trumpet",
+        "trombone",
+        "harp",
+        "timpani",
+        "orchestral-snare",
+        "taiko",
+        "cymbal",
+        "tom"
+      ],
+      "synthesisFallbackInstruments": [
+        "pluck",
+        "choir",
+        "hat"
+      ],
+      "sampleUsage": {
+        "events": 140,
+        "instruments": {
+          "bass": 8,
+          "brass": 9,
+          "cello": 9,
+          "cymbal": 2,
+          "flute": 11,
+          "harp": 11,
+          "horn": 6,
+          "orchestral-snare": 2,
+          "strings": 17,
+          "taiko": 2,
+          "timpani": 2,
+          "tom": 2,
+          "trombone": 9,
+          "trumpet": 9,
+          "viola": 15,
+          "violin": 26
+        },
+        "files": {
+          "7TbnEns_Sus_Bb2_fff.wav": 15,
+          "7TbnEns_Sus_Bb3_fff.wav": 3,
+          "CelloEns_susvib_C1_v1_1.wav": 4,
+          "CelloEns_susvib_C3_v1_1.wav": 11,
+          "cymbal_crash1_ff3.wav": 1,
+          "cymbal_crash2_fff1.wav": 1,
+          "Euph1_vib-solo_A#2_v1_1.wav": 6,
+          "KSHarp_A4_mf1.wav": 11,
+          "LDFlute_expvib_A4_v1_1.wav": 2,
+          "LLVln_ArcoVib_A3_mf.wav": 30,
+          "LLVln_ArcoVib_A4_mf.wav": 19,
+          "LLVln_ArcoVib_A5_mf.wav": 6,
+          "piccolo_C5_sustain1.wav": 5,
+          "piccolo_C6_sustain1.wav": 4,
+          "snare3_f_1.wav": 1,
+          "snareNew_hit_fff1.wav": 1,
+          "timpani_2_hit_ff2.wav": 3,
+          "timpani_3_hit_fff4.wav": 3,
+          "trumpet_loud_F5_1.wav": 9,
+          "Tuba2_sus_A#1_v3_1.wav": 5
+        }
+      },
       "bytes": 6597864
     },
     {
@@ -239,6 +694,66 @@
         "cymbal",
         "tom"
       ],
+      "sampledInstruments": [
+        "strings",
+        "bass",
+        "violin",
+        "viola",
+        "cello",
+        "flute",
+        "horn",
+        "trombone",
+        "harp",
+        "timpani",
+        "orchestral-snare",
+        "cymbal",
+        "tom"
+      ],
+      "synthesisFallbackInstruments": [
+        "piano",
+        "clarinet",
+        "pluck",
+        "choir",
+        "hat"
+      ],
+      "sampleUsage": {
+        "events": 82,
+        "instruments": {
+          "bass": 6,
+          "cello": 6,
+          "cymbal": 2,
+          "flute": 6,
+          "harp": 6,
+          "horn": 6,
+          "orchestral-snare": 2,
+          "strings": 14,
+          "timpani": 2,
+          "tom": 2,
+          "trombone": 6,
+          "viola": 12,
+          "violin": 12
+        },
+        "files": {
+          "7TbnEns_Sus_Bb2_fff.wav": 2,
+          "7TbnEns_Sus_Bb3_fff.wav": 4,
+          "CelloEns_susvib_C1_v1_1.wav": 1,
+          "CelloEns_susvib_C3_v1_1.wav": 7,
+          "cymbal_crash1_ff3.wav": 1,
+          "cymbal_crash2_fff1.wav": 1,
+          "Euph1_vib-solo_A#2_v1_1.wav": 6,
+          "KSHarp_A4_mf1.wav": 6,
+          "LLVln_ArcoVib_A3_mf.wav": 9,
+          "LLVln_ArcoVib_A4_mf.wav": 21,
+          "LLVln_ArcoVib_A5_mf.wav": 7,
+          "piccolo_C5_sustain1.wav": 2,
+          "piccolo_C6_sustain1.wav": 4,
+          "snare3_f_1.wav": 1,
+          "snareNew_hit_fff1.wav": 1,
+          "timpani_2_hit_ff2.wav": 2,
+          "timpani_3_hit_fff4.wav": 2,
+          "Tuba2_sus_A#1_v3_1.wav": 5
+        }
+      },
       "bytes": 8684352
     },
     {
@@ -258,7 +773,7 @@
         "pluck",
         "violin",
         "viola",
-        "oboe",
+        "bassoon",
         "horn",
         "trombone",
         "harp",
@@ -268,6 +783,62 @@
         "cymbal",
         "tom"
       ],
+      "sampledInstruments": [
+        "cello",
+        "bass",
+        "violin",
+        "viola",
+        "bassoon",
+        "horn",
+        "trombone",
+        "harp",
+        "timpani",
+        "orchestral-snare",
+        "cymbal",
+        "tom"
+      ],
+      "synthesisFallbackInstruments": [
+        "piano",
+        "choir",
+        "pluck",
+        "hat"
+      ],
+      "sampleUsage": {
+        "events": 78,
+        "instruments": {
+          "bass": 7,
+          "bassoon": 7,
+          "cello": 12,
+          "cymbal": 1,
+          "harp": 7,
+          "horn": 6,
+          "orchestral-snare": 2,
+          "timpani": 2,
+          "tom": 2,
+          "trombone": 6,
+          "viola": 13,
+          "violin": 13
+        },
+        "files": {
+          "7TbnEns_Sus_Bb2_fff.wav": 5,
+          "7TbnEns_Sus_Bb3_fff.wav": 1,
+          "CelloEns_spic_C3_v2_4.wav": 6,
+          "CelloEns_susvib_C1_v1_1.wav": 2,
+          "CelloEns_susvib_C3_v1_1.wav": 6,
+          "cymbal_crash2_fff1.wav": 1,
+          "Euph1_vib-solo_A#2_v1_1.wav": 6,
+          "KSHarp_A4_mf1.wav": 7,
+          "LLVln_ArcoVib_A3_mf.wav": 9,
+          "LLVln_ArcoVib_A4_mf.wav": 12,
+          "LLVln_ArcoVib_A5_mf.wav": 5,
+          "PSBassoon_A#1_v2_2.wav": 7,
+          "snare3_f_1.wav": 1,
+          "snareNew_hit_fff1.wav": 1,
+          "timpani_2_hit_ff2.wav": 2,
+          "timpani_3_hit_fff4.wav": 2,
+          "Tuba2_sus_A#1_v3_1.wav": 5
+        }
+      },
       "bytes": 8467244
     }
   ]
