@@ -22,6 +22,10 @@ const baSrpgTrack = (file, options = {}) => renderedTrack('ba-srpg', file, {
   renderer: 'physical-model-v2-orchestra',
   ...options,
 });
+const dualAcademyTrack = (file, options = {}) => renderedTrack('dual-academy-tcg', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
@@ -54,6 +58,16 @@ export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'srpg-crisis': baSrpgTrack('crisis', { gain: 1.14 }),
   'srpg-victory': baSrpgTrack('victory', { gain: 1.2 }),
   'srpg-defeat': baSrpgTrack('defeat', { gain: 1.2 }),
+  'academy-ready': dualAcademyTrack('ready', { gain: 1.18 }),
+  'academy-main': dualAcademyTrack('main', { gain: 1.2 }),
+  'academy-battle': dualAcademyTrack('battle', { gain: 1.16 }),
+  'academy-chain': dualAcademyTrack('chain', { gain: 1.18 }),
+  'academy-danger': dualAcademyTrack('danger', { gain: 1.14 }),
+  'academy-mika': dualAcademyTrack('mika', { gain: 1.18 }),
+  'academy-hina': dualAcademyTrack('hina', { gain: 1.16 }),
+  'academy-yuuka': dualAcademyTrack('yuuka', { gain: 1.2 }),
+  'academy-victory': dualAcademyTrack('victory', { gain: 1.2 }),
+  'academy-defeat': dualAcademyTrack('defeat', { gain: 1.2 }),
 });
 
 export function gameBgmRenderedTrack(theme) {
