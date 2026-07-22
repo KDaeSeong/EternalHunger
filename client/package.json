@@ -50,6 +50,7 @@
     "check:school-simulator-feedback": "node ./scripts/check-school-simulator-feedback.mjs",
     "check:school-simulator-soundtrack": "node ./scripts/check-school-simulator-soundtrack.mjs",
     "check:si-coding-feedback": "node ./scripts/check-si-coding-feedback.mjs",
+    "check:si-coding-soundtrack": "node ./scripts/check-si-coding-soundtrack.mjs",
     "check:twenty-questions-feedback": "node ./scripts/check-twenty-questions-feedback.mjs",
     "diagnose:simulation": "node ./scripts/simulation-diagnostics.mjs"
   },

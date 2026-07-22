@@ -6,6 +6,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GameActionIcon from '../../_components/GameActionIcon';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import useGameSfx from '../../_lib/useGameSfx';
@@ -28,12 +29,17 @@ import {
   siCodingFeedbackSnapshot,
   siCodingResultPresentation,
 } from '../_lib/siCodingSimFeedback';
+import {
+  resolveSiCodingBgmScene,
+  siCodingResultMusic,
+} from '../_lib/siCodingSimSoundtrack';
 
 
 export default function SiCodingSimPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const { setMusicScene } = useGameBgm();
   const playGameSfx = useGameSfx({ theme: 'coding' });
   const [state, setState] = useState(() => createNewState());
   const stateRef = useRef(state);
@@ -50,6 +56,7 @@ export default function SiCodingSimPlayPage() {
   const hintPanelRef = useRef(null);
   const documentPanelRef = useRef(null);
   const executionPanelRef = useRef(null);
+  const musicSceneTimerRef = useRef(null);
   const [actionResult, setActionResult] = useState('');
   const [actionPresentation, setActionPresentation] = useState({
     action: '',
@@ -99,6 +106,48 @@ export default function SiCodingSimPlayPage() {
     taskTagOptions,
   } = viewModel;
 
+  const baseMusicScene = useMemo(() => resolveSiCodingBgmScene({
+    activeTabId: activeFeatureTabId,
+    stamina: state.resources.stamina,
+    mentality: state.resources.mentality,
+    techDebt: state.resources.techDebt,
+    outcomeScore: outcome?.score ?? null,
+    evaluationGrade: latestEvaluation?.grade || '',
+    submittedTasks: latestEvaluation?.submittedTasks || 0,
+    totalTasks: latestEvaluation?.totalTasks || 0,
+  }), [
+    activeFeatureTabId,
+    latestEvaluation?.grade,
+    latestEvaluation?.submittedTasks,
+    latestEvaluation?.totalTasks,
+    outcome?.score,
+    state.resources.mentality,
+    state.resources.stamina,
+    state.resources.techDebt,
+  ]);
+
+  useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
+
+  const playMusicTransition = (presentation) => {
+    const transition = siCodingResultMusic(presentation);
+    if (!transition) return;
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene(transition.theme);
+    musicSceneTimerRef.current = window.setTimeout(() => {
+      setMusicScene(baseMusicScene);
+      musicSceneTimerRef.current = null;
+    }, transition.durationMs);
+  };
+
   useEffect(() => {
     stateRef.current = state;
     const current = siCodingFeedbackSnapshot(state);
@@ -120,6 +169,7 @@ export default function SiCodingSimPlayPage() {
     if (presentation.key !== 'idle') {
       setActionPresentation(presentation);
       setActionResult(presentation.detail || nextState.log?.[0] || '상태가 변경되었습니다.');
+      playMusicTransition(presentation);
     }
     return nextState;
   };
@@ -132,7 +182,9 @@ export default function SiCodingSimPlayPage() {
     setSelectedFileId(getCurrentTask(nextState)?.files?.[0]?.id || '');
     setMessage('');
     setActionResult('새 SI Coding Sim 현장을 시작했습니다.');
-    setActionPresentation(siCodingFeedbackPresentation(previousState, nextState));
+    const presentation = siCodingFeedbackPresentation(previousState, nextState);
+    setActionPresentation(presentation);
+    playMusicTransition(presentation);
     feedbackRef.current = siCodingFeedbackSnapshot(nextState);
   };
 
