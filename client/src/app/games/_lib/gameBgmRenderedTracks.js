@@ -42,7 +42,7 @@ const schoolSimulatorTrack = (file, options = {}) => renderedTrack('school-simul
   ...options,
 });
 const siCodingTrack = (file, options = {}) => renderedTrack('si-coding-sim', file, {
-  renderer: 'physical-model-v2-orchestra',
+  renderer: 'sampled-orchestra-v3-vsco2-ce',
   ...options,
 });
 const companyReportTrack = (file, options = {}) => renderedTrack('company-report', file, {
