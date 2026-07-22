@@ -54,6 +54,10 @@ const rail3dTrack = (file, options = {}) => renderedTrack('rail3d-sim', file, {
   renderer: 'physical-model-v2-orchestra',
   ...options,
 });
+const racingLogosTrack = (file, options = {}) => renderedTrack('racing-logos-demo', file, {
+  renderer: 'physical-model-v2-orchestra',
+  ...options,
+});
 
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
@@ -146,6 +150,13 @@ export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
   'rail-congestion': rail3dTrack('congestion', { gain: 1.12 }),
   'rail-arrival': rail3dTrack('arrival', { gain: 1.2 }),
   'rail-archive': rail3dTrack('archive', { gain: 1.24 }),
+  'racing-garage': racingLogosTrack('garage', { gain: 1.18 }),
+  'racing-telemetry': racingLogosTrack('telemetry', { gain: 1.2 }),
+  'racing-grid': racingLogosTrack('grid', { gain: 1.16 }),
+  'racing-circuit': racingLogosTrack('circuit', { gain: 1.12 }),
+  'racing-red-flag': racingLogosTrack('red-flag', { gain: 1.12 }),
+  'racing-podium': racingLogosTrack('podium', { gain: 1.18 }),
+  'racing-archive': racingLogosTrack('archive', { gain: 1.24 }),
 });
 
 export function gameBgmRenderedTrack(theme) {
