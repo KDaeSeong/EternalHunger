@@ -99,6 +99,11 @@ assert.match(bgmProviderSource, /scheduleOrchestralStep/, 'BGM must schedule the
 assert.match(bgmProviderSource, /scheduleBrassStab/, 'BGM must add brass stabs to high-energy sections.');
 assert.match(bgmProviderSource, /scheduleBellAccent/, 'BGM must add pitched bell accents.');
 assert.match(bgmProviderSource, /scheduleChoirChord/, 'BGM must add sustained choir voicings.');
+assert.match(bgmProviderSource, /schedulePianoFigure/, 'BGM must add acoustic piano figures.');
+assert.match(bgmProviderSource, /scheduleHarpArpeggio/, 'BGM must add sweeping harp arpeggios.');
+assert.match(bgmProviderSource, /scheduleWoodwindSolo/, 'BGM must add breath-shaped woodwind solos.');
+assert.match(bgmProviderSource, /scheduleHornEnsemble/, 'BGM must add sustained horn ensembles.');
+assert.match(bgmProviderSource, /vibratoDepth/, 'BGM sustained instruments must support vibrato.');
 assert.match(bgmProviderSource, /scheduleTomFill/, 'BGM must add sectional tom fills.');
 assert.match(bgmProviderSource, /gameBgmChordVoicing/, 'BGM must schedule inverted and extended chord voicings.');
 assert.match(bgmProviderSource, /profile\.harmonyInterval/, 'BGM must layer a harmony voice in high-energy sections.');
@@ -165,12 +170,13 @@ assert.deepEqual(
   [
     'lead', 'harmony', 'octave', 'counter', 'arpeggio', 'bass', 'pad',
     'string-ostinato', 'brass-stab', 'bell-accent', 'choir-pad', 'sub-bass',
-    'string-ensemble', 'synth-pulse', 'supersaw-lead', 'synth-pluck',
+    'string-ensemble', 'piano-figure', 'harp-arpeggio', 'woodwind-solo',
+    'horn-ensemble', 'synth-pulse', 'supersaw-lead', 'synth-pluck',
     'guitar-stab', 'timpani', 'hybrid-impact', 'kick', 'snare',
     'ghost-snare', 'hi-hat', 'ride-cymbal', 'percussion', 'tom-fill',
     'transition-fx',
   ],
-  'BGM peak arrangements must expose twenty-seven distinct roles.',
+  'BGM peak arrangements must expose thirty-one distinct roles.',
 );
 for (const theme of expectedBgmThemes) {
   const profile = bgmProfileModule.gameBgmProfile(theme);

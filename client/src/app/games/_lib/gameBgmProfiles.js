@@ -14,6 +14,10 @@ export const GAME_BGM_LAYER_ROLES = Object.freeze([
   'choir-pad',
   'sub-bass',
   'string-ensemble',
+  'piano-figure',
+  'harp-arpeggio',
+  'woodwind-solo',
+  'horn-ensemble',
   'synth-pulse',
   'supersaw-lead',
   'synth-pluck',
@@ -154,6 +158,21 @@ const SECTION_HYBRID_FLOURISHES = Object.freeze({
   'drift-b': Object.freeze({ leadStack: 0.34, pluck: 0.56, guitar: 0.28, timpani: 0.4, hybrid: 0.3 }),
 });
 
+const SECTION_ACOUSTIC_FLOURISHES = Object.freeze({
+  intro: Object.freeze({ piano: 0.26, harp: 0.42, woodwind: 0.3, horn: 0.08 }),
+  'theme-a': Object.freeze({ piano: 0.52, harp: 0.4, woodwind: 0.36, horn: 0.2 }),
+  turn: Object.freeze({ piano: 0.58, harp: 0.64, woodwind: 0.54, horn: 0.08 }),
+  break: Object.freeze({ piano: 0.44, harp: 0.8, woodwind: 0.72, horn: 0.06 }),
+  bridge: Object.freeze({ piano: 0.42, harp: 0.34, woodwind: 0.68, horn: 0.28 }),
+  'theme-b': Object.freeze({ piano: 0.62, harp: 0.38, woodwind: 0.44, horn: 0.74 }),
+  return: Object.freeze({ piano: 0.58, harp: 0.34, woodwind: 0.42, horn: 0.66 }),
+  climax: Object.freeze({ piano: 0.7, harp: 0.46, woodwind: 0.56, horn: 0.96 }),
+  finale: Object.freeze({ piano: 0.74, harp: 0.44, woodwind: 0.5, horn: 1 }),
+  'drift-a': Object.freeze({ piano: 0.32, harp: 0.54, woodwind: 0.48, horn: 0.08 }),
+  interlude: Object.freeze({ piano: 0.38, harp: 0.72, woodwind: 0.7, horn: 0.06 }),
+  'drift-b': Object.freeze({ piano: 0.48, harp: 0.46, woodwind: 0.58, horn: 0.24 }),
+});
+
 const DRUM_FLOURISH = Object.freeze({
   ambient: 0.56,
   cinematic: 1.05,
@@ -194,6 +213,10 @@ function orchestraPalette(options) {
     guitarWave: 'sawtooth',
     timpaniGain: 0,
     hybridGain: 0,
+    pianoGain: 0.014,
+    harpGain: 0.012,
+    woodwindGain: 0.012,
+    hornGain: 0.016,
     ...options,
   });
 }
@@ -202,43 +225,53 @@ const ORCHESTRATION_PALETTES = Object.freeze({
   ambient: orchestraPalette({
     ostinatoGain: 0.014, brassGain: 0.009, bellGain: 0.022,
     choirGain: 0.028, subGain: 0.034, tomGain: 0.018,
+    pianoGain: 0.012, harpGain: 0.016, woodwindGain: 0.017, hornGain: 0.008,
   }),
   cinematic: orchestraPalette({
     ostinatoGain: 0.035, ostinatoWave: 'sawtooth', brassGain: 0.045,
     bellGain: 0.012, choirGain: 0.022, subGain: 0.055, tomGain: 0.042,
+    pianoGain: 0.015, harpGain: 0.01, woodwindGain: 0.012, hornGain: 0.024,
   }),
   curious: orchestraPalette({
     ostinatoGain: 0.022, brassGain: 0.018, bellGain: 0.025,
     choirGain: 0.012, subGain: 0.032, tomGain: 0.026,
+    pianoGain: 0.02, harpGain: 0.018, woodwindGain: 0.019, hornGain: 0.009,
   }),
   digital: orchestraPalette({
     ostinatoGain: 0.035, ostinatoWave: 'square', brassGain: 0.022,
     brassWave: 'square', bellGain: 0.024, choirGain: 0.012,
     subGain: 0.052, tomGain: 0.034,
+    pianoGain: 0.008, harpGain: 0.008, woodwindGain: 0.006, hornGain: 0.008,
   }),
   drive: orchestraPalette({
     ostinatoGain: 0.04, ostinatoWave: 'sawtooth', brassGain: 0.036,
     bellGain: 0.018, choirGain: 0.012, subGain: 0.06, tomGain: 0.045,
+    pianoGain: 0.012, harpGain: 0.008, woodwindGain: 0.008, hornGain: 0.018,
   }),
   duel: orchestraPalette({
     ostinatoGain: 0.032, brassGain: 0.034, bellGain: 0.018,
     choirGain: 0.016, subGain: 0.052, tomGain: 0.038,
+    pianoGain: 0.012, harpGain: 0.01, woodwindGain: 0.012, hornGain: 0.019,
   }),
   march: orchestraPalette({
     ostinatoGain: 0.034, ostinatoWave: 'sawtooth', brassGain: 0.048,
     bellGain: 0.012, choirGain: 0.022, subGain: 0.052, tomGain: 0.052,
+    pianoGain: 0.012, harpGain: 0.008, woodwindGain: 0.01, hornGain: 0.026,
   }),
   rail: orchestraPalette({
     ostinatoGain: 0.03, brassGain: 0.025, bellGain: 0.018,
     choirGain: 0.014, subGain: 0.046, tomGain: 0.032,
+    pianoGain: 0.016, harpGain: 0.015, woodwindGain: 0.015, hornGain: 0.014,
   }),
   shuffle: orchestraPalette({
     ostinatoGain: 0.026, brassGain: 0.019, bellGain: 0.03,
     choirGain: 0.014, subGain: 0.034, tomGain: 0.026,
+    pianoGain: 0.02, harpGain: 0.018, woodwindGain: 0.017, hornGain: 0.01,
   }),
   tribal: orchestraPalette({
     ostinatoGain: 0.018, brassGain: 0.016, bellGain: 0.014,
     choirGain: 0.026, subGain: 0.044, tomGain: 0.052,
+    pianoGain: 0.008, harpGain: 0.01, woodwindGain: 0.014, hornGain: 0.012,
   }),
   eternalAmbient: orchestraPalette({
     ostinatoGain: 0.018, brassGain: 0.012, bellGain: 0.032,
@@ -583,10 +616,15 @@ function section(id, label, bars, options = {}) {
     guitar: 0,
     timpani: 0,
     hybrid: 0,
+    piano: 0,
+    harp: 0,
+    woodwind: 0,
+    horn: 0,
     brightness: 1,
     keyShift: 0,
     ...(SECTION_FLOURISHES[id] || {}),
     ...(SECTION_HYBRID_FLOURISHES[id] || {}),
+    ...(SECTION_ACOUSTIC_FLOURISHES[id] || {}),
     id,
     label,
     bars,
@@ -1425,6 +1463,10 @@ function profile(options) {
     choirOctave: 0,
     subOctave: -2,
     stringOctave: 1,
+    pianoOctave: 1,
+    harpOctave: 2,
+    woodwindOctave: 1,
+    hornOctave: 0,
     pulseOctave: 0,
     leadLength: 1.85,
     counterLength: 1.35,

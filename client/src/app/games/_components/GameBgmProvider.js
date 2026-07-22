@@ -100,6 +100,8 @@ function scheduleTone({
   releaseStartRatio = 0.7,
   detune = 0,
   pan = 0,
+  vibratoDepth = 0,
+  vibratoRate = 5,
 }) {
   if (!Number.isFinite(frequency) || frequency <= 0 || duration <= 0) return;
   const oscillator = ctx.createOscillator();
@@ -108,10 +110,29 @@ function scheduleTone({
   const releaseStart = start + Math.max(attack + 0.004, duration * clamp(releaseStartRatio, 0.35, 0.92));
   const end = start + duration;
   const panner = connectPannedVoice(ctx, gain, destination, pan);
+  let vibratoOscillator = null;
+  let vibratoGain = null;
 
   oscillator.type = wave || 'sine';
   oscillator.frequency.setValueAtTime(Math.min(6200, Math.max(30, frequency)), start);
   oscillator.detune.setValueAtTime(Number(detune || 0), start);
+  if (Number(vibratoDepth) > 0) {
+    vibratoOscillator = ctx.createOscillator();
+    vibratoGain = ctx.createGain();
+    vibratoOscillator.type = 'sine';
+    vibratoOscillator.frequency.setValueAtTime(Math.max(0.1, Number(vibratoRate || 5)), start);
+    vibratoGain.gain.setValueAtTime(Math.max(0, Number(vibratoDepth)), start);
+    vibratoOscillator.connect(vibratoGain);
+    vibratoGain.connect(oscillator.detune);
+    sources.add(vibratoOscillator);
+    vibratoOscillator.onended = () => {
+      sources.delete(vibratoOscillator);
+      vibratoOscillator.disconnect();
+      vibratoGain.disconnect();
+    };
+    vibratoOscillator.start(start);
+    vibratoOscillator.stop(end + 0.02);
+  }
   if (Number(endFrequency) > 0) {
     oscillator.frequency.exponentialRampToValueAtTime(
       Math.min(6200, Math.max(30, Number(endFrequency))),
@@ -639,6 +660,205 @@ function scheduleStringEnsemble(session, chordRoot, start, duration, intensity, 
   });
 }
 
+function schedulePianoFigure(session, arrangement, chordRoot, start) {
+  const { orchestration = {} } = session.profile;
+  const { section } = arrangement;
+  const step = arrangement.patternStep;
+  if (Number(section.piano || 0) <= 0 || !section.arp || ![0, 3, 6, 8, 11, 14].includes(step)) return;
+  const degree = session.profile.arp[(step + arrangement.sectionBarIndex * 3) % 16];
+  if (degree === null || degree === undefined) return;
+  const stepDuration = gameBgmStepDuration(session.profile);
+  const gain = Number(orchestration.pianoGain || 0)
+    * Number(section.piano)
+    * Number(section.energy || 1);
+  if (gain <= 0) return;
+  const frequency = gameBgmNoteFrequency(
+    session.profile,
+    chordRoot + Number(degree),
+    session.profile.pianoOctave,
+  );
+  const pan = step < 8 ? -0.22 + step * 0.025 : 0.22 - (15 - step) * 0.025;
+  [
+    { ratio: 1, gain: 1, length: 2.45, wave: 'triangle' },
+    { ratio: 2.004, gain: 0.34, length: 1.5, wave: 'sine' },
+    { ratio: 3.012, gain: 0.13, length: 0.86, wave: 'sine' },
+  ].forEach((partial) => scheduleTone({
+    ctx: session.ctx,
+    destination: session.orchestraGain,
+    frequency: frequency * partial.ratio,
+    start,
+    duration: stepDuration * partial.length,
+    gainValue: gain * partial.gain,
+    wave: partial.wave,
+    sources: session.sources,
+    attack: 0.003,
+    releaseStartRatio: 0.24,
+    pan,
+  }));
+  if (step % 8 === 0) {
+    scheduleNoise({
+      ctx: session.ctx,
+      destination: session.orchestraGain,
+      noiseBuffer: session.noiseBuffer,
+      start,
+      duration: 0.026,
+      gainValue: gain * 0.11,
+      sources: session.sources,
+      filterType: 'bandpass',
+      frequency: 2800,
+      q: 0.74,
+      pan,
+    });
+  }
+}
+
+function scheduleHarpArpeggio(session, arrangement, chordRoot, start) {
+  const { orchestration = {} } = session.profile;
+  const { section } = arrangement;
+  const step = arrangement.patternStep;
+  if (Number(section.harp || 0) <= 0 || !section.arp || step % 2 !== 0) return;
+  const patternIndex = (15 - step + arrangement.sectionBarIndex * 2 + 16) % 16;
+  const degree = session.profile.arp[patternIndex];
+  if (degree === null || degree === undefined) return;
+  const stepDuration = gameBgmStepDuration(session.profile);
+  const gain = Number(orchestration.harpGain || 0)
+    * Number(section.harp)
+    * Number(section.energy || 1);
+  if (gain <= 0) return;
+  const frequency = gameBgmNoteFrequency(
+    session.profile,
+    chordRoot + Number(degree),
+    session.profile.harpOctave,
+  );
+  const pan = -0.48 + (step / 15) * 0.96;
+  [
+    { ratio: 1, gain: 1, length: 2.9 },
+    { ratio: 2.008, gain: 0.26, length: 1.72 },
+    { ratio: 3.018, gain: 0.09, length: 1.02 },
+  ].forEach((partial) => scheduleTone({
+    ctx: session.ctx,
+    destination: session.orchestraGain,
+    frequency: frequency * partial.ratio,
+    start,
+    duration: stepDuration * partial.length,
+    gainValue: gain * partial.gain,
+    wave: 'sine',
+    sources: session.sources,
+    attack: 0.002,
+    releaseStartRatio: 0.2,
+    pan: partial.ratio === 1 ? pan : -pan * 0.42,
+  }));
+}
+
+function scheduleWoodwindSolo(session, arrangement, chordRoot, start) {
+  const { orchestration = {} } = session.profile;
+  const { section } = arrangement;
+  const step = arrangement.patternStep;
+  if (Number(section.woodwind || 0) <= 0 || ![2, 6, 10, 14].includes(step)) return;
+  if (!section.counter && !section.pad && !section.lead) return;
+  const counterDegree = session.profile.counter[step];
+  const fallbackDegrees = [2, 4, 6, 3];
+  const degree = counterDegree === null || counterDegree === undefined
+    ? chordRoot + fallbackDegrees[(step - 2) / 4]
+    : Number(counterDegree);
+  const stepDuration = gameBgmStepDuration(session.profile);
+  const gain = Number(orchestration.woodwindGain || 0)
+    * Number(section.woodwind)
+    * Number(section.energy || 1);
+  if (gain <= 0) return;
+  const frequency = gameBgmNoteFrequency(
+    session.profile,
+    degree,
+    session.profile.woodwindOctave,
+  );
+  const pan = step % 8 === 2 ? -0.18 : 0.2;
+  [
+    { ratio: 1, gain: 1, wave: orchestration.woodwindWave || 'triangle' },
+    { ratio: 2.002, gain: 0.16, wave: 'sine' },
+  ].forEach((partial) => scheduleTone({
+    ctx: session.ctx,
+    destination: session.orchestraGain,
+    frequency: frequency * partial.ratio,
+    start,
+    duration: stepDuration * (partial.ratio === 1 ? 2.85 : 2.5),
+    gainValue: gain * partial.gain,
+    wave: partial.wave,
+    sources: session.sources,
+    attack: 0.045,
+    releaseStartRatio: 0.76,
+    vibratoDepth: partial.ratio === 1 ? 7 : 3,
+    vibratoRate: 5.15,
+    pan,
+  }));
+  scheduleNoise({
+    ctx: session.ctx,
+    destination: session.orchestraGain,
+    noiseBuffer: session.noiseBuffer,
+    start,
+    duration: Math.min(0.18, stepDuration * 0.72),
+    gainValue: gain * 0.1,
+    sources: session.sources,
+    filterType: 'bandpass',
+    frequency: Math.min(4400, Math.max(1200, frequency * 3.2)),
+    q: 1.1,
+    pan,
+  });
+}
+
+function scheduleHornEnsemble(session, arrangement, chordRoot, start) {
+  const { orchestration = {} } = session.profile;
+  const { section } = arrangement;
+  const step = arrangement.patternStep;
+  if (Number(section.horn || 0) <= 0 || !section.pad) return;
+  if (step !== 0 && !(Number(section.horn) >= 0.8 && step === 8)) return;
+  const gain = Number(orchestration.hornGain || 0)
+    * Number(section.horn)
+    * Number(section.energy || 1);
+  if (gain <= 0) return;
+  const stepDuration = gameBgmStepDuration(session.profile);
+  const voicing = gameBgmChordVoicing(session.profile, arrangement).slice(0, 3);
+  voicing.forEach((offset, voiceIndex) => {
+    const frequency = gameBgmNoteFrequency(
+      session.profile,
+      chordRoot + offset,
+      session.profile.hornOctave,
+    );
+    const pan = (voiceIndex - 1) * 0.24;
+    const duration = stepDuration * (step === 0 ? 7.7 : 5.6);
+    scheduleTone({
+      ctx: session.ctx,
+      destination: session.orchestraGain,
+      frequency,
+      start: start + voiceIndex * 0.018,
+      duration,
+      gainValue: gain * (voiceIndex === 0 ? 1 : 0.76),
+      wave: orchestration.hornWave || 'triangle',
+      sources: session.sources,
+      attack: 0.085,
+      releaseStartRatio: 0.8,
+      detune: voiceIndex % 2 ? -3 : 2,
+      vibratoDepth: 3.5,
+      vibratoRate: 4.65,
+      pan,
+    });
+    scheduleTone({
+      ctx: session.ctx,
+      destination: session.orchestraGain,
+      frequency: frequency * 2,
+      start: start + 0.012 + voiceIndex * 0.018,
+      duration: duration * 0.92,
+      gainValue: gain * 0.19,
+      wave: 'sine',
+      sources: session.sources,
+      attack: 0.1,
+      releaseStartRatio: 0.78,
+      vibratoDepth: 2,
+      vibratoRate: 4.65,
+      pan: -pan * 0.62,
+    });
+  });
+}
+
 function scheduleSynthPulse(session, arrangement, chordRoot, start) {
   const { orchestration = {} } = session.profile;
   const { section } = arrangement;
@@ -838,6 +1058,10 @@ function activeOrchestrationRoles(profile, section) {
     ['sub', section.sub, orchestration.subGain],
     ['toms', section.toms, orchestration.tomGain],
     ['string-ensemble', section.strings, orchestration.stringGain],
+    ['piano-figure', section.piano, orchestration.pianoGain],
+    ['harp-arpeggio', section.harp, orchestration.harpGain],
+    ['woodwind-solo', section.woodwind, orchestration.woodwindGain],
+    ['horn-ensemble', section.horn, orchestration.hornGain],
     ['synth-pulse', section.pulse, orchestration.pulseGain],
     ['supersaw-lead', section.leadStack, orchestration.leadStackGain],
     ['synth-pluck', section.pluck, orchestration.pluckGain],
@@ -942,6 +1166,14 @@ function scheduleOrchestralStep(session, arrangement, chordRoot, start) {
       arrangement,
     );
   }
+
+  schedulePianoFigure(session, arrangement, chordRoot, start);
+
+  scheduleHarpArpeggio(session, arrangement, chordRoot, start);
+
+  scheduleWoodwindSolo(session, arrangement, chordRoot, start);
+
+  scheduleHornEnsemble(session, arrangement, chordRoot, start);
 
   scheduleSynthPulse(session, arrangement, chordRoot, start);
 
