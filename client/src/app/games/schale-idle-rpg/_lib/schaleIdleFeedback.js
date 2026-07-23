@@ -13,6 +13,41 @@ function latestLogText(value) {
   return String(value?.log?.[0] || '').trim();
 }
 
+function totalUpgradeLevel(value) {
+  return Object.values(value?.upgrades || {}).reduce(
+    (sum, level) => sum + Math.max(0, Number(level || 0)),
+    0,
+  );
+}
+
+function signedValue(value, suffix = '') {
+  const amount = Number(value || 0);
+  return `${amount > 0 ? '+' : ''}${amount.toLocaleString('ko-KR')}${suffix}`;
+}
+
+function normalizeFeedbackSnapshot(value) {
+  if (Array.isArray(value?.log) || value?.equipmentInventory || value?.upgrades) {
+    return createSchaleIdleFeedbackSnapshot(value);
+  }
+  return value || {};
+}
+
+export function createSchaleIdleFeedbackSnapshot(state) {
+  return {
+    runId: String(state?.runId || ''),
+    latestLog: latestLogText(state),
+    maxClearedFloor: Math.max(0, Number(state?.maxClearedFloor || 0)),
+    towerMaxCleared: Math.max(0, Number(state?.towerMaxCleared || 0)),
+    credits: Number(state?.credits || 0),
+    stamina: Number(state?.stamina || 0),
+    equipmentCount: Object.keys(state?.equipmentInventory || {}).length,
+    claimCount: collectionSize(state?.claimedMissions)
+      + collectionSize(state?.achievementClaims)
+      + collectionSize(state?.seasonRewardClaims),
+    upgradeLevel: totalUpgradeLevel(state),
+  };
+}
+
 function towerResultPresentation(text) {
   const successCount = Number(text.match(/성공\s+(\d+)/)?.[1] || 0);
   const failureCount = Number(text.match(/실패\s+(\d+)/)?.[1] || 0);
@@ -140,4 +175,89 @@ export function schaleIdleResultCue(previous, next) {
   }
 
   return '';
+}
+
+export function schaleIdleFeedbackImpacts(previousValue, currentValue) {
+  if (!previousValue || !currentValue) return [];
+  const previous = normalizeFeedbackSnapshot(previousValue);
+  const current = normalizeFeedbackSnapshot(currentValue);
+  if (previous.runId && current.runId && previous.runId !== current.runId) return [];
+
+  const impacts = [];
+  const floorDelta = current.maxClearedFloor - previous.maxClearedFloor;
+  const towerDelta = current.towerMaxCleared - previous.towerMaxCleared;
+  const creditDelta = current.credits - previous.credits;
+  const staminaDelta = current.stamina - previous.stamina;
+  const equipmentDelta = current.equipmentCount - previous.equipmentCount;
+  const claimDelta = current.claimCount - previous.claimCount;
+  const upgradeDelta = current.upgradeLevel - previous.upgradeLevel;
+
+  if (floorDelta !== 0) {
+    impacts.push({
+      action: 'growth',
+      label: '최고 층',
+      value: signedValue(floorDelta, '층'),
+      tone: floorDelta > 0 ? 'success' : 'warning',
+    });
+  }
+  if (towerDelta !== 0) {
+    impacts.push({
+      action: 'tower',
+      label: '시련의 탑',
+      value: signedValue(towerDelta, '층'),
+      tone: towerDelta > 0 ? 'success' : 'warning',
+    });
+  }
+  if (equipmentDelta !== 0) {
+    impacts.push({
+      action: equipmentDelta > 0 ? 'equip' : 'salvage',
+      label: '보유 장비',
+      value: signedValue(equipmentDelta, '개'),
+      tone: equipmentDelta > 0 ? 'highlight' : 'warning',
+    });
+  }
+  if (upgradeDelta !== 0) {
+    impacts.push({
+      action: 'research',
+      label: '상시 연구',
+      value: signedValue(upgradeDelta, ' Lv.'),
+      tone: upgradeDelta > 0 ? 'success' : 'warning',
+    });
+  }
+  if (claimDelta > 0) {
+    impacts.push({
+      action: 'claim',
+      label: '보상 수령',
+      value: `+${claimDelta}개`,
+      tone: 'success',
+    });
+  }
+  if (creditDelta !== 0) {
+    impacts.push({
+      action: 'settle',
+      label: '크레딧',
+      value: signedValue(creditDelta, ' Cr'),
+      tone: creditDelta > 0 ? 'success' : 'warning',
+    });
+  }
+  if (staminaDelta !== 0) {
+    impacts.push({
+      action: 'rest',
+      label: '스태미나',
+      value: signedValue(staminaDelta),
+      tone: staminaDelta > 0 ? 'highlight' : 'warning',
+    });
+  }
+
+  if (!impacts.length && current.latestLog && current.latestLog !== previous.latestLog) {
+    const presentation = schaleIdleFeedbackPresentation(current.latestLog);
+    impacts.push({
+      action: presentation.action,
+      label: presentation.label,
+      value: '수치 변화 없음',
+      tone: presentation.tone,
+    });
+  }
+
+  return impacts.slice(0, 4);
 }

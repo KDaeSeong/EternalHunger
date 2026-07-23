@@ -20,3 +20,18 @@ export function SchaleIdleIconRow({ action, children, className = '', style }) {
     </article>
   );
 }
+
+export function SchaleIdleImpactStrip({ items = [] }) {
+  if (!items.length) return null;
+  return (
+    <div className="schale-idle-impact-strip" role="status" aria-live="polite" aria-label="최근 성장 변화량">
+      {items.map((item) => (
+        <div className={`schale-idle-impact-chip is-${item.tone || 'highlight'}`} key={`${item.label}-${item.value}`}>
+          <GameActionIcon action={item.action} label={item.label} />
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}

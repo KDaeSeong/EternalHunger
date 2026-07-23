@@ -17,9 +17,11 @@ import {
   createNewState,
 } from '../_lib/schaleIdleEngine';
 import SchaleIdleFeatureTabs from '../_components/SchaleIdleFeatureTabs';
+import { SchaleIdleImpactStrip } from '../_components/SchaleIdleVisuals';
 import { buildSchaleIdlePlayViewModel } from '../_lib/schaleIdlePlayViewModel';
 import useSchaleIdlePersistence from '../_hooks/useSchaleIdlePersistence';
 import {
+  schaleIdleFeedbackImpacts,
   schaleIdleFeedbackPresentation,
   schaleIdleResultCue,
 } from '../_lib/schaleIdleFeedback';
@@ -44,13 +46,17 @@ export default function SchaleIdlePlayPage() {
   const [selectedSalvageUids, setSelectedSalvageUids] = useState([]);
   const [presetName, setPresetName] = useState('탑 등반 세트');
   const [selectedPresetId, setSelectedPresetId] = useState('');
+  const [resultImpacts, setResultImpacts] = useState([]);
   const feedbackRef = useRef(state);
   const musicResultRef = useRef(String(state.log?.[0] || ''));
   const musicSceneTimerRef = useRef(null);
 
   useEffect(() => {
-    const cue = schaleIdleResultCue(feedbackRef.current, state);
+    const previous = feedbackRef.current;
+    const cue = schaleIdleResultCue(previous, state);
+    const impacts = schaleIdleFeedbackImpacts(previous, state);
     feedbackRef.current = state;
+    if (impacts.length) setResultImpacts(impacts);
     if (cue) playGameSfx(cue);
   }, [playGameSfx, state]);
 
@@ -144,7 +150,11 @@ export default function SchaleIdlePlayPage() {
     saveRun,
     setMessage,
   } = useSchaleIdlePersistence({
-    onLoaded: () => setSelectedSalvageUids([]),
+    onLoaded: (restored) => {
+      feedbackRef.current = restored;
+      setResultImpacts([]);
+      setSelectedSalvageUids([]);
+    },
     score,
     setState,
     showToast,
@@ -153,7 +163,10 @@ export default function SchaleIdlePlayPage() {
   });
 
   const startNewRun = () => {
-    setState(createNewState());
+    const nextState = createNewState();
+    feedbackRef.current = nextState;
+    setResultImpacts([]);
+    setState(nextState);
     setActiveFeatureTabId('duty');
     setRecipeId(RECIPES[0].id);
     setEnhanceSlot('');
@@ -219,7 +232,7 @@ export default function SchaleIdlePlayPage() {
       className="schale-idle-page-shell"
       kicker="Schale Idle RPG"
       title="샬레 당직 RPG"
-      description="업로드된 Schale Idle RPG v1.34의 방치 정산, 장비 제작, 강화, 시련의 탑, 미션 보상 루프를 사이트용 playable slice로 이식했습니다."
+      description="당직을 정산해 학생을 성장시키고 장비 제작·강화와 시련의 탑 등반을 반복하는 방치형 RPG입니다."
       summaryLabel="Schale Idle RPG 요약"
       summaryDensity="micro"
       primaryMetricLimit={10}
@@ -236,6 +249,7 @@ export default function SchaleIdlePlayPage() {
         tone={resultPresentation.tone}
         pinned
       />
+      <SchaleIdleImpactStrip items={resultImpacts} />
 
       <SchaleIdleFeatureTabs
         activeTabId={activeFeatureTabId}

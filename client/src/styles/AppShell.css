@@ -12844,6 +12844,88 @@
   color: #22668f;
 }
 
+.schale-idle-impact-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.schale-idle-impact-chip {
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #cbdbe6;
+  border-radius: 7px;
+  background: #f4f8fb;
+  color: #254456;
+  font-variant-numeric: tabular-nums;
+}
+
+.schale-idle-impact-chip > .game-action-icon {
+  width: 25px;
+  height: 25px;
+  color: #2673a6;
+}
+
+.schale-idle-impact-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  color: #526b7a;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schale-idle-impact-chip > strong {
+  color: #17364a;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.schale-idle-impact-chip.is-success {
+  border-color: #9cccb9;
+  background: #eef8f3;
+}
+
+.schale-idle-impact-chip.is-success > strong {
+  color: #147053;
+}
+
+.schale-idle-impact-chip.is-warning {
+  border-color: #e6c995;
+  background: #fff8e9;
+}
+
+.schale-idle-impact-chip.is-warning > strong {
+  color: #9a6518;
+}
+
+.schale-idle-impact-chip.is-danger {
+  border-color: #e5acae;
+  background: #fff1f1;
+}
+
+.schale-idle-impact-chip.is-danger > strong {
+  color: #a8333a;
+}
+
+.schale-idle-impact-chip.is-highlight {
+  border-color: #a9cde3;
+  background: #edf7fc;
+}
+
+@media (max-width: 760px) {
+  .schale-idle-impact-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .si-coding-workspace .games-rank-split {
   grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
   gap: 7px;
