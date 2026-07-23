@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 function dataModule(source) {
@@ -15,8 +15,10 @@ const logsUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAcade
 const pulseUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAcademyTcgDuelPulse.js', import.meta.url);
 const handUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAcademyTcgHandTab.js', import.meta.url);
 const deckUrl = new URL('../src/app/games/dual-academy-tcg/deck/page.js', import.meta.url);
+const playUrl = new URL('../src/app/games/dual-academy-tcg/play/page.js', import.meta.url);
 const iconUrl = new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url);
 const sfxUrl = new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url);
+const styleUrl = new URL('../src/styles/AppShell.css', import.meta.url);
 
 const [
   feedbackSource,
@@ -29,8 +31,10 @@ const [
   pulseSource,
   handSource,
   deckSource,
+  playSource,
   iconSource,
   sfxSource,
+  styleSource,
 ] = await Promise.all([
   readFile(feedbackUrl, 'utf8'),
   readFile(catalogUrl, 'utf8'),
@@ -42,8 +46,10 @@ const [
   readFile(pulseUrl, 'utf8'),
   readFile(handUrl, 'utf8'),
   readFile(deckUrl, 'utf8'),
+  readFile(playUrl, 'utf8'),
   readFile(iconUrl, 'utf8'),
   readFile(sfxUrl, 'utf8'),
+  readFile(styleUrl, 'utf8'),
 ]);
 
 const catalogModuleUrl = dataModule(catalogSource);
@@ -116,7 +122,13 @@ assert.equal(cueFor(duel({
 assert.equal(cueFor(duel({
   prompt: { kind: 'SELECT_TARGET', player: 'player' },
   events: [{ id: 'e4', type: 'EFFECT_ACTIVATE', actor: 'player', text: '대상을 선택합니다.', turn: 2, phase: 'MAIN1' }],
-})), 'tcgPrompt');
+})), 'tcgTargetPrompt');
+assert.equal(cueFor(duel({
+  prompt: { kind: 'SELECT_FROM_DECK', player: 'player' },
+})), 'tcgDeckSearch');
+assert.equal(cueFor(duel({
+  prompt: { kind: 'TRIGGER_CONFIRM', player: 'player' },
+})), 'tcgTriggerPrompt');
 
 assert.equal(cueFor(duel({
   players: {
@@ -212,6 +224,18 @@ assert.equal(cueFor(duel({ matchId: 'match-b' })), 'tcgStart');
 const victoryPulse = feedback.dualAcademyTcgPulse(duel({ winner: 'player' }));
 assert.equal(victoryPulse.action, 'victory');
 assert.equal(victoryPulse.tone, 'green');
+assert.deepEqual(victoryPulse.impacts, []);
+
+const impactPulse = feedback.dualAcademyTcgPulse(duel({
+  players: {
+    player: { lp: 7600, hand: [{ id: 'drawn' }], grave: [], banished: [], monster: [{ id: 'summoned' }] },
+    enemy: { lp: 6800, hand: [], grave: [], banished: [] },
+  },
+  events: [{ id: 'e-impact', type: 'DAMAGE_TAKEN', actor: 'enemy', text: '직접 공격: 1200 LP 피해', turn: 2, phase: 'BATTLE' }],
+}), base);
+assert.ok(impactPulse.impacts.some((item) => item.label === '내 LP' && item.value === '-400'), '듀얼 펄스는 내 LP 변화를 표시해야 합니다.');
+assert.ok(impactPulse.impacts.some((item) => item.label === 'AI LP' && item.value === '-1,200'), '듀얼 펄스는 AI LP 변화를 표시해야 합니다.');
+assert.ok(impactPulse.impacts.some((item) => item.label === '내 필드' && item.value === '+1'), '듀얼 펄스는 필드 전개 변화를 표시해야 합니다.');
 
 const cardMap = new Map(catalog.FALLBACK_TCG_CARDS.map((card) => [card.id, card]));
 const zone = () => Array.from({ length: 5 }, () => null);
@@ -440,6 +464,9 @@ for (const token of [
   'tcgCounter',
   'tcgChainResolve',
   'tcgDeckOut',
+  'tcgTargetPrompt',
+  'tcgDeckSearch',
+  'tcgTriggerPrompt',
 ]) {
   assert.equal(sfxSource.includes(token), true, `Shared SFX library is missing ${token}`);
 }
@@ -450,12 +477,18 @@ assert.ok(semanticIconCount >= 32, `Expected at least 32 semantic TCG icons, fou
 assert.equal(logsSource.includes('dualAcademyTcgEventPresentation'), true, 'TCG event log must use semantic event presentations');
 assert.equal(pulseSource.includes('pulse.promptAction'), true, 'TCG pulse must show a semantic prompt icon');
 assert.equal(pulseSource.includes('pulse.chainAction'), true, 'TCG pulse must show a semantic chain icon');
+assert.equal(pulseSource.includes('pulse.impacts'), true, 'TCG pulse must render concrete duel impacts');
+assert.equal(playSource.includes('setDuelPulse(dualAcademyTcgPulse(state, previous))'), true, 'TCG page must calculate impacts before replacing the feedback snapshot');
+assert.equal(playSource.includes('<h1>v13 듀얼</h1>'), false, 'TCG page title must not expose an internal version label');
+assert.equal(styleSource.includes('.tcg-duel-pulse__impact'), true, 'TCG impact chips need dedicated compact styles');
 
 console.log(JSON.stringify({
-  eventCues: 19,
+  eventCues: 22,
   characterEffectCues: 6,
   semanticIcons: semanticIconCount,
   cardAndZoneIconKinds: 20,
+  promptCues: 3,
+  impactKinds: impactPulse.impacts.length,
   mikaCostOptions: mikaReadiness.options.length,
   mikaNegateResolved: true,
   mikaBattleAttack: 9,

@@ -1232,6 +1232,22 @@ const CUE_PROFILES = {
     { frequency: 740, duration: 0.04, type: 'sine', gain: 0.038 },
     { frequency: 1110, start: 0.038, duration: 0.075, type: 'sine', gain: 0.036 },
   ],
+  tcgTargetPrompt: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1500, q: 1.7, duration: 0.035, gain: 0.022, pan: -0.28 },
+    { frequency: 660, duration: 0.045, type: 'square', gain: 0.032, pan: -0.12 },
+    { frequency: 990, start: 0.05, duration: 0.08, type: 'sine', gain: 0.036, pan: 0.28 },
+  ],
+  tcgDeckSearch: [
+    { source: 'noise', filterType: 'highpass', frequency: 1900, duration: 0.065, gain: 0.024, pan: -0.3 },
+    { frequency: 440, endFrequency: 660, duration: 0.06, type: 'triangle', gain: 0.038, pan: -0.12 },
+    { frequency: 880, start: 0.055, duration: 0.09, type: 'sine', gain: 0.036, pan: 0.3 },
+  ],
+  tcgTriggerPrompt: [
+    { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.04, gain: 0.02, pan: -0.3 },
+    { frequency: 784, duration: 0.045, type: 'triangle', gain: 0.04, pan: -0.14 },
+    { frequency: 1176, start: 0.04, duration: 0.065, type: 'triangle', gain: 0.038, pan: 0.1 },
+    { frequency: 1568, start: 0.1, duration: 0.1, type: 'sine', gain: 0.032, pan: 0.32 },
+  ],
   tcgInvalid: [
     { frequency: 310, endFrequency: 220, duration: 0.075, type: 'square', gain: 0.04 },
     { frequency: 180, start: 0.065, duration: 0.11, type: 'sine', gain: 0.038 },

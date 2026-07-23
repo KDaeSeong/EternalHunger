@@ -1,4 +1,4 @@
-const PLAYER_LABELS = {
+﻿const PLAYER_LABELS = {
   player: '나',
   enemy: 'AI',
 };
@@ -24,6 +24,15 @@ const PROMPT_ACTIONS = {
 function zoneCount(state, side, zone) {
   const rows = state?.players?.[side]?.[zone];
   return Array.isArray(rows) ? rows.length : 0;
+}
+
+function fieldCount(state, side) {
+  const player = state?.players?.[side] || {};
+  return [
+    ...(Array.isArray(player.monster) ? player.monster : []),
+    ...(Array.isArray(player.spellTrap) ? player.spellTrap : []),
+    player.field,
+  ].filter(Boolean).length;
 }
 
 function shieldCount(state, side) {
@@ -57,6 +66,10 @@ export function dualAcademyTcgFeedbackSnapshot(state) {
     latestEventEffect: String(event?.payload?.effect || ''),
     playerLp: Number(state?.players?.player?.lp || 0),
     enemyLp: Number(state?.players?.enemy?.lp || 0),
+    playerHand: zoneCount(state, 'player', 'hand'),
+    enemyHand: zoneCount(state, 'enemy', 'hand'),
+    playerField: fieldCount(state, 'player'),
+    enemyField: fieldCount(state, 'enemy'),
     playerGrave: zoneCount(state, 'player', 'grave'),
     enemyGrave: zoneCount(state, 'enemy', 'grave'),
     playerBanished: zoneCount(state, 'player', 'banished'),
@@ -166,6 +179,9 @@ export function dualAcademyTcgFeedbackCue(previous, current) {
   if (current.chainCount < previous.chainCount && current.chainCount === 0) return 'tcgChainResolve';
   if (current.promptKind !== previous.promptKind && current.promptKind !== 'NONE') {
     if (current.promptKind === 'SELECT_COST_MIKA_NEGATE') return 'tcgMikaCost';
+    if (current.promptKind === 'SELECT_TARGET') return 'tcgTargetPrompt';
+    if (current.promptKind === 'SELECT_FROM_DECK') return 'tcgDeckSearch';
+    if (current.promptKind === 'TRIGGER_CONFIRM') return 'tcgTriggerPrompt';
     return current.promptKind === 'RESPOND' ? 'tcgChain' : 'tcgPrompt';
   }
   if (latestCue) return latestCue;
@@ -221,7 +237,43 @@ export function dualAcademyTcgEventPresentation(event) {
   return { action: 'duel', label: '듀얼 시작' };
 }
 
-export function dualAcademyTcgPulse(state) {
+function asFeedbackSnapshot(value) {
+  return Object.prototype.hasOwnProperty.call(value || {}, 'playerLp')
+    ? value
+    : dualAcademyTcgFeedbackSnapshot(value);
+}
+
+function signedImpact(value) {
+  const numeric = Number(value || 0);
+  return `${numeric > 0 ? '+' : ''}${numeric.toLocaleString('ko-KR')}`;
+}
+
+function pulseImpacts(state, previousValue) {
+  if (!previousValue) return [];
+  const previous = asFeedbackSnapshot(previousValue);
+  const current = dualAcademyTcgFeedbackSnapshot(state);
+  if (!previous.matchId || previous.matchId !== current.matchId) return [];
+  const candidates = [
+    { action: current.playerLp >= previous.playerLp ? 'tcg-heal' : 'defend', label: '내 LP', value: current.playerLp - previous.playerLp, tone: current.playerLp >= previous.playerLp ? 'green' : 'red' },
+    { action: current.enemyLp <= previous.enemyLp ? 'attack' : 'tcg-heal', label: 'AI LP', value: current.enemyLp - previous.enemyLp, tone: current.enemyLp <= previous.enemyLp ? 'green' : 'red' },
+    { action: 'tcg-shield', label: '내 보호막', value: current.playerShields - previous.playerShields, tone: current.playerShields >= previous.playerShields ? 'green' : 'red' },
+    { action: 'tcg-shield', label: 'AI 보호막', value: current.enemyShields - previous.enemyShields, tone: current.enemyShields <= previous.enemyShields ? 'green' : 'red' },
+    { action: 'summon', label: '내 필드', value: current.playerField - previous.playerField, tone: current.playerField >= previous.playerField ? 'green' : 'red' },
+    { action: 'tcg-destroy', label: 'AI 필드', value: current.enemyField - previous.enemyField, tone: current.enemyField <= previous.enemyField ? 'green' : 'red' },
+    { action: 'draw', label: '내 패', value: current.playerHand - previous.playerHand, tone: current.playerHand >= previous.playerHand ? 'green' : 'gold' },
+    { action: 'tcg-zone-hand', label: 'AI 패', value: current.enemyHand - previous.enemyHand, tone: current.enemyHand <= previous.enemyHand ? 'green' : 'gold' },
+    { action: 'grave', label: '내 묘지', value: current.playerGrave - previous.playerGrave, tone: 'gold' },
+    { action: 'grave', label: 'AI 묘지', value: current.enemyGrave - previous.enemyGrave, tone: 'green' },
+    { action: 'tcg-banish', label: '내 제외', value: current.playerBanished - previous.playerBanished, tone: 'gold' },
+    { action: 'tcg-banish', label: 'AI 제외', value: current.enemyBanished - previous.enemyBanished, tone: 'green' },
+  ];
+  return candidates
+    .filter((item) => item.value !== 0)
+    .slice(0, 4)
+    .map((item) => ({ ...item, value: signedImpact(item.value) }));
+}
+
+export function dualAcademyTcgPulse(state, previousValue = null) {
   const event = latestEvent(state);
   const winner = String(state?.winner || '');
   const actor = String(event?.actor || state?.turnPlayer || 'player');
@@ -244,6 +296,7 @@ export function dualAcademyTcgPulse(state) {
     promptAction: PROMPT_ACTIONS[promptKind] || 'tcg-prompt-target',
     chainLabel: `체인 ${chainCount}`,
     chainAction: chainCount > 0 ? 'chain' : 'tcg-chain-resolve',
+    impacts: pulseImpacts(state, previousValue),
     tone: winner === 'player'
       ? 'green'
       : winner === 'enemy' || actor === 'enemy'

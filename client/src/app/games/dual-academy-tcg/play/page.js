@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -82,6 +82,7 @@ function DualAcademyTcgPlayContent() {
   const [zoneView, setZoneView] = useState(null);
   const [activeTcgTab, setActiveTcgTab] = useState('board');
   const [state, setState] = useState(() => createDuelState());
+  const [duelPulse, setDuelPulse] = useState(() => dualAcademyTcgPulse(state));
   const feedbackRef = useRef(dualAcademyTcgFeedbackSnapshot(state));
   const musicSceneTimerRef = useRef(null);
   const { setMusicScene } = useGameBgm();
@@ -131,7 +132,7 @@ function DualAcademyTcgPlayContent() {
   const matchReport = useMemo(() => matchReportForState(state), [state]);
   const replayTimeline = useMemo(() => replayTimelineForState(state), [state]);
   const replayExport = useMemo(() => replayExportForState(state), [state]);
-  const duelPulse = useMemo(() => dualAcademyTcgPulse(state), [state]);
+
   const baseMusicScene = useMemo(
     () => resolveDualAcademyBgmScene({ activeTabId: activeTcgTab, state }),
     [activeTcgTab, state],
@@ -161,8 +162,10 @@ function DualAcademyTcgPlayContent() {
   }, [baseMusicScene, setMusicScene]);
 
   useEffect(() => {
+    const previous = feedbackRef.current;
     const current = dualAcademyTcgFeedbackSnapshot(state);
-    const cue = dualAcademyTcgFeedbackCue(feedbackRef.current, current);
+    const cue = dualAcademyTcgFeedbackCue(previous, current);
+    setDuelPulse(dualAcademyTcgPulse(state, previous));
     if (cue) playGameSfx(cue);
     feedbackRef.current = current;
 
@@ -317,7 +320,7 @@ function DualAcademyTcgPlayContent() {
         <header className="tcg-topbar">
           <div>
             <p>Dual Academy TCG</p>
-            <h1>v13 듀얼</h1>
+            <h1>학원 대항 듀얼</h1>
           </div>
           <nav>
             <Link className="game-control-button" data-game-sfx="nav" href="/myanime/dual-academy-tcg">

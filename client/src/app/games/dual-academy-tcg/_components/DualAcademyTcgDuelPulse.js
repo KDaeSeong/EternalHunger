@@ -1,4 +1,4 @@
-import GameActionIcon from '../../_components/GameActionIcon';
+﻿import GameActionIcon from '../../_components/GameActionIcon';
 
 export default function DualAcademyTcgDuelPulse({ pulse }) {
   return (
@@ -18,6 +18,13 @@ export default function DualAcademyTcgDuelPulse({ pulse }) {
           <GameActionIcon action={pulse.chainAction} label={pulse.chainLabel} />
           {pulse.chainLabel}
         </span>
+        {(pulse.impacts || []).map((item) => (
+          <span className={`tcg-duel-pulse__impact is-${item.tone}`} key={`${item.label}-${item.value}`}>
+            <GameActionIcon action={item.action} label={item.label} />
+            <b>{item.label}</b>
+            <strong>{item.value}</strong>
+          </span>
+        ))}
       </aside>
     </section>
   );
