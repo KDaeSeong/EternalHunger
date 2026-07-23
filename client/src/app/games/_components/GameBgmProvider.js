@@ -31,6 +31,11 @@ import {
   gameBgmStepDuration,
 } from '../_lib/gameBgmProfiles';
 import { gameBgmRenderedTrack } from '../_lib/gameBgmRenderedTracks';
+import {
+  gameBgmTransitionMode,
+  readRenderedTrackCache,
+  rememberRenderedTrack,
+} from '../_lib/gameBgmPlaybackPolicy';
 
 const GameBgmContext = createContext(null);
 const LOOK_AHEAD_SECONDS = 0.38;
@@ -1526,18 +1531,20 @@ function createSession(graph, profile, theme, startTime) {
 function loadRenderedTrackBuffer(ctx, renderedTrack, cache) {
   const sourcePath = String(renderedTrack?.src || '').trim();
   if (!sourcePath) return Promise.reject(new Error('Rendered BGM source is missing.'));
-  if (cache.has(sourcePath)) return cache.get(sourcePath);
-  const pending = fetch(sourcePath, { cache: 'force-cache' })
+  const cached = readRenderedTrackCache(cache, sourcePath);
+  if (cached) return cached;
+  let pending;
+  pending = fetch(sourcePath, { cache: 'force-cache' })
     .then((response) => {
       if (!response.ok) throw new Error(`Rendered BGM request failed: ${response.status}`);
       return response.arrayBuffer();
     })
     .then((encodedAudio) => ctx.decodeAudioData(encodedAudio.slice(0)))
     .catch((error) => {
-      cache.delete(sourcePath);
+      if (cache.get(sourcePath) === pending) cache.delete(sourcePath);
       throw error;
     });
-  cache.set(sourcePath, pending);
+  rememberRenderedTrack(cache, sourcePath, pending);
   return pending;
 }
 
@@ -1582,6 +1589,7 @@ function createGameBgmController() {
   let duckMultiplier = 1;
   let duckTimer = null;
   let startRequestId = 0;
+  let pendingTheme = '';
   const renderedTrackCache = new Map();
 
   const rampMaster = (fadeSeconds = 0.08) => {
@@ -1600,6 +1608,7 @@ function createGameBgmController() {
 
   const stop = () => {
     startRequestId += 1;
+    pendingTheme = '';
     stopSession(session);
     session = null;
     if (typeof document !== 'undefined') {
@@ -1611,13 +1620,14 @@ function createGameBgmController() {
       delete document.documentElement.dataset.gameBgmSource;
       delete document.documentElement.dataset.gameBgmAsset;
       delete document.documentElement.dataset.gameBgmAssetStatus;
+      delete document.documentElement.dataset.gameBgmPendingTheme;
     }
   };
 
-  const start = (theme) => {
+  const start = (theme, forceSynth = false) => {
     const nextTheme = String(theme || '').trim();
     if (!nextTheme) return false;
-    if (session?.theme === nextTheme) return true;
+    if (session?.theme === nextTheme || pendingTheme === nextTheme) return true;
     if (!graph || graph.ctx.state === 'closed') {
       try {
         graph = createAudioGraph(volume);
@@ -1628,8 +1638,82 @@ function createGameBgmController() {
     if (!graph) return false;
 
     const profile = gameBgmProfile(nextTheme);
-    const renderedTrack = gameBgmRenderedTrack(nextTheme);
+    const renderedTrack = forceSynth ? null : gameBgmRenderedTrack(nextTheme);
     const requestId = ++startRequestId;
+    // Keep the current cue audible until the next decoded track can crossfade in.
+    const transitionMode = gameBgmTransitionMode(Boolean(session), Boolean(renderedTrack));
+    if (transitionMode === 'hold-current') {
+      const previousSession = session;
+      const activeGraph = graph;
+      pendingTheme = nextTheme;
+      const now = activeGraph.ctx.currentTime;
+      activeGraph.delay.delayTime.setTargetAtTime(Number(profile.delayTime || 0.24), now, 0.08);
+      activeGraph.delayFeedback.gain.setTargetAtTime(Number(profile.delayFeedback || 0.2), now, 0.08);
+      try {
+        const activeContext = activeGraph.ctx;
+        activeContext.onstatechange = () => {
+          document.documentElement.dataset.gameBgmContext = activeContext.state;
+        };
+        document.documentElement.dataset.gameBgmContext = activeContext.state;
+        void activeContext.resume()
+          .then(() => {
+            document.documentElement.dataset.gameBgmContext = activeContext.state;
+          })
+          .catch(() => {});
+        setMasterVolume(volume, 0.16);
+        document.documentElement.dataset.gameBgmState = 'playing';
+        document.documentElement.dataset.gameBgmAssetStatus = 'loading';
+        document.documentElement.dataset.gameBgmPendingTheme = nextTheme;
+        void loadRenderedTrackBuffer(activeContext, renderedTrack, renderedTrackCache)
+          .then((audioBuffer) => {
+            if (
+              requestId !== startRequestId
+              || session !== previousSession
+              || graph !== activeGraph
+              || activeGraph.ctx.state === 'closed'
+            ) return;
+            const renderedStart = activeGraph.ctx.currentTime;
+            const renderedSession = createRenderedTrackSession(
+              activeGraph,
+              profile,
+              nextTheme,
+              renderedTrack,
+              audioBuffer,
+              renderedStart,
+            );
+            session = renderedSession;
+            pendingTheme = '';
+            stopSession(previousSession, clamp(profile.crossfadeSeconds || 0.5, 0.35, 2.5));
+            document.documentElement.dataset.gameBgmTheme = nextTheme;
+            document.documentElement.dataset.gameBgmSource = 'rendered';
+            document.documentElement.dataset.gameBgmAsset = renderedTrack.src;
+            document.documentElement.dataset.gameBgmAssetStatus = 'ready';
+            delete document.documentElement.dataset.gameBgmPendingTheme;
+          })
+          .catch(() => {
+            if (requestId !== startRequestId || session !== previousSession) return;
+            pendingTheme = '';
+            document.documentElement.dataset.gameBgmAssetStatus = 'fallback';
+            delete document.documentElement.dataset.gameBgmPendingTheme;
+            const heldSession = session;
+            session = null;
+            const started = start(nextTheme, true);
+            if (started) {
+              document.documentElement.dataset.gameBgmAssetStatus = 'fallback';
+              stopSession(heldSession, clamp(profile.crossfadeSeconds || 0.5, 0.35, 2.5));
+            } else {
+              session = heldSession;
+            }
+          });
+        return true;
+      } catch {
+        pendingTheme = '';
+        delete document.documentElement.dataset.gameBgmPendingTheme;
+        return false;
+      }
+    }
+    pendingTheme = '';
+    delete document.documentElement.dataset.gameBgmPendingTheme;
     stopSession(session, clamp(profile.crossfadeSeconds || 0.26, 0.18, 2.5));
     const now = graph.ctx.currentTime;
     graph.delay.delayTime.setTargetAtTime(Number(profile.delayTime || 0.24), now, 0.08);
@@ -1708,6 +1792,7 @@ function createGameBgmController() {
   return {
     destroy() {
       startRequestId += 1;
+      pendingTheme = '';
       stopSession(session, 0.05);
       session = null;
       if (duckTimer) window.clearTimeout(duckTimer);
@@ -1725,6 +1810,7 @@ function createGameBgmController() {
         delete document.documentElement.dataset.gameBgmSource;
         delete document.documentElement.dataset.gameBgmAsset;
         delete document.documentElement.dataset.gameBgmAssetStatus;
+        delete document.documentElement.dataset.gameBgmPendingTheme;
       }
     },
     duck(durationMs = 260, multiplier = 0.45) {
@@ -1742,7 +1828,7 @@ function createGameBgmController() {
       }, Math.max(100, Number(durationMs || 260)));
     },
     hasAudioGraph: () => Boolean(graph && graph.ctx.state !== 'closed'),
-    isPlayingTheme: (theme) => session?.theme === theme,
+    isPlayingTheme: (theme) => session?.theme === theme || pendingTheme === theme,
     setMasterVolume,
     setVisible(nextVisible) {
       visible = Boolean(nextVisible);

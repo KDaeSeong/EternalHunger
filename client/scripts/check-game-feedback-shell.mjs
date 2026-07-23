@@ -41,10 +41,28 @@ const audioThemeSource = await readFile(
   path.join(appRoot, 'games', '_lib', 'gameAudioThemes.js'),
   'utf8',
 );
+const playbackPolicySource = await readFile(
+  path.join(appRoot, 'games', '_lib', 'gameBgmPlaybackPolicy.js'),
+  'utf8',
+);
 const preferenceModule = await import(`data:text/javascript;base64,${Buffer.from(preferenceSource).toString('base64')}`);
 const bgmPreferenceModule = await import(`data:text/javascript;base64,${Buffer.from(bgmPreferenceSource).toString('base64')}`);
 const bgmProfileModule = await import(`data:text/javascript;base64,${Buffer.from(bgmProfileSource).toString('base64')}`);
 const audioThemeModule = await import(`data:text/javascript;base64,${Buffer.from(audioThemeSource).toString('base64')}`);
+const playbackPolicyModule = await import(`data:text/javascript;base64,${Buffer.from(playbackPolicySource).toString('base64')}`);
+const fakeRenderedTrackCache = new Map();
+assert.equal(playbackPolicyModule.gameBgmTransitionMode(true, true), 'hold-current');
+assert.equal(playbackPolicyModule.gameBgmTransitionMode(false, true), 'synth-fallback');
+assert.equal(playbackPolicyModule.gameBgmTransitionMode(true, false), 'synth');
+for (let index = 0; index < 9; index += 1) {
+  playbackPolicyModule.rememberRenderedTrack(fakeRenderedTrackCache, `track-${index}`, `buffer-${index}`);
+}
+assert.equal(fakeRenderedTrackCache.size, playbackPolicyModule.MAX_RENDERED_TRACK_CACHE);
+assert.equal(fakeRenderedTrackCache.has('track-0'), false, 'Rendered BGM cache must evict the oldest decoded track.');
+assert.equal(playbackPolicyModule.readRenderedTrackCache(fakeRenderedTrackCache, 'track-1'), 'buffer-1');
+playbackPolicyModule.rememberRenderedTrack(fakeRenderedTrackCache, 'track-9', 'buffer-9');
+assert.equal(fakeRenderedTrackCache.has('track-1'), true, 'Reading a rendered track must refresh its LRU position.');
+assert.equal(fakeRenderedTrackCache.has('track-2'), false, 'LRU cache must evict the least recently used track.');
 const fakeValues = new Map();
 const fakeStorage = {
   getItem: (key) => fakeValues.get(key) ?? null,
@@ -92,6 +110,11 @@ assert.match(bgmProviderSource, /createBufferSource\(\)/, 'BGM은 노이즈 기�
 assert.match(bgmProviderSource, /createStereoPanner\(\)/, 'BGM은 스테레오 위치를 구분해야 합니다.');
 assert.match(bgmProviderSource, /createConvolver\(\)/, 'BGM은 합성 리버브 공간을 제공해야 합니다.');
 assert.match(bgmProviderSource, /scheduleDrumStep/, 'BGM은 독립 드럼 시퀀서를 사용해야 합니다.');
+assert.match(bgmProviderSource, /gameBgmTransitionMode\(Boolean\(session\), Boolean\(renderedTrack\)\)/, 'Rendered BGM transitions must choose a hold-current policy.');
+assert.match(bgmProviderSource, /gameBgmPendingTheme/, 'Rendered BGM transitions must expose their pending scene.');
+assert.match(bgmProviderSource, /session !== previousSession/, 'A stale rendered BGM load must not replace the active track.');
+assert.match(bgmProviderSource, /rememberRenderedTrack\(cache, sourcePath, pending\)/, 'Decoded rendered tracks must use the bounded LRU cache.');
+assert.match(bgmProviderSource, /start\(nextTheme, true\)/, 'A failed rendered track must switch to synth fallback without requesting the asset twice.');
 assert.match(bgmProviderSource, /scheduleSectionImpact/, 'BGM must accent section changes with impact effects.');
 assert.match(bgmProviderSource, /scheduleTransitionRiser/, 'BGM must build into transitions with risers.');
 assert.match(bgmProviderSource, /schedulePump/, 'BGM must use kick-driven musical pumping.');
@@ -293,5 +316,7 @@ console.log(JSON.stringify({
   sfxSpatialThemes: expectedBgmThemes.length,
   sfxMix: 'stereo-reverb-compressor',
   bgmDefaultEnabled: bgmPreferenceModule.readGameBgmEnabled(new Map()),
+  renderedTransition: 'hold-current-crossfade',
+  renderedCacheEntries: playbackPolicyModule.MAX_RENDERED_TRACK_CACHE,
   soundPreferenceKey: preferenceModule.gameSfxPreferenceKey('school'),
 }, null, 2));
