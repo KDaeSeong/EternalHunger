@@ -9,6 +9,7 @@ import { apiGet, apiPost, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../utils/client-auth';
 import GameActionIcon from '../../games/_components/GameActionIcon';
 import { useGameBgm } from '../../games/_components/GameBgmProvider';
+import { GameFeatureTabs } from '../../games/_components/GamePlayShell';
 import { GameControlButton } from '../../games/_components/GamePlayPrimitives';
 import { useGameSfxEventHandlers } from '../../games/_lib/useGameSfx';
 import { twentyQuestionsFeedback } from '../_lib/twentyQuestionsFeedback';
@@ -23,6 +24,8 @@ const RESPONSE_OPTIONS = [
   { value: 'no', label: '아니오' },
   { value: 'maybe', label: '애매함' },
 ];
+
+const ROOM_POLL_INTERVAL_MS = 3500;
 
 function safeText(value, fallback = '') {
   const text = String(value || '').trim();
@@ -114,6 +117,34 @@ function normalizeRoom(payload) {
   };
 }
 
+function roomVersion(room) {
+  if (!room) return '';
+  return JSON.stringify({
+    updatedAt: room.updatedAt || '',
+    status: room.status || '',
+    answerRevealed: Boolean(room.answerRevealed),
+    questions: normalizeList(room.questions).map((question) => [
+      normalizeIdValue(question),
+      question?.response || 'pending',
+      question?.updatedAt || '',
+    ]),
+    guesses: normalizeList(room.guesses).map((guess) => [
+      normalizeIdValue(guess),
+      Boolean(guess?.correct),
+      guess?.createdAt || '',
+    ]),
+    hints: normalizeList(room.hintMessages).map((message) => [
+      normalizeIdValue(message),
+      message?.updatedAt || message?.createdAt || '',
+    ]),
+  });
+}
+
+function dateValue(value) {
+  const timestamp = new Date(value || 0).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
 export default function TwentyQuestionsRoomContent() {
   const params = useParams();
   const router = useRouter();
@@ -130,6 +161,9 @@ export default function TwentyQuestionsRoomContent() {
   const [hintText, setHintText] = useState('');
   const [submitting, setSubmitting] = useState('');
   const [actionFeedback, setActionFeedback] = useState(null);
+  const [activePanel, setActivePanel] = useState('deduction');
+  const roomRef = useRef(null);
+  const submittingRef = useRef('');
   const musicBaseSceneRef = useRef('');
   const musicSceneTimerRef = useRef(null);
   const {
@@ -140,6 +174,7 @@ export default function TwentyQuestionsRoomContent() {
 
   const loadRoom = useCallback(async () => {
     if (!id) {
+      roomRef.current = null;
       setRoom(null);
       setLoading(false);
       return;
@@ -147,8 +182,11 @@ export default function TwentyQuestionsRoomContent() {
     setLoading(true);
     try {
       const data = await apiGet(`/twenty-questions/${id}`, { timeoutMs: 15000 });
-      setRoom(normalizeRoom(data));
+      const nextRoom = normalizeRoom(data);
+      roomRef.current = nextRoom;
+      setRoom(nextRoom);
     } catch (err) {
+      roomRef.current = null;
       setRoom(null);
       showToast({ tone: 'danger', message: err?.message || '스무고개 방을 불러오지 못했습니다.' });
     } finally {
@@ -160,6 +198,10 @@ export default function TwentyQuestionsRoomContent() {
     void Promise.resolve().then(loadRoom);
   }, [loadRoom]);
 
+  useEffect(() => {
+    submittingRef.current = submitting;
+  }, [submitting]);
+
   const pendingQuestions = useMemo(
     () => normalizeList(room?.questions).filter((question) => question?.response === 'pending'),
     [room?.questions]
@@ -168,9 +210,36 @@ export default function TwentyQuestionsRoomContent() {
     () => normalizeList(room?.hintMessages),
     [room?.hintMessages]
   );
+  const attemptTimeline = useMemo(() => {
+    const questions = normalizeList(room?.questions).map((question, index) => ({
+      id: normalizeIdValue(question) || `question-${index}`,
+      kind: 'question',
+      text: question?.text || '',
+      actorName: question?.askerName || '익명',
+      response: question?.response || 'pending',
+      responseLabel: question?.responseLabel || '대기',
+      createdAt: question?.createdAt || '',
+      sortOrder: index,
+    }));
+    const guesses = normalizeList(room?.guesses).map((guess, index) => ({
+      id: normalizeIdValue(guess) || `guess-${index}`,
+      kind: 'guess',
+      text: guess?.text || '',
+      actorName: guess?.guesserName || '익명',
+      correct: Boolean(guess?.correct),
+      createdAt: guess?.createdAt || '',
+      sortOrder: index,
+    }));
+
+    return [...questions, ...guesses]
+      .sort((left, right) => dateValue(left.createdAt) - dateValue(right.createdAt)
+        || left.kind.localeCompare(right.kind)
+        || left.sortOrder - right.sortOrder)
+      .map((entry, index) => ({ ...entry, attemptNo: index + 1 }));
+  }, [room?.guesses, room?.questions]);
   const active = room?.status === 'active';
   const attemptsLeft = Math.max(0, Number(room?.remainingCount != null ? room.remainingCount : Number(room?.maxQuestions || 20) - Number(room?.attemptCount || 0)));
-  const canInteract = hydrated && token && active;
+  const canInteract = hydrated && token && active && !room?.isHost;
   const canUseAttempt = canInteract && attemptsLeft > 0;
   const baseMusicScene = useMemo(() => resolveTwentyQuestionsRoomBgmScene({
     status: room?.status,
@@ -192,7 +261,7 @@ export default function TwentyQuestionsRoomContent() {
     setMusicScene('');
   }, [setMusicScene]);
 
-  const announce = (action, result = {}) => {
+  const announce = useCallback((action, result = {}) => {
     const feedback = twentyQuestionsFeedback(action, result);
     setActionFeedback(feedback);
     playGameSfx(feedback.cue);
@@ -206,12 +275,93 @@ export default function TwentyQuestionsRoomContent() {
       }, transition.durationMs);
     }
     return feedback;
-  };
+  }, [playGameSfx, setMusicScene]);
 
-  const applyRoomResponse = (data) => {
+  const announceRemoteRoomChange = useCallback((previousRoom, nextRoom) => {
+    if (!previousRoom || !nextRoom) return;
+
+    if (previousRoom.status === 'active' && nextRoom.status === 'solved') {
+      announce('guess', { correct: true, message: '누군가 정답을 맞혔습니다. 정답을 공개합니다.' });
+      return;
+    }
+    if (previousRoom.status === 'active' && nextRoom.status === 'closed') {
+      const exhausted = Number(nextRoom.attemptCount || 0) >= Number(nextRoom.maxQuestions || 20);
+      announce(exhausted ? 'limitReveal' : 'close', {
+        message: exhausted
+          ? '20회를 모두 사용했습니다. 정답을 공개합니다.'
+          : '방장이 스무고개를 종료했습니다.',
+      });
+      return;
+    }
+
+    const previousQuestionMap = new Map(normalizeList(previousRoom.questions).map((question) => [
+      normalizeIdValue(question),
+      question,
+    ]));
+    const answeredQuestion = normalizeList(nextRoom.questions).find((question) => {
+      const previous = previousQuestionMap.get(normalizeIdValue(question));
+      return previous?.response === 'pending' && question?.response && question.response !== 'pending';
+    });
+    if (answeredQuestion) {
+      announce('answer', {
+        response: answeredQuestion.response,
+        message: `방장이 ${answeredQuestion.responseLabel || '답변'}로 답했습니다.`,
+      });
+      return;
+    }
+    if (normalizeList(nextRoom.hintMessages).length > normalizeList(previousRoom.hintMessages).length) {
+      announce('remoteHint', { message: '방장이 새 힌트를 공개했습니다.' });
+      return;
+    }
+    if (normalizeList(nextRoom.questions).length > normalizeList(previousRoom.questions).length) {
+      announce('remoteQuestion', { message: '새 질문이 등록되었습니다.' });
+      return;
+    }
+    if (normalizeList(nextRoom.guesses).length > normalizeList(previousRoom.guesses).length) {
+      announce('remoteGuess', { message: '새 정답 도전이 등록되었습니다.' });
+    }
+  }, [announce]);
+
+  const applyRoomResponse = useCallback((data) => {
     const nextRoom = normalizeRoom(data);
-    if (nextRoom) setRoom(nextRoom);
-  };
+    if (nextRoom) {
+      roomRef.current = nextRoom;
+      setRoom(nextRoom);
+    }
+    return nextRoom;
+  }, []);
+
+  useEffect(() => {
+    if (!id || room?.status !== 'active') return undefined;
+    let disposed = false;
+
+    const refreshRoom = async () => {
+      if (disposed || document.visibilityState !== 'visible' || submittingRef.current) return;
+      try {
+        const data = await apiGet(`/twenty-questions/${id}`, { timeoutMs: 8000 });
+        const nextRoom = normalizeRoom(data);
+        const previousRoom = roomRef.current;
+        if (!nextRoom || roomVersion(previousRoom) === roomVersion(nextRoom)) return;
+        roomRef.current = nextRoom;
+        setRoom(nextRoom);
+        announceRemoteRoomChange(previousRoom, nextRoom);
+      } catch {
+        // Polling is intentionally silent; explicit actions still surface API errors.
+      }
+    };
+
+    const timer = window.setInterval(refreshRoom, ROOM_POLL_INTERVAL_MS);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshRoom();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [announceRemoteRoomChange, id, room?.status]);
 
   const clearRoomCaches = () => {
     clearApiGetCache(`/twenty-questions/${id}`);
@@ -261,7 +411,7 @@ export default function TwentyQuestionsRoomContent() {
       applyRoomResponse(data);
       clearRoomCaches();
       const message = data?.message || '답변을 저장했습니다.';
-      announce('answer', { response, message });
+      announce(data?.exhausted ? 'limitReveal' : 'answer', { response, message });
       showToast({ tone: 'success', message });
     } catch (err) {
       const message = err?.message || '답변 저장에 실패했습니다.';
@@ -293,7 +443,7 @@ export default function TwentyQuestionsRoomContent() {
       clearRoomCaches();
       setGuessText('');
       const message = data?.message || '정답 도전을 기록했습니다.';
-      announce('guess', { correct: data?.correct, message });
+      announce(data?.exhausted ? 'limitReveal' : 'guess', { correct: data?.correct, message });
       showToast({ tone: data?.correct ? 'success' : 'warning', message });
     } catch (err) {
       const message = err?.message || '정답 도전에 실패했습니다.';
@@ -392,7 +542,7 @@ export default function TwentyQuestionsRoomContent() {
         ) : null}
 
         {!loading && room ? (
-          <>
+          <div className="twenty-room-body">
             <section className="twenty-room-summary">
               <div className="twenty-room-flags">
                 <span className={`twenty-status is-${room.status}`}>
@@ -439,154 +589,206 @@ export default function TwentyQuestionsRoomContent() {
               </div>
             ) : null}
 
-            {canInteract ? (
-              <section className="twenty-action-grid">
-                <div className="twenty-action-panel">
-                  <div className="twenty-panel-title">
-                    <strong><GameActionIcon action="question" label="질문" />질문</strong>
-                    <span>{attemptsLeft}회 남음</span>
-                  </div>
-                  <textarea
-                    value={questionText}
-                    onChange={(event) => setQuestionText(event.target.value)}
-                    placeholder={canUseAttempt ? '예/아니오로 답할 수 있는 질문' : '질문/정답 도전 횟수를 모두 사용했습니다'}
-                    rows={4}
-                    maxLength={220}
-                    disabled={!canUseAttempt}
-                  />
-                  <GameControlButton action="question" onClick={addQuestion} disabled={!canUseAttempt || submitting === 'question'}>
-                    {submitting === 'question' ? '등록 중...' : '질문하기'}
-                  </GameControlButton>
-                </div>
+            <div className="twenty-room-workspace">
+              <GameFeatureTabs
+                activeTabId={activePanel}
+                onTabChange={setActivePanel}
+                tabs={[
+                  {
+                    id: 'deduction',
+                    label: '추리',
+                    icon: 'question',
+                    badge: room.isHost ? String(pendingQuestions.length) : String(attemptsLeft),
+                    children: (
+                      <div className="twenty-tab-content twenty-tab-content--deduction">
+                        {room.isHost && active ? (
+                          <div className="twenty-role-note twenty-inline-state">
+                            <GameActionIcon action="host" label="방장" />
+                            <span>방장은 질문에 답하고 힌트를 공개합니다. 질문과 정답 도전은 참가자만 할 수 있습니다.</span>
+                          </div>
+                        ) : null}
 
-                <div className="twenty-action-panel">
-                  <div className="twenty-panel-title">
-                    <strong><GameActionIcon action="guess" label="정답 도전" />정답 도전</strong>
-                    <span>{attemptsLeft}회 남음</span>
-                  </div>
-                  <input
-                    value={guessText}
-                    onChange={(event) => setGuessText(event.target.value)}
-                    placeholder={canUseAttempt ? '정답 입력' : '질문/정답 도전 횟수를 모두 사용했습니다'}
-                    maxLength={120}
-                    disabled={!canUseAttempt}
-                  />
-                  <GameControlButton action="guess" onClick={submitGuess} disabled={!canUseAttempt || submitting === 'guess'}>
-                    {submitting === 'guess' ? '도전 중...' : '도전'}
-                  </GameControlButton>
-                </div>
-              </section>
-            ) : null}
+                        {canInteract ? (
+                          <section className="twenty-action-grid">
+                            <div className="twenty-action-panel">
+                              <div className="twenty-panel-title">
+                                <strong><GameActionIcon action="question" label="질문" />질문</strong>
+                                <span>{attemptsLeft}회 남음</span>
+                              </div>
+                              <textarea
+                                value={questionText}
+                                onChange={(event) => setQuestionText(event.target.value)}
+                                placeholder={canUseAttempt ? '예/아니오로 답할 수 있는 질문' : '질문/정답 도전 횟수를 모두 사용했습니다'}
+                                rows={3}
+                                maxLength={220}
+                                disabled={!canUseAttempt}
+                              />
+                              <GameControlButton action="question" onClick={addQuestion} disabled={!canUseAttempt || submitting === 'question'}>
+                                {submitting === 'question' ? '등록 중...' : '질문하기'}
+                              </GameControlButton>
+                            </div>
 
-            <section className="twenty-chat-panel">
-              <div className="twenty-panel-title">
-                <strong><GameActionIcon action="hint" label="힌트 채팅" />힌트 채팅</strong>
-                <span>{hintMessages.length}</span>
-              </div>
-              <div className="twenty-chat-list">
-                {hintMessages.length === 0 ? <div className="twenty-empty compact">아직 힌트가 없습니다.</div> : null}
-                {hintMessages.map((message, index) => (
-                  <article className="twenty-chat-message" key={message._id || index}>
-                    <div>
-                      <strong><GameActionIcon action="hint-message" label="방장 힌트" />{message.authorName || room.hostName || '방장'}</strong>
-                      <small>{formatDate(message.createdAt)}</small>
-                    </div>
-                    <p>{message.text}</p>
-                  </article>
-                ))}
-              </div>
-              {room.isHost && active ? (
-                <div className="twenty-chat-input">
-                  <textarea
-                    value={hintText}
-                    onChange={(event) => setHintText(event.target.value)}
-                    placeholder="참가자에게 공개할 힌트"
-                    rows={3}
-                    maxLength={240}
-                    disabled={submitting === 'hint'}
-                  />
-                  <GameControlButton action="hint" onClick={sendHintMessage} disabled={submitting === 'hint'}>
-                    {submitting === 'hint' ? '등록 중...' : '힌트 등록'}
-                  </GameControlButton>
-                </div>
-              ) : active ? (
-                <div className="twenty-chat-locked twenty-inline-state">
-                  <GameActionIcon action="lock" label="방장 전용" />
-                  <span>방장만 힌트를 남길 수 있습니다.</span>
-                </div>
-              ) : null}
-            </section>
+                            <div className="twenty-action-panel">
+                              <div className="twenty-panel-title">
+                                <strong><GameActionIcon action="guess" label="정답 도전" />정답 도전</strong>
+                                <span>{attemptsLeft}회 남음</span>
+                              </div>
+                              <input
+                                value={guessText}
+                                onChange={(event) => setGuessText(event.target.value)}
+                                placeholder={canUseAttempt ? '정답 입력' : '질문/정답 도전 횟수를 모두 사용했습니다'}
+                                maxLength={120}
+                                disabled={!canUseAttempt}
+                              />
+                              <GameControlButton action="guess" onClick={submitGuess} disabled={!canUseAttempt || submitting === 'guess'}>
+                                {submitting === 'guess' ? '도전 중...' : '도전'}
+                              </GameControlButton>
+                            </div>
+                          </section>
+                        ) : null}
 
-            {room.isHost && pendingQuestions.length > 0 ? (
-              <section className="twenty-host-panel">
-                <div className="twenty-panel-title">
-                  <strong><GameActionIcon action="question" label="답변 대기" />답변 대기</strong>
-                  <span>{pendingQuestions.length}</span>
-                </div>
-                {pendingQuestions.map((question) => (
-                  <div className="twenty-pending-row" key={question._id}>
-                    <p><GameActionIcon action="answer-pending" label="답변 대기" /><span>{question.text}</span></p>
-                    <div>
-                      {RESPONSE_OPTIONS.map((option) => (
-                        <GameControlButton
-                          action={`answer-${option.value}`}
-                          key={option.value}
-                          onClick={() => answerQuestion(question._id, option.value)}
-                          disabled={submitting.startsWith(`answer:${question._id}:`)}
-                        >
-                          {option.label}
-                        </GameControlButton>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </section>
-            ) : null}
+                        {hydrated && token && active && !room.isHost && !canUseAttempt ? (
+                          <div className="twenty-note twenty-inline-state">
+                            <GameActionIcon action="attempt-limit" label="횟수 소진" />
+                            <span>20회를 모두 사용했습니다. 대기 중인 질문에 방장이 답하면 정답이 공개됩니다.</span>
+                          </div>
+                        ) : null}
 
-            <section className="twenty-history-grid">
-              <div className="twenty-history-panel">
-                <div className="twenty-panel-title">
-                  <strong><GameActionIcon action="question" label="질문 기록" />질문 기록</strong>
-                  <span>{room.questions.length}</span>
-                </div>
-                {room.questions.length === 0 ? <div className="twenty-empty compact">아직 질문이 없습니다.</div> : null}
-                {room.questions.map((question, index) => (
-                  <article className="twenty-history-item" key={question._id || index}>
-                    <div className="twenty-history-head">
-                      <span className="twenty-history-identity"><GameActionIcon action="question" label="질문" />Q{index + 1}</span>
-                      <span className={`twenty-response is-${question.response || 'pending'}`}>
-                        <GameActionIcon action={responseAction(question.response)} label={question.responseLabel || '대기'} />
-                        {question.responseLabel || '대기'}
-                      </span>
-                    </div>
-                    <p>{question.text}</p>
-                    <small>{question.askerName || '익명'} · {formatDate(question.createdAt)}</small>
-                  </article>
-                ))}
-              </div>
+                        {room.isHost ? (
+                          <section className="twenty-host-panel">
+                            <div className="twenty-panel-title">
+                              <strong><GameActionIcon action="question-queued" label="답변 대기" />답변 대기</strong>
+                              <span>{pendingQuestions.length}</span>
+                            </div>
+                            {pendingQuestions.length === 0 ? <div className="twenty-empty compact">대기 중인 질문이 없습니다.</div> : null}
+                            {pendingQuestions.map((question) => (
+                              <div className="twenty-pending-row" key={question._id}>
+                                <p><GameActionIcon action="answer-pending" label="답변 대기" /><span>{question.text}</span></p>
+                                <div>
+                                  {RESPONSE_OPTIONS.map((option) => (
+                                    <GameControlButton
+                                      action={`answer-${option.value}`}
+                                      key={option.value}
+                                      onClick={() => answerQuestion(question._id, option.value)}
+                                      disabled={!active || submitting.startsWith(`answer:${question._id}:`)}
+                                    >
+                                      {option.label}
+                                    </GameControlButton>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </section>
+                        ) : null}
 
-              <div className="twenty-history-panel">
-                <div className="twenty-panel-title">
-                  <strong><GameActionIcon action="guess" label="정답 도전 기록" />정답 도전 기록</strong>
-                  <span>{room.guesses.length}</span>
-                </div>
-                {room.guesses.length === 0 ? <div className="twenty-empty compact">아직 도전이 없습니다.</div> : null}
-                {room.guesses.map((guess, index) => (
-                  <article className={`twenty-history-item ${guess.correct ? 'is-correct' : ''}`} key={guess._id || index}>
-                    <div className="twenty-history-head">
-                      <span className="twenty-history-identity"><GameActionIcon action="guess" label="정답 도전" />{guess.guesserName || '익명'}</span>
-                      <span className={`twenty-response ${guess.correct ? 'is-yes' : 'is-no'}`}>
-                        <GameActionIcon action={guess.correct ? 'guess-correct' : 'guess-wrong'} label={guess.correct ? '정답' : '오답'} />
-                        {guess.correct ? '정답' : '오답'}
-                      </span>
-                    </div>
-                    <p>{guess.text}</p>
-                    <small>{formatDate(guess.createdAt)}</small>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </>
+                        {!active ? (
+                          <div className="twenty-note twenty-inline-state">
+                            <GameActionIcon action={roomStatusAction(room.status)} label={statusLabel(room.status)} />
+                            <span>{room.status === 'solved' ? '정답을 맞혀 추리가 종료되었습니다.' : '이 방의 추리가 종료되었습니다.'}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    ),
+                  },
+                  {
+                    id: 'hints',
+                    label: '힌트',
+                    icon: 'hint',
+                    badge: String(hintMessages.length),
+                    children: (
+                      <div className="twenty-tab-content">
+                        <section className="twenty-chat-panel">
+                          <div className="twenty-panel-title">
+                            <strong><GameActionIcon action="hint" label="힌트 채팅" />힌트 채팅</strong>
+                            <span>{hintMessages.length}</span>
+                          </div>
+                          <div className="twenty-chat-list">
+                            {hintMessages.length === 0 ? <div className="twenty-empty compact">아직 힌트가 없습니다.</div> : null}
+                            {hintMessages.map((message, index) => (
+                              <article className="twenty-chat-message" key={message._id || index}>
+                                <div>
+                                  <strong><GameActionIcon action="hint-message" label="방장 힌트" />{message.authorName || room.hostName || '방장'}</strong>
+                                  <small>{formatDate(message.createdAt)}</small>
+                                </div>
+                                <p>{message.text}</p>
+                              </article>
+                            ))}
+                          </div>
+                          {room.isHost && active ? (
+                            <div className="twenty-chat-input">
+                              <textarea
+                                value={hintText}
+                                onChange={(event) => setHintText(event.target.value)}
+                                placeholder="참가자에게 공개할 힌트"
+                                rows={3}
+                                maxLength={240}
+                                disabled={submitting === 'hint'}
+                              />
+                              <GameControlButton action="hint" onClick={sendHintMessage} disabled={submitting === 'hint'}>
+                                {submitting === 'hint' ? '등록 중...' : '힌트 등록'}
+                              </GameControlButton>
+                            </div>
+                          ) : active ? (
+                            <div className="twenty-chat-locked twenty-inline-state">
+                              <GameActionIcon action="lock" label="방장 전용" />
+                              <span>방장만 힌트를 남길 수 있습니다.</span>
+                            </div>
+                          ) : null}
+                        </section>
+                      </div>
+                    ),
+                  },
+                  {
+                    id: 'history',
+                    label: '기록',
+                    icon: 'history',
+                    badge: String(attemptTimeline.length),
+                    children: (
+                      <div className="twenty-tab-content">
+                        <section className="twenty-history-panel twenty-history-panel--timeline">
+                          <div className="twenty-panel-title">
+                            <strong><GameActionIcon action="history" label="시도 기록" />시도 기록</strong>
+                            <span>{attemptTimeline.length}/{room.maxQuestions}</span>
+                          </div>
+                          {attemptTimeline.length === 0 ? <div className="twenty-empty compact">아직 질문이나 정답 도전이 없습니다.</div> : null}
+                          <div className="twenty-timeline">
+                            {attemptTimeline.map((entry) => {
+                              const isQuestion = entry.kind === 'question';
+                              const outcomeAction = isQuestion
+                                ? responseAction(entry.response)
+                                : entry.correct ? 'guess-correct' : 'guess-wrong';
+                              const outcomeLabel = isQuestion
+                                ? entry.responseLabel
+                                : entry.correct ? '정답' : '오답';
+                              const outcomeClass = isQuestion
+                                ? entry.response || 'pending'
+                                : entry.correct ? 'yes' : 'no';
+                              return (
+                                <article className={`twenty-history-item ${entry.correct ? 'is-correct' : ''}`} key={`${entry.kind}-${entry.id}`}>
+                                  <div className="twenty-history-head">
+                                    <span className="twenty-history-identity">
+                                      <GameActionIcon action={isQuestion ? 'question' : 'guess'} label={isQuestion ? '질문' : '정답 도전'} />
+                                      #{entry.attemptNo} {isQuestion ? '질문' : '정답 도전'}
+                                    </span>
+                                    <span className={`twenty-response is-${outcomeClass}`}>
+                                      <GameActionIcon action={outcomeAction} label={outcomeLabel} />
+                                      {outcomeLabel}
+                                    </span>
+                                  </div>
+                                  <p>{entry.text}</p>
+                                  <small>{entry.actorName} · {formatDate(entry.createdAt)}</small>
+                                </article>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
+            </div>
+          </div>
         ) : null}
       </section>
     </main>

@@ -459,7 +459,7 @@
 
 .twenty-room-summary dl {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
   margin: 0;
 }
@@ -719,6 +719,62 @@
   color: #6a5600;
 }
 
+.twenty-room-body,
+.twenty-room-workspace,
+.twenty-tab-content {
+  min-width: 0;
+}
+
+.twenty-room-body,
+.twenty-tab-content {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.twenty-room-workspace .game-feature-tabs {
+  gap: 8px;
+}
+
+.twenty-room-workspace .game-feature-tabs__list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex-wrap: nowrap;
+  gap: 7px;
+  padding-bottom: 8px;
+}
+
+.twenty-room-workspace .game-feature-tabs__list button,
+.twenty-room-workspace .game-feature-tabs__list--dense button {
+  width: 100%;
+  max-width: none;
+  min-height: 38px;
+  justify-content: center;
+}
+
+.twenty-role-note {
+  border: 1px solid #d8e5ee;
+  border-radius: 8px;
+  background: #eef8ff;
+  color: #155779;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.twenty-role-note .game-action-icon {
+  color: #9a741c;
+}
+
+.twenty-history-panel--timeline {
+  min-height: 0;
+}
+
+.twenty-timeline {
+  display: grid;
+  gap: 10px;
+}
+
 @media (max-width: 920px) {
   .twenty-page {
     width: min(calc(100% - 20px), 100%);
@@ -914,10 +970,45 @@
   }
 
   .twenty-page--room .twenty-shell {
-    overflow: auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    overflow: hidden;
     overscroll-behavior: contain;
     padding: 0 4px 7px 0;
+  }
+
+  .twenty-page--room .twenty-room-body {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .twenty-page--room .twenty-room-workspace {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .twenty-page--room .twenty-room-workspace .game-feature-tabs {
+    height: 100%;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .twenty-page--room .twenty-room-workspace .game-feature-tabs__panel {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .twenty-page--room .twenty-tab-content {
+    height: 100%;
+    min-height: 0;
+    align-content: start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     scrollbar-gutter: stable;
+    padding: 1px 4px 6px 1px;
   }
 
   .twenty-page--room .twenty-room-summary,
@@ -928,8 +1019,27 @@
     padding: 12px;
   }
 
+  .twenty-page--room .twenty-room-summary {
+    flex: 0 0 auto;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 7px 10px;
+    padding: 10px 12px;
+  }
+
   .twenty-page--room .twenty-room-summary dl {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
+  }
+
+  .twenty-page--room .twenty-room-summary dl div {
+    padding: 7px 8px;
+  }
+
+  .twenty-page--room .twenty-room-summary .twenty-hint,
+  .twenty-page--room .twenty-room-summary .twenty-answer {
+    grid-column: 1 / -1;
+    padding: 8px 10px;
   }
 
   .twenty-page--room .twenty-action-panel textarea,
@@ -939,9 +1049,8 @@
 
   .twenty-page--room .twenty-chat-list,
   .twenty-page--room .twenty-history-panel {
-    max-height: 34vh;
-    overflow: auto;
-    overscroll-behavior: contain;
+    max-height: none;
+    overflow: visible;
   }
 }
 
@@ -957,8 +1066,14 @@
     border-radius: 0;
   }
 
-  .twenty-page--viewport .twenty-shell {
+  .twenty-page--viewport .twenty-shell,
+  .twenty-page--room .twenty-room-body,
+  .twenty-page--room .twenty-room-workspace,
+  .twenty-page--room .twenty-room-workspace .game-feature-tabs,
+  .twenty-page--room .twenty-room-workspace .game-feature-tabs__panel,
+  .twenty-page--room .twenty-tab-content {
     height: auto;
+    min-height: 0;
     overflow: visible;
   }
 }

@@ -20,11 +20,32 @@ const FEEDBACK = {
     text: '질문을 등록했습니다. 방장의 답변을 기다립니다.',
     tone: 'blue',
   },
+  remoteQuestion: {
+    action: 'question-queued',
+    cue: 'twentyQuestionArrive',
+    label: '새 질문',
+    text: '새 질문이 등록되었습니다.',
+    tone: 'blue',
+  },
+  remoteGuess: {
+    action: 'guess',
+    cue: 'twentyGuessArrive',
+    label: '새 도전',
+    text: '새 정답 도전이 등록되었습니다.',
+    tone: 'gold',
+  },
   hint: {
     action: 'hint-message',
     cue: 'twentyHintSent',
     label: '힌트 공개',
     text: '참가자에게 새 힌트를 공개했습니다.',
+    tone: 'gold',
+  },
+  remoteHint: {
+    action: 'hint-message',
+    cue: 'twentyHintArrive',
+    label: '새 힌트',
+    text: '방장이 새 힌트를 공개했습니다.',
     tone: 'gold',
   },
   close: {
@@ -39,6 +60,13 @@ const FEEDBACK = {
     cue: 'twentyAttemptsExhausted',
     label: '횟수 소진',
     text: '질문과 정답 도전에 사용할 횟수가 남지 않았습니다.',
+    tone: 'red',
+  },
+  limitReveal: {
+    action: 'attempt-limit',
+    cue: 'twentyLimitReveal',
+    label: '정답 공개',
+    text: '20회를 모두 사용했습니다. 정답을 공개합니다.',
     tone: 'red',
   },
   hostOnly: {

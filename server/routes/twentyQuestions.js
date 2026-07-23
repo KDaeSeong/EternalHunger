@@ -6,6 +6,10 @@ require('../models/User');
 const { verifyToken } = require('../middleware/authMiddleware');
 const { getOptionalUserId } = require('../utils/requestScope');
 const { createNotification } = require('../utils/notifications');
+const {
+  closeExhaustedRoom,
+  getAttemptCounts,
+} = require('../utils/twentyQuestionsRules');
 
 const CATEGORY_LABELS = {
   free: '자유',
@@ -74,27 +78,6 @@ function canRevealAnswer(room, userId) {
   return isHost(room, userId) || room?.status === 'solved' || room?.status === 'closed';
 }
 
-function getMaxAttempts(room) {
-  return Math.max(1, Number(room?.maxQuestions || 20));
-}
-
-function getAttemptCounts(room) {
-  const questions = Array.isArray(room?.questions) ? room.questions : [];
-  const guesses = Array.isArray(room?.guesses) ? room.guesses : [];
-  const maxQuestions = getMaxAttempts(room);
-  const questionCount = questions.length;
-  const guessCount = guesses.length;
-  const attemptCount = questionCount + guessCount;
-  return {
-    questions,
-    guesses,
-    maxQuestions,
-    questionCount,
-    guessCount,
-    attemptCount,
-    remainingCount: Math.max(0, maxQuestions - attemptCount),
-  };
-}
 
 function serializeQuestion(question) {
   return {
@@ -306,6 +289,7 @@ router.post('/:id/questions', verifyToken, async (req, res) => {
 
     const room = await TwentyQuestionsRoom.findById(req.params.id);
     if (!room) return res.status(404).json({ error: '스무고개 방을 찾을 수 없습니다.' });
+    if (isHost(room, req.user.id)) return res.status(403).json({ error: '방장은 질문할 수 없습니다. 참가자의 질문에 답변해주세요.' });
     if (room.status !== 'active') return res.status(400).json({ error: '진행 중인 방에만 질문할 수 있습니다.' });
     const counts = getAttemptCounts(room);
     if (counts.attemptCount >= counts.maxQuestions) {
@@ -371,6 +355,7 @@ router.post('/:id/questions/:questionId/answer', verifyToken, async (req, res) =
 
     question.response = response;
     question.answeredAt = new Date();
+    const exhausted = closeExhaustedRoom(room);
     await room.save();
 
     await createNotification({
@@ -384,7 +369,13 @@ router.post('/:id/questions/:questionId/answer', verifyToken, async (req, res) =
     });
 
     const populated = await findRoomWithUsers(room._id);
-    res.json({ message: '답변을 저장했습니다.', room: serializeRoomDetail(populated, req.user.id) });
+    res.json({
+      message: exhausted
+        ? '마지막 질문에 답했습니다. 20회를 모두 사용해 정답을 공개합니다.'
+        : '답변을 저장했습니다.',
+      exhausted,
+      room: serializeRoomDetail(populated, req.user.id),
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '답변 저장에 실패했습니다.' });
@@ -398,6 +389,7 @@ router.post('/:id/guesses', verifyToken, async (req, res) => {
 
     const room = await TwentyQuestionsRoom.findById(req.params.id);
     if (!room) return res.status(404).json({ error: '스무고개 방을 찾을 수 없습니다.' });
+    if (isHost(room, req.user.id)) return res.status(403).json({ error: '방장은 정답에 도전할 수 없습니다. 참가자의 추리를 진행해주세요.' });
     if (room.status !== 'active') return res.status(400).json({ error: '진행 중인 방에서만 정답을 맞힐 수 있습니다.' });
     const counts = getAttemptCounts(room);
     if (counts.attemptCount >= counts.maxQuestions) {
@@ -411,6 +403,7 @@ router.post('/:id/guesses', verifyToken, async (req, res) => {
       room.solvedBy = req.user.id;
       room.solvedAt = new Date();
     }
+    const exhausted = !correct && closeExhaustedRoom(room);
     await room.save();
 
     if (correct) {
@@ -427,8 +420,13 @@ router.post('/:id/guesses', verifyToken, async (req, res) => {
 
     const populated = await findRoomWithUsers(room._id);
     res.json({
-      message: correct ? '정답입니다. 방이 종료되었습니다.' : '오답입니다.',
+      message: correct
+        ? '정답입니다. 방이 종료되었습니다.'
+        : exhausted
+          ? '오답입니다. 20회를 모두 사용해 정답을 공개합니다.'
+          : '오답입니다.',
       correct,
+      exhausted,
       room: serializeRoomDetail(populated, req.user.id),
     });
   } catch (err) {

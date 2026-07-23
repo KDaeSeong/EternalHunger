@@ -53,7 +53,9 @@ assert.match(tcgPageSource, /tcg-play-workspace/, 'Dual Academy TCG must bound t
 assert.match(twentyLobbySource, /twenty-page--viewport twenty-page--lobby/, 'Twenty Questions lobby must use viewport mode.');
 assert.match(twentyRoomSource, /twenty-page--viewport twenty-page--room/, 'Twenty Questions room must use viewport mode.');
 assert.match(twentyCss, /\.twenty-page--lobby \.twenty-room-grid[\s\S]*overflow:\s*auto/, 'The room list must scroll inside the lobby workspace.');
-assert.match(twentyCss, /\.twenty-page--room \.twenty-shell[\s\S]*overflow:\s*auto/, 'The room detail must scroll inside its workspace.');
+assert.match(twentyCss, /\.twenty-page--room \.twenty-shell[\s\S]*overflow:\s*hidden/, 'The room shell must stay fixed inside the viewport.');
+assert.match(twentyCss, /\.twenty-page--room \.twenty-tab-content[\s\S]*overflow-y:\s*auto/, 'The active room tab must own the internal scroll area.');
+assert.match(twentyRoomSource, /<GameFeatureTabs/, 'Twenty Questions must divide deduction, hints, and history into bounded tabs.');
 assert.match(simulationCss, /\.simulation-page[\s\S]*height:\s*100dvh/, 'Eternal Hunger must remain a viewport-height simulation shell.');
 
 const sharedShellConsumers = [

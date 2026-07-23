@@ -68,6 +68,28 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'bandpass', frequency: 820, q: 1.4, duration: 0.055, gain: 0.075 },
     { frequency: 260, endFrequency: 210, duration: 0.075, type: 'triangle', gain: 0.065 },
   ],
+  farm: [
+    { source: 'noise', filterType: 'lowpass', frequency: 620, duration: 0.06, gain: 0.032, pan: -0.24 },
+    { frequency: 220, endFrequency: 275, duration: 0.075, type: 'triangle', gain: 0.044, pan: -0.14 },
+    { frequency: 330, start: 0.06, duration: 0.085, type: 'sine', gain: 0.038, pan: 0.08 },
+    { frequency: 440, start: 0.13, duration: 0.095, type: 'sine', gain: 0.032, pan: 0.28, reverb: 0.16 },
+  ],
+  herd: [
+    { source: 'noise', filterType: 'bandpass', frequency: 480, q: 1.2, duration: 0.045, gain: 0.024, pan: -0.2 },
+    { frequency: 392, duration: 0.08, type: 'triangle', gain: 0.043, pan: -0.16, reverb: 0.14 },
+    { frequency: 587.33, start: 0.07, duration: 0.11, type: 'sine', gain: 0.036, pan: 0.2, reverb: 0.24 },
+  ],
+  fish: [
+    { source: 'noise', filterType: 'highpass', frequency: 1550, duration: 0.055, gain: 0.03, pan: -0.26, reverb: 0.22 },
+    { frequency: 520, endFrequency: 390, duration: 0.07, type: 'sine', gain: 0.041, pan: -0.14 },
+    { frequency: 780, start: 0.065, duration: 0.09, type: 'sine', gain: 0.034, pan: 0.24, reverb: 0.28 },
+  ],
+  mine: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1050, q: 3.4, duration: 0.035, gain: 0.042, pan: -0.2 },
+    { frequency: 185, endFrequency: 130, duration: 0.085, type: 'triangle', gain: 0.047, pan: -0.12 },
+    { frequency: 1480, start: 0.025, duration: 0.07, type: 'sine', gain: 0.034, pan: 0.16, reverb: 0.2 },
+    { frequency: 2220, start: 0.075, duration: 0.095, type: 'sine', gain: 0.025, pan: 0.3, reverb: 0.3 },
+  ],
   survivalFail: [
     { source: 'noise', filterType: 'lowpass', frequency: 760, duration: 0.065, gain: 0.035 },
     { frequency: 220, endFrequency: 145, start: 0.025, duration: 0.13, type: 'triangle', gain: 0.05 },
@@ -1264,6 +1286,30 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'bandpass', frequency: 920, q: 4, duration: 0.028, gain: 0.022, pan: -0.2 },
     { frequency: 430, endFrequency: 360, duration: 0.045, type: 'square', gain: 0.032, pan: -0.1 },
     { frequency: 240, start: 0.045, duration: 0.08, type: 'triangle', gain: 0.038, pan: 0.16 },
+  ],
+  twentyQuestionArrive: [
+    { source: 'noise', filterType: 'highpass', frequency: 2200, duration: 0.025, gain: 0.016, pan: -0.34, reverb: 0.16 },
+    { frequency: 480, duration: 0.04, type: 'triangle', gain: 0.04, pan: -0.24 },
+    { frequency: 720, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.038, pan: 0.02 },
+    { frequency: 960, start: 0.09, duration: 0.09, type: 'sine', gain: 0.033, pan: 0.3, reverb: 0.24 },
+  ],
+  twentyGuessArrive: [
+    { source: 'noise', filterType: 'bandpass', frequency: 540, q: 1.6, duration: 0.05, gain: 0.023, pan: -0.16 },
+    { frequency: 220, endFrequency: 275, duration: 0.085, type: 'triangle', gain: 0.043, pan: -0.12 },
+    { frequency: 330, start: 0.075, duration: 0.105, type: 'sine', gain: 0.037, pan: 0.2, reverb: 0.16 },
+  ],
+  twentyHintArrive: [
+    { source: 'noise', filterType: 'highpass', frequency: 2800, duration: 0.045, gain: 0.018, pan: -0.3, reverb: 0.28 },
+    { frequency: 880, duration: 0.055, type: 'sine', gain: 0.038, pan: -0.2, reverb: 0.2 },
+    { frequency: 1320, start: 0.045, duration: 0.075, type: 'sine', gain: 0.034, pan: 0.08, reverb: 0.28 },
+    { frequency: 1760, start: 0.105, duration: 0.11, type: 'sine', gain: 0.028, pan: 0.32, reverb: 0.36 },
+  ],
+  twentyLimitReveal: [
+    { source: 'noise', filterType: 'lowpass', frequency: 680, duration: 0.07, gain: 0.026, pan: -0.2 },
+    { frequency: 440, endFrequency: 330, duration: 0.095, type: 'triangle', gain: 0.045, pan: -0.16 },
+    { frequency: 261.63, start: 0.09, duration: 0.115, type: 'triangle', gain: 0.041, pan: 0.04 },
+    { frequency: 196, start: 0.195, duration: 0.15, type: 'sine', gain: 0.038, pan: 0.2, reverb: 0.18 },
+    { frequency: 659.25, start: 0.31, duration: 0.16, type: 'sine', gain: 0.03, pan: 0.28, reverb: 0.3 },
   ],
   pass: [
     { frequency: 620, endFrequency: 360, duration: 0.08, type: 'sine', gain: 0.05 },

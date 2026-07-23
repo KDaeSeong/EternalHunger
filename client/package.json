@@ -72,6 +72,8 @@
     "check:school-simulator-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-school-simulator-soundtrack.mjs && node ./scripts/check-school-simulator-rendered-audio.mjs",
     "check:si-coding-feedback": "node ./scripts/check-si-coding-feedback.mjs",
     "check:si-coding-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-si-coding-soundtrack.mjs && node ./scripts/check-si-coding-rendered-audio.mjs",
+    "check:twenty-questions": "npm run check:twenty-questions-rules && npm run check:twenty-questions-feedback",
+    "check:twenty-questions-rules": "node ./scripts/check-twenty-questions-rules.mjs",
     "check:twenty-questions-feedback": "node ./scripts/check-twenty-questions-feedback.mjs",
     "check:twenty-questions-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-twenty-questions-soundtrack.mjs && node ./scripts/check-twenty-questions-rendered-audio.mjs",
     "diagnose:simulation": "node ./scripts/simulation-diagnostics.mjs"
