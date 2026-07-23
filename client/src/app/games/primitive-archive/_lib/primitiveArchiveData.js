@@ -263,6 +263,21 @@ export const TRIBE_JOBS = [
     outputText: '고기 중심 · 가죽 주기 생산',
   },
   {
+    id: 'logger', name: '벌목대', action: 'primitive-logging', techId: 'STONE_TOOLS',
+    description: '석기 도구로 굵은 나무를 베어 목재와 수지를 안정적으로 확보합니다.',
+    outputText: '나무 중심 · 수지와 섬유 보조',
+  },
+  {
+    id: 'herbalist', name: '약초대', action: 'primitive-herbalism', techId: 'HERBALISM',
+    description: '약초 군락을 식별해 약초와 베리, 수지를 채집합니다.',
+    outputText: '약초 중심 · 베리와 수지 보조',
+  },
+  {
+    id: 'trapper', name: '덫사냥대', action: 'primitive-trapping', techId: 'TRAPPING',
+    description: '숲과 평원에 덫을 놓아 고기와 가죽, 힘줄을 조달합니다.',
+    outputText: '고기 중심 · 가죽과 힘줄 보조',
+  },
+  {
     id: 'farmer', name: '농경대', action: 'primitive-farm', techId: 'AGRICULTURE',
     description: '정착지 경작지를 돌보며 곡물과 약초를 안정적으로 생산합니다.',
     outputText: '곡물 중심 · 약초 주기 생산',
@@ -281,6 +296,11 @@ export const TRIBE_JOBS = [
     id: 'miner', name: '채광대', action: 'primitive-mining', techId: 'MINING',
     description: '암반과 광맥을 캐서 돌, 부싯돌, 흑요석을 조달합니다.',
     outputText: '돌 중심 · 희귀 광물 보조',
+  },
+  {
+    id: 'quarryman', name: '채석대', action: 'primitive-quarry', techId: 'EARLY_CONSTRUCTION',
+    description: '노천 암반을 정리해 대량의 돌과 점토, 부싯돌을 공급합니다.',
+    outputText: '돌 중심 · 점토와 부싯돌 보조',
   },
   {
     id: 'builder', name: '건설대', action: 'project',
@@ -530,7 +550,7 @@ const RAW_TECH_TREE = [
   {
     id: 'STONE_TOOLS', name: '석기 도구', era: 'PRIMITIVE', tier: 2, cost: 12, prereqs: ['GATHERING'], tags: ['CRAFT'], archiveRequired: true,
     description: '돌과 뼈를 다듬어 채집과 제작용 도구를 만듭니다.',
-    unlocks: { passives: ['CRAFT_SUCCESS_UP'], recipes: ['stone_axe', 'flint_knife', 'bone_pick'] },
+    unlocks: { actions: ['logging'], passives: ['CRAFT_SUCCESS_UP'], recipes: ['stone_axe', 'flint_knife', 'bone_pick'] },
     eureka: { type: 'recipeCraft', recipeId: 'stone_axe', count: 1, bonusPct: 0.25, desc: '돌도끼 제작 1회' },
     inspiration: { type: 'haveItem', itemId: 'stone', count: 5, bonusPct: 0.15, desc: '돌 5개 보유' },
   },
@@ -543,7 +563,7 @@ const RAW_TECH_TREE = [
   {
     id: 'HERBALISM', name: '약초 지식', era: 'PRIMITIVE', tier: 2, cost: 12, prereqs: ['GATHERING'], tags: ['SURVIVAL'], archiveRequired: true,
     description: '약초를 식별해 회복과 응급 처치 효율을 높입니다.',
-    unlocks: { passives: ['REST_HEAL_UP'], recipes: ['herb_tonic'] },
+    unlocks: { actions: ['herbal'], passives: ['REST_HEAL_UP'], recipes: ['herb_tonic'] },
     eureka: { type: 'haveItem', itemId: 'herb', count: 3, bonusPct: 0.3, desc: '약초 3개 보유' },
   },
   {
@@ -556,7 +576,7 @@ const RAW_TECH_TREE = [
   {
     id: 'FISHING', name: '어로', era: 'NEOLITHIC', tier: 3, cost: 16, prereqs: ['CORDAGE'], tags: ['SURVIVAL'], archiveRequired: true,
     description: '강과 얕은 물의 생물을 안정적으로 포획해 식량 수급처를 늘립니다.',
-    unlocks: { passives: ['RIVER_YIELD_UP'] },
+    unlocks: { actions: ['fish'], passives: ['RIVER_YIELD_UP'] },
     eureka: { type: 'actionSuccess', action: 'gather', count: 4, bonusPct: 0.25, desc: '채집 성공 4회' },
     inspiration: { type: 'haveItem', itemId: 'meat', count: 3, bonusPct: 0.15, desc: '고기 3개 보유' },
   },
@@ -589,6 +609,7 @@ const RAW_TECH_TREE = [
     id: 'TRAPPING', name: '덫 사냥', era: 'NEOLITHIC', tier: 4, cost: 18, prereqs: ['CRAFTSMANSHIP', 'MILITARY_TRADITION'], tags: ['SURVIVAL', 'MILITARY'],
     description: '복합 도구와 전승된 사냥 전술을 덫과 올무에 적용해 부상 위험을 줄입니다.',
     unlocks: {
+      actions: ['trap'],
       passives: ['HUNT_RISK_DOWN'],
       recipes: ['leather_strip', 'hide_coat', 'hide_pants', 'shoes_leather', 'hat_fur', 'earmuffs', 'socks', 'gloves', 'arm_warmers', 'leggings', 'hunter_talisman'],
     },
@@ -610,14 +631,14 @@ const RAW_TECH_TREE = [
   {
     id: 'AGRICULTURE', name: '농업', era: 'NEOLITHIC', tier: 5, cost: 22, prereqs: ['POTTERY', 'SETTLEMENT'], tags: ['SURVIVAL', 'CIVICS'], archiveRequired: true,
     description: '식용 식물을 선별하고 재배 주기를 만들어 식물 자원 수익을 높입니다.',
-    unlocks: { passives: ['PLANT_YIELD_UP'] },
+    unlocks: { actions: ['farm'], passives: ['PLANT_YIELD_UP'] },
     eureka: { type: 'haveItem', itemId: 'berry', count: 8, bonusPct: 0.25, desc: '베리 8개 보유' },
     inspiration: { type: 'haveItem', itemId: 'herb', count: 5, bonusPct: 0.15, desc: '약초 5개 보유' },
   },
   {
     id: 'ANIMAL_HUSBANDRY', name: '목축', era: 'NEOLITHIC', tier: 5, cost: 22, prereqs: ['TRAPPING', 'SETTLEMENT'], tags: ['SURVIVAL', 'CIVICS'], archiveRequired: true,
     description: '야생동물의 습성과 번식 주기를 익혀 사냥과 동물 자원 수익을 높입니다.',
-    unlocks: { passives: ['ANIMAL_YIELD_UP'] },
+    unlocks: { actions: ['herd'], passives: ['ANIMAL_YIELD_UP'] },
     eureka: { type: 'actionSuccess', action: 'hunt', count: 4, bonusPct: 0.25, desc: '사냥 성공 4회' },
     inspiration: { type: 'haveItem', itemId: 'hide', count: 3, bonusPct: 0.15, desc: '가죽 3개 보유' },
   },
@@ -655,7 +676,7 @@ const RAW_TECH_TREE = [
   {
     id: 'MINING', name: '채광', era: 'ANCIENT', tier: 6, cost: 26, prereqs: ['ADVANCED_CARVING', 'SETTLEMENT'], tags: ['CRAFT', 'SCIENCE'],
     description: '암석층과 광맥을 구분해 돌과 희귀 광물의 발견 확률을 높입니다.',
-    unlocks: { passives: ['MINERAL_YIELD_UP'] },
+    unlocks: { actions: ['mine'], passives: ['MINERAL_YIELD_UP'] },
     eureka: { type: 'haveItem', itemId: 'stone', count: 10, bonusPct: 0.25, desc: '돌 10개 보유' },
     inspiration: { type: 'haveItem', itemId: 'obsidian_shard', count: 1, bonusPct: 0.18, desc: '흑요석 조각 1개 보유' },
   },
@@ -783,7 +804,7 @@ const RAW_TECH_TREE = [
   {
     id: 'EARLY_CONSTRUCTION', name: '초기 건설', era: 'ANCIENT', tier: 6, cost: 28, prereqs: ['ADVANCED_CARVING', 'SETTLEMENT'], tags: ['CAMP', 'CIVICS'],
     description: '작업 동선을 개선해 캠프 행동의 피로를 줄입니다.',
-    unlocks: { passives: ['CAMP_ACTION_STAMINA_DOWN'] },
+    unlocks: { actions: ['quarry'], passives: ['CAMP_ACTION_STAMINA_DOWN'] },
     eureka: { type: 'campLevel', key: 'shelterLevel', count: 3, bonusPct: 0.25, desc: '대피소 Lv.3 달성' },
     inspiration: { type: 'campLevel', key: 'workbenchLevel', count: 2, bonusPct: 0.15, desc: '작업대 Lv.2 달성' },
   },
@@ -2380,7 +2401,7 @@ export function normalizeProjectState(value = {}) {
 export function initTribeState() {
   return {
     population: 4,
-    assignments: { forager: 2, hunter: 1, farmer: 0, herder: 0, fisher: 0, miner: 0, builder: 1, scholar: 0 },
+    assignments: { forager: 2, hunter: 1, logger: 0, herbalist: 0, trapper: 0, farmer: 0, herder: 0, fisher: 0, miner: 0, quarryman: 0, builder: 1, scholar: 0 },
     morale: 60,
     growthProgress: 0,
     lastGrowthDay: 0,

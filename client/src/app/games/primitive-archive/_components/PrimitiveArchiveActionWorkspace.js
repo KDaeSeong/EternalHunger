@@ -51,9 +51,11 @@ export default function PrimitiveArchiveActionWorkspace(props) {
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const recipeMaterialsReady = Boolean(recipe?.materialsReady);
   const specializedRows = specializedActions || [];
-  const lockedSpecializedText = specializedRows
-    .filter((row) => !row.available)
-    .map((row) => `${row.label}: ${row.lockedReason}`).join(' \u00B7 ');
+  const lockedSpecializedRows = specializedRows.filter((row) => !row.available);
+  const lockedSpecializedText = [
+    ...lockedSpecializedRows.slice(0, 4).map((row) => `${row.label}: ${row.lockedReason}`),
+    lockedSpecializedRows.length > 4 ? `외 ${lockedSpecializedRows.length - 4}개` : '',
+  ].filter(Boolean).join(' \u00B7 ');
 
   return (
     <div className="primitive-workspace-panel" role="tabpanel">
@@ -148,7 +150,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
                 onClick={() => runSpecialized(row.id)}
                 title={`${row.technologyName} \u00B7 ${row.context} \u00B7 ${row.outcome}`}
               >
-                {row.label} \u00B7 {row.available ? `${row.chancePct}%` : '\uC7A0\uAE40'}
+                {row.label} · {row.available ? `${row.chancePct}%` : '\uC7A0\uAE40'}
               </ActionButton>
             ))}
           </div>

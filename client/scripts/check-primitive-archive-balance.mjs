@@ -47,15 +47,39 @@ const preview = engine.updateDeveloperToolsAction(base, {
 const previewRows = engine.specializedActionRows(preview, 'shiroko');
 assert.deepEqual(
   previewRows.filter((row) => row.available).map((row) => row.id).sort(),
-  ['farm', 'fish', 'herd', 'mine'],
-  '개발자 미리보기는 네 가지 특화 생업을 모두 열어야 합니다.',
+  ['farm', 'fish', 'herbal', 'herd', 'logging', 'mine', 'quarry', 'trap'],
+  '개발자 미리보기는 여덟 가지 특화 생업을 모두 열어야 합니다.',
 );
 assert.ok(
   previewRows.every((row) => row.chance === 1),
   '강제 성공을 켜면 모든 특화 생업 성공률이 100%여야 합니다.',
 );
+assert.equal(engine.developerToolsSummary(preview).rows.length, 10, '개발자 도구는 기본 행동 2종과 생업 8종을 모두 보정해야 합니다.');
+assert.equal(previewRows.find((row) => row.id === 'trap')?.label, '덫 사냥', '덫 사냥 명칭은 정확히 표시되어야 합니다.');
+const specializedOutputs = {
+  logging: 'wood',
+  herbal: 'herb',
+  trap: 'meat',
+  farm: 'grain',
+  herd: 'milk',
+  fish: 'fish',
+  mine: 'stone',
+  quarry: 'stone',
+};
+for (const [actionId, itemId] of Object.entries(specializedOutputs)) {
+  const result = engine.runSpecializedAction(preview, 'shiroko', actionId, '', { rng: () => 0.1 });
+  assert.ok(
+    Number(result.inventory[itemId] || 0) > Number(preview.inventory[itemId] || 0),
+    `${actionId} 성공은 ${itemId} 자원을 생산해야 합니다.`,
+  );
+  assert.equal(Number(result.counters[actionId] || 0), 1, `${actionId} 성공 횟수가 기록되어야 합니다.`);
+}
+assert.match(
+  engine.researchPlannerRows(base).find((row) => row.id === 'STONE_TOOLS')?.unlockText || '',
+  /생업 벌목/,
+  '기술 상세에는 해금되는 생업이 표시되어야 합니다.',
+);
 const farmed = engine.runSpecializedAction(preview, 'shiroko', 'farm', '', { rng: () => 0.1 });
-assert.ok(Number(farmed.inventory.grain || 0) >= 2, '농업 성공은 곡물을 생산해야 합니다.');
 const reset = engine.resetDeveloperToolsAction(farmed);
 assert.equal(engine.developerToolsSummary(reset).enabled, false, '개발자 도구 전체 초기화는 보정을 꺼야 합니다.');
 
@@ -65,10 +89,14 @@ const researched = engine.normalizeState({
     ...base.research,
     completed: {
       ...base.research.completed,
+      STONE_TOOLS: true,
+      HERBALISM: true,
       FISHING: true,
+      TRAPPING: true,
       AGRICULTURE: true,
       ANIMAL_HUSBANDRY: true,
       MINING: true,
+      EARLY_CONSTRUCTION: true,
     },
   },
   tribe: {
@@ -77,14 +105,33 @@ const researched = engine.normalizeState({
   },
 });
 const researchedRows = engine.specializedActionRows(researched, 'shiroko');
-assert.equal(researchedRows.find((row) => row.id === 'farm')?.available, true, '농업 연구는 농업 행동을 열어야 합니다.');
-assert.equal(researchedRows.find((row) => row.id === 'herd')?.available, true, '목축 연구는 목축 행동을 열어야 합니다.');
+for (const actionId of Object.keys(specializedOutputs)) {
+  assert.equal(researchedRows.find((row) => row.id === actionId)?.unlocked, true, `${actionId} 연구는 해당 행동을 열어야 합니다.`);
+}
 const tribeBefore = engine.tribeSummary(researched);
-assert.equal(tribeBefore.jobs.find((job) => job.id === 'farmer')?.unlocked, true, '농업 연구는 농경대 직업을 열어야 합니다.');
-assert.equal(tribeBefore.jobs.find((job) => job.id === 'miner')?.unlocked, true, '채광 연구는 채광대 직업을 열어야 합니다.');
+for (const jobId of ['logger', 'herbalist', 'trapper', 'farmer', 'herder', 'fisher', 'miner', 'quarryman']) {
+  assert.equal(tribeBefore.jobs.find((job) => job.id === jobId)?.unlocked, true, `${jobId} 직업이 해금되어야 합니다.`);
+}
 const tribeAssigned = engine.adjustTribeJobAction(researched, 'farmer', 1);
 assert.equal(tribeAssigned.tribe.assignments.farmer, 1, '해금된 농경대에는 부족원을 배치할 수 있어야 합니다.');
 assert.equal(engine.tribeSummary(base).jobs.find((job) => job.id === 'farmer')?.canAdd, false, '연구 전 농경대 배치는 비활성화되어야 합니다.');
+
+const productionState = engine.normalizeState({
+  ...researched,
+  inventory: { ...researched.inventory, berry: 20 },
+  tribe: {
+    ...researched.tribe,
+    population: 4,
+    assignments: {
+      forager: 0, hunter: 0, logger: 1, herbalist: 1, trapper: 1, farmer: 0,
+      herder: 0, fisher: 0, miner: 0, quarryman: 1, builder: 0, scholar: 0,
+    },
+  },
+});
+const produced = engine.advanceDay(productionState, { rng: () => 0.5 });
+for (const itemId of ['wood', 'herb', 'meat', 'stone']) {
+  assert.ok(Number(produced.tribe.lastProduction?.gains?.[itemId] || 0) > 0, `신규 부족 직업은 ${itemId} 일일 생산을 제공해야 합니다.`);
+}
 
 const simulations = [];
 for (const seed of [7, 19, 43]) {

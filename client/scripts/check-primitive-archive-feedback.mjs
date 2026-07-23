@@ -42,7 +42,7 @@ const base = {
   victory: false,
   log: ['Day 1: 기존 기록'],
   party: [{ hp: 100 }],
-  counters: { gather: 0, hunt: 0, craft: 0, farm: 0, herd: 0, fish: 0, mine: 0, meals: 0, camp: 0 },
+  counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, meals: 0, camp: 0 },
   exploration: { discoverySerial: 0 },
   projects: { completionSerial: 0 },
   research: { completionSerial: 0, eureka: {} },
@@ -55,10 +55,14 @@ const actionRows = [
   { label: '채집', action: 'primitive-gather', cue: 'gather', resultLabel: '채집 성공', log: 'Day 1: 채집 성공', counter: 'gather' },
   { label: '사냥', action: 'primitive-hunt', cue: 'combat', resultLabel: '사냥 성공', log: 'Day 1: 사냥 성공', counter: 'hunt' },
   { label: '제작', action: 'primitive-craft', cue: 'craft', resultLabel: '제작 성공', log: 'Day 1: 제작 성공', counter: 'craft' },
+  { label: '벌목', action: 'primitive-logging', cue: 'logging', resultLabel: '벌목 성공', log: 'Day 1: 벌목 성공', counter: 'logging' },
+  { label: '약초 채집', action: 'primitive-herbalism', cue: 'herbal', resultLabel: '약초 채집 성공', log: 'Day 1: 약초 채집 성공', counter: 'herbal' },
+  { label: '덫 사냥', action: 'primitive-trapping', cue: 'trap', resultLabel: '덫 사냥 성공', log: 'Day 1: 덫 사냥 성공', counter: 'trap' },
   { label: '농업', action: 'primitive-farm', cue: 'farm', resultLabel: '농업 생산', log: 'Day 1: 농업 성공', counter: 'farm' },
   { label: '목축', action: 'primitive-herd', cue: 'herd', resultLabel: '목축 생산', log: 'Day 1: 목축 성공', counter: 'herd' },
   { label: '어로', action: 'primitive-fishing', cue: 'fish', resultLabel: '어로 성공', log: 'Day 1: 어로 성공', counter: 'fish' },
   { label: '채광', action: 'primitive-mining', cue: 'mine', resultLabel: '채광 성공', log: 'Day 1: 채광 성공', counter: 'mine' },
+  { label: '채석', action: 'primitive-quarry', cue: 'quarry', resultLabel: '채석 성공', log: 'Day 1: 채석 성공', counter: 'quarry' },
   { label: '식사', action: 'primitive-meal', cue: 'consume', resultLabel: '식사 완료', log: 'Day 1: 열매를 먹었습니다.', counter: 'meals' },
   { label: '휴식', action: 'primitive-rest', cue: 'rest', resultLabel: '휴식 완료', log: 'Day 1: 휴식했습니다.' },
   { label: '연구', action: 'primitive-research', cue: 'research', resultLabel: '연구 진척', log: 'Day 1: 연구 +4RP' },
@@ -139,7 +143,7 @@ assert.equal(primitiveTextPresentation('런을 저장했습니다.').action, 'sa
 assert.equal(primitiveTextPresentation('런 결과를 전적에 기록하고 정산했습니다.').action, 'archive', '전적 정산은 기록 아이콘이어야 합니다.');
 
 for (const cue of [
-  'start', 'gather', 'combat', 'craft', 'farm', 'herd', 'fish', 'mine', 'consume', 'rest', 'research', 'policy', 'camp',
+  'start', 'gather', 'combat', 'craft', 'logging', 'herbal', 'trap', 'farm', 'herd', 'fish', 'mine', 'quarry', 'consume', 'rest', 'research', 'policy', 'camp',
   'project', 'event', 'auto', 'assign', 'diplomacy', 'recruit', 'upgrade', 'equip',
   'survivalFail', 'champion', 'defeat', 'eraAdvance', 'projectComplete', 'civicComplete',
   'complete', 'inspiration', 'discover', 'season', 'growth',
@@ -151,7 +155,8 @@ for (const icon of [
   'primitive-camp', 'primitive-civic', 'primitive-craft', 'primitive-day', 'primitive-defeat',
   'primitive-diplomacy', 'primitive-discovery', 'primitive-equip', 'primitive-era',
   'primitive-eureka', 'primitive-event', 'primitive-gather', 'primitive-growth',
-  'primitive-farm', 'primitive-herd', 'primitive-fishing', 'primitive-mining',
+  'primitive-logging', 'primitive-herbalism', 'primitive-trapping',
+  'primitive-farm', 'primitive-herd', 'primitive-fishing', 'primitive-mining', 'primitive-quarry',
   'primitive-hunt', 'primitive-inspiration', 'primitive-job', 'primitive-meal',
   'primitive-perk', 'primitive-project', 'primitive-recruit', 'primitive-region',
   'primitive-research', 'primitive-rest', 'primitive-season', 'primitive-survival-fail',
@@ -181,6 +186,7 @@ for (const source of [actionSource, campSource, growthSource, projectSource, tri
   assert.match(source, /actionFeedback\?\.tone/, '행동이 있는 탭은 동적 결과 톤을 표시해야 합니다.');
 }
 assert.match(actionSource, /action="research" cue="off"/, '연구 버튼은 결과음과 클릭음이 겹치지 않아야 합니다.');
+assert.match(actionSource, /\{row\.label\} · \{row\.available/, '특화 생업 버튼의 구분점은 실제 문자로 렌더링되어야 합니다.');
 assert.match(campSource, /action="event" cue="off"/, '탐험 사건 버튼은 결과음과 클릭음이 겹치지 않아야 합니다.');
 assert.match(projectSource, /action="project"\s+cue="off"/, '프로젝트 작업은 결과음과 클릭음이 겹치지 않아야 합니다.');
 assert.match(tribeSource, /data-game-sfx="off"/, '직업 배치 스테퍼는 배치 결과음만 재생해야 합니다.');

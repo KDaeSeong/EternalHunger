@@ -340,12 +340,25 @@ export function advancementTierLabel(advancement, track = advancement?.track) {
   return `${prefix}${Math.max(1, Number(advancement?.tier || 1))}`;
 }
 
+const ACTION_UNLOCK_LABELS = {
+  logging: '벌목',
+  herbal: '약초 채집',
+  trap: '덫 사냥',
+  farm: '농업',
+  herd: '목축',
+  fish: '어로',
+  mine: '채광',
+  quarry: '채석',
+};
+
 export function researchUnlockText(tech) {
+  const actions = (tech.unlocks?.actions || []).map((actionId) => ACTION_UNLOCK_LABELS[actionId] || actionId);
   const recipes = (tech.unlocks?.recipes || [])
     .map((recipeId) => RECIPES.find((recipe) => recipe.id === recipeId)?.name || recipeId);
   const camps = (tech.unlocks?.camp || []).map((campId) => CAMP_UNLOCK_LABELS[campId] || campId);
   const passives = (tech.unlocks?.passives || []).map((passiveId) => PASSIVE_UNLOCK_LABELS[passiveId] || passiveId.replaceAll('_', ' '));
   return [
+    actions.length ? `생업 ${actions.join(', ')}` : '',
     recipes.length ? `제작 ${recipes.join(', ')}` : '',
     camps.length ? `시설 ${camps.join(', ')}` : '',
     passives.length ? `효과 ${passives.join(', ')}` : '',

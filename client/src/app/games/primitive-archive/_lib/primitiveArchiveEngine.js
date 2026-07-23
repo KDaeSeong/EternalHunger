@@ -91,7 +91,7 @@ function perkLevel(meta, perkId) {
   return Math.max(0, Number(meta?.ownedPerks?.[perkId] || 0));
 }
 
-const DEVELOPER_ACTION_IDS = ['gather', 'hunt', 'farm', 'herd', 'fish', 'mine'];
+const DEVELOPER_ACTION_IDS = ['gather', 'hunt', 'logging', 'herbal', 'trap', 'farm', 'herd', 'fish', 'mine', 'quarry'];
 
 function normalizeDeveloperTools(value = {}) {
   const actionBonuses = value?.actionBonuses && typeof value.actionBonuses === 'object' ? value.actionBonuses : {};
@@ -131,7 +131,7 @@ export function createNewState(options = {}) {
     inventory,
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
-    counters: { gather: 0, hunt: 0, craft: 0, farm: 0, herd: 0, fish: 0, mine: 0, camp: 0, meals: 0, events: 0 },
+    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, camp: 0, meals: 0, events: 0 },
     eventChains: [],
     exploration: initExplorationState(),
     projects: initProjectState(),
@@ -226,10 +226,14 @@ export function normalizeState(value) {
 const DEVELOPER_ACTION_LABELS = {
   gather: '\uCC44\uC9D1',
   hunt: '\uC0AC\uB0E5',
+  logging: '\uBC8C\uBAA9',
+  herbal: '\uC57D\uCD08 \uCC44\uC9D1',
+  trap: '\uB36B \uC0AC\uB0E5',
   farm: '\uB18D\uC5C5',
   herd: '\uBAA9\uCD95',
   fish: '\uC5B4\uB85C',
   mine: '\uCC44\uAD11',
+  quarry: '\uCC44\uC11D',
 };
 
 export function developerToolsSummary(state) {
@@ -437,6 +441,14 @@ const RESEARCH_ACTION_LABELS = {
   rest: '휴식',
   eat: '식사',
   research: '연구',
+  logging: '벌목',
+  herbal: '약초 채집',
+  trap: '덫 사냥',
+  farm: '농업',
+  herd: '목축',
+  fish: '어로',
+  mine: '채광',
+  quarry: '채석',
 };
 
 function recipeName(recipeId) {
@@ -695,16 +707,19 @@ function passiveLabel(passiveId) {
 
 function researchUnlockGroups(tech) {
   const unlocks = tech?.unlocks || {};
+  const actions = (unlocks.actions || []).map((actionId) => RESEARCH_ACTION_LABELS[actionId] || actionId);
   const recipes = (unlocks.recipes || []).map(recipeName);
   const items = (unlocks.items || []).map(itemName);
   const camps = (unlocks.camp || []).map((campId) => RESEARCH_CAMP_LABELS[campId] || campId);
   const passives = (unlocks.passives || []).map(passiveLabel);
   return {
+    actions,
     recipes,
     items,
     camps,
     passives,
     unlockText: [
+      actions.length ? `생업 ${actions.join(', ')}` : '',
       recipes.length ? `제작 ${recipes.join(', ')}` : '',
       items.length ? `아이템 ${items.join(', ')}` : '',
       camps.length ? `시설 ${camps.join(', ')}` : '',
@@ -1027,24 +1042,39 @@ function tribeProductionForDay(assignments, day, state = null) {
   };
   const foragers = Math.max(0, Number(assignments?.forager || 0));
   const hunters = Math.max(0, Number(assignments?.hunter || 0));
+  const loggers = jobActive('logger') ? Math.max(0, Number(assignments?.logger || 0)) : 0;
+  const herbalists = jobActive('herbalist') ? Math.max(0, Number(assignments?.herbalist || 0)) : 0;
+  const trappers = jobActive('trapper') ? Math.max(0, Number(assignments?.trapper || 0)) : 0;
   const farmers = jobActive('farmer') ? Math.max(0, Number(assignments?.farmer || 0)) : 0;
   const herders = jobActive('herder') ? Math.max(0, Number(assignments?.herder || 0)) : 0;
   const fishers = jobActive('fisher') ? Math.max(0, Number(assignments?.fisher || 0)) : 0;
   const miners = jobActive('miner') ? Math.max(0, Number(assignments?.miner || 0)) : 0;
+  const quarrymen = jobActive('quarryman') ? Math.max(0, Number(assignments?.quarryman || 0)) : 0;
   const today = Math.max(1, Number(day || 1));
   const entries = {
-    wood: Math.ceil(foragers / 2),
-    fiber: foragers >= 2 && today % 2 === 0 ? Math.floor(foragers / 2) : 0,
-    berry: Math.ceil(foragers / 2),
+    wood: Math.ceil(foragers / 2) + loggers,
+    fiber: (foragers >= 2 && today % 2 === 0 ? Math.floor(foragers / 2) : 0)
+      + (loggers >= 2 && today % 3 === 0 ? Math.floor(loggers / 2) : 0),
+    berry: Math.ceil(foragers / 2) + (herbalists >= 2 && today % 2 === 0 ? Math.floor(herbalists / 2) : 0),
+    resin: loggers > 0 && today % 2 === 0 ? Math.ceil(loggers / 2) : 0,
     grain: farmers,
-    herb: farmers >= 2 && today % 3 === 0 ? Math.floor(farmers / 2) : 0,
+    herb: (farmers >= 2 && today % 3 === 0 ? Math.floor(farmers / 2) : 0) + Math.ceil(herbalists / 2),
     fish: Math.ceil(fishers / 2),
     bone: fishers >= 2 && today % 3 === 0 ? Math.floor(fishers / 2) : 0,
     milk: Math.ceil(herders / 2),
-    meat: Math.floor(hunters / 2) + (hunters % 2 > 0 && today % 2 === 0 ? 1 : 0) + (herders >= 2 && today % 2 === 0 ? Math.floor(herders / 2) : 0),
-    hide: Math.floor(hunters / 2) + (hunters % 2 > 0 && today % 3 === 0 ? 1 : 0) + (herders >= 2 && today % 3 === 0 ? Math.floor(herders / 2) : 0),
-    stone: Math.ceil(miners / 2),
-    flint: miners >= 2 && today % 2 === 0 ? Math.floor(miners / 2) : 0,
+    meat: Math.floor(hunters / 2)
+      + (hunters % 2 > 0 && today % 2 === 0 ? 1 : 0)
+      + Math.ceil(trappers / 2)
+      + (herders >= 2 && today % 2 === 0 ? Math.floor(herders / 2) : 0),
+    hide: Math.floor(hunters / 2)
+      + (hunters % 2 > 0 && today % 3 === 0 ? 1 : 0)
+      + (trappers >= 2 && today % 2 === 0 ? Math.floor(trappers / 2) : 0)
+      + (herders >= 2 && today % 3 === 0 ? Math.floor(herders / 2) : 0),
+    sinew: trappers >= 2 && today % 3 === 0 ? Math.floor(trappers / 2) : 0,
+    stone: Math.ceil(miners / 2) + quarrymen,
+    clay: quarrymen > 0 && today % 2 === 0 ? Math.ceil(quarrymen / 2) : 0,
+    flint: (miners >= 2 && today % 2 === 0 ? Math.floor(miners / 2) : 0)
+      + (quarrymen >= 2 && today % 3 === 0 ? Math.floor(quarrymen / 2) : 0),
     obsidian_shard: miners >= 3 && today % 4 === 0 ? 1 : 0,
   };
   return Object.fromEntries(Object.entries(entries).filter(([, qty]) => qty > 0));
@@ -3634,6 +3664,7 @@ export function researchPlannerRows(state) {
         + (tech.eurekaDone ? 24 : eurekaPct * 0.22)
         + (tech.inspirationDone ? 16 : inspirationPct * 0.14)
         + Number(tech.progressPct || 0) * 0.35
+        + unlockGroups.actions.length * 12
         + unlockGroups.recipes.length * 8
         + unlockGroups.camps.length * 10
         + unlockGroups.passives.length * 4
@@ -3743,6 +3774,7 @@ export function civicsPlannerRows(state) {
           + (civic.available ? 56 : 0)
           + (civic.inspirationDone ? 30 : inspirationPct * 0.3)
           + Number(civic.progressPct || 0) * 0.38
+          + unlockGroups.actions.length * 12
           + unlockGroups.recipes.length * 8
           + unlockGroups.camps.length * 10
           + unlockGroups.passives.length * 5
@@ -4566,9 +4598,24 @@ function expectedGainText(rows, detailed = false) {
 
 const SPECIALIZED_ACTION_DEFS = [
   {
+    id: 'logging', label: '\uBC8C\uBAA9', icon: 'primitive-logging', techId: 'STONE_TOOLS', skill: 'gather', baseChance: 0.72,
+    staminaCost: 14, hungerAdd: 2, zoneIds: ['forest'], zoneId: 'forest',
+    gains: [['wood', 3], ['resin', 1, 0.5], ['fiber', 1, 0.35]],
+  },
+  {
+    id: 'herbal', label: '\uC57D\uCD08 \uCC44\uC9D1', icon: 'primitive-herbalism', techId: 'HERBALISM', skill: 'gather', baseChance: 0.66,
+    staminaCost: 13, hungerAdd: 2, zoneIds: ['forest', 'river'], zoneId: 'forest',
+    gains: [['herb', 2], ['berry', 1, 0.55], ['resin', 1, 0.22]],
+  },
+  {
     id: 'fish', label: '\uC5B4\uB85C', icon: 'primitive-fishing', techId: 'FISHING', skill: 'gather', baseChance: 0.62,
     staminaCost: 16, hungerAdd: 3, zoneIds: ['river'], zoneId: 'river',
     gains: [['fish', 2], ['bone', 1, 0.2]],
+  },
+  {
+    id: 'trap', label: '\uB36B \uC0AC\uB0E5', icon: 'primitive-trapping', techId: 'TRAPPING', skill: 'hunt', baseChance: 0.7,
+    staminaCost: 15, hungerAdd: 3, zoneIds: ['forest', 'plains'], zoneId: 'forest',
+    gains: [['meat', 2], ['hide', 1, 0.6], ['sinew', 1, 0.25], ['bone', 1, 0.25]],
   },
   {
     id: 'farm', label: '\uB18D\uC5C5', icon: 'primitive-farm', techId: 'AGRICULTURE', skill: 'gather', baseChance: 0.68,
@@ -4584,6 +4631,11 @@ const SPECIALIZED_ACTION_DEFS = [
     id: 'mine', label: '\uCC44\uAD11', icon: 'primitive-mining', techId: 'MINING', skill: 'gather', baseChance: 0.56,
     staminaCost: 22, hungerAdd: 4, zoneIds: ['cave'], zoneId: 'cave',
     gains: [['stone', 3], ['flint', 1, 0.7], ['obsidian_shard', 1, 0.22]],
+  },
+  {
+    id: 'quarry', label: '\uCC44\uC11D', icon: 'primitive-quarry', techId: 'EARLY_CONSTRUCTION', skill: 'gather', baseChance: 0.62,
+    staminaCost: 19, hungerAdd: 3, zoneIds: ['cave', 'plains'], zoneId: 'cave',
+    gains: [['stone', 4], ['clay', 1, 0.65], ['flint', 1, 0.35]],
   },
 ];
 
@@ -4622,7 +4674,7 @@ function specializedActionChance(state, actorId, profile, region) {
 
 function specializedExpectedGains(state, profile, chance, region) {
   if (!region) return [];
-  const context = { action: profile.skill, zoneId: profile.zoneId, regionId: region.id, region };
+  const context = { action: profile.skill, zoneId: region.zoneId || profile.zoneId, regionId: region.id, region };
   const bonusChance = zoneBonusQuantityChance(state, context);
   return profile.gains.map(([itemId, qty, entryChance = 1]) => ({
     itemId,
@@ -4810,7 +4862,7 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
   const actor = getActor(current, actorId);
   const chance = specializedActionChance(current, actorId, profile, region);
   const ok = rng() < chance;
-  const context = { action: profile.skill, zoneId: profile.zoneId, regionId: region.id, region };
+  const context = { action: profile.skill, zoneId: region.zoneId || profile.zoneId, regionId: region.id, region };
   let next = current;
   if (ok) {
     const gains = rollZoneGains(current, profile.gains, rng, context);
@@ -4825,7 +4877,7 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
   }
   next = addDialogueLog(next, actorId, profile.skill, ok ? 'success' : 'fail', rng);
   if (profile.zoneIds.length) {
-    next = applyExplorationEvent(next, { actorId, action: profile.skill, zoneId: profile.zoneId, ok, rng });
+    next = applyExplorationEvent(next, { actorId, action: profile.skill, zoneId: region.zoneId || profile.zoneId, ok, rng });
     next = discoverRegionAfterAction(next, region, ok, rng);
   }
   next = recordResearchEvent(next, { kind: 'action', action: profile.skill, ok });
@@ -5226,16 +5278,20 @@ function autoAssignUnassignedTribe(state) {
   const targets = {
     forager: Math.max(2, Math.ceil(population * 0.3)),
     hunter: Math.max(1, Math.ceil(population * 0.15)),
+    logger: jobUnlocked('logger') ? 1 : 0,
+    herbalist: jobUnlocked('herbalist') ? 1 : 0,
+    trapper: jobUnlocked('trapper') ? 1 : 0,
     farmer: jobUnlocked('farmer') ? Math.max(1, Math.ceil(population * 0.2)) : 0,
     herder: jobUnlocked('herder') ? 1 : 0,
     fisher: jobUnlocked('fisher') ? 1 : 0,
     miner: jobUnlocked('miner') ? 1 : 0,
+    quarryman: jobUnlocked('quarryman') ? 1 : 0,
     scholar: researchSystemStatus(state).unlocked ? Math.max(1, Math.floor(population * 0.2)) : 0,
     builder: 1,
   };
   const selectedProject = projectRows(state).find((project) => project.selected && !project.completed && project.available);
   if (selectedProject) targets.builder = Math.max(1, Math.ceil(population / 5));
-  const priority = ['forager', 'hunter', 'farmer', 'fisher', 'herder', 'miner', 'scholar', 'builder'];
+  const priority = ['forager', 'hunter', 'logger', 'herbalist', 'farmer', 'fisher', 'herder', 'trapper', 'miner', 'quarryman', 'scholar', 'builder'];
 
   while (unassigned > 0) {
     let jobId = priority.find((candidate) => (
@@ -5304,7 +5360,7 @@ function runNextAutoArchiveAction(state, options = {}) {
   }
 
   if (averageHunger >= 50 && foodStock < state.party.length + 2) {
-    const specializedFood = pickAutoSpecializedAction(state, ['farm', 'fish', 'herd']);
+    const specializedFood = pickAutoSpecializedAction(state, ['farm', 'fish', 'herd', 'trap']);
     if (specializedFood) {
       return runSpecializedAction(state, specializedFood.actorId, specializedFood.actionId, '', options);
     }
@@ -5334,10 +5390,14 @@ function runNextAutoArchiveAction(state, options = {}) {
   if (campKind) return runCampAction(state, pickActorForAuto(state, 'craft'), campKind, options);
 
   const specializedPriorities = [];
+  if (Number(state.inventory.wood || 0) < 6 || Number(state.inventory.resin || 0) < 1) specializedPriorities.push('logging');
+  if (Number(state.inventory.herb || 0) < 3) specializedPriorities.push('herbal');
   if (Number(state.inventory.grain || 0) < 3) specializedPriorities.push('farm');
   if (Number(state.inventory.fish || 0) < 2) specializedPriorities.push('fish');
   if (Number(state.inventory.milk || 0) + Number(state.inventory.meat || 0) < 3) specializedPriorities.push('herd');
+  if (Number(state.inventory.meat || 0) < 2 || Number(state.inventory.hide || 0) < 2 || Number(state.inventory.sinew || 0) < 1) specializedPriorities.push('trap');
   if (Number(state.inventory.stone || 0) < 6 || Number(state.inventory.flint || 0) < 2) specializedPriorities.push('mine');
+  if (Number(state.inventory.stone || 0) < 8 || Number(state.inventory.clay || 0) < 2) specializedPriorities.push('quarry');
   const specialized = developmentWindow
     ? pickAutoSpecializedAction(state, specializedPriorities)
     : null;

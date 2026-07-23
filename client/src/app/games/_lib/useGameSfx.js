@@ -68,6 +68,27 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'bandpass', frequency: 820, q: 1.4, duration: 0.055, gain: 0.075 },
     { frequency: 260, endFrequency: 210, duration: 0.075, type: 'triangle', gain: 0.065 },
   ],
+  logging: [
+    { source: 'noise', filterType: 'bandpass', frequency: 980, q: 2.4, duration: 0.04, gain: 0.046, pan: -0.24 },
+    { frequency: 190, endFrequency: 126, duration: 0.09, type: 'triangle', gain: 0.052, pan: -0.12 },
+    { frequency: 760, endFrequency: 520, start: 0.045, duration: 0.08, type: 'square', gain: 0.025, pan: 0.24, reverb: 0.14 },
+  ],
+  herbal: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 0.8, duration: 0.12, gain: 0.022, pan: -0.3 },
+    { frequency: 523, duration: 0.07, type: 'sine', gain: 0.034, pan: -0.12 },
+    { frequency: 659, start: 0.065, duration: 0.11, type: 'sine', gain: 0.029, pan: 0.28, reverb: 0.26 },
+  ],
+  trap: [
+    { source: 'noise', filterType: 'highpass', frequency: 1850, duration: 0.028, gain: 0.038, pan: -0.22 },
+    { frequency: 250, endFrequency: 165, duration: 0.075, type: 'square', gain: 0.043, pan: -0.1 },
+    { frequency: 500, start: 0.055, duration: 0.09, type: 'triangle', gain: 0.03, pan: 0.26, reverb: 0.18 },
+  ],
+  quarry: [
+    { source: 'noise', filterType: 'bandpass', frequency: 920, q: 3.2, duration: 0.04, gain: 0.05, pan: -0.28 },
+    { frequency: 132, endFrequency: 88, duration: 0.12, type: 'triangle', gain: 0.052, pan: -0.12 },
+    { frequency: 1040, start: 0.035, duration: 0.08, type: 'sine', gain: 0.029, pan: 0.16, reverb: 0.2 },
+    { frequency: 1560, start: 0.095, duration: 0.11, type: 'sine', gain: 0.022, pan: 0.3, reverb: 0.3 },
+  ],
   farm: [
     { source: 'noise', filterType: 'lowpass', frequency: 620, duration: 0.06, gain: 0.032, pan: -0.24 },
     { frequency: 220, endFrequency: 275, duration: 0.075, type: 'triangle', gain: 0.044, pan: -0.14 },
@@ -2260,6 +2281,30 @@ const THEME_CUE_PROFILES = {
       { source: 'noise', filterType: 'bandpass', frequency: 720, q: 0.8, duration: 0.16, gain: 0.026, pan: -0.42, reverb: 0.12 },
       { frequency: 196, endFrequency: 164, duration: 0.09, type: 'triangle', gain: 0.04, pan: -0.18 },
       { frequency: 330, start: 0.08, duration: 0.11, type: 'sine', gain: 0.026, pan: 0.28, reverb: 0.2 },
+    ],
+    logging: [
+      { source: 'noise', filterType: 'bandpass', frequency: 880, q: 2.2, duration: 0.045, gain: 0.032, pan: -0.44, reverb: 0.12 },
+      { frequency: 147, endFrequency: 98, duration: 0.13, type: 'triangle', gain: 0.047, pan: -0.2 },
+      { frequency: 392, endFrequency: 294, start: 0.045, duration: 0.12, type: 'square', gain: 0.026, pan: 0.1, reverb: 0.18 },
+      { frequency: 196, start: 0.13, duration: 0.15, type: 'sine', gain: 0.025, pan: 0.36, reverb: 0.3 },
+    ],
+    herbal: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1650, q: 0.7, duration: 0.2, gain: 0.015, pan: -0.46, reverb: 0.24 },
+      { frequency: 392, duration: 0.07, type: 'triangle', gain: 0.032, pan: -0.24 },
+      { frequency: 523, start: 0.06, duration: 0.1, type: 'sine', gain: 0.03, pan: 0.08, reverb: 0.26 },
+      { frequency: 784, start: 0.145, duration: 0.16, type: 'sine', gain: 0.023, pan: 0.38, reverb: 0.38 },
+    ],
+    trap: [
+      { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.032, gain: 0.028, pan: -0.42 },
+      { frequency: 220, endFrequency: 147, duration: 0.09, type: 'square', gain: 0.039, pan: -0.2 },
+      { frequency: 330, endFrequency: 220, start: 0.045, duration: 0.12, type: 'triangle', gain: 0.029, pan: 0.08 },
+      { frequency: 587, start: 0.12, duration: 0.14, type: 'sine', gain: 0.022, pan: 0.36, reverb: 0.3 },
+    ],
+    quarry: [
+      { source: 'noise', filterType: 'bandpass', frequency: 980, q: 3.8, duration: 0.045, gain: 0.034, pan: -0.42, reverb: 0.18 },
+      { frequency: 110, endFrequency: 73, duration: 0.15, type: 'triangle', gain: 0.05, pan: -0.2 },
+      { frequency: 440, endFrequency: 330, start: 0.035, duration: 0.11, type: 'square', gain: 0.026, pan: 0.1, reverb: 0.22 },
+      { frequency: 1320, start: 0.11, duration: 0.18, type: 'sine', gain: 0.021, pan: 0.4, reverb: 0.4 },
     ],
     combat: [
       { source: 'noise', filterType: 'lowpass', frequency: 680, duration: 0.12, gain: 0.038, pan: -0.34, reverb: 0.12 },
