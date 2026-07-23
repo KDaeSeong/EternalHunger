@@ -28,6 +28,11 @@ const TEXT_PRESENTATIONS = [
   { pattern: /최소 간격|권장.*간격|다이아/, value: { action: 'analysis', label: '다이아 분석', tone: 'highlight' } },
 ];
 
+function signedRailMetric(value, suffix = '') {
+  const rounded = Math.round(Number(value || 0) * 10) / 10;
+  return `${rounded > 0 ? '+' : ''}${rounded.toLocaleString('ko-KR')}${suffix}`;
+}
+
 function eventCount(trains, key) {
   return (trains || []).reduce(
     (sum, train) => sum + Object.keys(train?.[key] || {}).length,
@@ -37,6 +42,7 @@ function eventCount(trains, key) {
 
 export function rail3dFeedbackSnapshot(state) {
   const trains = state?.trains || [];
+  const blocks = Array.isArray(state?.blocks) ? state.blocks : [];
   const completed = trains.filter((train) => train?.phase === 'DONE').length;
   const maxWaitSeconds = trains.reduce(
     (max, train) => Math.max(max, Number(train?.waitSeconds || 0)),
@@ -59,6 +65,9 @@ export function rail3dFeedbackSnapshot(state) {
       0,
     ),
     maxWaitSeconds,
+    totalWaitSeconds: trains.reduce((sum, train) => sum + Number(train?.waitSeconds || 0), 0),
+    occupied: blocks.filter((block) => block?.state === 'OCCUPIED').length,
+    reserved: blocks.filter((block) => block?.state === 'RESERVED').length,
     waitBand: Math.floor(maxWaitSeconds / 60),
     edgeSignature: trains
       .map((train) => `${String(train?.id || '')}:${String(train?.pose?.edgeId || '')}`)
@@ -108,6 +117,159 @@ export function rail3dFeedbackPresentation(previous, current) {
   if (key === 'delayedArrival') return { ...profile, label: `${snapshot.maxWaitSeconds}s 지연 도착` };
   if (key === 'delayEscalated') return { ...profile, label: `${snapshot.maxWaitSeconds}s 누적 지연` };
   return profile;
+}
+
+export function rail3dFeedbackImpacts(previousValue, currentValue) {
+  if (!previousValue || !currentValue) return [];
+  const previous = previousValue?.arrivals !== undefined ? previousValue : rail3dFeedbackSnapshot(previousValue);
+  const current = currentValue?.arrivals !== undefined ? currentValue : rail3dFeedbackSnapshot(currentValue);
+  if (previous.runId !== current.runId) return [];
+
+  const critical = [];
+  const progress = [];
+  const context = [];
+  const addImpact = (collection, {
+    action,
+    after,
+    before,
+    inverse = false,
+    label,
+    suffix = '',
+    tone = '',
+    worseTone = 'warning',
+  }) => {
+    const delta = Math.round((Number(after || 0) - Number(before || 0)) * 10) / 10;
+    if (!delta) return false;
+    const improved = inverse ? delta < 0 : delta > 0;
+    collection.push({
+      action,
+      label,
+      value: signedRailMetric(delta, suffix),
+      tone: tone || (improved ? 'success' : worseTone),
+    });
+    return true;
+  };
+
+  addImpact(critical, {
+    action: 'block-conflict',
+    before: previous.blocked,
+    after: current.blocked,
+    inverse: true,
+    label: '블록 충돌',
+    suffix: '편',
+    worseTone: 'danger',
+  });
+  addImpact(critical, {
+    action: 'rail-token',
+    before: previous.tokenWaits,
+    after: current.tokenWaits,
+    inverse: true,
+    label: '토큰 대기',
+    suffix: '편',
+  });
+  addImpact(critical, {
+    action: 'signal',
+    before: previous.stopped,
+    after: current.stopped,
+    inverse: true,
+    label: 'STOP',
+    suffix: '편',
+    worseTone: 'danger',
+  });
+  const waitChanged = addImpact(critical, {
+    action: 'rail-delay',
+    before: previous.maxWaitSeconds,
+    after: current.maxWaitSeconds,
+    inverse: true,
+    label: '최장 대기',
+    suffix: '초',
+  });
+  if (!waitChanged) {
+    addImpact(critical, {
+      action: 'wait',
+      before: previous.totalWaitSeconds,
+      after: current.totalWaitSeconds,
+      inverse: true,
+      label: '총 대기',
+      suffix: '초',
+    });
+  }
+
+  addImpact(progress, {
+    action: 'rail-clear',
+    before: previous.completed,
+    after: current.completed,
+    label: '종착',
+    suffix: '편',
+  });
+  addImpact(progress, {
+    action: 'station',
+    before: previous.arrivals,
+    after: current.arrivals,
+    label: '도착',
+    suffix: '회',
+  });
+  addImpact(progress, {
+    action: 'dispatch',
+    before: previous.departures,
+    after: current.departures,
+    label: '출발',
+    suffix: '회',
+  });
+
+  if (current.lookaheadBlocks !== previous.lookaheadBlocks) {
+    progress.push({
+      action: 'signal',
+      label: '예약 시야',
+      value: `${current.lookaheadBlocks}블록`,
+      tone: 'highlight',
+    });
+  }
+  if (current.stepSeconds !== previous.stepSeconds) {
+    progress.push({
+      action: 'clock',
+      label: '스텝 간격',
+      value: `${current.stepSeconds}초`,
+      tone: 'highlight',
+    });
+  }
+  addImpact(progress, {
+    action: 'rail-clear',
+    before: previous.occupied,
+    after: current.occupied,
+    label: '점유 블록',
+    suffix: '개',
+    tone: 'highlight',
+  });
+  addImpact(progress, {
+    action: 'rail-token',
+    before: previous.reserved,
+    after: current.reserved,
+    label: '예약 블록',
+    suffix: '개',
+    tone: 'highlight',
+  });
+
+  addImpact(context, {
+    action: 'clock',
+    before: previous.nowS,
+    after: current.nowS,
+    label: '운행 시간',
+    suffix: '초',
+    tone: 'highlight',
+  });
+
+  const impacts = [...critical, ...progress, ...context].slice(0, 4);
+  if (impacts.length) return impacts;
+  if (current.edgeSignature === previous.edgeSignature && current.tokenSignature === previous.tokenSignature) return [];
+
+  const presentation = rail3dFeedbackPresentation(previous, current);
+  return [{
+    action: presentation.action,
+    label: presentation.label,
+    value: '경로 상태 갱신',
+    tone: presentation.tone || 'highlight',
+  }];
 }
 
 export function rail3dResultPresentation(text, fallback = RAIL_FEEDBACK_PROFILES.idle) {

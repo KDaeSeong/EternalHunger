@@ -9,6 +9,7 @@ import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GameActionIcon from '../../_components/GameActionIcon';
 import { useGameBgm } from '../../_components/GameBgmProvider';
 import Rail3dFeatureTabs from '../_components/Rail3dFeatureTabs';
+import { Rail3dImpactStrip } from '../_components/Rail3dVisuals';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import useGameSfx from '../../_lib/useGameSfx';
@@ -38,6 +39,7 @@ import {
 } from '../_lib/rail3dEngine';
 import {
   rail3dFeedbackCue,
+  rail3dFeedbackImpacts,
   rail3dFeedbackPresentation,
   rail3dFeedbackSnapshot,
   rail3dResultPresentation,
@@ -139,6 +141,7 @@ export default function Rail3dSimPlayPage() {
     label: '운행 결과',
     tone: '',
   });
+  const [resultImpacts, setResultImpacts] = useState([]);
   const feedbackRef = useRef(rail3dFeedbackSnapshot(state));
   const musicSceneTimerRef = useRef(null);
 
@@ -201,17 +204,21 @@ export default function Rail3dSimPlayPage() {
     setState(nextState);
     setActionResult(actionFeedbackText(state, nextState, label, fallback));
     setActionPresentation(rail3dFeedbackPresentation(state, nextState));
+    setResultImpacts(rail3dFeedbackImpacts(state, nextState));
   };
 
   const startNewRun = () => {
     const nextState = createNewState();
+    const presentation = rail3dFeedbackPresentation(state, nextState);
     setState(nextState);
     setSelectedTrainId(nextState.trains[0]?.id || 'T1');
     setActiveFeatureTabId('operations');
     setMessage('');
     setActionResult('새 Rail3D Sim 운행을 시작했습니다.');
-    setActionPresentation(rail3dFeedbackPresentation(state, nextState));
+    setActionPresentation(presentation);
+    setResultImpacts([]);
     feedbackRef.current = rail3dFeedbackSnapshot(nextState);
+    if (presentation.cue) playGameSfx(presentation.cue);
   };
 
   const focusTrain = (trainId, tabId = 'trains') => {
@@ -226,6 +233,7 @@ export default function Rail3dSimPlayPage() {
         label: '열차 선택',
         tone: 'highlight',
       });
+      setResultImpacts([]);
     }
     setActiveFeatureTabId(tabId);
   };
@@ -244,6 +252,7 @@ export default function Rail3dSimPlayPage() {
     if (item.action === 'show-analysis') {
       setActiveFeatureTabId('analysis');
       setActionResult(item.detail);
+      setResultImpacts([]);
       return;
     }
     if (item.action === 'step') {
@@ -264,6 +273,7 @@ export default function Rail3dSimPlayPage() {
   };
 
   const saveRun = async () => {
+    setResultImpacts([]);
     if (!token || busy) {
       setMessage('로그인하면 Rail3D Sim 진행 상태를 저장할 수 있습니다.');
       setActionResult('로그인하면 Rail3D Sim 진행 상태를 저장할 수 있습니다.');
@@ -293,6 +303,7 @@ export default function Rail3dSimPlayPage() {
   };
 
   const loadRun = async () => {
+    setResultImpacts([]);
     if (!token || busy) {
       setMessage('로그인하면 저장된 Rail3D Sim 진행 상태를 불러올 수 있습니다.');
       setActionResult('로그인하면 저장된 Rail3D Sim 진행 상태를 불러올 수 있습니다.');
@@ -326,6 +337,7 @@ export default function Rail3dSimPlayPage() {
   };
 
   const recordRun = async () => {
+    setResultImpacts([]);
     if (!token || busy) {
       setMessage('로그인하면 Rail3D Sim 운행 기록을 전적에 남길 수 있습니다.');
       setActionResult('로그인하면 Rail3D Sim 운행 기록을 전적에 남길 수 있습니다.');
@@ -358,7 +370,7 @@ export default function Rail3dSimPlayPage() {
 
   const actions = (
     <>
-      <GameControlButton action="new" onClick={startNewRun}>새 운행</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun}>새 운행</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
       <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
@@ -415,7 +427,7 @@ export default function Rail3dSimPlayPage() {
       className="rail3d-page-shell"
       kicker="Rail3D Sim"
       title="Rail3D 운행 디버그"
-      description="업로드된 rail3d-sim MVP의 샘플 노선, 서비스 시간표, 블록 점유와 STOP/GO 디버그 흐름을 사이트용 transport slice로 이식했습니다."
+      description="시간표와 신호, 블록 점유와 단선 토큰을 조정해 여러 열차를 지연 없이 종착시키는 철도 관제 시뮬레이션입니다."
       summaryLabel="Rail3D Sim 요약"
       summaryDensity="micro"
       primaryMetricLimit={10}
@@ -432,6 +444,7 @@ export default function Rail3dSimPlayPage() {
         tone={resultPresentation.tone}
         pinned
       />
+      <Rail3dImpactStrip items={resultImpacts} />
 
       <Rail3dFeatureTabs
         activeFeatureTabId={activeFeatureTabId}

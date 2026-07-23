@@ -7518,6 +7518,82 @@
   color: #a62f36;
 }
 
+.rail3d-impact-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.rail3d-impact-chip {
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #c5d8e5;
+  border-radius: 7px;
+  background: #f2f7fa;
+  color: #244459;
+  font-variant-numeric: tabular-nums;
+}
+
+.rail3d-impact-chip > .game-action-icon {
+  width: 25px;
+  height: 25px;
+  color: #2673a6;
+}
+
+.rail3d-impact-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  color: #526a7a;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail3d-impact-chip > strong {
+  color: #17384d;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.rail3d-impact-chip.is-success {
+  border-color: #96c9b5;
+  background: #edf8f2;
+}
+
+.rail3d-impact-chip.is-success > strong {
+  color: #147053;
+}
+
+.rail3d-impact-chip.is-warning {
+  border-color: #e3c486;
+  background: #fff7e6;
+}
+
+.rail3d-impact-chip.is-warning > strong {
+  color: #966016;
+}
+
+.rail3d-impact-chip.is-danger {
+  border-color: #e4a4a7;
+  background: #fff0f0;
+}
+
+.rail3d-impact-chip.is-danger > strong {
+  color: #a62f36;
+}
+
+.rail3d-impact-chip.is-highlight {
+  border-color: #9fc7df;
+  background: #eaf5fb;
+}
+
 .primitive-archive-panel-title h2,
 .primitive-archive-panel-title h3 {
   min-width: 0;
@@ -14015,6 +14091,10 @@
   .rail3d-icon-row > strong:last-child {
     grid-column: 2;
     justify-self: start;
+  }
+
+  .rail3d-impact-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .game-save-row.primitive-archive-icon-row {
