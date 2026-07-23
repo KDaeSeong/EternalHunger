@@ -34,6 +34,7 @@ import {
   clearAllEquipmentAction,
   createNewState,
   difficultyRows,
+  developerToolsSummary,
   directionParticle,
   equipmentChoicesForSlot,
   equipmentInventoryRows,
@@ -51,6 +52,7 @@ import {
   recipeRows,
   recruitPartyMemberAction,
   recruitablePartyRows,
+  resetDeveloperToolsAction,
   researchInspirationRows,
   researchPlannerRows,
   researchSummary,
@@ -64,6 +66,7 @@ import {
   runEatAction,
   runGatherAction,
   runHuntAction,
+  runSpecializedAction,
   runProjectAction,
   runEventChainAction,
   runRecoveryChoiceAction,
@@ -75,6 +78,8 @@ import {
   selectRegionAction,
   selectTechAction,
   setEquipmentSlotAction,
+  specializedActionRows,
+  updateDeveloperToolsAction,
   startNewRunFromMeta,
   subjectParticle,
   techRows,
@@ -117,7 +122,7 @@ export default function PrimitiveArchivePlayContent() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
-  const playGameSfx = useGameSfx({ theme: 'survival' });
+  const playGameSfx = useGameSfx({ theme: 'civilization' });
   const { setMusicScene } = useGameBgm();
   const [state, setState] = useState(createHydrationSafeState);
   const [activeTabId, setActiveTabId] = useState('actions');
@@ -224,6 +229,11 @@ export default function PrimitiveArchivePlayContent() {
     () => actionForecastRows(state, actorId, activeRegionId, recipeId),
     [activeRegionId, actorId, recipeId, state],
   );
+  const specializedActions = useMemo(
+    () => specializedActionRows(state, actorId, activeRegionId),
+    [activeRegionId, actorId, state],
+  );
+  const developerTools = useMemo(() => developerToolsSummary(state), [state]);
   const baseMusicScene = resolvePrimitiveArchiveBgmScene({
     activeTabId,
     bodyTemp,
@@ -386,6 +396,20 @@ export default function PrimitiveArchivePlayContent() {
     if (!canAct) return;
     applyAction('사냥', (current) => runHuntAction(current, actorId, activeRegionId));
   };
+  const runSpecialized = (actionId) => {
+    if (!canAct) return;
+    const row = specializedActions.find((candidate) => candidate.id === actionId);
+    applyAction(row?.label || '\uD2B9\uD654 \uC0DD\uC5C5', (current) => (
+      runSpecializedAction(current, actorId, actionId, activeRegionId)
+    ));
+  };
+
+  const updateDeveloperTools = (patch) => {
+    replaceState((current) => updateDeveloperToolsAction(current, patch));
+  };
+
+  const resetDeveloperTools = () => replaceState((current) => resetDeveloperToolsAction(current));
+
 
   const runCraft = () => {
     if (!canAct || !recipe?.unlocked) return;
@@ -616,6 +640,7 @@ export default function PrimitiveArchivePlayContent() {
         currentEquipmentRows={currentEquipmentRows}
         currentDifficulty={currentDifficulty}
         currentLogCapacity={currentLogCapacity}
+        developerTools={developerTools}
         equipmentAdviceMode={equipmentAdviceMode}
         equipmentAdviceRows={equipmentAdviceRows}
         equipmentInventory={equipmentInventory}
@@ -644,6 +669,7 @@ export default function PrimitiveArchivePlayContent() {
         researchMap={researchMap}
         researchPlannerOpen={researchPlannerOpen}
         recordRun={recordRun}
+        resetDeveloperTools={resetDeveloperTools}
         rivals={rivals}
         runCamp={runCamp}
         runCivic={runCivic}
@@ -658,6 +684,7 @@ export default function PrimitiveArchivePlayContent() {
         runRecoveryChoice={runRecoveryChoice}
         runResearch={runResearch}
         runRest={runRest}
+        runSpecialized={runSpecialized}
         selectResearchTarget={selectResearchTarget}
         selectCivicTarget={selectCivicTarget}
         selectProject={selectProject}
@@ -678,12 +705,14 @@ export default function PrimitiveArchivePlayContent() {
         setResearchPlannerOpen={setResearchPlannerOpen}
         setSelectedRecruitId={setSelectedRecruitId}
         regions={regions}
+        specializedActions={specializedActions}
         state={state}
         startNewRun={startNewRun}
         techs={techs}
         technologyPlannerRows={plannerRows}
         tribe={tribe}
         token={token}
+        updateDeveloperTools={updateDeveloperTools}
         hydrated={hydrated}
         zone={zone}
         zoneId={activeRegionId}

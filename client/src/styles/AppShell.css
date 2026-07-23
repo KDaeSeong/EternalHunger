@@ -7490,7 +7490,7 @@
 
 .primitive-archive-workspace .game-feature-tabs__list {
   display: grid;
-  grid-template-columns: repeat(9, minmax(86px, 1fr));
+  grid-template-columns: repeat(10, minmax(78px, 1fr));
   gap: 4px;
   overflow-x: auto;
   padding-bottom: 6px;
@@ -7922,6 +7922,139 @@
 .primitive-action-workspace {
   gap: 8px;
   padding: 12px;
+}
+
+.primitive-specialized-actions {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(34, 112, 92, 0.22);
+  border-radius: 7px;
+  background: #f3faf7;
+  padding: 8px;
+}
+
+.primitive-specialized-actions__header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #245b4d;
+  font-size: 0.74rem;
+}
+
+.primitive-specialized-actions__header span {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.primitive-specialized-actions__buttons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.primitive-specialized-actions__buttons .game-action-button {
+  min-width: 0;
+  min-height: 34px;
+  padding: 5px 7px;
+  font-size: 0.72rem;
+}
+
+.primitive-specialized-actions > small {
+  min-width: 0;
+  color: #66746f;
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.primitive-developer-panel {
+  gap: 10px;
+}
+
+.primitive-developer-toggles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.primitive-developer-toggles label {
+  min-width: 0;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(22, 33, 44, 0.1);
+  border-radius: 7px;
+  background: #f8fafc;
+  padding: 8px 10px;
+  color: #263440;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.primitive-developer-toggles input {
+  flex: 0 0 auto;
+  accent-color: #28799f;
+}
+
+.primitive-developer-sliders {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.primitive-developer-sliders label {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 54px minmax(80px, 1fr) 48px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(22, 33, 44, 0.09);
+  border-radius: 7px;
+  background: #fbfcfe;
+  padding: 8px 10px;
+  color: #526170;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.primitive-developer-sliders input {
+  width: 100%;
+  min-width: 0;
+  accent-color: #2f7da8;
+}
+
+.primitive-developer-sliders strong {
+  color: #1d668f;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.primitive-developer-presets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.primitive-developer-presets button {
+  min-width: 0;
+  min-height: 36px;
+}
+
+.primitive-developer-note {
+  margin: 0;
+  border-left: 3px solid #2f7da8;
+  background: #f1f7fb;
+  color: #5f6c78;
+  padding: 8px 10px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
 .primitive-acting-status {
@@ -8808,6 +8941,16 @@
   border-radius: 8px;
   background: #f8fafb;
   padding: 10px;
+}
+
+.primitive-job-grid article.is-locked {
+  border-style: dashed;
+  background: #f3f5f6;
+}
+
+.primitive-job-grid article.is-locked .primitive-job-icon,
+.primitive-job-grid article.is-locked .primitive-job-copy {
+  opacity: 0.58;
 }
 
 .primitive-job-icon {
@@ -11924,6 +12067,19 @@
     grid-template-columns: 1fr;
   }
 
+  .primitive-specialized-actions__buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .primitive-developer-toggles,
+  .primitive-developer-sliders {
+    grid-template-columns: 1fr;
+  }
+
+  .primitive-developer-presets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .primitive-acting-status {
     grid-template-columns: 1fr;
     align-items: stretch;
@@ -14239,6 +14395,30 @@
 
   .primitive-action-workspace .games-action-dock__buttons .game-action-button {
     min-height: 36px;
+  }
+
+  .primitive-specialized-actions {
+    gap: 4px;
+    padding: 6px 8px;
+  }
+
+  .primitive-specialized-actions__buttons {
+    gap: 4px;
+  }
+
+  .primitive-specialized-actions__buttons .game-action-button {
+    min-height: 30px;
+    padding-block: 4px;
+  }
+
+  .primitive-developer-panel {
+    gap: 7px;
+  }
+
+  .primitive-developer-toggles label,
+  .primitive-developer-sliders label {
+    min-height: 36px;
+    padding-block: 6px;
   }
 
   .primitive-action-workspace .games-action-result {

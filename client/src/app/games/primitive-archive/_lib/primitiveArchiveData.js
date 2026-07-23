@@ -263,6 +263,26 @@ export const TRIBE_JOBS = [
     outputText: '고기 중심 · 가죽 주기 생산',
   },
   {
+    id: 'farmer', name: '농경대', action: 'primitive-farm', techId: 'AGRICULTURE',
+    description: '정착지 경작지를 돌보며 곡물과 약초를 안정적으로 생산합니다.',
+    outputText: '곡물 중심 · 약초 주기 생산',
+  },
+  {
+    id: 'herder', name: '목축대', action: 'primitive-herd', techId: 'ANIMAL_HUSBANDRY',
+    description: '가축을 돌보며 우유와 고기, 가죽을 지속적으로 확보합니다.',
+    outputText: '우유 중심 · 고기와 가죽 보조',
+  },
+  {
+    id: 'fisher', name: '어로대', action: 'primitive-fishing', techId: 'FISHING',
+    description: '강과 얕은 여울에서 물고기를 잡아 식량원을 다변화합니다.',
+    outputText: '물고기 중심 · 뼈 주기 생산',
+  },
+  {
+    id: 'miner', name: '채광대', action: 'primitive-mining', techId: 'MINING',
+    description: '암반과 광맥을 캐서 돌, 부싯돌, 흑요석을 조달합니다.',
+    outputText: '돌 중심 · 희귀 광물 보조',
+  },
+  {
     id: 'builder', name: '건설대', action: 'project',
     description: '선택한 공동 프로젝트에 매일 작업량을 투입합니다.',
     outputText: '1명당 프로젝트 작업 +1',
@@ -318,6 +338,9 @@ export const ITEMS = {
   clay: { name: '점토', icon: 'stone', weight: 1 },
   resin: { name: '수지', icon: 'wood', weight: 1 },
   herb: { name: '약초', icon: 'herb', weight: 1 },
+  grain: { name: '\uACE1\uBB3C', icon: 'food', weight: 1, type: 'food', nutrition: 12, heal: 0 },
+  fish: { name: '\uBB3C\uACE0\uAE30', icon: 'food', weight: 1, type: 'food', nutrition: 16, heal: 0 },
+  milk: { name: '\uC6B0\uC720', icon: 'food', weight: 1, type: 'food', nutrition: 10, heal: 2 },
   berry: { name: '베리', icon: 'food', weight: 1, type: 'food', nutrition: 8, heal: 0 },
   meat: { name: '고기', icon: 'food', weight: 1, type: 'food', nutrition: 12, heal: 0 },
   cooked_meat: { name: '구운 고기', icon: 'food', weight: 1, type: 'food', nutrition: 28, heal: 6 },
@@ -2357,7 +2380,7 @@ export function normalizeProjectState(value = {}) {
 export function initTribeState() {
   return {
     population: 4,
-    assignments: { forager: 2, hunter: 1, builder: 1, scholar: 0 },
+    assignments: { forager: 2, hunter: 1, farmer: 0, herder: 0, fisher: 0, miner: 0, builder: 1, scholar: 0 },
     morale: 60,
     growthProgress: 0,
     lastGrowthDay: 0,

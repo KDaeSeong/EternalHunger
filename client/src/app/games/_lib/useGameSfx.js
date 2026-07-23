@@ -2140,6 +2140,115 @@ const THEME_CUE_PROFILES = {
       { frequency: 420, start: 0.045, duration: 0.075, type: 'sine', gain: 0.045 },
     ],
   },
+  civilization: {
+    accent: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1100, q: 0.7, duration: 0.08, gain: 0.009, pan: -0.24, reverb: 0.18 },
+      { frequency: 196, endFrequency: 220, duration: 0.08, type: 'triangle', gain: 0.018, pan: 0.18, reverb: 0.16 },
+    ],
+    click: [
+      { source: 'noise', filterType: 'highpass', frequency: 1800, duration: 0.025, gain: 0.012, pan: -0.2 },
+      { frequency: 220, endFrequency: 196, duration: 0.05, type: 'triangle', gain: 0.042, pan: 0.12 },
+    ],
+    confirm: [
+      { frequency: 262, duration: 0.055, type: 'triangle', gain: 0.042, pan: -0.28 },
+      { frequency: 392, start: 0.05, duration: 0.075, type: 'triangle', gain: 0.038 },
+      { frequency: 523, start: 0.12, duration: 0.13, type: 'sine', gain: 0.03, pan: 0.3, reverb: 0.26 },
+    ],
+    gather: [
+      { source: 'noise', filterType: 'bandpass', frequency: 720, q: 0.8, duration: 0.16, gain: 0.026, pan: -0.42, reverb: 0.12 },
+      { frequency: 196, endFrequency: 164, duration: 0.09, type: 'triangle', gain: 0.04, pan: -0.18 },
+      { frequency: 330, start: 0.08, duration: 0.11, type: 'sine', gain: 0.026, pan: 0.28, reverb: 0.2 },
+    ],
+    combat: [
+      { source: 'noise', filterType: 'lowpass', frequency: 680, duration: 0.12, gain: 0.038, pan: -0.34, reverb: 0.12 },
+      { frequency: 110, endFrequency: 78, duration: 0.14, type: 'sine', gain: 0.05, pan: -0.16 },
+      { frequency: 247, endFrequency: 165, start: 0.07, duration: 0.12, type: 'sawtooth', gain: 0.032, pan: 0.22 },
+    ],
+    craft: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1500, q: 1.1, duration: 0.045, gain: 0.022, pan: -0.34 },
+      { frequency: 440, endFrequency: 330, duration: 0.075, type: 'triangle', gain: 0.04, pan: -0.18 },
+      { frequency: 220, start: 0.07, duration: 0.11, type: 'sine', gain: 0.032, pan: 0.24, reverb: 0.16 },
+    ],
+    farm: [
+      { source: 'noise', filterType: 'lowpass', frequency: 900, duration: 0.18, gain: 0.018, pan: -0.42, reverb: 0.18 },
+      { frequency: 262, duration: 0.06, type: 'triangle', gain: 0.038, pan: -0.26 },
+      { frequency: 330, start: 0.055, duration: 0.07, type: 'triangle', gain: 0.036 },
+      { frequency: 392, start: 0.12, duration: 0.12, type: 'sine', gain: 0.028, pan: 0.3, reverb: 0.24 },
+    ],
+    herd: [
+      { frequency: 523, duration: 0.08, type: 'sine', gain: 0.034, pan: -0.34, reverb: 0.28 },
+      { frequency: 784, start: 0.06, duration: 0.11, type: 'sine', gain: 0.032, pan: 0.04, reverb: 0.3 },
+      { frequency: 1046, start: 0.14, duration: 0.16, type: 'sine', gain: 0.024, pan: 0.36, reverb: 0.34 },
+    ],
+    fish: [
+      { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.2, gain: 0.018, pan: -0.48, reverb: 0.26 },
+      { frequency: 780, endFrequency: 1180, duration: 0.09, type: 'sine', gain: 0.034, pan: -0.18 },
+      { frequency: 1320, endFrequency: 980, start: 0.1, duration: 0.13, type: 'sine', gain: 0.027, pan: 0.32, reverb: 0.32 },
+    ],
+    mine: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1250, q: 1.4, duration: 0.06, gain: 0.026, pan: -0.36, reverb: 0.14 },
+      { frequency: 180, endFrequency: 120, duration: 0.1, type: 'triangle', gain: 0.045, pan: -0.16 },
+      { frequency: 520, endFrequency: 390, start: 0.045, duration: 0.12, type: 'square', gain: 0.026, pan: 0.28, reverb: 0.22 },
+    ],
+    consume: [
+      { frequency: 294, endFrequency: 262, duration: 0.075, type: 'triangle', gain: 0.034, pan: -0.2 },
+      { frequency: 440, start: 0.065, duration: 0.1, type: 'sine', gain: 0.026, pan: 0.22, reverb: 0.18 },
+    ],
+    rest: [
+      { source: 'noise', filterType: 'lowpass', frequency: 480, duration: 0.24, gain: 0.015, pan: -0.34, reverb: 0.24 },
+      { frequency: 196, endFrequency: 146, duration: 0.2, type: 'sine', gain: 0.032, pan: -0.16 },
+      { frequency: 294, start: 0.12, duration: 0.2, type: 'sine', gain: 0.022, pan: 0.28, reverb: 0.3 },
+    ],
+    research: [
+      { frequency: 330, duration: 0.055, type: 'triangle', gain: 0.038, pan: -0.34 },
+      { frequency: 494, start: 0.05, duration: 0.07, type: 'triangle', gain: 0.037, pan: -0.12 },
+      { frequency: 659, start: 0.115, duration: 0.09, type: 'triangle', gain: 0.034, pan: 0.14 },
+      { frequency: 988, start: 0.2, duration: 0.18, type: 'sine', gain: 0.026, pan: 0.38, reverb: 0.34 },
+    ],
+    policy: [
+      { frequency: 196, duration: 0.12, type: 'triangle', gain: 0.035, pan: -0.34 },
+      { frequency: 294, start: 0.04, duration: 0.16, type: 'sine', gain: 0.03 },
+      { frequency: 392, start: 0.09, duration: 0.2, type: 'sine', gain: 0.026, pan: 0.34, reverb: 0.3 },
+    ],
+    camp: [
+      { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.25, gain: 0.023, pan: -0.46, reverb: 0.2 },
+      { frequency: 110, endFrequency: 98, duration: 0.2, type: 'sine', gain: 0.035, pan: -0.16 },
+      { frequency: 220, start: 0.1, duration: 0.2, type: 'triangle', gain: 0.026, pan: 0.28, reverb: 0.26 },
+    ],
+    project: [
+      { source: 'noise', filterType: 'bandpass', frequency: 960, q: 1.1, duration: 0.045, gain: 0.022, pan: -0.4 },
+      { frequency: 260, duration: 0.055, type: 'triangle', gain: 0.04, pan: -0.28 },
+      { frequency: 330, start: 0.07, duration: 0.06, type: 'triangle', gain: 0.038 },
+      { frequency: 392, start: 0.145, duration: 0.11, type: 'sine', gain: 0.028, pan: 0.32, reverb: 0.24 },
+    ],
+    auto: [
+      { frequency: 262, duration: 0.05, type: 'triangle', gain: 0.035, pan: -0.4 },
+      { frequency: 330, start: 0.045, duration: 0.06, type: 'triangle', gain: 0.034, pan: -0.16 },
+      { frequency: 392, start: 0.1, duration: 0.075, type: 'triangle', gain: 0.032, pan: 0.12 },
+      { frequency: 523, start: 0.17, duration: 0.14, type: 'sine', gain: 0.026, pan: 0.38, reverb: 0.3 },
+    ],
+    assign: [
+      { frequency: 392, duration: 0.055, type: 'triangle', gain: 0.038, pan: -0.24 },
+      { frequency: 523, start: 0.05, duration: 0.09, type: 'sine', gain: 0.03, pan: 0.26, reverb: 0.22 },
+    ],
+    diplomacy: [
+      { frequency: 174, duration: 0.13, type: 'triangle', gain: 0.032, pan: -0.38 },
+      { frequency: 261, start: 0.035, duration: 0.15, type: 'sine', gain: 0.028, pan: -0.12 },
+      { frequency: 349, start: 0.085, duration: 0.18, type: 'sine', gain: 0.026, pan: 0.14 },
+      { frequency: 523, start: 0.16, duration: 0.2, type: 'sine', gain: 0.022, pan: 0.38, reverb: 0.34 },
+    ],
+    start: [
+      { frequency: 196, duration: 0.07, type: 'triangle', gain: 0.04, pan: -0.36 },
+      { frequency: 294, start: 0.065, duration: 0.085, type: 'triangle', gain: 0.038, pan: -0.12 },
+      { frequency: 392, start: 0.145, duration: 0.11, type: 'triangle', gain: 0.034, pan: 0.14 },
+      { frequency: 588, start: 0.245, duration: 0.2, type: 'sine', gain: 0.028, pan: 0.38, reverb: 0.36 },
+    ],
+    survivalFail: [
+      { source: 'noise', filterType: 'lowpass', frequency: 560, duration: 0.18, gain: 0.026, pan: -0.36, reverb: 0.18 },
+      { frequency: 196, endFrequency: 130, duration: 0.18, type: 'triangle', gain: 0.038, pan: -0.16 },
+      { frequency: 98, start: 0.13, duration: 0.22, type: 'sine', gain: 0.032, pan: 0.26, reverb: 0.28 },
+    ],
+  },
   kitchen: {
     accent: [{ frequency: 1080, duration: 0.04, type: 'sine', gain: 0.024 }],
     click: [{ frequency: 760, endFrequency: 920, duration: 0.045, type: 'sine', gain: 0.07 }],
@@ -2616,6 +2725,7 @@ const THEME_SPATIAL_MIXES = {
   'academy-duel': { panSpread: 0.56, reverb: 0.2 },
   vanguard: { panSpread: 0.52, reverb: 0.18 },
   survival: { panSpread: 0.28, reverb: 0.18 },
+  civilization: { panSpread: 0.4, reverb: 0.24 },
   kitchen: { panSpread: 0.3, reverb: 0.11 },
   idle: { panSpread: 0.4, reverb: 0.23 },
   tactical: { panSpread: 0.52, reverb: 0.15 },

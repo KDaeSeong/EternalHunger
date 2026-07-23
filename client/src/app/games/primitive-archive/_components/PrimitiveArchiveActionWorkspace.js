@@ -35,11 +35,13 @@ export default function PrimitiveArchiveActionWorkspace(props) {
     runHunt,
     runResearch,
     runRest,
+    runSpecialized,
     selectRegion,
     selectedRegion,
     setActorId,
     setRecipeId,
     regions,
+    specializedActions,
     state,
     zone,
     zoneId,
@@ -48,6 +50,10 @@ export default function PrimitiveArchiveActionWorkspace(props) {
   const condition = actingCondition(actor);
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const recipeMaterialsReady = Boolean(recipe?.materialsReady);
+  const specializedRows = specializedActions || [];
+  const lockedSpecializedText = specializedRows
+    .filter((row) => !row.available)
+    .map((row) => `${row.label}: ${row.lockedReason}`).join(' \u00B7 ');
 
   return (
     <div className="primitive-workspace-panel" role="tabpanel">
@@ -126,6 +132,27 @@ export default function PrimitiveArchiveActionWorkspace(props) {
           <ActionButton action="research" cue="off" disabled={!actorCanAct || !research.actionUnlocked || !research.selected?.available} onClick={runResearch}>
             {research.actionUnlocked ? '연구' : '직접 연구 잠김'}
           </ActionButton>
+        </div>
+        <div className="primitive-specialized-actions">
+          <div className="primitive-specialized-actions__header">
+            <strong>{'\uAE30\uC220 \uD574\uAE08 \uC0DD\uC5C5'}</strong>
+            <span>{specializedRows.filter((row) => row.available).length}/{specializedRows.length} {'\uD574\uAE08'}</span>
+          </div>
+          <div className="primitive-specialized-actions__buttons">
+            {specializedRows.map((row) => (
+              <ActionButton
+                action={row.icon}
+                cue="off"
+                disabled={!actorCanAct || !row.available}
+                key={row.id}
+                onClick={() => runSpecialized(row.id)}
+                title={`${row.technologyName} \u00B7 ${row.context} \u00B7 ${row.outcome}`}
+              >
+                {row.label} \u00B7 {row.available ? `${row.chancePct}%` : '\uC7A0\uAE40'}
+              </ActionButton>
+            ))}
+          </div>
+          <small>{lockedSpecializedText || '\uBAA8\uB4E0 \uD2B9\uD654 \uC0DD\uC5C5\uC774 \uD65C\uC131\uD654\uB410\uC2B5\uB2C8\uB2E4.'}</small>
         </div>
         <RecentActionResult
           action={actionFeedback?.action || 'survival'}

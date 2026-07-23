@@ -71,10 +71,10 @@ export default function PrimitiveArchiveTribeTab({
         <PrimitiveArchivePanelTitle action="primitive-job" title="직업 배치" meta={`미배치 ${tribe.unassigned}명 · AP 소모 없음`} />
         <div className="primitive-job-grid">
           {tribe.jobs.map((job) => (
-            <article key={job.id}>
+            <article className={job.unlocked ? '' : 'is-locked'} key={job.id}>
               <GameActionIcon action={job.action} className="primitive-job-icon" />
               <div className="primitive-job-copy">
-                <span>{job.outputText}</span>
+                <span>{job.unlocked ? job.outputText : '기술 연구 후 해금'}</span>
                 <strong>{job.name}</strong>
                 <small>{job.description}</small>
                 <em>다음 정산 · {job.dailyText}</em>
@@ -97,7 +97,7 @@ export default function PrimitiveArchiveTribeTab({
                   disabled={!job.canAdd}
                   onClick={() => adjustTribeJob(job.id, 1)}
                   aria-label={`${job.name} 배치 1명 증가`}
-                  title={`${job.name} 배치 1명 증가`}
+                  title={job.unlocked ? `${job.name} 배치 1명 증가` : job.lockedReason}
                 >
                   <Plus size={16} strokeWidth={2.4} />
                 </button>

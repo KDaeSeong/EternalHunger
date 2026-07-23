@@ -91,6 +91,21 @@ function perkLevel(meta, perkId) {
   return Math.max(0, Number(meta?.ownedPerks?.[perkId] || 0));
 }
 
+const DEVELOPER_ACTION_IDS = ['gather', 'hunt', 'farm', 'herd', 'fish', 'mine'];
+
+function normalizeDeveloperTools(value = {}) {
+  const actionBonuses = value?.actionBonuses && typeof value.actionBonuses === 'object' ? value.actionBonuses : {};
+  return {
+    enabled: Boolean(value?.enabled),
+    guaranteedSuccess: Boolean(value?.guaranteedSuccess),
+    unlockSpecializedActions: Boolean(value?.unlockSpecializedActions),
+    actionBonuses: Object.fromEntries(DEVELOPER_ACTION_IDS.map((actionId) => [
+      actionId,
+      clamp(Number(actionBonuses[actionId] || 0), -0.5, 0.5),
+    ])),
+  };
+}
+
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   const rng = options.rng || Math.random;
@@ -116,7 +131,7 @@ export function createNewState(options = {}) {
     inventory,
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
-    counters: { gather: 0, hunt: 0, craft: 0, camp: 0, meals: 0, events: 0 },
+    counters: { gather: 0, hunt: 0, craft: 0, farm: 0, herd: 0, fish: 0, mine: 0, camp: 0, meals: 0, events: 0 },
     eventChains: [],
     exploration: initExplorationState(),
     projects: initProjectState(),
@@ -125,6 +140,7 @@ export function createNewState(options = {}) {
     research: initResearchState(),
     civics: initCivicState(),
     meta,
+    devTools: normalizeDeveloperTools(options.devTools),
     log: [`Day 1: ${difficultyBrief} 규칙으로 원시 지대에 도착했습니다. 파티의 첫 목표는 식량과 캠프 확보입니다.`],
     ended: false,
     victory: false,
@@ -202,10 +218,48 @@ export function normalizeState(value) {
     research,
     civics,
     meta,
+    devTools: normalizeDeveloperTools(value.devTools),
     log: Array.isArray(value.log) ? value.log.slice(0, logCapacity({ ...base, ...value, camp })) : base.log,
     victory: Boolean(value.victory),
   };
 }
+const DEVELOPER_ACTION_LABELS = {
+  gather: '\uCC44\uC9D1',
+  hunt: '\uC0AC\uB0E5',
+  farm: '\uB18D\uC5C5',
+  herd: '\uBAA9\uCD95',
+  fish: '\uC5B4\uB85C',
+  mine: '\uCC44\uAD11',
+};
+
+export function developerToolsSummary(state) {
+  const devTools = normalizeDeveloperTools(state?.devTools);
+  return {
+    ...devTools,
+    rows: DEVELOPER_ACTION_IDS.map((actionId) => ({
+      id: actionId,
+      label: DEVELOPER_ACTION_LABELS[actionId],
+      value: Number(devTools.actionBonuses[actionId] || 0),
+      valuePct: Math.round(Number(devTools.actionBonuses[actionId] || 0) * 100),
+    })),
+  };
+}
+
+export function updateDeveloperToolsAction(state, patch = {}) {
+  const current = normalizeState(state);
+  const devTools = normalizeDeveloperTools({
+    ...current.devTools,
+    ...patch,
+    actionBonuses: { ...current.devTools.actionBonuses, ...(patch.actionBonuses || {}) },
+  });
+  return { ...current, devTools };
+}
+export function resetDeveloperToolsAction(state) {
+  const current = normalizeState(state);
+  return { ...current, devTools: normalizeDeveloperTools() };
+}
+
+
 
 export function getPartyCap(state) {
   const current = normalizeState(state);
@@ -935,6 +989,9 @@ export function projectRows(state) {
 const TRIBE_FOOD_VALUES = [
   ['berry', 1],
   ['meat', 1],
+  ['grain', 1],
+  ['fish', 1],
+  ['milk', 1],
   ['jerky', 2],
   ['cooked_meat', 2],
   ['packed_ration', 3],
@@ -963,15 +1020,32 @@ function consumeTribeFood(inventory, need) {
   return { inventory: next, provided, shortage: Math.max(0, remaining), spent };
 }
 
-function tribeProductionForDay(assignments, day) {
+function tribeProductionForDay(assignments, day, state = null) {
+  const jobActive = (jobId) => {
+    const job = TRIBE_JOBS.find((row) => row.id === jobId);
+    return !job?.techId || !state || Boolean(state.research?.completed?.[job.techId]);
+  };
   const foragers = Math.max(0, Number(assignments?.forager || 0));
   const hunters = Math.max(0, Number(assignments?.hunter || 0));
+  const farmers = jobActive('farmer') ? Math.max(0, Number(assignments?.farmer || 0)) : 0;
+  const herders = jobActive('herder') ? Math.max(0, Number(assignments?.herder || 0)) : 0;
+  const fishers = jobActive('fisher') ? Math.max(0, Number(assignments?.fisher || 0)) : 0;
+  const miners = jobActive('miner') ? Math.max(0, Number(assignments?.miner || 0)) : 0;
+  const today = Math.max(1, Number(day || 1));
   const entries = {
     wood: Math.ceil(foragers / 2),
-    fiber: foragers >= 2 && Number(day || 1) % 2 === 0 ? Math.floor(foragers / 2) : 0,
+    fiber: foragers >= 2 && today % 2 === 0 ? Math.floor(foragers / 2) : 0,
     berry: Math.ceil(foragers / 2),
-    meat: Math.floor(hunters / 2) + (hunters % 2 > 0 && Number(day || 1) % 2 === 0 ? 1 : 0),
-    hide: Math.floor(hunters / 2) + (hunters % 2 > 0 && Number(day || 1) % 3 === 0 ? 1 : 0),
+    grain: farmers,
+    herb: farmers >= 2 && today % 3 === 0 ? Math.floor(farmers / 2) : 0,
+    fish: Math.ceil(fishers / 2),
+    bone: fishers >= 2 && today % 3 === 0 ? Math.floor(fishers / 2) : 0,
+    milk: Math.ceil(herders / 2),
+    meat: Math.floor(hunters / 2) + (hunters % 2 > 0 && today % 2 === 0 ? 1 : 0) + (herders >= 2 && today % 2 === 0 ? Math.floor(herders / 2) : 0),
+    hide: Math.floor(hunters / 2) + (hunters % 2 > 0 && today % 3 === 0 ? 1 : 0) + (herders >= 2 && today % 3 === 0 ? Math.floor(herders / 2) : 0),
+    stone: Math.ceil(miners / 2),
+    flint: miners >= 2 && today % 2 === 0 ? Math.floor(miners / 2) : 0,
+    obsidian_shard: miners >= 3 && today % 4 === 0 ? 1 : 0,
   };
   return Object.fromEntries(Object.entries(entries).filter(([, qty]) => qty > 0));
 }
@@ -1002,12 +1076,16 @@ export function tribeSummary(state) {
   const selectedProject = projectRows(current).find((project) => project.selected && !project.completed);
   const researchStatus = researchSystemStatus(current);
   const nextDay = Number(current.day || 1) + 1;
-  const nextProduction = tribeProductionForDay(tribe.assignments, nextDay);
+  const nextProduction = tribeProductionForDay(tribe.assignments, nextDay, current);
   const jobs = TRIBE_JOBS.map((job) => {
     const count = Number(tribe.assignments[job.id] || 0);
+    const unlockTech = job.techId ? getTechnology(job.techId) : null;
+    const unlocked = !job.techId || Boolean(current.research.completed?.[job.techId]);
+    const lockedReason = unlocked ? '' : `${unlockTech?.name || job.techId} 연구 필요`;
     let dailyText = job.outputText;
-    if (job.id === 'forager') dailyText = formatGains(Object.entries(tribeProductionForDay({ forager: count }, nextDay)));
-    if (job.id === 'hunter') dailyText = formatGains(Object.entries(tribeProductionForDay({ hunter: count }, nextDay)));
+    if (!['builder', 'scholar'].includes(job.id) && unlocked) {
+      dailyText = formatGains(Object.entries(tribeProductionForDay({ [job.id]: count }, nextDay, current)));
+    }
     if (job.id === 'builder') {
       dailyText = selectedProject
         ? selectedProject.committed || selectedProject.hasCost
@@ -1016,10 +1094,13 @@ export function tribeSummary(state) {
         : '진행할 프로젝트 없음';
     }
     if (job.id === 'scholar') dailyText = researchStatus.unlocked ? `목표 기술 +${count}RP/일` : '연구 체계 잠김';
+    if (!unlocked) dailyText = lockedReason;
     return {
       ...job,
       count,
-      canAdd: unassigned > 0,
+      unlocked,
+      lockedReason,
+      canAdd: unlocked && unassigned > 0,
       canRemove: count > 0,
       dailyText,
     };
@@ -1047,6 +1128,8 @@ export function adjustTribeJobAction(state, jobId, delta) {
   const current = normalizeState(state);
   const job = TRIBE_JOBS.find((row) => row.id === jobId);
   if (!job || !Number.isFinite(Number(delta)) || Number(delta) === 0) return current;
+  const unlocked = !job.techId || Boolean(current.research.completed?.[job.techId]);
+  if (Number(delta) > 0 && !unlocked) return addLog(current, `${getTechnology(job.techId)?.name || job.techId} 연구가 필요합니다.`);
   const tribe = normalizeTribeState(current.tribe);
   const assigned = Object.values(tribe.assignments).reduce((sum, count) => sum + Number(count || 0), 0);
   const direction = Number(delta) > 0 ? 1 : -1;
@@ -2299,7 +2382,7 @@ function explorationEventPressure(state) {
   };
 }
 
-const FOOD_RECOVERY_IDS = ['packed_ration', 'cooked_meat', 'jerky', 'meat', 'berry'];
+const FOOD_RECOVERY_IDS = ['packed_ration', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry'];
 
 function foodNutritionValue(state, foodId) {
   const food = ITEMS[foodId] || {};
@@ -2870,7 +2953,7 @@ function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true,
   return state;
 }
 
-export function actionChance(state, actorId, action, base = 0.55) {
+export function actionChance(state, actorId, action, base = 0.55, options = {}) {
   const actor = getActor(state, actorId);
   const stat = Number(actor?.stats?.[action] || 5);
   const weather = Number(state.weather?.actionMod || 0);
@@ -2885,6 +2968,11 @@ export function actionChance(state, actorId, action, base = 0.55) {
       : 0;
   const projectBonus = action === 'gather' && hasCompletedProject(state, 'irrigation-ditch') ? 0.05 : 0;
   const preset = difficultyPreset(state);
+  const devTools = normalizeDeveloperTools(state?.devTools);
+  if (devTools.enabled && devTools.guaranteedSuccess) return 1;
+  const developerBonus = devTools.enabled && options.includeDeveloperBonus !== false
+    ? Number(devTools.actionBonuses[action] || 0)
+    : 0;
   const difficultyBonus = Number(preset.actionChanceBonus || 0);
   const researchBonus =
     (action === 'gather' && hasTechPassive(state, 'GATHER_SUCCESS_UP') ? 0.06 : 0)
@@ -2935,7 +3023,7 @@ export function actionChance(state, actorId, action, base = 0.55) {
       + passiveStackCount(state, 'MODERN_ENGINEERING_CIVIC_STACK')
     ) * 0.01 : 0);
   return clamp(
-    base + stat * 0.025 + weather + camp + book + equipment + seasonBonus + projectBonus + researchBonus + difficultyBonus,
+    base + stat * 0.025 + weather + camp + book + equipment + seasonBonus + projectBonus + researchBonus + difficultyBonus + developerBonus,
     Number(preset.actionChanceFloor ?? 0.08),
     Number(preset.actionChanceCap ?? 0.95),
   );
@@ -2974,7 +3062,7 @@ export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options 
 
 function settleTribeDay(state) {
   const tribe = normalizeTribeState(state.tribe);
-  const gains = tribeProductionForDay(tribe.assignments, state.day);
+  const gains = tribeProductionForDay(tribe.assignments, state.day, state);
   let next = { ...state, inventory: addItems(state.inventory, Object.entries(gains)) };
   let projectWork = 0;
   let projectName = '';
@@ -3322,7 +3410,7 @@ export function completeArchiveAction(state) {
 
 export function startNewRunFromMeta(state, options = {}) {
   const current = normalizeState(state);
-  return createNewState({ ...options, meta: current.meta });
+  return createNewState({ ...options, meta: current.meta, devTools: current.devTools });
 }
 
 export function techRows(state) {
@@ -3476,7 +3564,7 @@ function ancientResearchPressure(state, tech) {
   const hp = averageParty(current, 'hp');
   const hunger = averageParty(current, 'hunger');
   const bodyTemp = averageBodyTemp(current);
-  const foodUnits = ['berry', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
+  const foodUnits = ['berry', 'grain', 'milk', 'fish', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
     .reduce((sum, id) => sum + Number(current.inventory?.[id] || 0), 0);
   const alive = Math.max(1, current.party.filter((member) => Number(member.hp || 0) > 0).length);
   const weatherSeen = Object.values(current.research?.counters?.weatherSeen || {})
@@ -3941,7 +4029,7 @@ export function getRunProgressReport(state) {
   const hunger = averageParty(current, 'hunger');
   const stamina = averageParty(current, 'stamina');
   const bodyTemp = averageBodyTemp(current);
-  const foodUnits = ['berry', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
+  const foodUnits = ['berry', 'grain', 'milk', 'fish', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
     .reduce((sum, id) => sum + Number(current.inventory[id] || 0), 0);
   const fuel = Number(current.camp.fuel || 0);
   const weight = totalCarryWeight(current);
@@ -4476,6 +4564,108 @@ function expectedGainText(rows, detailed = false) {
   return rows.slice(0, 5).map((row) => `${row.name} ${row.expected.toFixed(digits)}`).join(' · ');
 }
 
+const SPECIALIZED_ACTION_DEFS = [
+  {
+    id: 'fish', label: '\uC5B4\uB85C', icon: 'primitive-fishing', techId: 'FISHING', skill: 'gather', baseChance: 0.62,
+    staminaCost: 16, hungerAdd: 3, zoneIds: ['river'], zoneId: 'river',
+    gains: [['fish', 2], ['bone', 1, 0.2]],
+  },
+  {
+    id: 'farm', label: '\uB18D\uC5C5', icon: 'primitive-farm', techId: 'AGRICULTURE', skill: 'gather', baseChance: 0.68,
+    staminaCost: 15, hungerAdd: 3, zoneIds: [], zoneId: 'plains',
+    gains: [['grain', 2], ['berry', 1, 0.65], ['herb', 1, 0.25]],
+  },
+  {
+    id: 'herd', label: '\uBAA9\uCD95', icon: 'primitive-herd', techId: 'ANIMAL_HUSBANDRY', skill: 'hunt', baseChance: 0.66,
+    staminaCost: 18, hungerAdd: 3, zoneIds: [], zoneId: 'plains',
+    gains: [['milk', 2], ['meat', 1, 0.45], ['hide', 1, 0.28]],
+  },
+  {
+    id: 'mine', label: '\uCC44\uAD11', icon: 'primitive-mining', techId: 'MINING', skill: 'gather', baseChance: 0.56,
+    staminaCost: 22, hungerAdd: 4, zoneIds: ['cave'], zoneId: 'cave',
+    gains: [['stone', 3], ['flint', 1, 0.7], ['obsidian_shard', 1, 0.22]],
+  },
+];
+
+function resolveSpecializedActionRegion(state, profile, requestedRegionId = '') {
+  const devTools = normalizeDeveloperTools(state?.devTools);
+  if (!profile.zoneIds.length) return getRegion('camp-heart');
+  const revealed = revealedActionRegions(state).filter((region) => profile.zoneIds.includes(region.zoneId));
+  const previewRegions = devTools.enabled && devTools.unlockSpecializedActions
+    ? WORLD_REGIONS.filter((region) => profile.zoneIds.includes(region.zoneId) && !region.safe)
+    : [];
+  const candidates = revealed.length ? revealed : previewRegions;
+  return candidates.find((region) => region.id === requestedRegionId)
+    || candidates.find((region) => region.id === state.exploration?.selectedRegionId)
+    || candidates[0]
+    || null;
+}
+
+function specializedActionChance(state, actorId, profile, region) {
+  const devTools = normalizeDeveloperTools(state?.devTools);
+  if (devTools.enabled && devTools.guaranteedSuccess) return 1;
+  const baseChance = actionChance(
+    state,
+    actorId,
+    profile.skill,
+    profile.baseChance,
+    { includeDeveloperBonus: false },
+  );
+  const exactBonus = devTools.enabled ? Number(devTools.actionBonuses[profile.id] || 0) : 0;
+  const preset = difficultyPreset(state);
+  return clamp(
+    baseChance + exactBonus - Number(region?.danger || 0) * 0.008,
+    Number(preset.actionChanceFloor ?? 0.08),
+    Number(preset.actionChanceCap ?? 0.95),
+  );
+}
+
+function specializedExpectedGains(state, profile, chance, region) {
+  if (!region) return [];
+  const context = { action: profile.skill, zoneId: profile.zoneId, regionId: region.id, region };
+  const bonusChance = zoneBonusQuantityChance(state, context);
+  return profile.gains.map(([itemId, qty, entryChance = 1]) => ({
+    itemId,
+    name: itemName(itemId),
+    expected: chance * zoneEntryChance(state, entryChance, context) * (Number(qty || 0) + bonusChance),
+  }));
+}
+
+export function specializedActionRows(state, actorId, requestedRegionId = '') {
+  const current = normalizeState(state);
+  const devTools = normalizeDeveloperTools(current.devTools);
+  const previewUnlocked = devTools.enabled && devTools.unlockSpecializedActions;
+  const precise = hasTechPassive(current, 'FORECAST_DETAIL_UP');
+  return SPECIALIZED_ACTION_DEFS.map((profile) => {
+    const technology = getTechnology(profile.techId);
+    const technologyComplete = Boolean(current.research.completed?.[profile.techId]);
+    const unlocked = technologyComplete || previewUnlocked;
+    const region = resolveSpecializedActionRegion(current, profile, requestedRegionId);
+    const chance = unlocked && region ? specializedActionChance(current, actorId, profile, region) : 0;
+    const gains = specializedExpectedGains(current, profile, chance, region);
+    const location = profile.zoneIds.length ? region?.name || '\uD574\uB2F9 \uC9C0\uD615 \uBBF8\uBC1C\uACAC' : '\uC815\uCC29\uC9C0 \uC0DD\uC0B0 \uAD6C\uC5ED';
+    const lockedReason = !unlocked
+      ? `${technology?.name || profile.techId} \uC5F0\uAD6C \uD544\uC694`
+      : !region
+        ? `${profile.zoneIds.join('/')} \uC9C0\uC5ED \uBC1C\uACAC \uD544\uC694`
+        : '';
+    return {
+      ...profile,
+      available: unlocked && Boolean(region),
+      chance,
+      chancePct: Math.round(chance * 100),
+      context: location,
+      cost: `AP 1 \u00B7 ST ${staminaCostWithEquipment(current, actorId, profile.skill, profile.staminaCost)}`,
+      devPreview: previewUnlocked && !technologyComplete,
+      lockedReason,
+      outcome: unlocked && region ? expectedGainText(gains, precise) : lockedReason,
+      technologyComplete,
+      technologyName: technology?.name || profile.techId,
+      unlocked,
+    };
+  });
+}
+
 export function actionForecastRows(state, actorId, requestedRegionId, recipeId) {
   const current = normalizeState(state);
   const actor = getActor(current, actorId);
@@ -4494,7 +4684,7 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
     name: itemName(itemId),
     expected: Number(qty || 0) * craftChance,
   }));
-  const foodId = ['packed_ration', 'cooked_meat', 'jerky', 'meat', 'berry', 'herb_tonic']
+  const foodId = ['packed_ration', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry', 'herb_tonic']
     .find((id) => ITEMS[id]?.type === 'food' && Number(current.inventory[id] || 0) > 0) || '';
   const researchEstimate = researchActionEstimate(current, actorId);
   const selectedTech = getTechnology(current.research.selectedTechId);
@@ -4593,7 +4783,60 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
       cost: civicEstimate.unlocked ? `AP 1 · ST ${civicEstimate.staminaCost}` : '턴/일일 자동 문화만 진행',
       locked: !civicEstimate.unlocked || !selectedCivic,
     },
+    ...specializedActionRows(current, actorId, requestedRegionId).map((row) => ({
+      id: row.id,
+      label: row.label,
+      chancePct: row.chancePct,
+      context: row.context,
+      outcome: row.outcome,
+      cost: row.cost,
+      locked: !row.available,
+    })),
   ];
+}
+
+export function runSpecializedAction(state, actorId, actionId, requestedRegionId = '', options = {}) {
+  const current = normalizeState(state);
+  if (current.ended || Number(current.ap || 0) <= 0) {
+    return addLog(current, '\uD589\uB3D9\uD560 AP\uAC00 \uBD80\uC871\uD569\uB2C8\uB2E4.');
+  }
+  const profile = SPECIALIZED_ACTION_DEFS.find((row) => row.id === actionId);
+  if (!profile) return addLog(current, '\uC54C \uC218 \uC5C6\uB294 \uD2B9\uD654 \uC0DD\uC5C5 \uD589\uB3D9\uC785\uB2C8\uB2E4.');
+  const row = specializedActionRows(current, actorId, requestedRegionId).find((candidate) => candidate.id === profile.id);
+  if (!row?.available) return addLog(current, `${profile.label}: ${row?.lockedReason || '\uD574\uAE08 \uC870\uAC74 \uBD80\uC871'}.`);
+
+  const rng = options.rng || Math.random;
+  const region = resolveSpecializedActionRegion(current, profile, requestedRegionId);
+  const actor = getActor(current, actorId);
+  const chance = specializedActionChance(current, actorId, profile, region);
+  const ok = rng() < chance;
+  const context = { action: profile.skill, zoneId: profile.zoneId, regionId: region.id, region };
+  let next = current;
+  if (ok) {
+    const gains = rollZoneGains(current, profile.gains, rng, context);
+    next = {
+      ...next,
+      inventory: addItems(next.inventory, gains),
+      counters: { ...next.counters, [profile.id]: Number(next.counters[profile.id] || 0) + 1 },
+    };
+    next = addLog(next, `${actor.name}\uC758 ${profile.label} \uC131\uACF5. ${row.context}\uC5D0\uC11C ${formatGains(gains)}.`);
+  } else {
+    next = addLog(next, `${actor.name}\uC758 ${profile.label} \uC2E4\uD328. ${row.context}\uC758 \uC870\uAC74\uC744 \uB2E4\uC2DC \uC810\uAC80\uD574\uC57C \uD569\uB2C8\uB2E4.`);
+  }
+  next = addDialogueLog(next, actorId, profile.skill, ok ? 'success' : 'fail', rng);
+  if (profile.zoneIds.length) {
+    next = applyExplorationEvent(next, { actorId, action: profile.skill, zoneId: profile.zoneId, ok, rng });
+    next = discoverRegionAfterAction(next, region, ok, rng);
+  }
+  next = recordResearchEvent(next, { kind: 'action', action: profile.skill, ok });
+  next = recordResearchEvent(next, { kind: 'action', action: profile.id, ok });
+  return afterAction(
+    next,
+    actorId,
+    staminaCostWithEquipment(current, actorId, profile.skill, profile.staminaCost),
+    profile.hungerAdd,
+    options,
+  );
 }
 
 export function runGatherAction(state, actorId, regionId, options = {}) {
@@ -4680,7 +4923,7 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
 
 export function runEatAction(state, actorId, options = {}) {
   const actor = getActor(state, actorId);
-  const foodId = ['packed_ration', 'cooked_meat', 'jerky', 'meat', 'berry', 'herb_tonic']
+  const foodId = ['packed_ration', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry', 'herb_tonic']
     .find((id) => ITEMS[id]?.type === 'food' && Number(state.inventory[id] || 0) > 0) || '';
   if (!foodId) return addLog(state, '먹을 음식이 없습니다. 채집이나 사냥으로 식량을 확보하세요.');
   const nutrition = foodNutritionValue(state, foodId);
@@ -4835,7 +5078,7 @@ function livingParty(state) {
 }
 
 function foodAvailable(state) {
-  return ['packed_ration', 'cooked_meat', 'jerky', 'meat', 'berry', 'herb_tonic']
+  return ['packed_ration', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry', 'herb_tonic']
     .some((id) => Number(state.inventory[id] || 0) > 0);
 }
 
@@ -4927,11 +5170,11 @@ function pickAutoRecipe(state) {
 }
 
 function pickAutoCampKind(state) {
-  if (Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0 && hasResources(state.inventory, { meat: 1 })) return 'cook';
-  if (Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) < 2 && hasResources(state.inventory, { wood: 1 })) return 'fuel';
   if (Number(state.camp.fireLevel || 0) < 1 && hasResources(state.inventory, { wood: 2, stone: 2 })) return 'fire';
   if (Number(state.camp.shelterLevel || 0) < 1 && hasResources(state.inventory, { wood: 3, fiber: 2, hide: 1 })) return 'shelter';
   if (Number(state.camp.workbenchLevel || 0) < 1 && hasResources(state.inventory, { wood: 4, stone: 2 })) return 'workbench';
+  if (Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) < 2 && hasResources(state.inventory, { wood: 1 })) return 'fuel';
+  if (Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0 && hasResources(state.inventory, { meat: 1 })) return 'cook';
   if (hasTechCampUnlock(state, 'archive_room') && Number(state.camp.archiveRoomLevel || 0) < 1 && hasResources(state.inventory, { wood: 5, stone: 3, fiber: 3, hide: 1 })) return 'archive';
   if (hasTechCampUnlock(state, 'scribe_desk') && Number(state.camp.scribeDeskLevel || 0) < 1 && hasResources(state.inventory, { wood: 2, stone: 2, clay: 2, fiber: 2 })) return 'scribe';
   if (hasTechCampUnlock(state, 'library_shelf') && Number(state.camp.libraryShelfLevel || 0) < 1 && hasResources(state.inventory, { wood: 4, fiber: 4, resin: 2, clay: 2 })) return 'library';
@@ -4952,7 +5195,75 @@ function pickAutoZone(state, action) {
   if (Number(state.inventory.flint || 0) < 2 || Number(state.inventory.obsidian_shard || 0) < 1) return 'cave';
   return 'plains';
 }
+function pickAutoSpecializedAction(state, actionIds) {
+  for (const actionId of actionIds) {
+    const profile = SPECIALIZED_ACTION_DEFS.find((row) => row.id === actionId);
+    if (!profile) continue;
+    const actorId = pickActorForAuto(state, profile.skill);
+    const row = specializedActionRows(state, actorId).find((candidate) => candidate.id === actionId);
+    if (row?.available && row.chance >= 0.35) return { actionId, actorId };
+  }
+  return null;
+}
 
+
+
+function autoAssignUnassignedTribe(state) {
+  const tribe = normalizeTribeState(state.tribe);
+  const assignments = { ...tribe.assignments };
+  const assigned = Object.values(assignments).reduce((sum, count) => sum + Number(count || 0), 0);
+  let unassigned = Math.max(0, Number(tribe.population || 0) - assigned);
+  if (!unassigned) return state;
+
+  const added = Object.fromEntries(TRIBE_JOBS.map((job) => [job.id, 0]));
+  const population = Number(tribe.population || 1);
+  const foodNeed = Math.ceil(population / 4);
+  const foodPressure = tribeFoodStock(state.inventory) < foodNeed * 2;
+  const jobUnlocked = (jobId) => {
+    const job = TRIBE_JOBS.find((row) => row.id === jobId);
+    return !job?.techId || Boolean(state.research?.completed?.[job.techId]);
+  };
+  const targets = {
+    forager: Math.max(2, Math.ceil(population * 0.3)),
+    hunter: Math.max(1, Math.ceil(population * 0.15)),
+    farmer: jobUnlocked('farmer') ? Math.max(1, Math.ceil(population * 0.2)) : 0,
+    herder: jobUnlocked('herder') ? 1 : 0,
+    fisher: jobUnlocked('fisher') ? 1 : 0,
+    miner: jobUnlocked('miner') ? 1 : 0,
+    scholar: researchSystemStatus(state).unlocked ? Math.max(1, Math.floor(population * 0.2)) : 0,
+    builder: 1,
+  };
+  const selectedProject = projectRows(state).find((project) => project.selected && !project.completed && project.available);
+  if (selectedProject) targets.builder = Math.max(1, Math.ceil(population / 5));
+  const priority = ['forager', 'hunter', 'farmer', 'fisher', 'herder', 'miner', 'scholar', 'builder'];
+
+  while (unassigned > 0) {
+    let jobId = priority.find((candidate) => (
+      jobUnlocked(candidate) && Number(assignments[candidate] || 0) < Number(targets[candidate] || 0)
+    ));
+    if (!jobId && foodPressure && jobUnlocked('farmer')) jobId = 'farmer';
+    if (!jobId && foodPressure) jobId = 'forager';
+    if (!jobId && researchSystemStatus(state).unlocked) jobId = 'scholar';
+    if (!jobId) jobId = 'hunter';
+    assignments[jobId] = Number(assignments[jobId] || 0) + 1;
+    added[jobId] = Number(added[jobId] || 0) + 1;
+    unassigned -= 1;
+  }
+
+  const labels = Object.fromEntries(TRIBE_JOBS.map((job) => [job.id, job.name]));
+  const summary = Object.entries(added)
+    .filter(([, count]) => count > 0)
+    .map(([jobId, count]) => `${labels[jobId]} +${count}`)
+    .join(' \u00B7 ');
+  return addLog({
+    ...state,
+    tribe: {
+      ...tribe,
+      assignments,
+      assignmentSerial: Number(tribe.assignmentSerial || 0) + 1,
+    },
+  }, `\uD558\uB8E8 \uC790\uB3D9 \uC6B4\uC601 \uC9C1\uC5C5 \uBC30\uCE58: ${summary}.`);
+}
 function autoActionSignature(state) {
   return [
     state.day,
@@ -4974,8 +5285,15 @@ function runNextAutoArchiveAction(state, options = {}) {
     + Number(state.inventory.jerky || 0)
     + Number(state.inventory.packed_ration || 0)
     + Number(state.inventory.cooked_meat || 0)
+    + Number(state.inventory.fish || 0)
+    + Number(state.inventory.grain || 0)
+    + Number(state.inventory.milk || 0)
     + Number(state.inventory.herb_tonic || 0);
-  if (foodAvailable(state) && (Number(careActor?.hunger || 0) >= 52 || averageHunger >= 50)) {
+  const researchGateCampKind = researchSystemStatus(state).unlocked ? '' : pickAutoCampKind(state);
+  if (['fire', 'shelter', 'workbench'].includes(researchGateCampKind)) {
+    return runCampAction(state, pickActorForAuto(state, 'craft'), researchGateCampKind, options);
+  }
+  if (foodAvailable(state) && (Number(careActor?.hunger || 0) >= 48 || averageHunger >= 46)) {
     return runEatAction(state, careActorId, options);
   }
   if (!foodAvailable(state) && averageHunger >= 70 && Number(careActor?.hp || 0) > 20) {
@@ -4985,27 +5303,69 @@ function runNextAutoArchiveAction(state, options = {}) {
     return runRestAction(state, careActorId, options);
   }
 
-  if (averageHunger >= 55 && foodStock < state.party.length + 2) {
-    if (averageParty(state, 'hp') < 55) {
+  if (averageHunger >= 50 && foodStock < state.party.length + 2) {
+    const specializedFood = pickAutoSpecializedAction(state, ['farm', 'fish', 'herd']);
+    if (specializedFood) {
+      return runSpecializedAction(state, specializedFood.actorId, specializedFood.actionId, '', options);
+    }
+    const hunterId = pickActorForAuto(state, 'hunt');
+    const huntRegion = resolveActionRegion(state, 'plains', options.rng || Math.random);
+    const huntChance = actionChanceForRegion(state, hunterId, 'hunt', huntRegion);
+    if (averageParty(state, 'hp') < 62 || huntChance < 0.46) {
       return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
     }
-    return runHuntAction(state, pickActorForAuto(state, 'hunt'), pickAutoZone(state, 'hunt'), options);
+    return runHuntAction(state, hunterId, huntRegion.id, options);
   }
 
-  const campKind = pickAutoCampKind(state);
+  const needsResearchShelter = Number(state.camp.fireLevel || 0) >= 1
+    && Number(state.camp.shelterLevel || 0) < 1;
+  if (needsResearchShelter) {
+    if (Number(state.inventory.hide || 0) < 1) {
+      return runHuntAction(state, pickActorForAuto(state, 'hunt'), 'plains', options);
+    }
+    if (Number(state.inventory.wood || 0) < 3 || Number(state.inventory.fiber || 0) < 2) {
+      return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
+    }
+  }
+
+  const studyThreshold = Math.max(1, Math.floor(Number(state.apMax || state.ap || 1) / 2));
+  const developmentWindow = Number(state.ap || 0) > studyThreshold;
+  const campKind = developmentWindow ? pickAutoCampKind(state) : '';
   if (campKind) return runCampAction(state, pickActorForAuto(state, 'craft'), campKind, options);
 
-  const recipe = pickAutoRecipe(state);
+  const specializedPriorities = [];
+  if (Number(state.inventory.grain || 0) < 3) specializedPriorities.push('farm');
+  if (Number(state.inventory.fish || 0) < 2) specializedPriorities.push('fish');
+  if (Number(state.inventory.milk || 0) + Number(state.inventory.meat || 0) < 3) specializedPriorities.push('herd');
+  if (Number(state.inventory.stone || 0) < 6 || Number(state.inventory.flint || 0) < 2) specializedPriorities.push('mine');
+  const specialized = developmentWindow
+    ? pickAutoSpecializedAction(state, specializedPriorities)
+    : null;
+  if (specialized) {
+    return runSpecializedAction(state, specialized.actorId, specialized.actionId, '', options);
+  }
+
+  const recipe = developmentWindow ? pickAutoRecipe(state) : null;
   if (recipe && (Number(state.counters?.craft || 0) < Number(state.counters?.gather || 0) + 2 || recipe.id.startsWith('book_'))) {
     return runCraftAction(state, pickActorForAuto(state, 'craft'), recipe.id, options);
   }
 
   const research = researchSummary(state);
-  const civics = civicsSummary(state);
-  if (civics.selected && !civics.selected.completed && Number(state.day || 1) >= 2 && Number(state.day || 1) % 2 === 0) {
+  const activeCivic = activeCivicForState(state);
+  const researchStatus = researchSystemStatus(state);
+  if (
+    researchStatus.actionUnlocked
+    && activeCivic
+    && Number(state.day || 1) >= 2 && Number(state.day || 1) % 2 === 0
+    && Number(state.ap || 0) === studyThreshold
+  ) {
     return runCivicAction(state, pickActorForAuto(state, 'craft'), options);
   }
-  if (research.selected && !research.selected.completed && Number(state.day || 1) >= 2) {
+  if (
+    researchStatus.actionUnlocked
+    && research.selected && !research.selected.completed
+    && Number(state.day || 1) >= 2 && Number(state.ap || 0) <= studyThreshold
+  ) {
     return runResearchAction(state, pickActorForAuto(state, 'craft'), options);
   }
 
@@ -5017,12 +5377,13 @@ function runNextAutoArchiveAction(state, options = {}) {
 
 export function runAutoDayAction(state, options = {}) {
   let next = normalizeState(state);
+  if (next.ended || Number(next.ap || 0) <= 0) return next;
+  next = autoAssignUnassignedTribe(next);
   const hasEquipmentPool = Object.entries(buildEquipmentPool(next))
     .some(([itemId, qty]) => Number(qty || 0) > 0 && ITEMS[itemId]?.type === 'equip');
   if (hasEquipmentPool) {
     next = autoEquipAction(next, Number(next.weather?.cold || 0) >= 5 ? 'weather' : 'role');
   }
-  if (next.ended || Number(next.ap || 0) <= 0) return next;
 
   const startDay = next.day;
   let steps = 0;

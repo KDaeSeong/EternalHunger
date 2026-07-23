@@ -2,6 +2,7 @@ import { GameFeatureTabs } from '../../_components/GamePlayShell';
 import PrimitiveArchiveActionWorkspace from './PrimitiveArchiveActionWorkspace';
 import PrimitiveArchiveCampWorkspace from './PrimitiveArchiveCampWorkspace';
 import PrimitiveArchiveGrowthTab from './PrimitiveArchiveGrowthTab';
+import PrimitiveArchiveDeveloperTab from './PrimitiveArchiveDeveloperTab';
 import PrimitiveArchiveInventoryTab from './PrimitiveArchiveInventoryTab';
 import PrimitiveArchivePartyWorkspace from './PrimitiveArchivePartyWorkspace';
 import PrimitiveArchiveReportTab from './PrimitiveArchiveReportTab';
@@ -96,6 +97,13 @@ export default function PrimitiveArchiveFeatureTabs(props) {
             icon: 'inventory',
             badge: `${inventoryRows.length}종`,
             children: <PrimitiveArchiveInventoryTab {...props} />,
+          },
+          {
+            id: 'developer',
+            label: '\uAC1C\uBC1C\uC790',
+            icon: 'developer',
+            badge: props.developerTools?.enabled ? 'ON' : 'OFF',
+            children: <PrimitiveArchiveDeveloperTab {...props} />,
           },
           {
             id: 'run',

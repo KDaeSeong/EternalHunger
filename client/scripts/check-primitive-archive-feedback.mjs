@@ -27,6 +27,7 @@ const worldMapSource = await readFile(new URL('PrimitiveArchiveWorldMap.js', com
 const primitiveSource = await readFile(new URL('../src/app/games/_components/GamePlayPrimitives.js', import.meta.url), 'utf8');
 const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
 const soundSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
+const audioThemeSource = await readFile(new URL('../src/app/games/_lib/gameAudioThemes.js', import.meta.url), 'utf8');
 const styleSource = await readFile(new URL('../src/styles/AppShell.css', import.meta.url), 'utf8');
 
 function clone(value) {
@@ -41,7 +42,7 @@ const base = {
   victory: false,
   log: ['Day 1: 기존 기록'],
   party: [{ hp: 100 }],
-  counters: { gather: 0, hunt: 0, craft: 0, meals: 0, camp: 0 },
+  counters: { gather: 0, hunt: 0, craft: 0, farm: 0, herd: 0, fish: 0, mine: 0, meals: 0, camp: 0 },
   exploration: { discoverySerial: 0 },
   projects: { completionSerial: 0 },
   research: { completionSerial: 0, eureka: {} },
@@ -54,6 +55,10 @@ const actionRows = [
   { label: '채집', action: 'primitive-gather', cue: 'gather', resultLabel: '채집 성공', log: 'Day 1: 채집 성공', counter: 'gather' },
   { label: '사냥', action: 'primitive-hunt', cue: 'combat', resultLabel: '사냥 성공', log: 'Day 1: 사냥 성공', counter: 'hunt' },
   { label: '제작', action: 'primitive-craft', cue: 'craft', resultLabel: '제작 성공', log: 'Day 1: 제작 성공', counter: 'craft' },
+  { label: '농업', action: 'primitive-farm', cue: 'farm', resultLabel: '농업 생산', log: 'Day 1: 농업 성공', counter: 'farm' },
+  { label: '목축', action: 'primitive-herd', cue: 'herd', resultLabel: '목축 생산', log: 'Day 1: 목축 성공', counter: 'herd' },
+  { label: '어로', action: 'primitive-fishing', cue: 'fish', resultLabel: '어로 성공', log: 'Day 1: 어로 성공', counter: 'fish' },
+  { label: '채광', action: 'primitive-mining', cue: 'mine', resultLabel: '채광 성공', log: 'Day 1: 채광 성공', counter: 'mine' },
   { label: '식사', action: 'primitive-meal', cue: 'consume', resultLabel: '식사 완료', log: 'Day 1: 열매를 먹었습니다.', counter: 'meals' },
   { label: '휴식', action: 'primitive-rest', cue: 'rest', resultLabel: '휴식 완료', log: 'Day 1: 휴식했습니다.' },
   { label: '연구', action: 'primitive-research', cue: 'research', resultLabel: '연구 진척', log: 'Day 1: 연구 +4RP' },
@@ -134,18 +139,19 @@ assert.equal(primitiveTextPresentation('런을 저장했습니다.').action, 'sa
 assert.equal(primitiveTextPresentation('런 결과를 전적에 기록하고 정산했습니다.').action, 'archive', '전적 정산은 기록 아이콘이어야 합니다.');
 
 for (const cue of [
-  'start', 'gather', 'combat', 'craft', 'consume', 'rest', 'research', 'policy', 'camp',
+  'start', 'gather', 'combat', 'craft', 'farm', 'herd', 'fish', 'mine', 'consume', 'rest', 'research', 'policy', 'camp',
   'project', 'event', 'auto', 'assign', 'diplomacy', 'recruit', 'upgrade', 'equip',
   'survivalFail', 'champion', 'defeat', 'eraAdvance', 'projectComplete', 'civicComplete',
   'complete', 'inspiration', 'discover', 'season', 'growth',
 ]) {
-  assert.match(soundSource, new RegExp(`\\n  ${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
+  assert.match(soundSource, new RegExp(`\\n {2,4}${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
 }
 
 for (const icon of [
   'primitive-camp', 'primitive-civic', 'primitive-craft', 'primitive-day', 'primitive-defeat',
   'primitive-diplomacy', 'primitive-discovery', 'primitive-equip', 'primitive-era',
   'primitive-eureka', 'primitive-event', 'primitive-gather', 'primitive-growth',
+  'primitive-farm', 'primitive-herd', 'primitive-fishing', 'primitive-mining',
   'primitive-hunt', 'primitive-inspiration', 'primitive-job', 'primitive-meal',
   'primitive-perk', 'primitive-project', 'primitive-recruit', 'primitive-region',
   'primitive-research', 'primitive-rest', 'primitive-season', 'primitive-survival-fail',
@@ -167,6 +173,8 @@ assert.match(playSource, /primitiveActionResultPresentation\(previousState, next
 assert.match(playSource, /actionFeedback=\{resultPresentation\}/, '모든 기능 탭에 공통 결과 프레젠테이션을 전달해야 합니다.');
 assert.match(playSource, /action="new" cue="off"/, '새 런 버튼은 시작음과 클릭음이 겹치지 않아야 합니다.');
 assert.match(playSource, /action="auto" cue="off"/, '자동 운영 버튼은 결과음과 클릭음이 겹치지 않아야 합니다.');
+assert.match(playSource, /useGameSfx\(\{ theme: 'civilization' \}\)/, '플레이 화면은 문명 전용 효과음 테마를 사용해야 합니다.');
+assert.match(audioThemeSource, /\['primitive-archive', 'civilization'\]/, '문명 아카이브 라우트는 문명 전용 효과음 테마에 매핑되어야 합니다.');
 
 for (const source of [actionSource, campSource, growthSource, projectSource, tribeSource, inventorySource]) {
   assert.match(source, /actionFeedback\?\.label/, '행동이 있는 탭은 동적 결과 라벨을 표시해야 합니다.');
