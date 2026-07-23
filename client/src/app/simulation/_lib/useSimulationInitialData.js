@@ -66,15 +66,15 @@ export function useSimulationInitialData({
 
   // 초기 데이터 로드 (캐릭터 + 설정 + 맵/상점 데이터)
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
     const token = getToken();
     const me = getUser();
     if (!token || !me?.username) {
       redirectToLogin('로그인 정보가 없거나 만료되었습니다. 다시 로그인해주세요.', true);
       return;
     }
-
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
 
     const fetchData = async () => {
       try {

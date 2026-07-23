@@ -1,6 +1,6 @@
 export const GAME_AUDIO_PATH_THEMES = Object.freeze([
-  ['eternalhunger', 'battle'],
-  ['simulation', 'battle'],
+  ['eternalhunger', 'eternal'],
+  ['simulation', 'eternal'],
   ['twenty-questions', 'twenty'],
   ['dual-academy-tcg', 'academy-duel'],
   ['ba-vanguard', 'vanguard'],

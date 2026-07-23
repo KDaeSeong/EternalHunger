@@ -76,7 +76,7 @@ export default function SimulationPageView(props) {
     handleGameSfxChangeCapture,
     handleGameSfxPointerDownCapture,
     playGameSfx,
-  } = useGameSfxEventHandlers({ enabled: sfxEnabled, theme: 'battle', volume: 0.18 });
+  } = useGameSfxEventHandlers({ enabled: sfxEnabled, theme: 'eternal', volume: 0.18 });
   const feedbackSnapshot = useMemo(() => createSimulationFeedbackSnapshot({
     autoPlay,
     day,

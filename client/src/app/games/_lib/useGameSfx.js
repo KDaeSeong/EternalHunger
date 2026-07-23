@@ -1604,6 +1604,138 @@ const THEME_CUE_PROFILES = {
       { frequency: 360, start: 0.04, duration: 0.07, type: 'square', gain: 0.035 },
     ],
   },
+  eternal: {
+    accent: [
+      { frequency: 92, duration: 0.11, type: 'sine', gain: 0.022, pan: -0.36, reverb: 0.18 },
+      { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.035, gain: 0.012, pan: 0.36 },
+    ],
+    click: [
+      { source: 'noise', filterType: 'highpass', frequency: 2200, duration: 0.025, gain: 0.018, pan: -0.24 },
+      { frequency: 420, endFrequency: 330, duration: 0.05, type: 'triangle', gain: 0.055, pan: 0.16 },
+    ],
+    tab: [
+      { source: 'noise', filterType: 'highpass', frequency: 2800, duration: 0.026, gain: 0.017, pan: -0.36 },
+      { frequency: 390, duration: 0.035, type: 'square', gain: 0.034, pan: -0.2 },
+      { frequency: 585, start: 0.032, duration: 0.052, type: 'triangle', gain: 0.039 },
+      { frequency: 1170, start: 0.082, duration: 0.09, type: 'sine', gain: 0.03, pan: 0.34, reverb: 0.25 },
+    ],
+    select: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1700, q: 1.8, duration: 0.03, gain: 0.018, pan: -0.3 },
+      { frequency: 330, endFrequency: 440, duration: 0.06, type: 'triangle', gain: 0.052, pan: -0.12 },
+      { frequency: 880, start: 0.052, duration: 0.09, type: 'sine', gain: 0.034, pan: 0.3, reverb: 0.2 },
+    ],
+    toggle: [
+      { frequency: 260, endFrequency: 390, duration: 0.06, type: 'square', gain: 0.038, pan: -0.24 },
+      { frequency: 780, start: 0.052, duration: 0.08, type: 'triangle', gain: 0.036, pan: 0.26, reverb: 0.18 },
+    ],
+    nav: [
+      { source: 'noise', filterType: 'highpass', frequency: 2400, duration: 0.032, gain: 0.016, pan: -0.32 },
+      { frequency: 520, endFrequency: 780, duration: 0.07, type: 'triangle', gain: 0.046 },
+      { frequency: 1040, start: 0.065, duration: 0.09, type: 'sine', gain: 0.03, pan: 0.32, reverb: 0.22 },
+    ],
+    confirm: [
+      { source: 'noise', filterType: 'highpass', frequency: 2500, duration: 0.045, gain: 0.02, pan: -0.36 },
+      { frequency: 330, duration: 0.045, type: 'triangle', gain: 0.046, pan: -0.2 },
+      { frequency: 660, start: 0.04, duration: 0.065, type: 'triangle', gain: 0.044 },
+      { frequency: 1320, start: 0.1, duration: 0.13, type: 'sine', gain: 0.033, pan: 0.36, reverb: 0.28 },
+    ],
+    start: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 0.9, duration: 0.2, gain: 0.028, pan: -0.48, reverb: 0.25 },
+      { frequency: 196, endFrequency: 392, duration: 0.09, type: 'sawtooth', gain: 0.04, pan: -0.28 },
+      { frequency: 392, start: 0.075, duration: 0.1, type: 'triangle', gain: 0.044 },
+      { frequency: 784, start: 0.16, duration: 0.15, type: 'sine', gain: 0.035, pan: 0.34, reverb: 0.3 },
+    ],
+    phaseDay: [
+      ...CUE_PROFILES.phaseDay,
+      { source: 'noise', filterType: 'highpass', frequency: 2900, duration: 0.05, gain: 0.018, pan: -0.4 },
+      { frequency: 1040, start: 0.15, duration: 0.13, type: 'sine', gain: 0.03, pan: 0.38, reverb: 0.28 },
+    ],
+    phaseNight: [
+      ...CUE_PROFILES.phaseNight,
+      { source: 'noise', filterType: 'bandpass', frequency: 620, q: 1.2, duration: 0.22, gain: 0.026, pan: -0.42, reverb: 0.24 },
+      { frequency: 82, start: 0.16, duration: 0.2, type: 'sine', gain: 0.032, pan: 0.34, reverb: 0.3 },
+    ],
+    elimination: [
+      ...CUE_PROFILES.elimination,
+      { source: 'noise', filterType: 'highpass', frequency: 2800, start: 0.035, duration: 0.1, gain: 0.025, pan: 0.38 },
+      { frequency: 62, start: 0.13, duration: 0.22, type: 'sine', gain: 0.04, pan: 0.1, reverb: 0.24 },
+    ],
+    revive: [
+      ...CUE_PROFILES.revive,
+      { source: 'noise', filterType: 'highpass', frequency: 2400, duration: 0.09, gain: 0.02, pan: -0.4, reverb: 0.22 },
+      { frequency: 1035, start: 0.17, duration: 0.16, type: 'sine', gain: 0.035, pan: 0.38, reverb: 0.34 },
+    ],
+    zoneLock: [
+      ...CUE_PROFILES.zoneLock,
+      { source: 'noise', filterType: 'bandpass', frequency: 920, q: 2.1, duration: 0.25, gain: 0.03, pan: -0.42, reverb: 0.22 },
+      { frequency: 74, start: 0.18, duration: 0.22, type: 'sine', gain: 0.038, pan: 0.32, reverb: 0.28 },
+    ],
+    hyperloopJump: [
+      ...CUE_PROFILES.hyperloopJump,
+      { source: 'noise', filterType: 'bandpass', frequency: 980, q: 0.8, duration: 0.24, gain: 0.032, pan: -0.5, reverb: 0.32 },
+      { frequency: 1760, start: 0.18, duration: 0.18, type: 'sine', gain: 0.029, pan: 0.46, reverb: 0.34 },
+    ],
+    kioskRevive: [
+      ...CUE_PROFILES.kioskRevive,
+      { source: 'noise', filterType: 'highpass', frequency: 2350, duration: 0.08, gain: 0.02, pan: -0.42 },
+      { frequency: 1380, start: 0.22, duration: 0.18, type: 'sine', gain: 0.031, pan: 0.4, reverb: 0.34 },
+    ],
+    riftOpen: [
+      ...CUE_PROFILES.riftOpen,
+      { source: 'noise', filterType: 'bandpass', frequency: 1120, q: 0.7, duration: 0.36, gain: 0.034, pan: -0.54, reverb: 0.34 },
+      { frequency: 1520, endFrequency: 380, start: 0.2, duration: 0.25, type: 'sine', gain: 0.027, pan: 0.48, reverb: 0.38 },
+    ],
+    riftBattle: [
+      ...CUE_PROFILES.riftBattle,
+      { source: 'noise', filterType: 'highpass', frequency: 3100, start: 0.04, duration: 0.16, gain: 0.028, pan: 0.46 },
+      { frequency: 58, start: 0.16, duration: 0.28, type: 'sine', gain: 0.046, pan: 0.08, reverb: 0.26 },
+    ],
+    bossSpawn: [
+      ...CUE_PROFILES.bossSpawn,
+      { source: 'noise', filterType: 'bandpass', frequency: 740, q: 0.75, duration: 0.38, gain: 0.04, pan: -0.5, reverb: 0.32 },
+      { frequency: 55, start: 0.19, duration: 0.34, type: 'sine', gain: 0.052, pan: 0.2, reverb: 0.3 },
+    ],
+    bossDefeat: [
+      ...CUE_PROFILES.bossDefeat,
+      { source: 'noise', filterType: 'highpass', frequency: 2900, duration: 0.13, gain: 0.026, pan: -0.46, reverb: 0.26 },
+      { frequency: 1260, start: 0.24, duration: 0.2, type: 'sine', gain: 0.035, pan: 0.42, reverb: 0.36 },
+    ],
+    objectiveSpawn: [
+      ...CUE_PROFILES.objectiveSpawn,
+      { source: 'noise', filterType: 'highpass', frequency: 2500, duration: 0.08, gain: 0.02, pan: -0.4 },
+      { frequency: 1365, start: 0.15, duration: 0.16, type: 'sine', gain: 0.033, pan: 0.4, reverb: 0.34 },
+    ],
+    rareSupply: [
+      ...CUE_PROFILES.rareSupply,
+      { source: 'noise', filterType: 'highpass', frequency: 2300, duration: 0.07, gain: 0.02, pan: -0.38 },
+      { frequency: 1260, start: 0.18, duration: 0.15, type: 'sine', gain: 0.03, pan: 0.38, reverb: 0.3 },
+    ],
+    transcendSupply: [
+      ...CUE_PROFILES.transcendSupply,
+      { source: 'noise', filterType: 'highpass', frequency: 3100, duration: 0.1, gain: 0.024, pan: -0.44, reverb: 0.24 },
+      { frequency: 1755, start: 0.2, duration: 0.2, type: 'sine', gain: 0.034, pan: 0.42, reverb: 0.38 },
+    ],
+    specialCraft: [
+      ...CUE_PROFILES.specialCraft,
+      { source: 'noise', filterType: 'bandpass', frequency: 1480, q: 1.4, duration: 0.18, gain: 0.026, pan: -0.44 },
+      { frequency: 1720, start: 0.2, duration: 0.18, type: 'sine', gain: 0.031, pan: 0.42, reverb: 0.34 },
+    ],
+    suddenDeath: [
+      ...CUE_PROFILES.suddenDeath,
+      { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.36, gain: 0.045, pan: -0.5, reverb: 0.28 },
+      { frequency: 49, start: 0.2, duration: 0.38, type: 'sine', gain: 0.052, pan: 0.2, reverb: 0.34 },
+    ],
+    victory: [
+      ...CUE_PROFILES.victory,
+      { source: 'noise', filterType: 'highpass', frequency: 3200, duration: 0.2, gain: 0.03, pan: -0.5, reverb: 0.32 },
+      { frequency: 1568, start: 0.28, duration: 0.24, type: 'sine', gain: 0.037, pan: 0.44, reverb: 0.4 },
+    ],
+    defeat: [
+      ...CUE_PROFILES.defeat,
+      { source: 'noise', filterType: 'lowpass', frequency: 540, duration: 0.26, gain: 0.038, pan: -0.44, reverb: 0.28 },
+      { frequency: 73, start: 0.2, duration: 0.32, type: 'sine', gain: 0.042, pan: 0.28, reverb: 0.36 },
+    ],
+  },
   twenty: {
     accent: [{ frequency: 820, duration: 0.055, type: 'sine', gain: 0.025 }],
     click: [{ frequency: 620, endFrequency: 700, duration: 0.055, type: 'sine', gain: 0.08 }],
@@ -2478,6 +2610,7 @@ THEME_CUE_PROFILES.starleague = {
 const THEME_SPATIAL_MIXES = {
   default: { panSpread: 0.24, reverb: 0.1 },
   battle: { panSpread: 0.34, reverb: 0.08 },
+  eternal: { panSpread: 0.5, reverb: 0.2 },
   twenty: { panSpread: 0.18, reverb: 0.2 },
   card: { panSpread: 0.42, reverb: 0.14 },
   'academy-duel': { panSpread: 0.56, reverb: 0.2 },

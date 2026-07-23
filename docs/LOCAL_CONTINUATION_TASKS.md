@@ -1,6 +1,6 @@
 # Local Continuation Tasks
 
-Updated: 2026-07-17 KST
+Updated: 2026-07-23 KST
 Latest pushed commit: check `git log -1 --oneline origin/main` after pulling.
 
 This document is the handoff list for continuing work on another machine.
@@ -25,6 +25,19 @@ npm install
 ```powershell
 npm run build
 ```
+
+## Game Completion Priority
+
+Finish each higher-priority game to its project completion gate before advancing:
+
+1. Eternal Hunger
+2. Civilization Archive
+3. Twenty Questions
+4. Starleague Simulator
+5. Company Report Simulator
+6. Remaining games, ordered by core-loop completeness, runtime risk, and player impact
+
+Completion means no known critical runtime defect, passing game-specific regression and production-build gates, and responsive desktop/mobile play surfaces.
 
 ## Current State
 

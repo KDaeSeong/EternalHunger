@@ -1,5 +1,7 @@
 import { apiGet, apiGetCached, clearAuth } from '../../../utils/api';
 
+let loginRedirectInFlight = false;
+
 function getApiErrorMessage(err, fallback = '요청 실패') {
   return String(err?.response?.data?.error || err?.response?.data?.message || err?.message || fallback);
 }
@@ -47,10 +49,12 @@ function getRejectedLabels(pairs) {
 }
 
 function redirectToLogin(message = '로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.', shouldClearAuth = false) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || loginRedirectInFlight || window.location.pathname === '/login') return false;
+  loginRedirectInFlight = true;
   if (shouldClearAuth) clearAuth();
   alert(message);
   window.location.replace('/login');
+  return true;
 }
 
 function formatInitLoadError(err) {

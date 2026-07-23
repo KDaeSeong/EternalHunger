@@ -103,6 +103,8 @@ const sources = Object.fromEntries(await Promise.all([
   ['rift', '../src/app/simulation/_lib/phaseDimensionRiftRuntime.js'],
   ['devGuard', '../src/app/simulation/_lib/useSimulationDevRunGuard.js'],
   ['finish', '../src/app/simulation/_lib/finishGameRuntime.js'],
+  ['initialData', '../src/app/simulation/_lib/useSimulationInitialData.js'],
+  ['initRuntime', '../src/app/simulation/_lib/simulationInitRuntime.js'],
   ['logPanel', '../src/app/simulation/_components/SimulationLogPanel.js'],
 ].map(async ([key, relativePath]) => [key, await readFile(new URL(relativePath, import.meta.url), 'utf8')])));
 
@@ -118,6 +120,17 @@ assert.ok(
 );
 assert.match(sources.finish, /if \(isDevRunTainted\)[\s\S]*?return;/, 'A developer-tainted run must stop before records and rewards are saved.');
 assert.match(sources.logPanel, /LOG_VIEW\.KILL/, 'The log panel must keep its kill-only view.');
+assert.ok(
+  sources.initialData.indexOf('if (hasInitialized.current) return;') < sources.initialData.indexOf('const token = getToken();'),
+  'The one-shot initialization guard must run before an unauthenticated redirect can emit auth updates.',
+);
+assert.match(sources.initRuntime, /let loginRedirectInFlight = false;/, 'Simulation login redirects must have an in-flight guard.');
+assert.match(
+  sources.initRuntime,
+  /loginRedirectInFlight \|\| window\.location\.pathname === '\/login'/,
+  'Repeated auth updates must not trigger another login alert and redirect.',
+);
+
 
 console.log(JSON.stringify({
   duplicateStartingItemsMerged: true,
@@ -128,4 +141,5 @@ console.log(JSON.stringify({
   dimensionRiftRosterGuarded: true,
   developerRunRewardsBlocked: true,
   killLogViewGuarded: true,
+  loginRedirectLoopGuarded: true,
 }, null, 2));

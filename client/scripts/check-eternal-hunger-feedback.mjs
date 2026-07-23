@@ -162,6 +162,7 @@ assert.equal(
 
 const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
 const sfxSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
+const audioThemeSource = await readFile(new URL('../src/app/games/_lib/gameAudioThemes.js', import.meta.url), 'utf8');
 const pageSource = await readFile(new URL('../src/app/simulation/_components/SimulationPageView.js', import.meta.url), 'utf8');
 const gameScreenSource = await readFile(new URL('../src/app/simulation/_components/SimulationGameScreen.js', import.meta.url), 'utf8');
 const eventBarSource = await readFile(new URL('../src/app/simulation/_components/SimulationEventFeedbackBar.js', import.meta.url), 'utf8');
@@ -203,7 +204,16 @@ for (const cue of requiredCues) {
   assert.match(sfxSource, new RegExp(`\\b${cue}:\\s*\\[`), `Missing Eternal Hunger cue: ${cue}`);
 }
 
+const eternalThemeMatch = sfxSource.match(/eternal:\s*\{([\s\S]*?)\n\s{2}\},\n\s{2}twenty:/);
+assert.ok(eternalThemeMatch, 'Eternal Hunger must use a dedicated SFX theme.');
+for (const cue of ['click', 'tab', 'select', 'confirm', 'start', ...requiredCues]) {
+  assert.match(eternalThemeMatch[1], new RegExp(`\\b${cue}:\\s*\\[`), `Missing enriched Eternal Hunger cue: ${cue}`);
+}
+assert.match(audioThemeSource, /\['eternalhunger',\s*'eternal'\]/, 'Eternal Hunger route must resolve to its dedicated SFX theme.');
+assert.match(audioThemeSource, /\['simulation',\s*'eternal'\]/, 'Simulation route must resolve to the Eternal Hunger SFX theme.');
+
 assert.match(pageSource, /getSimulationFeedbackPresentation/, '시뮬레이션 페이지는 사건 프레젠테이션을 계산해야 합니다.');
+assert.match(pageSource, /theme:\s*'eternal'/, 'Simulation must use the Eternal Hunger SFX theme.');
 assert.match(pageSource, /eventFeedback=\{eventFeedback\}/, '최신 사건 프레젠테이션을 게임 화면에 전달해야 합니다.');
 assert.match(gameScreenSource, /<SimulationEventFeedbackBar feedback=\{eventFeedback\}/, '게임 화면은 주요 사건 결과 바를 렌더링해야 합니다.');
 assert.match(eventBarSource, /<GameActionIcon action=\{feedback\.action/, '주요 사건 결과 바는 전용 아이콘을 사용해야 합니다.');
@@ -215,5 +225,6 @@ console.log(JSON.stringify({
   majorEvents: majorEventCases.length + visualOnlyCases.length + 1,
   dedicatedCues: requiredCues.length,
   dedicatedIcons: requiredActions.length,
+  dedicatedSfxTheme: true,
   persistentEventBar: true,
 }, null, 2));
