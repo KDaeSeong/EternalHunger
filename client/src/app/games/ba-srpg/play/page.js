@@ -6,6 +6,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import GameActionIcon from '../../_components/GameActionIcon';
 import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
@@ -13,6 +14,7 @@ import useGameSfx from '../../_lib/useGameSfx';
 import BaSrpgFeatureTabs from '../_components/BaSrpgFeatureTabs';
 import {
   baSrpgFeedbackCue,
+  baSrpgFeedbackImpacts,
   baSrpgFeedbackPresentation,
   createBaSrpgFeedbackSnapshot,
 } from '../_lib/baSrpgFeedback';
@@ -83,6 +85,7 @@ export default function BaSrpgPlayPage() {
   const [activeTabId, setActiveTabId] = useState('mission');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [resultImpacts, setResultImpacts] = useState([]);
   const { setMusicScene } = useGameBgm();
   const playGameSfx = useGameSfx({ theme: 'tactical', volume: 0.18 });
   const feedbackRef = useRef(null);
@@ -128,8 +131,18 @@ export default function BaSrpgPlayPage() {
   }, [baseMusicScene, setMusicScene]);
 
   useEffect(() => {
-    const cue = baSrpgFeedbackCue(feedbackRef.current, feedbackSnapshot);
+    const previousFeedback = feedbackRef.current;
+    const cue = baSrpgFeedbackCue(previousFeedback, feedbackSnapshot);
+    const impacts = baSrpgFeedbackImpacts(previousFeedback, feedbackSnapshot);
+    const resultChanged = previousFeedback && (
+      previousFeedback.runId !== feedbackSnapshot.runId
+      || previousFeedback.missionId !== feedbackSnapshot.missionId
+      || previousFeedback.phase !== feedbackSnapshot.phase
+      || previousFeedback.lastResult !== feedbackSnapshot.lastResult
+      || previousFeedback.latestLog !== feedbackSnapshot.latestLog
+    );
     feedbackRef.current = feedbackSnapshot;
+    if (impacts.length || resultChanged) setResultImpacts(impacts);
     if (cue) playGameSfx(cue);
 
     const musicTransition = cue ? baSrpgResultMusic(resultPresentation, cue) : null;
@@ -203,6 +216,7 @@ export default function BaSrpgPlayPage() {
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
       const nextState = normalizeState(detail?.save?.payload?.state);
       feedbackRef.current = createBaSrpgFeedbackSnapshot(nextState);
+      setResultImpacts([]);
       setState(nextState);
       setMissionId(nextState.selectedMissionId);
       setMessage('저장된 BA SRPG 진행 상태를 불러왔습니다.');
@@ -246,6 +260,7 @@ export default function BaSrpgPlayPage() {
 
   const startNewRun = () => {
     const nextState = createNewState();
+    setResultImpacts([]);
     setState(nextState);
     setMissionId(nextState.selectedMissionId);
     setRecipeId(RECIPES[0].id);
@@ -348,6 +363,20 @@ export default function BaSrpgPlayPage() {
         tone={resultPresentation.tone}
         pinned
       />
+      {resultImpacts.length ? (
+        <div className="srpg-impact-strip" role="status" aria-live="polite" aria-label="최근 행동 변화량">
+          {resultImpacts.map((impact) => (
+            <div
+              className={`srpg-impact-chip is-${impact.tone}`}
+              key={`${impact.label}-${impact.value}`}
+            >
+              <GameActionIcon action={impact.action} label={impact.label} />
+              <span>{impact.label}</span>
+              <strong>{impact.value}</strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <BaSrpgFeatureTabs
         activeTabId={activeTabId}

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   baSrpgFeedbackCue,
+  baSrpgFeedbackImpacts,
   baSrpgFeedbackPresentation,
   createBaSrpgFeedbackSnapshot,
 } from '../src/app/games/ba-srpg/_lib/baSrpgFeedback.js';
@@ -69,6 +70,36 @@ assert.equal(base.aliveAllies, 2, '생존 아군 수를 계산해야 합니다.'
 assert.equal(base.aliveEnemies, 2, '생존 적 수를 계산해야 합니다.');
 assert.equal(baSrpgFeedbackCue(null, base), '', '첫 렌더에서는 결과음을 재생하면 안 됩니다.');
 assert.equal(baSrpgFeedbackCue(base, { ...base }), '', '선택만 바뀐 상태는 결과음을 재생하면 안 됩니다.');
+
+const impactBase = { ...base, allyShield: 12, enemyShield: 8, allyAp: 4 };
+const impactAfter = {
+  ...impactBase,
+  aliveEnemies: 1,
+  enemyHp: 12,
+  allyHp: 45,
+  allyShield: 0,
+  enemyShield: 0,
+  allyAp: 2,
+  objectiveCaptured: true,
+  lastResult: '노아 -> 드론 28 피해 격파',
+};
+const impactRows = baSrpgFeedbackImpacts(impactBase, impactAfter);
+assert.deepEqual(impactRows.map((row) => row.label), ['목표', '적 격파', '적 HP', '아군 HP'], '핵심 변화량을 우선순위대로 네 칸에 표시해야 합니다.');
+assert.equal(impactRows.find((row) => row.label === '적 HP')?.value, '-28', '적 HP 감소량을 부호와 함께 표시해야 합니다.');
+assert.equal(impactRows.find((row) => row.label === '아군 HP')?.value, '-10', '아군 HP 감소량을 부호와 함께 표시해야 합니다.');
+const apImpactRows = baSrpgFeedbackImpacts(
+  { ...base, allyAp: 4 },
+  { ...base, allyAp: 2, lastResult: '유우카 이동' },
+);
+assert.deepEqual(apImpactRows[0], { action: 'turn', label: '아군 AP', value: '-2', tone: 'ready' }, '행동 후 AP 소비량을 표시해야 합니다.');
+const missImpactRows = baSrpgFeedbackImpacts(
+  base,
+  { ...base, lastResult: '미카 공격 빗나감' },
+);
+assert.equal(missImpactRows[0]?.value, '수치 변화 없음', '빗나감처럼 수치가 바뀌지 않은 행동도 결과를 명시해야 합니다.');
+assert.equal(baSrpgFeedbackCue(impactBase, { ...impactBase, enemyHp: 15, lastResult: '노아 -> 드론 25 피해' }), 'heavyHit', '큰 피해는 일반 교전음보다 무거운 타격음을 사용해야 합니다.');
+assert.equal(baSrpgFeedbackCue(impactBase, { ...impactBase, allyHp: 45, lastResult: '저격수 -> 유우카 10 피해' }), 'allyHit', '아군 피격은 공격 성공음과 다른 경고음을 사용해야 합니다.');
+assert.equal(baSrpgFeedbackCue(impactBase, { ...impactBase, allyShield: 0, lastResult: '저격수 -> 유우카 보호막 피해' }), 'shieldBreak', '보호막 소진은 전용 파괴음을 사용해야 합니다.');
 
 assert.equal(
   baSrpgFeedbackCue(base, { ...base, missionId: 'm002' }),
@@ -610,12 +641,20 @@ assert.match(visualsSource, /export function BaSrpgPanelTitle/, 'SRPG 공용 패
 assert.match(visualsSource, /export function BaSrpgIconRow/, 'SRPG 공용 의미 아이콘 행 컴포넌트가 필요합니다.');
 assert.match(cssSource, /\.ba-srpg-panel-title h2/, 'SRPG 패널 제목 아이콘 레이아웃이 필요합니다.');
 assert.match(cssSource, /\.game-save-row\.srpg-icon-row/, 'SRPG 의미 아이콘 행 레이아웃이 필요합니다.');
+assert.match(pageSource, /className="srpg-impact-strip"/, '최근 행동 아래에 변화량 스트립을 표시해야 합니다.');
+assert.equal([...pageSource.matchAll(/setResultImpacts\(\[\]\)/g)].length, 2, '불러오기와 새 런은 이전 변화량을 초기화해야 합니다.');
+assert.match(pageSource, /<GameActionIcon action=\{impact\.action\}/, '변화량마다 의미 아이콘을 표시해야 합니다.');
+assert.match(cssSource, /\.srpg-impact-chip/, 'BA SRPG 변화량 칩 레이아웃이 필요합니다.');
+['heavyHit', 'allyHit', 'shieldBreak'].forEach((cue) => {
+  assert.ok(sfxSource.includes(`${cue}: [`), `${cue} 전용 전투 효과음 프로필이 필요합니다.`);
+});
 
 console.log(JSON.stringify({
   message: 'BA SRPG tactical feedback checks passed.',
   skills: TACTICAL_SKILLS.length,
-  tacticalCues: 23,
+  tacticalCues: 26,
   townCues: 4,
+  impactRows: impactRows.length,
   semanticPanelTitles,
   semanticIconRows,
   missionsWithObjectives: Object.keys(MISSION_OBJECTIVES).length,

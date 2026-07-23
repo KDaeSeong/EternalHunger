@@ -2437,6 +2437,23 @@ const THEME_CUE_PROFILES = {
       { frequency: 360, endFrequency: 220, start: 0.045, duration: 0.09, type: 'sawtooth', gain: 0.044, pan: 0.2 },
       { source: 'noise', filterType: 'bandpass', frequency: 960, start: 0.08, duration: 0.12, gain: 0.032, pan: 0.34, reverb: 0.18 },
     ],
+    heavyHit: [
+      { source: 'noise', filterType: 'lowpass', frequency: 920, duration: 0.16, gain: 0.052, pan: -0.38, reverb: 0.22 },
+      { frequency: 155, endFrequency: 58, duration: 0.13, type: 'sawtooth', gain: 0.06, pan: -0.22 },
+      { frequency: 310, endFrequency: 124, start: 0.045, duration: 0.14, type: 'square', gain: 0.048, pan: 0.18 },
+      { source: 'noise', filterType: 'bandpass', frequency: 1380, start: 0.11, duration: 0.14, gain: 0.034, pan: 0.36, reverb: 0.24 },
+    ],
+    allyHit: [
+      { source: 'noise', filterType: 'bandpass', frequency: 760, duration: 0.13, gain: 0.042, pan: -0.34, reverb: 0.2 },
+      { frequency: 294, endFrequency: 147, duration: 0.11, type: 'triangle', gain: 0.052, pan: -0.16 },
+      { frequency: 196, endFrequency: 98, start: 0.08, duration: 0.15, type: 'sine', gain: 0.042, pan: 0.28, reverb: 0.26 },
+    ],
+    shieldBreak: [
+      { source: 'noise', filterType: 'highpass', frequency: 3200, duration: 0.09, gain: 0.036, pan: -0.42, reverb: 0.26 },
+      { frequency: 1180, endFrequency: 420, duration: 0.08, type: 'triangle', gain: 0.044, pan: -0.24 },
+      { frequency: 880, endFrequency: 330, start: 0.055, duration: 0.1, type: 'square', gain: 0.04, pan: 0.18 },
+      { frequency: 132, endFrequency: 74, start: 0.11, duration: 0.16, type: 'sine', gain: 0.05, pan: 0.34, reverb: 0.22 },
+    ],
     reactionShot: [
       { source: 'noise', filterType: 'highpass', frequency: 3400, duration: 0.035, gain: 0.034, pan: -0.38 },
       { frequency: 620, endFrequency: 240, duration: 0.065, type: 'sawtooth', gain: 0.048, pan: -0.24 },

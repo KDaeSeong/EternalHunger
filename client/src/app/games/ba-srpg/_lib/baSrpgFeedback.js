@@ -2,6 +2,17 @@ function aliveCount(rows) {
   return Array.isArray(rows) ? rows.filter((row) => Number(row?.hp || 0) > 0).length : 0;
 }
 
+function sumActorValue(rows, readValue) {
+  return Array.isArray(rows)
+    ? rows.reduce((sum, row) => sum + Math.max(0, Number(readValue(row) || 0)), 0)
+    : 0;
+}
+
+function signedValue(value) {
+  const amount = Number(value || 0);
+  return (amount > 0 ? '+' : '') + amount;
+}
+
 function normalizeSnapshot(value) {
   return value?.battle ? createBaSrpgFeedbackSnapshot(value) : value || {};
 }
@@ -70,6 +81,11 @@ export function createBaSrpgFeedbackSnapshot(state) {
     turn: Math.max(0, Number(battle.turn || 0)),
     aliveAllies: aliveCount(battle.units),
     aliveEnemies: aliveCount(battle.enemies),
+    allyHp: sumActorValue(battle.units, (row) => row?.hp),
+    enemyHp: sumActorValue(battle.enemies, (row) => row?.hp),
+    allyShield: sumActorValue(battle.units, (row) => row?.shield?.amount),
+    enemyShield: sumActorValue(battle.enemies, (row) => row?.shield?.amount),
+    allyAp: sumActorValue(battle.units, (row) => row?.ap),
     lastResult: String(battle.lastResult || '').trim(),
     latestLog: String(Array.isArray(state?.log) ? state.log[0] || '' : '').trim(),
     battleWins: Math.max(0, Number(state?.battleWins || 0)),
@@ -92,6 +108,98 @@ export function baSrpgFeedbackPresentation(value) {
   }
   const signal = resultSignal(detail);
   return { ...signal, detail: detail || '학생과 표적을 선택해 작전을 시작하세요.' };
+}
+
+export function baSrpgFeedbackImpacts(previousValue, currentValue) {
+  if (!previousValue || !currentValue) return [];
+  const previous = normalizeSnapshot(previousValue);
+  const current = normalizeSnapshot(currentValue);
+  if (previous.runId && current.runId && previous.runId !== current.runId) return [];
+
+  const battleRestarted = current.phase === 'player'
+    && current.turn === 1
+    && (
+      current.missionId !== previous.missionId
+      || previous.phase === 'cleared'
+      || previous.phase === 'failed'
+      || current.aliveEnemies > previous.aliveEnemies
+    );
+  if (battleRestarted) return [];
+
+  const impacts = [];
+  const enemyDown = Math.max(0, previous.aliveEnemies - current.aliveEnemies);
+  const allyDown = Math.max(0, previous.aliveAllies - current.aliveAllies);
+  const enemyHpDelta = current.enemyHp - previous.enemyHp;
+  const allyHpDelta = current.allyHp - previous.allyHp;
+  const allyShieldDelta = current.allyShield - previous.allyShield;
+  const enemyShieldDelta = current.enemyShield - previous.enemyShield;
+  const allyApDelta = current.allyAp - previous.allyAp;
+
+  if (!previous.objectiveCaptured && current.objectiveCaptured) {
+    impacts.push({ action: 'srpg-objective-command', label: '목표', value: '확보', tone: 'success' });
+  }
+  if (enemyDown > 0) {
+    impacts.push({ action: 'elimination', label: '적 격파', value: '+' + enemyDown, tone: 'success' });
+  }
+  if (allyDown > 0) {
+    impacts.push({ action: 'unit-down', label: '아군 이탈', value: '+' + allyDown, tone: 'danger' });
+  }
+  if (enemyHpDelta !== 0) {
+    impacts.push({
+      action: enemyHpDelta < 0 ? 'combat' : 'consume',
+      label: '적 HP',
+      value: signedValue(enemyHpDelta),
+      tone: enemyHpDelta < 0 ? 'success' : 'warning',
+    });
+  }
+  if (allyHpDelta !== 0) {
+    impacts.push({
+      action: allyHpDelta < 0 ? 'unit-down' : 'consume',
+      label: '아군 HP',
+      value: signedValue(allyHpDelta),
+      tone: allyHpDelta < 0 ? 'danger' : 'support',
+    });
+  }
+  if (allyShieldDelta !== 0) {
+    impacts.push({
+      action: 'guard',
+      label: '아군 보호막',
+      value: signedValue(allyShieldDelta),
+      tone: allyShieldDelta < 0 ? 'warning' : 'support',
+    });
+  }
+  if (enemyShieldDelta !== 0) {
+    impacts.push({
+      action: 'guard',
+      label: '적 보호막',
+      value: signedValue(enemyShieldDelta),
+      tone: enemyShieldDelta < 0 ? 'success' : 'warning',
+    });
+  }
+  if (allyApDelta !== 0) {
+    impacts.push({
+      action: 'turn',
+      label: '아군 AP',
+      value: signedValue(allyApDelta),
+      tone: allyApDelta < 0 ? 'ready' : 'support',
+    });
+  }
+
+  if (!impacts.length) {
+    const resultChanged = (current.lastResult && current.lastResult !== previous.lastResult)
+      || (current.latestLog && current.latestLog !== previous.latestLog);
+    if (resultChanged) {
+      const signal = resultSignal(current.lastResult || current.latestLog);
+      impacts.push({
+        action: signal.action,
+        label: signal.label,
+        value: '수치 변화 없음',
+        tone: signal.tone,
+      });
+    }
+  }
+
+  return impacts.slice(0, 4);
 }
 
 export function baSrpgFeedbackCue(previousValue, currentValue) {
@@ -122,7 +230,15 @@ export function baSrpgFeedbackCue(previousValue, currentValue) {
   if (current.aliveAllies < previous.aliveAllies) return 'unitDown';
   if (current.aliveEnemies < previous.aliveEnemies) return 'elimination';
   if (current.lastResult && current.lastResult !== previous.lastResult) {
-    return resultSignal(current.lastResult).cue;
+    const signal = resultSignal(current.lastResult);
+    if (previous.allyShield > 0 && current.allyShield <= 0 && current.allyHp <= previous.allyHp) return 'shieldBreak';
+    if (previous.enemyShield > 0 && current.enemyShield <= 0 && current.enemyHp <= previous.enemyHp) return 'shieldBreak';
+    if (signal.cue && signal.cue !== 'combat') return signal.cue;
+    if (current.allyHp < previous.allyHp) return 'allyHit';
+    if (previous.enemyHp - current.enemyHp >= 24) return 'heavyHit';
+    if (current.allyHp > previous.allyHp) return 'consume';
+    if (current.allyShield > previous.allyShield) return 'guard';
+    return signal.cue;
   }
   if (current.latestLog && current.latestLog !== previous.latestLog) {
     return resultSignal(current.latestLog).cue;

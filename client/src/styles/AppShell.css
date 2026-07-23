@@ -10495,6 +10495,70 @@
   color: #5d3a8d;
 }
 
+.srpg-impact-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.srpg-impact-chip {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid rgba(34, 103, 143, 0.18);
+  border-radius: 7px;
+  background: #f4f8fb;
+  padding: 5px 8px;
+  color: #344b5b;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.srpg-impact-chip > .game-action-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #dcecf6;
+  color: #1f5f86;
+}
+
+.srpg-impact-chip span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.srpg-impact-chip strong {
+  color: #17202a;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+.srpg-impact-chip.is-success {
+  border-color: rgba(25, 135, 84, 0.24);
+  background: #f0faf5;
+}
+
+.srpg-impact-chip.is-danger {
+  border-color: rgba(197, 57, 57, 0.25);
+  background: #fff3f3;
+}
+
+.srpg-impact-chip.is-warning {
+  border-color: rgba(180, 119, 18, 0.26);
+  background: #fff9ed;
+}
+
+.srpg-impact-chip.is-support {
+  border-color: rgba(117, 84, 168, 0.24);
+  background: #f8f4fd;
+}
+
 .srpg-board {
   display: grid;
   grid-template-columns: repeat(var(--srpg-cols), minmax(42px, 1fr));
