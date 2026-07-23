@@ -34,6 +34,11 @@ function latestOutcome(state) {
     .sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')))[0] || null;
 }
 
+function signedCodingMetric(value, suffix = '') {
+  const rounded = Math.round(Number(value || 0) * 10) / 10;
+  return `${rounded > 0 ? '+' : ''}${rounded.toLocaleString('ko-KR')}${suffix}`;
+}
+
 export function siCodingFeedbackSnapshot(state) {
   const outcome = latestOutcome(state);
   const evaluation = state?.projectEvaluations?.[0] || null;
@@ -45,6 +50,8 @@ export function siCodingFeedbackSnapshot(state) {
     selectedSeedId: String(state?.selectedSeedId || ''),
     outcomeSignature: outcome ? `${outcome.taskId}:${outcome.score}:${outcome.submittedAt || ''}` : '',
     outcomeScore: Number(outcome?.score || 0),
+    outcomeRiskCount: Number(outcome?.riskOpenCount || 0),
+    outcomeCount: Object.keys(state?.taskOutcomes || {}).length,
     evaluationSignature: evaluation ? `${evaluation.createdAt || ''}:${evaluation.grade || ''}` : '',
     evaluationGrade: String(evaluation?.grade || ''),
     hintCount: Object.values(state?.hintUsage || {}).reduce((sum, count) => sum + Number(count || 0), 0),
@@ -57,6 +64,11 @@ export function siCodingFeedbackSnapshot(state) {
     supportAction: String(supportEntry?.action || ''),
     supportTitle: String(supportEntry?.title || ''),
     supportAmount: Number(supportEntry?.amount || 0),
+    stamina: Number(state?.resources?.stamina || 0),
+    mentality: Number(state?.resources?.mentality || 0),
+    clientTrust: Number(state?.resources?.clientTrust || 0),
+    techDebt: Number(state?.resources?.techDebt || 0),
+    cashReserve: Number(state?.companySupport?.cashReserve || 0),
     latestLog: String(state?.log?.[0] || ''),
   };
 }
@@ -117,6 +129,138 @@ export function siCodingFeedbackPresentation(previous, current) {
   if (key === 'projectSelect') return { ...profile, detail: snapshot.latestLog || '차기 현장 후보를 선택했습니다.' };
   if (key === 'codingBlocked') return { ...profile, detail: snapshot.latestLog || '현재 조건에서는 이 작업을 실행할 수 없습니다.' };
   return { ...profile, detail: snapshot.latestLog };
+}
+
+export function siCodingFeedbackImpacts(previousValue, currentValue) {
+  if (!previousValue || !currentValue) return [];
+  const previous = previousValue?.outcomeSignature !== undefined ? previousValue : siCodingFeedbackSnapshot(previousValue);
+  const current = currentValue?.outcomeSignature !== undefined ? currentValue : siCodingFeedbackSnapshot(currentValue);
+  if (previous.runId !== current.runId) return [];
+
+  const outcomes = [];
+  const resources = [];
+  const addImpact = (collection, {
+    action,
+    after,
+    before,
+    inverse = false,
+    label,
+    suffix = '',
+    tone = '',
+    worseTone = 'warning',
+  }) => {
+    const delta = Math.round((Number(after || 0) - Number(before || 0)) * 10) / 10;
+    if (!delta) return;
+    const improved = inverse ? delta < 0 : delta > 0;
+    collection.push({
+      action,
+      label,
+      value: signedCodingMetric(delta, suffix),
+      tone: tone || (improved ? 'success' : worseTone),
+    });
+  };
+
+  if (previous.evaluationSignature !== current.evaluationSignature && current.evaluationSignature) {
+    const grade = current.evaluationGrade;
+    outcomes.push({
+      action: grade === 'FAIL' ? 'judge' : grade === '보류' ? 'project-held' : 'project',
+      label: '종료 등급',
+      value: grade,
+      tone: grade === 'FAIL' ? 'danger' : grade === '보류' || grade === 'C' ? 'warning' : 'success',
+    });
+  }
+
+  if (previous.outcomeSignature !== current.outcomeSignature && current.outcomeSignature) {
+    outcomes.push({
+      action: current.outcomeScore >= 100 ? 'trophy' : current.outcomeScore >= 75 ? 'coding-test-pass' : 'coding-test-fail',
+      label: '검수 점수',
+      value: `${current.outcomeScore}점`,
+      tone: current.outcomeScore >= 100 ? 'champion' : current.outcomeScore >= 75 ? 'success' : 'danger',
+    });
+    outcomes.push({
+      action: current.outcomeRiskCount ? 'warning' : 'coding-ready',
+      label: '열린 리스크',
+      value: `${current.outcomeRiskCount}건`,
+      tone: current.outcomeRiskCount >= 2 ? 'danger' : current.outcomeRiskCount === 1 ? 'warning' : 'success',
+    });
+  }
+
+  addImpact(outcomes, {
+    action: 'document-review',
+    before: previous.reviewedItems,
+    after: current.reviewedItems,
+    label: '문서 검토',
+    suffix: '개',
+  });
+  addImpact(outcomes, {
+    action: 'hint',
+    before: previous.hintCount,
+    after: current.hintCount,
+    inverse: true,
+    label: '힌트',
+    suffix: '회',
+  });
+  addImpact(outcomes, {
+    action: 'sponsor',
+    before: previous.supportSpent,
+    after: current.supportSpent,
+    label: '지원 집행',
+    suffix: 'pt',
+    tone: 'highlight',
+  });
+
+  addImpact(resources, {
+    action: 'guard',
+    before: previous.clientTrust,
+    after: current.clientTrust,
+    label: '고객 신뢰',
+  });
+  addImpact(resources, {
+    action: 'warning',
+    before: previous.techDebt,
+    after: current.techDebt,
+    inverse: true,
+    label: '기술 부채',
+  });
+  addImpact(resources, {
+    action: 'status',
+    before: previous.stamina,
+    after: current.stamina,
+    label: '체력',
+  });
+  addImpact(resources, {
+    action: 'support',
+    before: previous.mentality,
+    after: current.mentality,
+    label: '멘탈',
+  });
+  addImpact(resources, {
+    action: 'sponsor',
+    before: previous.cashReserve,
+    after: current.cashReserve,
+    label: '예비비',
+    suffix: 'pt',
+  });
+
+  const outcomeLimit = resources.length ? 3 : 4;
+  const impacts = [
+    ...outcomes.slice(0, outcomeLimit),
+    ...resources.slice(0, 4 - Math.min(outcomeLimit, outcomes.length)),
+  ].slice(0, 4);
+  if (impacts.length || current.latestLog === previous.latestLog) return impacts;
+
+  const presentation = siCodingFeedbackPresentation(previous, current);
+  const contextValue = presentation.key === 'taskSelect'
+    ? current.currentTaskId
+    : presentation.key === 'projectSelect'
+      ? '후보 지정'
+      : '상태 갱신';
+  return [{
+    action: presentation.action,
+    label: presentation.label,
+    value: contextValue,
+    tone: presentation.tone || 'highlight',
+  }];
 }
 
 export function siCodingResultPresentation(text, fallback = CODING_FEEDBACK_PROFILES.idle) {

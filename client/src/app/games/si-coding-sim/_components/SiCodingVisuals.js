@@ -48,3 +48,18 @@ export function SiCodingIconRow({ action, children, className = '', label = '', 
     </article>
   );
 }
+
+export function SiCodingImpactStrip({ items = [] }) {
+  if (!items.length) return null;
+  return (
+    <div className="si-coding-impact-strip" role="status" aria-live="polite" aria-label="최근 개발 작업 변화량">
+      {items.map((item) => (
+        <div className={`si-coding-impact-chip is-${item.tone || 'highlight'}`} key={`${item.label}-${item.value}`}>
+          <GameActionIcon action={item.action} label={item.label} />
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}

@@ -22,9 +22,11 @@ import {
 } from '../_lib/siCodingSimEngine';
 import { buildSiCodingSimPlayViewModel } from '../_lib/siCodingSimPlayViewModel';
 import SiCodingSimFeatureTabs from '../_components/SiCodingSimFeatureTabs';
+import { SiCodingImpactStrip } from '../_components/SiCodingVisuals';
 import useSiCodingSimPersistence from '../_hooks/useSiCodingSimPersistence';
 import {
   siCodingFeedbackCue,
+  siCodingFeedbackImpacts,
   siCodingFeedbackPresentation,
   siCodingFeedbackSnapshot,
   siCodingResultPresentation,
@@ -65,6 +67,7 @@ export default function SiCodingSimPlayPage() {
     label: '검수 결과',
     tone: '',
   });
+  const [resultImpacts, setResultImpacts] = useState([]);
   const feedbackRef = useRef(siCodingFeedbackSnapshot(state));
 
   const viewModel = useMemo(() => buildSiCodingSimPlayViewModel({
@@ -166,6 +169,7 @@ export default function SiCodingSimPlayPage() {
     const presentation = siCodingFeedbackPresentation(previousState, nextState);
     stateRef.current = nextState;
     setState(nextState);
+    setResultImpacts(siCodingFeedbackImpacts(previousState, nextState));
     if (presentation.key !== 'idle') {
       setActionPresentation(presentation);
       setActionResult(presentation.detail || nextState.log?.[0] || '상태가 변경되었습니다.');
@@ -182,8 +186,10 @@ export default function SiCodingSimPlayPage() {
     setSelectedFileId(getCurrentTask(nextState)?.files?.[0]?.id || '');
     setMessage('');
     setActionResult('새 SI Coding Sim 현장을 시작했습니다.');
+    setResultImpacts([]);
     const presentation = siCodingFeedbackPresentation(previousState, nextState);
     setActionPresentation(presentation);
+    if (presentation.cue) playGameSfx(presentation.cue);
     playMusicTransition(presentation);
     feedbackRef.current = siCodingFeedbackSnapshot(nextState);
   };
@@ -200,6 +206,7 @@ export default function SiCodingSimPlayPage() {
       stateRef.current = nextState;
       feedbackRef.current = siCodingFeedbackSnapshot(nextState);
       setSelectedFileId(getCurrentTask(nextState)?.files?.[0]?.id || '');
+      setResultImpacts([]);
     },
     score,
     setActionResult,
@@ -208,6 +215,12 @@ export default function SiCodingSimPlayPage() {
     state,
     token,
   });
+
+  const runPersistenceAction = (handler) => {
+    setResultImpacts([]);
+    void handler();
+  };
+
   const scrollToPanel = (panel) => {
     const tabByPanel = {
       code: 'code',
@@ -266,10 +279,10 @@ export default function SiCodingSimPlayPage() {
 
   const actions = (
     <>
-      <GameControlButton action="new" onClick={startNewRun}>새 현장</GameControlButton>
-      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
-      <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
-      <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun}>새 현장</GameControlButton>
+      <GameControlButton action="save" onClick={() => runPersistenceAction(saveRun)} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={() => runPersistenceAction(loadRun)} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
+      <GameControlButton action="archive" onClick={() => runPersistenceAction(recordRun)} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
       <Link className="game-control-button" data-game-sfx="nav" href="/myanime/si-coding-sim">
         <GameActionIcon action="settings" label="상세" />
         <span className="game-action-button__label">상세</span>
@@ -345,6 +358,7 @@ export default function SiCodingSimPlayPage() {
           tone={resultPresentation.tone}
           pinned
         />
+        <SiCodingImpactStrip items={resultImpacts} />
       </GamePlayShell>
     );
   }
@@ -354,7 +368,7 @@ export default function SiCodingSimPlayPage() {
       className="si-coding-page-shell"
       kicker="SI Coding Sim"
       title="SI 코딩 시뮬레이터"
-      description="업로드된 Step AQ/AR 과제팩의 문서, 코드 파일, 문자열 기반 검수 규칙, 힌트 비용, 프로젝트 종료 판정을 사이트용 challenge slice로 이식했습니다."
+      description="요구사항과 문서를 검토하고 코드를 수정해 테스트를 통과시킨 뒤 프로젝트를 납품하는 현장형 개발 시뮬레이션입니다."
       summaryLabel="SI Coding Sim 요약"
       summaryDensity="micro"
       primaryMetricLimit={10}
@@ -371,6 +385,7 @@ export default function SiCodingSimPlayPage() {
         tone={resultPresentation.tone}
         pinned
       />
+      <SiCodingImpactStrip items={resultImpacts} />
 
       <SiCodingSimFeatureTabs
         activeContent={activeContent}

@@ -12974,6 +12974,92 @@
   color: #687580;
 }
 
+.si-coding-impact-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.si-coding-impact-chip {
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #c7d9e5;
+  border-radius: 7px;
+  background: #f2f7fa;
+  color: #244459;
+  font-variant-numeric: tabular-nums;
+}
+
+.si-coding-impact-chip > .game-action-icon {
+  width: 25px;
+  height: 25px;
+  color: #2673a6;
+}
+
+.si-coding-impact-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  color: #526a7a;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.si-coding-impact-chip > strong {
+  color: #17384d;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.si-coding-impact-chip.is-success {
+  border-color: #98cbb7;
+  background: #edf8f2;
+}
+
+.si-coding-impact-chip.is-success > strong {
+  color: #147053;
+}
+
+.si-coding-impact-chip.is-warning {
+  border-color: #e3c486;
+  background: #fff7e6;
+}
+
+.si-coding-impact-chip.is-warning > strong {
+  color: #966016;
+}
+
+.si-coding-impact-chip.is-danger {
+  border-color: #e4a4a7;
+  background: #fff0f0;
+}
+
+.si-coding-impact-chip.is-danger > strong {
+  color: #a62f36;
+}
+
+.si-coding-impact-chip.is-highlight {
+  border-color: #9fc7df;
+  background: #eaf5fb;
+}
+
+.si-coding-impact-chip.is-champion {
+  border-color: #d9b85f;
+  background: #fff8dc;
+}
+
+.si-coding-impact-chip.is-champion > .game-action-icon,
+.si-coding-impact-chip.is-champion > strong {
+  color: #8a6510;
+}
+
 .schale-idle-panel-title h2 {
   min-width: 0;
   display: inline-flex;
@@ -14115,6 +14201,10 @@
 
   .game-save-row.si-coding-icon-row {
     grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .si-coding-impact-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .si-coding-icon-row > .tcg-primary-action,
