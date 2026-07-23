@@ -1,4 +1,4 @@
-.app-shell {
+﻿.app-shell {
   min-width: 0;
 }
 
@@ -13245,6 +13245,140 @@
   color: #7dd3fc;
 }
 
+.ba-vanguard-impact-strip {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0 1px 3px;
+  scrollbar-width: thin;
+}
+
+.ba-vanguard-impact-strip__item {
+  flex: 0 0 auto;
+  display: inline-grid;
+  grid-template-columns: 18px auto auto;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid rgba(125, 211, 252, 0.26);
+  border-radius: 6px;
+  background: rgba(14, 116, 144, 0.08);
+  color: #334155;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ba-vanguard-impact-strip__item .game-action-icon {
+  width: 17px;
+  height: 17px;
+}
+
+.ba-vanguard-impact-strip__item b {
+  color: #64748b;
+}
+
+.ba-vanguard-impact-strip__item strong {
+  color: #0369a1;
+}
+
+.ba-vanguard-impact-strip__item.is-success {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.ba-vanguard-impact-strip__item.is-success strong {
+  color: #047857;
+}
+
+.ba-vanguard-impact-strip__item.is-warning {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.ba-vanguard-impact-strip__item.is-warning strong,
+.ba-vanguard-impact-strip__item.is-danger strong {
+  color: #b45309;
+}
+
+.ba-vanguard-impact-strip__item.is-danger {
+  border-color: rgba(239, 68, 68, 0.32);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.ba-vanguard-impact-strip__item.is-danger strong {
+  color: #b91c1c;
+}
+
+.ba-vanguard-battle-forecast {
+  display: grid;
+  grid-template-columns: 34px minmax(180px, 0.7fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 9px 11px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-left-width: 4px;
+  border-radius: 7px;
+  background: rgba(14, 116, 144, 0.07);
+}
+
+.ba-vanguard-battle-forecast > .game-action-icon {
+  width: 32px;
+  height: 32px;
+  padding: 7px;
+  border-radius: 7px;
+  background: rgba(56, 189, 248, 0.14);
+  color: #0369a1;
+}
+
+.ba-vanguard-battle-forecast__summary {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.ba-vanguard-battle-forecast__summary strong {
+  color: #0f172a;
+  font-size: 0.82rem;
+}
+
+.ba-vanguard-battle-forecast__summary span,
+.ba-vanguard-battle-forecast__numbers span {
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.ba-vanguard-battle-forecast__numbers {
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ba-vanguard-battle-forecast__numbers b {
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.ba-vanguard-battle-forecast.is-success {
+  border-left-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.ba-vanguard-battle-forecast.is-warning {
+  border-left-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.ba-vanguard-battle-forecast.is-danger {
+  border-left-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
 .rail-schedule-layout {
   display: grid;
   grid-template-columns: minmax(250px, 0.38fr) minmax(0, 1.62fr);
@@ -13547,6 +13681,15 @@
   .racing-logos-workspace .game-save-row .tcg-primary-action,
   .ba-vanguard-workspace .game-save-row .tcg-primary-action {
     min-width: 88px;
+  }
+
+  .ba-vanguard-battle-forecast {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .ba-vanguard-battle-forecast__numbers {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 
   .game-save-row.racing-logo-icon-row {

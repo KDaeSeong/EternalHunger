@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
@@ -848,6 +848,31 @@ const CUE_PROFILES = {
   vanguardInvalid: [
     { frequency: 310, endFrequency: 220, duration: 0.075, type: 'square', gain: 0.038 },
     { frequency: 180, start: 0.065, duration: 0.11, type: 'sine', gain: 0.038 },
+  ],
+  vanguardRideBlocked: [
+    { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.045, gain: 0.02, pan: -0.28 },
+    { frequency: 520, endFrequency: 350, duration: 0.08, type: 'triangle', gain: 0.04 },
+    { frequency: 220, start: 0.07, duration: 0.11, type: 'sine', gain: 0.036, pan: 0.24 },
+  ],
+  vanguardStrideBlocked: [
+    { source: 'noise', filterType: 'bandpass', frequency: 620, q: 1.5, duration: 0.09, gain: 0.03, pan: -0.3 },
+    { frequency: 330, endFrequency: 165, duration: 0.12, type: 'sawtooth', gain: 0.034 },
+    { frequency: 110, start: 0.1, duration: 0.14, type: 'sine', gain: 0.038, pan: 0.25 },
+  ],
+  vanguardSkillBlocked: [
+    { source: 'noise', filterType: 'highpass', frequency: 2300, duration: 0.035, gain: 0.022, pan: -0.25 },
+    { frequency: 880, endFrequency: 440, duration: 0.07, type: 'square', gain: 0.03 },
+    { frequency: 260, start: 0.065, duration: 0.11, type: 'triangle', gain: 0.038, pan: 0.24 },
+  ],
+  vanguardGuardBlocked: [
+    { source: 'noise', filterType: 'lowpass', frequency: 500, duration: 0.09, gain: 0.04, pan: -0.24 },
+    { frequency: 300, endFrequency: 190, duration: 0.11, type: 'square', gain: 0.034 },
+    { frequency: 150, start: 0.08, duration: 0.13, type: 'sine', gain: 0.038, pan: 0.22 },
+  ],
+  vanguardAttackDenied: [
+    { source: 'noise', filterType: 'bandpass', frequency: 950, q: 1.8, duration: 0.05, gain: 0.035, pan: -0.3 },
+    { frequency: 420, endFrequency: 210, duration: 0.09, type: 'sawtooth', gain: 0.035 },
+    { frequency: 170, start: 0.075, duration: 0.12, type: 'sine', gain: 0.038, pan: 0.26 },
   ],
   vanguardTurn: [
     { frequency: 390, duration: 0.045, type: 'triangle', gain: 0.042 },

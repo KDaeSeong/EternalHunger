@@ -1,4 +1,4 @@
-import { GameControlButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
+﻿import { GameControlButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { BattlePanel, Field, ZoneExplorer } from './BaVanguardBoard';
 import { BaVanguardPanelTitle } from './BaVanguardVisuals';
 import { PRESET_DECKS, SIDE_LABELS } from '../_lib/baVanguardCatalog';
@@ -29,6 +29,7 @@ export default function BaVanguardDuelTab(props) {
     opponentPresetId,
     presetId,
     recentDuelText,
+    replayReport,
     resultPresentation,
     rules,
     runAiUntilStop,
@@ -143,6 +144,7 @@ export default function BaVanguardDuelTab(props) {
 
         <BattlePanel
           battle={duel.battle}
+          guardAudit={replayReport.guardAudit}
           selectedHandId={selectedHandId}
           onGuardAdd={onGuardAdd}
           onGGuard={onGGuard}

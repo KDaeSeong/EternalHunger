@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 import { GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import { SIDE_LABELS, cardName, getCard } from '../_lib/baVanguardCatalog';
-import { BaVanguardIconRow, BaVanguardPanelTitle } from './BaVanguardVisuals';
+import { BaVanguardBattleForecast, BaVanguardIconRow, BaVanguardPanelTitle } from './BaVanguardVisuals';
 
 function unitPower(unit) {
   if (!unit) return 0;
@@ -477,11 +477,12 @@ export function Field({ title, player, side, selectedAttacker, zoneView, onCircl
   );
 }
 
-export function BattlePanel({ battle, selectedHandId, onGuardAdd, onGGuard, onGuardEnd }) {
+export function BattlePanel({ battle, guardAudit, selectedHandId, onGuardAdd, onGGuard, onGuardEnd }) {
   if (!battle) return null;
   return (
     <section className="games-panel">
       <BaVanguardPanelTitle action="combat" title="배틀 처리" meta={`${SIDE_LABELS[battle.attackerSide]} 공격`} />
+      <BaVanguardBattleForecast audit={guardAudit} />
       <div className="games-rank-split">
         <SmallStat label="공격" value={`${battle.attackerCircle}${battle.boosterCircle ? ` + ${battle.boosterCircle}` : ''}`} />
         <SmallStat label="방어" value={`${battle.defenderCircle}`} />

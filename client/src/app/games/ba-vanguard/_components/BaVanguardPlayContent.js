@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -12,6 +12,7 @@ import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import useGameSfx from '../../_lib/useGameSfx';
 import BaVanguardFeatureTabs from './BaVanguardFeatureTabs';
+import { BaVanguardImpactStrip } from './BaVanguardVisuals';
 import { roomConcurrencyAudit } from './BaVanguardBoard';
 import { useBaVanguardPersistence } from '../_hooks/useBaVanguardPersistence';
 import {
@@ -507,7 +508,7 @@ export default function BaVanguardPlayContent() {
       className="ba-vanguard-page-shell"
       kicker="BA Vanguard"
       title="BA Vanguard"
-      description="myanime 원본의 P-G 플레이테스트 흐름을 사이트용으로 이식했습니다. 라이드, 콜, 스트라이드, 배틀, 가드, 드라이브/데미지 체크, 간단 AI 진행을 한 화면에서 확인합니다."
+      description="프리셋 덱으로 라이드, 콜, 스트라이드와 가드 타이밍을 직접 판단하고 AI와 한 판을 완주합니다. 전투 수치와 트리거 결과, 리플레이 분석을 한 화면에서 확인할 수 있습니다."
       heroLayout="compact"
       summaryLabel="BA Vanguard 현황"
       summaryDensity="micro"
@@ -524,6 +525,7 @@ export default function BaVanguardPlayContent() {
         tone={resultPresentation.tone}
         pinned
       />
+      <BaVanguardImpactStrip items={resultPresentation.impacts} />
 
       <BaVanguardFeatureTabs
         activeTabId={activeTabId}

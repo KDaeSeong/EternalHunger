@@ -1,4 +1,4 @@
-const SIDE_LABELS = {
+﻿const SIDE_LABELS = {
   me: '나',
   opp: 'AI',
 };
@@ -39,6 +39,11 @@ const FEEDBACK_PROFILES = {
   defeat: { action: 'vanguard-defeat', cue: 'vanguardDefeat', label: '듀얼 패배', tone: 'danger' },
   deckOutVictory: { action: 'vanguard-deck-out', cue: 'vanguardVictory', label: '덱 아웃 승리', tone: 'champion' },
   deckOutDefeat: { action: 'vanguard-deck-out', cue: 'vanguardDeckOut', label: '덱 아웃 패배', tone: 'danger' },
+  rideBlocked: { action: 'vanguard-ride', cue: 'vanguardRideBlocked', label: '라이드 불가', tone: 'warning' },
+  strideBlocked: { action: 'vanguard-stride', cue: 'vanguardStrideBlocked', label: '스트라이드 불가', tone: 'warning' },
+  skillBlocked: { action: 'vanguard-skill', cue: 'vanguardSkillBlocked', label: 'VC 스킬 불가', tone: 'warning' },
+  guardBlocked: { action: 'vanguard-guard', cue: 'vanguardGuardBlocked', label: '가드 불가', tone: 'warning' },
+  attackDenied: { action: 'vanguard-attack', cue: 'vanguardAttackDenied', label: '공격 불가', tone: 'warning' },
   invalid: { action: 'vanguard-invalid', cue: 'vanguardInvalid', label: '액션 실행 불가', tone: 'warning' },
   replay: { action: 'vanguard-replay', cue: 'vanguardReplay', label: '리플레이 준비', tone: 'success' },
 };
@@ -76,6 +81,14 @@ function dropCount(duel, side) {
   return safeArray(duel?.players?.[side]?.drop).length;
 }
 
+function soulCount(duel, side) {
+  return safeArray(duel?.players?.[side]?.soul).length;
+}
+
+function fieldCount(duel, side) {
+  return Object.values(duel?.players?.[side]?.circles || {}).filter(Boolean).length;
+}
+
 function battleSnapshot(battle) {
   if (!battle) return null;
   return {
@@ -107,6 +120,10 @@ export function baVanguardFeedbackSnapshot(duel) {
     oppDeck: deckCount(duel, 'opp'),
     meDrop: dropCount(duel, 'me'),
     oppDrop: dropCount(duel, 'opp'),
+    meSoul: soulCount(duel, 'me'),
+    oppSoul: soulCount(duel, 'opp'),
+    meField: fieldCount(duel, 'me'),
+    oppField: fieldCount(duel, 'opp'),
     meStrided: Boolean(duel?.players?.me?.isStrided),
     oppStrided: Boolean(duel?.players?.opp?.isStrided),
     battle: battleSnapshot(duel?.battle),
@@ -121,7 +138,14 @@ function asSnapshot(value) {
 
 function transitionFromLog(latestLog) {
   const text = String(latestLog || '');
-  if (BLOCKED_LOG.test(text)) return 'invalid';
+  if (BLOCKED_LOG.test(text)) {
+    if (/스트라이드 (?:조건|비용)|G존|G 유닛/.test(text)) return 'strideBlocked';
+    if (/라이드|Grade \d+ 노멀 유닛/.test(text)) return 'rideBlocked';
+    if (/VC 스킬|스킬 비용/.test(text)) return 'skillBlocked';
+    if (/가드|실드|G 가디언/.test(text)) return 'guardBlocked';
+    if (/공격/.test(text)) return 'attackDenied';
+    return 'invalid';
+  }
   if (/공격이 막혔/.test(text)) return 'attackBlocked';
   if (/공격이 히트/.test(text)) return 'attackHit';
   if (/크리티컬 트리거/.test(text)) return 'triggerCritical';
@@ -187,10 +211,40 @@ function profileFor(key) {
   return { key, ...(FEEDBACK_PROFILES[key] || FEEDBACK_PROFILES.idle) };
 }
 
+function signedValue(value) {
+  const numeric = Number(value || 0);
+  return `${numeric > 0 ? '+' : ''}${numeric.toLocaleString('ko-KR')}`;
+}
+
+function feedbackImpacts(previousValue, currentValue) {
+  if (!previousValue || !currentValue) return [];
+  const previous = asSnapshot(previousValue);
+  const current = asSnapshot(currentValue);
+  const guardDelta = Number(current.battle?.guardShield || 0) - Number(previous.battle?.guardShield || 0);
+  const candidates = [
+    { action: 'vanguard-damage', label: '내 데미지', value: current.meDamage - previous.meDamage, tone: 'danger' },
+    { action: 'vanguard-hit', label: 'AI 데미지', value: current.oppDamage - previous.oppDamage, tone: 'success' },
+    { action: 'vanguard-guard', label: '가드 실드', value: guardDelta, tone: 'success' },
+    { action: 'vanguard-call', label: '내 필드', value: current.meField - previous.meField, tone: current.meField >= previous.meField ? 'success' : 'warning' },
+    { action: 'target', label: 'AI 필드', value: current.oppField - previous.oppField, tone: current.oppField <= previous.oppField ? 'success' : 'warning' },
+    { action: 'vanguard-ride', label: '내 소울', value: current.meSoul - previous.meSoul, tone: 'highlight' },
+    { action: 'vanguard-draw', label: '내 패', value: current.meHand - previous.meHand, tone: current.meHand >= previous.meHand ? 'success' : 'warning' },
+    { action: 'vanguard-draw', label: 'AI 패', value: current.oppHand - previous.oppHand, tone: current.oppHand <= previous.oppHand ? 'success' : 'warning' },
+    { action: 'deck', label: '내 덱', value: current.meDeck - previous.meDeck, tone: 'warning' },
+    { action: 'deck', label: 'AI 덱', value: current.oppDeck - previous.oppDeck, tone: 'highlight' },
+    { action: 'vanguard-retire', label: '내 드롭', value: current.meDrop - previous.meDrop, tone: 'warning' },
+    { action: 'vanguard-retire', label: 'AI 드롭', value: current.oppDrop - previous.oppDrop, tone: 'success' },
+  ];
+  return candidates
+    .filter((item) => item.value !== 0)
+    .slice(0, 4)
+    .map((item) => ({ ...item, value: signedValue(item.value) }));
+}
+
 export function baVanguardResultPresentation(previousValue, currentValue) {
   const current = asSnapshot(currentValue);
   const key = baVanguardFeedbackTransition(previousValue, current);
-  const profile = profileFor(key);
+  const profile = { ...profileFor(key), impacts: feedbackImpacts(previousValue, currentValue) };
   if (key === 'turn') {
     return { ...profile, detail: `${current.turn}턴 · ${SIDE_LABELS[current.active] || current.active} 차례가 시작됐습니다.` };
   }
