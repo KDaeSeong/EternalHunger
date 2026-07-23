@@ -33,6 +33,8 @@
     "check:tonkatsu-teacher-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-tonkatsu-teacher-soundtrack.mjs && node ./scripts/check-tonkatsu-teacher-rendered-audio.mjs",
     "check:dual-academy-feedback": "node ./scripts/check-dual-academy-feedback.mjs",
     "check:dual-academy-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-dual-academy-soundtrack.mjs && node ./scripts/check-dual-academy-rendered-audio.mjs",
+    "check:eternal-hunger": "npm run check:eternal-hunger:regressions && npm run check:revive && npm run check:custom-roster && npm run check:lumia-minimap && npm run check:er-weapons && npm run check:skills && npm run check:eternal-hunger-feedback && npm run check:eternal-hunger-soundtrack && npm run check:runtime:sweep && npm run build",
+    "check:eternal-hunger:regressions": "node ./scripts/check-eternal-hunger-regressions.mjs",
     "check:eternal-hunger-feedback": "node ./scripts/check-eternal-hunger-feedback.mjs",
     "check:eternal-hunger-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-eternal-hunger-soundtrack.mjs && node ./scripts/check-eternal-hunger-rendered-audio.mjs",
     "check:sampled-orchestra": "node ./scripts/check-sampled-orchestra.mjs",

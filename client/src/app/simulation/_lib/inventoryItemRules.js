@@ -1,7 +1,7 @@
 import {
   itemDisplayName,
   safeTags,
-} from './simulationCommon';
+} from './simulationCommon.js';
 
 export const DEFAULT_INV_RULES = {
   maxSlots: 10,

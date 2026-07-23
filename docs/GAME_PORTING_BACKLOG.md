@@ -3,6 +3,19 @@
 Source archive: `C:\2저장고\마이애니메\마이애니메.zip`
 Checked: 2026-07-17
 
+## Completion Priority
+
+Complete and verify one game before starting the next completion pass:
+
+1. Eternal Hunger
+2. Civilization Archive
+3. Twenty Questions
+4. Starleague Simulator
+5. Company Report Simulator
+6. Remaining games by gameplay impact and unfinished scope
+
+The completion gate is the game's dedicated regression suite, runtime lint, production build, and a focused play-screen smoke test.
+
 ## Current Shared Site Support
 
 - Public game candidates can be managed from `/admin/games`.

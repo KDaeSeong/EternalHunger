@@ -2,7 +2,7 @@ import {
   compactIO,
   itemDisplayName,
   tierLabelKo,
-} from './simulationCommon';
+} from './simulationCommon.js';
 import {
   clampInventoryTier,
   getInvItemId,
@@ -12,7 +12,7 @@ import {
   inferEquipSlot,
   inferItemCategory,
   inventoryItemPriority,
-} from './inventoryItemRules';
+} from './inventoryItemRules.js';
 
 export {
   DEFAULT_INV_RULES,
@@ -24,7 +24,7 @@ export {
   isBandageLikeItem,
   isSimGeneratedEquipment,
   markInventoryGoalItem,
-} from './inventoryItemRules';
+} from './inventoryItemRules.js';
 
 function isAutoDroppableConsumable(entry, invCfg, incomingScore) {
   if (invCfg?.autoDropConsumablesForPriority === false) return false;
@@ -122,6 +122,7 @@ export function normalizeInventory(inventory, ruleset) {
 
   const equipmentBySlot = new Map();
   const keptNonEquipment = [];
+  const stackedNonEquipmentById = new Map();
   const isBetterEquipment = (next, prev) => {
     if (!prev) return true;
     const nextTier = clampInventoryTier(next?.tier || 1, 'equipment');
@@ -144,10 +145,40 @@ export function normalizeInventory(inventory, ruleset) {
       if (isBetterEquipment(entry, prev)) equipmentBySlot.set(slot, entry);
       continue;
     }
-    keptNonEquipment.push(entry);
+    const itemId = getInvItemId(entry);
+    if (!itemId) {
+      keptNonEquipment.push(entry);
+      continue;
+    }
+
+    const stackKey = `${String(entry?.category || inferItemCategory(entry) || 'material')}:${itemId}`;
+    const previous = stackedNonEquipmentById.get(stackKey);
+    if (!previous) {
+      stackedNonEquipmentById.set(stackKey, entry);
+      continue;
+    }
+
+    const category = String(entry?.category || previous?.category || inferItemCategory(entry) || 'material');
+    const maxStack = Math.max(1, Number(rules.stackMax?.[category] || 1));
+    const preferred = inventoryItemPriority(entry) > inventoryItemPriority(previous) ? entry : previous;
+    const tags = [...new Set([
+      ...(Array.isArray(previous?.tags) ? previous.tags : []),
+      ...(Array.isArray(entry?.tags) ? entry.tags : []),
+    ].map((tag) => String(tag || '')).filter(Boolean))];
+    stackedNonEquipmentById.set(stackKey, {
+      ...previous,
+      ...preferred,
+      _normIndex: Math.min(Number(previous?._normIndex ?? 0), Number(entry?._normIndex ?? 0)),
+      qty: Math.min(
+        maxStack,
+        Math.max(0, Number(previous?.qty || 0)) + Math.max(0, Number(entry?.qty || 0)),
+      ),
+      tags,
+      ...(previous?.goalItem === true || entry?.goalItem === true ? { goalItem: true } : {}),
+    });
   }
 
-  let kept = [...keptNonEquipment, ...equipmentBySlot.values()]
+  let kept = [...keptNonEquipment, ...stackedNonEquipmentById.values(), ...equipmentBySlot.values()]
     .sort((a, b) => Number(a?._normIndex ?? 0) - Number(b?._normIndex ?? 0));
 
   if (kept.length > rules.maxSlots) {

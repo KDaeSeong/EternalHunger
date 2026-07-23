@@ -1,5 +1,5 @@
-import { invQty } from './inventoryRules';
-import { isAtOrAfterWorldTime } from './worldTime';
+import { invQty } from './inventoryRules.js';
+import { isAtOrAfterWorldTime } from './worldTime.js';
 
 function hasMissingSpecial(missingSpecialKeys, key) {
   if (missingSpecialKeys instanceof Set) return missingSpecialKeys.has(key);
