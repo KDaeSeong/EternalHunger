@@ -6310,6 +6310,116 @@
   font-size: 0.8rem;
 }
 
+.games-broadcast-details[open] .games-broadcast-timeline {
+  max-height: min(32vh, 340px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 8px;
+}
+
+.games-broadcast-phase {
+  flex: 0 0 auto;
+  min-width: 38px;
+  border: 1px solid rgba(44, 111, 158, 0.2);
+  border-radius: 999px;
+  background: #eef6fb;
+  color: #285e7e !important;
+  font-size: 0.65rem !important;
+  font-weight: 950;
+  line-height: 1.1;
+  text-align: center;
+  padding: 2px 5px;
+}
+
+.games-broadcast-phase.is-mid,
+.games-broadcast-phase.is-late {
+  border-color: rgba(180, 119, 18, 0.25);
+  background: #fff7e7;
+  color: #80530b !important;
+}
+
+.games-broadcast-phase.is-result {
+  border-color: rgba(25, 135, 84, 0.24);
+  background: #edf9f3;
+  color: #12683f !important;
+}
+
+.starleague-set-replay {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid rgba(44, 111, 158, 0.16);
+  padding-top: 10px;
+}
+
+.starleague-set-context {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #435d70;
+  font-size: 0.78rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.starleague-set-context .game-action-icon,
+.starleague-sim-details summary .game-action-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+.starleague-sim-details {
+  min-width: 0;
+}
+
+.starleague-sim-details summary {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #5d7080;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.starleague-sim-details dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.starleague-sim-details dl > div {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid rgba(44, 111, 158, 0.13);
+  padding: 4px 2px;
+}
+
+.starleague-sim-details dt,
+.starleague-sim-details dd,
+.starleague-sim-details p {
+  margin: 0;
+  color: #536979;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.starleague-sim-details dd {
+  font-weight: 900;
+  text-align: right;
+}
+
+.starleague-sim-details p {
+  margin-top: 7px;
+}
+
 .starleague-broadcast-signal {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto;
@@ -6410,6 +6520,20 @@
 .starleague-broadcast-signal.is-champion > .game-action-icon {
   background: #f5dfe8;
   color: #762342;
+}
+
+@media (max-width: 760px) {
+  .games-broadcast-details[open] .games-broadcast-timeline {
+    max-height: 300px;
+  }
+
+  .starleague-sim-details dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .starleague-set-context {
+    align-items: flex-start;
+  }
 }
 
 .starleague-panel-title h2,

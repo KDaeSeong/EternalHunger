@@ -279,7 +279,10 @@ const orchestrationSignatures = new Set(expectedBgmThemes.map((theme) => {
 assert.equal(orchestrationSignatures.size >= 8, true, '게임별 오케스트레이션 팔레트는 충분히 서로 달라야 합니다.');
 
 const iconKeys = objectKeys(iconSource, 'ACTION_ICONS');
-const cueKeys = objectKeys(sfxSource, 'CUE_PROFILES');
+const cueKeys = new Set([
+  ...objectKeys(sfxSource, 'CUE_PROFILES'),
+  ...[...sfxSource.matchAll(/^  ([A-Za-z][\w-]*):\s*\[/gm)].map((match) => match[1]),
+]);
 const feedbackActions = new Set();
 const feedbackCues = new Set();
 for (const source of feedbackSources) {

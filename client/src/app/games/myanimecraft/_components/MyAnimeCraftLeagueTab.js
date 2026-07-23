@@ -12,6 +12,19 @@ import { starleagueBuildAction } from '../_lib/starleaguePresentation';
 import { BroadcastTimeline } from './MyAnimeCraftPlayPanels';
 import { MyAnimeCraftIconRow, MyAnimeCraftPanelTitle } from './MyAnimeCraftVisuals';
 
+function formatSetDuration(seconds) {
+  const safe = Math.max(0, Math.floor(Number(seconds || 0)));
+  const minutes = Math.floor(safe / 60);
+  const rest = safe % 60;
+  return `${minutes}분 ${String(rest).padStart(2, '0')}초`;
+}
+
+function winningBuildStyle(match, setResult) {
+  return String(setResult?.winnerTeamId || '') === String(match?.homeTeamId || '')
+    ? setResult?.homeBuildStyle
+    : setResult?.awayBuildStyle;
+}
+
 export default function MyAnimeCraftLeagueTab(props) {
   const {
     applyStateAction,
@@ -114,22 +127,35 @@ export default function MyAnimeCraftLeagueTab(props) {
                   ))}
                 </div>
               </div>
-              {selectedArchiveMatch.sets.map((setResult) => (
-                <div key={`${selectedArchiveMatch.matchId}-${setResult.setNo}`}>
+              {selectedArchiveMatch.sets.map((setResult, setIndex) => (
+                <div className="starleague-set-replay" key={`${selectedArchiveMatch.matchId}-${setResult.setNo}`}>
                   <strong>
                     {setResult.setNo}세트{setResult.isAceSet ? ' · 에이스전' : ''} · {setResult.mapName} · {setResult.homePlayerName} {BUILD_STYLE_LABELS[setResult.homeBuildStyle] || setResult.homeBuildStyle}
                     {' vs '}
                     {setResult.awayPlayerName} {BUILD_STYLE_LABELS[setResult.awayBuildStyle] || setResult.awayBuildStyle}
                   </strong>
-                  <span>
-                    {setResult.homeBuildName} / {setResult.awayBuildName} · 홈 승률 {setResult.probabilityHome}% · 맵 보정 {setResult.mapBiasHome >= 0 ? '+' : ''}{setResult.mapBiasHome}% · 노이즈 {setResult.noiseAmp}
-                    {setResult.isAceSet ? ` · 에이스 보정 ${setResult.aceBoostHome >= 0 ? '+' : ''}${setResult.aceBoostHome}%/${setResult.aceBoostAway >= 0 ? '+' : ''}${setResult.aceBoostAway}%` : ''}
+                  <span className="starleague-set-context">
+                    <GameActionIcon action={starleagueBuildAction(winningBuildStyle(selectedArchiveMatch, setResult))} label="승리 빌드" />
+                    {setResult.homeBuildName} / {setResult.awayBuildName} · {formatSetDuration(setResult.durationSec)}
+                    {setResult.tempoLabel ? ` · ${setResult.tempoLabel}` : ''}
                   </span>
-                  {setResult.homeBuildReason || setResult.awayBuildReason ? (
-                    <small>
-                      빌드 근거: {setResult.homeBuildReason || '-'} / {setResult.awayBuildReason || '-'}
-                    </small>
-                  ) : null}
+                  <details className="starleague-sim-details">
+                    <summary data-game-sfx="select">
+                      <GameActionIcon action="analysis" label="시뮬레이션 분석" />
+                      시뮬레이션 분석
+                    </summary>
+                    <dl>
+                      <div><dt>홈 사전 승률</dt><dd>{setResult.probabilityHome}%</dd></div>
+                      <div><dt>맵 보정</dt><dd>{setResult.mapBiasHome >= 0 ? '+' : ''}{setResult.mapBiasHome}%</dd></div>
+                      <div><dt>변동 폭</dt><dd>{setResult.noiseAmp}</dd></div>
+                      {setResult.isAceSet ? (
+                        <div><dt>에이스 보정</dt><dd>{setResult.aceBoostHome >= 0 ? '+' : ''}{setResult.aceBoostHome}% / {setResult.aceBoostAway >= 0 ? '+' : ''}{setResult.aceBoostAway}%</dd></div>
+                      ) : null}
+                    </dl>
+                    {setResult.homeBuildReason || setResult.awayBuildReason ? (
+                      <p>빌드 근거 · {setResult.homeBuildReason || '-'} / {setResult.awayBuildReason || '-'}</p>
+                    ) : null}
+                  </details>
                   {setResult.keyEventLabel || setResult.tempoLabel ? (
                     <small>
                       핵심 장면: {setResult.keyEventLabel || '-'}{setResult.tempoLabel ? ` · 템포 ${setResult.tempoLabel}` : ''}
@@ -137,7 +163,11 @@ export default function MyAnimeCraftLeagueTab(props) {
                   ) : null}
                   {setResult.broadcastHeadline ? <span>{setResult.broadcastHeadline}</span> : null}
                   {setResult.turningPoint ? <small>{setResult.turningPoint}</small> : null}
-                  <BroadcastTimeline lines={setResult.timeline} />
+                  <BroadcastTimeline
+                    lines={setResult.timeline}
+                    durationSec={setResult.durationSec}
+                    defaultOpen={setIndex === selectedArchiveMatch.sets.length - 1}
+                  />
                 </div>
               ))}
             </div>

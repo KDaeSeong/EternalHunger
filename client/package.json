@@ -27,6 +27,8 @@
     "check:runtime:full": "npm run check:runtime:sweep && npm run build",
     "check:er-weapons": "node ./scripts/check-er-weapons.mjs",
     "check:skills": "node ./scripts/check-character-skill-compiler.mjs",
+    "check:starleague": "npm run check:starleague-broadcast && npm run check:starleague-feedback && npm run check:starleague-soundtrack",
+    "check:starleague-broadcast": "node ./scripts/check-starleague-broadcast.mjs",
     "check:starleague-feedback": "node ./scripts/check-starleague-feedback.mjs",
     "check:starleague-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-starleague-soundtrack.mjs && node ./scripts/check-starleague-rendered-audio.mjs",
     "check:tonkatsu-teacher-feedback": "node ./scripts/check-tonkatsu-teacher-feedback.mjs",

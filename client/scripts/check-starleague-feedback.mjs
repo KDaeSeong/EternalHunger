@@ -81,8 +81,10 @@ function playedFixture({
   probabilityHome = 55,
   scoreAway = 1,
   scoreHome = 2,
+  style = '',
   winner = 'team-a',
 } = {}) {
+  const winnerIsHome = winner === 'team-a';
   return {
     id,
     round: 1,
@@ -100,7 +102,17 @@ function playedFixture({
       scoreHome,
       scoreAway,
       sets: [
-        { setNo: 1, winnerTeamId: firstWinner, probabilityHome },
+        {
+          setNo: 1,
+          winnerTeamId: firstWinner,
+          probabilityHome,
+          homeBuildStyle: winnerIsHome ? style : 'balanced',
+          awayBuildStyle: winnerIsHome ? 'balanced' : style,
+          homeBuildName: winnerIsHome ? `${style} 홈 빌드` : '균형 홈 빌드',
+          awayBuildName: winnerIsHome ? '균형 원정 빌드' : `${style} 원정 빌드`,
+          tempoLabel: '중반 교전',
+          keyEventLabel: '주도권 확보',
+        },
         ...(ace ? [{ setNo: 2, winnerTeamId: winner, probabilityHome: 50, isAceSet: true }] : []),
       ],
     },
@@ -188,6 +200,31 @@ assert.equal(
   false,
   '최종 패배 팀의 이변 세트만으로 경기 전체를 이변으로 판정하면 안 됩니다.',
 );
+const stylePresentations = {
+  rush: { action: 'starleague-build-rush', cue: 'starleagueRush', label: '초반 타이밍 적중', tone: 'warning' },
+  harass: { action: 'starleague-build-harass', cue: 'starleagueHarass', label: '견제 운영 적중', tone: 'highlight' },
+  tech: { action: 'starleague-build-tech', cue: 'starleagueTech', label: '테크 카드 적중', tone: 'highlight' },
+  macro: { action: 'starleague-build-macro', cue: 'starleagueMacro', label: '운영전 승리', tone: 'success' },
+  balanced: { action: 'starleague-build-balanced', cue: 'starleagueBalanced', label: '정면 승부 승리', tone: 'ready' },
+};
+for (const [style, expected] of Object.entries(stylePresentations)) {
+  const styleSnapshot = starleagueFeedbackSnapshot(state({
+    fixtures: [playedFixture({ id: `style-${style}`, style })],
+  }));
+  const presentation = starleagueFeedbackPresentation(styleSnapshot, 'team-c');
+  assert.equal(styleSnapshot.latestWinningBuildStyle, style, `${style} 승리 빌드 성향을 보존해야 합니다.`);
+  assert.equal(styleSnapshot.latestWinningBuildName, `${style} 홈 빌드`, `${style} 승리 빌드 이름을 보존해야 합니다.`);
+  assert.deepEqual(
+    {
+      action: presentation.action,
+      cue: presentation.cue,
+      label: presentation.label,
+      tone: presentation.tone,
+    },
+    expected,
+    `${style} 승리는 고유 아이콘·효과음·문구를 사용해야 합니다.`,
+  );
+}
 
 const sameTimeFirst = playedFixture({ id: 'same-time-first' });
 const sameTimeLast = playedFixture({ id: 'same-time-last', winner: 'team-b', firstWinner: 'team-b', scoreHome: 0, scoreAway: 2 });
@@ -373,7 +410,8 @@ const resultCues = [
   'match', 'comeback', 'victory', 'defeat', 'champion', 'season', 'event', 'verdict',
   'cupStart', 'cupMatch', 'winnersStart', 'winnersSet', 'sponsor', 'training', 'recruit',
   'contract', 'release', 'transfer', 'tradeRejected', 'shop', 'equip', 'unequip',
-  'consume', 'rest', 'warning', 'start',
+  'consume', 'rest', 'warning', 'start', 'starleagueRush', 'starleagueHarass',
+  'starleagueTech', 'starleagueMacro', 'starleagueBalanced', 'replay',
 ];
 for (const cue of resultCues) {
   assert.match(soundSource, new RegExp(`\\n  ${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
@@ -423,13 +461,16 @@ for (const match of actionSources.matchAll(/applyStateAction\(/g)) {
 }
 assert.match(teamSource, /TEAM_ACTION_ICONS/, '특훈·휴식·팬미팅은 행동별 아이콘을 선택해야 합니다.');
 assert.match(leagueSource, /data-game-sfx="select"/, '경기 다시보기 선택에는 짧은 선택음을 제공해야 합니다.');
+assert.match(leagueSource, /className="starleague-sim-details"/, '내부 계산값은 접힌 시뮬레이션 분석 영역에 보관해야 합니다.');
+assert.match(leagueSource, /defaultOpen=\{setIndex === selectedArchiveMatch\.sets\.length - 1\}/, '가장 최근 세트 중계는 즉시 보여야 합니다.');
 assert.match(leagueSource, /starleagueBuildAction\(row\.style\)/, '빌드 메타 행은 실제 빌드 성향 아이콘을 사용해야 합니다.');
 assert.match(recordsSource, /starleagueRaceAction\((?:row|member)\.race\)/, '선수 행은 실제 종족 아이콘을 사용해야 합니다.');
 assert.match(
   playPanelsSource,
   /starleagueBroadcastLineAction\(line\.caster, line\.text\)/,
   '중계 타임라인은 발화 내용과 역할을 함께 반영한 아이콘을 사용해야 합니다.',
-);
+);assert.match(playPanelsSource, /data-game-sfx="replay"/, '중계 펼치기에는 전용 리플레이 효과음을 사용해야 합니다.');
+assert.match(playPanelsSource, /timelinePhase\(line\.t, durationSec\)/, '중계 행은 경기 시간대 라벨을 표시해야 합니다.');
 
 const visualComponentsSource = [leagueSource, cupsSource, teamSource, marketSource, recordsSource].join('\n');
 const semanticPanelTitles = (visualComponentsSource.match(/<MyAnimeCraftPanelTitle\b/g) || []).length;

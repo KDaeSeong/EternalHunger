@@ -40,6 +40,15 @@ function latestPlayedMatch(state) {
     .filter((setResult) => String(setResult?.winnerTeamId || '') === winnerTeamId)
     .map((setResult) => ({ setResult, probability: setWinnerProbability(result, setResult) }))
     .sort((a, b) => a.probability - b.probability)[0];
+  const decidingSet = sets[sets.length - 1] || null;
+  const homeTeamId = String(result.homeTeamId || fixture.homeTeamId || '');
+  const decidingWinnerIsHome = decidingSet && String(decidingSet.winnerTeamId || '') === homeTeamId;
+  const winningBuildStyle = String(
+    (decidingWinnerIsHome ? decidingSet?.homeBuildStyle : decidingSet?.awayBuildStyle) || '',
+  );
+  const winningBuildName = String(
+    (decidingWinnerIsHome ? decidingSet?.homeBuildName : decidingSet?.awayBuildName) || '',
+  );
   return {
     id: `${stage}-${fixture.id || result.matchId || result.playedAt || 'match'}`,
     stage,
@@ -63,6 +72,10 @@ function latestPlayedMatch(state) {
     comeback: sets.length >= 2 && Boolean(firstWinnerTeamId) && firstWinnerTeamId !== winnerTeamId,
     upset: Boolean(upsetSet && upsetSet.probability <= 42),
     upsetProbability: upsetSet ? Math.round(upsetSet.probability) : 50,
+    winningBuildStyle,
+    winningBuildName,
+    tempoLabel: String(decidingSet?.tempoLabel || ''),
+    keyEventLabel: String(decidingSet?.keyEventLabel || ''),
   };
 }
 
@@ -113,6 +126,14 @@ function personalChampionName(state) {
   const champion = safeArray(personal.participants).find((participant) => playerId(participant) === championId);
   return String(champion?.playerName || champion?.name || championId || '');
 }
+
+const MATCH_STYLE_PRESENTATIONS = Object.freeze({
+  rush: { action: 'starleague-build-rush', cue: 'starleagueRush', label: '초반 타이밍 적중', tone: 'warning' },
+  harass: { action: 'starleague-build-harass', cue: 'starleagueHarass', label: '견제 운영 적중', tone: 'highlight' },
+  tech: { action: 'starleague-build-tech', cue: 'starleagueTech', label: '테크 카드 적중', tone: 'highlight' },
+  macro: { action: 'starleague-build-macro', cue: 'starleagueMacro', label: '운영전 승리', tone: 'success' },
+  balanced: { action: 'starleague-build-balanced', cue: 'starleagueBalanced', label: '정면 승부 승리', tone: 'ready' },
+});
 
 const FEEDBACK_PROFILES = {
   idle: { action: 'signal', cue: '', label: '최근 리그 결과', tone: 'ready' },
@@ -188,6 +209,10 @@ export function starleagueFeedbackSnapshot(state) {
     latestComeback: Boolean(latestMatch?.comeback),
     latestUpset: Boolean(latestMatch?.upset),
     latestUpsetProbability: Math.max(0, Number(latestMatch?.upsetProbability || 0)),
+    latestWinningBuildStyle: String(latestMatch?.winningBuildStyle || ''),
+    latestWinningBuildName: String(latestMatch?.winningBuildName || ''),
+    latestTempoLabel: String(latestMatch?.tempoLabel || ''),
+    latestKeyEventLabel: String(latestMatch?.keyEventLabel || ''),
     latestLog: String(state?.log?.[0] || ''),
     econLogCount: econLogs.length,
     latestEconTag: String(latestEcon?.tag || ''),
@@ -236,6 +261,16 @@ export function starleagueFeedbackPresentation(snapshot, selectedTeamId = '') {
   }
   if (snapshot.latestUpset) {
     return { action: 'event', cue: 'event', label: '이변 발생', tone: 'warning', detail: `${matchDetail(snapshot)} · 최저 사전 승률 ${snapshot.latestUpsetProbability}%` };
+  }
+  const stylePresentation = MATCH_STYLE_PRESENTATIONS[snapshot.latestWinningBuildStyle];
+  if (stylePresentation) {
+    const styleDetail = [
+      matchDetail(snapshot),
+      snapshot.latestWinningBuildName,
+      snapshot.latestTempoLabel,
+      snapshot.latestKeyEventLabel,
+    ].filter(Boolean).join(' · ');
+    return { ...stylePresentation, detail: styleDetail };
   }
   return { action: 'match', cue: 'match', label: '경기 종료', tone: 'ready', detail: matchDetail(snapshot) };
 }

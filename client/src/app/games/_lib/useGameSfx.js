@@ -2744,6 +2744,36 @@ THEME_CUE_PROFILES.starleague = {
     ...THEME_CUE_PROFILES.broadcast.match,
     { frequency: 1176, start: 0.2, duration: 0.13, type: 'sine', gain: 0.024, pan: 0.38, reverb: 0.34 },
   ],
+  starleagueRush: [
+    { source: 'noise', filterType: 'highpass', frequency: 980, q: 0.7, duration: 0.09, gain: 0.018, pan: -0.35 },
+    { frequency: 180, endFrequency: 420, duration: 0.12, type: 'sawtooth', gain: 0.044, pan: -0.2 },
+    { frequency: 740, start: 0.055, duration: 0.09, type: 'square', gain: 0.028, pan: 0.3, reverb: 0.16 },
+  ],
+  starleagueHarass: [
+    { frequency: 880, duration: 0.055, type: 'triangle', gain: 0.035, pan: -0.52 },
+    { frequency: 1176, start: 0.07, duration: 0.055, type: 'triangle', gain: 0.033, pan: 0.52 },
+    { frequency: 988, start: 0.14, duration: 0.08, type: 'sine', gain: 0.027, pan: -0.18, reverb: 0.24 },
+  ],
+  starleagueTech: [
+    { frequency: 392, duration: 0.12, type: 'sine', gain: 0.032, pan: -0.28, reverb: 0.28 },
+    { frequency: 784, start: 0.055, duration: 0.14, type: 'triangle', gain: 0.032, pan: 0.22, reverb: 0.34 },
+    { frequency: 1568, start: 0.14, duration: 0.16, type: 'sine', gain: 0.023, pan: 0.42, reverb: 0.4 },
+  ],
+  starleagueMacro: [
+    { frequency: 196, endFrequency: 220, duration: 0.18, type: 'triangle', gain: 0.04, pan: -0.22 },
+    { frequency: 392, start: 0.07, duration: 0.15, type: 'sine', gain: 0.032, pan: 0.05, reverb: 0.24 },
+    { frequency: 587, start: 0.15, duration: 0.17, type: 'sine', gain: 0.026, pan: 0.34, reverb: 0.32 },
+  ],
+  starleagueBalanced: [
+    { source: 'noise', filterType: 'bandpass', frequency: 760, q: 1.4, duration: 0.07, gain: 0.015, pan: 0 },
+    { frequency: 294, duration: 0.13, type: 'triangle', gain: 0.038, pan: -0.24 },
+    { frequency: 440, start: 0.045, duration: 0.14, type: 'triangle', gain: 0.034, pan: 0.24, reverb: 0.22 },
+  ],
+  replay: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1500, q: 1.8, duration: 0.12, gain: 0.014, pan: 0.42 },
+    { frequency: 1046, endFrequency: 523, duration: 0.16, type: 'sine', gain: 0.03, pan: 0.28, reverb: 0.22 },
+    { frequency: 659, start: 0.13, duration: 0.1, type: 'triangle', gain: 0.028, pan: -0.28, reverb: 0.3 },
+  ],
   comeback: [
     ...THEME_CUE_PROFILES.broadcast.comeback,
     { frequency: 1568, start: 0.31, duration: 0.18, type: 'sine', gain: 0.022, pan: 0.4, reverb: 0.36 },

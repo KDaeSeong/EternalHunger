@@ -11,24 +11,39 @@ function formatTimelineTime(seconds) {
   return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`;
 }
 
-export function BroadcastTimeline({ lines, title = '중계 타임라인' }) {
+function timelinePhase(seconds, durationSec) {
+  const elapsed = Math.max(0, Number(seconds || 0));
+  const duration = Math.max(1, Number(durationSec || 1));
+  if (elapsed <= 45) return { key: 'opening', label: '오프닝' };
+  const ratio = elapsed / duration;
+  if (ratio < 0.36) return { key: 'early', label: '초반' };
+  if (ratio < 0.66) return { key: 'mid', label: '중반' };
+  if (ratio < 0.93) return { key: 'late', label: '후반' };
+  return { key: 'result', label: '결과' };
+}
+
+export function BroadcastTimeline({ lines, title = '중계 타임라인', durationSec = 0, defaultOpen = false }) {
   if (!Array.isArray(lines) || !lines.length) return null;
   return (
-    <details className="games-broadcast-details">
-      <summary>
+    <details className="games-broadcast-details" open={defaultOpen || undefined}>
+      <summary data-game-sfx="replay">
         <GameActionIcon action="replay" label={title} />
         {title}
       </summary>
       <ol className="games-broadcast-timeline">
-        {lines.map((line, index) => (
-          <li key={`${line.t}-${index}`}>
-            <span className="games-broadcast-line-meta">
-              <GameActionIcon action={starleagueBroadcastLineAction(line.caster, line.text)} label={line.caster || '중계'} />
-              {formatTimelineTime(line.t)} · {line.caster || '중계'}
-            </span>
-            <p>{line.text}</p>
-          </li>
-        ))}
+        {lines.map((line, index) => {
+          const phase = timelinePhase(line.t, durationSec);
+          return (
+            <li key={`${line.t}-${index}`}>
+              <span className="games-broadcast-line-meta">
+                <GameActionIcon action={starleagueBroadcastLineAction(line.caster, line.text)} label={line.caster || '중계'} />
+                <span className={`games-broadcast-phase is-${phase.key}`}>{phase.label}</span>
+                {formatTimelineTime(line.t)} · {line.caster || '중계'}
+              </span>
+              <p>{line.text}</p>
+            </li>
+          );
+        })}
       </ol>
     </details>
   );
