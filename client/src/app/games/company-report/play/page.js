@@ -28,6 +28,7 @@ import {
 import { buildCompanyReportPlayViewModel } from '../_lib/companyReportPlayViewModel';
 import CompanyReportDetailPanels from '../_components/CompanyReportDetailPanels';
 import CompanyReportFeatureTabs from '../_components/CompanyReportFeatureTabs';
+import { CompanyReportImpactStrip } from '../_components/CompanyReportVisuals';
 import {
   CompanyReportGuidancePanel,
   buildCompanyReportGuidance,
@@ -407,7 +408,7 @@ export default function CompanyReportPlayPage() {
       className="company-report-page-shell"
       kicker="Company Report"
       title="회사 리포트 원장 시뮬레이터"
-      description="업로드된 Company Report StepG-6의 거래, 재고, 매출채권, 월말 손익, 원장 스냅샷 흐름을 사이트용 business ledger slice로 이식했습니다."
+      description="거래와 재고, 매출채권, 세금, 결산, 글로벌 거래와 자본시장을 운영하며 회사의 현금흐름과 신뢰를 관리하는 경영 시뮬레이터입니다."
       summaryLabel="Company Report 요약"
       summaryDensity="micro"
       primaryMetricLimit={8}
@@ -428,6 +429,7 @@ export default function CompanyReportPlayPage() {
         tone={resultPresentation.tone}
         pinned
       />
+      <CompanyReportImpactStrip items={resultPresentation.impacts} />
 
       <CompanyReportFeatureTabs
         activeTabId={activeFeatureTabId}

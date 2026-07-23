@@ -18,6 +18,19 @@ function collectedAmount(rows, amountKey, collectedKey) {
     0,
   );
 }
+function outstandingAmount(rows, amountKey, collectedKey) {
+  return safeArray(rows).reduce(
+    (sum, row) => sum + Math.max(
+      0,
+      Number(row?.[amountKey] || 0) - Number(row?.[collectedKey] || 0),
+    ),
+    0,
+  );
+}
+
+function summedAmount(rows, key) {
+  return safeArray(rows).reduce((sum, row) => sum + Math.max(0, Number(row?.[key] || 0)), 0);
+}
 
 const FEEDBACK_PROFILES = {
   idle: { action: 'ledger', cue: '', label: '최근 원장 결과', tone: 'ready' },
@@ -34,7 +47,7 @@ const FEEDBACK_PROFILES = {
   importPlanned: { action: 'import', cue: 'importPlanned', label: '수입 계획 등록', tone: 'highlight' },
   hedgeSigned: { action: 'hedge', cue: 'hedgeSigned', label: '환헤지 체결', tone: 'success' },
   globalSettled: { action: 'settle', cue: 'globalSettle', label: '수출입 정산', tone: 'success' },
-  foreignCollected: { action: 'collection', cue: 'cashCollect', label: '외화채권 회수', tone: 'success' },
+  foreignCollected: { action: 'collection', cue: 'foreignCashCollect', label: '외화채권 회수', tone: 'success' },
   disclosureFiled: { action: 'disclosure', cue: 'disclosureFiled', label: '공시 대응 완료', tone: 'success' },
   dividendDeclared: { action: 'dividend', cue: 'dividendDeclared', label: '배당 결정', tone: 'highlight' },
   capitalRaised: { action: 'capital', cue: 'capitalRaised', label: '자금 조달 완료', tone: 'success' },
@@ -45,6 +58,8 @@ const FEEDBACK_PROFILES = {
   ledgerRestored: { action: 'restore', cue: 'ledgerRestored', label: '원장 복원 완료', tone: 'success' },
   reportBookmarked: { action: 'bookmark', cue: 'reportBookmarked', label: '리포트 북마크', tone: 'success' },
   reportExported: { action: 'download', cue: 'reportExported', label: '진행 리포트 내보내기', tone: 'success' },
+  liquidityBlocked: { action: 'finance', cue: 'liquidityWarning', label: '현금 유동성 부족', tone: 'warning' },
+  inventoryBlocked: { action: 'inventory', cue: 'inventoryAlert', label: '출고 재고 부족', tone: 'warning' },
   blocked: { action: 'warning', cue: 'warning', label: '원장 처리 불가', tone: 'warning' },
 };
 
@@ -75,19 +90,24 @@ export function companyReportFeedbackSnapshot(state) {
     cashKrw: Number(state?.company?.cashKrw || 0),
     reputation: Number(state?.company?.reputation || 0),
     fanBase: Number(state?.company?.fanBase || 0),
+    investorTrust: Number(capital.investorTrust || 0),
+    disclosureRisk: Number(capital.disclosureRisk || 0),
     orderCount: safeArray(state?.orders).length,
     shippedCount: safeArray(state?.orders).filter((row) => ['SHIPPED', 'COMPLETED'].includes(row?.status)).length,
     receivableCollected: collectedAmount(state?.receivables, 'amount', 'collected'),
+    receivableOutstanding: outstandingAmount(state?.receivables, 'amount', 'collected'),
     inventoryUnits: inventoryUnits(state),
     inventoryValuationCount: safeArray(state?.inventoryValuations).length,
     inventoryWriteDownCount: safeArray(state?.inventoryWriteDowns).length,
     vatPaymentCount: safeArray(state?.vatPayments).length,
+    vatPaidAmount: summedAmount(state?.vatPayments, 'paymentAmount'),
     settlementCount: safeArray(state?.settlements).length,
     exportPlanCount: safeArray(global.exportPlans).length,
     importPlanCount: safeArray(global.importPlans).length,
     exportResultCount: safeArray(global.exportResults).length,
     importResultCount: safeArray(global.importResults).length,
     foreignCollected: collectedAmount(global.foreignReceivables, 'amountKrw', 'collectedKrw'),
+    foreignReceivableOutstanding: outstandingAmount(global.foreignReceivables, 'amountKrw', 'collectedKrw'),
     hedgeCount: safeArray(global.hedgeContracts).length,
     disclosureCount: safeArray(capital.disclosures).length,
     dividendCount: safeArray(capital.dividends).length,
@@ -105,6 +125,91 @@ function asSnapshot(value) {
   return Object.prototype.hasOwnProperty.call(value || {}, 'orderCount')
     ? value
     : companyReportFeedbackSnapshot(value);
+}
+function signedImpactValue(value, { money = false, suffix = '' } = {}) {
+  const rounded = Math.round(Number(value || 0));
+  const sign = rounded > 0 ? '+' : '-';
+  const magnitude = new Intl.NumberFormat('ko-KR').format(Math.abs(rounded));
+  return `${sign}${magnitude}${money ? '원' : suffix}`;
+}
+
+function deltaImpact(previous, current, key, {
+  action,
+  label,
+  money = false,
+  successDirection = 1,
+  suffix = '',
+} = {}) {
+  const delta = Number(current?.[key] || 0) - Number(previous?.[key] || 0);
+  if (!delta) return null;
+  const directionalScore = delta * successDirection;
+  return {
+    action,
+    key,
+    label,
+    tone: successDirection === 0 ? 'ready' : directionalScore > 0 ? 'success' : 'warning',
+    value: signedImpactValue(delta, { money, suffix }),
+  };
+}
+
+const IMPACT_KEYS_BY_RESULT = Object.freeze({
+  orderCreated: ['orderCount'],
+  shipmentPosted: ['shippedCount', 'inventoryUnits', 'receivableOutstanding'],
+  receivableCollected: ['cashKrw', 'receivableOutstanding'],
+  inventoryInbound: ['inventoryUnits', 'cashKrw'],
+  inventoryValued: ['inventoryValuationCount'],
+  inventoryWrittenDown: ['inventoryWriteDownCount'],
+  campaignLaunched: ['reputation', 'fanBase', 'cashKrw'],
+  vatPaid: ['vatPaidAmount', 'cashKrw'],
+  exportPlanned: ['exportPlanCount'],
+  importPlanned: ['importPlanCount'],
+  hedgeSigned: ['hedgeCount', 'cashKrw'],
+  globalSettled: ['cashKrw', 'foreignReceivableOutstanding', 'inventoryUnits'],
+  foreignCollected: ['cashKrw', 'foreignReceivableOutstanding'],
+  disclosureFiled: ['investorTrust', 'disclosureRisk', 'cashKrw'],
+  dividendDeclared: ['investorTrust', 'cashKrw'],
+  capitalRaised: ['cashKrw', 'investorTrust', 'disclosureRisk'],
+  capitalClosed: ['investorTrust', 'disclosureRisk', 'stockHistoryCount'],
+  monthClosed: ['period', 'settlementCount', 'cashKrw'],
+  snapshotSaved: ['snapshotCount'],
+  restorePreviewed: ['restoreHistoryCount'],
+  ledgerRestored: ['restoreHistoryCount'],
+  reportBookmarked: ['bookmarkCount'],
+  reportExported: ['exportHistoryCount'],
+});
+
+function companyReportImpactRows(previous, current, resultKey) {
+  const candidates = {
+    period: previous.period !== current.period
+      ? { action: 'calendar', key: 'period', label: '회계기간', tone: 'highlight', value: current.period }
+      : null,
+    cashKrw: deltaImpact(previous, current, 'cashKrw', { action: 'finance', label: '현금', money: true }),
+    inventoryUnits: deltaImpact(previous, current, 'inventoryUnits', { action: 'inventory', label: '재고', suffix: '개', successDirection: 0 }),
+    receivableOutstanding: deltaImpact(previous, current, 'receivableOutstanding', { action: 'collection', label: '매출채권', money: true, successDirection: -1 }),
+    foreignReceivableOutstanding: deltaImpact(previous, current, 'foreignReceivableOutstanding', { action: 'collection', label: '외화채권', money: true, successDirection: -1 }),
+    vatPaidAmount: deltaImpact(previous, current, 'vatPaidAmount', { action: 'tax', label: '세금 납부', money: true }),
+    reputation: deltaImpact(previous, current, 'reputation', { action: 'sales', label: '평판', suffix: '점' }),
+    fanBase: deltaImpact(previous, current, 'fanBase', { action: 'sales', label: '팬', suffix: '명' }),
+    investorTrust: deltaImpact(previous, current, 'investorTrust', { action: 'disclosure', label: '투자자 신뢰', suffix: '점' }),
+    disclosureRisk: deltaImpact(previous, current, 'disclosureRisk', { action: 'warning', label: '공시위험', suffix: '점', successDirection: -1 }),
+    orderCount: deltaImpact(previous, current, 'orderCount', { action: 'order', label: '주문', suffix: '건' }),
+    shippedCount: deltaImpact(previous, current, 'shippedCount', { action: 'shipment', label: '출고', suffix: '건' }),
+    inventoryValuationCount: deltaImpact(previous, current, 'inventoryValuationCount', { action: 'valuation', label: '재고평가', suffix: '건' }),
+    inventoryWriteDownCount: deltaImpact(previous, current, 'inventoryWriteDownCount', { action: 'inventory-write-down', label: '평가손실', suffix: '건', successDirection: 0 }),
+    settlementCount: deltaImpact(previous, current, 'settlementCount', { action: 'closing', label: '결산', suffix: '건' }),
+    exportPlanCount: deltaImpact(previous, current, 'exportPlanCount', { action: 'export', label: '수출 계획', suffix: '건' }),
+    importPlanCount: deltaImpact(previous, current, 'importPlanCount', { action: 'import', label: '수입 계획', suffix: '건' }),
+    hedgeCount: deltaImpact(previous, current, 'hedgeCount', { action: 'hedge', label: '환헤지', suffix: '건' }),
+    stockHistoryCount: deltaImpact(previous, current, 'stockHistoryCount', { action: 'capital', label: '시장 마감', suffix: '건' }),
+    snapshotCount: deltaImpact(previous, current, 'snapshotCount', { action: 'snapshot', label: '스냅샷', suffix: '건' }),
+    restoreHistoryCount: deltaImpact(previous, current, 'restoreHistoryCount', { action: resultKey === 'ledgerRestored' ? 'restore' : 'analysis', label: resultKey === 'ledgerRestored' ? '원장 복원' : '모의 점검', suffix: '건' }),
+    bookmarkCount: deltaImpact(previous, current, 'bookmarkCount', { action: 'bookmark', label: '북마크', suffix: '건' }),
+    exportHistoryCount: deltaImpact(previous, current, 'exportHistoryCount', { action: 'download', label: '내보내기', suffix: '건' }),
+  };
+  return safeArray(IMPACT_KEYS_BY_RESULT[resultKey])
+    .map((key) => candidates[key])
+    .filter(Boolean)
+    .slice(0, 3);
 }
 
 function transitionFromLog(log) {
@@ -141,7 +246,11 @@ export function companyReportFeedbackTransition(previousValue, currentValue) {
   const current = asSnapshot(currentValue);
   const logChanged = current.latestLog !== previous.latestLog || current.logCount > previous.logCount;
   if (previous.runId !== current.runId) return 'newRun';
-  if (current.latestLog && logChanged && BLOCKED_LOG.test(current.latestLog)) return 'blocked';
+  if (current.latestLog && logChanged && BLOCKED_LOG.test(current.latestLog)) {
+    if (/현금.*부족|유동성.*부족/.test(current.latestLog)) return 'liquidityBlocked';
+    if (/재고.*부족/.test(current.latestLog)) return 'inventoryBlocked';
+    return 'blocked';
+  }
 
   const logTransition = logChanged
     ? transitionFromLog(current.latestLog)
@@ -176,11 +285,13 @@ export function companyReportFeedbackTransition(previousValue, currentValue) {
 }
 
 export function companyReportResultPresentation(previousValue, currentValue) {
+  const previous = asSnapshot(previousValue);
   const current = asSnapshot(currentValue);
-  const key = companyReportFeedbackTransition(previousValue, current);
+  const key = companyReportFeedbackTransition(previous, current);
   const profile = { key, ...FEEDBACK_PROFILES[key] };
-  if (key === 'newRun') return { ...profile, detail: `${current.period} 경영 원장을 시작했습니다.` };
-  return current.latestLog ? { ...profile, detail: current.latestLog } : profile;
+  const impacts = companyReportImpactRows(previous, current, key);
+  if (key === 'newRun') return { ...profile, detail: `${current.period} 경영 원장을 시작했습니다.`, impacts: [] };
+  return current.latestLog ? { ...profile, detail: current.latestLog, impacts } : { ...profile, impacts };
 }
 
 export function companyReportFeedbackCue(previousValue, currentValue) {
@@ -191,6 +302,7 @@ export function companyReportFeedbackCue(previousValue, currentValue) {
 export function companyReportTextPresentation(text, fallback = FEEDBACK_PROFILES.idle) {
   const normalized = String(text || '');
   const matched = TEXT_PRESENTATIONS.find((row) => row.pattern.test(normalized));
+  if (['liquidityBlocked', 'inventoryBlocked', 'blocked'].includes(fallback?.key)) return fallback;
   if (fallback?.key && fallback.key !== 'idle' && !matched?.force) return fallback;
   return matched ? { key: 'message', cue: '', ...matched.value } : fallback;
 }

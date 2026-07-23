@@ -258,6 +258,21 @@ const CUE_PROFILES = {
     { frequency: 1320, start: 0.03, duration: 0.04, type: 'square', gain: 0.036 },
     { frequency: 1760, start: 0.068, duration: 0.075, type: 'sine', gain: 0.035 },
   ],
+  foreignCashCollect: [
+    { frequency: 740, duration: 0.04, type: 'triangle', gain: 0.038, pan: -0.32 },
+    { frequency: 1110, start: 0.035, duration: 0.055, type: 'triangle', gain: 0.036, pan: 0.32 },
+    { frequency: 1480, start: 0.085, duration: 0.09, type: 'sine', gain: 0.032, pan: 0.06, reverb: 0.22 },
+  ],
+  liquidityWarning: [
+    { source: 'noise', filterType: 'lowpass', frequency: 520, q: 1.1, duration: 0.13, gain: 0.032, pan: -0.22 },
+    { frequency: 330, endFrequency: 220, duration: 0.14, type: 'triangle', gain: 0.044, pan: -0.16 },
+    { frequency: 165, start: 0.12, duration: 0.17, type: 'sine', gain: 0.038, pan: 0.18, reverb: 0.18 },
+  ],
+  inventoryAlert: [
+    { source: 'noise', filterType: 'bandpass', frequency: 860, q: 2.2, duration: 0.06, gain: 0.03, pan: -0.34 },
+    { frequency: 420, duration: 0.06, type: 'square', gain: 0.037, pan: -0.18 },
+    { frequency: 315, start: 0.07, duration: 0.1, type: 'triangle', gain: 0.04, pan: 0.24 },
+  ],
   taxPaid: [
     { source: 'noise', filterType: 'bandpass', frequency: 900, q: 2.2, duration: 0.03, gain: 0.035 },
     { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.045 },

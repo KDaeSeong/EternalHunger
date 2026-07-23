@@ -7155,6 +7155,85 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.company-report-impact-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+
+.company-report-impact-chip {
+  min-width: 150px;
+  min-height: 34px;
+  flex: 1 0 150px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(31, 95, 134, 0.15);
+  border-radius: 7px;
+  background: #f4f8fb;
+  padding: 5px 8px;
+  color: #32485a;
+}
+
+.company-report-impact-chip > .game-action-icon {
+  width: 24px;
+  height: 24px;
+  color: #1b6fa2;
+}
+
+.company-report-impact-chip > span {
+  overflow: hidden;
+  color: #627482;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.company-report-impact-chip > strong {
+  color: #1f5f86;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.company-report-impact-chip.is-success {
+  border-color: rgba(31, 127, 87, 0.22);
+  background: #eef8f2;
+}
+
+.company-report-impact-chip.is-success > strong {
+  color: #23714f;
+}
+
+.company-report-impact-chip.is-warning {
+  border-color: rgba(176, 111, 26, 0.24);
+  background: #fff7e7;
+}
+
+.company-report-impact-chip.is-warning > strong {
+  color: #9b641f;
+}
+
+.company-report-impact-chip.is-highlight {
+  border-color: rgba(50, 111, 164, 0.24);
+  background: #edf5fc;
+}
+
+.company-report-icon-row.is-priority-urgent {
+  border-inline-start: 3px solid #c46845;
+}
+
+.company-report-icon-row.is-priority-recommended {
+  border-inline-start: 3px solid #2f7ba9;
+}
+
+.company-report-icon-row.is-priority-routine {
+  border-inline-start: 3px solid #8a9aa6;
+}
 
 .game-save-row.racing-logo-icon-row {
   grid-template-columns: 34px minmax(0, 1fr) auto;

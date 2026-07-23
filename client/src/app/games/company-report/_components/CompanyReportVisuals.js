@@ -38,3 +38,19 @@ export function CompanyReportIconRow({ action, children, className = '', label =
     </article>
   );
 }
+
+export function CompanyReportImpactStrip({ items = [] }) {
+  const rows = Array.isArray(items) ? items.filter(Boolean).slice(0, 3) : [];
+  if (!rows.length) return null;
+  return (
+    <div className="company-report-impact-strip" aria-label="최근 처리 영향" role="status">
+      {rows.map((item) => (
+        <div className={`company-report-impact-chip is-${item.tone || 'ready'}`} key={item.key}>
+          <GameActionIcon action={item.action || 'analysis'} label={item.label} />
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}

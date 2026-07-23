@@ -77,6 +77,9 @@ function buildOperationQueue({
       kind: '현금',
       title: `${selectedReceivable.partnerName || '거래처'} 채권 회수`,
       detail: `잔액 ${formatMoney(selectedReceivable.remaining)} · 미수 ${report.openReceivables}건`,
+      priorityLabel: Number(management.cashFlow.cashRunwayMonths || 0) <= 3 ? '긴급' : '우선',
+      priorityTone: Number(management.cashFlow.cashRunwayMonths || 0) <= 3 ? 'urgent' : 'recommended',
+      expectedImpact: '현금 유입 · 미수금 감소',
       action: 'collect-receivable',
       actionLabel: '회수',
     });
@@ -89,6 +92,9 @@ function buildOperationQueue({
       kind: '매출',
       title: `${selectedOrder.partnerName || '선택 주문'} 출고`,
       detail: `${selectedOrder.productName || selectedOrder.productId} · ${selectedOrder.quantity}개 · 상태 ${selectedOrder.status}`,
+      priorityLabel: '진행',
+      priorityTone: 'recommended',
+      expectedImpact: '매출 인식 · 채권 생성',
       action: 'ship-order',
       actionLabel: '출고',
     });
@@ -101,6 +107,9 @@ function buildOperationQueue({
       kind: '세금',
       title: `${selectedVatRow.targetYear}-${String(selectedVatRow.targetMonth).padStart(2, '0')} VAT 납부`,
       detail: `잔액 ${formatMoney(selectedVatRow.remainingAmount)} · 현재 현금 ${formatMoney(state.company.cashKrw)}`,
+      priorityLabel: Number(selectedVatRow.remainingAmount || 0) > Number(state.company.cashKrw || 0) ? '현금 점검' : '기한',
+      priorityTone: Number(selectedVatRow.remainingAmount || 0) > Number(state.company.cashKrw || 0) ? 'urgent' : 'recommended',
+      expectedImpact: '세금 잔액 감소',
       action: 'pay-vat',
       actionLabel: '납부',
     });
@@ -113,6 +122,9 @@ function buildOperationQueue({
       kind: '환율',
       title: '외화채권 회수',
       detail: `잔액 ${formatMoney(selectedForeignAr.remainingKrw)} · 전체 외화채권 ${formatMoney(globalSummary.openForeignReceivableKrw)}`,
+      priorityLabel: '환율',
+      priorityTone: 'recommended',
+      expectedImpact: '외화채권 현금화',
       action: 'collect-foreign',
       actionLabel: '회수',
     });
@@ -125,6 +137,9 @@ function buildOperationQueue({
       kind: '글로벌',
       title: '수출입 정산',
       detail: `활성 수출 ${globalSummary.activeExports}건 · 활성 수입 ${globalSummary.activeImports}건`,
+      priorityLabel: '정산',
+      priorityTone: 'recommended',
+      expectedImpact: '환차손익 · 수입재고 확정',
       action: 'settle-global',
       actionLabel: '정산',
     });
@@ -137,6 +152,9 @@ function buildOperationQueue({
       kind: '공시',
       title: '공시 리스크 대응',
       detail: `위험 ${capitalSummary.disclosureRisk}/100 · 신뢰 ${capitalSummary.investorTrust}/100`,
+      priorityLabel: Number(capitalSummary.disclosureRisk || 0) >= 50 ? '긴급' : '우선',
+      priorityTone: Number(capitalSummary.disclosureRisk || 0) >= 50 ? 'urgent' : 'recommended',
+      expectedImpact: '신뢰 회복 · 공시위험 감소',
       action: 'disclosure',
       actionLabel: '대응',
     });
@@ -149,6 +167,9 @@ function buildOperationQueue({
       kind: '감사',
       title: latestSnapshot ? '원장 스냅샷 갱신' : '첫 원장 스냅샷 생성',
       detail: latestSnapshot ? `diff ${ledgerDiff.length}개 · checksum ${latestSnapshot.checksum}` : '복원과 감사 비교 기준을 먼저 만드세요.',
+      priorityLabel: '감사',
+      priorityTone: ledgerDiff.length > 0 ? 'recommended' : 'routine',
+      expectedImpact: '복원 기준 갱신',
       action: 'snapshot',
       actionLabel: '스냅샷',
     });
@@ -159,10 +180,13 @@ function buildOperationQueue({
       id: 'restore-dry-run',
       tab: 'ledger',
       kind: '복원',
-      title: '복원 dry-run 확인',
+      title: '복원 모의 점검',
       detail: `${restorePlan.restoreModeLabel} · 대상 테이블 ${restorePlan.targetTables.length}개`,
+      priorityLabel: '검증',
+      priorityTone: 'routine',
+      expectedImpact: '복원 영향 사전 확인',
       action: 'restore-dry-run',
-      actionLabel: 'dry-run',
+      actionLabel: '모의 점검',
     });
   }
 
@@ -173,6 +197,9 @@ function buildOperationQueue({
       kind: '이력',
       title: '리포트 북마크/이력 보강',
       detail: `이력 점수 ${reportTrend.archiveScore}% · 스냅샷 ${reportTrend.snapshotRows.length}건`,
+      priorityLabel: '기록',
+      priorityTone: 'routine',
+      expectedImpact: '이력 완성도 상승',
       action: 'bookmark',
       actionLabel: '북마크',
     });
@@ -185,6 +212,9 @@ function buildOperationQueue({
       kind: '결산',
       title: '월말 결산 진행',
       detail: `현금 ${formatMoney(management.cashFlow.cash)} · 영업손익 ${formatMoney(management.income.operatingProfit)}`,
+      priorityLabel: '마감',
+      priorityTone: 'recommended',
+      expectedImpact: '다음 회계기간 진입',
       action: 'close',
       actionLabel: '결산',
     });
@@ -300,7 +330,7 @@ export default function CompanyReportFeatureTabs({
       return;
     }
     if (item.action === 'restore-dry-run') {
-      applyLedgerAction('복원 dry-run', (current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables));
+      applyLedgerAction('복원 모의 점검', (current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables));
       return;
     }
     if (item.action === 'bookmark') {
@@ -346,15 +376,15 @@ export default function CompanyReportFeatureTabs({
                   </div>
                   <div className="game-save-list">
                     {operationQueue.rows.map((item) => (
-                      <article className="game-save-row company-report-icon-row" key={item.id}>
+                      <article className={`game-save-row company-report-icon-row is-priority-${item.priorityTone || 'routine'}`} key={item.id}>
                         <GameActionIcon
                           action={item.action || 'execute'}
                           label={item.kind}
                         />
                         <div>
-                          <span>{item.kind}</span>
+                          <span>{item.kind} · {item.priorityLabel}</span>
                           <strong>{item.title}</strong>
-                          <small>{item.detail}</small>
+                          <small>{item.detail} · 예상 {item.expectedImpact}</small>
                         </div>
                         <GameControlButton
                           action={item.action || 'execute'}
@@ -465,7 +495,7 @@ export default function CompanyReportFeatureTabs({
             id: 'global',
             label: '글로벌',
             icon: 'contract',
-            badge: `${globalSummary.activeExports + globalSummary.activeImports} active`,
+            badge: `진행 ${globalSummary.activeExports + globalSummary.activeImports}건`,
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
@@ -652,7 +682,7 @@ export default function CompanyReportFeatureTabs({
                     <SmallStat label="삭제 예정" value={`${restorePlan.deletedRowCount} rows`} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="analysis" cue="off" disabled={!latestSnapshot} onClick={() => applyLedgerAction('복원 dry-run', (current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
+                    <ActionButton action="analysis" cue="off" disabled={!latestSnapshot} onClick={() => applyLedgerAction('복원 모의 점검', (current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 모의 점검</ActionButton>
                     <ActionButton action="restore" cue="off" disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => applyLedgerAction('선택 모드 복원', (current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
                     <ActionButton action="download" cue="off" disabled={!latestSnapshot} onClick={downloadRestorePlanJson}>복원 계획 JSON</ActionButton>
                   </div>
