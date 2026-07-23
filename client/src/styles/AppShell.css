@@ -7393,6 +7393,82 @@
   color: #a62f36;
 }
 
+.school-impact-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.school-impact-chip {
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #c9dae6;
+  border-radius: 7px;
+  background: #f3f8fb;
+  color: #24465c;
+  font-variant-numeric: tabular-nums;
+}
+
+.school-impact-chip > .game-action-icon {
+  width: 25px;
+  height: 25px;
+  color: #2f78a6;
+}
+
+.school-impact-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  color: #526d7e;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.school-impact-chip > strong {
+  color: #173b52;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.school-impact-chip.is-success {
+  border-color: #9cccb9;
+  background: #eef8f3;
+}
+
+.school-impact-chip.is-success > strong {
+  color: #147053;
+}
+
+.school-impact-chip.is-warning {
+  border-color: #e6c995;
+  background: #fff8e9;
+}
+
+.school-impact-chip.is-warning > strong {
+  color: #9a6518;
+}
+
+.school-impact-chip.is-danger {
+  border-color: #e5acae;
+  background: #fff1f1;
+}
+
+.school-impact-chip.is-danger > strong {
+  color: #a8333a;
+}
+
+.school-impact-chip.is-highlight {
+  border-color: #a9cde3;
+  background: #edf7fc;
+}
+
 .rail3d-panel-title h2,
 .rail3d-panel-title h3 {
   min-width: 0;
@@ -13919,6 +13995,10 @@
   .school-icon-row > strong:last-child {
     grid-column: 2;
     justify-self: start;
+  }
+
+  .school-impact-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .game-save-row.rail3d-icon-row {

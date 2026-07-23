@@ -55,6 +55,19 @@ function atRiskStudentCount(state) {
     .length;
 }
 
+function averageMetric(rows, key) {
+  const values = (Array.isArray(rows) ? rows : [])
+    .map((row) => Number(row?.[key]))
+    .filter(Number.isFinite);
+  if (!values.length) return 0;
+  return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+}
+
+function signedMetric(value, suffix = '') {
+  const rounded = Math.round(Number(value || 0) * 10) / 10;
+  return `${rounded > 0 ? '+' : ''}${rounded.toLocaleString('ko-KR')}${suffix}`;
+}
+
 function crisisFlags(state, riskCount) {
   const flags = [];
   if (Number(state?.school?.budget || 0) < 0) flags.push('budget');
@@ -67,7 +80,12 @@ function crisisFlags(state, riskCount) {
 export function schoolFeedbackSnapshot(state) {
   const school = state?.school || {};
   const festival = school.festival || {};
+  const admissions = school.admissions || {};
   const events = state?.events || {};
+  const player = state?.player || {};
+  const students = Array.isArray(state?.students) ? state.students : [];
+  const teachers = Array.isArray(state?.teachers) ? state.teachers : [];
+  const facilities = Array.isArray(state?.facilities) ? state.facilities : [];
   const riskCount = atRiskStudentCount(state);
   const crisis = crisisFlags(state, riskCount);
 
@@ -82,6 +100,18 @@ export function schoolFeedbackSnapshot(state) {
     resolvedEventCount: Array.isArray(events.history) ? events.history.length : 0,
     policyPreset: String(school.policyPreset || ''),
     riskCount,
+    budget: Number(school.budget || 0),
+    ap: Number(player.weeklyActionPoint || 0),
+    energy: Number(player.energy || 0),
+    mental: Number(player.mental || 0),
+    understanding: averageMetric(students, 'understanding'),
+    satisfaction: averageMetric(students, 'satisfaction'),
+    stress: averageMetric(students, 'stress'),
+    careerReadiness: averageMetric(students, 'careerReadiness'),
+    teacherFatigue: averageMetric(teachers, 'fatigue'),
+    teacherMorale: averageMetric(teachers, 'morale'),
+    facilityCondition: averageMetric(facilities, 'condition'),
+    brandAwareness: Number(admissions.brandAwareness || 0),
     crisisSignature: crisis.join(':'),
     latestLog: String(state?.log?.[0] || ''),
   };
@@ -124,6 +154,134 @@ export function schoolActionCue(previous, current) {
 export function schoolActionPresentation(previous, current) {
   const transition = schoolFeedbackTransition(previous, current);
   return { key: transition, ...FEEDBACK_PROFILES[transition] };
+}
+
+export function schoolFeedbackImpacts(previousValue, currentValue) {
+  if (!previousValue || !currentValue) return [];
+  const previous = previousValue?.periodKey ? previousValue : schoolFeedbackSnapshot(previousValue);
+  const current = currentValue?.periodKey ? currentValue : schoolFeedbackSnapshot(currentValue);
+  if (previous.runId !== current.runId) return [];
+
+  const outcomes = [];
+  const resources = [];
+  const addImpact = (collection, {
+    action,
+    after,
+    before,
+    inverse = false,
+    label,
+    suffix = '',
+  }) => {
+    const delta = Math.round((Number(after || 0) - Number(before || 0)) * 10) / 10;
+    if (!delta) return;
+    const improved = inverse ? delta < 0 : delta > 0;
+    collection.push({
+      action,
+      label,
+      value: signedMetric(delta, suffix),
+      tone: improved ? 'success' : 'warning',
+    });
+  };
+
+  const riskDelta = current.riskCount - previous.riskCount;
+  if (riskDelta) {
+    outcomes.push({
+      action: riskDelta < 0 ? 'school-recovery' : 'school-crisis',
+      label: '위험 학생',
+      value: signedMetric(riskDelta, '명'),
+      tone: riskDelta < 0 ? 'success' : 'danger',
+    });
+  }
+  addImpact(outcomes, {
+    action: 'school-lesson',
+    before: previous.understanding,
+    after: current.understanding,
+    label: '평균 이해',
+  });
+  addImpact(outcomes, {
+    action: 'school-club',
+    before: previous.satisfaction,
+    after: current.satisfaction,
+    label: '평균 만족',
+  });
+  addImpact(outcomes, {
+    action: 'school-counseling',
+    before: previous.stress,
+    after: current.stress,
+    inverse: true,
+    label: '평균 스트레스',
+  });
+  addImpact(outcomes, {
+    action: 'school-career',
+    before: previous.careerReadiness,
+    after: current.careerReadiness,
+    label: '진로 준비도',
+  });
+  addImpact(outcomes, {
+    action: 'school-teacher',
+    before: previous.teacherMorale,
+    after: current.teacherMorale,
+    label: '교사 사기',
+  });
+  addImpact(outcomes, {
+    action: 'school-teacher',
+    before: previous.teacherFatigue,
+    after: current.teacherFatigue,
+    inverse: true,
+    label: '교사 피로',
+  });
+  addImpact(outcomes, {
+    action: 'school-maintenance',
+    before: previous.facilityCondition,
+    after: current.facilityCondition,
+    label: '시설 상태',
+  });
+  addImpact(outcomes, {
+    action: 'school-admission',
+    before: previous.brandAwareness,
+    after: current.brandAwareness,
+    label: '학교 인지도',
+  });
+
+  addImpact(resources, {
+    action: 'settle',
+    before: previous.budget,
+    after: current.budget,
+    label: '예산',
+  });
+  addImpact(resources, {
+    action: 'school-operation',
+    before: previous.ap,
+    after: current.ap,
+    label: 'AP',
+  });
+  addImpact(resources, {
+    action: 'school-rest',
+    before: previous.energy,
+    after: current.energy,
+    label: '체력',
+  });
+  addImpact(resources, {
+    action: 'school-counseling',
+    before: previous.mental,
+    after: current.mental,
+    label: '멘탈',
+  });
+
+  const outcomeLimit = resources.length ? 3 : 4;
+  const impacts = [
+    ...outcomes.slice(0, outcomeLimit),
+    ...resources.slice(0, 4 - Math.min(outcomeLimit, outcomes.length)),
+  ].slice(0, 4);
+  if (impacts.length || current.latestLog === previous.latestLog) return impacts;
+
+  const presentation = schoolActionPresentation(previous, current);
+  return [{
+    action: presentation.action,
+    label: presentation.label,
+    value: '수치 변화 없음',
+    tone: presentation.tone || 'highlight',
+  }];
 }
 
 export function schoolResultPresentation(text, fallback = FEEDBACK_PROFILES.idle) {

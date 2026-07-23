@@ -23,6 +23,7 @@ import { actionFeedbackText } from '../_lib/schoolSimulatorPlayHelpers';
 import {
   schoolActionCue,
   schoolActionPresentation,
+  schoolFeedbackImpacts,
   schoolResultPresentation,
 } from '../_lib/schoolSimulatorFeedback';
 import {
@@ -33,6 +34,7 @@ import { buildSchoolSimulatorPlayViewModel } from '../_lib/schoolSimulatorPlayVi
 import useSchoolSimulatorPersistence from '../_hooks/useSchoolSimulatorPersistence';
 import useSchoolSimulatorSelections from '../_hooks/useSchoolSimulatorSelections';
 import SchoolSimulatorFeatureTabs from '../_components/SchoolSimulatorFeatureTabs';
+import { SchoolSimulatorImpactStrip } from '../_components/SchoolSimulatorVisuals';
 export default function SchoolSimulatorPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -50,6 +52,7 @@ export default function SchoolSimulatorPlayPage() {
     label: '운영 결과',
     tone: '',
   });
+  const [resultImpacts, setResultImpacts] = useState([]);
   const musicSceneTimerRef = useRef(null);
   const {
     actionId,
@@ -198,7 +201,11 @@ export default function SchoolSimulatorPlayPage() {
     saveRun,
     setMessage,
   } = useSchoolSimulatorPersistence({
-    onLoaded: resetForLoadedRun,
+    onLoaded: (nextState) => {
+      stateRef.current = nextState;
+      setResultImpacts([]);
+      resetForLoadedRun(nextState);
+    },
     score,
     setActionResult,
     setState,
@@ -211,10 +218,12 @@ export default function SchoolSimulatorPlayPage() {
     const previousState = stateRef.current;
     const nextState = updater(previousState);
     const presentation = schoolActionPresentation(previousState, nextState);
+    const impacts = schoolFeedbackImpacts(previousState, nextState);
     stateRef.current = nextState;
     setState(nextState);
     setActionResult(actionFeedbackText(previousState, nextState, label, fallback));
     setActionPresentation(presentation);
+    setResultImpacts(impacts);
     const cue = schoolActionCue(previousState, nextState);
     if (cue) playGameSfx(cue);
     playMusicTransition(presentation);
@@ -230,6 +239,7 @@ export default function SchoolSimulatorPlayPage() {
     setMessage('');
     setActionResult('새 학교 운영을 시작했습니다.');
     setActionPresentation(presentation);
+    setResultImpacts([]);
     if (presentation.cue) playGameSfx(presentation.cue);
     playMusicTransition(presentation);
   };
@@ -330,7 +340,7 @@ export default function SchoolSimulatorPlayPage() {
     <GamePlayShell
       kicker="School Simulator"
       title="학교 운영 시뮬레이터"
-      description="업로드된 School Simulator Step 23의 주간 운영, 장기 학교 비전, 정책 프리셋, 학생/교사/시설 지표, 시험과 학기 보고 흐름을 사이트용 플레이로 이식했습니다."
+      description="수업과 학생 생활, 교사와 시설, 입학과 진로를 한 주씩 운영하며 자신만의 학교를 성장시키는 경영 시뮬레이션입니다."
       summaryLabel="School Simulator 요약"
       summaryDensity="micro"
       primaryMetricLimit={12}
@@ -347,6 +357,7 @@ export default function SchoolSimulatorPlayPage() {
         tone={resultPresentation.tone}
         pinned
       />
+      <SchoolSimulatorImpactStrip items={resultImpacts} />
 
       <SchoolSimulatorFeatureTabs
         activeFeatureTabId={activeFeatureTabId}

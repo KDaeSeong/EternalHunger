@@ -22,3 +22,18 @@ export function SchoolSimulatorIconRow({ action, children, className = '', label
     </article>
   );
 }
+
+export function SchoolSimulatorImpactStrip({ items = [] }) {
+  if (!items.length) return null;
+  return (
+    <div className="school-impact-strip" role="status" aria-live="polite" aria-label="최근 학교 운영 변화량">
+      {items.map((item) => (
+        <div className={`school-impact-chip is-${item.tone || 'highlight'}`} key={`${item.label}-${item.value}`}>
+          <GameActionIcon action={item.action} label={item.label} />
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
