@@ -41,6 +41,13 @@ const FEEDBACK_PROFILES = {
   logoAudit: { action: 'logo-audit', cue: 'logoAudit', label: '로고팩 감사 완료', tone: 'highlight' },
   logoAuditPerfect: { action: 'logo-perfect', cue: 'logoAuditPerfect', label: '로고팩 완전 검수', tone: 'success' },
   raceCard: { action: 'race-card', cue: 'raceCard', label: '이벤트 카드 생성', tone: 'success' },
+  raceGrid: { action: 'race-grid', cue: 'raceSessionStart', label: '스타팅 게이트', tone: 'highlight' },
+  raceSegment: { action: 'race-pace', cue: 'raceSegment', label: '경주 구간 통과', tone: 'ready' },
+  raceOvertake: { action: 'race-overtake', cue: 'raceOvertake', label: '순위 상승', tone: 'success' },
+  raceBlocked: { action: 'race-blocked', cue: 'raceBlocked', label: '진로 방해', tone: 'warning' },
+  raceFinalSpurt: { action: 'race-final-spurt', cue: 'raceFinalSpurt', label: '최종 스퍼트', tone: 'highlight' },
+  raceFinish: { action: 'race-finish', cue: 'raceFinish', label: '결승선 통과', tone: 'champion' },
+  raceStrategy: { action: 'race-strategy-pace', cue: 'raceStrategy', label: '작전 변경', tone: 'highlight' },
   seasonCard: { action: 'season-card', cue: 'seasonCard', label: '시즌 카드 생성', tone: 'success' },
   dataPackReady: { action: 'release-ready', cue: 'dataPackReady', label: '데이터팩 배포 준비', tone: 'champion' },
   packApply: { action: 'pack-apply', cue: 'packApply', label: '로컬팩 적용', tone: 'success' },
@@ -65,6 +72,10 @@ export function racingLogosFeedbackSnapshot(state) {
   const logs = Array.isArray(state?.log) ? state.log : [];
   const latestAudit = audits[0] || null;
   const latestCard = cards[0] || null;
+  const session = state?.raceSession && typeof state.raceSession === 'object' ? state.raceSession : null;
+  const sessionEvents = Array.isArray(session?.events) ? session.events : [];
+  const latestRaceEvent = sessionEvents[0] || null;
+  const managedEntry = session?.entries?.find((entry) => entry.id === session.managedEntryId) || null;
   const raceCardCount = cards.filter((card) => !card?.season).length;
   const seasonCardCount = cards.filter((card) => Boolean(card?.season)).length;
   return {
@@ -78,6 +89,19 @@ export function racingLogosFeedbackSnapshot(state) {
     raceCardCount,
     seasonCardCount,
     latestCardId: String(latestCard?.id || ''),
+    raceSessionId: String(session?.id || ''),
+    raceStatus: String(session?.status || 'not-started'),
+    raceSegment: Number(session?.segment || 0),
+    raceTotalSegments: Number(session?.totalSegments || 0),
+    racePhaseLabel: String(session?.phaseLabel || ''),
+    managedPosition: Number(managedEntry?.position || 0),
+    managedStamina: Number(managedEntry?.staminaPct || 0),
+    raceOvertakes: Number(session?.overtakes || 0),
+    raceBlockedCount: Number(session?.blockedCount || 0),
+    raceStrategy: String(session?.strategy || ''),
+    latestRaceEventId: String(latestRaceEvent?.id || ''),
+    latestRaceEventType: String(latestRaceEvent?.type || ''),
+    latestRaceEventMessage: String(latestRaceEvent?.message || ''),
     latestCardSeason: Boolean(latestCard?.season),
     packSignature: packSignature(state?.localPack),
     packEntryCount: packEntryCount(state?.localPack),
@@ -111,6 +135,17 @@ export function racingLogosFeedbackTransition(previousValue, currentValue) {
       ? 'logoAuditPerfect'
       : 'logoAudit';
   }
+  if (current.raceSessionId && current.raceSessionId !== previous.raceSessionId) return 'raceGrid';
+  if (current.raceStatus === 'finished' && previous.raceStatus !== 'finished') return 'raceFinish';
+  if (current.latestRaceEventId && current.latestRaceEventId !== previous.latestRaceEventId) {
+    if (current.latestRaceEventType === 'final-spurt') return 'raceFinalSpurt';
+    if (current.latestRaceEventType === 'overtake') return 'raceOvertake';
+    if (current.latestRaceEventType === 'blocked') return 'raceBlocked';
+    if (current.latestRaceEventType === 'strategy') return 'raceStrategy';
+  }
+  if (current.raceBlockedCount > previous.raceBlockedCount) return 'raceBlocked';
+  if (current.managedPosition > 0 && previous.managedPosition > 0 && current.managedPosition < previous.managedPosition) return 'raceOvertake';
+  if (current.raceSegment > previous.raceSegment) return 'raceSegment';
   if (current.cardCount > previous.cardCount) {
     if (!isDataPackReady(previous) && isDataPackReady(current)) return 'dataPackReady';
     return current.latestCardSeason ? 'seasonCard' : 'raceCard';
@@ -129,6 +164,8 @@ export function racingLogosResultPresentation(previousValue, currentValue) {
   if (key === 'newRun') return { ...profile, detail: '공개 placeholder와 로컬팩 오버레이 검수를 새로 시작했습니다.' };
   if (key === 'filterChanged') return { ...profile, detail: current.filterDetail };
   if (key === 'dataPackReady') return { ...profile, detail: '완전 감사와 이벤트·시즌 결과 카드가 모두 준비됐습니다.' };
+  if (key.startsWith('race') && current.latestRaceEventMessage) return { ...profile, detail: current.latestRaceEventMessage };
+  if (key === 'raceGrid') return { ...profile, detail: current.latestLog };
   return current.latestLog ? { ...profile, detail: current.latestLog } : profile;
 }
 

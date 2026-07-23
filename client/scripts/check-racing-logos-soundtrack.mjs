@@ -17,6 +17,7 @@ const profileSource = await readFile(new URL('../src/app/games/_lib/gameBgmProfi
 const soundSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
 const cssSource = await readFile(new URL('../src/styles/AppShell.css', import.meta.url), 'utf8');
 const componentSources = await Promise.all([
+  'RacingLogosRaceTab.js',
   'RacingLogosFeatureTabs.js',
   'RacingLogosAuditTab.js',
   'RacingLogosCalendarTab.js',
@@ -39,6 +40,9 @@ for (const row of RACING_LOGOS_SOUNDTRACK) {
 }
 
 assert.equal(resolveRacingLogosBgmScene({ activeTabId: 'audit', eventCount: 4 }), RACING_LOGOS_BGM_SCENES.garage);
+assert.equal(resolveRacingLogosBgmScene({ activeTabId: 'race', eventCount: 4, raceStatus: 'grid', raceSegment: 0 }), RACING_LOGOS_BGM_SCENES.grid);
+assert.equal(resolveRacingLogosBgmScene({ activeTabId: 'race', eventCount: 4, raceStatus: 'racing', raceSegment: 3 }), RACING_LOGOS_BGM_SCENES.circuit);
+assert.equal(resolveRacingLogosBgmScene({ activeTabId: 'race', eventCount: 4, raceStatus: 'finished', raceSegment: 6 }), RACING_LOGOS_BGM_SCENES.podium);
 assert.equal(resolveRacingLogosBgmScene({ activeTabId: 'local-pack', eventCount: 4 }), RACING_LOGOS_BGM_SCENES.telemetry);
 assert.equal(resolveRacingLogosBgmScene({ activeTabId: 'tracks', eventCount: 4 }), RACING_LOGOS_BGM_SCENES.grid);
 assert.equal(resolveRacingLogosBgmScene({ activeTabId: 'events', eventCount: 4 }), RACING_LOGOS_BGM_SCENES.circuit);
@@ -48,6 +52,10 @@ assert.equal(resolveRacingLogosBgmScene({ activeTabId: 'events', eventCount: 0 }
 
 assert.equal(racingLogosResultMusic({ key: 'logoAudit' })?.theme, RACING_LOGOS_BGM_SCENES.telemetry);
 assert.equal(racingLogosResultMusic({ key: 'raceCard' })?.theme, RACING_LOGOS_BGM_SCENES.circuit);
+assert.equal(racingLogosResultMusic({ key: 'raceGrid' })?.theme, RACING_LOGOS_BGM_SCENES.grid);
+assert.equal(racingLogosResultMusic({ key: 'raceOvertake' })?.theme, RACING_LOGOS_BGM_SCENES.circuit);
+assert.equal(racingLogosResultMusic({ key: 'raceBlocked' })?.theme, RACING_LOGOS_BGM_SCENES.redFlag);
+assert.equal(racingLogosResultMusic({ key: 'raceFinish' })?.theme, RACING_LOGOS_BGM_SCENES.podium);
 assert.equal(racingLogosResultMusic({ key: 'seasonCard' })?.theme, RACING_LOGOS_BGM_SCENES.grid);
 assert.equal(racingLogosResultMusic({ key: 'dataPackReady' })?.theme, RACING_LOGOS_BGM_SCENES.podium);
 assert.equal(racingLogosResultMusic({ key: 'blocked' })?.theme, RACING_LOGOS_BGM_SCENES.redFlag);
@@ -69,6 +77,7 @@ const racingSfxBlock = soundSource.match(/\n  racing: \{([\s\S]*?)\n  \},\n\};/)
 for (const cue of [
   'start', 'logoAudit', 'logoAuditPerfect', 'packApply', 'packClear',
   'packInvalid', 'raceCard', 'seasonCard', 'dataPackReady', 'draftLoaded',
+  'raceSessionStart', 'raceSegment', 'raceOvertake', 'raceBlocked', 'raceFinalSpurt', 'raceFinish', 'raceStrategy',
 ]) {
   assert.match(racingSfxBlock, new RegExp(`\\n    ${cue}: \\[`), `${cue}는 레이싱 전용 효과음이어야 합니다.`);
 }
@@ -78,6 +87,8 @@ assert.ok(joinedComponents.includes('racing-logo-icon-row'), '레이싱 제작 �
 assert.ok(joinedComponents.includes('import GameActionIcon'), '레이싱 결과 행은 의미 기반 아이콘을 사용해야 합니다.');
 assert.ok(joinedComponents.includes("icon: 'logo-audit'"), '검수 탭은 감사 아이콘을 사용해야 합니다.');
 assert.ok(joinedComponents.includes("icon: 'race-card'"), '이벤트 탭은 레이스 아이콘을 사용해야 합니다.');
+assert.ok(joinedComponents.includes("id: 'race'"), '실제 레이스 탭이 기능 탭에 등록되어야 합니다.');
+assert.ok(joinedComponents.includes('racing-session-layout'), '레이스 화면은 제어·순위·중계 레이아웃을 사용해야 합니다.');
 assert.ok(cssSource.includes('.game-save-row.racing-logo-icon-row'), '레이싱 아이콘 행 데스크톱 레이아웃이 필요합니다.');
 assert.ok(cssSource.includes('.racing-logo-icon-row > .game-action-icon'), '레이싱 아이콘 시각 스타일이 필요합니다.');
 
@@ -90,5 +101,5 @@ for (const arrangement of [
 
 console.log('soundtrackScenes', RACING_LOGOS_SOUNDTRACK.length);
 console.log('profileBars', RACING_LOGOS_SOUNDTRACK.map((row) => gameBgmProfile(row.theme).steps / 16).join(','));
-console.log('racingSfxCues', 10);
+console.log('racingSfxCues', 17);
 console.log('iconRows', true);

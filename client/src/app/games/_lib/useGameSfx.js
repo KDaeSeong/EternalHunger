@@ -763,6 +763,42 @@ const CUE_PROFILES = {
     { frequency: 480, duration: 0.045, type: 'square', gain: 0.035 },
     { frequency: 720, start: 0.04, duration: 0.07, type: 'triangle', gain: 0.038 },
   ],
+  raceSessionStart: [
+    { source: 'noise', filterType: 'highpass', frequency: 1800, duration: 0.05, gain: 0.028 },
+    { frequency: 330, duration: 0.05, type: 'square', gain: 0.042 },
+    { frequency: 660, start: 0.08, duration: 0.08, type: 'triangle', gain: 0.04 },
+  ],
+  raceSegment: [
+    { source: 'noise', filterType: 'bandpass', frequency: 460, q: 1.1, duration: 0.06, gain: 0.034 },
+    { frequency: 150, duration: 0.045, type: 'triangle', gain: 0.04 },
+    { frequency: 180, start: 0.065, duration: 0.045, type: 'triangle', gain: 0.038 },
+  ],
+  raceOvertake: [
+    { frequency: 330, endFrequency: 520, duration: 0.08, type: 'sawtooth', gain: 0.04 },
+    { frequency: 660, start: 0.075, duration: 0.08, type: 'triangle', gain: 0.042 },
+    { frequency: 990, start: 0.145, duration: 0.1, type: 'sine', gain: 0.035 },
+  ],
+  raceBlocked: [
+    { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.1, gain: 0.045 },
+    { frequency: 240, endFrequency: 150, duration: 0.12, type: 'square', gain: 0.045 },
+  ],
+  raceFinalSpurt: [
+    { source: 'noise', filterType: 'bandpass', frequency: 780, q: 1.2, duration: 0.18, gain: 0.035 },
+    { frequency: 260, duration: 0.04, type: 'triangle', gain: 0.044 },
+    { frequency: 390, start: 0.055, duration: 0.045, type: 'triangle', gain: 0.044 },
+    { frequency: 585, start: 0.115, duration: 0.06, type: 'triangle', gain: 0.042 },
+  ],
+  raceFinish: [
+    { source: 'noise', filterType: 'highpass', frequency: 2200, duration: 0.09, gain: 0.03 },
+    { frequency: 392, duration: 0.05, type: 'triangle', gain: 0.047 },
+    { frequency: 523, start: 0.045, duration: 0.065, type: 'triangle', gain: 0.046 },
+    { frequency: 784, start: 0.105, duration: 0.085, type: 'triangle', gain: 0.044 },
+    { frequency: 1046, start: 0.18, duration: 0.15, type: 'sine', gain: 0.038 },
+  ],
+  raceStrategy: [
+    { frequency: 420, duration: 0.04, type: 'square', gain: 0.037 },
+    { frequency: 630, start: 0.04, duration: 0.065, type: 'triangle', gain: 0.04 },
+  ],
   vanguardStart: [
     { source: 'noise', filterType: 'highpass', frequency: 1600, duration: 0.045, gain: 0.024 },
     { frequency: 330, duration: 0.055, type: 'triangle', gain: 0.04 },
@@ -2362,6 +2398,50 @@ const THEME_CUE_PROFILES = {
       { frequency: 460, duration: 0.045, type: 'square', gain: 0.036, pan: -0.16 },
       { frequency: 690, start: 0.042, duration: 0.065, type: 'triangle', gain: 0.038, pan: 0.18 },
       { frequency: 920, start: 0.1, duration: 0.09, type: 'sine', gain: 0.034, pan: 0.34 },
+    ],
+    raceSessionStart: [
+      { source: 'noise', filterType: 'highpass', frequency: 2300, duration: 0.07, gain: 0.032, pan: -0.46, reverb: 0.12 },
+      { source: 'noise', filterType: 'bandpass', frequency: 360, q: 0.9, start: 0.04, duration: 0.28, gain: 0.036, pan: -0.2 },
+      { frequency: 294, duration: 0.05, type: 'square', gain: 0.045, pan: -0.28 },
+      { frequency: 588, start: 0.08, duration: 0.07, type: 'triangle', gain: 0.043, pan: 0.1 },
+      { frequency: 882, start: 0.15, duration: 0.11, type: 'sine', gain: 0.038, pan: 0.38 },
+    ],
+    raceSegment: [
+      { source: 'noise', filterType: 'bandpass', frequency: 430, q: 1.1, duration: 0.18, gain: 0.036, pan: -0.38 },
+      { frequency: 135, duration: 0.04, type: 'triangle', gain: 0.046, pan: -0.28 },
+      { frequency: 165, start: 0.055, duration: 0.04, type: 'triangle', gain: 0.044, pan: 0.04 },
+      { frequency: 195, start: 0.11, duration: 0.045, type: 'triangle', gain: 0.042, pan: 0.32 },
+    ],
+    raceOvertake: [
+      { source: 'noise', filterType: 'highpass', frequency: 1900, duration: 0.08, gain: 0.028, pan: -0.45 },
+      { frequency: 294, endFrequency: 520, duration: 0.1, type: 'sawtooth', gain: 0.044, pan: -0.28 },
+      { frequency: 588, start: 0.085, duration: 0.08, type: 'triangle', gain: 0.046, pan: 0.08 },
+      { frequency: 1176, start: 0.15, duration: 0.12, type: 'sine', gain: 0.038, pan: 0.38, reverb: 0.14 },
+    ],
+    raceBlocked: [
+      { source: 'noise', filterType: 'lowpass', frequency: 560, duration: 0.16, gain: 0.048, pan: -0.34 },
+      { frequency: 260, endFrequency: 145, duration: 0.14, type: 'square', gain: 0.046, pan: -0.12 },
+      { frequency: 175, start: 0.1, duration: 0.14, type: 'sine', gain: 0.038, pan: 0.3 },
+    ],
+    raceFinalSpurt: [
+      { source: 'noise', filterType: 'bandpass', frequency: 860, q: 0.9, duration: 0.32, gain: 0.04, pan: -0.48 },
+      { frequency: 220, duration: 0.045, type: 'triangle', gain: 0.048, pan: -0.32 },
+      { frequency: 330, start: 0.055, duration: 0.05, type: 'triangle', gain: 0.048, pan: -0.08 },
+      { frequency: 495, start: 0.12, duration: 0.06, type: 'triangle', gain: 0.046, pan: 0.18 },
+      { frequency: 742, start: 0.19, duration: 0.09, type: 'sine', gain: 0.04, pan: 0.4, reverb: 0.16 },
+    ],
+    raceFinish: [
+      { source: 'noise', filterType: 'highpass', frequency: 2450, duration: 0.14, gain: 0.035, pan: -0.52, reverb: 0.2 },
+      { source: 'noise', filterType: 'bandpass', frequency: 1750, q: 0.8, start: 0.04, duration: 0.28, gain: 0.027, pan: 0.5, reverb: 0.24 },
+      { frequency: 392, duration: 0.05, type: 'triangle', gain: 0.05, pan: -0.34 },
+      { frequency: 523, start: 0.045, duration: 0.065, type: 'triangle', gain: 0.05, pan: -0.1 },
+      { frequency: 784, start: 0.105, duration: 0.085, type: 'triangle', gain: 0.048, pan: 0.18 },
+      { frequency: 1176, start: 0.19, duration: 0.2, type: 'sine', gain: 0.042, pan: 0.4, reverb: 0.28 },
+    ],
+    raceStrategy: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1250, q: 2, duration: 0.05, gain: 0.026, pan: -0.3 },
+      { frequency: 420, duration: 0.04, type: 'square', gain: 0.04, pan: -0.15 },
+      { frequency: 630, start: 0.04, duration: 0.065, type: 'triangle', gain: 0.042, pan: 0.25 },
     ],
   },
 };

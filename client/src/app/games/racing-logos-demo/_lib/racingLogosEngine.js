@@ -1,6 +1,6 @@
 export const GAME_SLUG = 'racing-logos-demo';
 export const QUICK_SAVE_SLOT = 'racing-logos-main';
-export const SAVE_VERSION = 'racing-logos-v1';
+export const SAVE_VERSION = 'racing-logos-v2';
 
 export const PLACEHOLDER_LOGO_BASE = '/games/racing-logos-demo/logos/_placeholder';
 
@@ -51,13 +51,28 @@ const DIRECTION_NAMES = {
   right: '우회전',
 };
 
-const ENTRY_POOL = [
+export const RACE_ENTRIES = [
   { id: 'aurora', name: 'Aurora Line', surface: 'turf', region: 'japan', stamina: 82, pace: 72 },
   { id: 'bluegate', name: 'Bluegate Run', surface: 'dirt', region: 'usa', stamina: 76, pace: 84 },
   { id: 'crown', name: 'Crown Step', surface: 'turf', region: 'europe', stamina: 88, pace: 68 },
   { id: 'meteor', name: 'Meteor Rail', surface: 'dirt', region: 'japan', stamina: 70, pace: 90 },
   { id: 'silver', name: 'Silver Court', surface: 'turf', region: 'usa', stamina: 80, pace: 77 },
 ];
+
+export const RACE_PHASES = Object.freeze([
+  Object.freeze({ id: 'break', label: '출발', icon: 'race-grid' }),
+  Object.freeze({ id: 'positioning', label: '초반 자리싸움', icon: 'race-pace' }),
+  Object.freeze({ id: 'backstretch', label: '맞은편 직선', icon: 'race-pace' }),
+  Object.freeze({ id: 'third-corner', label: '3코너', icon: 'race-overtake' }),
+  Object.freeze({ id: 'final-corner', label: '최종 코너', icon: 'race-final-spurt' }),
+  Object.freeze({ id: 'home-stretch', label: '결승 직선', icon: 'race-finish' }),
+]);
+
+export const RACE_STRATEGIES = Object.freeze({
+  front: Object.freeze({ id: 'front', label: '선행', icon: 'race-strategy-front', staminaCost: 3 }),
+  pace: Object.freeze({ id: 'pace', label: '선입', icon: 'race-strategy-pace', staminaCost: 0 }),
+  closer: Object.freeze({ id: 'closer', label: '추입', icon: 'race-strategy-closer', staminaCost: -1 }),
+});
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
@@ -72,6 +87,7 @@ export function createNewState(options = {}) {
       showDebug: false,
       preferLocalLogos: true,
     },
+    raceSession: null,
     auditHistory: [],
     raceCards: [],
     log: ['Racing Logos 데모를 불러왔습니다. 공개 placeholder와 로컬팩 오버레이를 함께 검수할 수 있습니다.'],
@@ -86,12 +102,254 @@ export function normalizeState(value) {
     ...value,
     localPack: sanitizeLocalPack(value.localPack),
     filters: value.filters && typeof value.filters === 'object' ? { ...base.filters, ...value.filters } : base.filters,
+    raceSession: normalizeRaceSession(value.raceSession),
     auditHistory: Array.isArray(value.auditHistory) ? value.auditHistory.slice(0, 16) : [],
     raceCards: Array.isArray(value.raceCards) ? value.raceCards.slice(0, 12) : [],
     log: Array.isArray(value.log) ? value.log.slice(0, 120) : base.log,
   };
 }
 
+export function startRaceSessionAction(state, eventId = '', managedEntryId = '', options = {}) {
+  const current = normalizeState(state);
+  const events = buildEvents(current);
+  const event = events.find((row) => row.id === eventId) || events[0];
+  if (!event) return addLog(current, '출발할 레이스 이벤트가 없습니다.');
+  const managedEntry = RACE_ENTRIES.find((entry) => entry.id === managedEntryId) || RACE_ENTRIES[0];
+  const sequence = Math.max(1, Math.round(Number(current.raceSession?.sequence || 0)) + 1);
+  const sessionId = String(options.sessionId || `RACE-${current.runId}-${sequence}`);
+  const entries = RACE_ENTRIES.map((entry) => ({
+    ...entry,
+    gridScore: entry.pace + seededPercent(`${sessionId}:${entry.id}:grid`) / 8,
+  }))
+    .sort((left, right) => right.gridScore - left.gridScore)
+    .map((entry, index) => ({
+      ...entry,
+      position: index + 1,
+      previousPosition: index + 1,
+      positionDelta: 0,
+      raceScore: 0,
+      sectionScore: 0,
+      staminaPct: 100,
+      gapLengths: 0,
+      blockedCount: 0,
+      status: 'grid',
+    }));
+  const raceSession = {
+    id: sessionId,
+    sequence,
+    eventId: event.id,
+    raceName: event.raceName,
+    trackName: event.trackName,
+    region: event.region,
+    surface: event.surface,
+    surfaceName: event.surfaceName,
+    directionName: event.directionName,
+    distanceM: Number(event.distanceM || 0),
+    status: 'grid',
+    segment: 0,
+    totalSegments: RACE_PHASES.length,
+    phaseId: 'grid',
+    phaseLabel: '스타팅 게이트',
+    managedEntryId: managedEntry.id,
+    strategy: 'pace',
+    entries,
+    overtakes: 0,
+    blockedCount: 0,
+    finalSpurtStarted: false,
+    resultRecorded: false,
+    events: [{
+      id: `${sessionId}-grid`,
+      segment: 0,
+      type: 'grid',
+      message: `${event.raceName} 게이트 인 완료 · ${managedEntry.name}은(는) ${entries.find((entry) => entry.id === managedEntry.id)?.position || '-'}번 위치입니다.`,
+    }],
+  };
+  return addLog({
+    ...current,
+    raceSession,
+  }, `${event.raceName} 출발 준비: ${event.distanceM.toLocaleString('ko-KR')}m · 관리 엔트리 ${managedEntry.name}.`);
+}
+
+export function setRaceStrategyAction(state, strategyId = 'pace') {
+  const current = normalizeState(state);
+  const session = current.raceSession;
+  const strategy = RACE_STRATEGIES[strategyId] || RACE_STRATEGIES.pace;
+  if (!session || session.status === 'finished') return addLog(current, '진행 중인 레이스에서만 작전을 변경할 수 있습니다.');
+  if (session.strategy === strategy.id) return current;
+  return addLog({
+    ...current,
+    raceSession: {
+      ...session,
+      strategy: strategy.id,
+      events: prependRaceEvent(session, {
+        segment: session.segment,
+        type: 'strategy',
+        message: `${managedEntryName(session)} 작전을 ${strategy.label}(으)로 변경했습니다.`,
+      }),
+    },
+  }, `${managedEntryName(session)}: ${strategy.label} 작전 적용.`);
+}
+
+
+export function advanceRaceSegmentAction(state) {
+  const current = normalizeState(state);
+  const session = current.raceSession;
+  if (!session) return addLog(current, '먼저 레이스 세션을 시작해 주세요.');
+  if (session.status === 'finished') return addLog(current, '이미 결승선을 통과한 레이스입니다.');
+
+  const nextSegment = Math.min(session.totalSegments, session.segment + 1);
+  const phase = RACE_PHASES[nextSegment - 1] || RACE_PHASES[RACE_PHASES.length - 1];
+  const managedStrategy = RACE_STRATEGIES[session.strategy] || RACE_STRATEGIES.pace;
+  const blockedEntry = selectBlockedEntry(session, nextSegment, managedStrategy);
+  let segmentOvertakes = 0;
+  const segmentEvents = [];
+  const scoredEntries = session.entries.map((entry) => {
+    const isManaged = entry.id === session.managedEntryId;
+    const activeStrategy = isManaged ? managedStrategy : aiRaceStrategy(entry, nextSegment);
+    const blocked = blockedEntry?.id === entry.id;
+    const staminaCost = raceStaminaCost(entry, activeStrategy, nextSegment, session.surface);
+    const staminaPct = Math.max(4, entry.staminaPct - staminaCost);
+    const fatiguePenalty = Math.max(0, 44 - staminaPct) * 0.42;
+    const strategyBonus = raceStrategyBonus(activeStrategy.id, nextSegment);
+    const courseBonus = entry.surface === session.surface ? 7 : -4;
+    const regionBonus = entry.region === session.region ? 3 : 0;
+    const variation = (seededPercent(`${session.id}:${nextSegment}:${entry.id}:section`) - 50) / 3.8;
+    const blockedPenalty = blocked ? 17 : 0;
+    const sectionScore = Math.max(12, Math.round((
+      42
+      + entry.pace * 0.34
+      + entry.stamina * 0.16
+      + strategyBonus
+      + courseBonus
+      + regionBonus
+      + variation
+      - fatiguePenalty
+      - blockedPenalty
+    ) * 10) / 10);
+    if (blocked) {
+      segmentEvents.push({
+        segment: nextSegment,
+        type: 'blocked',
+        message: `${entry.name}이(가) ${phase.label}에서 진로가 막혀 추진력을 잃었습니다.`,
+      });
+    }
+    return {
+      ...entry,
+      previousPosition: entry.position,
+      raceScore: entry.raceScore + sectionScore,
+      sectionScore,
+      staminaPct,
+      blockedCount: entry.blockedCount + (blocked ? 1 : 0),
+      status: blocked ? 'blocked' : nextSegment >= 5 ? 'spurt' : 'racing',
+      activeStrategy: activeStrategy.id,
+    };
+  });
+
+  const orderedEntries = [...scoredEntries]
+    .sort((left, right) => right.raceScore - left.raceScore || right.staminaPct - left.staminaPct)
+    .map((entry, index, rows) => {
+      const position = index + 1;
+      const positionDelta = entry.previousPosition - position;
+      if (positionDelta > 0) segmentOvertakes += positionDelta;
+      return {
+        ...entry,
+        position,
+        positionDelta,
+        gapLengths: index === 0 ? 0 : Math.round(Math.max(0, rows[0].raceScore - entry.raceScore) / 7 * 10) / 10,
+      };
+    });
+
+  const managed = orderedEntries.find((entry) => entry.id === session.managedEntryId);
+  if (managed?.positionDelta > 0) {
+    segmentEvents.unshift({
+      segment: nextSegment,
+      type: 'overtake',
+      message: `${managed.name}이(가) ${managed.positionDelta}두를 추월해 ${managed.position}위로 올라섰습니다.`,
+    });
+  }
+  if (nextSegment === session.totalSegments - 1) {
+    segmentEvents.unshift({
+      segment: nextSegment,
+      type: 'final-spurt',
+      message: `최종 코너 진입 · ${managed?.name || '-'}이(가) ${managedStrategy.label} 작전으로 마지막 승부를 시작합니다.`,
+    });
+  }
+  if (!segmentEvents.length) {
+    segmentEvents.push({
+      segment: nextSegment,
+      type: 'segment',
+      message: `${phase.label} 통과 · ${orderedEntries[0]?.name || '-'} 선두, ${managed?.name || '-'} ${managed?.position || '-'}위.`,
+    });
+  }
+
+  const finished = nextSegment >= session.totalSegments;
+  const nextSession = {
+    ...session,
+    status: finished ? 'finished' : 'racing',
+    segment: nextSegment,
+    phaseId: phase.id,
+    phaseLabel: phase.label,
+    entries: orderedEntries,
+    overtakes: session.overtakes + segmentOvertakes,
+    blockedCount: session.blockedCount + (blockedEntry ? 1 : 0),
+    finalSpurtStarted: session.finalSpurtStarted || nextSegment >= session.totalSegments - 1,
+    events: prependRaceEvents(session, segmentEvents),
+  };
+
+  if (!finished) {
+    return addLog({
+      ...current,
+      raceSession: nextSession,
+    }, `${phase.label} · 선두 ${orderedEntries[0]?.name || '-'} · ${managed?.name || '-'} ${managed?.position || '-'}위 · 체력 ${managed?.staminaPct || 0}%.`);
+  }
+
+  const winner = orderedEntries[0];
+  const runnerUp = orderedEntries[1];
+  const finishedSession = {
+    ...nextSession,
+    resultRecorded: true,
+    events: prependRaceEvent(nextSession, {
+      segment: nextSegment,
+      type: 'finish',
+      message: `결승선 통과 · ${winner?.name || '-'} 우승, ${managed?.name || '-'} ${managed?.position || '-'}위.`,
+    }),
+  };
+  const resultCard = {
+    id: `SESSION-${session.id}`,
+    createdAt: new Date().toISOString(),
+    source: 'race-session',
+    results: [{
+      eventId: session.eventId,
+      raceName: session.raceName,
+      trackName: session.trackName,
+      region: session.region,
+      surface: session.surface,
+      distanceM: session.distanceM,
+      winner: winner?.name || '-',
+      runnerUp: runnerUp?.name || '-',
+      rating: Math.max(0, Math.round(Number(winner?.raceScore || 0) / session.totalSegments)),
+      managedEntry: managed?.name || '-',
+      managedPosition: managed?.position || orderedEntries.length,
+      strategy: managedStrategy.label,
+      overtakes: finishedSession.overtakes,
+      blockedCount: finishedSession.blockedCount,
+    }],
+  };
+  return addLog({
+    ...current,
+    raceSession: finishedSession,
+    raceCards: [resultCard, ...current.raceCards.filter((card) => card.id !== resultCard.id)].slice(0, 12),
+  }, `${session.raceName} 종료: ${winner?.name || '-'} 우승 · ${managed?.name || '-'} ${managed?.position || '-'}위.`);
+}
+
+export function advanceRaceToFinishAction(state) {
+  let next = state;
+  for (let index = 0; index < RACE_PHASES.length; index += 1) {
+    next = advanceRaceSegmentAction(next);
+    if (normalizeState(next).raceSession?.status === 'finished') break;
+  }
+  return next;
+}
 export function applyLocalPackAction(state, localPack, source = 'manual') {
   const current = normalizeState(state);
   const nextPack = sanitizeLocalPack(localPack);
@@ -498,7 +756,11 @@ export function scoreState(state) {
   const current = normalizeState(state);
   const audit = latestAudit(current);
   const raceScore = current.raceCards.reduce((sum, card) => sum + card.results.reduce((inner, result) => inner + result.rating, 0), 0);
-  return Math.max(0, Math.round(audit.score + raceScore + current.raceCards.length * 60));
+  const managedEntry = current.raceSession?.entries?.find((entry) => entry.id === current.raceSession?.managedEntryId);
+  const sessionScore = current.raceSession
+    ? current.raceSession.segment * 25 + Math.max(0, 6 - Number(managedEntry?.position || 6)) * 30
+    : 0;
+  return Math.max(0, Math.round(audit.score + raceScore + current.raceCards.length * 60 + sessionScore));
 }
 
 export function getPlayTimeSec(state) {
@@ -525,6 +787,14 @@ export function summaryForState(state) {
     missingNames: matrix.totals.missingNames,
     missingLogoOverrides: matrix.totals.missingLogoOverrides,
     raceCards: current.raceCards.length,
+    raceSessionStatus: current.raceSession?.status || 'not-started',
+    raceSessionSegment: current.raceSession?.segment || 0,
+    raceSessionTotalSegments: current.raceSession?.totalSegments || RACE_PHASES.length,
+    managedEntry: current.raceSession ? managedEntryName(current.raceSession) : '',
+    managedPosition: current.raceSession?.entries?.find((entry) => entry.id === current.raceSession?.managedEntryId)?.position || 0,
+    completedRaceSessions: current.raceCards.filter((card) => card.source === 'race-session').length,
+    raceOvertakes: current.raceSession?.overtakes || 0,
+    raceBlockedCount: current.raceSession?.blockedCount || 0,
     score: scoreState(current),
   };
 }
@@ -625,8 +895,144 @@ function estimateAudit(state) {
   };
 }
 
+
+export function formatRaceGap(value) {
+  const gap = Math.max(0, Number(value || 0));
+  return gap <= 0 ? '선두' : `+${gap.toFixed(1)}마신`;
+}
+
+function normalizeRaceSession(value) {
+  if (!value || typeof value !== 'object') return null;
+  const status = ['grid', 'racing', 'finished'].includes(value.status) ? value.status : 'grid';
+  const segment = Math.max(0, Math.min(RACE_PHASES.length, Math.round(Number(value.segment || 0))));
+  const sourceEntries = new Map((Array.isArray(value.entries) ? value.entries : []).map((entry) => [entry?.id, entry]));
+  const entries = RACE_ENTRIES.map((baseEntry, index) => {
+    const entry = sourceEntries.get(baseEntry.id) || {};
+    return {
+      ...baseEntry,
+      position: Math.max(1, Math.round(Number(entry.position || index + 1))),
+      previousPosition: Math.max(1, Math.round(Number(entry.previousPosition || entry.position || index + 1))),
+      positionDelta: Math.round(Number(entry.positionDelta || 0)),
+      gridScore: Number(entry.gridScore || baseEntry.pace),
+      raceScore: Math.max(0, Number(entry.raceScore || 0)),
+      sectionScore: Math.max(0, Number(entry.sectionScore || 0)),
+      staminaPct: Math.max(0, Math.min(100, Number(entry.staminaPct ?? 100))),
+      gapLengths: Math.max(0, Number(entry.gapLengths || 0)),
+      blockedCount: Math.max(0, Math.round(Number(entry.blockedCount || 0))),
+      status: String(entry.status || status),
+      activeStrategy: RACE_STRATEGIES[entry.activeStrategy] ? entry.activeStrategy : 'pace',
+    };
+  }).sort((left, right) => left.position - right.position);
+  const managedEntryId = entries.some((entry) => entry.id === value.managedEntryId)
+    ? value.managedEntryId
+    : entries[0]?.id || RACE_ENTRIES[0].id;
+  const phase = segment > 0 ? RACE_PHASES[segment - 1] : null;
+  return {
+    id: String(value.id || 'RACE-RESTORED'),
+    eventId: String(value.eventId || ''),
+    sequence: Math.max(1, Math.round(Number(value.sequence || 1))),
+    raceName: String(value.raceName || value.eventId || '레이스'),
+    trackName: String(value.trackName || '-'),
+    region: String(value.region || ''),
+    surface: String(value.surface || 'turf'),
+    surfaceName: String(value.surfaceName || SURFACE_NAMES[value.surface] || value.surface || '잔디'),
+    directionName: String(value.directionName || ''),
+    distanceM: Math.max(0, Number(value.distanceM || 0)),
+    status,
+    segment,
+    totalSegments: RACE_PHASES.length,
+    phaseId: String(value.phaseId || phase?.id || 'grid'),
+    phaseLabel: String(value.phaseLabel || phase?.label || '스타팅 게이트'),
+    managedEntryId,
+    strategy: RACE_STRATEGIES[value.strategy] ? value.strategy : 'pace',
+    entries,
+    overtakes: Math.max(0, Math.round(Number(value.overtakes || 0))),
+    blockedCount: Math.max(0, Math.round(Number(value.blockedCount || 0))),
+    finalSpurtStarted: Boolean(value.finalSpurtStarted),
+    resultRecorded: Boolean(value.resultRecorded),
+    events: (Array.isArray(value.events) ? value.events : []).slice(0, 40).map((event, index) => ({
+      id: String(event?.id || `${value.id || 'RACE'}-${index}`),
+      segment: Math.max(0, Math.round(Number(event?.segment || 0))),
+      type: String(event?.type || 'segment'),
+      message: String(event?.message || ''),
+    })).filter((event) => event.message),
+  };
+}
+
+function managedEntryName(session) {
+  return session?.entries?.find((entry) => entry.id === session.managedEntryId)?.name || '관리 엔트리';
+}
+
+function prependRaceEvent(session, event) {
+  return prependRaceEvents(session, [event]);
+}
+
+function prependRaceEvents(session, events) {
+  const previousEvents = Array.isArray(session?.events) ? session.events : [];
+  const nextEvents = events.map((event, index) => ({
+    ...event,
+    id: event.id || `${session?.id || 'RACE'}-${event.segment || 0}-${event.type || 'segment'}-${previousEvents.length + index}`,
+  }));
+  return [...nextEvents, ...previousEvents].slice(0, 40);
+}
+
+function aiRaceStrategy(entry, segment) {
+  const preferred = {
+    aurora: 'pace',
+    bluegate: 'front',
+    crown: 'closer',
+    meteor: 'front',
+    silver: 'pace',
+  }[entry.id] || 'pace';
+  if (segment >= 5 && entry.stamina >= 82) return RACE_STRATEGIES.closer;
+  return RACE_STRATEGIES[preferred];
+}
+
+function raceStaminaCost(entry, strategy, segment, surface) {
+  const courseCost = entry.surface === surface ? 0 : 2;
+  const paceCost = entry.pace >= 84 ? 1 : 0;
+  const closingCost = segment >= 5 ? 2 : 0;
+  return Math.max(4, 8 + strategy.staminaCost + courseCost + paceCost + closingCost);
+}
+
+function raceStrategyBonus(strategyId, segment) {
+  if (strategyId === 'front') {
+    if (segment <= 2) return 11;
+    if (segment <= 4) return 3;
+    return -7;
+  }
+  if (strategyId === 'closer') {
+    if (segment <= 2) return -7;
+    if (segment <= 4) return 2;
+    return 13;
+  }
+  return segment >= 2 && segment <= 5 ? 5 : 1;
+}
+
+function selectBlockedEntry(session, segment, managedStrategy) {
+  const threshold = segment === 1 || segment >= 5 ? 9 : 15;
+  const candidates = session.entries.map((entry) => {
+    const strategy = entry.id === session.managedEntryId ? managedStrategy : aiRaceStrategy(entry, segment);
+    const crowdingRisk = strategy.id === 'closer' && segment <= 3 ? 4 : strategy.id === 'front' && segment === 1 ? 2 : 0;
+    return {
+      entry,
+      roll: seededPercent(`${session.id}:${segment}:${entry.id}:blocked`),
+      threshold: threshold + crowdingRisk,
+    };
+  }).sort((left, right) => left.roll - right.roll);
+  return candidates[0] && candidates[0].roll < candidates[0].threshold ? candidates[0].entry : null;
+}
+
+function seededPercent(text) {
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0) % 101;
+}
 function simulateEvent(event, salt) {
-  const rows = ENTRY_POOL.map((entry) => {
+  const rows = RACE_ENTRIES.map((entry) => {
     const surfaceBonus = entry.surface === event.surface ? 12 : -5;
     const regionBonus = entry.region === event.region ? 8 : 0;
     const distanceBias = Math.max(-12, Math.min(12, Math.round((2400 - event.distanceM) / 100)));

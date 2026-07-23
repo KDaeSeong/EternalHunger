@@ -1,4 +1,5 @@
 import { GameFeatureTabs } from '../../_components/GamePlayShell';
+import RacingLogosRaceTab from './RacingLogosRaceTab';
 import RacingLogosAuditTab from './RacingLogosAuditTab';
 import RacingLogosLocalPackTab from './RacingLogosLocalPackTab';
 import RacingLogosTracksTab from './RacingLogosTracksTab';
@@ -29,6 +30,13 @@ export default function RacingLogosFeatureTabs(props) {
         activeTabId={activeFeatureTabId}
         onTabChange={setActiveFeatureTabId}
         tabs={[
+          {
+            id: 'race',
+            label: '레이스',
+            icon: state.raceSession?.status === 'finished' ? 'race-finish' : state.raceSession?.segment ? 'race-pace' : 'race-grid',
+            badge: state.raceSession ? `${state.raceSession.segment}/${state.raceSession.totalSegments}` : 'READY',
+            children: <RacingLogosRaceTab {...props} />,
+          },
           {
             id: 'audit',
             label: '검수 보드',

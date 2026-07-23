@@ -220,6 +220,16 @@ export const GAME_ADAPTER_PRESETS = [
     description: '로고, 표시명, 공개 fallback 같은 게임 에셋 연결 상태를 검수합니다.',
   },
   {
+    adapter: 'race-sim',
+    label: '경주 시뮬레이션',
+    roomSystem: 'none',
+    resultMode: 'race-session',
+    supportsStateSync: false,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '출전마 작전, 구간별 순위와 체력을 운영하고 완주 결과를 누적합니다.',
+  },
+  {
     adapter: 'business-ledger',
     label: '사업 장부',
     roomSystem: 'none',
@@ -368,10 +378,10 @@ const GAME_INTEGRATIONS = {
   'racing-logos-demo': {
     stage: 'playable',
     stageLabel: '플레이 가능',
-    adapter: 'asset-lab',
+    adapter: 'race-sim',
     supportsRecords: true,
     supportsSaves: true,
-    resultMode: 'asset-audit',
+    resultMode: 'race-session',
     completionPct: 100,
   },
 };
@@ -526,12 +536,12 @@ export const GAME_ROADMAP = [
   },
   {
     slug: 'racing-logos-demo',
-    title: 'Racing Logos Demo',
-    subtitle: 'Asset Lab',
-    priority: '이식 완료',
-    scope: 'core 트랙/이벤트, 로컬팩 JSON, 로고 fallback, 검수 매트릭스, 감사 기록, 시즌 캘린더, 시즌 카드 생성, 이벤트 카드 생성, 데이터팩 배포 리포트, 장기 레이스 결과 모델, 상세 제작 탭, 저장/전적, 기능별 빠른 탭 UI',
-    summary: '공개 가능한 트랙/이벤트 데이터와 개인용 local pack 우선 로고 규칙, placeholder fallback, 감사 점수, 시즌 캘린더 리포트, 시즌/이벤트 카드 생성, 로컬팩 매트릭스, 데이터팩 배포와 결과 원장을 다루는 asset lab playable slice입니다.',
-    nextStep: '완성 이후에는 실제 로고 에셋 제공 방식과 외부 장기 결과 데이터셋 연결 같은 선택형 확장만 남았습니다.',
+    title: 'Racing Logos',
+    subtitle: 'Horse Racing Sim',
+    priority: '플레이 루프 확장 중',
+    scope: '이벤트·출전마 선택, 선행/선입/추입 작전, 6구간 경주, 체력·순위·진로 방해·추월, 자동 완주, 결과 카드, 시즌 캘린더, 로컬팩 JSON, 로고 fallback, 검수 매트릭스, 저장/전적, 단계별 사운드·아이콘',
+    summary: '출발부터 결승까지 관리 출전마의 작전과 체력, 실시간 순위를 운영하고 완주 결과를 카드로 누적하며 트랙·이벤트 데이터팩도 함께 관리하는 경주 시뮬레이션 playable slice입니다.',
+    nextStep: '출전마 육성·능력치 성장, 다경기 시즌 순위, 상대 AI 성향, 경주 연출과 콘텐츠팩 확장이 남았습니다.',
   },
 ];
 

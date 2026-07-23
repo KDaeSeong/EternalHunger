@@ -121,7 +121,7 @@ export default function RacingLogosDemoPlayPage() {
   const [state, setStateInternal] = useState(() => createNewState());
   const stateRef = useRef(state);
   const [packText, setPackText] = useState(() => sampleLocalPackText());
-  const [activeFeatureTabId, setActiveFeatureTabId] = useState('audit');
+  const [activeFeatureTabId, setActiveFeatureTabId] = useState('race');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [actionResult, setActionResult] = useState('');
@@ -143,13 +143,17 @@ export default function RacingLogosDemoPlayPage() {
   );
   const score = scoreState(state);
   const latestRaceCard = state.raceCards[0];
+  const raceSession = state.raceSession;
+  const managedRaceEntry = raceSession?.entries?.find((entry) => entry.id === raceSession.managedEntryId) || null;
   const recentActionText = actionResult || state.log?.[0] || '아직 실행한 검수 결과가 없습니다.';
   const resultPresentation = racingLogosTextPresentation(recentActionText, actionPresentation);
   const baseMusicScene = useMemo(() => resolveRacingLogosBgmScene({
     activeTabId: activeFeatureTabId,
     eventCount: events.length,
     releaseScore: dataPack.releaseScore,
-  }), [activeFeatureTabId, dataPack.releaseScore, events.length]);
+    raceStatus: raceSession?.status,
+    raceSegment: raceSession?.segment,
+  }), [activeFeatureTabId, dataPack.releaseScore, events.length, raceSession?.segment, raceSession?.status]);
 
   useEffect(() => {
     if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
@@ -201,9 +205,9 @@ export default function RacingLogosDemoPlayPage() {
     stateRef.current = nextState;
     setStateInternal(nextState);
     setPackText(sampleLocalPackText());
-    setActiveFeatureTabId('audit');
+    setActiveFeatureTabId('race');
     setMessage('');
-    setActionResult('새 레이싱 로고팩 검수를 시작했습니다.');
+    setActionResult('새 Racing Logos 레이스 운영을 시작했습니다.');
     setActionPresentation(racingLogosResultPresentation(previousState, nextState));
     playGameSfx('start');
     playMusicTransition({ key: 'newRun' }, 'start');
@@ -342,9 +346,9 @@ export default function RacingLogosDemoPlayPage() {
     setBusy('record');
     try {
       await apiPost(`/game-records/${GAME_SLUG}`, {
-        title: `Racing Logos Demo - ${audit.completeness}%`,
-        mode: 'asset-lab',
-        result: 'asset-audit',
+        title: `Racing Logos - ${raceSession?.raceName || `에셋 ${audit.completeness}%`}`,
+        mode: 'race-and-asset-lab',
+        result: raceSession?.status === 'finished' ? 'race-session' : 'asset-audit',
         score,
         playTimeSec: getPlayTimeSec(state),
         summary: summaryForState(state),
@@ -364,7 +368,7 @@ export default function RacingLogosDemoPlayPage() {
 
   const actions = (
     <>
-      <GameControlButton action="new" cue="off" onClick={startNewRun}>새 검수</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun}>새 레이스</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
       <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
@@ -376,12 +380,12 @@ export default function RacingLogosDemoPlayPage() {
   );
 
   const metrics = [
+    { label: '레이스', value: raceSession ? (raceSession.status === 'finished' ? '종료' : raceSession.phaseLabel) : '대기' },
+    { label: '구간', value: raceSession ? `${raceSession.segment}/${raceSession.totalSegments}` : '0/6' },
+    { label: '관리 순위', value: managedRaceEntry ? `${managedRaceEntry.position}위` : '-' },
     { label: '트랙', value: `${tracks.length}/${allTracks.length}` },
     { label: '이벤트', value: `${events.length}/${allEvents.length}` },
-    { label: '완성도', value: `${audit.completeness}%` },
-    { label: '캘린더', value: `${calendar.averageReadiness}%` },
-    { label: '데이터팩', value: `${dataPack.releaseScore}%` },
-    { label: 'placeholder', value: audit.placeholderOnly },
+    { label: '에셋', value: `${audit.completeness}%` },
     { label: '카드', value: state.raceCards.length },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
@@ -392,33 +396,63 @@ export default function RacingLogosDemoPlayPage() {
     audit.placeholderOnly > 0 ? { key: 'placeholder', text: '일부 트랙은 아직 공개 placeholder 로고만 사용합니다.' } : null,
   ];
 
-  const guide = {
-    title: '에셋 감사 코치',
-    badge: `${audit.completeness}%`,
-    primaryTitle: audit.placeholderOnly > 0 ? 'placeholder 로고 보강 필요' : '로컬팩 감사 안정',
-    primaryText: audit.placeholderOnly > 0
-      ? productionQueue.headline
-      : '트랙/이벤트 로고가 대부분 연결되어 있습니다. 캘린더와 데이터팩 출시 점수를 확인하세요.',
-    focusRows: [
-      { label: '완성도', value: `${audit.completeness}%` },
-      { label: 'placeholder', value: audit.placeholderOnly },
-      { label: '캘린더', value: `${calendar.averageReadiness}%` },
-      { label: '데이터팩', value: `${dataPack.releaseScore}%` },
-    ],
-    adviceLines: productionQueue.rows.slice(0, 4).map((item, index) => ({
-      kind: index === 0 ? '우선' : item.kind,
-      title: item.title,
-      detail: item.detail,
-    })),
-  };
+  const raceWinner = raceSession?.status === 'finished' ? raceSession.entries[0] : null;
+  const raceAdviceLines = !raceSession
+    ? [
+      { kind: '시작', title: '이벤트와 관리 출전마 선택', detail: '거리와 주로 적성을 비교한 뒤 게이트 인하세요.' },
+      { kind: '작전', title: '선행·선입·추입 전환', detail: '구간마다 작전을 바꾸면 체력 소모와 추월 확률이 달라집니다.' },
+      { kind: '목표', title: '6구간 완주', detail: '결승선 통과 후 결과 카드가 자동으로 데이터팩에 기록됩니다.' },
+    ]
+    : raceSession.status === 'finished'
+      ? [
+        { kind: '결과', title: `${raceWinner?.name || '-'} 우승`, detail: `${managedRaceEntry?.name || '-'} ${managedRaceEntry?.position || '-'}위 · 추월 ${raceSession.overtakes}회.` },
+        { kind: '다음', title: '작전을 바꿔 재경주', detail: '같은 조건 재경주로 선행·선입·추입의 결과 차이를 비교하세요.' },
+      ]
+      : [
+        { kind: '현재', title: `${raceSession.phaseLabel} · ${managedRaceEntry?.position || '-'}위`, detail: `체력 ${Math.round(managedRaceEntry?.staminaPct || 0)}% · 진로 막힘 ${raceSession.blockedCount}회.` },
+        {
+          kind: '작전',
+          title: (managedRaceEntry?.staminaPct || 0) < 45 ? '추입으로 체력 보존' : managedRaceEntry?.position > 3 ? '선행으로 순위 압박' : '선입으로 위치 유지',
+          detail: '다음 구간 전에 관리 출전마 작전을 조정할 수 있습니다.',
+        },
+      ];
+  const guide = activeFeatureTabId === 'race'
+    ? {
+      title: '레이스 운영 코치',
+      badge: raceSession ? `${raceSession.segment}/${raceSession.totalSegments}` : 'READY',
+      primaryTitle: raceSession ? (raceWinner ? `${raceWinner.name} 결승선 통과` : raceSession.phaseLabel) : '출발 준비',
+      primaryText: raceSession
+        ? `${managedRaceEntry?.name || '-'} ${managedRaceEntry?.position || '-'}위 · 체력 ${Math.round(managedRaceEntry?.staminaPct || 0)}%입니다.`
+        : '레이스와 관리 출전마를 선택하고 구간별 작전을 운영하세요.',
+      focusRows: [
+        { label: '구간', value: raceSession ? `${raceSession.segment}/${raceSession.totalSegments}` : '0/6' },
+        { label: '순위', value: managedRaceEntry ? `${managedRaceEntry.position}위` : '-' },
+        { label: '체력', value: managedRaceEntry ? `${Math.round(managedRaceEntry.staminaPct)}%` : '-' },
+        { label: '추월', value: raceSession?.overtakes || 0 },
+      ],
+      adviceLines: raceAdviceLines,
+    }
+    : {
+      title: '에셋 감사 코치',
+      badge: `${audit.completeness}%`,
+      primaryTitle: audit.placeholderOnly > 0 ? 'placeholder 로고 보강 필요' : '로컬팩 감사 안정',
+      primaryText: audit.placeholderOnly > 0 ? productionQueue.headline : '트랙/이벤트 로고가 대부분 연결되어 있습니다.',
+      focusRows: [
+        { label: '완성도', value: `${audit.completeness}%` },
+        { label: 'placeholder', value: audit.placeholderOnly },
+        { label: '캘린더', value: `${calendar.averageReadiness}%` },
+        { label: '데이터팩', value: `${dataPack.releaseScore}%` },
+      ],
+      adviceLines: productionQueue.rows.slice(0, 4).map((item, index) => ({ kind: index === 0 ? '우선' : item.kind, title: item.title, detail: item.detail })),
+    };
 
   return (
     <GamePlayShell
       className="racing-logos-page-shell"
-      kicker="Racing Logos Demo"
-      title="레이싱 로고팩 검수"
-      description="업로드된 Racing Logos Demo의 core 트랙/이벤트 데이터, local pack 우선 로고 규칙, 공개 placeholder fallback을 사이트용 에셋 검수 루프로 이식했습니다."
-      summaryLabel="로고팩 요약"
+      kicker="Racing Logos"
+      title="레이스 운영과 데이터팩"
+      description="출전마 작전, 구간별 순위와 체력 변화를 직접 운영하고 트랙·이벤트 로고와 시즌 결과 데이터팩을 함께 관리하는 경주 시뮬레이션입니다."
+      summaryLabel="레이스 요약"
       summaryDensity="micro"
       primaryMetricLimit={8}
       heroLayout="compact"
