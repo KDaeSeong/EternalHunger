@@ -651,7 +651,7 @@ const RAW_TECH_TREE = [
   {
     id: 'CALENDAR', name: '달력', era: 'NEOLITHIC', tier: 6, cost: 26, prereqs: ['COUNTING'], tags: ['SCIENCE'],
     description: '날씨 주기를 기록해 추위 피해를 조금 줄입니다.',
-    unlocks: { passives: ['WEATHER_FORECAST_UP'] },
+    unlocks: { actions: ['season_plan'], passives: ['WEATHER_FORECAST_UP'] },
     eureka: { type: 'weatherTypes', count: 3, bonusPct: 0.25, desc: '서로 다른 날씨 3종 관찰' },
   },
   {
@@ -797,7 +797,7 @@ const RAW_TECH_TREE = [
   {
     id: 'BASIC_PHILOSOPHY', name: '기초 철학', era: 'ANCIENT', tier: 4, cost: 34, prereqs: ['WRITING', 'MYSTICISM'], tags: ['CULTURE', 'SCIENCE'],
     description: '관찰과 추론을 체계화해 이후 유레카 보너스를 강화합니다.',
-    unlocks: { passives: ['EUREKA_BONUS_UP'] },
+    unlocks: { actions: ['debate'], passives: ['EUREKA_BONUS_UP'] },
     eureka: { type: 'weatherTypes', count: 4, bonusPct: 0.25, desc: '서로 다른 날씨 4종 관찰' },
     inspiration: { type: 'surviveDays', count: 8, bonusPct: 0.15, desc: '8일 생존' },
   },
@@ -1009,7 +1009,7 @@ const RAW_TECH_TREE = [
   {
     id: 'MILITARY_TRAINING', name: '군사 훈련', era: 'CLASSICAL', tier: 9, cost: 40, prereqs: ['MILITARY_TRADITION', 'STATE_WORKFORCE'], tags: ['MILITARY'], branch: 'MILITARY',
     description: '반복 훈련으로 사냥 성공률과 부상 대응을 강화합니다.',
-    unlocks: { passives: ['HUNT_SUCCESS_UP_2'] },
+    unlocks: { actions: ['drill'], passives: ['HUNT_SUCCESS_UP_2'] },
     eureka: { type: 'actionSuccess', action: 'hunt', count: 8, bonusPct: 0.25, desc: '사냥 성공 8회' },
   },
   {
@@ -2336,6 +2336,8 @@ export function initExplorationState() {
     lastDiscoveredId: '',
     discoverySerial: 0,
     patrolCharges: 0,
+    drillCharges: 0,
+    seasonPlanCharges: 0,
     irrigationCharges: 0,
     roadCharges: 0,
   };
@@ -2361,6 +2363,8 @@ export function normalizeExplorationState(value = {}) {
     lastDiscoveredId: WORLD_REGIONS.some((region) => region.id === value.lastDiscoveredId) ? value.lastDiscoveredId : '',
     discoverySerial: Math.max(0, Number(value.discoverySerial || 0)),
     patrolCharges: Math.min(2, Math.max(0, Number(value.patrolCharges || 0))),
+    drillCharges: Math.min(3, Math.max(0, Number(value.drillCharges || 0))),
+    seasonPlanCharges: Math.min(3, Math.max(0, Number(value.seasonPlanCharges || 0))),
     irrigationCharges: Math.min(3, Math.max(0, Number(value.irrigationCharges || 0))),
     roadCharges: Math.min(4, Math.max(0, Number(value.roadCharges || 0))),
   };

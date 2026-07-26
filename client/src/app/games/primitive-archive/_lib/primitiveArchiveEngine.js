@@ -131,7 +131,7 @@ export function createNewState(options = {}) {
     inventory,
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
-    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, irrigation: 0, preserve: 0, road: 0, trade_route: 0, settlement: 0, voyage: 0, camp: 0, meals: 0, events: 0 },
+    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, season_plan: 0, drill: 0, debate: 0, irrigation: 0, preserve: 0, road: 0, trade_route: 0, settlement: 0, voyage: 0, camp: 0, meals: 0, events: 0 },
     eventChains: [],
     exploration: initExplorationState(),
     projects: initProjectState(),
@@ -469,6 +469,9 @@ const RESEARCH_ACTION_LABELS = {
   patrol: '순찰',
   treatment: '치료',
   festival: '축제',
+  season_plan: '계절 대비',
+  drill: '훈련 태세',
+  debate: '학술 토론',
   irrigation: '관개 정비',
   preserve: '식량 보존',
   road: '도로 정비',
@@ -2835,6 +2838,7 @@ function eventRiskDamage(state, actorId, base, action = '') {
   }
   if (hasEventSupportGear(state, actorId, action)) damage -= 2;
   if (Number(state.exploration?.patrolCharges || 0) > 0) damage -= 4;
+  if (action === 'hunt' && drillCharges(state) > 0) damage -= DRILL_DAMAGE_REDUCTION;
   return Math.max(1, Math.round(damage));
 }
 
@@ -2857,6 +2861,7 @@ export function huntFailureDamage(state) {
   ) / 2);
   if (hasCompletedProject(state, 'palisade')) damage -= 2;
   if (Number(state.exploration?.patrolCharges || 0) > 0) damage -= 4;
+  if (drillCharges(state) > 0) damage -= DRILL_DAMAGE_REDUCTION;
   return Math.max(2, damage);
 }
 
@@ -3058,6 +3063,7 @@ export function actionChance(state, actorId, action, base = 0.55, options = {}) 
     + (action === 'hunt' && hasTechPassive(state, 'OBSIDIAN_HUNT_UP') ? 0.04 : 0)
     + (action === 'hunt' && hasTechPassive(state, 'HUNT_SUCCESS_UP_2') ? 0.06 : 0)
     + (action === 'hunt' && hasTechPassive(state, 'ANIMAL_YIELD_UP') ? 0.04 : 0)
+    + (action === 'hunt' && drillCharges(state) > 0 ? DRILL_CHANCE_BONUS : 0)
     + (action === 'hunt' && hasTechPassive(state, 'HUNT_SUCCESS_UP_3') ? 0.08 : 0)
     + (action === 'hunt' && hasTechPassive(state, 'CHIVALRY_HUNT_UP') ? 0.05 : 0)
     + (action === 'hunt' && hasTechPassive(state, 'GUNPOWDER_HUNT_UP') ? 0.03 : 0)
@@ -3268,7 +3274,8 @@ export function advanceDay(state, options = {}) {
     * Math.max(0.7, 1
       - passiveStackCount(state, 'MODERN_MEDICAL_TECH_STACK') * 0.04
       - passiveStackCount(state, 'MODERN_SURVIVAL_CIVIC_STACK') * 0.02)
-    * (hasCompletedProject(state, 'palisade') ? 0.85 : 1);
+    * (hasCompletedProject(state, 'palisade') ? 0.85 : 1)
+    * (seasonPlanCharges(state) > 0 ? SEASON_PLAN_WEATHER_MULTIPLIER : 1);
   const coldDamage = Math.round(Math.max(0, Number(state.weather?.cold || 0) - warmth) * preset.coldMultiplier * weatherLoreMul);
   const fireActive = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0;
   const fuelSaverNight = hasTechPassive(state, 'CAMP_FUEL_SAVER') && Number(state.day || 1) % 2 === 1;
@@ -3300,6 +3307,10 @@ export function advanceDay(state, options = {}) {
     weather,
     party,
     camp: { ...state.camp, fuel: Math.max(0, Number(state.camp.fuel || 0) - fuelUsed) },
+    exploration: {
+      ...state.exploration,
+      seasonPlanCharges: Math.max(0, seasonPlanCharges(state) - (seasonPlanCharges(state) > 0 ? 1 : 0)),
+    },
     ended,
   };
   const tempNote = `평균 체온 ${averageBodyTemp(next).toFixed(1)}도`;
@@ -3307,6 +3318,9 @@ export function advanceDay(state, options = {}) {
     ? '파티가 더 이상 움직일 수 없습니다. 런을 종료하고 기록을 남기세요.'
     : `새로운 날입니다. 날씨: ${weather.name}, ${weather.temp}도 · ${tempNote}`;
   let logged = addLog(next, fuelUsed ? `${note} 모닥불 연료를 1 소비했습니다.` : note);
+  if (seasonPlanCharges(state) > 0) {
+    logged = addLog(logged, `계절 대비 계획 적용. 야영 추위 피해 ${Math.round((1 - SEASON_PLAN_WEATHER_MULTIPLIER) * 100)}% 감소 · 남은 대비 ${seasonPlanCharges(state) - 1}/${SEASON_PLAN_MAX_CHARGES}.`);
+  }
   const previousSeason = seasonForDay(state.day);
   const currentSeason = seasonForDay(next.day);
   if (previousSeason.id !== currentSeason.id) {
@@ -4700,6 +4714,15 @@ function resolveSpecializedActionRegion(state, profile, requestedRegionId = '') 
     || null;
 }
 
+const SEASON_PLAN_MAX_CHARGES = 3;
+const SEASON_PLAN_WEATHER_MULTIPLIER = 0.7;
+const SEASON_PLAN_ACTION_COST = { fiber: 1, berry: 1 };
+const DRILL_MAX_CHARGES = 3;
+const DRILL_CHANCE_BONUS = 0.1;
+const DRILL_DAMAGE_REDUCTION = 3;
+const DRILL_FOOD_COST = 2;
+const DEBATE_RESEARCH_POINTS = 5;
+const DEBATE_CIVIC_POINTS = 3;
 const IRRIGATION_MAX_CHARGES = 3;
 const IRRIGATION_CHANCE_BONUS = 0.12;
 const IRRIGATION_ACTION_COST = { wood: 2, clay: 1 };
@@ -4714,6 +4737,14 @@ const TRADE_ROUTE_ACTION_COST = { wood: 2, stone: 1, resin: 1 };
 const SETTLEMENT_MAX_LEVEL = 3;
 const VOYAGE_ACTION_COST = { wood: 2, fiber: 2 };
 const VOYAGE_REWARD = [['fish', 2], ['clay', 1]];
+
+function seasonPlanCharges(state) {
+  return Math.min(SEASON_PLAN_MAX_CHARGES, Math.max(0, Number(state.exploration?.seasonPlanCharges || 0)));
+}
+
+function drillCharges(state) {
+  return Math.min(DRILL_MAX_CHARGES, Math.max(0, Number(state.exploration?.drillCharges || 0)));
+}
 
 function irrigationCharges(state) {
   return Math.min(IRRIGATION_MAX_CHARGES, Math.max(0, Number(state.exploration?.irrigationCharges || 0)));
@@ -4831,8 +4862,11 @@ export function specializedActionRows(state, actorId, requestedRegionId = '') {
 const CIVILIZATION_ACTION_DEFS = [
   { id: 'survey', label: '지도 답사', icon: 'primitive-survey', techId: 'CARTOGRAPHY', staminaCost: 18, hungerAdd: 3 },
   { id: 'patrol', label: '순찰', icon: 'primitive-patrol', techId: 'MILITARY_TRADITION', staminaCost: 14, hungerAdd: 3 },
+  { id: 'drill', label: '훈련 태세', icon: 'primitive-drill', techId: 'MILITARY_TRAINING', staminaCost: 18, hungerAdd: 3 },
   { id: 'treatment', label: '치료', icon: 'primitive-treatment', techId: 'MEDICAL_CORPUS', staminaCost: 8, hungerAdd: 1 },
   { id: 'festival', label: '축제', icon: 'primitive-festival', techId: 'DRAMA', staminaCost: 10, hungerAdd: 2 },
+  { id: 'season_plan', label: '계절 대비', icon: 'primitive-season-plan', techId: 'CALENDAR', staminaCost: 10, hungerAdd: 2 },
+  { id: 'debate', label: '학술 토론', icon: 'primitive-debate', techId: 'BASIC_PHILOSOPHY', staminaCost: 12, hungerAdd: 2 },
   { id: 'irrigation', label: '관개 정비', icon: 'primitive-irrigation', techId: 'IRRIGATION', staminaCost: 16, hungerAdd: 2 },
   { id: 'preserve', label: '식량 보존', icon: 'primitive-preserve', techId: 'FOOD_STORAGE', staminaCost: 14, hungerAdd: 2 },
   { id: 'road', label: '도로 정비', icon: 'primitive-road', techId: 'ROAD_BUILDING', staminaCost: 18, hungerAdd: 3 },
@@ -4873,6 +4907,15 @@ function consumePatrolCharge(state) {
   };
 }
 
+function consumeDrillCharge(state) {
+  const exploration = normalizeExplorationState(state.exploration);
+  if (Number(exploration.drillCharges || 0) <= 0) return state;
+  return {
+    ...state,
+    exploration: { ...exploration, drillCharges: Math.max(0, Number(exploration.drillCharges || 0) - 1) },
+  };
+}
+
 function consumeIrrigationCharge(state) {
   const exploration = normalizeExplorationState(state.exploration);
   if (Number(exploration.irrigationCharges || 0) <= 0) return state;
@@ -4900,10 +4943,13 @@ export function utilityActionRows(state, actorId) {
   const foodStock = tribeFoodStock(current.inventory);
   const patrolCharges = Number(current.exploration.patrolCharges || 0);
   const activeIrrigationCharges = irrigationCharges(current);
+  const activeSeasonPlanCharges = seasonPlanCharges(current);
+  const activeDrillCharges = drillCharges(current);
   const activeRoadCharges = roadCharges(current);
   const activeTradeRouteCharges = tradeRouteCharges(current);
   const settlementLevel = Math.min(SETTLEMENT_MAX_LEVEL, Math.max(0, Number(current.tribe.settlementLevel || 0)));
   const civic = activeCivicForState(current);
+  const selectedTechnology = getTechnology(current.research.selectedTechId);
 
   return CIVILIZATION_ACTION_DEFS.map((profile) => {
     const technology = getTechnology(profile.techId) || getCivic(profile.techId);
@@ -4948,6 +4994,16 @@ export function utilityActionRows(state, actorId) {
       lockedReason = requirementMet ? '' : '경계 태세가 이미 최대입니다.';
       context = `경계 태세 ${patrolCharges}/2`;
       outcome = '다음 현장 행동 2회 · 피해 -4';
+    } else if (profile.id === 'drill') {
+      requirementMet = activeDrillCharges < DRILL_MAX_CHARGES && foodStock >= DRILL_FOOD_COST;
+      lockedReason = activeDrillCharges >= DRILL_MAX_CHARGES
+        ? '훈련 태세가 이미 최대입니다.'
+        : foodStock < DRILL_FOOD_COST
+          ? `식량 ${DRILL_FOOD_COST}단위가 필요합니다.`
+          : '';
+      context = `훈련 태세 ${activeDrillCharges}/${DRILL_MAX_CHARGES}`;
+      outcome = `다음 사냥 계열 ${DRILL_MAX_CHARGES}회 · 성공률 +${Math.round(DRILL_CHANCE_BONUS * 100)}%p · 피해 -${DRILL_DAMAGE_REDUCTION}`;
+      materialText = `식량 ${DRILL_FOOD_COST}`;
     } else if (profile.id === 'treatment') {
       const needsCare = Number(actor?.hp || 0) < 100 || Number(actor?.bodyTemp ?? 37) < 36.8;
       const hasHerb = Number(current.inventory.herb || 0) >= 1;
@@ -4962,6 +5018,22 @@ export function utilityActionRows(state, actorId) {
       context = civic ? `목표 제도 ${civic.name}` : '공동체 결속';
       outcome = `부족 사기 +14${civic ? ' · 목표 제도 +5CP' : ''}`;
       materialText = '식량 3';
+    } else if (profile.id === 'season_plan') {
+      const materialsReady = hasResources(current.inventory, SEASON_PLAN_ACTION_COST);
+      requirementMet = activeSeasonPlanCharges < SEASON_PLAN_MAX_CHARGES && materialsReady;
+      lockedReason = activeSeasonPlanCharges >= SEASON_PLAN_MAX_CHARGES
+        ? '계절 대비가 이미 최대입니다.'
+        : !materialsReady
+          ? `재료 부족: ${formatRequires(SEASON_PLAN_ACTION_COST)}`
+          : '';
+      context = `계절 대비 ${activeSeasonPlanCharges}/${SEASON_PLAN_MAX_CHARGES}`;
+      outcome = `다음 야영 ${SEASON_PLAN_MAX_CHARGES}회 · 추위 피해 ${Math.round((1 - SEASON_PLAN_WEATHER_MULTIPLIER) * 100)}% 감소`;
+      materialText = formatRequires(SEASON_PLAN_ACTION_COST);
+    } else if (profile.id === 'debate') {
+      requirementMet = Boolean(selectedTechnology || civic);
+      lockedReason = requirementMet ? '' : '진행 중인 기술 또는 사회 제도를 먼저 지정하세요.';
+      context = [selectedTechnology?.name, civic?.name].filter(Boolean).join(' · ') || '연구 목표 없음';
+      outcome = `기술 +${selectedTechnology ? DEBATE_RESEARCH_POINTS : 0}RP · 사회 제도 +${civic ? DEBATE_CIVIC_POINTS : 0}CP`;
     } else if (profile.id === 'irrigation') {
       const materialsReady = hasResources(current.inventory, IRRIGATION_ACTION_COST);
       requirementMet = activeIrrigationCharges < IRRIGATION_MAX_CHARGES && materialsReady;
@@ -5081,6 +5153,14 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
   } else if (profile.id === 'patrol') {
     next = { ...next, exploration: { ...next.exploration, patrolCharges: 2 } };
     next = addLog(next, `${actor.name}의 순찰로 경계 태세를 갖췄습니다. 다음 현장 행동 2회의 피해가 4 감소합니다.`);
+  } else if (profile.id === 'drill') {
+    const food = consumeTribeFood(next.inventory, DRILL_FOOD_COST);
+    next = {
+      ...next,
+      inventory: food.inventory,
+      exploration: { ...next.exploration, drillCharges: DRILL_MAX_CHARGES },
+    };
+    next = addLog(next, `${actor.name}의 훈련 태세 완료. 식량 ${food.provided}단위를 사용해 다음 사냥 계열 ${DRILL_MAX_CHARGES}회에 성공률 +${Math.round(DRILL_CHANCE_BONUS * 100)}%p, 피해 -${DRILL_DAMAGE_REDUCTION} 효과를 적용합니다.`);
   } else if (profile.id === 'treatment') {
     next = { ...next, inventory: spendResources(next.inventory, { herb: 1 }) };
     next = updateActor(next, actorId, {
@@ -5099,6 +5179,19 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
     const civic = activeCivicForState(next);
     if (civic) next = addCivicProgress(next, civic.id, 5, `${actor.name} 축제`);
     next = addLog(next, `${actor.name}의 축제 운영. 식량 ${food.provided}단위를 나누어 부족 사기 +14${civic ? `, ${civic.name} +5CP` : ''}.`);
+  } else if (profile.id === 'season_plan') {
+    next = {
+      ...next,
+      inventory: spendResources(next.inventory, SEASON_PLAN_ACTION_COST),
+      exploration: { ...next.exploration, seasonPlanCharges: SEASON_PLAN_MAX_CHARGES },
+    };
+    next = addLog(next, `${actor.name}의 계절 대비 완료. ${formatRequires(SEASON_PLAN_ACTION_COST)}을 사용해 다음 야영 ${SEASON_PLAN_MAX_CHARGES}회의 추위 피해를 ${Math.round((1 - SEASON_PLAN_WEATHER_MULTIPLIER) * 100)}% 줄입니다.`);
+  } else if (profile.id === 'debate') {
+    const selectedTechnology = getTechnology(next.research.selectedTechId);
+    const selectedCivic = activeCivicForState(next);
+    if (selectedTechnology) next = addResearchProgress(next, selectedTechnology.id, DEBATE_RESEARCH_POINTS, `${actor.name} 학술 토론`);
+    if (selectedCivic) next = addCivicProgress(next, selectedCivic.id, DEBATE_CIVIC_POINTS, `${actor.name} 학술 토론`);
+    next = addLog(next, `${actor.name}의 학술 토론 완료. ${selectedTechnology ? `${selectedTechnology.name} +${DEBATE_RESEARCH_POINTS}RP` : '기술 목표 없음'} · ${selectedCivic ? `${selectedCivic.name} +${DEBATE_CIVIC_POINTS}CP` : '사회 제도 목표 없음'}.`);
   } else if (profile.id === 'irrigation') {
     next = {
       ...next,
@@ -5290,6 +5383,7 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
   const ok = rng() < chance;
   const actionGains = specializedActionGains(current, profile);
   const irrigationApplied = profile.id === 'farm' && irrigationCharges(current) > 0;
+  const drillApplied = profile.skill === 'hunt' && drillCharges(current) > 0;
   const roadApplied = profile.zoneIds.length > 0 && roadCharges(current) > 0;
   const context = { action: profile.skill, zoneId: region.zoneId || profile.zoneId, regionId: region.id, region };
   let next = current;
@@ -5305,6 +5399,7 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
     next = addLog(next, `${actor.name}\uC758 ${profile.label} \uC2E4\uD328. ${row.context}\uC758 \uC870\uAC74\uC744 \uB2E4\uC2DC \uC810\uAC80\uD574\uC57C \uD569\uB2C8\uB2E4.${irrigationApplied ? ' 관개 효과는 1회 소모됐습니다.' : ''}`);
   }
   if (roadApplied) next = addLog(next, `${actor.name}의 현장 이동에 정비된 도로 효과를 적용했습니다. ST ${ROAD_STAMINA_REDUCTION} 절약 · 남은 도로 ${roadCharges(current) - 1}/${ROAD_MAX_CHARGES}.`);
+  if (drillApplied) next = addLog(next, `${actor.name}의 ${profile.label}에 훈련 태세를 적용했습니다. 성공률 +${Math.round(DRILL_CHANCE_BONUS * 100)}%p · 남은 훈련 ${drillCharges(current) - 1}/${DRILL_MAX_CHARGES}.`);
   next = addDialogueLog(next, actorId, profile.skill, ok ? 'success' : 'fail', rng);
   if (profile.zoneIds.length) {
     next = applyExplorationEvent(next, { actorId, action: profile.skill, zoneId: region.zoneId || profile.zoneId, ok, rng });
@@ -5313,6 +5408,7 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
     next = consumeRoadCharge(next);
   }
   if (profile.id === 'farm') next = consumeIrrigationCharge(next);
+  if (drillApplied) next = consumeDrillCharge(next);
   next = recordResearchEvent(next, { kind: 'action', action: profile.skill, ok });
   next = recordResearchEvent(next, { kind: 'action', action: profile.id, ok });
   return afterAction(
@@ -5365,6 +5461,7 @@ export function runHuntAction(state, actorId, regionId, options = {}) {
   const chance = actionChanceForRegion(current, actorId, 'hunt', region);
   const ok = rng() < chance;
   const roadApplied = roadCharges(current) > 0;
+  const drillApplied = drillCharges(current) > 0;
   let next = current;
   if (ok) {
     const gains = rollZoneGains(current, zone.hunt, rng, { action: 'hunt', zoneId: zone.id, regionId: region.id, region });
@@ -5381,11 +5478,13 @@ export function runHuntAction(state, actorId, regionId, options = {}) {
     next = addLog(next, `${actor.name}의 사냥 실패. ${region.name}에서 반격으로 HP -${damage}.`);
   }
   if (roadApplied) next = addLog(next, `${actor.name}의 사냥 이동에 정비된 도로 효과를 적용했습니다. ST ${ROAD_STAMINA_REDUCTION} 절약 · 남은 도로 ${roadCharges(current) - 1}/${ROAD_MAX_CHARGES}.`);
+  if (drillApplied) next = addLog(next, `${actor.name}의 사냥에 훈련 태세를 적용했습니다. 성공률 +${Math.round(DRILL_CHANCE_BONUS * 100)}%p · 남은 훈련 ${drillCharges(current) - 1}/${DRILL_MAX_CHARGES}.`);
   next = addDialogueLog(next, actorId, 'hunt', ok ? 'success' : 'fail', rng);
   next = applyExplorationEvent(next, { actorId, action: 'hunt', zoneId: zone.id, ok, rng });
   next = discoverRegionAfterAction(next, region, ok, rng);
   next = consumePatrolCharge(next);
   next = consumeRoadCharge(next);
+  if (drillApplied) next = consumeDrillCharge(next);
   return afterAction(recordResearchEvent(next, { kind: 'action', action: 'hunt', ok }), actorId, fieldActionStaminaCost(current, actorId, 'hunt', 24), 5, options);
 }
 

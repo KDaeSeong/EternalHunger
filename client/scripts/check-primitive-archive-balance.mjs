@@ -118,6 +118,8 @@ const utilityReady = engine.normalizeState({
       ROAD_BUILDING: true,
       EARLY_CURRENCY: true,
       BASIC_SAILING: true,
+      CALENDAR: true,
+      MILITARY_TRAINING: true,
       STONE_TOOLS: true,
     },
   },
@@ -127,6 +129,7 @@ const utilityReady = engine.normalizeState({
       ...base.civics.completed,
       MILITARY_TRADITION: true,
       DRAMA: true,
+      BASIC_PHILOSOPHY: true,
       SETTLEMENT: true,
     },
   },
@@ -135,8 +138,8 @@ const utilityReady = engine.normalizeState({
 const utilityRows = engine.utilityActionRows(utilityReady, 'shiroko');
 assert.deepEqual(
   utilityRows.filter((row) => row.available).map((row) => row.id).sort(),
-  ['festival', 'irrigation', 'patrol', 'preserve', 'road', 'settlement', 'survey', 'trade_route', 'treatment', 'voyage'],
-  '연구와 재료 조건을 충족하면 운영 행동 열 가지를 모두 실행할 수 있어야 합니다.',
+  ['debate', 'drill', 'festival', 'irrigation', 'patrol', 'preserve', 'road', 'season_plan', 'settlement', 'survey', 'trade_route', 'treatment', 'voyage'],
+  '연구와 재료 조건을 충족하면 운영 행동 열세 가지를 모두 실행할 수 있어야 합니다.',
 );
 for (const [techId, label] of [
   ['CARTOGRAPHY', '지도 답사'],
@@ -146,6 +149,8 @@ for (const [techId, label] of [
   ['ROAD_BUILDING', '도로 정비'],
   ['EARLY_CURRENCY', '교역로 개설'],
   ['BASIC_SAILING', '항해 답사'],
+  ['CALENDAR', '계절 대비'],
+  ['MILITARY_TRAINING', '훈련 태세'],
 ]) {
   assert.match(
     engine.researchPlannerRows(utilityReady).find((row) => row.id === techId)?.unlockText || '',
@@ -156,6 +161,7 @@ for (const [techId, label] of [
 for (const [civicId, label] of [
   ['MILITARY_TRADITION', '순찰'],
   ['DRAMA', '축제'],
+  ['BASIC_PHILOSOPHY', '학술 토론'],
   ['SETTLEMENT', '정착지 확장'],
 ]) {
   assert.match(
@@ -209,6 +215,101 @@ const festival = engine.runUtilityAction(utilityReady, 'shiroko', 'festival', { 
 assert.equal(Number(festival.inventory.berry || 0), Number(utilityReady.inventory.berry || 0) - 3, '축제는 식량 3단위를 사용해야 합니다.');
 assert.equal(festival.tribe.morale, 54, '축제는 부족 사기를 14 높여야 합니다.');
 assert.equal(festival.counters.festival, 1, '축제 횟수가 기록되어야 합니다.');
+
+const drillFoodBefore = engine.tribeSummary(utilityReady).foodStock;
+const drilled = engine.runUtilityAction(utilityReady, 'shiroko', 'drill', { rng: () => 0.5 });
+assert.equal(engine.tribeSummary(drilled).foodStock, drillFoodBefore - 2, '훈련 태세는 식량 2단위를 사용해야 합니다.');
+assert.equal(drilled.exploration.drillCharges, 3, '훈련 태세는 사냥 보너스를 3회 충전해야 합니다.');
+assert.equal(drilled.counters.drill, 1, '훈련 태세 횟수가 기록되어야 합니다.');
+const drillClamped = engine.normalizeState({
+  ...utilityReady,
+  exploration: { ...utilityReady.exploration, drillCharges: 99 },
+});
+assert.equal(drillClamped.exploration.drillCharges, 3, '저장된 훈련 충전은 최대 3회로 정규화되어야 합니다.');
+const untrainedHuntState = engine.normalizeState({
+  ...utilityReady,
+  ap: 4,
+  weather: { ...utilityReady.weather, actionMod: 0 },
+  exploration: { ...utilityReady.exploration, patrolCharges: 0, drillCharges: 0 },
+  party: utilityReady.party.map((member) => (
+    member.id === 'shiroko' ? { ...member, hp: 100, stats: { ...member.stats, hunt: 1 } } : member
+  )),
+});
+const trainedHuntState = engine.normalizeState({
+  ...untrainedHuntState,
+  exploration: { ...untrainedHuntState.exploration, drillCharges: 3 },
+});
+assert.equal(
+  Math.round((engine.actionChance(trainedHuntState, 'shiroko', 'hunt', 0.35) - engine.actionChance(untrainedHuntState, 'shiroko', 'hunt', 0.35)) * 100),
+  10,
+  '훈련 태세는 사냥 성공률을 정확히 10%p 높여야 합니다.',
+);
+const untrainedHuntFailure = engine.runHuntAction(untrainedHuntState, 'shiroko', '', { rng: () => 0.999999 });
+const trainedHuntFailure = engine.runHuntAction(trainedHuntState, 'shiroko', '', { rng: () => 0.999999 });
+assert.equal(
+  engine.getActor(trainedHuntFailure, 'shiroko').hp - engine.getActor(untrainedHuntFailure, 'shiroko').hp,
+  3,
+  '훈련 태세는 사냥 실패 피해를 정확히 3 줄여야 합니다.',
+);
+assert.equal(trainedHuntFailure.exploration.drillCharges, 2, '사냥 후 훈련 충전은 1회 소모되어야 합니다.');
+
+const seasonFiberBefore = Number(utilityReady.inventory.fiber || 0);
+const seasonBerryBefore = Number(utilityReady.inventory.berry || 0);
+const seasonPlanned = engine.runUtilityAction(utilityReady, 'shiroko', 'season_plan', { rng: () => 0.5 });
+assert.equal(Number(seasonPlanned.inventory.fiber || 0), seasonFiberBefore - 1, '계절 대비는 섬유 1개를 사용해야 합니다.');
+assert.equal(Number(seasonPlanned.inventory.berry || 0), seasonBerryBefore - 1, '계절 대비는 베리 1개를 사용해야 합니다.');
+assert.equal(seasonPlanned.exploration.seasonPlanCharges, 3, '계절 대비는 야영 보호를 3회 충전해야 합니다.');
+assert.equal(seasonPlanned.counters.season_plan, 1, '계절 대비 횟수가 기록되어야 합니다.');
+const seasonClamped = engine.normalizeState({
+  ...utilityReady,
+  exploration: { ...utilityReady.exploration, seasonPlanCharges: 99 },
+});
+assert.equal(seasonClamped.exploration.seasonPlanCharges, 3, '저장된 계절 대비 충전은 최대 3회로 정규화되어야 합니다.');
+const coldNightBase = engine.normalizeState({
+  ...utilityReady,
+  weather: { ...utilityReady.weather, id: 'snow', name: '폭설', cold: 20, actionMod: 0 },
+  camp: { ...utilityReady.camp, fireLevel: 0, shelterLevel: 0, fuel: 0 },
+  exploration: { ...utilityReady.exploration, seasonPlanCharges: 0 },
+  party: utilityReady.party.map((member) => ({ ...member, hp: 100, hunger: 0, stamina: 100, bodyTemp: 37 })),
+});
+const preparedNight = engine.normalizeState({
+  ...coldNightBase,
+  exploration: { ...coldNightBase.exploration, seasonPlanCharges: 3 },
+});
+const coldNightResult = engine.advanceDay(coldNightBase, { rng: () => 0.5 });
+const preparedNightResult = engine.advanceDay(preparedNight, { rng: () => 0.5 });
+assert.ok(
+  engine.getActor(preparedNightResult, 'shiroko').hp > engine.getActor(coldNightResult, 'shiroko').hp,
+  '계절 대비는 혹한 야영의 실제 HP 피해를 줄여야 합니다.',
+);
+assert.equal(preparedNightResult.exploration.seasonPlanCharges, 2, '하루 진행 후 계절 대비 충전은 1회 소모되어야 합니다.');
+assert.equal(preparedNightResult.log.some((entry) => /계절 대비 계획 적용/.test(entry)), true, '하루 로그는 계절 대비 적용을 알려야 합니다.');
+
+const debateReady = engine.normalizeState({
+  ...utilityReady,
+  camp: { ...utilityReady.camp, fireLevel: 1, shelterLevel: 1, workbenchLevel: 1 },
+  research: {
+    ...utilityReady.research,
+    selectedTechId: 'GATHERING',
+    completed: { ...utilityReady.research.completed, HERBALISM: true, SHELTER: true },
+  },
+  civics: { ...utilityReady.civics, selectedCivicId: 'ORAL_RECORDS' },
+});
+const debateTechId = debateReady.research.selectedTechId;
+const debateCivicId = debateReady.civics.selectedCivicId;
+const debated = engine.runUtilityAction(debateReady, 'shiroko', 'debate', { rng: () => 0.5 });
+const debateControl = engine.runUtilityAction(debateReady, 'shiroko', 'patrol', { rng: () => 0.5 });
+assert.equal(
+  Number(debated.research.progress?.[debateTechId] || 0) - Number(debateControl.research.progress?.[debateTechId] || 0),
+  5,
+  '학술 토론은 공통 행동 연구점수와 별도로 선택 기술에 5RP를 더해야 합니다.',
+);
+assert.equal(
+  Number(debated.civics.progress?.[debateCivicId] || 0) - Number(debateControl.civics.progress?.[debateCivicId] || 0),
+  3,
+  '학술 토론은 공통 행동 문화점수와 별도로 선택 사회 제도에 3CP를 더해야 합니다.',
+);
+assert.equal(debated.counters.debate, 1, '학술 토론 횟수가 기록되어야 합니다.');
 
 const irrigationBlockedState = engine.normalizeState({
   ...utilityReady,

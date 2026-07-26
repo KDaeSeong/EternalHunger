@@ -123,6 +123,9 @@ assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveRoad'), { theme:
 assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveTradeRoute'), { theme: scenes.settlement, durationMs: 10_000 });
 assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveSettlement'), { theme: scenes.settlement, durationMs: 12_000 });
 assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveVoyage'), { theme: scenes.frontier, durationMs: 11_000 });
+assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveSeasonPlan'), { theme: scenes.insight, durationMs: 9_000 });
+assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveDrill'), { theme: scenes.frontier, durationMs: 8_000 });
+assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveDebate'), { theme: scenes.insight, durationMs: 10_000 });
 assert.equal(soundtrack.primitiveArchiveActionMusic('gather'), null);
 
 assert.match(playSource, /resolvePrimitiveArchiveBgmScene/, '플레이 상태가 기본 음악 장면에 연결되어야 합니다.');
