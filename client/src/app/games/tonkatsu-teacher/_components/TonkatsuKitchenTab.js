@@ -1,3 +1,4 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   INGREDIENTS,
@@ -37,8 +38,8 @@ export default function TonkatsuKitchenTab(props) {
                 <TonkatsuPanelTitle action="advisor" title="선택 메뉴 운영 판단" meta={`${selectedRecipePlan.planScore}% · ${selectedRecipePlan.salesMode}`} />
                 <div className="tonkatsu-quick-selectors">
                   <label className="game-save-json-field">
-                    <span>운영 메뉴</span>
-                    <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
+                    <span className="tonkatsu-selector-label"><GameActionIcon action="cook" label="운영 메뉴" />운영 메뉴</span>
+                    <select data-game-sfx-change="tonkatsuRecipeSelect" value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
                       {recipes.map((item) => (
                         <option value={item.id} key={item.id} disabled={!item.unlocked}>
                           {item.unlocked ? item.name : `${item.name} · ${item.reason}`}
@@ -47,8 +48,8 @@ export default function TonkatsuKitchenTab(props) {
                     </select>
                   </label>
                   <label className="game-save-json-field">
-                    <span>매입 재료</span>
-                    <select value={ingredientId} onChange={(event) => setIngredientId(event.target.value)}>
+                    <span className="tonkatsu-selector-label"><GameActionIcon action="trade" label="매입 재료" />매입 재료</span>
+                    <select data-game-sfx-change="tonkatsuIngredientSelect" value={ingredientId} onChange={(event) => setIngredientId(event.target.value)}>
                       {INGREDIENTS.map((item) => (
                         <option value={item.id} key={item.id}>{item.name} · {item.price}G</option>
                       ))}

@@ -1,3 +1,4 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   battleAction,
@@ -24,8 +25,8 @@ export default function TonkatsuStudentsTab(props) {
                 <section className="games-panel">
                   <TonkatsuPanelTitle action="tonkatsu-service" title="학생 지원" meta={student.name} />
                   <label className="game-save-json-field tonkatsu-student-selector">
-                    <span>지원 학생</span>
-                    <select value={studentId} onChange={(event) => setStudentId(event.target.value)}>
+                    <span className="tonkatsu-selector-label"><GameActionIcon action="serve" label="지원 학생" />지원 학생</span>
+                    <select data-game-sfx-change="tonkatsuStudentSelect" value={studentId} onChange={(event) => setStudentId(event.target.value)}>
                       {state.students.map((item) => (
                         <option value={item.id} key={item.id}>{item.name} · {item.role}</option>
                       ))}

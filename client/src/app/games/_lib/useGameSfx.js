@@ -2866,6 +2866,77 @@ const THEME_CUE_PROFILES = {
       { frequency: 659, start: 0.065, duration: 0.09, type: 'triangle', gain: 0.045, pan: 0.1 },
       { frequency: 988, start: 0.145, duration: 0.14, type: 'sine', gain: 0.036, pan: 0.34, reverb: 0.28 },
     ],
+    tonkatsuTabKitchen: [
+      { source: 'noise', filterType: 'highpass', frequency: 3300, duration: 0.11, gain: 0.032, pan: -0.42, reverb: 0.08 },
+      { frequency: 392, duration: 0.04, type: 'triangle', gain: 0.041, pan: -0.22 },
+      { frequency: 587, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.042 },
+      { frequency: 1175, start: 0.1, duration: 0.11, type: 'sine', gain: 0.032, pan: 0.3, reverb: 0.2 },
+    ],
+    tonkatsuTabStudents: [
+      { frequency: 659, duration: 0.045, type: 'triangle', gain: 0.042, pan: -0.24 },
+      { frequency: 880, start: 0.042, duration: 0.06, type: 'triangle', gain: 0.043 },
+      { frequency: 1318, start: 0.1, duration: 0.12, type: 'sine', gain: 0.033, pan: 0.3, reverb: 0.24 },
+    ],
+    tonkatsuTabGrowth: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1850, q: 0.72, duration: 0.18, gain: 0.027, pan: -0.4, reverb: 0.22 },
+      { frequency: 330, duration: 0.05, type: 'triangle', gain: 0.044, pan: -0.24 },
+      { frequency: 494, start: 0.05, duration: 0.065, type: 'triangle', gain: 0.044 },
+      { frequency: 988, start: 0.115, duration: 0.15, type: 'sine', gain: 0.035, pan: 0.32, reverb: 0.28 },
+    ],
+    tonkatsuTabOperations: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1200, q: 1.4, duration: 0.045, gain: 0.022, pan: -0.32 },
+      { frequency: 440, duration: 0.035, type: 'square', gain: 0.037, pan: -0.2 },
+      { frequency: 660, start: 0.035, duration: 0.05, type: 'square', gain: 0.037, pan: 0.08 },
+      { frequency: 990, start: 0.085, duration: 0.085, type: 'sine', gain: 0.03, pan: 0.3, reverb: 0.18 },
+    ],
+    tonkatsuTabProduction: [
+      { source: 'noise', filterType: 'highpass', frequency: 2700, duration: 0.04, gain: 0.024, pan: -0.36 },
+      { frequency: 523, duration: 0.045, type: 'square', gain: 0.04, pan: -0.22 },
+      { frequency: 784, start: 0.045, duration: 0.065, type: 'triangle', gain: 0.042 },
+      { frequency: 1568, start: 0.11, duration: 0.14, type: 'sine', gain: 0.032, pan: 0.32, reverb: 0.3 },
+    ],
+    tonkatsuTabJudge: [
+      { source: 'noise', filterType: 'lowpass', frequency: 720, duration: 0.08, gain: 0.035, pan: -0.36, reverb: 0.12 },
+      { frequency: 196, endFrequency: 98, duration: 0.09, type: 'sine', gain: 0.052, pan: -0.18 },
+      { frequency: 392, start: 0.09, duration: 0.08, type: 'triangle', gain: 0.04, pan: 0.2 },
+    ],
+    tonkatsuTabTutorial: [
+      { frequency: 523, duration: 0.045, type: 'triangle', gain: 0.039, pan: -0.22 },
+      { frequency: 659, start: 0.042, duration: 0.06, type: 'triangle', gain: 0.04 },
+      { frequency: 1047, start: 0.1, duration: 0.12, type: 'sine', gain: 0.031, pan: 0.3, reverb: 0.26 },
+    ],
+    tonkatsuTabAdvanced: [
+      { source: 'noise', filterType: 'bandpass', frequency: 980, q: 1.6, duration: 0.05, gain: 0.024, pan: -0.34 },
+      { frequency: 294, endFrequency: 392, duration: 0.055, type: 'square', gain: 0.039, pan: -0.2 },
+      { frequency: 587, start: 0.052, duration: 0.07, type: 'triangle', gain: 0.04, pan: 0.12 },
+      { frequency: 880, start: 0.12, duration: 0.09, type: 'sine', gain: 0.03, pan: 0.3, reverb: 0.2 },
+    ],
+    tonkatsuRecipeSelect: [
+      { source: 'noise', filterType: 'highpass', frequency: 2500, duration: 0.03, gain: 0.018, pan: -0.3 },
+      { frequency: 587, duration: 0.04, type: 'triangle', gain: 0.041, pan: -0.18 },
+      { frequency: 880, start: 0.04, duration: 0.07, type: 'sine', gain: 0.034, pan: 0.24, reverb: 0.18 },
+    ],
+    tonkatsuIngredientSelect: [
+      { frequency: 988, duration: 0.03, type: 'sine', gain: 0.036, pan: -0.22 },
+      { frequency: 659, start: 0.035, duration: 0.055, type: 'triangle', gain: 0.04 },
+      { source: 'noise', filterType: 'highpass', frequency: 2900, start: 0.085, duration: 0.045, gain: 0.018, pan: 0.28 },
+    ],
+    tonkatsuStudentSelect: [
+      { frequency: 659, duration: 0.04, type: 'triangle', gain: 0.04, pan: -0.22 },
+      { frequency: 831, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.041 },
+      { frequency: 1245, start: 0.095, duration: 0.1, type: 'sine', gain: 0.031, pan: 0.28, reverb: 0.24 },
+    ],
+    tonkatsuTournamentSelect: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1700, q: 0.8, duration: 0.1, gain: 0.022, pan: -0.34, reverb: 0.18 },
+      { frequency: 330, duration: 0.045, type: 'triangle', gain: 0.041, pan: -0.2 },
+      { frequency: 494, start: 0.045, duration: 0.06, type: 'triangle', gain: 0.041 },
+      { frequency: 988, start: 0.105, duration: 0.12, type: 'sine', gain: 0.032, pan: 0.3, reverb: 0.26 },
+    ],
+    tonkatsuJudgeSelect: [
+      { source: 'noise', filterType: 'lowpass', frequency: 680, duration: 0.055, gain: 0.029, pan: -0.3 },
+      { frequency: 220, endFrequency: 147, duration: 0.065, type: 'square', gain: 0.042, pan: -0.16 },
+      { frequency: 440, start: 0.065, duration: 0.075, type: 'triangle', gain: 0.034, pan: 0.24, reverb: 0.18 },
+    ],
   },
   idle: {
     accent: [{ frequency: 880, duration: 0.065, type: 'sine', gain: 0.022 }],

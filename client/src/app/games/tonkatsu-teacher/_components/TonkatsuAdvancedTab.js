@@ -86,7 +86,7 @@ export default function TonkatsuAdvancedTab(props) {
           <TonkatsuPanelTitle action="tonkatsu-kitchen" title="주방" meta={`제작비 ${recipe.craftCost}G`} />
           <label className="game-save-json-field">
             <span>레시피</span>
-            <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
+            <select data-game-sfx-change="tonkatsuRecipeSelect" value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
               {recipes.map((item) => (
                 <option value={item.id} key={item.id} disabled={!item.unlocked}>
                   {item.unlocked ? item.name : `${item.name} · ${item.reason}`}
@@ -124,7 +124,7 @@ export default function TonkatsuAdvancedTab(props) {
           <TonkatsuPanelTitle action="trade" title="재료 상점" meta={`재료 ${inventoryCount(state)}`} />
           <label className="game-save-json-field">
             <span>재료</span>
-            <select value={ingredientId} onChange={(event) => setIngredientId(event.target.value)}>
+            <select data-game-sfx-change="tonkatsuIngredientSelect" value={ingredientId} onChange={(event) => setIngredientId(event.target.value)}>
               {INGREDIENTS.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.price}G</option>)}
             </select>
           </label>
@@ -151,7 +151,7 @@ export default function TonkatsuAdvancedTab(props) {
           <TonkatsuPanelTitle action="tonkatsu-service" title="학생 지원" meta={`예상 승률 ${winRatePreview}%`} />
           <label className="game-save-json-field">
             <span>학생</span>
-            <select value={studentId} onChange={(event) => setStudentId(event.target.value)}>
+            <select data-game-sfx-change="tonkatsuStudentSelect" value={studentId} onChange={(event) => setStudentId(event.target.value)}>
               {state.students.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
             </select>
           </label>
@@ -275,7 +275,7 @@ export default function TonkatsuAdvancedTab(props) {
           <TonkatsuPanelTitle action="tonkatsu-contest" title="대회" meta={tournament.theme.name} />
           <label className="game-save-json-field">
             <span>티어</span>
-            <select value={tournamentTierId} onChange={(event) => setTournamentTierId(event.target.value)}>
+            <select data-game-sfx-change="tonkatsuTournamentSelect" value={tournamentTierId} onChange={(event) => setTournamentTierId(event.target.value)}>
               {TOURNAMENT_TIERS.map((tier) => <option value={tier.id} key={tier.id}>{tier.name} · {tier.entryGold}G</option>)}
             </select>
           </label>
@@ -311,7 +311,7 @@ export default function TonkatsuAdvancedTab(props) {
             </label>
             <label className="game-save-json-field" style={{ margin: 0, minWidth: 150 }}>
               <span>기록 필터</span>
-              <select value={judgeHistoryMode} onChange={(event) => setJudgeHistoryMode(event.target.value)}>
+              <select data-game-sfx-change="tonkatsuJudgeSelect" value={judgeHistoryMode} onChange={(event) => setJudgeHistoryMode(event.target.value)}>
                 {Object.entries(JUDGE_HISTORY_MODE_LABELS).map(([mode, label]) => <option value={mode} key={mode}>{label}</option>)}
               </select>
             </label>
@@ -331,20 +331,20 @@ export default function TonkatsuAdvancedTab(props) {
           ) : null}
           <label className="game-save-json-field">
             <span>심사 티어</span>
-            <select value={judgeTierId} onChange={(event) => setJudgeTierId(event.target.value)}>
+            <select data-game-sfx-change="tonkatsuJudgeSelect" value={judgeTierId} onChange={(event) => setJudgeTierId(event.target.value)}>
               {TOURNAMENT_TIERS.map((tier) => <option value={tier.id} key={tier.id}>{tier.name}</option>)}
             </select>
           </label>
           <div className="games-rank-split" style={{ marginTop: 10 }}>
             <label className="game-save-json-field">
               <span>자동 횟수</span>
-              <select value={judgeBatchCount} onChange={(event) => setJudgeBatchCount(Number(event.target.value))}>
+              <select data-game-sfx-change="tonkatsuJudgeSelect" value={judgeBatchCount} onChange={(event) => setJudgeBatchCount(Number(event.target.value))}>
                 {[5, 10, 20, 50].map((count) => <option value={count} key={count}>{count}회</option>)}
               </select>
             </label>
             <label className="game-save-json-field">
               <span>자동 방식</span>
-              <select value={judgeBatchMode} onChange={(event) => setJudgeBatchMode(event.target.value)}>
+              <select data-game-sfx-change="tonkatsuJudgeSelect" value={judgeBatchMode} onChange={(event) => setJudgeBatchMode(event.target.value)}>
                 {Object.entries(JUDGE_BATCH_MODE_LABELS).map(([mode, label]) => <option value={mode} key={mode}>{label}</option>)}
               </select>
             </label>
@@ -384,7 +384,7 @@ export default function TonkatsuAdvancedTab(props) {
               </TonkatsuIconRow>
               <label className="game-save-json-field">
                 <span>선택</span>
-                <select value={judgePick} onChange={(event) => setJudgePick(event.target.value)}>
+                <select data-game-sfx-change="tonkatsuJudgeSelect" value={judgePick} onChange={(event) => setJudgePick(event.target.value)}>
                   <option value="A">A 셰프</option>
                   <option value="B">B 셰프</option>
                 </select>

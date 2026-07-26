@@ -14438,6 +14438,17 @@
   margin-bottom: 10px;
 }
 
+.tonkatsu-selector-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tonkatsu-selector-label .game-action-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
 .tonkatsu-method-strip {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

@@ -214,6 +214,39 @@ assert.match(kitchenSource, /value=\{recipeId\}/, '핵심 주방 탭에서 운�
 assert.match(kitchenSource, /value=\{ingredientId\}/, '핵심 주방 탭에서 매입 재료를 바로 바꿀 수 있어야 합니다.');
 assert.match(studentsSource, /value=\{studentId\}/, '학생 탭에서 지원 대상을 바로 바꿀 수 있어야 합니다.');
 assert.ok(featureTabsSource.indexOf("id: 'kitchen'") < featureTabsSource.indexOf("id: 'operations'"), '첫 기능 탭은 리포트보다 실제 주방 루프를 먼저 제공해야 합니다.');
+const navigationCues = [
+  'tonkatsuTabKitchen',
+  'tonkatsuTabStudents',
+  'tonkatsuTabGrowth',
+  'tonkatsuTabOperations',
+  'tonkatsuTabProduction',
+  'tonkatsuTabJudge',
+  'tonkatsuTabTutorial',
+  'tonkatsuTabAdvanced',
+];
+for (const cue of navigationCues) {
+  assert.ok(featureTabsSource.includes(`cue: '${cue}'`), `${cue} 기능 탭 전용 효과음 연결이 필요합니다.`);
+  assert.match(soundSource, new RegExp(`\\n    ${cue}: \\[`), `${cue} 주방 테마 효과음 프로필이 필요합니다.`);
+}
+const selectorCues = [
+  'tonkatsuRecipeSelect',
+  'tonkatsuIngredientSelect',
+  'tonkatsuStudentSelect',
+  'tonkatsuTournamentSelect',
+  'tonkatsuJudgeSelect',
+];
+for (const cue of selectorCues) {
+  assert.match(soundSource, new RegExp(`\\n    ${cue}: \\[`), `${cue} 선택 전용 효과음 프로필이 필요합니다.`);
+}
+assert.match(kitchenSource, /data-game-sfx-change="tonkatsuRecipeSelect"/, '주방 메뉴 선택은 전용 메뉴 선택음을 사용해야 합니다.');
+assert.match(kitchenSource, /data-game-sfx-change="tonkatsuIngredientSelect"/, '주방 재료 선택은 전용 재료 선택음을 사용해야 합니다.');
+assert.match(studentsSource, /data-game-sfx-change="tonkatsuStudentSelect"/, '지원 학생 선택은 전용 학생 선택음을 사용해야 합니다.');
+assert.match(advancedSource, /data-game-sfx-change="tonkatsuTournamentSelect"/, '대회 티어 선택은 전용 대회 선택음을 사용해야 합니다.');
+assert.equal((advancedSource.match(/data-game-sfx-change="tonkatsuJudgeSelect"/g) || []).length, 5, '심사 설정 5곳은 전용 심사 선택음을 사용해야 합니다.');
+assert.match(kitchenSource, /<GameActionIcon action="cook" label="운영 메뉴"/, '운영 메뉴 선택기에 조리 의미 아이콘이 필요합니다.');
+assert.match(kitchenSource, /<GameActionIcon action="trade" label="매입 재료"/, '재료 선택기에 거래 의미 아이콘이 필요합니다.');
+assert.match(studentsSource, /<GameActionIcon action="serve" label="지원 학생"/, '학생 선택기에 지원 의미 아이콘이 필요합니다.');
+assert.match(styleSource, /\.tonkatsu-selector-label/, '선택기 의미 아이콘 레이아웃이 필요합니다.');
 assert.match(pageSource, /setState=\{applyTonkatsuState\}/, '모든 기능 탭의 상태 변경을 결과 분류 래퍼로 보내야 합니다.');
 assert.match(pageSource, /action=\{resultPresentation\.action\}/, '고정 결과 패널에 분류된 아이콘을 전달해야 합니다.');
 assert.match(pageSource, /tone=\{resultPresentation\.tone\}/, '고정 결과 패널에 분류된 결과 톤을 전달해야 합니다.');
@@ -254,6 +287,8 @@ console.log(JSON.stringify({
   migratedStudents: legacy.students.length,
   fryLevel: engine.methodLevelFromExperience(thirdCraft.methodExperience.m_fry),
   feedbackCues: resultCues.length,
+  navigationCues: navigationCues.length,
+  selectorCues: selectorCues.length,
   feedbackTransitions: 24,
   semanticPanelTitles,
   semanticIconRows,
