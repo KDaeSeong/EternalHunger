@@ -248,6 +248,46 @@ const CUE_PROFILES = {
     { frequency: 860, start: 0.045, duration: 0.07, type: 'triangle', gain: 0.042 },
     { frequency: 1290, start: 0.105, duration: 0.12, type: 'sine', gain: 0.035 },
   ],
+  combatKill: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1100, q: 1.3, duration: 0.07, gain: 0.052, pan: -0.34 },
+    { frequency: 260, endFrequency: 120, duration: 0.12, type: 'sawtooth', gain: 0.05, pan: -0.12 },
+    { frequency: 720, start: 0.075, duration: 0.07, type: 'square', gain: 0.036, pan: 0.28 },
+  ],
+  teamWipeProtection: [
+    { source: 'noise', filterType: 'lowpass', frequency: 780, q: 1.2, duration: 0.14, gain: 0.034, pan: -0.38 },
+    { frequency: 174.61, endFrequency: 261.63, duration: 0.13, type: 'triangle', gain: 0.044, pan: -0.18 },
+    { frequency: 523.25, start: 0.12, duration: 0.16, type: 'sine', gain: 0.036, pan: 0.34, reverb: 0.28 },
+  ],
+  masteryLevel: [
+    { source: 'noise', filterType: 'highpass', frequency: 2700, duration: 0.04, gain: 0.018, pan: -0.34 },
+    { frequency: 440, duration: 0.045, type: 'triangle', gain: 0.038, pan: -0.2 },
+    { frequency: 659.25, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.04, pan: 0.06 },
+    { frequency: 987.77, start: 0.1, duration: 0.13, type: 'sine', gain: 0.031, pan: 0.32, reverb: 0.3 },
+  ],
+  tacticalUpgrade: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1500, q: 2.4, duration: 0.05, gain: 0.022, pan: -0.36 },
+    { frequency: 392, endFrequency: 587.33, duration: 0.07, type: 'square', gain: 0.038, pan: -0.2 },
+    { frequency: 783.99, start: 0.065, duration: 0.08, type: 'triangle', gain: 0.039, pan: 0.1 },
+    { frequency: 1174.66, start: 0.14, duration: 0.14, type: 'sine', gain: 0.031, pan: 0.34, reverb: 0.3 },
+  ],
+  routeComplete: [
+    { source: 'noise', filterType: 'highpass', frequency: 2300, duration: 0.035, gain: 0.017, pan: -0.34 },
+    { frequency: 349.23, duration: 0.045, type: 'triangle', gain: 0.037, pan: -0.24 },
+    { frequency: 523.25, start: 0.045, duration: 0.06, type: 'triangle', gain: 0.039, pan: 0.02 },
+    { frequency: 698.46, start: 0.1, duration: 0.12, type: 'sine', gain: 0.031, pan: 0.32, reverb: 0.26 },
+  ],
+  legendaryCrateOpen: [
+    { source: 'noise', filterType: 'highpass', frequency: 3200, duration: 0.07, gain: 0.02, pan: -0.4, reverb: 0.24 },
+    { frequency: 523.25, duration: 0.04, type: 'triangle', gain: 0.038, pan: -0.24 },
+    { frequency: 830.61, start: 0.04, duration: 0.065, type: 'triangle', gain: 0.04, pan: 0.06 },
+    { frequency: 1318.51, start: 0.1, duration: 0.14, type: 'sine', gain: 0.032, pan: 0.34, reverb: 0.36 },
+  ],
+  objectiveCollected: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1900, q: 2, duration: 0.05, gain: 0.019, pan: -0.36 },
+    { frequency: 466.16, duration: 0.045, type: 'triangle', gain: 0.038, pan: -0.22 },
+    { frequency: 698.46, start: 0.045, duration: 0.065, type: 'triangle', gain: 0.039, pan: 0.04 },
+    { frequency: 1046.5, start: 0.11, duration: 0.13, type: 'sine', gain: 0.031, pan: 0.34, reverb: 0.32 },
+  ],
   marketCraft: [
     { source: 'noise', filterType: 'bandpass', frequency: 1320, q: 2.8, duration: 0.045, gain: 0.036, pan: -0.32 },
     { frequency: 330, endFrequency: 440, duration: 0.065, type: 'square', gain: 0.038, pan: -0.14 },
@@ -2010,6 +2050,38 @@ const THEME_CUE_PROFILES = {
       ...CUE_PROFILES.specialCraft,
       { source: 'noise', filterType: 'bandpass', frequency: 1480, q: 1.4, duration: 0.18, gain: 0.026, pan: -0.44 },
       { frequency: 1720, start: 0.2, duration: 0.18, type: 'sine', gain: 0.031, pan: 0.42, reverb: 0.34 },
+    ],
+    combatKill: [
+      ...CUE_PROFILES.combatKill,
+      { source: 'noise', filterType: 'highpass', frequency: 3000, start: 0.04, duration: 0.11, gain: 0.024, pan: 0.42 },
+      { frequency: 58.27, start: 0.14, duration: 0.22, type: 'sine', gain: 0.041, pan: 0.12, reverb: 0.25 },
+    ],
+    teamWipeProtection: [
+      ...CUE_PROFILES.teamWipeProtection,
+      { source: 'noise', filterType: 'bandpass', frequency: 920, q: 1.4, duration: 0.2, gain: 0.025, pan: -0.42 },
+      { frequency: 783.99, start: 0.2, duration: 0.17, type: 'sine', gain: 0.031, pan: 0.4, reverb: 0.36 },
+    ],
+    masteryLevel: [
+      ...CUE_PROFILES.masteryLevel,
+      { frequency: 1567.98, start: 0.2, duration: 0.15, type: 'sine', gain: 0.027, pan: 0.4, reverb: 0.36 },
+    ],
+    tacticalUpgrade: [
+      ...CUE_PROFILES.tacticalUpgrade,
+      { source: 'noise', filterType: 'highpass', frequency: 3400, duration: 0.09, gain: 0.02, pan: -0.44, reverb: 0.26 },
+      { frequency: 1760, start: 0.23, duration: 0.16, type: 'sine', gain: 0.029, pan: 0.42, reverb: 0.38 },
+    ],
+    routeComplete: [
+      ...CUE_PROFILES.routeComplete,
+      { frequency: 1396.91, start: 0.18, duration: 0.14, type: 'sine', gain: 0.027, pan: 0.4, reverb: 0.32 },
+    ],
+    legendaryCrateOpen: [
+      ...CUE_PROFILES.legendaryCrateOpen,
+      { source: 'noise', filterType: 'highpass', frequency: 3600, duration: 0.12, gain: 0.021, pan: -0.44, reverb: 0.3 },
+      { frequency: 2093, start: 0.24, duration: 0.18, type: 'sine', gain: 0.028, pan: 0.42, reverb: 0.42 },
+    ],
+    objectiveCollected: [
+      ...CUE_PROFILES.objectiveCollected,
+      { frequency: 1567.98, start: 0.2, duration: 0.16, type: 'sine', gain: 0.028, pan: 0.4, reverb: 0.38 },
     ],
     marketCraft: [
       ...CUE_PROFILES.marketCraft,

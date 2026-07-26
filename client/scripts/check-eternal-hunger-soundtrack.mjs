@@ -110,12 +110,17 @@ assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'rift-battle' }), 
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'rift-open' }), { theme: scenes.rift, durationMs: 10_000 });
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'boss-spawn' }), { theme: scenes.boss, durationMs: 14_000 });
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'boss-defeat' }), { theme: scenes.boss, durationMs: 11_000 });
+assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'combat-kill' }), { theme: scenes.combat, durationMs: 7_000 });
+assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'team-wipe-protection' }), { theme: scenes.combat, durationMs: 9_000 });
+assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'route-complete' }), null);
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'sudden-death' }), { theme: scenes.final, durationMs: 16_000 });
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'victory' }), { theme: scenes.result, durationMs: 18_000 });
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'defeat' }), { theme: scenes.defeat, durationMs: 18_000 });
 assert.equal(soundtrack.eternalHungerEventMusic({ action: 'elimination' }), null);
 assert.equal(soundtrack.eternalHungerCombatMusicDuration({ action: 'rift-battle' }), 16_000);
 assert.equal(soundtrack.eternalHungerCombatMusicDuration({ action: 'boss-spawn' }), 14_000);
+assert.equal(soundtrack.eternalHungerCombatMusicDuration({ action: 'combat-kill' }), 7_000);
+assert.equal(soundtrack.eternalHungerCombatMusicDuration({ action: 'team-wipe-protection' }), 9_000);
 assert.equal(soundtrack.eternalHungerCombatMusicDuration({ action: 'elimination' }), 0);
 
 assert.match(profileSource, /leadC: freezePattern/, '각 곡 프로필은 C 주제를 보존해야 합니다.');

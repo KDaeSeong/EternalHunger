@@ -47,6 +47,22 @@ const MAJOR_EVENT_RULES = [
     tone: 'success',
   },
   {
+    key: 'teamWipeProtection',
+    pattern: /스쿼드 전멸 방지/,
+    action: 'team-wipe-protection',
+    cue: 'teamWipeProtection',
+    label: '스쿼드 생존 보호',
+    tone: 'warning',
+  },
+  {
+    key: 'combatKill',
+    pattern: /☠️.*\(\+1킬/,
+    action: 'combat-kill',
+    cue: 'combatKill',
+    label: '처치 확정',
+    tone: 'danger',
+  },
+  {
     key: 'bossDefeat',
     pattern: /(?:변이체\((?:위클라인|오메가)\).*(?:격파|처치)|야생동물\(알파\).*사냥 성공)/,
     action: 'boss-defeat',
@@ -93,6 +109,51 @@ const MAJOR_EVENT_RULES = [
     cue: 'rareSupply',
     label: '전설 보급',
     tone: 'highlight',
+  },
+  {
+    key: 'legendaryCrateOpen',
+    pattern: /전설 (?:재료 )?상자(?:를)?.*(?:열어|추가드랍)/,
+    action: 'legendary-crate-open',
+    cue: 'legendaryCrateOpen',
+    label: '전설 재료 확보',
+    tone: 'highlight',
+    autoSilent: true,
+  },
+  {
+    key: 'objectiveCollected',
+    pattern: /오브젝트 채집:/,
+    action: 'objective-collected',
+    cue: 'objectiveCollected',
+    label: '핵심 오브젝트 채집',
+    tone: 'success',
+    autoSilent: true,
+  },
+  {
+    key: 'routeComplete',
+    pattern: /1일차 (?:낮 )?루트 파밍(?: 보정)? 완료/,
+    action: 'route-complete',
+    cue: 'routeComplete',
+    label: '초반 루트 완성',
+    tone: 'success',
+    autoSilent: true,
+  },
+  {
+    key: 'masteryLevel',
+    pattern: /숙련도 Lv\.\d+ 달성/,
+    action: 'mastery-level',
+    cue: 'masteryLevel',
+    label: '무기 숙련 상승',
+    tone: 'highlight',
+    autoSilent: true,
+  },
+  {
+    key: 'tacticalUpgrade',
+    pattern: /전술 강화 모듈 사용.*전술 스킬 레벨/,
+    action: 'tactical-upgrade',
+    cue: 'tacticalUpgrade',
+    label: '전술 스킬 강화',
+    tone: 'highlight',
+    autoSilent: true,
   },
   {
     key: 'objectiveSpawn',
@@ -198,11 +259,11 @@ export function classifySimulationMajorEvent(entry) {
   };
 }
 
-function latestMajorEvent(logs) {
+function latestMajorEvent(logs, predicate = () => true) {
   const rows = Array.isArray(logs) ? logs : [];
   for (let index = rows.length - 1; index >= 0; index -= 1) {
     const event = classifySimulationMajorEvent(rows[index]);
-    if (event) return event;
+    if (event && predicate(event)) return event;
   }
   return null;
 }
@@ -219,6 +280,7 @@ export function createSimulationFeedbackSnapshot({
 }) {
   return {
     autoPlay: Boolean(autoPlay),
+    combatEvent: latestMajorEvent(logs, (event) => event.key === 'combatKill'),
     day: Math.max(0, Number(day || 0)),
     deadCount: listLength(dead),
     forbiddenSignature: listSignature(forbiddenAddedNow),
@@ -237,6 +299,11 @@ function feedbackRow(key, values) {
 function majorEventChanged(previous, current) {
   const signature = String(current?.majorEvent?.signature || '');
   return Boolean(signature && signature !== String(previous?.majorEvent?.signature || ''));
+}
+
+function combatEventChanged(previous, current) {
+  const signature = String(current?.combatEvent?.signature || '');
+  return Boolean(signature && signature !== String(previous?.combatEvent?.signature || ''));
 }
 
 function presentMajorEvent(event, autoPlay) {
@@ -264,6 +331,11 @@ export function getSimulationFeedbackPresentation(previous, current) {
       tone: current.hasWinner ? 'success' : 'danger',
     });
   }
+
+  if (
+    current.deadCount > previous.deadCount
+    && combatEventChanged(previous, current)
+  ) return presentMajorEvent(current.combatEvent, current.autoPlay);
 
   if (current.deadCount > previous.deadCount) {
     const delta = current.deadCount - previous.deadCount;

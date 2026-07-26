@@ -59,6 +59,12 @@ export function eternalHungerEventMusic(presentation) {
   if (action === 'boss-defeat') {
     return { theme: ETERNAL_HUNGER_BGM_SCENES.boss, durationMs: 11_000 };
   }
+  if (action === 'combat-kill') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.combat, durationMs: 7_000 };
+  }
+  if (action === 'team-wipe-protection') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.combat, durationMs: 9_000 };
+  }
   if (action === 'sudden-death') {
     return { theme: ETERNAL_HUNGER_BGM_SCENES.final, durationMs: 16_000 };
   }

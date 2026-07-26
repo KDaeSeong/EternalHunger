@@ -93,6 +93,13 @@ const majorEventCases = [
   ['perkUnlock', 'perkUnlock', eventLog('perk-1', '🎖️ [특전] 구매 완료 (FAST_START)', 'system')],
   ['marketTrade', 'marketTrade', eventLog('trade-1', '✅ [거래] 수락 완료', 'system')],
   ['marketFailure', 'marketFailure', eventLog('market-failure-1', '⚠️ [드론 구매 실패] 크레딧이 부족합니다.', 'death')],
+  ['combatKill', 'combatKill', eventLog('kill-1', '☠️ [시로코] → [히나] 처치 (+1킬, 어시: 유우카)', 'death')],
+  ['teamWipeProtection', 'teamWipeProtection', eventLog('wipe-protect-1', '🛡️ 스쿼드 전멸 방지: 2일차 낮까지 부활 가능한 팀이 남아 있어 게임 종료를 보류합니다.')],
+  ['masteryLevel', 'masteryLevel', eventLog('mastery-1', '⚙️ [시로코] 권총 숙련도 Lv.2 달성 (전투)')],
+  ['tacticalUpgrade', 'tacticalUpgrade', eventLog('tactical-1', '🎛️ [시로코] 전술 강화 모듈 사용 → 전술 스킬 레벨 +1 (Lv.2)')],
+  ['routeComplete', 'routeComplete', eventLog('route-1', '✅ [시로코] 1일차 낮 루트 파밍 완료: 영웅 장비 5부위 완성')],
+  ['legendaryCrateOpen', 'legendaryCrateOpen', eventLog('legend-open-1', '🟪 [시로코] 학교에서 🎁 전설 재료 상자를 열어 [미스릴] 획득')],
+  ['objectiveCollected', 'objectiveCollected', eventLog('objective-pickup-1', '🌠 [시로코] 숲 오브젝트 채집: [생명의 나무] 획득')],
   ['suddenDeath', 'suddenDeath', eventLog('sudden-1', '=== 서든데스 발동: 최종 안전구역 2곳 제외 전지역 금지 ===')],
 ];
 
@@ -103,6 +110,32 @@ for (const [key, cue, log] of majorEventCases) {
     getSimulationFeedbackCue(base, snapshot({ logs: [log] })),
     cue,
     `${key} 사건은 ${cue} 효과음을 사용해야 합니다.`,
+  );
+}
+
+const combatKillLog = majorEventCases.find(([key]) => key === 'combatKill')[2];
+const combatKillState = snapshot({ dead: [{ id: 'actor-b' }], logs: [combatKillLog] });
+assert.equal(
+  getSimulationFeedbackCue(base, combatKillState),
+  'combatKill',
+  '교전 처치는 일반 탈락음보다 전용 처치음을 우선해야 합니다.',
+);
+assert.equal(
+  getSimulationFeedbackPresentation(base, combatKillState)?.action,
+  'combat-kill',
+  '교전 처치는 처치자와 대상이 포함된 전용 결과 바를 사용해야 합니다.',
+);
+
+for (const key of ['masteryLevel', 'tacticalUpgrade', 'routeComplete', 'legendaryCrateOpen', 'objectiveCollected']) {
+  const log = majorEventCases.find(([eventKey]) => eventKey === key)[2];
+  assert.equal(
+    getSimulationFeedbackCue(base, snapshot({ autoPlay: true, logs: [log] })),
+    '',
+    `${key} 사건은 자동 진행 중 반복음을 내면 안 됩니다.`,
+  );
+  assert.ok(
+    getSimulationFeedbackPresentation(base, snapshot({ autoPlay: true, logs: [log] }))?.action,
+    `${key} 사건은 자동 진행 중에도 시각 피드백을 유지해야 합니다.`,
   );
 }
 
@@ -185,6 +218,13 @@ const pendingTranscendSource = await readFile(new URL('../src/app/simulation/_co
 const requiredActions = [
   'boss-defeat',
   'boss-spawn',
+  'combat-kill',
+  'legendary-crate-open',
+  'mastery-level',
+  'objective-collected',
+  'route-complete',
+  'team-wipe-protection',
+  'tactical-upgrade',
   'hyperloop-jump',
   'kiosk-revive',
   'kiosk-trade',
@@ -209,6 +249,13 @@ for (const action of requiredActions) {
 const requiredCues = [
   'bossDefeat',
   'bossSpawn',
+  'combatKill',
+  'legendaryCrateOpen',
+  'masteryLevel',
+  'objectiveCollected',
+  'routeComplete',
+  'teamWipeProtection',
+  'tacticalUpgrade',
   'hyperloopJump',
   'kioskRevive',
   'objectiveSpawn',
