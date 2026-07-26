@@ -102,7 +102,7 @@ assert.equal(previewUtilityRows.every((row) => row.unlocked), true, '개발자 �
 const utilityReady = engine.normalizeState({
   ...base,
   ap: 4,
-  inventory: { ...base.inventory, herb: 2, berry: 12, wood: 6, stone: 5, clay: 2, meat: 3, resin: 2 },
+  inventory: { ...base.inventory, herb: 2, berry: 12, wood: 12, stone: 8, fiber: 8, clay: 2, meat: 3, resin: 2 },
   party: base.party.map((member) => (
     member.id === 'shiroko' ? { ...member, hp: 60, bodyTemp: 36 } : member
   )),
@@ -117,6 +117,7 @@ const utilityReady = engine.normalizeState({
       FOOD_STORAGE: true,
       ROAD_BUILDING: true,
       EARLY_CURRENCY: true,
+      BASIC_SAILING: true,
       STONE_TOOLS: true,
     },
   },
@@ -126,6 +127,7 @@ const utilityReady = engine.normalizeState({
       ...base.civics.completed,
       MILITARY_TRADITION: true,
       DRAMA: true,
+      SETTLEMENT: true,
     },
   },
   tribe: { ...base.tribe, morale: 40 },
@@ -133,8 +135,8 @@ const utilityReady = engine.normalizeState({
 const utilityRows = engine.utilityActionRows(utilityReady, 'shiroko');
 assert.deepEqual(
   utilityRows.filter((row) => row.available).map((row) => row.id).sort(),
-  ['festival', 'irrigation', 'patrol', 'preserve', 'road', 'survey', 'trade_route', 'treatment'],
-  '연구와 재료 조건을 충족하면 운영 행동 여덟 가지를 모두 실행할 수 있어야 합니다.',
+  ['festival', 'irrigation', 'patrol', 'preserve', 'road', 'settlement', 'survey', 'trade_route', 'treatment', 'voyage'],
+  '연구와 재료 조건을 충족하면 운영 행동 열 가지를 모두 실행할 수 있어야 합니다.',
 );
 for (const [techId, label] of [
   ['CARTOGRAPHY', '지도 답사'],
@@ -143,6 +145,7 @@ for (const [techId, label] of [
   ['FOOD_STORAGE', '식량 보존'],
   ['ROAD_BUILDING', '도로 정비'],
   ['EARLY_CURRENCY', '교역로 개설'],
+  ['BASIC_SAILING', '항해 답사'],
 ]) {
   assert.match(
     engine.researchPlannerRows(utilityReady).find((row) => row.id === techId)?.unlockText || '',
@@ -153,6 +156,7 @@ for (const [techId, label] of [
 for (const [civicId, label] of [
   ['MILITARY_TRADITION', '순찰'],
   ['DRAMA', '축제'],
+  ['SETTLEMENT', '정착지 확장'],
 ]) {
   assert.match(
     engine.civicsPlannerRows(utilityReady).find((row) => row.id === civicId)?.unlockText || '',
@@ -160,6 +164,30 @@ for (const [civicId, label] of [
     `${civicId} 상세에는 ${label} 해금이 표시되어야 합니다.`,
   );
 }
+
+const settlementCapacityBefore = engine.tribeCapacity(utilityReady);
+const settled = engine.runUtilityAction(utilityReady, 'shiroko', 'settlement', { rng: () => 0.5 });
+assert.equal(Number(settled.inventory.wood || 0), Number(utilityReady.inventory.wood || 0) - 4, '첫 정착지 확장은 나무 4개를 사용해야 합니다.');
+assert.equal(Number(settled.inventory.stone || 0), Number(utilityReady.inventory.stone || 0) - 3, '첫 정착지 확장은 돌 3개를 사용해야 합니다.');
+assert.equal(Number(settled.inventory.fiber || 0), Number(utilityReady.inventory.fiber || 0) - 2, '첫 정착지 확장은 섬유 2개를 사용해야 합니다.');
+assert.equal(settled.tribe.settlementLevel, 1, '정착지 확장은 영구 정착지 등급을 올려야 합니다.');
+assert.equal(engine.tribeCapacity(settled), settlementCapacityBefore + 2, '정착지 확장은 부족 수용력을 2명 늘려야 합니다.');
+assert.equal(settled.tribe.morale, 44, '정착지 확장은 부족 사기를 4 높여야 합니다.');
+assert.equal(settled.counters.settlement, 1, '정착지 확장 횟수가 기록되어야 합니다.');
+const maxSettlement = engine.normalizeState({
+  ...utilityReady,
+  tribe: { ...utilityReady.tribe, settlementLevel: 99 },
+});
+assert.equal(maxSettlement.tribe.settlementLevel, 3, '저장된 정착지 등급은 최대 3으로 정규화되어야 합니다.');
+assert.equal(engine.utilityActionRows(maxSettlement, 'shiroko').find((row) => row.id === 'settlement')?.available, false, '최대 정착지는 추가 확장이 비활성화되어야 합니다.');
+
+const voyageFishBefore = Number(utilityReady.inventory.fish || 0);
+const voyaged = engine.runUtilityAction(utilityReady, 'shiroko', 'voyage', { rng: () => 0 });
+assert.equal(voyaged.exploration.discoverySerial, utilityReady.exploration.discoverySerial + 1, '항해 답사는 물길 인접 지역 발견 기록을 남겨야 합니다.');
+assert.equal(Number(voyaged.inventory.wood || 0), Number(utilityReady.inventory.wood || 0) - 2, '항해 답사는 나무 2개를 사용해야 합니다.');
+assert.equal(Number(voyaged.inventory.fiber || 0), Number(utilityReady.inventory.fiber || 0) - 2, '항해 답사는 섬유 2개를 사용해야 합니다.');
+assert.ok(Number(voyaged.inventory.fish || 0) >= voyageFishBefore + 2, '항해 답사는 물고기 2개 이상을 확보해야 합니다.');
+assert.equal(voyaged.counters.voyage, 1, '항해 답사 횟수가 기록되어야 합니다.');
 
 const surveyed = engine.runUtilityAction(utilityReady, 'shiroko', 'survey', { rng: () => 0 });
 assert.equal(surveyed.exploration.discoverySerial, utilityReady.exploration.discoverySerial + 1, '지도 답사는 새 지역 발견 기록을 남겨야 합니다.');

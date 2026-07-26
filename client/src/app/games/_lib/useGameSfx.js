@@ -118,6 +118,19 @@ const CUE_PROFILES = {
     { frequency: 783.99, start: 0.055, duration: 0.08, type: 'triangle', gain: 0.036, pan: 0.08 },
     { frequency: 1046.5, start: 0.13, duration: 0.13, type: 'sine', gain: 0.028, pan: 0.36, reverb: 0.3 },
   ],
+  archiveSettlement: [
+    { source: 'noise', filterType: 'bandpass', frequency: 720, q: 2.1, duration: 0.05, gain: 0.034, pan: -0.4, reverb: 0.12 },
+    { frequency: 130.81, endFrequency: 98, duration: 0.11, type: 'triangle', gain: 0.05, pan: -0.24 },
+    { source: 'noise', filterType: 'bandpass', frequency: 920, q: 2.2, start: 0.11, duration: 0.05, gain: 0.03, pan: 0.02 },
+    { frequency: 261.63, start: 0.14, duration: 0.12, type: 'triangle', gain: 0.038, pan: 0.18 },
+    { frequency: 523.25, start: 0.24, duration: 0.19, type: 'sine', gain: 0.026, pan: 0.4, reverb: 0.38 },
+  ],
+  archiveVoyage: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1550, q: 0.55, duration: 0.28, gain: 0.019, pan: -0.46, reverb: 0.34 },
+    { frequency: 196, endFrequency: 220, duration: 0.12, type: 'sine', gain: 0.038, pan: -0.28 },
+    { frequency: 293.66, start: 0.09, duration: 0.15, type: 'triangle', gain: 0.034, pan: 0.06 },
+    { frequency: 587.33, start: 0.2, duration: 0.22, type: 'sine', gain: 0.025, pan: 0.42, reverb: 0.48 },
+  ],
   archiveTune: [
     { source: 'noise', filterType: 'bandpass', frequency: 960, q: 2.2, duration: 0.035, gain: 0.022, pan: -0.26 },
     { frequency: 293.66, endFrequency: 392, duration: 0.055, type: 'triangle', gain: 0.04, pan: -0.12 },
@@ -2708,6 +2721,20 @@ const THEME_CUE_PROFILES = {
       { frequency: 587.33, start: 0.055, duration: 0.085, type: 'triangle', gain: 0.037, pan: -0.06 },
       { frequency: 783.99, start: 0.125, duration: 0.11, type: 'triangle', gain: 0.033, pan: 0.22 },
       { frequency: 1174.66, start: 0.21, duration: 0.2, type: 'sine', gain: 0.024, pan: 0.46, reverb: 0.46 },
+    ],
+    archiveSettlement: [
+      { source: 'noise', filterType: 'bandpass', frequency: 650, q: 2.2, duration: 0.065, gain: 0.031, pan: -0.48, reverb: 0.18 },
+      { frequency: 98, endFrequency: 73.42, duration: 0.14, type: 'triangle', gain: 0.052, pan: -0.3 },
+      { source: 'noise', filterType: 'bandpass', frequency: 840, q: 2.3, start: 0.12, duration: 0.06, gain: 0.028, pan: 0.02 },
+      { frequency: 196, start: 0.16, duration: 0.14, type: 'triangle', gain: 0.039, pan: 0.18 },
+      { frequency: 392, start: 0.28, duration: 0.22, type: 'sine', gain: 0.026, pan: 0.44, reverb: 0.46 },
+    ],
+    archiveVoyage: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1700, q: 0.5, duration: 0.34, gain: 0.017, pan: -0.52, reverb: 0.44 },
+      { frequency: 146.83, endFrequency: 196, duration: 0.14, type: 'sine', gain: 0.039, pan: -0.32 },
+      { frequency: 293.66, start: 0.1, duration: 0.17, type: 'triangle', gain: 0.035, pan: 0.02 },
+      { frequency: 440, start: 0.22, duration: 0.18, type: 'triangle', gain: 0.03, pan: 0.24 },
+      { frequency: 659.25, start: 0.34, duration: 0.25, type: 'sine', gain: 0.024, pan: 0.48, reverb: 0.52 },
     ],
     archiveTune: [
       { source: 'noise', filterType: 'bandpass', frequency: 980, q: 2.4, duration: 0.055, gain: 0.025, pan: -0.42, reverb: 0.18 },

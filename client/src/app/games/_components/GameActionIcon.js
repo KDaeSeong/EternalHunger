@@ -341,6 +341,8 @@ const ACTION_ICONS = {
   'primitive-preserve': PackageCheck,
   'primitive-road': Route,
   'primitive-trade-route': Coins,
+  'primitive-settlement': Building2,
+  'primitive-voyage': Compass,
   'primitive-growth': Sprout,
   'primitive-hunt': Crosshair,
   'primitive-inspiration': Sparkles,

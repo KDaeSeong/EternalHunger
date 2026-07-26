@@ -624,7 +624,7 @@ const RAW_TECH_TREE = [
   {
     id: 'SETTLEMENT', name: '정착', era: 'NEOLITHIC', tier: 1, cost: 20, prereqs: ['SHELTER'], tags: ['CAMP', 'CIVICS'], archiveRequired: true,
     description: '캠프를 정착지로 확장하고 파티 정원을 늘립니다.',
-    unlocks: { passives: ['CAMP_SCORE_UP', 'PARTY_CAP_UP'] },
+    unlocks: { actions: ['settlement'], passives: ['CAMP_SCORE_UP', 'PARTY_CAP_UP'] },
     eureka: { type: 'campLevel', key: 'shelterLevel', count: 2, bonusPct: 0.25, desc: '대피소 Lv.2 달성' },
     inspiration: { type: 'campLevel', key: 'workbenchLevel', count: 1, bonusPct: 0.15, desc: '작업대 Lv.1 달성' },
   },
@@ -690,7 +690,7 @@ const RAW_TECH_TREE = [
   {
     id: 'BASIC_SAILING', name: '기초 항해', era: 'ANCIENT', tier: 6, cost: 28, prereqs: ['CARTOGRAPHY'], tags: ['SCIENCE', 'SURVIVAL'],
     description: '물길과 바람을 읽어 강가 탐사의 수익과 안정성을 높입니다.',
-    unlocks: { passives: ['RIVER_YIELD_UP_2'] },
+    unlocks: { actions: ['voyage'], passives: ['RIVER_YIELD_UP_2'] },
     eureka: { type: 'actionSuccess', action: 'gather', count: 10, bonusPct: 0.25, desc: '채집 성공 10회' },
     inspiration: { type: 'weatherTypes', count: 4, bonusPct: 0.15, desc: '서로 다른 날씨 4종 관찰' },
   },
@@ -2415,6 +2415,7 @@ export function initTribeState() {
     productionSerial: 0,
     growthSerial: 0,
     assignmentSerial: 0,
+    settlementLevel: 0,
   };
 }
 
@@ -2444,6 +2445,7 @@ export function normalizeTribeState(value = {}) {
     productionSerial: Math.max(0, Math.floor(Number(value.productionSerial || 0))),
     growthSerial: Math.max(0, Math.floor(Number(value.growthSerial || 0))),
     assignmentSerial: Math.max(0, Math.floor(Number(value.assignmentSerial || 0))),
+    settlementLevel: Math.min(3, Math.max(0, Math.floor(Number(value.settlementLevel || 0)))),
   };
 }
 

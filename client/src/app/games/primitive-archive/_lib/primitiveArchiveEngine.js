@@ -131,7 +131,7 @@ export function createNewState(options = {}) {
     inventory,
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
-    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, irrigation: 0, preserve: 0, road: 0, camp: 0, meals: 0, events: 0 },
+    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, irrigation: 0, preserve: 0, road: 0, trade_route: 0, settlement: 0, voyage: 0, camp: 0, meals: 0, events: 0 },
     eventChains: [],
     exploration: initExplorationState(),
     projects: initProjectState(),
@@ -473,6 +473,8 @@ const RESEARCH_ACTION_LABELS = {
   preserve: '식량 보존',
   road: '도로 정비',
   trade_route: '교역로 개설',
+  settlement: '정착지 확장',
+  voyage: '항해 답사',
 };
 
 function recipeName(recipeId) {
@@ -1114,9 +1116,10 @@ export function tribeCapacity(state) {
       + Number(state?.camp?.shelterLevel || 0) * 2
       + (state?.research?.completed?.SETTLEMENT ? 2 : 0)
       + (state?.research?.completed?.STATE_WORKFORCE ? 2 : 0)
-      + (state?.research?.completed?.EARLY_EMPIRE ? 2 : 0),
+      + (state?.research?.completed?.EARLY_EMPIRE ? 2 : 0)
+      + Number(normalizeTribeState(state?.tribe).settlementLevel || 0) * 2,
     4,
-    18,
+    24,
   );
 }
 
@@ -4708,6 +4711,9 @@ const ROAD_ACTION_COST = { stone: 3, wood: 2 };
 const TRADE_ROUTE_MAX_CHARGES = 3;
 const TRADE_ROUTE_RELATION_BONUS = 3;
 const TRADE_ROUTE_ACTION_COST = { wood: 2, stone: 1, resin: 1 };
+const SETTLEMENT_MAX_LEVEL = 3;
+const VOYAGE_ACTION_COST = { wood: 2, fiber: 2 };
+const VOYAGE_REWARD = [['fish', 2], ['clay', 1]];
 
 function irrigationCharges(state) {
   return Math.min(IRRIGATION_MAX_CHARGES, Math.max(0, Number(state.exploration?.irrigationCharges || 0)));
@@ -4719,6 +4725,15 @@ function roadCharges(state) {
 
 function tradeRouteCharges(state) {
   return Math.min(TRADE_ROUTE_MAX_CHARGES, Math.max(0, Number(state.diplomacy?.tradeRouteCharges || 0)));
+}
+
+function settlementActionCost(level = 0) {
+  const safeLevel = Math.min(SETTLEMENT_MAX_LEVEL - 1, Math.max(0, Number(level || 0)));
+  return {
+    wood: 4 + safeLevel * 2,
+    stone: 3 + safeLevel * 2,
+    fiber: 2 + safeLevel,
+  };
 }
 
 function effectiveTradeCost(cost, routeActive = false) {
@@ -4822,6 +4837,8 @@ const CIVILIZATION_ACTION_DEFS = [
   { id: 'preserve', label: '식량 보존', icon: 'primitive-preserve', techId: 'FOOD_STORAGE', staminaCost: 14, hungerAdd: 2 },
   { id: 'road', label: '도로 정비', icon: 'primitive-road', techId: 'ROAD_BUILDING', staminaCost: 18, hungerAdd: 3 },
   { id: 'trade_route', label: '교역로 개설', icon: 'primitive-trade-route', techId: 'EARLY_CURRENCY', staminaCost: 14, hungerAdd: 2 },
+  { id: 'settlement', label: '정착지 확장', icon: 'primitive-settlement', techId: 'SETTLEMENT', staminaCost: 20, hungerAdd: 3 },
+  { id: 'voyage', label: '항해 답사', icon: 'primitive-voyage', techId: 'BASIC_SAILING', staminaCost: 20, hungerAdd: 4 },
 ];
 
 function surveyCandidates(state) {
@@ -4835,6 +4852,16 @@ function surveyCandidates(state) {
     !exploration.revealed?.[region.id]
     && region.neighbors.some((neighborId) => exploration.revealed?.[neighborId])
   ));
+}
+
+function voyageCandidates(state) {
+  const exploration = normalizeExplorationState(state.exploration);
+  const reachableIds = new Set(
+    WORLD_REGIONS
+      .filter((region) => region.zoneId === 'river' && exploration.revealed?.[region.id])
+      .flatMap((region) => region.neighbors || []),
+  );
+  return WORLD_REGIONS.filter((region) => reachableIds.has(region.id) && !exploration.revealed?.[region.id]);
 }
 
 function consumePatrolCharge(state) {
@@ -4869,11 +4896,13 @@ export function utilityActionRows(state, actorId) {
   const actor = getActor(current, actorId);
   const previewUnlocked = current.devTools.enabled && current.devTools.unlockSpecializedActions;
   const candidates = surveyCandidates(current);
+  const voyageTargets = voyageCandidates(current);
   const foodStock = tribeFoodStock(current.inventory);
   const patrolCharges = Number(current.exploration.patrolCharges || 0);
   const activeIrrigationCharges = irrigationCharges(current);
   const activeRoadCharges = roadCharges(current);
   const activeTradeRouteCharges = tradeRouteCharges(current);
+  const settlementLevel = Math.min(SETTLEMENT_MAX_LEVEL, Math.max(0, Number(current.tribe.settlementLevel || 0)));
   const civic = activeCivicForState(current);
 
   return CIVILIZATION_ACTION_DEFS.map((profile) => {
@@ -4886,7 +4915,30 @@ export function utilityActionRows(state, actorId) {
     let outcome = '';
     let materialText = '';
 
-    if (profile.id === 'survey') {
+    if (profile.id === 'settlement') {
+      const cost = settlementActionCost(settlementLevel);
+      const materialsReady = hasResources(current.inventory, cost);
+      requirementMet = settlementLevel < SETTLEMENT_MAX_LEVEL && materialsReady;
+      lockedReason = settlementLevel >= SETTLEMENT_MAX_LEVEL
+        ? '정착지가 이미 최대 단계입니다.'
+        : !materialsReady
+          ? `재료 부족: ${formatRequires(cost)}`
+          : '';
+      context = `정착지 Lv.${settlementLevel}/${SETTLEMENT_MAX_LEVEL} · 수용력 ${tribeCapacity(current)}명`;
+      outcome = `정착지 Lv.${Math.min(SETTLEMENT_MAX_LEVEL, settlementLevel + 1)} · 부족 수용력 +2 · 사기 +4`;
+      materialText = formatRequires(cost);
+    } else if (profile.id === 'voyage') {
+      const materialsReady = hasResources(current.inventory, VOYAGE_ACTION_COST);
+      requirementMet = voyageTargets.length > 0 && materialsReady;
+      lockedReason = voyageTargets.length <= 0
+        ? '발견 가능한 물길 인접 지역이 없습니다.'
+        : !materialsReady
+          ? `재료 부족: ${formatRequires(VOYAGE_ACTION_COST)}`
+          : '';
+      context = `${voyageTargets.length}개 물길 인접 미답 지역`;
+      outcome = `미답 지역 1곳 발견 · ${formatGains(VOYAGE_REWARD)} · 발견 보상`;
+      materialText = formatRequires(VOYAGE_ACTION_COST);
+    } else if (profile.id === 'survey') {
       requirementMet = candidates.length > 0;
       lockedReason = requirementMet ? '' : '모든 접경 지역을 발견했습니다.';
       context = `${candidates.length}개 접경 후보`;
@@ -4978,7 +5030,38 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
   const rng = options.rng || Math.random;
   const actor = getActor(current, actorId);
   let next = current;
-  if (profile.id === 'survey') {
+  if (profile.id === 'settlement') {
+    const tribe = normalizeTribeState(next.tribe);
+    const level = Math.min(SETTLEMENT_MAX_LEVEL, Number(tribe.settlementLevel || 0) + 1);
+    const cost = settlementActionCost(tribe.settlementLevel);
+    next = {
+      ...next,
+      inventory: spendResources(next.inventory, cost),
+      tribe: {
+        ...tribe,
+        settlementLevel: level,
+        morale: clamp(Number(tribe.morale || 0) + 4, 0, 100),
+      },
+    };
+    next = addLog(next, `${actor.name}의 정착지 확장 완료. ${formatRequires(cost)}을 사용해 정착지 Lv.${level}을 달성했습니다. 부족 수용력 +2, 사기 +4.`);
+  } else if (profile.id === 'voyage') {
+    const targets = voyageCandidates(current);
+    const index = Math.min(targets.length - 1, Math.floor(clamp(Number(rng()), 0, 0.999999) * targets.length));
+    const discovered = targets[index];
+    const rewards = [...VOYAGE_REWARD, ...(discovered.discoveryReward || [])];
+    next = {
+      ...next,
+      inventory: addItems(spendResources(next.inventory, VOYAGE_ACTION_COST), rewards),
+      exploration: {
+        ...next.exploration,
+        revealed: { ...next.exploration.revealed, [discovered.id]: true },
+        lastDiscoveredId: discovered.id,
+        discoverySerial: Number(next.exploration.discoverySerial || 0) + 1,
+      },
+    };
+    next = addLog(next, `${actor.name}의 항해 답사 완료. ${discovered.name}을 발견하고 ${formatGains(rewards)}을 확보했습니다.`);
+    next = contactRivalTribeForRegion(next, discovered.id);
+  } else if (profile.id === 'survey') {
     const candidates = surveyCandidates(current);
     const index = Math.min(candidates.length - 1, Math.floor(clamp(Number(rng()), 0, 0.999999) * candidates.length));
     const discovered = candidates[index];

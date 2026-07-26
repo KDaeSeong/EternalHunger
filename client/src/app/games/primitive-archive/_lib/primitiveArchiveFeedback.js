@@ -126,6 +126,8 @@ const ACTION_RULES = {
   '식량 보존': { key: 'preserve', action: 'primitive-preserve', counter: 'preserve', cue: 'archivePreserve', successLabel: '식량 보존 완료', failureLabel: '식량 보존 불가' },
   '도로 정비': { key: 'road', action: 'primitive-road', counter: 'road', cue: 'archiveRoad', successLabel: '도로 정비 완료', failureLabel: '도로 정비 불가' },
   '교역로 개설': { key: 'tradeRoute', action: 'primitive-trade-route', counter: 'trade_route', cue: 'archiveTradeRoute', successLabel: '교역로 개설 완료', failureLabel: '교역로 개설 불가' },
+  '정착지 확장': { key: 'settlement', action: 'primitive-settlement', counter: 'settlement', cue: 'archiveSettlement', successLabel: '정착지 확장 완료', failureLabel: '정착지 확장 불가' },
+  '항해 답사': { key: 'voyage', action: 'primitive-voyage', counter: 'voyage', cue: 'archiveVoyage', successLabel: '항해 답사 완료', failureLabel: '항해 답사 불가' },
   '식사': { key: 'meal', action: 'primitive-meal', counter: 'meals', cue: 'consume', successLabel: '식사 완료', failureLabel: '식사 불가' },
   '휴식': { key: 'rest', action: 'primitive-rest', cue: 'rest', successLabel: '휴식 완료', failureLabel: '휴식 불가' },
   '연구': { key: 'research', action: 'primitive-research', cue: 'research', successLabel: '연구 진척', failureLabel: '연구 불가' },

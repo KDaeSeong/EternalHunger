@@ -357,6 +357,8 @@ const ACTION_UNLOCK_LABELS = {
   preserve: '식량 보존',
   road: '도로 정비',
   trade_route: '교역로 개설',
+  settlement: '정착지 확장',
+  voyage: '항해 답사',
 };
 
 export function researchUnlockText(tech) {
