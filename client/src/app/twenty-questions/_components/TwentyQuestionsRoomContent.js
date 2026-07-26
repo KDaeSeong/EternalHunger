@@ -14,9 +14,14 @@ import { GameControlButton } from '../../games/_components/GamePlayPrimitives';
 import { useGameSfxEventHandlers } from '../../games/_lib/useGameSfx';
 import { twentyQuestionsFeedback } from '../_lib/twentyQuestionsFeedback';
 import {
+  twentyQuestionsProgressTransition,
+  twentyQuestionsRoomProgress,
+} from '../_lib/twentyQuestionsProgress';
+import {
   resolveTwentyQuestionsRoomBgmScene,
   twentyQuestionsResultMusic,
 } from '../_lib/twentyQuestionsSoundtrack';
+import TwentyQuestionsAttemptMeter from './TwentyQuestionsAttemptMeter';
 import TwentyQuestionsFeedbackBar from './TwentyQuestionsFeedbackBar';
 
 const RESPONSE_OPTIONS = [
@@ -145,6 +150,15 @@ function dateValue(value) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
+function progressFeedbackMessage(action, message = '') {
+  const suffix = {
+    phaseNarrow: '절반의 시도를 사용해 후보 범위를 압축할 단계입니다.',
+    phaseFinal: '남은 시도는 5회 이하입니다. 가장 가능성 높은 답을 검증하세요.',
+    phasePending: '마지막 질문의 답변을 기다립니다.',
+  }[action] || '';
+  return [String(message || '').trim(), suffix].filter(Boolean).join(' ');
+}
+
 export default function TwentyQuestionsRoomContent() {
   const params = useParams();
   const router = useRouter();
@@ -156,6 +170,7 @@ export default function TwentyQuestionsRoomContent() {
 
   const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [questionText, setQuestionText] = useState('');
   const [guessText, setGuessText] = useState('');
   const [hintText, setHintText] = useState('');
@@ -166,6 +181,7 @@ export default function TwentyQuestionsRoomContent() {
   const submittingRef = useRef('');
   const musicBaseSceneRef = useRef('');
   const musicSceneTimerRef = useRef(null);
+  const loadErrorAnnouncedRef = useRef('');
   const {
     handleGameSfxChangeCapture,
     handleGameSfxPointerDownCapture,
@@ -174,21 +190,27 @@ export default function TwentyQuestionsRoomContent() {
 
   const loadRoom = useCallback(async () => {
     if (!id) {
+      const message = '방 주소가 올바르지 않습니다.';
       roomRef.current = null;
       setRoom(null);
+      setLoadError(message);
       setLoading(false);
       return;
     }
     setLoading(true);
+    setLoadError('');
     try {
       const data = await apiGet(`/twenty-questions/${id}`, { timeoutMs: 15000 });
       const nextRoom = normalizeRoom(data);
+      if (!nextRoom) throw new Error('스무고개 방 정보를 확인할 수 없습니다.');
       roomRef.current = nextRoom;
       setRoom(nextRoom);
     } catch (err) {
+      const message = err?.message || '스무고개 방을 불러오지 못했습니다.';
       roomRef.current = null;
       setRoom(null);
-      showToast({ tone: 'danger', message: err?.message || '스무고개 방을 불러오지 못했습니다.' });
+      setLoadError(message);
+      showToast({ tone: 'danger', message });
     } finally {
       setLoading(false);
     }
@@ -241,6 +263,7 @@ export default function TwentyQuestionsRoomContent() {
   const attemptsLeft = Math.max(0, Number(room?.remainingCount != null ? room.remainingCount : Number(room?.maxQuestions || 20) - Number(room?.attemptCount || 0)));
   const canInteract = hydrated && token && active && !room?.isHost;
   const canUseAttempt = canInteract && attemptsLeft > 0;
+  const roomProgress = useMemo(() => twentyQuestionsRoomProgress(room || {}), [room]);
   const baseMusicScene = useMemo(() => resolveTwentyQuestionsRoomBgmScene({
     status: room?.status,
     answerRevealed: room?.answerRevealed,
@@ -248,7 +271,8 @@ export default function TwentyQuestionsRoomContent() {
     pendingCount: pendingQuestions.length,
     isHost: room?.isHost,
     submitting,
-  }), [attemptsLeft, pendingQuestions.length, room?.answerRevealed, room?.isHost, room?.status, submitting]);
+    loadError,
+  }), [attemptsLeft, loadError, pendingQuestions.length, room?.answerRevealed, room?.isHost, room?.status, submitting]);
 
   useEffect(() => {
     musicBaseSceneRef.current = baseMusicScene;
@@ -276,6 +300,16 @@ export default function TwentyQuestionsRoomContent() {
     }
     return feedback;
   }, [playGameSfx, setMusicScene]);
+
+  useEffect(() => {
+    if (!loadError) {
+      loadErrorAnnouncedRef.current = '';
+      return;
+    }
+    if (loadErrorAnnouncedRef.current === loadError) return;
+    loadErrorAnnouncedRef.current = loadError;
+    announce('invalid', { ok: false, message: loadError });
+  }, [announce, loadError]);
 
   const announceRemoteRoomChange = useCallback((previousRoom, nextRoom) => {
     if (!previousRoom || !nextRoom) return;
@@ -313,6 +347,14 @@ export default function TwentyQuestionsRoomContent() {
       announce('remoteHint', { message: '방장이 새 힌트를 공개했습니다.' });
       return;
     }
+    const milestone = twentyQuestionsProgressTransition(previousRoom, nextRoom);
+    if (milestone) {
+      const baseMessage = normalizeList(nextRoom.questions).length > normalizeList(previousRoom.questions).length
+        ? '새 질문이 등록되었습니다.'
+        : '새 정답 도전이 등록되었습니다.';
+      announce(milestone, { message: progressFeedbackMessage(milestone, baseMessage) });
+      return;
+    }
     if (normalizeList(nextRoom.questions).length > normalizeList(previousRoom.questions).length) {
       announce('remoteQuestion', { message: '새 질문이 등록되었습니다.' });
       return;
@@ -323,12 +365,13 @@ export default function TwentyQuestionsRoomContent() {
   }, [announce]);
 
   const applyRoomResponse = useCallback((data) => {
+    const previousRoom = roomRef.current;
     const nextRoom = normalizeRoom(data);
     if (nextRoom) {
       roomRef.current = nextRoom;
       setRoom(nextRoom);
     }
-    return nextRoom;
+    return { previousRoom, nextRoom };
   }, []);
 
   useEffect(() => {
@@ -388,11 +431,12 @@ export default function TwentyQuestionsRoomContent() {
     setSubmitting('question');
     try {
       const data = await apiPost(`/twenty-questions/${id}/questions`, { text }, { timeoutMs: 15000 });
-      applyRoomResponse(data);
+      const applied = applyRoomResponse(data);
       clearRoomCaches();
       setQuestionText('');
       const message = data?.message || '질문을 등록했습니다.';
-      announce('question', { message });
+      const milestone = twentyQuestionsProgressTransition(applied.previousRoom, applied.nextRoom);
+      announce(milestone || 'question', { message: progressFeedbackMessage(milestone, message) });
       showToast({ tone: 'success', message });
     } catch (err) {
       const message = err?.message || '질문 등록에 실패했습니다.';
@@ -439,11 +483,15 @@ export default function TwentyQuestionsRoomContent() {
     setSubmitting('guess');
     try {
       const data = await apiPost(`/twenty-questions/${id}/guesses`, { text }, { timeoutMs: 15000 });
-      applyRoomResponse(data);
+      const applied = applyRoomResponse(data);
       clearRoomCaches();
       setGuessText('');
       const message = data?.message || '정답 도전을 기록했습니다.';
-      announce(data?.exhausted ? 'limitReveal' : 'guess', { correct: data?.correct, message });
+      const milestone = !data?.correct && !data?.exhausted
+        ? twentyQuestionsProgressTransition(applied.previousRoom, applied.nextRoom)
+        : '';
+      const feedbackAction = data?.exhausted ? 'limitReveal' : milestone || 'guess';
+      announce(feedbackAction, { correct: data?.correct, message: progressFeedbackMessage(milestone, message) });
       showToast({ tone: data?.correct ? 'success' : 'warning', message });
     } catch (err) {
       const message = err?.message || '정답 도전에 실패했습니다.';
@@ -535,9 +583,11 @@ export default function TwentyQuestionsRoomContent() {
 
         {loading ? <div className="twenty-empty">방을 불러오는 중입니다.</div> : null}
         {!loading && !room ? (
-          <div className="twenty-empty">
-            방을 찾을 수 없습니다.
-            <GameControlButton action="room" className="twenty-button" onClick={() => router.push('/twenty-questions')}>목록으로</GameControlButton>
+          <div className="twenty-empty twenty-error twenty-room-load-error">
+            <GameActionIcon action="warning" label="방 불러오기 실패" />
+            <span>{loadError || '방을 찾을 수 없습니다.'}</span>
+            <GameControlButton action="refresh" onClick={() => void loadRoom()}>다시 불러오기</GameControlButton>
+            <GameControlButton action="room" className="twenty-button-secondary" onClick={() => router.push('/twenty-questions')}>목록으로</GameControlButton>
           </div>
         ) : null}
 
@@ -568,6 +618,7 @@ export default function TwentyQuestionsRoomContent() {
                 <div><dt><GameActionIcon action="question" label="질문" />질문</dt><dd>{room.questionCount}</dd></div>
                 <div><dt><GameActionIcon action="guess" label="정답 도전" />정답 도전</dt><dd>{room.guessCount}</dd></div>
               </dl>
+              <TwentyQuestionsAttemptMeter progress={roomProgress} />
               {room.hint ? (
                 <p className="twenty-hint twenty-inline-state">
                   <GameActionIcon action="hint-message" label="힌트" />

@@ -1375,6 +1375,24 @@ const CUE_PROFILES = {
     { frequency: 220, endFrequency: 275, duration: 0.085, type: 'triangle', gain: 0.043, pan: -0.12 },
     { frequency: 330, start: 0.075, duration: 0.105, type: 'sine', gain: 0.037, pan: 0.2, reverb: 0.16 },
   ],
+  twentyPhaseNarrow: [
+    { source: 'noise', filterType: 'bandpass', frequency: 980, q: 1.8, duration: 0.04, gain: 0.018, pan: -0.28 },
+    { frequency: 659.25, duration: 0.055, type: 'triangle', gain: 0.041, pan: -0.2 },
+    { frequency: 554.37, start: 0.05, duration: 0.065, type: 'triangle', gain: 0.039, pan: 0 },
+    { frequency: 493.88, start: 0.11, duration: 0.1, type: 'sine', gain: 0.035, pan: 0.24, reverb: 0.2 },
+  ],
+  twentyPhaseFinal: [
+    { source: 'noise', filterType: 'lowpass', frequency: 420, duration: 0.075, gain: 0.024, pan: -0.22 },
+    { frequency: 98, duration: 0.13, type: 'sine', gain: 0.044, pan: -0.14, reverb: 0.12 },
+    { frequency: 392, start: 0.09, duration: 0.075, type: 'triangle', gain: 0.043, pan: 0.08 },
+    { frequency: 783.99, start: 0.155, duration: 0.13, type: 'sine', gain: 0.036, pan: 0.28, reverb: 0.28 },
+  ],
+  twentyPhasePending: [
+    { source: 'noise', filterType: 'highpass', frequency: 2400, duration: 0.03, gain: 0.016, pan: -0.32 },
+    { frequency: 523.25, duration: 0.045, type: 'triangle', gain: 0.041, pan: -0.2 },
+    { frequency: 659.25, start: 0.045, duration: 0.06, type: 'triangle', gain: 0.038, pan: 0.08 },
+    { frequency: 523.25, start: 0.13, duration: 0.14, type: 'sine', gain: 0.033, pan: 0.3, reverb: 0.3 },
+  ],
   twentyHintArrive: [
     { source: 'noise', filterType: 'highpass', frequency: 2800, duration: 0.045, gain: 0.018, pan: -0.3, reverb: 0.28 },
     { frequency: 880, duration: 0.055, type: 'sine', gain: 0.038, pan: -0.2, reverb: 0.2 },

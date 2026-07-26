@@ -53,7 +53,9 @@ assert.equal(resolveTwentyQuestionsRoomBgmScene({ status: 'solved' }), TWENTY_QU
 assert.equal(resolveTwentyQuestionsRoomBgmScene({ answerRevealed: true }), TWENTY_QUESTIONS_BGM_SCENES.reveal);
 assert.equal(resolveTwentyQuestionsRoomBgmScene({ status: 'closed' }), TWENTY_QUESTIONS_BGM_SCENES.setback);
 assert.equal(resolveTwentyQuestionsRoomBgmScene({ attemptsLeft: 0 }), TWENTY_QUESTIONS_BGM_SCENES.setback);
+assert.equal(resolveTwentyQuestionsRoomBgmScene({ attemptsLeft: 0, pendingCount: 1 }), TWENTY_QUESTIONS_BGM_SCENES.pending);
 assert.equal(resolveTwentyQuestionsRoomBgmScene({ attemptsLeft: 5 }), TWENTY_QUESTIONS_BGM_SCENES.guess);
+assert.equal(resolveTwentyQuestionsRoomBgmScene({ loadError: '오류' }), TWENTY_QUESTIONS_BGM_SCENES.setback);
 assert.equal(resolveTwentyQuestionsRoomBgmScene({ submitting: 'guess' }), TWENTY_QUESTIONS_BGM_SCENES.guess);
 assert.equal(resolveTwentyQuestionsRoomBgmScene({ isHost: true, pendingCount: 2 }), TWENTY_QUESTIONS_BGM_SCENES.pending);
 assert.equal(resolveTwentyQuestionsRoomBgmScene({ isHost: false, pendingCount: 2 }), TWENTY_QUESTIONS_BGM_SCENES.inquiry);
@@ -62,6 +64,8 @@ assert.equal(twentyQuestionsResultMusic({ action: 'guess-correct' })?.theme, TWE
 assert.equal(twentyQuestionsResultMusic({ action: 'guess-wrong' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.guess);
 assert.equal(twentyQuestionsResultMusic({ action: 'attempt-limit' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.setback);
 assert.equal(twentyQuestionsResultMusic({ action: 'question-queued' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.pending);
+assert.equal(twentyQuestionsResultMusic({ action: 'deduction-narrow' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.inquiry);
+assert.equal(twentyQuestionsResultMusic({ action: 'deduction-final' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.guess);
 assert.equal(twentyQuestionsResultMusic({ action: 'answer-yes' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.inquiry);
 assert.equal(twentyQuestionsResultMusic({ action: 'room' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.create);
 assert.equal(twentyQuestionsResultMusic({ action: 'refresh' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.lobby);

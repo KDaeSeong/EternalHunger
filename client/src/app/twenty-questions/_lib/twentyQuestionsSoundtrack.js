@@ -34,11 +34,15 @@ export function resolveTwentyQuestionsRoomBgmScene({
   pendingCount = 0,
   isHost = false,
   submitting = '',
+  loadError = '',
 } = {}) {
+  if (loadError) return TWENTY_QUESTIONS_BGM_SCENES.setback;
   if (status === 'solved' || answerRevealed) return TWENTY_QUESTIONS_BGM_SCENES.reveal;
-  if (status === 'closed' || Number(attemptsLeft || 0) <= 0) {
-    return TWENTY_QUESTIONS_BGM_SCENES.setback;
+  if (status === 'closed') return TWENTY_QUESTIONS_BGM_SCENES.setback;
+  if (Number(attemptsLeft || 0) <= 0 && Number(pendingCount || 0) > 0) {
+    return TWENTY_QUESTIONS_BGM_SCENES.pending;
   }
+  if (Number(attemptsLeft || 0) <= 0) return TWENTY_QUESTIONS_BGM_SCENES.setback;
   if (String(submitting || '') === 'guess' || Number(attemptsLeft || 0) <= 5) {
     return TWENTY_QUESTIONS_BGM_SCENES.guess;
   }
@@ -59,6 +63,12 @@ export function twentyQuestionsResultMusic(feedback = {}) {
   }
   if (action === 'question-queued' || action === 'answer-pending') {
     return { theme: TWENTY_QUESTIONS_BGM_SCENES.pending, durationMs: 9_000 };
+  }
+  if (action === 'deduction-final') {
+    return { theme: TWENTY_QUESTIONS_BGM_SCENES.guess, durationMs: 12_000 };
+  }
+  if (action === 'deduction-narrow') {
+    return { theme: TWENTY_QUESTIONS_BGM_SCENES.inquiry, durationMs: 9_000 };
   }
   if (action === 'answer-yes' || action === 'answer-no' || action === 'answer-maybe' || action === 'hint-message') {
     return { theme: TWENTY_QUESTIONS_BGM_SCENES.inquiry, durationMs: 8_000 };

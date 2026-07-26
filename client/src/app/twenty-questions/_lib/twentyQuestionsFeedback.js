@@ -34,6 +34,27 @@ const FEEDBACK = {
     text: '새 정답 도전이 등록되었습니다.',
     tone: 'gold',
   },
+  phaseNarrow: {
+    action: 'deduction-narrow',
+    cue: 'twentyPhaseNarrow',
+    label: '범위 압축',
+    text: '절반의 시도를 사용했습니다. 지금까지의 단서로 후보를 좁힐 때입니다.',
+    tone: 'gold',
+  },
+  phaseFinal: {
+    action: 'deduction-final',
+    cue: 'twentyPhaseFinal',
+    label: '최종 추리',
+    text: '남은 시도가 5회 이하입니다. 가장 가능성 높은 답을 검증하세요.',
+    tone: 'red',
+  },
+  phasePending: {
+    action: 'answer-pending',
+    cue: 'twentyPhasePending',
+    label: '마지막 답변 대기',
+    text: '20번째 질문이 등록되었습니다. 방장의 마지막 답변을 기다립니다.',
+    tone: 'gold',
+  },
   hint: {
     action: 'hint-message',
     cue: 'twentyHintSent',
