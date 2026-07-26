@@ -118,6 +118,16 @@ const CUE_PROFILES = {
     { frequency: 783.99, start: 0.055, duration: 0.08, type: 'triangle', gain: 0.036, pan: 0.08 },
     { frequency: 1046.5, start: 0.13, duration: 0.13, type: 'sine', gain: 0.028, pan: 0.36, reverb: 0.3 },
   ],
+  archiveTune: [
+    { source: 'noise', filterType: 'bandpass', frequency: 960, q: 2.2, duration: 0.035, gain: 0.022, pan: -0.26 },
+    { frequency: 293.66, endFrequency: 392, duration: 0.055, type: 'triangle', gain: 0.04, pan: -0.12 },
+    { frequency: 587.33, start: 0.05, duration: 0.08, type: 'sine', gain: 0.03, pan: 0.28, reverb: 0.22 },
+  ],
+  archiveSwitch: [
+    { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.055, gain: 0.026, pan: -0.24 },
+    { frequency: 196, endFrequency: 293.66, duration: 0.07, type: 'square', gain: 0.038, pan: -0.08 },
+    { frequency: 392, start: 0.065, duration: 0.1, type: 'sine', gain: 0.029, pan: 0.28, reverb: 0.24 },
+  ],
   actionUnlock: [
     { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.05, gain: 0.018, pan: -0.42, reverb: 0.18 },
     { frequency: 261.63, duration: 0.06, type: 'triangle', gain: 0.04, pan: -0.3 },
@@ -2642,6 +2652,18 @@ const THEME_CUE_PROFILES = {
       { frequency: 587.33, start: 0.055, duration: 0.085, type: 'triangle', gain: 0.037, pan: -0.06 },
       { frequency: 783.99, start: 0.125, duration: 0.11, type: 'triangle', gain: 0.033, pan: 0.22 },
       { frequency: 1174.66, start: 0.21, duration: 0.2, type: 'sine', gain: 0.024, pan: 0.46, reverb: 0.46 },
+    ],
+    archiveTune: [
+      { source: 'noise', filterType: 'bandpass', frequency: 980, q: 2.4, duration: 0.055, gain: 0.025, pan: -0.42, reverb: 0.18 },
+      { frequency: 293.66, endFrequency: 392, duration: 0.065, type: 'triangle', gain: 0.041, pan: -0.28 },
+      { frequency: 587.33, start: 0.06, duration: 0.09, type: 'triangle', gain: 0.036, pan: 0.04 },
+      { frequency: 1174.66, start: 0.14, duration: 0.14, type: 'sine', gain: 0.025, pan: 0.4, reverb: 0.4 },
+    ],
+    archiveSwitch: [
+      { source: 'noise', filterType: 'lowpass', frequency: 480, duration: 0.09, gain: 0.027, pan: -0.4, reverb: 0.16 },
+      { frequency: 196, endFrequency: 293.66, duration: 0.075, type: 'square', gain: 0.04, pan: -0.24 },
+      { frequency: 392, start: 0.06, duration: 0.09, type: 'triangle', gain: 0.035, pan: 0.06 },
+      { frequency: 783.99, start: 0.14, duration: 0.15, type: 'sine', gain: 0.025, pan: 0.4, reverb: 0.4 },
     ],
     archiveTreat: [
       { frequency: 130.81, duration: 0.075, type: 'sine', gain: 0.04, pan: -0.3 },

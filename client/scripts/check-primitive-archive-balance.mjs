@@ -30,6 +30,15 @@ assert.ok(
   Math.abs(engine.actionChance(boosted, 'shiroko', 'gather', 0.45) - baseGatherChance - 0.2) < 0.000001,
   '개발자 도구의 채집 보정은 정확한 %p로 한 번만 적용되어야 합니다.',
 );
+const baseCraftChance = engine.actionChance(base, 'shiroko', 'craft', 0.25);
+const craftBoosted = engine.updateDeveloperToolsAction(base, {
+  enabled: true,
+  actionBonuses: { craft: 0.15 },
+});
+assert.ok(
+  Math.abs(engine.actionChance(craftBoosted, 'shiroko', 'craft', 0.25) - baseCraftChance - 0.15) < 0.000001,
+  '개발자 도구의 제작 보정은 정확한 %p로 한 번만 적용되어야 합니다.',
+);
 
 const lockedRows = engine.specializedActionRows(base, 'shiroko');
 assert.deepEqual(
@@ -54,7 +63,13 @@ assert.ok(
   previewRows.every((row) => row.chance === 1),
   '강제 성공을 켜면 모든 특화 생업 성공률이 100%여야 합니다.',
 );
-assert.equal(engine.developerToolsSummary(preview).rows.length, 10, '개발자 도구는 기본 행동 2종과 생업 8종을 모두 보정해야 합니다.');
+const developerRows = engine.developerToolsSummary(preview).rows;
+assert.equal(developerRows.length, 11, '개발자 도구는 기본 행동 3종과 생업 8종을 모두 보정해야 합니다.');
+assert.deepEqual(
+  developerRows.find((row) => row.id === 'craft'),
+  { id: 'craft', label: '제작', action: 'primitive-craft', value: 0, valuePct: 0 },
+  '제작 보정 행은 제작 아이콘과 현재 보정치를 제공해야 합니다.',
+);
 assert.equal(previewRows.find((row) => row.id === 'trap')?.label, '덫 사냥', '덫 사냥 명칭은 정확히 표시되어야 합니다.');
 const specializedOutputs = {
   logging: 'wood',

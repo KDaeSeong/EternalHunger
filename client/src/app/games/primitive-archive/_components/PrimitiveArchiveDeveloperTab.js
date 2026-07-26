@@ -1,3 +1,4 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
@@ -6,12 +7,14 @@ function presetBonuses(rows, value) {
 }
 
 export default function PrimitiveArchiveDeveloperTab({
+  actionForecasts,
   developerTools,
   resetDeveloperTools,
   updateDeveloperTools,
 }) {
   const rows = developerTools?.rows || [];
   const enabled = Boolean(developerTools?.enabled);
+  const forecastById = Object.fromEntries((actionForecasts || []).map((row) => [row.id, row]));
 
   const applyPreset = (value) => {
     updateDeveloperTools({ enabled: true, actionBonuses: presetBonuses(rows, value) });
@@ -29,6 +32,7 @@ export default function PrimitiveArchiveDeveloperTab({
           <label>
             <input
               type="checkbox"
+              data-game-sfx-change="archiveSwitch"
               checked={enabled}
               onChange={(event) => updateDeveloperTools({ enabled: event.target.checked })}
             />
@@ -37,6 +41,7 @@ export default function PrimitiveArchiveDeveloperTab({
           <label>
             <input
               type="checkbox"
+              data-game-sfx-change="archiveSwitch"
               checked={Boolean(developerTools?.guaranteedSuccess)}
               disabled={!enabled}
               onChange={(event) => updateDeveloperTools({ guaranteedSuccess: event.target.checked })}
@@ -46,6 +51,7 @@ export default function PrimitiveArchiveDeveloperTab({
           <label>
             <input
               type="checkbox"
+              data-game-sfx-change="archiveSwitch"
               checked={Boolean(developerTools?.unlockSpecializedActions)}
               disabled={!enabled}
               onChange={(event) => updateDeveloperTools({ unlockSpecializedActions: event.target.checked })}
@@ -55,11 +61,20 @@ export default function PrimitiveArchiveDeveloperTab({
         </div>
 
         <div className="primitive-developer-sliders" aria-label="행동 성공률 보정">
-          {rows.map((row) => (
-            <label key={row.id}>
-              <span>{row.label}</span>
-              <input
-                type="range"
+          {rows.map((row) => {
+            const forecast = forecastById[row.id];
+            return (
+              <label key={row.id}>
+                <span className="primitive-developer-action">
+                  <GameActionIcon action={row.action} label={row.label} />
+                  <span>
+                    <b>{row.label}</b>
+                    <small>{forecast ? `현재 ${forecast.chancePct}%` : '예상치 없음'}</small>
+                  </span>
+                </span>
+                <input
+                  type="range"
+                  data-game-sfx-change="archiveTune"
                 min="-50"
                 max="50"
                 step="5"
@@ -68,17 +83,18 @@ export default function PrimitiveArchiveDeveloperTab({
                 onChange={(event) => updateDeveloperTools({
                   actionBonuses: { [row.id]: Number(event.target.value) / 100 },
                 })}
-              />
-              <strong>{row.valuePct >= 0 ? '+' : ''}{row.valuePct}%p</strong>
-            </label>
-          ))}
+                />
+                <strong>{row.valuePct >= 0 ? '+' : ''}{row.valuePct}%p</strong>
+              </label>
+            );
+          })}
         </div>
 
         <div className="primitive-developer-presets">
-          <GameControlButton action="debuff" cue="off" onClick={() => applyPreset(-0.2)}>불리한 환경</GameControlButton>
-          <GameControlButton action="reset" cue="off" onClick={() => applyPreset(0)}>보정 0</GameControlButton>
-          <GameControlButton action="buff" cue="off" onClick={() => applyPreset(0.2)}>풍요 환경</GameControlButton>
-          <GameControlButton action="reset" cue="off" onClick={resetDeveloperTools}>전체 초기화</GameControlButton>
+          <GameControlButton action="debuff" cue="archiveTune" onClick={() => applyPreset(-0.2)}>불리한 환경</GameControlButton>
+          <GameControlButton action="reset" cue="archiveTune" onClick={() => applyPreset(0)}>보정 0</GameControlButton>
+          <GameControlButton action="buff" cue="archiveTune" onClick={() => applyPreset(0.2)}>풍요 환경</GameControlButton>
+          <GameControlButton action="reset" cue="archiveSwitch" onClick={resetDeveloperTools}>전체 초기화</GameControlButton>
         </div>
 
         <p className="primitive-developer-note">

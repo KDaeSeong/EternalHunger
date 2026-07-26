@@ -8488,7 +8488,7 @@
 .primitive-developer-sliders label {
   min-width: 0;
   display: grid;
-  grid-template-columns: 54px minmax(80px, 1fr) 48px;
+  grid-template-columns: minmax(118px, 0.72fr) minmax(80px, 1fr) 48px;
   align-items: center;
   gap: 8px;
   border: 1px solid rgba(22, 33, 44, 0.09);
@@ -8498,6 +8498,43 @@
   color: #526170;
   font-size: 0.72rem;
   font-weight: 850;
+}
+
+.primitive-developer-action {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.primitive-developer-action > .game-action-icon {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+}
+
+.primitive-developer-action > span {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.primitive-developer-action b,
+.primitive-developer-action small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primitive-developer-action b {
+  color: #2b3d4b;
+  font-size: 0.72rem;
+}
+
+.primitive-developer-action small {
+  color: #71808d;
+  font-size: 0.61rem;
+  font-weight: 800;
 }
 
 .primitive-developer-sliders input {

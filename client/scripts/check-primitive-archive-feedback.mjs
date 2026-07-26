@@ -14,6 +14,7 @@ const playSource = await readFile(new URL('PrimitiveArchivePlayContent.js', comp
 const engineSource = await readFile(new URL('_lib/primitiveArchiveEngine.js', routeUrl), 'utf8');
 const dataSource = await readFile(new URL('_lib/primitiveArchiveData.js', routeUrl), 'utf8');
 const actionSource = await readFile(new URL('PrimitiveArchiveActionWorkspace.js', componentUrl), 'utf8');
+const developerSource = await readFile(new URL('PrimitiveArchiveDeveloperTab.js', componentUrl), 'utf8');
 const campSource = await readFile(new URL('PrimitiveArchiveCampWorkspace.js', componentUrl), 'utf8');
 const growthSource = await readFile(new URL('PrimitiveArchiveGrowthTab.js', componentUrl), 'utf8');
 const partySource = await readFile(new URL('PrimitiveArchivePartyWorkspace.js', componentUrl), 'utf8');
@@ -197,7 +198,7 @@ assert.equal(primitiveTextPresentation('런 결과를 전적에 기록하고 정
 
 for (const cue of [
   'start', 'gather', 'combat', 'craft', 'logging', 'herbal', 'trap', 'farm', 'herd', 'fish', 'mine', 'quarry',
-  'archiveSurvey', 'archivePatrol', 'archiveTreat', 'archiveFestival', 'archiveIrrigation', 'archivePreserve', 'archiveRoad', 'archiveTradeRoute', 'consume', 'rest', 'research', 'policy', 'camp',
+  'archiveSurvey', 'archivePatrol', 'archiveTreat', 'archiveFestival', 'archiveIrrigation', 'archivePreserve', 'archiveRoad', 'archiveTradeRoute', 'archiveTune', 'archiveSwitch', 'consume', 'rest', 'research', 'policy', 'camp',
   'project', 'event', 'auto', 'assign', 'diplomacy', 'recruit', 'upgrade', 'equip',
   'survivalFail', 'champion', 'defeat', 'eraAdvance', 'projectComplete', 'actionUnlock', 'civicComplete',
   'complete', 'inspiration', 'discover', 'season', 'growth',
@@ -230,6 +231,13 @@ for (const icon of [
 assert.match(dataSource, /lastUnlockedActions: \[\]/, '연구와 사회 제도 상태는 마지막 해금 행동 목록을 저장해야 합니다.');
 assert.match(engineSource, /lastUnlockText: unlockGroups\.unlockText/, '완료 처리에서 해금 효과 요약을 저장해야 합니다.');
 assert.match(engineSource, /lastUnlockedActions: unlockGroups\.actions/, '완료 처리에서 새 행동 이름을 저장해야 합니다.');
+assert.match(engineSource, /DEVELOPER_ACTION_IDS = \['gather', 'hunt', 'craft'/, '개발자 도구는 제작 성공률 보정을 포함해야 합니다.');
+assert.match(developerSource, /<GameActionIcon action=\{row\.action\}/, '개발자 행동 보정 행은 행동별 아이콘을 표시해야 합니다.');
+assert.match(developerSource, /현재 \$\{forecast\.chancePct\}%/, '개발자 행동 보정 행은 현재 예상 성공률을 표시해야 합니다.');
+assert.match(developerSource, /data-game-sfx-change="archiveTune"/, '개발자 보정 슬라이더는 전용 조정음을 사용해야 합니다.');
+assert.equal([...developerSource.matchAll(/cue="archiveTune"/g)].length, 3, '개발자 환경 프리셋 3종은 전용 조정음을 사용해야 합니다.');
+assert.match(developerSource, /data-game-sfx-change="archiveSwitch"/, '개발자 토글은 전용 전환음을 사용해야 합니다.');
+assert.match(styleSource, /\.primitive-developer-action/, '개발자 행동 아이콘과 예상 성공률 레이아웃이 필요합니다.');
 assert.match(playSource, /const stateRef = useRef\(state\)/, '빠른 연속 행동은 최신 상태 참조를 사용해야 합니다.');
 assert.match(playSource, /const replaceState = useCallback/, '불러온 런은 상태와 이정표 기준을 함께 교체해야 합니다.');
 assert.match(playSource, /primitiveActionResultPresentation\(previousState, nextState, label/, '모든 행동은 공통 결과 프레젠테이션을 계산해야 합니다.');
@@ -296,5 +304,7 @@ console.log(JSON.stringify({
   semanticIconRows,
   semanticPanelTitles,
   semanticStatIcons: 25,
+  developerActionRows: 11,
+  developerCues: 2,
   latestStateWrapper: true,
 }, null, 2));

@@ -91,7 +91,7 @@ function perkLevel(meta, perkId) {
   return Math.max(0, Number(meta?.ownedPerks?.[perkId] || 0));
 }
 
-const DEVELOPER_ACTION_IDS = ['gather', 'hunt', 'logging', 'herbal', 'trap', 'farm', 'herd', 'fish', 'mine', 'quarry'];
+const DEVELOPER_ACTION_IDS = ['gather', 'hunt', 'craft', 'logging', 'herbal', 'trap', 'farm', 'herd', 'fish', 'mine', 'quarry'];
 
 function normalizeDeveloperTools(value = {}) {
   const actionBonuses = value?.actionBonuses && typeof value.actionBonuses === 'object' ? value.actionBonuses : {};
@@ -226,6 +226,7 @@ export function normalizeState(value) {
 const DEVELOPER_ACTION_LABELS = {
   gather: '\uCC44\uC9D1',
   hunt: '\uC0AC\uB0E5',
+  craft: '\uC81C\uC791',
   logging: '\uBC8C\uBAA9',
   herbal: '\uC57D\uCD08 \uCC44\uC9D1',
   trap: '\uB36B \uC0AC\uB0E5',
@@ -236,6 +237,20 @@ const DEVELOPER_ACTION_LABELS = {
   quarry: '\uCC44\uC11D',
 };
 
+const DEVELOPER_ACTION_ICONS = {
+  gather: 'primitive-gather',
+  hunt: 'primitive-hunt',
+  craft: 'primitive-craft',
+  logging: 'primitive-logging',
+  herbal: 'primitive-herbalism',
+  trap: 'primitive-trapping',
+  farm: 'primitive-farm',
+  herd: 'primitive-herd',
+  fish: 'primitive-fishing',
+  mine: 'primitive-mining',
+  quarry: 'primitive-quarry',
+};
+
 export function developerToolsSummary(state) {
   const devTools = normalizeDeveloperTools(state?.devTools);
   return {
@@ -243,6 +258,7 @@ export function developerToolsSummary(state) {
     rows: DEVELOPER_ACTION_IDS.map((actionId) => ({
       id: actionId,
       label: DEVELOPER_ACTION_LABELS[actionId],
+      action: DEVELOPER_ACTION_ICONS[actionId],
       value: Number(devTools.actionBonuses[actionId] || 0),
       valuePct: Math.round(Number(devTools.actionBonuses[actionId] || 0) * 100),
     })),
