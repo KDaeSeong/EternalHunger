@@ -25,6 +25,23 @@ export function starleagueBuildAction(style, fallback = 'analysis') {
   return BUILD_ACTIONS[key] || fallback;
 }
 
+const BROADCAST_LINE_CUES = Object.freeze({
+  'starleague-ace': 'starleagueBroadcastFinal',
+  'starleague-analysis': 'starleagueBroadcastAnalysis',
+  'starleague-broadcast': 'starleagueBroadcastOpening',
+  'starleague-build-harass': 'starleagueBroadcastStrategy',
+  'starleague-build-macro': 'starleagueBroadcastStrategy',
+  'starleague-build-rush': 'starleagueBroadcastRush',
+  'starleague-build-tech': 'starleagueBroadcastStrategy',
+  'starleague-caster': 'starleagueBroadcastOpening',
+  'starleague-clash': 'starleagueBroadcastImpact',
+  'starleague-clutch': 'starleagueBroadcastFinal',
+  'starleague-comeback': 'starleagueBroadcastMomentum',
+  'starleague-reverse-sweep': 'starleagueBroadcastMomentum',
+  'starleague-sweep': 'starleagueBroadcastResult',
+  'starleague-upset': 'starleagueBroadcastImpact',
+});
+
 export function starleagueBroadcastLineAction(caster, text) {
   const role = String(caster || '').trim().toLowerCase();
   const line = String(text || '').trim().toLowerCase();
@@ -43,4 +60,10 @@ export function starleagueBroadcastLineAction(caster, text) {
   if (/해설|데이터|분석/.test(role)) return 'starleague-analysis';
   if (/캐스터/.test(role)) return 'starleague-caster';
   return 'starleague-broadcast';
+}
+
+
+export function starleagueBroadcastLineCue(caster, text) {
+  const action = starleagueBroadcastLineAction(caster, text);
+  return BROADCAST_LINE_CUES[action] || 'starleagueBroadcastOpening';
 }

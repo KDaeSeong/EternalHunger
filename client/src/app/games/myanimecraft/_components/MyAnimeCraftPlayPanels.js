@@ -1,8 +1,15 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import GameActionIcon from '../../_components/GameActionIcon';
+import useGameSfx from '../../_lib/useGameSfx';
 import { getMatchArchiveRows, getPlayedCount, getTeam } from '../_lib/myAnimeCraftEngine';
-import { starleagueBroadcastLineAction } from '../_lib/starleaguePresentation';
+import {
+  starleagueBroadcastLineAction,
+  starleagueBroadcastLineCue,
+} from '../_lib/starleaguePresentation';
+
+const BROADCAST_PLAYBACK_STEP_MS = 1100;
 
 function formatTimelineTime(seconds) {
   const safe = Math.max(0, Math.floor(Number(seconds || 0)));
@@ -23,18 +30,55 @@ function timelinePhase(seconds, durationSec) {
 }
 
 export function BroadcastTimeline({ lines, title = '중계 타임라인', durationSec = 0, defaultOpen = false }) {
-  if (!Array.isArray(lines) || !lines.length) return null;
+  const timelineLines = Array.isArray(lines) ? lines : [];
+  const [playbackIndex, setPlaybackIndex] = useState(-1);
+  const playGameSfx = useGameSfx({ theme: 'starleague', volume: 0.1 });
+  const activeLine = timelineLines[playbackIndex] || null;
+  const playbackActive = Boolean(activeLine);
+
+  useEffect(() => {
+    if (!activeLine) return undefined;
+    playGameSfx(starleagueBroadcastLineCue(activeLine.caster, activeLine.text));
+    const timer = window.setTimeout(() => {
+      setPlaybackIndex((current) => (
+        current >= timelineLines.length - 1 ? -1 : current + 1
+      ));
+    }, BROADCAST_PLAYBACK_STEP_MS);
+    return () => window.clearTimeout(timer);
+  }, [activeLine, playGameSfx, timelineLines.length]);
+
+  if (!timelineLines.length) return null;
   return (
     <details className="games-broadcast-details" open={defaultOpen || undefined}>
       <summary data-game-sfx="replay">
         <GameActionIcon action="replay" label={title} />
         {title}
       </summary>
+      <div className="games-broadcast-controls">
+        <button
+          type="button"
+          className="game-control-button starleague-broadcast-playback"
+          data-game-sfx="off"
+          onClick={() => setPlaybackIndex(playbackActive ? -1 : 0)}
+        >
+          <GameActionIcon action={playbackActive ? 'pause' : 'starleague-broadcast'} label={playbackActive ? '중계 중지' : '중계 재생'} />
+          {playbackActive ? '중계 중지' : '중계 재생'}
+        </button>
+        <span className="games-broadcast-progress" aria-live="polite">
+          {playbackActive ? `${playbackIndex + 1}/${timelineLines.length}` : `${timelineLines.length}개 장면`}
+        </span>
+      </div>
       <ol className="games-broadcast-timeline">
-        {lines.map((line, index) => {
+        {timelineLines.map((line, index) => {
           const phase = timelinePhase(line.t, durationSec);
+          const isActive = index === playbackIndex;
+          const isPlayed = playbackActive && index < playbackIndex;
           return (
-            <li key={`${line.t}-${index}`}>
+            <li
+              key={`${line.t}-${index}`}
+              className={isActive ? 'is-broadcast-active' : isPlayed ? 'is-broadcast-played' : ''}
+              aria-current={isActive ? 'step' : undefined}
+            >
               <span className="games-broadcast-line-meta">
                 <GameActionIcon action={starleagueBroadcastLineAction(line.caster, line.text)} label={line.caster || '중계'} />
                 <span className={`games-broadcast-phase is-${phase.key}`}>{phase.label}</span>

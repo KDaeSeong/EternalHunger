@@ -10,6 +10,7 @@ import {
 } from '../src/app/games/myanimecraft/_lib/starleagueFeedback.js';
 import {
   starleagueBroadcastLineAction,
+  starleagueBroadcastLineCue,
   starleagueBuildAction,
   starleagueRaceAction,
 } from '../src/app/games/myanimecraft/_lib/starleaguePresentation.js';
@@ -448,6 +449,24 @@ const broadcastIconCases = [
   ['캐스터', '선수들이 입장합니다.', 'starleague-caster'],
   ['진행', '경기를 이어갑니다.', 'starleague-broadcast'],
 ];
+const broadcastCueCases = [
+  ['캐스터', '선수들이 입장합니다.', 'starleagueBroadcastOpening'],
+  ['데이터', '준비한 빌드를 분석합니다.', 'starleagueBroadcastAnalysis'],
+  ['캐스터', '초반 러시가 들어갑니다.', 'starleagueBroadcastRush'],
+  ['해설', '멀티를 늘리며 운영합니다.', 'starleagueBroadcastStrategy'],
+  ['캐스터', '정면 교전이 열립니다.', 'starleagueBroadcastImpact'],
+  ['캐스터', '마지막에 역전합니다.', 'starleagueBroadcastMomentum'],
+  ['캐스터', '에이스전 마지막 세트입니다.', 'starleagueBroadcastFinal'],
+  ['캐스터', '완봉승으로 마무리합니다.', 'starleagueBroadcastResult'],
+];
+for (const [caster, text, expectedCue] of broadcastCueCases) {
+  assert.equal(
+    starleagueBroadcastLineCue(caster, text),
+    expectedCue,
+    `중계 문맥 효과음 오류: ${caster} / ${text}`,
+  );
+}
+
 for (const [caster, text, expectedAction] of broadcastIconCases) {
   assert.equal(
     starleagueBroadcastLineAction(caster, text),
@@ -466,6 +485,9 @@ const resultCues = [
 ];
 for (const cue of resultCues) {
   assert.match(soundSource, new RegExp(`\\n  ${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
+}
+for (const cue of new Set(broadcastCueCases.map((row) => row[2]))) {
+  assert.match(soundSource, new RegExp(`\\n  ${cue}: \\\[`), `${cue} 중계 재생 효과음 프로필이 있어야 합니다.`);
 }
 assert.equal(
   gameAudioThemeForPath('/games/myanimecraft/play'),
@@ -521,6 +543,11 @@ assert.match(
   /starleagueBroadcastLineAction\(line\.caster, line\.text\)/,
   '중계 타임라인은 발화 내용과 역할을 함께 반영한 아이콘을 사용해야 합니다.',
 );assert.match(playPanelsSource, /data-game-sfx="replay"/, '중계 펼치기에는 전용 리플레이 효과음을 사용해야 합니다.');
+assert.match(playPanelsSource, /BROADCAST_PLAYBACK_STEP_MS = 1100/, '중계 재생은 빠른 방송 템포로 장면을 순회해야 합니다.');
+assert.match(playPanelsSource, /starleagueBroadcastLineCue\(activeLine\.caster, activeLine\.text\)/, '재생 중인 중계 문맥에 맞는 효과음을 사용해야 합니다.');
+assert.match(playPanelsSource, /className="game-control-button starleague-broadcast-playback"/, '중계 재생·중지 컨트롤을 제공해야 합니다.');
+assert.match(playPanelsSource, /aria-current=\{isActive \? 'step'/, '현재 재생 중인 중계 행을 접근 가능하게 표시해야 합니다.');
+assert.match(styleSource, /\.games-broadcast-timeline li\.is-broadcast-active/, '현재 중계 장면을 시각적으로 강조해야 합니다.');
 assert.match(playPanelsSource, /timelinePhase\(line\.t, durationSec\)/, '중계 행은 경기 시간대 라벨을 표시해야 합니다.');
 
 const visualComponentsSource = [leagueSource, cupsSource, teamSource, marketSource, recordsSource].join('\n');
@@ -545,6 +572,7 @@ console.log(JSON.stringify({
   raceIconKinds: 3,
   buildIconKinds: 5,
   broadcastIconKinds: new Set(broadcastIconCases.map((row) => row[2])).size,
+  broadcastCueKinds: new Set(broadcastCueCases.map((row) => row[2])).size,
   browserResultPanels: 4,
   semanticPanelTitles,
   semanticIconRows,
