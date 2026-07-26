@@ -133,6 +133,32 @@ expectResult(base, raised, { key: 'capitalRaised', action: 'capital', cue: 'capi
 const capitalClosed = closeCapitalMarketAction(base);
 expectResult(base, capitalClosed, { key: 'capitalClosed', action: 'finance', cue: 'capitalClosed', tone: 'highlight' });
 
+const riskBase = {
+  ...base,
+  capitalMarket: { ...base.capitalMarket, investorTrust: 50, disclosureRisk: 34 },
+};
+const riskEscalated = raiseCapitalAction(riskBase, 'CORPORATE_BOND');
+const riskPresentation = expectResult(riskBase, riskEscalated, {
+  key: 'capitalRiskEscalated',
+  action: 'company-risk',
+  cue: 'companyRiskEscalated',
+  tone: 'warning',
+});
+assert.deepEqual(riskPresentation.impacts.map((item) => item.label), ['투자자 신뢰', '공시위험', '현금'], '위험 경보는 신뢰·위험·조달 현금을 함께 보여야 합니다.');
+
+const recoveryBase = {
+  ...base,
+  capitalMarket: { ...base.capitalMarket, investorTrust: 42, disclosureRisk: 37 },
+};
+const riskRecovered = createDisclosureAction(recoveryBase, 'GOVERNANCE_FIX');
+const recoveryPresentation = expectResult(recoveryBase, riskRecovered, {
+  key: 'capitalRiskRecovered',
+  action: 'company-recovery',
+  cue: 'companyRiskRecovered',
+  tone: 'success',
+});
+assert.deepEqual(recoveryPresentation.impacts.map((item) => item.label), ['투자자 신뢰', '공시위험', '현금'], '위험 회복은 신뢰·위험·대응 비용을 함께 보여야 합니다.');
+
 const monthClosed = monthEndCloseAction(base);
 expectResult(base, monthClosed, { key: 'monthClosed', action: 'closing', cue: 'ledgerClose', tone: 'success' });
 const snapshotted = createLedgerSnapshotAction(base);
@@ -174,7 +200,8 @@ const resultCues = [
   'campaignLaunched', 'taxPaid', 'exportPlanned', 'importPlanned', 'hedgeSigned',
   'globalSettle', 'disclosureFiled', 'dividendDeclared', 'capitalRaised', 'capitalClosed',
   'ledgerClose', 'snapshotSaved', 'restorePreview', 'ledgerRestored', 'reportBookmarked',
-  'reportExported', 'foreignCashCollect', 'liquidityWarning', 'inventoryAlert', 'warning', 'start',
+  'reportExported', 'foreignCashCollect', 'liquidityWarning', 'inventoryAlert',
+  'companyRiskEscalated', 'companyRiskRecovered', 'warning', 'start',
 ];
 for (const cue of resultCues) {
   assert.match(soundSource, new RegExp(`\\n  ${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
@@ -184,6 +211,7 @@ for (const icon of [
   'export', 'import', 'hedge', 'settle', 'disclosure', 'dividend', 'capital', 'finance',
   'closing', 'snapshot', 'analysis', 'restore', 'bookmark', 'download', 'warning', 'new',
   'archive', 'logs', 'guide', 'policy', 'inspect', 'advisor', 'trade', 'contract',
+  'company-risk', 'company-recovery',
 ]) {
   assert.match(iconSource, new RegExp(`\\n  ['\"]?${icon}['\"]?: `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
 }
@@ -227,7 +255,7 @@ assert.match(cssSource, /\.company-report-impact-strip/, '최근 처리 영향 �
 assert.match(cssSource, /\.company-report-icon-row\.is-priority-urgent/, '긴급 운영 항목을 시각적으로 구분해야 합니다.');
 
 console.log(JSON.stringify({
-  feedbackTransitions: 27,
+  feedbackTransitions: 29,
   resultCues: resultCues.length,
   resultPanels: componentSources.reduce((sum, source) => sum + [...source.matchAll(/<RecentActionResult\b/g)].length, 0) + 1,
   semanticPanelTitles,

@@ -284,6 +284,18 @@ const CUE_PROFILES = {
     { frequency: 1110, start: 0.035, duration: 0.055, type: 'triangle', gain: 0.036, pan: 0.32 },
     { frequency: 1480, start: 0.085, duration: 0.09, type: 'sine', gain: 0.032, pan: 0.06, reverb: 0.22 },
   ],
+  companyRiskEscalated: [
+    { source: 'noise', filterType: 'bandpass', frequency: 760, q: 3.2, duration: 0.08, gain: 0.031, pan: -0.38 },
+    { frequency: 440, endFrequency: 311, duration: 0.09, type: 'square', gain: 0.04, pan: -0.2 },
+    { frequency: 440, endFrequency: 277, start: 0.12, duration: 0.11, type: 'square', gain: 0.042, pan: 0.2 },
+    { frequency: 138.59, start: 0.22, duration: 0.18, type: 'sine', gain: 0.035, pan: 0.34, reverb: 0.24 },
+  ],
+  companyRiskRecovered: [
+    { source: 'noise', filterType: 'highpass', frequency: 2200, duration: 0.04, gain: 0.016, pan: -0.3 },
+    { frequency: 392, duration: 0.06, type: 'triangle', gain: 0.039, pan: -0.22 },
+    { frequency: 523.25, start: 0.055, duration: 0.075, type: 'triangle', gain: 0.04, pan: 0.02 },
+    { frequency: 783.99, start: 0.125, duration: 0.16, type: 'sine', gain: 0.033, pan: 0.32, reverb: 0.3 },
+  ],
   liquidityWarning: [
     { source: 'noise', filterType: 'lowpass', frequency: 520, q: 1.1, duration: 0.13, gain: 0.032, pan: -0.22 },
     { frequency: 330, endFrequency: 220, duration: 0.14, type: 'triangle', gain: 0.044, pan: -0.16 },

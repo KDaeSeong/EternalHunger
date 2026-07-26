@@ -574,6 +574,8 @@ const ACTION_ICONS = {
   settle: Banknote,
   'settle-global': Scale,
   capital: Landmark,
+  'company-recovery': ShieldCheck,
+  'company-risk': ShieldOff,
   closing: Stamp,
   export: Plane,
   hedge: ShieldCheck,

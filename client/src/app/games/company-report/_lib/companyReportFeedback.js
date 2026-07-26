@@ -60,6 +60,8 @@ const FEEDBACK_PROFILES = {
   reportExported: { action: 'download', cue: 'reportExported', label: '진행 리포트 내보내기', tone: 'success' },
   liquidityBlocked: { action: 'finance', cue: 'liquidityWarning', label: '현금 유동성 부족', tone: 'warning' },
   inventoryBlocked: { action: 'inventory', cue: 'inventoryAlert', label: '출고 재고 부족', tone: 'warning' },
+  capitalRiskEscalated: { action: 'company-risk', cue: 'companyRiskEscalated', label: '자본시장 위험 경보', tone: 'warning' },
+  capitalRiskRecovered: { action: 'company-recovery', cue: 'companyRiskRecovered', label: '자본시장 신뢰 회복', tone: 'success' },
   blocked: { action: 'warning', cue: 'warning', label: '원장 처리 불가', tone: 'warning' },
 };
 
@@ -170,6 +172,8 @@ const IMPACT_KEYS_BY_RESULT = Object.freeze({
   dividendDeclared: ['investorTrust', 'cashKrw'],
   capitalRaised: ['cashKrw', 'investorTrust', 'disclosureRisk'],
   capitalClosed: ['investorTrust', 'disclosureRisk', 'stockHistoryCount'],
+  capitalRiskEscalated: ['investorTrust', 'disclosureRisk', 'cashKrw'],
+  capitalRiskRecovered: ['investorTrust', 'disclosureRisk', 'cashKrw'],
   monthClosed: ['period', 'settlementCount', 'cashKrw'],
   snapshotSaved: ['snapshotCount'],
   restorePreviewed: ['restoreHistoryCount'],
@@ -240,6 +244,11 @@ function transitionFromLog(log) {
   return '';
 }
 
+function capitalAlertActive(snapshot) {
+  return Number(snapshot?.disclosureRisk || 0) >= 35
+    || Number(snapshot?.investorTrust || 0) < 45;
+}
+
 export function companyReportFeedbackTransition(previousValue, currentValue) {
   if (!previousValue || !currentValue) return 'idle';
   const previous = asSnapshot(previousValue);
@@ -251,6 +260,11 @@ export function companyReportFeedbackTransition(previousValue, currentValue) {
     if (/재고.*부족/.test(current.latestLog)) return 'inventoryBlocked';
     return 'blocked';
   }
+
+  const previousCapitalAlert = capitalAlertActive(previous);
+  const currentCapitalAlert = capitalAlertActive(current);
+  if (!previousCapitalAlert && currentCapitalAlert) return 'capitalRiskEscalated';
+  if (previousCapitalAlert && !currentCapitalAlert) return 'capitalRiskRecovered';
 
   const logTransition = logChanged
     ? transitionFromLog(current.latestLog)
