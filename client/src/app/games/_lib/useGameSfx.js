@@ -112,6 +112,12 @@ const CUE_PROFILES = {
     { frequency: 220, start: 0.14, duration: 0.11, type: 'triangle', gain: 0.035, pan: 0.2 },
     { frequency: 440, start: 0.23, duration: 0.17, type: 'sine', gain: 0.024, pan: 0.38, reverb: 0.34 },
   ],
+  archiveTradeRoute: [
+    { source: 'noise', filterType: 'highpass', frequency: 2300, duration: 0.035, gain: 0.018, pan: -0.38 },
+    { frequency: 523.25, duration: 0.055, type: 'triangle', gain: 0.039, pan: -0.22 },
+    { frequency: 783.99, start: 0.055, duration: 0.08, type: 'triangle', gain: 0.036, pan: 0.08 },
+    { frequency: 1046.5, start: 0.13, duration: 0.13, type: 'sine', gain: 0.028, pan: 0.36, reverb: 0.3 },
+  ],
   logging: [
     { source: 'noise', filterType: 'bandpass', frequency: 980, q: 2.4, duration: 0.04, gain: 0.046, pan: -0.24 },
     { frequency: 190, endFrequency: 126, duration: 0.09, type: 'triangle', gain: 0.052, pan: -0.12 },
@@ -2459,6 +2465,13 @@ const THEME_CUE_PROFILES = {
       { source: 'noise', filterType: 'bandpass', frequency: 860, q: 2.1, start: 0.11, duration: 0.055, gain: 0.029, pan: 0.02 },
       { frequency: 196, start: 0.15, duration: 0.12, type: 'triangle', gain: 0.038, pan: 0.18 },
       { frequency: 392, start: 0.25, duration: 0.2, type: 'sine', gain: 0.025, pan: 0.44, reverb: 0.42 },
+    ],
+    archiveTradeRoute: [
+      { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.045, gain: 0.016, pan: -0.48, reverb: 0.18 },
+      { frequency: 392, duration: 0.06, type: 'triangle', gain: 0.035, pan: -0.32 },
+      { frequency: 587.33, start: 0.055, duration: 0.085, type: 'triangle', gain: 0.037, pan: -0.06 },
+      { frequency: 783.99, start: 0.125, duration: 0.11, type: 'triangle', gain: 0.033, pan: 0.22 },
+      { frequency: 1174.66, start: 0.21, duration: 0.2, type: 'sine', gain: 0.024, pan: 0.46, reverb: 0.46 },
     ],
     archiveTreat: [
       { frequency: 130.81, duration: 0.075, type: 'sine', gain: 0.04, pan: -0.3 },

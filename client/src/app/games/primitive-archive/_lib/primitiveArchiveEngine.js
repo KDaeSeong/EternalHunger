@@ -456,6 +456,7 @@ const RESEARCH_ACTION_LABELS = {
   irrigation: '관개 정비',
   preserve: '식량 보존',
   road: '도로 정비',
+  trade_route: '교역로 개설',
 };
 
 function recipeName(recipeId) {
@@ -1201,6 +1202,8 @@ export function rivalTribeRows(state) {
     const relation = relationStatus(contact.relation);
     const actedToday = Number(contact.lastActionDay || 0) === Number(current.day || 1);
     const commonReady = contact.known && !current.ended && Number(current.ap || 0) > 0 && !actedToday;
+    const routeCharges = tradeRouteCharges(current);
+    const tradeCost = effectiveTradeCost(rival.tradeCost, routeCharges > 0);
     return {
       ...rival,
       ...contact,
@@ -1214,11 +1217,14 @@ export function rivalTribeRows(state) {
         : actedToday
           ? '오늘 교섭 완료'
           : Number(current.ap || 0) <= 0 ? '행동력 부족' : '교섭 가능',
-      tradeCostText: formatRequires(rival.tradeCost),
+      tradeCostText: formatRequires(tradeCost),
+      baseTradeCostText: formatRequires(rival.tradeCost),
       tradeRewardText: formatGains(Object.entries(rival.tradeReward)),
+      tradeRouteActive: routeCharges > 0,
+      tradeRouteCharges: routeCharges,
       giftCostText: formatRequires(rival.giftCost),
       exchangeCostText: formatRequires(rival.exchangeCost),
-      canTrade: commonReady && hasResources(current.inventory, rival.tradeCost),
+      canTrade: commonReady && hasResources(current.inventory, tradeCost),
       canGift: commonReady && hasResources(current.inventory, rival.giftCost),
       canExchange: commonReady
         && Number(contact.relation || 0) >= 20
@@ -1261,6 +1267,9 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
   const actor = getActor(current, actorId);
   const diplomacy = normalizeDiplomacyState(current.diplomacy);
   const contact = diplomacy.contacts[rival.id];
+  const activeTradeRouteCharges = tradeRouteCharges(current);
+  const tradeRouteApplied = actionId === 'trade' && activeTradeRouteCharges > 0;
+  const tradeCost = effectiveTradeCost(rival.tradeCost, tradeRouteApplied);
   let next = current;
   let relationDelta = 0;
   let trustDelta = 0;
@@ -1269,19 +1278,19 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
   let outcome = '';
 
   if (actionId === 'trade') {
-    if (!hasResources(next.inventory, rival.tradeCost)) return addLog(next, `교역 자원이 부족합니다. 필요: ${formatRequires(rival.tradeCost)}.`);
+    if (!hasResources(next.inventory, tradeCost)) return addLog(next, `교역 자원이 부족합니다. 필요: ${formatRequires(tradeCost)}.`);
     const rewardEntries = Object.entries(rival.tradeReward).map(([itemId, qty], index) => [
       itemId,
       Number(qty || 0) + (index === 0 && next.research.completed?.FOREIGN_TRADE ? 1 : 0),
     ]);
     next = {
       ...next,
-      inventory: addItems(spendResources(next.inventory, rival.tradeCost), rewardEntries),
+      inventory: addItems(spendResources(next.inventory, tradeCost), rewardEntries),
     };
-    relationDelta = 6;
+    relationDelta = 6 + (tradeRouteApplied ? TRADE_ROUTE_RELATION_BONUS : 0);
     trustDelta = 2;
     tradesDelta = 1;
-    outcome = `${rival.name} 교역: ${formatRequires(rival.tradeCost)} 제공 · ${formatGains(rewardEntries)}.`;
+    outcome = `${rival.name} 교역: ${formatRequires(tradeCost)} 제공 · ${formatGains(rewardEntries)}${tradeRouteApplied ? ` · 교역로 효과 관계 +${TRADE_ROUTE_RELATION_BONUS}, 남은 교역 ${activeTradeRouteCharges - 1}/${TRADE_ROUTE_MAX_CHARGES}` : ''}.`;
   }
 
   if (actionId === 'gift') {
@@ -1343,6 +1352,7 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
       ...diplomacy,
       contacts: { ...diplomacy.contacts, [rival.id]: nextContact },
       actionSerial: Number(diplomacy.actionSerial || 0) + 1,
+      tradeRouteCharges: tradeRouteApplied ? activeTradeRouteCharges - 1 : activeTradeRouteCharges,
       lastOutcome: outcome,
     },
   };
@@ -4671,6 +4681,9 @@ const FOOD_PRESERVATION_REWARD = [['packed_ration', 1]];
 const ROAD_MAX_CHARGES = 4;
 const ROAD_STAMINA_REDUCTION = 4;
 const ROAD_ACTION_COST = { stone: 3, wood: 2 };
+const TRADE_ROUTE_MAX_CHARGES = 3;
+const TRADE_ROUTE_RELATION_BONUS = 3;
+const TRADE_ROUTE_ACTION_COST = { wood: 2, stone: 1, resin: 1 };
 
 function irrigationCharges(state) {
   return Math.min(IRRIGATION_MAX_CHARGES, Math.max(0, Number(state.exploration?.irrigationCharges || 0)));
@@ -4678,6 +4691,19 @@ function irrigationCharges(state) {
 
 function roadCharges(state) {
   return Math.min(ROAD_MAX_CHARGES, Math.max(0, Number(state.exploration?.roadCharges || 0)));
+}
+
+function tradeRouteCharges(state) {
+  return Math.min(TRADE_ROUTE_MAX_CHARGES, Math.max(0, Number(state.diplomacy?.tradeRouteCharges || 0)));
+}
+
+function effectiveTradeCost(cost, routeActive = false) {
+  const entries = Object.entries(cost || {});
+  if (!routeActive || !entries.length) return { ...(cost || {}) };
+  return Object.fromEntries(entries.map(([itemId, qty], index) => [
+    itemId,
+    Math.max(0, Number(qty || 0) - (index === 0 ? 1 : 0)),
+  ]).filter(([, qty]) => qty > 0));
 }
 
 function fieldActionStaminaCost(state, actorId, action, baseCost) {
@@ -4771,6 +4797,7 @@ const CIVILIZATION_ACTION_DEFS = [
   { id: 'irrigation', label: '관개 정비', icon: 'primitive-irrigation', techId: 'IRRIGATION', staminaCost: 16, hungerAdd: 2 },
   { id: 'preserve', label: '식량 보존', icon: 'primitive-preserve', techId: 'FOOD_STORAGE', staminaCost: 14, hungerAdd: 2 },
   { id: 'road', label: '도로 정비', icon: 'primitive-road', techId: 'ROAD_BUILDING', staminaCost: 18, hungerAdd: 3 },
+  { id: 'trade_route', label: '교역로 개설', icon: 'primitive-trade-route', techId: 'EARLY_CURRENCY', staminaCost: 14, hungerAdd: 2 },
 ];
 
 function surveyCandidates(state) {
@@ -4822,6 +4849,7 @@ export function utilityActionRows(state, actorId) {
   const patrolCharges = Number(current.exploration.patrolCharges || 0);
   const activeIrrigationCharges = irrigationCharges(current);
   const activeRoadCharges = roadCharges(current);
+  const activeTradeRouteCharges = tradeRouteCharges(current);
   const civic = activeCivicForState(current);
 
   return CIVILIZATION_ACTION_DEFS.map((profile) => {
@@ -4887,6 +4915,17 @@ export function utilityActionRows(state, actorId) {
       context = `정비된 도로 ${activeRoadCharges}/${ROAD_MAX_CHARGES}`;
       outcome = `다음 현장 행동 ${ROAD_MAX_CHARGES}회 · ST -${ROAD_STAMINA_REDUCTION}`;
       materialText = formatRequires(ROAD_ACTION_COST);
+    } else if (profile.id === 'trade_route') {
+      const materialsReady = hasResources(current.inventory, TRADE_ROUTE_ACTION_COST);
+      requirementMet = activeTradeRouteCharges < TRADE_ROUTE_MAX_CHARGES && materialsReady;
+      lockedReason = activeTradeRouteCharges >= TRADE_ROUTE_MAX_CHARGES
+        ? '교역로 효과가 이미 최대입니다.'
+        : !materialsReady
+          ? `재료 부족: ${formatRequires(TRADE_ROUTE_ACTION_COST)}`
+          : '';
+      context = `교역로 효과 ${activeTradeRouteCharges}/${TRADE_ROUTE_MAX_CHARGES}`;
+      outcome = `다음 성공 교역 ${TRADE_ROUTE_MAX_CHARGES}회 · 첫 요구 자원 -1 · 관계 +${TRADE_ROUTE_RELATION_BONUS}`;
+      materialText = formatRequires(TRADE_ROUTE_ACTION_COST);
     }
 
     if (!unlocked) lockedReason = `${technology?.name || profile.techId} 연구 필요`;
@@ -4973,6 +5012,13 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
       exploration: { ...next.exploration, roadCharges: ROAD_MAX_CHARGES },
     };
     next = addLog(next, `${actor.name}의 도로 정비 완료. ${formatRequires(ROAD_ACTION_COST)}을 사용해 다음 현장 행동 ${ROAD_MAX_CHARGES}회의 스태미나 소모를 ${ROAD_STAMINA_REDUCTION} 줄입니다.`);
+  } else if (profile.id === 'trade_route') {
+    next = {
+      ...next,
+      inventory: spendResources(next.inventory, TRADE_ROUTE_ACTION_COST),
+      diplomacy: { ...next.diplomacy, tradeRouteCharges: TRADE_ROUTE_MAX_CHARGES },
+    };
+    next = addLog(next, `${actor.name}의 교역로 개설 완료. ${formatRequires(TRADE_ROUTE_ACTION_COST)}을 사용해 다음 성공 교역 ${TRADE_ROUTE_MAX_CHARGES}회에 첫 요구 자원 -1, 관계 +${TRADE_ROUTE_RELATION_BONUS} 효과를 적용합니다.`);
   }
 
   next = {

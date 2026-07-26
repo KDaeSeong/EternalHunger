@@ -65,6 +65,7 @@ export function primitiveArchiveActionMusic(cue = '') {
   if (key === 'archiveIrrigation') return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.settlement, durationMs: 9_000 };
   if (key === 'archivePreserve') return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.settlement, durationMs: 8_000 };
   if (key === 'archiveRoad') return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.settlement, durationMs: 9_000 };
+  if (key === 'archiveTradeRoute') return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.settlement, durationMs: 10_000 };
   return null;
 }
 export function primitiveArchiveMilestoneMusic(cue = '') {

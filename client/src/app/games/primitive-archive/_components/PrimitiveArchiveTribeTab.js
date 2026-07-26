@@ -32,6 +32,7 @@ export default function PrimitiveArchiveTribeTab({
 }) {
   const knownCount = rivals.filter((rival) => rival.known).length;
   const lastProduction = tribe.lastProduction || {};
+  const tradeRouteCharges = Number(rivals[0]?.tradeRouteCharges || 0);
   const foodResult = Number(tribe.productionSerial || 0) > 0
     ? `${Number(lastProduction.foodProvided || 0)}/${Number(lastProduction.foodNeed || 0)}`
     : '정산 전';
@@ -114,7 +115,7 @@ export default function PrimitiveArchiveTribeTab({
       </section>
 
       <section className="games-panel primitive-diplomacy-panel">
-        <PrimitiveArchivePanelTitle action="primitive-diplomacy" title="경쟁 부족 외교" meta={`접촉 ${knownCount}/${rivals.length}`} />
+        <PrimitiveArchivePanelTitle action="primitive-diplomacy" title="경쟁 부족 외교" meta={`접촉 ${knownCount}/${rivals.length} · 교역로 ${tradeRouteCharges}/3`} />
         <div className="primitive-rival-list">
           {rivals.map((rival) => (
             <article className={`${rival.known ? `is-${rival.relationTone}` : 'is-unknown'}`} key={rival.id}>
@@ -133,7 +134,7 @@ export default function PrimitiveArchiveTribeTab({
                     <i style={{ width: `${rival.relationPct}%` }} />
                   </div>
                   <div className="primitive-rival-terms">
-                    <span>교역 · {rival.tradeCostText} → {rival.tradeRewardText}</span>
+                    <span>교역{rival.tradeRouteActive ? ' · 교역로 적용' : ''} · {rival.tradeCostText} → {rival.tradeRewardText}</span>
                     <span>선물 · {rival.giftCostText}</span>
                     <span>지식 · 관계 20 / {rival.exchangeCostText} / +{rival.exchangePoints}RP</span>
                     <span>{rival.statusText}</span>
@@ -143,7 +144,7 @@ export default function PrimitiveArchiveTribeTab({
                       action="trade"
                       cue="off"
                       disabled={!rival.canTrade}
-                      title={rival.canTrade ? '교역 실행' : diplomacyDisabledText(rival, 'trade')}
+                      title={rival.canTrade ? `교역 실행${rival.tradeRouteActive ? ` · 교역로 ${rival.tradeRouteCharges}회 남음` : ''}` : diplomacyDisabledText(rival, 'trade')}
                       onClick={() => runDiplomacy(rival.id, 'trade')}
                     >교역</GameControlButton>
                     <GameControlButton

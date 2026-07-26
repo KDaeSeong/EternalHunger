@@ -101,6 +101,7 @@ const utilityReady = engine.normalizeState({
       IRRIGATION: true,
       FOOD_STORAGE: true,
       ROAD_BUILDING: true,
+      EARLY_CURRENCY: true,
       STONE_TOOLS: true,
     },
   },
@@ -117,8 +118,8 @@ const utilityReady = engine.normalizeState({
 const utilityRows = engine.utilityActionRows(utilityReady, 'shiroko');
 assert.deepEqual(
   utilityRows.filter((row) => row.available).map((row) => row.id).sort(),
-  ['festival', 'irrigation', 'patrol', 'preserve', 'road', 'survey', 'treatment'],
-  '연구와 재료 조건을 충족하면 운영 행동 일곱 가지를 모두 실행할 수 있어야 합니다.',
+  ['festival', 'irrigation', 'patrol', 'preserve', 'road', 'survey', 'trade_route', 'treatment'],
+  '연구와 재료 조건을 충족하면 운영 행동 여덟 가지를 모두 실행할 수 있어야 합니다.',
 );
 for (const [techId, label] of [
   ['CARTOGRAPHY', '지도 답사'],
@@ -126,6 +127,7 @@ for (const [techId, label] of [
   ['IRRIGATION', '관개 정비'],
   ['FOOD_STORAGE', '식량 보존'],
   ['ROAD_BUILDING', '도로 정비'],
+  ['EARLY_CURRENCY', '교역로 개설'],
 ]) {
   assert.match(
     engine.researchPlannerRows(utilityReady).find((row) => row.id === techId)?.unlockText || '',
@@ -302,6 +304,56 @@ assert.equal(
   '정착지 농업에는 도로 스태미나 절감이 적용되지 않아야 합니다.',
 );
 assert.equal(roadFarmResult.exploration.roadCharges, 4, '정착지 농업은 도로 충전을 소비하지 않아야 합니다.');
+
+const tradeRouteBlockedState = engine.normalizeState({
+  ...utilityReady,
+  inventory: { ...utilityReady.inventory, resin: 0 },
+});
+const tradeRouteBlockedRow = engine.utilityActionRows(tradeRouteBlockedState, 'shiroko').find((row) => row.id === 'trade_route');
+assert.equal(tradeRouteBlockedRow?.available, false, '수지가 부족하면 교역로 개설이 비활성화되어야 합니다.');
+assert.match(tradeRouteBlockedRow?.lockedReason || '', /재료 부족/, '교역로 개설은 부족한 재료를 설명해야 합니다.');
+
+const tradeRouted = engine.runUtilityAction(utilityReady, 'shiroko', 'trade_route', { rng: () => 0.5 });
+assert.equal(Number(tradeRouted.inventory.wood || 0), Number(utilityReady.inventory.wood || 0) - 2, '교역로 개설은 나무 2개를 사용해야 합니다.');
+assert.equal(Number(tradeRouted.inventory.stone || 0), Number(utilityReady.inventory.stone || 0) - 1, '교역로 개설은 돌 1개를 사용해야 합니다.');
+assert.equal(Number(tradeRouted.inventory.resin || 0), Number(utilityReady.inventory.resin || 0) - 1, '교역로 개설은 수지 1개를 사용해야 합니다.');
+assert.equal(tradeRouted.diplomacy.tradeRouteCharges, 3, '교역로 개설은 교역 보너스를 3회 충전해야 합니다.');
+assert.equal(tradeRouted.counters.trade_route, 1, '교역로 개설 횟수가 기록되어야 합니다.');
+
+const tradeRouteClamped = engine.normalizeState({
+  ...utilityReady,
+  diplomacy: { ...utilityReady.diplomacy, tradeRouteCharges: 99 },
+});
+assert.equal(tradeRouteClamped.diplomacy.tradeRouteCharges, 3, '저장된 교역로 충전은 최대 3회로 정규화되어야 합니다.');
+
+const routedTradeReady = engine.normalizeState({
+  ...tradeRouted,
+  ap: 4,
+  diplomacy: {
+    ...tradeRouted.diplomacy,
+    tradeRouteCharges: 3,
+    contacts: {
+      ...tradeRouted.diplomacy.contacts,
+      'ember-grove': { ...tradeRouted.diplomacy.contacts['ember-grove'], known: true, relation: 8, lastActionDay: 0 },
+    },
+  },
+});
+const routedTradeRow = engine.rivalTribeRows(routedTradeReady).find((row) => row.id === 'ember-grove');
+assert.equal(routedTradeRow?.tradeCostText, '돌 1', '교역로가 활성화되면 첫 요구 자원이 1개 줄어 표시되어야 합니다.');
+assert.equal(routedTradeRow?.tradeRouteActive, true, '외교 화면은 교역로 적용 상태를 표시해야 합니다.');
+const routedStoneBefore = Number(routedTradeReady.inventory.stone || 0);
+const routedTrade = engine.runDiplomacyAction(routedTradeReady, 'shiroko', 'ember-grove', 'trade', { rng: () => 0.5 });
+assert.equal(Number(routedTrade.inventory.stone || 0), routedStoneBefore - 1, '교역로 교역은 절감된 돌 1개만 사용해야 합니다.');
+assert.equal(routedTrade.diplomacy.contacts['ember-grove'].relation, 17, '교역로 교역은 관계를 총 9 높여야 합니다.');
+assert.equal(routedTrade.diplomacy.tradeRouteCharges, 2, '성공한 교역은 교역로 충전을 1회 사용해야 합니다.');
+assert.equal(routedTrade.log.some((entry) => /교역로 효과/.test(entry)), true, '교역 로그는 교역로 효과 적용을 알려야 합니다.');
+
+const blockedTradeState = engine.normalizeState({
+  ...routedTradeReady,
+  inventory: { ...routedTradeReady.inventory, stone: 0 },
+});
+const blockedTrade = engine.runDiplomacyAction(blockedTradeState, 'shiroko', 'ember-grove', 'trade', { rng: () => 0.5 });
+assert.equal(blockedTrade.diplomacy.tradeRouteCharges, 3, '자원 부족으로 실패한 교역은 교역로 충전을 소모하지 않아야 합니다.');
 
 const huntBase = engine.normalizeState({
   ...utilityReady,

@@ -972,7 +972,7 @@ const RAW_TECH_TREE = [
   {
     id: 'EARLY_CURRENCY', name: '초기 화폐', era: 'CLASSICAL', tier: 10, cost: 42, prereqs: ['BASIC_MATH'], tags: ['CIVICS', 'SCIENCE'], branch: 'SURVIVAL',
     description: '교환 가치를 표준화해 모든 행동의 추가 자원 획득 확률을 높입니다.',
-    unlocks: { passives: ['RESOURCE_YIELD_UP_2'] },
+    unlocks: { actions: ['trade_route'], passives: ['RESOURCE_YIELD_UP_2'] },
     eureka: { type: 'haveItem', itemId: 'resin', count: 6, bonusPct: 0.25, desc: '수지 6개 보유' },
     inspiration: { type: 'haveItem', itemId: 'clay', count: 8, bonusPct: 0.18, desc: '점토 8개 보유' },
   },
@@ -2459,6 +2459,7 @@ export function initDiplomacyState() {
     lastContactId: '',
     contactSerial: 0,
     actionSerial: 0,
+    tradeRouteCharges: 0,
     lastOutcome: '',
   };
 }
@@ -2483,6 +2484,7 @@ export function normalizeDiplomacyState(value = {}) {
     lastContactId: RIVAL_TRIBES.some((tribe) => tribe.id === value.lastContactId) ? value.lastContactId : '',
     contactSerial: Math.max(0, Math.floor(Number(value.contactSerial || 0))),
     actionSerial: Math.max(0, Math.floor(Number(value.actionSerial || 0))),
+    tradeRouteCharges: Math.min(3, Math.max(0, Math.floor(Number(value.tradeRouteCharges || 0)))),
     lastOutcome: typeof value.lastOutcome === 'string' ? value.lastOutcome : '',
   };
 }

@@ -335,6 +335,7 @@ const ACTION_ICONS = {
   'primitive-irrigation': Droplets,
   'primitive-preserve': PackageCheck,
   'primitive-road': Route,
+  'primitive-trade-route': Coins,
   'primitive-growth': Sprout,
   'primitive-hunt': Crosshair,
   'primitive-inspiration': Sparkles,

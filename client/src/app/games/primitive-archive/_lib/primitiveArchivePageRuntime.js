@@ -356,6 +356,7 @@ const ACTION_UNLOCK_LABELS = {
   irrigation: '관개 정비',
   preserve: '식량 보존',
   road: '도로 정비',
+  trade_route: '교역로 개설',
 };
 
 export function researchUnlockText(tech) {
