@@ -58,6 +58,10 @@ assert.equal(companyReportResultMusic({ key: 'liquidityBlocked' })?.theme, COMPA
 assert.equal(companyReportResultMusic({ key: 'inventoryBlocked' })?.theme, COMPANY_REPORT_BGM_SCENES.crisis);
 assert.equal(companyReportResultMusic({ key: 'capitalRiskEscalated' })?.theme, COMPANY_REPORT_BGM_SCENES.crisis);
 assert.equal(companyReportResultMusic({ key: 'capitalRiskRecovered' })?.theme, COMPANY_REPORT_BGM_SCENES.capital);
+assert.equal(companyReportResultMusic({ key: 'liquidityRiskEscalated' })?.theme, COMPANY_REPORT_BGM_SCENES.crisis);
+assert.equal(companyReportResultMusic({ key: 'liquidityRiskRecovered' })?.theme, COMPANY_REPORT_BGM_SCENES.board);
+assert.equal(companyReportResultMusic({ key: 'receivableRiskEscalated' })?.theme, COMPANY_REPORT_BGM_SCENES.crisis);
+assert.equal(companyReportResultMusic({ key: 'receivableRiskRecovered' })?.theme, COMPANY_REPORT_BGM_SCENES.trade);
 assert.equal(companyReportResultMusic({ key: 'idle' }), null);
 
 for (const token of [

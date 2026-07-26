@@ -35,12 +35,21 @@ const TRADE_RESULTS = new Set([
   'receivableCollected',
   'inventoryInbound',
   'campaignLaunched',
+  'receivableRiskRecovered',
 ]);
 const CLOSING_RESULTS = new Set(['inventoryValued', 'inventoryWrittenDown', 'vatPaid', 'monthClosed']);
 const GLOBAL_RESULTS = new Set(['exportPlanned', 'importPlanned', 'hedgeSigned', 'globalSettled', 'foreignCollected']);
 const CAPITAL_RESULTS = new Set(['disclosureFiled', 'dividendDeclared', 'capitalRaised', 'capitalClosed', 'capitalRiskRecovered']);
 const AUDIT_RESULTS = new Set(['snapshotSaved', 'restorePreviewed', 'ledgerRestored', 'reportBookmarked', 'reportExported']);
-const CRISIS_RESULTS = new Set(['blocked', 'liquidityBlocked', 'inventoryBlocked', 'capitalRiskEscalated']);
+const CRISIS_RESULTS = new Set([
+  'blocked',
+  'liquidityBlocked',
+  'inventoryBlocked',
+  'capitalRiskEscalated',
+  'liquidityRiskEscalated',
+  'receivableRiskEscalated',
+]);
+const BOARD_RESULTS = new Set(['liquidityRiskRecovered']);
 
 export function resolveCompanyReportBgmScene({
   activeTabId = 'board',
@@ -66,6 +75,7 @@ export function companyReportResultMusic(presentation = {}) {
   if (GLOBAL_RESULTS.has(key)) return { theme: COMPANY_REPORT_BGM_SCENES.global, durationMs: 10_000 };
   if (CAPITAL_RESULTS.has(key)) return { theme: COMPANY_REPORT_BGM_SCENES.capital, durationMs: 11_000 };
   if (AUDIT_RESULTS.has(key)) return { theme: COMPANY_REPORT_BGM_SCENES.audit, durationMs: 9_000 };
+  if (BOARD_RESULTS.has(key)) return { theme: COMPANY_REPORT_BGM_SCENES.board, durationMs: 8_000 };
   if (key === 'newRun') return { theme: COMPANY_REPORT_BGM_SCENES.board, durationMs: 8_000 };
   return null;
 }

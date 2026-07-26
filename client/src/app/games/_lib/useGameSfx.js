@@ -378,6 +378,30 @@ const CUE_PROFILES = {
     { frequency: 523.25, start: 0.055, duration: 0.075, type: 'triangle', gain: 0.04, pan: 0.02 },
     { frequency: 783.99, start: 0.125, duration: 0.16, type: 'sine', gain: 0.033, pan: 0.32, reverb: 0.3 },
   ],
+  companyLiquidityRisk: [
+    { source: 'noise', filterType: 'lowpass', frequency: 480, q: 1.6, duration: 0.1, gain: 0.028, pan: -0.3 },
+    { frequency: 392, endFrequency: 294, duration: 0.12, type: 'square', gain: 0.039, pan: -0.2 },
+    { frequency: 349.23, endFrequency: 261.63, start: 0.14, duration: 0.13, type: 'square', gain: 0.041, pan: 0.2 },
+    { frequency: 130.81, start: 0.25, duration: 0.2, type: 'sine', gain: 0.034, pan: 0.34, reverb: 0.2 },
+  ],
+  companyLiquidityRecovered: [
+    { source: 'noise', filterType: 'highpass', frequency: 2400, duration: 0.035, gain: 0.018, pan: -0.3 },
+    { frequency: 440, duration: 0.055, type: 'triangle', gain: 0.038, pan: -0.22 },
+    { frequency: 659.25, start: 0.05, duration: 0.075, type: 'triangle', gain: 0.04, pan: 0.04 },
+    { frequency: 880, start: 0.12, duration: 0.15, type: 'sine', gain: 0.032, pan: 0.3, reverb: 0.28 },
+  ],
+  companyReceivableRisk: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1250, q: 4.2, duration: 0.04, gain: 0.026, pan: -0.36 },
+    { frequency: 523.25, duration: 0.045, type: 'square', gain: 0.035, pan: -0.24 },
+    { frequency: 523.25, start: 0.09, duration: 0.045, type: 'square', gain: 0.035, pan: 0.1 },
+    { frequency: 246.94, endFrequency: 196, start: 0.17, duration: 0.15, type: 'triangle', gain: 0.04, pan: 0.3, reverb: 0.18 },
+  ],
+  companyReceivableRecovered: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1550, q: 2.6, duration: 0.035, gain: 0.02, pan: -0.28 },
+    { frequency: 493.88, duration: 0.05, type: 'triangle', gain: 0.038, pan: -0.2 },
+    { frequency: 659.25, start: 0.05, duration: 0.065, type: 'triangle', gain: 0.039, pan: 0.06 },
+    { frequency: 987.77, start: 0.11, duration: 0.13, type: 'sine', gain: 0.031, pan: 0.28, reverb: 0.26 },
+  ],
   liquidityWarning: [
     { source: 'noise', filterType: 'lowpass', frequency: 520, q: 1.1, duration: 0.13, gain: 0.032, pan: -0.22 },
     { frequency: 330, endFrequency: 220, duration: 0.14, type: 'triangle', gain: 0.044, pan: -0.16 },

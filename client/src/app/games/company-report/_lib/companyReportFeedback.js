@@ -1,3 +1,12 @@
+import { FIXED_EXPENSES } from './companyReportData.js';
+
+const FIXED_EXPENSE_TOTAL = FIXED_EXPENSES.reduce(
+  (sum, row) => sum + Math.max(0, Number(row?.amount || 0)),
+  0,
+);
+const LIQUIDITY_RUNWAY_WARNING_MONTHS = 4;
+const RECEIVABLE_WARNING_COUNT = 3;
+
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -32,6 +41,17 @@ function summedAmount(rows, key) {
   return safeArray(rows).reduce((sum, row) => sum + Math.max(0, Number(row?.[key] || 0)), 0);
 }
 
+function openAmountCount(rows, amountKey, collectedKey) {
+  return safeArray(rows).filter(
+    (row) => Number(row?.[amountKey] || 0) > Number(row?.[collectedKey] || 0),
+  ).length;
+}
+
+function cashRunwayMonths(cashKrw) {
+  if (FIXED_EXPENSE_TOTAL <= 0) return 0;
+  return Math.max(0, Number(cashKrw || 0)) / FIXED_EXPENSE_TOTAL;
+}
+
 const FEEDBACK_PROFILES = {
   idle: { action: 'ledger', cue: '', label: '최근 원장 결과', tone: 'ready' },
   newRun: { action: 'new', cue: 'start', label: '새 원장 개시', tone: 'highlight' },
@@ -60,6 +80,10 @@ const FEEDBACK_PROFILES = {
   reportExported: { action: 'download', cue: 'reportExported', label: '진행 리포트 내보내기', tone: 'success' },
   liquidityBlocked: { action: 'finance', cue: 'liquidityWarning', label: '현금 유동성 부족', tone: 'warning' },
   inventoryBlocked: { action: 'inventory', cue: 'inventoryAlert', label: '출고 재고 부족', tone: 'warning' },
+  liquidityRiskEscalated: { action: 'company-liquidity-risk', cue: 'companyLiquidityRisk', label: '현금 런웨이 위험 진입', tone: 'warning' },
+  liquidityRiskRecovered: { action: 'company-liquidity-recovery', cue: 'companyLiquidityRecovered', label: '현금 런웨이 회복', tone: 'success' },
+  receivableRiskEscalated: { action: 'company-receivable-risk', cue: 'companyReceivableRisk', label: '미수금 적체 경보', tone: 'warning' },
+  receivableRiskRecovered: { action: 'company-receivable-recovery', cue: 'companyReceivableRecovered', label: '미수금 적체 해소', tone: 'success' },
   capitalRiskEscalated: { action: 'company-risk', cue: 'companyRiskEscalated', label: '자본시장 위험 경보', tone: 'warning' },
   capitalRiskRecovered: { action: 'company-recovery', cue: 'companyRiskRecovered', label: '자본시장 신뢰 회복', tone: 'success' },
   blocked: { action: 'warning', cue: 'warning', label: '원장 처리 불가', tone: 'warning' },
@@ -90,6 +114,7 @@ export function companyReportFeedbackSnapshot(state) {
     latestLog: String(state?.log?.[0] || ''),
     logCount: safeArray(state?.log).length,
     cashKrw: Number(state?.company?.cashKrw || 0),
+    cashRunwayMonths: cashRunwayMonths(state?.company?.cashKrw),
     reputation: Number(state?.company?.reputation || 0),
     fanBase: Number(state?.company?.fanBase || 0),
     investorTrust: Number(capital.investorTrust || 0),
@@ -98,6 +123,7 @@ export function companyReportFeedbackSnapshot(state) {
     shippedCount: safeArray(state?.orders).filter((row) => ['SHIPPED', 'COMPLETED'].includes(row?.status)).length,
     receivableCollected: collectedAmount(state?.receivables, 'amount', 'collected'),
     receivableOutstanding: outstandingAmount(state?.receivables, 'amount', 'collected'),
+    openReceivableCount: openAmountCount(state?.receivables, 'amount', 'collected'),
     inventoryUnits: inventoryUnits(state),
     inventoryValuationCount: safeArray(state?.inventoryValuations).length,
     inventoryWriteDownCount: safeArray(state?.inventoryWriteDowns).length,
@@ -174,6 +200,10 @@ const IMPACT_KEYS_BY_RESULT = Object.freeze({
   capitalClosed: ['investorTrust', 'disclosureRisk', 'stockHistoryCount'],
   capitalRiskEscalated: ['investorTrust', 'disclosureRisk', 'cashKrw'],
   capitalRiskRecovered: ['investorTrust', 'disclosureRisk', 'cashKrw'],
+  liquidityRiskEscalated: ['cashRunwayMonths', 'cashKrw'],
+  liquidityRiskRecovered: ['cashRunwayMonths', 'cashKrw'],
+  receivableRiskEscalated: ['openReceivableCount', 'receivableOutstanding'],
+  receivableRiskRecovered: ['openReceivableCount', 'receivableOutstanding'],
   monthClosed: ['period', 'settlementCount', 'cashKrw'],
   snapshotSaved: ['snapshotCount'],
   restorePreviewed: ['restoreHistoryCount'],
@@ -188,8 +218,30 @@ function companyReportImpactRows(previous, current, resultKey) {
       ? { action: 'calendar', key: 'period', label: '회계기간', tone: 'highlight', value: current.period }
       : null,
     cashKrw: deltaImpact(previous, current, 'cashKrw', { action: 'finance', label: '현금', money: true }),
+    cashRunwayMonths: previous.cashRunwayMonths !== current.cashRunwayMonths
+      ? {
+        action: current.cashRunwayMonths < LIQUIDITY_RUNWAY_WARNING_MONTHS
+          ? 'company-liquidity-risk'
+          : 'company-liquidity-recovery',
+        key: 'cashRunwayMonths',
+        label: '현금 런웨이',
+        tone: current.cashRunwayMonths < LIQUIDITY_RUNWAY_WARNING_MONTHS ? 'warning' : 'success',
+        value: `${current.cashRunwayMonths.toFixed(1)}개월`,
+      }
+      : null,
     inventoryUnits: deltaImpact(previous, current, 'inventoryUnits', { action: 'inventory', label: '재고', suffix: '개', successDirection: 0 }),
     receivableOutstanding: deltaImpact(previous, current, 'receivableOutstanding', { action: 'collection', label: '매출채권', money: true, successDirection: -1 }),
+    openReceivableCount: previous.openReceivableCount !== current.openReceivableCount
+      ? {
+        action: current.openReceivableCount >= RECEIVABLE_WARNING_COUNT
+          ? 'company-receivable-risk'
+          : 'company-receivable-recovery',
+        key: 'openReceivableCount',
+        label: '미회수 채권',
+        tone: current.openReceivableCount >= RECEIVABLE_WARNING_COUNT ? 'warning' : 'success',
+        value: `${current.openReceivableCount}건`,
+      }
+      : null,
     foreignReceivableOutstanding: deltaImpact(previous, current, 'foreignReceivableOutstanding', { action: 'collection', label: '외화채권', money: true, successDirection: -1 }),
     vatPaidAmount: deltaImpact(previous, current, 'vatPaidAmount', { action: 'tax', label: '세금 납부', money: true }),
     reputation: deltaImpact(previous, current, 'reputation', { action: 'sales', label: '평판', suffix: '점' }),
@@ -249,6 +301,14 @@ function capitalAlertActive(snapshot) {
     || Number(snapshot?.investorTrust || 0) < 45;
 }
 
+function liquidityAlertActive(snapshot) {
+  return Number(snapshot?.cashRunwayMonths || 0) < LIQUIDITY_RUNWAY_WARNING_MONTHS;
+}
+
+function receivableAlertActive(snapshot) {
+  return Number(snapshot?.openReceivableCount || 0) >= RECEIVABLE_WARNING_COUNT;
+}
+
 export function companyReportFeedbackTransition(previousValue, currentValue) {
   if (!previousValue || !currentValue) return 'idle';
   const previous = asSnapshot(previousValue);
@@ -265,6 +325,16 @@ export function companyReportFeedbackTransition(previousValue, currentValue) {
   const currentCapitalAlert = capitalAlertActive(current);
   if (!previousCapitalAlert && currentCapitalAlert) return 'capitalRiskEscalated';
   if (previousCapitalAlert && !currentCapitalAlert) return 'capitalRiskRecovered';
+
+  const previousLiquidityAlert = liquidityAlertActive(previous);
+  const currentLiquidityAlert = liquidityAlertActive(current);
+  if (!previousLiquidityAlert && currentLiquidityAlert) return 'liquidityRiskEscalated';
+  if (previousLiquidityAlert && !currentLiquidityAlert) return 'liquidityRiskRecovered';
+
+  const previousReceivableAlert = receivableAlertActive(previous);
+  const currentReceivableAlert = receivableAlertActive(current);
+  if (!previousReceivableAlert && currentReceivableAlert) return 'receivableRiskEscalated';
+  if (previousReceivableAlert && !currentReceivableAlert) return 'receivableRiskRecovered';
 
   const logTransition = logChanged
     ? transitionFromLog(current.latestLog)

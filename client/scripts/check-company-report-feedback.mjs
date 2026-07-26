@@ -7,6 +7,7 @@ import {
   companyReportResultPresentation,
   companyReportTextPresentation,
 } from '../src/app/games/company-report/_lib/companyReportFeedback.js';
+import { FIXED_EXPENSES } from '../src/app/games/company-report/_lib/companyReportData.js';
 import {
   bookmarkCurrentReportAction,
   closeCapitalMarketAction,
@@ -75,8 +76,41 @@ assert.deepEqual(orderPresentation.impacts.map((item) => [item.action, item.valu
 
 const openOrder = base.orders.find((row) => row.status === 'CONFIRMED');
 assert.ok(openOrder, '출고 가능한 초기 주문이 있어야 합니다.');
-const shipped = shipOrderAction(base, openOrder.id);
-expectResult(base, shipped, { key: 'shipmentPosted', action: 'shipment', cue: 'shipmentPosted', tone: 'success' });
+const shipmentSafeBase = JSON.parse(JSON.stringify(base));
+const receivableToClose = shipmentSafeBase.receivables.find(
+  (row) => Number(row.amount || 0) > Number(row.collected || 0),
+);
+receivableToClose.collected = receivableToClose.amount;
+receivableToClose.status = 'COLLECTED';
+const shipped = shipOrderAction(shipmentSafeBase, openOrder.id);
+expectResult(shipmentSafeBase, shipped, { key: 'shipmentPosted', action: 'shipment', cue: 'shipmentPosted', tone: 'success' });
+
+const receivableRiskState = shipOrderAction(base, openOrder.id);
+const receivableRiskPresentation = expectResult(base, receivableRiskState, {
+  key: 'receivableRiskEscalated',
+  action: 'company-receivable-risk',
+  cue: 'companyReceivableRisk',
+  tone: 'warning',
+});
+assert.deepEqual(
+  receivableRiskPresentation.impacts.map((item) => item.label),
+  ['미회수 채권', '매출채권'],
+  '미수금 적체 경보는 채권 건수와 금액을 함께 보여야 합니다.',
+);
+assert.equal(receivableRiskPresentation.impacts[0]?.value, '3건', '미수금 적체 경보는 현재 미회수 채권 수를 표시해야 합니다.');
+
+const newReceivable = receivableRiskState.receivables.find(
+  (row) => !base.receivables.some((baseRow) => baseRow.id === row.id),
+);
+assert.ok(newReceivable, '출고 후 새 매출채권이 생성되어야 합니다.');
+const receivableRecoveredState = collectReceivableAction(receivableRiskState, newReceivable.id);
+const receivableRecoveryPresentation = expectResult(receivableRiskState, receivableRecoveredState, {
+  key: 'receivableRiskRecovered',
+  action: 'company-receivable-recovery',
+  cue: 'companyReceivableRecovered',
+  tone: 'success',
+});
+assert.equal(receivableRecoveryPresentation.impacts[0]?.value, '2건', '미수금 회복은 남은 미회수 채권 수를 표시해야 합니다.');
 
 const openReceivable = base.receivables.find((row) => Number(row.amount || 0) > Number(row.collected || 0));
 assert.ok(openReceivable, '회수 가능한 초기 채권이 있어야 합니다.');
@@ -159,6 +193,42 @@ const recoveryPresentation = expectResult(recoveryBase, riskRecovered, {
 });
 assert.deepEqual(recoveryPresentation.impacts.map((item) => item.label), ['투자자 신뢰', '공시위험', '현금'], '위험 회복은 신뢰·위험·대응 비용을 함께 보여야 합니다.');
 
+const fixedExpenseTotal = FIXED_EXPENSES.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+const liquiditySafeState = {
+  ...base,
+  company: { ...base.company, cashKrw: fixedExpenseTotal * 4.5 },
+};
+const liquidityRiskState = {
+  ...liquiditySafeState,
+  company: { ...liquiditySafeState.company, cashKrw: fixedExpenseTotal * 3.5 },
+  log: ['대규모 선급 비용을 지급해 가용 현금이 감소했습니다.', ...liquiditySafeState.log],
+};
+const liquidityRiskPresentation = expectResult(liquiditySafeState, liquidityRiskState, {
+  key: 'liquidityRiskEscalated',
+  action: 'company-liquidity-risk',
+  cue: 'companyLiquidityRisk',
+  tone: 'warning',
+});
+assert.deepEqual(
+  liquidityRiskPresentation.impacts.map((item) => item.label),
+  ['현금 런웨이', '현금'],
+  '유동성 위험 경보는 남은 운영 개월과 현금을 함께 보여야 합니다.',
+);
+assert.equal(liquidityRiskPresentation.impacts[0]?.value, '3.5개월', '유동성 위험 경보는 현재 현금 런웨이를 표시해야 합니다.');
+
+const liquidityRecoveredState = {
+  ...liquidityRiskState,
+  company: { ...liquidityRiskState.company, cashKrw: fixedExpenseTotal * 4.25 },
+  log: ['대형 매출채권을 회수해 현금 여력이 회복되었습니다.', ...liquidityRiskState.log],
+};
+const liquidityRecoveryPresentation = expectResult(liquidityRiskState, liquidityRecoveredState, {
+  key: 'liquidityRiskRecovered',
+  action: 'company-liquidity-recovery',
+  cue: 'companyLiquidityRecovered',
+  tone: 'success',
+});
+assert.equal(liquidityRecoveryPresentation.impacts[0]?.value, '4.3개월', '유동성 회복은 현재 현금 런웨이를 표시해야 합니다.');
+
 const monthClosed = monthEndCloseAction(base);
 expectResult(base, monthClosed, { key: 'monthClosed', action: 'closing', cue: 'ledgerClose', tone: 'success' });
 const snapshotted = createLedgerSnapshotAction(base);
@@ -201,7 +271,10 @@ const resultCues = [
   'globalSettle', 'disclosureFiled', 'dividendDeclared', 'capitalRaised', 'capitalClosed',
   'ledgerClose', 'snapshotSaved', 'restorePreview', 'ledgerRestored', 'reportBookmarked',
   'reportExported', 'foreignCashCollect', 'liquidityWarning', 'inventoryAlert',
-  'companyRiskEscalated', 'companyRiskRecovered', 'warning', 'start',
+  'companyRiskEscalated', 'companyRiskRecovered',
+  'companyLiquidityRisk', 'companyLiquidityRecovered',
+  'companyReceivableRisk', 'companyReceivableRecovered',
+  'warning', 'start',
 ];
 for (const cue of resultCues) {
   assert.match(soundSource, new RegExp(`\\n  ${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
@@ -212,6 +285,8 @@ for (const icon of [
   'closing', 'snapshot', 'analysis', 'restore', 'bookmark', 'download', 'warning', 'new',
   'archive', 'logs', 'guide', 'policy', 'inspect', 'advisor', 'trade', 'contract',
   'company-risk', 'company-recovery',
+  'company-liquidity-risk', 'company-liquidity-recovery',
+  'company-receivable-risk', 'company-receivable-recovery',
 ]) {
   assert.match(iconSource, new RegExp(`\\n  ['\"]?${icon}['\"]?: `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
 }
@@ -255,7 +330,7 @@ assert.match(cssSource, /\.company-report-impact-strip/, '최근 처리 영향 �
 assert.match(cssSource, /\.company-report-icon-row\.is-priority-urgent/, '긴급 운영 항목을 시각적으로 구분해야 합니다.');
 
 console.log(JSON.stringify({
-  feedbackTransitions: 29,
+  feedbackTransitions: 33,
   resultCues: resultCues.length,
   resultPanels: componentSources.reduce((sum, source) => sum + [...source.matchAll(/<RecentActionResult\b/g)].length, 0) + 1,
   semanticPanelTitles,
