@@ -71,6 +71,20 @@ for (const [action, minimum] of Object.entries(minimumActionCoverage)) {
     `${action} 사건이 세트 흐름에서 충분히 반복되어야 합니다: ${actionCounts[action] || 0}/${Math.ceil(minimum)}`,
   );
 }
+const specializedActionCoverage = {
+  'starleague-drop': sets.length * 0.5,
+  'starleague-air': sets.length * 0.5,
+  'starleague-siege': sets.length * 0.03,
+  'starleague-spell': sets.length * 0.2,
+  'starleague-flank': sets.length * 0.03,
+  'starleague-base-race': sets.length * 0.1,
+};
+for (const [action, minimum] of Object.entries(specializedActionCoverage)) {
+  assert.ok(
+    actionCounts[action] >= minimum,
+    `${action} 특수 전투 중계가 충분히 등장해야 합니다: ${actionCounts[action] || 0}/${Math.ceil(minimum)}`,
+  );
+}
 assert.ok(new Set(lineTexts).size >= 9000, '선수·맵·빌드 조합을 반영한 중계 문장 다양성이 부족합니다.');
 assert.ok(new Set(normalizedLines).size >= 400, '이름을 제외한 중계 문장 골격도 충분히 다양해야 합니다.');
 

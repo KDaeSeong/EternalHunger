@@ -34,12 +34,18 @@ const BROADCAST_LINE_CUES = Object.freeze({
   'starleague-build-rush': 'starleagueBroadcastRush',
   'starleague-build-tech': 'starleagueBroadcastStrategy',
   'starleague-caster': 'starleagueBroadcastOpening',
+  'starleague-air': 'starleagueBroadcastAir',
+  'starleague-base-race': 'starleagueBroadcastBaseRace',
   'starleague-clash': 'starleagueBroadcastImpact',
   'starleague-clutch': 'starleagueBroadcastFinal',
+  'starleague-drop': 'starleagueBroadcastDrop',
+  'starleague-flank': 'starleagueBroadcastFlank',
   'starleague-comeback': 'starleagueBroadcastMomentum',
   'starleague-control': 'starleagueBroadcastControl',
   'starleague-economy': 'starleagueBroadcastEconomy',
   'starleague-reverse-sweep': 'starleagueBroadcastMomentum',
+  'starleague-siege': 'starleagueBroadcastSiege',
+  'starleague-spell': 'starleagueBroadcastSpell',
   'starleague-scout': 'starleagueBroadcastScout',
   'starleague-sweep': 'starleagueBroadcastResult',
   'starleague-upset': 'starleagueBroadcastImpact',
@@ -54,13 +60,19 @@ const BROADCAST_LINE_LABELS = Object.freeze({
   'starleague-build-rush': '초반 승부',
   'starleague-build-tech': '테크',
   'starleague-caster': '캐스터',
+  'starleague-air': '공중전',
+  'starleague-base-race': '본진 엘리전',
   'starleague-clash': '교전',
   'starleague-clutch': '승부처',
+  'starleague-drop': '드랍 작전',
+  'starleague-flank': '포위 기동',
   'starleague-comeback': '역전',
   'starleague-control': '주도권',
   'starleague-economy': '경제',
   'starleague-reverse-sweep': '역스윕',
   'starleague-scout': '정찰 정보',
+  'starleague-siege': '공성전',
+  'starleague-spell': '마법 교전',
   'starleague-sweep': '완봉',
   'starleague-upset': '이변',
 });
@@ -76,9 +88,15 @@ export function starleagueBroadcastLineAction(caster, text) {
   if (/이변|업셋|예측을? (?:뒤집|비튼)|upset/.test(line)) return 'starleague-upset';
   if (/역전|뒤집|따라잡|comeback/.test(line)) return 'starleague-comeback';
   if (/정찰|시야|스캔|옵저버|오버로드|정보/.test(line)) return 'starleague-scout';
+  if (/엘리전|빈집|서로의 본진|본진 (?:교환|타격|공격)/.test(line)) return 'starleague-base-race';
+  if (/드랍|드랍십|셔틀 (?:견제|공격|침투)|리콜/.test(line)) return 'starleague-drop';
+  if (/공중전|공중 (?:병력|교전|숫자)|뮤탈|스커지|커세어|캐리어|레이스/.test(line)) return 'starleague-air';
+  if (/공성전|시즈|탱크 라인|러커 라인|포격/.test(line)) return 'starleague-siege';
+  if (/마법 유닛|디파일러|하이템플러|스톰|다크 스웜|베슬/.test(line)) return 'starleague-spell';
+  if (/포위|측면|우회|덮치|협공/.test(line)) return 'starleague-flank';
   if (/러시|올인|벙커|초반 압박|타이밍 공격/.test(line)) return 'starleague-build-rush';
-  if (/견제|드랍|흔들|다크|뮤탈|벌처/.test(line)) return 'starleague-build-harass';
-  if (/테크|전환|캐리어|아비터|하이브|디파일러|메카닉/.test(line)) return 'starleague-build-tech';
+  if (/견제|흔들|다크|벌처/.test(line)) return 'starleague-build-harass';
+  if (/테크|전환|아비터|하이브|메카닉/.test(line)) return 'starleague-build-tech';
   if (/앞마당|확장|멀티|트리플|자원줄|일꾼|해처리 숫자|생산력|생산이|생산을/.test(line)) return 'starleague-economy';
   if (/운영|더블|자원/.test(line)) return 'starleague-build-macro';
   if (/주도권|중앙(?:을|이)?\s*(?:잡|선점|장악)|센터(?:를|가)?\s*(?:잡|선점|장악)|진형|병력 (?:위치|방향|합류)|동선|자리를? (?:잡|선점)/.test(line)) return 'starleague-control';

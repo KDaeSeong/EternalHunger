@@ -6467,6 +6467,37 @@
   color: #8d3030 !important;
 }
 
+.games-broadcast-event[data-event="starleague-drop"],
+.games-broadcast-event[data-event="starleague-flank"] {
+  border-color: rgba(74, 91, 176, 0.26);
+  background: #f0f2ff;
+  color: #3c4a91 !important;
+}
+
+.games-broadcast-event[data-event="starleague-air"] {
+  border-color: rgba(20, 140, 166, 0.26);
+  background: #eaf9fc;
+  color: #116b80 !important;
+}
+
+.games-broadcast-event[data-event="starleague-siege"] {
+  border-color: rgba(147, 78, 43, 0.28);
+  background: #fff3eb;
+  color: #7f4127 !important;
+}
+
+.games-broadcast-event[data-event="starleague-spell"] {
+  border-color: rgba(117, 76, 164, 0.27);
+  background: #f7f0ff;
+  color: #67428d !important;
+}
+
+.games-broadcast-event[data-event="starleague-base-race"] {
+  border-color: rgba(190, 65, 43, 0.28);
+  background: #fff0ec;
+  color: #9b3828 !important;
+}
+
 .starleague-set-replay {
   min-width: 0;
   display: grid;
