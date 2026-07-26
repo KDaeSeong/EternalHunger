@@ -236,6 +236,9 @@
   font-weight: 900;
 }
 
+.twenty-stats span,
+.twenty-create-title strong,
+.twenty-create-title > span,
 .twenty-room-flags > span,
 .twenty-card-top span,
 .twenty-card-meta span,
@@ -248,6 +251,8 @@
   gap: 6px;
 }
 
+.twenty-stats .game-action-icon,
+.twenty-create-title .game-action-icon,
 .twenty-room-flags .game-action-icon,
 .twenty-card-top span .game-action-icon,
 .twenty-card-meta .game-action-icon,
@@ -261,6 +266,8 @@
   flex: 0 0 auto;
 }
 
+.twenty-stats .game-action-icon svg,
+.twenty-create-title .game-action-icon svg,
 .twenty-room-flags .game-action-icon svg,
 .twenty-card-top span .game-action-icon svg,
 .twenty-card-meta .game-action-icon svg,
@@ -361,6 +368,11 @@
   color: #5f6c78;
   font-weight: 900;
   text-align: center;
+}
+
+.twenty-empty.twenty-inline-state {
+  justify-content: center;
+  gap: 8px;
 }
 
 .twenty-empty.compact {

@@ -56,6 +56,7 @@ export function GameFeatureTabs({ tabs = [], initialTabId = '', activeTabId: con
               aria-controls={`game-feature-panel-${tab.id}`}
               id={`game-feature-tab-${tab.id}`}
               className={selected ? 'is-active' : ''}
+              data-game-sfx={tab.cue || 'tab'}
               key={tab.id}
               title={tabTitle}
               onClick={() => selectTab(tab.id)}

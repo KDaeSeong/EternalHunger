@@ -1516,6 +1516,38 @@ const CUE_PROFILES = {
     { frequency: 330, endFrequency: 440, duration: 0.065, type: 'triangle', gain: 0.042, pan: -0.12 },
     { frequency: 660, start: 0.055, duration: 0.085, type: 'sine', gain: 0.037, pan: 0.22, reverb: 0.18 },
   ],
+  twentyWriterOpen: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 0.9, duration: 0.08, gain: 0.022, pan: -0.34 },
+    { frequency: 440, duration: 0.045, type: 'triangle', gain: 0.039, pan: -0.18 },
+    { frequency: 659.25, start: 0.04, duration: 0.065, type: 'triangle', gain: 0.038, pan: 0.08 },
+    { frequency: 987.77, start: 0.1, duration: 0.1, type: 'sine', gain: 0.032, pan: 0.34, reverb: 0.26 },
+  ],
+  twentyWriterClose: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1180, q: 1.1, duration: 0.075, gain: 0.021, pan: 0.3 },
+    { frequency: 659.25, endFrequency: 523.25, duration: 0.055, type: 'triangle', gain: 0.038, pan: 0.18 },
+    { frequency: 392, start: 0.05, duration: 0.075, type: 'sine', gain: 0.034, pan: -0.22, reverb: 0.18 },
+  ],
+  twentyFilter: [
+    { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.02, gain: 0.012, pan: -0.24 },
+    { frequency: 587.33, duration: 0.035, type: 'triangle', gain: 0.034, pan: -0.08 },
+    { frequency: 880, start: 0.032, duration: 0.055, type: 'sine', gain: 0.029, pan: 0.26, reverb: 0.12 },
+  ],
+  twentyTabDeduction: [
+    { frequency: 392, duration: 0.04, type: 'triangle', gain: 0.037, pan: -0.24 },
+    { frequency: 587.33, start: 0.038, duration: 0.055, type: 'triangle', gain: 0.036, pan: 0.02 },
+    { frequency: 783.99, start: 0.09, duration: 0.09, type: 'sine', gain: 0.031, pan: 0.3, reverb: 0.22 },
+  ],
+  twentyTabHints: [
+    { source: 'noise', filterType: 'highpass', frequency: 2800, duration: 0.025, gain: 0.013, pan: -0.28, reverb: 0.18 },
+    { frequency: 880, duration: 0.045, type: 'sine', gain: 0.035, pan: -0.18, reverb: 0.2 },
+    { frequency: 1318.51, start: 0.04, duration: 0.075, type: 'sine', gain: 0.03, pan: 0.3, reverb: 0.3 },
+  ],
+  twentyTabHistory: [
+    { source: 'noise', filterType: 'lowpass', frequency: 760, duration: 0.045, gain: 0.018, pan: -0.26 },
+    { frequency: 293.66, duration: 0.045, type: 'triangle', gain: 0.037, pan: -0.16 },
+    { frequency: 440, start: 0.04, duration: 0.065, type: 'triangle', gain: 0.034, pan: 0.08 },
+    { frequency: 587.33, start: 0.105, duration: 0.09, type: 'sine', gain: 0.029, pan: 0.3, reverb: 0.2 },
+  ],
   twentyParticipantJoin: [
     { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.03, gain: 0.015, pan: -0.34, reverb: 0.18 },
     { frequency: 392, duration: 0.045, type: 'triangle', gain: 0.04, pan: -0.22 },
@@ -2182,6 +2214,30 @@ const THEME_CUE_PROFILES = {
     tab: [
       { frequency: 660, duration: 0.045, type: 'sine', gain: 0.06 },
       { frequency: 880, start: 0.04, duration: 0.06, type: 'sine', gain: 0.055 },
+    ],
+    twentyWriterOpen: [
+      ...CUE_PROFILES.twentyWriterOpen,
+      { frequency: 1318.51, start: 0.16, duration: 0.13, type: 'sine', gain: 0.024, pan: 0.42, reverb: 0.38 },
+    ],
+    twentyWriterClose: [
+      ...CUE_PROFILES.twentyWriterClose,
+      { frequency: 196, start: 0.12, duration: 0.11, type: 'sine', gain: 0.025, pan: -0.34, reverb: 0.24 },
+    ],
+    twentyFilter: [
+      ...CUE_PROFILES.twentyFilter,
+      { frequency: 1174.66, start: 0.08, duration: 0.08, type: 'sine', gain: 0.021, pan: 0.38, reverb: 0.24 },
+    ],
+    twentyTabDeduction: [
+      ...CUE_PROFILES.twentyTabDeduction,
+      { frequency: 1174.66, start: 0.15, duration: 0.11, type: 'sine', gain: 0.022, pan: 0.42, reverb: 0.34 },
+    ],
+    twentyTabHints: [
+      ...CUE_PROFILES.twentyTabHints,
+      { frequency: 1760, start: 0.12, duration: 0.12, type: 'sine', gain: 0.021, pan: 0.42, reverb: 0.42 },
+    ],
+    twentyTabHistory: [
+      ...CUE_PROFILES.twentyTabHistory,
+      { frequency: 880, start: 0.17, duration: 0.11, type: 'sine', gain: 0.021, pan: 0.4, reverb: 0.3 },
     ],
   },
   card: {

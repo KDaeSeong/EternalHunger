@@ -282,6 +282,7 @@ export default function TwentyQuestionsPage() {
             {mounted && token ? (
               <GameControlButton
                 action={writerOpen ? 'close' : 'room'}
+                cue={writerOpen ? 'twentyWriterClose' : 'twentyWriterOpen'}
                 className="twenty-button"
                 onClick={() => setWriterOpen((value) => !value)}
                 aria-expanded={writerOpen}
@@ -306,17 +307,17 @@ export default function TwentyQuestionsPage() {
 
         <section className="twenty-toolbar" aria-label="스무고개 필터">
           <div className="twenty-stats">
-            <span>전체 {rooms.length}</span>
-            <span>진행 {activeCount}</span>
-            <span>검색 {filteredRooms.length}</span>
+            <span><GameActionIcon action="room" label="전체 방" />전체 {rooms.length}</span>
+            <span><GameActionIcon action="room-active" label="진행 중" />진행 {activeCount}</span>
+            <span><GameActionIcon action="search" label="검색 결과" />검색 {filteredRooms.length}</span>
           </div>
           <div className="twenty-filters">
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="상태">
+            <select data-game-sfx-change="twentyFilter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="상태">
               {STATUS_FILTERS.map((option) => (
                 <option value={option.value} key={option.value}>{option.label}</option>
               ))}
             </select>
-            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} aria-label="카테고리">
+            <select data-game-sfx-change="twentyFilter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} aria-label="카테고리">
               <option value="">모든 주제</option>
               {CATEGORIES.map((option) => (
                 <option value={option.value} key={option.value}>{option.label}</option>
@@ -334,8 +335,8 @@ export default function TwentyQuestionsPage() {
         {mounted && token && writerOpen ? (
           <section className="twenty-create-panel" id="twenty-create-panel">
             <div className="twenty-create-title">
-              <strong>새 방</strong>
-              <span>방장 {getDisplayName(user)}</span>
+              <strong><GameActionIcon action="room" label="새 방" />새 방</strong>
+              <span><GameActionIcon action="host" label="방장" />방장 {getDisplayName(user)}</span>
             </div>
             <div className="twenty-create-grid">
               <input
@@ -355,7 +356,7 @@ export default function TwentyQuestionsPage() {
                 placeholder="정답"
                 maxLength={120}
               />
-              <GameControlButton action="room" onClick={createRoom} disabled={creating}>
+              <GameControlButton action="room" cue="off" onClick={createRoom} disabled={creating}>
                 {creating ? '생성 중...' : '생성'}
               </GameControlButton>
             </div>
@@ -377,14 +378,25 @@ export default function TwentyQuestionsPage() {
         )}
 
         <section className="twenty-room-grid" aria-label="스무고개 방 목록">
-          {loading ? <div className="twenty-empty">방을 불러오는 중입니다.</div> : null}
+          {loading ? (
+            <div className="twenty-empty twenty-inline-state">
+              <GameActionIcon action="wait" label="방 불러오는 중" />
+              <span>방을 불러오는 중입니다.</span>
+            </div>
+          ) : null}
           {!loading && loadError ? (
             <div className="twenty-empty twenty-error">
+              <GameActionIcon action="warning" label="방 목록 오류" />
               <span>{loadError}</span>
               <GameControlButton action="refresh" onClick={() => void refreshRooms()}>다시 불러오기</GameControlButton>
             </div>
           ) : null}
-          {!loading && !loadError && filteredRooms.length === 0 ? <div className="twenty-empty">표시할 방이 없습니다.</div> : null}
+          {!loading && !loadError && filteredRooms.length === 0 ? (
+            <div className="twenty-empty twenty-inline-state">
+              <GameActionIcon action="search" label="검색 결과 없음" />
+              <span>표시할 방이 없습니다.</span>
+            </div>
+          ) : null}
           {!loading && filteredRooms.map((room) => (
             <Link href={`/twenty-questions/${room._id}`} className="twenty-room-card" data-game-sfx="twentyRoomEnter" key={room._id}>
               <div className="twenty-card-top">

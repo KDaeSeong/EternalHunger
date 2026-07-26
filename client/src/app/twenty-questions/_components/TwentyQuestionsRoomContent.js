@@ -648,7 +648,7 @@ export default function TwentyQuestionsRoomContent() {
           </div>
           <div className="twenty-head-actions">
             {room?.isHost && active ? (
-              <GameControlButton action="close" cue="warning" className="twenty-button twenty-danger" onClick={closeRoom} disabled={submitting === 'close'}>
+              <GameControlButton action="close" cue="off" className="twenty-button twenty-danger" onClick={closeRoom} disabled={submitting === 'close'}>
                 종료
               </GameControlButton>
             ) : null}
@@ -661,7 +661,12 @@ export default function TwentyQuestionsRoomContent() {
 
         <TwentyQuestionsFeedbackBar feedback={actionFeedback} />
 
-        {loading ? <div className="twenty-empty">방을 불러오는 중입니다.</div> : null}
+        {loading ? (
+          <div className="twenty-empty twenty-inline-state">
+            <GameActionIcon action="wait" label="방 불러오는 중" />
+            <span>방을 불러오는 중입니다.</span>
+          </div>
+        ) : null}
         {!loading && !room ? (
           <div className="twenty-empty twenty-error twenty-room-load-error">
             <GameActionIcon action="warning" label="방 불러오기 실패" />
@@ -733,6 +738,7 @@ export default function TwentyQuestionsRoomContent() {
                     id: 'deduction',
                     label: '추리',
                     icon: 'question',
+                    cue: 'twentyTabDeduction',
                     badge: room.isHost ? String(pendingQuestions.length) : String(attemptsLeft),
                     children: (
                       <div className="twenty-tab-content twenty-tab-content--deduction">
@@ -758,7 +764,7 @@ export default function TwentyQuestionsRoomContent() {
                                 maxLength={220}
                                 disabled={!canUseAttempt}
                               />
-                              <GameControlButton action="question" onClick={addQuestion} disabled={!canUseAttempt || submitting === 'question'}>
+                              <GameControlButton action="question" cue="off" onClick={addQuestion} disabled={!canUseAttempt || submitting === 'question'}>
                                 {submitting === 'question' ? '등록 중...' : '질문하기'}
                               </GameControlButton>
                             </div>
@@ -775,7 +781,7 @@ export default function TwentyQuestionsRoomContent() {
                                 maxLength={120}
                                 disabled={!canUseAttempt}
                               />
-                              <GameControlButton action="guess" onClick={submitGuess} disabled={!canUseAttempt || submitting === 'guess'}>
+                              <GameControlButton action="guess" cue="off" onClick={submitGuess} disabled={!canUseAttempt || submitting === 'guess'}>
                                 {submitting === 'guess' ? '도전 중...' : '도전'}
                               </GameControlButton>
                             </div>
@@ -795,7 +801,12 @@ export default function TwentyQuestionsRoomContent() {
                               <strong><GameActionIcon action="question-queued" label="답변 대기" />답변 대기</strong>
                               <span>{pendingQuestions.length}</span>
                             </div>
-                            {pendingQuestions.length === 0 ? <div className="twenty-empty compact">대기 중인 질문이 없습니다.</div> : null}
+                            {pendingQuestions.length === 0 ? (
+                              <div className="twenty-empty compact twenty-inline-state">
+                                <GameActionIcon action="answer-pending" label="답변 대기 없음" />
+                                <span>대기 중인 질문이 없습니다.</span>
+                              </div>
+                            ) : null}
                             {pendingQuestions.map((question) => (
                               <div className="twenty-pending-row" key={question._id}>
                                 <p><GameActionIcon action="answer-pending" label="답변 대기" /><span>{question.text}</span></p>
@@ -803,6 +814,7 @@ export default function TwentyQuestionsRoomContent() {
                                   {RESPONSE_OPTIONS.map((option) => (
                                     <GameControlButton
                                       action={`answer-${option.value}`}
+                                      cue="off"
                                       key={option.value}
                                       onClick={() => answerQuestion(question._id, option.value)}
                                       disabled={!active || submitting.startsWith(`answer:${question._id}:`)}
@@ -829,6 +841,7 @@ export default function TwentyQuestionsRoomContent() {
                     id: 'hints',
                     label: '힌트',
                     icon: 'hint',
+                    cue: 'twentyTabHints',
                     badge: String(hintMessages.length),
                     children: (
                       <div className="twenty-tab-content">
@@ -838,7 +851,12 @@ export default function TwentyQuestionsRoomContent() {
                             <span>{hintMessages.length}</span>
                           </div>
                           <div className="twenty-chat-list">
-                            {hintMessages.length === 0 ? <div className="twenty-empty compact">아직 힌트가 없습니다.</div> : null}
+                            {hintMessages.length === 0 ? (
+                              <div className="twenty-empty compact twenty-inline-state">
+                                <GameActionIcon action="hint-message" label="힌트 없음" />
+                                <span>아직 힌트가 없습니다.</span>
+                              </div>
+                            ) : null}
                             {hintMessages.map((message, index) => (
                               <article className="twenty-chat-message" key={message._id || index}>
                                 <div>
@@ -859,7 +877,7 @@ export default function TwentyQuestionsRoomContent() {
                                 maxLength={240}
                                 disabled={submitting === 'hint'}
                               />
-                              <GameControlButton action="hint" onClick={sendHintMessage} disabled={submitting === 'hint'}>
+                              <GameControlButton action="hint" cue="off" onClick={sendHintMessage} disabled={submitting === 'hint'}>
                                 {submitting === 'hint' ? '등록 중...' : '힌트 등록'}
                               </GameControlButton>
                             </div>
@@ -877,6 +895,7 @@ export default function TwentyQuestionsRoomContent() {
                     id: 'history',
                     label: '기록',
                     icon: 'history',
+                    cue: 'twentyTabHistory',
                     badge: String(attemptTimeline.length),
                     children: (
                       <div className="twenty-tab-content">
@@ -885,7 +904,12 @@ export default function TwentyQuestionsRoomContent() {
                             <strong><GameActionIcon action="history" label="시도 기록" />시도 기록</strong>
                             <span>{attemptTimeline.length}/{room.maxQuestions}</span>
                           </div>
-                          {attemptTimeline.length === 0 ? <div className="twenty-empty compact">아직 질문이나 정답 도전이 없습니다.</div> : null}
+                          {attemptTimeline.length === 0 ? (
+                            <div className="twenty-empty compact twenty-inline-state">
+                              <GameActionIcon action="history" label="시도 기록 없음" />
+                              <span>아직 질문이나 정답 도전이 없습니다.</span>
+                            </div>
+                          ) : null}
                           <div className="twenty-timeline">
                             {attemptTimeline.map((entry) => {
                               const isQuestion = entry.kind === 'question';

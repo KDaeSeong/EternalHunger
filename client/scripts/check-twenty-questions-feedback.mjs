@@ -5,13 +5,15 @@ const sourceUrl = new URL('../src/app/twenty-questions/_lib/twentyQuestionsFeedb
 const source = await readFile(sourceUrl, 'utf8');
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 const { twentyQuestionsFeedback } = await import(moduleUrl);
-const [iconSource, sfxSource, roomSource, lobbySource, progressSource, meterSource] = await Promise.all([
+const [iconSource, sfxSource, shellSource, roomSource, lobbySource, progressSource, meterSource, styleSource] = await Promise.all([
   readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8'),
+  readFile(new URL('../src/app/games/_components/GamePlayShell.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/twenty-questions/_components/TwentyQuestionsRoomContent.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/twenty-questions/page.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/twenty-questions/_lib/twentyQuestionsProgress.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/app/twenty-questions/_components/TwentyQuestionsAttemptMeter.js', import.meta.url), 'utf8'),
+  readFile(new URL('../src/styles/TwentyQuestions.css', import.meta.url), 'utf8'),
 ]);
 const progressModuleUrl = `data:text/javascript;base64,${Buffer.from(progressSource).toString('base64')}`;
 const {
@@ -58,6 +60,17 @@ for (const [action, result, expectedCue, expectedIcon] of cases) {
 const custom = twentyQuestionsFeedback('guess', { correct: true, message: '케이 정답!' });
 assert.equal(custom.text, '케이 정답!', '서버 결과 메시지를 피드백 행에 유지해야 합니다.');
 assert.ok(lobbySource.includes('data-game-sfx="twentyRoomEnter"'), '방 카드 입장에는 전용 입장음이 연결되어야 합니다.');
+const navigationCues = ['twentyWriterOpen', 'twentyWriterClose', 'twentyFilter', 'twentyTabDeduction', 'twentyTabHints', 'twentyTabHistory'];
+for (const cue of navigationCues) assert.ok(sfxSource.includes(`${cue}: [`), `${cue} 전용 UI 효과음 프로필이 있어야 합니다.`);
+assert.ok(shellSource.includes("data-game-sfx={tab.cue || 'tab'}"), '공통 기능 탭은 게임별 전용 효과음을 받을 수 있어야 합니다.');
+assert.ok(lobbySource.includes("cue={writerOpen ? 'twentyWriterClose' : 'twentyWriterOpen'}"), '방 만들기 패널 열기와 닫기는 서로 다른 전용음을 사용해야 합니다.');
+assert.equal((lobbySource.match(/data-game-sfx-change="twentyFilter"/g) || []).length, 2, '상태와 카테고리 필터는 전용 필터음을 사용해야 합니다.');
+for (const cue of ['twentyTabDeduction', 'twentyTabHints', 'twentyTabHistory']) assert.ok(roomSource.includes(`cue: '${cue}'`), `${cue}가 해당 기능 탭에 연결되어야 합니다.`);
+assert.ok(lobbySource.includes('action="room" cue="off" onClick={createRoom}'), '방 생성은 선행 클릭음 없이 서버 결과음만 재생해야 합니다.');
+for (const action of ['question', 'guess', 'hint']) assert.ok(roomSource.includes(`action="${action}" cue="off"`), `${action} 행동은 선행 클릭음 없이 서버 결과음만 재생해야 합니다.`);
+assert.ok(roomSource.includes('action={`answer-${option.value}`}') && roomSource.includes('cue="off"'), '방장 답변은 선행 클릭음 없이 서버 결과음만 재생해야 합니다.');
+assert.ok(roomSource.includes('action="close" cue="off"'), '방 종료는 선행 경고음 없이 서버 결과음만 재생해야 합니다.');
+assert.ok(styleSource.includes('.twenty-empty.twenty-inline-state'), '아이콘이 있는 빈 상태는 중앙 정렬되어야 합니다.');
 assert.ok(roomSource.includes("announce('exhausted'"), '횟수 소진은 일반 오류와 다른 피드백을 사용해야 합니다.');
 assert.ok(roomSource.includes("announce('hostOnly'"), '방장 전용 행동은 일반 오류와 다른 피드백을 사용해야 합니다.');
 assert.ok(roomSource.includes('ROOM_POLL_INTERVAL_MS'), '진행 중인 방은 짧은 간격으로 최신 상태를 동기화해야 합니다.');
@@ -96,7 +109,7 @@ assert.equal(twentyQuestionsProgressTransition(
 const semanticIconUses = (roomSource.match(/<GameActionIcon\b/g) || []).length
   + (lobbySource.match(/<GameActionIcon\b/g) || []).length
   + (meterSource.match(/<GameActionIcon\b/g) || []).length;
-assert.ok(semanticIconUses >= 40, '로비와 방 상태에 충분한 의미 아이콘이 배치되어야 합니다.');
+assert.ok(semanticIconUses >= 50, '로비와 방 상태에 충분한 의미 아이콘이 배치되어야 합니다.');
 
 console.log(JSON.stringify({
   feedbackCases: cases.length,
@@ -105,4 +118,6 @@ console.log(JSON.stringify({
   wrongCue: twentyQuestionsFeedback('guess', { correct: false }).cue,
   hostAnswers: ['yes', 'no', 'maybe'].map((response) => twentyQuestionsFeedback('answer', { response }).cue),
   progressPhases: [opening.phase.id, narrowing.phase.id, final.phase.id, pending.phase.id, solved.phase.id],
+  navigationCues,
+  resultCueGuards: 6,
 }, null, 2));
