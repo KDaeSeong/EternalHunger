@@ -439,6 +439,10 @@ const broadcastIconCases = [
   ['해설', '후반 운영을 준비합니다.', 'starleague-build-macro'],
   ['해설', '첫 정찰로 상대 정보를 확인합니다.', 'starleague-scout'],
   ['해설', '앞마당 확장으로 일꾼을 늘립니다.', 'starleague-economy'],
+  ['해설', '견제가 일꾼과 시야를 동시에 흔듭니다.', 'starleague-worker-harass'],
+  ['해설', '초반 러시를 막아낸 뒤 생산력이 살아납니다.', 'starleague-defense'],
+  ['해설', '병력 합류를 한 박자 먼저 맞춥니다.', 'starleague-reinforce'],
+  ['해설', '숨긴 테크가 공개됩니다.', 'starleague-hidden-tech'],
   ['해설', '중앙 주도권과 병력 위치를 먼저 잡습니다.', 'starleague-control'],
   ['데이터', '빠른 테크 전환입니다.', 'starleague-build-tech'],
   ['해설', '드랍 견제로 흔듭니다.', 'starleague-drop'],
@@ -465,6 +469,10 @@ const broadcastCueCases = [
   ['해설', '후반 운영을 준비합니다.', 'starleagueBroadcastStrategy'],
   ['해설', '첫 정찰로 상대 정보를 확인합니다.', 'starleagueBroadcastScout'],
   ['해설', '앞마당 확장으로 일꾼을 늘립니다.', 'starleagueBroadcastEconomy'],
+  ['해설', '견제가 일꾼과 시야를 동시에 흔듭니다.', 'starleagueBroadcastWorkerHarass'],
+  ['해설', '초반 러시를 막아낸 뒤 생산력이 살아납니다.', 'starleagueBroadcastDefense'],
+  ['해설', '병력 합류를 한 박자 먼저 맞춥니다.', 'starleagueBroadcastReinforce'],
+  ['해설', '숨긴 테크가 공개됩니다.', 'starleagueBroadcastHiddenTech'],
   ['해설', '중앙 주도권과 병력 위치를 먼저 잡습니다.', 'starleagueBroadcastControl'],
   ['해설', '드랍십이 본진에 침투합니다.', 'starleagueBroadcastDrop'],
   ['해설', '뮤탈과 스커지가 공중전을 엽니다.', 'starleagueBroadcastAir'],
@@ -538,8 +546,8 @@ for (const icon of [
   'starleague-broadcast', 'starleague-build-balanced', 'starleague-build-harass',
   'starleague-build-macro', 'starleague-build-rush', 'starleague-build-tech',
   'starleague-air', 'starleague-base-race', 'starleague-caster', 'starleague-clash',
-  'starleague-comeback', 'starleague-control', 'starleague-drop', 'starleague-economy',
-  'starleague-flank',
+  'starleague-comeback', 'starleague-control', 'starleague-defense', 'starleague-drop', 'starleague-economy',
+  'starleague-flank', 'starleague-hidden-tech', 'starleague-reinforce', 'starleague-worker-harass',
   'starleague-race-protoss', 'starleague-race-terran', 'starleague-race-zerg',
   'starleague-reverse-sweep', 'starleague-scout', 'starleague-siege',
   'starleague-spell', 'starleague-sweep', 'starleague-clutch', 'starleague-upset',
@@ -576,7 +584,18 @@ assert.match(
 );
 assert.match(playPanelsSource, /className="games-broadcast-event"/, '중계 타임라인은 사건 종류를 텍스트 라벨로도 표시해야 합니다.');
 assert.match(styleSource, /games-broadcast-event\[data-event="starleague-scout"\]/, '정찰 사건은 전용 시각 톤을 사용해야 합니다.');
-for (const event of ['starleague-drop', 'starleague-air', 'starleague-siege', 'starleague-spell', 'starleague-flank', 'starleague-base-race']) {
+for (const event of [
+  'starleague-drop',
+  'starleague-air',
+  'starleague-siege',
+  'starleague-spell',
+  'starleague-flank',
+  'starleague-base-race',
+  'starleague-worker-harass',
+  'starleague-defense',
+  'starleague-reinforce',
+  'starleague-hidden-tech',
+]) {
   assert.match(
     styleSource,
     new RegExp(`games-broadcast-event\\[data-event="${event}"\\]`),

@@ -42,7 +42,11 @@ const BROADCAST_LINE_CUES = Object.freeze({
   'starleague-flank': 'starleagueBroadcastFlank',
   'starleague-comeback': 'starleagueBroadcastMomentum',
   'starleague-control': 'starleagueBroadcastControl',
+  'starleague-defense': 'starleagueBroadcastDefense',
   'starleague-economy': 'starleagueBroadcastEconomy',
+  'starleague-hidden-tech': 'starleagueBroadcastHiddenTech',
+  'starleague-reinforce': 'starleagueBroadcastReinforce',
+  'starleague-worker-harass': 'starleagueBroadcastWorkerHarass',
   'starleague-reverse-sweep': 'starleagueBroadcastMomentum',
   'starleague-siege': 'starleagueBroadcastSiege',
   'starleague-spell': 'starleagueBroadcastSpell',
@@ -68,7 +72,11 @@ const BROADCAST_LINE_LABELS = Object.freeze({
   'starleague-flank': '포위 기동',
   'starleague-comeback': '역전',
   'starleague-control': '주도권',
+  'starleague-defense': '수비 대응',
   'starleague-economy': '경제',
+  'starleague-hidden-tech': '숨은 카드',
+  'starleague-reinforce': '병력 합류',
+  'starleague-worker-harass': '일꾼 타격',
   'starleague-reverse-sweep': '역스윕',
   'starleague-scout': '정찰 정보',
   'starleague-siege': '공성전',
@@ -87,6 +95,10 @@ export function starleagueBroadcastLineAction(caster, text) {
   if (/최종 세트|마지막 세트|매치 포인트|끝장 승부|decider/.test(line)) return 'starleague-clutch';
   if (/이변|업셋|예측을? (?:뒤집|비튼)|upset/.test(line)) return 'starleague-upset';
   if (/역전|뒤집|따라잡|comeback/.test(line)) return 'starleague-comeback';
+  if (/숨긴 (?:카드|테크|빌드)|숨겨놓고|테크 카드가 숨어|다크인지 리버인지 확인 못|정찰을 숨긴/.test(line)) return 'starleague-hidden-tech';
+  if (/일꾼 (?:피해|줄|라인)|일꾼과 시야|프로브와 드론을 계속 뒤로|미니맵.*일꾼 줄/.test(line)) return 'starleague-worker-harass';
+  if (/(?:러시|압박|공격).*(?:막아냈|막아낸|막은 뒤)|첫 수비를 넘기자마자|첫 방어를 넘겼|수비 성공|방어에 성공|초반 방어 위치|수비 병력|방어 병력|수비 반응 속도|수비 동선/.test(line)) return 'starleague-defense';
+  if (/병력 합류|본대 합류|드라군이 합류|리버가 .*합류/.test(line)) return 'starleague-reinforce';
   if (/정찰|시야|스캔|옵저버|오버로드|정보/.test(line)) return 'starleague-scout';
   if (/엘리전|빈집|서로의 본진|본진 (?:교환|타격|공격)/.test(line)) return 'starleague-base-race';
   if (/드랍|드랍십|셔틀 (?:견제|공격|침투)|리콜/.test(line)) return 'starleague-drop';

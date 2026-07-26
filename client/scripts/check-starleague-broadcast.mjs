@@ -78,6 +78,10 @@ const specializedActionCoverage = {
   'starleague-spell': sets.length * 0.2,
   'starleague-flank': sets.length * 0.03,
   'starleague-base-race': sets.length * 0.1,
+  'starleague-worker-harass': sets.length * 0.1,
+  'starleague-defense': sets.length * 0.02,
+  'starleague-reinforce': sets.length * 0.03,
+  'starleague-hidden-tech': sets.length * 0.08,
 };
 for (const [action, minimum] of Object.entries(specializedActionCoverage)) {
   assert.ok(

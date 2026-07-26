@@ -4123,6 +4123,30 @@ THEME_CUE_PROFILES.starleague = {
     { frequency: 329.63, start: 0.055, duration: 0.085, type: 'triangle', gain: 0.026, pan: 0.02 },
     { frequency: 440, start: 0.12, duration: 0.1, type: 'sine', gain: 0.022, pan: 0.34, reverb: 0.3 },
   ],
+  starleagueBroadcastWorkerHarass: [
+    { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.035, gain: 0.014, pan: -0.5 },
+    { frequency: 987.77, endFrequency: 739.99, duration: 0.055, type: 'square', gain: 0.022, pan: -0.34 },
+    { frequency: 659.25, endFrequency: 493.88, start: 0.05, duration: 0.065, type: 'triangle', gain: 0.027, pan: 0.04 },
+    { frequency: 196, start: 0.11, duration: 0.12, type: 'sine', gain: 0.031, pan: 0.38, reverb: 0.24 },
+  ],
+  starleagueBroadcastDefense: [
+    { source: 'noise', filterType: 'bandpass', frequency: 620, q: 2.5, duration: 0.08, gain: 0.016, pan: -0.42, reverb: 0.24 },
+    { frequency: 196, duration: 0.07, type: 'square', gain: 0.028, pan: -0.28 },
+    { frequency: 392, start: 0.06, duration: 0.085, type: 'triangle', gain: 0.03, pan: 0.02 },
+    { frequency: 783.99, start: 0.135, duration: 0.12, type: 'sine', gain: 0.024, pan: 0.38, reverb: 0.36 },
+  ],
+  starleagueBroadcastReinforce: [
+    { frequency: 261.63, duration: 0.045, type: 'triangle', gain: 0.027, pan: -0.48 },
+    { frequency: 329.63, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.027, pan: -0.16 },
+    { frequency: 440, start: 0.09, duration: 0.07, type: 'triangle', gain: 0.026, pan: 0.16 },
+    { frequency: 659.25, start: 0.155, duration: 0.11, type: 'sine', gain: 0.023, pan: 0.42, reverb: 0.32 },
+  ],
+  starleagueBroadcastHiddenTech: [
+    { source: 'noise', filterType: 'lowpass', frequency: 420, duration: 0.13, gain: 0.014, pan: -0.48, reverb: 0.36 },
+    { frequency: 130.81, duration: 0.12, type: 'sine', gain: 0.029, pan: -0.3, reverb: 0.28 },
+    { frequency: 523.25, start: 0.08, duration: 0.09, type: 'triangle', gain: 0.025, pan: 0.08 },
+    { frequency: 1046.5, start: 0.16, duration: 0.13, type: 'sine', gain: 0.021, pan: 0.42, reverb: 0.44 },
+  ],
   starleagueBroadcastControl: [
     { source: 'noise', filterType: 'bandpass', frequency: 980, q: 1.8, duration: 0.045, gain: 0.012, pan: -0.5 },
     { frequency: 220, endFrequency: 440, duration: 0.11, type: 'triangle', gain: 0.027, pan: -0.36 },

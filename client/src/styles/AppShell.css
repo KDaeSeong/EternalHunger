@@ -6498,6 +6498,30 @@
   color: #9b3828 !important;
 }
 
+.games-broadcast-event[data-event="starleague-worker-harass"] {
+  border-color: rgba(183, 54, 82, 0.28);
+  background: #fff0f4;
+  color: #922b49 !important;
+}
+
+.games-broadcast-event[data-event="starleague-defense"] {
+  border-color: rgba(38, 125, 94, 0.28);
+  background: #edf8f3;
+  color: #1d684f !important;
+}
+
+.games-broadcast-event[data-event="starleague-reinforce"] {
+  border-color: rgba(43, 105, 173, 0.27);
+  background: #eef6ff;
+  color: #285f9a !important;
+}
+
+.games-broadcast-event[data-event="starleague-hidden-tech"] {
+  border-color: rgba(102, 75, 145, 0.28);
+  background: #f6f1fc;
+  color: #65478c !important;
+}
+
 .starleague-set-replay {
   min-width: 0;
   display: grid;
