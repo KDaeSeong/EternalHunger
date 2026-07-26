@@ -5,8 +5,8 @@ import GameActionIcon from '../../_components/GameActionIcon';
 import useGameSfx from '../../_lib/useGameSfx';
 import { getMatchArchiveRows, getPlayedCount, getTeam } from '../_lib/myAnimeCraftEngine';
 import {
-  starleagueBroadcastLineAction,
   starleagueBroadcastLineCue,
+  starleagueBroadcastLinePresentation,
 } from '../_lib/starleaguePresentation';
 
 const BROADCAST_PLAYBACK_STEP_MS = 1100;
@@ -71,6 +71,7 @@ export function BroadcastTimeline({ lines, title = '중계 타임라인', durati
       <ol className="games-broadcast-timeline">
         {timelineLines.map((line, index) => {
           const phase = timelinePhase(line.t, durationSec);
+          const linePresentation = starleagueBroadcastLinePresentation(line.caster, line.text);
           const isActive = index === playbackIndex;
           const isPlayed = playbackActive && index < playbackIndex;
           return (
@@ -80,8 +81,9 @@ export function BroadcastTimeline({ lines, title = '중계 타임라인', durati
               aria-current={isActive ? 'step' : undefined}
             >
               <span className="games-broadcast-line-meta">
-                <GameActionIcon action={starleagueBroadcastLineAction(line.caster, line.text)} label={line.caster || '중계'} />
+                <GameActionIcon action={linePresentation.action} label={linePresentation.label} />
                 <span className={`games-broadcast-phase is-${phase.key}`}>{phase.label}</span>
+                <span className="games-broadcast-event" data-event={linePresentation.action}>{linePresentation.label}</span>
                 {formatTimelineTime(line.t)} · {line.caster || '중계'}
               </span>
               <p>{line.text}</p>

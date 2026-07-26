@@ -5,6 +5,7 @@ import {
   getMatchArchiveRows,
   simulateSeasonAction,
 } from '../src/app/games/myanimecraft/_lib/myAnimeCraftEngine.js';
+import { starleagueBroadcastLineAction } from '../src/app/games/myanimecraft/_lib/starleaguePresentation.js';
 
 const seasons = Array.from({ length: 16 }, (_, index) => simulateSeasonAction(createNewState({
   now: `2026-07-${String((index % 20) + 1).padStart(2, '0')}T00:00:00.000Z`,
@@ -31,6 +32,11 @@ const roleCounts = lines.reduce((out, line) => {
   out[line.caster] = (out[line.caster] || 0) + 1;
   return out;
 }, {});
+const actionCounts = lines.reduce((out, line) => {
+  const action = starleagueBroadcastLineAction(line.caster, line.text);
+  out[action] = (out[action] || 0) + 1;
+  return out;
+}, {});
 const poolCounts = BUILD_DEFS.reduce((out, build) => {
   const key = `${build.race}-${build.matchup}`;
   out[key] = (out[key] || 0) + 1;
@@ -52,6 +58,18 @@ for (const style of ['rush', 'harass', 'macro', 'tech', 'balanced']) {
 assert.ok(averageLinesPerSet >= 15, '세트마다 개막부터 결과까지 최소 15줄 중계가 필요합니다.');
 for (const role of ['캐스터', '해설', '해설 B', '데이터', '리플레이', '벤치']) {
   assert.ok(roleCounts[role] > 0, `${role} 역할의 중계가 생성되어야 합니다.`);
+}
+const minimumActionCoverage = {
+  'starleague-scout': sets.length * 2,
+  'starleague-economy': sets.length * 0.5,
+  'starleague-control': sets.length,
+  'starleague-clash': sets.length,
+};
+for (const [action, minimum] of Object.entries(minimumActionCoverage)) {
+  assert.ok(
+    actionCounts[action] >= minimum,
+    `${action} 사건이 세트 흐름에서 충분히 반복되어야 합니다: ${actionCounts[action] || 0}/${Math.ceil(minimum)}`,
+  );
 }
 assert.ok(new Set(lineTexts).size >= 9000, '선수·맵·빌드 조합을 반영한 중계 문장 다양성이 부족합니다.');
 assert.ok(new Set(normalizedLines).size >= 400, '이름을 제외한 중계 문장 골격도 충분히 다양해야 합니다.');
@@ -97,4 +115,5 @@ console.log(JSON.stringify({
   uniqueExactLines: new Set(lineTexts).size,
   uniqueNormalizedLines: new Set(normalizedLines).size,
   roleCounts,
+  actionCounts,
 }, null, 2));

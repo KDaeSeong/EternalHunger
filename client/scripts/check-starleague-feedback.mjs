@@ -11,6 +11,7 @@ import {
 import {
   starleagueBroadcastLineAction,
   starleagueBroadcastLineCue,
+  starleagueBroadcastLinePresentation,
   starleagueBuildAction,
   starleagueRaceAction,
 } from '../src/app/games/myanimecraft/_lib/starleaguePresentation.js';
@@ -435,7 +436,10 @@ assert.deepEqual(
 );
 const broadcastIconCases = [
   ['캐스터', '초반 러시가 들어갑니다.', 'starleague-build-rush'],
-  ['해설', '멀티를 늘리며 운영합니다.', 'starleague-build-macro'],
+  ['해설', '후반 운영을 준비합니다.', 'starleague-build-macro'],
+  ['해설', '첫 정찰로 상대 정보를 확인합니다.', 'starleague-scout'],
+  ['해설', '앞마당 확장으로 일꾼을 늘립니다.', 'starleague-economy'],
+  ['해설', '중앙 주도권과 병력 위치를 먼저 잡습니다.', 'starleague-control'],
   ['데이터', '빠른 테크 전환입니다.', 'starleague-build-tech'],
   ['해설', '드랍 견제로 흔듭니다.', 'starleague-build-harass'],
   ['캐스터', '에이스전이 시작됩니다.', 'starleague-ace'],
@@ -453,12 +457,20 @@ const broadcastCueCases = [
   ['캐스터', '선수들이 입장합니다.', 'starleagueBroadcastOpening'],
   ['데이터', '준비한 빌드를 분석합니다.', 'starleagueBroadcastAnalysis'],
   ['캐스터', '초반 러시가 들어갑니다.', 'starleagueBroadcastRush'],
-  ['해설', '멀티를 늘리며 운영합니다.', 'starleagueBroadcastStrategy'],
+  ['해설', '후반 운영을 준비합니다.', 'starleagueBroadcastStrategy'],
+  ['해설', '첫 정찰로 상대 정보를 확인합니다.', 'starleagueBroadcastScout'],
+  ['해설', '앞마당 확장으로 일꾼을 늘립니다.', 'starleagueBroadcastEconomy'],
+  ['해설', '중앙 주도권과 병력 위치를 먼저 잡습니다.', 'starleagueBroadcastControl'],
   ['캐스터', '정면 교전이 열립니다.', 'starleagueBroadcastImpact'],
   ['캐스터', '마지막에 역전합니다.', 'starleagueBroadcastMomentum'],
   ['캐스터', '에이스전 마지막 세트입니다.', 'starleagueBroadcastFinal'],
   ['캐스터', '완봉승으로 마무리합니다.', 'starleagueBroadcastResult'],
 ];
+assert.deepEqual(
+  starleagueBroadcastLinePresentation('해설', '첫 정찰로 상대 정보를 확인합니다.'),
+  { action: 'starleague-scout', cue: 'starleagueBroadcastScout', label: '정찰 정보' },
+  '정찰 중계는 아이콘·효과음·라벨이 하나의 사건 표현으로 묶여야 합니다.',
+);
 for (const [caster, text, expectedCue] of broadcastCueCases) {
   assert.equal(
     starleagueBroadcastLineCue(caster, text),
@@ -510,8 +522,10 @@ for (const icon of [
   'starleague-broadcast', 'starleague-build-balanced', 'starleague-build-harass',
   'starleague-build-macro', 'starleague-build-rush', 'starleague-build-tech',
   'starleague-caster', 'starleague-clash', 'starleague-comeback',
+  'starleague-control', 'starleague-economy',
   'starleague-race-protoss', 'starleague-race-terran', 'starleague-race-zerg',
-  'starleague-reverse-sweep', 'starleague-sweep', 'starleague-clutch', 'starleague-upset',
+  'starleague-reverse-sweep', 'starleague-scout', 'starleague-sweep',
+  'starleague-clutch', 'starleague-upset',
 ]) {
   assert.match(iconSource, new RegExp(`\\n  ['"]?${icon}['"]?: `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
 }
@@ -540,9 +554,12 @@ assert.match(leagueSource, /starleagueBuildAction\(row\.style\)/, '빌드 메타
 assert.match(recordsSource, /starleagueRaceAction\((?:row|member)\.race\)/, '선수 행은 실제 종족 아이콘을 사용해야 합니다.');
 assert.match(
   playPanelsSource,
-  /starleagueBroadcastLineAction\(line\.caster, line\.text\)/,
-  '중계 타임라인은 발화 내용과 역할을 함께 반영한 아이콘을 사용해야 합니다.',
-);assert.match(playPanelsSource, /data-game-sfx="replay"/, '중계 펼치기에는 전용 리플레이 효과음을 사용해야 합니다.');
+  /starleagueBroadcastLinePresentation\(line\.caster, line\.text\)/,
+  '중계 타임라인은 발화 내용과 역할을 함께 반영한 사건 프레젠테이션을 사용해야 합니다.',
+);
+assert.match(playPanelsSource, /className="games-broadcast-event"/, '중계 타임라인은 사건 종류를 텍스트 라벨로도 표시해야 합니다.');
+assert.match(styleSource, /games-broadcast-event\[data-event="starleague-scout"\]/, '정찰 사건은 전용 시각 톤을 사용해야 합니다.');
+assert.match(playPanelsSource, /data-game-sfx="replay"/, '중계 펼치기에는 전용 리플레이 효과음을 사용해야 합니다.');
 assert.match(playPanelsSource, /BROADCAST_PLAYBACK_STEP_MS = 1100/, '중계 재생은 빠른 방송 템포로 장면을 순회해야 합니다.');
 assert.match(playPanelsSource, /starleagueBroadcastLineCue\(activeLine\.caster, activeLine\.text\)/, '재생 중인 중계 문맥에 맞는 효과음을 사용해야 합니다.');
 assert.match(playPanelsSource, /className="game-control-button starleague-broadcast-playback"/, '중계 재생·중지 컨트롤을 제공해야 합니다.');

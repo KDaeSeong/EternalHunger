@@ -6380,8 +6380,9 @@
 
 .games-broadcast-line-meta {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
+  gap: 3px 5px;
 }
 
 .games-broadcast-line-meta .game-action-icon,
@@ -6428,6 +6429,42 @@
   border-color: rgba(25, 135, 84, 0.24);
   background: #edf9f3;
   color: #12683f !important;
+}
+
+.games-broadcast-event {
+  flex: 0 0 auto;
+  border: 1px solid rgba(82, 107, 125, 0.2);
+  border-radius: 999px;
+  background: #f4f7f9;
+  color: #40586a !important;
+  font-size: 0.65rem !important;
+  font-weight: 900;
+  line-height: 1.1;
+  padding: 2px 6px;
+}
+
+.games-broadcast-event[data-event="starleague-scout"] {
+  border-color: rgba(20, 134, 166, 0.28);
+  background: #e9f8fb;
+  color: #12677e !important;
+}
+
+.games-broadcast-event[data-event="starleague-economy"] {
+  border-color: rgba(36, 130, 78, 0.24);
+  background: #edf8f1;
+  color: #17683a !important;
+}
+
+.games-broadcast-event[data-event="starleague-control"] {
+  border-color: rgba(180, 119, 18, 0.26);
+  background: #fff6df;
+  color: #80530b !important;
+}
+
+.games-broadcast-event[data-event="starleague-clash"] {
+  border-color: rgba(176, 63, 63, 0.25);
+  background: #fff0f0;
+  color: #8d3030 !important;
 }
 
 .starleague-set-replay {

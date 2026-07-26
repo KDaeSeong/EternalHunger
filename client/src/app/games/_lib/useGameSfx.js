@@ -3615,6 +3615,21 @@ THEME_CUE_PROFILES.starleague = {
     { frequency: 659.25, start: 0.055, duration: 0.05, type: 'sine', gain: 0.025, pan: 0.04, reverb: 0.26 },
     { frequency: 783.99, start: 0.115, duration: 0.075, type: 'sine', gain: 0.022, pan: 0.34, reverb: 0.3 },
   ],
+  starleagueBroadcastScout: [
+    { source: 'noise', filterType: 'bandpass', frequency: 2450, q: 2.4, duration: 0.032, gain: 0.012, pan: -0.48 },
+    { frequency: 1318.51, duration: 0.04, type: 'sine', gain: 0.025, pan: -0.42, reverb: 0.2 },
+    { frequency: 1760, start: 0.085, duration: 0.065, type: 'sine', gain: 0.021, pan: 0.4, reverb: 0.32 },
+  ],
+  starleagueBroadcastEconomy: [
+    { frequency: 261.63, duration: 0.07, type: 'triangle', gain: 0.028, pan: -0.32 },
+    { frequency: 329.63, start: 0.055, duration: 0.085, type: 'triangle', gain: 0.026, pan: 0.02 },
+    { frequency: 440, start: 0.12, duration: 0.1, type: 'sine', gain: 0.022, pan: 0.34, reverb: 0.3 },
+  ],
+  starleagueBroadcastControl: [
+    { source: 'noise', filterType: 'bandpass', frequency: 980, q: 1.8, duration: 0.045, gain: 0.012, pan: -0.5 },
+    { frequency: 220, endFrequency: 440, duration: 0.11, type: 'triangle', gain: 0.027, pan: -0.36 },
+    { frequency: 659.25, start: 0.08, duration: 0.09, type: 'sine', gain: 0.023, pan: 0.42, reverb: 0.28 },
+  ],
   starleagueBroadcastRush: [
     { source: 'noise', filterType: 'highpass', frequency: 1750, duration: 0.035, gain: 0.014, pan: -0.4 },
     { frequency: 196, endFrequency: 440, duration: 0.08, type: 'sawtooth', gain: 0.03, pan: -0.18 },
