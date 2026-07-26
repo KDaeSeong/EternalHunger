@@ -131,7 +131,7 @@ export function createNewState(options = {}) {
     inventory,
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
-    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, irrigation: 0, camp: 0, meals: 0, events: 0 },
+    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, irrigation: 0, preserve: 0, camp: 0, meals: 0, events: 0 },
     eventChains: [],
     exploration: initExplorationState(),
     projects: initProjectState(),
@@ -454,6 +454,7 @@ const RESEARCH_ACTION_LABELS = {
   treatment: '치료',
   festival: '축제',
   irrigation: '관개 정비',
+  preserve: '식량 보존',
 };
 
 function recipeName(recipeId) {
@@ -4664,6 +4665,8 @@ function resolveSpecializedActionRegion(state, profile, requestedRegionId = '') 
 const IRRIGATION_MAX_CHARGES = 3;
 const IRRIGATION_CHANCE_BONUS = 0.12;
 const IRRIGATION_ACTION_COST = { wood: 2, clay: 1 };
+const FOOD_PRESERVATION_COST = { meat: 2, resin: 1, berry: 1, herb: 1 };
+const FOOD_PRESERVATION_REWARD = [['packed_ration', 1]];
 
 function irrigationCharges(state) {
   return Math.min(IRRIGATION_MAX_CHARGES, Math.max(0, Number(state.exploration?.irrigationCharges || 0)));
@@ -4751,6 +4754,7 @@ const CIVILIZATION_ACTION_DEFS = [
   { id: 'treatment', label: '치료', icon: 'primitive-treatment', techId: 'MEDICAL_CORPUS', staminaCost: 8, hungerAdd: 1 },
   { id: 'festival', label: '축제', icon: 'primitive-festival', techId: 'DRAMA', staminaCost: 10, hungerAdd: 2 },
   { id: 'irrigation', label: '관개 정비', icon: 'primitive-irrigation', techId: 'IRRIGATION', staminaCost: 16, hungerAdd: 2 },
+  { id: 'preserve', label: '식량 보존', icon: 'primitive-preserve', techId: 'FOOD_STORAGE', staminaCost: 14, hungerAdd: 2 },
 ];
 
 function surveyCandidates(state) {
@@ -4839,6 +4843,13 @@ export function utilityActionRows(state, actorId) {
       context = `관개 효과 ${activeIrrigationCharges}/${IRRIGATION_MAX_CHARGES}`;
       outcome = `다음 농업 ${IRRIGATION_MAX_CHARGES}회 · 성공률 +${Math.round(IRRIGATION_CHANCE_BONUS * 100)}%p · 곡물 +1`;
       materialText = formatRequires(IRRIGATION_ACTION_COST);
+    } else if (profile.id === 'preserve') {
+      const materialsReady = hasResources(current.inventory, FOOD_PRESERVATION_COST);
+      requirementMet = materialsReady;
+      lockedReason = materialsReady ? '' : `재료 부족: ${formatRequires(FOOD_PRESERVATION_COST)}`;
+      context = `보존식 ${Number(current.inventory.packed_ration || 0)}개 보유`;
+      outcome = `${itemName('packed_ration')} 1 · 허기 -${foodNutritionValue(current, 'packed_ration')}`;
+      materialText = formatRequires(FOOD_PRESERVATION_COST);
     }
 
     if (!unlocked) lockedReason = `${technology?.name || profile.techId} 연구 필요`;
@@ -4912,6 +4923,12 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
       exploration: { ...next.exploration, irrigationCharges: IRRIGATION_MAX_CHARGES },
     };
     next = addLog(next, `${actor.name}의 관개 정비 완료. ${formatRequires(IRRIGATION_ACTION_COST)}을 사용해 다음 농업 ${IRRIGATION_MAX_CHARGES}회에 성공률 +${Math.round(IRRIGATION_CHANCE_BONUS * 100)}%p, 곡물 +1 효과를 적용합니다.`);
+  } else if (profile.id === 'preserve') {
+    next = {
+      ...next,
+      inventory: addItems(spendResources(next.inventory, FOOD_PRESERVATION_COST), FOOD_PRESERVATION_REWARD),
+    };
+    next = addLog(next, `${actor.name}의 식량 보존 완료. ${formatRequires(FOOD_PRESERVATION_COST)}을 가공해 ${itemName('packed_ration')} 1개를 만들었습니다.`);
   }
 
   next = {

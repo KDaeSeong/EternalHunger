@@ -87,7 +87,7 @@ assert.equal(previewUtilityRows.every((row) => row.unlocked), true, '개발자 �
 const utilityReady = engine.normalizeState({
   ...base,
   ap: 4,
-  inventory: { ...base.inventory, herb: 2, berry: 12, wood: 4, clay: 2 },
+  inventory: { ...base.inventory, herb: 2, berry: 12, wood: 4, clay: 2, meat: 3, resin: 2 },
   party: base.party.map((member) => (
     member.id === 'shiroko' ? { ...member, hp: 60, bodyTemp: 36 } : member
   )),
@@ -99,6 +99,7 @@ const utilityReady = engine.normalizeState({
       MEDICAL_CORPUS: true,
       AGRICULTURE: true,
       IRRIGATION: true,
+      FOOD_STORAGE: true,
     },
   },
   civics: {
@@ -114,13 +115,14 @@ const utilityReady = engine.normalizeState({
 const utilityRows = engine.utilityActionRows(utilityReady, 'shiroko');
 assert.deepEqual(
   utilityRows.filter((row) => row.available).map((row) => row.id).sort(),
-  ['festival', 'irrigation', 'patrol', 'survey', 'treatment'],
-  '연구와 재료 조건을 충족하면 운영 행동 다섯 가지를 모두 실행할 수 있어야 합니다.',
+  ['festival', 'irrigation', 'patrol', 'preserve', 'survey', 'treatment'],
+  '연구와 재료 조건을 충족하면 운영 행동 여섯 가지를 모두 실행할 수 있어야 합니다.',
 );
 for (const [techId, label] of [
   ['CARTOGRAPHY', '지도 답사'],
   ['MEDICAL_CORPUS', '치료'],
   ['IRRIGATION', '관개 정비'],
+  ['FOOD_STORAGE', '식량 보존'],
 ]) {
   assert.match(
     engine.researchPlannerRows(utilityReady).find((row) => row.id === techId)?.unlockText || '',
@@ -204,6 +206,29 @@ assert.equal(wetFarmResult.exploration.irrigationCharges, 2, '성공한 농업 �
 const failedWetFarmResult = engine.runSpecializedAction(farmComparisonBase, 'shiroko', 'farm', '', { rng: () => 0.999999 });
 assert.equal(failedWetFarmResult.exploration.irrigationCharges, 2, '실패한 농업 행동도 관개 충전을 1회 사용해야 합니다.');
 assert.equal(failedWetFarmResult.log.some((entry) => /관개 효과는 1회 소모/.test(entry)), true, '농업 실패 로그는 관개 충전 소모를 알려야 합니다.');
+
+const preserveBlockedState = engine.normalizeState({
+  ...utilityReady,
+  inventory: { ...utilityReady.inventory, resin: 0 },
+});
+const preserveBlockedRow = engine.utilityActionRows(preserveBlockedState, 'shiroko').find((row) => row.id === 'preserve');
+assert.equal(preserveBlockedRow?.available, false, '수지가 부족하면 식량 보존이 비활성화되어야 합니다.');
+assert.match(preserveBlockedRow?.lockedReason || '', /재료 부족/, '식량 보존은 부족한 재료를 설명해야 합니다.');
+
+const preservationBefore = {
+  meat: Number(utilityReady.inventory.meat || 0),
+  resin: Number(utilityReady.inventory.resin || 0),
+  berry: Number(utilityReady.inventory.berry || 0),
+  herb: Number(utilityReady.inventory.herb || 0),
+  ration: Number(utilityReady.inventory.packed_ration || 0),
+};
+const preserved = engine.runUtilityAction(utilityReady, 'shiroko', 'preserve', { rng: () => 0.5 });
+assert.equal(Number(preserved.inventory.meat || 0), preservationBefore.meat - 2, '식량 보존은 고기 2개를 사용해야 합니다.');
+assert.equal(Number(preserved.inventory.resin || 0), preservationBefore.resin - 1, '식량 보존은 수지 1개를 사용해야 합니다.');
+assert.equal(Number(preserved.inventory.berry || 0), preservationBefore.berry - 1, '식량 보존은 베리 1개를 사용해야 합니다.');
+assert.equal(Number(preserved.inventory.herb || 0), preservationBefore.herb - 1, '식량 보존은 약초 1개를 사용해야 합니다.');
+assert.equal(Number(preserved.inventory.packed_ration || 0), preservationBefore.ration + 1, '식량 보존은 보존 식량 꾸러미 1개를 생산해야 합니다.');
+assert.equal(preserved.counters.preserve, 1, '식량 보존 횟수가 기록되어야 합니다.');
 
 const huntBase = engine.normalizeState({
   ...utilityReady,

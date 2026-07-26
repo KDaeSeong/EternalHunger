@@ -354,6 +354,7 @@ const ACTION_UNLOCK_LABELS = {
   treatment: '치료',
   festival: '축제',
   irrigation: '관개 정비',
+  preserve: '식량 보존',
 };
 
 export function researchUnlockText(tech) {

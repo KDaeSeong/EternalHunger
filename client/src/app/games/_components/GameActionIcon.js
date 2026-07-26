@@ -333,6 +333,7 @@ const ACTION_ICONS = {
   'primitive-treatment': HeartPulse,
   'primitive-festival': PartyPopper,
   'primitive-irrigation': Droplets,
+  'primitive-preserve': PackageCheck,
   'primitive-growth': Sprout,
   'primitive-hunt': Crosshair,
   'primitive-inspiration': Sparkles,

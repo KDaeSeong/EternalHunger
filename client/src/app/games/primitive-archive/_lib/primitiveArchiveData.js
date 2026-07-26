@@ -709,7 +709,7 @@ const RAW_TECH_TREE = [
   {
     id: 'FOOD_STORAGE', name: '식량 저장', era: 'ANCIENT', tier: 6, cost: 28, prereqs: ['HEARTH', 'SETTLEMENT'], tags: ['SURVIVAL', 'CAMP'],
     description: '보존식 제작과 섭취 효율을 높여 장기 생존을 안정화합니다.',
-    unlocks: { recipes: ['packed_ration'], passives: ['STORAGE_RATIONS_UP'] },
+    unlocks: { actions: ['preserve'], recipes: ['packed_ration'], passives: ['STORAGE_RATIONS_UP'] },
     eureka: { type: 'haveItem', itemId: 'jerky', count: 2, bonusPct: 0.25, desc: '육포 2개 보유' },
   },
   {
