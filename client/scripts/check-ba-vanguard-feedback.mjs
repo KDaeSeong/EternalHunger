@@ -217,6 +217,28 @@ for (const trigger of [
   expectResult(base, state, trigger);
 }
 
+for (const trigger of [
+  { label: '파워', key: 'opponentTrigger', action: 'vanguard-trigger-threat', cue: 'vanguardTriggerThreat', tone: 'warning' },
+  { label: '크리티컬', key: 'opponentTriggerCritical', action: 'vanguard-trigger-critical-threat', cue: 'vanguardTriggerThreatCritical', tone: 'danger', batchedDamage: true },
+  { label: '드로우', key: 'opponentTriggerDraw', action: 'vanguard-trigger-draw-threat', cue: 'vanguardTriggerThreat', tone: 'warning' },
+  { label: '스탠드', key: 'opponentTriggerStand', action: 'vanguard-trigger-stand-threat', cue: 'vanguardTriggerThreatCritical', tone: 'danger' },
+  { label: '힐', key: 'opponentTriggerHeal', action: 'vanguard-trigger-heal-threat', cue: 'vanguardTriggerThreat', tone: 'warning' },
+]) {
+  const state = clone(base);
+  const triggerLog = `[AI] ${trigger.label} 트리거가 발동했습니다. (드라이브 체크)`;
+  if (trigger.batchedDamage) {
+    state.players.me.damage.push(triggerId);
+    state.log = ['[AI] 공격이 히트했습니다.', triggerLog, ...state.log];
+  } else {
+    state.log = [triggerLog, ...state.log];
+  }
+  const presentation = expectResult(base, state, trigger);
+  assert.match(presentation.detail, new RegExp(`${trigger.label} 트리거`), '상대 트리거 상세 로그가 최종 공격 로그에 묻히면 안 됩니다.');
+  if (trigger.batchedDamage) {
+    assert.ok(presentation.impacts.some((item) => item.label === '내 데미지' && item.value === '+1'), '상대 트리거를 우선 표시해도 실제 데미지 변화는 함께 보여야 합니다.');
+  }
+}
+
 const invalid = clone(mainState);
 assert.equal(strideWithAutoCost(invalid, 'me'), false, 'G0 VC에서는 스트라이드가 거절되어야 합니다.');
 expectResult(mainState, invalid, { key: 'strideBlocked', action: 'vanguard-stride', cue: 'vanguardStrideBlocked', tone: 'warning' });
@@ -269,7 +291,8 @@ for (const cue of [
   'vanguardRideBlocked', 'vanguardStrideBlocked', 'vanguardSkillBlocked', 'vanguardGuardBlocked', 'vanguardAttackDenied',
   'vanguardGuardWindow', 'vanguardGuard', 'vanguardPerfectGuard', 'vanguardBlocked',
   'vanguardTrigger', 'vanguardTriggerCritical', 'vanguardTriggerDraw', 'vanguardTriggerStand',
-  'vanguardTriggerHeal', 'vanguardHit', 'vanguardDamage', 'vanguardVictory', 'vanguardDefeat',
+  'vanguardTriggerHeal', 'vanguardTriggerThreat', 'vanguardTriggerThreatCritical',
+  'vanguardHit', 'vanguardDamage', 'vanguardVictory', 'vanguardDefeat',
   'vanguardRetire', 'vanguardDeckOut', 'vanguardReplay',
 ]) {
   assert.match(soundSource, new RegExp(`\\n  ${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
@@ -279,7 +302,9 @@ for (const icon of [
   'vanguard-turn', 'vanguard-draw', 'vanguard-ride', 'vanguard-ride-assist', 'vanguard-call', 'vanguard-stride',
   'vanguard-skill', 'vanguard-attack', 'vanguard-guard-window', 'vanguard-guard',
   'vanguard-perfect-guard', 'vanguard-blocked', 'vanguard-trigger', 'vanguard-trigger-critical',
-  'vanguard-trigger-draw', 'vanguard-trigger-stand', 'vanguard-trigger-heal', 'vanguard-hit',
+  'vanguard-trigger-draw', 'vanguard-trigger-stand', 'vanguard-trigger-heal',
+  'vanguard-trigger-threat', 'vanguard-trigger-critical-threat', 'vanguard-trigger-draw-threat',
+  'vanguard-trigger-stand-threat', 'vanguard-trigger-heal-threat', 'vanguard-hit',
   'vanguard-damage', 'vanguard-retire', 'vanguard-victory', 'vanguard-defeat',
   'vanguard-deck-out', 'vanguard-invalid', 'vanguard-replay',
 ]) {
@@ -333,8 +358,8 @@ assert.match(styleSource, /\.ba-vanguard-impact-strip__item/, '수치 변화 띠
 assert.match(styleSource, /\.ba-vanguard-battle-forecast__numbers/, '전투 예측 수치 스타일이 있어야 합니다.');
 
 console.log(JSON.stringify({
-  feedbackTransitions: 33,
-  resultCues: 32,
+  feedbackTransitions: 38,
+  resultCues: 34,
   resultPanels: 3,
   semanticPanelTitles: panelTitleCount,
   semanticRows: iconRowCount,

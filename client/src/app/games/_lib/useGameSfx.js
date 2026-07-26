@@ -1173,6 +1173,16 @@ const CUE_PROFILES = {
     { frequency: 660, start: 0.05, duration: 0.075, type: 'sine', gain: 0.038 },
     { frequency: 880, start: 0.12, duration: 0.11, type: 'sine', gain: 0.034 },
   ],
+  vanguardTriggerThreat: [
+    { source: 'noise', filterType: 'lowpass', frequency: 640, duration: 0.09, gain: 0.036 },
+    { frequency: 660, endFrequency: 330, duration: 0.12, type: 'triangle', gain: 0.04 },
+    { frequency: 220, start: 0.08, duration: 0.16, type: 'sine', gain: 0.035 },
+  ],
+  vanguardTriggerThreatCritical: [
+    { source: 'noise', filterType: 'bandpass', frequency: 480, q: 1.3, duration: 0.12, gain: 0.044 },
+    { frequency: 330, endFrequency: 110, duration: 0.16, type: 'square', gain: 0.042 },
+    { frequency: 110, start: 0.1, duration: 0.2, type: 'sine', gain: 0.038 },
+  ],
   vanguardHit: [
     { source: 'noise', filterType: 'bandpass', frequency: 820, q: 1.4, duration: 0.055, gain: 0.042 },
     { frequency: 260, endFrequency: 520, duration: 0.08, type: 'sawtooth', gain: 0.04 },
@@ -2518,6 +2528,19 @@ const THEME_CUE_PROFILES = {
       { frequency: 495, start: 0.06, duration: 0.085, type: 'sine', gain: 0.044, pan: -0.06 },
       { frequency: 660, start: 0.14, duration: 0.1, type: 'sine', gain: 0.043, pan: 0.2 },
       { frequency: 1320, start: 0.23, duration: 0.22, type: 'sine', gain: 0.035, pan: 0.4, reverb: 0.34 },
+    ],
+    vanguardTriggerThreat: [
+      { source: 'noise', filterType: 'bandpass', frequency: 660, q: 0.9, duration: 0.23, gain: 0.038, pan: -0.5, reverb: 0.24 },
+      { frequency: 660, endFrequency: 330, duration: 0.11, type: 'triangle', gain: 0.046, pan: -0.28 },
+      { frequency: 294, endFrequency: 196, start: 0.08, duration: 0.16, type: 'sawtooth', gain: 0.04 },
+      { frequency: 147, start: 0.19, duration: 0.22, type: 'sine', gain: 0.038, pan: 0.34, reverb: 0.28 },
+    ],
+    vanguardTriggerThreatCritical: [
+      { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.26, gain: 0.048, pan: -0.48, reverb: 0.22 },
+      { frequency: 98, endFrequency: 49, duration: 0.22, type: 'sawtooth', gain: 0.05, pan: -0.3 },
+      { frequency: 392, endFrequency: 196, start: 0.045, duration: 0.15, type: 'square', gain: 0.043 },
+      { frequency: 196, endFrequency: 98, start: 0.13, duration: 0.24, type: 'triangle', gain: 0.042, pan: 0.22 },
+      { frequency: 73.5, start: 0.26, duration: 0.24, type: 'sine', gain: 0.038, pan: 0.38, reverb: 0.3 },
     ],
     vanguardHit: [
       { source: 'noise', filterType: 'bandpass', frequency: 720, q: 0.9, duration: 0.13, gain: 0.05, pan: -0.4, reverb: 0.16 },

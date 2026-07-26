@@ -32,6 +32,11 @@ const FEEDBACK_PROFILES = {
   triggerDraw: { action: 'vanguard-trigger-draw', cue: 'vanguardTriggerDraw', label: '드로우 트리거', tone: 'success' },
   triggerStand: { action: 'vanguard-trigger-stand', cue: 'vanguardTriggerStand', label: '스탠드 트리거', tone: 'highlight' },
   triggerHeal: { action: 'vanguard-trigger-heal', cue: 'vanguardTriggerHeal', label: '힐 트리거', tone: 'success' },
+  opponentTrigger: { action: 'vanguard-trigger-threat', cue: 'vanguardTriggerThreat', label: '상대 파워 트리거', tone: 'warning' },
+  opponentTriggerCritical: { action: 'vanguard-trigger-critical-threat', cue: 'vanguardTriggerThreatCritical', label: '상대 크리티컬 트리거', tone: 'danger' },
+  opponentTriggerDraw: { action: 'vanguard-trigger-draw-threat', cue: 'vanguardTriggerThreat', label: '상대 드로우 트리거', tone: 'warning' },
+  opponentTriggerStand: { action: 'vanguard-trigger-stand-threat', cue: 'vanguardTriggerThreatCritical', label: '상대 스탠드 트리거', tone: 'danger' },
+  opponentTriggerHeal: { action: 'vanguard-trigger-heal-threat', cue: 'vanguardTriggerThreat', label: '상대 힐 트리거', tone: 'warning' },
   attackHit: { action: 'vanguard-hit', cue: 'vanguardHit', label: '공격 히트', tone: 'success' },
   damageTaken: { action: 'vanguard-damage', cue: 'vanguardDamage', label: '데미지 발생', tone: 'danger' },
   retired: { action: 'vanguard-retire', cue: 'vanguardRetire', label: '유닛 퇴각', tone: 'warning' },
@@ -136,6 +141,17 @@ function asSnapshot(value) {
     : baVanguardFeedbackSnapshot(value);
 }
 
+function triggerTransitionFromLog(log) {
+  const text = String(log || '');
+  if (!/트리거가 발동/.test(text)) return '';
+  const opponent = /^\[AI\]/.test(text);
+  if (/크리티컬 트리거/.test(text)) return opponent ? 'opponentTriggerCritical' : 'triggerCritical';
+  if (/드로우 트리거/.test(text)) return opponent ? 'opponentTriggerDraw' : 'triggerDraw';
+  if (/스탠드 트리거/.test(text)) return opponent ? 'opponentTriggerStand' : 'triggerStand';
+  if (/힐 트리거/.test(text)) return opponent ? 'opponentTriggerHeal' : 'triggerHeal';
+  return opponent ? 'opponentTrigger' : 'trigger';
+}
+
 function transitionFromLog(latestLog) {
   const text = String(latestLog || '');
   if (BLOCKED_LOG.test(text)) {
@@ -148,11 +164,8 @@ function transitionFromLog(latestLog) {
   }
   if (/공격이 막혔/.test(text)) return 'attackBlocked';
   if (/공격이 히트/.test(text)) return 'attackHit';
-  if (/크리티컬 트리거/.test(text)) return 'triggerCritical';
-  if (/드로우 트리거/.test(text)) return 'triggerDraw';
-  if (/스탠드 트리거/.test(text)) return 'triggerStand';
-  if (/힐 트리거/.test(text)) return 'triggerHeal';
-  if (/트리거/.test(text)) return 'trigger';
+  const triggerTransition = triggerTransitionFromLog(text);
+  if (triggerTransition) return triggerTransition;
   if (/G 가디언|가드에 사용/.test(text)) return 'guardAdded';
   if (/퇴각/.test(text)) return 'retired';
   if (/스트라이드/.test(text)) return 'stride';
@@ -172,6 +185,8 @@ export function baVanguardFeedbackTransition(previousValue, currentValue) {
   const previous = asSnapshot(previousValue);
   const current = asSnapshot(currentValue);
   const logChanged = current.latestLog !== previous.latestLog || current.logCount > previous.logCount;
+  const addedLogCount = logChanged ? Math.max(1, current.logCount - previous.logCount) : 0;
+  const addedLogs = logChanged ? safeArray(current.recentLogs).slice(0, addedLogCount) : [];
 
   if (current.winner && current.winner !== previous.winner) {
     if (DECK_OUT_LOG.test(current.latestLog)) {
@@ -179,6 +194,11 @@ export function baVanguardFeedbackTransition(previousValue, currentValue) {
     }
     return current.winner === 'me' ? 'victory' : 'defeat';
   }
+
+  const triggerLog = addedLogs.find((row) => triggerTransitionFromLog(row));
+  const triggerTransition = triggerTransitionFromLog(triggerLog);
+  if (triggerTransition) return triggerTransition;
+
   if (current.meDamage > previous.meDamage) return 'damageTaken';
   if (current.oppDamage > previous.oppDamage) return 'attackHit';
 
@@ -194,8 +214,6 @@ export function baVanguardFeedbackTransition(previousValue, currentValue) {
   }
 
   if (current.latestLog && logChanged) {
-    const addedLogCount = Math.max(1, current.logCount - previous.logCount);
-    const addedLogs = safeArray(current.recentLogs).slice(0, addedLogCount);
     if (addedLogs.some((row) => /라이드 어시스트/.test(row))) return 'rideAssist';
     const logTransition = transitionFromLog(current.latestLog);
     if (logTransition) return logTransition;
@@ -254,6 +272,10 @@ export function baVanguardResultPresentation(previousValue, currentValue) {
   if (key === 'rideAssist') {
     const assistLog = safeArray(current.recentLogs).find((row) => /라이드 어시스트/.test(row));
     return { ...profile, detail: assistLog || current.latestLog || '라이드 어시스트로 다음 그레이드 유닛을 확보했습니다.' };
+  }
+  if (key.startsWith('trigger') || key.startsWith('opponentTrigger')) {
+    const triggerLog = safeArray(current.recentLogs).find((row) => triggerTransitionFromLog(row));
+    return { ...profile, detail: triggerLog || current.latestLog || '트리거 효과가 적용됐습니다.' };
   }
   if (key === 'guardWindow') {
     return {
