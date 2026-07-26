@@ -6,6 +6,8 @@ const FIXED_EXPENSE_TOTAL = FIXED_EXPENSES.reduce(
 );
 const LIQUIDITY_RUNWAY_WARNING_MONTHS = 4;
 const RECEIVABLE_WARNING_COUNT = 3;
+const UNHEDGED_TRADE_PLAN_WARNING_COUNT = 2;
+const INVENTORY_OVERSTOCK_WARNING_UNITS = 2400;
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
@@ -86,6 +88,10 @@ const FEEDBACK_PROFILES = {
   liquidityRiskRecovered: { action: 'company-liquidity-recovery', cue: 'companyLiquidityRecovered', label: '현금 런웨이 회복', tone: 'success' },
   receivableRiskEscalated: { action: 'company-receivable-risk', cue: 'companyReceivableRisk', label: '미수금 적체 경보', tone: 'warning' },
   receivableRiskRecovered: { action: 'company-receivable-recovery', cue: 'companyReceivableRecovered', label: '미수금 적체 해소', tone: 'success' },
+  fxRiskEscalated: { action: 'company-fx-risk', cue: 'companyFxRisk', label: '미헤지 환노출 경보', tone: 'warning' },
+  fxRiskRecovered: { action: 'company-fx-recovery', cue: 'companyFxRecovered', label: '환노출 방어 회복', tone: 'success' },
+  inventoryRiskEscalated: { action: 'company-inventory-risk', cue: 'companyInventoryRisk', label: '재고 과잉 경보', tone: 'warning' },
+  inventoryRiskRecovered: { action: 'company-inventory-recovery', cue: 'companyInventoryRecovered', label: '재고 과잉 해소', tone: 'success' },
   capitalRiskEscalated: { action: 'company-risk', cue: 'companyRiskEscalated', label: '자본시장 위험 경보', tone: 'warning' },
   capitalRiskRecovered: { action: 'company-recovery', cue: 'companyRiskRecovered', label: '자본시장 신뢰 회복', tone: 'success' },
   blocked: { action: 'warning', cue: 'warning', label: '원장 처리 불가', tone: 'warning' },
@@ -111,6 +117,12 @@ export function companyReportFeedbackSnapshot(state) {
   const capital = state?.capitalMarket || {};
   const restoreHistory = safeArray(state?.restoreHistory);
   const latestSettlement = safeArray(state?.settlements)[0] || {};
+  const activeTradePlanCount = [
+    ...safeArray(global.exportPlans),
+    ...safeArray(global.importPlans),
+  ].filter((row) => row?.status === 'ACTIVE').length;
+  const activeHedgeCount = safeArray(global.hedgeContracts)
+    .filter((row) => row?.status === 'ACTIVE').length;
   return {
     runId: String(state?.runId || ''),
     period: `${Number(state?.company?.year || 0)}-${String(Number(state?.company?.month || 0)).padStart(2, '0')}`,
@@ -128,6 +140,9 @@ export function companyReportFeedbackSnapshot(state) {
     receivableOutstanding: outstandingAmount(state?.receivables, 'amount', 'collected'),
     openReceivableCount: openAmountCount(state?.receivables, 'amount', 'collected'),
     inventoryUnits: inventoryUnits(state),
+    activeTradePlanCount,
+    activeHedgeCount,
+    unhedgedTradePlanCount: Math.max(0, activeTradePlanCount - activeHedgeCount),
     inventoryValuationCount: safeArray(state?.inventoryValuations).length,
     inventoryWriteDownCount: safeArray(state?.inventoryWriteDowns).length,
     vatPaymentCount: safeArray(state?.vatPayments).length,
@@ -221,6 +236,10 @@ const IMPACT_KEYS_BY_RESULT = Object.freeze({
   liquidityRiskRecovered: ['cashRunwayMonths', 'cashKrw'],
   receivableRiskEscalated: ['openReceivableCount', 'receivableOutstanding'],
   receivableRiskRecovered: ['openReceivableCount', 'receivableOutstanding'],
+  fxRiskEscalated: ['unhedgedTradePlanCount', 'activeHedgeCount'],
+  fxRiskRecovered: ['unhedgedTradePlanCount', 'activeHedgeCount'],
+  inventoryRiskEscalated: ['inventoryRiskUnits', 'cashKrw'],
+  inventoryRiskRecovered: ['inventoryRiskUnits'],
   monthClosed: ['period', 'latestSettlementNetProfit', 'latestSettlementCashflow'],
   monthClosedProfit: ['period', 'latestSettlementNetProfit', 'latestSettlementCashflow'],
   monthClosedLoss: ['period', 'latestSettlementNetProfit', 'latestSettlementCashflow'],
@@ -249,6 +268,31 @@ function companyReportImpactRows(previous, current, resultKey) {
       }
       : null,
     inventoryUnits: deltaImpact(previous, current, 'inventoryUnits', { action: 'inventory', label: '재고', suffix: '개', successDirection: 0 }),
+    inventoryRiskUnits: {
+      action: current.inventoryUnits >= INVENTORY_OVERSTOCK_WARNING_UNITS
+        ? 'company-inventory-risk'
+        : 'company-inventory-recovery',
+      key: 'inventoryRiskUnits',
+      label: '총 재고',
+      tone: current.inventoryUnits >= INVENTORY_OVERSTOCK_WARNING_UNITS ? 'warning' : 'success',
+      value: `${new Intl.NumberFormat('ko-KR').format(current.inventoryUnits)}개`,
+    },
+    unhedgedTradePlanCount: {
+      action: current.unhedgedTradePlanCount >= UNHEDGED_TRADE_PLAN_WARNING_COUNT
+        ? 'company-fx-risk'
+        : 'company-fx-recovery',
+      key: 'unhedgedTradePlanCount',
+      label: '미헤지 계획',
+      tone: current.unhedgedTradePlanCount >= UNHEDGED_TRADE_PLAN_WARNING_COUNT ? 'warning' : 'success',
+      value: `${current.unhedgedTradePlanCount}건`,
+    },
+    activeHedgeCount: {
+      action: 'hedge',
+      key: 'activeHedgeCount',
+      label: '활성 헤지',
+      tone: current.activeHedgeCount > 0 ? 'success' : 'ready',
+      value: `${current.activeHedgeCount}건`,
+    },
     receivableOutstanding: deltaImpact(previous, current, 'receivableOutstanding', { action: 'collection', label: '매출채권', money: true, successDirection: -1 }),
     openReceivableCount: previous.openReceivableCount !== current.openReceivableCount
       ? {
@@ -345,6 +389,14 @@ function receivableAlertActive(snapshot) {
   return Number(snapshot?.openReceivableCount || 0) >= RECEIVABLE_WARNING_COUNT;
 }
 
+function fxAlertActive(snapshot) {
+  return Number(snapshot?.unhedgedTradePlanCount || 0) >= UNHEDGED_TRADE_PLAN_WARNING_COUNT;
+}
+
+function inventoryAlertActive(snapshot) {
+  return Number(snapshot?.inventoryUnits || 0) >= INVENTORY_OVERSTOCK_WARNING_UNITS;
+}
+
 export function companyReportFeedbackTransition(previousValue, currentValue) {
   if (!previousValue || !currentValue) return 'idle';
   const previous = asSnapshot(previousValue);
@@ -371,6 +423,16 @@ export function companyReportFeedbackTransition(previousValue, currentValue) {
   const currentReceivableAlert = receivableAlertActive(current);
   if (!previousReceivableAlert && currentReceivableAlert) return 'receivableRiskEscalated';
   if (previousReceivableAlert && !currentReceivableAlert) return 'receivableRiskRecovered';
+
+  const previousFxAlert = fxAlertActive(previous);
+  const currentFxAlert = fxAlertActive(current);
+  if (!previousFxAlert && currentFxAlert) return 'fxRiskEscalated';
+  if (previousFxAlert && !currentFxAlert) return 'fxRiskRecovered';
+
+  const previousInventoryAlert = inventoryAlertActive(previous);
+  const currentInventoryAlert = inventoryAlertActive(current);
+  if (!previousInventoryAlert && currentInventoryAlert) return 'inventoryRiskEscalated';
+  if (previousInventoryAlert && !currentInventoryAlert) return 'inventoryRiskRecovered';
 
   const logTransition = logChanged
     ? transitionFromLog(current.latestLog, current)

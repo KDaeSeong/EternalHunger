@@ -53,9 +53,13 @@ export default function CompanyReportManagementPanels({
 
       <section className="games-panel">
         <CompanyReportPanelTitle action="warning" title="리스크 체크" meta={`${management.riskRows.length}개 지표`} />
-        <div className="game-save-list">
+        <div className="game-save-list company-report-risk-grid">
           {management.riskRows.map((row) => (
-            <CompanyReportIconRow action="warning" className="is-risk" key={row.label}>
+            <CompanyReportIconRow
+              action={row.action || 'warning'}
+              className={`is-risk is-${row.tone || 'warning'}`}
+              key={row.label}
+            >
               <div>
                 <span>관리 지표</span>
                 <strong>{row.label}</strong>

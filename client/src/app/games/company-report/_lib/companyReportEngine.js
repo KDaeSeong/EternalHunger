@@ -1136,12 +1136,19 @@ export function globalTradeSummary(state) {
   const exportCostKrw = current.global.exportResults.reduce((sum, row) => sum + Number(row.exportCostKrw || 0), 0);
   const importLandedCostKrw = current.global.importResults.reduce((sum, row) => sum + Number(row.landedCostKrw || 0), 0);
   const openForeignReceivableKrw = globalReceivableRows(current).reduce((sum, row) => sum + Number(row.remainingKrw || 0), 0);
-  const hedgeNotionalKrw = current.global.hedgeContracts
-    .filter((hedge) => hedge.status === 'ACTIVE')
+  const activeHedges = current.global.hedgeContracts
+    .filter((hedge) => hedge.status === 'ACTIVE');
+  const hedgeNotionalKrw = activeHedges
     .reduce((sum, hedge) => sum + Number(hedge.notionalKrw || 0), 0);
+  const activeExports = current.global.exportPlans.filter((plan) => plan.status === 'ACTIVE').length;
+  const activeImports = current.global.importPlans.filter((plan) => plan.status === 'ACTIVE').length;
+  const activeTradePlanCount = activeExports + activeImports;
   return {
-    activeExports: current.global.exportPlans.filter((plan) => plan.status === 'ACTIVE').length,
-    activeImports: current.global.importPlans.filter((plan) => plan.status === 'ACTIVE').length,
+    activeExports,
+    activeImports,
+    activeTradePlanCount,
+    activeHedgeCount: activeHedges.length,
+    unhedgedTradePlanCount: Math.max(0, activeTradePlanCount - activeHedges.length),
     completedExports: current.global.exportResults.length,
     completedImports: current.global.importResults.length,
     exportSalesKrw,
@@ -1252,6 +1259,10 @@ export function managementReport(state) {
   const currentInventoryWriteDownNet = current.inventoryWriteDowns
     .filter((row) => Number(row.year || 0) === Number(current.company.year || 0))
     .reduce((sum, row) => sum + Number(row.netEffectAmount || 0), 0);
+  const totalInventoryUnits = inventoryRows(current)
+    .reduce((sum, row) => sum + Math.max(0, Number(row.onHand || 0)), 0);
+  const inventoryOverstock = totalInventoryUnits >= 2400;
+  const fxExposure = Number(global.unhedgedTradePlanCount || 0) >= 2;
   const recommendations = [];
 
   if (operatingProfit < 0) recommendations.push('영업손실 상태입니다. 고정비 또는 저마진 상품 비중을 먼저 점검하세요.');
@@ -1264,6 +1275,8 @@ export function managementReport(state) {
   if (cashRunwayMonths < 6) recommendations.push('현금 런웨이가 짧습니다. 생산 입고보다 채권 회수와 흑자 주문을 우선하세요.');
   if (!current.ledgerSnapshots.length) recommendations.push('장부 스냅샷이 없습니다. 주요 액션 전후로 스냅샷을 남기면 복원 실험이 가능합니다.');
   if (global.activeExports || global.activeImports) recommendations.push('활성 수출입 계획이 있습니다. 글로벌 정산으로 해외 매출과 수입 재고를 원장에 반영하세요.');
+  if (fxExposure) recommendations.push('미헤지 수출입 계획이 2건 이상입니다. 정산 전에 환헤지 계약으로 노출을 줄이세요.');
+  if (inventoryOverstock) recommendations.push('총 재고가 과잉 기준을 넘었습니다. 추가 입고보다 출고와 캠페인을 우선하세요.');
   if (global.openForeignReceivableKrw > summary.assets * 0.18) recommendations.push('외화채권 비중이 큽니다. 환헤지 또는 외화채권 회수를 먼저 처리하는 편이 좋습니다.');
   if (capital.disclosureRisk >= 35) recommendations.push('공시위험이 높습니다. 자본시장 월마감 전 공시 대응을 실행하세요.');
   if (!recommendations.length) recommendations.push('재무 구조가 안정권입니다. 주문 확대나 캠페인 테스트를 진행해도 됩니다.');
@@ -1299,15 +1312,72 @@ export function managementReport(state) {
     categoryRows: topRowsFromMap(categorySales, formatMoney),
     characterRows: topRowsFromMap(characterSales, formatMoney).slice(0, 5),
     riskRows: [
-      { label: '현금 런웨이', value: `${cashRunwayMonths}개월` },
-      { label: '매출채권 비중', value: `${receivableRatio}%` },
-      { label: '연체 채권', value: formatMoney(overdueAmount) },
-      { label: '재고 회전 월수', value: `${inventoryMonths}개월` },
-      { label: 'VAT 미납', value: formatMoney(summary.vatPayableAmount) },
-      { label: '재고 손상잔액', value: formatMoney(summary.inventoryWriteDownBalance) },
-      { label: '외화채권', value: formatMoney(global.openForeignReceivableKrw) },
-      { label: '공시위험', value: `${capital.disclosureRisk}/100` },
-      { label: '장부 스냅샷', value: `${current.ledgerSnapshots.length}개` },
+      {
+        action: cashRunwayMonths < 4 ? 'company-liquidity-risk' : 'company-liquidity-recovery',
+        label: '현금 런웨이',
+        tone: cashRunwayMonths < 4 ? 'warning' : 'safe',
+        value: `${cashRunwayMonths}개월`,
+      },
+      {
+        action: receivableRatio >= 25 ? 'company-receivable-risk' : 'company-receivable-recovery',
+        label: '매출채권 비중',
+        tone: receivableRatio >= 25 ? 'warning' : 'safe',
+        value: `${receivableRatio}%`,
+      },
+      {
+        action: overdueAmount > 0 ? 'company-receivable-risk' : 'company-receivable-recovery',
+        label: '연체 채권',
+        tone: overdueAmount > 0 ? 'warning' : 'safe',
+        value: formatMoney(overdueAmount),
+      },
+      {
+        action: inventoryOverstock ? 'company-inventory-risk' : 'company-inventory-recovery',
+        label: '총 재고',
+        tone: inventoryOverstock ? 'warning' : 'safe',
+        value: `${totalInventoryUnits.toLocaleString('ko-KR')}개`,
+      },
+      {
+        action: inventoryMonths >= 2 ? 'company-inventory-risk' : 'company-inventory-recovery',
+        label: '재고 회전 월수',
+        tone: inventoryMonths >= 2 ? 'warning' : 'safe',
+        value: `${inventoryMonths}개월`,
+      },
+      {
+        action: 'tax',
+        label: 'VAT 미납',
+        tone: summary.vatPayableAmount > 0 ? 'warning' : 'safe',
+        value: formatMoney(summary.vatPayableAmount),
+      },
+      {
+        action: summary.inventoryWriteDownBalance > 0 ? 'inventory-write-down' : 'valuation',
+        label: '재고 손상잔액',
+        tone: summary.inventoryWriteDownBalance > 0 ? 'warning' : 'safe',
+        value: formatMoney(summary.inventoryWriteDownBalance),
+      },
+      {
+        action: fxExposure ? 'company-fx-risk' : 'company-fx-recovery',
+        label: '미헤지 수출입',
+        tone: fxExposure ? 'warning' : 'safe',
+        value: `${global.unhedgedTradePlanCount}건`,
+      },
+      {
+        action: 'collection',
+        label: '외화채권',
+        tone: global.openForeignReceivableKrw > 0 ? 'warning' : 'safe',
+        value: formatMoney(global.openForeignReceivableKrw),
+      },
+      {
+        action: capital.disclosureRisk >= 35 ? 'company-risk' : 'company-recovery',
+        label: '공시위험',
+        tone: capital.disclosureRisk >= 35 ? 'warning' : 'safe',
+        value: `${capital.disclosureRisk}/100`,
+      },
+      {
+        action: 'snapshot',
+        label: '장부 스냅샷',
+        tone: current.ledgerSnapshots.length ? 'safe' : 'warning',
+        value: `${current.ledgerSnapshots.length}개`,
+      },
     ],
     global,
     capital,

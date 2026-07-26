@@ -26,6 +26,7 @@ import {
   dryRunLedgerRestoreAction,
   inboundInventoryAction,
   marketingCampaignAction,
+  managementReport,
   monthEndCloseAction,
   payVatAction,
   raiseCapitalAction,
@@ -124,6 +125,34 @@ assert.match(collectionPresentation.impacts[1]?.value || '', /^-[\d,]+원$/, '�
 const inbound = inboundInventoryAction(base, 'book-akashi', 2);
 expectResult(base, inbound, { key: 'inventoryInbound', action: 'production', cue: 'productionPosted', tone: 'success' });
 
+const inventorySafeState = JSON.parse(JSON.stringify(base));
+inventorySafeState.inventory['goods-aero'].onHand += 349;
+const inventoryRiskState = inboundInventoryAction(inventorySafeState, 'goods-aero', 2);
+const inventoryRiskPresentation = expectResult(inventorySafeState, inventoryRiskState, {
+  key: 'inventoryRiskEscalated',
+  action: 'company-inventory-risk',
+  cue: 'companyInventoryRisk',
+  tone: 'warning',
+});
+assert.deepEqual(inventoryRiskPresentation.impacts.map((item) => item.label), ['총 재고', '현금'], '재고 과잉 경보는 현재 수량과 입고 현금 유출을 보여야 합니다.');
+assert.equal(inventoryRiskPresentation.impacts[0]?.value, '2,401개', '재고 과잉 경보는 현재 총 재고를 표시해야 합니다.');
+const inventoryRecoveryOrder = createOrderAction(inventoryRiskState, 'future-book', 'goods-aero', 2);
+const inventoryRecoveryBuffer = inventoryRecoveryOrder.receivables.find(
+  (row) => Number(row.amount || 0) > Number(row.collected || 0),
+);
+inventoryRecoveryOrder.receivables.unshift({
+  ...inventoryRecoveryBuffer,
+  id: 'AR-INVENTORY-RISK-BUFFER',
+});
+const inventoryRecoveredState = shipOrderAction(inventoryRecoveryOrder, inventoryRecoveryOrder.orders[0].id);
+const inventoryRecoveryPresentation = expectResult(inventoryRecoveryOrder, inventoryRecoveredState, {
+  key: 'inventoryRiskRecovered',
+  action: 'company-inventory-recovery',
+  cue: 'companyInventoryRecovered',
+  tone: 'success',
+});
+assert.equal(inventoryRecoveryPresentation.impacts[0]?.value, '2,399개', '재고 과잉 해소는 출고 후 총 재고를 표시해야 합니다.');
+
 const valued = closeInventoryValuationAction(base);
 expectResult(base, valued, { key: 'inventoryWrittenDown', action: 'inventory-write-down', cue: 'inventoryWriteDown', tone: 'warning' });
 assert.match(valued.log[0], /손상 [1-9]/, '초기 재고평가는 실제 평가손실을 발생시켜야 합니다.');
@@ -149,9 +178,26 @@ expectResult(base, importPlan, { key: 'importPlanned', action: 'import', cue: 'i
 const hedged = createHedgeContractAction(base);
 expectResult(base, hedged, { key: 'hedgeSigned', action: 'hedge', cue: 'hedgeSigned', tone: 'success' });
 
-const plannedGlobal = createImportPlanAction(exportPlan, 'jp-retail', 'book-akashi', 2);
-const globalSettled = settleGlobalTradeAction(plannedGlobal);
-expectResult(plannedGlobal, globalSettled, { key: 'globalSettled', action: 'settle', cue: 'globalSettle', tone: 'success' });
+const fxPlanOne = createExportPlanAction(base, 'jp-retail', 'book-akashi', 2);
+const fxRiskState = createImportPlanAction(fxPlanOne, 'jp-retail', 'book-akashi', 2);
+const fxRiskPresentation = expectResult(fxPlanOne, fxRiskState, {
+  key: 'fxRiskEscalated',
+  action: 'company-fx-risk',
+  cue: 'companyFxRisk',
+  tone: 'warning',
+});
+assert.deepEqual(fxRiskPresentation.impacts.map((item) => item.value), ['2건', '0건'], '환노출 경보는 미헤지 계획과 활성 헤지를 함께 보여야 합니다.');
+const fxRecoveredState = createHedgeContractAction(fxRiskState);
+const fxRecoveryPresentation = expectResult(fxRiskState, fxRecoveredState, {
+  key: 'fxRiskRecovered',
+  action: 'company-fx-recovery',
+  cue: 'companyFxRecovered',
+  tone: 'success',
+});
+assert.deepEqual(fxRecoveryPresentation.impacts.map((item) => item.value), ['1건', '1건'], '환노출 회복은 헤지 후 남은 노출을 보여야 합니다.');
+
+const globalSettled = settleGlobalTradeAction(exportPlan);
+expectResult(exportPlan, globalSettled, { key: 'globalSettled', action: 'settle', cue: 'globalSettle', tone: 'success' });
 const foreignOpen = globalSettled.global.foreignReceivables.find((row) => row.status === 'OPEN');
 assert.ok(foreignOpen, '수출 정산 후 회수 가능한 외화채권이 있어야 합니다.');
 const foreignCollected = collectForeignReceivableAction(globalSettled, foreignOpen.id);
@@ -312,6 +358,8 @@ const resultCues = [
   'companyRiskEscalated', 'companyRiskRecovered',
   'companyLiquidityRisk', 'companyLiquidityRecovered',
   'companyReceivableRisk', 'companyReceivableRecovered',
+  'companyFxRisk', 'companyFxRecovered',
+  'companyInventoryRisk', 'companyInventoryRecovered',
   'warning', 'start',
 ];
 for (const cue of resultCues) {
@@ -326,6 +374,8 @@ for (const icon of [
   'company-liquidity-risk', 'company-liquidity-recovery',
   'company-loss', 'company-profit',
   'company-receivable-risk', 'company-receivable-recovery',
+  'company-fx-risk', 'company-fx-recovery',
+  'company-inventory-risk', 'company-inventory-recovery',
 ]) {
   assert.match(iconSource, new RegExp(`\\n  ['\"]?${icon}['\"]?: `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
 }
@@ -363,13 +413,22 @@ assert.match(visualsSource, /export function CompanyReportIconRow/, '공용 의�
 assert.match(visualsSource, /export function CompanyReportImpactStrip/, '최근 처리 영향 아이콘 컴포넌트가 필요합니다.');
 assert.match(featureSource, /expectedImpact:/, '운영 큐는 행동별 예상 효과를 제공해야 합니다.');
 assert.match(featureSource, /priorityTone:/, '운영 큐는 긴급·권장·정기 우선도를 구분해야 합니다.');
+assert.match(managementSource, /action=\{row\.action \|\| 'warning'\}/, '리스크 행은 지표별 의미 아이콘을 사용해야 합니다.');
+assert.match(managementSource, /is-risk is-\$\{row\.tone \|\| 'warning'\}/, '리스크 행은 안전·경고 상태를 시각적으로 구분해야 합니다.');
+const managementRiskRows = managementReport(base).riskRows;
+assert.equal(managementRiskRows.length, 11, '경영 리포트는 환노출과 총 재고를 포함한 11개 위험 지표를 제공해야 합니다.');
+assert.ok(managementRiskRows.every((row) => row.action && row.tone), '모든 위험 지표에 의미 아이콘과 상태 톤이 있어야 합니다.');
+assert.equal(managementRiskRows.find((row) => row.label === '미헤지 수출입')?.action, 'company-fx-recovery', '안전한 초기 환노출은 회복 아이콘으로 표시해야 합니다.');
 assert.match(cssSource, /\.company-report-panel-title h2/, '패널 제목 아이콘 레이아웃이 필요합니다.');
 assert.match(cssSource, /\.game-save-row\.company-report-icon-row/, '의미 아이콘 행 레이아웃이 필요합니다.');
 assert.match(cssSource, /\.company-report-impact-strip/, '최근 처리 영향 아이콘 레이아웃이 필요합니다.');
 assert.match(cssSource, /\.company-report-icon-row\.is-priority-urgent/, '긴급 운영 항목을 시각적으로 구분해야 합니다.');
+assert.match(cssSource, /\.company-report-icon-row\.is-risk\.is-safe/, '안전한 리스크 지표는 별도 시각 톤을 사용해야 합니다.');
+assert.match(cssSource, /\.company-report-risk-grid \{[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/, '리스크 지표는 데스크톱에서 2열로 압축해야 합니다.');
+assert.match(cssSource, /@media \(max-width: 760px\)[\s\S]*\.company-report-risk-grid \{[\s\S]*grid-template-columns: 1fr/, '모바일 리스크 지표는 1열로 복귀해야 합니다.');
 
 console.log(JSON.stringify({
-  feedbackTransitions: 35,
+  feedbackTransitions: 39,
   resultCues: resultCues.length,
   resultPanels: componentSources.reduce((sum, source) => sum + [...source.matchAll(/<RecentActionResult\b/g)].length, 0) + 1,
   semanticPanelTitles,
