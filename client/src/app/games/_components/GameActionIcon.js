@@ -334,6 +334,7 @@ const ACTION_ICONS = {
   'primitive-festival': PartyPopper,
   'primitive-irrigation': Droplets,
   'primitive-preserve': PackageCheck,
+  'primitive-road': Route,
   'primitive-growth': Sprout,
   'primitive-hunt': Crosshair,
   'primitive-inspiration': Sparkles,

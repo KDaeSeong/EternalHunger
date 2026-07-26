@@ -844,7 +844,7 @@ const RAW_TECH_TREE = [
   {
     id: 'ROAD_BUILDING', name: '도로 건설', era: 'CLASSICAL', tier: 9, cost: 40, prereqs: ['EARLY_CIVIL_ENGINEERING', 'STATE_WORKFORCE'], tags: ['CRAFT', 'CIVICS'], branch: 'ENGINEERING',
     description: '노면과 배수로를 표준화해 이동·운반 과정에서 얻는 자원 수익을 높입니다.',
-    unlocks: { passives: ['ROAD_RESOURCE_UP'] },
+    unlocks: { actions: ['road'], passives: ['ROAD_RESOURCE_UP'] },
     eureka: { type: 'actionSuccess', action: 'gather', count: 12, bonusPct: 0.25, desc: '채집 성공 12회로 운반로 확보' },
   },
   {
@@ -2337,6 +2337,7 @@ export function initExplorationState() {
     discoverySerial: 0,
     patrolCharges: 0,
     irrigationCharges: 0,
+    roadCharges: 0,
   };
 }
 
@@ -2361,6 +2362,7 @@ export function normalizeExplorationState(value = {}) {
     discoverySerial: Math.max(0, Number(value.discoverySerial || 0)),
     patrolCharges: Math.min(2, Math.max(0, Number(value.patrolCharges || 0))),
     irrigationCharges: Math.min(3, Math.max(0, Number(value.irrigationCharges || 0))),
+    roadCharges: Math.min(4, Math.max(0, Number(value.roadCharges || 0))),
   };
 }
 

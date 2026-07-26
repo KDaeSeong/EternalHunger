@@ -355,6 +355,7 @@ const ACTION_UNLOCK_LABELS = {
   festival: '축제',
   irrigation: '관개 정비',
   preserve: '식량 보존',
+  road: '도로 정비',
 };
 
 export function researchUnlockText(tech) {

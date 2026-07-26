@@ -118,6 +118,7 @@ assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveTreat'), { theme
 assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveFestival'), { theme: scenes.settlement, durationMs: 11_000 });
 assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveIrrigation'), { theme: scenes.settlement, durationMs: 9_000 });
 assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archivePreserve'), { theme: scenes.settlement, durationMs: 8_000 });
+assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveRoad'), { theme: scenes.settlement, durationMs: 9_000 });
 assert.equal(soundtrack.primitiveArchiveActionMusic('gather'), null);
 
 assert.match(playSource, /resolvePrimitiveArchiveBgmScene/, '플레이 상태가 기본 음악 장면에 연결되어야 합니다.');

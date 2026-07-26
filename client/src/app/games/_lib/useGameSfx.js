@@ -105,6 +105,13 @@ const CUE_PROFILES = {
     { frequency: 392, endFrequency: 293.66, start: 0.075, duration: 0.11, type: 'triangle', gain: 0.034, pan: 0.08 },
     { frequency: 587.33, start: 0.16, duration: 0.16, type: 'sine', gain: 0.025, pan: 0.34, reverb: 0.3 },
   ],
+  archiveRoad: [
+    { source: 'noise', filterType: 'bandpass', frequency: 620, q: 1.8, duration: 0.055, gain: 0.036, pan: -0.34, reverb: 0.12 },
+    { frequency: 110, endFrequency: 82.41, duration: 0.1, type: 'triangle', gain: 0.051, pan: -0.2 },
+    { source: 'noise', filterType: 'bandpass', frequency: 780, q: 2, start: 0.1, duration: 0.05, gain: 0.032, pan: 0.08 },
+    { frequency: 220, start: 0.14, duration: 0.11, type: 'triangle', gain: 0.035, pan: 0.2 },
+    { frequency: 440, start: 0.23, duration: 0.17, type: 'sine', gain: 0.024, pan: 0.38, reverb: 0.34 },
+  ],
   logging: [
     { source: 'noise', filterType: 'bandpass', frequency: 980, q: 2.4, duration: 0.04, gain: 0.046, pan: -0.24 },
     { frequency: 190, endFrequency: 126, duration: 0.09, type: 'triangle', gain: 0.052, pan: -0.12 },
@@ -2445,6 +2452,13 @@ const THEME_CUE_PROFILES = {
       { frequency: 174.61, endFrequency: 130.81, duration: 0.12, type: 'triangle', gain: 0.046, pan: -0.28 },
       { frequency: 349.23, endFrequency: 261.63, start: 0.08, duration: 0.13, type: 'triangle', gain: 0.036, pan: 0.02 },
       { frequency: 523.25, start: 0.18, duration: 0.19, type: 'sine', gain: 0.026, pan: 0.4, reverb: 0.4 },
+    ],
+    archiveRoad: [
+      { source: 'noise', filterType: 'bandpass', frequency: 680, q: 1.9, duration: 0.065, gain: 0.032, pan: -0.46, reverb: 0.16 },
+      { frequency: 98, endFrequency: 73.42, duration: 0.12, type: 'triangle', gain: 0.052, pan: -0.3 },
+      { source: 'noise', filterType: 'bandpass', frequency: 860, q: 2.1, start: 0.11, duration: 0.055, gain: 0.029, pan: 0.02 },
+      { frequency: 196, start: 0.15, duration: 0.12, type: 'triangle', gain: 0.038, pan: 0.18 },
+      { frequency: 392, start: 0.25, duration: 0.2, type: 'sine', gain: 0.025, pan: 0.44, reverb: 0.42 },
     ],
     archiveTreat: [
       { frequency: 130.81, duration: 0.075, type: 'sine', gain: 0.04, pan: -0.3 },

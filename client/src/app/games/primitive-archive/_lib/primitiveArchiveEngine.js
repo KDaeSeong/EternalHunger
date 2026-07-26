@@ -131,7 +131,7 @@ export function createNewState(options = {}) {
     inventory,
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
-    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, irrigation: 0, preserve: 0, camp: 0, meals: 0, events: 0 },
+    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, irrigation: 0, preserve: 0, road: 0, camp: 0, meals: 0, events: 0 },
     eventChains: [],
     exploration: initExplorationState(),
     projects: initProjectState(),
@@ -455,6 +455,7 @@ const RESEARCH_ACTION_LABELS = {
   festival: '축제',
   irrigation: '관개 정비',
   preserve: '식량 보존',
+  road: '도로 정비',
 };
 
 function recipeName(recipeId) {
@@ -4667,9 +4668,21 @@ const IRRIGATION_CHANCE_BONUS = 0.12;
 const IRRIGATION_ACTION_COST = { wood: 2, clay: 1 };
 const FOOD_PRESERVATION_COST = { meat: 2, resin: 1, berry: 1, herb: 1 };
 const FOOD_PRESERVATION_REWARD = [['packed_ration', 1]];
+const ROAD_MAX_CHARGES = 4;
+const ROAD_STAMINA_REDUCTION = 4;
+const ROAD_ACTION_COST = { stone: 3, wood: 2 };
 
 function irrigationCharges(state) {
   return Math.min(IRRIGATION_MAX_CHARGES, Math.max(0, Number(state.exploration?.irrigationCharges || 0)));
+}
+
+function roadCharges(state) {
+  return Math.min(ROAD_MAX_CHARGES, Math.max(0, Number(state.exploration?.roadCharges || 0)));
+}
+
+function fieldActionStaminaCost(state, actorId, action, baseCost) {
+  const equippedCost = staminaCostWithEquipment(state, actorId, action, baseCost);
+  return roadCharges(state) > 0 ? Math.max(1, equippedCost - ROAD_STAMINA_REDUCTION) : equippedCost;
 }
 
 function specializedActionGains(state, profile) {
@@ -4737,7 +4750,9 @@ export function specializedActionRows(state, actorId, requestedRegionId = '') {
       chance,
       chancePct: Math.round(chance * 100),
       context: location,
-      cost: `AP 1 \u00B7 ST ${staminaCostWithEquipment(current, actorId, profile.skill, profile.staminaCost)}`,
+      cost: `AP 1 \u00B7 ST ${profile.zoneIds.length
+        ? fieldActionStaminaCost(current, actorId, profile.skill, profile.staminaCost)
+        : staminaCostWithEquipment(current, actorId, profile.skill, profile.staminaCost)}`,
       devPreview: previewUnlocked && !technologyComplete,
       lockedReason,
       outcome: unlocked && region ? expectedGainText(gains, precise) : lockedReason,
@@ -4755,6 +4770,7 @@ const CIVILIZATION_ACTION_DEFS = [
   { id: 'festival', label: '축제', icon: 'primitive-festival', techId: 'DRAMA', staminaCost: 10, hungerAdd: 2 },
   { id: 'irrigation', label: '관개 정비', icon: 'primitive-irrigation', techId: 'IRRIGATION', staminaCost: 16, hungerAdd: 2 },
   { id: 'preserve', label: '식량 보존', icon: 'primitive-preserve', techId: 'FOOD_STORAGE', staminaCost: 14, hungerAdd: 2 },
+  { id: 'road', label: '도로 정비', icon: 'primitive-road', techId: 'ROAD_BUILDING', staminaCost: 18, hungerAdd: 3 },
 ];
 
 function surveyCandidates(state) {
@@ -4788,6 +4804,15 @@ function consumeIrrigationCharge(state) {
   };
 }
 
+function consumeRoadCharge(state) {
+  const exploration = normalizeExplorationState(state.exploration);
+  if (Number(exploration.roadCharges || 0) <= 0) return state;
+  return {
+    ...state,
+    exploration: { ...exploration, roadCharges: Math.max(0, Number(exploration.roadCharges || 0) - 1) },
+  };
+}
+
 export function utilityActionRows(state, actorId) {
   const current = normalizeState(state);
   const actor = getActor(current, actorId);
@@ -4796,6 +4821,7 @@ export function utilityActionRows(state, actorId) {
   const foodStock = tribeFoodStock(current.inventory);
   const patrolCharges = Number(current.exploration.patrolCharges || 0);
   const activeIrrigationCharges = irrigationCharges(current);
+  const activeRoadCharges = roadCharges(current);
   const civic = activeCivicForState(current);
 
   return CIVILIZATION_ACTION_DEFS.map((profile) => {
@@ -4850,6 +4876,17 @@ export function utilityActionRows(state, actorId) {
       context = `보존식 ${Number(current.inventory.packed_ration || 0)}개 보유`;
       outcome = `${itemName('packed_ration')} 1 · 허기 -${foodNutritionValue(current, 'packed_ration')}`;
       materialText = formatRequires(FOOD_PRESERVATION_COST);
+    } else if (profile.id === 'road') {
+      const materialsReady = hasResources(current.inventory, ROAD_ACTION_COST);
+      requirementMet = activeRoadCharges < ROAD_MAX_CHARGES && materialsReady;
+      lockedReason = activeRoadCharges >= ROAD_MAX_CHARGES
+        ? '도로 효과가 이미 최대입니다.'
+        : !materialsReady
+          ? `재료 부족: ${formatRequires(ROAD_ACTION_COST)}`
+          : '';
+      context = `정비된 도로 ${activeRoadCharges}/${ROAD_MAX_CHARGES}`;
+      outcome = `다음 현장 행동 ${ROAD_MAX_CHARGES}회 · ST -${ROAD_STAMINA_REDUCTION}`;
+      materialText = formatRequires(ROAD_ACTION_COST);
     }
 
     if (!unlocked) lockedReason = `${technology?.name || profile.techId} 연구 필요`;
@@ -4929,6 +4966,13 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
       inventory: addItems(spendResources(next.inventory, FOOD_PRESERVATION_COST), FOOD_PRESERVATION_REWARD),
     };
     next = addLog(next, `${actor.name}의 식량 보존 완료. ${formatRequires(FOOD_PRESERVATION_COST)}을 가공해 ${itemName('packed_ration')} 1개를 만들었습니다.`);
+  } else if (profile.id === 'road') {
+    next = {
+      ...next,
+      inventory: spendResources(next.inventory, ROAD_ACTION_COST),
+      exploration: { ...next.exploration, roadCharges: ROAD_MAX_CHARGES },
+    };
+    next = addLog(next, `${actor.name}의 도로 정비 완료. ${formatRequires(ROAD_ACTION_COST)}을 사용해 다음 현장 행동 ${ROAD_MAX_CHARGES}회의 스태미나 소모를 ${ROAD_STAMINA_REDUCTION} 줄입니다.`);
   }
 
   next = {
@@ -4997,7 +5041,7 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
       chancePct: Math.round(gatherChance * 100),
       context: locationLabel,
       outcome: expectedGainText(gatherGains, precise),
-      cost: `AP 1 · ST ${staminaCostWithEquipment(current, actorId, 'gather', 15)}`,
+      cost: `AP 1 · ST ${fieldActionStaminaCost(current, actorId, 'gather', 15)}`,
     },
     {
       id: 'hunt',
@@ -5005,7 +5049,7 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
       chancePct: Math.round(huntChance * 100),
       context: locationLabel,
       outcome: expectedGainText(huntGains, precise),
-      cost: `AP 1 · ST ${staminaCostWithEquipment(current, actorId, 'hunt', 24)} · 기대 피해 ${((1 - huntChance) * huntFailureDamage(current)).toFixed(1)}`,
+      cost: `AP 1 · ST ${fieldActionStaminaCost(current, actorId, 'hunt', 24)} · 기대 피해 ${((1 - huntChance) * huntFailureDamage(current)).toFixed(1)}`,
     },
     {
       id: 'craft',
@@ -5093,6 +5137,7 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
   const ok = rng() < chance;
   const actionGains = specializedActionGains(current, profile);
   const irrigationApplied = profile.id === 'farm' && irrigationCharges(current) > 0;
+  const roadApplied = profile.zoneIds.length > 0 && roadCharges(current) > 0;
   const context = { action: profile.skill, zoneId: region.zoneId || profile.zoneId, regionId: region.id, region };
   let next = current;
   if (ok) {
@@ -5106,11 +5151,13 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
   } else {
     next = addLog(next, `${actor.name}\uC758 ${profile.label} \uC2E4\uD328. ${row.context}\uC758 \uC870\uAC74\uC744 \uB2E4\uC2DC \uC810\uAC80\uD574\uC57C \uD569\uB2C8\uB2E4.${irrigationApplied ? ' 관개 효과는 1회 소모됐습니다.' : ''}`);
   }
+  if (roadApplied) next = addLog(next, `${actor.name}의 현장 이동에 정비된 도로 효과를 적용했습니다. ST ${ROAD_STAMINA_REDUCTION} 절약 · 남은 도로 ${roadCharges(current) - 1}/${ROAD_MAX_CHARGES}.`);
   next = addDialogueLog(next, actorId, profile.skill, ok ? 'success' : 'fail', rng);
   if (profile.zoneIds.length) {
     next = applyExplorationEvent(next, { actorId, action: profile.skill, zoneId: region.zoneId || profile.zoneId, ok, rng });
     next = discoverRegionAfterAction(next, region, ok, rng);
     next = consumePatrolCharge(next);
+    next = consumeRoadCharge(next);
   }
   if (profile.id === 'farm') next = consumeIrrigationCharge(next);
   next = recordResearchEvent(next, { kind: 'action', action: profile.skill, ok });
@@ -5118,7 +5165,9 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
   return afterAction(
     next,
     actorId,
-    staminaCostWithEquipment(current, actorId, profile.skill, profile.staminaCost),
+    profile.zoneIds.length
+      ? fieldActionStaminaCost(current, actorId, profile.skill, profile.staminaCost)
+      : staminaCostWithEquipment(current, actorId, profile.skill, profile.staminaCost),
     profile.hungerAdd,
     options,
   );
@@ -5132,6 +5181,7 @@ export function runGatherAction(state, actorId, regionId, options = {}) {
   const actor = getActor(current, actorId);
   const chance = actionChanceForRegion(current, actorId, 'gather', region);
   const ok = rng() < chance;
+  const roadApplied = roadCharges(current) > 0;
   let next = current;
   if (ok) {
     const gains = rollZoneGains(current, zone.gather, rng, { action: 'gather', zoneId: zone.id, regionId: region.id, region });
@@ -5144,11 +5194,13 @@ export function runGatherAction(state, actorId, regionId, options = {}) {
   } else {
     next = addLog(next, `${actor.name}의 채집 실패. ${region.name}의 날씨와 지형이 좋지 않았습니다.`);
   }
+  if (roadApplied) next = addLog(next, `${actor.name}의 채집 이동에 정비된 도로 효과를 적용했습니다. ST ${ROAD_STAMINA_REDUCTION} 절약 · 남은 도로 ${roadCharges(current) - 1}/${ROAD_MAX_CHARGES}.`);
   next = addDialogueLog(next, actorId, 'gather', ok ? 'success' : 'fail', rng);
   next = applyExplorationEvent(next, { actorId, action: 'gather', zoneId: zone.id, ok, rng });
   next = discoverRegionAfterAction(next, region, ok, rng);
   next = consumePatrolCharge(next);
-  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'gather', ok }), actorId, staminaCostWithEquipment(current, actorId, 'gather', 15), 3, options);
+  next = consumeRoadCharge(next);
+  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'gather', ok }), actorId, fieldActionStaminaCost(current, actorId, 'gather', 15), 3, options);
 }
 
 export function runHuntAction(state, actorId, regionId, options = {}) {
@@ -5159,6 +5211,7 @@ export function runHuntAction(state, actorId, regionId, options = {}) {
   const actor = getActor(current, actorId);
   const chance = actionChanceForRegion(current, actorId, 'hunt', region);
   const ok = rng() < chance;
+  const roadApplied = roadCharges(current) > 0;
   let next = current;
   if (ok) {
     const gains = rollZoneGains(current, zone.hunt, rng, { action: 'hunt', zoneId: zone.id, regionId: region.id, region });
@@ -5174,11 +5227,13 @@ export function runHuntAction(state, actorId, regionId, options = {}) {
     next = updateActor(next, actorId, { hp: clamp(Number(target.hp || 0) - damage, 0, 100) });
     next = addLog(next, `${actor.name}의 사냥 실패. ${region.name}에서 반격으로 HP -${damage}.`);
   }
+  if (roadApplied) next = addLog(next, `${actor.name}의 사냥 이동에 정비된 도로 효과를 적용했습니다. ST ${ROAD_STAMINA_REDUCTION} 절약 · 남은 도로 ${roadCharges(current) - 1}/${ROAD_MAX_CHARGES}.`);
   next = addDialogueLog(next, actorId, 'hunt', ok ? 'success' : 'fail', rng);
   next = applyExplorationEvent(next, { actorId, action: 'hunt', zoneId: zone.id, ok, rng });
   next = discoverRegionAfterAction(next, region, ok, rng);
   next = consumePatrolCharge(next);
-  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'hunt', ok }), actorId, staminaCostWithEquipment(current, actorId, 'hunt', 24), 5, options);
+  next = consumeRoadCharge(next);
+  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'hunt', ok }), actorId, fieldActionStaminaCost(current, actorId, 'hunt', 24), 5, options);
 }
 
 export function runCraftAction(state, actorId, recipeId, options = {}) {

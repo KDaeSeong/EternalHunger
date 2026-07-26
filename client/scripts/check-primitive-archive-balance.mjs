@@ -87,7 +87,7 @@ assert.equal(previewUtilityRows.every((row) => row.unlocked), true, '개발자 �
 const utilityReady = engine.normalizeState({
   ...base,
   ap: 4,
-  inventory: { ...base.inventory, herb: 2, berry: 12, wood: 4, clay: 2, meat: 3, resin: 2 },
+  inventory: { ...base.inventory, herb: 2, berry: 12, wood: 6, stone: 5, clay: 2, meat: 3, resin: 2 },
   party: base.party.map((member) => (
     member.id === 'shiroko' ? { ...member, hp: 60, bodyTemp: 36 } : member
   )),
@@ -100,6 +100,8 @@ const utilityReady = engine.normalizeState({
       AGRICULTURE: true,
       IRRIGATION: true,
       FOOD_STORAGE: true,
+      ROAD_BUILDING: true,
+      STONE_TOOLS: true,
     },
   },
   civics: {
@@ -115,14 +117,15 @@ const utilityReady = engine.normalizeState({
 const utilityRows = engine.utilityActionRows(utilityReady, 'shiroko');
 assert.deepEqual(
   utilityRows.filter((row) => row.available).map((row) => row.id).sort(),
-  ['festival', 'irrigation', 'patrol', 'preserve', 'survey', 'treatment'],
-  '연구와 재료 조건을 충족하면 운영 행동 여섯 가지를 모두 실행할 수 있어야 합니다.',
+  ['festival', 'irrigation', 'patrol', 'preserve', 'road', 'survey', 'treatment'],
+  '연구와 재료 조건을 충족하면 운영 행동 일곱 가지를 모두 실행할 수 있어야 합니다.',
 );
 for (const [techId, label] of [
   ['CARTOGRAPHY', '지도 답사'],
   ['MEDICAL_CORPUS', '치료'],
   ['IRRIGATION', '관개 정비'],
   ['FOOD_STORAGE', '식량 보존'],
+  ['ROAD_BUILDING', '도로 정비'],
 ]) {
   assert.match(
     engine.researchPlannerRows(utilityReady).find((row) => row.id === techId)?.unlockText || '',
@@ -229,6 +232,76 @@ assert.equal(Number(preserved.inventory.berry || 0), preservationBefore.berry - 
 assert.equal(Number(preserved.inventory.herb || 0), preservationBefore.herb - 1, '식량 보존은 약초 1개를 사용해야 합니다.');
 assert.equal(Number(preserved.inventory.packed_ration || 0), preservationBefore.ration + 1, '식량 보존은 보존 식량 꾸러미 1개를 생산해야 합니다.');
 assert.equal(preserved.counters.preserve, 1, '식량 보존 횟수가 기록되어야 합니다.');
+
+const roadBlockedState = engine.normalizeState({
+  ...utilityReady,
+  inventory: { ...utilityReady.inventory, stone: 2 },
+});
+const roadBlockedRow = engine.utilityActionRows(roadBlockedState, 'shiroko').find((row) => row.id === 'road');
+assert.equal(roadBlockedRow?.available, false, '돌이 부족하면 도로 정비가 비활성화되어야 합니다.');
+assert.match(roadBlockedRow?.lockedReason || '', /재료 부족/, '도로 정비는 부족한 재료를 설명해야 합니다.');
+
+const roaded = engine.runUtilityAction(utilityReady, 'shiroko', 'road', { rng: () => 0.5 });
+assert.equal(Number(roaded.inventory.stone || 0), Number(utilityReady.inventory.stone || 0) - 3, '도로 정비는 돌 3개를 사용해야 합니다.');
+assert.equal(Number(roaded.inventory.wood || 0), Number(utilityReady.inventory.wood || 0) - 2, '도로 정비는 나무 2개를 사용해야 합니다.');
+assert.equal(roaded.exploration.roadCharges, 4, '도로 정비는 현장 스태미나 절감을 4회 충전해야 합니다.');
+assert.equal(roaded.counters.road, 1, '도로 정비 횟수가 기록되어야 합니다.');
+
+const roadClamped = engine.normalizeState({
+  ...utilityReady,
+  exploration: { ...utilityReady.exploration, roadCharges: 99 },
+});
+assert.equal(roadClamped.exploration.roadCharges, 4, '저장된 도로 충전은 최대 4회로 정규화되어야 합니다.');
+
+const roadFieldBase = engine.normalizeState({
+  ...utilityReady,
+  ap: 4,
+  party: utilityReady.party.map((member) => (
+    member.id === 'shiroko' ? { ...member, stamina: 100 } : member
+  )),
+  exploration: { ...utilityReady.exploration, roadCharges: 0 },
+});
+const roadFieldReady = engine.normalizeState({
+  ...roadFieldBase,
+  exploration: { ...roadFieldBase.exploration, roadCharges: 4 },
+});
+const dryGatherResult = engine.runGatherAction(roadFieldBase, 'shiroko', '', { rng: () => 0.1 });
+const roadGatherResult = engine.runGatherAction(roadFieldReady, 'shiroko', '', { rng: () => 0.1 });
+assert.equal(
+  engine.getActor(roadGatherResult, 'shiroko').stamina - engine.getActor(dryGatherResult, 'shiroko').stamina,
+  4,
+  '정비된 도로는 채집 스태미나 소모를 4 줄여야 합니다.',
+);
+assert.equal(roadGatherResult.exploration.roadCharges, 3, '성공한 채집은 도로 충전을 1회 사용해야 합니다.');
+const failedRoadGather = engine.runGatherAction(roadFieldReady, 'shiroko', '', { rng: () => 0.999999 });
+assert.equal(failedRoadGather.exploration.roadCharges, 3, '실패한 채집도 도로 충전을 1회 사용해야 합니다.');
+assert.equal(failedRoadGather.log.some((entry) => /정비된 도로 효과/.test(entry)), true, '현장 행동 로그는 도로 효과 적용을 알려야 합니다.');
+
+const dryLoggingResult = engine.runSpecializedAction(roadFieldBase, 'shiroko', 'logging', '', { rng: () => 0.1 });
+const roadLoggingResult = engine.runSpecializedAction(roadFieldReady, 'shiroko', 'logging', '', { rng: () => 0.1 });
+assert.equal(
+  engine.getActor(roadLoggingResult, 'shiroko').stamina - engine.getActor(dryLoggingResult, 'shiroko').stamina,
+  4,
+  '정비된 도로는 벌목 스태미나 소모를 4 줄여야 합니다.',
+);
+assert.equal(roadLoggingResult.exploration.roadCharges, 3, '현장 특화 생업은 도로 충전을 1회 사용해야 합니다.');
+
+const roadFarmState = engine.normalizeState({
+  ...roadFieldReady,
+  exploration: { ...roadFieldReady.exploration, roadCharges: 4, irrigationCharges: 0 },
+});
+const dryFarmRoadState = engine.normalizeState({
+  ...roadFarmState,
+  exploration: { ...roadFarmState.exploration, roadCharges: 0 },
+});
+const roadFarmResult = engine.runSpecializedAction(roadFarmState, 'shiroko', 'farm', '', { rng: () => 0.1 });
+const dryFarmRoadResult = engine.runSpecializedAction(dryFarmRoadState, 'shiroko', 'farm', '', { rng: () => 0.1 });
+assert.equal(
+  engine.getActor(roadFarmResult, 'shiroko').stamina,
+  engine.getActor(dryFarmRoadResult, 'shiroko').stamina,
+  '정착지 농업에는 도로 스태미나 절감이 적용되지 않아야 합니다.',
+);
+assert.equal(roadFarmResult.exploration.roadCharges, 4, '정착지 농업은 도로 충전을 소비하지 않아야 합니다.');
 
 const huntBase = engine.normalizeState({
   ...utilityReady,
