@@ -340,6 +340,26 @@ const inventoryBlocked = shipOrderAction(inventoryBlockedBase, openOrder.id);
 const inventoryBlockedPresentation = expectResult(inventoryBlockedBase, inventoryBlocked, { key: 'inventoryBlocked', action: 'inventory', cue: 'inventoryAlert', tone: 'warning' });
 assert.equal(companyReportTextPresentation(inventoryBlocked.log[0], inventoryBlockedPresentation).action, 'inventory', '재고 부족 텍스트도 재고 아이콘을 유지해야 합니다.');
 
+const creditBlocked = createOrderAction(base, 'future-book', 'book-akashi', 10_000);
+const creditBlockedPresentation = expectResult(base, creditBlocked, { key: 'creditBlocked', action: 'company-credit-blocked', cue: 'creditBlocked', tone: 'warning' });
+assert.equal(companyReportTextPresentation(creditBlocked.log[0], creditBlockedPresentation).action, 'company-credit-blocked', '여신 한도 결과는 신용 아이콘을 유지해야 합니다.');
+
+const taxBlocked = payVatAction(base, 2099, 12, 1);
+const taxBlockedPresentation = expectResult(base, taxBlocked, { key: 'taxBlocked', action: 'company-tax-blocked', cue: 'taxBlocked', tone: 'warning' });
+assert.equal(companyReportTextPresentation(taxBlocked.log[0], taxBlockedPresentation).action, 'company-tax-blocked', '부가세 보류 결과는 세금 아이콘을 유지해야 합니다.');
+
+const tradeBlocked = settleGlobalTradeAction(base);
+const tradeBlockedPresentation = expectResult(base, tradeBlocked, { key: 'tradeBlocked', action: 'company-trade-blocked', cue: 'tradeBlocked', tone: 'warning' });
+assert.equal(companyReportTextPresentation(tradeBlocked.log[0], tradeBlockedPresentation).action, 'company-trade-blocked', '글로벌 정산 대기 결과는 무역 아이콘을 유지해야 합니다.');
+
+const restoreBlocked = restoreLatestSnapshotAction(base);
+const restoreBlockedPresentation = expectResult(base, restoreBlocked, { key: 'restoreBlocked', action: 'company-restore-blocked', cue: 'restoreBlocked', tone: 'warning' });
+assert.equal(companyReportTextPresentation(restoreBlocked.log[0], restoreBlockedPresentation).action, 'company-restore-blocked', '복원 차단 결과는 잠금 아이콘을 유지해야 합니다.');
+
+const operationClosed = shipOrderAction(shipped, openOrder.id);
+const operationClosedPresentation = expectResult(shipped, operationClosed, { key: 'operationClosed', action: 'company-operation-closed', cue: 'operationClosed', tone: 'ready' });
+assert.equal(companyReportTextPresentation(operationClosed.log[0], operationClosedPresentation).action, 'company-operation-closed', '완료된 원장 처리는 완료 아이콘을 유지해야 합니다.');
+
 const newRun = seed('company-feedback-new');
 const newPresentation = companyReportResultPresentation(base, newRun);
 assert.equal(newPresentation.key, 'newRun', '새 runId는 새 원장 전환이어야 합니다.');
@@ -355,6 +375,7 @@ const resultCues = [
   'globalSettle', 'disclosureFiled', 'dividendDeclared', 'capitalRaised', 'capitalClosed',
   'ledgerClose', 'companyProfit', 'companyLoss', 'snapshotSaved', 'restorePreview', 'ledgerRestored', 'reportBookmarked',
   'reportExported', 'foreignCashCollect', 'liquidityWarning', 'inventoryAlert',
+  'creditBlocked', 'taxBlocked', 'tradeBlocked', 'restoreBlocked', 'operationClosed',
   'companyRiskEscalated', 'companyRiskRecovered',
   'companyLiquidityRisk', 'companyLiquidityRecovered',
   'companyReceivableRisk', 'companyReceivableRecovered',
@@ -376,6 +397,8 @@ for (const icon of [
   'company-receivable-risk', 'company-receivable-recovery',
   'company-fx-risk', 'company-fx-recovery',
   'company-inventory-risk', 'company-inventory-recovery',
+  'company-credit-blocked', 'company-tax-blocked', 'company-trade-blocked',
+  'company-restore-blocked', 'company-operation-closed',
 ]) {
   assert.match(iconSource, new RegExp(`\\n  ['\"]?${icon}['\"]?: `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
 }
@@ -428,7 +451,7 @@ assert.match(cssSource, /\.company-report-risk-grid \{[\s\S]*repeat\(2, minmax\(
 assert.match(cssSource, /@media \(max-width: 760px\)[\s\S]*\.company-report-risk-grid \{[\s\S]*grid-template-columns: 1fr/, '모바일 리스크 지표는 1열로 복귀해야 합니다.');
 
 console.log(JSON.stringify({
-  feedbackTransitions: 39,
+  feedbackTransitions: 44,
   resultCues: resultCues.length,
   resultPanels: componentSources.reduce((sum, source) => sum + [...source.matchAll(/<RecentActionResult\b/g)].length, 0) + 1,
   semanticPanelTitles,

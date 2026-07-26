@@ -84,6 +84,11 @@ const FEEDBACK_PROFILES = {
   reportExported: { action: 'download', cue: 'reportExported', label: '진행 리포트 내보내기', tone: 'success' },
   liquidityBlocked: { action: 'finance', cue: 'liquidityWarning', label: '현금 유동성 부족', tone: 'warning' },
   inventoryBlocked: { action: 'inventory', cue: 'inventoryAlert', label: '출고 재고 부족', tone: 'warning' },
+  creditBlocked: { action: 'company-credit-blocked', cue: 'creditBlocked', label: '거래처 여신 한도 초과', tone: 'warning' },
+  taxBlocked: { action: 'company-tax-blocked', cue: 'taxBlocked', label: '부가세 처리 보류', tone: 'warning' },
+  tradeBlocked: { action: 'company-trade-blocked', cue: 'tradeBlocked', label: '글로벌 정산 대기', tone: 'warning' },
+  restoreBlocked: { action: 'company-restore-blocked', cue: 'restoreBlocked', label: '원장 복원 차단', tone: 'warning' },
+  operationClosed: { action: 'company-operation-closed', cue: 'operationClosed', label: '이미 완료된 원장 처리', tone: 'ready' },
   liquidityRiskEscalated: { action: 'company-liquidity-risk', cue: 'companyLiquidityRisk', label: '현금 런웨이 위험 진입', tone: 'warning' },
   liquidityRiskRecovered: { action: 'company-liquidity-recovery', cue: 'companyLiquidityRecovered', label: '현금 런웨이 회복', tone: 'success' },
   receivableRiskEscalated: { action: 'company-receivable-risk', cue: 'companyReceivableRisk', label: '미수금 적체 경보', tone: 'warning' },
@@ -106,6 +111,29 @@ const TEXT_PRESENTATIONS = [
 ];
 
 const BLOCKED_LOG = /부족|없습니다|입력하세요|초과|먼저|이미 |차단|불가|할 수 없습니다|실패/;
+const BLOCKED_FEEDBACK_KEYS = new Set([
+  'liquidityBlocked',
+  'inventoryBlocked',
+  'creditBlocked',
+  'taxBlocked',
+  'tradeBlocked',
+  'restoreBlocked',
+  'operationClosed',
+  'blocked',
+]);
+
+function blockedResultKey(log) {
+  const normalized = String(log || '');
+  if (!BLOCKED_LOG.test(normalized)) return '';
+  if (/현금.*부족|유동성.*부족/.test(normalized)) return 'liquidityBlocked';
+  if (/재고.*부족/.test(normalized)) return 'inventoryBlocked';
+  if (/여신 한도.*부족/.test(normalized)) return 'creditBlocked';
+  if (/부가세/.test(normalized)) return 'taxBlocked';
+  if (/정산할 활성 수출입 계획/.test(normalized)) return 'tradeBlocked';
+  if (/복원할 .*스냅샷|물리 복원 차단|복원 검증.*실패|선택된 복원 테이블/.test(normalized)) return 'restoreBlocked';
+  if (/이미 (?:출고된 주문|회수 완료된)/.test(normalized)) return 'operationClosed';
+  return 'blocked';
+}
 
 function inventoryWriteDownAmount(log) {
   const matched = String(log || '').match(/손상\s+([\d,]+)원/);
@@ -403,10 +431,9 @@ export function companyReportFeedbackTransition(previousValue, currentValue) {
   const current = asSnapshot(currentValue);
   const logChanged = current.latestLog !== previous.latestLog || current.logCount > previous.logCount;
   if (previous.runId !== current.runId) return 'newRun';
-  if (current.latestLog && logChanged && BLOCKED_LOG.test(current.latestLog)) {
-    if (/현금.*부족|유동성.*부족/.test(current.latestLog)) return 'liquidityBlocked';
-    if (/재고.*부족/.test(current.latestLog)) return 'inventoryBlocked';
-    return 'blocked';
+  if (current.latestLog && logChanged) {
+    const blockedKey = blockedResultKey(current.latestLog);
+    if (blockedKey) return blockedKey;
   }
 
   const previousCapitalAlert = capitalAlertActive(previous);
@@ -484,7 +511,7 @@ export function companyReportFeedbackCue(previousValue, currentValue) {
 export function companyReportTextPresentation(text, fallback = FEEDBACK_PROFILES.idle) {
   const normalized = String(text || '');
   const matched = TEXT_PRESENTATIONS.find((row) => row.pattern.test(normalized));
-  if (['liquidityBlocked', 'inventoryBlocked', 'blocked'].includes(fallback?.key)) return fallback;
+  if (BLOCKED_FEEDBACK_KEYS.has(fallback?.key)) return fallback;
   if (fallback?.key && fallback.key !== 'idle' && !matched?.force) return fallback;
   return matched ? { key: 'message', cue: '', ...matched.value } : fallback;
 }

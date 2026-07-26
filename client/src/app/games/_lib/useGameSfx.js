@@ -586,6 +586,32 @@ const CUE_PROFILES = {
     { frequency: 420, duration: 0.06, type: 'square', gain: 0.037, pan: -0.18 },
     { frequency: 315, start: 0.07, duration: 0.1, type: 'triangle', gain: 0.04, pan: 0.24 },
   ],
+  creditBlocked: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1320, q: 3.4, duration: 0.035, gain: 0.022, pan: -0.34 },
+    { frequency: 523.25, endFrequency: 392, duration: 0.075, type: 'square', gain: 0.038, pan: -0.18 },
+    { frequency: 293.66, endFrequency: 220, start: 0.09, duration: 0.12, type: 'triangle', gain: 0.041, pan: 0.24, reverb: 0.16 },
+  ],
+  taxBlocked: [
+    { source: 'noise', filterType: 'highpass', frequency: 1850, duration: 0.025, gain: 0.024, pan: -0.24 },
+    { frequency: 466.16, duration: 0.035, type: 'square', gain: 0.037, pan: -0.18 },
+    { frequency: 466.16, start: 0.07, duration: 0.035, type: 'square', gain: 0.035, pan: 0.18 },
+    { frequency: 233.08, start: 0.13, duration: 0.11, type: 'sine', gain: 0.035, pan: 0.28, reverb: 0.18 },
+  ],
+  tradeBlocked: [
+    { frequency: 659.25, endFrequency: 493.88, duration: 0.08, type: 'triangle', gain: 0.037, pan: -0.38 },
+    { frequency: 392, endFrequency: 293.66, start: 0.055, duration: 0.1, type: 'triangle', gain: 0.039, pan: 0.38 },
+    { source: 'noise', filterType: 'lowpass', frequency: 620, start: 0.13, duration: 0.09, gain: 0.022, reverb: 0.14 },
+  ],
+  restoreBlocked: [
+    { source: 'noise', filterType: 'bandpass', frequency: 980, q: 4.5, duration: 0.05, gain: 0.026, pan: -0.34 },
+    { frequency: 440, endFrequency: 220, duration: 0.11, type: 'square', gain: 0.038, pan: -0.2 },
+    { frequency: 146.83, start: 0.12, duration: 0.16, type: 'sine', gain: 0.038, pan: 0.24, reverb: 0.22 },
+  ],
+  operationClosed: [
+    { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.018, gain: 0.016, pan: -0.22 },
+    { frequency: 587.33, duration: 0.035, type: 'triangle', gain: 0.029, pan: -0.16 },
+    { frequency: 739.99, start: 0.055, duration: 0.055, type: 'sine', gain: 0.027, pan: 0.2, reverb: 0.2 },
+  ],
   taxPaid: [
     { source: 'noise', filterType: 'bandpass', frequency: 900, q: 2.2, duration: 0.03, gain: 0.035 },
     { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.045 },
