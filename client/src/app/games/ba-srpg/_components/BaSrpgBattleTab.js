@@ -15,7 +15,7 @@ import {
 } from '../_lib/baSrpgEngine';
 import { BaSrpgIconRow, BaSrpgPanelTitle } from './BaSrpgVisuals';
 
-function BoardCell({ content, selected, target, onClick }) {
+function BoardCell({ content, movable, selected, target, onClick }) {
   const statusText = content.actor ? actorStatusText(content.actor) : '';
   const zoneText = content.zone?.type === 'Smoke' ? `연막 ${content.zone.duration}라운드` : '';
   const coverText = content.type === 'cover' ? `엄폐 내구도 ${content.coverHp}/${content.coverMaxHp}` : '';
@@ -25,15 +25,26 @@ function BoardCell({ content, selected, target, onClick }) {
   const label = content.actor
     ? `${content.actor.name}${statusText ? ` · ${statusText}` : ''}${zoneText ? ` · ${zoneText}` : ''}${objectiveText ? ` · ${objectiveText}` : ''}`
     : [objectiveText, coverText, zoneText, content.destroyedCover ? '파괴된 엄폐' : '', content.type === 'obstacle' ? '장애물' : ''].filter(Boolean).join(' · ');
+  const title = [label, movable ? '이동 가능 · AP 1' : ''].filter(Boolean).join(' · ');
+  const cue = content.type === 'unit'
+    ? 'srpgUnitSelect'
+    : content.type === 'enemy'
+      ? 'srpgTargetSelect'
+      : 'off';
   return (
     <button
       type="button"
-      className={`srpg-cell is-${content.type}${selected ? ' is-selected' : ''}${target ? ' is-target' : ''}${content.zone ? ' is-smoke-zone' : ''}${content.actor?.overwatch ? ' is-overwatch' : ''}${content.destroyedCover ? ' is-destroyed-cover' : ''}${content.objective ? ' is-objective' : ''}${content.objective?.captured ? ' is-objective-captured' : ''}`}
-      data-game-sfx={content.actor ? 'select' : 'click'}
-      disabled={content.type === 'obstacle'}
+      className={`srpg-cell is-${content.type}${movable ? ' is-movable' : ''}${selected ? ' is-selected' : ''}${target ? ' is-target' : ''}${content.zone ? ' is-smoke-zone' : ''}${content.actor?.overwatch ? ' is-overwatch' : ''}${content.destroyedCover ? ' is-destroyed-cover' : ''}${content.objective ? ' is-objective' : ''}${content.objective?.captured ? ' is-objective-captured' : ''}`}
+      data-game-sfx={cue}
+      disabled={!content.actor && !movable}
       onClick={onClick}
-      title={label}
+      title={title}
     >
+      {movable ? (
+        <span className="srpg-cell-move-marker" title="이동 가능 · AP 1">
+          <GameActionIcon action="move" label="이동 가능" />
+        </span>
+      ) : null}
       {content.objective && content.actor ? (
         <span className="srpg-cell-objective-marker" title={objectiveText}>
           <GameActionIcon action={content.objective.action} />
@@ -75,7 +86,9 @@ export default function BaSrpgBattleTab(props) {
     mission,
     recipeId,
     recipes,
+    selectedCanAct,
     selectedRecipe,
+    selectedUnit,
     setSkillId,
     setRecipeId,
     setState,
@@ -103,10 +116,19 @@ export default function BaSrpgBattleTab(props) {
               const content = cellContent(state, x, y);
               const selected = content.actor?.id && content.actor.id === battle.selectedUnitId;
               const target = content.actor?.id && content.actor.id === battle.targetEnemyId;
+              const movable = Boolean(
+                selectedCanAct
+                && selectedUnit
+                && !content.actor
+                && content.type !== 'obstacle'
+                && Math.abs(x - Number(selectedUnit.x || 0))
+                  + Math.abs(y - Number(selectedUnit.y || 0)) === 1
+              );
               return (
                 <BoardCell
                   key={`${x}-${y}`}
                   content={content}
+                  movable={movable}
                   selected={selected}
                   target={target}
                   onClick={() => handleCellClick(x, y)}

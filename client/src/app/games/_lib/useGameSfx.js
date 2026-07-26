@@ -2971,6 +2971,48 @@ const THEME_CUE_PROFILES = {
       { frequency: 660, start: 0.034, duration: 0.055, type: 'triangle', gain: 0.04, pan: 0.08 },
       { frequency: 990, start: 0.084, duration: 0.08, type: 'sine', gain: 0.032, pan: 0.28, reverb: 0.22 },
     ],
+    srpgUnitSelect: [
+      { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.025, gain: 0.018, pan: -0.28 },
+      { frequency: 494, duration: 0.038, type: 'square', gain: 0.04, pan: -0.2 },
+      { frequency: 659, start: 0.034, duration: 0.055, type: 'triangle', gain: 0.043, pan: 0.08 },
+      { frequency: 988, start: 0.082, duration: 0.09, type: 'sine', gain: 0.032, pan: 0.28, reverb: 0.2 },
+    ],
+    srpgTargetSelect: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 1.1, duration: 0.05, gain: 0.025, pan: -0.3 },
+      { frequency: 740, endFrequency: 520, duration: 0.055, type: 'square', gain: 0.042, pan: -0.18 },
+      { frequency: 520, endFrequency: 370, start: 0.052, duration: 0.07, type: 'sawtooth', gain: 0.038, pan: 0.14 },
+      { frequency: 185, start: 0.11, duration: 0.12, type: 'sine', gain: 0.04, pan: 0.3, reverb: 0.18 },
+    ],
+    srpgTabMission: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1750, q: 0.78, duration: 0.09, gain: 0.024, pan: -0.34, reverb: 0.18 },
+      { frequency: 330, duration: 0.045, type: 'square', gain: 0.04, pan: -0.22 },
+      { frequency: 494, start: 0.042, duration: 0.06, type: 'triangle', gain: 0.042 },
+      { frequency: 988, start: 0.1, duration: 0.12, type: 'sine', gain: 0.034, pan: 0.28, reverb: 0.24 },
+    ],
+    srpgTabCampaign: [
+      { source: 'noise', filterType: 'highpass', frequency: 2200, duration: 0.12, gain: 0.02, pan: -0.4, reverb: 0.2 },
+      { frequency: 392, endFrequency: 523, duration: 0.07, type: 'triangle', gain: 0.04, pan: -0.24 },
+      { frequency: 659, start: 0.065, duration: 0.08, type: 'triangle', gain: 0.04, pan: 0.06 },
+      { frequency: 1318, start: 0.14, duration: 0.13, type: 'sine', gain: 0.031, pan: 0.32, reverb: 0.26 },
+    ],
+    srpgTabTown: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1180, q: 0.66, duration: 0.1, gain: 0.022, pan: -0.34, reverb: 0.2 },
+      { frequency: 523, duration: 0.04, type: 'triangle', gain: 0.04, pan: -0.2 },
+      { frequency: 784, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.041, pan: 0.04 },
+      { frequency: 1047, start: 0.098, duration: 0.12, type: 'sine', gain: 0.033, pan: 0.3, reverb: 0.25 },
+    ],
+    srpgTabBattle: [
+      { source: 'noise', filterType: 'highpass', frequency: 3100, duration: 0.04, gain: 0.028, pan: -0.34 },
+      { frequency: 220, endFrequency: 330, duration: 0.07, type: 'sawtooth', gain: 0.045, pan: -0.22 },
+      { frequency: 440, start: 0.065, duration: 0.075, type: 'square', gain: 0.043, pan: 0.04 },
+      { frequency: 880, start: 0.135, duration: 0.12, type: 'triangle', gain: 0.034, pan: 0.3, reverb: 0.22 },
+    ],
+    srpgTabInventory: [
+      { source: 'noise', filterType: 'bandpass', frequency: 2050, q: 0.82, duration: 0.07, gain: 0.02, pan: -0.34 },
+      { frequency: 587, duration: 0.042, type: 'square', gain: 0.038, pan: -0.2 },
+      { frequency: 740, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.04, pan: 0.05 },
+      { frequency: 1175, start: 0.092, duration: 0.11, type: 'sine', gain: 0.032, pan: 0.3, reverb: 0.23 },
+    ],
     deploy: [
       { source: 'noise', filterType: 'bandpass', frequency: 1280, q: 0.78, duration: 0.16, gain: 0.032, pan: -0.42, reverb: 0.22 },
       { frequency: 196, endFrequency: 294, duration: 0.09, type: 'sawtooth', gain: 0.044, pan: -0.28 },

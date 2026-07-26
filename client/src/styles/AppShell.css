@@ -10886,6 +10886,39 @@
   color: #287a3e;
 }
 
+.srpg-cell.is-movable {
+  border-color: rgba(8, 120, 189, 0.58);
+  background: #edf8ff;
+  box-shadow: inset 0 0 0 2px rgba(8, 120, 189, 0.14);
+  cursor: pointer;
+}
+
+.srpg-cell.is-movable:hover {
+  border-color: #0878bd;
+  background: #dff3ff;
+  box-shadow: inset 0 0 0 2px rgba(8, 120, 189, 0.22);
+}
+
+.srpg-cell-move-marker {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border: 1px solid rgba(8, 120, 189, 0.26);
+  border-radius: 4px;
+  background: #fff;
+  color: #0878bd;
+  box-shadow: 0 1px 3px rgba(7, 63, 94, 0.16);
+}
+
+.srpg-cell-move-marker .game-action-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
 .srpg-cell.is-objective {
   border-color: rgba(184, 118, 16, 0.62);
   box-shadow: inset 0 0 0 2px rgba(240, 175, 65, 0.16);

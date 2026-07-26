@@ -559,6 +559,26 @@ assert.match(pageSource, /tone=\{resultPresentation\.tone\}/, '전역 작전 결
 ['deploy', 'map', 'property', 'combat', 'inventory'].forEach((action) => {
   assert.ok(featureSource.includes(`icon: '${action}'`), `${action} 기능 탭 아이콘이 필요합니다.`);
 });
+[
+  'srpgTabMission',
+  'srpgTabCampaign',
+  'srpgTabTown',
+  'srpgTabBattle',
+  'srpgTabInventory',
+].forEach((cue) => {
+  assert.ok(featureSource.includes(`cue: '${cue}'`), `${cue} 기능 탭 전용 효과음 연결이 필요합니다.`);
+  assert.ok(sfxSource.includes(`${cue}: [`), `${cue} 기능 탭 전용 효과음 프로필이 필요합니다.`);
+});
+['srpgUnitSelect', 'srpgTargetSelect'].forEach((cue) => {
+  assert.ok(componentSource.includes(`'${cue}'`), `${cue} 전투판 선택 효과음 연결이 필요합니다.`);
+  assert.ok(sfxSource.includes(`${cue}: [`), `${cue} 전투판 선택 효과음 프로필이 필요합니다.`);
+});
+assert.match(pageSource, /moveSelectedAction\(current, dx, dy\)/, '전투판 인접 칸 클릭은 실제 이동 행동으로 연결되어야 합니다.');
+assert.match(pageSource, /Math\.abs\(dx\) \+ Math\.abs\(dy\) !== 1/, '전투판 클릭 이동은 인접한 한 칸만 허용해야 합니다.');
+assert.match(componentSource, /const movable = Boolean\(/, '전투판은 선택 유닛 기준 이동 가능 칸을 계산해야 합니다.');
+assert.match(componentSource, /className="srpg-cell-move-marker"/, '이동 가능 칸에는 의미 이동 아이콘을 표시해야 합니다.');
+assert.match(componentSource, /disabled=\{!content\.actor && !movable\}/, '행동할 수 없는 빈 칸은 클릭되지 않아야 합니다.');
+assert.match(cssSource, /\.srpg-cell\.is-movable/, '이동 가능 칸의 전술 강조 스타일이 필요합니다.');
 ['overwatch', 'smoke', 'cover-break', 'buff', 'debuff', 'status', 'burst'].forEach((action) => {
   assert.ok(iconSource.includes(`${action.includes('-') ? `'${action}'` : action}:`), `${action} 전용 행동 아이콘이 필요합니다.`);
 });
@@ -652,7 +672,10 @@ assert.match(cssSource, /\.srpg-impact-chip/, 'BA SRPG 변화량 칩 레이아�
 console.log(JSON.stringify({
   message: 'BA SRPG tactical feedback checks passed.',
   skills: TACTICAL_SKILLS.length,
-  tacticalCues: 26,
+  tacticalCues: 33,
+  boardInteractionCues: 2,
+  featureTabCues: 5,
+  clickToMove: true,
   townCues: 4,
   impactRows: impactRows.length,
   semanticPanelTitles,

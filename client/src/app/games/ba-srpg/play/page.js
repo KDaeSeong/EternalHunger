@@ -50,6 +50,7 @@ import {
   guildRankInfo,
   inventoryRows,
   itemName,
+  moveSelectedAction,
   normalizeState,
   propertyRows,
   questRows,
@@ -99,7 +100,11 @@ export default function BaSrpgPlayPage() {
   const battle = state.battle;
   const mission = getMission(battle.missionId);
   const selectedUnit = battle.units.find((unit) => unit.id === battle.selectedUnitId) || battle.units[0];
-  const selectedCanAct = battle.phase === 'player' && selectedUnit && !selectedUnit.acted && Number(selectedUnit.ap || 0) > 0;
+  const selectedCanAct = battle.phase === 'player'
+    && selectedUnit
+    && Number(selectedUnit.hp || 0) > 0
+    && !selectedUnit.acted
+    && Number(selectedUnit.ap || 0) > 0;
   const targetEnemy = battle.enemies.find((enemy) => enemy.id === battle.targetEnemyId && enemy.hp > 0);
   const formation = useMemo(() => formationRows(state), [state]);
   const formationPresets = useMemo(() => formationPresetRows(state, missionId), [state, missionId]);
@@ -273,8 +278,27 @@ export default function BaSrpgPlayPage() {
 
   const handleCellClick = (x, y) => {
     const content = cellContent(state, x, y);
-    if (content.type === 'unit') setState((current) => selectUnitAction(current, content.actor.id));
-    if (content.type === 'enemy') setState((current) => selectEnemyAction(current, content.actor.id));
+    if (content.type === 'unit') {
+      setState((current) => selectUnitAction(current, content.actor.id));
+      return;
+    }
+    if (content.type === 'enemy') {
+      setState((current) => selectEnemyAction(current, content.actor.id));
+      return;
+    }
+
+    setState((current) => {
+      const currentContent = cellContent(current, x, y);
+      if (currentContent.actor || currentContent.type === 'obstacle') return current;
+      const unit = current.battle.units.find((row) => (
+        row.id === current.battle.selectedUnitId && Number(row.hp || 0) > 0
+      ));
+      if (!unit) return current;
+      const dx = x - Number(unit.x || 0);
+      const dy = y - Number(unit.y || 0);
+      if (Math.abs(dx) + Math.abs(dy) !== 1) return current;
+      return moveSelectedAction(current, dx, dy);
+    });
   };
 
   const runAutoBattle = () => {
