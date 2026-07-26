@@ -131,7 +131,7 @@ export function createNewState(options = {}) {
     inventory,
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
-    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, season_plan: 0, drill: 0, debate: 0, irrigation: 0, preserve: 0, road: 0, trade_route: 0, settlement: 0, voyage: 0, camp: 0, meals: 0, events: 0 },
+    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, season_plan: 0, drill: 0, debate: 0, irrigation: 0, kiln: 0, weave: 0, smelt: 0, forge: 0, mill: 0, market: 0, preserve: 0, road: 0, trade_route: 0, settlement: 0, voyage: 0, camp: 0, meals: 0, events: 0 },
     eventChains: [],
     exploration: initExplorationState(),
     projects: initProjectState(),
@@ -473,6 +473,12 @@ const RESEARCH_ACTION_LABELS = {
   drill: '훈련 태세',
   debate: '학술 토론',
   irrigation: '관개 정비',
+  kiln: '가마 굽기',
+  weave: '방직',
+  smelt: '제련',
+  forge: '단조',
+  mill: '제분',
+  market: '시장 거래',
   preserve: '식량 보존',
   road: '도로 정비',
   trade_route: '교역로 개설',
@@ -1034,6 +1040,7 @@ const TRIBE_FOOD_VALUES = [
   ['berry', 1],
   ['meat', 1],
   ['grain', 1],
+  ['milled_grain', 2],
   ['fish', 1],
   ['milk', 1],
   ['jerky', 2],
@@ -2459,7 +2466,7 @@ function explorationEventPressure(state) {
   };
 }
 
-const FOOD_RECOVERY_IDS = ['packed_ration', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry'];
+const FOOD_RECOVERY_IDS = ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry'];
 
 function foodNutritionValue(state, foodId) {
   const food = ITEMS[foodId] || {};
@@ -3655,7 +3662,7 @@ function ancientResearchPressure(state, tech) {
   const hp = averageParty(current, 'hp');
   const hunger = averageParty(current, 'hunger');
   const bodyTemp = averageBodyTemp(current);
-  const foodUnits = ['berry', 'grain', 'milk', 'fish', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
+  const foodUnits = ['berry', 'grain', 'milled_grain', 'milk', 'fish', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
     .reduce((sum, id) => sum + Number(current.inventory?.[id] || 0), 0);
   const alive = Math.max(1, current.party.filter((member) => Number(member.hp || 0) > 0).length);
   const weatherSeen = Object.values(current.research?.counters?.weatherSeen || {})
@@ -4122,7 +4129,7 @@ export function getRunProgressReport(state) {
   const hunger = averageParty(current, 'hunger');
   const stamina = averageParty(current, 'stamina');
   const bodyTemp = averageBodyTemp(current);
-  const foodUnits = ['berry', 'grain', 'milk', 'fish', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
+  const foodUnits = ['berry', 'grain', 'milled_grain', 'milk', 'fish', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
     .reduce((sum, id) => sum + Number(current.inventory[id] || 0), 0);
   const fuel = Number(current.camp.fuel || 0);
   const weight = totalCarryWeight(current);
@@ -4691,7 +4698,7 @@ const SPECIALIZED_ACTION_DEFS = [
   {
     id: 'mine', label: '\uCC44\uAD11', icon: 'primitive-mining', techId: 'MINING', skill: 'gather', baseChance: 0.56,
     staminaCost: 22, hungerAdd: 4, zoneIds: ['cave'], zoneId: 'cave',
-    gains: [['stone', 3], ['flint', 1, 0.7], ['obsidian_shard', 1, 0.22]],
+    gains: [['stone', 3], ['flint', 1, 0.7], ['metal_ore', 1, 0.38], ['obsidian_shard', 1, 0.22]],
   },
   {
     id: 'quarry', label: '\uCC44\uC11D', icon: 'primitive-quarry', techId: 'EARLY_CONSTRUCTION', skill: 'gather', baseChance: 0.62,
@@ -4726,6 +4733,22 @@ const DEBATE_CIVIC_POINTS = 3;
 const IRRIGATION_MAX_CHARGES = 3;
 const IRRIGATION_CHANCE_BONUS = 0.12;
 const IRRIGATION_ACTION_COST = { wood: 2, clay: 1 };
+const PRODUCTION_ACTION_RECIPES = {
+  kiln: { context: '점토를 굽는 가마', cost: { clay: 2, wood: 1 }, reward: [['pottery', 2]] },
+  weave: { context: '섬유를 엮는 베틀', cost: { fiber: 3 }, reward: [['woven_cloth', 1]] },
+  smelt: { context: '광석을 녹이는 제련로', cost: { metal_ore: 2, wood: 2 }, reward: [['metal_ingot', 1]] },
+  forge: { context: '주괴를 두드리는 단조장', cost: { metal_ingot: 1, wood: 1 }, reward: [['metal_tools', 1]] },
+  mill: { context: '곡물을 가는 수차 제분소', cost: { grain: 3 }, reward: [['milled_grain', 2]] },
+};
+const MARKET_EXPORTS = [
+  { itemId: 'pottery', qty: 2, rewardQty: 3 },
+  { itemId: 'woven_cloth', qty: 2, rewardQty: 3 },
+  { itemId: 'metal_ingot', qty: 1, rewardQty: 4 },
+  { itemId: 'packed_ration', qty: 1, rewardQty: 3 },
+  { itemId: 'resin', qty: 2, rewardQty: 3 },
+  { itemId: 'hide', qty: 2, rewardQty: 3 },
+];
+const MARKET_IMPORTS = ['wood', 'stone', 'fiber', 'clay', 'grain', 'herb'];
 const FOOD_PRESERVATION_COST = { meat: 2, resin: 1, berry: 1, herb: 1 };
 const FOOD_PRESERVATION_REWARD = [['packed_ration', 1]];
 const ROAD_MAX_CHARGES = 4;
@@ -4764,6 +4787,30 @@ function settlementActionCost(level = 0) {
     wood: 4 + safeLevel * 2,
     stone: 3 + safeLevel * 2,
     fiber: 2 + safeLevel,
+  };
+}
+
+function marketExchangeOffer(state) {
+  const inventory = state?.inventory || {};
+  const exportOffer = MARKET_EXPORTS
+    .map((offer, index) => ({
+      ...offer,
+      index,
+      stock: Number(inventory[offer.itemId] || 0),
+      surplus: Number(inventory[offer.itemId] || 0) / Math.max(1, Number(offer.qty || 1)),
+    }))
+    .filter((offer) => offer.stock >= offer.qty)
+    .sort((a, b) => b.surplus - a.surplus || a.index - b.index)[0];
+  if (!exportOffer) return null;
+  const importItemId = MARKET_IMPORTS
+    .map((itemId, index) => ({ itemId, index, stock: Number(inventory[itemId] || 0) }))
+    .sort((a, b) => a.stock - b.stock || a.index - b.index)[0]?.itemId;
+  if (!importItemId) return null;
+  return {
+    cost: { [exportOffer.itemId]: exportOffer.qty },
+    reward: [[importItemId, exportOffer.rewardQty]],
+    sourceItemId: exportOffer.itemId,
+    targetItemId: importItemId,
   };
 }
 
@@ -4868,9 +4915,15 @@ const CIVILIZATION_ACTION_DEFS = [
   { id: 'season_plan', label: '계절 대비', icon: 'primitive-season-plan', techId: 'CALENDAR', staminaCost: 10, hungerAdd: 2 },
   { id: 'debate', label: '학술 토론', icon: 'primitive-debate', techId: 'BASIC_PHILOSOPHY', staminaCost: 12, hungerAdd: 2 },
   { id: 'irrigation', label: '관개 정비', icon: 'primitive-irrigation', techId: 'IRRIGATION', staminaCost: 16, hungerAdd: 2 },
+  { id: 'kiln', label: '가마 굽기', icon: 'primitive-kiln', techId: 'POTTERY', staminaCost: 12, hungerAdd: 2 },
+  { id: 'weave', label: '방직', icon: 'primitive-weave', techId: 'CORDAGE', staminaCost: 12, hungerAdd: 2 },
+  { id: 'smelt', label: '제련', icon: 'primitive-smelt', techId: 'BRONZE_WORKING', staminaCost: 18, hungerAdd: 3 },
+  { id: 'forge', label: '단조', icon: 'primitive-forge', techId: 'EARLY_IRONWORKING', staminaCost: 18, hungerAdd: 3 },
+  { id: 'mill', label: '제분', icon: 'primitive-mill', techId: 'WATERMILL', staminaCost: 12, hungerAdd: 2 },
   { id: 'preserve', label: '식량 보존', icon: 'primitive-preserve', techId: 'FOOD_STORAGE', staminaCost: 14, hungerAdd: 2 },
   { id: 'road', label: '도로 정비', icon: 'primitive-road', techId: 'ROAD_BUILDING', staminaCost: 18, hungerAdd: 3 },
   { id: 'trade_route', label: '교역로 개설', icon: 'primitive-trade-route', techId: 'EARLY_CURRENCY', staminaCost: 14, hungerAdd: 2 },
+  { id: 'market', label: '시장 거래', icon: 'primitive-market', techId: 'EARLY_CURRENCY', staminaCost: 10, hungerAdd: 1 },
   { id: 'settlement', label: '정착지 확장', icon: 'primitive-settlement', techId: 'SETTLEMENT', staminaCost: 20, hungerAdd: 3 },
   { id: 'voyage', label: '항해 답사', icon: 'primitive-voyage', techId: 'BASIC_SAILING', staminaCost: 20, hungerAdd: 4 },
 ];
@@ -4950,6 +5003,7 @@ export function utilityActionRows(state, actorId) {
   const settlementLevel = Math.min(SETTLEMENT_MAX_LEVEL, Math.max(0, Number(current.tribe.settlementLevel || 0)));
   const civic = activeCivicForState(current);
   const selectedTechnology = getTechnology(current.research.selectedTechId);
+  const marketOffer = marketExchangeOffer(current);
 
   return CIVILIZATION_ACTION_DEFS.map((profile) => {
     const technology = getTechnology(profile.techId) || getCivic(profile.techId);
@@ -4961,7 +5015,16 @@ export function utilityActionRows(state, actorId) {
     let outcome = '';
     let materialText = '';
 
-    if (profile.id === 'settlement') {
+    const productionRecipe = PRODUCTION_ACTION_RECIPES[profile.id];
+    if (productionRecipe) {
+      const materialsReady = hasResources(current.inventory, productionRecipe.cost);
+      const outputItemId = productionRecipe.reward[0]?.[0] || '';
+      requirementMet = materialsReady;
+      lockedReason = materialsReady ? '' : `재료 부족: ${formatRequires(productionRecipe.cost)}`;
+      context = `${productionRecipe.context} · ${itemName(outputItemId)} ${Number(current.inventory[outputItemId] || 0)}개 보유`;
+      outcome = `${formatGains(productionRecipe.reward)} 생산`;
+      materialText = formatRequires(productionRecipe.cost);
+    } else if (profile.id === 'settlement') {
       const cost = settlementActionCost(settlementLevel);
       const materialsReady = hasResources(current.inventory, cost);
       requirementMet = settlementLevel < SETTLEMENT_MAX_LEVEL && materialsReady;
@@ -5063,6 +5126,14 @@ export function utilityActionRows(state, actorId) {
       context = `정비된 도로 ${activeRoadCharges}/${ROAD_MAX_CHARGES}`;
       outcome = `다음 현장 행동 ${ROAD_MAX_CHARGES}회 · ST -${ROAD_STAMINA_REDUCTION}`;
       materialText = formatRequires(ROAD_ACTION_COST);
+    } else if (profile.id === 'market') {
+      requirementMet = Boolean(marketOffer);
+      lockedReason = marketOffer ? '' : '교환 가능한 잉여품이 없습니다. 토기·직물·금속 주괴·보존식·수지·가죽을 준비하세요.';
+      context = marketOffer
+        ? `${formatRequires(marketOffer.cost)} → ${formatGains(marketOffer.reward)}`
+        : '잉여 생산품을 부족한 기초 자원으로 교환';
+      outcome = marketOffer ? `즉시 ${formatGains(marketOffer.reward)} 획득` : lockedReason;
+      materialText = marketOffer ? `제공 ${formatRequires(marketOffer.cost)}` : '';
     } else if (profile.id === 'trade_route') {
       const materialsReady = hasResources(current.inventory, TRADE_ROUTE_ACTION_COST);
       requirementMet = activeTradeRouteCharges < TRADE_ROUTE_MAX_CHARGES && materialsReady;
@@ -5102,7 +5173,14 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
   const rng = options.rng || Math.random;
   const actor = getActor(current, actorId);
   let next = current;
-  if (profile.id === 'settlement') {
+  const productionRecipe = PRODUCTION_ACTION_RECIPES[profile.id];
+  if (productionRecipe) {
+    next = {
+      ...next,
+      inventory: addItems(spendResources(next.inventory, productionRecipe.cost), productionRecipe.reward),
+    };
+    next = addLog(next, `${actor.name}의 ${profile.label} 완료. ${formatRequires(productionRecipe.cost)}을 가공해 ${formatGains(productionRecipe.reward)}을 생산했습니다.`);
+  } else if (profile.id === 'settlement') {
     const tribe = normalizeTribeState(next.tribe);
     const level = Math.min(SETTLEMENT_MAX_LEVEL, Number(tribe.settlementLevel || 0) + 1);
     const cost = settlementActionCost(tribe.settlementLevel);
@@ -5212,6 +5290,13 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
       exploration: { ...next.exploration, roadCharges: ROAD_MAX_CHARGES },
     };
     next = addLog(next, `${actor.name}의 도로 정비 완료. ${formatRequires(ROAD_ACTION_COST)}을 사용해 다음 현장 행동 ${ROAD_MAX_CHARGES}회의 스태미나 소모를 ${ROAD_STAMINA_REDUCTION} 줄입니다.`);
+  } else if (profile.id === 'market') {
+    const offer = marketExchangeOffer(next);
+    next = {
+      ...next,
+      inventory: addItems(spendResources(next.inventory, offer.cost), offer.reward),
+    };
+    next = addLog(next, `${actor.name}의 시장 거래 완료. ${formatRequires(offer.cost)}을 내주고 ${formatGains(offer.reward)}을 확보했습니다.`);
   } else if (profile.id === 'trade_route') {
     next = {
       ...next,
@@ -5246,7 +5331,7 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
     name: itemName(itemId),
     expected: Number(qty || 0) * craftChance,
   }));
-  const foodId = ['packed_ration', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry', 'herb_tonic']
+  const foodId = ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry', 'herb_tonic']
     .find((id) => ITEMS[id]?.type === 'food' && Number(current.inventory[id] || 0) > 0) || '';
   const researchEstimate = researchActionEstimate(current, actorId);
   const selectedTech = getTechnology(current.research.selectedTechId);
@@ -5517,7 +5602,7 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
 
 export function runEatAction(state, actorId, options = {}) {
   const actor = getActor(state, actorId);
-  const foodId = ['packed_ration', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry', 'herb_tonic']
+  const foodId = ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry', 'herb_tonic']
     .find((id) => ITEMS[id]?.type === 'food' && Number(state.inventory[id] || 0) > 0) || '';
   if (!foodId) return addLog(state, '먹을 음식이 없습니다. 채집이나 사냥으로 식량을 확보하세요.');
   const nutrition = foodNutritionValue(state, foodId);
@@ -5672,7 +5757,7 @@ function livingParty(state) {
 }
 
 function foodAvailable(state) {
-  return ['packed_ration', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry', 'herb_tonic']
+  return ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry', 'herb_tonic']
     .some((id) => Number(state.inventory[id] || 0) > 0);
 }
 
@@ -5802,6 +5887,24 @@ function pickAutoSpecializedAction(state, actionIds) {
 
 
 
+function pickAutoProductionAction(state) {
+  const targets = [
+    ['forge', 'metal_tools', 1],
+    ['smelt', 'metal_ingot', 2],
+    ['kiln', 'pottery', 2],
+    ['weave', 'woven_cloth', 2],
+    ['mill', 'milled_grain', 4],
+  ];
+  const actorId = pickActorForAuto(state, 'craft');
+  const rows = utilityActionRows(state, actorId);
+  for (const [actionId, itemId, target] of targets) {
+    if (Number(state.inventory[itemId] || 0) >= target) continue;
+    const row = rows.find((candidate) => candidate.id === actionId);
+    if (row?.available) return { actionId, actorId };
+  }
+  return null;
+}
+
 function autoAssignUnassignedTribe(state) {
   const tribe = normalizeTribeState(state.tribe);
   const assignments = { ...tribe.assignments };
@@ -5885,6 +5988,7 @@ function runNextAutoArchiveAction(state, options = {}) {
     + Number(state.inventory.cooked_meat || 0)
     + Number(state.inventory.fish || 0)
     + Number(state.inventory.grain || 0)
+    + Number(state.inventory.milled_grain || 0)
     + Number(state.inventory.milk || 0)
     + Number(state.inventory.herb_tonic || 0);
   const researchGateCampKind = researchSystemStatus(state).unlocked ? '' : pickAutoCampKind(state);
@@ -5934,17 +6038,22 @@ function runNextAutoArchiveAction(state, options = {}) {
   const specializedPriorities = [];
   if (Number(state.inventory.wood || 0) < 6 || Number(state.inventory.resin || 0) < 1) specializedPriorities.push('logging');
   if (Number(state.inventory.herb || 0) < 3) specializedPriorities.push('herbal');
-  if (Number(state.inventory.grain || 0) < 3) specializedPriorities.push('farm');
+  if (Number(state.inventory.grain || 0) < 3 || (state.research.completed?.WATERMILL && Number(state.inventory.milled_grain || 0) < 4)) specializedPriorities.push('farm');
   if (Number(state.inventory.fish || 0) < 2) specializedPriorities.push('fish');
   if (Number(state.inventory.milk || 0) + Number(state.inventory.meat || 0) < 3) specializedPriorities.push('herd');
   if (Number(state.inventory.meat || 0) < 2 || Number(state.inventory.hide || 0) < 2 || Number(state.inventory.sinew || 0) < 1) specializedPriorities.push('trap');
-  if (Number(state.inventory.stone || 0) < 6 || Number(state.inventory.flint || 0) < 2) specializedPriorities.push('mine');
+  if (Number(state.inventory.stone || 0) < 6 || Number(state.inventory.flint || 0) < 2 || (state.research.completed?.BRONZE_WORKING && Number(state.inventory.metal_ore || 0) < 2)) specializedPriorities.push('mine');
   if (Number(state.inventory.stone || 0) < 8 || Number(state.inventory.clay || 0) < 2) specializedPriorities.push('quarry');
   const specialized = developmentWindow
     ? pickAutoSpecializedAction(state, specializedPriorities)
     : null;
   if (specialized) {
     return runSpecializedAction(state, specialized.actorId, specialized.actionId, '', options);
+  }
+
+  const production = developmentWindow ? pickAutoProductionAction(state) : null;
+  if (production) {
+    return runUtilityAction(state, production.actorId, production.actionId, options);
   }
 
   const recipe = developmentWindow ? pickAutoRecipe(state) : null;

@@ -356,9 +356,14 @@ export const ITEMS = {
   rune_shard: { name: '룬 파편', icon: 'artifact', weight: 1 },
   flint: { name: '부싯돌', icon: 'stone', weight: 1 },
   clay: { name: '점토', icon: 'stone', weight: 1 },
+  metal_ore: { name: '금속광', icon: 'stone', weight: 2 },
+  metal_ingot: { name: '금속 주괴', icon: 'artifact', weight: 2 },
+  pottery: { name: '토기', icon: 'artifact', weight: 1 },
+  woven_cloth: { name: '직물', icon: 'fiber', weight: 1 },
   resin: { name: '수지', icon: 'wood', weight: 1 },
   herb: { name: '약초', icon: 'herb', weight: 1 },
   grain: { name: '\uACE1\uBB3C', icon: 'food', weight: 1, type: 'food', nutrition: 12, heal: 0 },
+  milled_grain: { name: '제분 곡물', icon: 'food', weight: 1, type: 'food', nutrition: 24, heal: 1 },
   fish: { name: '\uBB3C\uACE0\uAE30', icon: 'food', weight: 1, type: 'food', nutrition: 16, heal: 0 },
   milk: { name: '\uC6B0\uC720', icon: 'food', weight: 1, type: 'food', nutrition: 10, heal: 2 },
   berry: { name: '베리', icon: 'food', weight: 1, type: 'food', nutrition: 8, heal: 0 },
@@ -369,6 +374,7 @@ export const ITEMS = {
   herb_tonic: { name: '약초 달임', icon: 'herb', weight: 1, type: 'food', nutrition: 0, heal: 12 },
   twine: { name: '끈', icon: 'fiber', weight: 1 },
   leather_strip: { name: '가죽끈', icon: 'hide', weight: 1 },
+  metal_tools: { name: '금속 공구', icon: 'tool', weight: 3, type: 'equip', slot: 'tool', successAdd: { gather: 0.12, craft: 0.12 }, staminaAdd: { gather: -2, craft: -2 } },
   stone_axe: { name: '돌도끼', icon: 'tool', weight: 3, type: 'equip', slot: 'tool', successAdd: { gather: 0.08, craft: 0.03 }, staminaAdd: { gather: -2 } },
   bow: { name: '활', icon: 'weapon', weight: 2, type: 'equip', slot: 'weapon', successAdd: { hunt: 0.1 }, staminaAdd: { hunt: -1 } },
   flint_knife: { name: '부싯돌 칼', icon: 'tool', weight: 1, type: 'equip', slot: 'tool', successAdd: { craft: 0.06, gather: 0.02 }, staminaAdd: { craft: -2 } },
@@ -557,7 +563,7 @@ const RAW_TECH_TREE = [
   {
     id: 'CORDAGE', name: '끈과 밧줄', era: 'PRIMITIVE', tier: 2, cost: 12, prereqs: ['GATHERING'], tags: ['CRAFT'], archiveRequired: true,
     description: '섬유를 엮어 도구와 장비 제작의 기초 재료를 확보합니다.',
-    unlocks: { recipes: ['twine'] },
+    unlocks: { actions: ['weave'], recipes: ['twine'] },
     eureka: { type: 'haveItem', itemId: 'fiber', count: 5, bonusPct: 0.25, desc: '섬유 5개 보유' },
   },
   {
@@ -583,7 +589,7 @@ const RAW_TECH_TREE = [
   {
     id: 'POTTERY', name: '토기', era: 'NEOLITHIC', tier: 3, cost: 16, prereqs: ['FIREMAKING'], tags: ['CRAFT', 'CAMP'],
     description: '열을 견디는 용기로 조리와 연료 운용을 효율화합니다.',
-    unlocks: { passives: ['CAMP_FUEL_SAVER'] },
+    unlocks: { actions: ['kiln'], passives: ['CAMP_FUEL_SAVER'] },
     eureka: { type: 'haveItem', itemId: 'clay', count: 3, bonusPct: 0.25, desc: '점토 3개 보유' },
   },
   {
@@ -683,7 +689,7 @@ const RAW_TECH_TREE = [
   {
     id: 'BRONZE_WORKING', name: '초기 청동 기술', era: 'ANCIENT', tier: 7, cost: 32, prereqs: ['MINING'], tags: ['CRAFT', 'MILITARY'],
     description: '광석과 열처리를 결합해 정밀 제작과 도구 가공의 한계를 높입니다.',
-    unlocks: { passives: ['ADVANCED_CRAFT_UP_3'] },
+    unlocks: { actions: ['smelt'], passives: ['ADVANCED_CRAFT_UP_3'] },
     eureka: { type: 'actionSuccess', action: 'craft', count: 10, bonusPct: 0.25, desc: '제작 성공 10회' },
     inspiration: { type: 'campLevel', key: 'fireLevel', count: 3, bonusPct: 0.18, desc: '모닥불 Lv.3 달성' },
   },
@@ -958,7 +964,7 @@ const RAW_TECH_TREE = [
   {
     id: 'EARLY_IRONWORKING', name: '초기 철제 기술', era: 'CLASSICAL', tier: 9, cost: 40, prereqs: ['BRONZE_WORKING', 'OBSIDIAN_KNAPPING'], tags: ['CRAFT', 'MILITARY'], branch: 'ENGINEERING',
     description: '고열과 정밀 가공을 결합해 제작 성공률과 위험 대응 능력을 높입니다.',
-    unlocks: { passives: ['IRON_CRAFT_UP'] },
+    unlocks: { actions: ['forge'], passives: ['IRON_CRAFT_UP'] },
     eureka: { type: 'actionSuccess', action: 'craft', count: 14, bonusPct: 0.25, desc: '제작 성공 14회' },
     inspiration: { type: 'haveItem', itemId: 'obsidian_shard', count: 4, bonusPct: 0.18, desc: '흑요석 조각 4개 보유' },
   },
@@ -972,7 +978,7 @@ const RAW_TECH_TREE = [
   {
     id: 'EARLY_CURRENCY', name: '초기 화폐', era: 'CLASSICAL', tier: 10, cost: 42, prereqs: ['BASIC_MATH'], tags: ['CIVICS', 'SCIENCE'], branch: 'SURVIVAL',
     description: '교환 가치를 표준화해 모든 행동의 추가 자원 획득 확률을 높입니다.',
-    unlocks: { actions: ['trade_route'], passives: ['RESOURCE_YIELD_UP_2'] },
+    unlocks: { actions: ['trade_route', 'market'], passives: ['RESOURCE_YIELD_UP_2'] },
     eureka: { type: 'haveItem', itemId: 'resin', count: 6, bonusPct: 0.25, desc: '수지 6개 보유' },
     inspiration: { type: 'haveItem', itemId: 'clay', count: 8, bonusPct: 0.18, desc: '점토 8개 보유' },
   },
@@ -1082,7 +1088,7 @@ const RAW_TECH_TREE = [
   {
     id: 'WATERMILL', name: '수차', era: 'MEDIEVAL', tier: 12, cost: 50, prereqs: ['AQUEDUCT_ENGINEERING', 'BASIC_MATH'], tags: ['CRAFT', 'SCIENCE'], branch: 'ENGINEERING',
     description: '흐르는 물의 힘을 반복 작업에 이용해 일일 연구와 생산을 보조합니다.',
-    unlocks: { passives: ['WATERMILL_RESEARCH_UP'] },
+    unlocks: { actions: ['mill'], passives: ['WATERMILL_RESEARCH_UP'] },
     eureka: { type: 'actionSuccess', action: 'gather', count: 18, bonusPct: 0.25, desc: '채집 성공 18회' },
   },
   {

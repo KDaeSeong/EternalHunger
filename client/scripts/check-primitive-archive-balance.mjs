@@ -89,6 +89,8 @@ for (const [actionId, itemId] of Object.entries(specializedOutputs)) {
   );
   assert.equal(Number(result.counters[actionId] || 0), 1, `${actionId} 성공 횟수가 기록되어야 합니다.`);
 }
+const minedOre = engine.runSpecializedAction(preview, 'shiroko', 'mine', '', { rng: () => 0.1 });
+assert.ok(Number(minedOre.inventory.metal_ore || 0) >= 1, '채광 성공은 제련용 금속광을 발견할 수 있어야 합니다.');
 assert.match(
   engine.researchPlannerRows(base).find((row) => row.id === 'STONE_TOOLS')?.unlockText || '',
   /행동 벌목/,
@@ -102,7 +104,7 @@ assert.equal(previewUtilityRows.every((row) => row.unlocked), true, '개발자 �
 const utilityReady = engine.normalizeState({
   ...base,
   ap: 4,
-  inventory: { ...base.inventory, herb: 2, berry: 12, wood: 12, stone: 8, fiber: 8, clay: 2, meat: 3, resin: 2 },
+  inventory: { ...base.inventory, herb: 2, berry: 12, wood: 12, stone: 8, fiber: 8, clay: 6, grain: 6, meat: 3, hide: 2, resin: 2, metal_ore: 4, metal_ingot: 1, pottery: 2, woven_cloth: 0 },
   party: base.party.map((member) => (
     member.id === 'shiroko' ? { ...member, hp: 60, bodyTemp: 36 } : member
   )),
@@ -113,6 +115,11 @@ const utilityReady = engine.normalizeState({
       CARTOGRAPHY: true,
       MEDICAL_CORPUS: true,
       AGRICULTURE: true,
+      CORDAGE: true,
+      POTTERY: true,
+      BRONZE_WORKING: true,
+      EARLY_IRONWORKING: true,
+      WATERMILL: true,
       IRRIGATION: true,
       FOOD_STORAGE: true,
       ROAD_BUILDING: true,
@@ -138,16 +145,21 @@ const utilityReady = engine.normalizeState({
 const utilityRows = engine.utilityActionRows(utilityReady, 'shiroko');
 assert.deepEqual(
   utilityRows.filter((row) => row.available).map((row) => row.id).sort(),
-  ['debate', 'drill', 'festival', 'irrigation', 'patrol', 'preserve', 'road', 'season_plan', 'settlement', 'survey', 'trade_route', 'treatment', 'voyage'],
-  '연구와 재료 조건을 충족하면 운영 행동 열세 가지를 모두 실행할 수 있어야 합니다.',
+  ['debate', 'drill', 'festival', 'forge', 'irrigation', 'kiln', 'market', 'mill', 'patrol', 'preserve', 'road', 'season_plan', 'settlement', 'smelt', 'survey', 'trade_route', 'treatment', 'voyage', 'weave'],
+  '연구와 재료 조건을 충족하면 운영 행동 열아홉 가지를 모두 실행할 수 있어야 합니다.',
 );
 for (const [techId, label] of [
   ['CARTOGRAPHY', '지도 답사'],
   ['MEDICAL_CORPUS', '치료'],
+  ['CORDAGE', '방직'],
+  ['POTTERY', '가마 굽기'],
+  ['BRONZE_WORKING', '제련'],
+  ['EARLY_IRONWORKING', '단조'],
+  ['WATERMILL', '제분'],
   ['IRRIGATION', '관개 정비'],
   ['FOOD_STORAGE', '식량 보존'],
   ['ROAD_BUILDING', '도로 정비'],
-  ['EARLY_CURRENCY', '교역로 개설'],
+  ['EARLY_CURRENCY', '교역로 개설, 시장 거래'],
   ['BASIC_SAILING', '항해 답사'],
   ['CALENDAR', '계절 대비'],
   ['MILITARY_TRAINING', '훈련 태세'],
@@ -170,6 +182,59 @@ for (const [civicId, label] of [
     `${civicId} 상세에는 ${label} 해금이 표시되어야 합니다.`,
   );
 }
+
+
+const kilnBlocked = engine.normalizeState({
+  ...utilityReady,
+  inventory: { ...utilityReady.inventory, clay: 1 },
+});
+const kilnBlockedRow = engine.utilityActionRows(kilnBlocked, 'shiroko').find((row) => row.id === 'kiln');
+assert.equal(kilnBlockedRow?.available, false, '점토가 부족하면 가마 굽기가 비활성화되어야 합니다.');
+assert.match(kilnBlockedRow?.lockedReason || '', /재료 부족/, '가마 굽기는 부족한 재료를 설명해야 합니다.');
+
+const kilned = engine.runUtilityAction(utilityReady, 'shiroko', 'kiln', { rng: () => 0.5 });
+assert.equal(Number(kilned.inventory.clay || 0), Number(utilityReady.inventory.clay || 0) - 2, '가마 굽기는 점토 2개를 사용해야 합니다.');
+assert.equal(Number(kilned.inventory.wood || 0), Number(utilityReady.inventory.wood || 0) - 1, '가마 굽기는 나무 1개를 사용해야 합니다.');
+assert.equal(Number(kilned.inventory.pottery || 0), Number(utilityReady.inventory.pottery || 0) + 2, '가마 굽기는 토기 2개를 생산해야 합니다.');
+assert.equal(kilned.counters.kiln, 1, '가마 굽기 횟수가 기록되어야 합니다.');
+
+const woven = engine.runUtilityAction(utilityReady, 'shiroko', 'weave', { rng: () => 0.5 });
+assert.equal(Number(woven.inventory.fiber || 0), Number(utilityReady.inventory.fiber || 0) - 3, '방직은 섬유 3개를 사용해야 합니다.');
+assert.equal(Number(woven.inventory.woven_cloth || 0), 1, '방직은 직물 1개를 생산해야 합니다.');
+assert.equal(woven.counters.weave, 1, '방직 횟수가 기록되어야 합니다.');
+
+const smeltBlocked = engine.normalizeState({
+  ...utilityReady,
+  inventory: { ...utilityReady.inventory, metal_ore: 1 },
+});
+const smeltBlockedRow = engine.utilityActionRows(smeltBlocked, 'shiroko').find((row) => row.id === 'smelt');
+assert.equal(smeltBlockedRow?.available, false, '금속광이 부족하면 제련이 비활성화되어야 합니다.');
+assert.match(smeltBlockedRow?.lockedReason || '', /재료 부족/, '제련은 부족한 재료를 설명해야 합니다.');
+
+const smelted = engine.runUtilityAction(utilityReady, 'shiroko', 'smelt', { rng: () => 0.5 });
+assert.equal(Number(smelted.inventory.metal_ore || 0), Number(utilityReady.inventory.metal_ore || 0) - 2, '제련은 금속광 2개를 사용해야 합니다.');
+assert.equal(Number(smelted.inventory.wood || 0), Number(utilityReady.inventory.wood || 0) - 2, '제련은 나무 2개를 사용해야 합니다.');
+assert.equal(Number(smelted.inventory.metal_ingot || 0), Number(utilityReady.inventory.metal_ingot || 0) + 1, '제련은 금속 주괴 1개를 생산해야 합니다.');
+assert.equal(smelted.counters.smelt, 1, '제련 횟수가 기록되어야 합니다.');
+
+const forged = engine.runUtilityAction(utilityReady, 'shiroko', 'forge', { rng: () => 0.5 });
+assert.equal(Number(forged.inventory.metal_ingot || 0), 0, '단조는 금속 주괴 1개를 사용해야 합니다.');
+assert.equal(Number(forged.inventory.wood || 0), Number(utilityReady.inventory.wood || 0) - 1, '단조는 나무 1개를 사용해야 합니다.');
+assert.equal(Number(forged.inventory.metal_tools || 0), 1, '단조는 장착 가능한 금속 공구 1개를 생산해야 합니다.');
+assert.equal(forged.counters.forge, 1, '단조 횟수가 기록되어야 합니다.');
+
+const milled = engine.runUtilityAction(utilityReady, 'shiroko', 'mill', { rng: () => 0.5 });
+assert.equal(Number(milled.inventory.grain || 0), Number(utilityReady.inventory.grain || 0) - 3, '제분은 곡물 3개를 사용해야 합니다.');
+assert.equal(Number(milled.inventory.milled_grain || 0), 2, '제분은 제분 곡물 2개를 생산해야 합니다.');
+assert.equal(engine.tribeSummary(milled).foodStock, engine.tribeSummary(utilityReady).foodStock + 1, '제분은 부족 식량 가치를 순증가시켜야 합니다.');
+assert.equal(milled.counters.mill, 1, '제분 횟수가 기록되어야 합니다.');
+
+const marketRow = engine.utilityActionRows(utilityReady, 'shiroko').find((row) => row.id === 'market');
+assert.match(marketRow?.context || '', /토기 2.*약초 \+3/, '시장은 실행 전에 현재 교환 제안을 보여줘야 합니다.');
+const marketed = engine.runUtilityAction(utilityReady, 'shiroko', 'market', { rng: () => 0.5 });
+assert.equal(Number(marketed.inventory.pottery || 0), 0, '시장 거래는 잉여 토기 2개를 사용해야 합니다.');
+assert.equal(Number(marketed.inventory.herb || 0), Number(utilityReady.inventory.herb || 0) + 3, '시장 거래는 가장 부족한 기초 자원인 약초 3개를 받아야 합니다.');
+assert.equal(marketed.counters.market, 1, '시장 거래 횟수가 기록되어야 합니다.');
 
 const settlementCapacityBefore = engine.tribeCapacity(utilityReady);
 const settled = engine.runUtilityAction(utilityReady, 'shiroko', 'settlement', { rng: () => 0.5 });
