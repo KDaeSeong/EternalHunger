@@ -112,9 +112,16 @@ assert.deepEqual(soundtrack.primitiveArchiveMilestoneMusic('discover'), { theme:
 assert.equal(soundtrack.primitiveArchiveMilestoneMusic('complete').theme, scenes.insight);
 assert.equal(soundtrack.primitiveArchiveMilestoneMusic('growth').theme, scenes.settlement);
 assert.equal(soundtrack.primitiveArchiveMilestoneMusic('season'), null);
+assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveSurvey'), { theme: scenes.frontier, durationMs: 8_000 });
+assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archivePatrol'), { theme: scenes.frontier, durationMs: 7_000 });
+assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveTreat'), { theme: scenes.settlement, durationMs: 8_000 });
+assert.deepEqual(soundtrack.primitiveArchiveActionMusic('archiveFestival'), { theme: scenes.settlement, durationMs: 11_000 });
+assert.equal(soundtrack.primitiveArchiveActionMusic('gather'), null);
 
 assert.match(playSource, /resolvePrimitiveArchiveBgmScene/, '플레이 상태가 기본 음악 장면에 연결되어야 합니다.');
 assert.match(playSource, /primitiveArchiveMilestoneMusic/, '발견과 발전 이정표가 임시 음악 장면에 연결되어야 합니다.');
+assert.match(playSource, /primitiveArchiveActionMusic/, '기술 해금 운영 행동이 임시 음악 장면에 연결되어야 합니다.');
+assert.match(playSource, /setMusicScene\(actionMusic\.theme\)/, '운영 행동 트랙 전환이 실제 공급자에 전달되어야 합니다.');
 assert.match(playSource, /setMusicScene\(musicTransition\.theme\)/, '이정표 트랙 전환이 실제 공급자에 전달되어야 합니다.');
 assert.match(playSource, /activeTabId=\{activeTabId\}/, '현재 기능 탭이 음악 장면 해석에 공유되어야 합니다.');
 assert.match(tabsSource, /onTabChange=\{setActiveTabId\}/, '문명 아카이브 탭 전환을 상위 상태로 알려야 합니다.');

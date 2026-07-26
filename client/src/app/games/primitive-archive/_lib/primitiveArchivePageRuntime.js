@@ -349,6 +349,10 @@ const ACTION_UNLOCK_LABELS = {
   fish: '어로',
   mine: '채광',
   quarry: '채석',
+  survey: '지도 답사',
+  patrol: '순찰',
+  treatment: '치료',
+  festival: '축제',
 };
 
 export function researchUnlockText(tech) {
@@ -358,7 +362,7 @@ export function researchUnlockText(tech) {
   const camps = (tech.unlocks?.camp || []).map((campId) => CAMP_UNLOCK_LABELS[campId] || campId);
   const passives = (tech.unlocks?.passives || []).map((passiveId) => PASSIVE_UNLOCK_LABELS[passiveId] || passiveId.replaceAll('_', ' '));
   return [
-    actions.length ? `생업 ${actions.join(', ')}` : '',
+    actions.length ? `행동 ${actions.join(', ')}` : '',
     recipes.length ? `제작 ${recipes.join(', ')}` : '',
     camps.length ? `시설 ${camps.join(', ')}` : '',
     passives.length ? `효과 ${passives.join(', ')}` : '',

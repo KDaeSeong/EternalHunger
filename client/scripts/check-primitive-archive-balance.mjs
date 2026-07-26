@@ -76,9 +76,108 @@ for (const [actionId, itemId] of Object.entries(specializedOutputs)) {
 }
 assert.match(
   engine.researchPlannerRows(base).find((row) => row.id === 'STONE_TOOLS')?.unlockText || '',
-  /생업 벌목/,
-  '기술 상세에는 해금되는 생업이 표시되어야 합니다.',
+  /행동 벌목/,
+  '기술 상세에는 해금되는 행동이 표시되어야 합니다.',
 );
+const lockedUtilityRows = engine.utilityActionRows(base, 'shiroko');
+assert.equal(lockedUtilityRows.some((row) => row.unlocked), false, '기술 연구 전 운영 행동은 모두 잠겨야 합니다.');
+const previewUtilityRows = engine.utilityActionRows(preview, 'shiroko');
+assert.equal(previewUtilityRows.every((row) => row.unlocked), true, '개발자 미리보기는 기술 해금 운영도 모두 열어야 합니다.');
+
+const utilityReady = engine.normalizeState({
+  ...base,
+  ap: 4,
+  inventory: { ...base.inventory, herb: 2, berry: 12 },
+  party: base.party.map((member) => (
+    member.id === 'shiroko' ? { ...member, hp: 60, bodyTemp: 36 } : member
+  )),
+  research: {
+    ...base.research,
+    completed: {
+      ...base.research.completed,
+      CARTOGRAPHY: true,
+      MEDICAL_CORPUS: true,
+    },
+  },
+  civics: {
+    ...base.civics,
+    completed: {
+      ...base.civics.completed,
+      MILITARY_TRADITION: true,
+      DRAMA: true,
+    },
+  },
+  tribe: { ...base.tribe, morale: 40 },
+});
+const utilityRows = engine.utilityActionRows(utilityReady, 'shiroko');
+assert.deepEqual(
+  utilityRows.filter((row) => row.available).map((row) => row.id).sort(),
+  ['festival', 'patrol', 'survey', 'treatment'],
+  '연구와 재료 조건을 충족하면 운영 행동 네 가지를 모두 실행할 수 있어야 합니다.',
+);
+for (const [techId, label] of [
+  ['CARTOGRAPHY', '지도 답사'],
+  ['MEDICAL_CORPUS', '치료'],
+]) {
+  assert.match(
+    engine.researchPlannerRows(utilityReady).find((row) => row.id === techId)?.unlockText || '',
+    new RegExp(`행동 ${label}`),
+    `${techId} 상세에는 ${label} 해금이 표시되어야 합니다.`,
+  );
+}
+for (const [civicId, label] of [
+  ['MILITARY_TRADITION', '순찰'],
+  ['DRAMA', '축제'],
+]) {
+  assert.match(
+    engine.civicsPlannerRows(utilityReady).find((row) => row.id === civicId)?.unlockText || '',
+    new RegExp(`행동 ${label}`),
+    `${civicId} 상세에는 ${label} 해금이 표시되어야 합니다.`,
+  );
+}
+
+const surveyed = engine.runUtilityAction(utilityReady, 'shiroko', 'survey', { rng: () => 0 });
+assert.equal(surveyed.exploration.discoverySerial, utilityReady.exploration.discoverySerial + 1, '지도 답사는 새 지역 발견 기록을 남겨야 합니다.');
+assert.equal(surveyed.counters.survey, 1, '지도 답사 횟수가 기록되어야 합니다.');
+
+const patrolled = engine.runUtilityAction(utilityReady, 'shiroko', 'patrol', { rng: () => 0.5 });
+assert.equal(patrolled.exploration.patrolCharges, 2, '순찰은 경계 태세를 2회 충전해야 합니다.');
+assert.equal(patrolled.counters.patrol, 1, '순찰 횟수가 기록되어야 합니다.');
+
+const herbBefore = Number(utilityReady.inventory.herb || 0);
+const treated = engine.runUtilityAction(utilityReady, 'shiroko', 'treatment', { rng: () => 0.5 });
+const treatedActor = engine.getActor(treated, 'shiroko');
+assert.equal(Number(treated.inventory.herb || 0), herbBefore - 1, '치료는 약초 1개를 사용해야 합니다.');
+assert.equal(treatedActor.hp, 84, '치료는 선택 대원의 HP를 24 회복해야 합니다.');
+assert.equal(treatedActor.bodyTemp, 36.4, '치료는 선택 대원의 체온을 0.4도 회복해야 합니다.');
+assert.equal(treated.counters.treatment, 1, '치료 횟수가 기록되어야 합니다.');
+
+const festival = engine.runUtilityAction(utilityReady, 'shiroko', 'festival', { rng: () => 0.5 });
+assert.equal(Number(festival.inventory.berry || 0), Number(utilityReady.inventory.berry || 0) - 3, '축제는 식량 3단위를 사용해야 합니다.');
+assert.equal(festival.tribe.morale, 54, '축제는 부족 사기를 14 높여야 합니다.');
+assert.equal(festival.counters.festival, 1, '축제 횟수가 기록되어야 합니다.');
+
+const huntBase = engine.normalizeState({
+  ...utilityReady,
+  ap: 4,
+  party: utilityReady.party.map((member) => (
+    member.id === 'shiroko' ? { ...member, hp: 100 } : member
+  )),
+  exploration: { ...utilityReady.exploration, patrolCharges: 0 },
+});
+const huntPatrolled = engine.normalizeState({
+  ...huntBase,
+  exploration: { ...huntBase.exploration, patrolCharges: 2 },
+});
+const failedHunt = engine.runHuntAction(huntBase, 'shiroko', '', { rng: () => 0.999999 });
+const guardedHunt = engine.runHuntAction(huntPatrolled, 'shiroko', '', { rng: () => 0.999999 });
+assert.equal(
+  engine.getActor(guardedHunt, 'shiroko').hp - engine.getActor(failedHunt, 'shiroko').hp,
+  4,
+  '순찰은 실패한 현장 행동의 피해를 정확히 4 줄여야 합니다.',
+);
+assert.equal(guardedHunt.exploration.patrolCharges, 1, '현장 행동 후 순찰 충전은 1회 소모되어야 합니다.');
+
 const farmed = engine.runSpecializedAction(preview, 'shiroko', 'farm', '', { rng: () => 0.1 });
 const reset = engine.resetDeveloperToolsAction(farmed);
 assert.equal(engine.developerToolsSummary(reset).enabled, false, '개발자 도구 전체 초기화는 보정을 꺼야 합니다.');
@@ -159,6 +258,7 @@ for (const seed of [7, 19, 43]) {
 
 console.log(JSON.stringify({
   specializedActions: previewRows.map((row) => row.id),
+  utilityActions: utilityRows.map((row) => row.id),
   tribeJobs: engine.tribeSummary(researched).jobs.map((job) => ({ id: job.id, unlocked: job.unlocked })),
   simulations,
 }, null, 2));

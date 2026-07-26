@@ -68,6 +68,31 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'bandpass', frequency: 820, q: 1.4, duration: 0.055, gain: 0.075 },
     { frequency: 260, endFrequency: 210, duration: 0.075, type: 'triangle', gain: 0.065 },
   ],
+  archiveSurvey: [
+    { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.045, gain: 0.018, pan: -0.36 },
+    { frequency: 392, duration: 0.07, type: 'triangle', gain: 0.038, pan: -0.26 },
+    { frequency: 587.33, start: 0.065, duration: 0.1, type: 'triangle', gain: 0.034, pan: 0.04 },
+    { frequency: 880, start: 0.145, duration: 0.16, type: 'sine', gain: 0.027, pan: 0.34, reverb: 0.32 },
+  ],
+  archivePatrol: [
+    { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.09, gain: 0.03, pan: -0.34 },
+    { frequency: 110, endFrequency: 82, duration: 0.12, type: 'triangle', gain: 0.05, pan: -0.2 },
+    { frequency: 146.83, endFrequency: 110, start: 0.1, duration: 0.12, type: 'triangle', gain: 0.046, pan: 0.08 },
+    { frequency: 293.66, start: 0.18, duration: 0.17, type: 'sine', gain: 0.028, pan: 0.34, reverb: 0.26 },
+  ],
+  archiveTreat: [
+    { frequency: 146.83, duration: 0.07, type: 'sine', gain: 0.042, pan: -0.2 },
+    { frequency: 146.83, start: 0.105, duration: 0.075, type: 'sine', gain: 0.039, pan: -0.06 },
+    { frequency: 440, start: 0.04, duration: 0.1, type: 'triangle', gain: 0.027, pan: 0.14 },
+    { frequency: 659.25, start: 0.15, duration: 0.18, type: 'sine', gain: 0.025, pan: 0.34, reverb: 0.34 },
+  ],
+  archiveFestival: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1320, q: 1.6, duration: 0.05, gain: 0.025, pan: -0.4 },
+    { frequency: 261.63, duration: 0.065, type: 'triangle', gain: 0.04, pan: -0.26 },
+    { frequency: 392, start: 0.055, duration: 0.08, type: 'triangle', gain: 0.038, pan: 0.02 },
+    { frequency: 523.25, start: 0.115, duration: 0.1, type: 'triangle', gain: 0.035, pan: 0.24 },
+    { frequency: 783.99, start: 0.19, duration: 0.18, type: 'sine', gain: 0.026, pan: 0.4, reverb: 0.36 },
+  ],
   logging: [
     { source: 'noise', filterType: 'bandpass', frequency: 980, q: 2.4, duration: 0.04, gain: 0.046, pan: -0.24 },
     { frequency: 190, endFrequency: 126, duration: 0.09, type: 'triangle', gain: 0.052, pan: -0.12 },
@@ -2306,6 +2331,31 @@ const THEME_CUE_PROFILES = {
       { frequency: 262, duration: 0.055, type: 'triangle', gain: 0.042, pan: -0.28 },
       { frequency: 392, start: 0.05, duration: 0.075, type: 'triangle', gain: 0.038 },
       { frequency: 523, start: 0.12, duration: 0.13, type: 'sine', gain: 0.03, pan: 0.3, reverb: 0.26 },
+    ],
+    archiveSurvey: [
+      { source: 'noise', filterType: 'highpass', frequency: 2400, duration: 0.07, gain: 0.013, pan: -0.46, reverb: 0.2 },
+      { frequency: 293.66, duration: 0.075, type: 'triangle', gain: 0.036, pan: -0.3 },
+      { frequency: 440, start: 0.07, duration: 0.11, type: 'triangle', gain: 0.033, pan: 0.02 },
+      { frequency: 659.25, start: 0.16, duration: 0.19, type: 'sine', gain: 0.025, pan: 0.42, reverb: 0.42 },
+    ],
+    archivePatrol: [
+      { source: 'noise', filterType: 'lowpass', frequency: 440, duration: 0.12, gain: 0.027, pan: -0.44, reverb: 0.14 },
+      { frequency: 98, endFrequency: 73, duration: 0.15, type: 'triangle', gain: 0.049, pan: -0.24 },
+      { frequency: 146.83, endFrequency: 110, start: 0.11, duration: 0.15, type: 'triangle', gain: 0.044, pan: 0.08 },
+      { frequency: 293.66, start: 0.22, duration: 0.19, type: 'sine', gain: 0.025, pan: 0.38, reverb: 0.34 },
+    ],
+    archiveTreat: [
+      { frequency: 130.81, duration: 0.075, type: 'sine', gain: 0.04, pan: -0.3 },
+      { frequency: 130.81, start: 0.11, duration: 0.08, type: 'sine', gain: 0.037, pan: -0.12 },
+      { frequency: 392, start: 0.045, duration: 0.12, type: 'triangle', gain: 0.028, pan: 0.1 },
+      { frequency: 587.33, start: 0.17, duration: 0.21, type: 'sine', gain: 0.024, pan: 0.42, reverb: 0.46 },
+    ],
+    archiveFestival: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1500, q: 1.4, duration: 0.065, gain: 0.022, pan: -0.46, reverb: 0.2 },
+      { frequency: 220, duration: 0.07, type: 'triangle', gain: 0.039, pan: -0.32 },
+      { frequency: 329.63, start: 0.06, duration: 0.09, type: 'triangle', gain: 0.037, pan: -0.02 },
+      { frequency: 493.88, start: 0.13, duration: 0.11, type: 'triangle', gain: 0.034, pan: 0.24 },
+      { frequency: 739.99, start: 0.21, duration: 0.22, type: 'sine', gain: 0.025, pan: 0.44, reverb: 0.48 },
     ],
     gather: [
       { source: 'noise', filterType: 'bandpass', frequency: 720, q: 0.8, duration: 0.16, gain: 0.026, pan: -0.42, reverb: 0.12 },

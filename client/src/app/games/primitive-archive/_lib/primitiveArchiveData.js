@@ -657,7 +657,7 @@ const RAW_TECH_TREE = [
   {
     id: 'CARTOGRAPHY', name: '지도 제작', era: 'NEOLITHIC', tier: 5, cost: 22, prereqs: ['ORAL_RECORDS'], tags: ['SCIENCE', 'SURVIVAL'], archiveRequired: true,
     description: '탐사 구역을 지도에 고정해 채집과 사냥 장소를 직접 선택합니다.',
-    unlocks: { passives: ['ZONE_SELECTION'] },
+    unlocks: { actions: ['survey'], passives: ['ZONE_SELECTION'] },
     eureka: { type: 'actionSuccess', action: 'gather', count: 8, bonusPct: 0.3, desc: '채집 성공 8회' },
   },
   {
@@ -755,7 +755,7 @@ const RAW_TECH_TREE = [
   {
     id: 'MILITARY_TRADITION', name: '군사 전통', era: 'ANCIENT', tier: 2, cost: 26, prereqs: ['HUNTING', 'SETTLEMENT'], tags: ['MILITARY', 'CIVICS'],
     description: '사냥 전술을 표준화해 실패 시 부상을 더 줄입니다.',
-    unlocks: { passives: ['HUNT_RISK_DOWN_2'] },
+    unlocks: { actions: ['patrol'], passives: ['HUNT_RISK_DOWN_2'] },
     eureka: { type: 'actionSuccess', action: 'hunt', count: 5, bonusPct: 0.25, desc: '사냥 성공 5회' },
     inspiration: { type: 'actionSuccess', action: 'hunt', count: 5, bonusPct: 0.25, desc: '사냥 성공 5회의 전술을 전승하기' },
   },
@@ -850,7 +850,7 @@ const RAW_TECH_TREE = [
   {
     id: 'MEDICAL_CORPUS', name: '의학 집성', era: 'CLASSICAL', tier: 9, cost: 40, prereqs: ['HERBALISM', 'WRITING'], tags: ['SURVIVAL', 'SCIENCE'], branch: 'SURVIVAL',
     description: '증상과 약초 효능을 기록으로 묶어 휴식과 치료의 회복량을 높입니다.',
-    unlocks: { passives: ['CLASSICAL_MEDICINE_UP'] },
+    unlocks: { actions: ['treatment'], passives: ['CLASSICAL_MEDICINE_UP'] },
     eureka: { type: 'haveItem', itemId: 'herb_tonic', count: 2, bonusPct: 0.25, desc: '약초 달임 2개 보유' },
   },
   {
@@ -887,7 +887,7 @@ const RAW_TECH_TREE = [
   {
     id: 'DRAMA', name: '드라마', era: 'CLASSICAL', tier: 6, cost: 42, prereqs: ['CLASSICAL_PHILOSOPHY', 'HISTORY_RECORDS'], tags: ['CULTURE'], branch: 'LITERATURE',
     description: '부족의 사건을 이야기로 재구성해 기록 점수와 공동체 결속을 높입니다.',
-    unlocks: { passives: ['DRAMA_SCORE_UP'] },
+    unlocks: { actions: ['festival'], passives: ['DRAMA_SCORE_UP'] },
     eureka: { type: 'campFireDays', count: 6, bonusPct: 0.25, desc: '모닥불을 유지한 밤 6회' },
     inspiration: { type: 'surviveDays', count: 11, bonusPct: 0.18, desc: '11일 생존' },
   },
@@ -2335,6 +2335,7 @@ export function initExplorationState() {
     visits: {},
     lastDiscoveredId: '',
     discoverySerial: 0,
+    patrolCharges: 0,
   };
 }
 
@@ -2357,6 +2358,7 @@ export function normalizeExplorationState(value = {}) {
     ])),
     lastDiscoveredId: WORLD_REGIONS.some((region) => region.id === value.lastDiscoveredId) ? value.lastDiscoveredId : '',
     discoverySerial: Math.max(0, Number(value.discoverySerial || 0)),
+    patrolCharges: Math.min(2, Math.max(0, Number(value.patrolCharges || 0))),
   };
 }
 

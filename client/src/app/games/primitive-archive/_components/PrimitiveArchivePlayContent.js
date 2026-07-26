@@ -67,6 +67,7 @@ import {
   runGatherAction,
   runHuntAction,
   runSpecializedAction,
+  runUtilityAction,
   runProjectAction,
   runEventChainAction,
   runRecoveryChoiceAction,
@@ -79,6 +80,7 @@ import {
   selectTechAction,
   setEquipmentSlotAction,
   specializedActionRows,
+  utilityActionRows,
   updateDeveloperToolsAction,
   startNewRunFromMeta,
   subjectParticle,
@@ -98,6 +100,7 @@ import {
   primitiveTextPresentation,
 } from '../_lib/primitiveArchiveFeedback';
 import {
+  primitiveArchiveActionMusic,
   primitiveArchiveMilestoneMusic,
   resolvePrimitiveArchiveBgmScene,
 } from '../_lib/primitiveArchiveSoundtrack';
@@ -232,6 +235,10 @@ export default function PrimitiveArchivePlayContent() {
   const specializedActions = useMemo(
     () => specializedActionRows(state, actorId, activeRegionId),
     [activeRegionId, actorId, state],
+  );
+  const utilityActions = useMemo(
+    () => utilityActionRows(state, actorId),
+    [actorId, state],
   );
   const developerTools = useMemo(() => developerToolsSummary(state), [state]);
   const baseMusicScene = resolvePrimitiveArchiveBgmScene({
@@ -380,6 +387,15 @@ export default function PrimitiveArchivePlayContent() {
       resultText: latest,
     });
     if (feedback.cue) playGameSfx(feedback.cue);
+    const actionMusic = primitiveArchiveActionMusic(feedback.cue);
+    if (actionMusic) {
+      if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+      setMusicScene(actionMusic.theme);
+      musicSceneTimerRef.current = window.setTimeout(() => {
+        setMusicScene(baseMusicScene);
+        musicSceneTimerRef.current = null;
+      }, actionMusic.durationMs);
+    }
     stateRef.current = nextState;
     setState(nextState);
     setActionResult(latest);
@@ -402,6 +418,12 @@ export default function PrimitiveArchivePlayContent() {
     applyAction(row?.label || '\uD2B9\uD654 \uC0DD\uC5C5', (current) => (
       runSpecializedAction(current, actorId, actionId, activeRegionId)
     ));
+  };
+
+  const runUtility = (actionId) => {
+    if (!canAct) return;
+    const row = utilityActions.find((candidate) => candidate.id === actionId);
+    applyAction(row?.label || '문명 운영', (current) => runUtilityAction(current, actorId, actionId));
   };
 
   const updateDeveloperTools = (patch) => {
@@ -685,6 +707,7 @@ export default function PrimitiveArchivePlayContent() {
         runResearch={runResearch}
         runRest={runRest}
         runSpecialized={runSpecialized}
+        runUtility={runUtility}
         selectResearchTarget={selectResearchTarget}
         selectCivicTarget={selectCivicTarget}
         selectProject={selectProject}
@@ -706,6 +729,7 @@ export default function PrimitiveArchivePlayContent() {
         setSelectedRecruitId={setSelectedRecruitId}
         regions={regions}
         specializedActions={specializedActions}
+        utilityActions={utilityActions}
         state={state}
         startNewRun={startNewRun}
         techs={techs}

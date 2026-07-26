@@ -131,7 +131,7 @@ export function createNewState(options = {}) {
     inventory,
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
-    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, camp: 0, meals: 0, events: 0 },
+    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, camp: 0, meals: 0, events: 0 },
     eventChains: [],
     exploration: initExplorationState(),
     projects: initProjectState(),
@@ -449,6 +449,10 @@ const RESEARCH_ACTION_LABELS = {
   fish: '어로',
   mine: '채광',
   quarry: '채석',
+  survey: '지도 답사',
+  patrol: '순찰',
+  treatment: '치료',
+  festival: '축제',
 };
 
 function recipeName(recipeId) {
@@ -719,7 +723,7 @@ function researchUnlockGroups(tech) {
     camps,
     passives,
     unlockText: [
-      actions.length ? `생업 ${actions.join(', ')}` : '',
+      actions.length ? `행동 ${actions.join(', ')}` : '',
       recipes.length ? `제작 ${recipes.join(', ')}` : '',
       items.length ? `아이템 ${items.join(', ')}` : '',
       camps.length ? `시설 ${camps.join(', ')}` : '',
@@ -2790,6 +2794,7 @@ function eventRiskDamage(state, actorId, base, action = '') {
     ) / 2);
   }
   if (hasEventSupportGear(state, actorId, action)) damage -= 2;
+  if (Number(state.exploration?.patrolCharges || 0) > 0) damage -= 4;
   return Math.max(1, Math.round(damage));
 }
 
@@ -2811,6 +2816,7 @@ export function huntFailureDamage(state) {
     + passiveStackCount(state, 'MODERN_MILITARY_CIVIC_STACK')
   ) / 2);
   if (hasCompletedProject(state, 'palisade')) damage -= 2;
+  if (Number(state.exploration?.patrolCharges || 0) > 0) damage -= 4;
   return Math.max(2, damage);
 }
 
@@ -2913,7 +2919,8 @@ function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true,
       const title = event.title || '숨겨진 흔적';
       return addEventLog(next, `${actor.name} 학생이 ${objectParticle(title)} 발견했습니다. ${event.note || '쓸 만한 단서를 챙겼습니다.'} ${formatGains(rewards)}${costText}.`);
     }
-    const damage = zoneId === 'cave' ? 4 : zoneId === 'river' ? 2 : 3;
+    const baseDamage = zoneId === 'cave' ? 4 : zoneId === 'river' ? 2 : 3;
+    const damage = eventRiskDamage(next, actorId, baseDamage, 'gather');
     next = updateActor(next, actorId, { hp: clamp(Number(actor.hp || 0) - damage, 0, 100) });
     const failNote = zoneId === 'cave'
       ? '낙석을 피해 물러났습니다'
@@ -4718,6 +4725,153 @@ export function specializedActionRows(state, actorId, requestedRegionId = '') {
   });
 }
 
+const CIVILIZATION_ACTION_DEFS = [
+  { id: 'survey', label: '지도 답사', icon: 'primitive-survey', techId: 'CARTOGRAPHY', staminaCost: 18, hungerAdd: 3 },
+  { id: 'patrol', label: '순찰', icon: 'primitive-patrol', techId: 'MILITARY_TRADITION', staminaCost: 14, hungerAdd: 3 },
+  { id: 'treatment', label: '치료', icon: 'primitive-treatment', techId: 'MEDICAL_CORPUS', staminaCost: 8, hungerAdd: 1 },
+  { id: 'festival', label: '축제', icon: 'primitive-festival', techId: 'DRAMA', staminaCost: 10, hungerAdd: 2 },
+];
+
+function surveyCandidates(state) {
+  const exploration = normalizeExplorationState(state.exploration);
+  const selected = getRegion(exploration.selectedRegionId) || getRegion('camp-heart');
+  const direct = (selected?.neighbors || [])
+    .map((regionId) => getRegion(regionId))
+    .filter((region) => region && !exploration.revealed?.[region.id]);
+  if (direct.length) return direct;
+  return WORLD_REGIONS.filter((region) => (
+    !exploration.revealed?.[region.id]
+    && region.neighbors.some((neighborId) => exploration.revealed?.[neighborId])
+  ));
+}
+
+function consumePatrolCharge(state) {
+  const exploration = normalizeExplorationState(state.exploration);
+  if (Number(exploration.patrolCharges || 0) <= 0) return state;
+  return {
+    ...state,
+    exploration: { ...exploration, patrolCharges: Math.max(0, Number(exploration.patrolCharges || 0) - 1) },
+  };
+}
+
+export function utilityActionRows(state, actorId) {
+  const current = normalizeState(state);
+  const actor = getActor(current, actorId);
+  const previewUnlocked = current.devTools.enabled && current.devTools.unlockSpecializedActions;
+  const candidates = surveyCandidates(current);
+  const foodStock = tribeFoodStock(current.inventory);
+  const patrolCharges = Number(current.exploration.patrolCharges || 0);
+  const civic = activeCivicForState(current);
+
+  return CIVILIZATION_ACTION_DEFS.map((profile) => {
+    const technology = getTechnology(profile.techId) || getCivic(profile.techId);
+    const technologyComplete = Boolean(current.research.completed?.[profile.techId]);
+    const unlocked = technologyComplete || previewUnlocked;
+    let requirementMet = true;
+    let lockedReason = '';
+    let context = technology?.name || profile.techId;
+    let outcome = '';
+    let materialText = '';
+
+    if (profile.id === 'survey') {
+      requirementMet = candidates.length > 0;
+      lockedReason = requirementMet ? '' : '모든 접경 지역을 발견했습니다.';
+      context = `${candidates.length}개 접경 후보`;
+      outcome = requirementMet ? '미탐사 지역 1곳 발견 · 발견 보상 획득' : lockedReason;
+    } else if (profile.id === 'patrol') {
+      requirementMet = patrolCharges < 2;
+      lockedReason = requirementMet ? '' : '경계 태세가 이미 최대입니다.';
+      context = `경계 태세 ${patrolCharges}/2`;
+      outcome = '다음 현장 행동 2회 · 피해 -4';
+    } else if (profile.id === 'treatment') {
+      const needsCare = Number(actor?.hp || 0) < 100 || Number(actor?.bodyTemp ?? 37) < 36.8;
+      const hasHerb = Number(current.inventory.herb || 0) >= 1;
+      requirementMet = needsCare && hasHerb;
+      lockedReason = !needsCare ? '선택 대원에게 치료가 필요하지 않습니다.' : !hasHerb ? '약초 1개가 필요합니다.' : '';
+      context = actor?.name || '선택 대원';
+      outcome = 'HP +24 · 체온 +0.4도';
+      materialText = '약초 1';
+    } else if (profile.id === 'festival') {
+      requirementMet = foodStock >= 3;
+      lockedReason = requirementMet ? '' : '식량 3단위가 필요합니다.';
+      context = civic ? `목표 제도 ${civic.name}` : '공동체 결속';
+      outcome = `부족 사기 +14${civic ? ' · 목표 제도 +5CP' : ''}`;
+      materialText = '식량 3';
+    }
+
+    if (!unlocked) lockedReason = `${technology?.name || profile.techId} 연구 필요`;
+    return {
+      ...profile,
+      available: unlocked && requirementMet,
+      context,
+      cost: `AP 1 · ST ${profile.staminaCost}${materialText ? ` · ${materialText}` : ''}`,
+      lockedReason,
+      outcome,
+      technologyComplete,
+      technologyName: technology?.name || profile.techId,
+      unlocked,
+    };
+  });
+}
+
+export function runUtilityAction(state, actorId, actionId, options = {}) {
+  const current = normalizeState(state);
+  if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '행동할 AP가 부족합니다.');
+  const profile = CIVILIZATION_ACTION_DEFS.find((row) => row.id === actionId);
+  if (!profile) return addLog(current, '알 수 없는 문명 운영 행동입니다.');
+  const row = utilityActionRows(current, actorId).find((candidate) => candidate.id === actionId);
+  if (!row?.available) return addLog(current, `${profile.label}: ${row?.lockedReason || '해금 조건 부족'}.`);
+
+  const rng = options.rng || Math.random;
+  const actor = getActor(current, actorId);
+  let next = current;
+  if (profile.id === 'survey') {
+    const candidates = surveyCandidates(current);
+    const index = Math.min(candidates.length - 1, Math.floor(clamp(Number(rng()), 0, 0.999999) * candidates.length));
+    const discovered = candidates[index];
+    const rewards = discovered.discoveryReward || [];
+    next = {
+      ...next,
+      inventory: addItems(next.inventory, rewards),
+      exploration: {
+        ...next.exploration,
+        revealed: { ...next.exploration.revealed, [discovered.id]: true },
+        lastDiscoveredId: discovered.id,
+        discoverySerial: Number(next.exploration.discoverySerial || 0) + 1,
+      },
+    };
+    next = addLog(next, `${actor.name}의 지도 답사로 새 지역을 발견했습니다: ${discovered.name}. ${discovered.landmark}${rewards.length ? ` · 발견 보상 ${formatGains(rewards)}` : ''}.`);
+    next = contactRivalTribeForRegion(next, discovered.id);
+  } else if (profile.id === 'patrol') {
+    next = { ...next, exploration: { ...next.exploration, patrolCharges: 2 } };
+    next = addLog(next, `${actor.name}의 순찰로 경계 태세를 갖췄습니다. 다음 현장 행동 2회의 피해가 4 감소합니다.`);
+  } else if (profile.id === 'treatment') {
+    next = { ...next, inventory: spendResources(next.inventory, { herb: 1 }) };
+    next = updateActor(next, actorId, {
+      hp: clamp(Number(actor.hp || 0) + 24, 0, 100),
+      bodyTemp: clamp(Number(actor.bodyTemp ?? 37) + 0.4, 25, 39),
+    });
+    next = addLog(next, `${actor.name}의 치료 완료. 약초 1개를 사용해 HP +${Math.min(24, 100 - Number(actor.hp || 0))}, 체온을 안정시켰습니다.`);
+  } else if (profile.id === 'festival') {
+    const food = consumeTribeFood(next.inventory, 3);
+    const tribe = normalizeTribeState(next.tribe);
+    next = {
+      ...next,
+      inventory: food.inventory,
+      tribe: { ...tribe, morale: clamp(Number(tribe.morale || 0) + 14, 0, 100) },
+    };
+    const civic = activeCivicForState(next);
+    if (civic) next = addCivicProgress(next, civic.id, 5, `${actor.name} 축제`);
+    next = addLog(next, `${actor.name}의 축제 운영. 식량 ${food.provided}단위를 나누어 부족 사기 +14${civic ? `, ${civic.name} +5CP` : ''}.`);
+  }
+
+  next = {
+    ...next,
+    counters: { ...next.counters, [profile.id]: Number(next.counters[profile.id] || 0) + 1 },
+  };
+  next = recordResearchEvent(next, { kind: 'action', action: profile.id, ok: true });
+  return afterAction(next, actorId, profile.staminaCost, profile.hungerAdd, options);
+}
 export function actionForecastRows(state, actorId, requestedRegionId, recipeId) {
   const current = normalizeState(state);
   const actor = getActor(current, actorId);
@@ -4844,6 +4998,15 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
       cost: row.cost,
       locked: !row.available,
     })),
+    ...utilityActionRows(current, actorId).map((row) => ({
+      id: row.id,
+      label: row.label,
+      chancePct: row.unlocked ? 100 : 0,
+      context: row.context,
+      outcome: row.available ? row.outcome : row.lockedReason,
+      cost: row.cost,
+      locked: !row.available,
+    })),
   ];
 }
 
@@ -4879,6 +5042,7 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
   if (profile.zoneIds.length) {
     next = applyExplorationEvent(next, { actorId, action: profile.skill, zoneId: region.zoneId || profile.zoneId, ok, rng });
     next = discoverRegionAfterAction(next, region, ok, rng);
+    next = consumePatrolCharge(next);
   }
   next = recordResearchEvent(next, { kind: 'action', action: profile.skill, ok });
   next = recordResearchEvent(next, { kind: 'action', action: profile.id, ok });
@@ -4914,6 +5078,7 @@ export function runGatherAction(state, actorId, regionId, options = {}) {
   next = addDialogueLog(next, actorId, 'gather', ok ? 'success' : 'fail', rng);
   next = applyExplorationEvent(next, { actorId, action: 'gather', zoneId: zone.id, ok, rng });
   next = discoverRegionAfterAction(next, region, ok, rng);
+  next = consumePatrolCharge(next);
   return afterAction(recordResearchEvent(next, { kind: 'action', action: 'gather', ok }), actorId, staminaCostWithEquipment(current, actorId, 'gather', 15), 3, options);
 }
 
@@ -4943,6 +5108,7 @@ export function runHuntAction(state, actorId, regionId, options = {}) {
   next = addDialogueLog(next, actorId, 'hunt', ok ? 'success' : 'fail', rng);
   next = applyExplorationEvent(next, { actorId, action: 'hunt', zoneId: zone.id, ok, rng });
   next = discoverRegionAfterAction(next, region, ok, rng);
+  next = consumePatrolCharge(next);
   return afterAction(recordResearchEvent(next, { kind: 'action', action: 'hunt', ok }), actorId, staminaCostWithEquipment(current, actorId, 'hunt', 24), 5, options);
 }
 

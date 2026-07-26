@@ -50,7 +50,7 @@ export default function PrimitiveArchiveDeveloperTab({
               disabled={!enabled}
               onChange={(event) => updateDeveloperTools({ unlockSpecializedActions: event.target.checked })}
             />
-            <span>특화 생업 해금 미리보기</span>
+            <span>기술 해금 행동 미리보기</span>
           </label>
         </div>
 

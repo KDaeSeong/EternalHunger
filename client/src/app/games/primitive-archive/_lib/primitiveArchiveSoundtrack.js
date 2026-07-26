@@ -56,6 +56,14 @@ export function resolvePrimitiveArchiveBgmScene({
   return PRIMITIVE_ARCHIVE_BGM_SCENES.survival;
 }
 
+export function primitiveArchiveActionMusic(cue = '') {
+  const key = String(cue || '');
+  if (key === 'archiveSurvey') return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.frontier, durationMs: 8_000 };
+  if (key === 'archivePatrol') return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.frontier, durationMs: 7_000 };
+  if (key === 'archiveTreat') return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.settlement, durationMs: 8_000 };
+  if (key === 'archiveFestival') return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.settlement, durationMs: 11_000 };
+  return null;
+}
 export function primitiveArchiveMilestoneMusic(cue = '') {
   const key = String(cue || '');
   if (key === 'eraAdvance') return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.era, durationMs: 15_000 };

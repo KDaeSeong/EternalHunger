@@ -36,12 +36,14 @@ export default function PrimitiveArchiveActionWorkspace(props) {
     runResearch,
     runRest,
     runSpecialized,
+    runUtility,
     selectRegion,
     selectedRegion,
     setActorId,
     setRecipeId,
     regions,
     specializedActions,
+    utilityActions,
     state,
     zone,
     zoneId,
@@ -51,11 +53,17 @@ export default function PrimitiveArchiveActionWorkspace(props) {
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const recipeMaterialsReady = Boolean(recipe?.materialsReady);
   const specializedRows = specializedActions || [];
+  const utilityRows = utilityActions || [];
   const lockedSpecializedRows = specializedRows.filter((row) => !row.available);
   const lockedSpecializedText = [
     ...lockedSpecializedRows.slice(0, 4).map((row) => `${row.label}: ${row.lockedReason}`),
     lockedSpecializedRows.length > 4 ? `외 ${lockedSpecializedRows.length - 4}개` : '',
   ].filter(Boolean).join(' \u00B7 ');
+  const lockedUtilityRows = utilityRows.filter((row) => !row.available);
+  const lockedUtilityText = [
+    ...lockedUtilityRows.slice(0, 4).map((row) => `${row.label}: ${row.lockedReason}`),
+    lockedUtilityRows.length > 4 ? `외 ${lockedUtilityRows.length - 4}개` : '',
+  ].filter(Boolean).join(' · ');
 
   return (
     <div className="primitive-workspace-panel" role="tabpanel">
@@ -155,6 +163,27 @@ export default function PrimitiveArchiveActionWorkspace(props) {
             ))}
           </div>
           <small>{lockedSpecializedText || '\uBAA8\uB4E0 \uD2B9\uD654 \uC0DD\uC5C5\uC774 \uD65C\uC131\uD654\uB410\uC2B5\uB2C8\uB2E4.'}</small>
+        </div>
+        <div className="primitive-specialized-actions primitive-utility-actions">
+          <div className="primitive-specialized-actions__header">
+            <strong>기술 해금 운영</strong>
+            <span>{utilityRows.filter((row) => row.unlocked).length}/{utilityRows.length} 해금 · 순찰 {Number(state.exploration?.patrolCharges || 0)}/2</span>
+          </div>
+          <div className="primitive-specialized-actions__buttons">
+            {utilityRows.map((row) => (
+              <ActionButton
+                action={row.icon}
+                cue="off"
+                disabled={!actorCanAct || !row.available}
+                key={row.id}
+                onClick={() => runUtility(row.id)}
+                title={`${row.technologyName} · ${row.context} · ${row.available ? row.outcome : row.lockedReason} · ${row.cost}`}
+              >
+                {row.label} · {row.available ? '실행' : row.unlocked ? '대기' : '잠김'}
+              </ActionButton>
+            ))}
+          </div>
+          <small>{lockedUtilityText || '모든 기술 해금 운영을 실행할 수 있습니다.'}</small>
         </div>
         <RecentActionResult
           action={actionFeedback?.action || 'survival'}
