@@ -72,7 +72,9 @@ const FEEDBACK_PROFILES = {
   dividendDeclared: { action: 'dividend', cue: 'dividendDeclared', label: '배당 결정', tone: 'highlight' },
   capitalRaised: { action: 'capital', cue: 'capitalRaised', label: '자금 조달 완료', tone: 'success' },
   capitalClosed: { action: 'finance', cue: 'capitalClosed', label: '자본시장 월마감', tone: 'highlight' },
-  monthClosed: { action: 'closing', cue: 'ledgerClose', label: '월말 결산 완료', tone: 'success' },
+  monthClosed: { action: 'closing', cue: 'ledgerClose', label: '월말 결산 완료', tone: 'ready' },
+  monthClosedProfit: { action: 'company-profit', cue: 'companyProfit', label: '흑자 월마감', tone: 'success' },
+  monthClosedLoss: { action: 'company-loss', cue: 'companyLoss', label: '적자 월마감', tone: 'warning' },
   snapshotSaved: { action: 'snapshot', cue: 'snapshotSaved', label: '원장 스냅샷 생성', tone: 'success' },
   restorePreviewed: { action: 'analysis', cue: 'restorePreview', label: '복원 사전 점검', tone: 'highlight' },
   ledgerRestored: { action: 'restore', cue: 'ledgerRestored', label: '원장 복원 완료', tone: 'success' },
@@ -108,6 +110,7 @@ export function companyReportFeedbackSnapshot(state) {
   const global = state?.global || {};
   const capital = state?.capitalMarket || {};
   const restoreHistory = safeArray(state?.restoreHistory);
+  const latestSettlement = safeArray(state?.settlements)[0] || {};
   return {
     runId: String(state?.runId || ''),
     period: `${Number(state?.company?.year || 0)}-${String(Number(state?.company?.month || 0)).padStart(2, '0')}`,
@@ -130,6 +133,8 @@ export function companyReportFeedbackSnapshot(state) {
     vatPaymentCount: safeArray(state?.vatPayments).length,
     vatPaidAmount: summedAmount(state?.vatPayments, 'paymentAmount'),
     settlementCount: safeArray(state?.settlements).length,
+    latestSettlementNetProfit: Number(latestSettlement.netProfit || 0),
+    latestSettlementCashflow: Number(latestSettlement.netCashflow || 0),
     exportPlanCount: safeArray(global.exportPlans).length,
     importPlanCount: safeArray(global.importPlans).length,
     exportResultCount: safeArray(global.exportResults).length,
@@ -159,6 +164,18 @@ function signedImpactValue(value, { money = false, suffix = '' } = {}) {
   const sign = rounded > 0 ? '+' : '-';
   const magnitude = new Intl.NumberFormat('ko-KR').format(Math.abs(rounded));
   return `${sign}${magnitude}${money ? '원' : suffix}`;
+}
+
+function currentMoneyImpact(value, { action, key, label } = {}) {
+  const rounded = Math.round(Number(value || 0));
+  const sign = rounded > 0 ? '+' : rounded < 0 ? '-' : '';
+  return {
+    action,
+    key,
+    label,
+    tone: rounded > 0 ? 'success' : rounded < 0 ? 'warning' : 'ready',
+    value: `${sign}${new Intl.NumberFormat('ko-KR').format(Math.abs(rounded))}원`,
+  };
 }
 
 function deltaImpact(previous, current, key, {
@@ -204,7 +221,9 @@ const IMPACT_KEYS_BY_RESULT = Object.freeze({
   liquidityRiskRecovered: ['cashRunwayMonths', 'cashKrw'],
   receivableRiskEscalated: ['openReceivableCount', 'receivableOutstanding'],
   receivableRiskRecovered: ['openReceivableCount', 'receivableOutstanding'],
-  monthClosed: ['period', 'settlementCount', 'cashKrw'],
+  monthClosed: ['period', 'latestSettlementNetProfit', 'latestSettlementCashflow'],
+  monthClosedProfit: ['period', 'latestSettlementNetProfit', 'latestSettlementCashflow'],
+  monthClosedLoss: ['period', 'latestSettlementNetProfit', 'latestSettlementCashflow'],
   snapshotSaved: ['snapshotCount'],
   restorePreviewed: ['restoreHistoryCount'],
   ledgerRestored: ['restoreHistoryCount'],
@@ -253,6 +272,16 @@ function companyReportImpactRows(previous, current, resultKey) {
     inventoryValuationCount: deltaImpact(previous, current, 'inventoryValuationCount', { action: 'valuation', label: '재고평가', suffix: '건' }),
     inventoryWriteDownCount: deltaImpact(previous, current, 'inventoryWriteDownCount', { action: 'inventory-write-down', label: '평가손실', suffix: '건', successDirection: 0 }),
     settlementCount: deltaImpact(previous, current, 'settlementCount', { action: 'closing', label: '결산', suffix: '건' }),
+    latestSettlementNetProfit: currentMoneyImpact(current.latestSettlementNetProfit, {
+      action: current.latestSettlementNetProfit >= 0 ? 'company-profit' : 'company-loss',
+      key: 'latestSettlementNetProfit',
+      label: '순손익',
+    }),
+    latestSettlementCashflow: currentMoneyImpact(current.latestSettlementCashflow, {
+      action: 'finance',
+      key: 'latestSettlementCashflow',
+      label: '순현금흐름',
+    }),
     exportPlanCount: deltaImpact(previous, current, 'exportPlanCount', { action: 'export', label: '수출 계획', suffix: '건' }),
     importPlanCount: deltaImpact(previous, current, 'importPlanCount', { action: 'import', label: '수입 계획', suffix: '건' }),
     hedgeCount: deltaImpact(previous, current, 'hedgeCount', { action: 'hedge', label: '환헤지', suffix: '건' }),
@@ -268,10 +297,17 @@ function companyReportImpactRows(previous, current, resultKey) {
     .slice(0, 3);
 }
 
-function transitionFromLog(log) {
+function monthCloseResultKey(snapshot) {
+  const netProfit = Number(snapshot?.latestSettlementNetProfit || 0);
+  if (netProfit > 0) return 'monthClosedProfit';
+  if (netProfit < 0) return 'monthClosedLoss';
+  return 'monthClosed';
+}
+
+function transitionFromLog(log, snapshot) {
   if (/복원 dry-run/.test(log)) return 'restorePreviewed';
   if (/복원했습니다|복원 완료|테이블.*복원/.test(log)) return 'ledgerRestored';
-  if (/월말 결산 완료/.test(log)) return 'monthClosed';
+  if (/월말 결산 완료/.test(log)) return monthCloseResultKey(snapshot);
   if (/자본시장 월마감 완료/.test(log)) return 'capitalClosed';
   if (/재고평가 완료/.test(log)) {
     return inventoryWriteDownAmount(log) > 0 ? 'inventoryWrittenDown' : 'inventoryValued';
@@ -337,11 +373,11 @@ export function companyReportFeedbackTransition(previousValue, currentValue) {
   if (previousReceivableAlert && !currentReceivableAlert) return 'receivableRiskRecovered';
 
   const logTransition = logChanged
-    ? transitionFromLog(current.latestLog)
+    ? transitionFromLog(current.latestLog, current)
     : '';
   if (logTransition) return logTransition;
 
-  if (current.settlementCount > previous.settlementCount || current.period !== previous.period) return 'monthClosed';
+  if (current.settlementCount > previous.settlementCount || current.period !== previous.period) return monthCloseResultKey(current);
   if (current.vatPaymentCount > previous.vatPaymentCount) return 'vatPaid';
   if (current.orderCount > previous.orderCount) return 'orderCreated';
   if (current.shippedCount > previous.shippedCount) return 'shipmentPosted';

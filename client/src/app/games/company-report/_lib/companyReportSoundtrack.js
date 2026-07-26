@@ -37,7 +37,7 @@ const TRADE_RESULTS = new Set([
   'campaignLaunched',
   'receivableRiskRecovered',
 ]);
-const CLOSING_RESULTS = new Set(['inventoryValued', 'inventoryWrittenDown', 'vatPaid', 'monthClosed']);
+const CLOSING_RESULTS = new Set(['inventoryValued', 'inventoryWrittenDown', 'vatPaid', 'monthClosed', 'monthClosedProfit']);
 const GLOBAL_RESULTS = new Set(['exportPlanned', 'importPlanned', 'hedgeSigned', 'globalSettled', 'foreignCollected']);
 const CAPITAL_RESULTS = new Set(['disclosureFiled', 'dividendDeclared', 'capitalRaised', 'capitalClosed', 'capitalRiskRecovered']);
 const AUDIT_RESULTS = new Set(['snapshotSaved', 'restorePreviewed', 'ledgerRestored', 'reportBookmarked', 'reportExported']);
@@ -48,6 +48,7 @@ const CRISIS_RESULTS = new Set([
   'capitalRiskEscalated',
   'liquidityRiskEscalated',
   'receivableRiskEscalated',
+  'monthClosedLoss',
 ]);
 const BOARD_RESULTS = new Set(['liquidityRiskRecovered']);
 

@@ -609,6 +609,8 @@ const ACTION_ICONS = {
   capital: Landmark,
   'company-liquidity-recovery': TrendingUp,
   'company-liquidity-risk': Gauge,
+  'company-loss': TrendingDown,
+  'company-profit': TrendingUp,
   'company-receivable-recovery': BadgeCheck,
   'company-receivable-risk': FileClock,
   'company-recovery': ShieldCheck,

@@ -464,6 +464,18 @@ const CUE_PROFILES = {
     { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.045 },
     { frequency: 780, start: 0.038, duration: 0.07, type: 'sine', gain: 0.04 },
   ],
+  companyProfit: [
+    { source: 'noise', filterType: 'highpass', frequency: 2250, duration: 0.035, gain: 0.016, pan: -0.34, reverb: 0.2 },
+    { frequency: 392, duration: 0.055, type: 'triangle', gain: 0.039, pan: -0.28 },
+    { frequency: 523.25, start: 0.05, duration: 0.07, type: 'triangle', gain: 0.04, pan: -0.02 },
+    { frequency: 783.99, start: 0.115, duration: 0.14, type: 'sine', gain: 0.033, pan: 0.32, reverb: 0.32 },
+  ],
+  companyLoss: [
+    { source: 'noise', filterType: 'lowpass', frequency: 620, q: 1.5, duration: 0.09, gain: 0.027, pan: -0.32 },
+    { frequency: 392, endFrequency: 293.66, duration: 0.11, type: 'triangle', gain: 0.041, pan: -0.2 },
+    { frequency: 293.66, endFrequency: 196, start: 0.12, duration: 0.14, type: 'triangle', gain: 0.041, pan: 0.08 },
+    { frequency: 98, start: 0.24, duration: 0.18, type: 'sine', gain: 0.034, pan: 0.3, reverb: 0.2 },
+  ],
   ledgerClose: [
     { source: 'noise', filterType: 'lowpass', frequency: 720, duration: 0.045, gain: 0.04 },
     { frequency: 390, duration: 0.055, type: 'triangle', gain: 0.05 },

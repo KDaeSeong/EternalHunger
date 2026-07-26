@@ -230,7 +230,45 @@ const liquidityRecoveryPresentation = expectResult(liquidityRiskState, liquidity
 assert.equal(liquidityRecoveryPresentation.impacts[0]?.value, '4.3개월', '유동성 회복은 현재 현금 런웨이를 표시해야 합니다.');
 
 const monthClosed = monthEndCloseAction(base);
-expectResult(base, monthClosed, { key: 'monthClosed', action: 'closing', cue: 'ledgerClose', tone: 'success' });
+const lossClosePresentation = expectResult(base, monthClosed, {
+  key: 'monthClosedLoss',
+  action: 'company-loss',
+  cue: 'companyLoss',
+  tone: 'warning',
+});
+assert.deepEqual(
+  lossClosePresentation.impacts.map((item) => item.label),
+  ['회계기간', '순손익', '순현금흐름'],
+  '적자 월마감은 다음 기간과 손익·현금흐름을 함께 보여야 합니다.',
+);
+assert.match(lossClosePresentation.impacts[1]?.value || '', /^-[\d,]+원$/, '적자 결산은 음수 순손익을 표시해야 합니다.');
+
+const profitableClose = {
+  ...base,
+  company: { ...base.company, year: 2026, month: 3 },
+  settlements: [{
+    year: 2026,
+    month: 2,
+    totalSales: 180_000_000,
+    totalCost: 120_000_000,
+    operatingProfit: 60_000_000,
+    tax: 13_200_000,
+    netProfit: 46_800_000,
+    netCashflow: 38_000_000,
+  }, ...base.settlements],
+  log: ['2026-02 월말 결산 완료. 순손익 46,800,000원.', ...base.log],
+};
+const profitClosePresentation = expectResult(base, profitableClose, {
+  key: 'monthClosedProfit',
+  action: 'company-profit',
+  cue: 'companyProfit',
+  tone: 'success',
+});
+assert.deepEqual(
+  profitClosePresentation.impacts.map((item) => item.value),
+  ['2026-03', '+46,800,000원', '+38,000,000원'],
+  '흑자 월마감은 다음 기간과 양수 손익·현금흐름을 구조화해 표시해야 합니다.',
+);
 const snapshotted = createLedgerSnapshotAction(base);
 expectResult(base, snapshotted, { key: 'snapshotSaved', action: 'snapshot', cue: 'snapshotSaved', tone: 'success' });
 const previewed = dryRunLedgerRestoreAction(snapshotted);
@@ -269,7 +307,7 @@ const resultCues = [
   'orderCreated', 'shipmentPosted', 'cashCollect', 'productionPosted', 'inventoryValued', 'inventoryWriteDown',
   'campaignLaunched', 'taxPaid', 'exportPlanned', 'importPlanned', 'hedgeSigned',
   'globalSettle', 'disclosureFiled', 'dividendDeclared', 'capitalRaised', 'capitalClosed',
-  'ledgerClose', 'snapshotSaved', 'restorePreview', 'ledgerRestored', 'reportBookmarked',
+  'ledgerClose', 'companyProfit', 'companyLoss', 'snapshotSaved', 'restorePreview', 'ledgerRestored', 'reportBookmarked',
   'reportExported', 'foreignCashCollect', 'liquidityWarning', 'inventoryAlert',
   'companyRiskEscalated', 'companyRiskRecovered',
   'companyLiquidityRisk', 'companyLiquidityRecovered',
@@ -286,6 +324,7 @@ for (const icon of [
   'archive', 'logs', 'guide', 'policy', 'inspect', 'advisor', 'trade', 'contract',
   'company-risk', 'company-recovery',
   'company-liquidity-risk', 'company-liquidity-recovery',
+  'company-loss', 'company-profit',
   'company-receivable-risk', 'company-receivable-recovery',
 ]) {
   assert.match(iconSource, new RegExp(`\\n  ['\"]?${icon}['\"]?: `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
@@ -330,7 +369,7 @@ assert.match(cssSource, /\.company-report-impact-strip/, '최근 처리 영향 �
 assert.match(cssSource, /\.company-report-icon-row\.is-priority-urgent/, '긴급 운영 항목을 시각적으로 구분해야 합니다.');
 
 console.log(JSON.stringify({
-  feedbackTransitions: 33,
+  feedbackTransitions: 35,
   resultCues: resultCues.length,
   resultPanels: componentSources.reduce((sum, source) => sum + [...source.matchAll(/<RecentActionResult\b/g)].length, 0) + 1,
   semanticPanelTitles,
