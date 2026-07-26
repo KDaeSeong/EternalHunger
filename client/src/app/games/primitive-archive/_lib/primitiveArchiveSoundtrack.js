@@ -72,6 +72,9 @@ export function primitiveArchiveMilestoneMusic(cue = '') {
   const key = String(cue || '');
   if (key === 'eraAdvance') return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.era, durationMs: 15_000 };
   if (key === 'discover') return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.frontier, durationMs: 9_000 };
+  if (key === 'actionUnlock') {
+    return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.insight, durationMs: 12_000 };
+  }
   if (['complete', 'civicComplete', 'inspiration', 'research'].includes(key)) {
     return { theme: PRIMITIVE_ARCHIVE_BGM_SCENES.insight, durationMs: 10_000 };
   }

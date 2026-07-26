@@ -2497,6 +2497,9 @@ export function initResearchState() {
     eureka: {},
     inspiration: {},
     lastCompletedTechId: '',
+    lastCompletedTechName: '',
+    lastUnlockText: '',
+    lastUnlockedActions: [],
     completionSerial: 0,
     counters: {
       actionSuccess: {},
@@ -2516,6 +2519,9 @@ export function initCivicState() {
     completed: {},
     inspiration: {},
     lastCompletedCivicId: '',
+    lastCompletedCivicName: '',
+    lastUnlockText: '',
+    lastUnlockedActions: [],
     completionSerial: 0,
   };
 }
@@ -2577,6 +2583,11 @@ export function normalizeResearch(value = {}) {
     eureka: value.eureka && typeof value.eureka === 'object' ? value.eureka : base.eureka,
     inspiration: value.inspiration && typeof value.inspiration === 'object' ? value.inspiration : base.inspiration,
     lastCompletedTechId: TECHNOLOGY_TREE.some((tech) => tech.id === value.lastCompletedTechId) ? value.lastCompletedTechId : '',
+    lastCompletedTechName: typeof value.lastCompletedTechName === 'string' ? value.lastCompletedTechName : '',
+    lastUnlockText: typeof value.lastUnlockText === 'string' ? value.lastUnlockText : '',
+    lastUnlockedActions: Array.isArray(value.lastUnlockedActions)
+      ? value.lastUnlockedActions.filter((label) => typeof label === 'string')
+      : [],
     completionSerial: Math.max(0, Number(value.completionSerial || 0)),
     counters: {
       ...base.counters,
@@ -2622,6 +2633,11 @@ export function normalizeCivics(value = {}, legacyResearch = {}) {
     completed: civicStateMap(value.completed, legacyResearch?.completed),
     inspiration: civicStateMap(value.inspiration, legacyResearch?.inspiration),
     lastCompletedCivicId,
+    lastCompletedCivicName: typeof value.lastCompletedCivicName === 'string' ? value.lastCompletedCivicName : '',
+    lastUnlockText: typeof value.lastUnlockText === 'string' ? value.lastUnlockText : '',
+    lastUnlockedActions: Array.isArray(value.lastUnlockedActions)
+      ? value.lastUnlockedActions.filter((label) => typeof label === 'string')
+      : [],
     completionSerial: Math.max(0, Number(value.completionSerial || 0)),
   };
 }

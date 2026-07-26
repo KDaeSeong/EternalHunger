@@ -118,6 +118,13 @@ const CUE_PROFILES = {
     { frequency: 783.99, start: 0.055, duration: 0.08, type: 'triangle', gain: 0.036, pan: 0.08 },
     { frequency: 1046.5, start: 0.13, duration: 0.13, type: 'sine', gain: 0.028, pan: 0.36, reverb: 0.3 },
   ],
+  actionUnlock: [
+    { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.05, gain: 0.018, pan: -0.42, reverb: 0.18 },
+    { frequency: 261.63, duration: 0.06, type: 'triangle', gain: 0.04, pan: -0.3 },
+    { frequency: 392, start: 0.055, duration: 0.08, type: 'triangle', gain: 0.038, pan: -0.08 },
+    { frequency: 523.25, start: 0.125, duration: 0.1, type: 'triangle', gain: 0.035, pan: 0.16 },
+    { frequency: 783.99, start: 0.21, duration: 0.2, type: 'sine', gain: 0.027, pan: 0.4, reverb: 0.4 },
+  ],
   logging: [
     { source: 'noise', filterType: 'bandpass', frequency: 980, q: 2.4, duration: 0.04, gain: 0.046, pan: -0.24 },
     { frequency: 190, endFrequency: 126, duration: 0.09, type: 'triangle', gain: 0.052, pan: -0.12 },
@@ -2542,6 +2549,14 @@ const THEME_CUE_PROFILES = {
       { frequency: 262, duration: 0.055, type: 'triangle', gain: 0.042, pan: -0.28 },
       { frequency: 392, start: 0.05, duration: 0.075, type: 'triangle', gain: 0.038 },
       { frequency: 523, start: 0.12, duration: 0.13, type: 'sine', gain: 0.03, pan: 0.3, reverb: 0.26 },
+    ],
+    actionUnlock: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1800, q: 0.8, duration: 0.24, gain: 0.018, pan: -0.52, reverb: 0.34 },
+      { frequency: 196, duration: 0.07, type: 'triangle', gain: 0.038, pan: -0.36 },
+      { frequency: 293.66, start: 0.06, duration: 0.09, type: 'triangle', gain: 0.04, pan: -0.16 },
+      { frequency: 392, start: 0.13, duration: 0.11, type: 'triangle', gain: 0.039, pan: 0.04 },
+      { frequency: 587.33, start: 0.21, duration: 0.13, type: 'triangle', gain: 0.035, pan: 0.24 },
+      { frequency: 783.99, start: 0.32, duration: 0.24, type: 'sine', gain: 0.027, pan: 0.46, reverb: 0.52 },
     ],
     archiveSurvey: [
       { source: 'noise', filterType: 'highpass', frequency: 2400, duration: 0.07, gain: 0.013, pan: -0.46, reverb: 0.2 },

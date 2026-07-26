@@ -109,6 +109,7 @@ assert.equal(resolve({ activeTabId: 'actions', victory: true }), scenes.legacy);
 assert.equal(soundtrack.primitiveArchiveCrisisLevel({ hp: 20, hunger: 80 }), 2);
 assert.deepEqual(soundtrack.primitiveArchiveMilestoneMusic('eraAdvance'), { theme: scenes.era, durationMs: 15_000 });
 assert.deepEqual(soundtrack.primitiveArchiveMilestoneMusic('discover'), { theme: scenes.frontier, durationMs: 9_000 });
+assert.deepEqual(soundtrack.primitiveArchiveMilestoneMusic('actionUnlock'), { theme: scenes.insight, durationMs: 12_000 });
 assert.equal(soundtrack.primitiveArchiveMilestoneMusic('complete').theme, scenes.insight);
 assert.equal(soundtrack.primitiveArchiveMilestoneMusic('growth').theme, scenes.settlement);
 assert.equal(soundtrack.primitiveArchiveMilestoneMusic('season'), null);

@@ -15,7 +15,17 @@ export function primitiveMilestoneSnapshot(state, seasonId = '', eraId = '') {
     discoverySerial: Number(state?.exploration?.discoverySerial || 0),
     projectSerial: Number(state?.projects?.completionSerial || 0),
     researchSerial: Number(state?.research?.completionSerial || 0),
+    researchName: String(state?.research?.lastCompletedTechName || ''),
+    researchUnlockText: String(state?.research?.lastUnlockText || ''),
+    researchUnlockedActions: Array.isArray(state?.research?.lastUnlockedActions)
+      ? state.research.lastUnlockedActions.map(String)
+      : [],
     civicsSerial: Number(state?.civics?.completionSerial || 0),
+    civicName: String(state?.civics?.lastCompletedCivicName || ''),
+    civicUnlockText: String(state?.civics?.lastUnlockText || ''),
+    civicUnlockedActions: Array.isArray(state?.civics?.lastUnlockedActions)
+      ? state.civics.lastUnlockedActions.map(String)
+      : [],
     eurekaCount: countEntries(state?.research?.eureka),
     inspirationCount: countEntries(state?.civics?.inspiration),
     tribeGrowthSerial: Number(state?.tribe?.growthSerial || 0),
@@ -31,8 +41,12 @@ export function primitiveMilestoneCue(previous, current) {
   if (!previous.ended && current.ended) return 'defeat';
   if (previous.eraId && current.eraId && previous.eraId !== current.eraId) return 'eraAdvance';
   if (current.projectSerial > previous.projectSerial) return 'projectComplete';
-  if (current.civicsSerial > previous.civicsSerial) return 'civicComplete';
-  if (current.researchSerial > previous.researchSerial) return 'complete';
+  if (current.civicsSerial > previous.civicsSerial) {
+    return current.civicUnlockedActions.length ? 'actionUnlock' : 'civicComplete';
+  }
+  if (current.researchSerial > previous.researchSerial) {
+    return current.researchUnlockedActions.length ? 'actionUnlock' : 'complete';
+  }
   if (current.inspirationCount > previous.inspirationCount) return 'inspiration';
   if (current.eurekaCount > previous.eurekaCount) return 'research';
   if (current.tribeGrowthSerial > previous.tribeGrowthSerial) return 'growth';
@@ -47,6 +61,7 @@ const MILESTONE_RULES = {
   defeat: { key: 'defeat', action: 'primitive-defeat', label: '생존 런 종료', tone: 'danger' },
   eraAdvance: { key: 'eraAdvance', action: 'primitive-era', label: '새 시대 진입', tone: 'champion' },
   projectComplete: { key: 'projectComplete', action: 'primitive-project', label: '부족 프로젝트 완성', tone: 'success' },
+  actionUnlock: { key: 'actionUnlock', action: 'primitive-action-unlock', label: '새 행동 해금', tone: 'champion' },
   civicComplete: { key: 'civicComplete', action: 'primitive-civic', label: '사회 제도 완성', tone: 'success' },
   complete: { key: 'researchComplete', action: 'primitive-research', label: '기술 연구 완료', tone: 'success' },
   inspiration: { key: 'inspiration', action: 'primitive-inspiration', label: '영감 촉발', tone: 'highlight' },
@@ -56,6 +71,40 @@ const MILESTONE_RULES = {
   discover: { key: 'discover', action: 'primitive-discovery', label: '새 지역 발견', tone: 'highlight' },
   season: { key: 'season', action: 'primitive-season', label: '계절 전환', tone: 'highlight' },
 };
+
+function milestonePresentation(previous, current, cue) {
+  const base = MILESTONE_RULES[cue] || MILESTONE_RULES.complete;
+  const civicAdvanced = current.civicsSerial > previous.civicsSerial;
+  const name = civicAdvanced ? current.civicName : current.researchName;
+  const unlockText = civicAdvanced ? current.civicUnlockText : current.researchUnlockText;
+  const trackLabel = civicAdvanced ? '사회 제도' : '기술';
+  if (cue === 'actionUnlock') {
+    return {
+      ...base,
+      key: civicAdvanced ? 'civicActionUnlock' : 'researchActionUnlock',
+      label: name ? `${name} · 새 행동 해금` : base.label,
+      detail: [
+        name ? `${trackLabel} 완료: ${name}` : `${trackLabel} 완료`,
+        unlockText,
+      ].filter(Boolean).join(' · '),
+    };
+  }
+  if (cue === 'complete' && name) {
+    return {
+      ...base,
+      label: `${name} 연구 완료`,
+      detail: [`기술 완료: ${name}`, unlockText].filter(Boolean).join(' · '),
+    };
+  }
+  if (cue === 'civicComplete' && name) {
+    return {
+      ...base,
+      label: `${name} 확립`,
+      detail: [`사회 제도 완료: ${name}`, unlockText].filter(Boolean).join(' · '),
+    };
+  }
+  return base;
+}
 
 const ACTION_RULES = {
   '채집': { key: 'gather', action: 'primitive-gather', counter: 'gather', cue: 'gather', successLabel: '채집 성공', failureLabel: '채집 실패' },
@@ -163,12 +212,11 @@ export function primitiveActionResultText(previous, current, label, fallback = '
 
 export function primitiveActionFeedback(previous, current, label, options = {}) {
   const resultText = options.resultText || primitiveActionResultText(previous, current, label);
-  const milestoneCue = primitiveMilestoneCue(
-    primitiveMilestoneSnapshot(previous, options.previousSeasonId, options.previousEraId),
-    primitiveMilestoneSnapshot(current, options.currentSeasonId, options.currentEraId),
-  );
+  const previousMilestone = primitiveMilestoneSnapshot(previous, options.previousSeasonId, options.previousEraId);
+  const currentMilestone = primitiveMilestoneSnapshot(current, options.currentSeasonId, options.currentEraId);
+  const milestoneCue = primitiveMilestoneCue(previousMilestone, currentMilestone);
   if (milestoneCue) {
-    const milestone = MILESTONE_RULES[milestoneCue] || MILESTONE_RULES.complete;
+    const milestone = milestonePresentation(previousMilestone, currentMilestone, milestoneCue);
     return {
       ...milestone,
       cue: '',
@@ -218,9 +266,10 @@ export function primitiveActionFeedback(previous, current, label, options = {}) 
 
 export function primitiveActionResultPresentation(previous, current, label, options = {}) {
   const detail = options.resultText || primitiveActionResultText(previous, current, label, options.fallbackText || '');
+  const feedback = primitiveActionFeedback(previous, current, label, { ...options, resultText: detail });
   return {
-    ...primitiveActionFeedback(previous, current, label, { ...options, resultText: detail }),
-    detail,
+    ...feedback,
+    detail: feedback.detail || detail,
   };
 }
 

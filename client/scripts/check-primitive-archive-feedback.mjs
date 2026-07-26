@@ -11,6 +11,8 @@ import {
 const routeUrl = new URL('../src/app/games/primitive-archive/', import.meta.url);
 const componentUrl = new URL('_components/', routeUrl);
 const playSource = await readFile(new URL('PrimitiveArchivePlayContent.js', componentUrl), 'utf8');
+const engineSource = await readFile(new URL('_lib/primitiveArchiveEngine.js', routeUrl), 'utf8');
+const dataSource = await readFile(new URL('_lib/primitiveArchiveData.js', routeUrl), 'utf8');
 const actionSource = await readFile(new URL('PrimitiveArchiveActionWorkspace.js', componentUrl), 'utf8');
 const campSource = await readFile(new URL('PrimitiveArchiveCampWorkspace.js', componentUrl), 'utf8');
 const growthSource = await readFile(new URL('PrimitiveArchiveGrowthTab.js', componentUrl), 'utf8');
@@ -125,12 +127,55 @@ function expectMilestone(current, options, expected) {
   assert.equal(result.label, expected.label, `${expected.label} 이정표 라벨이 맞아야 합니다.`);
   assert.equal(result.outcome, 'milestone', `${expected.label}은 이정표 결과여야 합니다.`);
   assert.equal(result.cue, '', `${expected.label}은 효과 훅과 기본 행동음을 겹쳐 재생하면 안 됩니다.`);
+  if (expected.detail) assert.equal(result.detail, expected.detail, `${expected.label} 해금 상세가 맞아야 합니다.`);
 }
 
 expectMilestone({ ...clone(base), exploration: { discoverySerial: 1 } }, {}, { action: 'primitive-discovery', label: '새 지역 발견' });
 expectMilestone({ ...clone(base), projects: { completionSerial: 1 } }, {}, { action: 'primitive-project', label: '부족 프로젝트 완성' });
 expectMilestone({ ...clone(base), research: { completionSerial: 1, eureka: {} } }, {}, { action: 'primitive-research', label: '기술 연구 완료' });
+expectMilestone({
+  ...clone(base),
+  research: {
+    completionSerial: 1,
+    eureka: {},
+    lastCompletedTechName: '농업',
+    lastUnlockText: '행동 농업 · 효과 식물 자원 수익 증가',
+    lastUnlockedActions: ['농업'],
+  },
+}, {}, {
+  action: 'primitive-action-unlock',
+  label: '농업 · 새 행동 해금',
+  detail: '기술 완료: 농업 · 행동 농업 · 효과 식물 자원 수익 증가',
+});
+expectMilestone({
+  ...clone(base),
+  research: {
+    completionSerial: 1,
+    eureka: {},
+    lastCompletedTechName: '기초 수학',
+    lastUnlockText: '효과 수학 연구 보너스',
+    lastUnlockedActions: [],
+  },
+}, {}, {
+  action: 'primitive-research',
+  label: '기초 수학 연구 완료',
+  detail: '기술 완료: 기초 수학 · 효과 수학 연구 보너스',
+});
 expectMilestone({ ...clone(base), civics: { completionSerial: 1, inspiration: {} } }, {}, { action: 'primitive-civic', label: '사회 제도 완성' });
+expectMilestone({
+  ...clone(base),
+  civics: {
+    completionSerial: 1,
+    inspiration: {},
+    lastCompletedCivicName: '정착',
+    lastUnlockText: '행동 정착지 건설 · 효과 캠프 점수',
+    lastUnlockedActions: ['정착지 건설'],
+  },
+}, {}, {
+  action: 'primitive-action-unlock',
+  label: '정착 · 새 행동 해금',
+  detail: '사회 제도 완료: 정착 · 행동 정착지 건설 · 효과 캠프 점수',
+});
 expectMilestone({ ...clone(base), research: { completionSerial: 0, eureka: { HUNTING: true } } }, {}, { action: 'primitive-eureka', label: '유레카 촉발' });
 expectMilestone({ ...clone(base), civics: { completionSerial: 0, inspiration: { SETTLEMENT: true } } }, {}, { action: 'primitive-inspiration', label: '영감 촉발' });
 expectMilestone({ ...clone(base), tribe: { growthSerial: 1 } }, {}, { action: 'primitive-growth', label: '부족 인구 성장' });
@@ -154,14 +199,14 @@ for (const cue of [
   'start', 'gather', 'combat', 'craft', 'logging', 'herbal', 'trap', 'farm', 'herd', 'fish', 'mine', 'quarry',
   'archiveSurvey', 'archivePatrol', 'archiveTreat', 'archiveFestival', 'archiveIrrigation', 'archivePreserve', 'archiveRoad', 'archiveTradeRoute', 'consume', 'rest', 'research', 'policy', 'camp',
   'project', 'event', 'auto', 'assign', 'diplomacy', 'recruit', 'upgrade', 'equip',
-  'survivalFail', 'champion', 'defeat', 'eraAdvance', 'projectComplete', 'civicComplete',
+  'survivalFail', 'champion', 'defeat', 'eraAdvance', 'projectComplete', 'actionUnlock', 'civicComplete',
   'complete', 'inspiration', 'discover', 'season', 'growth',
 ]) {
   assert.match(soundSource, new RegExp(`\\n {2,4}${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
 }
 
 for (const icon of [
-  'primitive-camp', 'primitive-civic', 'primitive-craft', 'primitive-day', 'primitive-defeat',
+  'primitive-action-unlock', 'primitive-camp', 'primitive-civic', 'primitive-craft', 'primitive-day', 'primitive-defeat',
   'primitive-diplomacy', 'primitive-discovery', 'primitive-equip', 'primitive-era',
   'primitive-eureka', 'primitive-event', 'primitive-gather', 'primitive-growth',
   'primitive-logging', 'primitive-herbalism', 'primitive-trapping',
@@ -182,6 +227,9 @@ for (const icon of [
   assert.match(iconSource, new RegExp(`\\n  ${icon}: `), `${icon} 문명 아카이브 UI 아이콘 매핑이 있어야 합니다.`);
 }
 
+assert.match(dataSource, /lastUnlockedActions: \[\]/, '연구와 사회 제도 상태는 마지막 해금 행동 목록을 저장해야 합니다.');
+assert.match(engineSource, /lastUnlockText: unlockGroups\.unlockText/, '완료 처리에서 해금 효과 요약을 저장해야 합니다.');
+assert.match(engineSource, /lastUnlockedActions: unlockGroups\.actions/, '완료 처리에서 새 행동 이름을 저장해야 합니다.');
 assert.match(playSource, /const stateRef = useRef\(state\)/, '빠른 연속 행동은 최신 상태 참조를 사용해야 합니다.');
 assert.match(playSource, /const replaceState = useCallback/, '불러온 런은 상태와 이정표 기준을 함께 교체해야 합니다.');
 assert.match(playSource, /primitiveActionResultPresentation\(previousState, nextState, label/, '모든 행동은 공통 결과 프레젠테이션을 계산해야 합니다.');
@@ -243,7 +291,7 @@ assert.equal(resultPanels, 7, '행동 화면 전반에 7개 결과 패널이 있
 
 console.log(JSON.stringify({
   actionProfiles: actionRows.length,
-  milestoneProfiles: 12,
+  milestoneProfiles: 15,
   resultPanels,
   semanticIconRows,
   semanticPanelTitles,

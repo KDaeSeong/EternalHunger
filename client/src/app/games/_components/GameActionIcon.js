@@ -311,6 +311,7 @@ const ACTION_ICONS = {
   'question-queued': Hourglass,
   preset: LayoutTemplate,
   policy: Gavel,
+  'primitive-action-unlock': BadgePlus,
   'primitive-camp': TentTree,
   'primitive-civic': Gavel,
   'primitive-craft': Hammer,

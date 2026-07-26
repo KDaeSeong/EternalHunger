@@ -1566,11 +1566,15 @@ function completeTechIfReady(state, techId) {
   const progress = Number(research.progress[tech.id] || 0);
   if (progress < tech.cost) return state;
   const actionWasUnlocked = researchSystemStatus(state).actionUnlocked;
+  const unlockGroups = researchUnlockGroups(tech);
   const nextResearch = {
     ...research,
     progress: { ...research.progress, [tech.id]: tech.cost },
     completed: { ...research.completed, [tech.id]: true },
     lastCompletedTechId: tech.id,
+    lastCompletedTechName: tech.name,
+    lastUnlockText: unlockGroups.unlockText,
+    lastUnlockedActions: unlockGroups.actions,
     completionSerial: Number(research.completionSerial || 0) + 1,
   };
   if (nextResearch.selectedTechId === tech.id) {
@@ -1611,11 +1615,15 @@ function completeCivicIfReady(state, civicId) {
   if (!civic || civics.completed?.[civic.id]) return state;
   const progress = Number(civics.progress?.[civic.id] || 0);
   if (progress < civic.cost) return state;
+  const unlockGroups = researchUnlockGroups(civic);
   const nextCivics = {
     ...civics,
     progress: { ...civics.progress, [civic.id]: civic.cost },
     completed: { ...civics.completed, [civic.id]: true },
     lastCompletedCivicId: civic.id,
+    lastCompletedCivicName: civic.name,
+    lastUnlockText: unlockGroups.unlockText,
+    lastUnlockedActions: unlockGroups.actions,
     completionSerial: Number(civics.completionSerial || 0) + 1,
   };
   if (nextCivics.selectedCivicId === civic.id) {
