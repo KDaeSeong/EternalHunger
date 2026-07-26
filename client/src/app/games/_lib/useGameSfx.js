@@ -228,6 +228,41 @@ const CUE_PROFILES = {
     { frequency: 240, endFrequency: 170, duration: 0.09, type: 'square', gain: 0.045 },
     { frequency: 240, endFrequency: 150, start: 0.12, duration: 0.12, type: 'square', gain: 0.042 },
   ],
+  fogWarning: [
+    { source: 'noise', filterType: 'bandpass', frequency: 920, q: 1.8, duration: 0.22, gain: 0.032, pan: -0.42 },
+    { frequency: 392, endFrequency: 293.66, duration: 0.12, type: 'triangle', gain: 0.043, pan: -0.18 },
+    { frequency: 293.66, endFrequency: 220, start: 0.13, duration: 0.15, type: 'sine', gain: 0.038, pan: 0.28, reverb: 0.25 },
+  ],
+  fogSpread: [
+    { source: 'noise', filterType: 'lowpass', frequency: 520, q: 0.8, duration: 0.32, gain: 0.042, pan: -0.5, reverb: 0.24 },
+    { frequency: 73.42, endFrequency: 55, duration: 0.3, type: 'sawtooth', gain: 0.047, pan: -0.14 },
+    { frequency: 110, endFrequency: 82.41, start: 0.08, duration: 0.24, type: 'sine', gain: 0.04, pan: 0.34, reverb: 0.32 },
+  ],
+  fogClear: [
+    { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.12, gain: 0.018, pan: -0.4, reverb: 0.28 },
+    { frequency: 349.23, endFrequency: 523.25, duration: 0.1, type: 'triangle', gain: 0.039, pan: -0.18 },
+    { frequency: 783.99, start: 0.1, duration: 0.16, type: 'sine', gain: 0.032, pan: 0.36, reverb: 0.36 },
+  ],
+  detonationGraceEnded: [
+    { frequency: 220, endFrequency: 164.81, duration: 0.09, type: 'square', gain: 0.046, pan: -0.28 },
+    { frequency: 220, endFrequency: 146.83, start: 0.12, duration: 0.11, type: 'square', gain: 0.046, pan: 0.22 },
+    { frequency: 55, start: 0.05, duration: 0.3, type: 'sine', gain: 0.045, pan: 0.08, reverb: 0.28 },
+  ],
+  detonationDeath: [
+    { source: 'noise', filterType: 'lowpass', frequency: 780, duration: 0.13, gain: 0.065, pan: -0.35 },
+    { frequency: 196, endFrequency: 65.41, duration: 0.2, type: 'sawtooth', gain: 0.058, pan: -0.08 },
+    { frequency: 98, endFrequency: 49, start: 0.12, duration: 0.24, type: 'sine', gain: 0.045, pan: 0.3, reverb: 0.27 },
+  ],
+  cnotEscape: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1180, q: 0.8, duration: 0.24, gain: 0.03, pan: -0.48, reverb: 0.3 },
+    { frequency: 261.63, endFrequency: 1046.5, duration: 0.18, type: 'sine', gain: 0.044, pan: -0.22 },
+    { frequency: 1318.51, endFrequency: 659.25, start: 0.13, duration: 0.16, type: 'triangle', gain: 0.031, pan: 0.42, reverb: 0.34 },
+  ],
+  portableSafeZone: [
+    { source: 'noise', filterType: 'highpass', frequency: 2200, duration: 0.08, gain: 0.017, pan: -0.4, reverb: 0.25 },
+    { frequency: 261.63, endFrequency: 392, duration: 0.12, type: 'triangle', gain: 0.041, pan: -0.18 },
+    { frequency: 783.99, start: 0.1, duration: 0.18, type: 'sine', gain: 0.033, pan: 0.36, reverb: 0.38 },
+  ],
   hyperloopJump: [
     { source: 'noise', filterType: 'highpass', frequency: 1500, duration: 0.045, gain: 0.025 },
     { frequency: 360, endFrequency: 1080, duration: 0.16, type: 'sine', gain: 0.05 },
@@ -2096,6 +2131,41 @@ const THEME_CUE_PROFILES = {
       ...CUE_PROFILES.zoneLock,
       { source: 'noise', filterType: 'bandpass', frequency: 920, q: 2.1, duration: 0.25, gain: 0.03, pan: -0.42, reverb: 0.22 },
       { frequency: 74, start: 0.18, duration: 0.22, type: 'sine', gain: 0.038, pan: 0.32, reverb: 0.28 },
+    ],
+    fogWarning: [
+      ...CUE_PROFILES.fogWarning,
+      { source: 'noise', filterType: 'bandpass', frequency: 1280, q: 1.1, duration: 0.3, gain: 0.026, pan: -0.5, reverb: 0.34 },
+      { frequency: 65.41, start: 0.18, duration: 0.26, type: 'sine', gain: 0.036, pan: 0.34, reverb: 0.38 },
+    ],
+    fogSpread: [
+      ...CUE_PROFILES.fogSpread,
+      { source: 'noise', filterType: 'bandpass', frequency: 460, q: 0.75, duration: 0.42, gain: 0.038, pan: -0.54, reverb: 0.38 },
+      { frequency: 46.25, start: 0.2, duration: 0.38, type: 'sine', gain: 0.05, pan: 0.18, reverb: 0.36 },
+    ],
+    fogClear: [
+      ...CUE_PROFILES.fogClear,
+      { source: 'noise', filterType: 'highpass', frequency: 3400, duration: 0.16, gain: 0.019, pan: -0.48, reverb: 0.36 },
+      { frequency: 1567.98, start: 0.22, duration: 0.18, type: 'sine', gain: 0.028, pan: 0.44, reverb: 0.42 },
+    ],
+    detonationGraceEnded: [
+      ...CUE_PROFILES.detonationGraceEnded,
+      { source: 'noise', filterType: 'lowpass', frequency: 580, duration: 0.34, gain: 0.04, pan: -0.5, reverb: 0.28 },
+      { frequency: 43.65, start: 0.2, duration: 0.36, type: 'sine', gain: 0.052, pan: 0.2, reverb: 0.34 },
+    ],
+    detonationDeath: [
+      ...CUE_PROFILES.detonationDeath,
+      { source: 'noise', filterType: 'highpass', frequency: 3200, start: 0.045, duration: 0.12, gain: 0.026, pan: 0.45 },
+      { frequency: 41.2, start: 0.18, duration: 0.32, type: 'sine', gain: 0.052, pan: 0.1, reverb: 0.3 },
+    ],
+    cnotEscape: [
+      ...CUE_PROFILES.cnotEscape,
+      { source: 'noise', filterType: 'bandpass', frequency: 1480, q: 0.75, duration: 0.3, gain: 0.028, pan: -0.54, reverb: 0.38 },
+      { frequency: 1760, start: 0.22, duration: 0.2, type: 'sine', gain: 0.028, pan: 0.46, reverb: 0.4 },
+    ],
+    portableSafeZone: [
+      ...CUE_PROFILES.portableSafeZone,
+      { source: 'noise', filterType: 'highpass', frequency: 3100, duration: 0.11, gain: 0.02, pan: -0.44, reverb: 0.28 },
+      { frequency: 1174.66, start: 0.22, duration: 0.2, type: 'sine', gain: 0.03, pan: 0.42, reverb: 0.42 },
     ],
     hyperloopJump: [
       ...CUE_PROFILES.hyperloopJump,

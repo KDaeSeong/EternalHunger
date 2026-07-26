@@ -79,6 +79,14 @@ const MAJOR_EVENT_RULES = [
     tone: 'success',
   },
   {
+    key: 'detonationDeath',
+    pattern: /폭발 타이머가 0이 되어 사망했습니다/,
+    action: 'detonation-death',
+    cue: 'detonationDeath',
+    label: '폭발 타이머 사망',
+    tone: 'danger',
+  },
+  {
     key: 'eliminationEvent',
     pattern: /(?:사망했습니다|결정타로 .*마무리했습니다)/,
     action: 'elimination',
@@ -221,6 +229,56 @@ const MAJOR_EVENT_RULES = [
     tone: 'success',
   },
   {
+    key: 'fogWarning',
+    pattern: /퍼플 포그 경고!/,
+    action: 'fog-warning',
+    cue: 'fogWarning',
+    label: '퍼플 포그 경고',
+    tone: 'warning',
+  },
+  {
+    key: 'fogSpread',
+    pattern: /퍼플 포그 확산!/,
+    action: 'fog-active',
+    cue: 'fogSpread',
+    label: '퍼플 포그 확산',
+    tone: 'danger',
+  },
+  {
+    key: 'fogClear',
+    pattern: /퍼플 포그가 걷혔습니다/,
+    action: 'fog-clear',
+    cue: 'fogClear',
+    label: '퍼플 포그 해제',
+    tone: 'success',
+  },
+  {
+    key: 'detonationGraceEnded',
+    pattern: /유예 종료: 안전구역도 위험해졌습니다/,
+    action: 'detonation-grace',
+    cue: 'detonationGraceEnded',
+    label: '전 구역 폭발 위험',
+    tone: 'danger',
+  },
+  {
+    key: 'cnotEscape',
+    pattern: /CNOT 게이트 발동/,
+    action: 'cnot-escape',
+    cue: 'cnotEscape',
+    label: 'CNOT 게이트 탈출',
+    tone: 'highlight',
+    autoSilent: true,
+  },
+  {
+    key: 'portableSafeZone',
+    pattern: /휴대용 안전지대 전개/,
+    action: 'portable-safe-zone',
+    cue: 'portableSafeZone',
+    label: '휴대용 안전지대',
+    tone: 'success',
+    autoSilent: true,
+  },
+  {
     key: 'hyperloopJump',
     pattern: /하이퍼루프 이동/,
     action: 'hyperloop-jump',
@@ -280,7 +338,10 @@ export function createSimulationFeedbackSnapshot({
 }) {
   return {
     autoPlay: Boolean(autoPlay),
-    combatEvent: latestMajorEvent(logs, (event) => event.key === 'combatKill'),
+    fatalEvent: latestMajorEvent(
+      logs,
+      (event) => event.key === 'combatKill' || event.key === 'detonationDeath',
+    ),
     day: Math.max(0, Number(day || 0)),
     deadCount: listLength(dead),
     forbiddenSignature: listSignature(forbiddenAddedNow),
@@ -301,9 +362,9 @@ function majorEventChanged(previous, current) {
   return Boolean(signature && signature !== String(previous?.majorEvent?.signature || ''));
 }
 
-function combatEventChanged(previous, current) {
-  const signature = String(current?.combatEvent?.signature || '');
-  return Boolean(signature && signature !== String(previous?.combatEvent?.signature || ''));
+function fatalEventChanged(previous, current) {
+  const signature = String(current?.fatalEvent?.signature || '');
+  return Boolean(signature && signature !== String(previous?.fatalEvent?.signature || ''));
 }
 
 function presentMajorEvent(event, autoPlay) {
@@ -334,8 +395,8 @@ export function getSimulationFeedbackPresentation(previous, current) {
 
   if (
     current.deadCount > previous.deadCount
-    && combatEventChanged(previous, current)
-  ) return presentMajorEvent(current.combatEvent, current.autoPlay);
+    && fatalEventChanged(previous, current)
+  ) return presentMajorEvent(current.fatalEvent, current.autoPlay);
 
   if (current.deadCount > previous.deadCount) {
     const delta = current.deadCount - previous.deadCount;

@@ -65,6 +65,18 @@ export function eternalHungerEventMusic(presentation) {
   if (action === 'team-wipe-protection') {
     return { theme: ETERNAL_HUNGER_BGM_SCENES.combat, durationMs: 9_000 };
   }
+  if (action === 'fog-warning') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.night, durationMs: 8_000 };
+  }
+  if (action === 'fog-active') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.night, durationMs: 12_000 };
+  }
+  if (action === 'detonation-grace') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.combat, durationMs: 10_000 };
+  }
+  if (action === 'detonation-death') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.combat, durationMs: 8_000 };
+  }
   if (action === 'sudden-death') {
     return { theme: ETERNAL_HUNGER_BGM_SCENES.final, durationMs: 16_000 };
   }

@@ -78,6 +78,13 @@ assert.equal(
 );
 
 const majorEventCases = [
+  ['fogWarning', 'fogWarning', eventLog('fog-warning-1', '🌫️ 퍼플 포그 경고! 약 15s 후, 일부 구역에서 시야가 악화됩니다.')],
+  ['fogSpread', 'fogSpread', eventLog('fog-spread-1', '🌫️ 퍼플 포그 확산! (약 25s)')],
+  ['fogClear', 'fogClear', eventLog('fog-clear-1', '🌫️ 퍼플 포그가 걷혔습니다.')],
+  ['detonationGraceEnded', 'detonationGraceEnded', eventLog('grace-end-1', '⚠️ 유예 종료: 안전구역도 위험해졌습니다.')],
+  ['detonationDeath', 'detonationDeath', eventLog('detonation-death-1', '💥 [히나] 폭발 타이머가 0이 되어 사망했습니다. (구역: 학교)', 'death')],
+  ['cnotEscape', 'cnotEscape', eventLog('cnot-1', '🌀 [시로코] CNOT 게이트 발동 → 병원 (에너지 -15)')],
+  ['portableSafeZone', 'portableSafeZone', eventLog('safe-zone-1', '🛡️ [유우카] 휴대용 안전지대 전개 (12s) (에너지 -20)')],
   ['hyperloopJump', 'hyperloopJump', eventLog('hyperloop-1', '🌀 하이퍼루프 이동: 성당 → 병원 (시로코)')],
   ['riftOpen', 'riftOpen', eventLog('rift-1', '🌀 차원의 틈 개방: 학교 (최대 2팀)')],
   ['riftBattle', 'riftBattle', eventLog('rift-2', '⚔️ 차원의 틈 교전: [1팀] 승리', 'death')],
@@ -113,7 +120,22 @@ for (const [key, cue, log] of majorEventCases) {
   );
 }
 
-const combatKillLog = majorEventCases.find(([key]) => key === 'combatKill')[2];
+const getMajorEventLog = (key) => majorEventCases.find(([eventKey]) => eventKey === key)?.[2];
+
+const detonationDeathLog = getMajorEventLog('detonationDeath');
+const detonationDeathState = snapshot({ dead: [{ id: 'hina' }], logs: [detonationDeathLog] });
+assert.equal(
+  getSimulationFeedbackCue(base, detonationDeathState),
+  'detonationDeath',
+  '폭발 타이머 사망은 일반 탈락음보다 전용 폭발음을 우선해야 합니다.',
+);
+assert.equal(
+  getSimulationFeedbackPresentation(base, detonationDeathState)?.action,
+  'detonation-death',
+  '폭발 타이머 사망은 전용 위험 결과 바를 사용해야 합니다.',
+);
+
+const combatKillLog = getMajorEventLog('combatKill');
 const combatKillState = snapshot({ dead: [{ id: 'actor-b' }], logs: [combatKillLog] });
 assert.equal(
   getSimulationFeedbackCue(base, combatKillState),
@@ -126,7 +148,15 @@ assert.equal(
   '교전 처치는 처치자와 대상이 포함된 전용 결과 바를 사용해야 합니다.',
 );
 
-for (const key of ['masteryLevel', 'tacticalUpgrade', 'routeComplete', 'legendaryCrateOpen', 'objectiveCollected']) {
+for (const key of [
+  'masteryLevel',
+  'tacticalUpgrade',
+  'routeComplete',
+  'legendaryCrateOpen',
+  'objectiveCollected',
+  'cnotEscape',
+  'portableSafeZone',
+]) {
   const log = majorEventCases.find(([eventKey]) => eventKey === key)[2];
   assert.equal(
     getSimulationFeedbackCue(base, snapshot({ autoPlay: true, logs: [log] })),
@@ -150,8 +180,9 @@ for (const [key, action, log] of visualOnlyCases) {
   assert.equal(getSimulationFeedbackDisplay(current)?.action, action, `${key} 로그는 결과 바 아이콘을 제공해야 합니다.`);
 }
 
-const manualHyperloop = snapshot({ logs: [majorEventCases[0][2]] });
-const autoHyperloop = snapshot({ autoPlay: true, logs: [majorEventCases[0][2]] });
+const hyperloopLog = getMajorEventLog('hyperloopJump');
+const manualHyperloop = snapshot({ logs: [hyperloopLog] });
+const autoHyperloop = snapshot({ autoPlay: true, logs: [hyperloopLog] });
 assert.equal(getSimulationFeedbackCue(base, manualHyperloop), 'hyperloopJump');
 assert.equal(getSimulationFeedbackCue(base, autoHyperloop), '', '자동 진행 하이퍼루프는 반복음을 내면 안 됩니다.');
 assert.equal(
@@ -181,15 +212,16 @@ assert.equal(
 assert.equal(
   getSimulationFeedbackCue(
     base,
-    snapshot({ dead: [{ id: 'actor-b' }], logs: [majorEventCases[3][2]] }),
+    snapshot({ dead: [{ id: 'actor-b' }], logs: [getMajorEventLog('bossSpawn')] }),
   ),
   'elimination',
   '탈락과 월드 사건이 동시에 발생하면 탈락 피드백을 우선해야 합니다.',
 );
 
-const repeatedRift = snapshot({ logs: [majorEventCases[1][2]] });
+const riftOpenLog = getMajorEventLog('riftOpen');
+const repeatedRift = snapshot({ logs: [riftOpenLog] });
 assert.equal(
-  getSimulationFeedbackCue(repeatedRift, snapshot({ logs: [majorEventCases[1][2], eventLog('ordinary-1', '파밍을 계속합니다.', 'normal')] })),
+  getSimulationFeedbackCue(repeatedRift, snapshot({ logs: [riftOpenLog, eventLog('ordinary-1', '파밍을 계속합니다.', 'normal')] })),
   '',
   '같은 주요 사건이 최신 일반 로그 때문에 다시 재생되면 안 됩니다.',
 );
@@ -218,7 +250,13 @@ const pendingTranscendSource = await readFile(new URL('../src/app/simulation/_co
 const requiredActions = [
   'boss-defeat',
   'boss-spawn',
+  'cnot-escape',
   'combat-kill',
+  'detonation-death',
+  'detonation-grace',
+  'fog-active',
+  'fog-clear',
+  'fog-warning',
   'legendary-crate-open',
   'mastery-level',
   'objective-collected',
@@ -234,6 +272,7 @@ const requiredActions = [
   'drone-delivery',
   'perk-unlock',
   'objective-spawn',
+  'portable-safe-zone',
   'rare-supply',
   'rift-battle',
   'rift-open',
@@ -249,7 +288,13 @@ for (const action of requiredActions) {
 const requiredCues = [
   'bossDefeat',
   'bossSpawn',
+  'cnotEscape',
   'combatKill',
+  'detonationDeath',
+  'detonationGraceEnded',
+  'fogClear',
+  'fogSpread',
+  'fogWarning',
   'legendaryCrateOpen',
   'masteryLevel',
   'objectiveCollected',
@@ -265,6 +310,7 @@ const requiredCues = [
   'marketTrade',
   'droneDelivery',
   'perkUnlock',
+  'portableSafeZone',
   'rareSupply',
   'riftBattle',
   'riftOpen',

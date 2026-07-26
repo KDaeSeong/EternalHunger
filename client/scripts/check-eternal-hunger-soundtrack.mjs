@@ -112,6 +112,13 @@ assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'boss-spawn' }), {
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'boss-defeat' }), { theme: scenes.boss, durationMs: 11_000 });
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'combat-kill' }), { theme: scenes.combat, durationMs: 7_000 });
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'team-wipe-protection' }), { theme: scenes.combat, durationMs: 9_000 });
+assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'fog-warning' }), { theme: scenes.night, durationMs: 8_000 });
+assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'fog-active' }), { theme: scenes.night, durationMs: 12_000 });
+assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'detonation-grace' }), { theme: scenes.combat, durationMs: 10_000 });
+assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'detonation-death' }), { theme: scenes.combat, durationMs: 8_000 });
+assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'fog-clear' }), null);
+assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'cnot-escape' }), null);
+assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'portable-safe-zone' }), null);
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'route-complete' }), null);
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'sudden-death' }), { theme: scenes.final, durationMs: 16_000 });
 assert.deepEqual(soundtrack.eternalHungerEventMusic({ action: 'victory' }), { theme: scenes.result, durationMs: 18_000 });
