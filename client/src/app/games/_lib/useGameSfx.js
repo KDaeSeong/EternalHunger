@@ -405,6 +405,31 @@ const CUE_PROFILES = {
     { frequency: 294, endFrequency: 196, duration: 0.12, type: 'square', gain: 0.042, pan: -0.14 },
     { frequency: 147, start: 0.11, duration: 0.16, type: 'sine', gain: 0.034, pan: 0.28, reverb: 0.26 },
   ],
+  marketCraftFailure: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1460, q: 3.2, duration: 0.055, gain: 0.036, pan: -0.38 },
+    { frequency: 440, endFrequency: 164.81, duration: 0.15, type: 'sawtooth', gain: 0.039, pan: -0.12 },
+    { frequency: 110, start: 0.13, duration: 0.18, type: 'triangle', gain: 0.032, pan: 0.3, reverb: 0.2 },
+  ],
+  kioskTradeFailure: [
+    { frequency: 1046.5, duration: 0.035, type: 'square', gain: 0.035, pan: -0.32 },
+    { frequency: 1046.5, start: 0.055, duration: 0.035, type: 'square', gain: 0.034, pan: -0.04 },
+    { frequency: 220, endFrequency: 146.83, start: 0.105, duration: 0.17, type: 'triangle', gain: 0.039, pan: 0.3, reverb: 0.18 },
+  ],
+  droneDeliveryFailure: [
+    { source: 'noise', filterType: 'bandpass', frequency: 980, q: 1.5, duration: 0.22, gain: 0.031, pan: -0.46 },
+    { frequency: 392, endFrequency: 130.81, duration: 0.19, type: 'sawtooth', gain: 0.036, pan: -0.12 },
+    { source: 'noise', filterType: 'highpass', frequency: 2480, start: 0.13, duration: 0.09, gain: 0.017, pan: 0.42, reverb: 0.22 },
+  ],
+  perkUnlockFailure: [
+    { frequency: 493.88, duration: 0.045, type: 'triangle', gain: 0.034, pan: -0.3 },
+    { frequency: 246.94, start: 0.06, duration: 0.09, type: 'square', gain: 0.039, pan: 0.02 },
+    { source: 'noise', filterType: 'lowpass', frequency: 420, start: 0.14, duration: 0.1, gain: 0.028, pan: 0.36 },
+  ],
+  marketTradeFailure: [
+    { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.045, gain: 0.016, pan: -0.38 },
+    { frequency: 659.25, endFrequency: 329.63, duration: 0.12, type: 'triangle', gain: 0.036, pan: -0.16 },
+    { frequency: 164.81, start: 0.12, duration: 0.17, type: 'sine', gain: 0.033, pan: 0.32, reverb: 0.24 },
+  ],
   suddenDeath: [
     { frequency: 250, endFrequency: 180, duration: 0.09, type: 'square', gain: 0.05 },
     { frequency: 250, endFrequency: 150, start: 0.12, duration: 0.11, type: 'square', gain: 0.05 },
@@ -2318,6 +2343,26 @@ const THEME_CUE_PROFILES = {
       ...CUE_PROFILES.marketFailure,
       { source: 'noise', filterType: 'bandpass', frequency: 760, q: 1.8, duration: 0.18, gain: 0.027, pan: -0.4 },
       { frequency: 73.42, start: 0.15, duration: 0.2, type: 'sine', gain: 0.034, pan: 0.3, reverb: 0.28 },
+    ],
+    marketCraftFailure: [
+      ...CUE_PROFILES.marketCraftFailure,
+      { source: 'noise', filterType: 'bandpass', frequency: 1860, q: 4.2, start: 0.04, duration: 0.08, gain: 0.022, pan: 0.38 },
+    ],
+    kioskTradeFailure: [
+      ...CUE_PROFILES.kioskTradeFailure,
+      { frequency: 73.42, start: 0.16, duration: 0.18, type: 'sine', gain: 0.03, pan: 0.36, reverb: 0.2 },
+    ],
+    droneDeliveryFailure: [
+      ...CUE_PROFILES.droneDeliveryFailure,
+      { source: 'noise', filterType: 'bandpass', frequency: 1320, q: 1.1, start: 0.16, duration: 0.14, gain: 0.021, pan: 0.46 },
+    ],
+    perkUnlockFailure: [
+      ...CUE_PROFILES.perkUnlockFailure,
+      { frequency: 98, start: 0.16, duration: 0.2, type: 'sine', gain: 0.031, pan: 0.34, reverb: 0.24 },
+    ],
+    marketTradeFailure: [
+      ...CUE_PROFILES.marketTradeFailure,
+      { source: 'noise', filterType: 'bandpass', frequency: 1180, q: 2.2, start: 0.1, duration: 0.09, gain: 0.02, pan: 0.4 },
     ],
     suddenDeath: [
       ...CUE_PROFILES.suddenDeath,
