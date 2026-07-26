@@ -223,6 +223,38 @@ const CUE_PROFILES = {
     { frequency: 860, start: 0.045, duration: 0.07, type: 'triangle', gain: 0.042 },
     { frequency: 1290, start: 0.105, duration: 0.12, type: 'sine', gain: 0.035 },
   ],
+  marketCraft: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1320, q: 2.8, duration: 0.045, gain: 0.036, pan: -0.32 },
+    { frequency: 330, endFrequency: 440, duration: 0.065, type: 'square', gain: 0.038, pan: -0.14 },
+    { frequency: 880, start: 0.06, duration: 0.11, type: 'sine', gain: 0.032, pan: 0.3, reverb: 0.24 },
+  ],
+  kioskTrade: [
+    { frequency: 880, duration: 0.035, type: 'square', gain: 0.035, pan: -0.3 },
+    { frequency: 1320, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.038 },
+    { frequency: 1760, start: 0.095, duration: 0.11, type: 'sine', gain: 0.027, pan: 0.34, reverb: 0.22 },
+  ],
+  droneDelivery: [
+    { source: 'noise', filterType: 'bandpass', frequency: 780, q: 0.9, duration: 0.18, gain: 0.03, pan: -0.44 },
+    { frequency: 196, endFrequency: 392, duration: 0.1, type: 'sawtooth', gain: 0.034, pan: -0.2 },
+    { frequency: 784, start: 0.1, duration: 0.14, type: 'sine', gain: 0.03, pan: 0.38, reverb: 0.28 },
+  ],
+  perkUnlock: [
+    { frequency: 440, duration: 0.045, type: 'triangle', gain: 0.038, pan: -0.28 },
+    { frequency: 660, start: 0.04, duration: 0.065, type: 'triangle', gain: 0.04 },
+    { frequency: 990, start: 0.1, duration: 0.09, type: 'triangle', gain: 0.036, pan: 0.2 },
+    { frequency: 1320, start: 0.18, duration: 0.15, type: 'sine', gain: 0.03, pan: 0.4, reverb: 0.34 },
+  ],
+  marketTrade: [
+    { source: 'noise', filterType: 'highpass', frequency: 2200, duration: 0.035, gain: 0.017, pan: -0.34 },
+    { frequency: 523.25, duration: 0.055, type: 'triangle', gain: 0.038, pan: -0.16 },
+    { frequency: 783.99, start: 0.055, duration: 0.08, type: 'triangle', gain: 0.036, pan: 0.14 },
+    { frequency: 1046.5, start: 0.13, duration: 0.12, type: 'sine', gain: 0.028, pan: 0.36, reverb: 0.28 },
+  ],
+  marketFailure: [
+    { source: 'noise', filterType: 'lowpass', frequency: 620, duration: 0.11, gain: 0.032, pan: -0.36 },
+    { frequency: 294, endFrequency: 196, duration: 0.12, type: 'square', gain: 0.042, pan: -0.14 },
+    { frequency: 147, start: 0.11, duration: 0.16, type: 'sine', gain: 0.034, pan: 0.28, reverb: 0.26 },
+  ],
   suddenDeath: [
     { frequency: 250, endFrequency: 180, duration: 0.09, type: 'square', gain: 0.05 },
     { frequency: 250, endFrequency: 150, start: 0.12, duration: 0.11, type: 'square', gain: 0.05 },
@@ -1917,6 +1949,32 @@ const THEME_CUE_PROFILES = {
       ...CUE_PROFILES.specialCraft,
       { source: 'noise', filterType: 'bandpass', frequency: 1480, q: 1.4, duration: 0.18, gain: 0.026, pan: -0.44 },
       { frequency: 1720, start: 0.2, duration: 0.18, type: 'sine', gain: 0.031, pan: 0.42, reverb: 0.34 },
+    ],
+    marketCraft: [
+      ...CUE_PROFILES.marketCraft,
+      { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.055, gain: 0.018, pan: -0.42 },
+      { frequency: 1320, start: 0.14, duration: 0.14, type: 'sine', gain: 0.029, pan: 0.38, reverb: 0.3 },
+    ],
+    kioskTrade: [
+      ...CUE_PROFILES.kioskTrade,
+      { frequency: 2349.32, start: 0.15, duration: 0.1, type: 'sine', gain: 0.022, pan: 0.4, reverb: 0.24 },
+    ],
+    droneDelivery: [
+      ...CUE_PROFILES.droneDelivery,
+      { source: 'noise', filterType: 'highpass', frequency: 2350, start: 0.08, duration: 0.1, gain: 0.018, pan: 0.42 },
+    ],
+    perkUnlock: [
+      ...CUE_PROFILES.perkUnlock,
+      { source: 'noise', filterType: 'highpass', frequency: 3100, duration: 0.09, gain: 0.022, pan: -0.44, reverb: 0.24 },
+    ],
+    marketTrade: [
+      ...CUE_PROFILES.marketTrade,
+      { frequency: 1567.98, start: 0.2, duration: 0.13, type: 'sine', gain: 0.027, pan: 0.4, reverb: 0.3 },
+    ],
+    marketFailure: [
+      ...CUE_PROFILES.marketFailure,
+      { source: 'noise', filterType: 'bandpass', frequency: 760, q: 1.8, duration: 0.18, gain: 0.027, pan: -0.4 },
+      { frequency: 73.42, start: 0.15, duration: 0.2, type: 'sine', gain: 0.034, pan: 0.3, reverb: 0.28 },
     ],
     suddenDeath: [
       ...CUE_PROFILES.suddenDeath,

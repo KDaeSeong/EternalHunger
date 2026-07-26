@@ -87,6 +87,12 @@ const majorEventCases = [
   ['rareSupply', 'rareSupply', eventLog('supply-1', '🟪 전설 보급 상자 도착 (x1)')],
   ['transcendSupply', 'transcendSupply', eventLog('supply-2', '🎁 초월 보급 상자 도착 (x1)')],
   ['specialCraft', 'specialCraft', eventLog('craft-1', '🧬 포스 코어 조합: 운석 파편 + 생명의 나무 수액 → 포스 코어 x1')],
+  ['marketCraft', 'marketCraft', eventLog('market-craft-1', '🛠️ [조합] 장비 조합 완료 (x1)', 'system')],
+  ['kioskTrade', 'kioskTrade', eventLog('kiosk-trade-1', '🏪 [키오스크] 구매 완료 (x1)', 'system')],
+  ['droneDelivery', 'droneDelivery', eventLog('drone-1', '🚁 [드론] 구매 완료 (x1)', 'system')],
+  ['perkUnlock', 'perkUnlock', eventLog('perk-1', '🎖️ [특전] 구매 완료 (FAST_START)', 'system')],
+  ['marketTrade', 'marketTrade', eventLog('trade-1', '✅ [거래] 수락 완료', 'system')],
+  ['marketFailure', 'marketFailure', eventLog('market-failure-1', '⚠️ [드론 구매 실패] 크레딧이 부족합니다.', 'death')],
   ['suddenDeath', 'suddenDeath', eventLog('sudden-1', '=== 서든데스 발동: 최종 안전구역 2곳 제외 전지역 금지 ===')],
 ];
 
@@ -168,12 +174,25 @@ const gameScreenSource = await readFile(new URL('../src/app/simulation/_componen
 const eventBarSource = await readFile(new URL('../src/app/simulation/_components/SimulationEventFeedbackBar.js', import.meta.url), 'utf8');
 const screenHeaderSource = await readFile(new URL('../src/app/simulation/_components/SimulationScreenHeader.js', import.meta.url), 'utf8');
 const controlPanelSource = await readFile(new URL('../src/app/simulation/_components/SimulationControlPanel.js', import.meta.url), 'utf8');
+const marketCraftSource = await readFile(new URL('../src/app/simulation/_components/SimulationMarketCraftSection.js', import.meta.url), 'utf8');
+const marketKioskSource = await readFile(new URL('../src/app/simulation/_components/SimulationMarketKioskSection.js', import.meta.url), 'utf8');
+const marketDroneSource = await readFile(new URL('../src/app/simulation/_components/SimulationMarketDroneSection.js', import.meta.url), 'utf8');
+const marketPerkSource = await readFile(new URL('../src/app/simulation/_components/SimulationMarketPerkSection.js', import.meta.url), 'utf8');
+const marketOpenTradeSource = await readFile(new URL('../src/app/simulation/_components/SimulationMarketOpenTradeOffers.js', import.meta.url), 'utf8');
+const marketTradeCreateSource = await readFile(new URL('../src/app/simulation/_components/SimulationMarketTradeCreateForm.js', import.meta.url), 'utf8');
+const pendingTranscendSource = await readFile(new URL('../src/app/simulation/_components/SimulationMarketPendingTranscendCard.js', import.meta.url), 'utf8');
 
 const requiredActions = [
   'boss-defeat',
   'boss-spawn',
   'hyperloop-jump',
   'kiosk-revive',
+  'kiosk-trade',
+  'market-craft',
+  'market-failure',
+  'market-trade',
+  'drone-delivery',
+  'perk-unlock',
   'objective-spawn',
   'rare-supply',
   'rift-battle',
@@ -193,6 +212,12 @@ const requiredCues = [
   'hyperloopJump',
   'kioskRevive',
   'objectiveSpawn',
+  'kioskTrade',
+  'marketCraft',
+  'marketFailure',
+  'marketTrade',
+  'droneDelivery',
+  'perkUnlock',
   'rareSupply',
   'riftBattle',
   'riftOpen',
@@ -221,10 +246,28 @@ assert.match(eventBarSource, /role="status"/, '주요 사건 결과 바는 접�
 assert.match(screenHeaderSource, /data-game-sfx="off"/, '상단 페이즈 진행 버튼은 선행 클릭음을 재생하면 안 됩니다.');
 assert.match(controlPanelSource, /data-game-sfx="off"/, '하단 페이즈 진행 버튼은 선행 클릭음을 재생하면 안 됩니다.');
 
+const resultDrivenMarketControls = [
+  [marketCraftSource, 'market-craft', '조합'],
+  [marketKioskSource, 'kiosk-trade', '키오스크'],
+  [marketDroneSource, 'drone-delivery', '드론'],
+  [marketPerkSource, 'perk-unlock', '특전'],
+  [marketOpenTradeSource, 'market-trade', '거래 수락'],
+  [marketTradeCreateSource, 'market-trade', '거래 생성'],
+];
+for (const [componentSource, action, label] of resultDrivenMarketControls) {
+  assert.match(componentSource, /import GameActionIcon/, `${label} 조작부는 공용 의미 아이콘을 사용해야 합니다.`);
+  assert.match(componentSource, new RegExp(`<GameActionIcon action=["']${action}["']`), `${label} 조작부에 ${action} 아이콘이 필요합니다.`);
+  assert.match(componentSource, /data-game-sfx="off"/, `${label} 조작부는 서버 결과 전에 성공음을 재생하면 안 됩니다.`);
+}
+assert.match(pendingTranscendSource, /<GameActionIcon action="transcend-supply"/, '초월 선택 상자는 전용 보급 아이콘을 사용해야 합니다.');
+assert.match(pendingTranscendSource, /data-game-sfx="off"/, '초월 선택은 결과 로그보다 먼저 성공음을 재생하면 안 됩니다.');
+
 console.log(JSON.stringify({
   majorEvents: majorEventCases.length + visualOnlyCases.length + 1,
   dedicatedCues: requiredCues.length,
   dedicatedIcons: requiredActions.length,
   dedicatedSfxTheme: true,
+  marketResultEvents: 6,
+  marketSemanticControls: resultDrivenMarketControls.length + 1,
   persistentEventBar: true,
 }, null, 2));

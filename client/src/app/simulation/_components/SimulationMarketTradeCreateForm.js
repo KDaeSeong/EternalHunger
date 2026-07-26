@@ -1,5 +1,7 @@
 'use client';
 
+import GameActionIcon from '../../games/_components/GameActionIcon';
+
 const EMPTY_TRADE_ROW = { itemId: '', qty: 1 };
 
 function normalizeRows(rows) {
@@ -139,7 +141,16 @@ export default function SimulationMarketTradeCreateForm({
       </div>
 
       <div className="market-actions" style={{ marginTop: 10 }}>
-        <button onClick={createTradeOffer} disabled={!selectedCharId}>오퍼 생성</button>
+        <button
+          className="sim-icon-label"
+          type="button"
+          data-game-sfx="off"
+          onClick={createTradeOffer}
+          disabled={!selectedCharId}
+        >
+          <GameActionIcon action="market-trade" label="오퍼 생성" />
+          오퍼 생성
+        </button>
       </div>
     </div>
   );

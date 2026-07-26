@@ -1,5 +1,7 @@
 'use client';
 
+import GameActionIcon from '../../games/_components/GameActionIcon';
+
 export default function SimulationMarketDroneSection({
   doDroneBuy,
   droneOffers,
@@ -24,7 +26,15 @@ export default function SimulationMarketDroneSection({
                   <div className="market-title">{o.itemId?.name || '아이템'}</div>
                   <div className="market-small">가격: {Math.max(0, Number(o.priceCredits || 0))} Cr · 티어 제한 ≤ {Number(o.maxTier || 1)}</div>
                 </div>
-                <button onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }} className="market-mini-btn">새로고침</button>
+                <button
+                  type="button"
+                  className="market-mini-btn sim-icon-label"
+                  data-game-sfx="sync"
+                  onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }}
+                >
+                  <GameActionIcon action="refresh" label="새로고침" />
+                  새로고침
+                </button>
               </div>
               <div className="market-actions" style={{ marginTop: 10 }}>
                 <input
@@ -33,7 +43,16 @@ export default function SimulationMarketDroneSection({
                   value={getQty(`drone:${o._id}`, 1)}
                   onChange={(e) => setQty(`drone:${o._id}`, e.target.value)}
                 />
-                <button onClick={() => doDroneBuy(o._id)} disabled={!selectedCharId}>구매</button>
+                <button
+                  className="sim-icon-label"
+                  type="button"
+                  data-game-sfx="off"
+                  onClick={() => doDroneBuy(o._id)}
+                  disabled={!selectedCharId}
+                >
+                  <GameActionIcon action="drone-delivery" label="드론 구매" />
+                  구매
+                </button>
               </div>
             </div>
           ))}

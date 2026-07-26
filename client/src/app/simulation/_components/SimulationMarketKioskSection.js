@@ -1,5 +1,7 @@
 'use client';
 
+import GameActionIcon from '../../games/_components/GameActionIcon';
+
 export default function SimulationMarketKioskSection({
   doKioskTransaction,
   fireAndReport,
@@ -27,7 +29,15 @@ export default function SimulationMarketKioskSection({
                   <div className="market-title">{k.name || '키오스크'}</div>
                   <div className="market-small">위치: {k.mapId?.name || '미지정'}</div>
                 </div>
-                <button onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }} className="market-mini-btn">새로고침</button>
+                <button
+                  type="button"
+                  className="market-mini-btn sim-icon-label"
+                  data-game-sfx="sync"
+                  onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }}
+                >
+                  <GameActionIcon action="refresh" label="새로고침" />
+                  새로고침
+                </button>
               </div>
 
               <div style={{ marginTop: 10 }}>
@@ -63,7 +73,16 @@ export default function SimulationMarketKioskSection({
                           value={getQty(`kiosk:${k._id}:${idx}`, 1)}
                           onChange={(e) => setQty(`kiosk:${k._id}:${idx}`, e.target.value)}
                         />
-                        <button onClick={() => doKioskTransaction(k._id, idx)} disabled={!selectedCharId || !itemId}>실행</button>
+                        <button
+                          className="sim-icon-label"
+                          type="button"
+                          data-game-sfx="off"
+                          onClick={() => doKioskTransaction(k._id, idx)}
+                          disabled={!selectedCharId || !itemId}
+                        >
+                          <GameActionIcon action="kiosk-trade" label={label} />
+                          {label}
+                        </button>
                       </div>
                     </div>
                   );

@@ -1,5 +1,7 @@
 'use client';
 
+import GameActionIcon from '../../games/_components/GameActionIcon';
+
 export default function SimulationMarketCraftSection({
   craftables,
   doCraft,
@@ -41,7 +43,16 @@ export default function SimulationMarketCraftSection({
                   value={getQty(`craft:${it._id}`, 1)}
                   onChange={(e) => setQty(`craft:${it._id}`, e.target.value)}
                 />
-                <button onClick={() => doCraft(it._id)} disabled={!selectedCharId}>조합</button>
+                <button
+                  className="sim-icon-label"
+                  type="button"
+                  data-game-sfx="off"
+                  onClick={() => doCraft(it._id)}
+                  disabled={!selectedCharId}
+                >
+                  <GameActionIcon action="market-craft" label="조합" />
+                  조합
+                </button>
               </div>
             </div>
           ))}

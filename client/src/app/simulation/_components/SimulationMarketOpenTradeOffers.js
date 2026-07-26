@@ -1,5 +1,7 @@
 'use client';
 
+import GameActionIcon from '../../games/_components/GameActionIcon';
+
 function tradeItemsText(items) {
   return (Array.isArray(items) ? items : [])
     .map((item) => `${item.itemId?.name || item.itemId} x${item.qty}`)
@@ -21,7 +23,10 @@ export default function SimulationMarketOpenTradeOffers({
     <>
       <div className="market-row" style={{ marginBottom: 8 }}>
         <div className="market-small">오픈 오퍼</div>
-        <button onClick={loadTrades} className="market-mini-btn">새로고침</button>
+        <button type="button" className="market-mini-btn sim-icon-label" data-game-sfx="sync" onClick={loadTrades}>
+          <GameActionIcon action="refresh" label="새로고침" />
+          새로고침
+        </button>
       </div>
 
       {offers.length === 0 ? (
@@ -42,9 +47,13 @@ export default function SimulationMarketOpenTradeOffers({
 
               <div className="market-actions" style={{ marginTop: 10 }}>
                 <button
+                  className="sim-icon-label"
+                  type="button"
+                  data-game-sfx="off"
                   onClick={() => acceptTradeOffer(offer._id)}
                   disabled={!selectedCharId || String(offer?.fromCharacterId?._id || '') === String(selectedCharId)}
                 >
+                  <GameActionIcon action="market-trade" label="거래 수락" />
                   수락
                 </button>
               </div>

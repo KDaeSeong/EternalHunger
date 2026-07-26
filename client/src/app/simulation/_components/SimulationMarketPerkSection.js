@@ -1,5 +1,7 @@
 'use client';
 
+import GameActionIcon from '../../games/_components/GameActionIcon';
+
 export default function SimulationMarketPerkSection({
   doPerkPurchase,
   fireAndReport,
@@ -29,11 +31,26 @@ export default function SimulationMarketPerkSection({
                     <div className="market-title">{perk?.name || code || '특전'}</div>
                     <div className="market-small">코드: {code || '-'} · 비용: {cost} LP{perk?.category ? ` · ${perk.category}` : ''}</div>
                   </div>
-                  <button onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }} className="market-mini-btn">새로고침</button>
+                  <button
+                    type="button"
+                    className="market-mini-btn sim-icon-label"
+                    data-game-sfx="sync"
+                    onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }}
+                  >
+                    <GameActionIcon action="refresh" label="새로고침" />
+                    새로고침
+                  </button>
                 </div>
                 {desc ? <div className="market-small" style={{ marginTop: 8 }}>{desc}</div> : null}
                 <div className="market-actions" style={{ marginTop: 10 }}>
-                  <button onClick={() => doPerkPurchase(code)} disabled={!code || owned || Number(viewerLp || 0) < cost}>
+                  <button
+                    className="sim-icon-label"
+                    type="button"
+                    data-game-sfx="off"
+                    onClick={() => doPerkPurchase(code)}
+                    disabled={!code || owned || Number(viewerLp || 0) < cost}
+                  >
+                    <GameActionIcon action="perk-unlock" label={owned ? '보유 중' : '특전 구매'} />
                     {owned ? '보유 중' : `구매 (${cost} LP)`}
                   </button>
                 </div>

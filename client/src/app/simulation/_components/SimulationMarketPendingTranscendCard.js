@@ -1,5 +1,6 @@
 'use client';
 
+import GameActionIcon from '../../games/_components/GameActionIcon';
 import {
   clampTier4,
   itemDisplayName,
@@ -22,7 +23,10 @@ export default function SimulationMarketPendingTranscendCard({
 
   return (
     <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
-      <div className="market-title">🎁 초월 장비 선택 상자(대기)</div>
+      <div className="market-title sim-icon-label">
+        <GameActionIcon action="transcend-supply" label="초월 장비 선택" />
+        초월 장비 선택 상자(대기)
+      </div>
       <div className="market-small">
         [{pendingTranscendPick.characterName || pendingTranscendPick.characterId}] {getZoneName(pendingTranscendPick.zoneId)} · 선택 완료 전에는 진행이 잠깁니다.
       </div>
@@ -34,15 +38,28 @@ export default function SimulationMarketPendingTranscendCard({
           const slotText = String(item?.equipSlot || option?.slot || '');
           return (
             <button
+              className="sim-icon-label"
+              type="button"
+              data-game-sfx="off"
               key={`tp-${pendingTranscendPick.id || 'p'}-${String(option?.itemId || idx)}`}
               onClick={() => resolvePendingTranscendPick(idx, 'manual')}
               disabled={isAdvancing || isGameOver}
             >
+              <GameActionIcon action="transcend-supply" label={name} />
               {itemIcon(item)} {name} ({tierText}{slotText ? `/${slotText}` : ''})
             </button>
           );
         })}
-        <button onClick={() => resolvePendingTranscendPick(-1, 'auto')} disabled={isAdvancing || isGameOver}>자동(추천)</button>
+        <button
+          className="sim-icon-label"
+          type="button"
+          data-game-sfx="off"
+          onClick={() => resolvePendingTranscendPick(-1, 'auto')}
+          disabled={isAdvancing || isGameOver}
+        >
+          <GameActionIcon action="auto" label="자동 추천" />
+          자동(추천)
+        </button>
       </div>
     </div>
   );
