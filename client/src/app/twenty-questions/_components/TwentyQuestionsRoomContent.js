@@ -329,7 +329,10 @@ export default function TwentyQuestionsRoomContent() {
     if (!previousRoom || !nextRoom) return;
 
     if (previousRoom.status === 'active' && nextRoom.status === 'solved') {
-      announce('guess', { correct: true, message: '누군가 정답을 맞혔습니다. 정답을 공개합니다.' });
+      const guesses = normalizeList(nextRoom.guesses);
+      const winningGuess = [...guesses].reverse().find((guess) => Boolean(guess?.correct));
+      const solverName = nextRoom.solvedByName || winningGuess?.guesserName || '참가자';
+      announce('remoteSolved', { message: `${solverName}님이 정답을 맞혔습니다. 정답을 공개합니다.` });
       return;
     }
     if (previousRoom.status === 'active' && nextRoom.status === 'closed') {
@@ -361,20 +364,28 @@ export default function TwentyQuestionsRoomContent() {
       announce('remoteHint', { message: '방장이 새 힌트를 공개했습니다.' });
       return;
     }
+    const previousQuestionCount = normalizeList(previousRoom.questions).length;
+    const nextQuestionCount = normalizeList(nextRoom.questions).length;
+    const previousGuessCount = normalizeList(previousRoom.guesses).length;
+    const nextGuesses = normalizeList(nextRoom.guesses);
+    const latestGuess = nextGuesses[nextGuesses.length - 1];
+    const guesserName = latestGuess?.guesserName || '참가자';
     const milestone = twentyQuestionsProgressTransition(previousRoom, nextRoom);
     if (milestone) {
-      const baseMessage = normalizeList(nextRoom.questions).length > normalizeList(previousRoom.questions).length
+      const baseMessage = nextQuestionCount > previousQuestionCount
         ? '새 질문이 등록되었습니다.'
-        : '새 정답 도전이 등록되었습니다.';
+        : nextGuesses.length > previousGuessCount
+          ? `${guesserName}님의 정답 도전은 오답입니다.`
+          : '추리 단계가 변경되었습니다.';
       announce(milestone, { message: progressFeedbackMessage(milestone, baseMessage) });
       return;
     }
-    if (normalizeList(nextRoom.questions).length > normalizeList(previousRoom.questions).length) {
+    if (nextQuestionCount > previousQuestionCount) {
       announce('remoteQuestion', { message: '새 질문이 등록되었습니다.' });
       return;
     }
-    if (normalizeList(nextRoom.guesses).length > normalizeList(previousRoom.guesses).length) {
-      announce('remoteGuess', { message: '새 정답 도전이 등록되었습니다.' });
+    if (nextGuesses.length > previousGuessCount) {
+      announce('remoteWrong', { message: `${guesserName}님의 정답 도전은 오답입니다.` });
       return;
     }
 
@@ -697,7 +708,10 @@ export default function TwentyQuestionsRoomContent() {
               ) : null}
               {room.answerRevealed ? (
                 <p className="twenty-answer twenty-inline-state">
-                  <GameActionIcon action="guess-correct" label="정답" />
+                  <GameActionIcon
+                    action={room.status === 'solved' ? 'guess-correct' : 'answer-reveal'}
+                    label={room.status === 'solved' ? '정답 적중' : '정답 공개'}
+                  />
                   <span>정답: <strong>{room.answer}</strong>{room.solvedByName ? ` · ${room.solvedByName}` : ''}</span>
                 </p>
               ) : null}

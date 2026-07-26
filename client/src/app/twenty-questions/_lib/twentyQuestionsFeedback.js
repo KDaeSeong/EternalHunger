@@ -41,12 +41,19 @@ const FEEDBACK = {
     text: '새 질문이 등록되었습니다.',
     tone: 'blue',
   },
-  remoteGuess: {
-    action: 'guess',
-    cue: 'twentyGuessArrive',
-    label: '새 도전',
-    text: '새 정답 도전이 등록되었습니다.',
-    tone: 'gold',
+  remoteWrong: {
+    action: 'guess-wrong',
+    cue: 'twentyRemoteWrong',
+    label: '다른 참가자 오답',
+    text: '다른 참가자의 정답 도전은 오답입니다.',
+    tone: 'red',
+  },
+  remoteSolved: {
+    action: 'room-solved',
+    cue: 'twentyRemoteSolved',
+    label: '정답 발견',
+    text: '다른 참가자가 정답을 맞혔습니다.',
+    tone: 'green',
   },
   phaseNarrow: {
     action: 'deduction-narrow',
@@ -98,11 +105,11 @@ const FEEDBACK = {
     tone: 'red',
   },
   limitReveal: {
-    action: 'attempt-limit',
+    action: 'answer-reveal',
     cue: 'twentyLimitReveal',
     label: '정답 공개',
     text: '20회를 모두 사용했습니다. 정답을 공개합니다.',
-    tone: 'red',
+    tone: 'gold',
   },
   hostOnly: {
     action: 'lock',

@@ -1529,6 +1529,18 @@ const CUE_PROFILES = {
     { frequency: 430, endFrequency: 310, duration: 0.09, type: 'triangle', gain: 0.045 },
     { frequency: 230, start: 0.075, duration: 0.12, type: 'sine', gain: 0.04 },
   ],
+  twentyRemoteWrong: [
+    { source: 'noise', filterType: 'bandpass', frequency: 620, q: 1.4, duration: 0.045, gain: 0.02, pan: -0.28 },
+    { frequency: 392, endFrequency: 293.66, duration: 0.075, type: 'triangle', gain: 0.041, pan: -0.16 },
+    { frequency: 196, start: 0.07, duration: 0.11, type: 'sine', gain: 0.036, pan: 0.24, reverb: 0.2 },
+  ],
+  twentyRemoteSolved: [
+    { source: 'noise', filterType: 'highpass', frequency: 2400, duration: 0.12, gain: 0.023, pan: -0.44, reverb: 0.28 },
+    { frequency: 392, duration: 0.05, type: 'triangle', gain: 0.044, pan: -0.3 },
+    { frequency: 587.33, start: 0.045, duration: 0.07, type: 'triangle', gain: 0.043, pan: -0.08 },
+    { frequency: 783.99, start: 0.105, duration: 0.09, type: 'triangle', gain: 0.041, pan: 0.18 },
+    { frequency: 1174.66, start: 0.19, duration: 0.18, type: 'sine', gain: 0.034, pan: 0.4, reverb: 0.4 },
+  ],
   twentyHint: [
     { source: 'noise', filterType: 'highpass', frequency: 1650, duration: 0.035, gain: 0.022 },
     { frequency: 660, endFrequency: 880, duration: 0.07, type: 'sine', gain: 0.042 },

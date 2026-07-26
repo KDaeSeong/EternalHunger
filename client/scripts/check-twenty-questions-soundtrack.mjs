@@ -61,6 +61,8 @@ assert.equal(resolveTwentyQuestionsRoomBgmScene({ isHost: true, pendingCount: 2 
 assert.equal(resolveTwentyQuestionsRoomBgmScene({ isHost: false, pendingCount: 2 }), TWENTY_QUESTIONS_BGM_SCENES.inquiry);
 
 assert.equal(twentyQuestionsResultMusic({ action: 'guess-correct' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.reveal);
+assert.equal(twentyQuestionsResultMusic({ action: 'room-solved' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.reveal);
+assert.equal(twentyQuestionsResultMusic({ action: 'answer-reveal' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.reveal);
 assert.equal(twentyQuestionsResultMusic({ action: 'guess-wrong' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.guess);
 assert.equal(twentyQuestionsResultMusic({ action: 'attempt-limit' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.setback);
 assert.equal(twentyQuestionsResultMusic({ action: 'question-queued' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.pending);

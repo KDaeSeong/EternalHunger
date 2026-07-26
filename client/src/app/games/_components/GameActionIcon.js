@@ -163,6 +163,7 @@ const ACTION_ICONS = {
   'academy-yuuka': ShieldCheck,
   'answer-maybe': CircleHelp,
   'answer-no': X,
+  'answer-reveal': BookOpenCheck,
   'answer-pending': Hourglass,
   'answer-yes': BadgeCheck,
   advance: FastForward,

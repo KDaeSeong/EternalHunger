@@ -26,7 +26,8 @@ const cases = [
   ['participantLeave', {}, 'twentyParticipantLeave', 'participant-leave'],
   ['question', {}, 'twentyQuestionQueued', 'question-queued'],
   ['remoteQuestion', {}, 'twentyQuestionArrive', 'question-queued'],
-  ['remoteGuess', {}, 'twentyGuessArrive', 'guess'],
+  ['remoteWrong', {}, 'twentyRemoteWrong', 'guess-wrong'],
+  ['remoteSolved', {}, 'twentyRemoteSolved', 'room-solved'],
   ['phaseNarrow', {}, 'twentyPhaseNarrow', 'deduction-narrow'],
   ['phaseFinal', {}, 'twentyPhaseFinal', 'deduction-final'],
   ['phasePending', {}, 'twentyPhasePending', 'answer-pending'],
@@ -39,7 +40,7 @@ const cases = [
   ['remoteHint', {}, 'twentyHintArrive', 'hint-message'],
   ['close', {}, 'twentyRoomClose', 'room-closed'],
   ['exhausted', {}, 'twentyAttemptsExhausted', 'attempt-limit'],
-  ['limitReveal', {}, 'twentyLimitReveal', 'attempt-limit'],
+  ['limitReveal', {}, 'twentyLimitReveal', 'answer-reveal'],
   ['hostOnly', {}, 'twentyHostOnly', 'lock'],
   ['refresh', {}, 'twentyRefresh', 'refresh'],
   ['invalid', { ok: false, message: '입력을 확인하세요.' }, 'twentyInvalid', 'warning'],
@@ -63,6 +64,8 @@ assert.ok(roomSource.includes('ROOM_POLL_INTERVAL_MS'), '진행 중인 방은 �
 assert.ok(roomSource.includes('announceRemoteRoomChange'), '원격 질문·답변·힌트·도전을 상황별로 알려야 합니다.');
 assert.ok(roomSource.includes('PRESENCE_HEARTBEAT_INTERVAL_MS') && roomSource.includes('/presence'), '인증 참가자는 실제 접속 하트비트를 보내야 합니다.');
 assert.ok(roomSource.includes("announce('participantJoin'") && roomSource.includes("announce('participantLeave'"), '원격 참가자 입장·퇴장을 서로 다른 피드백으로 알려야 합니다.');
+assert.ok(roomSource.includes("announce('remoteSolved'") && roomSource.includes("announce('remoteWrong'"), '다른 참가자의 정답과 오답을 서로 다른 피드백으로 알려야 합니다.');
+assert.ok(roomSource.includes("room.status === 'solved' ? 'guess-correct' : 'answer-reveal'"), '정답 적중과 횟수 소진 공개는 서로 다른 아이콘을 사용해야 합니다.');
 assert.ok(roomSource.includes('action="participant-count"'), '방 요약에서 현재 접속 참가자 수를 보여야 합니다.');
 assert.ok(roomSource.includes("active && !room?.isHost"), '방장은 참가자 질문·정답 도전 입력을 볼 수 없어야 합니다.');
 assert.ok(roomSource.includes('<GameFeatureTabs'), '추리·힌트·기록은 한 화면 기능 탭으로 구성해야 합니다.');

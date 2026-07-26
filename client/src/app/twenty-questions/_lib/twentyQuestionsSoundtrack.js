@@ -55,6 +55,9 @@ export function twentyQuestionsResultMusic(feedback = {}) {
   if (action === 'guess-correct' || action === 'room-solved') {
     return { theme: TWENTY_QUESTIONS_BGM_SCENES.reveal, durationMs: 14_000 };
   }
+  if (action === 'answer-reveal') {
+    return { theme: TWENTY_QUESTIONS_BGM_SCENES.reveal, durationMs: 12_000 };
+  }
   if (action === 'guess-wrong') {
     return { theme: TWENTY_QUESTIONS_BGM_SCENES.guess, durationMs: 10_000 };
   }
