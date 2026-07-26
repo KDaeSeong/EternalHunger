@@ -36,6 +36,11 @@ const TwentyQuestionsHintMessageSchema = new mongoose.Schema({
   text: { type: String, required: true, trim: true, maxlength: 240 },
 }, { timestamps: true });
 
+const TwentyQuestionsPresenceSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  lastSeenAt: { type: Date, default: Date.now, required: true },
+}, { _id: false });
+
 const TwentyQuestionsRoomSchema = new mongoose.Schema({
   hostId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   title: { type: String, required: true, trim: true, maxlength: 80 },
@@ -54,6 +59,7 @@ const TwentyQuestionsRoomSchema = new mongoose.Schema({
   questions: [TwentyQuestionsQuestionSchema],
   guesses: [TwentyQuestionsGuessSchema],
   hintMessages: [TwentyQuestionsHintMessageSchema],
+  presence: { type: [TwentyQuestionsPresenceSchema], default: [] },
 }, { timestamps: true });
 
 TwentyQuestionsRoomSchema.index({ status: 1, updatedAt: -1 });

@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 
 const TwentyQuestionsRoom = require('../models/TwentyQuestionsRoom');
@@ -28,6 +29,8 @@ const CATEGORY_LABELS = {
 };
 
 const ROOM_CATEGORIES = TwentyQuestionsRoom.ROOM_CATEGORIES || Object.keys(CATEGORY_LABELS);
+const PRESENCE_TTL_MS = 20_000;
+const MAX_ACTIVE_PARTICIPANTS = 24;
 
 const RESPONSE_LABELS = {
   pending: '대기',
@@ -115,6 +118,34 @@ function serializeHintMessage(message) {
   };
 }
 
+function activePresenceRows(room, now = Date.now()) {
+  const cutoff = now - PRESENCE_TTL_MS;
+  const byUser = new Map();
+  const rows = Array.isArray(room?.presence) ? room.presence : [];
+  rows.forEach((entry) => {
+    const userId = normalizeId(entry?.userId);
+    const lastSeenAt = new Date(entry?.lastSeenAt || 0);
+    const timestamp = lastSeenAt.getTime();
+    if (!userId || !Number.isFinite(timestamp) || timestamp < cutoff) return;
+    const previous = byUser.get(userId);
+    if (!previous || timestamp > previous.timestamp) {
+      byUser.set(userId, { entry, timestamp });
+    }
+  });
+  return [...byUser.values()]
+    .sort((left, right) => left.timestamp - right.timestamp)
+    .map(({ entry }) => entry);
+}
+
+function serializeParticipant(entry) {
+  return {
+    _id: normalizeId(entry?.userId),
+    user: compactUser(entry?.userId),
+    name: displayName(entry?.userId),
+    lastSeenAt: entry?.lastSeenAt || null,
+  };
+}
+
 function serializeRoomSummary(room) {
   const {
     questions,
@@ -137,6 +168,7 @@ function serializeRoomSummary(room) {
     guessCount,
     attemptCount,
     remainingCount,
+    participantCount: activePresenceRows(room).length,
     host: compactUser(room?.hostId),
     hostName: displayName(room?.hostId),
     solvedBy: compactUser(room?.solvedBy),
@@ -150,9 +182,12 @@ function serializeRoomSummary(room) {
 function serializeRoomDetail(room, userId) {
   const summary = serializeRoomSummary(room);
   const revealAnswer = canRevealAnswer(room, userId);
+  const participants = activePresenceRows(room).map(serializeParticipant);
   return {
     ...summary,
+    viewerId: String(userId || ''),
     isHost: isHost(room, userId),
+    participants,
     answer: revealAnswer ? room?.answer || '' : '',
     answerRevealed: revealAnswer,
     questions: (Array.isArray(room?.questions) ? room.questions : []).map(serializeQuestion),
@@ -178,6 +213,7 @@ function serializeCreatedRoomFallback(room, userId) {
     guessCount: counts.guessCount,
     attemptCount: counts.attemptCount,
     remainingCount: counts.remainingCount,
+    participantCount: activePresenceRows(plain).length,
     host: compactUser(plain.hostId),
     hostName: displayName(plain.hostId),
     solvedBy: compactUser(plain.solvedBy),
@@ -185,7 +221,9 @@ function serializeCreatedRoomFallback(room, userId) {
     solvedAt: plain.solvedAt || null,
     createdAt: plain.createdAt || null,
     updatedAt: plain.updatedAt || null,
+    viewerId: String(userId || ''),
     isHost: isHost(plain, userId),
+    participants: activePresenceRows(plain).map(serializeParticipant),
     answer: revealAnswer ? plain.answer || '' : '',
     answerRevealed: revealAnswer,
     questions: [],
@@ -201,6 +239,7 @@ async function findRoomWithUsers(id) {
     .populate('questions.askerId', 'username nickname')
     .populate('guesses.guesserId', 'username nickname')
     .populate('hintMessages.authorId', 'username nickname')
+    .populate('presence.userId', 'username nickname')
     .lean();
 }
 
@@ -257,6 +296,7 @@ router.post('/', verifyToken, async (req, res) => {
       hint,
       category,
       maxQuestions: 20,
+      presence: [{ userId: req.user.id, lastSeenAt: new Date() }],
     });
 
     let responseRoom = room;
@@ -279,6 +319,59 @@ router.post('/', verifyToken, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '스무고개 방 생성에 실패했습니다.' });
+  }
+});
+
+router.post('/:id/presence', verifyToken, async (req, res) => {
+  try {
+    const room = await TwentyQuestionsRoom.findById(req.params.id);
+    if (!room) return res.status(404).json({ error: '스무고개 방을 찾을 수 없습니다.' });
+    if (room.status !== 'active') {
+      return res.status(409).json({ error: '종료된 방에는 참가할 수 없습니다.' });
+    }
+
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - PRESENCE_TTL_MS);
+    const viewerObjectId = new mongoose.Types.ObjectId(req.user.id);
+    const updatedRoom = await TwentyQuestionsRoom.findOneAndUpdate(
+      { _id: room._id, status: 'active' },
+      [{
+        $set: {
+          presence: {
+            $slice: [
+              {
+                $concatArrays: [
+                  {
+                    $filter: {
+                      input: { $ifNull: ['$presence', []] },
+                      as: 'participant',
+                      cond: {
+                        $and: [
+                          { $gte: ['$participant.lastSeenAt', cutoff] },
+                          { $ne: ['$participant.userId', viewerObjectId] },
+                        ],
+                      },
+                    },
+                  },
+                  [{ userId: viewerObjectId, lastSeenAt: now }],
+                ],
+              },
+              -MAX_ACTIVE_PARTICIPANTS,
+            ],
+          },
+        },
+      }],
+      { new: true },
+    );
+    if (!updatedRoom) {
+      return res.status(409).json({ error: '종료된 방에는 참가할 수 없습니다.' });
+    }
+
+    const populated = await findRoomWithUsers(updatedRoom._id);
+    res.json({ room: serializeRoomDetail(populated, req.user.id) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '참가자 접속 상태를 갱신하지 못했습니다.' });
   }
 });
 

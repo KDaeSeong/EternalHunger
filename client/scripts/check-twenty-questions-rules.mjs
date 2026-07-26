@@ -45,12 +45,18 @@ const finalWrongGuessRoom = {
 assert.equal(closeExhaustedRoom(finalWrongGuessRoom), true, '마지막 오답 도전 후 대기 질문이 없으면 자동 종료해야 합니다.');
 assert.equal(closeExhaustedRoom(finalWrongGuessRoom), false, '이미 종료된 방을 다시 종료 처리하지 않아야 합니다.');
 
-const routeSource = await readFile(new URL('../../server/routes/twentyQuestions.js', import.meta.url), 'utf8');
+const [routeSource, modelSource] = await Promise.all([
+  readFile(new URL('../../server/routes/twentyQuestions.js', import.meta.url), 'utf8'),
+  readFile(new URL('../../server/models/TwentyQuestionsRoom.js', import.meta.url), 'utf8'),
+]);
 const hostParticipantGuards = routeSource.match(/if \(isHost\(room, req\.user\.id\)\) return res\.status\(403\)/g) || [];
 const exhaustionCalls = routeSource.match(/closeExhaustedRoom\(room\)/g) || [];
 assert.ok(hostParticipantGuards.length >= 2, '질문과 정답 도전 API 모두 방장 참가를 차단해야 합니다.');
 assert.ok(exhaustionCalls.length >= 2, '질문 답변과 오답 도전 뒤 자동 종료를 확인해야 합니다.');
 assert.ok(routeSource.includes('exhausted,'), '자동 종료 여부를 클라이언트 응답에 포함해야 합니다.');
+assert.ok(modelSource.includes('TwentyQuestionsPresenceSchema') && modelSource.includes('lastSeenAt'), '방 모델은 참가자 접속 만료 시간을 저장해야 합니다.');
+assert.ok(routeSource.includes("router.post('/:id/presence'") && routeSource.includes('PRESENCE_TTL_MS = 20_000'), '참가자 하트비트는 전용 API와 20초 만료 규칙을 가져야 합니다.');
+assert.ok(routeSource.includes("populate('presence.userId'") && routeSource.includes('participantCount'), '참가자 이름과 현재 접속 수를 방 응답에 포함해야 합니다.');
 
 console.log(JSON.stringify({
   sharedAttempts: mixedCounts.attemptCount,
@@ -58,4 +64,5 @@ console.log(JSON.stringify({
   exhaustionCalls: exhaustionCalls.length,
   pendingFinalQuestionWaits: true,
   finalWrongGuessCloses: true,
+  presenceTtlMs: 20000,
 }, null, 2));

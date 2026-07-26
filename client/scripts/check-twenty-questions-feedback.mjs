@@ -22,6 +22,8 @@ const {
 const cases = [
   ['roomCreate', {}, 'twentyRoomCreate', 'room'],
   ['roomEnter', {}, 'twentyRoomEnter', 'room-enter'],
+  ['participantJoin', {}, 'twentyParticipantJoin', 'participant-join'],
+  ['participantLeave', {}, 'twentyParticipantLeave', 'participant-leave'],
   ['question', {}, 'twentyQuestionQueued', 'question-queued'],
   ['remoteQuestion', {}, 'twentyQuestionArrive', 'question-queued'],
   ['remoteGuess', {}, 'twentyGuessArrive', 'guess'],
@@ -59,6 +61,9 @@ assert.ok(roomSource.includes("announce('exhausted'"), '횟수 소진은 일반 
 assert.ok(roomSource.includes("announce('hostOnly'"), '방장 전용 행동은 일반 오류와 다른 피드백을 사용해야 합니다.');
 assert.ok(roomSource.includes('ROOM_POLL_INTERVAL_MS'), '진행 중인 방은 짧은 간격으로 최신 상태를 동기화해야 합니다.');
 assert.ok(roomSource.includes('announceRemoteRoomChange'), '원격 질문·답변·힌트·도전을 상황별로 알려야 합니다.');
+assert.ok(roomSource.includes('PRESENCE_HEARTBEAT_INTERVAL_MS') && roomSource.includes('/presence'), '인증 참가자는 실제 접속 하트비트를 보내야 합니다.');
+assert.ok(roomSource.includes("announce('participantJoin'") && roomSource.includes("announce('participantLeave'"), '원격 참가자 입장·퇴장을 서로 다른 피드백으로 알려야 합니다.');
+assert.ok(roomSource.includes('action="participant-count"'), '방 요약에서 현재 접속 참가자 수를 보여야 합니다.');
 assert.ok(roomSource.includes("active && !room?.isHost"), '방장은 참가자 질문·정답 도전 입력을 볼 수 없어야 합니다.');
 assert.ok(roomSource.includes('<GameFeatureTabs'), '추리·힌트·기록은 한 화면 기능 탭으로 구성해야 합니다.');
 assert.ok(roomSource.includes("id: 'deduction'") && roomSource.includes("id: 'hints'") && roomSource.includes("id: 'history'"), '세 기능 탭이 모두 있어야 합니다.');

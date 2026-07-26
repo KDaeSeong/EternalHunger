@@ -31,6 +31,7 @@ const RESPONSE_OPTIONS = [
 ];
 
 const ROOM_POLL_INTERVAL_MS = 3500;
+const PRESENCE_HEARTBEAT_INTERVAL_MS = 8000;
 
 function safeText(value, fallback = '') {
   const text = String(value || '').trim();
@@ -93,6 +94,13 @@ function normalizeRoom(payload) {
   const questions = normalizeList(row.questions);
   const guesses = normalizeList(row.guesses);
   const hintMessages = normalizeList(row.hintMessages);
+  const participants = normalizeList(row.participants)
+    .map((participant) => ({
+      ...participant,
+      _id: normalizeIdValue(participant?._id || participant?.user),
+      name: safeText(participant?.name || participant?.user?.nickname || participant?.user?.username, '익명'),
+    }))
+    .filter((participant) => participant._id);
   const questionCount = Number(row.questionCount || questions.length);
   const guessCount = Number(row.guessCount || guesses.length);
   const maxQuestions = Number(row.maxQuestions || 20);
@@ -115,7 +123,10 @@ function normalizeRoom(payload) {
     remainingCount: Math.max(0, Number(row.remainingCount != null ? row.remainingCount : maxQuestions - attemptCount)),
     answer: safeText(row.answer, ''),
     answerRevealed: Boolean(row.answerRevealed),
+    viewerId: normalizeIdValue(row.viewerId),
     isHost: Boolean(row.isHost),
+    participantCount: Number(row.participantCount != null ? row.participantCount : participants.length),
+    participants,
     questions,
     guesses,
     hintMessages,
@@ -125,7 +136,6 @@ function normalizeRoom(payload) {
 function roomVersion(room) {
   if (!room) return '';
   return JSON.stringify({
-    updatedAt: room.updatedAt || '',
     status: room.status || '',
     answerRevealed: Boolean(room.answerRevealed),
     questions: normalizeList(room.questions).map((question) => [
@@ -142,6 +152,10 @@ function roomVersion(room) {
       normalizeIdValue(message),
       message?.updatedAt || message?.createdAt || '',
     ]),
+    participants: normalizeList(room.participants)
+      .map((participant) => normalizeIdValue(participant))
+      .filter(Boolean)
+      .sort(),
   });
 }
 
@@ -361,6 +375,33 @@ export default function TwentyQuestionsRoomContent() {
     }
     if (normalizeList(nextRoom.guesses).length > normalizeList(previousRoom.guesses).length) {
       announce('remoteGuess', { message: '새 정답 도전이 등록되었습니다.' });
+      return;
+    }
+
+    const previousParticipants = new Map(normalizeList(previousRoom.participants).map((participant) => [
+      normalizeIdValue(participant),
+      participant,
+    ]));
+    const nextParticipants = new Map(normalizeList(nextRoom.participants).map((participant) => [
+      normalizeIdValue(participant),
+      participant,
+    ]));
+    const joined = [...nextParticipants.entries()].filter(([participantId]) => (
+      participantId && participantId !== nextRoom.viewerId && !previousParticipants.has(participantId)
+    ));
+    if (joined.length > 0) {
+      const name = joined[0][1]?.name || '새 참가자';
+      const suffix = joined.length > 1 ? ` 외 ${joined.length - 1}명` : '';
+      announce('participantJoin', { message: `${name}님${suffix}이 방에 들어왔습니다.` });
+      return;
+    }
+    const left = [...previousParticipants.entries()].filter(([participantId]) => (
+      participantId && participantId !== previousRoom.viewerId && !nextParticipants.has(participantId)
+    ));
+    if (left.length > 0) {
+      const name = left[0][1]?.name || '참가자';
+      const suffix = left.length > 1 ? ` 외 ${left.length - 1}명` : '';
+      announce('participantLeave', { message: `${name}님${suffix}이 방을 나갔습니다.` });
     }
   }, [announce]);
 
@@ -405,6 +446,34 @@ export default function TwentyQuestionsRoomContent() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [announceRemoteRoomChange, id, room?.status]);
+
+  useEffect(() => {
+    if (!id || !hydrated || !token || room?.status !== 'active') return undefined;
+    let disposed = false;
+
+    const heartbeat = async () => {
+      if (disposed || document.visibilityState !== 'visible') return;
+      try {
+        const data = await apiPost(`/twenty-questions/${id}/presence`, {}, { timeoutMs: 8000 });
+        if (disposed) return;
+        const previousRoom = roomRef.current;
+        const nextRoom = normalizeRoom(data);
+        if (!nextRoom || roomVersion(previousRoom) === roomVersion(nextRoom)) return;
+        roomRef.current = nextRoom;
+        setRoom(nextRoom);
+        announceRemoteRoomChange(previousRoom, nextRoom);
+      } catch {
+        // Presence updates are silent; the normal room poll remains authoritative.
+      }
+    };
+
+    void heartbeat();
+    const timer = window.setInterval(heartbeat, PRESENCE_HEARTBEAT_INTERVAL_MS);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [announceRemoteRoomChange, hydrated, id, room?.status, token]);
 
   const clearRoomCaches = () => {
     clearApiGetCache(`/twenty-questions/${id}`);
@@ -613,6 +682,7 @@ export default function TwentyQuestionsRoomContent() {
                     ) : room.hostName}
                   </dd>
                 </div>
+                <div><dt><GameActionIcon action="participant-count" label="접속 참가자" />접속</dt><dd>{room.participantCount}</dd></div>
                 <div><dt><GameActionIcon action="attempt-limit" label="사용 횟수" />사용</dt><dd>{room.attemptCount}/{room.maxQuestions}</dd></div>
                 <div><dt><GameActionIcon action="wait" label="남은 횟수" />남은 횟수</dt><dd>{attemptsLeft}</dd></div>
                 <div><dt><GameActionIcon action="question" label="질문" />질문</dt><dd>{room.questionCount}</dd></div>

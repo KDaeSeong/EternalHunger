@@ -1413,6 +1413,18 @@ const CUE_PROFILES = {
     { frequency: 330, endFrequency: 440, duration: 0.065, type: 'triangle', gain: 0.042, pan: -0.12 },
     { frequency: 660, start: 0.055, duration: 0.085, type: 'sine', gain: 0.037, pan: 0.22, reverb: 0.18 },
   ],
+  twentyParticipantJoin: [
+    { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.03, gain: 0.015, pan: -0.34, reverb: 0.18 },
+    { frequency: 392, duration: 0.045, type: 'triangle', gain: 0.04, pan: -0.22 },
+    { frequency: 587.33, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.038, pan: 0.02 },
+    { frequency: 783.99, start: 0.095, duration: 0.1, type: 'sine', gain: 0.033, pan: 0.3, reverb: 0.28 },
+  ],
+  twentyParticipantLeave: [
+    { source: 'noise', filterType: 'bandpass', frequency: 680, q: 1.4, duration: 0.045, gain: 0.018, pan: 0.24 },
+    { frequency: 587.33, endFrequency: 493.88, duration: 0.055, type: 'triangle', gain: 0.038, pan: 0.2 },
+    { frequency: 392, start: 0.052, duration: 0.075, type: 'triangle', gain: 0.035, pan: -0.04 },
+    { frequency: 196, start: 0.12, duration: 0.11, type: 'sine', gain: 0.03, pan: -0.28, reverb: 0.2 },
+  ],
   twentyQuestion: [
     { frequency: 620, duration: 0.04, type: 'sine', gain: 0.042 },
     { frequency: 930, start: 0.04, duration: 0.08, type: 'sine', gain: 0.038 },

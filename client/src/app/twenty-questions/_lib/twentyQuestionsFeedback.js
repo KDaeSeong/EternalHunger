@@ -13,6 +13,20 @@ const FEEDBACK = {
     text: '스무고개 방으로 이동합니다.',
     tone: 'blue',
   },
+  participantJoin: {
+    action: 'participant-join',
+    cue: 'twentyParticipantJoin',
+    label: '참가자 입장',
+    text: '새 참가자가 방에 들어왔습니다.',
+    tone: 'green',
+  },
+  participantLeave: {
+    action: 'participant-leave',
+    cue: 'twentyParticipantLeave',
+    label: '참가자 퇴장',
+    text: '참가자가 방을 나갔습니다.',
+    tone: 'gray',
+  },
   question: {
     action: 'question-queued',
     cue: 'twentyQuestionQueued',
