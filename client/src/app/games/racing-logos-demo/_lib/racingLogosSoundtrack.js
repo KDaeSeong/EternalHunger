@@ -33,9 +33,9 @@ const TAB_SCENES = Object.freeze({
 
 const TELEMETRY_RESULTS = new Set(['logoAudit', 'packApply', 'draftLoaded']);
 const CIRCUIT_RESULTS = new Set(['raceCard', 'raceSegment', 'raceOvertake', 'raceStrategy', 'raceFinalSpurt']);
-const GRID_RESULTS = new Set(['seasonCard', 'raceGrid']);
-const PODIUM_RESULTS = new Set(['logoAuditPerfect', 'dataPackReady', 'raceFinish']);
-const RED_FLAG_RESULTS = new Set(['blocked', 'packClear', 'packInvalid', 'raceBlocked']);
+const GRID_RESULTS = new Set(['seasonCard', 'raceGrid', 'raceFastStart']);
+const PODIUM_RESULTS = new Set(['logoAuditPerfect', 'dataPackReady', 'raceFinish', 'racePhotoFinish']);
+const RED_FLAG_RESULTS = new Set(['blocked', 'packClear', 'packInvalid', 'raceBlocked', 'raceSlowStart', 'raceStaminaWarning']);
 
 export function resolveRacingLogosBgmScene({
   activeTabId = 'audit',

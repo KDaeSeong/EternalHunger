@@ -45,6 +45,10 @@ const FEEDBACK_PROFILES = {
   raceSegment: { action: 'race-pace', cue: 'raceSegment', label: '경주 구간 통과', tone: 'ready' },
   raceOvertake: { action: 'race-overtake', cue: 'raceOvertake', label: '순위 상승', tone: 'success' },
   raceBlocked: { action: 'race-blocked', cue: 'raceBlocked', label: '진로 방해', tone: 'warning' },
+  raceFastStart: { action: 'race-fast-start', cue: 'raceFastStart', label: '빠른 게이트 반응', tone: 'success' },
+  raceSlowStart: { action: 'race-slow-start', cue: 'raceSlowStart', label: '출발 지연', tone: 'warning' },
+  raceStaminaWarning: { action: 'race-stamina-warning', cue: 'raceStaminaWarning', label: '체력 경고', tone: 'danger' },
+  racePhotoFinish: { action: 'race-photo-finish', cue: 'racePhotoFinish', label: '사진 판정', tone: 'champion' },
   raceFinalSpurt: { action: 'race-final-spurt', cue: 'raceFinalSpurt', label: '최종 스퍼트', tone: 'highlight' },
   raceFinish: { action: 'race-finish', cue: 'raceFinish', label: '결승선 통과', tone: 'champion' },
   raceStrategy: { action: 'race-strategy-pace', cue: 'raceStrategy', label: '작전 변경', tone: 'highlight' },
@@ -98,6 +102,10 @@ export function racingLogosFeedbackSnapshot(state) {
     managedStamina: Number(managedEntry?.staminaPct || 0),
     raceOvertakes: Number(session?.overtakes || 0),
     raceBlockedCount: Number(session?.blockedCount || 0),
+    raceFastStartCount: Number(session?.fastStartCount || 0),
+    raceSlowStartCount: Number(session?.slowStartCount || 0),
+    raceStaminaWarningCount: Number(session?.staminaWarningCount || 0),
+    racePhotoFinishCount: Number(session?.photoFinishCount || 0),
     raceStrategy: String(session?.strategy || ''),
     latestRaceEventId: String(latestRaceEvent?.id || ''),
     latestRaceEventType: String(latestRaceEvent?.type || ''),
@@ -136,8 +144,14 @@ export function racingLogosFeedbackTransition(previousValue, currentValue) {
       : 'logoAudit';
   }
   if (current.raceSessionId && current.raceSessionId !== previous.raceSessionId) return 'raceGrid';
-  if (current.raceStatus === 'finished' && previous.raceStatus !== 'finished') return 'raceFinish';
+  if (current.raceStatus === 'finished' && previous.raceStatus !== 'finished') {
+    return current.latestRaceEventType === 'photo-finish' ? 'racePhotoFinish' : 'raceFinish';
+  }
   if (current.latestRaceEventId && current.latestRaceEventId !== previous.latestRaceEventId) {
+    if (current.latestRaceEventType === 'fast-start') return 'raceFastStart';
+    if (current.latestRaceEventType === 'slow-start') return 'raceSlowStart';
+    if (current.latestRaceEventType === 'stamina-warning') return 'raceStaminaWarning';
+    if (current.latestRaceEventType === 'photo-finish') return 'racePhotoFinish';
     if (current.latestRaceEventType === 'final-spurt') return 'raceFinalSpurt';
     if (current.latestRaceEventType === 'overtake') return 'raceOvertake';
     if (current.latestRaceEventType === 'blocked') return 'raceBlocked';

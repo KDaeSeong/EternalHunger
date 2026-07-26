@@ -55,6 +55,10 @@ assert.equal(racingLogosResultMusic({ key: 'raceCard' })?.theme, RACING_LOGOS_BG
 assert.equal(racingLogosResultMusic({ key: 'raceGrid' })?.theme, RACING_LOGOS_BGM_SCENES.grid);
 assert.equal(racingLogosResultMusic({ key: 'raceOvertake' })?.theme, RACING_LOGOS_BGM_SCENES.circuit);
 assert.equal(racingLogosResultMusic({ key: 'raceBlocked' })?.theme, RACING_LOGOS_BGM_SCENES.redFlag);
+assert.equal(racingLogosResultMusic({ key: 'raceFastStart' })?.theme, RACING_LOGOS_BGM_SCENES.grid);
+assert.equal(racingLogosResultMusic({ key: 'raceSlowStart' })?.theme, RACING_LOGOS_BGM_SCENES.redFlag);
+assert.equal(racingLogosResultMusic({ key: 'raceStaminaWarning' })?.theme, RACING_LOGOS_BGM_SCENES.redFlag);
+assert.equal(racingLogosResultMusic({ key: 'racePhotoFinish' })?.theme, RACING_LOGOS_BGM_SCENES.podium);
 assert.equal(racingLogosResultMusic({ key: 'raceFinish' })?.theme, RACING_LOGOS_BGM_SCENES.podium);
 assert.equal(racingLogosResultMusic({ key: 'seasonCard' })?.theme, RACING_LOGOS_BGM_SCENES.grid);
 assert.equal(racingLogosResultMusic({ key: 'dataPackReady' })?.theme, RACING_LOGOS_BGM_SCENES.podium);
@@ -77,7 +81,9 @@ const racingSfxBlock = soundSource.match(/\n  racing: \{([\s\S]*?)\n  \},\n\};/)
 for (const cue of [
   'start', 'logoAudit', 'logoAuditPerfect', 'packApply', 'packClear',
   'packInvalid', 'raceCard', 'seasonCard', 'dataPackReady', 'draftLoaded',
-  'raceSessionStart', 'raceSegment', 'raceOvertake', 'raceBlocked', 'raceFinalSpurt', 'raceFinish', 'raceStrategy',
+  'raceSessionStart', 'raceSegment', 'raceOvertake', 'raceBlocked',
+  'raceFastStart', 'raceSlowStart', 'raceStaminaWarning', 'racePhotoFinish',
+  'raceFinalSpurt', 'raceFinish', 'raceStrategy',
 ]) {
   assert.match(racingSfxBlock, new RegExp(`\\n    ${cue}: \\[`), `${cue}는 레이싱 전용 효과음이어야 합니다.`);
 }
@@ -101,5 +107,5 @@ for (const arrangement of [
 
 console.log('soundtrackScenes', RACING_LOGOS_SOUNDTRACK.length);
 console.log('profileBars', RACING_LOGOS_SOUNDTRACK.map((row) => gameBgmProfile(row.theme).steps / 16).join(','));
-console.log('racingSfxCues', 17);
+console.log('racingSfxCues', 21);
 console.log('iconRows', true);

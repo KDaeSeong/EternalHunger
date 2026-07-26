@@ -132,6 +132,7 @@ export function startRaceSessionAction(state, eventId = '', managedEntryId = '',
       staminaPct: 100,
       gapLengths: 0,
       blockedCount: 0,
+      breakModifier: 0,
       status: 'grid',
     }));
   const raceSession = {
@@ -155,6 +156,10 @@ export function startRaceSessionAction(state, eventId = '', managedEntryId = '',
     entries,
     overtakes: 0,
     blockedCount: 0,
+    fastStartCount: 0,
+    slowStartCount: 0,
+    staminaWarningCount: 0,
+    photoFinishCount: 0,
     finalSpurtStarted: false,
     resultRecorded: false,
     events: [{
@@ -215,6 +220,8 @@ export function advanceRaceSegmentAction(state) {
     const regionBonus = entry.region === session.region ? 3 : 0;
     const variation = (seededPercent(`${session.id}:${nextSegment}:${entry.id}:section`) - 50) / 3.8;
     const blockedPenalty = blocked ? 17 : 0;
+    const sectionBreakModifier = raceBreakModifier(session, entry, nextSegment);
+    const breakModifier = nextSegment === 1 ? sectionBreakModifier : Number(entry.breakModifier || 0);
     const sectionScore = Math.max(12, Math.round((
       42
       + entry.pace * 0.34
@@ -225,6 +232,7 @@ export function advanceRaceSegmentAction(state) {
       + variation
       - fatiguePenalty
       - blockedPenalty
+      + sectionBreakModifier
     ) * 10) / 10);
     if (blocked) {
       segmentEvents.push({
@@ -240,7 +248,16 @@ export function advanceRaceSegmentAction(state) {
       sectionScore,
       staminaPct,
       blockedCount: entry.blockedCount + (blocked ? 1 : 0),
-      status: blocked ? 'blocked' : nextSegment >= 5 ? 'spurt' : 'racing',
+      breakModifier,
+      status: blocked
+        ? 'blocked'
+        : nextSegment === 1 && breakModifier > 0
+          ? 'fast-start'
+          : nextSegment === 1 && breakModifier < 0
+            ? 'slow-start'
+            : staminaPct <= 45
+              ? 'stamina-warning'
+              : nextSegment >= 5 ? 'spurt' : 'racing',
       activeStrategy: activeStrategy.id,
     };
   });
@@ -260,6 +277,25 @@ export function advanceRaceSegmentAction(state) {
     });
 
   const managed = orderedEntries.find((entry) => entry.id === session.managedEntryId);
+  const previousManaged = session.entries.find((entry) => entry.id === session.managedEntryId);
+  const fastStartTriggered = nextSegment === 1 && Number(managed?.breakModifier || 0) > 0;
+  const slowStartTriggered = nextSegment === 1 && Number(managed?.breakModifier || 0) < 0;
+  const staminaWarningTriggered = nextSegment >= 4
+    && Number(previousManaged?.staminaPct || 0) > 52
+    && Number(managed?.staminaPct || 0) <= 52;
+  if (fastStartTriggered) {
+    segmentEvents.unshift({
+      segment: nextSegment,
+      type: 'fast-start',
+      message: `${managed.name}이(가) 게이트 반응을 빠르게 가져가며 ${managed.position}위로 출발했습니다.`,
+    });
+  } else if (slowStartTriggered) {
+    segmentEvents.unshift({
+      segment: nextSegment,
+      type: 'slow-start',
+      message: `${managed.name}이(가) 출발 타이밍을 놓쳐 초반 추진력이 떨어졌습니다.`,
+    });
+  }
   if (managed?.positionDelta > 0) {
     segmentEvents.unshift({
       segment: nextSegment,
@@ -272,6 +308,13 @@ export function advanceRaceSegmentAction(state) {
       segment: nextSegment,
       type: 'final-spurt',
       message: `최종 코너 진입 · ${managed?.name || '-'}이(가) ${managedStrategy.label} 작전으로 마지막 승부를 시작합니다.`,
+    });
+  }
+  if (staminaWarningTriggered) {
+    segmentEvents.unshift({
+      segment: nextSegment,
+      type: 'stamina-warning',
+      message: `${managed?.name || '-'}의 체력이 ${Math.round(managed?.staminaPct || 0)}%까지 떨어졌습니다. 작전 완급 조절이 필요합니다.`,
     });
   }
   if (!segmentEvents.length) {
@@ -292,6 +335,10 @@ export function advanceRaceSegmentAction(state) {
     entries: orderedEntries,
     overtakes: session.overtakes + segmentOvertakes,
     blockedCount: session.blockedCount + (blockedEntry ? 1 : 0),
+    fastStartCount: Number(session.fastStartCount || 0) + (fastStartTriggered ? 1 : 0),
+    slowStartCount: Number(session.slowStartCount || 0) + (slowStartTriggered ? 1 : 0),
+    staminaWarningCount: Number(session.staminaWarningCount || 0) + (staminaWarningTriggered ? 1 : 0),
+    photoFinishCount: Number(session.photoFinishCount || 0),
     finalSpurtStarted: session.finalSpurtStarted || nextSegment >= session.totalSegments - 1,
     events: prependRaceEvents(session, segmentEvents),
   };
@@ -305,13 +352,18 @@ export function advanceRaceSegmentAction(state) {
 
   const winner = orderedEntries[0];
   const runnerUp = orderedEntries[1];
+  const finishGap = Math.abs(Number(winner?.raceScore || 0) - Number(runnerUp?.raceScore || 0));
+  const photoFinish = finishGap <= 6;
   const finishedSession = {
     ...nextSession,
     resultRecorded: true,
+    photoFinishCount: Number(nextSession.photoFinishCount || 0) + (photoFinish ? 1 : 0),
     events: prependRaceEvent(nextSession, {
       segment: nextSegment,
-      type: 'finish',
-      message: `결승선 통과 · ${winner?.name || '-'} 우승, ${managed?.name || '-'} ${managed?.position || '-'}위.`,
+      type: photoFinish ? 'photo-finish' : 'finish',
+      message: photoFinish
+        ? `사진 판정 · ${winner?.name || '-'}이(가) ${runnerUp?.name || '-'}을(를) 간발의 차로 제치고 우승했습니다.`
+        : `결승선 통과 · ${winner?.name || '-'} 우승, ${managed?.name || '-'} ${managed?.position || '-'}위.`,
     }),
   };
   const resultCard = {
@@ -333,6 +385,10 @@ export function advanceRaceSegmentAction(state) {
       strategy: managedStrategy.label,
       overtakes: finishedSession.overtakes,
       blockedCount: finishedSession.blockedCount,
+      fastStartCount: finishedSession.fastStartCount,
+      slowStartCount: finishedSession.slowStartCount,
+      staminaWarningCount: finishedSession.staminaWarningCount,
+      photoFinish,
     }],
   };
   return addLog({
@@ -919,6 +975,7 @@ function normalizeRaceSession(value) {
       staminaPct: Math.max(0, Math.min(100, Number(entry.staminaPct ?? 100))),
       gapLengths: Math.max(0, Number(entry.gapLengths || 0)),
       blockedCount: Math.max(0, Math.round(Number(entry.blockedCount || 0))),
+      breakModifier: Number(entry.breakModifier || 0),
       status: String(entry.status || status),
       activeStrategy: RACE_STRATEGIES[entry.activeStrategy] ? entry.activeStrategy : 'pace',
     };
@@ -948,6 +1005,10 @@ function normalizeRaceSession(value) {
     entries,
     overtakes: Math.max(0, Math.round(Number(value.overtakes || 0))),
     blockedCount: Math.max(0, Math.round(Number(value.blockedCount || 0))),
+    fastStartCount: Math.max(0, Math.round(Number(value.fastStartCount || 0))),
+    slowStartCount: Math.max(0, Math.round(Number(value.slowStartCount || 0))),
+    staminaWarningCount: Math.max(0, Math.round(Number(value.staminaWarningCount || 0))),
+    photoFinishCount: Math.max(0, Math.round(Number(value.photoFinishCount || 0))),
     finalSpurtStarted: Boolean(value.finalSpurtStarted),
     resultRecorded: Boolean(value.resultRecorded),
     events: (Array.isArray(value.events) ? value.events : []).slice(0, 40).map((event, index) => ({
@@ -1007,6 +1068,14 @@ function raceStrategyBonus(strategyId, segment) {
     return 13;
   }
   return segment >= 2 && segment <= 5 ? 5 : 1;
+}
+
+function raceBreakModifier(session, entry, segment) {
+  if (segment !== 1) return 0;
+  const roll = seededPercent(`${session.id}:${segment}:${entry.id}:break`);
+  if (roll >= 84) return 8;
+  if (roll <= 16) return -10;
+  return 0;
 }
 
 function selectBlockedEntry(session, segment, managedStrategy) {

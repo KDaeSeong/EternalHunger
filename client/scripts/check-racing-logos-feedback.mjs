@@ -98,6 +98,77 @@ const raceFinalSpurt = advanceRaceSegmentAction(raceBlocked);
 expectResult(raceBlocked, raceFinalSpurt, { key: 'raceFinalSpurt', action: 'race-final-spurt', cue: 'raceFinalSpurt', tone: 'highlight' });
 const raceFinish = advanceRaceSegmentAction(raceFinalSpurt);
 expectResult(raceFinalSpurt, raceFinish, { key: 'raceFinish', action: 'race-finish', cue: 'raceFinish', tone: 'champion' });
+
+function findOpeningIncident(type) {
+  for (let index = 0; index < 600; index += 1) {
+    const started = startRaceSessionAction(base, 'evt_tokyo_cup', 'aurora', { sessionId: `OPEN-${type}-${index}` });
+    const advanced = advanceRaceSegmentAction(started);
+    if (advanced.raceSession.events[0]?.type === type) return { started, advanced };
+  }
+  return null;
+}
+
+const fastOpening = findOpeningIncident('fast-start');
+assert.ok(fastOpening, '빠른 출발 사건을 결정적으로 재현할 수 있어야 합니다.');
+expectResult(fastOpening.started, fastOpening.advanced, { key: 'raceFastStart', action: 'race-fast-start', cue: 'raceFastStart', tone: 'success' });
+assert.equal(fastOpening.advanced.raceSession.fastStartCount, 1, '빠른 출발 횟수가 기록되어야 합니다.');
+assert.equal(
+  fastOpening.advanced.raceSession.entries.find((entry) => entry.id === 'aurora')?.breakModifier,
+  8,
+  '빠른 출발은 첫 구간 점수에 +8 보정을 남겨야 합니다.',
+);
+const fastSecondSegment = advanceRaceSegmentAction(fastOpening.advanced);
+assert.equal(
+  fastSecondSegment.raceSession.entries.find((entry) => entry.id === 'aurora')?.breakModifier,
+  8,
+  '출발 반응 표시는 다음 구간에도 유지되어야 합니다.',
+);
+
+const slowOpening = findOpeningIncident('slow-start');
+assert.ok(slowOpening, '출발 지연 사건을 결정적으로 재현할 수 있어야 합니다.');
+expectResult(slowOpening.started, slowOpening.advanced, { key: 'raceSlowStart', action: 'race-slow-start', cue: 'raceSlowStart', tone: 'warning' });
+assert.equal(slowOpening.advanced.raceSession.slowStartCount, 1, '출발 지연 횟수가 기록되어야 합니다.');
+assert.equal(
+  slowOpening.advanced.raceSession.entries.find((entry) => entry.id === 'aurora')?.breakModifier,
+  -10,
+  '출발 지연은 첫 구간 점수에 -10 보정을 남겨야 합니다.',
+);
+
+const staminaStarted = startRaceSessionAction(base, 'evt_tokyo_cup', 'aurora', { sessionId: 'STAMINA-WARNING' });
+const staminaPrepared = {
+  ...staminaStarted,
+  raceSession: {
+    ...staminaStarted.raceSession,
+    status: 'racing',
+    segment: 3,
+    phaseId: RACE_PHASES[2].id,
+    phaseLabel: RACE_PHASES[2].label,
+    entries: staminaStarted.raceSession.entries.map((entry) => (
+      entry.id === 'aurora' ? { ...entry, staminaPct: 53 } : entry
+    )),
+  },
+};
+const staminaWarning = advanceRaceSegmentAction(staminaPrepared);
+expectResult(staminaPrepared, staminaWarning, { key: 'raceStaminaWarning', action: 'race-stamina-warning', cue: 'raceStaminaWarning', tone: 'danger' });
+assert.equal(staminaWarning.raceSession.staminaWarningCount, 1, '체력 경고 횟수가 기록되어야 합니다.');
+
+function findPhotoFinish() {
+  for (let index = 0; index < 800; index += 1) {
+    let previous = startRaceSessionAction(base, 'evt_ascot_mile', 'crown', { sessionId: `PHOTO-${index}` });
+    for (let segment = 0; segment < RACE_PHASES.length - 1; segment += 1) {
+      previous = advanceRaceSegmentAction(previous);
+    }
+    const current = advanceRaceSegmentAction(previous);
+    if (current.raceSession.events[0]?.type === 'photo-finish') return { previous, current };
+  }
+  return null;
+}
+
+const photoFinish = findPhotoFinish();
+assert.ok(photoFinish, '사진 판정 결승을 결정적으로 재현할 수 있어야 합니다.');
+expectResult(photoFinish.previous, photoFinish.current, { key: 'racePhotoFinish', action: 'race-photo-finish', cue: 'racePhotoFinish', tone: 'champion' });
+assert.equal(photoFinish.current.raceSession.photoFinishCount, 1, '사진 판정 횟수가 기록되어야 합니다.');
+assert.equal(photoFinish.current.raceCards[0]?.results?.[0]?.photoFinish, true, '결과 카드에 사진 판정 여부가 저장되어야 합니다.');
 assert.equal(raceFinish.raceSession.status, 'finished', '6구간 후 레이스가 종료되어야 합니다.');
 assert.equal(raceFinish.raceCards[0]?.source, 'race-session', '완주 결과는 장기 결과 카드에 기록되어야 합니다.');
 assert.equal(new Set(raceFinish.raceSession.entries.map((entry) => entry.position)).size, 5, '최종 순위는 중복 없이 1위부터 5위여야 합니다.');
@@ -158,15 +229,18 @@ assert.equal(racingLogosTextPresentation('저장된 검수를 불러왔습니다
 for (const cue of [
   'logoAudit', 'logoAuditPerfect', 'packApply', 'packClear', 'packInvalid', 'raceCard',
   'seasonCard', 'dataPackReady', 'draftLoaded', 'start',
-  'raceSessionStart', 'raceSegment', 'raceOvertake', 'raceBlocked', 'raceFinalSpurt', 'raceFinish', 'raceStrategy',
+  'raceSessionStart', 'raceSegment', 'raceOvertake', 'raceBlocked',
+  'raceFastStart', 'raceSlowStart', 'raceStaminaWarning', 'racePhotoFinish',
+  'raceFinalSpurt', 'raceFinish', 'raceStrategy',
 ]) {
   assert.match(soundSource, new RegExp(`\\n  ${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
 }
 for (const icon of [
   'logo-audit', 'logo-perfect', 'race-card', 'season-card', 'release-ready', 'pack-apply',
   'pack-clear', 'pack-invalid', 'filter', 'draft', 'new', 'save', 'load', 'archive',
-  'race-grid', 'race-pace', 'race-overtake', 'race-blocked', 'race-final-spurt',
-  'race-finish', 'race-stamina', 'race-strategy-front', 'race-strategy-pace', 'race-strategy-closer',
+  'race-grid', 'race-pace', 'race-overtake', 'race-blocked',
+  'race-fast-start', 'race-slow-start', 'race-stamina-warning', 'race-photo-finish',
+  'race-final-spurt', 'race-finish', 'race-stamina', 'race-strategy-front', 'race-strategy-pace', 'race-strategy-closer',
 ]) {
   const escaped = icon.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   assert.match(iconSource, new RegExp(`\\n  (?:'${escaped}'|${escaped}): `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
@@ -202,7 +276,7 @@ const semanticInfoRows = [...semanticSource.matchAll(/<RacingLogosInfoRow\b/g)].
 const semanticStatIcons = [...semanticSource.matchAll(/<SmallStat icon=/g)].length;
 assert.equal(semanticPanelTitles, 30, '레이싱 로고 패널 제목 30개가 의미 아이콘을 사용해야 합니다.');
 assert.equal(semanticInfoRows, 7, '레이싱 로고 핵심 정보 행 7개가 공통 시각 행을 사용해야 합니다.');
-assert.equal(semanticStatIcons, 33, '레이싱 로고 요약 통계 33개가 의미 아이콘을 사용해야 합니다.');
+assert.equal(semanticStatIcons, 34, '레이싱 로고 요약 통계 34개가 의미 아이콘을 사용해야 합니다.');
 assert.doesNotMatch(semanticSource, /className="games-panel-title"/, '아이콘 없는 원시 패널 제목을 남기면 안 됩니다.');
 assert.doesNotMatch(semanticSource, /className="game-save-row"/, '공통 시각 요소가 없는 원시 정보 행을 남기면 안 됩니다.');
 assert.equal([...semanticSource.matchAll(/leading=\{<LogoPreview/g)].length, 3, '트랙·이벤트·라운드 행은 실제 로고 미리보기를 보존해야 합니다.');
@@ -214,8 +288,8 @@ assert.match(styleSource, /\.game-save-row\.racing-logo-preview-row/, '실제 �
 assert.match(styleSource, /\.racing-session-layout/, '실제 레이스의 제어·순위·중계 레이아웃이 필요합니다.');
 
 console.log(JSON.stringify({
-  feedbackTransitions: 17,
-  resultCues: 17,
+  feedbackTransitions: 21,
+  resultCues: 21,
   resultPanels: componentSources.length + 1,
   releaseReady: true,
   semanticInfoRows,

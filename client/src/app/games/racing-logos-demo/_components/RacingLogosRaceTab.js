@@ -15,10 +15,14 @@ import { RacingLogosPanelTitle } from './RacingLogosVisuals';
 
 const EVENT_ICONS = Object.freeze({
   blocked: 'race-blocked',
+  'fast-start': 'race-fast-start',
   finish: 'race-finish',
   'final-spurt': 'race-final-spurt',
   grid: 'race-grid',
   overtake: 'race-overtake',
+  'photo-finish': 'race-photo-finish',
+  'slow-start': 'race-slow-start',
+  'stamina-warning': 'race-stamina-warning',
   segment: 'race-pace',
   strategy: 'race-strategy-pace',
 });
@@ -111,6 +115,10 @@ export default function RacingLogosRaceTab({
           <SmallStat icon="race-stamina" label="체력" value={`${Math.round(managedEntry?.staminaPct || 0)}%`} />
           <SmallStat icon="race-overtake" label="추월" value={`${session.overtakes}회`} />
           <SmallStat icon="race-blocked" label="진로 막힘" value={`${session.blockedCount}회`} />
+          <SmallStat icon={managedEntry?.breakModifier > 0 ? 'race-fast-start' : managedEntry?.breakModifier < 0 ? 'race-slow-start' : 'race-grid'}
+            label="출발 반응"
+            value={managedEntry?.breakModifier > 0 ? '빠름' : managedEntry?.breakModifier < 0 ? '늦음' : '보통'}
+          />
         </div>
         <div className="racing-strategy-grid" aria-label="관리 출전마 작전">
           {Object.values(RACE_STRATEGIES).map((row) => (
@@ -172,7 +180,15 @@ export default function RacingLogosRaceTab({
             return (
               <div className={`racing-entry-row${isManaged ? ' is-managed' : ''}`} key={entry.id}>
                 <strong className="racing-entry-position">{entry.position}</strong>
-                <GameActionIcon action={entry.status === 'blocked' ? 'race-blocked' : entryStrategy.icon} label={entry.name} />
+                <GameActionIcon
+                  action={{
+                    blocked: 'race-blocked',
+                    'fast-start': 'race-fast-start',
+                    'slow-start': 'race-slow-start',
+                    'stamina-warning': 'race-stamina-warning',
+                  }[entry.status] || entryStrategy.icon}
+                  label={entry.name}
+                />
                 <div className="racing-entry-copy">
                   <strong>{entry.name}{isManaged ? ' · 관리' : ''}</strong>
                   <span>{entryStrategy.label} · 구간점수 {entry.sectionScore.toFixed(1)}</span>
