@@ -87,7 +87,7 @@ assert.equal(previewUtilityRows.every((row) => row.unlocked), true, '개발자 �
 const utilityReady = engine.normalizeState({
   ...base,
   ap: 4,
-  inventory: { ...base.inventory, herb: 2, berry: 12 },
+  inventory: { ...base.inventory, herb: 2, berry: 12, wood: 4, clay: 2 },
   party: base.party.map((member) => (
     member.id === 'shiroko' ? { ...member, hp: 60, bodyTemp: 36 } : member
   )),
@@ -97,6 +97,8 @@ const utilityReady = engine.normalizeState({
       ...base.research.completed,
       CARTOGRAPHY: true,
       MEDICAL_CORPUS: true,
+      AGRICULTURE: true,
+      IRRIGATION: true,
     },
   },
   civics: {
@@ -112,12 +114,13 @@ const utilityReady = engine.normalizeState({
 const utilityRows = engine.utilityActionRows(utilityReady, 'shiroko');
 assert.deepEqual(
   utilityRows.filter((row) => row.available).map((row) => row.id).sort(),
-  ['festival', 'patrol', 'survey', 'treatment'],
-  '연구와 재료 조건을 충족하면 운영 행동 네 가지를 모두 실행할 수 있어야 합니다.',
+  ['festival', 'irrigation', 'patrol', 'survey', 'treatment'],
+  '연구와 재료 조건을 충족하면 운영 행동 다섯 가지를 모두 실행할 수 있어야 합니다.',
 );
 for (const [techId, label] of [
   ['CARTOGRAPHY', '지도 답사'],
   ['MEDICAL_CORPUS', '치료'],
+  ['IRRIGATION', '관개 정비'],
 ]) {
   assert.match(
     engine.researchPlannerRows(utilityReady).find((row) => row.id === techId)?.unlockText || '',
@@ -156,6 +159,51 @@ const festival = engine.runUtilityAction(utilityReady, 'shiroko', 'festival', { 
 assert.equal(Number(festival.inventory.berry || 0), Number(utilityReady.inventory.berry || 0) - 3, '축제는 식량 3단위를 사용해야 합니다.');
 assert.equal(festival.tribe.morale, 54, '축제는 부족 사기를 14 높여야 합니다.');
 assert.equal(festival.counters.festival, 1, '축제 횟수가 기록되어야 합니다.');
+
+const irrigationBlockedState = engine.normalizeState({
+  ...utilityReady,
+  inventory: { ...utilityReady.inventory, clay: 0 },
+});
+const irrigationBlockedRow = engine.utilityActionRows(irrigationBlockedState, 'shiroko').find((row) => row.id === 'irrigation');
+assert.equal(irrigationBlockedRow?.available, false, '점토가 부족하면 관개 정비가 비활성화되어야 합니다.');
+assert.match(irrigationBlockedRow?.lockedReason || '', /재료 부족/, '관개 정비는 부족한 재료를 설명해야 합니다.');
+
+const woodBeforeIrrigation = Number(utilityReady.inventory.wood || 0);
+const clayBeforeIrrigation = Number(utilityReady.inventory.clay || 0);
+const irrigated = engine.runUtilityAction(utilityReady, 'shiroko', 'irrigation', { rng: () => 0.5 });
+assert.equal(Number(irrigated.inventory.wood || 0), woodBeforeIrrigation - 2, '관개 정비는 나무 2개를 사용해야 합니다.');
+assert.equal(Number(irrigated.inventory.clay || 0), clayBeforeIrrigation - 1, '관개 정비는 점토 1개를 사용해야 합니다.');
+assert.equal(irrigated.exploration.irrigationCharges, 3, '관개 정비는 농업 보너스를 3회 충전해야 합니다.');
+assert.equal(irrigated.counters.irrigation, 1, '관개 정비 횟수가 기록되어야 합니다.');
+
+const irrigationClamped = engine.normalizeState({
+  ...utilityReady,
+  exploration: { ...utilityReady.exploration, irrigationCharges: 99 },
+});
+assert.equal(irrigationClamped.exploration.irrigationCharges, 3, '저장된 관개 충전은 최대 3회로 정규화되어야 합니다.');
+
+const farmComparisonBase = engine.normalizeState({
+  ...irrigated,
+  ap: 4,
+  weather: { ...irrigated.weather, actionMod: 0 },
+  party: irrigated.party.map((member) => (
+    member.id === 'shiroko' ? { ...member, stats: { ...member.stats, gather: 1 } } : member
+  )),
+});
+const dryFarmState = engine.normalizeState({
+  ...farmComparisonBase,
+  exploration: { ...farmComparisonBase.exploration, irrigationCharges: 0 },
+});
+const dryFarmRow = engine.specializedActionRows(dryFarmState, 'shiroko').find((row) => row.id === 'farm');
+const wetFarmRow = engine.specializedActionRows(farmComparisonBase, 'shiroko').find((row) => row.id === 'farm');
+assert.equal(Math.round((wetFarmRow.chance - dryFarmRow.chance) * 100), 12, '관개 효과는 농업 성공률을 12%p 높여야 합니다.');
+const dryFarmResult = engine.runSpecializedAction(dryFarmState, 'shiroko', 'farm', '', { rng: () => 0.1 });
+const wetFarmResult = engine.runSpecializedAction(farmComparisonBase, 'shiroko', 'farm', '', { rng: () => 0.1 });
+assert.equal(Number(wetFarmResult.inventory.grain || 0), Number(dryFarmResult.inventory.grain || 0) + 1, '관개 효과는 농업 성공 시 곡물을 1개 더 생산해야 합니다.');
+assert.equal(wetFarmResult.exploration.irrigationCharges, 2, '성공한 농업 행동은 관개 충전을 1회 사용해야 합니다.');
+const failedWetFarmResult = engine.runSpecializedAction(farmComparisonBase, 'shiroko', 'farm', '', { rng: () => 0.999999 });
+assert.equal(failedWetFarmResult.exploration.irrigationCharges, 2, '실패한 농업 행동도 관개 충전을 1회 사용해야 합니다.');
+assert.equal(failedWetFarmResult.log.some((entry) => /관개 효과는 1회 소모/.test(entry)), true, '농업 실패 로그는 관개 충전 소모를 알려야 합니다.');
 
 const huntBase = engine.normalizeState({
   ...utilityReady,

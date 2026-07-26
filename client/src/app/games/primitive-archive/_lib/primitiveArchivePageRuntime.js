@@ -353,6 +353,7 @@ const ACTION_UNLOCK_LABELS = {
   patrol: '순찰',
   treatment: '치료',
   festival: '축제',
+  irrigation: '관개 정비',
 };
 
 export function researchUnlockText(tech) {

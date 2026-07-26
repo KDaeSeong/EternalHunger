@@ -818,7 +818,7 @@ const RAW_TECH_TREE = [
   {
     id: 'IRRIGATION', name: '관개', era: 'ANCIENT', tier: 8, cost: 34, prereqs: ['AGRICULTURE', 'EARLY_CIVIL_ENGINEERING'], tags: ['SURVIVAL', 'SCIENCE'],
     description: '물길과 토양을 관리해 식물 자원 수확량을 한 단계 더 높입니다.',
-    unlocks: { passives: ['PLANT_YIELD_UP_2'] },
+    unlocks: { actions: ['irrigation'], passives: ['PLANT_YIELD_UP_2'] },
     eureka: { type: 'actionSuccess', action: 'gather', count: 12, bonusPct: 0.25, desc: '채집 성공 12회' },
     inspiration: { type: 'weatherSeen', weatherId: 'rain', count: 2, bonusPct: 0.18, desc: '비 오는 날 2회 관찰' },
   },
@@ -2336,6 +2336,7 @@ export function initExplorationState() {
     lastDiscoveredId: '',
     discoverySerial: 0,
     patrolCharges: 0,
+    irrigationCharges: 0,
   };
 }
 
@@ -2359,6 +2360,7 @@ export function normalizeExplorationState(value = {}) {
     lastDiscoveredId: WORLD_REGIONS.some((region) => region.id === value.lastDiscoveredId) ? value.lastDiscoveredId : '',
     discoverySerial: Math.max(0, Number(value.discoverySerial || 0)),
     patrolCharges: Math.min(2, Math.max(0, Number(value.patrolCharges || 0))),
+    irrigationCharges: Math.min(3, Math.max(0, Number(value.irrigationCharges || 0))),
   };
 }
 

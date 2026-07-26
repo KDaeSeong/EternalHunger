@@ -167,7 +167,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
         <div className="primitive-specialized-actions primitive-utility-actions">
           <div className="primitive-specialized-actions__header">
             <strong>기술 해금 운영</strong>
-            <span>{utilityRows.filter((row) => row.unlocked).length}/{utilityRows.length} 해금 · 순찰 {Number(state.exploration?.patrolCharges || 0)}/2</span>
+            <span>{utilityRows.filter((row) => row.unlocked).length}/{utilityRows.length} 해금 · 순찰 {Number(state.exploration?.patrolCharges || 0)}/2 · 관개 {Number(state.exploration?.irrigationCharges || 0)}/3</span>
           </div>
           <div className="primitive-specialized-actions__buttons">
             {utilityRows.map((row) => (

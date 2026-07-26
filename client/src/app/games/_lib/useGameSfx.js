@@ -93,6 +93,12 @@ const CUE_PROFILES = {
     { frequency: 523.25, start: 0.115, duration: 0.1, type: 'triangle', gain: 0.035, pan: 0.24 },
     { frequency: 783.99, start: 0.19, duration: 0.18, type: 'sine', gain: 0.026, pan: 0.4, reverb: 0.36 },
   ],
+  archiveIrrigation: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1280, q: 0.7, duration: 0.2, gain: 0.021, pan: -0.38, reverb: 0.24 },
+    { frequency: 220, endFrequency: 293.66, duration: 0.11, type: 'sine', gain: 0.039, pan: -0.22 },
+    { frequency: 392, start: 0.09, duration: 0.14, type: 'triangle', gain: 0.032, pan: 0.1 },
+    { frequency: 659.25, start: 0.18, duration: 0.18, type: 'sine', gain: 0.025, pan: 0.36, reverb: 0.36 },
+  ],
   logging: [
     { source: 'noise', filterType: 'bandpass', frequency: 980, q: 2.4, duration: 0.04, gain: 0.046, pan: -0.24 },
     { frequency: 190, endFrequency: 126, duration: 0.09, type: 'triangle', gain: 0.052, pan: -0.12 },
@@ -2421,6 +2427,12 @@ const THEME_CUE_PROFILES = {
       { frequency: 98, endFrequency: 73, duration: 0.15, type: 'triangle', gain: 0.049, pan: -0.24 },
       { frequency: 146.83, endFrequency: 110, start: 0.11, duration: 0.15, type: 'triangle', gain: 0.044, pan: 0.08 },
       { frequency: 293.66, start: 0.22, duration: 0.19, type: 'sine', gain: 0.025, pan: 0.38, reverb: 0.34 },
+    ],
+    archiveIrrigation: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1400, q: 0.7, duration: 0.24, gain: 0.018, pan: -0.46, reverb: 0.3 },
+      { frequency: 220, endFrequency: 293.66, duration: 0.12, type: 'sine', gain: 0.035, pan: -0.28 },
+      { frequency: 329.63, endFrequency: 392, start: 0.09, duration: 0.16, type: 'triangle', gain: 0.032, pan: 0.08 },
+      { frequency: 659.25, start: 0.2, duration: 0.22, type: 'sine', gain: 0.024, pan: 0.42, reverb: 0.44 },
     ],
     archiveTreat: [
       { frequency: 130.81, duration: 0.075, type: 'sine', gain: 0.04, pan: -0.3 },

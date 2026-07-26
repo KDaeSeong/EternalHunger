@@ -332,6 +332,7 @@ const ACTION_ICONS = {
   'primitive-patrol': Shield,
   'primitive-treatment': HeartPulse,
   'primitive-festival': PartyPopper,
+  'primitive-irrigation': Droplets,
   'primitive-growth': Sprout,
   'primitive-hunt': Crosshair,
   'primitive-inspiration': Sparkles,

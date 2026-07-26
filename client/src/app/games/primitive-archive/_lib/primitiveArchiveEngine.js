@@ -131,7 +131,7 @@ export function createNewState(options = {}) {
     inventory,
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
-    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, camp: 0, meals: 0, events: 0 },
+    counters: { gather: 0, hunt: 0, craft: 0, logging: 0, herbal: 0, trap: 0, farm: 0, herd: 0, fish: 0, mine: 0, quarry: 0, survey: 0, patrol: 0, treatment: 0, festival: 0, irrigation: 0, camp: 0, meals: 0, events: 0 },
     eventChains: [],
     exploration: initExplorationState(),
     projects: initProjectState(),
@@ -453,6 +453,7 @@ const RESEARCH_ACTION_LABELS = {
   patrol: '순찰',
   treatment: '치료',
   festival: '축제',
+  irrigation: '관개 정비',
 };
 
 function recipeName(recipeId) {
@@ -4660,6 +4661,21 @@ function resolveSpecializedActionRegion(state, profile, requestedRegionId = '') 
     || null;
 }
 
+const IRRIGATION_MAX_CHARGES = 3;
+const IRRIGATION_CHANCE_BONUS = 0.12;
+const IRRIGATION_ACTION_COST = { wood: 2, clay: 1 };
+
+function irrigationCharges(state) {
+  return Math.min(IRRIGATION_MAX_CHARGES, Math.max(0, Number(state.exploration?.irrigationCharges || 0)));
+}
+
+function specializedActionGains(state, profile) {
+  if (profile.id !== 'farm' || irrigationCharges(state) <= 0) return profile.gains;
+  return profile.gains.map(([itemId, qty, entryChance]) => (
+    itemId === 'grain' ? [itemId, Number(qty || 0) + 1, entryChance] : [itemId, qty, entryChance]
+  ));
+}
+
 function specializedActionChance(state, actorId, profile, region) {
   const devTools = normalizeDeveloperTools(state?.devTools);
   if (devTools.enabled && devTools.guaranteedSuccess) return 1;
@@ -4672,8 +4688,9 @@ function specializedActionChance(state, actorId, profile, region) {
   );
   const exactBonus = devTools.enabled ? Number(devTools.actionBonuses[profile.id] || 0) : 0;
   const preset = difficultyPreset(state);
+  const irrigationBonus = profile.id === 'farm' && irrigationCharges(state) > 0 ? IRRIGATION_CHANCE_BONUS : 0;
   return clamp(
-    baseChance + exactBonus - Number(region?.danger || 0) * 0.008,
+    baseChance + exactBonus + irrigationBonus - Number(region?.danger || 0) * 0.008,
     Number(preset.actionChanceFloor ?? 0.08),
     Number(preset.actionChanceCap ?? 0.95),
   );
@@ -4683,7 +4700,7 @@ function specializedExpectedGains(state, profile, chance, region) {
   if (!region) return [];
   const context = { action: profile.skill, zoneId: region.zoneId || profile.zoneId, regionId: region.id, region };
   const bonusChance = zoneBonusQuantityChance(state, context);
-  return profile.gains.map(([itemId, qty, entryChance = 1]) => ({
+  return specializedActionGains(state, profile).map(([itemId, qty, entryChance = 1]) => ({
     itemId,
     name: itemName(itemId),
     expected: chance * zoneEntryChance(state, entryChance, context) * (Number(qty || 0) + bonusChance),
@@ -4702,7 +4719,10 @@ export function specializedActionRows(state, actorId, requestedRegionId = '') {
     const region = resolveSpecializedActionRegion(current, profile, requestedRegionId);
     const chance = unlocked && region ? specializedActionChance(current, actorId, profile, region) : 0;
     const gains = specializedExpectedGains(current, profile, chance, region);
-    const location = profile.zoneIds.length ? region?.name || '\uD574\uB2F9 \uC9C0\uD615 \uBBF8\uBC1C\uACAC' : '\uC815\uCC29\uC9C0 \uC0DD\uC0B0 \uAD6C\uC5ED';
+    const baseLocation = profile.zoneIds.length ? region?.name || '\uD574\uB2F9 \uC9C0\uD615 \uBBF8\uBC1C\uACAC' : '\uC815\uCC29\uC9C0 \uC0DD\uC0B0 \uAD6C\uC5ED';
+    const location = profile.id === 'farm' && irrigationCharges(current) > 0
+      ? `${baseLocation} · 관개 ${irrigationCharges(current)}회`
+      : baseLocation;
     const lockedReason = !unlocked
       ? `${technology?.name || profile.techId} \uC5F0\uAD6C \uD544\uC694`
       : !region
@@ -4730,6 +4750,7 @@ const CIVILIZATION_ACTION_DEFS = [
   { id: 'patrol', label: '순찰', icon: 'primitive-patrol', techId: 'MILITARY_TRADITION', staminaCost: 14, hungerAdd: 3 },
   { id: 'treatment', label: '치료', icon: 'primitive-treatment', techId: 'MEDICAL_CORPUS', staminaCost: 8, hungerAdd: 1 },
   { id: 'festival', label: '축제', icon: 'primitive-festival', techId: 'DRAMA', staminaCost: 10, hungerAdd: 2 },
+  { id: 'irrigation', label: '관개 정비', icon: 'primitive-irrigation', techId: 'IRRIGATION', staminaCost: 16, hungerAdd: 2 },
 ];
 
 function surveyCandidates(state) {
@@ -4754,6 +4775,15 @@ function consumePatrolCharge(state) {
   };
 }
 
+function consumeIrrigationCharge(state) {
+  const exploration = normalizeExplorationState(state.exploration);
+  if (Number(exploration.irrigationCharges || 0) <= 0) return state;
+  return {
+    ...state,
+    exploration: { ...exploration, irrigationCharges: Math.max(0, Number(exploration.irrigationCharges || 0) - 1) },
+  };
+}
+
 export function utilityActionRows(state, actorId) {
   const current = normalizeState(state);
   const actor = getActor(current, actorId);
@@ -4761,6 +4791,7 @@ export function utilityActionRows(state, actorId) {
   const candidates = surveyCandidates(current);
   const foodStock = tribeFoodStock(current.inventory);
   const patrolCharges = Number(current.exploration.patrolCharges || 0);
+  const activeIrrigationCharges = irrigationCharges(current);
   const civic = activeCivicForState(current);
 
   return CIVILIZATION_ACTION_DEFS.map((profile) => {
@@ -4797,6 +4828,17 @@ export function utilityActionRows(state, actorId) {
       context = civic ? `목표 제도 ${civic.name}` : '공동체 결속';
       outcome = `부족 사기 +14${civic ? ' · 목표 제도 +5CP' : ''}`;
       materialText = '식량 3';
+    } else if (profile.id === 'irrigation') {
+      const materialsReady = hasResources(current.inventory, IRRIGATION_ACTION_COST);
+      requirementMet = activeIrrigationCharges < IRRIGATION_MAX_CHARGES && materialsReady;
+      lockedReason = activeIrrigationCharges >= IRRIGATION_MAX_CHARGES
+        ? '관개 효과가 이미 최대입니다.'
+        : !materialsReady
+          ? `재료 부족: ${formatRequires(IRRIGATION_ACTION_COST)}`
+          : '';
+      context = `관개 효과 ${activeIrrigationCharges}/${IRRIGATION_MAX_CHARGES}`;
+      outcome = `다음 농업 ${IRRIGATION_MAX_CHARGES}회 · 성공률 +${Math.round(IRRIGATION_CHANCE_BONUS * 100)}%p · 곡물 +1`;
+      materialText = formatRequires(IRRIGATION_ACTION_COST);
     }
 
     if (!unlocked) lockedReason = `${technology?.name || profile.techId} 연구 필요`;
@@ -4863,6 +4905,13 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
     const civic = activeCivicForState(next);
     if (civic) next = addCivicProgress(next, civic.id, 5, `${actor.name} 축제`);
     next = addLog(next, `${actor.name}의 축제 운영. 식량 ${food.provided}단위를 나누어 부족 사기 +14${civic ? `, ${civic.name} +5CP` : ''}.`);
+  } else if (profile.id === 'irrigation') {
+    next = {
+      ...next,
+      inventory: spendResources(next.inventory, IRRIGATION_ACTION_COST),
+      exploration: { ...next.exploration, irrigationCharges: IRRIGATION_MAX_CHARGES },
+    };
+    next = addLog(next, `${actor.name}의 관개 정비 완료. ${formatRequires(IRRIGATION_ACTION_COST)}을 사용해 다음 농업 ${IRRIGATION_MAX_CHARGES}회에 성공률 +${Math.round(IRRIGATION_CHANCE_BONUS * 100)}%p, 곡물 +1 효과를 적용합니다.`);
   }
 
   next = {
@@ -5025,18 +5074,20 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
   const actor = getActor(current, actorId);
   const chance = specializedActionChance(current, actorId, profile, region);
   const ok = rng() < chance;
+  const actionGains = specializedActionGains(current, profile);
+  const irrigationApplied = profile.id === 'farm' && irrigationCharges(current) > 0;
   const context = { action: profile.skill, zoneId: region.zoneId || profile.zoneId, regionId: region.id, region };
   let next = current;
   if (ok) {
-    const gains = rollZoneGains(current, profile.gains, rng, context);
+    const gains = rollZoneGains(current, actionGains, rng, context);
     next = {
       ...next,
       inventory: addItems(next.inventory, gains),
       counters: { ...next.counters, [profile.id]: Number(next.counters[profile.id] || 0) + 1 },
     };
-    next = addLog(next, `${actor.name}\uC758 ${profile.label} \uC131\uACF5. ${row.context}\uC5D0\uC11C ${formatGains(gains)}.`);
+    next = addLog(next, `${actor.name}\uC758 ${profile.label} \uC131\uACF5. ${row.context}\uC5D0\uC11C ${formatGains(gains)}.${irrigationApplied ? ' 관개 효과를 1회 사용했습니다.' : ''}`);
   } else {
-    next = addLog(next, `${actor.name}\uC758 ${profile.label} \uC2E4\uD328. ${row.context}\uC758 \uC870\uAC74\uC744 \uB2E4\uC2DC \uC810\uAC80\uD574\uC57C \uD569\uB2C8\uB2E4.`);
+    next = addLog(next, `${actor.name}\uC758 ${profile.label} \uC2E4\uD328. ${row.context}\uC758 \uC870\uAC74\uC744 \uB2E4\uC2DC \uC810\uAC80\uD574\uC57C \uD569\uB2C8\uB2E4.${irrigationApplied ? ' 관개 효과는 1회 소모됐습니다.' : ''}`);
   }
   next = addDialogueLog(next, actorId, profile.skill, ok ? 'success' : 'fail', rng);
   if (profile.zoneIds.length) {
@@ -5044,6 +5095,7 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
     next = discoverRegionAfterAction(next, region, ok, rng);
     next = consumePatrolCharge(next);
   }
+  if (profile.id === 'farm') next = consumeIrrigationCharge(next);
   next = recordResearchEvent(next, { kind: 'action', action: profile.skill, ok });
   next = recordResearchEvent(next, { kind: 'action', action: profile.id, ok });
   return afterAction(
