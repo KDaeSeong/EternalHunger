@@ -3281,6 +3281,24 @@ THEME_CUE_PROFILES.starleague = {
     { frequency: 294, duration: 0.13, type: 'triangle', gain: 0.038, pan: -0.24 },
     { frequency: 440, start: 0.045, duration: 0.14, type: 'triangle', gain: 0.034, pan: 0.24, reverb: 0.22 },
   ],
+  starleagueSweep: [
+    { source: 'noise', filterType: 'highpass', frequency: 1800, q: 0.8, duration: 0.08, gain: 0.018, pan: -0.42 },
+    { frequency: 392, duration: 0.07, type: 'triangle', gain: 0.043, pan: -0.28 },
+    { frequency: 587, start: 0.065, duration: 0.075, type: 'triangle', gain: 0.041, pan: 0 },
+    { frequency: 880, start: 0.135, duration: 0.16, type: 'sine', gain: 0.034, pan: 0.34, reverb: 0.3 },
+  ],
+  starleagueReverseSweep: [
+    { frequency: 220, endFrequency: 174, duration: 0.12, type: 'sawtooth', gain: 0.034, pan: -0.4 },
+    { frequency: 261.63, start: 0.1, duration: 0.08, type: 'triangle', gain: 0.042, pan: -0.24 },
+    { frequency: 392, start: 0.18, duration: 0.09, type: 'triangle', gain: 0.043, pan: 0.05 },
+    { frequency: 659.25, start: 0.27, duration: 0.18, type: 'sine', gain: 0.035, pan: 0.4, reverb: 0.38 },
+  ],
+  starleagueClutch: [
+    { source: 'noise', filterType: 'bandpass', frequency: 900, q: 2.2, duration: 0.055, gain: 0.02, pan: -0.35 },
+    { frequency: 98, duration: 0.14, type: 'sine', gain: 0.045, pan: -0.2, reverb: 0.14 },
+    { frequency: 523.25, start: 0.11, duration: 0.07, type: 'triangle', gain: 0.041, pan: 0.08 },
+    { frequency: 1046.5, start: 0.19, duration: 0.16, type: 'sine', gain: 0.031, pan: 0.38, reverb: 0.34 },
+  ],
   replay: [
     { source: 'noise', filterType: 'bandpass', frequency: 1500, q: 1.8, duration: 0.12, gain: 0.014, pan: 0.42 },
     { frequency: 1046, endFrequency: 523, duration: 0.16, type: 'sine', gain: 0.03, pan: 0.28, reverb: 0.22 },

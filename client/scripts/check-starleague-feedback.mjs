@@ -81,6 +81,7 @@ function playedFixture({
   probabilityHome = 55,
   scoreAway = 1,
   scoreHome = 2,
+  sets = null,
   style = '',
   winner = 'team-a',
 } = {}) {
@@ -101,7 +102,7 @@ function playedFixture({
       winnerTeamId: winner,
       scoreHome,
       scoreAway,
-      sets: [
+      sets: sets || [
         {
           setNo: 1,
           winnerTeamId: firstWinner,
@@ -165,6 +166,52 @@ assert.equal(
   'verdict',
   '중립 관전 중 에이스 결정전은 전용 판정음을 사용해야 합니다.',
 );
+
+const sweepSnapshot = starleagueFeedbackSnapshot(state({
+  fixtures: [playedFixture({
+    id: 'sweep',
+    scoreHome: 3,
+    scoreAway: 0,
+    sets: [1, 2, 3].map((setNo) => ({ setNo, winnerTeamId: 'team-a', probabilityHome: 55 })),
+  })],
+}));
+assert.equal(sweepSnapshot.latestSweep, true, '실제 세트 기록이 있는 무실점 승리를 완봉으로 감지해야 합니다.');
+assert.equal(starleagueFeedbackCue(base, sweepSnapshot, 'team-c'), 'starleagueSweep', '중립 관전 완봉승은 전용 질주음을 사용해야 합니다.');
+assert.equal(starleagueFeedbackPresentation(sweepSnapshot, 'team-a').label, '응원팀 완봉승', '응원팀 완봉승을 일반 승리와 구분해야 합니다.');
+
+const reverseSweepSnapshot = starleagueFeedbackSnapshot(state({
+  fixtures: [playedFixture({
+    id: 'reverse-sweep',
+    scoreHome: 3,
+    scoreAway: 2,
+    sets: ['team-b', 'team-b', 'team-a', 'team-a', 'team-a'].map((winnerTeamId, index) => ({
+      setNo: index + 1,
+      winnerTeamId,
+      probabilityHome: 50,
+    })),
+  })],
+}));
+assert.equal(reverseSweepSnapshot.latestReverseSweep, true, '탈락 직전부터 남은 세트를 모두 이긴 역스윕을 감지해야 합니다.');
+assert.equal(starleagueFeedbackCue(base, reverseSweepSnapshot, 'team-c'), 'starleagueReverseSweep', '역스윕은 전용 반전음을 사용해야 합니다.');
+assert.equal(starleagueFeedbackPresentation(reverseSweepSnapshot, 'team-a').label, '응원팀 역스윕', '응원팀 역스윕을 일반 승리와 구분해야 합니다.');
+assert.equal(starleagueFeedbackPresentation(reverseSweepSnapshot, 'team-b').label, '응원팀 역스윕 허용', '응원팀의 역스윕 패배를 명확히 표현해야 합니다.');
+assert.equal(starleagueFeedbackPresentation(reverseSweepSnapshot, 'team-b').cue, 'defeat', '응원팀이 역스윕을 허용하면 패배음을 사용해야 합니다.');
+
+const deciderSnapshot = starleagueFeedbackSnapshot(state({
+  fixtures: [playedFixture({
+    id: 'decider',
+    scoreHome: 3,
+    scoreAway: 2,
+    sets: ['team-a', 'team-b', 'team-a', 'team-b', 'team-a'].map((winnerTeamId, index) => ({
+      setNo: index + 1,
+      winnerTeamId,
+      probabilityHome: 50,
+    })),
+  })],
+}));
+assert.equal(deciderSnapshot.latestDecider, true, '마지막 세트에서 결정된 접전을 감지해야 합니다.');
+assert.equal(starleagueFeedbackCue(base, deciderSnapshot, 'team-c'), 'starleagueClutch', '최종 세트 승부는 전용 긴장음을 사용해야 합니다.');
+assert.equal(starleagueFeedbackPresentation(deciderSnapshot, 'team-a').label, '응원팀 최종 세트 승리', '응원팀 최종 세트 승리를 일반 승리와 구분해야 합니다.');
 
 const comebackFixture = playedFixture({ firstWinner: 'team-b', winner: 'team-a' });
 comebackFixture.result.sets.push({ setNo: 2, winnerTeamId: 'team-a', probabilityHome: 55 });
@@ -391,6 +438,9 @@ const broadcastIconCases = [
   ['데이터', '빠른 테크 전환입니다.', 'starleague-build-tech'],
   ['해설', '드랍 견제로 흔듭니다.', 'starleague-build-harass'],
   ['캐스터', '에이스전이 시작됩니다.', 'starleague-ace'],
+  ['캐스터', '0:2에서 역스윕을 완성합니다.', 'starleague-reverse-sweep'],
+  ['캐스터', '셧아웃 완봉승입니다.', 'starleague-sweep'],
+  ['캐스터', '마지막 세트 끝장 승부입니다.', 'starleague-clutch'],
   ['캐스터', '오늘 최대 이변입니다.', 'starleague-upset'],
   ['캐스터', '마지막에 역전합니다.', 'starleague-comeback'],
   ['캐스터', '정면 교전이 열립니다.', 'starleague-clash'],
@@ -412,6 +462,7 @@ const resultCues = [
   'contract', 'release', 'transfer', 'tradeRejected', 'shop', 'equip', 'unequip',
   'consume', 'rest', 'warning', 'start', 'starleagueRush', 'starleagueHarass',
   'starleagueTech', 'starleagueMacro', 'starleagueBalanced', 'replay',
+  'starleagueSweep', 'starleagueReverseSweep', 'starleagueClutch',
 ];
 for (const cue of resultCues) {
   assert.match(soundSource, new RegExp(`\\n  ${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
@@ -438,7 +489,7 @@ for (const icon of [
   'starleague-build-macro', 'starleague-build-rush', 'starleague-build-tech',
   'starleague-caster', 'starleague-clash', 'starleague-comeback',
   'starleague-race-protoss', 'starleague-race-terran', 'starleague-race-zerg',
-  'starleague-upset',
+  'starleague-reverse-sweep', 'starleague-sweep', 'starleague-clutch', 'starleague-upset',
 ]) {
   assert.match(iconSource, new RegExp(`\\n  ['"]?${icon}['"]?: `), `${icon} 결과 아이콘 매핑이 있어야 합니다.`);
 }

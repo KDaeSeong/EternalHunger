@@ -19,7 +19,16 @@ export const STARLEAGUE_SOUNDTRACK = Object.freeze([
 ]);
 
 const OFFICE_TABS = new Set(['team', 'market']);
-const DRAMATIC_MATCH_ACTIONS = new Set(['comeback', 'defeat', 'event', 'verdict', 'victory']);
+const DRAMATIC_MATCH_ACTIONS = new Set([
+  'comeback',
+  'defeat',
+  'event',
+  'starleague-clutch',
+  'starleague-reverse-sweep',
+  'starleague-sweep',
+  'verdict',
+  'victory',
+]);
 
 export function resolveStarleagueBgmScene({
   activeTabId = 'league',

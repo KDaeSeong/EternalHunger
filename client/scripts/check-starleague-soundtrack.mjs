@@ -112,6 +112,13 @@ assert.deepEqual(
   soundtrack.starleagueResultMusic({ key: 'regularMatch', action: 'comeback' }),
   { theme: scenes.finals, durationMs: 15_000 },
 );
+for (const action of ['starleague-clutch', 'starleague-reverse-sweep', 'starleague-sweep']) {
+  assert.deepEqual(
+    soundtrack.starleagueResultMusic({ key: 'regularMatch', action }),
+    { theme: scenes.finals, durationMs: 15_000 },
+    action + ' 결과는 긴 결승 테마 전환을 사용해야 합니다.',
+  );
+}
 assert.deepEqual(
   soundtrack.starleagueResultMusic({ key: 'regularMatch', action: 'match' }),
   { theme: scenes.finals, durationMs: 10_000 },
@@ -127,8 +134,8 @@ assert.match(pageSource, /setMusicScene\(musicTransition\.theme\)/, '결과 트�
 assert.match(pageSource, /activeTabId=\{activeTabId\}/, '현재 기능 탭이 음악 장면 해석에 공유되어야 합니다.');
 assert.match(tabsSource, /onTabChange=\{onTabChange\}/, '스타리그 탭 전환을 상위 상태로 알려야 합니다.');
 
-for (const cue of ['match', 'cupStart', 'cupMatch', 'winnersStart', 'winnersSet', 'verdict', 'comeback', 'victory', 'defeat', 'event', 'champion']) {
-  assert.match(soundSource, new RegExp(`\\n    ${cue}: \\[`), `${cue} 중계 테마 효과음이 있어야 합니다.`);
+for (const cue of ['match', 'cupStart', 'cupMatch', 'winnersStart', 'winnersSet', 'verdict', 'comeback', 'victory', 'defeat', 'event', 'champion', 'starleagueSweep', 'starleagueReverseSweep', 'starleagueClutch']) {
+  assert.match(soundSource, new RegExp(`\\n\\s{2,4}${cue}: \\[`), `${cue} 중계 테마 효과음이 있어야 합니다.`);
 }
 for (const icon of soundtrack.STARLEAGUE_SOUNDTRACK.map((track) => track.icon)) {
   assert.match(iconSource, new RegExp(`\\n  ['\"]?${icon}['\"]?: `), `${icon} 장면 아이콘 매핑이 있어야 합니다.`);

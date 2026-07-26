@@ -30,6 +30,9 @@ export function starleagueBroadcastLineAction(caster, text) {
   const line = String(text || '').trim().toLowerCase();
 
   if (/에이스|ace/.test(line)) return 'starleague-ace';
+  if (/역스윕|reverse sweep/.test(line)) return 'starleague-reverse-sweep';
+  if (/셧아웃|완봉|스윕|sweep/.test(line)) return 'starleague-sweep';
+  if (/최종 세트|마지막 세트|매치 포인트|끝장 승부|decider/.test(line)) return 'starleague-clutch';
   if (/이변|업셋|예측을? (?:뒤집|비튼)|upset/.test(line)) return 'starleague-upset';
   if (/역전|뒤집|따라잡|comeback/.test(line)) return 'starleague-comeback';
   if (/러시|올인|벙커|초반 압박|타이밍 공격/.test(line)) return 'starleague-build-rush';
