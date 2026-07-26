@@ -218,7 +218,7 @@ export default function TwentyQuestionsPage() {
 
   const refreshRooms = async () => {
     const ok = await loadRooms();
-    announce(ok ? 'refresh' : 'invalid', {
+    announce(ok ? 'refresh' : 'roomLoadFailure', {
       ok,
       message: ok ? '최신 스무고개 방 목록을 불러왔습니다.' : '스무고개 방 목록을 불러오지 못했습니다.',
     });
@@ -258,7 +258,7 @@ export default function TwentyQuestionsPage() {
       clearApiGetCache('/public/search');
       await loadRooms();
       const message = err?.message || '스무고개 방 생성에 실패했습니다.';
-      announce('invalid', { ok: false, message });
+      announce('roomCreateFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
       setCreating(false);

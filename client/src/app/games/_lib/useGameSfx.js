@@ -1740,6 +1740,41 @@ const CUE_PROFILES = {
     { frequency: 480, endFrequency: 620, duration: 0.055, type: 'triangle', gain: 0.04 },
     { frequency: 760, start: 0.05, duration: 0.07, type: 'sine', gain: 0.036 },
   ],
+  twentyRoomCreateFailure: [
+    { source: 'noise', filterType: 'bandpass', frequency: 640, q: 2.4, duration: 0.05, gain: 0.022, pan: -0.28 },
+    { frequency: 440, endFrequency: 349.23, duration: 0.07, type: 'triangle', gain: 0.041, pan: -0.12 },
+    { frequency: 220, start: 0.064, duration: 0.12, type: 'sine', gain: 0.038, pan: 0.22, reverb: 0.16 },
+  ],
+  twentyRoomLoadFailure: [
+    { source: 'noise', filterType: 'highpass', frequency: 2300, duration: 0.03, gain: 0.016, pan: -0.3 },
+    { frequency: 620, endFrequency: 480, duration: 0.055, type: 'square', gain: 0.03, pan: -0.1 },
+    { frequency: 310, endFrequency: 196, start: 0.05, duration: 0.12, type: 'triangle', gain: 0.038, pan: 0.22, reverb: 0.18 },
+  ],
+  twentyQuestionFailure: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1180, q: 2.8, duration: 0.04, gain: 0.019, pan: -0.26 },
+    { frequency: 740, endFrequency: 520, duration: 0.065, type: 'triangle', gain: 0.04, pan: -0.08 },
+    { frequency: 260, start: 0.06, duration: 0.115, type: 'sine', gain: 0.037, pan: 0.24, reverb: 0.18 },
+  ],
+  twentyAnswerFailure: [
+    { frequency: 530, endFrequency: 430, duration: 0.05, type: 'square', gain: 0.032, pan: -0.2 },
+    { source: 'noise', filterType: 'lowpass', frequency: 480, start: 0.045, duration: 0.055, gain: 0.022 },
+    { frequency: 210, start: 0.085, duration: 0.12, type: 'sine', gain: 0.039, pan: 0.22, reverb: 0.16 },
+  ],
+  twentyGuessFailure: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1050, q: 3, duration: 0.055, gain: 0.023, pan: -0.3 },
+    { frequency: 880, endFrequency: 220, duration: 0.11, type: 'triangle', gain: 0.039, pan: -0.08 },
+    { frequency: 170, start: 0.1, duration: 0.14, type: 'sine', gain: 0.04, pan: 0.24, reverb: 0.2 },
+  ],
+  twentyHintFailure: [
+    { source: 'noise', filterType: 'highpass', frequency: 2900, duration: 0.035, gain: 0.016, pan: -0.3, reverb: 0.16 },
+    { frequency: 1040, endFrequency: 520, duration: 0.08, type: 'sine', gain: 0.035, pan: -0.08 },
+    { frequency: 260, start: 0.075, duration: 0.12, type: 'triangle', gain: 0.038, pan: 0.24, reverb: 0.2 },
+  ],
+  twentyRoomCloseFailure: [
+    { source: 'noise', filterType: 'bandpass', frequency: 780, q: 3.2, duration: 0.035, gain: 0.022, pan: -0.26 },
+    { frequency: 260, endFrequency: 390, duration: 0.055, type: 'square', gain: 0.032, pan: -0.08 },
+    { frequency: 260, start: 0.06, duration: 0.11, type: 'sine', gain: 0.038, pan: 0.22, reverb: 0.18 },
+  ],
   twentyInvalid: [
     { frequency: 300, endFrequency: 210, duration: 0.075, type: 'square', gain: 0.04 },
     { frequency: 160, start: 0.065, duration: 0.11, type: 'sine', gain: 0.038 },
@@ -2410,6 +2445,34 @@ const THEME_CUE_PROFILES = {
     twentyTabHistory: [
       ...CUE_PROFILES.twentyTabHistory,
       { frequency: 880, start: 0.17, duration: 0.11, type: 'sine', gain: 0.021, pan: 0.4, reverb: 0.3 },
+    ],
+    twentyRoomCreateFailure: [
+      ...CUE_PROFILES.twentyRoomCreateFailure,
+      { frequency: 174.61, start: 0.17, duration: 0.12, type: 'sine', gain: 0.024, pan: 0.34, reverb: 0.28 },
+    ],
+    twentyRoomLoadFailure: [
+      ...CUE_PROFILES.twentyRoomLoadFailure,
+      { frequency: 146.83, start: 0.16, duration: 0.13, type: 'sine', gain: 0.024, pan: 0.32, reverb: 0.28 },
+    ],
+    twentyQuestionFailure: [
+      ...CUE_PROFILES.twentyQuestionFailure,
+      { frequency: 196, start: 0.16, duration: 0.11, type: 'sine', gain: 0.023, pan: 0.34, reverb: 0.3 },
+    ],
+    twentyAnswerFailure: [
+      ...CUE_PROFILES.twentyAnswerFailure,
+      { frequency: 164.81, start: 0.18, duration: 0.12, type: 'sine', gain: 0.023, pan: 0.32, reverb: 0.28 },
+    ],
+    twentyGuessFailure: [
+      ...CUE_PROFILES.twentyGuessFailure,
+      { frequency: 130.81, start: 0.21, duration: 0.15, type: 'sine', gain: 0.025, pan: 0.34, reverb: 0.34 },
+    ],
+    twentyHintFailure: [
+      ...CUE_PROFILES.twentyHintFailure,
+      { frequency: 220, start: 0.17, duration: 0.12, type: 'sine', gain: 0.023, pan: 0.34, reverb: 0.32 },
+    ],
+    twentyRoomCloseFailure: [
+      ...CUE_PROFILES.twentyRoomCloseFailure,
+      { frequency: 196, start: 0.16, duration: 0.12, type: 'sine', gain: 0.024, pan: 0.34, reverb: 0.28 },
     ],
   },
   card: {

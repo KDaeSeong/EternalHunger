@@ -65,6 +65,17 @@ assert.equal(twentyQuestionsResultMusic({ action: 'room-solved' })?.theme, TWENT
 assert.equal(twentyQuestionsResultMusic({ action: 'answer-reveal' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.reveal);
 assert.equal(twentyQuestionsResultMusic({ action: 'guess-wrong' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.guess);
 assert.equal(twentyQuestionsResultMusic({ action: 'attempt-limit' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.setback);
+for (const action of [
+  'room-create-failure',
+  'room-load-failure',
+  'question-failure',
+  'answer-failure',
+  'guess-failure',
+  'hint-failure',
+  'room-close-failure',
+]) {
+  assert.equal(twentyQuestionsResultMusic({ action })?.theme, TWENTY_QUESTIONS_BGM_SCENES.setback, `${action}는 실패 장면 음악으로 전환되어야 합니다.`);
+}
 assert.equal(twentyQuestionsResultMusic({ action: 'question-queued' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.pending);
 assert.equal(twentyQuestionsResultMusic({ action: 'deduction-narrow' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.inquiry);
 assert.equal(twentyQuestionsResultMusic({ action: 'deduction-final' })?.theme, TWENTY_QUESTIONS_BGM_SCENES.guess);

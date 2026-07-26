@@ -46,6 +46,13 @@ const cases = [
   ['hostOnly', {}, 'twentyHostOnly', 'lock'],
   ['refresh', {}, 'twentyRefresh', 'refresh'],
   ['invalid', { ok: false, message: '입력을 확인하세요.' }, 'twentyInvalid', 'warning'],
+  ['roomCreateFailure', { ok: false }, 'twentyRoomCreateFailure', 'room-create-failure'],
+  ['roomLoadFailure', { ok: false }, 'twentyRoomLoadFailure', 'room-load-failure'],
+  ['questionFailure', { ok: false }, 'twentyQuestionFailure', 'question-failure'],
+  ['answerFailure', { ok: false }, 'twentyAnswerFailure', 'answer-failure'],
+  ['guessFailure', { ok: false }, 'twentyGuessFailure', 'guess-failure'],
+  ['hintFailure', { ok: false }, 'twentyHintFailure', 'hint-failure'],
+  ['closeFailure', { ok: false }, 'twentyRoomCloseFailure', 'room-close-failure'],
 ];
 
 for (const [action, result, expectedCue, expectedIcon] of cases) {
@@ -73,6 +80,13 @@ assert.ok(roomSource.includes('action="close" cue="off"'), '방 종료는 선행
 assert.ok(styleSource.includes('.twenty-empty.twenty-inline-state'), '아이콘이 있는 빈 상태는 중앙 정렬되어야 합니다.');
 assert.ok(roomSource.includes("announce('exhausted'"), '횟수 소진은 일반 오류와 다른 피드백을 사용해야 합니다.');
 assert.ok(roomSource.includes("announce('hostOnly'"), '방장 전용 행동은 일반 오류와 다른 피드백을 사용해야 합니다.');
+for (const action of ['roomLoadFailure', 'questionFailure', 'answerFailure', 'guessFailure', 'hintFailure', 'closeFailure']) {
+  assert.ok(roomSource.includes(`announce('${action}'`), `${action}는 일반 입력 오류와 다른 피드백을 사용해야 합니다.`);
+}
+assert.ok(lobbySource.includes("announce(ok ? 'refresh' : 'roomLoadFailure'"), '방 목록 갱신 실패는 전용 불러오기 피드백을 사용해야 합니다.');
+assert.ok(lobbySource.includes("announce('roomCreateFailure'"), '방 생성 실패는 전용 피드백을 사용해야 합니다.');
+assert.equal((roomSource.match(/announce\('invalid'/g) || []).length, 3, '빈 질문·정답 도전·힌트만 일반 입력 오류를 사용해야 합니다.');
+assert.equal((lobbySource.match(/announce\('invalid'/g) || []).length, 1, '빈 방 제목·정답만 일반 입력 오류를 사용해야 합니다.');
 assert.ok(roomSource.includes('ROOM_POLL_INTERVAL_MS'), '진행 중인 방은 짧은 간격으로 최신 상태를 동기화해야 합니다.');
 assert.ok(roomSource.includes('announceRemoteRoomChange'), '원격 질문·답변·힌트·도전을 상황별로 알려야 합니다.');
 assert.ok(roomSource.includes('PRESENCE_HEARTBEAT_INTERVAL_MS') && roomSource.includes('/presence'), '인증 참가자는 실제 접속 하트비트를 보내야 합니다.');

@@ -61,7 +61,18 @@ export function twentyQuestionsResultMusic(feedback = {}) {
   if (action === 'guess-wrong') {
     return { theme: TWENTY_QUESTIONS_BGM_SCENES.guess, durationMs: 10_000 };
   }
-  if (action === 'warning' || action === 'attempt-limit' || action === 'room-closed') {
+  if ([
+    'warning',
+    'attempt-limit',
+    'room-closed',
+    'room-create-failure',
+    'room-load-failure',
+    'question-failure',
+    'answer-failure',
+    'guess-failure',
+    'hint-failure',
+    'room-close-failure',
+  ].includes(action)) {
     return { theme: TWENTY_QUESTIONS_BGM_SCENES.setback, durationMs: 11_000 };
   }
   if (action === 'question-queued' || action === 'answer-pending') {

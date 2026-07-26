@@ -127,6 +127,58 @@ const FEEDBACK = {
   },
 };
 
+const FAILURE_FEEDBACK = {
+  roomCreateFailure: {
+    action: 'room-create-failure',
+    cue: 'twentyRoomCreateFailure',
+    label: '방 생성 실패',
+    text: '스무고개 방을 만들지 못했습니다.',
+    tone: 'red',
+  },
+  roomLoadFailure: {
+    action: 'room-load-failure',
+    cue: 'twentyRoomLoadFailure',
+    label: '방 불러오기 실패',
+    text: '스무고개 방 정보를 불러오지 못했습니다.',
+    tone: 'red',
+  },
+  questionFailure: {
+    action: 'question-failure',
+    cue: 'twentyQuestionFailure',
+    label: '질문 등록 실패',
+    text: '질문을 등록하지 못했습니다.',
+    tone: 'red',
+  },
+  answerFailure: {
+    action: 'answer-failure',
+    cue: 'twentyAnswerFailure',
+    label: '답변 저장 실패',
+    text: '질문 답변을 저장하지 못했습니다.',
+    tone: 'red',
+  },
+  guessFailure: {
+    action: 'guess-failure',
+    cue: 'twentyGuessFailure',
+    label: '정답 도전 실패',
+    text: '정답 도전을 처리하지 못했습니다.',
+    tone: 'red',
+  },
+  hintFailure: {
+    action: 'hint-failure',
+    cue: 'twentyHintFailure',
+    label: '힌트 등록 실패',
+    text: '힌트를 등록하지 못했습니다.',
+    tone: 'red',
+  },
+  closeFailure: {
+    action: 'room-close-failure',
+    cue: 'twentyRoomCloseFailure',
+    label: '방 종료 실패',
+    text: '스무고개 방을 종료하지 못했습니다.',
+    tone: 'red',
+  },
+};
+
 const ANSWER_FEEDBACK = {
   yes: {
     action: 'answer-yes',
@@ -153,14 +205,16 @@ const ANSWER_FEEDBACK = {
 
 export function twentyQuestionsFeedback(action, result = {}) {
   const ok = result.ok !== false;
-  if (!ok || action === 'invalid') {
-    return {
+  const failure = FAILURE_FEEDBACK[action];
+  if (!ok || action === 'invalid' || failure) {
+    const row = failure || {
       action: 'warning',
       cue: 'twentyInvalid',
       label: '처리 실패',
-      text: String(result.message || '요청을 처리하지 못했습니다.'),
+      text: '요청을 처리하지 못했습니다.',
       tone: 'red',
     };
+    return { ...row, text: String(result.message || row.text) };
   }
 
   if (action === 'answer') {

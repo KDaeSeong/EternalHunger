@@ -322,7 +322,7 @@ export default function TwentyQuestionsRoomContent() {
     }
     if (loadErrorAnnouncedRef.current === loadError) return;
     loadErrorAnnouncedRef.current = loadError;
-    announce('invalid', { ok: false, message: loadError });
+    announce('roomLoadFailure', { ok: false, message: loadError });
   }, [announce, loadError]);
 
   const announceRemoteRoomChange = useCallback((previousRoom, nextRoom) => {
@@ -520,7 +520,7 @@ export default function TwentyQuestionsRoomContent() {
       showToast({ tone: 'success', message });
     } catch (err) {
       const message = err?.message || '질문 등록에 실패했습니다.';
-      announce('invalid', { ok: false, message });
+      announce('questionFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
       setSubmitting('');
@@ -539,7 +539,7 @@ export default function TwentyQuestionsRoomContent() {
       showToast({ tone: 'success', message });
     } catch (err) {
       const message = err?.message || '답변 저장에 실패했습니다.';
-      announce('invalid', { ok: false, message });
+      announce('answerFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
       setSubmitting('');
@@ -575,7 +575,7 @@ export default function TwentyQuestionsRoomContent() {
       showToast({ tone: data?.correct ? 'success' : 'warning', message });
     } catch (err) {
       const message = err?.message || '정답 도전에 실패했습니다.';
-      announce('invalid', { ok: false, message });
+      announce('guessFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
       setSubmitting('');
@@ -607,7 +607,7 @@ export default function TwentyQuestionsRoomContent() {
       showToast({ tone: 'success', message });
     } catch (err) {
       const message = err?.message || '힌트 등록에 실패했습니다.';
-      announce('invalid', { ok: false, message });
+      announce('hintFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
       setSubmitting('');
@@ -626,7 +626,7 @@ export default function TwentyQuestionsRoomContent() {
       showToast({ tone: 'success', message });
     } catch (err) {
       const message = err?.message || '방 종료에 실패했습니다.';
-      announce('invalid', { ok: false, message });
+      announce('closeFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
       setSubmitting('');
