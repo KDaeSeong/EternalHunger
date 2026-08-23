@@ -161,8 +161,8 @@ export default function AccountPage() {
       showToast({ tone: 'warning', message: nextMessage });
       return;
     }
-    if (newPassword.length < 6 || newPassword.length > 72) {
-      const nextMessage = '새 비밀번호는 6~72자로 입력해주세요.';
+    if (newPassword.length < 10 || newPassword.length > 72) {
+      const nextMessage = '새 비밀번호는 10~72자로 입력해주세요.';
       setPasswordMessage(nextMessage);
       showToast({ tone: 'warning', message: nextMessage });
       return;

@@ -1,15 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import {
-  apiGet,
-  apiPost,
-  getAnyToken,
-  getApiBase,
-  normalizeApiBase,
-  saveAuth,
-  stripApiSuffix,
-} from '@/utils/api';
+import { apiGet, apiPost, getUser } from '@/utils/api';
 import { compactCharactersForSave } from '@/utils/characterPayload';
 
 const S = {
@@ -19,151 +11,102 @@ const S = {
   btn: { padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', background: '#2563eb', color: '#e5e7eb', fontWeight: 900, cursor: 'pointer' },
 };
 
-const stripImageDataLines = (t) => String(t || '').replace(/^\s*"data"\s*:\s*"[^"]*"\s*,?\s*$/gm, '');
+const stripImageDataLines = (text) => String(text || '').replace(/^\s*"data"\s*:\s*"[^"]*"\s*,?\s*$/gm, '');
 
-const parse = (t) => {
-  try {
-    return { ok: true, data: JSON.parse(t) };
-  } catch (e) {
-    return { ok: false, error: e?.message || 'JSON parse error' };
-  }
+const parse = (text) => {
+  try { return { ok: true, data: JSON.parse(text) }; }
+  catch (error) { return { ok: false, error: error?.message || 'JSON parse error' }; }
 };
 
-const genderToKorean = (g) => {
-  const v = String(g || '').toLowerCase();
-  if (v === 'f' || v === 'female' || v === 'woman') return '여';
-  if (v === 'm' || v === 'male' || v === 'man') return '남';
+const genderToKorean = (gender) => {
+  const value = String(gender || '').toLowerCase();
+  if (value === 'f' || value === 'female' || value === 'woman') return '여';
+  if (value === 'm' || value === 'male' || value === 'man') return '남';
   return '기타';
 };
 
 const dedupeByName = (list) => {
   const seen = new Set();
   const out = [];
-  for (const c of list) {
-    const name = String(c?.name || '').trim();
+  for (const character of list) {
+    const name = String(character?.name || '').trim();
     if (!name) continue;
     const key = name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ ...c, name });
+    out.push({ ...character, name });
   }
   return out;
 };
 
 const coerceCharacters = (data) => {
   if (Array.isArray(data)) return { ok: true, list: dedupeByName(data) };
-
-  const arr = Array.isArray(data?.characters) ? data.characters : null;
-  if (!arr) return { ok: false, error: '지원하지 않는 형식입니다. (최상위 배열 또는 { characters: [...] } 필요)' };
-
-  const list = arr
-    .map((c) => {
-      const name = String(c?.name || '').trim();
-      if (!name) return null;
-      const img = String(c?.image?.data || '').trim();
-      const safePreview = img.startsWith('data:image/') && img.length <= 200000 ? img : null;
-      return {
-        name,
-        gender: genderToKorean(c?.gender_select),
-        previewImage: safePreview,
-      };
-    })
-    .filter(Boolean);
-
+  const source = Array.isArray(data?.characters) ? data.characters : null;
+  if (!source) return { ok: false, error: '지원하지 않는 형식입니다. (최상위 배열 또는 { characters: [...] } 필요)' };
+  const list = source.map((character) => {
+    const name = String(character?.name || '').trim();
+    if (!name) return null;
+    const image = String(character?.image?.data || '').trim();
+    return {
+      name,
+      gender: genderToKorean(character?.gender_select),
+      previewImage: image.startsWith('data:image/') && image.length <= 200000 ? image : null,
+    };
+  }).filter(Boolean);
   return { ok: true, list: dedupeByName(list) };
-};
-
-const getInitialApiBase = () => {
-  if (typeof window === 'undefined') return '';
-  const current = getApiBase();
-  if (current) return stripApiSuffix(current);
-
-  const host = window.location.hostname;
-  if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:5000';
-
-  return '';
 };
 
 function stringifyLogBody(payload) {
   if (typeof payload === 'string') return payload;
-  try {
-    return JSON.stringify(payload, null, 2);
-  } catch {
-    return String(payload);
-  }
+  try { return JSON.stringify(payload, null, 2); }
+  catch { return String(payload); }
 }
 
 export default function ImportClient() {
-  const [apiBase, setApiBase] = useState(() => getInitialApiBase());
-  const [token, setToken] = useState(() => getAnyToken() || '');
   const [charsText, setCharsText] = useState('');
   const [log, setLog] = useState('');
   const [stripImageData, setStripImageData] = useState(true);
-
-
   const charsParsed = useMemo(() => parse(charsText), [charsText]);
 
-  const normalizedBase = useMemo(() => normalizeApiBase(apiBase), [apiBase]);
-  const trimmedToken = String(token || '').trim();
-  const requestOptions = useMemo(
-    () => ({
-      baseOverride: normalizedBase,
-      tokenOverride: trimmedToken,
-    }),
-    [normalizedBase, trimmedToken]
-  );
-
-  const onFile = (setter) => (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = () => {
-      const raw = String(r.result || '');
-      setter(stripImageData ? stripImageDataLines(raw) : raw);
+  const onFile = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = String(reader.result || '');
+      setCharsText(stripImageData ? stripImageDataLines(raw) : raw);
     };
-    r.readAsText(f);
+    reader.readAsText(file);
   };
 
   const postJson = async (endpoint, body) => {
     setLog('');
     try {
-      const res = await apiPost(endpoint, body, {
-        ...requestOptions,
-        returnFullResponse: true,
-      });
-      setLog(`POST ${endpoint} → ${res.status}
-${stringifyLogBody(res.data)}`);
-    } catch (e) {
-      setLog(`요청 실패: ${e?.message || String(e)}`);
+      const response = await apiPost(endpoint, body, { returnFullResponse: true });
+      setLog(`POST ${endpoint} → ${response.status}\n${stringifyLogBody(response.data)}`);
+    } catch (error) {
+      setLog(`요청 실패: ${error?.message || String(error)}`);
     }
-  };
-
-  const getJson = async (endpoint) => {
-    return apiGet(endpoint, requestOptions);
   };
 
   const importCharacters = async (mode) => {
     setLog('');
-    if (!trimmedToken) return setLog('token 없음: 로그인 후 다시 열거나 token 입력');
-    if (!normalizedBase) return setLog('API Base 없음: 로컬/배포 API 주소를 확인');
+    if (!getUser()) return setLog('로그인 세션이 없습니다. 다시 로그인해주세요.');
     if (!charsParsed.ok) return setLog(`JSON 오류: ${charsParsed.error}`);
-
     const coerced = coerceCharacters(charsParsed.data);
     if (!coerced.ok) return setLog(`캐릭터 형식 오류: ${coerced.error}`);
 
     let payload = coerced.list;
     if (mode === 'merge') {
       try {
-        const existing = await getJson('/characters');
-        const exList = Array.isArray(existing) ? existing : [];
-        const exNames = new Set(exList.map((c) => String(c?.name || '').trim().toLowerCase()).filter(Boolean));
-        const newOnly = payload.filter((c) => !exNames.has(String(c?.name || '').trim().toLowerCase()));
-        payload = [...exList, ...newOnly];
-      } catch (e) {
-        return setLog(`기존 캐릭터 불러오기 실패: ${e?.message || String(e)}`);
+        const existing = await apiGet('/characters');
+        const existingList = Array.isArray(existing) ? existing : [];
+        const existingNames = new Set(existingList.map((character) => String(character?.name || '').trim().toLowerCase()).filter(Boolean));
+        payload = [...existingList, ...payload.filter((character) => !existingNames.has(character.name.toLowerCase()))];
+      } catch (error) {
+        return setLog(`기존 캐릭터 불러오기 실패: ${error?.message || String(error)}`);
       }
     }
-
     await postJson('/characters/save', compactCharactersForSave(payload));
   };
 
@@ -171,70 +114,28 @@ ${stringifyLogBody(res.data)}`);
     <div style={S.wrap}>
       <div>
         <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.4px' }}>NGUH JSON 이식</div>
-        <div style={{ opacity: 0.85, marginTop: 6, lineHeight: 1.6 }}>
-          <b>characters.eh.json</b> (배열) 또는 <b>{`{ characters: [...] }`}</b> (NGUH 원본) 업로드를 지원합니다.
-        </div>
+        <div style={{ opacity: 0.85, marginTop: 6, lineHeight: 1.6 }}><b>characters.eh.json</b> (배열) 또는 <b>{`{ characters: [...] }`}</b> (NGUH 원본) 업로드를 지원합니다.</div>
       </div>
-
       <div style={S.box}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ fontWeight: 900, minWidth: 110 }}>API Base</div>
-          <input
-            style={S.input}
-            value={apiBase}
-            onChange={(e) => {
-              const v = e.target.value;
-              setApiBase(v);
-              if (typeof window !== 'undefined') {
-                window.localStorage.setItem('EH_API_BASE', v);
-              }
-            }}
-            placeholder="예) http://localhost:5000"
-          />
-        </div>
-
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
-          <div style={{ fontWeight: 900, minWidth: 110 }}>token</div>
-          <input
-            style={S.input}
-            value={token}
-            onChange={(e) => {
-              const next = e.target.value;
-              setToken(next);
-              saveAuth(next || null, undefined);
-            }}
-            placeholder="LocalStorage token"
-          />
-        </div>
+        <div style={{ fontWeight: 900 }}>인증 및 API</div>
+        <div style={{ opacity: 0.8, marginTop: 8 }}>현재 로그인 세션과 배포 환경에 설정된 API 주소를 사용합니다. 토큰과 임의 목적지는 화면에서 입력받지 않습니다.</div>
       </div>
-
       <div style={S.box}>
         <div style={{ fontWeight: 900 }}>캐릭터</div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
-          <input type="file" accept=".json,application/json" onChange={onFile(setCharsText)} />
-
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, opacity: 0.9, fontWeight: 800 }}>
-            <input type="checkbox" checked={stripImageData} onChange={(e) => setStripImageData(e.target.checked)} />
-            &quot;data&quot;: 라인 제거
-          </label>
-
+          <input type="file" accept=".json,application/json" onChange={onFile} />
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, opacity: 0.9, fontWeight: 800 }}><input type="checkbox" checked={stripImageData} onChange={(event) => setStripImageData(event.target.checked)} />&quot;data&quot;: 라인 제거</label>
           <button style={S.btn} onClick={() => importCharacters('merge')}>추가(merge)</button>
           <button style={{ ...S.btn, background: '#dc2626' }} onClick={() => importCharacters('replace')}>덮어쓰기</button>
-
           {(() => {
             if (!charsParsed.ok) return null;
             const coerced = coerceCharacters(charsParsed.data);
-            if (!coerced.ok) return <span style={{ opacity: 0.8 }}>형식 오류</span>;
-            return <span style={{ opacity: 0.8 }}>{`총 ${coerced.list.length}명`}</span>;
+            return coerced.ok ? <span style={{ opacity: 0.8 }}>{`총 ${coerced.list.length}명`}</span> : <span style={{ opacity: 0.8 }}>형식 오류</span>;
           })()}
         </div>
-        <textarea style={{ ...S.input, marginTop: 10, minHeight: 110, fontFamily: 'ui-monospace, Menlo, monospace' }} value={charsText} onChange={(e) => setCharsText(e.target.value)} />
+        <textarea style={{ ...S.input, marginTop: 10, minHeight: 110, fontFamily: 'ui-monospace, Menlo, monospace' }} value={charsText} onChange={(event) => setCharsText(event.target.value)} />
       </div>
-
-      <div style={S.box}>
-        <div style={{ fontWeight: 900 }}>로그</div>
-        <pre style={{ marginTop: 10, whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, Menlo, monospace' }}>{log || '대기 중...'}</pre>
-      </div>
+      <div style={S.box}><div style={{ fontWeight: 900 }}>로그</div><pre style={{ marginTop: 10, whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, Menlo, monospace' }}>{log || '대기 중...'}</pre></div>
     </div>
   );
 }

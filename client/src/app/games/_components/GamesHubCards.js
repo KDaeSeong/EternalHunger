@@ -5,8 +5,8 @@ import {
   gameDetailHref,
   getGameIntegration,
   getGamePortingChecklist,
-  getGamePortingProgress,
 } from '../_lib/gameCatalog';
+import { getGamePortingProgress } from '../_lib/gamePortingProgress.mjs';
 import { formatNumber } from '../_lib/gamesHubUtils';
 import GameIcon from './GameIcon';
 import GameKeyArt from './GameKeyArt';

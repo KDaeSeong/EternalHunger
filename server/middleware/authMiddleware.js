@@ -1,6 +1,11 @@
 // server/middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const {
+  SESSION_COOKIE,
+  parseCookies,
+  validateCsrfRequest,
+} = require('../utils/authPolicy');
 
 function isSuspensionActive(user) {
   if (user?.moderationStatus !== 'suspended') return false;
@@ -14,12 +19,22 @@ function isAccountDeactivated(user) {
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const cookieToken = parseCookies(req)[SESSION_COOKIE] || '';
+  const token = bearerToken || cookieToken;
+  const usesCookieSession = !bearerToken && Boolean(cookieToken);
 
   if (!token) {
     return res.status(401).json({
       error: '로그인이 필요합니다.',
       code: 'AUTH_REQUIRED',
+    });
+  }
+
+  if (usesCookieSession && !validateCsrfRequest(req)) {
+    return res.status(403).json({
+      error: '요청 검증 정보가 올바르지 않습니다.',
+      code: 'CSRF_INVALID',
     });
   }
 

@@ -16,21 +16,19 @@ import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable'
 const SKILL_LEVEL_COUNT = 5;
 
 function cleanNumber(value, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function normalizeSkillLevelArray(value, fallback = 0, opts = {}) {
-  const raw = Array.isArray(value)
-    ? value
-    : String(value ?? '').split(/[,\s/]+/).filter(Boolean);
+  const raw = Array.isArray(value) ? value : String(value ?? '').split(/[,\s/]+/).filter(Boolean);
   const src = raw.length ? raw : [fallback];
   const out = [];
-  for (let i = 0; i < SKILL_LEVEL_COUNT; i += 1) {
-    const picked = src[i] ?? src[src.length - 1] ?? fallback;
-    let n = cleanNumber(picked, fallback);
-    if (opts.percent && n > 0 && n <= 0.25) n *= 100;
-    out.push(opts.integer ? Math.round(n) : Number(n.toFixed(3)));
+  for (let index = 0; index < SKILL_LEVEL_COUNT; index += 1) {
+    const picked = src[index] ?? src[src.length - 1] ?? fallback;
+    let number = cleanNumber(picked, fallback);
+    if (opts.percent && number > 0 && number <= 0.25) number *= 100;
+    out.push(opts.integer ? Math.round(number) : Number(number.toFixed(3)));
   }
   return out;
 }
@@ -52,26 +50,20 @@ function normalizeSkillSlot(slot) {
 
 function cleanStatModifiers(statModifiers) {
   const src = statModifiers && typeof statModifiers === 'object' ? statModifiers : {};
-  return Object.fromEntries(
-    Object.entries(src)
-      .map(([key, value]) => [key, cleanNumber(value, 0)])
-      .filter(([, value]) => Number.isFinite(value) && value !== 0)
-  );
+  return Object.fromEntries(Object.entries(src)
+    .map(([key, value]) => [key, cleanNumber(value, 0)])
+    .filter(([, value]) => Number.isFinite(value) && value !== 0));
 }
 
 function cleanPctInput(value, fallback = 0) {
-  const n = cleanNumber(value, fallback);
-  if (n <= 0) return 0;
-  return n > 1 ? n / 100 : n;
+  const number = cleanNumber(value, fallback);
+  if (number <= 0) return 0;
+  return number > 1 ? number / 100 : number;
 }
 
 function createDefaultCharacterSkill(overrides = {}, slot = 'q') {
   const skillSlot = normalizeSkillSlot(overrides.slot || slot);
-  return createDefaultCompiledSkill({
-    enabled: false,
-    ...overrides,
-    slot: skillSlot,
-  }, skillSlot);
+  return createDefaultCompiledSkill({ enabled: false, ...overrides, slot: skillSlot }, skillSlot);
 }
 
 function normalizeCharacterSkillForEditor(skills, slot = 'q') {
@@ -128,25 +120,23 @@ function normalizeQSkillForEditor(skills) {
 }
 
 function normalizeCharacterSkillsForEditor(skills) {
-  return Object.fromEntries(
-    CHARACTER_SKILL_SLOTS.map((slot) => [slot, normalizeCharacterSkillForEditor(skills, slot)])
-  );
+  return Object.fromEntries(CHARACTER_SKILL_SLOTS.map((slot) => [slot, normalizeCharacterSkillForEditor(skills, slot)]));
 }
 
 function normalizeCharacterEditorList(data) {
-  return (Array.isArray(data) ? data : []).map((c) => {
-    const weaponType = normalizeWeaponType(c?.weaponType);
-    const configuredWeapons = normalizeWeaponTypes(c?.erWeapons);
+  return (Array.isArray(data) ? data : []).map((character) => {
+    const weaponType = normalizeWeaponType(character?.weaponType);
+    const configuredWeapons = normalizeWeaponTypes(character?.erWeapons);
     const erWeapons = configuredWeapons.length ? configuredWeapons : (weaponType ? [weaponType] : []);
     return {
-      ...c,
-      stats: normalizeErStats(c?.stats),
+      ...character,
+      stats: normalizeErStats(character?.stats),
       weaponType: erWeapons[0] || weaponType,
       erWeapons,
-      characterSkillLevels: normalizeCharacterSkillLevels(c?.characterSkillLevels),
-      characterSkills: normalizeCharacterSkillsForEditor(c?.characterSkills),
+      characterSkillLevels: normalizeCharacterSkillLevels(character?.characterSkillLevels),
+      characterSkills: normalizeCharacterSkillsForEditor(character?.characterSkills),
       goalGearTier: 6,
-      tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
+      tacticalSkill: normalizeSupportedTacSkill(character?.tacticalSkill),
     };
   });
 }
@@ -154,7 +144,7 @@ function normalizeCharacterEditorList(data) {
 function formatSaveMismatchMessage(mismatches) {
   const sample = (Array.isArray(mismatches) ? mismatches : [])
     .slice(0, 5)
-    .map((m) => `${m.field}:${String(m.id || '').slice(-6)}`)
+    .map((mismatch) => `${mismatch.field}:${String(mismatch.id || '').slice(-6)}`)
     .join(', ');
   return `저장 후 서버 값이 요청 값과 어긋났습니다.${sample ? ` (${sample})` : ''}`;
 }
@@ -168,14 +158,12 @@ async function loadCharactersAfterSave(result) {
   return apiGet(freshCharactersUrl(), { timeoutMs: 30000 });
 }
 
-function syncTokenCookie(token) {
-  try {
-    document.cookie = `token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
-  } catch {}
+function syncTokenCookie() {
+  // HttpOnly session cookies are issued and cleared by the server.
 }
 
-function characterId(char) {
-  return char?._id || char?.id;
+function characterId(character) {
+  return character?._id || character?.id;
 }
 
 function gearTierLabel() {

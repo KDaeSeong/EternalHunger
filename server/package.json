@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "dev": "nodemon index.js",
+    "test": "node --test tests/*.test.js",
     "import:er:hash": "node scripts/import_er_openapi.js hash",
     "import:er": "node scripts/import_er_openapi.js import",
     "import:er:auto": "node scripts/import_er_openapi.js import --auto",
@@ -27,7 +29,8 @@
     "index:admin-scope": "node scripts/ensure_scoped_admin_indexes.js",
     "migrate:claim-admin-scope": "node scripts/claim_legacy_admin_scope.js",
     "seed:bihyung": "node scripts/upsert_bihyung_character.js",
-    "report:coverage": "node scripts/report_item_coverage.js"
+    "report:coverage": "node scripts/report_item_coverage.js",
+    "test:integration:security": "node tests/integration/security-live-mongo.mjs"
   },
   "keywords": [],
   "author": "",

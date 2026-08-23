@@ -1,19 +1,24 @@
-// server/routes/auth.js
 const express = require('express');
-const router = express.Router();
-const User = require('../models/User');
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const { verifyToken } = require('../middleware/authMiddleware');
+const {
+  clearAuthCookies,
+  issueAuthCookies,
+  normalizeUsername,
+  validateCsrfRequest,
+  validatePassword,
+  validateUsername,
+} = require('../utils/authPolicy');
+const { consumeRateLimit, positiveInt, requestSubject } = require('../utils/rateLimit');
 const { normalizeRecoveryCode } = require('../utils/recoveryCode');
 
-const resetPasswordBuckets = new Map();
-const RESET_PASSWORD_WINDOW_MS = toPositiveInt(process.env.RESET_PASSWORD_WINDOW_MS, 10 * 60 * 1000);
-const RESET_PASSWORD_MAX_ATTEMPTS = toPositiveInt(process.env.RESET_PASSWORD_MAX_ATTEMPTS, 8);
-
-function toPositiveInt(value, fallback) {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
-}
+const router = express.Router();
+const AUTH_WINDOW_MS = positiveInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS, 10 * 60 * 1000);
+const LOGIN_MAX = positiveInt(process.env.LOGIN_RATE_LIMIT_MAX, 10);
+const SIGNUP_MAX = positiveInt(process.env.SIGNUP_RATE_LIMIT_MAX, 5);
+const RESET_MAX = positiveInt(process.env.RESET_PASSWORD_MAX_ATTEMPTS, 8);
 
 function normalizeNickname(raw) {
   return String(raw || '').trim().replace(/\s+/g, ' ');
@@ -29,32 +34,6 @@ function isAccountDeactivated(user) {
   return user?.moderationStatus === 'deactivated';
 }
 
-function pruneResetPasswordBuckets(now) {
-  if (resetPasswordBuckets.size < 500) return;
-  for (const [key, bucket] of resetPasswordBuckets.entries()) {
-    if (!bucket || bucket.resetAt <= now) resetPasswordBuckets.delete(key);
-  }
-}
-
-function checkResetPasswordRate(req, username) {
-  const now = Date.now();
-  const key = `${String(username || '').toLowerCase()}:${req.ip || 'unknown'}`;
-  let bucket = resetPasswordBuckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    bucket = { count: 0, resetAt: now + RESET_PASSWORD_WINDOW_MS };
-    resetPasswordBuckets.set(key, bucket);
-  }
-  pruneResetPasswordBuckets(now);
-  if (bucket.count >= RESET_PASSWORD_MAX_ATTEMPTS) {
-    return {
-      allowed: false,
-      retryAfterSec: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
-    };
-  }
-  bucket.count += 1;
-  return { allowed: true, retryAfterSec: 0 };
-}
-
 function publicUser(user) {
   return {
     id: user._id,
@@ -65,32 +44,70 @@ function publicUser(user) {
     lp: Number(user.lp || 0),
     credits: Number(user.credits || 0),
     perks: Array.isArray(user.perks) ? user.perks : [],
+    statistics: user.statistics,
     isAdmin: Boolean(user.isAdmin),
     moderationStatus: user.moderationStatus || 'active',
     moderationReason: user.moderationReason || '',
     suspendedUntil: user.suspendedUntil || null,
-    recoveryCodeCreatedAt: user.passwordRecovery?.codeHash ? user.passwordRecovery?.codeCreatedAt || null : null,
+    recoveryCodeCreatedAt: user.passwordRecovery?.codeHash
+      ? user.passwordRecovery?.codeCreatedAt || null
+      : null,
   };
 }
 
-router.post('/signup', async (req, res) => {
+async function enforceRate(req, res, scope, discriminator, limit) {
   try {
-    const { username, password } = req.body;
-    const nickname = normalizeNickname(req.body?.nickname);
-    const acceptTerms = req.body?.acceptTerms === true || req.body?.acceptTerms === 'true';
-    const acceptPrivacy = req.body?.acceptPrivacy === true || req.body?.acceptPrivacy === 'true';
-    if (nickname && (nickname.length < 2 || nickname.length > 20)) {
-      return res.status(400).json({ error: '닉네임은 2~20자로 입력해주세요.' });
-    }
+    const rate = await consumeRateLimit({
+      scope,
+      subject: requestSubject(req, discriminator),
+      limit,
+      windowMs: AUTH_WINDOW_MS,
+    });
+    res.set('X-RateLimit-Remaining', String(rate.remaining));
+    if (rate.allowed) return true;
+    res.set('Retry-After', String(rate.retryAfterSec));
+    res.status(429).json({
+      error: `요청이 너무 잦습니다. ${rate.retryAfterSec}초 후 다시 시도해주세요.`,
+      code: 'RATE_LIMITED',
+      retryAfterSec: rate.retryAfterSec,
+    });
+    return false;
+  } catch (error) {
+    console.error('auth rate limit unavailable:', error);
+    res.status(503).json({
+      error: '인증 보호 서비스를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.',
+      code: 'RATE_LIMIT_UNAVAILABLE',
+    });
+    return false;
+  }
+}
 
-    if (!acceptTerms || !acceptPrivacy) {
-      return res.status(400).json({ error: '이용약관과 개인정보 처리방침에 동의해주세요.' });
-    }
+router.post('/signup', async (req, res) => {
+  const usernameCheck = validateUsername(req.body?.username);
+  if (!await enforceRate(req, res, 'auth:signup', usernameCheck.username, SIGNUP_MAX)) return;
+  const passwordCheck = validatePassword(req.body?.password);
+  const nickname = normalizeNickname(req.body?.nickname);
+  const acceptTerms = req.body?.acceptTerms === true || req.body?.acceptTerms === 'true';
+  const acceptPrivacy = req.body?.acceptPrivacy === true || req.body?.acceptPrivacy === 'true';
 
+  if (!usernameCheck.ok) {
+    return res.status(400).json({ error: usernameCheck.error, code: 'USERNAME_POLICY' });
+  }
+  if (!passwordCheck.ok) {
+    return res.status(400).json({ error: passwordCheck.error, code: 'PASSWORD_POLICY' });
+  }
+  if (nickname && (nickname.length < 2 || nickname.length > 20)) {
+    return res.status(400).json({ error: '닉네임은 2~20자로 입력해주세요.' });
+  }
+  if (!acceptTerms || !acceptPrivacy) {
+    return res.status(400).json({ error: '이용약관과 개인정보 처리방침에 동의해주세요.' });
+  }
+
+  try {
     const acceptedAt = new Date();
-    const user = new User({
-      username,
-      password,
+    await User.create({
+      username: usernameCheck.username,
+      password: passwordCheck.password,
       nickname,
       agreements: {
         termsAcceptedAt: acceptedAt,
@@ -99,26 +116,35 @@ router.post('/signup', async (req, res) => {
         privacyVersion: '2026-07-04',
       },
     });
-    await user.save();
-    res.status(201).json({ message: '회원가입 성공' });
-  } catch (err) {
-    console.error(err);
-    if (err.code === 11000) {
-      return res.status(400).json({ error: '이미 존재하는 아이디입니다.' });
+    return res.status(201).json({ message: '회원가입 성공' });
+  } catch (error) {
+    console.error('signup failed:', error);
+    if (error?.code === 11000) {
+      return res.status(409).json({ error: '이미 존재하는 아이디입니다.' });
     }
-    res.status(400).json({ error: `회원가입 실패: ${err.message}` });
+    return res.status(400).json({ error: '회원가입에 실패했습니다.' });
   }
 });
 
 router.post('/login', async (req, res) => {
+  const rawUsername = String(req.body?.username || '').trim();
+  const username = normalizeUsername(rawUsername);
+  if (!await enforceRate(req, res, 'auth:login', username, LOGIN_MAX)) return;
+  const password = String(req.body?.password || '');
+  if (!rawUsername || !password) {
+    return res.status(400).json({ error: '아이디와 비밀번호를 입력해주세요.' });
+  }
+
   try {
-    const { username, password } = req.body;
-
-    const user = await User.findOne({ username });
-    if (!user) return res.status(401).json({ error: '존재하지 않는 아이디입니다.' });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    const candidates = [...new Set([rawUsername, username])];
+    const user = await User.findOne({ username: { $in: candidates } });
+    const isMatch = user ? await bcrypt.compare(password, user.password) : false;
+    if (!user || !isMatch) {
+      return res.status(401).json({
+        error: '아이디 또는 비밀번호가 올바르지 않습니다.',
+        code: 'AUTH_INVALID_CREDENTIALS',
+      });
+    }
     if (isAccountDeactivated(user)) {
       return res.status(403).json({
         error: '탈퇴한 계정입니다.',
@@ -137,68 +163,80 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { id: user._id },
       process.env.MY_SECRET_KEY,
-      { expiresIn: process.env.AUTH_TOKEN_TTL || '30d' }
+      { expiresIn: process.env.AUTH_TOKEN_TTL || '30d' },
     );
-    res.json({ token, user: publicUser(user) });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '로그인 실패' });
+    issueAuthCookies(res, token);
+    return res.json({ user: publicUser(user) });
+  } catch (error) {
+    console.error('login failed:', error);
+    return res.status(500).json({ error: '로그인에 실패했습니다.' });
   }
+});
+
+router.get('/session', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      clearAuthCookies(res);
+      return res.status(401).json({ error: '사용자를 찾을 수 없습니다.', code: 'AUTH_USER_NOT_FOUND' });
+    }
+    return res.json({ user: publicUser(user) });
+  } catch (error) {
+    console.error('session lookup failed:', error);
+    return res.status(500).json({ error: '세션을 확인하지 못했습니다.' });
+  }
+});
+
+router.post('/logout', (req, res) => {
+  if (!validateCsrfRequest(req)) {
+    return res.status(403).json({ error: '요청 검증 정보가 올바르지 않습니다.', code: 'CSRF_INVALID' });
+  }
+  clearAuthCookies(res);
+  return res.status(204).end();
 });
 
 router.post('/reset-password', async (req, res) => {
   const invalidRecoveryMessage = '아이디 또는 복구 코드가 올바르지 않습니다.';
+  const rawUsername = String(req.body?.username || '').trim();
+  const username = normalizeUsername(rawUsername);
+  if (!await enforceRate(req, res, 'auth:reset-password', username, RESET_MAX)) return;
+  const recoveryCode = normalizeRecoveryCode(req.body?.recoveryCode);
+  const passwordCheck = validatePassword(req.body?.newPassword);
+
+  if (!rawUsername || !recoveryCode || !req.body?.newPassword) {
+    return res.status(400).json({ error: '아이디, 복구 코드, 새 비밀번호를 모두 입력해주세요.' });
+  }
+  if (recoveryCode.length < 16) {
+    return res.status(401).json({ error: invalidRecoveryMessage });
+  }
+  if (!passwordCheck.ok) {
+    return res.status(400).json({ error: passwordCheck.error, code: 'PASSWORD_POLICY' });
+  }
 
   try {
-    const username = String(req.body?.username || '').trim();
-    const recoveryCode = normalizeRecoveryCode(req.body?.recoveryCode);
-    const newPassword = String(req.body?.newPassword || '');
-
-    if (!username || !recoveryCode || !newPassword) {
-      return res.status(400).json({ error: '아이디, 복구 코드, 새 비밀번호를 모두 입력해주세요.' });
-    }
-    if (recoveryCode.length < 16) {
-      return res.status(401).json({ error: invalidRecoveryMessage });
-    }
-    if (newPassword.length < 6 || newPassword.length > 72) {
-      return res.status(400).json({ error: '새 비밀번호는 6~72자로 입력해주세요.' });
-    }
-
-    const rate = checkResetPasswordRate(req, username);
-    if (!rate.allowed) {
-      res.set('Retry-After', String(rate.retryAfterSec));
-      return res.status(429).json({
-        error: `비밀번호 재설정 시도가 너무 잦습니다. ${rate.retryAfterSec}초 후 다시 시도해주세요.`,
-        retryAfterSec: rate.retryAfterSec,
-      });
-    }
-
-    const user = await User.findOne({ username });
+    const candidates = [...new Set([rawUsername, username])];
+    const user = await User.findOne({ username: { $in: candidates } });
     const codeHash = user?.passwordRecovery?.codeHash || '';
     if (!user || isAccountDeactivated(user) || !codeHash) {
       return res.status(401).json({ error: invalidRecoveryMessage });
     }
-
-    const isCodeMatch = await bcrypt.compare(recoveryCode, codeHash);
-    if (!isCodeMatch) {
+    if (!await bcrypt.compare(recoveryCode, codeHash)) {
       return res.status(401).json({ error: invalidRecoveryMessage });
     }
-
-    const isSamePassword = await user.comparePassword(newPassword);
-    if (isSamePassword) {
+    if (await user.comparePassword(passwordCheck.password)) {
       return res.status(400).json({ error: '새 비밀번호는 기존 비밀번호와 달라야 합니다.' });
     }
 
-    user.password = newPassword;
+    user.password = passwordCheck.password;
     user.passwordRecovery.codeHash = '';
     user.passwordRecovery.codeCreatedAt = null;
     user.passwordRecovery.codeUsedAt = new Date();
     await user.save();
-
-    res.json({ message: '비밀번호를 재설정했습니다. 새 비밀번호로 로그인해주세요.' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '비밀번호 재설정에 실패했습니다.' });
+    clearAuthCookies(res);
+    return res.json({ message: '비밀번호를 재설정했습니다. 새 비밀번호로 로그인해주세요.' });
+  } catch (error) {
+    console.error('password reset failed:', error);
+    return res.status(500).json({ error: '비밀번호 재설정에 실패했습니다.' });
   }
 });
 

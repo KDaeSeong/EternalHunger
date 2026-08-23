@@ -93,6 +93,7 @@ function GameRoomsContent() {
     title: '',
     mode: '',
     maxPlayers: DEFAULT_ROOM_MAX_PLAYERS,
+    visibility: 'public',
   });
 
   const gameOptions = useMemo(() => mergeGamesBySlug(getAllGames(), dynamicGames), [dynamicGames]);
@@ -192,6 +193,7 @@ function GameRoomsContent() {
         title,
         mode: form.mode,
         maxPlayers: nextMaxPlayers,
+        visibility: form.visibility,
         summary: {
           gameTitle: gameTitle(form.gameSlug, gameBySlug),
           adapter: selectedRoomIntegration.adapter,
@@ -207,7 +209,10 @@ function GameRoomsContent() {
       clearApiGetCache('/game-rooms');
       showToast({ tone: 'success', message: '게임방을 만들었습니다.' });
       const roomId = payload?.room?.id || payload?.room?._id;
-      if (roomId) router.push(`/games/rooms/${roomId}`);
+      if (roomId) {
+        const invite = payload?.joinCode ? `?joinCode=${encodeURIComponent(payload.joinCode)}` : '';
+        router.push(`/games/rooms/${roomId}${invite}`);
+      }
       else void loadRooms({ force: true });
     } catch (err) {
       const message = err?.message || '게임방 생성에 실패했습니다.';
@@ -279,6 +284,13 @@ function GameRoomsContent() {
               <label>
                 <span>모드</span>
                 <input value={form.mode} onChange={(event) => updateForm('mode', event.target.value)} placeholder="예: 친선전, 랭크, 테스트" maxLength={80} />
+              </label>
+              <label>
+                <span>공개 범위</span>
+                <select value={form.visibility} onChange={(event) => updateForm('visibility', event.target.value)}>
+                  <option value="public">공개</option>
+                  <option value="private">초대 전용</option>
+                </select>
               </label>
               <label>
                 <span>정원</span>

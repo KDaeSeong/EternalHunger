@@ -14,8 +14,8 @@ import {
   getAllGames,
   getGameRouteFamily,
   getGamePortingChecklist,
-  getGamePortingProgress,
 } from '../_lib/gameCatalog';
+import { getGamePortingProgress } from '../_lib/gamePortingProgress.mjs';
 
 import { ActivityPanel, GameMetric } from './GameDetailPanels';
 import GameIcon from './GameIcon';

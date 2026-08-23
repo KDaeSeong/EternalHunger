@@ -1,4 +1,3 @@
-import { apiPost } from '../../../utils/api';
 import { dedupeRuntimeParticipants } from './runtimeParticipantRuntime';
 import { normalizeRuntimeSurvivor } from './survivorRuntime';
 import {
@@ -24,7 +23,6 @@ export async function finalizeSimulationPhase({
     baseCredits = 0,
     canReviveThisMatch = false,
     dead = [],
-    earnedCredits = 0,
     estimatePower = () => 0,
     getPhaseRuntimeOffsetSec = () => 0,
     isSoloMatch = false,
@@ -48,7 +46,6 @@ export async function finalizeSimulationPhase({
   const {
     addLog = () => {},
     appendPhaseDeadSnapshots = (actor) => actor,
-    applyUserEconomyProgress = () => {},
     emitDeathRunEventOnce = () => {},
     finishGame = () => {},
     flushDeadSnapshots = () => {},
@@ -193,13 +190,6 @@ export async function finalizeSimulationPhase({
   setSpawnState(nextSpawn);
   setMatchSec(shouldFinishByElimination ? (phaseStartSec + getPhaseRuntimeOffsetSec()) : (phaseStartSec + phaseDurationSec));
 
-  if (earnedCredits > 0) {
-    apiPost('/credits/earn', { amount: earnedCredits })
-      .then((res) => {
-        applyUserEconomyProgress({ credits: res?.credits });
-      })
-      .catch(() => {});
-  }
 
   if (shouldFinishByElimination) {
     const finalDeadForFinish = dedupeRuntimeParticipants([...(Array.isArray(dead) ? dead : []), ...phaseDeadSnapshots]);

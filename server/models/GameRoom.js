@@ -16,6 +16,7 @@ const GameRoomSchema = new mongoose.Schema({
   mode: { type: String, default: '', trim: true, maxlength: 80 },
   status: { type: String, enum: ['open', 'playing', 'finished', 'closed'], default: 'open', index: true },
   visibility: { type: String, enum: ['public', 'private'], default: 'public', index: true },
+  joinCodeHash: { type: String, default: '', select: false },
   hostId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   maxPlayers: { type: Number, default: 4, min: 1, max: 64 },
   players: { type: [GameRoomPlayerSchema], default: [] },

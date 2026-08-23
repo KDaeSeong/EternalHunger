@@ -82,6 +82,8 @@ export default function SignupPage() {
               className="auth-input"
               placeholder="아이디"
               required
+              minLength={4}
+              maxLength={32}
               value={form.username}
               disabled={busy}
               autoComplete="username"
@@ -102,6 +104,9 @@ export default function SignupPage() {
               className="auth-input"
               placeholder="비밀번호"
               required
+              minLength={10}
+              maxLength={72}
+              title="10~72자, 문자·숫자·특수문자를 각각 포함"
               value={form.password}
               disabled={busy}
               autoComplete="new-password"
@@ -112,6 +117,8 @@ export default function SignupPage() {
               className="auth-input"
               placeholder="비밀번호 확인"
               required
+              minLength={10}
+              maxLength={72}
               value={form.confirmPassword}
               disabled={busy}
               autoComplete="new-password"

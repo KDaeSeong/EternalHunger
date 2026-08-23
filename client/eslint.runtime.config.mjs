@@ -1,6 +1,6 @@
 import nextVitals from 'eslint-config-next/core-web-vitals';
 
-export default [
+const runtimeConfig = [
   ...nextVitals,
   {
     files: [
@@ -21,3 +21,5 @@ export default [
     },
   },
 ];
+
+export default runtimeConfig;

@@ -11,23 +11,23 @@
 const fs = require('fs');
 const path = require('path');
 
-function exists(p) {
+function exists(target) {
   try {
-    return fs.existsSync(p);
+    return fs.existsSync(target);
   } catch {
     return false;
   }
 }
 
-function safeUnlink(p) {
+function safeUnlink(target) {
   try {
-    if (exists(p) && fs.statSync(p).isFile()) {
-      fs.unlinkSync(p);
-      console.log(`[prebuild] removed: ${p}`);
+    if (exists(target) && fs.statSync(target).isFile()) {
+      fs.unlinkSync(target);
+      console.log(`[prebuild] removed: ${target}`);
       return true;
     }
-  } catch (e) {
-    console.warn(`[prebuild] failed to remove ${p}: ${e?.message || e}`);
+  } catch (error) {
+    console.warn(`[prebuild] failed to remove ${target}: ${error?.message || error}`);
   }
   return false;
 }
@@ -44,17 +44,16 @@ function safeMove(src, dst) {
     fs.renameSync(src, dst);
     console.log(`[prebuild] moved: ${src} -> ${dst}`);
     return true;
-  } catch (e) {
-    console.warn(`[prebuild] rename failed (${src} -> ${dst}): ${e?.message || e}`);
-    // fallback: copy + unlink
+  } catch (error) {
+    console.warn(`[prebuild] rename failed (${src} -> ${dst}): ${error?.message || error}`);
     try {
       safeMkdir(path.dirname(dst));
       fs.copyFileSync(src, dst);
       fs.unlinkSync(src);
       console.log(`[prebuild] copied+removed: ${src} -> ${dst}`);
       return true;
-    } catch (e2) {
-      console.warn(`[prebuild] copy fallback failed (${src} -> ${dst}): ${e2?.message || e2}`);
+    } catch (fallbackError) {
+      console.warn(`[prebuild] copy fallback failed (${src} -> ${dst}): ${fallbackError?.message || fallbackError}`);
       return false;
     }
   }
@@ -62,7 +61,6 @@ function safeMove(src, dst) {
 
 function main() {
   const root = process.cwd();
-
   const proxyCandidates = [
     'proxy.js',
     'proxy.ts',
@@ -70,8 +68,7 @@ function main() {
     path.join('src', 'proxy.ts'),
     path.join('src', 'src', 'proxy.js'),
     path.join('src', 'src', 'proxy.ts'),
-  ].map((p) => path.join(root, p));
-
+  ].map((candidate) => path.join(root, candidate));
   const middlewareCandidates = [
     'middleware.js',
     'middleware.ts',
@@ -79,35 +76,22 @@ function main() {
     path.join('src', 'middleware.ts'),
     path.join('src', 'src', 'middleware.js'),
     path.join('src', 'src', 'middleware.ts'),
-  ].map((p) => path.join(root, p));
+  ].map((candidate) => path.join(root, candidate));
 
-  // 1) If proxy exists in src/src but not src, move it up.
-  for (const ext of ['js', 'ts']) {
-    const nested = path.join(root, 'src', 'src', `proxy.${ext}`);
-    const target = path.join(root, 'src', `proxy.${ext}`);
+  for (const extension of ['js', 'ts']) {
+    const nested = path.join(root, 'src', 'src', `proxy.${extension}`);
+    const target = path.join(root, 'src', `proxy.${extension}`);
     if (exists(nested)) {
-      if (!exists(target)) {
-        safeMove(nested, target);
-      } else {
-        // already have target; remove nested to avoid duplicates
-        safeUnlink(nested);
-      }
+      if (!exists(target)) safeMove(nested, target);
+      else safeUnlink(nested);
     }
   }
 
-  // refresh proxy detection after move
-  const proxyExists = proxyCandidates.some((p) => exists(p));
+  const proxyExists = proxyCandidates.some((candidate) => exists(candidate));
+  if (proxyExists) middlewareCandidates.forEach((candidate) => safeUnlink(candidate));
 
-  // 2) If any proxy exists, remove all middleware variants.
-  if (proxyExists) {
-    for (const mw of middlewareCandidates) {
-      safeUnlink(mw);
-    }
-  }
-
-  // 3) Also remove any remaining nested proxy duplicates (src/src/proxy.*)
-  for (const ext of ['js', 'ts']) {
-    const nested = path.join(root, 'src', 'src', `proxy.${ext}`);
+  for (const extension of ['js', 'ts']) {
+    const nested = path.join(root, 'src', 'src', `proxy.${extension}`);
     if (exists(nested)) safeUnlink(nested);
   }
 

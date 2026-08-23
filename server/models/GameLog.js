@@ -2,6 +2,9 @@ const mongoose = require('mongoose');
 
 const GameLogSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+  clientRunId: { type: String, default: '', maxlength: 160 },
+  trustedOutcome: { type: Boolean, default: false, index: true },
+  rewardStatus: { type: String, enum: ['unverified', 'verified', 'rejected'], default: 'unverified', index: true },
   title: String,
   playedAt: { type: Date, default: Date.now },
   winnerName: String,
@@ -50,5 +53,9 @@ const GameLogSchema = new mongoose.Schema({
 });
 
 GameLogSchema.index({ userId: 1, playedAt: -1 });
+GameLogSchema.index(
+  { userId: 1, clientRunId: 1 },
+  { unique: true, partialFilterExpression: { clientRunId: { $type: 'string', $gt: '' } } },
+);
 
 module.exports = mongoose.model('GameLog', GameLogSchema);

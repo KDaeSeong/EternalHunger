@@ -27,6 +27,11 @@ import {
 } from '../_lib/gameRoomDetailUtils';
 import { findGameBySlug, gameDetailHref } from '../../_lib/gameCatalog';
 
+function readJoinCode() {
+  if (typeof window === 'undefined') return '';
+  return new URLSearchParams(window.location.search).get('joinCode') || '';
+}
+
 export default function GameRoomDetailPage() {
   const params = useParams();
   const id = normalizeRouteId(params?.id);
@@ -77,7 +82,9 @@ export default function GameRoomDetailPage() {
     setLoading(true);
     setError('');
     try {
-      const payload = await apiGet(`/game-rooms/${id}`, { timeoutMs: 12000 });
+      const joinCode = readJoinCode();
+      const suffix = joinCode ? `?joinCode=${encodeURIComponent(joinCode)}` : '';
+      const payload = await apiGet(`/game-rooms/${id}${suffix}`, { timeoutMs: 12000 });
       setRoom(payload?.room || null);
     } catch (err) {
       const message = err?.message || '게임방 정보를 불러오지 못했습니다.';
@@ -157,7 +164,8 @@ export default function GameRoomDetailPage() {
     setBusy(key);
     setError('');
     try {
-      const payload = await apiPost(`/game-rooms/${id}/${path}`, body, { timeoutMs: 15000 });
+      const requestBody = path === 'join' ? { ...body, joinCode: readJoinCode() } : body;
+      const payload = await apiPost(`/game-rooms/${id}/${path}`, requestBody, { timeoutMs: 15000 });
       clearApiGetCache('/game-rooms');
       setRoom(payload?.room || null);
       showToast({ tone: 'success', message: payload?.message || '처리했습니다.' });

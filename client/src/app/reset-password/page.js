@@ -37,8 +37,8 @@ export default function ResetPasswordPage() {
       setWarning('아이디, 복구 코드, 새 비밀번호를 모두 입력해주세요.');
       return;
     }
-    if (newPassword.length < 6 || newPassword.length > 72) {
-      setWarning('새 비밀번호는 6~72자로 입력해주세요.');
+    if (newPassword.length < 10 || newPassword.length > 72) {
+      setWarning('새 비밀번호는 10~72자로 입력해주세요.');
       return;
     }
     if (newPassword !== confirmPassword) {

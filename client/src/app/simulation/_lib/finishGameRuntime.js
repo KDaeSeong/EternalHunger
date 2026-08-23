@@ -1,7 +1,7 @@
-import { apiPost, getUser, updateStoredUser } from '../../../utils/api';
+import { apiPost, getUser } from '../../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../../utils/hallOfFame';
 import { getMatchConfig, normalizeMatchMode } from './matchRosterRuntime';
-import { buildLpRewardSummary, formatLpRewardBreakdown } from './lpRewardRuntime';
+import { buildLpRewardSummary } from './lpRewardRuntime';
 import { dedupeRuntimeParticipants, getRuntimeActorKey } from './runtimeParticipantRuntime';
 import {
   getActorTeamId,
@@ -9,11 +9,19 @@ import {
   getAliveTeams,
   getWinningTeam,
 } from './teamRuntime';
-import {
-  mergeStoredUserProgress,
-  normalizeUserStatistics,
-  saveLocalHallOfFameBackup,
-} from './userProgress';
+import { saveLocalHallOfFameBackup } from './userProgress';
+
+function hashRunIdentity(value) {
+  const input = String(value || '');
+  let left = 0x811c9dc5;
+  let right = 0x9e3779b9;
+  for (let index = 0; index < input.length; index += 1) {
+    const code = input.charCodeAt(index);
+    left = Math.imul(left ^ code, 0x01000193);
+    right = Math.imul(right ^ (code + index), 0x85ebca6b);
+  }
+  return `${(left >>> 0).toString(16).padStart(8, '0')}${(right >>> 0).toString(16).padStart(8, '0')}`;
+}
 
 export async function finishSimulationGame(opts = {}) {
   const {
@@ -29,10 +37,13 @@ export async function finishSimulationGame(opts = {}) {
   const { fullLogsRef, isFinishingRef } = refs;
   const {
     assistCounts,
+    day,
     dead,
     devRunTainted,
     killCounts,
+    matchSec,
     runEvents,
+    runSeed,
     settings,
     winnerPredictionId,
   } = state;
@@ -77,7 +88,16 @@ export async function finishSimulationGame(opts = {}) {
     winner,
     winningTeam,
   });
-  const rewardLP = lpRewardSummary.totalLP;
+  const projectedRewardLP = lpRewardSummary.totalLP;
+  const clientRunId = `eh-${hashRunIdentity(JSON.stringify({
+    day: Number(day || 0),
+    eventCount: Array.isArray(runEvents) ? runEvents.length : 0,
+    firstEvent: Array.isArray(runEvents) ? runEvents[0]?.at || runEvents[0]?.kind || '' : '',
+    matchSec: Number(matchSec || 0),
+    participantIds: participants.map((actor) => getRuntimeActorKey(actor)).filter(Boolean).sort(),
+    runSeed: String(runSeed || ''),
+    winnerId,
+  }))}`;
   const topKillLeader = [...participants]
     .sort((a, b) => {
       const aId = getRuntimeActorKey(a);
@@ -99,9 +119,11 @@ export async function finishSimulationGame(opts = {}) {
   setIsGameOver?.(true);
   setShowResultModal?.(true);
   setResultSummary?.({
-    rewardLP,
-    rewardBaseLP: lpRewardSummary.baseLP,
-    rewardPredictionBonusLP: lpRewardSummary.predictionBonusLP,
+    rewardLP: 0,
+    projectedRewardLP,
+    rewardBaseLP: 0,
+    rewardPredictionBonusLP: 0,
+    rewardStatus: 'unverified',
     winnerPrediction: {
       predictedId: lpRewardSummary.predictedWinnerId,
       predictedName: lpRewardSummary.predictedName,
@@ -113,7 +135,7 @@ export async function finishSimulationGame(opts = {}) {
     participantsCount: participants.length,
     saveStatus: isDevRunTainted
       ? { hallOfFame: 'skipped_devtools', userStats: 'skipped_devtools' }
-      : { hallOfFame: winner ? 'pending' : 'skipped', userStats: 'pending' },
+      : { hallOfFame: winner ? 'pending' : 'skipped', userStats: 'unverified' },
     userProgress: null,
     devRunTainted: isDevRunTainted,
     matchMode: matchCfgForResult.matchMode,
@@ -283,6 +305,7 @@ export async function finishSimulationGame(opts = {}) {
         })
         .filter(Boolean);
       await apiPost('/game/end', {
+        clientRunId,
         winnerId,
         winnerTeamId: winningTeam?.teamId || getActorTeamId(winner),
         matchMode: matchCfgForResult.matchMode,
@@ -293,7 +316,7 @@ export async function finishSimulationGame(opts = {}) {
         runEvents: compactRunEvents,
         participants: compactParticipants,
       });
-      addLog?.('✅ 명예의 전당 저장 완료', 'system');
+      addLog?.('✅ 미검증 경기 기록 저장 완료 · 영구 LP/크레딧은 지급되지 않습니다.', 'system');
       setResultSummary?.((prev) => ({
         ...(prev || {}),
         saveStatus: { ...(prev?.saveStatus || {}), hallOfFame: 'success' },
@@ -308,47 +331,5 @@ export async function finishSimulationGame(opts = {}) {
     }));
   }
 
-  try {
-    const res = await apiPost('/user/update-stats', {
-      kills: myKills,
-      isWin: Boolean(winner),
-      lpEarned: rewardLP,
-    });
 
-    if (typeof res?.credits === 'number') setCredits?.(res.credits);
-
-    if (res?.user && typeof res.user === 'object') {
-      updateStoredUser((currentUser) => mergeStoredUserProgress(currentUser, res.user));
-    } else if (typeof res?.newLp === 'number' || typeof res?.credits === 'number' || res?.statistics) {
-      updateStoredUser((currentUser) => mergeStoredUserProgress(currentUser, {
-        lp: typeof res?.newLp === 'number' ? res.newLp : currentUser?.lp,
-        credits: typeof res?.credits === 'number' ? res.credits : currentUser?.credits,
-        statistics: res?.statistics || currentUser?.statistics,
-      }));
-    }
-
-    setResultSummary?.((prev) => ({
-      ...(prev || {}),
-      rewardLP: typeof res?.lpEarnedApplied === 'number' ? res.lpEarnedApplied : (prev?.rewardLP ?? rewardLP),
-      rewardBaseLP: prev?.rewardBaseLP ?? lpRewardSummary.baseLP,
-      rewardPredictionBonusLP: prev?.rewardPredictionBonusLP ?? lpRewardSummary.predictionBonusLP,
-      userProgress: {
-        lp: typeof res?.newLp === 'number' ? res.newLp : Number(res?.user?.lp || 0),
-        credits: typeof res?.credits === 'number' ? res.credits : Number(res?.user?.credits || 0),
-        statistics: normalizeUserStatistics(res?.statistics || res?.user?.statistics),
-      },
-      saveStatus: { ...(prev?.saveStatus || {}), userStats: 'success' },
-    }));
-
-    addLog?.(
-      `💾 [전적 저장 완료] LP +${typeof res?.lpEarnedApplied === 'number' ? res.lpEarnedApplied : rewardLP} 획득 (${formatLpRewardBreakdown(lpRewardSummary)}) (현재 총 LP: ${res?.newLp ?? res?.user?.lp ?? '?'})`,
-      'system'
-    );
-  } catch (error) {
-    addLog?.(`⚠️ 전적 저장 실패: ${error?.response?.data?.error || '서버 오류'}`, 'death');
-    setResultSummary?.((prev) => ({
-      ...(prev || {}),
-      saveStatus: { ...(prev?.saveStatus || {}), userStats: 'error' },
-    }));
-  }
 }

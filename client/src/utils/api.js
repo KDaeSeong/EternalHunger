@@ -1,9 +1,6 @@
 // client/src/utils/api.js
-// - 공통 API 유틸
-// - 기본은 NEXT_PUBLIC_API_BASE(있으면) > localStorage(EH_API_BASE) > 환경에 따른 기본값
-// - localStorage(EH_API_BASE)는 "http://localhost:5000" 처럼 /api 없는 값도 허용
-// - 배포에서 공개 API_BASE가 없으면 같은 오리진의 /api/proxy 를 자동 사용한다
-// - 실행 체크 시 인증/시뮬 페이지 모두 이 공용 유틸 기준으로 API_BASE를 맞춘다
+// Browser sessions use an HttpOnly cookie. A short in-memory marker preserves
+// existing login guards without exposing the JWT to JavaScript storage.
 
 import axios from 'axios';
 import {
@@ -16,6 +13,7 @@ import {
 export const DEFAULT_API_TIMEOUT_MS = 10000;
 export const INIT_API_TIMEOUT_MS = 45000;
 export const AUTH_SYNC_EVENT = 'eh:auth-sync';
+export const COOKIE_SESSION_MARKER = 'cookie-session';
 export const API_BASE_CONFIG_ERROR =
   'API_BASE를 확인할 수 없습니다. NEXT_PUBLIC_API_BASE, EH_API_BASE 또는 서버 BACKEND_BASE_URL 설정을 확인하세요.';
 
@@ -57,53 +55,6 @@ export function normalizeToken(raw) {
   return v;
 }
 
-export function getToken() {
-  if (typeof window === 'undefined') return null;
-  return normalizeToken(window.localStorage.getItem('token'));
-}
-
-export function getFallbackToken() {
-  if (typeof window === 'undefined') return null;
-  try {
-    return normalizeToken(
-      window.localStorage.getItem('accessToken') || window.localStorage.getItem('authToken')
-    );
-  } catch {
-    return null;
-  }
-}
-
-export function getAnyToken() {
-  return normalizeToken(getToken() || getFallbackToken());
-}
-
-function getCookieSecureFlag() {
-  if (typeof window === 'undefined') return '';
-  try {
-    return window.location?.protocol === 'https:' ? '; Secure' : '';
-  } catch {
-    return '';
-  }
-}
-
-function writeAuthCookie(name, value) {
-  if (typeof document === 'undefined') return;
-  const token = normalizeToken(value);
-  const secure = getCookieSecureFlag();
-  try {
-    if (token) {
-      const maxAge = 60 * 60 * 24 * 30;
-      document.cookie = `${name}=${encodeURIComponent(token)}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
-    } else {
-      document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax${secure}`;
-    }
-  } catch {}
-}
-
-export function syncAuthCookie(token) {
-  writeAuthCookie('token', token);
-}
-
 export function getUser() {
   if (typeof window === 'undefined') return null;
   try {
@@ -111,6 +62,53 @@ export function getUser() {
   } catch {
     return null;
   }
+}
+
+export function getToken() {
+  return getUser() ? COOKIE_SESSION_MARKER : null;
+}
+
+export function getFallbackToken() {
+  return null;
+}
+
+export function getAnyToken() {
+  return getToken();
+}
+
+function getCookieValue(name) {
+  if (typeof document === 'undefined') return '';
+  try {
+    const prefix = `${name}=`;
+    const part = document.cookie.split(';').map((value) => value.trim()).find((value) => value.startsWith(prefix));
+    return part ? decodeURIComponent(part.slice(prefix.length)) : '';
+  } catch {
+    return '';
+  }
+}
+
+function expireVisibleLegacyCookie(name) {
+  if (typeof document === 'undefined' || !getCookieValue(name)) return;
+  const secure = typeof window !== 'undefined' && window.location?.protocol === 'https:' ? '; Secure' : '';
+  try {
+    document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax${secure}`;
+  } catch {}
+}
+
+function clearLegacyTokenStorage() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem('token');
+    window.localStorage.removeItem('accessToken');
+    window.localStorage.removeItem('authToken');
+  } catch {}
+  expireVisibleLegacyCookie('token');
+  expireVisibleLegacyCookie('accessToken');
+  expireVisibleLegacyCookie('authToken');
+}
+
+export function syncAuthCookie() {
+  clearLegacyTokenStorage();
 }
 
 export function emitAuthSync(detail = {}) {
@@ -122,43 +120,43 @@ export function emitAuthSync(detail = {}) {
   } catch {}
 }
 
-export function saveAuth(token, user) {
+export function saveAuth(_token, user) {
   if (typeof window === 'undefined') return;
+  clearLegacyTokenStorage();
   let didChange = false;
-  let authTokenChanged = false;
   try {
-    if (token !== undefined) {
-      const rawToken = normalizeToken(token);
-      const prevToken = normalizeToken(window.localStorage.getItem('token'));
-      if (rawToken) window.localStorage.setItem('token', rawToken);
-      else window.localStorage.removeItem('token');
-      syncAuthCookie(rawToken);
-      authTokenChanged = prevToken !== rawToken;
-      didChange = didChange || authTokenChanged;
-    }
     if (user !== undefined) {
       const nextUserRaw = user === null ? null : JSON.stringify(user);
       const prevUserRaw = window.localStorage.getItem('user');
       if (nextUserRaw === null) window.localStorage.removeItem('user');
       else window.localStorage.setItem('user', nextUserRaw);
-      didChange = didChange || prevUserRaw !== nextUserRaw;
+      didChange = prevUserRaw !== nextUserRaw;
     }
   } catch {}
-  if (authTokenChanged) clearApiGetCache();
+  clearApiGetCache();
   if (didChange) emitAuthSync({ reason: 'saveAuth' });
+}
+
+function requestServerLogout() {
+  if (typeof window === 'undefined') return;
+  const url = buildApiUrl('/auth/logout');
+  if (!url) return;
+  const csrfToken = getCookieValue('eh_csrf');
+  const headers = csrfToken ? { 'X-CSRF-Token': csrfToken } : {};
+  void fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+  }).catch(() => {});
 }
 
 export function clearAuth(detail = {}) {
   if (typeof window === 'undefined') return;
+  requestServerLogout();
   try {
-    window.localStorage.removeItem('token');
     window.localStorage.removeItem('user');
-    window.localStorage.removeItem('accessToken');
-    window.localStorage.removeItem('authToken');
   } catch {}
-  writeAuthCookie('token', null);
-  writeAuthCookie('accessToken', null);
-  writeAuthCookie('authToken', null);
+  clearLegacyTokenStorage();
   clearApiGetCache();
   emitAuthSync({ reason: 'clearAuth', ...(detail || {}) });
 }
@@ -174,16 +172,13 @@ export function updateStoredUser(patch) {
 }
 
 export function isAdmin() {
-  const u = getUser();
-  return Boolean(u?.isAdmin);
+  return Boolean(getUser()?.isAdmin);
 }
 
 export function buildAuthHeaders(tokenOverride) {
   const token = normalizeToken(tokenOverride !== undefined ? tokenOverride : getAnyToken());
-  if (!token) return {};
-  return {
-    Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}`,
-  };
+  if (!token || token === COOKIE_SESSION_MARKER) return {};
+  return { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` };
 }
 
 function comparableToken(rawToken) {
@@ -226,6 +221,16 @@ const GET_CACHE = new Map();
 const PERSISTENT_GET_CACHE_PREFIX = 'eh_get_cache:';
 const PERSISTENT_GET_CACHE_INDEX = 'eh_get_cache:index';
 
+function hashCacheKey(value) {
+  const text = String(value || '');
+  let hash = 5381;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = ((hash << 5) + hash) + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
 function buildGetCacheKey(url, options = {}) {
   const fullUrl = buildApiUrl(url, { baseOverride: options.baseOverride });
   const token = normalizeToken(options.tokenOverride !== undefined ? options.tokenOverride : getAnyToken());
@@ -240,16 +245,6 @@ function canUseSessionGetCache(options = {}) {
   } catch {
     return false;
   }
-}
-
-function hashCacheKey(value) {
-  const text = String(value || '');
-  let hash = 5381;
-  for (let i = 0; i < text.length; i += 1) {
-    hash = ((hash << 5) + hash) + text.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(36);
 }
 
 function getPersistentCacheIndex() {
@@ -311,17 +306,13 @@ function clearPersistentGetCache(match = '') {
   const index = getPersistentCacheIndex();
   const needle = String(match || '');
   let didChange = false;
-
   Object.entries(index).forEach(([storageKey, rawKey]) => {
     if (!needle || String(rawKey || '').includes(needle)) {
-      try {
-        storage.removeItem(storageKey);
-      } catch {}
+      try { storage.removeItem(storageKey); } catch {}
       delete index[storageKey];
       didChange = true;
     }
   });
-
   if (!needle) {
     try {
       Object.keys(storage)
@@ -329,7 +320,6 @@ function clearPersistentGetCache(match = '') {
         .forEach((key) => storage.removeItem(key));
     } catch {}
   }
-
   if (didChange || !needle) setPersistentCacheIndex(index);
 }
 
@@ -351,10 +341,14 @@ export async function apiRequest(method, url, data, options = {}) {
   const requestToken = normalizeToken(attachStoredAuth
     ? (options.tokenOverride !== undefined ? options.tokenOverride : getAnyToken())
     : null);
-  const headers = {
-    ...buildAuthHeaders(requestToken),
-    ...(options.headers || {}),
-  };
+  const headers = { ...buildAuthHeaders(requestToken), ...(options.headers || {}) };
+  const upperMethod = String(method || 'GET').toUpperCase();
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(upperMethod) && options.csrf !== false) {
+    const csrfToken = getCookieValue('eh_csrf');
+    if (csrfToken && !headers['X-CSRF-Token'] && !headers['x-csrf-token']) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
 
   const fullUrl = buildApiUrl(url, { baseOverride: options.baseOverride });
   if (!fullUrl) {
@@ -369,7 +363,7 @@ export async function apiRequest(method, url, data, options = {}) {
     throw err;
   }
 
-  if (requestToken && isJwtExpired(requestToken)) {
+  if (requestToken && requestToken !== COOKIE_SESSION_MARKER && isJwtExpired(requestToken)) {
     clearRejectedStoredAuth(requestToken, AUTH_ERROR_CODES.expired);
     throw createAuthSessionError(AUTH_ERROR_CODES.expired, fullUrl, method);
   }
@@ -381,15 +375,11 @@ export async function apiRequest(method, url, data, options = {}) {
       data,
       headers,
       timeout: Number(options.timeoutMs || DEFAULT_API_TIMEOUT_MS),
-      withCredentials: Boolean(options.withCredentials),
+      withCredentials: options.withCredentials !== false,
       responseType: options.responseType,
     });
     if (options.returnFullResponse) {
-      return {
-        data: res.data,
-        status: res.status,
-        headers: res.headers,
-      };
+      return { data: res.data, status: res.status, headers: res.headers };
     }
     return res.data;
   } catch (e) {
@@ -405,8 +395,8 @@ export async function apiRequest(method, url, data, options = {}) {
     const msg = authCode
       ? authFailureMessage(authCode)
       : isTimeout
-      ? '요청 시간이 초과되었습니다. 서버 실행 상태를 확인하세요.'
-      : (e?.response?.data?.error || e?.response?.data?.message || e.message || '요청 실패');
+        ? '요청 시간이 초과되었습니다. 서버 실행 상태를 확인하세요.'
+        : (e?.response?.data?.error || e?.response?.data?.message || e.message || '요청 실패');
     const err = new Error(msg);
     err.response = e?.response;
     err.code = e?.code || '';
@@ -424,30 +414,25 @@ export async function apiRequest(method, url, data, options = {}) {
 }
 
 export const apiGet = (url, options) => apiRequest('GET', url, undefined, options);
+
 export async function apiGetCached(url, options = {}) {
   const ttlMs = Math.max(0, Number(options.ttlMs || 10000));
   if (options.force || ttlMs <= 0) return apiGet(url, options);
-
   const key = buildGetCacheKey(url, options);
   const now = Date.now();
   const hit = GET_CACHE.get(key);
-  if (hit && hit.expiresAt > now) {
-    if (hit.promise) return hit.promise;
-    return hit.data;
-  }
-
+  if (hit && hit.expiresAt > now) return hit.promise || hit.data;
   const persisted = readPersistentGetCache(key, options);
   if (persisted) {
     GET_CACHE.set(key, { data: persisted.data, expiresAt: persisted.expiresAt });
     return persisted.data;
   }
-
   const promise = apiGet(url, options)
-    .then((data) => {
+    .then((responseData) => {
       const expiresAt = Date.now() + ttlMs;
-      GET_CACHE.set(key, { data, expiresAt });
-      writePersistentGetCache(key, data, expiresAt, options);
-      return data;
+      GET_CACHE.set(key, { data: responseData, expiresAt });
+      writePersistentGetCache(key, responseData, expiresAt, options);
+      return responseData;
     })
     .catch((err) => {
       GET_CACHE.delete(key);
@@ -456,6 +441,7 @@ export async function apiGetCached(url, options = {}) {
   GET_CACHE.set(key, { promise, expiresAt: now + ttlMs });
   return promise;
 }
+
 export const apiPost = (url, data, options) => apiRequest('POST', url, data, options);
 export const apiPut = (url, data, options) => apiRequest('PUT', url, data, options);
 export const apiDelete = (url, options) => apiRequest('DELETE', url, undefined, options);

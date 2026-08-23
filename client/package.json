@@ -7,14 +7,14 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "prebuild": "node ./scripts/fix-proxy-migration.js",
+    "prebuild": "node ./scripts/fix-proxy-migration.cjs",
     "check:build:local": "npm run prebuild && next build --webpack",
     "check:build:vercel-like": "npm ci --no-audit --no-fund && npm run build",
     "check:ba-srpg-feedback": "node ./scripts/check-ba-srpg-feedback.mjs",
     "check:ba-srpg-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-ba-srpg-soundtrack.mjs && node ./scripts/check-ba-srpg-rendered-audio.mjs",
     "check:ba-vanguard-feedback": "node ./scripts/check-ba-vanguard-feedback.mjs",
     "check:ba-vanguard-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-ba-vanguard-soundtrack.mjs && node ./scripts/check-ba-vanguard-rendered-audio.mjs",
-    "check:auth-session": "node ./scripts/check-auth-session.mjs",
+    "check:auth-session": "node ./scripts/check-auth-session.mjs && node ./scripts/check-proxy-session-contract.mjs",
     "check:build:ci": "npm ci --no-audit --no-fund && npm run prebuild && next build --webpack",
     "check:company-report-feedback": "node ./scripts/check-company-report-feedback.mjs",
     "check:company-report-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-company-report-soundtrack.mjs && node ./scripts/check-company-report-rendered-audio.mjs",
@@ -78,7 +78,8 @@
     "check:twenty-questions-rules": "node ./scripts/check-twenty-questions-rules.mjs",
     "check:twenty-questions-feedback": "node ./scripts/check-twenty-questions-feedback.mjs",
     "check:twenty-questions-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-twenty-questions-soundtrack.mjs && node ./scripts/check-twenty-questions-rendered-audio.mjs",
-    "diagnose:simulation": "node ./scripts/simulation-diagnostics.mjs"
+    "diagnose:simulation": "node ./scripts/simulation-diagnostics.mjs",
+    "check:game-porting-progress": "node ./scripts/check-game-porting-progress.mjs"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
@@ -93,5 +94,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
     "tailwindcss": "^4"
-  }
+  },
+  "type": "module"
 }

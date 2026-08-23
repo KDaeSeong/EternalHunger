@@ -4,10 +4,10 @@ import {
   GAME_ROADMAP,
   findGameBySlug,
   getGamePortingChecklist,
-  getGamePortingProgress,
   gameBoardWriteHref,
   gameRoomCreateHref,
 } from '../../games/_lib/gameCatalog';
+import { getGamePortingProgress } from '../../games/_lib/gamePortingProgress.mjs';
 import GameCandidateManager from './_components/GameCandidateManager';
 
 export const metadata = {

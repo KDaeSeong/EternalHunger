@@ -18,16 +18,13 @@ export default function LoginPage() {
   const handleLogin = async (event) => {
     event.preventDefault();
     if (busy) return;
-
     setBusy(true);
     setMessage('');
     try {
       const res = await apiPost('/auth/login', form);
-      const token = res?.token;
       const user = res?.user;
-      if (!token || !user) throw new Error('로그인 응답이 올바르지 않습니다.');
-
-      saveAuth(token, user);
+      if (!user) throw new Error('로그인 응답이 올바르지 않습니다.');
+      saveAuth(undefined, user);
       showToast({ tone: 'success', message: `${user.nickname || user.username || '사용자'}님, 환영합니다.` });
       router.replace('/');
     } catch (err) {
@@ -47,56 +44,16 @@ export default function LoginPage() {
             <span className="logo-sub">케이의</span>
             <span className="logo-main">게임개발소</span>
           </div>
-
           <h2>로그인</h2>
-          <p style={{ color: '#666', marginTop: '-10px' }}>
-            시뮬레이션 결과와 운영 데이터를 계정에 저장합니다.
-          </p>
-
+          <p style={{ color: '#666', marginTop: '-10px' }}>시뮬레이션 결과와 운영 데이터를 계정에 저장합니다.</p>
           <form onSubmit={handleLogin} className="auth-form">
-            <input
-              type="text"
-              className="auth-input"
-              placeholder="아이디"
-              required
-              value={form.username}
-              disabled={busy}
-              autoComplete="username"
-              onChange={(event) => setForm({ ...form, username: event.target.value })}
-            />
-            <input
-              type="password"
-              className="auth-input"
-              placeholder="비밀번호"
-              required
-              value={form.password}
-              disabled={busy}
-              autoComplete="current-password"
-              onChange={(event) => setForm({ ...form, password: event.target.value })}
-            />
-            <button type="submit" className="btn-primary" disabled={busy}>
-              {busy ? '로그인 중...' : '로그인'}
-            </button>
+            <input type="text" className="auth-input" placeholder="아이디" required value={form.username} disabled={busy} autoComplete="username" onChange={(event) => setForm({ ...form, username: event.target.value })} />
+            <input type="password" className="auth-input" placeholder="비밀번호" required value={form.password} disabled={busy} autoComplete="current-password" onChange={(event) => setForm({ ...form, password: event.target.value })} />
+            <button type="submit" className="btn-primary" disabled={busy}>{busy ? '로그인 중...' : '로그인'}</button>
           </form>
-
-          {message ? (
-            <div className="auth-message" role="status" aria-live="polite">
-              {message}
-            </div>
-          ) : null}
-
-          <div className="auth-footer">
-            아직 계정이 없으신가요?
-            <Link href="/signup" className="auth-link">
-              회원가입하기
-            </Link>
-          </div>
-          <div className="auth-footer">
-            비밀번호를 잊으셨나요?
-            <Link href="/reset-password" className="auth-link">
-              복구 코드로 재설정
-            </Link>
-          </div>
+          {message ? <div className="auth-message" role="status" aria-live="polite">{message}</div> : null}
+          <div className="auth-footer">아직 계정이 없으신가요?<Link href="/signup" className="auth-link">회원가입하기</Link></div>
+          <div className="auth-footer">비밀번호를 잊으셨나요?<Link href="/reset-password" className="auth-link">복구 코드로 재설정</Link></div>
         </div>
       </div>
     </main>

@@ -7,8 +7,8 @@ import {
   SRPG_GAME_SLUGS,
   findGameBySlug,
   gameDetailHref,
-  getGamePortingProgress,
 } from '../games/_lib/gameCatalog';
+import { getGamePortingProgress } from '../games/_lib/gamePortingProgress.mjs';
 
 function GameMetric({ label, value }) {
   return (

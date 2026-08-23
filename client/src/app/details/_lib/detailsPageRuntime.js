@@ -49,7 +49,7 @@ function normalizeDetailsCharacterList(data) {
 function formatSaveMismatchMessage(mismatches) {
   const sample = (Array.isArray(mismatches) ? mismatches : [])
     .slice(0, 5)
-    .map((m) => `${m.field}:${String(m.id || '').slice(-6)}`)
+    .map((mismatch) => `${mismatch.field}:${String(mismatch.id || '').slice(-6)}`)
     .join(', ');
   return `저장 후 서버 재조회 값이 요청값과 다릅니다.${sample ? ` (${sample})` : ''}`;
 }
@@ -63,11 +63,8 @@ async function loadCharactersAfterSave(result) {
   return apiGet(freshCharactersUrl(), { timeoutMs: 30000 });
 }
 
-function syncTokenCookie(token) {
-  try {
-    document.cookie = `token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
-  } catch {
-  }
+function syncTokenCookie() {
+  // HttpOnly session cookies are issued and cleared by the server.
 }
 
 function getGoalGearTierLabel() {
