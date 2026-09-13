@@ -10,8 +10,8 @@ export default function SimulationForbiddenStatusBar({
   return (
     <div className="forbidden-top-bar">
       <span className="fz-title">🚫 금지구역</span>
-      <span className="fz-chip" title="6번째 밤부터는 교전을 강하게 유도(서든데스)하고, 마지막 1명 생존 시 게임이 종료됩니다.">
-        🔥 서든데스: <b>6번째 밤 이후</b>
+      <span className="fz-chip" title="6번째 밤부터 안전구역을 단계적으로 줄입니다. 각 팀은 직접 이동하며, 마지막 팀이 남으면 종료됩니다.">
+        🔥 최종 구역 축소: <b>6번째 밤 이후</b>
       </span>
       <span className="fz-chip" title={detonationRiskSummary?.fzHoverText || '현재 금지구역 없음'}>
         금지 <b>{detonationRiskSummary?.forbiddenCnt || 0}</b> / 전체 <b>{detonationRiskSummary?.total || 0}</b> · 안전 <b>{detonationRiskSummary?.safeLeft || 0}</b>
@@ -27,9 +27,9 @@ export default function SimulationForbiddenStatusBar({
           +{forbiddenAddedNow.length} 신규 금지
         </span>
       ) : null}
-      {detonationRiskSummary?.willForceAllThisPhase ? (
-        <span className="fz-chip fz-danger" title="안전구역이 1~2개 남은 상태에서 현 페이즈 길이가 기준 이상이면 폭발이 전 구역에 적용됩니다.">
-          ☢️ 이번 페이즈 전구역 폭발 가능
+      {detonationRiskSummary?.allZonesClosed ? (
+        <span className="fz-chip fz-danger" title="마지막 안전구역이 폐쇄되어 현재 모든 지역에 구역 위험이 적용됩니다.">
+          ☢️ 전지역 폐쇄
         </span>
       ) : null}
     </div>

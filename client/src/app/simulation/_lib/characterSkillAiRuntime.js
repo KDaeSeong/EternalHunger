@@ -1,4 +1,10 @@
-import { getEffectiveStats } from '../../../utils/statusLogic.js';
+import { getEffectiveStats, isTargetableByStatus, canUseSkillByStatus } from '../../../utils/statusLogic.js';
+import { isInSpatialSkillRange, spatialDistance, getSpatialStats } from './combatSpatialRuntime.js';
+import { getCharacterSkillMovementEstimate } from './characterSkillMovementRuntime.js';
+import { getCharacterStatusSkillValue } from './characterStatusSkillRuntime.js';
+import { getUniqueResourceSnapshot, normalizeSkillResourceAmount } from './uniqueResourceRuntime.js';
+import { isStatusSupportSkill } from '../../../utils/characterStatusSkillDefinition.js';
+import { areSameTeam } from './teamRuntime.js';
 
 function actorId(actor) {
   return String(actor?._id || actor?.id || '');
@@ -26,37 +32,20 @@ function hpSnapshot(actor) {
   };
 }
 
-function sameZone(a, b) {
-  const az = String(a?.zoneId || '');
-  const bz = String(b?.zoneId || '');
-  return Boolean(az && bz && az === bz);
-}
-
 function uniqueAliveTargets(targets) {
   const seen = new Set();
   const out = [];
   for (const target of Array.isArray(targets) ? targets : []) {
     const id = actorId(target);
-    if (!id || seen.has(id) || Number(target?.hp || 0) <= 0) continue;
+    if (!id || seen.has(id) || Number(target?.hp || 0) <= 0 || !isTargetableByStatus(target)) continue;
     seen.add(id);
     out.push(target);
   }
   return out;
 }
 
-function getSkillRange(attacker, def, settings = {}) {
-  const explicit = Number(def?.range);
-  if (Number.isFinite(explicit) && explicit > 0) return explicit;
-  const defaultSkillRange = Number(settings?.skills?.defaultCharacterSkillRange || 0);
-  if (Number.isFinite(defaultSkillRange) && defaultSkillRange > 0) return defaultSkillRange;
-  const stats = getEffectiveStats(attacker);
-  return Math.max(0.5, Number(stats?.attackRange || 1));
-}
-
 function isTargetInSkillRange(attacker, target, def, settings, opts = {}) {
-  if (!attacker || !target || !sameZone(attacker, target)) return false;
-  const encounterRange = Math.max(0.1, Number(opts.encounterRange ?? 0.5));
-  return getSkillRange(attacker, def, settings) >= encounterRange;
+  return isInSpatialSkillRange(attacker, target, def, settings, opts.visionRoster);
 }
 
 function getSkillTiming(def) {
@@ -98,16 +87,16 @@ function casterPassesHpCondition(attacker, def) {
   return true;
 }
 
-function countClusterTargets(target, candidates) {
+function countClusterTargets(target, candidates, radius) {
   if (!target) return 0;
   return uniqueAliveTargets(candidates)
-    .filter((candidate) => actorId(candidate) !== actorId(target) && sameZone(candidate, target))
+    .filter((candidate) => actorId(candidate) !== actorId(target) && spatialDistance(candidate, target) <= radius + 1e-6)
     .length;
 }
 
 function isSupportSkill(def) {
-  const type = String(def?.type || '');
-  if (type === 'heal_skill' || type === 'shield_skill') return true;
+  if (isStatusSupportSkill(def)) return true;
+  if (def.statusEffects?.length) return false;
   const hasHeal = Array.isArray(def?.heal) && def.heal.some((n) => Number(n || 0) > 0);
   const hasShield = Array.isArray(def?.shield) && def.shield.some((n) => Number(n || 0) > 0);
   const hasDamage = [
@@ -125,12 +114,39 @@ function isSupportSkill(def) {
   return (hasHeal || hasShield) && !hasDamage;
 }
 
-function scoreTarget({ target, def, priority, candidates, damageInfo }) {
+function getNetResourceGain(attacker, def) {
+  const { resource, value } = getUniqueResourceSnapshot(attacker);
+  if (!resource.enabled) return 0;
+  const cost = normalizeSkillResourceAmount(def?.resourceCost);
+  const gain = normalizeSkillResourceAmount(def?.resourceGain);
+  if (gain <= 0 || value < cost) return 0;
+  return Math.max(0, Math.min(resource.maxValue, value - cost + gain) - value);
+}
+
+function getMovementUtility(attacker, target, def, opts = {}) {
+  const estimate = getCharacterSkillMovementEstimate(attacker, target, def, {
+    ignoreStatus: opts.previewFuture === true,
+    nowSec: opts.nowSec,
+  });
+  if (!estimate) return { value: 0, estimate: null };
+  if (estimate.movementMode === 'toward_target') {
+    const gap = Math.max(0, spatialDistance(attacker, target) - getSpatialStats(attacker).attackRange);
+    const usefulDistance = Math.min(estimate.actualDistance, gap);
+    return { value: usefulDistance > 0 ? usefulDistance * 24 : 0, estimate };
+  }
+  const hp = hpSnapshot(attacker);
+  const threshold = readPct(def?.maxCasterHpPct, 0) || 0.55;
+  return { value: hp.ratio <= threshold ? estimate.actualDistance * 24 + (1 - hp.ratio) * 30 : 0, estimate };
+}
+
+function scoreTarget({ target, def, priority, candidates, damageInfo, attacker, resourceValue = 0, opts = {} }) {
   const hp = hpSnapshot(target);
   const expectedDamage = Math.max(0, Number(damageInfo?.damage || 0));
   const killable = hp.hp > 0 && expectedDamage >= hp.hp;
-  const clusterCount = Number(def?.radius || 0) > 0 ? countClusterTargets(target, candidates) : 0;
-  let score = expectedDamage;
+  const clusterCount = Number(def?.radius || 0) > 0 ? countClusterTargets(target, candidates, Number(def.radius)) : 0;
+  const statusValue = getCharacterStatusSkillValue(attacker, target, def);
+  const movement = getMovementUtility(attacker, target, def, opts);
+  let score = expectedDamage + statusValue + resourceValue + movement.value;
 
   if (killable) score += 80;
   if (priority === 'killable') score += killable ? 120 : (1 - hp.ratio) * 30;
@@ -142,6 +158,9 @@ function scoreTarget({ target, def, priority, candidates, damageInfo }) {
   return {
     clusterCount,
     expectedDamage,
+    statusValue,
+    movementValue: movement.value,
+    movementMode: movement.estimate?.movementMode || '',
     killable,
     score,
     target,
@@ -154,7 +173,9 @@ function hasUtilityPayload(def, idx) {
   return heal > 0 || shield > 0;
 }
 
-function utilityIsWorthUsing(target, def, idx) {
+function utilityIsWorthUsing(target, def, idx, attacker = target) {
+  if (getCharacterStatusSkillValue(attacker, target, def) > 0) return true;
+  if (getNetResourceGain(attacker, def) > 0) return true;
   if (!hasUtilityPayload(def, idx)) return false;
   const targetHp = hpSnapshot(target);
   const heal = Array.isArray(def?.heal) ? Number(def.heal[idx] || 0) : 0;
@@ -166,7 +187,7 @@ function utilityIsWorthUsing(target, def, idx) {
   return canHeal || shield > 0;
 }
 
-function scoreSupportTarget({ target, def, idx }) {
+function scoreSupportTarget({ target, def, idx, attacker }) {
   const hp = hpSnapshot(target);
   const heal = Array.isArray(def?.heal) ? Math.max(0, Number(def.heal[idx] || 0)) : 0;
   const shield = Array.isArray(def?.shield) ? Math.max(0, Number(def.shield[idx] || 0)) : 0;
@@ -177,7 +198,8 @@ function scoreSupportTarget({ target, def, idx }) {
     clusterCount: 0,
     expectedDamage: 0,
     killable: false,
-    score: healValue * 2 + shieldValue + (1 - hp.ratio) * 80 + (actorId(target) ? 1 : 0),
+    score: healValue * 2 + shieldValue + (1 - hp.ratio) * 80 + (actorId(target) ? 1 : 0)
+      + getCharacterStatusSkillValue(attacker, target, def) + getNetResourceGain(attacker, def),
     target,
   };
 }
@@ -198,11 +220,12 @@ function selectSupportTarget({
   opts,
 }) {
   const supportCandidates = uniqueAliveTargets(supportCandidatePool(attacker, supportTargets, def))
+    .filter((target) => actorId(target) === actorId(attacker) || areSameTeam(attacker, target))
     .filter((target) => actorId(target) === actorId(attacker) || isTargetInSkillRange(attacker, target, def, settings, opts))
     .filter((target) => targetPassesHpCondition(target, def))
-    .map((target) => scoreSupportTarget({ target, def, idx }))
+    .map((target) => scoreSupportTarget({ target, def, idx, attacker }))
     .sort((a, b) => b.score - a.score);
-  const useful = supportCandidates.filter((entry) => utilityIsWorthUsing(entry.target, def, idx));
+  const useful = supportCandidates.filter((entry) => utilityIsWorthUsing(entry.target, def, idx, attacker));
   return {
     scored: supportCandidates,
     best: useful[0] || null,
@@ -231,6 +254,8 @@ export function selectCharacterSkillAiDecision({
   }
 
   const timing = getSkillTiming(def);
+  opts = { ...opts, visionRoster: opts.visionRoster || [attacker, defender, ...splashTargets, ...supportTargets] };
+  if (!opts.previewFuture && !canUseSkillByStatus(attacker, def)) return { shouldUse: false, reason: 'status_restriction', timing };
   if (!casterPassesHpCondition(attacker, def)) {
     return { shouldUse: false, reason: 'caster_hp_condition', timing };
   }
@@ -254,7 +279,7 @@ export function selectCharacterSkillAiDecision({
 
     return {
       shouldUse: true,
-      reason: useCondition !== 'auto' ? useCondition : 'support_low_hp',
+      reason: useCondition !== 'auto' ? useCondition : def.statusEffects?.length ? 'support_status' : 'support_low_hp',
       target: best.target,
       targetPriority: 'support_low_hp',
       targetScore: best.score,
@@ -269,6 +294,7 @@ export function selectCharacterSkillAiDecision({
   const lockToAttackTarget = def?.lockToAttackTarget !== false && isBasicAttackEnhanceSkill(def);
   const allCandidates = uniqueAliveTargets([defender, ...splashTargets])
     .filter((target) => actorId(target) !== actorId(attacker))
+    .filter((target) => !areSameTeam(attacker, target))
     .filter((target) => targetPassesHpCondition(target, def))
     .filter((target) => isTargetInSkillRange(attacker, target, def, settings, opts));
   const candidates = lockToAttackTarget
@@ -279,19 +305,23 @@ export function selectCharacterSkillAiDecision({
 
   const priority = inferTargetPriority(def, stage);
   const useCondition = cleanText(def?.useCondition, 'auto');
+  const resourceValue = getNetResourceGain(attacker, def);
   const scored = candidates
     .map((target) => scoreTarget({
       target,
+      attacker,
       def,
       priority,
       candidates: allCandidates,
       damageInfo: estimateDamage(target),
+      resourceValue,
+      opts,
     }))
     .sort((a, b) => b.score - a.score);
   const best = scored[0];
   const minExpectedDamage = useCondition === 'harass' ? 0 : Math.max(0, Number(def?.minExpectedDamage ?? 1));
   const minSplashTargets = Math.max(0, Math.floor(Number(def?.minSplashTargets || 0)));
-  const utilityUseful = utilityIsWorthUsing(attacker, def, idx);
+  const utilityUseful = utilityIsWorthUsing(attacker, def, idx) || best.statusValue > 0 || resourceValue > 0 || best.movementValue > 0;
   const recastPressure = stage === 2 && Number(def?.recastWindowSec || 0) > 0;
   const casterHp = hpSnapshot(attacker);
 
@@ -310,12 +340,15 @@ export function selectCharacterSkillAiDecision({
 
   return {
     shouldUse: true,
-    reason: best.killable ? 'killable' : useCondition !== 'auto' ? useCondition : priority,
+    reason: best.killable ? 'killable' : useCondition !== 'auto' ? useCondition
+      : resourceValue > 0 && best.expectedDamage <= 0 ? 'resource_gain'
+        : best.movementValue > 0 && best.expectedDamage <= 0 ? `movement_${best.movementMode}` : priority,
     target: best.target,
     targetPriority: priority,
     targetScore: best.score,
     expectedDamage: best.expectedDamage,
     clusterCount: best.clusterCount,
+    movementValue: best.movementValue,
     lockToAttackTarget,
     timing,
   };

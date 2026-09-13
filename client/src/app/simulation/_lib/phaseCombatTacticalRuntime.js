@@ -1,8 +1,6 @@
-import { buildErBehaviorModifier } from '../../../utils/erMeta';
-import { applyHealingModifier } from '../../../utils/statusLogic';
+import { applyHealingModifier, canUseSkillByStatus, isTargetableByStatus } from '../../../utils/statusLogic';
 import {
   buildTacStatusEffects,
-  getTacCooldownSec,
   getTacEffectNumber,
   getTacTrigger,
   normalizeSupportedTacSkill,
@@ -12,6 +10,9 @@ import {
   consumeShieldDamage,
 } from './simulationEngine';
 import { collectRuntimeEffectResultTexts } from './runtimeStatus';
+import { resolveRiftTacticalMovement } from './riftDisplacementRuntime.js';
+import { getActorDimensionRiftId, getCombatSpaceId, shareCombatSpace, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
+import { resolveTacticalSkillCooldownSec } from './cooldownRuntime.js';
 
 export function createPhaseCombatTacticalRuntime({
   actions = {},
@@ -19,7 +20,6 @@ export function createPhaseCombatTacticalRuntime({
 } = {}) {
   const {
     absNow = 0,
-    battleSettings = {},
     ruleset = {},
   } = state;
   const {
@@ -52,10 +52,16 @@ export function createPhaseCombatTacticalRuntime({
 
   const tacCdSec = (name, actor) => {
     const level = tacModuleLevel(actor);
-    return getTacCooldownSec(name, 1 + level);
+    return resolveTacticalSkillCooldownSec(actor, name, 1 + level);
   };
 
-  const canUseTac = (actor) => (absNow >= Number(actor?._tacNextAbsSec || 0));
+  const canUseTac = (actor) => {
+    const tac = normalizeTac(actor?.tacticalSkill);
+    const level = 1 + tacModuleLevel(actor);
+    return Number(actor?.hp || 0) > 0 && canUseSkillByStatus(actor, {
+      includesMovement: getTacEffectNumber(tac, 'movementDistance', level, 0) > 0,
+    }) && absNow >= Number(actor?._tacNextAbsSec || 0);
+  };
 
   const applyTacUse = (actor, name) => {
     if (!actor) return;
@@ -71,7 +77,11 @@ export function createPhaseCombatTacticalRuntime({
     const level = tacModuleLevel(attacker);
     const hp = Number(attacker?.hp || 0);
     const maxHp = Math.max(1, Number(attacker?.maxHp || 100));
-    if (!trigger || !canUseTac(attacker)) return Math.max(0, Math.floor(Number(baseDmg || 0)));
+    const validSpaceMember = (actor) => getCombatSpaceId(actor) === WORLD_COMBAT_SPACE
+      || Boolean(getActorDimensionRiftId(actor)) && actor._dimensionRiftEntry.enteredAtSec <= absNow;
+    if (!trigger || !canUseTac(attacker) || !isTargetableByStatus(defender)
+      || String(attacker?.zoneId || '') !== String(defender?.zoneId || '') || !shareCombatSpace(attacker, defender)
+      || !validSpaceMember(attacker) || !validSpaceMember(defender)) return Math.max(0, Math.floor(Number(baseDmg || 0)));
     if (Number(trigger?.hpBelow || 999) < 999 && hp > Number(trigger?.hpBelow || 999)) return Math.max(0, Math.floor(Number(baseDmg || 0)));
 
     let damage = Math.max(0, Math.floor(Number(baseDmg || 0)));
@@ -82,20 +92,27 @@ export function createPhaseCombatTacticalRuntime({
     if (cost > 0 && hp <= Math.max(12, cost + 2)) return damage;
 
     applyTacUse(attacker, tac);
+    const tacticalMovement = resolveRiftTacticalMovement(attacker, defender, {
+      skill: tac, distance: getTacEffectNumber(tac, 'movementDistance', 1 + level, 0), nowSec: absNow,
+    }, { atNow, emitRunEvent, addLog });
     if (cost > 0) attacker.hp = Math.max(1, hp - cost);
     const finalHeal = heal > 0 ? applyHealingModifier(attacker, heal) : 0;
     if (finalHeal > 0) attacker.hp = Math.min(maxHp, Number(attacker.hp || hp) + finalHeal);
 
     const sourceKey = `tac_${String(tac || '').replace(/\s+/g, '_')}`;
     const tacEffects = applyRuntimeEffectPayloads(attacker, buildTacStatusEffects(tac, 1 + level, sourceKey, { target: 'self' }));
-    const targetTacEffects = applyRuntimeEffectPayloads(defender, buildTacStatusEffects(tac, 1 + level, sourceKey, { target: 'enemy' }));
+    const targetTacEffects = applyRuntimeEffectPayloads(defender,
+      buildTacStatusEffects(tac, 1 + level, sourceKey, { target: 'enemy' }),
+      { sourceActor: attacker, nowSec: absNow, at: atNow(), emitRunEvent, addLog });
     damage += flat;
 
-    if (flat > 0 || finalHeal > 0 || cost > 0 || regenRecovery > 0 || tacEffects.results.length > 0 || targetTacEffects.results.length > 0) {
+    if (flat > 0 || finalHeal > 0 || cost > 0 || regenRecovery > 0 || tacticalMovement
+      || tacEffects.results.length > 0 || targetTacEffects.results.length > 0) {
       const bits = [];
       if (flat > 0) bits.push(`추가 피해 +${flat}`);
       if (finalHeal > 0) bits.push(`HP +${finalHeal}`);
       if (cost > 0) bits.push(`HP -${cost}`);
+      if (tacticalMovement) bits.push(`내부 이동 ${tacticalMovement.actualDistance}m`);
       bits.push(...collectRuntimeEffectResultTexts(tacEffects.results));
       bits.push(...collectRuntimeEffectResultTexts(targetTacEffects.results, { subjectName: defender.name }));
       if (bits.length) addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'combat-detail');
@@ -112,20 +129,11 @@ export function createPhaseCombatTacticalRuntime({
     if (damage <= 0) return damage;
 
     const preShield = consumeShieldDamage(defender, damage);
+    damage = Math.max(0, Number(preShield.damage || 0));
     if (preShield.absorbed > 0) {
       addLog(`🛡️ [${defender.name}] 보호막: 피해 -${preShield.absorbed}`, 'combat-detail');
-      damage = Math.max(0, Number(preShield.damage || 0));
-      if (damage <= 0) return 0;
     }
-
-    const erDefense = buildErBehaviorModifier(defender, battleSettings);
-    const erBlockRaw = Math.min(Math.max(0, damage * 0.35), Math.max(0, Number(erDefense?.damageBlock || 0)));
-    const erBlock = Math.min(Math.max(0, Math.round(erBlockRaw)), Math.ceil(damage));
-    if (erBlock > 0) {
-      damage = Math.max(0, damage - erBlock);
-      if (erBlock >= 5) addLog(`🛡️ [${defender.name}] ER 방어: 피해 -${erBlock}`, 'combat-detail');
-      if (damage <= 0) return 0;
-    }
+    if (damage <= 0) return 0;
 
     const tac = normalizeTac(defender?.tacticalSkill);
     const defenseTac = ['초월', '아티팩트', '무효화'];
@@ -160,7 +168,7 @@ export function createPhaseCombatTacticalRuntime({
     }
     emitRunEvent('skill', { who: String(defender?._id || ''), whoName: defender?.name, skill: String(tac || ''), mode: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());
     emitEffectRunEvents(defender, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());
-    return Math.max(0, Number(blocked?.damage || damage));
+    return Math.max(0, Number(blocked?.damage ?? damage));
   };
 
   return {

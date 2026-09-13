@@ -5,6 +5,7 @@ import {
   prepareWorldSpawnsForPhase,
 } from './phaseSpawnRuntime';
 import { normalizeRuntimeSurvivorList } from './simulationEngine';
+import { ensureFieldResources } from './fieldResourceRuntime';
 
 export function runSimulationPhaseSetup({
   actions = {},
@@ -74,6 +75,7 @@ export function runSimulationPhaseSetup({
       setDay,
       setMatchSec,
       setPhase,
+      waitForVisibleTick: actions.waitForVisibleTick,
     },
   });
   const {
@@ -100,6 +102,8 @@ export function runSimulationPhaseSetup({
       activeMapId,
       nextDay,
       nextPhase,
+      phaseStartSec,
+      spawnState,
       ruleset,
       settings,
       useDetonation,
@@ -113,6 +117,7 @@ export function runSimulationPhaseSetup({
     actions: {
       addLog,
       setForbiddenAddedNow,
+      emitRunEvent,
     },
   });
   const {
@@ -162,6 +167,9 @@ export function runSimulationPhaseSetup({
       emitRunEvent,
     },
   });
+
+  ensureFieldResources(nextSpawn, mapObj, publicItems, ruleset);
+  nextSpawn.endgame = forbiddenRuntime.endgame;
 
   let phaseSurvivors = buildStarterLoadoutSurvivorsForPhase({
     refs: {

@@ -7,6 +7,7 @@ import {
   readLocalParticipantPresets,
 } from './participantPresetRuntime';
 import { createParticipantPresetActionRuntime } from './participantPresetActionRuntime';
+import { saveGuestCharacterBeforeMatch } from './guestCharacterProfileRuntime';
 
 function getInitialParticipantPresetName() {
   const selectedId = getInitialParticipantPresetId();
@@ -29,6 +30,8 @@ export function useSimulationParticipantPresets({
   day,
   isAdvancing,
   isGameOver,
+  isRunLocked,
+  replayMode,
   matchSec,
   settings,
   survivors,
@@ -96,6 +99,8 @@ export function useSimulationParticipantPresets({
   }
 
   return {
+    saveLocalCharacter: (actorId, draft) => saveGuestCharacterBeforeMatch({ actorId, draft,
+      state: { candidateSurvivors, day, matchSec, isAdvancing, isGameOver, isRunLocked, replayMode }, actions }),
     applyCustomParticipantRoster,
     applyParticipantPresetToCurrent,
     deleteSelectedParticipantPreset,

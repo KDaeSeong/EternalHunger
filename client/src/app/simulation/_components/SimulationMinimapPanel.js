@@ -21,6 +21,7 @@ function pickHotZone(actors, getZoneName) {
 }
 
 export default function SimulationMinimapPanel({
+  trackedActorIds,
   activeMapId,
   closeUiModal,
   day,
@@ -52,7 +53,7 @@ export default function SimulationMinimapPanel({
 }) {
   const aliveCount = safeArray(survivors).length;
   const deadCount = safeArray(dead).length;
-  const forbiddenCount = safeArray(forbiddenNow).length;
+  const forbiddenCount = forbiddenNow instanceof Set ? forbiddenNow.size : safeArray(forbiddenNow).length;
   const hyperloopCount = hyperloopZoneSet instanceof Set ? hyperloopZoneSet.size : safeArray(hyperloopZoneSet).length;
   const hotZoneText = pickHotZone(survivors, getZoneName);
 
@@ -73,6 +74,7 @@ export default function SimulationMinimapPanel({
       </div>
 
       <SimulationMinimapCanvas
+        trackedActorIds={trackedActorIds}
         activeMapId={activeMapId}
         dead={dead}
         forbiddenNow={forbiddenNow}

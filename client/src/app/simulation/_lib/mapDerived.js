@@ -1,5 +1,6 @@
-import { getPhaseDurationSec, getRuleset } from '../../../utils/rulesets';
+import { getRuleset } from '../../../utils/rulesets';
 import { LUMIA_ZONE_POS } from './simulationEngine';
+import { buildCustomMapRenderGeometry } from './customMapRenderGeometryRuntime.js';
 
 const ZONE_POS_ALIASES = {
   골목길: 'alley',
@@ -86,6 +87,8 @@ function resolveZonePosKey(zone) {
 
 export function buildZonePositions(zones) {
   const list = Array.isArray(zones) ? zones : [];
+  const customGeometry = buildCustomMapRenderGeometry(list);
+  if (customGeometry) return customGeometry.positions;
   const rows = list
     .map((zone) => ({
       id: String(zone?.zoneId || zone?.id || zone?._id || '').trim(),
@@ -242,7 +245,7 @@ export function buildRecentMoveTrails({ runEvents, pingNow, zonePos }) {
     const who = String(event?.who || event?.whoId || event?.name || `${i}`);
     if (bestByActor.has(who)) continue;
     bestByActor.set(who, {
-      id: String(event._id || event.ts || `${i}`),
+      id: `${who}:${String(event._id || event.ts || `${i}`)}:${from}:${to}`,
       from,
       to,
       name: String(event?.name || ''),
@@ -265,7 +268,7 @@ export function getEmptyDetonationRiskSummary() {
     safeLeft: 0,
     riskyCount: 0,
     riskyTitle: '',
-    willForceAllThisPhase: false,
+    allZonesClosed: false,
     fzHoverText: '현재 금지구역 없음',
   };
 }
@@ -276,6 +279,7 @@ export function buildDetonationRiskSummary({
   zones,
   forbiddenNow,
   rulesetId,
+  savedRuleset,
   survivors,
   phase,
   getZoneName,
@@ -285,7 +289,7 @@ export function buildDetonationRiskSummary({
   const total = Array.isArray(activeMap?.zones) ? activeMap.zones.length : (Array.isArray(zones) ? zones.length : 0);
   const forbiddenCnt = forbiddenNow?.size ? forbiddenNow.size : 0;
   const safeLeft = Math.max(0, total - forbiddenCnt);
-  const ruleset = getRuleset(rulesetId);
+  const ruleset = getRuleset(rulesetId, savedRuleset);
   const critical = Math.max(0, Number(ruleset?.detonation?.criticalSec ?? 5));
   const riskyChars = [];
 
@@ -312,10 +316,7 @@ export function buildDetonationRiskSummary({
     ? `폭발 타이머 임계치(${critical}s) 이하 · 최소 ${riskyMin}s: ${riskyNames}${riskyExtra}`
     : `폭발 타이머 임계치(${critical}s) 이하 생존자 없음`;
 
-  const detForceAll = Math.max(0, Number(ruleset?.detonation?.forceAllAfterSec ?? 40));
-  const isEndgame = safeLeft <= 2 && total > 0;
-  const curPhaseDur = Math.max(0, Number(getPhaseDurationSec(ruleset, day, phase) || 0));
-  const willForceAllThisPhase = isEndgame && curPhaseDur >= detForceAll;
+  const allZonesClosed = safeLeft === 0 && total > 0;
   const fzNameArr = forbiddenCnt
     ? Array.from(forbiddenNow)
         .map((zoneId) => String(getZoneName?.(zoneId) || ''))
@@ -333,7 +334,7 @@ export function buildDetonationRiskSummary({
     safeLeft,
     riskyCount,
     riskyTitle,
-    willForceAllThisPhase,
+    allZonesClosed,
     fzHoverText,
   };
 }

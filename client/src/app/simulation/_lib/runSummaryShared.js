@@ -102,6 +102,7 @@ export function createRunActionFallback() {
     queued: 0,
     blocked: 0,
     fleeChosen: 0,
+    restChosen: 0,
     moveChosen: 0,
     routeFarmChosen: 0,
     craftChosen: 0,

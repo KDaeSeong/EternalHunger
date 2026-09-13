@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { getMutantWildlifeSpawnZoneId } from './localSimulationSettings';
 import { randInt } from './simulationCommon';
 import { cloneSpawnState } from './spawnStateRuntime';
@@ -258,8 +259,9 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
     if (mutantEnabled && nightDay >= mutantGateDay && mutantIntervalOk && !attemptedThisNight) {
       s.spawnedDay.mutantWildlife = nightDay;
     }
-    if (mutantEnabled && nightDay >= mutantGateDay && mutantIntervalOk && !attemptedThisNight && Math.random() < mutantSpawnChance) {
-      const cfgZid = String(getMutantWildlifeSpawnZoneId(mapId) || '').trim();
+    if (mutantEnabled && nightDay >= mutantGateDay && mutantIntervalOk && !attemptedThisNight && simulationRandom() < mutantSpawnChance) {
+      const cfgZid = String((Object.hasOwn(opts, 'mutantWildlifeSpawnZoneId')
+        ? opts.mutantWildlifeSpawnZoneId : getMutantWildlifeSpawnZoneId(mapId)) || '').trim();
       const allZoneIdSet = new Set((Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '')).filter(Boolean));
       const zid = (cfgZid && allZoneIdSet.has(cfgZid))
         ? cfgZid

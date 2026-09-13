@@ -1,12 +1,10 @@
 import { useEffect } from 'react';
-import { getAliveTeams } from './simulationEngine';
 
 export function useSimulationPhaseSideEffects({
   refs = {},
   state = {},
   actions = {},
   startBlocked = false,
-  finishGameRef,
   proceedPhaseGuarded,
 } = {}) {
   const {
@@ -14,13 +12,11 @@ export function useSimulationPhaseSideEffects({
     proceedPhaseGuardedRef,
   } = refs;
   const {
-    assistCounts,
     autoPlay,
     autoSpeed,
     day,
     isAdvancing,
     isGameOver,
-    killCounts,
     loading,
     matchSec,
     pendingTranscendPick,
@@ -37,18 +33,8 @@ export function useSimulationPhaseSideEffects({
     proceedPhaseGuardedRef.current = proceedPhaseGuarded;
   });
 
-  useEffect(() => {
-    if (loading || isGameOver) return;
-    if (day === 0) return;
-    if (!Array.isArray(survivors)) return;
-    const aliveTeams = getAliveTeams(survivors);
-    if (aliveTeams.length > 1) return;
-    const finalSurvivors = aliveTeams[0]?.members || survivors;
-    const id = window.setTimeout(() => {
-      finishGameRef.current?.(finalSurvivors, killCounts, assistCounts);
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [survivors, day, loading, isGameOver, killCounts, assistCounts, finishGameRef]);
+  // Only the shared-clock phase finalizer can declare the match finished.
+  // Rendered snapshots may be mid-action or awaiting a protected team revival.
 
   useEffect(() => {
     if (!autoPlay) return;

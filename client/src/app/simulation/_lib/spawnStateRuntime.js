@@ -2,6 +2,8 @@ function createInitialSpawnState(mapId = '') {
   return {
     mapId: String(mapId || ''),
     wildlife: {},
+    fieldResources: null,
+    endgame: null,
     wildlifeSpecies: {},
     legendaryCrates: [],
     transcendCrates: [],
@@ -12,6 +14,7 @@ function createInitialSpawnState(mapId = '') {
     },
     foodCrates: [],
     dimensionRifts: [],
+    dimensionRiftMatchClosure: null,
     mutantWildlife: null,
     bosses: {
       alpha: null,
@@ -62,6 +65,9 @@ function cloneSpawnState(state, mapId = '') {
 
   return {
     mapId: String(safe.mapId || ''),
+    fieldResources: safe.fieldResources ? structuredClone(safe.fieldResources) : null,
+    endgame: safe.endgame ? structuredClone(safe.endgame) : null,
+    dimensionRiftMatchClosure: safe.dimensionRiftMatchClosure ? structuredClone(safe.dimensionRiftMatchClosure) : null,
     wildlife: (safe.wildlife && typeof safe.wildlife === 'object') ? { ...safe.wildlife } : {},
     wildlifeSpecies: (safe.wildlifeSpecies && typeof safe.wildlifeSpecies === 'object')
       ? Object.fromEntries(Object.entries(safe.wildlifeSpecies).map(([zid, list]) => [
@@ -83,7 +89,7 @@ function cloneSpawnState(state, mapId = '') {
     foodCrates: Array.isArray(safe.foodCrates) ? safe.foodCrates.map((c) => ({ ...c })) : [],
     dimensionRifts: Array.isArray(safe.dimensionRifts)
       ? safe.dimensionRifts.map((r) => ({
-          ...r,
+          ...structuredClone(r),
           entrantTeamIds: Array.isArray(r?.entrantTeamIds) ? r.entrantTeamIds.map((x) => String(x || '')).filter(Boolean) : [],
         }))
       : [],

@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { worldPhaseIndex } from './worldTime';
 
 function getForbiddenCount(forbiddenIds) {
@@ -58,7 +59,7 @@ function buildPvpPhaseRuntime(opts = {}) {
   };
 }
 
-function pickPvpTarget(list, survivorMap, phaseIdxNow, rng = Math.random) {
+function pickPvpTarget(list, survivorMap, phaseIdxNow, rng = simulationRandom) {
   if (!Array.isArray(list) || list.length === 0) return null;
   const noisy = list.filter((target) => {
     const runtimeTarget = survivorMap?.get?.(target?._id);

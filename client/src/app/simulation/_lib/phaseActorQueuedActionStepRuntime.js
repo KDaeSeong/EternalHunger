@@ -54,13 +54,25 @@ export function runActorQueuedActionStep({
   let updated = actor;
   const newlyDead = [];
   const queuedActionType = actionPlan.queuedActionType;
+  if (!updated || Number(updated.hp || 0) <= 0) return { actor: updated, newlyDead };
+
+  if (queuedActionType === 'rest') {
+    addLog(`🩹 [${updated.name}] 저체력으로 안전 지역에서 다음 행동을 기다립니다.`, 'system');
+    emitRunEvent('rest', { who: String(updated._id || ''), zoneId: String(updated.zoneId || ''),
+      reason: 'low_hp_recovery', hp: Number(updated.hp || 0), maxHp: Number(updated.maxHp || 0) }, atNow());
+  }
 
   if (queuedActionType === 'routeFarm' && actionPlan.fallbackRouteItemIds.length > 0) {
     runRouteFarmAction({
       state: {
         actor: updated,
         craftables,
+        currentActionSec: state.currentActionSec,
+        deferHuntSettlement: state.actionIntervalSec != null,
         fallbackRouteItemIds: actionPlan.fallbackRouteItemIds,
+        nextSpawn,
+        forbiddenIds,
+        zoneGraph: state.zoneGraph,
         goalMissingIds: [...actionPlan.goalMissingIds],
         initialLoot: fieldLootResult.loot,
         itemMetaById,
@@ -78,6 +90,7 @@ export function runActorQueuedActionStep({
         emitItemGainIfAny,
         getZoneName,
         grantMastery,
+        emitRunEvent,
       },
     });
   }
@@ -97,6 +110,8 @@ export function runActorQueuedActionStep({
         actor: updated,
         canReviveThisMatch,
         craftables,
+        currentActionSec: state.currentActionSec,
+        deferHuntSettlement: state.actionIntervalSec != null,
         didMove: movementResult.didMove,
         goalMissingIds: actionPlan.goalMissingIds,
         isKioskZone,
@@ -111,7 +126,6 @@ export function runActorQueuedActionStep({
         recovering: recovering || movementResult.recovering,
         reviveCutoffIdx,
         ruleset,
-        wasAlive: Number(sourceActor?.hp || 0) > 0,
       },
       actions: {
         addLog,
@@ -127,9 +141,13 @@ export function runActorQueuedActionStep({
     });
     updated = huntAction.actor;
     if (huntAction.died) newlyDead.push(updated);
+    if (Number(updated?.hp || 0) <= 0) return { actor: updated, newlyDead };
+    // A scheduled hunt now owns the actor until its real-time encounter ends.
+    // Opening crates, procurement and crafting are separate actions.
+    if (huntAction.pending) return { actor: updated, newlyDead, huntPending: true };
   }
 
-  const legendaryCrateResult = openLegendaryCrateForActor({
+  const legendaryCrateResult = queuedActionType === 'rest' ? { actor: updated, opened: false } : openLegendaryCrateForActor({
     state: {
       actor: updated,
       craftables,

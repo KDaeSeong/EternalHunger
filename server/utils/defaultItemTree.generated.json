@@ -983,18 +983,18 @@
     "name": "손도끼",
     "type": "무기",
     "tags": [
-      "weapon",
-      "coverage_seed",
-      "usable"
+      "namu",
+      "도끼"
     ],
-    "rarity": "rare",
-    "tier": 2,
-    "itemSubType": "coverage_seed",
+    "rarity": "common",
+    "tier": 1,
+    "itemSubType": "도끼",
     "stackMax": 1,
-    "baseCreditValue": 135,
+    "baseCreditValue": 0,
     "stats": {
-      "atk": 8
+      "atk": 18
     },
+    "equipSlot": "weapon",
     "weaponType": "도끼",
     "spawnZones": [
       "소방서",
@@ -1010,9 +1010,9 @@
       "namu:도끼:저거너트",
       "namu:도끼:진홍빛 낫"
     ],
-    "source": "default.seed.actual",
+    "source": "namu",
     "lockedByAdmin": true,
-    "description": "coverage 보강용 기본 실사용 장비."
+    "description": "일단 도끼보단 아담한 생김새의 도끼. 사이즈는 귀엽지만 위력은 귀엽지 않다."
   },
   {
     "key": "core:무기::암기:2:수리검",

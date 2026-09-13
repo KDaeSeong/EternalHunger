@@ -4,6 +4,8 @@ import {
   safeTags,
 } from './simulationCommon';
 import { EQUIP_SLOTS } from './simulationConstants';
+import { initializeSpatialPosition } from './combatSpatialRuntime.js';
+import { WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 import {
   addItemToInventory,
   getInvItemId,
@@ -133,6 +135,12 @@ function clearRuntimeCombatFields(actor) {
   actor._recentCombatUntil = 0;
   actor._recentCombatWith = '';
   actor._recentCombatReason = '';
+  actor._combatIntent = null;
+  actor._spatialMotion = null;
+  actor._spatialLastSeen = null;
+  actor._forcedControlState = null;
+  actor._retreatAvoidZoneId = '';
+  actor._retreatAvoidDecisions = 0;
   return actor;
 }
 
@@ -198,15 +206,27 @@ function normalizeDeadSnapshot(actor, ruleset) {
 function normalizeRevivedSurvivor(actor, revivedHp, zoneId, phaseIdxNow, ruleset, absSec = 0, reviveKit = null) {
   if (!actor || typeof actor !== 'object') return actor;
   const revived = normalizeRuntimeSurvivor(actor);
+  revived._combatSpaceId = WORLD_COMBAT_SPACE;
+  revived._dimensionRiftEntry = null;
+  revived._dimensionRiftDefeat = null;
   revived.inventory = normalizeInventory(revived.inventory, ruleset);
   pruneEquippedAgainstInventory(revived);
   clearRuntimeCombatFields(revived);
+  revived._basicAttackReadyAtSec = 0;
+  revived._lastBasicAttackAtSec = null;
+  revived._pendingCharacterCast = null;
+  revived._armedCharacterSkill = null;
   revived.hp = Math.max(1, Math.min(Number(revived.maxHp || revivedHp || 1), Number(revivedHp || 1)));
   revived.zoneId = String(zoneId || revived.zoneId || '');
+  revived._spatial = initializeSpatialPosition(revived, { reset: true });
+  revived._spatialPatrolIndex = 0;
   revived.activeEffects = [];
   revived.statusImmunities = Array.isArray(revived.statusImmunities) ? [...revived.statusImmunities] : [];
   revived.statusResists = revived.statusResists && typeof revived.statusResists === 'object' ? { ...revived.statusResists } : {};
   revived.revivedOnce = true;
+  revived._combatContributions = {};
+  revived.lastDamagedBy = '';
+  revived.lastDamagedPhaseIdx = -9999;
   revived.revivedAtPhaseIdx = phaseIdxNow;
   revived.deadAtPhaseIdx = undefined;
   revived.reviveEligible = false;

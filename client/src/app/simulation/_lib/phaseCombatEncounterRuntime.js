@@ -1,9 +1,13 @@
-import { canonicalizeCharName } from './combatRuntime';
 import { resolveCombatWinnerOutcome } from './phaseCombatDamageRuntime';
 import { createPhaseCombatEliminationRuntime } from './phaseCombatEliminationRuntime';
 import { createPhaseCombatFleeRuntime } from './phaseCombatFleeRuntime';
 import { createPhaseCombatSkillSplashRuntime } from './phaseCombatSkillSplashRuntime';
 import { createPhaseCombatTacticalRuntime } from './phaseCombatTacticalRuntime';
+import { canJoinTeamCombat, runTeamCombatRound } from './teamCombatRuntime';
+import { engageCombatParticipants } from './combatTimingRuntime.js';
+import { isAiRecoveryLocked } from './survivorLifecycleRuntime';
+import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
+import { hasActionBlockStatus, canMoveByStatus, isTargetableByStatus, getForcedControlEffect } from '../../../utils/statusLogic.js';
 
 export function runPhaseCombatEncounter({
   actions = {},
@@ -19,16 +23,13 @@ export function runPhaseCombatEncounter({
     currentActionSec = () => 0,
     estimatePower = () => 0,
     forbiddenIds = new Set(),
-    isDay1MorningFarmPhase = false,
     isSoloMatch = false,
     itemMetaById,
     itemNameById,
-    midgameCombatWindow = false,
     newDeadIds = [],
     nextDay = 1,
     phaseIdxNow = 0,
     phaseSurvivors = [],
-    pickUnbiasedBattle = () => ({ winner: null, log: '' }),
     publicItems = [],
     restrictedRatio = 0,
     reviveCutoffIdx = 0,
@@ -41,6 +42,8 @@ export function runPhaseCombatEncounter({
     totalZonesCount = 0,
     useDetonation = false,
     zoneGraph = {},
+    actionType = 'exchange',
+    preparedSkill = null,
   } = state;
   const {
     addEarnedCredits = () => {},
@@ -56,12 +59,17 @@ export function runPhaseCombatEncounter({
     getZoneName = (zoneId) => String(zoneId || ''),
     grantPvpDamageMastery = () => {},
     grantPvpKillMastery = () => {},
-    reserveActionSecond = () => {},
     setDeathMetadata = () => {},
     tryUseConsumable = () => {},
   } = actions;
 
   if (!actor || !target) return { actor, target, skipRemainingTurn: false };
+  actor = survivorMap.get(String(actor._id || '')) || actor;
+  target = survivorMap.get(String(target._id || '')) || target;
+  if (!shareCombatSpace(actor, target) || String(actor.zoneId) !== String(target.zoneId)) return { actor, target, skipRemainingTurn: true };
+  if (Number(actor.hp || 0) <= 0 || Number(target.hp || 0) <= 0 || !isTargetableByStatus(target) || newDeadIds.includes(String(actor._id)) || newDeadIds.includes(String(target._id))) {
+    return { actor, target, skipRemainingTurn: true };
+  }
 
   const absNow = currentActionSec();
   const tacticalRuntime = createPhaseCombatTacticalRuntime({
@@ -158,19 +166,6 @@ export function runPhaseCombatEncounter({
     },
   });
   const { applyCombatElimination } = combatEliminationRuntime;
-  const markUnattributedDeath = (victim, reasonText = '접전 중 전투불능') => {
-    if (!victim) return;
-    const victimId = String(victim?._id || '');
-    setDeathMetadata(victim, victim._deathBy || 'combat_unattributed', { causeName: reasonText });
-    addLog(`☠️ [${victim.name}] ${reasonText}`, 'death');
-    if (!newDeadIds.includes(victimId)) {
-      victim.deadAtPhaseIdx = phaseIdxNow;
-      victim.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
-      newDeadIds.push(victimId);
-      flushDeadSnapshots(appendPhaseDeadSnapshots(victim));
-    }
-    emitDeathRunEventOnce(victim, { reason: victim._deathBy || 'combat_unattributed', cause: reasonText });
-  };
   const skillSplashRuntime = createPhaseCombatSkillSplashRuntime({
     state: {
       newDeadIds,
@@ -192,14 +187,15 @@ export function runPhaseCombatEncounter({
   } = skillSplashRuntime;
 
   const escapeOutcome = (() => {
+    if (actionType === 'skill_release') return null;
     const curZone = String(actor?.zoneId || target?.zoneId || '');
     if (!curZone) return null;
 
     const hpBelow = Number(ruleset?.ai?.escapeHpBelow ?? 42);
     const aAvoid = shouldAvoidCombatByPower(actor, target);
     const bAvoid = shouldAvoidCombatByPower(target, actor);
-    const aWants = (Number(actor.hp || 0) > 0 && Number(actor.hp || 0) <= hpBelow) || !!aAvoid;
-    const bWants = (Number(target.hp || 0) > 0 && Number(target.hp || 0) <= hpBelow) || !!bAvoid;
+    const aWants = canMoveByStatus(actor) && ((Number(actor.hp || 0) > 0 && Number(actor.hp || 0) <= hpBelow) || !!aAvoid);
+    const bWants = canMoveByStatus(target) && ((Number(target.hp || 0) > 0 && Number(target.hp || 0) <= hpBelow) || !!bAvoid);
     if (!aWants && !bWants) return null;
 
     let flee = null;
@@ -243,90 +239,46 @@ export function runPhaseCombatEncounter({
   actor = survivorMap.get(actor._id) || actor;
   target = survivorMap.get(target._id) || target;
 
-  const actorBattleName = canonicalizeCharName(actor.name);
-  const targetBattleName = canonicalizeCharName(target.name);
-  const battleResult = pickUnbiasedBattle(
-    { ...actor, name: actorBattleName },
-    { ...target, name: targetBattleName }
-  );
-  let battleLog = battleResult.log || '';
-  if (actorBattleName && actorBattleName !== actor.name) {
-    battleLog = battleLog.split(actorBattleName).join(actor.name);
-  }
-  if (targetBattleName && targetBattleName !== target.name) {
-    battleLog = battleLog.split(targetBattleName).join(target.name);
-  }
+  if (actionType !== 'skill_release' && !getForcedControlEffect(actor)) engageCombatParticipants(actor, target, [...survivorMap.values()], currentActionSec(), {
+    teamCombat: !isSoloMatch && ruleset?.pvp?.teamCombatEnabled !== false,
+  });
+  if (actionType === 'discover') return { actor, target, skipRemainingTurn: false };
 
-  if (battleResult.winner) {
-    return resolveCombatWinnerOutcome({
-      actions: {
-        addLog,
-        applyErTraitAfterBattle,
-        applyErWeaponSkillAfterCombat,
-        atNow,
-        emitRunEvent,
-        grantPvpDamageMastery,
-        reserveActionSecond,
-      },
-      combatElimination: {
-        applyCombatElimination,
-      },
-      flee: {
-        resolveFleeSequence,
-      },
-      skillSplash: {
-        applyCharacterSkillSplashDamage,
-        getCharacterSkillSplashTargets,
-      },
-      state: {
-        actor,
-        battleLog,
-        battleResult,
-        battleSettings,
-        currentActionSec,
-        estimatePower,
-        isDay1MorningFarmPhase,
-        midgameCombatWindow,
-        nextDay,
-        phaseIdxNow,
-        pvpCfg,
-        supportRoster: todaysSurvivors,
-        target,
-      },
-      tactical: {
-        applyCombatTacAttack,
-        shieldBlock,
+  const resolvePair = (striker, victim, strikeOnly = false) => resolveCombatWinnerOutcome({
+    actions: { addLog, applyErTraitAfterBattle, applyErWeaponSkillAfterCombat, atNow, emitRunEvent, grantPvpDamageMastery },
+    combatElimination: { applyCombatElimination },
+    flee: { resolveFleeSequence },
+    skillSplash: { applyCharacterSkillSplashDamage, getCharacterSkillSplashTargets },
+    state: { actor: striker, target: victim, battleSettings, currentActionSec, phaseIdxNow, pvpCfg,
+      supportRoster: [...survivorMap.values()], strikeOnly, preparedSkill },
+    tactical: { applyCombatTacAttack, shieldBlock },
+  });
+
+  if (actionType === 'skill_release') return resolvePair(actor, target, true);
+
+  if (!isSoloMatch && ruleset?.pvp?.teamCombatEnabled !== false) {
+    const round = runTeamCombatRound({ actor, target, survivorMap, newDeadIds, nowSec: currentActionSec(),
+      estimatePower, todaysSurvivors, onlyActorId: actionType === 'basic' ? String(actor._id) : '',
+      addLog, emitRunEvent, at: atNow(),
+      resolveStrike: (striker, victim) => {
+        const result = resolvePair(striker, victim, true);
+        survivorMap.set(String(striker._id), result.actor || striker);
+        survivorMap.set(String(victim._id), result.target || victim);
+        return result;
       },
     });
+    if (round.handled) return { actor: survivorMap.get(String(actor._id)) || actor,
+      target: survivorMap.get(String(target._id)) || target, teamRound: round, skipRemainingTurn: false };
   }
-
-  const scratch = Math.min(12, 5 + Math.floor(nextDay / 2));
-  actor.hp = Math.max(0, Number(actor.hp || 0) - scratch);
-  target.hp = Math.max(0, Number(target.hp || 0) - scratch);
-  if (scratch > 0) {
-    actor.lastDamagedBy = String(target._id);
-    actor.lastDamagedPhaseIdx = phaseIdxNow;
-    target.lastDamagedBy = String(actor._id);
-    target.lastDamagedPhaseIdx = phaseIdxNow;
+  const nowSec = currentActionSec();
+  const eligible = (actionType === 'basic' ? [actor] : [actor, target]).filter((row) => canJoinTeamCombat(row, { nowSec, zoneId: String(actor.zoneId), newDeadIds }));
+  for (const striker of eligible) {
+    const victim = striker === actor ? target : actor;
+    if (striker.hp <= 0 || victim.hp <= 0 || hasActionBlockStatus(striker) || isAiRecoveryLocked(striker, nowSec)
+      || String(striker.zoneId) !== String(victim.zoneId)) continue;
+    resolvePair(striker, victim, true);
+    survivorMap.set(String(striker._id), striker);
+    survivorMap.set(String(victim._id), victim);
   }
-  grantPvpDamageMastery(actor, { damageDealt: scratch, damageTaken: scratch }, '접전');
-  grantPvpDamageMastery(target, { damageDealt: scratch, damageTaken: scratch }, '접전');
-  addLog(battleLog, 'combat-detail');
-  addLog(`⚔️ 접전 피해: [${actor.name}] / [${target.name}] 둘 다 -${scratch}`, 'combat-detail');
-
-  emitRunEvent(
-    'battle',
-    {
-      a: String(actor?._id || ''),
-      b: String(target?._id || ''),
-      winner: '',
-      lethal: false,
-      zoneId: String(actor?.zoneId || target?.zoneId || ''),
-    },
-    atNow()
-  );
-  if (actor.hp <= 0) markUnattributedDeath(actor, '접전 끝에 쓰러짐');
-  if (target.hp <= 0) markUnattributedDeath(target, '접전 끝에 쓰러짐');
-
   return { actor, target, skipRemainingTurn: false };
 }

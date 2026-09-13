@@ -43,6 +43,7 @@ export default function CharactersPage() {
     editCharacterSkillCode,
     editCharacterSkillLevels,
     editCharacterSkills,
+    editUniqueResource,
     editTacticalSkill,
     manualSkillInputEnabled,
     openConfigModal,
@@ -50,6 +51,7 @@ export default function CharactersPage() {
     setActiveSkillSlot,
     setEditCharacterSkillCode,
     setEditCharacterSkillLevels,
+    setEditUniqueResource,
     setEditTacticalSkill,
     setManualSkillInputEnabled,
     skillCompileNotice,
@@ -264,6 +266,7 @@ export default function CharactersPage() {
         editCharacterSkillCode={editCharacterSkillCode}
         editCharacterSkillLevels={editCharacterSkillLevels}
         editCharacterSkills={editCharacterSkills}
+        editUniqueResource={editUniqueResource}
         activeSkillSlot={activeSkillSlot}
         editTacticalSkill={editTacticalSkill}
         manualSkillInputEnabled={manualSkillInputEnabled}
@@ -276,6 +279,7 @@ export default function CharactersPage() {
         onSetActiveSkillSlot={setActiveSkillSlot}
         onSetCharacterSkillCode={setEditCharacterSkillCode}
         onSetCharacterSkillLevels={setEditCharacterSkillLevels}
+        onSetUniqueResource={setEditUniqueResource}
         onSetManualSkillInputEnabled={setManualSkillInputEnabled}
         onSetTacticalSkill={setEditTacticalSkill}
         onUpdateSkill={updateEditSkill}

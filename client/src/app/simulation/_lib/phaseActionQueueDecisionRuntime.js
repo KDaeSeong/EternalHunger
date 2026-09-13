@@ -69,33 +69,38 @@ export function prepareActorPhaseActionQueue({
   const updated = actor || {};
   const goalMissingSet = normalizeGoalMissingIds(goalMissingIds);
   const routeDroneNeedIds = buildRouteDroneNeedIds(updated, routePlanMissingIdsNow);
+  const growth = updated._growthPlan;
+  const growing = growth && !growth.openingComplete;
+  if (growing) for (const row of growth.missing) if (!row.zones.length) routeDroneNeedIds.add(row.itemId);
   const hasRouteDroneNeed = routeDroneNeedIds.size > 0;
-  const deferProcureForRoute = currentRouteNeedsSearch && !hasRouteDroneNeed && !upgradeNeed?.wantLegend && !upgradeNeed?.wantTrans;
+  const deferProcureForRoute = growing
+    ? !!growth.readyCraftId || !hasRouteDroneNeed
+    : currentRouteNeedsSearch && !hasRouteDroneNeed && !upgradeNeed?.wantLegend && !upgradeNeed?.wantTrans;
 
-  let queuedKioskAction = (didMove || fleeInterruptReason || deferProcureForRoute)
+  let queuedKioskAction = (didMove || fleeInterruptReason || recovering || deferProcureForRoute)
     ? null
     : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, ruleset, upgradeNeed, currentActionSec());
   if (queuedKioskAction?.kind === 'buy' && queuedKioskAction?.itemId && !canReceiveItem(updated.inventory, queuedKioskAction.item, queuedKioskAction.itemId, queuedKioskAction.qty || 1, ruleset)) {
     queuedKioskAction = null;
   }
 
-  let queuedDroneOrder = (didMove || fleeInterruptReason || deferProcureForRoute || (queuedKioskAction?.itemId && queuedKioskAction?.item))
+  let queuedDroneOrder = (didMove || fleeInterruptReason || recovering || deferProcureForRoute || (queuedKioskAction?.itemId && queuedKioskAction?.item))
     ? null
     : rollDroneOrder(droneOffers, mapObj, publicItems, nextDay, nextPhase, updated, phaseIdxNow, craftGoal, itemNameById, marketRules, currentActionSec());
   if (queuedDroneOrder?.itemId && !canReceiveItem(updated.inventory, queuedDroneOrder.item, queuedDroneOrder.itemId, queuedDroneOrder.qty || 1, ruleset)) {
     queuedDroneOrder = null;
   }
 
-  const craftProbeActor = (didMove || fleeInterruptReason || queuedKioskAction?.itemId || queuedDroneOrder?.itemId)
+  const craftProbeActor = (didMove || fleeInterruptReason || recovering)
     ? null
-    : { ...updated, inventory: Array.isArray(updated.inventory) ? [...updated.inventory] : [], _itemKeyById: itemKeyById };
+    : { ...structuredClone(updated), _itemKeyById: itemKeyById };
   const craftPreview = craftProbeActor
     ? tryAutoCraftFromInventory(craftProbeActor, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset)
     : null;
   const suppressEarlyRouteHunt = currentRouteNeedsSearch && !craftPreview?.changed && !upgradeNeed?.farmCredits;
 
   const queueScoredCandidates = (() => {
-    if (didMove || fleeInterruptReason) return [];
+    if (didMove || fleeInterruptReason || recovering) return [];
     const lowHpRatio = Math.max(0, Math.min(1, Number(updated?.hp || 0) / Math.max(1, Number(updated?.maxHp || 100))));
     const simCredits = Math.max(0, Number(updated?.simCredits || 0));
     const dayNumber = Math.max(1, Number(nextDay || 1));
@@ -155,7 +160,7 @@ export function prepareActorPhaseActionQueue({
       const itemId = String(craftPreview?.craftedId || '');
       const craftedTier = Math.max(1, Number(craftPreview?.craftedTier || itemMetaById?.[itemId]?.tier || 1));
       const matchesGoal = goalTargetId === itemId || goalMissingSet.has(itemId);
-      const score = 58 + craftedTier * 6 + (matchesGoal ? 24 : 0) + legendBias + transBias;
+      const score = 58 + craftedTier * 6 + (matchesGoal ? 24 : 0) + legendBias + transBias + (growing ? 150 : 0);
       scoreRows.push({
         type: 'craft',
         zoneId: String(updated?.zoneId || ''),
@@ -233,6 +238,16 @@ export function prepareActorPhaseActionQueue({
         score: 998,
       };
     }
+    if (recovering) {
+      return {
+        type: 'rest',
+        zoneId: String(updated?.zoneId || currentZone || ''),
+        reason: 'low_hp_recovery',
+        etaSec: 1,
+        phaseIdx: Number(phaseIdxNow || 0),
+        score: 997,
+      };
+    }
     return queueScoredCandidates[0] || (
       earlyRouteActionActive
         ? { type: 'routeFarm', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0), score: 1, reason: 'early_route' }
@@ -256,9 +271,11 @@ export function prepareActorPhaseActionQueue({
   const candidatePreview = [
     didMove ? `${(mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo'}@${getZoneName(nextZoneId || currentZone || '')}` : null,
     (!didMove && fleeInterruptReason) ? `flee:${String(fleeInterruptReason || '')}` : null,
+    (!didMove && !fleeInterruptReason && recovering) ? `rest@${getZoneName(updated?.zoneId || currentZone || '')}` : null,
     ...queueScoredCandidates.map((row) => `${String(row?.label || row?.type || '')}[${Number(row?.score || 0).toFixed(1)}]`),
   ].filter(Boolean);
   const blockedReasons = [
+    recovering ? 'recovering' : null,
     (didMove && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? 'movement_locked' : null,
     (fleeInterruptReason && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? `flee_interrupt:${String(fleeInterruptReason || '')}` : null,
     (!didMove && !fleeInterruptReason && !queuedKioskAction?.itemId && !queuedDroneOrder?.itemId && craftProbeActor?._craftDebug?.code && craftProbeActor?._craftDebug?.code !== 'crafted')
@@ -303,7 +320,7 @@ export function prepareActorPhaseActionQueue({
     spendSurplus: !!upgradeNeed?.spendSurplus,
   };
 
-  if (blockedReasons.length || ['flee', 'routeFarm', 'kioskBuy', 'kioskExchange', 'kioskSell', 'droneOrder', 'craft'].includes(queuedActionType)) {
+  if (blockedReasons.length || ['flee', 'rest', 'routeFarm', 'kioskBuy', 'kioskExchange', 'kioskSell', 'droneOrder', 'craft'].includes(queuedActionType)) {
     emitQueueRunEvent(updated, {
       zoneId: String(updated?.zoneId || currentZone || ''),
       chosen: queuedActionType,

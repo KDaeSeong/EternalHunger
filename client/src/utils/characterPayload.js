@@ -1,6 +1,7 @@
 import { normalizeSupportedTacSkill } from './tacticalSkillCatalog.js';
 import { ER_STAT_KEYS, normalizeErStats } from './erStats.js';
-import { normalizeCharacterSkillType, normalizeSupportTargetScope } from './characterSkillCompilerCore.js';
+import { normalizeCharacterSkillMovementMode, normalizeCharacterSkillType, normalizeSupportTargetScope } from './characterSkillCompilerCore.js';
+import { normalizeCharacterStatusEffects } from './characterStatusSkillDefinition.js';
 
 const MAX_PREVIEW_IMAGE_CHARS = 60000;
 const MAX_TEXT_CHARS = 4000;
@@ -139,11 +140,24 @@ function cleanPctInput(value, fallback = 0) {
   return n > 1 ? n / 100 : n;
 }
 
+function cleanUniqueResource(value) {
+  const src = value && typeof value === 'object' ? value : {};
+  const maxValue = Math.max(1, Math.min(10000, cleanNumber(src.maxValue, 100)));
+  return {
+    enabled: src.enabled === true,
+    name: (cleanString(src.name, 30) || '고유 자원').trim() || '고유 자원',
+    maxValue,
+    startValue: Math.max(0, Math.min(maxValue, cleanNumber(src.startValue, 0))),
+    regenPerSec: Math.max(0, Math.min(100, cleanNumber(src.regenPerSec, 0))),
+  };
+}
+
 function cleanCharacterSkill(raw, slot) {
   const src = raw && typeof raw === 'object' ? raw : {};
   const isPassive = slot === 'passive';
   const defaultType = isPassive ? 'passive_stat' : slot === 'q' ? 'basic_attack_enhance' : 'attack_skill';
   const defaultCooldown = slot === 'r' ? 60 : slot === 'e' ? 18 : slot === 'w' ? 12 : slot === 'q' ? 7 : 0;
+  const includesMovement = !isPassive && src.includesMovement === true;
   const out = {
     enabled: src.enabled === true,
     slot,
@@ -152,8 +166,17 @@ function cleanCharacterSkill(raw, slot) {
     name: cleanString(src.name, 256) || '',
     sourceText: cleanString(src.sourceText, MAX_TEXT_CHARS) || '',
     cooldownSec: Math.max(isPassive ? 0 : 1, cleanNumber(src.cooldownSec, defaultCooldown)),
+    cooldownFixed: src.cooldownFixed === true,
+    resourceCost: isPassive ? 0 : Math.max(0, Math.min(10000, cleanNumber(src.resourceCost, 0))),
+    resourceGain: isPassive ? 0 : Math.max(0, Math.min(10000, cleanNumber(src.resourceGain, 0))),
     recastWindowSec: Math.max(0, cleanNumber(src.recastWindowSec, 0)),
     range: Math.max(0, cleanNumber(src.range, 0)),
+    includesMovement,
+    movementMode: includesMovement ? normalizeCharacterSkillMovementMode(src.movementMode) : 'toward_target',
+    movementDistance: includesMovement ? Math.max(0, Math.min(10, cleanNumber(src.movementDistance, 0))) : 0,
+    damageType: ['basic', 'skill', 'true'].includes(src.damageType) ? src.damageType : 'skill',
+    attackPowerScale: Math.max(0, cleanNumber(src.attackPowerScale ?? src.firstAttackPowerScale, 0)),
+    secondAttackPowerScale: Math.max(0, cleanNumber(src.secondAttackPowerScale, 0)),
     castDelaySec: Math.max(0, cleanNumber(src.castDelaySec, 0)),
     recoveryDelaySec: Math.max(0, cleanNumber(src.recoveryDelaySec, 0)),
     useCondition: cleanString(src.useCondition, 64) || 'auto',
@@ -167,6 +190,7 @@ function cleanCharacterSkill(raw, slot) {
     maxTargetHpPct: cleanPctInput(src.maxTargetHpPct, 0),
     radius: Math.max(0, cleanNumber(src.radius, 0)),
     durationSec: Math.max(0, cleanNumber(src.durationSec, 0)),
+    statusEffects: normalizeCharacterStatusEffects({ ...src, slot }, slot),
     firstSkillAmpScale: Math.max(0, cleanNumber(src.firstSkillAmpScale, 0)),
     secondSkillAmpScale: Math.max(0, cleanNumber(src.secondSkillAmpScale, 0)),
     skillAmpScale: Math.max(0, cleanNumber(src.skillAmpScale ?? src.firstSkillAmpScale, 0)),
@@ -246,6 +270,7 @@ function comparableValueForKey(value, key) {
   if (key === 'goalGearTier') return 6;
   if (key === 'characterSkillLevel') return Math.max(1, Math.min(5, cleanNumber(value, 1)));
   if (key === 'characterSkills') return stableStringify(cleanCharacterSkills(value));
+  if (key === 'uniqueResource') return stableStringify(cleanUniqueResource(value));
   if (key === 'tacticalSkillLevel') return Math.max(1, Math.min(2, cleanNumber(value, 1)));
   if (key === 'tacticalSkill') return normalizeSupportedTacSkill(value);
   if (key === 'previewImage') return cleanPreviewImage(value) || '';
@@ -302,6 +327,9 @@ export function findCharacterSaveMismatches(payloadCharacters, savedCharacters, 
     if (payload?.characterSkills !== undefined && !compareObject(payload.characterSkills, saved?.characterSkills, cleanCharacterSkills)) {
       mismatches.push({ id: requestId || id, field: 'characterSkills' });
     }
+    if (payload?.uniqueResource !== undefined && !compareObject(payload.uniqueResource, saved?.uniqueResource, cleanUniqueResource)) {
+      mismatches.push({ id: requestId || id, field: 'uniqueResource' });
+    }
     if (payload?.erWeapons !== undefined && stableStringify(cleanArrayStrings(payload.erWeapons)) !== stableStringify(cleanArrayStrings(saved?.erWeapons))) {
       mismatches.push({ id: requestId || id, field: 'erWeapons' });
     }
@@ -334,6 +362,7 @@ export function compactCharacterForSave(character, options = {}) {
   if (c.characterSkillLevel !== undefined) out.characterSkillLevel = Math.max(1, Math.min(5, cleanNumber(c.characterSkillLevel, 1)));
   if (c.characterSkillLevels !== undefined) out.characterSkillLevels = cleanSkillLevels(c.characterSkillLevels);
   if (c.characterSkills !== undefined) out.characterSkills = cleanCharacterSkills(c.characterSkills);
+  if (c.uniqueResource !== undefined) out.uniqueResource = cleanUniqueResource(c.uniqueResource);
   out.goalGearTier = 6;
   if (c.tacticalSkill !== undefined) out.tacticalSkill = normalizeSupportedTacSkill(c.tacticalSkill);
   if (c.tacticalSkillLevel !== undefined) out.tacticalSkillLevel = Math.max(1, Math.min(2, cleanNumber(c.tacticalSkillLevel, 1)));

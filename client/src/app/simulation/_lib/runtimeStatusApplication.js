@@ -13,14 +13,24 @@ import {
   addOrRefreshEffect,
   canonicalizeEffectName,
   normalizeStatusEffectList,
+  normalizeStatusEffect,
   purgeNegativeEffects,
+  getStatusProtectionReason,
+  hasMovementInterruptStatus,
+  canUseSkillByStatus,
 } from '../../../utils/statusLogic';
 import { normalizeRuntimeEffect } from './runtimeStatusNormalization';
+import { resolveRiftKnockbacks } from './riftDisplacementRuntime.js';
 
 export function getEffectIndex(character, effectName) {
   const list = Array.isArray(character?.activeEffects) ? character.activeEffects : [];
   const key = canonicalizeEffectName(effectName);
-  return list.findIndex((e) => canonicalizeEffectName(e?.name) === key);
+  return list.findIndex((raw) => {
+    const effect = normalizeStatusEffect(raw);
+    return effect && canonicalizeEffectName(effect.name) === key
+      && (effect.remainingDuration == null || effect.remainingDuration > 0)
+      && !getStatusProtectionReason(character, effect);
+  });
 }
 
 export function hasActiveEffect(character, effectName) {
@@ -42,6 +52,22 @@ export function applyStatusEffect(actor, effect, opts = {}) {
   actor.activeEffects = Array.isArray(res?.character?.activeEffects)
     ? res.character.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean)
     : [];
+  if (res.applied && hasMovementInterruptStatus(actor)) actor._spatialMotion = null;
+  // Preserve interruption even if the same hit immediately wakes sleep or
+  // another effect cleanses it before the scheduler reconciles pending casts.
+  if (res.applied && actor._pendingCharacterCast && !canUseSkillByStatus(actor, actor._pendingCharacterCast.def)) {
+    actor._pendingCharacterCast = { ...actor._pendingCharacterCast, statusInterrupt: res.effect?.name || 'status' };
+  }
+  if (res.applied && res.effect?.name === EFFECT_KNOCKBACK) {
+    const displacements = resolveRiftKnockbacks([actor], opts.nowSec ?? opts.at?.sec, {
+      emitRunEvent: opts.emitRunEvent, addLog: opts.addLog, atNow: () => opts.at,
+    });
+    // Consumers of either the mutating API or its returned snapshot must see
+    // the same committed coordinates, interruption and consumed impulse.
+    return { ...res, character: { ...actor }, displacements,
+      effect: actor.activeEffects.find((activeEffect) => activeEffect.name === EFFECT_KNOCKBACK
+        && activeEffect.knockbackSerial === res.effect.knockbackSerial) || res.effect };
+  }
   return res;
 }
 
@@ -80,12 +106,12 @@ export function applyRegenEffect(actor, recovery, duration = 2, sourceId = '') {
   return { applied: !!res?.applied, recovery: rec };
 }
 
-export function applyRuntimeEffectPayloads(actor, effects) {
+export function applyRuntimeEffectPayloads(actor, effects, opts = {}) {
   const list = normalizeStatusEffectList(effects).map((x) => normalizeRuntimeEffect(x)).filter(Boolean);
   const results = [];
   list.forEach((effect) => {
-    const res = applyStatusEffect(actor, effect);
-    results.push({ ...res, effect });
+    const res = applyStatusEffect(actor, effect, opts);
+    results.push({ ...res, effect: res.effect || effect });
   });
   return {
     results,

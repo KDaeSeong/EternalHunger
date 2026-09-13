@@ -36,6 +36,9 @@ export function useSimulationMapActions({
     doHyperloopJump: (toMapId, whoId) => getMapActions().doHyperloopJump(toMapId, whoId),
     getForbiddenAddedZoneIdsForPhase,
     getForbiddenZoneIdsForPhase,
+    removeLocalMap: (mapId) => getMapActions().removeLocalMap(mapId),
     refreshMapSettingsFromServer: (reason = 'manual') => getMapActions().refreshMapSettingsFromServer(reason),
+    saveLocalMap: (mapDraft) => getMapActions().saveLocalMap(mapDraft),
+    selectLocalMap: (mapId) => getMapActions().selectLocalMap(mapId),
   };
 }

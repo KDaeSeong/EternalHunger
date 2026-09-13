@@ -1,6 +1,5 @@
 import { runDetonationTickPhase } from './phaseDetonationTickRuntime';
 import { runDimensionRiftPhase } from './phaseDimensionRiftRuntime';
-import { runSuddenDeathGatherPhase } from './suddenDeathRuntime';
 
 export function runPhaseWorldResolution({
   actions = {},
@@ -29,6 +28,7 @@ export function runPhaseWorldResolution({
     phaseStartSec = 0,
     publicItems = [],
     reviveCutoffIdx = 0,
+    revivalContext,
     ruleset,
     suddenDeathSafeZoneIds = [],
     tickSec = 1,
@@ -51,6 +51,7 @@ export function runPhaseWorldResolution({
 
   const dimensionRiftResult = runDimensionRiftPhase({
     state: {
+      revivalContext,
       currentActionSec,
       forbiddenIds,
       isSoloMatch,
@@ -60,6 +61,8 @@ export function runPhaseWorldResolution({
       nextDay,
       nextPhase,
       nextSpawn,
+      phaseStartSec,
+      phaseDurationSec,
       phaseIdxNow,
       publicItems,
       ruleset,
@@ -76,23 +79,7 @@ export function runPhaseWorldResolution({
   });
   let resolvedSurvivors = dimensionRiftResult.updatedSurvivors;
 
-  const suddenDeathGatherResult = runSuddenDeathGatherPhase({
-    state: {
-      ruleset,
-      suddenDeathActive: Boolean(suddenDeathActiveRef?.current),
-      suddenDeathSafeZoneIds,
-      updatedSurvivors: resolvedSurvivors,
-    },
-    actions: {
-      addLog,
-      atNow,
-      emitRunEvent,
-      getZoneName,
-    },
-  });
-  resolvedSurvivors = suddenDeathGatherResult.updatedSurvivors;
-
-  const detonationTickResult = runDetonationTickPhase({
+  const detonationTickResult = state.deferTimeTicks ? { updatedSurvivors: resolvedSurvivors } : runDetonationTickPhase({
     state: {
       canReviveThisMatch,
       fogLocalSec,

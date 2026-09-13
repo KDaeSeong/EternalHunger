@@ -4,6 +4,8 @@ import { runActorMovementDecisionPhase } from './phaseActorMovementRuntime';
 import { prepareActorPhaseActionPlan } from './phaseActionQueueRuntime';
 import { runActorLootStep } from './phaseActorLootStepRuntime';
 import { runActorQueuedActionStep } from './phaseActorQueuedActionStepRuntime';
+import { getForcedControlEffect } from '../../../utils/statusLogic.js';
+import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 
 export function runSingleActorPhaseAction({
   actions = {},
@@ -62,7 +64,8 @@ export function runSingleActorPhaseAction({
     state: {
       actor: sourceActor,
       canReviveThisMatch,
-      elapsedSec: phaseDurationSec,
+      elapsedSec: state.statusElapsedSec ?? phaseDurationSec,
+      startSec: state.statusStartSec,
       phaseIdxNow,
       reviveCutoffIdx,
     },
@@ -70,6 +73,8 @@ export function runSingleActorPhaseAction({
       addLog,
       emitDeathRunEventOnce,
       setDeathMetadata,
+      emitRunEvent,
+      atNow,
     },
   });
   let updated = statusTickResult.actor;
@@ -77,6 +82,12 @@ export function runSingleActorPhaseAction({
     newlyDead.push(updated);
     return { actor: updated, newlyDead, pendingPickAssigned };
   }
+  // Also guard callers outside the scheduled pipeline, after their status tick.
+  if (getActorDimensionRiftId(updated)) {
+    updated.aiCurrentAction = 'dimension_rift_wait';
+    return { actor: updated, newlyDead, pendingPickAssigned };
+  }
+  if (getForcedControlEffect(updated)) return { actor: updated, newlyDead, pendingPickAssigned };
 
   const movementResult = runActorMovementDecisionPhase({
     state: {
@@ -96,7 +107,9 @@ export function runSingleActorPhaseAction({
       nextPhase,
       nextSpawn,
       phaseIdxNow,
-      phaseSurvivors,
+      phaseSurvivors: state.movementRoster || phaseSurvivors,
+      publicItems,
+      teamMovementPlan: state.teamMovementPlan,
       ruleset,
       zoneGraph,
       zones,
@@ -141,6 +154,7 @@ export function runSingleActorPhaseAction({
     state: {
       actor: updated,
       craftables,
+      nextSpawn,
       currentActionSec,
       currentZone: movementResult.currentZone,
       didMove: movementResult.didMove,
@@ -168,6 +182,8 @@ export function runSingleActorPhaseAction({
       ruleset,
       upgradeNeed: movementResult.upgradeNeed,
       usedHyperloopMove: movementResult.usedHyperloopMove,
+      zoneGraph,
+      forbiddenIds,
     },
     actions: {
       atNow,

@@ -8,10 +8,12 @@ import { DEFAULT_ER_STATS, normalizeErStats } from '../../../utils/erStats';
 import {
   CHARACTER_SKILL_SLOTS,
   createDefaultCompiledSkill,
+  normalizeCharacterSkillMovementMode,
   normalizeCharacterSkillType,
   normalizeSupportTargetScope,
 } from '../../../utils/characterSkillCompiler';
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
+import { normalizeUniqueResourceDefinition } from '../../simulation/_lib/uniqueResourceRuntime.js';
 
 const SKILL_LEVEL_COUNT = 5;
 
@@ -77,8 +79,19 @@ function normalizeCharacterSkillForEditor(skills, slot = 'q') {
     name: String(raw.name || ''),
     sourceText: String(raw.sourceText || ''),
     cooldownSec: Math.max(skillSlot === 'passive' ? 0 : 1, cleanNumber(raw.cooldownSec, skillSlot === 'q' ? 7 : 12)),
+    cooldownFixed: raw.cooldownFixed === true,
+    resourceCost: skillSlot === 'passive' ? 0 : Math.max(0, cleanNumber(raw.resourceCost, 0)),
+    resourceGain: skillSlot === 'passive' ? 0 : Math.max(0, cleanNumber(raw.resourceGain, 0)),
     recastWindowSec: Math.max(0, cleanNumber(raw.recastWindowSec, 0)),
     range: Math.max(0, cleanNumber(raw.range, 0)),
+    includesMovement: skillSlot !== 'passive' && raw.includesMovement === true,
+    movementMode: normalizeCharacterSkillMovementMode(raw.movementMode),
+    movementDistance: skillSlot === 'passive' || raw.includesMovement !== true
+      ? 0
+      : Math.max(0, Math.min(10, cleanNumber(raw.movementDistance, 0))),
+    damageType: ['basic', 'skill', 'true'].includes(raw.damageType) ? raw.damageType : 'skill',
+    attackPowerScale: Math.max(0, cleanNumber(raw.attackPowerScale ?? raw.firstAttackPowerScale, 0)),
+    secondAttackPowerScale: Math.max(0, cleanNumber(raw.secondAttackPowerScale, 0)),
     castDelaySec: Math.max(0, cleanNumber(raw.castDelaySec, 0)),
     recoveryDelaySec: Math.max(0, cleanNumber(raw.recoveryDelaySec, 0)),
     useCondition: String(raw.useCondition || 'auto'),
@@ -92,6 +105,7 @@ function normalizeCharacterSkillForEditor(skills, slot = 'q') {
     maxTargetHpPct: cleanPctInput(raw.maxTargetHpPct, 0),
     radius: Math.max(0, cleanNumber(raw.radius, 0)),
     durationSec: Math.max(0, cleanNumber(raw.durationSec, 0)),
+    statusEffects: raw.statusEffects,
     firstFlat: normalizeSkillLevelArray(raw.firstFlat, 0, { integer: true }),
     secondFlat: normalizeSkillLevelArray(raw.secondFlat, 0, { integer: true }),
     flatDamage: normalizeSkillLevelArray(raw.flatDamage ?? raw.firstFlat, 0, { integer: true }),
@@ -135,6 +149,7 @@ function normalizeCharacterEditorList(data) {
       erWeapons,
       characterSkillLevels: normalizeCharacterSkillLevels(character?.characterSkillLevels),
       characterSkills: normalizeCharacterSkillsForEditor(character?.characterSkills),
+      uniqueResource: normalizeUniqueResourceDefinition(character?.uniqueResource),
       goalGearTier: 6,
       tacticalSkill: normalizeSupportedTacSkill(character?.tacticalSkill),
     };
@@ -186,6 +201,7 @@ function createBlankCharacter(id) {
     characterSkillLevel: 1,
     characterSkillLevels: { q: 1, w: 1, e: 1, r: 1 },
     characterSkills: normalizeCharacterSkillsForEditor(),
+    uniqueResource: normalizeUniqueResourceDefinition(),
     goalGearTier: 6,
     tacticalSkill: normalizeSupportedTacSkill('블링크'),
   };

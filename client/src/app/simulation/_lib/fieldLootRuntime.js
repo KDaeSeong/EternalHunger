@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import {
   clampTier4,
   pickWeighted,
@@ -23,6 +24,7 @@ import { getLumiaZoneSearchDensityWeight } from './lumiaMapGeometryRuntime';
 import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
 import { rollTranscendPickOptions } from './fieldTranscendLootRuntime';
 import { rollEarlyRouteLoot } from './fieldRouteLootRuntime';
+import { getFieldResourceQty, limitFieldLootToStock } from './fieldResourceRuntime';
 
 function clampDropTier(value) {
   const n = Number(value);
@@ -102,6 +104,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   const chance = Math.max(0.01, Math.min(0.98, (chanceBase * zoneDensityWeight) + Math.max(-0.05, Math.min(0.16, perkLootBias * 0.18))));
 
   const earlyRouteLoot = rollEarlyRouteLoot({
+    mapObj,
     curDay,
     curPhase,
     fallbackMaxTier,
@@ -116,13 +119,25 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   });
   if (earlyRouteLoot.handled) return earlyRouteLoot.loot;
 
-  if (Math.random() >= chance) return null;
+  if (simulationRandom() >= chance) return null;
+
+  // Live matches use a finite shared local pool, not an infinite catalog
+  // fallback. Legendary materials and supply crates remain world objectives.
+  if (opts.fieldResources) {
+    const candidates = list.filter((item) => getFieldResourceQty(opts.fieldResources, zoneId, item?._id) > 0)
+      .map((item) => ({ item, weight: applyPerkLootWeight(1 + (goalItemIds.has(String(item._id)) ? goalLootBoost : 0), opts.perkEffects || {}) }));
+    const item = pickWeighted(candidates)?.item;
+    if (!item) return null;
+    return limitFieldLootToStock({ item: markInventoryGoalItem(item, goalItemIds.has(String(item._id))),
+      itemId: String(item._id), qty: 1, crateId: 'shared_field', crateType: 'region_loot', zoneId: String(zoneId),
+    }, opts.fieldResources, opts.neededQtyById);
+  }
 
   // 1) 구역 상자 기반 드랍(맵에 crateType이 있으면 사용, 없으면 food)
   if (!useFallback) {
     const usable = legendEnabled ? inZone : inZone.filter((c) => String(c?.crateType || '').toLowerCase() !== 'legendary_material');
     if (!usable.length) return null;
-    const crate = usable[Math.floor(Math.random() * usable.length)];
+    const crate = usable[Math.floor(simulationRandom() * usable.length)];
     const crateType = String(crate?.crateType || 'food');
     const ctLower = String(crateType).toLowerCase();
 
@@ -164,7 +179,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
     const item = entry?._item || (Array.isArray(publicItems) ? publicItems : []).find((it) => String(it?._id) === itemId) || null;
     let qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
     const itemCat = inferItemCategory(item);
-    if ((itemCat === 'material' || itemCat === 'consumable') && Math.random() < Math.max(0, perkLootBias) * 0.45) {
+    if ((itemCat === 'material' || itemCat === 'consumable') && simulationRandom() < Math.max(0, perkLootBias) * 0.45) {
       qty += 1;
     }
 
@@ -284,7 +299,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   const itemId = String(entry.itemId);
   const item = list.find((it) => String(it?._id) === itemId) || null;
   let qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
-  if (Math.random() < Math.max(0, perkLootBias) * 0.45) qty += 1;
+  if (simulationRandom() < Math.max(0, perkLootBias) * 0.45) qty += 1;
   return { item: markInventoryGoalItem(item, goalItemIds.has(itemId)), itemId, qty, crateId: 'fallback', crateType: 'food', zoneId: String(zoneId || '') };
 }
 

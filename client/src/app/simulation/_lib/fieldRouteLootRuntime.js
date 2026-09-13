@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import {
   clampTier4,
   pickWeighted,
@@ -10,6 +11,8 @@ import {
 } from './inventoryRules';
 import { classifySpecialByName } from './craftRuntime';
 import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
+import { getGrowthItemZones } from './growthPlanRuntime';
+import { getFieldResourceQty, limitFieldLootToStock } from './fieldResourceRuntime';
 
 export function rollEarlyRouteLoot({
   curDay = 0,
@@ -18,6 +21,7 @@ export function rollEarlyRouteLoot({
   field = {},
   goalItemIds = new Set(),
   list = [],
+  mapObj,
   moved = false,
   opts = {},
   perkLootBias = 0,
@@ -26,7 +30,7 @@ export function rollEarlyRouteLoot({
 } = {}) {
   const earlyRouteCfg = field?.earlyRoute || {};
   const earlyRouteActive = routeItemIds.size > 0 && (
-    curDay === 1 ||
+    opts.focusedGrowth === true || curDay === 1 ||
     (curDay === 2 && (curPhase === 'morning' || curPhase === 'day'))
   );
   if (!earlyRouteActive) return { handled: false, loot: null };
@@ -50,6 +54,8 @@ export function rollEarlyRouteLoot({
     .map((itemId) => {
       const item = list.find((it) => String(it?._id) === String(itemId)) || null;
       if (!item?._id) return null;
+      if (getFieldResourceQty(opts.fieldResources, zoneId, itemId) <= 0) return null;
+      if (opts.focusedGrowth && !getGrowthItemZones(item, mapObj).includes(String(zoneId))) return null;
       if (isItemExcludedFromFieldFarming(item)) return null;
       if (classifySpecialByName(item?.name)) return null;
       const category = inferItemCategory(item);
@@ -65,7 +71,7 @@ export function rollEarlyRouteLoot({
     })
     .filter((x) => x && Number(x?.weight || 0) > 0);
 
-  if (routeCandidates.length && Math.random() < routeChance) {
+  if (routeCandidates.length && simulationRandom() < routeChance) {
     const picked = pickWeighted(routeCandidates);
     if (picked?.itemId) {
       const pickedCategory = inferItemCategory(picked?.item);
@@ -74,7 +80,7 @@ export function rollEarlyRouteLoot({
       const crateType = pickedCategory === 'equipment' ? 'route_equipment' : 'route_material';
       return {
         handled: true,
-        loot: {
+        loot: limitFieldLootToStock({
           item: markInventoryGoalItem(picked.item, true, 'route_goal'),
           itemId: String(picked.itemId),
           qty,
@@ -82,7 +88,7 @@ export function rollEarlyRouteLoot({
           crateType,
           routeFarm: routeFarmOnly,
           zoneId: String(zoneId || ''),
-        },
+        }, opts.fieldResources, opts.neededQtyById),
       };
     }
   }

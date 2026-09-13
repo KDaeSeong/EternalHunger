@@ -1,4 +1,5 @@
 import { EQUIP_SLOTS } from './simulationConstants';
+import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
   getInvItemId,
   inferEquipSlot,
@@ -82,7 +83,11 @@ function consumeLowMaterials(inventory, need, itemMetaById, itemNameById) {
 
 function autoEquipBest(actor, itemMetaById) {
   if (!actor || typeof actor !== 'object') return;
-  const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
+  const weapon = normalizeWeaponType(actor.weaponType || '');
+  const inv = (Array.isArray(actor?.inventory) ? actor.inventory : []).filter((item) => {
+    const candidateWeapon = normalizeWeaponType(item.weaponType || itemMetaById?.[getInvItemId(item)]?.weaponType || '');
+    return inferEquipSlot(item) !== 'weapon' || !weapon || !candidateWeapon || candidateWeapon === weapon;
+  });
   const eq = ensureEquipped(actor);
   const nextEq = { ...eq };
 

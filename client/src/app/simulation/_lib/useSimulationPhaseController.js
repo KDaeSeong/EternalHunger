@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import {
   getSimulationStartGate,
   runGuardedPhaseAdvance,
@@ -6,6 +5,7 @@ import {
 import { finishSimulationGame } from './finishGameRuntime';
 import { runSimulationPhaseCycle } from './simulationPhaseCycleRuntime';
 import { useSimulationPhaseSideEffects } from './useSimulationPhaseSideEffects';
+import { SIMULATION_FRAME_FIELDS } from './simulationFrameRuntime';
 
 export function useSimulationPhaseController({
   actions = {},
@@ -17,6 +17,7 @@ export function useSimulationPhaseController({
     autoSpeedRef,
     devRunTaintedRef,
     fullLogsRef,
+    fullRunEventsRef,
     isAdvancingRef,
     isFinishingRef,
     proceedPhaseGuardedRef,
@@ -73,11 +74,15 @@ export function useSimulationPhaseController({
       },
       state: {
         assistCounts,
+        day,
         dead,
         devRunTainted: Boolean(devRunTainted || devRunTaintedRef?.current),
         killCounts,
-        runEvents,
-        settings,
+        matchSec,
+        runEvents: fullRunEventsRef?.current || runEvents,
+        runSeed,
+        settings: refs.runInputRef?.current?.settings || settings,
+        replayMode: state.replayMode,
         winnerPredictionId,
       },
       actions: {
@@ -88,20 +93,26 @@ export function useSimulationPhaseController({
         setResultSummary,
         setShowResultModal,
         setWinner,
+        completeReplay: () => actions.completeReplay?.({
+          events: fullRunEventsRef?.current || runEvents,
+          random: refs.runRandomRef?.current?.getState(), ending: options.ending,
+          tainted: Boolean(devRunTainted || devRunTaintedRef?.current),
+        }),
       },
     });
   }
-  const finishGameRef = useRef(finishGame);
-
-  useEffect(() => {
-    finishGameRef.current = finishGame;
-  });
 
   async function proceedPhase() {
+    const prepared = actions.prepareRun?.({ ...state, activeMap: refs.activeMapRef?.current || state.activeMap });
+    if (prepared && day === 0) actions.applyRunInput?.(prepared.state);
+    const engineState = prepared ? { ...state, ...prepared.state } : state;
+    if (prepared && day > 0) {
+      for (const key of SIMULATION_FRAME_FIELDS) if (key in state) engineState[key] = state[key];
+    }
     return runSimulationPhaseCycle({
-      refs,
-      state,
-      helpers,
+      refs: prepared ? { ...refs, activeMapRef: { current: prepared.state.activeMap }, activeMapIdRef: { current: prepared.state.activeMapId } } : refs,
+      state: engineState,
+      helpers: prepared?.helpers || helpers,
       actions: {
         ...actions,
         finishGame,
@@ -128,7 +139,8 @@ export function useSimulationPhaseController({
       },
       actions: {
         addLog,
-        refreshMapSettingsFromServer,
+        refreshMapSettingsFromServer: state.replayMode ? undefined : refreshMapSettingsFromServer,
+        lockRunInputs: actions.lockRunInputs,
         setIsAdvancing,
         setRunEvents,
       },
@@ -161,7 +173,6 @@ export function useSimulationPhaseController({
       normalizeAutoSpeed,
     },
     startBlocked,
-    finishGameRef,
     proceedPhaseGuarded,
   });
 

@@ -1,6 +1,7 @@
 import { dedupeRuntimeParticipants, getRuntimeActorKey } from './runtimeParticipantRuntime';
 import { normalizeDeadSnapshot } from './survivorLifecycleRuntime';
 import { normalizeRuntimeSurvivorList } from './survivorRuntime';
+import { buildActorEquipmentDiagnostic } from './simulationDiagnostics.js';
 
 function setDeathMetadata(actor, reason, meta = {}, currentActionSec = () => 0) {
   if (!actor || typeof actor !== 'object') return actor;
@@ -70,6 +71,7 @@ function createPhaseDeathRuntime(opts = {}) {
       zoneId: String(meta?.zoneId || actor?.zoneId || ''),
       reason,
       cause: String(meta?.cause || actor?._deathCauseName || actor?.deathCauseName || ''),
+      equipmentAtDeath: buildActorEquipmentDiagnostic(actor),
     }, meta?.at || atNow?.());
   };
 

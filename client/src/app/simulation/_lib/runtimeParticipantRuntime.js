@@ -14,6 +14,7 @@ const RUNTIME_CHARACTER_SYNC_FIELDS = [
   'characterSkillLevel',
   'characterSkillLevels',
   'characterSkills',
+  'uniqueResource',
   'erSubject',
   'erRole',
   'erTrait',

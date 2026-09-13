@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { findItemByKeywords, pickWeighted } from './simulationCommon';
 import { isAtOrAfterWorldTime } from './worldTime';
 
@@ -28,7 +29,7 @@ function rollLegendaryCrateLoot(mapObj, zoneId, publicItems, curDay, curPhase, o
 
   const moved = !!opts.moved;
   const chance = moved ? 0.09 : 0.03;
-  if (Math.random() >= chance) return null;
+  if (simulationRandom() >= chance) return null;
 
   const legendaryWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
   const candidates = getLegendaryCoreCandidates(publicItems, legendaryWeights);

@@ -1,4 +1,4 @@
-import { apiPost } from '../../../utils/api';
+import { apiPost, getToken } from '../../../utils/api';
 import { getRuleset } from '../../../utils/rulesets';
 import { gainText } from './runEventRuntime';
 import { getApiErrorMessage } from './simulationInitRuntime';
@@ -63,6 +63,14 @@ export function createMarketActionRuntime(context = {}) {
     return true;
   }
 
+  function ensureAccountFeature(label) {
+    if (getToken()) return true;
+    const message = `로컬 게스트 모드에서는 ${label} 기능을 사용하지 않습니다.`;
+    setMarketMessage(message);
+    addLog(`🎟️ ${message}`, 'system');
+    return false;
+  }
+
   function grantRuntimeItem(actor, item, itemId, qty, ruleset) {
     const ch = {
       ...(actor || {}),
@@ -91,7 +99,7 @@ export function createMarketActionRuntime(context = {}) {
     }
 
     const qty = Math.max(1, Math.min(99, Math.floor(Number(devGrantQty || 1))));
-    const ruleset = getRuleset(settings?.rulesetId);
+    const ruleset = getRuleset(settings?.rulesetId, settings?.simulationRuleset);
     const current = selectedChar;
     if (!current) {
       setMarketMessage('선택 캐릭터를 찾을 수 없습니다.');
@@ -123,6 +131,7 @@ export function createMarketActionRuntime(context = {}) {
   }
 
   async function doCraft(itemId) {
+    if (!ensureAccountFeature('수동 서버 조합')) return;
     if (!ensureCharSelected()) return;
     try {
       setMarketMessage('');
@@ -140,6 +149,7 @@ export function createMarketActionRuntime(context = {}) {
   }
 
   async function doKioskTransaction(kioskId, catalogIndex) {
+    if (!ensureAccountFeature('수동 키오스크 거래')) return;
     if (!ensureCharSelected()) return;
     try {
       setMarketMessage('');
@@ -157,6 +167,7 @@ export function createMarketActionRuntime(context = {}) {
   }
 
   async function doDroneBuy(offerId) {
+    if (!ensureAccountFeature('수동 드론 구매')) return;
     if (!ensureCharSelected()) return;
     try {
       setMarketMessage('');
@@ -174,6 +185,7 @@ export function createMarketActionRuntime(context = {}) {
   }
 
   async function doPerkPurchase(code) {
+    if (!ensureAccountFeature('계정 특전 구매')) return;
     try {
       setMarketMessage('');
       const perkCode = String(code || '').trim();
@@ -193,6 +205,7 @@ export function createMarketActionRuntime(context = {}) {
   }
 
   async function createTradeOffer() {
+    if (!ensureAccountFeature('사용자 거래')) return;
     if (!ensureCharSelected()) return;
     try {
       setMarketMessage('');
@@ -230,6 +243,7 @@ export function createMarketActionRuntime(context = {}) {
   }
 
   async function cancelTradeOffer(offerId) {
+    if (!ensureAccountFeature('사용자 거래')) return;
     try {
       setMarketMessage('');
       await apiPost(`/trades/${offerId}/cancel`, {});
@@ -243,6 +257,7 @@ export function createMarketActionRuntime(context = {}) {
   }
 
   async function acceptTradeOffer(offerId) {
+    if (!ensureAccountFeature('사용자 거래')) return;
     if (!ensureCharSelected()) return;
     try {
       setMarketMessage('');

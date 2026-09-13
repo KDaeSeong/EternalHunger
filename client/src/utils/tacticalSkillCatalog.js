@@ -5,10 +5,11 @@ export const TAC_SKILL_TABLE = {
   '블링크': {
     baseCdSec: 90,
     cooldownByLevel: { 1: 90, 2: 45 },
+    cooldownFixed: true,
     summary: '지정한 위치로 3m 순간 이동합니다.',
     moduleUpgrade: '2.5초간 이동 속도가 15% 증가하며 충돌을 무시합니다.',
     guideStats: ['쿨다운: 90초 / 45초', '쿨다운 감소 스탯의 영향을 받지 않습니다.'],
-    effects: { escapeBonus: { 1: 0.22, 2: 0.28 }, haste: { 1: 0, 2: 2 } },
+    effects: { movementDistance: { 1: 3, 2: 3 }, escapeBonus: { 1: 0.22, 2: 0.28 }, haste: { 1: 0, 2: 2 } },
     triggers: {
       flee: { priority: 100, applyBonus: true, useOnCommit: true },
     },
@@ -31,7 +32,7 @@ export const TAC_SKILL_TABLE = {
     summary: '커서 방향으로 0.1초간 2.5m 이동하고 일정 시간 동안 기본 공격 사거리가 10% 증가합니다.',
     moduleUpgrade: '사거리 증가 효과가 15%로 강화됩니다.',
     guideStats: ['유지 시간: 10초 / 12초', '쿨다운: 40초 / 30초'],
-    effects: { escapeBonus: { 1: 0.10, 2: 0.14 }, chaseBonus: { 1: 0.05, 2: 0.08 }, openerFlatDmg: { 1: 2, 2: 4 }, haste: { 1: 1, 2: 2 } },
+    effects: { movementDistance: { 1: 2.5, 2: 2.5 }, escapeBonus: { 1: 0.10, 2: 0.14 }, chaseBonus: { 1: 0.05, 2: 0.08 }, openerFlatDmg: { 1: 2, 2: 4 }, haste: { 1: 1, 2: 2 } },
     triggers: {
       flee: { priority: 54, applyBonus: true },
       chase: { priority: 44, applyBonus: true },
@@ -137,7 +138,7 @@ export const TAC_SKILL_TABLE = {
     summary: '짧은 거리를 이동한 뒤 착지 지점 주변 가장 가까운 적 실험체에게 미사일 5발을 발사합니다.',
     moduleUpgrade: '미사일 3발을 추가로 발사합니다.',
     guideStats: ['발당 피해량: 10(+캐릭터 레벨*1)(+대상 최대 체력의 0.7%) 고정 피해', '이동 거리: 3m, 발사 사거리: 8.5m', '쿨다운: 50초 / 40초'],
-    effects: { openerFlatDmg: { 1: 7, 2: 12 }, chaseBonus: { 1: 0.06, 2: 0.09 } },
+    effects: { movementDistance: { 1: 3, 2: 3 }, openerFlatDmg: { 1: 7, 2: 12 }, chaseBonus: { 1: 0.06, 2: 0.09 } },
     triggers: { chase: { priority: 64, applyBonus: true }, combat: { priority: 67 } },
   },
   '플라즈마 대시': {
@@ -146,7 +147,7 @@ export const TAC_SKILL_TABLE = {
     summary: '짧은 거리를 이동하며 전방으로 플라즈마 에너지를 발사해 적중한 적에게 스킬 피해를 입히고 1초 동안 이동 속도를 30% 감소시킵니다.',
     moduleUpgrade: '투사체에 적중된 적의 방어력을 5초 동안 10% 감소시킵니다.',
     guideStats: ['피해량: 120(+캐릭터 레벨*5) / 150(+캐릭터 레벨*10)', '이동 거리: 2.5m, 투사체 사거리: 7m', '쿨다운: 50초 / 40초'],
-    effects: { openerFlatDmg: { 1: 6, 2: 10 }, escapeBonus: { 1: 0.08, 2: 0.12 }, chaseBonus: { 1: 0.08, 2: 0.12 }, haste: { 1: 2, 2: 3 }, slowPct: { 1: 0.30, 2: 0.30 } },
+    effects: { movementDistance: { 1: 2.5, 2: 2.5 }, openerFlatDmg: { 1: 6, 2: 10 }, escapeBonus: { 1: 0.08, 2: 0.12 }, chaseBonus: { 1: 0.08, 2: 0.12 }, haste: { 1: 2, 2: 3 }, slowPct: { 1: 0.30, 2: 0.30 } },
     triggers: {
       flee: { priority: 60, applyBonus: true },
       chase: { priority: 60, applyBonus: true },
@@ -253,6 +254,11 @@ export function getTacCooldownSec(skillName, lv = 1) {
   const level = Math.max(1, Math.min(2, Math.floor(Number(lv || 1))));
   const raw = row?.cooldownByLevel?.[level] ?? row?.baseCdSec ?? 45;
   return Math.max(8, Math.floor(Number(raw || 45)));
+}
+
+export function isTacCooldownFixed(skillName) {
+  const skill = normalizeSupportedTacSkill(skillName);
+  return TAC_SKILL_TABLE[skill]?.cooldownFixed === true;
 }
 
 export function getTacEffectNumber(skillName, key, lv, fallback) {

@@ -56,11 +56,16 @@ assert.match(rosterSource, /runWeaponType/, '경기 중 사용할 무기를 별�
 assert.match(mergeSource, /if \(base\.runWeaponType\)/, '서버 동기화가 경기 무기를 덮어쓰면 안 됩니다.');
 assert.match(modalSource, /type="checkbox"/, '캐릭터 설정은 다중 무기 체크박스를 제공해야 합니다.');
 assert.match(modalSource, /erWeapons/, '캐릭터 설정은 erWeapons 배열을 갱신해야 합니다.');
-assert.match(gearCatalogSource, /createWeaponCatalogFallback/, '공개 아이템이 없는 신규 무기군은 같은 타입 장비를 생성해야 합니다.');
+assert.doesNotMatch(gearCatalogSource, /createWeaponCatalogFallback/,
+  '공개 아이템이 없는 무기군에 가상 장비를 무료 생성하면 안 됩니다.');
+assert.match(gearCatalogSource,
+  /if \(preferredWeaponType && slot === 'weapon' && !typed\.length\) \{\s*return null;\s*\}/,
+  '선택 무기군의 실제 카탈로그 장비가 없으면 명시적으로 실패해야 합니다.');
 
 console.log(JSON.stringify({
   weaponTypes: ER_WEAPON_TYPES_KO.length,
   addedWeapons: addedWeapons.length,
   multiWeaponStart: true,
   runWeaponLocked: true,
+  missingCatalogWeaponFailsClosed: true,
 }, null, 2));

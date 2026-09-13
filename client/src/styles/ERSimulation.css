@@ -799,7 +799,8 @@
 .simulation-roster-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 9300;
+  /* Above the global audio/tutorial launchers (11000), below their dialogs. */
+  z-index: 11500;
   display: grid;
   place-items: center;
   padding: 18px;
@@ -3826,6 +3827,36 @@
   }
 }
 
+/* Read-only team observation shares the side column with global match status. */
+.simulation-observer-tabs { display: flex; gap: 6px; flex: 0 0 auto; }
+.simulation-observer-tabs button { flex: 1; border: 1px solid #456074; border-radius: 8px; padding: 7px; color: #daeafa; background: #142534; cursor: pointer; }
+.simulation-observer-tabs button[aria-selected="true"] { color: #ffe9a3; border-color: #d8b65b; background: #273748; }
+.simulation-observer-tabs button:focus-visible, .team-observer-panel select:focus-visible, .team-observer-panel summary:focus-visible { outline: 2px solid #ffda75; outline-offset: 2px; }
+.simulation-observer-slot { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+.simulation-observer-log-slot { display: flex; flex: 1 1 auto; min-height: 0; }
+.simulation-observer-slot[hidden], .simulation-observer-log-slot[hidden] { display: none; }
+.simulation-observer-log-slot .log-window:not(.modal-open) { width: 100%; }
+.simulation-observer-slot:focus-visible, .simulation-observer-log-slot:focus-visible { outline: 2px solid #ffda75; outline-offset: -2px; }
+.team-observer-panel { padding: 10px; background: #10202e; color: #e6f0f7; border: 1px solid #496278; border-radius: 10px; font-size: 12px; line-height: 1.5; }
+.team-observer-panel p { margin: 4px 0; }
+.team-observer-select { display: flex; gap: 8px; align-items: center; font-weight: 700; }
+.team-observer-select select { flex: 1; min-width: 0; padding: 6px; border: 1px solid #647f94; border-radius: 6px; background: #1b3143; color: #fff; }
+.team-observer-heading { margin: 10px 0; }
+.team-observer-heading h2 { font-size: 14px; color: #ffe5a1; margin: 0; }
+.team-observer-heading small, .team-observer-events small { color: #adc7d9; }
+.team-observer-members { display: grid; gap: 8px; }
+.team-observer-member { padding: 9px; border-radius: 8px; background: #1b3143; border-left: 3px solid #d1b45f; overflow-wrap: anywhere; }
+.team-observer-member.fallen { border-left-color: #f09292; background: #322c37; }
+.team-observer-member header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.team-observer-member header strong { color: #fff; font-size: 14px; }
+.team-observer-member header span { color: #b2ecce; }
+.team-observer-reason { color: #f4dfa3; }
+.team-observer-panel time { font-variant-numeric: tabular-nums; color: #9cd5f5; }
+.team-observer-panel summary { cursor: pointer; color: #bfdef1; padding: 3px 0; }
+.team-observer-events { margin-top: 10px; }
+.team-observer-events ol { padding-left: 20px; margin: 6px 0; }
+.team-observer-events li { margin-bottom: 9px; overflow-wrap: anywhere; }
+
 /* Final cockpit clipping guard */
 .simulation-stage {
   overflow-x: hidden;
@@ -3879,4 +3910,303 @@
   .simulation-pregame-roster + .control-panel {
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
   }
+}
+
+/* A readable map and one observation pane take precedence over squeezing the
+   entire cockpit into short viewports. The game screen scrolls to controls. */
+.simulation-stage {
+  flex: 1 0 600px;
+  min-height: 600px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.85fr);
+}
+
+.simulation-battlefield-column > .battlefield-panel:not(.modal-open) .minimap-canvas {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 400px;
+  aspect-ratio: auto;
+}
+
+.minimap-legend { color: #d7e8f2; }
+.simulation-side-column { height: 600px; }
+
+@media (max-width: 1180px) {
+  .simulation-stage {
+    flex: 0 0 auto;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+  }
+
+  .simulation-battlefield-column > .battlefield-panel:not(.modal-open) .minimap-canvas {
+    flex: 0 0 auto;
+    width: min(100%, 540px);
+    min-height: 0;
+    aspect-ratio: 662 / 682;
+    max-height: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .simulation-container.modal-layout .game-screen {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .simulation-side-column { flex: 0 0 600px; height: 600px; overflow: hidden; }
+}
+
+.simulation-page--evaluation {
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% -10%, #244864 0, #0a1725 48%, #050b13 100%) !important;
+}
+.sim-evaluation-brief {
+  position: relative;
+  z-index: 40;
+  flex: 0 0 auto;
+  width: var(--sim-shell-width);
+  box-sizing: border-box;
+  margin: 6px auto 4px;
+  border: 1px solid #8f7439;
+  border-radius: 9px;
+  color: #eaf4ff;
+  background: linear-gradient(135deg, #172f46f5, #0b1b2bf5);
+  box-shadow: 0 7px 18px #02070d66;
+}
+.sim-evaluation-brief summary {
+  min-height: 42px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+.sim-evaluation-brief summary::-webkit-details-marker { display: none; }
+.sim-evaluation-brief summary strong { color: #fff0b3; white-space: nowrap; }
+.sim-evaluation-brief__mode { min-width: 0; overflow: hidden; color: #d5e6f3; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.sim-evaluation-brief__meta { color: #9fc1d8; font: 700 11px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
+.sim-evaluation-brief__toggle { padding: 5px 9px; border: 1px solid #55738b; border-radius: 6px; color: #f4f8fc; background: #19364d; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.sim-evaluation-brief__toggle::after { content: ' ▾'; color: #f0c86f; }
+.sim-evaluation-brief[open] .sim-evaluation-brief__toggle::after { content: ' ▴'; }
+.sim-evaluation-brief__body {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  max-height: min(52dvh, 430px);
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid #8f7439;
+  border-radius: 9px;
+  background: #0b1b2bf7;
+  box-shadow: 0 18px 38px #02070dcc;
+}
+.sim-evaluation-brief__body dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
+.sim-evaluation-brief__body dl div { min-width: 0; padding: 8px 10px; border: 1px solid #345874; border-radius: 7px; background: #08172499; }
+.sim-evaluation-brief__body dt { color: #91aec6; font-size: 11px; font-weight: 700; }
+.sim-evaluation-brief__body dd { margin: 3px 0 0; color: #f4f8fc; font-weight: 700; }
+.sim-evaluation-brief__body ol { margin: 8px 0; padding-left: 23px; color: #d5e6f3; line-height: 1.55; }
+.sim-evaluation-brief .sim-evaluation-privacy { margin: 8px 0 0; padding-top: 8px; border-top: 1px solid #35536a; color: #acc5d8; font-size: 12px; }
+.simulation-page--evaluation > .sim-replay-toolbar {
+  width: var(--sim-shell-width);
+  min-height: 38px;
+  box-sizing: border-box;
+  flex-wrap: nowrap;
+  margin: 0 auto 4px;
+  padding: 3px 8px 3px 12px;
+  border: 1px solid #345874;
+  border-radius: 8px;
+  justify-content: space-between;
+}
+.simulation-page--evaluation > .sim-replay-toolbar button { padding: 6px 10px; white-space: nowrap; }
+.simulation-page--evaluation > .simulation-container {
+  width: var(--sim-shell-width);
+  max-width: var(--sim-shell-width);
+  min-height: 0;
+  margin: 0 auto;
+  padding: 0 0 6px;
+  overflow: hidden;
+}
+.simulation-page--evaluation .game-screen {
+  min-height: 0;
+  padding: 8px;
+  overflow: hidden;
+  border-radius: 9px;
+}
+.simulation-page--evaluation .screen-header {
+  order: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 6px 10px;
+}
+.simulation-page--evaluation .screen-header h1 { font-size: 1rem; }
+.simulation-page--evaluation .screen-header-right { gap: 6px; }
+.simulation-page--evaluation .screen-header-right .sim-header-proceed { display: none; }
+.simulation-page--evaluation .control-panel {
+  order: 1;
+  flex: 0 0 auto;
+  margin: 5px 0;
+  padding: 5px 8px;
+  border-radius: 7px;
+}
+.simulation-page--evaluation .control-row { gap: 7px; }
+.simulation-page--evaluation .simulation-stage + .control-panel { margin-top: 5px; padding: 5px 8px; }
+.simulation-page--evaluation .simulation-stage + .control-panel .btn-proceed,
+.simulation-page--evaluation .simulation-stage + .control-panel .btn-restart { padding: 7px 18px; font-size: .9rem; }
+.simulation-page--evaluation .forbidden-top-bar { order: 2; margin: 3px 0 5px; padding: 6px 9px; }
+.simulation-page--evaluation .simulation-event-feedback { order: 3; margin: 0 0 5px; padding: 5px 8px; }
+.simulation-page--evaluation .simulation-stage {
+  order: 4;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+}
+.simulation-page--evaluation .simulation-side-column { min-height: 0; height: auto; }
+.simulation-page--evaluation .simulation-battlefield-column > .battlefield-panel:not(.modal-open) .minimap-canvas {
+  min-height: 0;
+  max-height: 100%;
+}
+.sim-evaluation-result-callout { margin: 16px 0; padding: 14px; border: 1px solid #d0ad60; border-radius: 9px; background: #2b2515; color: #fff0b9; }
+.sim-evaluation-result-callout p { margin: 6px 0 11px; color: #e7d9aa; line-height: 1.5; }
+.sim-evaluation-result-callout button { min-height: 38px; padding: 8px 15px; border: 1px solid #f0ca74; border-radius: 7px; color: #14202b; background: #f0ca74; cursor: pointer; font-weight: 800; }
+.sim-evaluation-result-callout button:disabled { opacity: .55; cursor: wait; }
+@media (max-width: 760px) {
+  .sim-evaluation-brief { width: calc(100% - 12px); }
+  .sim-evaluation-brief summary { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; }
+  .sim-evaluation-brief__mode { grid-column: 1 / -1; grid-row: 2; }
+  .sim-evaluation-brief__meta { display: none; }
+  .simulation-page--evaluation > .sim-replay-toolbar { width: calc(100% - 12px); }
+  .simulation-page--evaluation > .simulation-container { width: 100%; max-width: 100%; }
+  .simulation-page--evaluation .game-screen { overflow-y: auto; }
+}
+@media (max-width: 460px) {
+  .sim-evaluation-brief__body dl { grid-template-columns: 1fr; }
+  .simulation-page--evaluation > .sim-replay-toolbar > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.sim-replay-toolbar { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 12px; padding: 6px 18px; color: #e4edfa; background: #10263a; font-size: 13px; }
+.sim-replay-toolbar button, .sim-replay-result button { padding: 9px 14px; border: 1px solid #527aa0; border-radius: 7px; color: #edf6ff; background: #1d354e; cursor: pointer; }
+.sim-replay-toolbar button:disabled { opacity: .5; cursor: default; }
+.sim-replay-backdrop { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 20px; background: #040c19dd; }
+.sim-replay-history { width: min(800px, 100%); max-height: 85vh; overflow-y: auto; padding: 24px; border: 1px solid #527aa0; border-radius: 12px; background: #101e30; color: #e4edfa; }
+.sim-replay-history h2 { margin: 0 0 10px; font-size: 22px; }
+.sim-replay-history ul { list-style: none; margin: 16px 0; padding: 0; }
+.sim-replay-history li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid #31445a; }
+.sim-replay-history li span { display: block; margin-top: 5px; color: #b8c9dc; overflow-wrap: anywhere; }
+.sim-replay-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.sim-run-comparison { margin: 18px 0; padding: 16px; border: 1px solid #3e5e7e; border-radius: 10px; background: #0c1929; }
+.sim-run-comparison h3 { margin: 0 0 10px; }
+.sim-run-comparison-selection { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sim-run-comparison-selection span { padding: 9px; border-radius: 6px; background: #152b40; color: #dcecff; }
+.sim-run-comparison-warning { padding: 10px; border-left: 3px solid #e6b95a; background: #332915; color: #ffe5a5; }
+.sim-run-comparison details { margin-top: 12px; }
+.sim-run-comparison summary { cursor: pointer; font-weight: 700; }
+.sim-run-comparison-changes { margin: 8px 0 0; }
+.sim-run-comparison-changes li { display: grid; grid-template-columns: minmax(130px, .7fr) minmax(0, 1.3fr); gap: 10px; padding: 8px 0; }
+.sim-run-comparison-table { margin-top: 8px; border-top: 1px solid #31445a; }
+.sim-run-comparison-table > div { display: grid; grid-template-columns: minmax(130px, 1fr) repeat(3, minmax(70px, .55fr)); gap: 8px; padding: 8px 0; border-bottom: 1px solid #24384e; }
+.sim-run-comparison-table span, .sim-run-comparison-table em { color: #c4d5e8; font-style: normal; text-align: right; }
+.sim-run-comparison-table .sim-run-comparison-table-head { color: #8ea6c0; font-size: 12px; letter-spacing: .04em; }
+.sim-run-comparison-table .sim-run-comparison-table-head span,
+.sim-run-comparison-table .sim-run-comparison-table-head em { color: inherit; }
+.sim-run-comparison-highlights { margin-top: 12px; padding: 10px; border-radius: 7px; background: #13283c; }
+.sim-run-comparison-highlights ul { margin: 7px 0 0; }
+@media (max-width: 680px) {
+  .sim-run-comparison-selection { grid-template-columns: 1fr; }
+  .sim-run-comparison-table > div { grid-template-columns: minmax(100px, 1fr) repeat(3, minmax(54px, .55fr)); font-size: 12px; }
+}
+.sim-replay-result { padding: 12px; margin: 16px 0; border: 1px solid #527aa0; border-radius: 8px; background: #152b40; color: #e4edfa; }
+.sim-replay-result p { margin: 0 0 10px; }
+.sim-replay-evaluation-status { width: fit-content; padding: 3px 7px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.sim-replay-evaluation-status--complete { color: #bff2cb !important; background: #17462b; }
+.sim-replay-evaluation-status--in-progress { color: #ffe1a1 !important; background: #4a3817; }
+.sim-replay-evaluation-status--not-started { color: #b8c9dc !important; background: #26384b; }
+.sim-evaluation-panel { margin: 18px 0; padding: 16px; border: 1px solid #d1ae61; border-radius: 10px; background: #142638; scroll-margin-top: 16px; }
+.sim-evaluation-panel h3 { margin: 0 0 8px; color: #ffe6a5; }
+.sim-evaluation-panel p { line-height: 1.55; }
+.sim-evaluation-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+.sim-evaluation-meta div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; padding: 8px; border-radius: 6px; background: #1b344a; }
+.sim-evaluation-meta dt { color: #a9c4d9; font-weight: 700; }
+.sim-evaluation-meta dd { margin: 0; overflow-wrap: anywhere; color: #f1f7ff; }
+.sim-evaluation-observation-count { margin: 12px 0 6px; color: #ffe6a5; }
+.sim-evaluation-observation-count strong { font-size: 18px; }
+.sim-evaluation-note, .sim-evaluation-reasoning-note { color: #bdd1e2; font-size: 13px; }
+.sim-evaluation-reasoning-note { padding: 9px 11px; border-left: 3px solid #6ba6cf; background: #102133; }
+.sim-evaluation-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.sim-evaluation-fields label { display: flex; flex-direction: column; gap: 5px; color: #dcecff; font-size: 13px; }
+.sim-evaluation-fields select, .sim-evaluation-fields textarea { box-sizing: border-box; width: 100%; border: 1px solid #52758e; border-radius: 6px; padding: 8px; color: #eaf5ff; background: #091a2a; }
+.sim-evaluation-fields select { min-height: 36px; }
+.sim-evaluation-fields textarea { min-height: 92px; resize: vertical; }
+.sim-evaluation-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+@media (max-width: 680px) {
+  .sim-evaluation-meta, .sim-evaluation-fields { grid-template-columns: 1fr; }
+}
+
+.simulation-pregame-map-rules { width: min(1180px, 100%); margin: 14px auto 0; padding: 0 18px; color: #e5f0fa; box-sizing: border-box; }
+.simulation-pregame-map-rules details { border: 1px solid #466681; border-radius: 10px; background: linear-gradient(135deg, #10283b, #0b1c2d); box-shadow: 0 8px 20px #03101c66; }
+.simulation-pregame-map-rules summary { display: flex; align-items: center; gap: 8px; padding: 12px 14px; color: #ffe6a5; cursor: pointer; font-weight: 700; list-style: none; }
+.simulation-pregame-map-rules summary::-webkit-details-marker { display: none; }
+.simulation-pregame-map-rules summary::after { margin-left: auto; content: '▾'; color: #91b4d0; }
+.simulation-pregame-map-rules details[open] summary::after { content: '▴'; }
+.simulation-pregame-map-rules__hint { margin: 0; padding: 0 14px 12px; color: #a9c2d8; font-size: 12px; line-height: 1.5; }
+.simulation-pregame-map-rules__row { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 10px 14px; border-top: 1px solid #28445b; }
+.simulation-pregame-map-rules__row label { display: flex; min-width: min(280px, 100%); flex: 1 1 280px; flex-direction: column; gap: 5px; color: #dcecff; font-size: 12px; }
+.simulation-pregame-map-rules__row select,
+.simulation-pregame-map-rules__editor textarea { width: 100%; box-sizing: border-box; color: #eaf5ff; background: #091a2a; border: 1px solid #52758e; border-radius: 6px; }
+.simulation-pregame-map-rules__row select { min-height: 36px; padding: 7px 9px; }
+.simulation-pregame-map-rules__editor { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-top: 1px solid #28445b; color: #dcecff; font-size: 12px; }
+.simulation-pregame-map-rules__editor small { color: #8eacc4; font-weight: 400; }
+.simulation-pregame-map-rules__editor textarea { min-height: 130px; padding: 10px; resize: vertical; font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.simulation-pregame-map-rules__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 0 14px 12px; color: #b8d5e9; font-size: 12px; }
+.simulation-pregame-map-rules__actions [role="status"] { overflow-wrap: anywhere; }
+.simulation-pregame-map-rules button { min-height: 34px; padding: 7px 12px; border: 1px solid #52758e; border-radius: 6px; color: #eaf5ff; background: #193c55; cursor: pointer; }
+.simulation-pregame-map-rules button:hover:not(:disabled) { border-color: #e4c071; background: #28556e; }
+.simulation-pregame-map-rules button:disabled,
+.simulation-pregame-map-rules select:disabled,
+.simulation-pregame-map-rules textarea:disabled { opacity: .5; cursor: default; }
+@media (max-width: 680px) {
+  .simulation-pregame-map-rules { padding: 0 10px; }
+  .simulation-pregame-map-rules__row { align-items: stretch; flex-direction: column; }
+  .simulation-pregame-map-rules__row label { min-width: 0; }
+}
+
+.simulation-roster-candidate-entry { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.simulation-roster-candidate-entry .simulation-roster-candidate { width: 100%; height: 100%; min-height: 85px; }
+.simulation-roster-edit-character { color: #d9edff; background: #193c55; border: 1px solid #52758e; border-radius: 5px; padding: 7px; cursor: pointer; }
+.simulation-local-character-editor { width: min(960px, 96vw); max-height: 94vh; display: flex; flex-direction: column; color: #e5f0fa; background: #102434; }
+.simulation-local-character-editor__body { min-height: 0; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.simulation-local-character-editor__body label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; min-width: 0; color: #e5f0fa; }
+.simulation-local-character-editor__body input:not([type="checkbox"]), .simulation-local-character-editor__body select,
+.simulation-local-character-editor__body textarea { width: 100%; min-width: 0; box-sizing: border-box; color: #e5f0fa; background: #102434; border: 1px solid #526e85; border-radius: 5px; padding: 8px; font-size: 14px; }
+.simulation-local-character-editor__body textarea { min-height: 100px; resize: vertical; }
+.simulation-local-character-editor__body input:disabled, .simulation-local-character-editor__body select:disabled { opacity: .5; }
+.simulation-local-character-editor__body button { color: #e5f0fa; background: #193c55; border: 1px solid #52758e; border-radius: 5px; padding: 8px 12px; cursor: pointer; }
+.simulation-local-character-editor__tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.simulation-local-character-editor__tabs button[aria-pressed="true"] { background: #28556e; border-color: #e4c071; color: #ffe6ab; }
+.simulation-local-character-editor__body .simulation-local-character-editor__toggle { flex-direction: row; align-items: center; gap: 8px; }
+.simulation-local-character-editor .character-skill-inline-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.simulation-local-character-editor .character-skill-level-editor > span { display: block; margin-bottom: 8px; font-weight: 600; color: #e5f0fa; }
+.simulation-local-character-editor .character-skill-level-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.simulation-local-character-editor .character-skill-level-grid.passive { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.simulation-local-character-editor__notice { margin: 0; padding: 10px 12px; background: #172f42; border-left: 3px solid #d5b576; font-size: 13px; line-height: 1.6; }
+.simulation-local-character-editor__description { padding: 12px; border: 1px solid #405970; border-radius: 6px; }
+.simulation-local-character-editor__description summary { cursor: pointer; }
+.simulation-local-character-editor__description p { font-size: 13px; line-height: 1.6; }
+.simulation-local-character-editor .simulation-roster-modal__header, .simulation-local-character-editor .simulation-roster-modal__footer { flex: 0 0 auto; }
+.simulation-local-character-editor .simulation-roster-modal__footer { align-items: center; }
+.simulation-local-character-editor .simulation-roster-modal__footer p { overflow-wrap: anywhere; white-space: normal; overflow: visible; }
+@media (max-width: 640px) {
+  .simulation-local-character-editor .character-skill-inline-grid,
+  .simulation-local-character-editor .character-skill-level-grid.passive { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .simulation-local-character-editor .character-skill-level-grid { gap: 4px; }
+  .simulation-local-character-editor .character-skill-level-grid input { padding: 6px 3px; }
+  .simulation-local-character-editor .simulation-roster-modal__footer { align-items: stretch; flex-direction: column; }
 }

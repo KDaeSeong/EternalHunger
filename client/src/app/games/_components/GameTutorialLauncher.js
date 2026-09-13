@@ -37,7 +37,9 @@ function writeStoredProgress(slug, value) {
 
 export default function GameTutorialLauncher() {
   const pathname = usePathname();
-  const tutorial = getGameTutorialForPath(pathname);
+  const evaluationOnly = pathname === '/eternalhunger/evaluate'
+    || pathname.startsWith('/eternalhunger/evaluate/');
+  const tutorial = evaluationOnly ? null : getGameTutorialForPath(pathname);
   const audioTheme = tutorial?.theme || gameAudioThemeForPath(pathname);
   const titleId = useId();
   const closeButtonRef = useRef(null);
@@ -71,6 +73,8 @@ export default function GameTutorialLauncher() {
       document.body.style.overflow = previousOverflow;
     };
   }, [open, playGameSfx]);
+
+  if (evaluationOnly) return null;
 
   if (!tutorial || !steps.length) {
     return audioTheme ? (

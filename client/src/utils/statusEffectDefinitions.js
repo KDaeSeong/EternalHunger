@@ -10,12 +10,30 @@ export const EFFECT_STIM = '각성';
 export const EFFECT_AIRBORNE = '에어본';
 export const EFFECT_HEAL_REDUCTION = '치유 감소';
 export const EFFECT_STUN = '기절';
+export const EFFECT_ROOT = '속박';
+export const EFFECT_SILENCE = '침묵';
+export const EFFECT_INVULNERABLE = '무적';
+export const EFFECT_UNTARGETABLE = '대상 지정 불가';
+export const EFFECT_BLIND = '실명';
+export const EFFECT_EVADE = '회피';
 export const EFFECT_KNOCKBACK = '넉백';
 export const EFFECT_SLOW = '이동 속도 감소';
 export const EFFECT_LIFESTEAL = '흡혈';
 export const EFFECT_HASTE = '이동 속도 증가';
 export const EFFECT_COOLDOWN_UP = '쿨다운 증가';
 export const EFFECT_COOLDOWN_DOWN = '쿨다운 감소';
+export const EFFECT_MOVEMENT_IMMUNE = '이동 방해 면역';
+export const EFFECT_UNSTOPPABLE = '저지 불가';
+export const EFFECT_CC_IMMUNE = '모든 방해 면역';
+export const EFFECT_HARMFUL_IMMUNE = '해로운 효과 면역';
+export const EFFECT_CLEANSE = '해로운 효과 제거';
+export const EFFECT_FEAR = '공포';
+export const EFFECT_CHARM = '매혹';
+export const EFFECT_TAUNT = '도발';
+export const EFFECT_SLEEP = '수면';
+export const EFFECT_POLYMORPH = '변이';
+export const EFFECT_SUPPRESSION = '제압';
+export const EFFECT_STASIS = '경직';
 
 const EFFECT_NAME_ALIASES = {
   중독: EFFECT_POISON,
@@ -53,6 +71,23 @@ const EFFECT_NAME_ALIASES = {
   기절: EFFECT_STUN,
   stun: EFFECT_STUN,
   stunned: EFFECT_STUN,
+  속박: EFFECT_ROOT,
+  root: EFFECT_ROOT,
+  rooted: EFFECT_ROOT,
+  침묵: EFFECT_SILENCE,
+  silence: EFFECT_SILENCE,
+  silenced: EFFECT_SILENCE,
+  무적: EFFECT_INVULNERABLE,
+  invulnerable: EFFECT_INVULNERABLE,
+  invulnerability: EFFECT_INVULNERABLE,
+  '대상 지정 불가': EFFECT_UNTARGETABLE,
+  untargetable: EFFECT_UNTARGETABLE,
+  실명: EFFECT_BLIND,
+  blind: EFFECT_BLIND,
+  blinded: EFFECT_BLIND,
+  회피: EFFECT_EVADE,
+  evade: EFFECT_EVADE,
+  evasion: EFFECT_EVADE,
   밀어짐: EFFECT_KNOCKBACK,
   넉백: EFFECT_KNOCKBACK,
   knockback: EFFECT_KNOCKBACK,
@@ -75,9 +110,69 @@ const EFFECT_NAME_ALIASES = {
   cooldown_down: EFFECT_COOLDOWN_DOWN,
   'cooldown down': EFFECT_COOLDOWN_DOWN,
   cdr: EFFECT_COOLDOWN_DOWN,
+  movement_cc_immune: EFFECT_MOVEMENT_IMMUNE,
+  unstoppable: EFFECT_UNSTOPPABLE,
+  cc_immune: EFFECT_CC_IMMUNE,
+  harmful_immune: EFFECT_HARMFUL_IMMUNE,
+  cleanse: EFFECT_CLEANSE,
+  fear: EFFECT_FEAR,
+  charm: EFFECT_CHARM,
+  taunt: EFFECT_TAUNT,
+  sleep: EFFECT_SLEEP,
+  polymorph: EFFECT_POLYMORPH,
+  suppression: EFFECT_SUPPRESSION,
+  stasis: EFFECT_STASIS,
 };
 
 export const EFFECT_META = {
+  [EFFECT_SLEEP]: {
+    icon: '💤', category: 'debuff', tags: ['negative', 'cc', 'action_block', 'wake_on_hit'],
+    // Project defaults; the supplied reference does not specify these values.
+    defaultWakeDamagePct: 0.2, stackMode: 'refresh_max', maxStacks: 1,
+  },
+  [EFFECT_POLYMORPH]: {
+    icon: '🐑', category: 'debuff', tags: ['negative', 'cc', 'basic_block', 'skill_block', 'polymorph'],
+    defaultMoveSpeedBonus: -0.5, stackMode: 'refresh_max', maxStacks: 1,
+  },
+  [EFFECT_SUPPRESSION]: {
+    icon: '🔒', category: 'debuff', tags: ['negative', 'cc', 'action_block', 'movement_interrupt'],
+    stackMode: 'refresh_max', maxStacks: 1,
+  },
+  [EFFECT_STASIS]: {
+    icon: '⏸️', category: 'buff', tags: ['positive', 'action_block', 'untargetable', 'damage_immune', 'collar_pause'],
+    stackMode: 'refresh_max', maxStacks: 1,
+  },
+  ...Object.fromEntries([[EFFECT_FEAR, 'fear', '😨'], [EFFECT_CHARM, 'charm', '💗'], [EFFECT_TAUNT, 'taunt', '🎯']]
+    .map(([name, forcedControl, icon]) => [name, { icon, forcedControl, category: 'debuff',
+      tags: ['negative', 'cc', 'skill_block', 'voluntary_block', ...(forcedControl === 'taunt' ? [] : ['basic_block'])],
+      stackMode: 'refresh_max', maxStacks: 1 }])),
+  ...Object.fromEntries([EFFECT_MOVEMENT_IMMUNE, EFFECT_UNSTOPPABLE, EFFECT_CC_IMMUNE, EFFECT_HARMFUL_IMMUNE]
+    .map((name) => [name, { icon: '🛡️', category: 'buff', tags: ['positive', 'status_protection'], stackMode: 'refresh_max', maxStacks: 1 }])),
+  [EFFECT_CLEANSE]: { icon: '✨', category: 'action', tags: ['positive', 'cleanse'], maxStacks: 1 },
+  [EFFECT_ROOT]: {
+    icon: '⛓️', category: 'debuff', tags: ['negative', 'cc', 'move_block'],
+    stackMode: 'refresh_max', maxStacks: 1,
+  },
+  [EFFECT_SILENCE]: {
+    icon: '🔇', category: 'debuff', tags: ['negative', 'cc', 'skill_block'],
+    stackMode: 'refresh_max', maxStacks: 1,
+  },
+  [EFFECT_INVULNERABLE]: {
+    icon: '🛡️', category: 'buff', tags: ['positive', 'damage_immune'],
+    stackMode: 'refresh_max', maxStacks: 1,
+  },
+  [EFFECT_UNTARGETABLE]: {
+    icon: '👻', category: 'buff', tags: ['positive', 'untargetable'],
+    stackMode: 'refresh_max', maxStacks: 1,
+  },
+  [EFFECT_BLIND]: {
+    icon: '🙈', category: 'debuff', tags: ['negative', 'cc', 'basic_miss'],
+    stackMode: 'refresh_max', maxStacks: 1,
+  },
+  [EFFECT_EVADE]: {
+    icon: '💨', category: 'buff', tags: ['positive', 'basic_evade'],
+    stackMode: 'refresh_max', maxStacks: 1,
+  },
   [EFFECT_POISON]: {
     icon: '☠️',
     category: 'debuff',
@@ -167,7 +262,7 @@ export const EFFECT_META = {
   [EFFECT_SLOW]: {
     icon: '🐌',
     category: 'debuff',
-    tags: ['negative', 'slow', 'move'],
+    tags: ['negative', 'cc', 'slow', 'move'],
     defaultMoveSpeedBonus: -0.18,
     stackMode: 'refresh_max',
     maxStacks: 1,
@@ -227,12 +322,71 @@ function normalizeEffectDurationSec(duration, fallbackSec = 10, extra = {}) {
   if (!Number.isFinite(raw)) return Math.max(1, Math.floor(Number(fallbackSec || 1)));
   const alreadySeconds = extra?.durationUnit === 'sec' || extra?.durationSec != null || extra?.seconds != null || raw > 10;
   const sec = alreadySeconds ? raw : raw * 10;
-  return Math.max(1, Math.floor(sec));
+  return Math.max(0.000001, Math.round(sec * 1e6) / 1e6);
 }
 
 export function normalizeStatusEffectList(effects) {
   const list = Array.isArray(effects) ? effects : (effects ? [effects] : []);
   return list.map((eff) => normalizeStatusEffect(eff)).filter(Boolean);
+}
+
+// Effects without a duration are persistent. An explicitly expired effect
+// must never confer stats, immunities, shields or action restrictions.
+export function getStoredActiveStatusEffects(character) {
+  return normalizeStatusEffectList(character?.activeEffects)
+    .filter((effect) => effect.remainingDuration == null || Number(effect.remainingDuration) > 0);
+}
+
+// Classification follows the user's supplied categories. Classifying a name
+// does not implement its movement, targeting or special skill behaviour.
+const MOVEMENT_CONTROL_NAMES = new Set(['공포', EFFECT_STUN, EFFECT_KNOCKBACK, '도발', EFFECT_SLOW,
+  '매혹', EFFECT_ROOT, EFFECT_AIRBORNE, '제압', '춤']);
+const CONTROL_NAMES = new Set([...MOVEMENT_CONTROL_NAMES, '수면', '공격 속도 감소', '변이', '붙잡힘',
+  '시야 차단', EFFECT_BLIND, EFFECT_SILENCE, '정신 이상']);
+const DURATION_RESIST_EXCLUSIONS = new Set([EFFECT_KNOCKBACK, '붙잡힘', EFFECT_AIRBORNE, '제압']);
+const PROTECTION_NAMES = new Set([EFFECT_MOVEMENT_IMMUNE, EFFECT_UNSTOPPABLE, EFFECT_CC_IMMUNE, EFFECT_HARMFUL_IMMUNE]);
+
+export function isCrowdControlEffect(effect) {
+  const name = canonicalizeEffectName(effect?.name || effect);
+  return CONTROL_NAMES.has(name) || safeTags(effect?.tags).includes('cc') || safeTags(effectMetaByName(name)?.tags).includes('cc');
+}
+
+export function isHarmfulStatusEffect(effect) {
+  const meta = effectMetaByName(effect?.name);
+  return isCrowdControlEffect(effect) || safeTags(effect?.tags).includes('negative')
+    || safeTags(meta?.tags).includes('negative') || String(effect?.category || meta?.category || '') === 'debuff';
+}
+
+export function canReduceControlDuration(effect) {
+  return isCrowdControlEffect(effect) && !DURATION_RESIST_EXCLUSIONS.has(canonicalizeEffectName(effect?.name));
+}
+
+function protectionNames(character, stored) {
+  return new Set([...(Array.isArray(character?.statusImmunities) ? character.statusImmunities : []),
+    ...stored.flatMap((effect) => [effect.name, ...effect.grantsImmunity])].map(canonicalizeEffectName).filter((name) => PROTECTION_NAMES.has(name)));
+}
+
+function protectionReason(effect, protections) {
+  if (PROTECTION_NAMES.has(canonicalizeEffectName(effect?.name))) return '';
+  if (protections.has(EFFECT_HARMFUL_IMMUNE) && isHarmfulStatusEffect(effect)) return EFFECT_HARMFUL_IMMUNE;
+  if (protections.has(EFFECT_CC_IMMUNE) && isCrowdControlEffect(effect)) return EFFECT_CC_IMMUNE;
+  if (protections.has(EFFECT_MOVEMENT_IMMUNE) && (MOVEMENT_CONTROL_NAMES.has(canonicalizeEffectName(effect?.name))
+    || safeTags(effect?.tags).includes('movement_cc'))) return EFFECT_MOVEMENT_IMMUNE;
+  if (protections.has(EFFECT_UNSTOPPABLE) && isCrowdControlEffect(effect)) return EFFECT_UNSTOPPABLE;
+  return '';
+}
+
+export function getStatusProtectionReason(character, effect, stored = getStoredActiveStatusEffects(character)) {
+  return protectionReason(effect, protectionNames(character, stored));
+}
+
+export function getActiveStatusEffects(character) {
+  const stored = getStoredActiveStatusEffects(character);
+  const protections = protectionNames(character, stored);
+  if (!protections.size) return stored;
+  // Ignoring is not cleansing: retained effects keep ticking and can resume
+  // for their remaining duration when temporary protection expires.
+  return stored.filter((effect) => !protectionReason(effect, protections));
 }
 
 export function makeShieldEffect(shieldValue, duration = 2, sourceId = '', extra = {}) {
@@ -330,9 +484,9 @@ export function normalizeStatusEffect(effect) {
   );
 
   const dur = Number(next?.remainingDuration);
-  if (Number.isFinite(dur)) {
+  if (next.remainingDuration != null && Number.isFinite(dur)) {
     const alreadySeconds = next?.durationUnit === 'sec' || next?.durationSec != null || dur > 10;
-    next.remainingDuration = Math.max(0, Math.floor(alreadySeconds ? dur : dur * 10));
+    next.remainingDuration = Math.max(0, Math.round((alreadySeconds ? dur : dur * 10) * 1e6) / 1e6);
     next.durationUnit = 'sec';
   }
 
@@ -351,6 +505,11 @@ export function normalizeStatusEffect(effect) {
   const moveSpeedBonus = Number(next?.moveSpeedBonus ?? next?.moveSpeedPlus ?? meta?.defaultMoveSpeedBonus ?? 0);
   next.moveSpeedBonus = Number.isFinite(moveSpeedBonus) ? Math.max(-0.75, Math.min(1.5, moveSpeedBonus)) : 0;
 
+  if (next.wakeDamagePct != null || meta?.defaultWakeDamagePct != null) {
+    const wakeDamagePct = Number(next.wakeDamagePct ?? meta.defaultWakeDamagePct);
+    next.wakeDamagePct = Number.isFinite(wakeDamagePct) ? Math.max(0, Math.min(1, wakeDamagePct)) : 0;
+  }
+
   const lifestealPct = Number(next?.lifestealPct ?? next?.lifestealPlus ?? meta?.defaultLifestealPct ?? 0);
   next.lifestealPct = Number.isFinite(lifestealPct) ? Math.max(0, Math.min(1, lifestealPct)) : 0;
 
@@ -361,7 +520,9 @@ export function normalizeStatusEffect(effect) {
   next.cooldownRatePenalty = Number.isFinite(cooldownRatePenalty) ? Math.max(0, Math.min(1.5, cooldownRatePenalty)) : 0;
 
   const knockbackDistance = Number(next?.knockbackDistance ?? next?.distance ?? meta?.defaultKnockbackDistance ?? 0);
-  next.knockbackDistance = Number.isFinite(knockbackDistance) ? Math.max(0, Math.floor(knockbackDistance)) : 0;
+  const roundedKnockbackDistance = Math.round(knockbackDistance * 1e6) / 1e6;
+  next.knockbackDistance = Number.isFinite(knockbackDistance)
+    ? Math.max(0, Number.isFinite(roundedKnockbackDistance) ? roundedKnockbackDistance : knockbackDistance) : 0;
 
   const stacks = Number(next?.stacks ?? 1);
   const maxStacks = Math.max(1, Number(next?.maxStacks ?? meta?.maxStacks ?? 1));

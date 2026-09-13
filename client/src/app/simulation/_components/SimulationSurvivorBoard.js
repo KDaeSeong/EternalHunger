@@ -1,11 +1,15 @@
 'use client';
 
 import Image from 'next/image';
-import { DEFAULT_RULESET_ID, getPhaseDurationSec, getRuleset, normalizeRulesetId } from '../../../utils/rulesets';
+import { DEFAULT_RULESET_ID, getRuleset, normalizeRulesetId } from '../../../utils/rulesets';
 import GameActionIcon from '../../games/_components/GameActionIcon';
 import { itemDisplayName, itemIcon } from '../_lib/simulationCommon';
 import { getVisibleRuntimeEffects } from '../_lib/runtimeStatus';
 import { getEquipSummary } from '../_lib/survivorRuntime';
+import { getInvRules } from '../_lib/inventoryItemRules';
+import { getActionStatePresentation } from '../_lib/runtimeStatusDisplay.js';
+import { getCombatSpacePresentation } from '../_lib/combatSpacePresentation.js';
+import { getUniqueResourceSnapshot } from '../_lib/uniqueResourceRuntime.js';
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
@@ -24,49 +28,45 @@ function TeamBadge({ actor, getTeamStateForActor }) {
   );
 }
 
-function DetonationBadge({ actor, activeMap, day, forbiddenNow, phase, settings, zones }) {
+function DetonationBadge({ actor, forbiddenNow, settings }) {
   const detVal = Number(actor?.detonationSec);
   if (!Number.isFinite(detVal)) return null;
 
-  const ruleset = getRuleset(settings?.rulesetId);
+  const ruleset = getRuleset(settings?.rulesetId, settings?.simulationRuleset);
   const detMax = Number(actor?.detonationMaxSec ?? ruleset?.detonation?.maxSec ?? 30);
   const critical = Math.max(0, Number(ruleset?.detonation?.criticalSec ?? 5));
-  const totalZones = safeArray(activeMap?.zones).length || safeArray(zones).length;
-  const forbiddenCnt = forbiddenNow?.size ? forbiddenNow.size : 0;
-  const safeLeft = Math.max(0, totalZones - forbiddenCnt);
-  const detForceAll = Math.max(0, Number(ruleset?.detonation?.forceAllAfterSec ?? 40));
-  const curPhaseDur = Math.max(0, Number(getPhaseDurationSec(ruleset, day, phase) || 0));
-  const forceAllOn = safeLeft <= 2 && totalZones > 0 && curPhaseDur >= detForceAll;
   const zoneId = String(actor?.zoneId || '');
-  const isForbidden = forceAllOn ? true : forbiddenNow?.has?.(zoneId);
+  const isForbidden = forbiddenNow?.has?.(zoneId);
   const detFloor = Math.max(0, Math.floor(detVal));
   const maxFloor = Number.isFinite(detMax) ? Math.max(0, Math.floor(detMax)) : null;
   const isCritical = detFloor <= critical;
   const label = maxFloor !== null ? `${detFloor}/${maxFloor}s` : `${detFloor}s`;
+  const paused = isForbidden && getActionStatePresentation(actor).collarPaused;
 
   return (
     <span
-      title={isForbidden ? '금지구역: 폭발 타이머 감소' : '안전구역: 폭발 타이머 회복'}
+      title={paused ? '경직: 금지구역 카운트 정지' : isForbidden ? '금지구역: 폭발 타이머 감소' : '안전구역: 폭발 타이머 회복'}
       style={{
         fontWeight: 900,
         padding: '2px 8px',
         borderRadius: 999,
         border: '1px solid rgba(255,255,255,0.20)',
-        background: isCritical ? 'rgba(255, 82, 82, 0.42)' : isForbidden ? 'rgba(255, 82, 82, 0.26)' : 'rgba(0,0,0,0.22)',
+        background: paused ? '#155e75' : isCritical ? '#9f1239' : isForbidden ? '#991b1b' : '#374151',
         color: '#fff',
       }}
     >
-      {isCritical ? '⚠️ ' : ''}⏳ {label}
+      {paused ? '⏸️ ' : isCritical ? '⚠️ ' : ''}⏳ {label}{paused ? ' · 정지' : ''}
     </span>
   );
 }
 
-function InventorySummary({ actor }) {
+function InventorySummary({ actor, settings }) {
   const inventory = safeArray(actor?.inventory);
+  const { maxSlots } = getInvRules(getRuleset(settings?.rulesetId, settings?.simulationRuleset));
   return (
-    <div className="inventory-summary">
+    <div className="inventory-summary" title={`가방 ${inventory.length}/${maxSlots}칸 사용 · 같은 아이템 묶음은 한 칸`}>
       <span className="bag-icon">🎒</span>
-      <span className="inv-count">{inventory.length}/3</span>
+      <span className="inv-count">{inventory.length}/{maxSlots}</span>
       <div className="inv-tooltip">
         {inventory.map((item, index) => (
           <div key={`${item?._id || item?.itemId || index}`} className="inv-item-mini">
@@ -79,7 +79,17 @@ function InventorySummary({ actor }) {
   );
 }
 
+function UniqueResourceBadge({ actor }) {
+  const { resource, value } = getUniqueResourceSnapshot(actor);
+  if (!resource.enabled) return null;
+  const display = (number) => Number.isInteger(number) ? number : Number(number.toFixed(1));
+  return <span title={`${resource.name} · 초당 ${display(resource.regenPerSec)} 회복`}>
+    ◈ {resource.name} {display(value)}/{display(resource.maxValue)}
+  </span>;
+}
+
 function StatusEffects({ actor, day, timeOfDay }) {
+  const combatSpace = getCombatSpacePresentation(actor);
   const uiPhaseIdx = Math.max(0, Number(day || 0) * 2 + (timeOfDay === 'day' ? 0 : 1));
   const dangerUntil = Number(actor?._immediateDangerUntilPhaseIdx ?? -1);
   const dangerValue = Math.max(0, Number(actor?._immediateDanger || 0));
@@ -87,6 +97,8 @@ function StatusEffects({ actor, day, timeOfDay }) {
 
   return (
     <div className="status-effects-container">
+      {combatSpace ? <span className="effect-badge" title={combatSpace.title}
+        style={{ background: '#312e81', color: '#fff', border: '1px solid #c7d2fe' }}>{combatSpace.label}</span> : null}
       {showDanger ? (
         <span title="수집/사냥 직후: 교전 유발(표적 우선)" className="effect-badge">
           ⚠️ 노출 +{Math.min(99, Math.max(1, Math.round(dangerValue * 100)))}%
@@ -127,16 +139,18 @@ function AliveSurvivorCard(props) {
     zones,
   } = props;
   const equipSummary = getEquipSummary(actor);
+  const actionState = getActionStatePresentation(actor);
 
   return (
-    <div className="survivor-card alive">
-      <Image
-        src={actor.previewImage || '/Images/default_image.png'}
+    <div className="survivor-card alive" style={{ color: '#1f2937' }}>
+      {actionState.polymorphed ? <div role="img" aria-label={`${actor.name} 변이 중 · 양 모습`}
+        style={{ width: 60, height: 60, fontSize: 44, lineHeight: '60px', margin: '0 auto' }}>🐑</div> : <Image
+        src={actor.previewImage || '/Images/default_image.svg'}
         alt={actor.name}
         width={60}
         height={60}
         unoptimized
-      />
+      />}
       <span>{actor.name}</span>
       <TeamBadge actor={actor} getTeamStateForActor={getTeamStateForActor} />
       <div className="skill-tag">⭐ {actor.specialSkill?.name || '기본 공격'}</div>
@@ -150,13 +164,15 @@ function AliveSurvivorCard(props) {
         {normalizeRulesetId(settings?.rulesetId) === DEFAULT_RULESET_ID ? (
           <span>⚡ {Number.isFinite(Number(actor.gadgetEnergy)) ? Math.floor(Number(actor.gadgetEnergy)) : 0}</span>
         ) : null}
+        <UniqueResourceBadge actor={actor} />
       </div>
       <div className="equip-summary" title={equipSummary.full}>
         🧰 {equipSummary.short}
       </div>
-      <InventorySummary actor={actor} />
+      <InventorySummary actor={actor} settings={settings} />
       {killCounts?.[actor._id] > 0 ? <span className="kill-badge">⚔️{killCounts[actor._id]}</span> : null}
       <StatusEffects actor={actor} day={day} timeOfDay={timeOfDay} />
+      {actionState.text ? <div style={{ fontSize: 11, lineHeight: 1.5, marginTop: 4 }}>{actionState.text}</div> : null}
     </div>
   );
 }
@@ -165,7 +181,7 @@ function DeadSurvivorCard({ actor, getTeamStateForActor, getZoneName, killCounts
   return (
     <div className="survivor-card dead">
       <Image
-        src={actor.previewImage || '/Images/default_image.png'}
+        src={actor.previewImage || '/Images/default_image.svg'}
         alt={actor.name}
         width={60}
         height={60}

@@ -1,4 +1,4 @@
-import { isErRangedWeaponType, normalizeErWeaponType } from './erMeta';
+import { isErRangedWeaponType, normalizeErWeaponType } from './erMeta.js';
 
 // 내부 유틸 (legacy/normalized 아이템 혼용 대응)
 const norm = (v) => String(v ?? '').trim().toLowerCase();
@@ -60,6 +60,14 @@ const pickEquipBySlot = (character, slot) => {
   return getTier(best) > getTier(equipped) ? best : equipped;
 };
 
+// Resolve one item per real slot. Never add a stored spare weapon as well.
+export const getCombatEquipment = (character) => ['weapon', 'head', 'clothes', 'arm', 'shoes'].map((slot) => {
+  const id = String(character?.equipped?.[slot] || '');
+  const equipped = id && (character?.inventory || []).find((item) => String(item.itemId || item.id || item._id || '') === id);
+  if (Object.hasOwn(character?.equipped || {}, slot)) return equipped || null;
+  return equipped || (slot === 'weapon' ? pickWeapon(character) : pickEquipBySlot(character, slot));
+}).filter((item, index, list) => item && list.indexOf(item) === index);
+
 export const getEquipDeltas = (character, settings = {}) => {
   const eq = settings?.battle?.equipment || settings?.equipment || {};
   const weaponAtkPerTier = Number(eq.weaponAtkPerTier ?? 0);
@@ -104,7 +112,7 @@ export const getEquipStatTotals = (character) => {
     totals.skillAmp += Number(s.skillAmp || 0);
     totals.atkSpeed += Number(s.atkSpeed || 0);
     totals.critChance += Number(s.critChance || 0);
-    totals.cdr += Number(s.cdr || 0);
+    totals.cdr += normalizeRatioStat(s.cdr);
     totals.lifesteal += Number(s.lifesteal || 0);
     totals.moveSpeed += Number(s.moveSpeed || 0);
     totals.armorPen += normalizeRatioStat(s.armorPen);

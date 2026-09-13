@@ -5,6 +5,7 @@ import {
 } from './simulationEngine';
 import { prepareActorPhaseActionQueue } from './phaseActionQueueDecisionRuntime';
 import { advanceActorRouteProgressForGoal } from './phaseRouteProgressRuntime';
+import { refreshActorGrowthPlan } from './growthPlanRuntime';
 
 export { prepareActorPhaseActionQueue } from './phaseActionQueueDecisionRuntime';
 
@@ -45,7 +46,10 @@ export function prepareActorPhaseActionPlan({
   } = state;
 
   const updated = actor || {};
-  const craftGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
+  const growthPlan = refreshActorGrowthPlan(updated, publicItems, state);
+  const craftGoal = growthPlan && !growthPlan.openingComplete ? {
+    target: publicItems.find((item) => String(item._id) === growthPlan.targetId), missing: growthPlan.missing,
+  } : buildCraftGoal(updated.inventory, craftables, itemNameById, {
     goalTier: updated?.goalGearTier,
     goalItemKeys: pickGoalLoadoutKeys(updated),
     perkEffects: getActorPerkEffects(updated),
@@ -57,21 +61,21 @@ export function prepareActorPhaseActionPlan({
     searched: false,
     zoneId: updated.zoneId,
   });
-  const routePlanMissingIdsNow = routeProgressNow.routePlanMissingItemIds;
-  const earlyRouteMissingIdsNow = routeProgressNow.missingItemIds;
-  const mappedRouteItemIdsNow = routeProgressNow.mappedRouteItemIds;
+  const routePlanMissingIdsNow = growthPlan ? growthPlan.missing.map((row) => row.itemId) : routeProgressNow.routePlanMissingItemIds;
+  const earlyRouteMissingIdsNow = growthPlan ? routePlanMissingIdsNow : routeProgressNow.missingItemIds;
+  const mappedRouteItemIdsNow = growthPlan ? growthPlan.currentZoneItemIds : routeProgressNow.mappedRouteItemIds;
   const goalMissingIds = new Set(earlyRouteMissingIdsNow);
   const goalTargetId = String(craftGoal?.target?._id || craftGoal?.target?.itemId || '');
   const routePlanIdsNow = Array.isArray(updated?.routePlanZoneIds)
     ? updated.routePlanZoneIds.map((zoneId) => String(zoneId || '').trim()).filter(Boolean)
     : [];
-  const earlyRouteActionActive = (
+  const earlyRouteActionActive = growthPlan ? !growthPlan.openingComplete : (
     (Number(nextDay || 0) === 1 || (Number(nextDay || 0) === 2 && String(nextPhase || '') === 'morning')) &&
     routePlanIdsNow.length > 0 &&
     Math.max(0, Number(updated?.routePlanIndex || 0)) < routePlanIdsNow.length
   );
   const currentRouteItemIds = mappedRouteItemIdsNow;
-  const fallbackRouteItemIds = currentRouteItemIds.length
+  const fallbackRouteItemIds = growthPlan ? currentRouteItemIds : currentRouteItemIds.length
     ? currentRouteItemIds
     : [...goalMissingIds].filter(Boolean);
   const currentRouteNeedsSearch = earlyRouteActionActive &&

@@ -38,6 +38,9 @@ function getPredictionLabel(actor, matchMode) {
 }
 
 export default function SimulationControlPanel({
+  replayMode,
+  draftMode,
+  evaluationMode,
   matchMode,
   onMatchModeChange,
   matchModeDisabled,
@@ -81,7 +84,7 @@ export default function SimulationControlPanel({
 
   return (
     <div className="control-panel">
-      <div className="prediction-row">
+      {!replayMode && !evaluationMode ? <div className="prediction-row">
         <label className="winner-prediction-control">
           <span className="sim-icon-label">
             <GameActionIcon action="trophy" label="승자 예측" />
@@ -109,9 +112,9 @@ export default function SimulationControlPanel({
         <span className="winner-prediction-help">
           기본 50 LP · 예측 성공 +100 LP{Number(matchSec || 0) > 0 ? ' · 경기 시작 후 변경 불가' : ''}
         </span>
-      </div>
+      </div> : null}
       <div className="control-row">
-        <select
+        {!evaluationMode || draftMode ? <select
           className="autoplay-speed"
           data-game-sfx-change="select"
           value={normalizeMode(matchMode)}
@@ -121,9 +124,9 @@ export default function SimulationControlPanel({
         >
           <option value="squad">스쿼드</option>
           <option value="solo">솔로</option>
-        </select>
+        </select> : null}
 
-        <label className="sim-skill-toggle" title="캐릭터별 Q/W/E/R 스킬 레이어를 켜거나 끕니다.">
+        {!evaluationMode || draftMode ? <label className="sim-skill-toggle" title="캐릭터별 Q/W/E/R 스킬 레이어를 켜거나 끕니다.">
           <input
             type="checkbox"
             data-game-sfx-change="toggle"
@@ -135,7 +138,7 @@ export default function SimulationControlPanel({
             <GameActionIcon action="skill" label="캐릭터 스킬" />
             캐릭터 스킬
           </span>
-        </label>
+        </label> : null}
 
         {isGameOver ? (
           <button className="btn-restart" type="button" data-game-sfx="start" onClick={onRestart}>
@@ -156,16 +159,17 @@ export default function SimulationControlPanel({
           </button>
         )}
 
-        <button
+        {!evaluationMode ? <button
           className={`btn-secondary sim-devtools-control ${showMarketPanel ? 'active' : ''}`}
           type="button"
           data-game-sfx="toggle"
           onClick={onToggleDevTools}
+          disabled={replayMode}
           title="테스트와 수동 조작이 필요할 때만 개발자 도구를 엽니다."
         >
           <GameActionIcon action="settings" label="개발자 도구" />
           {showMarketPanel ? '개발자 도구 닫기' : '개발자 도구'}
-        </button>
+        </button> : null}
 
         <button
           className="btn-secondary"

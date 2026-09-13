@@ -1,4 +1,5 @@
-import { normalizeErStats } from '../../../utils/erStats';
+import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { normalizeErStats } from '../../../utils/erStats.js';
 
 export const PERK_EFFECT_DEFAULTS = {
   hpPlus: 0,
@@ -183,7 +184,7 @@ export function maybeBoostDropQty(qty, chance, maxExtra = 1) {
   const extraCap = Math.max(0, Math.round(perkNumber(maxExtra) || 0));
   const rollChance = Math.max(0, Math.min(0.95, Number(chance || 0)));
   for (let i = 0; i < extraCap; i += 1) {
-    if (Math.random() < rollChance) next += 1;
+    if (simulationRandom() < rollChance) next += 1;
   }
   return next;
 }

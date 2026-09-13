@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { isAtOrAfterWorldTime } from './worldTime';
 import { canReceiveItem, invQty } from './inventoryRules';
 import { kioskLegendaryPrice } from './marketRuntime';
@@ -59,7 +60,7 @@ export function pickKioskSurplusBuyAction({
     pushBuy(tacModuleItem, applyKioskCost(Number(mr?.prices?.tacModule ?? 10)), 'surplus tactical module', 'tac');
   }
 
-  if (!buyRows.length || Math.random() >= surplusBuyChance) return null;
+  if (!buyRows.length || simulationRandom() >= surplusBuyChance) return null;
 
   const picked = buyRows
     .sort((a, b) => (a.have - b.have) || (a.cost - b.cost) || String(a.key).localeCompare(String(b.key)))[0];

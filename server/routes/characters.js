@@ -22,6 +22,7 @@ const SAVE_FIELDS = [
   'characterSkillLevel',
   'characterSkillLevels',
   'characterSkills',
+  'uniqueResource',
   'goalGearTier',
   'tacticalSkill',
   'tacticalSkillLevel',
@@ -66,6 +67,9 @@ const DEFAULT_STATS = {
   attackSpeedGrowth: 0.015,
   attackRange: 1.5,
   sightRange: 8,
+  cooldownReduction: 0,
+  ultimateCooldownReduction: 0,
+  tacticalCooldownReduction: 0,
 };
 const STAT_KEYS = Object.keys(DEFAULT_STATS);
 const LOADOUT_TIERS = ['hero', 'legend', 'transcend'];
@@ -169,6 +173,8 @@ function pickCharacterSavePayload(raw, itemNameMap) {
   out.goalGearTier = 6;
   if (out.inventory) out.inventory = normalizeInventory(out.inventory, itemNameMap, { merge: true });
   if (out.tacticalSkill !== undefined) out.tacticalSkill = normalizeTacticalSkill(out.tacticalSkill);
+  if (out.uniqueResource !== undefined) out.uniqueResource = cleanComparableUniqueResource(out.uniqueResource);
+  if (out.characterSkills !== undefined) out.characterSkills = cleanComparableCharacterSkills(out.characterSkills);
   return out;
 }
 
@@ -182,6 +188,42 @@ function normalizeTacticalSkill(value) {
   const alias = TAC_SKILL_ALIASES[raw] || TAC_SKILL_ALIASES[key] || TAC_SKILL_ALIASES[key.replace(/[-_]/g, ' ')];
   const aliasReplacement = TAC_SKILL_REPLACEMENTS[alias] || alias;
   return SUPPORTED_TAC_SKILLS.has(aliasReplacement) ? aliasReplacement : '블링크';
+}
+
+function getCharacterResourceError(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const resource = source.uniqueResource && typeof source.uniqueResource === 'object' ? source.uniqueResource : {};
+  if (resource.enabled === true) {
+    const maxValue = Number(resource.maxValue);
+    const startValue = Number(resource.startValue);
+    const regenPerSec = Number(resource.regenPerSec);
+    if (!String(resource.name || '').trim()) return '고유 자원 이름을 입력해 주세요.';
+    if (!Number.isFinite(maxValue) || maxValue < 1 || maxValue > 10000) return '고유 자원 최대치는 1~10000이어야 합니다.';
+    if (!Number.isFinite(startValue) || startValue < 0 || startValue > maxValue) return '고유 자원 시작치는 0 이상 최대치 이하여야 합니다.';
+    if (!Number.isFinite(regenPerSec) || regenPerSec < 0 || regenPerSec > 100) return '고유 자원 초당 회복은 0~100이어야 합니다.';
+  }
+  for (const slot of CHARACTER_SKILL_SLOTS) {
+    const skill = source.characterSkills?.[slot];
+    if (!skill || skill.enabled !== true) continue;
+    const cost = Number(skill.resourceCost || 0);
+    const gain = Number(skill.resourceGain || 0);
+    if (slot === 'passive' && (cost > 0 || gain > 0)) return '패시브 슬롯에는 고유 자원 소비·획득을 설정할 수 없습니다.';
+    if (!Number.isFinite(cost) || !Number.isFinite(gain) || cost < 0 || gain < 0 || cost > 10000 || gain > 10000) {
+      return `${slot.toUpperCase()}의 고유 자원 소비·획득은 0~10000이어야 합니다.`;
+    }
+    if (resource.enabled !== true && (cost > 0 || gain > 0)) return `${slot.toUpperCase()}의 고유 자원 설정과 자원 사용 여부가 맞지 않습니다.`;
+    const rawDistance = Number(skill.movementDistance || 0);
+    if (slot === 'passive' && (skill.includesMovement === true || rawDistance > 0)) return '패시브 슬롯에는 이동을 설정할 수 없습니다.';
+    if (slot !== 'passive' && skill.includesMovement === true) {
+      if (!['toward_target', 'away_from_target'].includes(String(skill.movementMode || ''))) {
+        return `${slot.toUpperCase()}의 이동 방향이 올바르지 않습니다.`;
+      }
+      if (!Number.isFinite(rawDistance) || rawDistance <= 0 || rawDistance > 10) {
+        return `${slot.toUpperCase()}의 이동 거리는 0보다 크고 10m 이하여야 합니다.`;
+      }
+    }
+  }
+  return '';
 }
 
 function cleanComparableString(value, fallback = '') {
@@ -250,11 +292,36 @@ function cleanComparablePctInput(value, fallback = 0) {
   return n > 1 ? n / 100 : n;
 }
 
+function cleanComparableUniqueResource(value) {
+  const src = value && typeof value === 'object' ? value : {};
+  const maxValue = Math.max(1, Math.min(10000, cleanComparableNumber(src.maxValue, 100)));
+  return {
+    enabled: src.enabled === true,
+    name: (cleanComparableString(src.name, '고유 자원').trim().slice(0, 30) || '고유 자원'),
+    maxValue,
+    startValue: Math.max(0, Math.min(maxValue, cleanComparableNumber(src.startValue, 0))),
+    regenPerSec: Math.max(0, Math.min(100, cleanComparableNumber(src.regenPerSec, 0))),
+  };
+}
+
+function cleanComparableStatusEffects(value) {
+  return (Array.isArray(value) ? value : []).slice(0, 4).map((raw) => ({
+    name: cleanComparableString(raw?.name, ''),
+    target: raw?.target === 'self' ? 'self' : 'target',
+    durationSec: Math.max(0, cleanComparableNumber(raw?.durationSec, 0)),
+    ...(raw && Object.prototype.hasOwnProperty.call(raw, 'wakeDamagePct')
+      ? { wakeDamagePct: Math.max(0, Math.min(1, cleanComparableNumber(raw.wakeDamagePct, 0))) } : {}),
+    ...(raw && Object.prototype.hasOwnProperty.call(raw, 'moveSpeedBonus')
+      ? { moveSpeedBonus: Math.max(-0.75, Math.min(0, cleanComparableNumber(raw.moveSpeedBonus, 0))) } : {}),
+  })).filter((effect) => effect.name);
+}
+
 function cleanComparableCharacterSkill(raw, slot) {
   const src = raw && typeof raw === 'object' ? raw : {};
   const isPassive = slot === 'passive';
   const defaultType = isPassive ? 'passive_stat' : slot === 'q' ? 'basic_attack_recast' : 'combat_effect';
   const defaultCooldown = slot === 'r' ? 60 : slot === 'e' ? 18 : slot === 'w' ? 12 : slot === 'q' ? 7 : 0;
+  const includesMovement = !isPassive && src.includesMovement === true;
   const out = {
     enabled: src.enabled === true,
     slot,
@@ -263,12 +330,24 @@ function cleanComparableCharacterSkill(raw, slot) {
     name: cleanComparableString(src.name, ''),
     sourceText: cleanComparableString(src.sourceText, ''),
     cooldownSec: Math.max(isPassive ? 0 : 1, cleanComparableNumber(src.cooldownSec, defaultCooldown)),
+    cooldownFixed: src.cooldownFixed === true,
+    resourceCost: isPassive ? 0 : Math.max(0, Math.min(10000, cleanComparableNumber(src.resourceCost, 0))),
+    resourceGain: isPassive ? 0 : Math.max(0, Math.min(10000, cleanComparableNumber(src.resourceGain, 0))),
     recastWindowSec: Math.max(0, cleanComparableNumber(src.recastWindowSec, slot === 'q' ? 5 : 0)),
     range: Math.max(0, cleanComparableNumber(src.range, 0)),
+    includesMovement,
+    movementMode: includesMovement && src.movementMode === 'away_from_target' ? 'away_from_target' : 'toward_target',
+    movementDistance: includesMovement ? Math.max(0, Math.min(10, cleanComparableNumber(src.movementDistance, 0))) : 0,
+    damageType: ['basic', 'skill', 'true'].includes(src.damageType) ? src.damageType : 'skill',
+    attackPowerScale: Math.max(0, cleanComparableNumber(src.attackPowerScale ?? src.firstAttackPowerScale, 0)),
+    secondAttackPowerScale: Math.max(0, cleanComparableNumber(src.secondAttackPowerScale, 0)),
     castDelaySec: Math.max(0, cleanComparableNumber(src.castDelaySec, 0)),
     recoveryDelaySec: Math.max(0, cleanComparableNumber(src.recoveryDelaySec, 0)),
     useCondition: cleanComparableString(src.useCondition, 'auto') || 'auto',
     targetPriority: cleanComparableString(src.targetPriority, 'auto') || 'auto',
+    supportTargetScope: ['self', 'ally', 'team'].includes(String(src.supportTargetScope || '').toLowerCase())
+      ? String(src.supportTargetScope).toLowerCase()
+      : 'auto',
     minExpectedDamage: Math.max(0, cleanComparableNumber(src.minExpectedDamage, 1)),
     minSplashTargets: Math.max(0, Math.floor(cleanComparableNumber(src.minSplashTargets, 0))),
     minCasterHpPct: cleanComparablePctInput(src.minCasterHpPct, 0),
@@ -277,6 +356,7 @@ function cleanComparableCharacterSkill(raw, slot) {
     maxTargetHpPct: cleanComparablePctInput(src.maxTargetHpPct, 0),
     radius: Math.max(0, cleanComparableNumber(src.radius, 0)),
     durationSec: Math.max(0, cleanComparableNumber(src.durationSec, 0)),
+    statusEffects: cleanComparableStatusEffects(src.statusEffects),
     firstSkillAmpScale: Math.max(0, cleanComparableNumber(src.firstSkillAmpScale, 0)),
     secondSkillAmpScale: Math.max(0, cleanComparableNumber(src.secondSkillAmpScale, 0)),
     skillAmpScale: Math.max(0, cleanComparableNumber(src.skillAmpScale ?? src.firstSkillAmpScale, 0)),
@@ -304,6 +384,7 @@ function comparableValue(value, field) {
   }
   if (field === 'characterSkillLevels') return cleanComparableSkillLevels(value);
   if (field === 'characterSkills') return cleanComparableCharacterSkills(value);
+  if (field === 'uniqueResource') return cleanComparableUniqueResource(value);
   if (field === 'tacticalSkillLevel') {
     return Math.max(1, Math.min(2, cleanComparableNumber(value, 1)));
   }
@@ -355,7 +436,7 @@ function collectSaveVerificationMismatches(saveInputs, saveResults, savedCharact
         mismatches.push({ id: requestId || savedId, field });
       }
     }
-    for (const field of ['stats', 'goalLoadouts', 'erWeapons', 'characterSkillLevels', 'characterSkills']) {
+    for (const field of ['stats', 'goalLoadouts', 'erWeapons', 'characterSkillLevels', 'characterSkills', 'uniqueResource']) {
       if (payload[field] !== undefined && !sameComparableValue(payload[field], saved[field], field)) {
         mismatches.push({ id: requestId || savedId, field });
       }
@@ -386,6 +467,7 @@ const CHARACTER_LIST_SELECTS = {
     'characterSkillLevel',
     'characterSkillLevels',
     'characterSkills',
+    'uniqueResource',
     'goalGearTier',
     'tacticalSkill',
     'erSubject',
@@ -406,6 +488,7 @@ const CHARACTER_LIST_SELECTS = {
     'characterSkillLevel',
     'characterSkillLevels',
     'characterSkills',
+    'uniqueResource',
     'goalGearTier',
     'tacticalSkill',
     'erSubject',
@@ -426,6 +509,7 @@ const CHARACTER_LIST_SELECTS = {
     'characterSkillLevel',
     'characterSkillLevels',
     'characterSkills',
+    'uniqueResource',
     'goalGearTier',
     'tacticalSkill',
     'tacticalSkillLevel',
@@ -470,6 +554,8 @@ router.post('/save', async (req, res) => {
     }
     const userId = getUserIdOrRespond(req, res);
     if (!userId) return;
+    const resourceError = rawCharList.map(getCharacterResourceError).find(Boolean);
+    if (resourceError) return res.status(400).json({ error: resourceError });
 
     // ✅ 인벤토리 정규화(legacy -> itemId)
     const items = await Item.find(scopedFilter(req), '_id name');

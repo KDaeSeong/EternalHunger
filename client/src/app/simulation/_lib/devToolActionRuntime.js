@@ -43,7 +43,7 @@ export function createDevToolActionRuntime(context = {}) {
     if (!pendingTranscendPick) return;
 
     const pending = pendingTranscendPick;
-    const ruleset = getRuleset(settings?.rulesetId);
+    const ruleset = getRuleset(settings?.rulesetId, settings?.simulationRuleset);
     const options = Array.isArray(pending?.options) ? pending.options : [];
     const chosen = (Number(optionIndex) === -1) ? pickAutoTranscendOption(options, publicItems) : (options[Number(optionIndex)] || null);
 

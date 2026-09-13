@@ -2,6 +2,13 @@ import {
   areSameTeam,
   upsertRuntimeSurvivor,
 } from './simulationEngine';
+import { recordCombatContribution } from './teamCombatRuntime';
+import { applyCombatDamageLifesteal } from './combatDamageRuntime.js';
+import { isTargetableByStatus, getDamageBlockReason } from '../../../utils/statusLogic.js';
+import { getSpatialPosition } from './combatSpatialRuntime.js';
+import { applyCombatHit } from './combatImpactRuntime.js';
+import { applyCharacterSkillStatusEffects } from './characterStatusSkillRuntime.js';
+import { shareCombatSpace, getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 
 export function createPhaseCombatSkillSplashRuntime({
   actions = {},
@@ -25,35 +32,53 @@ export function createPhaseCombatSkillSplashRuntime({
     const zoneId = String(primaryTarget?.zoneId || attacker?.zoneId || '');
     const attackerId = String(attacker?._id || '');
     const primaryId = String(primaryTarget?._id || '');
-    if (!zoneId || !attackerId) return [];
+    if (!zoneId || !attackerId || !shareCombatSpace(attacker, primaryTarget)) return [];
 
     return Array.from(survivorMap.values()).filter((survivor) => {
       const survivorId = String(survivor?._id || '');
       if (!survivorId || survivorId === attackerId || survivorId === primaryId) return false;
       if (newDeadIds.includes(survivorId) || Number(survivor?.hp || 0) <= 0) return false;
-      if (String(survivor?.zoneId || '') !== zoneId) return false;
+      if (!isTargetableByStatus(survivor)) return false;
+      if (!shareCombatSpace(attacker, survivor) || String(survivor?.zoneId || '') !== zoneId) return false;
       return !areSameTeam(attacker, survivor);
     });
   };
 
   const applyCharacterSkillSplashDamage = (attacker, splashHits) => {
     if (!attacker || !Array.isArray(splashHits) || splashHits.length <= 0) return 0;
+    attacker = survivorMap.get(String(attacker._id || '')) || attacker;
     let total = 0;
 
     for (const hit of splashHits) {
-      const splashTarget = hit?.target;
-      const targetId = String(splashTarget?._id || '');
-      if (!targetId || newDeadIds.includes(targetId) || Number(splashTarget?.hp || 0) <= 0) continue;
+      const targetId = String(hit?.target?._id || '');
+      const splashTarget = survivorMap.get(targetId);
+      if (!targetId || !shareCombatSpace(attacker, splashTarget) || newDeadIds.includes(targetId) || Number(splashTarget?.hp || 0) <= 0) continue;
+      const blockedReason = getDamageBlockReason(attacker, splashTarget, { type: hit.packet?.type || 'skill' });
+      if (blockedReason && (blockedReason !== 'invulnerable' || !hit.statusPayload)) continue;
+      const center = hit.centerPosition; const position = getSpatialPosition(splashTarget);
+      const areaDistance = center && position && center.zoneId === position.zoneId
+        && String(center.combatSpaceId || WORLD_COMBAT_SPACE) === getCombatSpaceId(splashTarget)
+        ? Math.hypot(position.x - center.x, position.y - center.y) : Infinity;
+      if (center && areaDistance > Number(hit.radius || 0) + 1e-6) continue;
 
       const raw = Math.max(0, Number(hit?.damage || 0));
-      if (raw <= 0) continue;
+      if (raw <= 0 && !hit.statusPayload) continue;
 
       const prevDamagedBySplash = String(splashTarget?.lastDamagedBy || '');
       const prevDamagedPhaseIdxSplash = Number(splashTarget?.lastDamagedPhaseIdx ?? -9999);
-      const finalSplash = shieldBlock(splashTarget, raw);
+      const impact = applyCombatHit(attacker, splashTarget, { ...hit.packet, type: hit.packet?.type || 'skill', damage: raw },
+        { shieldBlock, emitRunEvent, addLog, at: atNow() });
+      const finalSplash = impact.hpDamage;
+      applyCharacterSkillStatusEffects(attacker, splashTarget, hit.statusPayload, { onlyTarget: true, emitRunEvent, addLog, at: atNow(),
+        allowTarget: !['blind', 'evade', 'untargetable'].includes(impact.blockedReason) });
       if (finalSplash <= 0) continue;
 
-      splashTarget.hp = Math.max(0, Number(splashTarget.hp || 0) - finalSplash);
+      applyCombatDamageLifesteal(attacker, finalSplash, { type: hit.packet?.type || 'skill', area: hit.packet?.area ?? !hit.primary, addLog });
+      emitRunEvent('damage', { who: String(attacker._id), targetId, ...hit.packet,
+        ...(impact.packet.sleepBonusDamage != null ? { damage: impact.packet.damage, sleepBonusDamage: impact.packet.sleepBonusDamage } : {}),
+        ...(center ? { areaDistance, radius: hit.radius, centerPosition: { ...center }, targetPosition: { ...position } } : {}),
+        hpDamage: finalSplash, hpAfter: splashTarget.hp, zoneId: String(splashTarget.zoneId || '') }, atNow());
+      recordCombatContribution(splashTarget, attacker, finalSplash, phaseIdxNow, Number(atNow()?.sec || 0));
       splashTarget.lastDamagedBy = String(attacker?._id || '');
       splashTarget.lastDamagedPhaseIdx = phaseIdxNow;
       total += finalSplash;
@@ -78,6 +103,7 @@ export function createPhaseCombatSkillSplashRuntime({
           deathReason: 'character_skill_splash',
           deathCauseName: `${String(hit?.skill || '스킬')} ${hit?.primary ? '피해' : '광역 피해'}`,
           damageDealt: finalSplash,
+          deferAftermath: Number(attacker?._actionReadyAtSec || 0) > Number(atNow()?.sec || 0),
         });
       } else {
         upsertRuntimeSurvivor(survivorMap, splashTarget);

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { classifySimulationDeathSource } from '../src/app/simulation/_lib/simulationDiagnostics.js';
 
 const DEFAULT_SEEDS = [1101, 1102, 1103, 1104, 1105, 2101, 2102, 2103, 3101, 4101];
 
@@ -44,7 +45,8 @@ function analyzePayload(payload) {
     schema: payload?.schema || 'unknown',
     logCount: Array.isArray(payload?.logs) ? payload.logs.length : 0,
     runEventCount: runEvents.length,
-    deaths: { total: 0, pvp: 0, nonPvp: 0, byBand: { opening: 0, early: 0, mid: 0, end: 0, unknown: 0 } },
+    deaths: { total: 0, pvp: 0, nonPvp: 0, wildlife: 0, environment: 0, byReason: {},
+      byBand: { opening: 0, early: 0, mid: 0, end: 0, unknown: 0 } },
     chase: { total: 0, caught: 0, escaped: 0, blinkEscape: 0 },
     objectives: {},
     gains: {},
@@ -55,8 +57,13 @@ function analyzePayload(payload) {
     if (kind === 'death') {
       out.deaths.total += 1;
       inc(out.deaths.byBand, phaseBand(event));
-      if (cleanStr(event?.by)) out.deaths.pvp += 1;
-      else out.deaths.nonPvp += 1;
+      inc(out.deaths.byReason, event?.reason || 'unknown');
+      const source = classifySimulationDeathSource(event);
+      if (source === 'pvp') out.deaths.pvp += 1;
+      else {
+        out.deaths.nonPvp += 1;
+        out.deaths[source] += 1;
+      }
     } else if (kind === 'chase') {
       out.chase.total += 1;
       if (event?.caught || event?.outcome === 'caught') out.chase.caught += 1;
@@ -108,4 +115,3 @@ for (const file of files) {
   const payload = readJson(file);
   printOne(file, analyzePayload(payload));
 }
-

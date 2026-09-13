@@ -30,6 +30,7 @@ function mergeDefaultLumiaEdges(graph, zoneIds) {
 export function buildBaseZoneGraph(activeMap, zones) {
   const graph = {};
   const zoneIds = (Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || ''));
+  const zoneSet = new Set(zoneIds.filter(Boolean));
   zoneIds.forEach((id) => {
     if (id) graph[id] = new Set();
   });
@@ -38,21 +39,21 @@ export function buildBaseZoneGraph(activeMap, zones) {
   conns.forEach((c) => {
     const a = String(c?.fromZoneId || '');
     const b = String(c?.toZoneId || '');
-    if (!a || !b) return;
-    if (!graph[a]) graph[a] = new Set();
-    if (!graph[b]) graph[b] = new Set();
+    if (!a || !b || a === b || !zoneSet.has(a) || !zoneSet.has(b)) return;
     graph[a].add(b);
     if (c?.bidirectional !== false) graph[b].add(a);
   });
 
-  mergeDefaultLumiaEdges(graph, zoneIds);
+  // An explicit user map is authoritative. Lumia compatibility edges are only
+  // a fallback for legacy maps that supplied zones but no connection contract.
+  if (!conns.length) mergeDefaultLumiaEdges(graph, zoneIds);
 
   const hasEdges = Object.values(graph).some((s) => (s?.size || 0) > 0);
   if (!hasEdges && zoneIds.length > 1) {
-    mergeDefaultLumiaEdges(graph, zoneIds);
+    if (!conns.length) mergeDefaultLumiaEdges(graph, zoneIds);
 
     const hasEdgesAfter = Object.values(graph).some((s) => (s?.size || 0) > 0);
-    if (!hasEdgesAfter) {
+    if (!hasEdgesAfter && !conns.length) {
       for (let i = 0; i < zoneIds.length; i += 1) {
         const a = zoneIds[i];
         const b = zoneIds[(i + 1) % zoneIds.length];

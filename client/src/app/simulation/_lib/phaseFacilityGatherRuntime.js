@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import {
   addItemToInventory,
   canReceiveItem,
@@ -12,6 +13,7 @@ import {
   getRegionFacilityZoneIds,
 } from './lumiaRegionData';
 import { gainText } from './runEventRuntime';
+import { collectFieldResourceLoot, emitFieldResourcePickup, getFieldResourceQty } from './fieldResourceRuntime';
 
 export function runFacilityGatherPhase({
   actions = {},
@@ -32,6 +34,7 @@ export function runFacilityGatherPhase({
   } = actions;
 
   const updated = actor || {};
+  const fieldResources = state.nextSpawn?.fieldResources;
   try {
     const campfireZones = uniqStr([
       ...(Array.isArray(mapObj?.campfireZoneIds) ? mapObj.campfireZoneIds : []).map(String),
@@ -46,13 +49,17 @@ export function runFacilityGatherPhase({
 
     if (waterZones.includes(String(updated.zoneId))) {
       const water = findItemByKeywords(publicItems, ['물', 'water']);
-      if (water?._id) {
+      if (water?._id && getFieldResourceQty(fieldResources, updated.zoneId, water._id) > 0) {
         const have = invQty(updated.inventory, String(water._id));
         const chance = have <= 0 ? 0.85 : have < 2 ? 0.55 : 0.25;
-        if (Math.random() < chance && canReceiveItem(updated.inventory, water, String(water._id), 1, ruleset)) {
-          updated.inventory = addItemToInventory(updated.inventory, water, String(water._id), 1, nextDay, ruleset);
+        if (simulationRandom() < chance && canReceiveItem(updated.inventory, water, String(water._id), 1, ruleset)) {
+          const loot = { item: water, itemId: String(water._id), qty: 1, zoneId: String(updated.zoneId) };
+          const gotW = collectFieldResourceLoot(fieldResources, loot, (qty) => {
+            updated.inventory = addItemToInventory(updated.inventory, water, String(water._id), qty, nextDay, ruleset);
+            return updated.inventory?._lastAdd?.acceptedQty ?? qty;
+          });
+          emitFieldResourcePickup(fieldResources, loot, gotW, updated, actions);
           const metaW = updated.inventory?._lastAdd;
-          const gotW = Math.max(0, Number(metaW?.acceptedQty ?? 1));
           addLog(`💧 [${updated.name}] ${getZoneName(updated.zoneId)}에서 물 ${gainText(gotW)}${formatInvAddNote(metaW, 1, updated.inventory, ruleset)}`, 'normal');
           emitItemGainIfAny(gotW, { who: String(updated?._id || ''), itemId: String(water._id), source: 'gather', kind: 'water', zoneId: String(updated?.zoneId || '') }, atNow());
         }

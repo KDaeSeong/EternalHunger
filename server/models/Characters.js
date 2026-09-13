@@ -22,6 +22,13 @@ const characterSchema = new Schema({
     r: { type: Number, default: 1 },
   },
   characterSkills: { type: Schema.Types.Mixed, default: {} },
+  uniqueResource: {
+    enabled: { type: Boolean, default: false },
+    name: { type: String, default: '고유 자원' },
+    maxValue: { type: Number, default: 100 },
+    startValue: { type: Number, default: 0 },
+    regenPerSec: { type: Number, default: 0 },
+  },
 
   // --- 관전형 목표 세팅 ---
   // - goalGearTier: 장비 목표 티어는 초월(6) 고정
@@ -75,6 +82,9 @@ const characterSchema = new Schema({
     attackSpeedGrowth: { type: Number, default: 0.015 },
     attackRange: { type: Number, default: 1.5 },
     sightRange: { type: Number, default: 8 },
+    cooldownReduction: { type: Number, default: 0 },
+    ultimateCooldownReduction: { type: Number, default: 0 },
+    tacticalCooldownReduction: { type: Number, default: 0 },
   },
 
   // Match runtime growth metadata. A new simulation still starts at Lv.1;

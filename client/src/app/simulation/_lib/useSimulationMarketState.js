@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AUTH_SYNC_EVENT, getUser } from '../../../utils/api';
+import { AUTH_SYNC_EVENT, getToken, getUser } from '../../../utils/api';
 import {
   buildPerkRuntimeBundle,
   applyPerkBundleToActor,
@@ -51,6 +51,8 @@ function resolveSelectedChar(survivors, selectedCharId) {
 }
 
 export function useSimulationMarketState({
+  replayMode = false,
+  runLockedRef,
   devEventPreviewLimit,
   devSelectRenderLimit,
   fireAndReport,
@@ -187,6 +189,7 @@ export function useSimulationMarketState({
 
   useEffect(() => {
     const id = window.setTimeout(() => {
+      if (replayMode || runLockedRef?.current) return;
       setSurvivors((prev) => {
         const list = Array.isArray(prev) ? prev : [];
         if (!list.length) return prev;
@@ -199,9 +202,10 @@ export function useSimulationMarketState({
       });
     }, 0);
     return () => window.clearTimeout(id);
-  }, [activeViewerPerkBundle, setDead, setSurvivors]);
+  }, [activeViewerPerkBundle, setDead, setSurvivors, replayMode, runLockedRef]);
 
   useEffect(() => {
+    if (replayMode || runLockedRef?.current || !getToken()) return;
     const report = typeof fireAndReportRef.current === 'function'
       ? fireAndReportRef.current
       : (_label, job) => job();
@@ -214,6 +218,7 @@ export function useSimulationMarketState({
     }
     if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') {
       void report('marketTab.loadMarket', () => loadMarketIntoState({
+        canApply: () => !replayMode && !runLockedRef?.current,
         setDroneOffers,
         setKiosks,
         setMarketMessage,
@@ -221,7 +226,7 @@ export function useSimulationMarketState({
         setPublicPerks,
       }));
     }
-  }, [marketTab]);
+  }, [marketTab, replayMode, runLockedRef]);
 
   return {
     activeViewerPerkBundle,

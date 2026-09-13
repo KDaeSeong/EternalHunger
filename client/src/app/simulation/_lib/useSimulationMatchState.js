@@ -1,20 +1,20 @@
-import { useState } from 'react';
+import { useMemo, useReducer, useState } from 'react';
 import { getDefaultSimulationSettings } from './simulationPageRuntime';
+import { createInitialSimulationFrame, reduceSimulationFrame, SIMULATION_FRAME_FIELDS } from './simulationFrameRuntime';
 
 export function useSimulationMatchState() {
-  const [survivors, setSurvivors] = useState([]);
+  const [frame, dispatchFrame] = useReducer(reduceSimulationFrame, undefined, createInitialSimulationFrame);
+  const frameActions = useMemo(() => ({
+    ...Object.fromEntries(SIMULATION_FRAME_FIELDS.map((field) => [
+      `set${field[0].toUpperCase()}${field.slice(1)}`,
+      (value) => dispatchFrame({ type: 'field', field, value }),
+    ])),
+    setSimulationFrame: (value) => dispatchFrame({ type: 'publish', frame: value }),
+  }), []);
   const [candidateSurvivors, setCandidateSurvivors] = useState([]);
-  const [dead, setDead] = useState([]);
-  const [forbiddenAddedNow, setForbiddenAddedNow] = useState([]);
-
-  const [day, setDay] = useState(0);
-  const [phase, setPhase] = useState('night');
-  const [matchSec, setMatchSec] = useState(0);
   const [isGameOver, setIsGameOver] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const [killCounts, setKillCounts] = useState({});
-  const [assistCounts, setAssistCounts] = useState({});
   const [showResultModal, setShowResultModal] = useState(false);
   const [gameEndReason, setGameEndReason] = useState(null);
   const [winner, setWinner] = useState(null);
@@ -24,38 +24,24 @@ export function useSimulationMatchState() {
   const [settings, setSettings] = useState(getDefaultSimulationSettings);
 
   return {
-    assistCounts,
+    ...frame,
+    ...frameActions,
     candidateSurvivors,
-    day,
-    dead,
-    forbiddenAddedNow,
     gameEndReason,
     isGameOver,
-    killCounts,
     loading,
-    matchSec,
-    phase,
     resultSummary,
-    setAssistCounts,
     setCandidateSurvivors,
-    setDay,
-    setDead,
-    setForbiddenAddedNow,
     setGameEndReason,
     setIsGameOver,
-    setKillCounts,
     setLoading,
-    setMatchSec,
-    setPhase,
     setResultSummary,
     setSettings,
     setShowResultModal,
-    setSurvivors,
     setWinner,
     setWinnerPredictionId,
     settings,
     showResultModal,
-    survivors,
     winner,
     winnerPredictionId,
   };

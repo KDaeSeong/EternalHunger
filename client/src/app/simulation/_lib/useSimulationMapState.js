@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  createInitialSpawnState,
   getHyperloopDeviceZoneId,
   localKeyHyperloops,
   readLocalJsonArray,
@@ -51,11 +50,12 @@ function safeCompute(label, factory, fallback) {
 export function useSimulationMapState({
   selectedCharId,
   survivors,
+  spawnState,
+  setSpawnState,
 } = {}) {
   const [maps, setMaps] = useState([]);
   const [activeMapId, setActiveMapId] = useState('');
   const [hyperloopDestIdRaw, setHyperloopDestId] = useState('');
-  const [spawnState, setSpawnState] = useState(() => createInitialSpawnState(''));
 
   const mapsRef = useRef([]);
   const activeMapIdRef = useRef('');
@@ -91,7 +91,7 @@ export function useSimulationMapState({
       setActiveMapId,
       setSpawnState,
     },
-  }), []);
+  }), [setSpawnState]);
 
   const zones = useMemo(() => safeCompute('zones', () => {
     const list = Array.isArray(activeMap?.zones) ? activeMap.zones : [];

@@ -1,8 +1,10 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import {
   EFFECT_KNOCKBACK,
   getKnockbackDistance,
 } from '../../../utils/statusLogic';
 import { getMovementSpeedMasteryBonus } from '../../../utils/masteryLogic';
+import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import {
   bfsNextStepToAnyTarget,
   getEarlyRoutePlanTarget,
@@ -50,13 +52,15 @@ export function applyActorKnockbackMovement({
 
   const updated = actor || {};
   let currentZone = String(updated.zoneId || zones[0]?.zoneId || '__default__');
+  if (getActorDimensionRiftId(updated)) return { actor: updated, currentZone, neighbors: [] };
   let neighbors = Array.isArray(zoneGraph[currentZone]) ? zoneGraph[currentZone] : [];
-  const knockbackDistance = getKnockbackDistance(updated);
+  // Preserve the legacy field-region threshold; arena displacement uses meters.
+  const knockbackDistance = Math.floor(getKnockbackDistance(updated));
 
   if (knockbackDistance > 0 && neighbors.length > 0) {
     const safeNeighbors = neighbors.filter((zoneId) => !forbiddenIds.has(String(zoneId)));
     const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
-    const pushedZone = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
+    const pushedZone = String(candidates[Math.floor(simulationRandom() * candidates.length)] || currentZone);
 
     if (pushedZone && pushedZone !== currentZone) {
       updated.zoneId = pushedZone;
@@ -227,6 +231,7 @@ export function resolveActorNextMoveZone({
     neighbors = [],
     phase,
     recovering = false,
+    preserveGrowthPosition = false,
     ruleset,
     zoneGraph = {},
   } = state;
@@ -242,6 +247,8 @@ export function resolveActorNextMoveZone({
   const masteryMoveSpeed = getMovementSpeedMasteryBonus(updated);
   const moveSpeedBonus = Math.min(0.18, equipMoveSpeed * 0.9 + masteryMoveSpeed);
   const forceFirstDayMorningMove = !mustEscape
+    && !preserveGrowthPosition
+    && !fleeInterruptReason && !recovering
     && isDay1MorningPhase(day, phase)
     && Math.max(0, Number(updated.day1Moves || 0)) < 1
     && neighbors.length > 0;
@@ -252,7 +259,7 @@ export function resolveActorNextMoveZone({
     baseMoveChance = Math.max(baseMoveChance, 0.92);
   }
   const moveChance = Math.min(0.98, baseMoveChance + moveSpeedBonus);
-  let willMove = Math.random() < moveChance;
+  let willMove = simulationRandom() < moveChance;
 
   if (forceFirstDayMorningMove) willMove = true;
 
@@ -262,19 +269,20 @@ export function resolveActorNextMoveZone({
       if (neighbors.length > 0) {
         const safeNeighbors = neighbors.filter((zoneId) => !forbiddenIds.has(String(zoneId)));
         const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
-        nextZoneId = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
+        const plannedEscape = moveTargets.find((zoneId) => safeNeighbors.includes(zoneId));
+        nextZoneId = String(plannedEscape || candidates[Math.floor(simulationRandom() * candidates.length)] || currentZone);
       } else {
         nextZoneId = currentZone;
       }
     } else if (moveTargets.length) {
       const targetSet = new Set(moveTargets.map((zoneId) => String(zoneId)));
       const stepRes = bfsNextStepToAnyTarget(currentZone, targetSet, zoneGraph, forbiddenIds);
-      const picked = stepRes.nextStep || (targetSet.has(currentZone) ? currentZone : String(moveTargets[0] || currentZone));
+      const picked = stepRes.nextStep || currentZone;
       if (picked && !forbiddenIds.has(String(picked))) nextZoneId = String(picked);
     } else if (neighbors.length > 0) {
       const safeNeighbors = neighbors.filter((zoneId) => !forbiddenIds.has(String(zoneId)));
       const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
-      nextZoneId = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
+      nextZoneId = String(candidates[Math.floor(simulationRandom() * candidates.length)] || currentZone);
     } else {
       nextZoneId = currentZone;
     }
@@ -283,7 +291,7 @@ export function resolveActorNextMoveZone({
   if (forceFirstDayMorningMove && String(nextZoneId) === String(currentZone)) {
     const safeNeighbors = neighbors.filter((zoneId) => !forbiddenIds.has(String(zoneId)));
     const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
-    nextZoneId = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
+    nextZoneId = String(candidates[Math.floor(simulationRandom() * candidates.length)] || currentZone);
   }
 
   return {

@@ -1,25 +1,32 @@
 import {
   CHARACTER_SKILL_SLOT_LABELS,
   CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS,
+  CHARACTER_SKILL_MOVEMENT_MODE_OPTIONS,
   SUPPORT_TARGET_SCOPE_OPTIONS,
   cleanNumber,
   createDefaultCompiledSkill,
+  getCharacterSkillMovementError,
   normalizeCharacterSkillType,
+  normalizeCharacterSkillMovementMode,
   normalizePctInput,
   normalizeSkillText,
   normalizeSupportTargetScope,
   normalizeSlot,
   toLevelArray,
 } from './characterSkillCompilerCore.js';
+import { getCharacterStatusSkillError } from './characterStatusSkillDefinition.js';
 
 export {
   ACTIVE_CHARACTER_SKILL_SLOTS,
   CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS,
+  CHARACTER_SKILL_MOVEMENT_MODE_OPTIONS,
   CHARACTER_SKILL_SLOT_LABELS,
   CHARACTER_SKILL_SLOTS,
   SUPPORT_TARGET_SCOPE_OPTIONS,
   createDefaultCompiledSkill,
+  getCharacterSkillMovementError,
   normalizeCharacterSkillType,
+  normalizeCharacterSkillMovementMode,
   normalizeSupportTargetScope,
 } from './characterSkillCompilerCore.js';
 
@@ -117,6 +124,7 @@ function inferTargetPriority(text, skill) {
   if (/처치|마무리|결정타|kill|finish|execute/i.test(text)) return 'killable';
   if (/낮은\s*(?:체력|hp)|체력(?:이|가)?\s*낮|lowest|low\s*hp/i.test(text)) return 'lowest_hp';
   if (/높은\s*최대\s*(?:체력|hp)|최대\s*(?:체력|hp)|max\s*hp/i.test(text)) return 'highest_max_hp';
+  if (skill.targetPriority && skill.targetPriority !== 'auto') return skill.targetPriority;
   if (skill.radius > 0) return 'cluster';
   if ([...skill.maxHpPct, ...skill.secondMaxHpPct].some((n) => n > 0)) return 'highest_max_hp';
   if ([...skill.currentHpPct, ...skill.secondCurrentHpPct].some((n) => n > 0)) return 'lowest_hp';
@@ -127,7 +135,7 @@ function inferUseCondition(text) {
   if (/처치|마무리|결정타|kill|finish|execute/i.test(text)) return 'finish';
   if (/방어|보호|위급|체력.*(?:이하|낮|defensive|low\s*hp)/i.test(text)) return 'defensive';
   if (/견제|poke|harass/i.test(text)) return 'harass';
-  return 'auto';
+  return null;
 }
 
 function inferSupportTargetScope(text) {
@@ -136,7 +144,7 @@ function inferSupportTargetScope(text) {
   if (hasSelf && hasAlly) return 'team';
   if (hasSelf) return 'self';
   if (hasAlly) return 'ally';
-  return 'auto';
+  return null;
 }
 
 function extractHpConditionPct(text, subject, direction) {
@@ -150,7 +158,7 @@ function extractHpConditionPct(text, subject, direction) {
     new RegExp(`${subjectWord}[^.!?]{0,30}(?:체력|hp)[^%\\d]{0,20}${NUMBER_SEQUENCE}\\s*(?:%|퍼센트)?[^.!?]{0,20}${relationWord}`, 'i'),
     new RegExp(`${subjectWord}[^.!?]{0,40}${relationWord}[^%\\d]{0,20}${NUMBER_SEQUENCE}\\s*(?:%|퍼센트)?`, 'i'),
   ]);
-  return seq ? normalizePctInput(seq, 0) : 0;
+  return seq ? normalizePctInput(seq, 0) : null;
 }
 
 function extractFlatDamage(text) {
@@ -234,6 +242,9 @@ function hasPositiveLevelValues(...lists) {
 }
 
 function inferCompiledActiveSkillType(text, skill) {
+  // Explicit status targets belong to the authored type. Text assistance must
+  // not silently turn an enemy control into an ally skill, or the reverse.
+  if (skill.statusEffects.length) return normalizeCharacterSkillType(skill.type, skill.slot);
   if (/기본\s*공격|평타|basic attack/i.test(text) || RECAST_MARKER.test(text)) {
     return 'basic_attack_enhance';
   }
@@ -262,67 +273,43 @@ function buildWarnings(skill) {
     ...skill.currentHpPct,
     ...skill.secondMaxHpPct,
     ...skill.secondCurrentHpPct,
+    skill.attackPowerScale, skill.secondAttackPowerScale, skill.firstSkillAmpScale,
+    skill.secondSkillAmpScale, skill.skillAmpScale,
   ].some((n) => Number(n || 0) > 0);
   const hasUtility = [...skill.heal, ...skill.shield].some((n) => Number(n || 0) > 0);
+  const hasResourceGain = Number(skill.resourceGain || 0) > 0;
   const hasPassiveStats = Object.keys(skill.statModifiers || {}).length > 0;
-  if (!hasDamage && !hasUtility && !hasPassiveStats) {
-    warnings.push('인식된 피해/회복/보호막/패시브 스탯 효과가 없습니다.');
+  if (!hasDamage && !hasUtility && !hasResourceGain && !hasPassiveStats && !skill.statusEffects.length) {
+    warnings.push('인식된 피해/회복/보호막/고유 자원 획득/패시브 스탯 효과가 없습니다.');
   }
-  if (skill.recastWindowSec > 0 && !skill.secondFlat.some((n) => n > 0) && !skill.secondCurrentHpPct.some((n) => n > 0) && !skill.secondMaxHpPct.some((n) => n > 0)) {
+  if (skill.recastWindowSec > 0 && !hasPositiveLevelValues(skill.secondFlat,
+    skill.secondCurrentHpPct, skill.secondMaxHpPct, [skill.secondSkillAmpScale, skill.secondAttackPowerScale])) {
     warnings.push('재발동 시간이 있지만 2타 피해를 찾지 못했습니다. 필요하면 2타 피해를 수동 입력하세요.');
   }
   return warnings;
 }
 
 function normalizePreviewSkill(skill = {}) {
-  const s = createDefaultCompiledSkill(skill, skill.slot || 'q');
-  return {
-    enabled: s.enabled === true,
-    slot: s.slot,
-    type: s.type,
-    trigger: s.trigger,
-    name: s.name,
-    cooldownSec: s.cooldownSec,
-    recastWindowSec: s.recastWindowSec,
-    range: s.range,
-    castDelaySec: s.castDelaySec,
-    recoveryDelaySec: s.recoveryDelaySec,
-    useCondition: s.useCondition,
-    targetPriority: s.targetPriority,
-    supportTargetScope: s.supportTargetScope,
-    minExpectedDamage: s.minExpectedDamage,
-    minSplashTargets: s.minSplashTargets,
-    minCasterHpPct: s.minCasterHpPct,
-    maxCasterHpPct: s.maxCasterHpPct,
-    minTargetHpPct: s.minTargetHpPct,
-    maxTargetHpPct: s.maxTargetHpPct,
-    radius: s.radius,
-    durationSec: s.durationSec,
-    firstFlat: s.firstFlat,
-    secondFlat: s.secondFlat,
-    flatDamage: s.flatDamage,
-    maxHpPct: s.maxHpPct,
-    currentHpPct: s.currentHpPct,
-    secondCurrentHpPct: s.secondCurrentHpPct,
-    secondMaxHpPct: s.secondMaxHpPct,
-    heal: s.heal,
-    shield: s.shield,
-    firstSkillAmpScale: s.firstSkillAmpScale,
-    secondSkillAmpScale: s.secondSkillAmpScale,
-    skillAmpScale: s.skillAmpScale,
-    statModifiers: s.statModifiers,
-    tags: s.tags,
-  };
+  // Reuse the canonical definition whitelist instead of maintaining a second,
+  // incomplete list of fields. Never serialize arbitrary runtime properties.
+  const preview = createDefaultCompiledSkill(skill, skill.slot || 'q');
+  delete preview.sourceText;
+  return preview;
 }
 
 export function compileNaturalSkillDescription(sourceText, base = {}, slot = 'q') {
   const skillSlot = normalizeSlot(slot || base.slot);
   const text = normalizeSkillText(sourceText);
+  const unchanged = () => ({ ...base });
+  const inputError = getCharacterStatusSkillError(base, skillSlot);
+  if (inputError) {
+    return { ok: false, skill: unchanged(), warnings: [`설명 변환을 적용하지 않았습니다. ${inputError}`] };
+  }
+  if (!text) {
+    return { ok: false, skill: unchanged(), warnings: [`${CHARACTER_SKILL_SLOT_LABELS[skillSlot]} 설명이 비어 있어 기존 입력을 유지했습니다.`] };
+  }
   const skill = createDefaultCompiledSkill({ ...base, slot: skillSlot, sourceText: text }, skillSlot);
   skill.enabled = true;
-  if (!text) {
-    return { skill, warnings: [`${CHARACTER_SKILL_SLOT_LABELS[skillSlot]} 설명이 비어 있습니다.`] };
-  }
 
   const cooldownSec = extractCooldownSec(text);
   if (cooldownSec > 0) skill.cooldownSec = cooldownSec;
@@ -394,7 +381,7 @@ export function compileNaturalSkillDescription(sourceText, base = {}, slot = 'q'
     skill.secondFlat,
     skill.secondMaxHpPct,
     skill.secondCurrentHpPct,
-    [skill.secondSkillAmpScale]
+    [skill.secondSkillAmpScale, skill.secondAttackPowerScale]
   );
   if (skillSlot !== 'passive' && (!hasSecondStage || skill.type !== 'basic_attack_enhance')) {
     skill.recastWindowSec = 0;
@@ -402,13 +389,18 @@ export function compileNaturalSkillDescription(sourceText, base = {}, slot = 'q'
 
   skill.tags = buildTags(text, skill);
   skill.targetPriority = inferTargetPriority(text, skill);
-  skill.useCondition = inferUseCondition(text);
-  skill.supportTargetScope = inferSupportTargetScope(text);
-  skill.minCasterHpPct = extractHpConditionPct(text, 'caster', 'min');
-  skill.maxCasterHpPct = extractHpConditionPct(text, 'caster', 'max');
-  skill.minTargetHpPct = extractHpConditionPct(text, 'target', 'min');
-  skill.maxTargetHpPct = extractHpConditionPct(text, 'target', 'max');
+  skill.useCondition = inferUseCondition(text) ?? skill.useCondition;
+  skill.supportTargetScope = inferSupportTargetScope(text) ?? skill.supportTargetScope;
+  skill.minCasterHpPct = extractHpConditionPct(text, 'caster', 'min') ?? skill.minCasterHpPct;
+  skill.maxCasterHpPct = extractHpConditionPct(text, 'caster', 'max') ?? skill.maxCasterHpPct;
+  skill.minTargetHpPct = extractHpConditionPct(text, 'target', 'min') ?? skill.minTargetHpPct;
+  skill.maxTargetHpPct = extractHpConditionPct(text, 'target', 'max') ?? skill.maxTargetHpPct;
+  const outputError = getCharacterStatusSkillError(skill, skillSlot);
+  if (outputError) {
+    return { ok: false, skill: unchanged(), warnings: [`설명 변환을 적용하지 않았습니다. ${outputError}`] };
+  }
   return {
+    ok: true,
     skill,
     warnings: buildWarnings(skill),
   };
@@ -419,6 +411,9 @@ export function compileNaturalQSkillDescription(sourceText, base = {}) {
 }
 
 export function buildSkillCodePreview(skill = {}) {
+  const slot = normalizeSlot(skill.slot);
+  const error = getCharacterStatusSkillError(skill, slot) || getCharacterSkillMovementError(skill, slot);
+  if (error) return `// 코드 미리보기를 생성하지 않았습니다. ${error}`;
   const normalized = normalizePreviewSkill(skill);
   return `const ${normalized.slot}Skill = ${JSON.stringify(normalized, null, 2)};`;
 }

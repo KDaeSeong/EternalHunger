@@ -13,6 +13,7 @@ import {
   normalizeSatiety,
 } from './satietyRuntime';
 import { upsertRuntimeSurvivor } from './survivorRuntime';
+import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 
 export function applyPermanentConsumableBoostToActor(actor, effect, item) {
   const boost = effect?.permanentBoost && typeof effect.permanentBoost === 'object' ? effect.permanentBoost : null;
@@ -92,6 +93,7 @@ export function createPhaseConsumableRuntime(opts = {}) {
   const consMaxUsesPerPhase = Math.max(0, Math.floor(Number(consCfg.maxUsesPerPhase ?? 1)));
 
   const tryUseConsumable = (actor, reason) => {
+    if (isDimensionRiftDefeated(actor)) return false;
     if (!consEnabled || consMaxUsesPerPhase <= 0) return false;
     if (!actor || !Array.isArray(actor.inventory) || actor.inventory.length === 0) return false;
 
@@ -172,6 +174,7 @@ export function createPhaseConsumableRuntime(opts = {}) {
 }
 
 export function forceUseConsumableAtIndex(actor, invIndex, opts = {}) {
+  if (isDimensionRiftDefeated(actor)) return { used: false, reason: 'rift_defeated' };
   const {
     addLog,
     emitConsumableRunEvent,

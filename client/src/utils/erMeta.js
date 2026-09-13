@@ -1,3 +1,4 @@
+import { simulationRandom } from './simulationRandom.js';
 // Eternal Return inspired meta rules for the spectator simulation.
 // This is intentionally a systems model, not a verbatim live-data dump.
 
@@ -146,7 +147,7 @@ export function normalizeErWeaponTypes(raw) {
   return out;
 }
 
-export function pickInitialErWeaponType(character, random = Math.random) {
+export function pickInitialErWeaponType(character, random = simulationRandom) {
   const configured = normalizeErWeaponTypes(character?.erWeapons);
   const fallback = normalizeErWeaponType(character?.weaponType || '');
   const pool = configured.length
@@ -345,6 +346,7 @@ ER_SUBJECT_PRESETS.forEach((preset) => {
 });
 
 export function getErSubjectPreset(characterOrName) {
+  if (characterOrName?.localProfile === true) return null;
   const raw = typeof characterOrName === 'string'
     ? characterOrName
     : (characterOrName?.erSubject || characterOrName?.subjectName || characterOrName?.name || characterOrName?.nickname || '');

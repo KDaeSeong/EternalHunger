@@ -55,12 +55,12 @@ function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
       for (const state of states) {
         for (const cand of optsForSlot) {
           const reqs = addRequirementsToState(state.reqs, cand.requirements);
-          next.push({ reqs, picks: [...state.picks, { slot, item: cand.item, goal: cand.goal }] });
+          next.push({ reqs, picks: [...state.picks, { slot, item: cand.item, goal: cand.goal }], stats: requirementStatsForRoute(reqs, routeSet) });
         }
       }
       next.sort((a, b) => {
-        const sa = requirementStatsForRoute(a.reqs, routeSet);
-        const sb = requirementStatsForRoute(b.reqs, routeSet);
+        const sa = a.stats;
+        const sb = b.stats;
         return (sa.missing.length - sb.missing.length)
           || (sa.missingQty - sb.missingQty)
           || (sa.totalQty - sb.totalQty);
@@ -69,7 +69,7 @@ function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
     }
 
     for (const state of states) {
-      const stats = requirementStatsForRoute(state.reqs, routeSet);
+      const stats = state.stats;
       const droneFallbackMissing = stats.missing.filter(isDroneFallbackReq);
       const droneBlockedMissing = stats.missing.length - droneFallbackMissing.length;
       const droneFallbackMissingQty = sumReqQty(droneFallbackMissing);

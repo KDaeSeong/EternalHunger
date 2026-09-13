@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { findItemByKeywords, randInt } from './simulationCommon';
 import { canonicalCoreZoneId } from './coreSpawnRuntime';
 
@@ -124,7 +125,7 @@ function rollSpecialResourceDrops(sourceKind, publicItems, opts = {}) {
     if (!item?._id) continue;
     const baseChance = Math.max(0, Math.min(1, Number(rule?.chance ?? 0)));
     const chance = Math.min(1, baseChance >= 1 ? 1 : baseChance + bonus);
-    if (Math.random() >= chance) continue;
+    if (simulationRandom() >= chance) continue;
     drops.push({
       item,
       itemId: String(item._id),

@@ -1,3 +1,4 @@
+import { simulationRandom } from './simulationRandom.js';
 import { getEffectiveStats } from './statusLogic';
 import { buildErCombatModifier } from './erMeta';
 import {
@@ -172,13 +173,13 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     const critDamageScale = Number(settings?.battle?.critBurstScale ?? 0.35);
     const c1 = Math.max(0, Math.min(0.75, Number(p1Bonus.critChance || 0) + Number(er1.critChancePlus || 0)));
     const c2 = Math.max(0, Math.min(0.75, Number(p2Bonus.critChance || 0) + Number(er2.critChancePlus || 0)));
-    if (Math.random() < c1) {
+    if (simulationRandom() < c1) {
       const extra = offense1 * critDamageScale;
       offense1 += extra;
       score1 += extra;
       logs.push(`🎯 [${p1.name}] 치명타! (+${extra.toFixed(1)})`);
     }
-    if (Math.random() < c2) {
+    if (simulationRandom() < c2) {
       const extra = offense2 * critDamageScale;
       offense2 += extra;
       score2 += extra;
@@ -214,7 +215,7 @@ export function calculateBattle(p1, p2, day, settings = {}) {
             `🛡️ [${p1.name}]의 기습을 [${p2.name}]이(가) 간신히 막아내고 거리를 벌립니다.`,
             `⚔️ [${p1.name}]와(과) [${p2.name}]의 무기가 격렬하게 부딪혔지만, 결정타는 없었습니다.`
         ];
-        const randomLog = drawLogs[Math.floor(Math.random() * drawLogs.length)];
+        const randomLog = drawLogs[Math.floor(simulationRandom() * drawLogs.length)];
         return { winner: null, isDraw: true, log: `${equipLog}\n${randomLog}`, type: "normal" };
     }
 

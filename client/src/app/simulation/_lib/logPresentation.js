@@ -1,6 +1,7 @@
 export const LOG_DETAIL_OPEN_KEY = 'eh_logs_detail_open';
 
 const SUMMARY_LIMIT = 48;
+export const LOG_DETAIL_RENDER_LIMIT = 200;
 
 const IMPORTANT_TYPES = new Set(['death', 'day-header', 'night-header', 'error']);
 const COMBAT_DETAIL_TYPES = new Set(['combat-detail']);
@@ -67,15 +68,32 @@ export function getVisibleLogs(logs, { detailed = false, limit = SUMMARY_LIMIT }
 }
 
 export function getKillLogs(logs, { limit = 0 } = {}) {
-  const killLogs = (Array.isArray(logs) ? logs : []).map(normalizeLog).filter(isKillLog);
+  const source = Array.isArray(logs) ? logs : [];
   const max = Math.max(0, Number(limit || 0));
-  return max > 0 ? killLogs.slice(-max) : killLogs;
+  if (max > 0) {
+    const recent = [];
+    for (let index = source.length - 1; index >= 0 && recent.length < max; index -= 1) {
+      const log = normalizeLog(source[index], index);
+      if (isKillLog(log)) recent.push(log);
+    }
+    return recent.reverse();
+  }
+  return source.map(normalizeLog).filter(isKillLog);
 }
 
 export function getCombatDetailLogs(logs, { limit = 0 } = {}) {
-  const detailLogs = (Array.isArray(logs) ? logs : []).map(normalizeLog).filter((log) => isCombatDetailLog(log) || isKillLog(log));
+  const source = Array.isArray(logs) ? logs : [];
   const max = Math.max(0, Number(limit || 0));
-  return max > 0 ? detailLogs.slice(-max) : detailLogs;
+  const isDetail = (log) => isCombatDetailLog(log) || isKillLog(log);
+  if (max > 0) {
+    const recent = [];
+    for (let index = source.length - 1; index >= 0 && recent.length < max; index -= 1) {
+      const log = normalizeLog(source[index], index);
+      if (isDetail(log)) recent.push(log);
+    }
+    return recent.reverse();
+  }
+  return source.map(normalizeLog).filter(isDetail);
 }
 
 export function getHiddenLogCount(logs, visibleLogs, { detailed = false } = {}) {

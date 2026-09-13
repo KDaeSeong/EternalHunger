@@ -60,11 +60,9 @@ export default function SimulationMarketPanel({
   runEvents,
   runEventsPreviewText,
   runProgressSummary,
-  runSeed,
   runSupportSummary,
   saveCurrentParticipantPreset,
   saveSelectedParticipantPresetId,
-  seedDraft,
   selectedChar,
   selectedCharId,
   selectedDevGrantItem,
@@ -74,8 +72,6 @@ export default function SimulationMarketPanel({
   setDevGrantSearch,
   setParticipantPresetName,
   setQty,
-  setRunSeed,
-  setSeedDraft,
   setEquipForSurvivor,
   setMarketTab,
   setShowAllMarketRows,
@@ -131,16 +127,12 @@ export default function SimulationMarketPanel({
         runEvents={runEvents}
         runEventsPreviewText={runEventsPreviewText}
         runProgressSummary={runProgressSummary}
-        runSeed={runSeed}
         saveCurrentParticipantPreset={saveCurrentParticipantPreset}
         saveSelectedParticipantPresetId={saveSelectedParticipantPresetId}
-        seedDraft={seedDraft}
         selectedChar={selectedChar}
         selectedCharId={selectedCharId}
         selectedParticipantPresetId={selectedParticipantPresetId}
         setParticipantPresetName={setParticipantPresetName}
-        setRunSeed={setRunSeed}
-        setSeedDraft={setSeedDraft}
         setSelectedCharId={setSelectedCharId}
         setShowAllMarketRows={setShowAllMarketRows}
         setShowDevDebugDetails={setShowDevDebugDetails}

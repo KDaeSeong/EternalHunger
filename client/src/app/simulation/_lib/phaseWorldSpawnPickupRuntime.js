@@ -1,3 +1,4 @@
+import { simulationRandomId } from '../../../utils/simulationRandom.js';
 import {
   addItemToInventory,
   autoEquipBest,
@@ -87,7 +88,7 @@ export function runWorldSpawnPickupPhase({
     if (devPickable) {
       nextPendingPickAssigned = true;
       setPendingTranscendPick({
-        id: String(transcendCrate?.crateId || `${Date.now()}-${Math.floor(Math.random() * 1e6)}`),
+        id: String(transcendCrate?.crateId || simulationRandomId('transcend_pick')),
         characterId: String(updated?._id || ''),
         characterName: updated?.name,
         zoneId: String(updated?.zoneId || ''),
@@ -125,8 +126,8 @@ export function runWorldSpawnPickupPhase({
     const immediateCore = tryImmediateCraftFromSpecial(updated, String(corePickup.kind || ''), String(corePickup.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
     if (immediateCore?.changed) {
       updated.inventory = immediateCore.inventory;
-      (Array.isArray(immediateCore.logs) ? immediateCore.logs : []).forEach((m) => addLog(String(m), 'highlight'));
     }
+    (immediateCore?.logs || []).forEach((m) => addLog(String(m), immediateCore.changed ? 'highlight' : 'system'));
     if (Number(immediateCore?.pvpBonus || 0) > 0) {
       const pb = Number(immediateCore.pvpBonus || 0);
       updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);

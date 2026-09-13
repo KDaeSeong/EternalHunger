@@ -17,6 +17,11 @@ import { normalizeSupportedTacSkill } from '../tacticalSkillTable';
 import { getWeaponMasteryLevel } from '../../../utils/erMeta';
 import { normalizeErStats } from '../../../utils/erStats';
 import { normalizeMasteryState } from '../../../utils/masteryLogic';
+import { initializeSpatialPosition, getSpatialPosition, getSpatialLastSeen } from './combatSpatialRuntime.js';
+import {
+  normalizeUniqueResourceDefinition,
+  normalizeUniqueResourceValue,
+} from './uniqueResourceRuntime.js';
 
 function ensureEquipped(obj) {
   const eq = obj?.equipped;
@@ -107,6 +112,7 @@ function upsertRuntimeSurvivor(runtimeMap, survivor, opts = {}) {
 function normalizeRuntimeSurvivor(obj, opts = {}) {
   const base = obj && typeof obj === 'object' ? obj : {};
   const normalizedStats = normalizeErStats(base?.stats);
+  const uniqueResource = normalizeUniqueResourceDefinition(base?.uniqueResource);
   const hpDefault = opts.hpDefault != null ? Number(opts.hpDefault) : 100;
   const maxHpDefault = opts.maxHpDefault != null ? Number(opts.maxHpDefault) : Number(normalizedStats.maxHp || 100);
   const hpRaw = Number(base?.hp);
@@ -150,6 +156,8 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
       ...(base?.cooldowns && typeof base.cooldowns === 'object' ? base.cooldowns : {}),
     },
     skillState: base?.skillState && typeof base.skillState === 'object' ? { ...base.skillState } : {},
+    uniqueResource,
+    uniqueResourceValue: normalizeUniqueResourceValue(uniqueResource, base?.uniqueResourceValue),
     hp: Math.max(0, Math.min(maxHp, hp)),
     maxHp,
     satiety: Math.max(0, Math.min(100, Number.isFinite(Number(base?.satiety)) ? Number(base.satiety) : 70)),
@@ -167,6 +175,9 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
     weaponMasteryXp,
     weaponMasteryLevel,
     zoneId: String(base?.zoneId || ''),
+    _spatial: initializeSpatialPosition(base),
+    _spatialMotion: getSpatialPosition(base) && base._spatialMotion ? { ...base._spatialMotion } : null,
+    _spatialLastSeen: getSpatialLastSeen(base) ? { ...base._spatialLastSeen } : null,
     mapId: base?.mapId != null ? String(base.mapId || '') : '',
     day1Moves: Math.max(0, Number(base?.day1Moves || 0)),
     day1HeroDone: !!base?.day1HeroDone,
@@ -176,6 +187,8 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
     safeZoneUntil: Number.isFinite(Number(base?.safeZoneUntil)) ? Number(base.safeZoneUntil) : 0,
     aiTargetZoneId: base?.aiTargetZoneId != null ? String(base.aiTargetZoneId || '') : '',
     aiTargetTTL: Math.max(0, Number(base?.aiTargetTTL || 0)),
+    _retreatAvoidZoneId: base?._retreatAvoidZoneId != null ? String(base._retreatAvoidZoneId || '') : '',
+    _retreatAvoidDecisions: Math.max(0, Math.floor(Number(base?._retreatAvoidDecisions || 0))),
     routePlanZoneIds: Array.isArray(base?.routePlanZoneIds)
       ? base.routePlanZoneIds.map((z) => String(z || '').trim()).filter(Boolean)
       : [],
@@ -248,7 +261,7 @@ function getEquipMoveSpeed(actor) {
 }
 
 function getEquipSummary(char) {
-  const eq = ensureEquipped(char);
+  const eq = char?.equipped || {};
   const inv = Array.isArray(char?.inventory) ? char.inventory : [];
   const parts = EQUIP_SLOTS.map((slot) => {
     const icon = SLOT_ICON[slot] || '🧩';

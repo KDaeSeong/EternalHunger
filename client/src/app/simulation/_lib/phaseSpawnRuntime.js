@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
   START_WEAPON_TYPES,
@@ -41,7 +42,8 @@ export function prepareWorldSpawnsForPhase({
     mapIdNow,
     mapObj?.coreSpawnZones,
     ruleset,
-    { matchMode }
+    { matchMode, ...(Object.hasOwn(mapObj || {}, 'mutantWildlifeSpawnZoneId')
+      ? { mutantWildlifeSpawnZoneId: mapObj.mutantWildlifeSpawnZoneId } : {}) }
   );
   const nextSpawn = spawnResult.state;
   if (Array.isArray(spawnResult.announcements) && spawnResult.announcements.length) {
@@ -104,11 +106,13 @@ export function buildStarterLoadoutSurvivorsForPhase({
     return Array.isArray(survivors) ? survivors : [];
   }
 
+  let weaponCount = 0;
+  let shoesCount = 0;
   const phaseSurvivors = (Array.isArray(survivors) ? survivors : []).map((survivor) => {
     const preferredWeaponType = normalizeWeaponType(String(survivor?.weaponType || '').trim());
     const weaponType = preferredWeaponType
       ? preferredWeaponType
-      : START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
+      : START_WEAPON_TYPES[Math.floor(simulationRandom() * START_WEAPON_TYPES.length)];
     const normalizedWeaponType = normalizeWeaponType(weaponType);
 
     const gear = {
@@ -116,12 +120,12 @@ export function buildStarterLoadoutSurvivorsForPhase({
         slot: 'weapon',
         tier: 1,
         weaponType: normalizedWeaponType,
-        allowNearestTier: true,
+        allowNearestTier: false,
       }),
       shoes: pickCatalogEquipmentItem(publicItems, {
         slot: 'shoes',
         tier: 1,
-        allowNearestTier: true,
+        allowNearestTier: false,
       }),
     };
 
@@ -135,22 +139,37 @@ export function buildStarterLoadoutSurvivorsForPhase({
       inventory = addItemToInventory(inventory, steak, String(steak._id), 1, nextDay, ruleset);
     }
 
-    if (gear.weapon?._id) {
-      inventory = addItemToInventory(inventory, gear.weapon, String(gear.weapon._id), 1, nextDay, ruleset);
-    }
-    if (gear.shoes?._id) {
-      inventory = addItemToInventory(inventory, gear.shoes, String(gear.shoes._id), 1, nextDay, ruleset);
+    const receivedGear = {};
+    const starterIssues = [];
+    for (const slot of ['weapon', 'shoes']) {
+      const item = gear[slot];
+      const label = slot === 'weapon' ? `${normalizedWeaponType || '선택 무기'} T1` : '신발 T1';
+      if (!item?._id) {
+        starterIssues.push({ slot, reason: 'catalog_item_missing' });
+        addLog(`⚠️ [${survivor.name}] 시작 ${label} 항목 누락 — 생성 장비나 상위 장비로 대체하지 않습니다.`, 'system');
+        continue;
+      }
+      inventory = addItemToInventory(inventory, item, String(item._id), 1, nextDay, ruleset);
+      if (inventory?._lastAdd?.acceptedQty === 1) {
+        receivedGear[slot] = String(item._id);
+        if (slot === 'weapon') weaponCount += 1;
+        else shoesCount += 1;
+      } else {
+        starterIssues.push({ slot, reason: 'inventory_rejected' });
+        addLog(`⚠️ [${survivor.name}] 시작 ${label} 수령 실패 — 가방 상태 확인 필요`, 'system');
+      }
     }
 
     return {
       ...survivor,
       day1Moves: 0,
       day1HeroDone: false,
+      _starterLoadoutIssues: starterIssues,
       inventory,
       equipped: {
         ...(ensureEquipped(survivor) || {}),
-        weapon: gear.weapon?._id ? String(gear.weapon._id) : null,
-        shoes: gear.shoes?._id ? String(gear.shoes._id) : null,
+        weapon: receivedGear.weapon || null,
+        shoes: receivedGear.shoes || null,
         head: null,
         clothes: null,
         arm: null,
@@ -159,6 +178,6 @@ export function buildStarterLoadoutSurvivorsForPhase({
   });
 
   startStarterLoadoutAppliedRef.current = true;
-  addLog('🧰 1일차 낮: 실제 아이템 목록에서 시작 무기/신발이 지급되었습니다. (관전형: 제작/루팅으로 성장)', 'highlight');
+  addLog(`🧰 1일차 낮: 실제 T1 시작 장비 수령 — 무기 ${weaponCount}/${phaseSurvivors.length}명, 신발 ${shoesCount}/${phaseSurvivors.length}명. (이후 제작/루팅으로 성장)`, 'highlight');
   return phaseSurvivors;
 }

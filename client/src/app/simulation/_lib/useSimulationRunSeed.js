@@ -1,7 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { createSeedRng } from './randomSeedRuntime';
 
 const SEED_STORAGE_KEY = 'eh_run_seed';
+
+export function createNewSimulationSeed(currentSeed = '') {
+  const now = String(Date.now());
+  const current = String(currentSeed || '').trim();
+  const prefix = `${now}-new`;
+  if (current === now) return `${prefix}-1`;
+  if (current === prefix) return `${prefix}-2`;
+  if (current.startsWith(`${prefix}-`)) {
+    const suffix = Number(current.slice(prefix.length + 1));
+    if (Number.isSafeInteger(suffix) && suffix >= 1) return `${prefix}-${suffix + 1}`;
+  }
+  return now;
+}
 
 function getInitialSeed() {
   try {
@@ -13,41 +25,24 @@ function getInitialSeed() {
   }
 }
 
-export function useSimulationRunSeed({
-  day,
-  isAdvancing,
-  isGameOver,
-  matchSec,
-} = {}) {
-  const [runSeed, setRunSeed] = useState(getInitialSeed);
-  const [seedDraft, setSeedDraft] = useState(getInitialSeed);
-  const randomBackupRef = useRef(null);
+export function useSimulationRunSeed(savedSeed) {
+  const [runSeed, setRunSeed] = useState(() => savedSeed ?? getInitialSeed());
+  const [seedDraft, setSeedDraft] = useState(() => runSeed);
+  // Initialized at the first engine phase, after the actual pregame roster is
+  // chosen. Renders, pregame edits and unrelated UI never consume this stream.
+  const runRandomRef = useRef(null);
 
-  function applyRunSeed(seedStr) {
-    const seed = String(seedStr || '').trim() || '0';
+  useEffect(() => {
+    if (savedSeed !== undefined) return;
     try {
-      window.localStorage.setItem(SEED_STORAGE_KEY, seed);
+      window.localStorage.setItem(SEED_STORAGE_KEY, String(runSeed || '').trim() || '0');
     } catch {
       // ignore storage errors
     }
-    if (!randomBackupRef.current) randomBackupRef.current = Math.random;
-    Math.random = createSeedRng(`RUN:${seed}`);
-  }
-
-  function restoreRandom() {
-    if (randomBackupRef.current) Math.random = randomBackupRef.current;
-  }
-
-  useEffect(() => {
-    if (!runSeed) return;
-    if (isAdvancing || isGameOver) return;
-    if (day !== 0 || matchSec !== 0) return;
-    applyRunSeed(runSeed);
-  }, [runSeed, day, matchSec, isAdvancing, isGameOver]);
-
-  useEffect(() => () => restoreRandom(), []);
+  }, [runSeed, savedSeed]);
 
   return {
+    runRandomRef,
     runSeed,
     seedDraft,
     setRunSeed,

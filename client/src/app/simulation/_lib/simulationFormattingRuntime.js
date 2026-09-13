@@ -1,8 +1,12 @@
 export function formatClock(totalSec) {
-  const s = Math.max(0, Number(totalSec || 0));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+  const value = Number(totalSec || 0);
+  // Display precision only: never feed rounded centiseconds back into the clock.
+  const ticks = Math.round((Number.isFinite(value) ? Math.max(0, value) : 0) * 100);
+  const minutes = Math.floor(ticks / 6000);
+  const seconds = Math.floor(ticks / 100) % 60;
+  const fraction = ticks % 100;
+  const suffix = fraction ? `.${String(fraction).padStart(2, '0').replace(/0$/, '')}` : '';
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}${suffix}`;
 }
 
 export function waitMs(ms) {

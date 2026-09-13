@@ -1,160 +1,57 @@
-import {
-  getActorTeamName,
-  getAliveTeams,
-  pickTeamRepresentative,
-} from './teamRuntime';
-import { normalizeRuntimeSurvivorList } from './survivorRuntime';
+import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { buildBaseZoneGraph } from './mapGraphRuntime';
+import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
 
-function runSuddenDeathGatherPhase({
-  actions = {},
-  state = {},
-} = {}) {
-  const {
-    ruleset,
-    suddenDeathActive = false,
-    suddenDeathSafeZoneIds = [],
-    updatedSurvivors = [],
-  } = state;
-  const {
-    addLog = () => {},
-    atNow = () => null,
-    emitRunEvent = () => {},
-    getZoneName = (zoneId) => String(zoneId || ''),
-  } = actions;
-
-  if (!suddenDeathActive || ruleset?.suddenDeath?.forceGather === false || suddenDeathSafeZoneIds.length <= 0) {
-    return {
-      ran: false,
-      updatedSurvivors,
-    };
-  }
-
-  const aliveTeamsBeforeClash = getAliveTeams(updatedSurvivors);
-  if (aliveTeamsBeforeClash.length <= 1) {
-    return {
-      ran: false,
-      updatedSurvivors,
-    };
-  }
-
-  const clashZone = String(suddenDeathSafeZoneIds[0] || '');
-  const criticalSec = Math.max(0, Number(ruleset?.detonation?.criticalSec ?? 5));
-  const detMax = Math.max(criticalSec + 8, Number(ruleset?.detonation?.maxSec ?? 30));
-  const gathered = normalizeRuntimeSurvivorList(
-    updatedSurvivors.map((actor) => {
-      if (!actor || Number(actor?.hp || 0) <= 0) return actor;
-      if (!clashZone || String(actor.zoneId || '') === clashZone) return actor;
-      return {
-        ...actor,
-        zoneId: clashZone,
-        detonationMaxSec: Math.max(Number(actor?.detonationMaxSec || 0), detMax),
-        detonationSec: Math.max(Number(actor?.detonationSec || 0), criticalSec + 8),
-        aiTargetZoneId: null,
-        aiTargetTTL: 0,
-      };
-    })
-  ).filter((actor) => Number(actor?.hp || 0) > 0);
-
-  addLog(`🔥 서든데스 교전 집결: 생존 팀이 ${getZoneName(clashZone)}로 진입합니다.`, 'highlight');
-  emitRunEvent('sudden_death_gather', {
-    zoneId: clashZone,
-    teamCount: aliveTeamsBeforeClash.length,
-  }, atNow());
-
-  return {
-    ran: true,
-    updatedSurvivors: gathered,
-  };
+export function getEndgameDurationSec(ruleset = {}) {
+  const value = Number(ruleset.suddenDeath?.totalSec ?? ruleset.suddenDeath?.durationSec ?? 370);
+  return Math.max(30, Number.isFinite(value) ? value : 370);
 }
 
-function runForcedSuddenDeathClash(opts = {}) {
-  const {
-    addLog,
-    appendPhaseDeadSnapshots,
-    assistCounts = {},
-    emitDeathRunEventOnce,
-    estimatePower,
-    flushDeadSnapshots,
-    killCounts = {},
-    newDeadIds = [],
-    phaseIdxNow = 0,
-    roundAssists = {},
-    roundKills = {},
-    ruleset,
-    setDeathMetadata,
-    suddenDeathActive = false,
-    survivorMap,
-  } = opts;
-  if (!suddenDeathActive || ruleset?.suddenDeath?.forcedClash === false) return { clashRounds: 0 };
-  if (!survivorMap || typeof survivorMap.values !== 'function') return { clashRounds: 0 };
-
-  const maxClashRounds = Math.max(1, Math.floor(Number(ruleset?.suddenDeath?.forceClashMaxRounds ?? 8)));
-  const liveTeams = () => getAliveTeams(
-    Array.from(survivorMap.values())
-      .filter((actor) => actor && Number(actor.hp || 0) > 0 && !newDeadIds.includes(actor._id))
-  );
-  const scoreTeam = (team) => {
-    const members = Array.isArray(team?.members) ? team.members : [];
-    const hpSum = members.reduce((sum, member) => sum + Math.max(0, Number(member?.hp || 0)), 0);
-    const powerSum = members.reduce((sum, member) => sum + Math.max(1, Number(estimatePower?.(member) || 0)), 0);
-    const killSum = members.reduce((sum, member) => (
-      sum + Number(killCounts?.[member?._id] || 0) + Number(roundKills?.[member?._id] || 0)
-    ), 0);
-    return powerSum + hpSum * 0.45 + killSum * 8 + Math.random() * 10;
-  };
-
-  let clashRound = 0;
-  while (clashRound < maxClashRounds) {
-    const teams = liveTeams();
-    if (teams.length <= 1) break;
-    const scored = teams
-      .map((team) => ({ team, score: scoreTeam(team) }))
-      .sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
-    const top = scored[0];
-    const challenger = scored[1];
-    if (!top?.team || !challenger?.team) break;
-
-    const totalScore = Math.max(1, Number(top.score || 0) + Number(challenger.score || 0));
-    const topWins = Math.random() < (Number(top.score || 0) / totalScore);
-    const winnerTeam = topWins ? top.team : challenger.team;
-    const loserTeam = topWins ? challenger.team : top.team;
-    const winnerRep = pickTeamRepresentative(
-      winnerTeam.members,
-      { ...(killCounts || {}), ...(roundKills || {}) },
-      { ...(assistCounts || {}), ...(roundAssists || {}) }
-    ) || winnerTeam.members?.[0];
-    const loserMembers = (Array.isArray(loserTeam?.members) ? loserTeam.members : [])
-      .map((member) => survivorMap.get(String(member?._id || '')) || member)
-      .filter((member) => member && Number(member.hp || 0) > 0 && !newDeadIds.includes(member._id));
-    if (!winnerRep || !loserMembers.length) break;
-
-    addLog?.(`🔥 서든데스 결판: [${winnerTeam.teamName || getActorTeamName(winnerRep)}]이(가) [${loserTeam.teamName || '상대 팀'}]을 몰아냅니다.`, 'death');
-    const winnerId = String(winnerRep?._id || '');
-    roundKills[winnerId] = (roundKills[winnerId] || 0) + loserMembers.length;
-    for (const loser of loserMembers) {
-      loser.hp = 0;
-      setDeathMetadata?.(loser, 'sudden_death_clash', { causeName: '서든데스 교전', by: winnerId });
-      loser.deadAtPhaseIdx = phaseIdxNow;
-      loser.reviveEligible = false;
-      if (!newDeadIds.includes(loser._id)) newDeadIds.push(loser._id);
-      survivorMap.set(String(loser._id || ''), loser);
-      emitDeathRunEventOnce?.(loser, {
-        by: winnerId,
-        zoneId: String(loser?.zoneId || winnerRep?.zoneId || ''),
-        reason: 'sudden_death_clash',
-        cause: '서든데스 교전',
-      });
-    }
-    const detBonus = Math.max(5, Number(ruleset?.detonation?.killBonusSec || 5));
-    winnerRep.detonationSec = Math.max(Number(winnerRep?.detonationSec || 0), Number(ruleset?.detonation?.criticalSec || 5) + detBonus);
-    survivorMap.set(String(winnerRep._id || ''), winnerRep);
-    flushDeadSnapshots?.(appendPhaseDeadSnapshots?.(loserMembers));
-    clashRound += 1;
-  }
-  return { clashRounds: clashRound };
+// Pressure changes the world, never the actors' HP, positions, or winner.
+export function createEndgamePressure({ previous, mapObj, forbiddenIds = new Set(), nowSec = 0, ruleset = {} } = {}) {
+  if (previous) return structuredClone(previous);
+  const zoneIds = (mapObj?.zones || []).map((zone) => String(zone.zoneId));
+  const safe = zoneIds.filter((id) => !forbiddenIds.has(id));
+  const graph = buildBaseZoneGraph(mapObj, mapObj?.zones || []);
+  const anchor = safe[Math.floor(simulationRandom() * safe.length)] || '';
+  const neighbor = (graph[anchor] || []).find((id) => safe.includes(id));
+  const initialSafeZoneIds = [anchor, neighbor || safe.find((id) => id !== anchor)].filter(Boolean);
+  const totalSec = getEndgameDurationSec(ruleset);
+  const singleAfter = Math.max(10, Math.min(totalSec - 10, Number(ruleset.suddenDeath?.singleZoneAfterSec ?? 90)));
+  return { startedAtSec: nowSec, singleZoneAtSec: nowSec + singleAfter, allClosedAtSec: nowSec + totalSec,
+    initialSafeZoneIds, finalZoneId: anchor, stage: '', zoneIds };
 }
 
-export {
-  runForcedSuddenDeathClash,
-  runSuddenDeathGatherPhase,
-};
+export function advanceEndgamePressure(endgame, forbiddenIds, nowSec, actions = {}) {
+  if (!endgame) return false;
+  const stage = nowSec >= endgame.allClosedAtSec ? 'closed' : nowSec >= endgame.singleZoneAtSec ? 'final' : 'approach';
+  const safe = new Set(stage === 'closed' ? [] : stage === 'final' ? [endgame.finalZoneId] : endgame.initialSafeZoneIds);
+  const added = endgame.zoneIds.filter((id) => !safe.has(id) && !forbiddenIds.has(id));
+  added.forEach((id) => forbiddenIds.add(id));
+  endgame.forbiddenZoneIds = [...forbiddenIds];
+  if (endgame.stage === stage) return false;
+  endgame.stage = stage;
+  const actualSafe = endgame.zoneIds.filter((id) => !forbiddenIds.has(id));
+  const label = actions.getZoneName?.(endgame.finalZoneId) || endgame.finalZoneId;
+  actions.emitRunEvent?.('endgame_zone', { stage, safeZoneIds: actualSafe, finalZoneId: endgame.finalZoneId,
+    singleZoneAtSec: endgame.singleZoneAtSec, allClosedAtSec: endgame.allClosedAtSec }, actions.atNow?.());
+  actions.addLog?.(stage === 'approach'
+    ? `🚩 최종 구역 예고: ${actualSafe.map((id) => actions.getZoneName?.(id) || id).join(', ')} → ${endgame.singleZoneAtSec - nowSec}초 후 ${label} 한 곳 → ${endgame.allClosedAtSec - nowSec}초 후 전지역 폐쇄. 직접 이동해야 합니다.`
+    : stage === 'final' ? `🚩 마지막 안전구역: ${label}. ${Math.max(0, endgame.allClosedAtSec - nowSec)}초 후 폐쇄됩니다.`
+      : '🚫 마지막 안전구역 폐쇄: 모든 참가자에게 동일한 구역 위험이 적용됩니다.', 'highlight');
+  return true;
+}
+
+export function pickEndgameMove(actor, endgame, forbiddenIds, zoneGraph, nowSec) {
+  if (!endgame || endgame.stage === 'closed') return null;
+  const current = String(actor.zoneId || '');
+  const safe = endgame.zoneIds.filter((id) => !forbiddenIds.has(id));
+  const mustRotate = forbiddenIds.has(current) || nowSec >= endgame.singleZoneAtSec - 20;
+  if (!mustRotate || !safe.length) return null;
+  const targets = new Set(safe.includes(endgame.finalZoneId) ? [endgame.finalZoneId] : safe);
+  // Escaping may need to cross a dangerous intermediate zone. This is a real
+  // graph step with normal travel time; no direct position or timer correction.
+  const route = bfsNextStepToAnyTarget(current, targets, zoneGraph, new Set());
+  if (!route.nextStep) return null;
+  return { nextStep: route.nextStep, targetZoneId: endgame.finalZoneId };
+}

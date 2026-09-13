@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { pickWeighted } from './simulationCommon';
 import { EQUIP_SLOTS } from './simulationConstants';
 import { isAtOrAfterWorldTime } from './worldTime';
@@ -85,7 +86,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
     : ((curDay <= 2 && invCount <= 1) ? 0.05 : 0);
   const pacingPressure = (legendOverdue ? 0.12 : 0) + (transOverdue ? 0.16 : 0) + ((goalTier >= 5 && hasNeed && curDay <= 2) ? 0.04 : 0);
   const baseChance = Math.min(0.98, droneBaseChance + droneUrgency + pacingPressure + surplusCreditPressure + perkChanceBonus);
-  if (Math.random() >= baseChance) return null;
+  if (simulationRandom() >= baseChance) return null;
 
   const pool = [];
   function isSpecialName(name) {

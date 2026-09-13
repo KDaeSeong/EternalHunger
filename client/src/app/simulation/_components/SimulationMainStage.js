@@ -1,5 +1,9 @@
 'use client';
 
+import { useId, useMemo, useRef, useState } from 'react';
+import { buildTeamObserverModel } from '../_lib/teamObserverRuntime';
+import { getActorTeamId } from '../_lib/teamRuntime';
+import SimulationTeamObserverPanel from './SimulationTeamObserverPanel';
 import { getRuleset } from '../../../utils/rulesets';
 import { normalizeMatchMode } from '../_lib/matchRosterRuntime';
 import { formatClock } from '../_lib/simulationFormattingRuntime';
@@ -9,18 +13,45 @@ import SimulationLogPanel from './SimulationLogPanel';
 import SimulationMatchStatusPanel from './SimulationMatchStatusPanel';
 import SimulationMinimapPanel from './SimulationMinimapPanel';
 import SimulationPregameRosterSetup from './SimulationPregameRosterSetup';
+import SimulationPregameMapRulesSetup from './SimulationPregameMapRulesSetup';
 import SimulationWorldSpawnToolbar from './SimulationWorldSpawnToolbar';
 
+function getObserverActorId(actor) {
+  return String(actor?._id || actor?.id || '');
+}
+
+function buildObserverTrackedActorIds(survivors, dead, selectedTeamId) {
+  const actors = new Map();
+  for (const actor of [
+    ...(Array.isArray(dead) ? dead : []),
+    ...(Array.isArray(survivors) ? survivors : []),
+  ]) {
+    const id = getObserverActorId(actor);
+    if (id) actors.set(id, actor);
+  }
+  const teamIds = [...new Set([...actors.values()].map(getActorTeamId).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+  const teamId = teamIds.includes(selectedTeamId) ? selectedTeamId : teamIds[0] || '';
+  return [...actors.values()]
+    .filter((actor) => getActorTeamId(actor) === teamId)
+    .map(getObserverActorId);
+}
+
 export default function SimulationMainStage({
+  replayMode,
+  draftMode,
+  evaluationMode,
   actionDisabled,
   activeMap,
   activeMapId,
   actorAvatarByName,
   applyCustomParticipantRoster,
+  saveLocalCharacter,
   applyParticipantPresetToCurrent,
   aliveTeamCount,
   autoPlay,
   autoSpeed,
+  assistCounts,
   characterSkillsEnabled,
   candidateSurvivors,
   closeUiModal,
@@ -29,6 +60,7 @@ export default function SimulationMainStage({
   doHyperloopJump,
   forbiddenAddedNow,
   forbiddenNow,
+  guestMode,
   getTeamStateForActor,
   getZoneName,
   handleCharacterSkillsToggle,
@@ -50,10 +82,16 @@ export default function SimulationMainStage({
   logs,
   maps,
   matchSec,
+  onLocalRulesChanged,
+  removeLocalMap,
   onToggleDevTools,
   participantSelectionMode,
   phase,
   prevPhaseLogs,
+  publicItems,
+  runEvents,
+  saveLocalMap,
+  selectLocalMap,
   proceedPhaseGuarded,
   recentMoveTrails,
   recentPings,
@@ -78,6 +116,34 @@ export default function SimulationMainStage({
   zoneEdges,
   zonePos,
 }) {
+  const [observedTeamId, setObservedTeamId] = useState('');
+  const [observerTab, setObserverTab] = useState('team');
+  const observerId = useId();
+  const observerTabsRef = useRef({});
+  const observerTabs = [{ id: 'team', label: '팀 관전' }, { id: 'match', label: '경기 현황' }, { id: 'logs', label: '전체 로그' }];
+  const handleObserverTabKey = (event, index) => {
+    let nextIndex;
+    if (event.key === 'ArrowRight') nextIndex = (index + 1) % observerTabs.length;
+    else if (event.key === 'ArrowLeft') nextIndex = (index + observerTabs.length - 1) % observerTabs.length;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = observerTabs.length - 1;
+    else return;
+    event.preventDefault();
+    const nextId = observerTabs[nextIndex].id;
+    setObserverTab(nextId);
+    observerTabsRef.current[nextId]?.focus();
+  };
+  const observerTrackedActorIds = useMemo(
+    () => buildObserverTrackedActorIds(survivors, dead, observedTeamId),
+    [survivors, dead, observedTeamId]
+  );
+  const observerModel = useMemo(() => {
+    if (observerTab !== 'team') return null;
+    return buildTeamObserverModel({
+      survivors, dead, events: runEvents, teamId: observedTeamId, matchSec,
+      publicItems, killCounts, assistCounts, isGameOver, zoneName: getZoneName,
+    });
+  }, [observerTab, survivors, dead, runEvents, observedTeamId, matchSec, publicItems, killCounts, assistCounts, isGameOver, getZoneName]);
   return (
     <>
       <div className="simulation-stage">
@@ -90,6 +156,7 @@ export default function SimulationMainStage({
           />
 
           <SimulationMinimapPanel
+            trackedActorIds={observerTrackedActorIds}
             activeMapId={activeMapId}
             closeUiModal={closeUiModal}
             day={day}
@@ -121,22 +188,43 @@ export default function SimulationMainStage({
           />
         </div>
 
-        <aside className="simulation-side-column" aria-label="Simulation status and logs">
-          <SimulationMatchStatusPanel
-            day={day}
-            phase={phase}
-            matchSec={formatClock(matchSec)}
-            survivors={survivors}
-            dead={dead}
-            killCounts={killCounts}
-            activeMap={activeMap}
-            zones={zones}
-            forbiddenNow={forbiddenNow}
-            spawnState={spawnState}
-            getZoneName={getZoneName}
-          />
+        <aside className="simulation-side-column" aria-label="관전과 경기 기록">
+          <div className="simulation-observer-tabs" role="tablist" aria-label="관전 정보">
+            {observerTabs.map((option, index) => (
+              <button key={option.id} type="button" role="tab" id={`${observerId}-${option.id}-tab`}
+                ref={(node) => { observerTabsRef.current[option.id] = node; }}
+                aria-selected={observerTab === option.id} aria-controls={`${observerId}-${option.id}-panel`}
+                tabIndex={observerTab === option.id ? 0 : -1}
+                onKeyDown={(event) => handleObserverTabKey(event, index)}
+                onClick={() => setObserverTab(option.id)}>{option.label}</button>
+            ))}
+          </div>
+          <div className="simulation-observer-slot" role="tabpanel" id={`${observerId}-team-panel`}
+            aria-labelledby={`${observerId}-team-tab`} hidden={observerTab !== 'team'} tabIndex={0}>
+            {observerTab === 'team'
+              ? <SimulationTeamObserverPanel model={observerModel} onTeamChange={setObservedTeamId} isGameOver={isGameOver} />
+              : null}
+          </div>
+          <div className="simulation-observer-slot" role="tabpanel" id={`${observerId}-match-panel`}
+            aria-labelledby={`${observerId}-match-tab`} hidden={observerTab !== 'match'} tabIndex={0}>
+            {observerTab === 'match' ? <SimulationMatchStatusPanel
+              day={day}
+              phase={phase}
+              matchSec={formatClock(matchSec)}
+              survivors={survivors}
+              dead={dead}
+              killCounts={killCounts}
+              activeMap={activeMap}
+              zones={zones}
+              forbiddenNow={forbiddenNow}
+              spawnState={spawnState}
+              getZoneName={getZoneName}
+            /> : null}
+          </div>
 
-          <SimulationLogPanel
+          <div className="simulation-observer-log-slot" role="tabpanel" id={`${observerId}-logs-panel`}
+            aria-labelledby={`${observerId}-logs-tab`} hidden={observerTab !== 'logs' && uiModal !== 'log'} tabIndex={0}>
+          {observerTab === 'logs' || uiModal === 'log' ? <SimulationLogPanel
             uiModal={uiModal}
             closeUiModal={closeUiModal}
             day={day}
@@ -158,12 +246,14 @@ export default function SimulationMainStage({
             logBoxMaxH={logBoxMaxH}
             actorAvatarByName={actorAvatarByName}
             extractActorNameFromLog={extractActorNameFromLog}
-          />
+          /> : null}
+          </div>
         </aside>
       </div>
 
-      <SimulationPregameRosterSetup
+      {!replayMode && (!evaluationMode || draftMode) ? <SimulationPregameRosterSetup
         applyCustomParticipantRoster={applyCustomParticipantRoster}
+        saveLocalCharacter={saveLocalCharacter}
         applyParticipantPresetToCurrent={applyParticipantPresetToCurrent}
         candidateSurvivors={candidateSurvivors}
         day={day}
@@ -172,12 +262,31 @@ export default function SimulationMainStage({
         matchSec={matchSec}
         participantSelectionMode={participantSelectionMode}
         survivors={survivors}
-      />
+      /> : null}
+
+      {!replayMode && (!evaluationMode || draftMode) ? <SimulationPregameMapRulesSetup
+        key={`${String(activeMapId || 'none')}:${String(settings?.rulesetId || '')}`}
+        activeMap={activeMap}
+        activeMapId={activeMapId}
+        day={day}
+        disabled={loading || isAdvancing || isGameOver}
+        guestMode={guestMode}
+        maps={maps}
+        matchSec={matchSec}
+        onMapChange={selectLocalMap}
+        onMapDelete={removeLocalMap}
+        onMapSave={saveLocalMap}
+        onRulesChanged={onLocalRulesChanged}
+        settings={settings}
+      /> : null}
 
       <SimulationControlPanel
+        replayMode={replayMode}
+        draftMode={draftMode}
+        evaluationMode={evaluationMode}
         matchMode={normalizeMatchMode(settings?.matchMode)}
         onMatchModeChange={handleMatchModeChange}
-        matchModeDisabled={loading || isAdvancing || day !== 0}
+        matchModeDisabled={replayMode || loading || isAdvancing || day !== 0}
         matchSec={matchSec}
         survivors={survivors}
         winnerPredictionId={winnerPredictionId}
@@ -185,7 +294,7 @@ export default function SimulationMainStage({
         winnerPredictionDisabled={loading || isAdvancing || isGameOver || day !== 0 || matchSec !== 0}
         characterSkillsEnabled={characterSkillsEnabled}
         onCharacterSkillsToggle={handleCharacterSkillsToggle}
-        characterSkillsDisabled={loading || isAdvancing}
+        characterSkillsDisabled={replayMode || loading || isAdvancing || day !== 0}
         isGameOver={isGameOver}
         onRestart={() => window.location.reload()}
         onProceed={proceedPhaseGuarded}

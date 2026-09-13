@@ -40,6 +40,7 @@ export function openLegendaryCrateForActor({
     grantMastery = () => {},
   } = actions;
   const updated = actor || {};
+  if (Number(updated.hp || 0) <= 0) return { actor: updated, opened: false };
   const legendary = openSpawnedLegendaryCrate(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset, { moved: didMove });
 
   if (!legendary) {
@@ -63,8 +64,8 @@ export function openLegendaryCrateForActor({
   const immediate = tryImmediateCraftFromSpecial(updated, specialKind, String(legendary.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
   if (immediate?.changed) {
     updated.inventory = immediate.inventory;
-    (Array.isArray(immediate.logs) ? immediate.logs : []).forEach((message) => addLog(String(message), 'highlight'));
   }
+  (immediate?.logs || []).forEach((message) => addLog(String(message), immediate.changed ? 'highlight' : 'system'));
   if (Number(immediate?.pvpBonus || 0) > 0) {
     const pb = Number(immediate.pvpBonus || 0);
     updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
@@ -107,8 +108,8 @@ export function openLegendaryCrateForActor({
     const immediateBonus = tryImmediateCraftFromSpecial(updated, bonusKind, String(bonusDrop.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
     if (immediateBonus?.changed) {
       updated.inventory = immediateBonus.inventory;
-      (Array.isArray(immediateBonus.logs) ? immediateBonus.logs : []).forEach((message) => addLog(String(message), 'highlight'));
     }
+    (immediateBonus?.logs || []).forEach((message) => addLog(String(message), immediateBonus.changed ? 'highlight' : 'system'));
     if (Number(immediateBonus?.pvpBonus || 0) > 0) {
       const pb = Number(immediateBonus.pvpBonus || 0);
       updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);

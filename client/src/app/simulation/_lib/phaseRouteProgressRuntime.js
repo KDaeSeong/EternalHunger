@@ -77,8 +77,8 @@ export function runDay1HeroGearDirectorWithLogs({
     options
   );
 
-  if (result?.changed && Array.isArray(result.logs)) {
-    result.logs.forEach((message) => addLog(String(message), 'highlight'));
+  if (Array.isArray(result?.logs)) {
+    result.logs.forEach((message) => addLog(String(message), result.changed ? 'highlight' : 'system'));
   }
 
   return result;

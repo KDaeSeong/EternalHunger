@@ -1,4 +1,5 @@
 import { getMatchStartInfo } from './matchRosterRuntime';
+import { getActorTeamId } from './teamRuntime';
 
 export function getSimulationStartGate({ day = 0, settings = {}, survivors = [] } = {}) {
   const matchStartInfo = getMatchStartInfo(survivors, settings);
@@ -63,6 +64,7 @@ export async function runGuardedPhaseAdvance({
   setIsAdvancing?.(true);
   try {
     if (day === 0 && matchSec === 0) {
+      actions.lockRunInputs?.();
       await refreshMapSettingsFromServer?.('start');
     }
 
@@ -76,6 +78,12 @@ export async function runGuardedPhaseAdvance({
         maxTeams: matchStartInfo.maxTeams,
         participantCount: matchStartInfo.participantCount,
         teamCount: matchStartInfo.teamCount,
+        participants: (Array.isArray(survivors) ? survivors : []).map((actor) => ({
+          id: String(actor?._id || actor?.id || ''),
+          name: String(actor?.name || ''),
+          teamId: getActorTeamId(actor),
+          weaponType: String(actor?.weaponType || ''),
+        })),
       }]);
     }
     await proceedPhase();

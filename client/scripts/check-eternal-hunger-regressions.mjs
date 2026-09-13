@@ -5,6 +5,12 @@ import {
   normalizeInventory,
 } from '../src/app/simulation/_lib/inventoryRules.js';
 import { pickKioskPrioritySpecialAction } from '../src/app/simulation/_lib/aiKioskPriorityRuntime.js';
+import {
+  buildGuestSimulationMap,
+  buildGuestSimulationRoster,
+  isGuestSimulationSession,
+  resolveSimulationBootstrapData,
+} from '../src/app/simulation/_lib/guestSimulationBootstrap.js';
 
 const compactRuleset = {
   inventory: {
@@ -97,6 +103,26 @@ assert.equal(
   'An overdue legendary build must take priority over VF blood.',
 );
 
+const guestRoster = buildGuestSimulationRoster();
+assert.equal(guestRoster.length, 24, 'Guest bootstrap must provide a complete 24-player roster.');
+assert.equal(new Set(guestRoster.map((row) => row._id)).size, 24, 'Guest roster IDs must be stable and unique.');
+assert.ok(guestRoster.every((row) => Number(row?.stats?.maxHp || 0) > 0), 'Every guest survivor must have valid base stats.');
+
+const guestMap = buildGuestSimulationMap();
+const guestZoneIds = new Set(guestMap.zones.map((zone) => String(zone.zoneId)));
+assert.equal(guestZoneIds.size, 21, 'Guest bootstrap must provide all 21 Lumia zones.');
+assert.ok(guestMap.zoneConnections.length > 0, 'Guest map must include traversable connections.');
+assert.ok(
+  guestMap.zoneConnections.every((edge) => guestZoneIds.has(edge.fromZoneId) && guestZoneIds.has(edge.toZoneId)),
+  'Every guest map connection must reference a known zone.',
+);
+assert.equal(isGuestSimulationSession(null, null), true, 'Missing auth must select guest mode.');
+assert.equal(isGuestSimulationSession('cookie-session', { username: 'viewer' }), false, 'A stored account marker must retain account mode.');
+const resolvedGuestData = resolveSimulationBootstrapData({ guestMode: true, defaultSettings: { matchMode: 'squad' } });
+assert.equal(resolvedGuestData.charList.length, 24, 'Guest fallback resolution must inject the local roster.');
+assert.equal(resolvedGuestData.mapsList[0]?._id, guestMap._id, 'Guest fallback resolution must inject the local map.');
+assert.equal(resolvedGuestData.meValue?.isGuest, true, 'Guest fallback must not impersonate an account user.');
+
 const sources = Object.fromEntries(await Promise.all([
   ['drone', '../src/app/simulation/_lib/aiDroneRuntime.js'],
   ['movement', '../src/app/simulation/_lib/actorMovementDecisionHelpers.js'],
@@ -106,14 +132,20 @@ const sources = Object.fromEntries(await Promise.all([
   ['initialData', '../src/app/simulation/_lib/useSimulationInitialData.js'],
   ['initRuntime', '../src/app/simulation/_lib/simulationInitRuntime.js'],
   ['logPanel', '../src/app/simulation/_components/SimulationLogPanel.js'],
+  ['mapAction', '../src/app/simulation/_lib/mapActionRuntime.js'],
+  ['marketAction', '../src/app/simulation/_lib/marketActionRuntime.js'],
+  ['marketState', '../src/app/simulation/_lib/marketStateRuntime.js'],
+  ['mapDerived', '../src/app/simulation/_lib/mapDerived.js'],
 ].map(async ([key, relativePath]) => [key, await readFile(new URL(relativePath, import.meta.url), 'utf8')])));
 
 assert.match(sources.drone, /dm\?\.maxTier \?\? 1/, 'The transfer drone default maximum tier must remain T1.');
 assert.match(sources.drone, /category === 'material' && tier <= droneMaxTier/, 'Transfer drones must reject materials above the configured tier.');
 assert.match(sources.movement, /forceFirstDayMorningMove/, 'Day 1 must retain its first-move guard.');
 assert.match(sources.movement, /if \(forceFirstDayMorningMove\) willMove = true/, 'The first day move must not fail its random roll.');
-assert.match(sources.rift, /buildRuntimeSurvivorMap\(updatedSurvivors\)/, 'Dimension rifts must operate on the complete survivor map.');
-assert.match(sources.rift, /normalizeRuntimeSurvivorList\(Array\.from\(survivorById\.values\(\)\)\)/, 'Dimension rifts must restore the complete survivor list.');
+assert.match(sources.rift, /advanceDimensionRiftContest\(rift, updatedSurvivors,/, 'Dimension rifts must operate on the complete authoritative survivor list.');
+assert.match(sources.rift, /return \{ updatedSurvivors, ran: true \};/, 'Dimension rifts must return the complete authoritative survivor list.');
+assert.doesNotMatch(sources.rift, /filter\(\(survivor\) => Number\(survivor\.hp \|\| 0\) > 0\)/,
+  'Dimension rifts must not discard zero-HP snapshots before normal death finalization.');
 assert.ok(
   sources.devGuard.includes('\uBA85\uC608\uC758 \uC804\uB2F9\uC5D0 \uAE30\uB85D\uB418\uC9C0 \uC54A\uACE0 \uBCF4\uC0C1\uB3C4 \uC9C0\uAE09\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4'),
   'Developer tools must warn that records and rewards are disabled.',
@@ -122,7 +154,36 @@ assert.match(sources.finish, /if \(isDevRunTainted\)[\s\S]*?return;/, 'A develop
 assert.match(sources.logPanel, /LOG_VIEW\.KILL/, 'The log panel must keep its kill-only view.');
 assert.ok(
   sources.initialData.indexOf('if (hasInitialized.current) return;') < sources.initialData.indexOf('const token = getToken();'),
-  'The one-shot initialization guard must run before an unauthenticated redirect can emit auth updates.',
+  'The one-shot initialization guard must run before session mode is selected.',
+);
+assert.match(
+  sources.initialData,
+  /const guestMode = forceGuest \|\| isGuestSimulationSession\(token, me\);/,
+  'Missing auth and the isolated evaluation route must select guest bootstrap instead of redirecting.',
+);
+assert.doesNotMatch(sources.initialData, /if \(!token \|\| !me\?\.username\)/, 'Simulation entry must not require an account marker.');
+assert.match(
+  sources.initialData,
+  /const itemsLoadPromise = guestMode\s*\? loadGuestSimulationItemCatalog\(\)\s*:\s*apiGetCached\('\/public\/items'/,
+  'Guest initialization must use the local catalog, never the remote item API.',
+);
+assert.match(
+  sources.initialData,
+  /const publicCriticalRequests = guestMode\s*\? \[Promise\.resolve\(\[\]\), Promise\.resolve\(\[\]\)\]/,
+  'Guest initialization must use local map and perk fallbacks without public API requests.',
+);
+assert.match(
+  sources.initialData,
+  /const loadDeferredInitData = \(\) => \{\s*if \(guestMode\) \{[\s\S]*?setMyTradeOffers\(\[\]\);\s*return;/,
+  'Guest initialization must return before kiosk, drone, or trade requests are created.',
+);
+assert.match(sources.mapAction, /if \(!getToken\(\)\)[\s\S]*?return false;/, 'Guest map refresh must retain the built-in map.');
+assert.match(sources.marketAction, /function ensureAccountFeature\(label\)/, 'Account-only market mutations must have a guest guard.');
+assert.match(sources.marketState, /if \(!getToken\(\)\)[\s\S]*?guestMode: true/, 'Guest trade loading must stop before account APIs are called.');
+assert.match(
+  sources.mapDerived,
+  /id: `\$\{who\}:\$\{String\(event\._id \|\| event\.ts \|\| `\$\{i\}`\)\}:\$\{from\}:\$\{to\}`/,
+  'Move trail render IDs must stay unique when batched actors share a timestamp.',
 );
 assert.match(sources.initRuntime, /let loginRedirectInFlight = false;/, 'Simulation login redirects must have an in-flight guard.');
 assert.match(
@@ -141,5 +202,9 @@ console.log(JSON.stringify({
   dimensionRiftRosterGuarded: true,
   developerRunRewardsBlocked: true,
   killLogViewGuarded: true,
+  guestBootstrapRosterSize: guestRoster.length,
+  guestBootstrapZoneCount: guestZoneIds.size,
+  guestInitializationApiCalls: 0,
+  guestAccountFeaturesGuarded: true,
   loginRedirectLoopGuarded: true,
 }, null, 2));

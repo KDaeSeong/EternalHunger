@@ -1,4 +1,9 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { calculateCombatDamage, applyCombatDamageLifesteal } from './combatDamageRuntime.js';
+import { applyCombatHit } from './combatImpactRuntime.js';
+import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { normalizeErStats } from '../../../utils/erStats';
+import { resolveWeaponSkillCooldownSec } from './cooldownRuntime.js';
 import {
   EFFECT_AIRBORNE,
   EFFECT_COOLDOWN_DOWN,
@@ -7,6 +12,8 @@ import {
   EFFECT_KNOCKBACK,
   EFFECT_SLOW,
   applyHealingModifier,
+  canUseSkillByStatus,
+  isTargetableByStatus,
   makeCooldownRateEffect,
   makeHealReductionEffect,
   makeLifestealEffect,
@@ -111,7 +118,9 @@ function applyErTraitAfterBattle(actor, opts = {}) {
 
 function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
   if (!attacker || !defender) return { damage: 0, applied: false };
+  if (!shareCombatSpace(attacker, defender) || String(attacker.zoneId) !== String(defender.zoneId)) return { damage: 0, applied: false };
   if (Number(attacker?.hp || 0) <= 0) return { damage: 0, applied: false };
+  if (!canUseSkillByStatus(attacker) || !isTargetableByStatus(defender)) return { damage: 0, applied: false };
 
   const er = buildErBehaviorModifier(attacker, opts?.settings || {});
   const skill = ER_WEAPON_SKILLS[er?.weaponType] || null;
@@ -136,11 +145,11 @@ function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
   }
 
   const procChance = Math.min(0.78, Math.max(0.24, 0.36 + mastery * 0.01 + (opts?.lethalPreview ? 0.1 : 0)));
-  if (Math.random() >= procChance) return { damage: 0, applied: false };
+  if (simulationRandom() >= procChance) return { damage: 0, applied: false };
 
   const baseCooldownSec = Math.max(18, Number(opts?.settings?.battle?.weaponSkillCooldownSec ?? opts?.settings?.weaponSkillCooldownSec ?? 34));
   const masteryCooldownReduction = Math.min(8, Math.max(0, Math.floor((mastery - 1) / 3)));
-  const cooldownSec = Math.max(16, Math.round(baseCooldownSec - masteryCooldownReduction));
+  const cooldownSec = resolveWeaponSkillCooldownSec(attacker, Math.max(16, baseCooldownSec - masteryCooldownReduction));
   if (!attacker.cooldowns || typeof attacker.cooldowns !== 'object') attacker.cooldowns = {};
   attacker.cooldowns.weaponSkill = cooldownSec;
   if (nowSec > 0) attacker._weaponSkillNextAbsSec = nowSec + cooldownSec;
@@ -163,13 +172,19 @@ function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
   if (Number(defender?.hp || 0) > 0) {
     const pressure = scoreScale * 42 + flat + crit * 70 + amp * 55;
     const rolled = Math.round(pressure + Math.max(0, mastery - 1) * 0.18);
-    extraDamage = Math.min(Math.max(0, Number(defender.hp || 0)), Math.max(0, rolled));
-    if (extraDamage >= 3) {
-      defender.hp = Math.max(0, Number(defender.hp || 0) - extraDamage);
+    const impact = applyCombatHit(attacker, defender, calculateCombatDamage(attacker, defender, { type: 'skill', baseDamage: rolled }),
+      { shieldBlock: opts.shieldBlock, emitRunEvent: opts.emitRunEvent, addLog: opts.addLog, at: opts.at || null });
+    const packet = impact.packet;
+    extraDamage = impact.hpDamage;
+    if (extraDamage > 0) {
+      applyCombatDamageLifesteal(attacker, extraDamage, { type: 'skill', addLog: opts.addLog });
       bits.push(`추가 피해 +${extraDamage}`);
     } else {
       extraDamage = 0;
     }
+    opts.emitRunEvent?.('damage', { who: String(attacker._id), targetId: String(defender._id), ...packet,
+      hpDamage: extraDamage, absorbed: impact.absorbed, hpAfter: defender.hp,
+      skill: skill.name, zoneId: String(defender.zoneId || '') }, opts.at || null);
   }
 
   if (block > 0) {
@@ -221,7 +236,8 @@ function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
   }
 
   const applied = effects.length ? applyRuntimeEffectPayloads(attacker, effects) : null;
-  const defenderApplied = defenderEffects.length ? applyRuntimeEffectPayloads(defender, defenderEffects) : null;
+  const defenderApplied = defenderEffects.length ? applyRuntimeEffectPayloads(defender, defenderEffects,
+    { sourceActor: attacker, nowSec: opts.nowSec ?? opts.at?.sec, at: opts.at, emitRunEvent: opts.emitRunEvent, addLog: opts.addLog }) : null;
   (applied?.results || []).forEach((row) => {
     if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
     else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);

@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import {
   findItemByKeywords,
   randInt,
@@ -130,7 +131,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
   const shouldForceKioskAttempt = canBuyMissingSpecialNow || canBuyUpgradeSpecialNow || canBuyForceCoreComponentNow;
   if (!hasCatalogNeed && !shouldForceKioskAttempt) {
     // 업그레이드 목표(전설/초월)만 있어도 키오스크를 '조금 더 자주' 사용
-    if (Math.random() >= chance) return null;
+    if (simulationRandom() >= chance) return null;
   }
   const pickedByCatalog = pickKioskCatalogAction({
     catalog,
@@ -227,7 +228,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
       const oneOk = key === 'vf'
         ? Number(mr?.buySuccess?.vf ?? 0.95)
         : Number(mr?.buySuccess?.legendary ?? 0.95);
-      if (onePick?._id && simCredits >= oneCost && Math.random() < Math.min(0.995, oneOk + 0.06)) {
+      if (onePick?._id && simCredits >= oneCost && simulationRandom() < Math.min(0.995, oneOk + 0.06)) {
         return { kind: 'buy', item: onePick, itemId: String(onePick._id), qty: 1, cost: oneCost, label: `추천 특수재료(${key})` };
       }
     }
@@ -236,7 +237,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
   // 0-C) 목표 기반 구매: 운석/생나/미스릴/포코/모듈
   // - 가격은 아이템 baseCreditValue를 우선 사용(없으면 기존 룰셋 fallback).
   const tacModuleTargetMin = (tacUpgradeMode === 'level') ? (tacSkillLv >= TAC_MAX_LV ? 0 : 1) : 1;
-  const tacModuleWant = tacModuleItem && (tacModuleHave < tacModuleTargetMin) && (simCredits >= Number(mr?.prices?.tacModule ?? 10)) && (Math.random() < 0.35);
+  const tacModuleWant = tacModuleItem && (tacModuleHave < tacModuleTargetMin) && (simCredits >= Number(mr?.prices?.tacModule ?? 10)) && (simulationRandom() < 0.35);
   const wantSpecial = tacModuleWant
     ? ({ name: '전술 강화 모듈', special: 'tac_skill_module' })
     : miss.find((m) => isSpecialCoreKind(m?.special) || isSpecialCoreKind(classifySpecialByName(m?.name)) || (!tacIsLvMax && String(m?.name||'').includes('전술 강화 모듈')));
@@ -249,7 +250,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
         : Number(mr?.prices?.tacModule ?? 10);
       const ok = Number(mr?.buySuccess?.legendary ?? 0.85);
       const pressureOk = Math.min(0.995, ok + (legendOverdue ? 0.08 : 0) + (transOverdue ? 0.08 : 0) + (oneSpecialShort ? 0.03 : 0));
-      if (simCredits >= cost && Math.random() < pressureOk) {
+      if (simCredits >= cost && simulationRandom() < pressureOk) {
         return { kind: 'buy', item: pick, itemId: String(pick._id), qty: 1, cost, label: '특수재료 구매' };
       }
     }
@@ -266,7 +267,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
     if (!shouldDeferVfForLegend && allowVf && up.wantTrans && !up.hasVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
       const vfItem2 = findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample']);
       const cost = applyKioskCost(Number(mr?.prices?.vf ?? 500));
-      if (vfItem2?._id && simCredits >= cost && Math.random() < buyOkVf) {
+      if (vfItem2?._id && simCredits >= cost && simulationRandom() < buyOkVf) {
         return { kind: 'buy', item: vfItem2, itemId: String(vfItem2._id), qty: 1, cost, label: 'VF 혈액 샘플(업그레이드)' };
       }
     }
@@ -281,7 +282,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
       cand.sort((a, b) => (a.cost - b.cost) || String(a.key).localeCompare(String(b.key)));
       const pick = cand[0] || null;
       const legendBuyBias = (curDay <= 3 ? 0.06 : 0) + (miss.length >= 2 ? 0.04 : 0) + (legendOverdue ? 0.08 : 0) + (nearLegend ? 0.03 : 0);
-      if (pick?.it?._id && simCredits >= pick.cost && Math.random() < Math.min(0.99, buyOkLegend + legendBuyBias)) {
+      if (pick?.it?._id && simCredits >= pick.cost && simulationRandom() < Math.min(0.99, buyOkLegend + legendBuyBias)) {
         return { kind: 'buy', item: pick.it, itemId: String(pick.it._id), qty: 1, cost: Math.max(0, Number(pick.cost || 0)), label: `특수재료(${pick.key})` };
       }
     }
@@ -293,7 +294,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
     const vfItem = findById(needVf.itemId) || findItemByKeywords(items, ['vf', '혈액', '샘플', 'sample']);
     const cost = applyKioskCost(Number(mr?.prices?.vf ?? 500));
     const ok = Number(mr?.buySuccess?.vf ?? 0.85);
-    if (allowVf && vfItem && simCredits >= cost && Math.random() < ok) {
+    if (allowVf && vfItem && simCredits >= cost && simulationRandom() < ok) {
       return { kind: 'buy', item: vfItem, itemId: String(vfItem._id), qty: 1, cost, label: 'VF 혈액 샘플' };
     }
   }
@@ -313,7 +314,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
       // 구매 우선
       const ok = Number(mr?.buySuccess?.legendary ?? 0.85);
       const needBuyOk = Math.min(0.995, ok + (legendOverdue ? 0.08 : 0) + (transOverdue ? 0.05 : 0));
-      if (allowLegendary && simCredits >= cost && Math.random() < needBuyOk) {
+      if (allowLegendary && simCredits >= cost && simulationRandom() < needBuyOk) {
         return { kind: 'buy', item: found, itemId: String(found._id), qty: 1, cost, label };
       }
     }
@@ -329,7 +330,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
     const it = findById(needBasic.itemId);
     const cost = applyKioskCost(Number(mr?.prices?.basic ?? 10));
     const ok = Number(mr?.buySuccess?.basic ?? 0.75);
-    if (allowBasic && it && simCredits >= cost && Math.random() < ok) {
+    if (allowBasic && it && simCredits >= cost && simulationRandom() < ok) {
       const needQty = Math.max(1, Math.min(3, Math.max(1, Number(needBasic.need || 1) - Number(needBasic.have || 0))));
       return { kind: 'buy', item: it, itemId: String(it._id), qty: needQty, cost, label: '재료 보급' };
     }
@@ -340,7 +341,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
   // 4-1) 4일차 낮 이후: VF 혈액 샘플(500 크레딧) 구매 가능
   if (isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
     const vfChance = Number(mr?.fallback?.vfChance ?? 0.25);
-    if (!shouldDeferVfForLegend && allowVf && Math.random() < vfChance) {
+    if (!shouldDeferVfForLegend && allowVf && simulationRandom() < vfChance) {
       const vf = findItemByKeywords(items, ['vf', '혈액', '샘플', 'sample']);
       const cost = applyKioskCost(Number(mr?.prices?.vf ?? 500));
       if (vf && simCredits >= cost) return { kind: 'buy', item: vf, itemId: String(vf._id), qty: 1, cost, label: 'VF 혈액 샘플' };
@@ -349,15 +350,15 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
 
   // 4-2) 2일차 낮 이후: 운석/생나 키오스크 구매/교환 가능(미스릴/포스코어도 포함)
   const lgChance = Number(mr?.fallback?.legendaryChance ?? 0.20);
-  if (allowLegendary && Math.random() < lgChance) {
+  if (allowLegendary && simulationRandom() < lgChance) {
     const cores = getLegendaryCoreCandidates(items);
     if (cores.length) {
-      const picked = cores[Math.floor(Math.random() * cores.length)];
+      const picked = cores[Math.floor(simulationRandom() * cores.length)];
       const cost = applyKioskCost(kioskLegendaryPrice(picked.key, mr?.prices?.legendaryByKey));
 
       // 구매
       const ok = Number(mr?.buySuccess?.legendaryFallback ?? mr?.buySuccess?.legendary ?? 0.7);
-      if (simCredits >= cost && Math.random() < ok) {
+      if (simCredits >= cost && simulationRandom() < ok) {
         return { kind: 'buy', item: picked.item, itemId: String(picked.item._id), qty: 1, cost, label: picked.label };
       }
     }
@@ -365,7 +366,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
 
   // 4-3) 기본 보급(하급 재료)
   const basicChance = Number(mr?.fallback?.basicChance ?? 0.35);
-  if (allowBasic && Math.random() < basicChance) {
+  if (allowBasic && simulationRandom() < basicChance) {
     const entry = pickFromAllCrates(mapObj, publicItems);
     if (entry?.itemId) {
       const it = findById(entry.itemId);

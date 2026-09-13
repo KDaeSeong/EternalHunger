@@ -84,16 +84,16 @@ export function canReceiveItem(inventory, it, itemId, qty, ruleset) {
     return have < maxStack;
   }
 
-  if (category === 'equipment') {
+  if (category === 'equipment' && !it?.craftComponent) {
     const slot = inferEquipSlot(it);
     if (slot) {
-      const existing = list.find((x) => (String(x?.category || inferItemCategory(x)) === 'equipment') && String(x?.equipSlot || inferEquipSlot(x) || '') === slot);
+      const existing = list.find((x) => !x.craftComponent && (String(x?.category || inferItemCategory(x)) === 'equipment') && String(x?.equipSlot || inferEquipSlot(x) || '') === slot);
       if (existing) {
         const cfg = ruleset?.equipment || {};
         const replaceOnlyIfBetter = cfg.replaceOnlyIfBetter !== false;
         const newTier = clampInventoryTier(it?.tier || 1, 'equipment');
         const oldTier = clampInventoryTier(existing?.tier || 1, 'equipment');
-        if (replaceOnlyIfBetter) return newTier > oldTier;
+        if (replaceOnlyIfBetter) return newTier > oldTier || (!!it?._forceReplaceSameTier && newTier === oldTier);
         return true;
       }
     }
@@ -140,7 +140,7 @@ export function normalizeInventory(inventory, ruleset) {
   for (const entry of list) {
     const isEq = String(entry?.category || inferItemCategory(entry)) === 'equipment';
     const slot = isEq ? String(entry?.equipSlot || inferEquipSlot(entry) || '') : '';
-    if (isEq && slot) {
+    if (isEq && slot && !entry.craftComponent) {
       const prev = equipmentBySlot.get(slot);
       if (isBetterEquipment(entry, prev)) equipmentBySlot.set(slot, entry);
       continue;
@@ -265,10 +265,10 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     return list;
   }
 
-  if (category === 'equipment' && equipSlot) {
+  if (category === 'equipment' && equipSlot && !item?.craftComponent) {
     const cfg = ruleset?.equipment || {};
     const replaceOnlyIfBetter = cfg.replaceOnlyIfBetter !== false;
-    const j = list.findIndex((x) => (String(x?.category || inferItemCategory(x)) === 'equipment') && String(x?.equipSlot || inferEquipSlot(x) || '') === equipSlot);
+    const j = list.findIndex((x) => !x.craftComponent && (String(x?.category || inferItemCategory(x)) === 'equipment') && String(x?.equipSlot || inferEquipSlot(x) || '') === equipSlot);
     if (j >= 0) {
       const oldTier = clampInventoryTier(list[j]?.tier || 1, 'equipment');
       const newTier = clampInventoryTier(item?.tier || 1, 'equipment');
@@ -324,6 +324,8 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     ...(item?.stats && typeof item.stats === 'object' ? { stats: { ...item.stats } } : {}),
     ...(item?.baseCreditValue !== undefined ? { baseCreditValue: item.baseCreditValue } : {}),
     ...(hasGoalInventoryTag(item) ? { goalItem: true } : {}),
+    ...(item?.craftComponent ? { craftComponent: true } : {}),
+    ...(item?._growthReserved ? { _growthReserved: true } : {}),
     category,
     equipSlot: equipSlot || '',
     tier: clampInventoryTier(item?.tier || 1, category), ...(category === 'equipment' ? { rarity: tierLabelKo(clampInventoryTier(item?.tier || 1, category)) } : {}),

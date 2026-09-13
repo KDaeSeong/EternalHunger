@@ -1,4 +1,4 @@
-import { apiGet, updateStoredUser } from '../../../utils/api';
+import { apiGet, getToken, updateStoredUser } from '../../../utils/api';
 import { autoEquipBest, normalizeRuntimeSurvivor } from './simulationEngine';
 import { getApiErrorMessage, loadMarketData, loadTradeData } from './simulationInitRuntime';
 import { mergeServerCharacterIntoRuntimeSurvivor } from './runtimeParticipantRuntime';
@@ -38,6 +38,7 @@ export async function loadMarketIntoState(actions = {}) {
   try {
     setMarketMessage('');
     const result = await loadMarketData();
+    if (actions.canApply && !actions.canApply()) return;
     setPublicItems(result.publicItems);
     setKiosks(result.kiosks);
     setDroneOffers(result.droneOffers);
@@ -54,6 +55,13 @@ export async function loadTradesIntoState(actions = {}) {
     setMyTradeOffers = () => {},
     setTradeOffers = () => {},
   } = actions;
+
+  if (!getToken()) {
+    setTradeOffers([]);
+    setMyTradeOffers([]);
+    setMarketMessage('로컬 게스트 모드에서는 사용자 거래를 사용하지 않습니다.');
+    return { guestMode: true };
+  }
 
   try {
     setMarketMessage('');
@@ -129,6 +137,10 @@ export function createMarketStateRuntime(context = {}) {
   }
 
   async function syncMyState() {
+    if (!getToken()) {
+      setMarketMessage('로컬 게스트 모드는 서버 계정과 동기화하지 않습니다.');
+      return false;
+    }
     try {
       const [me, chars] = await Promise.all([
         apiGet('/user/me'),
@@ -147,8 +159,10 @@ export function createMarketStateRuntime(context = {}) {
         autoEquipBest(merged, itemMetaById);
         return normalizeRuntimeSurvivor(merged);
       }));
+      return true;
     } catch (error) {
       console.error(error);
+      return false;
     }
   }
 

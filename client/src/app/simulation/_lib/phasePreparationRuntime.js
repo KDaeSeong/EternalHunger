@@ -8,6 +8,7 @@ import { getMatchConfig } from './matchRosterRuntime';
 import { applyRegionDataToZones } from './lumiaRegionData';
 import { waitMs } from './simulationFormattingRuntime';
 import { worldPhaseIndex, worldTimeText } from './simulationEngine';
+import { createEndgamePressure, advanceEndgamePressure, getEndgameDurationSec } from './suddenDeathRuntime';
 
 export function beginSimulationPhase({
   actions = {},
@@ -33,23 +34,23 @@ export function beginSimulationPhase({
     setDay = () => {},
     setMatchSec = () => {},
     setPhase = () => {},
+    waitForVisibleTick = waitMs,
   } = actions;
 
   resetPhaseLogs();
 
   const nextPhase = phase === 'morning' ? 'night' : 'morning';
   const nextDay = phase === 'night' ? Number(day || 0) + 1 : Number(day || 0);
-  const ruleset = getRuleset(settings?.rulesetId);
+  const ruleset = getRuleset(settings?.rulesetId, settings?.simulationRuleset);
 
-  const suddenDeathCfg = ruleset?.suddenDeath || {};
-  const suddenDeathTotalSec = Math.max(10, Number(suddenDeathCfg.totalSec ?? suddenDeathCfg.durationSec ?? 180));
-  const shouldActivateSuddenDeath = !suddenDeathActiveRef?.current && nextDay === 6 && nextPhase === 'night';
-  if (shouldActivateSuddenDeath && !suddenDeathActiveRef.current) {
+  const suddenDeathTotalSec = getEndgameDurationSec(ruleset);
+  const shouldActivateSuddenDeath = !suddenDeathActiveRef?.current && worldPhaseIndex(nextDay, nextPhase) >= worldPhaseIndex(6, 'night');
+  if (shouldActivateSuddenDeath && suddenDeathActiveRef) {
     suddenDeathActiveRef.current = true;
-    if (typeof suddenDeathEndAtSecRef.current !== 'number') {
+    if (suddenDeathEndAtSecRef && typeof suddenDeathEndAtSecRef.current !== 'number') {
       suddenDeathEndAtSecRef.current = Number(matchSec || 0) + suddenDeathTotalSec;
     }
-    addLog(`=== 서든데스 발동: 최종 안전구역 2곳 제외 전지역 금지 + 카운트다운 ${suddenDeathTotalSec}s ===`, 'day-header');
+    addLog(`=== 최종 구역 축소 시작: 전지역 폐쇄까지 ${suddenDeathTotalSec}s ===`, 'day-header');
   }
 
   const useDetonation = !!ruleset?.detonation;
@@ -64,17 +65,20 @@ export function beginSimulationPhase({
   const tickSec = Math.max(1, Math.floor(Number(ruleset?.tickSec || 1)));
   let phaseRuntimeOffsetSec = 0;
   let phaseActionAbsSec = phaseStartSec;
+  let lastVisibleAbsSec = phaseStartSec;
+  const roundTime = (value) => Math.round(value * 1e6) / 1e6;
 
-  const currentActionSec = () => Math.max(0, Math.floor(Number(phaseActionAbsSec || phaseStartSec || 0)));
+  const currentActionSec = () => Math.max(0, roundTime(Number(phaseActionAbsSec || phaseStartSec || 0)));
   const atNow = () => ({ day: nextDay, phase: nextPhase, sec: currentActionSec() });
   const reserveActionSecond = (seconds = tickSec) => {
-    const offset = Math.max(0, Math.min(phaseDurationSec, Math.floor(Number(phaseRuntimeOffsetSec || 0))));
-    phaseActionAbsSec = phaseStartSec + offset;
+    const offset = Math.max(0, Math.min(phaseDurationSec, Number(phaseRuntimeOffsetSec || 0)));
+    const actionStart = phaseStartSec + offset;
     phaseRuntimeOffsetSec = Math.min(
       phaseDurationSec,
-      offset + Math.max(1, Math.floor(Number(seconds || tickSec || 1)))
+      roundTime(offset + Math.max(0, Number(seconds) || 0))
     );
-    return phaseActionAbsSec;
+    phaseActionAbsSec = phaseStartSec + phaseRuntimeOffsetSec;
+    return actionStart;
   };
   const getVisibleTickDelayMs = () => {
     const speed = normalizeAutoSpeed(autoSpeedRef?.current || autoSpeed);
@@ -83,10 +87,12 @@ export function beginSimulationPhase({
   const commitVisibleClock = async (absSec = phaseStartSec + phaseRuntimeOffsetSec, { wait = true } = {}) => {
     const nextSec = Math.max(
       phaseStartSec,
-      Math.min(phaseStartSec + phaseDurationSec, Math.floor(Number(absSec || phaseStartSec)))
+      Math.min(phaseStartSec + phaseDurationSec, roundTime(Number(absSec || phaseStartSec)))
     );
     setMatchSec(nextSec);
-    if (wait) await waitMs(getVisibleTickDelayMs());
+    const elapsedSec = Math.max(0, roundTime(nextSec - lastVisibleAbsSec));
+    lastVisibleAbsSec = nextSec;
+    if (wait && elapsedSec > 0) await waitForVisibleTick(Math.max(1, Math.round(getVisibleTickDelayMs() * elapsedSec)), { elapsedSec, atSec: nextSec });
   };
   const reserveVisibleSecond = async (seconds = tickSec) => {
     const actionSec = reserveActionSecond(seconds);
@@ -167,7 +173,6 @@ export function prepareForbiddenZonePhase({
     activeMapIdRef,
     activeMapRef,
     suddenDeathActiveRef,
-    suddenDeathForbiddenAnnouncedRef,
   } = refs;
   const {
     getForbiddenAddedZoneIdsForPhase = () => [],
@@ -191,30 +196,17 @@ export function prepareForbiddenZonePhase({
   let newlyAddedForbidden = mapObj ? getForbiddenAddedZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset) : [];
   let suddenDeathSafeZoneIds = [];
 
+  let endgame = null;
   if (suddenDeathActiveRef?.current && mapObj && Array.isArray(mapObj.zones)) {
-    const allZoneIds = mapObj.zones
-      .map((zone) => String(zone?.zoneId ?? zone?.id ?? zone?._id ?? ''))
-      .filter(Boolean);
-
-    const preferred = ['firestation', 'alley'];
-    const safePick = preferred.filter((zoneId) => allZoneIds.includes(zoneId));
-    while (safePick.length < 2 && allZoneIds.length) {
-      const candidate = allZoneIds[Math.floor(Math.random() * allZoneIds.length)];
-      if (!safePick.includes(candidate)) safePick.push(candidate);
-    }
-    const safeSet = new Set(safePick);
-    suddenDeathSafeZoneIds = safePick.map((zoneId) => String(zoneId || '')).filter(Boolean);
-
-    forbiddenIds = new Set(allZoneIds.filter((zoneId) => !safeSet.has(zoneId)));
-
-    if (!suddenDeathForbiddenAnnouncedRef?.current) {
-      newlyAddedForbidden = allZoneIds.filter((zoneId) => !safeSet.has(zoneId));
-      suddenDeathForbiddenAnnouncedRef.current = true;
-    } else {
-      newlyAddedForbidden = [];
-    }
-
-    addLog(`🟩 최종 안전구역: ${safePick.map((zoneId) => getZoneName(zoneId)).join(', ')}`, 'highlight');
+    const previousForbidden = new Set(state.spawnState?.endgame?.forbiddenZoneIds || forbiddenIds);
+    endgame = createEndgamePressure({ previous: state.spawnState?.endgame, mapObj, forbiddenIds,
+      nowSec: Number(state.phaseStartSec || 0), ruleset });
+    forbiddenIds = new Set(endgame.forbiddenZoneIds || forbiddenIds);
+    advanceEndgamePressure(endgame, forbiddenIds, Number(state.phaseStartSec || 0), {
+      ...actions, getZoneName, atNow: () => ({ day: nextDay, phase: nextPhase, sec: Number(state.phaseStartSec || 0) }),
+    });
+    newlyAddedForbidden = [...new Set([...(state.spawnState?.endgame ? [] : newlyAddedForbidden), ...[...forbiddenIds].filter((id) => !previousForbidden.has(id))])];
+    suddenDeathSafeZoneIds = endgame.zoneIds.filter((id) => !forbiddenIds.has(id));
   }
 
   setForbiddenAddedNow(newlyAddedForbidden);
@@ -250,6 +242,7 @@ export function prepareForbiddenZonePhase({
 
   return {
     config,
+    endgame,
     damagePerTick,
     forbiddenIds,
     mapIdNow,

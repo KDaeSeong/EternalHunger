@@ -1,10 +1,18 @@
-import { apiGet } from '../../../utils/api';
+import { apiGet, getToken } from '../../../utils/api';
 import { getRuleset } from '../../../utils/rulesets';
+import { buildGuestSimulationMap } from './guestSimulationBootstrap';
+import {
+  deleteLocalSimulationMap,
+  loadLocalSimulationMaps,
+  saveLocalSimulationMap as persistLocalSimulationMap,
+  selectLocalSimulationMap,
+} from './localSimulationMapRuntime';
 import {
   createInitialSpawnState,
   getEligibleSpawnZoneIds,
   getHyperloopDeviceZoneId,
 } from './simulationEngine';
+import { buildInitialFastRoutePlan, mergeInitialRoutePlanFields } from './simulationInitialRosterRuntime';
 
 export function applyActiveMapIdToState(nextMapId, context = {}) {
   const refs = context.refs || {};
@@ -20,6 +28,33 @@ export function applyActiveMapIdToState(nextMapId, context = {}) {
   if (activeMapIdRef) activeMapIdRef.current = id;
   setActiveMapId(id);
   if (prevId !== id) setSpawnState(createInitialSpawnState(id));
+}
+
+export function rebaseSurvivorsForMap(list, map, routeItems = []) {
+  const mapId = String(map?._id || map?.id || 'local');
+  const zoneIds = (Array.isArray(map?.zones) ? map.zones : [])
+    .map((zone) => String(zone?.zoneId || '').trim()).filter(Boolean);
+  const zoneSet = new Set(zoneIds);
+  return (Array.isArray(list) ? list : []).map((actor, index) => {
+    try {
+      const route = buildInitialFastRoutePlan(actor, map, Array.isArray(routeItems) ? routeItems : []);
+      const routeZoneIds = (Array.isArray(route?.zoneIds) ? route.zoneIds : []).map(String).filter((id) => zoneSet.has(id));
+      const itemIdsByZone = Object.fromEntries(Object.entries(route?.itemIdsByZone || {})
+        .filter(([zoneId]) => zoneSet.has(String(zoneId))));
+      const safeRoute = { ...route, zoneIds: routeZoneIds, itemIdsByZone };
+      const startZoneId = routeZoneIds[0] || zoneIds[index % Math.max(1, zoneIds.length)] || '__default__';
+      return mergeInitialRoutePlanFields({
+        ...actor,
+        mapId,
+        zoneId: startZoneId,
+        routePlanIndex: 0,
+        day1Moves: 0,
+        day1HeroDone: false,
+      }, safeRoute, 'map_rebase');
+    } catch {
+      return { ...actor, mapId, zoneId: String(zoneIds[index % Math.max(1, zoneIds.length)] || '__default__'), routePlanIndex: 0, day1Moves: 0, day1HeroDone: false };
+    }
+  });
 }
 
 export function createMapActionRuntime(context = {}) {
@@ -38,6 +73,7 @@ export function createMapActionRuntime(context = {}) {
     loading,
     maps,
     matchPhase,
+    publicItems,
     settings,
     survivors,
   } = state;
@@ -54,7 +90,9 @@ export function createMapActionRuntime(context = {}) {
     applyActiveMapId = () => {},
     emitRunEvent = () => {},
     getForbiddenZoneIdsForPhase = () => [],
+    onLocalRulesChanged = () => {},
     setIsRefreshingMapSettings = () => {},
+    setCandidateSurvivors = () => {},
     setMaps = () => {},
     setSurvivors = () => {},
     showMapRefreshToast = () => {},
@@ -86,7 +124,7 @@ export function createMapActionRuntime(context = {}) {
     const toMap = (Array.isArray(maps) ? maps : []).find((m) => String(m?._id) === toId) || null;
     if (!toMap) return;
 
-    const ruleset = getRuleset(settings?.rulesetId);
+    const ruleset = getRuleset(settings?.rulesetId, settings?.simulationRuleset);
     const forbiddenZoneIds = new Set(getForbiddenZoneIdsForPhase(toMap, day, matchPhase, ruleset));
     const toZones = Array.isArray(toMap?.zones) ? toMap.zones : [];
     const eligible = getEligibleSpawnZoneIds(toZones, forbiddenZoneIds);
@@ -108,7 +146,70 @@ export function createMapActionRuntime(context = {}) {
     emitRunEvent('hyperloop', { whoId: who, who: whoName, fromMapId: String(activeMapId || ''), toMapId: toId, toZoneId: entryZoneId });
   }
 
+  function applyLocalMapList(mapsList, preferredId = '', { forceRebase = false } = {}) {
+    const list = Array.isArray(mapsList) && mapsList.length ? mapsList : [buildGuestSimulationMap()];
+    const previousId = String(activeMapIdRef?.current || activeMapId || '');
+    const keepId = String(preferredId || activeMapIdRef?.current || activeMapId || '');
+    const nextId = keepId && list.some((map) => String(map?._id || '') === keepId)
+      ? keepId
+      : String(list[0]?._id || '');
+    if (mapsRef) mapsRef.current = list;
+    setMaps(list);
+    if (nextId) {
+      applyActiveMapId(nextId);
+      const nextMap = list.find((map) => String(map?._id || '') === nextId) || null;
+      if (activeMapRef) activeMapRef.current = nextMap;
+      if (forceRebase || previousId !== nextId) {
+        setSurvivors((previous) => rebaseSurvivorsForMap(previous, nextMap, publicItems));
+        setCandidateSurvivors((previous) => rebaseSurvivorsForMap(previous, nextMap, publicItems));
+      }
+    }
+    return nextId;
+  }
+
+  function selectLocalMap(mapId) {
+    if (getToken() || day > 0 || isGameOver || loading || isAdvancing) return false;
+    const result = selectLocalSimulationMap(mapId, buildGuestSimulationMap());
+    if (!result.ok) {
+      addLog(result.errors?.[0] || '로컬 지도를 선택하지 못했습니다.', 'death');
+      return false;
+    }
+    applyLocalMapList(result.maps, result.selectedMapId);
+    addLog(`🗺️ 로컬 지도 선택: ${result.maps.find((map) => String(map?._id) === String(result.selectedMapId))?.name || '내장 지도'}`, 'system');
+    return true;
+  }
+
+  function saveLocalMap(mapDraft) {
+    if (getToken() || day > 0 || isGameOver || loading || isAdvancing) return { ok: false, errors: ['새 경기 준비 중에만 로컬 지도를 저장할 수 있습니다.'] };
+    const result = persistLocalSimulationMap(mapDraft);
+    if (!result.ok) return result;
+    const mapsList = loadLocalSimulationMaps(buildGuestSimulationMap());
+    applyLocalMapList(mapsList, result.map._id, { forceRebase: true });
+    addLog(`🗺️ 로컬 지도 저장: ${result.map.name}`, 'system');
+    return { ...result, maps: mapsList };
+  }
+
+  function removeLocalMap(mapId) {
+    if (getToken() || day > 0 || isGameOver || loading || isAdvancing) return { ok: false, errors: ['새 경기 준비 중에만 로컬 지도를 삭제할 수 있습니다.'] };
+    const result = deleteLocalSimulationMap(mapId);
+    if (!result.ok) return result;
+    const mapsList = loadLocalSimulationMaps(buildGuestSimulationMap());
+    applyLocalMapList(mapsList);
+    addLog('🗺️ 로컬 지도를 삭제하고 내장 지도를 보존했습니다.', 'system');
+    return { ...result, maps: mapsList };
+  }
+
   async function refreshMapSettingsFromServer(reason = 'manual') {
+    if (!getToken()) {
+      const mapsList = loadLocalSimulationMaps(buildGuestSimulationMap());
+      applyLocalMapList(mapsList, '', { forceRebase: false });
+      onLocalRulesChanged();
+      if (reason === 'manual') {
+        addLog('로컬 모드에서 저장된 지도·규칙을 새로 불러왔습니다.', 'system');
+        showMapRefreshToast('로컬 지도 새로고침 완료', 'ok');
+      }
+      return true;
+    }
     if (isRefreshingMapsRef?.current) return false;
     if (isRefreshingMapsRef) isRefreshingMapsRef.current = true;
     setIsRefreshingMapSettings(true);
@@ -149,6 +250,9 @@ export function createMapActionRuntime(context = {}) {
 
   return {
     doHyperloopJump,
+    removeLocalMap,
     refreshMapSettingsFromServer,
+    saveLocalMap,
+    selectLocalMap,
   };
 }

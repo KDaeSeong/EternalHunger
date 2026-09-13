@@ -35,6 +35,8 @@ const DEFAULT_FIELD_CRATE_DROP = {
   fallbackChanceStay: 0.08,
   fallbackMaxTier: 2,
   goalLootBoost: 10,
+  // 경기 전체가 공유하는 기본 공급량. 밤낮 전환으로 재입고하지 않는다.
+  sharedStock: { unitsPerItemSource: 12 },
   earlyRoute: {
     chanceMoved: 0.88,
     chanceStay: 0.56,
@@ -153,6 +155,8 @@ const DEFAULT_WORLD_SPAWNS = {
     count: 4,
     maxTeams: 2,
     contestChance: 0.38,
+    // Project entry window on the shared match clock; not an original-game timing claim.
+    entryWindowSec: 45,
     rewardCreditsByDay: { 2: 45, 3: 65, 4: 90 },
   },
   foodCrate: {
@@ -260,9 +264,7 @@ export const RULESETS = {
     phaseSecondsByDay: ER_PHASE_SECONDS,
     suddenDeath: {
       totalSec: 370,
-      forceGather: true,
-      forcedClash: true,
-      forceClashMaxRounds: 10,
+      singleZoneAfterSec: 90,
     },
 
     // 🚫 폭발 타이머(금지구역)
@@ -510,8 +512,6 @@ export const RULESETS = {
       decreasePerSecForbidden: 1,
       regenPerSecOutsideForbidden: 1,
       criticalSec: 5,
-      // 안전구역 2곳 남으면 40s 유예 후 전 구역 감소
-      forceAllAfterSec: 40,
       // 로그 마일스톤(과도한 로그 방지)
       logMilestones: [15, 10, 5, 3, 1, 0],
     },
@@ -650,6 +650,8 @@ export const RULESETS = {
   },
 };
 
+const RESERVED_RULESET_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
 function safeJsonParse(raw) {
   try {
     return JSON.parse(raw);
@@ -658,16 +660,23 @@ function safeJsonParse(raw) {
   }
 }
 
-function readRulesetOverride(rulesetId) {
+// Preserve the existing admin crate/rules editor contract. Guest simulation
+// overrides use an explicit settings.simulationRuleset snapshot instead, so
+// this legacy fallback is only consulted when no captured snapshot is passed.
+function readLegacyRulesetOverride(rulesetId) {
   if (typeof window === 'undefined') return null;
   const id = normalizeRulesetId(rulesetId);
   const keys = [`eh_ruleset_override_${id}`];
   if (id === DEFAULT_RULESET_ID) keys.push(`eh_ruleset_override_${'ER_S' + '10'}`);
 
-  for (const key of keys) {
-    const raw = window.localStorage.getItem(key);
-    const parsed = raw ? safeJsonParse(raw) : null;
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  try {
+    for (const key of keys) {
+      const raw = window.localStorage.getItem(key);
+      const parsed = raw ? safeJsonParse(raw) : null;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    }
+  } catch {
+    return null;
   }
   return null;
 }
@@ -679,6 +688,7 @@ function mergeDeep(base, patch) {
   const baseObj = (base && typeof base === 'object') ? base : undefined;
   const out = Array.isArray(baseObj) ? [...baseObj] : { ...(baseObj || {}) };
   for (const k of Object.keys(patch)) {
+    if (RESERVED_RULESET_KEYS.has(k)) continue;
     const bv = baseObj ? baseObj[k] : undefined;
     out[k] = mergeDeep(bv, patch[k]);
   }
@@ -691,12 +701,17 @@ export function normalizeRulesetId(rulesetId) {
   return RULESETS[aliased] ? aliased : DEFAULT_RULESET_ID;
 }
 
-export function getRuleset(rulesetId) {
+export function buildRulesetSnapshot(rulesetId, patch = null) {
   const id = normalizeRulesetId(rulesetId);
   const base = RULESETS[id] || RULESETS[DEFAULT_RULESET_ID];
-  const ov = readRulesetOverride(id);
-  if (!ov) return base;
-  return mergeDeep(base, ov);
+  return patch && typeof patch === 'object' && !Array.isArray(patch)
+    ? mergeDeep(base, patch)
+    : base;
+}
+
+export function getRuleset(rulesetId, savedRuleset = null) {
+  if (savedRuleset && typeof savedRuleset === 'object' && !Array.isArray(savedRuleset)) return savedRuleset;
+  return buildRulesetSnapshot(rulesetId, readLegacyRulesetOverride(rulesetId));
 }
 
 export function getPhaseDurationSec(ruleset, day, phase) {

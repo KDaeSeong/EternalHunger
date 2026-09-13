@@ -8,6 +8,7 @@ import {
   getHiddenLogCount,
   getKillLogs,
   getVisibleLogs,
+  LOG_DETAIL_RENDER_LIMIT,
 } from '../_lib/logPresentation';
 
 const LOG_VIEW = {
@@ -76,15 +77,15 @@ export default function SimulationLogPanel({
   const isKillView = logViewMode === LOG_VIEW.KILL;
   const isCombatView = logViewMode === LOG_VIEW.COMBAT;
   const visibleLogs = isKillView
-    ? getKillLogs(logs)
+    ? getKillLogs(logs, { limit: LOG_DETAIL_RENDER_LIMIT })
     : isCombatView
-      ? getCombatDetailLogs(logs)
+      ? getCombatDetailLogs(logs, { limit: LOG_DETAIL_RENDER_LIMIT })
       : getVisibleLogs(logs, { detailed: false });
   const hiddenCount = logViewMode === LOG_VIEW.SUMMARY ? getHiddenLogCount(logs, visibleLogs, { detailed: false }) : 0;
   const visiblePrevLogs = isKillView
-    ? getKillLogs(prevPhaseLogs)
+    ? getKillLogs(prevPhaseLogs, { limit: LOG_DETAIL_RENDER_LIMIT })
     : isCombatView
-      ? getCombatDetailLogs(prevPhaseLogs)
+      ? getCombatDetailLogs(prevPhaseLogs, { limit: LOG_DETAIL_RENDER_LIMIT })
       : getVisibleLogs(prevPhaseLogs, { detailed: false });
   const hiddenPrevCount = logViewMode === LOG_VIEW.SUMMARY ? getHiddenLogCount(prevPhaseLogs, visiblePrevLogs, { detailed: false }) : 0;
   const forbiddenSet = forbiddenNow instanceof Set ? forbiddenNow : new Set();
@@ -119,9 +120,7 @@ export default function SimulationLogPanel({
                 {(() => {
                   const total = Array.isArray(activeMap?.zones) ? activeMap.zones.length : (Array.isArray(zones) ? zones.length : 0);
                   const safeLeft = Math.max(0, total - forbiddenSet.size);
-                  const detForceAll = Math.max(0, Number(getRuleset(settings?.rulesetId)?.detonation?.forceAllAfterSec ?? 40));
-                  const extra = safeLeft <= 2 ? ` · 안전구역 2곳 이하 → ${detForceAll}s 후 강제 교전 위험` : '';
-                  return `안전구역 ${safeLeft}곳 남음${extra}`;
+                  return safeLeft > 0 ? `안전구역 ${safeLeft}곳 남음` : '전지역 폐쇄 · 구역 위험 적용 중';
                 })()}
               </div>
             ) : null}
@@ -138,6 +137,9 @@ export default function SimulationLogPanel({
             {isCombatView ? ` · ${currentCombatCount}개` : ''}
             {logViewMode === LOG_VIEW.SUMMARY && hiddenCount > 0 ? ` · ${hiddenCount}개 숨김` : ''}
           </span>
+          {isKillView || isCombatView ? <span className="log-toolbar-limit">
+            최근 최대 {LOG_DETAIL_RENDER_LIMIT}개만 화면에 표시 · 전체 기록은 내보내기에 보존
+          </span> : null}
           <div className="log-toolbar-actions" role="tablist" aria-label="로그 보기 방식">
             <button
               type="button"

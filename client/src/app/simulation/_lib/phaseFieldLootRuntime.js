@@ -1,3 +1,4 @@
+import { simulationRandomId } from '../../../utils/simulationRandom.js';
 import {
   addItemToInventory,
   autoEquipBest,
@@ -13,6 +14,9 @@ import {
   tryAutoCraftFromLoot,
 } from './simulationEngine';
 import { advanceActorRouteProgressForGoal } from './phaseRouteProgressRuntime';
+import { prepareInventoryForCraftLoot } from './craftRuntime';
+import { markGrowthComponent } from './growthPlanRuntime';
+import { collectFieldResourceLoot, emitFieldResourcePickup } from './fieldResourceRuntime';
 import {
   gainText,
   getLootCraftOptions,
@@ -51,15 +55,21 @@ export function runFieldLootPhase({
   } = actions;
 
   const updated = actor || {};
+  const fieldResources = state.nextSpawn?.fieldResources;
+  const growth = updated._growthPlan;
+  const growing = growth && !growth.openingComplete;
   let nextPendingPickAssigned = !!pendingPickAssigned;
   const loot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, {
+    fieldResources,
+    neededQtyById: growing ? Object.fromEntries(growth.missing.map((row) => [row.itemId, row.need])) : undefined,
     moved: didMove,
     day: nextDay,
     phase: nextPhase,
     dropWeightsByKey: ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey,
     perkEffects: getActorPerkEffects(updated),
-    goalItemIds: (Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((missing) => String(missing?.itemId || '')).filter(Boolean),
-    routeItemIds: Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
+    focusedGrowth: !!growing,
+    goalItemIds: (growing ? growth.missing : Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((missing) => String(missing?.itemId || '')).filter(Boolean),
+    routeItemIds: growth ? growth.missing.filter((row) => row.zones.includes(String(updated.zoneId))).map((row) => row.itemId) : Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
       ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')]
       : [],
   });
@@ -71,7 +81,7 @@ export function runFieldLootPhase({
       if (devPickable) {
         nextPendingPickAssigned = true;
         setPendingTranscendPick({
-          id: `${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+          id: simulationRandomId('transcend_pick'),
           characterId: String(updated?._id || ''),
           characterName: updated?.name,
           zoneId: String(updated?.zoneId || ''),
@@ -93,9 +103,17 @@ export function runFieldLootPhase({
         if (got > 0) autoEquipBest(updated, itemMetaById);
       }
     } else {
-      updated.inventory = addItemToInventory(updated.inventory, loot.item, loot.itemId, loot.qty, nextDay, ruleset);
+      loot.item = markGrowthComponent(loot.item, updated);
+      const got = collectFieldResourceLoot(fieldResources, loot, (qty) => {
+        loot.qty = qty;
+        const room = prepareInventoryForCraftLoot(updated, loot, craftables, ruleset);
+        updated.inventory = room.inventory;
+        if (room.dropped) addLog(`🎒 [${updated.name}] 가방 정리: ${room.dropped.name} x${room.dropped.qty} 내려놓기 → 제작 재료 공간 확보`, 'normal');
+        updated.inventory = addItemToInventory(updated.inventory, loot.item, loot.itemId, qty, nextDay, ruleset);
+        return updated.inventory?._lastAdd?.acceptedQty ?? qty;
+      });
+      emitFieldResourcePickup(fieldResources, loot, got, updated, actions);
       const meta = updated.inventory?._lastAdd;
-      const got = Math.max(0, Number(meta?.acceptedQty ?? loot.qty));
       const name = loot.item?.name || '아이템';
       if (shouldLogItemReceive(got, meta)) {
         addLog(`📦 [${updated.name}] ${getZoneName(updated.zoneId)}에서 ${crateTypeLabel(loot.crateType)} ${itemIcon(loot.item || { type: '' })} [${name}] ${gainText(got)}${formatInvAddNote(meta, loot.qty, updated.inventory, ruleset)}`, 'normal');

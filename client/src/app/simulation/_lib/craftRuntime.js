@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
   clampTier4,
@@ -16,6 +17,9 @@ import {
   normalizePerkEffects,
   perkNumber,
 } from './perkRuntime';
+import { getInvItemId, hasSpecialInventoryTag } from './inventoryItemRules.js';
+import { markGrowthComponent } from './growthPlanRuntime';
+import { getValidRecipeIngredients } from './gearRecipeGuardRuntime.js';
 
 function clampGearTier(value) {
   const n = Number(value);
@@ -212,6 +216,45 @@ export function pickBestEquipBySlot(inventory, slot) {
   return cand[0] || null;
 }
 
+// Route-goal tags protect future materials, but must not deadlock a full bag.
+// Make room only when this pickup can complete a real recipe immediately.
+export function prepareInventoryForCraftLoot(actor, loot, craftables, ruleset) {
+  const inventory = Array.isArray(actor?.inventory) ? actor.inventory : [];
+  if (!loot?.itemId || canReceiveItem(inventory, loot.item, loot.itemId, loot.qty, ruleset)) return { inventory };
+  const growth = actor?._growthPlan;
+  if (growth?.componentIds?.includes(String(loot.itemId))) {
+    const index = inventory.findIndex((entry) => !growth.componentIds.includes(getInvItemId(entry))
+      && !growth.targetIds.includes(getInvItemId(entry)) && inferItemCategory(entry) !== 'equipment'
+      && !hasSpecialInventoryTag(entry) && Number(entry.tier || 1) <= 2);
+    if (index >= 0) {
+      const next = inventory.filter((_, i) => i !== index);
+      if (canReceiveItem(next, loot.item, loot.itemId, loot.qty, ruleset)) return { inventory: next, dropped: inventory[index] };
+    }
+  }
+  if (growth && !growth.openingComplete) return { inventory };
+  const weapon = normalizeWeaponType(String(actor?.weaponType || ''));
+  const candidates = (Array.isArray(craftables) ? craftables : [])
+    .filter((item) => {
+      const slot = inferEquipSlot(item);
+      if (slot === 'weapon' && weapon && normalizeWeaponType(item.weaponType) !== weapon) return false;
+      if (slot && Number(pickBestEquipBySlot(inventory, slot)?.tier || 0) >= Number(item.tier || 1)) return false;
+      const ingredients = compactIO(item?.recipe?.ingredients || []);
+      return ingredients.some((row) => row.itemId === loot.itemId)
+        && ingredients.every((row) => invQty(inventory, row.itemId) + (row.itemId === loot.itemId ? Number(loot.qty || 1) : 0) >= row.qty);
+    })
+    .sort((a, b) => (inferItemCategory(b) === 'equipment') - (inferItemCategory(a) === 'equipment') || Number(b.tier) - Number(a.tier));
+  for (const target of candidates) {
+    const needed = new Set(target.recipe.ingredients.map((row) => String(row.itemId)));
+    const index = inventory.findIndex((entry) => inferItemCategory(entry) === 'material'
+      && Number(entry.tier || 1) <= 2 && !hasSpecialInventoryTag(entry)
+      && !needed.has(getInvItemId(entry)) && getInvItemId(entry) !== loot.itemId);
+    if (index < 0) continue;
+    const next = inventory.filter((_, i) => i !== index);
+    if (canReceiveItem(next, loot.item, loot.itemId, loot.qty, ruleset)) return { inventory: next, dropped: inventory[index] };
+  }
+  return { inventory };
+}
+
 export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNameById, itemMetaById, day, ruleset, opts = {}) {
   const lootId = String(lootedItemId || '');
   if (!lootId) return null;
@@ -236,7 +279,14 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
   };
 
   const candidates = (Array.isArray(craftables) ? craftables : [])
-    .filter((it) => Array.isArray(it?.recipe?.ingredients) && it.recipe.ingredients.some((ing) => String(ing?.itemId) === lootId))
+    .filter((it) => getValidRecipeIngredients(it)?.some((ing) => ing.itemId === lootId))
+    .filter((it) => !opts.growthPlan || opts.growthPlan.openingComplete || opts.growthPlan.craftIds.includes(String(it._id)))
+    .filter((it) => {
+      const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
+      const weapon = normalizeWeaponType(String(it?.weaponType || ''));
+      const actorWeapon = normalizeWeaponType(String(opts?.weaponType || ''));
+      return opts.growthPlan?.componentIds?.includes(String(it._id)) || slot !== 'weapon' || !weapon || !actorWeapon || weapon === actorWeapon;
+    })
     .sort((a, b) => {
       const ds = scoreCandidate(b) - scoreCandidate(a);
       if (Math.abs(ds) > 0.001) return ds;
@@ -244,7 +294,7 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
     });
 
   const chance = (Number(day || 0) === 1) ? 0.75 : 0.35;
-  if (!candidates.length || Math.random() >= chance) return null;
+  if (!candidates.length || simulationRandom() >= chance) return null;
 
   for (const target of candidates) {
     const ings = compactIO(target?.recipe?.ingredients || []);
@@ -253,15 +303,15 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
 
     const cat = inferItemCategory(target);
     const craftTier = (cat === 'equipment')
-      ? computeCraftTierFromIngredients(ings, itemMetaById, itemNameById)
+      ? clampGearTier(target?.tier || computeCraftTierFromIngredients(ings, itemMetaById, itemNameById))
       : clampTier4(target?.tier || 1);
 
-    const craftedItem = (cat === 'equipment') ? applyEquipTier(target, craftTier) : target;
-
-    if (!canReceiveItem(inventory, craftedItem, craftedItem?._id, 1, ruleset)) continue;
+    const craftedItem = markGrowthComponent((cat === 'equipment') ? applyEquipTier(target, craftTier) : target, { _growthPlan: opts.growthPlan });
 
     const afterConsume = consumeIngredientsFromInv(inventory, ings);
+    if (!canReceiveItem(afterConsume, craftedItem, craftedItem?._id, 1, ruleset)) continue;
     const afterAdd = addItemToInventory(afterConsume, craftedItem, craftedItem?._id, 1, day, ruleset);
+    if (Number(afterAdd?._lastAdd?.acceptedQty ?? 1) <= 0) continue;
 
     const ingText = ings.map((x) => `${itemNameById?.[String(x.itemId)] || String(x.itemId)} x${x.qty}`).join(' + ');
     const tierText = (cat === 'equipment') ? ` (${tierLabelKo(craftTier)})` : '';
@@ -274,8 +324,8 @@ export function buildCraftDebugInfo(actor, craftables, itemNameById, ruleset) {
   const inv0 = Array.isArray(actor?.inventory) ? actor.inventory : [];
   const actorWNorm = normalizeWeaponType(String(actor?.weaponType || '').trim());
   const withRecipe = (Array.isArray(craftables) ? craftables : [])
-    .filter((it) => Array.isArray(it?.recipe?.ingredients) && it.recipe.ingredients.length > 0);
-  if (!withRecipe.length) return { code: 'recipe_none', text: '레시피가 있는 제작 대상이 없습니다.' };
+    .filter((it) => getValidRecipeIngredients(it));
+  if (!withRecipe.length) return { code: 'recipe_none', text: '유효한 레시피가 있는 제작 대상이 없습니다.' };
 
   const goalBySlot = pickGoalLoadoutBySlot(actor);
   let bestTarget = null;
@@ -309,7 +359,7 @@ export function buildCraftDebugInfo(actor, craftables, itemNameById, ruleset) {
     if (cat === 'equipment') {
       const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
       if (slot === 'weapon') {
-        const w = String(it?.weaponType || '').toLowerCase();
+        const w = normalizeWeaponType(String(it?.weaponType || ''));
         if (w && actorWNorm && w !== actorWNorm) {
           weaponMismatch += 1;
           continue;
@@ -326,7 +376,7 @@ export function buildCraftDebugInfo(actor, craftables, itemNameById, ruleset) {
         continue;
       }
     }
-    if (!canReceiveItem(inv0, it, it?._id, 1, ruleset)) {
+    if (!canReceiveItem(consumeIngredientsFromInv(inv0, ings), it, it?._id, 1, ruleset)) {
       receiveBlocked += 1;
       continue;
     }

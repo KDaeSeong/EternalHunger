@@ -33,7 +33,7 @@ export function runCraftAction({
   } = actions;
 
   const updated = actor || {};
-  if (queuedActionType !== 'craft') {
+  if (queuedActionType !== 'craft' || Number(updated.hp || 0) <= 0) {
     return {
       actor: updated,
       ran: false,
@@ -76,8 +76,8 @@ export function runCraftAction({
   const lateRes = lateGameGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
     allowAbstractFallback: allowAbstractGearFallback,
   });
-  if (lateRes?.changed && Array.isArray(lateRes.logs)) {
-    lateRes.logs.forEach((message) => addLog(String(message), 'highlight'));
+  if (Array.isArray(lateRes?.logs)) {
+    lateRes.logs.forEach((message) => addLog(String(message), lateRes.changed ? 'highlight' : 'system'));
   }
 
   return {

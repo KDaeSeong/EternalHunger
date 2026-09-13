@@ -49,6 +49,8 @@ export function emitObjectiveRunEvent(emitRunEvent, actor, objective, payload = 
 export function getLootCraftOptions(actor) {
   return {
     goalItemKeys: pickGoalLoadoutKeys(actor),
+    weaponType: actor?.weaponType,
+    growthPlan: actor?._growthPlan,
   };
 }
 
@@ -115,9 +117,16 @@ export function emitEffectRunEvents(emitRunEvent, who, rows, meta = {}, at = nul
       skill: String(meta?.skill || ''),
       reason: String(meta?.reason || ''),
       effect: effectName,
-      duration: Math.max(0, Number(eff?.duration ?? 0)),
+      duration: Math.max(0, Number(eff?.remainingDuration ?? eff?.duration ?? 0)),
       stacks: Math.max(0, Number(eff?.stacks ?? eff?.stack ?? 0)),
       outcome,
+      ...(eff?.sourceActorId ? { sourceActorId: String(eff.sourceActorId), sourceId: String(eff.sourceId || '') } : {}),
+      ...(row?.immunityType ? { immunityType: row.immunityType } : {}),
+      ...(row?.suppressedBy ? { suppressedBy: row.suppressedBy } : {}),
+      ...(row?.durationAdjustment ? { durationAdjustment: { ...row.durationAdjustment } } : {}),
+      ...(row?.reason === 'duration_reduced' ? { blockedReason: 'duration_reduced' } : {}),
+      ...(row?.reason === 'cleansed' ? { removedEffects: (row.removed || []).map((effect) => effect.name) } : {}),
+      ...(row?.reason === 'untargetable' ? { blockedReason: 'untargetable' } : {}),
     }, at);
   });
 }

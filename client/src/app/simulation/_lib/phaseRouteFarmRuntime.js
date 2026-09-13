@@ -19,6 +19,9 @@ import {
   getRoutePlanMissingItemIds,
   mergeMissingItemIds,
 } from './routePlanProgressRuntime';
+import { prepareInventoryForCraftLoot } from './craftRuntime';
+import { refreshActorGrowthPlan, markGrowthComponent } from './growthPlanRuntime';
+import { collectFieldResourceLoot, emitFieldResourcePickup } from './fieldResourceRuntime';
 
 export function runRouteFarmAction({
   actions = {},
@@ -47,7 +50,8 @@ export function runRouteFarmAction({
     grantMastery = () => {},
   } = actions;
   const updated = actor || {};
-  const routeItemIds = (Array.isArray(fallbackRouteItemIds) ? fallbackRouteItemIds : [])
+  const fieldResources = state.nextSpawn?.fieldResources;
+  let routeItemIds = (Array.isArray(fallbackRouteItemIds) ? fallbackRouteItemIds : [])
     .map((itemId) => String(itemId || '').trim())
     .filter(Boolean);
 
@@ -65,9 +69,18 @@ export function runRouteFarmAction({
   let routeGoalIdsForSearch = [...(Array.isArray(goalMissingIds) ? goalMissingIds : [])];
 
   for (let routeAttempt = 0; routeAttempt < routeAttempts; routeAttempt += 1) {
+    const growth = refreshActorGrowthPlan(updated, publicItems, state);
+    if (growth) {
+      routeItemIds = growth.currentZoneItemIds;
+      routeGoalIdsForSearch = growth.missing.map((row) => row.itemId);
+      if (growth.openingComplete || growth.readyCraftId || !routeItemIds.length) break;
+    }
     const routeLoot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, {
+      fieldResources,
+      neededQtyById: growth ? Object.fromEntries(growth.missing.map((row) => [row.itemId, row.need])) : undefined,
       moved: false,
       routeFarm: true,
+      focusedGrowth: !!growth,
       day: nextDay,
       phase: nextPhase,
       dropWeightsByKey: ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey,
@@ -77,9 +90,17 @@ export function runRouteFarmAction({
     });
 
     if (routeLoot?.itemId) {
-      updated.inventory = addItemToInventory(updated.inventory, routeLoot.item, routeLoot.itemId, routeLoot.qty, nextDay, ruleset);
+      routeLoot.item = markGrowthComponent(routeLoot.item, updated);
+      const gotR = collectFieldResourceLoot(fieldResources, routeLoot, (qty) => {
+        routeLoot.qty = qty;
+        const room = prepareInventoryForCraftLoot(updated, routeLoot, craftables, ruleset);
+        updated.inventory = room.inventory;
+        if (room.dropped) addLog(`🎒 [${updated.name}] 가방 정리: ${room.dropped.name} x${room.dropped.qty} 내려놓기 → 제작 재료 공간 확보`, 'normal');
+        updated.inventory = addItemToInventory(updated.inventory, routeLoot.item, routeLoot.itemId, qty, nextDay, ruleset);
+        return updated.inventory?._lastAdd?.acceptedQty ?? qty;
+      });
+      emitFieldResourcePickup(fieldResources, routeLoot, gotR, updated, actions);
       const metaR = updated.inventory?._lastAdd;
-      const gotR = Math.max(0, Number(metaR?.acceptedQty ?? routeLoot.qty));
       const nmR = routeLoot.item?.name || itemNameById?.[String(routeLoot.itemId || '')] || '아이템';
       if (shouldLogItemReceive(gotR, metaR)) {
         addLog(`🧭 [${updated.name}] ${getZoneName(updated.zoneId)}에서 루트 재료 ${itemIcon(routeLoot.item || { type: '' })} [${nmR}] ${gainText(gotR)}${formatInvAddNote(metaR, routeLoot.qty, updated.inventory, ruleset)}`, 'normal');
@@ -111,6 +132,7 @@ export function runRouteFarmAction({
       routeGoalIdsForSearch = mergeMissingItemIds(postRouteCraftMissingIds, getRoutePlanMissingItemIds(updated));
     }
 
+    if (growth) continue;
     advanceEarlyRouteProgress(updated, updated.zoneId, {
       missingItemIds: routeGoalIdsForSearch,
       routeItemIds,

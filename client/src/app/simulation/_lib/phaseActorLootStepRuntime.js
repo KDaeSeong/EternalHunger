@@ -43,6 +43,7 @@ export function runActorLootStep({
     state: {
       actor: updated,
       mapObj,
+      nextSpawn,
       nextDay,
       publicItems,
       ruleset,
@@ -52,6 +53,7 @@ export function runActorLootStep({
       atNow,
       emitItemGainIfAny,
       getZoneName,
+      emitRunEvent,
     },
   });
   updated = facilityGatherResult.actor;
@@ -61,6 +63,7 @@ export function runActorLootStep({
       actor: updated,
       craftables,
       didMove: movementResult.didMove,
+      nextSpawn,
       itemMetaById,
       itemNameById,
       mapObj,
@@ -81,6 +84,7 @@ export function runActorLootStep({
       emitItemGainIfAny,
       getZoneName,
       grantMastery,
+      emitRunEvent,
       setPendingTranscendPick,
     },
   });

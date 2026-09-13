@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import {
   hash32,
 } from './simulationCommon';
@@ -13,13 +14,14 @@ import {
   classifySpecialByName,
 } from './craftRuntime';
 import { pickGoalResourceZoneTargets } from './resourceTargetingRuntime';
+import { getActorTeamId } from './teamRuntime';
 import {
   actorHasSpecialKind,
   markObjectiveTarget,
   scoreWildlifeZoneForActor,
 } from './aiMoveTargetScoringRuntime';
 
-export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState, forbiddenIds, day, phase, kiosks, itemMetaById = null, itemNameById = null }) {
+export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState, forbiddenIds, day, phase, kiosks, itemMetaById = null, itemNameById = null, nowSec, ruleset = {}, isSoloMatch = false }) {
   const miss = Array.isArray(craftGoal?.missing) ? craftGoal.missing : [];
   const hasGoal = !!craftGoal?.target && miss.length > 0;
 
@@ -30,6 +32,23 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   const transcendCrates = Array.isArray(s?.transcendCrates) ? s.transcendCrates : [];
 
   const result = { targets: [], reason: '' };
+
+  // Shared with the team leader planner: grouped squads must be able to choose
+  // the objective too, not only the old individual random-movement override.
+  const teamId = getActorTeamId(actor);
+  const rifts = (s?.dimensionRifts || []).filter((rift) => Number(rift.day) === Number(day) && String(rift.phase) === String(phase));
+  const usedRift = rifts.find((rift) => (rift.entrantTeamIds || []).includes(teamId));
+  const enteringRifts = rifts.filter((rift) => !rift.resolved && !forbiddenIds.has(String(rift.zoneId))
+    && (nowSec == null || rift.entryClosesAtSec == null || Number(nowSec) < rift.entryClosesAtSec)
+    && (!usedRift || usedRift.id === rift.id)
+    && ((rift.entrantTeamIds || []).includes(teamId) || (rift.entrantTeamIds || []).length < Number(rift.maxTeams || 2)));
+  const riftChance = Number(ruleset.worldSpawns?.dimensionRift?.contestChance ?? 0.38);
+  const openingGrowth = actor?._growthPlan && !actor._growthPlan.openingComplete && !actor._growthPlan.blocked;
+  if (!isSoloMatch && ruleset.worldSpawns?.dimensionRift?.enabled !== false && !openingGrowth && enteringRifts.length
+    && ((hash32(`rift:${teamId}:${day}:${phase}`) % 10000) / 10000 < Math.max(0, Math.min(1, riftChance)))) {
+    return { targets: enteringRifts.map((rift) => String(rift.zoneId)), reason: 'dimension_rift',
+      objectiveType: 'dimension_rift', objectiveSubkind: 'aglaia', contestPressure: 0.45 };
+  }
 
   const simCredits = Math.max(0, Number(actor?.simCredits || 0));
   const kioskZones = listKioskZoneIdsForMap(mapObj, kiosks, forbiddenIds);
@@ -160,7 +179,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
     || (wantTransAny && !hasVfAny);
   if (!hasStrategicFarmGoal && isAtOrAfterWorldTime(day, phase, 1, 'night')) {
     const top = pickWildlifeTargets();
-    if (top.length && Math.random() < 0.46) {
+    if (top.length && simulationRandom() < 0.46) {
       result.targets = top;
       result.reason = '야생동물 사냥';
       return result;
@@ -330,7 +349,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
         .map((c) => String(c.zoneId))
         .filter((zid) => zid && !forbiddenIds.has(String(zid)))
     );
-  if (isAtOrAfterWorldTime(day, phase, 2, 'night') && crateTargets.length && Math.random() < 0.30) {
+  if (isAtOrAfterWorldTime(day, phase, 2, 'night') && crateTargets.length && simulationRandom() < 0.30) {
     result.targets = crateTargets;
     result.reason = '전설상자 탐색';
     markObjectiveTarget(result, actor, 'legendary_crate', 'legendary_material');
@@ -343,7 +362,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
       .map((n) => String(n.zoneId))
       .filter((zid) => zid && !forbiddenIds.has(String(zid)))
   );
-  if (isAtOrAfterWorldTime(day, phase, 1, 'night') && coreTargets.length && Math.random() < 0.32) {
+  if (isAtOrAfterWorldTime(day, phase, 1, 'night') && coreTargets.length && simulationRandom() < 0.32) {
     result.targets = coreTargets;
     result.reason = '특수 재료 탐색';
     markObjectiveTarget(result, actor, 'natural_core', 'core');

@@ -4,7 +4,14 @@ export function formatMoveIntentLabel(reason, objectiveType = '', objectiveSubki
   const sub = String(objectiveSubkind || '').toLowerCase();
 
   if (raw.startsWith('early_route')) return '루트 파밍';
+  if (raw === 'growth_farm') return '목표 장비 재료 탐색';
+  if (raw === 'growth_craft') return '목표 장비 조합';
+  if (raw === 'growth_ready') return '성장 완료·합류 대기';
+  if (raw === 'growth_blocked') return '성장 경로 재탐색';
+  if (raw === 'team_regroup') return '팀 합류';
+  if (raw === 'team_rotate') return '팀 공동 목표 이동';
   if (raw === 'recover') return '회복 우선';
+  if (raw === 'endgame_rotate') return '최종 안전구역 이동';
   if (raw.includes('크레딧') || raw.includes('야생동물')) return '야생동물 사냥';
   if (raw.includes('키오스크')) return '키오스크 주문';
   if (type === 'natural_core' || raw.includes('특수 재료')) {

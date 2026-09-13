@@ -50,7 +50,7 @@ function fireAndReport(label, job) {
 }
 
 function buildCharacterSkillModeSettings(settings) {
-  const rs = getRuleset(settings?.rulesetId);
+  const rs = getRuleset(settings?.rulesetId, settings?.simulationRuleset);
   return {
     ...(settings || {}),
     skills: { ...(rs?.skills || {}), ...(settings?.skills || {}) },
@@ -84,32 +84,80 @@ function buildActorAvatarByName(survivors, dead) {
   return out;
 }
 
+const teamStateContextCache = new WeakMap();
+
+function getTeamStateContext(settings, survivors, dead) {
+  if (!settings || typeof settings !== 'object' || !Array.isArray(survivors) || !Array.isArray(dead)) return null;
+  let byDead = teamStateContextCache.get(survivors);
+  if (!byDead) {
+    byDead = new WeakMap();
+    teamStateContextCache.set(survivors, byDead);
+  }
+  let bySettings = byDead.get(dead);
+  if (!bySettings) {
+    bySettings = new WeakMap();
+    byDead.set(dead, bySettings);
+  }
+  const cached = bySettings.get(settings);
+  if (cached) return cached;
+
+  const allActors = [...survivors, ...dead];
+  const aliveCounts = new Map();
+  survivors.forEach((row) => {
+    const id = getActorTeamId(row);
+    if (id && Number(row?.hp || 0) > 0) aliveCounts.set(id, (aliveCounts.get(id) || 0) + 1);
+  });
+  const teams = new Map();
+  allActors.forEach((row) => {
+    const id = getActorTeamId(row);
+    if (!id) return;
+    const current = teams.get(id) || { actors: [], aliveCount: 0, rosterNames: [] };
+    current.actors.push(row);
+    const name = String(row?.name || '').trim();
+    if (name) current.rosterNames.push(name);
+    teams.set(id, current);
+  });
+  teams.forEach((team) => {
+    team.aliveCount = aliveCounts.get(getActorTeamId(team.actors[0])) || 0;
+    const fallbackSize = team.actors.length || 1;
+    team.rosterSize = Math.max(
+      fallbackSize,
+      ...team.actors.map((row) => getActorTeamOriginalSize(row, fallbackSize)),
+    );
+  });
+  const context = { teams, matchConfig: getMatchConfig(settings) };
+  bySettings.set(settings, context);
+  return context;
+}
+
 function buildActorTeamState(actor, settings, survivors, dead) {
   if (!actor || normalizeMatchMode(settings?.matchMode) === 'solo') return null;
   const teamId = getActorTeamId(actor);
   if (!teamId) return null;
 
+  const context = getTeamStateContext(settings, survivors, dead);
+  const teamContext = context?.teams.get(teamId);
   const allActors = [
     ...(Array.isArray(survivors) ? survivors : []),
     ...(Array.isArray(dead) ? dead : []),
   ];
-  const teamActors = allActors.filter((row) => getActorTeamId(row) === teamId);
-  const aliveCount = (Array.isArray(survivors) ? survivors : [])
+  const teamActors = teamContext?.actors || allActors.filter((row) => getActorTeamId(row) === teamId);
+  const aliveCount = teamContext?.aliveCount ?? (Array.isArray(survivors) ? survivors : [])
     .filter((row) => getActorTeamId(row) === teamId && Number(row?.hp || 0) > 0)
     .length;
-  const rosterSize = Math.max(
+  const rosterSize = teamContext?.rosterSize || Math.max(
     getActorTeamOriginalSize(actor, teamActors.length || 1),
     ...teamActors.map((row) => getActorTeamOriginalSize(row, teamActors.length || 1)),
     teamActors.length || 1
   );
-  const matchConfig = getMatchConfig(settings);
+  const matchConfig = context?.matchConfig || getMatchConfig(settings);
   const capacity = Math.max(
     getActorTeamCapacity(actor, matchConfig.teamSize),
     matchConfig.teamSize
   );
   const rosterNames = Array.isArray(actor?.matchTeamRosterNames) && actor.matchTeamRosterNames.length
     ? actor.matchTeamRosterNames
-    : teamActors.map((row) => String(row?.name || '').trim()).filter(Boolean);
+    : teamContext?.rosterNames || teamActors.map((row) => String(row?.name || '').trim()).filter(Boolean);
 
   return {
     teamId,

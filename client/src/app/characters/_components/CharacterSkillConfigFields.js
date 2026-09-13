@@ -1,15 +1,19 @@
 import {
   CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS,
+  CHARACTER_SKILL_MOVEMENT_MODE_OPTIONS,
   CHARACTER_SKILL_SLOT_LABELS,
   CHARACTER_SKILL_SLOTS,
   SUPPORT_TARGET_SCOPE_OPTIONS,
   normalizeCharacterSkillType,
+  normalizeCharacterSkillMovementMode,
   normalizeSupportTargetScope,
 } from '../../../utils/characterSkillCompiler';
 import {
   SKILL_LEVEL_COUNT,
   cleanNumber,
 } from '../_lib/characterEditorRuntime';
+
+import CharacterStatusEffectFields from './CharacterStatusEffectFields';
 
 const LEVEL_FIELDS = [
   ['firstFlat', '1차 피해', 1],
@@ -29,7 +33,13 @@ const PASSIVE_STAT_FIELDS = [
   ['defense', '방어력', 0.5],
   ['attackRange', '사정거리', 0.1],
   ['sightRange', '시야', 0.1],
+  ['moveSpeed', '이동 속도 (m/s)', 0.1],
   ['attackSpeed', '공격속도', 0.01],
+  ['cooldownReduction', '쿨다운 감소 (0.1 = 10%)', 0.01],
+  ['ultimateCooldownReduction', '궁극기 쿨다운 감소 (0.1 = 10%)', 0.01],
+  ['tacticalCooldownReduction', '전술 스킬 쿨다운 감소 (0.1 = 10%)', 0.01],
+  ['ccDurationReduction', '방해 효과 저항 (0.1 = 10%)', 0.01],
+  ['slowDurationReduction', '둔화 지속 시간 감소 (0.1 = 10%)', 0.01],
 ];
 
 const TARGET_PRIORITY_OPTIONS = [
@@ -115,6 +125,42 @@ export function CharacterActiveSkillFields({
           />
         </label>
 
+        <label className="character-skill-inline-toggle">
+          <input
+            type="checkbox"
+            checked={skill.cooldownFixed === true}
+            onChange={(event) => onUpdateSkill(slot, 'cooldownFixed', event.target.checked)}
+            disabled={disabled}
+          />
+          쿨다운 고정
+        </label>
+
+        <label>
+          고유 자원 소비
+          <input
+            type="number"
+            min="0"
+            max="10000"
+            step="1"
+            value={skill.resourceCost ?? 0}
+            onChange={(event) => onUpdateSkill(slot, 'resourceCost', Math.max(0, cleanNumber(event.target.value, 0)))}
+            disabled={disabled}
+          />
+        </label>
+
+        <label>
+          발동 성공 시 획득
+          <input
+            type="number"
+            min="0"
+            max="10000"
+            step="1"
+            value={skill.resourceGain ?? 0}
+            onChange={(event) => onUpdateSkill(slot, 'resourceGain', Math.max(0, cleanNumber(event.target.value, 0)))}
+            disabled={disabled}
+          />
+        </label>
+
         <label>
           광역 범위
           <input
@@ -127,6 +173,53 @@ export function CharacterActiveSkillFields({
           />
         </label>
       </div>
+
+      <div className="character-skill-inline-grid">
+        <label className="character-skill-inline-toggle">
+          <input
+            type="checkbox"
+            checked={skill.includesMovement === true}
+            onChange={(event) => {
+              const enabled = event.target.checked;
+              onUpdateSkill(slot, 'includesMovement', enabled);
+              if (enabled && !(Number(skill.movementDistance) > 0)) onUpdateSkill(slot, 'movementDistance', 3);
+            }}
+            disabled={disabled}
+          />
+          실제 좌표 이동
+        </label>
+
+        {skill.includesMovement ? (
+          <>
+            <label>
+              이동 방향
+              <select
+                value={normalizeCharacterSkillMovementMode(skill.movementMode)}
+                onChange={(event) => onUpdateSkill(slot, 'movementMode', event.target.value)}
+                disabled={disabled}
+              >
+                {CHARACTER_SKILL_MOVEMENT_MODE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              이동 거리(m)
+              <input
+                type="number"
+                min="0.1"
+                max="10"
+                step="0.1"
+                value={skill.movementDistance ?? 3}
+                onChange={(event) => onUpdateSkill(slot, 'movementDistance', Math.max(0, cleanNumber(event.target.value, 0)))}
+                disabled={disabled}
+              />
+            </label>
+          </>
+        ) : null}
+      </div>
+      <small>이동은 스킬이 실제 발동할 때 같은 지역·전장 안에서 적용됩니다. 돌진은 대상을 넘지 않고, 후퇴는 24m 전장 경계에서 멈춥니다.</small>
 
       <div className="character-skill-inline-grid">
         <label>
@@ -230,6 +323,8 @@ export function CharacterActiveSkillFields({
           />
         </label>
       </div>
+
+      <CharacterStatusEffectFields skill={skill} slot={slot} disabled={disabled} onUpdateSkill={onUpdateSkill} />
 
       {LEVEL_FIELDS.map(([field, label, step]) => (
         <div className="character-skill-level-editor" key={`${slot}-${field}`}>

@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { shuffleArray } from './simulationCommon';
 import { invQty } from './inventoryRules';
 
@@ -55,7 +56,7 @@ export function pickKioskCatalogAction({
 
   // 2) 교환 우선: 가진 재료로 가능한 exchange를 실행(경제 안정화 위해 확률 게이트)
   const exchanges = catalog.filter((row) => String(row?.mode) === 'exchange');
-  if (exchanges.length && Math.random() < (hasMeaningfulNeed ? 0.82 : 0.60)) {
+  if (exchanges.length && simulationRandom() < (hasMeaningfulNeed ? 0.82 : 0.60)) {
     for (const row of shuffleArray(exchanges)) {
       const itemId = normCatalogItemId(row?.itemId);
       const giveId = normCatalogItemId(row?.exchange?.giveItemId);
@@ -69,7 +70,7 @@ export function pickKioskCatalogAction({
 
   // 3) 환급(키오스크 buy = 유저 sell): 가진 아이템을 credits로 환전(낮은 확률)
   const refunds = catalog.filter((row) => String(row?.mode) === 'buy');
-  if (refunds.length && Math.random() < (hasMeaningfulNeed ? 0.10 : 0.18)) {
+  if (refunds.length && simulationRandom() < (hasMeaningfulNeed ? 0.10 : 0.18)) {
     for (const row of shuffleArray(refunds)) {
       const itemId = normCatalogItemId(row?.itemId);
       const gain = Math.max(0, Number(row?.priceCredits || 0));
@@ -82,7 +83,7 @@ export function pickKioskCatalogAction({
 
   // 4) 구매(sell = 유저 buy): 저가 항목만 가끔 구매
   const buys = catalog.filter((row) => String(row?.mode) === 'sell');
-  if (buys.length && Math.random() < (hasMeaningfulNeed ? 0.34 : 0.18)) {
+  if (buys.length && simulationRandom() < (hasMeaningfulNeed ? 0.34 : 0.18)) {
     const isLevelModeMax = String(ruleset?.ai?.tacModuleUpgradeMode || 'level') === 'level'
       && Number(actor?.tacticalSkillLevel || 1) >= 2;
     for (const row of shuffleArray(buys)) {

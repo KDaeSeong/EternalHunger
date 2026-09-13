@@ -4,10 +4,11 @@ export function normalizeAutoSpeed(value) {
   return Math.max(1, Math.min(32, Number(value) || 1));
 }
 
-export function useSimulationFlowState() {
+export function useSimulationFlowState(initialAutoSpeed = 1) {
+  const normalizedInitialAutoSpeed = normalizeAutoSpeed(initialAutoSpeed);
   const [autoPlay, setAutoPlay] = useState(false);
-  const [autoSpeed, setAutoSpeed] = useState(1);
-  const autoSpeedRef = useRef(1);
+  const [autoSpeed, setAutoSpeed] = useState(normalizedInitialAutoSpeed);
+  const autoSpeedRef = useRef(normalizedInitialAutoSpeed);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const isAdvancingRef = useRef(false);
   const isRefreshingMapsRef = useRef(false);

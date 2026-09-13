@@ -70,9 +70,9 @@ export function useSimulationDerivedData({
       dead,
       itemMetaById,
       zoneNameById,
-      ruleset: getRuleset(settings?.rulesetId),
+      ruleset: getRuleset(settings?.rulesetId, settings?.simulationRuleset),
     }), getEmptySimulationDiagnostics());
-  }, [runEvents, survivors, dead, itemMetaById, zoneNameById, settings?.rulesetId, shouldComputeHeavyDerived]);
+  }, [runEvents, survivors, dead, itemMetaById, zoneNameById, settings?.rulesetId, settings?.simulationRuleset, shouldComputeHeavyDerived]);
 
   const simulationDiagnosticsLine = useMemo(
     () => formatDiagnosticsLine(simulationDiagnostics),
@@ -116,10 +116,11 @@ export function useSimulationDerivedData({
     zones,
     forbiddenNow,
     rulesetId: settings?.rulesetId,
+    savedRuleset: settings?.simulationRuleset,
     survivors,
     phase,
     getZoneName,
-  }), getEmptyDetonationRiskSummary()), [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase, getZoneName]);
+  }), getEmptyDetonationRiskSummary()), [day, activeMap, zones, forbiddenNow, settings?.rulesetId, settings?.simulationRuleset, survivors, phase, getZoneName]);
 
   return {
     ...heavyRunSummaries,

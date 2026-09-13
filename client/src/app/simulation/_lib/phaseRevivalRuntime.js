@@ -1,49 +1,11 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import {
   areSameTeam,
   getActorTeamName,
   hasKioskAtZone,
   normalizeRevivedSurvivor,
-  worldPhaseIndex,
 } from './simulationEngine';
-
-function phaseFromTimeOfDay(value) {
-  return String(value || 'day') === 'night' ? 'night' : 'morning';
-}
-
-function getRevivePhaseConfig(reviveCfg = {}) {
-  const reviveAutoCutoff = reviveCfg?.autoCutoff || {};
-  const revivePaidStart = reviveCfg?.paidStart || {};
-  const revivePaidCutoff = reviveCfg?.paidCutoff || {};
-  const reviveWipeProtectionCutoff = reviveCfg?.teamWipeProtectionCutoff || { day: 2, timeOfDay: 'day' };
-  const paidReviveCutoffIdx = worldPhaseIndex(
-    Number(revivePaidCutoff?.day ?? 5),
-    phaseFromTimeOfDay(revivePaidCutoff?.timeOfDay ?? revivePaidCutoff?.phase ?? 'day')
-  );
-
-  return {
-    corpseWindowSec: Math.max(1, Number(reviveCfg?.corpseWindowSec ?? 30)),
-    corpseInteractSec: Math.max(1, Number(reviveCfg?.corpseInteractSec ?? 5)),
-    corpseDamageDivisor: Math.max(1, Number(reviveCfg?.corpseDamageDivisor ?? 12)),
-    autoDelaySecPerLevel: Math.max(0, Number(reviveCfg?.autoDelaySecPerLevel ?? 5)),
-    paidReviveCostBase: Math.max(0, Number(reviveCfg?.paidCostBase ?? 200)),
-    paidReviveCostPerUse: Math.max(0, Number(reviveCfg?.paidCostPerUse ?? 0)),
-    paidReviveStartIdx: worldPhaseIndex(
-      Number(revivePaidStart?.day ?? 3),
-      phaseFromTimeOfDay(revivePaidStart?.timeOfDay ?? revivePaidStart?.phase ?? 'day')
-    ),
-    paidReviveCutoffIdx,
-    autoReviveIdx: worldPhaseIndex(
-      Number(reviveAutoCutoff?.day ?? 2),
-      phaseFromTimeOfDay(reviveAutoCutoff?.timeOfDay ?? reviveAutoCutoff?.phase ?? 'night')
-    ),
-    reviveCutoffIdx: paidReviveCutoffIdx,
-    reviveHpRatio: Math.max(0.05, Math.min(1, Number(reviveCfg?.hpRatio ?? 0.65))),
-    wipeProtectionCutoffIdx: worldPhaseIndex(
-      Number(reviveWipeProtectionCutoff?.day ?? 2),
-      phaseFromTimeOfDay(reviveWipeProtectionCutoff?.timeOfDay ?? reviveWipeProtectionCutoff?.phase ?? 'day')
-    ),
-  };
-}
+import { getRevivePhaseConfig, getCorpseRemainingSec } from './revivalPolicyRuntime.js';
 
 function actorLevel(actor) {
   const raw = Number(actor?.level ?? actor?.erLevel ?? actor?.weaponMasteryLevel ?? 1);
@@ -53,20 +15,6 @@ function actorLevel(actor) {
 
 function actorId(actor) {
   return String(actor?._id || actor?.id || actor?.charId || actor?.name || '').trim();
-}
-
-function getDeathAtSec(actor) {
-  const deathAt = Number(actor?._deathAt ?? actor?.deathAtSec ?? actor?.corpseStartedAtSec);
-  return Number.isFinite(deathAt) && deathAt >= 0 ? deathAt : null;
-}
-
-function getCorpseRemainingSec(deadActor, nowSec, cfg) {
-  const deathAt = getDeathAtSec(deadActor);
-  const windowSec = Math.max(1, Number(cfg?.corpseWindowSec ?? 30));
-  const stored = Number(deadActor?.corpseRemainingSec);
-  const byClock = deathAt == null ? windowSec : Math.max(0, deathAt + windowSec - Number(nowSec || 0));
-  if (Number.isFinite(stored) && stored >= 0) return Math.min(stored, byClock);
-  return byClock;
 }
 
 function estimateCorpseDamagePressure(deadActor, enemies, cfg) {
@@ -224,7 +172,7 @@ export function runPhaseRevival({
         const maxHp = Number(deadActor?.maxHp ?? 100);
         const revivedHp = Math.max(1, Math.floor(maxHp * reviveHpRatio));
         const zoneId = safeZonePool.length
-          ? String(safeZonePool[Math.floor(Math.random() * safeZonePool.length)])
+          ? String(safeZonePool[Math.floor(simulationRandom() * safeZonePool.length)])
           : String(deadActor?.zoneId || '');
         const reviveKit = null;
 

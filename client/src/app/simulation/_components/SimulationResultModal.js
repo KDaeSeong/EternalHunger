@@ -3,10 +3,14 @@
 import Image from 'next/image';
 import { buildErBehaviorModifier } from '../../../utils/erMeta';
 import GameActionIcon from '../../games/_components/GameActionIcon';
+import { formatClock } from '../_lib/simulationFormattingRuntime';
+import { describeDimensionRiftMatchClosure } from '../_lib/dimensionRiftRewardPresentation.js';
 
 function saveLabel(value) {
   if (value === 'success') return '완료';
+  if (value === 'local') return '로컬 완료';
   if (value === 'error') return '실패';
+  if (value === 'unverified') return '미검증';
   if (value === 'skipped_devtools') return '개발자 도구 제외';
   if (value === 'skipped') return '건너뜀';
   return '대기';
@@ -37,11 +41,21 @@ export default function SimulationResultModal({
   gainDetailSummary,
   runSupportSummary,
   runActionSummary,
+  runProgressSummary,
   objectiveSummary,
   topRankedCharacters,
   killCounts,
   assistCounts,
   onExportBattleLog,
+  replayStatus,
+  onRetryReplaySave,
+  canReplayCurrent,
+  onReplayCurrent,
+  canVariantCurrent,
+  onVariantCurrent,
+  evaluationMode = false,
+  canOpenEvaluation = false,
+  onOpenEvaluation,
   onClose,
 }) {
   if (!open) return null;
@@ -83,6 +97,11 @@ export default function SimulationResultModal({
   const winnerLine = winner
     ? (isSoloMatch ? '최후의 1인! 생존을 축하합니다.' : `${winnerTeam?.teamName || '우승 팀'} 생존을 축하합니다. ${winnerTeamStatusText}`)
     : '이번 경기에는 생존자가 남지 않았습니다.';
+  const ending = resultSummary?.ending;
+  const riftEndingLine = describeDimensionRiftMatchClosure(ending?.dimensionRifts);
+  const endingLine = ending
+    ? `${formatClock(ending.atSec)} · ${ending.outcome === 'no_survivors' ? '전원 탈락 · 우승 팀 없음' : '최후의 팀 생존'}${ending.causeName ? ` · 마지막 탈락: ${ending.causeName}` : ''}`
+    : '';
   const winnerGroupLabel = isSoloMatch ? '최후 생존자' : '우승 생존자';
   const winnerGroupText = isSoloMatch
     ? compactText(winner?.name)
@@ -144,7 +163,7 @@ export default function SimulationResultModal({
         <section className="result-hero">
           {winner ? (
             <Image
-              src={winner.previewImage || '/Images/default_image.png'}
+              src={winner.previewImage || '/Images/default_image.svg'}
               alt=""
               width={86}
               height={86}
@@ -157,8 +176,25 @@ export default function SimulationResultModal({
             <div className="result-kicker">게임 종료</div>
             <h1>{winner ? winner.name : '생존자 없음'}</h1>
             <p>{winnerLine}</p>
+            {endingLine ? <p>{endingLine}</p> : null}
+            {riftEndingLine ? <p>{riftEndingLine}</p> : null}
           </div>
         </section>
+
+        {replayStatus ? <section className="sim-replay-result" aria-label="동일 재경기 결과">
+          <p role="status">{replayStatus.text}</p>
+          {replayStatus.canRetrySave ? <button type="button" onClick={onRetryReplaySave}>보관 다시 시도</button> : null}
+          {canReplayCurrent ? <button type="button" onClick={onReplayCurrent}>동일 조건으로 재경기</button> : null}
+          {canVariantCurrent ? <button type="button" onClick={onVariantCurrent}>편성·전략 바꿔 새 경기</button> : null}
+        </section> : null}
+
+        {evaluationMode ? <section className="sim-evaluation-result-callout" aria-label="5분 평가 다음 단계">
+          <strong>경기 관찰이 끝났습니다.</strong>
+          <p>추측으로 채우지 말고, 실제로 이해하거나 느낀 항목만 기록하세요. 미관측 항목은 비워 둘 수 있습니다.</p>
+          <button type="button" onClick={onOpenEvaluation} disabled={!canOpenEvaluation}>
+            {canOpenEvaluation ? '5분 평가 작성' : '완주 기록 준비 중…'}
+          </button>
+        </section> : null}
 
         {resultSummary ? (
           <section className="result-core">
@@ -193,6 +229,7 @@ export default function SimulationResultModal({
                 <DetailRow label="저장 상태">
                   명예의 전당 {saveLabel(saveStatus.hallOfFame)} / 유저 전적 {saveLabel(saveStatus.userStats)}
                 </DetailRow>
+                <DetailRow label="로컬 완주 기록">{saveLabel(saveStatus.localRun)}</DetailRow>
                 {resultSummary?.devRunTainted ? (
                   <DetailRow label="개발자 도구">명예의 전당/보상 제외</DetailRow>
                 ) : null}
@@ -214,6 +251,7 @@ export default function SimulationResultModal({
                 <DetailRow label="오브젝트 상세">{compactText(objectiveSummary?.detailLine)}</DetailRow>
                 <DetailRow label="특수 보상">{compactText(specialSourceSummary)}</DetailRow>
                 <DetailRow label="아이템 획득">{compactText(gainSourceSummary)}</DetailRow>
+                <DetailRow label="레시피 제작">{`${Number(runProgressSummary?.craftCount || 0)}회 · 시작 장비 지급 제외`}</DetailRow>
                 <DetailRow label="크레딧 획득">{compactText(creditSourceSummary)}</DetailRow>
                 <DetailRow label="획득 상세">{compactText(gainDetailSummary)}</DetailRow>
                 <DetailRow label="사용/상태">{compactText(runSupportSummary?.line)}</DetailRow>
@@ -223,6 +261,10 @@ export default function SimulationResultModal({
                 <DetailRow label="주요 소모품">{compactText(runSupportSummary?.topItems)}</DetailRow>
                 <DetailRow label="주요 효과">{compactText(runSupportSummary?.topEffects)}</DetailRow>
                 <DetailRow label="행동 요약">{compactText(runActionSummary?.line)}</DetailRow>
+                <DetailRow label="팀 판단">{compactText(runActionSummary?.teamLine)}</DetailRow>
+                <DetailRow label="팀 교전">{compactText(runActionSummary?.teamCombatLine)}</DetailRow>
+                <DetailRow label="자원 경쟁">{compactText(runActionSummary?.fieldResourceLine)}</DetailRow>
+                <DetailRow label="성장 행동">{compactText(runActionSummary?.growthLine)}</DetailRow>
                 <DetailRow label="목표 이동">{compactText(runActionSummary?.topObjectiveMoves)}</DetailRow>
                 <DetailRow label="추격/도주">{compactText(runActionSummary?.chaseLine)}</DetailRow>
                 <DetailRow label="추격 지표">{compactText(runActionSummary?.tuningLine)}</DetailRow>

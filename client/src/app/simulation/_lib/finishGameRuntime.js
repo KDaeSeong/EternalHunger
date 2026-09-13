@@ -2,6 +2,7 @@ import { apiPost, getUser } from '../../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../../utils/hallOfFame';
 import { getMatchConfig, normalizeMatchMode } from './matchRosterRuntime';
 import { buildLpRewardSummary } from './lpRewardRuntime';
+import { saveLocalSimulationRunBackup } from './localRunHistoryRuntime';
 import { dedupeRuntimeParticipants, getRuntimeActorKey } from './runtimeParticipantRuntime';
 import {
   getActorTeamId,
@@ -65,6 +66,10 @@ export async function finishSimulationGame(opts = {}) {
   const finalAssists = latestAssistCounts || assistCounts;
   const finalAlive = Array.isArray(finalSurvivors) ? finalSurvivors : [];
   const finalDead = Array.isArray(options?.finalDead) ? options.finalDead : dead;
+  // React's phase-start closure can lag the engine's final second and day.
+  const ending = options.ending || null;
+  const finishedDay = Number(ending?.day ?? day ?? 0);
+  const finishedMatchSec = Number(ending?.atSec ?? matchSec ?? 0);
   const winningTeam = getWinningTeam(finalAlive, finalKills, finalAssists);
   const winner = winningTeam?.representative || finalAlive[0];
   const participants = dedupeRuntimeParticipants([
@@ -90,10 +95,10 @@ export async function finishSimulationGame(opts = {}) {
   });
   const projectedRewardLP = lpRewardSummary.totalLP;
   const clientRunId = `eh-${hashRunIdentity(JSON.stringify({
-    day: Number(day || 0),
+    day: finishedDay,
     eventCount: Array.isArray(runEvents) ? runEvents.length : 0,
     firstEvent: Array.isArray(runEvents) ? runEvents[0]?.at || runEvents[0]?.kind || '' : '',
-    matchSec: Number(matchSec || 0),
+    matchSec: finishedMatchSec,
     participantIds: participants.map((actor) => getRuntimeActorKey(actor)).filter(Boolean).sort(),
     runSeed: String(runSeed || ''),
     winnerId,
@@ -119,6 +124,7 @@ export async function finishSimulationGame(opts = {}) {
   setIsGameOver?.(true);
   setShowResultModal?.(true);
   setResultSummary?.({
+    ending,
     rewardLP: 0,
     projectedRewardLP,
     rewardBaseLP: 0,
@@ -134,8 +140,8 @@ export async function finishSimulationGame(opts = {}) {
     myAssists,
     participantsCount: participants.length,
     saveStatus: isDevRunTainted
-      ? { hallOfFame: 'skipped_devtools', userStats: 'skipped_devtools' }
-      : { hallOfFame: winner ? 'pending' : 'skipped', userStats: 'unverified' },
+      ? { hallOfFame: 'skipped_devtools', localRun: 'skipped_devtools', userStats: 'skipped_devtools' }
+      : { hallOfFame: winner ? 'pending' : 'skipped', localRun: 'pending', userStats: 'unverified' },
     userProgress: null,
     devRunTainted: isDevRunTainted,
     matchMode: matchCfgForResult.matchMode,
@@ -182,14 +188,24 @@ export async function finishSimulationGame(opts = {}) {
     addLog?.('💀 생존자가 아무도 없습니다...', 'death');
   }
 
+  // Capture synchronously before a guest return or account persistence awaits.
+  // The replay task owns its separate storage status and never grants rewards.
+  void actions.completeReplay?.();
+  if (state.replayMode) {
+    setResultSummary?.((prev) => ({ ...prev, rewardStatus: 'replay',
+      saveStatus: { hallOfFame: 'skipped', localRun: 'skipped', userStats: 'skipped' } }));
+    return;
+  }
+
   if (isDevRunTainted) {
     addLog?.('개발자 도구 조작이 감지되어 명예의 전당 기록과 보상 지급을 건너뜁니다.', 'system');
     return;
   }
 
+  const currentUser = getUser();
+  const hasAuthenticatedUser = Boolean(currentUser?.username || currentUser?.id || currentUser?._id);
   try {
-    const me = getUser();
-    const username = me?.username || me?.id || 'guest';
+    const username = currentUser?.username || currentUser?.id || currentUser?._id || 'guest';
     saveLocalHallOfFameBackup(winner, finalKills, finalAssists, participants);
 
     if (winner) {
@@ -230,6 +246,50 @@ export async function finishSimulationGame(opts = {}) {
     emitHallOfFameSync({ username }, { reason: 'finishGame' });
   } catch (error) {
     console.error('hall of fame sync failed', error);
+  }
+
+  const localRunResult = saveLocalSimulationRunBackup({
+    clientRunId,
+    finishedAt: Date.now(),
+    runSeed,
+    day: finishedDay,
+    matchSec: finishedMatchSec,
+    ending,
+    matchMode: matchCfgForResult.matchMode,
+    teamSize: matchCfgForResult.teamSize,
+    winnerId,
+    winnerName: winner?.name,
+    winnerTeamId: winner ? (winningTeam?.teamId || getActorTeamId(winner)) : '',
+    winnerTeamName: winner ? (winningTeam?.teamName || getActorTeamName(winner)) : '',
+    participants,
+    killCounts: finalKills,
+    assistCounts: finalAssists,
+    settings,
+  });
+  setResultSummary?.((prev) => ({
+    ...(prev || {}),
+    rewardStatus: hasAuthenticatedUser ? prev?.rewardStatus : 'local_unverified',
+    localRunId: localRunResult?.record?.clientRunId || '',
+    saveStatus: {
+      ...(prev?.saveStatus || {}),
+      localRun: localRunResult.ok ? 'success' : 'error',
+      ...(!hasAuthenticatedUser
+        ? {
+            hallOfFame: winner ? (localRunResult.ok ? 'local' : 'error') : 'skipped',
+            userStats: localRunResult.ok ? 'local' : 'error',
+          }
+        : {}),
+    },
+  }));
+
+  if (!hasAuthenticatedUser) {
+    addLog?.(
+      localRunResult.ok
+        ? '💾 비로그인 완주 기록과 참가 로스터·설정을 이 브라우저에 저장했습니다.'
+        : '⚠️ 비로그인 완주 기록을 브라우저에 저장하지 못했습니다.',
+      localRunResult.ok ? 'system' : 'death'
+    );
+    return;
   }
 
   try {
@@ -285,9 +345,28 @@ export async function finishSimulationGame(opts = {}) {
             'chaserId',
             'chaserName',
             'skill',
+            'slot',
+            'phase',
             'mode',
+            'movementMode',
+            'movementDistance',
+            'requestedDistance',
+            'actualDistance',
+            'castId',
+            'targetId',
+            'combatSpaceId',
+            'stoppedAtTarget',
+            'clipped',
             'heal',
             'damage',
+            'resourceName',
+            'resourceCost',
+            'resourceGain',
+            'resourceAfter',
+            'delta',
+            'before',
+            'after',
+            'maxValue',
             'pEscape',
             'pChase',
             'pCatch',
@@ -324,7 +403,12 @@ export async function finishSimulationGame(opts = {}) {
     }
   } catch (error) {
     console.error(error);
-    addLog?.('⚠️ 명예의 전당 저장 실패', 'death');
+    addLog?.(
+      localRunResult.ok
+        ? '⚠️ 서버 경기 기록 저장 실패 · 로컬 완주 기록은 유지됩니다.'
+        : '⚠️ 서버와 로컬 경기 기록 저장에 모두 실패했습니다.',
+      'death'
+    );
     setResultSummary?.((prev) => ({
       ...(prev || {}),
       saveStatus: { ...(prev?.saveStatus || {}), hallOfFame: 'error' },

@@ -23,10 +23,14 @@ import {
 } from './craftRuntime';
 import { clampGearTier } from './gearCatalogRuntime';
 import { autoEquipBest } from './gearFallbackRuntime';
+import { markGrowthComponent } from './growthPlanRuntime';
+import { getValidRecipeIngredients } from './gearRecipeGuardRuntime.js';
 
 export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById, day, phaseIdxNow, ruleset) {
   if (!actor || typeof actor !== 'object') return null;
-  if (Number(actor?._invCraftPhaseIdx ?? -9999) === Number(phaseIdxNow || 0)) return null;
+  const actionKey = actor._actionCycleKey ?? `phase:${Number(phaseIdxNow || 0)}`;
+  if (actor._invCraftActionKey === actionKey) return null;
+  if (actor._actionCycleKey == null && Number(actor?._invCraftPhaseIdx ?? -9999) === Number(phaseIdxNow || 0)) return null;
 
   const inv0 = Array.isArray(actor?.inventory) ? actor.inventory : [];
   const actorWNorm = normalizeWeaponType(String(actor?.weaponType || '').trim());
@@ -38,9 +42,11 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
   const goalBySlot = pickGoalLoadoutBySlot(actor);
   const goalKeys = new Set(Object.values(goalBySlot).map((value) => String(value || '').trim()).filter(Boolean));
   const keyOfId = (id) => String(itemKeyById?.[String(id || '')] || '').trim();
+  const growthIds = actor._growthPlan && !actor._growthPlan.openingComplete ? new Set(actor._growthPlan.craftIds) : null;
 
   const candidates = (Array.isArray(craftables) ? craftables : [])
-    .filter((item) => Array.isArray(item?.recipe?.ingredients) && item.recipe.ingredients.length > 0)
+    .filter((item) => !growthIds || growthIds.has(String(item._id)))
+    .filter((item) => getValidRecipeIngredients(item))
     .filter((item) => {
       const ingredients = compactIO(item?.recipe?.ingredients || []);
       if (!ingredients.length) return false;
@@ -49,9 +55,10 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
     .filter((item) => {
       const category = inferItemCategory(item);
       if (category !== 'equipment') return true;
+      if (actor._growthPlan?.componentIds?.includes(String(item._id))) return true;
       const slot = String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase();
       if (slot === 'weapon') {
-        const weaponType = String(item?.weaponType || '').toLowerCase();
+        const weaponType = normalizeWeaponType(String(item?.weaponType || ''));
         if (weaponType && actorWNorm && weaponType !== actorWNorm) return false;
       }
 
@@ -70,9 +77,11 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
         return true;
       }
 
-      return targetTier > curTier;
+      const growthTarget = growthIds && actor._growthPlan.targetIds.includes(String(item._id));
+      return targetTier > curTier || (growthTarget && targetTier === curTier && !inv0.some((entry) => getInvItemId(entry) === String(item._id)));
     })
     .sort((a, b) => {
+      if (growthIds) return actor._growthPlan.craftIds.indexOf(a._id) - actor._growthPlan.craftIds.indexOf(b._id);
       const keyA = String(a?.itemKey || a?.externalId || '').trim();
       const keyB = String(b?.itemKey || b?.externalId || '').trim();
       const goalA = (goalKeys.size > 0 && keyA && goalKeys.has(keyA)) ? 1 : 0;
@@ -97,19 +106,18 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
       : clampGearTier(target?.tier || 1);
     const craftedItem0 = (category === 'equipment') ? applyEquipTier(target, craftTier) : target;
 
-    let craftedItem = craftedItem0;
+    let craftedItem = markGrowthComponent(craftedItem0, actor);
     if (category === 'equipment') {
       const slot = String(target?.equipSlot || inferEquipSlot(target) || '').toLowerCase();
       const wantKey = String(goalBySlot?.[slot] || '').trim();
       const candidateKey = String(target?.itemKey || target?.externalId || '').trim();
       if (wantKey && candidateKey && wantKey === candidateKey) {
-        craftedItem = { ...craftedItem0, _forceReplaceSameTier: true };
+        craftedItem = { ...craftedItem, _forceReplaceSameTier: true };
       }
     }
 
-    if (!canReceiveItem(inv0, craftedItem, craftedItem?._id, 1, ruleset)) continue;
-
     let inv = consumeIngredientsFromInv(inv0, ingredients);
+    if (!canReceiveItem(inv, craftedItem, craftedItem?._id, 1, ruleset)) continue;
     inv = addItemToInventory(inv, craftedItem, craftedItem?._id, 1, day, ruleset);
     const meta = inv?._lastAdd;
     const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
@@ -118,6 +126,7 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
     actor.inventory = inv;
     autoEquipBest(actor, itemMetaById);
     actor._invCraftPhaseIdx = Number(phaseIdxNow || 0);
+    actor._invCraftActionKey = actionKey;
 
     const ingredientText = ingredients
       .map((ingredient) => `${itemNameById?.[String(ingredient.itemId)] || String(ingredient.itemId)} x${ingredient.qty}`)
@@ -140,6 +149,7 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
   }
 
   actor._invCraftPhaseIdx = Number(phaseIdxNow || 0);
+  actor._invCraftActionKey = actionKey;
   actor._craftDebug = {
     ...buildCraftDebugInfo(actor, craftables, itemNameById, ruleset),
     phaseIdx: Number(phaseIdxNow || 0),

@@ -12,6 +12,8 @@ const runtimeConfig = [
       'src/utils/equipmentCatalog.js',
       'src/utils/erMeta.js',
       'src/utils/itemLogic.js',
+      'src/utils/statusEffectApplication.js',
+      'src/utils/simulationRandom.js',
     ],
     rules: {
       'no-undef': 'error',

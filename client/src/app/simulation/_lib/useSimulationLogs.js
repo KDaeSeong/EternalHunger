@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LOG_DETAIL_OPEN_KEY } from './logPresentation';
 import {
+  appendVisibleRunEvents,
   appendSimulationLog,
   emitSimulationRunEvent,
   exportSimulationBattleLog,
@@ -61,7 +62,7 @@ export function useSimulationLogs({
   const [prevPhaseLogs, setPrevPhaseLogs] = useState([]);
   const [showPrevLogs, setShowPrevLogs] = useState(() => readStoredFlag(PREVLOGS_OPEN_KEY));
   const [showDetailedLogs, setShowDetailedLogs] = useState(() => readStoredFlag(LOG_DETAIL_OPEN_KEY));
-  const [runEvents, setRunEvents] = useState([]);
+  const [runEvents, setVisibleRunEvents] = useState([]);
   const [logBoxMaxH, setLogBoxMaxH] = useState(420);
 
   const logBoxRef = useRef(null);
@@ -69,6 +70,45 @@ export function useSimulationLogs({
   const logSeqRef = useRef(0);
   const fullLogsRef = useRef([]);
   const fullLogEntriesRef = useRef([]);
+  const fullRunEventsRef = useRef([]);
+  const pendingVisibleLogsRef = useRef([]);
+  const visibleLogFlushQueuedRef = useRef(false);
+  const pendingVisibleRunEventsRef = useRef([]);
+  const visibleRunEventFlushQueuedRef = useRef(false);
+
+  function setRunEvents(events) {
+    pendingVisibleRunEventsRef.current = [];
+    fullRunEventsRef.current = structuredClone(events);
+    setVisibleRunEvents(events.slice(-5000));
+  }
+
+  function enqueueVisibleRunEvent(event) {
+    pendingVisibleRunEventsRef.current.push(event);
+    if (visibleRunEventFlushQueuedRef.current) return;
+    visibleRunEventFlushQueuedRef.current = true;
+    const flush = () => {
+      visibleRunEventFlushQueuedRef.current = false;
+      const pending = pendingVisibleRunEventsRef.current;
+      pendingVisibleRunEventsRef.current = [];
+      if (pending.length) setVisibleRunEvents((previous) => appendVisibleRunEvents(previous, pending));
+    };
+    if (typeof queueMicrotask === 'function') queueMicrotask(flush);
+    else Promise.resolve().then(flush);
+  }
+
+  function enqueueVisibleLog(entry) {
+    pendingVisibleLogsRef.current.push(entry);
+    if (visibleLogFlushQueuedRef.current) return;
+    visibleLogFlushQueuedRef.current = true;
+    const flush = () => {
+      visibleLogFlushQueuedRef.current = false;
+      const pending = pendingVisibleLogsRef.current;
+      pendingVisibleLogsRef.current = [];
+      if (pending.length) setLogs((previous) => [...previous, ...pending]);
+    };
+    if (typeof queueMicrotask === 'function') queueMicrotask(flush);
+    else Promise.resolve().then(flush);
+  }
 
   useEffect(() => {
     writeStoredFlag(PREVLOGS_OPEN_KEY, showPrevLogs);
@@ -83,7 +123,7 @@ export function useSimulationLogs({
       text,
       type,
       refs: { fullLogsRef, fullLogEntriesRef, logSeqRef },
-      actions: { setLogs },
+      actions: { enqueueVisibleLog, setLogs },
     });
   }
 
@@ -99,7 +139,7 @@ export function useSimulationLogs({
       refs: { fullLogsRef },
       state: {
         ...exportState,
-        runEvents,
+        runEvents: fullRunEventsRef.current,
       },
     });
   }
@@ -110,15 +150,16 @@ export function useSimulationLogs({
       payload,
       at,
       state: { day, phase, matchSec },
-      actions: { setRunEvents },
+      refs: { fullRunEventsRef },
+      actions: { enqueueRunEvent: enqueueVisibleRunEvent },
     });
   }
 
   function resetPhaseLogs() {
+    pendingVisibleLogsRef.current = [];
     setPrevPhaseLogs([]);
     setShowPrevLogs(false);
     setLogs(() => []);
-    logSeqRef.current = 0;
     setLogBoxMaxH(180);
   }
 
@@ -145,6 +186,7 @@ export function useSimulationLogs({
     exportBattleLog,
     fullLogEntriesRef,
     fullLogsRef,
+    fullRunEventsRef,
     logBoxMaxH,
     logBoxRef,
     logWindowRef,

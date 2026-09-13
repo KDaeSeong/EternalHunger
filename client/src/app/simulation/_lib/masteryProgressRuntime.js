@@ -7,6 +7,7 @@ import {
   getPvpKillMasteryEntries,
   getPvpMasteryEntries,
 } from '../../../utils/masteryLogic';
+import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 
 export function applyLevelGrowth(actor, result) {
   if (!actor || !result?.characterLeveledUp) return;
@@ -16,10 +17,17 @@ export function applyLevelGrowth(actor, result) {
   if (steps <= 0) return;
   const stats = normalizeErStats(actor?.stats);
   const hpGain = Math.max(0, Math.round(Number(stats?.hpGrowth || 0) * steps));
+  const hpBefore = Math.max(0, Number(actor.hp) || 0);
   const effectiveMaxHp = Math.max(1, Math.round(Number(getEffectiveErStats(actor)?.maxHp || stats.maxHp || 100)));
   if (hpGain > 0) {
     actor.maxHp = Math.max(effectiveMaxHp, Number(actor.maxHp || stats.maxHp || 100) + hpGain);
-    actor.hp = Math.min(Number(actor.maxHp || 1), Math.max(0, Number(actor.hp || 0) + hpGain));
+    // Experience earned by a lethal encounter may grow maximum HP, but only
+    // the explicit revival lifecycle may restore a zero-HP participant. An
+    // arena-defeated participant likewise keeps the exact committed HP until
+    // extraction instead of being healed by post-hit mastery settlement.
+    actor.hp = hpBefore > 0 && !isDimensionRiftDefeated(actor)
+      ? Math.min(Number(actor.maxHp || 1), hpBefore + hpGain)
+      : hpBefore;
   } else {
     actor.maxHp = Math.max(effectiveMaxHp, Number(actor.maxHp || stats.maxHp || 100));
   }

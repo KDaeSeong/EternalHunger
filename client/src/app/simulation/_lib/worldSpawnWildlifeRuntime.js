@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { randInt } from './simulationCommon';
 import {
   getRegionHotspotWeight,
@@ -37,7 +38,7 @@ function pickWeightedSpeciesKey(speciesPool) {
   const pool = speciesPool.length ? speciesPool : DEFAULT_SPECIES_BY_TIME.day;
   const total = pool.reduce((sum, row) => sum + Math.max(0, Number(row?.weight || 0)), 0);
   if (total <= 0) return String(pool[0]?.key || 'chicken');
-  let r = Math.random() * total;
+  let r = simulationRandom() * total;
   for (const row of pool) {
     r -= Math.max(0, Number(row?.weight || 0));
     if (r <= 0) return String(row.key || 'chicken');
@@ -76,7 +77,7 @@ function pickWeightedZone(eligible, weightOf) {
   if (!ids.length) return '';
   const totalW = ids.reduce((acc, id) => acc + weightOf(id), 0);
   if (totalW <= 0) return ids[0];
-  let r = Math.random() * totalW;
+  let r = simulationRandom() * totalW;
   for (const id of ids) {
     r -= weightOf(id);
     if (r <= 0) return id;

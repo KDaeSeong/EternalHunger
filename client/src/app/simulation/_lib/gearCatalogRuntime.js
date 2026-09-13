@@ -1,7 +1,5 @@
-import {
-  createEquipmentItem,
-  normalizeWeaponType,
-} from '../../../utils/equipmentCatalog';
+import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import { tierLabelKo } from './simulationCommon';
 import { START_WEAPON_TYPES } from './simulationConstants';
 import {
@@ -29,7 +27,7 @@ function getInvTier(x, itemMetaById) {
 function resolveActorWeaponType(actor) {
   const preferred = normalizeWeaponType(String(actor?.weaponType || '').trim());
   if (preferred) return preferred;
-  const fallback = START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
+  const fallback = START_WEAPON_TYPES[Math.floor(simulationRandom() * START_WEAPON_TYPES.length)];
   return normalizeWeaponType(fallback);
 }
 
@@ -71,21 +69,12 @@ function cloneCatalogGear(item, opts = {}) {
   const tier = clampGearTier(item?.tier || 1);
   return {
     ...item,
+    _id: catalogItemId(item),
     tier,
     rarity: item?.rarity || tierLabelKo(tier),
     equipSlot: String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase(),
     _forceReplaceSameTier: opts?.forceReplaceSameTier === true,
   };
-}
-
-function createWeaponCatalogFallback(weaponType, tier, opts = {}) {
-  if (!weaponType) return null;
-  const generated = createEquipmentItem({
-    slot: 'weapon',
-    tier,
-    weaponType,
-  });
-  return cloneCatalogGear(generated, opts);
 }
 
 function pickCatalogEquipmentItem(publicItems, opts = {}) {
@@ -103,40 +92,32 @@ function pickCatalogEquipmentItem(publicItems, opts = {}) {
       if (String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase() !== slot) return false;
       return true;
     });
-  if (!all.length) {
-    return slot === 'weapon'
-      ? createWeaponCatalogFallback(preferredWeaponType, targetTier, opts)
-      : null;
-  }
+  if (!all.length) return null;
 
   const typed = (preferredWeaponType && slot === 'weapon')
     ? all.filter((item) => getCatalogWeaponType(item) === preferredWeaponType)
     : all;
   if (preferredWeaponType && slot === 'weapon' && !typed.length) {
-    return createWeaponCatalogFallback(preferredWeaponType, targetTier, opts);
+    return null;
   }
   const typePool = typed.length ? typed : all;
-  const preferredSourcePool = typePool.filter(isPreferredCatalogSource);
-  const sourcePool = preferredSourcePool.length ? preferredSourcePool : typePool;
-
-  const exact = sourcePool.filter((item) => clampGearTier(item?.tier || 1) === targetTier);
+  // Requested tier/type take precedence over preferred provenance. A preferred
+  // high-tier item must not hide a valid T1 from another catalog source.
+  const exact = typePool.filter((item) => clampGearTier(item?.tier || 1) === targetTier);
   let pool = exact;
   if (!pool.length && opts?.allowNearestTier !== false) {
-    const lower = sourcePool
+    const lower = typePool
       .filter((item) => clampGearTier(item?.tier || 1) <= targetTier)
       .sort((a, b) => clampGearTier(b?.tier || 1) - clampGearTier(a?.tier || 1));
-    const higher = sourcePool
-      .filter((item) => clampGearTier(item?.tier || 1) > targetTier)
-      .sort((a, b) => clampGearTier(a?.tier || 1) - clampGearTier(b?.tier || 1));
     if (lower.length) {
       const bestTier = clampGearTier(lower[0]?.tier || 1);
       pool = lower.filter((item) => clampGearTier(item?.tier || 1) === bestTier);
-    } else if (higher.length) {
-      const bestTier = clampGearTier(higher[0]?.tier || 1);
-      pool = higher.filter((item) => clampGearTier(item?.tier || 1) === bestTier);
     }
   }
   if (!pool.length) return null;
+
+  const preferredSourcePool = pool.filter(isPreferredCatalogSource);
+  if (preferredSourcePool.length) pool = preferredSourcePool;
 
   const named = pool
     .filter((item) => String(item?.name || '').trim())
@@ -147,7 +128,7 @@ function pickCatalogEquipmentItem(publicItems, opts = {}) {
       return String(a?.name || '').localeCompare(String(b?.name || ''));
     });
   const finalPool = named.length ? named : pool;
-  const picked = finalPool[Math.floor(Math.random() * finalPool.length)] || finalPool[0];
+  const picked = finalPool[Math.floor(simulationRandom() * finalPool.length)] || finalPool[0];
   return cloneCatalogGear(picked, { forceReplaceSameTier: opts?.forceReplaceSameTier === true });
 }
 

@@ -1,4 +1,10 @@
-import { getCooldownTickMultiplier } from '../../../utils/statusLogic';
+import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { canMoveByStatus, hasActionBlockStatus, getNewDamageProtectedSeconds, getCollarPausedSeconds } from '../../../utils/statusLogic';
+import { roundCombatTime } from './combatTimingRuntime.js';
+import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
+import { advanceActorCooldownClock } from './cooldownRuntime.js';
+import { advanceUniqueResource } from './uniqueResourceRuntime.js';
+import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import {
   buildRuntimeSurvivorMap,
   normalizeRuntimeSurvivorList,
@@ -15,6 +21,8 @@ export function runDetonationTickPhase({
     mapObj,
     newlyDead = [],
     phaseDurationSec = 0,
+    startOffsetSec = 0,
+    endOffsetSec = phaseDurationSec,
     phaseIdxNow = 0,
     phaseStartSec = 0,
     reviveCutoffIdx = -1,
@@ -32,13 +40,6 @@ export function runDetonationTickPhase({
     getZoneName = (zoneId) => String(zoneId || ''),
     setDeathMetadata = () => {},
   } = actions;
-
-  if (!useDetonation || forbiddenIds.size <= 0) {
-    return {
-      newlyDead,
-      updatedSurvivors,
-    };
-  }
 
   const detCfg = ruleset?.detonation || {};
   const decPerSec = Number(detCfg.decreasePerSecForbidden ?? detCfg.decreasePerSec ?? 1);
@@ -58,19 +59,12 @@ export function runDetonationTickPhase({
     ? mapObj.zones.map((zone) => String(zone.zoneId))
     : [...forbiddenIds];
 
-  const safeLeft = allZoneIds.filter((zoneId) => !forbiddenIds.has(String(zoneId))).length;
-  const allowForceAll = !suddenDeathActive;
-  const forceAllAfterSec = (allowForceAll && safeLeft <= 2) ? Math.max(0, Number(detCfg.forceAllAfterSec ?? 40)) : null;
-  if (forceAllAfterSec !== null) {
-    addLog(`⏳ 안전구역 유예 ${forceAllAfterSec}s: 이후 모든 구역에서 폭발 타이머가 감소합니다.`, 'system');
-  }
-
   const pickSafeZone = (fromZoneId) => {
     const neighbors = Array.isArray(zoneGraph[fromZoneId]) ? zoneGraph[fromZoneId] : [];
     const safeNeighbors = neighbors.map(String).filter((zoneId) => !forbiddenIds.has(String(zoneId)));
-    if (safeNeighbors.length) return String(safeNeighbors[Math.floor(Math.random() * safeNeighbors.length)]);
+    if (safeNeighbors.length) return String(safeNeighbors[Math.floor(simulationRandom() * safeNeighbors.length)]);
     const safeAll = allZoneIds.filter((zoneId) => !forbiddenIds.has(String(zoneId)));
-    if (safeAll.length) return String(safeAll[Math.floor(Math.random() * safeAll.length)]);
+    if (safeAll.length) return String(safeAll[Math.floor(simulationRandom() * safeAll.length)]);
     return String(fromZoneId);
   };
 
@@ -81,10 +75,16 @@ export function runDetonationTickPhase({
   const fogEndLocal = (fogStartLocal !== null) ? fogStartLocal + fogDurationSec : null;
 
   let aliveMap = buildRuntimeSurvivorMap(updatedSurvivors);
-  aliveMap = new Map(Array.from(aliveMap.values()).map((survivor) => [String(survivor._id), { ...survivor, cooldowns: { ...(survivor.cooldowns || {}) } }]));
+  const intervalStartActors = new Map((state.intervalStartActors || updatedSurvivors).map((actor) => [String(actor._id), actor]));
+  aliveMap = new Map(Array.from(aliveMap.values()).map((survivor) => [String(survivor._id), { ...survivor,
+    cooldowns: { ...(survivor.cooldowns || {}) },
+    skillState: Object.fromEntries(Object.entries(survivor.skillState && typeof survivor.skillState === 'object' ? survivor.skillState : {})
+      .map(([slot, value]) => [slot, value && typeof value === 'object' ? { ...value } : value])),
+  }]));
 
-  for (let t = 0; t < phaseDurationSec; t += tickSec) {
-    const absSec = phaseStartSec + t;
+  for (let t = startOffsetSec; t < Math.min(endOffsetSec, phaseDurationSec); t += tickSec) {
+    const absSec = roundCombatTime(phaseStartSec + t);
+    const elapsed = roundCombatTime(Math.min(tickSec, endOffsetSec - t, phaseDurationSec - t));
 
     if (fogWarnLocal !== null && t === fogWarnLocal) {
       addLog(`🌫️ 퍼플 포그 경고! 약 ${fogWarningSec}s 후, 일부 구역에서 시야가 악화됩니다.`, 'system');
@@ -99,34 +99,59 @@ export function runDetonationTickPhase({
     for (const survivor of aliveMap.values()) {
       if (!survivor || Number(survivor.hp || 0) <= 0) continue;
 
+      const cooldownTick = advanceActorCooldownClock(survivor, absSec, elapsed, {
+        effectSource: intervalStartActors.get(String(survivor._id)) || survivor,
+        effectElapsedSec: t - startOffsetSec,
+      }).progressSec;
       if (survivor.cooldowns) {
-        const cooldownTick = tickSec * getCooldownTickMultiplier(survivor);
-        survivor.cooldowns.portableSafeZone = Math.max(0, Number(survivor.cooldowns.portableSafeZone || 0) - cooldownTick);
-        survivor.cooldowns.cnotGate = Math.max(0, Number(survivor.cooldowns.cnotGate || 0) - cooldownTick);
-        survivor.cooldowns.weaponSkill = Math.max(0, Number(survivor.cooldowns.weaponSkill || 0) - cooldownTick);
+        survivor.cooldowns.portableSafeZone = Math.max(0, roundCombatTime(Number(survivor.cooldowns.portableSafeZone || 0) - cooldownTick));
+        survivor.cooldowns.cnotGate = Math.max(0, roundCombatTime(Number(survivor.cooldowns.cnotGate || 0) - cooldownTick));
+        survivor.cooldowns.weaponSkill = Math.max(0, roundCombatTime(Number(survivor.cooldowns.weaponSkill || 0) - cooldownTick));
       }
+      if (!isDimensionRiftDefeated(survivor)) advanceUniqueResource(survivor, elapsed);
+
+      // Even rulesets without collar or sudden-death pressure still advance
+      // the shared match clocks above (cooldowns and opt-in unique resources).
+      if (!useDetonation && !suddenDeathActive) continue;
+
+      // The entrance's world hazards do not run inside the arena. Cooldowns
+      // above still elapse; neither collar drain nor safe-field regeneration is
+      // earned here. The objective observer closes/releases at the boundary.
+      if (getActorDimensionRiftId(survivor)) continue;
 
       const zoneId = String(survivor.zoneId || '__default__');
-      const forceAllNow = (forceAllAfterSec !== null && t >= forceAllAfterSec);
-      const isForbidden = forceAllNow ? true : forbiddenIds.has(zoneId);
-
-      if (forceAllAfterSec !== null && t === forceAllAfterSec) {
-        addLog('⚠️ 유예 종료: 안전구역도 위험해졌습니다.', 'highlight');
+      const isForbidden = forbiddenIds.has(zoneId);
+      if (!useDetonation) {
+        if (isForbidden) {
+          const protectedSec = getNewDamageProtectedSeconds(intervalStartActors.get(String(survivor._id)), elapsed, t - startOffsetSec);
+          const damage = Math.max(1, Number(survivor.maxHp || 100) * 0.05) * Math.max(0, elapsed - protectedSec);
+          survivor.hp = Math.max(0, roundCombatTime(Number(survivor.hp) - damage));
+          if (survivor.hp <= 0) {
+            setDeathMetadata(survivor, 'final_zone_pressure', { causeName: '최종 금지구역 피해', atSec: roundCombatTime(absSec + elapsed) });
+            survivor.deadAtPhaseIdx = phaseIdxNow;
+            survivor.reviveEligible = false;
+            newlyDead.push(survivor);
+            emitDeathRunEventOnce(survivor, { reason: 'final_zone_pressure', cause: '최종 금지구역 피해', at: atNow() });
+            addLog(`💀 [${survivor.name}] 최종 금지구역 피해로 사망했습니다.`, 'death');
+          }
+        }
+        continue;
       }
 
       if (!isForbidden) {
         if (survivor.detonationSec !== null && survivor.detonationSec !== undefined) {
           const maxDet = Number(survivor.detonationMaxSec || detCfg.maxSec || 30);
-          survivor.detonationSec = Math.min(maxDet, Number(survivor.detonationSec || 0) + regenPerSec * tickSec);
+          survivor.detonationSec = Math.min(maxDet, roundCombatTime(Number(survivor.detonationSec || 0) + regenPerSec * elapsed));
         }
         survivor._detLogLastMilestone = null;
         continue;
       }
 
-      const isProtected = Number(survivor.safeZoneUntil || 0) > absSec;
-      if (!isProtected) {
-        survivor.detonationSec = Math.max(0, Number(survivor.detonationSec || 0) - decPerSec * tickSec);
-      }
+      const pausedSec = getCollarPausedSeconds(intervalStartActors.get(String(survivor._id)), elapsed, t - startOffsetSec);
+      // Both protections start at the interval boundary: overlap is not additive.
+      const protectedSec = Math.max(pausedSec, Math.min(elapsed, Math.max(0, Number(survivor.safeZoneUntil || 0) - absSec)));
+      survivor.detonationSec = Math.max(0, roundCombatTime(Number(survivor.detonationSec || 0) - decPerSec * (elapsed - protectedSec)));
+      if (pausedSec >= elapsed) continue;
 
       const detFloor = Math.max(0, Math.floor(Number(survivor.detonationSec || 0)));
       const milestones = Array.isArray(detCfg.logMilestones) ? detCfg.logMilestones.map((value) => Math.floor(Number(value))) : [15, 10, 5, 3, 1, 0];
@@ -138,7 +163,7 @@ export function runDetonationTickPhase({
       if (Number(survivor.detonationSec || 0) <= criticalSec) {
         const energyNow = Number(survivor.gadgetEnergy || 0);
 
-        if (Number(survivor.cooldowns?.cnotGate || 0) <= 0 && energyNow >= cnotCost) {
+        if (canMoveByStatus(survivor) && Number(survivor.cooldowns?.cnotGate || 0) <= 0 && energyNow >= cnotCost) {
           const dest = pickSafeZone(zoneId);
           if (dest && String(dest) !== zoneId) {
             survivor.zoneId = String(dest);
@@ -149,16 +174,16 @@ export function runDetonationTickPhase({
         }
 
         const afterEnergy = Number(survivor.gadgetEnergy || 0);
-        if (forbiddenIds.has(String(survivor.zoneId || zoneId)) && Number(survivor.cooldowns?.portableSafeZone || 0) <= 0 && afterEnergy >= pszCost) {
+        if (!hasActionBlockStatus(survivor) && forbiddenIds.has(String(survivor.zoneId || zoneId)) && Number(survivor.cooldowns?.portableSafeZone || 0) <= 0 && afterEnergy >= pszCost) {
           survivor.gadgetEnergy = afterEnergy - pszCost;
           survivor.cooldowns.portableSafeZone = pszCd;
-          survivor.safeZoneUntil = absSec + pszDur;
+          survivor.safeZoneUntil = roundCombatTime(absSec + elapsed + pszDur);
           addLog(`🛡️ [${survivor.name}] 휴대용 안전지대 전개 (${pszDur}s) (에너지 -${pszCost})`, 'highlight');
         }
       }
 
       if (Number(survivor.detonationSec || 0) <= 0) {
-        setDeathMetadata(survivor, 'detonation', { causeName: '폭발 타이머', atSec: absSec });
+        setDeathMetadata(survivor, 'detonation', { causeName: '폭발 타이머', atSec: roundCombatTime(absSec + elapsed) });
         survivor.hp = 0;
         survivor.deadAtPhaseIdx = phaseIdxNow;
         survivor.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
@@ -169,24 +194,6 @@ export function runDetonationTickPhase({
     }
   }
 
-  if (suddenDeathActive) {
-    const aliveNow = Array.from(aliveMap.values()).filter((survivor) => Number(survivor?.hp || 0) > 0);
-    if (aliveNow.length === 0) {
-      const deadNow = Array.from(aliveMap.values()).filter((survivor) => Number(survivor?.hp || 0) <= 0);
-      if (deadNow.length) {
-        const lastAt = Math.max(...deadNow.map((survivor) => Number(survivor?._deathAt || 0)));
-        const candidates = deadNow.filter((survivor) => Number(survivor?._deathAt || 0) === lastAt);
-        const lastWinner = candidates[Math.floor(Math.random() * candidates.length)];
-        if (lastWinner) {
-          const idx = newlyDead.findIndex((deadEntry) => String(deadEntry?._id) === String(lastWinner?._id));
-          if (idx >= 0) newlyDead.splice(idx, 1);
-          lastWinner.hp = Math.max(1, Number(lastWinner.hp || 1));
-          aliveMap.set(lastWinner._id, lastWinner);
-          addLog(`⚖️ 전원 폭발! 마지막까지 버틴 [${lastWinner.name}] 승리(무승부 방지)`, 'highlight');
-        }
-      }
-    }
-  }
 
   return {
     newlyDead,

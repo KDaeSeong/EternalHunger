@@ -1,10 +1,13 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import {
   applyErSubjectPreset,
   normalizeErWeaponTypes,
   pickInitialErWeaponType,
 } from '../../../utils/erMeta';
 import { ER_STAT_KEYS, normalizeErStats } from '../../../utils/erStats';
+import { applyStartingPassiveHealth } from '../../../utils/characterPassiveStats.js';
 import { createInitialMasteryState } from '../../../utils/masteryLogic';
+import { buildDay1TargetCandidatesBySlot, buildItemIndexes } from './routePlanBuilderRuntime';
 import { getRuleset } from '../../../utils/rulesets';
 import {
   applyPerkBundleToActor,
@@ -35,7 +38,7 @@ function createEmptyRoutePlan() {
 
 function pickRandom(pool) {
   const list = Array.isArray(pool) && pool.length ? pool : ['__default__'];
-  return list[Math.floor(Math.random() * list.length)] || list[0] || '__default__';
+  return list[Math.floor(simulationRandom() * list.length)] || list[0] || '__default__';
 }
 
 export function pickInitialStartZoneIdForActor(actor, {
@@ -137,7 +140,16 @@ export function buildInitialFastRoutePlan(actor, initialMap, routeItems) {
       maxRoutes: 96,
     });
     if (day1HeroRoutePlan?.complete) return day1HeroRoutePlan;
-    return buildEarlyRoutePlanDetails(actor, initialMap, routeItems, { routeLength: 4 }) || createEmptyRoutePlan();
+    const route = buildEarlyRoutePlanDetails(actor, initialMap, routeItems, { routeLength: 4 }) || createEmptyRoutePlan();
+    const candidates = buildDay1TargetCandidatesBySlot(actor, routeItems, buildItemIndexes(routeItems), initialMap);
+    const selected = [...candidates.values()].map((rows) => rows[0]).filter(Boolean);
+    const requiredQtyById = {};
+    for (const row of selected) for (const ingredient of row.requirements) {
+      requiredQtyById[ingredient.itemId] = (requiredQtyById[ingredient.itemId] || 0) + ingredient.qty;
+    }
+    return { ...route, source: 'growth_recipe', targetItemIds: selected.map((row) => row.item._id),
+      targetNamesBySlot: Object.fromEntries(selected.map((row) => [row.item.equipSlot, row.item.name])),
+      requiredItemIds: Object.keys(requiredQtyById), requiredQtyById };
   } catch (routeErr) {
     console.error('[simulation:initRoutePlan]', routeErr);
     return createEmptyRoutePlan();
@@ -190,7 +202,7 @@ export function buildInitialSimulationRoster({
   viewerPerks = [],
   publicPerks = [],
 } = {}) {
-  const ruleset = getRuleset(loadedSettings?.rulesetId);
+  const ruleset = getRuleset(loadedSettings?.rulesetId, loadedSettings?.simulationRuleset);
   const detonation = ruleset?.detonation;
   const energy = ruleset?.gadgetEnergy;
   const initPerkBundle = buildPerkRuntimeBundle(Array.isArray(viewerPerks) ? viewerPerks : [], publicPerks);
@@ -246,7 +258,14 @@ export function buildInitialSimulationRoster({
       },
       safeZoneUntil: 0,
     }, routePlan, 'fast_start');
-    const seeded = applyPerkBundleToActor(seededBase, initPerkBundle, { initialFill: true, applyCredits: true });
+    delete seededBase._passiveMaxHpApplied;
+    delete seededBase._perkBaseMaxHp;
+    delete seededBase._spatial;
+    delete seededBase._spatialMotion;
+    delete seededBase._spatialLastSeen;
+    delete seededBase._forcedControlState;
+    delete seededBase._spatialPatrolIndex;
+    const seeded = applyPerkBundleToActor(applyStartingPassiveHealth(seededBase), initPerkBundle, { initialFill: true, applyCredits: true });
     charsWithHp.push(seeded);
   });
 

@@ -197,7 +197,7 @@ export default function DetailsPage() {
                 <div className="char-info">
                 {/* 이미지가 없으면 기본 이미지 표시 */}
                 <Image
-                  src={char.previewImage || '/Images/default_image.png'}
+                  src={char.previewImage || '/Images/default_image.svg'}
                   alt={char.name || '캐릭터 이미지'}
                   width={96}
                   height={96}
@@ -272,6 +272,7 @@ export default function DetailsPage() {
                       <input
                         type="number"
                         min={stat.min ?? 0}
+                        max={Number.isFinite(stat.max) ? stat.max : undefined}
                         step={stat.step ?? 1}
                         value={normalizeErStats(cur.stats)?.[stat.key] ?? stat.defaultValue ?? 0}
                         onChange={(e) => handleStatChange(cur._id, stat.key, e.target.value)}

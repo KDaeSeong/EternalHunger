@@ -1,15 +1,7 @@
 import { normalizeErStats, normalizeErStatDeltaMap, ER_STAT_KEYS, getEffectiveErStats } from './erStats.js';
 import { applyMasteryStatBonuses } from './masteryLogic.js';
-import { effectMetaByName, normalizeStatusEffect } from './statusEffectDefinitions.js';
-
-function getPassiveSkillStatModifiers(character) {
-  const passive = character?.characterSkills?.passive;
-  if (!passive || typeof passive !== 'object' || passive.enabled !== true) return null;
-  const statMods = passive.statModifiers && typeof passive.statModifiers === 'object'
-    ? passive.statModifiers
-    : null;
-  return statMods ? normalizeErStatDeltaMap(statMods) : null;
-}
+import { effectMetaByName, getActiveStatusEffects } from './statusEffectDefinitions.js';
+import { getPassiveSkillStatModifiers } from './characterPassiveStats.js';
 
 export function getEffectiveStats(character) {
   const effective = applyMasteryStatBonuses(getEffectiveErStats(character), character);
@@ -22,9 +14,7 @@ export function getEffectiveStats(character) {
     });
   }
 
-  (Array.isArray(character?.activeEffects) ? character.activeEffects : []).forEach((raw) => {
-    const effect = normalizeStatusEffect(raw);
-    if (!effect) return;
+  getActiveStatusEffects(character).forEach((effect) => {
     const stacks = Math.max(1, Number(effect?.stacks || 1));
 
     const meta = effectMetaByName(effect.name);
@@ -53,11 +43,7 @@ export function getEffectiveStats(character) {
     }
   });
 
-  Object.keys(effective).forEach((key) => {
-    if (key === 'attackSpeed') effective[key] = Math.max(0.1, effective[key]);
-    else if (key === 'skillAmp') effective[key] = Math.max(0, effective[key]);
-    else if (effective[key] < 1) effective[key] = 1;
-  });
-
+  // Each field owns its minimum. In particular 0% must stay 0%, and a
+  // fractional attack speed or range must not be promoted to one.
   return normalizeErStats(effective, { round: false });
 }

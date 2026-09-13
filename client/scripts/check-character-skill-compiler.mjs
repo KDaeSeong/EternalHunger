@@ -1,6 +1,7 @@
-import { compileNaturalSkillDescription } from '../src/utils/characterSkillCompiler.js';
-import { applyCharacterSkillOnBasicAttack } from '../src/app/simulation/_lib/characterSkillRuntime.js';
-import { getCharacterSkillDef } from '../src/app/simulation/_lib/characterSkillDefinitionRuntime.js';
+import './lib/register-simulation-modules.mjs';
+const { compileNaturalSkillDescription } = await import('../src/utils/characterSkillCompiler.js');
+const { applyCharacterSkillOnBasicAttack } = await import('../src/app/simulation/_lib/characterSkillRuntime.js');
+const { getCharacterSkillDef } = await import('../src/app/simulation/_lib/characterSkillDefinitionRuntime.js');
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -66,6 +67,7 @@ function makeActor(extra = {}) {
     hp: extra.hp ?? 100,
     maxHp: extra.maxHp ?? 100,
     zoneId: extra.zoneId || 'school',
+    _spatial: { zoneId: extra.zoneId || 'school', x: 4, y: 4 },
     stats: {
       maxHp: extra.maxHp ?? 100,
       attackPower: 30,
@@ -272,7 +274,7 @@ const firstQ = applyCharacterSkillOnBasicAttack(bihyung, enemy, 10, {
   splashTargets: [splashEnemy],
 });
 assert(firstQ.applied === true && firstQ.stage === 1, 'Bihyung Q first cast should apply as stage 1');
-assert(firstQ.damage === 20, 'Bihyung Q first cast should add single-target flat damage');
+assert(firstQ.damage === 19, '10 raw skill damage against 10 defense must add 9 HP damage to the supplied base hit');
 assert(Array.isArray(firstQ.splashHits) && firstQ.splashHits.length === 0, 'Bihyung Q first cast must not splash');
 assert(Number(bihyung.skillState?.q?.recastUntil || 0) === 505, 'Bihyung Q first cast should open recast window');
 
@@ -284,6 +286,6 @@ const secondQ = applyCharacterSkillOnBasicAttack(bihyung, enemy, 10, {
 assert(secondQ.applied === true && secondQ.stage === 2, 'Bihyung Q second cast should apply as stage 2 inside recast window');
 assert(secondQ.currentHpDamage === 1, 'Bihyung Q second cast should add current HP percent damage');
 assert(Array.isArray(secondQ.splashHits) && secondQ.splashHits.length === 1, 'Bihyung Q second cast should create splash hit');
-assert(Number(secondQ.splashHits[0]?.damage || 0) === 21, 'Bihyung Q splash should use second-stage flat plus current HP percent damage');
+assert(Number(secondQ.splashHits[0]?.damage || 0) === 19, '21 raw splash damage against 10 defense must deal 19 HP damage');
 
 console.log('character skill compiler/runtime checks passed');

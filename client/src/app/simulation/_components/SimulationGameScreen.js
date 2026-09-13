@@ -6,6 +6,7 @@ import {
 } from '../_lib/simulationEngine';
 import SimulationForbiddenStatusBar from './SimulationForbiddenStatusBar';
 import SimulationEventFeedbackBar from './SimulationEventFeedbackBar';
+import SimulationMarketSeedCard from './SimulationMarketSeedCard';
 import SimulationMainStage from './SimulationMainStage';
 import SimulationScreenHeader from './SimulationScreenHeader';
 
@@ -30,13 +31,18 @@ function getPrimaryProceedLabel({
 }
 
 export default function SimulationGameScreen({
+  replayMode,
+  draftMode,
+  evaluationMode,
   activeMap,
   activeMapId,
   actorAvatarByName,
   applyCustomParticipantRoster,
+  saveLocalCharacter,
   applyParticipantPresetToCurrent,
   autoPlay,
   autoSpeed,
+  assistCounts,
   characterSkillsEnabled,
   candidateSurvivors,
   closeUiModal,
@@ -48,6 +54,7 @@ export default function SimulationGameScreen({
   fireAndReport,
   forbiddenAddedNow,
   forbiddenNow,
+  guestMode,
   getTeamStateForActor,
   getZoneName,
   handleCharacterSkillsToggle,
@@ -71,19 +78,29 @@ export default function SimulationGameScreen({
   mapRefreshToast,
   maps,
   matchSec,
+  onLocalRulesChanged,
   onToggleSfx,
   onToggleDevTools = () => {},
   pendingTranscendPick,
   participantSelectionMode,
   phase,
   prevPhaseLogs,
+  publicItems,
+  runEvents,
+  runSeed,
+  seedDraft,
   proceedPhaseGuarded,
   recentMoveTrails,
   recentPings,
   refreshMapSettingsFromServer,
+  removeLocalMap,
+  saveLocalMap,
+  selectLocalMap,
   selectedCharId,
   setAutoPlay,
   setHyperloopDestId,
+  setRunSeed,
+  setSeedDraft,
   setShowDetailedLogs,
   setShowPrevLogs,
   setUiModal,
@@ -121,9 +138,12 @@ export default function SimulationGameScreen({
   return (
     <section className={`game-screen ${phase === 'morning' ? 'morning-mode' : 'night-mode'}`}>
       <SimulationScreenHeader
+        replayMode={replayMode}
+        evaluationMode={evaluationMode}
         actionDisabled={actionDisabled}
         day={day}
         fireAndReport={fireAndReport}
+        guestMode={guestMode}
         isAdvancing={isAdvancing}
         isGameOver={isGameOver}
         isRefreshingMapSettings={isRefreshingMapSettings}
@@ -143,6 +163,18 @@ export default function SimulationGameScreen({
         timeOfDay={timeOfDay}
       />
 
+      {!evaluationMode || draftMode ? <SimulationMarketSeedCard
+        day={day}
+        isAdvancing={isAdvancing}
+        isGameOver={isGameOver}
+        matchSec={matchSec}
+        replayMode={replayMode}
+        runSeed={runSeed}
+        seedDraft={seedDraft}
+        setRunSeed={setRunSeed}
+        setSeedDraft={setSeedDraft}
+      /> : null}
+
       <SimulationForbiddenStatusBar
         detonationRiskSummary={detonationRiskSummary}
         forbiddenAddedNow={forbiddenAddedNow}
@@ -152,15 +184,20 @@ export default function SimulationGameScreen({
       <SimulationEventFeedbackBar feedback={eventFeedback} />
 
       <SimulationMainStage
+        replayMode={replayMode}
+        draftMode={draftMode}
+        evaluationMode={evaluationMode}
         actionDisabled={actionDisabled}
         activeMap={activeMap}
         activeMapId={activeMapId}
         actorAvatarByName={actorAvatarByName}
         applyCustomParticipantRoster={applyCustomParticipantRoster}
+        saveLocalCharacter={saveLocalCharacter}
         applyParticipantPresetToCurrent={applyParticipantPresetToCurrent}
         aliveTeamCount={aliveTeamCount}
         autoPlay={autoPlay}
         autoSpeed={autoSpeed}
+        assistCounts={assistCounts}
         characterSkillsEnabled={characterSkillsEnabled}
         candidateSurvivors={candidateSurvivors}
         closeUiModal={closeUiModal}
@@ -169,6 +206,7 @@ export default function SimulationGameScreen({
         doHyperloopJump={doHyperloopJump}
         forbiddenAddedNow={forbiddenAddedNow}
         forbiddenNow={forbiddenNow}
+        guestMode={guestMode}
         getTeamStateForActor={getTeamStateForActor}
         getZoneName={getZoneName}
         handleCharacterSkillsToggle={handleCharacterSkillsToggle}
@@ -190,14 +228,20 @@ export default function SimulationGameScreen({
         logs={logs}
         maps={maps}
         matchSec={matchSec}
+        onLocalRulesChanged={onLocalRulesChanged}
         onToggleDevTools={onToggleDevTools}
         participantSelectionMode={participantSelectionMode}
         phase={phase}
         prevPhaseLogs={prevPhaseLogs}
+        publicItems={publicItems}
+        runEvents={runEvents}
         proceedPhaseGuarded={proceedPhaseGuarded}
         recentMoveTrails={recentMoveTrails}
         recentPings={recentPings}
+        removeLocalMap={removeLocalMap}
         selectedCharId={selectedCharId}
+        saveLocalMap={saveLocalMap}
+        selectLocalMap={selectLocalMap}
         setAutoPlay={setAutoPlay}
         setHyperloopDestId={setHyperloopDestId}
         setShowDetailedLogs={setShowDetailedLogs}

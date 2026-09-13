@@ -14,9 +14,24 @@ import {
   EFFECT_STIM,
   EFFECT_STUN,
   canonicalizeEffectName,
+  getStatusProtectionReason,
+  getActiveStatusEffects,
 } from '../../../utils/statusLogic';
 import { getErStatLabel } from '../../../utils/erStats';
 import { normalizeRuntimeEffect } from './runtimeStatusNormalization';
+
+export function getActionStatePresentation(actor) {
+  const effects = getActiveStatusEffects(actor);
+  const polymorphed = effects.some((effect) => effect.tags.includes('polymorph'));
+  const collarPaused = effects.some((effect) => effect.tags.includes('collar_pause'));
+  const descriptions = effects.map((effect) => ({
+    수면: '수면: 이동·공격·스킬 불가 · 직접 피격 시 해제',
+    변이: '변이: 공격·스킬 불가 · 감속 보행',
+    제압: '제압: 행동 불가 · 진행하던 이동 취소',
+    경직: '경직: 행동·피해·대상 지정 불가 · 금지구역 카운트 정지',
+  })[effect.name]).filter(Boolean);
+  return { polymorphed, collarPaused, text: descriptions.join(' / ') };
+}
 
 const INTERNAL_BOARD_SOURCE_PREFIXES = [
   'micro_',
@@ -97,8 +112,9 @@ function getEffectSourceKind(effect) {
 }
 
 function getEffectDurationSec(effect) {
+  if (effect?.remainingDuration == null) return null;
   const value = Number(effect?.remainingDuration);
-  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : null;
+  return Number.isFinite(value) ? Math.max(0, Math.ceil(value * 100) / 100) : null;
 }
 
 function getEffectStackSuffix(effect) {
@@ -179,7 +195,8 @@ export function getVisibleRuntimeEffects(effects) {
     .map((effect) => normalizeRuntimeEffect(effect))
     .filter((effect) => shouldShowRuntimeEffectOnBoard(effect))
     .map((effect) => {
-      const badge = formatRuntimeEffectBadge(effect);
+      const suppressedBy = getStatusProtectionReason({ activeEffects: effects }, effect);
+      const badge = formatRuntimeEffectBadge({ ...effect, suppressedBy });
       return badge
         ? { ...effect, name: badge.name, icon: badge.icon, _boardLabel: badge.label, _boardTitle: badge.title }
         : effect;
@@ -194,6 +211,7 @@ export function formatRuntimeEffectBadge(effect) {
   const icon = getEffectDisplayIcon(eff, displayName);
   const dur = getEffectDurationSec(eff);
   const stackSuffix = getEffectStackSuffix(eff);
+  const suppressionSuffix = eff.suppressedBy ? ` · ${eff.suppressedBy}로 무시 중` : '';
   const durationSuffix = dur !== null ? ` ${dur}s` : '';
   const titleDuration = dur !== null ? ` (${dur}s)` : '';
   const sourceKind = getEffectSourceKind(eff);
@@ -202,8 +220,8 @@ export function formatRuntimeEffectBadge(effect) {
   return {
     icon,
     name: displayName,
-    label: `${icon} ${displayName}${stackSuffix}${durationSuffix}`,
-    title: `${displayName}${stackSuffix}${titleDuration}${rawSuffix}`,
+    label: `${icon} ${displayName}${stackSuffix}${durationSuffix}${suppressionSuffix}`,
+    title: `${displayName}${stackSuffix}${titleDuration}${rawSuffix}${suppressionSuffix}`,
   };
 }
 
@@ -212,7 +230,7 @@ export function describeRuntimeEffect(effect) {
   if (!eff) return '';
   const name = String(eff?.name || '효과');
   const durationText = Number(eff?.remainingDuration || 0) > 0
-    ? ` (${Math.max(0, Math.floor(Number(eff?.remainingDuration || 0)))}초)`
+    ? ` (${getEffectDurationSec(eff)}초)`
     : '';
   if (name === EFFECT_SHIELD) return `보호막 +${Math.max(0, Number(eff?.shieldValue || 0))}${durationText}`;
   if (name === EFFECT_REGEN) return `재생 ${Math.max(0, Number(eff?.recovery || 0))}${durationText}`;
@@ -221,7 +239,8 @@ export function describeRuntimeEffect(effect) {
   if (name === EFFECT_SLOW || name === EFFECT_HASTE) return `${name} ${Number(eff?.moveSpeedBonus || 0) >= 0 ? '+' : ''}${Math.round(Number(eff?.moveSpeedBonus || 0) * 100)}%${durationText}`;
   if (name === EFFECT_COOLDOWN_DOWN) return `쿨다운 감소 속도 +${Math.round(Math.max(0, Number(eff?.cooldownRateBonus || 0)) * 100)}%${durationText}`;
   if (name === EFFECT_COOLDOWN_UP) return `쿨다운 회복 둔화 ${Math.round(Math.max(0, Number(eff?.cooldownRatePenalty || 0)) * 100)}%${durationText}`;
-  if (name === EFFECT_KNOCKBACK) return `넉백${Number(eff?.knockbackDistance || 0) > 0 ? ` ${Math.max(0, Number(eff?.knockbackDistance || 0))}` : ''}${durationText}`;
+  if (name === EFFECT_KNOCKBACK) return eff.knockbackConsumed ? '넉백 이동 처리 완료'
+    : `넉백${Number(eff?.knockbackDistance || 0) > 0 ? ` ${Math.max(0, Number(eff?.knockbackDistance || 0))}${String(eff.knockbackTargetSpaceId || '').startsWith('dimension_rift:') ? 'm' : ''}` : ''}${durationText}`;
   if (name === EFFECT_STUN || name === EFFECT_AIRBORNE) return `${name}${durationText}`;
   const statMods = eff?.statModifiers && typeof eff.statModifiers === 'object' ? eff.statModifiers : null;
   if (statMods && Object.keys(statMods).length) {
@@ -234,11 +253,16 @@ export function describeRuntimeEffect(effect) {
 export function formatRuntimeEffectResultText(row, opts = {}) {
   const subjectName = String(opts?.subjectName || '').trim();
   const prefix = subjectName ? `${subjectName} ` : '';
-  if (row?.reason === 'immune') return `${prefix}${String(row?.effect?.name || '효과')} 면역`;
+  if (row?.reason === 'immune') return `${prefix}${String(row?.effect?.name || '효과')} 면역${row.immunityType ? ` (${row.immunityType})` : ''}`;
+  if (row?.reason === 'cleansed') return `${prefix}해로운 효과 제거: ${(row.removed || []).map((effect) => effect.name).join(', ') || '제거할 효과 없음'}`;
+  if (row?.reason === 'duration_reduced') return `${prefix}${row.effect.name} 지속 시간 감소로 적용 안 됨`;
+  if (row?.reason === 'untargetable') return `${prefix}대상 지정 불가: ${String(row?.effect?.name || '효과')} 적용 안 됨`;
   if (row?.reason === 'resisted') return `${prefix}${String(row?.effect?.name || '효과')} 저항`;
   if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
     const desc = describeRuntimeEffect(row.effect);
-    return desc ? `${prefix}${desc}` : '';
+    const reduction = row.durationAdjustment ? ` · 지속 시간 ${row.durationAdjustment.originalSec}→${row.durationAdjustment.appliedSec}초` : '';
+    const suppression = row.suppressedBy ? ` · ${row.suppressedBy}로 무시 중` : '';
+    return desc ? `${prefix}${desc}${reduction}${suppression}` : '';
   }
   return '';
 }
@@ -252,7 +276,13 @@ export function collectRuntimeEffectResultTexts(rows, opts = {}) {
 export function logRuntimeEffectResults(addLog, actor, rows, opts = {}) {
   const actorName = String(opts?.actorName || actor?.name || '대상');
   (Array.isArray(rows) ? rows : []).forEach((row) => {
+    if (row?.durationAdjustment || row?.suppressedBy || row?.immunityType || row?.reason === 'cleansed') {
+      const text = formatRuntimeEffectResultText(row);
+      if (text) addLog?.(`🪄 [${actorName}] ${text}`, 'system');
+      return;
+    }
     if (row?.reason === 'immune') addLog?.(`🛡️ [${actorName}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
+    else if (row?.reason === 'untargetable') addLog?.(`👻 [${actorName}] 대상 지정 불가: ${String(row?.effect?.name || '효과')} 적용 안 됨`, 'system');
     else if (row?.reason === 'resisted') addLog?.(`🧷 [${actorName}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
     else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
       const desc = describeRuntimeEffect(row.effect);

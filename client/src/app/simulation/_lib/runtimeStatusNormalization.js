@@ -4,7 +4,7 @@ export function normalizeRuntimeEffect(effect) {
   if (next?.remainingDuration != null) {
     const dur = Number(next.remainingDuration);
     const alreadySeconds = next?.durationUnit === 'sec' || next?.durationSec != null || dur > 10;
-    next.remainingDuration = Number.isFinite(dur) ? Math.max(0, Math.floor(alreadySeconds ? dur : dur * 10)) : 0;
+    next.remainingDuration = Number.isFinite(dur) ? Math.max(0, Math.round((alreadySeconds ? dur : dur * 10) * 1e6) / 1e6) : 0;
     next.durationUnit = 'sec';
   }
   if (next?.dotDamage != null) {
@@ -41,7 +41,8 @@ export function normalizeRuntimeEffect(effect) {
   }
   if (next?.knockbackDistance != null) {
     const value = Number(next.knockbackDistance);
-    next.knockbackDistance = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+    const rounded = Math.round(value * 1e6) / 1e6;
+    next.knockbackDistance = Number.isFinite(value) ? Math.max(0, Number.isFinite(rounded) ? rounded : value) : 0;
   }
   if (next?.sourceId != null) next.sourceId = String(next.sourceId || '');
   return next;

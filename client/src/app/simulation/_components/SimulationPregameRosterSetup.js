@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import GameActionIcon from '../../games/_components/GameActionIcon';
 import { RANDOM_PARTICIPANT_PRESET_ID } from '../_lib/participantPresetRuntime';
 import { validateCustomRosterDraft } from '../_lib/customRosterRuntime';
+import SimulationLocalCharacterEditor from './SimulationLocalCharacterEditor';
+import { getCharacterSkillDef } from '../_lib/characterSkillDefinitionRuntime';
 
 function actorId(actor) {
   return String(actor?._id || actor?.id || actor?.name || '').trim();
@@ -49,6 +51,7 @@ function initialRosterState(survivors, squadMode) {
 
 function RosterSetupModal({
   applyCustomParticipantRoster,
+  saveLocalCharacter,
   candidateSurvivors,
   matchMode,
   onClose,
@@ -61,6 +64,7 @@ function RosterSetupModal({
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
   const [teamAssignments, setTeamAssignments] = useState(initialRoster.teamAssignments);
   const [validationMessage, setValidationMessage] = useState('');
+  const [editingId, setEditingId] = useState('');
 
   const candidateById = useMemo(() => new Map(
     (Array.isArray(candidateSurvivors) ? candidateSurvivors : [])
@@ -70,11 +74,13 @@ function RosterSetupModal({
 
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        if (editingId) setEditingId(''); else onClose();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  }, [onClose, editingId]);
 
   const validation = useMemo(() => validateCustomRosterDraft({
     characterIds: selectedIds,
@@ -191,6 +197,10 @@ function RosterSetupModal({
     setValidationMessage(result?.errors?.[0] || validation.errors[0] || '편성을 완료할 수 없습니다.');
   }
 
+  const editingActor = candidateById.get(editingId);
+  if (editingActor) return <SimulationLocalCharacterEditor key={editingId} actor={editingActor} onSave={saveLocalCharacter}
+    onClose={(notice) => { setEditingId(''); if (notice) setValidationMessage(notice); }} />;
+
   return (
     <div className="simulation-roster-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="simulation-roster-modal" role="dialog" aria-modal="true" aria-labelledby="simulation-roster-title">
@@ -249,6 +259,7 @@ function RosterSetupModal({
                 const id = actorId(actor);
                 const selected = selectedSet.has(id);
                 return (
+                  <article className="simulation-roster-candidate-entry" key={id}>
                   <button
                     type="button"
                     className={`simulation-roster-candidate${selected ? ' is-selected' : ''}`}
@@ -257,13 +268,17 @@ function RosterSetupModal({
                     onClick={() => toggleActor(id)}
                     key={id}
                   >
-                    <Image src={actor.previewImage || '/Images/default_image.png'} alt="" width={42} height={42} unoptimized />
+                    <Image src={actor.previewImage || '/Images/default_image.svg'} alt="" width={42} height={42} unoptimized />
                     <span>
                       <strong>{actorName(actor)}</strong>
                       <small>{actor.weaponType || '무기 미설정'}</small>
+                      <small>{['q', 'w', 'e', 'r', 'passive'].filter((slot) => getCharacterSkillDef(actor, slot)).map((slot) => slot === 'passive' ? '패시브' : slot.toUpperCase()).join(' · ') || '캐릭터 스킬 없음'}</small>
                     </span>
                     {selected ? <b>{squadMode ? `${teamAssignments[id] || '-'}팀` : '선택'}</b> : null}
                   </button>
+                  {actor.guestDefault && saveLocalCharacter ? <button type="button" className="simulation-roster-edit-character"
+                    aria-label={`${actorName(actor)} 이름·스킬 편집`} onClick={() => setEditingId(id)}>이름·스킬 편집</button> : null}
+                  </article>
                 );
               })}
             </div>
@@ -286,7 +301,7 @@ function RosterSetupModal({
                           const id = actorId(actor);
                           return (
                             <label key={id}>
-                              <Image src={actor.previewImage || '/Images/default_image.png'} alt="" width={30} height={30} unoptimized />
+                              <Image src={actor.previewImage || '/Images/default_image.svg'} alt="" width={30} height={30} unoptimized />
                               <span>{actorName(actor)}</span>
                               <select value={teamNo} onChange={(event) => changeTeam(id, event.target.value)} aria-label={`${actorName(actor)} 팀`}>
                                 {Array.from({ length: 8 }, (_, teamIndex) => (
@@ -327,6 +342,7 @@ function RosterSetupModal({
 
 export default function SimulationPregameRosterSetup({
   applyCustomParticipantRoster,
+  saveLocalCharacter,
   applyParticipantPresetToCurrent,
   candidateSurvivors,
   day,
@@ -378,6 +394,7 @@ export default function SimulationPregameRosterSetup({
       {open ? (
         <RosterSetupModal
           applyCustomParticipantRoster={applyCustomParticipantRoster}
+          saveLocalCharacter={saveLocalCharacter}
           candidateSurvivors={candidateSurvivors}
           matchMode={matchMode}
           onClose={() => setOpen(false)}

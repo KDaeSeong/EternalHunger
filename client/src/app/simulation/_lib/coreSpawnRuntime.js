@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { zoneNameHasKiosk } from './marketRuntime';
 import { findItemByKeywords, pickWeighted } from './simulationCommon';
 import { isAtOrAfterWorldTime } from './worldTime';
@@ -94,7 +95,7 @@ function rollNaturalCoreSpawn(mapObj, zoneId, publicItems, curDay, curPhase, opt
   if (!allowed) return null;
 
   const chance = moved ? 0.08 : 0.03;
-  if (Math.random() >= chance) return null;
+  if (simulationRandom() >= chance) return null;
 
   const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
   const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);

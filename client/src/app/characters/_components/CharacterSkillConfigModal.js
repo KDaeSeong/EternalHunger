@@ -21,6 +21,7 @@ function CharacterSkillConfigModal({
   editCharacterSkillCode,
   editCharacterSkillLevels,
   editCharacterSkills,
+  editUniqueResource,
   activeSkillSlot,
   editTacticalSkill,
   manualSkillInputEnabled = false,
@@ -33,6 +34,7 @@ function CharacterSkillConfigModal({
   onSetActiveSkillSlot,
   onSetCharacterSkillCode,
   onSetCharacterSkillLevels,
+  onSetUniqueResource,
   onSetManualSkillInputEnabled = () => {},
   onSetTacticalSkill,
   onUpdateSkill,
@@ -74,6 +76,30 @@ function CharacterSkillConfigModal({
               ))}
             </select>
           </label>
+
+          <div className="character-skill-section">
+            <div className="character-skill-section-head">
+              <strong>고유 자원</strong>
+              <label className="character-skill-toggle">
+                <input type="checkbox" checked={editUniqueResource?.enabled === true}
+                  onChange={(event) => onSetUniqueResource((previous) => ({ ...previous, enabled: event.target.checked }))} />
+                <span>사용</span>
+              </label>
+            </div>
+            {editUniqueResource?.enabled ? <>
+              <div className="character-skill-inline-grid">
+                <label>자원 이름<input type="text" maxLength={30} value={editUniqueResource.name || ''}
+                  onChange={(event) => onSetUniqueResource((previous) => ({ ...previous, name: event.target.value }))} /></label>
+                <label>최대치<input type="number" min="1" max="10000" step="1" value={editUniqueResource.maxValue ?? 100}
+                  onChange={(event) => onSetUniqueResource((previous) => ({ ...previous, maxValue: Number(event.target.value) }))} /></label>
+                <label>시작치<input type="number" min="0" max={editUniqueResource.maxValue ?? 100} step="1" value={editUniqueResource.startValue ?? 0}
+                  onChange={(event) => onSetUniqueResource((previous) => ({ ...previous, startValue: Number(event.target.value) }))} /></label>
+                <label>초당 회복<input type="number" min="0" max="100" step="0.1" value={editUniqueResource.regenPerSec ?? 0}
+                  onChange={(event) => onSetUniqueResource((previous) => ({ ...previous, regenPerSec: Number(event.target.value) }))} /></label>
+              </div>
+              <small>스킬 시전 시작 때 비용을 소비하며, 시전이 취소되어도 반환되지 않습니다. 성공적으로 발동한 스킬만 획득치를 받습니다.</small>
+            </> : <small>끄면 고유 자원 소비·획득이 설정된 스킬을 저장할 수 없습니다.</small>}
+          </div>
 
           <div className="character-skill-section">
             <div className="character-skill-section-head">

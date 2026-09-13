@@ -1,3 +1,4 @@
+import { getActiveSimulationRandom, simulationRandom, simulationRandomId } from './simulationRandom.js';
 // client/src/utils/equipmentCatalog.js
 import {
   ER_WEAPON_TYPES_KO,
@@ -13,7 +14,7 @@ const randInt = (a, b) => {
   const y = Math.floor(Number(b));
   if (!Number.isFinite(x) || !Number.isFinite(y)) return 0;
   if (y <= x) return x;
-  return x + Math.floor(Math.random() * (y - x + 1));
+  return x + Math.floor(simulationRandom() * (y - x + 1));
 };
 
 const randFloat = (a, b) => {
@@ -21,16 +22,16 @@ const randFloat = (a, b) => {
   const y = Number(b);
   if (!Number.isFinite(x) || !Number.isFinite(y)) return 0;
   if (y <= x) return x;
-  return x + Math.random() * (y - x);
+  return x + simulationRandom() * (y - x);
 };
 
 const pick = (arr) => {
   const list = Array.isArray(arr) ? arr : [];
   if (!list.length) return null;
-  return list[Math.floor(Math.random() * list.length)];
+  return list[Math.floor(simulationRandom() * list.length)];
 };
 
-const uid = (prefix) => `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+const uid = simulationRandomId;
 
 export const WEAPON_TYPES_KO = ER_WEAPON_TYPES_KO;
 
@@ -69,7 +70,7 @@ function rollTier(day = 1) {
     { tier: 6, w: 0.4 * boost },
   ];
   const total = weights.reduce((s, x) => s + Math.max(0, x.w), 0);
-  let r = Math.random() * total;
+  let r = simulationRandom() * total;
   for (const it of weights) {
     r -= Math.max(0, it.w);
     if (r <= 0) return it.tier;
@@ -135,13 +136,25 @@ const TRANSCEND_NAMES = {
 };
 
 const NAME_HISTORY = new Map();
+const SCOPED_NAME_HISTORIES = new WeakMap();
+
+function getNameHistory() {
+  const source = getActiveSimulationRandom();
+  if (!source) return NAME_HISTORY;
+  if (source.nameHistory instanceof Map) return source.nameHistory;
+  // Custom injected RNGs also get an isolated history. The production seeded
+  // source carries its history explicitly so it can be saved and restored.
+  if (!SCOPED_NAME_HISTORIES.has(source)) SCOPED_NAME_HISTORIES.set(source, new Map());
+  return SCOPED_NAME_HISTORIES.get(source);
+}
 
 function pickUnique(pool, histKey, maxHist = 8) {
   const list = Array.isArray(pool) ? pool.filter(Boolean) : [];
   if (!list.length) return null;
 
   const key = String(histKey || '');
-  const hist = NAME_HISTORY.get(key) || [];
+  const history = getNameHistory();
+  const hist = history.get(key) || [];
   const banned = new Set(hist);
 
   // 중복 방지(간단): 최근에 쓴 이름은 가급적 피합니다.
@@ -149,15 +162,15 @@ function pickUnique(pool, histKey, maxHist = 8) {
   let chosen = null;
 
   for (let i = 0; i < tries; i += 1) {
-    const cand = list[Math.floor(Math.random() * list.length)];
+    const cand = list[Math.floor(simulationRandom() * list.length)];
     if (!cand) continue;
     if (!banned.has(cand)) { chosen = cand; break; }
   }
-  if (!chosen) chosen = list[Math.floor(Math.random() * list.length)];
+  if (!chosen) chosen = list[Math.floor(simulationRandom() * list.length)];
 
   const cap = Math.max(3, Math.floor(Number(maxHist || 8)));
   const next = [...hist, chosen].slice(-cap);
-  NAME_HISTORY.set(key, next);
+  history.set(key, next);
   return chosen;
 }
 
@@ -227,7 +240,7 @@ function pickAffixes(tier, exclude = []) {
 
   const picked = [];
   while (pool.length && picked.length < count) {
-    const i = Math.floor(Math.random() * pool.length);
+    const i = Math.floor(simulationRandom() * pool.length);
     picked.push(pool.splice(i, 1)[0]);
   }
   return picked;

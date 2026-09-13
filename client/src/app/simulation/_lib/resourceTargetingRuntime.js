@@ -4,6 +4,7 @@ import { findCrateZoneWeightsForItem } from './mapTargeting';
 import { getRegionData, getRegionFacilityZoneIds, getRegionZoneWeightsForItem } from './lumiaRegionData';
 import { canonicalCoreZoneId } from './coreSpawnRuntime';
 import { LIFE_TREE_PHASE_ZONES, METEOR_EXCLUDED_ZONE_IDS } from './specialResourceRuntime';
+import { getFieldResourceQty } from './fieldResourceRuntime';
 
 function buildRuntimeSpawnMeta({ itemId, meta, itemName, mapObj, spawnState, forbiddenIds }) {
   const forb = forbiddenIds instanceof Set ? forbiddenIds : new Set();
@@ -43,6 +44,13 @@ function buildRuntimeSpawnMeta({ itemId, meta, itemName, mapObj, spawnState, for
     if (Array.isArray(mapObj?.campfireZoneIds)) mapObj.campfireZoneIds.forEach((z) => add(z, 1.4));
     getRegionFacilityZoneIds('campfire', mapObj?.zones).forEach((z) => add(z, 1.3));
   }
+  if (spawnState?.fieldResources) {
+    // Do not let the legacy/late-game planner resurrect exhausted static hints.
+    for (const zoneId of score.keys()) if (getFieldResourceQty(spawnState.fieldResources, zoneId, itemId) <= 0) score.delete(zoneId);
+    for (const zoneId of Object.keys(spawnState.fieldResources.byZone || {})) {
+      if (getFieldResourceQty(spawnState.fieldResources, zoneId, itemId) > 0) add(zoneId, 2);
+    }
+  }
   if (spec === 'meteor') {
     (Array.isArray(spawnState?.coreNodes) ? spawnState.coreNodes : [])
       .filter((n) => !n?.picked && String(n?.kind || '') === 'meteor')
@@ -67,7 +75,7 @@ function buildRuntimeSpawnMeta({ itemId, meta, itemName, mapObj, spawnState, for
   if ((nm.includes('고기') || tags.includes('meat') || tags.includes('food')) && spawnState?.wildlife) {
     Object.entries(spawnState.wildlife)
       .map(([z, c]) => ({ z: String(z), c: Math.max(0, Number(c || 0)) }))
-      .filter((x) => x.z && !forb.has(x.z))
+      .filter((x) => x.z && x.c > 0 && !forb.has(x.z))
       .sort((a, b) => (b.c - a.c) || a.z.localeCompare(b.z))
       .slice(0, 4)
       .forEach((e) => add(e.z, 1));

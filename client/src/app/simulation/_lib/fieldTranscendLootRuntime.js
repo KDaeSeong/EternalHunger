@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import {
   inferEquipSlot,
   inferItemCategory,
@@ -28,7 +29,7 @@ export function rollTranscendPickOptions(publicItems, count = 3) {
 
   const slots = Object.keys(bySlot);
   for (let i = slots.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(simulationRandom() * (i + 1));
     const tmp = slots[i];
     slots[i] = slots[j];
     slots[j] = tmp;
@@ -41,7 +42,7 @@ export function rollTranscendPickOptions(publicItems, count = 3) {
     if (picked.length >= count) break;
     const arr = bySlot[s] || [];
     if (!arr.length) continue;
-    const it = arr[Math.floor(Math.random() * arr.length)];
+    const it = arr[Math.floor(simulationRandom() * arr.length)];
     const id = String(it?._id || '');
     if (!id || used.has(id)) continue;
     used.add(id);
@@ -51,7 +52,7 @@ export function rollTranscendPickOptions(publicItems, count = 3) {
   if (picked.length < Math.min(count, equipT4.length)) {
     const rest = equipT4.filter((it) => !used.has(String(it?._id || '')));
     for (let i = rest.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(simulationRandom() * (i + 1));
       const tmp = rest[i];
       rest[i] = rest[j];
       rest[j] = tmp;

@@ -1,4 +1,5 @@
 import { updateEffects } from '../../../utils/statusLogic';
+import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import {
   normalizeRuntimeEffect,
   normalizeRuntimeSurvivor,
@@ -16,21 +17,34 @@ export function applyActorPhaseStatusTick({
     elapsedSec,
     phaseIdxNow,
     reviveCutoffIdx,
+    startSec,
   } = state;
   const {
     addLog = () => {},
     emitDeathRunEventOnce = () => {},
     setDeathMetadata = () => {},
+    emitRunEvent = () => {},
+    atNow = () => null,
   } = actions;
 
   const beforeHp = Number(actor?.hp || 0);
+  if (Number(elapsedSec) === 0) return { actor: normalizeRuntimeSurvivor(actor), died: false };
   const beforeEffects = Array.isArray(actor?.activeEffects)
     ? actor.activeEffects.map((effect) => normalizeRuntimeEffect(effect)).filter(Boolean)
     : [];
-  const statusTick = updateEffects({ ...actor, activeEffects: beforeEffects }, { returnMeta: true, elapsedSec });
+  const statusTick = updateEffects({ ...actor, activeEffects: beforeEffects }, { returnMeta: true, elapsedSec, startSec });
   const updated = normalizeRuntimeSurvivor(statusTick?.character || actor);
+  const newlyDefeated = !isDimensionRiftDefeated(actor) && isDimensionRiftDefeated(updated);
+  if (newlyDefeated) {
+    const defeat = updated._dimensionRiftDefeat;
+    const at = atNow();
+    emitRunEvent('dimension_rift_defeat', { ...defeat, zoneId: String(updated.zoneId || '') },
+      Number.isFinite(defeat.atSec) ? { ...(at || {}), sec: defeat.atSec } : at);
+    addLog(`🌀 [${updated.name}] ${defeat.cause}로 차원의 틈 전투 불능 · 실제 HP 감소 ${Math.max(0, beforeHp - updated.hp)}`, 'highlight');
+  }
 
   (Array.isArray(statusTick?.ticks) ? statusTick.ticks : []).forEach((tick) => {
+    if (newlyDefeated) return; // Aggregate rates are not actual HP loss after the defeat cap.
     if (!shouldLogRuntimeEffectTick(tick)) return;
     const amount = Math.max(0, Number(tick?.amount || 0));
     if (amount <= 0) return;

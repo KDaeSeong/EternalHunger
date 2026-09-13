@@ -17,3 +17,6 @@ JS_VALIDATION_*.txt
 RUNTIME_*_RESULT.md
 RUNTIME_*_SNIPPET.txt
 PAGEJS_CHECK_RESULT.md
+
+# workspace-local audio libraries and renderers
+.local/

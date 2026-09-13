@@ -11,6 +11,22 @@ export const ER_STAT_FIELDS = [
   { key: 'attackSpeedGrowth', label: '성장 공격속도', shortLabel: '공속 성장', defaultValue: 0.015, min: 0, step: 0.001 },
   { key: 'attackRange', label: '사거리', shortLabel: '사거리', defaultValue: 1.5, min: 0.5, step: 0.1 },
   { key: 'sightRange', label: '시야', shortLabel: '시야', defaultValue: 8, min: 1, step: 0.1 },
+  { key: 'moveSpeed', label: '이동 속도 (m/s)', shortLabel: '이속', defaultValue: 3.5, min: 0.1, step: 0.1 },
+  // Ratios use 0.1 = 10%. Zero is neutral, never an implicit +100% bonus.
+  ...[
+    ['critChance', '치명타 확률', 1], ['critDamageIncrease', '치명타 피해 증가'],
+    ['basicAttackAmp', '기본 공격 증폭'], ['damageIncrease', '피해 증가'],
+    ['damageReduction', '피해 감소', 1], ['basicDamageReduction', '기본 공격 피해 감소', 1],
+    ['skillDamageReduction', '스킬 피해 감소', 1], ['criticalDamageReduction', '치명타 피해 감소', 1],
+    ['cooldownReduction', '쿨다운 감소', 1], ['ultimateCooldownReduction', '궁극기 쿨다운 감소', 1],
+    ['tacticalCooldownReduction', '전술 스킬 쿨다운 감소', 1],
+    ['armorPen', '방어 관통 비율', 1], ['lifesteal', '생명력 흡수', 1],
+    ['omnisyphon', '모든 피해 흡혈', 1], ['finalDamageIncrease', '최종 피해 증가'],
+    ['ccDurationReduction', '방해 효과 저항 (지속 시간 감소)', 1],
+    ['slowDurationReduction', '둔화 지속 시간 감소', 1],
+  ].map(([key, label, max]) => ({ key, label, shortLabel: label, defaultValue: 0, min: 0, ...(max != null ? { max } : {}), step: 0.001 })),
+  ...[['armorPenFlat', '고정 방어 관통'], ['adaptiveForce', '맞춤형 능력치'], ['finalDamageFlat', '최종 추가 피해']]
+    .map(([key, label]) => ({ key, label, shortLabel: label, defaultValue: 0, min: 0, step: 0.1 })),
 ];
 
 export const ER_STAT_KEYS = ER_STAT_FIELDS.map((field) => field.key);

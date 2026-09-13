@@ -5,9 +5,12 @@ import GameActionIcon from '../../games/_components/GameActionIcon';
 import { formatClock } from '../_lib/simulationFormattingRuntime';
 
 export default function SimulationScreenHeader({
+  replayMode,
+  evaluationMode,
   actionDisabled,
   day,
   fireAndReport,
+  guestMode,
   isAdvancing,
   isGameOver,
   isRefreshingMapSettings,
@@ -28,10 +31,13 @@ export default function SimulationScreenHeader({
 }) {
   return (
     <div className="screen-header">
-      <Link href="/" className="simulation-mobile-logo" aria-label="ETERNAL HUNGER 메인">
+      {evaluationMode ? <div className="simulation-mobile-logo" aria-label="ETERNAL HUNGER 평가 모드">
         <span className="logo-top">ETERNAL</span>
         <span className="logo-main">HUNGER</span>
-      </Link>
+      </div> : <Link href="/" className="simulation-mobile-logo" aria-label="ETERNAL HUNGER 메인">
+        <span className="logo-top">ETERNAL</span>
+        <span className="logo-main">HUNGER</span>
+      </Link>}
       <h1>{day === 0 ? 'GAME READY' : `DAY ${day} - ${timeOfDay === 'day' ? 'DAY' : 'NIGHT'}`}</h1>
       <div className="screen-header-right">
         <span className="weather-badge sim-icon-label">
@@ -72,7 +78,7 @@ export default function SimulationScreenHeader({
           type="button"
           data-game-sfx="nav"
           onClick={() => setUiModal('map')}
-          disabled={loading || isAdvancing}
+          disabled={loading}
           style={{ padding: '6px 10px', fontSize: 12 }}
         >
           <GameActionIcon action="map" label="미니맵" />
@@ -83,7 +89,7 @@ export default function SimulationScreenHeader({
           type="button"
           data-game-sfx="nav"
           onClick={() => setUiModal('chars')}
-          disabled={loading || isAdvancing}
+          disabled={loading}
           style={{ padding: '6px 10px', fontSize: 12 }}
         >
           <GameActionIcon action="players" label="캐릭터" />
@@ -94,37 +100,38 @@ export default function SimulationScreenHeader({
           type="button"
           data-game-sfx="nav"
           onClick={() => setUiModal('log')}
-          disabled={loading || isAdvancing}
+          disabled={loading}
           style={{ padding: '6px 10px', fontSize: 12 }}
         >
           <GameActionIcon action="logs" label="로그" />
           로그
         </button>
 
-        <button
+        {!evaluationMode ? <button
           className={`btn-secondary sim-devtools-btn ${showMarketPanel ? 'active' : ''}`}
           type="button"
           data-game-sfx="toggle"
           onClick={onToggleDevTools}
+          disabled={replayMode}
           style={{ padding: '6px 10px', fontSize: 12 }}
           title="상점/조합/교환 및 테스트용 개발자 도구를 엽니다."
         >
           <GameActionIcon action="settings" label={showMarketPanel ? '도구 닫기' : '개발자'} />
           {showMarketPanel ? '도구 닫기' : '개발자'}
-        </button>
+        </button> : null}
 
-        <button
+        {!evaluationMode ? <button
           className="btn-secondary sim-refresh-btn"
           type="button"
           data-game-sfx="load"
           onClick={() => { void fireAndReport('refreshMapSettings.manual', () => refreshMapSettingsFromServer('manual')); }}
-          disabled={loading || isAdvancing || isGameOver}
+          disabled={replayMode || loading || isAdvancing || isGameOver || day > 0}
           style={{ padding: '6px 10px', fontSize: 12 }}
-          title="서버에 저장된 맵 설정(crateAllowDeny 등)을 새로 불러옵니다."
+          title={guestMode ? '이 브라우저에 저장된 로컬 지도·규칙을 다시 불러옵니다.' : '서버에 저장된 맵 설정(crateAllowDeny 등)을 새로 불러옵니다.'}
         >
           <GameActionIcon action={isRefreshingMapSettings ? 'wait' : 'refresh'} label="맵 새로고침" />
-          {isRefreshingMapSettings ? '새로고침 중...' : '맵 새로고침'}
-        </button>
+          {isRefreshingMapSettings ? '새로고침 중...' : guestMode ? '로컬 맵 새로고침' : '맵 새로고침'}
+        </button> : null}
 
         <button
           className={`btn-secondary sim-sfx-btn ${sfxEnabled ? 'active' : ''}`}

@@ -1,3 +1,6 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { getActorDimensionRiftId } from '../../../utils/combatSpaceLogic.js';
+import { commitRuntimeHpDamage, isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { applyHealingModifier } from '../../../utils/statusLogic';
 import { getNonCombatRegenMultiplier } from '../../../utils/masteryLogic';
 import {
@@ -68,6 +71,18 @@ export function createPhaseCombatEliminationRuntime({
 
     const winnerId = String(combatWinner?._id || '');
     const loserId = String(combatLoser?._id || '');
+    if (newDeadIds.includes(loserId)) return { assistId: null, assistIds: [], duplicate: true };
+    if (isDimensionRiftDefeated(combatLoser)) return { assistId: null, assistIds: [], riftDefeat: true };
+    if (getActorDimensionRiftId(combatLoser) && Number(combatLoser.hp) > 0) {
+      const { defeat } = commitRuntimeHpDamage(combatLoser, Number(combatLoser.hp), {
+        atSec: currentActionSec(), by: winnerId, cause: opts.deathReason || 'combat',
+      });
+      if (defeat) {
+        emitRunEvent('dimension_rift_defeat', { ...defeat, zoneId: String(combatLoser.zoneId || '') }, atNow());
+        return { assistId: null, assistIds: [], riftDefeat: true };
+      }
+    }
+    combatLoser.hp = 0;
     const prevDamagedBy = String(opts.prevDamagedBy || combatLoser?.lastDamagedBy || '');
     const prevDamagedPhaseIdx = Number(opts.prevDamagedPhaseIdx ?? combatLoser?.lastDamagedPhaseIdx ?? -9999);
     const deathReason = String(opts?.deathReason || 'combat').trim() || 'combat';
@@ -85,32 +100,20 @@ export function createPhaseCombatEliminationRuntime({
     roundKills[winnerId] = (roundKills[winnerId] || 0) + 1;
     grantPvpKillMastery(combatWinner, combatLoser, '처치');
 
-    let assistId = null;
-    const assistActor = prevDamagedBy
-      ? (survivorMap.get(prevDamagedBy)
-        || phaseSurvivors.find((survivor) => String(survivor?._id || '') === prevDamagedBy)
-        || todaysSurvivors.find((survivor) => String(survivor?._id || '') === prevDamagedBy)
-        || null)
-      : null;
-    const canRecordAssist = !isSoloMatch
-      && assistActor
-      && String(assistActor?.name || '').trim()
-      && prevDamagedBy !== winnerId
-      && prevDamagedBy !== loserId
-      && areSameTeam(assistActor, combatWinner)
-      && !areSameTeam(assistActor, combatLoser)
-      && (phaseIdxNow - prevDamagedPhaseIdx) <= assistWindowPhases;
-
-    if (canRecordAssist) {
-      assistId = prevDamagedBy;
-      roundAssists[assistId] = (roundAssists[assistId] || 0) + 1;
-    }
-
-    const assistName = assistId ? String(assistActor?.name || '') : '';
+    const contributors = { ...(combatLoser._combatContributions || {}) };
+    if (prevDamagedBy && !contributors[prevDamagedBy]) contributors[prevDamagedBy] = { damage: 1, phaseIdx: prevDamagedPhaseIdx };
+    const assistActors = isSoloMatch ? [] : Object.entries(contributors).filter(([id, row]) => id !== winnerId && id !== loserId
+      && Number(row.damage || 0) > 0 && phaseIdxNow >= row.phaseIdx && phaseIdxNow - row.phaseIdx <= assistWindowPhases)
+      .map(([id]) => survivorMap.get(id) || phaseSurvivors.find((row) => String(row._id) === id) || todaysSurvivors.find((row) => String(row._id) === id))
+      .filter((row) => row && areSameTeam(row, combatWinner) && !areSameTeam(row, combatLoser));
+    const assistIds = [...new Set(assistActors.map((row) => String(row._id)))];
+    for (const id of assistIds) roundAssists[id] = (roundAssists[id] || 0) + 1;
+    const assistId = assistIds[0] || null;
+    const assistName = assistActors.map((row) => row.name).join(', ');
     const killVerb = String(opts.killText || '처치').trim() || '처치';
     addLog(`☠️ [${combatWinner.name}] → [${combatLoser.name}] ${killVerb} (+1킬${assistId ? `, 어시: ${assistName}` : ''})`, 'death');
 
-    if (!opts?.skipTraitAfterBattle) {
+    if (Number(combatWinner.hp || 0) > 0 && !opts?.skipTraitAfterBattle) {
       applyErTraitAfterBattle(combatWinner, { lethal: true, defeated: combatLoser, damageDealt: opts?.damageDealt });
     }
 
@@ -120,6 +123,14 @@ export function createPhaseCombatEliminationRuntime({
       reason: deathReason,
       cause: deathCauseName,
     });
+    emitRunEvent('elimination', { who: winnerId, victimId: loserId, assistIds, zoneId: String(combatLoser.zoneId || ''), reason: deathReason }, atNow());
+
+    // A dead participant may earn a simultaneous kill, but cannot heal, loot or
+    // move back into the living roster as a side effect of kill rewards.
+    if (Number(combatWinner.hp || 0) <= 0) {
+      if (pushedDead) flushDeadSnapshots(appendPhaseDeadSnapshots(combatLoser));
+      return { assistId, assistIds };
+    }
 
     if (useDetonation) {
       const bonusSec = Number(ruleset?.detonation?.killBonusSec || 5);
@@ -199,6 +210,10 @@ export function createPhaseCombatEliminationRuntime({
       for (const line of craftLogs) addLog(line, 'highlight');
     }
 
+    if (opts.deferAftermath) {
+      if (pushedDead) flushDeadSnapshots(appendPhaseDeadSnapshots(combatLoser));
+      return { assistId, assistIds };
+    }
     const maxHp = Number(combatWinner?.maxHp ?? 100);
     const restHealMax = Math.max(0, Math.floor(Number(pvpCfg.restHealMax ?? 8)));
     const regenMultiplier = getNonCombatRegenMultiplier(combatWinner);
@@ -220,9 +235,9 @@ export function createPhaseCombatEliminationRuntime({
         combatWinner.hp = Math.min(maxHp, curHp + extraHeal);
         addLog(`🧘 [${combatWinner.name}] 전투 후 응급 처치: HP +${extraHeal}`, 'combat-detail');
       }
-    } else if (Math.random() < postMoveChance) {
+    } else if (simulationRandom() < postMoveChance) {
       const curZone = String(combatWinner.zoneId || '');
-      const nextZone = pickSparseSafeNeighbor(curZone);
+      const nextZone = pickSparseSafeNeighbor(curZone, combatWinner);
       if (nextZone && nextZone !== curZone) {
         combatWinner.zoneId = nextZone;
         addLog(`🚶 [${combatWinner.name}] 전투 후 이동: ${getZoneName(nextZone)}`, 'combat-detail');
@@ -244,7 +259,7 @@ export function createPhaseCombatEliminationRuntime({
       flushDeadSnapshots(appendPhaseDeadSnapshots(combatLoser));
     }
 
-    return { assistId };
+    return { assistId, assistIds };
   };
 
   return { applyCombatElimination };

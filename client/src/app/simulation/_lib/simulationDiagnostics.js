@@ -14,6 +14,18 @@ const DEFAULT_THRESHOLDS = {
   minHeroGearReadyShare: 0.70,
 };
 
+const PVP_DEATH_REASONS = new Set(['combat', 'critical_flee', 'character_skill_splash']);
+const ENVIRONMENT_DEATH_REASONS = new Set(['forbidden', 'forbidden_zone', 'final_zone_pressure', 'detonation']);
+
+export function classifySimulationDeathSource(event) {
+  const reason = cleanStr(event?.reason || event?.deathReason || '').toLowerCase();
+  const by = cleanStr(event?.by || event?.killerId || event?.sourceActorId || '');
+  if (reason === 'wildlife_hunt' || reason.startsWith('wildlife_') || by.startsWith('wildlife:')) return 'wildlife';
+  if (PVP_DEATH_REASONS.has(reason) || reason.startsWith('character_skill')) return 'pvp';
+  if (ENVIRONMENT_DEATH_REASONS.has(reason)) return 'environment';
+  return by ? 'pvp' : 'environment';
+}
+
 function cleanStr(value) {
   return String(value || '').trim();
 }
@@ -72,48 +84,98 @@ function dedupeActors(survivors, dead) {
   return out;
 }
 
+function equipmentItemId(item) {
+  if (typeof item === 'string' || typeof item === 'number') return cleanStr(item);
+  return cleanStr(item?._id || item?.itemId || item?.id || item?.externalId || '');
+}
+
 function equippedItems(actor) {
   const eq = actor?.equipped;
-  if (Array.isArray(eq)) return eq.filter(Boolean);
-  if (eq && typeof eq === 'object') return Object.values(eq).filter(Boolean);
-  return [];
+  const equipped = Array.isArray(eq)
+    ? eq.filter(Boolean)
+    : (eq && typeof eq === 'object' ? Object.values(eq).filter(Boolean) : []);
+  const inventory = asList(actor?.inventory);
+  return equipped.map((item) => {
+    const id = equipmentItemId(item);
+    if (!id) return item;
+    return inventory.find((candidate) => equipmentItemId(candidate) === id) || item;
+  });
 }
 
 function itemTier(item, itemMetaById) {
-  const id = cleanStr(item?._id || item?.itemId || item?.id || item?.externalId || '');
+  const id = equipmentItemId(item);
   const meta = id ? itemMetaById?.[id] : null;
-  return Math.max(0, Math.floor(num(item?.tier ?? item?.craftedTier ?? meta?.tier, 0)));
+  const ownTier = item && typeof item === 'object' ? (item?.tier ?? item?.craftedTier) : undefined;
+  return Math.max(0, Math.floor(num(ownTier ?? meta?.tier, 0)));
 }
 
-function buildEquipmentSummary(actors, itemMetaById) {
-  const tierCounts = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, t6: 0, unknown: 0 };
+function emptyTierCounts() {
+  return { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, t6: 0, unknown: 0 };
+}
+
+export function buildActorEquipmentDiagnostic(actor, itemMetaById = {}) {
+  const tierCounts = emptyTierCounts();
+  const items = equippedItems(actor);
+  let heroOrBetter = 0;
+  let legendOrBetter = 0;
+  let bestTier = 0;
+  for (const item of items) {
+    const tier = itemTier(item, itemMetaById);
+    bestTier = Math.max(bestTier, tier);
+    if (tier >= 1 && tier <= 6) tierCounts[`t${tier}`] += 1;
+    else tierCounts.unknown += 1;
+    if (tier >= 4) heroOrBetter += 1;
+    if (tier >= 5) legendOrBetter += 1;
+  }
+  return {
+    id: cleanStr(actor?._id || actor?.id || ''),
+    name: cleanStr(actor?.name || ''),
+    equippedCount: items.length,
+    heroOrBetter,
+    legendOrBetter,
+    bestTier,
+    tierCounts,
+  };
+}
+
+function normalizedEquipmentSnapshot(snapshot, fallback) {
+  if (!snapshot || typeof snapshot !== 'object') return fallback;
+  const tierCounts = emptyTierCounts();
+  for (const key of Object.keys(tierCounts)) tierCounts[key] = Math.max(0, Math.floor(num(snapshot?.tierCounts?.[key], 0)));
+  return {
+    ...fallback,
+    equippedCount: Math.max(0, Math.floor(num(snapshot.equippedCount, fallback.equippedCount))),
+    heroOrBetter: Math.max(0, Math.floor(num(snapshot.heroOrBetter, fallback.heroOrBetter))),
+    legendOrBetter: Math.max(0, Math.floor(num(snapshot.legendOrBetter, fallback.legendOrBetter))),
+    bestTier: Math.max(0, Math.floor(num(snapshot.bestTier, fallback.bestTier))),
+    tierCounts,
+  };
+}
+
+function buildEquipmentSummary(actors, itemMetaById, deathEquipmentById = new Map(), aliveIds = new Set()) {
+  const tierCounts = emptyTierCounts();
   let heroGearReadyCount = 0;
   let legendaryReadyCount = 0;
   let totalEquipped = 0;
 
   const actorsSummary = actors.map((actor) => {
-    const items = equippedItems(actor);
-    let heroOrBetter = 0;
-    let legendOrBetter = 0;
-    let bestTier = 0;
-    for (const item of items) {
-      const tier = itemTier(item, itemMetaById);
-      bestTier = Math.max(bestTier, tier);
-      totalEquipped += 1;
-      if (tier >= 1 && tier <= 6) tierCounts[`t${tier}`] += 1;
-      else tierCounts.unknown += 1;
-      if (tier >= 4) heroOrBetter += 1;
-      if (tier >= 5) legendOrBetter += 1;
-    }
-    if (heroOrBetter >= 5) heroGearReadyCount += 1;
-    if (legendOrBetter >= 3) legendaryReadyCount += 1;
+    const id = cleanStr(actor?._id || actor?.id || '');
+    const current = buildActorEquipmentDiagnostic(actor, itemMetaById);
+    const snapshot = !aliveIds.has(id) && deathEquipmentById.has(id)
+      ? normalizedEquipmentSnapshot(deathEquipmentById.get(id), current)
+      : current;
+    totalEquipped += snapshot.equippedCount;
+    for (const key of Object.keys(tierCounts)) tierCounts[key] += num(snapshot.tierCounts?.[key], 0);
+    if (snapshot.heroOrBetter >= 5) heroGearReadyCount += 1;
+    if (snapshot.legendOrBetter >= 3) legendaryReadyCount += 1;
     return {
-      id: cleanStr(actor?._id || actor?.id || ''),
+      id,
       name: cleanStr(actor?.name || ''),
-      equippedCount: items.length,
-      heroOrBetter,
-      legendOrBetter,
-      bestTier,
+      equippedCount: snapshot.equippedCount,
+      heroOrBetter: snapshot.heroOrBetter,
+      legendOrBetter: snapshot.legendOrBetter,
+      bestTier: snapshot.bestTier,
+      source: snapshot === current ? 'final' : 'death',
     };
   });
 
@@ -159,8 +221,18 @@ export function getEmptySimulationDiagnostics() {
   return {
     participants: { alive: 0, dead: 0, total: 0 },
     events: { total: 0, byKind: {} },
-    deaths: { total: 0, pvp: 0, nonPvp: 0, byBand: { ...EMPTY_PHASE_COUNTS } },
-    chase: { total: 0, caught: 0, escaped: 0, blinkEscape: 0 },
+    deaths: { total: 0, pvp: 0, nonPvp: 0, wildlife: 0, environment: 0,
+      byReason: {}, byBand: { ...EMPTY_PHASE_COUNTS } },
+    chase: {
+      total: 0,
+      caught: 0,
+      finalEscaped: 0,
+      escaped: 0,
+      escapeFail: 0,
+      escapeNoChase: 0,
+      escapedAfterChase: 0,
+      blinkEscape: 0,
+    },
     objectives: { total: 0, byObjective: {} },
     equipment: buildEquipmentSummary([], {}),
     recommendations: [],
@@ -184,6 +256,8 @@ export function buildSimulationDiagnostics({
   };
 
   const metrics = getEmptySimulationDiagnostics();
+  const deathEquipmentById = new Map();
+  const aliveIds = new Set(aliveList.map((actor) => cleanStr(actor?._id || actor?.id || '')).filter(Boolean));
   metrics.participants = {
     alive: aliveList.length,
     dead: deadList.length,
@@ -198,15 +272,33 @@ export function buildSimulationDiagnostics({
     if (kind === 'death') {
       metrics.deaths.total += 1;
       inc(metrics.deaths.byBand, phaseBand(event));
-      if (cleanStr(event?.by)) metrics.deaths.pvp += 1;
-      else metrics.deaths.nonPvp += 1;
+      inc(metrics.deaths.byReason, event?.reason || 'unknown');
+      const source = classifySimulationDeathSource(event);
+      if (source === 'pvp') metrics.deaths.pvp += 1;
+      else {
+        metrics.deaths.nonPvp += 1;
+        metrics.deaths[source] += 1;
+      }
+      const actorId = eventActorId(event);
+      if (actorId && event?.equipmentAtDeath && typeof event.equipmentAtDeath === 'object') {
+        deathEquipmentById.set(actorId, event.equipmentAtDeath);
+      }
     }
 
     if (kind === 'chase') {
       metrics.chase.total += 1;
-      if (event?.caught || event?.outcome === 'caught') metrics.chase.caught += 1;
-      if (event?.escaped || String(event?.outcome || '').includes('escape')) metrics.chase.escaped += 1;
-      if (event?.outcome === 'blink_escape') metrics.chase.blinkEscape += 1;
+      const outcome = String(event?.outcome || '');
+      if (event?.caught || outcome === 'caught' || outcome === 'escape_fail') metrics.chase.caught += 1;
+      // Kept for callers that need to know whether the initial encounter was exited,
+      // even if a later chase caught the fleeing actor again.
+      if (event?.escaped === true || ['escape_no_chase', 'escaped_after_chase', 'blink_escape'].includes(outcome)) {
+        metrics.chase.escaped += 1;
+      }
+      if (outcome === 'escape_fail') metrics.chase.escapeFail += 1;
+      if (outcome === 'escape_no_chase') metrics.chase.escapeNoChase += 1;
+      if (outcome === 'escaped_after_chase') metrics.chase.escapedAfterChase += 1;
+      if (outcome === 'blink_escape') metrics.chase.blinkEscape += 1;
+      if (['escape_no_chase', 'escaped_after_chase', 'blink_escape'].includes(outcome)) metrics.chase.finalEscaped += 1;
     }
 
     if (kind === 'objective') {
@@ -215,7 +307,7 @@ export function buildSimulationDiagnostics({
     }
   }
 
-  metrics.equipment = buildEquipmentSummary(actors, itemMetaById || {});
+  metrics.equipment = buildEquipmentSummary(actors, itemMetaById || {}, deathEquipmentById, aliveIds);
   metrics.recommendations = buildRecommendations(metrics, thresholds);
   return metrics;
 }
@@ -232,4 +324,3 @@ export function formatDiagnosticsLine(metrics) {
     `영웅5부위 ${m.equipment?.heroGearReadyCount || 0}/${m.participants?.total || 0}`,
   ].join(' · ');
 }
-

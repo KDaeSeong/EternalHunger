@@ -5,7 +5,6 @@ import SimulationMarketCharacterPicker from './SimulationMarketCharacterPicker';
 import SimulationMarketEventLogCard from './SimulationMarketEventLogCard';
 import SimulationMarketParticipantPresetCard from './SimulationMarketParticipantPresetCard';
 import SimulationMarketRunSummaryCard from './SimulationMarketRunSummaryCard';
-import SimulationMarketSeedCard from './SimulationMarketSeedCard';
 import SimulationMarketToolbar from './SimulationMarketToolbar';
 
 export default function SimulationMarketHeaderPanel({
@@ -25,16 +24,12 @@ export default function SimulationMarketHeaderPanel({
   runEvents,
   runEventsPreviewText,
   runProgressSummary,
-  runSeed,
   saveCurrentParticipantPreset,
   saveSelectedParticipantPresetId,
-  seedDraft,
   selectedChar,
   selectedCharId,
   selectedParticipantPresetId,
   setParticipantPresetName,
-  setRunSeed,
-  setSeedDraft,
   setSelectedCharId,
   setShowAllMarketRows,
   setShowDevDebugDetails,
@@ -72,17 +67,6 @@ export default function SimulationMarketHeaderPanel({
         showAllMarketRows={showAllMarketRows}
         showDevDebugDetails={showDevDebugDetails}
         showDevEventLog={showDevEventLog}
-      />
-
-      <SimulationMarketSeedCard
-        day={day}
-        isAdvancing={isAdvancing}
-        isGameOver={isGameOver}
-        matchSec={matchSec}
-        runSeed={runSeed}
-        seedDraft={seedDraft}
-        setRunSeed={setRunSeed}
-        setSeedDraft={setSeedDraft}
       />
 
       <SimulationMarketParticipantPresetCard

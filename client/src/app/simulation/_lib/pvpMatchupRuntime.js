@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { calculateBattle } from '../../../utils/battleLogic';
 import { normalizeErStats } from '../../../utils/erStats';
 import { canonicalizeCharName, cloneForBattle } from './combatRuntime';
@@ -35,7 +36,7 @@ function pickUnbiasedBattle(attacker, defender, context = {}) {
   const defenderId = String(defender?._id || '');
   if (!attackerId || !defenderId) return firstResult;
 
-  const chosenId = Math.random() < attackerWinChance ? attackerId : defenderId;
+  const chosenId = simulationRandom() < attackerWinChance ? attackerId : defenderId;
   if (chosenId === firstWinnerId) return firstResult;
 
   const skirmishWinner = chosenId === attackerId ? attacker : defender;

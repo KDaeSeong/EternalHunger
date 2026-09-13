@@ -1,4 +1,4 @@
-import { findItemByKeywords, randInt, shuffleArray } from './simulationCommon';
+import { findItemByKeywords, shuffleArray } from './simulationCommon';
 import { getActorTeamId, getActorTeamName } from './teamRuntime';
 
 const RIFT_DAYS = new Set([2, 3, 4]);
@@ -66,16 +66,15 @@ function findDimensionRiftChoiceItem(publicItems, key) {
 }
 
 function pickDimensionRiftChoice(publicItems, day) {
-  const keys = shuffleArray(getDimensionRiftChoiceKeys(day));
-  for (const key of keys) {
-    const item = findDimensionRiftChoiceItem(publicItems, key);
-    if (item?._id) return { key, item };
-  }
-  return { key: keys[0] || '', item: null };
+  const choices = getDimensionRiftChoiceKeys(day)
+    .map((key) => ({ key, item: findDimensionRiftChoiceItem(publicItems, key) }))
+    .filter(({ item }) => item?._id && !item.deleted);
+  return choices.length ? shuffleArray(choices)[0] : { key: '', item: null };
 }
 
 function buildDimensionRiftSpawn(prevState, zones, forbiddenIds, curDay, curPhase, matchMode, mapId, rule = {}) {
   const state = prevState && typeof prevState === 'object' ? prevState : {};
+  if (state.dimensionRiftMatchClosure) return { state, announcements: [] };
   const d = Number(curDay || 0);
   const phase = String(curPhase || '');
   const spawnKey = d + (phase === 'night' ? 0.5 : 0);
@@ -103,7 +102,7 @@ function buildDimensionRiftSpawn(prevState, zones, forbiddenIds, curDay, curPhas
 
   if (!Array.isArray(state.dimensionRifts)) state.dimensionRifts = [];
   const active = state.dimensionRifts
-    .filter((r) => !r?.resolved && Number(r?.day || 0) >= d - 1);
+    .filter((r) => r?.rewardClosure || r?.rewardOffer?.status === 'pending' || Number(r?.day || 0) >= d - 1);
 
   const created = picked.map((z, idx) => ({
     id: `RIFT_${String(mapId || state.mapId || 'map')}_${d}_${idx + 1}`,
@@ -116,6 +115,8 @@ function buildDimensionRiftSpawn(prevState, zones, forbiddenIds, curDay, curPhas
     giftTier: meta.tier,
     giftLabel: meta.label,
     maxTeams,
+    status: 'open',
+    entrants: [],
     resolved: false,
     winnerTeamId: '',
     loserTeamId: '',
@@ -127,13 +128,14 @@ function buildDimensionRiftSpawn(prevState, zones, forbiddenIds, curDay, curPhas
 
   return {
     state,
-    announcements: [`🌀 차원의 틈 개방: ${picked.map((z) => z.name).join(', ')} (최대 2팀)`],
+    announcements: [`🌀 차원의 틈 개방: ${picked.map((z) => z.name).join(', ')} (최대 ${maxTeams}팀)`],
   };
 }
 
 function listActiveDimensionRifts(state) {
+  if (state?.dimensionRiftMatchClosure) return [];
   return (Array.isArray(state?.dimensionRifts) ? state.dimensionRifts : [])
-    .filter((r) => r && !r.resolved);
+    .filter((r) => r && !r.resolved && !r.matchClosure);
 }
 
 function pickRiftEntrantTeams(rift, survivors) {
@@ -150,31 +152,20 @@ function pickRiftEntrantTeams(rift, survivors) {
     });
     grouped.get(teamId).members.push(actor);
   }
-  return shuffleArray([...grouped.values()]).slice(0, Math.max(1, Number(rift?.maxTeams || 2)));
+  // Repeated clock observations must not re-roll entrants or consume RNG.
+  return [...grouped.values()].sort((a, b) => a.teamId.localeCompare(b.teamId))
+    .slice(0, Math.max(1, Number(rift?.maxTeams || 2)));
 }
 
-function scoreRiftTeam(team, estimatePower) {
-  const members = Array.isArray(team?.members) ? team.members : [];
-  const raw = members.reduce((sum, actor) => {
-    const p = typeof estimatePower === 'function' ? Number(estimatePower(actor) || 0) : Number(actor?.hp || 0);
-    return sum + Math.max(1, p);
-  }, 0);
-  return raw + randInt(0, 12);
-}
-
-function resolveDimensionRiftWinner(entrantTeams, estimatePower) {
+function resolveDimensionRiftWinner(entrantTeams, { entryClosed = false } = {}) {
   const teams = Array.isArray(entrantTeams) ? entrantTeams.filter(Boolean) : [];
-  if (teams.length <= 0) return null;
-  if (teams.length === 1) return { winner: teams[0], loser: null, uncontested: true };
-  const scored = teams
-    .map((team) => ({ team, score: scoreRiftTeam(team, estimatePower) }))
-    .sort((a, b) => b.score - a.score);
+  if (!entryClosed || !teams.length || teams.some((team) => team.unknown)) return null;
+  const remaining = teams.filter((team) => !team.outcome && (team.members || []).some((actor) => Number(actor?.hp) > 0));
+  if (remaining.length !== 1) return null;
+  const losers = teams.filter((team) => team !== remaining[0]);
   return {
-    winner: scored[0]?.team || null,
-    loser: scored[1]?.team || null,
-    uncontested: false,
-    winnerScore: scored[0]?.score || 0,
-    loserScore: scored[1]?.score || 0,
+    winner: remaining[0], loser: losers[0] || null, losers,
+    uncontested: teams.length === 1,
   };
 }
 

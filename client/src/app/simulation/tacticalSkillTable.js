@@ -20,6 +20,7 @@ import {
   getTacCooldownSec,
   getTacEffectNumber,
   getTacTrigger,
+  isTacCooldownFixed,
   normalizeSupportedTacSkill,
   TACTICAL_SKILL_OPTIONS_KO,
 } from '../../utils/tacticalSkillCatalog.js';
@@ -29,6 +30,7 @@ export {
   getTacCooldownSec,
   getTacEffectNumber,
   getTacTrigger,
+  isTacCooldownFixed,
   normalizeSupportedTacSkill,
   TACTICAL_SKILL_OPTIONS_KO,
 };

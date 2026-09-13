@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 export function safeTags(item) {
   return Array.isArray(item?.tags) ? item.tags : [];
 }
@@ -46,7 +47,7 @@ export function itemIcon(item) {
   return '📦';
 }
 
-export function shuffleArray(list, rng = Math.random) {
+export function shuffleArray(list, rng = simulationRandom) {
   const arr = Array.isArray(list) ? [...list] : [];
   for (let i = arr.length - 1; i > 0; i -= 1) {
     const j = Math.floor(rng() * (i + 1));
@@ -106,14 +107,14 @@ export function randInt(min, max) {
   const b = Math.floor(Number(max || 0));
   if (!Number.isFinite(a) || !Number.isFinite(b)) return 1;
   if (b <= a) return a;
-  return a + Math.floor(Math.random() * (b - a + 1));
+  return a + Math.floor(simulationRandom() * (b - a + 1));
 }
 
 export function pickWeighted(list) {
   const arr = Array.isArray(list) ? list : [];
   const total = arr.reduce((sum, x) => sum + Math.max(0, Number(x?.weight || 1)), 0);
   if (!(total > 0)) return null;
-  let r = Math.random() * total;
+  let r = simulationRandom() * total;
   for (const x of arr) {
     r -= Math.max(0, Number(x?.weight || 1));
     if (r <= 0) return x;

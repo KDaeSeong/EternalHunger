@@ -1,3 +1,4 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import {
   clampTier4,
   findItemByKeywords,
@@ -38,7 +39,7 @@ function openSpawnedLegendaryCrate(spawnState, zoneId, publicItems, curDay, curP
   const chance = moved
     ? Number(byTod?.moved ?? (timeOfDay === 'day' ? 0.85 : 0.55))
     : Number(byTod?.stay ?? (timeOfDay === 'day' ? 0.65 : 0.35));
-  if (Math.random() >= chance) return null;
+  if (simulationRandom() >= chance) return null;
 
   const candidates = getLegendaryCoreCandidates(publicItems, legRule?.dropWeightsByKey);
   if (!candidates.length) return null;
@@ -60,7 +61,7 @@ function openSpawnedLegendaryCrate(spawnState, zoneId, publicItems, curDay, curP
 
   const bonusChance = Math.max(0, Math.min(1, Number(reward?.bonusDropChance ?? 0)));
   let bonusDrops = [];
-  if (bonusChance > 0 && Math.random() < bonusChance) {
+  if (bonusChance > 0 && simulationRandom() < bonusChance) {
     const rest = candidates.filter((c) => String(c?.key || '') !== String(picked?.key || ''));
     const bonusPicked = pickWeighted(rest.length ? rest : candidates);
     const bItem = bonusPicked?.item || null;
@@ -89,7 +90,7 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
   const chance = moved
     ? Number(byTod?.moved ?? (timeOfDay === 'day' ? 0.70 : 0.45))
     : Number(byTod?.stay ?? (timeOfDay === 'day' ? 0.55 : 0.30));
-  if (Math.random() >= chance) return null;
+  if (simulationRandom() >= chance) return null;
 
   const list = Array.isArray(publicItems) ? publicItems : [];
   const goalItemIds = new Set(
@@ -243,7 +244,7 @@ function pickupSpawnedCore(spawnState, zoneId, publicItems, curDay, curPhase, ac
     const chance = moved
       ? Number(byTod?.moved ?? (timeOfDay === 'day' ? 0.85 : 0.55))
       : Number(byTod?.stay ?? (timeOfDay === 'day' ? 0.65 : 0.35));
-    if (Math.random() >= chance) return null;
+    if (simulationRandom() >= chance) return null;
   }
 
   const kind = String(node?.kind || '');
@@ -265,7 +266,7 @@ function pickupSpawnedCore(spawnState, zoneId, publicItems, curDay, curPhase, ac
   return { item, itemId: String(item._id), qty: 1, kind };
 }
 
-function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, actor, ruleset) {
+function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, actor, ruleset, opts = {}) {
   const s = spawnState;
   if (!s || !s.bosses) return null;
 
@@ -278,12 +279,16 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
   const retreatPowerBonusMax = Number(fallback?.retreatPowerBonusMax ?? 0.25);
   const perkFx = getActorPerkEffects(actor);
   const perkWildLootBias = Math.max(0, getPerkWildlifeLootBias(perkFx));
+  const reserveOnly = opts?.reserveOnly === true;
+  const claimantId = String(opts?.claimantId || actor?._id || '');
+  const engagementId = String(opts?.engagementId || '');
 
   const kinds = ['alpha', 'omega', 'weakline'];
   for (const k of kinds) {
     const b = s?.bosses?.[k];
     if (!b || !b.alive) continue;
     if (String(b.zoneId) !== zid) continue;
+    if (b.engagedBy && String(b.engagedBy) !== claimantId) continue;
 
     const p = roughPower(actor);
     const powerBonus = Math.min(retreatPowerBonusMax, Math.max(0, (p - 40) / 240));
@@ -304,9 +309,14 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
     const dmg = Math.max(dmgMin, dmgBase - Math.floor(p / dmgDiv));
 
     if (drop?._id) {
-      b.alive = false;
-      b.defeatedBy = String(actor?.name || '');
-      b.defeatedAt = { day: Number(curDay || 0), phase: String(curPhase || '') };
+      if (reserveOnly) {
+        b.engagedBy = claimantId;
+        b.engagementId = engagementId;
+      } else {
+        b.alive = false;
+        b.defeatedBy = String(actor?.name || '');
+        b.defeatedAt = { day: Number(curDay || 0), phase: String(curPhase || '') };
+      }
 
       const label = k === 'alpha' ? '알파' : k === 'omega' ? '오메가' : '위클라인';
       const log = k === 'alpha'
@@ -324,12 +334,15 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
       const bonusChance = Math.max(0, Math.min(1, Number(rw?.bonusDropChance ?? 0)));
       const drops = rollSpecialResourceDrops(k, publicItems, { ruleset, perkLootBias: perkWildLootBias });
       if (!drops.length) drops.push({ item: drop, itemId: String(drop._id), qty: 1 });
-      if (bonusChance > 0 && Math.random() < bonusChance) {
+      if (bonusChance > 0 && simulationRandom() < bonusChance) {
         drops.push({ item: drop, itemId: String(drop._id), qty: 1 });
       }
 
       return {
         kind: k,
+        defeated: !reserveOnly,
+        pending: reserveOnly,
+        ...(reserveOnly ? { claim: { source: 'boss', key: k, zoneId: zid, claimantId, engagementId } } : {}),
         damage: dmg,
         credits,
         drops,
@@ -337,29 +350,38 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
       };
     }
 
-    if (Math.random() < retreatBase + powerBonus) {
-      return { kind: k, damage: 0, drops: [], log: `⚠️ 강력한 적과 조우했지만(아이템 미구축) 물러났다` };
+    if (simulationRandom() < retreatBase + powerBonus) {
+      return { kind: k, defeated: false, damage: 0, drops: [], log: `⚠️ 강력한 적과 조우했지만(아이템 미구축) 물러났다` };
     }
   }
 
   return null;
 }
 
-function consumeMutantWildlifeAtZone(spawnState, zoneId, publicItems, curDay, curPhase, actor, ruleset) {
+function consumeMutantWildlifeAtZone(spawnState, zoneId, publicItems, curDay, curPhase, actor, ruleset, opts = {}) {
   const s = spawnState;
   const m = s?.mutantWildlife;
   if (!m || !m.alive) return null;
 
   const zid = String(zoneId || '');
   if (String(m.zoneId) !== zid) return null;
+  const reserveOnly = opts?.reserveOnly === true;
+  const claimantId = String(opts?.claimantId || actor?._id || '');
+  const engagementId = String(opts?.engagementId || '');
+  if (m.engagedBy && String(m.engagedBy) !== claimantId) return null;
 
   const p = roughPower(actor);
   const dmg = Math.max(4, 14 - Math.floor(p / 12));
   const credit = Math.max(0, Number(ruleset?.credits?.mutantWildlifeKill ?? 8));
 
-  m.alive = false;
-  m.defeatedBy = String(actor?.name || '');
-  m.defeatedAt = { day: Number(curDay || 0), phase: String(curPhase || '') };
+  if (reserveOnly) {
+    m.engagedBy = claimantId;
+    m.engagementId = engagementId;
+  } else {
+    m.alive = false;
+    m.defeatedBy = String(actor?.name || '');
+    m.defeatedAt = { day: Number(curDay || 0), phase: String(curPhase || '') };
+  }
 
   const animal = String(m.animal || '').trim() || '미상';
 
@@ -378,7 +400,7 @@ function consumeMutantWildlifeAtZone(spawnState, zoneId, publicItems, curDay, cu
 
   if (!isBat) {
     if (isChicken) {
-      if (chicken?._id && Math.random() < 0.5) {
+      if (chicken?._id && simulationRandom() < 0.5) {
         drops.push({ item: chicken, itemId: String(chicken._id), qty: 1 });
       }
     } else if (isBoar) {
@@ -398,6 +420,9 @@ function consumeMutantWildlifeAtZone(spawnState, zoneId, publicItems, curDay, cu
 
   return {
     kind: 'mutant_wildlife',
+    defeated: !reserveOnly,
+    pending: reserveOnly,
+    ...(reserveOnly ? { claim: { source: 'mutant', key: 'mutantWildlife', zoneId: zid, claimantId, engagementId } } : {}),
     damage: dmg,
     credits: credit,
     drops,

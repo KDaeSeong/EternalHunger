@@ -1,16 +1,18 @@
 import { useRef } from 'react';
-import { apiPost } from '../../../utils/api';
+import { apiPost, getToken } from '../../../utils/api';
 import {
   getSimEquipExternalId,
   isSimGeneratedEquipment,
 } from './inventoryRules';
 
-export function useSimEquipmentPersistence() {
+export function useSimEquipmentPersistence({ replayMode = false } = {}) {
   const savedIdsRef = useRef(new Set());
   const busyRef = useRef(false);
 
   return async function persistSimEquipmentsFromChars(chars, reason = 'phase') {
+    if (replayMode) return;
     if (busyRef.current) return;
+    if (!getToken()) return;
 
     try {
       const arr = Array.isArray(chars) ? chars : [];

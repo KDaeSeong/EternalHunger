@@ -1,8 +1,12 @@
+import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { buildErBehaviorModifier } from '../../../utils/erMeta';
 import {
   applyHealingModifier,
   getRegenValue,
   getShieldValue,
+  canMoveByStatus,
+  hasActionBlockStatus,
+  getDamageBlockReason,
 } from '../../../utils/statusLogic';
 import {
   buildTacStatusEffects,
@@ -17,6 +21,16 @@ import {
   upsertRuntimeSurvivor,
 } from './simulationEngine';
 import { collectRuntimeEffectResultTexts } from './runtimeStatus';
+import { pickTeamSafeZone } from './teamTacticsRuntime';
+import { commitRetreatCover } from './teamCombatRuntime';
+import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
+import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
+import { withdrawFromDimensionRift } from './dimensionRiftWithdrawalRuntime.js';
+import {
+  consumeRetreatAvoidDecision,
+  getRetreatAvoidZoneId,
+  rememberRetreatOrigin,
+} from './retreatDecisionMemoryRuntime.js';
 
 export function createPhaseCombatFleeRuntime({
   actions = {},
@@ -49,12 +63,24 @@ export function createPhaseCombatFleeRuntime({
     tacModuleLevel = () => 0,
   } = tactical;
 
-  const pickSparseSafeNeighbor = (fromZoneId) => {
+  const pickSparseSafeNeighbor = (fromZoneId, actor = null) => {
     const from = String(fromZoneId || '');
+    if (getActorDimensionRiftId(actor)) return from;
+    if (actor && !canMoveByStatus(actor)) return from;
     if (!from) return '';
     const neighbors = Array.isArray(zoneGraph?.[from]) ? zoneGraph[from].map((zoneId) => String(zoneId)) : [];
     const safeNeighbors = neighbors.filter((zoneId) => zoneId && !forbiddenIds.has(zoneId));
     if (!safeNeighbors.length) return from;
+    if (actor) {
+      const roster = [...survivorMap.values()].filter((row) => !newDeadIds.includes(row?._id));
+      const avoidZoneId = getRetreatAvoidZoneId(actor);
+      return pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds, {
+        estimatePower,
+        maxDepth: 1,
+        allowStay: false,
+        excludedZoneIds: avoidZoneId ? [avoidZoneId] : [],
+      })?.nextStep || from;
+    }
 
     const population = {};
     for (const survivor of survivorMap.values()) {
@@ -78,11 +104,28 @@ export function createPhaseCombatFleeRuntime({
   };
 
   const resolveFleeSequence = (flee, chaser, opts = {}) => {
-    const curZone = String(opts.curZone || flee?.zoneId || chaser?.zoneId || '');
-    if (!flee || !chaser || !curZone) return null;
+    flee = survivorMap.get(String(flee?._id || '')) || flee;
+    chaser = survivorMap.get(String(chaser?._id || '')) || chaser;
+    const curZone = String(flee?.zoneId || chaser?.zoneId || '');
+    if (!flee || !chaser || !shareCombatSpace(flee, chaser) || !curZone) return null;
+    if (Number(flee.hp || 0) <= 0 || Number(chaser.hp || 0) <= 0 || !canMoveByStatus(flee)
+      || newDeadIds.includes(flee._id) || newDeadIds.includes(chaser._id)
+      || String(flee.zoneId) !== String(chaser.zoneId)) return null;
+    if (getActorDimensionRiftId(flee)) {
+      const exit = withdrawFromDimensionRift(flee, currentActionSec(), {
+        reason: opts.reason || opts.moveReason || 'retreat', opponentId: chaser._id, actions: { addLog, atNow, emitRunEvent },
+      });
+      if (!exit) return null;
+      upsertRuntimeSurvivor(survivorMap, flee);
+      return { escaped: true, caught: false, withdrawn: true, dest: String(flee.zoneId || curZone),
+        fleeId: String(flee._id), chaserId: String(chaser._id), riftId: exit.riftId };
+    }
     const neighbors = Array.isArray(zoneGraph?.[curZone]) ? zoneGraph[curZone].map((zoneId) => String(zoneId)) : [];
     const safeNeighbors = neighbors.filter((zoneId) => zoneId && !forbiddenIds.has(zoneId));
     if (!safeNeighbors.length) return null;
+    const plannedEscape = pickSparseSafeNeighbor(curZone, flee);
+    consumeRetreatAvoidDecision(flee);
+    if (plannedEscape === curZone) return null;
 
     const fleeTac = normalizeTac(flee?.tacticalSkill);
     const chaseTac = normalizeTac(chaser?.tacticalSkill);
@@ -92,8 +135,9 @@ export function createPhaseCombatFleeRuntime({
     const chaseLv = tacModuleLevel(chaser);
 
     if (fleeTac === '블링크' && canUseTac(flee)) {
-      const dest = pickSparseSafeNeighbor(curZone);
+      const dest = plannedEscape;
       flee.zoneId = String(dest || curZone);
+      rememberRetreatOrigin(flee, curZone);
       applyAiRecoveryWindow(flee, currentActionSec(), { reason: 'tac_blink_escape', opponentId: String(chaser?._id || ''), recoverSec: 8, safeZoneSec: 6 });
       upsertRuntimeSurvivor(survivorMap, flee);
       applyTacUse(flee, '블링크');
@@ -155,8 +199,17 @@ export function createPhaseCombatFleeRuntime({
     const fleeSustain = Math.min(0.14, fleeShield * 0.008 + fleeRegen * 0.02);
     const chaseSustain = Math.min(0.10, chaseShield * 0.006 + chaseRegen * 0.015);
     const chaserRecovering = Number(chaser?._aiRecoverUntilSec || 0) > Number(currentActionSec() || 0);
+    const cover = ruleset?.pvp?.teamCombatEnabled === false ? { helpers: [], bonus: 0 } : commitRetreatCover(flee, chaser, [...survivorMap.values()], {
+      nowSec: currentActionSec(), newDeadIds, estimatePower, roundSec: Number(ruleset?.pvp?.teamRoundCooldownSec ?? 8),
+    });
+    if (cover.helpers.length) {
+      addLog(`🛡️ [${flee.name}]의 퇴로를 ${cover.helpers.map((id) => survivorMap.get(id)?.name || id).join(', ')}이(가) 엄호합니다.`, 'combat-detail');
+      emitRunEvent('team_cover', { who: String(flee._id), chaserId: String(chaser._id), helpers: cover.helpers,
+        escapeBonus: cover.bonus, zoneId: curZone }, atNow());
+    }
 
     let pEscape = escapeBase + (fleeMs - chaseMs) * msScale;
+    pEscape += cover.bonus;
     pEscape += (escTacBonus && canUseTac(flee) && (fleeTacTrig?.applyBonus ?? true)) ? escTacBonus : 0;
     pEscape += Number(fleeEr?.escapeBonus || 0);
     pEscape -= Number(chaseEr?.chaseBonus || 0) * 0.7;
@@ -171,7 +224,7 @@ export function createPhaseCombatFleeRuntime({
     pEscape -= chaserRecovering ? recoveryPenalty * 0.45 : 0;
     pEscape = Math.max(0.05, Math.min(0.9, pEscape));
 
-    const didEscape = (opts.forceAttempt === true) ? true : (Math.random() < pEscape);
+    const didEscape = (opts.forceAttempt === true) ? true : (simulationRandom() < pEscape);
     if (!didEscape) {
       emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(curZone || ''), outcome: 'escape_fail', escaped: false, caught: true, pEscape: Number(pEscape.toFixed(3)), fleeHpRatio: Number(fleeHpRatio.toFixed(3)), chaseHpRatio: Number(chaseHpRatio.toFixed(3)) }, atNow());
       return { escaped: false, fleeId: String(flee._id), chaserId: String(chaser._id) };
@@ -183,8 +236,9 @@ export function createPhaseCombatFleeRuntime({
       emitRunEvent('skill', { who: String(flee?._id || ''), whoName: flee?.name, skill: String(fleeTac || ''), mode: 'escape_bonus', zoneId: String(flee?.zoneId || curZone || '') }, atNow());
     }
 
-    const dest = pickSparseSafeNeighbor(curZone);
+    const dest = plannedEscape;
     flee.zoneId = String(dest || curZone);
+    rememberRetreatOrigin(flee, curZone);
     applyAiRecoveryWindow(flee, currentActionSec(), { reason: String(opts.moveReason || 'escape'), opponentId: String(chaser?._id || ''), recoverSec: 8, safeZoneSec: 6 });
     upsertRuntimeSurvivor(survivorMap, flee);
     addLog(`🏃 [${flee.name}] ${opts.escapeText || '교전을 피하려 도주'}: ${getZoneName(curZone)} → ${getZoneName(flee.zoneId)}`, 'combat-detail');
@@ -193,6 +247,7 @@ export function createPhaseCombatFleeRuntime({
     const chaseBase = Number(ruleset?.ai?.chaseBaseChance ?? 0.25);
     const chaseMsScale = Number(ruleset?.ai?.chaseMoveSpeedScale ?? 0.14);
     let pChase = chaseBase + (chaseMs - fleeMs) * chaseMsScale + restrictedRatio * 0.10 + Math.max(0, Math.min(0.20, powDelta / 80));
+    pChase -= cover.bonus;
     pChase += chaseAggro * 0.10;
     pChase += Number(chaseEr?.chaseBonus || 0);
     pChase -= fleeAggro * 0.04;
@@ -203,7 +258,7 @@ export function createPhaseCombatFleeRuntime({
     pChase += (chaseTacBonus && canUseTac(chaser) && (chaseTacTrig?.applyBonus ?? true)) ? chaseTacBonus : 0;
     pChase = Math.max(0, Math.min(0.95, pChase));
 
-    const willChase = Math.random() < pChase;
+    const willChase = canMoveByStatus(chaser) && simulationRandom() < pChase;
     if (willChase && chaseTacBonus && canUseTac(chaser) && (chaseTacTrig?.useOnCommit ?? true)) {
       applyTacUse(chaser, chaseTac);
       addLog(`🧭 [${chaser.name}] 전술 스킬(${chaseTac})로 추격 강화!`, 'combat-detail');
@@ -224,6 +279,7 @@ export function createPhaseCombatFleeRuntime({
     const catchBase = Number(ruleset?.ai?.catchBaseChance ?? 0.35);
     const catchMsScale = Number(ruleset?.ai?.catchMoveSpeedScale ?? 0.18);
     let pCatch = catchBase + (chaseMs - fleeMs) * catchMsScale + restrictedRatio * 0.12 + Math.max(0, Math.min(0.25, powDelta / 70));
+    pCatch -= cover.bonus;
     pCatch += chaseAggro * 0.12;
     pCatch += Number(chaseEr?.chaseBonus || 0);
     pCatch -= fleeAggro * 0.05;
@@ -234,7 +290,7 @@ export function createPhaseCombatFleeRuntime({
     pCatch += (chaseTacBonus && canUseTac(chaser)) ? (chaseTacBonus * 0.9) : 0;
     pCatch = Math.max(0.05, Math.min(0.95, pCatch));
 
-    const caught = Math.random() < pCatch;
+    const caught = simulationRandom() < pCatch;
     if (!caught) {
       addLog(`💨 [${flee.name}] 간신히 따돌렸습니다.`, 'system');
       emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'escaped_after_chase', escaped: true, caught: false, pEscape: Number(pEscape.toFixed(3)), pChase: Number(pChase.toFixed(3)), pCatch: Number(pCatch.toFixed(3)) }, atNow());
@@ -243,7 +299,8 @@ export function createPhaseCombatFleeRuntime({
 
     const sustainMitigation = Math.min(5, Math.round(fleeShield * 0.12 + fleeRegen * 0.8));
     const finishBias = chaseHpRatio >= 0.7 ? 1 : 0;
-    const pre = Math.min(13, Math.max(3, Math.round(4 + (chaseMs - fleeMs) * 6 + Math.max(0, powDelta) / 80 + finishBias - sustainMitigation)));
+    const blockedReason = hasActionBlockStatus(chaser) ? 'action_block' : getDamageBlockReason(chaser, flee, { type: 'basic' });
+    const pre = blockedReason ? 0 : Math.min(Number(flee.hp || 0), 13, Math.max(3, Math.round(4 + (chaseMs - fleeMs) * 6 + Math.max(0, powDelta) / 80 + finishBias - sustainMitigation)));
     flee.hp = Math.max(0, Number(flee.hp || 0) - pre);
     upsertRuntimeSurvivor(survivorMap, flee);
     addLog(`⚡ 추격전! [${chaser.name}]이(가) [${flee.name}]을(를) 따라잡아 기습합니다. (피해 -${pre})`, 'combat-detail');

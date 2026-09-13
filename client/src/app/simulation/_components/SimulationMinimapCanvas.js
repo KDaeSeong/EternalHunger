@@ -1,6 +1,8 @@
 'use client';
 
 import { useId, useMemo } from 'react';
+import { getObserverVisibleActors } from '../_lib/teamObserverRuntime';
+import { getSpatialPosition, SPATIAL_REGION_SIZE } from '../_lib/combatSpatialRuntime.js';
 
 import {
   LUMIA_HYPERLOOP_MARKERS,
@@ -15,9 +17,14 @@ import {
   createLumiaRenderMarkers,
   createLumiaRenderPositions,
 } from '../_lib/lumiaMapRenderGeometryRuntime';
+import { buildCustomMapRenderGeometry } from '../_lib/customMapRenderGeometryRuntime.js';
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function actorIdentity(actor) {
+  return String(actor?._id || actor?.id || '');
 }
 
 const OFF = [
@@ -33,13 +40,6 @@ const TOKEN_OFF = [
 ];
 
 const EMPTY_ZONE_POSITIONS = Object.freeze({});
-
-const MINIMAP_VIEWBOX_PAD = {
-  x: -5,
-  y: -6,
-  width: LUMIA_MINIMAP_VIEWBOX.width + 10,
-  height: LUMIA_MINIMAP_VIEWBOX.height + 12,
-};
 
 const LUMIA_RENDER_HYPERLOOP_MARKERS = createLumiaRenderMarkers(
   LUMIA_HYPERLOOP_MARKERS,
@@ -99,17 +99,18 @@ function edgeKey(a, b) {
 function MinimapPassage({ segment, supplemental = false }) {
   const [a, b] = safeArray(segment?.edge);
   if (!a || !b) return null;
+  const points = segment?.pointsText || polygonPoints(segment.points);
   return (
     <g
       className={`minimap-passage-route ${supplemental ? 'supplemental' : ''}`}
       data-edge={`${a}:${b}`}
     >
       <polyline
-        points={polygonPoints(segment.points)}
+        points={points}
         className="minimap-passage-halo"
       />
       <polyline
-        points={polygonPoints(segment.points)}
+        points={points}
         className="minimap-passage"
       />
     </g>
@@ -117,6 +118,7 @@ function MinimapPassage({ segment, supplemental = false }) {
 }
 
 export default function SimulationMinimapCanvas({
+  trackedActorIds = [],
   activeMapId,
   dead,
   forbiddenNow,
@@ -132,96 +134,155 @@ export default function SimulationMinimapCanvas({
   zonePos,
 }) {
   const rawClipId = useId();
-  const islandClipId = `lumia-minimap-island-clip-${String(rawClipId).replace(/:/g, '')}`;
+  const islandClipId = `simulation-minimap-boundary-${String(rawClipId).replace(/:/g, '')}`;
   const sourcePositions = zonePos && typeof zonePos === 'object' ? zonePos : EMPTY_ZONE_POSITIONS;
+  const usesCustomGeometry = String(activeMapId || '').startsWith('local-map-');
+  const customGeometry = useMemo(
+    () => usesCustomGeometry ? buildCustomMapRenderGeometry(zones, zoneEdges) : null,
+    [usesCustomGeometry, zones, zoneEdges]
+  );
+  const mapOutline = customGeometry?.outline || LUMIA_ISLAND_OUTLINE;
+  const mapViewBox = customGeometry?.viewBox || LUMIA_MINIMAP_VIEWBOX;
+  const paddedViewBox = useMemo(() => ({
+    x: Number(mapViewBox.x || 0) - 5,
+    y: Number(mapViewBox.y || 0) - 6,
+    width: Number(mapViewBox.width || 100) + 10,
+    height: Number(mapViewBox.height || 100) + 12,
+  }), [mapViewBox]);
   const positions = useMemo(
-    () => createLumiaRenderPositions(sourcePositions, LUMIA_ISLAND_OUTLINE),
-    [sourcePositions]
+    () => customGeometry?.positions || createLumiaRenderPositions(sourcePositions, LUMIA_ISLAND_OUTLINE),
+    [customGeometry, sourcePositions]
   );
   const passageSegments = useMemo(
-    () => createLumiaConnectedPassages(LUMIA_PASSAGE_SEGMENTS, positions, LUMIA_ISLAND_OUTLINE),
-    [positions]
+    () => customGeometry?.passages || createLumiaConnectedPassages(LUMIA_PASSAGE_SEGMENTS, positions, LUMIA_ISLAND_OUTLINE),
+    [customGeometry, positions]
   );
   const passageEdgeKeys = useMemo(
     () => new Set(passageSegments.map((segment) => edgeKey(...safeArray(segment?.edge)))),
     [passageSegments]
   );
   const supplementalPassages = useMemo(() => {
+    if (customGeometry) return [];
     const segments = safeArray(zoneEdges).flatMap((edge) => {
       const [a, b] = safeArray(edge).map(String);
       if (!a || !b || a === b || passageEdgeKeys.has(edgeKey(a, b))) return [];
       return [{ edge: [a, b], points: [] }];
     });
     return createLumiaConnectedPassages(segments, positions, LUMIA_ISLAND_OUTLINE);
-  }, [passageEdgeKeys, positions, zoneEdges]);
+  }, [customGeometry, passageEdgeKeys, positions, zoneEdges]);
+  const zonePolygons = customGeometry?.polygons || LUMIA_ZONE_POLYGONS;
   const zoneList = safeArray(zones);
-  if (!zoneList.length) return <div className="minimap-empty">미니맵 데이터가 없습니다.</div>;
-
-  const forbiddenSet = asSet(forbiddenNow);
-  const hyperloopSet = asSet(hyperloopZoneSet);
-  const kioskSet = new Set(
-    zoneList
-      .filter((zone) => zone?.hasKiosk === true || zone?.kiosk === true)
-      .map((zone) => String(zone?.zoneId || ''))
-      .filter(Boolean)
+  const availableZoneIds = useMemo(
+    () => new Set(zoneList.map((zone) => String(zone?.zoneId || '')).filter(Boolean)),
+    [zoneList]
   );
-  const aliveByZone = groupActorsByZone(survivors, activeMapId);
-  const deadByZone = groupActorsByZone(dead, activeMapId);
-  const hyperloopSelectedChar = safeArray(survivors).find((actor) => String(actor?._id) === String(hyperloopCharId)) || null;
+  const mapOutlinePoints = useMemo(() => polygonPoints(mapOutline), [mapOutline]);
+  const baseZonePolygonRows = useMemo(() => Object.entries(zonePolygons).map(([id, polygon]) => ({
+    id,
+    zoneName: String(getZoneName?.(id) || id),
+    points: polygonPoints(shrinkPolygon(polygon, positions?.[id], 0.78)),
+  })), [getZoneName, positions, zonePolygons]);
+  const forbiddenZonePolygonRows = useMemo(() => Object.entries(zonePolygons).map(([id, polygon]) => ({
+    id,
+    zoneName: String(getZoneName?.(id) || id),
+    points: polygonPoints(shrinkPolygon(polygon, positions?.[id], 0.82)),
+  })), [getZoneName, positions, zonePolygons]);
+  const renderedPassages = useMemo(() => [
+    ...passageSegments.map((segment) => ({
+      segment: { ...segment, pointsText: polygonPoints(segment.points) },
+      supplemental: false,
+    })),
+    ...supplementalPassages.map((segment) => ({
+      segment: { ...segment, pointsText: polygonPoints(segment.points) },
+      supplemental: true,
+    })),
+  ], [passageSegments, supplementalPassages]);
+  const staticMapFrame = useMemo(() => (
+    <>
+      <defs>
+        <clipPath id={islandClipId}>
+          <polygon points={mapOutlinePoints} />
+        </clipPath>
+      </defs>
+
+      <polygon
+        className="minimap-island-outline"
+        points={mapOutlinePoints}
+      />
+
+      <g className="minimap-zone-area-layer" clipPath={`url(#${islandClipId})`}>
+        {baseZonePolygonRows.map((row) => {
+          if (!availableZoneIds.has(row.id)) return null;
+          return (
+            <polygon
+              key={`area-base-${row.id}`}
+              points={row.points}
+              className="minimap-zone-area"
+            >
+              <title>{row.zoneName}</title>
+            </polygon>
+          );
+        })}
+      </g>
+    </>
+  ), [availableZoneIds, baseZonePolygonRows, islandClipId, mapOutlinePoints]);
+  const staticPassageLayer = useMemo(() => (
+    <g clipPath={`url(#${islandClipId})`}>
+      {renderedPassages.map(({ segment, supplemental }) => {
+        const [a, b] = safeArray(segment?.edge);
+        if (!availableZoneIds.has(a) || !availableZoneIds.has(b)) return null;
+        return (
+          <MinimapPassage
+            key={`${supplemental ? 'supplemental-' : ''}passage-${a}-${b}`}
+            segment={segment}
+            supplemental={supplemental}
+          />
+        );
+      })}
+    </g>
+  ), [availableZoneIds, islandClipId, renderedPassages]);
+  const kioskSet = useMemo(
+    () => new Set(
+      zoneList
+        .filter((zone) => zone?.hasKiosk === true || zone?.kiosk === true)
+        .map((zone) => String(zone?.zoneId || ''))
+        .filter(Boolean)
+    ),
+    [zoneList]
+  );
+  const forbiddenSet = useMemo(() => asSet(forbiddenNow), [forbiddenNow]);
+  const hyperloopSet = useMemo(() => asSet(hyperloopZoneSet), [hyperloopZoneSet]);
+  const aliveByZone = useMemo(() => groupActorsByZone(survivors, activeMapId), [survivors, activeMapId]);
+  const deadByZone = useMemo(() => groupActorsByZone(dead, activeMapId), [dead, activeMapId]);
+  const trackedSet = useMemo(() => new Set(safeArray(trackedActorIds).map(String)), [trackedActorIds]);
+  const hyperloopSelectedChar = useMemo(
+    () => safeArray(survivors).find((actor) => actorIdentity(actor) === String(hyperloopCharId || '')) || null,
+    [hyperloopCharId, survivors]
+  );
   const selectedZoneId = hyperloopSelectedChar ? String(hyperloopSelectedChar?.zoneId || '') : '';
-  const availableZoneIds = new Set(zoneList.map((zone) => String(zone?.zoneId || '')).filter(Boolean));
-  const visiblePings = safeArray(recentPings).slice(0, 2);
+  const visiblePings = useMemo(() => safeArray(recentPings).slice(0, 2), [recentPings]);
+  if (!zoneList.length) return <div className="minimap-empty">미니맵 데이터가 없습니다.</div>;
 
   return (
     <div className="minimap-canvas">
       <svg
         className="minimap-svg"
-        viewBox={`${MINIMAP_VIEWBOX_PAD.x} ${MINIMAP_VIEWBOX_PAD.y} ${MINIMAP_VIEWBOX_PAD.width} ${MINIMAP_VIEWBOX_PAD.height}`}
+        viewBox={`${paddedViewBox.x} ${paddedViewBox.y} ${paddedViewBox.width} ${paddedViewBox.height}`}
         role="img"
-        aria-label="미니맵"
+        aria-label={customGeometry ? '사용자 지도 미니맵' : '루미아 섬 미니맵'}
       >
-        <defs>
-          <clipPath id={islandClipId}>
-            <polygon points={polygonPoints(LUMIA_ISLAND_OUTLINE)} />
-          </clipPath>
-        </defs>
-
-        <polygon
-          className="minimap-island-outline"
-          points={polygonPoints(LUMIA_ISLAND_OUTLINE)}
-        />
-
-        <g className="minimap-zone-area-layer" clipPath={`url(#${islandClipId})`}>
-          {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
-            if (!availableZoneIds.has(id)) return null;
-            const zoneName = String(getZoneName?.(id) || id);
-            const visualPolygon = shrinkPolygon(polygon, positions?.[id], 0.78);
-            return (
-              <polygon
-                key={`area-base-${id}`}
-                points={polygonPoints(visualPolygon)}
-                className="minimap-zone-area"
-              >
-                <title>{zoneName}</title>
-              </polygon>
-            );
-          })}
-        </g>
+        {staticMapFrame}
 
         <g className="minimap-zone-alert-layer" clipPath={`url(#${islandClipId})`}>
-          {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
-            if (!availableZoneIds.has(id)) return null;
-            const isForbidden = forbiddenSet.has(id);
-            if (!isForbidden) return null;
-            const zoneName = String(getZoneName?.(id) || id);
-            const visualPolygon = shrinkPolygon(polygon, positions?.[id], 0.82);
+          {forbiddenZonePolygonRows.map((row) => {
+            if (!availableZoneIds.has(row.id) || !forbiddenSet.has(row.id)) return null;
             return (
               <polygon
-                key={`area-${id}`}
-                points={polygonPoints(visualPolygon)}
+                key={`area-${row.id}`}
+                points={row.points}
                 className="minimap-zone-area forbidden"
               >
-                <title>{zoneName}</title>
+                <title>{row.zoneName}</title>
               </polygon>
             );
           })}
@@ -230,7 +291,7 @@ export default function SimulationMinimapCanvas({
         {zoneList.map((zone) => {
           const id = String(zone?.zoneId || '');
           const p = positions?.[id];
-          if (!id || !p || LUMIA_ZONE_POLYGONS[id]) return null;
+          if (!id || !p || zonePolygons[id]) return null;
           const isForbidden = forbiddenSet.has(id);
           return (
             <circle
@@ -243,27 +304,7 @@ export default function SimulationMinimapCanvas({
           );
         })}
 
-        <g clipPath={`url(#${islandClipId})`}>
-          {passageSegments.map((segment) => {
-            const [a, b] = safeArray(segment?.edge);
-            if (!availableZoneIds.has(a) || !availableZoneIds.has(b)) return null;
-            return (
-              <MinimapPassage key={`passage-${a}-${b}`} segment={segment} />
-            );
-          })}
-
-          {supplementalPassages.map((segment) => {
-            const [a, b] = safeArray(segment?.edge);
-            if (!availableZoneIds.has(a) || !availableZoneIds.has(b)) return null;
-            return (
-              <MinimapPassage
-                key={`supplemental-passage-${a}-${b}`}
-                segment={segment}
-                supplemental
-              />
-            );
-          })}
-        </g>
+        {staticPassageLayer}
 
         <g clipPath={`url(#${islandClipId})`}>
           {safeArray(recentMoveTrails).map((trail) => {
@@ -299,9 +340,9 @@ export default function SimulationMinimapCanvas({
           const nodeR = 1.18;
           const labelSize = zoneName.length >= 6 ? 2.3 : zoneName.length >= 5 ? 2.55 : 2.9;
           const hasHyperloop = hyperloopSet.has(id);
-          const hasKiosk = kioskSet.has(id) || Boolean(LUMIA_KIOSK_MARKERS[id]);
-          const hyperloopMarker = LUMIA_RENDER_HYPERLOOP_MARKERS[id] || { x: p.x + nodeR, y: p.y - 4.2 };
-          const kioskMarker = LUMIA_RENDER_KIOSK_MARKERS[id] || { x: p.x - nodeR, y: p.y + 4.2 };
+          const hasKiosk = kioskSet.has(id) || (!customGeometry && Boolean(LUMIA_KIOSK_MARKERS[id]));
+          const hyperloopMarker = (!customGeometry && LUMIA_RENDER_HYPERLOOP_MARKERS[id]) || { x: p.x + nodeR, y: p.y - 4.2 };
+          const kioskMarker = (!customGeometry && LUMIA_RENDER_KIOSK_MARKERS[id]) || { x: p.x - nodeR, y: p.y + 4.2 };
 
           return (
             <g key={`z-${id}`}>
@@ -350,23 +391,26 @@ export default function SimulationMinimapCanvas({
                 </text>
               ) : null}
 
-              {(aliveByZone[id] || []).slice(0, 12).map((actor, idx) => {
+              {getObserverVisibleActors(aliveByZone[id], trackedSet).map((actor, idx) => {
+                const actorId = actorIdentity(actor);
                 const offset = TOKEN_OFF[idx % TOKEN_OFF.length];
-                const cx = p.x + offset[0] * 0.5;
-                const cy = p.y + offset[1] * 0.5;
-                const isSelected = String(actor?._id || '') === String(hyperloopCharId || '');
+                const local = getSpatialPosition(actor);
+                const cx = p.x + (local ? (local.x / SPATIAL_REGION_SIZE - 0.5) * 12 : offset[0] * 0.5);
+                const cy = p.y + (local ? (local.y / SPATIAL_REGION_SIZE - 0.5) * 12 : offset[1] * 0.5);
+                const isSelected = actorId === String(hyperloopCharId || '');
+                const isTracked = trackedSet.has(actorId);
                 const hpRatio = Math.max(0, Math.min(1, Number(actor?.hp || 0) / Math.max(1, Number(actor?.maxHp || 100))));
-                const tokenImg = String(actor?.previewImage || '/Images/default_image.png');
+                const tokenImg = String(actor?.previewImage || '/Images/default_image.svg');
                 const teamState = getTeamStateForActor?.(actor);
                 const teamColor = teamState?.missingCount > 0
                   ? 'rgba(255, 180, 80, 0.94)'
                   : 'rgba(112, 221, 148, 0.94)';
-                const tokenTitle = `${String(actor?.name || '캐릭터')} / HP ${Math.floor(Number(actor?.hp || 0))}/${Math.max(1, Math.floor(Number(actor?.maxHp || 100)))} / ${zoneName}`;
+                const tokenTitle = `${String(actor?.name || '캐릭터')} / HP ${Math.floor(Number(actor?.hp || 0))}/${Math.max(1, Math.floor(Number(actor?.maxHp || 100)))} / ${zoneName}${local ? ` / 지역 내 (${local.x.toFixed(1)}, ${local.y.toFixed(1)})m` : ''}`;
 
                 return (
-                  <g key={`a-${id}-${actor._id || idx}`} className={`minimap-character-token ${isSelected ? 'selected' : ''}`}>
-                    <title>{tokenTitle}</title>
-                    {isSelected ? (
+                  <g key={`a-${id}-${actorId || idx}`} className={`minimap-character-token ${isSelected ? 'selected' : ''} ${isTracked ? 'tracked' : ''}`}>
+                    <title>{isTracked ? `관전 중 · ${tokenTitle}` : tokenTitle}</title>
+                    {isSelected || isTracked ? (
                       <circle
                         cx={cx}
                         cy={cy}
@@ -381,7 +425,7 @@ export default function SimulationMinimapCanvas({
                       cy={cy}
                       r={2.42}
                       fill="rgba(8, 14, 24, 0.92)"
-                      stroke={isSelected ? 'rgba(255,215,0,0.95)' : teamColor}
+                      stroke={isSelected || isTracked ? 'rgba(255,215,0,0.95)' : teamColor}
                       strokeWidth="0.55"
                     />
                     <image
@@ -408,18 +452,21 @@ export default function SimulationMinimapCanvas({
                 );
               })}
 
-              {(deadByZone[id] || []).slice(0, 8).map((actor, idx) => {
+              {getObserverVisibleActors(deadByZone[id], trackedSet, 8).map((actor, idx) => {
+                const actorId = actorIdentity(actor);
                 const offset = OFF[(idx + 2) % OFF.length];
+                const local = getSpatialPosition(actor);
+                const isTracked = trackedSet.has(actorId);
                 return (
                   <circle
-                    key={`d-${id}-${actor._id || idx}`}
-                    cx={p.x + offset[0] * 0.55}
-                    cy={p.y + offset[1] * 0.55}
-                    r={0.85}
+                    key={`d-${id}-${actorId || idx}`}
+                    cx={p.x + (local ? (local.x / SPATIAL_REGION_SIZE - 0.5) * 12 : offset[0] * 0.55)}
+                    cy={p.y + (local ? (local.y / SPATIAL_REGION_SIZE - 0.5) * 12 : offset[1] * 0.55)}
+                    r={isTracked ? 1.4 : 0.85}
                     fill="rgba(170,170,170,0.70)"
-                    stroke="rgba(0,0,0,0.28)"
+                    stroke={isTracked ? 'rgba(255,215,0,0.95)' : 'rgba(0,0,0,0.28)'}
                     strokeWidth="0.35"
-                  />
+                  ><title>{`${isTracked ? '관전 중 · ' : ''}${actor.name || '참가자'} / 사망 / ${zoneName}`}</title></circle>
                 );
               })}
             </g>

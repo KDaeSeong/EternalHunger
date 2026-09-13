@@ -10,6 +10,17 @@ function nowMs() {
   return Date.now();
 }
 
+export const RUN_EVENT_VIEW_LIMIT = 5000;
+
+export function appendVisibleRunEvents(previous, incoming, limit = RUN_EVENT_VIEW_LIMIT) {
+  const before = Array.isArray(previous) ? previous : [];
+  const added = Array.isArray(incoming) ? incoming : [];
+  const max = Math.max(1, Math.floor(Number(limit) || RUN_EVENT_VIEW_LIMIT));
+  if (!added.length) return before;
+  if (added.length >= max) return added.slice(-max);
+  return [...before.slice(-Math.max(0, max - added.length)), ...added];
+}
+
 export function appendSimulationLog({
   text,
   type = 'normal',
@@ -17,27 +28,31 @@ export function appendSimulationLog({
   actions = {},
 } = {}) {
   const { fullLogsRef, fullLogEntriesRef, logSeqRef } = refs;
-  const { setLogs } = actions;
+  const { enqueueVisibleLog, setLogs } = actions;
 
   try {
     const logText = String(text || '');
     const logType = String(type || 'normal');
-    fullLogsRef.current = [...(Array.isArray(fullLogsRef.current) ? fullLogsRef.current : []), logText];
-    fullLogEntriesRef.current = [
-      ...(Array.isArray(fullLogEntriesRef.current) ? fullLogEntriesRef.current : []),
-      { text: logText, type: logType },
-    ];
+    const fullLogs = Array.isArray(fullLogsRef.current) ? fullLogsRef.current : [];
+    fullLogs.push(logText);
+    fullLogsRef.current = fullLogs;
+    const fullLogEntries = Array.isArray(fullLogEntriesRef.current) ? fullLogEntriesRef.current : [];
+    fullLogEntries.push({ text: logText, type: logType });
+    fullLogEntriesRef.current = fullLogEntries;
   } catch {
     // ignore
   }
 
-  if (typeof setLogs !== 'function') return;
-  setLogs((prev) => {
-    logSeqRef.current += 1;
-    const rand = Math.random().toString(16).slice(2);
-    const id = `${Date.now()}-${logSeqRef.current}-${rand}`;
-    return [...prev, { text, type, id }];
-  });
+  if (typeof setLogs !== 'function' && typeof enqueueVisibleLog !== 'function') return;
+  // React may defer or repeat an updater. Allocate once at event creation, with
+  // no random draw and no ref mutation inside the updater.
+  logSeqRef.current += 1;
+  const entry = { text, type, id: `log-${logSeqRef.current}` };
+  if (typeof enqueueVisibleLog === 'function') {
+    enqueueVisibleLog(entry);
+    return;
+  }
+  setLogs((prev) => [...prev, entry]);
 }
 
 export function exportSimulationBattleLog({
@@ -97,10 +112,11 @@ export function emitSimulationRunEvent({
   at = null,
   state = {},
   actions = {},
+  refs = {},
 } = {}) {
   const { day, phase, matchSec } = state;
-  const { setRunEvents } = actions;
-  if (typeof setRunEvents !== 'function') return;
+  const { enqueueRunEvent, setRunEvents } = actions;
+  if (typeof enqueueRunEvent !== 'function' && typeof setRunEvents !== 'function') return;
 
   const stamp = at || { day, phase, sec: matchSec };
   const eventPayload = payload && typeof payload === 'object' ? { ...payload } : {};
@@ -117,9 +133,7 @@ export function emitSimulationRunEvent({
   ) {
     event.subkind = String(payloadKind);
   }
-  setRunEvents((prev) => {
-    const next = [...(Array.isArray(prev) ? prev : []), event];
-    const max = 5000;
-    return next.length > max ? next.slice(next.length - max) : next;
-  });
+  if (refs.fullRunEventsRef) refs.fullRunEventsRef.current.push(structuredClone(event));
+  if (typeof enqueueRunEvent === 'function') enqueueRunEvent(event);
+  else setRunEvents((prev) => appendVisibleRunEvents(prev, [event]));
 }

@@ -2,8 +2,11 @@ import {
   ACTIVE_CHARACTER_SKILL_SLOTS,
   CHARACTER_SKILL_SLOT_LABELS,
   normalizeCharacterSkillType,
+  normalizeCharacterSkillMovementMode,
   normalizeSupportTargetScope,
 } from '../../../utils/characterSkillCompiler.js';
+
+import { normalizeCharacterStatusEffects, getCharacterStatusSkillError } from '../../../utils/characterStatusSkillDefinition.js';
 
 const CHARACTER_SKILL_MODE = 'character_skill';
 const BASIC_ATTACK_RECAST_TYPE = 'basic_attack_enhance';
@@ -129,6 +132,7 @@ function normalizeCustomSkill(actor, slot) {
   const skillSlot = String(slot || '').toLowerCase();
   const raw = readSkillSource(actor)?.[skillSlot];
   if (!raw || typeof raw !== 'object' || raw.enabled === false) return null;
+  if (getCharacterStatusSkillError(raw, skillSlot)) return null;
 
   const explicitName = cleanSkillText(raw.name, '');
   const firstFlat = levelArray(raw.firstFlat, 0).map((n) => Math.max(0, Math.round(n)));
@@ -140,6 +144,9 @@ function normalizeCustomSkill(actor, slot) {
   const secondCurrentHpPct = levelArray(raw.secondCurrentHpPct, 0).map((n) => Math.max(0, Number(n) || 0));
   const heal = levelArray(raw.heal, 0).map((n) => Math.max(0, Math.round(n)));
   const shield = levelArray(raw.shield, 0).map((n) => Math.max(0, Math.round(n)));
+  const resourceGain = skillSlot === 'passive' ? 0 : Math.max(0, Number(raw.resourceGain || 0));
+  const includesMovement = skillSlot !== 'passive' && raw.includesMovement === true;
+  const movementDistance = includesMovement ? clamp(raw.movementDistance ?? 0, 0, 10) : 0;
   const statModifiers = cleanStatModifiers(raw.statModifiers);
   const hasPayload = [
     ...firstFlat,
@@ -151,6 +158,8 @@ function normalizeCustomSkill(actor, slot) {
     ...secondCurrentHpPct,
     ...heal,
     ...shield,
+    resourceGain,
+    movementDistance,
     ...Object.values(statModifiers),
   ].some((n) => Number(n || 0) !== 0);
   if (!hasPayload && !explicitName) return null;
@@ -166,8 +175,14 @@ function normalizeCustomSkill(actor, slot) {
     trigger: cleanSkillText(raw.trigger, isPassive ? 'always' : 'basic_attack'),
     name: explicitName || `${CHARACTER_SKILL_SLOT_LABELS[skillSlot] || skillSlot.toUpperCase()} skill`,
     cooldownSec: clamp(raw.cooldownSec ?? defaultCooldown, isPassive ? 0 : 1, 180),
+    cooldownFixed: raw.cooldownFixed === true,
+    resourceCost: skillSlot === 'passive' ? 0 : Math.max(0, Number(raw.resourceCost || 0)),
+    resourceGain,
     recastWindowSec: clamp(raw.recastWindowSec ?? 0, 0, 30),
     range: clamp(raw.range ?? 0, 0, 20),
+    includesMovement,
+    movementMode: normalizeCharacterSkillMovementMode(raw.movementMode),
+    movementDistance,
     castDelaySec: clamp(raw.castDelaySec ?? 0, 0, 10),
     recoveryDelaySec: clamp(raw.recoveryDelaySec ?? 0, 0, 10),
     useCondition: cleanSkillText(raw.useCondition, 'auto'),
@@ -181,6 +196,7 @@ function normalizeCustomSkill(actor, slot) {
     maxTargetHpPct: cleanPctInput(raw.maxTargetHpPct, 0),
     radius: clamp(raw.radius ?? 0, 0, 5),
     durationSec: clamp(raw.durationSec ?? 0, 0, 60),
+    statusEffects: normalizeCharacterStatusEffects(raw, skillSlot),
     firstFlat,
     secondFlat,
     flatDamage,
@@ -193,6 +209,9 @@ function normalizeCustomSkill(actor, slot) {
     firstSkillAmpScale: Math.max(0, Number(raw.firstSkillAmpScale || 0)),
     secondSkillAmpScale: Math.max(0, Number(raw.secondSkillAmpScale || 0)),
     skillAmpScale: Math.max(0, Number(raw.skillAmpScale ?? raw.firstSkillAmpScale ?? 0)),
+    attackPowerScale: Math.max(0, Number(raw.attackPowerScale ?? raw.firstAttackPowerScale ?? 0)),
+    secondAttackPowerScale: Math.max(0, Number(raw.secondAttackPowerScale || 0)),
+    damageType: ['basic', 'skill', 'true'].includes(raw.damageType) ? raw.damageType : 'skill',
     statModifiers,
     source: 'custom',
   };
@@ -200,8 +219,9 @@ function normalizeCustomSkill(actor, slot) {
 
 function getCharacterSkillDef(actor, slot) {
   const skillSlot = String(slot || '').toLowerCase();
+  if (readSkillSource(actor)?.[skillSlot]?.enabled === false) return null;
   const custom = normalizeCustomSkill(actor, skillSlot);
-  if (custom) return custom;
+  if (custom || actor?.localProfile === true) return custom;
 
   const code = resolveCharacterSkillCode(actor);
   return code && skillSlot ? CHARACTER_SKILL_CATALOG?.[code]?.[skillSlot] || null : null;
