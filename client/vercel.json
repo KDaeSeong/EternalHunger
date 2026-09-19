@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "env": {
+    "BACKEND_BASE_URL": "https://eternalhunger-e7z1.onrender.com",
+    "AUTH_PROXY_CREDENTIAL_ORIGINS": "https://eternalhunger-e7z1.onrender.com"
+  }
+}

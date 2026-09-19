@@ -30,7 +30,6 @@ export default function LoginPage() {
     } catch (err) {
       const nextMessage = err?.message || '로그인에 실패했습니다.';
       setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
       setBusy(false);
     }
   };

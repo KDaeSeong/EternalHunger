@@ -102,4 +102,23 @@ assert.equal(logoutOptions.credentials, 'include');
 assert.equal(logoutOptions.headers['X-CSRF-Token'], 'csrf-contract-token');
 assert.equal(authSyncCount >= 1, true, 'session invalidation must emit a synchronization event');
 
+globalThis.__authTestAxiosImpl = async () => {
+  const error = new Error('Request failed');
+  error.response = {
+    status: 503,
+    data: {
+      code: 'SERVICE_CONFIGURATION_ERROR',
+      error: 'BACKEND_BASE_URL이 설정되지 않았거나 올바르지 않습니다.',
+    },
+  };
+  throw error;
+};
+await assert.rejects(
+  () => api.apiGet('/public/home-hub'),
+  (error) => error.code === 'SERVICE_CONFIGURATION_ERROR' &&
+    error.message === api.SERVICE_UNAVAILABLE_MESSAGE &&
+    !error.message.includes('BACKEND_BASE_URL'),
+  'internal deployment details must be replaced with a user-facing service message',
+);
+
 console.log('Auth session checks passed.');

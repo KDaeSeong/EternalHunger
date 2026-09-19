@@ -10,6 +10,8 @@ import { Buffer } from 'node:buffer';
 const SESSION_COOKIE = 'token';
 const CSRF_COOKIE = 'eh_csrf';
 const BODYLESS_STATUS_CODES = new Set([204, 205, 304]);
+const SERVICE_UNAVAILABLE_MESSAGE = '서비스 연결이 원활하지 않습니다. 잠시 후 다시 시도해 주세요.';
+const SERVICE_CONFIGURATION_ERROR = 'SERVICE_CONFIGURATION_ERROR';
 
 function stripApiSuffix(value) {
   return String(value || '').trim().replace(/\/+$/, '').replace(/\/api\/proxy$/, '').replace(/\/api$/, '');
@@ -102,8 +104,9 @@ function copySetCookies(sourceHeaders, response) {
 async function proxy(request, context) {
   const backend = getBackendBase(request);
   if (!backend) {
+    console.error('api proxy configuration error: BACKEND_BASE_URL is missing or invalid');
     return NextResponse.json(
-      { error: 'BACKEND_BASE_URL이 설정되지 않았거나 올바르지 않습니다.' },
+      { error: SERVICE_UNAVAILABLE_MESSAGE, code: SERVICE_CONFIGURATION_ERROR },
       { status: 500, headers: { 'Cache-Control': 'no-store, max-age=0' } }
     );
   }
@@ -120,8 +123,11 @@ async function proxy(request, context) {
   const { cookieHeader, hasSession } = await getForwardCookies();
   const hasExplicitAuth = Boolean(request.headers.get('authorization'));
   if (!credentialOriginAllowed && (authPath || hasSession || hasExplicitAuth)) {
+    console.error('api proxy configuration error: credential origin is not allowlisted', {
+      backendOrigin: (() => { try { return new URL(backend).origin; } catch { return ''; } })(),
+    });
     return NextResponse.json(
-      { error: '인증 프록시 목적지가 AUTH_PROXY_CREDENTIAL_ORIGINS에 허용되지 않았습니다.' },
+      { error: SERVICE_UNAVAILABLE_MESSAGE, code: SERVICE_CONFIGURATION_ERROR },
       { status: 503, headers: { 'Cache-Control': 'no-store, max-age=0' } }
     );
   }

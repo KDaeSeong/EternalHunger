@@ -14,8 +14,9 @@ export const DEFAULT_API_TIMEOUT_MS = 10000;
 export const INIT_API_TIMEOUT_MS = 45000;
 export const AUTH_SYNC_EVENT = 'eh:auth-sync';
 export const COOKIE_SESSION_MARKER = 'cookie-session';
-export const API_BASE_CONFIG_ERROR =
-  'API_BASE를 확인할 수 없습니다. NEXT_PUBLIC_API_BASE, EH_API_BASE 또는 서버 BACKEND_BASE_URL 설정을 확인하세요.';
+export const SERVICE_UNAVAILABLE_MESSAGE =
+  '서비스 연결이 원활하지 않습니다. 잠시 후 다시 시도해 주세요.';
+export const API_BASE_CONFIG_ERROR = SERVICE_UNAVAILABLE_MESSAGE;
 
 export function normalizeApiBase(raw) {
   const v = String(raw || '').trim().replace(/\/+$/, '');
@@ -386,20 +387,24 @@ export async function apiRequest(method, url, data, options = {}) {
     const status = Number(e?.response?.status || 0);
     const isTimeout = e?.code === 'ECONNABORTED';
     const isNetwork = !status && !isTimeout;
+    const responseCode = String(e?.response?.data?.code || '').trim();
     const authCode = classifyAuthFailure({
       status,
       data: e?.response?.data,
       hadToken: Boolean(requestToken),
     });
     if (authCode) clearRejectedStoredAuth(requestToken, authCode);
+    const isServiceFailure = isNetwork || status >= 500 || responseCode === 'SERVICE_CONFIGURATION_ERROR';
     const msg = authCode
       ? authFailureMessage(authCode)
       : isTimeout
-        ? '요청 시간이 초과되었습니다. 서버 실행 상태를 확인하세요.'
-        : (e?.response?.data?.error || e?.response?.data?.message || e.message || '요청 실패');
+        ? '요청이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.'
+        : isServiceFailure
+          ? SERVICE_UNAVAILABLE_MESSAGE
+          : (e?.response?.data?.error || e?.response?.data?.message || e.message || '요청을 처리하지 못했습니다.');
     const err = new Error(msg);
     err.response = e?.response;
-    err.code = e?.code || '';
+    err.code = responseCode || e?.code || '';
     err.status = status;
     err.isTimeout = isTimeout;
     err.isNetwork = isNetwork;
