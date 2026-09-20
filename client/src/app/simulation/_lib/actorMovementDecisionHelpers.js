@@ -245,11 +245,18 @@ export function resolveActorNextMoveZone({
     phase,
     recovering = false,
     preserveGrowthPosition = false,
+    committedNextStep,
     ruleset,
     zoneGraph = {},
   } = state;
 
   const updated = actor || {};
+  if (committedNextStep != null && !mustEscape && !fleeInterruptReason && !recovering) {
+    const step = String(committedNextStep);
+    const reachable = step === String(currentZone) || neighbors.map(String).includes(step);
+    const nextZoneId = reachable && !forbiddenIds.has(step) ? step : String(currentZone);
+    return { moveChance: 1, nextZoneId, willMove: nextZoneId !== String(currentZone) };
+  }
   const forbidCfg = ruleset?.forbidden || {};
   const escapeMoveChance = Math.min(1, Math.max(0, Number(forbidCfg.escapeMoveChance ?? 0.85)));
   const curDet = Number.isFinite(Number(updated.detonationSec)) ? Number(updated.detonationSec) : 999;

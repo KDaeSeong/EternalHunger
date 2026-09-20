@@ -10,6 +10,7 @@ import { getInvRules } from '../_lib/inventoryItemRules';
 import { getActionStatePresentation } from '../_lib/runtimeStatusDisplay.js';
 import { getCombatSpacePresentation } from '../_lib/combatSpacePresentation.js';
 import { getUniqueResourceSnapshot } from '../_lib/uniqueResourceRuntime.js';
+import { getDetonationMaxSec } from '../_lib/detonationTimerRuntime.js';
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
@@ -33,7 +34,7 @@ function DetonationBadge({ actor, forbiddenNow, settings }) {
   if (!Number.isFinite(detVal)) return null;
 
   const ruleset = getRuleset(settings?.rulesetId, settings?.simulationRuleset);
-  const detMax = Number(actor?.detonationMaxSec ?? ruleset?.detonation?.maxSec ?? 30);
+  const detMax = getDetonationMaxSec(actor, ruleset);
   const critical = Math.max(0, Number(ruleset?.detonation?.criticalSec ?? 5));
   const zoneId = String(actor?.zoneId || '');
   const isForbidden = forbiddenNow?.has?.(zoneId);
@@ -42,10 +43,11 @@ function DetonationBadge({ actor, forbiddenNow, settings }) {
   const isCritical = detFloor <= critical;
   const label = maxFloor !== null ? `${detFloor}/${maxFloor}s` : `${detFloor}s`;
   const paused = isForbidden && getActionStatePresentation(actor).collarPaused;
+  const timerState = paused ? '경직: 금지구역 카운트 정지' : isForbidden ? '금지구역: 폭발 타이머 감소' : '안전구역: 폭발 타이머 회복';
 
   return (
     <span
-      title={paused ? '경직: 금지구역 카운트 정지' : isForbidden ? '금지구역: 폭발 타이머 감소' : '안전구역: 폭발 타이머 회복'}
+      title={`${timerState} · ${actor?.detonationFinalNight ? '마지막 밤 이후' : '평소'} 상한 ${detMax}초`}
       style={{
         fontWeight: 900,
         padding: '2px 8px',

@@ -6,6 +6,8 @@ import {
 } from './phaseSpawnRuntime';
 import { normalizeRuntimeSurvivorList } from './simulationEngine';
 import { ensureFieldResources } from './fieldResourceRuntime';
+import { applyFinalNightDetonationBonus, normalizeDetonationTimer } from './detonationTimerRuntime.js';
+import { isEndgamePhase } from './suddenDeathRuntime.js';
 
 export function runSimulationPhaseSetup({
   actions = {},
@@ -191,11 +193,23 @@ export function runSimulationPhaseSetup({
     phaseSurvivors = [...phaseSurvivors, ...revivalRuntime.revivedNow];
   }
 
+  phaseSurvivors = normalizeRuntimeSurvivorList(phaseSurvivors);
+  nextSpawn.detonationFinalNightGrant = applyFinalNightDetonationBonus({
+    actors: phaseSurvivors, ruleset, day: nextDay, phase: nextPhase, atSec: phaseStartSec,
+    previousGrant: spawnState?.detonationFinalNightGrant,
+    actions: { addLog, emitRunEvent },
+  });
+  if (useDetonation) {
+    for (const actor of phaseSurvivors) if (Number(actor.hp) > 0) {
+      normalizeDetonationTimer(actor, ruleset, { finalNight: isEndgamePhase(nextDay, nextPhase) });
+    }
+  }
+
   return {
     ...phaseRuntime,
     ...forbiddenRuntime,
     ...revivalRuntime,
     nextSpawn,
-    phaseSurvivors: normalizeRuntimeSurvivorList(phaseSurvivors),
+    phaseSurvivors,
   };
 }

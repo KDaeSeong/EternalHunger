@@ -1,7 +1,8 @@
 import { runDay1HeroGearDirectorWithLogs } from './phaseRouteProgressRuntime';
 import { runSingleActorPhaseAction } from './phaseActorActionStepRuntime';
 import { buildCraftGoal, chooseAiMoveTargets, computeLateGameUpgradeNeed, getActorPerkEffects, pickGoalLoadoutKeys } from './simulationEngine';
-import { buildTeamMovementPlans } from './teamTacticsRuntime';
+import { buildTeamCoordination } from './teamTacticsRuntime';
+import { publishTeamRegroupDecision } from './teamRegroupRuntime';
 import { estimateMovePower } from './movePowerRuntime';
 import { hasActionBlockStatus, getForcedControlEffect } from '../../../utils/statusLogic';
 import { refreshActorGrowthPlan } from './growthPlanRuntime';
@@ -57,7 +58,7 @@ export function runPhaseActorActionPipeline({
   // Every member plans from the same pre-action roster, not a partly moved team.
   const movementRoster = cloneMovementRosterForPlanning(roster);
   movementRoster.forEach((actor) => refreshActorGrowthPlan(actor, publicItems, state));
-  const teamMovementPlans = buildTeamMovementPlans({
+  const { movementPlans: teamMovementPlans, regroupDecisions } = buildTeamCoordination({
     roster: movementRoster, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds,
     day: nextDay, phase: nextPhase, isSoloMatch: state.isSoloMatch,
     spawnState: state.nextSpawn, ruleset, publicItems,
@@ -85,27 +86,33 @@ export function runPhaseActorActionPipeline({
 
   const updatedSurvivors = roster
     .map((sourceActor) => {
-      if (getForcedControlEffect(sourceActor)) return sourceActor;
+      const regroupDecision = regroupDecisions.get(String(sourceActor?._id || sourceActor?.id || ''));
+      const hold = (status) => {
+        publishTeamRegroupDecision(sourceActor, regroupDecision, { status, at: actions.atNow?.(),
+          emitRunEvent: actions.emitRunEvent, addLog, zoneName: actions.getZoneName });
+        return sourceActor;
+      };
+      if (getForcedControlEffect(sourceActor)) return hold('status');
       const scheduled = state.actionIntervalSec != null;
       const now = Number(state.currentActionSec?.() || 0);
       // Only field growth is held. The shared clock still advances internal
       // movement, statuses, consumables, attacks and casts, including at low HP.
       if (scheduled && getActorDimensionRiftId(sourceActor)) {
         sourceActor.aiCurrentAction = 'dimension_rift_wait';
-        return sourceActor;
+        return hold('replanned');
       }
       if (scheduled && sourceActor?._wildlifeHunt) {
         sourceActor.aiCurrentAction = 'hunt_combat';
-        return sourceActor;
+        return hold('hunt');
       }
-      if (scheduled && sourceActor?._pendingCharacterCast) return sourceActor;
+      if (scheduled && sourceActor?._pendingCharacterCast) return hold('cast');
       // Fighting consumes growth opportunities. A closure may still force
       // movement; ordinary farming resumes after the engagement is gone.
       if (scheduled && !state.forbiddenIds?.has(String(sourceActor?.zoneId))
-        && getCombatIntentOpponents(sourceActor, roster, now).length > 0) return sourceActor;
-      if (scheduled && (Number(sourceActor?.hp || 0) <= 0 || hasActionBlockStatus(sourceActor)
-        || Number(sourceActor?._growthReadyAtSec || 0) > now
-        || Number(sourceActor?._actionReadyAtSec || 0) > now)) return sourceActor;
+        && getCombatIntentOpponents(sourceActor, roster, now).length > 0) return hold('combat');
+      if (scheduled && (Number(sourceActor?.hp || 0) <= 0 || hasActionBlockStatus(sourceActor))) return hold('status');
+      if (scheduled && (Number(sourceActor?._growthReadyAtSec || 0) > now
+        || Number(sourceActor?._actionReadyAtSec || 0) > now)) return hold('action_wait');
       let moveCost = 1;
       if (scheduled) sourceActor._actionCycleKey = `${state.phaseIdxNow}:${now}`;
       const actorStepResult = runSingleActorPhaseAction({
@@ -120,6 +127,7 @@ export function runPhaseActorActionPipeline({
           baseZonePop: baseZonePopBySpace.get(getCombatSpaceId(sourceActor)) || {},
           movementRoster,
           teamMovementPlan: teamMovementPlans.get(String(sourceActor?._id || sourceActor?.id || '')),
+          teamRegroupDecision: regroupDecision,
           pendingPickAssigned,
         },
       });

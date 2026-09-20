@@ -76,13 +76,31 @@ export function pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds = new Se
   return candidates[0] || null;
 }
 
-export function buildTeamMovementPlans({
+// A known rally is a destination, not a search for a nearby retreat. Search
+// the finite map for its safe route, but execute only the next adjacent step.
+function regroupPathBlockReason(actor, target, zoneGraph, forbiddenIds) {
+  const reachable = (forbidden) => {
+    const queue = [String(actor.zoneId || '')], seen = new Set(queue);
+    for (let i = 0; i < queue.length; i += 1) {
+      if (queue[i] === target && !forbidden.has(target)) return true;
+      for (const next of (zoneGraph[queue[i]] || []).map(String)) {
+        if (!seen.has(next) && !forbidden.has(next)) { seen.add(next); queue.push(next); }
+      }
+    }
+    return false;
+  };
+  return reachable(forbiddenIds) ? 'enemy_path' : reachable(new Set()) ? 'forbidden_path' : 'disconnected';
+}
+
+export function buildTeamCoordination({
   roster = [], zoneGraph = {}, forbiddenIds = new Set(), day = 1, phase = 'morning',
   estimatePower = estimateMovePower, chooseLeaderMove = () => null, maxDepth = 3, isSoloMatch = false,
   spawnState, ruleset, publicItems = [],
 } = {}) {
   const plans = new Map();
-  if (isSoloMatch) return plans;
+  const regroupDecisions = new Map();
+  const result = { movementPlans: plans, regroupDecisions };
+  if (isSoloMatch) return result;
   const groups = new Map();
   for (const actor of roster.filter(alive)) {
     const teamId = `${getCombatSpaceId(actor)}:${getActorTeamId(actor)}`;
@@ -94,9 +112,12 @@ export function buildTeamMovementPlans({
     const managedGrowth = members.some((row) => row._growthPlan);
     const stillGrowing = (row) => row._growthPlan && !row._growthPlan.openingComplete && !row._growthPlan.blocked;
     // Managed actors use actual equipment readiness, not a day/index deadline.
-    if (!managedGrowth && Number(day) <= 1) continue;
-    if (!managedGrowth && Number(day) === 2 && phase === 'morning' && members.some((row) =>
-      Number(row.routePlanIndex || 0) < (row.routePlanZoneIds || []).length)) continue;
+    if (!managedGrowth && (Number(day) <= 1 || Number(day) === 2 && phase === 'morning' && members.some((row) =>
+      Number(row.routePlanIndex || 0) < (row.routePlanZoneIds || []).length))) {
+      for (const actor of members) regroupDecisions.set(idOf(actor), { version: 1, teamId: getActorTeamId(actor),
+        memberCount: members.length, targetZoneId: '', atTargetCount: 0, nextStep: '', distance: null, stage: 'opening', blocked: '' });
+      continue;
+    }
     const ordered = [...members].sort((a, b) => Number(a.teamSlot || 99) - Number(b.teamSlot || 99) || idOf(a).localeCompare(idOf(b)));
     const safeMembers = ordered.filter((row) => !forbiddenIds.has(String(row.zoneId || '')));
     if (!safeMembers.length) continue;
@@ -111,17 +132,35 @@ export function buildTeamMovementPlans({
     function zonesOrder(zone) { return ordered.findIndex((row) => String(row.zoneId) === zone); }
     const rallyZone = zones[0];
     const leader = safeMembers.find((row) => String(row.zoneId) === rallyZone);
+    const separated = members.some((row) => String(row.zoneId) !== rallyZone);
     const grouped = !members.some(stillGrowing) && members.every((row) => String(row.zoneId) === rallyZone);
     const proposed = grouped ? chooseLeaderMove(leader) : null;
     const target = grouped ? (proposed?.targets || []).find((zone) => !forbiddenIds.has(String(zone))) : rallyZone;
     if (!target) continue;
     const objective = grouped ? captureMovementObjective(proposed, target, { spawnState, ruleset, publicItems }) : null;
     for (const actor of members) {
-      if (stillGrowing(actor)) continue;
+      const decision = { version: 1, teamId: getActorTeamId(actor), memberCount: members.length,
+        targetZoneId: rallyZone, atTargetCount: members.filter((row) => String(row.zoneId) === rallyZone).length,
+        nextStep: '', distance: null, stage: separated ? 'joining' : 'together', blocked: '' };
+      // An unfinished farmer keeps its real recipe. Ready allies can join it;
+      // the observer must be told why this actor is not following a rally yet.
+      if (stillGrowing(actor)) {
+        if (separated) decision.stage = 'growing';
+        regroupDecisions.set(idOf(actor), decision);
+        continue;
+      }
       // Recovery/forbidden-area escape are higher priorities at execution time.
       const route = pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds, {
-        estimatePower, maxDepth, targetZoneId: target, enemyFree: !grouped, travelParty: grouped ? members : [],
+        estimatePower, maxDepth: grouped ? maxDepth : Math.max(1, Object.keys(zoneGraph).length),
+        targetZoneId: target, enemyFree: !grouped, travelParty: grouped ? members : [],
       });
+      if (separated) {
+        decision.stage = route ? (String(actor.zoneId) === rallyZone ? 'waiting' : 'joining') : 'path_blocked';
+        decision.nextStep = route?.nextStep || '';
+        decision.distance = route?.distance ?? null;
+        if (!route) decision.blocked = regroupPathBlockReason(actor, rallyZone, zoneGraph, forbiddenIds);
+      }
+      regroupDecisions.set(idOf(actor), decision);
       if (!route) continue;
       plans.set(idOf(actor), {
         mode: grouped ? 'team_rotate' : 'team_regroup', leaderId: idOf(leader),
@@ -136,5 +175,10 @@ export function buildTeamMovementPlans({
       });
     }
   }
-  return plans;
+  return result;
+}
+
+// Preserve the movement-only API for callers that do not publish observation.
+export function buildTeamMovementPlans(options) {
+  return buildTeamCoordination(options).movementPlans;
 }

@@ -2,6 +2,11 @@ import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { buildBaseZoneGraph } from './mapGraphRuntime';
 import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
 
+export const ENDGAME_START = Object.freeze({ day: 6, phase: 'night' });
+export function isEndgamePhase(day, phase) {
+  return Number(day || 0) * 2 + (phase === 'night' ? 1 : 0) >= ENDGAME_START.day * 2 + 1;
+}
+
 export function getEndgameDurationSec(ruleset = {}) {
   const value = Number(ruleset.suddenDeath?.totalSec ?? ruleset.suddenDeath?.durationSec ?? 370);
   return Math.max(30, Number.isFinite(value) ? value : 370);

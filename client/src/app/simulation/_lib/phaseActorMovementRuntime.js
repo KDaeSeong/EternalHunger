@@ -29,6 +29,7 @@ import { pickEndgameMove } from './suddenDeathRuntime';
 import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { captureCombatDecisionEvidence, describeCombatDecisionContext } from './combatDecisionEvidenceRuntime.js';
+import { publishTeamRegroupDecision } from './teamRegroupRuntime.js';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import { getAvailableMovementObjective, isMovementObjectiveAvailable, publishMovementObjective } from './movementObjectiveRuntime.js';
 import {
@@ -167,6 +168,13 @@ export function runActorMovementDecisionPhase({
       thresholds: !useTeamAssessment && powerFleeInterrupt ? { extremeRatio, extremeDelta } : null }) : null;
   const growthActive = growthPlan && !growthPlan.openingComplete && !growthPlan.blocked;
   let activeTeamPlan = !mustEscape && !recovering && !fleeInterruptReason && !growthActive ? teamMovementPlan : null;
+  if (!activeTeamPlan && !mustEscape && !recovering && !fleeInterruptReason && !growthActive
+    && state.teamRegroupDecision?.stage === 'path_blocked') {
+    // Do not turn a rejected enemy/forbidden rally path into random wandering
+    // down that same path. Farming in this region remains an available action.
+    activeTeamPlan = { mode: 'team_regroup_wait', nextStep: currentZone,
+      targetZoneId: state.teamRegroupDecision.targetZoneId };
+  }
   // Another actor can consume the source after the shared roster was planned.
   if (activeTeamPlan?.objective && !isMovementObjectiveAvailable(activeTeamPlan.objective,
     { spawnState: nextSpawn, forbiddenIds, nowSec: atNow()?.sec, teamId: getActorTeamId(updated), actor: updated })) activeTeamPlan = null;
@@ -291,6 +299,7 @@ export function runActorMovementDecisionPhase({
       phase: nextPhase,
       recovering,
       preserveGrowthPosition: !!growthPlan,
+      committedNextStep: !endgameMove && activeTeamPlan ? activeTeamPlan.nextStep : undefined,
       ruleset,
       zoneGraph,
     },
@@ -421,6 +430,8 @@ export function runActorMovementDecisionPhase({
   } else updated._teamDecision = null;
 
   updated.zoneId = nextZoneId;
+  publishTeamRegroupDecision(updated, state.teamRegroupDecision, { from: currentZone, to: nextZoneId,
+    reason: moveReason, growthPlan, recoverHpBelow, at: atNow(), emitRunEvent, addLog, zoneName: getZoneName });
   if (growthPlan) emitRunEvent('growth_plan', {
     who: String(updated._id), teamId: getActorTeamId(updated), targetId: growthPlan.targetId,
     targetName: growthPlan.targetName, completedSlots: growthPlan.completedSlots, totalSlots: growthPlan.totalSlots,

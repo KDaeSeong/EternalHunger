@@ -22,6 +22,7 @@ import {
 } from './simulationEngine';
 import { clearPostCombatEffects } from './runtimeStatus';
 import { getLootCraftOptions } from './runEventRuntime';
+import { restoreDetonationTime } from './detonationTimerRuntime.js';
 
 export function createPhaseCombatEliminationRuntime({
   actions = {},
@@ -133,13 +134,10 @@ export function createPhaseCombatEliminationRuntime({
     }
 
     if (useDetonation) {
-      const bonusSec = Number(ruleset?.detonation?.killBonusSec || 5);
-      const baseMax = Number((combatWinner.detonationMaxSec ?? ruleset?.detonation?.maxSec) ?? 30);
-      const nextMax = baseMax + bonusSec;
-      combatWinner.detonationMaxSec = nextMax;
-      const baseCur = Number((combatWinner.detonationSec ?? ruleset?.detonation?.startSec) ?? 20);
-      combatWinner.detonationSec = Math.min(nextMax, baseCur + bonusSec);
-      addLog(`⏱️ [${combatWinner.name}] 처치 보상: 금지구역 제한시간 +${bonusSec}s`, 'combat-detail');
+      const restoredSec = restoreDetonationTime(combatWinner, ruleset?.detonation?.killBonusSec ?? 5, ruleset);
+      if (restoredSec > 0) {
+        addLog(`⏱️ [${combatWinner.name}] 처치 보상: 금지구역 타이머 +${restoredSec}초 (${combatWinner.detonationSec}/${combatWinner.detonationMaxSec}초)`, 'combat-detail');
+      }
 
       const killCredit = Number(ruleset?.credits?.kill || 0);
       if (killCredit > 0) {

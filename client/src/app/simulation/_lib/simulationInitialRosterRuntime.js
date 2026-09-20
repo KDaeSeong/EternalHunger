@@ -1,4 +1,5 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { resetDetonationTimer } from './detonationTimerRuntime.js';
 import {
   applyErSubjectPreset,
   normalizeErWeaponTypes,
@@ -265,6 +266,7 @@ export function buildInitialSimulationRoster({
     delete seededBase._spatialLastSeen;
     delete seededBase._forcedControlState;
     delete seededBase._spatialPatrolIndex;
+    resetDetonationTimer(seededBase, ruleset, { newMatch: true });
     const seeded = applyPerkBundleToActor(applyStartingPassiveHealth(seededBase), initPerkBundle, { initialFill: true, applyCredits: true });
     charsWithHp.push(seeded);
   });

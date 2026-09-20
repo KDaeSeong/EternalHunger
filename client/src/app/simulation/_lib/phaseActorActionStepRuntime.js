@@ -110,6 +110,7 @@ export function runSingleActorPhaseAction({
       phaseSurvivors: state.movementRoster || phaseSurvivors,
       publicItems,
       teamMovementPlan: state.teamMovementPlan,
+      teamRegroupDecision: state.teamRegroupDecision,
       ruleset,
       zoneGraph,
       zones,

@@ -137,6 +137,7 @@ function clearRuntimeCombatFields(actor) {
   actor.aiTargetObjective = null;
   actor.aiTargetReason = '';
   actor._movementObjective = null;
+  actor._teamRegroup = null;
   actor.safeZoneUntil = 0;
   actor._recentCombatUntil = 0;
   actor._recentCombatWith = '';

@@ -1,6 +1,7 @@
 import { shouldForceDay1HeroGearCatchup } from './routePlanProgressRuntime';
 import { getDamageBlockReason } from '../../../utils/statusLogic.js';
 import { getActorDimensionRiftId } from '../../../utils/combatSpaceLogic.js';
+import { normalizeDetonationTimer } from './detonationTimerRuntime.js';
 
 export function runActorPostActionPhase({
   actions = {},
@@ -55,9 +56,7 @@ export function runActorPostActionPhase({
   }
 
   if (useDetonation) {
-    const detCfg = ruleset?.detonation || {};
-    if (updated.detonationSec === undefined || updated.detonationSec === null) updated.detonationSec = Number(detCfg.startSec ?? 20);
-    if (updated.detonationMaxSec === undefined || updated.detonationMaxSec === null) updated.detonationMaxSec = Number(detCfg.maxSec ?? 30);
+    normalizeDetonationTimer(updated, ruleset);
   }
 
   updated._postActionPhaseIdx = phaseIdxNow;

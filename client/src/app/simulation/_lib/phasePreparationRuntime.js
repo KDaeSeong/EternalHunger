@@ -8,7 +8,8 @@ import { getMatchConfig } from './matchRosterRuntime';
 import { applyRegionDataToZones } from './lumiaRegionData';
 import { waitMs } from './simulationFormattingRuntime';
 import { worldPhaseIndex, worldTimeText } from './simulationEngine';
-import { createEndgamePressure, advanceEndgamePressure, getEndgameDurationSec } from './suddenDeathRuntime';
+import { createEndgamePressure, advanceEndgamePressure, getEndgameDurationSec, isEndgamePhase } from './suddenDeathRuntime';
+import { getDetonationBaseMaxSec, FINAL_NIGHT_DETONATION_BONUS_SEC } from './detonationTimerRuntime.js';
 
 export function beginSimulationPhase({
   actions = {},
@@ -44,7 +45,7 @@ export function beginSimulationPhase({
   const ruleset = getRuleset(settings?.rulesetId, settings?.simulationRuleset);
 
   const suddenDeathTotalSec = getEndgameDurationSec(ruleset);
-  const shouldActivateSuddenDeath = !suddenDeathActiveRef?.current && worldPhaseIndex(nextDay, nextPhase) >= worldPhaseIndex(6, 'night');
+  const shouldActivateSuddenDeath = !suddenDeathActiveRef?.current && isEndgamePhase(nextDay, nextPhase);
   if (shouldActivateSuddenDeath && suddenDeathActiveRef) {
     suddenDeathActiveRef.current = true;
     if (suddenDeathEndAtSecRef && typeof suddenDeathEndAtSecRef.current !== 'number') {
@@ -233,7 +234,7 @@ export function prepareForbiddenZonePhase({
     }
     if (useDetonation) {
       const startSec = Number(ruleset?.detonation?.startSec || 20);
-      const maxSec = Number(ruleset?.detonation?.maxSec || 30);
+      const maxSec = getDetonationBaseMaxSec(ruleset) + (isEndgamePhase(nextDay, nextPhase) ? FINAL_NIGHT_DETONATION_BONUS_SEC : 0);
       addLog(`⚠️ 제한구역: ${forbiddenNames} (폭발 타이머: 기본 ${startSec}s / 최대 ${maxSec}s)`, 'system');
     } else {
       addLog(`⚠️ 금지구역: ${forbiddenNames} (해당 구역 체류 시 HP -${damagePerTick})`, 'system');

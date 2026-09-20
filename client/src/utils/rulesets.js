@@ -268,7 +268,8 @@ export const RULESETS = {
     },
 
     // 🚫 폭발 타이머(금지구역)
-    // - 시작 20초 / 최대 30초 / 처치 시 +5초(캡 적용)
+    // - 시작 20초 / 평소 최대 30초 / 처치 시 +5초(상한은 늘리지 않음)
+    // - 마지막 밤 진입 시 남은 시간 +15초 1회, 이후 회복 상한 45초
     detonation: {
       startSec: 20,
       maxSec: 30,
@@ -504,7 +505,7 @@ export const RULESETS = {
     label: 'Legacy (단순 규칙)',
     tickSec: 1,
     phaseSecondsByDay: ER_PHASE_SECONDS,
-    // 🚫 폭발 타이머(금지구역) - Legacy에서도 동일하게 사용
+    // 🚫 폭발 타이머(금지구역) - Legacy도 평소 30초, 마지막 밤 +15초/이후 상한 45초
     detonation: {
       startSec: 20,
       maxSec: 30,

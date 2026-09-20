@@ -259,7 +259,7 @@ try {
       assert.equal(moveEvent?.objectiveType, 'wildlife');
       assert.equal(moveEvent?.objectiveSubkind, 'hunt');
       assert.equal(moveEvent?.contestPressure, 0.4);
-      assert.equal(randomDraws, 1, 'only the committed graph movement chance draws randomness');
+      assert.equal(randomDraws, 0, 'a committed safe team route is not rerolled as individual movement');
 
       randomDraws = 0;
       const personalActor = { ...actor('solo', 'team:1', 'a'), inventory: fullGear };

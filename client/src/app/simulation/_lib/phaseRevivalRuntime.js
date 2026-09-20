@@ -1,4 +1,6 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { resetDetonationTimer } from './detonationTimerRuntime.js';
+import { isEndgamePhase } from './suddenDeathRuntime.js';
 import {
   areSameTeam,
   getActorTeamName,
@@ -191,10 +193,7 @@ export function runPhaseRevival({
           revived.zoneId = String(kioskReviver?.zoneId || revived.zoneId || '');
         }
         if (useDetonation) {
-          const startSec = Number(ruleset?.detonation?.startSec ?? 20);
-          const maxSec = Number(ruleset?.detonation?.maxSec ?? 30);
-          revived.detonationMaxSec = maxSec;
-          revived.detonationSec = Math.min(maxSec, startSec);
+          resetDetonationTimer(revived, ruleset, { finalNight: isEndgamePhase(Math.floor(phaseIdxNow / 2), phaseIdxNow % 2 ? 'night' : 'morning') });
         }
 
         revivedNow.push(revived);

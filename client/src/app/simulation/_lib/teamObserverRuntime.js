@@ -11,6 +11,7 @@ import { getTimedWildlifeCombatSummary } from './wildlifeCombatRuntime.js';
 import { describeMovementObjective, getAvailableMovementObjective, movementObjectivesOverlap } from './movementObjectiveRuntime.js';
 import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 import { describeCombatDecisionContext } from './combatDecisionEvidenceRuntime.js';
+import { describeTeamRegroupDecision } from './teamRegroupRuntime.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 const idOf = (actor) => String(actor?._id || actor?.id || '');
@@ -75,6 +76,7 @@ export function describeObserverReason(event = {}) {
     chase: '상대 추격', tac_blink_escape: '블링크로 이탈', knockback: '넉백으로 밀려남',
     retreat_cooldown: '직전 위험 지역 즉시 복귀 보류',
     team_regroup: event.moved === false ? '팀원 합류 대기' : recordsMove ? '팀원에게 합류 이동' : '팀 합류 목표',
+    team_regroup_wait: '안전한 합류 경로를 기다림',
     team_rotate: event.moved === false ? '팀 공동 목표 지역 유지' : recordsMove ? '팀 공동 목표로 이동' : '팀 공동 목표',
     recover: '회복 우선', low_hp_recovery: '저체력으로 안전 대기', growth_farm: '목표 장비 재료 탐색',
     growth_craft: '목표 장비 제작 준비', growth_ready: '성장 완료·다음 행동 검토',
@@ -110,6 +112,8 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
   const who = nameOf(String(event.who || event.a || ''));
   const where = event.zoneId ? ` · ${zoneName(event.zoneId)}` : '';
   switch (event.kind) {
+    case 'detonation_bonus': return `${who}: 마지막 밤 · 금지구역 타이머 ${num(event.beforeSec)}초 +${num(event.addedSec)}초 → ${num(event.afterSec)}초 · 이후 상한 ${num(event.maxSec)}초`;
+    case 'team_regroup': return event.cleared ? '' : `${who}: ${describeTeamRegroupDecision(event.regroupEvidence, zoneName)}`;
     case 'movement_goal': return event.objective
       ? `${who}: ${event.objective.shared ? '팀 공동 목표' : '목표'} 지정 · ${describeMovementObjective(event.objective)} · ${zoneName(event.objective.targetZoneId)} (아직 획득 전)`
       : event.previousObjective ? `${who}: ${describeMovementObjective(event.previousObjective)} 목표 해제 · 다음 판단으로 전환` : '';
@@ -242,13 +246,19 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
   const turningPoints = [];
   const previousDecision = new Map();
   const lastDecisionByActor = new Map();
+  const lastRegroupByActor = new Map();
   const appendRecent = (rows, row, limit) => {
     rows.push(row);
     if (rows.length > limit) rows.shift();
   };
   for (const row of timed) {
     const whoId = String(row.event.who || '');
-    if (row.event.kind === 'revive' && whoId) lastDecisionByActor.delete(whoId);
+    if (row.event.kind === 'revive' && whoId) { lastDecisionByActor.delete(whoId); lastRegroupByActor.delete(whoId); }
+    if (row.event.kind === 'dimension_rift_space' && whoId) lastRegroupByActor.delete(whoId);
+    if (row.event.kind === 'team_regroup' && whoId) {
+      if (row.event.cleared) lastRegroupByActor.delete(whoId);
+      else if (row.event.regroupEvidence?.version === 1) lastRegroupByActor.set(whoId, row);
+    }
     if (decisionKinds.has(row.event.kind) && whoId) lastDecisionByActor.set(whoId, row);
     if (row.event.kind === 'queue') continue;
     const text = describeObserverEvent(row.event, { nameOf, zoneName });
@@ -265,6 +275,7 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
   const members = [...team.members].sort((a, b) => num(a.matchTeamSlot || a.teamSlot) - num(b.matchTeamSlot || b.teamSlot) || idOf(a).localeCompare(idOf(b))).map((actor) => {
     const id = idOf(actor);
     const lastDecision = lastDecisionByActor.get(id);
+    const lastRegroup = lastRegroupByActor.get(id);
     const progress = getActorGrowthProgress(actor, publicItems);
     const readyIn = Math.max(0, Math.ceil(num(actor._actionReadyAtSec) - matchSec));
     const position = getSpatialPosition(actor); const spatialStats = getSpatialStats(actor);
@@ -289,6 +300,8 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
       hunt: hunt ? `${actor._wildlifeHunt?.target?.name || '야생동물'} 사냥 중 · 대상 HP ${Math.max(0, Math.ceil(hunt.wildlifeHp))}/${Math.max(1, Math.ceil(hunt.wildlifeMaxHp))} · 거리 ${Number.isFinite(hunt.distance) ? hunt.distance.toFixed(1) : '?'}m · 가한 피해 ${Math.round(hunt.damageDealt)} / 받은 피해 ${Math.round(hunt.damageTaken)}` : '',
       kills: num(killCounts[id]), assists: num(assistCounts[id]),
       death: describeObserverDeath(actor, nameOf),
+      coordination: num(actor.hp) > 0 && lastRegroup && lastRegroup.event.regroupEvidence.combatSpaceId === getCombatSpaceId(actor)
+        ? { text: describeTeamRegroupDecision(lastRegroup.event.regroupEvidence, zoneName), clock: formatClock(lastRegroup.sec), sec: lastRegroup.sec } : null,
       decision: lastDecision ? { text: describeObserverEvent(lastDecision.event, { nameOf, zoneName }), clock: formatClock(lastDecision.sec), sec: lastDecision.sec } : null };
   });
   const totalKills = members.reduce((sum, actor) => sum + actor.kills, 0);

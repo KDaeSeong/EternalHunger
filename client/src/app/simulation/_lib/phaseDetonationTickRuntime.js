@@ -5,6 +5,7 @@ import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import { advanceActorCooldownClock } from './cooldownRuntime.js';
 import { advanceUniqueResource } from './uniqueResourceRuntime.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
+import { normalizeDetonationTimer, restoreDetonationTime } from './detonationTimerRuntime.js';
 import {
   buildRuntimeSurvivorMap,
   normalizeRuntimeSurvivorList,
@@ -138,11 +139,9 @@ export function runDetonationTickPhase({
         continue;
       }
 
+      normalizeDetonationTimer(survivor, ruleset);
       if (!isForbidden) {
-        if (survivor.detonationSec !== null && survivor.detonationSec !== undefined) {
-          const maxDet = Number(survivor.detonationMaxSec || detCfg.maxSec || 30);
-          survivor.detonationSec = Math.min(maxDet, roundCombatTime(Number(survivor.detonationSec || 0) + regenPerSec * elapsed));
-        }
+        restoreDetonationTime(survivor, regenPerSec * elapsed, ruleset);
         survivor._detLogLastMilestone = null;
         continue;
       }
