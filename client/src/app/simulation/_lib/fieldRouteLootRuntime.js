@@ -61,9 +61,12 @@ export function rollEarlyRouteLoot({
       const category = inferItemCategory(item);
       const isMaterial = category === 'material';
       const isLowEquip = category === 'equipment';
-      if (!isMaterial && !isLowEquip) return null;
+      // Consumables may also be real recipe ingredients (for example bandages).
+      // A focused plan still requires their local source, stock and requested ID.
+      const isConsumableComponent = opts.focusedGrowth === true && category === 'consumable';
+      if (!isMaterial && !isLowEquip && !isConsumableComponent) return null;
       const tier = clampTier4(item?.tier || 1);
-      if (isMaterial && tier > routeMaxTier) return null;
+      if ((isMaterial || isConsumableComponent) && tier > routeMaxTier) return null;
       if (isLowEquip && tier > routeEquipmentMaxTier) return null;
       const directGoal = goalItemIds.has(String(item._id));
       const baseWeight = routeWeight + (isLowEquip ? routeEquipmentWeight : 0) + (directGoal ? routeGoalWeight : 0) + (tier <= 1 ? 2 : 0);

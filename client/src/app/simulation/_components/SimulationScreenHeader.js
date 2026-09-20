@@ -40,6 +40,8 @@ export default function SimulationScreenHeader({
       </Link>}
       <h1>{day === 0 ? 'GAME READY' : `DAY ${day} - ${timeOfDay === 'day' ? 'DAY' : 'NIGHT'}`}</h1>
       <div className="screen-header-right">
+        {guestMode && !evaluationMode && !replayMode && day === 0 && !isAdvancing && !loading &&
+          <Link className="btn-secondary" href="/eternalhunger/items">내 아이템 편집</Link>}
         <span className="weather-badge sim-icon-label">
           <GameActionIcon action={timeOfDay === 'day' ? 'season' : 'rest'} label={timeOfDay === 'day' ? '낮' : '밤'} />
           {timeOfDay === 'day' ? '낮' : '밤'}

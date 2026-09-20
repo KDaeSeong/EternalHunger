@@ -8,6 +8,7 @@ const TradeOffer = require('../../models/TradeOffer');
 const DroneOffer = require('../../models/DroneOffer');
 const { requireUserId, ownedFilter, withOwner } = require('../../utils/requestScope');
 const { upsertDefaultItemTree, upsertDefaultItemTreeBatch } = require('../../utils/defaultItemTree');
+const { prepareItemEffectWritePayload } = require('../../utils/itemEffectWritePayload');
 
 function scope(req, res, extra = {}) {
   const userId = requireUserId(req, res);
@@ -31,7 +32,9 @@ router.post('/items', async (req, res) => {
     try {
         const userId = requireUserId(req, res);
         if (!userId) return;
-        const newItem = new Item(withOwner(userId, req.body));
+        const prepared = prepareItemEffectWritePayload(req.body);
+        if (!prepared.ok) return res.status(400).json({ error: prepared.error });
+        const newItem = new Item(withOwner(userId, prepared.payload));
         await newItem.save();
         res.json({ message: "아이템이 성공적으로 추가되었습니다.", item: newItem });
     } catch (err) { 
@@ -335,7 +338,9 @@ router.put('/items/:id', async (req, res) => {
   try {
     const userId = requireUserId(req, res);
     if (!userId) return;
-    const updated = await Item.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, req.body), { new: true, runValidators: true });
+    const prepared = prepareItemEffectWritePayload(req.body);
+    if (!prepared.ok) return res.status(400).json({ error: prepared.error });
+    const updated = await Item.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, prepared.payload), { new: true, runValidators: true });
     if (!updated) return res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
     res.json({ message: '아이템이 수정되었습니다.', item: updated });
   } catch (err) {

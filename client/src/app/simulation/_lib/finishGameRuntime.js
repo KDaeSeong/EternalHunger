@@ -358,7 +358,7 @@ export async function finishSimulationGame(opts = {}) {
             'combatSpaceId',
             'stoppedAtTarget',
             'clipped',
-            'heal',
+            'heal', 'satiety', 'remainingQty', 'effects',
             'damage',
             'a',
             'b',

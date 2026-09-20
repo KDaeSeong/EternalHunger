@@ -16,6 +16,7 @@ import { presentCombatHealth } from './combatObservationRuntime.js';
 import { describeTeamSurvival, getTeamSurvivalContext, getTeamSurvivalStates } from './teamSurvivalObservationRuntime.js';
 import { getActorGrowthObservation, describeCraftReceipt, describeProcurementReceipt, updateProcurementObservation } from './growthObservationRuntime.js';
 import { getRuleset } from '../../../utils/rulesets.js';
+import { describeConsumableReceipt } from './consumableObservationRuntime.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 const idOf = (actor) => String(actor?._id || actor?.id || '');
@@ -140,6 +141,7 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
       return `${who}: ${action} 선택${event.itemName ? ` · ${event.itemName}` : ''}${reason !== '상세 판단 기록 없음' ? ` · ${reason}` : ''}${event.targetZoneId ? ` · 이동 목표 ${zoneName(event.targetZoneId)}` : ''}${list(event.blockedReasons).some((blockedReason) => blockedReason === 'craft:missing_ing') ? ' · 제작 재료 부족' : ''}${event.retreatOutcome ? '' : ' (성공 여부는 후속 기록)'}`;
     }
     case 'craft': return `${who}: ${describeCraftReceipt(event) || `${event.itemName || '아이템'} 제작 완료`}${where}`;
+    case 'use': return `${who}: ${describeConsumableReceipt(event)}${where}`;
     case 'resource_replan': return `${who}: ${zoneName(event.from)} 재료 소진 · ${event.to ? `${zoneName(event.to)} 재탐색` : '성장 목표 재검토'}`;
     case 'rest': return `${who}: 저체력으로 안전 대기 · HP ${num(event.hp)}/${num(event.maxHp)}${where}`;
     case 'hunt_start': return `${who}: ${event.wildlifeName || event.subkind || '야생동물'} 사냥 개시 · 대상 HP ${num(event.wildlifeHp)}/${num(event.wildlifeMaxHp)} · 거리 ${num(event.distance).toFixed(1)}m${where}`;

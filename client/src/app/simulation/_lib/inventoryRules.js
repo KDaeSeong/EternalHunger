@@ -13,6 +13,17 @@ import {
   inferItemCategory,
   inventoryItemPriority,
 } from './inventoryItemRules.js';
+import { normalizeConsumeEffect } from '../../../utils/consumeEffectContract.js';
+
+function consumeEffectStackKey(item) {
+  const result = normalizeConsumeEffect(item?.consumeEffect);
+  // Invalid legacy inputs stay isolated and cannot erase an explicit effect.
+  const value = result.ok ? result.effect : item?.consumeEffect;
+  const ordered = value && typeof value === 'object'
+    ? Object.fromEntries(Object.keys(value).sort().map(key => [key, key === 'stats' && value.stats
+      ? Object.fromEntries(Object.entries(value.stats).sort(([a], [b]) => a.localeCompare(b))) : value[key]])) : value;
+  return JSON.stringify(ordered ?? null);
+}
 
 export {
   DEFAULT_INV_RULES,
@@ -80,6 +91,7 @@ export function canReceiveItem(inventory, it, itemId, qty, ruleset) {
   const maxStack = Math.max(1, Number(rules.stackMax?.[category] || 1));
   const idx = list.findIndex((x) => String(x?.itemId || x?.id || '') === key);
   if (idx >= 0) {
+    if (consumeEffectStackKey(list[idx]) !== consumeEffectStackKey(it)) return false;
     const have = Math.max(0, Number(list[idx]?.qty ?? 1));
     return have < maxStack;
   }
@@ -151,7 +163,7 @@ export function normalizeInventory(inventory, ruleset) {
       continue;
     }
 
-    const stackKey = `${String(entry?.category || inferItemCategory(entry) || 'material')}:${itemId}`;
+    const stackKey = `${String(entry?.category || inferItemCategory(entry) || 'material')}:${itemId}:${consumeEffectStackKey(entry)}`;
     const previous = stackedNonEquipmentById.get(stackKey);
     if (!previous) {
       stackedNonEquipmentById.set(stackKey, entry);
@@ -194,7 +206,9 @@ export function normalizeInventory(inventory, ruleset) {
       .sort((a, b) => Number(a?._normIndex ?? 0) - Number(b?._normIndex ?? 0));
   }
 
-  return kept.map(({ _normIndex, ...entry }) => entry);
+  return kept.map(({ _normIndex, ...entry }) => ({ ...entry,
+    ...(Object.hasOwn(entry, 'consumeEffect') ? { consumeEffect: structuredClone(entry.consumeEffect) } : {}),
+  }));
 }
 
 export function formatInvRuleState(inventory, ruleset) {
@@ -255,12 +269,18 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
 
   const i = list.findIndex((x) => String(x?.itemId || x?.id || '') === key);
   if (i >= 0) {
+    if (consumeEffectStackKey(list[i]) !== consumeEffectStackKey(item)) {
+      list._lastAdd = { itemId: key, acceptedQty: 0, droppedQty: want, reason: 'effect_mismatch' };
+      return list;
+    }
     const cur = Math.max(0, Number(list[i]?.qty ?? 1));
     const next = Math.min(maxStack, cur + want);
     const accepted = Math.max(0, next - cur);
     const dropped = Math.max(0, (cur + want) - next);
     const nextTier = clampInventoryTier(item?.tier || list[i]?.tier || 1, category);
-    list[i] = { ...list[i], qty: next, category, tier: nextTier, ...(category === 'equipment' ? { rarity: tierLabelKo(nextTier) } : {}), ...(equipSlot ? { equipSlot } : {}) };
+    list[i] = { ...list[i], qty: next, category, tier: nextTier,
+      ...(Object.hasOwn(list[i], 'consumeEffect') ? { consumeEffect: structuredClone(list[i].consumeEffect) } : {}),
+      ...(category === 'equipment' ? { rarity: tierLabelKo(nextTier) } : {}), ...(equipSlot ? { equipSlot } : {}) };
     list._lastAdd = { itemId: key, acceptedQty: accepted, droppedQty: dropped, reason: dropped > 0 ? 'stack_cap' : '' };
     return list;
   }
@@ -322,6 +342,7 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     ...(item?.weaponType ? { weaponType: item.weaponType } : {}),
     ...(item?.itemSubType ? { itemSubType: item.itemSubType } : {}),
     ...(item?.stats && typeof item.stats === 'object' ? { stats: { ...item.stats } } : {}),
+    ...(item && Object.hasOwn(item, 'consumeEffect') ? { consumeEffect: structuredClone(item.consumeEffect) } : {}),
     ...(item?.baseCreditValue !== undefined ? { baseCreditValue: item.baseCreditValue } : {}),
     ...(hasGoalInventoryTag(item) ? { goalItem: true } : {}),
     ...(item?.craftComponent ? { craftComponent: true } : {}),

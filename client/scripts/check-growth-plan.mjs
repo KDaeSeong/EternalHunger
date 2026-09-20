@@ -161,6 +161,33 @@ await check('focused route search rejects materials from another region even if 
     routeItemIds: new Set(['far']), opts: { focusedGrowth: true, routeFarm: true } });
   assert.equal(result.loot, null);
 });
+await check('focused growth can gather a required consumable ingredient without changing its category or effect', () => {
+  const dose = { ...material('dose'), type: '소모품', category: 'consumable', name: '제작용 회복약',
+    consumeEffect: { version: 1, heal: 25, satiety: 0 } };
+  const target = gear('medical-gear', ['dose']);
+  const items = [dose, target];
+  const who = { ...fixture(), routePlanTargetItemIds: ['medical-gear'] };
+  const plan = refreshActorGrowthPlan(who, items, world);
+  assert.deepEqual(plan.currentZoneItemIds, ['dose']);
+  const resources = createFieldResources(world.mapObj, items, ruleset);
+  const options = { curDay: 1, list: items, mapObj: world.mapObj, zoneId: 'a',
+    routeItemIds: new Set(plan.currentZoneItemIds),
+    opts: { focusedGrowth: true, routeFarm: true, fieldResources: resources, neededQtyById: { dose: 1 } } };
+  const loot = rollEarlyRouteLoot(options).loot;
+  assert.equal(loot?.itemId, 'dose');
+  assert.equal(loot.qty, 1);
+  assert.deepEqual(loot.item.consumeEffect, dose.consumeEffect);
+  who.inventory = addItemToInventory([], markGrowthComponent(loot.item, who), loot.itemId, loot.qty, 1, ruleset);
+  assert.equal(who.inventory[0].category, 'consumable');
+  const itemMeta = buildItemMetaById(items);
+  refreshActorGrowthPlan(who, items, world);
+  assert.equal(tryAutoCraftFromInventory(who, items, buildItemNameById(items), itemMeta, 1, 0, ruleset)?.craftedId, 'medical-gear');
+  assert.equal(invQty(who.inventory, 'dose'), 0);
+  assert.equal(who.equipped.head, 'medical-gear');
+  assert.equal(rollEarlyRouteLoot({ ...options, routeItemIds: new Set(['unrequested']) }).loot, null);
+  resources.byZone.a.dose.remaining = 0;
+  assert.equal(rollEarlyRouteLoot(options).loot, null, 'depleted ingredients cannot be granted');
+});
 await check('full bags release unrelated material but preserve needed components and completed targets', () => {
   const actor = fixture(); refreshActorGrowthPlan(actor, fixtureItems, world); receive(actor, 'left');
   for (let i = 0; i < 9; i++) actor.inventory = addItemToInventory(actor.inventory, material(`spare${i}`), `spare${i}`, 1, 1, ruleset);

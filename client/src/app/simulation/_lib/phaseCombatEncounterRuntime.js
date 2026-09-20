@@ -72,6 +72,8 @@ export function runPhaseCombatEncounter({
   }
 
   const absNow = currentActionSec();
+  tryUseConsumable(actor, 'before_battle');
+  tryUseConsumable(target, 'before_battle');
   const tacticalRuntime = createPhaseCombatTacticalRuntime({
     state: {
       absNow,

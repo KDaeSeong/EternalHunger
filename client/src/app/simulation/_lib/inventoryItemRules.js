@@ -55,6 +55,9 @@ export function inferItemCategory(it) {
   const lower = String(name || '').toLowerCase();
   const bandageLike = lower.includes('bandage') || name.includes('붕대');
 
+  // Explicit author intent precedes incidental words such as 검술 or 붕대.
+  if (type === '소모품' || type === 'consumable') return 'consumable';
+
   if (it && typeof it === 'object') {
     const slot = String(it?.equipSlot || '').trim().toLowerCase();
     if (slot) return 'equipment';
@@ -105,6 +108,7 @@ export function inferItemCategory(it) {
 export function inferEquipSlot(it) {
   const tags = safeTags(it);
   const type = String(it?.type || '').toLowerCase();
+  if (type === '소모품' || type === 'consumable') return '';
   const name = itemDisplayName(it);
   const lower = String(name || '').toLowerCase();
 

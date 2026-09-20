@@ -1,7 +1,8 @@
 import { applyItemEffect } from '../../../utils/itemLogic';
-import { applyHealingModifier } from '../../../utils/statusLogic';
+import { applyHealingModifier, canActVoluntarilyByStatus, getActiveStatusEffects } from '../../../utils/statusLogic';
+import { normalizeConsumeEffect } from '../../../utils/consumeEffectContract.js';
 import { inferItemCategory } from './inventoryRules';
-import { itemDisplayName, itemIcon } from './simulationCommon';
+import { itemDisplayName } from './simulationCommon';
 import {
   applyRuntimeEffectPayloads,
   describeRuntimeEffect,
@@ -77,167 +78,132 @@ export function applyPermanentConsumableBoostToActor(actor, effect, item) {
   };
 }
 
+// Evaluate on an owned copy, then commit every mutation before publishing any
+// callback. Invalid/no-benefit attempts preserve inventory, phase limits and HP.
+function commitConsumableAtIndex(actor, invIndex, opts = {}) {
+  if (isDimensionRiftDefeated(actor)) return { used: false, reason: 'rift_defeated' };
+  if (!actor || !Array.isArray(actor.inventory)) return { used: false, reason: 'invalid_actor' };
+  const hp = Number(actor.hp);
+  const maxHp = Number(actor.maxHp ?? 100);
+  if (!Number.isFinite(hp) || !Number.isFinite(maxHp) || hp <= 0 || maxHp <= 0 || hp > maxHp)
+    return { used: false, reason: 'invalid_hp' };
+  if (!canActVoluntarilyByStatus(actor)) return { used: false, reason: 'action_blocked' };
+  const index = Number(invIndex);
+  if (!Number.isInteger(index) || index < 0 || index >= actor.inventory.length)
+    return { used: false, reason: 'invalid_index' };
+  const item = actor.inventory[index];
+  const qty = Number(item?.qty ?? 1);
+  if (!Number.isSafeInteger(qty) || qty <= 0 || inferItemCategory(item) !== 'consumable')
+    return { used: false, reason: 'invalid_stock' };
+  const effect = applyItemEffect(actor, item);
+  if (effect.supported === false) return { used: false, reason: effect.reason };
+
+  const next = structuredClone(actor);
+  const healing = applyHealingModifier(next, Math.max(0, Number(effect.recovery || 0)));
+  if (!Number.isFinite(healing)) return { used: false, reason: 'invalid_healing' };
+  next.hp = Math.min(maxHp, hp + healing);
+  const satiety = applySatietyGain(next, effect.satiety);
+  let statApplied = false;
+  for (const [key, raw] of Object.entries(effect.statBoost || {})) {
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value === 0) continue;
+    next.stats = { ...next.stats, [key]: Number(next.stats?.[key] || 0) + value };
+    statApplied = true;
+  }
+  const permanent = applyPermanentConsumableBoostToActor(next, effect, item);
+  const incoming = effect.explicit
+    ? (effect.newEffects || []).filter(row => usefulTimedEffect(actor, row, opts.reason === 'before_battle'))
+    : effect.newEffects;
+  // These are self-applied beneficial effects, not hostile resistance rolls.
+  const runtime = applyRuntimeEffectPayloads(next, incoming, { random: () => 1 });
+  const timedApplied = runtime.applied && JSON.stringify(next.activeEffects) !== JSON.stringify(actor.activeEffects || []);
+  const heal = Math.max(0, next.hp - hp);
+  if (!(heal > 0 || satiety > 0 || statApplied || permanent.applied || timedApplied))
+    return { used: false, reason: 'no_benefit' };
+
+  if (qty > 1) next.inventory[index] = { ...next.inventory[index], qty: qty - 1 };
+  else next.inventory.splice(index, 1);
+  if (opts.phaseIdx !== undefined) {
+    next.consumableUsedPhaseIdx = opts.phaseIdx;
+    next.consumableUsedCount = opts.usedCount + 1;
+  }
+  Object.assign(actor, next);
+  upsertRuntimeSurvivor(opts.survivorMap, actor);
+
+  const appliedEffects = runtime.results.filter(row => row.applied).map(row => ({
+    name: row.effect.name, durationSec: row.effect.remainingDuration,
+    shield: Math.max(0, Number(row.effect.shieldValue || 0)),
+    regen: Math.max(0, Number(row.effect.recovery || 0)),
+    stats: { ...(row.effect.statModifiers || {}) },
+  }));
+  const meta = { source: 'consumable', reason: opts.reason || 'dev_force',
+    manual: opts.manual === true, heal, satiety, remainingQty: qty - 1, effects: appliedEffects };
+  const at = opts.atNow?.();
+  opts.emitConsumableRunEvent?.(actor, item, meta, at);
+  opts.emitEffectRunEvents?.(actor, runtime.results, {
+    source: 'consumable', itemId: String(item._id || item.itemId || ''), reason: meta.reason,
+  }, at);
+  const gains = [heal > 0 ? `체력 +${heal}` : '', satiety > 0 ? `포만감 +${satiety}` : ''].filter(Boolean);
+  opts.addLog?.(`💊 [${actor.name}] ${itemDisplayName(item)} 사용${gains.length ? ` · ${gains.join(', ')}` : ''} · 남은 수량 ${qty - 1}개`, 'highlight');
+  if (permanent.log) opts.addLog?.(permanent.log, 'highlight');
+  runtime.results.forEach(row => {
+    if (row.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+      const description = describeRuntimeEffect(row.effect);
+      if (description) opts.addLog?.(`🪄 [${actor.name}] ${description}`, 'system');
+    }
+  });
+  return { used: true, actor, item, ...meta };
+}
+
+function usefulTimedEffect(actor, incoming, beforeBattle) {
+  if (incoming.recovery > 0 && actor.hp >= actor.maxHp && !beforeBattle) return false;
+  const existing = getActiveStatusEffects(actor).find(row => row.name === incoming.name);
+  if (!existing) return true;
+  const values = row => ({ shield: Number(row.shieldValue || 0), regen: Number(row.recovery || 0),
+    ...(row.statModifiers || {}) });
+  const old = values(existing), next = values(incoming);
+  const keys = new Set([...Object.keys(old), ...Object.keys(next)]);
+  // A weaker dose must not replace a stronger shield, regeneration or buff.
+  if ([...keys].some(key => Number(next[key] || 0) < Number(old[key] || 0))) return false;
+  return [...keys].some(key => Number(next[key] || 0) > Number(old[key] || 0))
+    || existing.remainingDuration != null && Number(incoming.remainingDuration) > Number(existing.remainingDuration);
+}
+
 export function createPhaseConsumableRuntime(opts = {}) {
-  const {
-    addLog,
-    atNow,
-    consCfg = {},
-    emitConsumableRunEvent,
-    emitEffectRunEvents,
-    phaseIdxNow = 0,
-    survivorMap,
-  } = opts;
-  const consEnabled = consCfg?.enabled !== false;
-  const consTurnHpBelow = Number(consCfg.aiUseHpBelow ?? 60);
-  const consAfterBattleHpBelow = Number(consCfg.afterBattleHpBelow ?? 50);
-  const consMaxUsesPerPhase = Math.max(0, Math.floor(Number(consCfg.maxUsesPerPhase ?? 1)));
-
+  const { consCfg = {}, phaseIdxNow = 0 } = opts;
+  const limit = Number(consCfg.maxUsesPerPhase ?? 1);
+  const hpTurn = Number(consCfg.aiUseHpBelow ?? 60);
+  const hpBattle = Number(consCfg.afterBattleHpBelow ?? 50);
+  const satietyBelow = Number(consCfg.aiUseSatietyBelow ?? 35);
   const tryUseConsumable = (actor, reason) => {
-    if (isDimensionRiftDefeated(actor)) return false;
-    if (!consEnabled || consMaxUsesPerPhase <= 0) return false;
-    if (!actor || !Array.isArray(actor.inventory) || actor.inventory.length === 0) return false;
-
-    const usedPhaseKey = 'consumableUsedPhaseIdx';
-    const usedCountKey = 'consumableUsedCount';
-    const lastPhase = Number(actor?.[usedPhaseKey] ?? -9999);
-    if (lastPhase !== phaseIdxNow) {
-      actor[usedPhaseKey] = phaseIdxNow;
-      actor[usedCountKey] = 0;
-    }
-    const usedCount = Number(actor?.[usedCountKey] ?? 0);
-    if (usedCount >= consMaxUsesPerPhase) return false;
-
-    const hp = Number(actor.hp || 0);
-    const hpBelow = reason === 'after_battle' ? consAfterBattleHpBelow : consTurnHpBelow;
-    const satiety = normalizeSatiety(actor.satiety);
-    const satietyBelow = Math.max(0, Math.min(100, Number(consCfg.aiUseSatietyBelow ?? 35)));
-    if (hp <= 0) return false;
-
-    const inventory = actor.inventory;
-    if (hp >= hpBelow && satiety >= satietyBelow) return false;
-
-    const itemIndex = inventory.findIndex((item) => isFoodRecoveryItem(item));
-    if (itemIndex < 0) return false;
-
-    const itemToUse = inventory[itemIndex];
-    const effect = applyItemEffect(actor, itemToUse);
-    addLog?.(effect.log, 'highlight');
-
-    const maxHp = Number(actor?.maxHp ?? 100);
-    const finalRecovery = applyHealingModifier(actor, Number(effect.recovery || 0));
-    actor.hp = Math.min(maxHp, hp + finalRecovery);
-    const satietyGain = applySatietyGain(actor, effect?.satiety);
-    const statBoost = effect?.statBoost && typeof effect.statBoost === 'object' ? effect.statBoost : null;
-    if (statBoost) {
-      actor.stats = actor.stats && typeof actor.stats === 'object' ? { ...actor.stats } : {};
-      Object.entries(statBoost).forEach(([key, value]) => {
-        const statValue = Number(value || 0);
-        if (!Number.isFinite(statValue) || statValue === 0) return;
-        actor.stats[key] = Number(actor.stats?.[key] || 0) + statValue;
-      });
-    }
-
-    const permanent = applyPermanentConsumableBoostToActor(actor, effect, itemToUse);
-    if (permanent.log) addLog?.(permanent.log, permanent.duplicate ? 'system' : 'highlight');
-
-    const runtimeEffects = applyRuntimeEffectPayloads(actor, effect?.newEffects);
-    runtimeEffects.results.forEach((row) => {
-      if (row?.reason === 'immune') addLog?.(`🛡️ [${actor.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
-      else if (row?.reason === 'resisted') addLog?.(`🧷 [${actor.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
-      else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
-        const desc = describeRuntimeEffect(row.effect);
-        if (desc) addLog?.(`🪄 [${actor.name}] ${desc}`, 'system');
+    if (consCfg.enabled === false || !Number.isSafeInteger(limit) || limit <= 0
+      || !Number.isSafeInteger(phaseIdxNow) || !Array.isArray(actor?.inventory)) return false;
+    const used = actor.consumableUsedPhaseIdx === phaseIdxNow ? Number(actor.consumableUsedCount ?? 0) : 0;
+    if (!Number.isSafeInteger(used) || used < 0 || used >= limit) return false;
+    const hp = Number(actor.hp);
+    const hungry = normalizeSatiety(actor.satiety) < satietyBelow;
+    const hurt = hp < (reason === 'after_battle' ? hpBattle : hpTurn);
+    for (let i = 0; i < actor.inventory.length; i++) {
+      const item = actor.inventory[i];
+      const contract = normalizeConsumeEffect(item?.consumeEffect);
+      if (!contract.ok) continue;
+      if (reason === 'before_battle') {
+        // Combat utility is consumed at a real encounter, never merely because
+        // a defensive item exists in the bag while safely farming.
+        if (!contract.explicit) continue;
+      } else {
+        if (!contract.explicit && !isFoodRecoveryItem(item)) continue;
+        if (!hurt && !hungry) continue;
+        if (contract.explicit && !((hurt && (contract.effect.heal > 0 || contract.effect.regen > 0))
+          || (hungry && contract.effect.satiety > 0))) continue;
       }
-    });
-
-    const currentQty = Number(itemToUse?.qty || 1);
-    if (Number.isFinite(currentQty) && currentQty > 1) inventory[itemIndex] = { ...itemToUse, qty: currentQty - 1 };
-    else inventory.splice(itemIndex, 1);
-
-    actor[usedCountKey] = usedCount + 1;
-    emitConsumableRunEvent?.(actor, itemToUse, {
-      source: 'consumable',
-      reason,
-      heal: Math.max(0, Number(actor.hp || 0) - hp),
-      satiety: satietyGain,
-    }, atNow?.());
-    emitEffectRunEvents?.(actor, runtimeEffects.results, {
-      source: 'consumable',
-      itemId: String(itemToUse?._id || itemToUse?.itemId || ''),
-      reason,
-    }, atNow?.());
-    upsertRuntimeSurvivor(survivorMap, actor);
-    return true;
+      if (commitConsumableAtIndex(actor, i, { ...opts, reason, phaseIdx: phaseIdxNow, usedCount: used }).used) return true;
+    }
+    return false;
   };
-
   return { tryUseConsumable };
 }
 
 export function forceUseConsumableAtIndex(actor, invIndex, opts = {}) {
-  if (isDimensionRiftDefeated(actor)) return { used: false, reason: 'rift_defeated' };
-  const {
-    addLog,
-    emitConsumableRunEvent,
-    emitEffectRunEvents,
-  } = opts;
-  if (!actor || !Array.isArray(actor.inventory)) return { used: false };
-
-  const inventory = actor.inventory;
-  const itemIndex = Number(invIndex);
-  if (!Number.isFinite(itemIndex) || itemIndex < 0 || itemIndex >= inventory.length) return { used: false };
-
-  const item = inventory[itemIndex];
-  if (inferItemCategory(item) !== 'consumable') return { used: false };
-
-  const beforeHp = Number(actor.hp || 0);
-  const maxHp = Number(actor?.maxHp ?? 100);
-  const effect = applyItemEffect(actor, item);
-  const heal = Math.max(0, Number(effect?.recovery || 0));
-  const finalHeal = applyHealingModifier(actor, heal);
-  actor.hp = Math.min(maxHp, beforeHp + finalHeal);
-  const satietyGain = applySatietyGain(actor, effect?.satiety);
-
-  const statBoost = effect?.statBoost && typeof effect.statBoost === 'object' ? effect.statBoost : null;
-  if (statBoost) {
-    actor.stats = actor.stats && typeof actor.stats === 'object' ? { ...actor.stats } : {};
-    Object.entries(statBoost).forEach(([key, value]) => {
-      const statValue = Number(value || 0);
-      if (!Number.isFinite(statValue) || statValue === 0) return;
-      actor.stats[key] = Number(actor.stats?.[key] || 0) + statValue;
-    });
-  }
-
-  const permanent = applyPermanentConsumableBoostToActor(actor, effect, item);
-  if (permanent.log) addLog?.(permanent.log, permanent.duplicate ? 'system' : 'highlight');
-
-  const runtimeEffects = applyRuntimeEffectPayloads(actor, effect?.newEffects);
-  runtimeEffects.results.forEach((row) => {
-    if (row?.reason === 'immune') addLog?.(`🛡️ [${actor.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
-    else if (row?.reason === 'resisted') addLog?.(`🧷 [${actor.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
-    else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
-      const desc = describeRuntimeEffect(row.effect);
-      if (desc) addLog?.(`🪄 [${actor.name}] ${desc}`, 'system');
-    }
-  });
-
-  const currentQty = Number(item?.qty || 1);
-  if (Number.isFinite(currentQty) && currentQty > 1) inventory[itemIndex] = { ...item, qty: currentQty - 1 };
-  else inventory.splice(itemIndex, 1);
-
-  const delta = Math.max(0, Number(actor.hp || 0) - beforeHp);
-  const itemName = itemDisplayName(item);
-  addLog?.(`🧪 [${actor.name}] 강제 사용: ${itemIcon(item)} ${itemName} (+${delta} HP${satietyGain ? `, 포만감 +${satietyGain}` : ''})`, 'highlight');
-  emitConsumableRunEvent?.(actor, item, {
-    source: 'consumable',
-    reason: 'dev_force',
-    manual: true,
-    heal: delta,
-    satiety: satietyGain,
-  });
-  emitEffectRunEvents?.(actor, runtimeEffects.results, {
-    source: 'consumable',
-    itemId: String(item?._id || item?.itemId || ''),
-    reason: 'dev_force',
-  });
-  return { used: true, actor, item, heal: delta, satiety: satietyGain };
+  return commitConsumableAtIndex(actor, invIndex, { ...opts, reason: 'dev_force', manual: true });
 }

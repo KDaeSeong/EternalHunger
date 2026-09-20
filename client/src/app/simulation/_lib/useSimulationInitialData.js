@@ -124,7 +124,7 @@ export function useSimulationInitialData({
         }
 
         const itemsLoadPromise = guestMode
-          ? loadGuestSimulationItemCatalog()
+          ? loadGuestSimulationItemCatalog({ includeLocal: !isolatedEvaluation })
           : apiGetCached('/public/items', { ttlMs: 60000, timeoutMs: SIM_INIT_HEAVY_TIMEOUT_MS });
         const accountCriticalRequests = guestMode
           ? [Promise.resolve([]), Promise.resolve(defaultSettings), Promise.resolve({})]

@@ -7,6 +7,7 @@ import {
   makeStatusValueEffect,
 } from './statusLogic';
 import { getErCapsule } from './erMeta';
+import { normalizeConsumeEffect, consumeEffectErrorText } from './consumeEffectContract.js';
 
 const SATIETY_EFFECT_NAME = '포만감';
 
@@ -185,6 +186,26 @@ export function applyItemEffect(character, item) {
   const tags = safeTags(item);
   const itemId = String(item?._id || item?.itemId || item?.id || '').trim();
   const sourceId = itemId ? `item_${itemId}` : `item_${String(name || '').replace(/\s+/g, '_')}`;
+
+  // Authored effects are authoritative, including explicit zeroes. A malformed
+  // payload must never become an unrelated food/capsule effect by its name.
+  const custom = normalizeConsumeEffect(item?.consumeEffect);
+  if (!custom.ok) return { supported: false, reason: custom.reason,
+    log: consumeEffectErrorText(custom), recovery: 0, satiety: 0, newEffects: [] };
+  if (custom.explicit) {
+    const data = custom.effect;
+    const timed = { durationUnit: 'sec', tags: ['positive', 'custom_consumable'] };
+    return {
+      supported: true, explicit: true, recovery: data.heal || 0, satiety: data.satiety || 0,
+      log: `💊 [${character.name}]은(는) [${name}]을(를) 사용했습니다.`,
+      newEffects: [
+        data.shield > 0 ? makeShieldEffect(data.shield, data.durationSec, `${sourceId}_shield`, timed) : null,
+        data.regen > 0 ? makeRegenEffect(data.regen, data.durationSec, `${sourceId}_regen`, timed) : null,
+        Object.values(data.stats || {}).some(value => value > 0)
+          ? makeStatBuffEffect('소모품 강화', data.stats, data.durationSec, `${sourceId}_stats`, timed) : null,
+      ].filter(Boolean),
+    };
+  }
 
   let log = '';
   let recovery = 0;

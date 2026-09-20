@@ -11,13 +11,14 @@ import {
   readLocalRulesetSelection,
 } from './localSimulationMapRuntime.js';
 import { buildRulesetSnapshot, normalizeRulesetId } from '../../../utils/rulesets.js';
+import { mergeGuestItemCatalog } from './guestItemProfileRuntime.js';
 
 export const GUEST_SIMULATION_MAP_ID = 'guest-lumia-island';
 export const GUEST_SIMULATION_ROSTER_SIZE = 24;
 
 // A versioned local chunk, not a backend request. Return a fresh copy so a run
 // cannot mutate the shared catalog used by later matches.
-export async function loadGuestSimulationItemCatalog() {
+export async function loadGuestSimulationItemCatalog(options = {}) {
   const { GUEST_ITEM_CATALOG, GUEST_ITEM_CATALOG_META } = await import('../_generated/guestItemCatalog.generated.js');
   if (GUEST_ITEM_CATALOG_META?.schemaVersion !== 1
     || !Array.isArray(GUEST_ITEM_CATALOG)
@@ -25,7 +26,7 @@ export async function loadGuestSimulationItemCatalog() {
     || !GUEST_ITEM_CATALOG.some((item) => item?.recipe?.ingredients?.length)) {
     throw new Error('내장 아이템 카탈로그를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.');
   }
-  return structuredClone(GUEST_ITEM_CATALOG);
+  return mergeGuestItemCatalog(GUEST_ITEM_CATALOG, options);
 }
 
 const GUEST_CALLSIGNS = [

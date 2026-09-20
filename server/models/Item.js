@@ -5,6 +5,7 @@
 //   두 필드를 동시에 유지하며 자동 동기화합니다.
 
 const mongoose = require('mongoose');
+const { normalizeConsumeEffect, consumeEffectErrorText } = require('../utils/consumeEffectContract');
 
 const ItemSchema = new mongoose.Schema({
   // ✅ 단일 식별자(SSOT용)
@@ -38,6 +39,21 @@ const ItemSchema = new mongoose.Schema({
   stackMax: { type: Number, default: 1 },
   value: { type: Number, default: 0 },          // (레거시/UI 호환) 판매/교환 기준값
   baseCreditValue: { type: Number, default: 0 }, // (서버 기본) 판매/보상 기준값
+
+  // Explicit effects are preserved as a validated whole, not silently stripped
+  // by nested schema fields. null explicitly clears a prior authored effect.
+  consumeEffect: {
+    type: mongoose.Schema.Types.Mixed,
+    default: undefined,
+    set(value) {
+      const result = normalizeConsumeEffect(value);
+      return result.ok && result.explicit ? result.effect : value;
+    },
+    validate: {
+      validator: value => normalizeConsumeEffect(value).ok,
+      message: props => consumeEffectErrorText(normalizeConsumeEffect(props.value)),
+    },
+  },
 
   // 조합 레시피(로드맵 1-2)
   recipe: {

@@ -156,5 +156,7 @@ export function emitConsumableRunEvent(emitRunEvent, who, item, meta = {}, at = 
     itemName: itemDisplayName(item || { _id: itemId, name: meta?.itemName || '' }),
     heal: Math.max(0, Number(meta?.heal || 0)),
     satiety: Math.max(0, Number(meta?.satiety || 0)),
+    remainingQty: Math.max(0, Number(meta?.remainingQty || 0)),
+    effects: (Array.isArray(meta?.effects) ? meta.effects : []).slice(0, 3).map(row => ({ ...row, stats: { ...row.stats } })),
   }, at);
 }

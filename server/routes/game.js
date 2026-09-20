@@ -75,7 +75,7 @@ function compactRunEventsForStorage(runEvents) {
     'chaserName',
     'skill',
     'mode',
-    'heal',
+    'heal', 'satiety', 'remainingQty',
     'damage',
     'a', 'b', 'winner', 'lethal', 'targetId',
     'hpDamage', 'absorbed', 'hpBefore', 'hpAfter', 'maxHpBefore', 'maxHpAfter',
@@ -107,6 +107,17 @@ function compactRunEventsForStorage(runEvents) {
         };
       }
       if (Array.isArray(event.blockedReasons)) out.blockedReasons = event.blockedReasons.slice(0, 6).map((reason) => String(reason || '').slice(0, 120));
+      if (event.kind === 'use' && Array.isArray(event.effects)) {
+        const statKeys = ['attackPower', 'defense', 'skillAmp', 'attackSpeed', 'critChance', 'moveSpeed', 'attackRange', 'sightRange'];
+        out.effects = event.effects.slice(0, 3).filter(row => row && typeof row.name === 'string'
+          && Number.isFinite(row.durationSec) && row.durationSec > 0).map(row => ({
+          name: row.name.slice(0, 120), durationSec: row.durationSec,
+          shield: Number.isFinite(row.shield) && row.shield > 0 ? row.shield : 0,
+          regen: Number.isFinite(row.regen) && row.regen > 0 ? row.regen : 0,
+          stats: Object.fromEntries(statKeys.filter(key => Number.isFinite(row.stats?.[key]) && row.stats[key] >= 0)
+            .map(key => [key, row.stats[key]])),
+        }));
+      }
       if (Array.isArray(event.participants)) out.participants = event.participants.slice(0, 100)
         .filter((id) => typeof id === 'string' || typeof id === 'number').map((id) => String(id).slice(0, 180));
       if (['procurement', 'craft'].includes(event.kind) && event.receiptVersion === 1 && Array.isArray(event.consumed)) {

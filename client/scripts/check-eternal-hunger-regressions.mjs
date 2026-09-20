@@ -164,8 +164,8 @@ assert.match(
 assert.doesNotMatch(sources.initialData, /if \(!token \|\| !me\?\.username\)/, 'Simulation entry must not require an account marker.');
 assert.match(
   sources.initialData,
-  /const itemsLoadPromise = guestMode\s*\? loadGuestSimulationItemCatalog\(\)\s*:\s*apiGetCached\('\/public\/items'/,
-  'Guest initialization must use the local catalog, never the remote item API.',
+  /const itemsLoadPromise = guestMode\s*\? loadGuestSimulationItemCatalog\(\{ includeLocal: !isolatedEvaluation \}\)\s*:\s*apiGetCached\('\/public\/items'/,
+  'Guest initialization must use the local catalog, exclude personal edits from isolated evaluation, and never use the remote item API.',
 );
 assert.match(
   sources.initialData,
