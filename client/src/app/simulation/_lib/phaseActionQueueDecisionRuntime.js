@@ -47,6 +47,9 @@ export function prepareActorPhaseActionQueue({
     moveObjectiveSubkind = '',
     moveObjectiveType = '',
     moveReason = '',
+    movementObjective = null,
+    movementTargetZoneId = '',
+    sharedGoalReason = '',
     mustEscape = false,
     nextDay,
     nextPhase,
@@ -223,6 +226,9 @@ export function prepareActorPhaseActionQueue({
         score: 999,
         objectiveType: moveObjectiveType,
         objectiveSubkind: moveObjectiveSubkind,
+        movementObjective,
+        sharedGoalReason,
+        targetZoneId: movementTargetZoneId,
         contestPressure: moveContestPressure,
       };
     }
@@ -329,6 +335,12 @@ export function prepareActorPhaseActionQueue({
       candidateScores: queueScoredCandidates,
       candidateCount: candidatePreview.length,
       reason: String(queuedAtomicAction?.reason || moveReason || ''),
+      // Record the chosen action's item, never a deferred candidate's item.
+      itemId: String(queuedAtomicAction?.itemId || ''),
+      itemName: String(itemNameById?.[String(queuedAtomicAction?.itemId || '')] || ''),
+      movementObjective,
+      sharedGoalReason,
+      targetZoneId: movementTargetZoneId,
       objectiveType: String(queuedAtomicAction?.objectiveType || moveObjectiveType || ''),
       objectiveSubkind: String(queuedAtomicAction?.objectiveSubkind || moveObjectiveSubkind || ''),
       contestPressure: Math.max(0, Number(queuedAtomicAction?.contestPressure || moveContestPressure || 0)),

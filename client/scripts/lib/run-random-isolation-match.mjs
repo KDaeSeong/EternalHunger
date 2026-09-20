@@ -39,7 +39,7 @@ export async function createRandomIsolationInput(runSeed = '1101', { guestProfil
   return JSON.stringify({ map, settings, items, survivors: shuffledChars, runSeed });
 }
 
-export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseOnly = false, uiNoise = () => {}, savedInput = null, onFinish } = {}) {
+export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseOnly = false, uiNoise = () => {}, savedInput = null, onFinish, onFrame } = {}) {
   const fixture = savedInput ? { map: savedInput.map, settings: savedInput.settings, items: savedInput.publicItems,
     survivors: savedInput.initialFrame.survivors, runSeed: savedInput.runSeed } : JSON.parse(inputJson);
   const { map, settings, items, survivors, runSeed } = structuredClone(fixture);
@@ -127,6 +127,7 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
       assert.equal(frame.survivors.length + frame.dead.length, survivors.length);
       assert.ok(!latestFrame || latestFrame.matchSec <= frame.matchSec);
       latestFrame = frame;
+      onFrame?.(frame, { publicItems: items, events });
       frames += 1;
       frameHash.update(JSON.stringify(frame));
       if (noisy) {

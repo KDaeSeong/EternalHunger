@@ -121,6 +121,9 @@ export function buildTeamMovementPlans({
         targetZoneId: String(target), nextStep: route.nextStep, memberCount: members.length,
         objectiveType: String(proposed?.objectiveType || ''),
         objectiveSubkind: String(proposed?.objectiveSubkind || ''),
+        // Keep the leader's actual choice separate from the coordination mode.
+        // This is presentation metadata, not an objective/action score flag.
+        sourceReason: String(proposed?.reason || ''),
         objective,
         contestPressure: Math.max(0, Number(proposed?.contestPressure || 0)),
       });

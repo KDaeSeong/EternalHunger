@@ -78,6 +78,7 @@
     "check:team-combat": "node ./scripts/check-team-combat.mjs",
     "check:team-observer": "node ./scripts/check-team-observer.mjs && npm run check:movement-objectives && npm run check:observer-performance-guards && npm run check:observer-performance-probe",
     "check:movement-objectives": "node ./scripts/check-movement-objectives.mjs",
+    "check:observer-goals-match": "node ./scripts/check-observer-goals-match.mjs",
     "check:observer-performance-probe": "node ./scripts/check-observer-performance-probe.mjs",
     "check:observer-performance-guards": "node ./scripts/check-observer-performance-guards.mjs",
     "check:action-timeline": "node ./scripts/check-action-timeline.mjs && npm run check:simulation-diagnostics",

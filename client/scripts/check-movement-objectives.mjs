@@ -9,6 +9,9 @@ const { runActorMovementDecisionPhase } = await import('../src/app/simulation/_l
 const { buildTeamObserverModel, describeObserverEvent } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
 const { clearRuntimeCombatFields, applyAiRecoveryWindow } = await import('../src/app/simulation/_lib/survivorLifecycleRuntime.js');
 const { createSimulationFrame } = await import('../src/app/simulation/_lib/simulationFrameRuntime.js');
+const { formatMoveIntentLabel } = await import('../src/app/simulation/_lib/moveIntentRuntime.js');
+const { prepareActorPhaseActionPlan } = await import('../src/app/simulation/_lib/phaseActionQueueRuntime.js');
+const { emitQueueRunEvent } = await import('../src/app/simulation/_lib/runEventRuntime.js');
 
 let checks = 0;
 const check = (name, fn) => { fn(); checks += 1; console.log(`PASS ${name}`); };
@@ -31,6 +34,41 @@ const ruleset = { ai: { recoverHpBelow: 38, fightAvoidMinRatio: 0.4, targetTtlMi
 const zoneName = (id) => ({ a: '학교', b: '성당', c: '병원' })[id] || id;
 const model = (survivors, extra = {}) => buildTeamObserverModel({ survivors, spawnState: world(), teamId: 'team:1', matchSec: 220, zoneName, ...extra });
 const goalActor = (id, teamId = 'team:1', extra = {}) => actor(id, teamId, { _movementObjective: { ...coreGoal(), atSec: 200, shared: true }, ...extra });
+
+check('purchase plans keep only selected specificity and never claim a completed purchase or a crate hunt', () => {
+  const rows = [
+    ['미스릴(키오스크)', '미스릴 구매 검토'], ['포스코어(키오스크 구매)', '포스 코어 구매 검토'],
+    ['초월 목표 VF 구매', 'VF 혈액 샘플 구매 검토'], ['전설 목표 재료 구매', '전설 장비 재료 구매 검토'],
+    ['전설 재료(키오스크 구매)', '전설 장비 재료 구매 검토'], ['특수재료(키오스크)', '특수 재료 구매 검토'],
+    ['surplus credits kiosk', '여유 크레딧 사용 검토'], ['크레딧 파밍(야생동물)', '크레딧 마련을 위한 야생동물 사냥'],
+  ];
+  for (const [reason, expected] of rows) {
+    const text = formatMoveIntentLabel('team_rotate', '', '', null, `${reason}:ttl`);
+    assert.ok(text.includes(expected), text); assert.doesNotMatch(text, /획득|완료|상자/);
+  }
+  assert.equal(formatMoveIntentLabel('team_rotate'), '팀 공동 목표 이동');
+  assert.equal(formatMoveIntentLabel('team_rotate', '', '', coreGoal(), '전설 목표 재료 구매'), '팀 공동 목표 · 생명의 나무 확보');
+});
+check('observer keeps shared purpose without inventing a rare material for a generic purchase plan', () => {
+  const text = describeObserverEvent({ kind: 'team_decision', who: 'a', reason: 'team_rotate', moved: false,
+    sharedGoalReason: '전설 목표 재료 구매', targetZoneId: 'c' }, { zoneName });
+  assert.match(text, /지역 유지.*전설 장비 재료 구매 검토.*목표 병원/);
+  assert.doesNotMatch(text, /미스릴|생명의 나무|운석|포스 코어|획득/);
+  assert.match(describeObserverEvent({ kind: 'queue', who: 'a', chosen: 'kioskExchange', itemName: '포스 코어' }), /키오스크 교환 선택 · 포스 코어.*성공 여부는 후속 기록/);
+  assert.match(describeObserverEvent({ kind: 'queue', who: 'a', chosen: 'droneOrder', itemName: '가지' }), /드론 주문 선택 · 가지/);
+});
+check('queue serialization owns concrete goal snapshots and preserves purpose, item and final destination', () => {
+  const events = []; const goal = coreGoal();
+  emitQueueRunEvent((kind, payload, at) => events.push({ kind, ...payload, at }), actor('a'), {
+    chosen: 'moveTo', reason: 'team_rotate', movementObjective: goal, sharedGoalReason: '특수 재료 오브젝트',
+    targetZoneId: 'c', itemId: 'mithril', itemName: '미스릴',
+  }, { sec: 200 });
+  goal.sourceIds.length = 0;
+  const event = JSON.parse(JSON.stringify(events[0]));
+  assert.deepEqual(event.movementObjective.sourceIds, ['tree-c']); assert.equal(event.sharedGoalReason, '특수 재료 오브젝트');
+  assert.equal(event.itemId, 'mithril'); assert.equal(event.itemName, '미스릴');
+  assert.match(describeObserverEvent(event, { zoneName }), /생명의 나무 확보.*이동 목표 병원/);
+});
 
 check('generic core captures the chosen final zone and actual tree, not another candidate meteor', () => {
   assert.deepEqual(coreGoal(), { type: 'natural_core', subkind: 'core', targetZoneId: 'c', sourceIds: ['tree-c'], resourceKinds: ['life_tree'] });
@@ -190,6 +228,33 @@ try {
       assert.match(describeObserverEvent(result.events.find((event) => event.kind === 'team_decision'), { zoneName }), /생명의 나무 확보/);
     }
   });
+  check('a real shared purchase movement preserves its purpose through the next action plan without action bias', () => {
+    for (const sourceReason of ['미스릴(키오스크)', '전설 목표 재료 구매', '크레딧 파밍(야생동물)']) {
+      const shared = buildTeamMovementPlans({ roster: squad, zoneGraph: graph, day: 3, phase: 'night',
+        chooseLeaderMove: () => ({ targets: ['c'], reason: sourceReason }) });
+      const plan = shared.get('a'); assert.equal(plan.sourceReason, sourceReason); assert.equal(plan.objectiveType, '');
+      const result = move(squad[0], { teamMovementPlan: plan });
+      assert.equal(result.sharedGoalReason, sourceReason); assert.equal(result.movementTargetZoneId, 'c');
+      assert.equal(result.moveObjectiveType, ''); assert.equal(result.movementObjective, null);
+      const moveEvent = result.events.find((event) => event.kind === 'move');
+      assert.equal(moveEvent.sharedGoalReason, sourceReason); assert.match(describeObserverEvent(moveEvent, { zoneName }), /목적지 병원/);
+      const actionPlan = prepareActorPhaseActionPlan({ state: { ...result, craftables: [], publicItems: items,
+        itemMetaById: {}, itemNameById: {}, itemKeyById: {}, mapObj: { zones: Object.keys(graph).map((zoneId) => ({ zoneId })) },
+        zoneGraph: graph, forbiddenIds: new Set(), ruleset, nextDay: 3, nextPhase: 'night' } });
+      assert.equal(actionPlan.queuedAtomicAction.sharedGoalReason, sourceReason);
+      assert.equal(actionPlan.queuedAtomicAction.targetZoneId, 'c'); assert.equal(actionPlan.queuedAtomicAction.objectiveType, '');
+      assert.equal(actionPlan.queuedAtomicAction.score, 999);
+    }
+  });
+  check('status-blocked shared travel reports the final hold, not the abandoned purchase movement', () => {
+    const plan = { mode: 'team_rotate', nextStep: 'b', targetZoneId: 'c', leaderId: 'a', sourceReason: '미스릴(키오스크)' };
+    const result = move(actor('a', 'team:1', { activeEffects: [{ name: '기절', remainingDuration: 10, durationUnit: 'sec' }] }), { teamMovementPlan: plan });
+    assert.equal(result.didMove, false); assert.equal(result.sharedGoalReason, '');
+    const event = result.events.find((row) => row.kind === 'team_decision');
+    assert.equal(event.reason, 'status_move_block'); assert.equal(event.targetZoneId, 'a');
+    assert.match(describeObserverEvent(event, { zoneName }), /상태 이상으로 이동 보류/);
+    assert.doesNotMatch(describeObserverEvent(event, { zoneName }), /미스릴|공동 목표|병원/);
+  });
   check('source consumed after team planning cannot be published as the old active goal', () => {
     const spawnState = world(); spawnState.coreNodes.forEach((node) => { node.picked = true; });
     const result = move(goalActor('a'), { teamMovementPlan: plans().get('a'), nextSpawn: spawnState });
@@ -211,6 +276,7 @@ try {
       [goalActor('a'), { nextSpawn: { ...world(), endgame: { zoneIds: ['a', 'b', 'c'], finalZoneId: 'c', singleZoneAtSec: 0, stage: 'final' } }, teamMovementPlan: plans().get('a') }],
     ]) {
       const result = move(who, extra); assert.equal(result.actor._movementObjective, null);
+      assert.equal(result.sharedGoalReason, '');
       assert.equal(result.events.find((event) => event.kind === 'movement_goal')?.objective, null);
     }
   });

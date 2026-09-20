@@ -89,6 +89,11 @@ export function emitQueueRunEvent(emitRunEvent, who, payload = {}, at = null) {
     reason: String(payload?.reason || ''),
     objectiveType: String(payload?.objectiveType || ''),
     objectiveSubkind: String(payload?.objectiveSubkind || ''),
+    movementObjective: payload?.movementObjective ? structuredClone(payload.movementObjective) : null,
+    sharedGoalReason: String(payload?.sharedGoalReason || ''),
+    targetZoneId: String(payload?.targetZoneId || ''),
+    itemId: String(payload?.itemId || ''),
+    itemName: String(payload?.itemName || ''),
     contestPressure: Math.max(0, Number(payload?.contestPressure || 0)),
   }, at);
 }

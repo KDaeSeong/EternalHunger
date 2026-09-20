@@ -78,11 +78,13 @@ export function describeObserverReason(event = {}) {
     recover: '회복 우선', low_hp_recovery: '저체력으로 안전 대기', growth_farm: '목표 장비 재료 탐색',
     growth_craft: '목표 장비 제작 준비', growth_ready: '성장 완료·다음 행동 검토',
     growth_blocked: '성장 경로 재검토', endgame_rotate: '최종 안전구역으로 이동', wander: '지역 탐색',
+    status_move_block: '상태 이상으로 이동 보류',
   };
-  const knownIntent = /^(early_route|dimension_rift)/.test(raw) || !!event.objectiveType || /[가-힣]/.test(raw);
+  const knownIntent = /^(early_route|dimension_rift)/.test(raw) || raw === 'surplus credits kiosk' || !!event.objectiveType || /[가-힣]/.test(raw);
   let text = labels[raw] || (knownIntent ? formatMoveIntentLabel(raw, event.objectiveType, event.objectiveSubkind, event.movementObjective) : '상세 판단 기록 없음');
   const objectiveLabel = describeMovementObjective(event.movementObjective);
   if (labels[raw] && objectiveLabel) text += ` · ${objectiveLabel}`;
+  if (raw === 'team_rotate' && !objectiveLabel && event.sharedGoalReason) text += ` · ${formatMoveIntentLabel(event.sharedGoalReason)}`;
   if (event.blocked) {
     const blockage = ({ no_material_source: '필요한 재료의 공급처 없음', no_safe_path: '안전한 재료 경로 없음', invalid_recipe: '제작법 연결 확인 필요' })[event.blocked] || '성장 계획 막힘';
     text = text === '상세 판단 기록 없음' ? blockage : `${text} · ${blockage}`;
@@ -113,13 +115,13 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
       if (['natural_core', 'legendary_crate'].includes(event.objective)) return `${who}: ${event.itemName || '오브젝트 보상'} ${event.success && num(event.qty) > 0 ? `${num(event.qty)}개 획득` : '획득 실패'}${where}`;
       return '';
     }
-    case 'move': return `${who}: ${zoneName(event.from)} → ${zoneName(event.to)} · ${describeObserverReason(event)}${event.movementObjective && event.targetZoneId !== event.to ? ` · 목적지 ${zoneName(event.movementObjective.targetZoneId)}` : ''}${event.etaSec ? ` · 이동 ${event.etaSec}초` : ''}`;
+    case 'move': return `${who}: ${zoneName(event.from)} → ${zoneName(event.to)} · ${describeObserverReason(event)}${event.targetZoneId && event.targetZoneId !== event.to ? ` · 목적지 ${zoneName(event.targetZoneId)}` : ''}${event.etaSec ? ` · 이동 ${event.etaSec}초` : ''}`;
     case 'team_decision': return `${who}: ${describeObserverReason(event)}${event.targetZoneId ? ` · 목표 ${zoneName(event.targetZoneId)}` : ''}`;
     case 'growth_plan': return `${who}: ${describeObserverReason(event)}${event.targetName ? ` · 목표 ${event.targetName}` : ''}`;
     case 'queue': {
-      const action = ({ routeFarm: '루트 탐색', craft: '제작', hunt: '사냥', moveTo: '이동', flee: '후퇴', kioskBuy: '키오스크 주문', droneBuy: '드론 주문', gather: '채집', rest: '휴식' })[event.chosen] || '다음 행동';
+      const action = ({ routeFarm: '루트 탐색', craft: '제작', hunt: '사냥', moveTo: '이동', flee: '후퇴', kioskBuy: '키오스크 주문', kioskExchange: '키오스크 교환', kioskSell: '키오스크 판매', droneBuy: '드론 주문', droneOrder: '드론 주문', gather: '채집', rest: '휴식' })[event.chosen] || '다음 행동';
       const reason = describeObserverReason(event);
-      return `${who}: ${action} 선택${reason !== '상세 판단 기록 없음' ? ` · ${reason}` : ''}${list(event.blockedReasons).some((blockedReason) => blockedReason === 'craft:missing_ing') ? ' · 제작 재료 부족' : ''} (성공 여부는 후속 기록)`;
+      return `${who}: ${action} 선택${event.itemName ? ` · ${event.itemName}` : ''}${reason !== '상세 판단 기록 없음' ? ` · ${reason}` : ''}${event.targetZoneId ? ` · 이동 목표 ${zoneName(event.targetZoneId)}` : ''}${list(event.blockedReasons).some((blockedReason) => blockedReason === 'craft:missing_ing') ? ' · 제작 재료 부족' : ''} (성공 여부는 후속 기록)`;
     }
     case 'craft': return `${who}: ${event.itemName || '아이템'} 제작 완료${where}`;
     case 'resource_replan': return `${who}: ${zoneName(event.from)} 재료 소진 · ${event.to ? `${zoneName(event.to)} 재탐색` : '성장 목표 재검토'}`;

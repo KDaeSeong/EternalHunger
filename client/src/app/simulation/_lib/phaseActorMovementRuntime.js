@@ -334,6 +334,13 @@ export function runActorMovementDecisionPhase({
     { spawnState: nextSpawn, forbiddenIds, nowSec: atNow()?.sec, teamId: getActorTeamId(updated), actor: updated });
   publishMovementObjective(updated, movementObjective, { at: atNow(), emitRunEvent, addLog,
     zoneName: getZoneName, teamId: getActorTeamId(updated), shared: activeTeamPlan?.mode === 'team_rotate' });
+  // Recovery, escape, status blocks and endgame overrides must not inherit a
+  // discarded leader goal. The tactical reason itself remains unchanged.
+  const sharedGoalReason = moveReason === 'team_rotate' ? String(activeTeamPlan?.sourceReason || '') : '';
+  const movementTargetZoneId = movementObjective?.targetZoneId
+    || (moveReason === activeTeamPlan?.mode ? activeTeamPlan.targetZoneId : '')
+    || (['growth_farm', 'growth_craft'].includes(moveReason) ? growthPlan?.targetZoneId || '' : '')
+    || (moveReason === targetMemory.moveReason && !mustEscape ? holdTarget || '' : '');
 
   if (didChangeZone) {
     if (usedHyperloopMove) {
@@ -349,7 +356,7 @@ export function runActorMovementDecisionPhase({
       if (moveReason === 'recover') {
         addLog(`🛟 [${updated.name}] 회복 우선 이동: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
       } else {
-        const intentLabel = formatMoveIntentLabel(moveReason, moveObjectiveType, moveObjectiveSubkind, movementObjective);
+        const intentLabel = formatMoveIntentLabel(moveReason, moveObjectiveType, moveObjectiveSubkind, movementObjective, sharedGoalReason);
         addLog(`🎯 [${updated.name}] ${intentLabel}: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'normal');
       }
     } else {
@@ -367,7 +374,8 @@ export function runActorMovementDecisionPhase({
       objectiveType: moveObjectiveType,
       objectiveSubkind: moveObjectiveSubkind,
       movementObjective,
-      targetZoneId: movementObjective?.targetZoneId || activeTeamPlan?.targetZoneId || holdTarget || '',
+      sharedGoalReason,
+      targetZoneId: movementTargetZoneId,
       contestPressure: moveContestPressure,
       teamId: getActorTeamId(updated),
       teamAssessment,
@@ -379,9 +387,9 @@ export function runActorMovementDecisionPhase({
 
   const publishPowerFleeDecision = !endgameMove && useTeamAssessment && powerFleeInterrupt;
   if (retreatCooldownHeld || activeTeamPlan || publishPowerFleeDecision) {
-    const reason = retreatCooldownHeld ? 'retreat_cooldown' : (fleeInterruptReason || activeTeamPlan?.mode);
-    updated._teamDecision = { ...teamAssessment, reason, leaderId: activeTeamPlan?.leaderId || '', targetZoneId: activeTeamPlan?.targetZoneId || nextZoneId,
-      objectiveType: moveObjectiveType, objectiveSubkind: moveObjectiveSubkind, movementObjective };
+    const reason = retreatCooldownHeld ? 'retreat_cooldown' : (fleeInterruptReason || moveReason);
+    updated._teamDecision = { ...teamAssessment, reason, leaderId: activeTeamPlan?.leaderId || '', targetZoneId: movementTargetZoneId || nextZoneId,
+      objectiveType: moveObjectiveType, objectiveSubkind: moveObjectiveSubkind, movementObjective, sharedGoalReason };
     emitRunEvent('team_decision', {
       who: String(updated._id || ''), teamId: getActorTeamId(updated),
       from: currentZone, to: nextZoneId, moved: didChangeZone, ...updated._teamDecision,
@@ -398,6 +406,7 @@ export function runActorMovementDecisionPhase({
     openingComplete: growthPlan.openingComplete, missing: growthPlan.missing.map(({ itemId, need }) => ({ itemId, need })),
     targetZoneId: growthPlan.targetZoneId, reason: fleeInterruptReason || moveReason, blocked: growthPlan.blocked,
     movementObjective,
+    sharedGoalReason,
   }, atNow());
   const objectiveTargets = activeTeamPlan ? [activeTeamPlan.targetZoneId] : moveTargets;
   const objectiveTargetSet = new Set((Array.isArray(objectiveTargets) ? objectiveTargets : []).map((zoneId) => String(zoneId || '')).filter(Boolean));
@@ -431,6 +440,9 @@ export function runActorMovementDecisionPhase({
     moveObjectiveSubkind,
     moveObjectiveType,
     moveReason,
+    movementObjective,
+    movementTargetZoneId,
+    sharedGoalReason,
     moveTargets,
     mustEscape,
     nextZoneId,

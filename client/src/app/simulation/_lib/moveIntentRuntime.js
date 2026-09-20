@@ -1,6 +1,6 @@
 import { describeMovementObjective } from './movementObjectiveRuntime.js';
 
-export function formatMoveIntentLabel(reason, objectiveType = '', objectiveSubkind = '', movementObjective = null) {
+export function formatMoveIntentLabel(reason, objectiveType = '', objectiveSubkind = '', movementObjective = null, sharedGoalReason = '') {
   const raw = String(reason || '').replace(/:ttl/g, '').replace(/:priority/g, '').trim();
   const type = String(objectiveType || '').toLowerCase();
   const sub = String(objectiveSubkind || '').toLowerCase();
@@ -13,11 +13,28 @@ export function formatMoveIntentLabel(reason, objectiveType = '', objectiveSubki
   if (raw === 'growth_ready') return '성장 완료·합류 대기';
   if (raw === 'growth_blocked') return '성장 경로 재탐색';
   if (raw === 'team_regroup') return '팀 합류';
-  if (raw === 'team_rotate') return '팀 공동 목표 이동';
+  if (raw === 'team_rotate') {
+    const source = String(sharedGoalReason || '').replace(/:ttl|:priority/g, '').trim();
+    return source && source !== 'team_rotate'
+      ? `팀 공동 목표 · ${formatMoveIntentLabel(source, objectiveType, objectiveSubkind)}`
+      : '팀 공동 목표 이동';
+  }
   if (raw === 'recover') return '회복 우선';
   if (raw === 'endgame_rotate') return '최종 안전구역 이동';
-  if (raw.includes('크레딧') || raw.includes('야생동물')) return '야생동물 사냥';
-  if (raw.includes('키오스크')) return '키오스크 주문';
+  // A travel decision is not a paid order. Only preserve material specificity
+  // that the chosen plan actually carries; generic legendary needs stay generic.
+  if (raw === 'surplus credits kiosk') return '키오스크에서 여유 크레딧 사용 검토';
+  if (raw.includes('키오스크') || raw === '초월 목표 VF 구매' || raw === '전설 목표 재료 구매') {
+    const material = raw.includes('VF') ? 'VF 혈액 샘플'
+      : raw.includes('포스코어') || raw.includes('포스 코어') ? '포스 코어'
+        : raw.includes('미스릴') ? '미스릴'
+          : raw.includes('생명의 나무') ? '생명의 나무'
+            : raw.includes('운석') ? '운석'
+              : raw.includes('전설') ? '전설 장비 재료' : '특수 재료';
+    return `키오스크 ${material} 구매 검토`;
+  }
+  if (raw.includes('크레딧') && raw.includes('야생동물')) return '크레딧 마련을 위한 야생동물 사냥';
+  if (raw.includes('야생동물')) return '야생동물 사냥';
   if (type === 'natural_core' || raw.includes('특수 재료')) {
     if (sub === 'meteor') return '운석 확인';
     if (sub === 'life_tree') return '생명의 나무 확인';
