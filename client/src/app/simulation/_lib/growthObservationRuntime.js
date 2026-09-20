@@ -1,13 +1,23 @@
-import { getActorGrowthProgress, getGrowthRecipeWork } from './growthPlanRuntime.js';
+import { getActorGrowthProgress, getGrowthRecipeWork, markGrowthComponent } from './growthPlanRuntime.js';
 import { getFieldResourceQty } from './fieldResourceRuntime.js';
 import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 import { procurementFailureText } from './procurementTransactionRuntime.js';
+import { prepareCraftTransaction, craftFailureText } from './craftTransactionRuntime.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 export const PROCUREMENT_LABELS = Object.freeze({ kioskBuy: '키오스크 구매', kioskExchange: '키오스크 교환', kioskSell: '키오스크 판매', droneOrder: '드론 주문' });
 
+export function describeCraftReceipt(event) {
+  if (event?.kind !== 'craft' || event.receiptVersion !== 1 || !Number.isSafeInteger(event.qty) || event.qty <= 0
+    || event.receivedQty !== event.qty || !Number.isSafeInteger(event.paidCost) || event.paidCost < 0
+    || ![event.beforeCredits, event.afterCredits].every((value) => Number.isFinite(value) && value >= 0)
+    || event.beforeCredits - event.paidCost !== event.afterCredits) return '';
+  return `${event.itemName || '아이템'} ${event.qty}개 제작 완료${event.paidCost
+    ? ` · 제작 비용 ${event.paidCost}Cr (${event.beforeCredits}→${event.afterCredits}Cr)` : ''}`;
+}
+
 export function getActorGrowthObservation(actor, items, { progress = getActorGrowthProgress(actor, items),
-  forbiddenIds = [], fieldResources, zoneName = String, isGameOver = false } = {}) {
+  forbiddenIds = [], fieldResources, zoneName = String, isGameOver = false, ruleset } = {}) {
   if (isGameOver || !(actor?.hp > 0) || getCombatSpaceId(actor) !== WORLD_COMBAT_SPACE) return null;
   const empty = { targetId: '', targetName: '', materials: '', destination: '', note: '' };
   if (!progress.totalSlots) return { ...empty, status: 'unplanned', label: '성장 목표 미설정' };
@@ -19,12 +29,16 @@ export function getActorGrowthObservation(actor, items, { progress = getActorGro
   const work = getGrowthRecipeWork(actor, items, target._id);
   const missing = work.missing.slice(0, 3).map((row) => `${row.name} ${row.need}개`).join(' · ');
   const ready = items.find((item) => String(item._id) === work.readyCraftId);
-  const materials = work.blocked ? '제작법 연결 확인 필요' : work.missing.length
+  const receiptPreview = ready && ruleset ? prepareCraftTransaction(actor,
+    markGrowthComponent(ready, { _growthPlan: { targetIds: progress.targets.map((item) => item._id), componentIds: work.componentIds } }), 1, ruleset) : null;
+  const materials = receiptPreview && !receiptPreview.ok ? craftFailureText(receiptPreview.reason, receiptPreview)
+    : work.blocked === 'insufficient_credits' ? `제작 비용 부족 · 필요 ${work.requiredCredits}Cr / 보유 ${work.availableCredits}Cr`
+    : work.blocked ? '제작법 연결 확인 필요' : work.missing.length
     ? `부족: ${missing}${work.missing.length > 3 ? ` 외 ${work.missing.length - 3}종` : ''}${ready ? ` · ${ready.name} 제작 가능` : ''}`
     : ready ? '필요한 재료 확보 · 제작 가능' : '다음 제작 판단 대기';
   const forbidden = forbiddenIds instanceof Set ? forbiddenIds : new Set(forbiddenIds);
   let destination = '', note = '';
-  if (work.blocked) note = '성장 경로 재검토';
+  if (work.blocked) note = work.blocked === 'insufficient_credits' ? '재료 확보 · 제작 비용 대기' : '성장 경로 재검토';
   else if (work.missing.length && plan.targetZoneId) {
     const relevant = list(plan.missing).filter((row) => work.missing.some((need) => need.itemId === row.itemId)
       && list(row.zones).includes(plan.targetZoneId));

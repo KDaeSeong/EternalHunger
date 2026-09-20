@@ -11,6 +11,8 @@ const { isFoodRecoveryItem } = await import('../src/app/simulation/_lib/satietyR
 const { forceUseConsumableAtIndex, createPhaseConsumableRuntime } = await import('../src/app/simulation/_lib/consumableRuntime.js');
 const { tryAutoCraftFromInventory } = await import('../src/app/simulation/_lib/gearInventoryCraftRuntime.js');
 const { tryAutoCraftFromLoot } = await import('../src/app/simulation/_lib/craftRuntime.js');
+const { getLootCraftOptions } = await import('../src/app/simulation/_lib/runEventRuntime.js');
+const { commitCraftTransaction } = await import('../src/app/simulation/_lib/craftTransactionRuntime.js');
 const { pickCatalogEquipmentItem } = await import('../src/app/simulation/_lib/gearCatalogRuntime.js');
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
 
@@ -34,7 +36,9 @@ const crafter = actor({ inventory: [structuredClone(material)] });
 const craft = tryAutoCraftFromInventory(crafter, [recipe], {}, {}, 1, 0, rules);
 const poorCrafter = actor({ simCredits: 0, inventory: [structuredClone(material)] });
 const poorCraft = tryAutoCraftFromInventory(poorCrafter, [recipe], {}, {}, 1, 0, rules);
-const lootCraft = withSimulationRandom(() => 0, () => tryAutoCraftFromLoot([structuredClone(material)], material._id, [recipe], {}, {}, 1, rules));
+const lootCrafter = actor({ inventory: [structuredClone(material)] });
+const lootCraft = withSimulationRandom(() => 0, () => tryAutoCraftFromLoot(lootCrafter.inventory, material._id, [recipe], {}, {}, 1, rules, getLootCraftOptions(lootCrafter)));
+const lootCommit = commitCraftTransaction(lootCrafter, lootCraft?.transaction);
 
 const findings = [
   { id: 'HF6-SCHEMA', requirement: 'Authored effects survive item storage',
@@ -51,10 +55,11 @@ const findings = [
     supported: forced.used !== true && forcedActor.inventory.length === 1,
     evidence: { used: forced.used, heal: forced.heal ?? 0, remainingItems: forcedActor.inventory.length, automaticUse: automatic, automaticHp: autoActor.hp } },
   { id: 'HF6-CRAFT', requirement: 'Crafting honors authored yield and pays the authored cost atomically',
-    supported: craft?.changed === true && invQty(crafter.inventory, recipe._id) === 3 && crafter.simCredits === 13 && !poorCraft?.changed,
+    supported: craft?.changed === true && invQty(crafter.inventory, recipe._id) === 3 && crafter.simCredits === 13 && !poorCraft?.changed
+      && lootCommit.ok && invQty(lootCrafter.inventory, recipe._id) === 3 && lootCrafter.simCredits === 13,
     evidence: { declaredYield: 3, receivedYield: invQty(crafter.inventory, recipe._id), declaredCost: 7, afterCredits: crafter.simCredits,
       remainingIngredients: invQty(crafter.inventory, material._id), craftedWithZeroCredits: poorCraft?.changed === true,
-      lootPathYield: invQty(lootCraft?.inventory, recipe._id), lootPathHasActorCreditInput: false } },
+      lootPathYield: invQty(lootCrafter.inventory, recipe._id), lootPathAfterCredits: lootCrafter.simCredits, lootPathHasActorCreditInput: true } },
 ];
 const missingStarter = withSimulationRandom(() => 0, () => pickCatalogEquipmentItem([
   { _id: 'custom:head', name: '맞춤 투구', type: '방어구', equipSlot: 'head', tier: 1 },

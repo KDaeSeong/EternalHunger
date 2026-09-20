@@ -12,6 +12,7 @@ const { createInitialMasteryState } = await import('../src/utils/masteryLogic.js
 const { getRuleset } = await import('../src/utils/rulesets.js');
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
 const { invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
+const { applyLootCraftResult } = await import('../src/app/simulation/_lib/lootCraftResultRuntime.js');
 
 let passed = 0;
 let failed = 0;
@@ -66,7 +67,7 @@ function capture() {
     },
     applyLootCraftResult: (subject, result) => {
       calls.crafts.push(result);
-      if (result?.inventory) subject.inventory = result.inventory;
+      applyLootCraftResult(subject, result, meta);
     },
   };
   return { calls, actions };

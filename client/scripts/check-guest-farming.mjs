@@ -9,7 +9,7 @@ const { buildCraftableItems, buildItemMetaById, buildItemNameById, buildItemKeyB
 const { addItemToInventory, invQty, inferEquipSlot } = await import('../src/app/simulation/_lib/inventoryRules.js');
 const { tryAutoCraftFromInventory } = await import('../src/app/simulation/_lib/gearInventoryCraftRuntime.js');
 const { tryAutoCraftFromLoot, prepareInventoryForCraftLoot } = await import('../src/app/simulation/_lib/craftRuntime.js');
-const { autoEquipBest } = await import('../src/app/simulation/_lib/gearFallbackRuntime.js');
+const { applyLootCraftResult } = await import('../src/app/simulation/_lib/lootCraftResultRuntime.js');
 const { day1HeroGearDirector, lateGameGearDirector } = await import('../src/app/simulation/_lib/gearDirectorRuntime.js');
 const { runRouteFarmAction } = await import('../src/app/simulation/_lib/phaseRouteFarmRuntime.js');
 const { buildStarterLoadoutSurvivorsForPhase } = await import('../src/app/simulation/_lib/phaseSpawnRuntime.js');
@@ -28,7 +28,7 @@ const target = byId.get('namu:단검:군용 나이프');
 assert.ok(target?.recipe.ingredients.length);
 const ingredients = target.recipe.ingredients;
 const fixtureInventory = ingredients.reduce((inv, row) => add(inv, row.itemId, row.qty), []);
-const actor = { _id: 'fixture', name: 'fixture', weaponType: '단검', inventory: fixtureInventory, _itemKeyById: keys };
+const actor = { _id: 'fixture', name: 'fixture', hp: 100, simCredits: 0, weaponType: '단검', inventory: fixtureInventory, _itemKeyById: keys };
 const before = structuredClone(actor.inventory);
 const crafted = tryAutoCraftFromInventory(actor, [target], names, meta, 1, 1, rules);
 assert.equal(crafted?.craftedId, target._id);
@@ -53,7 +53,7 @@ try {
   assert.ok(materialTarget, 'A two-material recipe is required for the capacity regression.');
   const compactRules = { ...rules, inventory: { ...rules.inventory, maxSlots: 2 } };
   const fullInventory = materialTarget.recipe.ingredients.reduce((inv, row) => add(inv, row.itemId, row.qty, compactRules), []);
-  const materialActor = { name: 'full inventory', inventory: fullInventory };
+  const materialActor = { name: 'full inventory', hp: 100, inventory: fullInventory };
   assert.equal(materialActor.inventory.length, 2);
   assert.equal(tryAutoCraftFromInventory(materialActor, [materialTarget], names, meta, 1, 1, compactRules)?.craftedId, materialTarget._id);
 
@@ -120,10 +120,7 @@ try {
         actions: {
           emitItemGainIfAny: (qty) => { gains += Math.max(0, qty); },
           applyLootCraftResult: (who, result) => {
-            if (!result?.inventory) return;
-            who.inventory = result.inventory;
-            autoEquipBest(who, meta);
-            recordCraft(result);
+            if (applyLootCraftResult(who, result, meta)) recordCraft(result);
           },
         },
       });

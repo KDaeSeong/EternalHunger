@@ -14,7 +14,8 @@ import { describeCombatDecisionContext } from './combatDecisionEvidenceRuntime.j
 import { describeTeamRegroupDecision } from './teamRegroupRuntime.js';
 import { presentCombatHealth } from './combatObservationRuntime.js';
 import { describeTeamSurvival, getTeamSurvivalContext, getTeamSurvivalStates } from './teamSurvivalObservationRuntime.js';
-import { getActorGrowthObservation, describeProcurementReceipt, updateProcurementObservation } from './growthObservationRuntime.js';
+import { getActorGrowthObservation, describeCraftReceipt, describeProcurementReceipt, updateProcurementObservation } from './growthObservationRuntime.js';
+import { getRuleset } from '../../../utils/rulesets.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 const idOf = (actor) => String(actor?._id || actor?.id || '');
@@ -138,7 +139,7 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
       const reason = describeObserverReason(event);
       return `${who}: ${action} 선택${event.itemName ? ` · ${event.itemName}` : ''}${reason !== '상세 판단 기록 없음' ? ` · ${reason}` : ''}${event.targetZoneId ? ` · 이동 목표 ${zoneName(event.targetZoneId)}` : ''}${list(event.blockedReasons).some((blockedReason) => blockedReason === 'craft:missing_ing') ? ' · 제작 재료 부족' : ''}${event.retreatOutcome ? '' : ' (성공 여부는 후속 기록)'}`;
     }
-    case 'craft': return `${who}: ${event.itemName || '아이템'} 제작 완료${where}`;
+    case 'craft': return `${who}: ${describeCraftReceipt(event) || `${event.itemName || '아이템'} 제작 완료`}${where}`;
     case 'resource_replan': return `${who}: ${zoneName(event.from)} 재료 소진 · ${event.to ? `${zoneName(event.to)} 재탐색` : '성장 목표 재검토'}`;
     case 'rest': return `${who}: 저체력으로 안전 대기 · HP ${num(event.hp)}/${num(event.maxHp)}${where}`;
     case 'hunt_start': return `${who}: ${event.wildlifeName || event.subkind || '야생동물'} 사냥 개시 · 대상 HP ${num(event.wildlifeHp)}/${num(event.wildlifeMaxHp)} · 거리 ${num(event.distance).toFixed(1)}m${where}`;
@@ -210,6 +211,7 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
 export function buildTeamObserverModel({ survivors = [], dead = [], events = [], teamId = '', matchSec = 0,
   publicItems = [], killCounts = {}, assistCounts = {}, isGameOver = false, zoneName = String, spawnState, forbiddenIds = [],
   settings, day, phase } = {}) {
+  const observerRuleset = getRuleset(settings?.rulesetId, settings?.simulationRuleset);
   const actors = new Map();
   for (const actor of [...list(dead), ...list(survivors)]) if (idOf(actor)) actors.set(idOf(actor), actor);
   const nameOf = (id) => actors.get(String(id))?.name || String(id || '참가자 미상');
@@ -314,7 +316,7 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
     return { id, name: actor.name || id, alive: num(actor.hp) > 0, zone: zoneName(actor.zoneId),
       hp: Math.max(0, Math.floor(num(actor.hp))), maxHp: Math.max(1, Math.floor(num(actor.maxHp))),
       progress: `${progress.completedSlots}/${progress.totalSlots}`, hasGoals: progress.totalSlots > 0,
-      growth: getActorGrowthObservation(actor, publicItems, { progress, forbiddenIds, fieldResources: spawnState?.fieldResources, zoneName, isGameOver }),
+      growth: getActorGrowthObservation(actor, publicItems, { progress, forbiddenIds, fieldResources: spawnState?.fieldResources, zoneName, isGameOver, ruleset: observerRuleset }),
       procurement: lastProcurementByActor.get(id) || null,
       equipment: getEquipSummary(actor).full, goal: progress.remaining[0]?.name || '', readyIn,
       spatial: position ? `지역 내 (${position.x.toFixed(1)}, ${position.y.toFixed(1)})m · 평타 ${spatialStats.attackRange.toFixed(1)}m / 시야 ${spatialStats.sightRange.toFixed(1)}m / 이속 ${spatialStats.moveSpeed.toFixed(1)}m/s` : '',

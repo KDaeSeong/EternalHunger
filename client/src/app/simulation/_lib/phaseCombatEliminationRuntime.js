@@ -21,7 +21,8 @@ import {
   tryAutoCraftFromLoot,
 } from './simulationEngine';
 import { clearPostCombatEffects } from './runtimeStatus';
-import { getLootCraftOptions } from './runEventRuntime';
+import { getLootCraftOptions, emitCraftRunEvent } from './runEventRuntime';
+import { commitCraftTransaction } from './craftTransactionRuntime.js';
 import { restoreDetonationTime } from './detonationTimerRuntime.js';
 
 export function createPhaseCombatEliminationRuntime({
@@ -190,16 +191,19 @@ export function createPhaseCombatEliminationRuntime({
           emitRunEvent('gain', { who: winnerId, itemId: lootId, qty: got, source: 'pvp', from: loserId, zoneId: String(combatWinner?.zoneId || '') }, atNow());
           lootLines.push(`${itemIcon(stub)} ${stub?.name || fallbackName} x${got}`);
           const crafted = tryAutoCraftFromLoot(combatWinner.inventory, lootId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(combatWinner));
-          if (crafted?.inventory) {
-            combatWinner.inventory = crafted.inventory;
+          if (crafted?.transaction && commitCraftTransaction(combatWinner, crafted.transaction).ok) {
             craftLogs.push(crafted.log);
+            emitCraftRunEvent(emitRunEvent, winnerId, crafted, atNow(), combatWinner.zoneId);
           }
         }
       }
     }
 
     const invCraft = tryAutoCraftFromInventory(combatWinner, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset);
-    if (invCraft?.log) craftLogs.push(invCraft.log);
+    if (invCraft?.log) {
+      craftLogs.push(invCraft.log);
+      emitCraftRunEvent(emitRunEvent, winnerId, invCraft, atNow(), combatWinner.zoneId);
+    }
     autoEquipBest(combatWinner, itemMetaById);
     pruneEquippedAgainstInventory(combatLoser);
 

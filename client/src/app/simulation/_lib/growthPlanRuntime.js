@@ -1,4 +1,4 @@
-import { compactIO } from './simulationCommon';
+import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 import { getInvItemId, inferEquipSlot, invQty } from './inventoryRules';
 import { getFieldItemSourceZones, getFieldResourceQty } from './fieldResourceRuntime';
 import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
@@ -33,7 +33,8 @@ export function getGrowthRecipeWork(actor, items, targetId) {
   const byId = indexCatalog(items);
   const target = byId.get(String(targetId));
   const inventory = actor.inventory || [];
-  const work = { craftIds: [], missing: [], reservedQtyById: {}, componentIds: [], readyCraftId: '', blocked: '' };
+  const work = { craftIds: [], missing: [], reservedQtyById: {}, componentIds: [], readyCraftId: '', blocked: '',
+    requiredCredits: 0, availableCredits: Number(actor?.simCredits ?? 0), plannedCredits: 0 };
   if (!target) return { ...work, blocked: 'invalid_recipe' };
   const available = new Map(inventory.map((entry) => [getInvItemId(entry), invQty(inventory, getInvItemId(entry))]));
   const missing = new Map();
@@ -41,6 +42,7 @@ export function getGrowthRecipeWork(actor, items, targetId) {
   const craftIds = new Set();
   const reserved = {};
   function visit(id, qty, path) {
+    if (!Number.isSafeInteger(qty) || qty <= 0) { work.blocked = 'invalid_recipe'; return; }
     const item = byId.get(id);
     const have = Math.min(qty, available.get(id) || 0);
     available.set(id, (available.get(id) || 0) - have);
@@ -48,10 +50,20 @@ export function getGrowthRecipeWork(actor, items, targetId) {
     const need = qty - have;
     if (need <= 0) return;
     if (!item || path.has(id) || path.size > 20) { work.blocked = 'invalid_recipe'; return; }
-    const ingredients = compactIO(item.recipe?.ingredients || []);
-    if (ingredients.length) {
+    if (Array.isArray(item.recipe?.ingredients) && item.recipe.ingredients.length) {
+      const terms = getCraftRecipeTerms(item);
+      if (!terms) { work.blocked = 'invalid_recipe'; return; }
+      const batches = Math.ceil(need / terms.resultQty);
+      const cost = batches * terms.creditsCost;
+      if (!Number.isSafeInteger(batches * terms.resultQty) || !Number.isSafeInteger(work.plannedCredits + cost)) {
+        work.blocked = 'invalid_recipe'; return;
+      }
       const nextPath = new Set(path).add(id);
-      for (const row of ingredients) visit(String(row.itemId), need * row.qty, nextPath);
+      for (const row of terms.ingredients) visit(String(row.itemId), batches * row.qty, nextPath);
+      // Virtual surplus avoids farming a shared batch once for each branch.
+      // Readiness below still uses actual inventory, never these future items.
+      available.set(id, (available.get(id) || 0) + batches * terms.resultQty - need);
+      work.plannedCredits += cost;
       craftIds.add(id);
     } else {
       missing.set(id, (missing.get(id) || 0) + need);
@@ -61,9 +73,12 @@ export function getGrowthRecipeWork(actor, items, targetId) {
   work.craftIds = [...craftIds];
   work.componentIds = [...components];
   work.reservedQtyById = reserved;
-  work.readyCraftId = work.craftIds.find((id) => compactIO(byId.get(id)?.recipe?.ingredients || [])
-    .every((row) => invQty(inventory, row.itemId) >= row.qty)) || '';
+  const materialReady = work.craftIds.filter((id) => getCraftRecipeTerms(byId.get(id))?.ingredients
+    .every((row) => invQty(inventory, row.itemId) >= row.qty));
+  work.readyCraftId = materialReady.find((id) => getCraftRecipeTerms(byId.get(id)).creditsCost <= work.availableCredits) || '';
+  work.requiredCredits = materialReady.length ? getCraftRecipeTerms(byId.get(work.readyCraftId || materialReady[0])).creditsCost : 0;
   work.missing = [...missing].map(([id, qty]) => ({ itemId: id, name: byId.get(id)?.name || id, need: qty, have: invQty(inventory, id) }));
+  if (!work.blocked && materialReady.length && !work.readyCraftId && !work.missing.length) work.blocked = 'insufficient_credits';
   return work;
 }
 

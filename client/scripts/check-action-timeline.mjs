@@ -15,7 +15,7 @@ const { getForbiddenZoneIdsForPhase, getForbiddenAddedZoneIdsForPhase } = await 
 const { buildCraftableItems, buildItemMetaById, buildItemNameById, buildItemKeyById } = await import('../src/app/simulation/_lib/itemOptionsRuntime.js');
 const { addItemToInventory, invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
 const { tryAutoCraftFromInventory } = await import('../src/app/simulation/_lib/gearInventoryCraftRuntime.js');
-const { autoEquipBest } = await import('../src/app/simulation/_lib/gearFallbackRuntime.js');
+const { applyLootCraftResult } = await import('../src/app/simulation/_lib/lootCraftResultRuntime.js');
 const { getRuleset } = await import('../src/utils/rulesets.js');
 const eventActions = await import('../src/app/simulation/_lib/runEventRuntime.js');
 const mastery = await import('../src/app/simulation/_lib/masteryProgressRuntime.js');
@@ -201,13 +201,8 @@ await check('actual guest phase cycle interleaves growth and combat without netw
     };
     for (const name of ['emitItemGainIfAny', 'emitCraftRunEvent', 'emitObjectiveRunEvent', 'emitQueueRunEvent', 'emitEffectRunEvents', 'emitConsumableRunEvent']) actions[name] = (...args) => eventActions[name](emitRunEvent, ...args);
     // Same state adapter as useSimulationEventActions; gameplay uses real modules.
-    actions.applyLootCraftResult = (actor, result, meta, at, zoneId) => {
-      if (!result?.inventory) return false;
-      actor.inventory = result.inventory; autoEquipBest(actor, meta);
-      mastery.grantCraftMastery(actor, result, meta);
-      actions.emitCraftRunEvent(actor._id, result, at, zoneId || actor.zoneId);
-      return true;
-    };
+    actions.applyLootCraftResult = (actor, result, meta, at, zoneId) => applyLootCraftResult(actor, result, meta,
+      { at, zoneId, grantCraftMastery: mastery.grantCraftMastery, emitCraftRunEvent: actions.emitCraftRunEvent });
     const forbiddenCache = new Map();
     const helpers = {
       getZoneName: (id) => map.zones.find((zone) => zone.zoneId === id)?.name || id,

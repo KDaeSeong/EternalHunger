@@ -4,6 +4,7 @@ const { buildActorGrowthPlan, refreshActorGrowthPlan, markGrowthComponent } = aw
 const { addItemToInventory, normalizeInventory, invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
 const { tryAutoCraftFromInventory } = await import('../src/app/simulation/_lib/gearInventoryCraftRuntime.js');
 const { autoEquipBest } = await import('../src/app/simulation/_lib/gearFallbackRuntime.js');
+const { applyLootCraftResult } = await import('../src/app/simulation/_lib/lootCraftResultRuntime.js');
 const { tryImmediateCraftFromSpecial } = await import('../src/app/simulation/_lib/gearImmediateSpecialCraftRuntime.js');
 const { rollEarlyRouteLoot } = await import('../src/app/simulation/_lib/fieldRouteLootRuntime.js');
 const { prepareInventoryForCraftLoot } = await import('../src/app/simulation/_lib/craftRuntime.js');
@@ -221,7 +222,7 @@ await check('24 canonical actors autonomously complete equipment in a safe train
     const completed = new Map(); let crafts = 0; let moves = 0;
     const nextSpawn = { fieldResources: createFieldResources(mapObj, items, ruleset) };
     const actions = { emitCraftRunEvent: () => { crafts++; }, emitRunEvent: (kind) => { if (kind === 'move') moves++; },
-      applyLootCraftResult: (actor, result) => { if (result?.inventory) { actor.inventory = result.inventory; autoEquipBest(actor, itemMetaById); crafts++; } },
+      applyLootCraftResult: (actor, result) => applyLootCraftResult(actor, result, itemMetaById, { emitCraftRunEvent: () => { crafts++; } }),
     };
     for (let cycle = 0; cycle < 100 && completed.size < 24; cycle++) {
       const phaseIdxNow = Math.floor(cycle / 7);

@@ -31,7 +31,8 @@ export function emitCraftRunEvent(emitRunEvent, who, crafted, at = null, zoneId 
     itemName: String(crafted.craftedName || ''),
     tier: Math.max(1, Number(crafted?.craftedTier || 1)),
     zoneId: String(zoneId || ''),
-    qty: 1,
+    qty: Math.max(1, Number(crafted.craftedQty || 1)),
+    ...(crafted.receipt ? structuredClone(crafted.receipt) : {}),
   }, at);
 }
 
@@ -51,6 +52,8 @@ export function getLootCraftOptions(actor) {
     goalItemKeys: pickGoalLoadoutKeys(actor),
     weaponType: actor?.weaponType,
     growthPlan: actor?._growthPlan,
+    craftActor: { _id: actor?._id, hp: actor?.hp, simCredits: actor?.simCredits,
+      _craftRevision: actor?._craftRevision, _actionCycleKey: actor?._actionCycleKey },
   };
 }
 

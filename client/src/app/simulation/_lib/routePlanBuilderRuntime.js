@@ -6,6 +6,7 @@ import { findCrateZoneWeightsForItem, uniqStrings } from './mapTargeting';
 import { getRegionZoneWeightsForItem } from './lumiaRegionData';
 import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
+import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 
 function normId(v) {
   return String(v?._id || v?.itemId || v?.id || v || '').trim();
@@ -193,32 +194,43 @@ function collectRecipeLeafRequirements(target, indexes, mapObj, opts = {}) {
   const forbiddenIds = opts.forbiddenIds instanceof Set ? opts.forbiddenIds : new Set();
   const maxDepth = Math.max(1, Math.floor(Number(opts.maxDepth ?? 5)));
   const out = new Map();
+  const surplus = new Map();
+  let invalid = false;
 
   function visit(itemId, qty, depth, seen) {
     const id = String(itemId || '').trim();
-    if (!id) return;
+    if (!id || !Number.isSafeInteger(qty) || qty <= 0) { invalid = true; return; }
+    const held = Math.min(qty, surplus.get(id) || 0);
+    surplus.set(id, (surplus.get(id) || 0) - held);
+    const needed = qty - held;
+    if (!needed) return;
     const item = byId.get(id) || null;
     if (!item || seen.has(id) || depth >= maxDepth) {
-      mergeRequirement(out, item || { _id: id, name: id }, id, qty, mapObj, forbiddenIds);
+      mergeRequirement(out, item || { _id: id, name: id }, id, needed, mapObj, forbiddenIds);
       return;
     }
 
-    const ingredients = compactIO(item?.recipe?.ingredients || []);
-    if (!ingredients.length) {
+    if (!Array.isArray(item?.recipe?.ingredients) || !item.recipe.ingredients.length) {
       if (depth > 0 && isEarlyRouteScorableItem(item)) {
-        mergeRequirement(out, item, id, qty, mapObj, forbiddenIds);
+        mergeRequirement(out, item, id, needed, mapObj, forbiddenIds);
       }
       return;
     }
 
     const nextSeen = new Set(seen);
     nextSeen.add(id);
-    for (const ing of ingredients) {
-      visit(ing.itemId, qty * Math.max(1, Number(ing.qty || 1)), depth + 1, nextSeen);
+    const terms = getCraftRecipeTerms(item);
+    if (!terms) { invalid = true; return; }
+    const batches = Math.ceil(needed / terms.resultQty);
+    if (!Number.isSafeInteger(batches * terms.resultQty)) { invalid = true; return; }
+    for (const ing of terms.ingredients) {
+      visit(ing.itemId, batches * ing.qty, depth + 1, nextSeen);
     }
+    surplus.set(id, (surplus.get(id) || 0) + batches * terms.resultQty - needed);
   }
 
   visit(normId(target), 1, 0, new Set());
+  if (invalid) return [];
   return [...out.values()].map((req) => ({
     ...req,
     qty: Math.max(1, Math.floor(Number(req.qty || 1))),

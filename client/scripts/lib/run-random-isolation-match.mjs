@@ -9,7 +9,7 @@ import { getDefaultSimulationSettings } from '../../src/app/simulation/_lib/simu
 import { buildBaseZoneGraph, buildHyperloopZoneGraph, isHyperloopTransit } from '../../src/app/simulation/_lib/mapGraphRuntime.js';
 import { getForbiddenZoneIdsForPhase, getForbiddenAddedZoneIdsForPhase } from '../../src/app/simulation/_lib/forbiddenZoneRuntime.js';
 import { buildCraftableItems, buildItemMetaById, buildItemNameById, buildItemKeyById } from '../../src/app/simulation/_lib/itemOptionsRuntime.js';
-import { autoEquipBest } from '../../src/app/simulation/_lib/gearFallbackRuntime.js';
+import { applyLootCraftResult } from '../../src/app/simulation/_lib/lootCraftResultRuntime.js';
 import { appendSimulationLog, emitSimulationRunEvent } from '../../src/app/simulation/_lib/logActionRuntime.js';
 import { buildTeamObserverModel } from '../../src/app/simulation/_lib/teamObserverRuntime.js';
 import { createSeedRng, restoreSeedRng } from '../../src/app/simulation/_lib/randomSeedRuntime.js';
@@ -148,14 +148,8 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
   for (const name of ['emitItemGainIfAny', 'emitCraftRunEvent', 'emitObjectiveRunEvent', 'emitQueueRunEvent', 'emitEffectRunEvents', 'emitConsumableRunEvent']) {
     actions[name] = (...args) => eventActions[name](emitRunEvent, ...args);
   }
-  actions.applyLootCraftResult = (actor, result, meta, at, zoneId) => {
-    if (!result?.inventory) return false;
-    actor.inventory = result.inventory;
-    autoEquipBest(actor, meta);
-    mastery.grantCraftMastery(actor, result, meta);
-    actions.emitCraftRunEvent(actor._id, result, at, zoneId || actor.zoneId);
-    return true;
-  };
+  actions.applyLootCraftResult = (actor, result, meta, at, zoneId) => applyLootCraftResult(actor, result, meta,
+    { at, zoneId, addLog, grantCraftMastery: mastery.grantCraftMastery, emitCraftRunEvent: actions.emitCraftRunEvent });
   const forbiddenCache = new Map();
   const helpers = {
     getZoneName: (id) => map.zones.find((zone) => zone.zoneId === id)?.name || id,

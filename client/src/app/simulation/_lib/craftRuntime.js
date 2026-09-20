@@ -6,9 +6,7 @@ import {
   tierLabelKo,
 } from './simulationCommon';
 import {
-  addItemToInventory,
   canReceiveItem,
-  consumeIngredientsFromInv,
   inferEquipSlot,
   inferItemCategory,
   invQty,
@@ -19,7 +17,8 @@ import {
 } from './perkRuntime';
 import { getInvItemId, hasSpecialInventoryTag } from './inventoryItemRules.js';
 import { markGrowthComponent } from './growthPlanRuntime';
-import { getValidRecipeIngredients } from './gearRecipeGuardRuntime.js';
+import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
+import { prepareCraftTransaction } from './craftTransactionRuntime.js';
 
 function clampGearTier(value) {
   const n = Number(value);
@@ -279,7 +278,7 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
   };
 
   const candidates = (Array.isArray(craftables) ? craftables : [])
-    .filter((it) => getValidRecipeIngredients(it)?.some((ing) => ing.itemId === lootId))
+    .filter((it) => getCraftRecipeTerms(it)?.ingredients.some((ing) => ing.itemId === lootId))
     .filter((it) => !opts.growthPlan || opts.growthPlan.openingComplete || opts.growthPlan.craftIds.includes(String(it._id)))
     .filter((it) => {
       const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
@@ -308,14 +307,17 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
 
     const craftedItem = markGrowthComponent((cat === 'equipment') ? applyEquipTier(target, craftTier) : target, { _growthPlan: opts.growthPlan });
 
-    const afterConsume = consumeIngredientsFromInv(inventory, ings);
-    if (!canReceiveItem(afterConsume, craftedItem, craftedItem?._id, 1, ruleset)) continue;
-    const afterAdd = addItemToInventory(afterConsume, craftedItem, craftedItem?._id, 1, day, ruleset);
-    if (Number(afterAdd?._lastAdd?.acceptedQty ?? 1) <= 0) continue;
+    // Standalone callers may preview legacy free recipes without an actor.
+    // Product callers always supply the real actor context; commit verifies it.
+    const transaction = prepareCraftTransaction({ hp: 1, ...opts.craftActor, inventory }, craftedItem, day, ruleset);
+    if (!transaction.ok) continue;
+    const receipt = transaction.receipt;
 
     const ingText = ings.map((x) => `${itemNameById?.[String(x.itemId)] || String(x.itemId)} x${x.qty}`).join(' + ');
     const tierText = (cat === 'equipment') ? ` (${tierLabelKo(craftTier)})` : '';
-    return { inventory: afterAdd, craftedId: String(craftedItem?._id || ''), craftedTier: Number(craftTier || craftedItem?.tier || 1), craftedName: String(craftedItem?.name || ''), log: `🛠️ 조합: ${ingText} → ${craftedItem?.name || '아이템'}${tierText} x1` };
+    return { inventory: transaction.inventory, transaction, receipt, craftedQty: receipt.qty,
+      craftedId: String(craftedItem?._id || ''), craftedTier: Number(craftTier || craftedItem?.tier || 1), craftedName: String(craftedItem?.name || ''),
+      log: `🛠️ 조합: ${ingText} → ${craftedItem?.name || '아이템'}${tierText} x${receipt.qty}${receipt.paidCost ? ` · 제작 비용 ${receipt.paidCost}Cr (${receipt.beforeCredits}→${receipt.afterCredits}Cr)` : ''}` };
   }
   return null;
 }
@@ -324,7 +326,7 @@ export function buildCraftDebugInfo(actor, craftables, itemNameById, ruleset) {
   const inv0 = Array.isArray(actor?.inventory) ? actor.inventory : [];
   const actorWNorm = normalizeWeaponType(String(actor?.weaponType || '').trim());
   const withRecipe = (Array.isArray(craftables) ? craftables : [])
-    .filter((it) => getValidRecipeIngredients(it));
+    .filter((it) => getCraftRecipeTerms(it));
   if (!withRecipe.length) return { code: 'recipe_none', text: '유효한 레시피가 있는 제작 대상이 없습니다.' };
 
   const goalBySlot = pickGoalLoadoutBySlot(actor);
@@ -334,6 +336,7 @@ export function buildCraftDebugInfo(actor, craftables, itemNameById, ruleset) {
   let weaponMismatch = 0;
   let tierBlocked = 0;
   let receiveBlocked = 0;
+  let creditBlocked = null;
   let readyCount = 0;
 
   for (const it of withRecipe) {
@@ -376,7 +379,9 @@ export function buildCraftDebugInfo(actor, craftables, itemNameById, ruleset) {
         continue;
       }
     }
-    if (!canReceiveItem(consumeIngredientsFromInv(inv0, ings), it, it?._id, 1, ruleset)) {
+    const prepared = prepareCraftTransaction(actor, markGrowthComponent(it, actor), 1, ruleset);
+    if (prepared.reason === 'insufficient_credits') { creditBlocked ??= prepared; continue; }
+    if (!prepared.ok) {
       receiveBlocked += 1;
       continue;
     }
@@ -390,6 +395,8 @@ export function buildCraftDebugInfo(actor, craftables, itemNameById, ruleset) {
   if (weaponMismatch > 0) {
     return { code: 'weapon_mismatch', targetName: String(bestTarget?.name || ''), text: '무기 타입이 맞지 않아 제작 후보에서 제외되었습니다.' };
   }
+  if (creditBlocked) return { code: 'insufficient_credits', targetName: String(bestTarget?.name || ''),
+    text: `제작 비용 부족 · 필요 ${creditBlocked.required}Cr / 보유 ${creditBlocked.available}Cr` };
   if (receiveBlocked > 0) {
     return { code: 'inventory_full', targetName: String(bestTarget?.name || ''), text: '인벤/슬롯 제한으로 결과물을 받을 수 없습니다.' };
   }

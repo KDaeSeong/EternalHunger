@@ -61,7 +61,7 @@ export function runCraftAction({
     const dbgKey = `${phaseIdxNow}:${String(dbg?.code || '')}:${String(dbg?.targetName || '')}:${Array.isArray(dbg?.missing) ? dbg.missing.join('|') : ''}`;
     if (dbg?.code && updated?._craftDebugLogKey !== dbgKey) {
       updated._craftDebugLogKey = dbgKey;
-      addLog(`[${updated.name}] 🧪 제작판정(${dbg.code}): ${dbg.text}`, 'system');
+      addLog(`[${updated.name}] 제작 대기: ${dbg.text}`, 'system');
     }
   }
 

@@ -18,7 +18,7 @@ import {
   emitObjectiveRunEvent as emitObjectiveRunEventRuntime,
   emitQueueRunEvent as emitQueueRunEventRuntime,
 } from './runEventRuntime';
-import { autoEquipBest } from './simulationEngine';
+import { applyLootCraftResult as applyLootCraftResultRuntime } from './lootCraftResultRuntime.js';
 
 export function useSimulationEventActions({
   addLog,
@@ -83,13 +83,7 @@ export function useSimulationEventActions({
     }
 
     function applyLootCraftResult(actor, crafted, itemMeta, at = null, zoneId = '', logType = 'normal') {
-      if (!actor || !crafted?.inventory) return false;
-      actor.inventory = crafted.inventory;
-      autoEquipBest(actor, itemMeta);
-      addLog(`[${actor.name}] ${crafted.log}`, logType);
-      grantCraftMastery(actor, crafted, itemMeta, '제작');
-      emitCraftRunEvent(actor?._id, crafted, at, zoneId || actor?.zoneId);
-      return true;
+      return applyLootCraftResultRuntime(actor, crafted, itemMeta, { at, zoneId, logType, addLog, grantCraftMastery, emitCraftRunEvent });
     }
 
     return {

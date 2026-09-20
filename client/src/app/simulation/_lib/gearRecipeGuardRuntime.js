@@ -16,6 +16,16 @@ export function getValidRecipeIngredients(item) {
   return [...totals].map(([itemId, qty]) => ({ itemId, qty }));
 }
 
+export function getCraftRecipeTerms(item) {
+  const ingredients = getValidRecipeIngredients(item);
+  const numeric = (value) => typeof value === 'number' || (typeof value === 'string' && value.trim()) ? Number(value) : NaN;
+  const resultQty = numeric(item?.recipe?.resultQty === undefined ? 1 : item.recipe.resultQty);
+  const creditsCost = numeric(item?.recipe?.creditsCost === undefined ? 0 : item.recipe.creditsCost);
+  if (!ingredients || !Number.isSafeInteger(resultQty) || resultQty <= 0
+    || !Number.isSafeInteger(creditsCost) || creditsCost < 0) return null;
+  return { ingredients, resultQty, creditsCost };
+}
+
 export function unavailableGearRecipe(actor, reason, text, itemId = '') {
   const key = `${reason}:${itemId}`;
   const repeated = actor?._gearRecipeNoticeKey === key;

@@ -5,9 +5,6 @@ import {
 } from './simulationCommon';
 import { getActorPerkEffects, perkNumber } from './perkRuntime';
 import {
-  addItemToInventory,
-  canReceiveItem,
-  consumeIngredientsFromInv,
   getInvItemId,
   inferEquipSlot,
   inferItemCategory,
@@ -24,10 +21,11 @@ import {
 import { clampGearTier } from './gearCatalogRuntime';
 import { autoEquipBest } from './gearFallbackRuntime';
 import { markGrowthComponent } from './growthPlanRuntime';
-import { getValidRecipeIngredients } from './gearRecipeGuardRuntime.js';
+import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
+import { prepareCraftTransaction, commitCraftTransaction, craftFailureText } from './craftTransactionRuntime.js';
 
 export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById, day, phaseIdxNow, ruleset) {
-  if (!actor || typeof actor !== 'object') return null;
+  if (!actor || !Number.isFinite(Number(actor.hp)) || Number(actor.hp) <= 0) return null;
   const actionKey = actor._actionCycleKey ?? `phase:${Number(phaseIdxNow || 0)}`;
   if (actor._invCraftActionKey === actionKey) return null;
   if (actor._actionCycleKey == null && Number(actor?._invCraftPhaseIdx ?? -9999) === Number(phaseIdxNow || 0)) return null;
@@ -46,7 +44,7 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
 
   const candidates = (Array.isArray(craftables) ? craftables : [])
     .filter((item) => !growthIds || growthIds.has(String(item._id)))
-    .filter((item) => getValidRecipeIngredients(item))
+    .filter((item) => getCraftRecipeTerms(item))
     .filter((item) => {
       const ingredients = compactIO(item?.recipe?.ingredients || []);
       if (!ingredients.length) return false;
@@ -98,6 +96,7 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
       return (Number(b?.tier || 1) - Number(a?.tier || 1)) || String(a?.name || '').localeCompare(String(b?.name || ''));
     });
 
+  let failure = null;
   for (const target of candidates) {
     const ingredients = compactIO(target?.recipe?.ingredients || []);
     const category = inferItemCategory(target);
@@ -116,14 +115,10 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
       }
     }
 
-    let inv = consumeIngredientsFromInv(inv0, ingredients);
-    if (!canReceiveItem(inv, craftedItem, craftedItem?._id, 1, ruleset)) continue;
-    inv = addItemToInventory(inv, craftedItem, craftedItem?._id, 1, day, ruleset);
-    const meta = inv?._lastAdd;
-    const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
-    if (got <= 0) continue;
-
-    actor.inventory = inv;
+    const prepared = prepareCraftTransaction(actor, craftedItem, day, ruleset);
+    const committed = prepared.ok ? commitCraftTransaction(actor, prepared) : prepared;
+    if (!committed.ok) { failure ??= { ...committed, targetName: String(target.name || '') }; continue; }
+    const receipt = committed.receipt;
     autoEquipBest(actor, itemMetaById);
     actor._invCraftPhaseIdx = Number(phaseIdxNow || 0);
     actor._invCraftActionKey = actionKey;
@@ -144,14 +139,17 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
       craftedId: String(craftedItem?._id || ''),
       craftedTier: Number(craftTier || craftedItem?.tier || 1),
       craftedName: String(craftedItem?.name || ''),
-      log: `🛠️ [${actor?.name}] 인벤 조합: ${ingredientText} → ${craftedItem?.name || '아이템'}${tierText} x1`,
+      craftedQty: receipt.qty,
+      receipt,
+      log: `🛠️ [${actor?.name}] 인벤 조합: ${ingredientText} → ${craftedItem?.name || '아이템'}${tierText} x${receipt.qty}${receipt.paidCost ? ` · 제작 비용 ${receipt.paidCost}Cr (${receipt.beforeCredits}→${receipt.afterCredits}Cr)` : ''}`,
     };
   }
 
   actor._invCraftPhaseIdx = Number(phaseIdxNow || 0);
   actor._invCraftActionKey = actionKey;
   actor._craftDebug = {
-    ...buildCraftDebugInfo(actor, craftables, itemNameById, ruleset),
+    ...(failure ? { code: failure.reason, targetName: failure.targetName, missing: [], text: craftFailureText(failure.reason, failure) }
+      : buildCraftDebugInfo(actor, craftables, itemNameById, ruleset)),
     phaseIdx: Number(phaseIdxNow || 0),
   };
   return null;
