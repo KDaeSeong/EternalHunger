@@ -29,6 +29,14 @@ function combineIngredients(rows) {
   return [...totals].map(([itemId, qty]) => ({ itemId, qty }));
 }
 
+export function getProcurementActionKey(actor, phaseIdxNow = 0) {
+  const phase = numeric(phaseIdxNow);
+  const cycle = actor?._actionCycleKey;
+  if (!Number.isSafeInteger(phase) || phase < 0
+    || (cycle != null && typeof cycle !== 'string' && !Number.isFinite(cycle))) return '';
+  return `phase:${phase}:cycle:${cycle ?? 'legacy'}`;
+}
+
 // A quoted quantity and its total price form one transaction. Prepare on copies
 // so capacity failure also rolls back ingredient use, gear replacement and drops.
 // This function is synchronous: no callback can change funds between check/commit.
@@ -46,12 +54,9 @@ export function commitProcurementTransaction({ actor, actionType, offer, day = 1
   if (!itemId || !item || typeof item !== 'object' || suppliedId !== itemId) return reject('invalid_item');
   if (!Number.isSafeInteger(qty)) return reject('invalid_quantity');
 
-  const phase = numeric(phaseIdxNow);
-  const cycle = actor._actionCycleKey;
-  if (!Number.isSafeInteger(phase) || phase < 0
-    || (cycle != null && typeof cycle !== 'string' && !Number.isFinite(cycle))) return reject('invalid_action_cycle');
+  const actionKey = getProcurementActionKey(actor, phaseIdxNow);
+  if (!actionKey) return reject('invalid_action_cycle');
   // Serialized with the actor, so retrying a restored action cannot pay twice.
-  const actionKey = `phase:${phase}:cycle:${cycle ?? 'legacy'}`;
   if (actor._procurementActionKey === actionKey) return reject('already_committed');
 
   const beforeCredits = numeric(actor.simCredits === undefined ? 0 : actor.simCredits);

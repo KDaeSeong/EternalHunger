@@ -4107,6 +4107,11 @@
 .team-observer-member header strong { color: #fff; font-size: 14px; }
 .team-observer-member header span { color: #b2ecce; }
 .team-observer-reason { color: #f4dfa3; }
+.team-observer-growth, .team-observer-procurement { margin: 7px 0; padding: 7px 9px; background: #112a3a; border-radius: 6px; border-left: 2px solid #77c8aa; line-height: 1.5; }
+.team-observer-growth strong, .team-observer-procurement strong { color: #d7f2e7; }
+.team-observer-growth p, .team-observer-procurement p { margin: 3px 0; }
+.team-observer-growth small, .team-observer-procurement small { display: block; color: #b5d3e5; }
+.team-observer-procurement { border-left-color: #82b5df; }
 .team-observer-panel time { font-variant-numeric: tabular-nums; color: #9cd5f5; }
 .team-observer-panel summary { cursor: pointer; color: #bfdef1; padding: 3px 0; }
 .team-observer-events { margin-top: 10px; }

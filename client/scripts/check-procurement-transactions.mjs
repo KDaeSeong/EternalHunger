@@ -258,18 +258,18 @@ check('real action handler rejects shortages without gain, craft or actor edits'
     const flow = pipeline(subject, offer, actionType);
     assert.equal(flow.run().didProcure, false);
     assert.deepEqual(subject, before);
-    assert.equal(flow.events.length, 0);
+    assert.deepEqual(flow.events.map((event) => [event.type, event.outcome]), [['procurement', 'cancelled']]);
     assert.equal(flow.crafts.length, 0);
     assert.equal(flow.logs.length, 1);
   }
 });
 
-check('real buy and drone handlers emit one receipt and never double-charge', () => {
+check('real buy and drone handlers emit one observation and one gain and never double-charge', () => {
   for (const [actionType, kind] of [['kioskBuy', 'buy'], ['droneOrder', 'drone']]) {
     const subject = actor({ simCredits: 10 });
     const flow = pipeline(subject, buy({ kind }), actionType);
     assert.equal(flow.run().didProcure, true);
-    assert.equal(flow.events.length, 1);
+    assert.deepEqual(flow.events.map((event) => event.type), ['procurement', 'gain']);
     assert.equal(flow.events[0].paidCost, 10);
     assert.equal(flow.events[0].afterCredits, 0);
     assert.equal(subject.simCredits, 0);
@@ -278,7 +278,7 @@ check('real buy and drone handlers emit one receipt and never double-charge', ()
     const craftCount = flow.crafts.length;
     assert.equal(flow.run().reason, 'already_committed');
     assert.deepEqual(subject, beforeRetry);
-    assert.equal(flow.events.length, 1);
+    assert.equal(flow.events.length, 2);
     assert.equal(flow.logs.length, logCount);
     assert.equal(flow.crafts.length, craftCount);
   }
@@ -291,8 +291,10 @@ check('real sale handler clears sold equipment and records actual consumption', 
   assert.equal(flow.run().didProcure, true);
   assert.equal(subject.equipped.shoes, null);
   assert.equal(subject.simCredits, 107);
-  assert.deepEqual(flow.events[0].consumed, [{ itemId: boots._id, qty: 1 }]);
-  assert.equal(flow.events[0].itemId, 'CREDITS');
+  assert.deepEqual(flow.events.map((event) => event.type), ['procurement', 'gain']);
+  assert.deepEqual(flow.events[1].consumed, [{ itemId: boots._id, qty: 1 }]);
+  assert.equal(flow.events[1].itemId, 'CREDITS');
+  assert.equal(flow.events[0].itemId, boots._id);
 });
 
 check('real module buy and exchange upgrade only after successful payment, once', () => {
@@ -304,7 +306,7 @@ check('real module buy and exchange upgrade only after successful payment, once'
     const failedFlow = pipeline(poor, offer, actionType);
     assert.equal(failedFlow.run().didProcure, false);
     assert.equal(poor.tacticalSkillLevel, 1);
-    assert.equal(failedFlow.events.length, 0);
+    assert.deepEqual(failedFlow.events.map((event) => [event.type, event.outcome]), [['procurement', 'cancelled']]);
     assert.equal(failedFlow.crafts.length, 0);
     const flow = pipeline(subject, offer, actionType);
     assert.equal(flow.run().didProcure, true);
@@ -313,7 +315,7 @@ check('real module buy and exchange upgrade only after successful payment, once'
     const before = structuredClone(subject);
     assert.equal(flow.run().reason, 'already_committed');
     assert.deepEqual(subject, before);
-    assert.equal(flow.events.length, 1);
+    assert.deepEqual(flow.events.map((event) => event.type), ['procurement', 'gain']);
   }
 });
 

@@ -27,20 +27,14 @@ export function getActorGrowthProgress(actor, items = []) {
   return { targets, remaining, completedSlots: targets.length - remaining.length, totalSlots: targets.length };
 }
 
-// Recompute remaining recipe work from actual inventory. Consumed raw materials
-// represented by an owned intermediate are not requested a second time.
-export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new Set(), zoneGraph = {}, attemptedTargets = [], nextSpawn, fieldResources = nextSpawn?.fieldResources } = {}) {
-  if (!actor || !Array.isArray(items) || !items.length) return null;
+// Shared read-only recipe accounting. Observation must not invoke the planner,
+// choose a different branch, reserve inventory or change the actor's route.
+export function getGrowthRecipeWork(actor, items, targetId) {
   const byId = indexCatalog(items);
-  const { targets, remaining } = getActorGrowthProgress(actor, items);
-  if (!targets.length) return null;
+  const target = byId.get(String(targetId));
   const inventory = actor.inventory || [];
-  const target = remaining.find((item) => item._id === actor._growthFocusId) || remaining[0];
-  const base = { targetIds: targets.map((item) => item._id), completedSlots: targets.length - remaining.length,
-    totalSlots: targets.length, openingComplete: remaining.length === 0, targetId: target?._id || '',
-    targetName: target?.name || '', craftIds: [], missing: [], reservedQtyById: {}, componentIds: [],
-    readyCraftId: '', currentZoneItemIds: [], targetZoneId: '', nextStep: '', blocked: '' };
-  if (!target) return base;
+  const work = { craftIds: [], missing: [], reservedQtyById: {}, componentIds: [], readyCraftId: '', blocked: '' };
+  if (!target) return { ...work, blocked: 'invalid_recipe' };
   const available = new Map(inventory.map((entry) => [getInvItemId(entry), invQty(inventory, getInvItemId(entry))]));
   const missing = new Map();
   const components = new Set();
@@ -53,7 +47,7 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
     if (id !== target._id) { components.add(id); reserved[id] = (reserved[id] || 0) + qty; }
     const need = qty - have;
     if (need <= 0) return;
-    if (!item || path.has(id) || path.size > 20) { base.blocked = 'invalid_recipe'; return; }
+    if (!item || path.has(id) || path.size > 20) { work.blocked = 'invalid_recipe'; return; }
     const ingredients = compactIO(item.recipe?.ingredients || []);
     if (ingredients.length) {
       const nextPath = new Set(path).add(id);
@@ -64,13 +58,30 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
     }
   }
   visit(String(target._id), 1, new Set());
-  base.craftIds = [...craftIds];
-  base.componentIds = [...components];
-  base.reservedQtyById = reserved;
-  base.readyCraftId = base.craftIds.find((id) => compactIO(byId.get(id)?.recipe?.ingredients || [])
+  work.craftIds = [...craftIds];
+  work.componentIds = [...components];
+  work.reservedQtyById = reserved;
+  work.readyCraftId = work.craftIds.find((id) => compactIO(byId.get(id)?.recipe?.ingredients || [])
     .every((row) => invQty(inventory, row.itemId) >= row.qty)) || '';
-  base.missing = [...missing].map(([id, qty]) => ({ itemId: id, name: byId.get(id)?.name || id, need: qty,
-    have: invQty(inventory, id), zones: getGrowthItemZones(byId.get(id), mapObj, forbiddenIds, fieldResources) }));
+  work.missing = [...missing].map(([id, qty]) => ({ itemId: id, name: byId.get(id)?.name || id, need: qty, have: invQty(inventory, id) }));
+  return work;
+}
+
+// Recompute remaining recipe work from actual inventory. Consumed raw materials
+// represented by an owned intermediate are not requested a second time.
+export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new Set(), zoneGraph = {}, attemptedTargets = [], nextSpawn, fieldResources = nextSpawn?.fieldResources } = {}) {
+  if (!actor || !Array.isArray(items) || !items.length) return null;
+  const byId = indexCatalog(items);
+  const { targets, remaining } = getActorGrowthProgress(actor, items);
+  if (!targets.length) return null;
+  const target = remaining.find((item) => item._id === actor._growthFocusId) || remaining[0];
+  const base = { targetIds: targets.map((item) => item._id), completedSlots: targets.length - remaining.length,
+    totalSlots: targets.length, openingComplete: remaining.length === 0, targetId: target?._id || '',
+    targetName: target?.name || '', craftIds: [], missing: [], reservedQtyById: {}, componentIds: [],
+    readyCraftId: '', currentZoneItemIds: [], targetZoneId: '', nextStep: '', blocked: '' };
+  if (!target) return base;
+  Object.assign(base, getGrowthRecipeWork(actor, items, target._id));
+  base.missing = base.missing.map((row) => ({ ...row, zones: getGrowthItemZones(byId.get(row.itemId), mapObj, forbiddenIds, fieldResources) }));
   if (!base.blocked && base.missing.some((row) => !row.zones.length)) base.blocked = 'no_material_source';
   if (base.blocked) {
     const attempted = [...attemptedTargets, target._id];

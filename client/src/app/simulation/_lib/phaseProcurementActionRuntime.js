@@ -12,7 +12,7 @@ import {
   getLootCraftOptions,
   shouldLogItemReceive,
 } from './runEventRuntime';
-import { commitProcurementTransaction, procurementFailureText } from './procurementTransactionRuntime.js';
+import { commitProcurementTransaction, getProcurementActionKey, procurementFailureText } from './procurementTransactionRuntime.js';
 
 const PROCUREMENT_ACTION_TYPES = new Set(['kioskBuy', 'kioskExchange', 'kioskSell', 'droneOrder']);
 const KIOSK_ACTION_TYPES = new Set(['kioskBuy', 'kioskExchange', 'kioskSell']);
@@ -82,13 +82,23 @@ export function runProcurementAction({
   const transaction = commitProcurementTransaction({
     actor: updated, actionType: queuedActionType, offer, day: nextDay, phaseIdxNow, ruleset,
   });
+  const observation = { receiptVersion: 1, who: String(updated._id || ''), zoneId: String(updated.zoneId || ''),
+    actionKey: transaction.actionKey || getProcurementActionKey(updated, phaseIdxNow), actionType: queuedActionType,
+    itemId: String(offer?.itemId || ''), itemName: String(offer?.item?.name || itemNameById?.[offer?.itemId] || ''),
+    source: queuedActionType === 'droneOrder' ? 'drone' : 'kiosk' };
   if (!transaction.ok) {
     // A successful retry is silent: do not duplicate gain/craft/module events.
     if (transaction.reason !== 'already_committed') {
       addLog(`🛒 [${updated.name || '실험체'}] ${procurementFailureText(transaction.reason)} (크레딧·가방 변경 없음)`, 'system');
+      emitRunEvent('procurement', { ...observation, outcome: 'cancelled', reason: transaction.reason, receivedQty: 0,
+        qty: Number.isSafeInteger(Number(offer?.qty)) && Number(offer.qty) > 0 ? Number(offer.qty) : 0 }, atNow());
     }
     return { actor: updated, didProcure: false, ran: true, reason: transaction.reason };
   }
+  emitRunEvent('procurement', { ...observation, outcome: 'completed', qty: transaction.qty, receivedQty: transaction.receivedQty,
+    paidCost: transaction.paidCost, gainedCredits: transaction.gainedCredits,
+    beforeCredits: transaction.beforeCredits, afterCredits: transaction.afterCredits,
+    consumed: transaction.consumed.map((row) => ({ ...row, itemName: String(itemNameById?.[row.itemId] || row.itemId) })) }, atNow());
   pruneEquippedAgainstInventory(updated);
   const receipt = { actionKey: transaction.actionKey, paidCost: transaction.paidCost,
     consumed: transaction.consumed, beforeCredits: transaction.beforeCredits, afterCredits: transaction.afterCredits };

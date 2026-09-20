@@ -14,6 +14,7 @@ import { describeCombatDecisionContext } from './combatDecisionEvidenceRuntime.j
 import { describeTeamRegroupDecision } from './teamRegroupRuntime.js';
 import { presentCombatHealth } from './combatObservationRuntime.js';
 import { describeTeamSurvival, getTeamSurvivalContext, getTeamSurvivalStates } from './teamSurvivalObservationRuntime.js';
+import { getActorGrowthObservation, describeProcurementReceipt, updateProcurementObservation } from './growthObservationRuntime.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 const idOf = (actor) => String(actor?._id || actor?.id || '');
@@ -114,6 +115,10 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
   const who = nameOf(String(event.who || event.a || ''));
   const where = event.zoneId ? ` · ${zoneName(event.zoneId)}` : '';
   switch (event.kind) {
+    case 'procurement': {
+      const receipt = describeProcurementReceipt(event);
+      return receipt ? `${who}: ${receipt}${where}` : '';
+    }
     case 'detonation_bonus': return `${who}: 마지막 밤 · 금지구역 타이머 ${num(event.beforeSec)}초 +${num(event.addedSec)}초 → ${num(event.afterSec)}초 · 이후 상한 ${num(event.maxSec)}초`;
     case 'team_regroup': return event.cleared ? '' : `${who}: ${describeTeamRegroupDecision(event.regroupEvidence, zoneName)}`;
     case 'movement_goal': return event.objective
@@ -255,12 +260,17 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
   const previousDecision = new Map();
   const lastDecisionByActor = new Map();
   const lastRegroupByActor = new Map();
+  const lastProcurementByActor = new Map();
   const appendRecent = (rows, row, limit) => {
     rows.push(row);
     if (rows.length > limit) rows.shift();
   };
   for (const row of timed) {
     const whoId = String(row.event.who || '');
+    if (whoId && memberIds.has(whoId) && ['queue', 'procurement'].includes(row.event.kind)) {
+      const receipt = updateProcurementObservation(lastProcurementByActor.get(whoId), row.event, formatClock(row.sec));
+      if (receipt) lastProcurementByActor.set(whoId, receipt);
+    }
     if (row.event.kind === 'revive' && whoId) { lastDecisionByActor.delete(whoId); lastRegroupByActor.delete(whoId); }
     if (row.event.kind === 'dimension_rift_space' && whoId) lastRegroupByActor.delete(whoId);
     if (row.event.kind === 'team_regroup' && whoId) {
@@ -304,6 +314,8 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
     return { id, name: actor.name || id, alive: num(actor.hp) > 0, zone: zoneName(actor.zoneId),
       hp: Math.max(0, Math.floor(num(actor.hp))), maxHp: Math.max(1, Math.floor(num(actor.maxHp))),
       progress: `${progress.completedSlots}/${progress.totalSlots}`, hasGoals: progress.totalSlots > 0,
+      growth: getActorGrowthObservation(actor, publicItems, { progress, forbiddenIds, fieldResources: spawnState?.fieldResources, zoneName, isGameOver }),
+      procurement: lastProcurementByActor.get(id) || null,
       equipment: getEquipSummary(actor).full, goal: progress.remaining[0]?.name || '', readyIn,
       spatial: position ? `지역 내 (${position.x.toFixed(1)}, ${position.y.toFixed(1)})m · 평타 ${spatialStats.attackRange.toFixed(1)}m / 시야 ${spatialStats.sightRange.toFixed(1)}m / 이속 ${spatialStats.moveSpeed.toFixed(1)}m/s` : '',
       motion: [getActionStatePresentation(actor).text, forcedText || (motion && position && motion.zoneId === position.zoneId

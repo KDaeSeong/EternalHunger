@@ -96,6 +96,7 @@ export function emitQueueRunEvent(emitRunEvent, who, payload = {}, at = null) {
     targetZoneId: String(payload?.targetZoneId || ''),
     itemId: String(payload?.itemId || ''),
     itemName: String(payload?.itemName || ''),
+    actionKey: String(payload?.actionKey || ''),
     contestPressure: Math.max(0, Number(payload?.contestPressure || 0)),
   }, at);
 }

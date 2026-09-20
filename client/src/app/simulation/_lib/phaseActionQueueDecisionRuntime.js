@@ -4,6 +4,7 @@ import {
   rollKioskInteraction,
   tryAutoCraftFromInventory,
 } from './simulationEngine';
+import { getProcurementActionKey } from './procurementTransactionRuntime.js';
 
 function normalizeGoalMissingIds(goalMissingIds) {
   return goalMissingIds instanceof Set
@@ -340,6 +341,8 @@ export function prepareActorPhaseActionQueue({
       // Record the chosen action's item, never a deferred candidate's item.
       itemId: String(queuedAtomicAction?.itemId || ''),
       itemName: String(itemNameById?.[String(queuedAtomicAction?.itemId || '')] || ''),
+      actionKey: ['kioskBuy', 'kioskExchange', 'kioskSell', 'droneOrder'].includes(queuedActionType)
+        ? getProcurementActionKey(updated, phaseIdxNow) : '',
       movementObjective,
       sharedGoalReason,
       targetZoneId: movementTargetZoneId,

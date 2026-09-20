@@ -55,9 +55,20 @@ export default function SimulationTeamObserverPanel({ model, onTeamChange, isGam
               {!isGameOver && actor.casting ? <p className="team-observer-reason">{actor.casting}</p> : null}
               {!isGameOver && actor.armed ? <p className="team-observer-reason">{actor.armed}</p> : null}
               <p>목표 장비 확보 {actor.hasGoals ? actor.progress : '목표 미설정'}{actor.readyIn > 0 && !isGameOver ? ` · 다음 행동까지 ${actor.readyIn}초` : ''}</p>
+              {actor.growth ? <div className="team-observer-growth" aria-label={`${actor.name} 현재 성장 목표`}>
+                <strong>{actor.growth.label}</strong>
+                {actor.growth.materials ? <p>{actor.growth.materials}</p> : null}
+                {actor.growth.destination ? <small>선택한 재료 지역: {actor.growth.destination}</small> : null}
+                {actor.growth.note ? <small>{actor.growth.note}</small> : null}
+              </div> : null}
               {!isGameOver && actor.coordination ? <p className="team-observer-reason" aria-label={`${actor.name} 합류 판단`}><time>{actor.coordination.clock}</time> 합류 판단: {actor.coordination.text}</p> : null}
               {actor.decision ? <p className="team-observer-reason"><time>{actor.decision.clock}</time> 최근 판단: {actor.decision.text}</p> : <p className="team-observer-reason">아직 판단 기록이 없습니다.</p>}
             </> : <p className="team-observer-reason">{actor.death}</p>}
+            {actor.procurement ? <div className="team-observer-procurement" aria-label={`${actor.name} 최근 거래`}>
+              <strong>최근 거래 · <time>{actor.procurement.clock}</time></strong>
+              {actor.procurement.choice ? <small>{actor.procurement.choice}{actor.procurement.matchedChoice ? ' → 정산 확인' : ''}</small> : null}
+              <p>{actor.procurement.result}</p>
+            </div> : null}
             <details><summary>장비와 성장 목표</summary><p>{actor.equipment}</p>{actor.goal ? <p>미확보 목표: {actor.goal}</p> : null}</details>
           </article>
         ))}
