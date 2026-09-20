@@ -2603,6 +2603,11 @@
   overflow: hidden;
 }
 
+.minimap-reference-map {
+  pointer-events: none;
+  image-rendering: auto;
+}
+
 .minimap-island-outline {
   fill: rgba(22, 68, 93, 0.09);
   stroke: rgba(173, 223, 244, 0.22);
@@ -4130,8 +4135,8 @@
 
 .simulation-page--evaluation {
   min-height: 100dvh;
-  height: 100dvh;
-  overflow: hidden;
+  height: auto;
+  overflow-y: auto;
   background: radial-gradient(circle at 50% -10%, #244864 0, #0a1725 48%, #050b13 100%) !important;
 }
 .sim-evaluation-brief {
@@ -4235,15 +4240,18 @@
 .simulation-page--evaluation .simulation-event-feedback { order: 3; margin: 0 0 5px; padding: 5px 8px; }
 .simulation-page--evaluation .simulation-stage {
   order: 4;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   height: auto;
-  overflow: hidden;
+  overflow: visible;
 }
 .simulation-page--evaluation .simulation-side-column { min-height: 0; height: auto; }
 .simulation-page--evaluation .simulation-battlefield-column > .battlefield-panel:not(.modal-open) .minimap-canvas {
+  flex: 0 0 auto;
+  width: min(100%, 820px);
   min-height: 0;
-  max-height: 100%;
+  aspect-ratio: 662 / 682;
+  max-height: none;
 }
 .sim-evaluation-result-callout { margin: 16px 0; padding: 14px; border: 1px solid #d0ad60; border-radius: 9px; background: #2b2515; color: #fff0b9; }
 .sim-evaluation-result-callout p { margin: 6px 0 11px; color: #e7d9aa; line-height: 1.5; }

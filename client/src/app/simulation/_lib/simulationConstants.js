@@ -28,6 +28,13 @@ export const LUMIA_MINIMAP_SOURCE = {
   notes: 'Pixel-traced from the attached route-planning minimap screenshot; geometry drives rendering, movement distance, and area weights.',
 };
 
+export const LUMIA_MINIMAP_REFERENCE_IMAGE = Object.freeze({
+  src: '/Images/LumiaIslandMapReference.png',
+  sourceSize: Object.freeze({ width: 728, height: 789 }),
+  mapBounds: Object.freeze({ x: 43, y: 81, width: 662, height: 682 }),
+  notes: 'Evaluator-supplied Lumia Island overview aligned to the existing 662x682 trace space.',
+});
+
 export const LUMIA_MINIMAP_VIEWBOX = {
   width: 100,
   height: 103,

@@ -9,6 +9,7 @@ import {
   LUMIA_HYPERLOOP_MARKERS,
   LUMIA_ISLAND_OUTLINE,
   LUMIA_KIOSK_MARKERS,
+  LUMIA_MINIMAP_REFERENCE_IMAGE,
   LUMIA_MINIMAP_VIEWBOX,
   LUMIA_PASSAGE_SEGMENTS,
   LUMIA_ZONE_POLYGONS,
@@ -44,6 +45,20 @@ const LUMIA_RENDER_KIOSK_MARKERS = createLumiaRenderMarkers(
   LUMIA_KIOSK_MARKERS,
   LUMIA_ISLAND_OUTLINE
 );
+
+const LUMIA_REFERENCE_IMAGE_FRAME = (() => {
+  const source = LUMIA_MINIMAP_REFERENCE_IMAGE.sourceSize;
+  const bounds = LUMIA_MINIMAP_REFERENCE_IMAGE.mapBounds;
+  const viewBox = LUMIA_MINIMAP_VIEWBOX;
+  const scaleX = Number(viewBox.width || 100) / Math.max(1, Number(bounds.width || 1));
+  const scaleY = Number(viewBox.height || 103) / Math.max(1, Number(bounds.height || 1));
+  return Object.freeze({
+    x: -Number(bounds.x || 0) * scaleX,
+    y: -Number(bounds.y || 0) * scaleY,
+    width: Number(source.width || bounds.width || 1) * scaleX,
+    height: Number(source.height || bounds.height || 1) * scaleY,
+  });
+})();
 
 function asSet(value) {
   if (value instanceof Set) return value;
@@ -200,27 +215,37 @@ export default function SimulationMinimapCanvas({
         </clipPath>
       </defs>
 
-      <polygon
-        className="minimap-island-outline"
-        points={mapOutlinePoints}
-      />
+      {customGeometry ? <>
+        <polygon
+          className="minimap-island-outline"
+          points={mapOutlinePoints}
+        />
 
-      <g className="minimap-zone-area-layer" clipPath={`url(#${islandClipId})`}>
-        {baseZonePolygonRows.map((row) => {
-          if (!availableZoneIds.has(row.id)) return null;
-          return (
-            <polygon
-              key={`area-base-${row.id}`}
-              points={row.points}
-              className="minimap-zone-area"
-            >
-              <title>{row.zoneName}</title>
-            </polygon>
-          );
-        })}
-      </g>
+        <g className="minimap-zone-area-layer" clipPath={`url(#${islandClipId})`}>
+          {baseZonePolygonRows.map((row) => {
+            if (!availableZoneIds.has(row.id)) return null;
+            return (
+              <polygon
+                key={`area-base-${row.id}`}
+                points={row.points}
+                className="minimap-zone-area"
+              >
+                <title>{row.zoneName}</title>
+              </polygon>
+            );
+          })}
+        </g>
+      </> : <image
+        className="minimap-reference-map"
+        href={LUMIA_MINIMAP_REFERENCE_IMAGE.src}
+        x={LUMIA_REFERENCE_IMAGE_FRAME.x}
+        y={LUMIA_REFERENCE_IMAGE_FRAME.y}
+        width={LUMIA_REFERENCE_IMAGE_FRAME.width}
+        height={LUMIA_REFERENCE_IMAGE_FRAME.height}
+        preserveAspectRatio="none"
+      />}
     </>
-  ), [availableZoneIds, baseZonePolygonRows, islandClipId, mapOutlinePoints]);
+  ), [availableZoneIds, baseZonePolygonRows, customGeometry, islandClipId, mapOutlinePoints]);
   const staticPassageLayer = useMemo(() => (
     <g clipPath={`url(#${islandClipId})`}>
       {renderedPassages.map(({ segment, supplemental }) => {
@@ -299,7 +324,7 @@ export default function SimulationMinimapCanvas({
           );
         })}
 
-        {staticPassageLayer}
+        {customGeometry ? staticPassageLayer : null}
 
         <g clipPath={`url(#${islandClipId})`}>
           {safeArray(recentMoveTrails).map((trail) => {
@@ -341,24 +366,26 @@ export default function SimulationMinimapCanvas({
 
           return (
             <g key={`z-${id}`}>
-              <text
-                className="minimap-zone-label"
-                x={p.x}
-                y={p.y - 3.1}
-                textAnchor="middle"
-                fontSize={labelSize}
-              >
-                {zoneName}
-              </text>
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={nodeR}
-                className={`minimap-node ${isForbidden ? 'forbidden' : ''} ${isSelectedZone ? 'selected' : ''}`}
-              />
+              {customGeometry ? <>
+                <text
+                  className="minimap-zone-label"
+                  x={p.x}
+                  y={p.y - 3.1}
+                  textAnchor="middle"
+                  fontSize={labelSize}
+                >
+                  {zoneName}
+                </text>
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={nodeR}
+                  className={`minimap-node ${isForbidden ? 'forbidden' : ''} ${isSelectedZone ? 'selected' : ''}`}
+                />
+              </> : null}
               <title>{zoneName}</title>
 
-              {hasHyperloop ? (
+              {customGeometry && hasHyperloop ? (
                 <g className="minimap-facility minimap-facility-hyperloop" transform={`translate(${hyperloopMarker.x} ${hyperloopMarker.y})`}>
                   <title>{zoneName} hyperloop</title>
                   <circle r="1.38" />
@@ -366,7 +393,7 @@ export default function SimulationMinimapCanvas({
                 </g>
               ) : null}
 
-              {hasKiosk ? (
+              {customGeometry && hasKiosk ? (
                 <g className="minimap-facility minimap-facility-kiosk" transform={`translate(${kioskMarker.x} ${kioskMarker.y})`}>
                   <title>{zoneName} kiosk</title>
                   <circle r="1.35" />

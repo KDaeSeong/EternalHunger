@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile, stat } from 'node:fs/promises';
 
 async function importSource(relativeUrl) {
   const source = await readFile(new URL(relativeUrl, import.meta.url), 'utf8');
@@ -13,9 +13,21 @@ const {
   LUMIA_HYPERLOOP_MARKERS,
   LUMIA_ISLAND_OUTLINE,
   LUMIA_KIOSK_MARKERS,
+  LUMIA_MINIMAP_REFERENCE_IMAGE,
   LUMIA_PASSAGE_SEGMENTS,
   LUMIA_ZONE_POS,
 } = constants;
+
+const referenceAssetUrl = new URL(`../public${LUMIA_MINIMAP_REFERENCE_IMAGE.src}`, import.meta.url);
+await access(referenceAssetUrl);
+const referenceAssetStat = await stat(referenceAssetUrl);
+assert.ok(referenceAssetStat.size > 100_000, 'the Lumia reference background must be a real map asset');
+assert.deepEqual(LUMIA_MINIMAP_REFERENCE_IMAGE.mapBounds, {
+  x: 43,
+  y: 81,
+  width: 662,
+  height: 682,
+}, 'the reference image must remain aligned to the 662x682 traced map bounds');
 const {
   LUMIA_RENDER_GEOMETRY_DEFAULTS,
   createLumiaConnectedPassages,
@@ -148,4 +160,6 @@ console.log(JSON.stringify({
   boundaryContained: true,
   visualFootprintsContained: true,
   supplementalEdgesVisible: supplementalPassages.length,
+  referenceMapBytes: referenceAssetStat.size,
+  referenceMapAligned: true,
 }, null, 2));
