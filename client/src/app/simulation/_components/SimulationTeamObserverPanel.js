@@ -13,7 +13,7 @@ export default function SimulationTeamObserverPanel({ model, onTeamChange, isGam
       <div className="team-observer-heading">
         <h2>{model.team.name} · {model.status}</h2>
         <p>{model.summary}</p>
-        <small>지도에서 금색 테두리로 표시 · 선택은 경기 판단에 영향을 주지 않음</small>
+        <small>지도에서 고유 팀 색·번호로 구분 · 관전 팀에는 금색 외곽선 추가 · 선택은 경기 판단에 영향을 주지 않음</small>
         <small>지역 내부 위치는 축약 표시 · 원작 지형의 축척이 아님</small>
       </div>
       <div className="team-observer-members">

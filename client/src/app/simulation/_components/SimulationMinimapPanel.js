@@ -3,6 +3,7 @@
 import GameActionIcon from '../../games/_components/GameActionIcon';
 import SimulationMinimapCanvas from './SimulationMinimapCanvas';
 import SimulationMinimapHyperloopControl from './SimulationMinimapHyperloopControl';
+import { buildMinimapTeamLegend } from '../_lib/minimapTeamPresentationRuntime.js';
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
@@ -41,6 +42,7 @@ export default function SimulationMinimapPanel({
   isSelectedCharOnHyperloopPad,
   loading,
   maps,
+  openMap,
   recentMoveTrails,
   recentPings,
   selectedCharId,
@@ -56,6 +58,7 @@ export default function SimulationMinimapPanel({
   const forbiddenCount = forbiddenNow instanceof Set ? forbiddenNow.size : safeArray(forbiddenNow).length;
   const hyperloopCount = hyperloopZoneSet instanceof Set ? hyperloopZoneSet.size : safeArray(hyperloopZoneSet).length;
   const hotZoneText = pickHotZone(survivors, getZoneName);
+  const teamLegend = buildMinimapTeamLegend([...safeArray(survivors), ...safeArray(dead)], trackedActorIds);
 
   return (
     <div className={`minimap-panel battlefield-panel ${uiModal === 'map' ? 'modal-open' : ''}`}>
@@ -65,6 +68,14 @@ export default function SimulationMinimapPanel({
         </button>
       ) : null}
 
+      <div className="minimap-panel-heading">
+        <div><strong>전장 지도</strong><small>팀 색·번호와 HP로 전황을 확인하세요</small></div>
+        {uiModal !== 'map' ? <button type="button" data-game-sfx="nav" onClick={openMap} disabled={!openMap}>
+          <GameActionIcon action="map" label="지도 크게 보기" />
+          크게 보기
+        </button> : null}
+      </div>
+
       <div className="minimap-status-row" aria-label="미니맵 상태 요약">
         <span><b>{aliveCount}</b><em>생존</em></span>
         <span><b>{deadCount}</b><em>사망</em></span>
@@ -72,6 +83,14 @@ export default function SimulationMinimapPanel({
         <span><b>{hyperloopCount}</b><em>하이퍼루프</em></span>
         <span><b>{hotZoneText}</b></span>
       </div>
+
+      {teamLegend.length ? <div className="minimap-team-legend" aria-label="팀 색상 범례">
+        {teamLegend.map((team) => <span key={team.teamId} className={team.selected ? 'selected' : ''}>
+          <i style={{ '--minimap-team-color': team.color }}>{team.shortLabel}</i>
+          <b>{team.teamName}</b>
+          <small>{team.aliveCount}명</small>
+        </span>)}
+      </div> : null}
 
       <SimulationMinimapCanvas
         trackedActorIds={trackedActorIds}
@@ -91,10 +110,10 @@ export default function SimulationMinimapPanel({
       />
 
       <div className="minimap-legend">
-        <span className="minimap-dot alive" /> 생존
-        <span className="minimap-dot dead" /> 시체
-        <span className="minimap-dot forbidden" /> 금지구역
-        <span className="minimap-dot hyperloop" /> 하이퍼루프 출발 가능
+        <span><i className="minimap-dot dead" /> 시체</span>
+        <span><i className="minimap-dot forbidden" /> 금지구역</span>
+        <span><i className="minimap-dot hyperloop" /> 하이퍼루프</span>
+        <span><i className="minimap-tracked-ring" /> 금색 외곽선은 관전 팀</span>
       </div>
 
       <SimulationMinimapHyperloopControl

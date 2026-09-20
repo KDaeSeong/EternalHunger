@@ -244,6 +244,7 @@ export default function SimulationGameScreen({
         selectLocalMap={selectLocalMap}
         setAutoPlay={setAutoPlay}
         setHyperloopDestId={setHyperloopDestId}
+        setUiModal={setUiModal}
         setShowDetailedLogs={setShowDetailedLogs}
         setShowPrevLogs={setShowPrevLogs}
         setWinnerPredictionId={setWinnerPredictionId}

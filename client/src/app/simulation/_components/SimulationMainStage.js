@@ -98,6 +98,7 @@ export default function SimulationMainStage({
   selectedCharId,
   setAutoPlay,
   setHyperloopDestId,
+  setUiModal,
   setWinnerPredictionId,
   setShowDetailedLogs,
   setShowPrevLogs,
@@ -176,6 +177,7 @@ export default function SimulationMainStage({
             isSelectedCharOnHyperloopPad={isSelectedCharOnHyperloopPad}
             loading={loading}
             maps={maps}
+            openMap={() => setUiModal?.('map')}
             recentMoveTrails={recentMoveTrails}
             recentPings={recentPings}
             selectedCharId={selectedCharId}

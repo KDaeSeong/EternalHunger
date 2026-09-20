@@ -3,6 +3,7 @@
 import { useId, useMemo } from 'react';
 import { getObserverVisibleActors } from '../_lib/teamObserverRuntime';
 import { getSpatialPosition, SPATIAL_REGION_SIZE } from '../_lib/combatSpatialRuntime.js';
+import { getMinimapTeamPresentation, layoutMinimapZoneActors } from '../_lib/minimapTeamPresentationRuntime.js';
 
 import {
   LUMIA_HYPERLOOP_MARKERS,
@@ -31,12 +32,6 @@ const OFF = [
   [0, 0], [3, 0], [-3, 0], [0, 3], [0, -3],
   [3, 3], [-3, 3], [3, -3], [-3, -3],
   [5, 0], [-5, 0], [0, 5], [0, -5],
-];
-
-const TOKEN_OFF = [
-  [0, 0], [4.4, 0], [-4.4, 0], [0, 4.4], [0, -4.4],
-  [3.3, 3.3], [-3.3, 3.3], [3.3, -3.3], [-3.3, -3.3],
-  [6.2, 1.8], [-6.2, 1.8], [1.8, 6.2], [1.8, -6.2],
 ];
 
 const EMPTY_ZONE_POSITIONS = Object.freeze({});
@@ -379,7 +374,7 @@ export default function SimulationMinimapCanvas({
                 </g>
               ) : null}
 
-              {(aliveHere > 0 || deadHere > 0) ? (
+              {(aliveHere > 12 || deadHere > 0) ? (
                 <text
                   x={p.x}
                   y={p.y + 5.35}
@@ -387,67 +382,101 @@ export default function SimulationMinimapCanvas({
                   fontSize="2.45"
                   fill="rgba(255,255,255,0.62)"
                 >
-                  {aliveHere > 0 ? `+${aliveHere}` : ''}{deadHere > 0 ? ` / -${deadHere}` : ''}
+                  {aliveHere > 12 ? `${aliveHere}명` : ''}{deadHere > 0 ? `${aliveHere > 12 ? ' / ' : ''}사망 ${deadHere}` : ''}
                 </text>
               ) : null}
 
-              {getObserverVisibleActors(aliveByZone[id], trackedSet).map((actor, idx) => {
+              {layoutMinimapZoneActors(
+                getObserverVisibleActors(aliveByZone[id], trackedSet, 24),
+                trackedSet
+              ).map((layout, idx) => {
+                const actor = layout.actor;
                 const actorId = actorIdentity(actor);
-                const offset = TOKEN_OFF[idx % TOKEN_OFF.length];
                 const local = getSpatialPosition(actor);
-                const cx = p.x + (local ? (local.x / SPATIAL_REGION_SIZE - 0.5) * 12 : offset[0] * 0.5);
-                const cy = p.y + (local ? (local.y / SPATIAL_REGION_SIZE - 0.5) * 12 : offset[1] * 0.5);
+                const cx = p.x + layout.dx;
+                const cy = p.y + layout.dy;
                 const isSelected = actorId === String(hyperloopCharId || '');
-                const isTracked = trackedSet.has(actorId);
-                const hpRatio = Math.max(0, Math.min(1, Number(actor?.hp || 0) / Math.max(1, Number(actor?.maxHp || 100))));
+                const isTracked = layout.tracked || trackedSet.has(actorId);
+                const hpRatio = layout.hpRatio;
                 const tokenImg = String(actor?.previewImage || '/Images/default_image.svg');
                 const teamState = getTeamStateForActor?.(actor);
-                const teamColor = teamState?.missingCount > 0
-                  ? 'rgba(255, 180, 80, 0.94)'
-                  : 'rgba(112, 221, 148, 0.94)';
-                const tokenTitle = `${String(actor?.name || '캐릭터')} / HP ${Math.floor(Number(actor?.hp || 0))}/${Math.max(1, Math.floor(Number(actor?.maxHp || 100)))} / ${zoneName}${local ? ` / 지역 내 (${local.x.toFixed(1)}, ${local.y.toFixed(1)})m` : ''}`;
+                const team = getMinimapTeamPresentation(actor);
+                const teamColor = team.color;
+                const teamStatus = teamState?.missingCount > 0 ? ` / 팀원 ${teamState.missingCount}명 이탈` : '';
+                const tokenTitle = `${String(actor?.name || '캐릭터')} / ${team.teamName} / HP ${Math.floor(Number(actor?.hp || 0))}/${Math.max(1, Math.floor(Number(actor?.maxHp || 100)))} / ${zoneName}${local ? ` / 지역 내 (${local.x.toFixed(1)}, ${local.y.toFixed(1)})m` : ''}${teamStatus}`;
+
+                if (layout.aggregate) {
+                  const memberNames = layout.actors.map((row) => String(row?.name || '캐릭터')).join(', ');
+                  const aggregateTitle = `${team.teamName} ${layout.count}명 / 평균 HP ${Math.round(hpRatio * 100)}% / ${memberNames} / ${zoneName}`;
+                  return (
+                    <g key={`team-${id}-${team.teamId || idx}`} className={`minimap-team-cluster ${isTracked ? 'tracked' : ''}`} data-team-id={team.teamId}>
+                      <title>{isTracked ? `관전 중 · ${aggregateTitle}` : aggregateTitle}</title>
+                      {isTracked ? <circle cx={cx} cy={cy} r="3.25" className="minimap-team-cluster-tracked" /> : null}
+                      <circle cx={cx} cy={cy} r="2.55" className="minimap-team-cluster-core" stroke={teamColor} />
+                      <text className="minimap-team-cluster-number" x={cx} y={cy + 0.62} textAnchor="middle">{team.shortLabel}</text>
+                      <circle className="minimap-team-cluster-count-badge" cx={cx + 2.18} cy={cy - 2.02} r="1.12" fill={teamColor} />
+                      <text className="minimap-team-cluster-count" x={cx + 2.18} y={cy - 1.62} textAnchor="middle">{layout.count}</text>
+                      <rect className="minimap-token-hp-track" x={cx - 2.65} y={cy + 2.78} width="5.3" height="0.76" rx="0.36" />
+                      <rect className={hpRatio <= 0.32 ? 'minimap-token-hp-fill critical' : 'minimap-token-hp-fill'}
+                        x={cx - 2.65} y={cy + 2.78} width={5.3 * hpRatio} height="0.76" rx="0.36" />
+                    </g>
+                  );
+                }
 
                 return (
-                  <g key={`a-${id}-${actorId || idx}`} className={`minimap-character-token ${isSelected ? 'selected' : ''} ${isTracked ? 'tracked' : ''}`}>
+                  <g key={`a-${id}-${actorId || idx}`} className={`minimap-character-token ${isSelected ? 'selected' : ''} ${isTracked ? 'tracked' : ''}`} data-team-id={team.teamId}>
                     <title>{isTracked ? `관전 중 · ${tokenTitle}` : tokenTitle}</title>
                     {isSelected || isTracked ? (
                       <circle
                         cx={cx}
                         cy={cy}
-                        r={3.05}
+                        r={3.12}
                         fill="none"
                         stroke="rgba(255,215,0,0.92)"
-                        strokeWidth="0.8"
+                        strokeWidth="0.72"
                       />
                     ) : null}
                     <circle
                       cx={cx}
                       cy={cy}
-                      r={2.42}
+                      r={2.25}
                       fill="rgba(8, 14, 24, 0.92)"
-                      stroke={isSelected || isTracked ? 'rgba(255,215,0,0.95)' : teamColor}
-                      strokeWidth="0.55"
+                      stroke={teamColor}
+                      strokeWidth="0.82"
                     />
                     <image
                       href={tokenImg}
-                      x={cx - 1.58}
-                      y={cy - 1.58}
-                      width="3.16"
-                      height="3.16"
+                      x={cx - 1.5}
+                      y={cy - 1.5}
+                      width="3"
+                      height="3"
                       preserveAspectRatio="xMidYMid slice"
                     />
-                    <path
-                      d={`M ${cx - 2.32} ${cy + 2.68} H ${cx - 2.32 + (4.64 * hpRatio)}`}
-                      className={hpRatio <= 0.32 ? 'minimap-token-hp critical' : 'minimap-token-hp'}
+                    <circle
+                      className="minimap-team-number-badge"
+                      cx={cx + 2.05}
+                      cy={cy - 2.05}
+                      r="1.13"
+                      fill={teamColor}
                     />
-                    <text
-                      x={cx}
-                      y={cy + 5.22}
-                      textAnchor="middle"
-                      className="minimap-token-label"
-                    >
-                      {String(actor?.name || '?').slice(0, 2)}
-                    </text>
+                    <text className="minimap-team-number" x={cx + 2.05} y={cy - 1.63} textAnchor="middle">{team.shortLabel}</text>
+                    <rect className="minimap-token-hp-track" x={cx - 2.4} y={cy + 2.56} width="4.8" height="0.72" rx="0.34" />
+                    <rect
+                      className={hpRatio <= 0.32 ? 'minimap-token-hp-fill critical' : 'minimap-token-hp-fill'}
+                      x={cx - 2.4}
+                      y={cy + 2.56}
+                      width={4.8 * hpRatio}
+                      height="0.72"
+                      rx="0.34"
+                    />
+                    {isSelected || isTracked ? <text
+                        x={cx}
+                        y={cy + 4.72}
+                        textAnchor="middle"
+                        className="minimap-token-label"
+                      >
+                        {String(actor?.name || '?').slice(0, 3)} {Math.round(hpRatio * 100)}%
+                      </text> : null}
                   </g>
                 );
               })}
