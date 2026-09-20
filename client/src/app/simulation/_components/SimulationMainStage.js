@@ -297,7 +297,9 @@ export default function SimulationMainStage({
         characterSkillsDisabled={replayMode || loading || isAdvancing || day !== 0}
         isGameOver={isGameOver}
         onRestart={() => window.location.reload()}
-        onProceed={proceedPhaseGuarded}
+        onProceed={evaluationMode && !draftMode && day === 0
+          ? () => setAutoPlay(true)
+          : proceedPhaseGuarded}
         actionDisabled={actionDisabled}
         loading={loading}
         isAdvancing={isAdvancing}

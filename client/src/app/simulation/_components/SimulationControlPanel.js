@@ -7,6 +7,8 @@ function normalizeMode(value) {
 }
 
 function getProceedLabel({
+  evaluationMode,
+  draftMode,
   loading,
   isAdvancing,
   startBlocked,
@@ -18,6 +20,7 @@ function getProceedLabel({
   if (loading) return '로딩 중...';
   if (isAdvancing) return '진행 중...';
   if (startBlocked) return startBlockedText || '시작 조건 부족';
+  if (evaluationMode && !draftMode && Number(day || 0) === 0) return '평가 시작';
   if (Number(day || 0) === 0) return '게임 시작';
   if (Number(aliveTeamCount || 0) <= 1) return '결과 확인하기';
   if (String(phase || '') === 'morning') {
@@ -73,6 +76,8 @@ export default function SimulationControlPanel({
   speedDisabled,
 }) {
   const proceedLabel = getProceedLabel({
+    evaluationMode,
+    draftMode,
     loading,
     isAdvancing,
     startBlocked,
@@ -81,6 +86,7 @@ export default function SimulationControlPanel({
     phase,
     aliveTeamCount,
   });
+  const isEvaluationStart = evaluationMode && !draftMode && Number(day || 0) === 0 && !isGameOver;
 
   return (
     <div className="control-panel">
@@ -171,7 +177,7 @@ export default function SimulationControlPanel({
           {showMarketPanel ? '개발자 도구 닫기' : '개발자 도구'}
         </button> : null}
 
-        <button
+        {!isEvaluationStart ? <button
           className="btn-secondary"
           type="button"
           data-game-sfx={autoPlay ? 'toggle' : 'start'}
@@ -181,7 +187,7 @@ export default function SimulationControlPanel({
         >
           <GameActionIcon action={autoPlay ? 'pause' : 'auto'} label={autoPlay ? '오토 정지' : '오토'} />
           {autoPlay ? '오토 정지' : '오토'}
-        </button>
+        </button> : null}
 
         <select
           className="autoplay-speed"

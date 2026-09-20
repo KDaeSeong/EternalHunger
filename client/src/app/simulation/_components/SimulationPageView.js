@@ -55,7 +55,7 @@ function SimulationEvaluationBrief({
       </summary>
       <div className="sim-evaluation-brief__body">
         <dl>
-          <div><dt>진행</dt><dd>{isGameOver ? '완주 · 설문 작성 가능' : '게임 시작 → 오토 · x32'}</dd></div>
+          <div><dt>진행</dt><dd>{isGameOver ? '완주 · 설문 작성 가능' : '평가 시작 한 번 · x32 자동 관전'}</dd></div>
           <div><dt>회수</dt><dd>완료 뒤 JSON 복사 또는 다운로드</dd></div>
         </dl>
         <ol>

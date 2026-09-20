@@ -36,6 +36,9 @@ const controllerSource = readFileSync(new URL('../src/app/simulation/_lib/useSim
 const initialDataSource = readFileSync(new URL('../src/app/simulation/_lib/useSimulationInitialData.js', import.meta.url), 'utf8');
 const headerSource = readFileSync(new URL('../src/app/simulation/_components/SimulationScreenHeader.js', import.meta.url), 'utf8');
 const replayHistorySource = readFileSync(new URL('../src/app/simulation/_components/SimulationReplayHistory.js', import.meta.url), 'utf8');
+const controlPanelSource = readFileSync(new URL('../src/app/simulation/_components/SimulationControlPanel.js', import.meta.url), 'utf8');
+const mainStageSource = readFileSync(new URL('../src/app/simulation/_components/SimulationMainStage.js', import.meta.url), 'utf8');
+const pageViewSource = readFileSync(new URL('../src/app/simulation/_components/SimulationPageView.js', import.meta.url), 'utf8');
 const tutorialSource = readFileSync(new URL('../src/app/games/_components/GameTutorialLauncher.js', import.meta.url), 'utf8');
 
 assert.match(routeSource, /evaluationMode/);
@@ -47,6 +50,13 @@ assert.match(initialDataSource, /withSimulationRandom\(createSeedRng\(`EVALUATIO
 assert.match(headerSource, /!evaluationMode\s*\?\s*<button[\s\S]*sim-devtools-btn/);
 assert.match(replayHistorySource, /결과 JSON 복사/);
 assert.match(replayHistorySource, /serializeSimulationEvaluationExport/);
+assert.match(controlPanelSource, /evaluationMode\s*&&\s*!draftMode[\s\S]*return '평가 시작'/,
+  '기준 평가 경기는 일반 게임 시작과 구분된 단일 시작 문구를 제공해야 합니다.');
+assert.match(controlPanelSource, /!isEvaluationStart\s*\?\s*<button[\s\S]*오토 정지/,
+  '평가 시작 전에는 별도 오토 버튼을 함께 노출하면 안 됩니다.');
+assert.match(mainStageSource, /evaluationMode\s*&&\s*!draftMode\s*&&\s*day\s*===\s*0[\s\S]*setAutoPlay\(true\)/,
+  '평가 시작 한 번으로 x32 자동 관전을 시작해야 합니다.');
+assert.match(pageViewSource, /평가 시작 한 번 · x32 자동 관전/);
 assert.match(tutorialSource, /evaluationOnly/);
 
 console.log('EVALUATION_LINK_CHECK_OK route=1 guest=1 fixedSetup=1 export=1 gate=1');
