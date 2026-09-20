@@ -2,6 +2,7 @@ import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { hasActionBlockStatus, isTargetableByStatus, canUseSkillByStatus, canBasicAttackByStatus } from '../../../utils/statusLogic.js';
 import { applyCombatHit } from './combatImpactRuntime.js';
+import { captureCombatHealth, recordCombatHealth, formatCombatHealthChange } from './combatObservationRuntime.js';
 import { applyPreparedCharacterSkill } from './characterSkillRuntime.js';
 import { applyCharacterSkillStatusEffects } from './characterStatusSkillRuntime.js';
 import { consumeArmedCharacterSkill } from './characterCastRuntime.js';
@@ -39,6 +40,7 @@ export function resolveCombatWinnerOutcome({ actions = {}, combatElimination = {
   const prevDamagedBy = String(target.lastDamagedBy || '');
   const prevDamagedPhaseIdx = Number(target.lastDamagedPhaseIdx ?? -9999);
   const hpBefore = Math.max(0, Number(target.hp));
+  const healthBefore = { attacker: captureCombatHealth(actor), target: captureCombatHealth(target) };
   const tacticalRaw = preparedSkill ? 0 : applyCombatTacAttack(actor, target, 0);
   const attackIntervalSec = preparedSkill ? 0 : reserveBasicAttack(actor, currentActionSec());
   const basic = preparedSkill ? null : calculateCombatDamage(actor, target);
@@ -65,9 +67,11 @@ export function resolveCombatWinnerOutcome({ actions = {}, combatElimination = {
       reach: preparedSkill ? getSpatialSkillRange(actor, preparedSkill.def, battleSettings) : getSpatialStats(actor).attackRange,
       fromPosition: { ...getSpatialPosition(actor) }, targetPosition: { ...getSpatialPosition(target) },
       ...(blockedReason ? { blockedReason } : {}), hpDamage,
-      absorbed: impact.absorbed, hpAfter: target.hp }, atNow());
+      absorbed: impact.absorbed, hpBefore: impact.hpBefore, maxHpBefore: impact.maxHpBefore,
+      hpAfter: impact.hpAfter, maxHpAfter: impact.maxHpAfter }, atNow());
     const blockLabel = { blind: '실명으로 빗나감', evade: '회피로 빗나감', invulnerable: '무적으로 피해 무효', untargetable: '대상 지정 불가' }[blockedReason];
-    addLog(`⚔️ [${actor.name}] → [${target.name}] ${packet.type === 'basic' ? '기본 공격' : packet.type === 'true' ? '고정 피해' : '스킬'}${packet.critical ? ' 치명타' : ''}: ${blockLabel || `HP -${hpDamage}`} (원피해 ${Number(packet.raw).toFixed(1)}, 적용 방어 ${Number(packet.appliedDefense).toFixed(1)})`, 'combat-detail');
+    const healthText = formatCombatHealthChange({ hp: impact.hpBefore, maxHp: impact.maxHpBefore }, { hp: impact.hpAfter, maxHp: impact.maxHpAfter });
+    addLog(`⚔️ [${actor.name}] → [${target.name}] ${packet.type === 'basic' ? '기본 공격' : packet.type === 'true' ? '고정 피해' : '스킬'}${packet.critical ? ' 치명타' : ''}: ${blockLabel || `HP -${hpDamage}`}${healthText ? ` · ${healthText}` : ''}${impact.absorbed > 0 ? ` · 보호막 흡수 ${impact.absorbed}` : ''} (원피해 ${Number(packet.raw).toFixed(1)}, 적용 방어 ${Number(packet.appliedDefense).toFixed(1)})`, 'combat-detail');
   }
   const splashDamage = applyCharacterSkillSplashDamage(actor, skills.splashHits);
   // Weapon-specific follow-ups remain separate effects. Measure their actual
@@ -99,7 +103,7 @@ export function resolveCombatWinnerOutcome({ actions = {}, combatElimination = {
   const lethal = Number(target.hp || 0) <= 0;
   if (!lethal && totalDamage > 0 && actor.hp > 0) applyErTraitAfterBattle(actor, { lethal: false, damageDealt: totalDamage, defeated: target });
   if (!areSameTeam(actor, target)) emitRunEvent('battle', { a: String(actor._id), b: String(target._id), winner: lethal ? String(actor._id) : '',
-    lethal, damage: totalDamage, splashDamage, zoneId: String(actor.zoneId || target.zoneId || ''),
+    lethal, damage: totalDamage, splashDamage, health: recordCombatHealth(healthBefore, actor, target), zoneId: String(actor.zoneId || target.zoneId || ''),
     ...(preparedSkill ? { subkind: 'character_skill_direct', castId: preparedSkill.castId } : {}) }, atNow());
   if (lethal) applyCombatElimination(actor, target, { prevDamagedBy, prevDamagedPhaseIdx, deferAftermath: strikeOnly,
     killText: '처치', deathReason: escape?.fatal ? 'critical_flee' : 'combat', deathCauseName: escape?.fatal ? '빈사 추격' : '교전',

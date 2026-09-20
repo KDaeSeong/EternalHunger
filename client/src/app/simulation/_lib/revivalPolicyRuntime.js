@@ -44,6 +44,14 @@ export function getDeathAtSec(actor) {
   return Number.isFinite(deathAt) && deathAt >= 0 ? deathAt : null;
 }
 
+// The match end, actual revival and observer must agree on a wiped team's
+// remaining protection. This does not grant a revival or consume any resource.
+export function isTeamWipeReviveProtected(actor, { canReviveThisMatch = false, phaseIdxNow = 0, wipeProtectionCutoffIdx = -1 } = {}) {
+  const diedAt = Number(actor?.deadAtPhaseIdx ?? -1);
+  return canReviveThisMatch && phaseIdxNow <= wipeProtectionCutoffIdx
+    && diedAt >= 0 && diedAt <= wipeProtectionCutoffIdx && !actor?.revivedOnce;
+}
+
 export function getCorpseRemainingSec(deadActor, nowSec, cfg) {
   const deathAt = getDeathAtSec(deadActor);
   const windowSec = Math.max(1, Number(cfg?.corpseWindowSec ?? 30));

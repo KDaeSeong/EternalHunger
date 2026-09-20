@@ -14,6 +14,9 @@ function listSignature(value) {
 }
 
 const MAJOR_EVENT_RULES = [
+  { key: 'teamEliminated', pattern: /팀 최종 탈락 ·/, action: 'team-eliminated', cue: 'combatKill', label: '팀 최종 탈락', tone: 'danger' },
+  { key: 'teamRevivalPending', pattern: /팀 전멸 ·.*부활 대기/, action: 'team-revival-pending', cue: 'teamWipeProtection', label: '팀 전멸 · 부활 대기', tone: 'warning' },
+  { key: 'teamReturned', pattern: /전장 복귀 ·.*명 생존/, action: 'team-returned', cue: 'revive', label: '팀 전장 복귀', tone: 'success' },
   {
     key: 'suddenDeath',
     pattern: /서든데스(?: 발동|: 6번째 밤 돌입| 교전 집결| 결판| 종료)/,
@@ -388,6 +391,7 @@ export function createSimulationFeedbackSnapshot({
     gameOver: Boolean(isGameOver),
     hasWinner: Boolean(winner),
     majorEvent: latestMajorEvent(logs),
+    teamEvent: latestMajorEvent(logs, (event) => ['teamEliminated', 'teamRevivalPending', 'teamReturned'].includes(event.key)),
     phase: String(phase || ''),
     winnerName: String(winner?.name || '').trim(),
   };
@@ -432,6 +436,11 @@ export function getSimulationFeedbackPresentation(previous, current) {
       tone: current.hasWinner ? 'success' : 'danger',
     });
   }
+
+  if (
+    current.teamEvent?.signature
+    && current.teamEvent.signature !== previous.teamEvent?.signature
+  ) return presentMajorEvent(current.teamEvent, current.autoPlay);
 
   if (
     current.deadCount > previous.deadCount

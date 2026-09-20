@@ -4112,6 +4112,17 @@
 .team-observer-events { margin-top: 10px; }
 .team-observer-events ol { padding-left: 20px; margin: 6px 0; }
 .team-observer-events li { margin-bottom: 9px; overflow-wrap: anywhere; }
+.team-observer-combat { margin: 10px 0; padding: 10px; border: 1px solid #558098; border-radius: 8px; background: #102536; }
+.team-observer-combat h3 { margin: 0 0 5px; color: #fff0bb; font-size: 14px; }
+.team-observer-combat > small { display: block; color: #adc7d9; line-height: 1.5; }
+.team-observer-combat article { margin-top: 10px; padding-top: 8px; border-top: 1px solid #345064; }
+.team-observer-combat article header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; color: #bdd6e7; }
+.team-observer-combat-health { margin-top: 7px; }
+.team-observer-combat-health > div:first-child { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 8px; overflow-wrap: anywhere; }
+.team-observer-combat-health strong { color: #fff; }
+.team-observer-combat-health span { font-variant-numeric: tabular-nums; }
+.team-observer-hp-track { height: 5px; margin-top: 4px; border-radius: 3px; background: #384350; overflow: hidden; }
+.team-observer-hp-track span { display: block; height: 100%; background: #70d1ad; }
 
 /* Final cockpit clipping guard */
 .simulation-stage {

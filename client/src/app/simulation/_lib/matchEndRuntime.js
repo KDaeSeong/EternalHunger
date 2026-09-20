@@ -1,5 +1,6 @@
 import { dedupeRuntimeParticipants } from './runtimeParticipantRuntime';
 import { getActorTeamId, getAliveTeams } from './teamRuntime';
+import { isTeamWipeReviveProtected } from './revivalPolicyRuntime.js';
 
 // The clock and phase finalizer share this decision. UI snapshots must never
 // declare victory while a wiped team still has its opening revival protection.
@@ -9,8 +10,7 @@ export function getMatchEndState({ survivors = [], dead = [], canReviveThisMatch
   const protectedIds = new Set();
   if (canReviveThisMatch && phaseIdxNow <= wipeProtectionCutoffIdx) {
     for (const actor of dedupeRuntimeParticipants(dead)) {
-      const diedAt = Number(actor?.deadAtPhaseIdx ?? -1);
-      if (diedAt >= 0 && diedAt <= wipeProtectionCutoffIdx && !actor.revivedOnce) protectedIds.add(getActorTeamId(actor));
+      if (isTeamWipeReviveProtected(actor, { canReviveThisMatch, phaseIdxNow, wipeProtectionCutoffIdx })) protectedIds.add(getActorTeamId(actor));
     }
   }
   const protectedContest = new Set([...aliveIds, ...protectedIds]);

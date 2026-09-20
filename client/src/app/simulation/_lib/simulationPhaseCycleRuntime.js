@@ -11,6 +11,7 @@ import { applyActorPhaseStatusTick } from './phaseActorStatusRuntime';
 import { runDetonationTickPhase } from './phaseDetonationTickRuntime';
 import { advanceEndgamePressure } from './suddenDeathRuntime';
 import { getMatchEndState } from './matchEndRuntime';
+import { createTeamSurvivalObserver, getTeamSurvivalContext } from './teamSurvivalObservationRuntime.js';
 import { combineSimulationCounts, createSimulationFrame, publishSimulationFrame } from './simulationFrameRuntime';
 import { createSeedRng } from './randomSeedRuntime';
 import { getActiveSimulationRandom, runSimulationSteps } from '../../../utils/simulationRandom.js';
@@ -118,6 +119,9 @@ function* simulationPhaseSteps({
     setSpawnState,
     setSurvivors,
   } = actions;
+
+  const observeTeamSurvival = createTeamSurvivalObserver({ survivors, dead,
+    ...getTeamSurvivalContext(settings, day, phase) }, { addLog, emitRunEvent });
 
   const {
     atNow: phaseAtNow,
@@ -299,12 +303,18 @@ function* simulationPhaseSteps({
     survivors: [...liveMap.values()].filter((actor) => !timelineDeadIds.includes(actor._id)),
     dead: [...currentDead, ...phaseDeadSnapshots], canReviveThisMatch, phaseIdxNow, wipeProtectionCutoffIdx,
   }).finished;
-  const publishFrame = (overrides = {}) => publishSimulationFrame(createSimulationFrame({
+  const publishFrame = (overrides = {}) => {
+    const frame = createSimulationFrame({
     day: nextDay, phase: nextPhase, matchSec: Math.round((phaseStartSec + getPhaseRuntimeOffsetSec()) * 1e6) / 1e6,
     dead: [...currentDead, ...phaseDeadSnapshots], spawnState: nextSpawn,
     forbiddenIds, forbiddenAddedNow: currentForbiddenAdded, mapId: mapObj?._id,
     ...overrides,
-  }), actions);
+    });
+    observeTeamSurvival({ survivors: frame.survivors, dead: frame.dead,
+      canReviveThisMatch, phaseIdxNow, wipeProtectionCutoffIdx },
+    { day: nextDay, phase: nextPhase, sec: frame.matchSec });
+    publishSimulationFrame(frame, actions);
+  };
   const commitTimelineActors = (actors, deaths = []) => {
     actors.forEach((actor) => liveMap.set(String(actor._id), actor));
     deaths.forEach((actor) => {

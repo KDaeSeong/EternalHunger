@@ -359,6 +359,24 @@ export async function finishSimulationGame(opts = {}) {
             'clipped',
             'heal',
             'damage',
+            'a',
+            'b',
+            'winner',
+            'lethal',
+            'health',
+            'hpDamage',
+            'absorbed',
+            'hpBefore',
+            'hpAfter',
+            'maxHpBefore',
+            'maxHpAfter',
+            'teamId',
+            'teamName',
+            'participants',
+            'aliveCount',
+            'protectedCount',
+            'status',
+            'previousStatus',
             'resourceName',
             'resourceCost',
             'resourceGain',
@@ -378,7 +396,7 @@ export async function finishSimulationGame(opts = {}) {
           ].forEach((key) => {
             if (event[key] !== undefined) out[key] = event[key];
           });
-          if (event.at && typeof event.at === 'object') out.at = { day: event.at.day, phase: event.at.phase };
+          if (event.at && typeof event.at === 'object') out.at = { day: event.at.day, phase: event.at.phase, sec: event.at.sec };
           if (Array.isArray(event.blockedReasons)) out.blockedReasons = event.blockedReasons.slice(0, 6).map(String);
           return out;
         })

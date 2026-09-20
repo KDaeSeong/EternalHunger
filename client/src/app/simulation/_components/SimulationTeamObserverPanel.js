@@ -1,5 +1,15 @@
 'use client';
 
+function CombatExchange({ exchange }) {
+  return <article>
+    <header><time>{exchange.clock}</time><span>{exchange.zone} · {exchange.attack}</span></header>
+    {exchange.participants.map((actor, index) => <div key={`${index}:${actor.id}`} className="team-observer-combat-health">
+      <div><strong>{index === 0 ? '공격' : '대상'} · {actor.name}</strong><span>{actor.text}</span></div>
+      <div className="team-observer-hp-track" aria-hidden="true"><span style={{ width: `${actor.ratio * 100}%` }} /></div>
+    </div>)}
+  </article>;
+}
+
 export default function SimulationTeamObserverPanel({ model, onTeamChange, isGameOver }) {
   if (!model.team) return <section className="team-observer-panel">참가자를 준비하고 있습니다.</section>;
   return (
@@ -16,6 +26,14 @@ export default function SimulationTeamObserverPanel({ model, onTeamChange, isGam
         <small>지도에서 고유 팀 색·번호로 구분 · 관전 팀에는 금색 외곽선 추가 · 선택은 경기 판단에 영향을 주지 않음</small>
         <small>지역 내부 위치는 축약 표시 · 원작 지형의 축척이 아님</small>
       </div>
+      {model.combat?.length ? <section className="team-observer-combat" aria-label="최근 교전 체력">
+        <h3>최근 교전 체력</h3>
+        <small>공격 처리 전 → 후 · 당시 기록이며 현재 체력이 아닙니다. 회복·흡혈 등도 반영됩니다.</small>
+        <CombatExchange exchange={model.combat[0]} />
+        {model.combat.length > 1 ? <details><summary>앞선 공격 {model.combat.length - 1}건</summary>
+          {model.combat.slice(1).map((exchange) => <CombatExchange key={exchange.key} exchange={exchange} />)}
+        </details> : null}
+      </section> : null}
       {!isGameOver && model.objectives?.length ? <section className="team-observer-objectives" aria-label="현재 자원 목표">
         <h3>지금 노리는 목표</h3>
         {model.objectives.map((goal) => <div key={goal.key} className="team-observer-objective">

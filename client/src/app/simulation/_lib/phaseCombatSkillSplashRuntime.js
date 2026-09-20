@@ -7,6 +7,7 @@ import { applyCombatDamageLifesteal } from './combatDamageRuntime.js';
 import { isTargetableByStatus, getDamageBlockReason } from '../../../utils/statusLogic.js';
 import { getSpatialPosition } from './combatSpatialRuntime.js';
 import { applyCombatHit } from './combatImpactRuntime.js';
+import { captureCombatHealth, recordCombatHealth, formatCombatHealthChange } from './combatObservationRuntime.js';
 import { applyCharacterSkillStatusEffects } from './characterStatusSkillRuntime.js';
 import { shareCombatSpace, getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 
@@ -66,6 +67,7 @@ export function createPhaseCombatSkillSplashRuntime({
 
       const prevDamagedBySplash = String(splashTarget?.lastDamagedBy || '');
       const prevDamagedPhaseIdxSplash = Number(splashTarget?.lastDamagedPhaseIdx ?? -9999);
+      const healthBefore = { attacker: captureCombatHealth(attacker), target: captureCombatHealth(splashTarget) };
       const impact = applyCombatHit(attacker, splashTarget, { ...hit.packet, type: hit.packet?.type || 'skill', damage: raw },
         { shieldBlock, emitRunEvent, addLog, at: atNow() });
       const finalSplash = impact.hpDamage;
@@ -77,19 +79,23 @@ export function createPhaseCombatSkillSplashRuntime({
       emitRunEvent('damage', { who: String(attacker._id), targetId, ...hit.packet,
         ...(impact.packet.sleepBonusDamage != null ? { damage: impact.packet.damage, sleepBonusDamage: impact.packet.sleepBonusDamage } : {}),
         ...(center ? { areaDistance, radius: hit.radius, centerPosition: { ...center }, targetPosition: { ...position } } : {}),
-        hpDamage: finalSplash, hpAfter: splashTarget.hp, zoneId: String(splashTarget.zoneId || '') }, atNow());
+        hpDamage: finalSplash, absorbed: impact.absorbed, hpBefore: impact.hpBefore, maxHpBefore: impact.maxHpBefore,
+        hpAfter: impact.hpAfter, maxHpAfter: impact.maxHpAfter, zoneId: String(splashTarget.zoneId || '') }, atNow());
       recordCombatContribution(splashTarget, attacker, finalSplash, phaseIdxNow, Number(atNow()?.sec || 0));
       splashTarget.lastDamagedBy = String(attacker?._id || '');
       splashTarget.lastDamagedPhaseIdx = phaseIdxNow;
       total += finalSplash;
 
       const hitKindText = hit?.primary ? '스킬 피해' : '광역 피해';
-      addLog(`🌀 ${hitKindText}: [${attacker.name}] ${String(hit?.skill || '스킬')} → [${splashTarget.name}] -${finalSplash}`, 'highlight');
+      const healthText = formatCombatHealthChange(healthBefore.target, captureCombatHealth(splashTarget));
+      addLog(`🌀 ${hitKindText}: [${attacker.name}] ${String(hit?.skill || '스킬')} → [${splashTarget.name}] -${finalSplash}${healthText ? ` · ${healthText}` : ''}${impact.absorbed > 0 ? ` · 보호막 흡수 ${impact.absorbed}` : ''}`, 'highlight');
       emitRunEvent('battle', {
         a: String(attacker?._id || ''),
         b: targetId,
         winner: Number(splashTarget.hp || 0) <= 0 ? String(attacker?._id || '') : '',
         lethal: Number(splashTarget.hp || 0) <= 0,
+        damage: finalSplash,
+        health: recordCombatHealth(healthBefore, attacker, splashTarget),
         zoneId: String(splashTarget?.zoneId || attacker?.zoneId || ''),
         subkind: hit?.primary ? 'character_skill_direct' : 'character_skill_splash',
       }, atNow());

@@ -7,7 +7,7 @@ import {
   hasKioskAtZone,
   normalizeRevivedSurvivor,
 } from './simulationEngine';
-import { getRevivePhaseConfig, getCorpseRemainingSec } from './revivalPolicyRuntime.js';
+import { getRevivePhaseConfig, getCorpseRemainingSec, isTeamWipeReviveProtected } from './revivalPolicyRuntime.js';
 
 function actorLevel(actor) {
   const raw = Number(actor?.level ?? actor?.erLevel ?? actor?.weaponMasteryLevel ?? 1);
@@ -126,11 +126,7 @@ export function runPhaseRevival({
       ));
       const teamAlive = canReviveThisMatch && teammates.length > 0;
       const wipeProtectionActive = canReviveThisMatch && phaseIdxNow <= wipeProtectionCutoffIdx;
-      const teamWipeProtected = canReviveThisMatch
-        && wipeProtectionActive
-        && deadAt >= 0
-        && deadAt <= wipeProtectionCutoffIdx
-        && !deadActor?.revivedOnce;
+      const teamWipeProtected = isTeamWipeReviveProtected(deadActor, { canReviveThisMatch, phaseIdxNow, wipeProtectionCutoffIdx });
       let corpseRemainingSec = getCorpseRemainingSec(deadActor, phaseStartSec, corpseCfg);
       const corpsePressure = estimateCorpseDamagePressure(deadActor, survivors, corpseCfg);
       if (corpseRemainingSec > 0 && corpsePressure.secLoss > 0) {

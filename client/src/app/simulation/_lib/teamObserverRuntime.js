@@ -12,12 +12,14 @@ import { describeMovementObjective, getAvailableMovementObjective, movementObjec
 import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 import { describeCombatDecisionContext } from './combatDecisionEvidenceRuntime.js';
 import { describeTeamRegroupDecision } from './teamRegroupRuntime.js';
+import { presentCombatHealth } from './combatObservationRuntime.js';
+import { describeTeamSurvival, getTeamSurvivalContext, getTeamSurvivalStates } from './teamSurvivalObservationRuntime.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 const idOf = (actor) => String(actor?._id || actor?.id || '');
 const num = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const decisionKinds = new Set(['move', 'retreat', 'chase', 'team_decision', 'growth_plan', 'queue', 'hunt_start', 'hunt_end', 'dimension_rift_space']);
-const importantKinds = new Set(['death', 'revive', 'elimination', 'team_engagement', 'team_cover', 'chase', 'resource_replan', 'rest', 'hunt_start', 'hunt_end', 'skill_cancel', 'forced_control', 'sleep_break', 'effect', 'dimension_rift_space', 'dimension_rift_defeat', 'dimension_rift_reward_closed', 'spatial_displacement', 'spatial_displacement_pending', 'movement_goal', 'objective']);
+const importantKinds = new Set(['death', 'revive', 'elimination', 'team_status', 'team_engagement', 'team_cover', 'chase', 'resource_replan', 'rest', 'hunt_start', 'hunt_end', 'skill_cancel', 'forced_control', 'sleep_break', 'effect', 'dimension_rift_space', 'dimension_rift_defeat', 'dimension_rift_reward_closed', 'spatial_displacement', 'spatial_displacement_pending', 'movement_goal', 'objective']);
 const observerScalarActorKeys = ['who', 'a', 'b', 'by', 'targetId', 'target', 'victimId', 'chaserId', 'sourceActorId', 'opponentId', 'strikerId'];
 const observerArrayActorKeys = ['assistIds', 'participants', 'helpers'];
 
@@ -185,7 +187,11 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
     case 'skill_armed': return `${who}: ${event.skill} 강화 준비 · 다음 기본 공격에 적용${where}`;
     case 'skill_expired': return `${who}: ${event.skill} 강화 종료${where}`;
     case 'skill': return `${who}: ${event.skill} 발동 → ${nameOf(event.targetId || event.target)}${event.heal ? ` · 실제 회복 ${event.heal}` : ''}${event.shield ? ` · 보호막 ${event.shield}` : ''}${event.movementDistance ? ` · ${event.movementMode === 'away_from_target' ? '후퇴' : '돌진'} ${num(event.movementDistance)}m` : ''}${where}`;
-    case 'battle': return `${nameOf(event.a)} ↔ ${nameOf(event.b)} 교전${where}`;
+    case 'battle': {
+      const health = presentCombatHealth(event, nameOf);
+      return `${nameOf(event.a)} → ${nameOf(event.b)} 공격${where}${health ? ` · ${health.text}` : ''}`;
+    }
+    case 'team_status': return describeTeamSurvival(event);
     case 'elimination': return `${who} → ${nameOf(event.victimId)} 처치${list(event.assistIds).length ? ` · 지원 ${event.assistIds.map(nameOf).join(', ')}` : ''}${where}`;
     case 'death': return `${who} 사망 · ${event.cause || deathReasons[event.reason] || '원인 미기록'}${event.by ? ` · 처치자 ${nameOf(event.by)}` : ''}${where}`;
     case 'revive': return `${who} 부활 · HP ${num(event.hp)}${event.by ? ` · 도움 ${nameOf(event.by)}` : ' · 자동 부활'}${event.paid ? ` · ${num(event.cost)}Cr 소비` : ''}${where}`;
@@ -197,7 +203,8 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
 // Presentation only: no planner, random source, inventory normalization or game
 // setters. Names are labels; exact participant IDs determine event membership.
 export function buildTeamObserverModel({ survivors = [], dead = [], events = [], teamId = '', matchSec = 0,
-  publicItems = [], killCounts = {}, assistCounts = {}, isGameOver = false, zoneName = String, spawnState, forbiddenIds = [] } = {}) {
+  publicItems = [], killCounts = {}, assistCounts = {}, isGameOver = false, zoneName = String, spawnState, forbiddenIds = [],
+  settings, day, phase } = {}) {
   const actors = new Map();
   for (const actor of [...list(dead), ...list(survivors)]) if (idOf(actor)) actors.set(idOf(actor), actor);
   const nameOf = (id) => actors.get(String(id))?.name || String(id || '참가자 미상');
@@ -243,6 +250,7 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
   if (!ordered) timed.sort((a, b) => a.sec - b.sec || a.index - b.index);
 
   const recent = [];
+  const combat = [];
   const turningPoints = [];
   const previousDecision = new Map();
   const lastDecisionByActor = new Map();
@@ -270,6 +278,11 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
     }
     const formatted = { key: `${row.sec}:${row.index}`, sec: row.sec, clock: formatClock(row.sec), text, kind: row.event.kind };
     appendRecent(recent, formatted, 10);
+    if (row.event.kind === 'battle') {
+      const health = presentCombatHealth(row.event, nameOf);
+      if (health) appendRecent(combat, { ...formatted, ...health, zone: zoneName(row.event.zoneId),
+        attack: row.event.subkind === 'character_skill_splash' ? '광역 스킬' : row.event.subkind === 'character_skill_direct' ? '스킬' : '공격' }, 3);
+    }
     if (importantKinds.has(row.event.kind)) appendRecent(turningPoints, formatted, 8);
   }
   const members = [...team.members].sort((a, b) => num(a.matchTeamSlot || a.teamSlot) - num(b.matchTeamSlot || b.teamSlot) || idOf(a).localeCompare(idOf(b))).map((actor) => {
@@ -308,10 +321,17 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
   const totalAssists = members.reduce((sum, actor) => sum + actor.assists, 0);
   const allDead = team.alive === 0;
   const aliveTeams = teams.filter((row) => row.alive > 0).length;
+  // Current status must survive the bounded visible event window. Derive it
+  // from the same match policy and committed roster, never a guessed timer.
+  const survival = settings && Number.isFinite(day) && phase
+    ? getTeamSurvivalStates({ survivors, dead, ...getTeamSurvivalContext(settings, day, phase) }).find((row) => row.teamId === team.id) : null;
+  const deadStatus = survival?.status === 'revival_pending' ? `팀 전멸 · 부활 대기 (${survival.protectedCount}명)`
+    : survival?.status === 'eliminated' ? '팀 최종 탈락 · 복귀 가능한 팀원 없음'
+      : '현재 전원 사망 · 부활 가능 여부는 경기 규칙에 따름';
   return { teams, team, members, trackedActorIds: [...memberIds],
     objectives,
-    status: isGameOver ? (team.alive > 0 && aliveTeams === 1 ? '최후 생존 팀' : '경기 종료') : allDead ? '현재 전원 사망 · 부활 가능 여부는 경기 규칙에 따름' : '관전 중',
+    status: isGameOver ? (team.alive > 0 && aliveTeams === 1 ? '최후 생존 팀' : allDead && survival ? deadStatus : '경기 종료') : allDead ? deadStatus : '관전 중',
     summary: `생존 ${team.alive}/${members.length} · ${totalKills}처치 · ${totalAssists}어시스트`,
-    recent: recent.reverse(), turningPoints: turningPoints.reverse(),
+    recent: recent.reverse(), turningPoints: turningPoints.reverse(), combat: combat.reverse(),
     historyNote: '현재 보존된 경기 기록 기준 · 시각은 게임 내 경과 시간' };
 }

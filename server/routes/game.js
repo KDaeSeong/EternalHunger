@@ -76,6 +76,9 @@ function compactRunEventsForStorage(runEvents) {
     'mode',
     'heal',
     'damage',
+    'a', 'b', 'winner', 'lethal', 'targetId',
+    'hpDamage', 'absorbed', 'hpBefore', 'hpAfter', 'maxHpBefore', 'maxHpAfter',
+    'teamId', 'teamName', 'aliveCount', 'protectedCount', 'status', 'previousStatus',
     'preDamage',
     'pEscape',
     'pChase',
@@ -103,6 +106,18 @@ function compactRunEventsForStorage(runEvents) {
         };
       }
       if (Array.isArray(event.blockedReasons)) out.blockedReasons = event.blockedReasons.slice(0, 6).map((reason) => String(reason || '').slice(0, 120));
+      if (Array.isArray(event.participants)) out.participants = event.participants.slice(0, 100)
+        .filter((id) => typeof id === 'string' || typeof id === 'number').map((id) => String(id).slice(0, 180));
+      if (event.health?.version === 1) {
+        const copyHealth = (row) => {
+          if (!row || typeof row.id !== 'string' || ![row.before, row.after].every((hp) => hp
+            && Number.isFinite(hp.hp) && hp.hp >= 0 && Number.isFinite(hp.maxHp) && hp.maxHp > 0)) return null;
+          return { id: row.id.slice(0, 180), before: { hp: row.before.hp, maxHp: row.before.maxHp },
+            after: { hp: row.after.hp, maxHp: row.after.maxHp } };
+        };
+        const attacker = copyHealth(event.health.attacker), target = copyHealth(event.health.target);
+        if (attacker && target && attacker.id === out.a && target.id === out.b) out.health = { version: 1, attacker, target };
+      }
       return Object.keys(out).length ? out : null;
     })
     .filter(Boolean);

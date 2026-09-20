@@ -183,7 +183,8 @@ function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
       extraDamage = 0;
     }
     opts.emitRunEvent?.('damage', { who: String(attacker._id), targetId: String(defender._id), ...packet,
-      hpDamage: extraDamage, absorbed: impact.absorbed, hpAfter: defender.hp,
+      hpDamage: extraDamage, absorbed: impact.absorbed, hpBefore: impact.hpBefore, maxHpBefore: impact.maxHpBefore,
+      hpAfter: impact.hpAfter, maxHpAfter: impact.maxHpAfter,
       skill: skill.name, zoneId: String(defender.zoneId || '') }, opts.at || null);
   }
 
