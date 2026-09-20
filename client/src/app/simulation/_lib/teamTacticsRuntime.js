@@ -2,6 +2,7 @@ import { areSameTeam, getActorTeamId } from './teamRuntime';
 import { estimateMovePower } from './movePowerRuntime';
 import { getCombatSpaceId, shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
+import { captureMovementObjective } from './movementObjectiveRuntime.js';
 
 const idOf = (actor) => String(actor?._id || actor?.id || '');
 const alive = (actor) => actor && Number(actor.hp || 0) > 0 && !isDimensionRiftDefeated(actor);
@@ -71,6 +72,7 @@ export function pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds = new Se
 export function buildTeamMovementPlans({
   roster = [], zoneGraph = {}, forbiddenIds = new Set(), day = 1, phase = 'morning',
   estimatePower = estimateMovePower, chooseLeaderMove = () => null, maxDepth = 3, isSoloMatch = false,
+  spawnState, ruleset, publicItems = [],
 } = {}) {
   const plans = new Map();
   if (isSoloMatch) return plans;
@@ -106,6 +108,7 @@ export function buildTeamMovementPlans({
     const proposed = grouped ? chooseLeaderMove(leader) : null;
     const target = grouped ? (proposed?.targets || []).find((zone) => !forbiddenIds.has(String(zone))) : rallyZone;
     if (!target) continue;
+    const objective = grouped ? captureMovementObjective(proposed, target, { spawnState, ruleset, publicItems }) : null;
     for (const actor of members) {
       if (stillGrowing(actor)) continue;
       // Recovery/forbidden-area escape are higher priorities at execution time.
@@ -118,6 +121,7 @@ export function buildTeamMovementPlans({
         targetZoneId: String(target), nextStep: route.nextStep, memberCount: members.length,
         objectiveType: String(proposed?.objectiveType || ''),
         objectiveSubkind: String(proposed?.objectiveSubkind || ''),
+        objective,
         contestPressure: Math.max(0, Number(proposed?.contestPressure || 0)),
       });
     }

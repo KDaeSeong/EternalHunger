@@ -1,7 +1,11 @@
-export function formatMoveIntentLabel(reason, objectiveType = '', objectiveSubkind = '') {
+import { describeMovementObjective } from './movementObjectiveRuntime.js';
+
+export function formatMoveIntentLabel(reason, objectiveType = '', objectiveSubkind = '', movementObjective = null) {
   const raw = String(reason || '').replace(/:ttl/g, '').replace(/:priority/g, '').trim();
   const type = String(objectiveType || '').toLowerCase();
   const sub = String(objectiveSubkind || '').toLowerCase();
+  const objectiveLabel = describeMovementObjective(movementObjective);
+  if (objectiveLabel) return `${raw === 'team_rotate' ? '팀 공동 목표 · ' : ''}${objectiveLabel}`;
 
   if (raw.startsWith('early_route')) return '루트 파밍';
   if (raw === 'growth_farm') return '목표 장비 재료 탐색';

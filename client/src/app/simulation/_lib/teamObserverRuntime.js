@@ -8,12 +8,14 @@ import { canMoveByStatus, canBasicAttackByStatus } from '../../../utils/statusLo
 import { getActionStatePresentation } from './runtimeStatusDisplay.js';
 import { describeDimensionRiftRewardClosure } from './dimensionRiftRewardPresentation.js';
 import { getTimedWildlifeCombatSummary } from './wildlifeCombatRuntime.js';
+import { describeMovementObjective, getAvailableMovementObjective, movementObjectivesOverlap } from './movementObjectiveRuntime.js';
+import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 const idOf = (actor) => String(actor?._id || actor?.id || '');
 const num = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const decisionKinds = new Set(['move', 'team_decision', 'growth_plan', 'queue', 'hunt_start', 'hunt_end', 'dimension_rift_space']);
-const importantKinds = new Set(['death', 'revive', 'elimination', 'team_engagement', 'team_cover', 'chase', 'resource_replan', 'rest', 'hunt_start', 'hunt_end', 'skill_cancel', 'forced_control', 'sleep_break', 'effect', 'dimension_rift_space', 'dimension_rift_defeat', 'dimension_rift_reward_closed', 'spatial_displacement', 'spatial_displacement_pending']);
+const importantKinds = new Set(['death', 'revive', 'elimination', 'team_engagement', 'team_cover', 'chase', 'resource_replan', 'rest', 'hunt_start', 'hunt_end', 'skill_cancel', 'forced_control', 'sleep_break', 'effect', 'dimension_rift_space', 'dimension_rift_defeat', 'dimension_rift_reward_closed', 'spatial_displacement', 'spatial_displacement_pending', 'movement_goal', 'objective']);
 const observerScalarActorKeys = ['who', 'a', 'b', 'by', 'targetId', 'target', 'victimId', 'chaserId', 'sourceActorId', 'opponentId', 'strikerId'];
 const observerArrayActorKeys = ['assistIds', 'participants', 'helpers'];
 
@@ -78,7 +80,9 @@ export function describeObserverReason(event = {}) {
     growth_blocked: '성장 경로 재검토', endgame_rotate: '최종 안전구역으로 이동', wander: '지역 탐색',
   };
   const knownIntent = /^(early_route|dimension_rift)/.test(raw) || !!event.objectiveType || /[가-힣]/.test(raw);
-  let text = labels[raw] || (knownIntent ? formatMoveIntentLabel(raw, event.objectiveType, event.objectiveSubkind) : '상세 판단 기록 없음');
+  let text = labels[raw] || (knownIntent ? formatMoveIntentLabel(raw, event.objectiveType, event.objectiveSubkind, event.movementObjective) : '상세 판단 기록 없음');
+  const objectiveLabel = describeMovementObjective(event.movementObjective);
+  if (labels[raw] && objectiveLabel) text += ` · ${objectiveLabel}`;
   if (event.blocked) {
     const blockage = ({ no_material_source: '필요한 재료의 공급처 없음', no_safe_path: '안전한 재료 경로 없음', invalid_recipe: '제작법 연결 확인 필요' })[event.blocked] || '성장 계획 막힘';
     text = text === '상세 판단 기록 없음' ? blockage : `${text} · ${blockage}`;
@@ -101,7 +105,15 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
   const who = nameOf(String(event.who || event.a || ''));
   const where = event.zoneId ? ` · ${zoneName(event.zoneId)}` : '';
   switch (event.kind) {
-    case 'move': return `${who}: ${zoneName(event.from)} → ${zoneName(event.to)} · ${describeObserverReason(event)}${event.etaSec ? ` · 이동 ${event.etaSec}초` : ''}`;
+    case 'movement_goal': return event.objective
+      ? `${who}: ${event.objective.shared ? '팀 공동 목표' : '목표'} 지정 · ${describeMovementObjective(event.objective)} · ${zoneName(event.objective.targetZoneId)} (아직 획득 전)`
+      : event.previousObjective ? `${who}: ${describeMovementObjective(event.previousObjective)} 목표 해제 · 다음 판단으로 전환` : '';
+    case 'objective': {
+      if (event.objective === 'boss') return `${who}: ${describeMovementObjective({ type: 'boss', subkind: event.subkind })} · ${event.success ? '처치 완료' : '처치 실패'}${where}`;
+      if (['natural_core', 'legendary_crate'].includes(event.objective)) return `${who}: ${event.itemName || '오브젝트 보상'} ${event.success && num(event.qty) > 0 ? `${num(event.qty)}개 획득` : '획득 실패'}${where}`;
+      return '';
+    }
+    case 'move': return `${who}: ${zoneName(event.from)} → ${zoneName(event.to)} · ${describeObserverReason(event)}${event.movementObjective && event.targetZoneId !== event.to ? ` · 목적지 ${zoneName(event.movementObjective.targetZoneId)}` : ''}${event.etaSec ? ` · 이동 ${event.etaSec}초` : ''}`;
     case 'team_decision': return `${who}: ${describeObserverReason(event)}${event.targetZoneId ? ` · 목표 ${zoneName(event.targetZoneId)}` : ''}`;
     case 'growth_plan': return `${who}: ${describeObserverReason(event)}${event.targetName ? ` · 목표 ${event.targetName}` : ''}`;
     case 'queue': {
@@ -175,7 +187,7 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
 // Presentation only: no planner, random source, inventory normalization or game
 // setters. Names are labels; exact participant IDs determine event membership.
 export function buildTeamObserverModel({ survivors = [], dead = [], events = [], teamId = '', matchSec = 0,
-  publicItems = [], killCounts = {}, assistCounts = {}, isGameOver = false, zoneName = String } = {}) {
+  publicItems = [], killCounts = {}, assistCounts = {}, isGameOver = false, zoneName = String, spawnState, forbiddenIds = [] } = {}) {
   const actors = new Map();
   for (const actor of [...list(dead), ...list(survivors)]) if (idOf(actor)) actors.set(idOf(actor), actor);
   const nameOf = (id) => actors.get(String(id))?.name || String(id || '참가자 미상');
@@ -188,9 +200,25 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
   const teams = [...grouped.values()].sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }))
     .map((team) => ({ ...team, alive: team.members.filter((actor) => num(actor.hp) > 0).length }));
   const team = teams.find((row) => row.id === teamId) || teams[0];
-  if (!team) return { teams, team: null, members: [], recent: [], turningPoints: [], trackedActorIds: [] };
+  if (!team) return { teams, team: null, members: [], recent: [], turningPoints: [], trackedActorIds: [], objectives: [] };
   const memberIds = new Set(team.members.map(idOf));
   const allActors = [...actors.values()];
+  const objectiveHolders = isGameOver ? [] : allActors.filter((actor) => num(actor.hp) > 0 && getCombatSpaceId(actor) === WORLD_COMBAT_SPACE
+    && actor._movementObjective && Number.isFinite(actor._movementObjective.atSec) && actor._movementObjective.atSec <= matchSec)
+    .map((actor) => ({ ...actor, _movementObjective: getAvailableMovementObjective(actor._movementObjective,
+      { spawnState, forbiddenIds, nowSec: matchSec, teamId: getActorTeamId(actor), actor }) })).filter((actor) => actor._movementObjective);
+  const objectiveGroups = new Map();
+  for (const actor of objectiveHolders.filter((row) => memberIds.has(idOf(row)))) {
+    const goal = actor._movementObjective;
+    const key = JSON.stringify([goal.type, goal.subkind, goal.targetZoneId, goal.sourceIds]);
+    if (!objectiveGroups.has(key)) objectiveGroups.set(key, { key, objective: goal, label: describeMovementObjective(goal),
+      zone: zoneName(goal.targetZoneId), members: [], competingTeams: 0 });
+    objectiveGroups.get(key).members.push(actor.name || idOf(actor));
+  }
+  const objectives = [...objectiveGroups.values()].map((group) => ({ ...group,
+    competingTeams: new Set(objectiveHolders.filter((actor) => !memberIds.has(idOf(actor))
+      && movementObjectivesOverlap(group.objective, actor._movementObjective)).map(getActorTeamId)).size,
+  }));
   const timed = [];
   let ordered = true;
   let previousSec = -Infinity;
@@ -262,6 +290,7 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
   const allDead = team.alive === 0;
   const aliveTeams = teams.filter((row) => row.alive > 0).length;
   return { teams, team, members, trackedActorIds: [...memberIds],
+    objectives,
     status: isGameOver ? (team.alive > 0 && aliveTeams === 1 ? '최후 생존 팀' : '경기 종료') : allDead ? '현재 전원 사망 · 부활 가능 여부는 경기 규칙에 따름' : '관전 중',
     summary: `생존 ${team.alive}/${members.length} · ${totalKills}처치 · ${totalAssists}어시스트`,
     recent: recent.reverse(), turningPoints: turningPoints.reverse(),

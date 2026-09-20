@@ -143,8 +143,9 @@ export default function SimulationMainStage({
     return buildTeamObserverModel({
       survivors, dead, events: runEvents, teamId: observedTeamId, matchSec,
       publicItems, killCounts, assistCounts, isGameOver, zoneName: getZoneName,
+      spawnState, forbiddenIds: forbiddenNow,
     });
-  }, [observerTab, survivors, dead, runEvents, observedTeamId, matchSec, publicItems, killCounts, assistCounts, isGameOver, getZoneName]);
+  }, [observerTab, survivors, dead, runEvents, observedTeamId, matchSec, publicItems, killCounts, assistCounts, isGameOver, getZoneName, spawnState, forbiddenNow]);
   return (
     <>
       <div className="simulation-stage">

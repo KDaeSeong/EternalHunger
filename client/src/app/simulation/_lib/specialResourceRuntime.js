@@ -196,6 +196,7 @@ export {
   buildCoreSpawnPlan,
   findSpecialResourceItem,
   getCoreSpawnScheduleSummary,
+  getSpecialDropRules,
   normalizeAnimalDropSource,
   normalizeDropSourceKind,
   rollSpecialResourceDrops,

@@ -16,6 +16,15 @@ export default function SimulationTeamObserverPanel({ model, onTeamChange, isGam
         <small>지도에서 고유 팀 색·번호로 구분 · 관전 팀에는 금색 외곽선 추가 · 선택은 경기 판단에 영향을 주지 않음</small>
         <small>지역 내부 위치는 축약 표시 · 원작 지형의 축척이 아님</small>
       </div>
+      {!isGameOver && model.objectives?.length ? <section className="team-observer-objectives" aria-label="현재 자원 목표">
+        <h3>지금 노리는 목표</h3>
+        {model.objectives.map((goal) => <div key={goal.key} className="team-observer-objective">
+          <strong>{goal.label}</strong><p>목적지: {goal.zone}</p>
+          <small>{goal.members.join('·')} · 목표 공유 {goal.members.length}/{model.team.alive}명</small>
+          {goal.competingTeams > 0 ? <p className="team-observer-contest">같은 대상을 노리는 다른 팀 {goal.competingTeams}팀</p> : null}
+        </div>)}
+        <small>목표는 획득 성공을 뜻하지 않습니다. 사라진 대상은 현재 목표에서 제외됩니다.</small>
+      </section> : null}
       <div className="team-observer-members">
         {model.members.map((actor) => (
           <article key={actor.id} className={`team-observer-member ${actor.alive ? '' : 'fallen'}`} aria-label={`${actor.name} 관전 상태`}>

@@ -28,6 +28,7 @@ import { refreshActorGrowthPlan } from './growthPlanRuntime';
 import { pickEndgameMove } from './suddenDeathRuntime';
 import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
+import { getAvailableMovementObjective, isMovementObjectiveAvailable, publishMovementObjective } from './movementObjectiveRuntime.js';
 import {
   consumeRetreatAvoidDecision,
   getRetreatAvoidZoneId,
@@ -156,6 +157,9 @@ export function runActorMovementDecisionPhase({
   const recovering = !mustEscape && !fleeInterruptReason && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
   const growthActive = growthPlan && !growthPlan.openingComplete && !growthPlan.blocked;
   let activeTeamPlan = !mustEscape && !recovering && !fleeInterruptReason && !growthActive ? teamMovementPlan : null;
+  // Another actor can consume the source after the shared roster was planned.
+  if (activeTeamPlan?.objective && !isMovementObjectiveAvailable(activeTeamPlan.objective,
+    { spawnState: nextSpawn, forbiddenIds, nowSec: atNow()?.sec, teamId: getActorTeamId(updated), actor: updated })) activeTeamPlan = null;
   // The grouped-team planner has already made and paid for the leader's
   // objective choice. Do not run every member's individual random chooser or
   // allocate target-memory TTLs that are immediately discarded by that plan.
@@ -167,6 +171,7 @@ export function runActorMovementDecisionPhase({
       moveReason: activeTeamPlan.mode,
       moveObjectiveType: activeTeamPlan.objectiveType,
       moveObjectiveSubkind: activeTeamPlan.objectiveSubkind,
+      moveObjective: activeTeamPlan.objective,
       moveContestPressure: activeTeamPlan.contestPressure,
     }
     : resolveActorMoveTargetMemory({
@@ -194,6 +199,9 @@ export function runActorMovementDecisionPhase({
         mustEscape,
         phase: nextPhase,
         ruleset,
+        spawnState: nextSpawn,
+        publicItems: state.publicItems,
+        nowSec: atNow()?.sec,
       },
     });
   updated = targetMemory.actor;
@@ -203,6 +211,7 @@ export function runActorMovementDecisionPhase({
   let moveObjectiveType = targetMemory.moveObjectiveType;
   let moveObjectiveSubkind = targetMemory.moveObjectiveSubkind;
   let moveContestPressure = targetMemory.moveContestPressure;
+  let movementObjective = targetMemory.moveObjective || null;
   if (!mustEscape && !recovering && !fleeInterruptReason && growthPlan && !growthPlan.blocked && !activeTeamPlan
     && !(growthPlan.openingComplete && moveObjectiveType === 'dimension_rift')) {
     updated = clearActorMoveTargetMemory(updated);
@@ -211,11 +220,13 @@ export function runActorMovementDecisionPhase({
     moveObjectiveType = '';
     moveObjectiveSubkind = '';
     moveContestPressure = 0;
+    movementObjective = null;
   }
 
   moveTargets = uniqStrings(moveTargets.map((zoneId) => String(zoneId || ''))).filter((zoneId) => zoneId && !forbiddenIds.has(String(zoneId)));
 
   if (fleeInterruptReason) {
+    movementObjective = null;
     updated = clearActorMoveTargetMemory(updated);
     moveObjectiveType = '';
     moveObjectiveSubkind = '';
@@ -230,6 +241,7 @@ export function runActorMovementDecisionPhase({
     moveTargets = [String(pick?.nextStep || currentZone)];
     moveReason = `flee:${String(fleeInterruptReason)}`;
   } else if (recovering) {
+    movementObjective = null;
     updated = clearActorMoveTargetMemory(updated);
     moveObjectiveType = '';
     moveObjectiveSubkind = '';
@@ -248,6 +260,7 @@ export function runActorMovementDecisionPhase({
 
   const endgameMove = pickEndgameMove(updated, nextSpawn?.endgame, forbiddenIds, zoneGraph, Number(atNow()?.sec || 0));
   if (endgameMove) {
+    movementObjective = null;
     updated = clearActorMoveTargetMemory(updated);
     moveTargets = [endgameMove.nextStep];
     moveReason = 'endgame_rotate';
@@ -282,6 +295,7 @@ export function runActorMovementDecisionPhase({
       nextMove.nextZoneId = currentZone;
       retreatCooldownHeld = true;
       activeTeamPlan = null;
+      movementObjective = null;
       updated = clearActorMoveTargetMemory(updated);
       moveTargets = [currentZone];
       moveReason = 'retreat_cooldown';
@@ -316,6 +330,11 @@ export function runActorMovementDecisionPhase({
     : (didChangeZone ? getLumiaWalkEtaSec(currentZone, nextZoneId) : 1);
   if (didChangeZone && moveEtaSec > 1) reserveActionSecond(moveEtaSec);
 
+  movementObjective = getAvailableMovementObjective(movementObjective,
+    { spawnState: nextSpawn, forbiddenIds, nowSec: atNow()?.sec, teamId: getActorTeamId(updated), actor: updated });
+  publishMovementObjective(updated, movementObjective, { at: atNow(), emitRunEvent, addLog,
+    zoneName: getZoneName, teamId: getActorTeamId(updated), shared: activeTeamPlan?.mode === 'team_rotate' });
+
   if (didChangeZone) {
     if (usedHyperloopMove) {
       addLog(`🌀 [${updated.name}] 하이퍼루프 이동(3초): ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'highlight');
@@ -330,7 +349,7 @@ export function runActorMovementDecisionPhase({
       if (moveReason === 'recover') {
         addLog(`🛟 [${updated.name}] 회복 우선 이동: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
       } else {
-        const intentLabel = formatMoveIntentLabel(moveReason, moveObjectiveType, moveObjectiveSubkind);
+        const intentLabel = formatMoveIntentLabel(moveReason, moveObjectiveType, moveObjectiveSubkind, movementObjective);
         addLog(`🎯 [${updated.name}] ${intentLabel}: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'normal');
       }
     } else {
@@ -347,6 +366,8 @@ export function runActorMovementDecisionPhase({
       etaSec: moveEtaSec,
       objectiveType: moveObjectiveType,
       objectiveSubkind: moveObjectiveSubkind,
+      movementObjective,
+      targetZoneId: movementObjective?.targetZoneId || activeTeamPlan?.targetZoneId || holdTarget || '',
       contestPressure: moveContestPressure,
       teamId: getActorTeamId(updated),
       teamAssessment,
@@ -359,7 +380,8 @@ export function runActorMovementDecisionPhase({
   const publishPowerFleeDecision = !endgameMove && useTeamAssessment && powerFleeInterrupt;
   if (retreatCooldownHeld || activeTeamPlan || publishPowerFleeDecision) {
     const reason = retreatCooldownHeld ? 'retreat_cooldown' : (fleeInterruptReason || activeTeamPlan?.mode);
-    updated._teamDecision = { ...teamAssessment, reason, leaderId: activeTeamPlan?.leaderId || '', targetZoneId: activeTeamPlan?.targetZoneId || nextZoneId };
+    updated._teamDecision = { ...teamAssessment, reason, leaderId: activeTeamPlan?.leaderId || '', targetZoneId: activeTeamPlan?.targetZoneId || nextZoneId,
+      objectiveType: moveObjectiveType, objectiveSubkind: moveObjectiveSubkind, movementObjective };
     emitRunEvent('team_decision', {
       who: String(updated._id || ''), teamId: getActorTeamId(updated),
       from: currentZone, to: nextZoneId, moved: didChangeZone, ...updated._teamDecision,
@@ -375,6 +397,7 @@ export function runActorMovementDecisionPhase({
     targetName: growthPlan.targetName, completedSlots: growthPlan.completedSlots, totalSlots: growthPlan.totalSlots,
     openingComplete: growthPlan.openingComplete, missing: growthPlan.missing.map(({ itemId, need }) => ({ itemId, need })),
     targetZoneId: growthPlan.targetZoneId, reason: fleeInterruptReason || moveReason, blocked: growthPlan.blocked,
+    movementObjective,
   }, atNow());
   const objectiveTargets = activeTeamPlan ? [activeTeamPlan.targetZoneId] : moveTargets;
   const objectiveTargetSet = new Set((Array.isArray(objectiveTargets) ? objectiveTargets : []).map((zoneId) => String(zoneId || '')).filter(Boolean));

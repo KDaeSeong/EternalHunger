@@ -60,6 +60,7 @@ export function runPhaseActorActionPipeline({
   const teamMovementPlans = buildTeamMovementPlans({
     roster: movementRoster, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds,
     day: nextDay, phase: nextPhase, isSoloMatch: state.isSoloMatch,
+    spawnState: state.nextSpawn, ruleset, publicItems,
     maxDepth: Math.max(1, Number(ruleset?.ai?.safeSearchDepth ?? 3)),
     estimatePower: (actor) => estimateMovePower(actor, state.movePowerContext),
     chooseLeaderMove: (actor) => chooseAiMoveTargets({

@@ -5,6 +5,8 @@ import {
 } from '../../../utils/statusLogic';
 import { getMovementSpeedMasteryBonus } from '../../../utils/masteryLogic';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
+import { captureMovementObjective, isMovementObjectiveAvailable } from './movementObjectiveRuntime.js';
+import { getActorTeamId } from './teamRuntime.js';
 import {
   bfsNextStepToAnyTarget,
   getEarlyRoutePlanTarget,
@@ -93,6 +95,8 @@ export function clearActorMoveTargetMemory(actor) {
   updated.aiTargetObjectiveType = '';
   updated.aiTargetObjectiveSubkind = '';
   updated.aiTargetContestPressure = 0;
+  updated.aiTargetObjective = null;
+  updated.aiTargetReason = '';
 
   return updated;
 }
@@ -139,6 +143,9 @@ export function resolveActorMoveTargetMemory({
     mustEscape = false,
     phase,
     ruleset,
+    spawnState,
+    publicItems,
+    nowSec,
   } = state;
   let updated = actor || {};
   const hasAiMoveTargets = Array.isArray(aiMove?.targets) && aiMove.targets.length > 0;
@@ -181,7 +188,10 @@ export function resolveActorMoveTargetMemory({
     const saved = String(updated.aiTargetZoneId || '');
     const ttlNow = Math.max(0, Number(updated.aiTargetTTL || 0));
 
-    if (saved && ttlNow > 0 && !forbiddenIds.has(saved)) {
+    const sourceStillAvailable = !updated.aiTargetObjective || !spawnState || isMovementObjectiveAvailable(updated.aiTargetObjective,
+      { spawnState, forbiddenIds, nowSec, teamId: getActorTeamId(updated), actor: updated });
+    if (!sourceStillAvailable) updated = clearActorMoveTargetMemory(updated);
+    if (saved && ttlNow > 0 && !forbiddenIds.has(saved) && sourceStillAvailable) {
       holdTarget = saved;
       updated.aiTargetTTL = ttlNow - 1;
       if (clearOnReach && String(currentZone) === saved) {
@@ -200,6 +210,8 @@ export function resolveActorMoveTargetMemory({
         updated.aiTargetObjectiveType = plannedObjectiveType;
         updated.aiTargetObjectiveSubkind = plannedObjectiveSubkind;
         updated.aiTargetContestPressure = plannedContestPressure;
+        updated.aiTargetObjective = captureMovementObjective(plannedMove, pickedTarget, { spawnState, ruleset, publicItems });
+        updated.aiTargetReason = String(plannedMove?.reason || 'goal');
         holdTarget = pickedTarget;
       }
     }
@@ -208,10 +220,11 @@ export function resolveActorMoveTargetMemory({
   return {
     actor: updated,
     holdTarget,
-    moveContestPressure: Math.max(0, Number(updated.aiTargetContestPressure || plannedContestPressure || 0)),
-    moveObjectiveSubkind: String(updated.aiTargetObjectiveSubkind || plannedObjectiveSubkind || ''),
-    moveObjectiveType: String(updated.aiTargetObjectiveType || plannedObjectiveType || ''),
-    moveReason: holdTarget ? `${String(plannedMove?.reason || 'goal')}:ttl` : String(plannedMove?.reason || ''),
+    moveObjective: holdTarget ? updated.aiTargetObjective || null : null,
+    moveContestPressure: Math.max(0, Number(holdTarget ? updated.aiTargetContestPressure || 0 : plannedContestPressure)),
+    moveObjectiveSubkind: String(holdTarget ? updated.aiTargetObjectiveSubkind || '' : plannedObjectiveSubkind),
+    moveObjectiveType: String(holdTarget ? updated.aiTargetObjectiveType || '' : plannedObjectiveType),
+    moveReason: holdTarget ? `${String(updated.aiTargetReason || 'goal')}:ttl` : String(plannedMove?.reason || ''),
     moveTargets: holdTarget ? [holdTarget] : (Array.isArray(plannedMove?.targets) ? plannedMove.targets : []),
     plannedMove,
   };

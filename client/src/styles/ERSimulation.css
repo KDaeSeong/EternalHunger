@@ -2616,6 +2616,20 @@
   line-height: 1.5;
 }
 
+.team-observer-objectives {
+  padding: 12px;
+  margin: 10px 0;
+  border: 1px solid #d3b55a;
+  border-radius: 10px;
+  background: #182d38;
+}
+.team-observer-objectives h3 { margin: 0 0 8px; color: #ffe08b; font-size: 14px; }
+.team-observer-objective { padding: 8px 0; border-top: 1px solid #ffe08b25; }
+.team-observer-objective strong { color: #fff2c0; font-size: 14px; }
+.team-observer-objective p { margin: 5px 0; }
+.team-observer-objectives small { color: #c5d5dd; line-height: 1.5; }
+.team-observer-contest { color: #ffc293; }
+
 .minimap-character-token[role="button"],
 .minimap-team-cluster[role="button"],
 .minimap-region-summary {
