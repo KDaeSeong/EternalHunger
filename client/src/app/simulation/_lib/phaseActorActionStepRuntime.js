@@ -175,6 +175,8 @@ export function runSingleActorPhaseAction({
       movementObjective: movementResult.movementObjective,
       movementTargetZoneId: movementResult.movementTargetZoneId,
       sharedGoalReason: movementResult.sharedGoalReason,
+      decisionEvidence: movementResult.decisionEvidence,
+      retreatOutcome: movementResult.retreatOutcome,
       mustEscape: movementResult.mustEscape,
       nextDay,
       nextPhase,

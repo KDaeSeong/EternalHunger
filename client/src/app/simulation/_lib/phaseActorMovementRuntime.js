@@ -27,6 +27,8 @@ import { getActorTeamId } from './teamRuntime';
 import { refreshActorGrowthPlan } from './growthPlanRuntime';
 import { pickEndgameMove } from './suddenDeathRuntime';
 import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
+import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
+import { captureCombatDecisionEvidence, describeCombatDecisionContext } from './combatDecisionEvidenceRuntime.js';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import { getAvailableMovementObjective, isMovementObjectiveAvailable, publishMovementObjective } from './movementObjectiveRuntime.js';
 import {
@@ -137,6 +139,7 @@ export function runActorMovementDecisionPhase({
     && String(target?._id || '') !== String(updated?._id || '')
     && !areSameTeam(updated, target)
     && Number(target?.hp || 0) > 0
+    && !isDimensionRiftDefeated(target)
     && String(target?.zoneId || '') === String(currentZone)
   ));
   const worstSameZoneOpponent = sameZoneOpponents
@@ -155,6 +158,13 @@ export function runActorMovementDecisionPhase({
     : !!avoidInfoNow && ((Number(avoidInfoNow?.ratio || 1) < extremeRatio) || ((Number(avoidInfoNow?.opP || 0) - Number(avoidInfoNow?.myP || 0)) >= extremeDelta)));
   const fleeInterruptReason = mustEscape ? 'forbidden' : (lowHpFleeInterrupt ? 'low_hp' : (powerFleeInterrupt ? (useTeamAssessment ? teamAssessment.reason : 'power_gap') : ''));
   const recovering = !mustEscape && !fleeInterruptReason && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
+  const attemptedDecisionEvidence = !mustEscape && (fleeInterruptReason || recovering)
+    ? captureCombatDecisionEvidence({ actor: updated, opponent: worstSameZoneOpponent, roster: phaseSurvivors,
+      reason: fleeInterruptReason || 'recover', at: atNow(),
+      hpThreshold: lowHpFleeInterrupt || recovering ? recoverHpBelow : null,
+      comparison: powerFleeInterrupt && !lowHpFleeInterrupt
+        ? (useTeamAssessment ? teamAssessment.comparison : avoidInfoNow) : null,
+      thresholds: !useTeamAssessment && powerFleeInterrupt ? { extremeRatio, extremeDelta } : null }) : null;
   const growthActive = growthPlan && !growthPlan.openingComplete && !growthPlan.blocked;
   let activeTeamPlan = !mustEscape && !recovering && !fleeInterruptReason && !growthActive ? teamMovementPlan : null;
   // Another actor can consume the source after the shared roster was planned.
@@ -314,6 +324,10 @@ export function runActorMovementDecisionPhase({
   }
   const usedHyperloopMove = isHyperloopTransit(currentZone, nextZoneId);
   const didChangeZone = String(nextZoneId) !== String(currentZone);
+  const decisionEvidence = !endgameMove ? attemptedDecisionEvidence : null;
+  const retreatOutcome = !decisionEvidence ? '' : movementBlocked ? 'status_blocked'
+    : retreatCooldownHeld ? 'cooldown_hold' : didChangeZone ? 'moved' : fleeInterruptReason ? 'no_safe_path' : '';
+  const decisionContext = describeCombatDecisionContext(decisionEvidence, retreatOutcome);
   const retreatMemoryConsulted = !!retreatAvoidZoneId && !mustEscape && !endgameMove
     && (!!fleeInterruptReason || recovering);
   // A hold or unrelated no-op must not consume the one-shot reversal guard.
@@ -344,17 +358,17 @@ export function runActorMovementDecisionPhase({
 
   if (didChangeZone) {
     if (usedHyperloopMove) {
-      addLog(`🌀 [${updated.name}] 하이퍼루프 이동(3초): ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'highlight');
+      addLog(`🌀 [${updated.name}] 하이퍼루프 이동(3초): ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}${decisionContext ? ` · ${decisionContext}` : ''}`, decisionEvidence ? 'combat-detail' : 'highlight');
     } else if (mustEscape) {
       addLog(`⚠️ [${updated.name}] 금지구역 이탈: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
     } else if (String(moveReason || '').startsWith('flee:')) {
       const fleeLabel = moveReason === 'flee:low_hp' ? '저HP' : (fleeInterruptReason === 'team_outnumbered' ? '팀 인원·전력 열세' : (powerFleeInterrupt ? '전투력 열세' : '긴급'));
-      addLog(`🏃 [${updated.name}] ${fleeLabel} 인터럽트 도주: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
+      addLog(`🏃 [${updated.name}] ${fleeLabel} 후퇴: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)} · ${decisionContext}`, 'system');
     } else if (forbiddenIds.has(String(nextZoneId))) {
       addLog(`⚠️ [${updated.name}] 금지구역 진입: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
     } else if (moveTargets.length) {
       if (moveReason === 'recover') {
-        addLog(`🛟 [${updated.name}] 회복 우선 이동: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
+        addLog(`🛟 [${updated.name}] 회복 우선 이동: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)} · ${decisionContext}`, 'system');
       } else {
         const intentLabel = formatMoveIntentLabel(moveReason, moveObjectiveType, moveObjectiveSubkind, movementObjective, sharedGoalReason);
         addLog(`🎯 [${updated.name}] ${intentLabel}: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'normal');
@@ -379,17 +393,24 @@ export function runActorMovementDecisionPhase({
       contestPressure: moveContestPressure,
       teamId: getActorTeamId(updated),
       teamAssessment,
+      decisionEvidence,
+      retreatOutcome,
     }, atNow());
     grantMastery(updated, 'movement', usedHyperloopMove ? 220 : 180, usedHyperloopMove ? '하이퍼루프 이동' : '지역 이동');
   } else if (mustEscape) {
     addLog(`⛔ [${updated.name}] 금지구역(${getZoneName(currentZone)})에 머무릅니다...`, 'death');
+  } else if (decisionEvidence && retreatOutcome) {
+    addLog(`🏃 [${updated.name}] 후퇴 판단 · ${decisionContext}`, 'system');
+    emitRunEvent('retreat', { who: String(updated._id), reason: moveReason, from: currentZone, to: currentZone,
+      decisionEvidence, retreatOutcome, moved: false }, atNow());
   }
 
   const publishPowerFleeDecision = !endgameMove && useTeamAssessment && powerFleeInterrupt;
   if (retreatCooldownHeld || activeTeamPlan || publishPowerFleeDecision) {
-    const reason = retreatCooldownHeld ? 'retreat_cooldown' : (fleeInterruptReason || moveReason);
+    const reason = String(moveReason || '').replace(/^flee:/, '');
     updated._teamDecision = { ...teamAssessment, reason, leaderId: activeTeamPlan?.leaderId || '', targetZoneId: movementTargetZoneId || nextZoneId,
-      objectiveType: moveObjectiveType, objectiveSubkind: moveObjectiveSubkind, movementObjective, sharedGoalReason };
+      objectiveType: moveObjectiveType, objectiveSubkind: moveObjectiveSubkind, movementObjective, sharedGoalReason,
+      decisionEvidence, retreatOutcome };
     emitRunEvent('team_decision', {
       who: String(updated._id || ''), teamId: getActorTeamId(updated),
       from: currentZone, to: nextZoneId, moved: didChangeZone, ...updated._teamDecision,
@@ -404,9 +425,11 @@ export function runActorMovementDecisionPhase({
     who: String(updated._id), teamId: getActorTeamId(updated), targetId: growthPlan.targetId,
     targetName: growthPlan.targetName, completedSlots: growthPlan.completedSlots, totalSlots: growthPlan.totalSlots,
     openingComplete: growthPlan.openingComplete, missing: growthPlan.missing.map(({ itemId, need }) => ({ itemId, need })),
-    targetZoneId: growthPlan.targetZoneId, reason: fleeInterruptReason || moveReason, blocked: growthPlan.blocked,
+    targetZoneId: growthPlan.targetZoneId, reason: moveReason, blocked: growthPlan.blocked,
     movementObjective,
     sharedGoalReason,
+    decisionEvidence,
+    retreatOutcome,
   }, atNow());
   const objectiveTargets = activeTeamPlan ? [activeTeamPlan.targetZoneId] : moveTargets;
   const objectiveTargetSet = new Set((Array.isArray(objectiveTargets) ? objectiveTargets : []).map((zoneId) => String(zoneId || '')).filter(Boolean));
@@ -443,6 +466,8 @@ export function runActorMovementDecisionPhase({
     movementObjective,
     movementTargetZoneId,
     sharedGoalReason,
+    decisionEvidence,
+    retreatOutcome,
     moveTargets,
     mustEscape,
     nextZoneId,

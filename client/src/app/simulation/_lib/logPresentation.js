@@ -12,7 +12,7 @@ const LOW_SIGNAL_TEXT_RE = /목표\(|이동:|교전 회피|인터럽트 도주|�
 
 const NON_KILL_DEATH_TEXT_RE = /금지구역|제한구역|폭발|폭발 타이머|사냥 중|치명상|시체|소멸|부활|전멸 방지|저장 실패|로드 실패|초기 데이터|런타임|오류|경고|생존자가 아무도|detonation|forbidden|wildlife|hunt|revive|error|failed/i;
 const KILL_RESULT_TEXT_RE = /\+1\s*킬|처치|제압|격파/i;
-const COMBAT_DETAIL_TEXT_RE = /장비:|무기 스킬|특성:|시그니처:|흡혈|피해:|ER 피해 보정|ER 방어|캐릭터 스킬 광역|보호막: 피해|결정타로|쓰러뜨리고 승리|접전 피해|루팅:|전투 후|교전 회피|도주|추격|반격/i;
+const COMBAT_DETAIL_TEXT_RE = /장비:|무기 스킬|특성:|시그니처:|흡혈|피해:|ER 피해 보정|ER 방어|캐릭터 스킬 광역|보호막: 피해|결정타로|쓰러뜨리고 승리|접전 피해|루팅:|전투 후|교전 회피|후퇴|도주|추격|반격/i;
 
 function normalizeLog(log, index) {
   if (log && typeof log === 'object') {

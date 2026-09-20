@@ -15,11 +15,16 @@ function liveRoster(actor, roster) {
   return [...rows.values()].filter((row) => idOf(row));
 }
 
-export function assessTeamCombat(actor, roster, { estimatePower = estimateMovePower, minRatio = 0.4, zoneId = actor?.zoneId } = {}) {
+export function getLocalTeamCombatants(actor, roster, zoneId = actor?.zoneId) {
   const local = liveRoster(actor, roster).filter((row) => shareCombatSpace(actor, row) && String(row.zoneId || '') === String(zoneId || ''));
   const allies = local.filter((row) => areSameTeam(actor, row));
   if (alive(actor) && !allies.some((row) => idOf(row) === idOf(actor))) allies.push(actor);
   const enemies = local.filter((row) => !areSameTeam(actor, row));
+  return { allies, enemies };
+}
+
+export function assessTeamCombat(actor, roster, { estimatePower = estimateMovePower, minRatio = 0.4, zoneId = actor?.zoneId } = {}) {
+  const { allies, enemies } = getLocalTeamCombatants(actor, roster, zoneId);
   const allyPower = allies.reduce((sum, row) => sum + powerOf(row, estimatePower), 0);
   const enemyPower = enemies.reduce((sum, row) => sum + powerOf(row, estimatePower), 0);
   const powerRatio = enemyPower > 0 ? allyPower / Math.max(1, allyPower + enemyPower) : 1;
@@ -28,6 +33,8 @@ export function assessTeamCombat(actor, roster, { estimatePower = estimateMovePo
     allyCount: allies.length, enemyCount: enemies.length,
     allyPower: Math.round(allyPower), enemyPower: Math.round(enemyPower),
     powerRatio: Number(powerRatio.toFixed(3)), shouldAvoid,
+    // Preserve the exact comparison used by the decision, before UI rounding.
+    comparison: { scope: 'team', myP: allyPower, opP: enemyPower, ratio: powerRatio, minRatio },
     reason: shouldAvoid ? (enemies.length > allies.length ? 'team_outnumbered' : 'team_power_gap') : '',
   };
 }

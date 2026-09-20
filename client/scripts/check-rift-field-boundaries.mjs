@@ -249,7 +249,11 @@ check('real flee dispatch withdraws before consulting field routes or blink', ()
   const out = runtime.resolveFleeSequence(a, b, { moveReason: 'critical_flee' });
   assert.equal(out.escaped, true); assert.equal(out.withdrawn, true); assert.equal(out.caught, false);
   assert.equal(a.zoneId, 'z'); assert.equal(a._lastDimensionRiftExit.cause, 'critical_flee');
-  assert.deepEqual(events.map((event) => event.kind), ['dimension_rift_space']);
+  assert.deepEqual(events.map((event) => event.kind), ['dimension_rift_space', 'retreat']);
+  assert.equal(events[1].retreatOutcome, 'rift_withdrawn');
+  assert.equal(events[1].decisionEvidence.actor.hp, 70);
+  assert.equal(events[1].decisionEvidence.localEnemyCount, 1);
+  assert.match(describeObserverEvent(events[1]), /차원의 틈 참가 포기·입구 복귀/);
   assert.equal(runtime.resolveFleeSequence(a, b), null);
 });
 check('avoidance rereads current arena membership instead of moving a stale field copy', () => {
@@ -263,6 +267,9 @@ check('avoidance rereads current arena membership instead of moving a stale fiel
   assert.equal(survivorMap.get('a').safeZoneUntil || 0, 0);
   assert.equal(survivorMap.get('a')._recentCombatUntil || 0, 0);
   assert.equal(events[0].reason, 'withdrawn'); assert.equal(stale._lastDimensionRiftExit, undefined);
+  assert.equal(events[1].retreatOutcome, 'rift_withdrawn');
+  assert.equal(events[1].decisionEvidence.actor.hp, 70);
+  assert.ok(!events.some((event) => event.kind === 'move'));
 });
 check('foreign, moved or already-dead opponents cannot trigger withdrawal', () => {
   for (const mode of ['outside', 'moved', 'dead']) {
@@ -347,7 +354,11 @@ check('the real encounter escape path makes no damage, kill, loot or world-move 
   assert.equal(out.skipRemainingTurn, true); assert.equal(getCombatSpaceId(survivorMap.get('a')), 'world');
   assert.equal(survivorMap.get('a').hp, 10); assert.equal(survivorMap.get('b').hp, 70);
   assert.deepEqual(roundKills, {}); assert.deepEqual(newDeadIds, []);
-  assert.deepEqual(events.map((event) => event.kind), ['dimension_rift_space']);
+  assert.deepEqual(events.map((event) => event.kind), ['dimension_rift_space', 'retreat']);
+  assert.equal(events[1].retreatOutcome, 'rift_withdrawn');
+  assert.equal(events[1].decisionEvidence.reason, 'low_hp');
+  assert.equal(events[1].decisionEvidence.actor.hp, 10);
+  assert.equal(events[1].decisionEvidence.hpThreshold, 42);
 });
 
 console.log(`rift field boundary checks passed: ${checks}`);

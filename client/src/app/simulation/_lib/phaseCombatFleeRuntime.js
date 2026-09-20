@@ -26,6 +26,7 @@ import { commitRetreatCover } from './teamCombatRuntime';
 import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import { withdrawFromDimensionRift } from './dimensionRiftWithdrawalRuntime.js';
+import { captureCombatDecisionEvidence, describeCombatDecisionContext } from './combatDecisionEvidenceRuntime.js';
 import {
   consumeRetreatAvoidDecision,
   getRetreatAvoidZoneId,
@@ -53,7 +54,7 @@ export function createPhaseCombatFleeRuntime({
     addLog = () => {},
     atNow = () => null,
     emitEffectRunEvents = () => {},
-    emitRunEvent = () => {},
+    emitRunEvent: recordRunEvent = () => {},
     getZoneName = (zoneId) => String(zoneId || ''),
   } = actions;
   const {
@@ -111,21 +112,42 @@ export function createPhaseCombatFleeRuntime({
     if (Number(flee.hp || 0) <= 0 || Number(chaser.hp || 0) <= 0 || !canMoveByStatus(flee)
       || newDeadIds.includes(flee._id) || newDeadIds.includes(chaser._id)
       || String(flee.zoneId) !== String(chaser.zoneId)) return null;
+    // Capture before healing, tactical use, movement or pursuit damage.
+    const decisionEvidence = captureCombatDecisionEvidence({ actor: flee, opponent: chaser,
+      roster: [...survivorMap.values()].filter((row) => !newDeadIds.includes(row?._id)),
+      reason: opts.reason || opts.moveReason || 'retreat', at: atNow(),
+      comparison: opts.comparison, hpThreshold: opts.hpThreshold });
+    const emitRunEvent = (kind, payload, at) => {
+      const isRetreat = kind === 'chase' || kind === 'retreat' || (kind === 'move' && String(payload.who) === String(flee._id));
+      const retreatOutcome = payload.retreatOutcome || ({ escape_fail: 'escape_failed', escape_no_chase: 'escaped',
+        escaped_after_chase: 'escaped', blink_escape: 'escaped', caught: 'caught' })[payload.outcome] || (kind === 'move' ? 'moved' : '');
+      recordRunEvent(kind, isRetreat ? { ...payload, reason: payload.reason || decisionEvidence.reason,
+        decisionEvidence, retreatOutcome } : payload, at);
+      if (kind === 'chase' || kind === 'retreat') {
+        addLog(`🏃 [${flee.name}] 후퇴 판단 · ${describeCombatDecisionContext(decisionEvidence, retreatOutcome)}`, 'combat-detail');
+      }
+    };
+    const holdRetreat = () => {
+      emitRunEvent('retreat', { who: String(flee._id), zoneId: curZone, from: curZone, to: curZone,
+        moved: false, retreatOutcome: 'no_safe_path' }, atNow());
+      return null;
+    };
     if (getActorDimensionRiftId(flee)) {
       const exit = withdrawFromDimensionRift(flee, currentActionSec(), {
         reason: opts.reason || opts.moveReason || 'retreat', opponentId: chaser._id, actions: { addLog, atNow, emitRunEvent },
       });
       if (!exit) return null;
       upsertRuntimeSurvivor(survivorMap, flee);
+      emitRunEvent('retreat', { who: String(flee._id), zoneId: curZone, retreatOutcome: 'rift_withdrawn' }, atNow());
       return { escaped: true, caught: false, withdrawn: true, dest: String(flee.zoneId || curZone),
         fleeId: String(flee._id), chaserId: String(chaser._id), riftId: exit.riftId };
     }
     const neighbors = Array.isArray(zoneGraph?.[curZone]) ? zoneGraph[curZone].map((zoneId) => String(zoneId)) : [];
     const safeNeighbors = neighbors.filter((zoneId) => zoneId && !forbiddenIds.has(zoneId));
-    if (!safeNeighbors.length) return null;
+    if (!safeNeighbors.length) return holdRetreat();
     const plannedEscape = pickSparseSafeNeighbor(curZone, flee);
     consumeRetreatAvoidDecision(flee);
-    if (plannedEscape === curZone) return null;
+    if (plannedEscape === curZone) return holdRetreat();
 
     const fleeTac = normalizeTac(flee?.tacticalSkill);
     const chaseTac = normalizeTac(chaser?.tacticalSkill);

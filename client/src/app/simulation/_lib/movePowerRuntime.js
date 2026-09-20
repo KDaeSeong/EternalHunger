@@ -2,6 +2,7 @@ import { buildErBehaviorModifier } from '../../../utils/erMeta';
 import { normalizeErStats } from '../../../utils/erStats';
 import { getRegenValue, getShieldValue } from '../../../utils/statusLogic';
 import { getPerkAggressionBias } from './perkRuntime';
+import { getCombatEquipment } from '../../../utils/battleEquipmentLogic.js';
 
 function combatScoreForMovePower(actor) {
   const stats = normalizeErStats(actor?.stats || {});
@@ -23,17 +24,20 @@ function combatScoreForMovePower(actor) {
 }
 
 function summarizeEquipTierForMovePower(actor) {
-  const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
+  // Use the same equipped items as actual damage. Stored spares contribute
+  // nothing; legacy actors without an equipped map still resolve one per slot.
+  const inv = getCombatEquipment(actor);
   let weaponTier = 0;
   let armorTierSum = 0;
   for (const item of inv) {
     const slot = String(item?.equipSlot || '');
-    const tier = Math.max(1, Number(item?.tier || 1));
+    const value = Number(item?.tier || 1);
+    const tier = Number.isFinite(value) ? Math.max(1, value) : 1;
     const type = String(item?.type || '').toLowerCase();
-    if (slot === 'weapon' || type === 'weapon' || type === '무기') weaponTier = Math.max(weaponTier, tier);
+    if (slot === 'weapon' || ['weapon', '무기', 'armory', '병기'].includes(type) || item?.tags?.includes('weapon')) weaponTier = Math.max(weaponTier, tier);
     else if (slot === 'head' || slot === 'clothes' || slot === 'arm' || slot === 'shoes') armorTierSum += tier;
   }
-  return { weaponTier, armorTierSum };
+  return { weaponTier, armorTierSum, equippedCount: inv.length };
 }
 
 function estimateMovePower(actor, context = {}) {
@@ -60,7 +64,7 @@ function shouldAvoidCombatByMovePower(me, opponent, context = {}) {
   const minRatio = Math.max(0.18, minRatioBase - aggroBias * 0.08 - Number(er?.aggressionBias || 0) * 0.18 - Number(er?.escapeBonus || 0) * 0.10);
   const absDelta = Math.max(0, absDeltaBase + aggroBias * 12 + Number(er?.chaseBonus || 0) * 18);
   if (ratio < minRatio || (opponentPower - myPower) >= absDelta) {
-    return { myP: myPower, opP: opponentPower, ratio };
+    return { myP: myPower, opP: opponentPower, ratio, scope: 'duel', minRatio, absDelta };
   }
   return null;
 }

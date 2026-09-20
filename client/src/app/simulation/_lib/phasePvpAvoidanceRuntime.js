@@ -9,6 +9,7 @@ import { canMoveByStatus } from '../../../utils/statusLogic.js';
 import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import { withdrawFromDimensionRift } from './dimensionRiftWithdrawalRuntime.js';
+import { captureCombatDecisionEvidence, describeCombatDecisionContext } from './combatDecisionEvidenceRuntime.js';
 import {
   consumeRetreatAvoidDecision,
   getRetreatAvoidZoneId,
@@ -39,6 +40,8 @@ export function resolvePvpAvoidanceMove({
     newDeadIds = [],
     opponent: requestedOpponent,
     reason = 'avoid_power',
+    avoidanceInfo = null,
+    decisionThresholds = null,
     recoverSec = 4,
     ruleset = {},
     estimatePower = (row) => estimateMovePower(row, { ruleset }),
@@ -68,15 +71,19 @@ export function resolvePvpAvoidanceMove({
       || !shareCombatSpace(actor, opponent) || String(actor.zoneId) !== String(opponent.zoneId)))) {
     return { moved: false, toZoneId: '', blocked: true };
   }
+  const roster = [...survivorMap.values()].filter((row) => !newDeadIds.includes(row?._id));
+  const decisionEvidence = captureCombatDecisionEvidence({ actor, opponent, roster, reason, at: atNow(),
+    comparison: avoidanceInfo?.comparison || avoidanceInfo, thresholds: decisionThresholds });
   if (getActorDimensionRiftId(actor)) {
     const exit = withdrawFromDimensionRift(actor, currentActionSec(), {
       reason, opponentId: opponent?._id || '', actions: { addLog, atNow, emitRunEvent },
     });
     if (!exit) return { moved: false, toZoneId: '', blocked: true };
     upsertRuntimeSurvivor(survivorMap, actor);
+    emitRunEvent('retreat', { who: String(actor._id), reason, from, to: from, decisionEvidence, retreatOutcome: 'rift_withdrawn' }, atNow());
+    addLog(`🏃 [${actor.name}] ${describeCombatDecisionContext(decisionEvidence, 'rift_withdrawn')}`, 'system');
     return { moved: false, withdrawn: true, toZoneId: from, riftId: exit.riftId };
   }
-  const roster = [...survivorMap.values()].filter((row) => !newDeadIds.includes(row?._id));
   const depthMax = Math.max(1, Math.floor(Number(ruleset?.ai?.safeSearchDepth ?? 3)));
   const assessment = assessTeamCombat(actor, roster, { estimatePower });
   const avoidZoneId = getRetreatAvoidZoneId(actor);
@@ -98,8 +105,9 @@ export function resolvePvpAvoidanceMove({
       safeZoneSec,
     });
     upsertRuntimeSurvivor(survivorMap, actor);
-    addLog(moveLog({ dest, from, getZoneName }) || `🏃 [${actor.name}] 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`, 'system');
-    emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason, teamId: getActorTeamId(actor), teamAssessment: assessment }, atNow());
+    addLog(`${moveLog({ dest, from, getZoneName }) || `🏃 [${actor.name}] 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`} · ${describeCombatDecisionContext(decisionEvidence, 'moved')}`, 'system');
+    emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason, teamId: getActorTeamId(actor), teamAssessment: assessment,
+      decisionEvidence, retreatOutcome: 'moved' }, atNow());
     return { moved: true, toZoneId: dest };
   }
 
@@ -108,6 +116,7 @@ export function resolvePvpAvoidanceMove({
     opponentId: String(opponent?._id || ''),
     recoverSec: Math.max(1, Number(text?.holdRecoverSec ?? recoverSec)),
   });
-  addLog(holdLog({ getZoneName }) || `🏃 [${actor.name}] 교전 회피`, 'system');
+  addLog(`${holdLog({ getZoneName }) || `🏃 [${actor.name}] 교전 회피 판단`} · ${describeCombatDecisionContext(decisionEvidence, 'no_safe_path')}`, 'system');
+  emitRunEvent('retreat', { who: String(actor._id), reason, from, to: from, moved: false, decisionEvidence, retreatOutcome: 'no_safe_path' }, atNow());
   return { moved: false, toZoneId: '' };
 }

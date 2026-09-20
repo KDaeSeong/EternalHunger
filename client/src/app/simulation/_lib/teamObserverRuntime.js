@@ -10,11 +10,12 @@ import { describeDimensionRiftRewardClosure } from './dimensionRiftRewardPresent
 import { getTimedWildlifeCombatSummary } from './wildlifeCombatRuntime.js';
 import { describeMovementObjective, getAvailableMovementObjective, movementObjectivesOverlap } from './movementObjectiveRuntime.js';
 import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
+import { describeCombatDecisionContext } from './combatDecisionEvidenceRuntime.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 const idOf = (actor) => String(actor?._id || actor?.id || '');
 const num = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
-const decisionKinds = new Set(['move', 'team_decision', 'growth_plan', 'queue', 'hunt_start', 'hunt_end', 'dimension_rift_space']);
+const decisionKinds = new Set(['move', 'retreat', 'chase', 'team_decision', 'growth_plan', 'queue', 'hunt_start', 'hunt_end', 'dimension_rift_space']);
 const importantKinds = new Set(['death', 'revive', 'elimination', 'team_engagement', 'team_cover', 'chase', 'resource_replan', 'rest', 'hunt_start', 'hunt_end', 'skill_cancel', 'forced_control', 'sleep_break', 'effect', 'dimension_rift_space', 'dimension_rift_defeat', 'dimension_rift_reward_closed', 'spatial_displacement', 'spatial_displacement_pending', 'movement_goal', 'objective']);
 const observerScalarActorKeys = ['who', 'a', 'b', 'by', 'targetId', 'target', 'victimId', 'chaserId', 'sourceActorId', 'opponentId', 'strikerId'];
 const observerArrayActorKeys = ['assistIds', 'participants', 'helpers'];
@@ -79,6 +80,7 @@ export function describeObserverReason(event = {}) {
     growth_craft: '목표 장비 제작 준비', growth_ready: '성장 완료·다음 행동 검토',
     growth_blocked: '성장 경로 재검토', endgame_rotate: '최종 안전구역으로 이동', wander: '지역 탐색',
     status_move_block: '상태 이상으로 이동 보류',
+    retreat: '교전 중 후퇴 판단', early_route_avoid: '초반 파밍을 위해 교전 회피',
   };
   const knownIntent = /^(early_route|dimension_rift)/.test(raw) || raw === 'surplus credits kiosk' || !!event.objectiveType || /[가-힣]/.test(raw);
   let text = labels[raw] || (knownIntent ? formatMoveIntentLabel(raw, event.objectiveType, event.objectiveSubkind, event.movementObjective) : '상세 판단 기록 없음');
@@ -90,7 +92,8 @@ export function describeObserverReason(event = {}) {
     text = text === '상세 판단 기록 없음' ? blockage : `${text} · ${blockage}`;
   }
   const assessment = event.teamAssessment || event;
-  if (Number.isFinite(assessment.allyCount) && Number.isFinite(assessment.enemyCount)) {
+  if (event.decisionEvidence) text += ` · ${describeCombatDecisionContext(event.decisionEvidence, event.retreatOutcome)}`;
+  else if (Number.isFinite(assessment.allyCount) && Number.isFinite(assessment.enemyCount)) {
     text += ` · 당시 현장 아군 ${assessment.allyCount}명 / 적군 ${assessment.enemyCount}명`;
   }
   return text;
@@ -117,11 +120,12 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
     }
     case 'move': return `${who}: ${zoneName(event.from)} → ${zoneName(event.to)} · ${describeObserverReason(event)}${event.targetZoneId && event.targetZoneId !== event.to ? ` · 목적지 ${zoneName(event.targetZoneId)}` : ''}${event.etaSec ? ` · 이동 ${event.etaSec}초` : ''}`;
     case 'team_decision': return `${who}: ${describeObserverReason(event)}${event.targetZoneId ? ` · 목표 ${zoneName(event.targetZoneId)}` : ''}`;
+    case 'retreat': return `${who}: ${describeObserverReason(event)}${where}`;
     case 'growth_plan': return `${who}: ${describeObserverReason(event)}${event.targetName ? ` · 목표 ${event.targetName}` : ''}`;
     case 'queue': {
       const action = ({ routeFarm: '루트 탐색', craft: '제작', hunt: '사냥', moveTo: '이동', flee: '후퇴', kioskBuy: '키오스크 주문', kioskExchange: '키오스크 교환', kioskSell: '키오스크 판매', droneBuy: '드론 주문', droneOrder: '드론 주문', gather: '채집', rest: '휴식' })[event.chosen] || '다음 행동';
       const reason = describeObserverReason(event);
-      return `${who}: ${action} 선택${event.itemName ? ` · ${event.itemName}` : ''}${reason !== '상세 판단 기록 없음' ? ` · ${reason}` : ''}${event.targetZoneId ? ` · 이동 목표 ${zoneName(event.targetZoneId)}` : ''}${list(event.blockedReasons).some((blockedReason) => blockedReason === 'craft:missing_ing') ? ' · 제작 재료 부족' : ''} (성공 여부는 후속 기록)`;
+      return `${who}: ${action} 선택${event.itemName ? ` · ${event.itemName}` : ''}${reason !== '상세 판단 기록 없음' ? ` · ${reason}` : ''}${event.targetZoneId ? ` · 이동 목표 ${zoneName(event.targetZoneId)}` : ''}${list(event.blockedReasons).some((blockedReason) => blockedReason === 'craft:missing_ing') ? ' · 제작 재료 부족' : ''}${event.retreatOutcome ? '' : ' (성공 여부는 후속 기록)'}`;
     }
     case 'craft': return `${who}: ${event.itemName || '아이템'} 제작 완료${where}`;
     case 'resource_replan': return `${who}: ${zoneName(event.from)} 재료 소진 · ${event.to ? `${zoneName(event.to)} 재탐색` : '성장 목표 재검토'}`;
@@ -181,7 +185,7 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
     case 'elimination': return `${who} → ${nameOf(event.victimId)} 처치${list(event.assistIds).length ? ` · 지원 ${event.assistIds.map(nameOf).join(', ')}` : ''}${where}`;
     case 'death': return `${who} 사망 · ${event.cause || deathReasons[event.reason] || '원인 미기록'}${event.by ? ` · 처치자 ${nameOf(event.by)}` : ''}${where}`;
     case 'revive': return `${who} 부활 · HP ${num(event.hp)}${event.by ? ` · 도움 ${nameOf(event.by)}` : ' · 자동 부활'}${event.paid ? ` · ${num(event.cost)}Cr 소비` : ''}${where}`;
-    case 'chase': return `${who} / 추격자 ${nameOf(event.chaserId)} · ${({ escape_fail: '도주 실패', escape_no_chase: '추격 없이 이탈', escaped_after_chase: '추격을 따돌림', blink_escape: '블링크로 이탈', caught_after_chase: '추격에 붙잡힘' })[event.outcome] || (event.caught ? '추격에 붙잡힘' : event.escaped ? '교전에서 이탈' : '추격 결과 확인 중')}${where}`;
+    case 'chase': return `${who} / 추격자 ${nameOf(event.chaserId)} · ${({ escape_fail: '도주 실패', escape_no_chase: '추격 없이 이탈', escaped_after_chase: '추격을 따돌림', blink_escape: '블링크로 이탈', caught_after_chase: '추격에 붙잡힘' })[event.outcome] || (event.caught ? '추격에 붙잡힘' : event.escaped ? '교전에서 이탈' : '추격 결과 확인 중')}${event.decisionEvidence ? ` · ${describeObserverReason(event)}` : ''}${where}`;
     default: return '';
   }
 }

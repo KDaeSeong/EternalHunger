@@ -50,6 +50,8 @@ export function prepareActorPhaseActionQueue({
     movementObjective = null,
     movementTargetZoneId = '',
     sharedGoalReason = '',
+    decisionEvidence = null,
+    retreatOutcome = '',
     mustEscape = false,
     nextDay,
     nextPhase,
@@ -342,6 +344,8 @@ export function prepareActorPhaseActionQueue({
       sharedGoalReason,
       targetZoneId: movementTargetZoneId,
       objectiveType: String(queuedAtomicAction?.objectiveType || moveObjectiveType || ''),
+      decisionEvidence,
+      retreatOutcome,
       objectiveSubkind: String(queuedAtomicAction?.objectiveSubkind || moveObjectiveSubkind || ''),
       contestPressure: Math.max(0, Number(queuedAtomicAction?.contestPressure || moveContestPressure || 0)),
     }, atNow());

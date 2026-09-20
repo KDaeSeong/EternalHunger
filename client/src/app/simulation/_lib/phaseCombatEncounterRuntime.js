@@ -218,7 +218,11 @@ export function runPhaseCombatEncounter({
       }
       chaser = (flee === actor) ? target : actor;
     }
-    return resolveFleeSequence(flee, chaser, { curZone });
+    const lowHp = Number(flee.hp || 0) <= hpBelow;
+    const avoidanceInfo = flee === actor ? aAvoid : bAvoid;
+    return resolveFleeSequence(flee, chaser, { curZone, reason: lowHp ? 'low_hp' : avoidanceInfo?.reason || 'power_gap',
+      hpThreshold: lowHp ? hpBelow : null,
+      comparison: lowHp ? null : avoidanceInfo?.comparison || avoidanceInfo });
   })();
 
   if (escapeOutcome && escapeOutcome.escaped && !escapeOutcome.caught) {

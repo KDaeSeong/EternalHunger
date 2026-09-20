@@ -94,7 +94,7 @@ export function resolveCombatWinnerOutcome({ actions = {}, combatElimination = {
   if (target.hp > 0 && !isDimensionRiftDefeated(target) && totalDamage > 0 && target.hp <= Number(pvpCfg.criticalFleeHpBelow ?? 18)
     && simulationRandom() < Math.max(0, Math.min(1, Number(pvpCfg.criticalFleeChance ?? 0.78)))) {
     escape = resolveFleeSequence(target, actor, { curZone: String(target.zoneId || actor.zoneId || ''),
-      forceAttempt: true, escapeText: '빈사 도주', moveReason: 'critical_flee' });
+      forceAttempt: true, escapeText: '빈사 도주', moveReason: 'critical_flee', hpThreshold: Number(pvpCfg.criticalFleeHpBelow ?? 18) });
   }
   const lethal = Number(target.hp || 0) <= 0;
   if (!lethal && totalDamage > 0 && actor.hp > 0) applyErTraitAfterBattle(actor, { lethal: false, damageDealt: totalDamage, defeated: target });
