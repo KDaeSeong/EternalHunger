@@ -69,7 +69,7 @@ export default function SimulationMinimapPanel({
       ) : null}
 
       <div className="minimap-panel-heading">
-        <div><strong>전장 지도</strong><small>팀 색·번호와 HP로 전황을 확인하세요</small></div>
+        <div><strong>전장 지도</strong><small>팀 색·번호와 HP · 표시를 누르면 지역 참가자 보기</small></div>
         {uiModal !== 'map' ? <button type="button" data-game-sfx="nav" onClick={openMap} disabled={!openMap}>
           <GameActionIcon action="map" label="지도 크게 보기" />
           크게 보기
@@ -115,6 +115,7 @@ export default function SimulationMinimapPanel({
         <span><i className="minimap-dot hyperloop" /> 하이퍼루프</span>
         <span><i className="minimap-tracked-ring" /> 금색 외곽선은 관전 팀</span>
       </div>
+      <p className="minimap-location-note">표시는 해당 지역의 요약 위치입니다. 이동선은 지역 간 이동을 나타내며 실제 골목길·교전 좌표가 아닙니다.</p>
 
       <SimulationMinimapHyperloopControl
         day={day}

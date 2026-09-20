@@ -25,14 +25,14 @@ export const LUMIA_MINIMAP_SOURCE = {
   imageSize: { width: 1920, height: 1080 },
   mapBounds: { x: 1202, y: 190, width: 662, height: 682 },
   traceSpace: { width: 662, height: 682 },
-  notes: 'Pixel-traced from the attached route-planning minimap screenshot; geometry drives rendering, movement distance, and area weights.',
+  notes: 'Legacy abstract simulation geometry: used for movement distance and area weights, not an exact terrain survey. The displayed reference-map geometry is maintained separately.',
 };
 
 export const LUMIA_MINIMAP_REFERENCE_IMAGE = Object.freeze({
   src: '/Images/LumiaIslandMapReference.png',
   sourceSize: Object.freeze({ width: 728, height: 789 }),
   mapBounds: Object.freeze({ x: 43, y: 81, width: 662, height: 682 }),
-  notes: 'Evaluator-supplied Lumia Island overview aligned to the existing 662x682 trace space.',
+  notes: 'Evaluator-supplied Lumia Island overview. Display anchors and alert boundaries are surveyed in this image pixel space by lumiaReferenceMapGeometry.js.',
 });
 
 export const LUMIA_MINIMAP_VIEWBOX = {

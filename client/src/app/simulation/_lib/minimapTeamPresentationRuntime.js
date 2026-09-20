@@ -73,7 +73,7 @@ export function buildMinimapTeamLegend(actors, trackedActorIds = []) {
   return [...teams.values()].sort(compareTeamPresentation);
 }
 
-export function layoutMinimapZoneActors(actors, trackedActorIds = [], limit = 24) {
+export function layoutMinimapZoneActors(actors, trackedActorIds = [], limit = 24, { aggregateTeams = false } = {}) {
   const tracked = trackedActorIds instanceof Set ? trackedActorIds : new Set(list(trackedActorIds).map(String));
   const rows = list(actors).slice(0, Math.max(0, limit));
   if (!rows.length) return [];
@@ -91,8 +91,8 @@ export function layoutMinimapZoneActors(actors, trackedActorIds = [], limit = 24
         aggregate: false,
         count: 1,
         hpRatio: Math.max(0, Math.min(1, Number(row.actor?.hp || 0) / maxHp)),
-        dx: (index % columns - (columns - 1) / 2) * 4.8,
-        dy: (Math.floor(index / columns) - (rowCount - 1) / 2) * 5.2,
+        dx: (index % columns - (columns - 1) / 2) * 7,
+        dy: (Math.floor(index / columns) - (rowCount - 1) / 2) * (tracked.size ? 9.2 : 7.2),
         tracked: tracked.has(idOf(row.actor)),
       };
     });
@@ -110,8 +110,8 @@ export function layoutMinimapZoneActors(actors, trackedActorIds = [], limit = 24
     return compareTeamPresentation(left[0], right[0]);
   });
 
-  if (groupedRows.length > 3 || presentations.length > 9) {
-    const columns = groupedRows.length > 6 ? 3 : 2;
+  if (aggregateTeams || groupedRows.length > 3 || presentations.length > 9) {
+    const columns = Math.min(groupedRows.length, groupedRows.length > 6 ? 3 : 2);
     const rowCount = Math.ceil(groupedRows.length / columns);
     return groupedRows.map((group, groupIndex) => {
       const maxHp = group.reduce((sum, row) => sum + Math.max(1, Number(row.actor?.maxHp || 100)), 0);
@@ -123,14 +123,14 @@ export function layoutMinimapZoneActors(actors, trackedActorIds = [], limit = 24
         aggregate: true,
         count: group.length,
         hpRatio: Math.max(0, Math.min(1, hp / Math.max(1, maxHp))),
-        dx: (groupIndex % columns - (columns - 1) / 2) * 5.8,
-        dy: (Math.floor(groupIndex / columns) - (rowCount - 1) / 2) * 5.7,
+        dx: (groupIndex % columns - (columns - 1) / 2) * 7,
+        dy: (Math.floor(groupIndex / columns) - (rowCount - 1) / 2) * 7.2,
         tracked: group.some((row) => tracked.has(idOf(row.actor))),
       };
     });
   }
 
-  const rowSpacing = groupedRows.length > 3 ? 5.1 : 5.6;
+  const rowSpacing = presentations.some((row) => tracked.has(idOf(row.actor))) ? 9.2 : 7.2;
 
   return groupedRows.flatMap((group, groupIndex) => {
     const sorted = [...group].sort((a, b) => idOf(a.actor).localeCompare(idOf(b.actor), 'en', { numeric: true }));
@@ -142,7 +142,7 @@ export function layoutMinimapZoneActors(actors, trackedActorIds = [], limit = 24
       aggregate: false,
       count: 1,
       hpRatio: Math.max(0, Math.min(1, Number(row.actor?.hp || 0) / Math.max(1, Number(row.actor?.maxHp || 100)))),
-      dx: (memberIndex - (width - 1) / 2) * 4.8,
+      dx: (memberIndex - (width - 1) / 2) * 7,
       dy: baseY,
       tracked: tracked.has(idOf(row.actor)),
     }));

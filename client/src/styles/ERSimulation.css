@@ -2550,8 +2550,9 @@
 }
 
 .minimap-panel.modal-open .minimap-canvas {
-  width: min(90vw, 920px);
-  max-height: min(76vh, 900px);
+  width: min(100%, 920px);
+  max-height: none;
+  box-sizing: border-box;
 }
 
 .minimap-empty {
@@ -2607,6 +2608,72 @@
   pointer-events: none;
   image-rendering: auto;
 }
+
+.minimap-location-note {
+  margin: 8px 4px 0;
+  color: #b8cdda;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.minimap-character-token[role="button"],
+.minimap-team-cluster[role="button"],
+.minimap-region-summary {
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.minimap-character-token:focus-visible,
+.minimap-team-cluster:focus-visible,
+.minimap-region-summary:focus-visible {
+  outline: none;
+  filter: drop-shadow(0 0 1px white);
+}
+
+.minimap-region-roster {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  right: 10px;
+  width: min(370px, calc(100% - 20px));
+  max-height: min(420px, 65%);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #9ac2d5;
+  border-radius: 12px;
+  background: rgba(8, 26, 40, .97);
+  box-shadow: 0 8px 24px #0009;
+  color: #eef8ff;
+  font-size: 12px;
+}
+
+.minimap-region-roster-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.minimap-region-roster-heading button {
+  border: 1px solid #668c9f;
+  border-radius: 6px;
+  padding: 4px 10px;
+  background: #163549;
+  color: white;
+  cursor: pointer;
+}
+
+.minimap-region-roster-row {
+  display: grid;
+  grid-template-columns: minmax(48px, .9fr) minmax(48px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid #ffffff16;
+  padding: 7px 0;
+}
+
+.minimap-region-roster-row > * { overflow-wrap: anywhere; }
 
 .minimap-island-outline {
   fill: rgba(22, 68, 93, 0.09);

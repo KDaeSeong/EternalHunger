@@ -115,7 +115,10 @@ check('observer and custom-map paths avoid repeated per-event and polygon string
   assert.match(minimapSource, /String\(activeMapId \|\| ''\)\.startsWith\('local-map-'\)/);
   assert.match(minimapSource, /usesCustomGeometry \? buildCustomMapRenderGeometry\(zones, zoneEdges\) : null/);
   assert.match(observerSource, /trackedIds instanceof Set \? trackedIds : new Set\(list\(trackedIds\)\)/);
-  assert.match(minimapSource, /getObserverVisibleActors\(aliveByZone\[id\], trackedSet\)/);
+  assert.match(minimapSource, /const zoneMarkerLayouts = useMemo/);
+  assert.match(minimapSource, /Object\.entries\(aliveByZone\)\.map\(\(\[id, actors\]\)/);
+  assert.match(minimapSource, /getObserverVisibleActors\(actors, trackedSet, 24\)/);
+  assert.match(minimapSource, /buildMinimapRegionPresentation\(actors, trackedSet, geometry, LUMIA_REFERENCE_LABEL_RECTS, visible\)/);
   assert.match(minimapSource, /getObserverVisibleActors\(deadByZone\[id\], trackedSet, 8\)/);
   assert.match(minimapSource, /function actorIdentity\(actor\)[\s\S]*?actor\?\._id \|\| actor\?\.id/);
   assert.match(minimapSource, /const staticMapFrame = useMemo/);

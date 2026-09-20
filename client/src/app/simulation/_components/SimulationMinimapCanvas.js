@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { getObserverVisibleActors } from '../_lib/teamObserverRuntime';
 import { getSpatialPosition, SPATIAL_REGION_SIZE } from '../_lib/combatSpatialRuntime.js';
 import { getMinimapTeamPresentation, layoutMinimapZoneActors } from '../_lib/minimapTeamPresentationRuntime.js';
@@ -12,7 +12,6 @@ import {
   LUMIA_MINIMAP_REFERENCE_IMAGE,
   LUMIA_MINIMAP_VIEWBOX,
   LUMIA_PASSAGE_SEGMENTS,
-  LUMIA_ZONE_POLYGONS,
 } from '../_lib/simulationConstants';
 import {
   createLumiaConnectedPassages,
@@ -20,6 +19,8 @@ import {
   createLumiaRenderPositions,
 } from '../_lib/lumiaMapRenderGeometryRuntime';
 import { buildCustomMapRenderGeometry } from '../_lib/customMapRenderGeometryRuntime.js';
+import { LUMIA_REFERENCE_ZONES, LUMIA_REFERENCE_POSITIONS, LUMIA_REFERENCE_POLYGONS, LUMIA_REFERENCE_LABEL_RECTS } from '../_lib/lumiaReferenceMapGeometry.js';
+import { buildMinimapRegionPresentation, placeMinimapRegionLayout } from '../_lib/minimapRegionLayoutRuntime.js';
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
@@ -143,6 +144,7 @@ export default function SimulationMinimapCanvas({
   zoneEdges,
   zonePos,
 }) {
+  const [openedZoneId, setOpenedZoneId] = useState('');
   const rawClipId = useId();
   const islandClipId = `simulation-minimap-boundary-${String(rawClipId).replace(/:/g, '')}`;
   const sourcePositions = zonePos && typeof zonePos === 'object' ? zonePos : EMPTY_ZONE_POSITIONS;
@@ -160,7 +162,12 @@ export default function SimulationMinimapCanvas({
     height: Number(mapViewBox.height || 100) + 12,
   }), [mapViewBox]);
   const positions = useMemo(
-    () => customGeometry?.positions || createLumiaRenderPositions(sourcePositions, LUMIA_ISLAND_OUTLINE),
+    () => customGeometry?.positions || {
+      ...createLumiaRenderPositions(sourcePositions, LUMIA_ISLAND_OUTLINE),
+      ...LUMIA_REFERENCE_POSITIONS,
+      pond: LUMIA_REFERENCE_POSITIONS.park,
+      residential: LUMIA_REFERENCE_POSITIONS.apartment,
+    },
     [customGeometry, sourcePositions]
   );
   const passageSegments = useMemo(
@@ -180,7 +187,7 @@ export default function SimulationMinimapCanvas({
     });
     return createLumiaConnectedPassages(segments, positions, LUMIA_ISLAND_OUTLINE);
   }, [customGeometry, passageEdgeKeys, positions, zoneEdges]);
-  const zonePolygons = customGeometry?.polygons || LUMIA_ZONE_POLYGONS;
+  const zonePolygons = customGeometry?.polygons || LUMIA_REFERENCE_POLYGONS;
   const zoneList = safeArray(zones);
   const availableZoneIds = useMemo(
     () => new Set(zoneList.map((zone) => String(zone?.zoneId || '')).filter(Boolean)),
@@ -195,8 +202,8 @@ export default function SimulationMinimapCanvas({
   const forbiddenZonePolygonRows = useMemo(() => Object.entries(zonePolygons).map(([id, polygon]) => ({
     id,
     zoneName: String(getZoneName?.(id) || id),
-    points: polygonPoints(shrinkPolygon(polygon, positions?.[id], 0.82)),
-  })), [getZoneName, positions, zonePolygons]);
+    points: polygonPoints(customGeometry ? shrinkPolygon(polygon, positions?.[id], 0.82) : polygon),
+  })), [customGeometry, getZoneName, positions, zonePolygons]);
   const renderedPassages = useMemo(() => [
     ...passageSegments.map((segment) => ({
       segment: { ...segment, pointsText: polygonPoints(segment.points) },
@@ -211,7 +218,7 @@ export default function SimulationMinimapCanvas({
     <>
       <defs>
         <clipPath id={islandClipId}>
-          <polygon points={mapOutlinePoints} />
+          {customGeometry ? <polygon points={mapOutlinePoints} /> : Object.entries(LUMIA_REFERENCE_POLYGONS).map(([id, polygon]) => <polygon key={id} points={polygonPoints(polygon)} />)}
         </clipPath>
       </defs>
 
@@ -275,6 +282,16 @@ export default function SimulationMinimapCanvas({
   const aliveByZone = useMemo(() => groupActorsByZone(survivors, activeMapId), [survivors, activeMapId]);
   const deadByZone = useMemo(() => groupActorsByZone(dead, activeMapId), [dead, activeMapId]);
   const trackedSet = useMemo(() => new Set(safeArray(trackedActorIds).map(String)), [trackedActorIds]);
+  const zoneMarkerLayouts = useMemo(() => Object.fromEntries(Object.entries(aliveByZone).map(([id, actors]) => {
+    const visible = getObserverVisibleActors(actors, trackedSet, 24);
+    const layout = layoutMinimapZoneActors(visible, trackedSet);
+    const geometry = !customGeometry && LUMIA_REFERENCE_ZONES[id];
+    if (!geometry) return [id, layout.map((row) => ({ ...row, x: Number(positions[id]?.x || 0) + row.dx, y: Number(positions[id]?.y || 0) + row.dy, scale: 1 }))];
+    // A crowded region remains a correctly located, labelled region marker.
+    // Its roster is one click away; do not shrink portraits to unreadable dots
+    // or spill them into another area to keep a fixed formation.
+    return [id, buildMinimapRegionPresentation(actors, trackedSet, geometry, LUMIA_REFERENCE_LABEL_RECTS, visible)];
+  })), [aliveByZone, customGeometry, positions, trackedSet]);
   const hyperloopSelectedChar = useMemo(
     () => safeArray(survivors).find((actor) => actorIdentity(actor) === String(hyperloopCharId || '')) || null,
     [hyperloopCharId, survivors]
@@ -285,10 +302,18 @@ export default function SimulationMinimapCanvas({
 
   return (
     <div className="minimap-canvas">
+      {openedZoneId ? <div className="minimap-region-roster" role="region" aria-label={`${getZoneName?.(openedZoneId) || openedZoneId} 참가자`}>
+        <div className="minimap-region-roster-heading"><strong>{getZoneName?.(openedZoneId) || openedZoneId} · {safeArray(aliveByZone[openedZoneId]).length}명</strong><button type="button" onClick={() => setOpenedZoneId('')}>닫기</button></div>
+        {safeArray(aliveByZone[openedZoneId]).map((actor) => {
+          const team = getMinimapTeamPresentation(actor);
+          return <div key={actorIdentity(actor)} className="minimap-region-roster-row"><span style={{ color: team.color }}>{team.teamName}</span><b>{actor.name || '참가자'}</b><span>HP {Math.ceil(Number(actor.hp || 0))}/{Math.ceil(Number(actor.maxHp || 100))}</span></div>;
+        })}
+        {!safeArray(aliveByZone[openedZoneId]).length ? <p>현재 이 지역에 생존자가 없습니다.</p> : null}
+      </div> : null}
       <svg
         className="minimap-svg"
         viewBox={`${paddedViewBox.x} ${paddedViewBox.y} ${paddedViewBox.width} ${paddedViewBox.height}`}
-        role="img"
+        role="group"
         aria-label={customGeometry ? '사용자 지도 미니맵' : '루미아 섬 미니맵'}
       >
         {staticMapFrame}
@@ -299,6 +324,7 @@ export default function SimulationMinimapCanvas({
             return (
               <polygon
                 key={`area-${row.id}`}
+                data-zone-id={row.id}
                 points={row.points}
                 className="minimap-zone-area forbidden"
               >
@@ -355,8 +381,6 @@ export default function SimulationMinimapCanvas({
           const isForbidden = forbiddenSet.has(id);
           const isSelectedZone = !!selectedZoneId && selectedZoneId === id;
           const zoneName = String(getZoneName?.(id) || id);
-          const aliveHere = aliveByZone[id]?.length || 0;
-          const deadHere = deadByZone[id]?.length || 0;
           const nodeR = 1.18;
           const labelSize = zoneName.length >= 6 ? 2.3 : zoneName.length >= 5 ? 2.55 : 2.9;
           const hasHyperloop = hyperloopSet.has(id);
@@ -401,27 +425,15 @@ export default function SimulationMinimapCanvas({
                 </g>
               ) : null}
 
-              {(aliveHere > 12 || deadHere > 0) ? (
-                <text
-                  x={p.x}
-                  y={p.y + 5.35}
-                  textAnchor="middle"
-                  fontSize="2.45"
-                  fill="rgba(255,255,255,0.62)"
-                >
-                  {aliveHere > 12 ? `${aliveHere}명` : ''}{deadHere > 0 ? `${aliveHere > 12 ? ' / ' : ''}사망 ${deadHere}` : ''}
-                </text>
-              ) : null}
-
-              {layoutMinimapZoneActors(
-                getObserverVisibleActors(aliveByZone[id], trackedSet, 24),
-                trackedSet
-              ).map((layout, idx) => {
+              {safeArray(zoneMarkerLayouts[id]).map((layout, idx) => {
                 const actor = layout.actor;
                 const actorId = actorIdentity(actor);
                 const local = getSpatialPosition(actor);
-                const cx = p.x + layout.dx;
-                const cy = p.y + layout.dy;
+                const cx = layout.x;
+                const cy = layout.y;
+                const markerTransform = `translate(${cx} ${cy}) scale(${layout.scale}) translate(${-cx} ${-cy})`;
+                const openRoster = () => setOpenedZoneId(id);
+                const activateRoster = (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openRoster(); } };
                 const isSelected = actorId === String(hyperloopCharId || '');
                 const isTracked = layout.tracked || trackedSet.has(actorId);
                 const hpRatio = layout.hpRatio;
@@ -432,11 +444,18 @@ export default function SimulationMinimapCanvas({
                 const teamStatus = teamState?.missingCount > 0 ? ` / 팀원 ${teamState.missingCount}명 이탈` : '';
                 const tokenTitle = `${String(actor?.name || '캐릭터')} / ${team.teamName} / HP ${Math.floor(Number(actor?.hp || 0))}/${Math.max(1, Math.floor(Number(actor?.maxHp || 100)))} / ${zoneName}${local ? ` / 지역 내 (${local.x.toFixed(1)}, ${local.y.toFixed(1)})m` : ''}${teamStatus}`;
 
+                if (layout.regionSummary) return <g key={`region-${id}`} className="minimap-region-summary" role="button" tabIndex={0} data-zone-id={id} data-marker-scale={layout.scale} transform={markerTransform} aria-label={`${zoneName} ${layout.solo ? '개인전' : `${layout.teamCount}팀`} ${layout.count}명 참가자 보기`} onClick={openRoster} onKeyDown={activateRoster}>
+                  <title>{zoneName} · {layout.solo ? '개인전' : `${layout.teamCount}팀`} {layout.count}명 · 눌러서 팀과 체력 보기</title>
+                  <circle cx={cx} cy={cy} r="3.1" fill="#102738" stroke={layout.tracked ? '#ffd75a' : '#d2e7f4'} strokeWidth=".55" />
+                  <text x={cx} y={cy - .15} textAnchor="middle" fontSize="1.75" fill="white">{layout.solo ? '개인전' : `${layout.teamCount}팀`}</text>
+                  <text x={cx} y={cy + 1.65} textAnchor="middle" fontSize="1.6" fill="#a6d9ef">{layout.count}명</text>
+                </g>;
+
                 if (layout.aggregate) {
                   const memberNames = layout.actors.map((row) => String(row?.name || '캐릭터')).join(', ');
                   const aggregateTitle = `${team.teamName} ${layout.count}명 / 평균 HP ${Math.round(hpRatio * 100)}% / ${memberNames} / ${zoneName}`;
                   return (
-                    <g key={`team-${id}-${team.teamId || idx}`} className={`minimap-team-cluster ${isTracked ? 'tracked' : ''}`} data-team-id={team.teamId}>
+                    <g key={`team-${id}-${team.teamId || idx}`} className={`minimap-team-cluster ${isTracked ? 'tracked' : ''}`} data-team-id={team.teamId} data-zone-id={id} data-marker-scale={layout.scale} transform={markerTransform} role="button" tabIndex={0} aria-label={`${aggregateTitle} 참가자 보기`} onClick={openRoster} onKeyDown={activateRoster}>
                       <title>{isTracked ? `관전 중 · ${aggregateTitle}` : aggregateTitle}</title>
                       {isTracked ? <circle cx={cx} cy={cy} r="3.25" className="minimap-team-cluster-tracked" /> : null}
                       <circle cx={cx} cy={cy} r="2.55" className="minimap-team-cluster-core" stroke={teamColor} />
@@ -451,7 +470,7 @@ export default function SimulationMinimapCanvas({
                 }
 
                 return (
-                  <g key={`a-${id}-${actorId || idx}`} className={`minimap-character-token ${isSelected ? 'selected' : ''} ${isTracked ? 'tracked' : ''}`} data-team-id={team.teamId}>
+                  <g key={`a-${id}-${actorId || idx}`} className={`minimap-character-token ${isSelected ? 'selected' : ''} ${isTracked ? 'tracked' : ''}`} data-team-id={team.teamId} data-zone-id={id} data-marker-scale={layout.scale} transform={markerTransform} role="button" tabIndex={0} aria-label={`${tokenTitle} 참가자 보기`} onClick={openRoster} onKeyDown={activateRoster}>
                     <title>{isTracked ? `관전 중 · ${tokenTitle}` : tokenTitle}</title>
                     {isSelected || isTracked ? (
                       <circle
@@ -502,7 +521,7 @@ export default function SimulationMinimapCanvas({
                         textAnchor="middle"
                         className="minimap-token-label"
                       >
-                        {String(actor?.name || '?').slice(0, 3)} {Math.round(hpRatio * 100)}%
+                        {Math.round(hpRatio * 100)}%
                       </text> : null}
                   </g>
                 );
@@ -513,11 +532,13 @@ export default function SimulationMinimapCanvas({
                 const offset = OFF[(idx + 2) % OFF.length];
                 const local = getSpatialPosition(actor);
                 const isTracked = trackedSet.has(actorId);
+                const referenceZone = !customGeometry && LUMIA_REFERENCE_ZONES[id];
+                const deadPosition = referenceZone ? placeMinimapRegionLayout([{ dx: offset[0] * .55, dy: offset[1] * .55, aggregate: true }], referenceZone, LUMIA_REFERENCE_LABEL_RECTS)?.[0] : null;
                 return (
                   <circle
                     key={`d-${id}-${actorId || idx}`}
-                    cx={p.x + (local ? (local.x / SPATIAL_REGION_SIZE - 0.5) * 12 : offset[0] * 0.55)}
-                    cy={p.y + (local ? (local.y / SPATIAL_REGION_SIZE - 0.5) * 12 : offset[1] * 0.55)}
+                    cx={deadPosition?.x ?? p.x + (local ? (local.x / SPATIAL_REGION_SIZE - 0.5) * 12 : offset[0] * 0.55)}
+                    cy={deadPosition?.y ?? p.y + (local ? (local.y / SPATIAL_REGION_SIZE - 0.5) * 12 : offset[1] * 0.55)}
                     r={isTracked ? 1.4 : 0.85}
                     fill="rgba(170,170,170,0.70)"
                     stroke={isTracked ? 'rgba(255,215,0,0.95)' : 'rgba(0,0,0,0.28)'}

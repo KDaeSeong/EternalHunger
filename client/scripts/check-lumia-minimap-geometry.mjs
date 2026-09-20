@@ -161,5 +161,6 @@ console.log(JSON.stringify({
   visualFootprintsContained: true,
   supplementalEdgesVisible: supplementalPassages.length,
   referenceMapBytes: referenceAssetStat.size,
-  referenceMapAligned: true,
+  referenceImageBoundsConfigured: true,
+  legacyGeometryScope: 'model containment, not reference-image alignment',
 }, null, 2));

@@ -53,8 +53,13 @@ const crowdedLayout = layoutMinimapZoneActors(crowdedActors, ['team-1-1', 'team-
 assert.equal(crowdedLayout.length, 8, 'crowded zones must collapse to one marker per team');
 assert.ok(crowdedLayout.every((row) => row.aggregate && row.count === 3), 'crowded team markers must preserve member counts');
 assert.equal(new Set(crowdedLayout.map((row) => `${row.dx}:${row.dy}`)).size, 8, 'crowded team markers must not overlap');
-assert.ok(Math.max(...crowdedLayout.map((row) => Math.abs(row.dx))) <= 6, 'crowded layout must stay compact horizontally');
+assert.ok(Math.max(...crowdedLayout.map((row) => Math.abs(row.dx))) <= 7, 'crowded layout must reserve badge clearance horizontally');
 assert.ok(Math.max(...crowdedLayout.map((row) => Math.abs(row.dy))) <= 9, 'crowded layout must stay compact vertically');
+for (let index = 0; index < crowdedLayout.length; index += 1) {
+  for (const other of crowdedLayout.slice(index + 1)) {
+    assert.ok(Math.hypot(crowdedLayout[index].dx - other.dx, crowdedLayout[index].dy - other.dy) >= 6.9, 'badges and HP bars need clearance, not just unique centres');
+  }
+}
 
 const soloActors = Array.from({ length: 6 }, (_, index) => ({ _id: `solo-${index}`, name: `솔로 ${index}`, hp: 100 }));
 assert.deepEqual(buildMinimapTeamLegend(soloActors), [], 'solo mode must not render a team legend');

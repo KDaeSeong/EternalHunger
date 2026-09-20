@@ -76,7 +76,7 @@ check('custom hyperloops come from its own zone flags and device, not foreign ID
 check('the minimap switches polygons, passages, clipping and labels as one geometry', async () => {
   const source = await readFile(new URL('../src/app/simulation/_components/SimulationMinimapCanvas.js', import.meta.url), 'utf8');
   assert.match(source, /buildCustomMapRenderGeometry\(zones, zoneEdges\)/);
-  assert.match(source, /customGeometry\?\.polygons \|\| LUMIA_ZONE_POLYGONS/);
+  assert.match(source, /customGeometry\?\.polygons \|\| LUMIA_REFERENCE_POLYGONS/);
   assert.match(source, /customGeometry\?\.passages \|\| createLumiaConnectedPassages/);
   assert.match(source, /aria-label=\{customGeometry \? '사용자 지도 미니맵' : '루미아 섬 미니맵'\}/);
 });
