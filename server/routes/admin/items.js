@@ -8,7 +8,7 @@ const TradeOffer = require('../../models/TradeOffer');
 const DroneOffer = require('../../models/DroneOffer');
 const { requireUserId, ownedFilter, withOwner } = require('../../utils/requestScope');
 const { upsertDefaultItemTree, upsertDefaultItemTreeBatch } = require('../../utils/defaultItemTree');
-const { prepareItemEffectWritePayload } = require('../../utils/itemEffectWritePayload');
+const { prepareItemEffectWritePayload, equipmentEffectWriteGuard } = require('../../utils/itemEffectWritePayload');
 
 function scope(req, res, extra = {}) {
   const userId = requireUserId(req, res);
@@ -34,6 +34,8 @@ router.post('/items', async (req, res) => {
         if (!userId) return;
         const prepared = prepareItemEffectWritePayload(req.body);
         if (!prepared.ok) return res.status(400).json({ error: prepared.error });
+        if (prepared.payload.equipmentEffects?.length && !['무기', '방어구'].includes(prepared.payload.type))
+            return res.status(400).json({ error: '장비 발동 효과는 무기 또는 방어구에 지정해 주세요.' });
         const newItem = new Item(withOwner(userId, prepared.payload));
         await newItem.save();
         res.json({ message: "아이템이 성공적으로 추가되었습니다.", item: newItem });
@@ -340,8 +342,11 @@ router.put('/items/:id', async (req, res) => {
     if (!userId) return;
     const prepared = prepareItemEffectWritePayload(req.body);
     if (!prepared.ok) return res.status(400).json({ error: prepared.error });
-    const updated = await Item.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, prepared.payload), { new: true, runValidators: true });
-    if (!updated) return res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
+    const guard = equipmentEffectWriteGuard(prepared.payload);
+    const updated = await Item.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id, ...guard }), withOwner(userId, prepared.payload), { new: true, runValidators: true });
+    if (!updated) return res.status(404).json({ error: Object.keys(guard).length
+      ? '아이템이 없거나 분류와 장비 효과가 맞지 않습니다. 다시 불러온 뒤 효과와 분류를 함께 확인해 주세요.'
+      : '아이템을 찾을 수 없습니다.' });
     res.json({ message: '아이템이 수정되었습니다.', item: updated });
   } catch (err) {
     console.error(err);

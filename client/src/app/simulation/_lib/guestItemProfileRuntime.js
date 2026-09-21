@@ -1,5 +1,6 @@
 import { normalizeConsumeEffect, consumeEffectErrorText } from '../../../utils/consumeEffectContract.js';
 import { prepareItemRecipeDraft } from '../../../utils/itemRecipeAuthoring.js';
+import { normalizeEquipmentEffects, equipmentEffectErrorText } from '../../../utils/equipmentEffectContract.js';
 
 export const GUEST_ITEM_PROFILE_KEY = 'eh_guest_item_profiles_v1';
 const MAX_BYTES = 512 * 1024;
@@ -18,6 +19,10 @@ export function normalizeGuestItem(raw, catalog = []) {
   const consume = normalizeConsumeEffect(raw.consumeEffect);
   if (!consume.ok) return fail(consumeEffectErrorText(consume));
   if (consume.explicit && !['소모품', 'consumable', 'food'].includes(raw.type)) return fail('사용 효과가 있는 아이템은 소모품으로 분류해 주세요.');
+  const equipment = normalizeEquipmentEffects(Object.hasOwn(raw, 'equipmentEffects') ? raw.equipmentEffects : existing?.equipmentEffects);
+  if (!equipment.ok) return fail(equipmentEffectErrorText(equipment));
+  if (equipment.effects.length && !['무기', 'weapon', '방어구', 'armor'].includes(raw.type))
+    return fail('장비 발동 효과는 무기 또는 방어구에 지정해 주세요.');
   const copy = { ...structuredClone(existing || {}), _id: id, name, type: raw.type };
   for (const key of ['description', 'rarity', 'equipSlot', 'weaponType', 'archetype', 'externalId']) {
     if (raw[key] !== undefined) copy[key] = String(raw[key]).slice(0, key === 'description' ? 4000 : 180);
@@ -51,6 +56,7 @@ export function normalizeGuestItem(raw, catalog = []) {
   if (!existing && !copy.recipe?.ingredients?.length)
     return fail('새 아이템은 제작 재료를 한 가지 이상 지정해 주세요. 실제 재료를 모아 제작합니다.');
   copy.consumeEffect = consume.effect;
+  if (Object.hasOwn(raw, 'equipmentEffects')) copy.equipmentEffects = equipment.effects;
   copy.localItemProfile = true;
   return { ok: true, item: copy };
 }

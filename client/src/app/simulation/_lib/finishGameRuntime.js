@@ -354,6 +354,8 @@ export async function finishSimulationGame(opts = {}) {
             'requestedDistance',
             'actualDistance',
             'castId',
+            'equipmentEffectId', 'effectId', 'effectKind', 'stage', 'delaySec', 'dueAtSec', 'cooldownUntil', 'radius', 'baseDamage',
+            'centerPosition', 'targetPosition',
             'targetId',
             'combatSpaceId',
             'stoppedAtTarget',

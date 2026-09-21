@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import ConsumeEffectFields from './ConsumeEffectFields';
+import EquipmentEffectFields from './EquipmentEffectFields';
+import { createEquipmentEffectDraft, prepareEquipmentEffectDraft } from '../../../../utils/equipmentEffectAuthoring.js';
 import { createConsumeEffectDraft, prepareConsumeEffectDraft } from '../../../../utils/consumeEffectAuthoring.js';
 import { createItemRecipeDraft, prepareItemRecipeDraft } from '../../../../utils/itemRecipeAuthoring.js';
 import {
@@ -33,6 +35,7 @@ function buildDraftFromItem(item) {
     archetype: base.archetype || '',
     description: base.description || '',
     consumeDraft: createConsumeEffectDraft(base.consumeEffect),
+    equipmentDraft: createEquipmentEffectDraft(base.equipmentEffects),
     lockedByAdmin: Boolean(base.lockedByAdmin ?? (sim ? true : false)),
     recipe: createItemRecipeDraft(base.recipe),
     stats: {
@@ -348,6 +351,13 @@ function ItemEditorModalBody({ mode, item, allItems, onClose, onSave, localMode 
       return;
     }
     payload.consumeEffect = consume.effect;
+    const equipment = prepareEquipmentEffectDraft(draft.equipmentDraft);
+    if (!equipment.ok) { setErr(equipment.error); return; }
+    if (equipment.effects.length && !['무기', '방어구'].includes(type)) {
+      setErr('파열 효과를 저장하려면 분류를 무기 또는 방어구로 선택해 주세요.');
+      return;
+    }
+    payload.equipmentEffects = equipment.effects;
 
     Object.keys(payload).forEach((k) => {
       if (payload[k] === undefined) delete payload[k];
@@ -393,7 +403,7 @@ function ItemEditorModalBody({ mode, item, allItems, onClose, onSave, localMode 
           </div>}
           <div>
             <div style={label}>아이템 단계</div>
-            <input type="number" value={draft?.tier ?? 1} onChange={(e) => setField('tier', safeJsonParse(e.target.value, e.target.value))} style={{ ...input, width: '100%' }} />
+            <input aria-label="아이템 단계" type="number" value={draft?.tier ?? 1} onChange={(e) => setField('tier', safeJsonParse(e.target.value, e.target.value))} style={{ ...input, width: '100%' }} />
           </div>
           {!localMode && <div>
             <div style={label}>가격</div>
@@ -422,20 +432,20 @@ function ItemEditorModalBody({ mode, item, allItems, onClose, onSave, localMode 
         {(!localMode || ['무기', '방어구'].includes(draft.type)) && <div style={{ marginTop: 12, ...grid }}>
           <div>
             <div style={label}>장착 부위</div>
-            <select value={normalizeEquipSlot(draft?.equipSlot)} onChange={(e) => setEquipSlot(e.target.value)} style={{ ...input, width: '100%' }}>
+            <select aria-label="장착 부위" value={normalizeEquipSlot(draft?.equipSlot)} onChange={(e) => setEquipSlot(e.target.value)} style={{ ...input, width: '100%' }}>
               {EQUIP_SLOT_OPTIONS.map((opt) => (
                 <option key={opt.value || 'none'} value={opt.value}>{opt.label}</option>
               ))}
             </select>
           </div>
-          <div>
+          {(!localMode || draft.type === '무기') && <div>
             <div style={label}>무기 종류</div>
-            <input value={draft?.weaponType || ''} onChange={(e) => setField('weaponType', e.target.value)} style={{ ...input, width: '100%' }} />
-          </div>
-          <div>
+            <input aria-label="무기 종류" value={draft?.weaponType || ''} onChange={(e) => setField('weaponType', e.target.value)} style={{ ...input, width: '100%' }} />
+          </div>}
+          {!localMode && <div>
             <div style={label}>아키타입(archetype)</div>
             <input value={draft?.archetype || ''} onChange={(e) => setField('archetype', e.target.value)} style={{ ...input, width: '100%' }} />
-          </div>
+          </div>}
         </div>}
 
         {(!localMode || ['무기', '방어구'].includes(draft.type)) && <div style={{ marginTop: 12 }}>
@@ -456,7 +466,7 @@ function ItemEditorModalBody({ mode, item, allItems, onClose, onSave, localMode 
             ].map(([k, labelKo]) => (
               <div key={k}>
                 <div style={label}>{labelKo}{localMode ? '' : ` (${k})`}</div>
-                <input type="number" value={draft?.stats?.[k] ?? 0} onChange={(e) => setStat(k, safeJsonParse(e.target.value, e.target.value))} style={{ ...input, width: '100%' }} />
+                <input aria-label={labelKo} type="number" value={draft?.stats?.[k] ?? 0} onChange={(e) => setStat(k, safeJsonParse(e.target.value, e.target.value))} style={{ ...input, width: '100%' }} />
               </div>
             ))}
           </div>
@@ -464,6 +474,8 @@ function ItemEditorModalBody({ mode, item, allItems, onClose, onSave, localMode 
 
         {(['소모품', 'consumable', 'food'].includes(draft.type) || draft.consumeDraft?.enabled) &&
           <ConsumeEffectFields draft={draft.consumeDraft} onChange={value => setField('consumeDraft', value)} />}
+        {(['무기', '방어구'].includes(draft.type) || draft.equipmentDraft?.enabled) &&
+          <EquipmentEffectFields draft={draft.equipmentDraft} onChange={value => setField('equipmentDraft', value)} />}
 
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>

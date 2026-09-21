@@ -6,6 +6,7 @@ import ItemEditorModal from '../../admin/items/_components/ItemEditorModal';
 import { loadGuestSimulationItemCatalog } from '../../simulation/_lib/guestSimulationBootstrap.js';
 import { readGuestItems, saveGuestItem, removeGuestItem } from '../../simulation/_lib/guestItemProfileRuntime.js';
 import { describeConsumeEffect } from '../../../utils/consumeEffectAuthoring.js';
+import { describeEquipmentEffects } from '../../../utils/equipmentEffectAuthoring.js';
 
 export default function LocalItemsPage() {
   const [builtin, setBuiltin] = useState([]);
@@ -56,7 +57,8 @@ export default function LocalItemsPage() {
     <div style={{ display: 'grid', gap: 10 }}>
       {saved.map(item => <article key={item._id} style={{ padding: 14, background: '#132f42', borderRadius: 8 }}>
         <strong>{item.name}</strong> <span>· {item.type}</span>
-        <p>{describeConsumeEffect(item.consumeEffect)}</p>
+        <p>{['무기', 'weapon', '방어구', 'armor'].includes(item.type)
+          ? describeEquipmentEffects(item.equipmentEffects) : describeConsumeEffect(item.consumeEffect)}</p>
         <button style={button} onClick={() => edit(item)}>{item.name} 편집</button>{' '}
         <button style={button} onClick={() => remove(item)}>{builtin.some(row => row._id === item._id) ? '내장 원본으로 복원' : '삭제'}</button>
       </article>)}

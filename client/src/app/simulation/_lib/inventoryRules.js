@@ -14,6 +14,12 @@ import {
   inventoryItemPriority,
 } from './inventoryItemRules.js';
 import { normalizeConsumeEffect } from '../../../utils/consumeEffectContract.js';
+import { normalizeEquipmentEffects } from '../../../utils/equipmentEffectContract.js';
+
+function equipmentEffectStackKey(item) {
+  const result = normalizeEquipmentEffects(item?.equipmentEffects);
+  return JSON.stringify(result.ok ? result.effects : item?.equipmentEffects);
+}
 
 function consumeEffectStackKey(item) {
   const result = normalizeConsumeEffect(item?.consumeEffect);
@@ -91,7 +97,8 @@ export function canReceiveItem(inventory, it, itemId, qty, ruleset) {
   const maxStack = Math.max(1, Number(rules.stackMax?.[category] || 1));
   const idx = list.findIndex((x) => String(x?.itemId || x?.id || '') === key);
   if (idx >= 0) {
-    if (consumeEffectStackKey(list[idx]) !== consumeEffectStackKey(it)) return false;
+    if (consumeEffectStackKey(list[idx]) !== consumeEffectStackKey(it)
+      || equipmentEffectStackKey(list[idx]) !== equipmentEffectStackKey(it)) return false;
     const have = Math.max(0, Number(list[idx]?.qty ?? 1));
     return have < maxStack;
   }
@@ -163,7 +170,7 @@ export function normalizeInventory(inventory, ruleset) {
       continue;
     }
 
-    const stackKey = `${String(entry?.category || inferItemCategory(entry) || 'material')}:${itemId}:${consumeEffectStackKey(entry)}`;
+    const stackKey = `${String(entry?.category || inferItemCategory(entry) || 'material')}:${itemId}:${consumeEffectStackKey(entry)}:${equipmentEffectStackKey(entry)}`;
     const previous = stackedNonEquipmentById.get(stackKey);
     if (!previous) {
       stackedNonEquipmentById.set(stackKey, entry);
@@ -208,6 +215,7 @@ export function normalizeInventory(inventory, ruleset) {
 
   return kept.map(({ _normIndex, ...entry }) => ({ ...entry,
     ...(Object.hasOwn(entry, 'consumeEffect') ? { consumeEffect: structuredClone(entry.consumeEffect) } : {}),
+    ...(Object.hasOwn(entry, 'equipmentEffects') ? { equipmentEffects: structuredClone(entry.equipmentEffects) } : {}),
   }));
 }
 
@@ -269,7 +277,8 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
 
   const i = list.findIndex((x) => String(x?.itemId || x?.id || '') === key);
   if (i >= 0) {
-    if (consumeEffectStackKey(list[i]) !== consumeEffectStackKey(item)) {
+    if (consumeEffectStackKey(list[i]) !== consumeEffectStackKey(item)
+      || equipmentEffectStackKey(list[i]) !== equipmentEffectStackKey(item)) {
       list._lastAdd = { itemId: key, acceptedQty: 0, droppedQty: want, reason: 'effect_mismatch' };
       return list;
     }
@@ -280,6 +289,7 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     const nextTier = clampInventoryTier(item?.tier || list[i]?.tier || 1, category);
     list[i] = { ...list[i], qty: next, category, tier: nextTier,
       ...(Object.hasOwn(list[i], 'consumeEffect') ? { consumeEffect: structuredClone(list[i].consumeEffect) } : {}),
+      ...(Object.hasOwn(list[i], 'equipmentEffects') ? { equipmentEffects: structuredClone(list[i].equipmentEffects) } : {}),
       ...(category === 'equipment' ? { rarity: tierLabelKo(nextTier) } : {}), ...(equipSlot ? { equipSlot } : {}) };
     list._lastAdd = { itemId: key, acceptedQty: accepted, droppedQty: dropped, reason: dropped > 0 ? 'stack_cap' : '' };
     return list;
@@ -343,6 +353,7 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     ...(item?.itemSubType ? { itemSubType: item.itemSubType } : {}),
     ...(item?.stats && typeof item.stats === 'object' ? { stats: { ...item.stats } } : {}),
     ...(item && Object.hasOwn(item, 'consumeEffect') ? { consumeEffect: structuredClone(item.consumeEffect) } : {}),
+    ...(item && Object.hasOwn(item, 'equipmentEffects') ? { equipmentEffects: structuredClone(item.equipmentEffects) } : {}),
     ...(item?.baseCreditValue !== undefined ? { baseCreditValue: item.baseCreditValue } : {}),
     ...(hasGoalInventoryTag(item) ? { goalItem: true } : {}),
     ...(item?.craftComponent ? { craftComponent: true } : {}),

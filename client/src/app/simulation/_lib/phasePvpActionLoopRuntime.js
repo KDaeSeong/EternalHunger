@@ -42,6 +42,7 @@ import { canObserveActor, syncSpatialPositions } from './combatSpatialRuntime.js
 import { reconcileForcedControls } from './forcedControlRuntime.js';
 import { getCombatSpaceId } from '../../../utils/combatSpaceLogic.js';
 import { getWildlifeMasteryEntries } from '../../../utils/masteryLogic.js';
+import { findNextEquipmentEffectAction, reconcileEquipmentEffects } from './equipmentEffectRuntime.js';
 import { runHuntAction } from './phaseHuntActionRuntime.js';
 import {
   collectTimedWildlifeOutcomes,
@@ -174,12 +175,12 @@ function* pvpActionSteps({
   });
 
 
-  const runEncounter = (actor, target, actionType = 'discover', preparedSkill = null) => runPhaseCombatEncounter({
+  const runEncounter = (actor, target, actionType = 'discover', preparedSkill = null, equipmentEffectId = '') => runPhaseCombatEncounter({
     state: { actor, target, assistWindowPhases, battleSettings, canReviveThisMatch, craftables,
       currentActionSec, estimatePower, forbiddenIds, isSoloMatch, itemMetaById, itemNameById,
       newDeadIds, nextDay, phaseIdxNow, phaseSurvivors, publicItems, restrictedRatio,
       reviveCutoffIdx, roundAssists, roundKills, ruleset, shouldAvoidCombatByPower,
-      survivorMap, todaysSurvivors, totalZonesCount, useDetonation, zoneGraph, actionType, preparedSkill },
+      survivorMap, todaysSurvivors, totalZonesCount, useDetonation, zoneGraph, actionType, preparedSkill, equipmentEffectId },
     actions: { addEarnedCredits, addLog, appendPhaseDeadSnapshots, applyErTraitAfterBattle,
       applyErWeaponSkillAfterCombat, atNow, emitDeathRunEventOnce, emitEffectRunEvents, emitRunEvent,
       flushDeadSnapshots, getZoneName, grantPvpDamageMastery, grantPvpKillMastery,
@@ -191,6 +192,7 @@ function* pvpActionSteps({
     resolveRiftKnockbacks(roster, currentActionSec(), castActions);
     reconcileCharacterCasts(roster, currentActionSec(), battleSettings, castActions);
     reconcileForcedControls(roster, currentActionSec(), castActions);
+    reconcileEquipmentEffects([...survivorMap.values()], currentActionSec(), castActions);
   };
   const reconcileWildlife = () => {
     for (const outcome of collectTimedWildlifeOutcomes([...survivorMap.values()])) {
@@ -299,16 +301,26 @@ function* pvpActionSteps({
     try {
       const nextPvpCombat = findNextCombatAction(survivorMap, currentActionSec(), newDeadIds, battleSettings);
       const nextWildlifeCombat = findNextWildlifeAction(survivorMap, currentActionSec(), newDeadIds, battleSettings, ruleset);
-      const nextCombat = nextPvpCombat && (!nextWildlifeCombat || nextPvpCombat.atSec <= nextWildlifeCombat.atSec)
+      const nextOrdinaryCombat = nextPvpCombat && (!nextWildlifeCombat || nextPvpCombat.atSec <= nextWildlifeCombat.atSec)
         ? { ...nextPvpCombat, scheduler: 'pvp' }
         : nextWildlifeCombat ? { ...nextWildlifeCombat, scheduler: 'wildlife' } : null;
+      const nextEquipment = findNextEquipmentEffectAction(survivorMap, currentActionSec());
+      const nextCombat = nextEquipment && (!nextOrdinaryCombat || nextEquipment.atSec <= nextOrdinaryCombat.atSec)
+        ? nextEquipment : nextOrdinaryCombat;
       const scheduled = nextCombat && nextCombat.atSec <= nextDecisionSec;
       const actionAtSec = scheduled ? nextCombat.atSec : nextDecisionSec;
       reserveActionSecond(Math.max(0, roundCombatTime(actionAtSec - currentActionSec())));
       advanceWorld({ survivorMap, newDeadIds, offsetSec: getPhaseRuntimeOffsetSec() });
       reconcileWildlife();
       reconcileCasts();
-      if (shouldEndMatch() || getPhaseRuntimeOffsetSec() >= phaseDurationSec) break;
+      if (shouldEndMatch()) break;
+      // Effects exactly on a phase boundary resolve at that instant, before
+      // returning the roster. Later effects remain in the next phase's queue.
+      if (scheduled && nextCombat.scheduler === 'equipment' && nextCombat.atSec <= currentActionSec()) {
+        runEncounter(survivorMap.get(nextCombat.actorId), survivorMap.get(nextCombat.targetId), 'equipment_effect', null, nextCombat.effectId);
+        continue;
+      }
+      if (getPhaseRuntimeOffsetSec() >= phaseDurationSec) break;
       if (scheduled) {
         if (nextCombat.scheduler === 'wildlife') {
           const result = resolveTimedWildlifeAction(nextCombat, {

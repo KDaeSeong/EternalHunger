@@ -6,6 +6,7 @@
 
 const mongoose = require('mongoose');
 const { normalizeConsumeEffect, consumeEffectErrorText } = require('../utils/consumeEffectContract');
+const { normalizeEquipmentEffects, equipmentEffectErrorText } = require('../utils/equipmentEffectContract');
 
 const ItemSchema = new mongoose.Schema({
   // ✅ 단일 식별자(SSOT용)
@@ -52,6 +53,27 @@ const ItemSchema = new mongoose.Schema({
     validate: {
       validator: value => normalizeConsumeEffect(value).ok,
       message: props => consumeEffectErrorText(normalizeConsumeEffect(props.value)),
+    },
+  },
+
+  equipmentEffects: {
+    type: mongoose.Schema.Types.Mixed,
+    default: undefined,
+    set(value) {
+      const result = normalizeEquipmentEffects(value);
+      return result.ok && value != null ? result.effects : value;
+    },
+    validate: {
+      validator(value) {
+        const result = normalizeEquipmentEffects(value);
+        const type = typeof this.get === 'function' ? this.get('type') : this.type;
+        // Partial query writes constrain the stored type with an atomic route
+        // filter. Documents always have a concrete type (including the default).
+        return result.ok && (!result.effects.length || ['무기', '방어구'].includes(type)
+          || this instanceof mongoose.Query && type === undefined);
+      },
+      message: props => equipmentEffectErrorText(normalizeEquipmentEffects(props.value))
+        || '장비 발동 효과는 무기 또는 방어구에 지정해 주세요.',
     },
   },
 

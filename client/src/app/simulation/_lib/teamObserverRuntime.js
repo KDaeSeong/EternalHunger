@@ -24,6 +24,7 @@ const num = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const decisionKinds = new Set(['move', 'retreat', 'chase', 'team_decision', 'growth_plan', 'queue', 'hunt_start', 'hunt_end', 'dimension_rift_space']);
 const importantKinds = new Set(['death', 'revive', 'elimination', 'team_status', 'team_engagement', 'team_cover', 'chase', 'resource_replan', 'rest', 'hunt_start', 'hunt_end', 'skill_cancel', 'forced_control', 'sleep_break', 'effect', 'dimension_rift_space', 'dimension_rift_defeat', 'dimension_rift_reward_closed', 'spatial_displacement', 'spatial_displacement_pending', 'movement_goal', 'objective']);
 const observerScalarActorKeys = ['who', 'a', 'b', 'by', 'targetId', 'target', 'victimId', 'chaserId', 'sourceActorId', 'opponentId', 'strikerId'];
+importantKinds.add('equipment_effect');
 const observerArrayActorKeys = ['assistIds', 'participants', 'helpers'];
 
 export function observerEventActorIds(event) {
@@ -106,7 +107,7 @@ export function describeObserverReason(event = {}) {
   return text;
 }
 
-const deathReasons = { combat: '교전', character_skill_splash: '스킬 피해', detonation: '폭발 타이머 만료', forbidden: '금지구역 피해', status: '상태 효과', bleed: '출혈', poison: '중독' };
+const deathReasons = { combat: '교전', equipment_effect: '장비 효과', character_skill_splash: '스킬 피해', detonation: '폭발 타이머 만료', forbidden: '금지구역 피해', status: '상태 효과', bleed: '출혈', poison: '중독' };
 export function describeObserverDeath(actor, nameOf) {
   const cause = String(actor?._deathCauseName || actor?.deathCauseName || deathReasons[actor?._deathBy || actor?.deathReason] || '원인 미기록');
   const by = String(actor?._deathKillerId || actor?.deathKillerId || '');
@@ -117,6 +118,14 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
   const who = nameOf(String(event.who || event.a || ''));
   const where = event.zoneId ? ` · ${zoneName(event.zoneId)}` : '';
   switch (event.kind) {
+    case 'equipment_effect': {
+      const source = `${who}: ${event.itemName || '장비'} · 파열`;
+      if (event.stage === 'scheduled') return `${source} 예약 · ${nameOf(String(event.targetId || ''))} 중심 ${num(event.delaySec)}초 뒤${where}`;
+      if (event.stage === 'triggered') return `${source} 발동 · ${nameOf(String(event.targetId || ''))} 중심 반경 ${num(event.radius)}m${where}`;
+      const reason = { source_dead: '시전자 사망 또는 전투 불능', target_dead: '대상 사망 또는 전투 불능', space_changed: '전장 공간 변경',
+        team_changed: '대상 소속 변경', invalid_effect: '지원하지 않는 효과' }[event.reason] || '발동 조건 변경';
+      return `${source} 취소 · ${reason}${where}`;
+    }
     case 'procurement': {
       const receipt = describeProcurementReceipt(event);
       return receipt ? `${who}: ${receipt}${where}` : '';
@@ -295,7 +304,8 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
     if (row.event.kind === 'battle') {
       const health = presentCombatHealth(row.event, nameOf);
       if (health) appendRecent(combat, { ...formatted, ...health, zone: zoneName(row.event.zoneId),
-        attack: row.event.subkind === 'character_skill_splash' ? '광역 스킬' : row.event.subkind === 'character_skill_direct' ? '스킬' : '공격' }, 3);
+        attack: row.event.subkind === 'equipment_effect' ? `${row.event.itemName || '장비'} · 파열`
+          : row.event.subkind === 'character_skill_splash' ? '광역 스킬' : row.event.subkind === 'character_skill_direct' ? '스킬' : '공격' }, 3);
     }
     if (importantKinds.has(row.event.kind)) appendRecent(turningPoints, formatted, 8);
   }

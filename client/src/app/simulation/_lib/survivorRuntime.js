@@ -73,10 +73,16 @@ function ensureEquipped(obj) {
 function normalizeRuntimeInventory(list) {
   return (Array.isArray(list) ? list : [])
     .filter((it) => it && typeof it === 'object')
+    // Missing legacy quantities mean one item. Explicit invalid/empty stock
+    // must never be converted into a free unit during actor normalization.
+    .filter((it) => it.qty === undefined || (typeof it.qty === 'number' || typeof it.qty === 'string' && it.qty.trim())
+      && Number.isSafeInteger(Number(it.qty)) && Number(it.qty) > 0)
     .map((it) => {
       const next = { ...it };
       const qty = Number(next?.qty ?? 1);
-      next.qty = Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 1;
+      next.qty = qty;
+      if (Object.hasOwn(next, 'consumeEffect')) next.consumeEffect = structuredClone(next.consumeEffect);
+      if (Object.hasOwn(next, 'equipmentEffects')) next.equipmentEffects = structuredClone(next.equipmentEffects);
       const itemId = String(next?.itemId || next?.id || next?._id || '').trim();
       if (itemId) next.itemId = itemId;
       if (next?.equipSlot != null) next.equipSlot = String(next.equipSlot || '').toLowerCase();
@@ -142,12 +148,13 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
   const weaponMasteryLevel = Math.max(1, Math.min(20, Number(masteryState?.weaponMasteryLevel || getWeaponMasteryLevel({ ...base, weaponMasteryXp }))));
   const runWeaponType = normalizeWeaponType(base?.runWeaponType);
   const weaponType = runWeaponType || normalizeWeaponType(base?.weaponType);
+  const inventory = normalizeRuntimeInventory(base?.inventory);
 
   return {
     ...base,
     stats: normalizedStats,
-    inventory: normalizeRuntimeInventory(base?.inventory),
-    equipped: ensureEquipped(base),
+    inventory,
+    equipped: ensureEquipped({ ...base, inventory }),
     activeEffects: Array.isArray(base?.activeEffects) ? base.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean) : [],
     cooldowns: {
       portableSafeZone: 0,

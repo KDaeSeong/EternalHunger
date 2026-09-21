@@ -266,6 +266,7 @@ export function buildInitialSimulationRoster({
     delete seededBase._spatialLastSeen;
     delete seededBase._forcedControlState;
     delete seededBase._spatialPatrolIndex;
+    delete seededBase._equipmentEffectState;
     resetDetonationTimer(seededBase, ruleset, { newMatch: true });
     const seeded = applyPerkBundleToActor(applyStartingPassiveHealth(seededBase), initPerkBundle, { initialFill: true, applyCredits: true });
     charsWithHp.push(seeded);

@@ -74,6 +74,8 @@ function compactRunEventsForStorage(runEvents) {
     'chaserId',
     'chaserName',
     'skill',
+    'equipmentEffectId', 'effectId', 'effectKind', 'stage',
+    'delaySec', 'dueAtSec', 'cooldownUntil', 'radius', 'baseDamage',
     'mode',
     'heal', 'satiety', 'remainingQty',
     'damage',
@@ -96,7 +98,8 @@ function compactRunEventsForStorage(runEvents) {
       const out = {};
       for (const key of allowedKeys) {
         if (event[key] === undefined || event[key] === null) continue;
-        if (typeof event[key] === 'object') continue;
+        if (!['string', 'number', 'boolean'].includes(typeof event[key])) continue;
+        if (typeof event[key] === 'number' && !Number.isFinite(event[key])) continue;
         out[key] = typeof event[key] === 'string' ? event[key].slice(0, 180) : event[key];
       }
       if (event.at && typeof event.at === 'object') {
@@ -120,6 +123,13 @@ function compactRunEventsForStorage(runEvents) {
       }
       if (Array.isArray(event.participants)) out.participants = event.participants.slice(0, 100)
         .filter((id) => typeof id === 'string' || typeof id === 'number').map((id) => String(id).slice(0, 180));
+      if (event.equipmentEffectId || event.kind === 'equipment_effect') {
+        for (const key of ['centerPosition', 'targetPosition']) {
+          const point = event[key];
+          if (point && typeof point.zoneId === 'string' && Number.isFinite(point.x) && Number.isFinite(point.y))
+            out[key] = { zoneId: point.zoneId.slice(0, 180), x: point.x, y: point.y };
+        }
+      }
       if (['procurement', 'craft'].includes(event.kind) && event.receiptVersion === 1 && Array.isArray(event.consumed)) {
         out.consumed = event.consumed.slice(0, 32).filter((row) => row && typeof row.itemId === 'string'
           && row.itemId.trim() && Number.isSafeInteger(row.qty) && row.qty > 0)

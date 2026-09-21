@@ -8,8 +8,17 @@ import { engageCombatParticipants } from './combatTimingRuntime.js';
 import { isAiRecoveryLocked } from './survivorLifecycleRuntime';
 import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { hasActionBlockStatus, canMoveByStatus, isTargetableByStatus, getForcedControlEffect } from '../../../utils/statusLogic.js';
+import { resolveEquipmentEffectDamage } from './equipmentEffectDamageRuntime.js';
+import { settleEquipmentNotifications } from './equipmentEffectNotificationRuntime.js';
 
-export function runPhaseCombatEncounter({
+export function runPhaseCombatEncounter(options = {}) {
+  if (options.state?.actionType !== 'equipment_effect') return resolvePhaseCombatEncounter(options);
+  // Include the shared shield/elimination callbacks, not just the blast's own
+  // messages, so a failed observer cannot interrupt multi-target settlement.
+  return settleEquipmentNotifications(options.actions, actions => resolvePhaseCombatEncounter({ ...options, actions }));
+}
+
+function resolvePhaseCombatEncounter({
   actions = {},
   state = {},
 } = {}) {
@@ -44,6 +53,7 @@ export function runPhaseCombatEncounter({
     zoneGraph = {},
     actionType = 'exchange',
     preparedSkill = null,
+    equipmentEffectId = '',
   } = state;
   const {
     addEarnedCredits = () => {},
@@ -63,17 +73,20 @@ export function runPhaseCombatEncounter({
     tryUseConsumable = () => {},
   } = actions;
 
-  if (!actor || !target) return { actor, target, skipRemainingTurn: false };
+  const equipmentAction = actionType === 'equipment_effect';
+  if (!actor || !target && !equipmentAction) return { actor, target, skipRemainingTurn: false };
   actor = survivorMap.get(String(actor._id || '')) || actor;
-  target = survivorMap.get(String(target._id || '')) || target;
-  if (!shareCombatSpace(actor, target) || String(actor.zoneId) !== String(target.zoneId)) return { actor, target, skipRemainingTurn: true };
-  if (Number(actor.hp || 0) <= 0 || Number(target.hp || 0) <= 0 || !isTargetableByStatus(target) || newDeadIds.includes(String(actor._id)) || newDeadIds.includes(String(target._id))) {
+  target = survivorMap.get(String(target?._id || '')) || target;
+  if (!equipmentAction && (!shareCombatSpace(actor, target) || String(actor.zoneId) !== String(target.zoneId))) return { actor, target, skipRemainingTurn: true };
+  if (!equipmentAction && (Number(actor.hp || 0) <= 0 || Number(target.hp || 0) <= 0 || !isTargetableByStatus(target) || newDeadIds.includes(String(actor._id)) || newDeadIds.includes(String(target._id)))) {
     return { actor, target, skipRemainingTurn: true };
   }
 
   const absNow = currentActionSec();
-  tryUseConsumable(actor, 'before_battle');
-  tryUseConsumable(target, 'before_battle');
+  if (!equipmentAction) {
+    tryUseConsumable(actor, 'before_battle');
+    tryUseConsumable(target, 'before_battle');
+  }
   const tacticalRuntime = createPhaseCombatTacticalRuntime({
     state: {
       absNow,
@@ -168,6 +181,10 @@ export function runPhaseCombatEncounter({
     },
   });
   const { applyCombatElimination } = combatEliminationRuntime;
+  if (equipmentAction) return { actor, target, skipRemainingTurn: false, ...resolveEquipmentEffectDamage({
+    actor, effectId: equipmentEffectId, survivorMap, nowSec: absNow, phaseIdxNow,
+    actions: { addLog, emitRunEvent, atNow, shieldBlock, grantPvpDamageMastery, applyCombatElimination },
+  }) };
   const skillSplashRuntime = createPhaseCombatSkillSplashRuntime({
     state: {
       newDeadIds,

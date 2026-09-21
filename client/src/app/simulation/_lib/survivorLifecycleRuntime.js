@@ -229,6 +229,7 @@ function normalizeRevivedSurvivor(actor, revivedHp, zoneId, phaseIdxNow, ruleset
   revived._lastBasicAttackAtSec = null;
   revived._pendingCharacterCast = null;
   revived._armedCharacterSkill = null;
+  if (revived._equipmentEffectState) revived._equipmentEffectState = { ...revived._equipmentEffectState, pending: [] };
   revived.hp = Math.max(1, Math.min(Number(revived.maxHp || revivedHp || 1), Number(revivedHp || 1)));
   revived.zoneId = String(zoneId || revived.zoneId || '');
   revived._spatial = initializeSpatialPosition(revived, { reset: true });
