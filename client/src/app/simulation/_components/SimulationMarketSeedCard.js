@@ -26,6 +26,13 @@ export default function SimulationMarketSeedCard({
     setRunSeed(nextSeed);
   }
 
+  if (locked) return (
+    <details className="simulation-seed-summary">
+      <summary><span>🎲 경기 시드</span><strong>{runSeed}</strong><small>조건 안내</small></summary>
+      <p>현재 경기는 시작 조건이 고정되어 있습니다. 같은 경기를 재현하려면 시드뿐 아니라 시작 편성·장비·지도·규칙도 같아야 합니다. 시드만으로 이전 편성을 복원하지는 않습니다.</p>
+    </details>
+  );
+
   return (
     <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
       <div className="market-title">🎲 경기 시드</div>

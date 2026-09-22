@@ -2144,6 +2144,22 @@
   margin-bottom: 6px;
 }
 
+.simulation-seed-summary {
+  margin: 8px 0;
+  border: 1px solid #496278;
+  border-radius: 8px;
+  background: #10202e;
+  color: #d9e9f5;
+  font-size: 12px;
+}
+.simulation-seed-summary summary { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; }
+.simulation-seed-summary summary > span, .simulation-seed-summary summary > small { flex-shrink: 0; }
+.simulation-seed-summary summary > strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.simulation-seed-summary summary::after { content: '▸'; }
+.simulation-seed-summary[open] summary::after { content: '▾'; }
+.simulation-seed-summary summary:focus-visible { outline: 2px solid #ffda75; outline-offset: 2px; }
+.simulation-seed-summary p { margin: 0; padding: 0 12px 10px; color: #b8cdda; line-height: 1.5; }
+
 .market-small {
   font-size: 0.86rem;
   color: #666;

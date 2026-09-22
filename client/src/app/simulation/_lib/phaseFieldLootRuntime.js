@@ -57,7 +57,7 @@ export function runFieldLootPhase({
   const updated = actor || {};
   const fieldResources = state.nextSpawn?.fieldResources;
   const growth = updated._growthPlan;
-  const growing = growth && !growth.openingComplete;
+  const growing = !!growth?.targetId;
   let nextPendingPickAssigned = !!pendingPickAssigned;
   const loot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, {
     fieldResources,

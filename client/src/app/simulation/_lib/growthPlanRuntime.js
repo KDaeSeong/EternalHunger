@@ -2,6 +2,7 @@ import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 import { getInvItemId, inferEquipSlot, invQty } from './inventoryRules';
 import { getFieldItemSourceZones, getFieldResourceQty } from './fieldResourceRuntime';
 import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
+import { getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
 
 const catalogCache = new WeakMap();
 function indexCatalog(items) {
@@ -21,8 +22,9 @@ export function getActorGrowthProgress(actor, items = []) {
   const byId = indexCatalog(items);
   const targets = [...new Set(actor.routePlanTargetItemIds || [])].map((id) => byId.get(String(id))).filter(Boolean);
   const inventory = actor.inventory || [];
-  const fulfilled = (target) => inventory.some((entry) => getInvItemId(entry) === String(target._id)
-    || (!entry.craftComponent && inferEquipSlot(entry) === inferEquipSlot(target) && Number(entry.tier || 0) > Number(target.tier)));
+  const fulfilled = (target) => inventory.some((entry) => invQty(inventory, getInvItemId(entry)) > 0
+    && (getInvItemId(entry) === String(target._id)
+      || (!entry.craftComponent && inferEquipSlot(entry) === inferEquipSlot(target) && Number(entry.tier || 0) > Number(target.tier))));
   const remaining = targets.filter((target) => !fulfilled(target));
   return { targets, remaining, completedSlots: targets.length - remaining.length, totalSlots: targets.length };
 }
@@ -87,17 +89,24 @@ export function getGrowthRecipeWork(actor, items, targetId) {
 export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new Set(), zoneGraph = {}, attemptedTargets = [], nextSpawn, fieldResources = nextSpawn?.fieldResources } = {}) {
   if (!actor || !Array.isArray(items) || !items.length) return null;
   const byId = indexCatalog(items);
-  const { targets, remaining } = getActorGrowthProgress(actor, items);
-  if (!targets.length) return null;
+  const progress = getActorGrowthProgress(actor, items);
+  const openingComplete = progress.remaining.length === 0;
+  const late = openingComplete ? getLateGrowthTargets(actor, items) : { targets: [], issues: [] };
+  const targets = openingComplete ? late.targets : progress.targets;
+  const remaining = openingComplete ? late.targets : progress.remaining;
+  if (!progress.targets.length && !targets.length && !late.issues.length) return null;
   const target = remaining.find((item) => item._id === actor._growthFocusId) || remaining[0];
-  const base = { targetIds: targets.map((item) => item._id), completedSlots: targets.length - remaining.length,
-    totalSlots: targets.length, openingComplete: remaining.length === 0, targetId: target?._id || '',
+  const base = { targetIds: openingComplete ? (target ? [target._id] : []) : targets.map((item) => item._id), completedSlots: progress.completedSlots,
+    totalSlots: progress.totalSlots, openingComplete, stage: openingComplete ? 'late' : 'opening',
+    goalIssues: late.issues, targetId: target?._id || '', targetKey: target?.itemKey || target?.externalId || '',
+    targetSlot: target ? inferEquipSlot(target) : '',
     targetName: target?.name || '', craftIds: [], missing: [], reservedQtyById: {}, componentIds: [],
     readyCraftId: '', currentZoneItemIds: [], targetZoneId: '', nextStep: '', blocked: '' };
-  if (!target) return base;
+  if (!target) return { ...base, blocked: late.issues.length ? 'invalid_target' : '' };
   Object.assign(base, getGrowthRecipeWork(actor, items, target._id));
   base.missing = base.missing.map((row) => ({ ...row, zones: getGrowthItemZones(byId.get(row.itemId), mapObj, forbiddenIds, fieldResources) }));
-  if (!base.blocked && base.missing.some((row) => !row.zones.length)) base.blocked = 'no_material_source';
+  if (!base.blocked && base.missing.length && (openingComplete
+    ? base.missing.every((row) => !row.zones.length) : base.missing.some((row) => !row.zones.length))) base.blocked = 'no_material_source';
   if (base.blocked) {
     const attempted = [...attemptedTargets, target._id];
     const alternative = remaining.find((row) => !attempted.includes(row._id));
@@ -147,16 +156,26 @@ export function refreshActorGrowthPlan(actor, items, options) {
   if (!plan) return null;
   actor._growthFocusId = plan.targetId;
   const components = new Set(plan.componentIds);
+  const worn = new Set(Object.values(actor.equipped || {}).filter(Boolean).map(String));
   // The old route goal marker must not permanently protect already-obsolete
   // ingredients. Only this planner's markers and generated route tags change.
   actor.inventory = (actor.inventory || []).map((entry) => {
     const needed = components.has(getInvItemId(entry));
     const tags = (entry.tags || []).filter((tag) => !['route_goal', 'growth_goal'].includes(tag));
-    return { ...entry, craftComponent: needed && !!inferEquipSlot(entry),
+    return { ...entry, craftComponent: needed && !!inferEquipSlot(entry) && !worn.has(getInvItemId(entry)),
       goalItem: needed || (!!entry.goalItem && !entry._growthReserved && !(entry.tags || []).includes('route_goal')),
       _growthReserved: needed, tags: needed ? [...tags, 'growth_goal'] : tags };
   });
   return plan;
+}
+
+export function getActorGrowthCraftGoal(actor, items = []) {
+  const plan = actor?._growthPlan;
+  const target = plan?.targetId && items.find((item) => String(item._id) === String(plan.targetId));
+  // Growth displays the outstanding quantity. Procurement's existing contract
+  // subtracts `have` from the total `need`; adapt without mutating the plan.
+  return target ? { target, tier: Number(target.tier),
+    missing: plan.missing.map(row => ({ ...row, need: row.need + row.have })) } : null;
 }
 
 export function markGrowthComponent(item, actor) {

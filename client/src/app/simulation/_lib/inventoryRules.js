@@ -373,9 +373,15 @@ export function invQty(inventory, itemId) {
   const id = String(itemId || '');
   if (!id) return 0;
   return (Array.isArray(inventory) ? inventory : []).reduce(
-    (sum, x) => (String(x?.itemId || x?.id || '') === id ? sum + Math.max(0, Number(x?.qty || 1)) : sum),
+    (sum, x) => (getInvItemId(x) === id ? sum + ownedItemQuantity(x) : sum),
     0
   );
+}
+
+function ownedItemQuantity(entry) {
+  const raw = entry?.qty === undefined ? 1 : entry.qty;
+  const qty = typeof raw === 'number' || (typeof raw === 'string' && raw.trim()) ? Number(raw) : NaN;
+  return Number.isSafeInteger(qty) && qty > 0 ? qty : 0;
 }
 
 export function consumeIngredientsFromInv(inventory, ingredients) {
@@ -387,8 +393,8 @@ export function consumeIngredientsFromInv(inventory, ingredients) {
     if (!id || remaining <= 0) continue;
 
     for (let i = 0; i < list.length && remaining > 0; i++) {
-      if (String(list[i]?.itemId || list[i]?.id || '') !== id) continue;
-      const have = Math.max(0, Number(list[i]?.qty || 1));
+      if (getInvItemId(list[i]) !== id) continue;
+      const have = ownedItemQuantity(list[i]);
       const take = Math.min(have, remaining);
       const next = have - take;
       remaining -= take;

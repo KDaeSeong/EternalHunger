@@ -102,15 +102,10 @@ export function normalizeGoalTier() {
 
 export function pickGoalLoadoutBySlot(actor) {
   const g = actor?.goalLoadouts && typeof actor.goalLoadouts === 'object' ? actor.goalLoadouts : {};
-  const b = g.transcend || null;
-  if (!b || typeof b !== 'object') return { weapon: '', head: '', clothes: '', arm: '', shoes: '' };
-  return {
-    weapon: String(b.weaponKey || '').trim(),
-    head: String(b.headKey || '').trim(),
-    clothes: String(b.clothesKey || '').trim(),
-    arm: String(b.armKey || '').trim(),
-    shoes: String(b.shoesKey || '').trim(),
-  };
+  const plan = actor?._growthPlan;
+  return Object.fromEntries(['weapon', 'head', 'clothes', 'arm', 'shoes'].map((slot) => [slot,
+    String((plan?.targetSlot === slot && plan.targetKey)
+      || g.transcend?.[`${slot}Key`] || g.legend?.[`${slot}Key`] || '').trim()]));
 }
 
 export function pickGoalLoadoutKeys(actor) {
@@ -279,7 +274,7 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
 
   const candidates = (Array.isArray(craftables) ? craftables : [])
     .filter((it) => getCraftRecipeTerms(it)?.ingredients.some((ing) => ing.itemId === lootId))
-    .filter((it) => !opts.growthPlan || opts.growthPlan.openingComplete || opts.growthPlan.craftIds.includes(String(it._id)))
+    .filter((it) => !opts.growthPlan?.targetId || opts.growthPlan.craftIds.includes(String(it._id)))
     .filter((it) => {
       const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
       const weapon = normalizeWeaponType(String(it?.weaponType || ''));

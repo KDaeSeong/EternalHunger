@@ -134,7 +134,10 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
         uiNoise();
         if (frames % 17 === 0) {
           const before = refs.runRandomRef.current.getState();
-          buildTeamObserverModel({ ...frame, events, teamId: `team:${(frames % 8) + 1}`, publicItems: items });
+          // Match the product's explicit rules/forbidden-zone inputs so observer
+          // noise cannot fall back to unrelated browser-stored rules.
+          buildTeamObserverModel({ ...frame, events, teamId: `team:${(frames % 8) + 1}`, publicItems: items,
+            settings, forbiddenIds: frame.forbiddenZoneIds });
           assert.deepEqual(refs.runRandomRef.current.getState(), before);
           observerReads += 1;
         }

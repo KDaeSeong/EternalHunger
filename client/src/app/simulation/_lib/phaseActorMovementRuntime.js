@@ -24,7 +24,7 @@ import {
 import { getLumiaWalkEtaSec } from './lumiaMapGeometryRuntime';
 import { assessTeamCombat, pickTeamSafeZone } from './teamTacticsRuntime';
 import { getActorTeamId } from './teamRuntime';
-import { refreshActorGrowthPlan } from './growthPlanRuntime';
+import { refreshActorGrowthPlan, getActorGrowthCraftGoal } from './growthPlanRuntime';
 import { pickEndgameMove } from './suddenDeathRuntime';
 import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
@@ -126,7 +126,7 @@ export function runActorMovementDecisionPhase({
   }
 
   const mustEscape = forbiddenIds.has(currentZone);
-  const preGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
+  const preGoal = getActorGrowthCraftGoal(updated, state.publicItems) || buildCraftGoal(updated.inventory, craftables, itemNameById, {
     goalTier: updated?.goalGearTier,
     goalItemKeys: pickGoalLoadoutKeys(updated),
     perkEffects: getActorPerkEffects(updated),
@@ -230,11 +230,11 @@ export function runActorMovementDecisionPhase({
   let moveObjectiveSubkind = targetMemory.moveObjectiveSubkind;
   let moveContestPressure = targetMemory.moveContestPressure;
   let movementObjective = targetMemory.moveObjective || null;
-  if (!mustEscape && !recovering && !fleeInterruptReason && growthPlan && !growthPlan.blocked && !activeTeamPlan
+  if (!mustEscape && !recovering && !fleeInterruptReason && growthPlan?.targetId && !growthPlan.blocked && !activeTeamPlan
     && !(growthPlan.openingComplete && moveObjectiveType === 'dimension_rift')) {
     updated = clearActorMoveTargetMemory(updated);
     moveTargets = [growthPlan.nextStep || currentZone];
-    moveReason = growthPlan.openingComplete ? 'growth_ready' : growthPlan.readyCraftId ? 'growth_craft' : growthPlan.blocked ? 'growth_blocked' : 'growth_farm';
+    moveReason = growthPlan.readyCraftId ? 'growth_craft' : 'growth_farm';
     moveObjectiveType = '';
     moveObjectiveSubkind = '';
     moveContestPressure = 0;

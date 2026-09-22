@@ -75,6 +75,16 @@ check('replay and started games disable every seed edit control', () => {
   assert.match(seedCardSource, /replayMode = false/);
 });
 
+check('locked games show a compact expandable seed summary, not an inactive editing form', () => {
+  const compact = seedCardSource.match(/if \(locked\) return \(([\s\S]*?)\n  \);/)?.[1] || '';
+  assert.match(compact, /<details className="simulation-seed-summary"/);
+  assert.match(compact, /<summary>/);
+  assert.match(compact, /\{runSeed\}/);
+  assert.match(compact, /시드만으로 이전 편성을 복원하지는 않습니다/);
+  assert.doesNotMatch(compact, /<input|<button|open=|onClick|setRunSeed|setSeedDraft/);
+  assert.ok(seedCardSource.indexOf('if (locked) return') < seedCardSource.indexOf('className="market-card"'));
+});
+
 check('the seed card is rendered in the ordinary game screen rather than the developer panel', () => {
   assert.match(gameScreenSource, /import SimulationMarketSeedCard from '\.\/SimulationMarketSeedCard';/);
   assert.match(gameScreenSource, /<SimulationMarketSeedCard[\s\S]*?replayMode=\{replayMode\}[\s\S]*?setSeedDraft=\{setSeedDraft\}/);

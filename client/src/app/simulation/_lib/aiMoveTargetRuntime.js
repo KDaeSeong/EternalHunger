@@ -50,6 +50,12 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
       objectiveType: 'dimension_rift', objectiveSubkind: 'aglaia', contestPressure: 0.45 };
   }
 
+  const growth = actor?._growthPlan;
+  if (growth?.stage === 'late' && growth.targetId && !growth.blocked && growth.nextStep
+    && !forbiddenIds.has(String(growth.nextStep))) {
+    return { targets: [growth.nextStep], reason: growth.readyCraftId ? 'growth_craft' : 'growth_farm' };
+  }
+
   const simCredits = Math.max(0, Number(actor?.simCredits || 0));
   const kioskZones = listKioskZoneIdsForMap(mapObj, kiosks, forbiddenIds);
 
@@ -78,6 +84,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   const needLife = needKeys.has('life_tree');
   const needMithril = needKeys.has('mithril');
   const needForce = needKeys.has('force_core');
+  const hasNamedRareNeed = needKeys.size > 0;
   const hasMeteorInv = actorHasSpecialKind(actor, 'meteor', itemMetaById, itemNameById);
   const hasLifeInv = actorHasSpecialKind(actor, 'life_tree', itemMetaById, itemNameById);
   const pickWildlifeTargets = () => {
@@ -144,6 +151,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   const activeCoreZones = uniqStrings(
     coreNodes
       .filter((n) => n && !n.picked && n.zoneId)
+      .filter((n) => !hasNamedRareNeed || (needMeteor && n.kind === 'meteor') || (needLife && n.kind === 'life_tree'))
       .map((n) => String(n.zoneId))
       .filter((zid) => zid && !forbiddenIds.has(String(zid)))
   );
@@ -206,7 +214,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
     }
   }
 
-  if (wantLegendAny && !hasLegendMatAny) {
+  if (wantLegendAny && !hasLegendMatAny && !hasNamedRareNeed) {
     const crateTargetsAny = uniqStrings(
       crates
         .filter((c) => c && !c.opened && c.zoneId)

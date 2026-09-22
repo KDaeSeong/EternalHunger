@@ -76,7 +76,7 @@ export function prepareActorPhaseActionQueue({
   const goalMissingSet = normalizeGoalMissingIds(goalMissingIds);
   const routeDroneNeedIds = buildRouteDroneNeedIds(updated, routePlanMissingIdsNow);
   const growth = updated._growthPlan;
-  const growing = growth && !growth.openingComplete;
+  const growing = !!growth?.targetId;
   if (growing) for (const row of growth.missing) if (!row.zones.length) routeDroneNeedIds.add(row.itemId);
   const hasRouteDroneNeed = routeDroneNeedIds.size > 0;
   const deferProcureForRoute = growing

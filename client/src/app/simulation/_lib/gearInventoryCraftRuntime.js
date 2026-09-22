@@ -40,7 +40,7 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
   const goalBySlot = pickGoalLoadoutBySlot(actor);
   const goalKeys = new Set(Object.values(goalBySlot).map((value) => String(value || '').trim()).filter(Boolean));
   const keyOfId = (id) => String(itemKeyById?.[String(id || '')] || '').trim();
-  const growthIds = actor._growthPlan && !actor._growthPlan.openingComplete ? new Set(actor._growthPlan.craftIds) : null;
+  const growthIds = actor._growthPlan?.targetId ? new Set(actor._growthPlan.craftIds) : null;
 
   const candidates = (Array.isArray(craftables) ? craftables : [])
     .filter((item) => !growthIds || growthIds.has(String(item._id)))

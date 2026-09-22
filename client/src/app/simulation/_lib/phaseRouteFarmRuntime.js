@@ -73,7 +73,7 @@ export function runRouteFarmAction({
     if (growth) {
       routeItemIds = growth.currentZoneItemIds;
       routeGoalIdsForSearch = growth.missing.map((row) => row.itemId);
-      if (growth.openingComplete || growth.readyCraftId || !routeItemIds.length) break;
+      if (!growth.targetId || growth.readyCraftId || !routeItemIds.length) break;
     }
     const routeLoot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, {
       fieldResources,

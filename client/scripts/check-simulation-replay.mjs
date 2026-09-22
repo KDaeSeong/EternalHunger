@@ -516,6 +516,7 @@ await check('actual replay completion captures all events before returning and n
     assert.equal(externalAccess, 0, externalReads.join('\n'));
     completed.summary = { ending: first.evidence.ending };
     const second = await runRandomIsolationMatch(null, { savedInput: cloneReplayData(input), noisy: true });
+    assert.equal(externalAccess, 0, `Replay observer must also use the saved input only.\n${externalReads.join('\n')}`);
     const actual = { events: second.events, finalFrame: second.finalFrame, random: second.evidence.random,
       summary: { ending: second.evidence.ending } };
     const comparison = compareSimulationReplay(cloneReplayData(completed), cloneReplayData(actual));

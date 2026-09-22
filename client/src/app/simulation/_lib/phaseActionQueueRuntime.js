@@ -5,7 +5,7 @@ import {
 } from './simulationEngine';
 import { prepareActorPhaseActionQueue } from './phaseActionQueueDecisionRuntime';
 import { advanceActorRouteProgressForGoal } from './phaseRouteProgressRuntime';
-import { refreshActorGrowthPlan } from './growthPlanRuntime';
+import { refreshActorGrowthPlan, getActorGrowthCraftGoal } from './growthPlanRuntime';
 
 export { prepareActorPhaseActionQueue } from './phaseActionQueueDecisionRuntime';
 
@@ -52,9 +52,7 @@ export function prepareActorPhaseActionPlan({
 
   const updated = actor || {};
   const growthPlan = refreshActorGrowthPlan(updated, publicItems, state);
-  const craftGoal = growthPlan && !growthPlan.openingComplete ? {
-    target: publicItems.find((item) => String(item._id) === growthPlan.targetId), missing: growthPlan.missing,
-  } : buildCraftGoal(updated.inventory, craftables, itemNameById, {
+  const craftGoal = getActorGrowthCraftGoal(updated, publicItems) || buildCraftGoal(updated.inventory, craftables, itemNameById, {
     goalTier: updated?.goalGearTier,
     goalItemKeys: pickGoalLoadoutKeys(updated),
     perkEffects: getActorPerkEffects(updated),
@@ -83,7 +81,7 @@ export function prepareActorPhaseActionPlan({
   const fallbackRouteItemIds = growthPlan ? currentRouteItemIds : currentRouteItemIds.length
     ? currentRouteItemIds
     : [...goalMissingIds].filter(Boolean);
-  const currentRouteNeedsSearch = earlyRouteActionActive &&
+  const currentRouteNeedsSearch = (earlyRouteActionActive || !!growthPlan?.targetId) &&
     fallbackRouteItemIds.length > 0 &&
     fallbackRouteItemIds.some((id) => goalMissingIds.has(id));
   const actionQueue = prepareActorPhaseActionQueue({

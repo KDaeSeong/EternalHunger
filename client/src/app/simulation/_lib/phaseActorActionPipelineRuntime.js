@@ -5,7 +5,7 @@ import { buildTeamCoordination } from './teamTacticsRuntime';
 import { publishTeamRegroupDecision } from './teamRegroupRuntime';
 import { estimateMovePower } from './movePowerRuntime';
 import { hasActionBlockStatus, getForcedControlEffect } from '../../../utils/statusLogic';
-import { refreshActorGrowthPlan } from './growthPlanRuntime';
+import { refreshActorGrowthPlan, getActorGrowthCraftGoal } from './growthPlanRuntime';
 import { getCombatIntentOpponents } from './combatTimingRuntime.js';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import { getCombatSpaceId } from '../../../utils/combatSpaceLogic.js';
@@ -66,7 +66,7 @@ export function runPhaseActorActionPipeline({
     estimatePower: (actor) => estimateMovePower(actor, state.movePowerContext),
     chooseLeaderMove: (actor) => chooseAiMoveTargets({
       actor,
-      craftGoal: buildCraftGoal(actor.inventory, state.craftables, itemNameById, {
+      craftGoal: getActorGrowthCraftGoal(actor, publicItems) || buildCraftGoal(actor.inventory, state.craftables, itemNameById, {
         goalTier: actor.goalGearTier, goalItemKeys: pickGoalLoadoutKeys(actor), perkEffects: getActorPerkEffects(actor),
       }),
       upgradeNeed: computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, nextDay, nextPhase, ruleset),
