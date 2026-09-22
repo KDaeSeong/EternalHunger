@@ -25,8 +25,10 @@
 | 인접 회귀 | 사냥 정산 19/19·전투 시간축 26/26·전장 경계 25/25·팀 전투 11/11. 위 집중 검사와 합계 160개 통과. 로그 `artifacts/wildlife-ultimate-regression-20260922.log` |
 | 24인 경기·동일 입력 재경기 | 시드 `casting-integration-1`, 7,437사건·6,758프레임, 21:14.67 적 팀 교전으로 7팀 승리. R 시전 89회 전부 교전 의도/프레임 확인, 사냥 시전 25회 전부 R 아님. 공격/보호막 R의 실제 발동 확인. 사냥 중 자신/아군 대상으로 R을 사용하는 우회도 0회. 화면 배속/관전 조건을 달리한 저장 입력 재경기의 모든 사건·최종 상태·종료·난수·프레임 일치, API 0회. 로그 `artifacts/wildlife-ultimate-match-20260922.log` |
 | 정적 검사·빌드 | 변경 런타임/두 검사 파일 ESLint 종료 0. 프로덕션 빌드 61/61 페이지, 종료 0. 로그 `artifacts/wildlife-ultimate-build-20260922.log` |
-| 배포·제품 화면 | 이 기록 작성 시점에는 커밋·배포 전이다. 자동 실행기 결과를 공개 제품 확인 또는 사람의 관전 평가로 대체하지 않는다. |
+| 배포·제품 화면 | `23f6da6e` main 푸시·Vercel success, 익명 공개 `/eternalhunger`의 GAME READY/24명·8팀·스킬 켬 표시와 콘솔 오류 0을 확인했다. 이 공개 확인은 시작 화면 접속 검사이며 브라우저 전체 경기나 사람의 관전 평가가 아니다. |
 
 관련 파일: `characterCastRuntime.js`, `check-wildlife-combat.mjs`, `check-character-casting-match.mjs`. 전체 목표의 다른 미완료 항목과 사람의 수용성 평가는 그대로 남는다.
 
 24인 검사는 Q/W와 공격/지원 R을 명시한 시험 입력이다. 기본 게스트 경기만으로 R 경로를 검증했다고 하지 않는다. 사건 해시 `a4fdb9dd41fb166e1261ab1242dfacd05ccb90072dccf82ab67e623ec098a839`, 프레임 해시 `0c845c8dbe71e4483a7a58cf9404c6d5be50a8c83da5637c7b1dbb5cfa10fd76`.
+
+공개 배포: https://vercel.com/kurokosis-projects/eternal-hunger/8Fa3TMXy73CkpuKPby7g2QicZp1A . 이미 열려 있는 경기의 실행 코드를 도중에 바꾸지 않는다. 진행 중 경기를 마친 뒤 새로고침하고 시작하는 새 경기에 적용된다. 로컬 3107도 최신 프로덕션 빌드로 다시 시작하여 GAME READY와 오류 0을 확인했다. 기존 편성/장비/보관 기록을 삭제하지 않았다.
