@@ -72,7 +72,7 @@
     "check:field-resources": "node ./scripts/check-field-resources.mjs && npm run check:procurement",
     "check:procurement": "node ./scripts/check-procurement-transactions.mjs",
     "check:team-tactics": "node ./scripts/check-team-tactics.mjs && npm run check:combat-decision-evidence && npm run check:team-regroup",
-    "check:team-regroup": "node ./scripts/check-team-regroup.mjs",
+    "check:team-regroup": "node ./scripts/check-team-regroup.mjs && node ./scripts/check-team-regroup-lumia.mjs && node ./scripts/check-team-isolation-tracker.mjs",
     "check:team-regroup-match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-team-regroup-match.mjs",
     "check:combat-decision-evidence": "node ./scripts/check-combat-decision-evidence.mjs",
     "check:combat-decision-match": "node ./scripts/check-combat-decision-match.mjs",

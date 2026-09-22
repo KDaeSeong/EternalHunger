@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
 const { buildTeamObserverModel } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
 const { describeTeamRegroupDecision } = await import('../src/app/simulation/_lib/teamRegroupRuntime.js');
-const { getCombatSpaceId } = await import('../src/utils/combatSpaceLogic.js');
+const { createTeamIsolationTracker } = await import('./lib/team-isolation-tracker.mjs');
 const { buildBaseZoneGraph, buildHyperloopZoneGraph } = await import('../src/app/simulation/_lib/mapGraphRuntime.js');
 const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
 
@@ -12,7 +12,9 @@ for (const seed of seeds) {
   const input = await createRandomIsolationInput(seed), fixture = JSON.parse(input);
   const graph = buildHyperloopZoneGraph(buildBaseZoneGraph(fixture.map, fixture.map.zones), fixture.map.zones,
     fixture.map.zones.filter((zone) => zone.hasHyperloop).map((zone) => zone.zoneId));
-  const checkedStatuses = new Set(), isolation = new Map(), isolatedPeriods = [];
+  const checkedStatuses = new Set();
+  const isolation = createTeamIsolationTracker({ items: fixture.items, zones: fixture.map.zones });
+  const equipmentProgress = new Map();
   let inspected = 0, modelChecks = 0;
   const result = await runRandomIsolationMatch(input, { onFrame(frame, { publicItems, events }) {
     for (; inspected < events.length; inspected += 1) {
@@ -24,18 +26,13 @@ for (const seed of seeds) {
       if (member?.coordination?.sec !== event.at.sec || member.coordination.text !== describeTeamRegroupDecision(evidence)) continue;
       checkedStatuses.add(evidence.status); modelChecks += 1;
     }
-    const living = frame.survivors.filter((actor) => actor.hp > 0 && getCombatSpaceId(actor) === 'world');
-    const active = new Set();
-    for (const actor of living) {
-      const allies = living.filter((row) => row.teamId === actor.teamId && row._id !== actor._id);
-      if (!allies.length || allies.some((row) => row.zoneId === actor.zoneId)) continue;
-      active.add(actor._id);
-      if (!isolation.has(actor._id)) isolation.set(actor._id, { who: actor._id, start: frame.matchSec, reasons: new Set() });
-      isolation.get(actor._id).reasons.add(actor._teamRegroup?.status || 'no_current_regroup_record');
-    }
-    for (const [id, period] of isolation) if (!active.has(id)) {
-      isolatedPeriods.push({ who: id, start: period.start, duration: Number((frame.matchSec - period.start).toFixed(2)), reasons: [...period.reasons] });
-      isolation.delete(id);
+    isolation.observe(frame);
+    for (const actor of [...frame.survivors, ...frame.dead]) {
+      const current = isolation.describe(actor), previous = equipmentProgress.get(String(actor._id));
+      equipmentProgress.set(String(actor._id), { who: String(actor._id), name: actor.name,
+        bestCompleted: Math.max(previous?.bestCompleted || 0, current.completed), total: current.total,
+        firstCompleteSec: previous?.firstCompleteSec ?? (current.total > 0 && current.completed === current.total ? frame.matchSec : null),
+        last: current });
     }
   } });
   assert.equal(result.events.at(-1).kind, 'match_end');
@@ -53,9 +50,15 @@ for (const seed of seeds) {
     counts[e.status] = (counts[e.status] || 0) + 1;
   }
   assert.ok(counts.arrived > 0, 'This fixture must exercise actual arrival, not only intentions.');
+  const periods = isolation.report();
+  const isolationEndCounts = {};
+  for (const period of [...periods.finished, ...periods.unfinished]) {
+    isolationEndCounts[period.endReason] = (isolationEndCounts[period.endReason] || 0) + 1;
+  }
   console.log(JSON.stringify({ pass: true, seed, engineVersion: SIMULATION_ENGINE_VERSION,
     decisions: decisions.length, modelChecks, counts,
-    longestCompletedIsolationPeriods: isolatedPeriods.sort((a, b) => b.duration - a.duration).slice(0, 3),
+    isolationEndCounts, longestEndedIsolationPeriods: periods.finished.sort((a, b) => b.duration - a.duration).slice(0, 3),
+    unfinishedIsolationPeriods: periods.unfinished, equipmentProgress: [...equipmentProgress.values()],
     evidence: result.evidence,
     scope: 'actual fixture matches, graph steps and observer-model evidence; isolation durations are diagnostics, not original Marcus reproduction or human/balance acceptance' }));
 }
