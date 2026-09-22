@@ -13,17 +13,44 @@ fixture.survivors.forEach((actor, index) => {
     w: { enabled: true, type: index % 2 === 0 ? 'heal_skill' : 'shield_skill', name: `지원 W ${index}`,
       heal: index % 2 === 0 ? [30] : [0], shield: index % 2 ? [20] : [0], supportTargetScope: 'auto',
       cooldownSec: 12, castDelaySec: 0.5, recoveryDelaySec: 0.25, durationSec: 2.5 },
+    r: { enabled: true, type: index % 3 === 0 ? 'shield_skill' : 'attack_skill', name: `교전 전용 R ${index}`,
+      flatDamage: index % 3 === 0 ? [0] : [55], shield: index % 3 === 0 ? [45] : [0],
+      range: 6, supportTargetScope: 'auto', cooldownSec: 45, castDelaySec: 0.75, recoveryDelaySec: 0.25, durationSec: 4 },
   };
 });
 const input = createSimulationRunInput({ ...fixture, activeMap: fixture.map, publicItems: fixture.items });
 let apiCalls = 0; const originalFetch = globalThis.fetch;
 globalThis.fetch = () => { apiCalls++; throw new Error('Casting match cannot require an account API.'); };
 try {
-  const first = await runRandomIsolationMatch(null, { savedInput: cloneReplayData(input) });
+  const ultimateCastFrames = new Set();
+  const first = await runRandomIsolationMatch(null, { savedInput: cloneReplayData(input), onFrame: (frame) => {
+    for (const actor of frame.survivors || []) {
+      const cast = actor._pendingCharacterCast;
+      if (cast?.def?.slot !== 'r') continue;
+      assert.ok(actor._combatIntent, 'Every pending R must belong to enemy-team combat, including support R.');
+      assert.ok(!actor._wildlifeHunt, 'No ordinary, mutant or boss hunt may start R.');
+      assert.ok(!String(cast.targetId).startsWith('wildlife:'));
+      ultimateCastFrames.add(cast.castId);
+    }
+  } });
   const casts = first.events.filter((event) => event.kind === 'skill_cast');
   const cancels = first.events.filter((event) => event.kind === 'skill_cancel');
   const releases = first.events.filter((event) => event.kind === 'skill' && event.castId);
   const armed = first.events.filter((event) => event.kind === 'skill_armed');
+  const ultimateCasts = casts.filter((event) => event.slot === 'r');
+  const huntingCasts = casts.filter((event) => String(event.targetId).startsWith('wildlife:'));
+  assert.ok(ultimateCasts.length > 0 && huntingCasts.length > 0, 'Exercise both real hunting casts and real PvP ultimates.');
+  assert.ok(ultimateCastFrames.size > 0);
+  assert.ok(huntingCasts.every((event) => event.slot !== 'r'));
+  assert.ok(releases.some((event) => event.slot === 'r' && event.damage > 0));
+  assert.ok(releases.some((event) => event.slot === 'r' && event.shield > 0));
+  const activeHunts = new Map();
+  for (const event of first.events) {
+    if (event.kind === 'hunt_start') activeHunts.set(event.who, event.encounterId);
+    if (event.kind === 'hunt_end' && activeHunts.get(event.who) === event.encounterId) activeHunts.delete(event.who);
+    if (event.kind === 'skill_cast' && event.slot === 'r') assert.equal(activeHunts.has(event.who), false,
+      'Self/ally-targeted R must not bypass the active-hunt restriction.');
+  }
   assert.ok(casts.length > 0 && cancels.length > 0 && releases.length > 0 && armed.length > 0);
   assert.ok(releases.some((event) => event.heal > 0)); assert.ok(releases.some((event) => event.shield > 0));
   const byId = new Map(casts.map((cast) => [cast.castId, cast])); assert.equal(byId.size, casts.length);
@@ -56,5 +83,6 @@ try {
   assert.equal(apiCalls, 0);
   console.log(`CHARACTER_CASTING_MATCH ${JSON.stringify({ ...first.evidence, casts: casts.length, cancels: cancels.length,
     releases: releases.length, armed: armed.length, heals: releases.filter((event) => event.heal > 0).length,
-    shields: releases.filter((event) => event.shield > 0).length, comparison, apiCalls })}`);
+    shields: releases.filter((event) => event.shield > 0).length, ultimateCasts: ultimateCasts.length,
+    ultimateCastFrames: ultimateCastFrames.size, huntingCasts: huntingCasts.length, comparison, apiCalls })}`);
 } finally { globalThis.fetch = originalFetch; }

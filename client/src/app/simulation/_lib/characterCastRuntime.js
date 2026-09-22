@@ -21,8 +21,14 @@ export function findCharacterSkillChoice(actor, opponents, roster, nowSec, setti
   if (!actor || actor._pendingCharacterCast || Number(actor.hp || 0) <= 0 || !areCharacterSkillsEnabled(settings)) return null;
   const state = normalizeSkillState(actor);
   const allies = roster.filter((row) => idOf(row) !== idOf(actor) && shareCombatSpace(actor, row) && areSameTeam(actor, row) && String(row.zoneId) === String(actor.zoneId));
+  const localOpponents = opponents.filter((row) => shareCombatSpace(actor, row));
   const candidates = [];
   for (const slot of ACTIVE_CHARACTER_SKILL_SLOTS) {
+    // R is reserved for enemy-team combat, including support/self-cast R.
+    // Filter the encounter opponents before scoring so Q/W/E remain eligible
+    // and wildlife (ordinary, mutant or boss) never consumes R's cost/cooldown.
+    const skillOpponents = slot === 'r' ? localOpponents.filter((row) => !row._wildlifeKind) : localOpponents;
+    if (!skillOpponents.length) continue;
     const def = getCharacterSkillDef(actor, slot);
     if (!def || def.type === PASSIVE_STAT_TYPE || (isEnhancement(def) && actor._armedCharacterSkill)) continue;
     if (!canPaySkillResource(actor, def)) continue;
@@ -37,11 +43,10 @@ export function findCharacterSkillChoice(actor, opponents, roster, nowSec, setti
     if (recast && atSec >= Number(saved.recastUntil)) {
       recast = false; atSec = Math.max(atSec, predictCooldownReadyAt(actor, saved.cooldownUntil, nowSec));
     }
-    const localOpponents = opponents.filter((row) => shareCombatSpace(actor, row));
-    const defender = localOpponents.find(isTargetableByStatus) || localOpponents[0];
+    const defender = skillOpponents.find(isTargetableByStatus) || skillOpponents[0];
     if (!defender) continue;
     const plan = previewCharacterSkill(actor, defender, def, recast ? 2 : 1, {
-      settings, splashTargets: localOpponents.filter((row) => idOf(row) !== idOf(defender)), supportTargets: allies,
+      settings, splashTargets: skillOpponents.filter((row) => idOf(row) !== idOf(defender)), supportTargets: allies,
       previewFuture: true, visionRoster: roster, nowSec,
     });
     if (plan) candidates.push({ ...plan, atSec });
@@ -162,6 +167,9 @@ export function finishCharacterCast(actor, nowSec, actions = {}) {
 export function consumeArmedCharacterSkill(actor, target, baseDamage, opts = {}) {
   const cast = actor?._armedCharacterSkill;
   if (!cast || cast.expiresAtSec <= opts.nowSec || !areCharacterSkillsEnabled(opts.settings)) return null;
+  // Keep a PvP-prepared R enhancement for a player target without extending its
+  // original expiry. The ordinary basic attack still resolves during a hunt.
+  if (cast.def.slot === 'r' && target?._wildlifeKind) return null;
   actor._armedCharacterSkill = null;
   const state = normalizeSkillState(actor); const saved = state[cast.def.slot];
   const recast = cast.stage === 1 && cast.def.recastWindowSec > 0 && hasSecondStagePayload(cast.def);

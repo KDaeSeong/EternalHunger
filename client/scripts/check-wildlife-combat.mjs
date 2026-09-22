@@ -6,7 +6,10 @@ const { runActorQueuedActionStep } = await import('../src/app/simulation/_lib/ph
 const { runPvpActionLoop } = await import('../src/app/simulation/_lib/phasePvpActionLoopRuntime.js');
 const { advanceSpatialMovement } = await import('../src/app/simulation/_lib/combatSpatialRuntime.js');
 const { advanceTimedWildlifeEffects, completeTimedWildlifeEncounter, getWildlifeCombatRoster, releaseTimedWildlifeEncounter,
-  getTimedWildlifeCombatSummary } = await import('../src/app/simulation/_lib/wildlifeCombatRuntime.js');
+  getTimedWildlifeCombatSummary, resolveTimedWildlifeAction } = await import('../src/app/simulation/_lib/wildlifeCombatRuntime.js');
+const { findCharacterSkillChoice, startCharacterCast, finishCharacterCast } = await import('../src/app/simulation/_lib/characterCastRuntime.js');
+const { normalizeSkillState } = await import('../src/app/simulation/_lib/characterSkillDefinitionRuntime.js');
+const { runCombatScenario } = await import('./lib/run-combat-scenario.mjs');
 const { grantMasteries } = await import('../src/app/simulation/_lib/masteryProgressRuntime.js');
 const { setDeathMetadata } = await import('../src/app/simulation/_lib/phaseDeathRuntime.js');
 const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
@@ -42,6 +45,31 @@ const actor = (extra = {}) => ({
 });
 const spawn = (species = 'bear') => ({ mapId: 'hunt-map', bosses: {}, mutantWildlife: null,
   wildlife: { z: 1 }, wildlifeSpecies: { z: [species] } });
+const huntingSkill = (extra = {}) => ({ enabled: true, name: '일반 사냥 스킬', type: 'attack_skill',
+  flatDamage: [35], range: 6, cooldownSec: 4, castDelaySec: 0.25, recoveryDelaySec: 0.25, ...extra });
+const ultimate = (extra = {}) => huntingSkill({ name: '교전 전용 궁극기', flatDamage: [1000],
+  cooldownSec: 60, resourceCost: 25, ...extra });
+const ultimateHunter = (extra = {}) => actor({ hp: 2000, maxHp: 2000,
+  uniqueResource: { enabled: true, name: 'VF', maxValue: 100, startValue: 100, regenPerSec: 0 },
+  uniqueResourceValue: 100, ...extra });
+
+function beginUltimateHunt(subject, kind) {
+  const world = spawn(kind);
+  if (['alpha', 'omega', 'weakline', 'mutant_wildlife'].includes(kind)) {
+    world.wildlife.z = 0;
+    world.wildlifeSpecies.z = [];
+    if (kind === 'mutant_wildlife') world.mutantWildlife = { alive: true, zoneId: 'z', animal: '멧돼지' };
+    else world.bosses[kind] = { alive: true, zoneId: 'z' };
+  }
+  const items = [meat, mithril,
+    { _id: 'force-core', name: '포스 코어', type: '재료', tier: 4 },
+    { _id: 'vf-blood', name: 'VF 혈액 샘플', type: '재료', tier: 4 }];
+  assert.equal(begin(subject, world, capture(), { publicItems: items,
+    itemNameById: Object.fromEntries(items.map((item) => [item._id, item.name])),
+    itemMetaById: Object.fromEntries(items.map((item) => [item._id, item])) }).pending, true);
+  assert.equal(subject._wildlifeHunt.kind, kind);
+  return world;
+}
 
 function capture(now = () => 100) {
   const events = [];
@@ -250,6 +278,97 @@ await check('character shields absorb wildlife attacks and authored skills damag
   assert.ok(observed.logs.some((row) => row.text.includes('보호막: 피해')));
   assert.ok(result.survivorMap.get(subject._id).hp > subject.hp - 100);
   assert.equal(result.survivorMap.get(subject._id)._wildlifeHunt, null);
+});
+
+for (const [index, kind] of ['chicken', 'bat', 'boar', 'dog', 'wolf', 'bear', 'mutant_wildlife', 'alpha', 'omega', 'weakline'].entries()) {
+  await check(`${kind} hunting reserves R and its resource while ordinary skills and basic attacks still work`, async () => {
+    const slot = ['q', 'w', 'e'][index % 3];
+    const subject = ultimateHunter({ characterSkills: { [slot]: huntingSkill(), r: ultimate() } });
+    const world = beginUltimateHunt(subject, kind);
+    const { result, observed } = await runTimedFight(subject, world, { skills: true, duration: 30 });
+    const final = result.survivorMap.get(subject._id);
+    const casts = observed.events.filter((event) => event.kind === 'skill_cast');
+    assert.equal(casts.filter((event) => event.slot === 'r').length, 0, `${kind} must not start an ultimate.`);
+    assert.ok(casts.some((event) => event.slot === slot), 'Skipping R must not starve another ready skill.');
+    assert.ok(observed.events.some((event) => event.kind === 'damage' && event.who === subject._id && event.type === 'basic'));
+    assert.ok(observed.events.some((event) => event.kind === 'hunt_end' && event.outcome === 'victory'));
+    assert.equal(Number(normalizeSkillState(final).r.cooldownUntil || 0), 0);
+    assert.equal(final.uniqueResourceValue, 100);
+    assert.equal(observed.events.some((event) => event.kind === 'unique_resource' && event.slot === 'r'), false);
+  });
+}
+
+for (const type of ['heal_skill', 'shield_skill', 'buff_skill', 'basic_attack_enhance']) {
+  await check(`hunting also reserves a ${type} ultimate even when its actual target would be self`, async () => {
+    const subject = ultimateHunter({ hp: 200, maxHp: 320, characterSkills: {
+      q: huntingSkill(),
+      r: ultimate({ type, flatDamage: [0], heal: [100], shield: [100], durationSec: 5,
+        statModifiers: { attackPower: 50 }, supportTargetScope: 'self', firstFlat: [1000] }),
+    } });
+    const opponent = actor({ _id: 'enemy', teamId: 'team:2' });
+    assert.equal(findCharacterSkillChoice(subject, [opponent], [subject, opponent], 100, {}).def.slot, 'r',
+      'This fixture must prefer the support/enhancement R when an enemy team is present.');
+    const world = beginUltimateHunt(subject, 'bear');
+    const { result, observed } = await runTimedFight(subject, world, { skills: true, duration: 5 });
+    assert.equal(observed.events.some((event) => event.kind === 'skill_cast' && event.slot === 'r'), false);
+    assert.equal(result.survivorMap.get(subject._id).uniqueResourceValue, 100);
+  });
+}
+
+await check('an available ultimate recast is reserved in a hunt but remains available against an enemy team', () => {
+  const subject = ultimateHunter({ characterSkills: { r: ultimate({ secondFlat: [1000], recastWindowSec: 5 }) },
+    skillState: { r: { stage: 'recast', cooldownUntil: 160, recastUntil: 105 } } });
+  beginUltimateHunt(subject, 'bear');
+  const target = subject._wildlifeHunt.target;
+  const before = JSON.stringify(subject);
+  assert.equal(findCharacterSkillChoice(subject, [target], [subject, target], 100, {}), null);
+  assert.equal(JSON.stringify(subject), before, 'Hunt selection must not consume or reset R state.');
+  const opponent = actor({ _id: 'enemy', teamId: 'team:2' });
+  const choice = findCharacterSkillChoice(subject, [target, opponent], [subject, target, opponent], 100, {});
+  assert.equal(choice.def.slot, 'r');
+  assert.equal(choice.stage, 2);
+  assert.equal(choice.targetId, opponent._id, 'Even a mixed roster must not redirect R onto wildlife.');
+});
+
+await check('an R-enhanced basic prepared in PvP is not spent on an animal and can still hit an enemy before expiry', async () => {
+  const subject = ultimateHunter({ characterSkills: { r: ultimate({ type: 'basic_attack_enhance',
+    firstFlat: [1000], durationSec: 5 }) } });
+  const opponent = actor({ _id: 'enemy', teamId: 'team:2', hp: 2000, maxHp: 2000, _basicAttackReadyAtSec: 999 });
+  assert.equal(startCharacterCast(subject, findCharacterSkillChoice(subject, [opponent], [subject, opponent], 100, {}), 100, {}), true);
+  finishCharacterCast(subject, 100.25);
+  const armed = structuredClone(subject._armedCharacterSkill);
+  const world = beginUltimateHunt(subject, 'bear');
+  const target = subject._wildlifeHunt.target;
+  target._spatial = { ...subject._spatial };
+  const observed = capture(() => 100.5);
+  const action = withSimulationRandom(() => 0, () => resolveTimedWildlifeAction({ ownerId: subject._id,
+    encounterId: subject._wildlifeHunt.id, actorId: subject._id, targetId: target._id, actionType: 'hunt_basic' },
+  { survivorMap: new Map([[subject._id, subject]]), nowSec: 100.5, battleSettings: {}, ruleset: rules, actions: observed.actions }));
+  assert.equal(action.performed, true);
+  assert.ok(action.targetLoss > 0, 'The ordinary basic attack must still hit the animal.');
+  assert.deepEqual(subject._armedCharacterSkill, armed, 'Do not consume or extend an already paid R enhancement while hunting.');
+  assert.equal(observed.events.some((event) => event.kind === 'skill' && event.slot === 'r'), false);
+  releaseTimedWildlifeEncounter(subject, world, '검사 교전 전환', observed.actions, 100.5);
+  const combat = await runCombatScenario([subject, opponent], { startSec: 102.5, duration: 1 });
+  assert.ok(combat.events.some((event) => event.kind === 'skill' && event.slot === 'r' && event.targetId === opponent._id),
+    'The saved enhancement must still resolve on the next enemy-team attack before its original expiry.');
+  assert.equal(combat.survivorMap.get(subject._id)._armedCharacterSkill, null);
+  assert.equal(combat.survivorMap.get(subject._id).uniqueResourceValue, 75, 'Only the original PvP cast pays the cost.');
+});
+
+await check('after hunting without R, real enemy-team combat can cast and land the reserved ultimate', async () => {
+  const subject = ultimateHunter({ characterSkills: { r: ultimate() } });
+  const world = beginUltimateHunt(subject, 'bear');
+  const hunt = await runTimedFight(subject, world, { skills: true });
+  const final = hunt.result.survivorMap.get(subject._id);
+  assert.equal(hunt.observed.events.some((event) => event.kind === 'skill_cast' && event.slot === 'r'), false);
+  const opponent = actor({ _id: 'enemy', teamId: 'team:2', hp: 2000, maxHp: 2000,
+    _spatial: { ...final._spatial }, _basicAttackReadyAtSec: 999 });
+  const combat = await runCombatScenario([final, opponent], { startSec: 112, duration: 2 });
+  assert.ok(combat.events.some((event) => event.kind === 'skill_cast' && event.slot === 'r' && event.targetId === opponent._id));
+  assert.ok(combat.events.some((event) => event.kind === 'damage' && event.who === subject._id && event.type === 'skill'));
+  assert.equal(combat.survivorMap.get(subject._id).uniqueResourceValue, 75);
+  assert.equal(combat.survivorMap.get(subject._id).skillState.r.cooldownUntil, 172);
 });
 
 await check('a hunter killed by actual wildlife damage dies once and releases the unfinished animal', async () => {
