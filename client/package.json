@@ -98,7 +98,7 @@
     "check:observer-performance-guards": "node ./scripts/check-observer-performance-guards.mjs",
     "check:action-timeline": "node ./scripts/check-action-timeline.mjs && npm run check:simulation-diagnostics",
     "check:simulation-diagnostics": "node ./scripts/check-simulation-diagnostics.mjs",
-    "check:phase-runtime-performance": "node ./scripts/check-phase-runtime-performance.mjs && node ./scripts/check-region-loot-matching.mjs",
+    "check:phase-runtime-performance": "node ./scripts/check-phase-runtime-performance.mjs && node ./scripts/check-region-loot-matching.mjs && node ./scripts/check-simulation-cooperative-yield.mjs",
     "check:simulation-random": "node ./scripts/check-simulation-random.mjs",
     "check:simulation-replay": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-simulation-replay.mjs",
     "check:endgame": "node ./scripts/check-endgame.mjs && npm run check:detonation",

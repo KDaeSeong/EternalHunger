@@ -16,7 +16,7 @@ import { combineSimulationCounts, createSimulationFrame, publishSimulationFrame 
 import { createSeedRng } from './randomSeedRuntime';
 import { getActiveSimulationRandom, runSimulationSteps } from '../../../utils/simulationRandom.js';
 import { advanceTimedWildlifeEffects, getWildlifeCombatRoster } from './wildlifeCombatRuntime.js';
-import { requestSimulationMainThreadYield } from './simulationCooperativeYieldRuntime.js';
+import { requestSimulationFrameYield, requestSimulationMainThreadYield } from './simulationCooperativeYieldRuntime.js';
 import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
 
 const HYPERLOOP_DELAY_SEC = 3;
@@ -389,7 +389,7 @@ function* simulationPhaseSteps({
     }
     finally { timelineActionSec = null; }
   };
-  const phaseSetupYield = requestSimulationMainThreadYield();
+  const phaseSetupYield = requestSimulationFrameYield();
   if (phaseSetupYield) yield phaseSetupYield;
   const pvpActionLoopResult = yield runPvpActionLoop({
     state: {
