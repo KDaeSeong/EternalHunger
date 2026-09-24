@@ -70,7 +70,7 @@
 - 내장 지도는 기본 도로 목록과 구역별 하이퍼루프 표시 외에 `hyperloopDeviceZoneId: 'lab'`를 따로 지정한다. 실제 관전 요약의 12개 하이퍼루프는 이 합친 목록이다. 참조 PNG의 장치 아이콘 개수/픽셀 위치만으로 이 별도 장치의 의도나 각 지역 귀속을 확정하지 않는다.
 - 사용자 지도의 명시적 연결은 `mapGraphRuntime.buildBaseZoneGraph`에서 우선하지만, `routePlanBuilderRuntime.buildRouteConnectionInfo`는 루미아형 지역 ID가 충분하면 기본 연결을 다시 합치는 별도 경로다. 또한 `getHyperloopZoneIds`는 기본 시설 목록을 합친다. **이 불일치 후보는 다음 재현 검사에서 경로 추천/실제 이동/호환 fallback을 대조할 대상**이며, 이번에는 회귀를 실행하거나 전체 경기의 결함 원인으로 확정하지 않았다.
 
-전체 통행 정합성과 사람의 가독성 합격은 계속 미완료다. 이전 입력의 성능/메모리 근거는 `observer-frame-yield-verification.md`, `94fac36f…` 동일 x8 세 경기의 실패부터 종료 처리 수정 `a64d82ae…`의 실제 x32 표본 통과까지는 `observer-rendezvous-performance-verification.md`에서 따로 관리한다. 최신 x1/x8·반복 heap/자료 회수는 남는다.
+전체 통행 정합성과 사람의 가독성 합격은 계속 미완료다. 이전 입력의 성능/메모리 근거는 `observer-frame-yield-verification.md`, `94fac36f…` 동일 x8 세 경기의 실패부터 종료 처리 수정 `a64d82ae…`의 x32·동일 x8 세 표본 통과까지는 `observer-rendezvous-performance-verification.md`에서 따로 관리한다. 최신 x1·반복 heap/자료 회수는 남는다.
 
 ### 같은 날 후속: 사용자 지도 불일치 재현·수정
 
