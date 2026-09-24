@@ -12,7 +12,7 @@ const hookUrl = new URL('../src/app/simulation/_components/useObserverMemoryLife
 registerHooks({ load(url, context, nextLoad) {
   if (url !== componentUrl && url !== hookUrl) return nextLoad(url, context);
   let source = url === componentUrl && process.argv.includes('--baseline')
-    ? execFileSync('git', ['show', 'HEAD:client/src/app/simulation/_components/SimulationReplayHistory.js'], { encoding: 'utf8' })
+    ? execFileSync('git', ['show', '944637a7:client/src/app/simulation/_components/SimulationReplayHistory.js'], { encoding: 'utf8' })
     : readFileSync(new URL(url), 'utf8');
   source = source.replaceAll("from 'react'", `from '${harnessUrl}'`)
     .replaceAll("from '../_lib/simulationReplayStorage'", `from '${harnessUrl}'`)
