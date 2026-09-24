@@ -42,3 +42,7 @@
 ## 메모리 조사 범위
 
 현재 보관함 목록 함수는 각 경기의 ID·시각·요약·시드·호환성만 UI 목록으로 반환한다. 실제 재경기는 한 기록을 읽고 `SimulationSession`의 key를 바꾸어 새 세션으로 전환한다. 진단 패널의 interval/click listener는 unmount 시 정리된다. 이 소스 확인만으로 브라우저의 객체 회수나 누수 부재를 증명하지 않는다. 앞선 세 번의 시작 heap 증가와 종료 heap 약 42MB는 여전히 별도 미확정 항목이며, 이번 표시 대기 수정으로 해결했다고 주장하지 않는다. 보관된 기록을 삭제하지 않는다.
+
+## 공개 반영
+
+2026-09-24 기능 커밋 `22ee9577815ff427e9b071c07988ff8930810414`를 main에 푸시했고 [Vercel 배포](https://vercel.com/kurokosis-projects/eternal-hunger/7Mnpobv4ZvD1VTskyuXGqSGzCgFu)의 success 상태를 확인했다. 익명으로 고정 [평가 주소](https://eternal-hunger.vercel.app/eternalhunger/evaluate)에 접속하여 GAME READY, 24명/8팀, 기준 시드 `1789192220412`, 단일 `평가 시작`, x32 기본 선택 및 console warning/error 0을 확인했다. 임시 공개 확인 탭은 닫았다. 이는 배포/초기화 확인이며 위 로컬 전체 경기 성능이나 사람의 관전 평가를 공개 사이트에서 다시 측정했다는 뜻은 아니다.
