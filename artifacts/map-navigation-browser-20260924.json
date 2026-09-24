@@ -46,6 +46,22 @@
     "differentOrigin3107RecordsNotAccessedOrModified": true
   },
   "observedConsoleWarningsAndErrors": 0,
+  "deployment": {
+    "functionalCommit": "d74ba6d3ade2bf9f5a4fd8133561b3e0d00299b7",
+    "branch": "main",
+    "vercelStatus": "success",
+    "vercelUrl": "https://vercel.com/kurokosis-projects/eternal-hunger/GUeNBoTBVDUEnZxXcVgkqWoCerPy",
+    "publicUrl": "https://eternal-hunger.vercel.app/eternalhunger/evaluate",
+    "checkedAfterSuccessAndReload": true,
+    "loginRedirect": false,
+    "readyParticipants": 24,
+    "readyTeams": 8,
+    "defaultMapHyperloops": 12,
+    "evaluationSeed": "1789192220412",
+    "selectedSpeed": 32,
+    "observedConsoleWarningsAndErrors": 0,
+    "scope": "Anonymous ready-screen smoke only; full UI match/replay was local production"
+  },
   "limits": [
     "No new browser FPS, Long Task, LoAF or repeated-match heap measurement",
     "No user satisfaction score or original Marcus-case reproduction",
