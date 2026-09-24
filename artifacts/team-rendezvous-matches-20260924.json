@@ -1,0 +1,5156 @@
+{
+  "date": "2026-09-24",
+  "sourceBaseCommit": "f5f62a9b",
+  "engineVersion": "94fac36f4488dbe7e7ec80167add14d991633da42998407f85ff0584b43905b3",
+  "scope": "Actual model matches with canonical product navigation and three explicitly different initial rosters. Not original Marcus reproduction, browser performance, or human acceptance.",
+  "reports": [
+    {
+      "pass": true,
+      "seed": "1101",
+      "initialRosterSeed": "HF4:roster-A",
+      "engineVersion": "94fac36f4488dbe7e7ec80167add14d991633da42998407f85ff0584b43905b3",
+      "hyperloopZones": [
+        "gas_station",
+        "school",
+        "temple",
+        "stream",
+        "hospital",
+        "hotel",
+        "forest",
+        "apartment",
+        "cathedral",
+        "barge",
+        "factory",
+        "lab"
+      ],
+      "teams": [
+        {
+          "id": "guest-survivor-04",
+          "name": "은하",
+          "team": "team:1"
+        },
+        {
+          "id": "guest-survivor-22",
+          "name": "바람",
+          "team": "team:1"
+        },
+        {
+          "id": "guest-survivor-13",
+          "name": "가람",
+          "team": "team:1"
+        },
+        {
+          "id": "guest-survivor-16",
+          "name": "솔빛",
+          "team": "team:2"
+        },
+        {
+          "id": "guest-survivor-18",
+          "name": "다온",
+          "team": "team:2"
+        },
+        {
+          "id": "guest-survivor-02",
+          "name": "매화",
+          "team": "team:2"
+        },
+        {
+          "id": "guest-survivor-09",
+          "name": "미르",
+          "team": "team:3"
+        },
+        {
+          "id": "guest-survivor-15",
+          "name": "여울",
+          "team": "team:3"
+        },
+        {
+          "id": "guest-survivor-06",
+          "name": "해오름",
+          "team": "team:3"
+        },
+        {
+          "id": "guest-survivor-14",
+          "name": "보라",
+          "team": "team:4"
+        },
+        {
+          "id": "guest-survivor-21",
+          "name": "이슬",
+          "team": "team:4"
+        },
+        {
+          "id": "guest-survivor-08",
+          "name": "초롱",
+          "team": "team:4"
+        },
+        {
+          "id": "guest-survivor-19",
+          "name": "마루",
+          "team": "team:5"
+        },
+        {
+          "id": "guest-survivor-10",
+          "name": "새벽",
+          "team": "team:5"
+        },
+        {
+          "id": "guest-survivor-07",
+          "name": "나래",
+          "team": "team:5"
+        },
+        {
+          "id": "guest-survivor-11",
+          "name": "윤슬",
+          "team": "team:6"
+        },
+        {
+          "id": "guest-survivor-01",
+          "name": "백로",
+          "team": "team:6"
+        },
+        {
+          "id": "guest-survivor-23",
+          "name": "하늘",
+          "team": "team:6"
+        },
+        {
+          "id": "guest-survivor-05",
+          "name": "도담",
+          "team": "team:7"
+        },
+        {
+          "id": "guest-survivor-03",
+          "name": "청람",
+          "team": "team:7"
+        },
+        {
+          "id": "guest-survivor-24",
+          "name": "별하",
+          "team": "team:7"
+        },
+        {
+          "id": "guest-survivor-17",
+          "name": "라온",
+          "team": "team:8"
+        },
+        {
+          "id": "guest-survivor-12",
+          "name": "노을",
+          "team": "team:8"
+        },
+        {
+          "id": "guest-survivor-20",
+          "name": "구름",
+          "team": "team:8"
+        }
+      ],
+      "reachableRendezvousEvents": [],
+      "decisions": 698,
+      "modelChecks": 11,
+      "counts": {
+        "growing": 392,
+        "threat": 74,
+        "together": 127,
+        "reentry": 18,
+        "action_wait": 30,
+        "forbidden": 4,
+        "enemy_path": 4,
+        "waiting": 27,
+        "recovery": 3,
+        "arrived": 17,
+        "joining": 2
+      },
+      "isolationEndCounts": {
+        "contact": 148,
+        "last_living_member": 9,
+        "death": 14
+      },
+      "longestEndedIsolationPeriods": [
+        {
+          "who": "guest-survivor-18",
+          "name": "다온",
+          "teamId": "team:2",
+          "start": 540,
+          "initialActor": {
+            "who": "guest-survivor-18",
+            "name": "다온",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 103,
+            "maxHp": 122,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "해적 깃발",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "철판",
+            "missing": [],
+            "regroup": "growing",
+            "rally": "factory",
+            "action": "routeFarm",
+            "growthReadyAt": 560,
+            "actionReadyAt": 541
+          },
+          "lastActor": {
+            "who": "guest-survivor-18",
+            "name": "다온",
+            "zone": "firestation",
+            "zoneName": "소방서",
+            "hp": 47,
+            "maxHp": 130,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "검은 죽음",
+            "blocked": "",
+            "growthZone": "gas_station",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "모자",
+                "need": 1,
+                "zones": [
+                  "병원",
+                  "고급 주택가",
+                  "성당",
+                  "주유소"
+                ]
+              },
+              {
+                "name": "미스릴",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "forbidden",
+            "rally": "beach",
+            "action": "flee",
+            "growthReadyAt": 780,
+            "actionReadyAt": 762
+          },
+          "reasons": [
+            "growing",
+            "no_current_regroup_record",
+            "enemy_path",
+            "action_wait",
+            "forbidden"
+          ],
+          "end": 761.333333,
+          "duration": 221.333333,
+          "endReason": "death",
+          "finalActor": {
+            "who": "guest-survivor-18",
+            "name": "다온",
+            "zone": "firestation",
+            "zoneName": "소방서",
+            "hp": 0,
+            "maxHp": 130,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "검은 죽음",
+            "blocked": "",
+            "growthZone": "gas_station",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "모자",
+                "need": 1,
+                "zones": [
+                  "병원",
+                  "고급 주택가",
+                  "성당",
+                  "주유소"
+                ]
+              },
+              {
+                "name": "미스릴",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "flee",
+            "growthReadyAt": 780,
+            "actionReadyAt": 762
+          }
+        },
+        {
+          "who": "guest-survivor-24",
+          "name": "별하",
+          "teamId": "team:7",
+          "start": 310,
+          "initialActor": {
+            "who": "guest-survivor-24",
+            "name": "별하",
+            "zone": "cathedral",
+            "zoneName": "성당",
+            "hp": 104,
+            "maxHp": 113,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "어사의",
+            "blocked": "",
+            "growthZone": "barge",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "붕대",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "숲",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "together",
+            "rally": "cemetery",
+            "action": "moveTo",
+            "growthReadyAt": 330,
+            "actionReadyAt": 312
+          },
+          "lastActor": {
+            "who": "guest-survivor-24",
+            "name": "별하",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 112,
+            "maxHp": 121,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "백우선",
+            "blocked": "",
+            "growthZone": "archery",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "깃털",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "절",
+                  "개울",
+                  "연못",
+                  "항구",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "forbidden",
+            "rally": "archery",
+            "action": "flee",
+            "growthReadyAt": 520,
+            "actionReadyAt": 502
+          },
+          "reasons": [
+            "together",
+            "growing",
+            "threat",
+            "action_wait",
+            "forbidden"
+          ],
+          "end": 520,
+          "duration": 210,
+          "endReason": "contact",
+          "finalActor": {
+            "who": "guest-survivor-24",
+            "name": "별하",
+            "zone": "archery",
+            "zoneName": "양궁장",
+            "hp": 112,
+            "maxHp": 121,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "백우선",
+            "blocked": "",
+            "growthZone": "archery",
+            "readyCraft": "아이테르 깃털",
+            "missing": [],
+            "regroup": "growing",
+            "rally": "archery",
+            "action": "moveTo",
+            "growthReadyAt": 540,
+            "actionReadyAt": 523
+          }
+        },
+        {
+          "who": "guest-survivor-15",
+          "name": "여울",
+          "teamId": "team:3",
+          "start": 600,
+          "initialActor": {
+            "who": "guest-survivor-15",
+            "name": "여울",
+            "zone": "hospital",
+            "zoneName": "병원",
+            "hp": 105,
+            "maxHp": 123,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [],
+            "target": "드라우프니르",
+            "blocked": "",
+            "growthZone": "hospital",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "곡괭이",
+                "need": 1,
+                "zones": [
+                  "골목길",
+                  "절",
+                  "모래사장",
+                  "바지선"
+                ]
+              },
+              {
+                "name": "붕대",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "항구",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "together",
+            "rally": "park",
+            "action": "moveTo",
+            "growthReadyAt": 620,
+            "actionReadyAt": 602
+          },
+          "lastActor": {
+            "who": "guest-survivor-15",
+            "name": "여울",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 109,
+            "maxHp": 127,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "스텔라 스텝",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "모래사장",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "growing",
+            "rally": "stream",
+            "action": "moveTo",
+            "growthReadyAt": 780,
+            "actionReadyAt": 762
+          },
+          "reasons": [
+            "together",
+            "growing",
+            "action_wait"
+          ],
+          "end": 774.75,
+          "duration": 174.75,
+          "endReason": "contact",
+          "finalActor": {
+            "who": "guest-survivor-15",
+            "name": "여울",
+            "zone": "stream",
+            "zoneName": "개울",
+            "hp": 104,
+            "maxHp": 127,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "스텔라 스텝",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "모래사장",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "growing",
+            "rally": "stream",
+            "action": "moveTo",
+            "growthReadyAt": 780,
+            "actionReadyAt": 762
+          }
+        }
+      ],
+      "unfinishedIsolationPeriods": [],
+      "equipmentProgress": [
+        {
+          "who": "guest-survivor-04",
+          "name": "은하",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 560,
+          "last": {
+            "who": "guest-survivor-04",
+            "name": "은하",
+            "zone": "park",
+            "zoneName": "연못",
+            "hp": 0,
+            "maxHp": 124,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "가디언 슈트",
+            "blocked": "",
+            "growthZone": "park",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "전신 수영복",
+                "need": 1,
+                "zones": [
+                  "개울",
+                  "연못",
+                  "모래사장",
+                  "항구"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 800,
+            "actionReadyAt": 783
+          }
+        },
+        {
+          "who": "guest-survivor-22",
+          "name": "바람",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 710,
+          "last": {
+            "who": "guest-survivor-22",
+            "name": "바람",
+            "zone": "park",
+            "zoneName": "연못",
+            "hp": 0,
+            "maxHp": 128,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "검은 죽음",
+            "blocked": "",
+            "growthZone": "hospital",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "모자",
+                "need": 1,
+                "zones": [
+                  "병원",
+                  "고급 주택가",
+                  "성당",
+                  "주유소"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 800,
+            "actionReadyAt": 783
+          }
+        },
+        {
+          "who": "guest-survivor-13",
+          "name": "가람",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 620,
+          "last": {
+            "who": "guest-survivor-13",
+            "name": "가람",
+            "zone": "park",
+            "zoneName": "연못",
+            "hp": 0,
+            "maxHp": 138,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "낙원의 낫",
+            "blocked": "",
+            "growthZone": "barge",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "곡괭이",
+                "need": 1,
+                "zones": [
+                  "모래사장",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 800,
+            "actionReadyAt": 783
+          }
+        },
+        {
+          "who": "guest-survivor-16",
+          "name": "솔빛",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 580,
+          "last": {
+            "who": "guest-survivor-16",
+            "name": "솔빛",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 139,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "갤럭시 스텝",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "모래사장"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "flee",
+            "growthReadyAt": 1290,
+            "actionReadyAt": 1272
+          }
+        },
+        {
+          "who": "guest-survivor-18",
+          "name": "다온",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 690,
+          "last": {
+            "who": "guest-survivor-18",
+            "name": "다온",
+            "zone": "firestation",
+            "zoneName": "소방서",
+            "hp": 0,
+            "maxHp": 130,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "검은 죽음",
+            "blocked": "",
+            "growthZone": "gas_station",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "모자",
+                "need": 1,
+                "zones": [
+                  "병원",
+                  "고급 주택가",
+                  "성당",
+                  "주유소"
+                ]
+              },
+              {
+                "name": "미스릴",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "flee",
+            "growthReadyAt": 780,
+            "actionReadyAt": 762
+          }
+        },
+        {
+          "who": "guest-survivor-02",
+          "name": "매화",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 690,
+          "last": {
+            "who": "guest-survivor-02",
+            "name": "매화",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 0,
+            "maxHp": 130,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "빛의 증표",
+            "blocked": "",
+            "growthZone": "park",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "머리띠",
+                "need": 1,
+                "zones": [
+                  "개울",
+                  "연못"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 820,
+            "actionReadyAt": 803
+          }
+        },
+        {
+          "who": "guest-survivor-09",
+          "name": "미르",
+          "bestCompleted": 3,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-09",
+            "name": "미르",
+            "zone": "cathedral",
+            "zoneName": "성당",
+            "hp": 0,
+            "maxHp": 144,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "백우선",
+            "blocked": "",
+            "growthZone": "cathedral",
+            "readyCraft": "백우선",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 780,
+            "actionReadyAt": 763
+          }
+        },
+        {
+          "who": "guest-survivor-15",
+          "name": "여울",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 820,
+          "last": {
+            "who": "guest-survivor-15",
+            "name": "여울",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 127,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "shoes"
+            ],
+            "target": "기어 헬릭스",
+            "blocked": "",
+            "growthZone": "apartment",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "바늘",
+                "need": 1,
+                "zones": [
+                  "소방서",
+                  "병원",
+                  "고급 주택가"
+                ]
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "droneOrder",
+            "growthReadyAt": 880,
+            "actionReadyAt": 861
+          }
+        },
+        {
+          "who": "guest-survivor-06",
+          "name": "해오름",
+          "bestCompleted": 3,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-06",
+            "name": "해오름",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 0,
+            "maxHp": 120,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "clothes"
+            ],
+            "target": "어사의",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "한복",
+            "missing": [
+              {
+                "name": "마패",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 840,
+            "actionReadyAt": 823
+          }
+        },
+        {
+          "who": "guest-survivor-14",
+          "name": "보라",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 460,
+          "last": {
+            "who": "guest-survivor-14",
+            "name": "보라",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 79.666666,
+            "maxHp": 142,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "미스릴 방패",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "거북이 등딱지",
+                "need": 1,
+                "zones": [
+                  "모래사장"
+                ]
+              },
+              {
+                "name": "미스릴",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "together",
+            "rally": "beach",
+            "action": "routeFarm",
+            "growthReadyAt": 1290,
+            "actionReadyAt": 1271
+          }
+        },
+        {
+          "who": "guest-survivor-21",
+          "name": "이슬",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 880,
+          "last": {
+            "who": "guest-survivor-21",
+            "name": "이슬",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 148,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "검은 죽음",
+            "blocked": "",
+            "growthZone": "apartment",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "모자",
+                "need": 1,
+                "zones": [
+                  "고급 주택가"
+                ]
+              },
+              {
+                "name": "미스릴",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "hunt_combat",
+            "growthReadyAt": 1270,
+            "actionReadyAt": 1251
+          }
+        },
+        {
+          "who": "guest-survivor-08",
+          "name": "초롱",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 1010,
+          "last": {
+            "who": "guest-survivor-08",
+            "name": "초롱",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 125,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "shoes"
+            ],
+            "target": "검은 베일",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "흑연",
+                "need": 1,
+                "zones": [
+                  "모래사장"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "routeFarm",
+            "growthReadyAt": 1290,
+            "actionReadyAt": 1271
+          }
+        },
+        {
+          "who": "guest-survivor-19",
+          "name": "마루",
+          "bestCompleted": 4,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-19",
+            "name": "마루",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 0,
+            "maxHp": 138,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "shoes"
+            ],
+            "target": "SCV",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "힐리스",
+            "missing": [
+              {
+                "name": "배터리",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "소방서",
+                  "병원",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "피아노선",
+                "need": 1,
+                "zones": [
+                  "개울",
+                  "고급 주택가",
+                  "성당",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "craft",
+            "growthReadyAt": 820,
+            "actionReadyAt": 801
+          }
+        },
+        {
+          "who": "guest-survivor-10",
+          "name": "새벽",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 730,
+          "last": {
+            "who": "guest-survivor-10",
+            "name": "새벽",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 128,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "글레이셜 슈즈",
+            "blocked": "",
+            "growthZone": "cathedral",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "슬리퍼",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "개울",
+                  "성당"
+                ]
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 920,
+            "actionReadyAt": 903
+          }
+        },
+        {
+          "who": "guest-survivor-07",
+          "name": "나래",
+          "bestCompleted": 4,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-07",
+            "name": "나래",
+            "zone": "barge",
+            "zoneName": "바지선",
+            "hp": 0,
+            "maxHp": 129,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "shoes"
+            ],
+            "target": "스텔라 스텝",
+            "blocked": "",
+            "growthZone": "barge",
+            "readyCraft": "이온 전지",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 820,
+            "actionReadyAt": 802
+          }
+        },
+        {
+          "who": "guest-survivor-11",
+          "name": "윤슬",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 400,
+          "last": {
+            "who": "guest-survivor-11",
+            "name": "윤슬",
+            "zone": "hospital",
+            "zoneName": "병원",
+            "hp": 0,
+            "maxHp": 144,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "길리 슈트",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "전신 수영복",
+                "need": 1,
+                "zones": [
+                  "개울",
+                  "연못",
+                  "모래사장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "hunt",
+            "growthReadyAt": 860,
+            "actionReadyAt": 841
+          }
+        },
+        {
+          "who": "guest-survivor-01",
+          "name": "백로",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 460,
+          "last": {
+            "who": "guest-survivor-01",
+            "name": "백로",
+            "zone": "hospital",
+            "zoneName": "병원",
+            "hp": 0,
+            "maxHp": 142,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "weapon",
+              "clothes"
+            ],
+            "target": "토르의 망치",
+            "blocked": "",
+            "growthZone": "firestation",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "망치",
+                "need": 1,
+                "zones": [
+                  "소방서",
+                  "개울",
+                  "공장"
+                ]
+              },
+              {
+                "name": "트럼프 카드",
+                "need": 1,
+                "zones": [
+                  "소방서",
+                  "개울",
+                  "고급 주택가",
+                  "성당"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "routeFarm",
+            "growthReadyAt": 860,
+            "actionReadyAt": 841
+          }
+        },
+        {
+          "who": "guest-survivor-23",
+          "name": "하늘",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 560,
+          "last": {
+            "who": "guest-survivor-23",
+            "name": "하늘",
+            "zone": "hospital",
+            "zoneName": "병원",
+            "hp": 0,
+            "maxHp": 129,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "기어 헬릭스",
+            "blocked": "",
+            "growthZone": "hospital",
+            "readyCraft": "기어 헬릭스",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "craft",
+            "growthReadyAt": 860,
+            "actionReadyAt": 841
+          }
+        },
+        {
+          "who": "guest-survivor-05",
+          "name": "도담",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 520,
+          "last": {
+            "who": "guest-survivor-05",
+            "name": "도담",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 152,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "가디언 슈트",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "가디언 슈트",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 920,
+            "actionReadyAt": 903
+          }
+        },
+        {
+          "who": "guest-survivor-03",
+          "name": "청람",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 460,
+          "last": {
+            "who": "guest-survivor-03",
+            "name": "청람",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 134,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "clothes"
+            ],
+            "target": "레이더",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "배터리",
+                "need": 1,
+                "zones": [
+                  "병원",
+                  "공장"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1110,
+            "actionReadyAt": 1093
+          }
+        },
+        {
+          "who": "guest-survivor-24",
+          "name": "별하",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 690,
+          "last": {
+            "who": "guest-survivor-24",
+            "name": "별하",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 133,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "검은 죽음",
+            "blocked": "",
+            "growthZone": "apartment",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "모자",
+                "need": 1,
+                "zones": [
+                  "고급 주택가"
+                ]
+              },
+              {
+                "name": "미스릴",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "flee",
+            "growthReadyAt": 1220,
+            "actionReadyAt": 1203
+          }
+        },
+        {
+          "who": "guest-survivor-17",
+          "name": "라온",
+          "bestCompleted": 3,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-17",
+            "name": "라온",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 0,
+            "maxHp": 142,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "head"
+            ],
+            "target": "해적 깃발",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "오일",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "연못",
+                  "병원",
+                  "모래사장",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "붕대",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "항구",
+                  "공장"
+                ]
+              },
+              {
+                "name": "고철",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "소방서",
+                  "개울",
+                  "모래사장",
+                  "항구",
+                  "공장"
+                ]
+              },
+              {
+                "name": "화학품",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 540,
+            "actionReadyAt": 522
+          }
+        },
+        {
+          "who": "guest-survivor-12",
+          "name": "노을",
+          "bestCompleted": 3,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-12",
+            "name": "노을",
+            "zone": "park",
+            "zoneName": "연못",
+            "hp": 0,
+            "maxHp": 118,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "head"
+            ],
+            "target": "기사단장의 투구",
+            "blocked": "",
+            "growthZone": "park",
+            "readyCraft": "투구",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 690,
+            "actionReadyAt": 672
+          }
+        },
+        {
+          "who": "guest-survivor-20",
+          "name": "구름",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 860,
+          "last": {
+            "who": "guest-survivor-20",
+            "name": "구름",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 0,
+            "maxHp": 128,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "shoes"
+            ],
+            "target": "검은 베일",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "흑연",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "연못",
+                  "모래사장"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "rest",
+            "growthReadyAt": 1010,
+            "actionReadyAt": 991
+          }
+        }
+      ],
+      "evidence": {
+        "seed": "1101",
+        "phases": 13,
+        "frames": 6506,
+        "ticks": 1272.833333,
+        "eventCount": 7849,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1272.833333,
+          "day": 7,
+          "phase": "morning",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "final",
+          "winnerTeamId": "team:4",
+          "dimensionRifts": {
+            "atSec": 1272.833333,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1272.833333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1272.833333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1272.833333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1272.833333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1272.833333,
+                "reason": "match_end",
+                "disposition": "expired",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": 1272.833333,
+                "rewardClosureReason": "recipients_eliminated",
+                "expiredWorldGifts": 1
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1272.833333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1272.833333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1272.833333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 1,
+            "expiredForElimination": 1,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2698890865,
+          "draws": 8456,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "a5eb5c1b1c54afb61d9b6402cee5a340c3d076bbe6a770bbfe4c1842dec7de49",
+        "frameDigest": "2a2aa0f77f58b3e74d76cdb2b4c6b53589d4de58ded4d7afba07b54b648a4f82"
+      },
+      "scope": "actual fixture matches, graph steps and observer-model evidence; isolation durations are diagnostics, not original Marcus reproduction or human/balance acceptance"
+    },
+    {
+      "pass": true,
+      "seed": "2202",
+      "initialRosterSeed": "HF4:roster-B",
+      "engineVersion": "94fac36f4488dbe7e7ec80167add14d991633da42998407f85ff0584b43905b3",
+      "hyperloopZones": [
+        "gas_station",
+        "school",
+        "temple",
+        "stream",
+        "hospital",
+        "hotel",
+        "forest",
+        "apartment",
+        "cathedral",
+        "barge",
+        "factory",
+        "lab"
+      ],
+      "teams": [
+        {
+          "id": "guest-survivor-23",
+          "name": "하늘",
+          "team": "team:1"
+        },
+        {
+          "id": "guest-survivor-19",
+          "name": "마루",
+          "team": "team:1"
+        },
+        {
+          "id": "guest-survivor-01",
+          "name": "백로",
+          "team": "team:1"
+        },
+        {
+          "id": "guest-survivor-20",
+          "name": "구름",
+          "team": "team:2"
+        },
+        {
+          "id": "guest-survivor-13",
+          "name": "가람",
+          "team": "team:2"
+        },
+        {
+          "id": "guest-survivor-03",
+          "name": "청람",
+          "team": "team:2"
+        },
+        {
+          "id": "guest-survivor-21",
+          "name": "이슬",
+          "team": "team:3"
+        },
+        {
+          "id": "guest-survivor-04",
+          "name": "은하",
+          "team": "team:3"
+        },
+        {
+          "id": "guest-survivor-24",
+          "name": "별하",
+          "team": "team:3"
+        },
+        {
+          "id": "guest-survivor-05",
+          "name": "도담",
+          "team": "team:4"
+        },
+        {
+          "id": "guest-survivor-06",
+          "name": "해오름",
+          "team": "team:4"
+        },
+        {
+          "id": "guest-survivor-11",
+          "name": "윤슬",
+          "team": "team:4"
+        },
+        {
+          "id": "guest-survivor-10",
+          "name": "새벽",
+          "team": "team:5"
+        },
+        {
+          "id": "guest-survivor-07",
+          "name": "나래",
+          "team": "team:5"
+        },
+        {
+          "id": "guest-survivor-08",
+          "name": "초롱",
+          "team": "team:5"
+        },
+        {
+          "id": "guest-survivor-16",
+          "name": "솔빛",
+          "team": "team:6"
+        },
+        {
+          "id": "guest-survivor-15",
+          "name": "여울",
+          "team": "team:6"
+        },
+        {
+          "id": "guest-survivor-02",
+          "name": "매화",
+          "team": "team:6"
+        },
+        {
+          "id": "guest-survivor-09",
+          "name": "미르",
+          "team": "team:7"
+        },
+        {
+          "id": "guest-survivor-14",
+          "name": "보라",
+          "team": "team:7"
+        },
+        {
+          "id": "guest-survivor-12",
+          "name": "노을",
+          "team": "team:7"
+        },
+        {
+          "id": "guest-survivor-18",
+          "name": "다온",
+          "team": "team:8"
+        },
+        {
+          "id": "guest-survivor-17",
+          "name": "라온",
+          "team": "team:8"
+        },
+        {
+          "id": "guest-survivor-22",
+          "name": "바람",
+          "team": "team:8"
+        }
+      ],
+      "reachableRendezvousEvents": [],
+      "decisions": 693,
+      "modelChecks": 12,
+      "counts": {
+        "threat": 67,
+        "growing": 362,
+        "together": 135,
+        "reentry": 15,
+        "action_wait": 42,
+        "forbidden": 9,
+        "recovery": 7,
+        "waiting": 30,
+        "arrived": 19,
+        "combat": 2,
+        "joining": 3,
+        "enemy_path": 2
+      },
+      "isolationEndCounts": {
+        "contact": 147,
+        "death": 15,
+        "last_living_member": 6
+      },
+      "longestEndedIsolationPeriods": [
+        {
+          "who": "guest-survivor-08",
+          "name": "초롱",
+          "teamId": "team:5",
+          "start": 180,
+          "initialActor": {
+            "who": "guest-survivor-08",
+            "name": "초롱",
+            "zone": "police",
+            "zoneName": "경찰서",
+            "hp": 105,
+            "maxHp": 105,
+            "completed": 0,
+            "total": 5,
+            "emptySlots": [
+              "head",
+              "clothes",
+              "arm"
+            ],
+            "target": "스탬피드",
+            "blocked": "",
+            "growthZone": "police",
+            "readyCraft": "데린저",
+            "missing": [],
+            "regroup": "growing",
+            "rally": "alley",
+            "action": "moveTo",
+            "growthReadyAt": 200,
+            "actionReadyAt": 182
+          },
+          "lastActor": {
+            "who": "guest-survivor-08",
+            "name": "초롱",
+            "zone": "park",
+            "zoneName": "연못",
+            "hp": 109,
+            "maxHp": 109,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "clothes",
+              "arm"
+            ],
+            "target": "어사의",
+            "blocked": "",
+            "growthZone": "firestation",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "셔츠",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "개울",
+                  "성당"
+                ]
+              },
+              {
+                "name": "붕대",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "숲",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "마패",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "경찰서",
+                  "절",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "growing",
+            "rally": "firestation",
+            "action": "hunt",
+            "growthReadyAt": 420,
+            "actionReadyAt": 401
+          },
+          "reasons": [
+            "growing"
+          ],
+          "end": 420,
+          "duration": 240,
+          "endReason": "contact",
+          "finalActor": {
+            "who": "guest-survivor-08",
+            "name": "초롱",
+            "zone": "firestation",
+            "zoneName": "소방서",
+            "hp": 113,
+            "maxHp": 113,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "clothes",
+              "arm"
+            ],
+            "target": "어사의",
+            "blocked": "",
+            "growthZone": "gas_station",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "셔츠",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "개울",
+                  "성당"
+                ]
+              },
+              {
+                "name": "마패",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "경찰서",
+                  "절",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "growing",
+            "rally": "firestation",
+            "action": "moveTo",
+            "growthReadyAt": 440,
+            "actionReadyAt": 422
+          }
+        },
+        {
+          "who": "guest-survivor-23",
+          "name": "하늘",
+          "teamId": "team:1",
+          "start": 400,
+          "initialActor": {
+            "who": "guest-survivor-23",
+            "name": "하늘",
+            "zone": "hospital",
+            "zoneName": "병원",
+            "hp": 103,
+            "maxHp": 125,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "제사장의 예복",
+            "blocked": "",
+            "growthZone": "hospital",
+            "readyCraft": "제사장의 예복",
+            "missing": [],
+            "regroup": "forbidden",
+            "rally": "police",
+            "action": "flee",
+            "growthReadyAt": 420,
+            "actionReadyAt": 402
+          },
+          "lastActor": {
+            "who": "guest-survivor-23",
+            "name": "하늘",
+            "zone": "barge",
+            "zoneName": "바지선",
+            "hp": 61,
+            "maxHp": 133,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "SCV",
+            "blocked": "",
+            "growthZone": "barge",
+            "readyCraft": "전자 부품",
+            "missing": [],
+            "regroup": "growing",
+            "rally": "apartment",
+            "action": "moveTo",
+            "growthReadyAt": 640,
+            "actionReadyAt": 623
+          },
+          "reasons": [
+            "forbidden",
+            "growing"
+          ],
+          "end": 625.583333,
+          "duration": 225.583333,
+          "endReason": "death",
+          "finalActor": {
+            "who": "guest-survivor-23",
+            "name": "하늘",
+            "zone": "barge",
+            "zoneName": "바지선",
+            "hp": 0,
+            "maxHp": 133,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "shoes"
+            ],
+            "target": "SCV",
+            "blocked": "",
+            "growthZone": "barge",
+            "readyCraft": "전자 부품",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 640,
+            "actionReadyAt": 623
+          }
+        },
+        {
+          "who": "guest-survivor-17",
+          "name": "라온",
+          "teamId": "team:8",
+          "start": 310,
+          "initialActor": {
+            "who": "guest-survivor-17",
+            "name": "라온",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 138,
+            "maxHp": 138,
+            "completed": 1,
+            "total": 5,
+            "emptySlots": [
+              "clothes",
+              "arm"
+            ],
+            "target": "기사단장의 투구",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "투구",
+            "missing": [],
+            "regroup": "together",
+            "rally": "factory",
+            "action": "craft",
+            "growthReadyAt": 330,
+            "actionReadyAt": 311
+          },
+          "lastActor": {
+            "who": "guest-survivor-17",
+            "name": "라온",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 133,
+            "maxHp": 142,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "해적 깃발",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "오일",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "연못",
+                  "병원",
+                  "모래사장",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "붕대",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "화학품",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "growing",
+            "rally": "cathedral",
+            "action": "moveTo",
+            "growthReadyAt": 520,
+            "actionReadyAt": 502
+          },
+          "reasons": [
+            "together",
+            "growing",
+            "reentry"
+          ],
+          "end": 520,
+          "duration": 210,
+          "endReason": "contact",
+          "finalActor": {
+            "who": "guest-survivor-17",
+            "name": "라온",
+            "zone": "cathedral",
+            "zoneName": "성당",
+            "hp": 133,
+            "maxHp": 142,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "해적 깃발",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "오일",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "연못",
+                  "병원",
+                  "모래사장",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "붕대",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "화학품",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "threat",
+            "rally": "cathedral",
+            "action": "flee",
+            "growthReadyAt": 540,
+            "actionReadyAt": 522
+          }
+        }
+      ],
+      "unfinishedIsolationPeriods": [],
+      "equipmentProgress": [
+        {
+          "who": "guest-survivor-23",
+          "name": "하늘",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 920,
+          "last": {
+            "who": "guest-survivor-23",
+            "name": "하늘",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 145,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "우주 비행사의 헬멧",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "플라스틱",
+                "need": 1,
+                "zones": [
+                  "모래사장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "flee",
+            "growthReadyAt": 1220,
+            "actionReadyAt": 1203
+          }
+        },
+        {
+          "who": "guest-survivor-19",
+          "name": "마루",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 580,
+          "last": {
+            "who": "guest-survivor-19",
+            "name": "마루",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 154,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "clothes"
+            ],
+            "target": "파프니르",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "거북이 등딱지",
+                "need": 1,
+                "zones": [
+                  "모래사장"
+                ]
+              },
+              {
+                "name": "VF 혈액 샘플",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "flee",
+            "growthReadyAt": 1220,
+            "actionReadyAt": 1203
+          }
+        },
+        {
+          "who": "guest-survivor-01",
+          "name": "백로",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 690,
+          "last": {
+            "who": "guest-survivor-01",
+            "name": "백로",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 154,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "미니어쳐 솔라 시스템",
+            "blocked": "",
+            "growthZone": "apartment",
+            "readyCraft": "미니어쳐 솔라 시스템",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "flee",
+            "growthReadyAt": 1220,
+            "actionReadyAt": 1203
+          }
+        },
+        {
+          "who": "guest-survivor-20",
+          "name": "구름",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 440,
+          "last": {
+            "who": "guest-survivor-20",
+            "name": "구름",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 128,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "레버넌트",
+            "blocked": "",
+            "growthZone": "archery",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "승복",
+                "need": 1,
+                "zones": [
+                  "양궁장"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 750,
+            "actionReadyAt": 733
+          }
+        },
+        {
+          "who": "guest-survivor-13",
+          "name": "가람",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 600,
+          "last": {
+            "who": "guest-survivor-13",
+            "name": "가람",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 138,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "반고부",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "손도끼",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 750,
+            "actionReadyAt": 733
+          }
+        },
+        {
+          "who": "guest-survivor-03",
+          "name": "청람",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 630,
+          "last": {
+            "who": "guest-survivor-03",
+            "name": "청람",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 146,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "head"
+            ],
+            "target": "갤럭시 스텝",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "모래사장"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "hunt_combat",
+            "growthReadyAt": 1270,
+            "actionReadyAt": 1251
+          }
+        },
+        {
+          "who": "guest-survivor-21",
+          "name": "이슬",
+          "bestCompleted": 4,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-21",
+            "name": "이슬",
+            "zone": "temple",
+            "zoneName": "절",
+            "hp": 0,
+            "maxHp": 140,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "SCV",
+            "blocked": "",
+            "growthZone": "temple",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "절",
+                  "모래사장",
+                  "공장"
+                ]
+              },
+              {
+                "name": "쇠구슬",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "경찰서",
+                  "소방서",
+                  "개울",
+                  "고급 주택가",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "배터리",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "소방서",
+                  "절",
+                  "병원",
+                  "바지선",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 560,
+            "actionReadyAt": 542
+          }
+        },
+        {
+          "who": "guest-survivor-04",
+          "name": "은하",
+          "bestCompleted": 4,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-04",
+            "name": "은하",
+            "zone": "temple",
+            "zoneName": "절",
+            "hp": 0,
+            "maxHp": 112,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "스텔라 스텝",
+            "blocked": "",
+            "growthZone": "temple",
+            "readyCraft": "스텔라 스텝",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 560,
+            "actionReadyAt": 542
+          }
+        },
+        {
+          "who": "guest-survivor-24",
+          "name": "별하",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 690,
+          "last": {
+            "who": "guest-survivor-24",
+            "name": "별하",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 129,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "head"
+            ],
+            "target": "글레이셜 슈즈",
+            "blocked": "",
+            "growthZone": "cathedral",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "슬리퍼",
+                "need": 1,
+                "zones": [
+                  "성당"
+                ]
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1130,
+            "actionReadyAt": 1113
+          }
+        },
+        {
+          "who": "guest-survivor-05",
+          "name": "도담",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 840,
+          "last": {
+            "who": "guest-survivor-05",
+            "name": "도담",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 144,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "head"
+            ],
+            "target": "반고부",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "손도끼",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "공장"
+                ]
+              },
+              {
+                "name": "미스릴",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "rest",
+            "growthReadyAt": 990,
+            "actionReadyAt": 971
+          }
+        },
+        {
+          "who": "guest-survivor-06",
+          "name": "해오름",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 460,
+          "last": {
+            "who": "guest-survivor-06",
+            "name": "해오름",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 124,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "반역의 의지",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "반역의 의지",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "craft",
+            "growthReadyAt": 990,
+            "actionReadyAt": 971
+          }
+        },
+        {
+          "who": "guest-survivor-11",
+          "name": "윤슬",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 420,
+          "last": {
+            "who": "guest-survivor-11",
+            "name": "윤슬",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 136,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "원더풀 투나잇",
+            "blocked": "",
+            "growthZone": "apartment",
+            "readyCraft": "원더풀 투나잇",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 960,
+            "actionReadyAt": 955.333333
+          }
+        },
+        {
+          "who": "guest-survivor-10",
+          "name": "새벽",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 480,
+          "last": {
+            "who": "guest-survivor-10",
+            "name": "새벽",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 136,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "head"
+            ],
+            "target": "가디언 슈트",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "전신 수영복",
+                "need": 1,
+                "zones": [
+                  "연못",
+                  "모래사장"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1110,
+            "actionReadyAt": 1092
+          }
+        },
+        {
+          "who": "guest-survivor-07",
+          "name": "나래",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 730,
+          "last": {
+            "who": "guest-survivor-07",
+            "name": "나래",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 125,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "검은 베일",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "흑연",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "연못",
+                  "모래사장"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "hunt_combat",
+            "growthReadyAt": 1010,
+            "actionReadyAt": 991
+          }
+        },
+        {
+          "who": "guest-survivor-08",
+          "name": "초롱",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 820,
+          "last": {
+            "who": "guest-survivor-08",
+            "name": "초롱",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 125,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "다비드 헤드폰",
+            "blocked": "",
+            "growthZone": "park",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "머리띠",
+                "need": 1,
+                "zones": [
+                  "연못"
+                ]
+              },
+              {
+                "name": "미스릴",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1110,
+            "actionReadyAt": 1092
+          }
+        },
+        {
+          "who": "guest-survivor-16",
+          "name": "솔빛",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 940,
+          "last": {
+            "who": "guest-survivor-16",
+            "name": "솔빛",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 131,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "검은 베일",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "검은 베일",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "craft",
+            "growthReadyAt": 1110,
+            "actionReadyAt": 1091
+          }
+        },
+        {
+          "who": "guest-survivor-15",
+          "name": "여울",
+          "bestCompleted": 1,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-15",
+            "name": "여울",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 123,
+            "completed": 1,
+            "total": 5,
+            "emptySlots": [
+              "head",
+              "clothes",
+              "arm"
+            ],
+            "target": "스포츠 선글라스",
+            "blocked": "",
+            "growthZone": "barge",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "배터리",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "소방서",
+                  "절",
+                  "병원",
+                  "바지선",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "flee",
+            "growthReadyAt": 520,
+            "actionReadyAt": 502
+          }
+        },
+        {
+          "who": "guest-survivor-02",
+          "name": "매화",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 760,
+          "last": {
+            "who": "guest-survivor-02",
+            "name": "매화",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 73,
+            "maxHp": 146,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "갤럭시 스텝",
+            "blocked": "",
+            "growthZone": "apartment",
+            "readyCraft": "갤럭시 스텝",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1270,
+            "actionReadyAt": 1252
+          }
+        },
+        {
+          "who": "guest-survivor-09",
+          "name": "미르",
+          "bestCompleted": 2,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-09",
+            "name": "미르",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 0,
+            "maxHp": 140,
+            "completed": 1,
+            "total": 5,
+            "emptySlots": [
+              "head",
+              "clothes"
+            ],
+            "target": "기사단장의 투구",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "기사단장의 투구",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "craft",
+            "growthReadyAt": 500,
+            "actionReadyAt": 481
+          }
+        },
+        {
+          "who": "guest-survivor-14",
+          "name": "보라",
+          "bestCompleted": 3,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-14",
+            "name": "보라",
+            "zone": "park",
+            "zoneName": "연못",
+            "hp": 0,
+            "maxHp": 118,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "백우선",
+            "blocked": "",
+            "growthZone": "park",
+            "readyCraft": "운명의 꽃",
+            "missing": [
+              {
+                "name": "못",
+                "need": 1,
+                "zones": [
+                  "골목길",
+                  "양궁장",
+                  "소방서",
+                  "성당",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "flee",
+            "growthReadyAt": 520,
+            "actionReadyAt": 503
+          }
+        },
+        {
+          "who": "guest-survivor-12",
+          "name": "노을",
+          "bestCompleted": 2,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-12",
+            "name": "노을",
+            "zone": "gas_station",
+            "zoneName": "주유소",
+            "hp": 0,
+            "maxHp": 114,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "clothes",
+              "arm"
+            ],
+            "target": "제사장의 예복",
+            "blocked": "",
+            "growthZone": "gas_station",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "옷감",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "절",
+                  "병원",
+                  "고급 주택가",
+                  "성당",
+                  "바지선"
+                ]
+              },
+              {
+                "name": "마패",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "경찰서",
+                  "절",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "피아노선",
+                "need": 1,
+                "zones": [
+                  "골목길",
+                  "양궁장",
+                  "경찰서",
+                  "개울",
+                  "고급 주택가",
+                  "성당",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "flee",
+            "growthReadyAt": 420,
+            "actionReadyAt": 403
+          }
+        },
+        {
+          "who": "guest-survivor-18",
+          "name": "다온",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 780,
+          "last": {
+            "who": "guest-survivor-18",
+            "name": "다온",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 126,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "빛의 증표",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "빛의 증표",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "rest",
+            "growthReadyAt": 840,
+            "actionReadyAt": 821
+          }
+        },
+        {
+          "who": "guest-survivor-17",
+          "name": "라온",
+          "bestCompleted": 3,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-17",
+            "name": "라온",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 0,
+            "maxHp": 142,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "head",
+              "arm"
+            ],
+            "target": "해적 깃발",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "붕대",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "화학품",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 580,
+            "actionReadyAt": 562
+          }
+        },
+        {
+          "who": "guest-survivor-22",
+          "name": "바람",
+          "bestCompleted": 3,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-22",
+            "name": "바람",
+            "zone": "gas_station",
+            "zoneName": "주유소",
+            "hp": 0,
+            "maxHp": 120,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "clothes",
+              "arm"
+            ],
+            "target": "해적 깃발",
+            "blocked": "",
+            "growthZone": "gas_station",
+            "readyCraft": "철판",
+            "missing": [
+              {
+                "name": "붕대",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "craft",
+            "growthReadyAt": 670,
+            "actionReadyAt": 651
+          }
+        }
+      ],
+      "evidence": {
+        "seed": "2202",
+        "phases": 13,
+        "frames": 6433,
+        "ticks": 1265.5,
+        "eventCount": 7601,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1265.5,
+          "day": 7,
+          "phase": "morning",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "approach",
+          "winnerTeamId": "team:6",
+          "dimensionRifts": {
+            "atSec": 1265.5,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1265.5,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1265.5,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1265.5,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1265.5,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1265.5,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1265.5,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1265.5,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1265.5,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 319206268,
+          "draws": 8242,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "5319f54201492c9c338e3f03bda4e340a5f0f3ac564809c016976ba0c388df3c",
+        "frameDigest": "886a55c3e40a7d66fdde0ecec14842dc5c7a80f41af530501e316caca93d2671"
+      },
+      "scope": "actual fixture matches, graph steps and observer-model evidence; isolation durations are diagnostics, not original Marcus reproduction or human/balance acceptance"
+    },
+    {
+      "pass": true,
+      "seed": "3303",
+      "initialRosterSeed": "HF4:roster-C",
+      "engineVersion": "94fac36f4488dbe7e7ec80167add14d991633da42998407f85ff0584b43905b3",
+      "hyperloopZones": [
+        "gas_station",
+        "school",
+        "temple",
+        "stream",
+        "hospital",
+        "hotel",
+        "forest",
+        "apartment",
+        "cathedral",
+        "barge",
+        "factory",
+        "lab"
+      ],
+      "teams": [
+        {
+          "id": "guest-survivor-11",
+          "name": "윤슬",
+          "team": "team:1"
+        },
+        {
+          "id": "guest-survivor-14",
+          "name": "보라",
+          "team": "team:1"
+        },
+        {
+          "id": "guest-survivor-22",
+          "name": "바람",
+          "team": "team:1"
+        },
+        {
+          "id": "guest-survivor-10",
+          "name": "새벽",
+          "team": "team:2"
+        },
+        {
+          "id": "guest-survivor-09",
+          "name": "미르",
+          "team": "team:2"
+        },
+        {
+          "id": "guest-survivor-12",
+          "name": "노을",
+          "team": "team:2"
+        },
+        {
+          "id": "guest-survivor-13",
+          "name": "가람",
+          "team": "team:3"
+        },
+        {
+          "id": "guest-survivor-24",
+          "name": "별하",
+          "team": "team:3"
+        },
+        {
+          "id": "guest-survivor-06",
+          "name": "해오름",
+          "team": "team:3"
+        },
+        {
+          "id": "guest-survivor-21",
+          "name": "이슬",
+          "team": "team:4"
+        },
+        {
+          "id": "guest-survivor-15",
+          "name": "여울",
+          "team": "team:4"
+        },
+        {
+          "id": "guest-survivor-07",
+          "name": "나래",
+          "team": "team:4"
+        },
+        {
+          "id": "guest-survivor-02",
+          "name": "매화",
+          "team": "team:5"
+        },
+        {
+          "id": "guest-survivor-20",
+          "name": "구름",
+          "team": "team:5"
+        },
+        {
+          "id": "guest-survivor-04",
+          "name": "은하",
+          "team": "team:5"
+        },
+        {
+          "id": "guest-survivor-17",
+          "name": "라온",
+          "team": "team:6"
+        },
+        {
+          "id": "guest-survivor-05",
+          "name": "도담",
+          "team": "team:6"
+        },
+        {
+          "id": "guest-survivor-16",
+          "name": "솔빛",
+          "team": "team:6"
+        },
+        {
+          "id": "guest-survivor-19",
+          "name": "마루",
+          "team": "team:7"
+        },
+        {
+          "id": "guest-survivor-03",
+          "name": "청람",
+          "team": "team:7"
+        },
+        {
+          "id": "guest-survivor-23",
+          "name": "하늘",
+          "team": "team:7"
+        },
+        {
+          "id": "guest-survivor-08",
+          "name": "초롱",
+          "team": "team:8"
+        },
+        {
+          "id": "guest-survivor-01",
+          "name": "백로",
+          "team": "team:8"
+        },
+        {
+          "id": "guest-survivor-18",
+          "name": "다온",
+          "team": "team:8"
+        }
+      ],
+      "reachableRendezvousEvents": [
+        {
+          "at": {
+            "day": 4,
+            "phase": "night",
+            "sec": 940
+          },
+          "who": "guest-survivor-08",
+          "teamId": "team:8",
+          "status": "arrived",
+          "targetZoneId": "beach",
+          "selection": {
+            "reason": "reachable_rendezvous",
+            "previousZoneId": "hospital",
+            "previousReachableCount": 1,
+            "reachableCount": 2
+          }
+        },
+        {
+          "at": {
+            "day": 4,
+            "phase": "night",
+            "sec": 940
+          },
+          "who": "guest-survivor-18",
+          "teamId": "team:8",
+          "status": "waiting",
+          "targetZoneId": "beach",
+          "selection": {
+            "reason": "reachable_rendezvous",
+            "previousZoneId": "hospital",
+            "previousReachableCount": 1,
+            "reachableCount": 2
+          }
+        }
+      ],
+      "decisions": 658,
+      "modelChecks": 11,
+      "counts": {
+        "growing": 395,
+        "threat": 64,
+        "together": 105,
+        "reentry": 12,
+        "recovery": 5,
+        "combat": 4,
+        "action_wait": 30,
+        "forbidden": 5,
+        "waiting": 20,
+        "arrived": 15,
+        "enemy_path": 3
+      },
+      "isolationEndCounts": {
+        "contact": 144,
+        "death": 23,
+        "last_living_member": 12
+      },
+      "longestEndedIsolationPeriods": [
+        {
+          "who": "guest-survivor-13",
+          "name": "가람",
+          "teamId": "team:3",
+          "start": 295,
+          "initialActor": {
+            "who": "guest-survivor-13",
+            "name": "가람",
+            "zone": "alley",
+            "zoneName": "골목길",
+            "hp": 85,
+            "maxHp": 130,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "드라우프니르",
+            "blocked": "",
+            "growthZone": "alley",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "팔찌",
+                "need": 1,
+                "zones": [
+                  "골목길",
+                  "병원",
+                  "호텔",
+                  "고급 주택가",
+                  "묘지",
+                  "창고"
+                ]
+              },
+              {
+                "name": "원석",
+                "need": 1,
+                "zones": [
+                  "골목길",
+                  "절",
+                  "개울",
+                  "연못",
+                  "모래사장",
+                  "숲",
+                  "묘지",
+                  "항구"
+                ]
+              }
+            ],
+            "regroup": "growing",
+            "rally": "barge",
+            "action": "routeFarm",
+            "growthReadyAt": 310,
+            "actionReadyAt": 291
+          },
+          "lastActor": {
+            "who": "guest-survivor-13",
+            "name": "가람",
+            "zone": "temple",
+            "zoneName": "절",
+            "hp": 81,
+            "maxHp": 134,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "스텔라 스텝",
+            "blocked": "",
+            "growthZone": "temple",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "절",
+                  "모래사장",
+                  "공장"
+                ]
+              },
+              {
+                "name": "흑연",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "학교",
+                  "경찰서",
+                  "연못",
+                  "모래사장",
+                  "창고",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "growing",
+            "rally": "temple",
+            "action": "routeFarm",
+            "growthReadyAt": 500,
+            "actionReadyAt": 481
+          },
+          "reasons": [
+            "growing"
+          ],
+          "end": 500,
+          "duration": 205,
+          "endReason": "contact",
+          "finalActor": {
+            "who": "guest-survivor-13",
+            "name": "가람",
+            "zone": "temple",
+            "zoneName": "절",
+            "hp": 81,
+            "maxHp": 134,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "스텔라 스텝",
+            "blocked": "",
+            "growthZone": "temple",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "절",
+                  "모래사장",
+                  "공장"
+                ]
+              },
+              {
+                "name": "흑연",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "학교",
+                  "경찰서",
+                  "연못",
+                  "모래사장",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "growing",
+            "rally": "temple",
+            "action": "routeFarm",
+            "growthReadyAt": 520,
+            "actionReadyAt": 501
+          }
+        },
+        {
+          "who": "guest-survivor-24",
+          "name": "별하",
+          "teamId": "team:3",
+          "start": 295,
+          "initialActor": {
+            "who": "guest-survivor-24",
+            "name": "별하",
+            "zone": "barge",
+            "zoneName": "바지선",
+            "hp": 113,
+            "maxHp": 113,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "clothes",
+              "arm"
+            ],
+            "target": "어사의",
+            "blocked": "",
+            "growthZone": "stream",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "셔츠",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "개울",
+                  "호텔",
+                  "성당"
+                ]
+              },
+              {
+                "name": "꽃",
+                "need": 1,
+                "zones": [
+                  "개울",
+                  "연못",
+                  "숲",
+                  "고급 주택가",
+                  "묘지",
+                  "절"
+                ]
+              }
+            ],
+            "regroup": "threat",
+            "rally": "barge",
+            "action": "flee",
+            "growthReadyAt": 310,
+            "actionReadyAt": 293
+          },
+          "lastActor": {
+            "who": "guest-survivor-24",
+            "name": "별하",
+            "zone": "alley",
+            "zoneName": "골목길",
+            "hp": 92,
+            "maxHp": 121,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "SCV",
+            "blocked": "",
+            "growthZone": "temple",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "절",
+                  "모래사장",
+                  "공장"
+                ]
+              },
+              {
+                "name": "쇠구슬",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "경찰서",
+                  "소방서",
+                  "개울",
+                  "고급 주택가",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "배터리",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "소방서",
+                  "절",
+                  "병원",
+                  "창고",
+                  "바지선",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "growing",
+            "rally": "temple",
+            "action": "hunt_combat",
+            "growthReadyAt": 500,
+            "actionReadyAt": 481
+          },
+          "reasons": [
+            "threat",
+            "growing"
+          ],
+          "end": 500,
+          "duration": 205,
+          "endReason": "contact",
+          "finalActor": {
+            "who": "guest-survivor-24",
+            "name": "별하",
+            "zone": "temple",
+            "zoneName": "절",
+            "hp": 92,
+            "maxHp": 121,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "SCV",
+            "blocked": "",
+            "growthZone": "temple",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "절",
+                  "모래사장",
+                  "공장"
+                ]
+              },
+              {
+                "name": "쇠구슬",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "경찰서",
+                  "소방서",
+                  "개울",
+                  "고급 주택가",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "배터리",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "소방서",
+                  "절",
+                  "병원",
+                  "바지선",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "growing",
+            "rally": "temple",
+            "action": "moveTo",
+            "growthReadyAt": 520,
+            "actionReadyAt": 502
+          }
+        },
+        {
+          "who": "guest-survivor-13",
+          "name": "가람",
+          "teamId": "team:3",
+          "start": 560,
+          "initialActor": {
+            "who": "guest-survivor-13",
+            "name": "가람",
+            "zone": "temple",
+            "zoneName": "절",
+            "hp": 81,
+            "maxHp": 134,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "스텔라 스텝",
+            "blocked": "",
+            "growthZone": "temple",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "절",
+                  "모래사장",
+                  "공장"
+                ]
+              },
+              {
+                "name": "흑연",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "학교",
+                  "경찰서",
+                  "연못",
+                  "모래사장",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "together",
+            "rally": "temple",
+            "action": "routeFarm",
+            "growthReadyAt": 580,
+            "actionReadyAt": 561
+          },
+          "lastActor": {
+            "who": "guest-survivor-13",
+            "name": "가람",
+            "zone": "gas_station",
+            "zoneName": "주유소",
+            "hp": 134,
+            "maxHp": 134,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "낙원의 낫",
+            "blocked": "",
+            "growthZone": "barge",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "곡괭이",
+                "need": 1,
+                "zones": [
+                  "모래사장",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "action_wait",
+            "rally": "gas_station",
+            "action": "hunt",
+            "growthReadyAt": 750,
+            "actionReadyAt": 731
+          },
+          "reasons": [
+            "together",
+            "growing",
+            "action_wait",
+            "threat",
+            "waiting",
+            "enemy_path"
+          ],
+          "end": 760,
+          "duration": 200,
+          "endReason": "contact",
+          "finalActor": {
+            "who": "guest-survivor-13",
+            "name": "가람",
+            "zone": "gas_station",
+            "zoneName": "주유소",
+            "hp": 134,
+            "maxHp": 134,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "낙원의 낫",
+            "blocked": "",
+            "growthZone": "barge",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "곡괭이",
+                "need": 1,
+                "zones": [
+                  "모래사장",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "waiting",
+            "rally": "gas_station",
+            "action": "hunt",
+            "growthReadyAt": 780,
+            "actionReadyAt": 761
+          }
+        }
+      ],
+      "unfinishedIsolationPeriods": [],
+      "equipmentProgress": [
+        {
+          "who": "guest-survivor-11",
+          "name": "윤슬",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 820,
+          "last": {
+            "who": "guest-survivor-11",
+            "name": "윤슬",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 136,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "드워프의 투구",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "드워프의 투구",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 960,
+            "actionReadyAt": 943
+          }
+        },
+        {
+          "who": "guest-survivor-14",
+          "name": "보라",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 710,
+          "last": {
+            "who": "guest-survivor-14",
+            "name": "보라",
+            "zone": "gas_station",
+            "zoneName": "주유소",
+            "hp": 0,
+            "maxHp": 122,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "shoes"
+            ],
+            "target": "더 문",
+            "blocked": "",
+            "growthZone": "cathedral",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "유리구슬",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "성당"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "hunt_combat",
+            "growthReadyAt": 840,
+            "actionReadyAt": 821
+          }
+        },
+        {
+          "who": "guest-survivor-22",
+          "name": "바람",
+          "bestCompleted": 4,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-22",
+            "name": "바람",
+            "zone": "archery",
+            "zoneName": "양궁장",
+            "hp": 0,
+            "maxHp": 128,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "SCV",
+            "blocked": "",
+            "growthZone": "archery",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "절",
+                  "모래사장",
+                  "공장"
+                ]
+              },
+              {
+                "name": "쇠구슬",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "경찰서",
+                  "소방서",
+                  "개울",
+                  "고급 주택가",
+                  "바지선",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 500,
+            "actionReadyAt": 482
+          }
+        },
+        {
+          "who": "guest-survivor-10",
+          "name": "새벽",
+          "bestCompleted": 2,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-10",
+            "name": "새벽",
+            "zone": "cemetery",
+            "zoneName": "묘지",
+            "hp": 0,
+            "maxHp": 116,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "제사장의 예복",
+            "blocked": "",
+            "growthZone": "cemetery",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "셔츠",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "개울",
+                  "호텔",
+                  "성당"
+                ]
+              },
+              {
+                "name": "마패",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "경찰서",
+                  "절",
+                  "묘지",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              },
+              {
+                "name": "피아노선",
+                "need": 1,
+                "zones": [
+                  "골목길",
+                  "양궁장",
+                  "경찰서",
+                  "개울",
+                  "호텔",
+                  "고급 주택가",
+                  "성당",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 270,
+            "actionReadyAt": 252
+          }
+        },
+        {
+          "who": "guest-survivor-09",
+          "name": "미르",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 690,
+          "last": {
+            "who": "guest-survivor-09",
+            "name": "미르",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 156,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "head"
+            ],
+            "target": "글레이셜 슈즈",
+            "blocked": "",
+            "growthZone": "cathedral",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "슬리퍼",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "성당"
+                ]
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1010,
+            "actionReadyAt": 993
+          }
+        },
+        {
+          "who": "guest-survivor-12",
+          "name": "노을",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 540,
+          "last": {
+            "who": "guest-survivor-12",
+            "name": "노을",
+            "zone": "alley",
+            "zoneName": "골목길",
+            "hp": 0,
+            "maxHp": 118,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "SCV",
+            "blocked": "",
+            "growthZone": "alley",
+            "readyCraft": "SCV",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "craft",
+            "growthReadyAt": 560,
+            "actionReadyAt": 541
+          }
+        },
+        {
+          "who": "guest-survivor-13",
+          "name": "가람",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 690,
+          "last": {
+            "who": "guest-survivor-13",
+            "name": "가람",
+            "zone": "gas_station",
+            "zoneName": "주유소",
+            "hp": 0,
+            "maxHp": 134,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "낙원의 낫",
+            "blocked": "",
+            "growthZone": "barge",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "곡괭이",
+                "need": 1,
+                "zones": [
+                  "모래사장",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "hunt",
+            "growthReadyAt": 800,
+            "actionReadyAt": 781
+          }
+        },
+        {
+          "who": "guest-survivor-24",
+          "name": "별하",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 600,
+          "last": {
+            "who": "guest-survivor-24",
+            "name": "별하",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 141,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "shoes"
+            ],
+            "target": "발할라의 투구",
+            "blocked": "",
+            "growthZone": "apartment",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "모자",
+                "need": 1,
+                "zones": [
+                  "고급 주택가",
+                  "성당"
+                ]
+              },
+              {
+                "name": "VF 혈액 샘플",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "rest",
+            "growthReadyAt": 1150,
+            "actionReadyAt": 1131
+          }
+        },
+        {
+          "who": "guest-survivor-06",
+          "name": "해오름",
+          "bestCompleted": 2,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-06",
+            "name": "해오름",
+            "zone": "barge",
+            "zoneName": "바지선",
+            "hp": 0,
+            "maxHp": 116,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "clothes",
+              "arm"
+            ],
+            "target": "어사의",
+            "blocked": "",
+            "growthZone": "barge",
+            "readyCraft": "덧댄 로브",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 480,
+            "actionReadyAt": 463
+          }
+        },
+        {
+          "who": "guest-survivor-21",
+          "name": "이슬",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 710,
+          "last": {
+            "who": "guest-survivor-21",
+            "name": "이슬",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 148,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "head"
+            ],
+            "target": "반고부",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "손도끼",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "공장"
+                ]
+              },
+              {
+                "name": "미스릴",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1010,
+            "actionReadyAt": 993
+          }
+        },
+        {
+          "who": "guest-survivor-15",
+          "name": "여울",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 880,
+          "last": {
+            "who": "guest-survivor-15",
+            "name": "여울",
+            "zone": "factory",
+            "zoneName": "공장",
+            "hp": 0,
+            "maxHp": 139,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "검은 베일",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "흑연",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "연못",
+                  "모래사장"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1010,
+            "actionReadyAt": 993
+          }
+        },
+        {
+          "who": "guest-survivor-07",
+          "name": "나래",
+          "bestCompleted": 4,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-07",
+            "name": "나래",
+            "zone": "temple",
+            "zoneName": "절",
+            "hp": 0,
+            "maxHp": 121,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [],
+            "target": "스텔라 스텝",
+            "blocked": "",
+            "growthZone": "temple",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "운동화",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "절",
+                  "모래사장",
+                  "공장"
+                ]
+              },
+              {
+                "name": "흑연",
+                "need": 1,
+                "zones": [
+                  "양궁장",
+                  "학교",
+                  "경찰서",
+                  "연못",
+                  "모래사장",
+                  "바지선"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 640,
+            "actionReadyAt": 622
+          }
+        },
+        {
+          "who": "guest-survivor-02",
+          "name": "매화",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 451.333333,
+          "last": {
+            "who": "guest-survivor-02",
+            "name": "매화",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 134,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "head"
+            ],
+            "target": "레이더",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "배터리",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "소방서",
+                  "병원",
+                  "공장"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 880,
+            "actionReadyAt": 863
+          }
+        },
+        {
+          "who": "guest-survivor-20",
+          "name": "구름",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 520,
+          "last": {
+            "who": "guest-survivor-20",
+            "name": "구름",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 128,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "가디언 슈트",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "전신 수영복",
+                "need": 1,
+                "zones": [
+                  "개울",
+                  "연못",
+                  "모래사장"
+                ]
+              },
+              {
+                "name": "운석",
+                "need": 1,
+                "zones": []
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "droneOrder",
+            "growthReadyAt": 940,
+            "actionReadyAt": 921
+          }
+        },
+        {
+          "who": "guest-survivor-04",
+          "name": "은하",
+          "bestCompleted": 3,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-04",
+            "name": "은하",
+            "zone": "alley",
+            "zoneName": "골목길",
+            "hp": 0,
+            "maxHp": 112,
+            "completed": 3,
+            "total": 5,
+            "emptySlots": [
+              "arm"
+            ],
+            "target": "드라우프니르",
+            "blocked": "",
+            "growthZone": "alley",
+            "readyCraft": "금팔찌",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "craft",
+            "growthReadyAt": 480,
+            "actionReadyAt": 461
+          }
+        },
+        {
+          "who": "guest-survivor-17",
+          "name": "라온",
+          "bestCompleted": 2,
+          "total": 5,
+          "firstCompleteSec": null,
+          "last": {
+            "who": "guest-survivor-17",
+            "name": "라온",
+            "zone": "barge",
+            "zoneName": "바지선",
+            "hp": 0,
+            "maxHp": 150,
+            "completed": 2,
+            "total": 5,
+            "emptySlots": [
+              "clothes",
+              "arm"
+            ],
+            "target": "고위 사제복",
+            "blocked": "",
+            "growthZone": "barge",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "셔츠",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "개울",
+                  "성당"
+                ]
+              },
+              {
+                "name": "옷감",
+                "need": 1,
+                "zones": [
+                  "주유소",
+                  "절",
+                  "병원",
+                  "고급 주택가",
+                  "성당",
+                  "바지선"
+                ]
+              },
+              {
+                "name": "붕대",
+                "need": 1,
+                "zones": [
+                  "학교",
+                  "소방서",
+                  "병원",
+                  "항구",
+                  "바지선",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 620,
+            "actionReadyAt": 603
+          }
+        },
+        {
+          "who": "guest-survivor-05",
+          "name": "도담",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 831.25,
+          "last": {
+            "who": "guest-survivor-05",
+            "name": "도담",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 148,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "진홍빛 낫",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "손도끼",
+                "need": 1,
+                "zones": [
+                  "공장"
+                ]
+              },
+              {
+                "name": "VF 혈액 샘플",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1150,
+            "actionReadyAt": 1133
+          }
+        },
+        {
+          "who": "guest-survivor-16",
+          "name": "솔빛",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 670,
+          "last": {
+            "who": "guest-survivor-16",
+            "name": "솔빛",
+            "zone": "cathedral",
+            "zoneName": "성당",
+            "hp": 0,
+            "maxHp": 123,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "SCV",
+            "blocked": "",
+            "growthZone": "cathedral",
+            "readyCraft": "SCV",
+            "missing": [],
+            "regroup": "",
+            "rally": "",
+            "action": "craft",
+            "growthReadyAt": 690,
+            "actionReadyAt": 671
+          }
+        },
+        {
+          "who": "guest-survivor-19",
+          "name": "마루",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 520,
+          "last": {
+            "who": "guest-survivor-19",
+            "name": "마루",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 101,
+            "maxHp": 158,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "네크로노미콘",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "종이",
+                "need": 1,
+                "zones": [
+                  "공장"
+                ]
+              },
+              {
+                "name": "VF 혈액 샘플",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "droneOrder",
+            "growthReadyAt": 1170,
+            "actionReadyAt": 1151
+          }
+        },
+        {
+          "who": "guest-survivor-03",
+          "name": "청람",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 480,
+          "last": {
+            "who": "guest-survivor-03",
+            "name": "청람",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 138,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "weapon"
+            ],
+            "target": "다비드 헤드폰",
+            "blocked": "",
+            "growthZone": "cathedral",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "머리띠",
+                "need": 1,
+                "zones": [
+                  "연못",
+                  "성당"
+                ]
+              },
+              {
+                "name": "미스릴",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1030,
+            "actionReadyAt": 1013
+          }
+        },
+        {
+          "who": "guest-survivor-23",
+          "name": "하늘",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 580,
+          "last": {
+            "who": "guest-survivor-23",
+            "name": "하늘",
+            "zone": "school",
+            "zoneName": "학교",
+            "hp": 0,
+            "maxHp": 133,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "shoes"
+            ],
+            "target": "기어 헬릭스",
+            "blocked": "",
+            "growthZone": "apartment",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "바늘",
+                "need": 1,
+                "zones": [
+                  "소방서",
+                  "병원",
+                  "고급 주택가"
+                ]
+              },
+              {
+                "name": "생명의 나무",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 750,
+            "actionReadyAt": 733
+          }
+        },
+        {
+          "who": "guest-survivor-08",
+          "name": "초롱",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 760,
+          "last": {
+            "who": "guest-survivor-08",
+            "name": "초롱",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 133,
+            "completed": 4,
+            "total": 5,
+            "emptySlots": [
+              "head"
+            ],
+            "target": "레이싱 슈트",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "바람막이",
+                "need": 1,
+                "zones": [
+                  "모래사장"
+                ]
+              },
+              {
+                "name": "미스릴",
+                "need": 1,
+                "zones": []
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1170,
+            "actionReadyAt": 1152
+          }
+        },
+        {
+          "who": "guest-survivor-01",
+          "name": "백로",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 710,
+          "last": {
+            "who": "guest-survivor-01",
+            "name": "백로",
+            "zone": "beach",
+            "zoneName": "모래사장",
+            "hp": 0,
+            "maxHp": 150,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "개밥바라기",
+            "blocked": "",
+            "growthZone": "factory",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "망치",
+                "need": 1,
+                "zones": [
+                  "소방서",
+                  "개울",
+                  "공장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "hunt_combat",
+            "growthReadyAt": 880,
+            "actionReadyAt": 861
+          }
+        },
+        {
+          "who": "guest-survivor-18",
+          "name": "다온",
+          "bestCompleted": 5,
+          "total": 5,
+          "firstCompleteSec": 860,
+          "last": {
+            "who": "guest-survivor-18",
+            "name": "다온",
+            "zone": "apartment",
+            "zoneName": "고급 주택가",
+            "hp": 0,
+            "maxHp": 134,
+            "completed": 5,
+            "total": 5,
+            "emptySlots": [],
+            "target": "가디언 슈트",
+            "blocked": "",
+            "growthZone": "beach",
+            "readyCraft": "",
+            "missing": [
+              {
+                "name": "전신 수영복",
+                "need": 1,
+                "zones": [
+                  "연못",
+                  "모래사장"
+                ]
+              }
+            ],
+            "regroup": "",
+            "rally": "",
+            "action": "moveTo",
+            "growthReadyAt": 1030,
+            "actionReadyAt": 1012
+          }
+        }
+      ],
+      "evidence": {
+        "seed": "3303",
+        "phases": 11,
+        "frames": 5931,
+        "ticks": 1151.25,
+        "eventCount": 7493,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1151.25,
+          "day": 6,
+          "phase": "morning",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "",
+          "winnerTeamId": "team:7",
+          "dimensionRifts": {
+            "atSec": 1151.25,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1151.25,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1151.25,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1151.25,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1151.25,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1151.25,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1151.25,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1151.25,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1151.25,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 1340091888,
+          "draws": 8129,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "9b5581d7f6a562a59104035971f7ffd299d3839d26f36ae52da5679b3f90758b",
+        "frameDigest": "566c85f1ba4c57ec982bf5c5f7840ebe1980c989a4c91f6b341dd2abf8f0f617"
+      },
+      "scope": "actual fixture matches, graph steps and observer-model evidence; isolation durations are diagnostics, not original Marcus reproduction or human/balance acceptance"
+    }
+  ]
+}

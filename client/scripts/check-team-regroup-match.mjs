@@ -1,17 +1,18 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
-const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
+const { buildIsolationNavigation, createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
 const { buildTeamObserverModel } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
 const { describeTeamRegroupDecision } = await import('../src/app/simulation/_lib/teamRegroupRuntime.js');
 const { createTeamIsolationTracker } = await import('./lib/team-isolation-tracker.mjs');
-const { buildBaseZoneGraph, buildHyperloopZoneGraph } = await import('../src/app/simulation/_lib/mapGraphRuntime.js');
 const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
 
-const seeds = process.argv.slice(2).length ? process.argv.slice(2) : ['1101', '2202', '3303'];
+const args = process.argv.slice(2);
+const initialRosterSeed = args.find(arg => arg.startsWith('--roster-seed='))?.slice('--roster-seed='.length) || 'FIXTURE:initial-roster';
+const requestedSeeds = args.filter(arg => !arg.startsWith('--'));
+const seeds = requestedSeeds.length ? requestedSeeds : ['1101', '2202', '3303'];
 for (const seed of seeds) {
-  const input = await createRandomIsolationInput(seed), fixture = JSON.parse(input);
-  const graph = buildHyperloopZoneGraph(buildBaseZoneGraph(fixture.map, fixture.map.zones), fixture.map.zones,
-    fixture.map.zones.filter((zone) => zone.hasHyperloop).map((zone) => zone.zoneId));
+  const input = await createRandomIsolationInput(seed, { initialRosterSeed }), fixture = JSON.parse(input);
+  const { zoneGraph: graph } = buildIsolationNavigation(fixture.map);
   const checkedStatuses = new Set();
   const isolation = createTeamIsolationTracker({ items: fixture.items, zones: fixture.map.zones });
   const equipmentProgress = new Map();
@@ -47,6 +48,12 @@ for (const seed of seeds) {
     if (e.status === 'arrived') assert.equal(e.to, e.targetZoneId);
     if (e.status === 'growing') assert.ok(e.growth && e.growth.completedSlots < e.growth.totalSlots);
     if (['enemy_path', 'forbidden_path', 'disconnected'].includes(e.status)) assert.equal(e.from, e.to);
+    if (e.rallySelection) {
+      assert.equal(e.rallySelection.reason, 'reachable_rendezvous');
+      assert.ok(e.rallySelection.reachableCount > e.rallySelection.previousReachableCount);
+      assert.ok(e.rallySelection.reachableCount <= e.memberCount);
+      assert.notEqual(e.targetZoneId, e.rallySelection.previousZoneId);
+    }
     counts[e.status] = (counts[e.status] || 0) + 1;
   }
   assert.ok(counts.arrived > 0, 'This fixture must exercise actual arrival, not only intentions.');
@@ -55,7 +62,12 @@ for (const seed of seeds) {
   for (const period of [...periods.finished, ...periods.unfinished]) {
     isolationEndCounts[period.endReason] = (isolationEndCounts[period.endReason] || 0) + 1;
   }
-  console.log(JSON.stringify({ pass: true, seed, engineVersion: SIMULATION_ENGINE_VERSION,
+  console.log(JSON.stringify({ pass: true, seed, initialRosterSeed, engineVersion: SIMULATION_ENGINE_VERSION,
+    hyperloopZones: buildIsolationNavigation(fixture.map).loops,
+    teams: fixture.survivors.map(actor => ({ id: actor._id, name: actor.name, team: actor.teamId })),
+    reachableRendezvousEvents: decisions.filter(event => event.regroupEvidence.rallySelection).map(event => ({
+      at: event.at, who: event.who, teamId: event.regroupEvidence.teamId, status: event.regroupEvidence.status,
+      targetZoneId: event.regroupEvidence.targetZoneId, selection: event.regroupEvidence.rallySelection })),
     decisions: decisions.length, modelChecks, counts,
     isolationEndCounts, longestEndedIsolationPeriods: periods.finished.sort((a, b) => b.duration - a.duration).slice(0, 3),
     unfinishedIsolationPeriods: periods.unfinished, equipmentProgress: [...equipmentProgress.values()],

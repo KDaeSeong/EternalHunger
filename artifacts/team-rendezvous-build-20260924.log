@@ -1,0 +1,96 @@
+Build command: cmd /c npm run build
+Engine: 94fac36f4488dbe7e7ec80167add14d991633da42998407f85ff0584b43905b3
+Exit code: 0
+The following is the captured build completion output after the initial command yield, with trailing spaces trimmed.
+✓ Compiled successfully in 18.1s
+  Running TypeScript ...
+  Collecting page data using 2 workers ...
+  Generating static pages using 2 workers (0/61) ...
+  Generating static pages using 2 workers (15/61)
+  Generating static pages using 2 workers (30/61)
+  Generating static pages using 2 workers (45/61)
+✓ Generating static pages using 2 workers (61/61) in 2.9s
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /account
+├ ○ /achievements
+├ ○ /activity
+├ ○ /admin
+├ ○ /admin/audit
+├ ○ /admin/crates
+├ ○ /admin/credits
+├ ○ /admin/drone
+├ ○ /admin/games
+├ ○ /admin/import
+├ ○ /admin/items
+├ ○ /admin/kiosks
+├ ○ /admin/maps
+├ ○ /admin/perks
+├ ○ /admin/reports
+├ ○ /admin/users
+├ ƒ /api/characters
+├ ƒ /api/proxy/[...path]
+├ ○ /balance
+├ ○ /board
+├ ƒ /board/[id]
+├ ○ /bookmarks
+├ ○ /characters
+├ ○ /details
+├ ○ /eternalhunger
+├ ƒ /eternalhunger/evaluate
+├ ○ /eternalhunger/items
+├ ○ /games
+├ ƒ /games/[slug]
+├ ○ /games/ba-srpg/play
+├ ○ /games/ba-vanguard/play
+├ ○ /games/company-report/play
+├ ○ /games/dual-academy-tcg/deck
+├ ○ /games/dual-academy-tcg/play
+├ ○ /games/myanimecraft/play
+├ ○ /games/primitive-archive/play
+├ ○ /games/racing-logos-demo/play
+├ ○ /games/rail3d-sim/play
+├ ○ /games/records
+├ ○ /games/rooms
+├ ƒ /games/rooms/[id]
+├ ○ /games/saves
+├ ○ /games/schale-idle-rpg/play
+├ ○ /games/school-simulator/play
+├ ○ /games/si-coding-sim/play
+├ ○ /games/tonkatsu-teacher/play
+├ ○ /guides
+├ ○ /help
+├ ○ /leaderboard
+├ ○ /login
+├ ○ /modifiers
+├ ○ /myanime
+├ ƒ /myanime/[slug]
+├ ƒ /myanime/[slug]/deck
+├ ƒ /myanime/[slug]/play
+├ ○ /notifications
+├ ○ /perks
+├ ○ /privacy
+├ ○ /records
+├ ƒ /records/runs/[id]
+├ ○ /reports
+├ ○ /reset-password
+├ ○ /search
+├ ○ /signup
+├ ƒ /simulation
+├ ○ /srpg
+├ ƒ /srpg/[slug]
+├ ƒ /srpg/[slug]/play
+├ ○ /terms
+├ ○ /twenty-questions
+├ ƒ /twenty-questions/[id]
+└ ƒ /users/[id]
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

@@ -113,6 +113,64 @@ check('the rally planner is deterministic, input-order independent and read-only
   assert.deepEqual(squad, before);
 });
 
+check('ready teammates choose a reachable rendezvous instead of waiting forever at an unreachable majority', () => {
+  const directed = { a: [], b: ['a'], c: ['b'] };
+  const roster = [actor('lone', 'a'), actor('anchor', 'c', { teamSlot: 1 }), actor('friend', 'c', { teamSlot: 2 })];
+  const plans = buildTeamCoordination({ ...options, roster, zoneGraph: directed });
+  assert.equal(plans.regroupDecisions.get('lone').targetZoneId, 'a');
+  assert.equal(plans.regroupDecisions.get('lone').stage, 'waiting');
+  assert.equal(plans.movementPlans.get('anchor').nextStep, 'b');
+  assert.equal(plans.movementPlans.get('friend').nextStep, 'b');
+  assert.equal(plans.movementPlans.get('anchor').targetZoneId, 'a');
+  assert.deepEqual(plans.regroupDecisions.get('anchor').rallySelection, {
+    reason: 'reachable_rendezvous', previousZoneId: 'c', previousReachableCount: 2, reachableCount: 3,
+  });
+  const first = move(roster[1], roster, { zoneGraph: directed });
+  assert.equal(first.nextZoneId, 'b');
+  assert.equal(first.actor._teamRegroup.status, 'joining');
+  const midway = [roster[0], first.actor, { ...roster[2], zoneId: 'b' }];
+  const arrived = move(first.actor, midway, { zoneGraph: directed });
+  assert.equal(arrived.nextZoneId, 'a');
+  assert.equal(arrived.actor._teamRegroup.status, 'arrived');
+});
+
+check('rendezvous reachability preserves hazards, direction, unfinished recipes and input order', () => {
+  const directed = { a: [], b: ['a'], c: ['b'] };
+  const ready = [actor('lone', 'a'), actor('anchor', 'c', { teamSlot: 1 }), actor('friend', 'c', { teamSlot: 2 })];
+  const normalize = result => [...result.regroupDecisions].sort(([a], [b]) => a.localeCompare(b));
+  const before = structuredClone(ready);
+  const safe = buildTeamCoordination({ ...options, roster: ready, zoneGraph: directed });
+  assert.deepEqual(normalize(safe), normalize(buildTeamCoordination({ ...options, roster: [...ready].reverse(), zoneGraph: directed })));
+  for (const setup of [
+    { roster: [...ready, actor('enemy', 'b', { teamId: 'enemy' })] },
+    { forbiddenIds: new Set(['b']) },
+    { zoneGraph: { a: [], b: [], c: ['b'] } },
+  ]) {
+    const result = buildTeamCoordination({ ...options, roster: ready, zoneGraph: directed, ...setup });
+    assert.equal(result.regroupDecisions.get('lone').targetZoneId, 'c');
+    assert.equal(result.regroupDecisions.get('lone').stage, 'path_blocked');
+    assert.equal(result.regroupDecisions.get('lone').rallySelection, undefined);
+  }
+  const farmers = ready.map((row, index) => index ? { ...row, _growthPlan: { openingComplete: false, targetId: 'real-recipe' } } : row);
+  const growing = buildTeamCoordination({ ...options, roster: farmers, zoneGraph: directed });
+  assert.equal(growing.regroupDecisions.get('lone').targetZoneId, 'c');
+  assert.equal(growing.movementPlans.has('anchor'), false);
+  assert.deepEqual(ready, before);
+});
+
+check('a reachable rendezvous retains decision-time counts and owned observation data', () => {
+  const directed = { a: [], b: ['a'], c: ['b'] };
+  const roster = [actor('lone', 'a'), actor('anchor', 'c', { teamSlot: 1 }), actor('friend', 'c', { teamSlot: 2 })];
+  const result = move(roster[1], roster, { zoneGraph: directed });
+  const event = result.events.find(row => row.kind === 'team_regroup');
+  const evidence = structuredClone(event.regroupEvidence);
+  assert.match(describeTeamRegroupDecision(evidence), /합류 지점 재선정.*3\/3명.*2\/3명/);
+  result.actor._teamRegroup.rallySelection.reachableCount = 99;
+  assert.deepEqual(event.regroupEvidence, evidence);
+  const model = buildTeamObserverModel({ survivors: [roster[0], result.actor, roster[2]], events: [event], teamId: 't', matchSec: 400 });
+  assert.match(model.members.find(row => row.id === 'anchor').coordination.text, /합류 지점 재선정.*3\/3명.*2\/3명/);
+});
+
 check('unfinished growth keeps the real recipe while ready allies have a full-map escort route', () => {
   const items = [
     { _id: 'raw', name: '부족 재료', type: '재료', category: 'material', tier: 1, spawnZones: ['e'], recipe: { ingredients: [] } },

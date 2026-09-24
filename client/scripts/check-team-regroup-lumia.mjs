@@ -1,12 +1,12 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
-const { createRandomIsolationInput } = await import('./lib/run-random-isolation-match.mjs');
+const { buildIsolationNavigation, createRandomIsolationInput } = await import('./lib/run-random-isolation-match.mjs');
 const { buildTeamCoordination } = await import('../src/app/simulation/_lib/teamTacticsRuntime.js');
 const { runActorMovementDecisionPhase } = await import('../src/app/simulation/_lib/phaseActorMovementRuntime.js');
 const { runPhaseActorActionPipeline } = await import('../src/app/simulation/_lib/phaseActorActionPipelineRuntime.js');
 const { describeTeamRegroupDecision } = await import('../src/app/simulation/_lib/teamRegroupRuntime.js');
 const { refreshActorGrowthPlan, getActorGrowthProgress } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
-const { buildBaseZoneGraph, buildHyperloopZoneGraph, isHyperloopTransit } = await import('../src/app/simulation/_lib/mapGraphRuntime.js');
+const { isHyperloopTransit } = await import('../src/app/simulation/_lib/mapGraphRuntime.js');
 const { buildCraftableItems, buildItemMetaById, buildItemNameById, buildItemKeyById } = await import('../src/app/simulation/_lib/itemOptionsRuntime.js');
 const { createFieldResources, getFieldResourceQty } = await import('../src/app/simulation/_lib/fieldResourceRuntime.js');
 const { applyLootCraftResult } = await import('../src/app/simulation/_lib/lootCraftResultRuntime.js');
@@ -22,12 +22,10 @@ const { emitCraftRunEvent, emitItemGainIfAny, emitQueueRunEvent } = await import
 console.log('Preparing real Lumia map/catalog control (not the original evaluator input).');
 const fixture = JSON.parse(await createRandomIsolationInput('regroup-lumia-control'));
 const mapObj = fixture.map, ruleset = getRuleset('ER_S11');
-const baseGraph = buildBaseZoneGraph(mapObj, mapObj.zones);
-const loops = mapObj.zones.filter((zone) => zone.hasHyperloop).map((zone) => zone.zoneId);
-const zoneGraph = buildHyperloopZoneGraph(baseGraph, mapObj.zones, loops);
+const { baseGraph, loops, zoneGraph, zones } = buildIsolationNavigation(mapObj);
 const zoneName = (id) => mapObj.zones.find((zone) => zone.zoneId === id)?.name || id;
 const HOSPITAL = 'hospital', GAS = 'gas_station';
-const makeWorld = (items = fixture.items) => ({ mapObj, zones: mapObj.zones, zoneGraph, ruleset,
+const makeWorld = (items = fixture.items) => ({ mapObj, zones, zoneGraph, ruleset,
   publicItems: items, craftables: buildCraftableItems(items), itemMetaById: buildItemMetaById(items),
   itemNameById: buildItemNameById(items), itemKeyById: buildItemKeyById(items),
   forbiddenIds: new Set(), nextSpawn: { fieldResources: createFieldResources(mapObj, items, ruleset) },
@@ -84,6 +82,29 @@ check('the control uses the actual hospital/gas-station hyperloop edge, not a fa
   assert.equal(baseGraph[HOSPITAL].includes(GAS), false);
   assert.equal(isHyperloopTransit(baseGraph, loops, HOSPITAL, GAS), true);
   assert.ok(zoneGraph[HOSPITAL].includes(GAS));
+});
+
+check('two ready allies use their real hyperloop to reach an isolated teammate whose exits are occupied', () => {
+  const world = makeWorld(), squad = preparedSquad(world);
+  squad[0].zoneId = 'police';
+  const blockers = baseGraph.police.map((zoneId, index) => ({ ...structuredClone(squad[0]),
+    _id: `blocker-${index}`, teamId: `enemy-${index}`, zoneId }));
+  const roster = [...squad, ...blockers], before = structuredClone(roster);
+  assert.equal(loops.includes('police'), false);
+  assert.equal(isHyperloopTransit(baseGraph, loops, GAS, 'police'), true);
+  const plans = coordination(roster, world);
+  assert.equal(plans.regroupDecisions.get('lone').targetZoneId, 'police');
+  assert.equal(plans.regroupDecisions.get('lone').stage, 'waiting');
+  for (const ally of squad.slice(1)) {
+    const result = move(ally, roster, world);
+    assert.equal(result.nextZoneId, 'police');
+    assert.equal(result.moveReason, 'team_regroup');
+    assert.equal(result.usedHyperloopMove, true);
+    assert.equal(result.cost, 3);
+    assert.equal(result.actor._teamRegroup.status, 'arrived');
+    assert.deepEqual(result.actor.inventory, ally.inventory);
+  }
+  assert.deepEqual(roster, before);
 });
 
 check('a ready lone member joins two gas-station allies with a three-second travel cost and no new gear', () => {

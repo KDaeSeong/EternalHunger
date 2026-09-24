@@ -1,0 +1,150 @@
+{
+  "date": "2026-09-24",
+  "engineVersion": "94fac36f4488dbe7e7ec80167add14d991633da42998407f85ff0584b43905b3",
+  "exitCode": 0,
+  "checks": 16,
+  "scriptEslintExitCode": 0,
+  "scope": "Saved-input model replay with observer noise; no account APIs or storage. Separate from product browser validation.",
+  "result": {
+    "seed": "1101",
+    "phases": 12,
+    "frames": 6261,
+    "ticks": 1225.75,
+    "eventCount": 7311,
+    "ending": {
+      "outcome": "last_team",
+      "atSec": 1225.75,
+      "day": 6,
+      "phase": "night",
+      "cause": "combat",
+      "causeName": "교전",
+      "finalZoneStage": "approach",
+      "winnerTeamId": "team:1",
+      "dimensionRifts": {
+        "atSec": 1225.75,
+        "settlements": [
+          {
+            "id": "RIFT_guest-lumia-island_3_1:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_1",
+            "atSec": 1225.75,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_3_2:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_2",
+            "atSec": 1225.75,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_3_3:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_3",
+            "atSec": 1225.75,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_3_4:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_4",
+            "atSec": 1225.75,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_1:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_1",
+            "atSec": 1225.75,
+            "reason": "match_end",
+            "disposition": "claimed",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_2:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_2",
+            "atSec": 1225.75,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_3:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_3",
+            "atSec": 1225.75,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_4:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_4",
+            "atSec": 1225.75,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          }
+        ],
+        "expiredWorldGifts": 0,
+        "expiredForElimination": 0,
+        "invalidRewards": 0,
+        "unfinishedContests": 0
+      }
+    },
+    "random": {
+      "algorithm": "fnv1a-mulberry32-v1",
+      "state": 4256208493,
+      "draws": 8084,
+      "ids": 0,
+      "nameHistory": []
+    },
+    "eventDigest": "809d7466910fa1c98adccc5a18035baa2152931b69a49377de9eea24906e9e3f",
+    "frameDigest": "f304ecd383cb68bbe6c2d57aa3d338e8253a11f4c348da0f27e40c778e0cba9c",
+    "comparison": {
+      "matched": true,
+      "firstDifference": -1,
+      "expectedEvents": 7311,
+      "actualEvents": 7311,
+      "sameFinalState": true,
+      "sameRandom": true,
+      "sameEnding": true
+    },
+    "externalAccess": 0,
+    "inputBytes": 731112
+  }
+}

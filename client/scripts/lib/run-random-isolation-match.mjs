@@ -6,7 +6,8 @@ import { buildGuestSimulationMap, buildGuestSimulationRoster, loadGuestSimulatio
 import { applyGuestCharacterProfiles } from '../../src/app/simulation/_lib/guestCharacterProfileRuntime.js';
 import { buildInitialSimulationRoster } from '../../src/app/simulation/_lib/simulationInitialRosterRuntime.js';
 import { getDefaultSimulationSettings } from '../../src/app/simulation/_lib/simulationPageRuntime.js';
-import { buildBaseZoneGraph, buildHyperloopZoneGraph, isHyperloopTransit } from '../../src/app/simulation/_lib/mapGraphRuntime.js';
+import { buildBaseZoneGraph, buildHyperloopZoneGraph, getHyperloopZoneIds, isHyperloopTransit } from '../../src/app/simulation/_lib/mapGraphRuntime.js';
+import { applyRegionDataToZones } from '../../src/app/simulation/_lib/lumiaRegionData.js';
 import { getForbiddenZoneIdsForPhase, getForbiddenAddedZoneIdsForPhase } from '../../src/app/simulation/_lib/forbiddenZoneRuntime.js';
 import { buildCraftableItems, buildItemMetaById, buildItemNameById, buildItemKeyById } from '../../src/app/simulation/_lib/itemOptionsRuntime.js';
 import { applyLootCraftResult } from '../../src/app/simulation/_lib/lootCraftResultRuntime.js';
@@ -26,17 +27,26 @@ function freeze(value) {
   return Object.freeze(value);
 }
 
-export async function createRandomIsolationInput(runSeed = '1101', { guestProfiles = [] } = {}) {
+export function buildIsolationNavigation(map) {
+  const zones = applyRegionDataToZones(map.zones);
+  const baseGraph = buildBaseZoneGraph(map, zones);
+  const loops = getHyperloopZoneIds(map, zones);
+  return { zones, baseGraph, loops, zoneGraph: buildHyperloopZoneGraph(baseGraph, zones, loops) };
+}
+
+export async function createRandomIsolationInput(runSeed = '1101', {
+  guestProfiles = [], initialRosterSeed = 'FIXTURE:initial-roster',
+} = {}) {
   const map = buildGuestSimulationMap();
   const settings = getDefaultSimulationSettings();
   const items = await loadGuestSimulationItemCatalog();
-  const { shuffledChars } = withSimulationRandom(createSeedRng('FIXTURE:initial-roster'), () => buildInitialSimulationRoster({
+  const { shuffledChars } = withSimulationRandom(createSeedRng(initialRosterSeed), () => buildInitialSimulationRoster({
     charList: applyGuestCharacterProfiles(buildGuestSimulationRoster(), guestProfiles), routeItems: items, initialMap: map,
     initialZoneIds: map.zones.map((zone) => zone.zoneId), loadedSettings: settings,
   }));
-  // This is a test input snapshot, not the product's still-pending replay save
-  // format. Every run reconstructs derived maps from these same JSON values.
-  return JSON.stringify({ map, settings, items, survivors: shuffledChars, runSeed });
+  // Diagnostic fixtures are not product replay records. Their explicit roster
+  // seed is evidence of the input, not another source of in-match randomness.
+  return JSON.stringify({ map, settings, items, survivors: shuffledChars, runSeed, initialRosterSeed });
 }
 
 export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseOnly = false, uiNoise = () => {}, savedInput = null, onFinish, onFrame } = {}) {
@@ -44,8 +54,7 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
     survivors: savedInput.initialFrame.survivors, runSeed: savedInput.runSeed } : JSON.parse(inputJson);
   const { map, settings, items, survivors, runSeed } = structuredClone(fixture);
   const prepared = savedInput ? prepareSimulationRunInput(savedInput) : null;
-  const baseGraph = buildBaseZoneGraph(map, map.zones);
-  const loops = map.zones.filter((zone) => zone.hasHyperloop).map((zone) => zone.zoneId);
+  const { zones, baseGraph, loops, zoneGraph } = buildIsolationNavigation(map);
   const itemMetaById = buildItemMetaById(items);
   const itemNameById = buildItemNameById(items);
   const itemKeyById = buildItemKeyById(items);
@@ -53,7 +62,7 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
   const state = { activeMap: map, activeMapId: map._id, autoSpeed: 32, settings, runSeed,
     day: 0, phase: 'night', matchSec: 0, dead: [], survivors, killCounts: {}, assistCounts: {}, spawnState: null,
     publicItems: items, craftables: buildCraftableItems(items), itemMetaById, itemNameById, itemKeyById,
-    zones: map.zones, zoneGraph: buildHyperloopZoneGraph(baseGraph, map.zones, loops), kiosks: [], droneOffers: [],
+    zones, zoneGraph, kiosks: [], droneOffers: [],
   };
   if (prepared) Object.assign(state, prepared.state);
   const refs = Object.fromEntries(Object.entries({ activeMap: map, activeMapId: map._id, autoSpeed: 32,
@@ -155,10 +164,10 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
     { at, zoneId, addLog, grantCraftMastery: mastery.grantCraftMastery, emitCraftRunEvent: actions.emitCraftRunEvent });
   const forbiddenCache = new Map();
   const helpers = {
-    getZoneName: (id) => map.zones.find((zone) => zone.zoneId === id)?.name || id,
+    getZoneName: (id) => zones.find((zone) => zone.zoneId === id)?.name || id,
     isHyperloopTransit: (from, to) => isHyperloopTransit(baseGraph, loops, from, to),
-    getForbiddenZoneIdsForPhase: (m, d, p) => getForbiddenZoneIdsForPhase(m, d, p, map.zones, settings, forbiddenCache),
-    getForbiddenAddedZoneIdsForPhase: (m, d, p) => getForbiddenAddedZoneIdsForPhase(m, d, p, map.zones, settings, forbiddenCache),
+    getForbiddenZoneIdsForPhase: (m, d, p) => getForbiddenZoneIdsForPhase(m, d, p, zones, settings, forbiddenCache),
+    getForbiddenAddedZoneIdsForPhase: (m, d, p) => getForbiddenAddedZoneIdsForPhase(m, d, p, zones, settings, forbiddenCache),
   };
   while (!ending && phases < 24) {
     freeze(state.survivors); freeze(state.dead); freeze(state.spawnState);

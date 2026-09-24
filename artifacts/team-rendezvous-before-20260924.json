@@ -1,0 +1,3168 @@
+{
+  "date": "2026-09-24",
+  "scope": "Before reachable-rendezvous runtime fix, after diagnostic map derivation correction; not the original evaluator input",
+  "sourceCommit": "f5f62a9b",
+  "controlledFailures": [
+    {
+      "scenario": "directed a <- b <- c; lone at a, two ready allies at c",
+      "actualRally": "c",
+      "expectedRally": "a",
+      "result": "assertion failure before runtime fix"
+    },
+    {
+      "scenario": "lone at police, exits occupied, two ready allies at gas_station with a real hyperloop",
+      "actualRally": "gas_station",
+      "expectedRally": "police",
+      "result": "assertion failure before runtime fix"
+    }
+  ],
+  "variant": {
+    "seed": "1101",
+    "initialRosterSeed": "HF4:roster-A",
+    "engineVersion": "f7f6d4bc64c6d4b1e95eeb92eb0bd4b329c41a421deb93ca3ee142ac48ea94c5",
+    "hyperloopZones": [
+      "gas_station",
+      "school",
+      "temple",
+      "stream",
+      "hospital",
+      "hotel",
+      "forest",
+      "apartment",
+      "cathedral",
+      "barge",
+      "factory",
+      "lab"
+    ],
+    "teams": [
+      {
+        "id": "guest-survivor-04",
+        "name": "은하",
+        "team": "team:1",
+        "zone": "beach"
+      },
+      {
+        "id": "guest-survivor-22",
+        "name": "바람",
+        "team": "team:1",
+        "zone": "hotel"
+      },
+      {
+        "id": "guest-survivor-13",
+        "name": "가람",
+        "team": "team:1",
+        "zone": "hotel"
+      },
+      {
+        "id": "guest-survivor-16",
+        "name": "솔빛",
+        "team": "team:2",
+        "zone": "factory"
+      },
+      {
+        "id": "guest-survivor-18",
+        "name": "다온",
+        "team": "team:2",
+        "zone": "hotel"
+      },
+      {
+        "id": "guest-survivor-02",
+        "name": "매화",
+        "team": "team:2",
+        "zone": "hotel"
+      },
+      {
+        "id": "guest-survivor-09",
+        "name": "미르",
+        "team": "team:3",
+        "zone": "factory"
+      },
+      {
+        "id": "guest-survivor-15",
+        "name": "여울",
+        "team": "team:3",
+        "zone": "hotel"
+      },
+      {
+        "id": "guest-survivor-06",
+        "name": "해오름",
+        "team": "team:3",
+        "zone": "stream"
+      },
+      {
+        "id": "guest-survivor-14",
+        "name": "보라",
+        "team": "team:4",
+        "zone": "stream"
+      },
+      {
+        "id": "guest-survivor-21",
+        "name": "이슬",
+        "team": "team:4",
+        "zone": "factory"
+      },
+      {
+        "id": "guest-survivor-08",
+        "name": "초롱",
+        "team": "team:4",
+        "zone": "stream"
+      },
+      {
+        "id": "guest-survivor-19",
+        "name": "마루",
+        "team": "team:5",
+        "zone": "factory"
+      },
+      {
+        "id": "guest-survivor-10",
+        "name": "새벽",
+        "team": "team:5",
+        "zone": "archery"
+      },
+      {
+        "id": "guest-survivor-07",
+        "name": "나래",
+        "team": "team:5",
+        "zone": "hotel"
+      },
+      {
+        "id": "guest-survivor-11",
+        "name": "윤슬",
+        "team": "team:6",
+        "zone": "cathedral"
+      },
+      {
+        "id": "guest-survivor-01",
+        "name": "백로",
+        "team": "team:6",
+        "zone": "hotel"
+      },
+      {
+        "id": "guest-survivor-23",
+        "name": "하늘",
+        "team": "team:6",
+        "zone": "factory"
+      },
+      {
+        "id": "guest-survivor-05",
+        "name": "도담",
+        "team": "team:7",
+        "zone": "factory"
+      },
+      {
+        "id": "guest-survivor-03",
+        "name": "청람",
+        "team": "team:7",
+        "zone": "temple"
+      },
+      {
+        "id": "guest-survivor-24",
+        "name": "별하",
+        "team": "team:7",
+        "zone": "stream"
+      },
+      {
+        "id": "guest-survivor-17",
+        "name": "라온",
+        "team": "team:8",
+        "zone": "factory"
+      },
+      {
+        "id": "guest-survivor-12",
+        "name": "노을",
+        "team": "team:8",
+        "zone": "factory"
+      },
+      {
+        "id": "guest-survivor-20",
+        "name": "구름",
+        "team": "team:8",
+        "zone": "factory"
+      }
+    ],
+    "periods": [
+      {
+        "who": "guest-survivor-18",
+        "name": "다온",
+        "teamId": "team:2",
+        "start": 540,
+        "initialActor": {
+          "who": "guest-survivor-18",
+          "name": "다온",
+          "zone": "factory",
+          "zoneName": "공장",
+          "hp": 103,
+          "maxHp": 122,
+          "completed": 3,
+          "total": 5,
+          "emptySlots": [
+            "arm"
+          ],
+          "target": "해적 깃발",
+          "blocked": "",
+          "growthZone": "factory",
+          "readyCraft": "철판",
+          "missing": [],
+          "regroup": "growing",
+          "rally": "factory",
+          "action": "routeFarm",
+          "growthReadyAt": 560,
+          "actionReadyAt": 541
+        },
+        "lastActor": {
+          "who": "guest-survivor-18",
+          "name": "다온",
+          "zone": "firestation",
+          "zoneName": "소방서",
+          "hp": 47,
+          "maxHp": 130,
+          "completed": 5,
+          "total": 5,
+          "emptySlots": [],
+          "target": "검은 죽음",
+          "blocked": "",
+          "growthZone": "gas_station",
+          "readyCraft": "",
+          "missing": [
+            {
+              "name": "모자",
+              "need": 1,
+              "zones": [
+                "병원",
+                "고급 주택가",
+                "성당",
+                "주유소"
+              ]
+            },
+            {
+              "name": "미스릴",
+              "need": 1,
+              "zones": []
+            }
+          ],
+          "regroup": "forbidden",
+          "rally": "beach",
+          "action": "flee",
+          "growthReadyAt": 780,
+          "actionReadyAt": 762
+        },
+        "reasons": [
+          "growing",
+          "no_current_regroup_record",
+          "enemy_path",
+          "action_wait",
+          "forbidden"
+        ],
+        "end": 761.333333,
+        "duration": 221.333333,
+        "endReason": "death",
+        "finalActor": {
+          "who": "guest-survivor-18",
+          "name": "다온",
+          "zone": "firestation",
+          "zoneName": "소방서",
+          "hp": 0,
+          "maxHp": 130,
+          "completed": 4,
+          "total": 5,
+          "emptySlots": [
+            "weapon"
+          ],
+          "target": "검은 죽음",
+          "blocked": "",
+          "growthZone": "gas_station",
+          "readyCraft": "",
+          "missing": [
+            {
+              "name": "모자",
+              "need": 1,
+              "zones": [
+                "병원",
+                "고급 주택가",
+                "성당",
+                "주유소"
+              ]
+            },
+            {
+              "name": "미스릴",
+              "need": 1,
+              "zones": []
+            }
+          ],
+          "regroup": "",
+          "rally": "",
+          "action": "flee",
+          "growthReadyAt": 780,
+          "actionReadyAt": 762
+        },
+        "snapshots": [
+          {
+            "sec": 540,
+            "actor": {
+              "zone": "factory",
+              "hp": 103,
+              "progress": "3/5",
+              "target": "해적 깃발",
+              "growthZone": "factory",
+              "blocked": "",
+              "readyCraft": "철판",
+              "regroup": "growing",
+              "rally": "factory",
+              "action": "routeFarm",
+              "readyAt": 560
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "alley",
+                "progress": "4/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "매화",
+                "zone": "firestation",
+                "progress": "3/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 560,
+            "actor": {
+              "zone": "factory",
+              "hp": 103,
+              "progress": "3/5",
+              "target": "해적 깃발",
+              "growthZone": "factory",
+              "blocked": "",
+              "readyCraft": "철판",
+              "regroup": "growing",
+              "rally": "factory",
+              "action": "craft",
+              "readyAt": 580
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "alley",
+                "progress": "4/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "매화",
+                "zone": "firestation",
+                "progress": "3/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 573.583333,
+            "actor": {
+              "zone": "factory",
+              "hp": 103,
+              "progress": "3/5",
+              "target": "해적 깃발",
+              "growthZone": "factory",
+              "blocked": "",
+              "readyCraft": "철판",
+              "regroup": "growing",
+              "rally": "factory",
+              "action": "craft",
+              "readyAt": 580
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "alley",
+                "progress": "4/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "매화",
+                "zone": "firestation",
+                "progress": "4/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 580,
+            "actor": {
+              "zone": "factory",
+              "hp": 103,
+              "progress": "4/5",
+              "target": "해적 깃발",
+              "growthZone": "factory",
+              "blocked": "",
+              "readyCraft": "해적 깃발",
+              "regroup": "growing",
+              "rally": "alley",
+              "action": "craft",
+              "readyAt": 600
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "alley",
+                "progress": "5/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "매화",
+                "zone": "firestation",
+                "progress": "4/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 600,
+            "actor": {
+              "zone": "factory",
+              "hp": 103,
+              "progress": "4/5",
+              "target": "SCV",
+              "growthZone": "alley",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "growing",
+              "rally": "factory",
+              "action": "routeFarm",
+              "readyAt": 620
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "alley",
+                "progress": "5/5",
+                "regroup": "enemy_path"
+              },
+              {
+                "name": "매화",
+                "zone": "police",
+                "progress": "4/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 620,
+            "actor": {
+              "zone": "alley",
+              "hp": 103,
+              "progress": "4/5",
+              "target": "SCV",
+              "growthZone": "alley",
+              "blocked": "",
+              "readyCraft": "전자 부품",
+              "regroup": "growing",
+              "rally": "factory",
+              "action": "moveTo",
+              "readyAt": 640
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "temple",
+                "progress": "5/5",
+                "regroup": "joining"
+              },
+              {
+                "name": "매화",
+                "zone": "temple",
+                "progress": "4/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 630,
+            "actor": {
+              "zone": "alley",
+              "hp": 103,
+              "progress": "4/5",
+              "target": "SCV",
+              "growthZone": "alley",
+              "blocked": "",
+              "readyCraft": "전자 부품",
+              "regroup": "",
+              "rally": "",
+              "action": "moveTo",
+              "readyAt": 640
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "temple",
+                "progress": "5/5",
+                "regroup": ""
+              },
+              {
+                "name": "매화",
+                "zone": "temple",
+                "progress": "4/5",
+                "regroup": ""
+              }
+            ]
+          },
+          {
+            "sec": 640,
+            "actor": {
+              "zone": "alley",
+              "hp": 103,
+              "progress": "4/5",
+              "target": "SCV",
+              "growthZone": "alley",
+              "blocked": "",
+              "readyCraft": "전자 부품",
+              "regroup": "",
+              "rally": "",
+              "action": "moveTo",
+              "readyAt": 640
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "temple",
+                "progress": "5/5",
+                "regroup": ""
+              },
+              {
+                "name": "매화",
+                "zone": "temple",
+                "progress": "4/5",
+                "regroup": ""
+              }
+            ]
+          },
+          {
+            "sec": 650,
+            "actor": {
+              "zone": "police",
+              "hp": 103,
+              "progress": "4/5",
+              "target": "SCV",
+              "growthZone": "police",
+              "blocked": "",
+              "readyCraft": "전자 부품",
+              "regroup": "",
+              "rally": "",
+              "action": "flee",
+              "readyAt": 670
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": ""
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "4/5",
+                "regroup": ""
+              }
+            ]
+          },
+          {
+            "sec": 660,
+            "actor": {
+              "zone": "police",
+              "hp": 103,
+              "progress": "4/5",
+              "target": "SCV",
+              "growthZone": "police",
+              "blocked": "",
+              "readyCraft": "전자 부품",
+              "regroup": "",
+              "rally": "",
+              "action": "flee",
+              "readyAt": 670
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": ""
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "4/5",
+                "regroup": ""
+              }
+            ]
+          },
+          {
+            "sec": 670,
+            "actor": {
+              "zone": "police",
+              "hp": 103,
+              "progress": "4/5",
+              "target": "SCV",
+              "growthZone": "police",
+              "blocked": "",
+              "readyCraft": "전자 부품",
+              "regroup": "growing",
+              "rally": "police",
+              "action": "craft",
+              "readyAt": 690
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "enemy_path"
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "4/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 680,
+            "actor": {
+              "zone": "police",
+              "hp": 103,
+              "progress": "4/5",
+              "target": "SCV",
+              "growthZone": "police",
+              "blocked": "",
+              "readyCraft": "전자 부품",
+              "regroup": "growing",
+              "rally": "police",
+              "action": "craft",
+              "readyAt": 690
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "enemy_path"
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "4/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 690,
+            "actor": {
+              "zone": "police",
+              "hp": 103,
+              "progress": "5/5",
+              "target": "SCV",
+              "growthZone": "police",
+              "blocked": "",
+              "readyCraft": "SCV",
+              "regroup": "growing",
+              "rally": "police",
+              "action": "craft",
+              "readyAt": 710
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "enemy_path"
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 700,
+            "actor": {
+              "zone": "police",
+              "hp": 103,
+              "progress": "5/5",
+              "target": "SCV",
+              "growthZone": "police",
+              "blocked": "",
+              "readyCraft": "SCV",
+              "regroup": "growing",
+              "rally": "police",
+              "action": "craft",
+              "readyAt": 710
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "enemy_path"
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 710,
+            "actor": {
+              "zone": "police",
+              "hp": 107,
+              "progress": "5/5",
+              "target": "엔데버 AX",
+              "growthZone": "police",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "enemy_path",
+              "rally": "beach",
+              "action": "kioskBuy",
+              "readyAt": 730
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              }
+            ]
+          },
+          {
+            "sec": 720,
+            "actor": {
+              "zone": "police",
+              "hp": 107,
+              "progress": "5/5",
+              "target": "엔데버 AX",
+              "growthZone": "police",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "enemy_path",
+              "rally": "beach",
+              "action": "kioskBuy",
+              "readyAt": 730
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              }
+            ]
+          },
+          {
+            "sec": 730,
+            "actor": {
+              "zone": "police",
+              "hp": 111,
+              "progress": "5/5",
+              "target": "검은 죽음",
+              "growthZone": "apartment",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "enemy_path",
+              "rally": "beach",
+              "action": "routeFarm",
+              "readyAt": 750
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              }
+            ]
+          },
+          {
+            "sec": 740,
+            "actor": {
+              "zone": "police",
+              "hp": 111,
+              "progress": "5/5",
+              "target": "검은 죽음",
+              "growthZone": "apartment",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "enemy_path",
+              "rally": "beach",
+              "action": "routeFarm",
+              "readyAt": 750
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              }
+            ]
+          },
+          {
+            "sec": 740,
+            "actor": {
+              "zone": "police",
+              "hp": 111,
+              "progress": "5/5",
+              "target": "검은 죽음",
+              "growthZone": "apartment",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "action_wait",
+              "rally": "beach",
+              "action": "routeFarm",
+              "readyAt": 750
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              }
+            ]
+          },
+          {
+            "sec": 760,
+            "actor": {
+              "zone": "firestation",
+              "hp": 111,
+              "progress": "5/5",
+              "target": "검은 죽음",
+              "growthZone": "gas_station",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "forbidden",
+              "rally": "beach",
+              "action": "flee",
+              "readyAt": 780
+            },
+            "allies": [
+              {
+                "name": "솔빛",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              },
+              {
+                "name": "매화",
+                "zone": "beach",
+                "progress": "5/5",
+                "regroup": "waiting"
+              }
+            ]
+          }
+        ],
+        "events": [
+          {
+            "sec": 540,
+            "kind": "move",
+            "who": "guest-survivor-16",
+            "from": "factory",
+            "to": "alley",
+            "reason": "growth_farm",
+            "name": "솔빛"
+          },
+          {
+            "sec": 540,
+            "kind": "field_resource",
+            "who": "guest-survivor-16",
+            "itemId": "namu:material:피아노선"
+          },
+          {
+            "sec": 540,
+            "kind": "field_resource",
+            "who": "guest-survivor-18",
+            "itemId": "namu:material:고철"
+          },
+          {
+            "sec": 540,
+            "kind": "field_resource",
+            "who": "guest-survivor-18",
+            "itemId": "namu:material:화학품"
+          },
+          {
+            "sec": 540,
+            "kind": "move",
+            "who": "guest-survivor-02",
+            "from": "barge",
+            "to": "firestation",
+            "reason": "growth_farm",
+            "name": "매화"
+          },
+          {
+            "sec": 540,
+            "kind": "field_resource",
+            "who": "guest-survivor-02",
+            "itemId": "namu:material:화학품"
+          },
+          {
+            "sec": 560,
+            "kind": "craft",
+            "who": "guest-survivor-16",
+            "itemId": "namu:material:전자 부품"
+          },
+          {
+            "sec": 560,
+            "kind": "craft",
+            "who": "guest-survivor-18",
+            "itemId": "namu:material:철판"
+          },
+          {
+            "sec": 560,
+            "kind": "field_resource",
+            "who": "guest-survivor-02",
+            "itemId": "namu:material:고철"
+          },
+          {
+            "sec": 560,
+            "kind": "craft",
+            "who": "guest-survivor-02",
+            "itemId": "namu:material:철판"
+          },
+          {
+            "sec": 573.583333,
+            "kind": "craft",
+            "who": "guest-survivor-02",
+            "itemId": "namu:arm:해적 깃발"
+          },
+          {
+            "sec": 580,
+            "kind": "craft",
+            "who": "guest-survivor-16",
+            "itemId": "namu:shoes:SCV"
+          },
+          {
+            "sec": 580,
+            "kind": "craft",
+            "who": "guest-survivor-18",
+            "itemId": "namu:arm:해적 깃발"
+          },
+          {
+            "sec": 580,
+            "kind": "field_resource",
+            "who": "guest-survivor-02",
+            "itemId": "namu:material:배터리"
+          },
+          {
+            "sec": 580,
+            "kind": "field_resource",
+            "who": "guest-survivor-02",
+            "itemId": "namu:material:쇠구슬"
+          },
+          {
+            "sec": 600,
+            "kind": "field_resource",
+            "who": "guest-survivor-18",
+            "itemId": "namu:shoes:운동화"
+          },
+          {
+            "sec": 600,
+            "kind": "field_resource",
+            "who": "guest-survivor-18",
+            "itemId": "namu:material:배터리"
+          },
+          {
+            "sec": 600,
+            "kind": "field_resource",
+            "who": "guest-survivor-18",
+            "itemId": "namu:material:쇠구슬"
+          },
+          {
+            "sec": 600,
+            "kind": "craft",
+            "who": "guest-survivor-18",
+            "itemId": "namu:shoes:힐리스"
+          },
+          {
+            "sec": 600,
+            "kind": "move",
+            "who": "guest-survivor-02",
+            "from": "firestation",
+            "to": "police",
+            "reason": "growth_farm",
+            "name": "매화"
+          },
+          {
+            "sec": 600,
+            "kind": "field_resource",
+            "who": "guest-survivor-02",
+            "itemId": "namu:material:피아노선"
+          },
+          {
+            "sec": 600,
+            "kind": "craft",
+            "who": "guest-survivor-02",
+            "itemId": "namu:material:전자 부품"
+          },
+          {
+            "sec": 620,
+            "kind": "move",
+            "who": "guest-survivor-16",
+            "from": "alley",
+            "to": "temple",
+            "reason": "team_regroup",
+            "name": "솔빛"
+          },
+          {
+            "sec": 620,
+            "kind": "move",
+            "who": "guest-survivor-18",
+            "from": "factory",
+            "to": "alley",
+            "reason": "growth_farm",
+            "name": "다온"
+          },
+          {
+            "sec": 620,
+            "kind": "field_resource",
+            "who": "guest-survivor-18",
+            "itemId": "namu:material:피아노선"
+          },
+          {
+            "sec": 620,
+            "kind": "move",
+            "who": "guest-survivor-02",
+            "from": "police",
+            "to": "temple",
+            "reason": "growth_farm",
+            "name": "매화"
+          },
+          {
+            "sec": 620,
+            "kind": "field_resource",
+            "who": "guest-survivor-02",
+            "itemId": "namu:consumable:물"
+          },
+          {
+            "sec": 620,
+            "kind": "field_resource",
+            "who": "guest-survivor-02",
+            "itemId": "namu:shoes:운동화"
+          },
+          {
+            "sec": 650,
+            "kind": "move",
+            "who": "guest-survivor-16",
+            "from": "temple",
+            "to": "beach",
+            "reason": "escape",
+            "name": "솔빛"
+          },
+          {
+            "sec": 650,
+            "kind": "move",
+            "who": "guest-survivor-18",
+            "from": "alley",
+            "to": "police",
+            "reason": "escape",
+            "name": "다온"
+          },
+          {
+            "sec": 650,
+            "kind": "move",
+            "who": "guest-survivor-02",
+            "from": "temple",
+            "to": "beach",
+            "reason": "escape",
+            "name": "매화"
+          },
+          {
+            "sec": 670,
+            "kind": "craft",
+            "who": "guest-survivor-18",
+            "itemId": "namu:material:전자 부품"
+          },
+          {
+            "sec": 670,
+            "kind": "field_resource",
+            "who": "guest-survivor-02",
+            "itemId": "namu:material:플라스틱"
+          },
+          {
+            "sec": 670,
+            "kind": "craft",
+            "who": "guest-survivor-02",
+            "itemId": "namu:shoes:힐리스"
+          },
+          {
+            "sec": 690,
+            "kind": "craft",
+            "who": "guest-survivor-18",
+            "itemId": "namu:shoes:SCV"
+          },
+          {
+            "sec": 690,
+            "kind": "craft",
+            "who": "guest-survivor-02",
+            "itemId": "namu:shoes:SCV"
+          },
+          {
+            "sec": 710,
+            "kind": "field_resource",
+            "who": "guest-survivor-18",
+            "itemId": "namu:material:화약"
+          },
+          {
+            "sec": 730,
+            "kind": "field_resource",
+            "who": "guest-survivor-18",
+            "itemId": "namu:돌격소총:페도로프 자동소총"
+          },
+          {
+            "sec": 730,
+            "kind": "craft",
+            "who": "guest-survivor-18",
+            "itemId": "namu:돌격소총:엔데버 AX"
+          },
+          {
+            "sec": 730,
+            "kind": "field_resource",
+            "who": "guest-survivor-18",
+            "itemId": "namu:material:흑연"
+          },
+          {
+            "sec": 730,
+            "kind": "field_resource",
+            "who": "guest-survivor-02",
+            "itemId": "namu:돌격소총:페도로프 자동소총"
+          },
+          {
+            "sec": 760,
+            "kind": "move",
+            "who": "guest-survivor-18",
+            "from": "police",
+            "to": "firestation",
+            "reason": "escape",
+            "name": "다온"
+          },
+          {
+            "sec": 760,
+            "kind": "field_resource",
+            "who": "guest-survivor-18",
+            "itemId": "namu:material:고무"
+          }
+        ]
+      },
+      {
+        "who": "guest-survivor-24",
+        "name": "별하",
+        "teamId": "team:7",
+        "start": 310,
+        "initialActor": {
+          "who": "guest-survivor-24",
+          "name": "별하",
+          "zone": "cathedral",
+          "zoneName": "성당",
+          "hp": 104,
+          "maxHp": 113,
+          "completed": 2,
+          "total": 5,
+          "emptySlots": [
+            "arm"
+          ],
+          "target": "어사의",
+          "blocked": "",
+          "growthZone": "barge",
+          "readyCraft": "",
+          "missing": [
+            {
+              "name": "붕대",
+              "need": 1,
+              "zones": [
+                "학교",
+                "소방서",
+                "병원",
+                "숲",
+                "항구",
+                "바지선",
+                "공장"
+              ]
+            }
+          ],
+          "regroup": "together",
+          "rally": "cemetery",
+          "action": "moveTo",
+          "growthReadyAt": 330,
+          "actionReadyAt": 312
+        },
+        "lastActor": {
+          "who": "guest-survivor-24",
+          "name": "별하",
+          "zone": "apartment",
+          "zoneName": "고급 주택가",
+          "hp": 112,
+          "maxHp": 121,
+          "completed": 3,
+          "total": 5,
+          "emptySlots": [
+            "arm"
+          ],
+          "target": "백우선",
+          "blocked": "",
+          "growthZone": "archery",
+          "readyCraft": "",
+          "missing": [
+            {
+              "name": "깃털",
+              "need": 1,
+              "zones": [
+                "양궁장",
+                "절",
+                "개울",
+                "연못",
+                "항구",
+                "바지선"
+              ]
+            }
+          ],
+          "regroup": "forbidden",
+          "rally": "archery",
+          "action": "flee",
+          "growthReadyAt": 520,
+          "actionReadyAt": 502
+        },
+        "reasons": [
+          "together",
+          "growing",
+          "threat",
+          "action_wait",
+          "forbidden"
+        ],
+        "end": 520,
+        "duration": 210,
+        "endReason": "contact",
+        "finalActor": {
+          "who": "guest-survivor-24",
+          "name": "별하",
+          "zone": "archery",
+          "zoneName": "양궁장",
+          "hp": 112,
+          "maxHp": 121,
+          "completed": 3,
+          "total": 5,
+          "emptySlots": [
+            "arm"
+          ],
+          "target": "백우선",
+          "blocked": "",
+          "growthZone": "archery",
+          "readyCraft": "아이테르 깃털",
+          "missing": [],
+          "regroup": "growing",
+          "rally": "archery",
+          "action": "moveTo",
+          "growthReadyAt": 540,
+          "actionReadyAt": 523
+        },
+        "snapshots": [
+          {
+            "sec": 310,
+            "actor": {
+              "zone": "cathedral",
+              "hp": 104,
+              "progress": "2/5",
+              "target": "어사의",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "together",
+              "rally": "cemetery",
+              "action": "moveTo",
+              "readyAt": 330
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "cemetery",
+                "progress": "3/5",
+                "regroup": "together"
+              },
+              {
+                "name": "청람",
+                "zone": "cemetery",
+                "progress": "3/5",
+                "regroup": "together"
+              }
+            ]
+          },
+          {
+            "sec": 320,
+            "actor": {
+              "zone": "cathedral",
+              "hp": 104,
+              "progress": "2/5",
+              "target": "어사의",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "together",
+              "rally": "cemetery",
+              "action": "moveTo",
+              "readyAt": 330
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "cemetery",
+                "progress": "3/5",
+                "regroup": "together"
+              },
+              {
+                "name": "청람",
+                "zone": "cemetery",
+                "progress": "3/5",
+                "regroup": "together"
+              }
+            ]
+          },
+          {
+            "sec": 330,
+            "actor": {
+              "zone": "barge",
+              "hp": 108,
+              "progress": "2/5",
+              "target": "어사의",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "한복",
+              "regroup": "growing",
+              "rally": "cemetery",
+              "action": "moveTo",
+              "readyAt": 350
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "cathedral",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "cemetery",
+                "progress": "3/5",
+                "regroup": "reentry"
+              }
+            ]
+          },
+          {
+            "sec": 340,
+            "actor": {
+              "zone": "barge",
+              "hp": 108,
+              "progress": "2/5",
+              "target": "어사의",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "한복",
+              "regroup": "growing",
+              "rally": "cemetery",
+              "action": "moveTo",
+              "readyAt": 350
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "cathedral",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "cemetery",
+                "progress": "3/5",
+                "regroup": "reentry"
+              }
+            ]
+          },
+          {
+            "sec": 350,
+            "actor": {
+              "zone": "cemetery",
+              "hp": 108,
+              "progress": "2/5",
+              "target": "어사의",
+              "growthZone": "cemetery",
+              "blocked": "",
+              "readyCraft": "한복",
+              "regroup": "threat",
+              "rally": "cemetery",
+              "action": "flee",
+              "readyAt": 370
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "cathedral",
+                "progress": "3/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 360,
+            "actor": {
+              "zone": "cemetery",
+              "hp": 108,
+              "progress": "2/5",
+              "target": "어사의",
+              "growthZone": "cemetery",
+              "blocked": "",
+              "readyCraft": "한복",
+              "regroup": "threat",
+              "rally": "cemetery",
+              "action": "flee",
+              "readyAt": 370
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "cathedral",
+                "progress": "3/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 370,
+            "actor": {
+              "zone": "cemetery",
+              "hp": 108,
+              "progress": "2/5",
+              "target": "어사의",
+              "growthZone": "cemetery",
+              "blocked": "",
+              "readyCraft": "한복",
+              "regroup": "growing",
+              "rally": "cemetery",
+              "action": "craft",
+              "readyAt": 390
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "archery",
+                "progress": "3/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 380,
+            "actor": {
+              "zone": "cemetery",
+              "hp": 108,
+              "progress": "2/5",
+              "target": "어사의",
+              "growthZone": "cemetery",
+              "blocked": "",
+              "readyCraft": "한복",
+              "regroup": "growing",
+              "rally": "cemetery",
+              "action": "craft",
+              "readyAt": 390
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "archery",
+                "progress": "3/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 380,
+            "actor": {
+              "zone": "cemetery",
+              "hp": 108,
+              "progress": "2/5",
+              "target": "어사의",
+              "growthZone": "cemetery",
+              "blocked": "",
+              "readyCraft": "한복",
+              "regroup": "action_wait",
+              "rally": "archery",
+              "action": "craft",
+              "readyAt": 390
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "3/5",
+                "regroup": "action_wait"
+              },
+              {
+                "name": "청람",
+                "zone": "archery",
+                "progress": "3/5",
+                "regroup": "action_wait"
+              }
+            ]
+          },
+          {
+            "sec": 400,
+            "actor": {
+              "zone": "cathedral",
+              "hp": 108,
+              "progress": "2/5",
+              "target": "어사의",
+              "growthZone": "cathedral",
+              "blocked": "",
+              "readyCraft": "어사의",
+              "regroup": "forbidden",
+              "rally": "archery",
+              "action": "flee",
+              "readyAt": 420
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "4/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "archery",
+                "progress": "4/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 420,
+            "actor": {
+              "zone": "cathedral",
+              "hp": 108,
+              "progress": "3/5",
+              "target": "어사의",
+              "growthZone": "cathedral",
+              "blocked": "",
+              "readyCraft": "어사의",
+              "regroup": "growing",
+              "rally": "cathedral",
+              "action": "craft",
+              "readyAt": 440
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "4/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "archery",
+                "progress": "4/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 440,
+            "actor": {
+              "zone": "cathedral",
+              "hp": 108,
+              "progress": "3/5",
+              "target": "백우선",
+              "growthZone": "forest",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "growing",
+              "rally": "archery",
+              "action": "hunt",
+              "readyAt": 460
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "4/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "gas_station",
+                "progress": "4/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 451,
+            "actor": {
+              "zone": "cathedral",
+              "hp": 108,
+              "progress": "3/5",
+              "target": "백우선",
+              "growthZone": "forest",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "growing",
+              "rally": "archery",
+              "action": "hunt",
+              "readyAt": 460
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "4/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "archery",
+                "progress": "4/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 460,
+            "actor": {
+              "zone": "forest",
+              "hp": 108,
+              "progress": "3/5",
+              "target": "백우선",
+              "growthZone": "forest",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "growing",
+              "rally": "cathedral",
+              "action": "moveTo",
+              "readyAt": 480
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "gas_station",
+                "progress": "4/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "archery",
+                "progress": "5/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 480,
+            "actor": {
+              "zone": "forest",
+              "hp": 108,
+              "progress": "3/5",
+              "target": "백우선",
+              "growthZone": "forest",
+              "blocked": "",
+              "readyCraft": "운명의 꽃",
+              "regroup": "growing",
+              "rally": "archery",
+              "action": "craft",
+              "readyAt": 500
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "4/5",
+                "regroup": "threat"
+              },
+              {
+                "name": "청람",
+                "zone": "archery",
+                "progress": "5/5",
+                "regroup": "waiting"
+              }
+            ]
+          },
+          {
+            "sec": 500,
+            "actor": {
+              "zone": "forest",
+              "hp": 108,
+              "progress": "3/5",
+              "target": "백우선",
+              "growthZone": "forest",
+              "blocked": "",
+              "readyCraft": "운명의 꽃",
+              "regroup": "growing",
+              "rally": "archery",
+              "action": "craft",
+              "readyAt": 500
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "4/5",
+                "regroup": "threat"
+              },
+              {
+                "name": "청람",
+                "zone": "archery",
+                "progress": "5/5",
+                "regroup": "waiting"
+              }
+            ]
+          },
+          {
+            "sec": 500,
+            "actor": {
+              "zone": "apartment",
+              "hp": 112,
+              "progress": "3/5",
+              "target": "백우선",
+              "growthZone": "archery",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "forbidden",
+              "rally": "archery",
+              "action": "flee",
+              "readyAt": 520
+            },
+            "allies": [
+              {
+                "name": "도담",
+                "zone": "archery",
+                "progress": "4/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "청람",
+                "zone": "archery",
+                "progress": "5/5",
+                "regroup": "waiting"
+              }
+            ]
+          }
+        ],
+        "events": [
+          {
+            "sec": 310,
+            "kind": "field_resource",
+            "who": "guest-survivor-05",
+            "itemId": "namu:consumable:물"
+          },
+          {
+            "sec": 310,
+            "kind": "field_resource",
+            "who": "guest-survivor-05",
+            "itemId": "namu:material:원석"
+          },
+          {
+            "sec": 310,
+            "kind": "field_resource",
+            "who": "guest-survivor-05",
+            "itemId": "namu:material:꽃"
+          },
+          {
+            "sec": 310,
+            "kind": "craft",
+            "who": "guest-survivor-05",
+            "itemId": "namu:material:운명의 꽃"
+          },
+          {
+            "sec": 310,
+            "kind": "field_resource",
+            "who": "guest-survivor-03",
+            "itemId": "namu:material:원석"
+          },
+          {
+            "sec": 310,
+            "kind": "field_resource",
+            "who": "guest-survivor-03",
+            "itemId": "namu:material:꽃"
+          },
+          {
+            "sec": 310,
+            "kind": "craft",
+            "who": "guest-survivor-03",
+            "itemId": "namu:material:운명의 꽃"
+          },
+          {
+            "sec": 310,
+            "kind": "move",
+            "who": "guest-survivor-24",
+            "from": "cemetery",
+            "to": "cathedral",
+            "reason": "growth_farm",
+            "name": "별하"
+          },
+          {
+            "sec": 310,
+            "kind": "field_resource",
+            "who": "guest-survivor-24",
+            "itemId": "namu:clothes:셔츠"
+          },
+          {
+            "sec": 330,
+            "kind": "move",
+            "who": "guest-survivor-05",
+            "from": "cemetery",
+            "to": "cathedral",
+            "reason": "growth_farm",
+            "name": "도담"
+          },
+          {
+            "sec": 330,
+            "kind": "field_resource",
+            "who": "guest-survivor-05",
+            "itemId": "namu:material:못"
+          },
+          {
+            "sec": 330,
+            "kind": "move",
+            "who": "guest-survivor-24",
+            "from": "cathedral",
+            "to": "barge",
+            "reason": "growth_farm",
+            "name": "별하"
+          },
+          {
+            "sec": 330,
+            "kind": "field_resource",
+            "who": "guest-survivor-24",
+            "itemId": "namu:arm:붕대"
+          },
+          {
+            "sec": 330,
+            "kind": "craft",
+            "who": "guest-survivor-24",
+            "itemId": "namu:clothes:덧댄 로브"
+          },
+          {
+            "sec": 350,
+            "kind": "move",
+            "who": "guest-survivor-05",
+            "from": "cathedral",
+            "to": "archery",
+            "reason": "growth_farm",
+            "name": "도담"
+          },
+          {
+            "sec": 350,
+            "kind": "field_resource",
+            "who": "guest-survivor-05",
+            "itemId": "namu:material:깃털"
+          },
+          {
+            "sec": 350,
+            "kind": "move",
+            "who": "guest-survivor-03",
+            "from": "cemetery",
+            "to": "cathedral",
+            "reason": "growth_farm",
+            "name": "청람"
+          },
+          {
+            "sec": 350,
+            "kind": "field_resource",
+            "who": "guest-survivor-03",
+            "itemId": "namu:material:못"
+          },
+          {
+            "sec": 350,
+            "kind": "move",
+            "who": "guest-survivor-24",
+            "from": "barge",
+            "to": "cemetery",
+            "reason": "flee:team_outnumbered",
+            "name": "별하"
+          },
+          {
+            "sec": 370,
+            "kind": "craft",
+            "who": "guest-survivor-05",
+            "itemId": "namu:material:아이테르 깃털"
+          },
+          {
+            "sec": 370,
+            "kind": "move",
+            "who": "guest-survivor-03",
+            "from": "cathedral",
+            "to": "archery",
+            "reason": "growth_farm",
+            "name": "청람"
+          },
+          {
+            "sec": 370,
+            "kind": "field_resource",
+            "who": "guest-survivor-03",
+            "itemId": "namu:material:깃털"
+          },
+          {
+            "sec": 370,
+            "kind": "craft",
+            "who": "guest-survivor-03",
+            "itemId": "namu:material:아이테르 깃털"
+          },
+          {
+            "sec": 370,
+            "kind": "craft",
+            "who": "guest-survivor-24",
+            "itemId": "namu:clothes:한복"
+          },
+          {
+            "sec": 400,
+            "kind": "craft",
+            "who": "guest-survivor-05",
+            "itemId": "namu:arm:백우선"
+          },
+          {
+            "sec": 400,
+            "kind": "craft",
+            "who": "guest-survivor-03",
+            "itemId": "namu:arm:백우선"
+          },
+          {
+            "sec": 400,
+            "kind": "move",
+            "who": "guest-survivor-24",
+            "from": "cemetery",
+            "to": "cathedral",
+            "reason": "escape",
+            "name": "별하"
+          },
+          {
+            "sec": 420,
+            "kind": "field_resource",
+            "who": "guest-survivor-05",
+            "itemId": "namu:material:쇠구슬"
+          },
+          {
+            "sec": 420,
+            "kind": "field_resource",
+            "who": "guest-survivor-05",
+            "itemId": "namu:shoes:운동화"
+          },
+          {
+            "sec": 420,
+            "kind": "field_resource",
+            "who": "guest-survivor-03",
+            "itemId": "namu:material:쇠구슬"
+          },
+          {
+            "sec": 420,
+            "kind": "field_resource",
+            "who": "guest-survivor-03",
+            "itemId": "namu:material:피아노선"
+          },
+          {
+            "sec": 420,
+            "kind": "field_resource",
+            "who": "guest-survivor-03",
+            "itemId": "namu:shoes:운동화"
+          },
+          {
+            "sec": 420,
+            "kind": "craft",
+            "who": "guest-survivor-03",
+            "itemId": "namu:shoes:힐리스"
+          },
+          {
+            "sec": 420,
+            "kind": "craft",
+            "who": "guest-survivor-24",
+            "itemId": "namu:clothes:어사의"
+          },
+          {
+            "sec": 440,
+            "kind": "field_resource",
+            "who": "guest-survivor-05",
+            "itemId": "namu:material:피아노선"
+          },
+          {
+            "sec": 440,
+            "kind": "craft",
+            "who": "guest-survivor-05",
+            "itemId": "namu:shoes:힐리스"
+          },
+          {
+            "sec": 440,
+            "kind": "move",
+            "who": "guest-survivor-03",
+            "from": "archery",
+            "to": "gas_station",
+            "reason": "growth_farm",
+            "name": "청람"
+          },
+          {
+            "sec": 440,
+            "kind": "field_resource",
+            "who": "guest-survivor-03",
+            "itemId": "namu:material:배터리"
+          },
+          {
+            "sec": 440,
+            "kind": "craft",
+            "who": "guest-survivor-03",
+            "itemId": "namu:material:전자 부품"
+          },
+          {
+            "sec": 440,
+            "kind": "field_resource",
+            "who": "guest-survivor-24",
+            "itemId": "namu:material:못"
+          },
+          {
+            "sec": 451,
+            "kind": "move",
+            "who": "guest-survivor-03",
+            "from": "gas_station",
+            "to": "archery",
+            "reason": "escape",
+            "name": "청람"
+          },
+          {
+            "sec": 460,
+            "kind": "move",
+            "who": "guest-survivor-05",
+            "from": "archery",
+            "to": "gas_station",
+            "reason": "growth_farm",
+            "name": "도담"
+          },
+          {
+            "sec": 460,
+            "kind": "field_resource",
+            "who": "guest-survivor-05",
+            "itemId": "namu:material:배터리"
+          },
+          {
+            "sec": 460,
+            "kind": "craft",
+            "who": "guest-survivor-03",
+            "itemId": "namu:shoes:SCV"
+          },
+          {
+            "sec": 460,
+            "kind": "move",
+            "who": "guest-survivor-24",
+            "from": "cathedral",
+            "to": "forest",
+            "reason": "growth_farm",
+            "name": "별하"
+          },
+          {
+            "sec": 460,
+            "kind": "field_resource",
+            "who": "guest-survivor-24",
+            "itemId": "namu:material:꽃"
+          },
+          {
+            "sec": 480,
+            "kind": "move",
+            "who": "guest-survivor-05",
+            "from": "gas_station",
+            "to": "archery",
+            "reason": "flee:team_outnumbered",
+            "name": "도담"
+          },
+          {
+            "sec": 480,
+            "kind": "field_resource",
+            "who": "guest-survivor-24",
+            "itemId": "namu:material:원석"
+          },
+          {
+            "sec": 480,
+            "kind": "craft",
+            "who": "guest-survivor-24",
+            "itemId": "namu:material:운명의 꽃"
+          },
+          {
+            "sec": 500,
+            "kind": "craft",
+            "who": "guest-survivor-05",
+            "itemId": "namu:material:전자 부품"
+          },
+          {
+            "sec": 500,
+            "kind": "move",
+            "who": "guest-survivor-24",
+            "from": "forest",
+            "to": "apartment",
+            "reason": "escape",
+            "name": "별하"
+          },
+          {
+            "sec": 520,
+            "kind": "craft",
+            "who": "guest-survivor-05",
+            "itemId": "namu:shoes:SCV"
+          },
+          {
+            "sec": 520,
+            "kind": "move",
+            "who": "guest-survivor-24",
+            "from": "apartment",
+            "to": "archery",
+            "reason": "growth_farm",
+            "name": "별하"
+          },
+          {
+            "sec": 520,
+            "kind": "field_resource",
+            "who": "guest-survivor-24",
+            "itemId": "namu:material:깃털"
+          }
+        ]
+      },
+      {
+        "who": "guest-survivor-15",
+        "name": "여울",
+        "teamId": "team:3",
+        "start": 600,
+        "initialActor": {
+          "who": "guest-survivor-15",
+          "name": "여울",
+          "zone": "hospital",
+          "zoneName": "병원",
+          "hp": 105,
+          "maxHp": 123,
+          "completed": 3,
+          "total": 5,
+          "emptySlots": [],
+          "target": "드라우프니르",
+          "blocked": "",
+          "growthZone": "hospital",
+          "readyCraft": "",
+          "missing": [
+            {
+              "name": "곡괭이",
+              "need": 1,
+              "zones": [
+                "골목길",
+                "절",
+                "모래사장",
+                "바지선"
+              ]
+            },
+            {
+              "name": "붕대",
+              "need": 1,
+              "zones": [
+                "학교",
+                "소방서",
+                "병원",
+                "항구",
+                "공장"
+              ]
+            }
+          ],
+          "regroup": "together",
+          "rally": "park",
+          "action": "moveTo",
+          "growthReadyAt": 620,
+          "actionReadyAt": 602
+        },
+        "lastActor": {
+          "who": "guest-survivor-15",
+          "name": "여울",
+          "zone": "factory",
+          "zoneName": "공장",
+          "hp": 109,
+          "maxHp": 127,
+          "completed": 4,
+          "total": 5,
+          "emptySlots": [],
+          "target": "스텔라 스텝",
+          "blocked": "",
+          "growthZone": "factory",
+          "readyCraft": "",
+          "missing": [
+            {
+              "name": "운동화",
+              "need": 1,
+              "zones": [
+                "모래사장",
+                "공장"
+              ]
+            }
+          ],
+          "regroup": "growing",
+          "rally": "stream",
+          "action": "moveTo",
+          "growthReadyAt": 780,
+          "actionReadyAt": 762
+        },
+        "reasons": [
+          "together",
+          "growing",
+          "action_wait"
+        ],
+        "end": 774.75,
+        "duration": 174.75,
+        "endReason": "contact",
+        "finalActor": {
+          "who": "guest-survivor-15",
+          "name": "여울",
+          "zone": "stream",
+          "zoneName": "개울",
+          "hp": 104,
+          "maxHp": 127,
+          "completed": 4,
+          "total": 5,
+          "emptySlots": [],
+          "target": "스텔라 스텝",
+          "blocked": "",
+          "growthZone": "factory",
+          "readyCraft": "",
+          "missing": [
+            {
+              "name": "운동화",
+              "need": 1,
+              "zones": [
+                "모래사장",
+                "공장"
+              ]
+            }
+          ],
+          "regroup": "growing",
+          "rally": "stream",
+          "action": "moveTo",
+          "growthReadyAt": 780,
+          "actionReadyAt": 762
+        },
+        "snapshots": [
+          {
+            "sec": 600,
+            "actor": {
+              "zone": "hospital",
+              "hp": 105,
+              "progress": "3/5",
+              "target": "드라우프니르",
+              "growthZone": "hospital",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "together",
+              "rally": "park",
+              "action": "moveTo",
+              "readyAt": 620
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "together"
+              }
+            ]
+          },
+          {
+            "sec": 620,
+            "actor": {
+              "zone": "hospital",
+              "hp": 105,
+              "progress": "3/5",
+              "target": "드라우프니르",
+              "growthZone": "alley",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "hunt",
+              "readyAt": 640
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 630,
+            "actor": {
+              "zone": "hospital",
+              "hp": 105,
+              "progress": "3/5",
+              "target": "드라우프니르",
+              "growthZone": "alley",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "action_wait",
+              "rally": "hospital",
+              "action": "hunt",
+              "readyAt": 640
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "action_wait"
+              },
+              {
+                "name": "해오름",
+                "zone": "park",
+                "progress": "2/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 640,
+            "actor": {
+              "zone": "hospital",
+              "hp": 105,
+              "progress": "3/5",
+              "target": "드라우프니르",
+              "growthZone": "alley",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "action_wait",
+              "rally": "hospital",
+              "action": "hunt",
+              "readyAt": 640
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "action_wait"
+              },
+              {
+                "name": "해오름",
+                "zone": "park",
+                "progress": "2/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 650,
+            "actor": {
+              "zone": "barge",
+              "hp": 109,
+              "progress": "3/5",
+              "target": "드라우프니르",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "금팔찌",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "moveTo",
+              "readyAt": 670
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "해오름",
+                "zone": "hospital",
+                "progress": "2/5",
+                "regroup": "threat"
+              }
+            ]
+          },
+          {
+            "sec": 660,
+            "actor": {
+              "zone": "barge",
+              "hp": 109,
+              "progress": "3/5",
+              "target": "드라우프니르",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "금팔찌",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "moveTo",
+              "readyAt": 670
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "해오름",
+                "zone": "hospital",
+                "progress": "2/5",
+                "regroup": "threat"
+              }
+            ]
+          },
+          {
+            "sec": 670,
+            "actor": {
+              "zone": "barge",
+              "hp": 109,
+              "progress": "3/5",
+              "target": "드라우프니르",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "금팔찌",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "craft",
+              "readyAt": 690
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "해오름",
+                "zone": "hospital",
+                "progress": "2/5",
+                "regroup": "reentry"
+              }
+            ]
+          },
+          {
+            "sec": 680,
+            "actor": {
+              "zone": "barge",
+              "hp": 109,
+              "progress": "3/5",
+              "target": "드라우프니르",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "금팔찌",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "craft",
+              "readyAt": 690
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "해오름",
+                "zone": "hospital",
+                "progress": "2/5",
+                "regroup": "reentry"
+              }
+            ]
+          },
+          {
+            "sec": 690,
+            "actor": {
+              "zone": "barge",
+              "hp": 109,
+              "progress": "4/5",
+              "target": "드라우프니르",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "드라우프니르",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "craft",
+              "readyAt": 710
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "해오름",
+                "zone": "park",
+                "progress": "2/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 694,
+            "actor": {
+              "zone": "barge",
+              "hp": 109,
+              "progress": "4/5",
+              "target": "드라우프니르",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "드라우프니르",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "craft",
+              "readyAt": 710
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "해오름",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 700,
+            "actor": {
+              "zone": "barge",
+              "hp": 109,
+              "progress": "4/5",
+              "target": "드라우프니르",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "드라우프니르",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "craft",
+              "readyAt": 710
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "해오름",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 710,
+            "actor": {
+              "zone": "barge",
+              "hp": 109,
+              "progress": "4/5",
+              "target": "스텔라 스텝",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "이온 전지",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "routeFarm",
+              "readyAt": 730
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "해오름",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 720,
+            "actor": {
+              "zone": "barge",
+              "hp": 109,
+              "progress": "4/5",
+              "target": "스텔라 스텝",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "이온 전지",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "routeFarm",
+              "readyAt": 730
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "해오름",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 740,
+            "actor": {
+              "zone": "barge",
+              "hp": 109,
+              "progress": "4/5",
+              "target": "스텔라 스텝",
+              "growthZone": "barge",
+              "blocked": "",
+              "readyCraft": "이온 전지",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "craft",
+              "readyAt": 750
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "stream",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "해오름",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 760,
+            "actor": {
+              "zone": "factory",
+              "hp": 109,
+              "progress": "4/5",
+              "target": "스텔라 스텝",
+              "growthZone": "factory",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "moveTo",
+              "readyAt": 780
+            },
+            "allies": [
+              {
+                "name": "미르",
+                "zone": "cathedral",
+                "progress": "3/5",
+                "regroup": "growing"
+              },
+              {
+                "name": "해오름",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "growing"
+              }
+            ]
+          },
+          {
+            "sec": 771.083333,
+            "actor": {
+              "zone": "factory",
+              "hp": 109,
+              "progress": "4/5",
+              "target": "스텔라 스텝",
+              "growthZone": "factory",
+              "blocked": "",
+              "readyCraft": "",
+              "regroup": "growing",
+              "rally": "stream",
+              "action": "moveTo",
+              "readyAt": 780
+            },
+            "allies": [
+              {
+                "name": "해오름",
+                "zone": "stream",
+                "progress": "2/5",
+                "regroup": "growing"
+              }
+            ]
+          }
+        ],
+        "events": [
+          {
+            "sec": 600,
+            "kind": "move",
+            "who": "guest-survivor-15",
+            "from": "park",
+            "to": "hospital",
+            "reason": "growth_farm",
+            "name": "여울"
+          },
+          {
+            "sec": 600,
+            "kind": "field_resource",
+            "who": "guest-survivor-15",
+            "itemId": "namu:arm:팔찌"
+          },
+          {
+            "sec": 600,
+            "kind": "move",
+            "who": "guest-survivor-09",
+            "from": "park",
+            "to": "stream",
+            "reason": "growth_farm",
+            "name": "미르"
+          },
+          {
+            "sec": 600,
+            "kind": "field_resource",
+            "who": "guest-survivor-09",
+            "itemId": "namu:consumable:물"
+          },
+          {
+            "sec": 600,
+            "kind": "field_resource",
+            "who": "guest-survivor-09",
+            "itemId": "namu:clothes:셔츠"
+          },
+          {
+            "sec": 620,
+            "kind": "field_resource",
+            "who": "guest-survivor-15",
+            "itemId": "namu:arm:붕대"
+          },
+          {
+            "sec": 620,
+            "kind": "craft",
+            "who": "guest-survivor-09",
+            "itemId": "namu:clothes:덧댄 로브"
+          },
+          {
+            "sec": 630,
+            "kind": "move",
+            "who": "guest-survivor-06",
+            "from": "hospital",
+            "to": "park",
+            "reason": "growth_farm",
+            "name": "해오름"
+          },
+          {
+            "sec": 630,
+            "kind": "field_resource",
+            "who": "guest-survivor-06",
+            "itemId": "namu:material:깃털"
+          },
+          {
+            "sec": 650,
+            "kind": "move",
+            "who": "guest-survivor-15",
+            "from": "hospital",
+            "to": "barge",
+            "reason": "growth_farm",
+            "name": "여울"
+          },
+          {
+            "sec": 650,
+            "kind": "field_resource",
+            "who": "guest-survivor-15",
+            "itemId": "namu:material:곡괭이"
+          },
+          {
+            "sec": 650,
+            "kind": "craft",
+            "who": "guest-survivor-15",
+            "itemId": "namu:material:황금"
+          },
+          {
+            "sec": 650,
+            "kind": "field_resource",
+            "who": "guest-survivor-09",
+            "itemId": "namu:consumable:물"
+          },
+          {
+            "sec": 650,
+            "kind": "craft",
+            "who": "guest-survivor-09",
+            "itemId": "namu:clothes:한복"
+          },
+          {
+            "sec": 650,
+            "kind": "move",
+            "who": "guest-survivor-06",
+            "from": "park",
+            "to": "hospital",
+            "reason": "flee:team_outnumbered",
+            "name": "해오름"
+          },
+          {
+            "sec": 670,
+            "kind": "craft",
+            "who": "guest-survivor-15",
+            "itemId": "namu:arm:금팔찌"
+          },
+          {
+            "sec": 670,
+            "kind": "field_resource",
+            "who": "guest-survivor-09",
+            "itemId": "namu:material:고철"
+          },
+          {
+            "sec": 670,
+            "kind": "craft",
+            "who": "guest-survivor-09",
+            "itemId": "namu:clothes:어사의"
+          },
+          {
+            "sec": 690,
+            "kind": "craft",
+            "who": "guest-survivor-15",
+            "itemId": "namu:arm:드라우프니르"
+          },
+          {
+            "sec": 690,
+            "kind": "field_resource",
+            "who": "guest-survivor-09",
+            "itemId": "namu:material:꽃"
+          },
+          {
+            "sec": 690,
+            "kind": "field_resource",
+            "who": "guest-survivor-09",
+            "itemId": "namu:material:원석"
+          },
+          {
+            "sec": 690,
+            "kind": "move",
+            "who": "guest-survivor-06",
+            "from": "hospital",
+            "to": "park",
+            "reason": "growth_farm",
+            "name": "해오름"
+          },
+          {
+            "sec": 690,
+            "kind": "field_resource",
+            "who": "guest-survivor-06",
+            "itemId": "namu:consumable:물"
+          },
+          {
+            "sec": 690,
+            "kind": "field_resource",
+            "who": "guest-survivor-06",
+            "itemId": "namu:material:원석"
+          },
+          {
+            "sec": 694,
+            "kind": "move",
+            "who": "guest-survivor-06",
+            "from": "park",
+            "to": "stream",
+            "reason": "avoid_power",
+            "name": "해오름"
+          },
+          {
+            "sec": 710,
+            "kind": "field_resource",
+            "who": "guest-survivor-15",
+            "itemId": "namu:material:배터리"
+          },
+          {
+            "sec": 710,
+            "kind": "field_resource",
+            "who": "guest-survivor-15",
+            "itemId": "namu:material:흑연"
+          },
+          {
+            "sec": 710,
+            "kind": "field_resource",
+            "who": "guest-survivor-09",
+            "itemId": "namu:material:깃털"
+          },
+          {
+            "sec": 710,
+            "kind": "craft",
+            "who": "guest-survivor-09",
+            "itemId": "namu:material:운명의 꽃"
+          },
+          {
+            "sec": 710,
+            "kind": "field_resource",
+            "who": "guest-survivor-06",
+            "itemId": "namu:material:꽃"
+          },
+          {
+            "sec": 730,
+            "kind": "craft",
+            "who": "guest-survivor-15",
+            "itemId": "namu:material:이온 전지"
+          },
+          {
+            "sec": 730,
+            "kind": "craft",
+            "who": "guest-survivor-09",
+            "itemId": "namu:material:아이테르 깃털"
+          },
+          {
+            "sec": 730,
+            "kind": "craft",
+            "who": "guest-survivor-06",
+            "itemId": "namu:material:운명의 꽃"
+          },
+          {
+            "sec": 760,
+            "kind": "move",
+            "who": "guest-survivor-15",
+            "from": "barge",
+            "to": "factory",
+            "reason": "growth_farm",
+            "name": "여울"
+          },
+          {
+            "sec": 760,
+            "kind": "field_resource",
+            "who": "guest-survivor-15",
+            "itemId": "namu:material:못"
+          },
+          {
+            "sec": 760,
+            "kind": "move",
+            "who": "guest-survivor-09",
+            "from": "stream",
+            "to": "cathedral",
+            "reason": "growth_farm",
+            "name": "미르"
+          },
+          {
+            "sec": 760,
+            "kind": "field_resource",
+            "who": "guest-survivor-09",
+            "itemId": "namu:material:못"
+          },
+          {
+            "sec": 760,
+            "kind": "craft",
+            "who": "guest-survivor-06",
+            "itemId": "namu:material:아이테르 깃털"
+          },
+          {
+            "sec": 774.75,
+            "kind": "move",
+            "who": "guest-survivor-15",
+            "from": "factory",
+            "to": "stream",
+            "reason": "escape",
+            "name": "여울"
+          }
+        ]
+      }
+    ],
+    "unfinished": [],
+    "evidence": {
+      "seed": "1101",
+      "phases": 13,
+      "frames": 6506,
+      "ticks": 1272.833333,
+      "eventCount": 7849,
+      "ending": {
+        "outcome": "last_team",
+        "atSec": 1272.833333,
+        "day": 7,
+        "phase": "morning",
+        "cause": "combat",
+        "causeName": "교전",
+        "finalZoneStage": "final",
+        "winnerTeamId": "team:4",
+        "dimensionRifts": {
+          "atSec": 1272.833333,
+          "settlements": [
+            {
+              "id": "RIFT_guest-lumia-island_3_1:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_1",
+              "atSec": 1272.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_3_2:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_2",
+              "atSec": 1272.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_3_3:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_3",
+              "atSec": 1272.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_3_4:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_4",
+              "atSec": 1272.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_1:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_1",
+              "atSec": 1272.833333,
+              "reason": "match_end",
+              "disposition": "expired",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": 1272.833333,
+              "rewardClosureReason": "recipients_eliminated",
+              "expiredWorldGifts": 1
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_2:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_2",
+              "atSec": 1272.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_3:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_3",
+              "atSec": 1272.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_4:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_4",
+              "atSec": 1272.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            }
+          ],
+          "expiredWorldGifts": 1,
+          "expiredForElimination": 1,
+          "invalidRewards": 0,
+          "unfinishedContests": 0
+        }
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2698890865,
+        "draws": 8456,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "eventDigest": "a5eb5c1b1c54afb61d9b6402cee5a340c3d076bbe6a770bbfe4c1842dec7de49",
+      "frameDigest": "2a2aa0f77f58b3e74d76cdb2b4c6b53589d4de58ded4d7afba07b54b648a4f82"
+    },
+    "scope": "diagnostic only; real fixture traces, not evaluator reproduction or a success threshold"
+  }
+}

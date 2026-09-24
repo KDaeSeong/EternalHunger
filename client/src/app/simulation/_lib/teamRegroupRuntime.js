@@ -27,6 +27,10 @@ export function describeTeamRegroupDecision(evidence, zoneName = String) {
     else if (growth.missing.length) parts.push(`부족: ${growth.missing.slice(0, 3).map((row) => `${row.name || row.itemId} ×${row.need}`).join(', ')}${growth.missing.length > 3 ? ' 외' : ''}`);
   }
   if (evidence.status === 'recovery') parts.push(`당시 HP ${evidence.hp}/${evidence.maxHp} · 회복 기준 ${evidence.recoverHpBelow} 이하`);
+  if (evidence.rallySelection?.reason === 'reachable_rendezvous') {
+    const choice = evidence.rallySelection;
+    parts.push(`합류 지점 재선정: 적·금지구역을 피한 경로 ${choice.reachableCount}/${evidence.memberCount}명 · 이전 ${zoneName(choice.previousZoneId)}에서는 ${choice.previousReachableCount}/${evidence.memberCount}명`);
+  }
   return parts.filter(Boolean).join(' · ');
 }
 
@@ -72,11 +76,12 @@ export function publishTeamRegroupDecision(actor, planned, { from = actor?.zoneI
     companionsAtTarget: Math.max(0, num(planned.atTargetCount) - (String(from) === planned.targetZoneId ? 1 : 0)),
     from: String(from || ''), to: String(to || ''), distance: planned.distance ?? null, status: outcome, growth,
     hp: Math.max(0, num(actor.hp)), maxHp: Math.max(1, num(actor.maxHp)), recoverHpBelow,
+    ...(planned.rallySelection ? { rallySelection: structuredClone(planned.rallySelection) } : {}),
   };
   const semanticKey = (row) => JSON.stringify(row && { teamId: row.teamId, combatSpaceId: row.combatSpaceId,
     status: row.status, memberCount: row.memberCount,
     ...(row.status !== 'together' ? { targetZoneId: row.targetZoneId, companionsAtTarget: row.companionsAtTarget,
-      from: row.from, to: row.to, distance: row.distance, growth: row.growth } : {}) });
+      from: row.from, to: row.to, distance: row.distance, growth: row.growth, rallySelection: row.rallySelection } : {}) });
   if ((!previous && outcome === 'together') || semanticKey(previous) === semanticKey(evidence)) return;
   actor._teamRegroup = { ...evidence, at: at ? { ...at } : null };
   emitRunEvent('team_regroup', { who: String(actor._id || actor.id || ''), regroupEvidence: structuredClone(actor._teamRegroup) }, at);

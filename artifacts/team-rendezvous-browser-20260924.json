@@ -1,0 +1,18 @@
+{
+  "date": "2026-09-24",
+  "engineVersion": "94fac36f4488dbe7e7ec80167add14d991633da42998407f85ff0584b43905b3",
+  "buildExitCode": 0,
+  "route": "http://127.0.0.1:3108/eternalhunger/evaluate",
+  "scope": "Product UI observations through the documented browser controls. No hidden state or synthetic human ratings; not a performance measurement.",
+  "input": { "seed": "1789192220412", "map": "루미아 섬", "participants": 24, "teams": 8, "hyperloopCount": 12 },
+  "original": { "speed": 32, "observedTeams": [1, 4, 3], "endingDisplay": "20:52 · 최후의 팀 생존 · 마지막 탈락: 교전", "winnerTeam": 4, "winnerName": "매화", "survivingTeamMembers": "1/3", "rewardLP": 0, "storedAtDisplay": "2026. 9. 24. 오후 7:41:55", "saved": true },
+  "observedCoordination": [
+    { "actor": "이슬", "at": "08:00", "text": "목표 장비 파밍·제작 우선 · 소방서 · 현장 동료 2명 · 백우선 · 확보 3/5 · 필요 재료 확보·제작 대기" },
+    { "actors": ["나래", "다온"], "at": "15:40", "text": "동료 2명이 같은 지역에서 공동 행동 계획", "displayedAt": "17:50", "zone": "병원", "growthSlots": "5/5" }
+  ],
+  "replay": { "source": "경기 보관함 · 동일 재경기", "speed": 16, "observedTeam": 7, "endingDisplay": "20:52", "winner": "매화", "rewardLP": 0, "comparisonText": "원본과 사건 7,297개·최종 상태·종료 판정이 모두 일치합니다.", "eventCount": 7297, "matched": true },
+  "reload": { "archiveCount": 2, "newOriginalPreserved": true, "previousCustomMapOriginalPreserved": true, "replayDidNotCreateDuplicate": true, "newOriginalSameReplayAvailable": true, "oldIncompatibleRecordReplayGuardShown": true, "evaluationStates": ["미시작", "미시작"] },
+  "consoleWarningsAndErrors": [],
+  "preparationObservation": "The reused non-evaluation tab from the previous build showed a timed-out map-selection action and subsequent selection/start changes were not retained. No running match was visible there; it was closed without deleting storage. A fresh evaluation tab was used for the evidence above. The reused general-route interaction is not claimed as passed or diagnosed.",
+  "limits": ["The newly added reachable-rendezvous sentence was verified in controlled observer-model checks and a natural model-match event, not captured in this browser match.", "No original Marcus record exists; this is not its reproduction.", "No new x1/heap/performance acceptance or human readability/fun result.", "Public deployment verification is recorded separately after push."]
+}

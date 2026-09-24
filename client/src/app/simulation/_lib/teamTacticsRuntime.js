@@ -92,6 +92,32 @@ function regroupPathBlockReason(actor, target, zoneGraph, forbiddenIds) {
   return reachable(forbiddenIds) ? 'enemy_path' : reachable(new Set()) ? 'forbidden_path' : 'disconnected';
 }
 
+// Enemy-free join routes can be checked with one bounded graph traversal per
+// member. Do not repeatedly estimate combat power for every candidate/path.
+// An unfinished farmer remains at its real recipe; this never orders it away.
+function countRallyReachability(members, roster, zoneGraph, forbiddenIds, zones, stillGrowing) {
+  const counts = new Map(zones.map(zone => [zone, 0]));
+  if (zones.length < 2) return counts;
+  const enemies = new Set(liveRoster(members[0], roster)
+    .filter(row => shareCombatSpace(members[0], row) && !areSameTeam(members[0], row))
+    .map(row => String(row.zoneId || '')));
+  for (const actor of members) {
+    const from = String(actor.zoneId || '');
+    const queue = [from], seen = new Set(queue), growing = stillGrowing(actor);
+    if (!zoneGraph[from]) continue;
+    for (let i = 0; i < queue.length; i += 1) {
+      const zone = queue[i];
+      if (counts.has(zone) && !forbiddenIds.has(zone)) counts.set(zone, counts.get(zone) + 1);
+      if (growing) break;
+      for (const next of (zoneGraph[zone] || []).map(String)) {
+        if (seen.has(next) || forbiddenIds.has(next) || enemies.has(next)) continue;
+        seen.add(next); queue.push(next);
+      }
+    }
+  }
+  return counts;
+}
+
 export function buildTeamCoordination({
   roster = [], zoneGraph = {}, forbiddenIds = new Set(), day = 1, phase = 'morning',
   estimatePower = estimateMovePower, chooseLeaderMove = () => null, maxDepth = 3, isSoloMatch = false,
@@ -122,15 +148,26 @@ export function buildTeamCoordination({
     const safeMembers = ordered.filter((row) => !forbiddenIds.has(String(row.zoneId || '')));
     if (!safeMembers.length) continue;
     const zones = [...new Set(safeMembers.map((row) => String(row.zoneId)))];
-    zones.sort((a, b) => {
-      const at = (zone) => safeMembers.filter((row) => String(row.zoneId) === zone).length;
-      const threat = (zone) => assessTeamCombat(safeMembers[0], roster, { estimatePower, zoneId: zone }).enemyPower;
-      const farmingAt = (zone) => safeMembers.some((row) => String(row.zoneId) === zone && stillGrowing(row)) ? 1 : 0;
-      return threat(a) - threat(b) || farmingAt(b) - farmingAt(a) || at(b) - at(a)
-        || zonesOrder(a) - zonesOrder(b);
-    });
-    function zonesOrder(zone) { return ordered.findIndex((row) => String(row.zoneId) === zone); }
+    const metrics = new Map((zones.length > 1 ? zones : []).map(zone => [zone, {
+      threat: assessTeamCombat(safeMembers[0], roster, { estimatePower, zoneId: zone }).enemyPower,
+      farming: safeMembers.some(row => String(row.zoneId) === zone && stillGrowing(row)) ? 1 : 0,
+      present: safeMembers.filter(row => String(row.zoneId) === zone).length,
+      order: ordered.findIndex(row => String(row.zoneId) === zone),
+    }]));
+    const compare = (a, b, reachable) => {
+      const left = metrics.get(a), right = metrics.get(b);
+      return left.threat - right.threat || right.farming - left.farming
+        || (reachable?.get(b) || 0) - (reachable?.get(a) || 0)
+        || right.present - left.present || left.order - right.order;
+    };
+    zones.sort((a, b) => compare(a, b));
+    const previousRally = zones[0];
+    const reachable = countRallyReachability(members, roster, zoneGraph, forbiddenIds, zones, stillGrowing);
+    zones.sort((a, b) => compare(a, b, reachable));
     const rallyZone = zones[0];
+    const rallySelection = rallyZone !== previousRally ? { reason: 'reachable_rendezvous',
+      previousZoneId: previousRally, previousReachableCount: reachable.get(previousRally),
+      reachableCount: reachable.get(rallyZone) } : null;
     const leader = safeMembers.find((row) => String(row.zoneId) === rallyZone);
     const separated = members.some((row) => String(row.zoneId) !== rallyZone);
     const grouped = !members.some(stillGrowing) && members.every((row) => String(row.zoneId) === rallyZone);
@@ -141,7 +178,8 @@ export function buildTeamCoordination({
     for (const actor of members) {
       const decision = { version: 1, teamId: getActorTeamId(actor), memberCount: members.length,
         targetZoneId: rallyZone, atTargetCount: members.filter((row) => String(row.zoneId) === rallyZone).length,
-        nextStep: '', distance: null, stage: separated ? 'joining' : 'together', blocked: '' };
+        nextStep: '', distance: null, stage: separated ? 'joining' : 'together', blocked: '',
+        ...(rallySelection ? { rallySelection: { ...rallySelection } } : {}) };
       // An unfinished farmer keeps its real recipe. Ready allies can join it;
       // the observer must be told why this actor is not following a rally yet.
       if (stillGrowing(actor)) {
