@@ -35,7 +35,16 @@ export function cloneMovementRosterForPlanning(phaseSurvivors = []) {
     });
 }
 
-export function runPhaseActorActionPipeline({
+// Retain the synchronous entry point for callers that already own a complete
+// action boundary. The match loop drains the same steps cooperatively instead.
+export function runPhaseActorActionPipeline(options = {}) {
+  const steps = runPhaseActorActionPipelineSteps(options);
+  let result = steps.next();
+  while (!result.done) result = steps.next();
+  return result.value;
+}
+
+export function* runPhaseActorActionPipelineSteps({
   state = {},
   actions = {},
 } = {}) {
@@ -58,7 +67,11 @@ export function runPhaseActorActionPipeline({
     .map((spaceId) => [spaceId, buildBaseZonePopulation(roster, spaceId)]));
   // Every member plans from the same pre-action roster, not a partly moved team.
   const movementRoster = cloneMovementRosterForPlanning(roster);
-  measureObserverWork('growth.refreshPlans', () => movementRoster.forEach((actor) => refreshActorGrowthPlan(actor, publicItems, state)));
+  yield;
+  for (const actor of movementRoster) {
+    measureObserverWork('growth.refreshPlans', () => refreshActorGrowthPlan(actor, publicItems, state));
+    yield;
+  }
   const { movementPlans: teamMovementPlans, regroupDecisions } = measureObserverWork('growth.teamCoordination', () => buildTeamCoordination({
     roster: movementRoster, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds,
     day: nextDay, phase: nextPhase, isSoloMatch: state.isSoloMatch,
@@ -76,6 +89,7 @@ export function runPhaseActorActionPipeline({
       nowSec: state.currentActionSec?.(), ruleset, isSoloMatch: state.isSoloMatch,
     }),
   }));
+  yield;
   const newlyDead = [];
   let pendingPickAssigned = initialPendingPickAssigned;
 
@@ -85,73 +99,79 @@ export function runPhaseActorActionPipeline({
     options,
   });
 
-  const updatedSurvivors = roster
-    .map((sourceActor) => {
-      const regroupDecision = regroupDecisions.get(String(sourceActor?._id || sourceActor?.id || ''));
-      const hold = (status) => {
-        publishTeamRegroupDecision(sourceActor, regroupDecision, { status, at: actions.atNow?.(),
-          emitRunEvent: actions.emitRunEvent, addLog, zoneName: actions.getZoneName });
-        return sourceActor;
-      };
-      if (getForcedControlEffect(sourceActor)) return hold('status');
-      const scheduled = state.actionIntervalSec != null;
-      const now = Number(state.currentActionSec?.() || 0);
-      // Only field growth is held. The shared clock still advances internal
-      // movement, statuses, consumables, attacks and casts, including at low HP.
-      if (scheduled && getActorDimensionRiftId(sourceActor)) {
-        sourceActor.aiCurrentAction = 'dimension_rift_wait';
-        return hold('replanned');
-      }
-      if (scheduled && sourceActor?._wildlifeHunt) {
-        sourceActor.aiCurrentAction = 'hunt_combat';
-        return hold('hunt');
-      }
-      if (scheduled && sourceActor?._pendingCharacterCast) return hold('cast');
-      // Fighting consumes growth opportunities. A closure may still force
-      // movement; ordinary farming resumes after the engagement is gone.
-      if (scheduled && !state.forbiddenIds?.has(String(sourceActor?.zoneId))
-        && getCombatIntentOpponents(sourceActor, roster, now).length > 0) return hold('combat');
-      if (scheduled && (Number(sourceActor?.hp || 0) <= 0 || hasActionBlockStatus(sourceActor))) return hold('status');
-      if (scheduled && (Number(sourceActor?._growthReadyAtSec || 0) > now
-        || Number(sourceActor?._actionReadyAtSec || 0) > now)) return hold('action_wait');
-      let moveCost = 1;
-      if (scheduled) sourceActor._actionCycleKey = `${state.phaseIdxNow}:${now}`;
-      const actorStepResult = measureObserverWork('growth.singleActor', () => runSingleActorPhaseAction({
-        actions: {
-          ...actions,
-          runDay1HeroGear,
-          ...(scheduled ? { reserveActionSecond: (seconds) => { moveCost = Math.max(moveCost, Number(seconds) || 1); return now; } } : {}),
-        },
-        sourceActor,
-        state: {
-          ...state,
-          baseZonePop: baseZonePopBySpace.get(getCombatSpaceId(sourceActor)) || {},
-          movementRoster,
-          teamMovementPlan: teamMovementPlans.get(String(sourceActor?._id || sourceActor?.id || '')),
-          teamRegroupDecision: regroupDecision,
-          pendingPickAssigned,
-        },
-      }));
+  const processActor = (sourceActor) => {
+    const regroupDecision = regroupDecisions.get(String(sourceActor?._id || sourceActor?.id || ''));
+    const hold = (status) => {
+      publishTeamRegroupDecision(sourceActor, regroupDecision, { status, at: actions.atNow?.(),
+        emitRunEvent: actions.emitRunEvent, addLog, zoneName: actions.getZoneName });
+      return sourceActor;
+    };
+    if (getForcedControlEffect(sourceActor)) return hold('status');
+    const scheduled = state.actionIntervalSec != null;
+    const now = Number(state.currentActionSec?.() || 0);
+    // Only field growth is held. The shared clock still advances internal
+    // movement, statuses, consumables, attacks and casts, including at low HP.
+    if (scheduled && getActorDimensionRiftId(sourceActor)) {
+      sourceActor.aiCurrentAction = 'dimension_rift_wait';
+      return hold('replanned');
+    }
+    if (scheduled && sourceActor?._wildlifeHunt) {
+      sourceActor.aiCurrentAction = 'hunt_combat';
+      return hold('hunt');
+    }
+    if (scheduled && sourceActor?._pendingCharacterCast) return hold('cast');
+    // Fighting consumes growth opportunities. A closure may still force
+    // movement; ordinary farming resumes after the engagement is gone.
+    if (scheduled && !state.forbiddenIds?.has(String(sourceActor?.zoneId))
+      && getCombatIntentOpponents(sourceActor, roster, now).length > 0) return hold('combat');
+    if (scheduled && (Number(sourceActor?.hp || 0) <= 0 || hasActionBlockStatus(sourceActor))) return hold('status');
+    if (scheduled && (Number(sourceActor?._growthReadyAtSec || 0) > now
+      || Number(sourceActor?._actionReadyAtSec || 0) > now)) return hold('action_wait');
+    let moveCost = 1;
+    if (scheduled) sourceActor._actionCycleKey = `${state.phaseIdxNow}:${now}`;
+    const actorStepResult = measureObserverWork('growth.singleActor', () => runSingleActorPhaseAction({
+      actions: {
+        ...actions,
+        runDay1HeroGear,
+        ...(scheduled ? { reserveActionSecond: (seconds) => { moveCost = Math.max(moveCost, Number(seconds) || 1); return now; } } : {}),
+      },
+      sourceActor,
+      state: {
+        ...state,
+        baseZonePop: baseZonePopBySpace.get(getCombatSpaceId(sourceActor)) || {},
+        movementRoster,
+        teamMovementPlan: teamMovementPlans.get(String(sourceActor?._id || sourceActor?.id || '')),
+        teamRegroupDecision: regroupDecision,
+        pendingPickAssigned,
+      },
+    }));
 
-      if (scheduled && actorStepResult.actor) {
-        const actor = actorStepResult.actor;
-        // Teams move in parallel: one member's travel must not spend everyone
-        // else's match time. Travel still delays that member's next action.
-        actor._growthReadyAtSec = now + Math.max(state.actionIntervalSec, moveCost);
-        actor._actionReadyAtSec = now + moveCost;
-        actions.emitRunEvent?.('action_cycle', {
-          who: String(actor._id), teamId: actor.teamId, chosen: actor.aiCurrentAction,
-          intervalSec: state.actionIntervalSec, readyAtSec: actor._growthReadyAtSec,
-        }, actions.atNow?.());
-      }
+    if (scheduled && actorStepResult.actor) {
+      const actor = actorStepResult.actor;
+      // Teams move in parallel: one member's travel must not spend everyone
+      // else's match time. Travel still delays that member's next action.
+      actor._growthReadyAtSec = now + Math.max(state.actionIntervalSec, moveCost);
+      actor._actionReadyAtSec = now + moveCost;
+      actions.emitRunEvent?.('action_cycle', {
+        who: String(actor._id), teamId: actor.teamId, chosen: actor.aiCurrentAction,
+        intervalSec: state.actionIntervalSec, readyAtSec: actor._growthReadyAtSec,
+      }, actions.atNow?.());
+    }
 
-      pendingPickAssigned = actorStepResult.pendingPickAssigned;
-      if (Array.isArray(actorStepResult.newlyDead) && actorStepResult.newlyDead.length) {
-        newlyDead.push(...actorStepResult.newlyDead);
-      }
-      return actorStepResult.actor;
-    })
-    .filter((survivor) => Number(survivor?.hp || 0) > 0);
+    pendingPickAssigned = actorStepResult.pendingPickAssigned;
+    if (Array.isArray(actorStepResult.newlyDead) && actorStepResult.newlyDead.length) {
+      newlyDead.push(...actorStepResult.newlyDead);
+    }
+    return actorStepResult.actor;
+  };
+  const processedActors = [];
+  // These are checkpoints, not simulation time steps: preserve actor/RNG/shared
+  // resource order and publish only after the entire batch has finished.
+  for (const sourceActor of roster) {
+    processedActors.push(processActor(sourceActor));
+    yield;
+  }
+  const updatedSurvivors = processedActors.filter((survivor) => Number(survivor?.hp || 0) > 0);
 
   return {
     newlyDead,

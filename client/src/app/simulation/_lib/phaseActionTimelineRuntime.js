@@ -8,7 +8,7 @@ export function lockActorActionTime(actors, nowSec, seconds) {
   return until;
 }
 
-export function createPhaseActionTimeline({ durationSec, intervalSec = 20, onGrowth = () => {}, onElapsed = () => {} }) {
+export function createPhaseActionTimeline({ durationSec, intervalSec = 20, onGrowth = () => {}, onGrowthSteps, onElapsed = () => {} }) {
   // Combat can end at a fractional second; never silently drop the final
   // part of the same world clock (movement, effects and cooldowns).
   const duration = Number.isFinite(Number(durationSec))
@@ -16,12 +16,23 @@ export function createPhaseActionTimeline({ durationSec, intervalSec = 20, onGro
   const interval = Math.max(1, Math.floor(Number(intervalSec) || 20));
   let cursor = 0;
   let nextGrowth = 0;
-  return {
-    advanceTo(offsetSec) {
+  let advancing = false;
+  let interruptedGrowth = false;
+  function* advanceToSteps(offsetSec) {
+    if (advancing) throw new Error('The phase clock is already advancing.');
+    // A cancelled/failed growth batch may have consumed shared resources. It
+    // cannot be retried on this timeline as if it had never started.
+    if (interruptedGrowth) throw new Error('The phase growth batch was interrupted.');
+    advancing = true;
+    try {
       const target = Math.max(cursor, Math.min(duration, Number(offsetSec) || 0));
       while (cursor <= target) {
         if (cursor === nextGrowth && cursor < duration) {
-          onGrowth(cursor);
+          if (onGrowthSteps) {
+            interruptedGrowth = true;
+            yield* onGrowthSteps(cursor);
+            interruptedGrowth = false;
+          } else onGrowth(cursor);
           nextGrowth += interval;
         }
         if (cursor >= target) break;
@@ -30,6 +41,13 @@ export function createPhaseActionTimeline({ durationSec, intervalSec = 20, onGro
         cursor = end;
       }
       return cursor;
+    } finally { advancing = false; }
+  }
+  return {
+    advanceToSteps,
+    advanceTo(offsetSec) {
+      if (onGrowthSteps) throw new Error('Cooperative growth requires advanceToSteps.');
+      return advanceToSteps(offsetSec).next().value;
     },
   };
 }

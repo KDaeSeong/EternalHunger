@@ -1,7 +1,8 @@
 import { createPhaseDeathRuntime } from './phaseDeathRuntime';
 import { finalizeSimulationPhase } from './phaseFinalizationRuntime';
 import { runPvpActionLoop } from './phasePvpActionLoopRuntime';
-import { runPhaseActorActionPipeline } from './phaseActorActionPipelineRuntime';
+import { runPhaseActorActionPipelineSteps } from './phaseActorActionPipelineRuntime';
+import { runGrowthActionSteps } from './growthActionSchedulingRuntime.js';
 import { runSimulationPhaseSetup } from './simulationPhaseSetupRuntime';
 import { runPhaseWorldResolution } from './phaseWorldResolutionRuntime';
 import { runDimensionRiftPhase } from './phaseDimensionRiftRuntime';
@@ -187,7 +188,7 @@ function* simulationPhaseSteps({
     setDead: runtimeActions.setDead,
   });
   const movePowerContext = { ruleset, battleSettings };
-  const runGrowthActions = (roster) => measureObserverWork('growth.allActors', () => runPhaseActorActionPipeline({
+  const runGrowthActions = (roster) => runGrowthActionSteps(runPhaseActorActionPipelineSteps({
     state: {
       actionIntervalSec,
       statusElapsedSec: 0,
@@ -327,13 +328,13 @@ function* simulationPhaseSteps({
   const timeline = createPhaseActionTimeline({
     durationSec: phaseDurationSec,
     intervalSec: actionIntervalSec,
-    onGrowth: (offset) => {
+    onGrowthSteps: function* (offset) {
       timelineActionSec = Math.round((phaseStartSec + offset) * 1e6) / 1e6;
       // Admission/closure and damaged saved memberships are boundaries at this
       // exact second. Resolve them before field growth can inspect the actor.
       advanceRifts([...liveMap.values()]);
       if (shouldEndMatch()) return;
-      const result = runGrowthActions([...liveMap.values()].filter((actor) => Number(actor.hp) > 0 && !timelineDeadIds.includes(actor._id)));
+      const result = yield* runGrowthActions([...liveMap.values()].filter((actor) => Number(actor.hp) > 0 && !timelineDeadIds.includes(actor._id)));
       pendingPickAssigned = result.pendingPickAssigned;
       commitTimelineActors(result.updatedSurvivors, result.newlyDead);
       syncSpatialPositions(getWildlifeCombatRoster([...liveMap.values()]));
@@ -379,11 +380,11 @@ function* simulationPhaseSteps({
       advanceRifts([...liveMap.values()]);
     },
   });
-  const advanceWorld = ({ survivorMap, newDeadIds, offsetSec }) => {
+  const advanceWorldSteps = function* ({ survivorMap, newDeadIds, offsetSec }) {
     liveMap = survivorMap;
     timelineDeadIds = newDeadIds;
     try {
-      timeline.advanceTo(offsetSec);
+      yield* timeline.advanceToSteps(offsetSec);
       timelineActionSec = Math.round((phaseStartSec + offsetSec) * 1e6) / 1e6;
       advanceRifts([...liveMap.values()]);
     }
@@ -420,7 +421,7 @@ function* simulationPhaseSteps({
     },
     actions: {
       requestMainThreadYield: requestSimulationMainThreadYield,
-      advanceWorld,
+      advanceWorldSteps,
       shouldEndMatch,
       resolveWorldObjectives: ({ survivorMap }) => advanceRifts([...survivorMap.values()]),
       publishActionFrame: async ({ survivorMap, roundKills, roundAssists, wait = true }) => {

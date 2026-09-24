@@ -16,7 +16,8 @@ export function requestSimulationMainThreadYield({
 // frame even when scheduler.yield() splits them into separate tasks. Let a
 // visible document reach RAF, then resume in a task (not its RAF microtasks).
 // This is a rendering opportunity, not proof that pixels have been presented.
-// Keep ordinary action-frame yields fast; use this only at phase preparation.
+// Keep ordinary action-frame yields fast; use this at phase preparation and
+// between budgeted growth slices, without advancing the match clock.
 export function requestSimulationFrameYield({
   windowRef = globalThis.window,
   schedulerRef = globalThis.scheduler,

@@ -92,6 +92,7 @@ function* pvpActionSteps({
     addEarnedCredits = () => {},
     applyLootCraftResult = () => {},
     advanceWorld = () => {},
+    advanceWorldSteps,
     shouldEndMatch = () => false,
     resolveWorldObjectives = () => {},
     addLog = () => {},
@@ -282,10 +283,21 @@ function* pvpActionSteps({
     }
   };
   let nextDecisionSec = roundCombatTime(currentActionSec() + tickSec);
+  let worldUpdatePending = false;
+  function* advanceWorldStep() {
+    worldUpdatePending = true;
+    const boundary = { survivorMap, newDeadIds, offsetSec: getPhaseRuntimeOffsetSec() };
+    if (advanceWorldSteps) yield* advanceWorldSteps(boundary);
+    else {
+      const pending = advanceWorld(boundary);
+      if (pending?.then) yield pending;
+    }
+    worldUpdatePending = false;
+  }
 
   const initialWorldYield = requestMainThreadYield();
   if (initialWorldYield) yield initialWorldYield;
-  advanceWorld({ survivorMap, newDeadIds, offsetSec: getPhaseRuntimeOffsetSec() });
+  yield* advanceWorldStep();
   syncSpatialPositions(getWildlifeCombatRoster([...survivorMap.values()]));
   reconcileWildlife();
   reconcileCasts();
@@ -293,7 +305,7 @@ function* pvpActionSteps({
   if (initialPublishYield) yield initialPublishYield;
   yield publishActionFrame({ survivorMap, newDeadIds, roundKills, roundAssists, wait: false });
   while (getPhaseRuntimeOffsetSec() < phaseDurationSec) {
-    advanceWorld({ survivorMap, newDeadIds, offsetSec: getPhaseRuntimeOffsetSec() });
+    yield* advanceWorldStep();
     syncSpatialPositions(getWildlifeCombatRoster([...survivorMap.values()]));
     reconcileWildlife();
     reconcileCasts();
@@ -310,7 +322,7 @@ function* pvpActionSteps({
       const scheduled = nextCombat && nextCombat.atSec <= nextDecisionSec;
       const actionAtSec = scheduled ? nextCombat.atSec : nextDecisionSec;
       reserveActionSecond(Math.max(0, roundCombatTime(actionAtSec - currentActionSec())));
-      advanceWorld({ survivorMap, newDeadIds, offsetSec: getPhaseRuntimeOffsetSec() });
+      yield* advanceWorldStep();
       reconcileWildlife();
       reconcileCasts();
       if (shouldEndMatch()) break;
@@ -558,18 +570,21 @@ function* pvpActionSteps({
 
       upsertRuntimeSurvivor(survivorMap, actor);
     } finally {
-      resolveWorldObjectives({ survivorMap, newDeadIds });
-      reconcileWildlife();
-      reconcileCasts();
-      // Including skipped, travelling, stunned, dead, and match-ending turns:
-      // resolve first, let the browser handle input/paint, publish the complete
-      // frame, then wait for display time. The yield changes no game state.
-      const framePublishYield = requestMainThreadYield();
-      if (framePublishYield) yield framePublishYield;
-      yield publishActionFrame({ survivorMap, newDeadIds, roundKills, roundAssists });
+      // A failed/interrupted growth batch is not a publishable world boundary.
+      if (!worldUpdatePending) {
+        resolveWorldObjectives({ survivorMap, newDeadIds });
+        reconcileWildlife();
+        reconcileCasts();
+        // Including skipped, travelling, stunned, dead, and match-ending turns:
+        // resolve first, let the browser handle input/paint, publish the complete
+        // frame, then wait for display time. The yield changes no game state.
+        const framePublishYield = requestMainThreadYield();
+        if (framePublishYield) yield framePublishYield;
+        yield publishActionFrame({ survivorMap, newDeadIds, roundKills, roundAssists });
+      }
     }
   }
-  advanceWorld({ survivorMap, newDeadIds, offsetSec: getPhaseRuntimeOffsetSec() });
+  yield* advanceWorldStep();
   reconcileWildlife();
   const matchEnded = shouldEndMatch();
   const phaseEnded = getPhaseRuntimeOffsetSec() >= phaseDurationSec;

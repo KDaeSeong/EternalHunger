@@ -120,7 +120,7 @@ await check('frame waits release the match RNG and do not change event order, ti
   assert.equal(getActiveSimulationRandom(), null); browser.assertEmpty();
 });
 
-await check('only phase preparation requests a frame opportunity; action-frame scheduling stays unchanged', () => {
+await check('phase preparation requests a frame opportunity; action-frame scheduling stays unchanged', () => {
   const cycle = fs.readFileSync(new URL('../src/app/simulation/_lib/simulationPhaseCycleRuntime.js', import.meta.url), 'utf8');
   assert.match(cycle, /const phaseSetupYield = requestSimulationFrameYield\(\)/);
   assert.match(cycle, /if \(phaseSetupYield\) yield phaseSetupYield/);
