@@ -1,5 +1,15 @@
 import { LUMIA_DEFAULT_EDGES, LUMIA_HYPERLOOP_ZONE_IDS } from './simulationConstants';
 
+const defaultHyperloopZones = new Set(LUMIA_HYPERLOOP_ZONE_IDS);
+
+export function hasZoneHyperloop(zone) {
+  // Explicit map settings win, including false. Missing flags retain the
+  // legacy Lumia fallback; the current field takes precedence over its alias.
+  if (typeof zone?.hasHyperloop === 'boolean') return zone.hasHyperloop;
+  if (typeof zone?.hyperloop === 'boolean') return zone.hyperloop;
+  return defaultHyperloopZones.has(String(zone?.zoneId || '').trim());
+}
+
 function toGraphObject(graph) {
   const out = {};
   Object.keys(graph || {}).forEach((key) => {
@@ -69,20 +79,25 @@ export function buildBaseZoneGraph(activeMap, zones) {
 }
 
 export function getHyperloopZoneIds(activeMap, zones) {
-  const zoneSet = new Set((Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '')).filter(Boolean));
+  const zoneById = new Map((Array.isArray(zones) ? zones : [])
+    .map((zone) => [String(zone?.zoneId || ''), zone]).filter(([id]) => id));
   const out = [];
   const seen = new Set();
   const add = (zoneId) => {
     const id = String(zoneId || '').trim();
-    if (!id || seen.has(id) || !zoneSet.has(id)) return;
+    if (!id || seen.has(id) || !zoneById.has(id)) return;
     seen.add(id);
     out.push(id);
   };
 
   (Array.isArray(zones) ? zones : []).forEach((zone) => {
-    if (zone?.hasHyperloop === true || zone?.hyperloop === true) add(zone?.zoneId);
+    if ((typeof zone?.hasHyperloop === 'boolean' || typeof zone?.hyperloop === 'boolean')
+      && hasZoneHyperloop(zone)) add(zone?.zoneId);
   });
-  LUMIA_HYPERLOOP_ZONE_IDS.forEach(add);
+  // Preserve legacy iteration order without reviving explicitly disabled pads.
+  LUMIA_HYPERLOOP_ZONE_IDS.forEach((id) => {
+    if (hasZoneHyperloop(zoneById.get(id))) add(id);
+  });
   add(activeMap?.hyperloopDeviceZoneId);
   return out;
 }

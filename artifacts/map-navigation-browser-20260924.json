@@ -1,0 +1,56 @@
+{
+  "date": "2026-09-24",
+  "engineVersion": "f7f6d4bc64c6d4b1e95eeb92eb0bd4b329c41a421deb93ca3ee142ac48ea94c5",
+  "scope": "Actual local production UI save/reload/match/archive/replay; synthetic fixture, not original evaluator input or human acceptance",
+  "origin": "http://127.0.0.1:3108",
+  "path": "/eternalhunger",
+  "browser": "Codex in-app browser",
+  "viewport": { "width": 1280, "height": 720 },
+  "fixture": "artifacts/map-navigation-contract-20260924.json",
+  "savedMap": {
+    "id": "local-map-navigation-contract",
+    "zoneCount": 8,
+    "explicitDisabledHyperloopCount": 8,
+    "oneWayRoadCount": 7,
+    "mapLevelHyperloopDevice": "",
+    "verifiedInVisibleEditorAfterReload": true
+  },
+  "match": {
+    "seed": "1101",
+    "roster": "Default guest characters in UI-generated 24-person / 8-team arrangement, restored from archive for replay",
+    "characterSkillsEnabled": true,
+    "originalSpeed": 32,
+    "originalObserverTeam": 1,
+    "replaySpeed": 16,
+    "replayObserverTeam": 2,
+    "endingTimeDisplayed": "20:02.58",
+    "winnerTeam": 2,
+    "winnerName": "매화",
+    "winnerSurvivors": 1,
+    "winnerTeamSize": 3,
+    "ending": "last_team",
+    "lastEliminationCauseDisplayed": "교전",
+    "eventCount": 8323,
+    "eventsEqual": true,
+    "finalStateEqual": true,
+    "endingEqual": true,
+    "verificationText": "원본과 사건 8,323개·최종 상태·종료 판정이 모두 일치합니다.",
+    "hyperloopCountInObservedReadyRunningEndedAndReplayViews": 0
+  },
+  "archive": {
+    "originalLoadedAfterPageReload": true,
+    "recordCountAfterReplayAndReload": 1,
+    "recordLabel": "2026. 9. 24. 오후 6:55:13 · 24명 · 20:02.58 · 시드 1101",
+    "evaluationStatus": "미시작",
+    "recordsDeleted": 0,
+    "differentOrigin3107RecordsNotAccessedOrModified": true
+  },
+  "observedConsoleWarningsAndErrors": 0,
+  "limits": [
+    "No new browser FPS, Long Task, LoAF or repeated-match heap measurement",
+    "No user satisfaction score or original Marcus-case reproduction",
+    "One-way and forbidden-path rejection are covered by model checks; browser observations are not an exhaustive audit of every movement event",
+    "The default guest browser roster is not the authored R-skill wildlife test fixture",
+    "No official-map full topology or non-hyperloop facility contract acceptance"
+  ]
+}

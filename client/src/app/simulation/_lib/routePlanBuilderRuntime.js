@@ -1,5 +1,6 @@
 import { compactIO, hash32 } from './simulationCommon';
-import { EQUIP_SLOTS, LUMIA_DEFAULT_EDGES } from './simulationConstants';
+import { EQUIP_SLOTS } from './simulationConstants';
+import { buildBaseZoneGraph, getHyperloopZoneIds } from './mapGraphRuntime.js';
 import { inferEquipSlot, inferItemCategory } from './inventoryRules';
 import { classifySpecialByName } from './craftRuntime';
 import { findCrateZoneWeightsForItem, uniqStrings } from './mapTargeting';
@@ -239,43 +240,12 @@ function collectRecipeLeafRequirements(target, indexes, mapObj, opts = {}) {
 }
 
 function buildRouteConnectionInfo(mapObj) {
-  const direct = new Set();
-  const add = (a0, b0) => {
-    const a = String(a0 || '').trim();
-    const b = String(b0 || '').trim();
-    if (!a || !b || a === b) return;
-    direct.add(`${a}::${b}`);
-  };
-  for (const c of Array.isArray(mapObj?.zoneConnections) ? mapObj.zoneConnections : []) {
-    const a = String(c?.fromZoneId || '').trim();
-    const b = String(c?.toZoneId || '').trim();
-    add(a, b);
-    if (c?.bidirectional !== false) add(b, a);
-  }
-
-  const zoneSet = new Set(
-    (Array.isArray(mapObj?.zones) ? mapObj.zones : [])
-      .map((z) => String(z?.zoneId || '').trim())
-      .filter(Boolean)
-  );
-  const defaultZoneHits = [...zoneSet].filter((zoneId) => (
-    LUMIA_DEFAULT_EDGES.some(([a, b]) => zoneId === a || zoneId === b)
-  )).length;
-  const shouldMergeLumiaDefaults = zoneSet.size > 0 && defaultZoneHits >= Math.min(8, zoneSet.size);
-  if (shouldMergeLumiaDefaults) {
-    for (const [a, b] of LUMIA_DEFAULT_EDGES) {
-      if (!zoneSet.has(a) || !zoneSet.has(b)) continue;
-      add(a, b);
-      add(b, a);
-    }
-  }
-
-  const hyper = new Set((Array.isArray(mapObj?.zones) ? mapObj.zones : [])
-    .filter((z) => z?.hasHyperloop === true || z?.hyperloop === true)
-    .map((z) => String(z?.zoneId || '').trim())
-    .filter(Boolean));
-  const serverPad = String(mapObj?.hyperloopDeviceZoneId || '').trim();
-  if (serverPad) hyper.add(serverPad);
+  const zones = Array.isArray(mapObj?.zones) ? mapObj.zones : [];
+  // Planning must use the same explicit roads, direction and compatibility
+  // fallback as actual movement, not a second implicit Lumia graph.
+  const direct = new Map(Object.entries(buildBaseZoneGraph(mapObj, zones))
+    .map(([id, neighbors]) => [id, new Set(neighbors)]));
+  const hyper = new Set(getHyperloopZoneIds(mapObj, zones));
 
   return {
     routePenalty(route) {
@@ -284,7 +254,7 @@ function buildRouteConnectionInfo(mapObj) {
       for (let i = 0; i < ids.length - 1; i += 1) {
         const a = ids[i];
         const b = ids[i + 1];
-        if (direct.has(`${a}::${b}`) || hyper.has(a)) continue;
+        if (direct.has(a) && direct.has(b) && (a === b || direct.get(a).has(b) || hyper.has(a))) continue;
         penalty += 1;
       }
       return penalty;

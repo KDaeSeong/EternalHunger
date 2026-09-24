@@ -1,5 +1,6 @@
 import { normalizeMatchKey, pickWeighted } from './simulationCommon';
 import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
+import { hasZoneHyperloop } from './mapGraphRuntime.js';
 import {
   getLumiaZoneArea,
   getLumiaZoneAreaWeight,
@@ -1026,7 +1027,7 @@ function applyRegionDataToZones(zones) {
       name: zone?.name || region.name,
       hasKiosk: Boolean(zone?.hasKiosk || region.kiosk || LUMIA_KIOSK_ZONE_ID_SET.has(zoneId)),
       hasCampfire: Boolean(zone?.hasCampfire || region.campfire),
-      hasHyperloop: Boolean(zone?.hasHyperloop || region.hyperloop || LUMIA_HYPERLOOP_ZONE_ID_SET.has(zoneId)),
+      hasHyperloop: hasZoneHyperloop({ ...zone, zoneId }),
       area: Number(zone?.area || 0) > 0 ? Number(zone.area) : area,
       areaWeight: Number(zone?.areaWeight || 0) > 0 ? Number(zone.areaWeight) : areaWeight,
     };

@@ -1,0 +1,25 @@
+{
+  "_id": "local-map-navigation-contract",
+  "name": "검증 전용 · 단방향 길 / 하이퍼루프 없음",
+  "description": "Synthetic regression fixture, not the original evaluator map. Preserve existing user maps and use an isolated local origin for browser checks.",
+  "hyperloopDeviceZoneId": "",
+  "zones": [
+    { "zoneId": "alley", "name": "골목길", "hasHyperloop": false, "center": { "x": 10, "y": 10 } },
+    { "zoneId": "gas_station", "name": "주유소", "hasHyperloop": false, "center": { "x": 35, "y": 10 } },
+    { "zoneId": "archery", "name": "양궁장", "hasHyperloop": false, "center": { "x": 60, "y": 10 } },
+    { "zoneId": "school", "name": "학교", "hasHyperloop": false, "center": { "x": 85, "y": 10 } },
+    { "zoneId": "police", "name": "경찰서", "hasHyperloop": false, "center": { "x": 85, "y": 65 } },
+    { "zoneId": "firestation", "name": "소방서", "hasHyperloop": false, "center": { "x": 60, "y": 65 } },
+    { "zoneId": "temple", "name": "절", "hasHyperloop": false, "center": { "x": 35, "y": 65 } },
+    { "zoneId": "stream", "name": "개울", "hasHyperloop": false, "center": { "x": 10, "y": 65 } }
+  ],
+  "zoneConnections": [
+    { "fromZoneId": "alley", "toZoneId": "gas_station", "bidirectional": false },
+    { "fromZoneId": "gas_station", "toZoneId": "archery", "bidirectional": false },
+    { "fromZoneId": "archery", "toZoneId": "school", "bidirectional": false },
+    { "fromZoneId": "school", "toZoneId": "police", "bidirectional": false },
+    { "fromZoneId": "police", "toZoneId": "firestation", "bidirectional": false },
+    { "fromZoneId": "firestation", "toZoneId": "temple", "bidirectional": false },
+    { "fromZoneId": "temple", "toZoneId": "stream", "bidirectional": false }
+  ]
+}
