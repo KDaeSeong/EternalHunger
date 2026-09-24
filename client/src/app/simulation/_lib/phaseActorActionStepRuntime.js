@@ -6,6 +6,7 @@ import { runActorLootStep } from './phaseActorLootStepRuntime';
 import { runActorQueuedActionStep } from './phaseActorQueuedActionStepRuntime';
 import { getForcedControlEffect } from '../../../utils/statusLogic.js';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
+import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
 
 export function runSingleActorPhaseAction({
   actions = {},
@@ -89,7 +90,7 @@ export function runSingleActorPhaseAction({
   }
   if (getForcedControlEffect(updated)) return { actor: updated, newlyDead, pendingPickAssigned };
 
-  const movementResult = runActorMovementDecisionPhase({
+  const movementResult = measureObserverWork('growth.actorMovement', () => runActorMovementDecisionPhase({
     state: {
       actor: updated,
       baseZonePop,
@@ -124,7 +125,7 @@ export function runSingleActorPhaseAction({
       isHyperloopTransit,
       reserveActionSecond,
     },
-  });
+  }));
   updated = movementResult.actor;
 
   if (movementResult.didMove && Number(nextDay || 0) === 1) {
@@ -138,7 +139,7 @@ export function runSingleActorPhaseAction({
     }
   }
 
-  const lootStepResult = runActorLootStep({
+  const lootStepResult = measureObserverWork('growth.actorLoot', () => runActorLootStep({
     actions,
     actor: updated,
     movementResult,
@@ -147,11 +148,11 @@ export function runSingleActorPhaseAction({
       pendingPickAssigned,
       pendingTranscendPick,
     },
-  });
+  }));
   updated = lootStepResult.actor;
   pendingPickAssigned = lootStepResult.pendingPickAssigned;
 
-  const actionPlan = prepareActorPhaseActionPlan({
+  const actionPlan = measureObserverWork('growth.actorPlan', () => prepareActorPhaseActionPlan({
     state: {
       actor: updated,
       craftables,
@@ -196,10 +197,10 @@ export function runSingleActorPhaseAction({
       emitQueueRunEvent,
       getZoneName,
     },
-  });
+  }));
   updated = actionPlan.actor;
 
-  const queuedActionResult = runActorQueuedActionStep({
+  const queuedActionResult = measureObserverWork('growth.actorQueue', () => runActorQueuedActionStep({
     actionPlan,
     actions,
     actor: updated,
@@ -207,7 +208,7 @@ export function runSingleActorPhaseAction({
     movementResult,
     sourceActor,
     state,
-  });
+  }));
   updated = queuedActionResult.actor;
   if (Array.isArray(queuedActionResult.newlyDead) && queuedActionResult.newlyDead.length) {
     newlyDead.push(...queuedActionResult.newlyDead);

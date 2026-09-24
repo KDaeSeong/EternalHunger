@@ -1,0 +1,281 @@
+{
+  "engineVersion": "010820a1e6e70e2e61323c8db3b3fba4925506a126e81471b2f55a5f7d3e4982",
+  "sourceScope": "a867b1e6 plus actor/replay diagnostic instrumentation; before replay comparison optimization",
+  "environment": {
+    "url": "http://127.0.0.1:3108/eternalhunger?perfProbe=1",
+    "browser": "Codex In-app Browser",
+    "sourceRecordFinishedAtLocal": "2026-09-24 20:29:03 Asia/Seoul",
+    "runSeed": "1789192220412",
+    "regions": 21,
+    "participants": 24,
+    "teams": 8,
+    "speed": "x32",
+    "observedTeam": 1
+  },
+  "protocol": {
+    "originalCreatedInEvaluationMode": true,
+    "originalMeasured": false,
+    "replayMeasured": true,
+    "heavyChecksOrBuildsDuringMeasurement": false,
+    "forcedGC": false,
+    "recordsDeleted": false,
+    "sourceRecordsBefore": 3,
+    "sourceRecordsAfter": 3,
+    "durationIncludesPostMatchDwell": true
+  },
+  "report": {
+    "schema": "eh-observer-performance.v2",
+    "label": "010820a1-x32-stage-attribution",
+    "elapsedMs": 203553.7,
+    "raf": {
+      "supported": true,
+      "samples": 15575,
+      "fps": 76.515,
+      "intervalMs": {
+        "median": 10,
+        "p95": 20.1,
+        "max": 240
+      },
+      "percentiles": {
+        "scope": "entire_measurement",
+        "method": "rounded_histogram",
+        "resolutionMs": 0.1,
+        "upperBoundMs": 1000,
+        "bins": 10001,
+        "overflowSamples": 0,
+        "medianRangeMs": null,
+        "p95RangeMs": null
+      }
+    },
+    "longTasks": {
+      "supported": true,
+      "count": 55,
+      "totalMs": 6294,
+      "maxMs": 237
+    },
+    "longAnimationFrames": {
+      "count": 69,
+      "totalDurationMs": 7385.9,
+      "maxDurationMs": 248.9,
+      "maxWorkMs": 248.4,
+      "maxRenderMs": 3.2,
+      "maxStyleAndLayoutMs": 1.2,
+      "maxBlockingMs": 187.9,
+      "slowest": [
+        {
+          "startOffsetMs": 149713.8,
+          "durationMs": 248.9,
+          "workMs": 248.4,
+          "renderMs": 0.5,
+          "styleAndLayoutMs": 0.3,
+          "blockingMs": 187.9,
+          "scriptCount": 2,
+          "scripts": [
+            {
+              "durationMs": 237.4,
+              "invoker": "Scheduler.yield.then",
+              "invokerType": "resolve-promise",
+              "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/5700-5a4271d91ea19cae.js",
+              "sourceFunctionName": "",
+              "sourceCharPosition": 578108,
+              "windowAttribution": "self",
+              "forcedStyleAndLayoutMs": 0,
+              "pauseMs": 0
+            },
+            {
+              "durationMs": 6.4,
+              "invoker": "Scheduler.yield.then",
+              "invokerType": "resolve-promise",
+              "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/5700-5a4271d91ea19cae.js",
+              "sourceFunctionName": "",
+              "sourceCharPosition": 578108,
+              "windowAttribution": "self",
+              "forcedStyleAndLayoutMs": 0,
+              "pauseMs": 0
+            }
+          ]
+        },
+        {
+          "startOffsetMs": 42071.2,
+          "durationMs": 205.3,
+          "workMs": 204.8,
+          "renderMs": 0.5,
+          "styleAndLayoutMs": 0.1,
+          "blockingMs": 133.4,
+          "scriptCount": 2,
+          "scripts": [
+            {
+              "durationMs": 182.8,
+              "invoker": "TimerHandler:setTimeout",
+              "invokerType": "user-callback",
+              "sourceURL": "",
+              "sourceFunctionName": "",
+              "sourceCharPosition": -1,
+              "windowAttribution": "self",
+              "forcedStyleAndLayoutMs": 0,
+              "pauseMs": 0
+            },
+            {
+              "durationMs": 21.2,
+              "invoker": "MessagePort.onmessage",
+              "invokerType": "event-listener",
+              "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/3794-084a406ae2f53c6d.js",
+              "sourceFunctionName": "M",
+              "sourceCharPosition": 40859,
+              "windowAttribution": "self",
+              "forcedStyleAndLayoutMs": 0,
+              "pauseMs": 0
+            }
+          ]
+        }
+      ],
+      "supported": true,
+      "reason": null,
+      "attribution": {
+        "selection": "slowest_by_duration",
+        "frameLimit": 8,
+        "scriptLimit": 8,
+        "textLimit": 512,
+        "scope": "browser_attributed_main_thread_entrypoints_not_full_call_stacks"
+      }
+    },
+    "workBreakdown": {
+      "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+      "stages": [
+        {
+          "name": "start.captureInput",
+          "count": 1,
+          "totalMs": 4.2,
+          "maxMs": 4.2,
+          "maxStartOffsetMs": 375.8
+        },
+        {
+          "name": "start.prepareInput",
+          "count": 1,
+          "totalMs": 6.8,
+          "maxMs": 6.8,
+          "maxStartOffsetMs": 380.2
+        },
+        {
+          "name": "phase.fieldResources",
+          "count": 13,
+          "totalMs": 13.4,
+          "maxMs": 13.3,
+          "maxStartOffsetMs": 388.6
+        },
+        {
+          "name": "phase.starterLoadout",
+          "count": 13,
+          "totalMs": 9.4,
+          "maxMs": 9.4,
+          "maxStartOffsetMs": 402.2
+        },
+        {
+          "name": "phase.setup",
+          "count": 13,
+          "totalMs": 60.1,
+          "maxMs": 24.8,
+          "maxStartOffsetMs": 387.8
+        },
+        {
+          "name": "growth.refreshPlans",
+          "count": 67,
+          "totalMs": 358.2,
+          "maxMs": 21.7,
+          "maxStartOffsetMs": 96985.8
+        },
+        {
+          "name": "growth.teamCoordination",
+          "count": 67,
+          "totalMs": 377.6,
+          "maxMs": 44.5,
+          "maxStartOffsetMs": 97007.5
+        },
+        {
+          "name": "growth.actorMovement",
+          "count": 922,
+          "totalMs": 1555.4,
+          "maxMs": 20.4,
+          "maxStartOffsetMs": 42180.3
+        },
+        {
+          "name": "growth.actorLoot",
+          "count": 922,
+          "totalMs": 1212.8,
+          "maxMs": 16.8,
+          "maxStartOffsetMs": 42122
+        },
+        {
+          "name": "growth.actorPlan",
+          "count": 922,
+          "totalMs": 1270.4,
+          "maxMs": 16.9,
+          "maxStartOffsetMs": 77185.3
+        },
+        {
+          "name": "growth.actorQueue",
+          "count": 922,
+          "totalMs": 1014.8,
+          "maxMs": 33.9,
+          "maxStartOffsetMs": 131550.6
+        },
+        {
+          "name": "growth.singleActor",
+          "count": 922,
+          "totalMs": 5217.9,
+          "maxMs": 37.9,
+          "maxStartOffsetMs": 141159.1
+        },
+        {
+          "name": "growth.allActors",
+          "count": 67,
+          "totalMs": 6082.3,
+          "maxMs": 190.2,
+          "maxStartOffsetMs": 35776.9
+        },
+        {
+          "name": "replay.captureResult",
+          "count": 1,
+          "totalMs": 55.5,
+          "maxMs": 55.5,
+          "maxStartOffsetMs": 149730.5
+        },
+        {
+          "name": "replay.compareResult",
+          "count": 1,
+          "totalMs": 175.7,
+          "maxMs": 175.7,
+          "maxStartOffsetMs": 149786
+        }
+      ]
+    },
+    "inputResponse": {
+      "supported": true,
+      "samples": 2,
+      "lastMs": 7.3,
+      "maxMs": 7.3
+    },
+    "heap": {
+      "supported": true,
+      "baselineUsedBytes": 31904580,
+      "usedBytes": 43152106,
+      "deltaUsedBytes": 11247526,
+      "totalBytes": 47157234,
+      "limitBytes": 4395630592
+    },
+    "domNodes": 662,
+    "visibilityState": "visible"
+  },
+  "result": {
+    "replayText": "원본과 사건 7,297개·최종 상태·종료 판정이 모두 일치합니다.",
+    "matchTime": "20:52",
+    "winner": "매화",
+    "winnerTeam": 4,
+    "alive": 1,
+    "teamSize": 3,
+    "rewardLP": 0
+  },
+  "humanEvaluation": "not_started",
+  "consoleWarningOrErrorCount": 0,
+  "excerpt": "All aggregate metrics and work stages, two slowest LoAF entries. Not a full trace or memory lifetime proof."
+}

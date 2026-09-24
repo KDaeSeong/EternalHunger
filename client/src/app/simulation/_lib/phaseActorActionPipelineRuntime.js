@@ -116,7 +116,7 @@ export function runPhaseActorActionPipeline({
         || Number(sourceActor?._actionReadyAtSec || 0) > now)) return hold('action_wait');
       let moveCost = 1;
       if (scheduled) sourceActor._actionCycleKey = `${state.phaseIdxNow}:${now}`;
-      const actorStepResult = runSingleActorPhaseAction({
+      const actorStepResult = measureObserverWork('growth.singleActor', () => runSingleActorPhaseAction({
         actions: {
           ...actions,
           runDay1HeroGear,
@@ -131,7 +131,7 @@ export function runPhaseActorActionPipeline({
           teamRegroupDecision: regroupDecision,
           pendingPickAssigned,
         },
-      });
+      }));
 
       if (scheduled && actorStepResult.actor) {
         const actor = actorStepResult.actor;

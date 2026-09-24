@@ -116,10 +116,34 @@ export function semanticRunEvents(events) {
   return cloneReplayData((events || []).map(({ ts, ...event }) => event));
 }
 
+// Own the journal once. semanticRunEvents already returns detached JSON data;
+// serializing that same journal again only duplicates work and allocations.
+// Capture remains synchronous, before finishGame can start persistence/return.
+export function captureSimulationReplayResult({ events, finalFrame, random, ending }) {
+  return { events: semanticRunEvents(events), ...cloneReplayData({ finalFrame, random, summary: { ending } }) };
+}
+
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
   if (value && typeof value === 'object') return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
   return JSON.stringify(value);
+}
+
+// Only used after semanticRunEvents has normalized values through JSON. In that
+// domain there are no undefined object values, sparse arrays, NaN or custom
+// prototypes. Compare directly without sorting keys/building strings for every
+// nested event object. Keep legacy canonical handling for non-journal fields.
+function equalReplayJson(left, right) {
+  if (left === right) return true;
+  if (left === null || right === null || typeof left !== 'object' || typeof right !== 'object') return false;
+  if (Array.isArray(left)) {
+    return Array.isArray(right) && left.length === right.length
+      && left.every((value, index) => equalReplayJson(value, right[index]));
+  }
+  if (Array.isArray(right)) return false;
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length
+    && keys.every((key) => Object.hasOwn(right, key) && equalReplayJson(left[key], right[key]));
 }
 
 export function compareSimulationReplay(expected, actual) {
@@ -127,7 +151,7 @@ export function compareSimulationReplay(expected, actual) {
   const right = semanticRunEvents(actual.events);
   let firstDifference = -1;
   for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
-    if (canonical(left[index]) !== canonical(right[index])) { firstDifference = index; break; }
+    if (!equalReplayJson(left[index], right[index])) { firstDifference = index; break; }
   }
   const sameFinalState = canonical(expected.finalFrame) === canonical(actual.finalFrame);
   const sameRandom = canonical(expected.random) === canonical(actual.random);

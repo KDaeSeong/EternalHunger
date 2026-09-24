@@ -1,0 +1,614 @@
+{
+  "sourceCommit": "a867b1e6",
+  "engineVersion": "94fac36f4488dbe7e7ec80167add14d991633da42998407f85ff0584b43905b3",
+  "environment": {
+    "url": "http://127.0.0.1:3108/eternalhunger?perfProbe=1",
+    "browser": "Codex In-app Browser",
+    "viewport": "1280x720",
+    "sourceRecordFinishedAtLocal": "2026-09-24 19:41:55 Asia/Seoul",
+    "runSeed": "1789192220412",
+    "regions": 21,
+    "participants": 24,
+    "teams": 8,
+    "speed": "x8",
+    "observedTeam": 1
+  },
+  "protocol": {
+    "reloadBetweenRuns": false,
+    "forcedGC": false,
+    "recordsDeleted": false,
+    "heavyChecksOrBuildsDuringRuns": false,
+    "start": "probe start then auto",
+    "stop": "close result modal then probe stop",
+    "durationIncludesPostMatchDwell": true,
+    "sourceRecordsBefore": 2,
+    "sourceRecordsAfter": 2,
+    "humanEvaluation": "not_started",
+    "screenshotObservation": "Run 2: battlefield island and recent combat HP visible; not a readability acceptance test"
+  },
+  "results": [
+    {
+      "schema": "eh-observer-performance.v2",
+      "label": "94fac36f-x8-sequential-1",
+      "elapsedMs": 378463.6,
+      "raf": {
+        "supported": true,
+        "samples": 35955,
+        "fps": 95.003,
+        "intervalMs": {
+          "median": 10,
+          "p95": 10.7,
+          "max": 300
+        },
+        "percentiles": {
+          "scope": "entire_measurement",
+          "method": "rounded_histogram",
+          "resolutionMs": 0.1,
+          "upperBoundMs": 1000,
+          "bins": 10001,
+          "overflowSamples": 0,
+          "medianRangeMs": null,
+          "p95RangeMs": null
+        }
+      },
+      "longTasks": {
+        "supported": true,
+        "count": 52,
+        "totalMs": 5379,
+        "maxMs": 302
+      },
+      "longAnimationFrames": {
+        "count": 66,
+        "totalDurationMs": 6619.5,
+        "maxDurationMs": 314.2,
+        "maxWorkMs": 312.9,
+        "maxRenderMs": 5.7,
+        "maxStyleAndLayoutMs": 1.2,
+        "maxBlockingMs": 253.3,
+        "slowest": [
+          {
+            "startOffsetMs": 225765.4,
+            "durationMs": 314.2,
+            "workMs": 312.9,
+            "renderMs": 1.3,
+            "styleAndLayoutMs": 1.2,
+            "blockingMs": 253.3,
+            "scriptCount": 2,
+            "scripts": [
+              {
+                "durationMs": 301.8,
+                "invoker": "Scheduler.yield.then",
+                "invokerType": "resolve-promise",
+                "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/5700-c12e4b9bed8fb8f9.js",
+                "sourceFunctionName": "",
+                "sourceCharPosition": 578108,
+                "windowAttribution": "self",
+                "forcedStyleAndLayoutMs": 0,
+                "pauseMs": 0
+              },
+              {
+                "durationMs": 6.1,
+                "invoker": "Scheduler.yield.then",
+                "invokerType": "resolve-promise",
+                "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/5700-c12e4b9bed8fb8f9.js",
+                "sourceFunctionName": "",
+                "sourceCharPosition": 578108,
+                "windowAttribution": "self",
+                "forcedStyleAndLayoutMs": 0,
+                "pauseMs": 0
+              }
+            ]
+          },
+          {
+            "startOffsetMs": 439.5,
+            "durationMs": 269.3,
+            "workMs": 268.7,
+            "renderMs": 0.6,
+            "styleAndLayoutMs": 0,
+            "blockingMs": 175.8,
+            "scriptCount": 2,
+            "scripts": [
+              {
+                "durationMs": 225.1,
+                "invoker": "Scheduler.yield.then",
+                "invokerType": "resolve-promise",
+                "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/5700-c12e4b9bed8fb8f9.js",
+                "sourceFunctionName": "",
+                "sourceCharPosition": 578108,
+                "windowAttribution": "self",
+                "forcedStyleAndLayoutMs": 0,
+                "pauseMs": 0
+              },
+              {
+                "durationMs": 38.5,
+                "invoker": "MessagePort.onmessage",
+                "invokerType": "event-listener",
+                "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/3794-084a406ae2f53c6d.js",
+                "sourceFunctionName": "M",
+                "sourceCharPosition": 40859,
+                "windowAttribution": "self",
+                "forcedStyleAndLayoutMs": 0,
+                "pauseMs": 0
+              }
+            ]
+          }
+        ],
+        "supported": true,
+        "reason": null,
+        "attribution": {
+          "selection": "slowest_by_duration",
+          "frameLimit": 8,
+          "scriptLimit": 8,
+          "textLimit": 512,
+          "scope": "browser_attributed_main_thread_entrypoints_not_full_call_stacks"
+        }
+      },
+      "workBreakdown": {
+        "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+        "stages": [
+          {
+            "name": "start.captureInput",
+            "count": 1,
+            "totalMs": 8.7,
+            "maxMs": 8.7,
+            "maxStartOffsetMs": 381.9
+          },
+          {
+            "name": "start.prepareInput",
+            "count": 1,
+            "totalMs": 8.7,
+            "maxMs": 8.7,
+            "maxStartOffsetMs": 390.7
+          },
+          {
+            "name": "phase.fieldResources",
+            "count": 13,
+            "totalMs": 18.6,
+            "maxMs": 18.6,
+            "maxStartOffsetMs": 402.4
+          },
+          {
+            "name": "phase.starterLoadout",
+            "count": 13,
+            "totalMs": 16.7,
+            "maxMs": 16.4,
+            "maxStartOffsetMs": 421
+          },
+          {
+            "name": "phase.setup",
+            "count": 13,
+            "totalMs": 73.8,
+            "maxMs": 38,
+            "maxStartOffsetMs": 400.7
+          },
+          {
+            "name": "growth.refreshPlans",
+            "count": 67,
+            "totalMs": 354.3,
+            "maxMs": 35.9,
+            "maxStartOffsetMs": 137519.5
+          },
+          {
+            "name": "growth.teamCoordination",
+            "count": 67,
+            "totalMs": 406.8,
+            "maxMs": 59,
+            "maxStartOffsetMs": 132853.4
+          },
+          {
+            "name": "growth.allActors",
+            "count": 67,
+            "totalMs": 5193.2,
+            "maxMs": 231.2,
+            "maxStartOffsetMs": 137518.1
+          }
+        ]
+      },
+      "inputResponse": {
+        "supported": true,
+        "samples": 2,
+        "lastMs": 3.9,
+        "maxMs": 8.3
+      },
+      "heap": {
+        "supported": true,
+        "baselineUsedBytes": 30631239,
+        "usedBytes": 40934255,
+        "deltaUsedBytes": 10303016,
+        "totalBytes": 44782983,
+        "limitBytes": 4395630592
+      },
+      "domNodes": 662,
+      "visibilityState": "visible",
+      "result": {
+        "replayText": "원본과 사건 7,297개·최종 상태·종료 판정이 모두 일치합니다.",
+        "matchTime": "20:52",
+        "winner": "매화",
+        "winnerTeam": 4,
+        "alive": 1,
+        "teamSize": 3,
+        "rewardLP": 0
+      }
+    },
+    {
+      "schema": "eh-observer-performance.v2",
+      "label": "94fac36f-x8-sequential-2",
+      "elapsedMs": 269488.6,
+      "raf": {
+        "supported": true,
+        "samples": 26021,
+        "fps": 96.557,
+        "intervalMs": {
+          "median": 10,
+          "p95": 10.2,
+          "max": 450.1
+        },
+        "percentiles": {
+          "scope": "entire_measurement",
+          "method": "rounded_histogram",
+          "resolutionMs": 0.1,
+          "upperBoundMs": 1000,
+          "bins": 10001,
+          "overflowSamples": 0,
+          "medianRangeMs": null,
+          "p95RangeMs": null
+        }
+      },
+      "longTasks": {
+        "supported": true,
+        "count": 50,
+        "totalMs": 4703,
+        "maxMs": 451
+      },
+      "longAnimationFrames": {
+        "count": 56,
+        "totalDurationMs": 5376,
+        "maxDurationMs": 452,
+        "maxWorkMs": 451.9,
+        "maxRenderMs": 20,
+        "maxStyleAndLayoutMs": 0.9,
+        "maxBlockingMs": 401.7,
+        "slowest": [
+          {
+            "startOffsetMs": 102334.7,
+            "durationMs": 452,
+            "workMs": 451.9,
+            "renderMs": 0.1,
+            "styleAndLayoutMs": 0,
+            "blockingMs": 401.7,
+            "scriptCount": 1,
+            "scripts": [
+              {
+                "durationMs": 451.7,
+                "invoker": "TimerHandler:setTimeout",
+                "invokerType": "user-callback",
+                "sourceURL": "",
+                "sourceFunctionName": "",
+                "sourceCharPosition": -1,
+                "windowAttribution": "self",
+                "forcedStyleAndLayoutMs": 0,
+                "pauseMs": 0
+              }
+            ]
+          },
+          {
+            "startOffsetMs": 215746.4,
+            "durationMs": 220.9,
+            "workMs": 220.7,
+            "renderMs": 0.2,
+            "styleAndLayoutMs": 0.2,
+            "blockingMs": 163.8,
+            "scriptCount": 1,
+            "scripts": [
+              {
+                "durationMs": 213.7,
+                "invoker": "Scheduler.yield.then",
+                "invokerType": "resolve-promise",
+                "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/5700-c12e4b9bed8fb8f9.js",
+                "sourceFunctionName": "",
+                "sourceCharPosition": 578108,
+                "windowAttribution": "self",
+                "forcedStyleAndLayoutMs": 0,
+                "pauseMs": 0
+              }
+            ]
+          }
+        ],
+        "supported": true,
+        "reason": null,
+        "attribution": {
+          "selection": "slowest_by_duration",
+          "frameLimit": 8,
+          "scriptLimit": 8,
+          "textLimit": 512,
+          "scope": "browser_attributed_main_thread_entrypoints_not_full_call_stacks"
+        }
+      },
+      "workBreakdown": {
+        "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+        "stages": [
+          {
+            "name": "start.captureInput",
+            "count": 1,
+            "totalMs": 6.6,
+            "maxMs": 6.6,
+            "maxStartOffsetMs": 363.2
+          },
+          {
+            "name": "start.prepareInput",
+            "count": 1,
+            "totalMs": 5.3,
+            "maxMs": 5.3,
+            "maxStartOffsetMs": 369.8
+          },
+          {
+            "name": "phase.fieldResources",
+            "count": 13,
+            "totalMs": 15.1,
+            "maxMs": 15.1,
+            "maxStartOffsetMs": 376.7
+          },
+          {
+            "name": "phase.starterLoadout",
+            "count": 13,
+            "totalMs": 12.5,
+            "maxMs": 12.5,
+            "maxStartOffsetMs": 391.8
+          },
+          {
+            "name": "phase.setup",
+            "count": 13,
+            "totalMs": 55.5,
+            "maxMs": 29.6,
+            "maxStartOffsetMs": 375.9
+          },
+          {
+            "name": "growth.refreshPlans",
+            "count": 67,
+            "totalMs": 272.8,
+            "maxMs": 19.4,
+            "maxStartOffsetMs": 128046.3
+          },
+          {
+            "name": "growth.teamCoordination",
+            "count": 67,
+            "totalMs": 308,
+            "maxMs": 30,
+            "maxStartOffsetMs": 135220
+          },
+          {
+            "name": "growth.allActors",
+            "count": 67,
+            "totalMs": 4662.2,
+            "maxMs": 427.5,
+            "maxStartOffsetMs": 102348
+          }
+        ]
+      },
+      "inputResponse": {
+        "supported": true,
+        "samples": 2,
+        "lastMs": 8.1,
+        "maxMs": 8.1
+      },
+      "heap": {
+        "supported": true,
+        "baselineUsedBytes": 57228373,
+        "usedBytes": 41838525,
+        "deltaUsedBytes": -15389848,
+        "totalBytes": 45045129,
+        "limitBytes": 4395630592
+      },
+      "domNodes": 662,
+      "visibilityState": "visible",
+      "result": {
+        "replayText": "원본과 사건 7,297개·최종 상태·종료 판정이 모두 일치합니다.",
+        "matchTime": "20:52",
+        "winner": "매화",
+        "winnerTeam": 4,
+        "alive": 1,
+        "teamSize": 3,
+        "rewardLP": 0
+      }
+    },
+    {
+      "schema": "eh-observer-performance.v2",
+      "label": "94fac36f-x8-sequential-3",
+      "elapsedMs": 247361.9,
+      "raf": {
+        "supported": true,
+        "samples": 24113,
+        "fps": 97.481,
+        "intervalMs": {
+          "median": 10,
+          "p95": 10.2,
+          "max": 230
+        },
+        "percentiles": {
+          "scope": "entire_measurement",
+          "method": "rounded_histogram",
+          "resolutionMs": 0.1,
+          "upperBoundMs": 1000,
+          "bins": 10001,
+          "overflowSamples": 0,
+          "medianRangeMs": null,
+          "p95RangeMs": null
+        }
+      },
+      "longTasks": {
+        "supported": true,
+        "count": 51,
+        "totalMs": 3852,
+        "maxMs": 227
+      },
+      "longAnimationFrames": {
+        "count": 55,
+        "totalDurationMs": 4353.2,
+        "maxDurationMs": 237.6,
+        "maxWorkMs": 237.4,
+        "maxRenderMs": 1.6,
+        "maxStyleAndLayoutMs": 1.1,
+        "maxBlockingMs": 177.3,
+        "slowest": [
+          {
+            "startOffsetMs": 214742.3,
+            "durationMs": 237.6,
+            "workMs": 237.4,
+            "renderMs": 0.2,
+            "styleAndLayoutMs": 0.2,
+            "blockingMs": 177.3,
+            "scriptCount": 2,
+            "scripts": [
+              {
+                "durationMs": 226.9,
+                "invoker": "Scheduler.yield.then",
+                "invokerType": "resolve-promise",
+                "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/5700-c12e4b9bed8fb8f9.js",
+                "sourceFunctionName": "",
+                "sourceCharPosition": 578108,
+                "windowAttribution": "self",
+                "forcedStyleAndLayoutMs": 0,
+                "pauseMs": 0
+              },
+              {
+                "durationMs": 5.8,
+                "invoker": "Scheduler.yield.then",
+                "invokerType": "resolve-promise",
+                "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/5700-c12e4b9bed8fb8f9.js",
+                "sourceFunctionName": "",
+                "sourceCharPosition": 578108,
+                "windowAttribution": "self",
+                "forcedStyleAndLayoutMs": 0,
+                "pauseMs": 0
+              }
+            ]
+          },
+          {
+            "startOffsetMs": 133578.1,
+            "durationMs": 134.8,
+            "workMs": 134.7,
+            "renderMs": 0.1,
+            "styleAndLayoutMs": 0,
+            "blockingMs": 84.7,
+            "scriptCount": 1,
+            "scripts": [
+              {
+                "durationMs": 134.5,
+                "invoker": "TimerHandler:setTimeout",
+                "invokerType": "user-callback",
+                "sourceURL": "",
+                "sourceFunctionName": "",
+                "sourceCharPosition": -1,
+                "windowAttribution": "self",
+                "forcedStyleAndLayoutMs": 0,
+                "pauseMs": 0
+              }
+            ]
+          }
+        ],
+        "supported": true,
+        "reason": null,
+        "attribution": {
+          "selection": "slowest_by_duration",
+          "frameLimit": 8,
+          "scriptLimit": 8,
+          "textLimit": 512,
+          "scope": "browser_attributed_main_thread_entrypoints_not_full_call_stacks"
+        }
+      },
+      "workBreakdown": {
+        "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+        "stages": [
+          {
+            "name": "start.captureInput",
+            "count": 1,
+            "totalMs": 6.2,
+            "maxMs": 6.2,
+            "maxStartOffsetMs": 387.9
+          },
+          {
+            "name": "start.prepareInput",
+            "count": 1,
+            "totalMs": 6.8,
+            "maxMs": 6.8,
+            "maxStartOffsetMs": 394.1
+          },
+          {
+            "name": "phase.fieldResources",
+            "count": 13,
+            "totalMs": 20.1,
+            "maxMs": 20,
+            "maxStartOffsetMs": 403.3
+          },
+          {
+            "name": "phase.starterLoadout",
+            "count": 13,
+            "totalMs": 11.9,
+            "maxMs": 11.9,
+            "maxStartOffsetMs": 423.3
+          },
+          {
+            "name": "phase.setup",
+            "count": 13,
+            "totalMs": 62.1,
+            "maxMs": 34.2,
+            "maxStartOffsetMs": 402
+          },
+          {
+            "name": "growth.refreshPlans",
+            "count": 67,
+            "totalMs": 261,
+            "maxMs": 16.9,
+            "maxStartOffsetMs": 126700.8
+          },
+          {
+            "name": "growth.teamCoordination",
+            "count": 67,
+            "totalMs": 268.5,
+            "maxMs": 25.1,
+            "maxStartOffsetMs": 126717.7
+          },
+          {
+            "name": "growth.allActors",
+            "count": 67,
+            "totalMs": 3859.1,
+            "maxMs": 129.9,
+            "maxStartOffsetMs": 133582.3
+          }
+        ]
+      },
+      "inputResponse": {
+        "supported": true,
+        "samples": 2,
+        "lastMs": 1.8,
+        "maxMs": 6.5
+      },
+      "heap": {
+        "supported": true,
+        "baselineUsedBytes": 58137974,
+        "usedBytes": 42214129,
+        "deltaUsedBytes": -15923845,
+        "totalBytes": 45569417,
+        "limitBytes": 4395630592
+      },
+      "domNodes": 662,
+      "visibilityState": "visible",
+      "result": {
+        "replayText": "원본과 사건 7,297개·최종 상태·종료 판정이 모두 일치합니다.",
+        "matchTime": "20:52",
+        "winner": "매화",
+        "winnerTeam": 4,
+        "alive": 1,
+        "teamSize": 3,
+        "rewardLP": 0
+      }
+    }
+  ],
+  "consoleWarningOrErrorCount": 0,
+  "excerpt": "All aggregate metrics and work stages retained; two slowest of the probe eight LoAF entries retained per run. Not a full browser trace.",
+  "acceptance": {
+    "longTaskStrictBelow200ms": false,
+    "memoryLifetimeOrCollectionProven": false,
+    "humanReadabilityAccepted": false
+  }
+}

@@ -10,6 +10,7 @@ const { hasEffectImmunity } = await import('../src/utils/statusEffectApplication
 const { pickInitialErWeaponType } = await import('../src/utils/erMeta.js');
 const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
 const { requestSimulationMainThreadYield } = await import('../src/app/simulation/_lib/simulationCooperativeYieldRuntime.js');
+const { subscribeObserverWorkMeasurements } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
 
 let checks = 0;
 const check = async (name, run) => { await run(); checks += 1; console.log(`PASS ${name}`); };
@@ -256,6 +257,9 @@ await check('actual complete matches reproduce all events and frames despite con
   let uiDraws = 0;
   let apiCalls = 0;
   let timestamp = 1000;
+  let diagnosticClock = 0;
+  const measuredStages = new Set();
+  let disposeMeasurements = () => {};
   const guardedNative = () => {
     assert.ok(uiAllowed, 'An actual engine path still calls native randomness.');
     uiDraws += 1;
@@ -274,10 +278,18 @@ await check('actual complete matches reproduce all events and frames despite con
     const baseline = await runRandomIsolationMatch(input);
     assert.equal(uiDraws, 0);
     console.log(`RNG_MATCH_BASELINE ${JSON.stringify(baseline.evidence)}`);
+    // A diagnostic-enabled run must retain every event/frame and RNG state of
+    // the unmeasured run. Retain stage names only, never actors or match state.
+    disposeMeasurements = subscribeObserverWorkMeasurements(() => ++diagnosticClock,
+      ({ name }) => measuredStages.add(name));
     const replays = await Promise.all([
       runRandomIsolationMatch(input, { noisy: true, uiNoise }),
       runRandomIsolationMatch(input, { noisy: true, phaseOnly: true, uiNoise }),
     ]);
+    disposeMeasurements();
+    for (const stage of ['growth.singleActor', 'growth.actorMovement', 'growth.actorLoot', 'growth.actorPlan', 'growth.actorQueue']) {
+      assert.ok(measuredStages.has(stage), `The real action pipeline did not measure ${stage}.`);
+    }
     for (const replay of replays) {
       assert.deepEqual(replay.events, baseline.events, 'Every event, not just the winner, must reproduce.');
       assert.deepEqual(replay.finalFrame, baseline.finalFrame, 'Include inventory IDs, gear, life state and field stock.');
@@ -288,7 +300,7 @@ await check('actual complete matches reproduce all events and frames despite con
     assert.equal(apiCalls, 0);
     assert.equal(getActiveSimulationRandom(), null);
     console.log(`RNG_MATCH_REPLAYS ${JSON.stringify({ matches: 3, uiDraws, apiCalls, ...baseline.evidence })}`);
-  } finally { Math.random = native; globalThis.fetch = fetch; Date.now = now; }
+  } finally { disposeMeasurements(); Math.random = native; globalThis.fetch = fetch; Date.now = now; }
 });
 
 console.log(`SIMULATION_RANDOM_CHECKS ${checks}/${checks}`);

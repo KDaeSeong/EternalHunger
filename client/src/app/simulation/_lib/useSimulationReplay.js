@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { cloneReplayData, compareSimulationReplay, createSimulationRunInput, prepareSimulationRunInput, REPLAY_SCHEMA, semanticRunEvents, validateSimulationReplayRecord } from './simulationReplayRuntime';
+import { captureSimulationReplayResult, cloneReplayData, compareSimulationReplay, createSimulationRunInput, prepareSimulationRunInput, REPLAY_SCHEMA, validateSimulationReplayRecord } from './simulationReplayRuntime';
 import { classifySimulationReplayStorageError, saveSimulationReplay } from './simulationReplayStorage';
 import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
 
@@ -31,10 +31,11 @@ export function useSimulationReplay(replayRecord = null) {
     let retryableRecord = null;
     try {
       if (!runInputRef.current || !lastFrameRef.current || !random) throw new Error('경기의 시작 조건 또는 종료 기록이 없습니다.');
-      const actual = cloneReplayData({ events: semanticRunEvents(events), finalFrame: lastFrameRef.current, random,
-        summary: { ending } });
+      const actual = measureObserverWork('replay.captureResult', () => captureSimulationReplayResult({
+        events, finalFrame: lastFrameRef.current, random, ending,
+      }));
       if (replayRecord) {
-        const comparison = compareSimulationReplay(replayRecord, actual);
+        const comparison = measureObserverWork('replay.compareResult', () => compareSimulationReplay(replayRecord, actual));
         savedRecordRef.current = replayRecord;
         setReplayStatus({ kind: comparison.matched ? 'matched' : 'different', comparison,
           text: comparison.matched
