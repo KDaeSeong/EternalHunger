@@ -1,5 +1,6 @@
 'use client';
 
+import { cloneElement, useState } from 'react';
 import GameActionIcon from '../../games/_components/GameActionIcon';
 import SimulationMinimapCanvas from './SimulationMinimapCanvas';
 import SimulationMinimapHyperloopControl from './SimulationMinimapHyperloopControl';
@@ -19,6 +20,18 @@ function pickHotZone(actors, getZoneName) {
   const [zoneId, count] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] || [];
   if (!zoneId || !count) return '교전 후보 없음';
   return `${getZoneName?.(zoneId) || zoneId} ${count}명`;
+}
+
+function ExpandedMinimap({ children }) {
+  const [zoomed, setZoomed] = useState(false);
+  return <div className="minimap-expanded-view">
+    <div className="minimap-zoom-controls" role="group" aria-label="지도 배율">
+      <button type="button" aria-label="지도 전체 보기" aria-pressed={!zoomed} onClick={() => setZoomed(false)}>전체 지도</button>
+      <button type="button" aria-label="지도 2배 확대" aria-pressed={zoomed} onClick={() => setZoomed(true)}>2배 확대</button>
+      <span>{zoomed ? '스크롤로 이동 · 표식을 눌러 참가자 확인' : '섬 전체를 화면에 맞춰 표시'}</span>
+    </div>
+    {cloneElement(children, { expanded: true, zoomed })}
+  </div>;
 }
 
 export default function SimulationMinimapPanel({
@@ -59,6 +72,22 @@ export default function SimulationMinimapPanel({
   const hyperloopCount = hyperloopZoneSet instanceof Set ? hyperloopZoneSet.size : safeArray(hyperloopZoneSet).length;
   const hotZoneText = pickHotZone(survivors, getZoneName);
   const teamLegend = buildMinimapTeamLegend([...safeArray(survivors), ...safeArray(dead)], trackedActorIds);
+  const mapCanvas = <SimulationMinimapCanvas
+    trackedActorIds={trackedActorIds}
+    activeMapId={activeMapId}
+    dead={dead}
+    forbiddenNow={forbiddenNow}
+    getTeamStateForActor={getTeamStateForActor}
+    getZoneName={getZoneName}
+    hyperloopCharId={hyperloopCharId}
+    hyperloopZoneSet={hyperloopZoneSet}
+    recentMoveTrails={recentMoveTrails}
+    recentPings={recentPings}
+    survivors={survivors}
+    zones={zones}
+    zoneEdges={zoneEdges}
+    zonePos={zonePos}
+  />;
 
   return (
     <div className={`minimap-panel battlefield-panel ${uiModal === 'map' ? 'modal-open' : ''}`}>
@@ -92,22 +121,7 @@ export default function SimulationMinimapPanel({
         </span>)}
       </div> : null}
 
-      <SimulationMinimapCanvas
-        trackedActorIds={trackedActorIds}
-        activeMapId={activeMapId}
-        dead={dead}
-        forbiddenNow={forbiddenNow}
-        getTeamStateForActor={getTeamStateForActor}
-        getZoneName={getZoneName}
-        hyperloopCharId={hyperloopCharId}
-        hyperloopZoneSet={hyperloopZoneSet}
-        recentMoveTrails={recentMoveTrails}
-        recentPings={recentPings}
-        survivors={survivors}
-        zones={zones}
-        zoneEdges={zoneEdges}
-        zonePos={zonePos}
-      />
+      {uiModal === 'map' ? <ExpandedMinimap>{mapCanvas}</ExpandedMinimap> : mapCanvas}
 
       <div className="minimap-legend">
         <span><i className="minimap-dot dead" /> 시체</span>

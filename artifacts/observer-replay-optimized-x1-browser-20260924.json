@@ -1,0 +1,323 @@
+{
+  "engineVersion": "a64d82ae9c869757f75e9a46a3f2638d07e6eb11a19b2656e8ade9fa265bdbdf",
+  "sourceCommit": "ae92f6932bd2943e3f937156df84c77126bd42ef",
+  "environment": {
+    "url": "http://127.0.0.1:3108/eternalhunger?perfProbe=1",
+    "browser": "Codex In-app Browser",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "sourceRecordFinishedAtLocal": "2026-09-24 20:44:09 Asia/Seoul",
+    "runSeed": "1789192220412",
+    "regions": 21,
+    "participants": 24,
+    "teams": 8,
+    "speed": "x1",
+    "observedTeams": [
+      1,
+      4
+    ]
+  },
+  "protocol": {
+    "heavyChecksOrBuildsDuringMeasurement": false,
+    "forcedGC": false,
+    "reloadedDuringMeasurement": false,
+    "recordsDeleted": false,
+    "sourceRecordsBefore": 4,
+    "sourceRecordsAfter": 4,
+    "humanEvaluationSubmitted": false,
+    "durationIncludesPostMatchDwell": true
+  },
+  "report": {
+    "schema": "eh-observer-performance.v2",
+    "label": "a64d82ae-x1-full-with-observer-input",
+    "elapsedMs": 1329653.9,
+    "raf": {
+      "supported": true,
+      "samples": 131932,
+      "fps": 99.223,
+      "intervalMs": {
+        "median": 10,
+        "p95": 10.1,
+        "max": 170
+      },
+      "percentiles": {
+        "scope": "entire_measurement",
+        "method": "rounded_histogram",
+        "resolutionMs": 0.1,
+        "upperBoundMs": 1000,
+        "bins": 10001,
+        "overflowSamples": 0,
+        "medianRangeMs": null,
+        "p95RangeMs": null
+      }
+    },
+    "longTasks": {
+      "supported": true,
+      "count": 49,
+      "totalMs": 4682,
+      "maxMs": 167
+    },
+    "longAnimationFrames": {
+      "count": 51,
+      "totalDurationMs": 4999.8,
+      "maxDurationMs": 167.8,
+      "maxWorkMs": 167.7,
+      "maxRenderMs": 0.7,
+      "maxStyleAndLayoutMs": 0.2,
+      "maxBlockingMs": 117.7,
+      "slowest": [
+        {
+          "startOffsetMs": 84093.6,
+          "durationMs": 167.8,
+          "workMs": 167.7,
+          "renderMs": 0.1,
+          "styleAndLayoutMs": 0.1,
+          "blockingMs": 117.7,
+          "scriptCount": 1,
+          "scripts": [
+            {
+              "durationMs": 167.6,
+              "invoker": "TimerHandler:setTimeout",
+              "invokerType": "user-callback",
+              "sourceURL": "",
+              "sourceFunctionName": "",
+              "sourceCharPosition": -1,
+              "windowAttribution": "self",
+              "forcedStyleAndLayoutMs": 0,
+              "pauseMs": 0
+            }
+          ]
+        },
+        {
+          "startOffsetMs": 607,
+          "durationMs": 164,
+          "workMs": 163.6,
+          "renderMs": 0.4,
+          "styleAndLayoutMs": 0.1,
+          "blockingMs": 98.5,
+          "scriptCount": 1,
+          "scripts": [
+            {
+              "durationMs": 148.1,
+              "invoker": "Scheduler.yield.then",
+              "invokerType": "resolve-promise",
+              "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/5700-b4ddbd5973dec721.js",
+              "sourceFunctionName": "",
+              "sourceCharPosition": 578108,
+              "windowAttribution": "self",
+              "forcedStyleAndLayoutMs": 0,
+              "pauseMs": 0
+            }
+          ]
+        },
+        {
+          "startOffsetMs": 1310380.8,
+          "durationMs": 147.4,
+          "workMs": 147.3,
+          "renderMs": 0.1,
+          "styleAndLayoutMs": 0.1,
+          "blockingMs": 88.6,
+          "scriptCount": 2,
+          "scripts": [
+            {
+              "durationMs": 138.4,
+              "invoker": "Scheduler.yield.then",
+              "invokerType": "resolve-promise",
+              "sourceURL": "http://127.0.0.1:3108/_next/static/chunks/5700-b4ddbd5973dec721.js",
+              "sourceFunctionName": "",
+              "sourceCharPosition": 578108,
+              "windowAttribution": "self",
+              "forcedStyleAndLayoutMs": 0,
+              "pauseMs": 0
+            },
+            {
+              "durationMs": 5.8,
+              "invoker": "TimerHandler:setTimeout",
+              "invokerType": "user-callback",
+              "sourceURL": "",
+              "sourceFunctionName": "",
+              "sourceCharPosition": -1,
+              "windowAttribution": "self",
+              "forcedStyleAndLayoutMs": 0,
+              "pauseMs": 0
+            }
+          ]
+        }
+      ],
+      "supported": true,
+      "reason": null,
+      "attribution": {
+        "selection": "slowest_by_duration",
+        "frameLimit": 8,
+        "scriptLimit": 8,
+        "textLimit": 512,
+        "scope": "browser_attributed_main_thread_entrypoints_not_full_call_stacks"
+      }
+    },
+    "workBreakdown": {
+      "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+      "stages": [
+        {
+          "name": "start.captureInput",
+          "count": 1,
+          "totalMs": 3.5,
+          "maxMs": 3.5,
+          "maxStartOffsetMs": 496.2
+        },
+        {
+          "name": "start.prepareInput",
+          "count": 1,
+          "totalMs": 4.7,
+          "maxMs": 4.7,
+          "maxStartOffsetMs": 499.7
+        },
+        {
+          "name": "phase.fieldResources",
+          "count": 13,
+          "totalMs": 38,
+          "maxMs": 38,
+          "maxStartOffsetMs": 505.9
+        },
+        {
+          "name": "phase.starterLoadout",
+          "count": 13,
+          "totalMs": 23.5,
+          "maxMs": 23.4,
+          "maxStartOffsetMs": 543.9
+        },
+        {
+          "name": "phase.setup",
+          "count": 13,
+          "totalMs": 86.4,
+          "maxMs": 63.2,
+          "maxStartOffsetMs": 505.1
+        },
+        {
+          "name": "growth.refreshPlans",
+          "count": 67,
+          "totalMs": 333.7,
+          "maxMs": 24.1,
+          "maxStartOffsetMs": 776590.7
+        },
+        {
+          "name": "growth.teamCoordination",
+          "count": 67,
+          "totalMs": 273.6,
+          "maxMs": 24.3,
+          "maxStartOffsetMs": 776614.8
+        },
+        {
+          "name": "growth.actorMovement",
+          "count": 922,
+          "totalMs": 1127.4,
+          "maxMs": 9.2,
+          "maxStartOffsetMs": 21322.9
+        },
+        {
+          "name": "growth.actorLoot",
+          "count": 922,
+          "totalMs": 1300.4,
+          "maxMs": 9.8,
+          "maxStartOffsetMs": 262882.3
+        },
+        {
+          "name": "growth.actorPlan",
+          "count": 922,
+          "totalMs": 883.1,
+          "maxMs": 11.7,
+          "maxStartOffsetMs": 608396
+        },
+        {
+          "name": "growth.actorQueue",
+          "count": 922,
+          "totalMs": 755.7,
+          "maxMs": 39.6,
+          "maxStartOffsetMs": 1204296.4
+        },
+        {
+          "name": "growth.singleActor",
+          "count": 922,
+          "totalMs": 4150.6,
+          "maxMs": 47.3,
+          "maxStartOffsetMs": 1204288.7
+        },
+        {
+          "name": "growth.allActors",
+          "count": 67,
+          "totalMs": 4815.9,
+          "maxMs": 163,
+          "maxStartOffsetMs": 84097.9
+        },
+        {
+          "name": "replay.captureResult",
+          "count": 1,
+          "totalMs": 33.5,
+          "maxMs": 33.5,
+          "maxStartOffsetMs": 1310394.1
+        },
+        {
+          "name": "replay.compareResult",
+          "count": 1,
+          "totalMs": 100.3,
+          "maxMs": 100.3,
+          "maxStartOffsetMs": 1310427.6
+        }
+      ]
+    },
+    "inputResponse": {
+      "supported": true,
+      "samples": 14,
+      "lastMs": 0.2,
+      "maxMs": 10
+    },
+    "heap": {
+      "supported": true,
+      "baselineUsedBytes": 34644225,
+      "usedBytes": 50806534,
+      "deltaUsedBytes": 16162309,
+      "totalBytes": 121833602,
+      "limitBytes": 4395630592
+    },
+    "domNodes": 655,
+    "visibilityState": "visible"
+  },
+  "evidenceScope": "Product diagnostic DOM aggregates and every work stage; two slowest LoAFs plus the completion LoAF, not a full trace.",
+  "result": {
+    "message": "원본과 사건 7,297개·최종 상태·종료 판정이 모두 일치합니다.",
+    "events": 7297,
+    "matchClock": "20:52",
+    "winningTeam": 4,
+    "survivors": 1,
+    "winnerName": "매화",
+    "winnerKills": 13,
+    "winningTeamKills": 14,
+    "consoleWarningOrErrorCount": 0
+  },
+  "observations": {
+    "actions": [
+      "team selection 1 to 4 to eliminated 1 to 4",
+      "match status, summary, kills and battle detail tab changes",
+      "enlarged map open and close",
+      "moving map token click attempt and Enter activation",
+      "regional roster close",
+      "scroll main battlefield",
+      "result close"
+    ],
+    "elimination": "1팀 · 팀 최종 탈락 · 복귀 가능한 팀원 없음; 은하 HP 70/112 → 0/112 at 07:12.25",
+    "roster": "소방서 · 1명\n닫기\n4팀\n매화\nHP 72/118",
+    "mapLimits": [
+      "default top scroll position does not show the full island",
+      "enlarged map at 1280x720 extends below its viewport and requires scrolling",
+      "one no-match during token movement; a following successful click returned no roster; Enter opened 소방서 참가자"
+    ],
+    "naturalRareOrBossActiveGoalCardVerified": false
+  },
+  "limitations": [
+    "Click to next RAF is not paint completion or INP; select and keyboard changes are not all counted.",
+    "This mixed-input x1 run is not a replacement for the identical-condition three-run memory gate.",
+    "Heap growth does not identify retained objects or establish a leak.",
+    "Displayed UI evidence is not human readability acceptance."
+  ]
+}

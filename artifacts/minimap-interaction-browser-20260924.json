@@ -1,0 +1,103 @@
+{
+  "schema": "eh-minimap-interaction-browser.v1",
+  "date": "2026-09-24",
+  "sourceBase": "a7b8c0f95d34c0f110d2e4a8ccbc91f33e311f6c",
+  "engine": "a64d82ae9c869757f75e9a46a3f2638d07e6eb11a19b2656e8ade9fa265bdbdf",
+  "scope": "Local production IAB; UI patch after base; before mouse-focus outline CSS follow-up; not human acceptance or memory reclamation proof",
+  "input": {
+    "original": "2026-09-24 20:44:09",
+    "seed": "1789192220412",
+    "actors": 24,
+    "teams": 8,
+    "zones": 21,
+    "speed": 32
+  },
+  "replay": {
+    "events": 7297,
+    "exactResult": "원본과 사건 7,297개·최종 상태·종료 판정이 모두 일치합니다.\n\n동일 조건으로 재경기편성·전략 바꿔 새 경기",
+    "ending": "20:52",
+    "team": "4팀",
+    "survivor": "매화",
+    "hp": "114/146"
+  },
+  "report": {
+    "elapsedMs": 121472.1,
+    "raf": {
+      "supported": true,
+      "samples": 11582,
+      "fps": 95.347,
+      "intervalMs": {
+        "median": 10,
+        "p95": 10.1,
+        "max": 150
+      },
+      "percentiles": {
+        "scope": "entire_measurement",
+        "method": "rounded_histogram",
+        "resolutionMs": 0.1,
+        "upperBoundMs": 1000,
+        "bins": 10001,
+        "overflowSamples": 0,
+        "medianRangeMs": null,
+        "p95RangeMs": null
+      }
+    },
+    "longTasks": {
+      "supported": true,
+      "count": 43,
+      "totalMs": 3146,
+      "maxMs": 153
+    },
+    "longAnimationFrames": {
+      "count": 46,
+      "totalDurationMs": 3560.2,
+      "maxDurationMs": 156,
+      "maxWorkMs": 156,
+      "maxRenderMs": 1.4,
+      "maxStyleAndLayoutMs": 0.5,
+      "maxBlockingMs": 103.2
+    },
+    "inputResponse": {
+      "supported": true,
+      "samples": 2,
+      "lastMs": 1.4,
+      "maxMs": 6.6
+    },
+    "heap": {
+      "supported": true,
+      "baselineUsedBytes": 26987311,
+      "usedBytes": 42658462,
+      "deltaUsedBytes": 15671151,
+      "totalBytes": 46380486,
+      "limitBytes": 4395630592
+    },
+    "domNodes": 657,
+    "visibilityState": "visible"
+  },
+  "liveHit": {
+    "height": 65.17999267578125,
+    "hitBelongsToLive": true,
+    "hitTag": "image",
+    "outline": "rgb(16, 16, 16) auto 5px",
+    "pointerEvents": "all",
+    "width": 48.7890625,
+    "x": 433.4718627929687,
+    "y": 371.9261474609375
+  },
+  "responsiveScreens": [
+    {
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "width": 1280,
+      "height": 480
+    },
+    {
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "temporaryViewportReset": true,
+  "consoleWarningsOrErrors": 0
+}
