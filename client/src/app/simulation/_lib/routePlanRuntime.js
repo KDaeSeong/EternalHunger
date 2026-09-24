@@ -12,11 +12,14 @@ import {
   normId,
   normKey,
   pickFallbackRouteTargets,
+  prepareRouteRequirementSearch,
   requirementStatsForRoute,
   zoneTie,
 } from './routePlanBuilderRuntime';
 
-function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
+// The synchronous engine and cooperative pregame preparation consume the same
+// steps. Checkpoints never read clocks or consume the match random stream.
+export function* buildDay1HeroRoutePlanSteps(actor, mapObj, publicItems, opts = {}) {
   const zoneIds = uniqStrings(
     (Array.isArray(mapObj?.zones) ? mapObj.zones : [])
       .map((z) => String(z?.zoneId || ''))
@@ -28,13 +31,13 @@ function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
   const indexes = buildItemIndexes(publicItems);
   const candidatesBySlot = buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, opts);
   if (EQUIP_SLOTS.some((slot) => !(candidatesBySlot.get(slot) || []).length)) return empty;
+  yield;
 
   const droneLimit = Math.max(0, Math.floor(Number(opts.droneFallbackLimit ?? 1)));
   const droneMaxTier = Math.max(1, Math.floor(Number(opts.droneMaxTier ?? 1)));
   const isDroneFallbackReq = (req) => Math.max(1, Number(req?.tier || 1)) <= droneMaxTier;
-  const sumReqQty = (reqs) => (Array.isArray(reqs) ? reqs : [])
-    .reduce((sum, req) => sum + Math.max(1, Math.floor(Number(req?.qty || 1))), 0);
   const beamLimit = Math.max(20, Math.floor(Number(opts.beamLimit ?? 64)));
+  const search = prepareRouteRequirementSearch(candidatesBySlot, droneMaxTier);
   const conn = buildRouteConnectionInfo(mapObj);
   const maxRoutes = Math.max(20, Math.floor(Number(opts.maxRoutes ?? 96)));
   const routes = buildRoutePairs(zoneIds)
@@ -48,35 +51,33 @@ function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
 
   for (const route of routes) {
     const routeSet = new Set(route);
-    let states = [{ reqs: new Map(), picks: [] }];
+    const covered = search.materials.map((req) => req.zones.some((zone) => routeSet.has(String(zone || ''))));
+    let states = [{ quantities: new Array(search.materials.length).fill(0), ids: [], picks: [] }];
     for (const slot of EQUIP_SLOTS) {
-      const optsForSlot = (candidatesBySlot.get(slot) || []);
+      const optsForSlot = search.bySlot.get(slot) || [];
       const next = [];
       for (const state of states) {
         for (const cand of optsForSlot) {
-          const reqs = addRequirementsToState(state.reqs, cand.requirements);
-          next.push({ reqs, picks: [...state.picks, { slot, item: cand.item, goal: cand.goal }], stats: requirementStatsForRoute(reqs, routeSet) });
+          next.push(search.extend(state, cand, covered));
         }
       }
       next.sort((a, b) => {
         const sa = a.stats;
         const sb = b.stats;
-        return (sa.missing.length - sb.missing.length)
+        return (sa.missingCount - sb.missingCount)
           || (sa.missingQty - sb.missingQty)
           || (sa.totalQty - sb.totalQty);
       });
       states = next.slice(0, beamLimit);
+      yield;
     }
 
     for (const state of states) {
       const stats = state.stats;
-      const droneFallbackMissing = stats.missing.filter(isDroneFallbackReq);
-      const droneBlockedMissing = stats.missing.length - droneFallbackMissing.length;
-      const droneFallbackMissingQty = sumReqQty(droneFallbackMissing);
       const penalty = conn.routePenalty(route);
       const score = {
-        feasible: droneBlockedMissing <= 0 && droneFallbackMissing.length <= droneLimit && droneFallbackMissingQty <= droneLimit,
-        missingCount: stats.missing.length,
+        feasible: stats.droneBlockedMissing <= 0 && stats.missingCount <= droneLimit && stats.droneMissingQty <= droneLimit,
+        missingCount: stats.missingCount,
         missingQty: stats.missingQty,
         penalty,
         totalQty: stats.totalQty,
@@ -102,11 +103,17 @@ function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
 
   if (!best) return empty;
 
+  // Only the winning combination needs full material objects and zone sets.
+  // Preserve the original insertion order and metadata at this boundary.
+  let bestRequirements = new Map();
+  for (const pick of best.state.picks) bestRequirements = addRequirementsToState(bestRequirements, pick.requirements);
+  best.stats = requirementStatsForRoute(bestRequirements, new Set(best.route));
+
   const itemIdsByZone = {};
   for (const zoneId of best.route) itemIdsByZone[String(zoneId)] = [];
   const requiredQtyById = {};
   const requiredItemIds = [];
-  for (const req of best.state.reqs.values()) {
+  for (const req of bestRequirements.values()) {
     const id = String(req.itemId || '').trim();
     if (!id) continue;
     requiredItemIds.push(id);
@@ -137,6 +144,13 @@ function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
     source: best.score.feasible ? 'day1_hero_2zone' : 'day1_hero_2zone_partial',
     routePenalty: best.score.penalty,
   };
+}
+
+function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
+  const steps = buildDay1HeroRoutePlanSteps(actor, mapObj, publicItems, opts);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
 }
 
 function buildEarlyRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {

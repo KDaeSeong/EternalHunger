@@ -4517,6 +4517,7 @@
   .sim-evaluation-meta, .sim-evaluation-fields { grid-template-columns: 1fr; }
 }
 
+.simulation-map-preparation { margin: 8px 14px; padding: 12px 16px; border: 1px solid #6aaac5; border-radius: 8px; background: #153547; color: #edf8ff; line-height: 1.5; }
 .simulation-pregame-map-rules { width: min(1180px, 100%); margin: 14px auto 0; padding: 0 18px; color: #e5f0fa; box-sizing: border-box; }
 .simulation-pregame-map-rules details { border: 1px solid #466681; border-radius: 10px; background: linear-gradient(135deg, #10283b, #0b1c2d); box-shadow: 0 8px 20px #03101c66; }
 .simulation-pregame-map-rules summary { display: flex; align-items: center; gap: 8px; padding: 12px 14px; color: #ffe6a5; cursor: pointer; font-weight: 700; list-style: none; }

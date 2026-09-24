@@ -9,10 +9,10 @@ import { ER_STAT_KEYS, normalizeErStats } from '../../../utils/erStats';
 import { applyStartingPassiveHealth } from '../../../utils/characterPassiveStats.js';
 import { createInitialMasteryState } from '../../../utils/masteryLogic';
 import { buildDay1TargetCandidatesBySlot, buildItemIndexes } from './routePlanBuilderRuntime';
+import { buildDay1HeroRoutePlanSteps } from './routePlanRuntime';
 import { getRuleset } from '../../../utils/rulesets';
 import {
   applyPerkBundleToActor,
-  buildDay1HeroRoutePlanDetails,
   buildEarlyRoutePlanDetails,
   buildPerkRuntimeBundle,
   ensureEquipped,
@@ -131,9 +131,16 @@ export function pickInitialStartZoneIdForActor(actor, {
 }
 
 export function buildInitialFastRoutePlan(actor, initialMap, routeItems) {
+  const steps = buildInitialFastRoutePlanSteps(actor, initialMap, routeItems);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+export function* buildInitialFastRoutePlanSteps(actor, initialMap, routeItems) {
   if (!Array.isArray(routeItems) || !routeItems.length) return createEmptyRoutePlan();
   try {
-    const day1HeroRoutePlan = buildDay1HeroRoutePlanDetails(actor, initialMap, routeItems, {
+    const day1HeroRoutePlan = yield* buildDay1HeroRoutePlanSteps(actor, initialMap, routeItems, {
       routeLength: 2,
       droneFallbackLimit: 1,
       candidateLimit: 6,
@@ -141,6 +148,7 @@ export function buildInitialFastRoutePlan(actor, initialMap, routeItems) {
       maxRoutes: 96,
     });
     if (day1HeroRoutePlan?.complete) return day1HeroRoutePlan;
+    yield;
     const route = buildEarlyRoutePlanDetails(actor, initialMap, routeItems, { routeLength: 4 }) || createEmptyRoutePlan();
     const candidates = buildDay1TargetCandidatesBySlot(actor, routeItems, buildItemIndexes(routeItems), initialMap);
     const selected = [...candidates.values()].map((rows) => rows[0]).filter(Boolean);

@@ -8,6 +8,7 @@ function normalizeMode(value) {
 }
 
 function getProceedLabel({
+  mapPreparation,
   evaluationMode,
   draftMode,
   loading,
@@ -19,6 +20,7 @@ function getProceedLabel({
   aliveTeamCount,
 }) {
   if (loading) return '로딩 중...';
+  if (mapPreparation) return '지도 준비 중...';
   if (isAdvancing) return '진행 중...';
   if (startBlocked) return startBlockedText || '시작 조건 부족';
   if (evaluationMode && !draftMode && Number(day || 0) === 0) return '평가 시작';
@@ -71,6 +73,7 @@ export default function SimulationControlPanel({
   autoPlay,
   onToggleAutoPlay,
   autoDisabled,
+  mapPreparation,
   autoSpeed,
   onAutoSpeedChange,
   speedDisabled,
@@ -78,6 +81,7 @@ export default function SimulationControlPanel({
   const settingsRef = useRef(null);
   const closeSettings = () => { if (settingsRef.current) settingsRef.current.open = false; };
   const proceedLabel = getProceedLabel({
+    mapPreparation,
     evaluationMode,
     draftMode,
     loading,

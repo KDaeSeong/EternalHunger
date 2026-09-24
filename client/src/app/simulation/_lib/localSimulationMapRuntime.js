@@ -296,6 +296,50 @@ export function selectLocalSimulationMap(mapId, fallbackMap, storage) {
     : { ok: false, errors: [written.error] };
 }
 
+// Stage the existing validation/storage operations in memory. The real store
+// changes only after both rosters are ready, with a stale-snapshot check just
+// before the synchronous write. This is not a cross-tab locking primitive.
+export function prepareLocalSimulationMapChange(operation, input, fallbackMap, storage) {
+  const local = getStorage(storage);
+  let original;
+  try { original = local?.getItem(LOCAL_MAP_STORE_KEY) ?? null; }
+  catch { return { ok: false, errors: ['저장된 지도를 읽지 못했습니다. 기존 지도를 유지합니다.'] }; }
+  let staged = original;
+  const staging = {
+    getItem: () => staged,
+    setItem: (_key, value) => { staged = String(value); },
+  };
+  let result;
+  if (operation === 'select') result = selectLocalSimulationMap(input, fallbackMap, staging);
+  else if (operation === 'save') result = saveLocalSimulationMap(input, staging);
+  else if (operation === 'remove') result = deleteLocalSimulationMap(input, staging);
+  else if (operation === 'refresh') result = { ok: true };
+  else return { ok: false, errors: ['지원하지 않는 지도 변경입니다.'] };
+  if (!result.ok) return result;
+  const maps = loadLocalSimulationMaps(fallbackMap, staging);
+  let consumed = false;
+  return {
+    ...result,
+    maps,
+    commit() {
+      if (consumed) return { ok: false, errors: ['이미 처리한 지도 변경입니다.'] };
+      consumed = true;
+      try {
+        if ((local?.getItem(LOCAL_MAP_STORE_KEY) ?? null) !== original) {
+          return { ok: false, errors: ['다른 화면에서 지도가 변경되었습니다. 새로고침한 뒤 다시 선택해 주세요.'] };
+        }
+        if (staged !== original) {
+          if (!local) throw new Error('Storage unavailable');
+          local.setItem(LOCAL_MAP_STORE_KEY, staged);
+        }
+        return { ok: true };
+      } catch {
+        return { ok: false, errors: ['로컬 저장 공간이 부족하거나 차단되었습니다. 기존 지도를 유지합니다.'] };
+      }
+    },
+  };
+}
+
 export function readLocalRulesetSelection(storage) {
   const local = getStorage(storage);
   if (!local) return '';

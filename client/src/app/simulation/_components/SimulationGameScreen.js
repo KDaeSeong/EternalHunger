@@ -56,6 +56,7 @@ export default function SimulationGameScreen({
   logWindowRef,
   logs,
   mapRefreshToast,
+  mapPreparation,
   maps,
   matchSec,
   onLocalRulesChanged,
@@ -136,7 +137,12 @@ export default function SimulationGameScreen({
 
       <SimulationEventFeedbackBar feedback={eventFeedback} />
 
+      {mapPreparation ? <div className="simulation-map-preparation" role="status" aria-live="polite">
+        <strong>지도 준비 중</strong> · {mapPreparation.name} 완료되면 경기 시작과 설정 변경을 다시 사용할 수 있습니다.
+      </div> : null}
+
       <SimulationMainStage
+        mapPreparation={mapPreparation}
         seedControl={!evaluationMode || draftMode ? <SimulationMarketSeedCard
           day={day}
           isAdvancing={isAdvancing}

@@ -15,9 +15,10 @@ export function useSimulationSettingsControls({
   setSurvivors = () => {},
   settings,
   runLockedRef,
+  mapPreparationRef,
 } = {}) {
   const handleMatchModeChange = (value) => {
-    if (day > 0 || isGameOver || runLockedRef?.current) return;
+    if (day > 0 || isGameOver || runLockedRef?.current || mapPreparationRef?.current) return;
     const matchMode = normalizeMatchMode(value);
     const nextSettings = { ...(settings || {}), matchMode };
     try {
@@ -32,7 +33,7 @@ export function useSimulationSettingsControls({
   const characterSkillsEnabled = areCharacterSkillsEnabled(buildCharacterSkillModeSettings(settings));
 
   const handleCharacterSkillsToggle = (enabled) => {
-    if (day > 0 || isGameOver || runLockedRef?.current) return;
+    if (day > 0 || isGameOver || runLockedRef?.current || mapPreparationRef?.current) return;
     const on = !!enabled;
     const nextSettings = buildCharacterSkillsToggleSettings(settings, on);
     try {

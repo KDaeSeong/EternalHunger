@@ -43,7 +43,7 @@ export async function runGuardedPhaseAdvance({
     setRunEvents,
   } = actions;
 
-  if (isAdvancingRef?.current) return;
+  if (isAdvancingRef?.current || refs.mapPreparationRef?.current) return;
   if (loading) return;
   if (isGameOver) return;
 

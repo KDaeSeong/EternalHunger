@@ -2,17 +2,15 @@ import { apiGet, getToken } from '../../../utils/api';
 import { getRuleset } from '../../../utils/rulesets';
 import { buildGuestSimulationMap } from './guestSimulationBootstrap';
 import {
-  deleteLocalSimulationMap,
-  loadLocalSimulationMaps,
-  saveLocalSimulationMap as persistLocalSimulationMap,
-  selectLocalSimulationMap,
+  prepareLocalSimulationMapChange,
 } from './localSimulationMapRuntime';
 import {
   createInitialSpawnState,
   getEligibleSpawnZoneIds,
   getHyperloopDeviceZoneId,
 } from './simulationEngine';
-import { buildInitialFastRoutePlan, mergeInitialRoutePlanFields } from './simulationInitialRosterRuntime';
+import { buildInitialFastRoutePlanSteps, mergeInitialRoutePlanFields } from './simulationInitialRosterRuntime';
+import { runMapPreparationSteps } from './mapPreparationRuntime';
 
 export function applyActiveMapIdToState(nextMapId, context = {}) {
   const refs = context.refs || {};
@@ -31,30 +29,41 @@ export function applyActiveMapIdToState(nextMapId, context = {}) {
 }
 
 export function rebaseSurvivorsForMap(list, map, routeItems = []) {
+  const steps = rebaseSurvivorsForMapSteps(list, map, routeItems);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+export function* rebaseSurvivorsForMapSteps(list, map, routeItems = []) {
   const mapId = String(map?._id || map?.id || 'local');
   const zoneIds = (Array.isArray(map?.zones) ? map.zones : [])
     .map((zone) => String(zone?.zoneId || '').trim()).filter(Boolean);
   const zoneSet = new Set(zoneIds);
-  return (Array.isArray(list) ? list : []).map((actor, index) => {
+  const actors = Array.isArray(list) ? list : [];
+  const rebased = [];
+  for (const [index, actor] of actors.entries()) {
     try {
-      const route = buildInitialFastRoutePlan(actor, map, Array.isArray(routeItems) ? routeItems : []);
+      const route = yield* buildInitialFastRoutePlanSteps(actor, map, Array.isArray(routeItems) ? routeItems : []);
       const routeZoneIds = (Array.isArray(route?.zoneIds) ? route.zoneIds : []).map(String).filter((id) => zoneSet.has(id));
       const itemIdsByZone = Object.fromEntries(Object.entries(route?.itemIdsByZone || {})
         .filter(([zoneId]) => zoneSet.has(String(zoneId))));
       const safeRoute = { ...route, zoneIds: routeZoneIds, itemIdsByZone };
       const startZoneId = routeZoneIds[0] || zoneIds[index % Math.max(1, zoneIds.length)] || '__default__';
-      return mergeInitialRoutePlanFields({
+      rebased.push(mergeInitialRoutePlanFields({
         ...actor,
         mapId,
         zoneId: startZoneId,
         routePlanIndex: 0,
         day1Moves: 0,
         day1HeroDone: false,
-      }, safeRoute, 'map_rebase');
+      }, safeRoute, 'map_rebase'));
     } catch {
-      return { ...actor, mapId, zoneId: String(zoneIds[index % Math.max(1, zoneIds.length)] || '__default__'), routePlanIndex: 0, day1Moves: 0, day1HeroDone: false };
+      rebased.push({ ...actor, mapId, zoneId: String(zoneIds[index % Math.max(1, zoneIds.length)] || '__default__'), routePlanIndex: 0, day1Moves: 0, day1HeroDone: false });
     }
-  });
+    yield;
+  }
+  return rebased;
 }
 
 export function createMapActionRuntime(context = {}) {
@@ -65,6 +74,7 @@ export function createMapActionRuntime(context = {}) {
   const {
     activeMapId,
     activeMapName,
+    candidateSurvivors,
     day,
     hyperloopPadName,
     hyperloopPadZoneId,
@@ -82,8 +92,11 @@ export function createMapActionRuntime(context = {}) {
     activeMapIdRef,
     activeMapRef,
     isRefreshingMapsRef,
+    isAdvancingRef,
+    runLockedRef,
     mapsRef,
   } = refs;
+  const mapPreparationRef = refs.mapPreparationRef || { current: null };
 
   const {
     addLog = () => {},
@@ -91,6 +104,7 @@ export function createMapActionRuntime(context = {}) {
     emitRunEvent = () => {},
     getForbiddenZoneIdsForPhase = () => [],
     onLocalRulesChanged = () => {},
+    setMapPreparation = () => {},
     setIsRefreshingMapSettings = () => {},
     setCandidateSurvivors = () => {},
     setMaps = () => {},
@@ -146,63 +160,90 @@ export function createMapActionRuntime(context = {}) {
     emitRunEvent('hyperloop', { whoId: who, who: whoName, fromMapId: String(activeMapId || ''), toMapId: toId, toZoneId: entryZoneId });
   }
 
-  function applyLocalMapList(mapsList, preferredId = '', { forceRebase = false } = {}) {
-    const list = Array.isArray(mapsList) && mapsList.length ? mapsList : [buildGuestSimulationMap()];
-    const previousId = String(activeMapIdRef?.current || activeMapId || '');
-    const keepId = String(preferredId || activeMapIdRef?.current || activeMapId || '');
-    const nextId = keepId && list.some((map) => String(map?._id || '') === keepId)
-      ? keepId
-      : String(list[0]?._id || '');
-    if (mapsRef) mapsRef.current = list;
-    setMaps(list);
-    if (nextId) {
-      applyActiveMapId(nextId);
-      const nextMap = list.find((map) => String(map?._id || '') === nextId) || null;
+  async function changeLocalMap(operation, input) {
+    if (getToken() || day > 0 || isGameOver || loading || isAdvancing
+      || isAdvancingRef?.current || runLockedRef?.current || mapPreparationRef.current) {
+      return { ok: false, errors: ['다른 준비 작업이 끝난 뒤 새 경기 설정에서 변경해 주세요.'] };
+    }
+    const job = { cancelled: false };
+    mapPreparationRef.current = job;
+    setMapPreparation({ name: '지도와 참가자 경로를 준비하고 있습니다.' });
+    const isCurrent = () => {
+      if (job.cancelled || mapPreparationRef.current !== job || getToken()
+        || isAdvancingRef?.current || runLockedRef?.current) return false;
+      const latest = actions.getCurrentMapInputs?.() || state;
+      return ['survivors', 'candidateSurvivors', 'publicItems', 'settings', 'activeMapId', 'maps', 'day', 'loading', 'isGameOver']
+        .every((key) => latest[key] === state[key]);
+    };
+    try {
+      const staged = prepareLocalSimulationMapChange(operation, input, buildGuestSimulationMap(), context.storage);
+      if (!staged.ok) return staged;
+      const list = staged.maps;
+      const preferredId = staged.map?._id || staged.selectedMapId || list[0]?._id;
+      const nextMap = list.find((map) => String(map._id) === String(preferredId)) || list[0];
+      const nextId = String(nextMap._id);
+      function* prepareRosters() {
+        // A stored map can change without changing its ID (another tab/editor).
+        // Always prepare against the actual staged content, not only its ID.
+        const nextSurvivors = yield* rebaseSurvivorsForMapSteps(survivors, nextMap, publicItems);
+        const nextCandidates = yield* rebaseSurvivorsForMapSteps(candidateSurvivors, nextMap, publicItems);
+        return { survivors: nextSurvivors, candidateSurvivors: nextCandidates };
+      }
+      const prepared = await runMapPreparationSteps(prepareRosters(), { ...context.preparationOptions, isCurrent });
+      if (!prepared.ok || !isCurrent()) return { ok: false, cancelled: true, errors: ['준비 중 조건이 바뀌어 지도 변경을 취소했습니다.'] };
+      const committed = staged.commit();
+      if (!committed.ok) return committed;
+      // No await between persistence and all React/ref updates. Route work must
+      // never run in a React updater (which React is free to invoke again).
+      if (mapsRef) mapsRef.current = list;
       if (activeMapRef) activeMapRef.current = nextMap;
-      if (forceRebase || previousId !== nextId) {
-        setSurvivors((previous) => rebaseSurvivorsForMap(previous, nextMap, publicItems));
-        setCandidateSurvivors((previous) => rebaseSurvivorsForMap(previous, nextMap, publicItems));
+      setMaps(list);
+      applyActiveMapId(nextId);
+      setSurvivors(prepared.value.survivors);
+      setCandidateSurvivors(prepared.value.candidateSurvivors);
+      return { ok: true, map: staged.map, maps: list, selectedMapId: nextId, errors: [] };
+    } catch {
+      return { ok: false, errors: ['지도를 준비하지 못했습니다. 기존 설정을 유지합니다.'] };
+    } finally {
+      if (mapPreparationRef.current === job) {
+        mapPreparationRef.current = null;
+        if (!job.cancelled) setMapPreparation(null);
       }
     }
-    return nextId;
   }
 
-  function selectLocalMap(mapId) {
-    if (getToken() || day > 0 || isGameOver || loading || isAdvancing) return false;
-    const result = selectLocalSimulationMap(mapId, buildGuestSimulationMap());
+  async function selectLocalMap(mapId) {
+    const result = await changeLocalMap('select', mapId);
     if (!result.ok) {
-      addLog(result.errors?.[0] || '로컬 지도를 선택하지 못했습니다.', 'death');
+      if (!result.cancelled) addLog(result.errors?.[0] || '로컬 지도를 선택하지 못했습니다.', 'death');
       return false;
     }
-    applyLocalMapList(result.maps, result.selectedMapId);
-    addLog(`🗺️ 로컬 지도 선택: ${result.maps.find((map) => String(map?._id) === String(result.selectedMapId))?.name || '내장 지도'}`, 'system');
+    addLog(`🗺️ 로컬 지도 선택: ${result.maps.find((map) => String(map._id) === result.selectedMapId)?.name || '내장 지도'}`, 'system');
     return true;
   }
 
-  function saveLocalMap(mapDraft) {
-    if (getToken() || day > 0 || isGameOver || loading || isAdvancing) return { ok: false, errors: ['새 경기 준비 중에만 로컬 지도를 저장할 수 있습니다.'] };
-    const result = persistLocalSimulationMap(mapDraft);
-    if (!result.ok) return result;
-    const mapsList = loadLocalSimulationMaps(buildGuestSimulationMap());
-    applyLocalMapList(mapsList, result.map._id, { forceRebase: true });
-    addLog(`🗺️ 로컬 지도 저장: ${result.map.name}`, 'system');
-    return { ...result, maps: mapsList };
+  async function saveLocalMap(mapDraft) {
+    const result = await changeLocalMap('save', mapDraft);
+    if (result.ok) addLog(`🗺️ 로컬 지도 저장: ${result.map.name}`, 'system');
+    return result;
   }
 
-  function removeLocalMap(mapId) {
-    if (getToken() || day > 0 || isGameOver || loading || isAdvancing) return { ok: false, errors: ['새 경기 준비 중에만 로컬 지도를 삭제할 수 있습니다.'] };
-    const result = deleteLocalSimulationMap(mapId);
-    if (!result.ok) return result;
-    const mapsList = loadLocalSimulationMaps(buildGuestSimulationMap());
-    applyLocalMapList(mapsList);
-    addLog('🗺️ 로컬 지도를 삭제하고 내장 지도를 보존했습니다.', 'system');
-    return { ...result, maps: mapsList };
+  async function removeLocalMap(mapId) {
+    const result = await changeLocalMap('remove', mapId);
+    if (result.ok) addLog('🗺️ 로컬 지도를 삭제하고 내장 지도를 보존했습니다.', 'system');
+    return result;
   }
 
   async function refreshMapSettingsFromServer(reason = 'manual') {
     if (!getToken()) {
-      const mapsList = loadLocalSimulationMaps(buildGuestSimulationMap());
-      applyLocalMapList(mapsList, '', { forceRebase: false });
+      // Starting captures the prepared, visible conditions. An implicit reload
+      // here could combine another tab's map with the old roster closure.
+      if (reason === 'start') return true;
+      const result = await changeLocalMap('refresh');
+      if (!result.ok) {
+        if (!result.cancelled) showMapRefreshToast(result.errors?.[0] || '지도 새로고침 실패(기존 유지)', 'error');
+        return false;
+      }
       onLocalRulesChanged();
       if (reason === 'manual') {
         addLog('로컬 모드에서 저장된 지도·규칙을 새로 불러왔습니다.', 'system');

@@ -1,3 +1,4 @@
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import {
   getForbiddenAddedZoneIdsForPhase as getForbiddenAddedZoneIdsForPhaseRuntime,
   getForbiddenZoneIdsForPhase as getForbiddenZoneIdsForPhaseRuntime,
@@ -9,6 +10,15 @@ export function useSimulationMapActions({
   refs = {},
   state = {},
 } = {}) {
+  const currentInputsRef = useRef(state);
+  useLayoutEffect(() => { currentInputsRef.current = state; }, [state]);
+  const { mapPreparationRef } = refs;
+  useEffect(() => () => {
+    if (mapPreparationRef?.current) {
+      mapPreparationRef.current.cancelled = true;
+      mapPreparationRef.current = null;
+    }
+  }, [mapPreparationRef]);
   const {
     forbiddenCacheRef,
   } = refs;
@@ -28,6 +38,7 @@ export function useSimulationMapActions({
     state,
     actions: {
       ...actions,
+      getCurrentMapInputs: () => currentInputsRef.current,
       getForbiddenZoneIdsForPhase,
     },
   });

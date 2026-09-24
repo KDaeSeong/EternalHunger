@@ -124,6 +124,7 @@ export function useSimulationPhaseController({
     return runGuardedPhaseAdvance({
       refs: {
         isAdvancingRef,
+        mapPreparationRef: refs.mapPreparationRef,
       },
       state: {
         day,

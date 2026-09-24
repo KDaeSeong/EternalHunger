@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import {
   buildActorAvatarByName,
   buildActorTeamState,
@@ -61,6 +61,8 @@ export function useSimulationPageController({
   const replay = useSimulationReplay(replayRecord);
   const guestMode = evaluationMode || isGuestSimulationSession(getToken(), getUser());
   const { runInputRef, runLockedRef, lastFrameRef, prepareRun, completeReplay, retrySaveReplay } = replay;
+  const mapPreparationRef = useRef(null);
+  const [mapPreparation, setMapPreparation] = useState(null);
   const hasHydrated = useSyncExternalStore(
     subscribeHydration,
     getClientHydrationSnapshot,
@@ -123,6 +125,7 @@ export function useSimulationPageController({
 
   const settingsControls = useSimulationSettingsControls({
     runLockedRef,
+    mapPreparationRef,
     day,
     isGameOver,
     setSettings,
@@ -278,7 +281,7 @@ export function useSimulationPageController({
   const participantPresetState = useSimulationParticipantPresets({
     candidateSurvivors,
     replayMode,
-    isRunLocked: () => runLockedRef.current || isAdvancingRef.current,
+    isRunLocked: () => runLockedRef.current || isAdvancingRef.current || Boolean(mapPreparationRef.current),
     day,
     isAdvancing,
     isGameOver,
@@ -389,11 +392,15 @@ export function useSimulationPageController({
       activeMapRef,
       forbiddenCacheRef,
       isRefreshingMapsRef,
+      isAdvancingRef,
+      mapPreparationRef,
+      runLockedRef,
       mapsRef,
     },
     state: {
       activeMapId,
       activeMapName,
+      candidateSurvivors,
       day,
       hyperloopPadName,
       hyperloopPadZoneId,
@@ -412,6 +419,7 @@ export function useSimulationPageController({
       applyActiveMapId,
       emitRunEvent,
       onLocalRulesChanged: syncLocalRulesetSnapshot,
+      setMapPreparation,
       setCandidateSurvivors,
       setIsRefreshingMapSettings,
       setMaps,
@@ -478,6 +486,7 @@ export function useSimulationPageController({
       fullRunEventsRef,
       runInputRef,
       isAdvancingRef,
+      mapPreparationRef,
       isFinishingRef,
       proceedPhaseGuardedRef,
       runRandomRef,
@@ -679,6 +688,8 @@ export function useSimulationPageController({
       forbiddenAddedNow,
       forbiddenNow,
       gameEndReason,
+      isAdvancing: isAdvancing || Boolean(mapPreparation),
+      mapPreparation,
       isGameOver,
       killCounts,
       loading,
@@ -743,6 +754,7 @@ export function useSimulationPageController({
   });
 
   pageViewProps.replayMode = replayMode;
+  pageViewProps.setAutoPlay = (next) => { if (!mapPreparationRef.current) setAutoPlay(next); };
   pageViewProps.draftMode = draftMode;
   pageViewProps.evaluationMode = evaluationMode;
   pageViewProps.evaluationCode = evaluationCode;

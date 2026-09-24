@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import GameActionIcon from '../../games/_components/GameActionIcon';
 import {
   clearLocalRulesetOverride,
@@ -48,30 +48,43 @@ export default function SimulationPregameMapRulesSetup({
   const [rulesJson, setRulesJson] = useState(() => prettyJson(readLocalRulesetOverride(rulesetId) || {}));
   const [mapMessage, setMapMessage] = useState('');
   const [rulesMessage, setRulesMessage] = useState('');
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   if (!guestMode || Number(day || 0) !== 0 || Number(matchSec || 0) !== 0) return null;
 
-  function changeMap(event) {
-    const result = onMapChange?.(event.target.value);
+  async function changeMap(event) {
+    if (disabled) return;
+    setMapMessage('지도와 참가자 경로를 준비하고 있습니다.');
+    const result = await onMapChange?.(event.target.value);
+    if (!mounted.current) return;
     if (result === false) setMapMessage('로컬 지도를 선택하지 못했습니다.');
     else setMapMessage('로컬 지도 선택을 저장했습니다.');
   }
 
-  function saveMap() {
+  async function saveMap() {
+    if (disabled) return;
     let parsed;
     try { parsed = JSON.parse(mapJson); } catch { setMapMessage('지도 JSON 문법이 올바르지 않습니다.'); return; }
-    const result = onMapSave?.(parsed);
+    setMapMessage('지도와 참가자 경로를 준비하고 있습니다.');
+    const result = await onMapSave?.(parsed);
+    if (!mounted.current) return;
     if (!result?.ok) { setMapMessage(result?.errors?.[0] || '지도를 저장하지 못했습니다.'); return; }
     setMapJson(prettyJson(result.map));
     setMapMessage(`저장 완료: ${result.map.name}`);
   }
 
-  function deleteMap() {
+  async function deleteMap() {
+    if (disabled) return;
     if (!String(activeMapId || '').startsWith('local-map-')) {
       setMapMessage('내장 지도는 삭제할 수 없습니다.');
       return;
     }
-    const result = onMapDelete?.(activeMapId);
+    const result = await onMapDelete?.(activeMapId);
+    if (!mounted.current) return;
     setMapMessage(result?.ok ? '로컬 지도를 삭제했습니다.' : (result?.errors?.[0] || '지도를 삭제하지 못했습니다.'));
   }
 

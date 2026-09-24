@@ -82,6 +82,7 @@ export default function SimulationMainStage({
   logWindowRef,
   logs,
   maps,
+  mapPreparation,
   matchSec,
   onLocalRulesChanged,
   removeLocalMap,
@@ -291,6 +292,7 @@ export default function SimulationMainStage({
   return (
     <>
       <SimulationControlPanel
+        mapPreparation={mapPreparation}
         settingsContent={pregameSettings}
         replayMode={replayMode}
         draftMode={draftMode}
@@ -323,10 +325,10 @@ export default function SimulationMainStage({
         onToggleDevTools={onToggleDevTools}
         autoPlay={autoPlay}
         onToggleAutoPlay={() => setAutoPlay((v) => !v)}
-        autoDisabled={loading || isGameOver || startBlocked}
+        autoDisabled={Boolean(mapPreparation) || loading || isGameOver || startBlocked}
         autoSpeed={autoSpeed}
         onAutoSpeedChange={updateAutoSpeed}
-        speedDisabled={loading || isGameOver}
+        speedDisabled={Boolean(mapPreparation) || loading || isGameOver}
       />
       {battlefield}
     </>

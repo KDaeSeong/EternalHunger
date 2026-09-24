@@ -1,13 +1,14 @@
-import { compactIO, hash32 } from './simulationCommon';
-import { EQUIP_SLOTS } from './simulationConstants';
-import { buildBaseZoneGraph, getHyperloopZoneIds } from './mapGraphRuntime.js';
-import { inferEquipSlot, inferItemCategory } from './inventoryRules';
-import { classifySpecialByName } from './craftRuntime';
-import { findCrateZoneWeightsForItem, uniqStrings } from './mapTargeting';
-import { getRegionZoneWeightsForItem } from './lumiaRegionData';
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
-import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
-import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
+// Frozen recipe/route builder from b7f827e3 for optimization equivalence checks.
+import { compactIO, hash32 } from '../../src/app/simulation/_lib/simulationCommon';
+import { EQUIP_SLOTS } from '../../src/app/simulation/_lib/simulationConstants';
+import { buildBaseZoneGraph, getHyperloopZoneIds } from '../../src/app/simulation/_lib/mapGraphRuntime.js';
+import { inferEquipSlot, inferItemCategory } from '../../src/app/simulation/_lib/inventoryRules';
+import { classifySpecialByName } from '../../src/app/simulation/_lib/craftRuntime';
+import { findCrateZoneWeightsForItem, uniqStrings } from '../../src/app/simulation/_lib/mapTargeting';
+import { getRegionZoneWeightsForItem } from '../../src/app/simulation/_lib/lumiaRegionData';
+import { normalizeWeaponType } from '../../src/utils/equipmentCatalog';
+import { isItemExcludedFromFieldFarming } from '../../src/utils/erItemFilters';
+import { getCraftRecipeTerms } from '../../src/app/simulation/_lib/gearRecipeGuardRuntime.js';
 
 function normId(v) {
   return String(v?._id || v?.itemId || v?.id || v || '').trim();
@@ -174,7 +175,7 @@ function getItemRouteZoneIds(item, mapObj, forbiddenIds) {
   return [...out];
 }
 
-function mergeRequirement(list, item, itemId, qty, getRouteZoneIds) {
+function mergeRequirement(list, item, itemId, qty, mapObj, forbiddenIds) {
   const id = String(itemId || normId(item));
   if (!id) return;
   const found = list.get(id) || {
@@ -186,12 +187,13 @@ function mergeRequirement(list, item, itemId, qty, getRouteZoneIds) {
     zones: new Set(),
   };
   found.qty += Math.max(1, Number(qty || 1));
-  for (const zoneId of getRouteZoneIds(item)) found.zones.add(zoneId);
+  for (const zoneId of getItemRouteZoneIds(item, mapObj, forbiddenIds)) found.zones.add(zoneId);
   list.set(id, found);
 }
 
-function collectRecipeLeafRequirements(target, indexes, getRouteZoneIds, opts = {}) {
+function collectRecipeLeafRequirements(target, indexes, mapObj, opts = {}) {
   const byId = indexes?.byId instanceof Map ? indexes.byId : new Map();
+  const forbiddenIds = opts.forbiddenIds instanceof Set ? opts.forbiddenIds : new Set();
   const maxDepth = Math.max(1, Math.floor(Number(opts.maxDepth ?? 5)));
   const out = new Map();
   const surplus = new Map();
@@ -206,13 +208,13 @@ function collectRecipeLeafRequirements(target, indexes, getRouteZoneIds, opts = 
     if (!needed) return;
     const item = byId.get(id) || null;
     if (!item || seen.has(id) || depth >= maxDepth) {
-      mergeRequirement(out, item || { _id: id, name: id }, id, needed, getRouteZoneIds);
+      mergeRequirement(out, item || { _id: id, name: id }, id, needed, mapObj, forbiddenIds);
       return;
     }
 
     if (!Array.isArray(item?.recipe?.ingredients) || !item.recipe.ingredients.length) {
       if (depth > 0 && isEarlyRouteScorableItem(item)) {
-        mergeRequirement(out, item, id, needed, getRouteZoneIds);
+        mergeRequirement(out, item, id, needed, mapObj, forbiddenIds);
       }
       return;
     }
@@ -315,21 +317,13 @@ function buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, op
   const heroGoalBySlot = pickHeroGoalLoadoutBySlot(actor);
   const candidateLimit = Math.max(3, Math.floor(Number(opts.candidateLimit ?? 8)));
   const bySlot = new Map();
-  // A recipe may use the same leaf in dozens of candidates. Resolve its source
-  // zones once for this synchronous catalog/map/options pass, not across edits.
-  const routeZonesById = new Map();
-  const getRouteZoneIds = (item) => {
-    const id = normId(item);
-    if (!routeZonesById.has(id)) routeZonesById.set(id, getItemRouteZoneIds(item, mapObj, opts.forbiddenIds));
-    return routeZonesById.get(id);
-  };
 
   for (const slot of EQUIP_SLOTS) {
     const goalKey = String(heroGoalBySlot?.[slot] || '').trim();
     const goalItem = goalKey ? indexes.byKey.get(goalKey) || null : null;
     const goalSlot = goalItem ? String(goalItem?.equipSlot || inferEquipSlot(goalItem) || '').toLowerCase() : '';
     if (goalItem && goalSlot === slot) {
-      const requirements = collectRecipeLeafRequirements(goalItem, indexes, getRouteZoneIds, opts);
+      const requirements = collectRecipeLeafRequirements(goalItem, indexes, mapObj, opts);
       if (requirements.length) {
         bySlot.set(slot, [{
           item: goalItem,
@@ -354,7 +348,7 @@ function buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, op
         if (actorWeaponType && itemWeaponType && itemWeaponType !== actorWeaponType) continue;
       }
 
-      const requirements = collectRecipeLeafRequirements(it, indexes, getRouteZoneIds, opts);
+      const requirements = collectRecipeLeafRequirements(it, indexes, mapObj, opts);
       if (!requirements.length) continue;
       const noZoneCount = requirements.filter((r) => !Array.isArray(r.zones) || r.zones.length === 0).length;
       const highTierCount = requirements.filter((r) => Number(r.tier || 0) >= 5).length;
@@ -384,56 +378,6 @@ function buildRoutePairs(zoneIds) {
   return out;
 }
 
-function prepareRouteRequirementSearch(candidatesBySlot, droneMaxTier) {
-  // Call-local numeric search state. Leaf requirements for the same item are
-  // resolved from the same catalog/map/options by buildDay1TargetCandidatesBySlot;
-  // only their quantities differ. No actor/map/catalog cache survives this call.
-  const materials = [];
-  const indexById = new Map();
-  const bySlot = new Map();
-  for (const [slot, candidates] of candidatesBySlot) {
-    bySlot.set(slot, candidates.map((candidate) => {
-      const entries = candidate.requirements.map((req) => {
-        const id = String(req.itemId || '').trim();
-        if (!indexById.has(id)) {
-          indexById.set(id, materials.length);
-          materials.push(req);
-        }
-        return [indexById.get(id), Math.max(1, Number(req.qty || 1))];
-      });
-      return { ...candidate, slot, entries };
-    }));
-  }
-  return {
-    materials,
-    bySlot,
-    extend(state, candidate, covered) {
-      const quantities = state.quantities.slice();
-      const ids = state.ids.slice();
-      for (const [index, qty] of candidate.entries) {
-        if (!quantities[index]) ids.push(index);
-        quantities[index] = Math.max(0, quantities[index]) + qty;
-      }
-      let totalQty = 0, missingQty = 0, coveredQty = 0, missingCount = 0, droneBlockedMissing = 0, droneMissingQty = 0;
-      // Traverse first-use order, including floating-point addition order, just
-      // like the previous Map-based search. Search breadth and tie order stay intact.
-      for (const index of ids) {
-        const qty = Math.max(1, Math.floor(Number(quantities[index] || 1)));
-        totalQty += qty;
-        if (covered[index]) coveredQty += qty;
-        else {
-          missingCount += 1;
-          missingQty += qty;
-          if (Math.max(1, Number(materials[index].tier || 1)) <= droneMaxTier) droneMissingQty += qty;
-          else droneBlockedMissing += 1;
-        }
-      }
-      return { quantities, ids, picks: [...state.picks, candidate],
-        stats: { totalQty, missingQty, coveredQty, missingCount, droneBlockedMissing, droneMissingQty } };
-    },
-  };
-}
-
 export {
   addRequirementsToState,
   buildDay1TargetCandidatesBySlot,
@@ -444,7 +388,6 @@ export {
   normId,
   normKey,
   pickFallbackRouteTargets,
-  prepareRouteRequirementSearch,
   requirementStatsForRoute,
   zoneTie,
 };

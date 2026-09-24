@@ -28,6 +28,19 @@ const render = (props = {}) => renderToStaticMarkup(React.createElement(Control,
 const normal = render();
 let passed = 0;
 const check = (name, run) => { run(); passed += 1; console.log(`PASS ${name}`); };
+check('map preparation locks manual and auto start with a distinct readying label', () => {
+  const html = render({ mapPreparation: { name: 'Preparing' }, isAdvancing: true, actionDisabled: true, autoDisabled: true, speedDisabled: true });
+  assert.match(html, /지도 준비 중/);
+  assert.match(html, /class="btn-proceed"[^>]*disabled=""/);
+  assert.match(html, /title="오토 진행은[^>]*disabled=""|disabled=""[^>]*title="오토 진행은/);
+  assert.match(readComponent('SimulationMainStage'), /autoDisabled=\{Boolean\(mapPreparation\)/);
+});
+check('ordinary in-progress autoplay remains stoppable outside map preparation', () => {
+  const html = render({ isAdvancing: true, actionDisabled: true, autoPlay: true, autoDisabled: false });
+  assert.match(html, /오토 정지/);
+  const autoButton = html.match(/<button[^>]*title="오토 진행은[^>]*>/)?.[0];
+  assert.ok(autoButton); assert.doesNotMatch(autoButton, /disabled/);
+});
 check('one primary action; no duplicate header action', () => {
   assert.equal((normal.match(/class="btn-proceed"/g) || []).length, 1);
   assert.doesNotMatch(readComponent('SimulationScreenHeader'), /sim-header-proceed|onProceed/);
