@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createObserverPerformanceProbe } from '../_lib/observerPerformanceRuntime';
+import { observerMemoryRegistry } from './observerMemoryLifetime';
 
 export default function SimulationObserverPerformancePanel() {
   const [label, setLabel] = useState('x1');
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
+  const [memoryLifetime, setMemoryLifetime] = useState(null);
   const enabled = useMemo(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('perfProbe') === '1', []);
   const probe = useMemo(() => enabled ? createObserverPerformanceProbe() : null, [enabled]);
   useEffect(() => {
@@ -14,6 +16,7 @@ export default function SimulationObserverPerformancePanel() {
     const update = () => {
       const value = probe.snapshot();
       if (value) setResult(value);
+      setMemoryLifetime(observerMemoryRegistry.snapshot());
     };
     const interval = window.setInterval(update, 1000);
     return () => { window.clearInterval(interval); probe.stop(); };
@@ -49,6 +52,11 @@ export default function SimulationObserverPerformancePanel() {
     <details className="sim-observer-performance-result">
       <summary>측정 JSON 보기</summary>
       <pre data-testid="observer-performance-result" aria-label="성능 측정 JSON">{result ? JSON.stringify(result, null, 2) : '측정 결과가 없습니다.'}</pre>
+    </details>
+    <details className="sim-observer-performance-result">
+      <summary>자료 회수 진단 JSON 보기</summary>
+      <p>종료한 화면의 일부 자료만 관찰합니다. 미회수는 누수 확정이 아니며, 회수도 전체 메모리 정상 판정은 아닙니다. 기록 삭제나 강제 회수는 하지 않습니다.</p>
+      <pre data-testid="observer-memory-lifetime-result" aria-label="자료 회수 진단 JSON">{memoryLifetime ? JSON.stringify(memoryLifetime, null, 2) : '측정 결과가 없습니다.'}</pre>
     </details>
   </aside>;
 }

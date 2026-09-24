@@ -1,0 +1,27 @@
+{
+  "scope": "Selected product UI probe excerpts; not a full trace or heap snapshot",
+  "engine": "48b796752593c20b953c1703d1ca63ed7b434ff55eace966a59923e0c04b7f10",
+  "source": { "finishedAtLocal": "2026-09-25 01:21:13", "seed": "1101", "actors": 24, "zones": 21, "events": 6790 },
+  "conditions": { "sameTab": true, "reloadBetweenRuns": false, "forceGC": false, "deletedRecords": 0, "concurrentBuildsOrTests": false, "speed": 8 },
+  "runs": [
+    { "label": "memory-x8-1", "measurementMsIncludingIdle": 231702.9, "heapStart": 27014922, "heapEnd": 41109334, "longTasks": { "count": 43, "totalMs": 3243, "maxMs": 147 }, "loafMaxMs": 151.3, "rafMedianMs": 10, "rafP95Ms": 10.1, "rafMaxMs": 140.1, "domNodes": 675, "events": 6790, "eventsFinalStateEndingMatched": true },
+    { "label": "memory-x8-2", "measurementMsIncludingIdle": 246449.9, "heapStart": 31947936, "heapEnd": 41913803, "longTasks": { "count": 51, "totalMs": 4061, "maxMs": 155 }, "loafMaxMs": 156.5, "rafMedianMs": 10, "rafP95Ms": 10.1, "rafMaxMs": 140.1, "domNodes": 675, "events": 6790, "eventsFinalStateEndingMatched": true },
+    { "label": "memory-x8-3", "measurementMsIncludingIdle": 247519.1, "heapStart": 32793244, "heapEnd": 41579222, "longTasks": { "count": 52, "totalMs": 6201, "maxMs": 234 }, "loafMaxMs": 239.9, "rafMedianMs": 10, "rafP95Ms": 10.1, "rafMaxMs": 239.8, "domNodes": 675, "events": 6790, "eventsFinalStateEndingMatched": true }
+  ],
+  "closedSessionCollection": {
+    "ids": [4, 6, 8], "targetsPerSession": ["journal", "textLog", "visibleEvents", "survivors", "dead", "replayRecord"],
+    "collected": 18, "evictedOwners": 0, "currentReadySession": 10,
+    "scope": "All six observed roots of each completed session collected; not all objects in the application"
+  },
+  "closedComparisonCollection": { "owner": 2, "target": "baseline", "state": "collected" },
+  "thirdRunFailure": {
+    "criterionMs": 200, "passed": false,
+    "slowFrame": { "startOffsetMs": 461.5, "durationMs": 239.9, "workMs": 239.6, "renderMs": 0.3, "scriptInvoker": "Scheduler.yield.then", "scriptDurationMs": 233.7 },
+    "growthAllActors": { "count": 68, "totalMs": 6271.9, "maxMs": 233.2, "maxStartOffsetMs": 467.5 },
+    "growthSingleActorMaxMs": 48.8,
+    "additionalTimerFrame": { "startOffsetMs": 4074.7, "durationMs": 234.6, "scriptDurationMs": 234.3 }
+  },
+  "recordsPreserved": 7,
+  "humanEvaluationNotStarted": 7,
+  "consoleWarningsOrErrors": 0
+}

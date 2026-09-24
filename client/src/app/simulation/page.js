@@ -4,6 +4,7 @@ import { useState } from 'react';
 import SimulationHydrationPanel from './_components/SimulationHydrationPanel';
 import SimulationPageView from './_components/SimulationPageView';
 import { useSimulationPageController } from './_lib/useSimulationPageController';
+import { useObserverMemoryLifetime } from './_components/useObserverMemoryLifetime';
 import '../../styles/ERSimulation.css';
 
 export default function SimulationPage({
@@ -40,6 +41,14 @@ function SimulationSession({
     draftRecord,
     onReplay,
     onVariant,
+  });
+  useObserverMemoryLifetime('session', {
+    journal: pageViewProps?.fullRunEventsRef?.current,
+    textLog: pageViewProps?.fullLogsRef?.current,
+    visibleEvents: pageViewProps?.runEvents,
+    survivors: pageViewProps?.survivors,
+    dead: pageViewProps?.dead,
+    replayRecord: pageViewProps?.currentReplayRecord,
   });
 
   if (!hasHydrated) {

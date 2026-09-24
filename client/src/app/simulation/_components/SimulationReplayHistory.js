@@ -13,6 +13,8 @@ import {
   updateSimulationEvaluation,
 } from '../_lib/simulationEvaluationRuntime.js';
 import { classifySimulationReplayDeletionError, deleteSimulationReplay } from './simulationReplayDeletionRuntime.js';
+import { createReplayHistoryRequests, replayHistoryMetadata } from './simulationReplayHistoryLifetime';
+import { useObserverMemoryLifetime } from './useObserverMemoryLifetime';
 
 function recordTitle(record) {
   return record ? `${record.summary?.winnerTeamName || record.summary?.winnerName || '전원 탈락'} · ${new Date(record.finishedAt).toLocaleString('ko-KR')}` : '선택 안 함';
@@ -82,6 +84,9 @@ export default function SimulationReplayHistory({
   const [evaluationRecords, setEvaluationRecords] = useState([]);
   const [evaluationFields, setEvaluationFields] = useState({});
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [requests] = useState(createReplayHistoryRequests);
+  useEffect(() => () => requests.cancel(), [requests]);
+  useObserverMemoryLifetime('history', { baseline, candidate }, open);
   const evaluationPanelRef = useRef(null);
   const evaluationId = evaluation?.id;
   const observedEvaluationCount = evaluationObservationCount(evaluationFields);
@@ -92,18 +97,19 @@ export default function SimulationReplayHistory({
 
   useEffect(() => {
     if (!evaluationMode || !evaluationOpenRequest || !evaluationRunRecord?.id) return undefined;
-    let cancelled = false;
+    requests.cancel();
+    const request = requests.begin();
     setOpen(true);
     setPendingDeleteId(null);
     setBusy(true);
     setMessage('완주 기록과 평가 양식을 준비하는 중입니다.');
     void listSimulationReplays().then((records) => {
-      if (cancelled) return;
+      if (!requests.isCurrent(request)) return;
       const mergedRuns = records.some((record) => record.id === evaluationRunRecord.id)
         ? records
-        : [evaluationRunRecord, ...records];
+        : [replayHistoryMetadata(evaluationRunRecord), ...records];
       const currentRun = mergedRuns.find((record) => record.id === evaluationRunRecord.id)
-        || evaluationRunRecord;
+        || replayHistoryMetadata(evaluationRunRecord);
       const evaluationRows = listSimulationEvaluations();
       const existing = evaluationRows.find((row) => row.runId === evaluationRunRecord.id);
       const result = existing
@@ -122,76 +128,102 @@ export default function SimulationReplayHistory({
         setMessage('평가 기록을 이 브라우저에 저장하지 못했습니다.');
       }
     }).catch((error) => {
-      if (!cancelled) setMessage(error.message || '완주 기록을 불러오지 못했습니다.');
+      if (requests.isCurrent(request)) setMessage(error.message || '완주 기록을 불러오지 못했습니다.');
     }).finally(() => {
-      if (!cancelled) setBusy(false);
+      if (requests.finish(request)) setBusy(false);
     });
-    return () => { cancelled = true; };
-  }, [evaluationCode, evaluationMode, evaluationOpenRequest, evaluationRunRecord]);
+    return () => { if (requests.isCurrent(request)) requests.cancel(); };
+  }, [evaluationCode, evaluationMode, evaluationOpenRequest, evaluationRunRecord, requests]);
   const comparison = useMemo(() => {
     if (!baseline || !candidate || baseline.id === candidate.id) return null;
     try { return buildSimulationRunComparison(baseline, candidate); } catch { return null; }
   }, [baseline, candidate]);
 
   async function showHistory() {
+    const request = requests.begin();
+    if (request === null) return;
     setOpen(true);
     setPendingDeleteId(null);
     setBusy(true);
     setMessage('경기 기록을 불러오는 중입니다.');
     try {
       const records = await listSimulationReplays();
+      if (!requests.isCurrent(request)) return;
       setRuns(records);
       setEvaluationRecords(listSimulationEvaluations());
       const legacyCount = readLocalSimulationRunHistory().length;
       setMessage(records.length ? '' : legacyCount
         ? '이전 완주 요약에는 시작 조건이 없습니다. 이번 경기부터 동일 재경기를 보관합니다.'
         : '아직 보관된 경기가 없습니다. 경기를 끝내면 자동으로 저장합니다.');
-    } catch (error) { setMessage(error.message || '경기 보관함을 열지 못했습니다.'); }
-    finally { setBusy(false); }
+    } catch (error) { if (requests.isCurrent(request)) setMessage(error.message || '경기 보관함을 열지 못했습니다.'); }
+    finally { if (requests.finish(request)) setBusy(false); }
+  }
+
+  function closeHistory() {
+    requests.cancel();
+    setOpen(false);
+    setBusy(false);
+    setBaseline(null);
+    setCandidate(null);
+    setRuns([]);
+    setPendingDeleteId(null);
+    setMessage('');
+    // Evaluation fields are small and may contain an unsaved edit after a
+    // storage error. Preserve them; only comparison archives are released.
   }
 
   async function replay(id) {
     if (disabled || busy) return;
+    const request = requests.begin();
+    if (request === null) return;
     setBusy(true);
-    try { onReplay(await loadSimulationReplay(id)); }
-    catch (error) { setMessage(error.message || '재경기를 불러오지 못했습니다.'); }
-    finally { setBusy(false); }
+    try { const record = await loadSimulationReplay(id); if (requests.isCurrent(request)) onReplay(record); }
+    catch (error) { if (requests.isCurrent(request)) setMessage(error.message || '재경기를 불러오지 못했습니다.'); }
+    finally { if (requests.finish(request)) setBusy(false); }
   }
 
   async function prepareVariant(id) {
     if (disabled || busy) return;
+    const request = requests.begin();
+    if (request === null) return;
     setBusy(true);
-    try { onVariant?.(await loadSimulationReplay(id)); }
-    catch (error) { setMessage(error.message || '변경 경기 조건을 불러오지 못했습니다.'); }
-    finally { setBusy(false); }
+    try { const record = await loadSimulationReplay(id); if (requests.isCurrent(request)) onVariant?.(record); }
+    catch (error) { if (requests.isCurrent(request)) setMessage(error.message || '변경 경기 조건을 불러오지 못했습니다.'); }
+    finally { if (requests.finish(request)) setBusy(false); }
   }
 
   async function selectComparison(id, side) {
     if (disabled || busy) return;
     const other = side === 'baseline' ? candidate : baseline;
     if (other?.id === id) { setMessage('비교 기준과 대상에는 서로 다른 두 경기를 고르세요.'); return; }
+    const request = requests.begin();
+    if (request === null) return;
     setBusy(true);
     try {
       const record = await loadSimulationReplay(id);
+      if (!requests.isCurrent(request)) return;
       if (side === 'baseline') setBaseline(record); else setCandidate(record);
       setMessage('');
-    } catch (error) { setMessage(error.message || '비교할 경기 기록을 불러오지 못했습니다.'); }
-    finally { setBusy(false); }
+    } catch (error) { if (requests.isCurrent(request)) setMessage(error.message || '비교할 경기 기록을 불러오지 못했습니다.'); }
+    finally { if (requests.finish(request)) setBusy(false); }
   }
 
   async function confirmDelete(id) {
     if (disabled || busy || pendingDeleteId !== id) return;
+    const request = requests.begin();
+    if (request === null) return;
     setBusy(true);
     try {
       await deleteSimulationReplay(id);
+      if (!requests.isCurrent(request)) return;
       setRuns((current) => current.filter((run) => run.id !== id));
       if (baseline?.id === id) setBaseline(null);
       if (candidate?.id === id) setCandidate(null);
       setPendingDeleteId(null);
       setMessage('경기 기록을 삭제했습니다. 연결된 5분 평가 기록은 이 브라우저에 그대로 보존됩니다.');
     } catch (error) {
-      setMessage(classifySimulationReplayDeletionError(error).text);
-    } finally { setBusy(false); }
+      if (requests.isCurrent(request)) setMessage(classifySimulationReplayDeletionError(error).text);
+    } finally { if (requests.finish(request)) setBusy(false); }
   }
 
   function beginEvaluation(runId) {
@@ -270,6 +302,7 @@ export default function SimulationReplayHistory({
         <h2>경기 보관함</h2>
         <p>이 브라우저에 최근 {REPLAY_HISTORY_LIMIT}경기를 보관합니다. 참가자·지도·규칙과 같은 시드로 다시 관전할 수 있습니다.</p>
         <p>두 경기를 골라 편성·전략·시드 차이와 실제 생존·성장·교전 결과를 함께 비교할 수 있습니다.</p>
+        <p>보관함을 닫으면 비교 선택은 해제됩니다. 저장된 경기와 평가 기록은 유지됩니다.</p>
         {disabled ? <p>진행 중인 경기를 마치면 보관된 경기를 불러올 수 있습니다.</p> : null}
         <p role="status">{message}</p>
         <ul>{runs.map((run) => {
@@ -347,7 +380,7 @@ export default function SimulationReplayHistory({
             <button type="button" onClick={closeEvaluation}>평가 닫기</button>
           </div>
         </section> : null}
-        <button type="button" onClick={() => setOpen(false)}>보관함 닫기</button>
+        <button type="button" onClick={closeHistory}>보관함 닫기</button>
       </section>
     </div> : null}
   </div>;
