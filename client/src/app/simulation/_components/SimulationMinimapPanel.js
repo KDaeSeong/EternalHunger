@@ -22,15 +22,15 @@ function pickHotZone(actors, getZoneName) {
   return `${getZoneName?.(zoneId) || zoneId} ${count}명`;
 }
 
-function ExpandedMinimap({ children }) {
+function MinimapView({ children, expanded = false }) {
   const [zoomed, setZoomed] = useState(false);
-  return <div className="minimap-expanded-view">
+  return <div className={expanded ? 'minimap-expanded-view' : 'minimap-fitted-view'}>
     <div className="minimap-zoom-controls" role="group" aria-label="지도 배율">
       <button type="button" aria-label="지도 전체 보기" aria-pressed={!zoomed} onClick={() => setZoomed(false)}>전체 지도</button>
       <button type="button" aria-label="지도 2배 확대" aria-pressed={zoomed} onClick={() => setZoomed(true)}>2배 확대</button>
       <span>{zoomed ? '스크롤로 이동 · 표식을 눌러 참가자 확인' : '섬 전체를 화면에 맞춰 표시'}</span>
     </div>
-    {cloneElement(children, { expanded: true, zoomed })}
+    {cloneElement(children, { expanded, fitViewport: true, zoomed })}
   </div>;
 }
 
@@ -121,8 +121,11 @@ export default function SimulationMinimapPanel({
         </span>)}
       </div> : null}
 
-      {uiModal === 'map' ? <ExpandedMinimap>{mapCanvas}</ExpandedMinimap> : mapCanvas}
+      <MinimapView key={uiModal === 'map' ? 'expanded' : 'inline'} expanded={uiModal === 'map'}>{mapCanvas}</MinimapView>
 
+      <details className="minimap-help">
+      <summary>지도 안내 · 금색 외곽선은 관전 팀</summary>
+      <div className="minimap-help-body">
       <div className="minimap-legend">
         <span><i className="minimap-dot dead" /> 시체</span>
         <span><i className="minimap-dot forbidden" /> 금지구역</span>
@@ -130,6 +133,8 @@ export default function SimulationMinimapPanel({
         <span><i className="minimap-tracked-ring" /> 금색 외곽선은 관전 팀</span>
       </div>
       <p className="minimap-location-note">표시는 해당 지역의 요약 위치입니다. 이동선은 지역 간 이동을 나타내며 실제 골목길·교전 좌표가 아닙니다.</p>
+      </div>
+      </details>
 
       <SimulationMinimapHyperloopControl
         day={day}

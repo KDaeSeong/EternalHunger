@@ -46,7 +46,7 @@ function SimulationEvaluationBrief({
       ? '동일 재경기: 기준 경기와 사건·결과가 같은지 관찰하세요.'
       : '기준 경기: 설정을 바꾸지 말고 팀의 파밍·합류·교전·후퇴를 관찰하세요.';
   return (
-    <details className="sim-evaluation-brief" aria-label="이터널 헝거 5분 평가 안내">
+    <details name="simulation-tools" className="sim-evaluation-brief" aria-label="이터널 헝거 5분 평가 안내">
       <summary>
         <strong>이터널 헝거 · 5분 평가</strong>
         <span className="sim-evaluation-brief__mode">{modeText}</span>
@@ -193,7 +193,7 @@ export default function SimulationPageView(props) {
 
   return (
     <main
-      className={`simulation-page${evaluationMode ? ' simulation-page--evaluation' : ''}`}
+      className={`simulation-page simulation-page--observer${evaluationMode ? ' simulation-page--evaluation' : ''}`}
       data-evaluation-mode={evaluationMode ? 'true' : 'false'}
       data-game-sfx-enabled={sfxEnabled ? 'true' : 'false'}
       onChangeCapture={handleGameSfxChangeCapture}
@@ -205,7 +205,10 @@ export default function SimulationPageView(props) {
         draftMode={draftMode}
         replayMode={props.replayMode}
         isGameOver={isGameOver}
-      /> : <SiteHeader className="simulation-site-header" />}
+      /> : <details name="simulation-tools" className="simulation-site-menu">
+        <summary>ETERNAL HUNGER <span>사이트 메뉴 · 로그인</span></summary>
+        <SiteHeader className="simulation-site-header" />
+      </details>}
       <SimulationReplayHistory disabled={props.loading || props.isAdvancing || (day > 0 && !isGameOver)}
         onReplay={props.onReplay} onVariant={props.onVariant} replayMode={props.replayMode} draftMode={props.draftMode}
         evaluationMode={evaluationMode} evaluationCode={evaluationCode}

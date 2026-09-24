@@ -10,26 +10,6 @@ import SimulationMarketSeedCard from './SimulationMarketSeedCard';
 import SimulationMainStage from './SimulationMainStage';
 import SimulationScreenHeader from './SimulationScreenHeader';
 
-function getPrimaryProceedLabel({
-  aliveTeamCount,
-  day,
-  isAdvancing,
-  isGameOver,
-  loading,
-  phase,
-  startBlocked,
-  startBlockedText,
-}) {
-  if (loading) return '로딩 중...';
-  if (isAdvancing) return '진행 중...';
-  if (startBlocked) return startBlockedText || '시작 조건 부족';
-  if (isGameOver) return '다시 하기';
-  if (day === 0) return '게임 시작';
-  if (aliveTeamCount <= 1) return '결과 확인';
-  if (phase === 'morning') return day >= 6 ? '서든데스' : '밤 진행';
-  return day >= 6 ? '서든데스' : '낮 진행';
-}
-
 export default function SimulationGameScreen({
   replayMode,
   draftMode,
@@ -124,23 +104,12 @@ export default function SimulationGameScreen({
   const timeOfDay = getTimeOfDayFromPhase(phase);
   const aliveTeamCount = getAliveTeams(survivors).length;
   const actionDisabled = loading || isAdvancing || startBlocked || (showMarketPanel && !!pendingTranscendPick);
-  const primaryProceedLabel = getPrimaryProceedLabel({
-    aliveTeamCount,
-    day,
-    isAdvancing,
-    isGameOver,
-    loading,
-    phase,
-    startBlocked,
-    startBlockedText,
-  });
 
   return (
     <section className={`game-screen ${phase === 'morning' ? 'morning-mode' : 'night-mode'}`}>
       <SimulationScreenHeader
         replayMode={replayMode}
         evaluationMode={evaluationMode}
-        actionDisabled={actionDisabled}
         day={day}
         fireAndReport={fireAndReport}
         guestMode={guestMode}
@@ -150,30 +119,14 @@ export default function SimulationGameScreen({
         loading={loading}
         mapRefreshToast={mapRefreshToast}
         matchSec={matchSec}
-        onProceed={proceedPhaseGuarded}
         onToggleSfx={onToggleSfx}
         onToggleDevTools={onToggleDevTools}
-        primaryProceedLabel={primaryProceedLabel}
         refreshMapSettingsFromServer={refreshMapSettingsFromServer}
         setUiModal={setUiModal}
         showMarketPanel={showMarketPanel}
         sfxEnabled={sfxEnabled}
-        startBlocked={startBlocked}
-        startBlockedText={startBlockedText}
         timeOfDay={timeOfDay}
       />
-
-      {!evaluationMode || draftMode ? <SimulationMarketSeedCard
-        day={day}
-        isAdvancing={isAdvancing}
-        isGameOver={isGameOver}
-        matchSec={matchSec}
-        replayMode={replayMode}
-        runSeed={runSeed}
-        seedDraft={seedDraft}
-        setRunSeed={setRunSeed}
-        setSeedDraft={setSeedDraft}
-      /> : null}
 
       <SimulationForbiddenStatusBar
         detonationRiskSummary={detonationRiskSummary}
@@ -184,6 +137,17 @@ export default function SimulationGameScreen({
       <SimulationEventFeedbackBar feedback={eventFeedback} />
 
       <SimulationMainStage
+        seedControl={!evaluationMode || draftMode ? <SimulationMarketSeedCard
+          day={day}
+          isAdvancing={isAdvancing}
+          isGameOver={isGameOver}
+          matchSec={matchSec}
+          replayMode={replayMode}
+          runSeed={runSeed}
+          seedDraft={seedDraft}
+          setRunSeed={setRunSeed}
+          setSeedDraft={setSeedDraft}
+        /> : null}
         replayMode={replayMode}
         draftMode={draftMode}
         evaluationMode={evaluationMode}

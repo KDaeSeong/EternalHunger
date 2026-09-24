@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import GameActionIcon from '../../games/_components/GameActionIcon';
 
 function normalizeMode(value) {
@@ -41,6 +42,7 @@ function getPredictionLabel(actor, matchMode) {
 }
 
 export default function SimulationControlPanel({
+  settingsContent,
   replayMode,
   draftMode,
   evaluationMode,
@@ -66,8 +68,6 @@ export default function SimulationControlPanel({
   day,
   phase,
   aliveTeamCount,
-  showMarketPanel,
-  onToggleDevTools,
   autoPlay,
   onToggleAutoPlay,
   autoDisabled,
@@ -75,6 +75,8 @@ export default function SimulationControlPanel({
   onAutoSpeedChange,
   speedDisabled,
 }) {
+  const settingsRef = useRef(null);
+  const closeSettings = () => { if (settingsRef.current) settingsRef.current.open = false; };
   const proceedLabel = getProceedLabel({
     evaluationMode,
     draftMode,
@@ -90,6 +92,39 @@ export default function SimulationControlPanel({
 
   return (
     <div className="control-panel">
+      <div className="control-row">
+        {isGameOver ? (
+          <button className="btn-restart" type="button" data-game-sfx="start" onClick={onRestart}>
+            <GameActionIcon action="reset" label="다시 하기" />다시 하기
+          </button>
+        ) : (
+          <button className="btn-proceed" type="button" data-game-sfx="off"
+            onClick={() => { closeSettings(); onProceed?.(); }} disabled={actionDisabled}
+            style={{ opacity: actionDisabled ? 0.5 : 1 }}>
+            <GameActionIcon action="advance" label={proceedLabel} />{proceedLabel}
+          </button>
+        )}
+        {!isEvaluationStart ? <button className="btn-secondary" type="button"
+          data-game-sfx={autoPlay ? 'toggle' : 'start'}
+          onClick={() => { closeSettings(); onToggleAutoPlay?.(); }} disabled={autoDisabled}
+          title="오토 진행은 다음 페이즈 버튼을 자동으로 눌러 진행합니다.">
+          <GameActionIcon action={autoPlay ? 'pause' : 'auto'} label={autoPlay ? '오토 정지' : '오토'} />
+          {autoPlay ? '오토 정지' : '오토'}
+        </button> : null}
+        <select className="autoplay-speed" data-game-sfx-change="select"
+          value={autoSpeed} onChange={(event) => onAutoSpeedChange?.(event.target.value)}
+          disabled={speedDisabled} title="오토 진행 배속입니다. 최대 32배속까지 지원합니다.">
+          {[1, 2, 4, 8, 16, 32].map((speed) => <option key={speed} value={speed}>x{speed}</option>)}
+        </select>
+      </div>
+      {!evaluationMode || draftMode ? <details ref={settingsRef} name="simulation-tools" className="simulation-match-settings"
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape' || event.target.closest('[role="dialog"]')) return;
+          closeSettings();
+          settingsRef.current?.querySelector('summary')?.focus();
+        }}>
+        <summary>경기 설정 <span>{normalizeMode(matchMode) === 'solo' ? '솔로' : '스쿼드'} · 스킬 {characterSkillsEnabled ? '켬' : '끔'}</span></summary>
+        <div className="simulation-match-settings-body">
       {!replayMode && !evaluationMode ? <div className="prediction-row">
         <label className="winner-prediction-control">
           <span className="sim-icon-label">
@@ -119,7 +154,7 @@ export default function SimulationControlPanel({
           기본 50 LP · 예측 성공 +100 LP{Number(matchSec || 0) > 0 ? ' · 경기 시작 후 변경 불가' : ''}
         </span>
       </div> : null}
-      <div className="control-row">
+      <div className="simulation-match-options">
         {!evaluationMode || draftMode ? <select
           className="autoplay-speed"
           data-game-sfx-change="select"
@@ -146,65 +181,10 @@ export default function SimulationControlPanel({
           </span>
         </label> : null}
 
-        {isGameOver ? (
-          <button className="btn-restart" type="button" data-game-sfx="start" onClick={onRestart}>
-            <GameActionIcon action="reset" label="다시 하기" />
-            다시 하기
-          </button>
-        ) : (
-          <button
-            className="btn-proceed"
-            type="button"
-            data-game-sfx="off"
-            onClick={onProceed}
-            disabled={actionDisabled}
-            style={{ opacity: actionDisabled ? 0.5 : 1 }}
-          >
-            <GameActionIcon action="advance" label={proceedLabel} />
-            {proceedLabel}
-          </button>
-        )}
-
-        {!evaluationMode ? <button
-          className={`btn-secondary sim-devtools-control ${showMarketPanel ? 'active' : ''}`}
-          type="button"
-          data-game-sfx="toggle"
-          onClick={onToggleDevTools}
-          disabled={replayMode}
-          title="테스트와 수동 조작이 필요할 때만 개발자 도구를 엽니다."
-        >
-          <GameActionIcon action="settings" label="개발자 도구" />
-          {showMarketPanel ? '개발자 도구 닫기' : '개발자 도구'}
-        </button> : null}
-
-        {!isEvaluationStart ? <button
-          className="btn-secondary"
-          type="button"
-          data-game-sfx={autoPlay ? 'toggle' : 'start'}
-          onClick={onToggleAutoPlay}
-          disabled={autoDisabled}
-          title="오토 진행은 다음 페이즈 버튼을 자동으로 눌러 진행합니다."
-        >
-          <GameActionIcon action={autoPlay ? 'pause' : 'auto'} label={autoPlay ? '오토 정지' : '오토'} />
-          {autoPlay ? '오토 정지' : '오토'}
-        </button> : null}
-
-        <select
-          className="autoplay-speed"
-          data-game-sfx-change="select"
-          value={autoSpeed}
-          onChange={(event) => onAutoSpeedChange?.(event.target.value)}
-          disabled={speedDisabled}
-          title="오토 진행 배속입니다. 최대 32배속까지 지원합니다."
-        >
-          <option value={1}>x1</option>
-          <option value={2}>x2</option>
-          <option value={4}>x4</option>
-          <option value={8}>x8</option>
-          <option value={16}>x16</option>
-          <option value={32}>x32</option>
-        </select>
       </div>
+        {settingsContent}
+        </div>
+      </details> : null}
     </div>
   );
 }

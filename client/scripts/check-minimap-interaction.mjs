@@ -55,8 +55,12 @@ check('expanded map starts fitted and exposes explicit zoom controls', () => {
   assert.match(expanded, /class="minimap-viewport"[^>]*tabindex="0"/);
   assert.doesNotMatch(expanded, /class="minimap-viewport is-zoomed"/);
 });
-check('inline map does not inherit the modal-only viewport', () => {
-  assert.doesNotMatch(inline, /minimap-expanded-view|minimap-viewport/);
+check('inline map has its own fitted viewport and zoom without opening a modal', () => {
+  assert.doesNotMatch(inline, /minimap-expanded-view|aria-label="확대 전장 지도"/);
+  assert.match(inline, /class="minimap-fitted-view"/);
+  assert.match(inline, /aria-label="전장 지도"/);
+  assert.match(inline, /aria-label="지도 전체 보기" aria-pressed="true"/);
+  assert.match(inline, /aria-label="지도 2배 확대" aria-pressed="false"/);
   assert.match(inline, /크게 보기/);
 });
 check('custom maps use the same expanded viewport', () => {

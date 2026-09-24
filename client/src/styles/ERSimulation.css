@@ -4577,3 +4577,120 @@
   .simulation-local-character-editor .character-skill-level-grid input { padding: 6px 3px; }
   .simulation-local-character-editor .simulation-roster-modal__footer { align-items: stretch; flex-direction: column; }
 }
+
+/* Observer shell: controls precede the battlefield in both DOM and visual order.
+   Desktop shares the available height; narrow/short windows scroll as a page. */
+body:has(.simulation-page--observer) { overflow: visible; }
+.simulation-page.simulation-page--observer {
+  --sim-shell-width: min(calc(100% - 16px), 1800px);
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: #07131f !important;
+}
+.simulation-site-menu { position: absolute; top: 0; left: 8px; z-index: 60; width: min(300px, 42vw); color: #dcecf7; }
+.simulation-site-menu > summary { display: flex; justify-content: space-between; padding: 7px 10px; cursor: pointer; font: 800 12px/1.5 sans-serif; }
+.simulation-site-menu > summary span { color: #b9cedd; font-weight: 400; }
+.simulation-site-menu[open], .simulation-page--observer .sim-evaluation-brief[open] { z-index: 100; }
+.simulation-site-menu > .site-header { position: absolute; top: 100%; left: 0; width: calc(100vw - 32px); z-index: 1; }
+.simulation-page--observer > .sim-replay-toolbar { width: var(--sim-shell-width); margin: 0 auto 4px; box-sizing: border-box; min-height: 34px; padding: 3px 8px; border-radius: 6px; gap: 8px; font-size: 12px; }
+.simulation-page--observer > .sim-replay-toolbar button { padding: 5px 10px; }
+.simulation-page--observer > .simulation-container { width: var(--sim-shell-width); max-width: var(--sim-shell-width); padding: 0 0 6px; min-height: 0; }
+.simulation-page--observer .simulation-container.modal-layout .game-screen {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto minmax(0, 1fr); gap: 5px; min-height: 0; height: 100%; padding: 8px;
+  overflow: hidden; scrollbar-gutter: auto; background: #102333 !important; border: 1px solid #345064; border-radius: 8px;
+}
+.simulation-page--observer .screen-header { grid-row: 1; grid-column: 1; order: 0; flex: 0 0 auto; min-height: 38px; margin: 0; padding: 4px 8px; gap: 10px; border-radius: 6px; background: #0a1927; }
+.simulation-page--observer .screen-header h1 { margin: 0; font-size: 15px; white-space: nowrap; }
+.simulation-page--observer .screen-header-right { gap: 5px; flex-wrap: wrap; }
+.simulation-page--observer .screen-header .weather-badge { padding: 5px 8px; font-size: 12px; }
+.simulation-page--observer .control-panel { grid-row: 1; grid-column: 2; position: relative; z-index: 90; order: 1; flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin: 0; padding: 4px 8px; border: 1px solid #345064; border-radius: 6px; background: #112a3b; }
+.simulation-view-menu { position: relative; z-index: 11; }
+.simulation-view-menu > summary { padding: 6px 10px; border: 1px solid #64869c; border-radius: 5px; color: #eaf5ff; font-size: 12px; cursor: pointer; }
+.simulation-view-menu-body { position: absolute; top: calc(100% + 6px); right: 0; z-index: 12; width: max-content; max-width: calc(100vw - 40px); display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; border: 1px solid #64869c; border-radius: 6px; background: #102434; box-shadow: 0 8px 24px #000a; }
+.simulation-page--observer .control-row { display: flex; flex: 0 1 auto; gap: 6px; flex-wrap: wrap; }
+.simulation-page--observer .control-row button { min-height: 34px; padding: 6px 14px; font-size: 13px; }
+.simulation-page--observer .control-row select { min-height: 34px; padding: 5px 9px; font-size: 13px; }
+.simulation-match-settings > summary { padding: 6px 9px; border: 1px solid #64869c; border-radius: 5px; color: #f1f6fc; cursor: pointer; font-size: 13px; }
+.simulation-match-settings > summary span { margin-left: 10px; color: #bbd1df; font-size: 12px; }
+.simulation-match-settings-body { position: absolute; top: calc(100% + 5px); right: 0; z-index: 15; width: min(850px, calc(100vw - 40px)); max-height: min(65dvh, calc(100dvh - 210px)); overflow: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 14px; border: 1px solid #64869c; border-radius: 8px; background: #102434; color: #e7f1f8; box-shadow: 0 12px 30px #000b; }
+.simulation-match-options { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.simulation-match-settings-body > .market-card { background: #172f42; color: #e7f1f8; border-color: #64869c; }
+.simulation-match-settings-body > .market-card .market-title,
+.simulation-match-settings-body > .market-card .market-small { color: #d4e6f3; }
+.simulation-match-settings-body > .market-card input,
+.simulation-match-settings-body > .market-card button,
+.simulation-match-options > select { background: #0b1d29; color: #e7f1f8; border: 1px solid #64869c; }
+/* The global utility dock must not intercept a dialog's cancel/apply buttons. */
+body:has(.simulation-page--observer [role="dialog"]) .game-utility-dock { visibility: hidden; }
+.simulation-page--observer .battlefield-panel:not(.modal-open) > .minimap-hyperloop-control { grid-column: 1 / -1; }
+.simulation-page--observer .forbidden-top-bar { grid-row: 2; grid-column: 1 / -1; order: 2; flex: 0 0 auto; margin: 0; padding: 4px 8px; gap: 5px; font-size: 11px; }
+.simulation-page--observer .forbidden-top-bar .fz-chip { padding: 3px 7px; font-size: 11px; }
+.simulation-page--observer .simulation-event-feedback { grid-row: 3; grid-column: 1 / -1; order: 3; flex: 0 0 auto; margin: 0; padding: 4px 8px; }
+.simulation-page--observer .simulation-stage { grid-row: 4; grid-column: 1 / -1; order: 4; flex: 1 1 0; height: auto; min-height: 0; grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr); gap: 10px; overflow: hidden; }
+.simulation-page--observer .simulation-side-column { height: auto; min-height: 0; gap: 6px; }
+.simulation-page--observer .simulation-battlefield-column { min-height: 0; gap: 4px; }
+.simulation-field-details { flex: 0 0 auto; position: relative; color: #bbd1df; font-size: 12px; }
+.simulation-field-details > summary { padding: 3px 6px; cursor: pointer; }
+.simulation-field-details .worldspawn-toolbar { position: absolute; top: 100%; left: 0; right: 0; z-index: 8; margin: 0; box-shadow: 0 8px 24px #000a; }
+.simulation-page--observer .simulation-battlefield-column > .battlefield-panel:not(.modal-open) { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto minmax(0, 1fr) auto; gap: 3px; flex: 1 1 0; min-height: 0; padding: 6px; margin: 0; justify-content: flex-start; background: #0b1d29; border: 1px solid #345064; border-radius: 8px; }
+.simulation-page--observer .battlefield-panel:not(.modal-open) > .minimap-panel-heading { grid-row: 1; grid-column: 1; }
+.simulation-page--observer .battlefield-panel:not(.modal-open) > .minimap-status-row { grid-row: 2; grid-column: 1 / -1; }
+.simulation-page--observer .battlefield-panel:not(.modal-open) > .minimap-team-legend { grid-row: 3; grid-column: 1 / -1; }
+.simulation-page--observer .battlefield-panel:not(.modal-open) > .minimap-help { grid-row: 5; grid-column: 1 / -1; }
+.simulation-page--observer .minimap-fitted-view { display: contents; }
+.simulation-page--observer .minimap-fitted-view > .minimap-zoom-controls { grid-row: 1; grid-column: 2; }
+.simulation-page--observer .minimap-fitted-view > .minimap-zoom-controls span { display: none; }
+.simulation-page--observer .minimap-fitted-view > .minimap-canvas { grid-row: 4; grid-column: 1 / -1; }
+.simulation-page--observer .minimap-panel-heading { flex: 0 0 auto; min-height: 28px; margin: 0 0 4px; gap: 6px; }
+.simulation-page--observer .minimap-panel-heading small { display: none; }
+.simulation-page--observer .minimap-panel-heading button { min-height: 28px; padding: 4px 8px; }
+.simulation-page--observer .minimap-status-row { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 4px; }
+.simulation-page--observer .minimap-status-row > span { flex: 1 1 auto; min-height: 23px; padding: 3px 6px; border-radius: 5px; }
+.simulation-page--observer .minimap-team-legend { flex: 0 0 auto; flex-wrap: nowrap; overflow-x: auto; gap: 4px; margin: 0 0 4px; padding-bottom: 2px; }
+.simulation-page--observer .minimap-team-legend > span { flex: 0 0 auto; }
+.minimap-fitted-view { display: flex; flex: 1 1 0; min-height: 0; flex-direction: column; gap: 4px; }
+.simulation-page--observer .simulation-battlefield-column > .battlefield-panel:not(.modal-open) .minimap-canvas { flex: 1 1 0; min-height: 0; width: 100%; height: auto; max-width: none; max-height: none; margin: 0; aspect-ratio: auto; }
+.minimap-help { flex: 0 0 auto; position: relative; color: #b9cfdc; font-size: 11px; }
+.minimap-help > summary { padding: 4px 2px; cursor: pointer; }
+.minimap-help-body { position: absolute; bottom: 100%; left: 0; right: 0; z-index: 6; padding: 10px; border: 1px solid #64869c; border-radius: 6px; background: #102434; box-shadow: 0 -8px 20px #0008; }
+.minimap-help-body .minimap-location-note { margin-bottom: 0; }
+.simulation-page--observer .simulation-observer-tabs button { min-height: 36px; padding: 6px; }
+.simulation-page--observer .log-toolbar { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 6px; }
+.simulation-page--observer .log-toolbar-title { order: 1; flex: 1 1 150px; white-space: normal; overflow: visible; text-overflow: clip; }
+.simulation-page--observer .log-toolbar-actions { order: 2; flex-wrap: wrap; max-width: 100%; }
+.simulation-page--observer .log-toolbar-limit { order: 3; flex: 1 0 100%; color: #b9cfdc; font-size: 11px; line-height: 1.4; }
+/* Allow the last entry to scroll clear of the fixed audio/tutorial dock. */
+.simulation-page--observer .simulation-observer-slot,
+.simulation-page--observer .log-scroll-area { padding-bottom: 52px; scroll-padding-bottom: 52px; box-sizing: border-box; }
+.simulation-page--observer .simulation-container.devtools-open { grid-template-columns: minmax(0, 1fr) 320px; }
+.simulation-page--observer .simulation-container.devtools-open .simulation-stage { grid-template-columns: minmax(0, 1fr) minmax(280px, .8fr); }
+
+@media (max-width: 999px), (max-height: 599px) {
+  .simulation-page.simulation-page--observer { height: auto; min-height: 100dvh; overflow: visible; }
+  .simulation-page--observer > .simulation-container { flex: 0 0 auto; overflow: visible; }
+  .simulation-page--observer .simulation-container.modal-layout .game-screen { display: flex; height: auto; overflow: visible; }
+  .simulation-page--observer .simulation-stage { flex: 0 0 auto; grid-template-columns: minmax(0, 1fr); overflow: visible; }
+  .simulation-page--observer .simulation-battlefield-column > .battlefield-panel:not(.modal-open) { flex: 0 0 auto; height: clamp(540px, 80dvh, 760px); }
+  .simulation-page--observer .simulation-side-column { flex: 0 0 auto; height: 560px; min-height: 0; }
+  .simulation-page--observer .control-panel { position: sticky; top: 0; }
+  .simulation-view-menu-body { left: 0; right: auto; width: min(320px, calc(100vw - 50px)); }
+  .simulation-page--observer .simulation-container.devtools-open { display: flex; }
+  .simulation-page--observer .simulation-container.devtools-open .simulation-stage { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .simulation-site-menu > summary span { display: none; }
+  .simulation-site-menu { width: 150px; }
+  .simulation-page--observer .screen-header { flex-wrap: wrap; }
+  .simulation-page--observer .screen-header .simulation-mobile-logo { display: none; }
+  .simulation-page--observer .screen-header-right { display: flex; flex: 0 1 auto; width: auto; justify-content: flex-start; }
+  .simulation-page--observer .screen-header-right .weather-badge { flex: 0 0 auto; grid-column: auto; width: auto; min-width: 0; }
+  .simulation-page--observer .simulation-container.modal-layout .game-screen { padding: 6px; }
+  .simulation-page--observer .control-panel { padding: 5px; }
+  .simulation-page--observer .control-row { width: auto; flex-wrap: wrap; }
+  .simulation-page--observer .control-row button { flex: 0 0 auto; width: auto; min-width: 0; padding: 6px 9px; }
+  .simulation-page--observer .control-row select { flex: 0 0 auto; width: auto; min-width: 0; }
+  .simulation-match-settings > summary span { display: none; }
+  .simulation-match-settings-body { max-height: 65dvh; }
+  .simulation-page--observer .minimap-zoom-controls span { display: none; }
+}

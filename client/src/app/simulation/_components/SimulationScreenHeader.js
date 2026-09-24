@@ -7,7 +7,6 @@ import { formatClock } from '../_lib/simulationFormattingRuntime';
 export default function SimulationScreenHeader({
   replayMode,
   evaluationMode,
-  actionDisabled,
   day,
   fireAndReport,
   guestMode,
@@ -17,16 +16,12 @@ export default function SimulationScreenHeader({
   loading,
   mapRefreshToast,
   matchSec,
-  onProceed,
   onToggleSfx,
   onToggleDevTools,
-  primaryProceedLabel,
   refreshMapSettingsFromServer,
   setUiModal,
   showMarketPanel,
   sfxEnabled,
-  startBlocked,
-  startBlockedText,
   timeOfDay,
 }) {
   return (
@@ -40,8 +35,6 @@ export default function SimulationScreenHeader({
       </Link>}
       <h1>{day === 0 ? 'GAME READY' : `DAY ${day} - ${timeOfDay === 'day' ? 'DAY' : 'NIGHT'}`}</h1>
       <div className="screen-header-right">
-        {guestMode && !evaluationMode && !replayMode && day === 0 && !isAdvancing && !loading &&
-          <Link className="btn-secondary" href="/eternalhunger/items">내 아이템 편집</Link>}
         <span className="weather-badge sim-icon-label">
           <GameActionIcon action={timeOfDay === 'day' ? 'season' : 'rest'} label={timeOfDay === 'day' ? '낮' : '밤'} />
           {timeOfDay === 'day' ? '낮' : '밤'}
@@ -51,30 +44,11 @@ export default function SimulationScreenHeader({
           {formatClock(matchSec)}
         </span>
 
-        {isGameOver ? (
-          <button
-            className="btn-restart sim-header-proceed"
-            type="button"
-            data-game-sfx="start"
-            onClick={() => window.location.reload()}
-          >
-            <GameActionIcon action="reset" label={primaryProceedLabel} />
-            {primaryProceedLabel}
-          </button>
-        ) : (
-          <button
-            className="btn-proceed sim-header-proceed"
-            type="button"
-            data-game-sfx="off"
-            onClick={onProceed}
-            disabled={actionDisabled}
-            title={startBlocked ? startBlockedText : '현재 페이즈를 진행합니다.'}
-          >
-            <GameActionIcon action="advance" label={primaryProceedLabel} />
-            {primaryProceedLabel}
-          </button>
-        )}
-
+        <details name="simulation-tools" className="simulation-view-menu">
+        <summary>관전 메뉴</summary>
+        <div className="simulation-view-menu-body">
+        {guestMode && !evaluationMode && !replayMode && day === 0 && !isAdvancing && !loading &&
+          <Link className="btn-secondary" href="/eternalhunger/items">내 아이템 편집</Link>}
         <button
           className="btn-secondary sim-mobile-core-btn"
           type="button"
@@ -157,6 +131,8 @@ export default function SimulationScreenHeader({
             {mapRefreshToast.text}
           </span>
         ) : null}
+        </div>
+        </details>
       </div>
     </div>
   );

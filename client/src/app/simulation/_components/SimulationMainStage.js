@@ -38,6 +38,7 @@ function buildObserverTrackedActorIds(survivors, dead, selectedTeamId) {
 }
 
 export default function SimulationMainStage({
+  seedControl,
   replayMode,
   draftMode,
   evaluationMode,
@@ -146,16 +147,18 @@ export default function SimulationMainStage({
       spawnState, forbiddenIds: forbiddenNow, settings, day, phase,
     });
   }, [observerTab, survivors, dead, runEvents, observedTeamId, matchSec, publicItems, killCounts, assistCounts, isGameOver, getZoneName, spawnState, forbiddenNow, settings, day, phase]);
-  return (
-    <>
+  const battlefield = (
       <div className="simulation-stage">
         <div className="simulation-battlefield-column">
+          {day > 0 ? <details className="simulation-field-details">
+            <summary>필드 현황 · 자원·보스·야생동물</summary>
           <SimulationWorldSpawnToolbar
             activeMapId={activeMapId}
             day={day}
             spawnState={spawnState}
             zones={zones}
           />
+          </details> : null}
 
           <SimulationMinimapPanel
             trackedActorIds={observerTrackedActorIds}
@@ -253,7 +256,9 @@ export default function SimulationMainStage({
           </div>
         </aside>
       </div>
-
+  );
+  const pregameSettings = <>
+      {seedControl}
       {!replayMode && (!evaluationMode || draftMode) ? <SimulationPregameRosterSetup
         applyCustomParticipantRoster={applyCustomParticipantRoster}
         saveLocalCharacter={saveLocalCharacter}
@@ -282,8 +287,11 @@ export default function SimulationMainStage({
         onRulesChanged={onLocalRulesChanged}
         settings={settings}
       /> : null}
-
+  </>;
+  return (
+    <>
       <SimulationControlPanel
+        settingsContent={pregameSettings}
         replayMode={replayMode}
         draftMode={draftMode}
         evaluationMode={evaluationMode}
@@ -320,6 +328,7 @@ export default function SimulationMainStage({
         onAutoSpeedChange={updateAutoSpeed}
         speedDisabled={loading || isGameOver}
       />
+      {battlefield}
     </>
   );
 }

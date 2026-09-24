@@ -351,8 +351,8 @@ assert.match(pageSource, /eventFeedback=\{eventFeedback\}/, '최신 사건 프�
 assert.match(gameScreenSource, /<SimulationEventFeedbackBar feedback=\{eventFeedback\}/, '게임 화면은 주요 사건 결과 바를 렌더링해야 합니다.');
 assert.match(eventBarSource, /<GameActionIcon action=\{feedback\.action/, '주요 사건 결과 바는 전용 아이콘을 사용해야 합니다.');
 assert.match(eventBarSource, /role="status"/, '주요 사건 결과 바는 접근 가능한 상태 영역이어야 합니다.');
-assert.match(screenHeaderSource, /data-game-sfx="off"/, '상단 페이즈 진행 버튼은 선행 클릭음을 재생하면 안 됩니다.');
-assert.match(controlPanelSource, /data-game-sfx="off"/, '하단 페이즈 진행 버튼은 선행 클릭음을 재생하면 안 됩니다.');
+assert.doesNotMatch(screenHeaderSource, /sim-header-proceed|onProceed/, '화면 헤더가 진행 버튼을 중복 제공하면 안 됩니다.');
+assert.match(controlPanelSource, /data-game-sfx="off"/, '단일 진행 버튼은 선행 클릭음을 재생하면 안 됩니다.');
 
 const resultDrivenMarketControls = [
   [marketCraftSource, 'market-craft', '조합'],

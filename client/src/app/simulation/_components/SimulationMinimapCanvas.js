@@ -130,6 +130,7 @@ function MinimapPassage({ segment, supplemental = false }) {
 
 export default function SimulationMinimapCanvas({
   expanded = false,
+  fitViewport = false,
   zoomed = false,
   trackedActorIds = [],
   activeMapId,
@@ -148,13 +149,14 @@ export default function SimulationMinimapCanvas({
 }) {
   const [openedZoneId, setOpenedZoneId] = useState('');
   const viewportRef = useRef(null);
+  const useViewport = expanded || fitViewport;
   useLayoutEffect(() => {
-    if (!expanded || !viewportRef.current) return;
+    if (!useViewport || !viewportRef.current) return;
     const viewport = viewportRef.current;
     // Zoom toward the island centre, not the empty upper-left letterbox.
     viewport.scrollLeft = zoomed ? (viewport.scrollWidth - viewport.clientWidth) / 2 : 0;
     viewport.scrollTop = zoomed ? (viewport.scrollHeight - viewport.clientHeight) / 2 : 0;
-  }, [expanded, zoomed]);
+  }, [useViewport, zoomed]);
   const rawClipId = useId();
   const islandClipId = `simulation-minimap-boundary-${String(rawClipId).replace(/:/g, '')}`;
   const sourcePositions = zonePos && typeof zonePos === 'object' ? zonePos : EMPTY_ZONE_POSITIONS;
@@ -320,8 +322,8 @@ export default function SimulationMinimapCanvas({
         })}
         {!safeArray(aliveByZone[openedZoneId]).length ? <p>현재 이 지역에 생존자가 없습니다.</p> : null}
       </div> : null}
-      <div ref={viewportRef} className={expanded ? `minimap-viewport${zoomed ? ' is-zoomed' : ''}` : 'minimap-inline-surface'}
-        tabIndex={expanded ? 0 : undefined} role={expanded ? 'region' : undefined} aria-label={expanded ? '확대 전장 지도' : undefined}>
+      <div ref={viewportRef} className={useViewport ? `minimap-viewport${zoomed ? ' is-zoomed' : ''}` : 'minimap-inline-surface'}
+        tabIndex={useViewport ? 0 : undefined} role={useViewport ? 'region' : undefined} aria-label={useViewport ? (expanded ? '확대 전장 지도' : '전장 지도') : undefined}>
       <div className="minimap-map-content">
       <svg
         className="minimap-svg"
