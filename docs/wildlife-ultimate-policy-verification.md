@@ -29,6 +29,10 @@
 
 관련 파일: `characterCastRuntime.js`, `check-wildlife-combat.mjs`, `check-character-casting-match.mjs`. 전체 목표의 다른 미완료 항목과 사람의 수용성 평가는 그대로 남는다.
 
+### 2026-09-24 현재 소스 재확인
+
+소스 `43310d6c`, 엔진 `e4347eb3…`에서 사냥 집중 검사 26/26을 다시 실행했다. 일반/변이 동물·알파·오메가·위클라인의 R 시전 및 비용 사용 금지, 자신/아군 지원 R·재시전·PvP에서 준비한 강화 공격의 사냥 보존, 이후 실제 적 팀 교전에서의 시전/피해를 확인했다. `characterCastRuntime.js`의 R 상대 후보 필터와 강화 소모 보호도 유지된다. 이번에는 정책을 새로 바꾸지 않았으며 위 160개 전체 인접 회귀·24인 R 전용 경기·빌드를 다시 실행했다는 주장이 아니다.
+
 24인 검사는 Q/W와 공격/지원 R을 명시한 시험 입력이다. 기본 게스트 경기만으로 R 경로를 검증했다고 하지 않는다. 사건 해시 `a4fdb9dd41fb166e1261ab1242dfacd05ccb90072dccf82ab67e623ec098a839`, 프레임 해시 `0c845c8dbe71e4483a7a58cf9404c6d5be50a8c83da5637c7b1dbb5cfa10fd76`.
 
 공개 배포: https://vercel.com/kurokosis-projects/eternal-hunger/8Fa3TMXy73CkpuKPby7g2QicZp1A . 이미 열려 있는 경기의 실행 코드를 도중에 바꾸지 않는다. 진행 중 경기를 마친 뒤 새로고침하고 시작하는 새 경기에 적용된다. 로컬 3107도 최신 프로덕션 빌드로 다시 시작하여 GAME READY와 오류 0을 확인했다. 기존 편성/장비/보관 기록을 삭제하지 않았다.
