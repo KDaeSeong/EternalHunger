@@ -1,0 +1,115 @@
+{
+  "schema": "eh-observer-frame-yield-browser-evidence.v1",
+  "date": "2026-09-24",
+  "sourceBaseCommit": "53fabaf9b04ac155d4b7106ded93056b696dc0d5",
+  "engine": "658f658217f6acf8ef43d8e0d5a81d99fd5344cb24a390a558ee63b7f83b1604",
+  "conditions": {
+    "environment": "Windows Codex in-app Chromium; local production port 3107",
+    "viewport": "1280x720",
+    "map": "built-in Lumia; 21 zones",
+    "roster": "locally saved custom 24 participants; 8 teams",
+    "seed": "1101",
+    "skills": true,
+    "speed": "x1 from start to finish",
+    "observer": "team 1, then team 6, then team 7",
+    "originalSavedAtLocal": "2026-09-24 17:50:10 Asia/Seoul",
+    "heavyCommandsDuringTimedRun": false,
+    "pageReloadDuringOrBeforeThisReplay": false,
+    "forcedGc": false,
+    "sequencing": "Continue the existing production browser session after the earlier x32 original and x8/x32 replays. Restore the latest original through the archive; start the probe before Auto and stop after dismissing the result. No engine changes during the measurement.",
+    "scope": "Elapsed includes setup/post-completion dwell, not pure execution time. RAF is not painted FPS; input is click-to-next-RAF, not INP or presentation completion. Diagnostic excerpt, not a full trace. Work stages are nested and not additive. A different-speed replay is not the same-condition three-replay memory gate."
+  },
+  "measurement": {
+    "label": "658f-full-replay-x1-20260924",
+    "elapsedMs": 1162018.6,
+    "raf": {
+      "samples": 115898,
+      "fps": 99.739,
+      "intervalMs": { "median": 10, "p95": 10.1, "max": 170.1 }
+    },
+    "longTasks": { "supported": true, "count": 34, "totalMs": 2814, "maxMs": 155 },
+    "longAnimationFrames": {
+      "supported": true,
+      "count": 39,
+      "totalDurationMs": 3234.6,
+      "maxDurationMs": 166.6,
+      "maxWorkMs": 166.5,
+      "maxRenderMs": 1,
+      "maxStyleAndLayoutMs": 0.2,
+      "maxBlockingMs": 105.9,
+      "slowestExcerpt": [{
+        "startOffsetMs": 604,
+        "durationMs": 166.6,
+        "workMs": 166.5,
+        "renderMs": 0.1,
+        "styleAndLayoutMs": 0,
+        "blockingMs": 105.9,
+        "scriptCount": 1,
+        "scripts": [{
+          "durationMs": 155.8,
+          "invoker": "Scheduler.yield.then",
+          "invokerType": "resolve-promise",
+          "sourceURL": "http://127.0.0.1:3107/_next/static/chunks/5700-b2411b70e8102500.js",
+          "sourceFunctionName": "",
+          "sourceCharPosition": 578155,
+          "windowAttribution": "self",
+          "forcedStyleAndLayoutMs": 0,
+          "pauseMs": 0
+        }]
+      }]
+    },
+    "workBreakdown": {
+      "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+      "stages": [
+        { "name": "start.captureInput", "count": 1, "totalMs": 3.1, "maxMs": 3.1, "maxStartOffsetMs": 508.2 },
+        { "name": "start.prepareInput", "count": 1, "totalMs": 4.2, "maxMs": 4.2, "maxStartOffsetMs": 511.3 },
+        { "name": "phase.fieldResources", "count": 10, "totalMs": 33.7, "maxMs": 33.7, "maxStartOffsetMs": 516.7 },
+        { "name": "phase.starterLoadout", "count": 10, "totalMs": 18.3, "maxMs": 18.3, "maxStartOffsetMs": 550.4 },
+        { "name": "phase.setup", "count": 10, "totalMs": 68.5, "maxMs": 53.8, "maxStartOffsetMs": 516.2 },
+        { "name": "growth.refreshPlans", "count": 58, "totalMs": 223.8, "maxMs": 14.1, "maxStartOffsetMs": 562903.8 },
+        { "name": "growth.teamCoordination", "count": 58, "totalMs": 151.5, "maxMs": 11.7, "maxStartOffsetMs": 542042.4 },
+        { "name": "growth.allActors", "count": 58, "totalMs": 3348.9, "maxMs": 155.3, "maxStartOffsetMs": 614.8 }
+      ]
+    },
+    "inputResponse": { "supported": true, "samples": 10, "lastMs": 10, "maxMs": 10 },
+    "heap": {
+      "supported": true,
+      "baselineUsedBytes": 36375650,
+      "usedBytes": 49596639,
+      "deltaUsedBytes": 13220989,
+      "totalBytes": 119568767,
+      "limitBytes": 4395630592
+    },
+    "domNodes": 654,
+    "visibilityState": "visible"
+  },
+  "observations": {
+    "endTime": "18:14.25",
+    "winnerTeam": 7,
+    "survivorsInWinnerTeam": "2/3",
+    "rewardLp": 0,
+    "replayComparison": "All 5851 events, final state and ending exactly match the original",
+    "liveUiActions": [
+      "Select team 6 and later team 7",
+      "Expand and collapse team 6 recent events",
+      "Match overview -> all logs -> kills -> combat details -> summary -> team observer"
+    ],
+    "inputSampleScope": "10 captured clicks; native selectOption changes are not asserted to be captured clicks",
+    "archiveBefore": 8,
+    "archiveAfter": 8,
+    "originalPreserved": true,
+    "olderSevenRecordsStillCompatibilityGuarded": true,
+    "consoleWarningErrorCount": 0,
+    "humanEvaluationEntered": false,
+    "probeStopped": true,
+    "diagnosticJsonCollapsedAfterCapture": true,
+    "naturalResourceEvidenceBoundary": "Team 6 Daon collected a Tree of Life at Stream at 10:00 while following an equipment-material route to Factory. This does not establish a Tree of Life pursuit card or close the natural-objective UI gate."
+  },
+  "decision": {
+    "longTaskBelow200MsForThisRun": true,
+    "latestX1FullReplayVerified": true,
+    "sameConditionThreeReplayMemoryGate": "pending",
+    "memoryLeakOrAbsenceEstablished": false,
+    "wholeGoalComplete": false
+  }
+}
