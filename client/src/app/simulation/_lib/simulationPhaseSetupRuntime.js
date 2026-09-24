@@ -8,6 +8,7 @@ import { normalizeRuntimeSurvivorList } from './simulationEngine';
 import { ensureFieldResources } from './fieldResourceRuntime';
 import { applyFinalNightDetonationBonus, normalizeDetonationTimer } from './detonationTimerRuntime.js';
 import { isEndgamePhase } from './suddenDeathRuntime.js';
+import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
 
 export function runSimulationPhaseSetup({
   actions = {},
@@ -170,10 +171,10 @@ export function runSimulationPhaseSetup({
     },
   });
 
-  ensureFieldResources(nextSpawn, mapObj, publicItems, ruleset);
+  measureObserverWork('phase.fieldResources', () => ensureFieldResources(nextSpawn, mapObj, publicItems, ruleset));
   nextSpawn.endgame = forbiddenRuntime.endgame;
 
-  let phaseSurvivors = buildStarterLoadoutSurvivorsForPhase({
+  let phaseSurvivors = measureObserverWork('phase.starterLoadout', () => buildStarterLoadoutSurvivorsForPhase({
     refs: {
       startStarterLoadoutAppliedRef,
     },
@@ -187,7 +188,7 @@ export function runSimulationPhaseSetup({
     actions: {
       addLog,
     },
-  });
+  }));
 
   if (revivalRuntime.revivedNow.length) {
     phaseSurvivors = [...phaseSurvivors, ...revivalRuntime.revivedNow];

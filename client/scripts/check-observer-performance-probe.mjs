@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const { createObserverPerformanceProbe } = await import('../src/app/simulation/_lib/observerPerformanceRuntime.js');
+const { measureObserverWork, subscribeObserverWorkMeasurements } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
 const panelSource = readFileSync(new URL('../src/app/simulation/_components/SimulationObserverPerformancePanel.js', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../src/styles/ERSimulation.css', import.meta.url), 'utf8');
 let checks = 0;
 const check = (name, run) => { run(); checks += 1; console.log(`PASS ${name}`); };
 
-function harness({ observeThrows = false } = {}) {
+function harness({ observeThrows = false, animationFrames = false, animationObserveThrows = false } = {}) {
   let now = 0, serial = 0;
   const callbacks = new Map(), timers = new Map(), observers = [];
   const performanceRef = { now: () => now, timeOrigin: 1000000,
@@ -17,8 +18,12 @@ function harness({ observeThrows = false } = {}) {
     cancelAnimationFrame: (id) => callbacks.delete(id),
     setTimeout: (callback) => { timers.set(++serial, callback); return serial; }, clearTimeout: (id) => timers.delete(id) };
   class PerformanceObserverRef {
+    static supportedEntryTypes = animationFrames ? ['longtask', 'long-animation-frame'] : ['longtask'];
     constructor(callback) { this.callback = callback; this.queued = []; this.disconnected = false; observers.push(this); }
-    observe() { if (observeThrows) throw new Error('Long tasks not supported.'); }
+    observe({ type }) {
+      this.type = type;
+      if (observeThrows || type === 'long-animation-frame' && animationObserveThrows) throw new Error('Observation unavailable.');
+    }
     takeRecords() { return this.queued.splice(0); }
     disconnect() { this.disconnected = true; }
   }
@@ -172,6 +177,121 @@ check('automatic stop and observer initialization failure release their schedule
   h.probe.recordInput(0);
   h.setNow(1000); [...h.timers.values()][0]();
   assert.equal(h.probe.isRunning(), false); assert.equal(h.callbacks.size, 0); assert.equal(h.timers.size, 0);
+});
+
+check('long animation frames distinguish work, render, layout and script entrypoints without replacing long tasks', () => {
+  const h = harness({ animationFrames: true }); h.setNow(100); h.probe.start();
+  const observer = h.observers.find((row) => row.type === 'long-animation-frame');
+  assert.ok(observer, 'Use a separately feature-detected long-animation-frame observer.');
+  observer.callback({ getEntries: () => [{ startTime: 150, duration: 300, renderStart: 350,
+    styleAndLayoutStart: 400, blockingDuration: 220,
+    scripts: [{ startTime: 160, duration: 180, executionStart: 165, forcedStyleAndLayoutDuration: 3,
+      invoker: 'Window.setTimeout', invokerType: 'user-callback', sourceFunctionName: 'advance',
+      sourceURL: 'http://localhost:3107/_next/chunk.js?private=value#fragment', sourceCharPosition: 123,
+      windowAttribution: 'self', window: { cyclic: true } }] }] });
+  h.setNow(450);
+  const result = h.probe.stop(), frames = result.longAnimationFrames;
+  assert.equal(frames.supported, true); assert.equal(frames.count, 1);
+  assert.equal(frames.maxDurationMs, 300); assert.equal(frames.maxWorkMs, 200);
+  assert.equal(frames.maxRenderMs, 100); assert.equal(frames.maxStyleAndLayoutMs, 50);
+  assert.equal(frames.maxBlockingMs, 220);
+  assert.equal(frames.slowest[0].startOffsetMs, 50);
+  assert.equal(frames.slowest[0].scripts[0].sourceFunctionName, 'advance');
+  assert.equal(frames.slowest[0].scripts[0].sourceURL, 'http://localhost:3107/_next/chunk.js');
+  assert.equal(frames.slowest[0].scripts[0].forcedStyleAndLayoutMs, 3);
+  assert.equal('window' in frames.slowest[0].scripts[0], false);
+  assert.deepEqual(result.longTasks, { supported: true, count: 0, totalMs: 0, maxMs: null });
+  assert.equal(observer.disconnected, true);
+});
+
+check('animation attribution is bounded but totals and the first peak span the whole session', () => {
+  const h = harness({ animationFrames: true }); h.probe.start();
+  const observer = h.observers.find((row) => row.type === 'long-animation-frame');
+  assert.ok(observer);
+  const scripts = Array.from({ length: 12 }, (_, index) => ({ duration: 10 + index,
+    sourceFunctionName: 'x'.repeat(2000), invoker: 'x'.repeat(2000) }));
+  observer.callback({ getEntries: function* () {
+    for (let i = 0; i < 200000; i++) yield { startTime: i * 1000, duration: i === 0 ? 950 : 60,
+      renderStart: 0, styleAndLayoutStart: 0, blockingDuration: i === 0 ? 900 : 10,
+      scripts };
+  } });
+  const frames = h.probe.stop().longAnimationFrames;
+  assert.equal(frames.count, 200000); assert.equal(frames.totalDurationMs, 12000890);
+  assert.equal(frames.maxDurationMs, 950); assert.equal(frames.maxWorkMs, 950);
+  assert.equal(frames.maxRenderMs, 0); assert.equal(frames.maxStyleAndLayoutMs, 0);
+  assert.equal(frames.slowest.length, 8); assert.equal(frames.slowest[0].durationMs, 950);
+  assert.equal(frames.slowest[0].scriptCount, 12); assert.equal(frames.slowest[0].scripts.length, 8);
+  assert.equal(frames.slowest[0].scripts[0].durationMs, 21);
+  assert.equal(frames.slowest[0].scripts[0].sourceFunctionName.length, 512);
+  assert.equal(frames.slowest[0].scripts[0].invoker.length, 512);
+});
+
+check('animation frame records are drained at stop, owned in snapshots and excluded across restarts', () => {
+  const h = harness({ animationFrames: true }); h.setNow(100); h.probe.start();
+  const old = h.observers.find((row) => row.type === 'long-animation-frame');
+  assert.ok(old);
+  old.callback({ getEntries: () => [{ startTime: 50, duration: 900 }, { startTime: NaN, duration: 900 },
+    { startTime: 110, duration: -1 }, { startTime: 110, duration: Infinity }] });
+  old.queued.push({ startTime: 110, duration: 75, renderStart: 0,
+    scripts: [{ duration: 60, sourceFunctionName: 'original' }] });
+  assert.equal(h.probe.stop().longAnimationFrames.count, 1);
+  h.setNow(2000); h.probe.start();
+  old.callback({ getEntries: () => [{ startTime: 2010, duration: 999 }] });
+  assert.equal(h.probe.snapshot().longAnimationFrames.count, 0);
+  const current = h.observers.filter((row) => row.type === 'long-animation-frame').at(-1);
+  current.callback({ getEntries: () => [{ startTime: 2010, duration: 80,
+    scripts: [{ duration: 60, sourceFunctionName: 'original' }] }] });
+  const snapshot = h.probe.snapshot();
+  snapshot.longAnimationFrames.slowest[0].scripts[0].sourceFunctionName = 'mutated';
+  snapshot.longAnimationFrames.slowest.length = 0;
+  const result = h.probe.stop();
+  assert.equal(result.longAnimationFrames.slowest[0].scripts[0].sourceFunctionName, 'original');
+  assert.equal(h.callbacks.size, 0); assert.equal(current.disconnected, true);
+});
+
+check('unsupported or failed animation attribution does not disable the long-task acceptance metric', () => {
+  for (const options of [{}, { animationFrames: true, animationObserveThrows: true }]) {
+    const h = harness(options); h.probe.start();
+    assert.equal(h.probe.snapshot().longAnimationFrames.supported, false);
+    assert.equal(h.probe.snapshot().longTasks.supported, true);
+    h.observers[0].callback({ getEntries: () => [{ startTime: 1, duration: 250 }] });
+    assert.equal(h.probe.stop().longTasks.maxMs, 250);
+    assert.ok(h.observers.every((observer) => observer.disconnected));
+  }
+});
+
+check('optional work timings retain result identity and the original thrown error', () => {
+  const h = harness(); const value = {}, failure = new Error('work failure');
+  assert.equal(measureObserverWork('disabled', () => value), value);
+  h.probe.start();
+  assert.equal(measureObserverWork('prepare', () => { h.setNow(20); return value; }), value);
+  assert.throws(() => measureObserverWork('prepare', () => { h.setNow(50); throw failure; }), (error) => error === failure);
+  const result = h.probe.stop();
+  assert.deepEqual(result.workBreakdown.stages, [{ name: 'prepare', count: 2, totalMs: 50, maxMs: 30, maxStartOffsetMs: 20 }]);
+  measureObserverWork('after-stop', () => value);
+  assert.equal(result.workBreakdown.stages.length, 1);
+});
+
+check('work breakdown uses bounded names, owned snapshots and a restarted baseline', () => {
+  const h = harness(); h.probe.start();
+  for (let index = 0; index < 100; index++) measureObserverWork(`stage-${index}-${'x'.repeat(200)}`, () => h.setNow(index + 1));
+  const result = h.probe.snapshot();
+  assert.equal(result.workBreakdown.stages.length, 24);
+  assert.equal(result.workBreakdown.stages[0].name.length, 80);
+  result.workBreakdown.stages[0].maxMs = 999;
+  assert.equal(h.probe.snapshot().workBreakdown.stages[0].maxMs, 1);
+  h.probe.start(); assert.deepEqual(h.probe.stop().workBreakdown.stages, []);
+});
+
+check('diagnostic clock/callback failures cannot replace game results and stale disposal cannot cancel a new recorder', () => {
+  const value = {}, captured = [];
+  let dispose = subscribeObserverWorkMeasurements(() => { throw new Error('clock failure'); }, () => {});
+  assert.equal(measureObserverWork('clock-failed', () => value), value); dispose();
+  dispose = subscribeObserverWorkMeasurements(() => 1, () => { throw new Error('recorder failure'); });
+  assert.equal(measureObserverWork('callback-failed', () => value), value);
+  const newerDispose = subscribeObserverWorkMeasurements(() => 2, (entry) => captured.push(entry));
+  dispose(); measureObserverWork('newer', () => value); newerDispose();
+  assert.equal(captured.length, 1); assert.equal(captured[0].name, 'newer');
 });
 
 check('panel is query-gated and exposes accessible controls and JSON output', () => {

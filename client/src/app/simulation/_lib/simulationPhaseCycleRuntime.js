@@ -17,6 +17,7 @@ import { createSeedRng } from './randomSeedRuntime';
 import { getActiveSimulationRandom, runSimulationSteps } from '../../../utils/simulationRandom.js';
 import { advanceTimedWildlifeEffects, getWildlifeCombatRoster } from './wildlifeCombatRuntime.js';
 import { requestSimulationMainThreadYield } from './simulationCooperativeYieldRuntime.js';
+import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
 
 const HYPERLOOP_DELAY_SEC = 3;
 
@@ -152,12 +153,12 @@ function* simulationPhaseSteps({
     tickSec,
     useDetonation,
     wipeProtectionCutoffIdx,
-  } = runSimulationPhaseSetup({
+  } = measureObserverWork('phase.setup', () => runSimulationPhaseSetup({
     actions: runtimeActions,
     helpers,
     refs,
     state,
-  });
+  }));
   let earnedCredits = baseCredits;
   let pendingPickAssigned = false;
   let timelineActionSec = null;
@@ -186,7 +187,7 @@ function* simulationPhaseSteps({
     setDead: runtimeActions.setDead,
   });
   const movePowerContext = { ruleset, battleSettings };
-  const runGrowthActions = (roster) => runPhaseActorActionPipeline({
+  const runGrowthActions = (roster) => measureObserverWork('growth.allActors', () => runPhaseActorActionPipeline({
     state: {
       actionIntervalSec,
       statusElapsedSec: 0,
@@ -240,7 +241,7 @@ function* simulationPhaseSteps({
       setDeathMetadata,
       setPendingTranscendPick,
     },
-  });
+  }));
   let updatedSurvivors = phaseSurvivors;
   const getRiftRevivalContext = () => ({ canReviveThisMatch, reviveCfg: ruleset?.revive || {},
     dead: [...currentDead, ...phaseDeadSnapshots], rosterComplete: true });

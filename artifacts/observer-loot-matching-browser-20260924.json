@@ -1,0 +1,538 @@
+{
+  "schema": "eh-observer-loot-matching-browser-evidence.v1",
+  "date": "2026-09-24",
+  "conditions": {
+    "environment": "Windows Codex in-app Chromium, local production port 3107",
+    "viewport": "1280x720",
+    "map": "built-in Lumia, 21 zones",
+    "roster": "locally saved custom 24 participants, 8 teams",
+    "seed": "1101",
+    "skills": true,
+    "scope": "Two pre-fix first-phase diagnostics end at displayed 02:20. Final e434 original and replay complete at 18:14.25. Only the two slowest LoAF entries are retained as diagnostic excerpts, not a complete trace. Nested work stages are not additive; RAF is not painted FPS, input is click-to-next-RAF, heap is not a GC or leak verdict.",
+    "heavyCommandsDuringTimedRuns": false
+  },
+  "measurements": [
+    {
+      "label": "1f7b-attributed-first-phase-x32",
+      "engine": "1f7bead5ba84e5d3b365c53fecba50db4c9a6728daf25557bb379650dc9ba187",
+      "elapsedMs": 11077.3,
+      "raf": {
+        "samples": 921,
+        "fps": 83.143,
+        "intervalMs": {
+          "median": 10,
+          "p95": 20,
+          "max": 270
+        }
+      },
+      "longTasks": {
+        "supported": true,
+        "count": 9,
+        "totalMs": 1343,
+        "maxMs": 273
+      },
+      "longAnimationFrames": {
+        "supported": true,
+        "count": 10,
+        "totalDurationMs": 1452.2,
+        "maxDurationMs": 280.3,
+        "maxWorkMs": 279.8,
+        "maxRenderMs": 1.4,
+        "maxStyleAndLayoutMs": 0.3,
+        "maxBlockingMs": 223.8,
+        "slowest": [
+          {
+            "startOffsetMs": 270,
+            "durationMs": 280.3,
+            "workMs": 279.8,
+            "renderMs": 0.5,
+            "styleAndLayoutMs": 0.1,
+            "blockingMs": 223.8,
+            "script": {
+              "durationMs": 269.2,
+              "invoker": "#document.onclick",
+              "sourceURL": "http://127.0.0.1:3107/_next/static/chunks/4bd1b696-e5d7c65570c947b7.js",
+              "sourceFunctionName": "fT",
+              "sourceCharPosition": 188852,
+              "forcedStyleAndLayoutMs": 0
+            }
+          },
+          {
+            "startOffsetMs": 552.4,
+            "durationMs": 241.1,
+            "workMs": 240.7,
+            "renderMs": 0.4,
+            "styleAndLayoutMs": 0.3,
+            "blockingMs": 187.7,
+            "script": {
+              "durationMs": 237.3,
+              "invoker": "Scheduler.yield.then",
+              "sourceURL": "http://127.0.0.1:3107/_next/static/chunks/3477-3ad55f87a8f9499c.js",
+              "sourceFunctionName": "",
+              "sourceCharPosition": 575396,
+              "forcedStyleAndLayoutMs": 0
+            }
+          }
+        ]
+      },
+      "inputResponse": {
+        "samples": 1,
+        "lastMs": 1.1,
+        "maxMs": 1.1
+      },
+      "heap": {
+        "baselineUsedBytes": 19552548,
+        "usedBytes": 63706168,
+        "deltaUsedBytes": 44153620,
+        "totalBytes": 130528472,
+        "limitBytes": 4395630592
+      },
+      "domNodes": 765,
+      "visibilityState": "visible"
+    },
+    {
+      "label": "661f-stage-attribution-first-phase-x32",
+      "engine": "661f6667f9e118eb87d736bbb144c994f7d935e4aca986eeac8e3d3338b17873",
+      "elapsedMs": 11182.2,
+      "raf": {
+        "samples": 924,
+        "fps": 82.631,
+        "intervalMs": {
+          "median": 10,
+          "p95": 20,
+          "max": 270
+        }
+      },
+      "longTasks": {
+        "supported": true,
+        "count": 9,
+        "totalMs": 1337,
+        "maxMs": 280
+      },
+      "longAnimationFrames": {
+        "supported": true,
+        "count": 11,
+        "totalDurationMs": 1499.5,
+        "maxDurationMs": 282.9,
+        "maxWorkMs": 282.6,
+        "maxRenderMs": 1.2,
+        "maxStyleAndLayoutMs": 0.4,
+        "maxBlockingMs": 230.8,
+        "slowest": [
+          {
+            "startOffsetMs": 270.2,
+            "durationMs": 282.9,
+            "workMs": 282.6,
+            "renderMs": 0.3,
+            "styleAndLayoutMs": 0.1,
+            "blockingMs": 230.8,
+            "script": {
+              "durationMs": 276.4,
+              "invoker": "#document.onclick",
+              "sourceURL": "http://127.0.0.1:3107/_next/static/chunks/4bd1b696-e5d7c65570c947b7.js",
+              "sourceFunctionName": "fT",
+              "sourceCharPosition": 188852,
+              "forcedStyleAndLayoutMs": 0
+            }
+          },
+          {
+            "startOffsetMs": 555.2,
+            "durationMs": 242.6,
+            "workMs": 242,
+            "renderMs": 0.6,
+            "styleAndLayoutMs": 0.4,
+            "blockingMs": 189.9,
+            "script": {
+              "durationMs": 239.2,
+              "invoker": "Scheduler.yield.then",
+              "sourceURL": "http://127.0.0.1:3107/_next/static/chunks/5700-f4565a2f1dfdd42d.js",
+              "sourceFunctionName": "",
+              "sourceCharPosition": 578080,
+              "forcedStyleAndLayoutMs": 0
+            }
+          }
+        ]
+      },
+      "workBreakdown": {
+        "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+        "stages": [
+          {
+            "name": "start.captureInput",
+            "count": 1,
+            "totalMs": 3.8,
+            "maxMs": 3.8,
+            "maxStartOffsetMs": 321
+          },
+          {
+            "name": "start.prepareInput",
+            "count": 1,
+            "totalMs": 4,
+            "maxMs": 4,
+            "maxStartOffsetMs": 324.9
+          },
+          {
+            "name": "phase.fieldResources",
+            "count": 1,
+            "totalMs": 153.2,
+            "maxMs": 153.2,
+            "maxStartOffsetMs": 335.4
+          },
+          {
+            "name": "phase.starterLoadout",
+            "count": 1,
+            "totalMs": 20.4,
+            "maxMs": 20.4,
+            "maxStartOffsetMs": 488.7
+          },
+          {
+            "name": "phase.setup",
+            "count": 1,
+            "totalMs": 178.7,
+            "maxMs": 178.7,
+            "maxStartOffsetMs": 331.7
+          },
+          {
+            "name": "growth.refreshPlans",
+            "count": 7,
+            "totalMs": 11.2,
+            "maxMs": 4.4,
+            "maxStartOffsetMs": 561.5
+          },
+          {
+            "name": "growth.teamCoordination",
+            "count": 7,
+            "totalMs": 9.1,
+            "maxMs": 4.9,
+            "maxStartOffsetMs": 565.9
+          },
+          {
+            "name": "growth.allActors",
+            "count": 7,
+            "totalMs": 983.1,
+            "maxMs": 236.4,
+            "maxStartOffsetMs": 559.4
+          }
+        ]
+      },
+      "inputResponse": {
+        "samples": 1,
+        "lastMs": 7.3,
+        "maxMs": 7.3
+      },
+      "heap": {
+        "baselineUsedBytes": 19756358,
+        "usedBytes": 54117303,
+        "deltaUsedBytes": 34360945,
+        "totalBytes": 129459463,
+        "limitBytes": 4395630592
+      },
+      "domNodes": 751,
+      "visibilityState": "visible"
+    },
+    {
+      "label": "e434-loot-matching-original-x32",
+      "engine": "e4347eb310ab03d452abe9af6352af607deeebbd7b9719808979a964280cfdeb",
+      "completed": true,
+      "scope": "Includes manual idle after first phase, UI interactions and result modal dwell. Field resources=34ms and growth=159.3ms were already present in first-phase live snapshot.",
+      "ending": "18:14.25, team 7, 2/3 alive",
+      "finishedAtLocal": "2026-09-24 16:54:36 KST",
+      "elapsedMs": 97268.3,
+      "raf": {
+        "samples": 9221,
+        "fps": 94.8,
+        "intervalMs": {
+          "median": 10,
+          "p95": 10.1,
+          "max": 170
+        }
+      },
+      "longTasks": {
+        "supported": true,
+        "count": 35,
+        "totalMs": 3054,
+        "maxMs": 162
+      },
+      "longAnimationFrames": {
+        "supported": true,
+        "count": 44,
+        "totalDurationMs": 3781.9,
+        "maxDurationMs": 165.1,
+        "maxWorkMs": 164.6,
+        "maxRenderMs": 1.5,
+        "maxStyleAndLayoutMs": 0.4,
+        "maxBlockingMs": 112.8,
+        "slowest": [
+          {
+            "startOffsetMs": 423.5,
+            "durationMs": 165.1,
+            "workMs": 164.6,
+            "renderMs": 0.5,
+            "styleAndLayoutMs": 0.4,
+            "blockingMs": 112.8,
+            "script": {
+              "durationMs": 162.4,
+              "invoker": "Scheduler.yield.then",
+              "sourceURL": "http://127.0.0.1:3107/_next/static/chunks/5700-0f6618bbf3c829c5.js",
+              "sourceFunctionName": "",
+              "sourceCharPosition": 578155,
+              "forcedStyleAndLayoutMs": 0
+            }
+          },
+          {
+            "startOffsetMs": 260.4,
+            "durationMs": 161,
+            "workMs": 160.6,
+            "renderMs": 0.4,
+            "styleAndLayoutMs": 0.1,
+            "blockingMs": 104.1,
+            "script": {
+              "durationMs": 149.8,
+              "invoker": "#document.onclick",
+              "sourceURL": "http://127.0.0.1:3107/_next/static/chunks/4bd1b696-e5d7c65570c947b7.js",
+              "sourceFunctionName": "fT",
+              "sourceCharPosition": 188852,
+              "forcedStyleAndLayoutMs": 0
+            }
+          }
+        ]
+      },
+      "workBreakdown": {
+        "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+        "stages": [
+          {
+            "name": "start.captureInput",
+            "count": 1,
+            "totalMs": 3.5,
+            "maxMs": 3.5,
+            "maxStartOffsetMs": 311
+          },
+          {
+            "name": "start.prepareInput",
+            "count": 1,
+            "totalMs": 4.2,
+            "maxMs": 4.2,
+            "maxStartOffsetMs": 314.6
+          },
+          {
+            "name": "phase.fieldResources",
+            "count": 10,
+            "totalMs": 34,
+            "maxMs": 34,
+            "maxStartOffsetMs": 323.4
+          },
+          {
+            "name": "phase.starterLoadout",
+            "count": 10,
+            "totalMs": 19.7,
+            "maxMs": 19.7,
+            "maxStartOffsetMs": 357.4
+          },
+          {
+            "name": "phase.setup",
+            "count": 10,
+            "totalMs": 76.9,
+            "maxMs": 58.6,
+            "maxStartOffsetMs": 320.1
+          },
+          {
+            "name": "growth.refreshPlans",
+            "count": 58,
+            "totalMs": 238.3,
+            "maxMs": 14.9,
+            "maxStartOffsetMs": 64065.1
+          },
+          {
+            "name": "growth.teamCoordination",
+            "count": 58,
+            "totalMs": 170.5,
+            "maxMs": 20.5,
+            "maxStartOffsetMs": 49543.8
+          },
+          {
+            "name": "growth.allActors",
+            "count": 58,
+            "totalMs": 3543.2,
+            "maxMs": 159.3,
+            "maxStartOffsetMs": 427.2
+          }
+        ]
+      },
+      "inputResponse": {
+        "samples": 9,
+        "lastMs": 0.5,
+        "maxMs": 8.8
+      },
+      "heap": {
+        "baselineUsedBytes": 19903639,
+        "usedBytes": 41488515,
+        "deltaUsedBytes": 21584876,
+        "totalBytes": 47155423,
+        "limitBytes": 4395630592
+      },
+      "domNodes": 705,
+      "visibilityState": "visible",
+      "consoleWarningsAndErrors": 0,
+      "archiveRecords": 7
+    },
+    {
+      "label": "e434-loot-matching-full-replay-x32",
+      "engine": "e4347eb310ab03d452abe9af6352af607deeebbd7b9719808979a964280cfdeb",
+      "completed": true,
+      "scope": "Continuous auto replay from GAME READY; includes result modal dwell. Team observer remained selected and full map was visible after a small initial scroll.",
+      "ending": "18:14.25, team 7, 2/3 alive",
+      "elapsedMs": 111241.6,
+      "raf": {
+        "samples": 10728,
+        "fps": 96.439,
+        "intervalMs": {
+          "median": 10,
+          "p95": 10.1,
+          "max": 190
+        }
+      },
+      "longTasks": {
+        "supported": true,
+        "count": 35,
+        "totalMs": 2936,
+        "maxMs": 154
+      },
+      "longAnimationFrames": {
+        "supported": true,
+        "count": 41,
+        "totalDurationMs": 3512.6,
+        "maxDurationMs": 200.6,
+        "maxWorkMs": 200.5,
+        "maxRenderMs": 0.8,
+        "maxStyleAndLayoutMs": 0.5,
+        "maxBlockingMs": 105.6,
+        "slowest": [
+          {
+            "startOffsetMs": 363.9,
+            "durationMs": 200.6,
+            "workMs": 200.5,
+            "renderMs": 0.1,
+            "styleAndLayoutMs": 0,
+            "blockingMs": 99.3,
+            "scripts": [
+              {
+                "durationMs": 130,
+                "invoker": "Scheduler.yield.then",
+                "sourceURL": "http://127.0.0.1:3107/_next/static/chunks/5700-0f6618bbf3c829c5.js",
+                "sourceFunctionName": "",
+                "sourceCharPosition": 578155,
+                "forcedStyleAndLayoutMs": 0
+              },
+              {
+                "durationMs": 69.3,
+                "invoker": "TimerHandler:setTimeout",
+                "sourceURL": "http://127.0.0.1:3107/_next/static/chunks/5700-0f6618bbf3c829c5.js",
+                "sourceFunctionName": "",
+                "sourceCharPosition": 814897,
+                "forcedStyleAndLayoutMs": 0
+              }
+            ]
+          },
+          {
+            "startOffsetMs": 73459.9,
+            "durationMs": 168.4,
+            "workMs": 167.7,
+            "renderMs": 0.7,
+            "styleAndLayoutMs": 0.4,
+            "blockingMs": 105.6,
+            "script": {
+              "durationMs": 154.8,
+              "invoker": "Scheduler.yield.then",
+              "sourceURL": "http://127.0.0.1:3107/_next/static/chunks/5700-0f6618bbf3c829c5.js",
+              "sourceFunctionName": "",
+              "sourceCharPosition": 578155,
+              "forcedStyleAndLayoutMs": 0
+            }
+          }
+        ]
+      },
+      "workBreakdown": {
+        "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+        "stages": [
+          {
+            "name": "start.captureInput",
+            "count": 1,
+            "totalMs": 3.7,
+            "maxMs": 3.7,
+            "maxStartOffsetMs": 364.9
+          },
+          {
+            "name": "start.prepareInput",
+            "count": 1,
+            "totalMs": 5.5,
+            "maxMs": 5.5,
+            "maxStartOffsetMs": 368.6
+          },
+          {
+            "name": "phase.fieldResources",
+            "count": 10,
+            "totalMs": 35.2,
+            "maxMs": 35.2,
+            "maxStartOffsetMs": 375.4
+          },
+          {
+            "name": "phase.starterLoadout",
+            "count": 10,
+            "totalMs": 21.5,
+            "maxMs": 21.5,
+            "maxStartOffsetMs": 410.6
+          },
+          {
+            "name": "phase.setup",
+            "count": 10,
+            "totalMs": 75,
+            "maxMs": 58.1,
+            "maxStartOffsetMs": 374.8
+          },
+          {
+            "name": "growth.refreshPlans",
+            "count": 58,
+            "totalMs": 237.1,
+            "maxMs": 14.9,
+            "maxStartOffsetMs": 35958.6
+          },
+          {
+            "name": "growth.teamCoordination",
+            "count": 58,
+            "totalMs": 165.8,
+            "maxMs": 12.9,
+            "maxStartOffsetMs": 38816.4
+          },
+          {
+            "name": "growth.allActors",
+            "count": 58,
+            "totalMs": 3432.3,
+            "maxMs": 138.2,
+            "maxStartOffsetMs": 38801.7
+          }
+        ]
+      },
+      "inputResponse": {
+        "samples": 2,
+        "lastMs": 1.4,
+        "maxMs": 1.4
+      },
+      "heap": {
+        "baselineUsedBytes": 33984232,
+        "usedBytes": 41577142,
+        "deltaUsedBytes": 7592910,
+        "totalBytes": 45851122,
+        "limitBytes": 4395630592
+      },
+      "domNodes": 673,
+      "visibilityState": "visible",
+      "comparison": {
+        "events": 5851,
+        "matched": true,
+        "finalStateMatched": true,
+        "endingMatched": true
+      },
+      "consoleWarningsAndErrors": 0,
+      "archiveRecordsAfterReplay": 7
+    }
+  ]
+}

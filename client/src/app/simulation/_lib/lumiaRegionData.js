@@ -904,23 +904,25 @@ function itemNameCandidates(item) {
     .filter(Boolean);
 }
 
-function matchNameScore(item, regionName) {
-  const target = normalizeMatchKey(regionName);
+function itemNameMatchKeys(item) {
+  // One call-local normalization pass, not one pass per item/region-name pair.
+  // Do not cache mutable custom items across calls or matches.
+  return itemNameCandidates(item).map(normalizeMatchKey).filter(Boolean);
+}
+
+function matchNameScore(keys, target) {
   if (!target) return 0;
   let best = 0;
-  for (const name of itemNameCandidates(item)) {
-    const key = normalizeMatchKey(name);
-    if (!key) continue;
+  for (const key of keys) {
     if (key === target) best = Math.max(best, 10);
     else if (key.includes(target) || target.includes(key)) best = Math.max(best, 6);
   }
   return best;
 }
 
-function regionItemMatchScore(item, region) {
-  if (!item || !region) return 0;
+function regionItemMatchScore(keys, searchKeys) {
   let best = 0;
-  for (const name of region.searchNames || []) best = Math.max(best, matchNameScore(item, name));
+  for (const key of searchKeys) best = Math.max(best, matchNameScore(keys, key));
   return best;
 }
 
@@ -930,15 +932,17 @@ function getRegionZoneWeightsForItem(item, zones, forbiddenIds) {
     ? zones.map((z) => canonicalZoneId(z?.zoneId || z?.id || z?.name)).filter(Boolean)
     : LUMIA_REGION_DATA.map((z) => z.zoneId);
   const out = new Map();
+  const keys = itemNameMatchKeys(item);
+  if (!keys.length) return out;
   for (const zoneId0 of zoneIds) {
     const zoneId = canonicalZoneId(zoneId0);
     if (!zoneId || forb.has(zoneId)) continue;
     const region = getRegionData(zoneId);
     if (!region) continue;
-    const score = regionItemMatchScore(item, region);
+    const score = regionItemMatchScore(keys, (region.searchNames || []).map(normalizeMatchKey));
     if (score <= 0) continue;
     const resourceBonus = Object.entries(region.resources || {}).reduce((sum, [name, count]) => {
-      return sum + (matchNameScore(item, name) > 0 ? Math.min(5, Number(count || 0)) : 0);
+      return sum + (matchNameScore(keys, normalizeMatchKey(name)) > 0 ? Math.min(5, Number(count || 0)) : 0);
     }, 0);
     out.set(zoneId, score + resourceBonus);
   }
@@ -952,12 +956,13 @@ function listRegionLootCandidates(zoneId, publicItems, opts = {}) {
   const goalItemIds = new Set((Array.isArray(opts.goalItemIds) ? opts.goalItemIds : []).map(String));
   const routeItemIds = new Set((Array.isArray(opts.routeItemIds) ? opts.routeItemIds : []).map(String));
   const filterItem = typeof opts.filterItem === 'function' ? opts.filterItem : null;
+  const searchKeys = (region.searchNames || []).map(normalizeMatchKey);
   return list
     .map((item) => {
       if (!item?._id) return null;
       if (isItemExcludedFromFieldFarming(item)) return null;
       if (filterItem && !filterItem(item)) return null;
-      const score = regionItemMatchScore(item, region);
+      const score = regionItemMatchScore(itemNameMatchKeys(item), searchKeys);
       if (score <= 0) return null;
       const itemId = String(item._id);
       let weight = score;

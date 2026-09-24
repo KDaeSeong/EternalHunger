@@ -9,6 +9,7 @@ import { refreshActorGrowthPlan, getActorGrowthCraftGoal } from './growthPlanRun
 import { getCombatIntentOpponents } from './combatTimingRuntime.js';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import { getCombatSpaceId } from '../../../utils/combatSpaceLogic.js';
+import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
 
 function buildBaseZonePopulation(phaseSurvivors, combatSpaceId) {
   const baseZonePop = {};
@@ -57,8 +58,8 @@ export function runPhaseActorActionPipeline({
     .map((spaceId) => [spaceId, buildBaseZonePopulation(roster, spaceId)]));
   // Every member plans from the same pre-action roster, not a partly moved team.
   const movementRoster = cloneMovementRosterForPlanning(roster);
-  movementRoster.forEach((actor) => refreshActorGrowthPlan(actor, publicItems, state));
-  const { movementPlans: teamMovementPlans, regroupDecisions } = buildTeamCoordination({
+  measureObserverWork('growth.refreshPlans', () => movementRoster.forEach((actor) => refreshActorGrowthPlan(actor, publicItems, state)));
+  const { movementPlans: teamMovementPlans, regroupDecisions } = measureObserverWork('growth.teamCoordination', () => buildTeamCoordination({
     roster: movementRoster, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds,
     day: nextDay, phase: nextPhase, isSoloMatch: state.isSoloMatch,
     spawnState: state.nextSpawn, ruleset, publicItems,
@@ -74,7 +75,7 @@ export function runPhaseActorActionPipeline({
       day: nextDay, phase: nextPhase, kiosks: state.kiosks, itemMetaById, itemNameById,
       nowSec: state.currentActionSec?.(), ruleset, isSoloMatch: state.isSoloMatch,
     }),
-  });
+  }));
   const newlyDead = [];
   let pendingPickAssigned = initialPendingPickAssigned;
 

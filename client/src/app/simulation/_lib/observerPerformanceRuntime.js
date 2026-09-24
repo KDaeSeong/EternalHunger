@@ -1,7 +1,12 @@
+import { subscribeObserverWorkMeasurements } from './observerWorkMeasurementRuntime.js';
+
 const DEFAULT_LABEL = 'observer';
 const FRAME_BIN_RESOLUTION_MS = 0.1;
 const FRAME_BIN_LIMIT_MS = 1000;
 const FRAME_BIN_COUNT = Math.round(FRAME_BIN_LIMIT_MS / FRAME_BIN_RESOLUTION_MS) + 1;
+const SLOW_FRAME_LIMIT = 8;
+const SLOW_SCRIPT_LIMIT = 8;
+const ATTRIBUTION_TEXT_LIMIT = 512;
 
 function framePercentile(frames, p) {
   if (!frames.count) return { value: null, range: null };
@@ -39,6 +44,72 @@ function collectLongTasks(target, entries) {
   }
 }
 
+const attributionText = (value) => String(value ?? '').slice(0, ATTRIBUTION_TEXT_LIMIT);
+const finiteNumber = (value) => value != null && Number.isFinite(Number(value)) ? Number(value) : null;
+
+function scriptSource(value) {
+  // Diagnostics are local-only, but query strings, fragments and URL credentials
+  // still do not belong in the copyable attribution report.
+  try { const url = new URL(String(value)); return attributionText(`${url.origin}${url.pathname}`); }
+  catch { return attributionText(String(value ?? '').split(/[?#]/)[0]); }
+}
+
+function collectLongAnimationFrames(target, entries) {
+  const frames = target.longAnimationFrames;
+  for (const entry of entries || []) {
+    const duration = finiteNumber(entry?.duration), start = finiteNumber(entry?.startTime);
+    if (duration == null || duration < 0 || start == null || start < target.startedAt) continue;
+    const end = start + duration;
+    const render = Number(entry.renderStart), layout = Number(entry.styleAndLayoutStart);
+    const hasRender = render > 0 && render >= start && render <= end;
+    const hasLayout = hasRender && layout >= render && layout <= end;
+    const workMs = hasRender ? render - start : duration;
+    const renderMs = hasRender ? end - render : 0;
+    const styleAndLayoutMs = hasLayout ? end - layout : 0;
+    const blockingMs = Math.max(0, finiteNumber(entry.blockingDuration) ?? 0);
+    frames.count += 1; frames.totalDurationMs += duration;
+    frames.maxDurationMs = Math.max(frames.maxDurationMs ?? 0, duration);
+    frames.maxWorkMs = Math.max(frames.maxWorkMs ?? 0, workMs);
+    frames.maxRenderMs = Math.max(frames.maxRenderMs ?? 0, renderMs);
+    frames.maxStyleAndLayoutMs = Math.max(frames.maxStyleAndLayoutMs ?? 0, styleAndLayoutMs);
+    frames.maxBlockingMs = Math.max(frames.maxBlockingMs ?? 0, blockingMs);
+    if (frames.slowest.length === SLOW_FRAME_LIMIT && duration <= frames.slowest.at(-1).durationMs) continue;
+    // Keep only bounded, owned scalar data. Never retain a PerformanceEntry or
+    // its Window reference, and never sort an unbounded full-session array.
+    const scripts = [];
+    let scriptCount = 0;
+    for (const script of entry.scripts || []) {
+      const ms = finiteNumber(script?.duration);
+      if (ms == null || ms < 0) continue;
+      scriptCount += 1;
+      if (scripts.length === SLOW_SCRIPT_LIMIT && ms <= scripts.at(-1).durationMs) continue;
+      scripts.push({ durationMs: ms, invoker: attributionText(script.invoker), invokerType: attributionText(script.invokerType),
+        sourceURL: scriptSource(script.sourceURL), sourceFunctionName: attributionText(script.sourceFunctionName),
+        sourceCharPosition: finiteNumber(script.sourceCharPosition), windowAttribution: attributionText(script.windowAttribution),
+        forcedStyleAndLayoutMs: finiteNumber(script.forcedStyleAndLayoutDuration), pauseMs: finiteNumber(script.pauseDuration) });
+      scripts.sort((a, b) => b.durationMs - a.durationMs);
+      if (scripts.length > SLOW_SCRIPT_LIMIT) scripts.pop();
+    }
+    frames.slowest.push({ startOffsetMs: start - target.startedAt, durationMs: duration,
+      workMs, renderMs, styleAndLayoutMs, blockingMs, scriptCount, scripts });
+    frames.slowest.sort((a, b) => b.durationMs - a.durationMs);
+    if (frames.slowest.length > SLOW_FRAME_LIMIT) frames.slowest.pop();
+  }
+}
+
+function animationFrameSnapshot(target) {
+  const frames = target.longAnimationFrames;
+  const rounded = (row) => Object.fromEntries(Object.entries(row).map(([key, value]) =>
+    [key, typeof value === 'number' ? round(value) : value]));
+  return {
+    ...rounded(frames), supported: Boolean(target.longAnimationFrameObserver),
+    reason: target.longAnimationFrameObserver ? null : 'long-animation-frame unavailable',
+    attribution: { selection: 'slowest_by_duration', frameLimit: SLOW_FRAME_LIMIT, scriptLimit: SLOW_SCRIPT_LIMIT,
+      textLimit: ATTRIBUTION_TEXT_LIMIT, scope: 'browser_attributed_main_thread_entrypoints_not_full_call_stacks' },
+    slowest: frames.slowest.map((row) => ({ ...rounded(row), scripts: row.scripts.map(rounded) })),
+  };
+}
+
 export function createObserverPerformanceProbe({
   windowRef = globalThis.window,
   documentRef = globalThis.document,
@@ -70,6 +141,10 @@ export function createObserverPerformanceProbe({
         supported: Boolean(target.longTaskObserver), count: target.longTasks.count,
         totalMs: round(target.longTasks.totalMs), maxMs: target.longTasks.maxMs == null ? null : round(target.longTasks.maxMs),
       },
+      longAnimationFrames: animationFrameSnapshot(target),
+      workBreakdown: { scope: 'instrumented_synchronous_stages_including_nested_work_not_additive',
+        stages: [...target.workStages.values()].map((stage) => ({ ...stage,
+          totalMs: round(stage.totalMs), maxMs: round(stage.maxMs), maxStartOffsetMs: round(stage.maxStartOffsetMs) })) },
       inputResponse: { supported: true, samples: target.input.samples,
         lastMs: target.input.lastMs == null ? null : round(target.input.lastMs),
         maxMs: target.input.maxMs == null ? null : round(target.input.maxMs) },
@@ -91,12 +166,15 @@ export function createObserverPerformanceProbe({
     if (!state) return null;
     const finished = state;
     collectLongTasks(finished, finished.longTaskObserver?.takeRecords?.());
+    collectLongAnimationFrames(finished, finished.longAnimationFrameObserver?.takeRecords?.());
     state = null;
     if (finished.rafId != null) windowRef.cancelAnimationFrame(finished.rafId);
     if (finished.input.rafId != null) windowRef.cancelAnimationFrame(finished.input.rafId);
     if (finished.timerId != null) windowRef.clearTimeout(finished.timerId);
     finished.timerId = null;
     finished.longTaskObserver?.disconnect();
+    finished.longAnimationFrameObserver?.disconnect();
+    finished.unsubscribeWork?.();
     return snapshot(finished);
   }
 
@@ -134,11 +212,16 @@ export function createObserverPerformanceProbe({
       frames: { bins: new Float64Array(FRAME_BIN_COUNT), count: 0, maxMs: 0,
         overflowCount: 0, overflowMin: Infinity, overflowMax: 0 },
       longTasks: { count: 0, totalMs: 0, maxMs: null },
+      longAnimationFrames: { count: 0, totalDurationMs: 0, maxDurationMs: null, maxWorkMs: null,
+        maxRenderMs: null, maxStyleAndLayoutMs: null, maxBlockingMs: null, slowest: [] },
       input: { samples: 0, lastMs: null, maxMs: null, pendingCount: 0, firstAt: Infinity, lastAt: 0, rafId: null },
       rafId: null,
       timerId: null,
       rafSupported,
       longTaskObserver: null,
+      longAnimationFrameObserver: null,
+      workStages: new Map(),
+      unsubscribeWork: null,
     };
     if (typeof PerformanceObserverRef === 'function') {
       try {
@@ -147,8 +230,25 @@ export function createObserverPerformanceProbe({
         });
         next.longTaskObserver.observe({ type: 'longtask' });
       } catch { next.longTaskObserver?.disconnect(); next.longTaskObserver = null; }
+      if (PerformanceObserverRef.supportedEntryTypes?.includes('long-animation-frame')) {
+        try {
+          next.longAnimationFrameObserver = new PerformanceObserverRef((list) => {
+            if (state === next) collectLongAnimationFrames(next, list.getEntries());
+          });
+          next.longAnimationFrameObserver.observe({ type: 'long-animation-frame' });
+        } catch { next.longAnimationFrameObserver?.disconnect(); next.longAnimationFrameObserver = null; }
+      }
     }
     state = next;
+    next.unsubscribeWork = subscribeObserverWorkMeasurements(() => performanceRef.now(), (entry) => {
+      if (state !== next || !Number.isFinite(entry.duration) || entry.duration < 0) return;
+      const name = String(entry.name).slice(0, 80);
+      if (!next.workStages.has(name) && next.workStages.size >= 24) return;
+      const stage = next.workStages.get(name) || { name, count: 0, totalMs: 0, maxMs: -1, maxStartOffsetMs: 0 };
+      stage.count += 1; stage.totalMs += entry.duration;
+      if (entry.duration > stage.maxMs) { stage.maxMs = entry.duration; stage.maxStartOffsetMs = entry.startTime - next.startedAt; }
+      next.workStages.set(name, stage);
+    });
     const sample = (timestamp) => {
       if (state !== next) return;
       if (Number.isFinite(timestamp)) {

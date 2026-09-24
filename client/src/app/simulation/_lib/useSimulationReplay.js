@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { cloneReplayData, compareSimulationReplay, createSimulationRunInput, prepareSimulationRunInput, REPLAY_SCHEMA, semanticRunEvents, validateSimulationReplayRecord } from './simulationReplayRuntime';
 import { classifySimulationReplayStorageError, saveSimulationReplay } from './simulationReplayStorage';
+import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
 
 export function useSimulationReplay(replayRecord = null) {
   const runInputRef = useRef(null);
@@ -13,8 +14,8 @@ export function useSimulationReplay(replayRecord = null) {
 
   function prepareRun(state) {
     if (!runInputRef.current) {
-      runInputRef.current = replayRecord?.input ? cloneReplayData(replayRecord.input) : createSimulationRunInput(state);
-      preparedRunRef.current = prepareSimulationRunInput(runInputRef.current);
+      runInputRef.current = measureObserverWork('start.captureInput', () => replayRecord?.input ? cloneReplayData(replayRecord.input) : createSimulationRunInput(state));
+      preparedRunRef.current = measureObserverWork('start.prepareInput', () => prepareSimulationRunInput(runInputRef.current));
     }
     return preparedRunRef.current;
   }
