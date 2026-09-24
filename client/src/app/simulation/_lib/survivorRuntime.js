@@ -38,14 +38,25 @@ function ensureEquipped(obj) {
     const t = Number(it?.tier ?? it?.t ?? 1);
     return Number.isFinite(t) ? Math.max(1, Math.min(6, Math.floor(t))) : 1;
   };
+  // Rebuild from this call's inventory so mutable loot/gear never goes stale.
+  // Classify each entry once, while retaining candidate order and first-ID wins.
+  const firstById = new Map();
+  const candidatesBySlot = new Map();
+  for (const item of inv) {
+    const id = String(getInvItemId(item));
+    if (!firstById.has(id)) firstById.set(id, item);
+    const slot = String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase();
+    if (!candidatesBySlot.has(slot)) candidatesBySlot.set(slot, []);
+    candidatesBySlot.get(slot).push(item);
+  }
   const byId = (id) => {
     const sid = String(id || '');
     if (!sid) return null;
-    return inv.find((it) => String(getInvItemId(it)) === sid) || null;
+    return firstById.get(sid) || null;
   };
   const bestBySlot = (slot) => {
     const s = String(slot || '').toLowerCase();
-    const candidates = inv.filter((it) => String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase() === s);
+    const candidates = candidatesBySlot.get(s) || [];
     if (!candidates.length) return null;
     candidates.sort((a, b) => (
       (readTier(b) - readTier(a)) ||

@@ -1,0 +1,59 @@
+{
+  "engineVersion": "27f5d09b53c6ebf46510fab7e48ba64317fb32474f3e5ee9dd49273d5a85e300",
+  "environment": "Windows Codex Chromium, local production 127.0.0.1:3107, 1280x720, no concurrent heavy checks/build",
+  "input": "Stored user roster, 24 participants/8 teams, built-in 21-zone Lumia, seed 1101; not the Node fixture",
+  "original": {
+    "finishedAtUi": "2026-09-24 16:20:36 KST",
+    "endingUi": "18:14.25; team 7; 2/3 alive; archive saved",
+    "archiveCount": 6,
+    "previousRecordsPreserved": 5,
+    "replay": "18:14.25; team 7; 2/3 alive; all 5851 events/final state/ending match"
+  },
+  "measurements": [
+    {
+      "label": "27f5-first-phase-x32",
+      "scope": "Start through first phase; stopped at displayed 02:20; includes boundary idle; map initially partly below viewport",
+      "elapsedMs": 41035.9,
+      "raf": {"samples":3774,"fps":91.968,"intervalMs":{"median":10,"p95":10.1,"max":320.1}},
+      "longTasks": {"count":11,"totalMs":1863,"maxMs":350},
+      "inputResponse": {"samples":1,"lastMs":97,"maxMs":97},
+      "heap": {"baselineUsedBytes":19358466,"usedBytes":29125611,"deltaUsedBytes":9767145,"totalBytes":32993031,"limitBytes":4395630592},
+      "domNodes": 765,
+      "visibilityState": "visible",
+      "strict200msPass": false
+    },
+    {
+      "label": "27f5-after-first-phase-x32",
+      "scope": "Auto resume after first phase through finish/close/stop, including result dwell; scrolled to show the entire map during play",
+      "elapsedMs": 98662.4,
+      "raf": {"samples":9470,"fps":95.984,"intervalMs":{"median":10,"p95":10.1,"max":150}},
+      "longTasks": {"count":31,"totalMs":2555,"maxMs":155},
+      "inputResponse": {"samples":6,"lastMs":9.4,"maxMs":9.4},
+      "heap": {"baselineUsedBytes":28437748,"usedBytes":42281137,"deltaUsedBytes":13843389,"totalBytes":43655093,"limitBytes":4395630592},
+      "domNodes": 700,
+      "visibilityState": "visible",
+      "consoleWarningsErrors": 0,
+      "strict200msPassForMeasuredSegmentOnly": true
+    },
+    {
+      "label": "27f5-full-replay-x32",
+      "scope": "Same saved input replay, start through finish/close/stop including result dwell; complete map and team observation visible; team 7 selected",
+      "elapsedMs": 104030.2,
+      "raf": {"samples":9539,"fps":91.695,"intervalMs":{"median":10,"p95":10.1,"max":270}},
+      "longTasks": {"count":46,"totalMs":5331,"maxMs":273},
+      "inputResponse": {"samples":3,"lastMs":9.1,"maxMs":9.1},
+      "heap": {"baselineUsedBytes":35415637,"usedBytes":40762520,"deltaUsedBytes":5346883,"totalBytes":45314548,"limitBytes":4395630592},
+      "domNodes": 691,
+      "visibilityState": "visible",
+      "consoleWarningsErrors": 0,
+      "strict200msPass": false
+    }
+  ],
+  "caveats": [
+    "Probe v2, entire-population percentiles estimated with 0.1ms histogram; all maxima retained.",
+    "One passing later segment cannot erase the 350ms first-phase failure.",
+    "Click-to-next-RAF is not actual paint completion or all input latency.",
+    "Elapsed includes idle/result dwell, not match wall-clock completion time.",
+    "These heap samples cannot establish three sequential fresh-start baselines or absence of a leak."
+  ]
+}

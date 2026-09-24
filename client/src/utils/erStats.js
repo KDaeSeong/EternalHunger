@@ -58,16 +58,15 @@ export function normalizeErStats(stats = {}, opts = {}) {
   const src = stats && typeof stats === 'object' ? stats : {};
 
   const out = {};
-  ER_STAT_KEYS.forEach((key) => {
+  for (const key of ER_STAT_KEYS) {
     const explicit = src?.[key] ?? src?.[key.toUpperCase?.()];
-    out[key] = clampStat(key, explicit !== undefined ? explicit : DEFAULT_ER_STATS[key]);
-  });
-
-  if (opts.round !== false) {
-    ER_STAT_KEYS.forEach((key) => {
+    const value = clampStat(key, explicit !== undefined ? explicit : DEFAULT_ER_STATS[key]);
+    if (opts.round !== false) {
       const step = STAT_FIELD_BY_KEY[key]?.step ?? 1;
-      out[key] = step < 1 ? Number(out[key].toFixed(3)) : Math.round(out[key]);
-    });
+      // Whole numbers need no decimal string allocation. Fractional values keep
+      // the existing toFixed semantics, including its rounding edge cases.
+      out[key] = step < 1 && !Number.isInteger(value) ? Number(value.toFixed(3)) : Math.round(value);
+    } else out[key] = value;
   }
 
   return out;
