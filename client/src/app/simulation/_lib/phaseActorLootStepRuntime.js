@@ -94,6 +94,9 @@ export function runActorLootStep({
   const worldSpawnPickupResult = runWorldSpawnPickupPhase({
     state: {
       actor: updated,
+      deferredCoreSourceIds: state.deferredCoreSourceIds,
+      preferredCoreSourceIds: movementResult.movementObjective?.type === 'natural_core'
+        ? movementResult.movementObjective.sourceIds : [],
       craftables,
       didMove: movementResult.didMove,
       itemMetaById,

@@ -3,6 +3,7 @@ import { estimateMovePower } from './movePowerRuntime';
 import { getCombatSpaceId, shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { captureMovementObjective } from './movementObjectiveRuntime.js';
+import { chooseTeamResourceMove } from './teamResourceGoalRuntime.js';
 
 const idOf = (actor) => String(actor?._id || actor?.id || '');
 const alive = (actor) => actor && Number(actor.hp || 0) > 0 && !isDimensionRiftDefeated(actor);
@@ -182,7 +183,13 @@ export function buildTeamCoordination({
       return hold ? [{ who: idOf(row), name: String(row.name || idOf(row)), ...hold }] : [];
     }) : [];
     const rotationWaiting = waitingFor.length > 0;
-    const proposed = grouped && !rotationWaiting ? chooseLeaderMove(leader) : null;
+    const teamResource = grouped && !rotationWaiting && !spawnState?.endgame
+      && members.every((row) => Number(row.hp) > Math.max(0, Number(ruleset?.ai?.recoverHpBelow ?? 38)))
+      && !assessTeamCombat(leader, roster, { estimatePower, minRatio: Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.4) }).shouldAvoid
+      ? chooseTeamResourceMove({ members: ordered, spawnState, ruleset, publicItems,
+        routeForZone: (targetZoneId) => pickTeamSafeZone(leader, roster, zoneGraph, forbiddenIds,
+          { estimatePower, maxDepth, targetZoneId, travelParty: members }) }) : null;
+    const proposed = grouped && !rotationWaiting ? teamResource || chooseLeaderMove(leader) : null;
     const target = grouped && !rotationWaiting ? (proposed?.targets || []).find((zone) => !forbiddenIds.has(String(zone))) : rallyZone;
     if (!target) continue;
     const objective = grouped ? captureMovementObjective(proposed, target, { spawnState, ruleset, publicItems }) : null;

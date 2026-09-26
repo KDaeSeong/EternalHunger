@@ -111,7 +111,9 @@ export function runWorldSpawnPickupPhase({
     }
   }
 
-  const corePickup = pickupSpawnedCore(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset, { moved: didMove });
+  const corePickup = pickupSpawnedCore(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset, {
+    moved: didMove, deferredSourceIds: state.deferredCoreSourceIds, preferredSourceIds: state.preferredCoreSourceIds,
+  });
   if (corePickup) {
     updated.inventory = addItemToInventory(updated.inventory, corePickup.item, corePickup.itemId, corePickup.qty || 1, nextDay, ruleset);
     const meta = updated.inventory?._lastAdd;

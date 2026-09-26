@@ -175,8 +175,10 @@ export function runActorMovementDecisionPhase({
     activeTeamPlan = { mode: 'team_regroup_wait', nextStep: currentZone,
       targetZoneId: state.teamRegroupDecision.targetZoneId };
   }
-  // Another actor can consume the source after the shared roster was planned.
-  if (activeTeamPlan?.objective && !isMovementObjectiveAvailable(activeTeamPlan.objective,
+  // A scheduled batch already committed everyone's movement from the same
+  // pre-action world. A pickup earlier in that batch must not retroactively
+  // scatter its later members. Live availability still governs loot and UI.
+  if (!state.teamMovementPlanCommitted && activeTeamPlan?.objective && !isMovementObjectiveAvailable(activeTeamPlan.objective,
     { spawnState: nextSpawn, forbiddenIds, nowSec: atNow()?.sec, teamId: getActorTeamId(updated), actor: updated })) activeTeamPlan = null;
   // The grouped-team planner has already made and paid for the leader's
   // objective choice. Do not run every member's individual random chooser or

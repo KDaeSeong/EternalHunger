@@ -19,7 +19,8 @@ export function captureMovementObjective(plan, targetZoneId, { spawnState, rules
   let resourceKinds = [];
   if (type === 'natural_core') {
     sources = list(spawnState.coreNodes).filter((row) => !row.picked && text(row.zoneId) === zoneId
-      && (!['meteor', 'life_tree'].includes(subkind) || row.kind === subkind));
+      && (!['meteor', 'life_tree'].includes(subkind) || row.kind === subkind)
+      && (!list(plan.objectiveSourceIds).length || plan.objectiveSourceIds.includes(sourceId(row))));
     resourceKinds = [...new Set(sources.map((row) => text(row.kind)))];
   } else if (type === 'boss') {
     const boss = spawnState.bosses?.[subkind];
@@ -36,6 +37,7 @@ export function captureMovementObjective(plan, targetZoneId, { spawnState, rules
   if (!sources.length) return null;
   return { type, subkind, targetZoneId: zoneId, sourceIds: sources.map(sourceId).filter(Boolean),
     resourceKinds: [...new Set(resourceKinds)].sort(),
+    ...(type === 'natural_core' && plan.beneficiary ? { beneficiary: structuredClone(plan.beneficiary) } : {}),
   };
 }
 
@@ -76,7 +78,8 @@ export function isMovementObjectiveAvailable(objective, context) {
 export function describeMovementObjective(objective) {
   if (!objective) return '';
   const resources = list(objective.resourceKinds).map((key) => resourceLabels[key]).filter(Boolean);
-  if (objective.type === 'natural_core') return `${resources.join('·') || '특수 재료'} 확보`;
+  if (objective.type === 'natural_core') return `${resources.join('·') || '특수 재료'} 확보${objective.beneficiary
+    ? ` · ${objective.beneficiary.name}의 ${objective.beneficiary.targetItemName} 제작 재료` : ''}`;
   if (objective.type === 'boss') return `${bossLabels[objective.subkind] || '보스'} 공략${resources.length ? ` · ${resources.join('·')} 노림` : ''}`;
   if (objective.type === 'legendary_crate') return '전설 상자 확보';
   if (objective.type === 'transcend_crate') return '초월 장비 선택 상자 확보';

@@ -10,6 +10,7 @@ import { getCombatIntentOpponents } from './combatTimingRuntime.js';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import { getCombatSpaceId } from '../../../utils/combatSpaceLogic.js';
 import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
+import { getRetreatAvoidZoneId } from './retreatDecisionMemoryRuntime.js';
 
 function buildBaseZonePopulation(phaseSurvivors, combatSpaceId) {
   const baseZonePop = {};
@@ -112,6 +113,7 @@ export function* runPhaseActorActionPipelineSteps({
     }),
   }));
   yield;
+  const planningActorsById = new Map(movementRoster.map((actor) => [String(actor._id || actor.id || ''), actor]));
   const newlyDead = [];
   let pendingPickAssigned = initialPendingPickAssigned;
 
@@ -143,6 +145,20 @@ export function* runPhaseActorActionPipelineSteps({
     }
     let moveCost = 1;
     if (scheduled) sourceActor._actionCycleKey = `${state.phaseIdxNow}:${now}`;
+    const teamMovementPlan = teamMovementPlans.get(String(sourceActor?._id || sourceActor?.id || ''));
+    const resourceGoal = teamMovementPlan?.objective?.type === 'natural_core' ? teamMovementPlan.objective : null;
+    const beneficiaryId = resourceGoal?.beneficiary?.who;
+    const beneficiary = planningActorsById.get(beneficiaryId);
+    const beneficiaryPlan = teamMovementPlans.get(beneficiaryId);
+    // Yield only to a teammate who can actually arrive in this action batch.
+    // This is not a world reservation: other teams can still take the source,
+    // and a failed/stale plan cannot make it permanently uncollectable.
+    const deferredCoreSourceIds = beneficiary && beneficiaryId !== String(sourceActor._id || sourceActor.id || '')
+      && beneficiaryPlan?.nextStep === resourceGoal.targetZoneId && !growthHoldStatus(beneficiary)
+      && canMoveByStatus(beneficiary)
+      && getRetreatAvoidZoneId(beneficiary) !== resourceGoal.targetZoneId
+      && Number(beneficiary.hp) > Math.max(0, Number(ruleset?.ai?.recoverHpBelow ?? 38))
+      ? resourceGoal.sourceIds : [];
     const actorStepResult = measureObserverWork('growth.singleActor', () => runSingleActorPhaseAction({
       actions: {
         ...actions,
@@ -154,7 +170,9 @@ export function* runPhaseActorActionPipelineSteps({
         ...state,
         baseZonePop: baseZonePopBySpace.get(getCombatSpaceId(sourceActor)) || {},
         movementRoster,
-        teamMovementPlan: teamMovementPlans.get(String(sourceActor?._id || sourceActor?.id || '')),
+        teamMovementPlan,
+        teamMovementPlanCommitted: Boolean(resourceGoal?.beneficiary),
+        deferredCoreSourceIds,
         teamRegroupDecision: regroupDecision,
         pendingPickAssigned,
       },

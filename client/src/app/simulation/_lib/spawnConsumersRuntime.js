@@ -229,7 +229,10 @@ function pickupSpawnedCore(spawnState, zoneId, publicItems, curDay, curPhase, ac
   if (!s || !Array.isArray(s.coreNodes)) return null;
 
   const zid = String(zoneId || '');
-  const node = s.coreNodes.find((n) => !n?.picked && String(n?.zoneId) === zid) || null;
+  const deferred = new Set(Array.isArray(opts.deferredSourceIds) ? opts.deferredSourceIds : []);
+  const preferred = new Set(Array.isArray(opts.preferredSourceIds) ? opts.preferredSourceIds : []);
+  const available = s.coreNodes.filter((n) => !n?.picked && String(n?.zoneId) === zid && !deferred.has(String(n.id)));
+  const node = available.find((n) => preferred.has(String(n.id))) || available[0] || null;
   if (!node) return null;
 
   const ws = ruleset?.worldSpawns || {};
