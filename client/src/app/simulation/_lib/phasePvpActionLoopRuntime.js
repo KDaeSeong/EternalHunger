@@ -243,6 +243,8 @@ function* pvpActionSteps({
         runHuntAction({
           state: {
             actor,
+            rewardRoster: [...survivorMap.values()],
+            isSoloMatch,
             canReviveThisMatch,
             craftables,
             currentActionSec,

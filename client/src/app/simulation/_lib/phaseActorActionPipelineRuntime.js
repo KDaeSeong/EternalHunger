@@ -64,6 +64,8 @@ export function* runPhaseActorActionPipelineSteps({
   } = actions;
 
   const roster = Array.isArray(phaseSurvivors) ? phaseSurvivors : [];
+  // Reward recipients must be live actors, never the isolated planning copies.
+  const rewardRoster = [...roster];
   const scheduled = state.actionIntervalSec != null;
   const now = Number(state.currentActionSec?.() || 0);
   // Planning and execution must agree about who can act at this boundary.
@@ -170,6 +172,7 @@ export function* runPhaseActorActionPipelineSteps({
         ...state,
         baseZonePop: baseZonePopBySpace.get(getCombatSpaceId(sourceActor)) || {},
         movementRoster,
+        rewardRoster,
         teamMovementPlan,
         teamMovementPlanCommitted: Boolean(resourceGoal?.beneficiary),
         deferredCoreSourceIds,
@@ -200,7 +203,9 @@ export function* runPhaseActorActionPipelineSteps({
   // These are checkpoints, not simulation time steps: preserve actor/RNG/shared
   // resource order and publish only after the entire batch has finished.
   for (const sourceActor of roster) {
-    processedActors.push(processActor(sourceActor));
+    const processed = processActor(sourceActor);
+    rewardRoster[processedActors.length] = processed;
+    processedActors.push(processed);
     yield;
   }
   const updatedSurvivors = processedActors.filter((survivor) => Number(survivor?.hp || 0) > 0);

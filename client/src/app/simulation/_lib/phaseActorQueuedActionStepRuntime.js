@@ -108,6 +108,8 @@ export function runActorQueuedActionStep({
     const huntAction = runHuntAction({
       state: {
         actor: updated,
+        rewardRoster: state.rewardRoster,
+        isSoloMatch: state.isSoloMatch,
         canReviveThisMatch,
         craftables,
         currentActionSec: state.currentActionSec,

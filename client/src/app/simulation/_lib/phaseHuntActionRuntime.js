@@ -23,6 +23,7 @@ import {
   shouldLogItemReceive,
 } from './runEventRuntime';
 import { createTimedWildlifeEncounter } from './wildlifeCombatRuntime.js';
+import { chooseBossLootRecipient } from './bossLootRecipientRuntime.js';
 
 export function runHuntAction({
   actions = {},
@@ -179,46 +180,69 @@ export function runHuntAction({
 
   const receivedDrops = [];
   const unreceivedDrops = [];
+  const sharedDrops = [];
   for (const drop of drops) {
     if (!drop?.itemId || !drop?.item) continue;
-    const qty = Math.max(1, Number(drop.qty || 1));
-    const name = drop.item?.name || itemNameById?.[String(drop.itemId || '')] || '아이템';
-    const huntDropItem = markInventoryGoalItem(drop.item, goalMissingSet.has(String(drop.itemId || '')));
-    updated.inventory = addItemToInventory(updated.inventory, huntDropItem, drop.itemId, qty, nextDay, ruleset);
-    const meta = updated.inventory?._lastAdd;
-    const got = Math.max(0, Number(meta?.acceptedQty ?? qty));
-    if (got > 0) receivedDrops.push({ itemId: String(drop.itemId), qty: got });
-    if (got < qty) unreceivedDrops.push({ itemId: String(drop.itemId), qty: qty - got, reason: String(meta?.reason || 'inventory_rejected') });
-    if (shouldLogItemReceive(got, meta)) {
-      addLog(`🧾 [${updated.name}] 드랍: ${itemIcon(drop.item || { type: '' })} [${name}] ${gainText(got)}${formatInvAddNote(meta, qty, updated.inventory, ruleset)}`, 'normal');
-    }
-    emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(drop.itemId || ''), source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || ''), ...receipt }, atNow());
+    let remaining = Math.max(1, Number(drop.qty || 1));
+    const excluded = new Set();
+    while (remaining > 0) {
+      const assignment = isBossReward && !died ? chooseBossLootRecipient({ hunter: updated, roster: state.rewardRoster,
+        drop, remaining, publicItems, ruleset, isSoloMatch: state.isSoloMatch, excluded }) : null;
+      const recipient = assignment?.actor || updated;
+      const shared = recipient !== updated;
+      const qty = assignment?.qty || remaining;
+      const name = drop.item?.name || itemNameById?.[String(drop.itemId || '')] || '아이템';
+      const huntDropItem = markInventoryGoalItem(drop.item, !!assignment || goalMissingSet.has(String(drop.itemId || '')));
+      recipient.inventory = addItemToInventory(recipient.inventory, huntDropItem, drop.itemId, qty, nextDay, ruleset);
+      const meta = recipient.inventory?._lastAdd;
+      const got = Math.max(0, Number(meta?.acceptedQty ?? qty));
+      const allocation = shared ? { bossHunterId: String(updated._id || ''), bossHunterName: String(updated.name || ''),
+        targetItemId: assignment.targetItemId, targetItemName: assignment.targetItemName, allocationReason: 'recipe_need' } : {};
+      if (got > 0) {
+        if (shared) sharedDrops.push({ who: String(recipient._id || ''), itemId: String(drop.itemId), qty: got, ...allocation });
+        else receivedDrops.push({ itemId: String(drop.itemId), qty: got });
+      }
+      remaining -= got;
+      if (got < qty) excluded.add(String(recipient._id || recipient.id || ''));
+      if (!assignment && remaining > 0) {
+        unreceivedDrops.push({ itemId: String(drop.itemId), qty: remaining, reason: String(meta?.reason || 'inventory_rejected') });
+        remaining = 0;
+      }
+      if (shouldLogItemReceive(got, meta)) {
+        if (shared && got > 0) addLog(`🤝 [${updated.name}] 보스 전리품 분배: [${recipient.name}]에게 [${name}] x${got} · ${assignment.targetItemName} 제작 재료`, 'highlight');
+        else addLog(`🧾 [${recipient.name}] 드랍: ${itemIcon(drop.item || { type: '' })} [${name}] ${gainText(got)}${formatInvAddNote(meta, qty, recipient.inventory, ruleset)}`, 'normal');
+      }
+      emitItemGainIfAny(got, { who: String(recipient?._id || ''), itemId: String(drop.itemId || ''), source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(recipient?.zoneId || ''), ...receipt, ...allocation }, atNow());
 
-    // Loot from the same simultaneous kill remains in the death snapshot.
-    // Crafting with it would be a new action and is forbidden after lethal damage.
-    if (died || Number(updated.hp || 0) <= 0 || got <= 0) continue;
+      // Loot from the same simultaneous kill remains in the death snapshot.
+      // Crafting with it would be a new action and is forbidden after lethal damage.
+      if (died || Number(recipient.hp || 0) <= 0 || got <= 0) continue;
+      // Receiving a teammate's material must not interrupt a cast, hunt or CC.
+      // The normal action scheduler can craft after that action has ended.
+      if (shared && (recipient._wildlifeHunt || recipient._pendingCharacterCast || hasActionBlockStatus(recipient))) continue;
 
-    const specialKind = classifySpecialByName(name);
-    const immediate = tryImmediateCraftFromSpecial(updated, specialKind, String(drop.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
-    if (immediate?.changed) {
-      updated.inventory = immediate.inventory;
-    }
-    (immediate?.logs || []).forEach((message) => addLog(String(message), immediate.changed ? 'highlight' : 'system'));
-    if (Number(immediate?.pvpBonus || 0) > 0) {
-      const pb = Number(immediate.pvpBonus || 0);
-      updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
-      updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
-      updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
-      updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
-    }
+      const specialKind = classifySpecialByName(name);
+      const immediate = tryImmediateCraftFromSpecial(recipient, specialKind, String(drop.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+      if (immediate?.changed) {
+        recipient.inventory = immediate.inventory;
+      }
+      (immediate?.logs || []).forEach((message) => addLog(String(message), immediate.changed ? 'highlight' : 'system'));
+      if (Number(immediate?.pvpBonus || 0) > 0) {
+        const pb = Number(immediate.pvpBonus || 0);
+        recipient._gatherPvpBonus = Math.max(Number(recipient._gatherPvpBonus || 0), pb);
+        recipient._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
+        recipient._immediateDanger = Math.max(Number(recipient._immediateDanger || 0), pb);
+        recipient._immediateDangerUntilPhaseIdx = phaseIdxNow;
+      }
 
-    const crafted = immediate?.changed ? null : tryAutoCraftFromLoot(updated.inventory, drop.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-    applyLootCraftResult(updated, crafted, itemMetaById, atNow(), updated?.zoneId);
+      const crafted = immediate?.changed ? null : tryAutoCraftFromLoot(recipient.inventory, drop.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(recipient));
+      applyLootCraftResult(recipient, crafted, itemMetaById, atNow(), recipient?.zoneId);
+    }
   }
 
   emitRunEvent('hunt_settlement', { who: String(updated._id || ''), zoneId: String(updated.zoneId || ''),
     kind: String(hunt.kind || ''), defeated, died, hpBefore, hpAfter: updated.hp, damage: dmg,
-    damageDealt, credits: creditGain, receivedDrops, unreceivedDrops, ...receipt }, atNow());
+    damageDealt, credits: creditGain, receivedDrops, unreceivedDrops, ...(sharedDrops.length ? { sharedDrops } : {}), ...receipt }, atNow());
 
   return {
     actor: updated,
