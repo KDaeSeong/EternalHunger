@@ -287,4 +287,37 @@ check('absent coordination remains a no-op for untouched alive or dead actors', 
   }
 });
 
+check('rotation readiness is stable, names the actual blockers and makes no premature leader choice', () => {
+  const roster = squad.map((row) => ({ ...structuredClone(row), zoneId: 'a' }));
+  const before = structuredClone(roster);
+  const plan = (rows) => buildTeamCoordination({ ...options, roster: rows,
+    getRotationHold: (row) => row._id === 'friend' ? { reason: 'action_wait', readyAtSec: 410 } : null,
+    chooseLeaderMove: () => { throw new Error('Do not choose or roll a new destination while the squad is waiting.'); } });
+  const first = plan(roster), reverse = plan([...roster].reverse());
+  assert.equal(first.movementPlans.size, 0);
+  for (const row of roster) {
+    const decision = first.regroupDecisions.get(row._id);
+    assert.equal(decision.stage, 'rotation_wait');
+    assert.deepEqual(decision.waitingFor, [{ who: 'friend', name: 'friend', reason: 'action_wait', readyAtSec: 410 }]);
+    assert.deepEqual(decision, reverse.regroupDecisions.get(row._id));
+  }
+  assert.deepEqual(roster, before);
+});
+
+check('rotation waiting cannot override recovery, nearby enemies, unfinished farming, solo play or a dead ally', () => {
+  const gathered = squad.map((row) => ({ ...structuredClone(row), zoneId: 'a' }));
+  for (const extra of [
+    { roster: gathered.map((row, i) => i === 1 ? { ...row, hp: 12 } : row) },
+    { roster: [...gathered, actor('enemy', 'a', { teamId: 'enemy' })] },
+    { roster: gathered.map((row, i) => i === 1 ? { ...row, _growthPlan: { openingComplete: false } } : row) },
+    { isSoloMatch: true },
+    { roster: gathered.map((row) => row._id === 'friend' ? { ...row, hp: 0 } : row) },
+  ]) {
+    const result = buildTeamCoordination({ ...options, roster: gathered, ruleset,
+      getRotationHold: (row) => row._id === 'friend' ? { reason: 'hunt' } : null,
+      chooseLeaderMove: () => ({ targets: ['b'], reason: 'next_goal' }), ...extra });
+    assert.ok([...result.regroupDecisions.values()].every((decision) => decision.stage !== 'rotation_wait'));
+  }
+});
+
 console.log(JSON.stringify({ pass: true, checks, scope: 'controlled team regroup paths; not original evaluator reproduction or balance acceptance' }));

@@ -121,7 +121,7 @@ function countRallyReachability(members, roster, zoneGraph, forbiddenIds, zones,
 export function buildTeamCoordination({
   roster = [], zoneGraph = {}, forbiddenIds = new Set(), day = 1, phase = 'morning',
   estimatePower = estimateMovePower, chooseLeaderMove = () => null, maxDepth = 3, isSoloMatch = false,
-  spawnState, ruleset, publicItems = [],
+  spawnState, ruleset, publicItems = [], getRotationHold = null,
 } = {}) {
   const plans = new Map();
   const regroupDecisions = new Map();
@@ -171,19 +171,35 @@ export function buildTeamCoordination({
     const leader = safeMembers.find((row) => String(row.zoneId) === rallyZone);
     const separated = members.some((row) => String(row.zoneId) !== rallyZone);
     const grouped = !members.some(stillGrowing) && members.every((row) => String(row.zoneId) === rallyZone);
-    const proposed = grouped ? chooseLeaderMove(leader) : null;
-    const target = grouped ? (proposed?.targets || []).find((zone) => !forbiddenIds.has(String(zone))) : rallyZone;
+    // Synchronize only an already gathered, healthy squad in a safe region.
+    // Opening farming, regrouping, danger/recovery and final-zone escape keep
+    // their existing priorities; nobody is teleported or given a free action.
+    const canWaitForRotation = grouped && getRotationHold && !spawnState?.endgame
+      && members.every((row) => Number(row.hp) > Math.max(0, Number(ruleset?.ai?.recoverHpBelow ?? 38)))
+      && assessTeamCombat(leader, roster, { estimatePower }).enemyCount === 0;
+    const waitingFor = canWaitForRotation ? ordered.flatMap((row) => {
+      const hold = getRotationHold(row);
+      return hold ? [{ who: idOf(row), name: String(row.name || idOf(row)), ...hold }] : [];
+    }) : [];
+    const rotationWaiting = waitingFor.length > 0;
+    const proposed = grouped && !rotationWaiting ? chooseLeaderMove(leader) : null;
+    const target = grouped && !rotationWaiting ? (proposed?.targets || []).find((zone) => !forbiddenIds.has(String(zone))) : rallyZone;
     if (!target) continue;
     const objective = grouped ? captureMovementObjective(proposed, target, { spawnState, ruleset, publicItems }) : null;
     for (const actor of members) {
       const decision = { version: 1, teamId: getActorTeamId(actor), memberCount: members.length,
         targetZoneId: rallyZone, atTargetCount: members.filter((row) => String(row.zoneId) === rallyZone).length,
-        nextStep: '', distance: null, stage: separated ? 'joining' : 'together', blocked: '',
+        nextStep: '', distance: null, stage: rotationWaiting ? 'rotation_wait' : separated ? 'joining' : 'together', blocked: '',
+        ...(rotationWaiting ? { waitingFor: waitingFor.map((row) => ({ ...row })) } : {}),
         ...(rallySelection ? { rallySelection: { ...rallySelection } } : {}) };
       // An unfinished farmer keeps its real recipe. Ready allies can join it;
       // the observer must be told why this actor is not following a rally yet.
       if (stillGrowing(actor)) {
         if (separated) decision.stage = 'growing';
+        regroupDecisions.set(idOf(actor), decision);
+        continue;
+      }
+      if (rotationWaiting) {
         regroupDecisions.set(idOf(actor), decision);
         continue;
       }

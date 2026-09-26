@@ -47,6 +47,12 @@ for (const seed of seeds) {
     if (e.status === 'joining') { assert.notEqual(e.from, e.to); assert.ok(graph[e.from]?.includes(e.to)); }
     if (e.status === 'arrived') assert.equal(e.to, e.targetZoneId);
     if (e.status === 'growing') assert.ok(e.growth && e.growth.completedSlots < e.growth.totalSlots);
+    if (e.status === 'rotation_wait') {
+      assert.equal(e.from, e.to);
+      assert.equal(e.companionsAtTarget, e.memberCount - 1);
+      assert.ok(e.waitingFor.length > 0);
+      assert.ok(e.waitingFor.every((row) => row.who && row.name && row.reason));
+    }
     if (['enemy_path', 'forbidden_path', 'disconnected'].includes(e.status)) assert.equal(e.from, e.to);
     if (e.rallySelection) {
       assert.equal(e.rallySelection.reason, 'reachable_rendezvous');

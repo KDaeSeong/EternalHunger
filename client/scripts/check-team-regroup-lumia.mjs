@@ -146,6 +146,68 @@ check('an existing action lock ends at its actual ready time, not on a later day
   assert.equal(ready.events.find((event) => event.kind === 'move').at.sec, 420);
 });
 
+check('a gathered squad does not leave its busy teammate behind on its next rotation', () => {
+  const world = makeWorld(); let squad = preparedSquad(world);
+  squad.forEach((actor) => { actor.zoneId = HOSPITAL; });
+  squad[1]._growthReadyAtSec = 407;
+  squad[2]._actionReadyAtSec = 410;
+  const possessions = (roster) => roster.map((actor) => ({ inventory: actor.inventory, equipped: actor.equipped,
+    growthReadyAt: actor._growthReadyAtSec, actionReadyAt: actor._actionReadyAtSec }));
+  const before = structuredClone(possessions(squad));
+  for (const sec of [400, 400.25, 407, 409.75]) {
+    const held = tick(squad, world, sec); squad = held.updatedSurvivors;
+    assert.deepEqual(squad.map((actor) => actor.zoneId), [HOSPITAL, HOSPITAL, HOSPITAL],
+      'The first ready member must not rotate alone while its gathered teammates are still action-locked.');
+    assert.deepEqual(possessions(squad), before, 'Waiting must neither grant gear nor keep pushing the ready time forward.');
+    assert.ok(held.events.every((event) => event.kind === 'team_regroup'));
+    assert.equal(squad[0]._teamRegroup.status, 'rotation_wait');
+    assert.match(describeTeamRegroupDecision(squad[0]._teamRegroup, zoneName), /함께 출발.*주유소 동료 2: 이동·행동 마무리 중/);
+    if (sec === 400.25 || sec === 409.75) assert.equal(held.events.length, 0, 'Unchanged waiting must not spam the log.');
+  }
+  const released = tick(squad, world, 410);
+  const moves = released.events.filter((event) => event.kind === 'move');
+  assert.equal(moves.length, 3);
+  assert.ok(moves.every((event) => event.reason === 'team_rotate' && event.at.sec === 410));
+  assert.ok(moves.every((event) => event.to === moves[0].to && event.to !== HOSPITAL));
+  assert.ok(released.updatedSurvivors.every((actor) => actor._growthReadyAtSec === 430));
+  assert.ok(released.updatedSurvivors.every((actor) => actor._actionReadyAtSec === 410 + moves[0].etaSec));
+});
+
+for (const [name, extra, release] of [
+  ['hunt', { _wildlifeHunt: { target: { name: '늑대' } } }, (actor) => { delete actor._wildlifeHunt; }],
+  ['cast', { _pendingCharacterCast: { releaseAtSec: 401 } }, (actor) => { delete actor._pendingCharacterCast; }],
+  ['stun', { activeEffects: [{ name: '기절', remainingDuration: 1, durationUnit: 'sec' }] }, (actor) => { actor.activeEffects = []; }],
+  ['root', { activeEffects: [{ name: '속박', remainingDuration: 1, durationUnit: 'sec' }] }, (actor) => { actor.activeEffects = []; }],
+]) check(`a safe gathered squad waits for ${name}, then rotates when the shared world releases it`, () => {
+  const world = makeWorld(); let squad = preparedSquad(world);
+  squad.forEach((actor) => { actor.zoneId = HOSPITAL; });
+  Object.assign(squad[1], structuredClone(extra));
+  const held = tick(squad, world, 400); squad = held.updatedSurvivors;
+  assert.ok(squad.every((actor) => actor.zoneId === HOSPITAL));
+  assert.ok(held.events.every((event) => event.kind === 'team_regroup'));
+  for (const key of Object.keys(extra)) assert.deepEqual(squad[1][key], extra[key], 'The waiting policy cannot clear a real action or control.');
+  release(squad[1]); // Controlled boundary input; not a claim that this fixture executed wildlife/cast/status time.
+  const ready = tick(squad, world, 401), moves = ready.events.filter((event) => event.kind === 'move');
+  assert.equal(moves.length, 3);
+  assert.ok(moves.every((event) => event.reason === 'team_rotate' && event.at.sec === 401 && event.to === moves[0].to));
+});
+
+check('closure and final-zone movement still let an available member escape while an ally is busy', () => {
+  for (const endgame of [false, true]) {
+    const world = makeWorld(), squad = preparedSquad(world);
+    squad.forEach((actor) => { actor.zoneId = HOSPITAL; });
+    squad[1]._growthReadyAtSec = 410; squad[2]._actionReadyAtSec = 410;
+    if (endgame) world.nextSpawn.endgame = { zoneIds: zones.map((zone) => zone.zoneId),
+      finalZoneId: GAS, singleZoneAtSec: 400, stage: 'final' };
+    else world.forbiddenIds.add(HOSPITAL);
+    const result = tick(squad, world, 400);
+    const escape = result.events.find((event) => event.kind === 'move' && event.who === 'lone');
+    assert.ok(escape && escape.to !== HOSPITAL);
+    assert.equal(escape.reason, endgame ? 'endgame_rotate' : 'escape');
+    assert.equal(result.updatedSurvivors[0]._teamRegroup?.status === 'rotation_wait', false);
+  }
+});
+
 check('actual low HP and movement control explain a hold instead of reporting successful regroup', () => {
   const world = makeWorld(), squad = preparedSquad(world);
   squad[0].hp = 12;

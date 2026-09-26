@@ -16,6 +16,7 @@ export function describeTeamRegroupDecision(evidence, zoneName = String) {
     combat: '합류 보류: 교전 중', hunt: '합류 보류: 진행 중인 사냥', cast: '합류 보류: 스킬 시전 중',
     action_wait: '합류 보류: 이동·행동 시간 대기', forbidden: '합류 보류: 금지구역 탈출 우선',
     endgame: '합류보다 최종 안전구역 진입 우선', reentry: '합류 보류: 직전 위험 지역 재진입 방지',
+    rotation_wait: '팀 이동 대기: 동료의 행동이 끝나면 함께 출발',
     replanned: '합류 계획 재검토',
   };
   const parts = [labels[evidence.status] || '합류 판단 기록', evidence.status === 'together' ? '' : goal];
@@ -27,6 +28,10 @@ export function describeTeamRegroupDecision(evidence, zoneName = String) {
     else if (growth.missing.length) parts.push(`부족: ${growth.missing.slice(0, 3).map((row) => `${row.name || row.itemId} ×${row.need}`).join(', ')}${growth.missing.length > 3 ? ' 외' : ''}`);
   }
   if (evidence.status === 'recovery') parts.push(`당시 HP ${evidence.hp}/${evidence.maxHp} · 회복 기준 ${evidence.recoverHpBelow} 이하`);
+  if (evidence.status === 'rotation_wait' && evidence.waitingFor?.length) {
+    const reasons = { hunt: '사냥 중', cast: '스킬 시전 중', status: '이동 제한', combat: '교전 중', action_wait: '이동·행동 마무리 중' };
+    parts.push(evidence.waitingFor.map((row) => `${row.name || row.who}: ${reasons[row.reason] || '행동 마무리 중'}`).join(', '));
+  }
   if (evidence.rallySelection?.reason === 'reachable_rendezvous') {
     const choice = evidence.rallySelection;
     parts.push(`합류 지점 재선정: 적·금지구역을 피한 경로 ${choice.reachableCount}/${evidence.memberCount}명 · 이전 ${zoneName(choice.previousZoneId)}에서는 ${choice.previousReachableCount}/${evidence.memberCount}명`);
@@ -76,12 +81,14 @@ export function publishTeamRegroupDecision(actor, planned, { from = actor?.zoneI
     companionsAtTarget: Math.max(0, num(planned.atTargetCount) - (String(from) === planned.targetZoneId ? 1 : 0)),
     from: String(from || ''), to: String(to || ''), distance: planned.distance ?? null, status: outcome, growth,
     hp: Math.max(0, num(actor.hp)), maxHp: Math.max(1, num(actor.maxHp)), recoverHpBelow,
+    ...(outcome === 'rotation_wait' ? { waitingFor: structuredClone(planned.waitingFor || []) } : {}),
     ...(planned.rallySelection ? { rallySelection: structuredClone(planned.rallySelection) } : {}),
   };
   const semanticKey = (row) => JSON.stringify(row && { teamId: row.teamId, combatSpaceId: row.combatSpaceId,
     status: row.status, memberCount: row.memberCount,
     ...(row.status !== 'together' ? { targetZoneId: row.targetZoneId, companionsAtTarget: row.companionsAtTarget,
-      from: row.from, to: row.to, distance: row.distance, growth: row.growth, rallySelection: row.rallySelection } : {}) });
+      from: row.from, to: row.to, distance: row.distance, growth: row.growth, rallySelection: row.rallySelection,
+      waitingFor: row.waitingFor } : {}) });
   if ((!previous && outcome === 'together') || semanticKey(previous) === semanticKey(evidence)) return;
   actor._teamRegroup = { ...evidence, at: at ? { ...at } : null };
   emitRunEvent('team_regroup', { who: String(actor._id || actor.id || ''), regroupEvidence: structuredClone(actor._teamRegroup) }, at);
