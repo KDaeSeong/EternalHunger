@@ -11,6 +11,7 @@ import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import { getCombatSpaceId } from '../../../utils/combatSpaceLogic.js';
 import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
 import { getRetreatAvoidZoneId } from './retreatDecisionMemoryRuntime.js';
+import { getBossAssistOwner } from './bossAssistRuntime.js';
 
 function buildBaseZonePopulation(phaseSurvivors, combatSpaceId) {
   const baseZonePop = {};
@@ -76,6 +77,8 @@ export function* runPhaseActorActionPipelineSteps({
     if (!scheduled) return '';
     if (getActorDimensionRiftId(actor)) return 'replanned';
     if (actor?._wildlifeHunt) return 'hunt';
+    if (getBossAssistOwner(actor, rewardRoster, { nowSec: now, ruleset,
+      isSoloMatch: state.isSoloMatch, forbiddenIds: state.forbiddenIds })) return 'hunt';
     if (actor?._pendingCharacterCast) return 'cast';
     if (!state.forbiddenIds?.has(String(actor?.zoneId))
       && getCombatIntentOpponents(actor, roster, now).length > 0) return 'combat';

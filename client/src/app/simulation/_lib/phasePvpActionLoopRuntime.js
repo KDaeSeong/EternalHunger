@@ -44,11 +44,13 @@ import { getCombatSpaceId } from '../../../utils/combatSpaceLogic.js';
 import { getWildlifeMasteryEntries } from '../../../utils/masteryLogic.js';
 import { findNextEquipmentEffectAction, reconcileEquipmentEffects } from './equipmentEffectRuntime.js';
 import { runHuntAction } from './phaseHuntActionRuntime.js';
+import { getBossAssistAssignments, getBossAssistOwner, reconcileBossAssists } from './bossAssistRuntime.js';
 import {
   collectTimedWildlifeOutcomes,
   completeTimedWildlifeEncounter,
   findNextWildlifeAction,
   getWildlifeCombatRoster,
+  getWildlifeOwnerDamageDealt,
   releaseTimedWildlifeEncounter,
   resolveTimedWildlifeAction,
   settleWildlifeClaim,
@@ -188,12 +190,22 @@ function* pvpActionSteps({
       setDeathMetadata, tryUseConsumable },
   });
   const castActions = { addLog, atNow, emitRunEvent };
+  const bossAssistOptions = () => ({ nowSec: currentActionSec(), ruleset, isSoloMatch, forbiddenIds });
   const reconcileCasts = () => {
+    reconcileBossAssists([...survivorMap.values()], bossAssistOptions(), castActions);
     const roster = getWildlifeCombatRoster([...survivorMap.values()]);
     resolveRiftKnockbacks(roster, currentActionSec(), castActions);
     reconcileCharacterCasts(roster, currentActionSec(), battleSettings, castActions);
     reconcileForcedControls(roster, currentActionSec(), castActions);
     reconcileEquipmentEffects([...survivorMap.values()], currentActionSec(), castActions);
+  };
+  const grantBossAssistMastery = (encounter) => {
+    for (const [id, damageDealt] of Object.entries(encounter.assistDamageDealt || {})) {
+      const helper = survivorMap.get(id);
+      if (!helper || Number(helper.hp || 0) <= 0) continue;
+      const entries = getWildlifeMasteryEntries({ damageDealt });
+      if (entries.length) grantMasteries(helper, entries, '보스 공동 사냥');
+    }
   };
   const reconcileWildlife = () => {
     for (const outcome of collectTimedWildlifeOutcomes([...survivorMap.values()])) {
@@ -221,7 +233,8 @@ function* pvpActionSteps({
         setDeathMetadata(actor, 'wildlife_hunt', { causeName: '야생동물의 실제 공격', by: String(encounter.target?._id || '') });
         actor.deadAtPhaseIdx = phaseIdxNow;
         actor.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
-        const entries = getWildlifeMasteryEntries({ damageDealt: encounter.damageDealt, damageTaken: encounter.damageTaken });
+        grantBossAssistMastery(encounter);
+        const entries = getWildlifeMasteryEntries({ damageDealt: getWildlifeOwnerDamageDealt(encounter), damageTaken: encounter.damageTaken });
         if (entries.length) grantMasteries(actor, entries, '실시간 사냥');
         actor.hp = 0;
         addLog(`💀 [${actor.name}]이(가) ${encounter.target?.name || '야생동물'}의 공격으로 사망했습니다.`, 'death');
@@ -240,6 +253,7 @@ function* pvpActionSteps({
       if (outcome.type === 'target_defeated') {
         const completed = completeTimedWildlifeEncounter(actor, nextSpawn, { atNow, emitRunEvent });
         if (!completed) continue;
+        grantBossAssistMastery(completed);
         runHuntAction({
           state: {
             actor,
@@ -260,7 +274,7 @@ function* pvpActionSteps({
             ruleset,
             preparedHunt: completed.reward,
             preparedHuntRole: completed.isBossReward ? 'boss' : completed.isMutantReward ? 'mutant' : 'ordinary',
-            actualDamageDealt: completed.damageDealt,
+            actualDamageDealt: getWildlifeOwnerDamageDealt(completed),
             actualDamageTaken: completed.damageTaken,
             damageAlreadyApplied: true,
             encounterId: completed.id,
@@ -280,7 +294,8 @@ function* pvpActionSteps({
         });
         emitRunEvent('hunt_end', { who: String(actor._id || ''), encounterId: completed.id, kind: completed.kind,
           zoneId: completed.zoneId, wildlifeName: completed.target?.name, outcome: 'victory', damageDealt: completed.damageDealt,
-          damageTaken: completed.damageTaken, elapsedSec: roundCombatTime(currentActionSec() - completed.startedAtSec) }, atNow());
+          damageTaken: completed.damageTaken, assistDamageDealt: completed.assistDamageDealt,
+          elapsedSec: roundCombatTime(currentActionSec() - completed.startedAtSec) }, atNow());
       }
     }
   };
@@ -313,8 +328,10 @@ function* pvpActionSteps({
     reconcileCasts();
     if (shouldEndMatch()) break;
     try {
-      const nextPvpCombat = findNextCombatAction(survivorMap, currentActionSec(), newDeadIds, battleSettings);
-      const nextWildlifeCombat = findNextWildlifeAction(survivorMap, currentActionSec(), newDeadIds, battleSettings, ruleset);
+      const assistOwners = getBossAssistAssignments([...survivorMap.values()], bossAssistOptions());
+      const nextPvpCombat = findNextCombatAction(survivorMap, currentActionSec(), newDeadIds, battleSettings, assistOwners);
+      const nextWildlifeCombat = findNextWildlifeAction(survivorMap, currentActionSec(), newDeadIds, battleSettings, ruleset,
+        { isSoloMatch, forbiddenIds, assistOwners });
       const nextOrdinaryCombat = nextPvpCombat && (!nextWildlifeCombat || nextPvpCombat.atSec <= nextWildlifeCombat.atSec)
         ? { ...nextPvpCombat, scheduler: 'pvp' }
         : nextWildlifeCombat ? { ...nextWildlifeCombat, scheduler: 'wildlife' } : null;
@@ -342,6 +359,8 @@ function* pvpActionSteps({
             nowSec: currentActionSec(),
             battleSettings,
             ruleset,
+            isSoloMatch,
+            forbiddenIds,
             phaseIdxNow,
             actions: { addLog, applyErTraitAfterBattle, applyErWeaponSkillAfterCombat, atNow,
               emitEffectRunEvents, emitRunEvent },
@@ -375,7 +394,7 @@ function* pvpActionSteps({
       let actor = queuedActor?._id ? survivorMap.get(String(queuedActor._id)) : null;
       if (!actor) continue;
       actor = normalizeRuntimeSurvivor(actor);
-      if (actor._wildlifeHunt) {
+      if (actor._wildlifeHunt || getBossAssistOwner(actor, [...survivorMap.values()], bossAssistOptions())) {
         upsertRuntimeSurvivor(survivorMap, actor);
         continue;
       }

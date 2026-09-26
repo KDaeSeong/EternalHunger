@@ -70,7 +70,7 @@ export function engageCombatParticipants(actor, target, roster, nowSec, { teamCo
 
 // Find a real future attack, independently of the encounter-discovery queue.
 // No stored "missed turns": after stun/travel the next attack starts from now.
-export function findNextCombatAction(survivorMap, nowSec, newDeadIds = [], settings = {}) {
+export function findNextCombatAction(survivorMap, nowSec, newDeadIds = [], settings = {}, wildlifeAssistIds = new Set()) {
   const roster = [...survivorMap.values()].filter((row) => !newDeadIds.includes(idOf(row)));
   let next = null;
   const priority = { status_boundary: -1, skill_release: 0, skill_expire: 0, skill_start: 1, basic: 2, approach: 3 };
@@ -87,7 +87,7 @@ export function findNextCombatAction(survivorMap, nowSec, newDeadIds = [], setti
     if (Number(actor.hp || 0) <= 0 || isDimensionRiftDefeated(actor)) { actor._spatialMotion = null; continue; }
     // Timed wildlife encounters have their own hostile target and scheduler.
     // They re-enter PvP scheduling after that claim is completed or released.
-    if (actor._wildlifeHunt) continue;
+    if (actor._wildlifeHunt || wildlifeAssistIds.has(idOf(actor))) continue;
     const statusExpiry = getStoredActiveStatusEffects(actor).reduce((seconds, effect) =>
       effect.remainingDuration != null && Number.isFinite(effect.remainingDuration)
         ? Math.min(seconds, effect.remainingDuration) : seconds, Infinity);

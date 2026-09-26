@@ -15,7 +15,8 @@ const releaseDelay = (actor, tags) => getActiveStatusEffects(actor).reduce((dela
   effect.tags.some((tag) => tags.includes(tag)) ? Math.max(delay, effect.remainingDuration == null ? Infinity : effect.remainingDuration) : delay, 0);
 const reasons = { dead: '시전자 사망', status: '행동 제한 상태', moved: '시전자 지역 이탈', combat_space: '전장 경계 이탈',
   target_dead: '대상 사망', target_moved: '대상 지역 이탈', untargetable: '대상 지정 불가', disabled: '스킬 사용 꺼짐',
-  target_team: '대상 팀 변경', out_of_sight: '대상 시야 이탈', out_of_range: '대상 사거리 이탈', expired: '강화 대기 시간 만료' };
+  target_team: '대상 팀 변경', out_of_sight: '대상 시야 이탈', out_of_range: '대상 사거리 이탈', expired: '강화 대기 시간 만료',
+  hunt_end: '보스 공동 사냥 종료 또는 지원 중단' };
 
 export function findCharacterSkillChoice(actor, opponents, roster, nowSec, settings = {}) {
   if (!actor || actor._pendingCharacterCast || Number(actor.hp || 0) <= 0 || !areCharacterSkillsEnabled(settings)) return null;
@@ -126,6 +127,16 @@ export function getCharacterCastInvalidReason(actor, cast, roster, settings = {}
   return '';
 }
 
+export function cancelCharacterCast(actor, nowSec, reason, actions = {}) {
+  const cast = actor?._pendingCharacterCast;
+  if (!cast) return false;
+  actor._pendingCharacterCast = null;
+  if (actor._actionReadyAtSec === cast.recoveryUntilSec) actor._actionReadyAtSec = Math.max(nowSec, cast.previousActionReadyAtSec);
+  const state = normalizeSkillState(actor); state[cast.def.slot].stage = 'cooldown'; actor.skillState = state;
+  castEvent('skill_cancel', actor, cast, nowSec, actions, { reason });
+  return true;
+}
+
 export function reconcileCharacterCasts(roster, nowSec, settings, actions = {}) {
   for (const actor of roster) {
     const cast = actor._pendingCharacterCast;
@@ -134,12 +145,7 @@ export function reconcileCharacterCasts(roster, nowSec, settings, actions = {}) 
       const target = roster.find((row) => idOf(row) === cast.targetId);
       if (target && !areSameTeam(actor, target)) rememberSpatialContact(actor, target, nowSec, roster);
     }
-    if (reason) {
-      actor._pendingCharacterCast = null;
-      if (actor._actionReadyAtSec === cast.recoveryUntilSec) actor._actionReadyAtSec = Math.max(nowSec, cast.previousActionReadyAtSec);
-      const state = normalizeSkillState(actor); state[cast.def.slot].stage = 'cooldown'; actor.skillState = state;
-      castEvent('skill_cancel', actor, cast, nowSec, actions, { reason });
-    }
+    if (reason) cancelCharacterCast(actor, nowSec, reason, actions);
     const armed = actor._armedCharacterSkill;
     if (armed && (actor.hp <= 0 || armed.expiresAtSec <= nowSec || !areCharacterSkillsEnabled(settings))) {
       actor._armedCharacterSkill = null;

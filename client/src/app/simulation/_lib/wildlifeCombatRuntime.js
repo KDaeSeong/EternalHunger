@@ -9,6 +9,7 @@ import { getBasicAttackIntervalSec, isBasicAttackReady, roundCombatTime } from '
 import { getSpatialPosition, getSpatialStats, initializeSpatialPosition, isInBasicAttackRange,
   planSpatialApproach, spatialDistance } from './combatSpatialRuntime.js';
 import { areSameTeam } from './teamRuntime.js';
+import { getBossAssistAssignments, getBossAssistOwner } from './bossAssistRuntime.js';
 
 const SPECIAL_COMBAT_SPECS = {
   mutant_wildlife: { label: '변이 야생동물', icon: '🧪', maxHp: 330, attackPower: 38, defense: 28,
@@ -210,6 +211,26 @@ export function getWildlifeCombatRoster(roster) {
   return [...(Array.isArray(roster) ? roster : []), ...getActiveWildlifeTargets(roster)];
 }
 
+export function getWildlifeOwnerDamageDealt(encounter) {
+  const assisted = Object.values(encounter?.assistDamageDealt || {}).reduce((sum, damage) => sum + Number(damage || 0), 0);
+  return Math.max(0, Number(encounter?.damageDealt || 0) - assisted);
+}
+
+function recordWildlifeDamage(encounter, sourceId, damage) {
+  encounter.damageDealt += damage;
+  if (Object.hasOwn(encounter.assistDamageDealt || {}, sourceId)) encounter.assistDamageDealt[sourceId] += damage;
+}
+
+function joinBossAttack(actor, owner, encounter, actions) {
+  if (idOf(actor) === idOf(owner)) return;
+  encounter.assistDamageDealt ||= {};
+  if (Object.hasOwn(encounter.assistDamageDealt, idOf(actor))) return;
+  encounter.assistDamageDealt[idOf(actor)] = 0;
+  actions.addLog?.(`🤝 [${actor.name}]이(가) [${owner.name}]과 ${encounter.target.name} 공동 사냥에 참여합니다.`, 'combat-detail');
+  actions.emitRunEvent?.('hunt_assist', { who: idOf(actor), ownerId: idOf(owner), encounterId: encounter.id,
+    kind: encounter.kind, zoneId: encounter.zoneId, wildlifeId: idOf(encounter.target), wildlifeName: encounter.target.name }, actions.atNow?.());
+}
+
 export function advanceTimedWildlifeEffects(roster, { elapsedSec = 0, startSec = 0 } = {}) {
   if (!(Number(elapsedSec) > 0)) return 0;
   let changed = 0;
@@ -222,7 +243,14 @@ export function advanceTimedWildlifeEffects(roster, { elapsedSec = 0, startSec =
     if (result?.character) encounter.target = result.character;
     const after = Number(encounter.target?.hp || 0);
     if (after !== before || (result?.expired || []).length || (result?.ticks || []).length) changed += 1;
-    if (after < before) encounter.damageDealt += Math.max(0, before - after);
+    if (after < before) {
+      const loss = before - after;
+      const ticks = (result?.ticks || []).filter((tick) => tick.type === 'damage' && Number(tick.amount) > 0);
+      const total = ticks.reduce((sum, tick) => sum + Number(tick.amount), 0);
+      // Attribute only actual HP lost, not overkill or healing-offset raw DoT.
+      if (total > 0) for (const tick of ticks) recordWildlifeDamage(encounter, String(tick.sourceActorId || ''), loss * Number(tick.amount) / total);
+      else recordWildlifeDamage(encounter, idOf(actor), loss);
+    }
   }
   return changed;
 }
@@ -258,52 +286,57 @@ function chooseCandidate(current, candidate) {
   return current;
 }
 
-export function findNextWildlifeAction(survivorMap, nowSec, newDeadIds = [], settings = {}, ruleset = {}) {
+export function findNextWildlifeAction(survivorMap, nowSec, newDeadIds = [], settings = {}, ruleset = {}, options = {}) {
   const roster = [...survivorMap.values()].filter((row) => !newDeadIds.includes(idOf(row)) && Number(row?.hp || 0) > 0);
   const visionRoster = getWildlifeCombatRoster(roster);
+  const assistOwners = options.assistOwners || getBossAssistAssignments(roster, { ...options, nowSec, ruleset });
   let next = null;
-  for (const actor of roster) {
-    const encounter = actor?._wildlifeHunt;
+  for (const owner of roster) {
+    const encounter = owner?._wildlifeHunt;
     const target = encounter?.target;
-    if (!encounter?.id || !target || Number(target.hp || 0) <= 0 || actor._combatIntent) continue;
-    const base = { encounterId: encounter.id, ownerId: idOf(actor), combatSpaceId: getCombatSpaceId(actor) };
-    const actorStatus = finiteDuration(getStoredActiveStatusEffects(actor));
+    if (!encounter?.id || !target || Number(target.hp || 0) <= 0 || owner._combatIntent) continue;
+    const base = { encounterId: encounter.id, ownerId: idOf(owner), combatSpaceId: getCombatSpaceId(owner) };
     const targetStatus = finiteDuration(getStoredActiveStatusEffects(target));
-    if (Number.isFinite(actorStatus)) next = chooseCandidate(next, { ...base, actorId: idOf(actor),
-      atSec: roundCombatTime(nowSec + actorStatus), actionType: 'hunt_status_boundary' });
     if (Number.isFinite(targetStatus)) next = chooseCandidate(next, { ...base, actorId: idOf(target),
       atSec: roundCombatTime(nowSec + targetStatus), actionType: 'hunt_status_boundary' });
 
-    const hpRatio = Number(actor.hp || 0) / Math.max(1, Number(actor.maxHp || 1));
+    const hpRatio = Number(owner.hp || 0) / Math.max(1, Number(owner.maxHp || 1));
     const retreatRatio = Math.max(0.05, Math.min(0.8, Number(ruleset?.ai?.huntRetreatHpRatio ?? 0.22)));
     const retreatHp = Math.max(0, Number(ruleset?.ai?.escapeHpBelow ?? 0));
-    if (canMoveByStatus(actor) && (hpRatio <= retreatRatio || retreatHp > 0 && Number(actor.hp || 0) <= retreatHp)) {
-      next = chooseCandidate(next, { ...base, actorId: idOf(actor), atSec: roundCombatTime(nowSec), actionType: 'hunt_flee' });
+    if (canMoveByStatus(owner) && (hpRatio <= retreatRatio || retreatHp > 0 && Number(owner.hp || 0) <= retreatHp)) {
+      next = chooseCandidate(next, { ...base, actorId: idOf(owner), atSec: roundCombatTime(nowSec), actionType: 'hunt_flee' });
       continue;
     }
 
-    if (actor._pendingCharacterCast) {
-      next = chooseCandidate(next, { ...base, actorId: idOf(actor), targetId: actor._pendingCharacterCast.targetId,
-        atSec: roundCombatTime(Math.max(nowSec, actor._pendingCharacterCast.releaseAtSec)), actionType: 'hunt_skill_release' });
-    } else if (!hasActionBlockStatus(actor)) {
-      const choice = findCharacterSkillChoice(actor, [target], visionRoster, nowSec, settings);
-      if (choice) next = chooseCandidate(next, { ...base, actorId: idOf(actor), targetId: choice.targetId,
-        atSec: choice.atSec, choice, actionType: 'hunt_skill_start' });
-      if (canBasicAttackByStatus(actor, target) && isInBasicAttackRange(actor, target, visionRoster)) {
-        next = chooseCandidate(next, { ...base, actorId: idOf(actor), targetId: idOf(target), actionType: 'hunt_basic',
-          atSec: roundCombatTime(Math.max(nowSec, Number(actor._actionReadyAtSec || 0), Number(actor._basicAttackReadyAtSec || 0))) });
-      } else {
-        const approach = planSpatialApproach(actor, target, nowSec, visionRoster);
-        if (approach) next = chooseCandidate(next, { ...base, ...approach, actionType: 'hunt_approach' });
+    const attackers = [owner, ...roster.filter((row) => assistOwners.get(idOf(row)) === idOf(owner))];
+    for (const actor of attackers) {
+      const actorStatus = finiteDuration(getStoredActiveStatusEffects(actor));
+      if (Number.isFinite(actorStatus)) next = chooseCandidate(next, { ...base, actorId: idOf(actor),
+        atSec: roundCombatTime(nowSec + actorStatus), actionType: 'hunt_status_boundary' });
+      if (actor._pendingCharacterCast) {
+        next = chooseCandidate(next, { ...base, actorId: idOf(actor), targetId: actor._pendingCharacterCast.targetId,
+          atSec: roundCombatTime(Math.max(nowSec, actor._pendingCharacterCast.releaseAtSec)), actionType: 'hunt_skill_release' });
+      } else if (!hasActionBlockStatus(actor)) {
+        const choice = findCharacterSkillChoice(actor, [target], visionRoster, nowSec, settings);
+        if (choice) next = chooseCandidate(next, { ...base, actorId: idOf(actor), targetId: choice.targetId,
+          atSec: choice.atSec, choice, actionType: 'hunt_skill_start' });
+        if (canBasicAttackByStatus(actor, target) && isInBasicAttackRange(actor, target, visionRoster)) {
+          actor._spatialMotion = null;
+          next = chooseCandidate(next, { ...base, actorId: idOf(actor), targetId: idOf(target), actionType: 'hunt_basic',
+            atSec: roundCombatTime(Math.max(nowSec, Number(actor._actionReadyAtSec || 0), Number(actor._basicAttackReadyAtSec || 0))) });
+        } else {
+          const approach = planSpatialApproach(actor, target, nowSec, visionRoster);
+          if (approach) next = chooseCandidate(next, { ...base, ...approach, actionType: 'hunt_approach' });
+        }
       }
     }
 
-    if (!hasActionBlockStatus(target) && canBasicAttackByStatus(target, actor) && isTargetableByStatus(actor)) {
-      if (isInBasicAttackRange(target, actor, visionRoster)) {
-        next = chooseCandidate(next, { ...base, actorId: idOf(target), targetId: idOf(actor), actionType: 'wildlife_basic',
+    if (!hasActionBlockStatus(target) && canBasicAttackByStatus(target, owner) && isTargetableByStatus(owner)) {
+      if (isInBasicAttackRange(target, owner, visionRoster)) {
+        next = chooseCandidate(next, { ...base, actorId: idOf(target), targetId: idOf(owner), actionType: 'wildlife_basic',
           atSec: roundCombatTime(Math.max(nowSec, Number(target._actionReadyAtSec || 0), Number(target._basicAttackReadyAtSec || 0))) });
       } else {
-        const approach = planSpatialApproach(target, actor, nowSec, visionRoster);
+        const approach = planSpatialApproach(target, owner, nowSec, visionRoster);
         if (approach) next = chooseCandidate(next, { ...base, ...approach, actionType: 'wildlife_approach' });
       }
     }
@@ -316,6 +349,8 @@ export function resolveTimedWildlifeAction(candidate, {
   nowSec = 0,
   battleSettings = {},
   ruleset = {},
+  isSoloMatch = false,
+  forbiddenIds = new Set(),
   phaseIdxNow = 0,
   actions = {},
 } = {}) {
@@ -323,29 +358,35 @@ export function resolveTimedWildlifeAction(candidate, {
   const encounter = owner?._wildlifeHunt;
   if (!owner || !encounter || String(encounter.id) !== String(candidate?.encounterId)) return { performed: false };
   const target = encounter.target;
-  if (!target || Number(owner.hp || 0) <= 0 || Number(target.hp || 0) <= 0) return { performed: false };
+  if (!target || Number(owner.hp || 0) <= 0 || Number(target.hp || 0) <= 0 || owner._combatIntent) return { performed: false };
+  const roster = [...survivorMap.values()];
+  const actor = candidate.actorId === idOf(target) ? owner : survivorMap.get(String(candidate.actorId || ''));
+  if (!actor || actor !== owner && idOf(getBossAssistOwner(actor, roster,
+    { nowSec, ruleset, isSoloMatch, forbiddenIds })) !== idOf(owner)) return { performed: false };
   if (candidate.actionType === 'hunt_flee') return { performed: false, fled: true };
   if (['hunt_approach', 'wildlife_approach', 'hunt_status_boundary'].includes(candidate.actionType)) return { performed: false };
 
-  const roster = [...survivorMap.values()];
   const visionRoster = getWildlifeCombatRoster(roster);
   if (candidate.actionType === 'hunt_skill_start') {
-    const choice = findCharacterSkillChoice(owner, [target], visionRoster, nowSec, battleSettings);
-    const performed = startCharacterCast(owner, choice, nowSec, battleSettings, actions);
-    if (!performed) owner._actionReadyAtSec = Math.max(Number(owner._actionReadyAtSec || 0), roundCombatTime(nowSec + 0.01));
+    const choice = findCharacterSkillChoice(actor, [target], visionRoster, nowSec, battleSettings);
+    const performed = startCharacterCast(actor, choice, nowSec, battleSettings, actions);
+    if (performed) {
+      joinBossAttack(actor, owner, encounter, actions);
+      if (actor !== owner) actor._pendingCharacterCast.bossAssistEncounterId = encounter.id;
+    } else actor._actionReadyAtSec = Math.max(Number(actor._actionReadyAtSec || 0), roundCombatTime(nowSec + 0.01));
     return { performed, castStarted: true };
   }
 
-  let striker = owner;
+  let striker = actor;
   let victim = target;
   let preparedSkill = null;
   let targetKind = 'wildlife';
   if (candidate.actionType === 'hunt_skill_release') {
-    preparedSkill = finishCharacterCast(owner, nowSec, actions);
+    preparedSkill = finishCharacterCast(actor, nowSec, actions);
     victim = visionRoster.find((row) => idOf(row) === String(preparedSkill?.targetId || candidate.targetId || '')) || target;
     targetKind = victim === target ? 'wildlife' : 'experiment';
     if (!preparedSkill) {
-      owner._actionReadyAtSec = Math.max(Number(owner._actionReadyAtSec || 0), roundCombatTime(nowSec + 0.01));
+      actor._actionReadyAtSec = Math.max(Number(actor._actionReadyAtSec || 0), roundCombatTime(nowSec + 0.01));
       return { performed: false };
     }
   } else if (candidate.actionType === 'wildlife_basic') {
@@ -395,17 +436,19 @@ export function resolveTimedWildlifeAction(candidate, {
   const ownerLoss = Math.max(0, beforeOwnerHp - Number(owner.hp || 0));
   const targetLoss = Math.max(0, beforeTargetHp - Number(target.hp || 0));
   encounter.damageTaken += ownerLoss;
-  encounter.damageDealt += targetLoss;
+  if (result?.performed && striker !== target) joinBossAttack(actor, owner, encounter, actions);
+  recordWildlifeDamage(encounter, idOf(striker), targetLoss);
   encounter.lastActionAtSec = roundCombatTime(nowSec);
   if (!result?.performed) {
     if (striker === target) target._basicAttackReadyAtSec = Math.max(Number(target._basicAttackReadyAtSec || 0), roundCombatTime(nowSec + 0.01));
-    else owner._actionReadyAtSec = Math.max(Number(owner._actionReadyAtSec || 0), roundCombatTime(nowSec + 0.01));
+    else actor._actionReadyAtSec = Math.max(Number(actor._actionReadyAtSec || 0), roundCombatTime(nowSec + 0.01));
   }
   if (result?.performed) actions.emitRunEvent?.('hunt_exchange', {
     who: idOf(owner), encounterId: encounter.id, kind: encounter.kind, strikerId: idOf(striker), targetId: idOf(victim),
     wildlifeId: idOf(target), wildlifeName: target.name,
     damageDealt: targetLoss, damageTaken: ownerLoss, hunterHp: Number(owner.hp || 0), wildlifeHp: Number(target.hp || 0),
-    distance: spatialDistance(owner, target), nextHunterAttackAtSec: Number(owner._basicAttackReadyAtSec || 0),
+    attackerHp: Number(striker.hp || 0), ownerId: idOf(owner),
+    distance: spatialDistance(actor, target), nextHunterAttackAtSec: Number(actor._basicAttackReadyAtSec || 0),
     nextWildlifeAttackAtSec: Number(target._basicAttackReadyAtSec || 0),
   }, actions.atNow?.());
   return { performed: Boolean(result?.performed), owner, target, targetLoss, ownerLoss, preparedSkill };
