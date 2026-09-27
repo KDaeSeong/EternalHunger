@@ -103,7 +103,9 @@ export function prepareActorPhaseActionQueue({
   const craftPreview = craftProbeActor
     ? tryAutoCraftFromInventory(craftProbeActor, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset)
     : null;
-  const suppressEarlyRouteHunt = currentRouteNeedsSearch && !craftPreview?.changed && !upgradeNeed?.farmCredits;
+  const teamBossAtTarget = !earlyRouteActionActive && movementObjective?.type === 'boss'
+    && movementObjective.beneficiary && String(movementObjective.targetZoneId) === String(updated.zoneId);
+  const suppressEarlyRouteHunt = currentRouteNeedsSearch && !craftPreview?.changed && !upgradeNeed?.farmCredits && !teamBossAtTarget;
 
   const queueScoredCandidates = (() => {
     if (didMove || fleeInterruptReason || recovering) return [];
@@ -199,9 +201,10 @@ export function prepareActorPhaseActionQueue({
         zoneId: String(updated?.zoneId || ''),
         etaSec: 1,
         phaseIdx: Number(phaseIdxNow || 0),
-        score: 24 + wildlifeTempoBias + objectiveActionBias + farmCreditsBias + (lowHpRatio <= 0.35 ? 6 : 0) + (craftPreview?.changed ? -10 : 0),
+        score: 24 + wildlifeTempoBias + objectiveActionBias + farmCreditsBias + (lowHpRatio <= 0.35 ? 6 : 0)
+          + (craftPreview?.changed ? -10 : 0) + (teamBossAtTarget ? 90 : 0),
         label: 'hunt',
-        priorityNote: [farmCreditsBias > 0 ? 'credits' : '', wildlifeTempoBias > 0 ? 'wildlife' : '', objectiveActionBias > 0 ? 'objective' : ''].filter(Boolean).join('+'),
+        priorityNote: [teamBossAtTarget ? 'team_boss' : '', farmCreditsBias > 0 ? 'credits' : '', wildlifeTempoBias > 0 ? 'wildlife' : '', objectiveActionBias > 0 ? 'objective' : ''].filter(Boolean).join('+'),
       });
     }
 

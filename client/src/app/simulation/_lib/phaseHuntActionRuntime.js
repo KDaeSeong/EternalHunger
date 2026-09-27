@@ -82,7 +82,8 @@ export function runHuntAction({
   if (updated._wildlifeHunt && !preparedHunt) return { actor: updated, died: false, hunt: null, reason: 'active_encounter' };
 
   const engagementKey = encounterId || `hunt:${String(updated._id || '')}:${phaseIdxNow}:${String(updated._actionCycleKey ?? 'legacy')}`;
-  const reserveOpts = { reserveOnly: deferHuntSettlement === true, claimantId: String(updated._id || ''), engagementId: engagementKey };
+  const reserveOpts = { reserveOnly: deferHuntSettlement === true, claimantId: String(updated._id || ''), engagementId: engagementKey,
+    bossObjective: updated._movementObjective };
   const preparedRole = String(preparedHuntRole || '');
   const boss = preparedHunt && preparedRole === 'boss' ? preparedHunt
     : preparedHunt ? null : (recovering ? null : consumeBossAtZone(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset, reserveOpts));

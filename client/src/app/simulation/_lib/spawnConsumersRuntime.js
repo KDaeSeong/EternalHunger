@@ -17,10 +17,13 @@ import {
   getPerkWildlifeLootBias,
 } from './perkRuntime';
 import {
+  findSpecialResourceItem,
   normalizeAnimalDropSource,
   rollSpecialResourceDrops,
 } from './specialResourceRuntime';
 import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
+import { findBossPrimaryDrop } from './bossRewardRuntime.js';
+import { getBossObjectiveSourceId } from './movementObjectiveRuntime.js';
 
 function openSpawnedLegendaryCrate(spawnState, zoneId, publicItems, curDay, curPhase, actor, ruleset, opts = {}) {
   const s = spawnState;
@@ -251,9 +254,7 @@ function pickupSpawnedCore(spawnState, zoneId, publicItems, curDay, curPhase, ac
   }
 
   const kind = String(node?.kind || '');
-  let item = null;
-  if (kind === 'meteor') item = findItemByKeywords(publicItems, ['운석', 'meteor']);
-  if (kind === 'life_tree') item = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
+  let item = findSpecialResourceItem(publicItems, kind);
 
   if (!item?._id) {
     if (kind === 'meteor') item = { _id: 'SIM_MATERIAL_METEOR', name: '운석', type: '재료', tier: 4, tags: ['legendary_core', 'meteor'] };
@@ -286,29 +287,26 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
   const claimantId = String(opts?.claimantId || actor?._id || '');
   const engagementId = String(opts?.engagementId || '');
 
-  const kinds = ['alpha', 'omega', 'weakline'];
+  const objective = opts.bossObjective?.type === 'boss' ? opts.bossObjective : null;
+  const kinds = objective ? ['alpha', 'omega', 'weakline'].filter((kind) => kind === objective.subkind) : ['alpha', 'omega', 'weakline'];
   for (const k of kinds) {
     const b = s?.bosses?.[k];
     if (!b || !b.alive) continue;
     if (String(b.zoneId) !== zid) continue;
+    if (objective && (String(objective.targetZoneId) !== zid
+      || !objective.sourceIds?.includes(getBossObjectiveSourceId(k, b)))) continue;
     if (b.engagedBy && String(b.engagedBy) !== claimantId) continue;
 
     const p = roughPower(actor);
     const powerBonus = Math.min(retreatPowerBonusMax, Math.max(0, (p - 40) / 240));
 
     const cfg = bossRule?.[k] || {};
-    const kw = Array.isArray(cfg?.dropKeywords) ? cfg.dropKeywords : (k === 'omega'
-      ? ['포스 코어', 'force core', 'forcecore']
-      : k === 'weakline'
-        ? ['vf 혈액', 'vf 샘플', 'blood sample', '혈액 샘플', 'vf']
-        : ['미스릴', 'mithril']);
-
     const dmgCfg = cfg?.dmg || {};
     const dmgMin = Math.max(0, Number(dmgCfg?.min ?? (k === 'omega' ? 8 : 6)));
     const dmgBase = Number(dmgCfg?.base ?? (k === 'omega' ? 26 : k === 'weakline' ? 18 : 22));
     const dmgDiv = Math.max(1, Number(dmgCfg?.scaleDiv ?? (k === 'weakline' ? 10 : 9)));
 
-    const drop = findItemByKeywords(publicItems, kw);
+    const drop = findBossPrimaryDrop(k, publicItems, ruleset);
     const dmg = Math.max(dmgMin, dmgBase - Math.floor(p / dmgDiv));
 
     if (drop?._id) {
@@ -322,11 +320,9 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
       }
 
       const label = k === 'alpha' ? '알파' : k === 'omega' ? '오메가' : '위클라인';
-      const log = k === 'alpha'
-        ? `🐺 야생동물(${label}) 사냥 성공! 미스릴 획득`
-        : k === 'omega'
-          ? `🧿 변이체(${label}) 격파! 포스 코어 획득`
-          : `🧬 변이체(${label}) 처치! VF 혈액 샘플 + (운석/생명의 나무) 획득`;
+      // Actual configured item receipts are emitted by settlement. Do not
+      // claim the default material (or optional secondary drops) was earned.
+      const log = `${k === 'alpha' ? '🐺' : k === 'omega' ? '🧿' : '🧬'} ${label} 처치 성공!`;
 
       const rw = cfg?.reward || {};
       const cr = rw?.credits || {};

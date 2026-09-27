@@ -5,7 +5,7 @@ const text = (value) => String(value || '');
 const resourceLabels = { meteor: '운석', life_tree: '생명의 나무', mithril: '미스릴', force_core: '포스 코어', vf_blood_sample: 'VF 혈액 샘플', vf: 'VF 혈액 샘플' };
 const bossLabels = { alpha: '알파', omega: '오메가', weakline: '위클라인' };
 const sourceId = (row) => text(row?.id || row?.crateId);
-const bossSourceId = (kind, boss) => `${kind}:${text(boss?.spawnedDay)}:${text(boss?.spawnedPhase)}`;
+export const getBossObjectiveSourceId = (kind, boss) => `${kind}:${text(boss?.spawnedDay)}:${text(boss?.spawnedPhase)}`;
 
 // Capture the concrete source AFTER a destination has been selected. A list of
 // candidate regions (or a generic "core") is not a particular resource target.
@@ -24,8 +24,12 @@ export function captureMovementObjective(plan, targetZoneId, { spawnState, rules
     resourceKinds = [...new Set(sources.map((row) => text(row.kind)))];
   } else if (type === 'boss') {
     const boss = spawnState.bosses?.[subkind];
-    if (boss?.alive && text(boss.zoneId) === zoneId) sources = [{ id: bossSourceId(subkind, boss) }];
+    if (boss?.alive && text(boss.zoneId) === zoneId
+      && (!list(plan.objectiveSourceIds).length || plan.objectiveSourceIds.includes(getBossObjectiveSourceId(subkind, boss)))) {
+      sources = [{ id: getBossObjectiveSourceId(subkind, boss) }];
+    }
     resourceKinds = getSpecialDropRules(subkind, ruleset)
+      .map((row) => ({ ...row, key: text(row?.key).trim() }))
       .filter((row) => Number(row.chance) > 0 && findSpecialResourceItem(publicItems, row.key)?._id)
       .map((row) => text(row.key));
   } else if (type === 'legendary_crate' || type === 'transcend_crate') {
@@ -37,7 +41,7 @@ export function captureMovementObjective(plan, targetZoneId, { spawnState, rules
   if (!sources.length) return null;
   return { type, subkind, targetZoneId: zoneId, sourceIds: sources.map(sourceId).filter(Boolean),
     resourceKinds: [...new Set(resourceKinds)].sort(),
-    ...(type === 'natural_core' && plan.beneficiary ? { beneficiary: structuredClone(plan.beneficiary) } : {}),
+    ...(['natural_core', 'boss'].includes(type) && plan.beneficiary ? { beneficiary: structuredClone(plan.beneficiary) } : {}),
   };
 }
 
@@ -56,7 +60,7 @@ export function getAvailableMovementObjective(objective, { spawnState, forbidden
   if (objective.type === 'boss') {
     const row = spawnState.bosses?.[objective.subkind];
     return row?.alive && text(row.zoneId) === objective.targetZoneId
-      && objective.sourceIds.includes(bossSourceId(objective.subkind, row)) ? objective : null;
+      && objective.sourceIds.includes(getBossObjectiveSourceId(objective.subkind, row)) ? objective : null;
   }
   if (objective.type === 'legendary_crate' || objective.type === 'transcend_crate') {
     sources = list(objective.type === 'legendary_crate' ? spawnState.legendaryCrates : spawnState.transcendCrates)
@@ -80,7 +84,9 @@ export function describeMovementObjective(objective) {
   const resources = list(objective.resourceKinds).map((key) => resourceLabels[key]).filter(Boolean);
   if (objective.type === 'natural_core') return `${resources.join('·') || '특수 재료'} 확보${objective.beneficiary
     ? ` · ${objective.beneficiary.name}의 ${objective.beneficiary.targetItemName} 제작 재료` : ''}`;
-  if (objective.type === 'boss') return `${bossLabels[objective.subkind] || '보스'} 공략${resources.length ? ` · ${resources.join('·')} 노림` : ''}`;
+  if (objective.type === 'boss') return `${bossLabels[objective.subkind] || '보스'} 공략${objective.beneficiary
+    ? ` · ${objective.beneficiary.materialName} 노림 · ${objective.beneficiary.name}의 ${objective.beneficiary.targetItemName} 제작 재료`
+    : resources.length ? ` · ${resources.join('·')} 노림` : ''}`;
   if (objective.type === 'legendary_crate') return '전설 상자 확보';
   if (objective.type === 'transcend_crate') return '초월 장비 선택 상자 확보';
   if (objective.type === 'dimension_rift') return '차원의 틈 공략';

@@ -1,6 +1,7 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
-import { findItemByKeywords, randInt } from './simulationCommon';
+import { findItemByKeywords, normalizeMatchKey, randInt } from './simulationCommon';
 import { canonicalCoreZoneId } from './coreSpawnRuntime';
+import { inferItemCategory } from './inventoryItemRules.js';
 
 const METEOR_EXCLUDED_ZONE_IDS = new Set(['stream', 'forest', 'hotel', 'temple', 'cemetery']);
 
@@ -99,8 +100,17 @@ function normalizeAnimalDropSource(kind, animal = '') {
   return k || a;
 }
 
+export function findMaterialByKeywords(publicItems, keywords) {
+  const materials = (Array.isArray(publicItems) ? publicItems : []).filter((item) => inferItemCategory(item) === 'material');
+  const keys = new Set((Array.isArray(keywords) ? keywords : []).map(normalizeMatchKey).filter(Boolean));
+  // Catalog order must not turn mithril into mithril armor, or prefer a named
+  // derivative over the actual material required by recipes.
+  return materials.find((item) => keys.has(normalizeMatchKey(item?.name || item?.text)))
+    || findItemByKeywords(materials, keywords);
+}
+
 function findSpecialResourceItem(publicItems, key) {
-  return findItemByKeywords(publicItems, SPECIAL_RESOURCE_KEYWORDS[key] || []);
+  return findMaterialByKeywords(publicItems, SPECIAL_RESOURCE_KEYWORDS[key] || []);
 }
 
 function getSpecialDropRules(sourceKind, ruleset) {
