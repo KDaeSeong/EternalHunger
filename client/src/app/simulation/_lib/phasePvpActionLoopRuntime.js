@@ -51,9 +51,11 @@ import {
   findNextWildlifeAction,
   getWildlifeCombatRoster,
   getWildlifeOwnerDamageDealt,
+  getWildlifeOwnerDamageTaken,
   releaseTimedWildlifeEncounter,
   resolveTimedWildlifeAction,
   settleWildlifeClaim,
+  transferTimedBossEncounter,
 } from './wildlifeCombatRuntime.js';
 
 export function runPvpActionLoop(options = {}) {
@@ -199,26 +201,43 @@ function* pvpActionSteps({
     reconcileForcedControls(roster, currentActionSec(), castActions);
     reconcileEquipmentEffects([...survivorMap.values()], currentActionSec(), castActions);
   };
+  const grantUnpaidHuntMastery = (encounter, actor, entries, source) => {
+    encounter.masteryPaid ||= {};
+    const paid = encounter.masteryPaid[String(actor._id)] ||= {};
+    const pending = entries.map((entry) => ({ ...entry, amount: Math.max(0, entry.amount - Number(paid[entry.category] || 0)) }))
+      .filter((entry) => entry.amount > 0);
+    for (const entry of entries) paid[entry.category] = Math.max(Number(paid[entry.category] || 0), entry.amount);
+    if (pending.length) grantMasteries(actor, pending, source);
+  };
   const grantBossAssistMastery = (encounter) => {
     for (const [id, damageDealt] of Object.entries(encounter.assistDamageDealt || {})) {
       const helper = survivorMap.get(id);
       if (!helper || Number(helper.hp || 0) <= 0) continue;
-      const entries = getWildlifeMasteryEntries({ damageDealt });
-      if (entries.length) grantMasteries(helper, entries, '보스 공동 사냥');
+      const entries = getWildlifeMasteryEntries({ damageDealt, damageTaken: encounter.assistDamageTaken?.[id] });
+      grantUnpaidHuntMastery(encounter, helper, entries, '보스 공동 사냥');
     }
   };
+  const transferBossHunt = (actor, reason) => transferTimedBossEncounter(actor, nextSpawn, [...survivorMap.values()],
+    { ...bossAssistOptions(), phaseIdxNow, reason, actions: castActions });
   const reconcileWildlife = () => {
     for (const outcome of collectTimedWildlifeOutcomes([...survivorMap.values()])) {
       const { actor, encounter } = outcome;
       if (!actor?._wildlifeHunt || String(actor._wildlifeHunt.id) !== String(encounter.id)) continue;
       if (outcome.type === 'cancel') {
-        releaseTimedWildlifeEncounter(actor, nextSpawn, outcome.reason, { addLog, atNow, emitRunEvent }, currentActionSec());
+        if (!transferBossHunt(actor, outcome.reason)) {
+          releaseTimedWildlifeEncounter(actor, nextSpawn, outcome.reason, castActions, currentActionSec());
+        }
         continue;
       }
       if (outcome.type === 'hunter_defeated') {
-        settleWildlifeClaim(nextSpawn, encounter, { defeated: false, actor, at: atNow() });
-        actor._wildlifeHunt = null;
-        actor._huntActionKey = encounter.actionKey;
+        const actionKey = encounter.actionKey, startedHp = encounter.startedHp;
+        const actorDamageDealt = getWildlifeOwnerDamageDealt(encounter), actorDamageTaken = getWildlifeOwnerDamageTaken(encounter);
+        const successor = transferBossHunt(actor, '사망');
+        if (!successor) {
+          settleWildlifeClaim(nextSpawn, encounter, { defeated: false, actor, at: atNow() });
+          actor._wildlifeHunt = null;
+        }
+        actor._huntActionKey = actionKey;
         actor.hp = 0;
         const priorDeathReason = String(actor._deathBy || actor.deathReason || '');
         const wildlifeCaused = !priorDeathReason || priorDeathReason === 'wildlife_hunt'
@@ -227,25 +246,25 @@ function* pvpActionSteps({
           emitRunEvent('hunt_end', { who: String(actor._id || ''), encounterId: encounter.id, kind: encounter.kind,
             zoneId: encounter.zoneId, wildlifeName: encounter.target?.name, outcome: 'interrupted_by_death',
             reason: actor._deathCauseName || actor.deathCauseName || priorDeathReason,
-            damageDealt: encounter.damageDealt, damageTaken: encounter.damageTaken }, atNow());
+            damageDealt: actorDamageDealt, damageTaken: actorDamageTaken, continuedBy: successor?._id || null }, atNow());
           continue;
         }
         setDeathMetadata(actor, 'wildlife_hunt', { causeName: '야생동물의 실제 공격', by: String(encounter.target?._id || '') });
         actor.deadAtPhaseIdx = phaseIdxNow;
         actor.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
-        grantBossAssistMastery(encounter);
-        const entries = getWildlifeMasteryEntries({ damageDealt: getWildlifeOwnerDamageDealt(encounter), damageTaken: encounter.damageTaken });
-        if (entries.length) grantMasteries(actor, entries, '실시간 사냥');
+        if (!successor) grantBossAssistMastery(encounter);
+        const entries = getWildlifeMasteryEntries({ damageDealt: actorDamageDealt, damageTaken: actorDamageTaken });
+        grantUnpaidHuntMastery(encounter, actor, entries, '실시간 사냥');
         actor.hp = 0;
         addLog(`💀 [${actor.name}]이(가) ${encounter.target?.name || '야생동물'}의 공격으로 사망했습니다.`, 'death');
         emitDeathRunEventOnce(actor, { reason: 'wildlife_hunt', cause: '야생동물의 실제 공격', by: String(encounter.target?._id || '') });
         emitRunEvent('hunt_settlement', { who: String(actor._id || ''), encounterId: encounter.id,
-          actionKey: encounter.actionKey, zoneId: encounter.zoneId, kind: encounter.kind, defeated: false, died: true,
-          hpBefore: encounter.startedHp, hpAfter: 0, damage: encounter.damageTaken, damageDealt: encounter.damageDealt,
+          actionKey, zoneId: encounter.zoneId, kind: encounter.kind, defeated: false, died: true,
+          hpBefore: startedHp, hpAfter: 0, damage: actorDamageTaken, damageDealt: actorDamageDealt,
           credits: 0, receivedDrops: [], unreceivedDrops: [], posthumous: false, settlement: 'actual_encounter' }, atNow());
         emitRunEvent('hunt_end', { who: String(actor._id || ''), encounterId: encounter.id, kind: encounter.kind,
-          zoneId: encounter.zoneId, wildlifeName: encounter.target?.name, outcome: 'hunter_defeated', damageDealt: encounter.damageDealt,
-          damageTaken: encounter.damageTaken }, atNow());
+          zoneId: encounter.zoneId, wildlifeName: encounter.target?.name, outcome: 'hunter_defeated', damageDealt: actorDamageDealt,
+          damageTaken: actorDamageTaken, continuedBy: successor?._id || null }, atNow());
         if (!newDeadIds.includes(String(actor._id))) newDeadIds.push(String(actor._id));
         flushDeadSnapshots(appendPhaseDeadSnapshots([actor]));
         continue;
@@ -275,7 +294,7 @@ function* pvpActionSteps({
             preparedHunt: completed.reward,
             preparedHuntRole: completed.isBossReward ? 'boss' : completed.isMutantReward ? 'mutant' : 'ordinary',
             actualDamageDealt: getWildlifeOwnerDamageDealt(completed),
-            actualDamageTaken: completed.damageTaken,
+            actualDamageTaken: getWildlifeOwnerDamageTaken(completed),
             damageAlreadyApplied: true,
             encounterId: completed.id,
             settlementHpBefore: completed.startedHp,
@@ -288,7 +307,7 @@ function* pvpActionSteps({
             emitItemGainIfAny,
             emitObjectiveRunEvent,
             emitRunEvent,
-            grantMasteries,
+            grantMasteries: (recipient, entries, source) => grantUnpaidHuntMastery(completed, recipient, entries, source),
             setDeathMetadata,
           },
         });
@@ -367,8 +386,9 @@ function* pvpActionSteps({
           });
           if (result.fled) {
             const fleeingActor = survivorMap.get(String(nextCombat.ownerId || ''));
-            if (fleeingActor) releaseTimedWildlifeEncounter(fleeingActor, nextSpawn, '체력 열세로 후퇴',
-              { addLog, atNow, emitRunEvent }, currentActionSec());
+            if (fleeingActor && !transferBossHunt(fleeingActor, '체력 열세로 후퇴')) {
+              releaseTimedWildlifeEncounter(fleeingActor, nextSpawn, '체력 열세로 후퇴', castActions, currentActionSec());
+            }
           }
           reconcileWildlife();
           continue;

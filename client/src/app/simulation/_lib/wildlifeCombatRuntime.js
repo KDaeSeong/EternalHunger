@@ -4,12 +4,12 @@ import { getActorDimensionRiftId, getCombatSpaceId, WORLD_COMBAT_SPACE } from '.
 import { getWildlifeSpeciesSpec, normalizeWildlifeSpeciesKey } from './wildlifeRuntime.js';
 import { resolveCombatWinnerOutcome } from './phaseCombatDamageRuntime.js';
 import { createPhaseCombatTacticalRuntime } from './phaseCombatTacticalRuntime.js';
-import { findCharacterSkillChoice, finishCharacterCast, startCharacterCast } from './characterCastRuntime.js';
+import { cancelCharacterCast, findCharacterSkillChoice, finishCharacterCast, startCharacterCast } from './characterCastRuntime.js';
 import { getBasicAttackIntervalSec, isBasicAttackReady, roundCombatTime } from './combatTimingRuntime.js';
 import { getSpatialPosition, getSpatialStats, initializeSpatialPosition, isInBasicAttackRange,
   planSpatialApproach, spatialDistance } from './combatSpatialRuntime.js';
 import { areSameTeam } from './teamRuntime.js';
-import { getBossAssistAssignments, getBossAssistOwner } from './bossAssistRuntime.js';
+import { getBossAssistAssignments, getBossAssistOwner, getBossHuntSuccessor } from './bossAssistRuntime.js';
 
 const SPECIAL_COMBAT_SPECS = {
   mutant_wildlife: { label: '변이 야생동물', icon: '🧪', maxHp: 330, attackPower: 38, defense: 28,
@@ -214,6 +214,61 @@ export function getWildlifeCombatRoster(roster) {
 export function getWildlifeOwnerDamageDealt(encounter) {
   const assisted = Object.values(encounter?.assistDamageDealt || {}).reduce((sum, damage) => sum + Number(damage || 0), 0);
   return Math.max(0, Number(encounter?.damageDealt || 0) - assisted);
+}
+
+export function getWildlifeOwnerDamageTaken(encounter) {
+  const assisted = Object.values(encounter?.assistDamageTaken || {}).reduce((sum, damage) => sum + Number(damage || 0), 0);
+  return Math.max(0, Number(encounter?.damageTaken || 0) - assisted);
+}
+
+export function transferTimedBossEncounter(owner, nextSpawn, roster, {
+  nowSec = 0, phaseIdxNow = 0, reason = '', actions = {}, ...options
+} = {}) {
+  const encounter = owner?._wildlifeHunt;
+  const claim = encounter?.claim;
+  const row = claim?.source === 'boss' ? nextSpawn?.bosses?.[String(claim.key || '')] : null;
+  if (!row?.alive || !claimMatches(row, claim) || String(claim.claimantId || '') !== idOf(owner)
+    || String(row.zoneId || '') !== String(encounter.zoneId || '')) return null;
+  const successor = getBossHuntSuccessor(owner, roster, { ...options, nowSec });
+  if (!successor) return null;
+
+  // Move one live encounter, not a freshly rolled boss. Rebase individual
+  // contribution maps before changing ownership; totals and target clocks stay.
+  const previousId = idOf(owner), nextId = idOf(successor);
+  const dealt = getWildlifeOwnerDamageDealt(encounter), taken = getWildlifeOwnerDamageTaken(encounter);
+  encounter.assistDamageDealt ||= {};
+  encounter.assistDamageTaken ||= {};
+  encounter.assistDamageDealt[previousId] = dealt;
+  encounter.assistDamageTaken[previousId] = taken;
+  delete encounter.assistDamageDealt[nextId];
+  delete encounter.assistDamageTaken[nextId];
+  encounter.startedHpByActor ||= {};
+  encounter.startedHpByActor[previousId] = encounter.startedHp;
+  encounter.startedHp = encounter.startedHpByActor[nextId] ?? Number(successor.hp || 0);
+  owner._huntActionKey = encounter.actionKey;
+  encounter.actionKey = `phase:${phaseIdxNow}:cycle:${successor._actionCycleKey ?? 'legacy'}`;
+  claim.claimantId = nextId;
+  if (encounter.reward?.claim) encounter.reward.claim.claimantId = nextId;
+  row.engagedBy = nextId;
+  encounter.target._wildlifeOwnerId = nextId;
+  // Old pursuit must not drag the boss toward a dead or departed owner.
+  encounter.target._spatialMotion = null;
+  encounter.target._spatialLastSeen = null;
+  owner._wildlifeHunt = null;
+  for (const key of ['_spatialMotion', '_spatialLastSeen']) {
+    if (String(owner[key]?.targetId || '') === idOf(encounter.target)) owner[key] = null;
+  }
+  // Install the successor before cancellation/log callbacks can observe state.
+  successor._wildlifeHunt = encounter;
+  successor.aiCurrentAction = 'hunt_combat';
+  if (owner._pendingCharacterCast) cancelCharacterCast(owner, nowSec, 'hunt_end', actions);
+  owner._actionReadyAtSec = Math.max(Number(owner._actionReadyAtSec || 0), roundCombatTime(nowSec + 2));
+  actions.addLog?.(`🤝 [${successor.name}] ${encounter.target.name} 사냥 이어받기 · [${owner.name}] ${reason} · 남은 HP ${encounter.target.hp}/${encounter.target.maxHp}`, 'highlight');
+  actions.emitRunEvent?.('hunt_transfer', { who: nextId, previousOwnerId: previousId, previousOwnerName: owner.name,
+    encounterId: encounter.id, kind: encounter.kind, zoneId: encounter.zoneId, reason,
+    wildlifeId: idOf(encounter.target), wildlifeName: encounter.target.name,
+    wildlifeHp: Number(encounter.target.hp), wildlifeMaxHp: Number(encounter.target.maxHp) }, actions.atNow?.());
+  return successor;
 }
 
 function recordWildlifeDamage(encounter, sourceId, damage) {

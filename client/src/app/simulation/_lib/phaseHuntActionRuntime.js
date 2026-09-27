@@ -74,11 +74,16 @@ export function runHuntAction({
   const updated = actor || {};
   const currentHpBefore = Number(updated.hp || 0);
   const hpBefore = settlementHpBefore != null && Number.isFinite(Number(settlementHpBefore)) ? Number(settlementHpBefore) : currentHpBefore;
+  const timedSettlement = Boolean(preparedHunt && damageAlreadyApplied && encounterId);
   if (getActorDimensionRiftId(updated)) return { actor: updated, died: false, hunt: null, reason: 'combat_space' };
-  if (!Number.isFinite(currentHpBefore) || currentHpBefore <= 0 || hasActionBlockStatus(updated)
-    || !canBasicAttackByStatus(updated) && !canUseSkillByStatus(updated)) return { actor: updated, died: false, hunt: null };
+  if (!Number.isFinite(currentHpBefore) || currentHpBefore <= 0 || !timedSettlement && (hasActionBlockStatus(updated)
+    || !canBasicAttackByStatus(updated) && !canUseSkillByStatus(updated))) return { actor: updated, died: false, hunt: null };
   const actionKey = `phase:${phaseIdxNow}:cycle:${updated._actionCycleKey ?? 'legacy'}`;
-  if (updated._huntActionKey === actionKey) return { actor: updated, died: false, hunt: null, reason: 'already_settled' };
+  // A teammate may inherit this encounter after settling a different hunt in
+  // the same growth cycle. Deduplicate its completed combat, not that old hunt.
+  if (timedSettlement ? updated._settledHuntEncounterId === encounterId : updated._huntActionKey === actionKey) {
+    return { actor: updated, died: false, hunt: null, reason: 'already_settled' };
+  }
   if (updated._wildlifeHunt && !preparedHunt) return { actor: updated, died: false, hunt: null, reason: 'active_encounter' };
 
   const engagementKey = encounterId || `hunt:${String(updated._id || '')}:${phaseIdxNow}:${String(updated._actionCycleKey ?? 'legacy')}`;
@@ -122,6 +127,7 @@ export function runHuntAction({
   // The consumer has settled this encounter in the world. Reserve its action
   // before callbacks, so JSON restoration/re-entry cannot settle another target.
   updated._huntActionKey = actionKey;
+  if (timedSettlement) updated._settledHuntEncounterId = encounterId;
   const defeated = hunt.defeated === true;
   const aggregateDamage = getDamageBlockReason(null, updated) ? 0 : Math.min(currentHpBefore, Math.max(0, Number(hunt.damage) || 0));
   const dmg = damageAlreadyApplied ? Math.max(0, Number(actualDamageTaken || 0)) : aggregateDamage;
@@ -220,7 +226,7 @@ export function runHuntAction({
       if (died || Number(recipient.hp || 0) <= 0 || got <= 0) continue;
       // Receiving a teammate's material must not interrupt a cast, hunt or CC.
       // The normal action scheduler can craft after that action has ended.
-      if (shared && (recipient._wildlifeHunt || recipient._pendingCharacterCast || hasActionBlockStatus(recipient))) continue;
+      if (hasActionBlockStatus(recipient) || shared && (recipient._wildlifeHunt || recipient._pendingCharacterCast)) continue;
 
       const specialKind = classifySpecialByName(name);
       const immediate = tryImmediateCraftFromSpecial(recipient, specialKind, String(drop.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);

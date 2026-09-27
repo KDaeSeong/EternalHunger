@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 const { runHuntAction } = await import('../src/app/simulation/_lib/phaseHuntActionRuntime.js');
 const { runPvpActionLoop } = await import('../src/app/simulation/_lib/phasePvpActionLoopRuntime.js');
 const { runPhaseActorActionPipeline } = await import('../src/app/simulation/_lib/phaseActorActionPipelineRuntime.js');
-const { getBossAssistOwner, getBossAssistAssignments, reconcileBossAssists } = await import('../src/app/simulation/_lib/bossAssistRuntime.js');
+const { getBossAssistOwner, getBossAssistAssignments, getBossHuntSuccessor, reconcileBossAssists } = await import('../src/app/simulation/_lib/bossAssistRuntime.js');
 const { advanceTimedWildlifeEffects, getWildlifeCombatRoster, getWildlifeOwnerDamageDealt,
+  getWildlifeOwnerDamageTaken, transferTimedBossEncounter,
   resolveTimedWildlifeAction, releaseTimedWildlifeEncounter } = await import('../src/app/simulation/_lib/wildlifeCombatRuntime.js');
 const { advanceSpatialMovement, spatialDistance } = await import('../src/app/simulation/_lib/combatSpatialRuntime.js');
 const { findNextCombatAction, engageCombatParticipants } = await import('../src/app/simulation/_lib/combatTimingRuntime.js');
@@ -305,6 +306,285 @@ await check('the real loop stops boss support and attacks the intervening enemy 
   assert.ok(input.events.some((event) => event.kind === 'skill_cancel' && event.who === 'fast' && event.reason === 'hunt_end'));
   assert.ok(input.events.some((event) => event.kind === 'damage' && event.who === 'fast' && event.targetId === 'enemy'));
   assert.equal(input.events.some((event) => event.kind === 'hunt_settlement'), false);
+});
+
+await check('a retreating owner hands the damaged boss to a teammate without restarting or duplicating rewards', async () => {
+  const input = fixture();
+  const originalId = input.roster[0]._wildlifeHunt.id;
+  let withdrawn = false, hpAtWithdrawal = 0;
+  const result = await fight(input, { onAdvance: (map, now) => {
+    const owner = map.get('owner');
+    if (!withdrawn && now >= 102 && owner._wildlifeHunt) {
+      withdrawn = true;
+      hpAtWithdrawal = owner._wildlifeHunt.target.hp;
+      owner.hp = 1;
+    }
+  } });
+  const transfers = input.events.filter((event) => event.kind === 'hunt_transfer');
+  assert.equal(transfers.length, 1, 'The damaged encounter must continue with a new owner.');
+  assert.equal(transfers[0].previousOwnerId, 'owner');
+  assert.equal(transfers[0].who, 'fast');
+  assert.equal(transfers[0].encounterId, originalId);
+  assert.equal(transfers[0].wildlifeHp, hpAtWithdrawal);
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_start').length, 1);
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement' && event.defeated).length, 1);
+  assert.equal(input.world.bosses.alpha.alive, false);
+  assert.ok(result.survivorMap.get('owner').hp > 0);
+  assert.equal([...result.survivorMap.values()].reduce((sum, actor) => sum + actor.simCredits, 0), 7);
+  const before = input.events.filter((event) => event.kind === 'hunt_exchange' && event.at.sec < transfers[0].at.sec);
+  const after = input.events.filter((event) => event.kind === 'hunt_exchange' && event.at.sec >= transfers[0].at.sec);
+  assert.ok(before.length && after.length);
+  assert.ok(after.every((event) => event.ownerId === 'fast'));
+  assert.equal(new Set([...before, ...after].map((event) => event.wildlifeId)).size, 1);
+});
+
+const handoff = (input, reason = '체력 열세로 후퇴', nowSec = 101) => transferTimedBossEncounter(input.roster[0], input.world,
+  input.roster, { ...options(input), phaseIdxNow: 2, nowSec, reason, actions: input.actions });
+
+await check('handoff moves the same target, timers, effects, reward and pending helper cast exactly once', () => {
+  const input = fixture(); startHelperCast(input);
+  const [owner, helper] = input.roster, hunt = owner._wildlifeHunt;
+  hunt.target.hp -= 80;
+  hunt.damageDealt = 80;
+  hunt.assistDamageDealt = { fast: 30, slow: 10 };
+  hunt.damageTaken = 24;
+  hunt.target.activeEffects = [{ name: '중독', remainingDuration: 3, durationUnit: 'sec', dotDamage: 5, sourceActorId: 'owner' }];
+  hunt.target._basicAttackReadyAtSec = 102.75;
+  hunt.target._actionReadyAtSec = 102.25;
+  hunt.target._spatialMotion = { targetId: 'owner' };
+  const beforeTarget = structuredClone(hunt.target), beforeReward = structuredClone(hunt.reward);
+  const beforeCast = structuredClone(helper._pendingCharacterCast);
+  withSimulationRandom(() => { throw new Error('Handoff must not reroll.'); }, () => assert.equal(handoff(input), helper));
+  assert.equal(owner._wildlifeHunt, null);
+  assert.equal(helper._wildlifeHunt, hunt);
+  assert.deepEqual(hunt.target, { ...beforeTarget, _wildlifeOwnerId: 'fast', _spatialMotion: null, _spatialLastSeen: null });
+  assert.deepEqual(hunt.reward, { ...beforeReward, claim: { ...beforeReward.claim, claimantId: 'fast' } });
+  assert.equal(input.world.bosses.alpha.engagedBy, 'fast');
+  assert.equal(input.world.bosses.alpha.engagementId, hunt.id);
+  assert.equal(getWildlifeOwnerDamageDealt(hunt), 30);
+  assert.equal(getWildlifeOwnerDamageTaken(hunt), 0);
+  assert.equal(hunt.assistDamageDealt.owner, 40);
+  assert.equal(hunt.assistDamageTaken.owner, 24);
+  reconcileBossAssists(input.roster, { ...options(input), nowSec: 101 }, input.actions);
+  assert.deepEqual(helper._pendingCharacterCast, beforeCast);
+  assert.equal(handoff(input), null);
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_transfer').length, 1);
+  advanceTimedWildlifeEffects(input.roster, { elapsedSec: 1, startSec: 101 });
+  assert.equal(hunt.assistDamageDealt.owner, 45);
+  assert.equal(getWildlifeOwnerDamageDealt(hunt), 30);
+});
+
+await check('successor selection rejects unavailable teammates and remains read-only and order independent', () => {
+  for (const [name, mutate] of [
+    ['enemy', (a) => { a.teamId = 'team:2'; }], ['away', (a) => { a.zoneId = 'away'; }],
+    ['rift', (a) => { a._combatSpaceId = 'dimension_rift:test'; }], ['dead', (a) => { a.hp = 0; }],
+    ['hurt', (a) => { a.hp = 1; }], ['recovery', (a) => { a._recentCombatUntil = 110; }],
+    ['growth', (a) => { a._growthPlan = { openingComplete: false, blocked: false }; }],
+    ['other cast', (a) => { a._pendingCharacterCast = { targetId: 'other' }; }],
+    ['other boss cast', (a) => { a._pendingCharacterCast = { bossAssistEncounterId: 'other' }; }],
+    ['own hunt', (a) => { a._wildlifeHunt = { id: 'another' }; }],
+    ['PvP', (a) => { a._combatIntent = { opponentIds: ['enemy'] }; }],
+  ]) {
+    const input = fixture(); input.roster[2].hp = 0; mutate(input.roster[1]);
+    assert.equal(getBossHuntSuccessor(input.roster[0], input.roster, options(input)), null, name);
+  }
+  const input = fixture(); input.roster[0].hp = 0;
+  const before = structuredClone(input.roster);
+  for (const roster of [input.roster, [...input.roster].reverse(), JSON.parse(JSON.stringify(input.roster))]) {
+    withSimulationRandom(() => { throw new Error('Selection must not consume RNG.'); }, () => {
+      const owner = roster.find((actor) => actor._id === 'owner');
+      assert.equal(getBossHuntSuccessor(owner, roster, options(input))._id, 'fast');
+    });
+  }
+  assert.deepEqual(input.roster, before);
+  assert.equal(getBossHuntSuccessor(input.roster[0], input.roster, { ...options(input), isSoloMatch: true }), null);
+  assert.equal(getBossHuntSuccessor(input.roster[0], input.roster, { ...options(input), forbiddenIds: new Set(['z']) }), null);
+});
+
+await check('stale claims, dead bosses and nonboss hunts never transfer or mutate another reservation', () => {
+  for (const mutate of [
+    (input) => { input.world.bosses.alpha.engagementId = 'newer'; },
+    (input) => { input.world.bosses.alpha.engagedBy = 'other'; },
+    (input) => { input.world.bosses.alpha.alive = false; },
+    (input) => { input.world.bosses.alpha.zoneId = 'away'; },
+    (input) => { input.roster[0]._wildlifeHunt.target.hp = 0; },
+    (input) => { input.roster[0]._wildlifeHunt.isBossReward = false; },
+    (input) => { input.roster[0]._wildlifeHunt.claim.source = 'mutant'; },
+  ]) {
+    const input = fixture(); mutate(input);
+    const before = structuredClone({ world: input.world, roster: input.roster });
+    assert.equal(handoff(input), null);
+    assert.deepEqual({ world: input.world, roster: input.roster }, before);
+  }
+});
+
+await check('an actual lethal boss strike records one death, retargets a living ally and pays one victory', async () => {
+  const input = fixture(), owner = input.roster[0], hunt = owner._wildlifeHunt;
+  owner.hp = 30;
+  owner.activeEffects = [{ name: '기절', remainingDuration: 5, durationUnit: 'sec' }];
+  hunt.target._spatial = { ...owner._spatial };
+  hunt.target.stats.attackPower = 100;
+  hunt.target._basicAttackReadyAtSec = 100;
+  const deaths = [];
+  input.actions.emitDeathRunEventOnce = (actor) => deaths.push(actor._id);
+  const result = await fight(input);
+  assert.deepEqual(deaths, ['owner']);
+  assert.ok(result.newDeadIds.includes('owner'));
+  const transfer = input.events.find((event) => event.kind === 'hunt_transfer');
+  assert.equal(transfer.reason, '사망');
+  const retaliation = input.events.filter((event) => event.kind === 'hunt_exchange' && event.damageTaken > 0);
+  assert.equal(retaliation[0].targetId, 'owner');
+  assert.ok(retaliation.slice(1).every((event) => event.targetId === 'fast'));
+  for (let i = 1; i < retaliation.length; i++) assert.ok(retaliation[i].at.sec - retaliation[i - 1].at.sec >= 1 / 0.82 - 0.000002);
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement' && event.defeated).length, 1);
+  assert.equal([...result.survivorMap.values()].reduce((sum, actor) => sum + actor.simCredits, 0), 7);
+  assert.equal(input.mastery.filter((row) => row.who === 'owner').flatMap((row) => row.entries)
+    .find((row) => row.category === 'defense').amount, 3);
+  const fastTaken = retaliation.filter((event) => event.targetId === 'fast').reduce((sum, event) => sum + event.damageTaken, 0);
+  assert.equal(input.mastery.filter((row) => row.who === 'fast').flatMap((row) => row.entries)
+    .find((row) => row.category === 'defense')?.amount || 0, Math.round(fastTaken * 0.1));
+});
+
+await check('region and combat-space departure preserve the encounter at its original location', async () => {
+  for (const leave of [(owner) => { owner.zoneId = 'away'; }, (owner) => { owner._combatSpaceId = 'dimension_rift:test'; }]) {
+    const input = fixture(); let departed = false;
+    await fight(input, { onAdvance: (map, now) => {
+      if (!departed && now >= 102) { departed = true; leave(map.get('owner')); }
+    } });
+    const transfer = input.events.find((event) => event.kind === 'hunt_transfer');
+    assert.equal(transfer.zoneId, 'z');
+    assert.equal(transfer.reason, '전장 또는 지역 이탈');
+    assert.equal(input.world.bosses.alpha.alive, false);
+    assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement' && event.defeated).length, 1);
+  }
+});
+
+await check('no eligible successor releases the boss; a visible enemy prevents handoff', async () => {
+  const input = fixture(); input.roster.forEach((actor) => { actor.hp = 1; });
+  await fight(input, { duration: 0.25 });
+  assert.equal(input.events.some((event) => event.kind === 'hunt_transfer'), false);
+  assert.equal(input.world.bosses.alpha.alive, true);
+  assert.equal(input.world.bosses.alpha.engagedBy, undefined);
+  assert.equal(input.events.some((event) => event.kind === 'hunt_settlement'), false);
+  const contested = fixture();
+  const enemy = makeActor('enemy'); enemy.teamId = 'team:2'; contested.roster.push(enemy);
+  assert.equal(handoff(contested), null);
+});
+
+await check('successive retreats preserve each actor contribution without duplicate mastery or drops', async () => {
+  const input = fixture(); const withdrawn = new Set();
+  const result = await fight(input, { onAdvance: (map, now) => {
+    for (const [id, when] of [['owner', 101], ['fast', 102]]) {
+      if (now >= when && !withdrawn.has(id) && map.get(id)._wildlifeHunt) {
+        withdrawn.add(id); map.get(id).hp = 1;
+      }
+    }
+  } });
+  assert.deepEqual(input.events.filter((event) => event.kind === 'hunt_transfer').map((event) => event.who), ['fast', 'slow']);
+  const done = input.events.find((event) => event.kind === 'hunt_end' && event.outcome === 'victory');
+  assert.ok(done);
+  for (const id of ['owner', 'fast', 'slow']) {
+    const exchanges = input.events.filter((event) => event.kind === 'hunt_exchange');
+    const dealt = exchanges.filter((event) => event.strikerId === id).reduce((sum, event) => sum + event.damageDealt, 0);
+    const taken = exchanges.filter((event) => event.targetId === id).reduce((sum, event) => sum + event.damageTaken, 0);
+    assert.deepEqual(input.mastery.filter((row) => row.who === id).flatMap((row) => row.entries),
+      getWildlifeMasteryEntries({ damageDealt: dealt, damageTaken: taken }));
+  }
+  const all = [...result.survivorMap.values()];
+  assert.equal(all.reduce((sum, actor) => sum + actor.simCredits, 0), 7);
+  assert.equal(all.flatMap((actor) => actor.inventory).filter((item) => (item.itemId || item._id) === 'mithril').length, 1);
+});
+
+await check('a transferred helper cast survives JSON restore, fires on schedule and still never uses R', async () => {
+  const run = async () => {
+    const input = fixture(); startHelperCast(input);
+    input.roster[1].characterSkills.r = { enabled: true, name: '금지 궁극기', type: 'attack_skill',
+      flatDamage: [10000], range: 10, cooldownSec: 30, castDelaySec: 0.1 };
+    input.roster[0].hp = 1;
+    handoff(input);
+    input.roster = JSON.parse(JSON.stringify(input.roster));
+    input.state.nextSpawn = input.world = JSON.parse(JSON.stringify(input.world));
+    const result = await fight(input, { skills: true });
+    assert.ok(input.events.some((event) => event.kind === 'damage' && event.who === 'fast' && event.type === 'skill'));
+    assert.equal(input.events.some((event) => event.kind === 'skill_cancel' && event.who === 'fast'), false);
+    assert.equal(input.events.some((event) => ['skill_cast', 'skill'].includes(event.kind) && event.slot === 'r'), false);
+    assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement' && event.defeated).length, 1);
+    return { events: input.events, world: input.world, actors: [...result.survivorMap.values()] };
+  };
+  assert.deepEqual(await run(), await run());
+});
+
+await check('a successor with an earlier settled hunt in this action cycle still receives this boss once', async () => {
+  const input = fixture();
+  input.roster[1]._huntActionKey = 'phase:2:cycle:2:100';
+  input.roster[0].hp = 1;
+  const result = await fight(input);
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement' && event.defeated).length, 1);
+  assert.equal([...result.survivorMap.values()].reduce((sum, actor) => sum + actor.simCredits, 0), 7);
+  const successor = result.survivorMap.get('fast'), count = input.events.length;
+  const duplicate = runHuntAction({ state: { ...input.state, actor: successor, preparedHunt: { defeated: true, credits: 7 },
+    preparedHuntRole: 'boss', encounterId: successor._settledHuntEncounterId, damageAlreadyApplied: true }, actions: input.actions });
+  assert.equal(duplicate.reason, 'already_settled');
+  assert.equal(input.events.length, count);
+});
+
+await check('a stunned successor receives an ally-finished boss reward without an extra action', async () => {
+  const input = fixture(); input.roster[0].hp = 1;
+  input.roster[1].activeEffects = [{ name: '기절', remainingDuration: 20, durationUnit: 'sec' }];
+  input.roster[2].stats.attackPower = 500;
+  const result = await fight(input, { duration: 3 });
+  assert.equal(input.events.find((event) => event.kind === 'hunt_transfer').who, 'fast');
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement' && event.defeated).length, 1);
+  assert.equal(hits(input, 'fast').length, 0);
+  assert.equal([...result.survivorMap.values()].reduce((sum, actor) => sum + actor.simCredits, 0), 7);
+});
+
+await check('handoff cancels the departing caster without refunding cooldown or cancelling its successor', () => {
+  const input = fixture(); const { survivorMap } = startHelperCast(input);
+  input.roster[0].characterSkills = structuredClone(input.roster[1].characterSkills);
+  const owner = input.roster[0];
+  const result = withSimulationRandom(() => 0, () => resolveTimedWildlifeAction({ ownerId: owner._id, actorId: owner._id,
+    encounterId: owner._wildlifeHunt.id, actionType: 'hunt_skill_start' },
+  { survivorMap, nowSec: 100, ruleset: input.state.ruleset, actions: input.actions }));
+  assert.equal(result.performed, true);
+  const emit = input.actions.emitRunEvent;
+  input.actions.emitRunEvent = (kind, payload, at) => {
+    if (kind === 'skill_cancel') {
+      assert.equal(input.roster[1]._wildlifeHunt?.claim.claimantId, 'fast', 'Callbacks must see an already owned encounter.');
+      assert.equal(owner._wildlifeHunt, null);
+    }
+    emit(kind, payload, at);
+  };
+  handoff(input);
+  assert.equal(owner._pendingCharacterCast, null);
+  assert.equal(owner.skillState.q.cooldownUntil, 130);
+  assert.ok(input.roster[1]._pendingCharacterCast);
+  assert.equal(input.events.filter((event) => event.kind === 'skill_cancel' && event.who === 'owner').length, 1);
+});
+
+await check('a prior external death cause remains intact when allies continue the boss', async () => {
+  const input = fixture(); input.roster[0].hp = 0;
+  input.roster[0]._deathBy = 'detonation'; input.roster[0]._deathCauseName = '금지구역 시간 소진';
+  const extraDeaths = [];
+  input.actions.emitDeathRunEventOnce = (actor) => extraDeaths.push(actor._id);
+  const result = await fight(input);
+  assert.equal(result.survivorMap.get('owner')._deathBy, 'detonation');
+  assert.deepEqual(extraDeaths, []);
+  assert.equal(input.events.find((event) => event.kind === 'hunt_end' && event.who === 'owner').continuedBy, 'fast');
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement' && event.defeated).length, 1);
+});
+
+await check('all three boss kinds allow handoff while phase boundaries never hand it around', async () => {
+  for (const kind of ['alpha', 'omega', 'weakline']) {
+    const input = fixture(kind); input.roster[0].hp = 1;
+    await fight(input);
+    assert.equal(input.events.filter((event) => event.kind === 'hunt_transfer').length, 1, kind);
+    assert.equal(input.world.bosses[kind].alive, false, kind);
+    assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement' && event.defeated).length, 1, kind);
+  }
+  const boundary = fixture();
+  await fight(boundary, { duration: 0.25 });
+  assert.equal(boundary.events.some((event) => event.kind === 'hunt_transfer'), false);
 });
 
 console.log(`BOSS_TEAM_COMBAT_CHECKS ${checks}/${checks}`);

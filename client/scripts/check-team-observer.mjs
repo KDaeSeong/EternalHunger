@@ -190,4 +190,17 @@ check('timed wildlife combat exposes the live target and explains start, exchang
   const panel = readFileSync(new URL('../src/app/simulation/_components/SimulationTeamObserverPanel.js', import.meta.url), 'utf8');
   assert.match(panel, /actor\.hunt/);
 });
+check('boss handoff names both teammates, reason and remaining HP; helper strikes keep the real attacker', () => {
+  const names = (id) => ({ a: '선발', b: '후속' })[id] || id;
+  const transfer = event('hunt_transfer', 10, { who: 'b', previousOwnerId: 'a', previousOwnerName: '선발',
+    wildlifeName: '알파', reason: '체력 열세로 후퇴', wildlifeHp: 170, wildlifeMaxHp: 420 });
+  assert.deepEqual(observerEventActorIds(transfer), ['b', 'a']);
+  assert.match(describeObserverEvent(transfer, { nameOf: names }), /후속: 알파 사냥 이어받기 · 선발 체력 열세로 후퇴 · 남은 HP 170\/420/);
+  assert.match(describeObserverEvent(event('hunt_exchange', 11, { who: 'b', strikerId: 'a', wildlifeId: 'wildlife:x',
+    wildlifeName: '알파', damageDealt: 17, wildlifeHp: 153 }), { nameOf: names }), /선발 → 알파: 실제 피해 17/);
+  assert.match(describeObserverEvent(event('hunt_end', 10, { who: 'a', outcome: 'hunter_defeated',
+    wildlifeName: '알파', continuedBy: 'b' }), { nameOf: names }), /후속 사냥 계속/);
+  const model = buildTeamObserverModel({ survivors: [actor('a'), actor('b')], events: [transfer], matchSec: 10 });
+  for (const member of model.members) assert.match(member.decision.text, /사냥 이어받기/);
+});
 console.log(`TEAM_OBSERVER_CHECKS ${checks}/${checks}`);
