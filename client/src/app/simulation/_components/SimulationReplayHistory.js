@@ -357,6 +357,12 @@ export default function SimulationReplayHistory({
         </section>
         {evaluation ? <section ref={evaluationPanelRef} className="sim-evaluation-panel" aria-label="5분 인간 평가 기록">
           <h3>5분 평가 기록 · {evaluation.status === 'complete' ? '완료' : '진행 중'}</h3>
+          <section className="sim-evaluation-attachment-note" aria-label="평가 자료 첨부 안내">
+            <strong>작성 전 · 가능하면 경기 JSON을 저장해 평가와 함께 첨부해 주세요.</strong>
+            <p>경기 로그는 새 경기 시작·새로고침 전에 경기 종료 화면의 ‘JSON 저장’으로 보관해 주세요. 문제 상황을 자세히 확인하는 데 도움이 됩니다.</p>
+            <p>설문 아래 ‘결과 JSON 다운로드’는 평가 답변을 저장하는 별도 파일입니다. 두 파일은 자동 전송되지 않으니 테스트를 요청한 사람에게 직접 보내 주세요.</p>
+            <p>파일이 없어도 평가할 수 있습니다. 기억나는 경기 시각·캐릭터나 스크린샷만 보내 주셔도 도움이 됩니다.</p>
+          </section>
           <p>판단을 대신하지 않습니다. 관찰한 사실과 본인의 느낌만 기록하며, 이 브라우저에만 보관합니다.</p>
           {evaluationRun ? <dl className="sim-evaluation-meta" aria-label="평가 대상 replay 메타">
             <div><dt>승자</dt><dd>{evaluationRun.summary?.winnerTeamName || evaluationRun.summary?.winnerName || '전원 탈락'}</dd></div>

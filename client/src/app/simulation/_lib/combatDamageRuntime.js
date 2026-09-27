@@ -1,4 +1,4 @@
-import { getCombatEquipment } from '../../../utils/battleEquipmentLogic.js';
+import { getCombatEquipment, getEquipmentSkillAmp } from '../../../utils/battleEquipmentLogic.js';
 import { getEffectiveErStats } from '../../../utils/erStats.js';
 import { getEffectiveStats, getLifestealPercent, applyHealingModifier, getDamageBlockReason } from '../../../utils/statusLogic.js';
 import { simulationRandom } from '../../../utils/simulationRandom.js';
@@ -19,8 +19,7 @@ export function getCombatStats(actor) {
     bonusAttack += attack;
     stats.attackPower += attack;
     stats.defense += finite(gear.def ?? gear.defense);
-    // Existing item catalogs store skillAmp in hundreds, unlike actor stats.
-    stats.skillAmp += finite(gear.skillAmp) * 100;
+    stats.skillAmp += getEquipmentSkillAmp(item);
     stats.attackSpeed += finite(gear.atkSpeed ?? gear.attackSpeed);
     for (const key of RATIO_STATS) stats[key] += ratio(gear[key]);
     for (const key of ['armorPenFlat', 'adaptiveForce', 'finalDamageFlat']) stats[key] += finite(gear[key]);

@@ -10,6 +10,9 @@ const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRun
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
 const { applyErWeaponSkillAfterCombat } = await import('../src/app/simulation/_lib/combatRuntime.js');
 const { createPhaseCombatTacticalRuntime } = await import('../src/app/simulation/_lib/phaseCombatTacticalRuntime.js');
+const { getEquipStatTotals } = await import('../src/utils/battleEquipmentLogic.js');
+const { addItemToInventory, normalizeInventory } = await import('../src/app/simulation/_lib/inventoryRules.js');
+const { GUEST_ITEM_CATALOG } = await import('../src/app/simulation/_generated/guestItemCatalog.generated.js');
 const actor = (id = 'a', stats = {}, extra = {}) => ({ _id: id, name: id, teamId: id, zoneId: 'zone', hp: 1000, maxHp: 1000,
   _spatial: { zoneId: 'zone', x: 4, y: 4 },
   inventory: [], stats: { maxHp: 1000, attackPower: 100, defense: 0, skillAmp: 0, attackSpeed: 0.72, ...stats },
@@ -106,13 +109,51 @@ check('a survivor with one HP remaining is not executed by a lottery', () => {
     earlyLethalFinishHpBelow: 999, earlyLethalFinishMax: 1, earlyLethalFinishChanceBase: 1 } });
   assert.equal(f.b.hp, 1); assert.equal(f.eliminated, 0);
 });
-check('skill coefficients include equipped amp and attack and mitigate at each target', () => {
-  const a = actor('a', {}, { inventory: [gear('w', { atk: 20, skillAmp: 0.5 })], characterSkills: {
+check('legacy generated gear retains its hundredths unit in skill coefficients', () => {
+  const a = actor('a', {}, { inventory: [gear('wpn_legacy', { atk: 20, skillAmp: 0.5 })], characterSkills: {
     q: { enabled: true, name: 'test', type: 'attack_skill', flatDamage: [10], attackPowerScale: 0.5, skillAmpScale: 1, cooldownSec: 10 },
   } });
   const out = applyCharacterSkillOnBasicAttack(a, actor('b', { defense: 100 }), 10, { nowSec: 100 });
   assert.equal(out.extraDamage, 60); assert.equal(out.damage, 70);
   assert.equal(out.results[0].packet.raw, 120); assert.equal(out.results[0].packet.damage, 60);
+});
+check('catalog amp is an additive stat, not one hundred times its displayed value', () => {
+  const item = GUEST_ITEM_CATALOG.find((entry) => entry._id === 'namu:기타:천국의 계단');
+  assert.equal(item.stats.skillAmp, 68);
+  const a = actor('a', { skillAmp: 12 }, { inventory: [{ ...structuredClone(item), itemId: item._id }], characterSkills: {
+    q: { enabled: true, name: 'controlled-amp-case', type: 'attack_skill', flatDamage: [10],
+      currentHpPct: [20], skillAmpScale: 0.5, cooldownSec: 10 },
+  } });
+  const b = actor('b', { defense: 38 }, { hp: 148, maxHp: 148 });
+  const before = structuredClone(a.inventory);
+  const out = applyCharacterSkillOnBasicAttack(a, b, 0, { nowSec: 100 });
+  assert.equal(getCombatStats(a).skillAmp, 80);
+  assert.equal(out.results[0].packet.raw, 80); // 10 + round(148 * .2) + (12 + 68) * .5
+  assert.equal(out.results[0].packet.damage, 58);
+  assert.deepEqual(a.inventory, before, 'Reading units must not rewrite saved item stats.');
+});
+check('custom fractional and string amp values are points, without a size heuristic', () => {
+  for (const [value, expected] of [[0.5, 12.5], [1, 13], ['68', 80], [0, 12], [undefined, 12], ['bad', 12]]) {
+    const a = actor('a', { skillAmp: 12 }, { inventory: [gear('custom-item', { skillAmp: value })] });
+    assert.equal(getCombatStats(a).skillAmp, expected);
+  }
+});
+check('persisted generated ids retain legacy units across inventory and JSON round trips', () => {
+  for (const identity of [{ itemKey: 'wpn_old' }, { externalId: 'eq_old' }]) {
+    const item = { _id: 'database-id', ...identity, type: 'weapon', equipSlot: 'weapon', tier: 2, stats: { skillAmp: 0.5 } };
+    const inventory = normalizeInventory(JSON.parse(JSON.stringify(addItemToInventory([], item, item._id, 1, 1, {}))), {});
+    assert.equal(getCombatStats(actor('a', {}, { inventory, equipped: { weapon: 'database-id' } })).skillAmp, 50);
+  }
+});
+check('legacy equipment score totals convert each item before summing mixed units', () => {
+  const items = [gear('catalog', { skillAmp: 68 }), { ...gear('eq_old', { skillAmp: 0.2 }), equipSlot: 'head' }];
+  const a = actor('a', {}, { inventory: items });
+  assert.equal(getCombatStats(a).skillAmp, 88);
+  assert.ok(Math.abs(getEquipStatTotals(a).skillAmp - 0.88) < 1e-10);
+});
+check('high point-based amp is not silently capped by the legacy score range in real damage', () => {
+  const a = actor('a', {}, { inventory: [gear('custom-large', { skillAmp: 500 })] });
+  assert.equal(getCombatStats(a).skillAmp, 500);
 });
 check('basic-type enhancements inherit the parent crit without another random draw', () => {
   const a = actor('a', {}, { characterSkills: { q: { enabled: true, name: 'enhance', type: 'basic_attack_enhance',

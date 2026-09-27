@@ -4499,6 +4499,9 @@
 .sim-evaluation-panel { margin: 18px 0; padding: 16px; border: 1px solid #d1ae61; border-radius: 10px; background: #142638; scroll-margin-top: 16px; }
 .sim-evaluation-panel h3 { margin: 0 0 8px; color: #ffe6a5; }
 .sim-evaluation-panel p { line-height: 1.55; }
+.sim-evaluation-attachment-note { margin: 12px 0; padding: 12px 14px; border-left: 3px solid #d1ae61; border-radius: 6px; background: #102133; color: #dcecff; }
+.sim-evaluation-attachment-note strong { color: #ffe6a5; }
+.sim-evaluation-attachment-note p { margin: 8px 0 0; font-size: 13px; }
 .sim-evaluation-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
 .sim-evaluation-meta div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; padding: 8px; border-radius: 6px; background: #1b344a; }
 .sim-evaluation-meta dt { color: #a9c4d9; font-weight: 700; }

@@ -1,8 +1,9 @@
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
-import { getInvItemId, inferEquipSlot, invQty } from './inventoryRules';
+import { getInvItemId, getInvRules, inferEquipSlot, invQty } from './inventoryRules';
 import { getFieldItemSourceZones, getFieldResourceQty } from './fieldResourceRuntime';
 import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
 import { getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
+import { prepareCraftTransaction } from './craftTransactionRuntime.js';
 
 const catalogCache = new WeakMap();
 function indexCatalog(items) {
@@ -31,7 +32,7 @@ export function getActorGrowthProgress(actor, items = []) {
 
 // Shared read-only recipe accounting. Observation must not invoke the planner,
 // choose a different branch, reserve inventory or change the actor's route.
-export function getGrowthRecipeWork(actor, items, targetId) {
+export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds = [targetId] } = {}) {
   const byId = indexCatalog(items);
   const target = byId.get(String(targetId));
   const inventory = actor.inventory || [];
@@ -77,7 +78,18 @@ export function getGrowthRecipeWork(actor, items, targetId) {
   work.reservedQtyById = reserved;
   const materialReady = work.craftIds.filter((id) => getCraftRecipeTerms(byId.get(id))?.ingredients
     .every((row) => invQty(inventory, row.itemId) >= row.qty));
-  work.readyCraftId = materialReady.find((id) => getCraftRecipeTerms(byId.get(id)).creditsCost <= work.availableCredits) || '';
+  const affordable = materialReady.filter((id) => getCraftRecipeTerms(byId.get(id)).creditsCost <= work.availableCredits);
+  work.readyCraftId = affordable[0] || '';
+  // Material readiness alone can trap a full bag on the same focus forever.
+  // Check the real consume-then-receive transaction; do not discard protected
+  // items or grant equipment to make the plan appear viable. Non-full bags
+  // keep the cheap path; the committing craft always revalidates all limits.
+  if (!work.blocked && work.readyCraftId && ruleset && inventory.length >= getInvRules(ruleset).maxSlots) {
+    const context = { _growthPlan: { targetIds, componentIds: work.componentIds } };
+    work.readyCraftId = affordable.find((id) => prepareCraftTransaction(actor,
+      markGrowthComponent(byId.get(id), context), 1, ruleset).ok) || '';
+    if (!work.readyCraftId) work.blocked = 'inventory_full';
+  }
   work.requiredCredits = materialReady.length ? getCraftRecipeTerms(byId.get(work.readyCraftId || materialReady[0])).creditsCost : 0;
   work.missing = [...missing].map(([id, qty]) => ({ itemId: id, name: byId.get(id)?.name || id, need: qty, have: invQty(inventory, id) }));
   if (!work.blocked && materialReady.length && !work.readyCraftId && !work.missing.length) work.blocked = 'insufficient_credits';
@@ -86,7 +98,7 @@ export function getGrowthRecipeWork(actor, items, targetId) {
 
 // Recompute remaining recipe work from actual inventory. Consumed raw materials
 // represented by an owned intermediate are not requested a second time.
-export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new Set(), zoneGraph = {}, attemptedTargets = [], nextSpawn, fieldResources = nextSpawn?.fieldResources } = {}) {
+export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new Set(), zoneGraph = {}, attemptedTargets = [], nextSpawn, fieldResources = nextSpawn?.fieldResources, ruleset = {} } = {}) {
   if (!actor || !Array.isArray(items) || !items.length) return null;
   const byId = indexCatalog(items);
   const progress = getActorGrowthProgress(actor, items);
@@ -103,7 +115,7 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
     targetName: target?.name || '', craftIds: [], missing: [], reservedQtyById: {}, componentIds: [],
     readyCraftId: '', currentZoneItemIds: [], targetZoneId: '', nextStep: '', blocked: '' };
   if (!target) return { ...base, blocked: late.issues.length ? 'invalid_target' : '' };
-  Object.assign(base, getGrowthRecipeWork(actor, items, target._id));
+  Object.assign(base, getGrowthRecipeWork(actor, items, target._id, { ruleset, targetIds: base.targetIds }));
   base.missing = base.missing.map((row) => ({ ...row, zones: getGrowthItemZones(byId.get(row.itemId), mapObj, forbiddenIds, fieldResources) }));
   if (!base.blocked && base.missing.length && (openingComplete
     ? base.missing.every((row) => !row.zones.length) : base.missing.some((row) => !row.zones.length))) base.blocked = 'no_material_source';
@@ -111,7 +123,7 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
     const attempted = [...attemptedTargets, target._id];
     const alternative = remaining.find((row) => !attempted.includes(row._id));
     if (alternative) return buildActorGrowthPlan({ ...actor, _growthFocusId: alternative._id }, items,
-      { mapObj, forbiddenIds, zoneGraph, fieldResources, attemptedTargets: attempted });
+      { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, attemptedTargets: attempted });
     return base;
   }
   const current = String(actor.zoneId || '');
@@ -145,7 +157,7 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
     const attempted = [...attemptedTargets, target._id];
     const alternative = remaining.find((row) => !attempted.includes(row._id));
     if (alternative) return buildActorGrowthPlan({ ...actor, _growthFocusId: alternative._id }, items,
-      { mapObj, forbiddenIds, zoneGraph, fieldResources, attemptedTargets: attempted });
+      { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, attemptedTargets: attempted });
   }
   return base;
 }

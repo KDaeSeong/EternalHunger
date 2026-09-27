@@ -20,6 +20,18 @@ const normalizeRatioStat = (value, max = 0.75) => {
   return Math.max(0, Math.min(max, ratio));
 };
 
+// Catalog and authored items store additive points, including fractional ones.
+// Only equipmentCatalog's reserved generated ids use hundredths (0.5 = 50).
+// Persisted generated items keep that identity in itemKey/externalId. Resolve
+// at read time without migrating saves or guessing units from the value size.
+export const getEquipmentSkillAmp = (item) => {
+  const value = Number(item?.stats?.skillAmp ?? 0);
+  if (!Number.isFinite(value)) return 0;
+  const legacyGenerated = [item?.itemKey, item?.externalId, item?.itemId, item?.id, item?._id]
+    .some((id) => /^(wpn|eq)_/.test(String(id || '').trim()));
+  return value * (legacyGenerated ? 100 : 1);
+};
+
 const isWeaponItem = (item) => {
   const t = norm(item?.type);
   // legacy(type='weapon') + normalized(한국어/동의어) 혼용
@@ -104,12 +116,15 @@ export const getEquipDeltas = (character, settings = {}) => {
 // - equipmentCatalog.js에서 생성되는 stats(atk/hp/skillAmp/atkSpeed/critChance/cdr/lifesteal/moveSpeed/armorPen/adaptiveForce)를 전투 점수에 반영
 export const getEquipStatTotals = (character) => {
   const totals = { atk: 0, def: 0, hp: 0, skillAmp: 0, atkSpeed: 0, critChance: 0, cdr: 0, lifesteal: 0, moveSpeed: 0, armorPen: 0, adaptiveForce: 0, weaponType: '', weaponIsRanged: false };
-  const add = (src) => {
+  const add = (item) => {
+    const src = item?.stats;
     const s = src && typeof src === 'object' ? src : {};
     totals.atk += Number(s.atk || 0);
     totals.def += Number(s.def || 0);
     totals.hp += Number(s.hp || 0);
-    totals.skillAmp += Number(s.skillAmp || 0);
+    // This legacy score API still exposes hundredths; actual damage uses
+    // getEquipmentSkillAmp directly and never inherits its score-only cap.
+    totals.skillAmp += getEquipmentSkillAmp(item) / 100;
     totals.atkSpeed += Number(s.atkSpeed || 0);
     totals.critChance += Number(s.critChance || 0);
     totals.cdr += normalizeRatioStat(s.cdr);
@@ -122,7 +137,7 @@ export const getEquipStatTotals = (character) => {
   // 무기 1개(weapon)
   const wpn = pickWeapon(character);
   if (wpn) {
-    add(wpn.stats);
+    add(wpn);
     totals.weaponType = normalizeErWeaponType(wpn.weaponType || character?.weaponType || '');
     totals.weaponIsRanged = hasTag(wpn, 'ranged') || hasTag(wpn, 'shoot') || hasTag(wpn, 'gun') || hasTag(wpn, '총') || isErRangedWeaponType(totals.weaponType);
   }
@@ -130,7 +145,7 @@ export const getEquipStatTotals = (character) => {
   // 방어구 4슬롯
   for (const s of ['head', 'clothes', 'arm', 'shoes']) {
     const it = pickEquipBySlot(character, s);
-    if (it) add(it.stats);
+    if (it) add(it);
   }
 
   // 과도한 스택 방지(체감 밸런스)
