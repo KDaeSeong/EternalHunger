@@ -1,4 +1,4 @@
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog.js';
+import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../../utils/equipmentCatalog.js';
 import { getInvItemId, inferEquipSlot, inferItemCategory, invQty } from './inventoryRules.js';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 
@@ -22,8 +22,7 @@ export function getLateGrowthTargets(actor, items) {
   const weapon = normalizeWeaponType(actor.weaponType || '');
   const catalog = lateCatalog(items);
   const compatible = (item, slot, tier) => inferEquipSlot(item) === slot && Number(item.tier) === tier
-    && (slot !== 'weapon' || !weapon || !normalizeWeaponType(item.weaponType)
-      || normalizeWeaponType(item.weaponType) === weapon);
+    && (slot !== 'weapon' || areEquipmentWeaponTypesCompatible(weapon, item.weaponType));
   const candidates = [], issues = [];
   for (const slot of slots) {
     const currentTier = Math.max(0, ...inventory.filter((entry) => owned.has(getInvItemId(entry))

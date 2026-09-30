@@ -4,6 +4,7 @@ import { getFieldItemSourceZones, getFieldResourceQty } from './fieldResourceRun
 import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
 import { getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
 import { prepareCraftTransaction } from './craftTransactionRuntime.js';
+import { areEquipmentWeaponTypesCompatible } from '../../../utils/equipmentCatalog.js';
 
 const catalogCache = new WeakMap();
 function indexCatalog(items) {
@@ -23,7 +24,10 @@ export function getActorGrowthProgress(actor, items = []) {
   const byId = indexCatalog(items);
   const targets = [...new Set(actor.routePlanTargetItemIds || [])].map((id) => byId.get(String(id))).filter(Boolean);
   const inventory = actor.inventory || [];
-  const fulfilled = (target) => inventory.some((entry) => invQty(inventory, getInvItemId(entry)) > 0
+  const usableWeapon = (item) => inferEquipSlot(item) !== 'weapon'
+    || areEquipmentWeaponTypesCompatible(actor.weaponType, item.weaponType);
+  const fulfilled = (target) => usableWeapon(target) && inventory.some((entry) => invQty(inventory, getInvItemId(entry)) > 0
+    && usableWeapon({ ...byId.get(getInvItemId(entry)), ...entry })
     && (getInvItemId(entry) === String(target._id)
       || (!entry.craftComponent && inferEquipSlot(entry) === inferEquipSlot(target) && Number(entry.tier || 0) > Number(target.tier))));
   const remaining = targets.filter((target) => !fulfilled(target));
@@ -39,6 +43,9 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
   const work = { craftIds: [], missing: [], reservedQtyById: {}, componentIds: [], readyCraftId: '', blocked: '',
     requiredCredits: 0, availableCredits: Number(actor?.simCredits ?? 0), plannedCredits: 0 };
   if (!target) return { ...work, blocked: 'invalid_recipe' };
+  if (inferEquipSlot(target) === 'weapon' && !areEquipmentWeaponTypesCompatible(actor.weaponType, target.weaponType)) {
+    return { ...work, blocked: 'weapon_mismatch' };
+  }
   const available = new Map(inventory.map((entry) => [getInvItemId(entry), invQty(inventory, getInvItemId(entry))]));
   const missing = new Map();
   const components = new Set();

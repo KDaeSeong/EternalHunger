@@ -1,5 +1,5 @@
 import { EQUIP_SLOTS } from './simulationConstants';
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
   getInvItemId,
   inferEquipSlot,
@@ -86,7 +86,7 @@ function autoEquipBest(actor, itemMetaById) {
   const weapon = normalizeWeaponType(actor.weaponType || '');
   const inv = (Array.isArray(actor?.inventory) ? actor.inventory : []).filter((item) => {
     const candidateWeapon = normalizeWeaponType(item.weaponType || itemMetaById?.[getInvItemId(item)]?.weaponType || '');
-    return inferEquipSlot(item) !== 'weapon' || !weapon || !candidateWeapon || candidateWeapon === weapon;
+    return inferEquipSlot(item) !== 'weapon' || areEquipmentWeaponTypesCompatible(weapon, candidateWeapon);
   });
   const eq = ensureEquipped(actor);
   const nextEq = { ...eq };

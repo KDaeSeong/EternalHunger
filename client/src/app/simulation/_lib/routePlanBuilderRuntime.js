@@ -5,7 +5,7 @@ import { inferEquipSlot, inferItemCategory } from './inventoryRules';
 import { classifySpecialByName } from './craftRuntime';
 import { findCrateZoneWeightsForItem, uniqStrings } from './mapTargeting';
 import { getRegionZoneWeightsForItem } from './lumiaRegionData';
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 
@@ -107,7 +107,7 @@ function pickFallbackRouteTargets(actor, publicItems) {
 
     if (slot === 'weapon') {
       const itemWeaponType = normalizeWeaponType(String(it?.weaponType || '').trim());
-      if (actorWeaponType && itemWeaponType && itemWeaponType !== actorWeaponType) continue;
+      if (!areEquipmentWeaponTypesCompatible(actorWeaponType, itemWeaponType)) continue;
     }
 
     const list = bySlot.get(slot) || [];
@@ -328,7 +328,8 @@ function buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, op
     const goalKey = String(heroGoalBySlot?.[slot] || '').trim();
     const goalItem = goalKey ? indexes.byKey.get(goalKey) || null : null;
     const goalSlot = goalItem ? String(goalItem?.equipSlot || inferEquipSlot(goalItem) || '').toLowerCase() : '';
-    if (goalItem && goalSlot === slot) {
+    if (goalItem && goalSlot === slot && (slot !== 'weapon'
+      || areEquipmentWeaponTypesCompatible(actorWeaponType, goalItem.weaponType))) {
       const requirements = collectRecipeLeafRequirements(goalItem, indexes, getRouteZoneIds, opts);
       if (requirements.length) {
         bySlot.set(slot, [{
@@ -351,7 +352,7 @@ function buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, op
       if (Number(it?.tier || 0) !== 4) continue;
       if (slot === 'weapon') {
         const itemWeaponType = normalizeWeaponType(String(it?.weaponType || '').trim());
-        if (actorWeaponType && itemWeaponType && itemWeaponType !== actorWeaponType) continue;
+        if (!areEquipmentWeaponTypesCompatible(actorWeaponType, itemWeaponType)) continue;
       }
 
       const requirements = collectRecipeLeafRequirements(it, indexes, getRouteZoneIds, opts);

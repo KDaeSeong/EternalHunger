@@ -36,13 +36,15 @@ export function getActorGrowthObservation(actor, items, { progress = getActorGro
   const materials = receiptPreview && !receiptPreview.ok ? craftFailureText(receiptPreview.reason, receiptPreview)
     : work.blocked === 'insufficient_credits' ? `제작 비용 부족 · 필요 ${work.requiredCredits}Cr / 보유 ${work.availableCredits}Cr`
     : work.blocked === 'inventory_full' ? craftFailureText('inventory_full')
+    : work.blocked === 'weapon_mismatch' ? '무기 계열 불일치 · 목표 장비 확인 필요'
     : work.blocked ? '제작법 연결 확인 필요' : work.missing.length
     ? `부족: ${missing}${work.missing.length > 3 ? ` 외 ${work.missing.length - 3}종` : ''}${ready ? ` · ${ready.name} 제작 가능` : ''}`
     : ready ? '필요한 재료 확보 · 제작 가능' : '다음 제작 판단 대기';
   const forbidden = forbiddenIds instanceof Set ? forbiddenIds : new Set(forbiddenIds);
   let destination = '', note = '';
   if (work.blocked) note = work.blocked === 'insufficient_credits' ? '재료 확보 · 제작 비용 대기'
-    : work.blocked === 'inventory_full' ? '가방 공간 부족 · 다른 목표 재검토' : '성장 경로 재검토';
+    : work.blocked === 'inventory_full' ? '가방 공간 부족 · 다른 목표 재검토'
+    : work.blocked === 'weapon_mismatch' ? '호환되는 성장 목표 재검토' : '성장 경로 재검토';
   else if (work.missing.length && plan.targetZoneId) {
     const relevant = list(plan.missing).filter((row) => work.missing.some((need) => need.itemId === row.itemId)
       && list(row.zones).includes(plan.targetZoneId));

@@ -1,4 +1,4 @@
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
   compactIO,
   tierLabelKo,
@@ -57,7 +57,7 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
       const slot = String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase();
       if (slot === 'weapon') {
         const weaponType = normalizeWeaponType(String(item?.weaponType || ''));
-        if (weaponType && actorWNorm && weaponType !== actorWNorm) return false;
+        if (!areEquipmentWeaponTypesCompatible(actorWNorm, weaponType)) return false;
       }
 
       const curBest = slot ? pickBestEquipBySlot(inv0, slot) : null;

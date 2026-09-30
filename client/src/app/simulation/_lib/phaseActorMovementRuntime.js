@@ -32,6 +32,7 @@ import { captureCombatDecisionEvidence, describeCombatDecisionContext } from './
 import { publishTeamRegroupDecision } from './teamRegroupRuntime.js';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import { getAvailableMovementObjective, isMovementObjectiveAvailable, publishMovementObjective } from './movementObjectiveRuntime.js';
+import { isOpeningFarmPhase } from './pvpPhaseRuntime.js';
 import {
   consumeRetreatAvoidDecision,
   getRetreatAvoidZoneId,
@@ -114,7 +115,7 @@ export function runActorMovementDecisionPhase({
   const neighbors = knockbackMovement.neighbors;
   const retreatAvoidZoneId = getRetreatAvoidZoneId(updated);
   const previousGrowth = updated._growthPlan;
-  const growthPlan = refreshActorGrowthPlan(updated, state.publicItems, { mapObj, zoneGraph, forbiddenIds, nextSpawn });
+  const growthPlan = refreshActorGrowthPlan(updated, state.publicItems, { mapObj, zoneGraph, forbiddenIds, nextSpawn, ruleset });
   if (previousGrowth?.targetZoneId && growthPlan?.targetZoneId !== previousGrowth.targetZoneId && nextSpawn?.fieldResources) {
     const exhausted = (previousGrowth.missing || []).filter((row) => row.zones.includes(previousGrowth.targetZoneId)
       && nextSpawn.fieldResources.byZone?.[previousGrowth.targetZoneId]?.[row.itemId]?.remaining === 0);
@@ -154,8 +155,9 @@ export function runActorMovementDecisionPhase({
   const useTeamAssessment = !isSoloMatch && (teamAssessment.allyCount > 1 || teamAssessment.enemyCount > 1);
   const extremeRatio = Number(aiCfg?.fightAvoidExtremeRatio ?? 0.30);
   const extremeDelta = Number(aiCfg?.fightAvoidExtremeDelta ?? 25);
-  const lowHpFleeInterrupt = !mustEscape && sameZoneOpponents.length > 0 && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
-  const powerFleeInterrupt = !mustEscape && (useTeamAssessment ? teamAssessment.shouldAvoid
+  const pvpEnabled = !isOpeningFarmPhase(nextDay, nextPhase);
+  const lowHpFleeInterrupt = pvpEnabled && !mustEscape && sameZoneOpponents.length > 0 && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
+  const powerFleeInterrupt = pvpEnabled && !mustEscape && (useTeamAssessment ? teamAssessment.shouldAvoid
     : !!avoidInfoNow && ((Number(avoidInfoNow?.ratio || 1) < extremeRatio) || ((Number(avoidInfoNow?.opP || 0) - Number(avoidInfoNow?.myP || 0)) >= extremeDelta)));
   const fleeInterruptReason = mustEscape ? 'forbidden' : (lowHpFleeInterrupt ? 'low_hp' : (powerFleeInterrupt ? (useTeamAssessment ? teamAssessment.reason : 'power_gap') : ''));
   const recovering = !mustEscape && !fleeInterruptReason && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;

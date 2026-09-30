@@ -1,5 +1,5 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
   clampTier4,
   compactIO,
@@ -230,7 +230,7 @@ export function prepareInventoryForCraftLoot(actor, loot, craftables, ruleset) {
   const candidates = (Array.isArray(craftables) ? craftables : [])
     .filter((item) => {
       const slot = inferEquipSlot(item);
-      if (slot === 'weapon' && weapon && normalizeWeaponType(item.weaponType) !== weapon) return false;
+      if (slot === 'weapon' && !areEquipmentWeaponTypesCompatible(weapon, item.weaponType)) return false;
       if (slot && Number(pickBestEquipBySlot(inventory, slot)?.tier || 0) >= Number(item.tier || 1)) return false;
       const ingredients = compactIO(item?.recipe?.ingredients || []);
       return ingredients.some((row) => row.itemId === loot.itemId)
@@ -279,7 +279,8 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
       const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
       const weapon = normalizeWeaponType(String(it?.weaponType || ''));
       const actorWeapon = normalizeWeaponType(String(opts?.weaponType || ''));
-      return opts.growthPlan?.componentIds?.includes(String(it._id)) || slot !== 'weapon' || !weapon || !actorWeapon || weapon === actorWeapon;
+      return opts.growthPlan?.componentIds?.includes(String(it._id)) || slot !== 'weapon'
+        || areEquipmentWeaponTypesCompatible(actorWeapon, weapon);
     })
     .sort((a, b) => {
       const ds = scoreCandidate(b) - scoreCandidate(a);
@@ -358,7 +359,7 @@ export function buildCraftDebugInfo(actor, craftables, itemNameById, ruleset) {
       const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
       if (slot === 'weapon') {
         const w = normalizeWeaponType(String(it?.weaponType || ''));
-        if (w && actorWNorm && w !== actorWNorm) {
+        if (!actor._growthPlan?.componentIds?.includes(String(it._id)) && !areEquipmentWeaponTypesCompatible(actorWNorm, w)) {
           weaponMismatch += 1;
           continue;
         }

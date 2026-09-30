@@ -7,6 +7,10 @@ function getForbiddenCount(forbiddenIds) {
   return 0;
 }
 
+export function isOpeningFarmPhase(day, phase) {
+  return Number(day) === 1 && phase === 'morning';
+}
+
 function buildPvpPhaseRuntime(opts = {}) {
   const {
     fogLocalSec = null,
@@ -30,7 +34,7 @@ function buildPvpPhaseRuntime(opts = {}) {
   const restrictedRatio = Math.max(0, Math.min(1, getForbiddenCount(forbiddenIds) / totalZonesCount));
   const paceBonus = suddenDeath ? 0.35 : Math.min(0.25, 0.05 + Math.max(0, nextDay - 1) * 0.02 + restrictedRatio * 0.25);
   const battleCap = suddenDeath ? 0.99 : Math.max(battleMax, 0.88);
-  const isDay1MorningFarmPhase = nextDay === 1 && nextPhase === 'morning';
+  const isDay1MorningFarmPhase = isOpeningFarmPhase(nextDay, nextPhase);
   const battleProb = isDay1MorningFarmPhase
     ? 0
     : Math.min(battleCap, battleBase + nextDay * battleScale + fogBonus + paceBonus);
