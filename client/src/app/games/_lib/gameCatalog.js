@@ -31,11 +31,16 @@ export const SRPG_GAME_SLUGS = ['ba-srpg'];
 
 export const GAME_ENTRY_ROUTES = {
   'eternal-hunger': '/eternalhunger',
+  'hunger-games': '/hungergames',
   ...Object.fromEntries(MYANIME_GAME_SLUGS.map((slug) => [slug, `/myanime/${slug}/play`])),
   ...Object.fromEntries(SRPG_GAME_SLUGS.map((slug) => [slug, `/srpg/${slug}/play`])),
 };
 
 export const GAME_ROUTE_FAMILIES = {
+  hungergames: {
+    key: 'hungergames', label: '헝거게임', baseHref: '/hungergames', detailBaseHref: '/games',
+    playBaseHref: '/hungergames', description: '캐릭터 특성과 무작위 사건을 읽는 생존 시뮬레이터',
+  },
   eternalhunger: {
     key: 'eternalhunger',
     label: '이터널 헝거',
@@ -82,6 +87,7 @@ export function getGameRouteFamily(slugOrGame) {
   const slug = typeof slugOrGame === 'object' ? slugOrGame?.slug : slugOrGame;
   const key = String(slug || '').trim();
   if (key === 'eternal-hunger') return GAME_ROUTE_FAMILIES.eternalhunger;
+  if (key === 'hunger-games') return GAME_ROUTE_FAMILIES.hungergames;
   if (MYANIME_GAME_SLUGS.includes(key)) return GAME_ROUTE_FAMILIES.myanime;
   if (SRPG_GAME_SLUGS.includes(key)) return GAME_ROUTE_FAMILIES.srpg;
   if (key === 'twenty-questions') return GAME_ROUTE_FAMILIES.community;
@@ -247,6 +253,10 @@ export function findGameAdapterPreset(adapter) {
 }
 
 const GAME_INTEGRATIONS = {
+  'hunger-games': {
+    stage: 'playable', stageLabel: '플레이 가능', adapter: 'simulation', supportsSaves: true,
+    supportsRecords: false, resultMode: 'narrative-survival', maxPlayers: 1,
+  },
   'eternal-hunger': {
     stage: 'live',
     stageLabel: '운영',
@@ -387,6 +397,19 @@ const GAME_INTEGRATIONS = {
 };
 
 export const GAME_CATALOG = [
+  {
+    slug: 'hunger-games', title: '헝거게임 시뮬레이터', subtitle: 'Narrative Survival', tone: 'battle',
+    summary: '좋아하는 캐릭터를 넣고 낮·밤의 사건과 동맹·배신을 읽으며 최후의 생존자를 지켜봅니다.',
+    detail: '특성에 맞는 결과를 판정하는 별도 헝거게임 모드입니다. 참가자·이벤트를 편집하고 시험 판정, 시드 재실행, JSON과 계정 저장을 지원합니다.',
+    primaryHref: GAME_ENTRY_ROUTES['hunger-games'], primaryLabel: '경기 시작',
+    boardHref: '/board?gameSlug=hunger-games', boardLabel: '헝거게임 게시판',
+    recordHref: '/hungergames', recordLabel: '진행 기록', guideHref: '/hungergames', guideLabel: '참가자·이벤트 설정',
+    metrics: ['characters', 'posts'], statusItems: [
+      '캐릭터의 면역과 저항을 반영해 사건 결과를 정합니다.',
+      '코드 없이 이벤트를 등록하고 참가자별 결과를 시험합니다.',
+      '브라우저·JSON·계정 슬롯으로 참가자와 이벤트, 경기 진행을 저장합니다.',
+    ],
+  },
   {
     slug: 'eternal-hunger',
     title: 'Eternal Hunger',

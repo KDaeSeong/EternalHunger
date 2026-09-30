@@ -181,6 +181,7 @@ export default function GamesPage() {
             <Link href="/games/saves">저장 슬롯</Link>
             <Link href="/games/records">게임 기록</Link>
             <Link href="/eternalhunger">이터널 헝거</Link>
+            <Link href="/hungergames">헝거게임</Link>
             <Link href="/myanime">MyAnime</Link>
             <Link href="/srpg">SRPG</Link>
           </div>

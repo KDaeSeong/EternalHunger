@@ -2,6 +2,7 @@ import { normalizeSupportedTacSkill } from './tacticalSkillCatalog.js';
 import { ER_STAT_KEYS, normalizeErStats } from './erStats.js';
 import { normalizeCharacterSkillMovementMode, normalizeCharacterSkillType, normalizeSupportTargetScope } from './characterSkillCompilerCore.js';
 import { normalizeCharacterStatusEffects } from './characterStatusSkillDefinition.js';
+import { normalizeHungerTraits } from './hungerTraits.js';
 
 const MAX_PREVIEW_IMAGE_CHARS = 60000;
 const MAX_TEXT_CHARS = 4000;
@@ -333,6 +334,9 @@ export function findCharacterSaveMismatches(payloadCharacters, savedCharacters, 
     if (payload?.erWeapons !== undefined && stableStringify(cleanArrayStrings(payload.erWeapons)) !== stableStringify(cleanArrayStrings(saved?.erWeapons))) {
       mismatches.push({ id: requestId || id, field: 'erWeapons' });
     }
+    if (payload?.hungerTraits !== undefined && !compareObject(payload.hungerTraits, saved?.hungerTraits, normalizeHungerTraits)) {
+      mismatches.push({ id: requestId || id, field: 'hungerTraits' });
+    }
   }
 
   return mismatches;
@@ -356,6 +360,7 @@ export function compactCharacterForSave(character, options = {}) {
   }
 
   if (c.summary !== undefined) out.summary = cleanString(c.summary, MAX_TEXT_CHARS);
+  if (c.hungerTraits !== undefined) out.hungerTraits = normalizeHungerTraits(c.hungerTraits);
   if (c.weaponType !== undefined) out.weaponType = cleanString(c.weaponType, 128) || '';
   if (c.characterTemplateId !== undefined) out.characterTemplateId = cleanString(c.characterTemplateId, 128) || '';
   if (c.characterSkillCode !== undefined) out.characterSkillCode = cleanString(c.characterSkillCode, 128) || '';
