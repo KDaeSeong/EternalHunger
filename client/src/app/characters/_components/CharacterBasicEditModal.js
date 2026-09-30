@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import HungerTraitFields from '../../../components/HungerTraitFields';
 import {
   normalizeWeaponType,
   normalizeWeaponTypes,
@@ -126,6 +127,8 @@ function CharacterBasicEditModal({
                   : '경기 시작 시 캐릭터 프리셋 무기 중 하나 선택'}
               </small>
             </fieldset>
+            <HungerTraitFields value={character.hungerTraits} onChange={(traits) => onUpdateCharacter(id, 'hungerTraits', traits)} />
+            <small>사건의 조건과 결과에 적용합니다. 번개 조종과 번개 면역은 따로 선택합니다.</small>
           </div>
         </div>
 

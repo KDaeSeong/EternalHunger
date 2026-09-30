@@ -7,6 +7,7 @@ const { buildItemNameMap, normalizeInventory } = require('../utils/inventory');
 const { scopedFilter } = require('../utils/requestScope');
 const { verifyToken } = require('../middleware/authMiddleware'); // ★ 추가
 const mongoose = require('mongoose');
+const { normalizeHungerTraits } = require('../utils/hungerTraits');
 
 // 모든 요청에 대해 토큰 검증
 router.use(verifyToken);
@@ -15,6 +16,7 @@ const SAVE_FIELDS = [
   'name',
   'previewImage',
   'summary',
+  'hungerTraits',
   'gender',
   'weaponType',
   'characterTemplateId',
@@ -175,6 +177,7 @@ function pickCharacterSavePayload(raw, itemNameMap) {
   if (out.tacticalSkill !== undefined) out.tacticalSkill = normalizeTacticalSkill(out.tacticalSkill);
   if (out.uniqueResource !== undefined) out.uniqueResource = cleanComparableUniqueResource(out.uniqueResource);
   if (out.characterSkills !== undefined) out.characterSkills = cleanComparableCharacterSkills(out.characterSkills);
+  if (out.hungerTraits !== undefined) out.hungerTraits = normalizeHungerTraits(out.hungerTraits);
   return out;
 }
 
@@ -192,6 +195,10 @@ function normalizeTacticalSkill(value) {
 
 function getCharacterResourceError(raw) {
   const source = raw && typeof raw === 'object' ? raw : {};
+  if (source.hungerTraits !== undefined && (!Array.isArray(source.hungerTraits) || source.hungerTraits.length > 32
+    || source.hungerTraits.some((key) => typeof key !== 'string' || !/^[a-z][a-z0-9_]{0,63}$/.test(key.trim().toLowerCase())))) {
+    return '헝거게임 특성은 올바른 특성 키 32개 이내로 입력해 주세요.';
+  }
   const resource = source.uniqueResource && typeof source.uniqueResource === 'object' ? source.uniqueResource : {};
   if (resource.enabled === true) {
     const maxValue = Number(resource.maxValue);
@@ -378,6 +385,7 @@ function cleanComparableCharacterSkills(skills) {
 }
 
 function comparableValue(value, field) {
+  if (field === 'hungerTraits') return normalizeHungerTraits(value);
   if (field === 'goalGearTier') return 6;
   if (field === 'characterSkillLevel') {
     return Math.max(1, Math.min(5, cleanComparableNumber(value, 1)));
@@ -436,7 +444,7 @@ function collectSaveVerificationMismatches(saveInputs, saveResults, savedCharact
         mismatches.push({ id: requestId || savedId, field });
       }
     }
-    for (const field of ['stats', 'goalLoadouts', 'erWeapons', 'characterSkillLevels', 'characterSkills', 'uniqueResource']) {
+    for (const field of ['stats', 'goalLoadouts', 'erWeapons', 'hungerTraits', 'characterSkillLevels', 'characterSkills', 'uniqueResource']) {
       if (payload[field] !== undefined && !sameComparableValue(payload[field], saved[field], field)) {
         mismatches.push({ id: requestId || savedId, field });
       }
@@ -458,6 +466,7 @@ function getUserIdOrRespond(req, res) {
 const CHARACTER_LIST_SELECTS = {
   editor: [
     'name',
+    'hungerTraits',
     'previewImage',
     'summary',
     'gender',
@@ -480,6 +489,7 @@ const CHARACTER_LIST_SELECTS = {
   ].join(' '),
   stats: [
     'name',
+    'hungerTraits',
     'previewImage',
     'gender',
     'weaponType',
@@ -501,6 +511,7 @@ const CHARACTER_LIST_SELECTS = {
   ].join(' '),
   simulation: [
     'name',
+    'hungerTraits',
     'previewImage',
     'gender',
     'weaponType',

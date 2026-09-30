@@ -14,6 +14,7 @@ import {
 } from '../../../utils/characterSkillCompiler';
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
 import { normalizeUniqueResourceDefinition } from '../../simulation/_lib/uniqueResourceRuntime.js';
+import { normalizeHungerTraits } from '../../../utils/hungerTraits.js';
 
 const SKILL_LEVEL_COUNT = 5;
 
@@ -144,6 +145,7 @@ function normalizeCharacterEditorList(data) {
     const erWeapons = configuredWeapons.length ? configuredWeapons : (weaponType ? [weaponType] : []);
     return {
       ...character,
+      hungerTraits: normalizeHungerTraits(character?.hungerTraits),
       stats: normalizeErStats(character?.stats),
       weaponType: erWeapons[0] || weaponType,
       erWeapons,

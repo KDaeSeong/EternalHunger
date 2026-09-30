@@ -21,6 +21,7 @@ const PRIMARY_NAV_ITEMS = [
 
 const MORE_NAV_ITEMS = [
   { href: '/eternalhunger', label: '이터널 헝거' },
+  { href: '/hungergames', label: '헝거게임' },
   { href: '/myanime', label: 'MyAnime' },
   { href: '/srpg', label: 'SRPG' },
   { href: '/games/rooms', label: '게임방' },

@@ -10,6 +10,7 @@ const characterSchema = new Schema({
   name: { type: String, required: true },
   previewImage: { type: String },
   summary: { type: String },
+  hungerTraits: { type: [String], default: [] },
   gender: { type: String, default: '남' },
   weaponType: { type: String, default: '' },
   characterTemplateId: { type: String, default: '' },
