@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { apiGet, apiPut, getToken } from '../../utils/api';
 import { HUNGER_LIMITS, HUNGER_VERSION, normalizeHungerRoster } from './_lib/hungerGameContract.js';
-import { defaultHungerConfig } from './_lib/hungerGamePresets.js';
-import { advanceHungerRun, createHungerRun } from './_lib/hungerGameRuntime.js';
+import { defaultHungerConfig, refreshHungerPresets } from './_lib/hungerGamePresets.js';
+import { advanceHungerRun, createHungerRun, hungerFinalDuelPressure } from './_lib/hungerGameRuntime.js';
 import { createHungerPack, restoreHungerPackAsync, HUNGER_STORAGE_KEY } from './_lib/hungerGamePersistence.js';
 import HungerRosterEditor from './_components/HungerRosterEditor';
 import HungerEventEditor from './_components/HungerEventEditor';
@@ -37,6 +37,7 @@ export default function HungerGamesPage() {
           const restored = await restoreHungerPackAsync(stored);
           if (cancelled) return;
           setConfig(restored.config); setRun(restored.run); setEventDraft(null);
+          if (restored.upgraded) setNotice('다음 경기용 기본 사건과 샘플 특성을 업데이트했습니다. 기존 경기의 진행과 승패는 유지됩니다.');
         }
       } catch (error) {
         if (cancelled) return;
@@ -75,6 +76,15 @@ export default function HungerGamesPage() {
       if (run && !window.confirm('현재 경기를 끝내고 새 경기를 시작할까요?')) return;
       const next = createHungerRun(config); setRun(next); setPlaying(false); setViewIndex(-1); setSaveBlocked(false); setNotice('새 경기를 시작했습니다. 다음 페이즈를 눌러 진행합니다.');
     } catch (error) { setNotice(error.message); }
+  };
+  const resetPresets = () => {
+    if (!window.confirm('기본 사건을 최신 구성으로 바꿀까요? 기본 사건과 같은 ID의 사건 및 저장 전 초안은 초기화됩니다. 나머지 추가 사건과 수정한 참가자는 보존하고, 변경은 다음 경기에 적용합니다.')) return false;
+    try {
+      const next = refreshHungerPresets(config);
+      setConfig(next); setEventDraft(null); setPlaying(false);
+      setNotice('기본 사건과 수정하지 않은 샘플 특성을 업데이트했습니다. 새 경기부터 적용됩니다.');
+      return true;
+    } catch (error) { setNotice(error.message); return false; }
   };
   const download = () => {
     try {
@@ -159,9 +169,11 @@ export default function HungerGamesPage() {
               </div>
             </div>
             <p className={styles.note}>설정 변경은 다음 경기에 적용됩니다. 한 명이 남으면 즉시 종료하고, 진행 한도에 도달하면 남은 참가자들이 공동 생존합니다. {run ? '현재 경기 시드: ' + run.input.seed : '같은 참가자·이벤트·시드로 같은 경기를 다시 볼 수 있습니다.'}</p>
+            {run?.rulesVersion === 1 ? <p className={styles.note}>이 경기는 이전 규칙으로 진행해 기존 기록과 승패를 보존합니다. 개선된 사건 선택과 전투 판정은 새 경기부터 적용됩니다.</p> : null}
+            {run && !run.finished && hungerFinalDuelPressure(run) > 0 ? <p className={styles.note}>최종 2인 대치 {hungerFinalDuelPressure(run)}페이즈 경과 · 대치가 길어질수록 결전과 결정타의 비중이 높아집니다.</p> : null}
             <HungerRunViewer run={run} viewIndex={viewIndex} onViewIndex={(index) => { setPlaying(false); setViewIndex(index); }} />
           </> : tab === 'roster' ? <HungerRosterEditor roster={config.roster} onChange={updateRoster} busy={busy} onLoadAccount={() => void accountAction('roster')} onNotice={setNotice} />
-            : <HungerEventEditor events={config.events} roster={config.roster} onChange={(events) => setConfig((previous) => ({ ...previous, events }))} onNotice={setNotice} draft={eventDraft} onDraftChange={setEventDraft} />}
+            : <HungerEventEditor events={config.events} roster={config.roster} onChange={(events) => setConfig((previous) => ({ ...previous, events }))} onNotice={setNotice} draft={eventDraft} onDraftChange={setEventDraft} onPresetsReset={resetPresets} />}
         </section>
       </div>
     </main>

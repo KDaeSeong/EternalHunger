@@ -1,22 +1,29 @@
 import { normalizeHungerTraits } from '../../../utils/hungerTraits.js';
 
 export const HUNGER_VERSION = 'hunger-games.v1';
+export const HUNGER_RULES_VERSION = 2;
 export const HUNGER_LIMITS = Object.freeze({ actors: 64, events: 200, phases: 120, roles: 4, outcomes: 12, items: 12, packBytes: 6 * 1024 * 1024 });
 export const HUNGER_PHASES = ['opening', 'day', 'night', 'feast'];
 export const HUNGER_WEATHER = ['clear', 'rain', 'storm', 'cold'];
 export const HUNGER_LOCATIONS = ['forest', 'river', 'camp', 'ruins'];
-export const HUNGER_CAUSES = ['lightning', 'fire', 'drowning', 'poison', 'cold', 'combat', 'accident'];
+export const HUNGER_CAUSES = ['lightning', 'fire', 'drowning', 'poison', 'cold', 'physical', 'lightning_attack', 'fire_attack', 'combat', 'accident'];
 export const HUNGER_EFFECTS = ['death', 'injure', 'heal', 'gain_item', 'lose_item', 'ally', 'enemy'];
-export const HUNGER_RELATIONS = ['same_team', 'not_teammate', 'ally', 'enemy'];
+export const HUNGER_RELATIONS = ['same_team', 'not_teammate', 'ally', 'not_ally', 'enemy'];
 export const HUNGER_LABELS = Object.freeze({
   opening: '시작', day: '낮', night: '밤', feast: '연회', clear: '맑음', rain: '비', storm: '뇌우', cold: '한파',
   forest: '숲', river: '강가', camp: '야영지', ruins: '폐허', lightning: '자연 번개', fire: '화재',
-  drowning: '익사', poison: '독', combat: '전투', accident: '사고', death: '사망', injure: '부상', heal: '부상 회복',
+  drowning: '물에 의한 피해', poison: '독', physical: '물리 공격', lightning_attack: '번개 공격', fire_attack: '불 공격',
+  combat: '기타 전투', accident: '사고', death: '사망', injure: '부상', heal: '부상 회복',
   gain_item: '아이템 획득', lose_item: '아이템 소모', ally: '동맹', enemy: '적대', same_team: '같은 팀',
   not_teammate: '같은 팀 제외', any: '제한 없음', immune: '면역', resistant: '저항', normal: '면역·저항 없음',
+  not_ally: '동맹 제외', healthy: '건강함', injured: '부상 중',
 });
 
 function fail(message) { throw new Error(message); }
+export function normalizeHungerRulesVersion(value = HUNGER_RULES_VERSION) {
+  if (![1, HUNGER_RULES_VERSION].includes(value)) fail('지원하지 않는 헝거게임 판정 규칙 버전입니다.');
+  return value;
+}
 function object(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) fail(label + ': 형식이 올바르지 않습니다.');
   return value;
@@ -86,6 +93,19 @@ export function normalizeHungerEvent(value) {
   if (!Array.isArray(input.outcomes) || !input.outcomes.length || input.outcomes.length > HUNGER_LIMITS.outcomes) fail('결과 분기는 1~12개여야 합니다.');
   const outcomes = input.outcomes.map((raw) => {
     const outcome = object(raw, '결과');
+    const rawRequirements = outcome.requirements ?? [];
+    if (!Array.isArray(rawRequirements) || rawRequirements.length > keys.length) fail('분기 참가자 조건은 역할마다 하나씩 등록할 수 있습니다.');
+    const requirements = rawRequirements.map((rawRequirement) => {
+      const requirement = object(rawRequirement, '분기 참가자 조건');
+      const allTraits = traits(requirement.allTraits, '분기 필수 특성');
+      const noneTraits = traits(requirement.noneTraits, '분기 제외 특성');
+      if (allTraits.some((key) => noneTraits.includes(key))) fail('같은 특성을 분기에 필수와 제외로 동시에 넣을 수 없습니다.');
+      const status = requirement.status ?? 'any';
+      if (!['any', 'healthy', 'injured'].includes(status)) fail('분기 상태 조건을 확인해 주세요.');
+      return { role: knownRole(requirement.role, keys), allTraits, noneTraits, status,
+        requiredItem: text(requirement.requiredItem, '분기 필요 아이템', 60, false) };
+    });
+    if (new Set(requirements.map((row) => row.role)).size !== requirements.length) fail('분기 참가자 조건의 역할이 중복됩니다.');
     let when = null;
     if (outcome.when != null) {
       const condition = object(outcome.when, '분기 조건');
@@ -108,9 +128,9 @@ export function normalizeHungerEvent(value) {
         if (!HUNGER_CAUSES.includes(effect.cause)) fail('사망·부상에는 지원하는 원인을 지정해야 합니다.');
         result.cause = effect.cause;
       }
-      if (effect.type === 'death' && effect.source) {
+      if (['death', 'injure'].includes(effect.type) && effect.source) {
         result.source = knownRole(effect.source, keys);
-        if (result.source === target) fail('처치자는 피해자와 다른 역할이어야 합니다.');
+        if (result.source === target) fail('공격자는 피해자와 다른 역할이어야 합니다.');
       }
       if (['gain_item', 'lose_item'].includes(effect.type)) result.item = text(effect.item, '아이템 이름', 60);
       if (['ally', 'enemy'].includes(effect.type)) {
@@ -120,16 +140,20 @@ export function normalizeHungerEvent(value) {
       return result;
     });
     return { label: text(outcome.label || '결과', '분기 이름', 60), weight: number(outcome.weight, 1, 0.01, 1000, '분기 빈도'),
-      when, effects, text: template(outcome.text, keys) };
+      when, requirements, effects, text: template(outcome.text, keys) };
   });
   const minDay = number(input.minDay, 0, 0, 60, '시작 일차', true);
   const maxDay = number(input.maxDay, 60, minDay, 60, '마지막 일차', true);
+  const minSurvivors = number(input.minSurvivors, 2, 2, HUNGER_LIMITS.actors, '최소 생존자', true);
+  const maxSurvivors = number(input.maxSurvivors, HUNGER_LIMITS.actors, minSurvivors, HUNGER_LIMITS.actors, '최대 생존자', true);
+  const minDuelPhases = number(input.minDuelPhases, 0, 0, HUNGER_LIMITS.phases, '최종 2인 대치 페이즈', true);
+  if (minDuelPhases && (minSurvivors !== 2 || maxSurvivors !== 2)) fail('최종 2인 대치 조건은 생존자를 2명으로 제한해야 합니다.');
   return { id, title: text(input.title, '이벤트 이름'), enabled: input.enabled !== false,
     weight: number(input.weight, 1, 0.01, 1000, '이벤트 빈도'),
     phases: list(input.phases, HUNGER_PHASES, HUNGER_PHASES, '발생 시점'),
     weather: list(input.weather, HUNGER_WEATHER, HUNGER_WEATHER, '날씨'),
     locations: list(input.locations, HUNGER_LOCATIONS, HUNGER_LOCATIONS, '장소'),
-    minDay, maxDay, cooldownPhases: number(input.cooldownPhases, 0, 0, 120, '재등장 간격', true),
+    minDay, maxDay, minSurvivors, maxSurvivors, minDuelPhases, cooldownPhases: number(input.cooldownPhases, 0, 0, 120, '재등장 간격', true),
     maxUses: number(input.maxUses, 0, 0, 1000, '최대 등장 횟수', true), roles, relations: normalizedRelations, outcomes };
 }
 

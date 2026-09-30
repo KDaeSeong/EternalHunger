@@ -1,14 +1,18 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import { normalizeHungerTraits } from '../src/utils/hungerTraits.js';
 import { compactCharacterForSave, findCharacterSaveMismatches } from '../src/utils/characterPayload.js';
 import { normalizeHungerConfig, normalizeHungerEvent, normalizeHungerRoster } from '../src/app/hungergames/_lib/hungerGameContract.js';
-import { DEFAULT_HUNGER_EVENTS, defaultHungerConfig } from '../src/app/hungergames/_lib/hungerGamePresets.js';
-import { advanceHungerRun, createHungerRun, hungerProtection, inspectHungerEvent, replayHungerRun, resolveHungerEvent } from '../src/app/hungergames/_lib/hungerGameRuntime.js';
+import { DEFAULT_HUNGER_EVENTS, defaultHungerConfig, refreshHungerPresets, upgradeUntouchedHungerPresets } from '../src/app/hungergames/_lib/hungerGamePresets.js';
+import { legacyHungerConfig } from '../src/app/hungergames/_lib/hungerGameLegacyPresets.js';
+import { advanceHungerRun, createHungerRun, hungerEventSelectionWeight, hungerFinalDuelPressure, hungerProtection, inspectHungerEvent, replayHungerRun, resolveHungerEvent } from '../src/app/hungergames/_lib/hungerGameRuntime.js';
 import { createHungerPack, restoreHungerPack, restoreHungerPackAsync } from '../src/app/hungergames/_lib/hungerGamePersistence.js';
+import { hungerEffectLabel, koreanParticle, renderHungerText } from '../src/app/hungergames/_lib/hungerGameText.js';
+import { createHungerPreview } from '../src/app/hungergames/_lib/hungerGamePreview.js';
 
 const require = createRequire(import.meta.url);
 const serverTraits = require('../../server/utils/hungerTraits.js');
@@ -288,6 +292,286 @@ await check('the real character save/list handlers round-trip Hunger traits thro
   assert.deepEqual(api.rows.get(id).hungerTraits, ['underwater_breathing']);
   const missing = structuredClone(changed.body.characters); missing[0].hungerTraits = [];
   assert.ok(findCharacterSaveMismatches([update], missing).some((row) => row.field === 'hungerTraits'));
+});
+
+
+await check('Korean particles agree with vowel, consonant and rieul endings', () => {
+  const pairs = [['은','는'],['이','가'],['을','를'],['과','와'],['으로','로'],['이랑','랑'],['아','야']];
+  for (const [name, closed, rieul] of [['야전 의사',false,false],['숲의 생존가',false,false],['라이덴 쇼군',true,false],['불꽃 정령',true,false],['노엘',true,true]]) {
+    for (const [left,right] of pairs) {
+      const expected = closed && !(left === '으로' && rieul) ? left : right;
+      for (const form of [left,right,left+'('+right+')',right+'('+left+')',left+'/'+right,right+'/'+left]) assert.equal(koreanParticle(name,form),expected);
+    }
+  }
+});
+await check('pronunciation checks handle normalized Hangul, trailing marks, jamo and Korean digits', () => {
+  assert.equal(koreanParticle('바바라'.normalize('NFD'),'은'),'는');
+  for (const name of ['「바바라」','바바라 ⭐','바바라👩‍🚀','바바라!']) assert.equal(koreanParticle(name,'이'),'가');
+  for (const digit of ['1','7','8']) assert.equal(koreanParticle('기계 '+digit,'으로'),'로');
+  for (const digit of ['2','4','5','9']) assert.equal(koreanParticle('기계 '+digit,'은'),'는');
+  for (const digit of ['0','3','6']) assert.equal(koreanParticle('기계 '+digit,'은'),'은');
+  assert.equal(koreanParticle('ㄹ','으로'),'로'); assert.equal(koreanParticle('ㅏ','은'),'는');
+  assert.equal(koreanParticle('Raiden','은'),'은(는)'); assert.equal(koreanParticle('','을'),'을(를)');
+});
+await check('template particles are local to placeholders and never rewrite names or ordinary words', () => {
+  const cast = { actor:{name:'야전 의사'}, victim:{name:'라이덴 쇼군'} };
+  assert.equal(renderHungerText('"{actor}"은(는) {victim}을(를) 돕고 {victim}과 {actor}으로부터 소식을 듣는다.',cast),'"야전 의사"는 라이덴 쇼군을 돕고 라이덴 쇼군과 야전 의사로부터 소식을 듣는다.');
+  assert.equal(renderHungerText('{actor}은 {victim}과는 다르다.',cast),'야전 의사는 라이덴 쇼군과는 다르다.');
+  assert.equal(renderHungerText('{actor}이름, {actor}가방, 이름은 그대로.',cast),'야전 의사이름, 야전 의사가방, 이름은 그대로.');
+  assert.equal(renderHungerText('{actor}은 간다. {missing}은 남는다.',{actor:{name:'{victim}는'}}),'{victim}는은 간다. {missing}은 남는다.');
+  assert.equal(renderHungerText('{constructor}은 간다.',{}),'{constructor}은 간다.');
+});
+await check('resolver output corrects multiple names while preserving atomic effects and kill credit', () => {
+  const duel = event([], {roles:[role('attacker'),role('victim')],outcomes:[{text:'{attacker}은 {victim}을 쓰러뜨린다.',effects:[{type:'death',target:'victim',source:'attacker',cause:'physical'}]}]});
+  const before = state([actor('doctor',[],{name:'야전 의사'}),actor('raiden',[],{name:'라이덴 쇼군'})]);
+  const result = resolveHungerEvent(before,duel,{attacker:'doctor',victim:'raiden'});
+  assert.equal(result.row.text,'야전 의사는 라이덴 쇼군을 쓰러뜨린다.');
+  assert.equal(result.state.actors[0].kills,1); assert.equal(result.state.actors[1].alive,false); assert.equal(before.actors[1].alive,true);
+});
+await check('fallback rest corrects particles and distinguishes mechanical and elemental bodies', () => {
+  const config = {roster:[actor('human',[],{name:'야전 의사'}),actor('robot',['mechanical']),actor('spirit',['elemental_body'])],events:[],seed:'rest',maxPhases:1};
+  const run = advanceHungerRun(createHungerRun(config));
+  const rows = new Map(run.history[0].rows.map(row=>[row.participants[0].id,row.text]));
+  assert.equal(rows.get('human'),'야전 의사는 주변을 살피며 조용히 휴식한다.');
+  assert.match(rows.get('robot'),/절전 모드/); assert.match(rows.get('spirit'),/기운/);
+});
+await check('outcome requirements combine traits, exclusions, injury and inventory before selection', () => {
+  const repair = event([], {roles:[role('actor'),role('patient')],outcomes:[
+    {label:'정비',text:'{actor}은 {patient}을 정비한다.',requirements:[{role:'patient',allTraits:['mechanical'],noneTraits:['elemental_body'],status:'injured',requiredItem:'배터리'}],effects:[{type:'heal',target:'patient'}]},
+    {label:'대기',text:'{actor}은 대기한다.'},
+  ]});
+  const before = state([actor('a'),actor('b',['mechanical'],{items:['배터리']})]);
+  const labels = () => inspectHungerEvent(before,repair,{actor:'a',patient:'b'}).outcomes.map(row=>row.label);
+  assert.deepEqual(labels(),['대기']); before.actors[1].injured=true; assert.deepEqual(labels(),['정비','대기']);
+  before.actors[1].items=[]; assert.deepEqual(labels(),['대기']); before.actors[1].items=['배터리']; before.actors[1].hungerTraits.push('elemental_body'); assert.deepEqual(labels(),['대기']);
+});
+await check('invalid outcome requirements and self-assigned damage sources are rejected', () => {
+  for (const requirements of [[{role:'missing'}],[{role:'actor'},{role:'actor'}],[{role:'actor',allTraits:['flight'],noneTraits:['flight']}],[{role:'actor',status:'dead'}],'invalid']) {
+    assert.throws(()=>event([],{outcomes:[{text:'{actor}은 기다린다.',requirements}]}));
+  }
+  assert.throws(()=>event([{type:'injure',target:'actor',source:'actor',cause:'physical'}]),/공격자/);
+});
+await check('physical immunity blocks death and injury while mechanical bodies gain no implicit immunity', () => {
+  for (const type of ['death','injure']) {
+    const hurt = event([{type,target:'actor',cause:'physical'}]);
+    const before = state([actor('a',['physical_immune']),actor('b')]);
+    assert.equal(resolveHungerEvent(before,hurt,{actor:'a'}).row,null);
+    assert.ok(resolveHungerEvent(state([actor('a',['mechanical']),actor('b')]),hurt,{actor:'a'}).row);
+  }
+  const mixed = event([],{outcomes:[{label:'사망',text:'{actor}은 쓰러진다.',weight:10,effects:[{type:'death',target:'actor',cause:'physical'}]},{label:'회피',text:'{actor}은 피한다.',weight:10}]});
+  assert.deepEqual(inspectHungerEvent(state([actor('a',['physical_resistant']),actor('b')]),mixed,{actor:'a'}).outcomes.map(row=>row.weight),[2,10]);
+});
+await check('environment immunity and elemental attack immunity remain distinct and cause-specific', () => {
+  for (const [natural,attack] of [['lightning','lightning_attack'],['fire','fire_attack']]) {
+    const environmentOnly = actor('a',[natural+'_immune']);
+    assert.equal(hungerProtection(environmentOnly,natural),'immune'); assert.equal(hungerProtection(environmentOnly,attack),'normal');
+    const attackOnly = actor('a',[attack+'_immune']);
+    assert.equal(hungerProtection(attackOnly,attack),'immune'); assert.equal(hungerProtection(attackOnly,natural),'normal');
+  }
+});
+await check('ability attacks and counters require their capabilities and physical immunity excludes knife damage', () => {
+  const roster = defaultHungerConfig().roster;
+  const before = state(roster);
+  const lightning = DEFAULT_HUNGER_EVENTS.find(row=>row.id==='lightning-strike');
+  assert.equal(inspectHungerEvent(before,lightning,{attacker:'demo-rookie',victim:'demo-medic'}).eligible,false);
+  assert.equal(inspectHungerEvent(before,lightning,{attacker:'demo-raiden',victim:'demo-medic'}).eligible,true);
+  before.actors.find(row=>row.id==='demo-rookie').items=['칼'];
+  const knife = DEFAULT_HUNGER_EVENTS.find(row=>row.id==='knife-encounter');
+  const flame = inspectHungerEvent(before,knife,{attacker:'demo-rookie',victim:'demo-flame'}).outcomes.map(row=>row.label);
+  assert.ok(flame.includes('물리 면역')); assert.ok(flame.includes('불꽃 반격')); assert.ok(!flame.includes('결정타')); assert.ok(!flame.includes('손상')); assert.ok(!flame.includes('근접 반격'));
+  const raiden = inspectHungerEvent(before,knife,{attacker:'demo-rookie',victim:'demo-raiden'}).outcomes.map(row=>row.label);
+  assert.ok(raiden.includes('번개 반격')); assert.ok(!raiden.includes('근접 반격'));
+});
+await check('training, injury and flight adjust attack weights without guaranteeing victory', () => {
+  const duel = event([],{roles:[role('attacker'),role('victim')],outcomes:[{label:'일격',weight:2,text:'{attacker}은 {victim}을 쓰러뜨린다.',effects:[{type:'death',target:'victim',cause:'physical',source:'attacker'}]},{label:'회피',weight:2,text:'{victim}은 달아난다.'}]});
+  const before = state([actor('a'),actor('b')]);
+  const weight = () => inspectHungerEvent(before,duel,{attacker:'a',victim:'b'}).outcomes[0].weight;
+  assert.equal(weight(),2); before.actors[0].hungerTraits=['combat_training']; assert.equal(weight(),3.5);
+  before.actors[1].hungerTraits=['combat_training']; assert.equal(weight(),2);
+  before.actors[0].hungerTraits=[]; before.actors[1].hungerTraits=['flight']; assert.equal(weight(),1);
+  before.actors[1].hungerTraits=[]; before.actors[0].injured=true; assert.equal(weight(),1.2);
+  before.actors[1].injured=true; assert.ok(Math.abs(weight()-1.8)<1e-9);
+  before.rulesVersion=1; assert.equal(weight(),2);
+  assert.ok(inspectHungerEvent({...before,rulesVersion:2},duel,{attacker:'a',victim:'b'}).outcomes.some(row=>row.label==='회피'));
+});
+await check('nonlethal attacks record their source without awarding a kill', () => {
+  const wound = event([],{roles:[role('attacker'),role('victim')],outcomes:[{text:'{attacker}은 {victim}을 공격한다.',effects:[{type:'injure',target:'victim',cause:'fire_attack',source:'attacker'}]}]});
+  const result = resolveHungerEvent(state([actor('a'),actor('b')]),wound,{attacker:'a',victim:'b'});
+  assert.equal(result.row.effects[0].sourceId,'a'); assert.equal(result.state.actors[0].kills,0); assert.equal(result.state.actors[1].injured,true);
+});
+await check('biological meals, recollections and first aid exclude mechanical and elemental bodies', () => {
+  const before = state([actor('medic',['medic']),actor('robot',['mechanical'],{items:['식량']}),actor('spirit',['elemental_body'],{items:['식량']})],[],{phase:'night'});
+  for (const id of ['robot','spirit']) {
+    for (const eventId of ['meal','quiet-night']) assert.equal(inspectHungerEvent(before,DEFAULT_HUNGER_EVENTS.find(row=>row.id===eventId),{actor:id}).eligible,false);
+    before.actors.find(row=>row.id===id).injured=true;
+    assert.equal(inspectHungerEvent(before,DEFAULT_HUNGER_EVENTS.find(row=>row.id==='medical-help'),{rescuer:'medic',victim:id}).eligible,false);
+  }
+  assert.equal(hungerEffectLabel(before.actors[1],'death'),'작동 정지'); assert.equal(hungerEffectLabel(before.actors[2],'injure'),'형태 손상');
+});
+await check('hazard injuries use only the matching body narrative', () => {
+  const cold = DEFAULT_HUNGER_EVENTS.find(row=>row.id==='cold-night');
+  for (const [body,traits,match] of [['living',[],/몸을 다친다/],['mechanical',['mechanical'],/신체 부품/],['elemental',['elemental_body'],/기운이 불안정/]]) {
+    const variant = normalizeHungerEvent({...cold,outcomes:cold.outcomes.filter(row=>row.label==='손상' && (body==='living'?row.requirements[0].noneTraits.includes('mechanical'):row.requirements[0].allTraits.includes(traits[0])))});
+    const result = resolveHungerEvent(state([actor('a',traits),actor('b')],[],{phase:'night',weather:'cold'}),variant,{actor:'a'});
+    assert.match(result.row.text,match); assert.equal(result.state.actors[0].injured,true);
+  }
+});
+await check('recent repetition is reduced per participant without excluding a sole authored event', () => {
+  const repeated = event([],{weight:4});
+  const before = state([actor('a'),actor('b')]);
+  const castA={actor:before.actors[0]}, castB={actor:before.actors[1]};
+  const fresh=hungerEventSelectionWeight(before,repeated,castA);
+  const previous={index:-1,rows:[{eventId:repeated.id,participants:[{id:'a'}]}]}; before.history=[previous];
+  assert.ok(hungerEventSelectionWeight(before,repeated,castA)<hungerEventSelectionWeight(before,repeated,castB));
+  assert.ok(hungerEventSelectionWeight(before,repeated,castB)<fresh);
+  assert.ok(hungerEventSelectionWeight(before,repeated,castA,previous.rows)>0);
+  assert.equal(hungerEventSelectionWeight({...before,rulesVersion:1},repeated,castA,previous.rows),fresh);
+  const roster=Array.from({length:12},(_,index)=>actor('a'+index));
+  const one=advanceHungerRun(createHungerRun({roster,events:[repeated],seed:'sole',maxPhases:1}));
+  assert.equal(one.history[0].rows.length,12);
+});
+await check('automatic selection avoids immediate repeats when another valid event exists', () => {
+  const roster=Array.from({length:20},(_,index)=>actor('a'+index));
+  const run=advanceHungerRun(createHungerRun({roster,events:[event([],{id:'first'}),event([],{id:'second'})],seed:'varied',maxPhases:1}));
+  const ids=run.history[0].rows.map(row=>row.eventId);
+  assert.equal(ids.length,20); assert.ok(ids.every((id,index)=>!index||id!==ids[index-1]));
+});
+await check('allied actors use betrayal instead of ordinary attacks and teammates still cannot fight', () => {
+  const before=state([actor('a',[],{items:['칼']}),actor('b')],[],{day:2,relationships:[{leftId:'a',rightId:'b',kind:'ally'}]});
+  assert.equal(inspectHungerEvent(before,DEFAULT_HUNGER_EVENTS.find(row=>row.id==='knife-encounter'),{attacker:'a',victim:'b'}).eligible,false);
+  const betrayal=DEFAULT_HUNGER_EVENTS.find(row=>row.id==='betrayal');
+  assert.equal(inspectHungerEvent(before,betrayal,{attacker:'a',victim:'b'}).eligible,true);
+  before.actors.forEach(row=>row.teamId='same');
+  assert.equal(inspectHungerEvent(before,betrayal,{attacker:'a',victim:'b'}).eligible,false);
+});
+await check('v1 replay preserves the exact pre-change winner, RNG and receipt fingerprint', () => {
+  const config=legacyHungerConfig(); let run=createHungerRun(config,1); while(!run.finished)run=advanceHungerRun(run);
+  const fingerprint={actors:run.actors,rngState:run.rngState,phaseIndex:run.phaseIndex,usage:run.usage,relationships:run.relationships,winnerId:run.winnerId,history:run.history.map(phase=>({...phase,rows:phase.rows.map(({text,...row})=>row)}))};
+  assert.equal(createHash('sha256').update(JSON.stringify(fingerprint)).digest('hex'),'c1de91201c45295b6ffb75dc6ca08bbf120654a6dcfe83acfc607d8635ba347b');
+  assert.equal(run.winnerId,'demo-robot'); assert.equal(run.history.length,10);
+});
+await check('old checkpoints upgrade only the next match while preserving old progress and re-save rules', async () => {
+  const old={version:'hunger-games.v1',config:legacyHungerConfig(),run:{phases:10}};
+  const restored=restoreHungerPack(old); assert.equal(restored.upgraded,true);
+  assert.equal(restored.config.events.length,43); assert.equal(restored.run.input.events.length,22); assert.equal(restored.run.rulesVersion,1); assert.equal(restored.run.winnerId,'demo-robot');
+  assert.ok(restored.run.history.flatMap(phase=>phase.rows).some(row=>row.text.includes('야전 의사는')));
+  assert.deepEqual((await restoreHungerPackAsync(old,async()=>{})).run,restored.run);
+  const saved=createHungerPack(restored.config,restored.run); assert.equal(saved.run.rulesVersion,1); assert.equal(saved.run.config.events.length,22);
+  assert.deepEqual(restoreHungerPack(saved).run,restored.run);
+});
+await check('customized events and participants survive automatic and explicit preset refreshes', () => {
+  const config=normalizeHungerConfig(legacyHungerConfig());
+  config.events[0].title='내 시작 사건'; config.roster[1].name='직접 만든 정령';
+  const original=structuredClone(config);
+  assert.equal(upgradeUntouchedHungerPresets(config).upgraded,false); assert.deepEqual(config,original);
+  const custom=event([],{id:'custom-story'}); config.events.push(custom);
+  const refreshed=refreshHungerPresets(config);
+  assert.deepEqual(refreshed.events.find(row=>row.id==='custom-story'),custom);
+  assert.deepEqual(refreshed.roster[1],config.roster[1]);
+  assert.ok(refreshed.roster[0].hungerTraits.includes('combat_training'));
+  const full={...config,events:Array.from({length:170},(_,index)=>event([],{id:'custom-'+index}))};
+  assert.throws(()=>refreshHungerPresets(full),/200/); assert.equal(full.events.length,170);
+});
+await check('current checkpoints preserve rules and unsupported rule versions fail closed', async () => {
+  const config=defaultHungerConfig(), run=replayHungerRun(config,5), pack=createHungerPack(config,run);
+  assert.equal(pack.run.rulesVersion,2); assert.deepEqual(restoreHungerPack(pack).run,run);
+  const invalid={...pack,run:{...pack.run,rulesVersion:3}};
+  assert.throws(()=>restoreHungerPack(invalid),/규칙 버전/);
+  await assert.rejects(restoreHungerPackAsync(invalid),/규칙 버전/);
+  assert.throws(()=>createHungerRun(config,0),/규칙 버전/);
+});
+await check('expanded defaults deliver ability scenes and varied causes across deterministic matches', () => {
+  const eventsSeen=new Set(),causes=new Set();
+  for(let index=0;index<20;index++) {
+    const run=finish({...defaultHungerConfig(),seed:'themes-'+index});
+    for(const row of run.history.flatMap(phase=>phase.rows)) {
+      eventsSeen.add(row.eventId);
+      for(const effect of row.effects)if(effect.type==='death')causes.add(effect.cause);
+      assert.doesNotMatch(row.text,/야전 의사은|숲의 생존가은|수중 탐험가은|참가자은|생존가을|탐험가을/);
+    }
+  }
+  for(const id of ['lightning-strike','fire-strike','flight-escape','robot-night','spirit-night','robot-repair'])assert.ok(eventsSeen.has(id),id);
+  for(const cause of ['physical','lightning_attack','fire_attack'])assert.ok(causes.has(cause),cause);
+  assert.ok(eventsSeen.size>=30);
+});
+
+
+await check('final-duel pressure starts with the current pair and excludes opening, teams and old rules', () => {
+  const before=state([actor('a'),actor('b'),actor('dead')],[],{phaseIndex:7});
+  assert.equal(hungerFinalDuelPressure(before),0);
+  before.actors[2].alive=false; before.actors[2].death={phaseIndex:5};
+  assert.equal(hungerFinalDuelPressure(before),2);
+  assert.equal(hungerFinalDuelPressure({...before,phase:'opening'}),0);
+  assert.equal(hungerFinalDuelPressure({...before,rulesVersion:1}),0);
+  before.actors[0].teamId='same'; before.actors[1].teamId='same';
+  assert.equal(hungerFinalDuelPressure(before),0);
+});
+await check('survivor-count and final-duel duration conditions gate authored events', () => {
+  const final=DEFAULT_HUNGER_EVENTS.find(row=>row.id==='final-physical');
+  const pair=state([actor('a'),actor('b')],[],{phaseIndex:1});
+  assert.equal(inspectHungerEvent(pair,final,{attacker:'a',victim:'b'}).eligible,false);
+  pair.phaseIndex=2; assert.equal(inspectHungerEvent(pair,final,{attacker:'a',victim:'b'}).eligible,true);
+  pair.actors.push({...pair.actors[0],id:'third'}); assert.equal(inspectHungerEvent(pair,final,{attacker:'a',victim:'b'}).eligible,false);
+  assert.throws(()=>event([],{minSurvivors:4,maxSurvivors:3}),/최대/);
+  assert.throws(()=>event([],{minDuelPhases:2}),/2명/);
+  assert.throws(()=>event([],{minSurvivors:2,maxSurvivors:2,minDuelPhases:Infinity}),/범위/);
+});
+await check('long final standoffs increase lethal odds and encounter weight while reducing avoidance', () => {
+  const duel=event([],{roles:[role('attacker'),role('victim')],outcomes:[{label:'결정타',text:'{attacker}은 {victim}을 쓰러뜨린다.',effects:[{type:'death',target:'victim',cause:'physical',source:'attacker'}]},{label:'회피',text:'{victim}은 피한다.'}]});
+  const early=state([actor('a'),actor('b')]), late={...early,phaseIndex:5};
+  const weights=before=>inspectHungerEvent(before,duel,{attacker:'a',victim:'b'}).outcomes.map(row=>row.weight);
+  const first=weights(early), last=weights(late);
+  assert.ok(last[0]/last[1]>first[0]/first[1]*10);
+  const cast={attacker:early.actors[0],victim:early.actors[1]};
+  assert.ok(hungerEventSelectionWeight(late,duel,cast)>hungerEventSelectionWeight(early,duel,cast));
+  const quiet=event([]); assert.ok(hungerEventSelectionWeight(late,quiet,{actor:early.actors[0]})<hungerEventSelectionWeight(early,quiet,{actor:early.actors[0]}));
+  assert.deepEqual(weights({...late,rulesVersion:1}),first);
+});
+await check('final pressure preserves physical immunity and the resistance ratio', () => {
+  const duel=event([],{roles:[role('attacker'),role('victim')],outcomes:[{label:'결정타',text:'{attacker}은 {victim}을 쓰러뜨린다.',effects:[{type:'death',target:'victim',cause:'physical',source:'attacker'}]},{label:'회피',text:'{victim}은 피한다.'}]});
+  const before=state([actor('a'),actor('b')],[],{phaseIndex:10});
+  const weights=()=>inspectHungerEvent(before,duel,{attacker:'a',victim:'b'}).outcomes;
+  const unprotected=weights()[0].weight;
+  before.actors[1].hungerTraits=['physical_resistant']; assert.ok(Math.abs(weights()[0].weight/unprotected-0.2)<1e-9);
+  before.actors[1].hungerTraits=['physical_immune']; assert.deepEqual(weights().map(row=>row.label),['회피']);
+});
+await check('final encounters resolve an alliance explicitly and preserve same-team exclusions', () => {
+  const final=DEFAULT_HUNGER_EVENTS.find(row=>row.id==='final-physical');
+  const retreat=normalizeHungerEvent({...final,outcomes:final.outcomes.filter(row=>row.label==='퇴각')});
+  const before=state([actor('a'),actor('b')],[],{phaseIndex:4,relationships:[{leftId:'a',rightId:'b',kind:'ally'}]});
+  const result=resolveHungerEvent(before,retreat,{attacker:'a',victim:'b'});
+  assert.ok(result.row); assert.deepEqual(result.state.relationships,[{leftId:'a',rightId:'b',kind:'enemy'}]);
+  before.actors.forEach(row=>row.teamId='same');
+  assert.equal(inspectHungerEvent(before,final,{attacker:'a',victim:'b'}).eligible,false);
+});
+await check('thirty two-person matches including physical resistance finish within eight phases', () => {
+  const samples=defaultHungerConfig().roster;
+  for(let index=0;index<30;index++) {
+    const run=finish({...defaultHungerConfig(),roster:[samples[4],samples[5]],seed:'pair-'+index,maxPhases:20});
+    assert.equal(run.endReason,'last_survivor'); assert.ok(run.history.length<=8,run.history.length);
+    assert.equal(run.actors.filter(row=>row.alive).length,1);
+  }
+});
+await check('invulnerable or same-team finalists remain shared survivors without fabricated deaths', () => {
+  const immune=['lightning_control','lightning_attack_immune','physical_immune'];
+  const final=DEFAULT_HUNGER_EVENTS.find(row=>row.id==='final-lightning');
+  const run=finish({roster:[actor('a',immune),actor('b',immune)],events:[final],seed:'immune-final',maxPhases:12});
+  assert.equal(run.endReason,'phase_limit'); assert.equal(run.actors.filter(row=>row.alive).length,2);
+  assert.equal(run.actors.reduce((sum,row)=>sum+row.kills,0),0);
+  assert.ok(run.history.flatMap(phase=>phase.rows).every(row=>!row.effects.some(effect=>['death','injure'].includes(effect.type))));
+  const teammates=finish({roster:[actor('a',[],{teamId:'t'}),actor('b',[],{teamId:'t'})],events:[DEFAULT_HUNGER_EVENTS.find(row=>row.id==='final-physical')],seed:'same-team',maxPhases:6});
+  assert.equal(teammates.endReason,'phase_limit'); assert.equal(teammates.actors.filter(row=>row.alive).length,2);
+});
+
+await check('editor previews simulate finalists and injury without changing the real roster', () => {
+  const roster=normalizeHungerConfig(defaultHungerConfig()).roster, original=structuredClone(roster);
+  const event=DEFAULT_HUNGER_EVENTS.find(row=>row.id==='final-physical');
+  const preview=createHungerPreview({roster,event,casting:{attacker:'demo-robot',victim:'demo-medic'},context:{day:4,phase:'day',weather:'clear',location:'forest'},injuredByRole:{victim:true},survivors:2,duelPhases:3});
+  assert.equal(preview.state.actors.filter(row=>row.alive).length,2); assert.equal(hungerFinalDuelPressure(preview.state),3);
+  assert.equal(preview.state.actors.find(row=>row.id==='demo-medic').injured,true);
+  assert.equal(inspectHungerEvent(preview.state,event,preview.assigned).eligible,true); assert.deepEqual(roster,original);
+  assert.throws(()=>createHungerPreview({roster,event,context:{},survivors:1}),/시험 생존자/);
+  assert.throws(()=>createHungerPreview({roster,event,context:{},duelPhases:121}),/대치 페이즈/);
 });
 
 console.log('Hunger Games checks passed: ' + checks);
