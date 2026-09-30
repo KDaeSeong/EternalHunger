@@ -153,6 +153,7 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
     case 'use': return `${who}: ${describeConsumableReceipt(event)}${where}`;
     case 'resource_replan': return `${who}: ${zoneName(event.from)} 재료 소진 · ${event.to ? `${zoneName(event.to)} 재탐색` : '성장 목표 재검토'}`;
     case 'rest': return `${who}: 저체력으로 안전 대기 · HP ${num(event.hp)}/${num(event.maxHp)}${where}`;
+    case 'heal': return `${who}: ${event.name || '체력 회복'} · 실제 회복 HP +${num(event.heal)}${where}`;
     case 'hunt_start': return `${who}: ${event.wildlifeName || event.subkind || '야생동물'} 사냥 개시 · 대상 HP ${num(event.wildlifeHp)}/${num(event.wildlifeMaxHp)} · 거리 ${num(event.distance).toFixed(1)}m${where}`;
     case 'hunt_transfer': return `${who}: ${event.wildlifeName || '보스'} 사냥 이어받기 · ${event.previousOwnerName || nameOf(event.previousOwnerId)} ${event.reason || '이탈'} · 남은 HP ${num(event.wildlifeHp)}/${num(event.wildlifeMaxHp)}${where}`;
     case 'hunt_exchange': {

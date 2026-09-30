@@ -98,8 +98,9 @@ await check('an incompatible ready focus advances to another planned slot and re
   assert.deepEqual(actor, before);
   assert.equal(getGrowthRecipeWork(actor, items, 'bow').blocked, 'weapon_mismatch');
   actor.routePlanTargetItemIds = ['bow'];
-  refreshActorGrowthPlan(actor, items, world);
-  assert.match(getActorGrowthObservation(actor, items, { ruleset }).materials, /무기 계열 불일치/);
+  const incompatibleOnly = items.filter((item) => item._id !== 'helmet');
+  refreshActorGrowthPlan(actor, incompatibleOnly, world);
+  assert.match(getActorGrowthObservation(actor, incompatibleOnly, { ruleset }).materials, /무기 계열 불일치/);
 });
 
 await check('an unusable higher-tier weapon cannot count as completed opening growth', () => {

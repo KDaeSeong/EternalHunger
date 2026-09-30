@@ -367,10 +367,24 @@ export function updateEffects(character, opts = {}) {
     nextCharacter.hp = Math.max(0, Math.min(maxHp, roundValue(nextCharacter.hp + hpChange)));
   }
 
+  // The simulator integrates simultaneous DOT and regeneration as a net rate.
+  // Preserve that result, but remove healing lost to the HP ceiling from the
+  // recovery receipts. A full-health regeneration tick must report zero.
+  const heals = ticks.filter((tick) => tick.type === 'heal');
+  const totalHeal = roundValue(heals.reduce((sum, tick) => sum + tick.amount, 0));
+  const overflow = Math.max(0, roundValue(Number(character?.hp || 0) + hpChange - maxHp));
+  let remainingHeal = roundValue(Math.max(0, totalHeal - overflow));
+  const actualHeal = remainingHeal;
+  heals.forEach((tick, index) => {
+    tick.amount = index === heals.length - 1 ? remainingHeal
+      : Math.min(remainingHeal, roundValue(tick.amount * (totalHeal > 0 ? actualHeal / totalHeal : 0)));
+    remainingHeal = roundValue(remainingHeal - tick.amount);
+  });
+
   if (!opts?.returnMeta) return nextCharacter;
   return {
     character: nextCharacter,
-    hpChange: roundValue(hpChange),
+    hpChange: roundValue(nextCharacter.hp - Number(character?.hp || 0)),
     ticks,
     expired,
   };

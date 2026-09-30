@@ -56,12 +56,15 @@ check('a full bag is not blocked when consuming ingredients makes an output slot
 });
 check('unavoidable capacity failure preserves items and credits and is explained honestly', () => {
   const who = fixture(); who.routePlanTargetItemIds = ['head-goal'];
-  const plan = refreshActorGrowthPlan(who, items, world);
+  // Other obtainable recipes now provide a legitimate escape from a full bag.
+  // Isolate this capacity case from the separate clothes recipe.
+  const catalog = items.filter((item) => item._id !== 'clothes-goal');
+  const plan = refreshActorGrowthPlan(who, catalog, world);
   assert.equal(plan.blocked, 'inventory_full'); assert.equal(plan.readyCraftId, '');
   const before = structuredClone({ inventory: who.inventory, credits: who.simCredits, equipped: who.equipped });
-  assert.equal(craft(who), null);
+  assert.equal(craft(who, catalog), null);
   assert.deepEqual({ inventory: who.inventory, credits: who.simCredits, equipped: who.equipped }, before);
-  const observation = getActorGrowthObservation(who, items, { ruleset });
+  const observation = getActorGrowthObservation(who, catalog, { ruleset });
   assert.match(observation.materials, /공간 부족/);
   assert.doesNotMatch(observation.materials, /제작 가능/);
 });

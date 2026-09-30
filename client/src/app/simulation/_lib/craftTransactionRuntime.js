@@ -1,5 +1,6 @@
-import { addItemToInventory, consumeIngredientsFromInv, getInvItemId } from './inventoryRules.js';
+import { addItemToInventory, consumeIngredientsFromInv, getInvItemId, inferEquipSlot } from './inventoryRules.js';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
+import { areEquipmentWeaponTypesCompatible } from '../../../utils/equipmentCatalog.js';
 
 const reject = (reason, details = {}) => ({ ok: false, reason, ...details });
 const numeric = (value) => typeof value === 'number' || (typeof value === 'string' && value.trim()) ? Number(value) : NaN;
@@ -34,7 +35,15 @@ export function prepareCraftTransaction(actor, item, day = 1, ruleset = {}) {
     available.set(id, total);
   }
   if (terms.ingredients.some((row) => (available.get(row.itemId) || 0) < row.qty)) return reject('insufficient_items');
-  const afterConsume = consumeIngredientsFromInv(structuredClone(rows), terms.ingredients);
+  let afterConsume = consumeIngredientsFromInv(structuredClone(rows), terms.ingredients);
+  // Slot replacement must compare usable weapons. An incompatible high-tier
+  // loot weapon cannot reject a lower-tier weapon the actor can actually use.
+  // This remains inside the preview/commit transaction, including rollback.
+  if (inferEquipSlot(item) === 'weapon' && !item.craftComponent
+    && areEquipmentWeaponTypesCompatible(actor.weaponType, item.weaponType)) {
+    afterConsume = afterConsume.filter((entry) => entry.craftComponent || inferEquipSlot(entry) !== 'weapon'
+      || areEquipmentWeaponTypesCompatible(actor.weaponType, entry.weaponType));
+  }
   const inventory = addItemToInventory(afterConsume, item, item._id, terms.resultQty, day, ruleset);
   if (inventory._lastAdd?.itemId !== String(item._id) || inventory._lastAdd.acceptedQty !== terms.resultQty) return reject('inventory_full');
   const receipt = { receiptVersion: 1, actionKey: `craft:${before.actorId}:${before.revision + 1}`,

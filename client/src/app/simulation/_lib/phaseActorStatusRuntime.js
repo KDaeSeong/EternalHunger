@@ -45,13 +45,17 @@ export function applyActorPhaseStatusTick({
 
   (Array.isArray(statusTick?.ticks) ? statusTick.ticks : []).forEach((tick) => {
     if (newlyDefeated) return; // Aggregate rates are not actual HP loss after the defeat cap.
-    if (!shouldLogRuntimeEffectTick(tick)) return;
+    if (tick?.type !== 'heal' && !shouldLogRuntimeEffectTick(tick)) return;
     const amount = Math.max(0, Number(tick?.amount || 0));
     if (amount <= 0) return;
     const name = String(tick?.name || '효과');
     const secText = Number(tick?.seconds || 0) > 1 ? ` (${Math.max(1, Math.floor(Number(tick.seconds)))}초)` : '';
     if (tick?.type === 'damage') addLog(`⏱️ [${updated.name}] ${name}: HP -${amount}${secText}`, 'highlight');
-    else if (tick?.type === 'heal') addLog(`✨ [${updated.name}] ${name}: HP +${amount}${secText}`, 'system');
+    else if (tick?.type === 'heal') {
+      addLog(`✨ [${updated.name}] ${name}: 체력 회복 HP +${amount}${secText}`, 'system');
+      emitRunEvent('heal', { who: String(updated._id || ''), name, heal: amount,
+        source: 'status', zoneId: String(updated.zoneId || '') }, atNow());
+    }
   });
 
   (Array.isArray(statusTick?.expired) ? statusTick.expired : []).forEach((effect) => {

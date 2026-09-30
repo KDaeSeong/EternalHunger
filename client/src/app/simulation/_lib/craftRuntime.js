@@ -19,6 +19,7 @@ import { getInvItemId, hasSpecialInventoryTag } from './inventoryItemRules.js';
 import { markGrowthComponent } from './growthPlanRuntime';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 import { prepareCraftTransaction } from './craftTransactionRuntime.js';
+import { canCraftAlongsideGrowth } from './growthEquipmentRuntime.js';
 
 function clampGearTier(value) {
   const n = Number(value);
@@ -274,7 +275,8 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
 
   const candidates = (Array.isArray(craftables) ? craftables : [])
     .filter((it) => getCraftRecipeTerms(it)?.ingredients.some((ing) => ing.itemId === lootId))
-    .filter((it) => !opts.growthPlan?.targetId || opts.growthPlan.craftIds.includes(String(it._id)))
+    .filter((it) => canCraftAlongsideGrowth({ ...opts.craftActor, inventory,
+      weaponType: opts.weaponType, _growthPlan: opts.growthPlan }, it))
     .filter((it) => {
       const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
       const weapon = normalizeWeaponType(String(it?.weaponType || ''));
@@ -283,6 +285,13 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
         || areEquipmentWeaponTypesCompatible(actorWeapon, weapon);
     })
     .sort((a, b) => {
+      if (opts.growthPlan?.targetId) {
+        const order = (item) => {
+          const index = opts.growthPlan.craftIds.indexOf(String(item._id));
+          return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+        };
+        if (order(a) !== order(b)) return order(a) - order(b);
+      }
       const ds = scoreCandidate(b) - scoreCandidate(a);
       if (Math.abs(ds) > 0.001) return ds;
       return (Number(a.tier || 1) - Number(b.tier || 1)) || String(a.name).localeCompare(String(b.name));

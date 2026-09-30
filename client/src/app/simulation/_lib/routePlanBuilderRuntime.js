@@ -26,6 +26,7 @@ function buildItemIndexes(publicItems) {
     byId.set(id, it);
     const key = normKey(it);
     if (key && !byKey.has(key)) byKey.set(key, it);
+    if (!byKey.has(id)) byKey.set(id, it);
   }
   return { byId, byKey };
 }

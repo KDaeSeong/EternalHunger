@@ -1,4 +1,5 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { restoreRuntimeHp, describeHpRecovery } from './healthRecoveryRuntime.js';
 import { getActorDimensionRiftId } from '../../../utils/combatSpaceLogic.js';
 import { commitRuntimeHpDamage, isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { applyHealingModifier } from '../../../utils/statusLogic';
@@ -219,10 +220,9 @@ export function createPhaseCombatEliminationRuntime({
     const maxHp = Number(combatWinner?.maxHp ?? 100);
     const restHealMax = Math.max(0, Math.floor(Number(pvpCfg.restHealMax ?? 8)));
     const regenMultiplier = getNonCombatRegenMultiplier(combatWinner);
-    const restHeal = applyHealingModifier(combatWinner, Math.min(Math.round(restHealMax * regenMultiplier), Math.max(0, maxHp - Number(combatWinner.hp || 0))));
+    const restHeal = restoreRuntimeHp(combatWinner, applyHealingModifier(combatWinner, Math.min(Math.round(restHealMax * regenMultiplier), Math.max(0, maxHp - Number(combatWinner.hp || 0)))), maxHp);
     if (restHeal > 0) {
-      combatWinner.hp = Math.min(maxHp, Number(combatWinner.hp || 0) + restHeal);
-      addLog(`🩹 [${combatWinner.name}] 전투 후 재정비: HP +${restHeal}`, 'combat-detail');
+      addLog(`🩹 [${combatWinner.name}] 전투 후 재정비: ${describeHpRecovery(combatWinner, restHeal)}`, 'combat-detail');
     }
 
     tryUseConsumable(combatWinner, 'after_battle');
@@ -232,10 +232,9 @@ export function createPhaseCombatEliminationRuntime({
     const postMoveChance = Math.max(0, Math.min(1, Number(pvpCfg.postBattleMoveChance ?? 0.35)));
 
     if (curHp > 0 && curHp <= postRestHpBelow) {
-      const extraHeal = applyHealingModifier(combatWinner, Math.min(Math.round(postRestExtraHealMax * regenMultiplier), Math.max(0, maxHp - curHp)));
+      const extraHeal = restoreRuntimeHp(combatWinner, applyHealingModifier(combatWinner, Math.min(Math.round(postRestExtraHealMax * regenMultiplier), Math.max(0, maxHp - curHp))), maxHp);
       if (extraHeal > 0) {
-        combatWinner.hp = Math.min(maxHp, curHp + extraHeal);
-        addLog(`🧘 [${combatWinner.name}] 전투 후 응급 처치: HP +${extraHeal}`, 'combat-detail');
+        addLog(`🧘 [${combatWinner.name}] 전투 후 응급 처치: ${describeHpRecovery(combatWinner, extraHeal)}`, 'combat-detail');
       }
     } else if (simulationRandom() < postMoveChance) {
       const curZone = String(combatWinner.zoneId || '');

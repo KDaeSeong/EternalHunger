@@ -1,4 +1,5 @@
 import { applyHealingModifier, canUseSkillByStatus, isTargetableByStatus } from '../../../utils/statusLogic';
+import { restoreRuntimeHp, describeHpRecovery } from './healthRecoveryRuntime.js';
 import {
   buildTacStatusEffects,
   getTacEffectNumber,
@@ -96,8 +97,8 @@ export function createPhaseCombatTacticalRuntime({
       skill: tac, distance: getTacEffectNumber(tac, 'movementDistance', 1 + level, 0), nowSec: absNow,
     }, { atNow, emitRunEvent, addLog });
     if (cost > 0) attacker.hp = Math.max(1, hp - cost);
-    const finalHeal = heal > 0 ? applyHealingModifier(attacker, heal) : 0;
-    if (finalHeal > 0) attacker.hp = Math.min(maxHp, Number(attacker.hp || hp) + finalHeal);
+    const requestedHeal = heal > 0 ? applyHealingModifier(attacker, heal) : 0;
+    const finalHeal = restoreRuntimeHp(attacker, requestedHeal, maxHp);
 
     const sourceKey = `tac_${String(tac || '').replace(/\s+/g, '_')}`;
     const tacEffects = applyRuntimeEffectPayloads(attacker, buildTacStatusEffects(tac, 1 + level, sourceKey, { target: 'self' }));
@@ -110,7 +111,7 @@ export function createPhaseCombatTacticalRuntime({
       || tacEffects.results.length > 0 || targetTacEffects.results.length > 0) {
       const bits = [];
       if (flat > 0) bits.push(`추가 피해 +${flat}`);
-      if (finalHeal > 0) bits.push(`HP +${finalHeal}`);
+      if (finalHeal > 0) bits.push(describeHpRecovery(attacker, finalHeal));
       if (cost > 0) bits.push(`HP -${cost}`);
       if (tacticalMovement) bits.push(`내부 이동 ${tacticalMovement.actualDistance}m`);
       bits.push(...collectRuntimeEffectResultTexts(tacEffects.results));
@@ -118,7 +119,7 @@ export function createPhaseCombatTacticalRuntime({
       if (bits.length) addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'combat-detail');
     }
 
-    emitRunEvent('skill', { who: String(attacker?._id || ''), whoName: attacker?.name, skill: String(tac || ''), mode: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, atNow());
+    emitRunEvent('skill', { who: String(attacker?._id || ''), whoName: attacker?.name, skill: String(tac || ''), mode: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || ''), heal: finalHeal }, atNow());
     emitEffectRunEvents(attacker, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, atNow());
     emitEffectRunEvents(defender, targetTacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack_target', zoneId: String(defender?.zoneId || attacker?.zoneId || '') }, atNow());
     return Math.max(0, damage);

@@ -5,6 +5,7 @@ import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
 import { getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
 import { prepareCraftTransaction } from './craftTransactionRuntime.js';
 import { areEquipmentWeaponTypesCompatible } from '../../../utils/equipmentCatalog.js';
+import { GROWTH_EQUIPMENT_SLOTS, getActorEquipmentTier, getGrowthEquipmentCatalog } from './growthEquipmentRuntime.js';
 
 const catalogCache = new WeakMap();
 function indexCatalog(items) {
@@ -26,9 +27,16 @@ export function getActorGrowthProgress(actor, items = []) {
   const inventory = actor.inventory || [];
   const usableWeapon = (item) => inferEquipSlot(item) !== 'weapon'
     || areEquipmentWeaponTypesCompatible(actor.weaponType, item.weaponType);
+  const fallbackFulfills = (entry, target) => {
+    const slot = inferEquipSlot(target);
+    return !actor.goalLoadouts?.hero?.[`${slot}Key`] && !entry.craftComponent
+      && inferEquipSlot(entry) === slot && Number(entry.tier) >= Number(target.tier)
+      && getInvItemId(entry) === actor._growthFallbackTargets?.[slot];
+  };
   const fulfilled = (target) => usableWeapon(target) && inventory.some((entry) => invQty(inventory, getInvItemId(entry)) > 0
     && usableWeapon({ ...byId.get(getInvItemId(entry)), ...entry })
     && (getInvItemId(entry) === String(target._id)
+      || fallbackFulfills(entry, target)
       || (!entry.craftComponent && inferEquipSlot(entry) === inferEquipSlot(target) && Number(entry.tier || 0) > Number(target.tier))));
   const remaining = targets.filter((target) => !fulfilled(target));
   return { targets, remaining, completedSlots: targets.length - remaining.length, totalSlots: targets.length };
@@ -105,34 +113,24 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
 
 // Recompute remaining recipe work from actual inventory. Consumed raw materials
 // represented by an owned intermediate are not requested a second time.
-export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new Set(), zoneGraph = {}, attemptedTargets = [], nextSpawn, fieldResources = nextSpawn?.fieldResources, ruleset = {} } = {}) {
-  if (!actor || !Array.isArray(items) || !items.length) return null;
+function planGrowthTarget(actor, items, target, base, { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, distances }, strictSources = false) {
   const byId = indexCatalog(items);
-  const progress = getActorGrowthProgress(actor, items);
-  const openingComplete = progress.remaining.length === 0;
-  const late = openingComplete ? getLateGrowthTargets(actor, items) : { targets: [], issues: [] };
-  const targets = openingComplete ? late.targets : progress.targets;
-  const remaining = openingComplete ? late.targets : progress.remaining;
-  if (!progress.targets.length && !targets.length && !late.issues.length) return null;
-  const target = remaining.find((item) => item._id === actor._growthFocusId) || remaining[0];
-  const base = { targetIds: openingComplete ? (target ? [target._id] : []) : targets.map((item) => item._id), completedSlots: progress.completedSlots,
-    totalSlots: progress.totalSlots, openingComplete, stage: openingComplete ? 'late' : 'opening',
-    goalIssues: late.issues, targetId: target?._id || '', targetKey: target?.itemKey || target?.externalId || '',
-    targetSlot: target ? inferEquipSlot(target) : '',
-    targetName: target?.name || '', craftIds: [], missing: [], reservedQtyById: {}, componentIds: [],
-    readyCraftId: '', currentZoneItemIds: [], targetZoneId: '', nextStep: '', blocked: '' };
-  if (!target) return { ...base, blocked: late.issues.length ? 'invalid_target' : '' };
+  base = { ...base, targetId: String(target._id), targetKey: target.itemKey || target.externalId || String(target._id),
+    targetSlot: inferEquipSlot(target), targetName: target.name || '',
+    targetIds: [...new Set([...base.targetIds, String(target._id)])] };
   Object.assign(base, getGrowthRecipeWork(actor, items, target._id, { ruleset, targetIds: base.targetIds }));
-  base.missing = base.missing.map((row) => ({ ...row, zones: getGrowthItemZones(byId.get(row.itemId), mapObj, forbiddenIds, fieldResources) }));
-  if (!base.blocked && base.missing.length && (openingComplete
-    ? base.missing.every((row) => !row.zones.length) : base.missing.some((row) => !row.zones.length))) base.blocked = 'no_material_source';
-  if (base.blocked) {
-    const attempted = [...attemptedTargets, target._id];
-    const alternative = remaining.find((row) => !attempted.includes(row._id));
-    if (alternative) return buildActorGrowthPlan({ ...actor, _growthFocusId: alternative._id }, items,
-      { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, attemptedTargets: attempted });
-    return base;
-  }
+  let hasUnsafeSource = false;
+  base.missing = base.missing.map((row) => {
+    const sources = getGrowthItemZones(byId.get(row.itemId), mapObj, forbiddenIds, fieldResources);
+    const zones = sources.filter((id) => distances.has(id));
+    if (sources.length && !zones.length) hasUnsafeSource = true;
+    return { ...row, zones };
+  });
+  const unavailable = (row) => !row.zones.length || row.zones.reduce((sum, zoneId) =>
+    sum + getFieldResourceQty(fieldResources, zoneId, row.itemId), 0) < row.need;
+  if (!base.blocked && base.missing.length && (base.openingComplete && !strictSources
+    ? base.missing.every(unavailable) : base.missing.some(unavailable))) base.blocked = hasUnsafeSource ? 'no_safe_path' : 'no_material_source';
+  if (base.blocked) return base;
   const current = String(actor.zoneId || '');
   base.currentZoneItemIds = base.missing.filter((row) => row.zones.includes(current)).map((row) => row.itemId);
   if (base.readyCraftId || base.currentZoneItemIds.length) {
@@ -142,16 +140,6 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
   }
   const candidates = new Map();
   for (const row of base.missing) for (const zone of row.zones) candidates.set(zone, (candidates.get(zone) || 0) + row.need);
-  const distances = new Map([[current, 0]]);
-  const frontier = [current];
-  for (let i = 0; i < frontier.length; i++) {
-    const zone = frontier[i];
-    for (const next of zoneGraph[zone] || []) {
-      if (forbiddenIds.has(next) || distances.has(next)) continue;
-      distances.set(next, distances.get(zone) + 1);
-      frontier.push(next);
-    }
-  }
   const ranked = [...candidates].map(([zoneId, need]) => {
     const route = bfsNextStepToAnyTarget(current, new Set([zoneId]), zoneGraph, forbiddenIds);
     return { zoneId, need, distance: distances.get(zoneId), ...route };
@@ -160,13 +148,67 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
     || b.need - a.need || a.zoneId.localeCompare(b.zoneId));
   if (ranked.length) { base.targetZoneId = ranked[0].zoneId; base.nextStep = ranked[0].nextStep; }
   else if (!base.blocked) base.blocked = candidates.size ? 'no_safe_path' : 'no_material_source';
-  if (base.blocked) {
-    const attempted = [...attemptedTargets, target._id];
-    const alternative = remaining.find((row) => !attempted.includes(row._id));
-    if (alternative) return buildActorGrowthPlan({ ...actor, _growthFocusId: alternative._id }, items,
-      { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, attemptedTargets: attempted });
-  }
   return base;
+}
+
+export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new Set(), zoneGraph = {}, attemptedTargets = [], nextSpawn, fieldResources = nextSpawn?.fieldResources, ruleset = {} } = {}) {
+  if (!actor || !Array.isArray(items) || !items.length) return null;
+  const progress = getActorGrowthProgress(actor, items);
+  const tierBySlot = Object.fromEntries(GROWTH_EQUIPMENT_SLOTS.map((slot) => [slot, getActorEquipmentTier(actor, slot)]));
+  const openingComplete = progress.remaining.length === 0;
+  const late = openingComplete ? getLateGrowthTargets(actor, items) : { targets: [], issues: [] };
+  const remaining = openingComplete ? late.targets : [...progress.remaining].sort((a, b) =>
+    tierBySlot[inferEquipSlot(a)] - tierBySlot[inferEquipSlot(b)]
+    || Number(b._id === actor._growthFocusId) - Number(a._id === actor._growthFocusId));
+  const base = { targetIds: openingComplete ? [] : progress.targets.map((item) => String(item._id)),
+    completedSlots: progress.completedSlots, totalSlots: progress.totalSlots, openingComplete,
+    stage: openingComplete ? 'late' : 'opening', goalIssues: late.issues,
+    targetId: '', targetKey: '', targetSlot: '', targetName: '', craftIds: [], missing: [],
+    reservedQtyById: {}, componentIds: [], readyCraftId: '', currentZoneItemIds: [],
+    targetZoneId: '', nextStep: '', blocked: '' };
+  const current = String(actor.zoneId || '');
+  const distances = new Map([[current, 0]]), frontier = [current];
+  for (let i = 0; i < frontier.length; i++) for (const next of zoneGraph[frontier[i]] || []) {
+    if (forbiddenIds.has(next) || distances.has(next)) continue;
+    distances.set(next, distances.get(frontier[i]) + 1); frontier.push(next);
+  }
+  const context = { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, distances };
+  const plans = [];
+  let viable;
+  const needsBasicGear = GROWTH_EQUIPMENT_SLOTS.some((slot) => tierBySlot[slot] < 4);
+  for (const target of remaining) {
+    if (attemptedTargets.includes(target._id)) continue;
+    const plan = planGrowthTarget(actor, items, target, base, context);
+    plans.push(plan);
+    if (!plan.blocked) {
+      if (!openingComplete || !needsBasicGear) return plan;
+      viable = plan;
+      break;
+    }
+  }
+  if (!remaining.length && late.issues.length) return { ...base, blocked: 'invalid_target' };
+
+  // A depleted/unsafe authored route must not lock all five slots for the
+  // rest of a match. Fill missing basic gear with existing, obtainable recipes,
+  // including administrator additions without an itemKey or a tier-4 result.
+  const recovery = [];
+  for (const target of getGrowthEquipmentCatalog(items)) {
+    const slot = inferEquipSlot(target);
+    const currentTier = tierBySlot[slot];
+    if (currentTier >= 4 || Number(target.tier) <= currentTier || Number(target.tier) > 4
+      || (slot === 'weapon' && !areEquipmentWeaponTypesCompatible(actor.weaponType, target.weaponType))) continue;
+    const plan = planGrowthTarget(actor, items, target, { ...base, openingComplete: false, stage: 'recovery' }, context, true);
+    if (!plan.blocked) recovery.push({ plan, currentTier, tier: Number(target.tier) });
+  }
+  recovery.sort((a, b) => a.currentTier - b.currentTier
+    || Number(Boolean(b.plan.readyCraftId)) - Number(Boolean(a.plan.readyCraftId))
+    || a.plan.missing.reduce((sum, row) => sum + row.need, 0) - b.plan.missing.reduce((sum, row) => sum + row.need, 0)
+    || a.plan.plannedCredits - b.plan.plannedCredits || b.tier - a.tier
+    || a.plan.targetId.localeCompare(b.plan.targetId));
+  if (recovery.length) return recovery[0].plan;
+  if (viable) return viable;
+  if (plans.length) return plans.at(-1);
+  return progress.targets.length || late.issues.length ? base : null;
 }
 
 export function refreshActorGrowthPlan(actor, items, options) {
@@ -174,6 +216,9 @@ export function refreshActorGrowthPlan(actor, items, options) {
   actor._growthPlan = plan;
   if (!plan) return null;
   actor._growthFocusId = plan.targetId;
+  if (plan.stage === 'recovery') actor._growthFallbackTargets = {
+    ...(actor._growthFallbackTargets || {}), [plan.targetSlot]: plan.targetId,
+  };
   const components = new Set(plan.componentIds);
   const worn = new Set(Object.values(actor.equipped || {}).filter(Boolean).map(String));
   // The old route goal marker must not permanently protect already-obsolete

@@ -36,9 +36,14 @@ export function getLateGrowthTargets(actor, items) {
         if (!target || !compatible(target, slot, tier)) {
           issues.push({ slot, tier, key: requested, reason: 'invalid_target' });
         } else if (!owned.has(String(target._id))) candidates.push({ target, authored: true, slot, tier });
-      } else if (currentTier === tier - 1) {
+      } else if (currentTier < tier) {
         for (const target of catalog.filter((item) => compatible(item, slot, tier) && !owned.has(String(item._id)))) {
-          candidates.push({ target, authored: false, slot, tier });
+          // Custom recipes may legitimately skip a tier. An under-equipped
+          // actor only attempts such an upgrade when its real inputs are owned.
+          if (currentTier >= 4 || getCraftRecipeTerms(target).ingredients
+            .every((row) => invQty(inventory, row.itemId) >= row.qty)) {
+            candidates.push({ target, authored: false, slot, tier });
+          }
         }
       }
     }
