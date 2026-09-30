@@ -124,9 +124,18 @@ function normalizeDefaultItemTree(list = []) {
     const hasNamuId = cleanString(def?.key).startsWith('namu:') || cleanString(def?.externalId).startsWith('namu:');
     if (!hasNamuId) continue;
     if (!def || byKey.has(def.key)) continue;
-    byKey.set(def.key, def);
+    byKey.set(def.key, { ...def, ...getStarterCatalogCorrection(def) });
   }
   return applyShardVariantRecipes([...byKey.values()]);
+}
+
+// The exported coverage root was marked T2 although it has no recipe. Keep
+// its identity/stats, and share the same correction with missing-mode seeding.
+function getStarterCatalogCorrection(def) {
+  const key = treeKey(def);
+  const ingredients = def?.recipeKeys || def?.recipe?.ingredients || [];
+  if (key !== 'namu:석궁:석궁' || ingredients.length || toNumber(def?.tier, 1) > 2) return null;
+  return { tier: 1, rarity: 'common', equipSlot: 'weapon' };
 }
 
 function isTranscendentDef(def) {
@@ -202,4 +211,5 @@ module.exports = {
   normalizeDefaultItemTree,
   getShardVariantInfo,
   shouldRefreshOnMissing,
+  getStarterCatalogCorrection,
 };

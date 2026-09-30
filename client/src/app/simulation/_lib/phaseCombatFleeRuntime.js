@@ -1,4 +1,5 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { restoreRuntimeHp, describeHpRecovery } from './healthRecoveryRuntime.js';
 import { buildErBehaviorModifier } from '../../../utils/erMeta';
 import {
   applyHealingModifier,
@@ -174,14 +175,13 @@ export function createPhaseCombatFleeRuntime({
       const maxHp = Number(flee?.maxHp ?? 100);
       const healCap = getTacEffectNumber('치유의 바람', 'healCap', 1 + fleeLv, 22);
       const rawHeal = Math.min(healCap, Math.max(0, maxHp - Number(flee.hp || 0)));
-      const heal = applyHealingModifier(flee, rawHeal);
+      const heal = restoreRuntimeHp(flee, applyHealingModifier(flee, rawHeal), maxHp);
       const regenRecovery = getTacEffectNumber('치유의 바람', 'regenRecovery', 1 + fleeLv, 4);
       if (heal > 0 || regenRecovery > 0) {
-        if (heal > 0) flee.hp = Math.min(maxHp, Number(flee.hp || 0) + heal);
         applyTacUse(flee, '치유의 바람');
         const tacEffects = applyRuntimeEffectPayloads(flee, buildTacStatusEffects('치유의 바람', 1 + fleeLv, 'tac_healwind'));
         const bits = [];
-        if (heal > 0) bits.push(`HP +${heal}`);
+        if (heal > 0) bits.push(describeHpRecovery(flee, heal));
         bits.push(...collectRuntimeEffectResultTexts(tacEffects.results));
         if (bits.length) addLog(`🌿 [${flee.name}] 전술 스킬(치유의 바람): ${bits.join(', ')}`, 'combat-detail');
         emitRunEvent('skill', { who: String(flee?._id || ''), whoName: flee?.name, skill: '치유의 바람', mode: 'escape_heal', zoneId: String(flee?.zoneId || curZone || ''), heal }, atNow());

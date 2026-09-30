@@ -1,4 +1,5 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { restoreRuntimeHp, describeHpRecovery } from './healthRecoveryRuntime.js';
 import { calculateCombatDamage, applyCombatDamageLifesteal } from './combatDamageRuntime.js';
 import { applyCombatHit } from './combatImpactRuntime.js';
 import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
@@ -85,10 +86,9 @@ function applyErTraitAfterBattle(actor, opts = {}) {
   if (code === 'devour') {
     const baseHeal = opts?.lethal ? 9 : 5;
     const rawHeal = Math.min(Math.max(0, maxHp - hp), baseHeal + Math.floor(Number(opts?.damageDealt || 0) * 0.06));
-    const heal = applyHealingModifier(actor, rawHeal);
+    const heal = restoreRuntimeHp(actor, applyHealingModifier(actor, rawHeal), maxHp);
     if (heal > 0) {
-      actor.hp = Math.min(maxHp, hp + heal);
-      bits.push(`HP +${heal}`);
+      bits.push(describeHpRecovery(actor, heal));
     }
   } else if (code === 'adrenaline') {
     effects.push(makeStatBuffEffect('adrenaline', { attackSpeed: 0.04, attackPower: 2 }, 2, 'er_trait_adrenaline', { tags: ['positive', 'trait', 'adrenaline'] }));
@@ -197,10 +197,9 @@ function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
     const maxHp = Math.max(1, Number(attacker?.maxHp || 100));
     const hp = Math.max(0, Number(attacker?.hp || 0));
     const rawHeal = Math.min(Math.max(0, maxHp - hp), Math.max(1, Math.round(damageDealt * lifesteal * 3 + (opts?.lethalPreview ? 4 : 1))));
-    const heal = applyHealingModifier(attacker, rawHeal);
+    const heal = restoreRuntimeHp(attacker, applyHealingModifier(attacker, rawHeal), maxHp);
     if (heal > 0) {
-      attacker.hp = Math.min(maxHp, hp + heal);
-      bits.push(`HP +${heal}`);
+      bits.push(describeHpRecovery(attacker, heal));
     }
     effects.push(makeLifestealEffect(Math.max(0.04, lifesteal * 2), 2, 'er_weapon_skill_lifesteal', { tags: ['positive', 'weapon_skill', 'lifesteal'] }));
   }

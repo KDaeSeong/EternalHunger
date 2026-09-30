@@ -63,7 +63,7 @@ export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = []
   const encounterId = `${nowSec}:${zoneId}:${getCombatSpaceId(actor)}:${[getActorTeamId(actor), getActorTeamId(target)].sort().join(':')}`;
   emitRunEvent('team_engagement', { encounterId, zoneId, combatSpaceId: getCombatSpaceId(actor), teams: sides.map((side) => side.map(idOf)),
     participants: participants.map(idOf), atSec: nowSec }, at);
-  addLog(`🤝 팀 교전: ${actor.teamName || actor.name} ${eligible[0].length}명 ↔ ${target.teamName || target.name} ${eligible[1].length}명`, 'combat-detail');
+  addLog(`🤝 팀 교전: ${actor.teamName || actor.name} ${sides[0].length}명 ↔ ${target.teamName || target.name} ${sides[1].length}명`, 'combat-detail');
   for (const turn of queue) {
     const striker = survivorMap.get(turn.id);
     // Earlier hits can kill, move or control a queued participant.

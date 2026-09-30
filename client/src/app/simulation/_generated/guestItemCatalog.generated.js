@@ -8,9 +8,9 @@ export const GUEST_ITEM_CATALOG_META = Object.freeze({
   "sourcePath": "server/utils/defaultItemTree.generated.json",
   "sourceSha256": "9190a3314409a3210eda743c547537afa5122e55d09edd4d92bc0c885a2864f8",
   "normalizerPath": "server/utils/defaultItemTreeNormalization.js",
-  "normalizerSha256": "a856bc9211f5a157cf5ebb4157c35b7f1255e8c3f90c8c703ef4a470f0eb4f89",
+  "normalizerSha256": "6dcc37c5b4ac76c4a7fcfac979235a03502cf9cfd4e596e3eb19d20e7932cbc6",
   "rawItemCount": 818,
-  "catalogSha256": "876679a253d4cc2aab83ee77bf8935c096c3286dc7cd0aae0ff01e862a687dbd",
+  "catalogSha256": "0bb0bc60fcdbb639118f10d4102196d9f768b8ba90a1ce6ba1b80c79225f86f6",
   "itemCount": 774,
   "recipeCount": 639,
   "recipeReferenceCount": 1278,
@@ -1442,8 +1442,8 @@ export const GUEST_ITEM_CATALOG = Object.freeze([
       "coverage_seed",
       "usable"
     ],
-    "rarity": "rare",
-    "tier": 2,
+    "rarity": "common",
+    "tier": 1,
     "erCode": "",
     "itemSubType": "coverage_seed",
     "stackMax": 1,
@@ -1467,7 +1467,7 @@ export const GUEST_ITEM_CATALOG = Object.freeze([
       "armorPen": 0,
       "adaptiveForce": 0
     },
-    "equipSlot": "",
+    "equipSlot": "weapon",
     "weaponType": "석궁",
     "archetype": "",
     "spawnZones": [

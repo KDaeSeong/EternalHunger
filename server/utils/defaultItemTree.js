@@ -12,6 +12,7 @@ const {
   normalizeDefaultItemTree,
   getShardVariantInfo,
   shouldRefreshOnMissing,
+  getStarterCatalogCorrection,
 } = require('./defaultItemTreeNormalization');
 
 function normalizeTree(list = DEFAULT_ITEM_TREE) {
@@ -261,6 +262,13 @@ async function upsertDefaultItemTreeBatch(opts = {}) {
       continue;
     }
 
+    const starterCorrection = getStarterCatalogCorrection(exist);
+    if (starterCorrection && Object.entries(starterCorrection).some(([key, value]) => exist[key] !== value)) {
+      itemOps.push({ updateOne: { filter: { _id: exist._id }, update: { $set: starterCorrection } } });
+      updated.push({ key: def.key, name: def.name, id: String(exist._id) });
+      continue;
+    }
+
     skipped.push({ key: def.key, name: def.name, id: String(exist._id) });
   }
 
@@ -316,6 +324,13 @@ async function upsertDefaultItemTree(opts = {}) {
           update: { $set: baseDoc },
         },
       });
+      updated.push({ key: def.key, name: def.name, id: String(exist._id) });
+      continue;
+    }
+
+    const starterCorrection = getStarterCatalogCorrection(exist);
+    if (starterCorrection && Object.entries(starterCorrection).some(([key, value]) => exist[key] !== value)) {
+      itemOps.push({ updateOne: { filter: { _id: exist._id }, update: { $set: starterCorrection } } });
       updated.push({ key: def.key, name: def.name, id: String(exist._id) });
       continue;
     }

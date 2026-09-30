@@ -1,5 +1,5 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
   clampTier4,
   compactIO,
@@ -19,6 +19,7 @@ import { getInvItemId, hasSpecialInventoryTag } from './inventoryItemRules.js';
 import { markGrowthComponent } from './growthPlanRuntime';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 import { prepareCraftTransaction } from './craftTransactionRuntime.js';
+import { canCraftAlongsideGrowth } from './growthEquipmentRuntime.js';
 
 function clampGearTier(value) {
   const n = Number(value);
@@ -230,7 +231,7 @@ export function prepareInventoryForCraftLoot(actor, loot, craftables, ruleset) {
   const candidates = (Array.isArray(craftables) ? craftables : [])
     .filter((item) => {
       const slot = inferEquipSlot(item);
-      if (slot === 'weapon' && weapon && normalizeWeaponType(item.weaponType) !== weapon) return false;
+      if (slot === 'weapon' && !areEquipmentWeaponTypesCompatible(weapon, item.weaponType)) return false;
       if (slot && Number(pickBestEquipBySlot(inventory, slot)?.tier || 0) >= Number(item.tier || 1)) return false;
       const ingredients = compactIO(item?.recipe?.ingredients || []);
       return ingredients.some((row) => row.itemId === loot.itemId)
@@ -274,14 +275,23 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
 
   const candidates = (Array.isArray(craftables) ? craftables : [])
     .filter((it) => getCraftRecipeTerms(it)?.ingredients.some((ing) => ing.itemId === lootId))
-    .filter((it) => !opts.growthPlan?.targetId || opts.growthPlan.craftIds.includes(String(it._id)))
+    .filter((it) => canCraftAlongsideGrowth({ ...opts.craftActor, inventory,
+      weaponType: opts.weaponType, _growthPlan: opts.growthPlan }, it))
     .filter((it) => {
       const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
       const weapon = normalizeWeaponType(String(it?.weaponType || ''));
       const actorWeapon = normalizeWeaponType(String(opts?.weaponType || ''));
-      return opts.growthPlan?.componentIds?.includes(String(it._id)) || slot !== 'weapon' || !weapon || !actorWeapon || weapon === actorWeapon;
+      return opts.growthPlan?.componentIds?.includes(String(it._id)) || slot !== 'weapon'
+        || areEquipmentWeaponTypesCompatible(actorWeapon, weapon);
     })
     .sort((a, b) => {
+      if (opts.growthPlan?.targetId) {
+        const order = (item) => {
+          const index = opts.growthPlan.craftIds.indexOf(String(item._id));
+          return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+        };
+        if (order(a) !== order(b)) return order(a) - order(b);
+      }
       const ds = scoreCandidate(b) - scoreCandidate(a);
       if (Math.abs(ds) > 0.001) return ds;
       return (Number(a.tier || 1) - Number(b.tier || 1)) || String(a.name).localeCompare(String(b.name));
@@ -358,7 +368,7 @@ export function buildCraftDebugInfo(actor, craftables, itemNameById, ruleset) {
       const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
       if (slot === 'weapon') {
         const w = normalizeWeaponType(String(it?.weaponType || ''));
-        if (w && actorWNorm && w !== actorWNorm) {
+        if (!actor._growthPlan?.componentIds?.includes(String(it._id)) && !areEquipmentWeaponTypesCompatible(actorWNorm, w)) {
           weaponMismatch += 1;
           continue;
         }

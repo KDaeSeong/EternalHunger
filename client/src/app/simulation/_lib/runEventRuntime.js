@@ -53,6 +53,7 @@ export function getLootCraftOptions(actor) {
     weaponType: actor?.weaponType,
     growthPlan: actor?._growthPlan,
     craftActor: { _id: actor?._id, hp: actor?.hp, simCredits: actor?.simCredits,
+      equipped: actor?.equipped,
       _craftRevision: actor?._craftRevision, _actionCycleKey: actor?._actionCycleKey },
   };
 }

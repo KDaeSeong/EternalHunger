@@ -81,7 +81,8 @@ check('a completed intermediate replaces raw ingredients in the displayed recipe
 });
 
 check('invalid recipes and missing field supplies remain explicit, not imaginary destinations', () => {
-  const invalid = [...items, gear('broken', ['unknown'])];
+  // Keep the invalid-recipe display case separate from now-available recovery recipes.
+  const invalid = [gear('broken', ['unknown'])];
   const subject = actor({ routePlanTargetItemIds: ['broken'], _growthFocusId: 'broken' });
   refreshActorGrowthPlan(subject, invalid, world);
   assert.match(model(subject, [], { publicItems: invalid }).members[0].growth.materials, /제작법/);

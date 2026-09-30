@@ -23,9 +23,9 @@ export function getActorGrowthObservation(actor, items, { progress = getActorGro
   const plan = actor._growthPlan;
   if (!progress.remaining.length && plan?.blocked === 'invalid_target') return { ...empty, status: 'unplanned', label: '후반 목표의 아이템·장착 부위·제작법 확인 필요' };
   if (!progress.totalSlots && !plan?.targetId) return { ...empty, status: 'unplanned', label: '성장 목표 미설정' };
-  if (!progress.remaining.length && (plan?.stage !== 'late' || !plan?.targetId)) return { ...empty, status: 'complete', label: '현재 설정한 목표 장비 확보' };
+  if (!progress.remaining.length && (!['late', 'recovery'].includes(plan?.stage) || !plan?.targetId)) return { ...empty, status: 'complete', label: '현재 설정한 목표 장비 확보' };
   if (!plan) return { ...empty, status: 'unplanned', label: '성장 목표 선택 대기' };
-  const target = (plan.stage === 'late' ? items : progress.remaining).find((item) => String(item._id) === String(plan.targetId));
+  const target = (['late', 'recovery'].includes(plan.stage) ? items : progress.remaining).find((item) => String(item._id) === String(plan.targetId));
   if (!target) return { ...empty, status: 'replanning', label: '현재 목표 확보 · 다음 성장 판단 대기' };
   const work = getGrowthRecipeWork(actor, items, target._id, { ruleset, targetIds: plan.targetIds });
   if (!work.craftIds.length && !work.missing.length && !work.blocked) return { ...empty, status: 'replanning', label: '현재 목표 확보 · 다음 성장 판단 대기' };
@@ -36,13 +36,15 @@ export function getActorGrowthObservation(actor, items, { progress = getActorGro
   const materials = receiptPreview && !receiptPreview.ok ? craftFailureText(receiptPreview.reason, receiptPreview)
     : work.blocked === 'insufficient_credits' ? `제작 비용 부족 · 필요 ${work.requiredCredits}Cr / 보유 ${work.availableCredits}Cr`
     : work.blocked === 'inventory_full' ? craftFailureText('inventory_full')
+    : work.blocked === 'weapon_mismatch' ? '무기 계열 불일치 · 목표 장비 확인 필요'
     : work.blocked ? '제작법 연결 확인 필요' : work.missing.length
     ? `부족: ${missing}${work.missing.length > 3 ? ` 외 ${work.missing.length - 3}종` : ''}${ready ? ` · ${ready.name} 제작 가능` : ''}`
     : ready ? '필요한 재료 확보 · 제작 가능' : '다음 제작 판단 대기';
   const forbidden = forbiddenIds instanceof Set ? forbiddenIds : new Set(forbiddenIds);
   let destination = '', note = '';
   if (work.blocked) note = work.blocked === 'insufficient_credits' ? '재료 확보 · 제작 비용 대기'
-    : work.blocked === 'inventory_full' ? '가방 공간 부족 · 다른 목표 재검토' : '성장 경로 재검토';
+    : work.blocked === 'inventory_full' ? '가방 공간 부족 · 다른 목표 재검토'
+    : work.blocked === 'weapon_mismatch' ? '호환되는 성장 목표 재검토' : '성장 경로 재검토';
   else if (work.missing.length && plan.targetZoneId) {
     const relevant = list(plan.missing).filter((row) => work.missing.some((need) => need.itemId === row.itemId)
       && list(row.zones).includes(plan.targetZoneId));
@@ -53,7 +55,7 @@ export function getActorGrowthObservation(actor, items, { progress = getActorGro
   if (!destination && !note && work.missing.length && plan.blocked) note = ({ no_material_source: '필드 공급처 없음 · 다른 조달 판단 필요',
     no_safe_path: '안전한 재료 경로 없음', invalid_recipe: '제작법 연결 확인 필요' })[plan.blocked] || '성장 경로 재검토';
   return { targetId: String(target._id), targetName: target.name, status: 'growing', stage: plan.stage,
-    label: `${plan.stage === 'late' ? '후반 성장' : '성장'} 목표: ${target.name}`, materials, destination, note };
+    label: `${plan.stage === 'late' ? '후반 성장' : plan.stage === 'recovery' ? '기본 장비 보완' : '성장'} 목표: ${target.name}`, materials, destination, note };
 }
 
 // Only a committed transaction produces a completion label. Never infer receipt

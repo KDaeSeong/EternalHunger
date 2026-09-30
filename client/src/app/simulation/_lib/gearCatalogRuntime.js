@@ -1,5 +1,5 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { areEquipmentWeaponTypesCompatible, normalizeWeaponType, WEAPON_TYPES_KO } from '../../../utils/equipmentCatalog';
 import { tierLabelKo } from './simulationCommon';
 import { START_WEAPON_TYPES } from './simulationConstants';
 import {
@@ -59,7 +59,7 @@ function getCatalogWeaponType(item) {
   ];
   for (const raw of rawList) {
     const normalized = normalizeWeaponType(String(raw || '').trim());
-    if (normalized) return normalized;
+    if (WEAPON_TYPES_KO.includes(normalized)) return normalized;
   }
   return '';
 }
@@ -73,6 +73,7 @@ function cloneCatalogGear(item, opts = {}) {
     tier,
     rarity: item?.rarity || tierLabelKo(tier),
     equipSlot: String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase(),
+    ...(inferEquipSlot(item) === 'weapon' ? { weaponType: getCatalogWeaponType(item) } : {}),
     _forceReplaceSameTier: opts?.forceReplaceSameTier === true,
   };
 }
@@ -95,7 +96,8 @@ function pickCatalogEquipmentItem(publicItems, opts = {}) {
   if (!all.length) return null;
 
   const typed = (preferredWeaponType && slot === 'weapon')
-    ? all.filter((item) => getCatalogWeaponType(item) === preferredWeaponType)
+    ? all.filter((item) => getCatalogWeaponType(item)
+      && areEquipmentWeaponTypesCompatible(preferredWeaponType, getCatalogWeaponType(item)))
     : all;
   if (preferredWeaponType && slot === 'weapon' && !typed.length) {
     return null;
@@ -115,6 +117,10 @@ function pickCatalogEquipmentItem(publicItems, opts = {}) {
     }
   }
   if (!pool.length) return null;
+
+  // 같은 등급의 고유 타입을 먼저 고르고, 없을 때만 호환 계열을 사용한다.
+  const nativeTypePool = preferredWeaponType ? pool.filter((item) => getCatalogWeaponType(item) === preferredWeaponType) : [];
+  if (nativeTypePool.length) pool = nativeTypePool;
 
   const preferredSourcePool = pool.filter(isPreferredCatalogSource);
   if (preferredSourcePool.length) pool = preferredSourcePool;

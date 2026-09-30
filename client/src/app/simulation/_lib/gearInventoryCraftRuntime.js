@@ -1,4 +1,4 @@
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
   compactIO,
   tierLabelKo,
@@ -15,7 +15,6 @@ import {
   applyEquipTier,
   buildCraftDebugInfo,
   computeCraftTierFromIngredients,
-  pickBestEquipBySlot,
   pickGoalLoadoutBySlot,
 } from './craftRuntime';
 import { clampGearTier } from './gearCatalogRuntime';
@@ -23,6 +22,7 @@ import { autoEquipBest } from './gearFallbackRuntime';
 import { markGrowthComponent } from './growthPlanRuntime';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 import { prepareCraftTransaction, commitCraftTransaction, craftFailureText } from './craftTransactionRuntime.js';
+import { canCraftAlongsideGrowth, getActorEquipmentTier } from './growthEquipmentRuntime.js';
 
 export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById, day, phaseIdxNow, ruleset) {
   if (!actor || !Number.isFinite(Number(actor.hp)) || Number(actor.hp) <= 0) return null;
@@ -43,7 +43,7 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
   const growthIds = actor._growthPlan?.targetId ? new Set(actor._growthPlan.craftIds) : null;
 
   const candidates = (Array.isArray(craftables) ? craftables : [])
-    .filter((item) => !growthIds || growthIds.has(String(item._id)))
+    .filter((item) => canCraftAlongsideGrowth(actor, item))
     .filter((item) => getCraftRecipeTerms(item))
     .filter((item) => {
       const ingredients = compactIO(item?.recipe?.ingredients || []);
@@ -57,15 +57,14 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
       const slot = String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase();
       if (slot === 'weapon') {
         const weaponType = normalizeWeaponType(String(item?.weaponType || ''));
-        if (weaponType && actorWNorm && weaponType !== actorWNorm) return false;
+        if (!areEquipmentWeaponTypesCompatible(actorWNorm, weaponType)) return false;
       }
 
-      const curBest = slot ? pickBestEquipBySlot(inv0, slot) : null;
-      const curTier = curBest ? clampGearTier(Number(curBest?.tier || 1)) : 0;
+      const curTier = getActorEquipmentTier(actor, slot);
       const targetTier = clampGearTier(Number(item?.tier || 1));
 
       const wantKey = String(goalBySlot?.[slot] || '').trim();
-      const candidateKey = String(item?.itemKey || item?.externalId || '').trim();
+      const candidateKey = String(item?.itemKey || item?.externalId || item?._id || '').trim();
       const wantGoal = !!(wantKey && candidateKey && wantKey === candidateKey);
       if (wantGoal) {
         const equippedId = String(ensureEquipped(actor)?.[slot] || '');
@@ -79,7 +78,13 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
       return targetTier > curTier || (growthTarget && targetTier === curTier && !inv0.some((entry) => getInvItemId(entry) === String(item._id)));
     })
     .sort((a, b) => {
-      if (growthIds) return actor._growthPlan.craftIds.indexOf(a._id) - actor._growthPlan.craftIds.indexOf(b._id);
+      if (growthIds) {
+        const order = (item) => {
+          const index = actor._growthPlan.craftIds.indexOf(String(item._id));
+          return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+        };
+        if (order(a) !== order(b)) return order(a) - order(b);
+      }
       const keyA = String(a?.itemKey || a?.externalId || '').trim();
       const keyB = String(b?.itemKey || b?.externalId || '').trim();
       const goalA = (goalKeys.size > 0 && keyA && goalKeys.has(keyA)) ? 1 : 0;
@@ -109,7 +114,7 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
     if (category === 'equipment') {
       const slot = String(target?.equipSlot || inferEquipSlot(target) || '').toLowerCase();
       const wantKey = String(goalBySlot?.[slot] || '').trim();
-      const candidateKey = String(target?.itemKey || target?.externalId || '').trim();
+      const candidateKey = String(target?.itemKey || target?.externalId || target?._id || '').trim();
       if (wantKey && candidateKey && wantKey === candidateKey) {
         craftedItem = { ...craftedItem, _forceReplaceSameTier: true };
       }

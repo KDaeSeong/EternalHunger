@@ -1,4 +1,4 @@
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog.js';
+import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../../utils/equipmentCatalog.js';
 import { getInvItemId, inferEquipSlot, inferItemCategory, invQty } from './inventoryRules.js';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 
@@ -22,8 +22,7 @@ export function getLateGrowthTargets(actor, items) {
   const weapon = normalizeWeaponType(actor.weaponType || '');
   const catalog = lateCatalog(items);
   const compatible = (item, slot, tier) => inferEquipSlot(item) === slot && Number(item.tier) === tier
-    && (slot !== 'weapon' || !weapon || !normalizeWeaponType(item.weaponType)
-      || normalizeWeaponType(item.weaponType) === weapon);
+    && (slot !== 'weapon' || areEquipmentWeaponTypesCompatible(weapon, item.weaponType));
   const candidates = [], issues = [];
   for (const slot of slots) {
     const currentTier = Math.max(0, ...inventory.filter((entry) => owned.has(getInvItemId(entry))
@@ -37,9 +36,14 @@ export function getLateGrowthTargets(actor, items) {
         if (!target || !compatible(target, slot, tier)) {
           issues.push({ slot, tier, key: requested, reason: 'invalid_target' });
         } else if (!owned.has(String(target._id))) candidates.push({ target, authored: true, slot, tier });
-      } else if (currentTier === tier - 1) {
+      } else if (currentTier < tier) {
         for (const target of catalog.filter((item) => compatible(item, slot, tier) && !owned.has(String(item._id)))) {
-          candidates.push({ target, authored: false, slot, tier });
+          // Custom recipes may legitimately skip a tier. An under-equipped
+          // actor only attempts such an upgrade when its real inputs are owned.
+          if (currentTier >= 4 || getCraftRecipeTerms(target).ingredients
+            .every((row) => invQty(inventory, row.itemId) >= row.qty)) {
+            candidates.push({ target, authored: false, slot, tier });
+          }
         }
       }
     }

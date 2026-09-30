@@ -1,5 +1,5 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { getEquipmentWeaponFamily, normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
   START_WEAPON_TYPES,
   addItemToInventory,
@@ -145,8 +145,9 @@ export function buildStarterLoadoutSurvivorsForPhase({
       const item = gear[slot];
       const label = slot === 'weapon' ? `${normalizedWeaponType || '선택 무기'} T1` : '신발 T1';
       if (!item?._id) {
-        starterIssues.push({ slot, reason: 'catalog_item_missing' });
-        addLog(`⚠️ [${survivor.name}] 시작 ${label} 항목 누락 — 생성 장비나 상위 장비로 대체하지 않습니다.`, 'system');
+        const equipmentFamily = slot === 'weapon' ? getEquipmentWeaponFamily(normalizedWeaponType) : '';
+        starterIssues.push({ slot, reason: 'catalog_item_missing', ...(equipmentFamily && equipmentFamily !== normalizedWeaponType ? { weaponType: normalizedWeaponType, equipmentFamily } : {}) });
+        addLog(`⚠️ [${survivor.name}] 시작 ${label} 항목 누락${equipmentFamily && equipmentFamily !== normalizedWeaponType ? ` (호환 계열 ${equipmentFamily})` : ''} — 아이템 카탈로그의 T1 기본 장비를 확인해 주세요.`, 'system');
         continue;
       }
       inventory = addItemToInventory(inventory, item, String(item._id), 1, nextDay, ruleset);
@@ -154,6 +155,9 @@ export function buildStarterLoadoutSurvivorsForPhase({
         receivedGear[slot] = String(item._id);
         if (slot === 'weapon') weaponCount += 1;
         else shoesCount += 1;
+        if (slot === 'weapon' && item.weaponType && item.weaponType !== normalizedWeaponType) {
+          addLog(`🧰 [${survivor.name}] ${normalizedWeaponType} 시작 장비: 호환 계열 ${item.weaponType}의 ${item.name} (T1) 수령`, 'normal');
+        }
       } else {
         starterIssues.push({ slot, reason: 'inventory_rejected' });
         addLog(`⚠️ [${survivor.name}] 시작 ${label} 수령 실패 — 가방 상태 확인 필요`, 'system');

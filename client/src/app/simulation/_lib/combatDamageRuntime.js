@@ -2,6 +2,7 @@ import { getCombatEquipment, getEquipmentSkillAmp } from '../../../utils/battleE
 import { getEffectiveErStats } from '../../../utils/erStats.js';
 import { getEffectiveStats, getLifestealPercent, applyHealingModifier, getDamageBlockReason } from '../../../utils/statusLogic.js';
 import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { restoreRuntimeHp, describeHpRecovery } from './healthRecoveryRuntime.js';
 
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, finite(value)));
@@ -67,9 +68,8 @@ export function applyCombatDamageLifesteal(actor, hpDamage, { type = 'basic', ar
   const pct = clamp(stats.omnisyphon + getLifestealPercent(actor) + (type === 'basic' ? stats.lifesteal : 0));
   const raw = hpDamage * pct * (area ? 0.5 : 1) * (targetKind === 'wildlife' ? 0.6 : 1);
   const maxHp = Math.max(1, finite(actor.maxHp, stats.maxHp));
-  const heal = Math.min(Math.max(0, maxHp - actor.hp), applyHealingModifier(actor, raw));
+  const heal = restoreRuntimeHp(actor, applyHealingModifier(actor, raw), maxHp);
   if (heal <= 0) return 0;
-  actor.hp += heal;
-  addLog(`🩸 [${actor.name}] 흡혈: HP +${heal}`, 'combat-detail');
+  addLog(`🩸 [${actor.name}] 흡혈: ${describeHpRecovery(actor, heal)}`, 'combat-detail');
   return heal;
 }

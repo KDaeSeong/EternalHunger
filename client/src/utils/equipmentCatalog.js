@@ -39,6 +39,30 @@ export function normalizeWeaponType(raw) {
   return normalizeErWeaponType(raw);
 }
 
+// 확장 전투 무기는 기존 아이템 트리의 장비 계열을 함께 사용한다.
+// 전투/숙련도용 무기 타입은 그대로 두고 제작·장착·루트에만 적용한다.
+const EQUIPMENT_WEAPON_FAMILIES = {
+  기관단총: '돌격소총',
+  기관총: '돌격소총',
+  산탄총: '저격총',
+  유탄발사기: '권총',
+  로켓발사기: '권총',
+  박격포: '권총',
+  철퇴: '망치',
+  한손검: '양손검',
+};
+
+export function getEquipmentWeaponFamily(raw) {
+  const weaponType = normalizeWeaponType(raw);
+  return EQUIPMENT_WEAPON_FAMILIES[weaponType] || weaponType;
+}
+
+export function areEquipmentWeaponTypesCompatible(actorWeaponType, itemWeaponType) {
+  const actorFamily = getEquipmentWeaponFamily(actorWeaponType);
+  const itemFamily = getEquipmentWeaponFamily(itemWeaponType);
+  return !actorFamily || !itemFamily || actorFamily === itemFamily;
+}
+
 export function normalizeWeaponTypes(raw) {
   return normalizeErWeaponTypes(raw);
 }
