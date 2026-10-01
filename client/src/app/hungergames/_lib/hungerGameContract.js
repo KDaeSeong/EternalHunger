@@ -1,7 +1,7 @@
 import { normalizeHungerTraits } from '../../../utils/hungerTraits.js';
 
 export const HUNGER_VERSION = 'hunger-games.v1';
-export const HUNGER_RULES_VERSION = 2;
+export const HUNGER_RULES_VERSION = 3;
 export const HUNGER_LIMITS = Object.freeze({ actors: 64, events: 200, phases: 120, roles: 4, outcomes: 12, items: 12, packBytes: 6 * 1024 * 1024 });
 export const HUNGER_PHASES = ['opening', 'day', 'night', 'feast'];
 export const HUNGER_WEATHER = ['clear', 'rain', 'storm', 'cold'];
@@ -21,7 +21,7 @@ export const HUNGER_LABELS = Object.freeze({
 
 function fail(message) { throw new Error(message); }
 export function normalizeHungerRulesVersion(value = HUNGER_RULES_VERSION) {
-  if (![1, HUNGER_RULES_VERSION].includes(value)) fail('지원하지 않는 헝거게임 판정 규칙 버전입니다.');
+  if (![1, 2, HUNGER_RULES_VERSION].includes(value)) fail('지원하지 않는 헝거게임 판정 규칙 버전입니다.');
   return value;
 }
 function object(value, label) {
@@ -168,6 +168,7 @@ export function normalizeHungerRoster(value) {
     return { id: text(String(actor.id ?? actor._id ?? ('actor-' + index)), '참가자 ID', 100),
       name: text(actor.name, '참가자 이름', 120), previewImage: image,
       teamId: text(String(actor.teamId || ''), '팀', 40, false),
+      districtId: text(String(actor.districtId || ''), '구역', 40, false),
       hungerTraits: traits(actor.hungerTraits, '참가자 특성'), items: [...new Set(items.map((item) => text(item, '아이템', 60)))] };
   });
   if (new Set(roster.map((actor) => actor.id)).size !== roster.length) fail('참가자 ID가 중복됩니다.');
@@ -179,6 +180,9 @@ export function normalizeHungerConfig(raw) {
   if (!Array.isArray(input.events) || input.events.length > HUNGER_LIMITS.events) fail('이벤트는 200개 이내로 등록해 주세요.');
   const events = input.events.map(normalizeHungerEvent);
   if (new Set(events.map((event) => event.id)).size !== events.length) fail('이벤트 ID가 중복됩니다.');
+  const matchMode = input.matchMode ?? (input.roster?.some((actor) => actor?.teamId) ? 'team' : 'solo');
+  if (!['solo', 'team'].includes(matchMode)) fail('경기 방식은 개인전 또는 팀전이어야 합니다.');
   return { roster: normalizeHungerRoster(input.roster), events, seed: text(String(input.seed ?? 'hunger'), '시드', 120),
+    matchMode,
     maxPhases: number(input.maxPhases, 60, 1, HUNGER_LIMITS.phases, '최대 진행 수', true) };
 }

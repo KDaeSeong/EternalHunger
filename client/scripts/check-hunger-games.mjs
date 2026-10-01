@@ -23,7 +23,7 @@ const event = (effects = [], extra = {}) => normalizeHungerEvent({ id: 'fixture'
 const actor = (id, hungerTraits = [], extra = {}) => ({ id, name: id, hungerTraits, ...extra });
 const state = (actors, events = [], extra = {}) => ({ ...createHungerRun({ roster: actors, events, seed: 'test', maxPhases: 12 }), day: 1, phase: 'day', phaseIndex: 0, weather: 'storm', location: 'forest', ...extra });
 const lethal = event([{ type: 'death', target: 'actor', cause: 'lightning' }]);
-const finish = (config) => { let run = createHungerRun(config); while (!run.finished) run = advanceHungerRun(run); return run; };
+const finish = (config, rulesVersion) => { let run = createHungerRun(config, rulesVersion); while (!run.finished) run = advanceHungerRun(run); return run; };
 
 await check('natural lightning immunity blocks both lethal and injury effects, without mutating state', () => {
   const before = state([actor('raiden', ['lightning_immune']), actor('other')]);
@@ -442,6 +442,7 @@ await check('allied actors use betrayal instead of ordinary attacks and teammate
   const betrayal=DEFAULT_HUNGER_EVENTS.find(row=>row.id==='betrayal');
   assert.equal(inspectHungerEvent(before,betrayal,{attacker:'a',victim:'b'}).eligible,true);
   before.actors.forEach(row=>row.teamId='same');
+  before.input.matchMode='team';
   assert.equal(inspectHungerEvent(before,betrayal,{attacker:'a',victim:'b'}).eligible,false);
 });
 await check('v1 replay preserves the exact pre-change winner, RNG and receipt fingerprint', () => {
@@ -453,7 +454,7 @@ await check('v1 replay preserves the exact pre-change winner, RNG and receipt fi
 await check('old checkpoints upgrade only the next match while preserving old progress and re-save rules', async () => {
   const old={version:'hunger-games.v1',config:legacyHungerConfig(),run:{phases:10}};
   const restored=restoreHungerPack(old); assert.equal(restored.upgraded,true);
-  assert.equal(restored.config.events.length,43); assert.equal(restored.run.input.events.length,22); assert.equal(restored.run.rulesVersion,1); assert.equal(restored.run.winnerId,'demo-robot');
+  assert.equal(restored.config.events.length,55); assert.equal(restored.run.input.events.length,22); assert.equal(restored.run.rulesVersion,1); assert.equal(restored.run.winnerId,'demo-robot');
   assert.ok(restored.run.history.flatMap(phase=>phase.rows).some(row=>row.text.includes('야전 의사는')));
   assert.deepEqual((await restoreHungerPackAsync(old,async()=>{})).run,restored.run);
   const saved=createHungerPack(restored.config,restored.run); assert.equal(saved.run.rulesVersion,1); assert.equal(saved.run.config.events.length,22);
@@ -474,8 +475,8 @@ await check('customized events and participants survive automatic and explicit p
 });
 await check('current checkpoints preserve rules and unsupported rule versions fail closed', async () => {
   const config=defaultHungerConfig(), run=replayHungerRun(config,5), pack=createHungerPack(config,run);
-  assert.equal(pack.run.rulesVersion,2); assert.deepEqual(restoreHungerPack(pack).run,run);
-  const invalid={...pack,run:{...pack.run,rulesVersion:3}};
+  assert.equal(pack.run.rulesVersion,3); assert.deepEqual(restoreHungerPack(pack).run,run);
+  const invalid={...pack,run:{...pack.run,rulesVersion:4}};
   assert.throws(()=>restoreHungerPack(invalid),/규칙 버전/);
   await assert.rejects(restoreHungerPackAsync(invalid),/규칙 버전/);
   assert.throws(()=>createHungerRun(config,0),/규칙 버전/);
@@ -504,6 +505,7 @@ await check('final-duel pressure starts with the current pair and excludes openi
   assert.equal(hungerFinalDuelPressure({...before,phase:'opening'}),0);
   assert.equal(hungerFinalDuelPressure({...before,rulesVersion:1}),0);
   before.actors[0].teamId='same'; before.actors[1].teamId='same';
+  before.input.matchMode='team';
   assert.equal(hungerFinalDuelPressure(before),0);
 });
 await check('survivor-count and final-duel duration conditions gate authored events', () => {
@@ -542,6 +544,7 @@ await check('final encounters resolve an alliance explicitly and preserve same-t
   const result=resolveHungerEvent(before,retreat,{attacker:'a',victim:'b'});
   assert.ok(result.row); assert.deepEqual(result.state.relationships,[{leftId:'a',rightId:'b',kind:'enemy'}]);
   before.actors.forEach(row=>row.teamId='same');
+  before.input.matchMode='team';
   assert.equal(inspectHungerEvent(before,final,{attacker:'a',victim:'b'}).eligible,false);
 });
 await check('thirty two-person matches including physical resistance finish within eight phases', () => {
@@ -560,7 +563,8 @@ await check('invulnerable or same-team finalists remain shared survivors without
   assert.equal(run.actors.reduce((sum,row)=>sum+row.kills,0),0);
   assert.ok(run.history.flatMap(phase=>phase.rows).every(row=>!row.effects.some(effect=>['death','injure'].includes(effect.type))));
   const teammates=finish({roster:[actor('a',[],{teamId:'t'}),actor('b',[],{teamId:'t'})],events:[DEFAULT_HUNGER_EVENTS.find(row=>row.id==='final-physical')],seed:'same-team',maxPhases:6});
-  assert.equal(teammates.endReason,'phase_limit'); assert.equal(teammates.actors.filter(row=>row.alive).length,2);
+  assert.equal(teammates.endReason,'last_team'); assert.equal(teammates.actors.filter(row=>row.alive).length,2);
+  assert.equal(teammates.history.length,1); assert.deepEqual(teammates.winnerIds,['a','b']);
 });
 
 await check('editor previews simulate finalists and injury without changing the real roster', () => {

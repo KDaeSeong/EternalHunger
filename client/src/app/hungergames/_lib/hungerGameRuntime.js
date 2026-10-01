@@ -54,10 +54,20 @@ function weighted(rows, random, score = (row) => row.weight) {
   return rows.at(-1);
 }
 function aliveCount(state) { return state.actors.filter((actor) => actor.alive).length; }
+function areTeammates(state, left, right) {
+  return Boolean((state.rulesVersion < 3 || state.rulesVersion === undefined || state.input?.matchMode === 'team')
+    && left.teamId && left.teamId === right.teamId);
+}
+function lastTeam(state) {
+  if (state.rulesVersion < 3 || state.rulesVersion === undefined || state.input?.matchMode !== 'team') return null;
+  const survivors = state.actors.filter((actor) => actor.alive);
+  const teamOf = (actor) => actor.teamId ? 'team:' + actor.teamId : 'solo:' + actor.id;
+  return survivors.length && survivors.every((actor) => teamOf(actor) === teamOf(survivors[0])) ? survivors : null;
+}
 export function hungerFinalDuelPressure(state) {
   if (state.rulesVersion < 2 || state.rulesVersion === undefined || state.phase === 'opening') return 0;
   const survivors = state.actors.filter((actor) => actor.alive);
-  if (survivors.length !== 2 || (survivors[0].teamId && survivors[0].teamId === survivors[1].teamId)) return 0;
+  if (survivors.length !== 2 || areTeammates(state, survivors[0], survivors[1])) return 0;
   const lastDeath = Math.max(0, ...state.actors.filter((actor) => !actor.alive).map((actor) => actor.death?.phaseIndex ?? 0));
   return Math.max(0, state.phaseIndex - lastDeath);
 }
@@ -74,7 +84,7 @@ function relationsMatch(state, event, cast) {
   return event.relations.every((relation) => {
     const left = cast[relation.left]; const right = cast[relation.right];
     if (!left || !right) return true; // Partial assignment; complete casts are checked again.
-    const teammate = Boolean(left.teamId && left.teamId === right.teamId);
+    const teammate = areTeammates(state, left, right);
     if (relation.kind === 'same_team') return teammate;
     if (relation.kind === 'not_teammate') return !teammate;
     if (relation.kind === 'not_ally') return !state.relationships.some((row) => samePair(row, left.id, right.id) && row.kind === 'ally');
@@ -163,6 +173,12 @@ export function hungerEventSelectionWeight(state, event, cast, phaseRows = []) {
     const eliminated = 1 - aliveCount(state) / state.actors.length;
     weight *= Math.min(4, 1 + Math.max(0, state.day - 3) * 0.2 + eliminated * 1.5);
   }
+  if (state.rulesVersion >= 3 && aliveCount(state) > 2) {
+    // Ordinary rounds leave room for hazards, cooperation and useful supplies;
+    // the final duel keeps its existing decisive pressure and immunity rules.
+    if (confrontation) weight *= 0.45;
+    else if (event.outcomes.some((outcome) => outcome.effects.some((effect) => ['death', 'injure'].includes(effect.type)))) weight *= 1.8;
+  }
   if (duelPressure) weight *= confrontation ? Math.min(12, 1 + duelPressure * 2) : 1 / (1 + duelPressure);
   const repeats = phaseRows.filter((row) => row.eventId === event.id).length;
   weight *= 0.2 ** Math.min(repeats, 3);
@@ -245,6 +261,10 @@ export function resolveHungerEvent(state, rawEvent, casting) {
 export function createHungerRun(raw, rulesVersion) {
   const input = normalizeHungerConfig(raw);
   const version = normalizeHungerRulesVersion(rulesVersion);
+  if (version < 3) {
+    delete input.matchMode;
+    input.roster.forEach((actor) => { delete actor.districtId; });
+  }
   if (input.roster.length < 2) throw new Error('경기 시작에는 참가자가 2명 이상 필요합니다.');
   return { input, rulesVersion: version, actors: input.roster.map((actor) => ({ ...structuredClone(actor), alive: true, injured: false, kills: 0, death: null })),
     rngState: hashSeed(input.seed), phaseIndex: -1, day: 0, phase: 'opening', weather: 'clear', location: 'camp',
@@ -261,7 +281,7 @@ export function advanceHungerRun(state) {
   next.location = ['forest', 'river', 'camp', 'ruins'][Math.floor(random() * 4)];
   const available = new Set(shuffle(next.actors.filter((actor) => actor.alive).map((actor) => actor.id), random));
   const phase = { index: next.phaseIndex, day: next.day, phase: next.phase, weather: next.weather, location: next.location, rows: [] };
-  while (available.size && aliveCount(next) > 1) {
+  while (available.size && aliveCount(next) > 1 && !lastTeam(next)) {
     const candidates = [];
     for (const event of next.input.events) {
       if (!contextMatches(next, event)) continue;
@@ -292,12 +312,51 @@ export function advanceHungerRun(state) {
   phase.rows.forEach((row, index) => { row.id = next.phaseIndex + '-' + index; });
   next.history.push(phase); next.rngState = stream.cursor.value;
   const survivors = next.actors.filter((actor) => actor.alive);
-  if (survivors.length === 1) {
+  const winningTeam = lastTeam(next);
+  if (winningTeam) {
+    next.finished = true; next.endReason = 'last_team';
+    next.winnerTeamId = winningTeam[0].teamId || '';
+    next.winnerIds = winningTeam.map((actor) => actor.id);
+    next.winnerId = winningTeam.length === 1 ? winningTeam[0].id : null;
+  } else if (survivors.length === 1) {
     next.finished = true; next.winnerId = survivors[0].id; next.endReason = 'last_survivor';
   } else if (next.history.length >= next.input.maxPhases) {
     next.finished = true; next.endReason = 'phase_limit';
   }
   return next;
+}
+
+// Reconstruct presentation state from trusted, replayed event receipts. This
+// avoids storing portraits/rosters for every phase and never runs RNG or AI.
+export function getHungerHistoryView(run, viewIndex = -1) {
+  const index = viewIndex < 0 ? run.history.length - 1 : Math.min(viewIndex, run.history.length - 1);
+  const actors = run.input.roster.map((actor) => ({ ...structuredClone(actor), alive: true, injured: false, kills: 0, death: null }));
+  const byId = new Map(actors.map((actor) => [actor.id, actor]));
+  let relationships = [];
+  for (const phase of run.history.slice(0, index + 1)) for (const row of phase.rows) for (const effect of row.effects) {
+    const actor = byId.get(effect.actorId);
+    if (!actor) continue;
+    if (effect.type === 'death') {
+      actor.alive = false; actor.death = { cause: effect.cause, phaseIndex: phase.index, eventId: row.eventId };
+      if (byId.has(effect.sourceId)) byId.get(effect.sourceId).kills += 1;
+    }
+    if (effect.type === 'injure') actor.injured = true;
+    if (effect.type === 'heal') actor.injured = false;
+    if (effect.type === 'gain_item') actor.items.push(effect.item);
+    if (effect.type === 'lose_item') {
+      const at = actor.items.indexOf(effect.item);
+      if (at >= 0) actor.items.splice(at, 1);
+    }
+    if (['ally', 'enemy'].includes(effect.type)) {
+      relationships = relationships.filter((relation) => !samePair(relation, actor.id, effect.otherId));
+      relationships.push({ leftId: actor.id, rightId: effect.otherId, kind: effect.type });
+    }
+  }
+  const isLatest = index === run.history.length - 1;
+  return { index, actors, relationships, phase: run.history[index], isLatest,
+    finished: isLatest && run.finished, winnerId: isLatest ? run.winnerId : null,
+    winnerTeamId: isLatest ? run.winnerTeamId : null, winnerIds: isLatest ? run.winnerIds || [] : [],
+    endReason: isLatest ? run.endReason : '' };
 }
 
 export function replayHungerRun(config, phases, rulesVersion) {

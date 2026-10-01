@@ -140,7 +140,7 @@ export default function SimulationControlPanel({
             value={winnerPredictionId || ''}
             onChange={(event) => onWinnerPredictionChange?.(event.target.value)}
             disabled={winnerPredictionDisabled}
-            title="경기 시작 전에 우승자를 예측하면 성공 시 LP 100을 추가로 받습니다."
+            title="경기 시작 전에 우승자를 예측하고 결과를 확인할 수 있습니다. 현재 경기는 영구 LP 보상을 지급하지 않습니다."
           >
             <option value="">예측 안 함</option>
             {(Array.isArray(survivors) ? survivors : []).map((actor) => {
@@ -155,7 +155,7 @@ export default function SimulationControlPanel({
           </select>
         </label>
         <span className="winner-prediction-help">
-          기본 50 LP · 예측 성공 +100 LP{Number(matchSec || 0) > 0 ? ' · 경기 시작 후 변경 불가' : ''}
+          결과 예측용 · 영구 LP 보상 없음{Number(matchSec || 0) > 0 ? ' · 경기 시작 후 변경 불가' : ''}
         </span>
       </div> : null}
       <div className="simulation-match-options">

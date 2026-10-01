@@ -1,5 +1,6 @@
 import { normalizeHungerConfig, normalizeHungerEvent } from './hungerGameContract.js';
 import { LEGACY_HUNGER_EVENTS, legacyHungerConfig } from './hungerGameLegacyPresets.js';
+import { STORY_HUNGER_EVENTS } from './hungerGameStoryPresets.js';
 
 const role = (key = 'actor', options = {}) => ({ key, label: ({ actor: '참가자', attacker: '공격자', victim: '피해자', rescuer: '구조자', partner: '상대' })[key] || key, ...options });
 const effect = (type, target = 'actor', extras = {}) => ({ type, target, ...extras });
@@ -66,7 +67,7 @@ function finalDuel(base, id, title) {
       effects: [...row.effects.filter((effect) => effect.type !== 'enemy'), effect('enemy', 'attacker', { other: 'victim' })] })) });
 }
 
-export const DEFAULT_HUNGER_EVENTS = [
+export const PREVIOUS_HUNGER_EVENTS = [
   event('opening-run', '시작 신호', [outcome('도주', '{actor}은 시작 신호와 함께 숲으로 달려간다.')], { phases: ['opening'], weight: 3 }),
   event('opening-knife', '무기 확보', [outcome('칼 획득', '{actor}은 보급품 더미에서 칼을 챙긴다.', [effect('gain_item', 'actor', { item: '칼' })])], { roles: [role('actor', physicalAttacker)], phases: ['opening', 'feast'], weight: 4 }),
   event('opening-food', '식량 확보', [outcome('식량 획득', '{actor}은 보급품에서 식량을 챙긴다.', [effect('gain_item', 'actor', { item: '식량' })])], { roles: [role('actor', living)], phases: ['opening', 'feast'], weight: 3 }),
@@ -117,6 +118,8 @@ export const DEFAULT_HUNGER_EVENTS = [
   event('scavenge-rope', '쓸 만한 보급품', [outcome('밧줄 획득', '{actor}은 버려진 보급품에서 쓸 만한 밧줄을 챙긴다.', [effect('gain_item', 'actor', { item: '밧줄' })])], { roles: [role('actor', { noneTraits: ['elemental_body'] })], phases: ['day', 'feast'], weight: 2 }),
 ];
 
+export const DEFAULT_HUNGER_EVENTS = [...PREVIOUS_HUNGER_EVENTS, ...STORY_HUNGER_EVENTS];
+
 export function createHungerDraft(id) {
   return event(id, '새 이벤트', [outcome('기본 결과', '{actor}은 주변을 살핀다.')], { phases: ['day', 'night'] });
 }
@@ -128,7 +131,7 @@ export function defaultHungerConfig() {
     'demo-flame': ['fire_control', 'fire_immune', 'fire_attack_immune', 'elemental_body', 'physical_immune'],
     'demo-robot': ['mechanical', 'poison_immune', 'physical_resistant'],
   };
-  return { ...legacy, events: structuredClone(DEFAULT_HUNGER_EVENTS), roster: legacy.roster.map((actor) => ({ ...actor, hungerTraits: traits[actor.id] || actor.hungerTraits })) };
+  return { ...legacy, matchMode: 'solo', events: structuredClone(DEFAULT_HUNGER_EVENTS), roster: legacy.roster.map((actor) => ({ ...actor, hungerTraits: traits[actor.id] || actor.hungerTraits })) };
 }
 
 function upgradeSampleRoster(roster) {
@@ -141,7 +144,7 @@ function upgradeSampleRoster(roster) {
 }
 
 export function upgradeUntouchedHungerPresets(config) {
-  if (JSON.stringify(config.events) !== JSON.stringify(LEGACY_HUNGER_EVENTS)) return { config, upgraded: false };
+  if (![LEGACY_HUNGER_EVENTS, PREVIOUS_HUNGER_EVENTS].some((events) => JSON.stringify(config.events) === JSON.stringify(events))) return { config, upgraded: false };
   return { config: normalizeHungerConfig({ ...config, events: DEFAULT_HUNGER_EVENTS, roster: upgradeSampleRoster(config.roster) }), upgraded: true };
 }
 

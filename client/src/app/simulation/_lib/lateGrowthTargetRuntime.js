@@ -1,6 +1,7 @@
 import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../../utils/equipmentCatalog.js';
 import { getInvItemId, inferEquipSlot, inferItemCategory, invQty } from './inventoryRules.js';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
+import { getActorEquipmentTier } from './growthEquipmentRuntime.js';
 
 const slots = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
 const catalogs = new WeakMap();
@@ -18,16 +19,13 @@ function lateCatalog(items) {
 export function getLateGrowthTargets(actor, items) {
   const inventory = Array.isArray(actor.inventory) ? actor.inventory : [];
   const owned = new Set(inventory.filter((entry) => invQty(inventory, getInvItemId(entry)) > 0).map(getInvItemId));
-  const worn = new Set(Object.values(actor.equipped || {}).filter(Boolean).map(String));
   const weapon = normalizeWeaponType(actor.weaponType || '');
   const catalog = lateCatalog(items);
   const compatible = (item, slot, tier) => inferEquipSlot(item) === slot && Number(item.tier) === tier
     && (slot !== 'weapon' || areEquipmentWeaponTypesCompatible(weapon, item.weaponType));
   const candidates = [], issues = [];
   for (const slot of slots) {
-    const currentTier = Math.max(0, ...inventory.filter((entry) => owned.has(getInvItemId(entry))
-      && (!entry.craftComponent || worn.has(getInvItemId(entry))) && inferEquipSlot(entry) === slot)
-      .map((entry) => Number(entry.tier) || 0));
+    const currentTier = getActorEquipmentTier(actor, slot);
     for (const [group, tier] of [['legend', 5], ['transcend', 6]]) {
       if (currentTier > tier) continue;
       const requested = String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim();
