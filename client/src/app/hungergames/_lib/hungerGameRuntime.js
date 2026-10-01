@@ -1,4 +1,5 @@
-import { normalizeHungerConfig, normalizeHungerEvent } from './hungerGameContract.js';
+import { normalizeHungerConfig, normalizeHungerEvent, normalizeHungerRulesVersion } from './hungerGameContract.js';
+import { renderHungerText } from './hungerGameText.js';
 
 const PROTECTIONS = Object.freeze({
   lightning: { immune: ['lightning_immune'], resistant: ['lightning_resistant'] },
@@ -6,6 +7,9 @@ const PROTECTIONS = Object.freeze({
   drowning: { immune: ['underwater_breathing'], resistant: [] },
   poison: { immune: ['poison_immune'], resistant: ['poison_resistant'] },
   cold: { immune: ['cold_immune'], resistant: ['cold_resistant'] },
+  physical: { immune: ['physical_immune'], resistant: ['physical_resistant'] },
+  lightning_attack: { immune: ['lightning_attack_immune'], resistant: ['lightning_attack_resistant'] },
+  fire_attack: { immune: ['fire_attack_immune'], resistant: ['fire_attack_resistant'] },
 });
 
 export function hungerProtection(actor, cause) {
@@ -50,6 +54,13 @@ function weighted(rows, random, score = (row) => row.weight) {
   return rows.at(-1);
 }
 function aliveCount(state) { return state.actors.filter((actor) => actor.alive).length; }
+export function hungerFinalDuelPressure(state) {
+  if (state.rulesVersion < 2 || state.rulesVersion === undefined || state.phase === 'opening') return 0;
+  const survivors = state.actors.filter((actor) => actor.alive);
+  if (survivors.length !== 2 || (survivors[0].teamId && survivors[0].teamId === survivors[1].teamId)) return 0;
+  const lastDeath = Math.max(0, ...state.actors.filter((actor) => !actor.alive).map((actor) => actor.death?.phaseIndex ?? 0));
+  return Math.max(0, state.phaseIndex - lastDeath);
+}
 function samePair(row, left, right) {
   return (row.leftId === left && row.rightId === right) || (row.leftId === right && row.rightId === left);
 }
@@ -66,23 +77,30 @@ function relationsMatch(state, event, cast) {
     const teammate = Boolean(left.teamId && left.teamId === right.teamId);
     if (relation.kind === 'same_team') return teammate;
     if (relation.kind === 'not_teammate') return !teammate;
+    if (relation.kind === 'not_ally') return !state.relationships.some((row) => samePair(row, left.id, right.id) && row.kind === 'ally');
     return state.relationships.some((row) => samePair(row, left.id, right.id) && row.kind === relation.kind);
   });
 }
 function contextMatches(state, event) {
   const used = Object.hasOwn(state.usage, event.id) ? state.usage[event.id] : null;
+  const survivors = aliveCount(state);
   return event.enabled && event.phases.includes(state.phase) && event.weather.includes(state.weather)
     && event.locations.includes(state.location) && state.day >= event.minDay && state.day <= event.maxDay
+    && survivors >= event.minSurvivors && survivors <= event.maxSurvivors
+    && (!event.minDuelPhases || hungerFinalDuelPressure(state) >= event.minDuelPhases)
     && (!event.maxUses || (used?.count || 0) < event.maxUses)
     && (!used || !event.cooldownPhases || state.phaseIndex - used.lastPhase > event.cooldownPhases);
 }
 
 function eligibleOutcomes(state, event, cast, partial = false) {
+  const duelPressure = hungerFinalDuelPressure(state);
   return event.outcomes.map((outcome) => {
+    if (outcome.requirements.some((requirement) => cast[requirement.role] && !roleMatches(cast[requirement.role], requirement))) return null;
     if (outcome.when && cast[outcome.when.role] && hungerProtection(cast[outcome.when.role], outcome.when.cause) !== outcome.when.protection) return null;
     const deaths = new Set();
     const inventories = new Map(Object.values(cast).map((actor) => [actor.id, [...actor.items]]));
     let weight = outcome.weight;
+    let attack = false;
     for (const effect of outcome.effects) {
       const actor = cast[effect.target];
       if (!actor) { if (partial) continue; return null; }
@@ -90,6 +108,16 @@ function eligibleOutcomes(state, event, cast, partial = false) {
         const protection = hungerProtection(actor, effect.cause);
         if (protection === 'immune') return null; // All harmful effects, not just the authored lethal branch.
         if (protection === 'resistant' && effect.type === 'death') weight *= 0.2;
+        if (state.rulesVersion >= 2 && effect.source && cast[effect.source]) {
+          attack = true;
+          const attacker = cast[effect.source];
+          if (attacker.hungerTraits.includes('combat_training')) weight *= 1.75;
+          if (actor.hungerTraits.includes('combat_training')) weight /= 1.75;
+          if (attacker.injured) weight *= 0.6;
+          if (actor.injured) weight *= 1.5;
+          if (effect.type === 'death' && effect.cause === 'physical' && actor.hungerTraits.includes('flight')) weight *= 0.5;
+          if (duelPressure) weight *= effect.type === 'death' ? Math.min(12, 1 + duelPressure * 1.5) : Math.min(3, 1 + duelPressure * 0.4);
+        }
       }
       if (effect.type === 'death') deaths.add(actor.id);
       if (effect.type === 'heal' && !actor.injured) return null;
@@ -106,13 +134,14 @@ function eligibleOutcomes(state, event, cast, partial = false) {
       }
     }
     if (deaths.size >= aliveCount(state)) return null; // An event cannot erase the final survivor.
+    if (duelPressure && !attack && event.outcomes.some((row) => row.effects.some((effect) => ['death', 'injure'].includes(effect.type) && effect.source))) weight /= 1 + duelPressure * 1.5;
     return { outcome, weight };
   }).filter(Boolean);
 }
 
 export function inspectHungerEvent(state, rawEvent, casting) {
   const event = normalizeHungerEvent(rawEvent);
-  if (!contextMatches(state, event)) return { eligible: false, reason: '시점·날씨·장소 또는 등장 횟수 조건이 맞지 않습니다.', outcomes: [] };
+  if (!contextMatches(state, event)) return { eligible: false, reason: '시점·날씨·장소·생존자·최종 대치 또는 등장 횟수 조건이 맞지 않습니다.', outcomes: [] };
   const cast = {};
   for (const role of event.roles) {
     const actor = state.actors.find((row) => row.id === casting?.[role.key]);
@@ -122,7 +151,28 @@ export function inspectHungerEvent(state, rawEvent, casting) {
   if (new Set(Object.values(cast).map((actor) => actor.id)).size !== event.roles.length) return { eligible: false, reason: '한 참가자가 여러 역할을 맡을 수 없습니다.', outcomes: [] };
   if (!relationsMatch(state, event, cast)) return { eligible: false, reason: '참가자 관계 조건이 맞지 않습니다.', outcomes: [] };
   const outcomes = eligibleOutcomes(state, event, cast);
-  return { eligible: outcomes.length > 0, reason: outcomes.length ? '' : '면역·아이템·생존 조건에 맞는 결과가 없습니다.', outcomes: outcomes.map((row) => ({ label: row.outcome.label, weight: row.weight })), cast };
+  return { eligible: outcomes.length > 0, reason: outcomes.length ? '' : '특성·면역·아이템·생존 조건에 맞는 결과가 없습니다.', outcomes: outcomes.map((row) => ({ label: row.outcome.label, weight: row.weight })), cast };
+}
+
+export function hungerEventSelectionWeight(state, event, cast, phaseRows = []) {
+  if (state.rulesVersion < 2 || state.rulesVersion === undefined) return event.weight;
+  let weight = event.weight;
+  const confrontation = event.outcomes.some((outcome) => outcome.effects.some((effect) => ['death', 'injure'].includes(effect.type) && effect.source));
+  const duelPressure = hungerFinalDuelPressure(state);
+  if (confrontation) {
+    const eliminated = 1 - aliveCount(state) / state.actors.length;
+    weight *= Math.min(4, 1 + Math.max(0, state.day - 3) * 0.2 + eliminated * 1.5);
+  }
+  if (duelPressure) weight *= confrontation ? Math.min(12, 1 + duelPressure * 2) : 1 / (1 + duelPressure);
+  const repeats = phaseRows.filter((row) => row.eventId === event.id).length;
+  weight *= 0.2 ** Math.min(repeats, 3);
+  const assigned = new Set(Object.values(cast).map((actor) => actor.id));
+  for (const phase of state.history.slice(-3)) {
+    const rows = phase.rows.filter((row) => row.eventId === event.id);
+    if (rows.length) weight *= confrontation ? 0.85 : 0.6;
+    if (rows.some((row) => row.participants.some((actor) => assigned.has(actor.id)))) weight *= confrontation ? duelPressure ? 1 : 0.65 : 0.35;
+  }
+  return Math.max(event.weight * 0.01, weight);
 }
 
 function findCast(state, event, available, random) {
@@ -158,10 +208,10 @@ function commitEvent(state, event, cast, selected) {
       actor.death = { cause: effect.cause, phaseIndex: state.phaseIndex, eventId: event.id };
       if (effect.source) {
         const killer = actors.get(cast[effect.source].id); killer.kills += 1;
-        receipt.sourceId = killer.id;
       }
     }
     if (effect.type === 'injure') actor.injured = true;
+    if (effect.source) receipt.sourceId = cast[effect.source].id;
     if (effect.type === 'heal') actor.injured = false;
     if (effect.type === 'gain_item') actor.items.push(effect.item);
     if (effect.type === 'lose_item') actor.items.splice(actor.items.indexOf(effect.item), 1);
@@ -177,7 +227,7 @@ function commitEvent(state, event, cast, selected) {
   state.usage[event.id] = { count: (previous?.count || 0) + 1, lastPhase: state.phaseIndex };
   return { eventId: event.id, title: event.title, outcome: selected.label,
     participants: event.roles.map((role) => ({ id: cast[role.key].id, name: cast[role.key].name, role: role.key })),
-    text: selected.text.replace(/\{([a-z][a-z0-9_]*)\}/g, (_, key) => cast[key].name), effects };
+    text: renderHungerText(selected.text, cast), effects };
 }
 
 // Public resolver is atomic and also rechecks previously selected participant IDs.
@@ -192,10 +242,11 @@ export function resolveHungerEvent(state, rawEvent, casting) {
   return { state: next, row, reason: '' };
 }
 
-export function createHungerRun(raw) {
+export function createHungerRun(raw, rulesVersion) {
   const input = normalizeHungerConfig(raw);
+  const version = normalizeHungerRulesVersion(rulesVersion);
   if (input.roster.length < 2) throw new Error('경기 시작에는 참가자가 2명 이상 필요합니다.');
-  return { input, actors: input.roster.map((actor) => ({ ...structuredClone(actor), alive: true, injured: false, kills: 0, death: null })),
+  return { input, rulesVersion: version, actors: input.roster.map((actor) => ({ ...structuredClone(actor), alive: true, injured: false, kills: 0, death: null })),
     rngState: hashSeed(input.seed), phaseIndex: -1, day: 0, phase: 'opening', weather: 'clear', location: 'camp',
     usage: {}, relationships: [], history: [], finished: false, winnerId: null, endReason: '' };
 }
@@ -215,10 +266,12 @@ export function advanceHungerRun(state) {
     for (const event of next.input.events) {
       if (!contextMatches(next, event)) continue;
       const cast = findCast(next, event, available, random);
-      if (cast) candidates.push({ event, cast, weight: event.weight });
+      if (cast) candidates.push({ event, cast, weight: hungerEventSelectionWeight(next, event, cast, phase.rows) });
     }
     if (candidates.length) {
-      const candidate = weighted(candidates, random);
+      const previousId = phase.rows.at(-1)?.eventId;
+      const varied = next.rulesVersion >= 2 ? candidates.filter((candidate) => candidate.event.id !== previousId) : candidates;
+      const candidate = weighted(varied.length ? varied : candidates, random);
       const result = weighted(eligibleOutcomes(next, candidate.event, candidate.cast), random).outcome;
       phase.rows.push(commitEvent(next, candidate.event, candidate.cast, result));
       Object.values(candidate.cast).forEach((actor) => available.delete(actor.id));
@@ -227,7 +280,10 @@ export function advanceHungerRun(state) {
       // same incompatible pool for every remaining participant.
       for (const id of available) {
         const actor = next.actors.find((row) => row.id === id);
-        phase.rows.push({ eventId: 'system-rest', title: '잠시 휴식', outcome: '휴식', text: actor.name + '은 주변을 살피며 조용히 휴식한다.',
+        const rest = actor.hungerTraits.includes('mechanical') ? '{actor}은 주변을 감시하며 절전 모드로 대기한다.'
+          : actor.hungerTraits.includes('elemental_body') ? '{actor}은 몸을 이루는 기운을 안정시키며 휴식한다.'
+            : '{actor}은 주변을 살피며 조용히 휴식한다.';
+        phase.rows.push({ eventId: 'system-rest', title: '잠시 휴식', outcome: '휴식', text: renderHungerText(rest, { actor }),
           participants: [{ id, name: actor.name, role: 'actor' }], effects: [] });
       }
       available.clear();
@@ -244,9 +300,9 @@ export function advanceHungerRun(state) {
   return next;
 }
 
-export function replayHungerRun(config, phases) {
+export function replayHungerRun(config, phases, rulesVersion) {
   if (!Number.isInteger(phases) || phases < 0 || phases > 120) throw new Error('저장된 진행 수가 올바르지 않습니다.');
-  let run = createHungerRun(config);
+  let run = createHungerRun(config, rulesVersion);
   for (let index = 0; index < phases; index += 1) {
     if (run.finished) throw new Error('경기 종료 이후의 진행 기록은 불러올 수 없습니다.');
     run = advanceHungerRun(run);

@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { HUNGER_LABELS } from '../_lib/hungerGameContract.js';
 import { hungerTraitLabel } from '../../../utils/hungerTraits.js';
+import { hungerEffectLabel } from '../_lib/hungerGameText.js';
 import styles from '../HungerGames.module.css';
 
 function Portrait({ actor, size = 48 }) {
@@ -32,7 +33,7 @@ export default function HungerRunViewer({ run, viewIndex, onViewIndex }) {
           {phase?.rows.map((row) => <article className={row.effects.some((effect) => effect.type === 'death') ? styles.deathEvent : styles.storyEvent} key={row.id}>
             <div className={styles.portraits}>{row.participants.map((participant) => <div key={participant.id}><Portrait actor={actorById.get(participant.id)} /><small>{participant.name}</small></div>)}</div>
             <p>{row.text}</p>
-            <div className={styles.badges}><span>{row.title}</span>{row.effects.map((effect, effectIndex) => <span key={effectIndex}>{effect.actorName} · {HUNGER_LABELS[effect.type]}{effect.item ? ' (' + effect.item + ')' : ''}</span>)}</div>
+            <div className={styles.badges}><span>{row.title}</span>{row.effects.map((effect, effectIndex) => <span key={effectIndex}>{effect.actorName} · {hungerEffectLabel(actorById.get(effect.actorId), effect.type)}{effect.item ? ' (' + effect.item + ')' : ''}</span>)}</div>
           </article>)}
         </div>
       </section>
@@ -40,11 +41,11 @@ export default function HungerRunViewer({ run, viewIndex, onViewIndex }) {
         <h2>현재 생존자 {alive.length} / {run.actors.length}</h2>
         <p className={styles.note}>이전 기록을 읽어도 참가자 상태는 현재 경기 기준입니다.</p>
         <div className={styles.survivors}>{run.actors.map((actor) => <details className={actor.alive ? styles.survivor : styles.eliminated} key={actor.id}>
-          <summary><Portrait actor={actor} size={36} /><strong>{actor.name}</strong><span>{actor.alive ? actor.injured ? '부상' : '생존' : '사망'}</span></summary>
+          <summary><Portrait actor={actor} size={36} /><strong>{actor.name}</strong><span>{actor.alive ? actor.injured ? hungerEffectLabel(actor, 'injure') : '생존' : hungerEffectLabel(actor, 'death')}</span></summary>
           <p>처치 {actor.kills} · {actor.teamId ? '팀 ' + actor.teamId : '개인 참가'}</p>
           <p>{actor.hungerTraits.length ? actor.hungerTraits.map(hungerTraitLabel).join(', ') : '일반 참가자'}</p>
           <p>아이템: {actor.items.join(', ') || '없음'}</p>
-          {actor.death ? <p>사망 원인: {HUNGER_LABELS[actor.death.cause]}</p> : null}
+          {actor.death ? <p>탈락 원인: {HUNGER_LABELS[actor.death.cause]}</p> : null}
         </details>)}</div>
         {run.relationships.length ? <details className={styles.group}><summary>동맹·적대 관계</summary>{run.relationships.map((relation, relationIndex) => <p key={relationIndex}>{actorById.get(relation.leftId)?.name} · {HUNGER_LABELS[relation.kind]} · {actorById.get(relation.rightId)?.name}</p>)}</details> : null}
       </aside>
