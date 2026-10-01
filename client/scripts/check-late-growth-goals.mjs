@@ -18,6 +18,7 @@ const { buildTeamMovementPlans } = await import('../src/app/simulation/_lib/team
 const { runActorMovementDecisionPhase } = await import('../src/app/simulation/_lib/phaseActorMovementRuntime.js');
 const { chooseAiMoveTargets } = await import('../src/app/simulation/_lib/aiMoveTargetRuntime.js');
 const { countMissingSpecialNeed } = await import('../src/app/simulation/_lib/aiKioskSpecialItemsRuntime.js');
+const { getLateGrowthTargets } = await import('../src/app/simulation/_lib/lateGrowthTargetRuntime.js');
 
 // HF2/HF6 focused acceptance gate, separate from the equipment-effect release.
 // These are authored fixture recipes, not invented Eternal Return item stats.
@@ -289,6 +290,61 @@ await check('the procurement boundary does not subtract already-held rare materi
   const goal = getActorGrowthCraftGoal(who, catalog);
   assert.equal(countMissingSpecialNeed(goal.missing, 'mithril'), 2, 'procurement expects total requirement minus actual held quantity');
   assert.deepEqual(who._growthPlan, before);
+});
+
+function weaponGrowthFixture({ actorWeapon = '단검', equipmentWeapon = actorWeapon, wrongTier = 6, authored = false } = {}) {
+  const base = { ...hero, _id: 'late-weapon-base', itemKey: 'late-weapon-base-key', name: '호환 영웅 무기',
+    type: '무기', equipSlot: 'weapon', weaponType: equipmentWeapon, stats: { attack: 10 } };
+  const wrong = { ...base, _id: 'late-unusable-weapon', itemKey: 'late-unusable-weapon-key', name: '사용 불가 전리품',
+    weaponType: '활', tier: wrongTier };
+  const upgrade = { ...base, _id: 'late-weapon-upgrade', itemKey: 'late-weapon-upgrade-key', name: '호환 전설 무기',
+    tier: 5, stats: { attack: 15 },
+    recipe: { ingredients: [{ itemId: base._id, qty: 1 }, { itemId: cloth._id, qty: 1 }], creditsCost: 3 } };
+  const armor = ['head', 'clothes', 'arm', 'shoes'].map(slot => ({ ...hero,
+    _id: `late-weapon-${slot}`, itemKey: `late-weapon-${slot}-key`, equipSlot: slot }));
+  const who = actor();
+  who.weaponType = actorWeapon;
+  who.routePlanTargetItemIds = [base, ...armor].map(item => item._id);
+  who.goalLoadouts = authored ? { legend: { weaponKey: upgrade.itemKey } } : {};
+  who.inventory = [base, wrong, ...armor, cloth].map(item => ({ ...structuredClone(item), itemId: item._id, qty: 1 }));
+  who.equipped = Object.fromEntries([base, ...armor].map(item => [item.equipSlot, item._id]));
+  return { who, base, wrong, upgrade, catalog: [cloth, base, wrong, upgrade, ...armor] };
+}
+
+await check('unusable legendary and transcend loot cannot suppress a real late weapon upgrade', () => {
+  for (const wrongTier of [5, 6]) for (const authored of [false, true]) {
+    const { who, base, upgrade, catalog } = weaponGrowthFixture({ wrongTier, authored });
+    const before = structuredClone(who);
+    assert.deepEqual(getLateGrowthTargets(who, catalog).targets.map(item => item._id), [upgrade._id]);
+    assert.deepEqual(who, before, 'late target discovery must remain read-only');
+    const plan = refreshActorGrowthPlan(who, catalog, world);
+    assert.equal(plan.openingComplete, true); assert.equal(plan.targetId, upgrade._id);
+    assert.equal(getActorGrowthObservation(who, catalog).targetId, upgrade._id);
+    const result = tryAutoCraftFromInventory(who, catalog, buildItemNameById(catalog), buildItemMetaById(catalog), 3, 4, ruleset);
+    assert.equal(result?.craftedId, upgrade._id);
+    assert.deepEqual(result.receipt.consumed, [{ itemId: base._id, qty: 1 }, { itemId: cloth._id, qty: 1 }]);
+    assert.equal(result.receipt.paidCost, 3); assert.equal(who.simCredits, 17);
+    assert.equal(who.equipped.weapon, upgrade._id);
+    assert.equal(invQty(who.inventory, base._id), 0); assert.equal(invQty(who.inventory, cloth._id), 0);
+  }
+});
+
+await check('late weapon readiness uses the same extended equipment families as crafting and equipping', () => {
+  for (const [actorWeapon, equipmentWeapon] of [['유탄발사기', '권총'], ['기관단총', '돌격소총'], ['철퇴', '망치']]) {
+    const { who, upgrade, catalog } = weaponGrowthFixture({ actorWeapon, equipmentWeapon });
+    assert.equal(refreshActorGrowthPlan(who, catalog, world).targetId, upgrade._id);
+    const result = tryAutoCraftFromInventory(who, catalog, buildItemNameById(catalog), buildItemMetaById(catalog), 3, 4, ruleset);
+    assert.equal(result?.craftedId, upgrade._id); assert.equal(who.equipped.weapon, upgrade._id);
+  }
+});
+
+await check('a usable transcend weapon still prevents downgrading to an authored legendary weapon', () => {
+  const { who, wrong, catalog } = weaponGrowthFixture({ authored: true });
+  const held = who.inventory.find(item => item.itemId === wrong._id);
+  held.weaponType = who.weaponType;
+  who.equipped.weapon = wrong._id;
+  assert.deepEqual(getLateGrowthTargets(who, catalog).targets, []);
+  assert.equal(buildActorGrowthPlan(who, catalog, world).targetId, '');
 });
 
 console.log(`LATE_GROWTH_GOAL_CHECKS ${passed}/${passed + failed}`);

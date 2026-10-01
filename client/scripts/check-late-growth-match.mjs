@@ -27,7 +27,7 @@ for (const actor of fixture.survivors.filter(actor => participants.has(actor._id
 // balance. Do not grant ingredients, credits, equipment, movement or immunity.
 const input = createSimulationRunInput({ activeMap: fixture.map, settings: fixture.settings,
   survivors: fixture.survivors, publicItems: fixture.items, runSeed: fixture.runSeed }, { getItem: () => null });
-const inputBefore = JSON.stringify(input), counts = {}, equipped = {}, lateViews = new Set();
+const inputBefore = JSON.stringify(input), counts = {}, equipped = {}, lateViews = new Set(), craftViews = new Set();
 let cursor = 0, apiCalls = 0;
 const fetchBefore = globalThis.fetch;
 globalThis.fetch = () => { apiCalls++; throw new Error('Late growth must not require an account call'); };
@@ -40,6 +40,12 @@ try {
       assert.equal(event.beforeCredits - event.afterCredits, 3);
       assert.deepEqual(event.consumed, recipe.ingredients);
       counts[event.itemId] = (counts[event.itemId] || 0) + 1;
+      const actor = [...frame.survivors, ...frame.dead].find(row => row._id === event.who);
+      const observer = buildTeamObserverModel({ ...frame, settings: input.settings, forbiddenIds: frame.forbiddenZoneIds,
+        publicItems, events, teamId: actor.teamId });
+      if (observer.recent.some(row => row.kind === 'craft' && row.sec === event.at.sec && row.text.includes(event.itemName))) {
+        craftViews.add(event.itemId);
+      }
     }
     for (const actor of frame.survivors.filter(row => participants.has(row._id))) {
       for (const item of getCombatEquipment(actor).filter(item => authored.some(row => row._id === item.itemId))) {
@@ -57,9 +63,13 @@ try {
     assert.ok(counts[item._id] > 0, `real ${item.name} crafting missing: ${JSON.stringify(counts)}`);
     assert.ok(equipped[item._id] > 0, `real ${item.name} equipment missing`);
   }
-  for (const item of [legend, transcend]) assert.ok(lateViews.has(item._id), `observer missed ${item.name}`);
+  // A ready upgrade may be side-crafted while the planner fills other basic
+  // slots. It must be visible as a real receipt, not a fabricated active goal.
+  // Missing-input goals remain covered by the focused late-growth checks.
+  for (const item of [legend, transcend]) assert.ok(lateViews.has(item._id) || craftViews.has(item._id),
+    `observer missed both the chosen goal and actual receipt for ${item.name}`);
   console.log(`LATE_GROWTH_MATCH_ORIGINAL ${JSON.stringify({ engine: SIMULATION_ENGINE_VERSION, counts, equipped,
-    lateViews: [...lateViews], evidence: original.evidence })}`);
+    lateViews: [...lateViews], craftViews: [...craftViews], evidence: original.evidence })}`);
   const replay = await runRandomIsolationMatch(null, { savedInput: JSON.parse(inputBefore), noisy: true });
   const comparable = result => ({ events: result.events, finalFrame: result.finalFrame, random: result.evidence.random,
     summary: { ending: result.evidence.ending } });

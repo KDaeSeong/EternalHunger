@@ -19,6 +19,7 @@ const { getLateGrowthTargets } = await import('../src/app/simulation/_lib/lateGr
 const { buildItemMetaById, buildItemNameById } = await import('../src/app/simulation/_lib/itemOptionsRuntime.js');
 const { invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
 import seedNormalization from '../../server/utils/defaultItemTreeNormalization.js';
+import { withSimulationRandom } from '../src/utils/simulationRandom.js';
 
 const ruleset = getRuleset('ER_S11');
 const catalog = structuredClone(GUEST_ITEM_CATALOG);
@@ -143,11 +144,13 @@ await check('opening farm time ignores PvP power and head-count threats while ni
   const items = [material('raw'), gear('helmet', 'head')];
   const actor = human('farmer', 'a', { routePlanTargetItemIds: ['helmet'] });
   const enemies = [1, 2, 3].map((id) => human(`enemy${id}`, 'b'));
-  const move = (nextPhase, extra = {}) => runActorMovementDecisionPhase({ state: {
+  // Exercise the selected movement branch, not the separately configurable
+  // escape roll. Host Math.random must not make this regression intermittent.
+  const move = (nextPhase, extra = {}) => withSimulationRandom(() => 0, () => runActorMovementDecisionPhase({ state: {
     ...world, actor: structuredClone(actor), phaseSurvivors: structuredClone([actor, ...enemies]),
     publicItems: items, craftables: items, itemMetaById: buildItemMetaById(items), itemNameById: buildItemNameById(items),
     itemKeyById: {}, kiosks: [], zones: world.mapObj.zones, nextDay: 1, nextPhase, ...extra,
-  } });
+  } }));
   assert.equal(buildPvpPhaseRuntime({ nextDay: 1, nextPhase: 'morning' }).battleProb, 0);
   const opening = move('morning');
   assert.equal(opening.fleeInterruptReason, ''); assert.equal(opening.moveReason, 'growth_farm');
@@ -194,15 +197,20 @@ await check('missing-mode seeding repairs only starter metadata through both ser
   const calls = [];
   const fakeItem = { find: async () => [existing], bulkWrite: async (ops) => { calls.push(...ops); } };
   const require = createRequire(import.meta.url);
+  const seedPath = require.resolve('../../server/utils/defaultItemTree.js');
   const originalLoad = Module._load;
-  let seed;
+  let seed, modelStubLoads = 0;
   try {
     Module._load = function (request, parent, isMain) {
-      if (request === '../models/Item' && parent?.filename.endsWith('/server/utils/defaultItemTree.js')) return fakeItem;
+      if (request === '../models/Item' && parent?.filename === seedPath) {
+        modelStubLoads++;
+        return fakeItem;
+      }
       return originalLoad.call(this, request, parent, isMain);
     };
-    seed = require('../../server/utils/defaultItemTree.js');
+    seed = require(seedPath);
   } finally { Module._load = originalLoad; }
+  assert.equal(modelStubLoads, 1, 'The seed regression must use its fake Item model, never a real database.');
   const offset = seed.DEFAULT_ITEM_TREE.findIndex((item) => item.key === existing.itemKey);
   await seed.upsertDefaultItemTreeBatch({ mode: 'missing', offset, limit: 1 });
   assert.deepEqual(calls[0], { updateOne: { filter: { _id: existing._id },
