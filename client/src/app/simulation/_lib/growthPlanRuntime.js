@@ -116,7 +116,7 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
 function planGrowthTarget(actor, items, target, base, { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, distances }, strictSources = false) {
   const byId = indexCatalog(items);
   base = { ...base, targetId: String(target._id), targetKey: target.itemKey || target.externalId || String(target._id),
-    targetSlot: inferEquipSlot(target), targetName: target.name || '',
+    targetSlot: inferEquipSlot(target), targetTier: Number(target.tier) || 0, targetName: target.name || '',
     targetIds: [...new Set([...base.targetIds, String(target._id)])] };
   Object.assign(base, getGrowthRecipeWork(actor, items, target._id, { ruleset, targetIds: base.targetIds }));
   let hasUnsafeSource = false;
@@ -163,7 +163,7 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
   const base = { targetIds: openingComplete ? [] : progress.targets.map((item) => String(item._id)),
     completedSlots: progress.completedSlots, totalSlots: progress.totalSlots, openingComplete,
     stage: openingComplete ? 'late' : 'opening', goalIssues: late.issues,
-    targetId: '', targetKey: '', targetSlot: '', targetName: '', craftIds: [], missing: [],
+    targetId: '', targetKey: '', targetSlot: '', targetTier: 0, targetName: '', craftIds: [], missing: [],
     reservedQtyById: {}, componentIds: [], readyCraftId: '', currentZoneItemIds: [],
     targetZoneId: '', nextStep: '', blocked: '' };
   const current = String(actor.zoneId || '');
@@ -207,7 +207,9 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
     || a.plan.targetId.localeCompare(b.plan.targetId));
   if (recovery.length) return recovery[0].plan;
   if (viable) return viable;
-  if (plans.length) return plans.at(-1);
+  // A late recipe's missing field source may still be supplied by a core or
+  // boss. Preserve its ranked need; retain opening capacity-replanning order.
+  if (plans.length) return openingComplete ? plans[0] : plans.at(-1);
   return progress.targets.length || late.issues.length ? base : null;
 }
 

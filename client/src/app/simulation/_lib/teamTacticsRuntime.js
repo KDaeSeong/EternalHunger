@@ -134,6 +134,7 @@ export function buildTeamCoordination({
     if (!groups.has(teamId)) groups.set(teamId, []);
     groups.get(teamId).push(actor);
   }
+  const destinationDepth = Math.max(1, Object.keys(zoneGraph).length);
   for (const members of groups.values()) {
     if (members.length < 2) continue;
     const managedGrowth = members.some((row) => row._growthPlan);
@@ -188,7 +189,7 @@ export function buildTeamCoordination({
       && !assessTeamCombat(leader, roster, { estimatePower, minRatio: Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.4) }).shouldAvoid
       ? chooseTeamResourceMove({ members: ordered, spawnState, ruleset, publicItems,
         routeForZone: (targetZoneId) => pickTeamSafeZone(leader, roster, zoneGraph, forbiddenIds,
-          { estimatePower, maxDepth, targetZoneId, travelParty: members }) }) : null;
+          { estimatePower, maxDepth: destinationDepth, targetZoneId, travelParty: members }) }) : null;
     const proposed = grouped && !rotationWaiting ? teamResource || chooseLeaderMove(leader) : null;
     const target = grouped && !rotationWaiting ? (proposed?.targets || []).find((zone) => !forbiddenIds.has(String(zone))) : rallyZone;
     if (!target) continue;
@@ -212,7 +213,9 @@ export function buildTeamCoordination({
       }
       // Recovery/forbidden-area escape are higher priorities at execution time.
       const route = pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds, {
-        estimatePower, maxDepth: grouped ? maxDepth : Math.max(1, Object.keys(zoneGraph).length),
+        // A concrete spawned recipe source, like a rally, is a known destination.
+        // Nearby retreat/wandering searches retain their configured depth.
+        estimatePower, maxDepth: !grouped || teamResource ? destinationDepth : maxDepth,
         targetZoneId: target, enemyFree: !grouped, travelParty: grouped ? members : [],
       });
       if (separated) {

@@ -233,12 +233,18 @@ check('an enemy or forbidden gas station cannot pull the lone member into that u
 });
 
 const RAW = 'control:hospital-part', HAT = 'control:custom-head';
-const unfinishedControl = (hasSource = true) => {
+const unfinishedControl = (hasSource = true, { emptyField = false } = {}) => {
   const raw = { _id: RAW, name: '통제용 머리 장비 부품', type: '재료', category: 'material', tier: 1,
     spawnZones: hasSource ? [HOSPITAL] : [], recipe: { ingredients: [] } };
   const hat = { _id: HAT, name: '통제용 커스텀 머리 장비', type: '방어구', category: 'equipment',
     equipSlot: 'head', tier: 4, recipe: { ingredients: [{ itemId: RAW, qty: 1 }] } };
-  const world = makeWorld([...fixture.items, raw, hat]), squad = preparedSquad(world), actor = squad[0];
+  const world = makeWorld([...fixture.items, raw, hat]);
+  // Explicit depleted-world input: unlike a missing custom source, this leaves
+  // no real fallback recipe supply. Keep the shared-stock ledger consistent.
+  if (emptyField) for (const stock of Object.values(world.nextSpawn.fieldResources.byZone)) {
+    for (const source of Object.values(stock)) { source.remaining = 0; source.taken = source.initial; }
+  }
+  const squad = preparedSquad(world), actor = squad[0];
   actor.routePlanTargetItemIds = actor.routePlanTargetItemIds.map((id) => inferEquipSlot(world.itemMetaById[id]) === 'head' ? HAT : id);
   actor.inventory = actor.inventory.filter((item) => inferEquipSlot(item) !== 'head');
   actor._growthFocusId = HAT;
@@ -279,8 +285,24 @@ check('the empty custom slot is filled by a paid recipe, and escort plans use th
   assert.equal(result.events.filter((event) => event.kind === 'move' && event.reason === 'team_regroup').length, 2);
 });
 
-check('a custom recipe with no source stays visibly incomplete and never invents equipment to enable regroup', () => {
-  const { world, squad } = unfinishedControl(false), actor = squad[0];
+check('a missing custom source can choose a real obtainable basic recipe without inventing its output', () => {
+  const { world, squad } = unfinishedControl(false), actor = squad[0], plan = actor._growthPlan;
+  assert.equal(plan.stage, 'recovery'); assert.equal(plan.blocked, '');
+  assert.notEqual(plan.targetId, HAT); assert.equal(plan.targetSlot, 'head');
+  const target = world.publicItems.find((item) => String(item._id) === plan.targetId);
+  assert.ok(target?.recipe?.ingredients?.length);
+  assert.ok(plan.missing.length > 0);
+  assert.ok(plan.missing.every((row) => row.zones.length && row.zones.reduce((sum, zoneId) =>
+    sum + getFieldResourceQty(world.nextSpawn.fieldResources, zoneId, row.itemId), 0) >= row.need));
+  assert.equal(invQty(actor.inventory, plan.targetId), 0); assert.equal(invQty(actor.inventory, HAT), 0);
+  assert.equal(invQty(actor.inventory, RAW), 0); assert.equal(actor.equipped.head, null);
+  assert.equal(getActorGrowthProgress(actor, world.publicItems).completedSlots, 4);
+});
+
+check('with neither a custom source nor fallback stock, the slot stays incomplete and no equipment is invented for regroup', () => {
+  const { world, squad } = unfinishedControl(false, { emptyField: true }), actor = squad[0];
+  assert.ok(Object.values(world.nextSpawn.fieldResources.byZone).every((stock) =>
+    Object.values(stock).every((source) => source.remaining === 0 && source.taken === source.initial)));
   assert.equal(actor._growthPlan.blocked, 'no_material_source');
   assert.equal(getFieldResourceQty(world.nextSpawn.fieldResources, HOSPITAL, RAW), 0);
   const result = tick(squad, world, 400), lone = result.updatedSurvivors[0];
@@ -288,7 +310,7 @@ check('a custom recipe with no source stays visibly incomplete and never invents
   assert.equal(invQty(lone.inventory, HAT), 0); assert.equal(invQty(lone.inventory, RAW), 0);
   assert.equal(getActorGrowthProgress(lone, world.publicItems).completedSlots, 4);
   assert.equal(lone._growthPlan.blocked, 'no_material_source');
-  assert.equal(result.events.some((event) => event.kind === 'craft' && event.itemId === HAT), false);
+  assert.equal(result.events.some((event) => event.kind === 'craft'), false);
 });
 
 console.log(`LUMIA_REGROUP_CONTROL_CHECKS ${checks}/${checks}`);

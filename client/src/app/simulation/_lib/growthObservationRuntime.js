@@ -3,6 +3,8 @@ import { getFieldResourceQty } from './fieldResourceRuntime.js';
 import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 import { procurementFailureText } from './procurementTransactionRuntime.js';
 import { prepareCraftTransaction, craftFailureText } from './craftTransactionRuntime.js';
+import { getActorEquipmentTier } from './growthEquipmentRuntime.js';
+import { inferEquipSlot } from './inventoryRules.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 export const PROCUREMENT_LABELS = Object.freeze({ kioskBuy: '키오스크 구매', kioskExchange: '키오스크 교환', kioskSell: '키오스크 판매', droneOrder: '드론 주문' });
@@ -27,6 +29,9 @@ export function getActorGrowthObservation(actor, items, { progress = getActorGro
   if (!plan) return { ...empty, status: 'unplanned', label: '성장 목표 선택 대기' };
   const target = (['late', 'recovery'].includes(plan.stage) ? items : progress.remaining).find((item) => String(item._id) === String(plan.targetId));
   if (!target) return { ...empty, status: 'replanning', label: '현재 목표 확보 · 다음 성장 판단 대기' };
+  if (getActorEquipmentTier(actor, inferEquipSlot(target)) > Number(target.tier)) {
+    return { ...empty, status: 'replanning', label: '상위 장비 확보 · 다음 성장 판단 대기' };
+  }
   const work = getGrowthRecipeWork(actor, items, target._id, { ruleset, targetIds: plan.targetIds });
   if (!work.craftIds.length && !work.missing.length && !work.blocked) return { ...empty, status: 'replanning', label: '현재 목표 확보 · 다음 성장 판단 대기' };
   const missing = work.missing.slice(0, 3).map((row) => `${row.name} ${row.need}개`).join(' · ');

@@ -10,6 +10,9 @@ const { getCombatEquipment } = await import('../src/utils/battleEquipmentLogic.j
 const { normalizeInventory, invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
 const { autoEquipBest } = await import('../src/app/simulation/_lib/gearFallbackRuntime.js');
 const { tryAutoCraftFromInventory } = await import('../src/app/simulation/_lib/gearInventoryCraftRuntime.js');
+const { tryAutoCraftFromLoot } = await import('../src/app/simulation/_lib/craftRuntime.js');
+const { tryImmediateCraftFromSpecial } = await import('../src/app/simulation/_lib/gearImmediateSpecialCraftRuntime.js');
+const { getLootCraftOptions } = await import('../src/app/simulation/_lib/runEventRuntime.js');
 const { createFieldResources } = await import('../src/app/simulation/_lib/fieldResourceRuntime.js');
 const { runRouteFarmAction } = await import('../src/app/simulation/_lib/phaseRouteFarmRuntime.js');
 const { applyLootCraftResult } = await import('../src/app/simulation/_lib/lootCraftResultRuntime.js');
@@ -115,6 +118,83 @@ await check('authored choices and automatic upgrades are independent of catalog 
     assert.equal(buildActorGrowthPlan(actor(), catalog, world).targetId, selected._id);
     const who = actor(); who.goalLoadouts = {};
     assert.equal(buildActorGrowthPlan(who, catalog, world).targetId, other._id);
+  }
+});
+
+await check('missing field supply cannot replace an authored legendary need with the last automatic transcend recipe', () => {
+  const who = actor();
+  const auto = { ...other, _id: 'late-auto-transcend', itemKey: 'late-auto-transcend-key', tier: 6 };
+  const catalog = [{ ...cloth, spawnZones: [] }, { ...stone, spawnZones: [] }, hero, selected, auto];
+  const plan = refreshActorGrowthPlan(who, catalog, world);
+  assert.equal(plan.targetId, selected._id); assert.equal(plan.blocked, 'no_material_source');
+  assert.equal(getActorGrowthObservation(who, catalog).targetId, selected._id);
+});
+
+await check('side crafting preserves the sole worn base until the missing input arrives for the selected recipe', () => {
+  const who = actor(), catalog = [{ ...cloth, spawnZones: [] }, stone, hero, other, selected];
+  who.inventory.push({ ...structuredClone(stone), itemId: stone._id, qty: 1 });
+  assert.equal(refreshActorGrowthPlan(who, catalog, world).blocked, 'no_material_source');
+  const before = possessions(who);
+  assert.equal(tryAutoCraftFromInventory(who, catalog, buildItemNameById(catalog), buildItemMetaById(catalog), 3, 4, ruleset), null);
+  assert.deepEqual(possessions(who), before);
+  who.inventory.push({ ...structuredClone(cloth), itemId: cloth._id, qty: 1 });
+  refreshActorGrowthPlan(who, catalog, world);
+  const chosen = tryAutoCraftFromInventory(who, catalog, buildItemNameById(catalog), buildItemMetaById(catalog), 3, 5, ruleset);
+  assert.equal(chosen.craftedId, selected._id); assert.equal(who.equipped.head, selected._id);
+  assert.equal(invQty(who.inventory, hero._id), 0); assert.equal(invQty(who.inventory, cloth._id), 0);
+  assert.equal(who.simCredits, 17); assert.equal(invQty(who.inventory, stone._id), 1);
+});
+
+await check('an unrelated same-slot recipe cannot replace a reserved worn base without consuming it as an ingredient', () => {
+  const alternative = { ...other, _id: 'late-independent-head', itemKey: 'late-independent-head-key',
+    recipe: { ingredients: [{ itemId: stone._id, qty: 1 }], creditsCost: 3 } };
+  const meteor = { ...stone, name: '운석', spawnZones: [] };
+  for (const reversed of [false, true]) {
+    const who = actor();
+    const catalog = [{ ...cloth, spawnZones: [] }, meteor, hero, selected, alternative];
+    if (reversed) catalog.reverse();
+    who.inventory.push({ ...structuredClone(meteor), itemId: meteor._id, qty: 1 });
+    assert.equal(refreshActorGrowthPlan(who, catalog, world).targetId, selected._id);
+    assert.equal(who._growthPlan.blocked, 'no_material_source');
+    const before = possessions(who);
+    assert.equal(tryAutoCraftFromLoot(who.inventory, meteor._id, catalog, buildItemNameById(catalog),
+      buildItemMetaById(catalog), 3, ruleset, getLootCraftOptions(who)), null);
+    assert.equal(tryImmediateCraftFromSpecial(who, 'meteor', meteor._id, catalog, buildItemNameById(catalog),
+      buildItemMetaById(catalog), 3, 'morning', 4, ruleset).changed, false);
+    assert.equal(tryAutoCraftFromInventory(who, catalog, buildItemNameById(catalog), buildItemMetaById(catalog), 3, 4, ruleset), null);
+    assert.deepEqual(possessions(who), before, 'slot replacement must preserve the reserved base, raw material and credits');
+    who.inventory.push({ ...structuredClone(cloth), itemId: cloth._id, qty: 1 });
+    refreshActorGrowthPlan(who, catalog, world);
+    const result = tryAutoCraftFromInventory(who, catalog, buildItemNameById(catalog), buildItemMetaById(catalog), 3, 5, ruleset);
+    assert.equal(result.craftedId, selected._id); assert.equal(who.equipped.head, selected._id);
+    assert.equal(invQty(who.inventory, alternative._id), 0); assert.equal(invQty(who.inventory, hero._id), 0);
+    assert.equal(invQty(who.inventory, stone._id), 1); assert.equal(who.simCredits, 17);
+    assert.deepEqual(result.receipt.consumed, [{ itemId: hero._id, qty: 1 }, { itemId: cloth._id, qty: 1 }]);
+  }
+});
+
+await check('a newly available higher-tier recipe can supersede a blocked legendary need with real inputs and payment', () => {
+  const blood = { ...stone, name: 'VF 혈액 샘플', spawnZones: [], tier: 4 };
+  const upgrade = { ...other, _id: 'late-superseding-head', itemKey: 'late-superseding-head-key', tier: 6 };
+  for (const mode of ['inventory', 'special']) {
+    const who = actor(), catalog = [{ ...cloth, spawnZones: [] }, blood, hero, selected, upgrade];
+    assert.equal(refreshActorGrowthPlan(who, catalog, world).targetId, selected._id);
+    assert.equal(who._growthPlan.blocked, 'no_material_source');
+    who.inventory.push({ ...structuredClone(blood), itemId: blood._id, qty: 1 });
+    const names = buildItemNameById(catalog), meta = buildItemMetaById(catalog);
+    const result = mode === 'special'
+      ? tryImmediateCraftFromSpecial(who, 'vf', blood._id, catalog, names, meta, 4, 'morning', 6, ruleset)
+      : tryAutoCraftFromInventory(who, catalog, names, meta, 4, 6, ruleset);
+    assert.equal(result?.craftedId, upgrade._id, mode); assert.equal(who.equipped.head, upgrade._id);
+    assert.equal(who.simCredits, 17); assert.equal(invQty(who.inventory, selected._id), 0);
+    assert.equal(invQty(who.inventory, hero._id), 0); assert.equal(invQty(who.inventory, blood._id), 0);
+    assert.deepEqual(result.receipt.consumed, [{ itemId: hero._id, qty: 1 }, { itemId: blood._id, qty: 1 }]);
+    const beforeView = structuredClone(who);
+    const view = withSimulationRandom(() => { throw new Error('Observation cannot reroll or replan.'); }, () =>
+      getActorGrowthObservation(who, catalog, { ruleset }));
+    assert.equal(view.targetId, ''); assert.equal(view.status, 'replanning'); assert.match(view.label, /상위 장비 확보/);
+    assert.deepEqual(who, beforeView, 'a completed higher-tier result must disappear from obsolete material demands without mutating the plan');
+    assert.equal(refreshActorGrowthPlan(who, catalog, world).targetId, '', 'a real higher-tier result completes the lower-tier need');
   }
 });
 

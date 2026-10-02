@@ -2,7 +2,7 @@ import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 const { runPhaseActorActionPipeline } = await import('../src/app/simulation/_lib/phaseActorActionPipelineRuntime.js');
 const { refreshActorGrowthPlan } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
-const { buildTeamCoordination } = await import('../src/app/simulation/_lib/teamTacticsRuntime.js');
+const { buildTeamCoordination, pickTeamSafeZone } = await import('../src/app/simulation/_lib/teamTacticsRuntime.js');
 const { chooseAiMoveTargets } = await import('../src/app/simulation/_lib/aiMoveTargetRuntime.js');
 const { getActorGrowthCraftGoal } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
 const { buildItemMetaById, buildItemNameById, buildItemKeyById, buildCraftableItems } = await import('../src/app/simulation/_lib/itemOptionsRuntime.js');
@@ -16,6 +16,9 @@ const { emitSimulationRunEvent } = await import('../src/app/simulation/_lib/logA
 const { pickupSpawnedCore } = await import('../src/app/simulation/_lib/spawnConsumersRuntime.js');
 const { getAvailableMovementObjective, describeMovementObjective } = await import('../src/app/simulation/_lib/movementObjectiveRuntime.js');
 const { buildTeamObserverModel } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
+const { buildGuestSimulationMap } = await import('../src/app/simulation/_lib/guestSimulationBootstrap.js');
+const { buildIsolationNavigation } = await import('./lib/run-random-isolation-match.mjs');
+const { isHyperloopTransit } = await import('../src/app/simulation/_lib/mapGraphRuntime.js');
 
 // Explicit recipe/world inputs, not the unavailable Marcus match or official item stats.
 const hero = { _id: 'team-hero', itemKey: 'team-hero', name: '초기 모자', type: '방어구', category: 'equipment',
@@ -50,11 +53,12 @@ const plan = ({ state, roster }) => buildTeamCoordination({ roster, zoneGraph: s
   isSoloMatch: state.isSoloMatch, estimatePower: () => 100, chooseLeaderMove: (actor) => chooseAiMoveTargets({ actor,
     craftGoal: getActorGrowthCraftGoal(actor, items), mapObj: state.mapObj, spawnState: state.nextSpawn,
     forbiddenIds: state.forbiddenIds, day: state.nextDay, phase: state.nextPhase, ruleset: state.ruleset }) });
-const tick = ({ state, roster }) => {
+const tick = ({ state, roster, navigation }) => {
   const events = [], logs = [];
   const emitRunEvent = (kind, payload, at) => emitSimulationRunEvent({ kind, payload, at,
     actions: { enqueueRunEvent: (event) => events.push(structuredClone(event)) } });
   const actions = { atNow: () => ({ day: state.nextDay, phase: state.nextPhase, sec: state.currentActionSec() }), emitRunEvent,
+    ...(navigation ? { isHyperloopTransit: (from, to) => isHyperloopTransit(navigation.baseGraph, navigation.loops, from, to) } : {}),
     addLog: (message) => logs.push(message),
     emitItemGainIfAny: (...args) => eventActions.emitItemGainIfAny(emitRunEvent, ...args),
     emitObjectiveRunEvent: (...args) => eventActions.emitObjectiveRunEvent(emitRunEvent, ...args),
@@ -218,6 +222,86 @@ check('collecting a rare material cannot bypass a missing recipe payment', () =>
   const result = tick(input), crafter = result.updatedSurvivors.find((actor) => actor._id === 'crafter');
   assert.equal(invQty(crafter.inventory, tree._id), 1); assert.equal(crafter.simCredits, 0);
   assert.equal(crafter.equipped.head, hero._id); assert.equal(invQty(crafter.inventory, rare._id), 0);
+});
+
+function distantLumiaFixture() {
+  const input = fixture(), mapObj = buildGuestSimulationMap();
+  input.navigation = buildIsolationNavigation(mapObj);
+  Object.assign(input.state, { mapObj, zones: input.navigation.zones, zoneGraph: input.navigation.zoneGraph,
+    forbiddenIds: new Set(['gas_station', 'temple', 'stream']) });
+  input.state.nextSpawn.coreNodes = [{ id: 'tree-forest', kind: 'life_tree', zoneId: 'forest', picked: false }];
+  input.state.nextSpawn.fieldResources = createFieldResources(mapObj, items, input.state.ruleset);
+  for (const actor of input.roster) {
+    actor.zoneId = 'alley';
+    refreshActorGrowthPlan(actor, items, input.state);
+  }
+  return input;
+}
+
+check('a real Lumia detour to a spawned recipe ingredient is not limited by nearby retreat search depth', () => {
+  const input = distantLumiaFixture(), before = structuredClone({ roster: input.roster, spawn: input.state.nextSpawn });
+  const safeRoute = pickTeamSafeZone(input.roster[0], input.roster, input.state.zoneGraph, input.state.forbiddenIds,
+    { estimatePower: () => 100, maxDepth: input.state.zones.length, targetZoneId: 'forest', travelParty: input.roster });
+  assert.equal(safeRoute.distance, 4); assert.equal(safeRoute.nextStep, 'police');
+  assert.equal(pickTeamSafeZone(input.roster[0], input.roster, input.state.zoneGraph, input.state.forbiddenIds,
+    { estimatePower: () => 100, maxDepth: 3, targetZoneId: 'forest', travelParty: input.roster }), null,
+  'The nearby retreat policy must retain its separate depth limit.');
+  const result = withSimulationRandom(() => { throw new Error('Safe recipe routing must not draw randomness.'); }, () => plan(input));
+  for (const actor of input.roster) {
+    const move = result.movementPlans.get(actor._id);
+    assert.equal(move?.objective?.beneficiary?.who, 'crafter');
+    assert.equal(move.targetZoneId, 'forest'); assert.equal(move.nextStep, 'police');
+    assert.deepEqual(move.objective.sourceIds, ['tree-forest']);
+  }
+  assert.deepEqual(input.roster, before.roster); assert.deepEqual(input.state.nextSpawn, before.spawn);
+});
+
+check('the four-edge Lumia detour executes as shared adjacent steps before one real pickup and paid craft', () => {
+  const input = distantLumiaFixture(), events = [];
+  let now = 500, steps = 0;
+  while (input.roster[0].zoneId !== 'forest') {
+    assert.ok(++steps <= 4, 'A finite safe recipe route must not become a wandering loop.');
+    const from = input.roster[0].zoneId;
+    const next = pickTeamSafeZone(input.roster[0], input.roster, input.state.zoneGraph, input.state.forbiddenIds,
+      { maxDepth: input.state.zones.length, targetZoneId: 'forest', travelParty: input.roster }).nextStep;
+    input.state.currentActionSec = () => now;
+    const result = tick(input); events.push(...result.events); input.roster = result.updatedSurvivors;
+    assert.ok(input.state.zoneGraph[from].includes(next)); assert.ok(!input.state.forbiddenIds.has(next));
+    assert.ok(input.roster.every(actor => actor.zoneId === next), `The whole team must take ${from} -> ${next}.`);
+    if (next !== 'forest') {
+      assert.equal(input.state.nextSpawn.coreNodes[0].picked, false);
+      assert.equal(events.some(event => event.kind === 'gain' && event.itemId === tree._id), false);
+      assert.ok(input.roster.every(actor => invQty(actor.inventory, rare._id) === 0));
+    }
+    now = Math.max(now + 20, ...input.roster.map(actor => Math.max(actor._growthReadyAtSec || 0, actor._actionReadyAtSec || 0)));
+  }
+  assert.equal(steps, 4);
+  const crafter = input.roster.find(actor => actor._id === 'crafter');
+  assert.equal(crafter.equipped.head, rare._id); assert.equal(crafter.simCredits, 17);
+  assert.equal(invQty(crafter.inventory, hero._id), 0); assert.equal(invQty(crafter.inventory, tree._id), 0);
+  assert.equal(events.filter(event => event.kind === 'gain' && event.itemId === tree._id).length, 1);
+  const receipt = events.find(event => event.kind === 'craft' && event.itemId === rare._id);
+  assert.ok(receipt, JSON.stringify(events.filter(event => ['craft', 'gain'].includes(event.kind))));
+  assert.equal(receipt.paidCost, 3); assert.deepEqual(receipt.consumed, rare.recipe.ingredients);
+  assert.equal(input.state.nextSpawn.coreNodes[0].pickedBy, 'crafter');
+});
+
+check('distant recipe routing still rejects forbidden and overwhelmed paths and replans a spent source', () => {
+  for (const scenario of ['forbidden_path', 'enemy_path', 'spent']) {
+    const input = distantLumiaFixture();
+    if (scenario === 'forbidden_path') input.state.forbiddenIds.add('police');
+    if (scenario === 'enemy_path') for (let i = 0; i < 4; i++) input.roster.push({ ...structuredClone(input.roster[0]),
+      _id: `blocking-enemy-${i}`, teamId: 'blocking-enemies', zoneId: 'police' });
+    if (scenario === 'spent') {
+      const goal = plan(input).movementPlans.get('leader').objective;
+      input.state.nextSpawn.coreNodes[0].picked = true;
+      assert.equal(getAvailableMovementObjective(goal, { spawnState: input.state.nextSpawn }), null);
+    }
+    const result = plan(input);
+    assert.ok(input.roster.filter(actor => actor.teamId === 'team:1').every(actor =>
+      !result.movementPlans.get(actor._id)?.objective?.beneficiary), scenario);
+    assert.equal(input.roster.filter(actor => actor.teamId === 'team:1').reduce((sum, actor) => sum + invQty(actor.inventory, tree._id), 0), 0);
+  }
 });
 
 console.log(`TEAM_RESOURCE_GOAL_CHECKS ${checks}/${checks}`);

@@ -23,7 +23,8 @@ export function getActorEquipmentTier(actor, slot) {
 }
 
 // A focus reserves its ingredients, not the entire crafting catalogue. Ready
-// upgrades in another slot may use surplus; a blocked focus can release it.
+// upgrades in another slot may use surplus; a blocked focus can release it
+// there, but a competing same-slot recipe must preserve its reserved base.
 export function canCraftAlongsideGrowth(actor, item) {
   const plan = actor?._growthPlan;
   if (!plan?.targetId || plan.craftIds?.includes(String(item._id))) return true;
@@ -33,6 +34,14 @@ export function canCraftAlongsideGrowth(actor, item) {
     || (slot === 'weapon' && !areEquipmentWeaponTypesCompatible(actor?.weaponType, item.weaponType))) return false;
   const terms = getCraftRecipeTerms(item);
   if (!terms) return false;
-  return Boolean(plan.blocked) || terms.ingredients.every((row) =>
+  // A real higher-tier result in this slot already fulfills the lower-tier
+  // need. Its transaction still has to supply every ingredient and credit.
+  if (slot === plan.targetSlot && Number(plan.targetTier) > 0 && Number(item.tier) > Number(plan.targetTier)) return true;
+  // Receiving a same-slot upgrade replaces the current non-component item,
+  // even when that item is absent from the upgrade's ingredient list.
+  const replaced = (actor.inventory || []).find((entry) => !entry.craftComponent
+    && inferItemCategory(entry) === 'equipment' && inferEquipSlot(entry) === slot);
+  if (slot === plan.targetSlot && Number(plan.reservedQtyById?.[getInvItemId(replaced)] || 0) > 0) return false;
+  return (Boolean(plan.blocked) && slot !== plan.targetSlot) || terms.ingredients.every((row) =>
     invQty(actor.inventory, row.itemId) - Number(plan.reservedQtyById?.[row.itemId] || 0) >= row.qty);
 }

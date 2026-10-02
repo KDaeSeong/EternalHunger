@@ -332,4 +332,53 @@ await check('a same-region ordinary farming need cannot permanently suppress the
   assert.equal(input.events.filter((event) => event.kind === 'hunt_start' && event.subkind === 'alpha').length, 1);
 });
 
+function distantBossFixture() {
+  const input = fixture();
+  input.state.mapObj = { zones: ['a', 'b', 'c', 'd', 'e'].map(zoneId => ({ zoneId, name: zoneId, hasKiosk: false })) };
+  input.state.zones = input.state.mapObj.zones;
+  input.state.zoneGraph = { a: ['b'], b: ['a', 'c'], c: ['b', 'd'], d: ['c', 'e'], e: ['d'] };
+  input.state.nextSpawn.bosses.alpha.zoneId = 'e';
+  input.state.nextSpawn.fieldResources = createFieldResources(input.state.mapObj, items, input.state.ruleset);
+  for (const actor of input.roster) refreshActorGrowthPlan(actor, items, input.state);
+  return input;
+}
+
+await check('a concrete teammate boss recipe can choose a safe destination beyond the retreat radius', () => {
+  const input = distantBossFixture(), before = structuredClone({ roster: input.roster, spawn: input.state.nextSpawn });
+  const result = withSimulationRandom(() => { throw new Error('Routing cannot pre-roll a boss reward.'); }, () => plan(input));
+  for (const actor of input.roster) {
+    const move = result.movementPlans.get(actor._id);
+    assert.equal(move?.objective?.type, 'boss'); assert.equal(move.objective.subkind, 'alpha');
+    assert.equal(move.targetZoneId, 'e'); assert.equal(move.nextStep, 'b');
+    assert.equal(move.objective.beneficiary.who, 'crafter');
+  }
+  assert.deepEqual(input.roster, before.roster); assert.deepEqual(input.state.nextSpawn, before.spawn);
+});
+
+await check('distant boss travel performs four real moves before combat and single paid teammate crafting', async () => {
+  const input = distantBossFixture();
+  let now = 960;
+  for (const next of ['b', 'c', 'd', 'e']) {
+    tick(input, now);
+    assert.ok(input.roster.every(actor => actor.zoneId === next));
+    assert.equal(input.state.nextSpawn.bosses.alpha.engagedBy, undefined);
+    assert.equal(input.events.some(event => ['hunt_start', 'hunt_exchange', 'hunt_settlement'].includes(event.kind)), false);
+    assert.equal(input.roster.reduce((sum, actor) => sum + invQty(actor.inventory, 'mithril'), 0), 0);
+    now = Math.max(now + 20, ...input.roster.map(actor => Math.max(actor._growthReadyAtSec || 0, actor._actionReadyAtSec || 0)));
+  }
+  tick(input, now);
+  assert.equal(input.events.filter(event => event.kind === 'hunt_start' && event.subkind === 'alpha').length, 1);
+  await fight(input);
+  assert.equal(input.events.filter(event => event.kind === 'hunt_settlement' && event.defeated).length, 1);
+  assert.equal(input.events.filter(event => event.kind === 'gain' && event.itemId === 'mithril').length, 1);
+  assert.equal(input.roster.find(actor => actor._id === 'crafter').equipped.head, 'hat-mithril');
+  const receipts = input.events.filter(event => event.kind === 'craft');
+  const selected = receipts.filter(event => event.itemId === 'hat-mithril');
+  assert.equal(selected.length, 1); assert.equal(selected[0].paidCost, 3);
+  assert.deepEqual(selected[0].consumed, byId['hat-mithril'].recipe.ingredients);
+  assert.equal(input.roster.reduce((sum, actor) => sum + actor.simCredits, 0),
+    60 + 7 - receipts.reduce((sum, event) => sum + event.paidCost, 0),
+    'Account for the real side crafts at the intermediate cloth region as well as the boss recipe.');
+});
+
 console.log(`TEAM_BOSS_GOAL_CHECKS ${checks}/${checks}`);

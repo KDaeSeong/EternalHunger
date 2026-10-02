@@ -13,6 +13,7 @@ import {
   tryImmediateCraftFromSpecial,
 } from './simulationEngine';
 import {
+  emitCraftRunEvent,
   gainText,
   getLootCraftOptions,
   shouldLogItemReceive,
@@ -128,6 +129,7 @@ export function runWorldSpawnPickupPhase({
     const immediateCore = tryImmediateCraftFromSpecial(updated, String(corePickup.kind || ''), String(corePickup.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
     if (immediateCore?.changed) {
       updated.inventory = immediateCore.inventory;
+      emitCraftRunEvent(emitRunEvent, updated._id, immediateCore, atNow(), updated.zoneId);
     }
     (immediateCore?.logs || []).forEach((m) => addLog(String(m), immediateCore.changed ? 'highlight' : 'system'));
     if (Number(immediateCore?.pvpBonus || 0) > 0) {

@@ -85,6 +85,44 @@ await check('assignment is read-only and deterministic, and favors a completable
   assert.deepEqual(input.state.rewardRoster, before);
 });
 
+await check('a later authored transcend recipe receives its earned material despite an earlier blocked legendary goal', () => {
+  const input = fixture('weakline', blood);
+  assert.equal(input.crafter._growthPlan.targetId, recipe(cloth)._id);
+  assert.equal(input.crafter._growthPlan.blocked, 'no_material_source');
+  const before = structuredClone(input.state.rewardRoster);
+  for (const roster of [input.state.rewardRoster, [...input.state.rewardRoster].reverse()]) {
+    const selected = withSimulationRandom(() => { throw new Error('Recipe allocation must not reroll.'); }, () =>
+      chooseBossLootRecipient({ hunter: input.hunter, roster, drop: { item: blood, itemId: blood._id },
+        remaining: 1, publicItems: items, ruleset: input.state.ruleset }));
+    assert.equal(selected?.actor._id, input.crafter._id); assert.equal(selected.targetItemId, recipe(blood)._id);
+    assert.equal(selected.qty, 1); assert.equal(selected.completesRecipe, true);
+  }
+  assert.deepEqual(input.state.rewardRoster, before);
+  input.run();
+  assert.equal(input.crafter.equipped.head, recipe(blood)._id); assert.equal(input.crafter.simCredits, 17);
+  assert.equal(input.hunter.equipped.head, base._id); assert.equal(input.hunter.simCredits, 27);
+  assert.equal(invQty(input.crafter.inventory, base._id), 0); assert.equal(invQty(input.crafter.inventory, blood._id), 0);
+  const gains = input.events.filter((event) => event.kind === 'gain' && event.itemId === blood._id);
+  assert.equal(gains.length, 1); assert.equal(gains[0].who, input.crafter._id);
+  const crafts = input.events.filter((event) => event.kind === 'craft' && event.itemId === recipe(blood)._id);
+  assert.equal(crafts.length, 1); assert.equal(crafts[0].who, input.crafter._id); assert.equal(crafts[0].paidCost, 3);
+  assert.deepEqual(crafts[0].consumed, [{ itemId: base._id, qty: 1 }, { itemId: blood._id, qty: 1 }]);
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement').length, 1);
+});
+
+await check('invalid or already satisfied later choices never manufacture a boss material need', () => {
+  for (const scenario of ['invalid', 'material_owned', 'equipment_owned']) {
+    const input = fixture('weakline', blood);
+    if (scenario === 'invalid') input.crafter.goalLoadouts.transcend.headKey = 'missing-blood-recipe';
+    else input.crafter.inventory.push(held(scenario === 'material_owned' ? blood : recipe(blood)));
+    const before = structuredClone(input.state.rewardRoster);
+    const selected = chooseBossLootRecipient({ hunter: input.hunter, roster: input.state.rewardRoster,
+      drop: { item: blood, itemId: blood._id }, remaining: 1, publicItems: items, ruleset: input.state.ruleset });
+    assert.equal(selected, null, scenario);
+    assert.deepEqual(input.state.rewardRoster, before);
+  }
+});
+
 await check('omega and Wickeline distribute actual force core and blood drops using their recipes', () => {
   for (const [kind, material] of [['omega', force], ['weakline', blood]]) {
     const input = fixture(kind, material); input.run();

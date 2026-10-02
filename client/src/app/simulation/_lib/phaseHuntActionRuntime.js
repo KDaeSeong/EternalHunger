@@ -18,6 +18,7 @@ import {
   tryImmediateCraftFromSpecial,
 } from './simulationEngine';
 import {
+  emitCraftRunEvent,
   gainText,
   getLootCraftOptions,
   shouldLogItemReceive,
@@ -232,6 +233,7 @@ export function runHuntAction({
       const immediate = tryImmediateCraftFromSpecial(recipient, specialKind, String(drop.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
       if (immediate?.changed) {
         recipient.inventory = immediate.inventory;
+        emitCraftRunEvent(emitRunEvent, recipient._id, immediate, atNow(), recipient.zoneId);
       }
       (immediate?.logs || []).forEach((message) => addLog(String(message), immediate.changed ? 'highlight' : 'system'));
       if (Number(immediate?.pvpBonus || 0) > 0) {

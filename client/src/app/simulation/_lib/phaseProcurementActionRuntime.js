@@ -8,6 +8,7 @@ import {
   tryImmediateCraftFromSpecial,
 } from './simulationEngine';
 import {
+  emitCraftRunEvent,
   gainText,
   getLootCraftOptions,
   shouldLogItemReceive,
@@ -121,6 +122,7 @@ export function runProcurementAction({
       const immediateK = tryImmediateCraftFromSpecial(updated, specialKKind, String(kioskAction.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
       if (immediateK?.changed) {
         updated.inventory = immediateK.inventory;
+        emitCraftRunEvent(emitRunEvent, updated._id, immediateK, atNow(), updated.zoneId);
       }
       (immediateK?.logs || []).forEach((message) => addLog(String(message), immediateK.changed ? 'highlight' : 'system'));
       applyImmediateDanger(updated, immediateK, phaseIdxNow);
@@ -147,6 +149,7 @@ export function runProcurementAction({
       const immediateE = tryImmediateCraftFromSpecial(updated, specialEKind, String(kioskAction.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
       if (immediateE?.changed) {
         updated.inventory = immediateE.inventory;
+        emitCraftRunEvent(emitRunEvent, updated._id, immediateE, atNow(), updated.zoneId);
       }
       (immediateE?.logs || []).forEach((message) => addLog(String(message), immediateE.changed ? 'highlight' : 'system'));
       applyImmediateDanger(updated, immediateE, phaseIdxNow);

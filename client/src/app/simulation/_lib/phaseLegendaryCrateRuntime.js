@@ -7,6 +7,7 @@ import {
   tryImmediateCraftFromSpecial,
 } from './simulationEngine';
 import {
+  emitCraftRunEvent,
   gainText,
   getLootCraftOptions,
   shouldLogItemReceive,
@@ -64,6 +65,7 @@ export function openLegendaryCrateForActor({
   const immediate = tryImmediateCraftFromSpecial(updated, specialKind, String(legendary.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
   if (immediate?.changed) {
     updated.inventory = immediate.inventory;
+    emitCraftRunEvent(emitRunEvent, updated._id, immediate, atNow(), updated.zoneId);
   }
   (immediate?.logs || []).forEach((message) => addLog(String(message), immediate.changed ? 'highlight' : 'system'));
   if (Number(immediate?.pvpBonus || 0) > 0) {
@@ -108,6 +110,7 @@ export function openLegendaryCrateForActor({
     const immediateBonus = tryImmediateCraftFromSpecial(updated, bonusKind, String(bonusDrop.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
     if (immediateBonus?.changed) {
       updated.inventory = immediateBonus.inventory;
+      emitCraftRunEvent(emitRunEvent, updated._id, immediateBonus, atNow(), updated.zoneId);
     }
     (immediateBonus?.logs || []).forEach((message) => addLog(String(message), immediateBonus.changed ? 'highlight' : 'system'));
     if (Number(immediateBonus?.pvpBonus || 0) > 0) {
