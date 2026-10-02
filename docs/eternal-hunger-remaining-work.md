@@ -210,6 +210,8 @@ HF3 최신 후속은 `combat-decision-evidence-verification.md`에 기록한다.
 - 결과 예측 안내에서 실제로 지급하지 않는 영구 LP 보상 문구를 제거했다.
 - 팀 관전에 현재 페이즈 핵심 사건을 최대 3개 표시한다. 이미 발생한 제작·회복·후퇴·탈락·부활 기록을 사용하며 같은 종류의 반복 기록을 합친다. 현재 목표와 저체력 보충 설명은 현재 상태임을 구분하고, 미래 기록·다른 팀 기록·허구의 자원 획득을 요약하지 않는다. 관전 요약은 난수나 경기 상태를 변경하지 않는다.
 
-저장 트랜잭션은 MongoDB replica set 또는 sharded cluster를 요구한다. 라우트 회귀 검사는 순차·동시 중복 요청, 계정 분리, 캐릭터·팀 저장 실패의 롤백과 재시도를 다룬다. 실제 모델을 사용하는 별도 검사는 `server/tests/integration/game-save-mongo.mjs`이며 `EH_TEST_MONGO_URI`에 로컬 테스트 replica set 주소를 지정해 실행한다. 이 작업 환경에서는 임시 MongoDB 프로세스가 `open: Operation not permitted`로 시작하지 못했으므로 실제 MongoDB 통합 검사는 통과로 기록하지 않는다.
+저장 트랜잭션은 MongoDB replica set 또는 sharded cluster를 요구한다. 라우트 회귀 검사는 순차·동시 중복 요청, 계정 분리, 캐릭터·팀 저장 실패의 롤백과 재시도를 다룬다. 실제 모델을 사용하는 별도 검사는 `server/tests/integration/game-save-mongo.mjs`이며 `EH_TEST_MONGO_URI`에 로컬 테스트 replica set 주소를 지정해 실행한다. 앞선 환경에서는 임시 MongoDB 프로세스가 `open: Operation not permitted`로 시작하지 못해 실제 MongoDB 통합 검사가 미확인이었다.
+
+2026-10-03에는 Windows의 MongoDB 8.2.3으로 별도 임시 replica set을 시작하고 실제 모델 통합 검사를 실행해 종료 코드 0을 확인했다. 같은 경기의 동시 요청 8개가 한 번만 저장되었고, 의도적으로 팀 전적 쓰기를 실패시킨 뒤 전체 롤백·재시도를 확인했으며, 서로 다른 경기와 이전 형식 결과의 중복 재시도를 포함해 최종 5경기만 저장되었다(`MONGO_GAME_SAVE_CHECKS`: `pass`, `rollback`, `legacyRetry` 모두 `true`). 검사는 만들어 낸 테스트 사용자로 라우트 처리기를 직접 호출한 것이므로 실제 계정 로그인·HTTP 요청·브라우저 저장·전체 커스텀 데이터의 저장 복원 검증으로 간주하지 않는다. 기존 MongoDB 프로세스와 계정 데이터는 변경하지 않았으며, 검사 뒤 임시 데이터베이스·서버·파일을 모두 정리했다.
 
 이 수정과 자동 검사는 위 G1~G5 및 실제 초보 사용자 평가를 대체하지 않는다.
