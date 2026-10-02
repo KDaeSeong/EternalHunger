@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { SESSION_COOKIE, parseCookies } = require('./authPolicy');
 
 function normalizeId(value) {
   const id = String(value || '').trim();
@@ -14,7 +15,10 @@ function getOptionalUserId(req) {
   if (fromRequest) return fromRequest;
 
   const raw = String(req?.headers?.authorization || '').trim();
-  const token = raw.toLowerCase().startsWith('bearer ') ? raw.slice(7).trim() : raw;
+  const headerToken = raw.toLowerCase().startsWith('bearer ') ? raw.slice(7).trim() : raw;
+  // Browser sessions keep their JWT in an HttpOnly cookie, not Authorization.
+  // Keep explicit legacy headers authoritative rather than mixing identities.
+  const token = headerToken || parseCookies(req)[SESSION_COOKIE] || '';
   if (!token || !process.env.MY_SECRET_KEY) return null;
 
   try {

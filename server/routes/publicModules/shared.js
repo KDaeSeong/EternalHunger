@@ -38,6 +38,8 @@ const PUBLIC_ITEM_SELECT = [
   'baseCreditValue',
   'recipe',
   'stats',
+  'consumeEffect',
+  'equipmentEffects',
   'equipSlot',
   'weaponType',
   'archetype',

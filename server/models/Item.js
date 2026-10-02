@@ -193,8 +193,9 @@ ItemSchema.index(
   { ownerUserId: 1, externalId: 1 },
   {
     unique: true,
-    sparse: true,
-    partialFilterExpression: { externalId: { $type: 'string', $ne: '' } }
+    // Partial indexes already exclude missing/empty identities. MongoDB does
+    // not allow combining them with sparse or using $ne in their predicate.
+    partialFilterExpression: { externalId: { $type: 'string', $gt: '' } }
   }
 );
 
@@ -207,7 +208,7 @@ ItemSchema.index(
   {
     unique: true,
     // legacy 문서/빈 문자열 방어
-    partialFilterExpression: { itemKey: { $type: 'string', $ne: '' } }
+    partialFilterExpression: { itemKey: { $type: 'string', $gt: '' } }
   }
 );
 

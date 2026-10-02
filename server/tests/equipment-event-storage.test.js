@@ -6,12 +6,23 @@ const Character = require('../models/Characters');
 const handler = router.stack.find(row => row.route?.path === '/end').route.stack.at(-1).handle;
 
 test('actual account recording handler preserves bounded equipment receipts and damage health', async () => {
-  const before = [Character.findOne, Character.find, GameLog.countDocuments, GameLog.prototype.save];
-  let saved;
+  const before = [Character.findOne, Character.find, GameLog.findOne, GameLog.countDocuments,
+    GameLog.prototype.save, GameLog.db.transaction];
+  const session = { fixture: 'equipment-event-storage' };
+  let saved, transactionCalls = 0;
+  const read = value => ({
+    session(current) { assert.equal(current, session); return Promise.resolve(value); },
+    then(resolve, reject) { return Promise.resolve(value).then(resolve, reject); },
+  });
   Character.findOne = async () => ({ name: '시험 참가자' });
-  Character.find = async () => [];
+  Character.find = () => read([]);
+  GameLog.findOne = () => read(null);
   GameLog.countDocuments = async () => 0;
-  GameLog.prototype.save = async function () { saved = this.toObject(); return this; };
+  GameLog.db.transaction = async run => { transactionCalls += 1; return run(session); };
+  GameLog.prototype.save = async function (options) {
+    assert.equal(options.session, session);
+    saved = this.toObject(); return this;
+  };
   try {
     const at = { day: 1, phase: 'day', sec: 100.8 }, point = { zoneId: 'school', x: 2, y: 3 };
     const event = { kind: 'equipment_effect', effectId: 'a:equipment:1', effectKind: 'rupture', stage: 'triggered',
@@ -25,10 +36,14 @@ test('actual account recording handler preserves bounded equipment receipts and 
     await handler({ user: { id: '222222222222222222222222' }, body: { winnerId: 'a', participants: [],
       runEvents: [event, battle, { kind: 'damage', equipmentEffectId: event.effectId, damage: Infinity, centerPosition: { ...point, x: NaN } }] } }, res);
     assert.equal(res.statusCode, 200);
+    assert.equal(transactionCalls, 1);
     const { unsupported, ...expected } = event;
     assert.deepEqual(saved.runEvents[0], expected);
     assert.deepEqual(saved.runEvents[1], battle);
     assert.equal(Object.hasOwn(saved.runEvents[2], 'damage'), false);
     assert.equal(Object.hasOwn(saved.runEvents[2], 'centerPosition'), false);
-  } finally { [Character.findOne, Character.find, GameLog.countDocuments, GameLog.prototype.save] = before; }
+  } finally {
+    [Character.findOne, Character.find, GameLog.findOne, GameLog.countDocuments,
+      GameLog.prototype.save, GameLog.db.transaction] = before;
+  }
 });
