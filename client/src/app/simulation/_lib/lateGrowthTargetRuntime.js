@@ -60,7 +60,14 @@ export function getLateGrowthTargets(actor, items, { authoredOnly = false } = {}
 export function getActorResourceRecipeTargets(actor, items) {
   const targets = new Map();
   const current = items.find(item => String(item._id) === String(actor?._growthPlan?.targetId || ''));
-  if (current) targets.set(String(current._id), current);
+  // A preceding loot receipt may already have completed a higher-tier result
+  // before the next growth action refreshes the plan. Do not allocate another
+  // scarce material to its obsolete lower-tier focus. The shared tier check
+  // excludes unusable weapons and unworn crafting components; an authored
+  // same-tier alternative or a genuine later recipe keeps its normal claim.
+  const superseded = current && inferItemCategory(current) === 'equipment' && slots.includes(inferEquipSlot(current))
+    && getActorEquipmentTier(actor, inferEquipSlot(current)) > Number(current.tier || 0);
+  if (current && !superseded) targets.set(String(current._id), current);
   if (actor?._growthPlan?.openingComplete) {
     for (const target of getLateGrowthTargets(actor, items, { authoredOnly: true }).targets) {
       targets.set(String(target._id), target);

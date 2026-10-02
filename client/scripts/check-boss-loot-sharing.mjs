@@ -8,6 +8,7 @@ const { getRuleset } = await import('../src/utils/rulesets.js');
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
 const { emitSimulationRunEvent } = await import('../src/app/simulation/_lib/logActionRuntime.js');
 const { chooseBossLootRecipient } = await import('../src/app/simulation/_lib/bossLootRecipientRuntime.js');
+const { getActorResourceRecipeTargets } = await import('../src/app/simulation/_lib/lateGrowthTargetRuntime.js');
 const { runPvpActionLoop } = await import('../src/app/simulation/_lib/phasePvpActionLoopRuntime.js');
 const { runPhaseActorActionPipeline } = await import('../src/app/simulation/_lib/phaseActorActionPipelineRuntime.js');
 const { advanceSpatialMovement } = await import('../src/app/simulation/_lib/combatSpatialRuntime.js');
@@ -55,6 +56,32 @@ const fixture = (kind = 'alpha', material = mithril) => {
     applyLootCraftResult: (row, result) => applyLootCraftResult(row, result, meta) };
   const run = (extra = {}) => withSimulationRandom(() => 0, () => runHuntAction({ state: { ...state, ...extra }, actions }));
   return { hunter, crafter, escort, state, events, logs, actions, run };
+};
+const settleTimedHunt = async (input, { duration = 25, onFirstAdvance = () => {} } = {}) => {
+  let offset = 0, advanced = 0, frames = 0;
+  input.actions.atNow = () => ({ day: 4, phase: 'morning', sec: 600 + offset });
+  const start = input.run({ deferHuntSettlement: true, currentActionSec: () => 600 });
+  assert.equal(start.pending, true);
+  let pending;
+  withSimulationRandom(() => 0.4, () => { pending = runPvpActionLoop({
+    state: { ...input.state, updatedSurvivors: input.state.rewardRoster, phaseSurvivors: input.state.rewardRoster,
+      phaseDurationSec: duration, currentActionSec: () => 600 + offset, getPhaseRuntimeOffsetSec: () => offset,
+      battleSettings: { characterSkillsEnabled: true },
+      ruleset: { ...input.state.ruleset, pvp: { ...input.state.ruleset.pvp, teamCombatEnabled: false } } },
+    actions: { ...input.actions,
+      reserveActionSecond: (seconds) => { offset = Math.min(duration, Math.round((offset + seconds) * 1e6) / 1e6); },
+      advanceWorld: ({ survivorMap, offsetSec }) => {
+        const elapsedSec = Math.max(0, offsetSec - advanced);
+        if (elapsedSec > 0) {
+          advanceSpatialMovement(getWildlifeCombatRoster([...survivorMap.values()]), 600 + advanced, elapsedSec);
+          for (const [id, row] of survivorMap) survivorMap.set(id, updateEffects(row, { elapsedSec, startSec: 600 + advanced }));
+          advanceTimedWildlifeEffects([...survivorMap.values()], { elapsedSec, startSec: 600 + advanced });
+          if (advanced === 0) onFirstAdvance(survivorMap);
+        }
+        advanced = offsetSec;
+      },
+      publishActionFrame: async () => { assert.ok(++frames < 1000); }, shouldEndMatch: () => false } }); });
+  return await pending;
 };
 let checks = 0;
 const check = async (name, run) => { await run(); checks++; console.log(`PASS ${name}`); };
@@ -283,31 +310,12 @@ await check('the legacy actor batch preserves transfers to both already processe
 
 await check('real timed alpha combat settles into the live teammate, not a stale planning copy', async () => {
   for (const scenario of ['present', 'left', 'goal_changed']) {
-    const input = fixture(); let offset = 0, advanced = 0, frames = 0;
-    input.actions.atNow = () => ({ day: 4, phase: 'morning', sec: 600 + offset });
-    const start = input.run({ deferHuntSettlement: true, currentActionSec: () => 600 });
-    assert.equal(start.pending, true); assert.equal(invQty(input.crafter.inventory, mithril._id), 0);
-    let pending;
-    withSimulationRandom(() => 0.4, () => { pending = runPvpActionLoop({
-      state: { ...input.state, updatedSurvivors: input.state.rewardRoster, phaseSurvivors: input.state.rewardRoster,
-        phaseDurationSec: 25, currentActionSec: () => 600 + offset, getPhaseRuntimeOffsetSec: () => offset,
-        battleSettings: { characterSkillsEnabled: true },
-        ruleset: { ...input.state.ruleset, pvp: { ...input.state.ruleset.pvp, teamCombatEnabled: false } } },
-      actions: { ...input.actions,
-        reserveActionSecond: (seconds) => { offset = Math.min(25, Math.round((offset + seconds) * 1e6) / 1e6); },
-        advanceWorld: ({ survivorMap, offsetSec }) => {
-          const elapsedSec = Math.max(0, offsetSec - advanced);
-          if (elapsedSec > 0) {
-            advanceSpatialMovement(getWildlifeCombatRoster([...survivorMap.values()]), 600 + advanced, elapsedSec);
-            for (const [id, row] of survivorMap) survivorMap.set(id, updateEffects(row, { elapsedSec, startSec: 600 + advanced }));
-            advanceTimedWildlifeEffects([...survivorMap.values()], { elapsedSec, startSec: 600 + advanced });
-            if (advanced === 0 && scenario === 'left') survivorMap.get('crafter').zoneId = 'away';
-            if (advanced === 0 && scenario === 'goal_changed') survivorMap.get('crafter').inventory.push(held(mithril));
-          }
-          advanced = offsetSec;
-        },
-        publishActionFrame: async () => { assert.ok(++frames < 1000); }, shouldEndMatch: () => false } }); });
-    const result = await pending;
+    const input = fixture();
+    assert.equal(invQty(input.crafter.inventory, mithril._id), 0);
+    const result = await settleTimedHunt(input, { onFirstAdvance: (survivorMap) => {
+      if (scenario === 'left') survivorMap.get('crafter').zoneId = 'away';
+      if (scenario === 'goal_changed') survivorMap.get('crafter').inventory.push(held(mithril));
+    } });
     const recipient = result.survivorMap.get('crafter');
     assert.equal(recipient.equipped.head, scenario === 'present' ? 'hat-mithril' : base._id, input.logs.join('\n'));
     assert.equal(recipient.simCredits, scenario === 'present' ? 17 : 20);
@@ -330,6 +338,100 @@ await check('wrong-slot or wrong-tier authored keys cannot promote an automatic 
         remaining: 1, publicItems: items, ruleset: input.state.ruleset }));
     assert.equal(selected, null, scenario); assert.deepEqual(input.state.rewardRoster, before);
   }
+});
+
+await check('an actual higher-tier craft releases a stale lower-tier claim before the next boss drop', () => {
+  for (const reverse of [false, true]) for (const escortNeedsMaterial of [false, true]) {
+    const input = fixture('weakline', blood);
+    input.crafter.goalLoadouts.legend.headKey = recipe(mithril).itemKey;
+    refreshActorGrowthPlan(input.crafter, items, input.state);
+    assert.equal(input.crafter._growthPlan.targetId, recipe(mithril)._id);
+    if (escortNeedsMaterial) {
+      input.escort.goalLoadouts.legend.headKey = recipe(mithril).itemKey;
+      input.escort.simCredits = 0;
+      refreshActorGrowthPlan(input.escort, items, input.state);
+    }
+    if (reverse) input.state.rewardRoster.reverse();
+    input.state.ruleset.worldSpawns.specialResourceDrops.weakline = [
+      { key: 'vf_blood_sample', chance: 1 }, { key: 'mithril', chance: 1 },
+    ];
+    input.run();
+    assert.equal(input.crafter.equipped.head, recipe(blood)._id);
+    assert.equal(input.crafter.simCredits, 17);
+    assert.equal(input.hunter.simCredits, 27);
+    assert.equal(invQty(input.crafter.inventory, base._id), 0);
+    assert.equal(invQty(input.crafter.inventory, mithril._id), 0,
+      'The stale legendary focus must not claim another material after actual transcend crafting.');
+    const recipient = escortNeedsMaterial ? input.escort : input.hunter;
+    assert.equal(invQty(recipient.inventory, mithril._id), 1);
+    assert.equal(input.escort.equipped.head, base._id);
+    assert.equal(input.escort.simCredits, escortNeedsMaterial ? 0 : 20);
+    assert.deepEqual(input.events.filter(event => event.kind === 'gain' && [blood._id, mithril._id].includes(event.itemId))
+      .map(event => [event.itemId, event.who, event.qty]),
+      [[blood._id, 'crafter', 1], [mithril._id, recipient._id, 1]]);
+    assert.deepEqual(input.events.filter(event => event.kind === 'gain' && event.itemId === 'CREDITS')
+      .map(event => [event.who, event.qty]), [['hunter', 7]]);
+    const receipt = input.events.find(event => event.kind === 'hunt_settlement');
+    assert.deepEqual(receipt.receivedDrops, escortNeedsMaterial ? [] : [{ itemId: mithril._id, qty: 1 }]);
+    assert.equal(receipt.sharedDrops.length, escortNeedsMaterial ? 2 : 1);
+    assert.equal(receipt.sharedDrops[0].targetItemId, recipe(blood)._id);
+    assert.equal(input.events.filter(event => event.kind === 'craft' && event.itemId === recipe(blood)._id).length, 1);
+    assert.equal(input.events.filter(event => event.kind === 'hunt_settlement').length, 1);
+  }
+});
+
+await check('only a usable higher-tier result supersedes the active claim, not a component or another requested recipe', () => {
+  for (const scenario of ['higher', 'unworn_component', 'other_slot', 'same_tier', 'future_dependency']) {
+    const input = fixture(), higher = { ...recipe(blood), itemId: recipe(blood)._id, qty: 1 };
+    if (scenario === 'unworn_component') higher.craftComponent = true;
+    if (scenario === 'other_slot') higher.equipSlot = 'clothes';
+    if (scenario === 'same_tier') { higher._id = higher.itemId = 'alternate-legend'; higher.tier = 5; }
+    input.crafter.inventory.push(held(higher));
+    if (scenario === 'higher' || scenario === 'future_dependency') input.crafter.equipped.head = higher._id;
+    let expected = recipe(mithril)._id;
+    if (scenario === 'future_dependency') {
+      const future = { ...recipe(blood), _id: 'future-body', itemKey: 'future-body', name: '후속 초월 옷', equipSlot: 'clothes',
+        recipe: { ingredients: [{ itemId: recipe(mithril)._id, qty: 1 }, { itemId: cloth._id, qty: 1 }], creditsCost: 3, resultQty: 1 } };
+      input.state.publicItems = [...items, future];
+      input.crafter.goalLoadouts.transcend = { clothesKey: future.itemKey };
+      expected = future._id;
+    }
+    const before = structuredClone(input.state.rewardRoster);
+    for (const roster of [input.state.rewardRoster, [...input.state.rewardRoster].reverse()]) {
+      const chosen = withSimulationRandom(() => { throw new Error('Actual equipment checks cannot draw game randomness.'); }, () =>
+        chooseBossLootRecipient({ hunter: input.hunter, roster, drop: { item: mithril, itemId: mithril._id },
+          remaining: 1, publicItems: input.state.publicItems, ruleset: input.state.ruleset }));
+      assert.equal(chosen?.targetItemId || '', scenario === 'higher' ? '' : expected, scenario);
+    }
+    const targets = getActorResourceRecipeTargets(input.crafter, input.state.publicItems).map(item => item._id);
+    assert.deepEqual(targets, scenario === 'higher' ? [] : [expected], scenario);
+    assert.deepEqual(input.state.rewardRoster, before, 'Selection cannot rewrite inventory, costs or a real plan.');
+  }
+});
+
+await check('real timed Wickeline combat distributes the second drop by current equipment after actual transcend crafting', async () => {
+  const input = fixture('weakline', blood);
+  input.crafter.goalLoadouts.legend.headKey = recipe(mithril).itemKey;
+  input.escort.goalLoadouts.legend.headKey = recipe(mithril).itemKey;
+  input.escort.simCredits = 0;
+  for (const actor of input.state.rewardRoster) refreshActorGrowthPlan(actor, items, input.state);
+  input.state.ruleset.worldSpawns.specialResourceDrops.weakline = [
+    { key: 'vf_blood_sample', chance: 1 }, { key: 'mithril', chance: 1 },
+  ];
+  const result = await settleTimedHunt(input, { duration: 60 });
+  const crafter = result.survivorMap.get('crafter'), escort = result.survivorMap.get('escort');
+  assert.equal(crafter.equipped.head, recipe(blood)._id, input.logs.join('\n'));
+  assert.equal(crafter.simCredits, 17); assert.equal(invQty(crafter.inventory, mithril._id), 0);
+  assert.equal(escort.equipped.head, base._id); assert.equal(escort.simCredits, 0);
+  assert.equal(invQty(escort.inventory, mithril._id), 1);
+  assert.equal(input.state.nextSpawn.bosses.weakline.alive, false);
+  const receipt = input.events.find(event => event.kind === 'hunt_settlement');
+  assert.ok(receipt.at.sec > 600, 'Settlement requires actual attack time, not a prepared win.');
+  assert.deepEqual(receipt.sharedDrops.map(drop => [drop.itemId, drop.who, drop.qty]),
+    [[blood._id, 'crafter', 1], [mithril._id, 'escort', 1]]);
+  assert.equal(input.events.filter(event => event.kind === 'hunt_settlement').length, 1);
+  assert.equal(input.events.filter(event => event.kind === 'craft' && event.itemId === recipe(blood)._id).length, 1);
+  assert.ok(input.events.some(event => event.kind === 'damage' && event.who === 'hunter'));
 });
 
 console.log(`BOSS_LOOT_SHARING_CHECKS ${checks}/${checks}`);
