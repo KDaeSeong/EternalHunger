@@ -99,6 +99,7 @@ export function* runPhaseActorActionPipelineSteps({
     roster: movementRoster, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds,
     day: nextDay, phase: nextPhase, isSoloMatch: state.isSoloMatch,
     spawnState: state.nextSpawn, ruleset, publicItems,
+    mapObj: state.mapObj, kiosks: state.kiosks,
     getRotationHold: scheduled ? (actor) => {
       const reason = growthHoldStatus(actor) || (!canMoveByStatus(actor) ? 'status' : '');
       return reason ? { reason, readyAtSec: reason === 'action_wait'

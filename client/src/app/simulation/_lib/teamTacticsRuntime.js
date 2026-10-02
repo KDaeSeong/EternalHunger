@@ -4,6 +4,7 @@ import { getCombatSpaceId, shareCombatSpace } from '../../../utils/combatSpaceLo
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { captureMovementObjective } from './movementObjectiveRuntime.js';
 import { chooseTeamResourceMove } from './teamResourceGoalRuntime.js';
+import { chooseTeamPurchaseMove } from './teamPurchaseGoalRuntime.js';
 
 const idOf = (actor) => String(actor?._id || actor?.id || '');
 const alive = (actor) => actor && Number(actor.hp || 0) > 0 && !isDimensionRiftDefeated(actor);
@@ -123,6 +124,7 @@ export function buildTeamCoordination({
   roster = [], zoneGraph = {}, forbiddenIds = new Set(), day = 1, phase = 'morning',
   estimatePower = estimateMovePower, chooseLeaderMove = () => null, maxDepth = 3, isSoloMatch = false,
   spawnState, ruleset, publicItems = [], getRotationHold = null,
+  mapObj, kiosks = [],
 } = {}) {
   const plans = new Map();
   const regroupDecisions = new Map();
@@ -192,13 +194,18 @@ export function buildTeamCoordination({
       return hold ? [{ who: idOf(row), name: String(row.name || idOf(row)), ...hold }] : [];
     }) : [];
     const rotationWaiting = waitingFor.length > 0;
-    const teamResource = grouped && !rotationWaiting && !spawnState?.endgame
+    const canPlanRecipe = grouped && !rotationWaiting && !spawnState?.endgame
       && members.every((row) => Number(row.hp) > Math.max(0, Number(ruleset?.ai?.recoverHpBelow ?? 38)))
-      && !assessTeamCombat(leader, roster, { estimatePower, minRatio: Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.4) }).shouldAvoid
+      && !assessTeamCombat(leader, roster, { estimatePower, minRatio: Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.4) }).shouldAvoid;
+    const recipeRoute = (targetZoneId) => pickTeamSafeZone(leader, roster, zoneGraph, forbiddenIds,
+      { estimatePower, maxDepth: destinationDepth, targetZoneId, travelParty: members });
+    const teamResource = canPlanRecipe
       ? chooseTeamResourceMove({ members: ordered, spawnState, ruleset, publicItems,
-        routeForZone: (targetZoneId) => pickTeamSafeZone(leader, roster, zoneGraph, forbiddenIds,
-          { estimatePower, maxDepth: destinationDepth, targetZoneId, travelParty: members }) }) : null;
-    const proposed = grouped && !rotationWaiting ? teamResource || chooseLeaderMove(leader) : null;
+        routeForZone: recipeRoute }) : null;
+    const teamPurchase = canPlanRecipe && !teamResource
+      ? chooseTeamPurchaseMove({ members: ordered, publicItems, ruleset, mapObj, kiosks, day, phase,
+        forbiddenIds, routeForZone: recipeRoute }) : null;
+    const proposed = grouped && !rotationWaiting ? teamResource || teamPurchase || chooseLeaderMove(leader) : null;
     const target = grouped && !rotationWaiting ? (proposed?.targets || []).find((zone) => !forbiddenIds.has(String(zone))) : rallyZone;
     if (!target) continue;
     const objective = grouped ? captureMovementObjective(proposed, target, { spawnState, ruleset, publicItems }) : null;
@@ -223,7 +230,7 @@ export function buildTeamCoordination({
       const route = pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds, {
         // A concrete spawned recipe source, like a rally, is a known destination.
         // Nearby retreat/wandering searches retain their configured depth.
-        estimatePower, maxDepth: !grouped || teamResource ? destinationDepth : maxDepth,
+        estimatePower, maxDepth: !grouped || teamResource || teamPurchase ? destinationDepth : maxDepth,
         targetZoneId: target, enemyFree: !grouped, travelParty: grouped ? members : [],
       });
       if (separated) {

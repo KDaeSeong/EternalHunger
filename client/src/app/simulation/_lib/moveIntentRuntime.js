@@ -23,6 +23,7 @@ export function formatMoveIntentLabel(reason, objectiveType = '', objectiveSubki
   if (raw === 'endgame_rotate') return '최종 안전구역 이동';
   // A travel decision is not a paid order. Only preserve material specificity
   // that the chosen plan actually carries; generic legendary needs stay generic.
+  if (raw.startsWith('팀 제작 구매: ')) return `키오스크 구매 검토 · ${raw.slice('팀 제작 구매: '.length)}`;
   if (raw === 'surplus credits kiosk') return '키오스크에서 여유 크레딧 사용 검토';
   if (raw.includes('키오스크') || raw === '초월 목표 VF 구매' || raw === '전설 목표 재료 구매') {
     const material = raw.includes('VF') ? 'VF 혈액 샘플'
