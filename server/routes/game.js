@@ -5,6 +5,7 @@ const router = express.Router();
 const GameLog = require('../models/GameLog');
 const Character = require('../models/Characters');
 const TeamRecord = require('../models/TeamRecord');
+const { gameRunIdentity } = require('../utils/gameRunIdentity');
 
 function actorId(value) {
   return String(value?._id || value?.charId || value?.id || '').trim();
@@ -350,9 +351,13 @@ function buildTeamRecordOps(summary, existingIds, userId, matchMode = '') {
  * body: { winnerId, winnerTeamId, killCounts, assistCounts, fullLogs, participants }
  */
 router.post('/end', async (req, res) => {
+  let identity;
   try {
     const { winnerId, winnerTeamId, killCounts, assistCounts, fullLogs, participants, matchMode, runEvents, teamSize } = req.body || {};
     if (!winnerId) return res.status(400).json({ error: "winnerId가 필요합니다." });
+    identity = { userId: req.user.id, clientRunId: gameRunIdentity(req.body) };
+    const previous = await GameLog.findOne(identity);
+    if (previous) return res.json({ message: '게임 로그가 이미 저장되어 있습니다.', gameLogId: previous._id, duplicate: true });
 
     const winner = await Character.findOne({ _id: winnerId, userId: req.user.id }, '_id name')
       || await Character.findById(winnerId, '_id name')
@@ -397,52 +402,70 @@ router.post('/end', async (req, res) => {
     });
 
     const winnerTeamPayload = summary.find((s) => s.isWinner && s.teamId === resolvedWinnerTeamId) || summary.find((s) => s.isWinner);
-    const logDoc = await new GameLog({
-      userId: req.user.id,
-      title,
-      winnerName: winner?.name || winnerFromPayload?.name || 'Unknown',
-      winnerTeamId: resolvedWinnerTeamId,
-      winnerTeamName: cleanText(winnerTeamPayload?.teamName, ''),
-      matchMode: cleanText(matchMode, ''),
-      teamSize: Number(teamSize || 0),
-      participants: summary,
-      fullLog,
-      runEvents: storedRunEvents,
-      summary: summaryDoc,
-    }).save();
+    // The log and both record counters commit together. A failed write can be
+    // retried with the same run ID without keeping a partial log or increment.
+    const logDoc = await GameLog.db.transaction(async (session) => {
+      const existing = await GameLog.findOne(identity).session(session);
+      if (existing) return existing;
+      const saved = await new GameLog({
+        ...identity,
+        title,
+        winnerName: winner?.name || winnerFromPayload?.name || 'Unknown',
+        winnerTeamId: resolvedWinnerTeamId,
+        winnerTeamName: cleanText(winnerTeamPayload?.teamName, ''),
+        matchMode: cleanText(matchMode, ''),
+        teamSize: Number(teamSize || 0),
+        participants: summary,
+        fullLog,
+        runEvents: storedRunEvents,
+        summary: summaryDoc,
+      }).save({ session });
 
-    // ✅ 캐릭터 누적 기록 반영 (내 계정 캐릭터에만)
-    // - participants는 프론트가 보내는 객체라서 userId 검증을 위해 DB에서 조회 후 업데이트합니다.
-    const participantIds = summary.map(s => s.charId).filter(Boolean);
+      // ✅ 캐릭터 누적 기록 반영 (내 계정 캐릭터에만)
+      // - participants는 프론트가 보내는 객체라서 userId 검증을 위해 DB에서 조회 후 업데이트합니다.
+      const participantIds = summary.map(s => s.charId).filter(Boolean);
 
-    const chars = await Character.find({ _id: { $in: participantIds }, userId: req.user.id }, '_id name');
-    const existingIds = new Set(chars.map(c => String(c._id)));
+      const chars = await Character.find({ _id: { $in: participantIds }, userId: req.user.id }, '_id name').session(session);
+      const existingIds = new Set(chars.map(c => String(c._id)));
 
-    // 개별 업데이트
-    const ops = summary
-      .filter(s => existingIds.has(String(s.charId)))
-      .map(s => ({
-        updateOne: {
-          filter: { _id: s.charId, userId: req.user.id },
-          update: {
-            $inc: {
-              'records.gamesPlayed': 1,
-              'records.totalKills': Number(s.killCount || 0),
-              'records.totalAssists': Number(s.assistCount || 0),
-              'records.totalWins': s.isWinner ? 1 : 0,
-              'records.deathCount': s.alive === false ? 1 : 0
+      // 개별 업데이트
+      const ops = summary
+        .filter(s => existingIds.has(String(s.charId)))
+        .map(s => ({
+          updateOne: {
+            filter: { _id: s.charId, userId: req.user.id },
+            update: {
+              $inc: {
+                'records.gamesPlayed': 1,
+                'records.totalKills': Number(s.killCount || 0),
+                'records.totalAssists': Number(s.assistCount || 0),
+                'records.totalWins': s.isWinner ? 1 : 0,
+                'records.deathCount': s.alive === false ? 1 : 0
+              }
             }
           }
-        }
-      }));
+        }));
 
-    if (ops.length > 0) await Character.bulkWrite(ops);
+      if (ops.length > 0) await Character.bulkWrite(ops, { session });
 
-    const teamOps = buildTeamRecordOps(summary, existingIds, req.user.id, matchMode);
-    if (teamOps.length > 0) await TeamRecord.bulkWrite(teamOps);
+      const teamOps = buildTeamRecordOps(summary, existingIds, req.user.id, matchMode);
+      if (teamOps.length > 0) await TeamRecord.bulkWrite(teamOps, { session });
+      return saved;
+    });
 
     res.json({ message: "게임 로그 저장 완료", gameLogId: logDoc._id });
   } catch (err) {
+    if (err.code === 'INVALID_RUN_ID') return res.status(400).json({ error: err.message });
+    // Concurrent requests may both pass the first lookup. The unique index
+    // rejects the second transaction, whose counters are rolled back as well.
+    if (err.code === 11000 && identity) {
+      try {
+        const existing = await GameLog.findOne(identity);
+        if (existing) return res.json({ message: '게임 로그가 이미 저장되어 있습니다.', gameLogId: existing._id, duplicate: true });
+      } catch (lookupError) {
+        console.error(lookupError);
+      }
+    }
     console.error(err);
     res.status(500).json({ error: "게임 로그 저장 실패" });
   }

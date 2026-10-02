@@ -164,16 +164,19 @@ export default function HungerGamesPage() {
                 <button type="button" disabled={busy || !run || run.finished} onClick={() => { setPlaying(!currentRunActive); setViewIndex(-1); }}>{currentRunActive ? '자동 진행 중지' : '자동 진행'}</button>
               </div>
               <div className={styles.fields}>
+                <label className={styles.field}>경기 방식<select disabled={!ready || busy} value={config.matchMode || 'solo'} onChange={(event) => setConfig((previous) => ({ ...previous, matchMode: event.target.value }))}>
+                  <option value="solo">개인전 · 최후의 1명</option><option value="team">팀전 · 최후의 1팀</option>
+                </select></label>
                 <label className={styles.field}>경기 시드<input disabled={!ready || busy} value={config.seed} maxLength={120} onChange={(event) => setConfig((previous) => ({ ...previous, seed: event.target.value }))} /></label>
                 <label className={styles.field}>최대 페이즈 수<input disabled={!ready || busy} type="number" min="1" max="120" value={config.maxPhases} onChange={(event) => setConfig((previous) => ({ ...previous, maxPhases: event.target.value }))} /></label>
               </div>
             </div>
-            <p className={styles.note}>설정 변경은 다음 경기에 적용됩니다. 한 명이 남으면 즉시 종료하고, 진행 한도에 도달하면 남은 참가자들이 공동 생존합니다. {run ? '현재 경기 시드: ' + run.input.seed : '같은 참가자·이벤트·시드로 같은 경기를 다시 볼 수 있습니다.'}</p>
-            {run?.rulesVersion === 1 ? <p className={styles.note}>이 경기는 이전 규칙으로 진행해 기존 기록과 승패를 보존합니다. 개선된 사건 선택과 전투 판정은 새 경기부터 적용됩니다.</p> : null}
+            <p className={styles.note}>설정 변경은 다음 경기에 적용됩니다. 개인전은 출신 구역·팀 표시와 관계없이 최후의 1명이 우승합니다. 팀전은 같은 팀끼리 기본 공격을 하지 않고 최후의 1팀이 우승하며, 팀을 비워 둔 참가자는 각자 별도 팀입니다. 진행 한도에서는 남은 참가자가 공동 생존합니다. {run ? '현재 경기: ' + (run.rulesVersion < 3 ? '이전 종료 규칙' : run.input.matchMode === 'team' ? '팀전' : '개인전') + ' · 시드 ' + run.input.seed : '같은 참가자·이벤트·시드·경기 방식으로 같은 경기를 다시 볼 수 있습니다.'}</p>
+            {run && run.rulesVersion < 3 ? <p className={styles.note}>이 경기는 저장 당시 규칙으로 진행해 기록과 승패를 보존합니다. 개선된 종료 규칙과 사건 선택은 새 경기부터 적용됩니다.</p> : null}
             {run && !run.finished && hungerFinalDuelPressure(run) > 0 ? <p className={styles.note}>최종 2인 대치 {hungerFinalDuelPressure(run)}페이즈 경과 · 대치가 길어질수록 결전과 결정타의 비중이 높아집니다.</p> : null}
             <HungerRunViewer run={run} viewIndex={viewIndex} onViewIndex={(index) => { setPlaying(false); setViewIndex(index); }} />
-          </> : tab === 'roster' ? <HungerRosterEditor roster={config.roster} onChange={updateRoster} busy={busy} onLoadAccount={() => void accountAction('roster')} onNotice={setNotice} />
-            : <HungerEventEditor events={config.events} roster={config.roster} onChange={(events) => setConfig((previous) => ({ ...previous, events }))} onNotice={setNotice} draft={eventDraft} onDraftChange={setEventDraft} onPresetsReset={resetPresets} />}
+          </> : tab === 'roster' ? <HungerRosterEditor roster={config.roster} matchMode={config.matchMode} onChange={updateRoster} busy={busy} onLoadAccount={() => void accountAction('roster')} onNotice={setNotice} />
+            : <HungerEventEditor events={config.events} roster={config.roster} matchMode={config.matchMode} onChange={(events) => setConfig((previous) => ({ ...previous, events }))} onNotice={setNotice} draft={eventDraft} onDraftChange={setEventDraft} onPresetsReset={resetPresets} />}
         </section>
       </div>
     </main>

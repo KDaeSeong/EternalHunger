@@ -4,6 +4,7 @@ import { useId, useMemo, useRef, useState } from 'react';
 import { buildTeamObserverModel } from '../_lib/teamObserverRuntime';
 import { getActorTeamId } from '../_lib/teamRuntime';
 import SimulationTeamObserverPanel from './SimulationTeamObserverPanel';
+import SimulationPhaseHighlights from './SimulationPhaseHighlights';
 import { getRuleset } from '../../../utils/rulesets';
 import { normalizeMatchMode } from '../_lib/matchRosterRuntime';
 import { formatClock } from '../_lib/simulationFormattingRuntime';
@@ -209,7 +210,11 @@ export default function SimulationMainStage({
           <div className="simulation-observer-slot" role="tabpanel" id={`${observerId}-team-panel`}
             aria-labelledby={`${observerId}-team-tab`} hidden={observerTab !== 'team'} tabIndex={0}>
             {observerTab === 'team'
-              ? <SimulationTeamObserverPanel model={observerModel} onTeamChange={setObservedTeamId} isGameOver={isGameOver} />
+              ? <>
+                <SimulationPhaseHighlights model={observerModel} events={runEvents} survivors={survivors} dead={dead}
+                  day={day} phase={phase} matchSec={matchSec} zoneName={getZoneName} />
+                <SimulationTeamObserverPanel model={observerModel} onTeamChange={setObservedTeamId} isGameOver={isGameOver} />
+              </>
               : null}
           </div>
           <div className="simulation-observer-slot" role="tabpanel" id={`${observerId}-match-panel`}

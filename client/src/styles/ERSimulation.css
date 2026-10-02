@@ -4698,3 +4698,18 @@ body:has(.simulation-page--observer [role="dialog"]) .game-utility-dock { visibi
   .simulation-match-settings-body { max-height: 65dvh; }
   .simulation-page--observer .minimap-zoom-controls span { display: none; }
 }
+.simulation-phase-highlights {
+  margin-bottom: 12px;
+  padding: 14px;
+  color: #e6f0f7;
+  border: 1px solid rgba(250, 204, 21, .35);
+  border-radius: 12px;
+  background: rgba(250, 204, 21, .05);
+  overflow-wrap: anywhere;
+}
+.simulation-phase-highlights h3 { margin: 0 0 6px; color: #ffe5a1; font-size: 1rem; }
+.simulation-phase-highlights > p { margin: 6px 0; color: #b8c4d5; font-size: .85rem; }
+.simulation-phase-highlights ol { display: grid; gap: 10px; margin: 12px 0 0; padding-left: 20px; }
+.simulation-phase-highlights li strong { color: #facc15; }
+.simulation-phase-highlights li time { margin-left: 8px; color: #94a3b8; font-size: .8rem; }
+.simulation-phase-highlights li span { display: block; margin-top: 4px; color: #e6f0f7; line-height: 1.5; font-size: .9rem; }

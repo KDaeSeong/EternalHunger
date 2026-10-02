@@ -17,7 +17,7 @@ function Select({ value, onChange, options, ...props }) {
   return <select {...props} value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option.value ?? option} value={option.value ?? option}>{option.label ?? label(option)}</option>)}</select>;
 }
 
-export default function HungerEventEditor({ events, roster, onChange, onNotice, draft: controlledDraft, onDraftChange, onPresetsReset }) {
+export default function HungerEventEditor({ events, roster, matchMode, onChange, onNotice, draft: controlledDraft, onDraftChange, onPresetsReset }) {
   const draft = controlledDraft || events[0] || createHungerDraft('custom-first');
   const setDraft = onDraftChange;
   const [preview, setPreview] = useState(null);
@@ -50,7 +50,7 @@ export default function HungerEventEditor({ events, roster, onChange, onNotice, 
   const testEvent = () => {
     try {
       const normalized = normalizeHungerEvent(draft);
-      const { state, assigned } = createHungerPreview({ roster, event: normalized, casting, context, injuredByRole: previewInjured,
+      const { state, assigned } = createHungerPreview({ roster, matchMode, event: normalized, casting, context, injuredByRole: previewInjured,
         survivors: previewSurvivors === '' ? roster.length : previewSurvivors, duelPhases: previewDuelPhases, seed: 'preview-' + previewIndex });
       const inspection = inspectHungerEvent(state, normalized, assigned);
       const result = resolveHungerEvent(state, normalized, assigned);
