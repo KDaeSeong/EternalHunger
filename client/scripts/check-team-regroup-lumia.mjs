@@ -269,6 +269,37 @@ check('a 4/5 member keeps the exact hospital recipe and ready gas-station allies
   assert.equal(escort.nextZoneId, HOSPITAL); assert.equal(escort.moveEtaSec, 3);
 });
 
+check('closed-road custom input lets ready allies gather without awarding or moving their 4/5 farmer', () => {
+  const { world, squad } = unfinishedControl();
+  // Explicit custom closed-road input, not the original Lumia passage graph
+  // or the missing Marcus match. The catalog and actual action pipeline stay real.
+  world.zoneGraph = { [HOSPITAL]: [], [GAS]: ['school'], school: [GAS] };
+  squad[0]._growthReadyAtSec = 420;
+  squad[2].zoneId = 'school';
+  const before = structuredClone(squad[0]);
+  const initialStock = getFieldResourceQty(world.nextSpawn.fieldResources, HOSPITAL, RAW);
+  const plans = coordination(squad, world);
+  assert.equal(plans.regroupDecisions.get('anchor').targetZoneId, GAS);
+  assert.equal(plans.movementPlans.get('friend').nextStep, GAS);
+  assert.equal(plans.movementPlans.has('lone'), false);
+  const result = tick(squad, world, 400);
+  const byId = new Map(result.updatedSurvivors.map(row => [row._id, row]));
+  const farmer = byId.get('lone'), joining = byId.get('friend');
+  assert.equal(farmer.zoneId, HOSPITAL);
+  assert.deepEqual(farmer.inventory, before.inventory);
+  assert.deepEqual(farmer.equipped, before.equipped);
+  assert.equal(getActorGrowthProgress(farmer, world.publicItems).completedSlots, 4);
+  assert.equal(invQty(farmer.inventory, HAT), 0);
+  assert.equal(getFieldResourceQty(world.nextSpawn.fieldResources, HOSPITAL, RAW), initialStock);
+  assert.equal(byId.get('anchor').zoneId, GAS); assert.equal(joining.zoneId, GAS);
+  const movement = result.events.find(event => event.kind === 'move' && event.who === 'friend');
+  assert.equal(movement.reason, 'team_regroup'); assert.equal(movement.from, 'school');
+  assert.equal(movement.to, GAS); assert.ok(movement.etaSec > 0);
+  assert.equal(joining._actionReadyAtSec, 400 + movement.etaSec);
+  assert.equal(joining._teamRegroup.status, 'arrived');
+  assert.match(describeTeamRegroupDecision(joining._teamRegroup, zoneName), /합류 지점 재선정.*2\/3명.*1\/3명/);
+});
+
 check('the empty custom slot is filled by a paid recipe, and escort plans use the same pre-action roster', () => {
   const { world, squad } = unfinishedControl();
   const initialStock = getFieldResourceQty(world.nextSpawn.fieldResources, HOSPITAL, RAW);

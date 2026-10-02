@@ -171,6 +171,54 @@ check('a reachable rendezvous retains decision-time counts and owned observation
   assert.match(model.members.find(row => row.id === 'anchor').coordination.text, /합류 지점 재선정.*3\/3명.*2\/3명/);
 });
 
+check('ready allies can gather when no safe join route reaches their unfinished farmer', () => {
+  const roster = [actor('farmer', 'e', { teamSlot: 1,
+    _growthPlan: { openingComplete: false, targetId: 'real-recipe' } }),
+  actor('anchor', 'a', { teamSlot: 2 }), actor('friend', 'b', { teamSlot: 3 })];
+  const connected = { e: ['d'], d: ['e', 'a'], a: ['d', 'b'], b: ['a'] };
+  for (const extra of [
+    { zoneGraph: { e: [], a: ['b'], b: ['a'] } },
+    { zoneGraph: connected, forbiddenIds: new Set(['d']) },
+    { zoneGraph: connected, roster: [...roster, actor('enemy', 'd', { teamId: 'enemy' })] },
+  ]) {
+    const setup = { ...options, roster, ...extra }, before = structuredClone(setup.roster);
+    const result = buildTeamCoordination(setup);
+    assert.equal(result.regroupDecisions.get('anchor').targetZoneId, 'a');
+    assert.equal(result.regroupDecisions.get('anchor').stage, 'waiting');
+    assert.equal(result.movementPlans.get('friend').nextStep, 'a');
+    assert.equal(result.regroupDecisions.get('farmer').stage, 'growing');
+    assert.equal(result.movementPlans.has('farmer'), false);
+    assert.deepEqual(result.regroupDecisions.get('friend').rallySelection, {
+      reason: 'reachable_rendezvous', previousZoneId: 'e', previousReachableCount: 1, reachableCount: 2,
+    });
+    const reversed = buildTeamCoordination({ ...setup, roster: [...setup.roster].reverse() });
+    assert.deepEqual(result.regroupDecisions, reversed.regroupDecisions);
+    assert.deepEqual(setup.roster, before);
+    const moved = move(roster[2], setup.roster, extra);
+    assert.equal(moved.nextZoneId, 'a'); assert.equal(moved.actor._teamRegroup.status, 'arrived');
+    assert.deepEqual(moved.actor.inventory, roster[2].inventory);
+  }
+});
+
+check('an escortable farmer remains first and an unsafe or impossible alternative is not a new rally', () => {
+  const roster = [actor('farmer', 'e', { teamSlot: 3,
+    _growthPlan: { openingComplete: false, targetId: 'real-recipe' } }),
+  actor('anchor', 'a', { teamSlot: 1 }), actor('friend', 'b', { teamSlot: 2 })];
+  const connected = { e: ['d'], d: ['e', 'a'], a: ['d', 'b'], b: ['a'] };
+  for (const extra of [
+    { zoneGraph: connected },
+    { zoneGraph: { e: [], a: [], b: [] } },
+    { zoneGraph: { e: [], a: ['b'], b: ['a'] }, roster: [...roster,
+      actor('enemy-a', 'a', { teamId: 'enemy' }), actor('enemy-b', 'b', { teamId: 'enemy' })] },
+  ]) {
+    const result = buildTeamCoordination({ ...options, roster, ...extra });
+    assert.equal(result.regroupDecisions.get('anchor').targetZoneId, 'e');
+    assert.equal(result.regroupDecisions.get('farmer').stage, 'growing');
+    assert.equal(result.movementPlans.has('farmer'), false);
+    assert.equal(result.regroupDecisions.get('anchor').rallySelection, undefined);
+  }
+});
+
 check('unfinished growth keeps the real recipe while ready allies have a full-map escort route', () => {
   const items = [
     { _id: 'raw', name: '부족 재료', type: '재료', category: 'material', tier: 1, spawnZones: ['e'], recipe: { ingredients: [] } },

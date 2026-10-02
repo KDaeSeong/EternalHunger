@@ -156,16 +156,24 @@ export function buildTeamCoordination({
       present: safeMembers.filter(row => String(row.zoneId) === zone).length,
       order: ordered.findIndex(row => String(row.zoneId) === zone),
     }]));
-    const compare = (a, b, reachable) => {
+    const compare = (a, b, reachable, farmingRanks) => {
       const left = metrics.get(a), right = metrics.get(b);
-      return left.threat - right.threat || right.farming - left.farming
+      return left.threat - right.threat
+        || (farmingRanks?.get(b) ?? right.farming) - (farmingRanks?.get(a) ?? left.farming)
         || (reachable?.get(b) || 0) - (reachable?.get(a) || 0)
         || right.present - left.present || left.order - right.order;
     };
     zones.sort((a, b) => compare(a, b));
     const previousRally = zones[0];
     const reachable = countRallyReachability(members, roster, zoneGraph, forbiddenIds, zones, stillGrowing);
-    zones.sort((a, b) => compare(a, b, reachable));
+    // Keep escorting an unfinished farmer whenever a teammate can safely
+    // join it. An unreachable lone farmer must not prevent ready allies
+    // from gathering elsewhere; its own real recipe is still left alone.
+    // Compute ranks before sorting so the comparator never reads a changing array.
+    const farmingRanks = zones.length > 1 ? new Map(zones.map(zone => [zone, metrics.get(zone).farming
+      && ((reachable.get(zone) || 0) > 1 || !zones.some(candidate =>
+        metrics.get(candidate).threat <= metrics.get(zone).threat && (reachable.get(candidate) || 0) > 1)) ? 1 : 0])) : null;
+    zones.sort((a, b) => compare(a, b, reachable, farmingRanks));
     const rallyZone = zones[0];
     const rallySelection = rallyZone !== previousRally ? { reason: 'reachable_rendezvous',
       previousZoneId: previousRally, previousReachableCount: reachable.get(previousRally),
