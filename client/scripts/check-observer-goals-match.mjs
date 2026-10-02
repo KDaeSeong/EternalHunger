@@ -1,10 +1,39 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
-const { getAvailableMovementObjective } = await import('../src/app/simulation/_lib/movementObjectiveRuntime.js');
+const { captureMovementObjective, getAvailableMovementObjective } = await import('../src/app/simulation/_lib/movementObjectiveRuntime.js');
 const { buildTeamObserverModel, describeObserverEvent } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
 
 const input = await createRandomIsolationInput('1101');
+const observerSettings = JSON.parse(input).settings;
+let observerModelChecks = 0;
+function observeFrame(frame, { teamId, publicItems, events }) {
+  assert.ok(Array.isArray(frame.forbiddenZoneIds), 'The diagnostic requires the committed frame forbidden-zone list.');
+  const model = buildTeamObserverModel({ ...frame, teamId, publicItems, events,
+    settings: observerSettings, forbiddenIds: frame.forbiddenZoneIds });
+  const forbidden = new Set(frame.forbiddenZoneIds);
+  assert.ok(model.objectives.every(card => !forbidden.has(card.objective.targetZoneId)),
+    'The observer cannot advertise a currently forbidden destination as a live resource goal.');
+  observerModelChecks += 1;
+  return model;
+}
+
+// A live source can still be inaccessible. This explicit frame is only a
+// diagnostic-context regression, never a prepared match outcome or old journal.
+const contextSpawn = { coreNodes: [{ id: 'context-tree', kind: 'life_tree', zoneId: 'context-zone', picked: false }] };
+const contextGoal = captureMovementObjective({ objectiveType: 'natural_core', objectiveSubkind: 'life_tree' },
+  'context-zone', { spawnState: contextSpawn });
+const contextFrame = { survivors: [{ _id: 'context-actor', name: 'context-actor', teamId: 'team:1',
+  zoneId: 'context-start', hp: 100, maxHp: 100, inventory: [],
+  _movementObjective: { ...contextGoal, atSec: 1 } }], dead: [], matchSec: 2,
+  spawnState: contextSpawn, forbiddenZoneIds: ['context-zone'] };
+const contextOptions = { teamId: 'team:1', publicItems: [], events: [] };
+assert.equal(observeFrame(contextFrame, contextOptions).objectives.length, 0,
+  'The match diagnostic must forward this committed frame\'s forbidden zones to the observer.');
+assert.equal(observeFrame({ ...contextFrame, forbiddenZoneIds: [] }, contextOptions).objectives.length, 1,
+  'Removing all resource cards is not a valid fix for the diagnostic context.');
+console.log('PASS observer match diagnostic uses the committed frame forbidden zones');
+
 const samples = [];
 const goalKeys = new Set();
 const growthKeys = new Set();
@@ -20,7 +49,7 @@ const result = await runRandomIsolationMatch(input, { onFrame(frame, { publicIte
     if (!actor._growthPlan?.targetId) continue;
     const key = `${actor._id}:${actor._growthPlan.targetId}`;
     if (growthKeys.has(key)) continue;
-    const member = buildTeamObserverModel({ ...frame, teamId: actor.teamId, publicItems, events }).members.find((row) => row.id === actor._id);
+    const member = observeFrame(frame, { teamId: actor.teamId, publicItems, events }).members.find((row) => row.id === actor._id);
     if (member?.growth?.status !== 'growing') continue;
     assert.equal(member.growth.targetId, actor._growthPlan.targetId);
     growthKeys.add(key);
@@ -29,7 +58,7 @@ const result = await runRandomIsolationMatch(input, { onFrame(frame, { publicIte
   for (const receipt of events.slice(seenEventCount).filter((event) => event.kind === 'procurement')) {
     const actor = [...frame.survivors, ...frame.dead].find((row) => row._id === receipt.who);
     assert.ok(actor, 'A receipt must belong to a real committed participant.');
-    const member = buildTeamObserverModel({ ...frame, teamId: actor.teamId, publicItems, events }).members.find((row) => row.id === receipt.who);
+    const member = observeFrame(frame, { teamId: actor.teamId, publicItems, events }).members.find((row) => row.id === receipt.who);
     assert.equal(member.procurement.actionKey, receipt.actionKey);
     assert.equal(member.procurement.outcome, receipt.outcome);
     assert.equal(member.procurement.matchedChoice, true, 'The real selected action must join its actual settlement, not another order.');
@@ -43,7 +72,7 @@ const result = await runRandomIsolationMatch(input, { onFrame(frame, { publicIte
   if (available.length) activeFrames += 1;
   const currentTeams = new Set(available.map((actor) => actor.teamId));
   for (const teamId of previousTeams) if (!currentTeams.has(teamId)) {
-    const model = buildTeamObserverModel({ ...frame, teamId, publicItems, events });
+    const model = observeFrame(frame, { teamId, publicItems, events });
     assert.equal(model.objectives.length, 0, 'A vanished source must disappear from the observer in the same frame.');
     removedGoalChecks += 1;
   }
@@ -51,7 +80,7 @@ const result = await runRandomIsolationMatch(input, { onFrame(frame, { publicIte
   for (const actor of available) {
     const key = JSON.stringify([actor._id, actor._movementObjective.type, actor._movementObjective.targetZoneId]);
     if (!goalKeys.has(key)) {
-      const model = buildTeamObserverModel({ ...frame, teamId: actor.teamId, publicItems, events });
+      const model = observeFrame(frame, { teamId: actor.teamId, publicItems, events });
       const card = model.objectives.find((goal) => goal.members.includes(actor.name)
         && goal.objective.targetZoneId === actor._movementObjective.targetZoneId);
       assert.ok(card, 'A live selected resource decision must reach the observer card model.');
@@ -71,7 +100,7 @@ assert.deepEqual(sharedDecisions.filter((event) => !event.sharedGoalReason).slic
 const purchasePlans = sharedDecisions.filter((event) => /키오스크|구매|kiosk/.test(event.sharedGoalReason));
 console.log(`OBSERVER_MATCH_WITNESS ${JSON.stringify({ activeFrames, distinctGoals: goalKeys.size, removedGoalChecks,
   actualGrowthChecks: growthKeys.size, actualReceiptChecks: receiptKeys.size, sharedDecisionCount: sharedDecisions.length,
-  purchasePlanCount: purchasePlans.length, evidence: result.evidence })}`);
+  purchasePlanCount: purchasePlans.length, observerModelChecks, diagnosticContextChecks: 2, evidence: result.evidence })}`);
 assert.ok(purchasePlans.length > 0, 'The fixture must actually exercise shared purchase intentions.');
 assert.ok(purchasePlans.every((event) => /검토/.test(describeObserverEvent(event))));
 const namedOrders = result.events.filter((event) => event.kind === 'queue' && ['kioskBuy', 'kioskExchange', 'droneOrder'].includes(event.chosen) && event.itemId);
@@ -81,6 +110,7 @@ assert.ok(growthKeys.size > 0 && receiptKeys.size > 0);
 console.log(JSON.stringify({ pass: true, activeFrames, distinctGoals: goalKeys.size, removedGoalChecks, samples,
   actualGrowthChecks: growthKeys.size, actualReceiptChecks: receiptKeys.size, growthSamples, receiptSamples,
   sharedDecisionCount: sharedDecisions.length, purchasePlanCount: purchasePlans.length, namedOrderCount: namedOrders.length,
+  observerModelChecks, diagnosticContextChecks: 2,
   purchaseSample: purchasePlans.slice(0, 2).map((event) => ({ sec: event.at?.sec, text: describeObserverEvent(event) })),
   evidence: result.evidence,
   scope: 'actual default fixture decision-to-observer-model coverage; not browser rendering or human acceptance' }, null, 2));

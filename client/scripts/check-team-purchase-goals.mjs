@@ -12,7 +12,7 @@ const { invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
 const { getRuleset } = await import('../src/utils/rulesets.js');
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
 const { emitSimulationRunEvent } = await import('../src/app/simulation/_lib/logActionRuntime.js');
-const { describeObserverEvent } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
+const { buildTeamObserverModel, describeObserverEvent } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
 const eventActions = await import('../src/app/simulation/_lib/runEventRuntime.js');
 
 // Explicit mid-match recipe, inventory and earned-credit conditions. This is
@@ -104,6 +104,16 @@ check('actual travel, paid purchase and recipe consumption complete the follower
     assert.equal(arrived.events.filter(event => event.kind === 'procurement').length, 0, 'Travel is not also a purchase.');
     const before = arrived.updatedSurvivors.find(actor => actor._id === 'crafter');
     assert.equal(before.simCredits, 260); assert.equal(invQty(before.inventory, tree._id), 0);
+    const observerContext = { teamId: 'team:1', publicItems: input.state.publicItems,
+      spawnState: input.state.nextSpawn, forbiddenIds: [...input.state.forbiddenIds],
+      settings: { rulesetId: 'ER_S11', simulationRuleset: input.state.ruleset },
+      day: input.state.nextDay, phase: input.state.nextPhase };
+    const travelModel = buildTeamObserverModel({ ...observerContext, survivors: arrived.updatedSurvivors,
+      events: arrived.events, matchSec: input.state.currentActionSec() });
+    assert.equal(travelModel.objectives.length, 0, 'A planned kiosk order is not a reserved field resource.');
+    assert.ok(travelModel.members.every(member => /구매 검토.*crafter의 생명 모자/.test(member.decision?.text)),
+      'Every actual shared travel decision must retain the real buyer and recipe in the observer model.');
+    assert.ok(travelModel.members.every(member => !member.procurement), 'Travel must not fabricate a paid receipt.');
     input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
     const paid = tick(input), crafter = paid.updatedSurvivors.find(actor => actor._id === 'crafter');
     assert.equal(crafter.equipped.head, rare._id); assert.equal(crafter.simCredits, 57);
@@ -112,6 +122,12 @@ check('actual travel, paid purchase and recipe consumption complete the follower
     assert.equal(receipts.length, 1); assert.equal(receipts[0].paidCost, 200); assert.equal(receipts[0].outcome, 'completed');
     assert.ok(paid.events.some(event => event.kind === 'craft' && event.who === 'crafter'));
     assert.ok(paid.updatedSurvivors.filter(actor => actor._id !== 'crafter').every(actor => actor.simCredits === 20));
+    const paidModel = buildTeamObserverModel({ ...observerContext, survivors: paid.updatedSurvivors,
+      events: JSON.parse(JSON.stringify([...arrived.events, ...paid.events])), matchSec: input.state.currentActionSec() });
+    const receipt = paidModel.members.find(member => member.id === 'crafter').procurement;
+    assert.equal(receipt.outcome, 'completed'); assert.equal(receipt.matchedChoice, true);
+    assert.match(receipt.result, /생명의 나무.*구매 완료.*200Cr.*260→60Cr/);
+    assert.ok(paidModel.members.filter(member => member.id !== 'crafter').every(member => !member.procurement));
     assert.match(describeObserverEvent(arrived.events.find(event => event.reason === 'team_rotate')), /구매 검토/);
     assert.ok([...plan({ ...input, roster: paid.updatedSurvivors }).movementPlans.values()].every(move => !/팀 제작 구매/.test(move.sourceReason)));
   }
