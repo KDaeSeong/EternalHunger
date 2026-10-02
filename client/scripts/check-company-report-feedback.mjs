@@ -429,7 +429,7 @@ const helperIconRows = visualSources.reduce((sum, source) => sum + [...source.ma
 const directIconRows = visualSources.reduce((sum, source) => sum + [...source.matchAll(/className="game-save-row company-report-icon-row/g)].length, 0);
 const dynamicIconRows = visualSources.reduce((sum, source) => sum + [...source.matchAll(/className=\{`game-save-row company-report-icon-row/g)].length, 0);
 assert.equal(semanticPanelTitles, 48, '회사 리포트의 48개 패널 제목에 의미 아이콘이 있어야 합니다.');
-assert.equal(helperIconRows + directIconRows + dynamicIconRows, 27, '핵심 원장과 판단 행 27곳에 의미 아이콘이 있어야 합니다.');
+assert.equal(helperIconRows + directIconRows + dynamicIconRows, 28, '결산 현금행을 포함한 핵심 원장과 판단 행 28곳에 의미 아이콘이 있어야 합니다.');
 assert.ok(visualSources.every((source) => !source.includes('className="games-panel-title"')), '원시 패널 제목 마크업이 남아 있으면 안 됩니다.');
 assert.match(visualsSource, /export function CompanyReportPanelTitle/, '공용 패널 제목 컴포넌트가 필요합니다.');
 assert.match(visualsSource, /export function CompanyReportIconRow/, '공용 의미 아이콘 행 컴포넌트가 필요합니다.');

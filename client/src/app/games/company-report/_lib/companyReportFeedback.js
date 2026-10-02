@@ -178,6 +178,7 @@ export function companyReportFeedbackSnapshot(state) {
     settlementCount: safeArray(state?.settlements).length,
     latestSettlementNetProfit: Number(latestSettlement.netProfit || 0),
     latestSettlementCashflow: Number(latestSettlement.netCashflow || 0),
+    latestSettlementCashflowCoverage: latestSettlement.cashflowCoverage || 'legacy',
     exportPlanCount: safeArray(global.exportPlans).length,
     importPlanCount: safeArray(global.importPlans).length,
     exportResultCount: safeArray(global.exportResults).length,
@@ -352,7 +353,7 @@ function companyReportImpactRows(previous, current, resultKey) {
     latestSettlementCashflow: currentMoneyImpact(current.latestSettlementCashflow, {
       action: 'finance',
       key: 'latestSettlementCashflow',
-      label: '순현금흐름',
+      label: current.latestSettlementCashflowCoverage === 'since-load' ? '불러온 뒤 현금변화' : '순현금흐름',
     }),
     exportPlanCount: deltaImpact(previous, current, 'exportPlanCount', { action: 'export', label: '수출 계획', suffix: '건' }),
     importPlanCount: deltaImpact(previous, current, 'importPlanCount', { action: 'import', label: '수입 계획', suffix: '건' }),

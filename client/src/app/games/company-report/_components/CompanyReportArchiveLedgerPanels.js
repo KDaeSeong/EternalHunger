@@ -169,6 +169,15 @@ export default function CompanyReportArchiveLedgerPanels({
                 </div>
                 <strong>{formatMoney(latestSettlement.netProfit)}</strong>
               </CompanyReportIconRow>
+              {typeof latestSettlement.closingCashKrw === 'number' ? (
+                <CompanyReportIconRow action="finance">
+                  <div>
+                    <span>{latestSettlement.cashflowCoverage === 'since-load' ? '불러온 뒤 현금변화' : '월간 현금변화'} {formatMoney(latestSettlement.netCashflow)}</span>
+                    <strong>고정비 지급 {formatMoney(latestSettlement.fixedExpensesPaidKrw)} · 이익세 {formatMoney(latestSettlement.tax)}</strong>
+                  </div>
+                  <strong>결산 후 현금 {formatMoney(latestSettlement.closingCashKrw)}</strong>
+                </CompanyReportIconRow>
+              ) : null}
             </div>
           ) : <div className="games-empty">월말 결산을 실행하면 손익과 현금흐름이 표시됩니다.</div>}
         </section>

@@ -42,6 +42,12 @@ export function createNewState(options = {}) {
       employeeCount: 24,
       status: 'ACTIVE',
     },
+    cashFlowPeriod: {
+      year: 2026,
+      month: 2,
+      openingCashKrw: 1500000000,
+      coverage: 'full-period',
+    },
     inventory: {
       'book-akashi': { onHand: 480, reserved: 0, avgCost: 9000 },
       'event-hwahwa': { onHand: 150, reserved: 50, avgCost: 18000 },
@@ -128,10 +134,14 @@ export function createNewState(options = {}) {
 export function normalizeState(value) {
   const base = createNewState();
   if (!value || typeof value !== 'object') return base;
+  const company = value.company && typeof value.company === 'object'
+    ? { ...base.company, ...value.company }
+    : base.company;
   return {
     ...base,
     ...value,
-    company: value.company && typeof value.company === 'object' ? { ...base.company, ...value.company } : base.company,
+    company,
+    cashFlowPeriod: normalizeCashFlowPeriod(value.cashFlowPeriod, company),
     inventory: value.inventory && typeof value.inventory === 'object' ? { ...base.inventory, ...value.inventory } : base.inventory,
     orders: Array.isArray(value.orders) ? value.orders : base.orders,
     receivables: Array.isArray(value.receivables) ? value.receivables : base.receivables,
@@ -147,6 +157,21 @@ export function normalizeState(value) {
     capitalMarket: normalizeCapitalMarketState(value.capitalMarket, base.capitalMarket),
     log: Array.isArray(value.log) ? value.log.slice(0, 120) : base.log,
   };
+}
+
+function normalizeCashFlowPeriod(period, company) {
+  const year = Number(company.year);
+  const month = Number(company.month);
+  if (Number(period?.year) === year
+    && Number(period?.month) === month
+    && typeof period?.openingCashKrw === 'number'
+    && Number.isFinite(period.openingCashKrw)
+    && ['full-period', 'since-load'].includes(period.coverage)) {
+    return { year, month, openingCashKrw: period.openingCashKrw, coverage: period.coverage };
+  }
+  // Old saves lack a period opening balance. Preserve their cash and history,
+  // and measure only subsequent changes instead of inventing past payments.
+  return { year, month, openingCashKrw: Number(company.cashKrw || 0), coverage: 'since-load' };
 }
 
 export function createOrderAction(state, partnerId, productId, quantity) {
@@ -697,10 +722,9 @@ export function monthEndCloseAction(state) {
   const operatingProfit = sales - cogs - expense - inventoryWriteDownNet;
   const tax = operatingProfit > 0 ? Math.round(operatingProfit * 0.22) : 0;
   const netProfit = operatingProfit - tax;
-  const cashOutflow = cogs + expense + tax;
-  const cashInflow = current.receivables
-    .filter((ar) => ar.status === 'COLLECTED' && ar.year === year && ar.month === month)
-    .reduce((sum, ar) => sum + Number(ar.amount || 0), 0);
+  // Production and collections already change cash in their own actions.
+  // Closing pays only this month's fixed costs and profit tax, not COGS again.
+  const closingCashKrw = Number(current.company.cashKrw || 0) - expense - tax;
   const settlement = {
     year,
     month,
@@ -710,7 +734,11 @@ export function monthEndCloseAction(state) {
     operatingProfit,
     tax,
     netProfit,
-    netCashflow: cashInflow - cashOutflow,
+    openingCashKrw: current.cashFlowPeriod.openingCashKrw,
+    closingCashKrw,
+    fixedExpensesPaidKrw: expense,
+    cashflowCoverage: current.cashFlowPeriod.coverage,
+    netCashflow: closingCashKrw - current.cashFlowPeriod.openingCashKrw,
   };
   const nextDate = advanceMonth(year, month);
   return addLog({
@@ -719,11 +747,12 @@ export function monthEndCloseAction(state) {
       ...current.company,
       year: nextDate.year,
       month: nextDate.month,
-      cashKrw: Number(current.company.cashKrw || 0) - tax,
+      cashKrw: closingCashKrw,
       reputation: clamp(Number(current.company.reputation || 0) + (netProfit >= 0 ? 1 : -2), 0, 100),
     },
+    cashFlowPeriod: { ...nextDate, openingCashKrw: closingCashKrw, coverage: 'full-period' },
     settlements: [settlement, ...current.settlements].slice(0, 18),
-  }, `${year}-${String(month).padStart(2, '0')} 월말 결산 완료. 순손익 ${formatMoney(netProfit)}.`);
+  }, `${year}-${String(month).padStart(2, '0')} 월말 결산 완료. 순손익 ${formatMoney(netProfit)}. 고정비 ${formatMoney(expense)} / 이익세 ${formatMoney(tax)} 지급, 남은 현금 ${formatMoney(closingCashKrw)}.${current.cashFlowPeriod.coverage === 'since-load' ? ' 현금흐름은 불러온 뒤의 변화만 포함합니다.' : ''}`);
 }
 
 export function createLedgerSnapshotAction(state) {
@@ -752,6 +781,7 @@ export function restoreLatestSnapshotAction(state) {
   const restored = normalizeState({
     ...current,
     ...snapshot.payload,
+    cashFlowPeriod: snapshot.payload.cashFlowPeriod ?? null,
     ledgerSnapshots: current.ledgerSnapshots,
     restoreHistory: current.restoreHistory,
   });
@@ -799,6 +829,9 @@ export function restoreLedgerSnapshotAction(state, restoreMode = 'FULL_LEDGER', 
   const restored = normalizeState({
     ...current,
     ...restoredPayload,
+    cashFlowPeriod: targetTableNames.has('company_info')
+      ? payload.cashFlowPeriod ?? null
+      : current.cashFlowPeriod,
     global: {
       ...current.global,
       ...(restoredPayload.global || {}),
@@ -985,6 +1018,8 @@ export function createProgressExportAction(state) {
     `Period: ${current.company.year}-${String(current.company.month).padStart(2, '0')}`,
     `Score: ${scoreState(current)}`,
     `Cash: ${formatMoney(current.company.cashKrw)}`,
+    `Period Cash Change: ${formatMoney(management.cashFlow.periodNetCashflow)}`,
+    `Cash Flow Coverage: ${management.cashFlow.cashflowCoverage}`,
     `Assets: ${formatMoney(summary.assets)}`,
     `Receivables: ${formatMoney(summary.receivableAmount)}`,
     `Foreign Receivables: ${formatMoney(summary.foreignReceivableAmount)}`,
@@ -1001,7 +1036,7 @@ export function createProgressExportAction(state) {
     id: `EXP-${Date.now().toString(36)}`,
     createdAt: new Date().toISOString(),
     exportType: 'MANAGEMENT_REPORT',
-    itemCount: 12 + diffRows.length,
+    itemCount: 14 + diffRows.length,
     exportNote: `${current.company.year}-${String(current.company.month).padStart(2, '0')} 진행 보고서`,
     checksum: simpleChecksum(content),
     content,
@@ -1292,6 +1327,9 @@ export function managementReport(state) {
     },
     cashFlow: {
       cash: Number(current.company.cashKrw || 0),
+      openingCashKrw: current.cashFlowPeriod.openingCashKrw,
+      periodNetCashflow: Number(current.company.cashKrw || 0) - current.cashFlowPeriod.openingCashKrw,
+      cashflowCoverage: current.cashFlowPeriod.coverage,
       collectedCash,
       receivableAmount: summary.receivableAmount,
       overdueAmount,
@@ -1401,6 +1439,7 @@ export function reportHistoryTrend(state) {
       operatingProfit: Number(settlement.operatingProfit || 0),
       netProfit: Number(settlement.netProfit || 0),
       netCashflow: Number(settlement.netCashflow || 0),
+      cashflowCoverage: settlement.cashflowCoverage || 'legacy',
       source: 'settlement',
     }));
   const latestSettlement = settlementRows[settlementRows.length - 1] || null;
@@ -1414,7 +1453,8 @@ export function reportHistoryTrend(state) {
     cost: Number(management.income.cogs || 0),
     operatingProfit: Number(management.income.operatingProfit || 0),
     netProfit: Number(liveSummary.latestSettlement?.netProfit ?? management.income.operatingProfit ?? 0),
-    netCashflow: Number(current.company.cashKrw || 0),
+    netCashflow: management.cashFlow.periodNetCashflow,
+    cashflowCoverage: management.cashFlow.cashflowCoverage,
     source: 'live',
   };
   const hasLiveSettlement = latestSettlement
@@ -1425,12 +1465,17 @@ export function reportHistoryTrend(state) {
     const previous = baseRows[index - 1] || null;
     const salesDelta = previous ? row.sales - previous.sales : 0;
     const profitDelta = previous ? row.operatingProfit - previous.operatingProfit : 0;
-    const cashflowDelta = previous ? row.netCashflow - previous.netCashflow : 0;
+    const cashflowComparable = previous?.cashflowCoverage === 'full-period'
+      && row.cashflowCoverage === 'full-period';
+    const cashflowDelta = previous
+      ? cashflowComparable ? row.netCashflow - previous.netCashflow : null
+      : 0;
     return {
       ...row,
       salesDelta,
       profitDelta,
       cashflowDelta,
+      cashflowComparable,
       marginPct: row.sales ? Number(((row.operatingProfit / row.sales) * 100).toFixed(1)) : 0,
       trend: profitDelta > 0 ? '개선' : profitDelta < 0 ? '악화' : '유지',
     };
@@ -1622,6 +1667,7 @@ function advanceMonth(year, month) {
 function snapshotPayload(state) {
   return {
     company: { ...state.company },
+    cashFlowPeriod: { ...state.cashFlowPeriod },
     inventory: JSON.parse(JSON.stringify(state.inventory)),
     orders: JSON.parse(JSON.stringify(state.orders)),
     receivables: JSON.parse(JSON.stringify(state.receivables)),
