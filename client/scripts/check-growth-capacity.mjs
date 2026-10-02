@@ -1,10 +1,12 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
-const { buildActorGrowthPlan, refreshActorGrowthPlan } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
+const { buildActorGrowthPlan, refreshActorGrowthPlan, getGrowthRecipeWork } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
 const { tryAutoCraftFromInventory } = await import('../src/app/simulation/_lib/gearInventoryCraftRuntime.js');
 const { getActorGrowthObservation } = await import('../src/app/simulation/_lib/growthObservationRuntime.js');
 const { prepareActorPhaseActionPlan } = await import('../src/app/simulation/_lib/phaseActionQueueRuntime.js');
-const { invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
+const { invQty, addItemToInventory } = await import('../src/app/simulation/_lib/inventoryRules.js');
+const { prepareCraftTransaction } = await import('../src/app/simulation/_lib/craftTransactionRuntime.js');
+const { createFieldResources, collectFieldResourceLoot, getFieldResourceQty } = await import('../src/app/simulation/_lib/fieldResourceRuntime.js');
 
 // Fresh controlled inputs, not the evaluator's missing match or past artifacts.
 const material = (id) => ({ _id: id, name: id, type: '재료', category: 'material', tier: 4, spawnZones: ['school'] });
@@ -119,5 +121,126 @@ check('JSON-restored inputs make the same capacity-aware decision and crafting o
   const first = fixture(); const restored = JSON.parse(JSON.stringify(first));
   for (const who of [first, restored]) { refreshActorGrowthPlan(who, items, world); craft(who); }
   assert.deepEqual(restored, first);
+});
+
+// A valid small-stack custom ruleset can block a batch even with free bag
+// slots. The receipt remains atomic: do not throw away surplus to pass a plan.
+const stackFixture = (ownedBatch = 2) => {
+  const raw = { _id: 'stack-fiber', name: '맞춤 섬유', type: '재료', category: 'material', tier: 1, spawnZones: ['school'] };
+  const batch = { _id: 'stack-cloth', name: '맞춤 원단', type: '재료', category: 'material', tier: 2,
+    recipe: { ingredients: [{ itemId: raw._id, qty: 2 }], resultQty: 3, creditsCost: 7 } };
+  const head = gear('stack-head', 'head', [batch._id], 4);
+  head.recipe.ingredients[0].qty = 4;
+  const catalog = [raw, batch, head];
+  const rules = { inventory: { maxSlots: 10, stackMax: { material: 4 } } };
+  const who = { _id: 'stack-case', name: 'stack-case', hp: 100, maxHp: 100, simCredits: 20,
+    zoneId: 'school', _actionCycleKey: 'stack:0', _growthFocusId: head._id,
+    routePlanTargetItemIds: [head._id], equipped: { head: null },
+    inventory: [row(raw, 2), row(batch, ownedBatch)] };
+  const runCraft = () => tryAutoCraftFromInventory(who, catalog,
+    Object.fromEntries(catalog.map(item => [item._id, item.name])),
+    Object.fromEntries(catalog.map(item => [item._id, item])), 5, 8, rules);
+  return { who, catalog, rules, raw, batch, head, runCraft };
+};
+check('a partially receivable batch is blocked and described honestly even in a non-full bag', () => {
+  const { who, catalog, rules, batch, runCraft } = stackFixture();
+  assert.equal(prepareCraftTransaction(who, batch, 5, rules).reason, 'inventory_full');
+  const before = structuredClone(who);
+  const plan = buildActorGrowthPlan(who, catalog, { ...world, ruleset: rules });
+  assert.deepEqual(who, before);
+  assert.equal(plan.blocked, 'inventory_full'); assert.equal(plan.readyCraftId, '');
+  refreshActorGrowthPlan(who, catalog, { ...world, ruleset: rules });
+  const observation = getActorGrowthObservation(who, catalog, { ruleset: rules });
+  assert.match(observation.materials, /공간 부족/); assert.doesNotMatch(observation.materials, /제작 가능/);
+  assert.equal(runCraft(), null); assert.equal(who.simCredits, 20);
+  assert.deepEqual(who.inventory.map(({ itemId, qty }) => ({ itemId, qty })), before.inventory.map(({ itemId, qty }) => ({ itemId, qty })));
+  assert.deepEqual(who.equipped, before.equipped);
+});
+check('a blocked intermediate stack can yield to another payable opening-slot recipe', () => {
+  const { who, catalog, rules, raw, runCraft } = stackFixture();
+  const alternative = gear('stack-clothes', 'clothes', [raw._id], 5);
+  alternative.recipe.ingredients[0].qty = 2;
+  catalog.push(alternative); who.routePlanTargetItemIds.push(alternative._id);
+  const plan = refreshActorGrowthPlan(who, catalog, { ...world, ruleset: rules });
+  assert.equal(plan.targetId, alternative._id); assert.equal(plan.readyCraftId, alternative._id);
+  assert.equal(plan.blocked, '');
+  const inventory = structuredClone(who.inventory);
+  const queue = prepareActorPhaseActionPlan({ state: { actor: who, ...world, ruleset: rules, publicItems: catalog,
+    craftables: catalog, itemMetaById: Object.fromEntries(catalog.map(item => [item._id, item])),
+    itemNameById: Object.fromEntries(catalog.map(item => [item._id, item.name])), nextDay: 5, nextPhase: 'morning', phaseIdxNow: 8 } });
+  assert.equal(queue.queuedActionType, 'craft'); assert.equal(who._growthPlan.readyCraftId, alternative._id);
+  assert.deepEqual(who.inventory, inventory); assert.equal(who.simCredits, 20);
+  const result = runCraft();
+  assert.equal(result.craftedId, alternative._id); assert.equal(who.equipped.clothes, alternative._id);
+  assert.equal(invQty(who.inventory, raw._id), 0); assert.equal(invQty(who.inventory, 'stack-cloth'), 2);
+  assert.equal(who.simCredits, 15); assert.equal(who.equipped.head, null);
+});
+check('an exactly fitting batch still pays and consumes both steps of the authored recipe', () => {
+  for (const restored of [false, true]) {
+    const setup = stackFixture(1);
+    if (restored) Object.assign(setup.who, JSON.parse(JSON.stringify(setup.who)));
+    const { who, catalog, rules, raw, batch, head, runCraft } = setup;
+    const first = refreshActorGrowthPlan(who, catalog, { ...world, ruleset: rules });
+    assert.equal(first.readyCraftId, batch._id); assert.equal(first.blocked, '');
+    assert.equal(runCraft().craftedId, batch._id);
+    assert.equal(invQty(who.inventory, batch._id), 4); assert.equal(invQty(who.inventory, raw._id), 0);
+    assert.equal(who.simCredits, 13);
+    who._actionCycleKey = 'stack:1';
+    assert.equal(refreshActorGrowthPlan(who, catalog, { ...world, ruleset: rules }).readyCraftId, head._id);
+    assert.equal(runCraft().craftedId, head._id); assert.equal(who.equipped.head, head._id);
+    assert.equal(invQty(who.inventory, batch._id), 0); assert.equal(invQty(who.inventory, head._id), 1);
+    assert.equal(who.simCredits, 9);
+  }
+});
+check('the default material stack limit also rejects a partial batch with free bag slots', () => {
+  const { who, catalog, head, batch } = stackFixture(1);
+  head.recipe.ingredients[0].qty = 2;
+  const before = structuredClone(who);
+  assert.equal(prepareCraftTransaction(who, batch).reason, 'inventory_full');
+  const plan = buildActorGrowthPlan(who, catalog, { ...world, ruleset: {} });
+  assert.equal(plan.blocked, 'inventory_full'); assert.equal(plan.readyCraftId, '');
+  assert.deepEqual(who, before);
+});
+check('receivable missing ingredients can unlock a different step before the blocked batch', () => {
+  const { who, catalog, rules, raw, batch, head, runCraft } = stackFixture();
+  const dye = { _id: 'stack-dye', name: '맞춤 염료', type: '재료', category: 'material', tier: 1, spawnZones: ['school'] };
+  const parts = ['stack-left', 'stack-right'].map(_id => ({ _id, name: _id, type: '재료', category: 'material', tier: 2,
+    recipe: { ingredients: [{ itemId: batch._id, qty: 2 }, { itemId: dye._id, qty: 1 }], resultQty: 1, creditsCost: 0 } }));
+  catalog.push(dye, ...parts); head.recipe.ingredients = parts.map(item => ({ itemId: item._id, qty: 1 }));
+  const mapObj = { ...world.mapObj, fieldResourceStock: { school: { [dye._id]: 2 } } };
+  const stock = createFieldResources(mapObj, catalog, rules), options = { ...world, mapObj, ruleset: rules, fieldResources: stock };
+  assert.equal(prepareCraftTransaction(who, batch, 5, rules).reason, 'inventory_full');
+  const plan = refreshActorGrowthPlan(who, catalog, options);
+  assert.equal(plan.blocked, ''); assert.equal(plan.readyCraftId, '');
+  assert.deepEqual(plan.currentZoneItemIds, [dye._id]);
+  assert.doesNotMatch(getActorGrowthObservation(who, catalog, { ruleset: rules }).materials, /제작 가능/);
+  const queue = prepareActorPhaseActionPlan({ state: { actor: who, ...options, publicItems: catalog, craftables: catalog,
+    itemMetaById: Object.fromEntries(catalog.map(item => [item._id, item])),
+    itemNameById: Object.fromEntries(catalog.map(item => [item._id, item.name])), nextDay: 5, nextPhase: 'morning', phaseIdxNow: 8 } });
+  assert.equal(queue.queuedActionType, 'routeFarm'); assert.equal(who.simCredits, 20);
+  assert.equal(getFieldResourceQty(stock, 'school', dye._id), 2);
+  const acquired = collectFieldResourceLoot(stock, { item: dye, itemId: dye._id, zoneId: 'school', qty: 2 }, qty => {
+    const inventory = addItemToInventory(who.inventory, dye, dye._id, qty, 5, rules);
+    const accepted = inventory._lastAdd.acceptedQty;
+    if (accepted) who.inventory = inventory;
+    return accepted;
+  });
+  assert.equal(acquired, 2); assert.equal(getFieldResourceQty(stock, 'school', dye._id), 0);
+  for (const [index, item] of [parts[0], batch, parts[1], head].entries()) {
+    who._actionCycleKey = `stack:unlock:${index}`;
+    assert.equal(refreshActorGrowthPlan(who, catalog, options).readyCraftId, item._id);
+    assert.equal(runCraft().craftedId, item._id);
+  }
+  assert.equal(who.equipped.head, head._id); assert.equal(who.simCredits, 9);
+  assert.equal(invQty(who.inventory, raw._id), 0); assert.equal(invQty(who.inventory, dye._id), 0);
+  assert.equal(invQty(who.inventory, batch._id), 1);
+  assert.equal(stock.byZone.school[dye._id].taken, 2);
+});
+check('ruleset-free recipe accounting does not assume an unknown custom stack limit', () => {
+  const { who, catalog, batch, head } = stackFixture();
+  const before = structuredClone(who);
+  const work = getGrowthRecipeWork(who, catalog, head._id);
+  assert.equal(work.readyCraftId, batch._id); assert.equal(work.blocked, '');
+  assert.deepEqual(who, before);
 });
 console.log(`GROWTH_CAPACITY_CHECKS ${checks}/${checks}`);

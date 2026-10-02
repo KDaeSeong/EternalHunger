@@ -1,5 +1,5 @@
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
-import { getInvItemId, getInvRules, inferEquipSlot, invQty } from './inventoryRules';
+import { canReceiveItem, getInvItemId, getInvRules, inferEquipSlot, invQty } from './inventoryRules';
 import { getFieldItemSourceZones, getFieldResourceQty } from './fieldResourceRuntime';
 import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
 import { getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
@@ -95,15 +95,27 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
     .every((row) => invQty(inventory, row.itemId) >= row.qty));
   const affordable = materialReady.filter((id) => getCraftRecipeTerms(byId.get(id)).creditsCost <= work.availableCredits);
   work.readyCraftId = affordable[0] || '';
-  // Material readiness alone can trap a full bag on the same focus forever.
-  // Check the real consume-then-receive transaction; do not discard protected
-  // items or grant equipment to make the plan appear viable. Non-full bags
-  // keep the cheap path; the committing craft always revalidates all limits.
-  if (!work.blocked && work.readyCraftId && ruleset && inventory.length >= getInvRules(ruleset).maxSlots) {
-    const context = { _growthPlan: { targetIds, componentIds: work.componentIds } };
-    work.readyCraftId = affordable.find((id) => prepareCraftTransaction(actor,
-      markGrowthComponent(byId.get(id), context), 1, ruleset).ok) || '';
-    if (!work.readyCraftId) work.blocked = 'inventory_full';
+  // A full bag or a partially receivable output stack can trap the focus on
+  // an impossible craft. Preview the real atomic receipt without discarding
+  // surplus, spending materials or granting gear. New single-item outputs in
+  // non-full bags keep the cheap path; committing always revalidates limits.
+  // Ruleset-free callers only account for recipes; do not guess their limits.
+  if (!work.blocked && work.readyCraftId && ruleset) {
+    const previewCapacity = inventory.length >= getInvRules(ruleset).maxSlots
+      || affordable.some(id => getCraftRecipeTerms(byId.get(id)).resultQty > 1 || invQty(inventory, id) > 0);
+    if (previewCapacity) {
+      const context = { _growthPlan: { targetIds, componentIds: work.componentIds } };
+      work.readyCraftId = affordable.find((id) => prepareCraftTransaction(actor,
+        markGrowthComponent(byId.get(id), context), 1, ruleset).ok) || '';
+      if (!work.readyCraftId) {
+        // A missing ingredient can unlock another component that consumes the
+        // crowded stack first. Keep that real farming route if it can receive
+        // stock; reject only when neither crafting nor further pickup can fit.
+        const canContinueFarming = [...missing.keys()].some(id => canReceiveItem(inventory,
+          markGrowthComponent(byId.get(id), context), id, 1, ruleset));
+        if (!canContinueFarming) work.blocked = 'inventory_full';
+      }
+    }
   }
   work.requiredCredits = materialReady.length ? getCraftRecipeTerms(byId.get(work.readyCraftId || materialReady[0])).creditsCost : 0;
   work.missing = [...missing].map(([id, qty]) => ({ itemId: id, name: byId.get(id)?.name || id, need: qty, have: invQty(inventory, id) }));
