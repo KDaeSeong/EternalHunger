@@ -1,10 +1,10 @@
 import { createHungerRun } from './hungerGameRuntime.js';
 
-export function createHungerPreview({ roster, event, casting = {}, context, injuredByRole = {}, survivors = roster.length, duelPhases = 0, seed = 'preview' }) {
+export function createHungerPreview({ roster, event, matchMode, casting = {}, context, injuredByRole = {}, survivors = roster.length, duelPhases = 0, seed = 'preview' }) {
   const count = Number(survivors), duration = Number(duelPhases);
   if (!Number.isInteger(count) || count < 2 || count > roster.length) throw new Error('시험 생존자는 2명부터 전체 참가자 수까지 지정할 수 있습니다.');
   if (!Number.isInteger(duration) || duration < 0 || duration > 120) throw new Error('시험 대치 페이즈는 0~120으로 지정해 주세요.');
-  const state = createHungerRun({ roster, events: [event], seed, maxPhases: 120 });
+  const state = createHungerRun({ roster, events: [event], matchMode, seed, maxPhases: 120 });
   Object.assign(state, { day: context.day, phase: context.phase, weather: context.weather, location: context.location, phaseIndex: duration });
   const assigned = Object.fromEntries(event.roles.map((role, index) => [role.key, casting[role.key] || roster[index]?.id]));
   const living = new Set(Object.values(assigned));

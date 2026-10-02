@@ -291,5 +291,28 @@ await check('the procurement boundary does not subtract already-held rare materi
   assert.deepEqual(who._growthPlan, before);
 });
 
+await check('unusable high-tier loot cannot cancel automatic or authored weapon upgrades', () => {
+  const weapon = (id, tier, weaponType = '단검') => ({ _id: id, itemKey: id, name: id,
+    type: '무기', category: 'equipment', equipSlot: 'weapon', weaponType, tier,
+    stats: { attackPower: tier * 5 }, recipe: { ingredients: [{ itemId: cloth._id, qty: 1 }], creditsCost: 3 } });
+  const dagger = weapon('dagger-hero', 4), legend = weapon('dagger-legend', 5), trans = weapon('dagger-trans', 6);
+  const rifle = weapon('foreign-rifle', 6, '돌격 소총');
+  const catalog = [cloth, dagger, legend, trans, rifle];
+  for (const authored of [false, true]) {
+    const who = actor();
+    who.inventory = [dagger, rifle, cloth].map(item => ({ ...item, itemId: item._id, qty: 1 }));
+    who.equipped = { weapon: dagger._id }; who.routePlanTargetItemIds = [dagger._id];
+    who.goalLoadouts = authored ? { legend: { weaponKey: legend.itemKey } } : {};
+    const plan = refreshActorGrowthPlan(who, catalog, world);
+    assert.equal(plan.targetId, legend._id); assert.equal(plan.openingComplete, true);
+    const crafted = tryAutoCraftFromInventory(who, catalog, buildItemNameById(catalog), buildItemMetaById(catalog), 3, 4, ruleset);
+    assert.equal(crafted.craftedId, legend._id); assert.equal(who.equipped.weapon, legend._id);
+    assert.equal(who.simCredits, 17); assert.equal(invQty(who.inventory, cloth._id), 0);
+    assert.deepEqual(crafted.receipt.consumed, [{ itemId: cloth._id, qty: 1 }], 'foreign loot cannot become a recipe input');
+    who.inventory = [{ ...trans, itemId: trans._id, qty: 1 }]; who.equipped.weapon = trans._id;
+    assert.equal(buildActorGrowthPlan(who, catalog, world).targetId, '', 'usable top-tier gear still completes growth');
+  }
+});
+
 console.log(`LATE_GROWTH_GOAL_CHECKS ${passed}/${passed + failed}`);
 if (failed) process.exitCode = 1;

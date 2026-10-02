@@ -175,3 +175,15 @@ HF3 최신 후속은 `combat-decision-evidence-verification.md`에 기록한다.
 - 목표 완료는 G1~G5의 증명과 실제 사용자 평가가 끝난 뒤 판단한다. 자동 검사 수나 빌드 성공을 재미·균형·브라우저 성능 합격으로 세지 않는다.
 
 근거 문서: `eternal-hunger-goal.md`, `match-distribution-verification.md`, `simulation-replay-verification.md`, `simulation-run-comparison-verification.md`, `observer-performance-verification.md`, `character-status-skills-verification.md`, `cooldown-semantics-verification.md`, `unique-resource-verification.md`, `growth-plan-verification.md`, `team-combat-verification.md`, `field-resource-verification.md`, `endgame-verification.md`, `live-frame-verification.md`. 상태 판단의 최우선 기준은 목표 문서의 최신 실행 상태이며, 과거 진행 기록은 당시 증거로만 사용한다.
+
+
+## 2026-10-02 추가 수정
+
+- 후반 무기 성장 목표의 완료 판정을 공통 장비 판정과 통일했다. 사용할 수 없는 다른 무기 종류의 상위 장비를 소지해도 현재 무기의 전설·초월 목표를 완료 처리하지 않으며 실제 제작으로 이어진다.
+- `/game/end`에 계정별 경기 ID 중복 방지와 로그·캐릭터 전적·팀 전적의 트랜잭션 저장을 적용했다. 이전 클라이언트가 경기 ID를 보내지 않으면 결과 필드의 정규화 지문을 사용한다. 저장 중 일부 쓰기가 실패하면 전체를 되돌리고 같은 ID로 재시도할 수 있다.
+- 결과 예측 안내에서 실제로 지급하지 않는 영구 LP 보상 문구를 제거했다.
+- 팀 관전에 현재 페이즈 핵심 사건을 최대 3개 표시한다. 이미 발생한 제작·회복·후퇴·탈락·부활 기록을 사용하며 같은 종류의 반복 기록을 합친다. 현재 목표와 저체력 보충 설명은 현재 상태임을 구분하고, 미래 기록·다른 팀 기록·허구의 자원 획득을 요약하지 않는다. 관전 요약은 난수나 경기 상태를 변경하지 않는다.
+
+저장 트랜잭션은 MongoDB replica set 또는 sharded cluster를 요구한다. 라우트 회귀 검사는 순차·동시 중복 요청, 계정 분리, 캐릭터·팀 저장 실패의 롤백과 재시도를 다룬다. 실제 모델을 사용하는 별도 검사는 `server/tests/integration/game-save-mongo.mjs`이며 `EH_TEST_MONGO_URI`에 로컬 테스트 replica set 주소를 지정해 실행한다. 이 작업 환경에서는 임시 MongoDB 프로세스가 `open: Operation not permitted`로 시작하지 못했으므로 실제 MongoDB 통합 검사는 통과로 기록하지 않는다.
+
+이 수정과 자동 검사는 위 G1~G5 및 실제 초보 사용자 평가를 대체하지 않는다.
