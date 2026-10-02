@@ -49,9 +49,9 @@ const fixture = () => {
   return { state, roster };
 };
 const plan = ({ state, roster }) => buildTeamCoordination({ roster, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds,
-  day: state.nextDay, phase: state.nextPhase, spawnState: state.nextSpawn, ruleset: state.ruleset, publicItems: items,
+  day: state.nextDay, phase: state.nextPhase, spawnState: state.nextSpawn, ruleset: state.ruleset, publicItems: state.publicItems,
   isSoloMatch: state.isSoloMatch, estimatePower: () => 100, chooseLeaderMove: (actor) => chooseAiMoveTargets({ actor,
-    craftGoal: getActorGrowthCraftGoal(actor, items), mapObj: state.mapObj, spawnState: state.nextSpawn,
+    craftGoal: getActorGrowthCraftGoal(actor, state.publicItems), mapObj: state.mapObj, spawnState: state.nextSpawn,
     forbiddenIds: state.forbiddenIds, day: state.nextDay, phase: state.nextPhase, ruleset: state.ruleset }) });
 const tick = ({ state, roster, navigation }) => {
   const events = [], logs = [];
@@ -301,6 +301,100 @@ check('distant recipe routing still rejects forbidden and overwhelmed paths and 
     assert.ok(input.roster.filter(actor => actor.teamId === 'team:1').every(actor =>
       !result.movementPlans.get(actor._id)?.objective?.beneficiary), scenario);
     assert.equal(input.roster.filter(actor => actor.teamId === 'team:1').reduce((sum, actor) => sum + invQty(actor.inventory, tree._id), 0), 0);
+  }
+});
+
+const futureGear = { ...gear('team-future-tree', '지정 초월 생명 모자', tree._id), tier: 6 };
+function futureRecipeFixture() {
+  const input = fixture(), catalog = [...items, futureGear];
+  Object.assign(input.state, { publicItems: catalog, craftables: buildCraftableItems(catalog),
+    itemMetaById: buildItemMetaById(catalog), itemNameById: buildItemNameById(catalog), itemKeyById: buildItemKeyById(catalog) });
+  for (const stock of Object.values(input.state.nextSpawn.fieldResources.byZone)) {
+    for (const source of Object.values(stock)) { source.remaining = 0; source.taken = source.initial; }
+  }
+  input.roster[1].goalLoadouts = { legend: { headKey: ordinary.itemKey }, transcend: { headKey: futureGear.itemKey } };
+  for (const actor of input.roster) refreshActorGrowthPlan(actor, catalog, input.state);
+  return input;
+}
+
+check('a blocked first recipe cannot hide an authored later recipe that a spawned resource can complete', () => {
+  const input = futureRecipeFixture(), before = structuredClone({ roster: input.roster, spawn: input.state.nextSpawn });
+  assert.equal(input.roster[1]._growthPlan.targetId, ordinary._id);
+  assert.equal(input.roster[1]._growthPlan.blocked, 'no_material_source');
+  const moves = withSimulationRandom(() => { throw new Error('Future recipe selection must be read-only, without RNG.'); }, () => plan(input)).movementPlans;
+  for (const actor of input.roster) {
+    const move = moves.get(actor._id);
+    assert.equal(move?.targetZoneId, 'c'); assert.equal(move?.objective?.beneficiary?.who, 'crafter');
+    assert.equal(move.objective.beneficiary.targetItemId, futureGear._id); assert.deepEqual(move.objective.sourceIds, ['tree-c']);
+  }
+  assert.deepEqual(input.roster, before.roster); assert.deepEqual(input.state.nextSpawn, before.spawn);
+});
+
+check('the team reaches and consumes a future recipe source once, without free lower-tier gear or actor-order dependence', () => {
+  for (const reverse of [false, true]) {
+    const input = futureRecipeFixture(); if (reverse) input.roster.reverse();
+    const result = tick(input), crafter = result.updatedSurvivors.find(actor => actor._id === 'crafter');
+    assert.ok(result.updatedSurvivors.every(actor => actor.zoneId === 'c'));
+    assert.equal(crafter.equipped.head, futureGear._id); assert.equal(crafter.simCredits, 17);
+    assert.equal(invQty(crafter.inventory, hero._id), 0); assert.equal(invQty(crafter.inventory, tree._id), 0);
+    assert.equal(invQty(crafter.inventory, ordinary._id), 0); assert.equal(invQty(crafter.inventory, rare._id), 0);
+    assert.equal(input.state.nextSpawn.coreNodes[0].pickedBy, 'crafter');
+    assert.equal(result.events.filter(event => event.kind === 'gain' && event.itemId === tree._id).length, 1);
+    const receipts = result.events.filter(event => event.kind === 'craft' && event.itemId === futureGear._id);
+    assert.equal(receipts.length, 1); assert.equal(receipts[0].paidCost, 3); assert.deepEqual(receipts[0].consumed, futureGear.recipe.ingredients);
+    assert.ok(result.updatedSurvivors.filter(actor => actor._id !== 'crafter').every(actor => actor.equipped.head === hero._id));
+    assert.ok(result.logs.some(line => /팀 공동 목표.*crafter의 지정 초월 생명 모자/.test(line)));
+  }
+});
+
+check('a completable active recipe keeps priority when the same source also completes an authored later recipe', () => {
+  const input = futureRecipeFixture(), crafter = input.roster[1];
+  crafter.goalLoadouts.legend.headKey = rare.itemKey;
+  refreshActorGrowthPlan(crafter, input.state.publicItems, input.state);
+  assert.equal(crafter._growthPlan.targetId, rare._id);
+  assert.equal(plan(input).movementPlans.get('leader').objective.beneficiary.targetItemId, rare._id);
+  const result = tick(input), receiver = result.updatedSurvivors.find(actor => actor._id === 'crafter');
+  assert.equal(receiver.equipped.head, rare._id); assert.equal(receiver.simCredits, 17);
+  assert.equal(invQty(receiver.inventory, futureGear._id), 0);
+  assert.equal(result.events.filter(event => event.kind === 'craft' && event.itemId === rare._id).length, 1);
+});
+
+check('invalid slot/tier keys, automatic alternatives and satisfied later recipes cannot claim a future resource', () => {
+  for (const scenario of ['automatic', 'invalid', 'wrong_slot', 'wrong_tier', 'material_owned', 'equipment_owned']) {
+    const input = futureRecipeFixture(), crafter = input.roster[1];
+    if (scenario === 'automatic') crafter.goalLoadouts.transcend = {};
+    if (scenario === 'invalid') crafter.goalLoadouts.transcend.headKey = 'absent-future-recipe';
+    if (scenario === 'wrong_slot') crafter.goalLoadouts.transcend = { armKey: futureGear.itemKey };
+    if (scenario === 'wrong_tier') crafter.goalLoadouts.transcend.headKey = ordinary.itemKey;
+    if (scenario === 'material_owned' || scenario === 'equipment_owned') {
+      const item = scenario === 'material_owned' ? tree : futureGear;
+      crafter.inventory.push({ ...structuredClone(item), itemId: item._id, qty: 1 });
+    }
+    const before = structuredClone({ roster: input.roster, spawn: input.state.nextSpawn });
+    const moves = plan(input).movementPlans;
+    assert.ok([...moves.values()].every(move => !move.objective?.beneficiary), scenario);
+    assert.deepEqual(input.roster, before.roster); assert.deepEqual(input.state.nextSpawn, before.spawn);
+  }
+});
+
+check('a future shared recipe still pays real credits and cannot craft from a partial material quantity', () => {
+  for (const scenario of ['no_credits', 'needs_two']) {
+    const input = futureRecipeFixture(), crafter = input.roster[1];
+    if (scenario === 'no_credits') crafter.simCredits = 0;
+    else {
+      const target = structuredClone(futureGear); target.recipe.ingredients[1].qty = 2;
+      const catalog = input.state.publicItems.map(item => item._id === target._id ? target : item);
+      Object.assign(input.state, { publicItems: catalog, craftables: buildCraftableItems(catalog),
+        itemMetaById: buildItemMetaById(catalog), itemNameById: buildItemNameById(catalog), itemKeyById: buildItemKeyById(catalog) });
+    }
+    for (const actor of input.roster) refreshActorGrowthPlan(actor, input.state.publicItems, input.state);
+    const result = tick(input), receiver = result.updatedSurvivors.find(actor => actor._id === 'crafter');
+    assert.ok(result.updatedSurvivors.every(actor => actor.zoneId === 'c'));
+    assert.equal(receiver.equipped.head, hero._id); assert.equal(invQty(receiver.inventory, tree._id), 1);
+    assert.equal(invQty(receiver.inventory, hero._id), 1); assert.equal(invQty(receiver.inventory, futureGear._id), 0);
+    assert.equal(receiver.simCredits, scenario === 'no_credits' ? 0 : 20);
+    assert.equal(result.events.filter(event => event.kind === 'craft').length, 0);
+    assert.equal(result.events.filter(event => event.kind === 'gain' && event.itemId === tree._id).length, 1);
   }
 });
 

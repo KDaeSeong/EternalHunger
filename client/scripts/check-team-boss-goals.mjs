@@ -381,4 +381,52 @@ await check('distant boss travel performs four real moves before combat and sing
     'Account for the real side crafts at the intermediate cloth region as well as the boss recipe.');
 });
 
+function futureBossFixture() {
+  const input = fixture('weakline', 'vf_blood_sample'), crafter = input.roster[1];
+  crafter.inventory = [held('base')]; crafter.equipped.head = 'base';
+  crafter.goalLoadouts = { legend: { headKey: 'hat-_cloth' }, transcend: { headKey: 'hat-vf_blood_sample' } };
+  for (const stock of Object.values(input.state.nextSpawn.fieldResources.byZone)) {
+    for (const source of Object.values(stock)) { source.remaining = 0; source.taken = source.initial; }
+  }
+  for (const actor of input.roster) refreshActorGrowthPlan(actor, items, input.state);
+  return input;
+}
+
+await check('a blocked first legend recipe cannot hide the authored transcend VF boss destination', () => {
+  const input = futureBossFixture(), crafter = input.roster[1];
+  assert.equal(crafter._growthPlan.targetId, 'hat-_cloth'); assert.equal(crafter._growthPlan.blocked, 'no_material_source');
+  const before = structuredClone({ roster: input.roster, spawn: input.state.nextSpawn });
+  const moves = withSimulationRandom(() => { throw new Error('Authored future boss routing must not draw RNG.'); }, () => plan(input)).movementPlans;
+  for (const actor of input.roster) {
+    const move = moves.get(actor._id);
+    assert.equal(move?.targetZoneId, 'c'); assert.equal(move?.objective?.subkind, 'weakline');
+    assert.equal(move.objective.beneficiary.who, 'crafter'); assert.equal(move.objective.beneficiary.targetItemId, 'hat-vf_blood_sample');
+  }
+  assert.deepEqual(input.roster, before.roster); assert.deepEqual(input.state.nextSpawn, before.spawn);
+});
+
+await check('the future boss destination executes travel, one real Wickeline fight and paid VF crafting in either actor order', async () => {
+  for (const reverse of [false, true]) {
+    const input = futureBossFixture(); if (reverse) input.roster.reverse();
+    tick(input, 960);
+    assert.ok(input.roster.every(actor => actor.zoneId === 'c'));
+    assert.equal(input.events.some(event => event.kind === 'hunt_start'), false);
+    assert.equal(input.roster.reduce((sum, actor) => sum + invQty(actor.inventory, 'vf_blood_sample'), 0), 0);
+    tick(input, 980);
+    assert.equal(input.events.filter(event => event.kind === 'hunt_start' && event.subkind === 'weakline').length, 1);
+    await fight(input);
+    const crafter = input.roster.find(actor => actor._id === 'crafter');
+    assert.equal(crafter.equipped.head, 'hat-vf_blood_sample', input.logs.join('\n'));
+    assert.equal(invQty(crafter.inventory, 'base'), 0); assert.equal(invQty(crafter.inventory, 'vf_blood_sample'), 0);
+    assert.equal(invQty(crafter.inventory, 'hat-_cloth'), 0);
+    assert.equal(input.roster.reduce((sum, actor) => sum + actor.simCredits, 0), 64);
+    assert.equal(input.events.filter(event => event.kind === 'hunt_settlement' && event.defeated).length, 1);
+    assert.equal(input.events.filter(event => event.kind === 'gain' && event.itemId === 'vf_blood_sample').length, 1);
+    const receipts = input.events.filter(event => event.kind === 'craft' && event.itemId === 'hat-vf_blood_sample');
+    assert.equal(receipts.length, 1); assert.equal(receipts[0].paidCost, 3);
+    assert.deepEqual(receipts[0].consumed, byId['hat-vf_blood_sample'].recipe.ingredients);
+    assert.ok(input.logs.some(line => /팀 공동 목표.*위클라인.*crafter의 VF 혈액 샘플 모자/.test(line)));
+  }
+});
+
 console.log(`TEAM_BOSS_GOAL_CHECKS ${checks}/${checks}`);

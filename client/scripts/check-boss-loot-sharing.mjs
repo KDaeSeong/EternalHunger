@@ -319,4 +319,17 @@ await check('real timed alpha combat settles into the live teammate, not a stale
   }
 });
 
+await check('wrong-slot or wrong-tier authored keys cannot promote an automatic recipe to an earned-loot claim', () => {
+  for (const scenario of ['wrong_slot', 'wrong_tier', 'automatic']) {
+    const input = fixture('weakline', blood);
+    input.crafter.goalLoadouts.transcend = scenario === 'wrong_slot' ? { armKey: recipe(blood).itemKey } : {};
+    if (scenario === 'wrong_tier') input.crafter.goalLoadouts.legend.armKey = recipe(blood).itemKey;
+    const before = structuredClone(input.state.rewardRoster);
+    const selected = withSimulationRandom(() => { throw new Error('Invalid authored choices must not reroll.'); }, () =>
+      chooseBossLootRecipient({ hunter: input.hunter, roster: input.state.rewardRoster, drop: { item: blood, itemId: blood._id },
+        remaining: 1, publicItems: items, ruleset: input.state.ruleset }));
+    assert.equal(selected, null, scenario); assert.deepEqual(input.state.rewardRoster, before);
+  }
+});
+
 console.log(`BOSS_LOOT_SHARING_CHECKS ${checks}/${checks}`);

@@ -16,7 +16,7 @@ function lateCatalog(items) {
 
 // A plan chooses an existing recipe, never grants its result. Authored choices
 // win over automatic upgrades; catalog order must not decide between them.
-export function getLateGrowthTargets(actor, items) {
+export function getLateGrowthTargets(actor, items, { authoredOnly = false } = {}) {
   const inventory = Array.isArray(actor.inventory) ? actor.inventory : [];
   const owned = new Set(inventory.filter((entry) => invQty(inventory, getInvItemId(entry)) > 0).map(getInvItemId));
   const weapon = normalizeWeaponType(actor.weaponType || '');
@@ -34,7 +34,7 @@ export function getLateGrowthTargets(actor, items) {
         if (!target || !compatible(target, slot, tier)) {
           issues.push({ slot, tier, key: requested, reason: 'invalid_target' });
         } else if (!owned.has(String(target._id))) candidates.push({ target, authored: true, slot, tier });
-      } else if (currentTier < tier) {
+      } else if (!authoredOnly && currentTier < tier) {
         for (const target of catalog.filter((item) => compatible(item, slot, tier) && !owned.has(String(item._id)))) {
           // Custom recipes may legitimately skip a tier. An under-equipped
           // actor only attempts such an upgrade when its real inputs are owned.
@@ -52,4 +52,19 @@ export function getLateGrowthTargets(actor, items) {
     || ownedIngredients(b.target) - ownedIngredients(a.target)
     || slots.indexOf(a.slot) - slots.indexOf(b.slot) || String(a.target._id).localeCompare(String(b.target._id)));
   return { targets: candidates.map((row) => row.target), issues };
+}
+
+// Movement and earned-loot allocation read the same real recipe candidates.
+// Keep the active plan first, then only valid authored later choices. Never
+// turn automatic catalogue options or wrong-slot/tier keys into loot claims.
+export function getActorResourceRecipeTargets(actor, items) {
+  const targets = new Map();
+  const current = items.find(item => String(item._id) === String(actor?._growthPlan?.targetId || ''));
+  if (current) targets.set(String(current._id), current);
+  if (actor?._growthPlan?.openingComplete) {
+    for (const target of getLateGrowthTargets(actor, items, { authoredOnly: true }).targets) {
+      targets.set(String(target._id), target);
+    }
+  }
+  return [...targets.values()];
 }

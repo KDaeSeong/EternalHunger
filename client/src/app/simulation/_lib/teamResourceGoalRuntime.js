@@ -1,4 +1,5 @@
 import { getGrowthRecipeWork } from './growthPlanRuntime.js';
+import { getActorResourceRecipeTargets } from './lateGrowthTargetRuntime.js';
 import { canReceiveItem, inferItemCategory, markInventoryGoalItem } from './inventoryRules.js';
 import { findSpecialResourceItem } from './specialResourceRuntime.js';
 import { markObjectiveTarget } from './aiMoveTargetScoringRuntime.js';
@@ -33,25 +34,25 @@ export function chooseTeamResourceMove({ members = [], spawnState, publicItems =
     if (getCombatSpaceId(actor) !== WORLD_COMBAT_SPACE) continue;
     const growth = actor._growthPlan;
     if (!growth?.openingComplete || !growth.targetId) continue;
-    const target = publicItems.find((item) => String(item._id) === String(growth.targetId));
-    if (!target) continue;
-    const work = getGrowthRecipeWork(actor, publicItems, target._id);
-    if (work.blocked || !work.missing.length) continue;
-    for (const node of sources) for (const { item, qty } of node.drops) {
-      const need = work.missing.find((row) => row.itemId === String(item?._id) && row.need > 0);
-      if (!need || !canReceiveItem(actor.inventory, node.type === 'boss' ? markInventoryGoalItem(item, true) : item,
-        item._id, Math.min(qty, need.need), ruleset)) continue;
-      if (!routes.has(node.zoneId)) routes.set(node.zoneId, routeForZone(node.zoneId));
-      const route = routes.get(node.zoneId);
-      if (!route) continue;
-      candidates.push({ actor, target, item, need, node, distance: route.distance,
-        completesRecipe: work.missing.length === 1 && need.need <= qty && work.plannedCredits <= work.availableCredits });
+    for (const [targetRank, target] of getActorResourceRecipeTargets(actor, publicItems).entries()) {
+      const work = getGrowthRecipeWork(actor, publicItems, target._id);
+      if (work.blocked || !work.missing.length) continue;
+      for (const node of sources) for (const { item, qty } of node.drops) {
+        const need = work.missing.find((row) => row.itemId === String(item?._id) && row.need > 0);
+        if (!need || !canReceiveItem(actor.inventory, node.type === 'boss' ? markInventoryGoalItem(item, true) : item,
+          item._id, Math.min(qty, need.need), ruleset)) continue;
+        if (!routes.has(node.zoneId)) routes.set(node.zoneId, routeForZone(node.zoneId));
+        const route = routes.get(node.zoneId);
+        if (!route) continue;
+        candidates.push({ actor, target, targetRank, item, need, node, distance: route.distance,
+          completesRecipe: work.missing.length === 1 && need.need <= qty && work.plannedCredits <= work.availableCredits });
+      }
     }
   }
   candidates.sort((a, b) => Number(b.completesRecipe) - Number(a.completesRecipe)
     || Number(a.node.type === 'boss') - Number(b.node.type === 'boss') || a.distance - b.distance
     || Number(a.actor.teamSlot || 99) - Number(b.actor.teamSlot || 99)
-    || idOf(a.actor).localeCompare(idOf(b.actor)) || String(a.node.id).localeCompare(String(b.node.id)));
+    || idOf(a.actor).localeCompare(idOf(b.actor)) || a.targetRank - b.targetRank || String(a.node.id).localeCompare(String(b.node.id)));
   const best = candidates[0];
   if (!best) return null;
   const result = { targets: [String(best.node.zoneId)], reason: 'team_growth_resource',
