@@ -1,4 +1,8 @@
 import { findSpecialResourceItem, getSpecialDropRules } from './specialResourceRuntime.js';
+import { getGrowthRecipeWork } from './growthPlanRuntime.js';
+import { getActorResourceRecipeTargets } from './lateGrowthTargetRuntime.js';
+import { getActorTeamId } from './teamRuntime.js';
+import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 const text = (value) => String(value || '');
@@ -6,6 +10,22 @@ const resourceLabels = { meteor: '운석', life_tree: '생명의 나무', mithri
 const bossLabels = { alpha: '알파', omega: '오메가', weakline: '위클라인' };
 const sourceId = (row) => text(row?.id || row?.crateId);
 export const getBossObjectiveSourceId = (kind, boss) => `${kind}:${text(boss?.spawnedDay)}:${text(boss?.spawnedPhase)}`;
+
+function hasCurrentRecipeNeed(objective, { actor, actorsById, roster, publicItems, teamId }) {
+  // Source-only callers can still inspect world lifecycle. Product movement
+  // and observation supply the SAME boundary's catalogue and participants.
+  if (!objective.beneficiary || !Array.isArray(publicItems)) return true;
+  const { who, targetItemId, materialId } = objective.beneficiary;
+  const beneficiary = text(actor?._id || actor?.id) === text(who) ? actor
+    : actorsById?.get(text(who)) || list(roster).find(row => text(row?._id || row?.id) === text(who));
+  const ownerTeam = teamId || getActorTeamId(actor);
+  if (!who || !targetItemId || !materialId || !beneficiary || Number(beneficiary.hp || 0) <= 0
+    || getCombatSpaceId(beneficiary) !== WORLD_COMBAT_SPACE
+    || (ownerTeam && getActorTeamId(beneficiary) !== ownerTeam)) return false;
+  if (!getActorResourceRecipeTargets(beneficiary, publicItems).some(target => text(target._id) === text(targetItemId))) return false;
+  const work = getGrowthRecipeWork(beneficiary, publicItems, targetItemId);
+  return !work.blocked && work.missing.some(row => row.itemId === text(materialId) && row.need > 0);
+}
 
 // Capture the concrete source AFTER a destination has been selected. A list of
 // candidate regions (or a generic "core") is not a particular resource target.
@@ -48,10 +68,13 @@ export function captureMovementObjective(plan, targetZoneId, { spawnState, rules
 // Read the SAME frame's world state, never the live engine behind a delayed UI.
 // Once a particular source is gone, another spawn in that region is not silently
 // substituted for the old decision. A new planning cycle must select it.
-export function getAvailableMovementObjective(objective, { spawnState, forbiddenIds = [], nowSec = 0, teamId = '', actor } = {}) {
+export function getAvailableMovementObjective(objective, { spawnState, forbiddenIds = [], nowSec = 0, teamId = '',
+  actor, actorsById, roster, publicItems } = {}) {
   if (!objective?.targetZoneId || !spawnState || !list(objective.sourceIds).length) return null;
   const forbidden = forbiddenIds instanceof Set ? forbiddenIds : new Set(list(forbiddenIds));
   if (forbidden.has(objective.targetZoneId)) return null;
+  if (['natural_core', 'boss'].includes(objective.type)
+    && !hasCurrentRecipeNeed(objective, { actor, actorsById, roster, publicItems, teamId })) return null;
   const matches = (row) => text(row?.zoneId) === objective.targetZoneId
     && objective.sourceIds.includes(sourceId(row));
   let sources = [];

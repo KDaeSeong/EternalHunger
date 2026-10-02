@@ -243,7 +243,8 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
   const objectiveHolders = isGameOver ? [] : allActors.filter((actor) => num(actor.hp) > 0 && getCombatSpaceId(actor) === WORLD_COMBAT_SPACE
     && actor._movementObjective && Number.isFinite(actor._movementObjective.atSec) && actor._movementObjective.atSec <= matchSec)
     .map((actor) => ({ ...actor, _movementObjective: getAvailableMovementObjective(actor._movementObjective,
-      { spawnState, forbiddenIds, nowSec: matchSec, teamId: getActorTeamId(actor), actor }) })).filter((actor) => actor._movementObjective);
+      { spawnState, forbiddenIds, nowSec: matchSec, teamId: getActorTeamId(actor), actor,
+        actorsById: actors, publicItems }) })).filter((actor) => actor._movementObjective);
   const objectiveGroups = new Map();
   for (const actor of objectiveHolders.filter((row) => memberIds.has(idOf(row)))) {
     const goal = actor._movementObjective;

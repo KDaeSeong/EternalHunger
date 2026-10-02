@@ -181,7 +181,8 @@ export function runActorMovementDecisionPhase({
   // pre-action world. A pickup earlier in that batch must not retroactively
   // scatter its later members. Live availability still governs loot and UI.
   if (!state.teamMovementPlanCommitted && activeTeamPlan?.objective && !isMovementObjectiveAvailable(activeTeamPlan.objective,
-    { spawnState: nextSpawn, forbiddenIds, nowSec: atNow()?.sec, teamId: getActorTeamId(updated), actor: updated })) activeTeamPlan = null;
+    { spawnState: nextSpawn, forbiddenIds, nowSec: atNow()?.sec, teamId: getActorTeamId(updated), actor: updated,
+      roster: state.rewardRoster || phaseSurvivors, publicItems: state.publicItems })) activeTeamPlan = null;
   // The grouped-team planner has already made and paid for the leader's
   // objective choice. Do not run every member's individual random chooser or
   // allocate target-memory TTLs that are immediately discarded by that plan.
@@ -223,6 +224,7 @@ export function runActorMovementDecisionPhase({
         ruleset,
         spawnState: nextSpawn,
         publicItems: state.publicItems,
+        roster: state.rewardRoster || phaseSurvivors,
         nowSec: atNow()?.sec,
       },
     });
@@ -358,7 +360,8 @@ export function runActorMovementDecisionPhase({
   if (didChangeZone && moveEtaSec > 1) reserveActionSecond(moveEtaSec);
 
   movementObjective = getAvailableMovementObjective(movementObjective,
-    { spawnState: nextSpawn, forbiddenIds, nowSec: atNow()?.sec, teamId: getActorTeamId(updated), actor: updated });
+    { spawnState: nextSpawn, forbiddenIds, nowSec: atNow()?.sec, teamId: getActorTeamId(updated), actor: updated,
+      roster: state.rewardRoster || phaseSurvivors, publicItems: state.publicItems });
   publishMovementObjective(updated, movementObjective, { at: atNow(), emitRunEvent, addLog,
     zoneName: getZoneName, teamId: getActorTeamId(updated), shared: activeTeamPlan?.mode === 'team_rotate' });
   // Recovery, escape, status blocks and endgame overrides must not inherit a

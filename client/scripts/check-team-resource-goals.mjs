@@ -19,6 +19,8 @@ const { buildTeamObserverModel } = await import('../src/app/simulation/_lib/team
 const { buildGuestSimulationMap } = await import('../src/app/simulation/_lib/guestSimulationBootstrap.js');
 const { buildIsolationNavigation } = await import('./lib/run-random-isolation-match.mjs');
 const { isHyperloopTransit } = await import('../src/app/simulation/_lib/mapGraphRuntime.js');
+const { resolveActorMoveTargetMemory } = await import('../src/app/simulation/_lib/actorMovementDecisionHelpers.js');
+const { describeObserverEvent } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
 
 // Explicit recipe/world inputs, not the unavailable Marcus match or official item stats.
 const hero = { _id: 'team-hero', itemKey: 'team-hero', name: '초기 모자', type: '방어구', category: 'equipment',
@@ -395,6 +397,107 @@ check('a future shared recipe still pays real credits and cannot craft from a pa
     assert.equal(receiver.simCredits, scenario === 'no_credits' ? 0 : 20);
     assert.equal(result.events.filter(event => event.kind === 'craft').length, 0);
     assert.equal(result.events.filter(event => event.kind === 'gain' && event.itemId === tree._id).length, 1);
+  }
+});
+
+check('a paid higher-tier craft on the way releases the obsolete recipe goal while the distant source still exists', () => {
+  for (const reverse of [false, true]) {
+    const input = fixture();
+    const alternative = { ...gear('team-alternative-transcend', '우회 초월 모자', cloth._id), tier: 6 };
+    const catalog = [...items, alternative];
+    Object.assign(input.state, { zoneGraph: { a: ['b'], b: ['a', 'c'], c: ['b'] }, publicItems: catalog,
+      craftables: buildCraftableItems(catalog), itemMetaById: buildItemMetaById(catalog),
+      itemNameById: buildItemNameById(catalog), itemKeyById: buildItemKeyById(catalog) });
+    input.state.nextSpawn.fieldResources = createFieldResources(input.state.mapObj, catalog, input.state.ruleset);
+    input.roster[1].goalLoadouts.transcend = { headKey: alternative.itemKey };
+    for (const actor of input.roster) refreshActorGrowthPlan(actor, catalog, input.state);
+    if (reverse) input.roster.reverse();
+    const objective = plan(input).movementPlans.get('leader').objective;
+    assert.equal(objective.beneficiary.targetItemId, rare._id);
+    const remembered = withSimulationRandom(() => 0, () => resolveActorMoveTargetMemory({ state: {
+      actor: structuredClone(input.roster.find(actor => actor._id === 'leader')), aiMove: {
+        targets: ['c'], reason: 'team_growth_resource', objectiveType: objective.type,
+        objectiveSubkind: objective.subkind, objectiveSourceIds: objective.sourceIds, beneficiary: objective.beneficiary },
+      currentZone: 'a', day: 3, phase: 'morning', ruleset: input.state.ruleset, spawnState: input.state.nextSpawn,
+      publicItems: catalog, roster: input.roster, nowSec: 480 } }));
+    assert.equal(remembered.holdTarget, 'c');
+    assert.ok(remembered.actor.aiTargetTTL > 0);
+    const result = tick(input), crafter = result.updatedSurvivors.find(actor => actor._id === 'crafter');
+    assert.ok(result.updatedSurvivors.every(actor => actor.zoneId === 'b'));
+    assert.equal(crafter.equipped.head, alternative._id, JSON.stringify(result.events.filter(event => ['gain', 'craft'].includes(event.kind))));
+    assert.equal(crafter.simCredits, 17);
+    assert.equal(invQty(crafter.inventory, hero._id), 0); assert.equal(invQty(crafter.inventory, cloth._id), 0);
+    const receipt = result.events.find(event => event.kind === 'craft' && event.itemId === alternative._id);
+    assert.ok(receipt); assert.equal(receipt.paidCost, 3); assert.deepEqual(receipt.consumed, alternative.recipe.ingredients);
+    assert.equal(input.state.nextSpawn.coreNodes[0].picked, false);
+    assert.equal(result.events.some(event => event.kind === 'gain' && event.itemId === tree._id), false);
+    const observation = { survivors: result.updatedSurvivors, dead: [], spawnState: input.state.nextSpawn,
+      publicItems: catalog, events: result.events, teamId: 'team:1', matchSec: 500 };
+    for (const snapshot of [observation, JSON.parse(JSON.stringify(observation))]) {
+      const before = structuredClone(snapshot);
+      const model = withSimulationRandom(() => { throw new Error('Observation must not consume simulation RNG.'); },
+        () => buildTeamObserverModel(snapshot));
+      assert.equal(model.objectives.some(goal => goal.objective?.beneficiary?.targetItemId === rare._id), false,
+        JSON.stringify(model.objectives));
+      assert.deepEqual(snapshot, before);
+      const decision = snapshot.events.find(event => event.kind === 'movement_goal' && event.objective?.beneficiary);
+      assert.ok(decision); assert.match(describeObserverEvent(decision), /crafter의 생명 모자.*아직 획득 전/);
+      assert.ok(model.recent.some(row => row.text.includes('우회 초월 모자')));
+    }
+    const redirected = withSimulationRandom(() => 0, () => resolveActorMoveTargetMemory({ state: {
+      actor: remembered.actor, aiMove: { targets: ['a'], reason: 'wander' }, currentZone: 'b', day: 3, phase: 'morning',
+      ruleset: input.state.ruleset, spawnState: input.state.nextSpawn, publicItems: catalog,
+      roster: result.updatedSurvivors, nowSec: 520 } }));
+    assert.equal(redirected.holdTarget, 'a', 'Obsolete recipe memory must release before its TTL expires.');
+    assert.equal(redirected.moveObjective, null); assert.equal(redirected.moveObjectiveType, '');
+  }
+});
+
+check('same-frame recipe validity keeps unmet and authored future needs, but releases invalid beneficiaries and fulfilled material', () => {
+  for (const scenario of ['needed', 'no_credits', 'partial_quantity', 'owned_material', 'owned_result', 'dead', 'missing_actor',
+    'other_team', 'other_space', 'invalid_target', 'changed_loadout']) {
+    const input = fixture(), objective = plan(input).movementPlans.get('leader').objective, crafter = input.roster[1];
+    if (scenario === 'no_credits') crafter.simCredits = 0;
+    if (scenario === 'partial_quantity') {
+      const target = structuredClone(rare); target.recipe.ingredients[1].qty = 2;
+      input.state.publicItems = items.map(item => item._id === target._id ? target : item);
+      crafter.inventory.push({ ...structuredClone(tree), itemId: tree._id, qty: 1 });
+    }
+    if (scenario === 'owned_material' || scenario === 'owned_result') {
+      const owned = scenario === 'owned_material' ? tree : rare;
+      crafter.inventory.push({ ...structuredClone(owned), itemId: owned._id, qty: 1 });
+    }
+    if (scenario === 'dead') crafter.hp = 0;
+    if (scenario === 'missing_actor') input.roster.splice(1, 1);
+    if (scenario === 'other_team') crafter.teamId = 'team:2';
+    if (scenario === 'other_space') crafter._combatSpaceId = 'dimension_rift:test';
+    if (scenario === 'invalid_target') objective.beneficiary.targetItemId = 'absent';
+    if (scenario === 'changed_loadout') {
+      crafter.goalLoadouts.legend.headKey = ordinary.itemKey;
+      refreshActorGrowthPlan(crafter, items, input.state);
+    }
+    const context = { spawnState: input.state.nextSpawn, publicItems: input.state.publicItems,
+      roster: input.roster, teamId: 'team:1', actor: input.roster[0] };
+    const before = structuredClone({ objective, roster: input.roster, spawn: input.state.nextSpawn });
+    const current = withSimulationRandom(() => { throw new Error('Recipe validation must not draw randomness.'); },
+      () => getAvailableMovementObjective(objective, context));
+    assert.equal(!!current, ['needed', 'no_credits', 'partial_quantity'].includes(scenario), scenario);
+    assert.deepEqual({ objective, roster: input.roster, spawn: input.state.nextSpawn }, before);
+    const generic = { ...objective }; delete generic.beneficiary;
+    assert.ok(getAvailableMovementObjective(generic, context), 'Generic resource intentions do not assert a teammate recipe.');
+  }
+  const input = futureRecipeFixture(), objective = plan(input).movementPlans.get('leader').objective;
+  assert.equal(objective.beneficiary.targetItemId, futureGear._id);
+  assert.ok(getAvailableMovementObjective(objective, { spawnState: input.state.nextSpawn, publicItems: input.state.publicItems,
+    actorsById: new Map(input.roster.map(actor => [actor._id, actor])), teamId: 'team:1', actor: input.roster[0] }));
+  for (const component of [false, true]) {
+    const input = fixture(), objective = plan(input).movementPlans.get('leader').objective;
+    const entry = component ? { ...ordinary, _id: 'unworn-component', itemId: 'unworn-component', tier: 6, craftComponent: true, qty: 1 }
+      : { ...ordinary, itemId: ordinary._id, qty: 1 };
+    input.roster[1].inventory.push(entry);
+    assert.ok(getAvailableMovementObjective(objective, { spawnState: input.state.nextSpawn, publicItems: items,
+      roster: input.roster, teamId: 'team:1', actor: input.roster[0] }),
+    'A same-tier alternative or unworn higher-tier component does not supersede the authored recipe.');
   }
 });
 

@@ -38,7 +38,8 @@ const result = await runRandomIsolationMatch(input, { onFrame(frame, { publicIte
   }
   seenEventCount = events.length;
   const available = frame.survivors.filter((actor) => getAvailableMovementObjective(actor._movementObjective,
-    { spawnState: frame.spawnState, forbiddenIds: frame.forbiddenZoneIds, nowSec: frame.matchSec, teamId: actor.teamId, actor }));
+    { spawnState: frame.spawnState, forbiddenIds: frame.forbiddenZoneIds, nowSec: frame.matchSec, teamId: actor.teamId, actor,
+      roster: frame.survivors, publicItems }));
   if (available.length) activeFrames += 1;
   const currentTeams = new Set(available.map((actor) => actor.teamId));
   for (const teamId of previousTeams) if (!currentTeams.has(teamId)) {
@@ -68,6 +69,9 @@ assert.ok(sharedDecisions.length > 0);
 assert.deepEqual(sharedDecisions.filter((event) => !event.sharedGoalReason).slice(0, 3), [],
   'Shared purpose must survive movement, growth and queue event serialization.');
 const purchasePlans = sharedDecisions.filter((event) => /키오스크|구매|kiosk/.test(event.sharedGoalReason));
+console.log(`OBSERVER_MATCH_WITNESS ${JSON.stringify({ activeFrames, distinctGoals: goalKeys.size, removedGoalChecks,
+  actualGrowthChecks: growthKeys.size, actualReceiptChecks: receiptKeys.size, sharedDecisionCount: sharedDecisions.length,
+  purchasePlanCount: purchasePlans.length, evidence: result.evidence })}`);
 assert.ok(purchasePlans.length > 0, 'The fixture must actually exercise shared purchase intentions.');
 assert.ok(purchasePlans.every((event) => /검토/.test(describeObserverEvent(event))));
 const namedOrders = result.events.filter((event) => event.kind === 'queue' && ['kioskBuy', 'kioskExchange', 'droneOrder'].includes(event.chosen) && event.itemId);

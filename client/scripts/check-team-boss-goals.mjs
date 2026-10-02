@@ -20,6 +20,7 @@ const { runPvpActionLoop } = await import('../src/app/simulation/_lib/phasePvpAc
 const { advanceSpatialMovement } = await import('../src/app/simulation/_lib/combatSpatialRuntime.js');
 const { advanceTimedWildlifeEffects, getWildlifeCombatRoster } = await import('../src/app/simulation/_lib/wildlifeCombatRuntime.js');
 const { updateEffects } = await import('../src/utils/statusLogic.js');
+const { buildTeamObserverModel } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
 const eventActions = await import('../src/app/simulation/_lib/runEventRuntime.js');
 
 // Controlled recipes/world, not the missing evaluator match or official item balance.
@@ -426,6 +427,42 @@ await check('the future boss destination executes travel, one real Wickeline fig
     assert.equal(receipts.length, 1); assert.equal(receipts[0].paidCost, 3);
     assert.deepEqual(receipts[0].consumed, byId['hat-vf_blood_sample'].recipe.ingredients);
     assert.ok(input.logs.some(line => /팀 공동 목표.*위클라인.*crafter의 VF 혈액 샘플 모자/.test(line)));
+  }
+});
+
+await check('a real paid side craft releases the old boss recipe purpose without deleting the still-living boss or committed team move', () => {
+  for (const reverse of [false, true]) {
+    const input = fixture(), alternative = { ...recipe(materials[0]), _id: 'ordinary-transcend',
+      itemKey: 'ordinary-transcend', name: '천 초월 모자', tier: 6 };
+    const catalog = [...items, alternative];
+    Object.assign(input.state, { zoneGraph: { a: ['b'], b: ['a', 'c'], c: ['b'] }, publicItems: catalog,
+      craftables: catalog.filter(item => item.recipe), itemMetaById: Object.fromEntries(catalog.map(item => [item._id, item])),
+      itemNameById: Object.fromEntries(catalog.map(item => [item._id, item.name])),
+      itemKeyById: Object.fromEntries(catalog.map(item => [item._id, item.itemKey || ''])) });
+    input.state.nextSpawn.fieldResources = createFieldResources(input.state.mapObj, catalog, input.state.ruleset);
+    input.roster[1].goalLoadouts.transcend = { headKey: alternative.itemKey };
+    for (const actor of input.roster) refreshActorGrowthPlan(actor, catalog, input.state);
+    if (reverse) input.roster.reverse();
+    const goal = plan(input).movementPlans.get('leader').objective;
+    assert.equal(goal.type, 'boss'); assert.equal(goal.beneficiary.targetItemId, 'hat-mithril');
+    tick(input, 960);
+    assert.ok(input.roster.every(actor => actor.zoneId === 'b'));
+    const crafter = input.roster.find(actor => actor._id === 'crafter');
+    assert.equal(crafter.equipped.head, alternative._id); assert.equal(crafter.simCredits, 17);
+    assert.equal(invQty(crafter.inventory, 'base'), 0); assert.equal(invQty(crafter.inventory, '_cloth'), 0);
+    const receipt = input.events.find(event => event.kind === 'craft' && event.itemId === alternative._id);
+    assert.ok(receipt); assert.equal(receipt.paidCost, 3); assert.deepEqual(receipt.consumed, alternative.recipe.ingredients);
+    assert.equal(input.state.nextSpawn.bosses.alpha.alive, true);
+    assert.equal(input.state.nextSpawn.bosses.alpha.engagedBy, undefined);
+    assert.equal(input.events.some(event => event.kind === 'hunt_start' || event.itemId === 'mithril'), false);
+    const context = { spawnState: input.state.nextSpawn, roster: input.roster, publicItems: catalog,
+      actor: input.roster.find(actor => actor._id === 'leader'), teamId: 'team:1' };
+    assert.equal(getAvailableMovementObjective(goal, context), null);
+    const generic = { ...goal }; delete generic.beneficiary;
+    assert.ok(getAvailableMovementObjective(generic, context), 'The boss remains a valid generic fight intention.');
+    const model = buildTeamObserverModel({ survivors: input.roster, spawnState: input.state.nextSpawn,
+      publicItems: catalog, events: input.events, teamId: 'team:1', matchSec: 960 });
+    assert.equal(model.objectives.length, 0);
   }
 });
 

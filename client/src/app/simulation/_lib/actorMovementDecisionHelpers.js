@@ -145,6 +145,7 @@ export function resolveActorMoveTargetMemory({
     ruleset,
     spawnState,
     publicItems,
+    roster,
     nowSec,
   } = state;
   let updated = actor || {};
@@ -189,7 +190,7 @@ export function resolveActorMoveTargetMemory({
     const ttlNow = Math.max(0, Number(updated.aiTargetTTL || 0));
 
     const sourceStillAvailable = !updated.aiTargetObjective || !spawnState || isMovementObjectiveAvailable(updated.aiTargetObjective,
-      { spawnState, forbiddenIds, nowSec, teamId: getActorTeamId(updated), actor: updated });
+      { spawnState, forbiddenIds, nowSec, teamId: getActorTeamId(updated), actor: updated, roster, publicItems });
     if (!sourceStillAvailable) updated = clearActorMoveTargetMemory(updated);
     if (saved && ttlNow > 0 && !forbiddenIds.has(saved) && sourceStillAvailable) {
       holdTarget = saved;
