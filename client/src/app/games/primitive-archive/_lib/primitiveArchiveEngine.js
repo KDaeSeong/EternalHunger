@@ -5800,6 +5800,26 @@ function autoRecipeAllowed(state, recipe) {
   return true;
 }
 
+function autoRecipeNeeded(state, recipe, pool) {
+  const living = livingParty(state);
+  const mode = Number(state.weather?.cold || 0) >= 5 ? 'weather' : 'role';
+  return Object.keys(recipe.reward || {}).some((itemId) => {
+    const item = ITEMS[itemId];
+    if (!item) return false;
+    if (item.type === 'equip') {
+      const recipients = living.filter((actor) => {
+        const equippedId = state.equipment?.[actor.id]?.[item.slot];
+        return !equippedId || equippedId === itemId
+          || equipmentScoreFor(actor, itemId, mode, state.weather) > equipmentScoreFor(actor, equippedId, mode, state.weather);
+      });
+      return Number(pool[itemId] || 0) < recipients.length;
+    }
+    const target = item.type === 'book' ? (itemId === 'clay_tablet' ? 2 : 1)
+      : item.type === 'food' ? living.length + 1 : Math.max(2, living.length);
+    return Number(state.inventory[itemId] || 0) < target;
+  });
+}
+
 function pickAutoRecipe(state) {
   const priority = [
     'packed_ration',
@@ -5843,9 +5863,60 @@ function pickAutoRecipe(state) {
     'book_craft_guide',
     'book_camp_manual',
   ];
+  const pool = buildEquipmentPool(state);
   return priority
     .map((id) => RECIPES.find((recipe) => recipe.id === id))
-    .find((recipe) => autoRecipeAllowed(state, recipe)) || null;
+    .find((recipe) => autoRecipeAllowed(state, recipe) && autoRecipeNeeded(state, recipe, pool)) || null;
+}
+
+export function autoArchiveDevelopmentPlan(state) {
+  const current = normalizeState(state);
+  if (current.ended || !livingParty(current).length) return null;
+  const targets = ['book_craft_guide', 'book_camp_manual']
+    .map((id) => RECIPES.find((recipe) => recipe.id === id))
+    .filter((recipe) => Number(current.inventory[recipe.id] || 0) < 1 && recipeUnlockInfo(current, recipe.id).unlocked)
+    .map((recipe) => ({ kind: 'craft', id: recipe.id, label: recipe.name, cost: recipe.requires }));
+  targets.push(...campFacilityRows(current)
+    .filter((facility) => facility.unlocked && !facility.maxed)
+    .map((facility) => ({ kind: 'camp', id: facility.action, label: facility.name, cost: facility.cost })));
+  const ready = targets.find((target) => hasResources(current.inventory, target.cost));
+  if (ready) return { ...ready, reason: `아카이브 목표: ${ready.label} 완성` };
+
+  const regions = regionRows(current).filter((region) => region.revealed && !region.safe);
+  for (const target of targets) {
+    const missing = Object.fromEntries(Object.entries(target.cost)
+      .map(([itemId, qty]) => [itemId, Math.max(0, qty - Number(current.inventory[itemId] || 0))])
+      .filter(([, qty]) => qty > 0));
+    // Book goals currently need one crafted precursor (twine). Use the real
+    // unlocked recipe; never manufacture an ingredient or bypass its cost.
+    for (const itemId of Object.keys(missing)) {
+      const precursor = RECIPES.find((recipe) => Number(recipe.reward?.[itemId] || 0) > 0
+        && recipeUnlockInfo(current, recipe.id).unlocked);
+      if (!precursor) continue;
+      if (autoRecipeAllowed(current, precursor)) {
+        return { kind: 'craft', id: precursor.id, label: precursor.name, cost: precursor.requires,
+          reason: `아카이브 목표: ${target.label}에 필요한 ${precursor.name} 제작` };
+      }
+      delete missing[itemId];
+      for (const [materialId, qty] of Object.entries(precursor.requires)) {
+        missing[materialId] = Math.max(Number(missing[materialId] || 0), qty - Number(current.inventory[materialId] || 0));
+      }
+    }
+    const sources = ['gather', 'hunt'].flatMap((action) => {
+      const actorId = pickActorForAuto(current, action);
+      return regions.map((region) => ({
+        kind: action, actorId, regionId: region.id, danger: region.danger,
+        score: expectedZoneGains(current, action, actorId, region.id)
+          .reduce((sum, row) => sum + Math.min(row.expected, Math.max(0, Number(missing[row.itemId] || 0))), 0),
+      }));
+    }).filter((source) => source.score > 0).sort((a, b) => b.score - a.score || a.danger - b.danger);
+    if (sources[0]) {
+      const materialText = Object.entries(missing).filter(([, qty]) => qty > 0)
+        .map(([itemId, qty]) => `${itemName(itemId)} ${qty}개`).join(' · ');
+      return { ...sources[0], reason: `아카이브 목표: ${target.label} 재료 확보 (${materialText})` };
+    }
+  }
+  return null;
 }
 
 function pickAutoCampKind(state) {
@@ -6033,6 +6104,19 @@ function runNextAutoArchiveAction(state, options = {}) {
   const studyThreshold = Math.max(1, Math.floor(Number(state.apMax || state.ap || 1) / 2));
   const developmentWindow = Number(state.ap || 0) > studyThreshold;
   const campKind = developmentWindow ? pickAutoCampKind(state) : '';
+  if (campKind === 'fuel') return runCampAction(state, pickActorForAuto(state, 'craft'), campKind, options);
+  const archivePlan = developmentWindow ? autoArchiveDevelopmentPlan(state) : null;
+  if (archivePlan) {
+    const planned = addLog(state, archivePlan.reason);
+    if (archivePlan.kind === 'craft') return runCraftAction(planned, pickActorForAuto(state, 'craft'), archivePlan.id, options);
+    if (archivePlan.kind === 'camp') return runCampAction(planned, pickActorForAuto(state, 'craft'), archivePlan.id, options);
+    if (archivePlan.kind === 'hunt') return runHuntAction(planned, archivePlan.actorId, archivePlan.regionId, options);
+    return runGatherAction(planned, archivePlan.actorId, archivePlan.regionId, options);
+  }
+  const recipe = developmentWindow ? pickAutoRecipe(state) : null;
+  if (recipe && Number(state.counters?.craft || 0) < Number(state.counters?.gather || 0) + 2) {
+    return runCraftAction(state, pickActorForAuto(state, 'craft'), recipe.id, options);
+  }
   if (campKind) return runCampAction(state, pickActorForAuto(state, 'craft'), campKind, options);
 
   const specializedPriorities = [];
@@ -6054,11 +6138,6 @@ function runNextAutoArchiveAction(state, options = {}) {
   const production = developmentWindow ? pickAutoProductionAction(state) : null;
   if (production) {
     return runUtilityAction(state, production.actorId, production.actionId, options);
-  }
-
-  const recipe = developmentWindow ? pickAutoRecipe(state) : null;
-  if (recipe && (Number(state.counters?.craft || 0) < Number(state.counters?.gather || 0) + 2 || recipe.id.startsWith('book_'))) {
-    return runCraftAction(state, pickActorForAuto(state, 'craft'), recipe.id, options);
   }
 
   const research = researchSummary(state);
