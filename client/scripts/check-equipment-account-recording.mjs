@@ -24,16 +24,27 @@ const eventsBefore = JSON.stringify(events), values = new Map([['user', JSON.str
 const storage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), removeItem: key => values.delete(key) };
 const before = { window: globalThis.window, localStorage: globalThis.localStorage, fetch: globalThis.fetch,
   adapter: axios.defaults.adapter, findOne: Character.findOne, find: Character.find,
-  count: GameLog.countDocuments, save: GameLog.prototype.save };
-let requests = 0, saved, summary, capturedCount = 0;
+  logFindOne: GameLog.findOne, count: GameLog.countDocuments, save: GameLog.prototype.save,
+  transaction: GameLog.db.transaction };
+const session = { fixture: 'equipment-account-recording' };
+const read = value => ({
+  session(current) { assert.equal(current, session); return Promise.resolve(value); },
+  then(resolve, reject) { return Promise.resolve(value).then(resolve, reject); },
+});
+let requests = 0, saved, summary, capturedCount = 0, transactions = 0;
 try {
   globalThis.window = { localStorage: storage, location: { hostname: 'localhost', origin: 'http://localhost:3107' }, dispatchEvent: () => {} };
   globalThis.localStorage = storage;
   globalThis.fetch = () => { throw new Error('This contract check must never contact a network.'); };
   Character.findOne = async () => ({ name: 'a' });
-  Character.find = async () => [];
+  Character.find = () => read([]);
+  GameLog.findOne = () => read(null);
   GameLog.countDocuments = async () => 0;
-  GameLog.prototype.save = async function () { saved = this.toObject(); return this; };
+  GameLog.db.transaction = async run => { transactions++; return run(session); };
+  GameLog.prototype.save = async function (options) {
+    assert.equal(options.session, session);
+    saved = this.toObject(); return this;
+  };
   axios.defaults.adapter = async config => {
     assert.equal(config.method, 'post'); assert.match(config.url, /\/api\/game\/end$/);
     requests++;
@@ -51,6 +62,7 @@ try {
       setResultSummary: value => { summary = typeof value === 'function' ? value(summary) : value; } },
   });
   assert.equal(requests, 1); assert.equal(summary.saveStatus.hallOfFame, 'success');
+  assert.equal(transactions, 1);
   assert.equal(summary.saveStatus.localRun, 'success'); assert.equal(summary.rewardLP, 0);
   assert.equal(saved.runEvents.length, 1500); assert.equal(capturedCount, events.length);
   assert.equal(JSON.stringify(events), eventsBefore);
@@ -66,10 +78,11 @@ try {
   const battle = combat.events.find(row => row.kind === 'battle' && row.equipmentEffectId);
   const storedBattle = saved.runEvents.find(row => row.kind === 'battle' && row.equipmentEffectId === battle.equipmentEffectId);
   for (const key of ['health', 'damage', 'lethal', 'itemName', 'equipmentEffectId']) assert.deepEqual(storedBattle[key], battle[key], key);
-  console.log(`EQUIPMENT_ACCOUNT_RECORDING_CONTRACT ${JSON.stringify({ pass: true, requests, receipts: receipts.length,
+  console.log(`EQUIPMENT_ACCOUNT_RECORDING_CONTRACT ${JSON.stringify({ pass: true, requests, transactions, receipts: receipts.length,
     capturedCount, accountEventCount: saved.runEvents.length, scope: 'Real combat + client finish/API serialization + server handler/schema. Memory storage, HTTP adapter and DB doubles; not real authentication, HTTP or Mongo persistence.' })}`);
 } finally {
   globalThis.window = before.window; globalThis.localStorage = before.localStorage; globalThis.fetch = before.fetch;
   axios.defaults.adapter = before.adapter; Character.findOne = before.findOne; Character.find = before.find;
-  GameLog.countDocuments = before.count; GameLog.prototype.save = before.save;
+  GameLog.findOne = before.logFindOne; GameLog.countDocuments = before.count; GameLog.prototype.save = before.save;
+  GameLog.db.transaction = before.transaction;
 }

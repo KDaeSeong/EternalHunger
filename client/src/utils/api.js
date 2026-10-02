@@ -14,6 +14,7 @@ export const DEFAULT_API_TIMEOUT_MS = 10000;
 export const INIT_API_TIMEOUT_MS = 45000;
 export const AUTH_SYNC_EVENT = 'eh:auth-sync';
 export const COOKIE_SESSION_MARKER = 'cookie-session';
+let cookieSessionRevision = 0;
 export const SERVICE_UNAVAILABLE_MESSAGE =
   '서비스 연결이 원활하지 않습니다. 잠시 후 다시 시도해 주세요.';
 export const API_BASE_CONFIG_ERROR = SERVICE_UNAVAILABLE_MESSAGE;
@@ -123,6 +124,7 @@ export function emitAuthSync(detail = {}) {
 
 export function saveAuth(_token, user) {
   if (typeof window === 'undefined') return;
+  cookieSessionRevision += 1;
   clearLegacyTokenStorage();
   let didChange = false;
   try {
@@ -153,6 +155,7 @@ function requestServerLogout() {
 
 export function clearAuth(detail = {}) {
   if (typeof window === 'undefined') return;
+  cookieSessionRevision += 1;
   requestServerLogout();
   try {
     window.localStorage.removeItem('user');
@@ -186,10 +189,14 @@ function comparableToken(rawToken) {
   return String(normalizeToken(rawToken) || '').replace(/^Bearer\s+/i, '');
 }
 
-function clearRejectedStoredAuth(requestToken, authCode) {
+function clearRejectedStoredAuth(requestToken, authCode, requestContext) {
   if (typeof window === 'undefined') return;
   const currentToken = getAnyToken();
   if (!currentToken || comparableToken(currentToken) !== comparableToken(requestToken)) return;
+  if (requestToken === COOKIE_SESSION_MARKER && (
+    requestContext?.scope !== getAuthScope(currentToken)
+    || requestContext?.revision !== cookieSessionRevision
+  )) return;
   clearAuth({ reason: 'auth-invalidated', authCode });
 }
 
@@ -232,10 +239,21 @@ function hashCacheKey(value) {
   return Math.abs(hash).toString(36);
 }
 
+function getAuthScope(token) {
+  if (!token) return 'anon';
+  if (token !== COOKIE_SESSION_MARKER) return `auth:${hashCacheKey(token)}`;
+  const user = getUser();
+  const identity = String(user?.id || user?._id || user?.username || '').trim();
+  if (!identity) return null;
+  // The marker is identical for every HttpOnly session; it is not an identity.
+  return `auth:cookie:${encodeURIComponent(identity)}`;
+}
+
 function buildGetCacheKey(url, options = {}) {
   const fullUrl = buildApiUrl(url, { baseOverride: options.baseOverride });
   const token = normalizeToken(options.tokenOverride !== undefined ? options.tokenOverride : getAnyToken());
-  const tokenScope = token ? `auth:${hashCacheKey(token)}` : 'anon';
+  const tokenScope = getAuthScope(token);
+  if (tokenScope === null) return null;
   return `${fullUrl}::${tokenScope}`;
 }
 
@@ -273,7 +291,7 @@ function readPersistentGetCache(rawKey, options = {}) {
   const storageKey = persistentGetCacheKey(rawKey);
   try {
     const cached = JSON.parse(window.sessionStorage.getItem(storageKey) || 'null');
-    if (!cached || cached.expiresAt <= Date.now()) {
+    if (!cached || cached.key !== rawKey || cached.expiresAt <= Date.now()) {
       window.sessionStorage.removeItem(storageKey);
       return null;
     }
@@ -287,7 +305,7 @@ function writePersistentGetCache(rawKey, data, expiresAt, options = {}) {
   if (!canUseSessionGetCache(options)) return;
   const storageKey = persistentGetCacheKey(rawKey);
   try {
-    window.sessionStorage.setItem(storageKey, JSON.stringify({ data, expiresAt }));
+    window.sessionStorage.setItem(storageKey, JSON.stringify({ key: rawKey, data, expiresAt }));
     const index = getPersistentCacheIndex();
     index[storageKey] = rawKey;
     setPersistentCacheIndex(index);
@@ -342,6 +360,7 @@ export async function apiRequest(method, url, data, options = {}) {
   const requestToken = normalizeToken(attachStoredAuth
     ? (options.tokenOverride !== undefined ? options.tokenOverride : getAnyToken())
     : null);
+  const requestContext = { scope: getAuthScope(requestToken), revision: cookieSessionRevision };
   const headers = { ...buildAuthHeaders(requestToken), ...(options.headers || {}) };
   const upperMethod = String(method || 'GET').toUpperCase();
   if (!['GET', 'HEAD', 'OPTIONS'].includes(upperMethod) && options.csrf !== false) {
@@ -365,7 +384,7 @@ export async function apiRequest(method, url, data, options = {}) {
   }
 
   if (requestToken && requestToken !== COOKIE_SESSION_MARKER && isJwtExpired(requestToken)) {
-    clearRejectedStoredAuth(requestToken, AUTH_ERROR_CODES.expired);
+    clearRejectedStoredAuth(requestToken, AUTH_ERROR_CODES.expired, requestContext);
     throw createAuthSessionError(AUTH_ERROR_CODES.expired, fullUrl, method);
   }
 
@@ -393,7 +412,7 @@ export async function apiRequest(method, url, data, options = {}) {
       data: e?.response?.data,
       hadToken: Boolean(requestToken),
     });
-    if (authCode) clearRejectedStoredAuth(requestToken, authCode);
+    if (authCode) clearRejectedStoredAuth(requestToken, authCode, requestContext);
     const isServiceFailure = isNetwork || status >= 500 || responseCode === 'SERVICE_CONFIGURATION_ERROR';
     const msg = authCode
       ? authFailureMessage(authCode)
@@ -424,6 +443,7 @@ export async function apiGetCached(url, options = {}) {
   const ttlMs = Math.max(0, Number(options.ttlMs || 10000));
   if (options.force || ttlMs <= 0) return apiGet(url, options);
   const key = buildGetCacheKey(url, options);
+  if (!key) return apiGet(url, options);
   const now = Date.now();
   const hit = GET_CACHE.get(key);
   if (hit && hit.expiresAt > now) return hit.promise || hit.data;
@@ -432,19 +452,24 @@ export async function apiGetCached(url, options = {}) {
     GET_CACHE.set(key, { data: persisted.data, expiresAt: persisted.expiresAt });
     return persisted.data;
   }
-  const promise = apiGet(url, options)
+  const entry = { promise: null, expiresAt: now + ttlMs };
+  entry.promise = apiGet(url, options)
     .then((responseData) => {
       const expiresAt = Date.now() + ttlMs;
-      GET_CACHE.set(key, { data: responseData, expiresAt });
-      writePersistentGetCache(key, responseData, expiresAt, options);
+      // Clearing/replacing a request or changing accounts retires this entry.
+      // Its caller still gets the response, but it cannot repopulate the cache.
+      if (GET_CACHE.get(key) === entry && buildGetCacheKey(url, options) === key) {
+        GET_CACHE.set(key, { data: responseData, expiresAt });
+        writePersistentGetCache(key, responseData, expiresAt, options);
+      }
       return responseData;
     })
     .catch((err) => {
-      GET_CACHE.delete(key);
+      if (GET_CACHE.get(key) === entry) GET_CACHE.delete(key);
       throw err;
     });
-  GET_CACHE.set(key, { promise, expiresAt: now + ttlMs });
-  return promise;
+  GET_CACHE.set(key, entry);
+  return entry.promise;
 }
 
 export const apiPost = (url, data, options) => apiRequest('POST', url, data, options);
