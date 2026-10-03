@@ -422,7 +422,13 @@ function* pvpActionSteps({
 
       if (!actor?._id || newDeadIds.includes(actor._id) || actor.hp <= 0) continue;
       if (getForcedControlEffect(actor)) continue;
-      if (Number(actor._actionReadyAtSec || 0) > currentActionSec()) continue;
+      if (Number(actor._actionReadyAtSec || 0) > currentActionSec()) {
+        // Growth/travel cooldowns must not starve automatic recovery forever.
+        // Consumption still validates status, inventory and its own phase budget;
+        // attacks and skill decisions remain locked until their normal ready time.
+        tryUseConsumable(actor, 'turn_start');
+        continue;
+      }
       if (hasActionBlockStatus(actor)) {
         const blockName = hasActiveEffect(actor, EFFECT_STUN)
           ? EFFECT_STUN

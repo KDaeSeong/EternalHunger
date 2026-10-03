@@ -7,6 +7,7 @@ import {
 } from './simulationEngine';
 import { advanceActorRouteProgressForGoal } from './phaseRouteProgressRuntime';
 import { shouldForceDay1HeroGearCatchup } from './routePlanProgressRuntime';
+import { craftActorRecoveryItem } from './recoveryPlanRuntime.js';
 
 export function runCraftAction({
   actions = {},
@@ -22,6 +23,7 @@ export function runCraftAction({
     phaseIdxNow = 0,
     publicItems,
     queuedActionType,
+    recoveryPlan,
     ruleset,
     selectedCharId,
   } = state;
@@ -40,7 +42,9 @@ export function runCraftAction({
     };
   }
 
-  const invCraft = tryAutoCraftFromInventory(updated, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset);
+  const invCraft = recoveryPlan?.readyCraftId
+    ? craftActorRecoveryItem(updated, recoveryPlan, publicItems, nextDay, phaseIdxNow, ruleset)
+    : tryAutoCraftFromInventory(updated, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset);
   if (invCraft?.changed) {
     addLog(String(invCraft.log), 'highlight');
     emitCraftRunEvent(updated?._id, invCraft, atNow(), updated?.zoneId);
@@ -66,6 +70,7 @@ export function runCraftAction({
   }
 
   const allowAbstractGearFallback = !Array.isArray(craftables) || craftables.length <= 0;
+  if (recoveryPlan) return { actor: updated, craftResult: invCraft || null, ran: true };
   const forceEarlyHeroRouteCompletion = shouldForceDay1HeroGearCatchup(updated, nextDay, nextPhase);
   runDay1HeroGear(updated, {
     allowAbstractFallback: allowAbstractGearFallback || forceEarlyHeroRouteCompletion,

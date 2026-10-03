@@ -17,6 +17,7 @@ import { advanceActorRouteProgressForGoal } from './phaseRouteProgressRuntime';
 import { prepareInventoryForCraftLoot } from './craftRuntime';
 import { markGrowthComponent } from './growthPlanRuntime';
 import { collectFieldResourceLoot, emitFieldResourcePickup } from './fieldResourceRuntime';
+import { buildActorRecoveryPlan } from './recoveryPlanRuntime.js';
 import {
   gainText,
   getLootCraftOptions,
@@ -39,6 +40,7 @@ export function runFieldLootPhase({
     pendingPickAssigned = false,
     pendingTranscendPick = null,
     preGoal,
+    recoveryPlan,
     publicItems,
     ruleset,
     selectedCharId,
@@ -58,18 +60,27 @@ export function runFieldLootPhase({
   const fieldResources = state.nextSpawn?.fieldResources;
   const growth = updated._growthPlan;
   const growing = !!growth?.targetId;
+  // Travel, a facility pickup or another actor may have changed the reachable
+  // supply. Waiting is not an extra loot action, and medicine ingredients must
+  // reach the deliberate recovery craft instead of an incidental gear craft.
+  const recovery = recoveryPlan ? buildActorRecoveryPlan(updated, publicItems, state) : null;
+  const recoverySearch = recovery?.mode === 'farm' && recovery.currentZoneItemIds?.length > 0;
+  if (recoveryPlan && !recoverySearch) {
+    return { actor: updated, loot: null, pendingPickAssigned: !!pendingPickAssigned };
+  }
+  const searchPlan = recoverySearch ? recovery : growth;
   let nextPendingPickAssigned = !!pendingPickAssigned;
   const loot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, {
     fieldResources,
-    neededQtyById: growing ? Object.fromEntries(growth.missing.map((row) => [row.itemId, row.need])) : undefined,
+    neededQtyById: searchPlan?.targetId ? Object.fromEntries(searchPlan.missing.map((row) => [row.itemId, row.need])) : undefined,
     moved: didMove,
     day: nextDay,
     phase: nextPhase,
     dropWeightsByKey: ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey,
     perkEffects: getActorPerkEffects(updated),
-    focusedGrowth: !!growing,
-    goalItemIds: (growing ? growth.missing : Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((missing) => String(missing?.itemId || '')).filter(Boolean),
-    routeItemIds: growth ? growth.missing.filter((row) => row.zones.includes(String(updated.zoneId))).map((row) => row.itemId) : Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
+    focusedGrowth: !!growing || recoverySearch,
+    goalItemIds: (searchPlan?.targetId ? searchPlan.missing : Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((missing) => String(missing?.itemId || '')).filter(Boolean),
+    routeItemIds: searchPlan ? searchPlan.missing.filter((row) => row.zones.includes(String(updated.zoneId))).map((row) => row.itemId) : Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
       ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')]
       : [],
   });
@@ -124,12 +135,12 @@ export function runFieldLootPhase({
     }
   }
 
-  if (loot && String(loot?.crateType || '').toLowerCase() !== 'transcend_pick' && loot.itemId) {
+  if (!recoveryPlan && loot && String(loot?.crateType || '').toLowerCase() !== 'transcend_pick' && loot.itemId) {
     const crafted = tryAutoCraftFromLoot(updated.inventory, loot.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
     applyLootCraftResult(updated, crafted, itemMetaById, atNow(), updated?.zoneId);
   }
 
-  if (loot && String(loot?.crateId || '') === 'route_plan') {
+  if (!recoveryPlan && loot && String(loot?.crateId || '') === 'route_plan') {
     const postLootGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
       goalTier: updated?.goalGearTier,
       goalItemKeys: pickGoalLoadoutKeys(updated),

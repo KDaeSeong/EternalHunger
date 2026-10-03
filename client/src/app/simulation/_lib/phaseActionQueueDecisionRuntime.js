@@ -60,6 +60,7 @@ export function prepareActorPhaseActionQueue({
     phaseIdxNow = 0,
     publicItems,
     recovering = false,
+    recoveryPlan = null,
     routePlanMissingIdsNow = [],
     ruleset,
     currentZone,
@@ -252,9 +253,10 @@ export function prepareActorPhaseActionQueue({
     }
     if (recovering) {
       return {
-        type: 'rest',
+        type: recoveryPlan?.readyCraftId ? 'craft' : recoveryPlan?.mode === 'farm' && recoveryPlan.currentZoneItemIds?.length ? 'routeFarm' : 'rest',
         zoneId: String(updated?.zoneId || currentZone || ''),
-        reason: 'low_hp_recovery',
+        reason: recoveryPlan?.reason || 'low_hp_recovery',
+        itemId: String(recoveryPlan?.readyCraftId || recoveryPlan?.targetId || ''),
         etaSec: 1,
         phaseIdx: Number(phaseIdxNow || 0),
         score: 997,
@@ -283,7 +285,7 @@ export function prepareActorPhaseActionQueue({
   const candidatePreview = [
     didMove ? `${(mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo'}@${getZoneName(nextZoneId || currentZone || '')}` : null,
     (!didMove && fleeInterruptReason) ? `flee:${String(fleeInterruptReason || '')}` : null,
-    (!didMove && !fleeInterruptReason && recovering) ? `rest@${getZoneName(updated?.zoneId || currentZone || '')}` : null,
+    (!didMove && !fleeInterruptReason && recovering) ? `${queuedActionType}@${getZoneName(updated?.zoneId || currentZone || '')}` : null,
     ...queueScoredCandidates.map((row) => `${String(row?.label || row?.type || '')}[${Number(row?.score || 0).toFixed(1)}]`),
   ].filter(Boolean);
   const blockedReasons = [
@@ -306,7 +308,8 @@ export function prepareActorPhaseActionQueue({
     reason: String(queuedAtomicAction?.reason || moveReason || ''),
     targetZoneName: getZoneName(queuedAtomicAction?.toZoneId || holdTarget || ''),
     itemName: String(
-      queuedKioskAction?.item?.name
+      recoveryPlan?.targetName
+      || queuedKioskAction?.item?.name
       || queuedDroneOrder?.item?.name
       || craftPreview?.craftedName
       || (craftGoal?.target?.name || '')

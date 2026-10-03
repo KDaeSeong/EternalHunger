@@ -6,6 +6,7 @@ import {
 import { prepareActorPhaseActionQueue } from './phaseActionQueueDecisionRuntime';
 import { advanceActorRouteProgressForGoal } from './phaseRouteProgressRuntime';
 import { refreshActorGrowthPlan, getActorGrowthCraftGoal } from './growthPlanRuntime';
+import { buildActorRecoveryPlan } from './recoveryPlanRuntime.js';
 
 export { prepareActorPhaseActionQueue } from './phaseActionQueueDecisionRuntime';
 
@@ -51,6 +52,9 @@ export function prepareActorPhaseActionPlan({
   } = state;
 
   const updated = actor || {};
+  // Loot may already have supplied food or the last recipe ingredient. Never
+  // keep farming from the pre-loot recovery decision after that receipt.
+  const recoveryPlan = recovering ? buildActorRecoveryPlan(updated, publicItems, state) : null;
   const growthPlan = refreshActorGrowthPlan(updated, publicItems, state);
   const craftGoal = getActorGrowthCraftGoal(updated, publicItems) || buildCraftGoal(updated.inventory, craftables, itemNameById, {
     goalTier: updated?.goalGearTier,
@@ -123,6 +127,7 @@ export function prepareActorPhaseActionPlan({
       phaseIdxNow,
       publicItems,
       recovering,
+      recoveryPlan,
       routePlanMissingIdsNow,
       ruleset,
       currentZone,
@@ -139,5 +144,6 @@ export function prepareActorPhaseActionPlan({
     fallbackRouteItemIds,
     goalMissingIds,
     routePlanMissingIdsNow,
+    recoveryPlan,
   };
 }

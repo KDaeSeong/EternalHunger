@@ -58,6 +58,7 @@ export function publishTeamRegroupDecision(actor, planned, { from = actor?.zoneI
     && previous.to === String(to) && previous.combatSpaceId === getCombatSpaceId(actor)
     && ['joining', 'arrived', 'waiting', 'growing', 'recovery', 'threat', 'forbidden', 'endgame', 'reentry'].includes(previous.status)) return;
   const overrides = { 'flee:forbidden': 'forbidden', recover: 'recovery', 'flee:low_hp': 'recovery',
+    recovery_supply: 'recovery', recovery_craft: 'recovery', recovery_regroup: 'recovery', healing_unavailable: 'recovery',
     status_move_block: 'status', retreat_cooldown: 'reentry', endgame_rotate: 'endgame' };
   let outcome = status || overrides[reason] || (reason.startsWith('flee:') ? 'threat' : '');
   if (!outcome) {

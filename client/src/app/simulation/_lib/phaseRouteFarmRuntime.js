@@ -22,6 +22,7 @@ import {
 import { prepareInventoryForCraftLoot } from './craftRuntime';
 import { refreshActorGrowthPlan, markGrowthComponent } from './growthPlanRuntime';
 import { collectFieldResourceLoot, emitFieldResourcePickup } from './fieldResourceRuntime';
+import { buildActorRecoveryPlan } from './recoveryPlanRuntime.js';
 
 export function runRouteFarmAction({
   actions = {},
@@ -40,6 +41,7 @@ export function runRouteFarmAction({
     nextPhase,
     publicItems,
     ruleset,
+    recoveryPlan,
   } = state;
   const {
     addLog = () => {},
@@ -51,7 +53,9 @@ export function runRouteFarmAction({
   } = actions;
   const updated = actor || {};
   const fieldResources = state.nextSpawn?.fieldResources;
-  let routeItemIds = (Array.isArray(fallbackRouteItemIds) ? fallbackRouteItemIds : [])
+  const initialRecovery = recoveryPlan ? buildActorRecoveryPlan(updated, publicItems, state) : null;
+  const initialRouteItemIds = recoveryPlan ? initialRecovery?.currentZoneItemIds : fallbackRouteItemIds;
+  let routeItemIds = (Array.isArray(initialRouteItemIds) ? initialRouteItemIds : [])
     .map((itemId) => String(itemId || '').trim())
     .filter(Boolean);
 
@@ -69,7 +73,9 @@ export function runRouteFarmAction({
   let routeGoalIdsForSearch = [...(Array.isArray(goalMissingIds) ? goalMissingIds : [])];
 
   for (let routeAttempt = 0; routeAttempt < routeAttempts; routeAttempt += 1) {
-    const growth = refreshActorGrowthPlan(updated, publicItems, state);
+    const recovery = recoveryPlan ? buildActorRecoveryPlan(updated, publicItems, state) : null;
+    if (recoveryPlan && recovery?.mode !== 'farm') break;
+    const growth = recovery || refreshActorGrowthPlan(updated, publicItems, state);
     if (growth) {
       routeItemIds = growth.currentZoneItemIds;
       routeGoalIdsForSearch = growth.missing.map((row) => row.itemId);
@@ -103,13 +109,13 @@ export function runRouteFarmAction({
       const metaR = updated.inventory?._lastAdd;
       const nmR = routeLoot.item?.name || itemNameById?.[String(routeLoot.itemId || '')] || '아이템';
       if (shouldLogItemReceive(gotR, metaR)) {
-        addLog(`🧭 [${updated.name}] ${getZoneName(updated.zoneId)}에서 루트 재료 ${itemIcon(routeLoot.item || { type: '' })} [${nmR}] ${gainText(gotR)}${formatInvAddNote(metaR, routeLoot.qty, updated.inventory, ruleset)}`, 'normal');
+        addLog(`🧭 [${updated.name}] ${getZoneName(updated.zoneId)}에서 ${recoveryPlan ? '회복 물자' : '루트 재료'} ${itemIcon(routeLoot.item || { type: '' })} [${nmR}] ${gainText(gotR)}${formatInvAddNote(metaR, routeLoot.qty, updated.inventory, ruleset)}`, 'normal');
       }
       emitItemGainIfAny(gotR, { who: String(updated?._id || ''), itemId: String(routeLoot.itemId || ''), source: 'gather', kind: String(routeLoot?.crateType || 'route_material'), zoneId: String(updated?.zoneId || '') }, atNow());
       if (gotR > 0) grantMastery(updated, 'search', 70, '루트 탐색');
       if (gotR > 0) autoEquipBest(updated, itemMetaById);
 
-      const craftedR = tryAutoCraftFromLoot(
+      const craftedR = recoveryPlan ? null : tryAutoCraftFromLoot(
         updated.inventory,
         routeLoot.itemId,
         craftables,

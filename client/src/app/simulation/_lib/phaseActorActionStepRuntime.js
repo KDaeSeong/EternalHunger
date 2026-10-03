@@ -187,6 +187,8 @@ export function runSingleActorPhaseAction({
       phaseIdxNow,
       publicItems,
       recovering: movementResult.recovering,
+      recoveryPlan: movementResult.recoveryPlan,
+      movementRoster: state.movementRoster || phaseSurvivors,
       ruleset,
       upgradeNeed: movementResult.upgradeNeed,
       usedHyperloopMove: movementResult.usedHyperloopMove,

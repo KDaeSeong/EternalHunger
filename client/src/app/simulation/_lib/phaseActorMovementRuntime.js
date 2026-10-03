@@ -33,6 +33,7 @@ import { publishTeamRegroupDecision } from './teamRegroupRuntime.js';
 import { getActorDimensionRiftId } from './dimensionRiftSpaceRuntime.js';
 import { getAvailableMovementObjective, isMovementObjectiveAvailable, publishMovementObjective } from './movementObjectiveRuntime.js';
 import { isOpeningFarmPhase } from './pvpPhaseRuntime.js';
+import { buildActorRecoveryPlan } from './recoveryPlanRuntime.js';
 import {
   consumeRetreatAvoidDecision,
   getRetreatAvoidZoneId,
@@ -161,6 +162,9 @@ export function runActorMovementDecisionPhase({
     : !!avoidInfoNow && ((Number(avoidInfoNow?.ratio || 1) < extremeRatio) || ((Number(avoidInfoNow?.opP || 0) - Number(avoidInfoNow?.myP || 0)) >= extremeDelta)));
   const fleeInterruptReason = mustEscape ? 'forbidden' : (lowHpFleeInterrupt ? 'low_hp' : (powerFleeInterrupt ? (useTeamAssessment ? teamAssessment.reason : 'power_gap') : ''));
   const recovering = !mustEscape && !fleeInterruptReason && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
+  const recoveryPlan = recovering ? buildActorRecoveryPlan(updated, state.publicItems, {
+    ...state, excludedZoneIds: retreatAvoidZoneId ? [retreatAvoidZoneId] : [],
+  }) : null;
   const attemptedDecisionEvidence = !mustEscape && (fleeInterruptReason || recovering)
     ? captureCombatDecisionEvidence({ actor: updated, opponent: worstSameZoneOpponent, roster: phaseSurvivors,
       reason: fleeInterruptReason || 'recover', at: atNow(),
@@ -278,8 +282,8 @@ export function runActorMovementDecisionPhase({
       enemyFree: true,
       excludedZoneIds: retreatAvoidZoneId ? [retreatAvoidZoneId] : [],
     });
-    moveTargets = [String(pick?.nextStep || currentZone)];
-    moveReason = 'recover';
+    moveTargets = [String(recoveryPlan?.nextStep || pick?.nextStep || currentZone)];
+    moveReason = recoveryPlan?.mode === 'wait' ? 'recover' : recoveryPlan?.reason || 'recover';
   }
 
   const endgameMove = pickEndgameMove(updated, nextSpawn?.endgame, forbiddenIds, zoneGraph, Number(atNow()?.sec || 0));
@@ -368,6 +372,7 @@ export function runActorMovementDecisionPhase({
   // discarded leader goal. The tactical reason itself remains unchanged.
   const sharedGoalReason = moveReason === 'team_rotate' ? String(activeTeamPlan?.sourceReason || '') : '';
   const movementTargetZoneId = movementObjective?.targetZoneId
+    || (!endgameMove && recovering ? recoveryPlan?.targetZoneId || '' : '')
     || (moveReason === activeTeamPlan?.mode ? activeTeamPlan.targetZoneId : '')
     || (['growth_farm', 'growth_craft'].includes(moveReason) ? growthPlan?.targetZoneId || '' : '')
     || (moveReason === targetMemory.moveReason && !mustEscape ? holdTarget || '' : '');
@@ -383,8 +388,10 @@ export function runActorMovementDecisionPhase({
     } else if (forbiddenIds.has(String(nextZoneId))) {
       addLog(`⚠️ [${updated.name}] 금지구역 진입: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
     } else if (moveTargets.length) {
-      if (moveReason === 'recover') {
-        addLog(`🛟 [${updated.name}] 회복 우선 이동: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)} · ${decisionContext}`, 'system');
+      if (['recover', 'recovery_supply', 'recovery_regroup'].includes(moveReason)) {
+        const recoveryLabel = formatMoveIntentLabel(moveReason);
+        const supplyLabel = moveReason === 'recovery_supply' && recoveryPlan?.targetName ? ` · 목표 ${recoveryPlan.targetName}` : '';
+        addLog(`🛟 [${updated.name}] ${recoveryLabel}: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}${supplyLabel} · ${decisionContext}`, 'system');
       } else {
         const intentLabel = formatMoveIntentLabel(moveReason, moveObjectiveType, moveObjectiveSubkind, movementObjective, sharedGoalReason);
         addLog(`🎯 [${updated.name}] ${intentLabel}: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'normal');
@@ -492,6 +499,7 @@ export function runActorMovementDecisionPhase({
     nextZoneId,
     preGoal,
     recovering,
+    recoveryPlan,
     retreatCooldownHeld,
     upgradeNeed,
     usedHyperloopMove,

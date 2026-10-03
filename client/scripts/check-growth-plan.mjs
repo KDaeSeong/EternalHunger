@@ -298,7 +298,7 @@ await check('a low-HP recovering actor queues truthful rest instead of a hunt th
     itemMetaById: meta, itemNameById: names, ruleset, nextDay: 2, nextPhase: 'morning', recovering: true,
   } });
   assert.equal(queue.queuedActionType, 'rest');
-  assert.equal(queue.queuedAtomicAction.reason, 'low_hp_recovery');
+  assert.equal(queue.queuedAtomicAction.reason, 'healing_unavailable');
   assert.deepEqual(queue.queueScoredCandidates, []);
   assert.ok(queue.blockedReasons.includes('recovering'));
   assert.ok(queue.candidatePreview.some((entry) => entry.startsWith('rest@')));

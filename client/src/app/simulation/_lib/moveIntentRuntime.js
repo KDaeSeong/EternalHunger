@@ -20,6 +20,10 @@ export function formatMoveIntentLabel(reason, objectiveType = '', objectiveSubki
       : '팀 공동 목표 이동';
   }
   if (raw === 'recover') return '회복 우선';
+  if (raw === 'recovery_supply') return '회복 음식·재료 확보';
+  if (raw === 'recovery_craft') return '회복 아이템 제작';
+  if (raw === 'recovery_regroup') return '회복 물자가 없어 동료에게 합류';
+  if (raw === 'healing_unavailable') return '회복 물자 없음 · 안전 위치 유지';
   if (raw === 'endgame_rotate') return '최종 안전구역 이동';
   // A travel decision is not a paid order. Only preserve material specificity
   // that the chosen plan actually carries; generic legendary needs stay generic.

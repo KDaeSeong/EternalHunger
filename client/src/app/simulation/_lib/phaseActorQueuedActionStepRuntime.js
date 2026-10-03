@@ -57,12 +57,17 @@ export function runActorQueuedActionStep({
   if (!updated || Number(updated.hp || 0) <= 0) return { actor: updated, newlyDead };
 
   if (queuedActionType === 'rest') {
-    addLog(`🩹 [${updated.name}] 저체력으로 안전 지역에서 다음 행동을 기다립니다.`, 'system');
+    const reason = actionPlan.recoveryPlan?.reason || 'low_hp_recovery';
+    const recoveryText = ({ healing_effect: '적용 중인 회복 효과를 기다립니다',
+      healing_item: `${actionPlan.recoveryPlan?.targetName || '회복 아이템'}의 다음 사용 가능 시간을 기다립니다`,
+      healing_unavailable: '안전하게 얻을 회복 물자가 없어 체력을 보존합니다',
+      recovery_regroup: '회복 물자가 없어 동료 곁에서 체력을 보존합니다' })[reason] || '저체력으로 안전 지역에서 다음 행동을 기다립니다';
+    addLog(`🩹 [${updated.name}] ${recoveryText}. (HP ${updated.hp}/${updated.maxHp})`, 'system');
     emitRunEvent('rest', { who: String(updated._id || ''), zoneId: String(updated.zoneId || ''),
-      reason: 'low_hp_recovery', hp: Number(updated.hp || 0), maxHp: Number(updated.maxHp || 0) }, atNow());
+      reason, itemId: String(actionPlan.recoveryPlan?.targetId || ''), hp: Number(updated.hp || 0), maxHp: Number(updated.maxHp || 0) }, atNow());
   }
 
-  if (queuedActionType === 'routeFarm' && actionPlan.fallbackRouteItemIds.length > 0) {
+  if (queuedActionType === 'routeFarm' && (actionPlan.recoveryPlan?.currentZoneItemIds?.length || actionPlan.fallbackRouteItemIds.length > 0)) {
     runRouteFarmAction({
       state: {
         actor: updated,
@@ -73,6 +78,7 @@ export function runActorQueuedActionStep({
         nextSpawn,
         forbiddenIds,
         zoneGraph: state.zoneGraph,
+        movementRoster: state.movementRoster || state.phaseSurvivors,
         goalMissingIds: [...actionPlan.goalMissingIds],
         initialLoot: fieldLootResult.loot,
         itemMetaById,
@@ -82,6 +88,7 @@ export function runActorQueuedActionStep({
         nextPhase,
         publicItems,
         ruleset,
+        recoveryPlan: actionPlan.recoveryPlan,
       },
       actions: {
         addLog,
@@ -95,7 +102,7 @@ export function runActorQueuedActionStep({
     });
   }
 
-  if (queuedActionType === 'routeFarm' && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning' && !isExplicitDay1HeroRoutePlan(updated)) {
+  if (!actionPlan.recoveryPlan && queuedActionType === 'routeFarm' && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning' && !isExplicitDay1HeroRoutePlan(updated)) {
     runDay1HeroGear(updated, {
       allowAbstractFallback: true,
       forceRouteCompletion: true,
@@ -212,6 +219,7 @@ export function runActorQueuedActionStep({
       phaseIdxNow,
       publicItems,
       queuedActionType,
+      recoveryPlan: actionPlan.recoveryPlan,
       ruleset,
       selectedCharId,
     },
