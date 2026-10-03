@@ -264,6 +264,20 @@ for (const source of [actionSource, campSource, growthSource, projectSource, tri
 }
 assert.match(actionSource, /action="research" cue="off"/, '연구 버튼은 결과음과 클릭음이 겹치지 않아야 합니다.');
 assert.match(actionSource, /기술 해금 운영/, '행동 화면에는 기술 해금 운영 구역이 있어야 합니다.');
+const foldableActionPanels = [...actionSource.matchAll(/<details className="primitive-specialized-actions[^"]*" open>([\s\S]*?)<\/details>/g)];
+assert.equal(foldableActionPanels.length, 2, '기술 해금 생업과 운영은 각각 기본 펼침 상태의 독립 폴더블 영역이어야 합니다.');
+for (const [, panel] of foldableActionPanels) {
+  const summary = panel.match(/<summary className="primitive-specialized-actions__header">([\s\S]*?)<\/summary>/)?.[1];
+  assert.ok(summary, '폴더블 제목은 마우스와 키보드로 조작할 수 있는 기본 summary 요소여야 합니다.');
+  assert.match(summary, /primitive-specialized-actions__meta/, '접힌 상태에서도 해금 현황은 제목에 남아 있어야 합니다.');
+  assert.match(summary, /접기 ▴[\s\S]*펼치기 ▾/, '제목에는 현재 상태에 맞는 접기와 펼치기 표시가 있어야 합니다.');
+  assert.doesNotMatch(summary, /ActionButton|runSpecialized|runUtility/, '접고 펼치기만으로 게임 행동이 실행되어서는 안 됩니다.');
+  assert.match(panel, /<\/summary>\s+<div className="primitive-specialized-actions__content">/, '행동 버튼과 잠금 안내는 접히는 본문 안에 있어야 합니다.');
+}
+assert.doesNotMatch(actionSource, /<details[^>]*\bname=/, '한 영역을 펼쳐도 다른 영역이 강제로 닫혀서는 안 됩니다.');
+assert.match(styleSource, /\.primitive-specialized-actions__header:focus-visible/, '키보드 사용자는 접기 제목의 초점 위치를 볼 수 있어야 합니다.');
+assert.match(styleSource, /\.primitive-specialized-actions\[open\] \.primitive-specialized-actions__when-closed/, '펼친 상태에서 펼치기 표시는 숨겨져야 합니다.');
+assert.match(styleSource, /\.primitive-specialized-actions:not\(\[open\]\) \.primitive-specialized-actions__when-open/, '접힌 상태에서 접기 표시는 숨겨져야 합니다.');
 assert.match(actionSource, /runUtility\(row\.id\)/, '기술 해금 운영 버튼은 실행 핸들러에 연결되어야 합니다.');
 assert.match(actionSource, /action=\{row\.icon\}\s+cue="off"/, '기술 해금 운영 버튼은 결과음과 클릭음이 겹치지 않아야 합니다.');
 assert.match(actionSource, /\{row\.label\} · \{row\.available/, '특화 생업 버튼의 구분점은 실제 문자로 렌더링되어야 합니다.');
@@ -318,4 +332,5 @@ console.log(JSON.stringify({
   developerActionRows: 11,
   developerCues: 2,
   latestStateWrapper: true,
+  foldableActionPanels: foldableActionPanels.length,
 }, null, 2));

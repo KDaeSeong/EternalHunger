@@ -153,48 +153,60 @@ export default function PrimitiveArchiveActionWorkspace(props) {
             {research.actionUnlocked ? '연구' : '직접 연구 잠김'}
           </ActionButton>
         </div>
-        <div className="primitive-specialized-actions">
-          <div className="primitive-specialized-actions__header">
+        <details className="primitive-specialized-actions" open>
+          <summary className="primitive-specialized-actions__header">
             <strong>{'\uAE30\uC220 \uD574\uAE08 \uC0DD\uC5C5'}</strong>
-            <span>{specializedRows.filter((row) => row.available).length}/{specializedRows.length} {'\uD574\uAE08'}</span>
+            <span className="primitive-specialized-actions__meta">{specializedRows.filter((row) => row.available).length}/{specializedRows.length} {'\uD574\uAE08'}</span>
+            <span className="primitive-specialized-actions__toggle" aria-hidden="true">
+              <span className="primitive-specialized-actions__when-open">접기 ▴</span>
+              <span className="primitive-specialized-actions__when-closed">펼치기 ▾</span>
+            </span>
+          </summary>
+          <div className="primitive-specialized-actions__content">
+            <div className="primitive-specialized-actions__buttons">
+              {specializedRows.map((row) => (
+                <ActionButton
+                  action={row.icon}
+                  cue="off"
+                  disabled={!actorCanAct || !row.available}
+                  key={row.id}
+                  onClick={() => runSpecialized(row.id)}
+                  title={`${row.technologyName} \u00B7 ${row.context} \u00B7 ${row.outcome}`}
+                >
+                  {row.label} · {row.available ? `${row.chancePct}%` : '\uC7A0\uAE40'}
+                </ActionButton>
+              ))}
+            </div>
+            <small>{lockedSpecializedText || '\uBAA8\uB4E0 \uD2B9\uD654 \uC0DD\uC5C5\uC774 \uD65C\uC131\uD654\uB410\uC2B5\uB2C8\uB2E4.'}</small>
           </div>
-          <div className="primitive-specialized-actions__buttons">
-            {specializedRows.map((row) => (
-              <ActionButton
-                action={row.icon}
-                cue="off"
-                disabled={!actorCanAct || !row.available}
-                key={row.id}
-                onClick={() => runSpecialized(row.id)}
-                title={`${row.technologyName} \u00B7 ${row.context} \u00B7 ${row.outcome}`}
-              >
-                {row.label} · {row.available ? `${row.chancePct}%` : '\uC7A0\uAE40'}
-              </ActionButton>
-            ))}
-          </div>
-          <small>{lockedSpecializedText || '\uBAA8\uB4E0 \uD2B9\uD654 \uC0DD\uC5C5\uC774 \uD65C\uC131\uD654\uB410\uC2B5\uB2C8\uB2E4.'}</small>
-        </div>
-        <div className="primitive-specialized-actions primitive-utility-actions">
-          <div className="primitive-specialized-actions__header">
+        </details>
+        <details className="primitive-specialized-actions primitive-utility-actions" open>
+          <summary className="primitive-specialized-actions__header">
             <strong>기술 해금 운영</strong>
-            <span>{utilityRows.filter((row) => row.unlocked).length}/{utilityRows.length} 해금 · 경계 {Number(state.exploration?.patrolCharges || 0)}/2 · 훈련 {Number(state.exploration?.drillCharges || 0)}/3 · 계절 {Number(state.exploration?.seasonPlanCharges || 0)}/3 · 관개 {Number(state.exploration?.irrigationCharges || 0)}/3 · 도로 {Number(state.exploration?.roadCharges || 0)}/4 · 교역 {Number(state.diplomacy?.tradeRouteCharges || 0)}/3</span>
+            <span className="primitive-specialized-actions__meta">{utilityRows.filter((row) => row.unlocked).length}/{utilityRows.length} 해금 · 경계 {Number(state.exploration?.patrolCharges || 0)}/2 · 훈련 {Number(state.exploration?.drillCharges || 0)}/3 · 계절 {Number(state.exploration?.seasonPlanCharges || 0)}/3 · 관개 {Number(state.exploration?.irrigationCharges || 0)}/3 · 도로 {Number(state.exploration?.roadCharges || 0)}/4 · 교역 {Number(state.diplomacy?.tradeRouteCharges || 0)}/3</span>
+            <span className="primitive-specialized-actions__toggle" aria-hidden="true">
+              <span className="primitive-specialized-actions__when-open">접기 ▴</span>
+              <span className="primitive-specialized-actions__when-closed">펼치기 ▾</span>
+            </span>
+          </summary>
+          <div className="primitive-specialized-actions__content">
+            <div className="primitive-specialized-actions__buttons">
+              {utilityRows.map((row) => (
+                <ActionButton
+                  action={row.icon}
+                  cue="off"
+                  disabled={!actorCanAct || !row.available}
+                  key={row.id}
+                  onClick={() => runUtility(row.id)}
+                  title={`${row.technologyName} · ${row.context} · ${row.available ? row.outcome : row.lockedReason} · ${row.cost}`}
+                >
+                  {row.label} · {row.available ? '실행' : row.unlocked ? '대기' : '잠김'}
+                </ActionButton>
+              ))}
+            </div>
+            <small>{lockedUtilityText || '모든 기술 해금 운영을 실행할 수 있습니다.'}</small>
           </div>
-          <div className="primitive-specialized-actions__buttons">
-            {utilityRows.map((row) => (
-              <ActionButton
-                action={row.icon}
-                cue="off"
-                disabled={!actorCanAct || !row.available}
-                key={row.id}
-                onClick={() => runUtility(row.id)}
-                title={`${row.technologyName} · ${row.context} · ${row.available ? row.outcome : row.lockedReason} · ${row.cost}`}
-              >
-                {row.label} · {row.available ? '실행' : row.unlocked ? '대기' : '잠김'}
-              </ActionButton>
-            ))}
-          </div>
-          <small>{lockedUtilityText || '모든 기술 해금 운영을 실행할 수 있습니다.'}</small>
-        </div>
+        </details>
         <RecentActionResult
           action={actionFeedback?.action || 'survival'}
           label={actionFeedback?.label || '이번 행동 결과'}
