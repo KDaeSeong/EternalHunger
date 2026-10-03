@@ -32,6 +32,7 @@ export default function PrimitiveArchiveTribeTab({
 }) {
   const knownCount = rivals.filter((rival) => rival.known).length;
   const lastProduction = tribe.lastProduction || {};
+  const nextFood = tribe.foodForecast?.days?.[0];
   const tradeRouteCharges = Number(rivals[0]?.tradeRouteCharges || 0);
   const foodResult = Number(tribe.productionSerial || 0) > 0
     ? `${Number(lastProduction.foodProvided || 0)}/${Number(lastProduction.foodNeed || 0)}`
@@ -65,6 +66,12 @@ export default function PrimitiveArchiveTribeTab({
             <i style={{ width: `${tribe.growthPct}%` }} />
           </div>
           <small>{tribe.atCapacity ? '대피소·정착·국가 노동력 연구로 수용력을 늘릴 수 있습니다.' : `다음 날 예상 생산: ${tribe.nextProductionText}`}</small>
+          {nextFood && (
+            <>
+              <small>다음 부족 배식 예상: 재고 {nextFood.stock} + 생산 {nextFood.produced} → 필요 {nextFood.need}단위 · {nextFood.shortage > 0 ? `부족 ${nextFood.shortage}단위` : `잔여 ${nextFood.reserve}단위`}</small>
+              <small>2일 부족 식량 전망: {tribe.foodForecast.totalShortage > 0 ? `부족 ${tribe.foodForecast.totalShortage}단위` : '부족 없음'} · 현재 재고·직업만 반영하며, 파티 식사·추가 행동·성장·사업 보상에 따라 달라집니다.</small>
+            </>
+          )}
         </div>
       </section>
 

@@ -293,8 +293,185 @@ check('automatic cold protection can pay for shelter when the fire is already at
   expectSameOperation(next, engine.runCampAction(state, 'noa', 'shelter', { rng: noEvents }));
 });
 
-check('normal runs survive and develop using ordinary paid actions across four seeds', () => {
-  for (const seed of [7, 19, 29, 43]) {
+function tribeFixture(overrides = {}) {
+  const state = fixture({
+    day: 2,
+    inventory: {},
+    camp: { fireLevel: 3, shelterLevel: 3, workbenchLevel: 2, fuel: 10 },
+    ...overrides,
+  });
+  state.weather = { ...state.weather, cold: 0 };
+  state.party = state.party.map((member) => ({ ...member, hp: 100, hunger: 0, stamina: 100, bodyTemp: 37 }));
+  state.tribe.population = 5;
+  state.research.completed = { GATHERING: true, HUNTING: true, STONE_TOOLS: true, AGRICULTURE: true };
+  return state;
+}
+
+check('new tribe workers produce food before logging when next-day rations would be short', () => {
+  const state = tribeFixture();
+  const original = structuredClone(state);
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.tribe.assignments.farmer, 1);
+  assert.equal(next.tribe.assignments.logger, 0);
+  assert.equal(next.tribe.lastProduction.shortage, 0);
+  assert.equal(next.tribe.lastProduction.gains.grain, 1);
+  assert.ok(next.log.some((line) => line.includes('식량 부족 예방')));
+  assert.equal(next.day, state.day + 1);
+  assert.deepEqual(state, original);
+});
+
+check('new workers plan beyond an even-day hunt payout instead of starving on the following day', () => {
+  const state = tribeFixture({ day: 1 });
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.tribe.assignments.farmer, 1);
+  const following = engine.advanceDay(next, { rng: noEvents });
+  assert.equal(next.tribe.lastProduction.shortage, 0);
+  assert.equal(following.tribe.lastProduction.shortage, 0);
+});
+
+check('primitive food assignment remains available without inventing researched farming or fishing', () => {
+  const state = tribeFixture();
+  state.research.completed = { GATHERING: true, HUNTING: true, STONE_TOOLS: true };
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.tribe.assignments.farmer, 0);
+  assert.equal(next.tribe.assignments.fisher, 0);
+  assert.equal(next.tribe.assignments.forager, 3);
+  assert.equal(next.tribe.lastProduction.shortage, 0);
+});
+
+check('multiple new workers recompute food pressure without starving other useful jobs', () => {
+  const state = tribeFixture();
+  state.tribe.population = 9;
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.tribe.assignments.farmer, 2);
+  assert.equal(next.tribe.assignments.logger, 1);
+  assert.equal(Object.values(next.tribe.assignments).reduce((sum, count) => sum + count, 0), 9);
+  assert.equal(next.tribe.lastProduction.foodNeed, 3);
+  assert.equal(next.tribe.lastProduction.shortage, 0);
+});
+
+check('sufficient real food stock preserves development-oriented allocation', () => {
+  const state = tribeFixture({ inventory: { berry: 20 } });
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.tribe.assignments.logger, 1);
+  assert.equal(next.tribe.assignments.farmer, 0);
+  assert.ok(!next.log.some((line) => line.includes('식량 부족 예방')));
+});
+
+check('primitive tribe rations alone do not discard the existing low-stock food reserve priority', () => {
+  const state = tribeFixture({ inventory: { meat: 1 } });
+  state.camp.workbenchLevel = 0;
+  state.tribe.population = 6;
+  state.tribe.assignments.hunter = 2;
+  state.research.completed = {};
+  assert.equal(engine.tribeSummary(state).foodForecast.totalShortage, 0);
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.tribe.assignments.forager, 3);
+  assert.equal(next.tribe.assignments.hunter, 2);
+});
+
+check('automatic assignment neither steals existing manual workers nor invents extra population', () => {
+  const state = tribeFixture();
+  state.tribe.assignments = Object.fromEntries(engine.TRIBE_JOBS.map((job) => [job.id, job.id === 'logger' ? 5 : 0]));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.deepEqual(next.tribe.assignments, state.tribe.assignments);
+  assert.equal(next.tribe.assignmentSerial, state.tribe.assignmentSerial);
+  assert.equal(next.tribe.lastProduction.shortage, 2, 'An existing manual allocation may still be insufficient; do not conceal it.');
+});
+
+check('tribe food forecast is read-only and matches two actual paid daily settlements', () => {
+  const state = tribeFixture({ inventory: { berry: 1 } });
+  const original = structuredClone(state);
+  const forecast = engine.tribeSummary(state).foodForecast;
+  assert.equal(forecast.days.length, 2);
+  const one = engine.advanceDay(state, { rng: noEvents });
+  const two = engine.advanceDay(one, { rng: noEvents });
+  for (const [index, actual] of [one, two].entries()) {
+    const row = forecast.days[index];
+    const production = actual.tribe.lastProduction;
+    assert.equal(row.day, actual.day);
+    assert.equal(row.produced, engine.tribeSummary({ ...actual, inventory: production.gains }).foodStock);
+    assert.equal(row.need, production.foodNeed);
+    assert.equal(row.provided, production.foodProvided);
+    assert.equal(row.shortage, production.shortage);
+    assert.equal(row.reserve, engine.tribeSummary(actual).foodStock);
+    assert.deepEqual(row.spent, production.foodSpent);
+  }
+  assert.deepEqual(state, original);
+});
+
+check('food forecasts use real whole-item portions rather than treating medicine or high-value rations as fractional food', () => {
+  const state = tribeFixture({ inventory: { packed_ration: 1, herb_tonic: 10 } });
+  state.tribe.assignments = Object.fromEntries(engine.TRIBE_JOBS.map((job) => [job.id, job.id === 'builder' ? 5 : 0]));
+  const forecast = engine.tribeSummary(state).foodForecast;
+  assert.equal(forecast.days[0].available, 3);
+  assert.equal(forecast.days[0].provided, 3);
+  assert.deepEqual(forecast.days[0].spent, { packed_ration: 1 });
+  assert.equal(forecast.days[0].reserve, 0);
+  assert.equal(forecast.days[1].shortage, 2);
+  assert.equal(forecast.totalShortage, 2);
+});
+
+check('food forecasts honor locked saved jobs and ordinary job changes cost no AP or food', () => {
+  const state = tribeFixture();
+  delete state.research.completed.AGRICULTURE;
+  state.tribe.assignments = Object.fromEntries(engine.TRIBE_JOBS.map((job) => [job.id, job.id === 'farmer' ? 4 : 0]));
+  assert.equal(engine.tribeSummary(state).foodForecast.days[0].produced, 0);
+  const blocked = engine.adjustTribeJobAction(state, 'farmer', 1);
+  assert.deepEqual(blocked.tribe.assignments, state.tribe.assignments);
+  const assigned = engine.adjustTribeJobAction(state, 'forager', 1);
+  assert.equal(assigned.ap, state.ap);
+  assert.deepEqual(assigned.inventory, state.inventory);
+  assert.equal(assigned.tribe.assignments.forager, 1);
+  assert.equal(engine.tribeSummary(assigned).foodForecast.days[0].produced, 1);
+});
+
+check('ordinary JSON save restoration retains tribe allocation and regenerates the same food forecast', () => {
+  const state = tribeFixture({ inventory: { cooked_meat: 2, fish: 1 } });
+  const restored = engine.normalizeState(JSON.parse(JSON.stringify(state)));
+  assert.ok(engine.tribeSummary(restored).foodForecast);
+  assert.deepEqual(restored.tribe, state.tribe);
+  assert.deepEqual(engine.tribeSummary(restored).foodForecast, engine.tribeSummary(state).foodForecast);
+  assert.equal(engine.SAVE_VERSION, 'primitive-archive-v1');
+});
+
+check('injured starving parties procure real food instead of repeatedly resting with no meals', () => {
+  const state = fixture({ inventory: {} });
+  state.party = state.party.map((member) => ({ ...member, hp: 20, hunger: 90 }));
+  state.research.completed.FISHING = true;
+  const next = engine.runAutoDayAction(state, { rng: () => 0.1 });
+  assert.equal(next.counters.fish, 1);
+  assert.ok(!next.log.some((line) => line.includes('휴식했습니다')));
+  const fishing = state.party.map((member) => ({
+    actorId: member.id,
+    row: engine.specializedActionRows(state, member.id).find((row) => row.id === 'fish'),
+  })).sort((a, b) => b.row.chance - a.row.chance)[0];
+  expectSameOperation(next, engine.runSpecializedAction(state, fishing.actorId, 'fish', '', { rng: () => 0.1 }));
+});
+
+check('one scarce meal is eaten before procuring more food instead of spending three AP cooking for one starving member', () => {
+  const state = fixture({ ap: 3, inventory: { meat: 1, wood: 1 } });
+  state.camp.fuel = 0;
+  state.party = state.party.map((member) => ({ ...member, hunger: 90 }));
+  state.research.completed.FISHING = true;
+  const next = engine.runAutoDayAction(state, { rng: () => 0.1 });
+  assert.ok(!next.log.some((line) => line.includes('고기를 구웠습니다')));
+  assert.ok(!next.log.some((line) => line.includes('모닥불 연료를 보충했습니다')));
+  assert.ok(next.counters.fish >= 1);
+  assert.ok(next.counters.meals >= state.party.length);
+});
+
+check('a healthy nonstarving party builds an affordable basic workbench before endless food expeditions', () => {
+  const state = fixture({ inventory: { wood: 4, stone: 2 } });
+  state.party = state.party.map((member) => ({ ...member, hunger: 50 }));
+  state.camp.workbenchLevel = 0;
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.camp.workbenchLevel, 1);
+  expectSameOperation(next, engine.runCampAction(state, 'noa', 'workbench', { rng: noEvents }));
+});
+
+check('normal runs survive and develop using ordinary paid actions across fifteen seeds', () => {
+  for (const seed of [3, 5, 7, 11, 17, 19, 23, 29, 31, 37, 43, 47, 53, 59, 61]) {
     const rng = seededRng(seed);
     let state = engine.createNewState({ difficulty: 'normal', rng, runId: `survival-${seed}`, now: '2026-10-03T00:00:00.000Z' });
     for (let day = 0; day < 120 && !state.ended && !engine.archiveVictorySummary(state).canComplete; day += 1) {
@@ -304,6 +481,7 @@ check('normal runs survive and develop using ordinary paid actions across four s
     naturalRuns.push({ seed, day: state.day, ended: state.ended, canComplete: victory.canComplete, meals: state.counters.meals, crafts: state.counters.craft });
     assert.equal(state.ended, false, `Seed ${seed} must not collapse while ignoring usable survival actions.`);
     assert.equal(victory.canComplete, true, `Seed ${seed} must still reach all five actual development objectives.`);
+    assert.equal(state.party.filter((member) => member.hp > 0).length, 3, `Seed ${seed} must not neglect a starving survivor.`);
     assert.equal(state.victory, false, 'Completion remains the player\'s decision.');
     assert.ok(Number(state.camp.fuel) >= 0);
     assert.ok(Object.values(state.inventory).every((qty) => qty >= 0));

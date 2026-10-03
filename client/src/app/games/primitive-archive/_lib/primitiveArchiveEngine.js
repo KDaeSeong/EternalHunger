@@ -1133,6 +1133,35 @@ export function tribeCapacity(state) {
   );
 }
 
+function forecastTribeFood(state, assignments = state.tribe.assignments) {
+  // Current stock and job yields only: future actions, population/technology
+  // changes and unearned project rewards are not promised in this forecast.
+  const need = Math.ceil(Number(state.tribe.population || 0) / 4);
+  let inventory = { ...state.inventory };
+  const days = [];
+  for (let offset = 1; offset <= 2; offset += 1) {
+    const day = Number(state.day || 1) + offset;
+    const gains = tribeProductionForDay(assignments, day, state);
+    const stock = tribeFoodStock(inventory);
+    const produced = tribeFoodStock(gains);
+    const availableInventory = addItems(inventory, Object.entries(gains));
+    const food = consumeTribeFood(availableInventory, need);
+    inventory = food.inventory;
+    days.push({
+      day,
+      stock,
+      produced,
+      available: stock + produced,
+      need,
+      provided: food.provided,
+      shortage: food.shortage,
+      reserve: tribeFoodStock(inventory),
+      spent: food.spent,
+    });
+  }
+  return { days, totalShortage: days.reduce((sum, row) => sum + row.shortage, 0) };
+}
+
 export function tribeSummary(state) {
   const current = normalizeState(state);
   const tribe = normalizeTribeState(current.tribe);
@@ -1182,6 +1211,7 @@ export function tribeSummary(state) {
     growthPct: Math.min(100, Math.round((tribe.growthProgress / Math.max(1, growthTarget)) * 100)),
     foodNeed: Math.ceil(tribe.population / 4),
     foodStock: tribeFoodStock(current.inventory),
+    foodForecast: forecastTribeFood(current),
     jobs,
     nextProduction,
     nextProductionText: formatGains(Object.entries(nextProduction)),
@@ -6011,6 +6041,23 @@ function pickAutoProductionAction(state) {
   return null;
 }
 
+function pickAutoFoodJob(state, assignments, jobUnlocked) {
+  const before = forecastTribeFood(state, assignments);
+  if (before.totalShortage <= 0) return '';
+  return ['farmer', 'forager', 'fisher', 'herder', 'trapper', 'hunter', 'herbalist']
+    .filter(jobUnlocked)
+    .map((id) => {
+      const after = forecastTribeFood(state, { ...assignments, [id]: Number(assignments[id] || 0) + 1 });
+      return {
+        id,
+        shortageGain: before.totalShortage - after.totalShortage,
+        firstDayGain: before.days[0].shortage - after.days[0].shortage,
+      };
+    })
+    .filter((job) => job.shortageGain > 0)
+    .sort((a, b) => b.shortageGain - a.shortageGain || b.firstDayGain - a.firstDayGain)[0]?.id || '';
+}
+
 function autoAssignUnassignedTribe(state) {
   const tribe = normalizeTribeState(state.tribe);
   const assignments = { ...tribe.assignments };
@@ -6020,8 +6067,8 @@ function autoAssignUnassignedTribe(state) {
 
   const added = Object.fromEntries(TRIBE_JOBS.map((job) => [job.id, 0]));
   const population = Number(tribe.population || 1);
-  const foodNeed = Math.ceil(population / 4);
-  const foodPressure = tribeFoodStock(state.inventory) < foodNeed * 2;
+  const foodShortageBefore = forecastTribeFood(state, assignments).totalShortage;
+  let foodWorkers = 0;
   const jobUnlocked = (jobId) => {
     const job = TRIBE_JOBS.find((row) => row.id === jobId);
     return !job?.techId || Boolean(state.research?.completed?.[job.techId]);
@@ -6045,15 +6092,24 @@ function autoAssignUnassignedTribe(state) {
   const priority = ['forager', 'hunter', 'logger', 'herbalist', 'farmer', 'fisher', 'herder', 'trapper', 'miner', 'quarryman', 'scholar', 'builder'];
 
   while (unassigned > 0) {
-    let jobId = priority.find((candidate) => (
+    // Preserve existing (including manual) assignments. Only new workers
+    // cover real upcoming ration shortages before filling development jobs.
+    const foodJobId = pickAutoFoodJob(state, assignments, jobUnlocked);
+    let jobId = foodJobId || priority.find((candidate) => (
       jobUnlocked(candidate) && Number(assignments[candidate] || 0) < Number(targets[candidate] || 0)
     ));
+    // Daily tribe rations also share this inventory with the student party.
+    // Keep the existing low-stock reserve priority even when job production
+    // just covers tribal meals; the forecast does not promise party meals.
+    const foodPressure = forecastTribeFood(state, assignments).totalShortage > 0
+      || tribeFoodStock(state.inventory) < Math.ceil(population / 4) * 2;
     if (!jobId && foodPressure && jobUnlocked('farmer')) jobId = 'farmer';
     if (!jobId && foodPressure) jobId = 'forager';
     if (!jobId && researchSystemStatus(state).unlocked) jobId = 'scholar';
     if (!jobId) jobId = 'hunter';
     assignments[jobId] = Number(assignments[jobId] || 0) + 1;
     added[jobId] = Number(added[jobId] || 0) + 1;
+    if (foodJobId) foodWorkers += 1;
     unassigned -= 1;
   }
 
@@ -6062,6 +6118,9 @@ function autoAssignUnassignedTribe(state) {
     .filter(([, count]) => count > 0)
     .map(([jobId, count]) => `${labels[jobId]} +${count}`)
     .join(' \u00B7 ');
+  const foodNote = foodWorkers > 0
+    ? ` 식량 부족 예방: 현재 재고·배치 기준 2일 부족 ${foodShortageBefore} → ${forecastTribeFood(state, assignments).totalShortage}단위.`
+    : '';
   return addLog({
     ...state,
     tribe: {
@@ -6069,7 +6128,7 @@ function autoAssignUnassignedTribe(state) {
       assignments,
       assignmentSerial: Number(tribe.assignmentSerial || 0) + 1,
     },
-  }, `\uD558\uB8E8 \uC790\uB3D9 \uC6B4\uC601 \uC9C1\uC5C5 \uBC30\uCE58: ${summary}.`);
+  }, `\uD558\uB8E8 \uC790\uB3D9 \uC6B4\uC601 \uC9C1\uC5C5 \uBC30\uCE58: ${summary}.${foodNote}`);
 }
 function autoActionSignature(state) {
   return [
@@ -6131,23 +6190,31 @@ function runNextAutoArchiveAction(state, options = {}) {
       .some((id) => Number(state.inventory[id] || 0) > 0);
     // Use the existing paid cooking and ration actions. Leave enough AP to
     // actually eat today; never spend the last action preparing tomorrow.
-    const cookingKind = preparedFood ? '' : autoCookingCampKind(state);
+    // When there is not a meal for each hungry survivor, eat first and leave
+    // the remaining actions for obtaining more food, not cooking one portion.
+    const scarceEmergency = hungerEmergency && foodStock < hungry.length;
+    const cookingKind = preparedFood || scarceEmergency ? '' : autoCookingCampKind(state);
     if (cookingKind) {
       return runCampAction(state, pickActorForAuto(state, 'craft'), cookingKind, options);
     }
     if (hungry.length >= 2 && foodStock >= 2) return runRecoveryChoiceAction(state, careActorId, 'ration_break', options);
     return runEatAction(state, hungry[0]?.id || careActorId, options);
   }
+  // Rest cannot replace a meal. Without food, injured starving survivors must
+  // still pay for a real procurement attempt rather than rest until they die.
+  if (hungerEmergency) return runAutoFoodSupplyAction(state, options);
   if (Number(careActor?.hp || 0) <= 45 || Number(careActor?.stamina || 0) <= 28 || Number(careActor?.bodyTemp ?? 37) <= 34.4) {
     return runRestAction(state, careActorId, options);
   }
 
-  if ((averageHunger >= 46 || hungry.length) && foodStock < living.length + 2) {
-    return runAutoFoodSupplyAction(state, options);
-  }
+  // Once urgent hunger and recovery are handled, finish affordable basic
+  // facilities before repeating expeditions forever with production locked.
   const researchGateCampKind = researchSystemStatus(state).unlocked ? '' : pickAutoCampKind(state);
   if (['fire', 'shelter', 'workbench'].includes(researchGateCampKind)) {
     return runCampAction(state, pickActorForAuto(state, 'craft'), researchGateCampKind, options);
+  }
+  if ((averageHunger >= 46 || hungry.length) && foodStock < living.length + 2) {
+    return runAutoFoodSupplyAction(state, options);
   }
 
   const needsResearchShelter = Number(state.camp.fireLevel || 0) >= 1
