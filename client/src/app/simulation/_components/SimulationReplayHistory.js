@@ -7,8 +7,8 @@ import { formatClock } from '../_lib/simulationFormattingRuntime';
 import { buildSimulationRunComparison, formatComparisonMetric } from '../_lib/simulationRunComparisonRuntime.js';
 import {
   completeSimulationEvaluation,
+  buildSimulationEvaluationExport,
   listSimulationEvaluations,
-  serializeSimulationEvaluationExport,
   startSimulationEvaluation,
   updateSimulationEvaluation,
 } from '../_lib/simulationEvaluationRuntime.js';
@@ -227,6 +227,8 @@ export default function SimulationReplayHistory({
   }
 
   function beginEvaluation(runId) {
+    requests.cancel();
+    setBusy(false);
     const run = runs.find((row) => row.id === runId) || null;
     setEvaluationRun(run);
     const existing = listSimulationEvaluations().find((row) => row.runId === runId);
@@ -247,50 +249,60 @@ export default function SimulationReplayHistory({
     else setMessage(result.reason || '평가 완료 기록을 이 브라우저에 저장하지 못했습니다.');
   }
   function closeEvaluation() {
+    requests.cancel();
+    setBusy(false);
     setEvaluation(null);
     setEvaluationRun(null);
     setEvaluationFields({});
   }
 
-  function getEvaluationExportText() {
-    if (!evaluation) return '';
-    return serializeSimulationEvaluationExport({
-      evaluation,
-      replayRecord: evaluationRun,
-      evaluationCode,
-    });
+  async function exportEvaluationResult(format) {
+    if (!evaluation || busy) return;
+    const request = requests.begin();
+    if (request === null) return;
+    setBusy(true);
+    setMessage('평가 답변과 경기 원본을 준비하는 중입니다.');
+    try {
+      let archive = evaluationRun;
+      if (archive?.id) {
+        try {
+          // The current run survives a quota error in memory. Older runs are
+          // read only on export; do not keep large event graphs in dialog state.
+          archive = evaluationRunRecord?.id === archive.id
+            ? evaluationRunRecord
+            : await loadSimulationReplay(archive.id);
+        } catch { /* Preserve the evaluator's answers even if the archive is gone. */ }
+      }
+      if (!requests.isCurrent(request)) return;
+      const exported = buildSimulationEvaluationExport({ evaluation, replayRecord: archive, evaluationCode });
+      const payload = `${JSON.stringify(exported, null, 2)}\n`;
+      if (format === 'copy') {
+        await navigator.clipboard.writeText(payload);
+      } else {
+        const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        const safeCode = String(evaluationCode || 'eternal-hunger').replace(/[^a-z0-9._-]+/gi, '-');
+        try {
+          anchor.href = url;
+          anchor.download = `${safeCode}-evaluation.json`;
+          document.body.appendChild(anchor);
+          anchor.click();
+        } finally { anchor.remove(); URL.revokeObjectURL(url); }
+      }
+      if (!requests.isCurrent(request)) return;
+      setMessage(exported.replayAvailability === 'full-record'
+        ? `평가 답변과 경기 원본 JSON을 ${format === 'copy' ? '복사' : '다운로드'}했습니다. 테스트를 요청한 사람에게 보내 주세요.`
+        : `평가 답변 JSON을 ${format === 'copy' ? '복사' : '다운로드'}했습니다. 경기 원본을 불러오지 못해 요약만 담았습니다. 경기 로그 JSON이 있다면 함께 보내 주세요.`);
+    } catch {
+      if (requests.isCurrent(request)) setMessage(format === 'copy'
+        ? '클립보드 복사 권한이 없습니다. JSON 다운로드를 사용하세요.'
+        : '평가 결과 파일을 만들지 못했습니다. 결과 복사를 사용하세요.');
+    } finally { if (requests.finish(request)) setBusy(false); }
   }
 
-  async function copyEvaluationResult() {
-    const payload = getEvaluationExportText();
-    if (!payload) return;
-    try {
-      await navigator.clipboard.writeText(payload);
-      setMessage('평가 결과 JSON을 복사했습니다. 의뢰인에게 그대로 보내면 됩니다.');
-    } catch {
-      setMessage('클립보드 복사 권한이 없습니다. JSON 다운로드를 사용하세요.');
-    }
-  }
-
-  function downloadEvaluationResult() {
-    const payload = getEvaluationExportText();
-    if (!payload) return;
-    try {
-      const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      const safeCode = String(evaluationCode || 'eternal-hunger').replace(/[^a-z0-9._-]+/gi, '-');
-      anchor.href = url;
-      anchor.download = `${safeCode}-evaluation.json`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-      setMessage('평가 결과 JSON을 다운로드했습니다. 이 파일을 의뢰인에게 보내세요.');
-    } catch {
-      setMessage('평가 결과 파일을 만들지 못했습니다. 결과 복사를 사용하세요.');
-    }
-  }
+  function copyEvaluationResult() { return exportEvaluationResult('copy'); }
+  function downloadEvaluationResult() { return exportEvaluationResult('download'); }
 
   return <div className="sim-replay-toolbar">
     {replayMode ? <span>동일 재경기 · 원본 조건으로 관전 · 승수와 보상은 추가되지 않음</span> : null}
@@ -360,7 +372,7 @@ export default function SimulationReplayHistory({
           <section className="sim-evaluation-attachment-note" aria-label="평가 자료 첨부 안내">
             <strong>작성 전 · 가능하면 경기 JSON을 저장해 평가와 함께 첨부해 주세요.</strong>
             <p>경기 로그는 새 경기 시작·새로고침 전에 경기 종료 화면의 ‘JSON 저장’으로 보관해 주세요. 문제 상황을 자세히 확인하는 데 도움이 됩니다.</p>
-            <p>설문 아래 ‘결과 JSON 다운로드’는 평가 답변을 저장하는 별도 파일입니다. 두 파일은 자동 전송되지 않으니 테스트를 요청한 사람에게 직접 보내 주세요.</p>
+            <p>설문 아래 ‘결과 JSON 다운로드’는 평가 답변과 불러올 수 있는 경기 원본을 함께 저장합니다. 원본을 불러오지 못하면 경기 로그 JSON도 함께 보내 주세요. 파일은 자동 전송되지 않으니 테스트를 요청한 사람에게 직접 보내 주세요.</p>
             <p>파일이 없어도 평가할 수 있습니다. 기억나는 경기 시각·캐릭터나 스크린샷만 보내 주셔도 도움이 됩니다.</p>
           </section>
           <p>판단을 대신하지 않습니다. 관찰한 사실과 본인의 느낌만 기록하며, 이 브라우저에만 보관합니다.</p>
@@ -381,8 +393,8 @@ export default function SimulationReplayHistory({
           </div>
           <div className="sim-evaluation-actions">
             {evaluation.status !== 'complete' ? <button type="button" onClick={finishEvaluation}>평가 완료로 저장</button> : null}
-            <button type="button" onClick={copyEvaluationResult}>결과 JSON 복사</button>
-            <button type="button" onClick={downloadEvaluationResult}>결과 JSON 다운로드</button>
+            <button type="button" disabled={busy} onClick={copyEvaluationResult}>결과 JSON 복사</button>
+            <button type="button" disabled={busy} onClick={downloadEvaluationResult}>결과 JSON 다운로드</button>
             <button type="button" onClick={closeEvaluation}>평가 닫기</button>
           </div>
         </section> : null}

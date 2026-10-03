@@ -50,7 +50,7 @@ assert.match(controllerSource, /isolatedEvaluation:\s*evaluationMode\s*&&\s*!sou
 assert.match(initialDataSource, /withSimulationRandom\(createSeedRng\(`EVALUATION_SETUP:/);
 assert.match(headerSource, /!evaluationMode\s*\?\s*<button[\s\S]*sim-devtools-btn/);
 assert.match(replayHistorySource, /결과 JSON 복사/);
-assert.match(replayHistorySource, /serializeSimulationEvaluationExport/);
+assert.match(replayHistorySource, /buildSimulationEvaluationExport/);
 const attachmentNotice = replayHistorySource.match(/<section className="sim-evaluation-attachment-note"[\s\S]*?<\/section>/)?.[0];
 assert.ok(attachmentNotice, '설문 첫머리에 경기 JSON 첨부 안내를 표시해야 합니다.');
 assert.ok(replayHistorySource.indexOf(attachmentNotice) < replayHistorySource.indexOf('<div className="sim-evaluation-fields">'),

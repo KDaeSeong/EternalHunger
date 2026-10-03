@@ -1,3 +1,5 @@
+import { cloneReplayData, validateSimulationReplayRecord } from './simulationReplayRuntime';
+
 export const SIMULATION_EVALUATION_STORAGE_KEY = 'eh_simulation_evaluations_v1';
 export const SIMULATION_EVALUATION_SCHEMA = 'eternal-hunger.evaluation.v1';
 export const SIMULATION_EVALUATION_EXPORT_SCHEMA = 'eternal-hunger.evaluation-export.v1';
@@ -104,7 +106,7 @@ export function buildSimulationEvaluationExport({
   const normalized = normalizeSimulationEvaluation(evaluation);
   if (!normalized) throw new TypeError('내보낼 평가 기록이 올바르지 않습니다.');
   const replayId = text(replayRecord?.id, 128);
-  const matchingReplay = replayId && (!normalized.runId || replayId === normalized.runId)
+  let matchingReplay = replayId && (!normalized.runId || replayId === normalized.runId)
     ? {
         id: replayId,
         finishedAt: Number.isFinite(Number(replayRecord?.finishedAt)) ? Number(replayRecord.finishedAt) : null,
@@ -114,12 +116,30 @@ export function buildSimulationEvaluationExport({
           : null,
       }
     : null;
+  let replayAvailability = matchingReplay ? 'summary-only' : 'missing';
+  if (matchingReplay) {
+    try {
+      validateSimulationReplayRecord(replayRecord);
+      // Export only the simulation archive, never arbitrary account properties
+      // attached by a caller. Own the JSON graph without retaining it in UI state.
+      matchingReplay = cloneReplayData({
+        ...matchingReplay,
+        schema: replayRecord.schema,
+        input: replayRecord.input,
+        events: replayRecord.events,
+        finalFrame: replayRecord.finalFrame,
+        random: replayRecord.random,
+      });
+      replayAvailability = 'full-record';
+    } catch { /* A missing/legacy/corrupt archive remains an honest summary. */ }
+  }
   return {
     schema: SIMULATION_EVALUATION_EXPORT_SCHEMA,
     evaluationCode: text(evaluationCode, 128),
     exportedAt: Number.isFinite(Number(now)) ? Number(now) : Date.now(),
     evaluation: normalized,
     replay: matchingReplay,
+    replayAvailability,
   };
 }
 

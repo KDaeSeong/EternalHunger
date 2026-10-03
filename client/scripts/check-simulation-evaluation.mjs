@@ -1,5 +1,6 @@
+import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
-import {
+const {
   buildSimulationEvaluationExport,
   completeSimulationEvaluation,
   listSimulationEvaluations,
@@ -9,7 +10,7 @@ import {
   updateSimulationEvaluation,
   SIMULATION_EVALUATION_EXPORT_SCHEMA,
   SIMULATION_EVALUATION_SCHEMA,
-} from '../src/app/simulation/_lib/simulationEvaluationRuntime.js';
+} = await import('../src/app/simulation/_lib/simulationEvaluationRuntime.js');
 
 const data = new Map();
 const storage = { getItem: (key) => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) };

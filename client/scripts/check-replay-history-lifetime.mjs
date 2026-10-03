@@ -24,6 +24,8 @@ registerHooks({ load(url, context, nextLoad) {
 const { default: History } = await import(componentUrl);
 const { createReplayHistoryRequests, replayHistoryMetadata } = await import('../src/app/simulation/_components/simulationReplayHistoryLifetime.js');
 const { createObserverMemoryRegistry } = await import('../src/app/simulation/_components/observerMemoryLifetime.js');
+const { createRandomIsolationInput } = await import('./lib/run-random-isolation-match.mjs');
+const { createSimulationRunInput } = await import('../src/app/simulation/_lib/simulationReplayRuntime.js');
 let passed = 0;
 async function check(name, run) { await run(); passed++; console.log(`PASS ${name}`); }
 const settle = () => new Promise((resolve) => setImmediate(resolve));
@@ -153,6 +155,98 @@ await check('generation tokens reject stale success, failure, and finally work',
   gate.cancel(); const b = gate.begin(); assert.equal(gate.isCurrent(a), false); assert.equal(gate.finish(a), false);
   assert.equal(gate.isCurrent(b), true); assert.equal(gate.finish(b), true); assert.equal(gate.isCurrent(b), false);
 });
+// Node-only export/cancellation fixtures, not a human evaluation or browser proof.
+const exportFixture = JSON.parse(await createRandomIsolationInput('evaluation-export-fixture'));
+const exportInput = createSimulationRunInput({ ...exportFixture, activeMap: exportFixture.map, publicItems: exportFixture.items });
+const exportArchive = { ...record(), schema: exportInput.schema, input: exportInput, events: [{ kind: 'match_end' }],
+  finalFrame: exportInput.initialFrame, random: { seed: exportInput.runSeed },
+  summary: { ...record().summary, ending: { outcome: 'fixture', atSec: 1 } } };
+const exportDescriptors = Object.fromEntries(['localStorage', 'navigator', 'document'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+const exportValues = new Map(), copiedExports = [], downloadedExports = [];
+const savedCreateObjectURL = URL.createObjectURL, savedRevokeObjectURL = URL.revokeObjectURL;
+const downloadBlobs = new Map();
+Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+  getItem: (key) => exportValues.get(key) || null, setItem: (key, value) => exportValues.set(key, value),
+} });
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: {
+  writeText: async (value) => { copiedExports.push(JSON.parse(value)); },
+} } });
+Object.defineProperty(globalThis, 'document', { configurable: true, value: {
+  body: { appendChild() {} },
+  createElement: () => ({ click() { downloadedExports.push(downloadBlobs.get(this.href)); }, remove() {} }),
+} });
+URL.createObjectURL = (blob) => { const url = `blob:export-${downloadBlobs.size}`; downloadBlobs.set(url, blob); return url; };
+URL.revokeObjectURL = () => {};
+async function openEvaluation(props) {
+  const h = await open(props); button(h, '5분 평가 기록').props.onClick(); h.flush(); return h;
+}
+try {
+  await check('evaluation export loads the exact archive on demand without retaining its input or journal', async () => {
+    const h = await openEvaluation(); let reads = 0;
+    historyStorage.load = async (id) => { assert.equal(id, exportArchive.id); reads++; return exportArchive; };
+    await button(h, '결과 JSON 복사').props.onClick(); h.flush();
+    const payload = copiedExports.at(-1);
+    assert.equal(payload.replayAvailability, 'full-record');
+    assert.equal(payload.replay.input.engineVersion, exportInput.engineVersion);
+    assert.equal(payload.replay.events.at(-1).kind, 'match_end'); assert.equal(reads, 1);
+    assert.equal(h.cells.some((cell) => cell.value?.input || cell.value?.events), false); h.unmount();
+  });
+  await check('an unsaved current evaluation archive exports without a failing IndexedDB read', async () => {
+    const h = await openEvaluation({ evaluationRunRecord: exportArchive }); let reads = 0;
+    historyStorage.load = async () => { reads++; throw new Error('synthetic unavailable storage'); };
+    await button(h, '결과 JSON 다운로드').props.onClick(); h.flush();
+    const payload = JSON.parse(await downloadedExports.at(-1).text());
+    assert.equal(payload.replayAvailability, 'full-record'); assert.equal(reads, 0); h.unmount();
+  });
+  await check('a missing archive still exports the answers and honestly reports summary-only', async () => {
+    const h = await openEvaluation(); historyStorage.load = async () => { throw new Error('synthetic missing archive'); };
+    await button(h, '결과 JSON 복사').props.onClick(); h.flush();
+    assert.equal(copiedExports.at(-1).replayAvailability, 'summary-only');
+    assert.equal(copiedExports.at(-1).replay.input, undefined);
+    assert.ok(textOf(h.tree).includes('요약만 담았습니다')); h.unmount();
+  });
+  for (const closeButton of ['평가 닫기', '보관함 닫기']) {
+    await check(`closing ${closeButton} prevents a late evaluation download`, async () => {
+      const h = await openEvaluation(), pending = deferred(), count = downloadedExports.length;
+      historyStorage.load = () => pending.promise;
+      const task = button(h, '결과 JSON 다운로드').props.onClick(); button(h, closeButton).props.onClick(); h.flush();
+      pending.resolve(exportArchive); await task; h.flush();
+      assert.equal(downloadedExports.length, count); h.unmount();
+    });
+  }
+  await check('duplicate same-render evaluation export clicks read and download only once', async () => {
+    const h = await openEvaluation(), pending = deferred(), count = copiedExports.length; let reads = 0;
+    historyStorage.load = () => { reads++; return pending.promise; };
+    const handler = button(h, '결과 JSON 복사').props.onClick;
+    const a = handler(), b = handler(); assert.equal(reads, 1);
+    pending.resolve(exportArchive); await Promise.all([a, b]); h.flush();
+    assert.equal(copiedExports.length, count + 1); h.unmount();
+  });
+  await check('switching the evaluation target cancels the previous pending export', async () => {
+    const h = await openEvaluation(), other = { ...record(), id: 'run-b' };
+    historyStorage.rows = [replayHistoryMetadata(record()), replayHistoryMetadata(other)];
+    await button(h, '경기 보관함').props.onClick(); h.flush();
+    const pending = deferred(), count = copiedExports.length;
+    historyStorage.load = () => pending.promise;
+    const task = button(h, '결과 JSON 복사').props.onClick();
+    elements(h.tree, (node) => node.type === 'button' && textOf(node) === '5분 평가 기록')[1].props.onClick(); h.flush();
+    pending.resolve(exportArchive); await task; h.flush();
+    assert.equal(copiedExports.length, count);
+    assert.ok(h.cells.some((cell) => cell.value?.runId === 'run-b')); h.unmount();
+  });
+  await check('unmount cancels an evaluation export without clipboard or post-unmount writes', async () => {
+    const h = await openEvaluation(), pending = deferred(), count = copiedExports.length;
+    historyStorage.load = () => pending.promise;
+    const task = button(h, '결과 JSON 복사').props.onClick(); h.unmount(); pending.resolve(exportArchive); await task;
+    assert.equal(copiedExports.length, count); assert.equal(h.writesAfterUnmount, 0);
+  });
+} finally {
+  for (const [key, descriptor] of Object.entries(exportDescriptors)) {
+    if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
+  }
+  URL.createObjectURL = savedCreateObjectURL; URL.revokeObjectURL = savedRevokeObjectURL;
+}
+
 await check('weak diagnostics distinguish unobserved GC from collection and stay bounded', () => {
   const weak = []; class FakeWeakRef { constructor(target) { this.target = target; weak.push(this); } deref() { return this.target; } }
   const registry = createObserverMemoryRegistry({ WeakRefType: FakeWeakRef });

@@ -57,6 +57,7 @@ export function useSimulationLogs({
   exportState = {},
   matchSec,
   phase,
+  runInputRef,
 } = {}) {
   const [logs, setLogs] = useState([]);
   const [prevPhaseLogs, setPrevPhaseLogs] = useState([]);
@@ -136,7 +137,7 @@ export function useSimulationLogs({
   function exportBattleLog(format = 'md') {
     return exportSimulationBattleLog({
       format,
-      refs: { fullLogsRef },
+      refs: { fullLogsRef, runInputRef },
       state: {
         ...exportState,
         runEvents: fullRunEventsRef.current,

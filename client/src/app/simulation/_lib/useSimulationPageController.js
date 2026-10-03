@@ -81,6 +81,7 @@ export function useSimulationPageController({
     day,
     matchSec,
     phase,
+    runInputRef,
     exportState: {
       assistCounts,
       killCounts,

@@ -87,6 +87,9 @@ export function exportSimulationBattleLog({
   const payload = fmt === 'json'
     ? JSON.stringify({
         schema: 'eternal-hunger.battle-log.v1',
+        // Read the start snapshot, never reconstruct it from current actors or
+        // catalogs. A legacy/pre-start log honestly has no reproducible input.
+        input: refs.runInputRef?.current || null,
         summary,
         logs: lines.map((logText, index) => ({ index: index + 1, text: logText })),
         runEvents: Array.isArray(runEvents) ? runEvents : [],
