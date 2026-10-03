@@ -12,12 +12,15 @@ import {
   readHallOfFameState,
   summarizeHallOfFameTop3,
 } from '../utils/hallOfFame';
-import { HubLinkList, RankingRows } from './_components/HomeHubPanels';
-import { NextGoalRows, OnboardingRows, ProgressBar } from './_components/HomeProgressPanels';
+import { PostRows, RankingRows, RoomRows } from './_components/HomeHubPanels';
+import { ProgressStrip } from './_components/HomeProgressPanels';
+import GameKeyArt from './games/_components/GameKeyArt';
+import { GameTile } from './games/_components/GamesHubCards';
+import { findGameBySlug } from './games/_lib/gameCatalog';
+import { gameTagline } from './games/_lib/gameTaglines';
 import {
   EMPTY_HUB,
   EMPTY_PROGRESS,
-  MENU_ITEMS,
   formatNumber,
   getAssists,
   getKills,
@@ -28,6 +31,9 @@ import {
   safeText,
   userHref,
 } from './_lib/homePageUtils';
+
+// Shown under "다른 게임" on the home page.
+const OTHER_GAME_SLUGS = ['twenty-questions', 'dual-academy-tcg', 'ba-srpg', 'myanimecraft'];
 
 export default function Home() {
   const mounted = useHydrated();
@@ -45,18 +51,6 @@ export default function Home() {
 
   const myUsername = user?.username || null;
   const userKey = getUserKey(user);
-  const menuItems = useMemo(() => {
-    if (!user?.isAdmin) return MENU_ITEMS;
-    return [
-      ...MENU_ITEMS,
-      {
-        href: '/admin',
-        tag: 'Admin',
-        title: '관리자',
-        body: '아이템, 맵, 키오스크, 특전, 신고 상태를 관리합니다.',
-      },
-    ];
-  }, [user?.isAdmin]);
 
   useEffect(() => {
     let canceled = false;
@@ -168,158 +162,153 @@ export default function Home() {
     };
   }, [myUsername]);
 
-  const notices = hub.notices.length ? hub.notices : hub.recentPosts.filter((post) => post.isNotice).slice(0, 3);
+  const boardPosts = useMemo(() => {
+    const noticeRows = (hub.notices.length ? hub.notices : hub.recentPosts.filter((post) => post.isNotice)).slice(0, 2);
+    const seen = new Set(noticeRows.map((post) => String(post._id)));
+    const rest = hub.recentPosts.filter((post) => !seen.has(String(post._id)));
+    return [...noticeRows, ...rest].slice(0, 6);
+  }, [hub.notices, hub.recentPosts]);
+
+  const otherGames = useMemo(
+    () => OTHER_GAME_SLUGS.map(findGameBySlug).filter(Boolean),
+    [],
+  );
+
+  const loggedIn = mounted && Boolean(user);
+  const topCharacter = hub.rankings.characters[0] || null;
 
   return (
     <main className="home-page">
       <SiteHeader />
 
-      <section className="home-container">
-        <section className="home-command">
-          <div>
-            <p className="home-kicker">Kei&apos;s Game Lab</p>
-            <h1>케이의 게임개발소</h1>
-            <p>
-              Eternal Hunger를 비롯한 여러 게임, 기록소, 저장 슬롯, 게시판, 스무고개를 한곳에 모은 종합 게임 사이트입니다.
-            </p>
-          </div>
-          <div className="home-command-actions">
-            <Link href={mounted && user ? '/games' : '/login'} className="home-primary-action">
-              {mounted && user ? '게임 고르기' : '로그인하고 시작'}
-            </Link>
-            <Link href="/eternalhunger" className="home-secondary-action">이터널 헝거</Link>
-            <Link href="/myanime" className="home-secondary-action">MyAnime</Link>
-          </div>
-        </section>
+      <div className="ui-page hm">
+        <h1 className="ui-visually-hidden">케이의 게임개발소</h1>
 
-        <section className="home-metrics" aria-label="사이트 요약">
-          <div><span>사용자</span><strong>{hubLoaded ? formatNumber(hub.counts.users) : '—'}</strong></div>
-          <div><span>캐릭터</span><strong>{hubLoaded ? formatNumber(hub.counts.characters) : '—'}</strong></div>
-          <div><span>게시글</span><strong>{hubLoaded ? formatNumber(hub.counts.posts) : '—'}</strong></div>
-          <div><span>진행 중 스무고개</span><strong>{hubLoaded ? formatNumber(hub.counts.activeRooms) : '—'}</strong></div>
-        </section>
-
-        {mounted && user ? (
-          <section className="home-personal" aria-label="내 진행 상황">
-            <div className="home-personal-main">
+        <section className="ui-hero" aria-labelledby="ui-hero-title">
+          <GameKeyArt
+            slug="eternal-hunger"
+            title="이터널 헝거"
+            className="ui-hero__art"
+            preload
+            sizes="(max-width: 860px) 100vw, 60vw"
+          />
+          <div className="ui-hero__copy">
+            <h2 id="ui-hero-title">이터널 헝거</h2>
+            <p>{gameTagline('eternal-hunger')}</p>
+            <div className="ui-hero__actions">
+              <Link href="/eternalhunger" className="ui-button ui-hero__play">이터널 헝거 플레이</Link>
+              {loggedIn ? (
+                <Link href="/characters" className="ui-button ui-hero__secondary">캐릭터 설정</Link>
+              ) : (
+                <Link href="/games/eternal-hunger" className="ui-button ui-hero__secondary">게임 소개</Link>
+              )}
+            </div>
+            <dl className="ui-hero__facts">
               <div>
-                <p className="home-kicker">{safeText(progress.season.name, '프리시즌')}</p>
-                <h2>내 진행 보드</h2>
-                <p>{progressLoading ? '목표를 불러오는 중입니다.' : '오늘 이어서 할 목표를 확인합니다.'}</p>
+                <dt>등록된 캐릭터</dt>
+                <dd className="ui-num">{hubLoaded ? `${formatNumber(hub.counts.characters)}명` : '—'}</dd>
               </div>
-              <div className="home-personal-score">
-                <strong>{formatNumber(progress.season.score)} / {formatNumber(progress.season.maxScore)} pt</strong>
-                <span>{formatNumber(progress.season.completedCount)} / {formatNumber(progress.season.totalCount)} 완료</span>
-                <ProgressBar value={progress.season.maxScore ? Number(progress.season.score || 0) / Number(progress.season.maxScore || 1) : 0} />
-              </div>
-            </div>
-            {progressError ? <div className="home-empty">{progressError}</div> : <NextGoalRows goals={progress.next} />}
-            {!progressError ? (
-              <div className="home-onboarding-box">
-                <div className="home-mini-title">
-                  <strong>시작 체크리스트</strong>
-                  <span>{formatNumber(progress.onboarding.completedCount)} / {formatNumber(progress.onboarding.totalCount)}</span>
+              {topCharacter ? (
+                <div>
+                  <dt>캐릭터 1위</dt>
+                  <dd>{safeText(topCharacter.name, '캐릭터')} <span className="ui-num">{formatNumber(getWins(topCharacter))}승</span></dd>
                 </div>
-                <OnboardingRows onboarding={progress.onboarding} />
-              </div>
-            ) : null}
-            <div className="home-personal-actions">
-              <Link href="/achievements">업적 전체 보기</Link>
-              <Link href="/records">기록소</Link>
-              <Link href="/eternalhunger">게임 시작</Link>
-            </div>
-          </section>
+              ) : null}
+            </dl>
+          </div>
+        </section>
+
+        {loggedIn ? (
+          <ProgressStrip progress={progress} loading={progressLoading} error={progressError} />
         ) : null}
 
-        <section className="home-hub-layout" aria-label="커뮤니티 현황">
-          <div className="home-main-column">
-            <section className="home-panel">
-              <div className="home-panel-title">
-                <h2>공지</h2>
-                <Link href="/board">전체 보기</Link>
+        <div className="hm-columns">
+          <div className="hm-main">
+            <section className="ui-panel" aria-labelledby="hm-board-title">
+              <div className="ui-panel__head">
+                <h2 id="hm-board-title">게시판</h2>
+                <Link href="/board">게시판 가기</Link>
               </div>
-              {loading ? <div className="home-empty">홈 정보를 불러오는 중입니다.</div> : (
-                <HubLinkList items={notices} empty="아직 공지가 없습니다." type="post" />
+              {loading ? <p className="ui-empty">게시글을 불러오는 중입니다.</p> : (
+                <PostRows posts={boardPosts} empty="아직 게시글이 없습니다. 첫 글을 남겨 보세요." />
               )}
             </section>
 
-            <section className="home-panel">
-              <div className="home-panel-title">
-                <h2>최신 게시글</h2>
-                <Link href="/board">글 보러 가기</Link>
+            <section className="ui-panel" aria-labelledby="hm-rooms-title">
+              <div className="ui-panel__head">
+                <h2 id="hm-rooms-title">열린 방</h2>
+                <span className="ui-panel__links">
+                  <Link href="/twenty-questions">스무고개</Link>
+                  <Link href="/games/rooms">게임방</Link>
+                </span>
               </div>
-              <HubLinkList items={hub.recentPosts} empty="아직 게시글이 없습니다." type="post" />
-            </section>
-
-            <section className="home-panel">
-              <div className="home-panel-title">
-                <h2>진행 중인 스무고개</h2>
-                <Link href="/twenty-questions">방 목록</Link>
-              </div>
-              <HubLinkList items={hub.activeRooms} empty="진행 중인 방이 없습니다." type="room" />
+              {loading ? <p className="ui-empty">방 목록을 불러오는 중입니다.</p> : (
+                <RoomRows rooms={hub.activeRooms} empty="지금 열린 방이 없습니다. 스무고개나 게임방을 직접 열 수 있습니다." />
+              )}
             </section>
           </div>
 
-          <aside className="home-side-column" aria-label="랭킹">
-            <section className="home-panel">
-              <div className="home-panel-title">
-                <h2>LP 랭킹</h2>
+          <aside className="hm-side" aria-label="랭킹">
+            <section className="ui-panel" aria-labelledby="hm-lp-title">
+              <div className="ui-panel__head">
+                <h2 id="hm-lp-title">LP 랭킹</h2>
+                <Link href="/leaderboard">전체 순위</Link>
               </div>
               <RankingRows
                 rows={hub.rankings.points}
-                empty="아직 랭킹이 없습니다."
+                empty="아직 순위가 없습니다."
                 renderName={(row) => safeText(row.displayName || row.nickname || row.username, '사용자')}
                 renderHref={(row) => userHref(row)}
                 renderValue={(row) => `${formatNumber(row.lp)} LP`}
               />
             </section>
 
-            <section className="home-panel">
-              <div className="home-panel-title">
-                <h2>캐릭터 랭킹</h2>
+            <section className="ui-panel" aria-labelledby="hm-char-title">
+              <div className="ui-panel__head">
+                <h2 id="hm-char-title">캐릭터 랭킹</h2>
+                <Link href="/leaderboard?tab=characters">전체 순위</Link>
               </div>
               <RankingRows
                 rows={hub.rankings.characters}
                 empty="아직 캐릭터 기록이 없습니다."
                 renderName={(row) => safeText(row.name, '캐릭터')}
-                renderValue={(row) => `${formatNumber(row.totalWins)}승 · ${formatNumber(row.totalKills)}킬`}
+                renderSub={(row) => safeText(row.ownerName, '')}
+                renderValue={(row) => `${formatNumber(getWins(row))}승`}
               />
             </section>
 
-            <section className="home-panel">
-              <div className="home-panel-title">
-                <h2>내 명예의 전당</h2>
-              </div>
-              {mounted && user ? (
+            {loggedIn && myCharTop3.wins.length ? (
+              <section className="ui-panel" aria-labelledby="hm-hof-title">
+                <div className="ui-panel__head">
+                  <h2 id="hm-hof-title">내 캐릭터 기록</h2>
+                  <Link href="/records">기록소</Link>
+                </div>
                 <RankingRows
                   rows={myCharTop3.wins}
                   empty="아직 내 승리 기록이 없습니다."
                   renderName={(row) => safeText(row.name, '캐릭터')}
-                  renderValue={(row) => `${getWins(row)}승 · ${getKills(row)}킬 · ${getAssists(row)}도움`}
+                  renderSub={(row) => `${getKills(row)}킬 · ${getAssists(row)}도움`}
+                  renderValue={(row) => `${getWins(row)}승`}
                 />
-              ) : (
-                <div className="home-empty">로그인하면 내 캐릭터 기록을 볼 수 있습니다.</div>
-              )}
-            </section>
+              </section>
+            ) : null}
           </aside>
-        </section>
+        </div>
 
-        <section className="home-tools" aria-label="주요 기능">
-          <div className="home-section-title">
-            <p>Tools</p>
-            <h2>바로가기</h2>
+        <section className="hm-games" aria-labelledby="hm-games-title">
+          <div className="hm-games__head">
+            <h2 id="hm-games-title">다른 게임</h2>
+            <Link href="/games">게임 전체 보기</Link>
           </div>
-          <div className="menu-grid">
-            {menuItems.map((item) => (
-              <Link href={item.href} className={`menu-card ${item.emphasis ? 'is-emphasis' : ''}`} key={item.href}>
-                <span>{item.tag}</span>
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-              </Link>
+          <ul className="hm-games__grid">
+            {otherGames.map((game) => (
+              <li key={game.slug}>
+                <GameTile game={game} />
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
-      </section>
+      </div>
     </main>
   );
 }

@@ -9,6 +9,8 @@ import { apiGetCached, apiPost, clearApiGetCache, getToken } from '../../utils/a
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { readCompressedPreviewImage } from '../../utils/previewImage';
 import { normalizeErStats } from '../../utils/erStats';
+import { Plus } from 'lucide-react';
+import PageHeader from '../../components/PageHeader';
 import SiteHeader from '../../components/SiteHeader';
 import CharacterBasicEditModal from './_components/CharacterBasicEditModal';
 import CharacterList from './_components/CharacterList';
@@ -32,12 +34,24 @@ export default function CharactersPage() {
   const [deletedIds, setDeletedIds] = useState(() => new Set());
   const [dirty, setDirty] = useState(false);
   const [editCharId, setEditCharId] = useState(null);
+  const [filterText, setFilterText] = useState('');
+  const [loaded, setLoaded] = useState(false);
   const { handleBackdropPointerDown, handleBackdropPointerUp } = useModalBackdropClose();
 
   const setCharactersFromSkillEditor = useCallback((updater) => {
     setDirty(true);
     setCharacters(updater);
   }, []);
+
+  const visibleCharacters = useMemo(() => {
+    const needle = filterText.trim().toLowerCase();
+    if (!needle) return characters;
+    return characters.filter((char) => [
+      char?.name,
+      char?.weaponType,
+      ...(Array.isArray(char?.erWeapons) ? char.erWeapons : []),
+    ].join(' ').toLowerCase().includes(needle));
+  }, [characters, filterText]);
 
   const editChar = useMemo(
     () => characters.find((c) => String(characterId(c)) === String(editCharId)) || null,
@@ -79,6 +93,8 @@ export default function CharactersPage() {
     } catch (err) {
       console.error('캐릭터 로드 실패:', err);
       return [];
+    } finally {
+      setLoaded(true);
     }
   }
 
@@ -257,31 +273,61 @@ export default function CharactersPage() {
   return (
     <main className="characters-page-shell">
       <SiteHeader className="characters-site-header" />
-      <div className="page-header">
-        <div className="page-header-row">
-          <div className="page-header-copy">
-            <h1>캐릭터 설정</h1>
-            <p>참가 캐릭터를 추가하고 기본 정보를 관리합니다.</p>
+      <div className="ui-page cl">
+        <PageHeader
+          title="캐릭터 설정"
+          description={`경기에 나갈 캐릭터를 추가하고 무기와 전술 스킬을 정합니다.${loaded ? ` 지금 ${characters.length}명이 있습니다.` : ''}`}
+          actions={(
+            <>
+              <button type="button" className="ui-button ui-button--quiet" onClick={addCharacter}>
+                <Plus size={16} aria-hidden="true" />
+                캐릭터 추가
+              </button>
+              <button type="button" className="ui-button ui-button--primary" onClick={saveCharacters}>
+                변경사항 저장
+              </button>
+            </>
+          )}
+        />
+
+        {characters.length > 6 ? (
+          <input
+            type="search"
+            className="ui-input cl-filter"
+            value={filterText}
+            onChange={(event) => setFilterText(event.target.value)}
+            placeholder="이름이나 무기로 찾기"
+            aria-label="캐릭터 찾기"
+          />
+        ) : null}
+
+        {!loaded && characters.length === 0 ? (
+          <p className="ui-empty">캐릭터를 불러오는 중입니다.</p>
+        ) : characters.length === 0 ? (
+          <div className="ui-panel ui-empty cl-empty">
+            <p>아직 캐릭터가 없습니다. 캐릭터를 추가해 첫 경기를 준비하세요.</p>
+            <button type="button" className="ui-button ui-button--primary ui-button--small" onClick={addCharacter}>캐릭터 추가</button>
           </div>
-          <div className="page-header-actions">
-            <button type="button" className="page-header-action-btn secondary" onClick={addCharacter}>
-              + 캐릭터 추가
-            </button>
-            <button type="button" className="page-header-action-btn primary" onClick={saveCharacters}>
-              {dirty ? '변경사항 저장 *' : '변경사항 저장'}
-            </button>
-          </div>
-        </div>
+        ) : visibleCharacters.length === 0 ? (
+          <p className="ui-empty">‘{filterText.trim()}’에 맞는 캐릭터가 없습니다.</p>
+        ) : (
+          <CharacterList
+            characters={visibleCharacters}
+            onAnalyze={handleAiAnalyze}
+            onApplyErPreset={applyErPresetToCharacter}
+            onEditBasic={setEditCharId}
+            onOpenConfig={openConfigModal}
+            onRemove={removeCharacter}
+          />
+        )}
       </div>
 
-      <CharacterList
-        characters={characters}
-        onAnalyze={handleAiAnalyze}
-        onApplyErPreset={applyErPresetToCharacter}
-        onEditBasic={setEditCharId}
-        onOpenConfig={openConfigModal}
-        onRemove={removeCharacter}
-      />
+      {dirty ? (
+        <div className="cl-savebar" role="status">
+          <span>저장하지 않은 변경사항이 있습니다.</span>
+          <button type="button" className="ui-button ui-button--primary" onClick={saveCharacters}>지금 저장</button>
+        </div>
+      ) : null}
 
       <CharacterBasicEditModal
         character={editChar}

@@ -318,6 +318,7 @@ export default function AccountPage() {
               deactivateForm={deactivateForm}
               deactivateMessage={deactivateMessage}
               deactivateSaving={deactivateSaving}
+              issueRecoveryCode={issueRecoveryCode}
               message={message}
               passwordForm={passwordForm}
               passwordMessage={passwordMessage}

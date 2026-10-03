@@ -7,6 +7,7 @@ export default function AccountSecurityPanels(props) {
     deactivateForm,
     deactivateMessage,
     deactivateSaving,
+    issueRecoveryCode,
     message,
     passwordForm,
     passwordMessage,

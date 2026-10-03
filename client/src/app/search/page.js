@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Search } from 'lucide-react';
+import PageHeader from '../../components/PageHeader';
 import SiteHeader from '../../components/SiteHeader';
-import { useToast } from '../../components/ToastProvider';
 import { apiGetCached } from '../../utils/api';
 
 const EMPTY_RESULTS = {
@@ -85,29 +86,39 @@ function roomHref(room) {
   return room?.href || (room?.roomType === 'game-room' ? `/games/rooms/${room._id}` : `/twenty-questions/${room._id}`);
 }
 
+const ROOM_STATUS_LABELS = { open: '대기 중', playing: '진행 중', finished: '종료', closed: '종료' };
+
 function roomSummary(room) {
   if (room?.roomType === 'game-room') {
-    return `${safeText(room.hostName, '익명')} · ${formatNumber(room.playerCount)}/${formatNumber(room.maxPlayers || 1)}명 · ${safeText(room.status, 'open')}`;
+    const status = ROOM_STATUS_LABELS[String(room?.status || 'open')] || '대기 중';
+    return `게임방 · ${safeText(room.hostName, '익명')} · ${formatNumber(room.playerCount)}/${formatNumber(room.maxPlayers || 1)}명 · ${status}`;
   }
   const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
-  return `${safeText(room.hostName, '익명')} · 사용 ${formatNumber(attemptCount)}/${formatNumber(room.maxQuestions || 20)} · 질문 ${formatNumber(room.questionCount)} · 도전 ${formatNumber(room.guessCount)}`;
+  return `스무고개 · ${safeText(room.hostName, '익명')} · ${formatNumber(attemptCount)}/${formatNumber(room.maxQuestions || 20)}회 사용`;
 }
 
-function ResultPanel({ title, count, empty, children }) {
+const SECTIONS = [
+  { key: 'posts', label: '게시글' },
+  { key: 'rooms', label: '방' },
+  { key: 'users', label: '유저' },
+  { key: 'characters', label: '캐릭터' },
+];
+
+function ResultPanel({ id, title, count, children }) {
   return (
-    <section className="search-panel">
-      <div className="search-panel-title">
-        <h2>{title}</h2>
-        <span>{formatNumber(count)}</span>
+    <section className="ui-panel" aria-labelledby={id}>
+      <div className="ui-panel__head">
+        <h2 id={id}>{title} <span className="sr-count">{formatNumber(count)}</span></h2>
       </div>
-      {count > 0 ? children : <div className="search-empty">{empty}</div>}
+      {children}
     </section>
   );
 }
 
 export default function SearchPage() {
-  const { showToast } = useToast();
+  const inputRef = useRef(null);
   const [query, setQuery] = useState('');
+  const [section, setSection] = useState('all');
   const [payload, setPayload] = useState(() => normalizePayload(null));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -115,6 +126,7 @@ export default function SearchPage() {
   const runSearch = useCallback(async (rawQuery, options = {}) => {
     const nextQuery = String(rawQuery || '').trim();
     setError('');
+    setSection('all');
 
     if (typeof window !== 'undefined' && options.updateUrl) {
       const url = nextQuery ? `/search?q=${encodeURIComponent(nextQuery)}` : '/search';
@@ -135,19 +147,21 @@ export default function SearchPage() {
       });
       setPayload(normalizePayload(data));
     } catch (err) {
-      const message = err?.message || '검색 결과를 불러오지 못했습니다.';
-      setError(message);
-      showToast({ tone: 'warning', message });
+      // 결과 자리에 오류를 보여 주므로 토스트는 띄우지 않습니다.
+      setError(err?.message || '검색 결과를 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const initialQuery = String(params.get('q') || '').trim();
-    if (!initialQuery) return;
+    if (!initialQuery) {
+      inputRef.current?.focus();
+      return;
+    }
     setQuery(initialQuery);
     void runSearch(initialQuery);
   }, [runSearch]);
@@ -161,133 +175,162 @@ export default function SearchPage() {
   const results = payload.results || EMPTY_RESULTS.results;
   const submittedQuery = payload.query;
   const hasSubmittedQuery = Boolean(submittedQuery);
-  const totalCount = Number(counts.total || 0);
-
-  const summaryItems = useMemo(() => [
-    { label: '전체', value: totalCount },
-    { label: '게시글', value: counts.posts },
-    { label: '스무고개', value: counts.rooms },
-    { label: '유저', value: counts.users },
-    { label: '캐릭터', value: counts.characters },
-  ], [counts.characters, counts.posts, counts.rooms, counts.users, totalCount]);
+  const sectionCounts = {
+    posts: results.posts.length,
+    rooms: results.rooms.length,
+    users: results.users.length,
+    characters: results.characters.length,
+  };
+  const totalCount = Number(counts.total || 0) || Object.values(sectionCounts).reduce((sum, value) => sum + value, 0);
+  const visible = (key) => sectionCounts[key] > 0 && (section === 'all' || section === key);
 
   return (
     <main className="search-page-shell">
       <SiteHeader />
-      <section className="search-page">
-        <section className="search-hero">
-          <div>
-            <p className="search-kicker">Search</p>
-            <h1>통합 검색</h1>
-            <p>게시글, 공략, 스무고개 방, 유저, 캐릭터 기록을 한 번에 찾습니다.</p>
-          </div>
-          <form className="search-form" onSubmit={handleSubmit}>
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="검색어"
-              aria-label="검색어"
-              maxLength={80}
-            />
-            <button type="submit" disabled={loading}>{loading ? '검색 중' : '검색'}</button>
-          </form>
-        </section>
+      <div className="ui-page sr">
+        <PageHeader title="검색" description="게시글, 스무고개와 게임방, 유저, 캐릭터 기록을 한 번에 찾습니다." />
 
-        {/* 검색하기 전에는 결과 수가 모두 0이라 의미가 없어서 요약을 숨깁니다. */}
-        {hasSubmittedQuery ? (
-          <section className="search-summary" aria-label="검색 결과 요약">
-            {summaryItems.map((item) => (
-              <div key={item.label}>
-                <span>{item.label}</span>
-                <strong>{formatNumber(item.value)}</strong>
-              </div>
-            ))}
-          </section>
-        ) : null}
+        <form className="sr-form" role="search" onSubmit={handleSubmit}>
+          <Search size={20} aria-hidden="true" className="sr-form__icon" />
+          <input
+            ref={inputRef}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="검색어를 입력하세요"
+            aria-label="검색어"
+            maxLength={80}
+          />
+          <button type="submit" className="ui-button ui-button--primary" disabled={loading}>{loading ? '찾는 중' : '검색'}</button>
+        </form>
 
         {error ? (
-          <div className="search-empty search-error">
-            <p>{error}</p>
-            <button type="button" onClick={() => void runSearch(query, { updateUrl: true })}>다시 검색</button>
+          <div className="ui-notice ui-notice--danger" role="alert">
+            <span>{error}</span>
+            <button type="button" className="ui-button ui-button--quiet ui-button--small" onClick={() => void runSearch(query, { updateUrl: true })}>다시 검색</button>
           </div>
         ) : null}
 
-        {!hasSubmittedQuery && !loading && !error ? (
-          <div className="search-empty search-start">검색어를 입력하면 사이트 전체 결과가 섹션별로 표시됩니다.</div>
-        ) : null}
+        {loading ? <p className="ui-empty">검색 결과를 불러오는 중입니다.</p> : null}
 
-        {loading ? <div className="search-empty">검색 결과를 불러오는 중입니다.</div> : null}
-
-        {hasSubmittedQuery && !loading ? (
-          <div className="search-content-grid">
-            <ResultPanel title="게시글과 공략" count={results.posts.length} empty="일치하는 게시글이 없습니다.">
-              <div className="search-result-list">
-                {results.posts.map((post) => (
-                  <Link href={`/board/${post._id}`} key={`post-${post._id || post.title}`}>
-                    <span>{POST_CATEGORY_LABELS[post.category] || post.category || '글'}</span>
-                    <strong>{safeText(post.title, '제목 없음')}</strong>
-                    <p>{safeText(post.contentPreview, '미리보기가 없습니다.')}</p>
-                    <small>
-                      {safeText(post.authorName, '익명')} · 조회 {formatNumber(post.viewCount)} · 추천 {formatNumber(post.reactionCount)} · 댓글 {formatNumber(post.commentCount)} · {formatDate(post.updatedAt || post.createdAt) || '날짜 없음'}
-                    </small>
-                  </Link>
+        {hasSubmittedQuery && !loading && !error ? (
+          totalCount === 0 ? (
+            <div className="ui-empty sr-empty">
+              <p><strong>‘{submittedQuery}’</strong>에 맞는 결과가 없습니다.</p>
+              <p>철자를 확인하거나 더 짧은 단어로 찾아보세요.</p>
+            </div>
+          ) : (
+            <>
+              <div className="ui-tabs sr-filter" role="group" aria-label="결과 종류">
+                <button type="button" aria-pressed={section === 'all'} onClick={() => setSection('all')}>
+                  전체 <small>{formatNumber(totalCount)}</small>
+                </button>
+                {SECTIONS.map((item) => (
+                  <button
+                    type="button"
+                    key={item.key}
+                    aria-pressed={section === item.key}
+                    onClick={() => setSection(item.key)}
+                    disabled={sectionCounts[item.key] === 0}
+                  >
+                    {item.label} <small>{formatNumber(sectionCounts[item.key])}</small>
+                  </button>
                 ))}
               </div>
-            </ResultPanel>
 
-            <ResultPanel title="방" count={results.rooms.length} empty="일치하는 방이 없습니다.">
-              <div className="search-result-list">
-                {results.rooms.map((room) => {
-                  return (
-                    <Link href={roomHref(room)} key={`room-${room._id || room.title}`}>
-                      <span>{ROOM_CATEGORY_LABELS[room.category] || room.category || '방'}</span>
-                      <strong>{safeText(room.title, '제목 없음')}</strong>
-                      <p>{safeText(room.hint, room.roomType === 'game-room' ? safeText(room.gameSlug, '게임방') : '힌트 없음')}</p>
-                      <small>
-                        {roomSummary(room)}
-                      </small>
-                    </Link>
-                  );
-                })}
-              </div>
-            </ResultPanel>
+              <div className="sr-results">
+                {visible('posts') ? (
+                  <ResultPanel id="sr-posts" title="게시글" count={sectionCounts.posts}>
+                    <ul className="ui-list">
+                      {results.posts.map((post) => (
+                        <li key={`post-${post._id || post.title}`}>
+                          <Link href={`/board/${post._id}`} className="ui-list-row sr-row">
+                            <span className="ui-list-row__main">
+                              <strong>
+                                <em className="ui-tag">{POST_CATEGORY_LABELS[post.category] || '글'}</em>
+                                {safeText(post.title, '제목 없음')}
+                              </strong>
+                              {post.contentPreview ? <span className="sr-preview">{post.contentPreview}</span> : null}
+                              <span>{safeText(post.authorName, '익명')} · {formatDate(post.updatedAt || post.createdAt) || '날짜 없음'} · 댓글 {formatNumber(post.commentCount)}</span>
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </ResultPanel>
+                ) : null}
 
-            <ResultPanel title="유저" count={results.users.length} empty="일치하는 유저가 없습니다.">
-              <div className="search-compact-list">
-                {results.users.map((user) => {
-                  const href = userHref(user);
-                  const body = (
-                    <>
-                      <strong>{safeText(user.displayName || user.nickname || user.username, '사용자')}</strong>
-                      <small>{formatNumber(user.lp)} LP</small>
-                    </>
-                  );
-                  return href ? <Link href={href} key={`user-${user._id}`}>{body}</Link> : <div key={`user-${user.username}`}>{body}</div>;
-                })}
-              </div>
-            </ResultPanel>
+                {visible('rooms') ? (
+                  <ResultPanel id="sr-rooms" title="방" count={sectionCounts.rooms}>
+                    <ul className="ui-list">
+                      {results.rooms.map((room) => (
+                        <li key={`room-${room._id || room.title}`}>
+                          <Link href={roomHref(room)} className="ui-list-row sr-row">
+                            <span className="ui-list-row__main">
+                              <strong>
+                                {room.roomType !== 'game-room' && ROOM_CATEGORY_LABELS[room.category] ? <em className="ui-tag">{ROOM_CATEGORY_LABELS[room.category]}</em> : null}
+                                {safeText(room.title, '제목 없음')}
+                              </strong>
+                              <span>{roomSummary(room)}</span>
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </ResultPanel>
+                ) : null}
 
-            <ResultPanel title="캐릭터 기록" count={results.characters.length} empty="일치하는 캐릭터 기록이 없습니다.">
-              <div className="search-compact-list">
-                {results.characters.map((character) => {
-                  const ownerLink = userHref(character.owner);
-                  const body = (
-                    <>
-                      <strong>{safeText(character.name, '캐릭터')}</strong>
-                      <small>
-                        {safeText(character.weaponType, '무기 없음')} · {formatNumber(character.totalWins)}승 · {formatNumber(character.totalKills)}킬
-                      </small>
-                    </>
-                  );
-                  return ownerLink
-                    ? <Link href={ownerLink} key={`character-${character._id || character.name}`}>{body}</Link>
-                    : <div key={`character-${character._id || character.name}`}>{body}</div>;
-                })}
+                {visible('users') ? (
+                  <ResultPanel id="sr-users" title="유저" count={sectionCounts.users}>
+                    <ul className="ui-list">
+                      {results.users.map((user) => {
+                        const href = userHref(user);
+                        const body = (
+                          <>
+                            <span className="ui-list-row__main">
+                              <strong>{safeText(user.displayName || user.nickname || user.username, '사용자')}</strong>
+                            </span>
+                            <span className="ui-list-row__value">{formatNumber(user.lp)} LP</span>
+                          </>
+                        );
+                        return (
+                          <li key={`user-${user._id || user.username}`}>
+                            {href ? <Link href={href} className="ui-list-row">{body}</Link> : <div className="ui-list-row">{body}</div>}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </ResultPanel>
+                ) : null}
+
+                {visible('characters') ? (
+                  <ResultPanel id="sr-characters" title="캐릭터" count={sectionCounts.characters}>
+                    <ul className="ui-list">
+                      {results.characters.map((character) => {
+                        const ownerLink = userHref(character.owner);
+                        const body = (
+                          <>
+                            <span className="ui-list-row__main">
+                              <strong>{safeText(character.name, '캐릭터')}</strong>
+                              <span>{[safeText(character.weaponType, ''), safeText(character.ownerName, '')].filter(Boolean).join(' · ') || '정보 없음'}</span>
+                            </span>
+                            <span className="ui-list-row__value">{formatNumber(character.totalWins)}승 {formatNumber(character.totalKills)}킬</span>
+                          </>
+                        );
+                        return (
+                          <li key={`character-${character._id || character.name}`}>
+                            {ownerLink ? <Link href={ownerLink} className="ui-list-row">{body}</Link> : <div className="ui-list-row">{body}</div>}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </ResultPanel>
+                ) : null}
               </div>
-            </ResultPanel>
-          </div>
+            </>
+          )
         ) : null}
-      </section>
+      </div>
     </main>
   );
 }

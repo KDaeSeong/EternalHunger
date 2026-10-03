@@ -59,9 +59,12 @@ export function roomGameTitle(room, gameTitleBySlug = new Map()) {
   return gameTitleBySlug.get(slug) || findGameBySlug(slug)?.title || slug || '게임';
 }
 
+const ROOM_STATUS_LABELS = { open: '대기 중', playing: '진행 중', finished: '종료', closed: '종료' };
+
 export function roomMeta(room, gameTitleBySlug) {
   if (room?.roomType === 'game-room') {
-    return `${roomGameTitle(room, gameTitleBySlug)} · ${safeText(room.hostName, '익명')} · ${formatNumber(room.playerCount)}/${formatNumber(room.maxPlayers || 1)}명 · ${safeText(room.status, 'open')}`;
+    const status = ROOM_STATUS_LABELS[String(room?.status || 'open')] || '대기 중';
+    return `${roomGameTitle(room, gameTitleBySlug)} · ${safeText(room.hostName, '익명')} · ${formatNumber(room.playerCount)}/${formatNumber(room.maxPlayers || 1)}명 · ${status}`;
   }
   const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
   return `스무고개 · ${safeText(room.hostName, '익명')} · ${formatNumber(attemptCount)}/${formatNumber(room.maxQuestions || 20)} · ${safeText(room.categoryLabel, room.category || '자유')}`;

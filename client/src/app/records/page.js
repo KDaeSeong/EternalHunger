@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import PageHeader from '../../components/PageHeader';
 import SiteHeader from '../../components/SiteHeader';
 import { apiGet } from '../../utils/api';
+import { useAuthUser, useHydrated } from '../../utils/client-auth';
 
 const RECORD_SORT_OPTIONS = [
   { value: 'wins', label: '승리' },
@@ -116,13 +118,21 @@ function deltaText(current, previous, key) {
 
 function StatCard({ label, value, hint }) {
   return (
-    <div className="records-stat-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      {hint ? <small>{hint}</small> : null}
+    <div className="rc-stat">
+      <dt>{label}</dt>
+      <dd>
+        <strong className="ui-num">{value}</strong>
+        {hint ? <small>{hint}</small> : null}
+      </dd>
     </div>
   );
 }
+
+const VIEWS = [
+  { key: 'characters', label: '캐릭터별' },
+  { key: 'teams', label: '팀별' },
+  { key: 'runs', label: '최근 경기' },
+];
 
 function IdentityCell({ row, view }) {
   const name = rowName(row, view);
@@ -332,60 +342,73 @@ export default function RecordsPage() {
     ? Number(totals?.totalWins || 0) / Number(totals.gamesPlayed || 1)
     : 0;
 
+  const mounted = useHydrated();
+  const user = useAuthUser();
+  const needsLogin = mounted && !user;
+
   return (
     <main className="records-page">
       <SiteHeader />
 
-      <section className="records-container">
-        <div className="records-head">
-          <div>
-            <p>기록소</p>
-            <h1>캐릭터, 팀, 실행 기록</h1>
-          </div>
-          <Link href="/eternalhunger" className="records-start-link">경기 시작</Link>
+      <div className="ui-page rc">
+        <PageHeader
+          title="기록소"
+          description="내 캐릭터와 팀이 이터널 헝거에서 쌓은 전적입니다. 경기를 끝까지 마치면 자동으로 저장됩니다."
+          actions={<Link href="/eternalhunger" className="ui-button ui-button--primary">경기 시작</Link>}
+        />
+
+        <div className="ui-tabs rc-tabs" role="tablist" aria-label="기록 종류">
+          {VIEWS.map((item) => (
+            <button
+              type="button"
+              role="tab"
+              key={item.key}
+              id={`rc-tab-${item.key}`}
+              aria-selected={view === item.key}
+              aria-controls="rc-panel"
+              onClick={() => setView(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
 
-        <div className="records-tabs" role="tablist" aria-label="기록 종류">
-          <button type="button" className={view === 'characters' ? 'active' : ''} onClick={() => setView('characters')}>
-            캐릭터별
-          </button>
-          <button type="button" className={view === 'teams' ? 'active' : ''} onClick={() => setView('teams')}>
-            팀별
-          </button>
-          <button type="button" className={view === 'runs' ? 'active' : ''} onClick={() => setView('runs')}>
-            최근 실행
-          </button>
-        </div>
-
-        <section className="records-stats" aria-label="전적 요약">
+        <dl className="ui-panel rc-stats" aria-label="전적 요약">
           {view === 'runs' ? (
             <>
-              <StatCard label="저장된 실행" value={statsReady ? `${formatNumber(totalRows)}개` : '—'} />
-              <StatCard label="총 킬" value={statsReady ? `${formatNumber(totals?.totalKills)}킬` : '—'} />
+              <StatCard label="저장된 경기" value={statsReady ? `${formatNumber(totalRows)}개` : '—'} />
+              <StatCard label="총 킬" value={statsReady ? formatNumber(totals?.totalKills) : '—'} />
               <StatCard label="부활 / 사망" value={statsReady ? `${formatNumber(totals?.totalRevives)} / ${formatNumber(totals?.totalDeaths)}` : '—'} />
               <StatCard label="드론 / 키오스크" value={statsReady ? `${formatNumber(totals?.droneCalls)} / ${formatNumber(totals?.kioskGains)}` : '—'} />
             </>
           ) : (
             <>
-              <StatCard label={view === 'teams' ? '기록 팀' : '기록 캐릭터'} value={statsReady ? `${formatNumber(totalRows)}개` : '—'} />
+              <StatCard label={view === 'teams' ? '기록된 팀' : '기록된 캐릭터'} value={statsReady ? `${formatNumber(totalRows)}${view === 'teams' ? '팀' : '명'}` : '—'} />
               <StatCard label="참가" value={statsReady ? `${formatNumber(totals?.gamesPlayed)}회` : '—'} />
               <StatCard label="승리" value={statsReady ? `${formatNumber(totals?.totalWins)}회` : '—'} hint={statsReady ? `승률 ${formatRate(winRate)}` : undefined} />
               <StatCard label="킬 / 어시스트" value={statsReady ? `${formatNumber(totals?.totalKills)} / ${formatNumber(totals?.totalAssists)}` : '—'} />
             </>
           )}
-        </section>
+        </dl>
 
-        <section className="records-panel">
-          <div className="records-toolbar">
+        <section className="ui-panel rc-panel" id="rc-panel" role="tabpanel" aria-labelledby={`rc-tab-${view}`}>
+          <div className="rc-toolbar">
             <input
               type="search"
+              className="ui-input"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={view === 'teams' ? '팀명 또는 멤버 검색' : view === 'runs' ? '우승팀, 참가자, 막힌 이유 검색' : '캐릭터명 또는 무기 검색'}
+              aria-label="기록 검색"
+              placeholder={view === 'teams' ? '팀 이름이나 멤버로 찾기' : view === 'runs' ? '우승팀, 참가자, 막힌 이유로 찾기' : '캐릭터 이름이나 무기로 찾기'}
             />
-            <select value={view === 'runs' ? runSortKey : sortKey} onChange={(event) => (view === 'runs' ? setRunSortKey(event.target.value) : setSortKey(event.target.value))}>
+            <select
+              className="ui-select"
+              aria-label="정렬"
+              value={view === 'runs' ? runSortKey : sortKey}
+              onChange={(event) => (view === 'runs' ? setRunSortKey(event.target.value) : setSortKey(event.target.value))}
+            >
               {(view === 'runs' ? RUN_SORT_OPTIONS : RECORD_SORT_OPTIONS).map((option) => (
-                <option key={option.value} value={option.value}>{option.label}순</option>
+                <option key={option.value} value={option.value}>{option.value === 'latest' ? option.label : `${option.label}순`}</option>
               ))}
             </select>
           </div>
@@ -394,9 +417,9 @@ export default function RecordsPage() {
             <div className="records-empty"><strong>기록을 불러오는 중입니다.</strong></div>
           ) : error ? (
             <div className="records-empty">
-              <strong>기록을 불러오지 못했습니다.</strong>
-              <p>{error}</p>
-              <Link href="/login">로그인으로 이동</Link>
+              <strong>{needsLogin ? '로그인하면 내 기록을 볼 수 있습니다.' : '기록을 불러오지 못했습니다.'}</strong>
+              {needsLogin ? null : <p>{error}</p>}
+              {needsLogin ? <Link href="/login" className="ui-button ui-button--primary ui-button--small">로그인</Link> : null}
             </div>
           ) : view === 'runs' ? (
             <RunList rows={filteredRuns} />
@@ -404,7 +427,7 @@ export default function RecordsPage() {
             <RecordsTable rows={filteredRows} view={view} />
           )}
         </section>
-      </section>
+      </div>
     </main>
   );
 }

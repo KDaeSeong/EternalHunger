@@ -4,11 +4,11 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
+import { useAuthUser } from '../../../utils/client-auth';
 import { useToast } from '../../../components/ToastProvider';
 import { apiGetCached } from '../../../utils/api';
 import {
   findGameBySlug,
-  gameBoardWriteHref,
   gameDetailHref,
   gameRoomCreateHref,
   getAllGames,
@@ -16,6 +16,8 @@ import {
   getGamePortingChecklist,
 } from '../_lib/gameCatalog';
 import { getGamePortingProgress } from '../_lib/gamePortingProgress.mjs';
+import { gameDisplayTitle, gameTagline } from '../_lib/gameTaglines';
+import { gamePlayHref } from './GamesHubCards';
 
 import { ActivityPanel, GameMetric } from './GameDetailPanels';
 import GameIcon from './GameIcon';
@@ -52,6 +54,7 @@ export default function GameDetailPageContent() {
   const slug = normalizeRouteId(params?.slug);
   const staticGame = useMemo(() => findGameBySlug(slug), [slug]);
   const { showToast } = useToast();
+  const viewer = useAuthUser();
   const [hub, setHub] = useState(EMPTY_HUB);
   const [dynamicGame, setDynamicGame] = useState(null);
   const [dynamicLookupDone, setDynamicLookupDone] = useState(Boolean(staticGame));
@@ -168,11 +171,9 @@ export default function GameDetailPageContent() {
     return (
       <main className="games-page-shell">
         <SiteHeader />
-        <section className="games-page">
-          <div className="games-empty">
-            <span>게임 정보를 불러오는 중입니다.</span>
-          </div>
-        </section>
+        <div className="ui-page">
+          <p className="ui-empty">게임 정보를 불러오는 중입니다.</p>
+        </div>
       </main>
     );
   }
@@ -181,128 +182,87 @@ export default function GameDetailPageContent() {
     return (
       <main className="games-page-shell">
         <SiteHeader />
-        <section className="games-page">
-          <div className="games-empty games-error">
-            <span>게임을 찾을 수 없습니다.</span>
-            <Link href="/games">게임 허브로 이동</Link>
+        <div className="ui-page">
+          <div className="ui-empty gd-missing">
+            <p>게임을 찾을 수 없습니다. 주소를 확인하거나 게임 목록에서 골라 주세요.</p>
+            <Link href="/games" className="ui-button ui-button--quiet ui-button--small">게임 목록</Link>
           </div>
-        </section>
+        </div>
       </main>
     );
   }
 
+  const title = gameDisplayTitle(game);
+  const isEternalHunger = game.slug === 'eternal-hunger';
+  const playHref = gamePlayHref(game);
+  const heroMetrics = game.metrics.slice(0, 3);
+
   return (
     <main className="games-page-shell">
       <SiteHeader />
-      <section className="games-page">
-        <section className={`games-detail-hero is-${game.tone} ${keyArtSrc ? 'has-key-art' : ''}`.trim()}>
+      <div className="ui-page gd">
+        <section className={`ui-hero ${keyArtSrc ? 'has-art' : ''}`.trim()} aria-labelledby="gd-title">
           {keyArtSrc ? (
             <GameKeyArt
               slug={game.slug}
-              title={game.title}
-              className="games-detail-key-art"
-              sizes="(max-width: 920px) 100vw, 42vw"
+              title={title}
+              className="ui-hero__art"
+              sizes="(max-width: 860px) 100vw, 55vw"
               preload
             />
-          ) : null}
-          <div className="games-detail-copy">
-            <p className="games-kicker">{game.subtitle}</p>
-            <div className="games-detail-title-row">
-              <GameIcon slug={game.slug} label={`${game.title} icon`} tone={game.tone} />
-              <h1>{game.title}</h1>
+          ) : (
+            <span className="ui-hero__art ui-hero__art--icon">
+              <GameIcon slug={game.slug} tone={game.tone} />
+            </span>
+          )}
+          <div className="ui-hero__copy">
+            {routeFamily && !isEternalHunger ? (
+              <Link href={routeFamily.baseHref} className="ui-hero__family">{routeFamily.label}</Link>
+            ) : null}
+            <h1 id="gd-title">{title}</h1>
+            <p>{gameTagline(game) || game.detail}</p>
+            <div className="ui-hero__actions">
+              {playHref ? (
+                <Link href={playHref} className="ui-button ui-hero__play">{isEternalHunger ? '이터널 헝거 플레이' : '플레이'}</Link>
+              ) : null}
+              {isEternalHunger ? (
+                <Link href="/characters" className="ui-button ui-hero__secondary">캐릭터 설정</Link>
+              ) : integration.supportsRooms ? (
+                <Link href={`/games/rooms?gameSlug=${game.slug}`} className="ui-button ui-hero__secondary">게임방</Link>
+              ) : null}
+              {game.recordHref ? (
+                <Link href={game.recordHref} className="ui-button ui-hero__secondary">{game.recordLabel || '기록'}</Link>
+              ) : null}
             </div>
-            <p>{game.detail}</p>
-            <div className="games-hero-actions">
-              {routeFamily ? <Link href={routeFamily.baseHref}>{routeFamily.label} 허브</Link> : null}
-              <Link href={game.primaryHref}>{game.primaryLabel}</Link>
-              <Link href={`/games/rooms?gameSlug=${game.slug}`}>게임방</Link>
-              <Link href={game.boardHref}>{game.boardLabel}</Link>
-              <Link href={game.recordHref}>{game.recordLabel}</Link>
-              {integration.supportsSaves ? <Link href={`/games/saves?gameSlug=${game.slug}`}>저장 슬롯</Link> : null}
-              <Link href={game.guideHref}>{game.guideLabel}</Link>
-            </div>
+            {heroMetrics.length ? (
+              <dl className="ui-hero__facts">
+                {heroMetrics.map((key) => (
+                  <GameMetric key={key} label={metricLabelForKey(key)} value={loading || error ? null : metricValueForKey(key, hub)} />
+                ))}
+              </dl>
+            ) : null}
           </div>
-        </section>
-
-        <section className="games-summary" aria-label="게임 상세 요약">
-          {game.metrics.map((key) => (
-            <GameMetric key={key} label={metricLabelForKey(key)} value={metricValueForKey(key, hub)} />
-          ))}
-          <GameMetric label="회원" value={hub.counts.users} />
         </section>
 
         {error ? (
-          <div className="games-empty games-error">
-            <span>{error}</span>
-            <button type="button" onClick={() => void loadHub({ force: true })}>다시 불러오기</button>
+          <div className="ui-notice ui-notice--danger" role="alert">
+            <span>게임 소식을 불러오지 못했습니다. {error}</span>
+            <button type="button" className="ui-button ui-button--quiet ui-button--small" onClick={() => void loadHub({ force: true })}>다시 불러오기</button>
           </div>
         ) : null}
 
-        <section className="games-detail-grid">
-          <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>플레이 흐름</h2>
-              <Link href={game.primaryHref}>시작</Link>
+        {!game.isRoadmap && game.statusItems.length ? (
+          <section className="ui-panel gd-steps" aria-labelledby="gd-steps-title">
+            <div className="ui-panel__head">
+              <h2 id="gd-steps-title">이렇게 진행됩니다</h2>
             </div>
-            <div className="games-step-list">
-              {game.statusItems.map((item, index) => (
-                <div key={item}>
-                  <span>{index + 1}</span>
-                  <strong>{item}</strong>
-                </div>
-              ))}
-            </div>
+            <ol>
+              {game.statusItems.map((item) => <li key={item}>{item}</li>)}
+            </ol>
           </section>
+        ) : null}
 
-          <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>바로가기</h2>
-              <Link href={routeFamily?.baseHref || '/games'}>{routeFamily?.label || '게임'} 허브</Link>
-            </div>
-            <div className="games-link-grid">
-              {routeFamily ? <Link href={routeFamily.baseHref}>{routeFamily.label} 허브</Link> : null}
-              <Link href="/games">전체 게임 허브</Link>
-              <Link href={game.primaryHref}>{game.primaryLabel}</Link>
-              <Link href={game.boardHref}>{game.boardLabel}</Link>
-              <Link href={gameBoardWriteHref(game)}>글쓰기</Link>
-              <Link href={game.recordHref}>{game.recordLabel}</Link>
-              {integration.supportsSaves ? <Link href={`/games/saves?gameSlug=${game.slug}`}>저장 슬롯</Link> : null}
-              <Link href={game.guideHref}>{game.guideLabel}</Link>
-            </div>
-          </section>
-        </section>
-
-        <section className="games-detail-grid">
-          <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>이식 상태</h2>
-              <Link href={integrationHref}>연결</Link>
-            </div>
-            <div className="games-adapter-grid">
-              {integrationRows.map(([label, value]) => (
-                <div key={label}>
-                  <span>{label}</span>
-                  <strong>{value}</strong>
-                </div>
-              ))}
-            </div>
-            <div className="games-porting-progress">
-              <span>이식 준비도</span>
-              <strong>{portingProgress.label}</strong>
-            </div>
-            <div className="games-porting-list" aria-label={`${game.title} 이식 체크리스트`}>
-              {portingChecklist.map((entry) => (
-                <div className={entry.done ? 'is-done' : 'is-pending'} key={entry.key}>
-                  <span>{entry.label}</span>
-                  <strong>{entry.done ? '연결됨' : '대기'}</strong>
-                  <small>{entry.note}</small>
-                </div>
-              ))}
-            </div>
-          </section>
-        </section>
-
-        <section className="games-dashboard">
+        <div className="gd-dashboard">
           {game.isRoadmap ? (
             <>
               <ActivityPanel
@@ -330,10 +290,10 @@ export default function GameDetailPageContent() {
                 )}
               />
               <ActivityPanel
-                title="이식 논의"
+                title="관련 글"
                 href={game.boardHref}
                 items={relevantPosts}
-                empty={loading ? '관련 글을 불러오는 중입니다.' : '아직 이식 논의 글이 없습니다.'}
+                empty={loading ? '관련 글을 불러오는 중입니다.' : '아직 관련 글이 없습니다.'}
                 renderItem={(post) => (
                   <Link href={`/board/${post._id}`} key={`roadmap-post-${post._id || post.title}`}>
                     <strong>{safeText(post.title, '제목 없음')}</strong>
@@ -445,27 +405,57 @@ export default function GameDetailPageContent() {
           />
           ) : null}
 
-          <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>같은 허브의 게임</h2>
-              <Link href={routeFamily?.baseHref || '/games'}>{routeFamily?.label || '게임'} 허브</Link>
+          {relatedGames.length ? (
+            <section className="ui-panel">
+              <div className="ui-panel__head">
+                <h2>같은 묶음의 게임</h2>
+                <Link href={routeFamily?.baseHref || '/games'}>{routeFamily?.label || '게임'} 전체</Link>
+              </div>
+              <ul className="ui-list gd-list">
+                {relatedGames.map((row) => (
+                  <li key={row.slug}>
+                    <Link href={gameDetailHref(row)}>
+                      <strong>{gameDisplayTitle(row)}</strong>
+                      <span>{gameTagline(row) || row.subtitle}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+
+        {viewer?.isAdmin ? (
+          <details className="ui-panel gd-dev">
+            <summary>개발 정보 · 이식 준비도 {portingProgress.label}</summary>
+            <div className="gd-dev__body">
+              <dl className="gd-dev__grid">
+                {integrationRows.map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <ul className="gd-dev__checklist" aria-label={`${title} 이식 체크리스트`}>
+                {portingChecklist.map((entry) => (
+                  <li className={entry.done ? 'is-done' : 'is-pending'} key={entry.key}>
+                    <strong>{entry.label}</strong>
+                    <span>{entry.done ? '연결됨' : '대기'}</span>
+                    {entry.note ? <small>{entry.note}</small> : null}
+                  </li>
+                ))}
+              </ul>
+              {game.isRoadmap && game.statusItems.length ? (
+                <ul className="gd-dev__notes">
+                  {game.statusItems.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              ) : null}
+              <Link href={integrationHref} className="ui-button ui-button--quiet ui-button--small">연결된 화면 열기</Link>
             </div>
-            <div className="games-related-list">
-              {relatedGames.length ? (
-                relatedGames.map((row) => (
-                  <Link href={gameDetailHref(row)} key={row.slug}>
-                    <span>{row.subtitle}</span>
-                    <strong>{row.title}</strong>
-                    <small>{row.summary}</small>
-                  </Link>
-                ))
-              ) : (
-                <div className="games-empty">같은 허브에 표시할 다른 게임이 아직 없습니다.</div>
-              )}
-            </div>
-          </section>
-        </section>
-      </section>
+          </details>
+        ) : null}
+      </div>
     </main>
   );
 }

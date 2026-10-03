@@ -1,45 +1,104 @@
 import Link from 'next/link';
 
+import { BOARD_CATEGORIES } from '../board/_lib/boardUtils';
+import { findGameBySlug } from '../games/_lib/gameCatalog';
 import { formatDate, formatNumber, safeText } from '../_lib/homePageUtils';
 
-export function HubLinkList({ items, empty, type }) {
-  if (!items.length) return <div className="home-empty">{empty}</div>;
+const CATEGORY_LABELS = Object.fromEntries(BOARD_CATEGORIES.map((item) => [item.value, item.label]));
 
-  return (
-    <div className="home-link-list">
-      {items.map((item) => {
-        const href = type === 'room' ? `/twenty-questions/${item._id}` : `/board/${item._id}`;
-        const roomAttemptCount = Number(item?.attemptCount != null ? item.attemptCount : Number(item?.questionCount || 0) + Number(item?.guessCount || 0));
-        const roomMaxQuestions = Number(item?.maxQuestions || 20);
-        const meta = type === 'room'
-          ? `사용 ${formatNumber(roomAttemptCount)}/${formatNumber(roomMaxQuestions)} · 질문 ${formatNumber(item.questionCount)} · 시도 ${formatNumber(item.guessCount)}`
-          : `조회 ${formatNumber(item.viewCount)} · 추천 ${formatNumber(item.reactionCount)} · 댓글 ${formatNumber(item.commentCount)} · ${formatDate(item.createdAt) || '날짜 없음'}`;
-        return (
-          <Link href={href} key={`${type}-${item._id || item.title}`}>
-            <strong>{safeText(item.title, '제목 없음')}</strong>
-            <span>{meta}</span>
-          </Link>
-        );
-      })}
-    </div>
+function postAuthor(post) {
+  return safeText(
+    post?.authorName || post?.author?.nickname || post?.authorId?.nickname || post?.author?.username || post?.authorId?.username,
+    '익명',
   );
 }
 
-export function RankingRows({ rows, empty, renderValue, renderName, renderHref }) {
-  if (!rows.length) return <div className="home-empty">{empty}</div>;
+export function PostRows({ posts, empty }) {
+  if (!posts.length) return <p className="ui-empty">{empty}</p>;
 
   return (
-    <ol className="home-ranking-list">
+    <ul className="ui-list">
+      {posts.map((post) => {
+        const category = CATEGORY_LABELS[post?.category] || '';
+        const comments = Number(post?.commentCount || 0);
+        return (
+          <li key={`post-${post._id || post.title}`}>
+            <Link href={`/board/${post._id}`} className="ui-list-row">
+              <span className="ui-list-row__main">
+                <strong>
+                  {post.isNotice ? <em className="ui-tag ui-tag--signal">공지</em> : null}
+                  {!post.isNotice && category ? <em className="ui-tag">{category}</em> : null}
+                  {safeText(post.title, '제목 없음')}
+                </strong>
+                <span>
+                  {postAuthor(post)} · {formatDate(post.createdAt) || '날짜 없음'}
+                  {comments > 0 ? ` · 댓글 ${formatNumber(comments)}` : ''}
+                </span>
+              </span>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function roomHref(room) {
+  const href = String(room?.href || '');
+  if (href.startsWith('/')) return href;
+  return room?.roomType === 'game-room' ? `/games/rooms/${room._id}` : `/twenty-questions/${room._id}`;
+}
+
+function roomMeta(room) {
+  if (room?.roomType === 'game-room') {
+    const title = findGameBySlug(room.gameSlug)?.title || '게임방';
+    return `${title} · ${formatNumber(room.playerCount)}/${formatNumber(room.maxPlayers || 1)}명`;
+  }
+  const used = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
+  return `스무고개 · ${formatNumber(used)}/${formatNumber(room?.maxQuestions || 20)}회 사용`;
+}
+
+export function RoomRows({ rooms, empty }) {
+  if (!rooms.length) return <p className="ui-empty">{empty}</p>;
+
+  return (
+    <ul className="ui-list">
+      {rooms.map((room) => (
+        <li key={`room-${room._id || room.title}`}>
+          <Link href={roomHref(room)} className="ui-list-row">
+            <span className="ui-list-row__main">
+              <strong>{safeText(room.title, '제목 없음')}</strong>
+              <span>{roomMeta(room)} · {safeText(room.hostName, '익명')}</span>
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function RankingRows({ rows, empty, renderValue, renderName, renderSub, renderHref }) {
+  if (!rows.length) return <p className="ui-empty">{empty}</p>;
+
+  return (
+    <ol className="ui-list">
       {rows.slice(0, 5).map((row, index) => {
         const name = renderName(row);
         const href = renderHref?.(row) || '';
+        const sub = renderSub?.(row) || '';
+        const body = (
+          <>
+            <span className={`ui-rank ${index === 0 ? 'ui-rank--1' : ''}`}>{index + 1}</span>
+            <span className="ui-list-row__main">
+              <strong>{name}</strong>
+              {sub ? <span>{sub}</span> : null}
+            </span>
+            <span className="ui-list-row__value">{renderValue(row)}</span>
+          </>
+        );
         return (
           <li key={`${name}-${index}`}>
-            <span>{index + 1}</span>
-            <div>
-              {href ? <Link href={href}>{name}</Link> : <strong>{name}</strong>}
-              <small>{renderValue(row)}</small>
-            </div>
+            {href ? <Link href={href} className="ui-list-row">{body}</Link> : <div className="ui-list-row">{body}</div>}
           </li>
         );
       })}

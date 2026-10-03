@@ -2,27 +2,22 @@ import Link from 'next/link';
 
 import {
   BOARD_CATEGORIES,
-  BOARD_PAGE_SIZE,
   BOARD_SORTS,
-  formatDate,
+  categoryLabelFor,
+  formatShortDate,
   gameLabelForSlug,
   getUserDisplayName,
   normalizeGameSlug,
   normalizeIdValue,
   normalizePostId,
   safeText,
-  userProfileHref,
 } from '../_lib/boardListUtils';
 
 export function BoardListToolbar(props) {
   const {
     categoryFilter,
-    filteredCount,
     gameFilter,
     gameOptions,
-    mounted,
-    myPostCount,
-    pagination,
     query,
     setCategoryFilter,
     setGameFilter,
@@ -30,53 +25,50 @@ export function BoardListToolbar(props) {
     setQuery,
     setSortOrder,
     sortOrder,
-    token,
   } = props;
 
+  const pickCategory = (value) => {
+    setCategoryFilter(value);
+    setPage(1);
+  };
+
   return (
-    <div className="board-toolbar">
-      <div className="board-counts">
-        <span>전체 {pagination.total}</span>
-        <span>현재 {filteredCount}</span>
-        <span>{pagination.page}/{pagination.totalPages}페이지</span>
-        {mounted && token ? <span>내 글 {myPostCount}</span> : null}
+    <div className="bd-toolbar">
+      <div className="ui-tabs bd-cats" role="group" aria-label="분류">
+        <button type="button" aria-pressed={!categoryFilter} onClick={() => pickCategory('')}>전체</button>
+        {BOARD_CATEGORIES.map((category) => (
+          <button
+            type="button"
+            key={category.value}
+            aria-pressed={categoryFilter === category.value}
+            onClick={() => pickCategory(category.value)}
+          >
+            {category.label}
+          </button>
+        ))}
       </div>
-      <label className="board-search">
-        <span>검색</span>
+      <div className="bd-filters">
         <input
+          type="search"
+          className="ui-input bd-search"
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
             setPage(1);
           }}
-          placeholder="제목, 내용, 작성자"
+          placeholder="제목, 내용, 작성자 검색"
+          aria-label="게시글 검색"
         />
-      </label>
-      <label className="board-search board-category-filter">
-        <span>분류</span>
         <select
-          value={categoryFilter}
-          onChange={(event) => {
-            setCategoryFilter(event.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">전체</option>
-          {BOARD_CATEGORIES.map((category) => (
-            <option key={category.value} value={category.value}>{category.label}</option>
-          ))}
-        </select>
-      </label>
-      <label className="board-search board-game-filter">
-        <span>게임</span>
-        <select
+          className="ui-select"
           value={gameFilter}
+          aria-label="게임"
           onChange={(event) => {
             setGameFilter(normalizeGameSlug(event.target.value));
             setPage(1);
           }}
         >
-          <option value="">전체</option>
+          <option value="">모든 게임</option>
           {gameFilter && !gameOptions.some((game) => game.value === gameFilter) ? (
             <option value={gameFilter}>{gameFilter}</option>
           ) : null}
@@ -84,11 +76,10 @@ export function BoardListToolbar(props) {
             <option key={game.value} value={game.value}>{game.label}</option>
           ))}
         </select>
-      </label>
-      <label className="board-search board-sort-filter">
-        <span>정렬</span>
         <select
+          className="ui-select"
           value={sortOrder}
+          aria-label="정렬"
           onChange={(event) => {
             setSortOrder(event.target.value);
             setPage(1);
@@ -98,7 +89,7 @@ export function BoardListToolbar(props) {
             <option key={sort.value} value={sort.value}>{sort.label}</option>
           ))}
         </select>
-      </label>
+      </div>
     </div>
   );
 }
@@ -109,6 +100,7 @@ export function BoardWritePanel(props) {
     form,
     gameOptions,
     mounted,
+    onCancel,
     setForm,
     submitting,
     token,
@@ -116,20 +108,17 @@ export function BoardWritePanel(props) {
     writerOpen,
   } = props;
 
-  // 로그인 안내는 실제로 로그인하지 않았을 때만 보여 줍니다.
-  // 로그인했지만 글쓰기 창을 닫아 둔 상태에서는 아무것도 표시하지 않습니다.
-  if (!(mounted && token)) {
-    return mounted ? <div className="board-login-note">로그인하면 글을 작성할 수 있습니다.</div> : null;
-  }
-  if (!writerOpen) return null;
+  if (!(mounted && token) || !writerOpen) return null;
 
   return (
-    <div className="board-write-panel" id="board-write-panel">
-      <div className="board-editor-title">
-        글쓰기 {user ? <span>작성자 {getUserDisplayName(user)}</span> : null}
+    <section className="ui-panel bd-write" id="board-write-panel" aria-labelledby="bd-write-title">
+      <div className="bd-write__head">
+        <h2 id="bd-write-title">새 글</h2>
+        {user ? <span>{getUserDisplayName(user)} 이름으로 올라갑니다</span> : null}
       </div>
-      <div className="board-write-grid">
+      <div className="bd-write__selects">
         <select
+          className="ui-select"
           value={form.category}
           onChange={(event) => setForm({ ...form, category: event.target.value })}
           aria-label="게시글 분류"
@@ -139,11 +128,12 @@ export function BoardWritePanel(props) {
           ))}
         </select>
         <select
+          className="ui-select"
           value={form.gameSlug}
           onChange={(event) => setForm({ ...form, gameSlug: normalizeGameSlug(event.target.value) })}
-          aria-label="게임 선택"
+          aria-label="관련 게임"
         >
-          <option value="">게임 선택 안함</option>
+          <option value="">관련 게임 없음</option>
           {form.gameSlug && !gameOptions.some((game) => game.value === form.gameSlug) ? (
             <option value={form.gameSlug}>{form.gameSlug}</option>
           ) : null}
@@ -151,23 +141,30 @@ export function BoardWritePanel(props) {
             <option key={game.value} value={game.value}>{game.label}</option>
           ))}
         </select>
-        <input
-          value={form.title}
-          onChange={(event) => setForm({ ...form, title: event.target.value })}
-          placeholder="제목"
-          maxLength={120}
-        />
-        <button type="button" onClick={create} disabled={submitting}>
-          {submitting ? '작성 중...' : '등록'}
-        </button>
       </div>
+      <input
+        className="ui-input"
+        value={form.title}
+        onChange={(event) => setForm({ ...form, title: event.target.value })}
+        placeholder="제목"
+        aria-label="제목"
+        maxLength={120}
+      />
       <textarea
+        className="ui-input bd-textarea"
         value={form.content}
         onChange={(event) => setForm({ ...form, content: event.target.value })}
         placeholder="내용"
-        rows={4}
+        aria-label="내용"
+        rows={6}
       />
-    </div>
+      <div className="bd-write__actions">
+        <button type="button" className="ui-button ui-button--quiet" onClick={onCancel}>취소</button>
+        <button type="button" className="ui-button ui-button--primary" onClick={create} disabled={submitting}>
+          {submitting ? '올리는 중...' : '글 올리기'}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -184,92 +181,74 @@ export function BoardPostTable(props) {
     setPage,
     token,
     userId,
+    hasFilters = false,
   } = props;
 
   return (
-    <div className="board-table-wrap">
-      {loading ? <div className="board-empty">게시글을 불러오는 중입니다.</div> : null}
+    <section className="ui-panel bd-list" aria-label="게시글 목록">
+      {loading ? <p className="ui-empty">게시글을 불러오는 중입니다.</p> : null}
 
       {!loading && posts.length === 0 ? (
-        <div className="board-empty">아직 작성된 글이 없습니다.</div>
-      ) : null}
-
-      {!loading && posts.length > 0 && filteredPosts.length === 0 ? (
-        <div className="board-empty">검색 결과가 없습니다.</div>
+        <p className="ui-empty">{hasFilters ? '조건에 맞는 글이 없습니다. 검색어나 분류를 바꿔 보세요.' : '아직 작성된 글이 없습니다.'}</p>
       ) : null}
 
       {!loading && filteredPosts.length > 0 ? (
-        <table className="board-table">
-          <colgroup>
-            <col className="board-col-no" />
-            <col className="board-col-title" />
-            <col className="board-col-author" />
-            <col className="board-col-date" />
-            <col className="board-col-action" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>번호</th>
-              <th>제목</th>
-              <th>작성자</th>
-              <th>등록일</th>
-              <th>관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredPosts.map((post, index) => {
-              const id = post?._normalizedId || normalizePostId(post);
-              const title = safeText(post?.title, '제목 없음');
-              const preview = safeText(post?.contentPreview || post?.content, '');
-              const canRemove = mounted && token && (
-                isAdmin || (userId && normalizeIdValue(post?.authorId) === String(userId))
-              );
-              const rowNo = Math.max(1, Number(pagination.total || filteredPosts.length) - ((Number(pagination.page || 1) - 1) * Number(pagination.limit || BOARD_PAGE_SIZE)) - index);
-              const authorHref = userProfileHref(post?.authorId);
-              const gameLabel = gameLabelForSlug(gameOptions, post?.gameSlug);
-              const authorName = safeText(post?.authorName, '익명');
-              return (
-                <tr key={id || `${post?.title}-${post?.createdAt}`}>
-                  <td className="board-cell-no" data-label="번호">{rowNo}</td>
-                  <td className="board-cell-title" data-label="제목">
-                    <Link href={id ? `/board/${id}` : '/board'} className={`board-row-title ${post?.isNotice ? 'is-notice' : ''}`}>
-                      <span>{title}</span>
-                      {gameLabel ? <small>{gameLabel}</small> : null}
-                      <small>{preview ? `${preview}${preview.length >= 160 ? '...' : ''}` : '미리보기 없음'}</small>
-                      <em>{post?.isNotice ? '공지 · ' : ''}조회 {Number(post?.viewCount || 0)} · 추천 {Number(post?.reactionCount || 0)} · 댓글 {Number(post?.commentCount || 0)}</em>
-                    </Link>
-                  </td>
-                  <td data-label="작성자">
-                    {authorHref ? <Link href={authorHref} className="profile-inline-link">{authorName}</Link> : authorName}
-                  </td>
-                  <td data-label="등록일">{formatDate(post?.createdAt)}</td>
-                  <td className="board-cell-action" data-label="관리">
-                    {canRemove ? (
-                      <button type="button" className="board-danger board-danger-compact" onClick={() => remove(id)}>
-                        삭제
-                      </button>
-                    ) : (
-                      <span className="board-action-dash">-</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <ul className="bd-rows">
+          {filteredPosts.map((post) => {
+            const id = post?._normalizedId || normalizePostId(post);
+            const title = safeText(post?.title, '제목 없음');
+            const preview = safeText(post?.contentPreview || post?.content, '');
+            const canRemove = mounted && token && (
+              isAdmin || (userId && normalizeIdValue(post?.authorId) === String(userId))
+            );
+            const gameLabel = gameLabelForSlug(gameOptions, post?.gameSlug);
+            const authorName = safeText(post?.authorName, '익명');
+            const comments = Number(post?.commentCount || 0);
+            return (
+              <li key={id || `${post?.title}-${post?.createdAt}`} className={`bd-row ${post?.isNotice ? 'is-notice' : ''}`}>
+                <Link href={id ? `/board/${id}` : '/board'} className="bd-row__link">
+                  <span className="bd-row__title">
+                    {post?.isNotice ? <em className="ui-tag ui-tag--signal">공지</em> : null}
+                    <em className="ui-tag">{safeText(post?.categoryLabel, categoryLabelFor(post?.category))}</em>
+                    <span className="bd-row__text">{title}</span>
+                    {comments > 0 ? <span className="bd-row__comments" aria-label={`댓글 ${comments}개`}>{comments}</span> : null}
+                  </span>
+                  {preview ? <span className="bd-row__preview">{preview}</span> : null}
+                  <span className="bd-row__meta">
+                    <span>{authorName}</span>
+                    <span>{formatShortDate(post?.createdAt) || '날짜 없음'}</span>
+                    <span>조회 {Number(post?.viewCount || 0)}</span>
+                    <span>추천 {Number(post?.reactionCount || 0)}</span>
+                    {gameLabel ? <span>{gameLabel}</span> : null}
+                  </span>
+                </Link>
+                {canRemove ? (
+                  <button type="button" className="bd-row__remove" onClick={() => remove(id)} aria-label={`${title} 삭제`}>
+                    삭제
+                  </button>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
       ) : null}
 
-      {!loading && pagination.totalPages > 1 ? (
-        <div className="board-pagination" aria-label="게시판 페이지 이동">
-          <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={!pagination.hasPrev}>
-            이전
-          </button>
-          <span>{pagination.page} / {pagination.totalPages}</span>
-          <button type="button" onClick={() => setPage((value) => Math.min(pagination.totalPages, value + 1))} disabled={!pagination.hasNext}>
-            다음
-          </button>
+      {!loading && posts.length > 0 ? (
+        <div className="bd-list__foot">
+          <span>글 {pagination.total}개</span>
+          {pagination.totalPages > 1 ? (
+            <nav className="bd-pages" aria-label="게시판 페이지 이동">
+              <button type="button" className="ui-button ui-button--quiet ui-button--small" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={!pagination.hasPrev}>
+                이전
+              </button>
+              <span className="ui-num">{pagination.page} / {pagination.totalPages}</span>
+              <button type="button" className="ui-button ui-button--quiet ui-button--small" onClick={() => setPage((value) => Math.min(pagination.totalPages, value + 1))} disabled={!pagination.hasNext}>
+                다음
+              </button>
+            </nav>
+          ) : null}
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }

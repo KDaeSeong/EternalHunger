@@ -9,6 +9,10 @@ export const BOARD_CATEGORIES = [
   { value: 'game', label: '게임' },
 ];
 
+export function categoryLabelFor(value) {
+  return BOARD_CATEGORIES.find((item) => item.value === value)?.label || '자유';
+}
+
 export function normalizeGameSlug(value) {
   return String(value || '')
     .trim()
@@ -40,6 +44,19 @@ export function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '날짜 없음';
   return date.toLocaleString('ko-KR');
+}
+
+// Lists show a short date: the time for today's posts, otherwise the date.
+export function formatShortDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return date.toLocaleDateString('ko-KR', sameYear ? { month: '2-digit', day: '2-digit' } : { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
 export function getUserId(user) {
@@ -98,7 +115,7 @@ export function normalizePost(row) {
     title: safeText(row.title, '제목 없음'),
     content: safeText(row.content, ''),
     category: safeText(row.category, 'free'),
-    categoryLabel: safeText(row.categoryLabel, '자유'),
+    categoryLabel: safeText(row.categoryLabel, categoryLabelFor(row.category)),
     commentCount: Number(row.commentCount ?? comments.length ?? 0),
     reactionCount: Number(row.reactionCount || 0),
     viewCount: Number(row.viewCount || 0),
