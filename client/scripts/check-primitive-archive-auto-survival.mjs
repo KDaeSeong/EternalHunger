@@ -171,8 +171,130 @@ check('completed or exhausted runs spend no additional meals, medicine or AP', (
 });
 
 const naturalRuns = [];
-check('normal runs survive and develop using ordinary paid actions across three seeds', () => {
-  for (const seed of [7, 19, 43]) {
+function coldFixture(overrides = {}) {
+  const state = fixture({
+    inventory: { wood: 1 },
+    camp: { fireLevel: 1, shelterLevel: 0, workbenchLevel: 0, fuel: 0 },
+    ...overrides,
+  });
+  state.equipment = {};
+  state.weather = { ...state.weather, id: 'snow', cold: 12 };
+  state.party = state.party.map((member) => ({ ...member, hp: 100, hunger: 0, stamina: 100, bodyTemp: 37 }));
+  return state;
+}
+
+check('an empty campfire gives no free night heat but stocked fire pays one fuel', () => {
+  const unlit = coldFixture();
+  const original = structuredClone(unlit);
+  const lit = { ...unlit, camp: { ...unlit.camp, fuel: 1 } };
+  const coldNight = engine.advanceDay(unlit, { rng: noEvents });
+  const warmNight = engine.advanceDay(lit, { rng: noEvents });
+  assert.equal(coldNight.party[0].hp, 81);
+  assert.equal(warmNight.party[0].hp, 92);
+  assert.ok(Math.abs(coldNight.party[0].bodyTemp - 33.77) < 1e-9);
+  assert.ok(Math.abs(warmNight.party[0].bodyTemp - 34.73) < 1e-9);
+  assert.equal(coldNight.camp.fuel, 0);
+  assert.equal(warmNight.camp.fuel, 0, 'The last fuel protects this night and is then consumed.');
+  assert.ok(coldNight.log.some((line) => line.includes('모닥불 보온 없이')));
+  assert.deepEqual(unlit, original);
+});
+
+check('an empty campfire gives no free warmth during ordinary paid actions either', () => {
+  const unlit = coldFixture({ ap: 2 });
+  const lit = { ...unlit, camp: { ...unlit.camp, fuel: 1 } };
+  const coldTurn = engine.afterAction(unlit, 'shiroko', 0, 0, { rng: noEvents });
+  const warmTurn = engine.afterAction(lit, 'shiroko', 0, 0, { rng: noEvents });
+  assert.ok(Math.abs((warmTurn.party[0].bodyTemp - coldTurn.party[0].bodyTemp) - 0.02275) < 1e-9);
+  assert.equal(warmTurn.camp.fuel, 1, 'Ordinary turns do not add a second overnight fuel charge.');
+  assert.equal(coldTurn.day, unlit.day);
+  assert.equal(warmTurn.day, lit.day);
+});
+
+check('shelter warmth remains available without fuel and fuel alone cannot replace a built fire', () => {
+  const sheltered = coldFixture();
+  sheltered.camp.shelterLevel = 3;
+  sheltered.weather.cold = 7;
+  const noFire = { ...sheltered, camp: { ...sheltered.camp, fireLevel: 0, fuel: 3 } };
+  const emptyFire = { ...sheltered, camp: { ...sheltered.camp, fireLevel: 3, fuel: 0 } };
+  const one = engine.advanceDay(noFire, { rng: noEvents });
+  const two = engine.advanceDay(emptyFire, { rng: noEvents });
+  assert.deepEqual(one.party, two.party);
+  assert.equal(one.party[0].hp, 100);
+  assert.equal(one.camp.fuel, 3);
+  assert.equal(two.camp.fuel, 0);
+});
+
+check('the last automatic AP fuels a cold night with real wood instead of studying', () => {
+  const state = coldFixture();
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.ok(next.log.some((line) => line.includes('모닥불 연료를 보충했습니다')));
+  assert.equal(next.inventory.wood, state.inventory.wood - 1 + Number(next.tribe.lastProduction.gains.wood || 0));
+  assert.equal(next.camp.fuel, 1, 'Wood creates two fuel; the night consumes one.');
+  assert.equal(next.day, state.day + 1);
+  // The acting member also pays the ordinary turn's temperature loss;
+  // real overnight tribe production must not be mistaken for free fuel.
+  expectSameOperation(next, engine.runCampAction(state, 'noa', 'fuel', { rng: noEvents }));
+});
+
+check('automatic cooking does not consume the last cold-night fuel without time or wood to refill it', () => {
+  const state = coldFixture({ ap: 2, inventory: { meat: 6 } });
+  state.camp.fuel = 1;
+  state.party = state.party.map((member) => ({ ...member, hunger: 46 }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.ok(next.counters.meals >= 3, 'The party can eat real uncooked food without burning its night reserve.');
+  assert.ok(!next.log.some((line) => line.includes('고기를 구웠습니다')));
+  assert.ok(next.log.some((line) => line.includes('모닥불 연료를 1 소비했습니다')));
+  assert.equal(next.camp.fuel, 0);
+});
+
+check('automatic cooking refills real fuel first when three actions and wood are available', () => {
+  const state = coldFixture({ ap: 3, inventory: { meat: 6, wood: 1 } });
+  state.camp.fuel = 1;
+  state.party = state.party.map((member) => ({ ...member, hunger: 70 }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.ok(next.log.some((line) => line.includes('모닥불 연료를 보충했습니다')));
+  assert.ok(next.log.some((line) => line.includes('고기를 구웠습니다')));
+  assert.equal(next.counters.meals, 3);
+  assert.equal(next.inventory.wood, state.inventory.wood - 1 + Number(next.tribe.lastProduction.gains.wood || 0));
+  assert.equal(next.camp.fuel, 1, 'One wood, one cooking payment and one overnight payment reconcile exactly.');
+});
+
+check('automatic heating cannot create fuel from nothing or ignore hunger emergencies', () => {
+  const noWood = coldFixture({ inventory: {} });
+  const stranded = engine.runAutoDayAction(noWood, { rng: noEvents });
+  assert.equal(stranded.camp.fuel, 0);
+  assert.ok(!stranded.log.some((line) => line.includes('모닥불 연료를 보충했습니다')));
+  const starving = coldFixture({ inventory: { berry: 6, wood: 1 } });
+  starving.party = starving.party.map((member) => ({ ...member, hunger: 90 }));
+  const fed = engine.runAutoDayAction(starving, { rng: noEvents });
+  assert.equal(fed.counters.meals, 3);
+  assert.ok(!fed.log.some((line) => line.includes('모닥불 연료를 보충했습니다')));
+});
+
+check('automatic survival strengthens an inadequate lit camp before spending the last AP on development', () => {
+  const state = coldFixture({ inventory: { wood: 2, stone: 2 } });
+  state.camp.fuel = 1;
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.camp.fireLevel, 2);
+  assert.equal(next.camp.fuel, 0);
+  assert.equal(next.inventory.wood, Number(next.tribe.lastProduction.gains.wood || 0));
+  assert.equal(Number(next.inventory.stone || 0), 0);
+  expectSameOperation(next, engine.runCampAction(state, 'noa', 'fire', { rng: noEvents }));
+});
+
+check('automatic cold protection can pay for shelter when the fire is already at its cap', () => {
+  const state = coldFixture({ inventory: { wood: 3, fiber: 2, hide: 1 } });
+  state.camp.fireLevel = 3;
+  state.camp.fuel = 1;
+  state.weather.cold = 20;
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.camp.fireLevel, 3);
+  assert.equal(next.camp.shelterLevel, 1);
+  expectSameOperation(next, engine.runCampAction(state, 'noa', 'shelter', { rng: noEvents }));
+});
+
+check('normal runs survive and develop using ordinary paid actions across four seeds', () => {
+  for (const seed of [7, 19, 29, 43]) {
     const rng = seededRng(seed);
     let state = engine.createNewState({ difficulty: 'normal', rng, runId: `survival-${seed}`, now: '2026-10-03T00:00:00.000Z' });
     for (let day = 0; day < 120 && !state.ended && !engine.archiveVictorySummary(state).canComplete; day += 1) {

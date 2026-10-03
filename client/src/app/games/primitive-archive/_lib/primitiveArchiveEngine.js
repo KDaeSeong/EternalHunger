@@ -3123,9 +3123,14 @@ function staminaCostWithEquipment(state, actorId, action, baseCost) {
   return Math.max(1, Math.round(Number(baseCost || 0) + equipmentBonus(state, actorId, 'staminaAdd', action)));
 }
 
+export function campFireActive(state) {
+  return Number(state.camp?.fireLevel || 0) > 0 && Number(state.camp?.fuel || 0) > 0;
+}
+
 function actionBodyTempDelta(state, actorId, warmthAdd = 0) {
   const weatherCold = Number(state.weather?.cold || 0);
-  const personalWarmth = actorInsulation(state, actorId) * 1.25 + Number(state.camp.fireLevel || 0) * 0.65;
+  const fireWarmth = campFireActive(state) ? Number(state.camp.fireLevel || 0) * 0.65 : 0;
+  const personalWarmth = actorInsulation(state, actorId) * 1.25 + fireWarmth;
   const coldPressure = Math.max(0, weatherCold - personalWarmth);
   const heatPressure = state.weather?.id === 'heat' ? 0.16 : 0;
   return warmthAdd - coldPressure * 0.035 + heatPressure;
@@ -3267,7 +3272,9 @@ function settleTribeDay(state) {
 export function advanceDay(state, options = {}) {
   const preset = difficultyPreset(state);
   const weather = rollWeather(state.day + 1, options.rng || Math.random);
-  const warmth = Number(state.camp.fireLevel || 0) * 4 + Number(state.camp.shelterLevel || 0) * 3 + partyInsulation(state) * 2;
+  const fireActive = campFireActive(state);
+  const fireWarmth = fireActive ? Number(state.camp.fireLevel || 0) * 4 : 0;
+  const warmth = fireWarmth + Number(state.camp.shelterLevel || 0) * 3 + partyInsulation(state) * 2;
   const weatherLoreMul = (hasTechPassive(state, 'WEATHER_FORECAST_UP') ? 0.95 : 1)
     * (hasTechPassive(state, 'WEATHER_LORE_UP') ? 0.9 : 1)
     * (hasTechPassive(state, 'WEATHER_DAMAGE_DOWN') ? 0.9 : 1)
@@ -3284,7 +3291,6 @@ export function advanceDay(state, options = {}) {
     * (hasCompletedProject(state, 'palisade') ? 0.85 : 1)
     * (seasonPlanCharges(state) > 0 ? SEASON_PLAN_WEATHER_MULTIPLIER : 1);
   const coldDamage = Math.round(Math.max(0, Number(state.weather?.cold || 0) - warmth) * preset.coldMultiplier * weatherLoreMul);
-  const fireActive = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0;
   const fuelSaverNight = hasTechPassive(state, 'CAMP_FUEL_SAVER') && Number(state.day || 1) % 2 === 1;
   const fuelUsed = fireActive && !fuelSaverNight ? 1 : 0;
   const party = state.party.map((member) => {
@@ -3325,6 +3331,9 @@ export function advanceDay(state, options = {}) {
     ? '파티가 더 이상 움직일 수 없습니다. 런을 종료하고 기록을 남기세요.'
     : `새로운 날입니다. 날씨: ${weather.name}, ${weather.temp}도 · ${tempNote}`;
   let logged = addLog(next, fuelUsed ? `${note} 모닥불 연료를 1 소비했습니다.` : note);
+  if (Number(state.camp.fireLevel || 0) > 0 && !fireActive) {
+    logged = addLog(logged, '모닥불 연료가 없어 모닥불 보온 없이 밤을 보냈습니다. 대피소와 보온 장비만 추위를 막았습니다.');
+  }
   if (seasonPlanCharges(state) > 0) {
     logged = addLog(logged, `계절 대비 계획 적용. 야영 추위 피해 ${Math.round((1 - SEASON_PLAN_WEATHER_MULTIPLIER) * 100)}% 감소 · 남은 대비 ${seasonPlanCharges(state) - 1}/${SEASON_PLAN_MAX_CHARGES}.`);
   }
@@ -5648,7 +5657,7 @@ export function runRestAction(state, actorId, options = {}) {
     + passiveStackCount(state, 'MODERN_MEDICAL_TECH_STACK') * 2
     + passiveStackCount(state, 'MODERN_SURVIVAL_TECH_STACK')
     + passiveStackCount(state, 'MODERN_FAITH_CIVIC_STACK') * 2;
-  const warmth = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0 ? 0.75 : 0.25;
+  const warmth = campFireActive(state) ? 0.75 : 0.25;
   let next = updateActor(state, actorId, {
     stamina: clamp(Number(target.stamina || 0) + 42 + Number(state.camp.shelterLevel || 0) * 8, 0, 100),
     hp: clamp(Number(target.hp || 0) + heal, 0, 100),
@@ -5919,12 +5928,38 @@ export function autoArchiveDevelopmentPlan(state) {
   return null;
 }
 
+function autoNightNeedsFire(state) {
+  if (Number(state.camp.fireLevel || 0) <= 0) return false;
+  const passiveWarmth = Number(state.camp.shelterLevel || 0) * 3 + partyInsulation(state) * 2;
+  return Number(state.weather?.cold || 0) > passiveWarmth;
+}
+
+function autoColdCampKind(state) {
+  if (!campFireActive(state)) return '';
+  const cold = Number(state.weather?.cold || 0);
+  const warmth = Number(state.camp.fireLevel || 0) * 4
+    + Number(state.camp.shelterLevel || 0) * 3 + partyInsulation(state) * 2;
+  if (cold <= warmth || (cold < 8 && livingParty(state).every((member) => Number(member.bodyTemp ?? 37) >= 35.2))) return '';
+  const actions = campActionRows(state);
+  return ['fire', 'shelter'].find((id) => actions.some((action) => action.id === id && action.enabled)) || '';
+}
+
+function autoCookingCampKind(state) {
+  if (Number(state.camp.fireLevel || 0) <= 0 || !hasResources(state.inventory, { meat: 1 })) return '';
+  const reserve = autoNightNeedsFire(state) ? 1 : 0;
+  // Cooking must leave both an eating action and the fuel needed tonight.
+  if (Number(state.camp.fuel || 0) > reserve && Number(state.ap || 0) >= 2) return 'cook';
+  if (hasResources(state.inventory, { wood: 1 }) && Number(state.ap || 0) >= 3) return 'fuel';
+  return '';
+}
+
 function pickAutoCampKind(state) {
   if (Number(state.camp.fireLevel || 0) < 1 && hasResources(state.inventory, { wood: 2, stone: 2 })) return 'fire';
   if (Number(state.camp.shelterLevel || 0) < 1 && hasResources(state.inventory, { wood: 3, fiber: 2, hide: 1 })) return 'shelter';
   if (Number(state.camp.workbenchLevel || 0) < 1 && hasResources(state.inventory, { wood: 4, stone: 2 })) return 'workbench';
   if (Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) < 2 && hasResources(state.inventory, { wood: 1 })) return 'fuel';
-  if (Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0 && hasResources(state.inventory, { meat: 1 })) return 'cook';
+  const cookingKind = autoCookingCampKind(state);
+  if (cookingKind) return cookingKind;
   if (hasTechCampUnlock(state, 'archive_room') && Number(state.camp.archiveRoomLevel || 0) < 1 && hasResources(state.inventory, { wood: 5, stone: 3, fiber: 3, hide: 1 })) return 'archive';
   if (hasTechCampUnlock(state, 'scribe_desk') && Number(state.camp.scribeDeskLevel || 0) < 1 && hasResources(state.inventory, { wood: 2, stone: 2, clay: 2, fiber: 2 })) return 'scribe';
   if (hasTechCampUnlock(state, 'library_shelf') && Number(state.camp.libraryShelfLevel || 0) < 1 && hasResources(state.inventory, { wood: 4, fiber: 4, resin: 2, clay: 2 })) return 'library';
@@ -6073,16 +6108,32 @@ function runNextAutoArchiveAction(state, options = {}) {
   if (living.some((member) => Number(member.hp || 0) <= 30) && canTreat) {
     return runRecoveryChoiceAction(state, careActorId, 'field_tonic', options);
   }
+  const nightNeedsFuel = autoNightNeedsFire(state) && Number(state.camp.fuel || 0) <= 0;
+  const hungerEmergency = living.some((member) => Number(member.hunger || 0) >= 75);
+  if (nightNeedsFuel && !hungerEmergency) {
+    if (hasResources(state.inventory, { wood: 1 })) {
+      const planned = addLog(state, '밤 대비: 대피소와 보온 장비만으로 추위를 막기 어려워 모닥불 연료를 준비합니다.');
+      return runCampAction(planned, pickActorForAuto(state, 'craft'), 'fuel', options);
+    }
+    if (Number(state.ap || 0) >= 2 && !hungry.length) {
+      const logging = pickAutoSpecializedAction(state, ['logging']);
+      if (logging) return runSpecializedAction(state, logging.actorId, logging.actionId, '', options);
+      return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
+    }
+  }
+  const coldCampKind = hungerEmergency ? '' : autoColdCampKind(state);
+  if (coldCampKind) {
+    const planned = addLog(state, '밤 대비: 현재 보온으로 추위를 막기 어려워 캠프를 보강합니다.');
+    return runCampAction(planned, pickActorForAuto(state, 'craft'), coldCampKind, options);
+  }
   if (foodAvailable(state) && (hungry.length || averageHunger >= 46)) {
     const preparedFood = ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish']
       .some((id) => Number(state.inventory[id] || 0) > 0);
-    const fuelReady = Number(state.camp.fuel || 0) > 0;
     // Use the existing paid cooking and ration actions. Leave enough AP to
     // actually eat today; never spend the last action preparing tomorrow.
-    if (!preparedFood && Number(state.inventory.meat || 0) > 0
-      && Number(state.camp.fireLevel || 0) > 0 && Number(state.ap || 0) >= (fuelReady ? 2 : 3)) {
-      if (fuelReady) return runCampAction(state, pickActorForAuto(state, 'craft'), 'cook', options);
-      if (Number(state.inventory.wood || 0) > 0) return runCampAction(state, pickActorForAuto(state, 'craft'), 'fuel', options);
+    const cookingKind = preparedFood ? '' : autoCookingCampKind(state);
+    if (cookingKind) {
+      return runCampAction(state, pickActorForAuto(state, 'craft'), cookingKind, options);
     }
     if (hungry.length >= 2 && foodStock >= 2) return runRecoveryChoiceAction(state, careActorId, 'ration_break', options);
     return runEatAction(state, hungry[0]?.id || careActorId, options);

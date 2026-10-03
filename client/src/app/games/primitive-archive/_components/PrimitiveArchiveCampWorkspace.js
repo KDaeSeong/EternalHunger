@@ -6,6 +6,7 @@ import {
 } from '../../_components/GamePlayPrimitives';
 import GameActionIcon from '../../_components/GameActionIcon';
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
+import { campFireActive } from '../_lib/primitiveArchiveEngine';
 
 function MaterialStatus({ rows = [] }) {
   return (
@@ -51,6 +52,8 @@ export default function PrimitiveArchiveCampWorkspace(props) {
     state,
   } = props;
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
+  const fireStatus = Number(state.camp.fireLevel || 0) <= 0
+    ? '미설치' : campFireActive(state) ? '불 켜짐' : '불 꺼짐';
 
   return (
     <section className="games-detail-grid primitive-workspace-panel" role="tabpanel">
@@ -109,13 +112,14 @@ export default function PrimitiveArchiveCampWorkspace(props) {
       <section className="games-panel">
         <PrimitiveArchivePanelTitle action="primitive-camp" title="캠프" meta={`연료 ${state.camp.fuel}`} />
         <div className="games-rank-split games-rank-split--compact primitive-camp-stat-grid">
-          <SmallStat icon="fuel" label="모닥불" value={`Lv.${state.camp.fireLevel}`} />
+          <SmallStat icon="fuel" label={`모닥불 Lv.${state.camp.fireLevel}`} value={fireStatus} />
           <SmallStat icon="camp" label="대피소" value={`Lv.${state.camp.shelterLevel}`} />
           <SmallStat icon="craft" label="작업대" value={`Lv.${state.camp.workbenchLevel}`} />
           <SmallStat icon="archive" label="기록실" value={`Lv.${state.camp.archiveRoomLevel || 0}`} />
           <SmallStat icon="scribe" label="필사대" value={`Lv.${state.camp.scribeDeskLevel || 0}`} />
           <SmallStat icon="library" label="서가" value={`Lv.${state.camp.libraryShelfLevel || 0}`} />
         </div>
+        <p className="games-muted">연료가 있어야 모닥불이 추위를 막아 줍니다. 대피소와 보온 장비는 연료 없이도 보호하며, 요리와 밤을 지내는 데 쓸 연료를 각각 준비해야 합니다.</p>
         <div className="primitive-camp-action-grid">
           {(campActions || []).map((action) => (
             <CampActionControl
