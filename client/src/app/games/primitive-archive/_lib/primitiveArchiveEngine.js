@@ -5757,7 +5757,7 @@ function livingParty(state) {
 }
 
 function foodAvailable(state) {
-  return ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry', 'herb_tonic']
+  return FOOD_RECOVERY_IDS
     .some((id) => Number(state.inventory[id] || 0) > 0);
 }
 
@@ -6048,46 +6048,55 @@ function autoActionSignature(state) {
   ].join(':');
 }
 
+function runAutoFoodSupplyAction(state, options) {
+  const specialized = pickAutoSpecializedAction(state, ['farm', 'fish', 'herd', 'trap']);
+  if (specialized) return runSpecializedAction(state, specialized.actorId, specialized.actionId, '', options);
+  const hunterId = pickActorForAuto(state, 'hunt');
+  // Before map selection unlocks, this is the real average over revealed
+  // regions, not a promise that a random expedition will visit the plains.
+  if (averageParty(state, 'hp') < 62 || regionalActionChance(state, hunterId, 'hunt', 'plains') < 0.46) {
+    return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
+  }
+  return runHuntAction(state, hunterId, 'plains', options);
+}
+
 function runNextAutoArchiveAction(state, options = {}) {
+  const living = livingParty(state);
   const careActorId = pickAutoCareActor(state);
   const careActor = getActor(state, careActorId);
   const averageHunger = averageParty(state, 'hunger');
-  const foodStock = Number(state.inventory.meat || 0)
-    + Number(state.inventory.berry || 0)
-    + Number(state.inventory.jerky || 0)
-    + Number(state.inventory.packed_ration || 0)
-    + Number(state.inventory.cooked_meat || 0)
-    + Number(state.inventory.fish || 0)
-    + Number(state.inventory.grain || 0)
-    + Number(state.inventory.milled_grain || 0)
-    + Number(state.inventory.milk || 0)
-    + Number(state.inventory.herb_tonic || 0);
-  const researchGateCampKind = researchSystemStatus(state).unlocked ? '' : pickAutoCampKind(state);
-  if (['fire', 'shelter', 'workbench'].includes(researchGateCampKind)) {
-    return runCampAction(state, pickActorForAuto(state, 'craft'), researchGateCampKind, options);
+  const foodStock = foodUnitCount(state);
+  const hungry = living.filter((member) => Number(member.hunger || 0) >= 46)
+    .sort((a, b) => Number(b.hunger || 0) - Number(a.hunger || 0));
+  const canTreat = Number(state.inventory.herb_tonic || 0) > 0
+    || (recipeUnlockInfo(state, 'herb_tonic').unlocked && hasResources(state.inventory, { herb: 2, berry: 1 }));
+  if (living.some((member) => Number(member.hp || 0) <= 30) && canTreat) {
+    return runRecoveryChoiceAction(state, careActorId, 'field_tonic', options);
   }
-  if (foodAvailable(state) && (Number(careActor?.hunger || 0) >= 48 || averageHunger >= 46)) {
-    return runEatAction(state, careActorId, options);
-  }
-  if (!foodAvailable(state) && averageHunger >= 70 && Number(careActor?.hp || 0) > 20) {
-    return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
+  if (foodAvailable(state) && (hungry.length || averageHunger >= 46)) {
+    const preparedFood = ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish']
+      .some((id) => Number(state.inventory[id] || 0) > 0);
+    const fuelReady = Number(state.camp.fuel || 0) > 0;
+    // Use the existing paid cooking and ration actions. Leave enough AP to
+    // actually eat today; never spend the last action preparing tomorrow.
+    if (!preparedFood && Number(state.inventory.meat || 0) > 0
+      && Number(state.camp.fireLevel || 0) > 0 && Number(state.ap || 0) >= (fuelReady ? 2 : 3)) {
+      if (fuelReady) return runCampAction(state, pickActorForAuto(state, 'craft'), 'cook', options);
+      if (Number(state.inventory.wood || 0) > 0) return runCampAction(state, pickActorForAuto(state, 'craft'), 'fuel', options);
+    }
+    if (hungry.length >= 2 && foodStock >= 2) return runRecoveryChoiceAction(state, careActorId, 'ration_break', options);
+    return runEatAction(state, hungry[0]?.id || careActorId, options);
   }
   if (Number(careActor?.hp || 0) <= 45 || Number(careActor?.stamina || 0) <= 28 || Number(careActor?.bodyTemp ?? 37) <= 34.4) {
     return runRestAction(state, careActorId, options);
   }
 
-  if (averageHunger >= 50 && foodStock < state.party.length + 2) {
-    const specializedFood = pickAutoSpecializedAction(state, ['farm', 'fish', 'herd', 'trap']);
-    if (specializedFood) {
-      return runSpecializedAction(state, specializedFood.actorId, specializedFood.actionId, '', options);
-    }
-    const hunterId = pickActorForAuto(state, 'hunt');
-    const huntRegion = resolveActionRegion(state, 'plains', options.rng || Math.random);
-    const huntChance = actionChanceForRegion(state, hunterId, 'hunt', huntRegion);
-    if (averageParty(state, 'hp') < 62 || huntChance < 0.46) {
-      return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
-    }
-    return runHuntAction(state, hunterId, huntRegion.id, options);
+  if ((averageHunger >= 46 || hungry.length) && foodStock < living.length + 2) {
+    return runAutoFoodSupplyAction(state, options);
+  }
+  const researchGateCampKind = researchSystemStatus(state).unlocked ? '' : pickAutoCampKind(state);
+  if (['fire', 'shelter', 'workbench'].includes(researchGateCampKind)) {
+    return runCampAction(state, pickActorForAuto(state, 'craft'), researchGateCampKind, options);
   }
 
   const needsResearchShelter = Number(state.camp.fireLevel || 0) >= 1
@@ -6160,7 +6169,7 @@ function runNextAutoArchiveAction(state, options = {}) {
   }
 
   if (foodStock < state.party.length + 1) {
-    return runHuntAction(state, pickActorForAuto(state, 'hunt'), pickAutoZone(state, 'hunt'), options);
+    return runAutoFoodSupplyAction(state, options);
   }
   return runGatherAction(state, pickActorForAuto(state, 'gather'), pickAutoZone(state, 'gather'), options);
 }

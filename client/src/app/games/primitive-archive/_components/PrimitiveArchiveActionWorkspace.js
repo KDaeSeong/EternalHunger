@@ -29,11 +29,13 @@ export default function PrimitiveArchiveActionWorkspace(props) {
     recipeRows,
     recentActionText,
     research,
+    runProgressReport,
     runCraft,
     runEat,
     runGather,
     runHunt,
     runResearch,
+    runRecoveryChoice,
     runRest,
     runSpecialized,
     runUtility,
@@ -52,6 +54,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
   const condition = actingCondition(actor);
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const recipeMaterialsReady = Boolean(recipe?.materialsReady);
+  const rationChoice = runProgressReport?.recoveryChoices?.find((choice) => choice.id === 'ration_break');
   const specializedRows = specializedActions || [];
   const utilityRows = utilityActions || [];
   const lockedSpecializedRows = specializedRows.filter((row) => !row.available);
@@ -137,7 +140,14 @@ export default function PrimitiveArchiveActionWorkspace(props) {
             title={!recipe?.unlocked ? recipe?.lockedReason : !recipeMaterialsReady ? `재료 부족: ${recipe?.materialText || ''}` : '선택한 제작 실행'}
             onClick={runCraft}
           >제작 · {Math.round(craftChance * 100)}%</ActionButton>
-          <ActionButton action="consume" cue="off" disabled={!actorCanAct} onClick={runEat}>식사</ActionButton>
+          <ActionButton action="consume" cue="off" disabled={!actorCanAct} onClick={runEat}>개인 식사</ActionButton>
+          <ActionButton
+            action="consume"
+            cue="off"
+            disabled={!actorCanAct || !rationChoice?.enabled}
+            title={`허기가 높은 생존 대원부터 한 명당 식량 1개를 나눕니다. ${rationChoice?.costText || '식량 필요'} · 1 AP`}
+            onClick={() => runRecoveryChoice('ration_break')}
+          >공동 식사 · 1 AP</ActionButton>
           <ActionButton action="rest" cue="off" disabled={!actorCanAct} onClick={runRest}>휴식</ActionButton>
           <ActionButton action="research" cue="off" disabled={!actorCanAct || !research.actionUnlocked || !research.selected?.available} onClick={runResearch}>
             {research.actionUnlocked ? '연구' : '직접 연구 잠김'}
