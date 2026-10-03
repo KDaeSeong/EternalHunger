@@ -1,6 +1,6 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
-const { buildActorGrowthPlan, refreshActorGrowthPlan, markGrowthComponent } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
+const { buildActorGrowthPlan, refreshActorGrowthPlan, getActorGrowthProgress, markGrowthComponent } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
 const { addItemToInventory, normalizeInventory, invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
 const { tryAutoCraftFromInventory } = await import('../src/app/simulation/_lib/gearInventoryCraftRuntime.js');
 const { autoEquipBest } = await import('../src/app/simulation/_lib/gearFallbackRuntime.js');
@@ -22,6 +22,7 @@ const { getRuleset, getPhaseDurationSec } = await import('../src/utils/rulesets.
 const { createPhaseActionTimeline } = await import('../src/app/simulation/_lib/phaseActionTimelineRuntime.js');
 const { createFieldResources } = await import('../src/app/simulation/_lib/fieldResourceRuntime.js');
 const { buildRunActionSummary } = await import('../src/app/simulation/_lib/runActionSummary.js');
+const { buildDay1TargetCandidatesBySlot, buildItemIndexes } = await import('../src/app/simulation/_lib/routePlanBuilderRuntime.js');
 
 let checks = 0;
 const check = async (name, run) => { await run(); console.log(`PASS ${name}`); checks++; };
@@ -38,6 +39,131 @@ const receive = (actor, id) => {
   actor.inventory = addItemToInventory(actor.inventory, markGrowthComponent(item, actor), id, 1, 1, ruleset);
 };
 
+await check('missing opening targets remain incomplete even when every known target is owned', () => {
+  const actor = { ...fixture(), routePlanTargetItemIds: ['goal', 'deleted-body-goal', 'deleted-body-goal'] };
+  receive(actor, 'goal');
+  const before = JSON.stringify(actor);
+  const progress = getActorGrowthProgress(actor, fixtureItems);
+  assert.equal(progress.completedSlots, 1); assert.equal(progress.totalSlots, 2);
+  assert.equal(progress.openingComplete, false); assert.deepEqual(progress.remaining, []);
+  assert.deepEqual(progress.goalIssues.map(({ itemId, reason }) => [itemId, reason]), [['deleted-body-goal', 'missing_target']]);
+  const plan = buildActorGrowthPlan(actor, fixtureItems, world);
+  assert.equal(plan.openingComplete, false); assert.equal(plan.blocked, 'invalid_target');
+  assert.deepEqual(plan.targetIds, ['goal', 'deleted-body-goal']);
+  assert.equal(JSON.stringify(actor), before);
+  assert.deepEqual(getActorGrowthProgress(JSON.parse(before), fixtureItems), progress);
+});
+
+await check('an empty catalog cannot erase declared demand, and genuinely unset goals remain unset', () => {
+  const actor = { ...fixture(), routePlanTargetItemIds: ['missing', 'missing', ''] };
+  const progress = getActorGrowthProgress(actor, []);
+  assert.equal(progress.completedSlots, 0); assert.equal(progress.totalSlots, 1);
+  assert.equal(progress.openingComplete, false);
+  assert.equal(buildActorGrowthPlan(actor, [], world).blocked, 'invalid_target');
+  assert.equal(getActorGrowthProgress({ ...fixture(), routePlanTargetItemIds: [] }, []).totalSlots, 0);
+  assert.equal(buildActorGrowthPlan({ ...fixture(), routePlanTargetItemIds: [] }, [], world), null);
+});
+
+await check('valid opening recipes still finish and pay their full costs beside a missing target', () => {
+  const items = fixtureItems.map((item) => item._id === 'goal'
+    ? { ...item, recipe: { ...item.recipe, creditsCost: 7 } } : item);
+  const actor = { ...fixture(), simCredits: 20, routePlanTargetItemIds: ['goal', 'missing'] };
+  const initial = refreshActorGrowthPlan(actor, items, world);
+  assert.equal(initial.targetId, 'goal'); assert.equal(initial.goalIssues[0].itemId, 'missing');
+  receive(actor, 'left'); receive(actor, 'right'); refreshActorGrowthPlan(actor, items, world);
+  const result = tryAutoCraftFromInventory(actor, items, buildItemNameById(items), buildItemMetaById(items), 1, 0, ruleset);
+  assert.equal(result?.craftedId, 'goal'); assert.equal(actor.simCredits, 13);
+  assert.equal(invQty(actor.inventory, 'left'), 0); assert.equal(invQty(actor.inventory, 'right'), 0);
+  const final = refreshActorGrowthPlan(actor, items, world);
+  assert.equal(final.completedSlots, 1); assert.equal(final.totalSlots, 2);
+  assert.equal(final.openingComplete, false); assert.equal(final.blocked, 'invalid_target');
+});
+
+await check('real recovery recipes fill empty gear without pretending a missing authored goal was completed', () => {
+  const target = gear('recovery', ['raw'], { tier: 4, recipe: { ingredients: [{ itemId: 'raw', qty: 1 }], creditsCost: 5 } });
+  const items = [material('raw'), target];
+  const actor = { ...fixture(), simCredits: 20, routePlanTargetItemIds: ['missing'], goalLoadouts: { hero: { clothesKey: 'missing' } } };
+  receive(actor, 'raw');
+  const plan = refreshActorGrowthPlan(actor, items, world);
+  assert.equal(plan.stage, 'recovery'); assert.equal(plan.readyCraftId, 'recovery');
+  assert.equal(plan.openingComplete, false); assert.equal(plan.goalIssues[0].slot, 'clothes');
+  assert.equal(tryAutoCraftFromInventory(actor, items, buildItemNameById(items), buildItemMetaById(items), 1, 0, ruleset)?.craftedId, 'recovery');
+  assert.equal(invQty(actor.inventory, 'raw'), 0); assert.equal(actor.simCredits, 15);
+  assert.equal(actor.equipped.head, 'recovery');
+  const progress = getActorGrowthProgress(actor, items);
+  assert.equal(progress.completedSlots, 0); assert.equal(progress.totalSlots, 1); assert.equal(progress.openingComplete, false);
+});
+
+await check('automatic route substitutes cannot fulfill an unresolved authored opening key', () => {
+  const slots = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
+  const items = [material('raw'), ...slots.map((slot) => gear(`fallback-${slot}`, ['raw'], { equipSlot: slot, tier: 4 }))];
+  const actor = { ...fixture(), goalLoadouts: { hero: { headKey: 'custom-head-key' } } };
+  const candidates = buildDay1TargetCandidatesBySlot(actor, items, buildItemIndexes(items), world.mapObj);
+  actor.routePlanTargetItemIds = slots.map((slot) => candidates.get(slot)[0].item._id);
+  actor.inventory = items.slice(1).map((item) => ({ ...item, itemId: item._id, qty: 1 }));
+  const progress = getActorGrowthProgress(actor, items);
+  assert.equal(progress.completedSlots, 4); assert.equal(progress.totalSlots, 5); assert.equal(progress.openingComplete, false);
+  assert.equal(progress.goalIssues[0].key, 'custom-head-key'); assert.equal(progress.goalIssues[0].slot, 'head');
+  assert.equal(buildActorGrowthPlan(actor, items, world).blocked, 'invalid_target');
+  const restored = [...items, gear('custom-head-id', ['raw'], { itemKey: 'custom-head-key', tier: 4 })];
+  const unresolved = getActorGrowthProgress(actor, restored);
+  assert.equal(unresolved.totalSlots, 5); assert.equal(unresolved.completedSlots, 4);
+  assert.deepEqual(unresolved.goalIssues, []); assert.equal(unresolved.remaining[0]._id, 'custom-head-id');
+  actor.inventory = [...actor.inventory.filter((item) => item.equipSlot !== 'head'), { ...restored.at(-1), itemId: 'custom-head-id', qty: 1 }];
+  assert.equal(getActorGrowthProgress(actor, restored).openingComplete, true);
+});
+
+await check('authored keys resolve all supported aliases without double-counting route targets', () => {
+  const item = gear('owned-id', ['raw'], { itemKey: 'owned-key', externalId: 'owned-external', tier: 4 });
+  for (const key of ['owned-id', 'owned-key', 'owned-external']) {
+    const actor = { ...fixture(), routePlanTargetItemIds: ['owned-id'], goalLoadouts: { hero: { headKey: key } },
+      inventory: [{ ...item, itemId: item._id, qty: 1 }] };
+    const progress = getActorGrowthProgress(actor, [material('raw'), item]);
+    assert.equal(progress.totalSlots, 1); assert.equal(progress.completedSlots, 1); assert.equal(progress.openingComplete, true);
+    assert.deepEqual(progress.targetIds, ['owned-id']); assert.deepEqual(progress.goalIssues, []);
+  }
+});
+
+await check('wrong-slot duplicate declarations keep the valid slot and flag the other slot', () => {
+  const item = gear('owned-id', ['raw'], { itemKey: 'same-key', tier: 4 });
+  const actor = { ...fixture(), routePlanTargetItemIds: ['owned-id'],
+    goalLoadouts: { hero: { headKey: 'same-key', clothesKey: 'same-key' } }, inventory: [{ ...item, itemId: item._id, qty: 1 }] };
+  const progress = getActorGrowthProgress(actor, [material('raw'), item]);
+  assert.equal(progress.totalSlots, 2); assert.equal(progress.completedSlots, 1); assert.equal(progress.openingComplete, false);
+  assert.deepEqual(progress.goalIssues.map(({ slot, reason }) => [slot, reason]), [['clothes', 'slot_mismatch']]);
+});
+
+await check('owned deleted, generated, non-equipment and incompatible targets cannot count as fulfilled', () => {
+  const cases = [
+    [gear('deleted', ['raw'], { lockedByAdmin: 'deleted' }), 'unavailable_target'],
+    [gear('eq_generated', ['raw']), 'unavailable_target'],
+    [material('not-gear'), 'not_equipment'],
+    [gear('bad-slot', ['raw'], { equipSlot: 'body' }), 'not_equipment'],
+    [gear('wrong-weapon', ['raw'], { equipSlot: 'weapon', weaponType: '활' }), 'weapon_mismatch'],
+  ];
+  for (const [item, reason] of cases) {
+    const actor = { ...fixture(), weaponType: '권총', routePlanTargetItemIds: [item._id], inventory: [{ ...item, itemId: item._id, qty: 1 }] };
+    const progress = getActorGrowthProgress(actor, [material('raw'), item]);
+    assert.equal(progress.completedSlots, 0, reason); assert.equal(progress.totalSlots, 1, reason);
+    assert.equal(progress.openingComplete, false, reason); assert.equal(progress.goalIssues[0].reason, reason);
+  }
+});
+
+await check('production growth events retain unresolved declarations instead of publishing completion', () => {
+  const actor = { ...fixture(), routePlanTargetItemIds: ['goal', 'missing'] };
+  receive(actor, 'goal');
+  const events = [];
+  const result = runPhaseActorActionPipeline({ state: { phaseSurvivors: [actor], ...world,
+    publicItems: fixtureItems, craftables: fixtureItems, itemMetaById: meta, itemNameById: names,
+    ruleset, nextDay: 1, nextPhase: 'morning', actionIntervalSec: 20, statusElapsedSec: 0, currentActionSec: () => 10 },
+  actions: { emitRunEvent: (kind, event) => events.push({ kind, ...event }) } });
+  const event = events.find((entry) => entry.kind === 'growth_plan');
+  assert.ok(event); assert.equal(event.openingComplete, false);
+  assert.equal(event.completedSlots, 1); assert.equal(event.totalSlots, 2);
+  assert.deepEqual(event.goalIssues.map(({ itemId, reason }) => [itemId, reason]), [['missing', 'missing_target']]);
+  assert.notEqual(event.goalIssues, result.updatedSurvivors[0]._growthPlan.goalIssues);
+});
+
 await check('completed intermediates replace their consumed leaf requirements', () => {
   const actor = fixture(); refreshActorGrowthPlan(actor, fixtureItems, world); receive(actor, 'left');
   const plan = refreshActorGrowthPlan(actor, fixtureItems, world);
@@ -46,7 +172,7 @@ await check('completed intermediates replace their consumed leaf requirements', 
   assert.equal(plan.targetZoneId, 'c'); assert.equal(plan.nextStep, 'b');
 });
 await check('a viable opening focus survives an equipped intermediate and finishes before another empty slot', () => {
-  const items = [...fixtureItems, material('body-raw'), gear('body-goal', ['body-raw'], { equipSlot: 'body', tier: 4 })];
+  const items = [...fixtureItems, material('body-raw'), gear('body-goal', ['body-raw'], { equipSlot: 'clothes', tier: 4 })];
   const actor = { ...fixture(), routePlanTargetItemIds: ['goal', 'body-goal'] };
   assert.equal(refreshActorGrowthPlan(actor, items, world).targetId, 'goal');
   receive(actor, 'left'); actor.equipped = { head: 'left' };
@@ -56,7 +182,7 @@ await check('a viable opening focus survives an equipped intermediate and finish
   assert.equal(refreshActorGrowthPlan(actor, items, world).targetId, 'body-goal');
 });
 await check('a depleted or explicitly attempted focus releases the opening plan instead of becoming a sticky dead end', () => {
-  const items = [...fixtureItems, material('body-raw'), gear('body-goal', ['body-raw'], { equipSlot: 'body', tier: 4 })];
+  const items = [...fixtureItems, material('body-raw'), gear('body-goal', ['body-raw'], { equipSlot: 'clothes', tier: 4 })];
   const actor = { ...fixture(), routePlanTargetItemIds: ['goal', 'body-goal'] };
   refreshActorGrowthPlan(actor, items, world);
   const fieldResources = createFieldResources(world.mapObj, items, ruleset);

@@ -18,7 +18,7 @@ for (const seed of seeds) {
     onFrame: (frame, { publicItems }) => {
       for (const actor of frame.survivors) {
         const progress = getActorGrowthProgress(actor, publicItems);
-        if (progress.totalSlots === 5 && progress.remaining.length === 0 && !completed.has(actor._id)) {
+        if (progress.totalSlots === 5 && progress.openingComplete && !completed.has(actor._id)) {
           completed.set(actor._id, frame.matchSec);
         }
       }

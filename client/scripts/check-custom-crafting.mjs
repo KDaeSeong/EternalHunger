@@ -19,6 +19,10 @@ const rules = { inventory: { maxSlots: 10, stackMax: { material: 10, consumable:
 const leaf = { itemId: 'custom:leaf', name: '약초', type: '재료', qty: 4, tier: 1 };
 const recipe = { _id: 'custom:food', name: '맞춤 음식', type: 'food', tier: 1,
   recipe: { ingredients: [{ itemId: leaf.itemId, qty: 2 }], resultQty: 3, creditsCost: 7 } };
+// Opening goals are equipment. Keep food batch/cost/capacity coverage by
+// using it as a real intermediate in the equipment recipe, not as a slot.
+const growthGoal = { _id: 'custom:head-goal', name: '맞춤 모자', type: '방어구', equipSlot: 'head', tier: 4,
+  recipe: { ingredients: [{ itemId: recipe._id, qty: 3 }] } };
 const actor = (extra = {}) => ({ _id: 'crafter', name: '제작자', hp: 100, maxHp: 100, simCredits: 20,
   inventory: [structuredClone(leaf)], equipped: {}, _actionCycleKey: '1:20', ...extra });
 const resources = (who) => JSON.stringify({ inventory: who.inventory, equipped: who.equipped,
@@ -224,8 +228,9 @@ await test('growth planning distinguishes a funded ready recipe from missing cra
   assert.equal(work.blocked, 'insufficient_credits');
   assert.equal(work.requiredCredits, 7);
   assert.equal(work.availableCredits, 0);
-  const who = actor({ simCredits: 0, routePlanTargetItemIds: [recipe._id], _growthPlan: { targetId: recipe._id } });
-  assert.match(getActorGrowthObservation(who, [{ _id: leaf.itemId }, recipe]).materials, /필요 7Cr.*보유 0Cr/);
+  const who = actor({ simCredits: 0, routePlanTargetItemIds: [growthGoal._id], _growthPlan: { targetId: growthGoal._id } });
+  const view = getActorGrowthObservation(who, [{ _id: leaf.itemId }, recipe, growthGoal]);
+  assert.equal(view.targetId, growthGoal._id); assert.match(view.materials, /필요 7Cr.*보유 0Cr/);
 });
 
 await test('initial route candidates count the same batch yield as ongoing growth planning', () => {
@@ -269,10 +274,11 @@ await test('forged prepared output and failed automatic dropping leave every exi
   assert.equal(resources(droppable), bagBefore);
 });
 await test('observer capacity warning uses the current match rules and is read-only', () => {
-  const who = actor({ routePlanTargetItemIds: [recipe._id], _growthPlan: { targetId: recipe._id } });
+  const who = actor({ routePlanTargetItemIds: [growthGoal._id], _growthPlan: { targetId: growthGoal._id } });
   const before = JSON.stringify(who);
   const limited = { inventory: { ...rules.inventory, stackMax: { ...rules.inventory.stackMax, consumable: 2 } } };
-  const view = getActorGrowthObservation(who, [{ _id: leaf.itemId }, recipe], { ruleset: limited });
+  const view = getActorGrowthObservation(who, [{ _id: leaf.itemId }, recipe, growthGoal], { ruleset: limited });
+  assert.equal(view.targetId, growthGoal._id);
   assert.match(view.materials, /수량 전체.*공간 부족/);
   assert.equal(JSON.stringify(who), before);
 });

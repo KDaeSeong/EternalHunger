@@ -443,6 +443,7 @@ export function runActorMovementDecisionPhase({
     who: String(updated._id), teamId: getActorTeamId(updated), targetId: growthPlan.targetId,
     targetName: growthPlan.targetName, completedSlots: growthPlan.completedSlots, totalSlots: growthPlan.totalSlots,
     openingComplete: growthPlan.openingComplete, missing: growthPlan.missing.map(({ itemId, need }) => ({ itemId, need })),
+    ...(growthPlan.goalIssues?.length ? { goalIssues: structuredClone(growthPlan.goalIssues) } : {}),
     targetZoneId: growthPlan.targetZoneId, reason: moveReason, blocked: growthPlan.blocked,
     movementObjective,
     sharedGoalReason,

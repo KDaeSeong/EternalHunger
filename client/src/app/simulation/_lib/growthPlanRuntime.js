@@ -1,5 +1,5 @@
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
-import { canReceiveItem, getInvItemId, getInvRules, inferEquipSlot, invQty } from './inventoryRules';
+import { canReceiveItem, getInvItemId, getInvRules, inferEquipSlot, inferItemCategory, invQty } from './inventoryRules';
 import { getFieldItemSourceZones, getFieldResourceQty } from './fieldResourceRuntime';
 import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
 import { getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
@@ -8,9 +8,24 @@ import { areEquipmentWeaponTypesCompatible } from '../../../utils/equipmentCatal
 import { GROWTH_EQUIPMENT_SLOTS, getActorEquipmentTier, getGrowthEquipmentCatalog } from './growthEquipmentRuntime.js';
 
 const catalogCache = new WeakMap();
+const catalogKeyCache = new WeakMap();
 function indexCatalog(items) {
   if (!catalogCache.has(items)) catalogCache.set(items, new Map(items.map((item) => [String(item._id), item])));
   return catalogCache.get(items);
+}
+
+function indexCatalogKeys(items) {
+  if (!catalogKeyCache.has(items)) {
+    const byKey = new Map();
+    for (const item of items) {
+      for (const key of [item.itemKey, item.externalId, item._id]) {
+        const value = String(key ?? '').trim();
+        if (value && !byKey.has(value)) byKey.set(value, item);
+      }
+    }
+    catalogKeyCache.set(items, byKey);
+  }
+  return catalogKeyCache.get(items);
 }
 
 export function getGrowthItemZones(item, mapObj, forbiddenIds = new Set(), fieldResources = null) {
@@ -21,9 +36,36 @@ export function getGrowthItemZones(item, mapObj, forbiddenIds = new Set(), field
 // Read-only progress shared by planning and observation; never run the planner
 // merely to render a card (planning also chooses destinations and reservations).
 export function getActorGrowthProgress(actor, items = []) {
-  if (!actor || !Array.isArray(items) || !items.length) return { targets: [], remaining: [], completedSlots: 0, totalSlots: 0 };
+  if (!actor) return { targets: [], remaining: [], completedSlots: 0, totalSlots: 0, targetIds: [], goalIssues: [], openingComplete: true };
+  items = Array.isArray(items) ? items : [];
   const byId = indexCatalog(items);
-  const targets = [...new Set(actor.routePlanTargetItemIds || [])].map((id) => byId.get(String(id))).filter(Boolean);
+  const routeIds = [...new Set((Array.isArray(actor.routePlanTargetItemIds) ? actor.routePlanTargetItemIds : [])
+    .map((id) => String(id ?? '').trim()).filter(Boolean))];
+  let requested = routeIds.map((id) => ({ id, key: id, item: byId.get(id), slot: '' }));
+  // The initial route builder can choose a fallback when an authored hero
+  // key is missing, wrong-slot or has an unusable recipe. That route is not
+  // proof that the requested loadout was fulfilled. Resolve the actual key
+  // here, retaining the declaration even when no catalog item exists.
+  for (const slot of GROWTH_EQUIPMENT_SLOTS) {
+    const key = String(actor.goalLoadouts?.hero?.[`${slot}Key`] || '').trim();
+    if (!key) continue;
+    const item = indexCatalogKeys(items).get(key);
+    requested = requested.filter((row) => row.slot || (row.id !== key && row.id !== String(item?._id || '')
+      && (!row.item || inferEquipSlot(row.item) !== slot)));
+    requested.push({ id: item ? String(item._id) : key, key, item, slot });
+  }
+  const goalIssues = [];
+  const targets = [];
+  for (const { id, key, item, slot } of requested) {
+    const actualSlot = item && inferEquipSlot(item);
+    const reason = !item ? 'missing_target'
+      : item.lockedByAdmin === 'deleted' || id.startsWith('wpn_') || id.startsWith('eq_') ? 'unavailable_target'
+      : inferItemCategory(item) !== 'equipment' || !GROWTH_EQUIPMENT_SLOTS.includes(actualSlot) ? 'not_equipment'
+      : slot && actualSlot !== slot ? 'slot_mismatch'
+      : actualSlot === 'weapon' && !areEquipmentWeaponTypesCompatible(actor.weaponType, item.weaponType) ? 'weapon_mismatch' : '';
+    if (reason) goalIssues.push({ stage: 'opening', itemId: id, key, slot: slot || actualSlot || '', reason });
+    else targets.push(item);
+  }
   const inventory = actor.inventory || [];
   const usableWeapon = (item) => inferEquipSlot(item) !== 'weapon'
     || areEquipmentWeaponTypesCompatible(actor.weaponType, item.weaponType);
@@ -39,7 +81,9 @@ export function getActorGrowthProgress(actor, items = []) {
       || fallbackFulfills(entry, target)
       || (!entry.craftComponent && inferEquipSlot(entry) === inferEquipSlot(target) && Number(entry.tier || 0) > Number(target.tier))));
   const remaining = targets.filter((target) => !fulfilled(target));
-  return { targets, remaining, completedSlots: targets.length - remaining.length, totalSlots: targets.length };
+  return { targets, remaining, completedSlots: targets.length - remaining.length, totalSlots: requested.length,
+    targetIds: [...new Set(requested.map((row) => row.id))], goalIssues,
+    openingComplete: remaining.length === 0 && goalIssues.length === 0 };
 }
 
 // Shared read-only recipe accounting. Observation must not invoke the planner,
@@ -164,19 +208,19 @@ function planGrowthTarget(actor, items, target, base, { mapObj, forbiddenIds, zo
 }
 
 export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new Set(), zoneGraph = {}, attemptedTargets = [], nextSpawn, fieldResources = nextSpawn?.fieldResources, ruleset = {} } = {}) {
-  if (!actor || !Array.isArray(items) || !items.length) return null;
+  if (!actor || !Array.isArray(items)) return null;
   const progress = getActorGrowthProgress(actor, items);
   const tierBySlot = Object.fromEntries(GROWTH_EQUIPMENT_SLOTS.map((slot) => [slot, getActorEquipmentTier(actor, slot)]));
-  const openingComplete = progress.remaining.length === 0;
+  const openingComplete = progress.openingComplete;
   const late = openingComplete ? getLateGrowthTargets(actor, items) : { targets: [], issues: [] };
   const remaining = openingComplete ? late.targets : [...progress.remaining].sort((a, b) =>
     // Finish a viable recipe before spreading intermediates across empty
     // slots. Blocked/attempted focuses still fall through to real replanning.
     Number(String(b._id) === String(actor._growthFocusId)) - Number(String(a._id) === String(actor._growthFocusId))
     || tierBySlot[inferEquipSlot(a)] - tierBySlot[inferEquipSlot(b)]);
-  const base = { targetIds: openingComplete ? [] : progress.targets.map((item) => String(item._id)),
+  const base = { targetIds: openingComplete ? [] : progress.targetIds,
     completedSlots: progress.completedSlots, totalSlots: progress.totalSlots, openingComplete,
-    stage: openingComplete ? 'late' : 'opening', goalIssues: late.issues,
+    stage: openingComplete ? 'late' : 'opening', goalIssues: [...progress.goalIssues, ...late.issues],
     targetId: '', targetKey: '', targetSlot: '', targetTier: 0, targetName: '', craftIds: [], missing: [],
     reservedQtyById: {}, componentIds: [], readyCraftId: '', currentZoneItemIds: [],
     targetZoneId: '', nextStep: '', blocked: '' };
@@ -224,7 +268,8 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
   // A late recipe's missing field source may still be supplied by a core or
   // boss. Preserve its ranked need; retain opening capacity-replanning order.
   if (plans.length) return openingComplete ? plans[0] : plans.at(-1);
-  return progress.targets.length || late.issues.length ? base : null;
+  if (progress.goalIssues.length) return { ...base, blocked: 'invalid_target' };
+  return progress.totalSlots || late.issues.length ? base : null;
 }
 
 export function refreshActorGrowthPlan(actor, items, options) {

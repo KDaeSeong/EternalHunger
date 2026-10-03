@@ -102,6 +102,7 @@ check('the recorded local power assessment is explained without inventing a new 
   assert.match(text, /후퇴/);
   assert.equal(describeObserverReason({ reason: 'unknown_future_rule' }), '상세 판단 기록 없음');
   assert.match(describeObserverReason({ blocked: 'no_material_source' }), /공급처 없음/);
+  assert.match(describeObserverReason({ blocked: 'invalid_target' }), /목표 장비 설정 확인 필요/);
   assert.equal(describeObserverReason({ reason: 'low_hp' }), '체력이 낮아 후퇴');
   assert.equal(describeObserverReason({ reason: 'forbidden' }), '금지구역에서 이탈');
   assert.equal(describeObserverReason({ reason: 'power_gap' }), '전력 열세로 후퇴');

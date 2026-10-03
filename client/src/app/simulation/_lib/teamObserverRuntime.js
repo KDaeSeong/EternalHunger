@@ -96,7 +96,8 @@ export function describeObserverReason(event = {}) {
   if (labels[raw] && objectiveLabel) text += ` · ${objectiveLabel}`;
   if (raw === 'team_rotate' && !objectiveLabel && event.sharedGoalReason) text += ` · ${formatMoveIntentLabel(event.sharedGoalReason)}`;
   if (event.blocked) {
-    const blockage = ({ no_material_source: '필요한 재료의 공급처 없음', no_safe_path: '안전한 재료 경로 없음', invalid_recipe: '제작법 연결 확인 필요' })[event.blocked] || '성장 계획 막힘';
+    const blockage = ({ no_material_source: '필요한 재료의 공급처 없음', no_safe_path: '안전한 재료 경로 없음',
+      invalid_recipe: '제작법 연결 확인 필요', invalid_target: '목표 장비 설정 확인 필요' })[event.blocked] || '성장 계획 막힘';
     text = text === '상세 판단 기록 없음' ? blockage : `${text} · ${blockage}`;
   }
   const assessment = event.teamAssessment || event;

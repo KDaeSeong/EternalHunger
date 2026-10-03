@@ -9,6 +9,14 @@ import { inferEquipSlot } from './inventoryRules.js';
 const list = (value) => Array.isArray(value) ? value : [];
 export const PROCUREMENT_LABELS = Object.freeze({ kioskBuy: '키오스크 구매', kioskExchange: '키오스크 교환', kioskSell: '키오스크 판매', droneOrder: '드론 주문' });
 
+function describeOpeningGoalIssues(issues) {
+  const slots = { weapon: '무기', head: '머리', clothes: '옷', arm: '팔', shoes: '신발' };
+  const reasons = { missing_target: '아이템 목록에서 찾을 수 없음', unavailable_target: '사용할 수 없는 아이템',
+    not_equipment: '장비가 아닌 아이템', slot_mismatch: '장착 부위 불일치', weapon_mismatch: '무기 계열 불일치' };
+  return issues.length ? `초반 목표 확인 필요: ${issues.slice(0, 3).map((issue) =>
+    `${slots[issue.slot] || '설정한 장비'} · ${reasons[issue.reason] || '장비 설정 확인 필요'}`).join(' / ')}${issues.length > 3 ? ` 외 ${issues.length - 3}개` : ''}` : '';
+}
+
 export function describeCraftReceipt(event) {
   if (event?.kind !== 'craft' || event.receiptVersion !== 1 || !Number.isSafeInteger(event.qty) || event.qty <= 0
     || event.receivedQty !== event.qty || !Number.isSafeInteger(event.paidCost) || event.paidCost < 0
@@ -23,17 +31,24 @@ export function getActorGrowthObservation(actor, items, { progress = getActorGro
   if (isGameOver || !(actor?.hp > 0) || getCombatSpaceId(actor) !== WORLD_COMBAT_SPACE) return null;
   const empty = { targetId: '', targetName: '', materials: '', destination: '', note: '' };
   const plan = actor._growthPlan;
+  const openingIssues = progress.goalIssues || [];
+  const issueNote = describeOpeningGoalIssues(openingIssues);
+  const pendingIssue = { ...empty, status: 'unplanned', label: '초반 목표 장비 확인 필요', note: issueNote };
+  // Read current declarations/inventory, not a stale completed plan from a
+  // saved frame. A missing goal cannot turn into a completed or late target.
+  if (openingIssues.length && (!plan?.targetId || plan.stage === 'late' || plan.blocked === 'invalid_target')) return pendingIssue;
   if (!progress.remaining.length && plan?.blocked === 'invalid_target') return { ...empty, status: 'unplanned', label: '후반 목표의 아이템·장착 부위·제작법 확인 필요' };
   if (!progress.totalSlots && !plan?.targetId) return { ...empty, status: 'unplanned', label: '성장 목표 미설정' };
-  if (!progress.remaining.length && (!['late', 'recovery'].includes(plan?.stage) || !plan?.targetId)) return { ...empty, status: 'complete', label: '현재 설정한 목표 장비 확보' };
-  if (!plan) return { ...empty, status: 'unplanned', label: '성장 목표 선택 대기' };
+  if (progress.openingComplete && (!['late', 'recovery'].includes(plan?.stage) || !plan?.targetId)) return { ...empty, status: 'complete', label: '현재 설정한 목표 장비 확보' };
+  if (!plan) return { ...empty, status: 'unplanned', label: '성장 목표 선택 대기', note: issueNote };
   const target = (['late', 'recovery'].includes(plan.stage) ? items : progress.remaining).find((item) => String(item._id) === String(plan.targetId));
-  if (!target) return { ...empty, status: 'replanning', label: '현재 목표 확보 · 다음 성장 판단 대기' };
+  if (!target) return openingIssues.length ? pendingIssue : { ...empty, status: 'replanning', label: '현재 목표 확보 · 다음 성장 판단 대기' };
   if (getActorEquipmentTier(actor, inferEquipSlot(target)) > Number(target.tier)) {
-    return { ...empty, status: 'replanning', label: '상위 장비 확보 · 다음 성장 판단 대기' };
+    return openingIssues.length ? pendingIssue : { ...empty, status: 'replanning', label: '상위 장비 확보 · 다음 성장 판단 대기' };
   }
   const work = getGrowthRecipeWork(actor, items, target._id, { ruleset, targetIds: plan.targetIds });
-  if (!work.craftIds.length && !work.missing.length && !work.blocked) return { ...empty, status: 'replanning', label: '현재 목표 확보 · 다음 성장 판단 대기' };
+  if (!work.craftIds.length && !work.missing.length && !work.blocked) return openingIssues.length ? pendingIssue
+    : { ...empty, status: 'replanning', label: '현재 목표 확보 · 다음 성장 판단 대기' };
   const missing = work.missing.slice(0, 3).map((row) => `${row.name} ${row.need}개`).join(' · ');
   const ready = items.find((item) => String(item._id) === work.readyCraftId);
   const receiptPreview = ready && ruleset ? prepareCraftTransaction(actor,
@@ -60,7 +75,8 @@ export function getActorGrowthObservation(actor, items, { progress = getActorGro
   if (!destination && !note && work.missing.length && plan.blocked) note = ({ no_material_source: '필드 공급처 없음 · 다른 조달 판단 필요',
     no_safe_path: '안전한 재료 경로 없음', invalid_recipe: '제작법 연결 확인 필요' })[plan.blocked] || '성장 경로 재검토';
   return { targetId: String(target._id), targetName: target.name, status: 'growing', stage: plan.stage,
-    label: `${plan.stage === 'late' ? '후반 성장' : plan.stage === 'recovery' ? '기본 장비 보완' : '성장'} 목표: ${target.name}`, materials, destination, note };
+    label: `${plan.stage === 'late' ? '후반 성장' : plan.stage === 'recovery' ? '기본 장비 보완' : '성장'} 목표: ${target.name}`, materials, destination,
+    note: [note, issueNote].filter(Boolean).join(' · ') };
 }
 
 // Only a committed transaction produces a completion label. Never infer receipt

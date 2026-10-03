@@ -39,6 +39,59 @@ check('the visible growth target is the actual chosen branch, not the first miss
   assert.match(model(subject).members[0].growth.materials, /돌 1개/);
 });
 
+check('a stale completed or late plan cannot hide a missing opening goal', () => {
+  const subject = actor({ routePlanTargetItemIds: ['first', 'missing-internal-id'], inventory: [held(items[2])],
+    _growthPlan: { openingComplete: true, stage: 'late', targetId: 'chosen' } });
+  const before = JSON.stringify(subject);
+  const member = model(subject).members[0];
+  assert.equal(member.progress, '1/2'); assert.equal(member.growth.status, 'unplanned');
+  assert.match(member.growth.label, /초반 목표 장비 확인 필요/);
+  assert.match(member.growth.note, /아이템 목록에서 찾을 수 없음/);
+  assert.doesNotMatch(member.growth.note, /missing-internal-id/);
+  assert.deepEqual(model(JSON.parse(before)), model(subject)); assert.equal(JSON.stringify(subject), before);
+});
+
+check('empty or removed catalogs keep declared demand visible without phantom completion', () => {
+  const subject = actor();
+  const member = model(subject, [], { publicItems: [] }).members[0];
+  assert.equal(member.progress, '0/2'); assert.equal(member.hasGoals, true);
+  assert.notEqual(member.growth.status, 'complete'); assert.match(member.growth.note, /찾을 수 없음/);
+});
+
+check('valid recipe work is shown alongside an actionable missing authored-slot warning', () => {
+  const subject = actor({ routePlanTargetItemIds: ['first', 'missing'], _growthFocusId: 'first',
+    goalLoadouts: { hero: { clothesKey: 'missing' } } });
+  refreshActorGrowthPlan(subject, items, world);
+  const member = model(subject).members[0];
+  assert.equal(member.progress, '0/2'); assert.equal(member.growth.targetId, 'first');
+  assert.match(member.growth.materials, /천 1개/); assert.match(member.growth.note, /옷 · 아이템 목록에서 찾을 수 없음/);
+  subject.inventory = [held(items[2])];
+  const completedKnown = model(subject).members[0];
+  assert.equal(completedKnown.progress, '1/2'); assert.notEqual(completedKnown.growth.status, 'complete');
+  assert.match(completedKnown.growth.note, /옷 · 아이템 목록에서 찾을 수 없음/);
+});
+
+check('actual recovery work remains visible without erasing the unresolved goal warning', () => {
+  const subject = actor({ routePlanTargetItemIds: ['missing'], _growthFocusId: '', inventory: [held(items[0])],
+    goalLoadouts: { hero: { clothesKey: 'missing' } } });
+  refreshActorGrowthPlan(subject, items, world);
+  const member = model(subject).members[0];
+  assert.equal(member.progress, '0/1'); assert.equal(member.growth.stage, 'recovery');
+  assert.equal(member.growth.targetId, 'first'); assert.match(member.growth.materials, /제작 가능/);
+  assert.match(member.growth.note, /옷 · 아이템 목록에서 찾을 수 없음/);
+});
+
+check('wrong-slot and wrong-weapon authored targets use plain user-facing explanations', () => {
+  const wrongSlot = actor({ routePlanTargetItemIds: ['first'], inventory: items.slice(2).map((item) => held(item)),
+    goalLoadouts: { hero: { clothesKey: 'first' } } });
+  assert.match(model(wrongSlot).members[0].growth.note, /옷 · 장착 부위 불일치/);
+  const bow = { ...gear('bow-internal-id', ['cloth'], 'weapon'), weaponType: '활' };
+  const wrongWeapon = actor({ weaponType: '권총', routePlanTargetItemIds: ['bow-internal-id'], inventory: [held(bow)] });
+  const member = model(wrongWeapon, [], { publicItems: [bow] }).members[0];
+  assert.equal(member.progress, '0/1'); assert.match(member.growth.note, /무기 · 무기 계열 불일치/);
+  assert.doesNotMatch(member.growth.note, /bow-internal-id/);
+});
+
 check('current inventory removes fulfilled goals and material needs before the next planning tick', () => {
   const subject = prepare();
   subject.inventory = [held(items[1])];
@@ -73,10 +126,11 @@ check('observation is read only and survives frame serialization', () => {
 });
 
 check('a completed intermediate replaces raw ingredients in the displayed recipe work', () => {
-  const nested = [...items, gear('final', ['first', 'stone'], 'chest')];
+  const nested = [...items, gear('final', ['first', 'stone'], 'clothes')];
   const subject = actor({ routePlanTargetItemIds: ['final'], _growthFocusId: 'final' });
   refreshActorGrowthPlan(subject, nested, world); subject.inventory = [held(items[2])];
   const growth = model(subject, [], { publicItems: nested }).members[0].growth;
+  assert.equal(growth.targetId, 'final');
   assert.match(growth.materials, /돌 1개/); assert.doesNotMatch(growth.materials, /천/);
 });
 
