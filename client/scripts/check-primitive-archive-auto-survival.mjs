@@ -962,6 +962,65 @@ check('a healthy nonstarving party builds an affordable basic workbench before e
   expectSameOperation(next, engine.runCampAction(state, 'noa', 'workbench', { rng: noEvents }));
 });
 
+function workbenchMorningFixture(overrides = {}) {
+  const state = fixture({ ap: 3, apMax: 3, inventory: { meat: 6, wood: 4, stone: 2 }, ...overrides });
+  state.weather = { ...state.weather, id: 'clear', cold: 0 };
+  state.camp = { ...state.camp, workbenchLevel: 0, fuel: 0 };
+  state.party = state.party.map((member) => ({ ...member, hunger: 60 }));
+  return state;
+}
+
+check('a stocked safe morning pays for the first workbench before a three-action single-portion cooking loop', () => {
+  const state = workbenchMorningFixture();
+  const original = structuredClone(state);
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.camp.workbenchLevel, 1, 'Available workbench materials must not be burned on another entire day of one-portion meal preparation.');
+  assert.ok(next.log.some((line) => line.includes('생존 기반:') && line.includes('작업대')));
+  const paidWorkbench = engine.runCampAction(state, 'noa', 'workbench', { rng: noEvents });
+  assert.equal(paidWorkbench.ap, state.ap - 1);
+  assert.equal(paidWorkbench.inventory.wood, 0);
+  assert.equal(paidWorkbench.inventory.stone, 0);
+  expectSameOperation(next, engine.runAutoDayAction(paidWorkbench, { rng: noEvents }));
+  assert.deepEqual(state, original);
+});
+
+check('morning workbench planning pays for a real material attempt without selecting a locked destination or forcing success', () => {
+  const state = workbenchMorningFixture({ inventory: { meat: 6, wood: 1, stone: 2 } });
+  state.camp.fuel = 2;
+  const original = structuredClone(state);
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.ok(next.log.some((line) => line.includes('생존 기반:') && line.includes('나무')));
+  assert.ok(next.log.some((line) => line.includes('시로코의 채집 실패')));
+  assert.equal(engine.canSelectActionZone(next), false);
+  assert.equal(next.camp.workbenchLevel, 0, 'An unsuccessful real gathering attempt must not grant the missing facility.');
+  const paidGather = engine.runGatherAction(state, 'shiroko', '', { rng: noEvents });
+  expectSameOperation(next, engine.runAutoDayAction(paidGather, { rng: noEvents }));
+  assert.deepEqual(state, original);
+});
+
+check('morning facility planning does not displace actual hunger, injury, stamina or temperature emergencies', () => {
+  for (const update of [{ hunger: 90 }, { hp: 10 }, { stamina: 10 }, { bodyTemp: 34 }]) {
+    const state = workbenchMorningFixture();
+    state.party[0] = { ...state.party[0], ...update };
+    const next = engine.runAutoDayAction(state, { rng: noEvents });
+    assert.ok(!next.log.some((line) => line.includes('생존 기반:')), `Do not schedule an optional morning task during ${JSON.stringify(update)}.`);
+  }
+});
+
+check('the bounded morning task is neither repeated during a partial day nor restored as a new save flag', () => {
+  const state = workbenchMorningFixture();
+  const restored = engine.normalizeState(JSON.parse(JSON.stringify(state)));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  expectSameOperation(engine.runAutoDayAction(restored, { rng: noEvents }), next);
+  assert.equal(next.log.filter((line) => line.includes('생존 기반:')).length, 1);
+  for (const ap of [1, 2]) {
+    const partial = workbenchMorningFixture({ ap });
+    const partialNext = engine.runAutoDayAction(partial, { rng: noEvents });
+    assert.ok(!partialNext.log.some((line) => line.includes('생존 기반:')));
+  }
+  assert.deepEqual(Object.keys(restored).sort(), Object.keys(state).sort());
+});
+
 check('normal runs survive and develop using ordinary paid actions across fifteen seeds', () => {
   for (const seed of [3, 5, 7, 11, 17, 19, 23, 29, 31, 37, 43, 47, 53, 59, 61]) {
     const rng = seededRng(seed);

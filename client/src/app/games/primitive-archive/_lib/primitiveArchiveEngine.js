@@ -6034,6 +6034,39 @@ function autoCookingCampKind(state) {
   return '';
 }
 
+function autoWorkbenchMorningPlan(state) {
+  // Reserve at most the first action of a stocked, non-emergency day for the
+  // facility that opens research and better food production. Otherwise a
+  // refuel/cook/eat loop can spend every AP preparing just one raw-meat portion.
+  // This is a normal paid action, not a new saved schedule or free facility.
+  if (Number(state.ap || 0) < 3 || Number(state.ap || 0) !== Number(state.apMax || 0)
+    || Number(state.camp.fireLevel || 0) < 1 || Number(state.camp.shelterLevel || 0) < 1
+    || Number(state.camp.workbenchLevel || 0) > 0 || !foodAvailable(state)
+    || researchSystemStatus(state).unlocked || autoNightHasHypothermiaRisk(state)) return null;
+  const living = livingParty(state);
+  if (!living.length || living.some((member) => Number(member.hunger || 0) >= 75
+    || Number(member.hp || 0) <= 45 || Number(member.stamina || 0) <= 28
+    || Number(member.bodyTemp ?? 37) <= 34.4)) return null;
+  const workbench = campActionRows(state).find((row) => row.id === 'workbench');
+  if (workbench.enabled) return { kind: 'camp', reason: '생존 기반: 작업대를 갖춰 연구와 다음 식량 생산을 준비합니다.' };
+  const missing = Object.fromEntries(workbench.materialRows
+    .filter((row) => !row.met).map((row) => [row.id, row.required - row.current]));
+  const regions = canSelectActionZone(state) ? revealedActionRegions(state) : [null];
+  const sources = living.flatMap((actor) => regions.map((region) => {
+    const regionId = region?.id || '';
+    return {
+      actorId: actor.id, regionId, danger: Number(region?.danger || 0),
+      hp: Number(actor.hp || 0), stamina: Number(actor.stamina || 0),
+      score: expectedZoneGains(state, 'gather', actor.id, regionId)
+        .reduce((sum, row) => sum + Math.min(row.expected, Math.max(0, Number(missing[row.itemId] || 0))), 0),
+    };
+  })).filter((source) => source.score > 0)
+    .sort((a, b) => b.score - a.score || a.danger - b.danger || b.hp - a.hp || b.stamina - a.stamina);
+  if (!sources.length) return null;
+  const materials = Object.entries(missing).map(([itemId, qty]) => `${itemName(itemId)} ${qty}개`).join(' · ');
+  return { ...sources[0], kind: 'gather', reason: `생존 기반: 작업대 재료 확보 (${materials}). 오늘 남은 행동은 식사와 생존에 사용합니다.` };
+}
+
 function pickAutoCampKind(state) {
   if (Number(state.camp.fireLevel || 0) < 1 && hasResources(state.inventory, { wood: 2, stone: 2 })) return 'fire';
   if (Number(state.camp.shelterLevel || 0) < 1 && hasResources(state.inventory, { wood: 3, fiber: 2, hide: 1 })) return 'shelter';
@@ -6311,6 +6344,12 @@ function runNextAutoArchiveAction(state, options = {}) {
   if (coldCampKind) {
     const planned = addLog(state, '밤 대비: 현재 보온으로 추위를 막기 어려워 캠프를 보강합니다.');
     return runCampAction(planned, pickActorForAuto(state, 'craft'), coldCampKind, options);
+  }
+  const workbenchMorning = autoWorkbenchMorningPlan(state);
+  if (workbenchMorning) {
+    const planned = addLog(state, workbenchMorning.reason);
+    if (workbenchMorning.kind === 'camp') return runCampAction(planned, pickActorForAuto(state, 'craft'), 'workbench', options);
+    return runGatherAction(planned, workbenchMorning.actorId, workbenchMorning.regionId, options);
   }
   if (foodAvailable(state) && (hungry.length || averageHunger >= 46)) {
     const preparedFood = ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish']
