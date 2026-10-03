@@ -52,6 +52,7 @@ export function buildCompanyReportExportCsv(payload) {
     ['finance', 'assets', payload.report.assets, '', '', ''],
     ['finance', 'receivables', payload.report.receivableAmount, '', '', ''],
     ['finance', 'inventory', payload.report.inventoryAmount, '', '', ''],
+    ['finance', 'vatPayableAmount', payload.report.vatPayableAmount, '', '', ''],
     ['income', 'sales', payload.management.income.sales, '', '', ''],
     ['income', 'marketingExpenses', payload.management.income.marketingExpenses, '', '', ''],
     ['income', 'disclosureExpenses', payload.management.income.disclosureExpenses, '', '', ''],

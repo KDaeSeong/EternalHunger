@@ -147,7 +147,8 @@ export function normalizeState(value) {
     inventory: value.inventory && typeof value.inventory === 'object' ? { ...base.inventory, ...value.inventory } : base.inventory,
     orders: Array.isArray(value.orders) ? value.orders : base.orders,
     receivables: Array.isArray(value.receivables) ? value.receivables : base.receivables,
-    vatPayments: Array.isArray(value.vatPayments) ? value.vatPayments.slice(0, 36) : base.vatPayments,
+    // Payment records affect outstanding tax; only the UI may limit displayed rows.
+    vatPayments: Array.isArray(value.vatPayments) ? value.vatPayments : base.vatPayments,
     inventoryValuations: Array.isArray(value.inventoryValuations) ? value.inventoryValuations.slice(0, 72) : base.inventoryValuations,
     inventoryWriteDowns: Array.isArray(value.inventoryWriteDowns) ? value.inventoryWriteDowns.slice(0, 36) : base.inventoryWriteDowns,
     settlements: Array.isArray(value.settlements) ? value.settlements : base.settlements,
@@ -395,7 +396,7 @@ export function payVatAction(state, targetYear, targetMonth, paymentAmount = nul
   if (amount > schedule.remainingAmount) return addLog(current, `부가세 납부액이 잔액을 초과했습니다. 잔액 ${formatMoney(schedule.remainingAmount)}.`);
   if (Number(current.company.cashKrw || 0) < amount) return addLog(current, '현금이 부족해 부가세를 납부할 수 없습니다.');
   const payment = {
-    id: `VAT-${year}-${String(month).padStart(2, '0')}-${Date.now().toString(36)}`,
+    id: `VAT-${year}-${String(month).padStart(2, '0')}-${Date.now().toString(36)}-${current.vatPayments.length + 1}`,
     targetYear: year,
     targetMonth: month,
     paymentDate: `${current.company.year}-${String(current.company.month).padStart(2, '0')}-25`,
@@ -412,7 +413,7 @@ export function payVatAction(state, targetYear, targetMonth, paymentAmount = nul
       ...current.company,
       cashKrw: Number(current.company.cashKrw || 0) - amount,
     },
-    vatPayments: [payment, ...current.vatPayments].slice(0, 36),
+    vatPayments: [payment, ...current.vatPayments],
   }, `${year}-${String(month).padStart(2, '0')} 부가세 ${formatMoney(amount)} 납부 완료.`);
 }
 
@@ -1083,6 +1084,7 @@ export function createProgressExportAction(state) {
     `Assets: ${formatMoney(summary.assets)}`,
     `Receivables: ${formatMoney(summary.receivableAmount)}`,
     `Foreign Receivables: ${formatMoney(summary.foreignReceivableAmount)}`,
+    `Unpaid VAT: ${formatMoney(summary.vatPayableAmount)}`,
     `Sales: ${formatMoney(management.income.sales)}`,
     `Marketing Expenses: ${formatMoney(management.income.marketingExpenses)}`,
     `Disclosure Expenses: ${formatMoney(management.income.disclosureExpenses)}`,
@@ -1150,12 +1152,12 @@ export function vatPaymentRows(state) {
 export function vatScheduleRows(state, year = null) {
   const current = normalizeState(state);
   const targetYear = Number(year || current.company.year || 2026);
-  const orders = orderRows(current).filter((order) => order.year === targetYear && (order.status === 'SHIPPED' || order.status === 'COMPLETED'));
-  return Array.from({ length: 12 }, (_, index) => {
+  const orders = orderRows(current).filter((order) => order.status === 'SHIPPED' || order.status === 'COMPLETED');
+  const schedule = Array.from({ length: 12 }, (_, index) => {
     const month = index + 1;
     const invoiceVatAmount = orders
-      .filter((order) => Number(order.month || 0) === month)
-      .reduce((sum, order) => sum + Number(order.vatAmount || 0), 0);
+      .filter((order) => isShippedOrderInPeriod(current, order, targetYear, month))
+      .reduce((sum, order) => sum + Math.round(Number(order.unitPrice || 0) * Number(order.shippedQty || order.quantity || 0) * 0.1), 0);
     const paidAmount = current.vatPayments
       .filter((payment) => Number(payment.targetYear || 0) === targetYear && Number(payment.targetMonth || 0) === month)
       .reduce((sum, payment) => sum + Number(payment.paymentAmount || 0), 0);
@@ -1182,6 +1184,16 @@ export function vatScheduleRows(state, year = null) {
       note: status === 'NO_TAX' ? '발급된 세금계산서 부가세가 없습니다.' : status === 'PAID' ? '납부 완료' : status === 'OVERDUE' ? '납부 예정일 경과' : '납부 예정',
     };
   });
+  if (year != null) return schedule;
+  // The playable schedule keeps this year's full calendar plus older unpaid
+  // invoices. Calendar rollover cannot erase a liability or its payment action.
+  const priorYears = [...new Set(orders.map((order) => shippedOrderPeriod(current, order).year))]
+    .filter((priorYear) => Number.isInteger(priorYear) && priorYear > 0 && priorYear < targetYear)
+    .sort((a, b) => a - b);
+  return [
+    ...priorYears.flatMap((priorYear) => vatScheduleRows(current, priorYear).filter((row) => row.remainingAmount > 0)),
+    ...schedule,
+  ];
 }
 
 export function orderRows(state) {
@@ -1295,7 +1307,7 @@ export function reportSummary(state) {
   const global = globalTradeSummary(current);
   const capital = capitalMarketSummary(current);
   const latestSettlement = current.settlements[0] || null;
-  const vatPayableAmount = vatScheduleRows(current, current.company.year).reduce((sum, row) => sum + Number(row.remainingAmount || 0), 0);
+  const vatPayableAmount = vatScheduleRows(current).reduce((sum, row) => sum + Number(row.remainingAmount || 0), 0);
   const inventoryWriteDownBalance = current.inventoryWriteDowns.reduce((sum, row) => sum + Number(row.writeDownAmount || 0) - Number(row.reversalAmount || 0), 0);
   const assets = Number(current.company.cashKrw || 0) + inventoryAmount + receivableAmount + global.openForeignReceivableKrw;
   // Profit tax is paid immediately by monthEndCloseAction, including older
@@ -1355,8 +1367,8 @@ export function managementReport(state) {
     : summary.inventoryAmount > 0 ? null : 0;
   const cashRunwayMonths = Number((Number(current.company.cashKrw || 0) / Math.max(1, fixedExpenses)).toFixed(2));
   const receivableRatio = summary.assets ? Number(((summary.receivableAmount / summary.assets) * 100).toFixed(1)) : 0;
-  const currentVatRows = vatScheduleRows(current, current.company.year);
-  const overdueVatAmount = currentVatRows.filter((row) => row.status === 'OVERDUE').reduce((sum, row) => sum + Number(row.remainingAmount || 0), 0);
+  const vatRows = vatScheduleRows(current);
+  const overdueVatAmount = vatRows.filter((row) => row.status === 'OVERDUE').reduce((sum, row) => sum + Number(row.remainingAmount || 0), 0);
   const currentInventoryWriteDownNet = current.inventoryWriteDowns
     .filter((row) => Number(row.year || 0) === Number(current.company.year || 0))
     .reduce((sum, row) => sum + Number(row.netEffectAmount || 0), 0);
@@ -1727,17 +1739,22 @@ function advanceMonth(year, month) {
   return { year, month: month + 1 };
 }
 
-function isShippedOrderInPeriod(state, order, year, month) {
-  if (order.status !== 'SHIPPED' && order.status !== 'COMPLETED') return false;
+function shippedOrderPeriod(state, order) {
   if (isValidPeriod(order.shippedYear, order.shippedMonth)) {
-    return Number(order.shippedYear) === year && Number(order.shippedMonth) === month;
+    return { year: Number(order.shippedYear), month: Number(order.shippedMonth) };
   }
   // Before shipment dates were stored on orders, the linked invoice already
   // recorded the real shipment month. Keep order-month fallback for old seeds
   // or imported rows with no linked invoice; never rewrite their history.
   const invoice = order.id && state.receivables.find((row) => row.orderId === order.id && isValidPeriod(row.year, row.month));
   const period = invoice || order;
-  return Number(period.year) === year && Number(period.month) === month;
+  return { year: Number(period.year), month: Number(period.month) };
+}
+
+function isShippedOrderInPeriod(state, order, year, month) {
+  if (order.status !== 'SHIPPED' && order.status !== 'COMPLETED') return false;
+  const period = shippedOrderPeriod(state, order);
+  return period.year === year && period.month === month;
 }
 
 function isValidPeriod(year, month) {
