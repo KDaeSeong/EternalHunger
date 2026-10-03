@@ -188,9 +188,11 @@ function* simulationPhaseSteps({
     setDead: runtimeActions.setDead,
   });
   const movePowerContext = { ruleset, battleSettings };
+  const growthHoldCache = {};
   const runGrowthActions = (roster) => runGrowthActionSteps(runPhaseActorActionPipelineSteps({
     state: {
       actionIntervalSec,
+      growthHoldCache,
       statusElapsedSec: 0,
       canReviveThisMatch,
       craftables,
@@ -327,7 +329,9 @@ function* simulationPhaseSteps({
   };
   const timeline = createPhaseActionTimeline({
     durationSec: phaseDurationSec,
-    intervalSec: actionIntervalSec,
+    // Observe individual deadlines on the same one-second world clock. The
+    // pipeline skips recipe/team planning when every field actor is held.
+    intervalSec: 1,
     onGrowthSteps: function* (offset) {
       timelineActionSec = Math.round((phaseStartSec + offset) * 1e6) / 1e6;
       // Admission/closure and damaged saved memberships are boundaries at this

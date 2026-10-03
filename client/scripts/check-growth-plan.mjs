@@ -16,9 +16,10 @@ const { buildTeamMovementPlans } = await import('../src/app/simulation/_lib/team
 const { buildGuestSimulationMap, buildGuestSimulationRoster, loadGuestSimulationItemCatalog } = await import('../src/app/simulation/_lib/guestSimulationBootstrap.js');
 const { buildInitialSimulationRoster } = await import('../src/app/simulation/_lib/simulationInitialRosterRuntime.js');
 const { getDefaultSimulationSettings } = await import('../src/app/simulation/_lib/simulationPageRuntime.js');
-const { buildBaseZoneGraph, buildHyperloopZoneGraph } = await import('../src/app/simulation/_lib/mapGraphRuntime.js');
+const { buildBaseZoneGraph, buildHyperloopZoneGraph, isHyperloopTransit } = await import('../src/app/simulation/_lib/mapGraphRuntime.js');
 const { buildCraftableItems, buildItemMetaById, buildItemNameById, buildItemKeyById } = await import('../src/app/simulation/_lib/itemOptionsRuntime.js');
-const { getRuleset } = await import('../src/utils/rulesets.js');
+const { getRuleset, getPhaseDurationSec } = await import('../src/utils/rulesets.js');
+const { createPhaseActionTimeline } = await import('../src/app/simulation/_lib/phaseActionTimelineRuntime.js');
 const { createFieldResources } = await import('../src/app/simulation/_lib/fieldResourceRuntime.js');
 const { buildRunActionSummary } = await import('../src/app/simulation/_lib/runActionSummary.js');
 
@@ -43,6 +44,26 @@ await check('completed intermediates replace their consumed leaf requirements', 
   assert.deepEqual(plan.missing.map((row) => row.itemId), ['far']);
   assert.deepEqual(plan.craftIds, ['right', 'goal']);
   assert.equal(plan.targetZoneId, 'c'); assert.equal(plan.nextStep, 'b');
+});
+await check('a viable opening focus survives an equipped intermediate and finishes before another empty slot', () => {
+  const items = [...fixtureItems, material('body-raw'), gear('body-goal', ['body-raw'], { equipSlot: 'body', tier: 4 })];
+  const actor = { ...fixture(), routePlanTargetItemIds: ['goal', 'body-goal'] };
+  assert.equal(refreshActorGrowthPlan(actor, items, world).targetId, 'goal');
+  receive(actor, 'left'); actor.equipped = { head: 'left' };
+  assert.equal(refreshActorGrowthPlan(actor, items, world).targetId, 'goal');
+  receive(actor, 'right'); refreshActorGrowthPlan(actor, items, world);
+  assert.equal(tryAutoCraftFromInventory(actor, items, buildItemNameById(items), buildItemMetaById(items), 1, 0, ruleset)?.craftedId, 'goal');
+  assert.equal(refreshActorGrowthPlan(actor, items, world).targetId, 'body-goal');
+});
+await check('a depleted or explicitly attempted focus releases the opening plan instead of becoming a sticky dead end', () => {
+  const items = [...fixtureItems, material('body-raw'), gear('body-goal', ['body-raw'], { equipSlot: 'body', tier: 4 })];
+  const actor = { ...fixture(), routePlanTargetItemIds: ['goal', 'body-goal'] };
+  refreshActorGrowthPlan(actor, items, world);
+  const fieldResources = createFieldResources(world.mapObj, items, ruleset);
+  fieldResources.byZone.c.far.remaining = 0;
+  assert.equal(refreshActorGrowthPlan(actor, items, { ...world, fieldResources }).targetId, 'body-goal');
+  actor._growthFocusId = 'goal';
+  assert.equal(buildActorGrowthPlan(actor, items, { ...world, attemptedTargets: ['goal'] }).targetId, 'body-goal');
 });
 await check('two same-slot components survive normalization and are both consumed for the target', () => {
   const actor = fixture(); refreshActorGrowthPlan(actor, fixtureItems, world);
@@ -85,6 +106,39 @@ await check('a ready growth craft outranks further farming and preview leaves in
   const queue = prepareActorPhaseActionPlan({ state: { actor, ...world, publicItems: fixtureItems, craftables: fixtureItems, itemMetaById: meta, itemNameById: names, ruleset, nextDay: 1, nextPhase: 'morning' } });
   assert.equal(queue.queuedActionType, 'craft'); assert.equal(invQty(actor.inventory, 'raw'), 1);
   assert.deepEqual(actor.equipped, equippedBefore);
+});
+await check('a one-second opening craft locks only its own next action, not twenty seconds of growth or world time', () => {
+  const actor = fixture(); refreshActorGrowthPlan(actor, fixtureItems, world); receive(actor, 'left'); receive(actor, 'right');
+  let sec = 10; const cycles = [];
+  const result = runPhaseActorActionPipeline({ state: {
+    phaseSurvivors: [actor], ...world, publicItems: fixtureItems, craftables: fixtureItems,
+    itemMetaById: meta, itemNameById: names, ruleset, nextDay: 1, nextPhase: 'morning',
+    actionIntervalSec: 20, statusElapsedSec: 0, currentActionSec: () => sec,
+  }, actions: { emitRunEvent: (kind, event) => { if (kind === 'action_cycle') cycles.push(event); } } });
+  const crafted = result.updatedSurvivors[0];
+  assert.equal(crafted.equipped.head, 'goal');
+  assert.equal(crafted._actionReadyAtSec, 11); assert.equal(crafted._growthReadyAtSec, 11);
+  assert.equal(cycles[0].intervalSec, 1); assert.equal(sec, 10);
+  sec = 10.5;
+  const held = runPhaseActorActionPipeline({ state: { phaseSurvivors: [crafted], actionIntervalSec: 20,
+    statusElapsedSec: 0, currentActionSec: () => sec }, actions: {
+    emitRunEvent: (kind) => { if (kind === 'action_cycle') assert.fail('Still crafting.'); },
+  } });
+  assert.equal(held.updatedSurvivors[0]._actionReadyAtSec, 11);
+});
+await check('an opening move pays its real travel time, while a longer action lock cannot be overwritten', () => {
+  const actor = fixture(); refreshActorGrowthPlan(actor, fixtureItems, world); receive(actor, 'left');
+  const state = { phaseSurvivors: [actor], ...world, publicItems: fixtureItems, craftables: fixtureItems,
+    itemMetaById: meta, itemNameById: names, ruleset, nextDay: 1, nextPhase: 'morning',
+    actionIntervalSec: 20, statusElapsedSec: 0, currentActionSec: () => 10 };
+  const moved = runPhaseActorActionPipeline({ state, actions: { isHyperloopTransit: () => true } }).updatedSurvivors[0];
+  assert.equal(moved.aiCurrentAction, 'moveTo'); assert.equal(moved._growthReadyAtSec, 13);
+  assert.equal(moved._actionReadyAtSec, 13);
+  const crafter = fixture(); refreshActorGrowthPlan(crafter, fixtureItems, world); receive(crafter, 'left'); receive(crafter, 'right');
+  const locked = runPhaseActorActionPipeline({ state: { ...state, phaseSurvivors: [crafter] }, actions: {
+    emitQueueRunEvent: (who) => { who._actionReadyAtSec = 15; },
+  } }).updatedSurvivors[0];
+  assert.equal(locked._actionReadyAtSec, 15); assert.equal(locked._growthReadyAtSec, 15);
 });
 await check('a low-HP recovering actor queues truthful rest instead of a hunt that cannot start', () => {
   const actor = { ...fixture(), hp: 20, maxHp: 100 };
@@ -234,13 +288,15 @@ await check('special crafting requires and consumes the full catalog recipe, wit
   assert.equal(actor.equipped.head, target._id);
 });
 
-await check('24 canonical actors autonomously complete equipment in a safe training world', async () => {
+await check('24 canonical actors complete real equipment before the first night ends in a safe training world', async () => {
   const random = Math.random; const initialSeed = Number(process.env.EH_GROWTH_SEED || 1101); let seed = initialSeed;
   Math.random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
   try {
     const items = await loadGuestSimulationItemCatalog();
     const mapObj = buildGuestSimulationMap(); const settings = getDefaultSimulationSettings();
-    const zoneGraph = buildHyperloopZoneGraph(buildBaseZoneGraph(mapObj, mapObj.zones), mapObj.zones, mapObj.zones.filter((zone) => zone.hasHyperloop).map((zone) => zone.zoneId));
+    const baseGraph = buildBaseZoneGraph(mapObj, mapObj.zones);
+    const loops = mapObj.zones.filter((zone) => zone.hasHyperloop).map((zone) => zone.zoneId);
+    const zoneGraph = buildHyperloopZoneGraph(baseGraph, mapObj.zones, loops);
     const { shuffledChars } = buildInitialSimulationRoster({ charList: buildGuestSimulationRoster(), routeItems: items, initialMap: mapObj, initialZoneIds: mapObj.zones.map((zone) => zone.zoneId), loadedSettings: settings });
     const itemMetaById = buildItemMetaById(items); const itemNameById = buildItemNameById(items); const itemKeyById = buildItemKeyById(items);
     // Growth-only control: same team, no PvP/hazards/spawns. Never teleport, refill,
@@ -249,21 +305,26 @@ await check('24 canonical actors autonomously complete equipment in a safe train
     const completed = new Map(); let crafts = 0; let moves = 0;
     const nextSpawn = { fieldResources: createFieldResources(mapObj, items, ruleset) };
     const actions = { emitCraftRunEvent: () => { crafts++; }, emitRunEvent: (kind) => { if (kind === 'move') moves++; },
+      isHyperloopTransit: (from, to) => isHyperloopTransit(baseGraph, loops, from, to),
       applyLootCraftResult: (actor, result) => applyLootCraftResult(actor, result, itemMetaById, { emitCraftRunEvent: () => { crafts++; } }),
     };
-    for (let cycle = 0; cycle < 100 && completed.size < 24; cycle++) {
-      const phaseIdxNow = Math.floor(cycle / 7);
+    const morningEndSec = getPhaseDurationSec(ruleset, 1, 'morning');
+    const firstDayEndSec = morningEndSec + getPhaseDurationSec(ruleset, 1, 'night');
+    const timeline = createPhaseActionTimeline({ durationSec: firstDayEndSec, intervalSec: 1, onGrowth: (sec) => {
+      if (completed.size === 24) return;
+      const phaseIdxNow = sec < morningEndSec ? 0 : 1;
       actors = runPhaseActorActionPipeline({ actions, state: {
         phaseSurvivors: actors, publicItems: items, craftables: buildCraftableItems(items), itemMetaById, itemNameById, itemKeyById,
         mapObj, zones: mapObj.zones, zoneGraph, forbiddenIds: new Set(), ruleset,
         nextDay: Math.floor(phaseIdxNow / 2) + 1, nextPhase: phaseIdxNow % 2 ? 'night' : 'morning', phaseIdxNow,
-        actionIntervalSec: 20, statusElapsedSec: 0, currentActionSec: () => cycle * 20, nextSpawn,
+        actionIntervalSec: 20, statusElapsedSec: 0, currentActionSec: () => sec, nextSpawn,
       } }).updatedSurvivors;
-      for (const actor of actors) if (refreshActorGrowthPlan(actor, items, { mapObj, zoneGraph, nextSpawn }).openingComplete && !completed.has(actor._id)) completed.set(actor._id, cycle * 20);
-    }
+      for (const actor of actors) if (refreshActorGrowthPlan(actor, items, { mapObj, zoneGraph, nextSpawn, ruleset }).openingComplete && !completed.has(actor._id)) completed.set(actor._id, sec);
+    } });
+    timeline.advanceTo(firstDayEndSec);
     const pending = actors.filter((actor) => !completed.has(actor._id)).map((actor) => ({ name: actor.name, weapon: actor.weaponType, zone: actor.zoneId, plan: actor._growthPlan, inventory: actor.inventory.map((row) => ({ name: row.name, qty: row.qty, component: row.craftComponent })) }));
-    console.log(JSON.stringify({ seed: initialSeed, training: true, complete: completed.size, total: 24, crafts, moves, completionSec: [...completed.values()].sort((a, b) => a - b), pending }, null, 2));
-    assert.equal(completed.size, 24, 'All unharmed training actors must finish their actual equipment targets without grants.');
+    console.log(JSON.stringify({ seed: initialSeed, training: true, firstDayEndSec, complete: completed.size, total: 24, crafts, moves, completionSec: [...completed.values()].sort((a, b) => a - b), pending }, null, 2));
+    assert.equal(completed.size, 24, 'All unharmed training actors must finish actual targets before the first night ends, without grants.');
   } finally { Math.random = random; }
 });
 console.log(`GROWTH_PLAN_CHECKS ${checks}/${checks}`);

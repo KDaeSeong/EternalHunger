@@ -228,7 +228,9 @@ await check('actual guest phase cycle interleaves growth and combat without netw
     assert.ok(events.every((event) => !Number.isFinite(event.at?.sec) || event.at.sec <= state.matchSec), 'No events after the final match time.');
     const cycles = events.filter((event) => event.kind === 'action_cycle');
     const firstDay = cycles.filter((event) => event.at.day === 1 && event.at.phase === 'morning');
-    assert.deepEqual([...new Set(firstDay.map((event) => event.at.sec))], [0, 20, 40, 60, 80, 100, 120]);
+    assert.equal(Math.min(...firstDay.map((event) => event.at.sec)), 0);
+    assert.ok(firstDay.some((event) => event.intervalSec < 20 && event.at.sec % 20 !== 0),
+      'Opening work must resume at its individual action deadline, not wait for the old twenty-second batch.');
     assert.equal(new Set(firstDay.map((event) => event.who)).size, 24);
     assert.equal(events.filter((event) => event.kind === 'spawn_state').length, phases);
     assert.equal(saves, phases);
@@ -243,7 +245,17 @@ await check('actual guest phase cycle interleaves growth and combat without netw
     assert.ok(battles.length > 0);
     assert.ok(cycles.some((event) => event.at.sec > battles[0].at.sec));
     assert.ok(crafts.some((event) => event.at.sec > battles[0].at.sec), 'Real crafting must continue after combat has started.');
-    for (const event of cycles) assert.equal(event.at.sec % 10, 0, 'Growth cannot charge serial travel time to the shared clock.');
+    const readyByActor = new Map();
+    for (const event of events) {
+      if (event.kind === 'revive') readyByActor.delete(event.who);
+      if (event.kind !== 'action_cycle') continue;
+      assert.ok(Number.isFinite(event.intervalSec) && event.intervalSec >= 1);
+      assert.ok(event.readyAtSec >= event.at.sec + event.intervalSec,
+        'The selected action charges its actor, including travel or a longer cast lock.');
+      assert.ok(event.at.sec >= (readyByActor.get(event.who) || 0),
+        'An individual cannot farm/craft again before its previous action ends.');
+      readyByActor.set(event.who, event.readyAtSec);
+    }
     assert.equal(new Set(cycles.map((event) => `${event.who}:${event.at.sec}`)).size, cycles.length);
     const deaths = events.filter((event) => event.kind === 'death');
     const timedEvents = events.filter((event) => ['craft', 'battle', 'action_cycle', 'death'].includes(event.kind));

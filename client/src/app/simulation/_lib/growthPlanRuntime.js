@@ -170,8 +170,10 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
   const openingComplete = progress.remaining.length === 0;
   const late = openingComplete ? getLateGrowthTargets(actor, items) : { targets: [], issues: [] };
   const remaining = openingComplete ? late.targets : [...progress.remaining].sort((a, b) =>
-    tierBySlot[inferEquipSlot(a)] - tierBySlot[inferEquipSlot(b)]
-    || Number(b._id === actor._growthFocusId) - Number(a._id === actor._growthFocusId));
+    // Finish a viable recipe before spreading intermediates across empty
+    // slots. Blocked/attempted focuses still fall through to real replanning.
+    Number(String(b._id) === String(actor._growthFocusId)) - Number(String(a._id) === String(actor._growthFocusId))
+    || tierBySlot[inferEquipSlot(a)] - tierBySlot[inferEquipSlot(b)]);
   const base = { targetIds: openingComplete ? [] : progress.targets.map((item) => String(item._id)),
     completedSlots: progress.completedSlots, totalSlots: progress.totalSlots, openingComplete,
     stage: openingComplete ? 'late' : 'opening', goalIssues: late.issues,

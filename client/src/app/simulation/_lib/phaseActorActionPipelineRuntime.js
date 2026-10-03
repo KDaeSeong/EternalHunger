@@ -86,6 +86,24 @@ export function* runPhaseActorActionPipelineSteps({
     if (Number(actor?._growthReadyAtSec || 0) > now || Number(actor?._actionReadyAtSec || 0) > now) return 'action_wait';
     return '';
   };
+  // The world checks readiness each second; don't clone inventories or plan
+  // every team's recipes when nobody can take a field action. Combat, status
+  // and movement still advance on the separate elapsed-world path.
+  const holdKey = scheduled && state.growthHoldCache ? JSON.stringify([
+    [...(state.forbiddenIds || [])], roster.map((actor) => [actor._id, actor.teamId,
+      getCombatSpaceId(actor), actor.zoneId, actor.hp, actor.maxHp, growthHoldStatus(actor)]),
+  ]) : '';
+  const allHeld = scheduled && roster.every((actor) => growthHoldStatus(actor));
+  // Cache only a wholly held boundary, after publishing its real decisions
+  // once. This phase-local cache is never attached to actors or saved frames.
+  if (allHeld && holdKey && state.growthHoldCache.key === holdKey) {
+    for (const actor of roster) {
+      if (getActorDimensionRiftId(actor)) actor.aiCurrentAction = 'dimension_rift_wait';
+      else if (actor?._wildlifeHunt) actor.aiCurrentAction = 'hunt_combat';
+    }
+    return { newlyDead: [], pendingPickAssigned: initialPendingPickAssigned,
+      updatedSurvivors: roster.filter((actor) => Number(actor?.hp || 0) > 0) };
+  }
   const baseZonePopBySpace = new Map([...new Set(roster.map(getCombatSpaceId))]
     .map((spaceId) => [spaceId, buildBaseZonePopulation(roster, spaceId)]));
   // Every member plans from the same pre-action roster, not a partly moved team.
@@ -150,6 +168,9 @@ export function* runPhaseActorActionPipelineSteps({
       return hold('rotation_wait');
     }
     let moveCost = 1;
+    const openingPlan = planningActorsById.get(String(sourceActor?._id || sourceActor?.id || ''))?._growthPlan;
+    const hasOpeningWork = Boolean(openingPlan && ((!openingPlan.openingComplete && openingPlan.totalSlots > 0)
+      || openingPlan.stage === 'recovery'));
     if (scheduled) sourceActor._actionCycleKey = `${state.phaseIdxNow}:${now}`;
     const teamMovementPlan = teamMovementPlans.get(String(sourceActor?._id || sourceActor?.id || ''));
     const resourceGoal = teamMovementPlan?.objective?.type === 'natural_core' ? teamMovementPlan.objective : null;
@@ -187,13 +208,19 @@ export function* runPhaseActorActionPipelineSteps({
 
     if (scheduled && actorStepResult.actor) {
       const actor = actorStepResult.actor;
-      // Teams move in parallel: one member's travel must not spend everyone
-      // else's match time. Travel still delays that member's next action.
-      actor._growthReadyAtSec = now + Math.max(state.actionIntervalSec, moveCost);
-      actor._actionReadyAtSec = now + moveCost;
+      // Opening recipes use the selected action's real ETA, not a blanket
+      // twenty-second pause after a one-second craft/search. Travel and any
+      // longer cast lock still cost that actor time; no shared clock is spent.
+      // Preserve the established late-game cadence after the basic loadout.
+      const actionDurationSec = Math.max(moveCost, Number(actor.aiActionEtaSec) || 1);
+      const durationSec = hasOpeningWork ? actionDurationSec
+        : Math.max(actionDurationSec, Number(state.actionIntervalSec) || 20);
+      actor._actionReadyAtSec = Math.max(Number(actor._actionReadyAtSec || 0),
+        Math.round((now + actionDurationSec) * 1e6) / 1e6);
+      actor._growthReadyAtSec = Math.max(actor._actionReadyAtSec, Math.round((now + durationSec) * 1e6) / 1e6);
       actions.emitRunEvent?.('action_cycle', {
         who: String(actor._id), teamId: actor.teamId, chosen: actor.aiCurrentAction,
-        intervalSec: state.actionIntervalSec, readyAtSec: actor._growthReadyAtSec,
+        intervalSec: durationSec, readyAtSec: actor._growthReadyAtSec,
       }, actions.atNow?.());
     }
 
@@ -213,6 +240,7 @@ export function* runPhaseActorActionPipelineSteps({
     yield;
   }
   const updatedSurvivors = processedActors.filter((survivor) => Number(survivor?.hp || 0) > 0);
+  if (state.growthHoldCache) state.growthHoldCache.key = allHeld ? holdKey : '';
 
   return {
     newlyDead,

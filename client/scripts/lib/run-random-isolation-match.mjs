@@ -49,7 +49,7 @@ export async function createRandomIsolationInput(runSeed = '1101', {
   return JSON.stringify({ map, settings, items, survivors: shuffledChars, runSeed, initialRosterSeed });
 }
 
-export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseOnly = false, uiNoise = () => {}, savedInput = null, onFinish, onFrame } = {}) {
+export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseOnly = false, uiNoise = () => {}, savedInput = null, onFinish, onFrame, stopAfterPhase = null } = {}) {
   const fixture = savedInput ? { map: savedInput.map, settings: savedInput.settings, items: savedInput.publicItems,
     survivors: savedInput.initialFrame.survivors, runSeed: savedInput.runSeed } : JSON.parse(inputJson);
   const { map, settings, items, survivors, runSeed } = structuredClone(fixture);
@@ -185,14 +185,22 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
     if (noisy) refs.runRandomRef.current = restoreSeedRng(JSON.parse(JSON.stringify(refs.runRandomRef.current.getState())));
     source = refs.runRandomRef.current;
     phases += 1;
+    // An opening deadline probe runs the same production phases/frames, but
+    // stops explicitly instead of pretending that its partial run is a match.
+    if (stopAfterPhase && state.day === stopAfterPhase.day && state.phase === stopAfterPhase.phase) break;
   }
   await finishPromise;
   flushLogs();
-  assert.ok(ending, 'The replay comparison must reach a real match ending.');
-  assert.equal(events.filter((event) => event.kind === 'match_end').length, 1);
-  assert.equal(ticks, ending.atSec);
+  if (stopAfterPhase) {
+    assert.ok(ending || (state.day === stopAfterPhase.day && state.phase === stopAfterPhase.phase), 'Reach the requested production phase.');
+    assert.equal(ticks, latestFrame.matchSec);
+  } else {
+    assert.ok(ending, 'The replay comparison must reach a real match ending.');
+    assert.equal(events.filter((event) => event.kind === 'match_end').length, 1);
+    assert.equal(ticks, ending.atSec);
+    assert.ok(events.some((event) => event.kind === 'battle'));
+  }
   assert.ok(events.some((event) => event.kind === 'craft'));
-  assert.ok(events.some((event) => event.kind === 'battle'));
   if (noisy) assert.ok(delays.size > 1 && observerReads > 0);
   const evidence = { seed: runSeed, phases, frames, ticks, eventCount: events.length, ending,
     random: refs.runRandomRef.current.getState(),

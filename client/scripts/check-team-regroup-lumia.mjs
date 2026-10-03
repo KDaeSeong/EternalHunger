@@ -145,6 +145,21 @@ check('an existing action lock ends at its actual ready time, not on a later day
   assert.equal(ready.updatedSurvivors[0]._actionReadyAtSec, 423);
   assert.equal(ready.events.find((event) => event.kind === 'move').at.sec, 420);
 });
+check('a phase-local held-boundary cache preserves initial hold evidence, invalidates HP/closure changes and is not saved on actors', () => {
+  const world = { ...makeWorld(), growthHoldCache: {} };
+  let squad = preparedSquad(world);
+  squad.forEach((actor) => { actor._growthReadyAtSec = 420; });
+  const first = tick(squad, world, 400); squad = first.updatedSurvivors;
+  assert.equal(squad[0]._teamRegroup.status, 'action_wait'); assert.ok(first.events.length > 0);
+  const repeated = tick(squad, world, 401);
+  assert.deepEqual(repeated.updatedSurvivors, squad); assert.deepEqual(repeated.events, []);
+  const oldKey = world.growthHoldCache.key;
+  squad[0].hp -= 1;
+  tick(squad, world, 402); assert.notEqual(world.growthHoldCache.key, oldKey);
+  world.forbiddenIds.add(GAS);
+  tick(squad, world, 403); assert.notEqual(world.growthHoldCache.key, oldKey);
+  assert.ok(squad.every((actor) => !Object.hasOwn(actor, 'growthHoldCache')));
+});
 
 check('a gathered squad does not leave its busy teammate behind on its next rotation', () => {
   const world = makeWorld(); let squad = preparedSquad(world);
