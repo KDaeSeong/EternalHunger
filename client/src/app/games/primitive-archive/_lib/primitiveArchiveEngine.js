@@ -6275,9 +6275,17 @@ function autoAssignTribeWorkers(state) {
     const job = TRIBE_JOBS.find((row) => row.id === jobId);
     return !job?.techId || Boolean(state.research?.completed?.[job.techId]);
   };
+  // Surplus must already exist: do not borrow production from the workers
+  // being allocated, a future expedition, or a meal that has not been paid.
+  // Cover both living companions and two tribe settlements, with two more
+  // tribe portions in reserve, before expanding material and knowledge work.
+  const storedFood = forecastTribeFood(state, Object.fromEntries(TRIBE_JOBS.map((job) => [job.id, 0])), true);
+  const reserveNeed = Math.ceil(population / 4) * 2;
+  const canDiversify = storedFood.totalShortage <= 0 && storedFood.partyShortage <= 0
+    && storedFood.days[1].reserve >= reserveNeed;
   const targets = {
-    forager: Math.max(2, Math.ceil(population * 0.3)),
-    hunter: Math.max(1, Math.ceil(population * 0.15)),
+    forager: canDiversify ? 2 : Math.max(2, Math.ceil(population * 0.3)),
+    hunter: canDiversify ? 1 : Math.max(1, Math.ceil(population * 0.15)),
     logger: jobUnlocked('logger') ? 1 : 0,
     herbalist: jobUnlocked('herbalist') ? 1 : 0,
     trapper: jobUnlocked('trapper') ? 1 : 0,
@@ -6291,7 +6299,9 @@ function autoAssignTribeWorkers(state) {
   };
   const selectedProject = projectRows(state).find((project) => project.selected && project.canWork);
   if (selectedProject) targets.builder = Math.max(1, Math.ceil(population / 5));
-  const priority = ['forager', 'hunter', 'builder', 'logger', 'herbalist', 'farmer', 'fisher', 'herder', 'trapper', 'miner', 'quarryman', 'scholar'];
+  const priority = canDiversify
+    ? ['forager', 'hunter', 'builder', 'logger', 'herbalist', 'miner', 'quarryman', 'scholar', 'farmer', 'fisher', 'herder', 'trapper']
+    : ['forager', 'hunter', 'builder', 'logger', 'herbalist', 'farmer', 'fisher', 'herder', 'trapper', 'miner', 'quarryman', 'scholar'];
 
   while (unassigned > 0) {
     // Feed both the tribe and living companions before development jobs.
@@ -6328,6 +6338,9 @@ function autoAssignTribeWorkers(state) {
   const partyNote = foodWorkers > 0 && foodBefore.partyShortage > 0
     ? ` 파티 식량 대비: 앞으로 이틀의 허기 회복 부족 ${Math.max(...foodBefore.days.map((row) => row.partyShortage))} → ${Math.max(...forecastTribeFood(state, assignments, true).days.map((row) => row.partyShortage))}. 부족 식사 뒤 남는 실제 음식만 계산합니다.`
     : '';
+  const surplusNote = canDiversify
+    ? ` 비축 식량 기반 분업: 현재 비축분으로 이틀의 부족·파티 식량과 부족 예비식 ${reserveNeed}단위를 확보하여 자재·기록 작업을 우선합니다.`
+    : '';
   return addLog({
     ...state,
     tribe: {
@@ -6336,7 +6349,7 @@ function autoAssignTribeWorkers(state) {
       autoAssignments: added,
       assignmentSerial: Number(tribe.assignmentSerial || 0) + 1,
     },
-  }, `\uD558\uB8E8 \uC790\uB3D9 \uC6B4\uC601 \uC9C1\uC5C5 \uBC30\uCE58: ${summary}.${foodNote}${partyNote}`);
+  }, `\uD558\uB8E8 \uC790\uB3D9 \uC6B4\uC601 \uC9C1\uC5C5 \uBC30\uCE58: ${summary}.${foodNote}${partyNote}${surplusNote}`);
 }
 function autoActionSignature(state) {
   return [

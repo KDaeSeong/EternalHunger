@@ -740,6 +740,99 @@ check('healthy companions and stocked food keep affordable automatic development
   }
 });
 
+function establishedTribeFixture(overrides = {}) {
+  const state = automaticTribeFixture({ inventory: { berry: 80 }, ...overrides });
+  state.day = 40;
+  state.weather = { ...state.weather, id: 'clear', cold: 0 };
+  state.party = state.party.map((member) => ({ ...member, hunger: 0, stamina: 10 }));
+  state.research.completed = Object.fromEntries([
+    'GATHERING', 'HUNTING', 'STONE_TOOLS', 'HERBALISM', 'AGRICULTURE',
+    'ANIMAL_HUSBANDRY', 'FISHING', 'TRAPPING', 'MINING', 'EARLY_CONSTRUCTION',
+  ].map((id) => [id, true]));
+  state.projects.completed = Object.fromEntries(engine.TRIBE_PROJECTS
+    .filter((project) => project.id !== 'stone-monument').map((project) => [project.id, true]));
+  state.tribe.population = 16;
+  state.tribe.assignments = Object.fromEntries(engine.TRIBE_JOBS.map((job) => [job.id, {
+    forager: 5, hunter: 3, logger: 1, herbalist: 1, farmer: 4, fisher: 1, herder: 1,
+  }[job.id] || 0]));
+  state.tribe.autoAssignments = { ...state.tribe.assignments };
+  return engine.normalizeState(state);
+}
+
+check('real stored provisions release established automatic workers for materials and knowledge instead of permanent food-only targets', () => {
+  const state = establishedTribeFixture();
+  const original = structuredClone(state);
+  const expectedAssignments = Object.fromEntries(engine.TRIBE_JOBS.map((job) => [job.id, {
+    forager: 2, hunter: 1, logger: 1, herbalist: 1, miner: 1, quarryman: 1,
+    scholar: 3, farmer: 4, fisher: 1, herder: 1,
+  }[job.id] || 0]));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.deepEqual(next.tribe.assignments, expectedAssignments);
+  assert.equal(next.tribe.lastProduction.gains.stone, 2, 'Materials must come from two real producers, not a development gift.');
+  assert.equal(next.tribe.lastProduction.researchPoints, 3, 'Only the three actually assigned scholars may contribute daily RP.');
+  assert.equal(next.tribe.lastProduction.shortage, 0);
+  const manuallyAssigned = engine.normalizeState({ ...state, tribe: {
+    ...state.tribe, assignments: expectedAssignments, autoAssignments: expectedAssignments,
+    assignmentSerial: state.tribe.assignmentSerial + 1,
+  } });
+  expectSameOperation(next, engine.runRestAction(manuallyAssigned, 'shiroko', { rng: noEvents }));
+  assert.ok(next.log.some((line) => line.includes('비축 식량 기반 분업')));
+  assert.deepEqual(state, original);
+  expectSameOperation(next, engine.runAutoDayAction(engine.normalizeState(JSON.parse(JSON.stringify(state))), { rng: noEvents }));
+});
+
+check('scarce food and medicine cannot trigger surplus-workforce development even in a large researched tribe', () => {
+  for (const inventory of [{}, { herb_tonic: 80 }]) {
+    const state = establishedTribeFixture({ inventory });
+    state.party = state.party.map((member) => ({ ...member, hunger: 70 }));
+    const next = engine.runAutoDayAction(state, { rng: noEvents });
+    assert.equal(next.tribe.lastProduction.shortage, 0);
+    assert.equal(next.tribe.assignments.scholar, 0);
+    assert.equal(next.tribe.assignments.miner, 0);
+    assert.equal(next.tribe.assignments.quarryman, 0);
+    assert.ok(!next.log.some((line) => line.includes('비축 식량 기반 분업')));
+    assert.equal(Number(next.inventory.herb_tonic || 0), Number(inventory.herb_tonic || 0));
+  }
+});
+
+check('surplus division uses already stored whole portions and stops again when its real reserve falls below the threshold', () => {
+  const sufficient = establishedTribeFixture({ inventory: { berry: 16 } });
+  const expanded = engine.runAutoDayAction(sufficient, { rng: noEvents });
+  assert.ok(expanded.log.some((line) => line.includes('비축 식량 기반 분업')));
+  assert.ok(expanded.tribe.lastProduction.researchPoints > 0);
+  const depleted = engine.normalizeState({
+    ...sufficient, inventory: { berry: 15 }, tribe: expanded.tribe, log: [],
+  });
+  const replanned = engine.runAutoDayAction(depleted, { rng: noEvents });
+  assert.equal(replanned.tribe.assignments.forager, 5);
+  assert.equal(replanned.tribe.assignments.hunter, 3);
+  assert.equal(replanned.tribe.assignments.scholar, 0);
+  assert.equal(replanned.tribe.lastProduction.shortage, 0);
+  assert.ok(!replanned.log.some((line) => line.includes('비축 식량 기반 분업')),
+    'Existing worker yields cannot be borrowed to keep a surplus phase after the actual reserve is spent.');
+});
+
+check('stored tribe portions alone cannot promise food for hungry living companions', () => {
+  const state = establishedTribeFixture({ inventory: { berry: 16 } });
+  state.party = state.party.map((member) => ({ ...member, hunger: 100 }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.tribe.lastProduction.shortage, 0);
+  assert.ok(!next.log.some((line) => line.includes('비축 식량 기반 분업')));
+});
+
+check('surplus workforce cannot move manually assigned producers or use professions that remain locked', () => {
+  const state = establishedTribeFixture();
+  state.tribe.autoAssignments.farmer = 0;
+  delete state.research.completed.MINING;
+  delete state.research.completed.EARLY_CONSTRUCTION;
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.tribe.assignments.farmer - next.tribe.autoAssignments.farmer, 4);
+  assert.equal(next.tribe.assignments.miner, 0);
+  assert.equal(next.tribe.assignments.quarryman, 0);
+  assert.ok(next.tribe.assignments.scholar > 0);
+  assert.equal(Object.values(next.tribe.assignments).reduce((sum, count) => sum + count, 0), state.tribe.population);
+});
+
 check('party food planning cannot borrow manual project workers or promise locked food professions', () => {
   const state = sharedRationFixture();
   state.inventory = {};
@@ -1236,6 +1329,8 @@ check('real automatic economy sustains repeated seasons across every difficulty 
       let coldDays = 0;
       let shortageDays = 0;
       let midpointTech = 0;
+      let materialDays = 0;
+      let scholarDays = 0;
       const casualties = new Set();
       for (let day = 0; day < 160 && !state.ended; day += 1) {
         if (day === 80) state = engine.normalizeState(JSON.parse(JSON.stringify(state)));
@@ -1252,6 +1347,8 @@ check('real automatic economy sustains repeated seasons across every difficulty 
           if (member.hp <= 0) casualties.add(member.id);
         }
         if (state.tribe.lastProduction.shortage > 0) shortageDays += 1;
+        if (state.tribe.assignments.miner + state.tribe.assignments.quarryman > 0) materialDays += 1;
+        if (state.tribe.lastProduction.researchPoints > 0) scholarDays += 1;
         if (state.weather.cold >= 5) coldDays += 1;
         if (!firstReady && engine.archiveVictorySummary(state).canComplete) firstReady = state.day;
         if (day === 95) midpointTech = engine.techRows(state).filter((row) => row.completed).length;
@@ -1259,13 +1356,17 @@ check('real automatic economy sustains repeated seasons across every difficulty 
       const tech = engine.techRows(state).filter((row) => row.completed).length;
       const civics = engine.civicRows(state).filter((row) => row.completed).length;
       const alive = state.party.filter((member) => member.hp > 0).length;
-      naturalRuns.push({ difficulty, seed, longRun: true, day: state.day, alive, firstReady, shortageDays, coldDays, population: state.tribe.population, tech, civics });
+      naturalRuns.push({ difficulty, seed, longRun: true, day: state.day, alive, firstReady, shortageDays, coldDays, materialDays, scholarDays, population: state.tribe.population, tech, civics });
       assert.equal(state.day, 161, `Long-run ${difficulty} seed ${seed} must not repeat the old avoidable economy collapse.`);
       assert.equal(state.ended, false);
       assert.equal(shortageDays, 0);
       assert.ok(coldDays > 0, 'The run must exercise actual cold weather rather than a warm controlled fixture.');
       assert.ok(tech > midpointTech, 'Survival work must leave real room for later technological development.');
       assert.ok(civics > 0);
+      if (['normal', 'hard'].includes(difficulty)) {
+        assert.ok(materialDays > 0, 'An established ordinary tribe must actually assign unlocked material producers instead of staying food-only forever.');
+        assert.ok(scholarDays > 0, 'Real stored food must eventually leave workforce room for research in an ordinary full run.');
+      }
       if (seed === 89) {
         assert.equal(alive, 3, 'The ordinary reference run must retain every living companion without free food or healing.');
         assert.ok(firstReady > 0, 'Every difficulty reference must reach all five real development objectives.');
