@@ -16,6 +16,7 @@ import {
   createProgressExportAction,
   FIXED_EXPENSES,
   formatMoney,
+  globalMarketRows,
   globalTradeSummary,
   inboundInventoryAction,
   inventoryRows,
@@ -266,7 +267,10 @@ check('20 real exports keep every result and unpaid invoice, including profitabl
     'Profit tax paid at closing must not be recorded again as unpaid debt.');
   const oldest = state.global.foreignReceivables.at(-1);
   const collected = collectForeignReceivableAction(next, oldest.id);
-  assert.equal(collected.company.cashKrw, next.company.cashKrw + oldest.amountKrw);
+  const collectionRate = globalMarketRows(next).find((row) => row.id === oldest.marketId).exchangeRateKrw;
+  const collectedAmount = Math.round(oldest.foreignAmount * collectionRate);
+  assert.equal(collected.company.cashKrw, next.company.cashKrw + collectedAmount);
+  assert.equal(managementReport(collected).income.fxGainLossKrw, collectedAmount - oldest.amountKrw);
 });
 
 check('20 pending plans, imports and 13 paid hedges survive beyond the old display limits', () => {
@@ -274,8 +278,8 @@ check('20 pending plans, imports and 13 paid hedges survive beyond the old displ
   for (let i = 0; i < 20; i += 1) {
     state = createExportPlanAction(state, 'jp-retail', 'book-akashi', 1);
     state = createImportPlanAction(state, 'jp-retail', 'goods-aero', 1);
+    if (i < 13) state = createHedgeContractAction(state);
   }
-  for (let i = 0; i < 13; i += 1) state = createHedgeContractAction(state);
   const loaded = normalizeState(clone(state));
   assert.equal(loaded.global.exportPlans.length, 20);
   assert.equal(loaded.global.importPlans.length, 20);

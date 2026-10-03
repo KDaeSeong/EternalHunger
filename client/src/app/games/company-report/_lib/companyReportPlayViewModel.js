@@ -34,7 +34,7 @@ export function buildCompanyReportPlayViewModel({
   const reportTrend = reportHistoryTrend(state);
   const globalSummary = globalTradeSummary(state);
   const capitalSummary = capitalMarketSummary(state);
-  const markets = globalMarketRows();
+  const markets = globalMarketRows(state);
   const stocks = inventoryRows(state);
   const inventoryValuations = inventoryValuationRows(state);
   const inventoryWriteDowns = inventoryWriteDownRows(state);

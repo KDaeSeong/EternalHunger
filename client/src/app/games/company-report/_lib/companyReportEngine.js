@@ -10,6 +10,11 @@ import {
   LEDGER_TABLE_PARENT_DEPENDENCIES,
 } from './companyReportData.js';
 
+const HEDGE_COVERAGE_RATIO = 0.65;
+const HEDGE_PREMIUM_RATE = 0.012;
+// Fictional, deterministic monthly quotes, not live investment market data.
+const FX_MONTHLY_MOVES = [0.025, -0.018, 0.035, -0.026, 0.012, -0.031];
+
 export {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -195,6 +200,151 @@ function normalizeOperatingExpensePeriod(period, company, disclosures = []) {
     .filter((row) => row && Number(row.year) === year && Number(row.month) === month && validAmount(row.costKrw))
     .reduce((sum, row) => sum + row.costKrw, 0);
   return { year, month, marketingKrw: 0, disclosureKrw, coverage: 'recorded-only' };
+}
+
+function positiveRate(value, fallback) {
+  return Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback;
+}
+
+function currentExchangeRate(state, market) {
+  const period = Number(state?.company?.year || 2026) * 12 + Number(state?.company?.month || 2);
+  let latestPeriod = -Infinity;
+  let rate = market.exchangeRateKrw;
+  for (const row of (Array.isArray(state?.global?.exchangeRateLog) ? state.global.exchangeRateLog : [])) {
+    const rowPeriod = Number(row?.year) * 12 + Number(row?.month);
+    if (row?.marketId === market.id && Number(row.month) >= 1 && Number(row.month) <= 12
+      && rowPeriod <= period && rowPeriod > latestPeriod && positiveRate(row.exchangeRateKrw, 0)) {
+      latestPeriod = rowPeriod;
+      rate = Number(row.exchangeRateKrw);
+    }
+  }
+  return rate;
+}
+
+function nextExchangeRateLog(state, nextDate) {
+  const periodIndex = nextDate.year * 12 + nextDate.month;
+  const quotes = GLOBAL_MARKETS.map((market, index) => {
+    const move = FX_MONTHLY_MOVES[(periodIndex + index * 2) % FX_MONTHLY_MOVES.length];
+    return {
+      marketId: market.id, currency: market.currency, ...nextDate,
+      exchangeRateKrw: Math.max(0.0001, Math.round(currentExchangeRate(state, market) * (1 + move) * 10000) / 10000),
+    };
+  });
+  return [...quotes, ...state.global.exchangeRateLog].slice(0, 24);
+}
+
+function exportPlanTerms(state, plan, market, product) {
+  const soldUnits = Math.max(1, Math.round(Number(plan.plannedUnits || 0) * Math.min(1.15, (market.demand + Number(state.company.reputation || 0)) / 165)));
+  const salesKrw = Math.round(product.unitPrice * soldUnits * (1 + market.demand / 230));
+  const bookRate = positiveRate(plan.exchangeRateKrw, market.exchangeRateKrw);
+  return { soldUnits, salesKrw, foreignAmount: salesKrw / bookRate };
+}
+
+function importPlanTerms(plan, market, product) {
+  const units = Math.max(1, Math.round(Number(plan.plannedUnits || 0)));
+  const foreignUnitCostKrw = product.unitCost * (0.72 + market.tariffRate / 100);
+  const bookRate = positiveRate(plan.exchangeRateKrw, market.exchangeRateKrw);
+  return { units, foreignUnitCostKrw, foreignAmount: units * foreignUnitCostKrw / bookRate, bookRate };
+}
+
+function foreignReceivableTerms(row) {
+  const remainingKrw = Math.max(0, Number(row.amountKrw || 0) - Number(row.collectedKrw || 0));
+  // Old won-only invoices have no historical currency quantity. Keep their
+  // cash amounts fixed rather than fabricating a past conversion rate.
+  const hasCurrencyAmount = Number.isFinite(Number(row.foreignAmount)) && Number(row.foreignAmount) > 0
+    && positiveRate(row.exchangeRateKrw, 0) && Number(row.amountKrw) > 0;
+  return {
+    remainingKrw,
+    foreignAmount: hasCurrencyAmount ? Number(row.foreignAmount) * remainingKrw / Number(row.amountKrw) : 0,
+  };
+}
+
+function tradeExposureRows(state) {
+  const rows = [];
+  for (const [kind, plans] of [['EXPORT_PLAN', state.global.exportPlans], ['IMPORT_PLAN', state.global.importPlans]]) {
+    for (const plan of plans.filter((row) => row.status === 'ACTIVE')) {
+      const market = getMarket(plan.marketId);
+      const product = getProduct(plan.productId);
+      if (!market || !product) continue;
+      const terms = kind === 'EXPORT_PLAN' ? exportPlanTerms(state, plan, market, product) : importPlanTerms(plan, market, product);
+      if (Number.isFinite(terms.foreignAmount) && terms.foreignAmount > 0) {
+        rows.push({ kind, sourceId: plan.id, marketId: market.id, currency: market.currency,
+          foreignAmount: terms.foreignAmount, exchangeRateKrw: currentExchangeRate(state, market) });
+      }
+    }
+  }
+  for (const row of state.global.foreignReceivables) {
+    const market = getMarket(row.marketId);
+    const terms = foreignReceivableTerms(row);
+    if (market && terms.foreignAmount > 0) rows.push({
+      kind: 'FOREIGN_RECEIVABLE', sourceId: row.id, marketId: market.id, currency: market.currency,
+      foreignAmount: terms.foreignAmount, exchangeRateKrw: currentExchangeRate(state, market),
+    });
+  }
+  return rows;
+}
+
+function exposureKey(row) { return `${row.kind}:${row.sourceId}`; }
+
+function hedgeCoverageRows(state) {
+  const exposures = tradeExposureRows(state);
+  const exposureByKey = new Map(exposures.map((row) => [exposureKey(row), row]));
+  const covered = new Map();
+  for (const contract of state.global.hedgeContracts.filter((row) => row.status === 'ACTIVE')) {
+    for (const row of (Array.isArray(contract.allocations) ? contract.allocations : [])) {
+      const source = exposureByKey.get(exposureKey(row));
+      if (row.status === 'ACTIVE' && source?.marketId === row.marketId && positiveRate(row.exchangeRateKrw, 0)
+        && Number.isFinite(row.foreignAmount) && row.foreignAmount > 0) {
+        const key = exposureKey(row);
+        covered.set(key, (covered.get(key) || 0) + row.foreignAmount);
+      }
+    }
+  }
+  return exposures.map((row) => {
+    const protectedForeignAmount = Math.min(row.foreignAmount * HEDGE_COVERAGE_RATIO, covered.get(exposureKey(row)) || 0);
+    const availableForeignAmount = Math.max(0, row.foreignAmount * HEDGE_COVERAGE_RATIO - protectedForeignAmount);
+    return { ...row, protectedForeignAmount, availableForeignAmount,
+      availableNotionalKrw: availableForeignAmount * row.exchangeRateKrw >= 1 ? Math.round(availableForeignAmount * row.exchangeRateKrw) : 0 };
+  });
+}
+
+function settleLinkedHedges(state, completedExposures) {
+  const completed = new Map(completedExposures.map((row) => [exposureKey(row), row]));
+  const used = new Map();
+  let cashEffectKrw = 0;
+  const hedgeContracts = state.global.hedgeContracts.map((contract) => {
+    if (contract.status !== 'ACTIVE') return contract;
+    const sourceAllocations = Array.isArray(contract.allocations) ? contract.allocations : [];
+    if (!sourceAllocations.length) return {
+      ...contract, status: 'SETTLED', settlementKrw: 0, settlementYear: state.company.year,
+      settlementMonth: state.company.month, settlementReason: 'UNLINKED_LEGACY',
+    };
+    let changed = false;
+    const allocations = sourceAllocations.map((row) => {
+      const source = completed.get(exposureKey(row));
+      if (row.status !== 'ACTIVE' || !source || source.marketId !== row.marketId) return row;
+      changed = true;
+      const key = exposureKey(row);
+      // Recheck actual delivered currency and total coverage at settlement:
+      // forecasts, edited saves and duplicate links cannot overhedge delivery.
+      const remainingLimit = Math.max(0, source.foreignAmount * HEDGE_COVERAGE_RATIO - (used.get(key) || 0));
+      const deliveredAmount = Number.isFinite(row.foreignAmount) ? Math.max(0, row.foreignAmount) : 0;
+      const settledForeignAmount = Math.min(deliveredAmount, remainingLimit);
+      used.set(key, (used.get(key) || 0) + settledForeignAmount);
+      const lockedRate = positiveRate(row.exchangeRateKrw, source.exchangeRateKrw);
+      const direction = source.kind === 'IMPORT_PLAN' ? 1 : -1;
+      const settlementKrw = Math.round(settledForeignAmount * (source.exchangeRateKrw - lockedRate) * direction) || 0;
+      cashEffectKrw += settlementKrw;
+      return { ...row, status: 'SETTLED', settledForeignAmount, settlementKrw,
+        settledExchangeRateKrw: source.exchangeRateKrw, settlementYear: state.company.year, settlementMonth: state.company.month };
+    });
+    if (!changed) return contract;
+    const settled = allocations.every((row) => row.status === 'SETTLED');
+    return { ...contract, allocations, status: settled ? 'SETTLED' : 'ACTIVE',
+      settlementKrw: allocations.reduce((sum, row) => sum + Number(row.settlementKrw || 0), 0),
+      ...(settled ? { settlementYear: state.company.year, settlementMonth: state.company.month } : {}) };
+  });
+  return { hedgeContracts, cashEffectKrw };
 }
 
 export function createOrderAction(state, partnerId, productId, quantity) {
@@ -456,7 +606,7 @@ export function createExportPlanAction(state, marketId, productId, plannedUnits)
     marketId: market.id,
     productId: product.id,
     plannedUnits: units,
-    exchangeRateKrw: market.exchangeRateKrw,
+    exchangeRateKrw: currentExchangeRate(current, market),
     status: 'ACTIVE',
     year: current.company.year,
     month: current.company.month,
@@ -482,7 +632,7 @@ export function createImportPlanAction(state, marketId, productId, plannedUnits)
     marketId: market.id,
     productId: product.id,
     plannedUnits: units,
-    exchangeRateKrw: market.exchangeRateKrw,
+    exchangeRateKrw: currentExchangeRate(current, market),
     status: 'ACTIVE',
     year: current.company.year,
     month: current.company.month,
@@ -499,14 +649,19 @@ export function createImportPlanAction(state, marketId, productId, plannedUnits)
 
 export function createHedgeContractAction(state) {
   const current = normalizeState(state);
-  const summary = globalTradeSummary(current);
-  const notionalKrw = Math.max(50000000, Math.round((summary.openForeignReceivableKrw || 0) * 0.65));
-  const premiumKrw = Math.round(notionalKrw * 0.012);
+  const allocations = hedgeCoverageRows(current).filter((row) => row.availableNotionalKrw > 0)
+    .map((row) => ({ kind: row.kind, sourceId: row.sourceId, marketId: row.marketId, currency: row.currency,
+      foreignAmount: row.availableForeignAmount, exchangeRateKrw: row.exchangeRateKrw, status: 'ACTIVE' }));
+  if (!allocations.length) return addLog(current, '환헤지할 미보호 외화 거래가 없습니다. 수출입 계획을 등록하거나 외화채권을 확인하세요.');
+  const notionalKrw = allocations.reduce((sum, row) => sum + Math.round(row.foreignAmount * row.exchangeRateKrw), 0);
+  const premiumKrw = Math.round(notionalKrw * HEDGE_PREMIUM_RATE);
   if (Number(current.company.cashKrw || 0) < premiumKrw) return addLog(current, '현금이 부족해 환헤지 프리미엄을 납부할 수 없습니다.');
   const hedge = {
     id: `HG-${current.company.year}-${String(current.global.nextHedgeNo).padStart(4, '0')}`,
     notionalKrw,
     premiumKrw,
+    coverageRatio: HEDGE_COVERAGE_RATIO,
+    allocations,
     status: 'ACTIVE',
     year: current.company.year,
     month: current.company.month,
@@ -519,7 +674,7 @@ export function createHedgeContractAction(state) {
       hedgeContracts: [hedge, ...current.global.hedgeContracts],
       nextHedgeNo: Number(current.global.nextHedgeNo || 1) + 1,
     },
-  }, `${hedge.id} 환헤지 계약을 체결했습니다. 프리미엄 ${formatMoney(premiumKrw)}.`);
+  }, `${hedge.id} 환헤지 계약을 체결했습니다. 외화 거래 ${allocations.length}건의 65% 보호 / 프리미엄 ${formatMoney(premiumKrw)}. 해당 거래 정산·회수 때 환율 변화에 따라 손익을 반영합니다.`);
 }
 
 export function settleGlobalTradeAction(state) {
@@ -534,21 +689,19 @@ export function settleGlobalTradeAction(state) {
   const exportResults = [];
   const importResults = [];
   const foreignReceivables = [];
-  const hedgeEffectKrw = current.global.hedgeContracts
-    .filter((hedge) => hedge.status === 'ACTIVE')
-    .reduce((sum, hedge) => sum + Math.round(Number(hedge.notionalKrw || 0) * 0.018), 0);
+  const completedExposures = [];
 
   for (const plan of activeExports) {
     const market = getMarket(plan.marketId);
     const product = getProduct(plan.productId);
     if (!market || !product) continue;
-    const soldUnits = Math.max(1, Math.round(Number(plan.plannedUnits || 0) * Math.min(1.15, (market.demand + Number(current.company.reputation || 0)) / 165)));
-    const salesKrw = Math.round(product.unitPrice * soldUnits * (1 + market.demand / 230));
+    const { soldUnits, salesKrw, foreignAmount } = exportPlanTerms(current, plan, market, product);
+    const exchangeRateKrw = currentExchangeRate(current, market);
     const exportCostKrw = Math.round(product.unitCost * soldUnits + market.logisticsCostPerUnitKrw * soldUnits + market.localizationCostKrw);
     if (cashKrw < exportCostKrw) return addLog(current, `${plan.id} 정산에 필요한 현금 ${formatMoney(exportCostKrw)}이 부족합니다.`);
     cashKrw -= exportCostKrw;
-    const fxGainLossKrw = Math.round(salesKrw * ((market.exchangeRateKrw - Number(plan.exchangeRateKrw || market.exchangeRateKrw)) / Math.max(1, Number(plan.exchangeRateKrw || market.exchangeRateKrw))));
-    const receivableAmountKrw = Math.max(0, salesKrw + fxGainLossKrw);
+    const receivableAmountKrw = Math.max(0, Math.round(foreignAmount * exchangeRateKrw));
+    const fxGainLossKrw = receivableAmountKrw - salesKrw;
     const foreignAr = {
       id: `FAR-${current.company.year}-${String(nextForeignNo).padStart(4, '0')}`,
       marketId: market.id,
@@ -556,12 +709,15 @@ export function settleGlobalTradeAction(state) {
       amountKrw: receivableAmountKrw,
       collectedKrw: 0,
       currency: market.currency,
+      foreignAmount,
+      exchangeRateKrw,
       status: 'OPEN',
       year: current.company.year,
       month: current.company.month,
     };
     nextForeignNo += 1;
     foreignReceivables.push(foreignAr);
+    completedExposures.push({ kind: 'EXPORT_PLAN', sourceId: plan.id, marketId: market.id, foreignAmount, exchangeRateKrw });
     exportResults.push({
       id: `EXR-${plan.id}`,
       planId: plan.id,
@@ -572,6 +728,7 @@ export function settleGlobalTradeAction(state) {
       exportCostKrw,
       fxGainLossKrw,
       receivableAmountKrw,
+      exchangeRateKrw,
       year: current.company.year,
       month: current.company.month,
     });
@@ -581,8 +738,9 @@ export function settleGlobalTradeAction(state) {
     const market = getMarket(plan.marketId);
     const product = getProduct(plan.productId);
     if (!market || !product) continue;
-    const units = Math.max(1, Math.round(Number(plan.plannedUnits || 0)));
-    const landedUnitCostKrw = Math.round(product.unitCost * 0.72 + market.logisticsCostPerUnitKrw + product.unitCost * (market.tariffRate / 100));
+    const { units, foreignUnitCostKrw, foreignAmount, bookRate } = importPlanTerms(plan, market, product);
+    const exchangeRateKrw = currentExchangeRate(current, market);
+    const landedUnitCostKrw = Math.round(foreignUnitCostKrw * exchangeRateKrw / bookRate + market.logisticsCostPerUnitKrw);
     const landedCostKrw = landedUnitCostKrw * units;
     if (cashKrw < landedCostKrw) return addLog(current, `${plan.id} 수입 입고에 필요한 현금 ${formatMoney(landedCostKrw)}이 부족합니다.`);
     cashKrw -= landedCostKrw;
@@ -590,6 +748,7 @@ export function settleGlobalTradeAction(state) {
     const nextQty = Number(stock.onHand || 0) + units;
     const totalCost = Number(stock.onHand || 0) * Number(stock.avgCost ?? product.unitCost) + landedCostKrw;
     nextInventory[product.id] = { ...stock, onHand: nextQty, avgCost: Math.round(totalCost / Math.max(1, nextQty)) };
+    completedExposures.push({ kind: 'IMPORT_PLAN', sourceId: plan.id, marketId: market.id, foreignAmount, exchangeRateKrw });
     importResults.push({
       id: `IMR-${plan.id}`,
       planId: plan.id,
@@ -598,12 +757,14 @@ export function settleGlobalTradeAction(state) {
       units,
       landedUnitCostKrw,
       landedCostKrw,
+      exchangeRateKrw,
       year: current.company.year,
       month: current.company.month,
     });
   }
 
-  cashKrw += hedgeEffectKrw;
+  const hedgeSettlement = settleLinkedHedges(current, completedExposures);
+  cashKrw += hedgeSettlement.cashEffectKrw;
   return addLog({
     ...current,
     company: {
@@ -620,26 +781,37 @@ export function settleGlobalTradeAction(state) {
       exportResults: [...exportResults, ...current.global.exportResults],
       importResults: [...importResults, ...current.global.importResults],
       foreignReceivables: [...foreignReceivables, ...current.global.foreignReceivables],
-      hedgeContracts: current.global.hedgeContracts.map((hedge) => hedge.status === 'ACTIVE' ? { ...hedge, status: 'SETTLED', settlementKrw: Math.round(Number(hedge.notionalKrw || 0) * 0.018) } : hedge),
+      hedgeContracts: hedgeSettlement.hedgeContracts,
       nextForeignArNo: nextForeignNo,
     },
-  }, `글로벌 수출입 정산 완료. 수출 ${exportResults.length}건, 수입 ${importResults.length}건, 헤지효과 ${formatMoney(hedgeEffectKrw)}.`);
+  }, `글로벌 수출입 정산 완료. 수출 ${exportResults.length}건, 수입 ${importResults.length}건, 환헤지 정산손익 ${formatMoney(hedgeSettlement.cashEffectKrw)}.`);
 }
 
 export function collectForeignReceivableAction(state, foreignArId) {
   const current = normalizeState(state);
   const row = current.global.foreignReceivables.find((item) => item.id === foreignArId);
   if (!row) return current;
-  const remaining = Math.max(0, Number(row.amountKrw || 0) - Number(row.collectedKrw || 0));
-  if (!remaining) return addLog(current, '이미 회수 완료된 외화채권입니다.');
+  const { remainingKrw, foreignAmount } = foreignReceivableTerms(row);
+  if (!remainingKrw) return addLog(current, '이미 회수 완료된 외화채권입니다.');
+  const market = getMarket(row.marketId);
+  const exchangeRateKrw = market ? currentExchangeRate(current, market) : 0;
+  const collectionCashKrw = foreignAmount > 0 && exchangeRateKrw > 0 ? Math.round(foreignAmount * exchangeRateKrw) : remainingKrw;
+  const collectionFxGainLossKrw = collectionCashKrw - remainingKrw;
+  const hedgeSettlement = settleLinkedHedges(current, [{ kind: 'FOREIGN_RECEIVABLE', sourceId: row.id,
+    marketId: row.marketId, foreignAmount, exchangeRateKrw }]);
   return addLog({
     ...current,
-    company: { ...current.company, cashKrw: Number(current.company.cashKrw || 0) + remaining },
+    company: { ...current.company, cashKrw: Number(current.company.cashKrw || 0) + collectionCashKrw + hedgeSettlement.cashEffectKrw },
     global: {
       ...current.global,
-      foreignReceivables: current.global.foreignReceivables.map((item) => item.id === row.id ? { ...item, collectedKrw: item.amountKrw, status: 'COLLECTED' } : item),
+      foreignReceivables: current.global.foreignReceivables.map((item) => item.id === row.id ? {
+        ...item, collectedKrw: item.amountKrw, status: 'COLLECTED', collectionCashKrw,
+        collectionFxGainLossKrw, collectedExchangeRateKrw: exchangeRateKrw,
+        collectedYear: current.company.year, collectedMonth: current.company.month,
+      } : item),
+      hedgeContracts: hedgeSettlement.hedgeContracts,
     },
-  }, `${getMarket(row.marketId)?.name || '해외 시장'} 외화채권 ${formatMoney(remaining)}을 회수했습니다.`);
+  }, `${market?.name || '해외 시장'} 외화채권 ${formatMoney(collectionCashKrw)}을 회수했습니다. 환차손익 ${formatMoney(collectionFxGainLossKrw)} / 환헤지 정산손익 ${formatMoney(hedgeSettlement.cashEffectKrw)}.`);
 }
 
 export function createDisclosureAction(state, disclosureTypeId) {
@@ -784,6 +956,12 @@ export function monthEndCloseAction(state) {
     exportCostKrw: income.exportCostKrw,
     inventoryWriteDownNet,
     operatingProfit,
+    fxGainLossKrw: income.fxGainLossKrw,
+    hedgePremiumExpensesKrw: income.hedgePremiumExpensesKrw,
+    hedgeSettlementKrw: income.hedgeSettlementKrw,
+    financialResultKrw: income.financialResultKrw,
+    financialIncomeCoverage: income.financialIncomeCoverage,
+    profitBeforeTax: income.profitBeforeTax,
     tax,
     netProfit,
     openingCashKrw: current.cashFlowPeriod.openingCashKrw,
@@ -810,6 +988,7 @@ export function monthEndCloseAction(state) {
     },
     cashFlowPeriod: { ...nextDate, openingCashKrw: closingCashKrw, coverage: 'full-period' },
     operatingExpensePeriod: { ...nextDate, marketingKrw: 0, disclosureKrw: 0, coverage: 'full-period' },
+    global: { ...current.global, exchangeRateLog: nextExchangeRateLog(current, nextDate) },
     settlements: [settlement, ...current.settlements].slice(0, 18),
   }, `${year}-${String(month).padStart(2, '0')} 월말 결산 완료. 순손익 ${formatMoney(netProfit)}. 고정비 ${formatMoney(expense)} / 이익세 ${formatMoney(tax)} 지급, 남은 현금 ${formatMoney(closingCashKrw)}.${current.cashFlowPeriod.coverage === 'since-load' ? ' 현금흐름은 불러온 뒤의 변화만 포함합니다.' : ''}`);
 }
@@ -1107,6 +1286,12 @@ export function createProgressExportAction(state) {
     `Paid Operating Expenses: ${formatMoney(management.income.paidOperatingExpenses)}`,
     `Operating Expense Coverage: ${management.income.operatingExpenseCoverage}`,
     `Operating Profit: ${formatMoney(management.income.operatingProfit)}`,
+    `FX Gain/Loss: ${formatMoney(management.income.fxGainLossKrw)}`,
+    `Hedge Premiums: ${formatMoney(management.income.hedgePremiumExpensesKrw)}`,
+    `Hedge Settlement: ${formatMoney(management.income.hedgeSettlementKrw)}`,
+    `Financial Result: ${formatMoney(management.income.financialResultKrw)}`,
+    `Profit Before Tax: ${formatMoney(management.income.profitBeforeTax)}`,
+    `Net Profit: ${formatMoney(management.income.netProfit)}`,
     `Global Export Sales: ${formatMoney(management.global.exportSalesKrw)}`,
     `Market Cap: ${formatMoney(management.capital.marketCapKrw)}`,
     `Investor Trust: ${management.capital.investorTrust}`,
@@ -1238,13 +1423,13 @@ export function receivableRows(state) {
   }));
 }
 
-export function globalMarketRows() {
-  return GLOBAL_MARKETS.map((market) => ({
-    ...market,
-    exchangeRateLabel: `${market.currency} ${market.exchangeRateKrw.toLocaleString('ko-KR')}원`,
-    demandLabel: `${market.demand}/100`,
-    tariffLabel: `${market.tariffRate}%`,
-  }));
+export function globalMarketRows(state = null) {
+  return GLOBAL_MARKETS.map((market) => {
+    const exchangeRateKrw = currentExchangeRate(state, market);
+    return { ...market, exchangeRateKrw,
+      exchangeRateLabel: `${market.currency} ${exchangeRateKrw.toLocaleString('ko-KR', { maximumFractionDigits: 4 })}원`,
+      demandLabel: `${market.demand}/100`, tariffLabel: `${market.tariffRate}%` };
+  });
 }
 
 export function globalReceivableRows(state) {
@@ -1264,9 +1449,12 @@ export function globalTradeSummary(state) {
   const importLandedCostKrw = current.global.importResults.reduce((sum, row) => sum + Number(row.landedCostKrw || 0), 0);
   const openForeignReceivableKrw = globalReceivableRows(current).reduce((sum, row) => sum + Number(row.remainingKrw || 0), 0);
   const activeHedges = current.global.hedgeContracts
-    .filter((hedge) => hedge.status === 'ACTIVE');
-  const hedgeNotionalKrw = activeHedges
-    .reduce((sum, hedge) => sum + Number(hedge.notionalKrw || 0), 0);
+    .filter((hedge) => hedge.status === 'ACTIVE' && Array.isArray(hedge.allocations)
+      && hedge.allocations.some((row) => row.status === 'ACTIVE'));
+  const coverage = hedgeCoverageRows(current);
+  const hedgeNotionalKrw = coverage.reduce((sum, row) => sum + Math.round(row.protectedForeignAmount * row.exchangeRateKrw), 0);
+  const totalForeignExposureKrw = coverage.reduce((sum, row) => sum + Math.round(row.foreignAmount * row.exchangeRateKrw), 0);
+  const hedgeableNotionalKrw = coverage.reduce((sum, row) => sum + row.availableNotionalKrw, 0);
   const activeExports = current.global.exportPlans.filter((plan) => plan.status === 'ACTIVE').length;
   const activeImports = current.global.importPlans.filter((plan) => plan.status === 'ACTIVE').length;
   const activeTradePlanCount = activeExports + activeImports;
@@ -1275,7 +1463,7 @@ export function globalTradeSummary(state) {
     activeImports,
     activeTradePlanCount,
     activeHedgeCount: activeHedges.length,
-    unhedgedTradePlanCount: Math.max(0, activeTradePlanCount - activeHedges.length),
+    unhedgedTradePlanCount: coverage.filter((row) => row.kind !== 'FOREIGN_RECEIVABLE' && row.availableNotionalKrw > 0).length,
     completedExports: current.global.exportResults.length,
     completedImports: current.global.importResults.length,
     exportSalesKrw,
@@ -1285,6 +1473,10 @@ export function globalTradeSummary(state) {
     openForeignReceivableKrw,
     collectedForeignReceivableKrw: current.global.foreignReceivables.reduce((sum, row) => sum + Number(row.collectedKrw || 0), 0),
     hedgeNotionalKrw,
+    hedgeableNotionalKrw,
+    totalForeignExposureKrw,
+    unhedgedExposureKrw: Math.max(0, totalForeignExposureKrw - hedgeNotionalKrw),
+    legacyUnlinkedHedgeCount: current.global.hedgeContracts.filter((row) => row.status === 'ACTIVE' && !row.allocations?.length).length,
     hedgeCount: current.global.hedgeContracts.length,
   };
 }
@@ -1397,6 +1589,7 @@ export function managementReport(state) {
   const recommendations = [];
 
   if (income.operatingExpenseCoverage === 'recorded-only') recommendations.push('이전 저장 자료에는 운영비 기록이 부족해, 이번 달 손익에 기록이 남은 지급비용만 반영합니다.');
+  if (income.financialIncomeCoverage === 'recorded-only') recommendations.push('이전 환헤지 정산에 날짜 기록이 없어, 금융손익은 정산 월이 확인되는 기록만 반영합니다.');
   if (operatingProfit < 0) recommendations.push('영업손실 상태입니다. 고정비 또는 저마진 상품 비중을 먼저 점검하세요.');
   if (receivableRatio >= 25) recommendations.push('매출채권 비중이 높습니다. 월말 결산 전에 회수 액션을 우선 처리하는 편이 좋습니다.');
   if (overdueAmount > 0) recommendations.push('연체 채권이 있습니다. 신용한도와 신규 주문 승인 기준을 보수적으로 두세요.');
@@ -1805,13 +1998,33 @@ function periodIncomeSummary(state) {
   const disclosureExpenses = state.operatingExpensePeriod.disclosureKrw;
   const paidOperatingExpenses = marketingExpenses + disclosureExpenses;
   const operatingProfit = grossProfit - fixedExpenses - paidOperatingExpenses - inventoryWriteDownNet;
-  const tax = operatingProfit > 0 ? Math.round(operatingProfit * 0.22) : 0;
+  const inPeriod = (row, yearKey, monthKey) => Number(row[yearKey]) === year && Number(row[monthKey]) === month;
+  const hedgePremiumExpensesKrw = state.global.hedgeContracts.filter((row) => inPeriod(row, 'year', 'month'))
+    .reduce((sum, row) => sum + Math.max(0, Number(row.premiumKrw || 0)), 0);
+  let hedgeSettlementKrw = 0;
+  for (const contract of state.global.hedgeContracts) {
+    if (Array.isArray(contract.allocations) && contract.allocations.length) {
+      hedgeSettlementKrw += contract.allocations.filter((row) => row.status === 'SETTLED' && inPeriod(row, 'settlementYear', 'settlementMonth'))
+        .reduce((sum, row) => sum + Number(row.settlementKrw || 0), 0);
+    } else if (contract.status === 'SETTLED' && inPeriod(contract, 'settlementYear', 'settlementMonth')) {
+      hedgeSettlementKrw += Number(contract.settlementKrw || 0);
+    }
+  }
+  const fxGainLossKrw = monthExports.reduce((sum, row) => sum + Number(row.fxGainLossKrw || 0), 0)
+    + state.global.foreignReceivables.filter((row) => inPeriod(row, 'collectedYear', 'collectedMonth'))
+      .reduce((sum, row) => sum + Number(row.collectionFxGainLossKrw || 0), 0);
+  const financialResultKrw = fxGainLossKrw + hedgeSettlementKrw - hedgePremiumExpensesKrw;
+  const profitBeforeTax = operatingProfit + financialResultKrw;
+  const financialIncomeCoverage = state.global.hedgeContracts.some((row) => row.status === 'SETTLED'
+    && Number(row.settlementKrw || 0) !== 0 && (!row.settlementYear || !row.settlementMonth)) ? 'recorded-only' : 'full-period';
+  const tax = profitBeforeTax > 0 ? Math.round(profitBeforeTax * 0.22) : 0;
   return {
     year, month, localSales, localCogs, exportSalesKrw, exportCostKrw,
     sales, cogs, grossProfit, fixedExpenses, totalCost: cogs + fixedExpenses + paidOperatingExpenses,
     marketingExpenses, disclosureExpenses, paidOperatingExpenses,
     operatingExpenseCoverage: state.operatingExpensePeriod.coverage,
-    inventoryWriteDownNet, operatingProfit, tax, netProfit: operatingProfit - tax,
+    inventoryWriteDownNet, operatingProfit, fxGainLossKrw, hedgePremiumExpensesKrw, hedgeSettlementKrw,
+    financialResultKrw, financialIncomeCoverage, profitBeforeTax, tax, netProfit: profitBeforeTax - tax,
   };
 }
 

@@ -24,6 +24,13 @@ export default function CompanyReportManagementPanels({
         </div>
         <p className="games-hint">캠페인·공시 대응비는 실행할 때 현금으로 지급한 비용이며, 결산 때 다시 지급하지 않습니다.</p>
         <div className="games-rank-split" style={{ marginTop: 12 }}>
+          <SmallStat label="환차손익" value={formatMoney(management.income.fxGainLossKrw)} />
+          <SmallStat label="환헤지 계약비" value={formatMoney(management.income.hedgePremiumExpensesKrw)} />
+          <SmallStat label="환헤지 정산손익" value={formatMoney(management.income.hedgeSettlementKrw)} />
+          <SmallStat label="예상 순손익" value={formatMoney(management.income.netProfit)} />
+        </div>
+        <p className="games-hint">환차·환헤지 손익은 영업손익과 구분해 순손익에 반영하며, 이미 지급·회수한 금액은 결산 때 다시 처리하지 않습니다.</p>
+        <div className="games-rank-split" style={{ marginTop: 12 }}>
           <SmallStat label="현금" value={formatMoney(management.cashFlow.cash)} />
           <SmallStat label="회수액" value={formatMoney(management.cashFlow.collectedCash)} />
           <SmallStat label="채권잔액" value={formatMoney(management.cashFlow.receivableAmount)} />

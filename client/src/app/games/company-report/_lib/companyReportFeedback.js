@@ -1,4 +1,5 @@
 import { FIXED_EXPENSES } from './companyReportData.js';
+import { globalTradeSummary } from './companyReportEngine.js';
 
 const FIXED_EXPENSE_TOTAL = FIXED_EXPENSES.reduce(
   (sum, row) => sum + Math.max(0, Number(row?.amount || 0)),
@@ -145,12 +146,8 @@ export function companyReportFeedbackSnapshot(state) {
   const capital = state?.capitalMarket || {};
   const restoreHistory = safeArray(state?.restoreHistory);
   const latestSettlement = safeArray(state?.settlements)[0] || {};
-  const activeTradePlanCount = [
-    ...safeArray(global.exportPlans),
-    ...safeArray(global.importPlans),
-  ].filter((row) => row?.status === 'ACTIVE').length;
-  const activeHedgeCount = safeArray(global.hedgeContracts)
-    .filter((row) => row?.status === 'ACTIVE').length;
+  const tradeSummary = globalTradeSummary(state);
+  const { activeTradePlanCount, activeHedgeCount, unhedgedTradePlanCount } = tradeSummary;
   return {
     runId: String(state?.runId || ''),
     period: `${Number(state?.company?.year || 0)}-${String(Number(state?.company?.month || 0)).padStart(2, '0')}`,
@@ -170,7 +167,7 @@ export function companyReportFeedbackSnapshot(state) {
     inventoryUnits: inventoryUnits(state),
     activeTradePlanCount,
     activeHedgeCount,
-    unhedgedTradePlanCount: Math.max(0, activeTradePlanCount - activeHedgeCount),
+    unhedgedTradePlanCount,
     inventoryValuationCount: safeArray(state?.inventoryValuations).length,
     inventoryWriteDownCount: safeArray(state?.inventoryWriteDowns).length,
     vatPaymentCount: safeArray(state?.vatPayments).length,

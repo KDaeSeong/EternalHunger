@@ -175,8 +175,8 @@ const exportPlan = createExportPlanAction(base, 'jp-retail', 'book-akashi', 2);
 expectResult(base, exportPlan, { key: 'exportPlanned', action: 'export', cue: 'exportPlanned', tone: 'highlight' });
 const importPlan = createImportPlanAction(base, 'jp-retail', 'book-akashi', 2);
 expectResult(base, importPlan, { key: 'importPlanned', action: 'import', cue: 'importPlanned', tone: 'highlight' });
-const hedged = createHedgeContractAction(base);
-expectResult(base, hedged, { key: 'hedgeSigned', action: 'hedge', cue: 'hedgeSigned', tone: 'success' });
+const hedged = createHedgeContractAction(exportPlan);
+expectResult(exportPlan, hedged, { key: 'hedgeSigned', action: 'hedge', cue: 'hedgeSigned', tone: 'success' });
 
 const fxPlanOne = createExportPlanAction(base, 'jp-retail', 'book-akashi', 2);
 const fxRiskState = createImportPlanAction(fxPlanOne, 'jp-retail', 'book-akashi', 2);
@@ -194,7 +194,7 @@ const fxRecoveryPresentation = expectResult(fxRiskState, fxRecoveredState, {
   cue: 'companyFxRecovered',
   tone: 'success',
 });
-assert.deepEqual(fxRecoveryPresentation.impacts.map((item) => item.value), ['1건', '1건'], '환노출 회복은 헤지 후 남은 노출을 보여야 합니다.');
+assert.deepEqual(fxRecoveryPresentation.impacts.map((item) => item.value), ['0건', '1건'], '한 계약에 연결된 두 계획이 보호되면 미헤지 계획은 없어야 합니다.');
 
 const globalSettled = settleGlobalTradeAction(exportPlan);
 expectResult(exportPlan, globalSettled, { key: 'globalSettled', action: 'settle', cue: 'globalSettle', tone: 'success' });

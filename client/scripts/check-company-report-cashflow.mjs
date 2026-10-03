@@ -541,6 +541,7 @@ check('closing retains liquidity warnings and records the partial cashflow scope
 const jsxModules = new Set([
   '../src/app/games/company-report/_components/CompanyReportArchiveLedgerPanels.js',
   '../src/app/games/company-report/_components/CompanyReportGlobalCapitalPanels.js',
+  '../src/app/games/company-report/_components/CompanyReportManagementPanels.js',
   '../src/app/games/company-report/_components/CompanyReportVisuals.js',
   '../src/app/games/company-report/_lib/companyReportPlayHelpers.js',
   '../src/app/games/_components/GamePlayPrimitives.js',
@@ -557,6 +558,7 @@ registerHooks({ load(url, context, nextLoad) {
 } });
 const { default: LedgerPanel } = await import('../src/app/games/company-report/_components/CompanyReportArchiveLedgerPanels.js');
 const { default: GlobalCapitalPanels } = await import('../src/app/games/company-report/_components/CompanyReportGlobalCapitalPanels.js');
+const { default: ManagementPanels } = await import('../src/app/games/company-report/_components/CompanyReportManagementPanels.js');
 const { buildCompanyReportExportPayload, buildCompanyReportExportCsv } = await import('../src/app/games/company-report/_lib/companyReportExportRuntime.js');
 
 function renderLedger(state) {
@@ -611,7 +613,7 @@ check('real JSON and CSV export helpers separate cash balance from period flow',
 function renderCapitalPanel(state) {
   return renderToStaticMarkup(React.createElement(GlobalCapitalPanels, {
     state, capitalSummary: capitalMarketSummary(state), globalSummary: globalTradeSummary(state),
-    foreignReceivables: [], markets: globalMarketRows(), globalMarketId: GLOBAL_MARKETS[0].id,
+    foreignReceivables: [], markets: globalMarketRows(state), globalMarketId: GLOBAL_MARKETS[0].id,
     globalProductId: PRODUCTS[0].id, globalUnits: 100, selectedForeignAr: null,
     disclosureTypeId: CAPITAL_DISCLOSURE_TYPES[0].id, financingTypeId: CAPITAL_FINANCING_TYPES[0].id,
     recentActionText: state.log[0], resultPresentation: { action: 'closing', label: '자본시장 월마감', tone: 'highlight' },
@@ -638,6 +640,51 @@ check('rendered market controls show one completed month and reopen only after r
     }
     assert.deepEqual(state, original);
   }
+});
+
+check('rendered hedge control follows real remaining protection capacity and explains both gains and losses', () => {
+  const planned = createExportPlanAction(seed(), 'jp-retail', 'book-akashi', 100);
+  const hedged = createHedgeContractAction(planned);
+  for (const [state, disabled] of [[seed(), true], [planned, false], [hedged, true]]) {
+    const html = renderCapitalPanel(state);
+    const button = [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)]
+      .map((match) => match[0]).find((row) => row.includes('환헤지 체결'));
+    assert.equal(/\sdisabled(?:=|[\s>])/.test(button), disabled);
+    assert.ok(html.includes('65%'));
+    assert.ok(html.includes('1.2%'));
+    assert.ok(html.includes('이익과 손실을 모두 반영'));
+    assert.ok(html.includes(formatMoney(globalTradeSummary(state).hedgeableNotionalKrw)));
+  }
+});
+
+check('actual management markup exposes FX, hedge cost, hedge settlement and the matching net profit', () => {
+  const state = settleGlobalTradeAction(createHedgeContractAction(createExportPlanAction(seed(), 'jp-retail', 'book-akashi', 100)));
+  const management = managementReport(state);
+  const html = renderToStaticMarkup(React.createElement(ManagementPanels, {
+    management, ledgerDiff: [], latestSnapshot: null, restorePlan: ledgerRestorePlan(state),
+  }));
+  for (const [label, amount] of [
+    ['환차손익', management.income.fxGainLossKrw], ['환헤지 계약비', management.income.hedgePremiumExpensesKrw],
+    ['환헤지 정산손익', management.income.hedgeSettlementKrw], ['예상 순손익', management.income.netProfit],
+  ]) {
+    assert.ok(html.includes(label));
+    assert.ok(html.includes(formatMoney(amount)));
+  }
+});
+
+check('actual JSON, CSV and text exports carry the same signed financial income and premiums', () => {
+  let state = createHedgeContractAction(createExportPlanAction(seed(), 'jp-retail', 'book-akashi', 100));
+  state = monthEndCloseAction(state);
+  state = settleGlobalTradeAction(state);
+  const payload = buildCompanyReportExportPayload({ state, restoreMode: 'FULL_LEDGER', selectedRestoreTables: '' });
+  const csv = buildCompanyReportExportCsv(payload);
+  const income = managementReport(state).income;
+  for (const key of ['fxGainLossKrw', 'hedgePremiumExpensesKrw', 'hedgeSettlementKrw', 'financialResultKrw', 'profitBeforeTax', 'netProfit']) {
+    assert.equal(payload.management.income[key], income[key]);
+    assert.ok(csv.includes(`"income","${key}","${income[key]}"`));
+  }
+  assert.ok(income.hedgeSettlementKrw > 0, 'The normal next-month quote must exercise a real signed hedge settlement.');
+  assert.ok(createProgressExportAction(state).exportHistory[0].content.includes(`Financial Result: ${formatMoney(income.financialResultKrw)}`));
 });
 
 console.log(JSON.stringify({ pass: true, checks: passed, fixedExpenses, evidence: 'engine, serialized state, real export helpers and static React markup; no account, browser or deployment' }));

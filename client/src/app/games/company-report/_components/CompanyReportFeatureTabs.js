@@ -514,9 +514,11 @@ export default function CompanyReportFeatureTabs({
                 <section className="games-panel">
                   <CompanyReportPanelTitle action="hedge" title="외화채권/헤지" meta={`${foreignReceivables.length}건`} />
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="hedge" cue="off" onClick={() => applyLedgerAction('환헤지 체결', (current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
+                    <ActionButton action="hedge" cue="off" disabled={globalSummary.hedgeableNotionalKrw <= 0} onClick={() => applyLedgerAction('환헤지 체결', (current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
                     <ActionButton action="collection" cue="off" disabled={!selectedForeignAr || selectedForeignAr.remainingKrw <= 0} onClick={() => applyLedgerAction('외화채권 회수', (current) => collectForeignReceivableAction(current, selectedForeignAr?.id))}>외화채권 회수</ActionButton>
                   </div>
+                  <p className="games-hint">추가 보호 가능 {formatMoney(globalSummary.hedgeableNotionalKrw)} · 미보호 환노출 {formatMoney(globalSummary.unhedgedExposureKrw)}. 거래의 65%까지 보호하며 비용은 보호 금액의 1.2%입니다. 환율은 월말에 변하고, 해당 거래 정산·회수 때 이익과 손실을 모두 반영합니다.</p>
+                  {globalSummary.legacyUnlinkedHedgeCount > 0 ? <p className="games-hint">이전 미연결 계약은 다음 정산 때 추가 보상 없이 종료됩니다.</p> : null}
                 </section>
               </section>
             ),

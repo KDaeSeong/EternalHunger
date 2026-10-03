@@ -69,10 +69,16 @@ export default function CompanyReportGlobalCapitalPanels({
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton action="export" cue="off" onClick={() => applyLedgerAction('수출 계획 등록', (current) => createExportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수출 계획 등록</ActionButton>
             <ActionButton action="import" cue="off" onClick={() => applyLedgerAction('수입 계획 등록', (current) => createImportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수입 계획 등록</ActionButton>
-            <ActionButton action="hedge" cue="off" onClick={() => applyLedgerAction('환헤지 체결', (current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
+            <ActionButton action="hedge" cue="off" disabled={globalSummary.hedgeableNotionalKrw <= 0} onClick={() => applyLedgerAction('환헤지 체결', (current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
             <ActionButton action="settle" cue="off" onClick={() => applyLedgerAction('글로벌 정산', (current) => settleGlobalTradeAction(current))}>글로벌 정산</ActionButton>
             <ActionButton action="collection" cue="off" disabled={!selectedForeignAr || selectedForeignAr.remainingKrw <= 0} onClick={() => applyLedgerAction('외화채권 회수', (current) => collectForeignReceivableAction(current, selectedForeignAr?.id))}>외화채권 회수</ActionButton>
           </div>
+          <p className="games-hint">미보호 거래의 65%까지 보호하며, 보호 금액의 1.2%를 계약 비용으로 지급합니다. 환율은 월말에 변하고, 해당 거래 정산·회수 때 이익과 손실을 모두 반영합니다.</p>
+          <div className="games-rank-split">
+            <SmallStat label="추가 보호 가능" value={formatMoney(globalSummary.hedgeableNotionalKrw)} />
+            <SmallStat label="보호되지 않은 환노출" value={formatMoney(globalSummary.unhedgedExposureKrw)} />
+          </div>
+          {globalSummary.legacyUnlinkedHedgeCount > 0 ? <p className="games-hint">이전 미연결 계약은 거래 보호에 포함되지 않으며, 다음 정산 때 추가 보상 없이 종료됩니다.</p> : null}
           <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
         </section>
 
