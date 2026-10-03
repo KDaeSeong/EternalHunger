@@ -35,6 +35,7 @@ import {
   monthEndCloseAction,
   normalizeState,
   orderRows,
+  PARTNERS,
   payVatAction,
   PRODUCTS,
   raiseCapitalAction,
@@ -124,6 +125,164 @@ check('production, shipment and collection each affect cash only when paid', () 
   const collected = collectReceivableAction(shipped, receipt.id);
   assert.equal(collected.company.cashKrw, produced.company.cashKrw + receipt.amount);
   assert.equal(expectClosing(collected).settlements[0].netCashflow, receipt.amount - productionCost - fixedExpenses);
+});
+
+function queuedCreditOrders() {
+  let state = inboundInventoryAction(seed(), 'book-akashi', 520);
+  state = createOrderAction(state, 'hanbit-event', 'book-akashi', 500);
+  const first = state.orders[0].id;
+  state = createOrderAction(state, 'hanbit-event', 'book-akashi', 500);
+  const second = state.orders[0].id;
+  return { state: shipOrderAction(state, first), first, second };
+}
+
+function outstandingFor(state, partnerId) {
+  return receivableRows(state).filter((row) => row.partnerId === partnerId)
+    .reduce((sum, row) => sum + row.remaining, 0);
+}
+
+function expectCreditShipmentBlocked(state, orderId) {
+  const original = clone(state);
+  const blocked = shipOrderAction(state, orderId);
+  assert.match(blocked.log[0], /여신 한도.*부족/);
+  for (const key of ['company', 'inventory', 'orders', 'receivables', 'cashFlowPeriod', 'operatingExpensePeriod', 'nextReceivableNo']) {
+    assert.deepEqual(blocked[key], state[key], `A blocked shipment must preserve ${key}.`);
+  }
+  assert.equal(companyReportResultPresentation(state, blocked).key, 'creditBlocked');
+  assert.deepEqual(state, original, 'Checking shipment credit must not mutate the input ledger.');
+  return blocked;
+}
+
+check('queued orders cannot bypass actual shipment credit including VAT', () => {
+  const { state, second } = queuedCreditOrders();
+  const partner = PARTNERS.find((row) => row.id === 'hanbit-event');
+  assert.equal(partner.creditLimit, 30000000);
+  assert.equal(outstandingFor(state, partner.id), 15400000);
+  assert.equal(state.inventory['book-akashi'].onHand, 500);
+  assert.equal(state.orders.find((row) => row.id === second).status, 'CONFIRMED');
+  const blocked = expectCreditShipmentBlocked(state, second);
+  assert.match(blocked.log[0], /14,600,000원/);
+  assert.match(blocked.log[0], /15,400,000원/);
+  expectCreditShipmentBlocked(blocked, second);
+});
+
+check('collecting the real invoice releases credit and permits the held shipment exactly once', () => {
+  const { state, second } = queuedCreditOrders();
+  const blocked = expectCreditShipmentBlocked(state, second);
+  const invoice = blocked.receivables.find((row) => row.partnerId === 'hanbit-event');
+  const recovered = collectReceivableAction(blocked, invoice.id);
+  assert.equal(recovered.company.cashKrw, state.company.cashKrw + invoice.amount);
+  assert.equal(outstandingFor(recovered, invoice.partnerId), 0);
+  const shipped = shipOrderAction(recovered, second);
+  assert.equal(shipped.orders.find((row) => row.id === second).status, 'SHIPPED');
+  assert.equal(shipped.inventory['book-akashi'].onHand, 0);
+  assert.equal(shipped.receivables.length, state.receivables.length + 1);
+  assert.equal(shipped.company.cashKrw, recovered.company.cashKrw, 'Credit clearance is not a second cash receipt.');
+  assert.equal(outstandingFor(shipped, invoice.partnerId), 15400000);
+  const repeated = shipOrderAction(shipped, second);
+  assert.deepEqual(repeated.receivables, shipped.receivables);
+  assert.deepEqual(repeated.inventory, shipped.inventory);
+});
+
+check('shipment credit counts only that partner\'s unpaid balance, including partial invoices', () => {
+  let state = inboundInventoryAction(seed(), 'book-akashi', 1920);
+  const orderIds = [];
+  for (let index = 0; index < 4; index += 1) {
+    state = createOrderAction(state, 'blue-collect', 'book-akashi', 600);
+    orderIds.push(state.orders[0].id);
+  }
+  assert.equal(outstandingFor(state, 'blue-collect'), 6680000);
+  for (const orderId of orderIds.slice(0, 3)) state = shipOrderAction(state, orderId);
+  assert.equal(outstandingFor(state, 'blue-collect'), 62120000);
+  expectCreditShipmentBlocked(state, orderIds[3]);
+  const partialInvoice = state.receivables.find((row) => row.status === 'PARTIAL');
+  state = collectReceivableAction(state, partialInvoice.id);
+  const shipped = shipOrderAction(state, orderIds[3]);
+  assert.equal(outstandingFor(shipped, 'blue-collect'), 73920000);
+  assert.equal(shipped.orders.find((row) => row.id === orderIds[3]).status, 'SHIPPED');
+  assert.equal(outstandingFor(shipped, 'globe-media'), 5016000, 'Another partner\'s credit and old invoice stay untouched.');
+});
+
+check('fully collected historical invoices do not consume available shipment credit', () => {
+  let state = inboundInventoryAction(seed(), 'book-akashi', 1120);
+  state = createOrderAction(state, 'future-book', 'book-akashi', 1600);
+  const orderId = state.orders[0].id;
+  const shipped = shipOrderAction(state, orderId);
+  assert.equal(shipped.orders.find((row) => row.id === orderId).status, 'SHIPPED');
+  assert.equal(outstandingFor(shipped, 'future-book'), 49280000);
+  assert.equal(shipped.company.cashKrw, state.company.cashKrw);
+});
+
+check('month changes, JSON normalization and ledger restore do not erase unpaid shipment exposure', () => {
+  const { state, second } = queuedCreditOrders();
+  expectCreditShipmentBlocked(normalizeState(clone(state)), second);
+  expectCreditShipmentBlocked(expectClosing(state), second);
+  const snapshotted = createLedgerSnapshotAction(state);
+  const recovered = collectReceivableAction(snapshotted, snapshotted.receivables[0].id);
+  const shipped = shipOrderAction(recovered, second);
+  for (const restore of [restoreLatestSnapshotAction, restoreLedgerSnapshotAction]) {
+    const restored = restore(shipped);
+    assert.equal(restored.orders.find((row) => row.id === second).status, 'CONFIRMED');
+    expectCreditShipmentBlocked(restored, second);
+  }
+});
+
+check('credit boundary permits the exact remaining amount and blocks one additional unit', () => {
+  const state = inboundInventoryAction(seed(), 'book-akashi', 20);
+  // A controlled partial-payment boundary, not a claim about the opening ledger.
+  state.receivables.push({ id: 'credit-boundary', partnerId: 'hanbit-event', amount: 20000000,
+    collected: 5400000, status: 'PARTIAL', year: 2026, month: 2 });
+  const exact = createOrderAction(state, 'hanbit-event', 'book-akashi', 500);
+  assert.equal(exact.orders.length, state.orders.length + 1, 'Order acceptance must use the same whole-won invoice as shipment.');
+  const exactOrderId = exact.orders[0].id;
+  const shipped = shipOrderAction(exact, exactOrderId);
+  assert.equal(shipped.orders.find((row) => row.id === exactOrderId).status, 'SHIPPED');
+  assert.equal(outstandingFor(shipped, 'hanbit-event'), 30000000);
+  const changed = clone(exact);
+  changed.inventory['book-akashi'].onHand += 1;
+  changed.orders[0].quantity += 1; // Existing stored order differs from today's available credit.
+  expectCreditShipmentBlocked(changed, exactOrderId);
+});
+
+check('twelve real business months keep credit, collections and profitable closing linked across a year', () => {
+  let state = seed();
+  const openingCash = state.company.cashKrw;
+  for (let month = 0; month < 12; month += 1) {
+    if (month === 6) state = normalizeState(clone(state));
+    const periodOpeningCash = state.company.cashKrw;
+    for (let batch = 0; batch < 12; batch += 1) {
+      state = inboundInventoryAction(state, 'book-akashi', 500);
+      state = inboundInventoryAction(state, 'book-akashi', 500);
+      const pending = [];
+      for (let index = 0; index < 2; index += 1) {
+        const previousCount = state.orders.length;
+        state = createOrderAction(state, 'hanbit-event', 'book-akashi', 500);
+        assert.equal(state.orders.length, previousCount + 1);
+        pending.push(state.orders[0].id);
+      }
+      state = shipOrderAction(state, pending[0]);
+      state = expectCreditShipmentBlocked(state, pending[1]);
+      const invoice = state.receivables.find((row) => row.orderId === pending[0]);
+      state = collectReceivableAction(state, invoice.id);
+      state = shipOrderAction(state, pending[1]);
+      assert.equal(state.orders.find((row) => row.id === pending[1]).status, 'SHIPPED');
+      state = collectReceivableAction(state, state.receivables.find((row) => row.orderId === pending[1]).id);
+      assert.equal(outstandingFor(state, 'hanbit-event'), 0);
+      assert.equal(state.inventory['book-akashi'].onHand, 480);
+    }
+    for (const vat of vatScheduleRows(state).filter((row) => row.remainingAmount > 0)) {
+      state = payVatAction(state, vat.targetYear, vat.targetMonth, vat.remainingAmount);
+    }
+    assert.ok(managementReport(state).income.netProfit > 0);
+    state = expectClosing(state);
+    assert.equal(state.settlements[0].openingCashKrw, periodOpeningCash);
+    assert.ok(state.company.cashKrw > periodOpeningCash, 'Real profitable sales must remain playable without donated cash.');
+    assert.ok(Object.values(state.inventory).every((row) => Number.isFinite(row.onHand) && row.onHand >= 0));
+  }
+  assert.deepEqual([state.company.year, state.company.month], [2027, 2]);
+  assert.ok(state.company.cashKrw > openingCash);
+  assert.equal(state.orders.filter((row) => row.partnerId === 'hanbit-event' && row.status === 'SHIPPED').length, 288);
+  assert.equal(state.capitalMarket.financingPlans.length, 0, 'The reference business run must not rely on funding actions or ledger restores.');
 });
 
 check('profit-tax branch pays tax, not accounting net loss or COGS again', () => {

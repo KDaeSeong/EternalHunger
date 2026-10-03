@@ -204,8 +204,8 @@ export function createOrderAction(state, partnerId, productId, quantity) {
   const qty = Math.max(1, Math.round(Number(quantity || 1)));
   if (!partner || !product) return current;
   const availableCredit = partner.creditLimit - outstandingByPartner(current, partner.id);
-  const supplyAmount = product.unitPrice * qty;
-  if (supplyAmount * 1.1 > availableCredit) return addLog(current, `${partner.name} 여신 한도가 부족해 주문을 받을 수 없습니다.`);
+  const receivableAmount = Math.round(product.unitPrice * qty * 1.1);
+  if (receivableAmount > availableCredit) return addLog(current, `${partner.name} 여신 한도가 부족해 주문을 받을 수 없습니다.`);
   const order = {
     id: `SO-${current.company.year}-${String(current.nextOrderNo).padStart(4, '0')}`,
     no: `SO-${current.company.year}-${String(current.nextOrderNo).padStart(4, '0')}`,
@@ -235,6 +235,13 @@ export function shipOrderAction(state, orderId) {
   const remaining = Math.max(0, Number(order.quantity || 0) - Number(order.shippedQty || 0));
   if (stock.onHand < remaining) return addLog(current, '재고가 부족해 출고할 수 없습니다. 먼저 입고를 진행하세요.');
   const receivableAmount = Math.round(order.unitPrice * remaining * 1.1);
+  // Queued orders are not invoices yet. Recheck the actual unpaid exposure
+  // when shipping, including VAT, rather than trusting the order-time limit.
+  const partner = getPartner(order.partnerId);
+  const availableCredit = Number(partner?.creditLimit || 0) - outstandingByPartner(current, order.partnerId);
+  if (receivableAmount > availableCredit) {
+    return addLog(current, `${partner?.name || '거래처'} 여신 한도가 부족해 출고를 보류했습니다. 남은 한도 ${formatMoney(Math.max(0, availableCredit))}, 이번 출고 ${formatMoney(receivableAmount)}. 먼저 미수금을 회수해 주세요.`);
+  }
   const receivable = {
     id: `AR-${current.company.year}-${String(current.nextReceivableNo).padStart(4, '0')}`,
     partnerId: order.partnerId,
