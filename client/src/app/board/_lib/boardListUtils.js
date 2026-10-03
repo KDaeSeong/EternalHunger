@@ -2,7 +2,9 @@ import { normalizePost as normalizeSharedPost, safeText } from './boardUtils';
 
 export {
   BOARD_CATEGORIES,
+  categoryLabelFor,
   formatDate,
+  formatShortDate,
   gameLabelForSlug,
   getGameOptions,
   getUserId,

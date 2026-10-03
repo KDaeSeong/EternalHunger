@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import PageHeader from '../../components/PageHeader';
 import SiteHeader from '../../components/SiteHeader';
-import { useToast } from '../../components/ToastProvider';
 import { apiGetCached } from '../../utils/api';
 
 const EMPTY_LEADERBOARD = {
@@ -45,39 +45,127 @@ function userHref(user) {
   return id ? `/users/${id}` : '';
 }
 
-function rankMedal(index) {
-  if (index === 0) return '1';
-  if (index === 1) return '2';
-  if (index === 2) return '3';
-  return String(index + 1);
+function formatKda(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? n.toFixed(2) : '0.00';
 }
 
-function LeaderboardPanel({ title, subtitle, rows, empty, renderRow }) {
+function teamName(row) {
+  return safeText(row?.teamName || normalizeList(row?.rosterNames).join(' / '), '이름 없는 팀');
+}
+
+const TABS = [
+  { key: 'users', label: 'LP', countKey: 'users' },
+  { key: 'characters', label: '캐릭터', countKey: 'characters' },
+  { key: 'teams', label: '팀', countKey: 'teams' },
+];
+
+// Columns per tab. `main` is the ranking value; `optional` columns hide on narrow screens.
+const COLUMNS = {
+  users: [
+    { key: 'lp', label: 'LP', main: true, render: (row) => formatNumber(row.lp) },
+    { key: 'games', label: '경기', optional: true, render: (row) => formatNumber(row.totalGames) },
+    { key: 'wins', label: '승리', optional: true, render: (row) => formatNumber(row.totalWins) },
+    { key: 'kills', label: '킬', optional: true, render: (row) => formatNumber(row.totalKills) },
+  ],
+  characters: [
+    { key: 'wins', label: '승리', main: true, render: (row) => formatNumber(row.totalWins) },
+    { key: 'games', label: '경기', optional: true, render: (row) => formatNumber(row.gamesPlayed) },
+    { key: 'rate', label: '승률', optional: true, render: (row) => formatRate(row.winRate) },
+    { key: 'kills', label: '킬', optional: true, render: (row) => formatNumber(row.totalKills) },
+    { key: 'kda', label: 'KDA', optional: true, render: (row) => formatKda(row.kda) },
+  ],
+  teams: [
+    { key: 'wins', label: '승리', main: true, render: (row) => formatNumber(row.totalWins) },
+    { key: 'games', label: '경기', optional: true, render: (row) => formatNumber(row.gamesPlayed) },
+    { key: 'rate', label: '승률', optional: true, render: (row) => formatRate(row.winRate) },
+    { key: 'kills', label: '킬', optional: true, render: (row) => formatNumber(row.totalKills) },
+  ],
+};
+
+function rowIdentity(tab, row) {
+  if (tab === 'users') {
+    return {
+      name: safeText(row.displayName || row.nickname || row.username, '사용자'),
+      sub: '',
+      href: userHref(row),
+    };
+  }
+  if (tab === 'characters') {
+    return {
+      name: safeText(row.name, '캐릭터'),
+      sub: [safeText(row.weaponType, ''), safeText(row.ownerName, '')].filter(Boolean).join(' · '),
+      href: userHref(row.owner),
+    };
+  }
+  return {
+    name: teamName(row),
+    sub: [normalizeList(row.rosterNames).join(' · '), safeText(row.ownerName, '')].filter(Boolean).join(' · '),
+    href: userHref(row.owner),
+  };
+}
+
+const EMPTY_TEXT = {
+  users: '아직 LP 순위가 없습니다.',
+  characters: '아직 캐릭터 전적이 없습니다. 이터널 헝거 경기를 마치면 순위가 생깁니다.',
+  teams: '아직 팀 전적이 없습니다. 스쿼드 경기를 마치면 순위가 생깁니다.',
+};
+
+function RankingTable({ tab, rows }) {
+  const columns = COLUMNS[tab];
+  if (!rows.length) return <p className="ui-empty lb-empty">{EMPTY_TEXT[tab]}</p>;
+
   return (
-    <section className="leaderboard-panel">
-      <div className="leaderboard-panel-title">
-        <div>
-          <h2>{title}</h2>
-          <p>{subtitle}</p>
-        </div>
-        <span>{formatNumber(rows.length)}</span>
-      </div>
-      {rows.length ? (
-        <ol className="leaderboard-list">
-          {rows.map((row, index) => renderRow(row, index))}
-        </ol>
-      ) : (
-        <div className="leaderboard-empty">{empty}</div>
-      )}
-    </section>
+    <table className="ui-table lb-table">
+      <thead>
+        <tr>
+          <th scope="col" className="lb-col-rank">순위</th>
+          <th scope="col">{tab === 'users' ? '유저' : tab === 'characters' ? '캐릭터' : '팀'}</th>
+          {columns.map((column) => (
+            <th scope="col" key={column.key} className={`is-num ${column.optional ? 'is-optional' : ''} ${column.main ? 'is-main' : ''}`}>
+              {column.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, index) => {
+          const { name, sub, href } = rowIdentity(tab, row);
+          return (
+            <tr key={`${tab}-${row._id || index}`} className={index < 3 ? 'is-podium' : ''}>
+              <td className="lb-col-rank">
+                <span className={`ui-rank ${index === 0 ? 'ui-rank--1' : ''}`}>{index + 1}</span>
+              </td>
+              <th scope="row" className="lb-name">
+                <span className="lb-name__inner">
+                  {href ? <Link href={href}>{name}</Link> : <span>{name}</span>}
+                  {sub ? <small>{sub}</small> : null}
+                </span>
+              </th>
+              {columns.map((column) => (
+                <td key={column.key} className={`is-num ${column.optional ? 'is-optional' : ''} ${column.main ? 'is-main' : ''}`}>
+                  {column.render(row)}
+                </td>
+              ))}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
+function readInitialTab() {
+  if (typeof window === 'undefined') return 'users';
+  const tab = new URLSearchParams(window.location.search).get('tab');
+  return TABS.some((item) => item.key === tab) ? tab : 'users';
+}
+
 export default function LeaderboardPage() {
-  const { showToast } = useToast();
   const [payload, setPayload] = useState(() => normalizePayload(null));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tab, setTab] = useState('users');
 
   const loadLeaderboard = useCallback(async (options = {}) => {
     setLoading(true);
@@ -91,154 +179,74 @@ export default function LeaderboardPage() {
       });
       setPayload(normalizePayload(data));
     } catch (err) {
-      const message = err?.message || '리더보드를 불러오지 못했습니다.';
       setPayload(normalizePayload(null));
-      setError(message);
-      showToast({ tone: 'warning', message });
+      // 화면 안 오류 문구로만 알립니다(토스트 중복 없음).
+      setError(err?.message || '랭킹을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, []);
 
   useEffect(() => {
     void loadLeaderboard();
   }, [loadLeaderboard]);
 
-  const topUser = payload.users[0] || null;
-  const topCharacter = payload.characters[0] || null;
-  const topTeam = payload.teams[0] || null;
-  const summary = useMemo(() => [
-    { label: '랭킹 유저', value: payload.counts.users },
-    { label: '기록 캐릭터', value: payload.counts.characters },
-    { label: '기록 팀', value: payload.counts.teams },
-    { label: '최고 LP', value: topUser?.lp || 0 },
-  ], [payload.counts.characters, payload.counts.teams, payload.counts.users, topUser?.lp]);
+  useEffect(() => {
+    void Promise.resolve().then(() => setTab(readInitialTab()));
+  }, []);
+
+  const selectTab = (nextTab) => {
+    setTab(nextTab);
+    if (typeof window !== 'undefined') {
+      const url = nextTab === 'users' ? '/leaderboard' : `/leaderboard?tab=${nextTab}`;
+      window.history.replaceState(null, '', url);
+    }
+  };
+
+  const rows = payload[tab] || [];
 
   return (
     <main className="leaderboard-page-shell">
       <SiteHeader />
-      <section className="leaderboard-page">
-        <section className="leaderboard-hero">
-          <div>
-            <p className="leaderboard-kicker">Leaderboard</p>
-            <h1>리더보드</h1>
-            <p>LP, 캐릭터 전적, 팀 전적을 기준으로 사이트 전체 순위를 확인합니다.</p>
-          </div>
-          <div className="leaderboard-hero-actions">
-            <button type="button" onClick={() => void loadLeaderboard({ force: true })} disabled={loading}>
-              {loading ? '갱신 중' : '새로고침'}
+      <div className="ui-page lb">
+        <PageHeader
+          title="랭킹"
+          description="LP와 이터널 헝거 전적으로 매긴 사이트 순위입니다. 상위 25위까지 보여 줍니다."
+          actions={<Link href="/records" className="ui-button ui-button--quiet">내 기록 보기</Link>}
+        />
+
+        <div className="ui-tabs lb-tabs" role="tablist" aria-label="랭킹 종류">
+          {TABS.map((item) => (
+            <button
+              type="button"
+              role="tab"
+              key={item.key}
+              id={`lb-tab-${item.key}`}
+              aria-selected={tab === item.key}
+              aria-controls="lb-panel"
+              onClick={() => selectTab(item.key)}
+            >
+              {item.label}
+              {!loading && !error ? <small>{formatNumber(payload.counts[item.countKey])}</small> : null}
             </button>
-            <Link href="/records">내 기록소</Link>
-          </div>
-        </section>
-
-        <section className="leaderboard-summary" aria-label="리더보드 요약">
-          {summary.map((item) => (
-            <div key={item.label}>
-              <span>{item.label}</span>
-              <strong>{formatNumber(item.value)}</strong>
-            </div>
           ))}
-        </section>
+        </div>
 
-        {error ? (
-          <div className="leaderboard-empty leaderboard-error">
-            <p>{error}</p>
-            <button type="button" onClick={() => void loadLeaderboard({ force: true })}>다시 불러오기</button>
-          </div>
-        ) : null}
-
-        {loading ? <div className="leaderboard-empty">리더보드를 불러오는 중입니다.</div> : null}
-
-        {!loading && !error ? (
-          <>
-            <section className="leaderboard-top-grid" aria-label="최고 기록">
-              <article>
-                <span>LP 1위</span>
-                <strong>{safeText(topUser?.displayName || topUser?.nickname || topUser?.username, '기록 없음')}</strong>
-                <p>{formatNumber(topUser?.lp)} LP</p>
-              </article>
-              <article>
-                <span>캐릭터 1위</span>
-                <strong>{safeText(topCharacter?.name, '기록 없음')}</strong>
-                <p>{formatNumber(topCharacter?.totalWins)}승 · {formatNumber(topCharacter?.totalKills)}킬</p>
-              </article>
-              <article>
-                <span>팀 1위</span>
-                <strong>{safeText(topTeam?.teamName || normalizeList(topTeam?.rosterNames).join(' / '), '기록 없음')}</strong>
-                <p>{formatNumber(topTeam?.totalWins)}승 · 승률 {formatRate(topTeam?.winRate)}</p>
-              </article>
-            </section>
-
-            <div className="leaderboard-content-grid">
-              <LeaderboardPanel
-                title="LP 랭킹"
-                subtitle="유저 누적 LP 기준"
-                rows={payload.users}
-                empty="아직 유저 랭킹이 없습니다."
-                renderRow={(row, index) => {
-                  const href = userHref(row);
-                  const name = safeText(row.displayName || row.nickname || row.username, '사용자');
-                  const body = (
-                    <>
-                      <span className="leaderboard-rank">{rankMedal(index)}</span>
-                      <div>
-                        <strong>{name}</strong>
-                        <small>{formatNumber(row.totalGames)}전 · {formatNumber(row.totalWins)}승 · {formatNumber(row.totalKills)}킬</small>
-                      </div>
-                      <b>{formatNumber(row.lp)} LP</b>
-                    </>
-                  );
-                  return href ? <li key={`user-${row._id}`}><Link href={href}>{body}</Link></li> : <li key={`user-${index}`}><div>{body}</div></li>;
-                }}
-              />
-
-              <LeaderboardPanel
-                title="캐릭터 랭킹"
-                subtitle="승리, 킬, 참가 순 정렬"
-                rows={payload.characters}
-                empty="아직 캐릭터 기록이 없습니다."
-                renderRow={(row, index) => {
-                  const href = userHref(row.owner);
-                  const body = (
-                    <>
-                      <span className="leaderboard-rank">{rankMedal(index)}</span>
-                      <div>
-                        <strong>{safeText(row.name, '캐릭터')}</strong>
-                        <small>{safeText(row.weaponType, '무기 없음')} · {safeText(row.ownerName, '익명')}</small>
-                      </div>
-                      <b>{formatNumber(row.totalWins)}승</b>
-                    </>
-                  );
-                  return href ? <li key={`character-${row._id}`}><Link href={href}>{body}</Link></li> : <li key={`character-${index}`}><div>{body}</div></li>;
-                }}
-              />
-
-              <LeaderboardPanel
-                title="팀 랭킹"
-                subtitle="스쿼드 누적 전적 기준"
-                rows={payload.teams}
-                empty="아직 팀 기록이 없습니다."
-                renderRow={(row, index) => {
-                  const href = userHref(row.owner);
-                  const teamName = safeText(row.teamName || normalizeList(row.rosterNames).join(' / '), '이름 없는 팀');
-                  const body = (
-                    <>
-                      <span className="leaderboard-rank">{rankMedal(index)}</span>
-                      <div>
-                        <strong>{teamName}</strong>
-                        <small>{normalizeList(row.rosterNames).join(' · ') || safeText(row.ownerName, '익명')}</small>
-                      </div>
-                      <b>{formatNumber(row.totalWins)}승</b>
-                    </>
-                  );
-                  return href ? <li key={`team-${row._id}`}><Link href={href}>{body}</Link></li> : <li key={`team-${index}`}><div>{body}</div></li>;
-                }}
-              />
+        <section className="ui-panel lb-panel" id="lb-panel" role="tabpanel" aria-labelledby={`lb-tab-${tab}`}>
+          {error ? (
+            <div className="ui-empty lb-empty">
+              <p>{error}</p>
+              <button type="button" className="ui-button ui-button--quiet ui-button--small" onClick={() => void loadLeaderboard({ force: true })}>
+                다시 불러오기
+              </button>
             </div>
-          </>
-        ) : null}
-      </section>
+          ) : loading ? (
+            <p className="ui-empty lb-empty">랭킹을 불러오는 중입니다.</p>
+          ) : (
+            <RankingTable tab={tab} rows={rows} />
+          )}
+        </section>
+      </div>
     </main>
   );
 }

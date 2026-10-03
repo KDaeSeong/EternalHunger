@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import PageHeader from '../../components/PageHeader';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiDelete, apiGetCached, apiPost, clearApiGetCache } from '../../utils/api';
@@ -14,7 +15,6 @@ import {
   getGameOptions,
   getUserId,
   normalizeGameSlug,
-  normalizeIdValue,
   normalizePagination,
   safeText,
   unwrapPostList,
@@ -41,10 +41,6 @@ export default function BoardPage() {
   const { showToast } = useToast();
   const userId = useMemo(() => getUserId(user), [user]);
   const filteredPosts = posts;
-  const myPostCount = useMemo(() => {
-    if (!mounted || !userId) return 0;
-    return posts.filter((post) => normalizeIdValue(post?.authorId) === String(userId)).length;
-  }, [mounted, posts, userId]);
 
   const load = useCallback(async () => {
     await Promise.resolve();
@@ -70,13 +66,13 @@ export default function BoardPage() {
       if (nextPagination.page !== page) setPage(nextPagination.page);
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글을 불러오지 못했습니다.';
+      // 목록 위 안내 문구로만 알립니다(같은 오류를 토스트로 한 번 더 띄우지 않음).
       setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
       setPosts([]);
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, gameFilter, page, query, showToast, sortOrder]);
+  }, [categoryFilter, gameFilter, page, query, sortOrder]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
@@ -194,58 +190,38 @@ export default function BoardPage() {
     }
   };
 
+  const hasFilters = Boolean(query.trim() || categoryFilter || gameFilter);
+
   return (
     <main className="board-page">
       <SiteHeader />
-      <section className="board-shell">
-        <div className="board-head">
-          <div>
-            <p className="board-eyebrow">Community</p>
-            <h1>게시판</h1>
-          </div>
-          <div className="board-head-actions">
-            {mounted && token ? (
-              <button
-                type="button"
-                className="board-link-button"
-                onClick={toggleWriter}
-                aria-expanded={writerOpen}
-                aria-controls="board-write-panel"
-              >
-                {writerOpen ? '닫기' : '글쓰기'}
-              </button>
-            ) : null}
-            <Link href="/eternalhunger" className="board-link-button">
-              게임 시작
-            </Link>
-          </div>
-        </div>
-
-        {message ? <div className="board-message">{message}</div> : null}
-
-        <BoardListToolbar
-          categoryFilter={categoryFilter}
-          filteredCount={filteredPosts.length}
-          gameFilter={gameFilter}
-          gameOptions={gameOptions}
-          mounted={mounted}
-          myPostCount={myPostCount}
-          pagination={pagination}
-          query={query}
-          setCategoryFilter={setCategoryFilter}
-          setGameFilter={setGameFilter}
-          setPage={setPage}
-          setQuery={setQuery}
-          setSortOrder={setSortOrder}
-          sortOrder={sortOrder}
-          token={token}
+      <div className="ui-page bd">
+        <PageHeader
+          title="게시판"
+          description="공지, 공략, 피드백, 버그 제보를 나누는 곳입니다."
+          actions={mounted && token ? (
+            <button
+              type="button"
+              className={`ui-button ${writerOpen ? 'ui-button--quiet' : 'ui-button--primary'}`}
+              onClick={toggleWriter}
+              aria-expanded={writerOpen}
+              aria-controls="board-write-panel"
+            >
+              {writerOpen ? '글쓰기 닫기' : '글쓰기'}
+            </button>
+          ) : mounted ? (
+            <Link href="/login" className="ui-button ui-button--quiet">로그인하고 글쓰기</Link>
+          ) : null}
         />
+
+        {message ? <div className="ui-notice" role="status">{message}</div> : null}
 
         <BoardWritePanel
           create={create}
           form={form}
           gameOptions={gameOptions}
           mounted={mounted}
+          onCancel={() => setWriterOpen(false)}
           setForm={setForm}
           submitting={submitting}
           token={token}
@@ -253,9 +229,23 @@ export default function BoardPage() {
           writerOpen={writerOpen}
         />
 
+        <BoardListToolbar
+          categoryFilter={categoryFilter}
+          gameFilter={gameFilter}
+          gameOptions={gameOptions}
+          query={query}
+          setCategoryFilter={setCategoryFilter}
+          setGameFilter={setGameFilter}
+          setPage={setPage}
+          setQuery={setQuery}
+          setSortOrder={setSortOrder}
+          sortOrder={sortOrder}
+        />
+
         <BoardPostTable
           filteredPosts={filteredPosts}
           gameOptions={gameOptions}
+          hasFilters={hasFilters}
           loading={loading}
           mounted={mounted}
           pagination={pagination}
@@ -264,8 +254,9 @@ export default function BoardPage() {
           setPage={setPage}
           token={token}
           userId={userId}
+          isAdmin={Boolean(user?.isAdmin)}
         />
-      </section>
+      </div>
     </main>
   );
 }

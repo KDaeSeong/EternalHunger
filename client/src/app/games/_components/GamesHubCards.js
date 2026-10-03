@@ -1,133 +1,77 @@
 import Link from 'next/link';
 
-import {
-  findGameBySlug,
-  gameDetailHref,
-  getGameIntegration,
-  getGamePortingChecklist,
-} from '../_lib/gameCatalog';
-import { getGamePortingProgress } from '../_lib/gamePortingProgress.mjs';
-import { formatNumber } from '../_lib/gamesHubUtils';
+import { gameDetailHref } from '../_lib/gameCatalog';
+import { gameDisplayTitle, gameTagline } from '../_lib/gameTaglines';
 import GameIcon from './GameIcon';
-import GameKeyArt from './GameKeyArt';
+import GameKeyArt, { gameKeyArtSrc } from './GameKeyArt';
 
-export function GameMetric({ label, value }) {
+// Where "플레이" goes. 스무고개 starts from its room list rather than the create form.
+export function gamePlayHref(game) {
+  if (game?.slug === 'twenty-questions') return '/twenty-questions';
+  const href = String(game?.primaryHref || '');
+  return href && !href.startsWith('/board') ? href : '';
+}
+
+function TileArt({ game, title, sizes }) {
+  if (gameKeyArtSrc(game.slug)) {
+    return <GameKeyArt slug={game.slug} title={title} className="game-tile__art" sizes={sizes} />;
+  }
   return (
-    <div className="games-metric">
-      <span>{label}</span>
-      <strong>{formatNumber(value)}</strong>
-    </div>
+    <span className="game-tile__art game-tile__art--icon">
+      <GameIcon slug={game.slug} tone={game.tone} />
+    </span>
   );
 }
 
-export function GameCard({ slug, tone, title, subtitle, body, metrics, links }) {
+// A game as key art, name and one line.
+// With `withActions`, the tile shows 플레이 and 소개 buttons; otherwise the whole tile opens the game's page.
+export function GameTile({ game, withActions = false, sizes = '(max-width: 720px) 50vw, 25vw' }) {
+  const title = gameDisplayTitle(game);
+  const detailHref = gameDetailHref(game);
+  const playHref = gamePlayHref(game);
+
+  if (!withActions) {
+    return (
+      <Link href={detailHref} className="game-tile">
+        <TileArt game={game} title={title} sizes={sizes} />
+        <span className="game-tile__body">
+          <strong>{title}</strong>
+          <span>{gameTagline(game)}</span>
+        </span>
+      </Link>
+    );
+  }
+
   return (
-    <article className={`games-card is-${tone} has-key-art`}>
-      <GameKeyArt slug={slug} title={title} className="games-card-key-art" />
-      <div className="games-card-main">
-        <div className="games-card-title-row">
-          <GameIcon slug={slug} label={`${title} icon`} tone={tone} />
-          <div>
-            <span>{subtitle}</span>
-            <h2>{title}</h2>
-            <p>{body}</p>
-          </div>
-        </div>
-        <div className="games-card-metrics">
-          {metrics.map((metric) => (
-            <GameMetric key={metric.label} label={metric.label} value={metric.value} />
-          ))}
-        </div>
-        <div className="games-card-actions">
-          {links.map((link) => (
-            <Link href={link.href} key={`${link.href}-${link.label}`}>{link.label}</Link>
-          ))}
-        </div>
+    <article className="game-tile">
+      <Link href={detailHref} className="game-tile__link" tabIndex={-1} aria-hidden="true">
+        <TileArt game={game} title={title} sizes={sizes} />
+      </Link>
+      <div className="game-tile__body">
+        <h3><Link href={detailHref}>{title}</Link></h3>
+        <span>{gameTagline(game)}</span>
+      </div>
+      <div className="game-tile__actions">
+        {playHref ? <Link href={playHref} className="ui-button ui-button--primary ui-button--small">플레이</Link> : null}
+        <Link href={detailHref} className="ui-button ui-button--quiet ui-button--small">소개</Link>
       </div>
     </article>
   );
 }
 
-export function GameFamilyCard({ tone, kicker, title, body, href, stats, links }) {
+export function ActivityPanel({ title, titleId, href, linkLabel = '전체 보기', items, empty, renderItem }) {
   return (
-    <article className={`games-family-card is-${tone}`}>
-      <div>
-        <span>{kicker}</span>
-        <h3>{title}</h3>
-        <p>{body}</p>
-      </div>
-      <div className="games-family-stats">
-        {stats.map((stat) => (
-          <div key={`${title}-${stat.label}`}>
-            <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
-          </div>
-        ))}
-      </div>
-      <div className="games-family-actions">
-        <Link href={href}>허브 열기</Link>
-        {links.map((link) => (
-          <Link href={link.href} key={`${title}-${link.href}`}>{link.label}</Link>
-        ))}
-      </div>
-    </article>
-  );
-}
-
-export function RoadmapCard({ item, index }) {
-  const game = findGameBySlug(item.slug) || item;
-  const integration = getGameIntegration(game);
-  const checklist = getGamePortingChecklist(game);
-  const progress = getGamePortingProgress(game);
-  return (
-    <article className="games-roadmap-card">
-      <GameKeyArt slug={item.slug} title={item.title} className="games-roadmap-card__art" />
-      <div className="games-roadmap-card__head">
-        <GameIcon slug={item.slug} label={`${item.title} icon`} tone={game.tone || 'roadmap'} />
-        <div>
-          <p>{String(index + 1).padStart(2, '0')} · {item.subtitle}</p>
-          <h3>{item.title}</h3>
-        </div>
-        <strong>{item.priority}</strong>
-      </div>
-      <p>{item.summary}</p>
-      <dl>
-        <div>
-          <dt>범위</dt>
-          <dd>{item.scope}</dd>
-        </div>
-        <div>
-          <dt>다음 작업</dt>
-          <dd>{item.nextStep}</dd>
-        </div>
-        <div>
-          <dt>이식 상태</dt>
-          <dd>{integration.stageLabel} · {integration.adapter} · {progress.percentLabel}</dd>
-        </div>
-      </dl>
-      <div className="games-porting-strip" aria-label={`${item.title} 이식 체크리스트`}>
-        {checklist.map((entry) => (
-          <span className={entry.done ? 'is-done' : 'is-pending'} key={entry.key}>{entry.label}</span>
-        ))}
-      </div>
-      <Link href={gameDetailHref(item)} className="games-roadmap-card__link">상세 보기</Link>
-    </article>
-  );
-}
-
-export function ActivityList({ title, href, items, empty, renderItem }) {
-  return (
-    <section className="games-panel">
-      <div className="games-panel-title">
-        <h2>{title}</h2>
-        <Link href={href}>전체 보기</Link>
+    <section className="ui-panel" aria-labelledby={titleId}>
+      <div className="ui-panel__head">
+        <h2 id={titleId}>{title}</h2>
+        <Link href={href}>{linkLabel}</Link>
       </div>
       {items.length ? (
-        <div className="games-activity-list">
+        <ul className="ui-list">
           {items.map(renderItem)}
-        </div>
+        </ul>
       ) : (
-        <div className="games-empty">{empty}</div>
+        <p className="ui-empty">{empty}</p>
       )}
     </section>
   );

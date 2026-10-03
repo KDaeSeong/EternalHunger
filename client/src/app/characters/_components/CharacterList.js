@@ -2,7 +2,8 @@ import Image from 'next/image';
 import { normalizeWeaponType, normalizeWeaponTypes } from '../../../utils/equipmentCatalog';
 import { CHARACTER_SKILL_SLOT_LABELS, CHARACTER_SKILL_SLOTS } from '../../../utils/characterSkillCompiler';
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
-import { characterId, gearTierLabel } from '../_lib/characterEditorRuntime';
+import OverflowMenu from '../../../components/OverflowMenu';
+import { characterId } from '../_lib/characterEditorRuntime';
 
 function CharacterList({
   characters,
@@ -13,7 +14,7 @@ function CharacterList({
   onRemove,
 }) {
   return (
-    <div id="characterRowContainer" className="character-list-compact">
+    <div className="cl-grid">
       {(Array.isArray(characters) ? characters : []).map((char) => {
         const realId = characterId(char);
         const configuredWeapons = normalizeWeaponTypes(char.erWeapons);
@@ -27,46 +28,50 @@ function CharacterList({
           .map((slot) => [slot, char?.characterSkills?.[slot]])
           .filter(([, skill]) => skill?.enabled);
         return (
-          <div className="characterRowContainer2 character-list-card" key={realId}>
-            <div className="character-summary-avatar">
+          <article className="cl-card" key={realId}>
+            <div className="cl-card__avatar">
               {char.previewImage ? (
                 <Image
                   src={char.previewImage}
-                  alt={`${char.name || '캐릭터'} 미리보기`}
-                  width={58}
-                  height={58}
+                  alt=""
+                  width={56}
+                  height={56}
                   unoptimized
                 />
               ) : (
-                <span>이미지 없음</span>
+                <span aria-hidden="true">{String(char.name || '?').trim().slice(0, 1) || '?'}</span>
               )}
             </div>
 
-            <div className="character-summary-main">
-              <div className="character-summary-top">
-                <strong>{char.name || '이름 없음'}</strong>
-                <span>{char.gender || '여'}</span>
-              </div>
-              <div className="character-summary-meta">
-                <span>무기: {weapon}</span>
-                <span>장비: {gearTierLabel()}</span>
-                <span>전술: {tactical}</span>
-                {activeSkills.length ? (
-                  <span>
-                    Skills: {activeSkills.map(([slot, skill]) => `${CHARACTER_SKILL_SLOT_LABELS[slot]} ${skill.name || '사용'}`).join(', ')}
-                  </span>
-                ) : null}
-              </div>
+            <div className="cl-card__main">
+              <h2 className="cl-card__name">
+                {char.name || '이름 없음'}
+                <span className="cl-card__gender">{char.gender || '여'}</span>
+              </h2>
+              <p className="cl-card__meta">
+                <span>{weapon}</span>
+                <span>전술 {tactical}</span>
+              </p>
+              {activeSkills.length ? (
+                <p className="cl-card__skills">
+                  {activeSkills.map(([slot, skill]) => `${CHARACTER_SKILL_SLOT_LABELS[slot]} ${skill.name || '사용'}`).join(' · ')}
+                </p>
+              ) : null}
             </div>
 
-            <div className="character-summary-actions">
-              <button type="button" onClick={() => onEditBasic(realId)}>기본 정보</button>
-              <button type="button" onClick={() => onOpenConfig(char)}>전술/스킬</button>
-              <button type="button" onClick={() => onAnalyze(realId)}>AI 분석</button>
-              <button type="button" onClick={() => onApplyErPreset(realId)}>ER 프리셋</button>
-              <button type="button" className="danger" onClick={() => onRemove(realId)}>삭제</button>
+            <div className="cl-card__actions">
+              <button type="button" className="ui-button ui-button--quiet ui-button--small" onClick={() => onEditBasic(realId)}>기본 정보</button>
+              <button type="button" className="ui-button ui-button--quiet ui-button--small" onClick={() => onOpenConfig(char)}>전술·스킬</button>
+              <OverflowMenu
+                label={`${char.name || '캐릭터'} 메뉴 더보기`}
+                items={[
+                  { label: 'AI로 설정 분석', onSelect: () => onAnalyze(realId) },
+                  { label: 'ER 프리셋 적용', onSelect: () => onApplyErPreset(realId) },
+                  { label: '목록에서 삭제', onSelect: () => onRemove(realId), danger: true },
+                ]}
+              />
             </div>
-          </div>
+          </article>
         );
       })}
     </div>

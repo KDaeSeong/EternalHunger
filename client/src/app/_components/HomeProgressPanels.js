@@ -2,52 +2,69 @@ import Link from 'next/link';
 
 import { formatNumber, formatPercent, normalizeList, safeText } from '../_lib/homePageUtils';
 
-export function ProgressBar({ value }) {
+export function ProgressBar({ value, label }) {
+  const percent = formatPercent(value);
   return (
-    <div className="home-progress-bar" aria-label={`진행도 ${formatPercent(value)}`}>
-      <span style={{ width: formatPercent(value) }} />
-    </div>
+    <span
+      className="ui-progress"
+      role="progressbar"
+      aria-label={label || '진행도'}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Number.parseInt(percent, 10) || 0}
+    >
+      <span style={{ width: percent }} />
+    </span>
   );
 }
 
-export function NextGoalRows({ goals }) {
-  if (!goals.length) return <div className="home-empty">지금 표시할 다음 목표가 없습니다.</div>;
+// Logged-in summary: season score, the next goal, and the next onboarding step (only while unfinished).
+export function ProgressStrip({ progress, loading, error }) {
+  const season = progress.season || {};
+  const maxScore = Number(season.maxScore || 0);
+  const ratio = maxScore ? Number(season.score || 0) / maxScore : 0;
+  const goal = normalizeList(progress.next)[0] || null;
+  const step = normalizeList(progress.onboarding?.next)[0] || null;
 
   return (
-    <div className="home-next-goals">
-      {goals.map((goal) => {
-        const href = safeText(goal?.href, '/achievements');
-        const valueText = `${formatNumber(goal?.value)} / ${formatNumber(goal?.target)}`;
-        return (
-          <Link href={href} className="home-goal-row" key={goal?.id || goal?.title}>
-            <div>
+    <section className="ui-panel hm-progress" aria-label="내 진행 상황">
+      <div className="hm-progress__season">
+        <span className="hm-progress__label">{safeText(season.name, '프리시즌')} 진행</span>
+        <strong className="ui-num">
+          {loading ? '불러오는 중' : `${formatNumber(season.score)} / ${formatNumber(maxScore)}점`}
+        </strong>
+        <ProgressBar value={ratio} label="시즌 진행도" />
+        <span className="hm-progress__note">
+          업적 {formatNumber(season.completedCount)}/{formatNumber(season.totalCount)}개 달성
+        </span>
+      </div>
+
+      {error ? (
+        <p className="hm-progress__item hm-progress__item--error">{error}</p>
+      ) : (
+        <>
+          {goal ? (
+            <Link href={safeText(goal?.href, '/achievements')} className="hm-progress__item">
+              <span className="hm-progress__label">다음 목표</span>
               <strong>{safeText(goal?.title, '업적')}</strong>
-              <span>{safeText(goal?.sectionLabel, '업적')} · {valueText}</span>
-            </div>
-            <small>{formatPercent(goal?.progress)}</small>
-            <ProgressBar value={goal?.progress} />
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
+              <span className="hm-progress__note ui-num">
+                {formatNumber(goal?.value)} / {formatNumber(goal?.target)} · {formatPercent(goal?.progress)}
+              </span>
+            </Link>
+          ) : null}
+          {step ? (
+            <Link href={safeText(step?.href, '/achievements')} className="hm-progress__item">
+              <span className="hm-progress__label">
+                시작하기 {formatNumber(progress.onboarding?.completedCount)}/{formatNumber(progress.onboarding?.totalCount)}
+              </span>
+              <strong>{safeText(step?.title, '시작 항목')}</strong>
+              {step?.description ? <span className="hm-progress__note">{step.description}</span> : null}
+            </Link>
+          ) : null}
+        </>
+      )}
 
-export function OnboardingRows({ onboarding }) {
-  const steps = normalizeList(onboarding?.next).slice(0, 3);
-  if (!steps.length) return <div className="home-empty">시작 체크리스트를 모두 완료했습니다.</div>;
-
-  return (
-    <div className="home-onboarding-rows">
-      {steps.map((step) => (
-        <Link href={safeText(step?.href, '/achievements')} className="home-onboarding-row" key={step?.id || step?.title}>
-          <span>다음</span>
-          <div>
-            <strong>{safeText(step?.title, '시작 항목')}</strong>
-            <small>{safeText(step?.description, '')}</small>
-          </div>
-        </Link>
-      ))}
-    </div>
+      <Link href="/achievements" className="ui-button ui-button--quiet hm-progress__more">업적 보기</Link>
+    </section>
   );
 }

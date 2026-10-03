@@ -1,0 +1,968 @@
+/*
+  Site shell (2026-10 UI pass)
+  - Loaded last from app/layout.js so it wins over older page styles at equal specificity.
+  - Tokens: --ui-*. The older --eh-* variables are remapped so existing pages follow along.
+  - Game play screens keep their own look; only the shared header and the site pages are styled here.
+*/
+
+:root {
+  --ui-ink: #15202b;
+  --ui-muted: #5a6775;
+  --ui-faint: #8a96a3;
+  --ui-line: #d9e1e9;
+  --ui-line-strong: #c3ced9;
+  --ui-paper: #eef2f6;
+  --ui-surface: #ffffff;
+  --ui-blue: #1766a8;
+  --ui-blue-strong: #0e4f86;
+  --ui-blue-wash: #e6f0f9;
+  --ui-signal: #c98600;
+  --ui-signal-wash: #fff4dc;
+  --ui-danger: #c0392b;
+  --ui-danger-wash: #fdecea;
+  /* Eternal Hunger section: borrowed from the play screen and its key art */
+  --ui-arena: #102333;
+  --ui-arena-line: #24435a;
+  --ui-arena-text: #d8e7f2;
+  --ui-arena-glow: #46c8f0;
+
+  --ui-font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  --ui-radius-control: 8px;
+  --ui-radius-panel: 12px;
+  --ui-gutter: 24px;
+  --ui-content: 1200px;
+  --ui-header-h: 60px;
+  --ui-focus: 0 0 0 3px rgba(23, 102, 168, 0.35);
+
+  --eh-content-max: var(--ui-content);
+  --eh-shell-bg: var(--ui-paper);
+  --eh-card-bg: var(--ui-surface);
+  --eh-border-soft: var(--ui-line);
+  --eh-text: var(--ui-ink);
+  --eh-muted: var(--ui-muted);
+  --eh-blue: var(--ui-blue);
+  --eh-page-shadow: none;
+  --eh-card-shadow: none;
+}
+
+@media (max-width: 720px) {
+  :root {
+    --ui-gutter: 16px;
+    --ui-header-h: 56px;
+  }
+}
+
+/* ---------- Base ---------- */
+
+html,
+body {
+  overflow-x: hidden; /* fallback */
+  overflow-x: clip; /* unlike hidden, keeps position: sticky working */
+}
+
+body {
+  background: var(--ui-paper);
+  color: var(--ui-ink);
+  font-family: var(--ui-font);
+  font-feature-settings: 'tnum' 0;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ui-blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ---------- Header ---------- */
+
+.site-header {
+  word-break: keep-all;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  width: 100%;
+  overflow: visible;
+  border-bottom: 1px solid var(--ui-line);
+  background: var(--ui-surface);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.site-header .site-header__inner.sh-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  width: min(100%, calc(var(--ui-content) + 2 * var(--ui-gutter)));
+  min-width: 0;
+  min-height: var(--ui-header-h);
+  margin: 0 auto;
+  padding: 0 var(--ui-gutter);
+  grid-template-columns: none;
+}
+
+.site-header .sh-logo {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 8px 0;
+  flex: 0 0 auto;
+  color: var(--ui-ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-header .sh-logo-owner {
+  color: var(--ui-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.site-header .sh-logo-name {
+  color: var(--ui-ink);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.site-header .sh-nav {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+
+.site-header .sh-nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--ui-muted);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.site-header .sh-nav-link:hover {
+  color: var(--ui-ink);
+}
+
+.site-header .sh-nav-link.is-active {
+  color: var(--ui-ink);
+  font-weight: 700;
+}
+
+/* The current section is marked by a bar on the header's bottom edge. */
+.site-header .sh-nav-link.is-active::after {
+  position: absolute;
+  right: 12px;
+  bottom: -1px;
+  left: 12px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--ui-blue);
+  content: '';
+}
+
+.site-header .sh-nav-trigger svg {
+  margin-left: 2px;
+  transition: transform 0.15s ease;
+}
+
+.site-header .sh-dropdown {
+  position: relative;
+  display: flex;
+}
+
+.site-header .sh-dropdown.is-open .sh-nav-trigger svg,
+.site-header .sh-dropdown.is-open .sh-account-trigger svg {
+  transform: rotate(180deg);
+}
+
+.site-header .sh-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 1100;
+  display: grid;
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid var(--ui-line);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-surface);
+  box-shadow: 0 12px 32px rgba(21, 32, 43, 0.14);
+}
+
+.site-header .sh-menu[hidden] {
+  display: none;
+}
+
+.site-header .sh-menu--end {
+  right: 0;
+  left: auto;
+  min-width: 220px;
+}
+
+.site-header .sh-menu a,
+.site-header .sh-menu-logout {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ui-ink);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.site-header .sh-menu a:hover,
+.site-header .sh-menu-logout:hover {
+  background: var(--ui-paper);
+}
+
+.site-header .sh-menu a.is-active,
+.site-header .sh-menu a[aria-current='page'] {
+  background: var(--ui-blue-wash);
+  color: var(--ui-blue-strong);
+  font-weight: 700;
+}
+
+.site-header .sh-menu-logout {
+  width: 100%;
+  margin-top: 4px;
+  border-top: 1px solid var(--ui-line);
+  border-radius: 0 0 6px 6px;
+  color: var(--ui-danger);
+}
+
+.site-header .sh-wallet {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0 0 6px;
+  padding: 10px 8px 12px;
+  border-bottom: 1px solid var(--ui-line);
+}
+
+.site-header .sh-wallet div {
+  display: grid;
+  gap: 2px;
+}
+
+.site-header .sh-wallet dt {
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.site-header .sh-wallet dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.site-header .sh-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.site-header .sh-icon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--ui-muted);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.site-header .sh-icon-button:hover {
+  background: var(--ui-paper);
+  color: var(--ui-ink);
+}
+
+.site-header .sh-badge {
+  position: absolute;
+  top: 3px;
+  right: 1px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid var(--ui-surface);
+  border-radius: 999px;
+  background: var(--ui-danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.site-header .sh-account-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  margin-left: 4px;
+  padding: 0 10px 0 14px;
+  border: 1px solid var(--ui-line);
+  border-radius: 999px;
+  background: var(--ui-surface);
+  color: var(--ui-ink);
+  cursor: pointer;
+}
+
+.site-header .sh-account-trigger:hover {
+  border-color: var(--ui-line-strong);
+}
+
+.site-header .sh-account-name {
+  max-width: 120px;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-header .sh-account-lp {
+  color: var(--ui-signal);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.site-header .sh-auth-links {
+  display: flex;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.site-header .sh-auth-placeholder {
+  width: 120px;
+  height: 40px;
+}
+
+.site-header .sh-menu-toggle {
+  display: none;
+}
+
+/* Buttons used by the header and page headers */
+.site-header .sh-button,
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-control);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.site-header .sh-button--primary,
+.ui-button--primary {
+  background: var(--ui-blue);
+  color: #fff;
+}
+
+.site-header .sh-button--primary:hover,
+.ui-button--primary:hover {
+  background: var(--ui-blue-strong);
+}
+
+.site-header .sh-button--quiet,
+.ui-button--quiet {
+  border-color: var(--ui-line);
+  background: var(--ui-surface);
+  color: var(--ui-ink);
+}
+
+.site-header .sh-button--quiet:hover,
+.ui-button--quiet:hover {
+  border-color: var(--ui-line-strong);
+  background: var(--ui-paper);
+}
+
+.ui-button--danger {
+  border-color: #efc5c0;
+  background: var(--ui-surface);
+  color: var(--ui-danger);
+}
+
+.ui-button--danger:hover {
+  background: var(--ui-danger-wash);
+}
+
+.ui-button:disabled,
+.site-header .sh-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Mobile drawer */
+.site-header .sh-drawer {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .site-header .sh-nav,
+  .site-header .sh-account,
+  .site-header .sh-auth-links {
+    display: none;
+  }
+
+  .site-header .sh-menu-toggle {
+    display: inline-flex;
+  }
+
+  .site-header .sh-drawer {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    z-index: 1100;
+    display: grid;
+    gap: 4px;
+    max-height: calc(100dvh - var(--ui-header-h));
+    padding: 8px var(--ui-gutter) 20px;
+    overflow-y: auto;
+    border-top: 1px solid var(--ui-line);
+    border-bottom: 1px solid var(--ui-line);
+    background: var(--ui-surface);
+    box-shadow: 0 18px 36px rgba(21, 32, 43, 0.16);
+  }
+
+  .site-header .sh-drawer a,
+  .site-header .sh-drawer .sh-menu-logout {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: 6px;
+    color: var(--ui-ink);
+    font-size: 16px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .site-header .sh-drawer a.is-active {
+    background: var(--ui-blue-wash);
+    color: var(--ui-blue-strong);
+    font-weight: 700;
+  }
+
+  .site-header .sh-drawer-top {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--ui-line);
+  }
+
+  .site-header .sh-drawer-top a {
+    justify-content: center;
+    font-weight: 700;
+  }
+
+  .site-header .sh-drawer-group {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--ui-line);
+  }
+
+  .site-header .sh-drawer-group:last-child {
+    border-bottom: 0;
+  }
+
+  .site-header .sh-drawer-group h2 {
+    margin: 4px 10px 4px;
+    color: var(--ui-muted);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .site-header .sh-drawer-group h2 span {
+    margin-left: 6px;
+    color: var(--ui-signal);
+    font-weight: 600;
+  }
+
+  .site-header .sh-drawer-group > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 8px;
+  }
+
+  .site-header .sh-drawer .sh-menu-logout {
+    width: 100%;
+    margin: 0;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--ui-danger);
+  }
+
+  .site-header .sh-drawer-auth {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px !important;
+    padding-top: 4px;
+  }
+
+  .site-header .sh-drawer-auth a {
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .site-header .sh-drawer-auth .sh-button--primary {
+    color: #fff;
+  }
+
+  .site-header .site-header__inner.sh-bar {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  .site-header .sh-logo-owner {
+    display: none;
+  }
+}
+
+/* ---------- Eternal Hunger sub-menu ---------- */
+
+.eh-subnav {
+  position: relative;
+  z-index: 5;
+  border-bottom: 1px solid var(--ui-arena-line);
+  background: var(--ui-arena);
+  color: var(--ui-arena-text);
+}
+
+.eh-subnav__inner {
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+  width: min(100%, calc(var(--ui-content) + 2 * var(--ui-gutter)));
+  min-height: 48px;
+  margin: 0 auto;
+  padding: 0 var(--ui-gutter);
+}
+
+.eh-subnav__title {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.eh-subnav__links {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.eh-subnav__links::-webkit-scrollbar {
+  display: none;
+}
+
+.eh-subnav__links a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  color: #a9c2d4;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.eh-subnav__links a:hover {
+  color: #fff;
+}
+
+.eh-subnav__links a.is-active {
+  color: #fff;
+  font-weight: 700;
+}
+
+.eh-subnav__links a.is-active::after {
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  left: 12px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--ui-arena-glow);
+  content: '';
+}
+
+.eh-subnav__links a.is-play {
+  margin: 8px 6px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--ui-arena-glow);
+  color: #06202f;
+  font-weight: 800;
+}
+
+.eh-subnav__links a.is-play:hover {
+  background: #7fdcf8;
+  color: #06202f;
+}
+
+.eh-subnav :focus-visible {
+  outline-color: var(--ui-arena-glow);
+  outline-offset: -2px;
+}
+
+@media (max-width: 720px) {
+  .eh-subnav__title {
+    display: none;
+  }
+
+  /* Fade the right edge so it reads as scrollable. */
+  .eh-subnav__links {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+    padding-right: 28px;
+  }
+
+  .eh-subnav__inner {
+    padding-right: 0;
+  }
+}
+
+/* ---------- Site page frame ----------
+   Site pages used a framed card (3px border, 20px radius) around everything.
+   The frame is removed; the header runs edge to edge and content sits on the page. */
+
+body :is(
+  .home-page,
+  .search-page-shell,
+  .characters-page-shell,
+  .details-page-shell,
+  .modifiers-page-shell,
+  .account-page-shell,
+  .notifications-page-shell,
+  .achievements-page-shell,
+  .profile-page-shell,
+  .reports-page-shell,
+  .bookmarks-page-shell,
+  .activity-page-shell,
+  .guides-page-shell,
+  .leaderboard-page-shell,
+  .board-page,
+  .perk-shop-page,
+  .help-page-shell,
+  .records-page,
+  .balance-page,
+  .auth-shell,
+  .policy-shell,
+  .games-page-shell:not(.games-page-shell--viewport)
+) {
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0 var(--ui-gutter) 72px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ui-paper);
+  box-shadow: none;
+  color: var(--ui-ink);
+}
+
+body :is(
+  .home-page,
+  .search-page-shell,
+  .characters-page-shell,
+  .details-page-shell,
+  .modifiers-page-shell,
+  .account-page-shell,
+  .notifications-page-shell,
+  .achievements-page-shell,
+  .profile-page-shell,
+  .reports-page-shell,
+  .bookmarks-page-shell,
+  .activity-page-shell,
+  .guides-page-shell,
+  .leaderboard-page-shell,
+  .board-page,
+  .perk-shop-page,
+  .help-page-shell,
+  .records-page,
+  .balance-page,
+  .auth-shell,
+  .policy-shell,
+  .games-page-shell:not(.games-page-shell--viewport)
+) > :is(.site-header, .eh-subnav) {
+  width: auto;
+  margin: 0 calc(-1 * var(--ui-gutter)) 32px;
+  border-radius: 0;
+}
+
+body :is(
+  .home-page,
+  .search-page-shell,
+  .characters-page-shell,
+  .details-page-shell,
+  .modifiers-page-shell,
+  .perk-shop-page,
+  .records-page,
+  .balance-page,
+  .games-page-shell:not(.games-page-shell--viewport)
+) > .site-header--with-subnav {
+  margin-bottom: 0;
+}
+
+/* Game screens fill the window, so their header spans the full width like the game below it. */
+.games-page-shell--viewport > .site-header,
+.tcg-page-shell--viewport > .site-header,
+.twenty-page--viewport > .site-header {
+  border-radius: 0;
+}
+
+:is(.games-page-shell--viewport, .tcg-page-shell--viewport, .twenty-page--viewport) > .site-header .site-header__inner.sh-bar {
+  width: 100%;
+  padding: 0 16px;
+}
+
+/* ---------- Page header ---------- */
+
+.ui-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  width: min(100%, var(--ui-content));
+  margin: 0 auto;
+  /* Korean wraps between words, not inside them. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.ui-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+}
+
+.ui-page-header__text {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  max-width: 62ch;
+}
+
+.ui-page-header h1 {
+  margin: 0;
+  color: var(--ui-ink);
+  font-size: clamp(26px, 3vw, 32px);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.ui-page-header p {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.ui-page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .ui-page {
+    gap: 22px;
+  }
+
+  .ui-page-header__actions {
+    width: 100%;
+  }
+}
+
+/* ---------- Panels ---------- */
+
+.ui-panel {
+  min-width: 0;
+  border: 1px solid var(--ui-line);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-surface);
+}
+
+.ui-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px 12px;
+}
+
+.ui-panel__head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.ui-panel__head a {
+  color: var(--ui-blue);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ui-panel__head a:hover {
+  text-decoration: underline;
+}
+
+.ui-list {
+  margin: 0;
+  padding: 0 8px 8px;
+  list-style: none;
+}
+
+.ui-list > li + li {
+  border-top: 1px solid var(--ui-line);
+}
+
+.ui-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.ui-list-row:hover {
+  background: var(--ui-paper);
+}
+
+.ui-list-row__main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ui-list-row__main strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-list-row__main span {
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-list-row__value {
+  flex: 0 0 auto;
+  color: var(--ui-ink);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--ui-paper);
+  color: var(--ui-muted);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-rank--1 {
+  background: var(--ui-signal-wash);
+  color: var(--ui-signal);
+}
+
+.ui-empty {
+  margin: 0 20px 20px;
+  padding: 18px;
+  border: 1px dashed var(--ui-line-strong);
+  border-radius: 10px;
+  color: var(--ui-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.ui-num {
+  font-variant-numeric: tabular-nums;
+}

@@ -134,6 +134,9 @@ export default function BoardDetailPage() {
   }, [loadReactionStatus, mounted]);
 
   const canEdit = mounted && token && userId && post && normalizeIdValue(post.authorId) === String(userId);
+  // 관리자는 신고 대응을 위해 다른 사람의 글·댓글을 삭제할 수 있습니다(수정은 작성자만).
+  const isAdminViewer = Boolean(mounted && token && user?.isAdmin);
+  const canDelete = Boolean(canEdit || (isAdminViewer && post));
   const canManageNotice = mounted && token && Boolean(user?.isAdmin) && post;
   const comments = Array.isArray(post?.comments) ? post.comments : [];
   const postGameLabel = gameLabelForSlug(gameOptions, post?.gameSlug);
@@ -370,30 +373,30 @@ export default function BoardDetailPage() {
   return (
     <main className="board-page">
       <SiteHeader />
-      <section className="board-shell">
-        <div className="board-head">
-          <div>
-            <p className="board-eyebrow">Community</p>
-            <h1>게시글</h1>
-          </div>
-          <Link href="/board" className="board-link-button">
-            목록으로
-          </Link>
-        </div>
+      <div className="ui-page bd bd-detail">
+        <nav className="bd-crumb" aria-label="위치">
+          <Link href="/board">게시판</Link>
+          {post ? <span aria-hidden="true">/</span> : null}
+          {post ? <span>{post.categoryLabel}</span> : null}
+        </nav>
 
-        {message ? <div className="board-message">{message}</div> : null}
+        {message ? <div className="ui-notice" role="status">{message}</div> : null}
 
         {loading ? (
-          <div className="board-empty">게시글을 불러오는 중입니다.</div>
+          <p className="ui-empty">게시글을 불러오는 중입니다.</p>
         ) : !post ? (
-          <div className="board-empty">게시글을 찾을 수 없습니다.</div>
+          <div className="ui-empty">
+            <p>게시글을 찾을 수 없습니다. 삭제되었거나 주소가 잘못되었습니다.</p>
+            <Link href="/board" className="ui-button ui-button--quiet ui-button--small">게시판으로</Link>
+          </div>
         ) : (
-          <article className="board-post-view">
+          <article className="ui-panel bd-post">
             <BoardDetailPostView
               bookmarked={bookmarked}
               bookmarkLoading={bookmarkLoading}
               bookmarkSaving={bookmarkSaving}
               canEdit={canEdit}
+              canDelete={canDelete}
               canManageNotice={canManageNotice}
               comments={comments}
               editing={editing}
@@ -448,10 +451,11 @@ export default function BoardDetailPage() {
               token={token}
               updateComment={updateComment}
               userId={userId}
+              isAdmin={isAdminViewer}
             />
           </article>
         )}
-      </section>
+      </div>
     </main>
   );
 }
