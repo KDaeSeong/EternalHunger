@@ -77,6 +77,7 @@ export default function PrimitiveArchiveTribeTab({
 
       <section className="games-panel primitive-job-panel">
         <PrimitiveArchivePanelTitle action="primitive-job" title="직업 배치" meta={`미배치 ${tribe.unassigned}명 · AP 소모 없음`} />
+        <p>하루 자동 운영은 자동 배치한 일손과 미배치 인원을 식량·실행 가능한 사업에 맞춰 다시 배분합니다. 직접 조정한 직업의 현재 일손은 유지하며, 이전 저장 기록의 배치도 그대로 보존합니다.</p>
         <div className="primitive-job-grid">
           {tribe.jobs.map((job) => (
             <article className={job.unlocked ? '' : 'is-locked'} key={job.id}>
@@ -85,6 +86,7 @@ export default function PrimitiveArchiveTribeTab({
                 <span>{job.unlocked ? job.outputText : '기술 연구 후 해금'}</span>
                 <strong>{job.name}</strong>
                 <small>{job.description}</small>
+                <small>직접 배치 {job.manualCount}명 · 자동 배치 {job.autoCount}명</small>
                 <em>다음 정산 · {job.dailyText}</em>
               </div>
               <div className="primitive-job-stepper">

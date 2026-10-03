@@ -2415,9 +2415,11 @@ export function normalizeProjectState(value = {}) {
 }
 
 export function initTribeState() {
+  const assignments = { forager: 2, hunter: 1, logger: 0, herbalist: 0, trapper: 0, farmer: 0, herder: 0, fisher: 0, miner: 0, quarryman: 0, builder: 1, scholar: 0 };
   return {
     population: 4,
-    assignments: { forager: 2, hunter: 1, logger: 0, herbalist: 0, trapper: 0, farmer: 0, herder: 0, fisher: 0, miner: 0, quarryman: 0, builder: 1, scholar: 0 },
+    assignments,
+    autoAssignments: { ...assignments },
     morale: 60,
     growthProgress: 0,
     lastGrowthDay: 0,
@@ -2443,11 +2445,18 @@ export function normalizeTribeState(value = {}) {
     assignments[job.id] -= reduction;
     overflow -= reduction;
   });
+  // Older saves do not record who made an assignment. Treat their workers as
+  // manually assigned, not as permission to redistribute the player's tribe.
+  const autoAssignments = Object.fromEntries(TRIBE_JOBS.map((job) => {
+    const count = Number(value.autoAssignments?.[job.id] ?? 0);
+    return [job.id, Number.isFinite(count) ? Math.min(assignments[job.id], Math.max(0, Math.floor(count))) : 0];
+  }));
   return {
     ...base,
     ...value,
     population,
     assignments,
+    autoAssignments,
     morale: Math.min(100, Math.max(0, Number(value.morale ?? base.morale))),
     growthProgress: Math.max(0, Number(value.growthProgress || 0)),
     lastGrowthDay: Math.max(0, Math.floor(Number(value.lastGrowthDay || 0))),

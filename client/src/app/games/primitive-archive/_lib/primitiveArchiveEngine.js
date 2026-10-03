@@ -1194,6 +1194,8 @@ export function tribeSummary(state) {
     return {
       ...job,
       count,
+      autoCount: tribe.autoAssignments[job.id],
+      manualCount: count - tribe.autoAssignments[job.id],
       unlocked,
       lockedReason,
       canAdd: unlocked && unassigned > 0,
@@ -1238,6 +1240,8 @@ export function adjustTribeJobAction(state, jobId, delta) {
     tribe: {
       ...tribe,
       assignments: { ...tribe.assignments, [job.id]: nextCount },
+      // An explicit job edit takes control of the workers in that job.
+      autoAssignments: { ...tribe.autoAssignments, [job.id]: 0 },
       assignmentSerial: Number(tribe.assignmentSerial || 0) + 1,
     },
   }, `${job.name} 배치 ${direction > 0 ? '+' : '-'}1. 현재 ${nextCount}명입니다.`);
@@ -6081,17 +6085,24 @@ function pickAutoFoodJob(state, assignments, jobUnlocked) {
     .sort((a, b) => b.shortageGain - a.shortageGain || b.firstDayGain - a.firstDayGain)[0]?.id || '';
 }
 
-function autoAssignUnassignedTribe(state) {
+function autoAssignTribeWorkers(state) {
   const tribe = normalizeTribeState(state.tribe);
-  const assignments = { ...tribe.assignments };
+  // Only automatic workers and genuinely unassigned newcomers are movable.
+  // Re-plan them daily so idle construction and stale production do not keep
+  // scarce workers away from food. Manual and legacy-save workers stay put.
+  const assignments = Object.fromEntries(TRIBE_JOBS.map((job) => [
+    job.id, tribe.assignments[job.id] - tribe.autoAssignments[job.id],
+  ]));
   const assigned = Object.values(assignments).reduce((sum, count) => sum + Number(count || 0), 0);
   let unassigned = Math.max(0, Number(tribe.population || 0) - assigned);
   if (!unassigned) return state;
 
   const added = Object.fromEntries(TRIBE_JOBS.map((job) => [job.id, 0]));
   const population = Number(tribe.population || 1);
-  const foodShortageBefore = forecastTribeFood(state, assignments).totalShortage;
+  const foodShortageBefore = forecastTribeFood(state).totalShortage;
   let foodWorkers = 0;
+  const canStudy = researchSystemStatus(state).unlocked
+    && Boolean(nextAvailableTech(normalizeResearch(state.research)));
   const jobUnlocked = (jobId) => {
     const job = TRIBE_JOBS.find((row) => row.id === jobId);
     return !job?.techId || Boolean(state.research?.completed?.[job.techId]);
@@ -6107,16 +6118,15 @@ function autoAssignUnassignedTribe(state) {
     fisher: jobUnlocked('fisher') ? 1 : 0,
     miner: jobUnlocked('miner') ? 1 : 0,
     quarryman: jobUnlocked('quarryman') ? 1 : 0,
-    scholar: researchSystemStatus(state).unlocked ? Math.max(1, Math.floor(population * 0.2)) : 0,
-    builder: 1,
+    scholar: canStudy ? Math.max(1, Math.floor(population * 0.2)) : 0,
+    builder: 0,
   };
-  const selectedProject = projectRows(state).find((project) => project.selected && !project.completed && project.available);
+  const selectedProject = projectRows(state).find((project) => project.selected && project.canWork);
   if (selectedProject) targets.builder = Math.max(1, Math.ceil(population / 5));
-  const priority = ['forager', 'hunter', 'logger', 'herbalist', 'farmer', 'fisher', 'herder', 'trapper', 'miner', 'quarryman', 'scholar', 'builder'];
+  const priority = ['forager', 'hunter', 'builder', 'logger', 'herbalist', 'farmer', 'fisher', 'herder', 'trapper', 'miner', 'quarryman', 'scholar'];
 
   while (unassigned > 0) {
-    // Preserve existing (including manual) assignments. Only new workers
-    // cover real upcoming ration shortages before filling development jobs.
+    // Cover real upcoming ration shortages before filling development jobs.
     const foodJobId = pickAutoFoodJob(state, assignments, jobUnlocked);
     let jobId = foodJobId || priority.find((candidate) => (
       jobUnlocked(candidate) && Number(assignments[candidate] || 0) < Number(targets[candidate] || 0)
@@ -6128,7 +6138,7 @@ function autoAssignUnassignedTribe(state) {
       || tribeFoodStock(state.inventory) < Math.ceil(population / 4) * 2;
     if (!jobId && foodPressure && jobUnlocked('farmer')) jobId = 'farmer';
     if (!jobId && foodPressure) jobId = 'forager';
-    if (!jobId && researchSystemStatus(state).unlocked) jobId = 'scholar';
+    if (!jobId && canStudy) jobId = 'scholar';
     if (!jobId) jobId = 'hunter';
     assignments[jobId] = Number(assignments[jobId] || 0) + 1;
     added[jobId] = Number(added[jobId] || 0) + 1;
@@ -6136,19 +6146,23 @@ function autoAssignUnassignedTribe(state) {
     unassigned -= 1;
   }
 
+  if (TRIBE_JOBS.every((job) => assignments[job.id] === tribe.assignments[job.id]
+    && added[job.id] === tribe.autoAssignments[job.id])) return state;
   const labels = Object.fromEntries(TRIBE_JOBS.map((job) => [job.id, job.name]));
-  const summary = Object.entries(added)
-    .filter(([, count]) => count > 0)
-    .map(([jobId, count]) => `${labels[jobId]} +${count}`)
+  const summary = TRIBE_JOBS
+    .map((job) => [job.id, assignments[job.id] - tribe.assignments[job.id]])
+    .filter(([, count]) => count !== 0)
+    .map(([jobId, count]) => `${labels[jobId]} ${count > 0 ? '+' : ''}${count}`)
     .join(' \u00B7 ');
-  const foodNote = foodWorkers > 0
+  const foodNote = foodWorkers > 0 && foodShortageBefore > 0
     ? ` 식량 부족 예방: 현재 재고·배치 기준 2일 부족 ${foodShortageBefore} → ${forecastTribeFood(state, assignments).totalShortage}단위.`
-    : '';
+    : foodWorkers > 0 ? ' 식량 공급 우선: 자동 일손으로 앞으로 이틀의 부족 식사를 먼저 확보합니다.' : '';
   return addLog({
     ...state,
     tribe: {
       ...tribe,
       assignments,
+      autoAssignments: added,
       assignmentSerial: Number(tribe.assignmentSerial || 0) + 1,
     },
   }, `\uD558\uB8E8 \uC790\uB3D9 \uC6B4\uC601 \uC9C1\uC5C5 \uBC30\uCE58: ${summary}.${foodNote}`);
@@ -6380,7 +6394,7 @@ function runNextAutoArchiveAction(state, options = {}) {
 export function runAutoDayAction(state, options = {}) {
   let next = normalizeState(state);
   if (next.ended || Number(next.ap || 0) <= 0) return next;
-  next = autoAssignUnassignedTribe(next);
+  next = autoAssignTribeWorkers(next);
   const hasEquipmentPool = Object.entries(buildEquipmentPool(next))
     .some(([itemId, qty]) => Number(qty || 0) > 0 && ITEMS[itemId]?.type === 'equip');
   if (hasEquipmentPool) {
