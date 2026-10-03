@@ -912,15 +912,156 @@ check('map-unlocked food procurement leaves a selected foodless cave for an actu
   expectSameOperation(next, engine.runGatherAction(state, 'shiroko', 'whisper-woods', { rng: () => 0.1 }));
 });
 
-check('food procurement does not send a critically injured hunter into a lethal ordinary counterattack', () => {
+check('a last-AP starving hunter takes a paid lifesaving rest instead of a lethal night or counterattack', () => {
   const state = foodSupplyFixture();
   state.party = state.party.map((member) => ({ ...member, hp: member.id === 'hina' ? 9 : 0 }));
   const next = engine.runAutoDayAction(state, { rng: noEvents });
-  assert.ok(next.log.some((line) => line.includes('히나의 채집 실패')));
+  assert.ok(next.log.some((line) => line.includes('히나가 휴식했습니다')));
   assert.ok(!next.log.some((line) => line.includes('사냥 실패')));
-  expectSameOperation(next, engine.runGatherAction(state, 'hina', '', { rng: noEvents }));
+  expectSameOperation(next, engine.runRestAction(state, 'hina', { rng: noEvents }));
+  assert.ok(next.party.find((member) => member.id === 'hina').hp > 0);
   assert.equal(next.party.find((member) => member.id === 'shiroko').hp, 0);
   assert.equal(next.party.find((member) => member.id === 'noa').hp, 0);
+});
+
+function fatalNightFixture(overrides = {}) {
+  const state = fixture({ ap: 2, inventory: {}, ...overrides });
+  state.weather = { ...state.weather, id: 'cold-wind', cold: 9 };
+  state.camp = { ...state.camp, fireLevel: 2, shelterLevel: 1, workbenchLevel: 1, fuel: 1 };
+  state.research.completed.HERBALISM = true;
+  state.research.completed.FISHING = true;
+  state.party = state.party.map((member) => ({
+    ...member,
+    hp: member.id === 'noa' ? 2 : member.id === 'hina' ? 9 : 12,
+    hunger: member.id === 'noa' ? 84 : member.id === 'hina' ? 70 : 100,
+  }));
+  return state;
+}
+
+check('an imminently starving companion receives two real rests instead of two uncertain fishing attempts', () => {
+  const state = fatalNightFixture();
+  const original = structuredClone(state);
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.party.find((member) => member.id === 'noa').hp, 8);
+  assert.equal(next.counters.fish || 0, 0);
+  assert.equal(next.log.filter((line) => line.includes('노아가 휴식했습니다')).length, 2);
+  assert.ok(next.log.some((line) => line.includes('밤 생존 위험:') && line.includes('노아')));
+  const once = engine.runRestAction(state, 'noa', { rng: noEvents });
+  expectSameOperation(next, engine.runRestAction(once, 'noa', { rng: noEvents }));
+  assert.deepEqual(state, original);
+});
+
+check('a raw meal does not spend the action budget required to keep its critically injured recipient alive', () => {
+  const state = fatalNightFixture({ inventory: { meat: 1 } });
+  state.party.find((member) => member.id === 'noa').hunger = 100;
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.counters.meals, 0, 'Eating raw meat cannot prevent this night damage and would leave only one of two necessary rests.');
+  assert.ok(next.party.find((member) => member.id === 'noa').hp > 0);
+  const once = engine.runRestAction(state, 'noa', { rng: noEvents });
+  expectSameOperation(next, engine.runRestAction(once, 'noa', { rng: noEvents }));
+});
+
+check('a nourishing prepared meal that prevents death remains ahead of optional rest', () => {
+  const state = fatalNightFixture({ ap: 1, inventory: { cooked_meat: 1 } });
+  state.party = state.party.map((member) => ({ ...member, hp: member.id === 'noa' ? 2 : 80, hunger: member.id === 'noa' ? 95 : 100 }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.counters.meals, 1);
+  assert.ok(next.party.find((member) => member.id === 'noa').hp > 0);
+  assert.ok(!next.log.some((line) => line.includes('밤 생존 위험:')));
+  expectSameOperation(next, engine.runEatAction(state, 'noa', { rng: noEvents }));
+});
+
+check('an available meal and a paid rest can combine without wasting an extra healing action', () => {
+  const state = fatalNightFixture({ inventory: { fish: 1 } });
+  state.party = state.party.map((member) => ({ ...member, hp: member.id === 'noa' ? 2 : 100, hunger: member.id === 'noa' ? 82 : 0 }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.counters.meals, 1);
+  assert.equal(next.log.filter((line) => line.includes('노아가 휴식했습니다')).length, 1);
+  assert.ok(next.party.find((member) => member.id === 'noa').hp > 0);
+  const fed = engine.runEatAction(state, 'noa', { rng: noEvents });
+  expectSameOperation(next, engine.runRestAction(fed, 'noa', { rng: noEvents }));
+});
+
+check('a scarce meal cannot reserve the same last rest for several dying companions', () => {
+  const state = fatalNightFixture({ inventory: { fish: 1 } });
+  state.party = state.party.map((member) => ({ ...member,
+    hp: member.id === 'noa' ? 4 : member.id === 'hina' ? 5 : 6,
+    hunger: member.id === 'hina' ? 82 : 100,
+  }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  const manual = engine.runEatAction(engine.runRestAction(state, 'noa', { rng: noEvents }), 'hina', { rng: noEvents });
+  assert.equal(next.party.filter((member) => member.hp > 0).length, 2);
+  assert.equal(next.counters.meals, 1);
+  assert.ok(next.log.some((line) => line.includes('밤 생존 위험: 노아')));
+  expectSameOperation(next, manual);
+});
+
+check('an affordable group meal remains first when the shared rest budget protects as many companions', () => {
+  const state = fatalNightFixture({ inventory: { meat: 2 } });
+  state.party = state.party.map((member) => ({ ...member,
+    hp: member.id === 'noa' ? 4 : member.id === 'hina' ? 5 : 6,
+    hunger: member.id === 'hina' ? 82 : 100,
+  }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  const manual = engine.runRestAction(engine.runRecoveryChoiceAction(state, 'noa', 'ration_break', { rng: noEvents }), 'noa', { rng: noEvents });
+  assert.equal(next.party.filter((member) => member.hp > 0).length, 2);
+  assert.equal(next.counters.meals, 2);
+  expectSameOperation(next, manual);
+});
+
+check('a fatal night overrides the generic care score of a healthy hungry companion', () => {
+  const state = fatalNightFixture({ ap: 1 });
+  state.camp.fireLevel = 1;
+  state.party = state.party.map((member) => ({ ...member, hp: member.id === 'noa' ? 1 : 100, hunger: member.id === 'shiroko' ? 74 : 0, bodyTemp: 36 }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.ok(next.party.find((member) => member.id === 'noa').hp > 0);
+  expectSameOperation(next, engine.runRestAction(state, 'noa', { rng: noEvents }));
+});
+
+check('emergency rest is bounded by real remaining AP and never fabricates enough healing to guarantee survival', () => {
+  const state = fatalNightFixture({ ap: 1 });
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.party.find((member) => member.id === 'noa').hp, 0);
+  assert.ok(!next.log.some((line) => line.includes('밤 생존 위험:')));
+  expectSameOperation(next, engine.runSpecializedAction(state, 'shiroko', 'fish', '', { rng: noEvents }));
+});
+
+check('limited rescue actions protect a savable companion without reviving another who cannot be saved tonight', () => {
+  const state = fatalNightFixture({ ap: 1 });
+  state.party.find((member) => member.id === 'hina').hunger = 100;
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.ok(next.party.find((member) => member.id === 'hina').hp > 0);
+  assert.equal(next.party.find((member) => member.id === 'noa').hp, 0);
+  expectSameOperation(next, engine.runRestAction(state, 'hina', { rng: noEvents }));
+});
+
+check('rest planning uses the real lit or empty campfire and actual snow-night temperature damage', () => {
+  const unlit = fatalNightFixture({ ap: 1 });
+  unlit.weather = { ...unlit.weather, id: 'snow', cold: 14 };
+  unlit.camp = { ...unlit.camp, fireLevel: 3, shelterLevel: 3, fuel: 0 };
+  unlit.party = unlit.party.map((member) => ({ ...member, hp: member.id === 'noa' ? 4 : 100, hunger: member.id === 'shiroko' ? 90 : 0, bodyTemp: member.id === 'noa' ? 33.7 : 37 }));
+  const lit = { ...unlit, camp: { ...unlit.camp, fuel: 1 } };
+  const cold = engine.runAutoDayAction(unlit, { rng: noEvents });
+  const warm = engine.runAutoDayAction(lit, { rng: noEvents });
+  assert.equal(cold.party.find((member) => member.id === 'noa').hp, 0);
+  assert.ok(!cold.log.some((line) => line.includes('밤 생존 위험:')));
+  assert.ok(warm.party.find((member) => member.id === 'noa').hp > 0);
+  expectSameOperation(warm, engine.runRestAction(lit, 'noa', { rng: noEvents }));
+});
+
+check('ordinary JSON restoration regenerates emergency care without saving forecasts or consuming planning RNG', () => {
+  const state = fatalNightFixture();
+  const restored = engine.normalizeState(JSON.parse(JSON.stringify(state)));
+  let autoDraws = 0;
+  let manualDraws = 0;
+  const automatic = engine.runAutoDayAction(restored, { rng: () => { autoDraws += 1; return 0.999; } });
+  const manualRng = () => { manualDraws += 1; return 0.999; };
+  const once = engine.runRestAction(state, 'noa', { rng: manualRng });
+  const manual = engine.runRestAction(once, 'noa', { rng: manualRng });
+  expectSameOperation(automatic, manual);
+  assert.equal(autoDraws, manualDraws);
+  assert.deepEqual(Object.keys(automatic).sort(), Object.keys(state).sort());
+  assert.deepEqual(Object.keys(automatic.party[0]).sort(), Object.keys(state.party[0]).sort());
 });
 
 check('before map unlock food planning preserves the actual random region and exact paid RNG sequence', () => {

@@ -2711,6 +2711,18 @@ function consumeRecoveryFood(inventory, state) {
   };
 }
 
+function mealRecoveryFields(member, { nutrition, heal, warmth }) {
+  return {
+    hunger: clamp(Number(member.hunger || 0) - nutrition, 0, 100),
+    hp: clamp(Number(member.hp || 0) + heal, 0, 100),
+    bodyTemp: clamp(Number(member.bodyTemp ?? 37) + warmth, 25, 39),
+  };
+}
+
+function individualFoodWarmth(foodId) {
+  return foodId === 'cooked_meat' ? 1.1 : foodId === 'packed_ration' ? 0.4 : foodId === 'herb_tonic' ? 0.8 : 0;
+}
+
 export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) {
   const current = normalizeState(state);
   if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '대응 행동을 실행할 AP가 부족합니다.');
@@ -2747,9 +2759,7 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
       used.push(consumed.foodId);
       updates[member.id] = {
         ...member,
-        hunger: clamp(Number(member.hunger || 0) - consumed.nutrition, 0, 100),
-        hp: clamp(Number(member.hp || 0) + consumed.heal, 0, 100),
-        bodyTemp: clamp(Number(member.bodyTemp ?? 37) + consumed.warmth, 25, 39),
+        ...mealRecoveryFields(member, consumed),
       };
     });
     if (!used.length) return addLog(current, '비상 배식에 사용할 식량이 없습니다.');
@@ -3376,6 +3386,17 @@ function nightBodyTemperature(state, member, exposure) {
   );
 }
 
+function nightSurvivalProjection(state, member, exposure = nightColdExposure(state)) {
+  const hunger = clamp(Number(member.hunger || 0)
+    + Math.round(8 * difficultyPreset(state).hungerMultiplier) + Math.floor(exposure.coldDamage / 3), 0, 100);
+  const hungerDamage = hunger >= 90 ? 10 : hunger >= 75 ? 4 : 0;
+  const bodyTemp = nightBodyTemperature(state, member, exposure);
+  const hypothermiaDamage = bodyTemp < 31 ? 18 : bodyTemp < 34.5 ? 7 : 0;
+  const damage = exposure.coldDamage + hungerDamage + hypothermiaDamage;
+  return { hp: clamp(Number(member.hp || 0) - damage, 0, 100), hunger, bodyTemp,
+    damage, coldDamage: exposure.coldDamage, hungerDamage, hypothermiaDamage };
+}
+
 export function advanceDay(state, options = {}) {
   // Party meals, crafting and discoveries can change the shared stock after
   // the morning plan. Only automatic play lends its automatic workers again
@@ -3389,21 +3410,17 @@ function settleNextDay(state, options) {
   const weather = rollWeather(state.day + 1, options.rng || Math.random);
   const fireActive = campFireActive(state);
   const exposure = nightColdExposure(state);
-  const { coldDamage } = exposure;
   const fuelSaverNight = hasTechPassive(state, 'CAMP_FUEL_SAVER') && Number(state.day || 1) % 2 === 1;
   const fuelUsed = fireActive && !fuelSaverNight ? 1 : 0;
   const party = state.party.map((member) => {
-    const hunger = clamp(Number(member.hunger || 0) + Math.round(8 * preset.hungerMultiplier) + Math.floor(coldDamage / 3), 0, 100);
-    const hungerDamage = hunger >= 90 ? 10 : hunger >= 75 ? 4 : 0;
+    const { hp, hunger, bodyTemp } = nightSurvivalProjection(state, member, exposure);
     const shelterRecovery = (34 + Number(state.camp.shelterLevel || 0) * 8) * preset.staminaRecoveryMultiplier;
-    const bodyTemp = nightBodyTemperature(state, member, exposure);
-    const hypothermiaDamage = bodyTemp < 31 ? 18 : bodyTemp < 34.5 ? 7 : 0;
     return {
       ...member,
       stamina: clamp(Number(member.stamina || 0) + shelterRecovery, 0, 100),
       hunger,
       bodyTemp,
-      hp: clamp(Number(member.hp || 0) - coldDamage - hungerDamage - hypothermiaDamage, 0, 100),
+      hp,
     };
   });
   const ended = party.every((member) => Number(member.hp || 0) <= 0);
@@ -5690,33 +5707,32 @@ export function runEatAction(state, actorId, options = {}) {
   if (!foodId) return addLog(state, '먹을 음식이 없습니다. 채집이나 사냥으로 식량을 확보하세요.');
   const nutrition = foodNutritionValue(state, foodId);
   const heal = foodHealValue(state, foodId);
-  const warmth = foodId === 'cooked_meat' ? 1.1 : foodId === 'packed_ration' ? 0.4 : foodId === 'herb_tonic' ? 0.8 : 0;
+  const warmth = individualFoodWarmth(foodId);
   const target = getActor(state, actorId);
   let next = {
     ...state,
     inventory: spendResources(state.inventory, { [foodId]: 1 }),
     counters: { ...state.counters, meals: Number(state.counters.meals || 0) + 1 },
   };
-  next = updateActor(next, actorId, {
-    hunger: clamp(Number(target.hunger || 0) - nutrition, 0, 100),
-    hp: clamp(Number(target.hp || 0) + heal, 0, 100),
-    bodyTemp: clamp(Number(target.bodyTemp ?? 37) + warmth, 25, 39),
-  });
+  next = updateActor(next, actorId, mealRecoveryFields(target, { nutrition, heal, warmth }));
   next = addLog(next, `${subjectParticle(actor.name)} ${objectParticle(itemName(foodId))} 먹었습니다. 허기 -${nutrition}, HP +${heal}${warmth ? `, 체온 +${warmth.toFixed(1)}` : ''}.`);
   next = addDialogueLog(next, actorId, 'eat', 'success', options.rng || Math.random);
   return afterAction(next, actorId, staminaCostWithEquipment(state, actorId, 'eat', 6), 0, options);
 }
 
-export function runRestAction(state, actorId, options = {}) {
-  const actor = getActor(state, actorId);
-  const target = getActor(state, actorId);
+function restRecoveryFields(state, member) {
   const heal = restHealValue(state);
   const warmth = campFireActive(state) ? 0.75 : 0.25;
-  let next = updateActor(state, actorId, {
-    stamina: clamp(Number(target.stamina || 0) + 42 + Number(state.camp.shelterLevel || 0) * 8, 0, 100),
-    hp: clamp(Number(target.hp || 0) + heal, 0, 100),
-    bodyTemp: clamp(Number(target.bodyTemp ?? 37) + warmth, 25, 39),
-  });
+  return {
+    stamina: clamp(Number(member.stamina || 0) + 42 + Number(state.camp.shelterLevel || 0) * 8, 0, 100),
+    hp: clamp(Number(member.hp || 0) + heal, 0, 100),
+    bodyTemp: clamp(Number(member.bodyTemp ?? 37) + warmth, 25, 39),
+  };
+}
+
+export function runRestAction(state, actorId, options = {}) {
+  const actor = getActor(state, actorId);
+  let next = updateActor(state, actorId, restRecoveryFields(state, actor));
   next = addLog(next, `${subjectParticle(actor.name)} 휴식했습니다. 스태미나와 HP를 회복하고 체온을 안정시켰습니다.`);
   next = addDialogueLog(next, actorId, 'rest', 'success', options.rng || Math.random);
   next.ap = Math.max(0, Number(next.ap || 0) - 1);
@@ -6032,6 +6048,97 @@ function autoCookingCampKind(state) {
   if (Number(state.camp.fuel || 0) > reserve && Number(state.ap || 0) >= 2) return 'cook';
   if (hasResources(state.inventory, { wood: 1 }) && Number(state.ap || 0) >= 3) return 'fuel';
   return '';
+}
+
+function autoMealPlan(state, careActorId) {
+  const hungry = foodRecoveryTargets(state).filter((member) => Number(member.hunger || 0) >= 46);
+  if (!foodAvailable(state) || (!hungry.length && averageParty(state, 'hunger') < 46)) return null;
+  const foodStock = foodUnitCount(state);
+  const preparedFood = ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish']
+    .some((id) => Number(state.inventory[id] || 0) > 0);
+  const scarceEmergency = livingParty(state).some((member) => Number(member.hunger || 0) >= 75)
+    && foodStock < hungry.length;
+  const cookingKind = preparedFood || scarceEmergency ? '' : autoCookingCampKind(state);
+  if (cookingKind) return { kind: 'camp', campKind: cookingKind, actorId: pickActorForAuto(state, 'craft') };
+  if (hungry.length >= 2 && foodStock >= 2) return { kind: 'ration_break', actorId: careActorId };
+  return { kind: 'eat', actorId: hungry[0]?.id || careActorId };
+}
+
+function previewReadyAutoMeal(state, meal) {
+  // Forecast only the meal that can actually be eaten next, not future food,
+  // discoveries, research unlocks or a favorable procurement RNG result.
+  if (!meal || meal.kind === 'camp') return null;
+  let inventory = { ...state.inventory };
+  const updates = {};
+  const targets = meal.kind === 'ration_break' ? foodRecoveryTargets(state) : [getActor(state, meal.actorId)];
+  for (const member of targets) {
+    const consumed = consumeRecoveryFood(inventory, state);
+    if (!consumed) break;
+    inventory = consumed.inventory;
+    const warmth = meal.kind === 'eat' ? individualFoodWarmth(consumed.foodId) : consumed.warmth;
+    updates[member.id] = { ...member, ...mealRecoveryFields(member, { ...consumed, warmth }) };
+  }
+  const next = { ...state, inventory, party: state.party.map((member) => updates[member.id] || member) };
+  const actor = getActor(next, meal.actorId);
+  return updateActor(next, meal.actorId, {
+    bodyTemp: clamp(Number(actor.bodyTemp ?? 37) + actionBodyTempDelta(next, meal.actorId), 25, 39),
+  });
+}
+
+function restsNeededBeforeNight(state, member, budget, exposure) {
+  let rested = member;
+  for (let count = 1; count <= budget; count += 1) {
+    rested = { ...rested, ...restRecoveryFields(state, rested) };
+    if (nightSurvivalProjection(state, rested, exposure).hp > 0) return count;
+  }
+  return 0;
+}
+
+function autoNightRescuePlan(state, meal) {
+  const budget = Math.max(0, Math.floor(Number(state.ap || 0)));
+  const exposure = nightColdExposure(state);
+  const endangered = livingParty(state).map((member) => {
+    const night = nightSurvivalProjection(state, member, exposure);
+    return { member, night, rests: night.hp <= 0 ? restsNeededBeforeNight(state, member, budget, exposure) : 0 };
+  }).filter((candidate) => candidate.night.hp <= 0);
+  const candidates = endangered.filter((candidate) => candidate.rests > 0)
+    .sort((a, b) => a.rests - b.rests || Number(a.member.hp || 0) - Number(b.member.hp || 0));
+  if (!candidates.length) return null;
+  const afterMeal = previewReadyAutoMeal(state, meal);
+  if (afterMeal) {
+    let restBudget = budget;
+    let protectedWithoutMeal = 0;
+    for (const candidate of candidates) {
+      if (candidate.rests > restBudget) break;
+      restBudget -= candidate.rests;
+      protectedWithoutMeal += 1;
+    }
+    let mealBudget = budget - 1;
+    let protectedAfterMeal = 0;
+    const neededAfterMeal = [];
+    for (const candidate of endangered) {
+      const fed = getActor(afterMeal, candidate.member.id);
+      if (nightSurvivalProjection(afterMeal, fed, exposure).hp > 0) {
+        protectedAfterMeal += 1;
+      } else {
+        const needed = restsNeededBeforeNight(afterMeal, fed, mealBudget, exposure);
+        if (needed > 0) neededAfterMeal.push(needed);
+      }
+    }
+    // The party shares one AP budget. A meal cannot reserve the same last
+    // rest for several injured companions and call all of them protected.
+    for (const needed of neededAfterMeal.sort((a, b) => a - b)) {
+      if (needed > mealBudget) break;
+      mealBudget -= needed;
+      protectedAfterMeal += 1;
+    }
+    if (protectedAfterMeal >= protectedWithoutMeal) return null;
+  }
+  // Execute just one ordinary paid rest, then re-evaluate; do not save a
+  // plan, grant extra AP, or revive someone who cannot survive this night.
+  const { member, night, rests } = candidates[0];
+  return { actorId: member.id,
+    reason: `밤 생존 위험: ${member.name} · 현재 HP ${Math.round(member.hp)} · 예상 밤 피해 ${night.damage} (허기 ${night.hungerDamage} · 추위 ${night.coldDamage} · 저체온 ${night.hypothermiaDamage}) · 남은 AP ${budget} · 필요한 휴식 ${rests}회. 실제 휴식을 먼저 합니다.` };
 }
 
 function autoWorkbenchMorningPlan(state) {
@@ -6351,26 +6458,19 @@ function runNextAutoArchiveAction(state, options = {}) {
     if (workbenchMorning.kind === 'camp') return runCampAction(planned, pickActorForAuto(state, 'craft'), 'workbench', options);
     return runGatherAction(planned, workbenchMorning.actorId, workbenchMorning.regionId, options);
   }
-  if (foodAvailable(state) && (hungry.length || averageHunger >= 46)) {
-    const preparedFood = ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish']
-      .some((id) => Number(state.inventory[id] || 0) > 0);
-    // Use the existing paid cooking and ration actions. Leave enough AP to
-    // actually eat today; never spend the last action preparing tomorrow.
-    // When there is not a meal for each hungry survivor, eat first and leave
-    // the remaining actions for obtaining more food, not cooking one portion.
-    const scarceEmergency = hungerEmergency && foodStock < hungry.length;
-    const cookingKind = preparedFood || scarceEmergency ? '' : autoCookingCampKind(state);
-    if (cookingKind) {
-      return runCampAction(state, pickActorForAuto(state, 'craft'), cookingKind, options);
-    }
-    if (hungry.length >= 2 && foodStock >= 2) return runRecoveryChoiceAction(state, careActorId, 'ration_break', options);
-    const recipient = hungry[0] || careActor;
+  const meal = autoMealPlan(state, careActorId);
+  const rescue = autoNightRescuePlan(state, meal);
+  if (rescue) return runRestAction(addLog(state, rescue.reason), rescue.actorId, options);
+  if (meal) {
+    if (meal.kind === 'camp') return runCampAction(state, meal.actorId, meal.campKind, options);
+    if (meal.kind === 'ration_break') return runRecoveryChoiceAction(state, meal.actorId, 'ration_break', options);
+    const recipient = getActor(state, meal.actorId);
     const priority = foodRecoveryPriorityText(recipient);
     const planned = priority ? addLog(state, `${priority} 식사합니다. 위독한 굶주린 대원을 먼저 보호합니다.`) : state;
-    return runEatAction(planned, recipient?.id || careActorId, options);
+    return runEatAction(planned, meal.actorId, options);
   }
-  // Rest cannot replace a meal. Without food, injured starving survivors must
-  // still pay for a real procurement attempt rather than rest until they die.
+  // Rest is only a short-term rescue when the remaining paid actions can
+  // cover tonight's damage. Otherwise hunger still needs real procurement.
   if (hungerEmergency) return runAutoFoodSupplyAction(state, options);
   if (Number(careActor?.hp || 0) <= 45 || Number(careActor?.stamina || 0) <= 28 || Number(careActor?.bodyTemp ?? 37) <= 34.4) {
     return runRestAction(state, careActorId, options);
