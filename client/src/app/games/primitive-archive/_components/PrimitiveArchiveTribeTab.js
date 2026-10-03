@@ -16,7 +16,7 @@ function diplomacyDisabledText(rival, action) {
   if (action === 'gift') return `필요: ${rival.giftCostText}`;
   if (action === 'exchange') {
     if (Number(rival.relation || 0) < 20) return '관계 20 이상 필요';
-    return `필요: ${rival.exchangeCostText}`;
+    return rival.exchangeBlockedReason || `필요: ${rival.exchangeCostText}`;
   }
   if (action === 'raid') return '수렵 연구 완료 필요';
   return rival.statusText;
@@ -146,6 +146,7 @@ export default function PrimitiveArchiveTribeTab({
                     <span>교역{rival.tradeRouteActive ? ' · 교역로 적용' : ''} · {rival.tradeCostText} → {rival.tradeRewardText}</span>
                     <span>선물 · {rival.giftCostText}</span>
                     <span>지식 · 관계 20 / {rival.exchangeCostText} / +{rival.exchangePoints}RP</span>
+                    <span>교섭 담당 · {rival.actorName || '없음'}</span>
                     <span>{rival.statusText}</span>
                   </div>
                   <div className="primitive-diplomacy-actions">

@@ -88,7 +88,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
             <article className="game-save-row game-save-row--icon" key={chain.id}>
               <GameActionIcon action="event" label={chain.title} />
               <div>
-                <span>{chain.stageLabel} · {chain.costText}</span>
+                <span>{chain.stageLabel} · 담당 {chain.actorName || '없음'} · {chain.costText}</span>
                 <strong>{chain.title}</strong>
                 <small>{chain.detail}</small>
               </div>

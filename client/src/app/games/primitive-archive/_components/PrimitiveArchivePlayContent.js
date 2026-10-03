@@ -193,7 +193,7 @@ export default function PrimitiveArchivePlayContent() {
   const research = useMemo(() => researchSummary(state), [state]);
   const civics = useMemo(() => civicsSummary(state), [state]);
   const archiveVictory = useMemo(() => archiveVictorySummary(state), [state]);
-  const runProgressReport = useMemo(() => getRunProgressReport(state), [state]);
+  const runProgressReport = useMemo(() => getRunProgressReport(state, actorId), [actorId, state]);
   const archiveReport = useMemo(() => archiveCompletionReportForState(state), [state]);
   const techs = useMemo(() => techRows(state), [state]);
   const civicAdvancements = useMemo(() => civicRows(state), [state]);
@@ -212,7 +212,7 @@ export default function PrimitiveArchivePlayContent() {
   const perks = useMemo(() => perkRows(state), [state]);
   const projects = useMemo(() => projectRows(state), [state]);
   const tribe = useMemo(() => tribeSummary(state), [state]);
-  const rivals = useMemo(() => rivalTribeRows(state), [state]);
+  const rivals = useMemo(() => rivalTribeRows(state, actorId), [actorId, state]);
   const selectedProject = projects.find((project) => project.selected && !project.completed)
     || projects.find((project) => project.available && !project.completed)
     || projects[0];

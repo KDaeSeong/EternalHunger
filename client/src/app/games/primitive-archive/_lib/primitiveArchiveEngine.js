@@ -1272,15 +1272,33 @@ function relationStatus(value) {
   return { label: '동맹', tone: 'allied' };
 }
 
-export function rivalTribeRows(state) {
+function diplomacyActor(state, actorId = '') {
+  const requested = String(actorId || '').trim();
+  const actor = requested
+    ? state.party.find((member) => member.id === requested)
+    : state.party.find((member) => Number(member.hp || 0) > 0);
+  return actor && Number(actor.hp || 0) > 0 ? actor : null;
+}
+
+function exchangeTechnology(state) {
+  const research = normalizeResearch(state.research);
+  const selected = getTechnology(research.selectedTechId);
+  return selected && !research.completed?.[selected.id] && prereqsMet(research, selected)
+    ? selected
+    : nextAvailableTech(research);
+}
+
+export function rivalTribeRows(state, actorId = '') {
   const current = normalizeState(state);
   const diplomacy = normalizeDiplomacyState(current.diplomacy);
   const researchStatus = researchSystemStatus(current);
+  const actor = diplomacyActor(current, actorId);
+  const exchangeTech = exchangeTechnology(current);
   return RIVAL_TRIBES.map((rival) => {
     const contact = diplomacy.contacts[rival.id];
     const relation = relationStatus(contact.relation);
     const actedToday = Number(contact.lastActionDay || 0) === Number(current.day || 1);
-    const commonReady = contact.known && !current.ended && Number(current.ap || 0) > 0 && !actedToday;
+    const commonReady = contact.known && !current.ended && Number(current.ap || 0) > 0 && !actedToday && Boolean(actor);
     const routeCharges = tradeRouteCharges(current);
     const tradeCost = effectiveTradeCost(rival.tradeCost, routeCharges > 0);
     return {
@@ -1290,12 +1308,18 @@ export function rivalTribeRows(state) {
       relationTone: relation.tone,
       relationPct: clamp((Number(contact.relation || 0) + 100) / 2, 0, 100),
       actedToday,
+      actorId: actor?.id || '',
+      actorName: actor?.name || '',
       canAct: commonReady,
       statusText: !contact.known
         ? '미접촉'
-        : actedToday
-          ? '오늘 교섭 완료'
-          : Number(current.ap || 0) <= 0 ? '행동력 부족' : '교섭 가능',
+        : current.ended
+          ? '경기 종료'
+          : actedToday
+            ? '오늘 교섭 완료'
+            : Number(current.ap || 0) <= 0
+              ? '행동력 부족'
+              : !actor ? '살아 있는 교섭 대원을 선택해야 합니다.' : '교섭 가능',
       tradeCostText: formatRequires(tradeCost),
       baseTradeCostText: formatRequires(rival.tradeCost),
       tradeRewardText: formatGains(Object.entries(rival.tradeReward)),
@@ -1303,11 +1327,15 @@ export function rivalTribeRows(state) {
       tradeRouteCharges: routeCharges,
       giftCostText: formatRequires(rival.giftCost),
       exchangeCostText: formatRequires(rival.exchangeCost),
+      exchangeBlockedReason: !researchStatus.unlocked
+        ? '연구 체계가 아직 열리지 않아 지식을 기록할 수 없습니다.'
+        : !exchangeTech ? '교류로 진행할 연구가 없습니다.' : '',
       canTrade: commonReady && hasResources(current.inventory, tradeCost),
       canGift: commonReady && hasResources(current.inventory, rival.giftCost),
       canExchange: commonReady
         && Number(contact.relation || 0) >= 20
         && researchStatus.unlocked
+        && Boolean(exchangeTech)
         && hasResources(current.inventory, rival.exchangeCost),
       canRaid: commonReady && Boolean(current.research.completed?.HUNTING),
     };
@@ -1338,12 +1366,13 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
   const current = normalizeState(state);
   if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '외교 행동에 사용할 행동력이 부족합니다.');
   const rival = RIVAL_TRIBES.find((row) => row.id === rivalId);
-  const row = rivalTribeRows(current).find((item) => item.id === rivalId);
+  const row = rivalTribeRows(current, actorId).find((item) => item.id === rivalId);
   if (!rival || !row?.known) return addLog(current, '아직 접촉하지 않은 부족입니다.');
   if (row.actedToday) return addLog(current, `${rival.name}과(와)는 오늘 이미 교섭했습니다.`);
   if (!['trade', 'gift', 'exchange', 'raid'].includes(actionId)) return current;
 
-  const actor = getActor(current, actorId);
+  const actor = diplomacyActor(current, actorId);
+  if (!actor) return addLog(current, '살아 있는 교섭 대원을 선택해야 합니다.');
   const diplomacy = normalizeDiplomacyState(current.diplomacy);
   const contact = diplomacy.contacts[rival.id];
   const activeTradeRouteCharges = tradeRouteCharges(current);
@@ -1385,11 +1414,7 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
     if (Number(contact.relation || 0) < 20) return addLog(next, '지식 교류는 관계 20 이상의 우호 부족과만 가능합니다.');
     if (!researchSystemStatus(next).unlocked) return addLog(next, '연구 체계가 아직 열리지 않아 지식을 기록할 수 없습니다.');
     if (!hasResources(next.inventory, rival.exchangeCost)) return addLog(next, `지식 교류 자원이 부족합니다. 필요: ${formatRequires(rival.exchangeCost)}.`);
-    const research = normalizeResearch(next.research);
-    const selected = getTechnology(research.selectedTechId);
-    const tech = selected && !research.completed?.[selected.id] && prereqsMet(research, selected)
-      ? selected
-      : nextAvailableTech(research);
+    const tech = exchangeTechnology(next);
     if (!tech) return addLog(next, '교류로 진행할 연구가 없습니다.');
     next = { ...next, inventory: spendResources(next.inventory, rival.exchangeCost) };
     next = addResearchProgress(next, tech.id, rival.exchangePoints, `${rival.name} 지식 교류`);
@@ -1412,7 +1437,7 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
       next = { ...next, inventory: addItems(next.inventory, rewards) };
       outcome = `${rival.name} 약탈 성공: ${formatGains(rewards)} · 관계 ${relationDelta}.`;
     } else {
-      next = updateActor(next, actorId, { hp: clamp(Number(actor?.hp || 0) - 14, 0, 100) });
+      next = updateActor(next, actor.id, { hp: clamp(Number(actor.hp || 0) - 14, 0, 100) });
       outcome = `${rival.name} 약탈 실패: ${actor?.name || '대원'} HP -14 · 관계 ${relationDelta}.`;
     }
   }
@@ -1436,7 +1461,7 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
     },
   };
   next = addLog(next, outcome);
-  return afterAction(next, actorId, staminaCost, 2, options);
+  return afterAction(next, actor.id, staminaCost, 2, options);
 }
 
 export function selectProjectAction(state, projectId) {
@@ -2332,6 +2357,7 @@ function normalizeEventChains(chains, currentDay = 1) {
         expiresDay: Math.max(startedDay, Number(chain?.expiresDay || startedDay + EVENT_CHAIN_TTL_DAYS)),
         resolved: Boolean(chain?.resolved),
         resolvedDay: Number(chain?.resolvedDay || 0),
+        ...(typeof chain?.ok === 'boolean' ? { ok: chain.ok } : {}),
       };
     })
     .filter(Boolean)
@@ -2409,15 +2435,15 @@ function resolveEventChain(state, chainId, ok) {
   };
 }
 
-export function eventChainRows(state) {
+export function eventChainRows(state, actorId = '') {
   const current = normalizeState(state);
   return activeEventChains(current).map((chain) => {
     const def = EVENT_CHAIN_DEFS[chain.kind] || {};
-    const actorId = bestLivingActorFor(current, def.action || 'gather');
-    const actor = getActor(current, actorId);
+    const actingActorId = recoveryActionActorId(current, actorId, def.action || 'gather');
+    const actor = getActor(current, actingActorId);
     const hp = Number(actor?.hp || 0);
     const stamina = Number(actor?.stamina || 0);
-    const chance = actionChance(current, actorId, def.action || 'gather', Number(def.baseChance || 0.45));
+    const chance = actionChance(current, actingActorId, def.action || 'gather', Number(def.baseChance || 0.45));
     const daysLeft = Math.max(0, Number(chain.expiresDay || 0) - Number(current.day || 1));
     return {
       ...chain,
@@ -2426,7 +2452,7 @@ export function eventChainRows(state) {
       actionLabel: def.actionLabel || '대응',
       costText: `${def.costText || 'AP 1'} · ${Math.round(chance * 100)}%`,
       rewardText: def.rewardText || '',
-      actorId,
+      actorId: actingActorId,
       actorName: actor?.name || '',
       chance,
       daysLeft,
@@ -2829,13 +2855,13 @@ export function runEventChainAction(state, actorId, chainId, options = {}) {
   const current = normalizeState(state);
   if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '대응을 실행할 AP가 부족합니다.');
 
-  const row = eventChainRows(current).find((entry) => String(entry.id) === String(chainId));
+  const row = eventChainRows(current, actorId).find((entry) => String(entry.id) === String(chainId));
   if (!row) return addLog(current, '대응 가능한 탐험 단서를 찾을 수 없습니다.');
   if (!row.enabled) return addLog(current, `${row.title} 대응 조건이 부족합니다. AP, HP, 스태미나를 먼저 회복하세요.`);
 
   const def = EVENT_CHAIN_DEFS[row.kind] || {};
   const action = def.action || 'gather';
-  const actingActorId = recoveryActionActorId(current, actorId || row.actorId, action);
+  const actingActorId = row.actorId;
   const actor = getActor(current, actingActorId);
   const rng = options.rng || Math.random;
   const ok = rng() < Number(row.chance || 0);
@@ -4240,7 +4266,7 @@ export function summaryForState(state) {
   };
 }
 
-export function getRunProgressReport(state) {
+export function getRunProgressReport(state, actorId = '') {
   const current = normalizeState(state);
   const victory = archiveVictorySummary(current);
   const research = researchSummary(current);
@@ -4314,7 +4340,7 @@ export function getRunProgressReport(state) {
     insulation,
     rareResourceLabel: eventPressure.rareLabel,
     rareResourceTotal: eventPressure.rareTotal,
-    activeEventChains: eventChainRows(current),
+    activeEventChains: eventChainRows(current, actorId),
     recoveryChoices: recoveryChoiceRows(current),
     recentEvents: eventPressure.recentEvents,
     weight,
