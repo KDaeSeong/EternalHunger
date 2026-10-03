@@ -8,6 +8,7 @@ const User = require('../models/User');
 const UserFollow = require('../models/UserFollow');
 const { createNotification } = require('../utils/notifications');
 const { generateRecoveryCode, normalizeRecoveryCode } = require('../utils/recoveryCode');
+const { issueAuthCookies, signSessionToken, validatePassword } = require('../utils/authPolicy');
 
 const PUBLIC_USER_SELECT = 'username nickname profileBio lp credits perks statistics isAdmin badges createdAt passwordRecovery.codeHash passwordRecovery.codeCreatedAt';
 
@@ -143,8 +144,9 @@ router.put('/password', async (req, res) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: '현재 비밀번호와 새 비밀번호를 입력해주세요.' });
     }
-    if (newPassword.length < 6 || newPassword.length > 72) {
-      return res.status(400).json({ error: '새 비밀번호는 6~72자로 입력해주세요.' });
+    const passwordCheck = validatePassword(newPassword);
+    if (!passwordCheck.ok) {
+      return res.status(400).json({ error: passwordCheck.error, code: 'PASSWORD_POLICY' });
     }
     if (currentPassword === newPassword) {
       return res.status(400).json({ error: '새 비밀번호는 현재 비밀번호와 달라야 합니다.' });
@@ -157,9 +159,12 @@ router.put('/password', async (req, res) => {
     if (!isMatch) return res.status(401).json({ error: '현재 비밀번호가 일치하지 않습니다.' });
 
     user.password = newPassword;
+    // Sign out every other session; this browser receives a fresh token below.
+    user.tokenVersion = Number(user.tokenVersion || 0) + 1;
     await user.save();
+    issueAuthCookies(res, signSessionToken(user));
 
-    res.json({ message: '비밀번호를 변경했습니다.', user: publicUser(user) });
+    res.json({ message: '비밀번호를 변경했습니다. 다른 기기에서는 다시 로그인해야 합니다.', user: publicUser(user) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '비밀번호 변경에 실패했습니다.' });
@@ -335,51 +340,13 @@ router.delete('/follows/:targetUserId', async (req, res) => {
   }
 });
 
-/**
- * ✅ 시뮬레이션 종료 보상/전적 반영
- * POST /api/user/update-stats
- * body: { kills:number, isWin:boolean, lpEarned:number, creditsEarned?:number }
- *
- * - user.statistics: 누적 전적(유저 기준)
- * - user.lp: 레거시 포인트(특전 구매 재화)
- * - user.credits: 게임 재화(로드맵 5번)
- */
-router.post('/update-stats', async (req, res) => {
-  try {
-    const rawKills = Number(req.body?.kills || 0);
-    const kills = Number.isFinite(rawKills) && rawKills > 0 ? Math.floor(rawKills) : 0;
-    const isWin = Boolean(req.body?.isWin);
-    const rawLpEarned = Number(req.body?.lpEarned || 0);
-    const lpEarned = Number.isFinite(rawLpEarned) && rawLpEarned > 0 ? Math.floor(rawLpEarned) : 0;
-    const rawCreditsEarned = Number(req.body?.creditsEarned || 0);
-    const creditsEarned = Number.isFinite(rawCreditsEarned) && rawCreditsEarned > 0 ? Math.floor(rawCreditsEarned) : 0;
-
-    const update = {
-      $inc: {
-        lp: lpEarned,
-        credits: creditsEarned,
-        'statistics.totalGames': 1,
-        'statistics.totalKills': kills,
-        'statistics.totalWins': isWin ? 1 : 0
-      }
-    };
-
-    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select(PUBLIC_USER_SELECT);
-    if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
-
-    res.json({
-      message: '전적/보상 반영 완료',
-      newLp: user.lp,
-      lpEarnedApplied: lpEarned,
-      credits: user.credits,
-      creditsEarnedApplied: creditsEarned,
-      statistics: user.statistics,
-      user: publicUser(user)
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '전적/보상 반영 실패' });
-  }
+// 클라이언트가 직접 전적·LP를 올리던 경로. 경기 결과는 POST /api/game/end 한 곳에서만
+// 서버가 상한을 두고 계산해 반영합니다.
+router.post('/update-stats', (req, res) => {
+  res.status(410).json({
+    error: '클라이언트 직접 전적·보상 반영은 폐쇄되었습니다.',
+    code: 'CLIENT_STATS_DISABLED',
+  });
 });
 
 module.exports = router;

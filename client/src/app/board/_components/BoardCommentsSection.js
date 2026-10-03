@@ -27,6 +27,7 @@ export default function BoardCommentsSection(props) {
     token,
     updateComment,
     userId,
+    isAdmin = false,
   } = props;
 
   return (
@@ -57,10 +58,10 @@ export default function BoardCommentsSection(props) {
                 {comments.length === 0 ? <div className="board-empty board-comment-empty">아직 댓글이 없습니다.</div> : null}
                 {comments.map((comment) => {
                   const commentId = comment?._normalizedId || normalizeIdValue(comment?._id || comment?.id);
-                  const canRemoveComment = mounted && token && userId && (
+                  const canRemoveComment = mounted && token && (isAdmin || (userId && (
                     normalizeIdValue(comment?.authorId) === String(userId) ||
                     normalizeIdValue(post?.authorId) === String(userId)
-                  );
+                  )));
                   const canEditComment = mounted && token && userId && normalizeIdValue(comment?.authorId) === String(userId);
                   const isEditingComment = editingComment.id === commentId;
                   return (

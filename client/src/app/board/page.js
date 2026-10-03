@@ -70,13 +70,13 @@ export default function BoardPage() {
       if (nextPagination.page !== page) setPage(nextPagination.page);
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글을 불러오지 못했습니다.';
+      // 목록 위 안내 문구로만 알립니다(같은 오류를 토스트로 한 번 더 띄우지 않음).
       setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
       setPosts([]);
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, gameFilter, page, query, showToast, sortOrder]);
+  }, [categoryFilter, gameFilter, page, query, sortOrder]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
@@ -264,6 +264,7 @@ export default function BoardPage() {
           setPage={setPage}
           token={token}
           userId={userId}
+          isAdmin={Boolean(user?.isAdmin)}
         />
       </section>
     </main>

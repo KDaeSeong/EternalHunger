@@ -36,7 +36,7 @@ const SAVE_FIELDS = [
   'stats',
   'inventory',
   'specialSkill',
-  'records',
+  // `records` is server-owned: only POST /api/game/end may change it.
 ];
 
 const SIMPLE_VERIFY_FIELDS = [
@@ -160,6 +160,17 @@ function parseCharacterSaveBody(body) {
   if (Array.isArray(parsed)) return parsed;
   if (Array.isArray(parsed?.characters)) return parsed.characters;
   return null;
+}
+
+// Deletions are explicit. Older clients sent the whole list and the server
+// deleted every character missing from it, so a stale tab could wipe others.
+function parseCharacterDeleteRequest(body) {
+  const parsed = (typeof body === 'string') ? (() => { try { return JSON.parse(body); } catch { return null; } })() : body;
+  const source = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  const deletedIds = (Array.isArray(source.deletedIds) ? source.deletedIds : [])
+    .map((id) => String(id || '').trim())
+    .filter((id) => mongoose.Types.ObjectId.isValid(id));
+  return { deletedIds: [...new Set(deletedIds)], replaceAll: source.replaceAll === true };
 }
 
 function pickCharacterSavePayload(raw, itemNameMap) {
@@ -409,7 +420,7 @@ function sameComparableValue(a, b, field) {
   return JSON.stringify(comparableValue(a, field)) === JSON.stringify(comparableValue(b, field));
 }
 
-function collectSaveVerificationMismatches(saveInputs, saveResults, savedCharacters) {
+function collectSaveVerificationMismatches(saveInputs, saveResults, savedCharacters, { expectExactCount = false } = {}) {
   const savedById = new Map(
     (Array.isArray(savedCharacters) ? savedCharacters : [])
       .map((doc) => [String(doc?._id || '').trim(), doc])
@@ -424,7 +435,9 @@ function collectSaveVerificationMismatches(saveInputs, saveResults, savedCharact
   const mismatches = [];
   const expectedCount = Array.isArray(saveInputs) ? saveInputs.length : 0;
   const savedCount = Array.isArray(savedCharacters) ? savedCharacters.length : 0;
-  if (savedCount !== expectedCount) {
+  // Only a full replacement must leave exactly the sent characters; normal saves
+  // keep characters this client did not know about (e.g. made in another tab).
+  if (expectExactCount && savedCount !== expectedCount) {
     mismatches.push({ id: 'collection', field: '__count', expected: expectedCount, actual: savedCount });
   }
 
@@ -593,38 +606,64 @@ router.post('/save', async (req, res) => {
       }
     }
     
-    // 내 캐릭터 중에서만 삭제/수정 수행
-    const deleteResult = await Character.deleteMany({ userId, _id: { $nin: incomingIds } });
+    const { deletedIds, replaceAll } = parseCharacterDeleteRequest(req.body);
+    const incomingIdSet = new Set(incomingIdsRaw);
+    if (deletedIds.some((id) => incomingIdSet.has(id))) {
+      return res.status(400).json({ error: '같은 캐릭터를 저장과 삭제에 함께 지정할 수 없습니다.' });
+    }
+    // replaceAll은 관리자 이식(덮어쓰기)처럼 "목록 전체 교체"를 명시한 경우에만 허용합니다.
+    const deleteFilter = replaceAll
+      ? { userId, _id: { $nin: incomingIds } }
+      : { userId, _id: { $in: deletedIds.map((id) => new mongoose.Types.ObjectId(id)) } };
 
     let updatedCount = 0;
     let createdCount = 0;
+    let deleteResult = { deletedCount: 0 };
     const saveResults = [];
-    for (const entry of saveInputs) {
-      const char = entry.payload;
-      if (char._id) {
-        const { _id, ...updateData } = char;
-        const updated = await Character.findOneAndUpdate(
-          { _id, userId },
-          { $set: updateData },
-          { new: true, runValidators: true }
-        );
-        if (!updated) {
-          return res.status(409).json({
-            error: '캐릭터 저장 중 대상이 사라졌습니다. 새로고침 후 다시 저장해주세요.',
-            missingIds: [_id],
-          });
+    // 삭제·수정·생성을 한 트랜잭션으로 묶어, 중간 실패 시 삭제만 반영되는 일을 막습니다.
+    const missingDuringSave = await Character.db.transaction(async (session) => {
+      updatedCount = 0;
+      createdCount = 0;
+      saveResults.length = 0;
+      deleteResult = (replaceAll || deletedIds.length > 0)
+        ? await Character.deleteMany(deleteFilter, { session })
+        : { deletedCount: 0 };
+      for (const entry of saveInputs) {
+        const char = entry.payload;
+        if (char._id) {
+          const { _id, ...updateData } = char;
+          const updated = await Character.findOneAndUpdate(
+            { _id, userId },
+            { $set: updateData },
+            { new: true, runValidators: true, session }
+          );
+          if (!updated) {
+            const error = new Error('CHARACTER_MISSING');
+            error.missingId = _id;
+            throw error;
+          }
+          updatedCount += 1;
+          saveResults.push({ action: 'updated', clientId: entry.clientId || _id, _id: String(updated._id) });
+        } else {
+          const { id, _id, ...newCharData } = char;
+          const [created] = await Character.create([{ ...newCharData, userId }], { session }); // ★ userId 부여 필수!
+          createdCount += 1;
+          saveResults.push({ action: 'created', clientId: entry.clientId || '', _id: String(created._id) });
         }
-        updatedCount += 1;
-        saveResults.push({ action: 'updated', clientId: entry.clientId || _id, _id: String(updated._id) });
-      } else {
-        const { id, _id, ...newCharData } = char; 
-        const created = await new Character({ ...newCharData, userId }).save(); // ★ userId 부여 필수!
-        createdCount += 1;
-        saveResults.push({ action: 'created', clientId: entry.clientId || '', _id: String(created._id) });
       }
+      return null;
+    }).catch((error) => {
+      if (error?.message === 'CHARACTER_MISSING') return error.missingId;
+      throw error;
+    });
+    if (missingDuringSave) {
+      return res.status(409).json({
+        error: '캐릭터 저장 중 대상이 사라졌습니다. 새로고침 후 다시 저장해주세요.',
+        missingIds: [missingDuringSave],
+      });
     }
     const savedCharacters = await Character.find({ userId }).sort({ createdAt: -1 }).lean();
-    const verificationMismatches = collectSaveVerificationMismatches(saveInputs, saveResults, savedCharacters);
+    const verificationMismatches = collectSaveVerificationMismatches(saveInputs, saveResults, savedCharacters, { expectExactCount: replaceAll });
     if (verificationMismatches.length > 0) {
       return res.status(500).json({
         error: '저장 후 DB 반영 검증에 실패했습니다. 다시 저장하거나 새로고침 후 시도해주세요.',

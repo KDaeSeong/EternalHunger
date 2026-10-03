@@ -134,6 +134,9 @@ export default function BoardDetailPage() {
   }, [loadReactionStatus, mounted]);
 
   const canEdit = mounted && token && userId && post && normalizeIdValue(post.authorId) === String(userId);
+  // 관리자는 신고 대응을 위해 다른 사람의 글·댓글을 삭제할 수 있습니다(수정은 작성자만).
+  const isAdminViewer = Boolean(mounted && token && user?.isAdmin);
+  const canDelete = Boolean(canEdit || (isAdminViewer && post));
   const canManageNotice = mounted && token && Boolean(user?.isAdmin) && post;
   const comments = Array.isArray(post?.comments) ? post.comments : [];
   const postGameLabel = gameLabelForSlug(gameOptions, post?.gameSlug);
@@ -394,6 +397,7 @@ export default function BoardDetailPage() {
               bookmarkLoading={bookmarkLoading}
               bookmarkSaving={bookmarkSaving}
               canEdit={canEdit}
+              canDelete={canDelete}
               canManageNotice={canManageNotice}
               comments={comments}
               editing={editing}
@@ -448,6 +452,7 @@ export default function BoardDetailPage() {
               token={token}
               updateComment={updateComment}
               userId={userId}
+              isAdmin={isAdminViewer}
             />
           </article>
         )}

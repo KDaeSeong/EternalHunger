@@ -15,7 +15,7 @@ export function GameMetric({ label, value }) {
   return (
     <div className="games-metric">
       <span>{label}</span>
-      <strong>{formatNumber(value)}</strong>
+      <strong>{value === null || value === undefined ? '—' : formatNumber(value)}</strong>
     </div>
   );
 }

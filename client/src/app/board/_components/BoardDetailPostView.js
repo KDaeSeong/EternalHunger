@@ -13,6 +13,7 @@ export default function BoardDetailPostView(props) {
     bookmarkLoading,
     bookmarkSaving,
     canEdit,
+    canDelete = canEdit,
     canManageNotice,
     comments,
     editing,
@@ -131,16 +132,18 @@ export default function BoardDetailPostView(props) {
               </>
             )}
 
-            {canEdit ? (
+            {canEdit || canDelete ? (
               <div className="board-actions">
-                {!editing ? (
+                {canEdit && !editing ? (
                   <button type="button" className="board-secondary" onClick={() => setEditing(true)}>
                     수정
                   </button>
                 ) : null}
-                <button type="button" className="board-danger" onClick={remove}>
-                  삭제
-                </button>
+                {canDelete ? (
+                  <button type="button" className="board-danger" onClick={remove}>
+                    삭제
+                  </button>
+                ) : null}
               </div>
             ) : null}
 

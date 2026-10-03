@@ -12,24 +12,30 @@ const PORT = HTTP_CONFIG.port;
 // 미들웨어 설정
 app.disable('x-powered-by');
 app.set('trust proxy', HTTP_CONFIG.trustProxy);
+app.use((req, res, next) => {
+  // Baseline hardening for a JSON API: no MIME sniffing, no framing, no referrer leaks.
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 app.use(cors(buildCorsOptions()));
 app.use(express.json({ limit: HTTP_CONFIG.jsonBodyLimit }));
 app.use(express.urlencoded({ limit: HTTP_CONFIG.jsonBodyLimit, extended: true }));
 
 // 라우터 연결 (분업화)
-const { verifyToken } = require('./middleware/authMiddleware');
+const { optionalAuth, verifyToken } = require('./middleware/authMiddleware');
 
 app.use('/api/auth', require('./routes/auth'));                 // 로그인/회원가입
-app.use('/api', require('./routes/securityGateway'));             // 클라이언트 보상 위조 차단/미검증 경기 멱등 저장
 app.use('/api/admin', require('./routes/admin'));  // 관리자 (아이템/맵/키오스크 등)
 app.use('/api/characters', verifyToken, require('./routes/characters')); // 캐릭터
 app.use('/api/settings', verifyToken, require('./routes/settings'));     // 게임 설정
 app.use('/api/game', verifyToken, require('./routes/game'));             // 게임 로그
 app.use('/api/game-saves', verifyToken, require('./routes/gameSaves'));  // 게임별 저장 슬롯
 app.use('/api/game-records', verifyToken, require('./routes/gameRecords')); // 게임별 공통 기록
-app.use('/api/game-rooms', require('./routes/gameRoomSecurityOverrides')); // 비공개 초대/원자적 revision
+app.use('/api/game-rooms', optionalAuth, require('./routes/gameRoomSecurityOverrides')); // 비공개 초대/원자적 revision
 app.use('/api/game-rooms', require('./routes/gameRooms'));                // 게임별 공통 방/매치
-app.use('/api/tcg', require('./routes/tcg'));                            // TCG cards/decks
+app.use('/api/tcg', optionalAuth, require('./routes/tcg'));                            // TCG cards/decks
 app.use('/api/records', verifyToken, require('./routes/records'));       // 기록소
 app.use('/api/analytics', verifyToken, require('./routes/analytics'));   // 분석실
 app.use('/api/user', verifyToken, require('./middleware/passwordPolicyGuard'), require('./routes/user')); // 유저
@@ -46,11 +52,11 @@ app.use('/api/drone', verifyToken, require('./routes/drone'));             // �
 app.use('/api/trades', verifyToken, require('./routes/trades'));           // 아이템 교환
 
 // ✅ 공개 API(비로그인 허용) — 메인 화면 랭킹/게시판 조회 등에 사용
-app.use('/api/rankings', require('./routes/rankings'));                   // 랭킹
-app.use('/api/posts', require('./routes/posts'));                         // 게시판
+app.use('/api/rankings', optionalAuth, require('./routes/rankings'));                   // 랭킹
+app.use('/api/posts', optionalAuth, require('./routes/posts'));                         // 게시판
 app.use('/api/public', require('./routes/readiness'));                    // DB readiness
-app.use('/api/public', require('./routes/public'));                       // 아이템/맵/키오스크 조회
-app.use('/api/twenty-questions', require('./routes/twentyQuestions'));     // 스무고개
+app.use('/api/public', optionalAuth, require('./routes/public'));                       // 아이템/맵/키오스크 조회
+app.use('/api/twenty-questions', optionalAuth, require('./routes/twentyQuestions'));     // 스무고개
 app.use('/api/analyze', verifyToken, require('./routes/analyze'));         // AI 분석
 
 app.use((error, req, res, next) => {

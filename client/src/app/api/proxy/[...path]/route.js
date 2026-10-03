@@ -58,6 +58,25 @@ async function getForwardCookies() {
   return { cookieHeader: values.join('; '), hasSession: Boolean(store.get(SESSION_COOKIE)?.value) };
 }
 
+// Express sees this proxy's address for every visitor, so per-visitor rate limits
+// need the browser address. Vercel sets x-real-ip / x-forwarded-for itself; the
+// shared secret lets the API trust the value (PROXY_SHARED_SECRET on both sides).
+function readClientIp(request) {
+  const realIp = String(request.headers.get('x-real-ip') || '').trim();
+  const forwarded = String(request.headers.get('x-forwarded-for') || '').split(',')[0].trim();
+  const ip = realIp || forwarded;
+  return /^[0-9a-fA-F:.]{2,64}$/.test(ip) ? ip : '';
+}
+
+function applyClientIdentityHeaders(headers, request, credentialOriginAllowed) {
+  headers.set('X-EH-Proxied', '1');
+  const secret = String(process.env.PROXY_SHARED_SECRET || '').trim();
+  const clientIp = readClientIp(request);
+  if (!credentialOriginAllowed || secret.length < 16 || !clientIp) return;
+  headers.set('X-EH-Client-IP', clientIp);
+  headers.set('X-EH-Proxy-Auth', secret);
+}
+
 function copyRequestHeaders(request, cookieHeader) {
   const headers = new Headers();
   const authHeader = request.headers.get('authorization');
@@ -134,6 +153,7 @@ async function proxy(request, context) {
 
   const method = request.method || 'GET';
   const headers = copyRequestHeaders(request, credentialOriginAllowed ? cookieHeader : '');
+  applyClientIdentityHeaders(headers, request, credentialOriginAllowed);
   const cacheControl = getCacheControl(path, method, hasSession || hasExplicitAuth);
   const target = `${backend}/api/${path}${url.search || ''}`;
   const init = { method, headers, cache: 'no-store' };

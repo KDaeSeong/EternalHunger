@@ -220,7 +220,10 @@ check('account compaction preserves a bounded receipt and rejects invalid consum
   assert.deepEqual(restored[1].consumed, [{ itemId: 'stone', itemName: '돌', qty: 1 }]);
   assert.match(describeObserverEvent(restored[1]), /구매 완료/);
   const finish = readFileSync(new URL('../src/app/simulation/_lib/finishGameRuntime.js', import.meta.url), 'utf8');
-  const clientCompactSource = finish.slice(finish.indexOf('const compactRunEvents ='), finish.indexOf("await apiPost('/game/end'"));
+  const compactStart = finish.indexOf('const compactRunEvents =');
+  const compactEnd = finish.indexOf('.filter(Boolean);', compactStart) + '.filter(Boolean);'.length;
+  assert.ok(compactStart >= 0 && compactEnd > compactStart, 'the actual client event compaction block must exist');
+  const clientCompactSource = finish.slice(compactStart, compactEnd);
   const submitted = runInNewContext(`${clientCompactSource}; compactRunEvents`, { runEvents: [choice(), receipt] });
   const roundTrip = JSON.parse(JSON.stringify(compact(submitted)));
   assert.equal(roundTrip[0].actionKey, choice().actionKey);

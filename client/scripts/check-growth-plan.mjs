@@ -162,6 +162,31 @@ await check('production growth events retain unresolved declarations instead of 
   assert.equal(event.completedSlots, 1); assert.equal(event.totalSlots, 2);
   assert.deepEqual(event.goalIssues.map(({ itemId, reason }) => [itemId, reason]), [['missing', 'missing_target']]);
   assert.notEqual(event.goalIssues, result.updatedSurvivors[0]._growthPlan.goalIssues);
+  assert.equal(result.updatedSurvivors[0]._growthReadyAtSec, 30, 'No actual opening recipe remains; keep the normal twenty-second cadence.');
+  assert.equal(events.find((entry) => entry.kind === 'action_cycle').intervalSec, 20);
+});
+
+await check('a missing-only goal cannot suppress an otherwise ready shared boss action', () => {
+  const actor = { ...fixture(), routePlanTargetItemIds: ['goal', 'missing'] };
+  receive(actor, 'goal');
+  const queue = prepareActorPhaseActionPlan({ state: { actor, ...world, publicItems: fixtureItems, craftables: fixtureItems,
+    itemMetaById: meta, itemNameById: names, ruleset, nextDay: 2, nextPhase: 'night',
+    movementObjective: { type: 'boss', targetZoneId: 'a', beneficiary: actor._id } } });
+  assert.equal(queue.queuedActionType, 'hunt');
+  assert.match(queue.queueScoredCandidates.find((entry) => entry.type === 'hunt').priorityNote, /team_boss/);
+  assert.equal(actor._growthPlan.blocked, 'invalid_target'); assert.equal(actor._growthPlan.openingComplete, false);
+});
+
+await check('a valid selected recipe keeps its one-second action beside an unresolved declaration', () => {
+  const actor = { ...fixture(), routePlanTargetItemIds: ['goal', 'missing'] };
+  refreshActorGrowthPlan(actor, fixtureItems, world); receive(actor, 'left'); receive(actor, 'right');
+  const result = runPhaseActorActionPipeline({ state: { phaseSurvivors: [actor], ...world, publicItems: fixtureItems,
+    craftables: fixtureItems, itemMetaById: meta, itemNameById: names, ruleset, nextDay: 2, nextPhase: 'night',
+    actionIntervalSec: 20, statusElapsedSec: 0, currentActionSec: () => 10 } });
+  const crafted = result.updatedSurvivors[0];
+  assert.equal(crafted.equipped.head, 'goal'); assert.equal(crafted._growthReadyAtSec, 11);
+  assert.equal(getActorGrowthProgress(crafted, fixtureItems).openingComplete, false);
+  assert.equal(invQty(crafted.inventory, 'left'), 0); assert.equal(invQty(crafted.inventory, 'right'), 0);
 });
 
 await check('completed intermediates replace their consumed leaf requirements', () => {

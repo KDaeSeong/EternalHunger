@@ -26,6 +26,7 @@ const {
   scopedFilter,
   PUBLIC_FOLLOW_USER_SELECT,
   VISIBLE_USER_FILTER,
+  RANKED_USER_FILTER,
   PUBLIC_ITEM_SELECT,
   normalizeId,
   cleanText,
@@ -166,7 +167,7 @@ router.get('/search', async (req, res) => {
         .sort({ lastActivityAt: -1, updatedAt: -1 })
         .limit(8)
         .lean(),
-      User.find({ ...VISIBLE_USER_FILTER, $or: [{ username: pattern }, { nickname: pattern }] })
+      User.find({ ...VISIBLE_USER_FILTER, nickname: pattern })
         .select('username nickname profileBio lp createdAt')
         .sort({ lp: -1, createdAt: 1 })
         .limit(8)
@@ -226,7 +227,7 @@ router.get('/leaderboard', async (req, res) => {
       User.countDocuments(VISIBLE_USER_FILTER),
       Character.countDocuments({}),
       TeamRecord.countDocuments({}),
-      User.find(VISIBLE_USER_FILTER)
+      User.find(RANKED_USER_FILTER)
         .select('username nickname profileBio lp statistics createdAt')
         .sort({ lp: -1, createdAt: 1 })
         .limit(25)

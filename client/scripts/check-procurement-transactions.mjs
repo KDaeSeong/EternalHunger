@@ -298,10 +298,10 @@ check('real sale handler clears sold equipment and records actual consumption', 
 });
 
 check('real module buy and exchange upgrade only after successful payment, once', () => {
-  const module = { _id: 'module', name: '전술 강화 모듈', tags: ['tac_skill_module'], tier: 4 };
+  const upgradeModule = { _id: 'module', name: '전술 강화 모듈', tags: ['tac_skill_module'], tier: 4 };
   for (const actionType of ['kioskBuy', 'kioskExchange']) {
     const subject = actor({ inventory: [held(stone)], tacticalSkillLevel: 1 });
-    const offer = (actionType === 'kioskBuy' ? buy : exchange)({ item: module, itemId: module._id });
+    const offer = (actionType === 'kioskBuy' ? buy : exchange)({ item: upgradeModule, itemId: upgradeModule._id });
     const poor = actor({ simCredits: 0, tacticalSkillLevel: 1 });
     const failedFlow = pipeline(poor, offer, actionType);
     assert.equal(failedFlow.run().didProcure, false);
@@ -311,7 +311,7 @@ check('real module buy and exchange upgrade only after successful payment, once'
     const flow = pipeline(subject, offer, actionType);
     assert.equal(flow.run().didProcure, true);
     assert.equal(subject.tacticalSkillLevel, 2);
-    assert.equal(count(subject, module._id), 0);
+    assert.equal(count(subject, upgradeModule._id), 0);
     const before = structuredClone(subject);
     assert.equal(flow.run().reason, 'already_committed');
     assert.deepEqual(subject, before);

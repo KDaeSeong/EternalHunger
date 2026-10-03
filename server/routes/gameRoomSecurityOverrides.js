@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const { verifyToken } = require('../middleware/authMiddleware');
 const GameRoom = require('../models/GameRoom');
 const { generateJoinCode, hashJoinCode, verifyJoinCode } = require('../utils/gameRoomAccess');
+const { publicDisplayName } = require('../utils/publicIdentity');
 
 const router = express.Router();
 const MAX_ROOM_STATE_BYTES = positiveInt(process.env.GAME_ROOM_STATE_MAX_BYTES, 256 * 1024);
@@ -45,9 +46,8 @@ function mapUser(value) {
   if (!value || typeof value !== 'object') return null;
   return {
     _id: normalizeId(value),
-    username: value.username || '',
     nickname: value.nickname || '',
-    displayName: value.nickname || value.username || '사용자',
+    displayName: publicDisplayName(value, '사용자'),
   };
 }
 

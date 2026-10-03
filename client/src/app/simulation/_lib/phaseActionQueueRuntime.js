@@ -72,7 +72,7 @@ export function prepareActorPhaseActionPlan({
   const routePlanIdsNow = Array.isArray(updated?.routePlanZoneIds)
     ? updated.routePlanZoneIds.map((zoneId) => String(zoneId || '').trim()).filter(Boolean)
     : [];
-  const earlyRouteActionActive = growthPlan ? !growthPlan.openingComplete : (
+  const earlyRouteActionActive = growthPlan ? !!growthPlan.targetId && !growthPlan.openingComplete : (
     (Number(nextDay || 0) === 1 || (Number(nextDay || 0) === 2 && String(nextPhase || '') === 'morning')) &&
     routePlanIdsNow.length > 0 &&
     Math.max(0, Number(updated?.routePlanIndex || 0)) < routePlanIdsNow.length

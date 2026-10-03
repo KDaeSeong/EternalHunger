@@ -219,7 +219,10 @@ await check('actual consumption receipts survive client/server compaction and ex
   const server = readFileSync(new URL('../../server/routes/game.js', import.meta.url), 'utf8');
   const compact = runInNewContext(`${server.slice(server.indexOf('function compactRunEventsForStorage('), server.indexOf('function buildRunSummary('))}; compactRunEventsForStorage`);
   const finish = readFileSync(new URL('../src/app/simulation/_lib/finishGameRuntime.js', import.meta.url), 'utf8');
-  const client = finish.slice(finish.indexOf('const compactRunEvents ='), finish.indexOf("await apiPost('/game/end'"));
+  const compactStart = finish.indexOf('const compactRunEvents =');
+  const compactEnd = finish.indexOf('.filter(Boolean);', compactStart) + '.filter(Boolean);'.length;
+  assert.ok(compactStart >= 0 && compactEnd > compactStart, 'the actual client event compaction block must exist');
+  const client = finish.slice(compactStart, compactEnd);
   const submitted = runInNewContext(`${client}; compactRunEvents`, { runEvents: events });
   const [restored] = JSON.parse(JSON.stringify(compact(submitted)));
   assert.equal(restored.heal, 25);

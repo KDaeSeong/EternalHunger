@@ -20,7 +20,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const cache = new Map();
 function loadSource(path) {
   if (cache.has(path)) return cache.get(path).exports;
-  const module = { exports: {} }; cache.set(path, module);
+  const loadedModule = { exports: {} }; cache.set(path, loadedModule);
   const require = createRequire(path);
   const localRequire = (specifier) => {
     if (!specifier.startsWith('.')) return require(specifier);
@@ -31,8 +31,8 @@ function loadSource(path) {
   const compiled = ts.transpileModule(readFileSync(path, 'utf8'), {
     compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true },
   }).outputText;
-  new Function('require', 'module', 'exports', compiled)(localRequire, module, module.exports);
-  return module.exports;
+  new Function('require', 'module', 'exports', compiled)(localRequire, loadedModule, loadedModule.exports);
+  return loadedModule.exports;
 }
 const Board = loadSource(resolve(root, 'src/app/simulation/_components/SimulationSurvivorBoard.js')).default;
 const ObserverPanel = loadSource(resolve(root, 'src/app/simulation/_components/SimulationTeamObserverPanel.js')).default;

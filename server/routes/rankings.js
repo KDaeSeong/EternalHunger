@@ -4,8 +4,12 @@ const router = express.Router();
 
 const User = require('../models/User');
 const Character = require('../models/Characters');
+const { publicDisplayName } = require('../utils/publicIdentity');
 
-const VISIBLE_USER_FILTER = { moderationStatus: { $ne: 'deactivated' } };
+const RANKED_USER_FILTER = {
+  moderationStatus: { $ne: 'deactivated' },
+  $or: [{ lp: { $gt: 0 } }, { 'statistics.totalGames': { $gt: 0 } }],
+};
 
 /**
  * ✅ 랭킹 (Top 3)
@@ -26,9 +30,17 @@ router.get('/', async (req, res) => {
       .sort({ 'records.totalKills': -1 })
       .limit(3);
 
-    const points = await User.find(VISIBLE_USER_FILTER, 'username nickname lp')
+    const pointRows = await User.find(RANKED_USER_FILTER, 'nickname lp')
       .sort({ lp: -1 })
-      .limit(3);
+      .limit(3)
+      .lean();
+    // 로그인 아이디(username)는 공개 응답에 넣지 않습니다.
+    const points = pointRows.map((row) => ({
+      _id: row._id,
+      nickname: row.nickname || '',
+      displayName: publicDisplayName(row),
+      lp: Number(row.lp || 0),
+    }));
 
     res.json({ wins, kills, points });
   } catch (err) {

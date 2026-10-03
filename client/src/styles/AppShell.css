@@ -842,8 +842,18 @@
   color: #0878bd;
 }
 
-.site-header__nav a.is-emphasis {
+/* The current page is marked by an underline as well as color, so the emphasized
+   "게임 허브" link (blue marker only) no longer looks like a second active item. */
+.site-header__nav a.is-active {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+
+.site-header__nav-marker {
+  margin-right: 4px;
   color: #0878bd;
+  font-size: 0.85em;
 }
 
 .site-header__more {

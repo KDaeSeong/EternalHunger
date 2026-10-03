@@ -4,7 +4,12 @@ const GameLogSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
   clientRunId: { type: String, default: '', maxlength: 160 },
   trustedOutcome: { type: Boolean, default: false, index: true },
-  rewardStatus: { type: String, enum: ['unverified', 'verified', 'rejected'], default: 'unverified', index: true },
+  rewardStatus: { type: String, enum: ['unverified', 'client_reported', 'verified', 'rejected'], default: 'unverified', index: true },
+  // LP granted for this run (client-reported outcome, server-computed amount).
+  lpAwarded: { type: Number, default: 0 },
+  lpBaseAwarded: { type: Number, default: 0 },
+  lpPredictionBonusAwarded: { type: Number, default: 0 },
+  predictedWinnerId: { type: String, default: '', maxlength: 80 },
   title: String,
   playedAt: { type: Date, default: Date.now },
   winnerName: String,

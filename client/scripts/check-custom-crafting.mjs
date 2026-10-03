@@ -289,7 +289,10 @@ await test('craft receipts survive both account compaction boundaries with bound
   const compactSource = source.slice(source.indexOf('function compactRunEventsForStorage('), source.indexOf('function buildRunSummary('));
   const compact = runInNewContext(`${compactSource}; compactRunEventsForStorage`);
   const finish = readFileSync(new URL('../src/app/simulation/_lib/finishGameRuntime.js', import.meta.url), 'utf8');
-  const clientSource = finish.slice(finish.indexOf('const compactRunEvents ='), finish.indexOf("await apiPost('/game/end'"));
+  const compactStart = finish.indexOf('const compactRunEvents =');
+  const compactEnd = finish.indexOf('.filter(Boolean);', compactStart) + '.filter(Boolean);'.length;
+  assert.ok(compactStart >= 0 && compactEnd > compactStart, 'the actual client event compaction block must exist');
+  const clientSource = finish.slice(compactStart, compactEnd);
   events[0].consumed.push({ itemId: 'invalid', qty: Infinity });
   const submitted = runInNewContext(`${clientSource}; compactRunEvents`, { runEvents: events });
   const [restored] = JSON.parse(JSON.stringify(compact(submitted)));

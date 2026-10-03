@@ -116,9 +116,12 @@ export function BoardWritePanel(props) {
     writerOpen,
   } = props;
 
-  if (!(mounted && token && writerOpen)) {
-    return <div className="board-login-note">로그인하면 글을 작성할 수 있습니다.</div>;
+  // 로그인 안내는 실제로 로그인하지 않았을 때만 보여 줍니다.
+  // 로그인했지만 글쓰기 창을 닫아 둔 상태에서는 아무것도 표시하지 않습니다.
+  if (!(mounted && token)) {
+    return mounted ? <div className="board-login-note">로그인하면 글을 작성할 수 있습니다.</div> : null;
   }
+  if (!writerOpen) return null;
 
   return (
     <div className="board-write-panel" id="board-write-panel">
@@ -176,6 +179,7 @@ export function BoardPostTable(props) {
     mounted,
     pagination,
     posts,
+    isAdmin = false,
     remove,
     setPage,
     token,
@@ -217,7 +221,9 @@ export function BoardPostTable(props) {
               const id = post?._normalizedId || normalizePostId(post);
               const title = safeText(post?.title, '제목 없음');
               const preview = safeText(post?.contentPreview || post?.content, '');
-              const canRemove = mounted && token && userId && normalizeIdValue(post?.authorId) === String(userId);
+              const canRemove = mounted && token && (
+                isAdmin || (userId && normalizeIdValue(post?.authorId) === String(userId))
+              );
               const rowNo = Math.max(1, Number(pagination.total || filteredPosts.length) - ((Number(pagination.page || 1) - 1) * Number(pagination.limit || BOARD_PAGE_SIZE)) - index);
               const authorHref = userProfileHref(post?.authorId);
               const gameLabel = gameLabelForSlug(gameOptions, post?.gameSlug);

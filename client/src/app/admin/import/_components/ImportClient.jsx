@@ -97,17 +97,27 @@ export default function ImportClient() {
     if (!coerced.ok) return setLog(`캐릭터 형식 오류: ${coerced.error}`);
 
     let payload = coerced.list;
-    if (mode === 'merge') {
-      try {
-        const existing = await apiGet('/characters');
-        const existingList = Array.isArray(existing) ? existing : [];
+    let deletedIds = [];
+    try {
+      const existing = await apiGet('/characters');
+      if (!Array.isArray(existing)) throw new Error('캐릭터 목록 형식이 올바르지 않습니다.');
+      const existingList = existing;
+      if (mode === 'merge') {
         const existingNames = new Set(existingList.map((character) => String(character?.name || '').trim().toLowerCase()).filter(Boolean));
         payload = [...existingList, ...payload.filter((character) => !existingNames.has(character.name.toLowerCase()))];
-      } catch (error) {
-        return setLog(`기존 캐릭터 불러오기 실패: ${error?.message || String(error)}`);
+      } else {
+        const retainedIds = new Set(payload.map((character) => String(character?._id || '').trim()).filter(Boolean));
+        deletedIds = existingList.map((character) => String(character?._id || '').trim())
+          .filter((id) => /^[a-f0-9]{24}$/i.test(id) && !retainedIds.has(id));
       }
+    } catch (error) {
+      return setLog(`기존 캐릭터 불러오기 실패: ${error?.message || String(error)}`);
     }
-    await postJson('/characters/save', compactCharactersForSave(payload));
+    // 덮어쓰기도 읽어 온 ID만 삭제합니다. 다른 탭에서 뒤늦게 추가한 캐릭터는 유지합니다.
+    await postJson('/characters/save', {
+      characters: compactCharactersForSave(payload),
+      deletedIds,
+    });
   };
 
   return (

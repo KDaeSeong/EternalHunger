@@ -35,6 +35,9 @@ export default function Home() {
   const { showToast } = useToast();
   const [hub, setHub] = useState(EMPTY_HUB);
   const [loading, setLoading] = useState(true);
+  // Until the hub loads (or when it fails, e.g. while the API server wakes up),
+  // show "—" instead of 0 so placeholder numbers never look like real counts.
+  const [hubLoaded, setHubLoaded] = useState(false);
   const [progress, setProgress] = useState(EMPTY_PROGRESS);
   const [progressLoading, setProgressLoading] = useState(false);
   const [progressError, setProgressError] = useState('');
@@ -66,10 +69,14 @@ export default function Home() {
           timeoutMs: 15000,
           storage: 'session',
         });
-        if (!canceled) setHub(normalizeHub(payload));
+        if (!canceled) {
+          setHub(normalizeHub(payload));
+          setHubLoaded(true);
+        }
       } catch (err) {
         if (!canceled) {
           setHub(EMPTY_HUB);
+          setHubLoaded(false);
           showToast({ tone: 'warning', message: err?.message || '홈 정보를 불러오지 못했습니다.' });
         }
       } finally {
@@ -186,10 +193,10 @@ export default function Home() {
         </section>
 
         <section className="home-metrics" aria-label="사이트 요약">
-          <div><span>사용자</span><strong>{formatNumber(hub.counts.users)}</strong></div>
-          <div><span>캐릭터</span><strong>{formatNumber(hub.counts.characters)}</strong></div>
-          <div><span>게시글</span><strong>{formatNumber(hub.counts.posts)}</strong></div>
-          <div><span>진행 중 스무고개</span><strong>{formatNumber(hub.counts.activeRooms)}</strong></div>
+          <div><span>사용자</span><strong>{hubLoaded ? formatNumber(hub.counts.users) : '—'}</strong></div>
+          <div><span>캐릭터</span><strong>{hubLoaded ? formatNumber(hub.counts.characters) : '—'}</strong></div>
+          <div><span>게시글</span><strong>{hubLoaded ? formatNumber(hub.counts.posts) : '—'}</strong></div>
+          <div><span>진행 중 스무고개</span><strong>{hubLoaded ? formatNumber(hub.counts.activeRooms) : '—'}</strong></div>
         </section>
 
         {mounted && user ? (

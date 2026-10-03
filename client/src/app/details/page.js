@@ -116,7 +116,8 @@ export default function DetailsPage() {
     // 세 번째 인자로 헤더를 넣어줍니다.
     if (!token) throw new Error('로그인이 필요합니다.');
     const payload = compactCharactersForSave(characters, { omitPreviewImages: true });
-    const result = await apiPost('/characters/save', payload, { timeoutMs: 30000 });
+    // 이 화면에서는 삭제를 요청하지 않습니다. 다른 화면의 캐릭터도 그대로 유지합니다.
+    const result = await apiPost('/characters/save', { characters: payload, deletedIds: [] }, { timeoutMs: 30000 });
     clearApiGetCache('/characters');
     if (Array.isArray(result?.missingIds) && result.missingIds.length > 0) {
       throw new Error('일부 캐릭터를 찾을 수 없습니다. 새로고침 후 다시 저장해주세요.');
@@ -130,9 +131,6 @@ export default function DetailsPage() {
     }
     const savedCharacters = await loadCharactersAfterSave(result);
     const normalizedSaved = normalizeDetailsCharacterList(savedCharacters);
-    if (normalizedSaved.length !== payload.length) {
-      throw new Error(`저장 후 캐릭터 수가 맞지 않습니다. 요청 ${payload.length}명 / 저장 ${normalizedSaved.length}명`);
-    }
     const mismatches = findCharacterSaveMismatches(payload, normalizedSaved, { saveResults: result?.saveResults });
     if (mismatches.length > 0) {
       throw new Error(formatSaveMismatchMessage(mismatches));

@@ -265,7 +265,7 @@ export default function UserProfilePage() {
               <div>
                 <p className="profile-kicker">User Profile</p>
                 <h1>{displayName}</h1>
-                <span>{user.username ? `@${user.username}` : '아이디 없음'} · 가입일 {formatDate(user.createdAt) || '-'}</span>
+                <span>가입일 {formatDate(user.createdAt) || '-'}</span>
                 {profileBio ? <p className="profile-bio">{profileBio}</p> : null}
                 <div className="profile-follow-row">
                   <span>팔로워 {formatNumber(summary.followerCount)} · 팔로잉 {formatNumber(summary.followingCount)}</span>

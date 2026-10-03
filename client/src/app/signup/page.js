@@ -71,7 +71,7 @@ export default function SignupPage() {
             <span className="logo-main">게임개발소</span>
           </div>
 
-          <h2>회원가입</h2>
+          <h1>회원가입</h1>
           <p className="auth-copy">
             캐릭터, 시뮬레이션 기록, 커뮤니티 활동을 저장할 계정을 만듭니다.
           </p>
@@ -80,7 +80,7 @@ export default function SignupPage() {
             <input
               type="text"
               className="auth-input"
-              placeholder="아이디"
+              placeholder="아이디" aria-label="아이디"
               required
               minLength={4}
               maxLength={32}
@@ -92,7 +92,7 @@ export default function SignupPage() {
             <input
               type="text"
               className="auth-input"
-              placeholder="닉네임(선택)"
+              placeholder="닉네임 (다른 사람에게 보이는 이름, 선택)" aria-label="닉네임 (다른 사람에게 보이는 이름, 선택)"
               value={form.nickname}
               disabled={busy}
               maxLength={20}
@@ -102,7 +102,7 @@ export default function SignupPage() {
             <input
               type="password"
               className="auth-input"
-              placeholder="비밀번호"
+              placeholder="비밀번호" aria-label="비밀번호"
               required
               minLength={10}
               maxLength={72}
@@ -115,7 +115,7 @@ export default function SignupPage() {
             <input
               type="password"
               className="auth-input"
-              placeholder="비밀번호 확인"
+              placeholder="비밀번호 확인" aria-label="비밀번호 확인"
               required
               minLength={10}
               maxLength={72}

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const router = express.Router();
 
 const Notification = require('../models/Notification');
+const { publicDisplayName } = require('../utils/publicIdentity');
 require('../models/User');
 
 function normalizeId(value) {
@@ -17,14 +18,13 @@ function normalizeId(value) {
 }
 
 function displayName(user) {
-  return String(user?.nickname || user?.username || '사용자').trim() || '사용자';
+  return publicDisplayName(user, '사용자');
 }
 
 function userSummary(user) {
   if (!user || typeof user !== 'object') return null;
   return {
     _id: normalizeId(user),
-    username: user.username || '',
     nickname: user.nickname || '',
   };
 }

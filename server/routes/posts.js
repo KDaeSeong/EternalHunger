@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 
 const Post = require('../models/Post');
@@ -7,6 +8,8 @@ const PostBookmark = require('../models/PostBookmark');
 const PostReaction = require('../models/PostReaction');
 const { verifyToken } = require('../middleware/authMiddleware');
 const { createNotification } = require('../utils/notifications');
+const { publicDisplayName } = require('../utils/publicIdentity');
+const { consumeRateLimit, requestSubject } = require('../utils/rateLimit');
 
 const POST_DEFAULT_PAGE_SIZE = 20;
 const POST_MAX_PAGE_SIZE = 50;
@@ -88,13 +91,12 @@ function userSummary(user) {
   if (!user || typeof user !== 'object') return null;
   return {
     _id: normalizeId(user),
-    username: user.username || '',
     nickname: user.nickname || '',
   };
 }
 
 function displayName(user) {
-  return String(user?.nickname || user?.username || '익명').trim() || '익명';
+  return publicDisplayName(user, '익명');
 }
 
 async function requireAdminUser(req, res) {
@@ -201,12 +203,8 @@ router.get('/', async (req, res) => {
     if (gameSlug) match.gameSlug = gameSlug;
     if (q) {
       const pattern = new RegExp(escapeRegExp(q), 'i');
-      const matchingAuthors = await User.find({
-        $or: [
-          { username: pattern },
-          { nickname: pattern },
-        ],
-      }).select('_id').lean();
+      // 작성자 검색은 공개 닉네임으로만 합니다(로그인 아이디로 계정을 찾을 수 없게).
+      const matchingAuthors = await User.find({ nickname: pattern }).select('_id').lean();
       match.$or = [
         { title: pattern },
         { content: pattern },
@@ -396,11 +394,33 @@ router.post('/:id/reaction', verifyToken, async (req, res) => {
   }
 });
 
+// 같은 사람(로그인 사용자 또는 같은 주소)이 30분 안에 다시 열면 조회수를 올리지 않습니다.
+async function shouldCountView(req, postId) {
+  try {
+    const viewer = req.user?.id ? `user:${req.user.id}` : requestSubject(req, 'anon');
+    const rate = await consumeRateLimit({
+      scope: 'post:view',
+      subject: `${postId}:${viewer}`,
+      limit: 1,
+      windowMs: 30 * 60 * 1000,
+    });
+    return rate.allowed;
+  } catch {
+    return false;
+  }
+}
+
 router.get('/:id', async (req, res) => {
   try {
-    await Post.findByIdAndUpdate(req.params.id, { $inc: { viewCount: 1 } }).select('_id').lean();
+    if (!mongoose.Types.ObjectId.isValid(String(req.params.id || ''))) {
+      return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+    }
     const post = await findPostWithUsers(req.params.id);
     if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+    if (await shouldCountView(req, String(post._id))) {
+      await Post.updateOne({ _id: post._id }, { $inc: { viewCount: 1 } });
+      post.viewCount = Number(post.viewCount || 0) + 1;
+    }
     res.json({ post: serializePostDetail(post) });
   } catch (err) {
     console.error(err);
@@ -554,8 +574,8 @@ router.delete('/:id/comments/:commentId', verifyToken, async (req, res) => {
 
     const isPostAuthor = String(post.authorId) === String(req.user.id);
     const isCommentAuthor = String(comment.authorId) === String(req.user.id);
-    if (!isPostAuthor && !isCommentAuthor) {
-      return res.status(403).json({ error: '댓글 작성자 또는 게시글 작성자만 삭제할 수 있습니다.' });
+    if (!isPostAuthor && !isCommentAuthor && !req.user.isAdmin) {
+      return res.status(403).json({ error: '댓글 작성자, 게시글 작성자 또는 관리자만 삭제할 수 있습니다.' });
     }
 
     post.comments.pull({ _id: req.params.commentId });
@@ -575,8 +595,9 @@ router.delete('/:id', verifyToken, async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
 
-    if (String(post.authorId) !== String(req.user.id)) {
-      return res.status(403).json({ error: '작성자만 삭제할 수 있습니다.' });
+    // 신고 대응을 위해 관리자도 다른 사람의 글을 삭제할 수 있습니다.
+    if (String(post.authorId) !== String(req.user.id) && !req.user.isAdmin) {
+      return res.status(403).json({ error: '작성자 또는 관리자만 삭제할 수 있습니다.' });
     }
 
     await Post.findByIdAndDelete(req.params.id);

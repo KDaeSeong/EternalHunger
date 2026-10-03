@@ -7,6 +7,7 @@ const Report = require('../models/Report');
 const User = require('../models/User');
 const { verifyAdmin } = require('../middleware/authMiddleware');
 const { createNotification } = require('../utils/notifications');
+const { publicDisplayName } = require('../utils/publicIdentity');
 
 const REASON_LABELS = {
   spam: '스팸',
@@ -39,14 +40,13 @@ function cleanText(value, maxLength) {
 }
 
 function displayName(user) {
-  return String(user?.nickname || user?.username || '익명').trim() || '익명';
+  return publicDisplayName(user, '익명');
 }
 
 function userSummary(user) {
   if (!user || typeof user !== 'object') return null;
   return {
     _id: normalizeId(user),
-    username: user.username || '',
     nickname: user.nickname || '',
   };
 }
@@ -177,7 +177,7 @@ router.post('/', async (req, res) => {
         detail,
         targetSnapshot: {
           title: displayName(targetUser),
-          excerpt: cleanText(targetUser.profileBio || `@${targetUser.username || ''}`, 260),
+          excerpt: cleanText(targetUser.profileBio || '', 260),
           authorId: targetUser._id,
           authorName: displayName(targetUser),
           url: buildTargetUrl('user', targetUser._id),

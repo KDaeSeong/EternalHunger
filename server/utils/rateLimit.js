@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const RateLimitBucket = require('../models/RateLimitBucket');
+const { resolveClientIp } = require('./clientIp');
 
 function positiveInt(value, fallback) {
   const number = Number(value);
@@ -8,7 +9,7 @@ function positiveInt(value, fallback) {
 }
 
 function requestSubject(req, discriminator = '') {
-  const ip = req?.ip || req?.socket?.remoteAddress || 'unknown';
+  const { ip } = resolveClientIp(req);
   return `${ip}:${String(discriminator || '').trim().toLowerCase()}`;
 }
 

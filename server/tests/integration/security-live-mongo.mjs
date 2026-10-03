@@ -171,20 +171,22 @@ async function verifyClientRewardBoundary({ primary, secondary, db, user }) {
   const writes = await Promise.all(Array.from({ length: 12 }, (_, index) => (
     user.session.request(index % 2 === 0 ? primary : secondary, '/api/game/end', { method: 'POST', body })
   )));
-  assert.equal(writes.filter((result) => result.status === 201).length, 1, 'exactly one request must create the game log');
-  assert.equal(writes.filter((result) => result.status === 200).length, 11, 'duplicate requests must be idempotent');
-  assert.ok(writes.every((result) => result.data?.trustedOutcome === false), 'client outcomes must remain untrusted');
-  assert.ok(writes.every((result) => result.data?.rewardStatus === 'unverified'), 'client outcomes must remain unverified');
-  assert.ok(writes.every((result) => result.data?.lpEarnedApplied === 0 && result.data?.creditsEarnedApplied === 0), 'no client reward may be applied');
+  assert.ok(writes.every((result) => result.status === 200), 'every parallel request must receive the receipt');
+  assert.equal(writes.filter((result) => result.data?.duplicate === false).length, 1, 'exactly one request must create the game log');
+  assert.equal(writes.filter((result) => result.data?.duplicate === true).length, 11, 'duplicate requests must be idempotent');
+  assert.ok(writes.every((result) => result.data?.rewardStatus === 'client_reported'), 'client outcomes stay marked as client-reported');
+  // LP comes from the server rule (base 50, no prediction); client-sent amounts are ignored.
+  assert.ok(writes.every((result) => result.data?.lpEarnedApplied === 50 && result.data?.creditsEarnedApplied === 0), 'only the server LP rule may apply');
 
   const stored = await gameLogs.find({ userId: before._id, clientRunId }).toArray();
   assert.equal(stored.length, 1, 'parallel duplicate runs created more than one game log');
   assert.equal(stored[0].trustedOutcome, false);
-  assert.equal(stored[0].rewardStatus, 'unverified');
+  assert.equal(stored[0].rewardStatus, 'client_reported');
+  assert.ok(stored[0].participants.every((row) => row.killCount <= 4 && row.assistCount <= 4), 'client counts are bounded');
   const after = await users.findOne({ _id: before._id });
-  assert.equal(Number(after.lp || 0), Number(before.lp || 0), 'LP changed from an untrusted client request');
-  assert.equal(Number(after.credits || 0), Number(before.credits || 0), 'credits changed from an untrusted client request');
-  assert.deepEqual(after.statistics, before.statistics, 'statistics changed from an untrusted client request');
+  assert.equal(Number(after.lp || 0), Number(before.lp || 0) + 50, 'LP must be granted exactly once by the server rule');
+  assert.equal(Number(after.credits || 0), Number(before.credits || 0), 'credits changed from a client request');
+  assert.equal(Number(after.statistics?.totalGames || 0), Number(before.statistics?.totalGames || 0) + 1);
   console.log('PASS DEF-001 client reward boundary and parallel idempotency');
 }
 

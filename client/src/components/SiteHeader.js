@@ -145,12 +145,13 @@ export default function SiteHeader({ className = '' }) {
       <Link
         key={item.href}
         href={item.href}
+        aria-current={active ? 'page' : undefined}
         className={[
           active ? 'is-active' : '',
           item.emphasis ? 'is-emphasis' : '',
         ].filter(Boolean).join(' ')}
       >
-        {item.emphasis ? '▶ ' : ''}
+        {item.emphasis ? <span className="site-header__nav-marker" aria-hidden="true">▶</span> : null}
         {item.label}
       </Link>
     );

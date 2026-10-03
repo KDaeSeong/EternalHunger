@@ -257,8 +257,11 @@ function characterApiFixture() {
       } };
       return cursor;
     }
-    static async deleteMany(query) { let deletedCount = 0; for (const [id, doc] of rows) if (String(doc.userId) === String(query.userId) && !query._id.$nin.some((key) => String(key) === id)) { rows.delete(id); deletedCount++; } return { deletedCount }; }
+    static async deleteMany(query) { let deletedCount = 0; for (const [id, doc] of rows) if (String(doc.userId) === String(query.userId) && (query._id.$in ? query._id.$in.some((key) => String(key) === id) : !query._id.$nin.some((key) => String(key) === id))) { rows.delete(id); deletedCount++; } return { deletedCount }; }
     static async findOneAndUpdate(query, patch) { const doc = rows.get(String(query._id)); if (!doc || String(doc.userId) !== String(query.userId)) return null; Object.assign(doc, structuredClone(patch.$set)); return doc; }
+    // The save route creates and updates inside one transaction (DEF-015).
+    static async create(docs) { return Promise.all(docs.map(async (data) => { const doc = new Character(data); await doc.save(); return doc; })); }
+    static db = { async transaction(run) { const snapshot = structuredClone([...rows]); try { return await run({ fixture: true }); } catch (error) { rows.clear(); for (const [id, doc] of snapshot) rows.set(id, doc); throw error; } } };
   }
   const router = { use() {}, get(path, handler) { handlers['GET ' + path] = handler; }, post(path, handler) { handlers['POST ' + path] = handler; } };
   const modules = {
@@ -275,15 +278,18 @@ function characterApiFixture() {
 
 await check('the real character save/list handlers round-trip Hunger traits through client verification', async () => {
   const api = characterApiFixture();
-  const payload = compactCharacterForSave({ id: 'new-actor', name: '시험 참가자', hungerTraits: ['lightning_immune', 'custom_power'] });
-  const saved = await api.call('POST', '/save', [payload]); assert.equal(saved.statusCode, 200, JSON.stringify(saved.body));
+  const input = { id: 'new-actor', name: '시험 참가자', hungerTraits: ['lightning_immune', 'custom_power'], records: { totalWins: 9999, gamesPlayed: 9999 } };
+  const payload = compactCharacterForSave(input);
+  assert.equal(Object.hasOwn(payload, 'records'), false, 'character saves must exclude server-owned match records');
+  assert.equal(input.records.totalWins, 9999, 'compaction must not mutate the editor source');
+  const saved = await api.call('POST', '/save', { characters: [payload], deletedIds: [] }); assert.equal(saved.statusCode, 200, JSON.stringify(saved.body));
   assert.deepEqual(findCharacterSaveMismatches([payload], saved.body.characters, { saveResults: saved.body.saveResults }), []);
   for (const view of ['editor', 'stats', 'simulation']) {
     const listed = await api.call('GET', '/', null, { view }); assert.deepEqual(listed.body[0].hungerTraits, payload.hungerTraits);
   }
   const id = saved.body.characters[0]._id;
   const update = compactCharacterForSave({ ...saved.body.characters[0], hungerTraits: ['underwater_breathing'] });
-  const changed = await api.call('POST', '/save', [update]); assert.equal(changed.statusCode, 200);
+  const changed = await api.call('POST', '/save', { characters: [update], deletedIds: [] }); assert.equal(changed.statusCode, 200);
   assert.deepEqual(changed.body.characters[0].hungerTraits, ['underwater_breathing']);
   const legacy = await api.call('POST', '/save', [{ _id: id, name: '옛 클라이언트' }]); assert.equal(legacy.statusCode, 200);
   assert.deepEqual(legacy.body.characters[0].hungerTraits, ['underwater_breathing']);

@@ -193,14 +193,17 @@ export default function SearchPage() {
           </form>
         </section>
 
-        <section className="search-summary" aria-label="검색 결과 요약">
-          {summaryItems.map((item) => (
-            <div key={item.label}>
-              <span>{item.label}</span>
-              <strong>{formatNumber(item.value)}</strong>
-            </div>
-          ))}
-        </section>
+        {/* 검색하기 전에는 결과 수가 모두 0이라 의미가 없어서 요약을 숨깁니다. */}
+        {hasSubmittedQuery ? (
+          <section className="search-summary" aria-label="검색 결과 요약">
+            {summaryItems.map((item) => (
+              <div key={item.label}>
+                <span>{item.label}</span>
+                <strong>{formatNumber(item.value)}</strong>
+              </div>
+            ))}
+          </section>
+        ) : null}
 
         {error ? (
           <div className="search-empty search-error">

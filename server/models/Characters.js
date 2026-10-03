@@ -163,4 +163,6 @@ const characterSchema = new Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+characterSchema.index({ userId: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Character', characterSchema);

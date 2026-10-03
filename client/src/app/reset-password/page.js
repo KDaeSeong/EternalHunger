@@ -75,7 +75,7 @@ export default function ResetPasswordPage() {
             <span className="logo-main">게임개발소</span>
           </div>
 
-          <h2>비밀번호 재설정</h2>
+          <h1>비밀번호 재설정</h1>
           <p className="auth-copy">
             계정 설정에서 발급한 복구 코드로 새 비밀번호를 설정합니다.
           </p>
@@ -84,7 +84,7 @@ export default function ResetPasswordPage() {
             <input
               type="text"
               className="auth-input"
-              placeholder="아이디"
+              placeholder="아이디" aria-label="아이디"
               required
               value={form.username}
               disabled={busy}
@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
             <input
               type="text"
               className="auth-input"
-              placeholder="복구 코드"
+              placeholder="복구 코드" aria-label="복구 코드"
               required
               value={form.recoveryCode}
               disabled={busy}
@@ -104,7 +104,7 @@ export default function ResetPasswordPage() {
             <input
               type="password"
               className="auth-input"
-              placeholder="새 비밀번호"
+              placeholder="새 비밀번호" aria-label="새 비밀번호"
               required
               minLength={6}
               maxLength={72}
@@ -116,7 +116,7 @@ export default function ResetPasswordPage() {
             <input
               type="password"
               className="auth-input"
-              placeholder="새 비밀번호 확인"
+              placeholder="새 비밀번호 확인" aria-label="새 비밀번호 확인"
               required
               minLength={6}
               maxLength={72}

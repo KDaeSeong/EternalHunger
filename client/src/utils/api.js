@@ -35,10 +35,14 @@ export function getApiBase() {
   if (env && String(env).trim()) return normalizeApiBase(env);
 
   if (typeof window !== 'undefined') {
-    try {
-      const saved = window.localStorage.getItem('EH_API_BASE');
-      if (saved && String(saved).trim()) return normalizeApiBase(saved);
-    } catch {}
+    // Debug override for local development only: in production a stored value
+    // (e.g. planted by injected script) must not redirect API calls elsewhere.
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        const saved = window.localStorage.getItem('EH_API_BASE');
+        if (saved && String(saved).trim()) return normalizeApiBase(saved);
+      } catch {}
+    }
 
     const { hostname, origin } = window.location;
     if (hostname === 'localhost' || hostname === '127.0.0.1') return 'http://localhost:5000/api';
@@ -165,8 +169,9 @@ export function clearAuth(detail = {}) {
   emitAuthSync({ reason: 'clearAuth', ...(detail || {}) });
 }
 
-export function updateStoredUser(patch) {
+export function updateStoredUser(patch, { session } = {}) {
   if (typeof window === 'undefined') return null;
+  if (session && !isCurrentAuthSession(session)) return null;
   const current = getUser();
   if (!current || typeof current !== 'object') return null;
   const next = typeof patch === 'function' ? patch(current) : { ...current, ...(patch || {}) };
@@ -247,6 +252,27 @@ function getAuthScope(token) {
   if (!identity) return null;
   // The marker is identical for every HttpOnly session; it is not an identity.
   return `auth:cookie:${encodeURIComponent(identity)}`;
+}
+
+export function captureAuthSession() {
+  return { scope: getAuthScope(getAnyToken()), revision: cookieSessionRevision, csrfToken: getCookieValue('eh_csrf') };
+}
+
+export function isCurrentAuthSession(session) {
+  const current = captureAuthSession();
+  return Boolean(session) && current.scope === session.scope
+    && current.revision === session.revision && current.csrfToken === session.csrfToken;
+}
+
+export async function refreshStoredAuthSession(options = {}) {
+  const { shouldApply = () => true, ...requestOptions } = options;
+  const session = captureAuthSession();
+  const data = await apiGet('/auth/session', { timeoutMs: 15000, ...requestOptions });
+  // A late successful response must be isolated just like a late 401: account
+  // changes, logout, cookie renewal and newer progress updates retire it.
+  if (!shouldApply() || !isCurrentAuthSession(session) || !data?.user || typeof data.user !== 'object') return false;
+  saveAuth(undefined, data.user);
+  return true;
 }
 
 function buildGetCacheKey(url, options = {}) {

@@ -6,6 +6,8 @@ const UserSchema = new mongoose.Schema({
   nickname: { type: String, default: '', trim: true, maxlength: 20 },
   profileBio: { type: String, default: '', trim: true, maxlength: 240 },
   password: { type: String, required: true },
+  // Raised on password change/reset so every previously issued JWT stops working.
+  tokenVersion: { type: Number, default: 0 },
   lp: { type: Number, default: 0 }, 
 
   credits: { type: Number, default: 0 }, // 크레딧(로드맵 5번)

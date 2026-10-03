@@ -26,6 +26,7 @@ const {
   scopedFilter,
   PUBLIC_FOLLOW_USER_SELECT,
   VISIBLE_USER_FILTER,
+  RANKED_USER_FILTER,
   PUBLIC_ITEM_SELECT,
   normalizeId,
   cleanText,
@@ -80,6 +81,9 @@ router.get('/home-hub', async (req, res) => {
       activeSharedRooms,
       topUsers,
       topCharacters,
+      teamCount,
+      runCount,
+      solvedRoomCount,
     ] = await Promise.all([
       User.countDocuments(VISIBLE_USER_FILTER),
       Post.countDocuments({}),
@@ -112,7 +116,7 @@ router.get('/home-hub', async (req, res) => {
         .sort({ lastActivityAt: -1, updatedAt: -1 })
         .limit(6)
         .lean(),
-      User.find(VISIBLE_USER_FILTER)
+      User.find(RANKED_USER_FILTER)
         .select('username nickname profileBio lp createdAt')
         .sort({ lp: -1, createdAt: 1 })
         .limit(5)
@@ -123,6 +127,9 @@ router.get('/home-hub', async (req, res) => {
         .sort({ 'records.totalWins': -1, 'records.totalKills': -1, 'records.gamesPlayed': -1, name: 1 })
         .limit(5)
         .lean(),
+      TeamRecord.countDocuments({}),
+      GameLog.countDocuments({}),
+      TwentyQuestionsRoom.countDocuments({ status: 'solved' }),
     ]);
 
     const mergedActiveRooms = sortRoomsByActivity([
@@ -137,6 +144,10 @@ router.get('/home-hub', async (req, res) => {
         characters: toNonNegativeInt(characterCount),
         rooms: toNonNegativeInt(roomCount) + toNonNegativeInt(sharedRoomCount),
         activeRooms: toNonNegativeInt(activeRoomCount) + toNonNegativeInt(activeSharedRoomCount),
+        // Game cards on /games reference these keys; without them they showed "지표 0".
+        teams: toNonNegativeInt(teamCount),
+        runs: toNonNegativeInt(runCount),
+        solvedRooms: toNonNegativeInt(solvedRoomCount),
       },
       notices: notices.map(mapHubPost),
       recentPosts: recentPosts.map(mapHubPost),
@@ -277,7 +288,7 @@ router.get('/games/:slug/hub', async (req, res) => {
           .sort({ updatedAt: -1 })
           .limit(6)
           .lean(),
-        User.find(VISIBLE_USER_FILTER)
+        User.find(RANKED_USER_FILTER)
           .select('username nickname profileBio lp statistics createdAt')
           .sort({ lp: -1, createdAt: 1 })
           .limit(5)
@@ -353,7 +364,7 @@ router.get('/games/:slug/hub', async (req, res) => {
         .sort({ playedAt: -1, _id: -1 })
         .limit(6)
         .lean(),
-      User.find(VISIBLE_USER_FILTER)
+      User.find(RANKED_USER_FILTER)
         .select('username nickname profileBio lp statistics createdAt')
         .sort({ lp: -1, createdAt: 1 })
         .limit(5)

@@ -1,7 +1,7 @@
-import { apiPost, getUser } from '../../../utils/api';
+import { apiPost, captureAuthSession, getUser, isCurrentAuthSession, refreshStoredAuthSession, updateStoredUser } from '../../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../../utils/hallOfFame';
 import { getMatchConfig, normalizeMatchMode } from './matchRosterRuntime';
-import { buildLpRewardSummary } from './lpRewardRuntime';
+import { buildLpRewardSummary, formatLpRewardBreakdown } from './lpRewardRuntime';
 import { saveLocalSimulationRunBackup } from './localRunHistoryRuntime';
 import { dedupeRuntimeParticipants, getRuntimeActorKey } from './runtimeParticipantRuntime';
 import {
@@ -10,7 +10,7 @@ import {
   getAliveTeams,
   getWinningTeam,
 } from './teamRuntime';
-import { saveLocalHallOfFameBackup } from './userProgress';
+import { mergeStoredUserProgress, saveLocalHallOfFameBackup } from './userProgress';
 
 function hashRunIdentity(value) {
   const input = String(value || '');
@@ -204,6 +204,7 @@ export async function finishSimulationGame(opts = {}) {
 
   const currentUser = getUser();
   const hasAuthenticatedUser = Boolean(currentUser?.username || currentUser?.id || currentUser?._id);
+  const resultSession = captureAuthSession();
   try {
     const username = currentUser?.username || currentUser?.id || currentUser?._id || 'guest';
     saveLocalHallOfFameBackup(winner, finalKills, finalAssists, participants);
@@ -302,6 +303,8 @@ export async function finishSimulationGame(opts = {}) {
           id,
           charId: id,
           name: String(participant?.name || participant?.nickname || participant?.charName || id || 'Unknown'),
+          killCount: Number(finalKills?.[id] || 0),
+          assistCount: Number(finalAssists?.[id] || 0),
           alive: aliveIds.has(id),
           teamId: getActorTeamId(participant),
           teamName: getActorTeamName(participant),
@@ -313,6 +316,36 @@ export async function finishSimulationGame(opts = {}) {
       const compactFullLogs = (Array.isArray(fullLogsRef?.current) ? fullLogsRef.current : [])
         .slice(-350)
         .map((line) => String(line || '').slice(0, 600));
+      // 서버가 전적·LP를 한 번에 반영합니다. LP 금액은 서버 규칙으로만 계산되며
+      // (기본 50 + 승자 예측 성공 100), 여기서 보내는 값은 예측 대상뿐입니다.
+      const applyGameEndReceipt = (res) => {
+        const lpApplied = Math.max(0, Number(res?.lpEarnedApplied || 0));
+        const breakdown = res?.lpBreakdown || {};
+        if (res?.user && typeof res.user === 'object') {
+          const applied = updateStoredUser((currentUser) => mergeStoredUserProgress(currentUser, res.user), { session: resultSession });
+          // A concurrent session refresh or another receipt may retire this
+          // snapshot without changing accounts. Fetch fresh progress rather
+          // than leave the header stale or apply an older account's receipt.
+          if (!applied && getUser()) void refreshStoredAuthSession().catch(() => {});
+        }
+        addLog?.(
+          res?.duplicate
+            ? `✅ 이미 저장된 경기입니다 · LP +${lpApplied} (중복 지급 없음)`
+            : `💾 [전적 저장 완료] LP +${lpApplied} 획득 (${formatLpRewardBreakdown({ baseLP: breakdown.base, predictionBonusLP: breakdown.predictionBonus })})${typeof res?.user?.lp === 'number' ? ` (현재 총 LP: ${res.user.lp})` : ''}`,
+          'system'
+        );
+        setResultSummary?.((prev) => ({
+          ...(prev || {}),
+          rewardLP: lpApplied,
+          rewardBaseLP: Number(breakdown.base || 0),
+          rewardPredictionBonusLP: Number(breakdown.predictionBonus || 0),
+          rewardStatus: res?.rewardStatus || 'client_reported',
+          userProgress: res?.user
+            ? { lp: Number(res.user.lp || 0), credits: Number(res.user.credits || 0), statistics: res.user.statistics || {} }
+            : prev?.userProgress || null,
+          saveStatus: { ...(prev?.saveStatus || {}), hallOfFame: 'success', userStats: 'success' },
+        }));
+      };
       const compactRunEvents = (Array.isArray(runEvents) ? runEvents : [])
         .slice(-1500)
         .map((event) => {
@@ -406,6 +439,7 @@ export async function finishSimulationGame(opts = {}) {
           return out;
         })
         .filter(Boolean);
+      if (!isCurrentAuthSession(resultSession)) throw new Error('The account changed before saving this run.');
       await apiPost('/game/end', {
         clientRunId,
         winnerId,
@@ -417,12 +451,9 @@ export async function finishSimulationGame(opts = {}) {
         fullLogs: compactFullLogs,
         runEvents: compactRunEvents,
         participants: compactParticipants,
-      });
-      addLog?.('✅ 미검증 경기 기록 저장 완료 · 영구 LP/크레딧은 지급되지 않습니다.', 'system');
-      setResultSummary?.((prev) => ({
-        ...(prev || {}),
-        saveStatus: { ...(prev?.saveStatus || {}), hallOfFame: 'success' },
-      }));
+        predictedWinnerId: lpRewardSummary.predictedWinnerId,
+        devRunTainted: false,
+      }).then(applyGameEndReceipt);
     }
   } catch (error) {
     console.error(error);
@@ -434,7 +465,7 @@ export async function finishSimulationGame(opts = {}) {
     );
     setResultSummary?.((prev) => ({
       ...(prev || {}),
-      saveStatus: { ...(prev?.saveStatus || {}), hallOfFame: 'error' },
+      saveStatus: { ...(prev?.saveStatus || {}), hallOfFame: 'error', userStats: 'error' },
     }));
   }
 

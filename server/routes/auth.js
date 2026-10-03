@@ -1,23 +1,28 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { verifyToken } = require('../middleware/authMiddleware');
 const {
   clearAuthCookies,
   issueAuthCookies,
   normalizeUsername,
+  signSessionToken,
   validateCsrfRequest,
   validatePassword,
   validateUsername,
 } = require('../utils/authPolicy');
 const { consumeRateLimit, positiveInt, requestSubject } = require('../utils/rateLimit');
 const { normalizeRecoveryCode } = require('../utils/recoveryCode');
+const { resolveClientIp } = require('../utils/clientIp');
 
 const router = express.Router();
 const AUTH_WINDOW_MS = positiveInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS, 10 * 60 * 1000);
 const LOGIN_MAX = positiveInt(process.env.LOGIN_RATE_LIMIT_MAX, 10);
 const SIGNUP_MAX = positiveInt(process.env.SIGNUP_RATE_LIMIT_MAX, 5);
+// Used when the browser address is unknown (proxy without PROXY_SHARED_SECRET):
+// every visitor then shares one address, so a per-address cap of 5 would block
+// legitimate sign-ups site-wide.
+const SIGNUP_SHARED_MAX = positiveInt(process.env.SIGNUP_SHARED_RATE_LIMIT_MAX, 30);
 const RESET_MAX = positiveInt(process.env.RESET_PASSWORD_MAX_ATTEMPTS, 8);
 
 function normalizeNickname(raw) {
@@ -55,11 +60,11 @@ function publicUser(user) {
   };
 }
 
-async function enforceRate(req, res, scope, discriminator, limit) {
+async function enforceRate(req, res, scope, discriminator, limit, subjectOverride = '') {
   try {
     const rate = await consumeRateLimit({
       scope,
-      subject: requestSubject(req, discriminator),
+      subject: subjectOverride || requestSubject(req, discriminator),
       limit,
       windowMs: AUTH_WINDOW_MS,
     });
@@ -84,7 +89,11 @@ async function enforceRate(req, res, scope, discriminator, limit) {
 
 router.post('/signup', async (req, res) => {
   const usernameCheck = validateUsername(req.body?.username);
-  if (!await enforceRate(req, res, 'auth:signup', usernameCheck.username, SIGNUP_MAX)) return;
+  // Limit sign-ups per client address, not per requested username: keying on the
+  // username let one client create unlimited accounts by varying the name.
+  const client = resolveClientIp(req);
+  const signupLimit = client.shared ? SIGNUP_SHARED_MAX : SIGNUP_MAX;
+  if (!await enforceRate(req, res, 'auth:signup', '', signupLimit, `ip:${client.ip}`)) return;
   const passwordCheck = validatePassword(req.body?.password);
   const nickname = normalizeNickname(req.body?.nickname);
   const acceptTerms = req.body?.acceptTerms === true || req.body?.acceptTerms === 'true';
@@ -160,11 +169,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.MY_SECRET_KEY,
-      { expiresIn: process.env.AUTH_TOKEN_TTL || '30d' },
-    );
+    const token = signSessionToken(user);
     issueAuthCookies(res, token);
     return res.json({ user: publicUser(user) });
   } catch (error) {
@@ -228,6 +233,7 @@ router.post('/reset-password', async (req, res) => {
     }
 
     user.password = passwordCheck.password;
+    user.tokenVersion = Number(user.tokenVersion || 0) + 1; // sign out every existing session
     user.passwordRecovery.codeHash = '';
     user.passwordRecovery.codeCreatedAt = null;
     user.passwordRecovery.codeUsedAt = new Date();

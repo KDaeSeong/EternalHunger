@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { verifyToken } = require('../middleware/authMiddleware');
 const GamePlayRecord = require('../models/GamePlayRecord');
 const GameRoom = require('../models/GameRoom');
+const { publicDisplayName } = require('../utils/publicIdentity');
 
 const router = express.Router();
 
@@ -69,14 +70,13 @@ function normalizeId(value) {
 }
 
 function displayName(user) {
-  return String(user?.nickname || user?.username || '사용자').trim() || '사용자';
+  return publicDisplayName(user, '사용자');
 }
 
 function compactUser(user) {
   if (!user) return null;
   return {
     _id: normalizeId(user),
-    username: user.username || '',
     nickname: user.nickname || '',
     displayName: displayName(user),
   };

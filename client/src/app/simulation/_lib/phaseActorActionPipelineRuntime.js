@@ -169,7 +169,7 @@ export function* runPhaseActorActionPipelineSteps({
     }
     let moveCost = 1;
     const openingPlan = planningActorsById.get(String(sourceActor?._id || sourceActor?.id || ''))?._growthPlan;
-    const hasOpeningWork = Boolean(openingPlan && ((!openingPlan.openingComplete && openingPlan.totalSlots > 0)
+    const hasOpeningWork = Boolean(openingPlan?.targetId && ((!openingPlan.openingComplete && openingPlan.totalSlots > 0)
       || openingPlan.stage === 'recovery'));
     if (scheduled) sourceActor._actionCycleKey = `${state.phaseIdxNow}:${now}`;
     const teamMovementPlan = teamMovementPlans.get(String(sourceActor?._id || sourceActor?.id || ''));

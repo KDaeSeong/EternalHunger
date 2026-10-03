@@ -5,9 +5,11 @@ import axios from 'axios';
 const require = createRequire(import.meta.url);
 const { actor, skill, runCombatScenario } = await import('./lib/run-combat-scenario.mjs');
 const { finishSimulationGame } = await import('../src/app/simulation/_lib/finishGameRuntime.js');
+const { getUser, updateStoredUser } = await import('../src/utils/api.js');
 const router = require('../../server/routes/game.js');
 const Character = require('../../server/models/Characters.js');
 const GameLog = require('../../server/models/GameLog.js');
+const User = require('../../server/models/User.js');
 const handler = router.stack.find(row => row.route?.path === '/end').route.stack.at(-1).handle;
 
 const item = { itemId: 'authored-rupture', name: '기록 검증 파열', type: '방어구', equipSlot: 'head', qty: 1, tier: 4,
@@ -25,7 +27,8 @@ const storage = { getItem: key => values.get(key) ?? null, setItem: (key, value)
 const before = { window: globalThis.window, localStorage: globalThis.localStorage, fetch: globalThis.fetch,
   adapter: axios.defaults.adapter, findOne: Character.findOne, find: Character.find,
   logFindOne: GameLog.findOne, count: GameLog.countDocuments, save: GameLog.prototype.save,
-  transaction: GameLog.db.transaction };
+  transaction: GameLog.db.transaction, userUpdate: User.updateOne, userFind: User.findById,
+  rateLimit: router.testing.deps.consumeRateLimit };
 const session = { fixture: 'equipment-account-recording' };
 const read = value => ({
   session(current) { assert.equal(current, session); return Promise.resolve(value); },
@@ -41,6 +44,9 @@ try {
   GameLog.findOne = () => read(null);
   GameLog.countDocuments = async () => 0;
   GameLog.db.transaction = async run => { transactions++; return run(session); };
+  User.updateOne = async (filter, update, options) => { assert.equal(options.session, session); return { acknowledged: true }; };
+  User.findById = () => ({ select() { return this; }, lean: async () => ({ lp: 50, credits: 0, statistics: { totalGames: 1 } }) });
+  router.testing.deps.consumeRateLimit = async () => ({ allowed: true, remaining: 1, retryAfterSec: 1 });
   GameLog.prototype.save = async function (options) {
     assert.equal(options.session, session);
     saved = this.toObject(); return this;
@@ -63,7 +69,7 @@ try {
   });
   assert.equal(requests, 1); assert.equal(summary.saveStatus.hallOfFame, 'success');
   assert.equal(transactions, 1);
-  assert.equal(summary.saveStatus.localRun, 'success'); assert.equal(summary.rewardLP, 0);
+  assert.equal(summary.saveStatus.localRun, 'success'); assert.equal(summary.rewardLP, 50); // server LP rule: base 50, no prediction
   assert.equal(saved.runEvents.length, 1500); assert.equal(capturedCount, events.length);
   assert.equal(JSON.stringify(events), eventsBefore);
   for (const expected of receipts) {
@@ -80,9 +86,40 @@ try {
   for (const key of ['health', 'damage', 'lethal', 'itemName', 'equipmentEffectId']) assert.deepEqual(storedBattle[key], battle[key], key);
   console.log(`EQUIPMENT_ACCOUNT_RECORDING_CONTRACT ${JSON.stringify({ pass: true, requests, transactions, receipts: receipts.length,
     capturedCount, accountEventCount: saved.runEvents.length, scope: 'Real combat + client finish/API serialization + server handler/schema. Memory storage, HTTP adapter and DB doubles; not real authentication, HTTP or Mongo persistence.' })}`);
+  // A harmless same-account update while /game/end is in flight must not
+  // strand the header at the old LP value. Re-read the current server session
+  // instead of applying the retired receipt or submitting the run twice.
+  let racePosts = 0, refreshGets = 0;
+  const latestUser = { id: '222222222222222222222222', username: 'recording-fixture', lp: 100, credits: 0, statistics: { totalGames: 2 } };
+  axios.defaults.adapter = async config => {
+    if (config.method === 'get') {
+      assert.match(config.url, /\/api\/auth\/session$/);
+      refreshGets++;
+      return { data: { user: latestUser }, status: 200, statusText: 'OK', headers: {}, config };
+    }
+    assert.equal(config.method, 'post'); assert.match(config.url, /\/api\/game\/end$/);
+    racePosts++;
+    updateStoredUser({ nickname: '새 표시 이름' });
+    return { data: { user: { ...latestUser, lp: 50 }, lpEarnedApplied: 50,
+      lpBreakdown: { base: 50, predictionBonus: 0 }, rewardStatus: 'client_reported' },
+      status: 200, statusText: 'OK', headers: {}, config };
+  };
+  await finishSimulationGame({ finalSurvivors: [combat.survivorMap.get('a')],
+    latestKillCounts: combat.roundKills, latestAssistCounts: combat.roundAssists,
+    options: { finalDead: [combat.survivorMap.get('b')] },
+    refs: { fullLogsRef: { current: [] }, isFinishingRef: { current: false } },
+    state: { runEvents: [], runSeed: 'concurrent-session-receipt', settings: { matchMode: 'solo' } },
+  });
+  // The adapter is immediate, so one event-loop turn flushes its microtasks
+  // without a polling loop, network request or unbounded test wait.
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(racePosts, 1); assert.equal(refreshGets, 1);
+  assert.deepEqual(getUser(), latestUser);
+  console.log('PASS concurrent receipt refreshes current account progress without resubmitting the run');
 } finally {
   globalThis.window = before.window; globalThis.localStorage = before.localStorage; globalThis.fetch = before.fetch;
   axios.defaults.adapter = before.adapter; Character.findOne = before.findOne; Character.find = before.find;
   GameLog.findOne = before.logFindOne; GameLog.countDocuments = before.count; GameLog.prototype.save = before.save;
-  GameLog.db.transaction = before.transaction;
+  GameLog.db.transaction = before.transaction; User.updateOne = before.userUpdate; User.findById = before.userFind;
+  router.testing.deps.consumeRateLimit = before.rateLimit;
 }

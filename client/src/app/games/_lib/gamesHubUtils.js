@@ -1,7 +1,7 @@
 import { dynamicGameCandidateToGame, findGameBySlug } from './gameCatalog';
 
 export const EMPTY_HUB = {
-  counts: { users: 0, posts: 0, characters: 0, rooms: 0, activeRooms: 0 },
+  counts: { users: 0, posts: 0, characters: 0, teams: 0, runs: 0, rooms: 0, activeRooms: 0, solvedRooms: 0 },
   recentPosts: [],
   activeRooms: [],
   rankings: { points: [], characters: [] },
@@ -69,6 +69,9 @@ export function roomMeta(room, gameTitleBySlug) {
 
 export function metricValueForKey(key, hub, derived) {
   if (key === 'characters') return hub.counts.characters;
+  if (key === 'teams') return hub.counts.teams;
+  if (key === 'runs') return hub.counts.runs;
+  if (key === 'solvedRooms') return hub.counts.solvedRooms;
   if (key === 'posts') return hub.counts.posts;
   if (key === 'topLp') return derived.topUser?.lp || 0;
   if (key === 'rooms') return hub.counts.rooms;
@@ -79,6 +82,9 @@ export function metricValueForKey(key, hub, derived) {
 
 export function metricLabelForKey(key) {
   if (key === 'characters') return '캐릭터';
+  if (key === 'teams') return '팀 전적';
+  if (key === 'runs') return '저장 경기';
+  if (key === 'solvedRooms') return '정답 방';
   if (key === 'posts') return '게시글';
   if (key === 'topLp') return '최고 LP';
   if (key === 'rooms') return '전체 방';

@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
-import { useToast } from '../../components/ToastProvider';
 import { apiGet } from '../../utils/api';
 
 const RECORD_SORT_OPTIONS = [
@@ -253,7 +252,6 @@ function RunList({ rows }) {
 }
 
 export default function RecordsPage() {
-  const { showToast } = useToast();
   const [payload, setPayload] = useState(() => normalizeRecordsPayload(null));
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('characters');
@@ -274,8 +272,8 @@ export default function RecordsPage() {
       } catch (err) {
         if (!canceled) {
           setPayload(normalizeRecordsPayload(null));
+          // 아래 목록 영역에 오류를 표시하므로 토스트는 띄우지 않습니다.
           setError(err?.message || '기록소를 불러오지 못했습니다.');
-          showToast({ tone: 'warning', message: err?.message || '기록소를 불러오지 못했습니다.' });
         }
       } finally {
         if (!canceled) setLoading(false);
@@ -286,8 +284,10 @@ export default function RecordsPage() {
     return () => {
       canceled = true;
     };
-  }, [showToast]);
+  }, []);
 
+  // 불러오는 중이거나 실패했을 때는 0 대신 "—"를 보여 줍니다.
+  const statsReady = !loading && !error;
   const activeRows = view === 'teams' ? payload.teams : payload.characters;
   const filteredRows = useMemo(() => {
     if (view === 'runs') return [];
@@ -360,17 +360,17 @@ export default function RecordsPage() {
         <section className="records-stats" aria-label="전적 요약">
           {view === 'runs' ? (
             <>
-              <StatCard label="저장된 실행" value={`${formatNumber(totalRows)}개`} />
-              <StatCard label="총 킬" value={`${formatNumber(totals?.totalKills)}킬`} />
-              <StatCard label="부활 / 사망" value={`${formatNumber(totals?.totalRevives)} / ${formatNumber(totals?.totalDeaths)}`} />
-              <StatCard label="드론 / 키오스크" value={`${formatNumber(totals?.droneCalls)} / ${formatNumber(totals?.kioskGains)}`} />
+              <StatCard label="저장된 실행" value={statsReady ? `${formatNumber(totalRows)}개` : '—'} />
+              <StatCard label="총 킬" value={statsReady ? `${formatNumber(totals?.totalKills)}킬` : '—'} />
+              <StatCard label="부활 / 사망" value={statsReady ? `${formatNumber(totals?.totalRevives)} / ${formatNumber(totals?.totalDeaths)}` : '—'} />
+              <StatCard label="드론 / 키오스크" value={statsReady ? `${formatNumber(totals?.droneCalls)} / ${formatNumber(totals?.kioskGains)}` : '—'} />
             </>
           ) : (
             <>
-              <StatCard label={view === 'teams' ? '기록 팀' : '기록 캐릭터'} value={`${formatNumber(totalRows)}개`} />
-              <StatCard label="참가" value={`${formatNumber(totals?.gamesPlayed)}회`} />
-              <StatCard label="승리" value={`${formatNumber(totals?.totalWins)}회`} hint={`승률 ${formatRate(winRate)}`} />
-              <StatCard label="킬 / 어시스트" value={`${formatNumber(totals?.totalKills)} / ${formatNumber(totals?.totalAssists)}`} />
+              <StatCard label={view === 'teams' ? '기록 팀' : '기록 캐릭터'} value={statsReady ? `${formatNumber(totalRows)}개` : '—'} />
+              <StatCard label="참가" value={statsReady ? `${formatNumber(totals?.gamesPlayed)}회` : '—'} />
+              <StatCard label="승리" value={statsReady ? `${formatNumber(totals?.totalWins)}회` : '—'} hint={statsReady ? `승률 ${formatRate(winRate)}` : undefined} />
+              <StatCard label="킬 / 어시스트" value={statsReady ? `${formatNumber(totals?.totalKills)} / ${formatNumber(totals?.totalAssists)}` : '—'} />
             </>
           )}
         </section>

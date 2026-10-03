@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
-import { useToast } from '../../components/ToastProvider';
 import { apiGetCached } from '../../utils/api';
 
 const EMPTY_LEADERBOARD = {
@@ -74,7 +73,6 @@ function LeaderboardPanel({ title, subtitle, rows, empty, renderRow }) {
 }
 
 export default function LeaderboardPage() {
-  const { showToast } = useToast();
   const [payload, setPayload] = useState(() => normalizePayload(null));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -93,12 +91,12 @@ export default function LeaderboardPage() {
     } catch (err) {
       const message = err?.message || '리더보드를 불러오지 못했습니다.';
       setPayload(normalizePayload(null));
+      // 화면 안 오류 문구로만 알립니다(토스트 중복 없음).
       setError(message);
-      showToast({ tone: 'warning', message });
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, []);
 
   useEffect(() => {
     void loadLeaderboard();
@@ -136,7 +134,7 @@ export default function LeaderboardPage() {
           {summary.map((item) => (
             <div key={item.label}>
               <span>{item.label}</span>
-              <strong>{formatNumber(item.value)}</strong>
+              <strong>{loading || error ? '—' : formatNumber(item.value)}</strong>
             </div>
           ))}
         </section>

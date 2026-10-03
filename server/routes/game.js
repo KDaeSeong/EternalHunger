@@ -5,7 +5,10 @@ const router = express.Router();
 const GameLog = require('../models/GameLog');
 const Character = require('../models/Characters');
 const TeamRecord = require('../models/TeamRecord');
+const User = require('../models/User');
 const { gameRunIdentity } = require('../utils/gameRunIdentity');
+const { computeLpReward } = require('../utils/lpReward');
+const { consumeRateLimit, positiveInt } = require('../utils/rateLimit');
 
 function actorId(value) {
   return String(value?._id || value?.charId || value?.id || '').trim();
@@ -345,130 +348,257 @@ function buildTeamRecordOps(summary, existingIds, userId, matchMode = '') {
   return ops;
 }
 
+const MAX_PARTICIPANTS = 64;
+const MAX_LOG_LINES = 400;
+const GAME_END_WINDOW_MS = positiveInt(process.env.GAME_END_RATE_LIMIT_WINDOW_MS, 60 * 60 * 1000);
+const GAME_END_MAX = positiveInt(process.env.GAME_END_RATE_LIMIT_MAX, 30);
+
+// Indirection so tests can replace the shared rate-limit store.
+const deps = { consumeRateLimit };
+
+function boundedText(value, maxLength) {
+  return String(value ?? '').trim().slice(0, maxLength);
+}
+
+function isObjectIdLike(value) {
+  return /^[a-f0-9]{24}$/i.test(String(value || ''));
+}
+
+function readCount(map, id, fallback, cap) {
+  const source = map && typeof map === 'object' && !Array.isArray(map) && Object.hasOwn(map, id) ? map[id] : fallback;
+  return Math.min(cap, toNonNegativeInt(source));
+}
+
+// The browser runs the match, so every number here is client-reported. Bound
+// each field so one request cannot write arbitrary totals into the records.
+function sanitizeParticipants(participants, { killCounts, assistCounts, winnerId, winnerTeamId }) {
+  const rows = [];
+  const seen = new Set();
+  for (const participant of Array.isArray(participants) ? participants : []) {
+    if (rows.length >= MAX_PARTICIPANTS) break;
+    if (!participant || typeof participant !== 'object') continue;
+    const id = boundedText(actorId(participant), 80);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    rows.push({ participant, id });
+  }
+  // Revivals allow more kills than opponents, but never unbounded counts.
+  const countCap = Math.max(1, rows.length * 2);
+  return rows.map(({ participant, id }) => {
+    const teamId = boundedText(participant.teamId || participant.matchTeamId, 80);
+    return {
+      charId: id,
+      name: boundedText(participant.name, 80) || 'Unknown',
+      killCount: readCount(killCounts, id, participant.killCount, countCap),
+      assistCount: readCount(assistCounts, id, participant.assistCount, countCap),
+      isWinner: id === winnerId || Boolean(winnerTeamId && teamId === winnerTeamId),
+      alive: readAliveFlag(participant),
+      teamId,
+      teamName: boundedText(participant.teamName || participant.matchTeamName, 100),
+      rosterIds: uniqueStrings(participant.rosterIds || participant.matchTeamRosterIds || []).slice(0, 16).map((value) => value.slice(0, 80)),
+      rosterNames: uniqueStrings(participant.rosterNames || participant.matchTeamRosterNames || []).slice(0, 16).map((value) => value.slice(0, 80)),
+    };
+  });
+}
+
+function rewardReceipt(logDoc, user, duplicate) {
+  return {
+    message: duplicate ? '게임 로그가 이미 저장되어 있습니다.' : '게임 로그 저장 완료',
+    gameLogId: logDoc._id,
+    duplicate,
+    rewardStatus: logDoc.rewardStatus || 'client_reported',
+    lpEarnedApplied: Number(logDoc.lpAwarded || 0),
+    lpBreakdown: {
+      base: Number(logDoc.lpBaseAwarded || 0),
+      predictionBonus: Number(logDoc.lpPredictionBonusAwarded || 0),
+      predictionCorrect: Number(logDoc.lpPredictionBonusAwarded || 0) > 0,
+    },
+    creditsEarnedApplied: 0,
+    user: user ? {
+      lp: Number(user.lp || 0),
+      credits: Number(user.credits || 0),
+      statistics: user.statistics || {},
+    } : null,
+  };
+}
+
+async function loadUserProgress(userId) {
+  try {
+    return await User.findById(userId).select('lp credits statistics').lean();
+  } catch {
+    return null;
+  }
+}
+
 /**
- * ✅ 게임 종료 기록 저장
+ * ✅ 게임 종료 기록 저장 (단일 경로)
  * POST /api/game/end
- * body: { winnerId, winnerTeamId, killCounts, assistCounts, fullLogs, participants }
+ * body: { clientRunId, winnerId, winnerTeamId, killCounts, assistCounts, fullLogs,
+ *         participants, matchMode, runEvents, teamSize, predictedWinnerId, devRunTainted }
+ *
+ * - 캐릭터 전적·팀 전적·유저 통계·LP를 한 트랜잭션으로 반영합니다.
+ * - LP 금액은 서버 규칙(utils/lpReward)으로만 계산하고, 크레딧은 지급하지 않습니다.
+ * - 같은 clientRunId 재전송은 처음 영수증을 그대로 돌려줍니다.
  */
 router.post('/end', async (req, res) => {
   let identity;
   try {
-    const { winnerId, winnerTeamId, killCounts, assistCounts, fullLogs, participants, matchMode, runEvents, teamSize } = req.body || {};
-    if (!winnerId) return res.status(400).json({ error: "winnerId가 필요합니다." });
-    identity = { userId: req.user.id, clientRunId: gameRunIdentity(req.body) };
-    const previous = await GameLog.findOne(identity);
-    if (previous) return res.json({ message: '게임 로그가 이미 저장되어 있습니다.', gameLogId: previous._id, duplicate: true });
+    const body = req.body || {};
+    identity = { userId: req.user.id, clientRunId: gameRunIdentity(body) };
 
-    const winner = await Character.findOne({ _id: winnerId, userId: req.user.id }, '_id name')
-      || await Character.findById(winnerId, '_id name')
-      || { _id: winnerId, name: '' };
-    if (!winner) return res.status(404).json({ error: "우승 캐릭터를 찾을 수 없습니다." });
-
-    const count = await GameLog.countDocuments();
-    const title = `제 ${count + 1}회 아레나`;
-
-    const safeParticipants = Array.isArray(participants) ? participants : [];
-    const winnerPayload = safeParticipants.find(p => actorId(p) === String(winnerId));
-    const resolvedWinnerTeamId = cleanText(winnerTeamId, cleanText(winnerPayload?.teamId || winnerPayload?.matchTeamId, ''));
-    const summary = safeParticipants.map(p => {
-      const id = actorId(p);
-      const k = killCounts && id ? (killCounts[id] || 0) : 0;
-      const a = assistCounts && id ? (assistCounts[id] || 0) : 0;
-      const teamId = cleanText(p.teamId || p.matchTeamId, '');
-      const rosterIds = uniqueStrings(p.rosterIds || p.matchTeamRosterIds || []);
-      const rosterNames = uniqueStrings(p.rosterNames || p.matchTeamRosterNames || []);
-      return {
-        charId: id,
-        name: p.name || "Unknown",
-        killCount: Number(k || 0),
-        assistCount: Number(a || 0),
-        isWinner: id === String(winnerId) || Boolean(resolvedWinnerTeamId && teamId === resolvedWinnerTeamId),
-        alive: readAliveFlag(p),
-        teamId,
-        teamName: cleanText(p.teamName || p.matchTeamName, ''),
-        rosterIds,
-        rosterNames
-      };
+    const winnerId = boundedText(body.winnerId, 80);
+    if (!winnerId) return res.status(400).json({ error: 'winnerId가 필요합니다.' });
+    const rawWinner = (Array.isArray(body.participants) ? body.participants : [])
+      .find((participant) => participant && typeof participant === 'object' && actorId(participant) === winnerId);
+    const winnerTeamId = boundedText(body.winnerTeamId, 80)
+      || boundedText(rawWinner?.teamId || rawWinner?.matchTeamId, 80);
+    const summary = sanitizeParticipants(body.participants, {
+      killCounts: body.killCounts,
+      assistCounts: body.assistCounts,
+      winnerId,
+      winnerTeamId,
     });
+    const winnerRow = summary.find((row) => row.charId === winnerId);
+    if (!winnerRow) {
+      return res.status(400).json({ error: '우승 캐릭터가 참가자 목록에 없습니다.', code: 'WINNER_NOT_IN_ROSTER' });
+    }
 
-    const winnerFromPayload = summary.find(s => String(s.charId) === String(winnerId));
-    const fullLog = Array.isArray(fullLogs) ? fullLogs.map(String) : [];
-    const storedRunEvents = compactRunEventsForStorage(runEvents);
+    // Retries of a saved run return the original receipt without using the rate limit.
+    const previous = await GameLog.findOne(identity);
+    if (previous) return res.json(rewardReceipt(previous, await loadUserProgress(req.user.id), true));
+
+    try {
+      const rate = await deps.consumeRateLimit({
+        scope: 'game:end',
+        subject: `user:${req.user.id}`,
+        limit: GAME_END_MAX,
+        windowMs: GAME_END_WINDOW_MS,
+      });
+      if (!rate.allowed) {
+        res.set('Retry-After', String(rate.retryAfterSec));
+        return res.status(429).json({
+          error: `경기 결과 저장이 너무 잦습니다. ${rate.retryAfterSec}초 후 다시 시도해주세요.`,
+          code: 'RATE_LIMITED',
+          retryAfterSec: rate.retryAfterSec,
+        });
+      }
+    } catch (rateError) {
+      console.error('game end rate limit unavailable:', rateError);
+      return res.status(503).json({ error: '경기 결과 저장 보호 서비스를 사용할 수 없습니다.', code: 'RATE_LIMIT_UNAVAILABLE' });
+    }
+
+    const matchMode = boundedText(body.matchMode, 40);
+    const fullLog = (Array.isArray(body.fullLogs) ? body.fullLogs : [])
+      .slice(-MAX_LOG_LINES)
+      .map((line) => String(line ?? '').slice(0, 600));
+    const storedRunEvents = compactRunEventsForStorage(body.runEvents);
     const summaryDoc = buildRunSummary({
       fullLogs: fullLog,
       matchMode,
       participants: summary,
       runEvents: storedRunEvents,
     });
+    const lp = computeLpReward({
+      participants: summary,
+      winnerId,
+      winnerTeamId,
+      predictedWinnerId: boundedText(body.predictedWinnerId, 80),
+      devRunTainted: body.devRunTainted === true,
+    });
 
-    const winnerTeamPayload = summary.find((s) => s.isWinner && s.teamId === resolvedWinnerTeamId) || summary.find((s) => s.isWinner);
-    // The log and both record counters commit together. A failed write can be
-    // retried with the same run ID without keeping a partial log or increment.
+    const count = await GameLog.countDocuments();
+    const title = `제 ${count + 1}회 아레나`;
+    const winnerTeamRow = summary.find((row) => row.isWinner && row.teamId === winnerTeamId) || winnerRow;
+
+    // Log, character records, team records, user statistics and LP commit together.
+    // A failed write can be retried with the same run ID without partial increments.
+    let createdNew = false;
     const logDoc = await GameLog.db.transaction(async (session) => {
+      createdNew = false;
       const existing = await GameLog.findOne(identity).session(session);
       if (existing) return existing;
+
+      const participantIds = summary.map((row) => row.charId).filter(isObjectIdLike);
+      const chars = participantIds.length
+        ? await Character.find({ _id: { $in: participantIds }, userId: req.user.id }, '_id name').session(session)
+        : [];
+      const existingIds = new Set(chars.map((character) => String(character._id)));
+      const mine = summary.filter((row) => existingIds.has(String(row.charId)));
+
       const saved = await new GameLog({
         ...identity,
         title,
-        winnerName: winner?.name || winnerFromPayload?.name || 'Unknown',
-        winnerTeamId: resolvedWinnerTeamId,
-        winnerTeamName: cleanText(winnerTeamPayload?.teamName, ''),
-        matchMode: cleanText(matchMode, ''),
-        teamSize: Number(teamSize || 0),
+        winnerName: winnerRow.name,
+        winnerTeamId,
+        winnerTeamName: winnerTeamRow?.teamName || '',
+        matchMode,
+        teamSize: Math.min(MAX_PARTICIPANTS, toNonNegativeInt(body.teamSize)),
         participants: summary,
         fullLog,
         runEvents: storedRunEvents,
         summary: summaryDoc,
+        trustedOutcome: false,
+        rewardStatus: 'client_reported',
+        lpAwarded: lp.total,
+        lpBaseAwarded: lp.base,
+        lpPredictionBonusAwarded: lp.predictionBonus,
+        predictedWinnerId: lp.predictedWinnerId,
       }).save({ session });
 
       // ✅ 캐릭터 누적 기록 반영 (내 계정 캐릭터에만)
-      // - participants는 프론트가 보내는 객체라서 userId 검증을 위해 DB에서 조회 후 업데이트합니다.
-      const participantIds = summary.map(s => s.charId).filter(Boolean);
-
-      const chars = await Character.find({ _id: { $in: participantIds }, userId: req.user.id }, '_id name').session(session);
-      const existingIds = new Set(chars.map(c => String(c._id)));
-
-      // 개별 업데이트
-      const ops = summary
-        .filter(s => existingIds.has(String(s.charId)))
-        .map(s => ({
-          updateOne: {
-            filter: { _id: s.charId, userId: req.user.id },
-            update: {
-              $inc: {
-                'records.gamesPlayed': 1,
-                'records.totalKills': Number(s.killCount || 0),
-                'records.totalAssists': Number(s.assistCount || 0),
-                'records.totalWins': s.isWinner ? 1 : 0,
-                'records.deathCount': s.alive === false ? 1 : 0
-              }
-            }
-          }
-        }));
-
+      const ops = mine.map((row) => ({
+        updateOne: {
+          filter: { _id: row.charId, userId: req.user.id },
+          update: {
+            $inc: {
+              'records.gamesPlayed': 1,
+              'records.totalKills': row.killCount,
+              'records.totalAssists': row.assistCount,
+              'records.totalWins': row.isWinner ? 1 : 0,
+              'records.deathCount': row.alive === false ? 1 : 0,
+            },
+          },
+        },
+      }));
       if (ops.length > 0) await Character.bulkWrite(ops, { session });
 
       const teamOps = buildTeamRecordOps(summary, existingIds, req.user.id, matchMode);
       if (teamOps.length > 0) await TeamRecord.bulkWrite(teamOps, { session });
+
+      await User.updateOne(
+        { _id: req.user.id },
+        {
+          $inc: {
+            lp: lp.total,
+            'statistics.totalGames': 1,
+            'statistics.totalKills': mine.reduce((sum, row) => sum + row.killCount, 0),
+            'statistics.totalWins': existingIds.has(winnerId) ? 1 : 0,
+          },
+        },
+        { session },
+      );
+      createdNew = true;
       return saved;
     });
 
-    res.json({ message: "게임 로그 저장 완료", gameLogId: logDoc._id });
+    res.json(rewardReceipt(logDoc, await loadUserProgress(req.user.id), !createdNew));
   } catch (err) {
     if (err.code === 'INVALID_RUN_ID') return res.status(400).json({ error: err.message });
     // Concurrent requests may both pass the first lookup. The unique index
-    // rejects the second transaction, whose counters are rolled back as well.
+    // rejects the second transaction, whose increments are rolled back as well.
     if (err.code === 11000 && identity) {
       try {
         const existing = await GameLog.findOne(identity);
-        if (existing) return res.json({ message: '게임 로그가 이미 저장되어 있습니다.', gameLogId: existing._id, duplicate: true });
+        if (existing) return res.json(rewardReceipt(existing, await loadUserProgress(req.user.id), true));
       } catch (lookupError) {
         console.error(lookupError);
       }
     }
     console.error(err);
-    res.status(500).json({ error: "게임 로그 저장 실패" });
+    res.status(500).json({ error: '게임 로그 저장 실패' });
   }
 });
+
+router.testing = { deps, sanitizeParticipants };
 
 module.exports = router;

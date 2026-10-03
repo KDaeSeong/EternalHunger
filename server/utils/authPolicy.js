@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
 const SESSION_COOKIE = 'token';
 const CSRF_COOKIE = 'eh_csrf';
@@ -79,6 +80,20 @@ function issueAuthCookies(res, token) {
   return csrfToken;
 }
 
+// `tv` mirrors User.tokenVersion. Raising tokenVersion (password change/reset)
+// invalidates every JWT issued before it, on every device.
+function signSessionToken(user) {
+  return jwt.sign(
+    { id: user._id, tv: Number(user.tokenVersion || 0) },
+    process.env.MY_SECRET_KEY,
+    { expiresIn: process.env.AUTH_TOKEN_TTL || '30d' },
+  );
+}
+
+function tokenVersionMatches(decoded, user) {
+  return Number(decoded?.tv || 0) === Number(user?.tokenVersion || 0);
+}
+
 function clearAuthCookies(res) {
   const base = baseCookieOptions();
   res.clearCookie(SESSION_COOKIE, { ...base, httpOnly: true });
@@ -105,6 +120,8 @@ module.exports = {
   issueAuthCookies,
   normalizeUsername,
   parseCookies,
+  signSessionToken,
+  tokenVersionMatches,
   validateCsrfRequest,
   validatePassword,
   validateUsername,

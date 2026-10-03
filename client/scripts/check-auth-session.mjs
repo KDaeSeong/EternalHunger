@@ -245,4 +245,64 @@ await cacheCheck('cookie sessions without usable identity metadata bypass the ac
   assert.deepEqual(await api.apiGetCached('/public/items', cacheOptions), [2]);
   assert.equal(sessionStorage.values.size, 1, 'Only the empty cache index may remain after saveAuth.');
 });
-console.log(`Auth session checks passed; cookie catalog isolation checks ${cacheChecks}/10. Mock HTTP/storage, not browser or server sessions.`);
+await cacheCheck('late session sync cannot restore an old account after switching accounts', async () => {
+  const old = deferredRequest();
+  api.saveAuth(undefined, author);
+  globalThis.__authTestAxiosImpl = () => old.promise;
+  const pending = api.refreshStoredAuthSession();
+  api.saveAuth(undefined, reader);
+  old.resolve({ user: { ...author, lp: 50 } });
+  assert.equal(await pending, false);
+  assert.deepEqual(api.getUser(), reader);
+});
+await cacheCheck('late session sync cannot restore a logged-out account', async () => {
+  const old = deferredRequest();
+  api.saveAuth(undefined, author);
+  globalThis.__authTestAxiosImpl = () => old.promise;
+  const pending = api.refreshStoredAuthSession();
+  api.clearAuth();
+  old.resolve({ user: author });
+  assert.equal(await pending, false);
+  assert.equal(api.getUser(), null);
+});
+await cacheCheck('session sync refreshes the current account but cannot undo newer progress', async () => {
+  api.saveAuth(undefined, author);
+  globalThis.__authTestAxiosImpl = async () => ({ data: { user: { ...author, lp: 50 } }, status: 200, headers: {} });
+  assert.equal(await api.refreshStoredAuthSession(), true);
+  assert.equal(api.getUser().lp, 50);
+  const old = deferredRequest();
+  globalThis.__authTestAxiosImpl = () => old.promise;
+  const pending = api.refreshStoredAuthSession();
+  api.updateStoredUser({ lp: 200 });
+  old.resolve({ user: { ...author, lp: 50 } });
+  assert.equal(await pending, false);
+  assert.equal(api.getUser().lp, 200);
+});
+await cacheCheck('a late game receipt cannot overwrite a different account or renewed session', async () => {
+  api.saveAuth(undefined, author);
+  const session = api.captureAuthSession();
+  localStorage.setItem('user', JSON.stringify(reader));
+  assert.equal(api.updateStoredUser({ lp: 999 }, { session }), null);
+  assert.deepEqual(api.getUser(), reader);
+  api.saveAuth(undefined, author);
+  const renewed = api.captureAuthSession();
+  api.saveAuth(undefined, author);
+  assert.equal(api.updateStoredUser({ lp: 999 }, { session: renewed }), null);
+  assert.deepEqual(api.getUser(), author);
+});
+await cacheCheck('cookie renewal and unmounted session sync both discard their older response', async () => {
+  api.saveAuth(undefined, author);
+  const old = deferredRequest();
+  globalThis.__authTestAxiosImpl = () => old.promise;
+  const pending = api.refreshStoredAuthSession();
+  const oldCookie = document.cookie;
+  document.cookie = 'eh_csrf=renewed-session';
+  old.resolve({ user: { ...author, lp: 999 } });
+  assert.equal(await pending, false);
+  assert.deepEqual(api.getUser(), author);
+  document.cookie = oldCookie;
+  globalThis.__authTestAxiosImpl = async () => ({ data: { user: { ...author, lp: 999 } }, status: 200, headers: {} });
+  assert.equal(await api.refreshStoredAuthSession({ shouldApply: () => false }), false);
+  assert.deepEqual(api.getUser(), author);
+});
+console.log(`Auth session checks passed; cookie session isolation checks ${cacheChecks}/15. Mock HTTP/storage, not browser or server sessions.`);

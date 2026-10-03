@@ -7,6 +7,7 @@ require('../models/User');
 const { verifyToken } = require('../middleware/authMiddleware');
 const { getOptionalUserId } = require('../utils/requestScope');
 const { createNotification } = require('../utils/notifications');
+const { publicDisplayName } = require('../utils/publicIdentity');
 const {
   closeExhaustedRoom,
   getAttemptCounts,
@@ -64,13 +65,12 @@ function compactUser(user) {
   if (!user || typeof user !== 'object') return null;
   return {
     _id: normalizeId(user),
-    username: user.username || '',
     nickname: user.nickname || '',
   };
 }
 
 function displayName(user) {
-  return String(user?.nickname || user?.username || '익명').trim() || '익명';
+  return publicDisplayName(user, '익명');
 }
 
 function isHost(room, userId) {

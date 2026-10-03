@@ -242,16 +242,6 @@ function cleanInventoryEntry(entry) {
   return Object.keys(out).length ? out : null;
 }
 
-function cleanRecords(records) {
-  if (!records || typeof records !== 'object') return undefined;
-  return {
-    totalKills: cleanNumber(records.totalKills, 0),
-    totalWins: cleanNumber(records.totalWins, 0),
-    gamesPlayed: cleanNumber(records.gamesPlayed, 0),
-    deathCount: cleanNumber(records.deathCount, 0),
-  };
-}
-
 function cleanArrayStrings(list, max = 128) {
   return (Array.isArray(list) ? list : [])
     .map((x) => cleanString(x, max))
@@ -385,8 +375,8 @@ export function compactCharacterForSave(character, options = {}) {
       effectValue: cleanNumber(c.specialSkill.effectValue, 0),
     };
   }
-  const records = cleanRecords(c.records);
-  if (records) out.records = records;
+  // `records` (승·킬·참가 전적) is owned by the server and only changes through
+  // POST /api/game/end, so it is never part of a character save.
 
   return out;
 }

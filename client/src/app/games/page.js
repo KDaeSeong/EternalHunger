@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
-import { useToast } from '../../components/ToastProvider';
 import { apiGetCached } from '../../utils/api';
 import {
   GAME_CATALOG,
@@ -29,11 +28,12 @@ import {
 } from './_lib/gamesHubUtils';
 
 export default function GamesPage() {
-  const { showToast } = useToast();
   const [hub, setHub] = useState(EMPTY_HUB);
   const [dynamicCandidates, setDynamicCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // null metrics render as "—" until real counts arrive (never a fake 0).
+  const [hubLoaded, setHubLoaded] = useState(false);
 
   const loadHub = useCallback(async (options = {}) => {
     setLoading(true);
@@ -46,6 +46,7 @@ export default function GamesPage() {
         force: Boolean(options.force),
       });
       setHub(normalizeHub(payload));
+      setHubLoaded(true);
       try {
         const candidatePayload = await apiGetCached('/public/game-candidates', {
           ttlMs: 30000,
@@ -60,13 +61,14 @@ export default function GamesPage() {
     } catch (err) {
       const message = err?.message || '게임 허브 정보를 불러오지 못했습니다.';
       setHub(EMPTY_HUB);
+      setHubLoaded(false);
       setDynamicCandidates([]);
+      // 화면 안 오류 문구로만 알립니다(토스트 중복 없음).
       setError(message);
-      showToast({ tone: 'warning', message });
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, []);
 
   useEffect(() => {
     void Promise.resolve().then(loadHub);
@@ -97,7 +99,7 @@ export default function GamesPage() {
         href: '/eternalhunger',
         stats: [
           { label: '주소', value: '/eternalhunger' },
-          { label: '캐릭터', value: formatNumber(hub.counts.characters) },
+          { label: '캐릭터', value: hubLoaded ? formatNumber(hub.counts.characters) : '—' },
           { label: '상태', value: eternal?.integration?.stageLabel || '운영' },
         ],
         links: [
@@ -138,7 +140,7 @@ export default function GamesPage() {
         ],
       },
     ];
-  }, [hub.counts.characters]);
+  }, [hub.counts.characters, hubLoaded]);
   const roadmapGames = useMemo(() => {
     const staticSlugs = new Set([...GAME_CATALOG, ...GAME_ROADMAP].map((game) => game.slug));
     return [
@@ -154,14 +156,14 @@ export default function GamesPage() {
     body: game.summary,
     metrics: game.metrics.map((key) => ({
       label: metricLabelForKey(key),
-      value: metricValueForKey(key, hub, derived),
+      value: hubLoaded ? metricValueForKey(key, hub, derived) : null,
     })),
     links: [
       { href: gameDetailHref(game), label: '상세 허브' },
       { href: game.primaryHref, label: game.primaryLabel },
       { href: game.recordHref, label: game.recordLabel },
     ],
-  })), [derived, hub]);
+  })), [derived, hub, hubLoaded]);
 
   return (
     <main className="games-page-shell">
@@ -188,10 +190,10 @@ export default function GamesPage() {
         </section>
 
         <section className="games-summary" aria-label="게임 허브 요약">
-          <GameMetric label="회원" value={hub.counts.users} />
-          <GameMetric label="캐릭터" value={hub.counts.characters} />
-          <GameMetric label="게시글" value={hub.counts.posts} />
-          <GameMetric label="진행 방" value={hub.counts.activeRooms} />
+          <GameMetric label="회원" value={hubLoaded ? hub.counts.users : null} />
+          <GameMetric label="캐릭터" value={hubLoaded ? hub.counts.characters : null} />
+          <GameMetric label="게시글" value={hubLoaded ? hub.counts.posts : null} />
+          <GameMetric label="진행 방" value={hubLoaded ? hub.counts.activeRooms : null} />
         </section>
 
         {error ? (

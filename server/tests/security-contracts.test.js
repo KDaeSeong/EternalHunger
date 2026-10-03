@@ -69,9 +69,22 @@ test('credentialed CORS rejects origins outside the allowlist', async () => {
   }), /허용되지 않은 Origin/);
 });
 
-test('client-authored simulation paths cannot award persistent currency or stats', () => {
+test('client-authored reward paths are closed in their own routers, not by mount order', async () => {
   const root = path.resolve(__dirname, '..', '..');
-  const gateway = fs.readFileSync(path.join(root, 'server', 'routes', 'securityGateway.js'), 'utf8');
+  const callRoute = async (router, routePath) => {
+    const layer = router.stack.find((row) => row.route?.path === routePath && row.route.methods.post);
+    assert.ok(layer, `${routePath} must exist so it cannot fall through to another handler`);
+    const res = { code: 200, body: null, status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } };
+    await layer.route.stack.at(-1).handle({ body: { amount: 100000, lpEarned: 99999 }, user: { id: 'u1' } }, res);
+    return res;
+  };
+  assert.equal((await callRoute(require('../routes/credits'), '/earn')).code, 410);
+  assert.equal((await callRoute(require('../routes/user'), '/update-stats')).code, 410);
+  const serverIndex = fs.readFileSync(path.join(root, 'server', 'index.js'), 'utf8');
+  assert.doesNotMatch(serverIndex, /securityGateway/, 'no router may shadow /api/game/end by mount order');
+
+  const gameRoute = fs.readFileSync(path.join(root, 'server', 'routes', 'game.js'), 'utf8');
+  assert.doesNotMatch(gameRoute, /body\.(lpEarned|creditsEarned|rewardLP)/, 'LP must be computed by the server');
   const finishRuntime = fs.readFileSync(
     path.join(root, 'client', 'src', 'app', 'simulation', '_lib', 'finishGameRuntime.js'),
     'utf8',
@@ -80,9 +93,6 @@ test('client-authored simulation paths cannot award persistent currency or stats
     path.join(root, 'client', 'src', 'app', 'simulation', '_lib', 'phaseFinalizationRuntime.js'),
     'utf8',
   );
-  assert.match(gateway, /lpEarnedApplied:\s*0/);
-  assert.match(gateway, /creditsEarnedApplied:\s*0/);
-  assert.match(gateway, /trustedOutcome:\s*false/);
   assert.doesNotMatch(finishRuntime, /user\/update-stats/);
   assert.doesNotMatch(phaseRuntime, /credits\/earn/);
 });

@@ -13,6 +13,9 @@ function getUserId(req) {
 function getOptionalUserId(req) {
   const fromRequest = getUserId(req);
   if (fromRequest) return fromRequest;
+  // optionalAuth already checked the session (token version, suspension,
+  // deactivation) and found no valid viewer; do not trust the raw token again.
+  if (req?.authResolved) return null;
 
   const raw = String(req?.headers?.authorization || '').trim();
   const headerToken = raw.toLowerCase().startsWith('bearer ') ? raw.slice(7).trim() : raw;

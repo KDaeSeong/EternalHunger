@@ -18,9 +18,15 @@ const { dedupeScopedPerks, ensureDefaultPublicPerks } = require('../../utils/def
 const { DEFAULT_ZONES, normalizeZoneList } = require('../../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../../utils/defaultZoneConnections');
 const { getOptionalUserId, scopedFilter } = require('../../utils/requestScope');
+const { publicDisplayName } = require('../../utils/publicIdentity');
 
 const PUBLIC_FOLLOW_USER_SELECT = 'username nickname profileBio lp statistics badges createdAt';
 const VISIBLE_USER_FILTER = { moderationStatus: { $ne: 'deactivated' } };
+// LP rankings list only accounts that have played or earned LP (no 0전·0 LP rows).
+const RANKED_USER_FILTER = {
+  ...VISIBLE_USER_FILTER,
+  $or: [{ lp: { $gt: 0 } }, { 'statistics.totalGames': { $gt: 0 } }],
+};
 
 const PUBLIC_ITEM_SELECT = [
   '_id',
@@ -86,14 +92,13 @@ function toNonNegativeInt(value) {
 }
 
 function displayName(user) {
-  return String(user?.nickname || user?.username || '익명').trim() || '익명';
+  return publicDisplayName(user, '익명');
 }
 
 function mapPublicUser(user) {
   const statistics = user?.statistics || {};
   return {
     _id: normalizeId(user),
-    username: user?.username || '',
     nickname: user?.nickname || '',
     profileBio: user?.profileBio || '',
     displayName: displayName(user),
@@ -145,7 +150,6 @@ function mapCompactUser(user) {
   if (!user || typeof user !== 'object') return null;
   return {
     _id: normalizeId(user),
-    username: user.username || '',
     nickname: user.nickname || '',
     profileBio: user.profileBio || '',
     displayName: displayName(user),
@@ -218,7 +222,6 @@ function mapPublicRoom(room) {
     remainingCount: Math.max(0, maxQuestions - attemptCount),
     solvedBy: room?.solvedBy && typeof room.solvedBy === 'object' ? {
       _id: normalizeId(room.solvedBy),
-      username: room.solvedBy.username || '',
       nickname: room.solvedBy.nickname || '',
       displayName: displayName(room.solvedBy),
     } : null,
@@ -306,7 +309,6 @@ function mapHubUserRank(row) {
   const statistics = row?.statistics || {};
   return {
     _id: normalizeId(row),
-    username: row?.username || '',
     nickname: row?.nickname || '',
     displayName: displayName(row),
     lp: Number(row?.lp || 0),
@@ -561,6 +563,7 @@ module.exports = {
   scopedFilter,
   PUBLIC_FOLLOW_USER_SELECT,
   VISIBLE_USER_FILTER,
+  RANKED_USER_FILTER,
   PUBLIC_ITEM_SELECT,
   normalizeId,
   cleanText,

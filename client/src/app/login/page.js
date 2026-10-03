@@ -43,11 +43,11 @@ export default function LoginPage() {
             <span className="logo-sub">케이의</span>
             <span className="logo-main">게임개발소</span>
           </div>
-          <h2>로그인</h2>
+          <h1>로그인</h1>
           <p style={{ color: '#666', marginTop: '-10px' }}>시뮬레이션 결과와 운영 데이터를 계정에 저장합니다.</p>
           <form onSubmit={handleLogin} className="auth-form">
-            <input type="text" className="auth-input" placeholder="아이디" required value={form.username} disabled={busy} autoComplete="username" onChange={(event) => setForm({ ...form, username: event.target.value })} />
-            <input type="password" className="auth-input" placeholder="비밀번호" required value={form.password} disabled={busy} autoComplete="current-password" onChange={(event) => setForm({ ...form, password: event.target.value })} />
+            <input type="text" className="auth-input" placeholder="아이디" aria-label="아이디" required value={form.username} disabled={busy} autoComplete="username" onChange={(event) => setForm({ ...form, username: event.target.value })} />
+            <input type="password" className="auth-input" placeholder="비밀번호" aria-label="비밀번호" required value={form.password} disabled={busy} autoComplete="current-password" onChange={(event) => setForm({ ...form, password: event.target.value })} />
             <button type="submit" className="btn-primary" disabled={busy}>{busy ? '로그인 중...' : '로그인'}</button>
           </form>
           {message ? <div className="auth-message" role="status" aria-live="polite">{message}</div> : null}

@@ -37,6 +37,19 @@
 | [DEF-011](#def-011) | 배포 환경변수 기준 문서와 `.env.example` 부재 | P2 | 배포/문서 | Fixed | 미지정 | 미정 |
 | [DEF-012](#def-012) | Node ESM typeless 경고와 ESLint 경고 반복 | P3 | 도구/유지보수 | Fixed | 미지정 | 미정 |
 | [DEF-013](#def-013) | Next 프록시가 정상 204 응답을 500으로 변환 | P1 | API/세션 신뢰성 | Fixed | 미지정 | 즉시 |
+| [DEF-014](#def-014) | 캐릭터 저장이 전적(records)을 덮어씀: 어시스트 0 초기화·전적 위조 | P0 | 데이터 무결성 | Fixed | 미지정 | 즉시 |
+| [DEF-015](#def-015) | 캐릭터 저장이 목록 전체 교체(요청에 없는 캐릭터 삭제, 비트랜잭션) | P1 | 데이터 손실 | Fixed | 미지정 | 즉시 |
+| [DEF-016](#def-016) | 경기 결과의 킬/어시스트가 0으로 저장(killCounts 계약 불일치) | P1 | 데이터 무결성 | Fixed | 미지정 | 즉시 |
+| [DEF-017](#def-017) | 보상 차단 라우터가 `/api/game/end`를 가려 전적·LP 동결, 막힌 보상 핸들러 잔존 | P1 | 기능/보안 | Fixed | 미지정 | 즉시 |
+| [DEF-018](#def-018) | 공개 라우트가 쿠키 세션을 인식하지 못함(스무고개 방장 UI·팔로우 상태) | P1 | 인증/기능 | Fixed | 미지정 | 즉시 |
+| [DEF-019](#def-019) | 프록시 뒤 클라이언트 IP 미전달로 rate limit 공유(계정 잠금·대량 가입) | P1 | 보안 | Fixed(배포 설정 필요) | 미지정 | 즉시 |
+| [DEF-020](#def-020) | 비밀번호 변경·재설정 후에도 기존 JWT가 30일간 유효 | P1 | 보안/세션 | Fixed | 미지정 | 즉시 |
+| [DEF-021](#def-021) | 공개 API·화면에 로그인 아이디(username) 노출 | P2 | 개인정보 | Fixed | 미지정 | 미정 |
+| [DEF-022](#def-022) | 관리자가 게시글·댓글을 삭제할 수 없음 | P2 | 운영 | Fixed | 미지정 | 미정 |
+| [DEF-023](#def-023) | AI 분석이 종료된 모델(gemini-2.0-flash)과 지원 종료 SDK 사용 | P2 | 외부 의존성 | Fixed | 미지정 | 미정 |
+| [DEF-024](#def-024) | 클라이언트 로그인 상태·LP 표시가 localStorage에만 의존 | P2 | 세션/표시 | Fixed | 미지정 | 미정 |
+| [DEF-025](#def-025) | 기타 서버·도구 정리(비밀번호 정책 이중화, 조회수 중복, 보안 헤더 등) | P3 | 유지보수 | Fixed | 미지정 | 미정 |
+| [DEF-026](#def-026) | 명확한 UI 결함(게시판 로그인 문구, "지표 0", 제목 굵기, lang, 탭 제목 등) | P2 | UI | Fixed | 미지정 | 미정 |
 
 ## 3. 처리 결과 (2026-08-23)
 
@@ -279,3 +292,103 @@
 3. `Fixed`는 코드와 자동 회귀가 반영된 상태, `Verified`는 목표 실행 환경에서 재현 불가를 확인한 상태로 구분한다.
 4. 보안 결함 재현에는 운영 DB나 실제 사용자 데이터를 사용하지 않는다.
 5. 결함을 닫을 때 발견 근거, 수정 커밋, 검증 명령, 결과와 잔여 위험을 상세 기록에 추가한다.
+
+## 7. 2026-10-03 소스 점검 후속 결함 (DEF-014 ~ DEF-026)
+
+기준: GitHub `main` @ `0509285` + 로컬 미커밋 작업. 점검 보고서는 claude.ai 프로젝트 문서 `source-ui-audit-2026-10-03.md`.
+DEF-001(보상 위조)과 DEF-007(rate limit)은 "잔여 위험 없음"으로 닫혔으나, 각각 DEF-014(캐릭터 저장 경로의 전적 위조)와 DEF-019(프록시 뒤 IP 공유)라는 빈틈이 남아 있었다.
+
+### DEF-014
+
+**캐릭터 저장이 전적(records)을 덮어씀**
+
+- 등급/상태: P0 Critical / Fixed
+- 발견 근거: `server/routes/characters.js`의 저장 허용 필드에 `records`가 있었고, 클라이언트 `characterPayload.js`는 `totalAssists` 없이 records를 보냈다. `$set: { records }`가 객체 전체를 교체해 저장할 때마다 어시스트가 0이 되었고(기록소 어시스트 전원 0), 요청 조작으로 승수를 임의로 올릴 수 있었다.
+- 수정 결과: 서버 저장 허용 필드와 클라이언트 payload에서 `records` 제거. 전적은 `POST /api/game/end`로만 바뀐다.
+- 자동 검증: `server/tests/audit-defects.test.js` (records 보존)
+- 잔여 위험: 이미 0이 된 과거 어시스트 값은 복구되지 않는다.
+
+### DEF-015
+
+**캐릭터 저장이 목록 전체 교체**
+
+- 등급/상태: P1 High / Fixed
+- 발견 근거: 저장 시 요청 목록에 없는 내 캐릭터를 먼저 `deleteMany`로 지우고 하나씩 갱신했다(트랜잭션 없음). 오래된 탭에서 저장하면 다른 캐릭터와 전적이 삭제되었다.
+- 수정 결과: 삭제는 `deletedIds`로 명시한 캐릭터만. 관리자 이식 "덮어쓰기"만 `replaceAll: true`로 전체 교체. 삭제·수정·생성을 한 트랜잭션으로 묶음. 캐릭터 화면에 저장 안 한 변경 표시와 이탈 경고 추가.
+- 자동 검증: `audit-defects.test.js` (목록에 없는 캐릭터 유지, 명시 삭제만 반영, 저장·삭제 동시 지정 거부)
+
+### DEF-016
+
+**경기 결과의 킬/어시스트가 0으로 저장**
+
+- 등급/상태: P1 High / Fixed
+- 발견 근거: 클라이언트는 `killCounts`/`assistCounts` 맵을 보내는데 보상 차단 라우터는 `participants[].killCount`만 읽었다.
+- 수정 결과: 서버가 맵을 읽고(참가자 inline 값은 보조), 클라이언트도 참가자에 killCount/assistCount를 함께 넣는다. 값은 참가자 수 x2로 상한.
+- 자동 검증: `game-save-idempotency.test.js` (맵 기록·상한), `check:equipment-account-recording`(클라이언트 종료→서버 핸들러 연결)
+
+### DEF-017
+
+**보상 차단 라우터가 `/api/game/end`를 가려 전적·LP 동결**
+
+- 등급/상태: P1 High / Fixed
+- 발견 근거: `index.js`에서 `securityGateway`가 먼저 마운트되어 `routes/game.js`의 `/end`는 8/23 이후 도달 불가였다(그 뒤에도 해당 함수에 기능 추가·테스트가 이어짐). 캐릭터·팀 전적과 LP가 쌓이지 않았고, 막아 둔 `credits/earn`(요청당 10만)·`user/update-stats` 핸들러가 마운트 순서에만 의존해 남아 있었다.
+- 결정(2026-10-03, 사용자): 전적과 LP 모두 지급.
+- 수정 결과: `securityGateway` 마운트 제거, `/api/game/end`를 `game.js` 한 곳으로 통일. 캐릭터 전적·팀 전적·유저 통계·LP를 한 트랜잭션으로 반영. LP는 서버 규칙(`server/utils/lpReward.js`: 기본 50 + 승자 예측 성공 100, 참가자 2명 미만·개발자 도구 런은 0)으로만 계산하고 요청의 금액은 무시. 크레딧은 지급하지 않음. 계정당 시간당 30회(`GAME_END_RATE_LIMIT_*`) 제한. `credits/earn`·`user/update-stats`는 각 라우터에서 410.
+- 자동 검증: `game-save-idempotency.test.js`(LP 1회 지급·중복 없음·롤백), `audit-defects.test.js`(실제 앱 라우팅으로 `/api/game/end` 도달, 410 경로)
+- 잔여 위험: 경기는 브라우저에서 진행되므로 결과 자체는 조작 가능하다(상한·속도 제한으로 범위만 제한). 서버 재현 검증은 별도 과제.
+- 수동 작업: `server/routes/securityGateway.js` 파일 삭제(더 이상 참조되지 않음).
+
+### DEF-018
+
+**공개 라우트가 쿠키 세션을 인식하지 못함**
+
+- 등급/상태: P1 High / Fixed
+- 발견 근거: `getOptionalUserId`가 Bearer 헤더만 읽어, 쿠키 세션 사용자가 공개 라우트에서 익명으로 처리되었다(스무고개 방장이 자기 방에서 방장 UI를 못 봄, 프로필 팔로우·본인 여부 오판).
+- 수정 결과: 공개 라우터에 `optionalAuth` 미들웨어(토큰 버전·정지·탈퇴까지 확인) 적용. 로컬 작업의 쿠키 fallback은 유지하되, `optionalAuth`가 거부한 토큰은 다시 해석하지 않음.
+- 자동 검증: `request-scope-cookie.test.js`, `audit-defects.test.js`
+
+### DEF-019
+
+**프록시 뒤 클라이언트 IP 미전달**
+
+- 등급/상태: P1 High / Fixed(배포 설정 필요)
+- 발견 근거: Next `/api/proxy`가 브라우저 주소를 넘기지 않아 Express에는 모든 요청이 같은 IP로 보였다. 로그인 제한 키가 사실상 아이디가 되어 남의 계정을 10분 잠글 수 있었고, 가입 제한은 아이디별이라 대량 가입이 가능했다.
+- 수정 결과: 프록시가 `X-EH-Client-IP`와 공유 비밀(`X-EH-Proxy-Auth`)을 전달하고 서버가 비밀이 맞을 때만 신뢰(`server/utils/clientIp.js`). 가입 제한은 주소 단위(주소를 모를 때는 완화된 공유 한도).
+- 배포 설정: Vercel과 Render 양쪽에 같은 `PROXY_SHARED_SECRET`(16자 이상), Render에 `TRUST_PROXY_HOPS=1`. 설정 전에는 기존과 같은 공유 주소로 동작한다.
+- 자동 검증: `audit-defects.test.js` (비밀 일치 시에만 전달 주소 사용)
+
+### DEF-020
+
+**비밀번호 변경·재설정 후에도 기존 JWT 유효**
+
+- 등급/상태: P1 High / Fixed
+- 수정 결과: `User.tokenVersion` 추가, JWT에 `tv` 포함. 비밀번호 변경·재설정 시 증가시켜 다른 기기 세션을 모두 끊고, 변경한 브라우저에는 새 쿠키 발급. 기존 토큰(`tv` 없음)은 0으로 간주해 배포 직후 로그아웃되지 않는다.
+- 자동 검증: `audit-defects.test.js`
+
+### DEF-021
+
+**로그인 아이디 공개**
+
+- 등급/상태: P2 Medium / Fixed
+- 결정(2026-10-03, 사용자): 닉네임이 없으면 `플레이어-xxxx`(계정 ID 끝 4자리)로 표시.
+- 수정 결과: 공개 응답에서 `username` 제거(`server/utils/publicIdentity.js`), 아이디로 하는 사용자·작성자 검색 제거, 프로필의 `@아이디` 표시 제거, 가입 화면 닉네임 안내 보강. 본인 계정 화면(`/user/me`)과 관리자 화면은 그대로.
+
+### DEF-022 ~ DEF-026
+
+- **DEF-022** 관리자 게시글·댓글 삭제: 서버 권한(`req.user.isAdmin`)과 게시판 목록·상세·댓글 버튼 반영.
+- **DEF-023** AI 분석: `@google/generative-ai` → `@google/genai`, 기본 모델 `gemini-3.6-flash`([Google 공식 대체 모델 근거](https://ai.google.dev/gemini-api/docs/deprecations)), 응답 능력치 범위 고정. 유료 실호출 검증은 별도.
+- **DEF-024** 로그인 상태: 앱 시작 시와 탭 복귀 시 `/auth/session`으로 동기화(`components/SessionSync.js`). 만료·무효 세션은 로그아웃 처리, 헤더 LP·크레딧 갱신.
+- **DEF-025** 기타: 비밀번호 변경 6자 기준 → 공통 정책, 게시글 조회수 30분 중복 방지·잘못된 ID 404, Express·Next 기본 보안 헤더(CSP 제외), 운영에서 `EH_API_BASE` 무시, 미사용 의존성(`openai`, `@hello-pangea/dnd`) 제거, Character `userId` 인덱스, ESLint 오류 2건(scripts의 `module` 변수).
+- **DEF-026** UI: 로그인 상태에서 "로그인하면 글을 작성할 수 있습니다" 표시 제거, 게임 허브 "지표 0"(teams·runs·solvedRooms 집계·라벨), Tailwind preflight로 400이 된 제목 굵기 복구, `lang="ko"`, 페이지별 탭 제목, 메뉴 현재 위치 표시(밑줄)와 "게임 허브" 강조 분리, 불러오는 중·실패 시 0 대신 "—", 같은 오류의 인라인+토스트 중복 제거, 검색 전 0 요약 숨김, 로그인·가입·재설정 입력 라벨과 h1, LP 랭킹에서 0전·0 LP 계정 제외.
+
+### 남은 항목 (이번 범위 밖)
+
+2026-10-03 통합 보완: 모든 캐릭터 저장 화면의 요청을 `{ characters, deletedIds }`로 통일했다. 자동 세션 갱신 및 경기 결과 영수증은 계정 변경·로그아웃·새 세션·더 최신 계정 상태가 발생하면 이전 응답을 저장 상태에 적용하지 않는다. 실제 서버 전적/LP 경로와 모의 HTTP·저장 분리 검증은 통과했으며, 운영 Mongo와 실제 로그인 브라우저 검증은 구분한다.
+
+| 항목 | 상태 | 비고 |
+|---|---|---|
+| 헤더 `position: sticky`가 body `overflow-x: hidden` 때문에 동작하지 않음 | Open | 게임 화면 action dock 등 다른 sticky도 같은 원인. UI 개선 단계에서 `overflow-x: clip` 전환과 함께 검토 |
+| 공통 레이아웃·메뉴 구조·폰트/디자인 토큰·카드 3중 프레임 | Open | UI 개선 단계 |
+| Content-Security-Policy | Open | 게임별 외부 리소스 목록 확정 후 |
+| `client/src/proxy.js`(실제 호출 경로와 맞지 않는 미들웨어) | 수동 삭제 대상 | |
+| `.gitignore` 대상인데 커밋된 로그·결과 파일 16개 | 수동 정리 대상 | `git rm --cached build.log build_bg.log build_bg.pid npmci.log runtime_sweep.log server_check.log BUILD_CHECK_*.md BUILD_CHECK_*.txt JS_VALIDATION_* RUNTIME_*_RESULT.md RUNTIME_*_SNIPPET.txt PAGEJS_CHECK_RESULT.md artifacts/team-rendezvous-build-20260924.log` |

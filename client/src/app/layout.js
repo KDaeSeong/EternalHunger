@@ -15,13 +15,14 @@ import '../styles/ERSimulation.css';
 // (일단 주석 처리 해두고, 페이지 만들 때 하나씩 풉니다)
 
 export const metadata = {
-  title: "케이의 게임개발소",
+  // 각 라우트의 layout.js가 title을 정하면 "게시판 | 케이의 게임개발소"처럼 표시됩니다.
+  title: { default: "케이의 게임개발소", template: "%s | 케이의 게임개발소" },
   description: "케이의 게임개발소 - 게임, 기록, 저장, 커뮤니티를 한곳에 모은 종합 게임 사이트",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="ko">
       <body className="font-sans antialiased">
         <AppProviders>
           {children}
