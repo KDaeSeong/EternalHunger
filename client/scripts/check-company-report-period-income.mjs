@@ -14,6 +14,8 @@ import {
   FIXED_EXPENSES,
   formatMoney,
   globalTradeSummary,
+  inboundInventoryAction,
+  inventoryRows,
   managementReport,
   monthEndCloseAction,
   normalizeState,
@@ -288,6 +290,119 @@ check('20 pending plans, imports and 13 paid hedges survive beyond the old displ
   const restored = restoreLedgerSnapshotAction(changed);
   assert.equal(restored.restoreHistory[0].status, 'SUCCESS');
   assert.deepEqual(restored.global, settled.global);
+  assert.equal(SAVE_VERSION, 'company-report-v1');
+});
+
+function importedShipment() {
+  let state = createOrderAction(seed(), 'future-book', 'book-akashi', 100);
+  const orderId = state.orders[0].id;
+  state = settleGlobalTradeAction(createImportPlanAction(state, 'jp-retail', 'book-akashi', 1000));
+  const beforeShipment = clone(state);
+  return { beforeShipment, state: shipOrderAction(state, orderId), orderId };
+}
+
+check('shipment records the real weighted inventory cost after an intervening import', () => {
+  const { beforeShipment, state, orderId } = importedShipment();
+  const stock = beforeShipment.inventory['book-akashi'];
+  const order = state.orders.find((row) => row.id === orderId);
+  assert.equal(stock.avgCost, 8395);
+  assert.equal(order.unitCost, stock.avgCost);
+  assert.equal(order.unitPrice, 28000, 'Actual COGS must not change the agreed sale price.');
+  assert.equal(state.inventory['book-akashi'].onHand, stock.onHand - 100);
+  assert.equal(state.company.cashKrw, beforeShipment.company.cashKrw, 'Shipment must not pay for inventory twice.');
+  assert.equal(managementReport(state).income.localCogs, managementReport(seed()).income.localCogs + stock.avgCost * 100);
+  assert.equal(reportSummary(state).assets, reportSummary(beforeShipment).assets - stock.avgCost * 100 + 3080000);
+  assert.equal(beforeShipment.orders[0].unitCost, 9000, 'The pre-shipment estimate remains unchanged in the input.');
+  expectPeriodMatchesClosing(state);
+});
+
+check('later production and valuation do not rewrite a completed shipment cost', () => {
+  const shipment = importedShipment();
+  const originalIncome = managementReport(shipment.state).income;
+  const originalOrder = clone(shipment.state.orders.find((row) => row.id === shipment.orderId));
+  let state = inboundInventoryAction(shipment.state, 'book-akashi', 10000);
+  assert.notEqual(state.inventory['book-akashi'].avgCost, originalOrder.unitCost);
+  assert.equal(managementReport(state).income.localCogs, originalIncome.localCogs);
+  state = closeInventoryValuationAction(state);
+  assert.equal(managementReport(state).income.localCogs, originalIncome.localCogs);
+  assert.deepEqual(state.orders.find((row) => row.id === shipment.orderId), originalOrder);
+  expectPeriodMatchesClosing(state);
+});
+
+check('valuation before shipment changes actual COGS, not the agreed revenue', () => {
+  const ordered = createOrderAction(seed(), 'future-book', 'book-akashi', 100);
+  const valued = closeInventoryValuationAction(ordered);
+  const unitCost = valued.inventory['book-akashi'].avgCost;
+  assert.notEqual(unitCost, ordered.orders[0].unitCost, 'The real valuation action must change the chosen inventory cost.');
+  const shipped = shipOrderAction(valued, ordered.orders[0].id);
+  assert.equal(shipped.orders[0].unitCost, unitCost);
+  assert.equal(managementReport(shipped).income.localCogs - managementReport(valued).income.localCogs, unitCost * 100);
+  assert.equal(managementReport(shipped).income.sales - managementReport(valued).income.sales, 2800000);
+  expectPeriodMatchesClosing(shipped);
+});
+
+check('the next month uses each shipment own actual cost and preserves past closing', () => {
+  const shipment = importedShipment();
+  let state = monthEndCloseAction(shipment.state);
+  const oldClosing = clone(state.settlements[0]);
+  const oldOrder = clone(state.orders.find((row) => row.id === shipment.orderId));
+  state = inboundInventoryAction(state, 'book-akashi', 1000);
+  const unitCost = state.inventory['book-akashi'].avgCost;
+  state = createOrderAction(state, 'future-book', 'book-akashi', 10);
+  state = shipOrderAction(state, state.orders[0].id);
+  assert.equal(managementReport(state).income.localCogs, unitCost * 10);
+  assert.deepEqual(state.orders.find((row) => row.id === shipment.orderId), oldOrder);
+  const closed = expectPeriodMatchesClosing(state);
+  assert.deepEqual(closed.settlements[1], oldClosing);
+});
+
+check('zero recorded cost is not replaced by catalog cost in shipment or inventory assets', () => {
+  const state = seed();
+  state.inventory['book-akashi'].avgCost = 0;
+  const ordered = createOrderAction(state, 'future-book', 'book-akashi', 10);
+  const shipped = shipOrderAction(ordered, ordered.orders[0].id);
+  assert.equal(shipped.orders[0].unitCost, 0);
+  assert.equal(managementReport(shipped).income.localCogs, managementReport(state).income.localCogs);
+  assert.equal(inventoryRows(shipped).find((row) => row.id === 'book-akashi').amount, 0);
+  assert.equal(reportSummary(shipped).assets - reportSummary(ordered).assets, 308000);
+});
+
+check('import weighted cost preserves recorded zero-value stock', () => {
+  const state = seed();
+  state.inventory['book-akashi'].avgCost = 0;
+  const imported = settleGlobalTradeAction(createImportPlanAction(state, 'jp-retail', 'book-akashi', 100));
+  const cost = imported.global.importResults[0].landedCostKrw;
+  assert.equal(imported.inventory['book-akashi'].avgCost, Math.round(cost / 580));
+});
+
+check('failed and repeated shipments neither debit inventory nor alter historical cost', () => {
+  const ordered = createOrderAction(seed(), 'future-book', 'book-akashi', 1000);
+  const original = clone(ordered);
+  const rejected = shipOrderAction(ordered, ordered.orders[0].id);
+  assert.equal(rejected.orders[0].status, 'CONFIRMED');
+  assert.deepEqual(rejected.inventory, ordered.inventory);
+  assert.deepEqual(rejected.orders, ordered.orders);
+  assert.deepEqual(managementReport(rejected).income, managementReport(ordered).income);
+  assert.deepEqual(ordered, original);
+  const shipment = importedShipment();
+  const repeated = shipOrderAction(shipment.state, shipment.orderId);
+  assert.deepEqual(repeated.inventory, shipment.state.inventory);
+  assert.deepEqual(repeated.orders, shipment.state.orders);
+  assert.equal(repeated.receivables.length, shipment.state.receivables.length);
+  assert.deepEqual(managementReport(repeated).income, managementReport(shipment.state).income);
+});
+
+check('actual shipment costs survive save normalization and ledger restore without migrating old orders', () => {
+  const shipment = importedShipment();
+  const loaded = normalizeState(clone(shipment.state));
+  assert.deepEqual(loaded.orders, shipment.state.orders);
+  const snapshotted = createLedgerSnapshotAction(loaded);
+  const changed = inboundInventoryAction(snapshotted, 'book-akashi', 100);
+  const restored = restoreLedgerSnapshotAction(changed);
+  assert.equal(restored.restoreHistory[0].status, 'SUCCESS');
+  assert.deepEqual(restored.orders, loaded.orders);
+  assert.deepEqual(managementReport(restored).income, managementReport(loaded).income);
+  assert.deepEqual(normalizeState(clone(seed())).orders, seed().orders, 'Do not recalculate old shipments against present inventory.');
   assert.equal(SAVE_VERSION, 'company-report-v1');
 });
 

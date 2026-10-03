@@ -231,6 +231,9 @@ export function shipOrderAction(state, orderId) {
     orders: current.orders.map((item) => item.id === order.id ? {
       ...item,
       shippedQty: item.quantity,
+      // Freeze the inventory's actual cost at shipment. Later purchasing or
+      // valuation changes the remaining stock, not this completed sale.
+      unitCost: Number(stock.avgCost ?? item.unitCost ?? 0),
       shippedYear: Number(current.company.year),
       shippedMonth: Number(current.company.month),
       status: 'SHIPPED',
@@ -284,7 +287,7 @@ export function closeInventoryValuationAction(state) {
   let totalReversal = 0;
   const valuationRows = inventoryRows(current).map((row) => {
     const onHand = Number(row.onHand || 0);
-    const avgCost = Number(row.avgCost || row.unitCost || 0);
+    const avgCost = Number(row.avgCost ?? row.unitCost ?? 0);
     const bookAmount = Number(row.amount || 0);
     const nrvRate = estimateInventoryNrvRate(row, current);
     const nrvUnitAmount = Math.round(avgCost * nrvRate);
@@ -551,7 +554,7 @@ export function settleGlobalTradeAction(state) {
     cashKrw -= landedCostKrw;
     const stock = nextInventory[product.id] || { onHand: 0, reserved: 0, avgCost: product.unitCost };
     const nextQty = Number(stock.onHand || 0) + units;
-    const totalCost = Number(stock.onHand || 0) * Number(stock.avgCost || product.unitCost) + landedCostKrw;
+    const totalCost = Number(stock.onHand || 0) * Number(stock.avgCost ?? product.unitCost) + landedCostKrw;
     nextInventory[product.id] = { ...stock, onHand: nextQty, avgCost: Math.round(totalCost / Math.max(1, nextQty)) };
     importResults.push({
       id: `IMR-${plan.id}`,
@@ -1063,7 +1066,7 @@ export function inventoryRows(state) {
     return {
       ...product,
       ...stock,
-      amount: Number(stock.onHand || 0) * Number(stock.avgCost || product.unitCost || 0),
+      amount: Number(stock.onHand || 0) * Number(stock.avgCost ?? product.unitCost ?? 0),
     };
   });
 }
