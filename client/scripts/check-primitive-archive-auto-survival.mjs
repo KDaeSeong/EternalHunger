@@ -205,6 +205,81 @@ check('dead members are neither fed nor resurrected by collective care', () => {
   expectSameOperation(next, engine.runRecoveryChoiceAction(state, 'hina', 'ration_break', { rng: noEvents }));
 });
 
+function survivingDemandFixture({ hunger = 10, deadHunger = 100, inventory = { berry: 9 }, ap = 1 } = {}) {
+  const state = fixture({ day: 9, ap, inventory });
+  state.weather = { id: 'clear', name: '맑음', cold: 0, temp: 16, actionMod: 0 };
+  state.party = state.party.map((member) => ({
+    ...member, hp: member.id === 'hina' ? 100 : 0,
+    hunger: member.id === 'hina' ? hunger : deadHunger,
+  }));
+  state.research.completed = { GATHERING: true, HUNTING: true };
+  return engine.normalizeState(state);
+}
+
+check('dead hunger cannot spend the last useful action feeding a survivor who is not hungry', () => {
+  const state = survivingDemandFixture();
+  const original = structuredClone(state);
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.counters.meals, 0);
+  expectSameOperation(next, engine.runResearchAction(state, 'hina', { rng: noEvents }));
+  assert.deepEqual(state, original);
+  assert.ok(next.party.filter((member) => member.id !== 'hina').every((member) => member.hp === 0));
+});
+
+check('dead hunger cannot start unnecessary cooking or repeat meals throughout a healthy survivor day', () => {
+  const state = survivingDemandFixture({ hunger: 0, ap: 3, inventory: { meat: 9, wood: 6, berry: 3 } });
+  const fedCasualties = engine.normalizeState({
+    ...state, party: state.party.map((member) => ({ ...member, hunger: member.hp > 0 ? member.hunger : 0 })),
+  });
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  const comparison = engine.runAutoDayAction(fedCasualties, { rng: noEvents });
+  assert.equal(next.counters.meals, 0);
+  for (const key of operationalFields.filter((key) => key !== 'party')) {
+    assert.deepEqual(next[key], comparison[key], `A casualty's hunger cannot change paid ${key} operations.`);
+  }
+  assert.deepEqual(next.party.find((member) => member.hp > 0), comparison.party.find((member) => member.hp > 0));
+});
+
+check('the ordinary food reserve counts living recipients rather than every historical party member', () => {
+  const state = survivingDemandFixture({ hunger: 0, deadHunger: 0, inventory: { berry: 2 } });
+  state.research.completed = Object.fromEntries(engine.TECH_TREE.map((tech) => [tech.id, true]));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.counters.meals, 0);
+  assert.ok(!next.log.some((line) => line.includes('식량 확보:')),
+    'Two real portions already meet the one survivor plus one reserve target.');
+  assert.equal(next.day, state.day + 1);
+  assert.equal(next.counters.gather, state.counters.gather, 'The unsuccessful ordinary expedition must still fail honestly.');
+});
+
+check('a genuinely hungry survivor still receives the actual paid meal even when dead records look healthy', () => {
+  const state = survivingDemandFixture({ hunger: 60, deadHunger: 0 });
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.counters.meals, 1);
+  expectSameOperation(next, engine.runEatAction(state, 'hina', { rng: noEvents }));
+});
+
+check('food procurement still covers an actual hungry survivor when no meal is owned', () => {
+  const state = survivingDemandFixture({ hunger: 80, inventory: {} });
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.counters.meals, 0);
+  assert.ok(next.log.some((line) => line.includes('식량 확보:')));
+  assert.equal(next.day, state.day + 1);
+  assert.ok(next.party.filter((member) => member.id !== 'hina').every((member) => member.hp === 0));
+});
+
+check('survivor-only food demand is reconstructed from ordinary JSON without new flags or different random draws', () => {
+  const state = survivingDemandFixture();
+  const restored = engine.normalizeState(JSON.parse(JSON.stringify(state)));
+  let directDraws = 0; let restoredDraws = 0;
+  const direct = engine.runAutoDayAction(state, { rng: () => { directDraws += 1; return 0.999; } });
+  const resumed = engine.runAutoDayAction(restored, { rng: () => { restoredDraws += 1; return 0.999; } });
+  expectSameOperation(resumed, direct);
+  assert.equal(direct.counters.meals, 0);
+  assert.equal(restoredDraws, directDraws);
+  assert.deepEqual(Object.keys(resumed).sort(), Object.keys(state).sort());
+  assert.equal(engine.SAVE_VERSION, 'primitive-archive-v1');
+});
+
 check('unresearched food production remains locked and real fishing may still fail', () => {
   const state = fixture({ inventory: {} });
   const locked = engine.runAutoDayAction(state, { rng: noEvents });

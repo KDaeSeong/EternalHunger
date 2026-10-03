@@ -6142,7 +6142,9 @@ function autoCookingCampKind(state) {
 
 function autoMealPlan(state, careActorId) {
   const hungry = foodRecoveryTargets(state).filter((member) => Number(member.hunger || 0) >= 46);
-  if (!foodAvailable(state) || (!hungry.length && averageParty(state, 'hunger') < 46)) return null;
+  // Casualties remain in the run record, but their hunger must not spend
+  // living companions' food or action budget after everybody is fed.
+  if (!foodAvailable(state) || !hungry.length) return null;
   const foodStock = foodUnitCount(state);
   const preparedFood = ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish']
     .some((id) => Number(state.inventory[id] || 0) > 0);
@@ -6524,7 +6526,6 @@ function runNextAutoArchiveAction(state, options = {}) {
   const living = livingParty(state);
   const careActorId = pickAutoCareActor(state);
   const careActor = getActor(state, careActorId);
-  const averageHunger = averageParty(state, 'hunger');
   const foodStock = foodUnitCount(state);
   const hungry = foodRecoveryTargets(state).filter((member) => Number(member.hunger || 0) >= 46);
   const nightNeedsFuel = autoNightNeedsFire(state) && Number(state.camp.fuel || 0) <= 0;
@@ -6584,7 +6585,7 @@ function runNextAutoArchiveAction(state, options = {}) {
   if (['fire', 'shelter', 'workbench'].includes(researchGateCampKind)) {
     return runCampAction(state, pickActorForAuto(state, 'craft'), researchGateCampKind, options);
   }
-  if ((averageHunger >= 46 || hungry.length) && foodStock < living.length + 2) {
+  if (hungry.length && foodStock < living.length + 2) {
     return runAutoFoodSupplyAction(state, options);
   }
 
@@ -6665,7 +6666,7 @@ function runNextAutoArchiveAction(state, options = {}) {
     return runResearchAction(state, pickActorForAuto(state, 'craft'), options);
   }
 
-  if (foodStock < state.party.length + 1) {
+  if (foodStock < living.length + 1) {
     return runAutoFoodSupplyAction(state, options);
   }
   return runGatherAction(state, pickActorForAuto(state, 'gather'), pickAutoZone(state, 'gather'), options);
