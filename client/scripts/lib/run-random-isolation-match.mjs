@@ -27,6 +27,17 @@ function freeze(value) {
   return Object.freeze(value);
 }
 
+// Mirror useSimulationEventActions' combat bindings, not bare runtime exports.
+// The product hook supplies effect notifications as well as damage/skill events.
+// Omitting that binding makes two headless runs agree while losing browser events.
+export function createIsolationCombatActions({ addLog, emitRunEvent, emitEffectRunEvents } = {}) {
+  return {
+    applyErTraitAfterBattle: (actor, opts = {}) => combat.applyErTraitAfterBattle(actor, { ...opts, addLog }),
+    applyErWeaponSkillAfterCombat: (attacker, defender, opts = {}) => combat.applyErWeaponSkillAfterCombat(
+      attacker, defender, { ...opts, addLog, emitRunEvent, emitEffectRunEvents }),
+  };
+}
+
 export function buildIsolationNavigation(map) {
   const zones = applyRegionDataToZones(map.zones);
   const baseGraph = buildBaseZoneGraph(map, zones);
@@ -116,7 +127,6 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
     },
     grantMastery: mastery.grantMastery, grantMasteries: mastery.grantMasteries,
     grantPvpDamageMastery: mastery.grantPvpDamageMastery, grantPvpKillMastery: mastery.grantPvpKillMastery,
-    applyErTraitAfterBattle: combat.applyErTraitAfterBattle, applyErWeaponSkillAfterCombat: combat.applyErWeaponSkillAfterCombat,
     waitForVisibleTick: async (delay, clock) => {
       assert.ok(clock.elapsedSec > 0);
       ticks = Math.round((ticks + clock.elapsedSec) * 1e6) / 1e6;
@@ -160,6 +170,8 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
   for (const name of ['emitItemGainIfAny', 'emitCraftRunEvent', 'emitObjectiveRunEvent', 'emitQueueRunEvent', 'emitEffectRunEvents', 'emitConsumableRunEvent']) {
     actions[name] = (...args) => eventActions[name](emitRunEvent, ...args);
   }
+  Object.assign(actions, createIsolationCombatActions({ addLog, emitRunEvent,
+    emitEffectRunEvents: actions.emitEffectRunEvents }));
   actions.applyLootCraftResult = (actor, result, meta, at, zoneId) => applyLootCraftResult(actor, result, meta,
     { at, zoneId, addLog, grantCraftMastery: mastery.grantCraftMastery, emitCraftRunEvent: actions.emitCraftRunEvent });
   const forbiddenCache = new Map();
