@@ -2517,6 +2517,30 @@ function foodHealValue(state, foodId) {
     + (foodId === 'herb_tonic' && hasTechPassive(state, 'PHARMACOPOEIA_RECOVERY_UP') ? 6 : 0)
     + (foodId === 'herb_tonic' && hasTechPassive(state, 'PUBLIC_HEALTH_RECOVERY_UP') ? 5 : 0);
 }
+
+function restHealValue(state) {
+  return 4
+    + (hasTechPassive(state, 'REST_HEAL_UP') ? 4 : 0)
+    + (hasTechPassive(state, 'REST_HEAL_UP_2') ? 4 : 0)
+    + (hasTechPassive(state, 'REST_HEAL_UP_3') ? 5 : 0)
+    + (hasTechPassive(state, 'CLASSICAL_MEDICINE_UP') ? 4 : 0)
+    + (hasTechPassive(state, 'CIVIC_RITUAL_RECOVERY_UP') ? 4 : 0)
+    + (hasTechPassive(state, 'SURGICAL_RECOVERY_UP') ? 5 : 0)
+    + (hasTechPassive(state, 'HERBAL_MEDICINE_UP') ? 4 : 0)
+    + (hasTechPassive(state, 'MONASTIC_RECOVERY_UP') ? 4 : 0)
+    + (hasTechPassive(state, 'SACRED_MUSIC_RECOVERY_UP') ? 5 : 0)
+    + (hasTechPassive(state, 'MEDIEVAL_MEDICINE_UP') ? 7 : 0)
+    + (hasTechPassive(state, 'CODIFIED_THEOLOGY_RECOVERY_UP') ? 6 : 0)
+    + (hasTechPassive(state, 'ANATOMY_RECOVERY_UP') ? 5 : 0)
+    + (hasTechPassive(state, 'PHARMACOPOEIA_RECOVERY_UP') ? 6 : 0)
+    + (hasTechPassive(state, 'TOLERANCE_RECOVERY_UP') ? 4 : 0)
+    + (hasTechPassive(state, 'POOR_RELIEF_RECOVERY_UP') ? 5 : 0)
+    + (hasTechPassive(state, 'ENLIGHTENED_THEOLOGY_CULTURE_UP') ? 4 : 0)
+    + (hasTechPassive(state, 'PUBLIC_HEALTH_RECOVERY_UP') ? 8 : 0)
+    + passiveStackCount(state, 'MODERN_MEDICAL_TECH_STACK') * 2
+    + passiveStackCount(state, 'MODERN_SURVIVAL_TECH_STACK')
+    + passiveStackCount(state, 'MODERN_FAITH_CIVIC_STACK') * 2;
+}
 const RARE_GEAR_RECIPE_PRIORITY = [
   'dino_scale_vest',
   'obsidian_blade',
@@ -3299,9 +3323,8 @@ function settleTribeDay(state) {
   return next;
 }
 
-export function advanceDay(state, options = {}) {
+function nightColdExposure(state) {
   const preset = difficultyPreset(state);
-  const weather = rollWeather(state.day + 1, options.rng || Math.random);
   const fireActive = campFireActive(state);
   const fireWarmth = fireActive ? Number(state.camp.fireLevel || 0) * 4 : 0;
   const warmth = fireWarmth + Number(state.camp.shelterLevel || 0) * 3 + partyInsulation(state) * 2;
@@ -3321,18 +3344,31 @@ export function advanceDay(state, options = {}) {
     * (hasCompletedProject(state, 'palisade') ? 0.85 : 1)
     * (seasonPlanCharges(state) > 0 ? SEASON_PLAN_WEATHER_MULTIPLIER : 1);
   const coldDamage = Math.round(Math.max(0, Number(state.weather?.cold || 0) - warmth) * preset.coldMultiplier * weatherLoreMul);
+  return { warmth, coldDamage };
+}
+
+function nightBodyTemperature(state, member, exposure) {
+  const recovery = exposure.warmth >= Number(state.weather?.cold || 0) ? 0.65 : 0;
+  return clamp(
+    Number(member.bodyTemp ?? 37) - exposure.coldDamage * 0.24 - (state.weather?.id === 'snow' ? 0.35 : 0) + recovery,
+    25,
+    39,
+  );
+}
+
+export function advanceDay(state, options = {}) {
+  const preset = difficultyPreset(state);
+  const weather = rollWeather(state.day + 1, options.rng || Math.random);
+  const fireActive = campFireActive(state);
+  const exposure = nightColdExposure(state);
+  const { coldDamage } = exposure;
   const fuelSaverNight = hasTechPassive(state, 'CAMP_FUEL_SAVER') && Number(state.day || 1) % 2 === 1;
   const fuelUsed = fireActive && !fuelSaverNight ? 1 : 0;
   const party = state.party.map((member) => {
     const hunger = clamp(Number(member.hunger || 0) + Math.round(8 * preset.hungerMultiplier) + Math.floor(coldDamage / 3), 0, 100);
     const hungerDamage = hunger >= 90 ? 10 : hunger >= 75 ? 4 : 0;
     const shelterRecovery = (34 + Number(state.camp.shelterLevel || 0) * 8) * preset.staminaRecoveryMultiplier;
-    const tempRecovery = warmth >= Number(state.weather?.cold || 0) ? 0.65 : 0;
-    const bodyTemp = clamp(
-      Number(member.bodyTemp ?? 37) - coldDamage * 0.24 - (state.weather?.id === 'snow' ? 0.35 : 0) + tempRecovery,
-      25,
-      39,
-    );
+    const bodyTemp = nightBodyTemperature(state, member, exposure);
     const hypothermiaDamage = bodyTemp < 31 ? 18 : bodyTemp < 34.5 ? 7 : 0;
     return {
       ...member,
@@ -5376,27 +5412,7 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
   const selectedTech = getTechnology(current.research.selectedTechId);
   const civicEstimate = civicActionEstimate(current, actorId);
   const selectedCivic = activeCivicForState(current);
-  const restHeal = 4
-    + (hasTechPassive(current, 'REST_HEAL_UP') ? 4 : 0)
-    + (hasTechPassive(current, 'REST_HEAL_UP_2') ? 4 : 0)
-    + (hasTechPassive(current, 'REST_HEAL_UP_3') ? 5 : 0)
-    + (hasTechPassive(current, 'CLASSICAL_MEDICINE_UP') ? 4 : 0)
-    + (hasTechPassive(current, 'CIVIC_RITUAL_RECOVERY_UP') ? 4 : 0)
-    + (hasTechPassive(current, 'SURGICAL_RECOVERY_UP') ? 5 : 0)
-    + (hasTechPassive(current, 'HERBAL_MEDICINE_UP') ? 4 : 0)
-    + (hasTechPassive(current, 'MONASTIC_RECOVERY_UP') ? 4 : 0)
-    + (hasTechPassive(current, 'SACRED_MUSIC_RECOVERY_UP') ? 5 : 0)
-    + (hasTechPassive(current, 'MEDIEVAL_MEDICINE_UP') ? 7 : 0)
-    + (hasTechPassive(current, 'CODIFIED_THEOLOGY_RECOVERY_UP') ? 6 : 0)
-    + (hasTechPassive(current, 'ANATOMY_RECOVERY_UP') ? 5 : 0)
-    + (hasTechPassive(current, 'PHARMACOPOEIA_RECOVERY_UP') ? 6 : 0)
-    + (hasTechPassive(current, 'TOLERANCE_RECOVERY_UP') ? 4 : 0)
-    + (hasTechPassive(current, 'POOR_RELIEF_RECOVERY_UP') ? 5 : 0)
-    + (hasTechPassive(current, 'ENLIGHTENED_THEOLOGY_CULTURE_UP') ? 4 : 0)
-    + (hasTechPassive(current, 'PUBLIC_HEALTH_RECOVERY_UP') ? 8 : 0)
-    + passiveStackCount(current, 'MODERN_MEDICAL_TECH_STACK') * 2
-    + passiveStackCount(current, 'MODERN_SURVIVAL_TECH_STACK')
-    + passiveStackCount(current, 'MODERN_FAITH_CIVIC_STACK') * 2;
+  const restHeal = restHealValue(current);
   const restStamina = Math.min(
     Math.max(0, 100 - Number(actor?.stamina || 0)),
     42 + Number(current.camp.shelterLevel || 0) * 8,
@@ -5666,27 +5682,7 @@ export function runEatAction(state, actorId, options = {}) {
 export function runRestAction(state, actorId, options = {}) {
   const actor = getActor(state, actorId);
   const target = getActor(state, actorId);
-  const heal = 4
-    + (hasTechPassive(state, 'REST_HEAL_UP') ? 4 : 0)
-    + (hasTechPassive(state, 'REST_HEAL_UP_2') ? 4 : 0)
-    + (hasTechPassive(state, 'REST_HEAL_UP_3') ? 5 : 0)
-    + (hasTechPassive(state, 'CLASSICAL_MEDICINE_UP') ? 4 : 0)
-    + (hasTechPassive(state, 'CIVIC_RITUAL_RECOVERY_UP') ? 4 : 0)
-    + (hasTechPassive(state, 'SURGICAL_RECOVERY_UP') ? 5 : 0)
-    + (hasTechPassive(state, 'HERBAL_MEDICINE_UP') ? 4 : 0)
-    + (hasTechPassive(state, 'MONASTIC_RECOVERY_UP') ? 4 : 0)
-    + (hasTechPassive(state, 'SACRED_MUSIC_RECOVERY_UP') ? 5 : 0)
-    + (hasTechPassive(state, 'MEDIEVAL_MEDICINE_UP') ? 7 : 0)
-    + (hasTechPassive(state, 'CODIFIED_THEOLOGY_RECOVERY_UP') ? 6 : 0)
-    + (hasTechPassive(state, 'ANATOMY_RECOVERY_UP') ? 5 : 0)
-    + (hasTechPassive(state, 'PHARMACOPOEIA_RECOVERY_UP') ? 6 : 0)
-    + (hasTechPassive(state, 'TOLERANCE_RECOVERY_UP') ? 4 : 0)
-    + (hasTechPassive(state, 'POOR_RELIEF_RECOVERY_UP') ? 5 : 0)
-    + (hasTechPassive(state, 'ENLIGHTENED_THEOLOGY_CULTURE_UP') ? 4 : 0)
-    + (hasTechPassive(state, 'PUBLIC_HEALTH_RECOVERY_UP') ? 8 : 0)
-    + passiveStackCount(state, 'MODERN_MEDICAL_TECH_STACK') * 2
-    + passiveStackCount(state, 'MODERN_SURVIVAL_TECH_STACK')
-    + passiveStackCount(state, 'MODERN_FAITH_CIVIC_STACK') * 2;
+  const heal = restHealValue(state);
   const warmth = campFireActive(state) ? 0.75 : 0.25;
   let next = updateActor(state, actorId, {
     stamina: clamp(Number(target.stamina || 0) + 42 + Number(state.camp.shelterLevel || 0) * 8, 0, 100),
@@ -5986,6 +5982,11 @@ function autoNightNeedsFire(state) {
   return Number(state.weather?.cold || 0) > passiveWarmth;
 }
 
+function autoNightHasHypothermiaRisk(state) {
+  const exposure = nightColdExposure(state);
+  return livingParty(state).some((member) => nightBodyTemperature(state, member, exposure) < 34.5);
+}
+
 function autoColdCampKind(state) {
   if (!campFireActive(state)) return '';
   const cold = Number(state.weather?.cold || 0);
@@ -6164,16 +6165,72 @@ function autoActionSignature(state) {
   ].join(':');
 }
 
-function runAutoFoodSupplyAction(state, options) {
-  const specialized = pickAutoSpecializedAction(state, ['farm', 'fish', 'herd', 'trap']);
-  if (specialized) return runSpecializedAction(state, specialized.actorId, specialized.actionId, '', options);
-  const hunterId = pickActorForAuto(state, 'hunt');
-  // Before map selection unlocks, this is the real average over revealed
-  // regions, not a promise that a random expedition will visit the plains.
-  if (averageParty(state, 'hp') < 62 || regionalActionChance(state, hunterId, 'hunt', 'plains') < 0.46) {
-    return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
+function pickAutoFoodSupplyPlan(state) {
+  const candidates = [];
+  const revealed = revealedActionRegions(state);
+  const regions = canSelectActionZone(state) ? revealed : [null];
+  const counterattack = huntFailureDamage(state);
+  const restHeal = restHealValue(state);
+  const addCandidate = (actor, candidate, gains) => {
+    const nutrition = gains.reduce((sum, row) => sum + (
+      FOOD_RECOVERY_IDS.includes(row.itemId) ? row.expected * foodNutritionValue(state, row.itemId) : 0
+    ), 0);
+    if (nutrition <= 0) return;
+    candidates.push({
+      ...candidate,
+      actorId: actor.id,
+      nutrition,
+      // A hunt also costs the future recovery actions needed to repair its
+      // expected counterattack damage. Use the real resting heal amount.
+      netNutrition: nutrition / (1 + candidate.expectedDamage / restHeal) - candidate.hungerAdd,
+      hp: Number(actor.hp || 0),
+      stamina: Number(actor.stamina || 0),
+    });
+  };
+  for (const actor of livingParty(state)) {
+    for (const region of regions) {
+      const regionId = region?.id || '';
+      for (const kind of ['gather', 'hunt']) {
+        const locations = region ? [region] : revealed;
+        const chance = locations.length
+          ? locations.reduce((sum, location) => sum + actionChanceForRegion(state, actor.id, kind, location), 0) / locations.length
+          : actionChance(state, actor.id, kind, kind === 'hunt' ? 0.42 : 0.5);
+        // A healthy companion can hunt for injured peers. Do not mistake the
+        // party average for this hunter's HP or send a recovering survivor
+        // into a counterattack they cannot safely absorb.
+        if (kind === 'hunt' && (Number(actor.hp || 0) <= Math.max(45, counterattack) || chance < 0.46)) continue;
+        addCandidate(actor, {
+          kind, regionId, label: kind === 'hunt' ? '사냥' : '채집',
+          context: region?.name || '지도 해금 전 발견 지역 무작위',
+          hungerAdd: kind === 'hunt' ? 5 : 3,
+          expectedDamage: kind === 'hunt' ? (1 - chance) * counterattack : 0,
+        }, expectedZoneGains(state, kind, actor.id, regionId));
+      }
+    }
+    // Specialized gathering can also yield real berries. Compare all
+    // unlocked food work, rather than letting list order choose the diet.
+    for (const row of specializedActionRows(state, actor.id)) {
+      if (!['farm', 'fish', 'herd', 'trap', 'herbal'].includes(row.id) || !row.available) continue;
+      const region = resolveSpecializedActionRegion(state, row, '');
+      addCandidate(actor, {
+        kind: 'specialized', actionId: row.id, label: row.label, context: row.context,
+        hungerAdd: row.hungerAdd, expectedDamage: 0,
+      }, specializedExpectedGains(state, row, row.chance, region));
+    }
   }
-  return runHuntAction(state, hunterId, 'plains', options);
+  return candidates.sort((a, b) => b.netNutrition - a.netNutrition
+    || a.expectedDamage - b.expectedDamage || b.hp - a.hp || b.stamina - a.stamina)[0] || null;
+}
+
+function runAutoFoodSupplyAction(state, options) {
+  const plan = pickAutoFoodSupplyPlan(state);
+  if (!plan) return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
+  const actor = getActor(state, plan.actorId);
+  const riskNote = plan.expectedDamage > 0 ? ` · 반격 후 예상 휴식 ${(plan.expectedDamage / restHealValue(state)).toFixed(1)}회` : '';
+  const planned = addLog(state, `식량 확보: ${actor.name}의 ${plan.label} · ${plan.context}. 예상 식량 허기 회복 ${plan.nutrition.toFixed(1)} · 행동 허기 +${plan.hungerAdd}${riskNote}. 실제 수확은 성공 여부에 따라 달라집니다.`);
+  if (plan.kind === 'specialized') return runSpecializedAction(planned, plan.actorId, plan.actionId, '', options);
+  if (plan.kind === 'hunt') return runHuntAction(planned, plan.actorId, plan.regionId, options);
+  return runGatherAction(planned, plan.actorId, plan.regionId, options);
 }
 
 function runNextAutoArchiveAction(state, options = {}) {
@@ -6183,13 +6240,17 @@ function runNextAutoArchiveAction(state, options = {}) {
   const averageHunger = averageParty(state, 'hunger');
   const foodStock = foodUnitCount(state);
   const hungry = foodRecoveryTargets(state).filter((member) => Number(member.hunger || 0) >= 46);
+  const nightNeedsFuel = autoNightNeedsFire(state) && Number(state.camp.fuel || 0) <= 0;
+  const hungerEmergency = living.some((member) => Number(member.hunger || 0) >= 75);
+  if (nightNeedsFuel && hasResources(state.inventory, { wood: 1 }) && autoNightHasHypothermiaRisk(state)) {
+    const planned = addLog(state, '저체온 위험: 식사만으로 막기 어려운 밤 추위가 예상되어, 실제 나무를 써서 모닥불 연료를 먼저 준비합니다.');
+    return runCampAction(planned, pickActorForAuto(state, 'craft'), 'fuel', options);
+  }
   const canTreat = Number(state.inventory.herb_tonic || 0) > 0
     || (recipeUnlockInfo(state, 'herb_tonic').unlocked && hasResources(state.inventory, { herb: 2, berry: 1 }));
   if (living.some((member) => Number(member.hp || 0) <= 30) && canTreat) {
     return runRecoveryChoiceAction(state, careActorId, 'field_tonic', options);
   }
-  const nightNeedsFuel = autoNightNeedsFire(state) && Number(state.camp.fuel || 0) <= 0;
-  const hungerEmergency = living.some((member) => Number(member.hunger || 0) >= 75);
   if (nightNeedsFuel && !hungerEmergency) {
     if (hasResources(state.inventory, { wood: 1 })) {
       const planned = addLog(state, '밤 대비: 대피소와 보온 장비만으로 추위를 막기 어려워 모닥불 연료를 준비합니다.');
@@ -6201,7 +6262,7 @@ function runNextAutoArchiveAction(state, options = {}) {
       return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
     }
   }
-  const coldCampKind = hungerEmergency ? '' : autoColdCampKind(state);
+  const coldCampKind = hungerEmergency && !autoNightHasHypothermiaRisk(state) ? '' : autoColdCampKind(state);
   if (coldCampKind) {
     const planned = addLog(state, '밤 대비: 현재 보온으로 추위를 막기 어려워 캠프를 보강합니다.');
     return runCampAction(planned, pickActorForAuto(state, 'craft'), coldCampKind, options);

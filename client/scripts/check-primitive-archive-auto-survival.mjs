@@ -326,16 +326,51 @@ check('automatic cooking refills real fuel first when three actions and wood are
   assert.equal(next.camp.fuel, 1, 'One wood, one cooking payment and one overnight payment reconcile exactly.');
 });
 
-check('automatic heating cannot create fuel from nothing or ignore hunger emergencies', () => {
+check('automatic heating cannot create fuel from nothing or preempt hungry meals without hypothermia risk', () => {
   const noWood = coldFixture({ inventory: {} });
   const stranded = engine.runAutoDayAction(noWood, { rng: noEvents });
   assert.equal(stranded.camp.fuel, 0);
   assert.ok(!stranded.log.some((line) => line.includes('모닥불 연료를 보충했습니다')));
   const starving = coldFixture({ inventory: { berry: 6, wood: 1 } });
+  starving.weather.cold = 5;
   starving.party = starving.party.map((member) => ({ ...member, hunger: 90 }));
   const fed = engine.runAutoDayAction(starving, { rng: noEvents });
   assert.equal(fed.counters.meals, 3);
   assert.ok(!fed.log.some((line) => line.includes('모닥불 연료를 보충했습니다')));
+});
+
+check('starving survivors pay for night fuel when eating alone would leave them exposed to hypothermia', () => {
+  const state = coldFixture({ inventory: { berry: 6, wood: 1 } });
+  state.party = state.party.map((member) => ({ ...member, hunger: 90 }));
+  const original = structuredClone(state);
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  const mealsOnly = engine.runRecoveryChoiceAction(state, 'noa', 'ration_break', { rng: noEvents });
+  assert.ok(next.log.some((line) => line.includes('저체온 위험:')));
+  assert.ok(next.party.every((member, index) => member.hp > mealsOnly.party[index].hp));
+  assert.equal(next.counters.meals, 0);
+  expectSameOperation(next, engine.runCampAction(state, 'noa', 'fuel', { rng: noEvents }));
+  assert.deepEqual(state, original);
+});
+
+check('sufficient passive shelter keeps hungry meals ahead of unnecessary emergency heating', () => {
+  const state = coldFixture({ inventory: { berry: 6, wood: 1 } });
+  state.camp.shelterLevel = 3;
+  state.party = state.party.map((member) => ({ ...member, hunger: 90 }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.counters.meals, 3);
+  assert.ok(!next.log.some((line) => line.includes('저체온 위험:')));
+  assert.ok(!next.log.some((line) => line.includes('모닥불 연료를 보충했습니다')));
+});
+
+check('starving survivors improve an insufficient lit fire with real materials instead of ignoring projected hypothermia', () => {
+  const state = coldFixture({ inventory: { wood: 2, stone: 2 } });
+  state.weather.cold = 14;
+  state.camp.fuel = 1;
+  state.party = state.party.map((member) => ({ ...member, hunger: 90 }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.camp.fireLevel, 2);
+  assert.equal(next.camp.fuel, 0);
+  expectSameOperation(next, engine.runCampAction(state, 'noa', 'fire', { rng: noEvents }));
 });
 
 check('automatic survival strengthens an inadequate lit camp before spending the last AP on development', () => {
@@ -516,6 +551,94 @@ check('injured starving parties procure real food instead of repeatedly resting 
   expectSameOperation(next, engine.runSpecializedAction(state, fishing.actorId, 'fish', '', { rng: () => 0.1 }));
 });
 
+function foodSupplyFixture() {
+  const state = fixture({ inventory: {} });
+  state.weather = { ...state.weather, id: 'clear', cold: 0 };
+  state.party = state.party.map((member) => ({ ...member, hunger: 90 }));
+  return state;
+}
+
+check('a healthy companion obtains real hunting food instead of treating the injured party average as the hunter HP', () => {
+  const catalogStats = engine.STUDENTS.map((student) => structuredClone(student.stats));
+  const state = foodSupplyFixture();
+  state.party = state.party.map((member, index) => ({ ...member, hp: index === 2 ? 80 : 20 }));
+  // The healthy companion has the real hunter's skill and a known food-rich
+  // destination. This is not a demand to send a novice into a wasteful hunt.
+  state.party[2].stats = { ...state.party[2].stats, hunt: state.party[1].stats.hunt };
+  state.research.completed.CARTOGRAPHY = true;
+  state.research.completed.HERBALISM = true;
+  state.exploration.revealed['sun-meadow'] = true;
+  const original = structuredClone(state);
+  const next = engine.runAutoDayAction(state, { rng: () => 0.1 });
+  assert.equal(next.counters.hunt, 1);
+  assert.ok(next.log.some((line) => line.includes('노아의 사냥 성공')));
+  assert.ok(next.log.some((line) => line.includes('식량 확보:')));
+  expectSameOperation(next, engine.runHuntAction(state, 'noa', 'sun-meadow', { rng: () => 0.1 }));
+  assert.deepEqual(state, original);
+  assert.deepEqual(engine.STUDENTS.map((student) => student.stats), catalogStats, 'Controlled actor skills must not alter later ordinary runs.');
+});
+
+check('unlocked food sources compete by actual expected nutrition instead of always farming before fishing', () => {
+  const state = foodSupplyFixture();
+  state.research.completed.FISHING = true;
+  state.research.completed.AGRICULTURE = true;
+  const next = engine.runAutoDayAction(state, { rng: () => 0.1 });
+  assert.equal(next.counters.fish, 1);
+  assert.equal(next.counters.farm || 0, 0);
+  expectSameOperation(next, engine.runSpecializedAction(state, 'shiroko', 'fish', '', { rng: () => 0.1 }));
+});
+
+check('injured companions use unlocked berry-bearing herbal gathering instead of mineral expeditions for food', () => {
+  const state = foodSupplyFixture();
+  state.party = state.party.map((member) => ({ ...member, hp: 20 }));
+  state.research.completed.HERBALISM = true;
+  const next = engine.runAutoDayAction(state, { rng: () => 0.1 });
+  assert.equal(next.counters.herbal, 1);
+  assert.equal(next.counters.hunt || 0, 0);
+  expectSameOperation(next, engine.runSpecializedAction(state, 'shiroko', 'herbal', '', { rng: () => 0.1 }));
+});
+
+check('map-unlocked food procurement leaves a selected foodless cave for an actually revealed food source', () => {
+  const state = foodSupplyFixture();
+  state.research.completed.CARTOGRAPHY = true;
+  state.exploration.revealed['echo-cave'] = true;
+  state.exploration.revealed['sun-meadow'] = true;
+  state.exploration.selectedRegionId = 'echo-cave';
+  assert.equal(engine.canSelectActionZone(state), true);
+  const next = engine.runAutoDayAction(state, { rng: () => 0.1 });
+  assert.ok(next.log.some((line) => line.includes('시로코의 채집 성공. 속삭임 숲')));
+  expectSameOperation(next, engine.runGatherAction(state, 'shiroko', 'whisper-woods', { rng: () => 0.1 }));
+});
+
+check('food procurement does not send a critically injured hunter into a lethal ordinary counterattack', () => {
+  const state = foodSupplyFixture();
+  state.party = state.party.map((member) => ({ ...member, hp: member.id === 'hina' ? 9 : 0 }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.ok(next.log.some((line) => line.includes('히나의 채집 실패')));
+  assert.ok(!next.log.some((line) => line.includes('사냥 실패')));
+  expectSameOperation(next, engine.runGatherAction(state, 'hina', '', { rng: noEvents }));
+  assert.equal(next.party.find((member) => member.id === 'shiroko').hp, 0);
+  assert.equal(next.party.find((member) => member.id === 'noa').hp, 0);
+});
+
+check('before map unlock food planning preserves the actual random region and exact paid RNG sequence', () => {
+  const state = foodSupplyFixture();
+  state.party = state.party.map((member) => ({ ...member, hp: member.id === 'hina' ? 100 : 0 }));
+  assert.equal(engine.canSelectActionZone(state), false);
+  const randomSequence = () => {
+    let calls = 0;
+    return { rng: () => [0.999, 0.1][calls++] ?? 0.999, calls: () => calls };
+  };
+  const autoRandom = randomSequence();
+  const manualRandom = randomSequence();
+  const next = engine.runAutoDayAction(state, { rng: autoRandom.rng });
+  const manual = engine.runGatherAction(state, 'hina', '', { rng: manualRandom.rng });
+  assert.ok(next.log.some((line) => line.includes('히나의 채집 성공. 얕은 여울')));
+  expectSameOperation(next, manual);
+  assert.equal(autoRandom.calls(), manualRandom.calls(), 'Planning must not consume random draws or force a food-bearing region.');
+  assert.equal(next.exploration.revealed['sun-meadow'], false);
+});
+
 check('one scarce meal is eaten before procuring more food instead of spending three AP cooking for one starving member', () => {
   const state = fixture({ ap: 3, inventory: { meat: 1, wood: 1 } });
   state.camp.fuel = 0;
@@ -564,24 +687,34 @@ check('normal runs survive and develop using ordinary paid actions across fiftee
   }
 });
 
-check('a normal unfixed-hardness run no longer loses a starving injured companion while feeding a healthier one', () => {
-  const rng = seededRng(89);
-  let state = engine.createNewState({ difficulty: 'hard', rng, runId: 'hard-food-priority-89', now: '2026-10-03T00:00:00.000Z' });
-  let usedSurvivalPriority = false;
-  for (let day = 0; day < 120 && !state.ended && !engine.archiveVictorySummary(state).canComplete; day += 1) {
-    if (day === 26) state = engine.normalizeState(JSON.parse(JSON.stringify(state)));
-    const activeDay = state.day;
-    state = engine.runAutoDayAction(state, { rng });
-    usedSurvivalPriority ||= state.log.some((line) => line.startsWith(`Day ${activeDay}:`) && line.includes('생존 우선 배분'));
-    assert.equal(state.devTools.enabled, false);
-    assert.ok(Object.values(state.inventory).every((qty) => qty >= 0));
+check('ordinary hard food-care regressions retain every companion and all five paid development objectives', () => {
+  for (const seed of [3, 43, 89]) {
+    const rng = seededRng(seed);
+    let state = engine.createNewState({ difficulty: 'hard', rng, runId: `hard-food-priority-${seed}`, now: '2026-10-03T00:00:00.000Z' });
+    let usedSurvivalPriority = false;
+    let usedFoodSupplyPlan = false;
+    let criticalFoodDays = 0;
+    for (let day = 0; day < 120 && !state.ended && !engine.archiveVictorySummary(state).canComplete; day += 1) {
+      if (day === 26) state = engine.normalizeState(JSON.parse(JSON.stringify(state)));
+      const activeDay = state.day;
+      if (state.party.some((member) => member.hp > 0 && member.hp <= 30 && member.hunger >= 75)) criticalFoodDays += 1;
+      state = engine.runAutoDayAction(state, { rng });
+      usedSurvivalPriority ||= state.log.some((line) => line.startsWith(`Day ${activeDay}:`) && line.includes('생존 우선 배분'));
+      usedFoodSupplyPlan ||= state.log.some((line) => line.startsWith(`Day ${activeDay}:`) && line.includes('식량 확보:'));
+      assert.equal(state.devTools.enabled, false);
+      assert.ok(Object.values(state.inventory).every((qty) => qty >= 0));
+    }
+    const victory = engine.archiveVictorySummary(state);
+    naturalRuns.push({ difficulty: 'hard', seed, day: state.day, ended: state.ended, canComplete: victory.canComplete, alive: state.party.filter((member) => member.hp > 0).length, usedSurvivalPriority, usedFoodSupplyPlan, criticalFoodDays });
+    assert.equal(usedFoodSupplyPlan, true, 'The ordinary run must exercise real food procurement.');
+    // Better supply may prevent the old seed-89 triage emergency altogether.
+    // Do not force survivors into a crisis just to count the old log branch.
+    assert.ok(usedSurvivalPriority || criticalFoodDays === 0);
+    if (seed === 3) assert.equal(usedSurvivalPriority, true, 'Retain an ordinary run that really exercises critical food allocation.');
+    assert.equal(state.party.filter((member) => member.hp > 0).length, 3, `Hard seed ${seed} must retain all companions.`);
+    assert.equal(victory.canComplete, true, 'Survival care must still leave room for all five paid development objectives.');
+    assert.equal(state.victory, false, 'Final completion remains the player\'s decision.');
   }
-  const victory = engine.archiveVictorySummary(state);
-  naturalRuns.push({ difficulty: 'hard', seed: 89, day: state.day, ended: state.ended, canComplete: victory.canComplete, alive: state.party.filter((member) => member.hp > 0).length, usedSurvivalPriority });
-  assert.equal(usedSurvivalPriority, true, 'The ordinary run must really exercise the changed food allocation.');
-  assert.equal(state.party.filter((member) => member.hp > 0).length, 3);
-  assert.equal(victory.canComplete, true, 'Survival triage must still leave room for all five paid development objectives.');
-  assert.equal(state.victory, false, 'Final completion remains the player\'s decision.');
 });
 
 console.log(JSON.stringify({ pass: !failures.length, checks, failures, naturalRuns, evidence: 'current engine actions only; no old result files, real saves, accounts, or original executable' }, null, 2));
