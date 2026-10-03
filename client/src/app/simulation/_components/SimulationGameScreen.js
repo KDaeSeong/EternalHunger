@@ -28,6 +28,7 @@ export default function SimulationGameScreen({
   closeUiModal,
   day,
   dead,
+  devRunTainted,
   detonationRiskSummary,
   doHyperloopJump,
   eventFeedback,
@@ -173,6 +174,7 @@ export default function SimulationGameScreen({
         closeUiModal={closeUiModal}
         day={day}
         dead={dead}
+        devRunTainted={devRunTainted}
         doHyperloopJump={doHyperloopJump}
         forbiddenAddedNow={forbiddenAddedNow}
         forbiddenNow={forbiddenNow}

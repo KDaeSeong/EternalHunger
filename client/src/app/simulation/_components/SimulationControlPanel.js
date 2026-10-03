@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import GameActionIcon from '../../games/_components/GameActionIcon';
+import { LP_REWARD_BASE, LP_REWARD_PREDICTION_BONUS } from '../_lib/lpRewardRuntime';
 
 function normalizeMode(value) {
   return String(value || '').toLowerCase() === 'solo' ? 'solo' : 'squad';
@@ -48,6 +49,8 @@ export default function SimulationControlPanel({
   replayMode,
   draftMode,
   evaluationMode,
+  guestMode = true,
+  devRunTainted = false,
   matchMode,
   onMatchModeChange,
   matchModeDisabled,
@@ -93,6 +96,11 @@ export default function SimulationControlPanel({
     aliveTeamCount,
   });
   const isEvaluationStart = evaluationMode && !draftMode && Number(day || 0) === 0 && !isGameOver;
+  const predictionRewardHelp = devRunTainted
+    ? '개발자 조작 경기 · 계정 LP 보상 없음'
+    : guestMode
+      ? '비로그인 경기 · 계정 LP 보상 없음'
+      : `계정 경기 저장 성공 시 기본 ${LP_REWARD_BASE}LP · 예측 성공 +${LP_REWARD_PREDICTION_BONUS}LP`;
 
   return (
     <div className="control-panel">
@@ -140,7 +148,7 @@ export default function SimulationControlPanel({
             value={winnerPredictionId || ''}
             onChange={(event) => onWinnerPredictionChange?.(event.target.value)}
             disabled={winnerPredictionDisabled}
-            title="경기 시작 전에 우승자를 예측하고 결과를 확인할 수 있습니다. 현재 경기는 영구 LP 보상을 지급하지 않습니다."
+            title={`경기 시작 전에 우승자를 예측하고 결과를 확인할 수 있습니다. ${predictionRewardHelp}. 보상은 서버에서 확정합니다.`}
           >
             <option value="">예측 안 함</option>
             {(Array.isArray(survivors) ? survivors : []).map((actor) => {
@@ -155,7 +163,7 @@ export default function SimulationControlPanel({
           </select>
         </label>
         <span className="winner-prediction-help">
-          결과 예측용 · 영구 LP 보상 없음{Number(matchSec || 0) > 0 ? ' · 경기 시작 후 변경 불가' : ''}
+          {predictionRewardHelp}{Number(matchSec || 0) > 0 ? ' · 경기 시작 후 변경 불가' : ''}
         </span>
       </div> : null}
       <div className="simulation-match-options">

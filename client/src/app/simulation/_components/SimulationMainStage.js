@@ -59,6 +59,7 @@ export default function SimulationMainStage({
   closeUiModal,
   day,
   dead,
+  devRunTainted,
   doHyperloopJump,
   forbiddenAddedNow,
   forbiddenNow,
@@ -302,6 +303,8 @@ export default function SimulationMainStage({
         replayMode={replayMode}
         draftMode={draftMode}
         evaluationMode={evaluationMode}
+        guestMode={guestMode}
+        devRunTainted={devRunTainted}
         matchMode={normalizeMatchMode(settings?.matchMode)}
         onMatchModeChange={handleMatchModeChange}
         matchModeDisabled={replayMode || loading || isAdvancing || day !== 0}

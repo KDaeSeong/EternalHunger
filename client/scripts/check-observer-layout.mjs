@@ -55,6 +55,30 @@ check('pregame mode, skills, prediction and seed are still available', () => {
   for (const text of ['스쿼드', '솔로', '캐릭터 스킬', '승자 예측', '경기 시드', '새 시드', 'observer-layout-1']) assert.ok(normal.includes(text), text);
   assert.match(normal, /aria-label="경기 시드"[^>]*value="observer-layout-1"/);
 });
+check('authenticated prediction explains server-confirmed rewards, not a guaranteed credit', () => {
+  const html = render({ guestMode: false });
+  assert.match(html, /계정 경기 저장 성공 시 기본 50LP · 예측 성공 \+100LP/);
+  assert.doesNotMatch(html, /영구 LP 보상 없음|계정 LP 보상 없음/);
+});
+check('guest and developer-manipulated matches do not advertise account rewards', () => {
+  for (const props of [{ guestMode: true }, { guestMode: false, devRunTainted: true }, {}]) {
+    const html = render(props);
+    assert.match(html, /계정 LP 보상 없음/);
+    assert.doesNotMatch(html, /기본 50LP|예측 성공 \+100LP/);
+  }
+  assert.match(render({ guestMode: true }), /비로그인 경기/);
+  assert.match(render({ guestMode: false, devRunTainted: true }), /개발자 조작 경기/);
+});
+check('prediction help retains the started-match lock and receives existing session context', () => {
+  assert.match(render({ guestMode: false, matchSec: 10 }), /경기 시작 후 변경 불가/);
+  const source = readComponent('SimulationMainStage');
+  const controls = source.slice(source.indexOf('<SimulationControlPanel'));
+  assert.match(controls, /guestMode=\{guestMode\}/);
+  assert.match(controls, /devRunTainted=\{devRunTainted\}/);
+  const stage = readComponent('SimulationGameScreen').slice(readComponent('SimulationGameScreen').indexOf('<SimulationMainStage'));
+  assert.match(stage, /guestMode=\{guestMode\}/);
+  assert.match(stage, /devRunTainted=\{devRunTainted\}/);
+});
 check('replay preserves read-only input and removes prediction', () => {
   const html = render({ replayMode: true, matchModeDisabled: true, characterSkillsDisabled: true });
   assert.match(html, /현재 경기는 시작 조건이 고정/);
