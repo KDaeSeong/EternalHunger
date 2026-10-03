@@ -174,6 +174,9 @@ export default function CompanyReportArchiveLedgerPanels({
                   <div>
                     <span>{latestSettlement.cashflowCoverage === 'since-load' ? '불러온 뒤 현금변화' : '월간 현금변화'} {formatMoney(latestSettlement.netCashflow)}</span>
                     <strong>고정비 지급 {formatMoney(latestSettlement.fixedExpensesPaidKrw)} · 이익세 {formatMoney(latestSettlement.tax)}</strong>
+                    {Number.isFinite(latestSettlement.operatingExpensesPaidKrw) ? (
+                      <span>이미 지급한 운영비 {formatMoney(latestSettlement.operatingExpensesPaidKrw)}{latestSettlement.operatingExpenseCoverage === 'recorded-only' ? ' · 기록이 남은 지급비용만 반영' : ''}</span>
+                    ) : null}
                   </div>
                   <strong>결산 후 현금 {formatMoney(latestSettlement.closingCashKrw)}</strong>
                 </CompanyReportIconRow>

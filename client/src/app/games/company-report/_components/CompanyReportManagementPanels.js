@@ -19,6 +19,11 @@ export default function CompanyReportManagementPanels({
           <SmallStat label="예상 영업손익" value={formatMoney(management.income.operatingProfit)} />
         </div>
         <div className="games-rank-split" style={{ marginTop: 12 }}>
+          <SmallStat label="캠페인 집행비" value={formatMoney(management.income.marketingExpenses)} />
+          <SmallStat label="공시 대응비" value={formatMoney(management.income.disclosureExpenses)} />
+        </div>
+        <p className="games-hint">캠페인·공시 대응비는 실행할 때 현금으로 지급한 비용이며, 결산 때 다시 지급하지 않습니다.</p>
+        <div className="games-rank-split" style={{ marginTop: 12 }}>
           <SmallStat label="현금" value={formatMoney(management.cashFlow.cash)} />
           <SmallStat label="회수액" value={formatMoney(management.cashFlow.collectedCash)} />
           <SmallStat label="채권잔액" value={formatMoney(management.cashFlow.receivableAmount)} />

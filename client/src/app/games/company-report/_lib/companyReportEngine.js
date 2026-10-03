@@ -48,6 +48,7 @@ export function createNewState(options = {}) {
       openingCashKrw: 1500000000,
       coverage: 'full-period',
     },
+    operatingExpensePeriod: { year: 2026, month: 2, marketingKrw: 0, disclosureKrw: 0, coverage: 'full-period' },
     inventory: {
       'book-akashi': { onHand: 480, reserved: 0, avgCost: 9000 },
       'event-hwahwa': { onHand: 150, reserved: 50, avgCost: 18000 },
@@ -142,6 +143,7 @@ export function normalizeState(value) {
     ...value,
     company,
     cashFlowPeriod: normalizeCashFlowPeriod(value.cashFlowPeriod, company),
+    operatingExpensePeriod: normalizeOperatingExpensePeriod(value.operatingExpensePeriod, company, value.capitalMarket?.disclosures),
     inventory: value.inventory && typeof value.inventory === 'object' ? { ...base.inventory, ...value.inventory } : base.inventory,
     orders: Array.isArray(value.orders) ? value.orders : base.orders,
     receivables: Array.isArray(value.receivables) ? value.receivables : base.receivables,
@@ -172,6 +174,26 @@ function normalizeCashFlowPeriod(period, company) {
   // Old saves lack a period opening balance. Preserve their cash and history,
   // and measure only subsequent changes instead of inventing past payments.
   return { year, month, openingCashKrw: Number(company.cashKrw || 0), coverage: 'since-load' };
+}
+
+function normalizeOperatingExpensePeriod(period, company, disclosures = []) {
+  const year = Number(company.year);
+  const month = Number(company.month);
+  const validAmount = (amount) => typeof amount === 'number' && Number.isFinite(amount) && amount >= 0;
+  if (Number(period?.year) === year
+    && Number(period?.month) === month
+    && validAmount(period?.marketingKrw)
+    && validAmount(period?.disclosureKrw)
+    && ['full-period', 'recorded-only'].includes(period.coverage)) {
+    return { year, month, marketingKrw: period.marketingKrw, disclosureKrw: period.disclosureKrw, coverage: period.coverage };
+  }
+  // Older saves have dated paid disclosures but no campaign cost history.
+  // Recover only known payments, before the display cap; never infer costs
+  // from cash gaps or logs, or pretend the retained rows cover the whole month.
+  const disclosureKrw = (Array.isArray(disclosures) ? disclosures : [])
+    .filter((row) => row && Number(row.year) === year && Number(row.month) === month && validAmount(row.costKrw))
+    .reduce((sum, row) => sum + row.costKrw, 0);
+  return { year, month, marketingKrw: 0, disclosureKrw, coverage: 'recorded-only' };
 }
 
 export function createOrderAction(state, partnerId, productId, quantity) {
@@ -408,6 +430,10 @@ export function marketingCampaignAction(state, productId) {
       reputation: clamp(Number(current.company.reputation || 0) + Math.ceil(product.hype / 28), 0, 100),
       fanBase: Number(current.company.fanBase || 0) + product.hype * 90,
     },
+    operatingExpensePeriod: {
+      ...current.operatingExpensePeriod,
+      marketingKrw: current.operatingExpensePeriod.marketingKrw + cost,
+    },
   }, `${product.name} 캠페인을 집행했습니다. 평판과 팬덤이 상승했습니다.`);
 }
 
@@ -625,6 +651,10 @@ export function createDisclosureAction(state, disclosureTypeId) {
   return addLog({
     ...current,
     company: { ...current.company, cashKrw: Number(current.company.cashKrw || 0) - type.costKrw },
+    operatingExpensePeriod: {
+      ...current.operatingExpensePeriod,
+      disclosureKrw: current.operatingExpensePeriod.disclosureKrw + type.costKrw,
+    },
     capitalMarket: {
       ...current.capitalMarket,
       investorTrust: clamp(Number(current.capitalMarket.investorTrust || 0) + type.trustDelta, 0, 100),
@@ -723,8 +753,8 @@ export function monthEndCloseAction(state) {
   const { year, month, inventoryWriteDownNet, operatingProfit, tax, netProfit } = income;
   const expense = income.fixedExpenses;
   const beforeClosing = reportSummary(current);
-  // Production and collections already change cash in their own actions.
-  // Closing pays only this month's fixed costs and profit tax, not COGS again.
+  // Production, collections, campaigns and disclosures already change cash.
+  // Closing pays only fixed costs and profit tax, not COGS or paid costs again.
   const closingCashKrw = Number(current.company.cashKrw || 0) - expense - tax;
   const settlement = {
     year,
@@ -744,6 +774,10 @@ export function monthEndCloseAction(state) {
     closingAssetsKrw: beforeClosing.assets - expense - tax,
     closingReceivableKrw: beforeClosing.receivableAmount,
     fixedExpensesPaidKrw: expense,
+    marketingExpensesPaidKrw: income.marketingExpenses,
+    disclosureExpensesPaidKrw: income.disclosureExpenses,
+    operatingExpensesPaidKrw: income.paidOperatingExpenses,
+    operatingExpenseCoverage: income.operatingExpenseCoverage,
     cashflowCoverage: current.cashFlowPeriod.coverage,
     netCashflow: closingCashKrw - current.cashFlowPeriod.openingCashKrw,
   };
@@ -758,6 +792,7 @@ export function monthEndCloseAction(state) {
       reputation: clamp(Number(current.company.reputation || 0) + (netProfit >= 0 ? 1 : -2), 0, 100),
     },
     cashFlowPeriod: { ...nextDate, openingCashKrw: closingCashKrw, coverage: 'full-period' },
+    operatingExpensePeriod: { ...nextDate, marketingKrw: 0, disclosureKrw: 0, coverage: 'full-period' },
     settlements: [settlement, ...current.settlements].slice(0, 18),
   }, `${year}-${String(month).padStart(2, '0')} 월말 결산 완료. 순손익 ${formatMoney(netProfit)}. 고정비 ${formatMoney(expense)} / 이익세 ${formatMoney(tax)} 지급, 남은 현금 ${formatMoney(closingCashKrw)}.${current.cashFlowPeriod.coverage === 'since-load' ? ' 현금흐름은 불러온 뒤의 변화만 포함합니다.' : ''}`);
 }
@@ -772,6 +807,7 @@ export function createLedgerSnapshotAction(state) {
     label: `${current.company.year}-${String(current.company.month).padStart(2, '0')} 원장 스냅샷`,
     checksum,
     manifestChecksum: ledgerManifestChecksum(payload, LEDGER_RESTORE_TABLES),
+    operatingExpenseChecksum: simpleChecksum(JSON.stringify(payload.operatingExpensePeriod)),
     rowCount: ledgerRowCount(current),
     payload,
   };
@@ -785,10 +821,12 @@ export function restoreLatestSnapshotAction(state) {
   const current = normalizeState(state);
   const snapshot = current.ledgerSnapshots[0];
   if (!snapshot?.payload) return addLog(current, '복원할 원장 스냅샷이 없습니다.');
+  if (!validOperatingExpenseSnapshot(snapshot)) return addLog(current, '복원 차단: 스냅샷의 지급비용 집계가 손상되어 복원할 수 없습니다.');
   const restored = normalizeState({
     ...current,
     ...snapshot.payload,
     cashFlowPeriod: snapshot.payload.cashFlowPeriod ?? null,
+    operatingExpensePeriod: snapshot.payload.operatingExpensePeriod ?? null,
     ledgerSnapshots: current.ledgerSnapshots,
     restoreHistory: current.restoreHistory,
   });
@@ -839,6 +877,9 @@ export function restoreLedgerSnapshotAction(state, restoreMode = 'FULL_LEDGER', 
     cashFlowPeriod: targetTableNames.has('company_info')
       ? payload.cashFlowPeriod ?? null
       : current.cashFlowPeriod,
+    operatingExpensePeriod: targetTableNames.has('company_info')
+      ? normalizeOperatingExpensePeriod(payload.operatingExpensePeriod, payload.company || current.company, payload.capitalMarket?.disclosures)
+      : current.operatingExpensePeriod,
     global: {
       ...current.global,
       ...(restoredPayload.global || {}),
@@ -974,6 +1015,10 @@ export function ledgerRestorePlan(state, restoreMode = 'FULL_LEDGER', tablesText
   const snapshotChecksum = snapshot.manifestChecksum || snapshot.checksum || simpleChecksum(JSON.stringify(snapshot.payload || {}));
   const fullManifestChecksum = ledgerManifestChecksum(snapshot.payload, LEDGER_RESTORE_TABLES);
   const snapshotChecksumValid = snapshot.manifestChecksum ? snapshot.manifestChecksum === fullManifestChecksum : true;
+  const operatingExpenseChecksumValid = validOperatingExpenseSnapshot(snapshot);
+  const operatingExpenseChanged = selection.tables.some((table) => table.tableName === 'company_info')
+    && snapshot.payload.operatingExpensePeriod
+    && JSON.stringify(snapshot.payload.operatingExpensePeriod) !== JSON.stringify(current.operatingExpensePeriod);
   const recalculatedSnapshotChecksum = ledgerManifestChecksum(snapshot.payload, selection.tables);
   const currentChecksum = ledgerManifestChecksum(snapshotPayload(current), selection.tables);
   const tableDiffs = selection.tables.map((table) => tableDiffFor(snapshot.payload, snapshotPayload(current), table));
@@ -982,11 +1027,14 @@ export function ledgerRestorePlan(state, restoreMode = 'FULL_LEDGER', tablesText
   const warnings = [
     ...selection.warnings,
     ...(!snapshotChecksumValid ? ['스냅샷 manifest checksum이 전체 row JSON 재계산값과 다릅니다.'] : []),
+    ...(!operatingExpenseChecksumValid ? ['스냅샷의 지급비용 집계가 손상되어 복원할 수 없습니다.'] : []),
+    ...(operatingExpenseChanged ? ['월간 지급비용 집계가 스냅샷과 다릅니다.'] : []),
     ...(restoreOrder.cycleDetected ? ['FK 의존성 그래프에 순환이 감지되어 자동 물리 복원 전 별도 검토가 필요합니다.'] : []),
     ...restoreOrder.missingDependencies.map((entry) => `${entry.tableName} 복원 시 부모 테이블 ${entry.missing.join(', ')}이(가) 선택되지 않았습니다.`),
-    ...(changedCount ? [`현재 원장과 스냅샷 사이에 ${changedCount}개 테이블 차이가 있습니다.`] : ['현재 원장과 선택 스냅샷이 이미 일치합니다.']),
+    ...(changedCount ? [`현재 원장과 스냅샷 사이에 ${changedCount}개 테이블 차이가 있습니다.`] : operatingExpenseChanged ? [] : ['현재 원장과 선택 스냅샷이 이미 일치합니다.']),
   ];
-  const blocked = Boolean(selection.blocked || !snapshotChecksumValid || restoreOrder.cycleDetected);
+  const blocked = Boolean(selection.blocked || !snapshotChecksumValid || !operatingExpenseChecksumValid || restoreOrder.cycleDetected);
+  const changed = changedCount > 0 || Boolean(operatingExpenseChanged);
   const deletedRowCount = tableDiffs.reduce((sum, row) => sum + row.currentRowCount, 0);
   const insertedRowCount = tableDiffs.reduce((sum, row) => sum + row.snapshotRowCount, 0);
   return {
@@ -995,8 +1043,8 @@ export function ledgerRestorePlan(state, restoreMode = 'FULL_LEDGER', tablesText
     dryRunStatus: blocked ? 'BLOCKED' : 'READY',
     restorable: !blocked,
     physicalRestore: mode !== 'CORE_STATE',
-    beforeDiffStatus: changedCount ? 'DIFF' : 'MATCH',
-    afterDiffStatus: changedCount ? 'PENDING_RESTORE' : 'MATCH',
+    beforeDiffStatus: changed ? 'DIFF' : 'MATCH',
+    afterDiffStatus: changed ? 'PENDING_RESTORE' : 'MATCH',
     message: blocked
       ? selection.message || '복원 검증에 실패했습니다.'
       : `${modeLabel} dry-run 준비 완료. 삭제 ${deletedRowCount} rows / 삽입 ${insertedRowCount} rows 예정.`,
@@ -1036,6 +1084,10 @@ export function createProgressExportAction(state) {
     `Receivables: ${formatMoney(summary.receivableAmount)}`,
     `Foreign Receivables: ${formatMoney(summary.foreignReceivableAmount)}`,
     `Sales: ${formatMoney(management.income.sales)}`,
+    `Marketing Expenses: ${formatMoney(management.income.marketingExpenses)}`,
+    `Disclosure Expenses: ${formatMoney(management.income.disclosureExpenses)}`,
+    `Paid Operating Expenses: ${formatMoney(management.income.paidOperatingExpenses)}`,
+    `Operating Expense Coverage: ${management.income.operatingExpenseCoverage}`,
     `Operating Profit: ${formatMoney(management.income.operatingProfit)}`,
     `Global Export Sales: ${formatMoney(management.global.exportSalesKrw)}`,
     `Market Cap: ${formatMoney(management.capital.marketCapKrw)}`,
@@ -1048,7 +1100,7 @@ export function createProgressExportAction(state) {
     id: `EXP-${Date.now().toString(36)}`,
     createdAt: new Date().toISOString(),
     exportType: 'MANAGEMENT_REPORT',
-    itemCount: 14 + diffRows.length,
+    itemCount: content.split('\n').length,
     exportNote: `${current.company.year}-${String(current.company.month).padStart(2, '0')} 진행 보고서`,
     checksum: simpleChecksum(content),
     content,
@@ -1314,6 +1366,7 @@ export function managementReport(state) {
   const fxExposure = Number(global.unhedgedTradePlanCount || 0) >= 2;
   const recommendations = [];
 
+  if (income.operatingExpenseCoverage === 'recorded-only') recommendations.push('이전 저장 자료에는 운영비 기록이 부족해, 이번 달 손익에 기록이 남은 지급비용만 반영합니다.');
   if (operatingProfit < 0) recommendations.push('영업손실 상태입니다. 고정비 또는 저마진 상품 비중을 먼저 점검하세요.');
   if (receivableRatio >= 25) recommendations.push('매출채권 비중이 높습니다. 월말 결산 전에 회수 액션을 우선 처리하는 편이 좋습니다.');
   if (overdueAmount > 0) recommendations.push('연체 채권이 있습니다. 신용한도와 신규 주문 승인 기준을 보수적으로 두세요.');
@@ -1708,19 +1761,31 @@ function periodIncomeSummary(state) {
   const sales = localSales + exportSalesKrw;
   const cogs = localCogs + exportCostKrw;
   const grossProfit = sales - cogs;
-  const operatingProfit = grossProfit - fixedExpenses - inventoryWriteDownNet;
+  const marketingExpenses = state.operatingExpensePeriod.marketingKrw;
+  const disclosureExpenses = state.operatingExpensePeriod.disclosureKrw;
+  const paidOperatingExpenses = marketingExpenses + disclosureExpenses;
+  const operatingProfit = grossProfit - fixedExpenses - paidOperatingExpenses - inventoryWriteDownNet;
   const tax = operatingProfit > 0 ? Math.round(operatingProfit * 0.22) : 0;
   return {
     year, month, localSales, localCogs, exportSalesKrw, exportCostKrw,
-    sales, cogs, grossProfit, fixedExpenses, totalCost: cogs + fixedExpenses,
+    sales, cogs, grossProfit, fixedExpenses, totalCost: cogs + fixedExpenses + paidOperatingExpenses,
+    marketingExpenses, disclosureExpenses, paidOperatingExpenses,
+    operatingExpenseCoverage: state.operatingExpensePeriod.coverage,
     inventoryWriteDownNet, operatingProfit, tax, netProfit: operatingProfit - tax,
   };
+}
+
+function validOperatingExpenseSnapshot(snapshot) {
+  if (!Object.hasOwn(snapshot, 'operatingExpenseChecksum')) return true;
+  return typeof snapshot.operatingExpenseChecksum === 'string'
+    && snapshot.operatingExpenseChecksum === simpleChecksum(JSON.stringify(snapshot.payload?.operatingExpensePeriod ?? null));
 }
 
 function snapshotPayload(state) {
   return {
     company: { ...state.company },
     cashFlowPeriod: { ...state.cashFlowPeriod },
+    operatingExpensePeriod: { ...state.operatingExpensePeriod },
     inventory: JSON.parse(JSON.stringify(state.inventory)),
     orders: JSON.parse(JSON.stringify(state.orders)),
     receivables: JSON.parse(JSON.stringify(state.receivables)),
