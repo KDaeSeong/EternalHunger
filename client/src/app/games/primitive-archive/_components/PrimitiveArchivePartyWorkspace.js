@@ -53,8 +53,9 @@ export default function PrimitiveArchivePartyWorkspace(props) {
             </div>
           ) : null}
         </div>
+        <p className="games-muted">현재 조건의 밤 생존 예측입니다. 식사·휴식·연료·장비를 바꾸면 예측도 달라집니다. 모닥불과 대피소는 공유하지만 옷은 착용자만 보호합니다.</p>
         <div className="primitive-party-list">
-          {partyView.map(({ member, chances, basisAction, basisChance, badges }) => (
+          {partyView.map(({ member, chances, basisAction, basisChance, badges, nightSurvival }) => (
             <button
               type="button"
               key={member.id}
@@ -67,6 +68,12 @@ export default function PrimitiveArchivePartyWorkspace(props) {
                 <strong>{member.name} · {member.role}</strong>
                 <small>HP {member.hp} · 허기 {member.hunger} · ST {member.stamina} · 체온 {Number(member.bodyTemp ?? 37).toFixed(1)}° · {badges.join(' / ')}</small>
                 <small>추천 {actionLabel(basisAction)} {chanceText(basisChance)} · 채집 {chanceText(chances.gather)} · 사냥 {chanceText(chances.hunt)} · 제작 {chanceText(chances.craft)}</small>
+                {nightSurvival ? (
+                  <small className="primitive-night-forecast">
+                    <span>밤 예상 HP {nightSurvival.currentHp} → {nightSurvival.hp} · 개인 보온 {nightSurvival.insulation}</span>
+                    <span>추위 {nightSurvival.coldDamage} / 허기 {nightSurvival.hungerDamage} / 저체온 {nightSurvival.hypothermiaDamage} 피해</span>
+                  </small>
+                ) : null}
               </span>
             </button>
           ))}

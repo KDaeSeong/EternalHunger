@@ -44,6 +44,7 @@ import {
   getRunProgressReport,
   itemName,
   logCapacity,
+  nightSurvivalRows,
   objectParticle,
   partyInsulation,
   perkRows,
@@ -281,6 +282,7 @@ export default function PrimitiveArchivePlayContent() {
   }, [setMusicScene]);
 
   const partyView = useMemo(() => {
+    const nightForecasts = new Map(nightSurvivalRows(state).map((row) => [row.id, row]));
     const rows = state.party.map((member, index) => {
       const chances = {
         gather: actionChance(state, member.id, 'gather', 0.5),
@@ -302,6 +304,7 @@ export default function PrimitiveArchivePlayContent() {
         staminaRatio,
         recommendScore,
         badges: vitalBadges(member),
+        nightSurvival: nightForecasts.get(member.id) || null,
       };
     });
 

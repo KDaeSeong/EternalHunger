@@ -8842,6 +8842,19 @@
   color: #1f6c95;
 }
 
+.primitive-party-member small.primitive-night-forecast {
+  margin-top: 4px;
+  overflow: visible;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.primitive-night-forecast > span {
+  display: block;
+}
+
 .primitive-run-headline {
   margin: 0;
   color: #5f6c78;

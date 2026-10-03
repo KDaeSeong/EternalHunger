@@ -3379,11 +3379,12 @@ function settleTribeDay(state) {
   return next;
 }
 
-function nightColdExposure(state) {
+function nightColdExposure(state, member) {
   const preset = difficultyPreset(state);
   const fireActive = campFireActive(state);
   const fireWarmth = fireActive ? Number(state.camp.fireLevel || 0) * 4 : 0;
-  const warmth = fireWarmth + Number(state.camp.shelterLevel || 0) * 3 + partyInsulation(state) * 2;
+  // Camp heat is shared; worn clothing protects only its actual wearer.
+  const warmth = fireWarmth + Number(state.camp.shelterLevel || 0) * 3 + actorInsulation(state, member.id) * 2;
   const weatherLoreMul = (hasTechPassive(state, 'WEATHER_FORECAST_UP') ? 0.95 : 1)
     * (hasTechPassive(state, 'WEATHER_LORE_UP') ? 0.9 : 1)
     * (hasTechPassive(state, 'WEATHER_DAMAGE_DOWN') ? 0.9 : 1)
@@ -3403,7 +3404,7 @@ function nightColdExposure(state) {
   return { warmth, coldDamage };
 }
 
-function nightBodyTemperature(state, member, exposure) {
+function nightBodyTemperature(state, member, exposure = nightColdExposure(state, member)) {
   const recovery = exposure.warmth >= Number(state.weather?.cold || 0) ? 0.65 : 0;
   return clamp(
     Number(member.bodyTemp ?? 37) - exposure.coldDamage * 0.24 - (state.weather?.id === 'snow' ? 0.35 : 0) + recovery,
@@ -3412,7 +3413,7 @@ function nightBodyTemperature(state, member, exposure) {
   );
 }
 
-function nightSurvivalProjection(state, member, exposure = nightColdExposure(state)) {
+function nightSurvivalProjection(state, member, exposure = nightColdExposure(state, member)) {
   const hunger = clamp(Number(member.hunger || 0)
     + Math.round(8 * difficultyPreset(state).hungerMultiplier) + Math.floor(exposure.coldDamage / 3), 0, 100);
   const hungerDamage = hunger >= 90 ? 10 : hunger >= 75 ? 4 : 0;
@@ -3421,6 +3422,22 @@ function nightSurvivalProjection(state, member, exposure = nightColdExposure(sta
   const damage = exposure.coldDamage + hungerDamage + hypothermiaDamage;
   return { hp: clamp(Number(member.hp || 0) - damage, 0, 100), hunger, bodyTemp,
     damage, coldDamage: exposure.coldDamage, hungerDamage, hypothermiaDamage };
+}
+
+export function nightSurvivalRows(state) {
+  const current = normalizeState(state);
+  if (current.ended) return [];
+  return livingParty(current).map((member) => {
+    const exposure = nightColdExposure(current, member);
+    return {
+      id: member.id,
+      name: member.name,
+      currentHp: Number(member.hp || 0),
+      insulation: actorInsulation(current, member.id),
+      warmth: exposure.warmth,
+      ...nightSurvivalProjection(current, member, exposure),
+    };
+  });
 }
 
 export function advanceDay(state, options = {}) {
@@ -3435,11 +3452,10 @@ function settleNextDay(state, options) {
   const preset = difficultyPreset(state);
   const weather = rollWeather(state.day + 1, options.rng || Math.random);
   const fireActive = campFireActive(state);
-  const exposure = nightColdExposure(state);
   const fuelSaverNight = hasTechPassive(state, 'CAMP_FUEL_SAVER') && Number(state.day || 1) % 2 === 1;
   const fuelUsed = fireActive && !fuelSaverNight ? 1 : 0;
   const party = state.party.map((member) => {
-    const { hp, hunger, bodyTemp } = nightSurvivalProjection(state, member, exposure);
+    const { hp, hunger, bodyTemp } = nightSurvivalProjection(state, member);
     const shelterRecovery = (34 + Number(state.camp.shelterLevel || 0) * 8) * preset.staminaRecoveryMultiplier;
     return {
       ...member,
@@ -6046,22 +6062,26 @@ export function autoArchiveDevelopmentPlan(state) {
   return null;
 }
 
+function leastLivingInsulation(state) {
+  const living = livingParty(state);
+  return living.length ? Math.min(...living.map((member) => actorInsulation(state, member.id))) : 0;
+}
+
 function autoNightNeedsFire(state) {
   if (Number(state.camp.fireLevel || 0) <= 0) return false;
-  const passiveWarmth = Number(state.camp.shelterLevel || 0) * 3 + partyInsulation(state) * 2;
+  const passiveWarmth = Number(state.camp.shelterLevel || 0) * 3 + leastLivingInsulation(state) * 2;
   return Number(state.weather?.cold || 0) > passiveWarmth;
 }
 
 function autoNightHasHypothermiaRisk(state) {
-  const exposure = nightColdExposure(state);
-  return livingParty(state).some((member) => nightBodyTemperature(state, member, exposure) < 34.5);
+  return livingParty(state).some((member) => nightBodyTemperature(state, member) < 34.5);
 }
 
 function autoColdCampKind(state) {
   if (!campFireActive(state)) return '';
   const cold = Number(state.weather?.cold || 0);
   const warmth = Number(state.camp.fireLevel || 0) * 4
-    + Number(state.camp.shelterLevel || 0) * 3 + partyInsulation(state) * 2;
+    + Number(state.camp.shelterLevel || 0) * 3 + leastLivingInsulation(state) * 2;
   if (cold <= warmth || (cold < 8 && livingParty(state).every((member) => Number(member.bodyTemp ?? 37) >= 35.2))) return '';
   const actions = campActionRows(state);
   return ['fire', 'shelter'].find((id) => actions.some((action) => action.id === id && action.enabled)) || '';
@@ -6111,21 +6131,20 @@ function previewReadyAutoMeal(state, meal) {
   });
 }
 
-function restsNeededBeforeNight(state, member, budget, exposure) {
+function restsNeededBeforeNight(state, member, budget) {
   let rested = member;
   for (let count = 1; count <= budget; count += 1) {
     rested = { ...rested, ...restRecoveryFields(state, rested) };
-    if (nightSurvivalProjection(state, rested, exposure).hp > 0) return count;
+    if (nightSurvivalProjection(state, rested).hp > 0) return count;
   }
   return 0;
 }
 
 function autoNightRescuePlan(state, meal) {
   const budget = Math.max(0, Math.floor(Number(state.ap || 0)));
-  const exposure = nightColdExposure(state);
   const endangered = livingParty(state).map((member) => {
-    const night = nightSurvivalProjection(state, member, exposure);
-    return { member, night, rests: night.hp <= 0 ? restsNeededBeforeNight(state, member, budget, exposure) : 0 };
+    const night = nightSurvivalProjection(state, member);
+    return { member, night, rests: night.hp <= 0 ? restsNeededBeforeNight(state, member, budget) : 0 };
   }).filter((candidate) => candidate.night.hp <= 0);
   const candidates = endangered.filter((candidate) => candidate.rests > 0)
     .sort((a, b) => a.rests - b.rests || Number(a.member.hp || 0) - Number(b.member.hp || 0));
@@ -6144,10 +6163,10 @@ function autoNightRescuePlan(state, meal) {
     const neededAfterMeal = [];
     for (const candidate of endangered) {
       const fed = getActor(afterMeal, candidate.member.id);
-      if (nightSurvivalProjection(afterMeal, fed, exposure).hp > 0) {
+      if (nightSurvivalProjection(afterMeal, fed).hp > 0) {
         protectedAfterMeal += 1;
       } else {
-        const needed = restsNeededBeforeNight(afterMeal, fed, mealBudget, exposure);
+        const needed = restsNeededBeforeNight(afterMeal, fed, mealBudget);
         if (needed > 0) neededAfterMeal.push(needed);
       }
     }
