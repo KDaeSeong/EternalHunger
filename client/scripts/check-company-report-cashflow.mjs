@@ -8,6 +8,8 @@ import ts from 'typescript';
 import {
   CAPITAL_DISCLOSURE_TYPES,
   CAPITAL_FINANCING_TYPES,
+  advanceBusinessDayAction,
+  calendarSummary,
   capitalMarketSummary,
   closeCapitalMarketAction,
   closeInventoryValuationAction,
@@ -120,11 +122,17 @@ check('production, shipment and collection each affect cash only when paid', () 
   const shipped = shipOrderAction(ordered, ordered.orders[0].id);
   assert.equal(shipped.company.cashKrw, produced.company.cashKrw, 'Shipment creates an invoice, not cash.');
   assert.equal(shipped.inventory[product.id].onHand, produced.inventory[product.id].onHand - quantity);
-  assert.equal(expectClosing(shipped).settlements[0].netCashflow, -productionCost - fixedExpenses);
+  const firstClose = expectClosing(shipped);
+  assert.equal(firstClose.settlements[0].netCashflow, -productionCost - fixedExpenses);
   const receipt = shipped.receivables[0];
-  const collected = collectReceivableAction(shipped, receipt.id);
-  assert.equal(collected.company.cashKrw, produced.company.cashKrw + receipt.amount);
-  assert.equal(expectClosing(collected).settlements[0].netCashflow, receipt.amount - productionCost - fixedExpenses);
+  const blocked = collectReceivableAction(shipped, receipt.id);
+  assert.equal(blocked.company.cashKrw, shipped.company.cashKrw, 'An unpaid 30-day invoice cannot produce cash early.');
+  assert.equal(receivableRows(blocked)[0].canCollect, false);
+  const daysToDue = Math.round((Date.parse(receipt.dueDate) - Date.parse(calendarSummary(firstClose).currentDate)) / 86400000);
+  const matured = advanceBusinessDayAction(firstClose, daysToDue);
+  const collected = collectReceivableAction(matured, receipt.id);
+  assert.equal(collected.company.cashKrw, produced.company.cashKrw - fixedExpenses + receipt.amount);
+  assert.equal(expectClosing(collected).settlements[0].netCashflow, receipt.amount - fixedExpenses, 'Prior-month production costs cannot be charged again in the collection month.');
 });
 
 function queuedCreditOrders() {
@@ -247,12 +255,16 @@ check('credit boundary permits the exact remaining amount and blocks one additio
 check('twelve real business months keep credit, collections and profitable closing linked across a year', () => {
   let state = seed();
   const openingCash = state.company.cashKrw;
+  const monthlyBatches = 11;
   for (let month = 0; month < 12; month += 1) {
     if (month === 6) state = normalizeState(clone(state));
     const periodOpeningCash = state.company.cashKrw;
-    for (let batch = 0; batch < 12; batch += 1) {
-      state = inboundInventoryAction(state, 'book-akashi', 500);
-      state = inboundInventoryAction(state, 'book-akashi', 500);
+    // Consolidate production into four days, then use 22 shipment days.
+    // The February calendar must constrain this run without free time or cash.
+    state = inboundInventoryAction(state, 'book-akashi', 6000);
+    state = inboundInventoryAction(state, 'book-akashi', monthlyBatches * 1000 - 6000);
+    assert.equal(state.company.day, 5);
+    for (let batch = 0; batch < monthlyBatches; batch += 1) {
       const pending = [];
       for (let index = 0; index < 2; index += 1) {
         const previousCount = state.orders.length;
@@ -268,8 +280,10 @@ check('twelve real business months keep credit, collections and profitable closi
       assert.equal(state.orders.find((row) => row.id === pending[1]).status, 'SHIPPED');
       state = collectReceivableAction(state, state.receivables.find((row) => row.orderId === pending[1]).id);
       assert.equal(outstandingFor(state, 'hanbit-event'), 0);
-      assert.equal(state.inventory['book-akashi'].onHand, 480);
+      assert.equal(state.inventory['book-akashi'].onHand, 480 + (monthlyBatches - batch - 1) * 1000);
     }
+    assert.equal(state.company.day, 27);
+    assert.ok(calendarSummary(state).daysRemaining >= 0, 'The business run must fit inside each real calendar month.');
     for (const vat of vatScheduleRows(state).filter((row) => row.remainingAmount > 0)) {
       state = payVatAction(state, vat.targetYear, vat.targetMonth, vat.remainingAmount);
     }
@@ -281,7 +295,7 @@ check('twelve real business months keep credit, collections and profitable closi
   }
   assert.deepEqual([state.company.year, state.company.month], [2027, 2]);
   assert.ok(state.company.cashKrw > openingCash);
-  assert.equal(state.orders.filter((row) => row.partnerId === 'hanbit-event' && row.status === 'SHIPPED').length, 288);
+  assert.equal(state.orders.filter((row) => row.partnerId === 'hanbit-event' && row.status === 'SHIPPED').length, monthlyBatches * 2 * 12);
   assert.equal(state.capitalMarket.financingPlans.length, 0, 'The reference business run must not rely on funding actions or ledger restores.');
 });
 
@@ -519,7 +533,8 @@ check('collecting last month\'s actual shipment is cash in the new period only',
   const shipped = shipOrderAction(ordered, ordered.orders[0].id);
   const firstClose = expectClosing(shipped);
   const invoice = shipped.receivables[0];
-  const collected = collectReceivableAction(firstClose, invoice.id);
+  const daysToDue = Math.round((Date.parse(invoice.dueDate) - Date.parse(calendarSummary(firstClose).currentDate)) / 86400000);
+  const collected = collectReceivableAction(advanceBusinessDayAction(firstClose, daysToDue), invoice.id);
   const secondClose = expectClosing(collected);
   assert.equal(secondClose.settlements[0].netCashflow, invoice.amount - fixedExpenses);
   assert.equal(secondClose.settlements[1].netCashflow, -fixedExpenses);
@@ -542,6 +557,7 @@ const jsxModules = new Set([
   '../src/app/games/company-report/_components/CompanyReportArchiveLedgerPanels.js',
   '../src/app/games/company-report/_components/CompanyReportGlobalCapitalPanels.js',
   '../src/app/games/company-report/_components/CompanyReportManagementPanels.js',
+  '../src/app/games/company-report/_components/CompanyReportGuidancePanel.js',
   '../src/app/games/company-report/_components/CompanyReportVisuals.js',
   '../src/app/games/company-report/_lib/companyReportPlayHelpers.js',
   '../src/app/games/_components/GamePlayPrimitives.js',
@@ -559,9 +575,11 @@ registerHooks({ load(url, context, nextLoad) {
 const { default: LedgerPanel } = await import('../src/app/games/company-report/_components/CompanyReportArchiveLedgerPanels.js');
 const { default: GlobalCapitalPanels } = await import('../src/app/games/company-report/_components/CompanyReportGlobalCapitalPanels.js');
 const { default: ManagementPanels } = await import('../src/app/games/company-report/_components/CompanyReportManagementPanels.js');
+const { buildCompanyReportGuidance } = await import('../src/app/games/company-report/_components/CompanyReportGuidancePanel.js');
+const { buildCompanyReportPlayViewModel } = await import('../src/app/games/company-report/_lib/companyReportPlayViewModel.js');
 const { buildCompanyReportExportPayload, buildCompanyReportExportCsv } = await import('../src/app/games/company-report/_lib/companyReportExportRuntime.js');
 
-function renderLedger(state) {
+function renderLedger(state, overrides = {}) {
   return renderToStaticMarkup(React.createElement(LedgerPanel, {
     state,
     orders: orderRows(state), stocks: inventoryRows(state), receivables: receivableRows(state),
@@ -570,6 +588,7 @@ function renderLedger(state) {
     restoreMode: 'FULL_LEDGER', restorePlan: ledgerRestorePlan(state), selectedRestoreTables: '',
     resultPresentation: { action: 'closing', label: '월말 결산', tone: 'warning' },
     recentActionText: state.log[0], quantity: 1, partnerId: 'future-book', productId: PRODUCTS[0].id,
+    ...overrides,
   }));
 }
 
@@ -608,6 +627,61 @@ check('real JSON and CSV export helpers separate cash balance from period flow',
   const partialPayload = buildCompanyReportExportPayload({ state: partial, restoreMode: 'FULL_LEDGER', selectedRestoreTables: '' });
   assert.equal(partialPayload.management.cashFlow.cashflowCoverage, 'since-load');
   assert.ok(buildCompanyReportExportCsv(partialPayload).includes('"finance","cashflowCoverage","since-load"'));
+});
+
+check('actual ledger controls show contractual terms, waiting dates and disabled early collection', () => {
+  const ordered = createOrderAction(seed(), 'future-book', 'book-akashi', 10);
+  const state = shipOrderAction(ordered, ordered.orders[0].id);
+  const id = state.receivables[0].id;
+  const view = buildCompanyReportPlayViewModel({ state, selectedReceivableId: id });
+  assert.equal(view.selectedReceivable.canCollect, false, 'An explicit waiting invoice must not be silently replaced by another collectible invoice.');
+  const pendingHtml = renderLedger(state, view).replace(/<!--[\s\S]*?-->/g, '');
+  assert.ok(pendingHtml.includes('결제 30일'));
+  assert.ok(pendingHtml.includes('2026-03-04'));
+  assert.ok(pendingHtml.includes('남은 작업일 26일'));
+  const pendingButton = [...pendingHtml.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)]
+    .map((match) => match[0]).find((button) => button.includes('선택 채권 전액 회수'));
+  assert.ok(pendingButton);
+  assert.match(pendingButton, /\bdisabled=""/);
+  const matured = advanceBusinessDayAction(monthEndCloseAction(state), 3);
+  const maturedView = buildCompanyReportPlayViewModel({ state: matured, selectedReceivableId: id });
+  assert.equal(maturedView.selectedReceivable.canCollect, true);
+  const matureHtml = renderLedger(matured, maturedView).replace(/<!--[\s\S]*?-->/g, '');
+  const collectButton = [...matureHtml.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)]
+    .map((match) => match[0]).find((button) => button.includes('선택 채권 전액 회수'));
+  assert.ok(collectButton);
+  assert.doesNotMatch(collectButton, /\bdisabled=/);
+  assert.ok(matureHtml.includes('2026-03-04'));
+});
+
+check('guidance recommends waiting for unpaid invoices instead of promising unavailable cash', () => {
+  let state = seed();
+  for (const row of receivableRows(state).filter((item) => item.canCollect)) state = collectReceivableAction(state, row.id);
+  for (let index = 0; index < 2; index += 1) {
+    state = createOrderAction(state, 'future-book', 'book-akashi', 10);
+    state = shipOrderAction(state, state.orders[0].id);
+  }
+  const guidanceFor = (value) => buildCompanyReportGuidance({ state: value, ...buildCompanyReportPlayViewModel({ state: value }) });
+  assert.equal(calendarSummary(state).collectibleCount, 0);
+  assert.equal(guidanceFor(state).primaryAction.title, '결제 대금 입금 대기');
+  assert.match(guidanceFor(state).primaryAction.action, /월말 결산 비용/);
+  const nextMonth = monthEndCloseAction(state);
+  assert.match(guidanceFor(nextMonth).primaryAction.action, /2026-03-04.*일정/);
+  const matured = advanceBusinessDayAction(nextMonth, 3);
+  assert.equal(guidanceFor(matured).primaryAction.title, '미수 채권 회수');
+  assert.equal(calendarSummary(matured).collectibleCount, 1);
+});
+
+check('real JSON and CSV exports preserve the same business date and pending payment calendar', () => {
+  const ordered = createOrderAction(seed(), 'future-book', 'book-akashi', 10);
+  const state = advanceBusinessDayAction(shipOrderAction(ordered, ordered.orders[0].id), 5);
+  const payload = buildCompanyReportExportPayload({ state, restoreMode: 'FULL_LEDGER', selectedRestoreTables: '' });
+  assert.deepEqual(payload.calendar, calendarSummary(state));
+  assert.equal(JSON.parse(JSON.stringify(payload)).calendar.currentDate, '2026-02-07');
+  const csv = buildCompanyReportExportCsv(payload);
+  assert.ok(csv.includes('"company","businessDate","2026-02-07"'));
+  assert.ok(csv.includes('"company","daysRemaining","21"'));
+  assert.ok(csv.includes('"company","nextCollectionDate","2026-03-04"'));
 });
 
 function renderCapitalPanel(state) {

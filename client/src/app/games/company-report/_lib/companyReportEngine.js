@@ -14,6 +14,7 @@ const HEDGE_COVERAGE_RATIO = 0.65;
 const HEDGE_PREMIUM_RATE = 0.012;
 // Fictional, deterministic monthly quotes, not live investment market data.
 const FX_MONTHLY_MOVES = [0.025, -0.018, 0.035, -0.026, 0.012, -0.031];
+const WORK_UNITS_PER_EMPLOYEE_PER_DAY = 125;
 
 export {
   GAME_SLUG,
@@ -40,6 +41,7 @@ export function createNewState(options = {}) {
       name: '청람',
       year: 2026,
       month: 2,
+      day: 1,
       cashKrw: 1500000000,
       paidInCapital: 100000000,
       reputation: 60,
@@ -140,9 +142,10 @@ export function createNewState(options = {}) {
 export function normalizeState(value) {
   const base = createNewState();
   if (!value || typeof value !== 'object') return base;
-  const company = value.company && typeof value.company === 'object'
+  const rawCompany = value.company && typeof value.company === 'object'
     ? { ...base.company, ...value.company }
     : base.company;
+  const company = { ...rawCompany, day: businessDay(rawCompany) };
   return {
     ...base,
     ...value,
@@ -200,6 +203,95 @@ function normalizeOperatingExpensePeriod(period, company, disclosures = []) {
     .filter((row) => row && Number(row.year) === year && Number(row.month) === month && validAmount(row.costKrw))
     .reduce((sum, row) => sum + row.costKrw, 0);
   return { year, month, marketingKrw: 0, disclosureKrw, coverage: 'recorded-only' };
+}
+
+function monthDays(company) {
+  return new Date(Date.UTC(Number(company.year), Number(company.month), 0)).getUTCDate();
+}
+
+function businessDay(company) {
+  const day = Number(company.day ?? 1);
+  return Number.isFinite(day) ? Math.max(1, Math.min(monthDays(company), Math.floor(day))) : 1;
+}
+
+function businessDate(company) {
+  return `${company.year}-${String(company.month).padStart(2, '0')}-${String(businessDay(company)).padStart(2, '0')}`;
+}
+
+function dateValue(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const time = Date.parse(`${value}T00:00:00.000Z`);
+  return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value ? time : null;
+}
+
+function addDateDays(value, days) {
+  const time = dateValue(value);
+  return time === null ? '' : new Date(time + days * 86400000).toISOString().slice(0, 10);
+}
+
+function productionCapacity(company) {
+  const employees = Number(company.employeeCount);
+  return Number.isFinite(employees) ? Math.max(0, Math.floor(employees)) * WORK_UNITS_PER_EMPLOYEE_PER_DAY : 0;
+}
+
+function workDaysForUnits(company, units, shippingOnly = false) {
+  const capacity = productionCapacity(company) * (shippingOnly ? 2 : 1);
+  return capacity > 0 && Number.isFinite(units) && units > 0 ? Math.max(1, Math.ceil(units / capacity)) : Infinity;
+}
+
+function companyAfterWork(company, days) {
+  if (!Number.isSafeInteger(days) || days < 1 || days > monthDays(company) - businessDay(company)) return null;
+  return { ...company, day: businessDay(company) + days };
+}
+
+function workBlocked(state, days) {
+  const required = Number.isFinite(days) ? `${days}일 필요` : '직원과 수량 확인 필요';
+  return addLog(state, `이번 달 작업일이 부족해 처리할 수 없습니다. ${required} / 남은 ${monthDays(state.company) - businessDay(state.company)}일. 월말 결산 후 다음 달에 진행하세요.`);
+}
+
+function receivablePaymentTiming(company, row) {
+  let dueDate = '';
+  let timingCoverage = 'legacy-undated';
+  if (row.paymentTermsVersion === 1) {
+    const terms = Number(row.termDays);
+    if (dateValue(row.issuedDate) !== null && Number.isSafeInteger(terms) && terms >= 0 && terms <= 3650) {
+      dueDate = addDateDays(row.issuedDate, terms);
+      timingCoverage = row.dueDate === dueDate ? 'contract-dated' : 'recovered-from-contract';
+    } else timingCoverage = 'invalid';
+  } else if (row.dueDate != null && row.dueDate !== '') {
+    if (dateValue(row.dueDate) !== null) { dueDate = row.dueDate; timingCoverage = 'dated-legacy'; }
+    else timingCoverage = 'invalid';
+  }
+  const daysUntilDue = dueDate ? Math.round((dateValue(dueDate) - dateValue(businessDate(company))) / 86400000) : null;
+  return { dueDate, daysUntilDue, timingCoverage,
+    timingEligible: timingCoverage !== 'invalid' && (daysUntilDue === null || daysUntilDue <= 0) };
+}
+
+export function calendarSummary(state) {
+  const current = normalizeState(state);
+  const today = businessDate(current.company);
+  const waiting = receivableRows(current).filter((row) => row.remaining > 0 && row.daysUntilDue > 0)
+    .sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+  const daysRemaining = monthDays(current.company) - current.company.day;
+  return {
+    currentDate: today, daysInMonth: monthDays(current.company), daysRemaining,
+    productionUnitsPerDay: productionCapacity(current.company),
+    shipmentUnitsPerDay: productionCapacity(current.company) * 2,
+    nextCollectionDate: waiting[0]?.dueDate || '',
+    nextCollectionInDays: waiting[0]?.daysUntilDue || 0,
+    canAdvanceToNextCollection: Boolean(waiting[0] && waiting[0].daysUntilDue <= daysRemaining),
+    collectibleCount: receivableRows(current).filter((row) => row.canCollect).length,
+  };
+}
+
+export function advanceBusinessDayAction(state, days = 1) {
+  const current = normalizeState(state);
+  const count = Number(days);
+  if (!Number.isSafeInteger(count) || count < 1) return addLog(current, '진행할 날짜를 확인하세요. 하루 이상 정수로 입력하세요.');
+  const company = companyAfterWork(current.company, count);
+  if (!company) return workBlocked(current, count);
+  const next = { ...current, company };
+  return addLog(next, `${businessDate(company)} 일정 진행 완료. 회수 가능 채권 ${calendarSummary(next).collectibleCount}건. 생산·출고와 월말 고정비는 별도로 처리합니다.`);
 }
 
 function positiveRate(value, fallback) {
@@ -353,6 +445,7 @@ export function createOrderAction(state, partnerId, productId, quantity) {
   const product = getProduct(productId);
   const qty = Math.max(1, Math.round(Number(quantity || 1)));
   if (!partner || !product) return current;
+  if (!Number.isSafeInteger(qty)) return addLog(current, '주문 수량을 확인하세요. 유효한 정수가 필요합니다.');
   const availableCredit = partner.creditLimit - outstandingByPartner(current, partner.id);
   const receivableAmount = Math.round(product.unitPrice * qty * 1.1);
   if (receivableAmount > availableCredit) return addLog(current, `${partner.name} 여신 한도가 부족해 주문을 받을 수 없습니다.`);
@@ -392,6 +485,11 @@ export function shipOrderAction(state, orderId) {
   if (receivableAmount > availableCredit) {
     return addLog(current, `${partner?.name || '거래처'} 여신 한도가 부족해 출고를 보류했습니다. 남은 한도 ${formatMoney(Math.max(0, availableCredit))}, 이번 출고 ${formatMoney(receivableAmount)}. 먼저 미수금을 회수해 주세요.`);
   }
+  const days = workDaysForUnits(current.company, remaining, true);
+  const company = companyAfterWork(current.company, days);
+  if (!company) return workBlocked(current, days);
+  const issuedDate = businessDate(company);
+  const termDays = Number(partner.termDays || 0);
   const receivable = {
     id: `AR-${current.company.year}-${String(current.nextReceivableNo).padStart(4, '0')}`,
     partnerId: order.partnerId,
@@ -401,9 +499,14 @@ export function shipOrderAction(state, orderId) {
     status: 'OPEN',
     year: current.company.year,
     month: current.company.month,
+    issuedDate,
+    dueDate: addDateDays(issuedDate, termDays),
+    termDays,
+    paymentTermsVersion: 1,
   };
   return addLog({
     ...current,
+    company,
     inventory: {
       ...current.inventory,
       [order.productId]: { ...stock, onHand: stock.onHand - remaining },
@@ -416,11 +519,12 @@ export function shipOrderAction(state, orderId) {
       unitCost: Number(stock.avgCost ?? item.unitCost ?? 0),
       shippedYear: Number(current.company.year),
       shippedMonth: Number(current.company.month),
+      shippedDate: issuedDate,
       status: 'SHIPPED',
     } : item),
     receivables: [receivable, ...current.receivables],
     nextReceivableNo: Number(current.nextReceivableNo || 1) + 1,
-  }, `${order.no} 출고 완료. 매출채권 ${formatMoney(receivableAmount)}이 발생했습니다.`);
+  }, `${order.no} 출고 완료 (${issuedDate}, ${days}일 작업). 매출채권 ${formatMoney(receivableAmount)} / 결제일 ${receivable.dueDate} (${termDays}일 조건).`);
 }
 
 export function collectReceivableAction(state, receivableId) {
@@ -429,10 +533,13 @@ export function collectReceivableAction(state, receivableId) {
   if (!receivable) return current;
   const remaining = Math.max(0, Number(receivable.amount || 0) - Number(receivable.collected || 0));
   if (!remaining) return addLog(current, '이미 회수 완료된 채권입니다.');
+  const timing = receivablePaymentTiming(current.company, receivable);
+  if (timing.timingCoverage === 'invalid') return addLog(current, '채권의 청구일·결제일 기록을 확인할 수 없습니다. 날짜 기록을 확인한 뒤 회수하세요.');
+  if (!timing.timingEligible) return addLog(current, `결제일 ${timing.dueDate}까지 아직 ${timing.daysUntilDue}일 남아 채권을 회수할 수 없습니다. 일정 진행이나 월말 결산으로 날짜를 진행하세요.`);
   return addLog({
     ...current,
     company: { ...current.company, cashKrw: Number(current.company.cashKrw || 0) + remaining },
-    receivables: current.receivables.map((item) => item.id === receivable.id ? { ...item, collected: item.amount, status: 'COLLECTED' } : item),
+    receivables: current.receivables.map((item) => item.id === receivable.id ? { ...item, collected: item.amount, status: 'COLLECTED', collectedDate: businessDate(current.company) } : item),
   }, `${getPartner(receivable.partnerId)?.name || '거래처'} 채권 ${formatMoney(remaining)}을 회수했습니다.`);
 }
 
@@ -441,19 +548,23 @@ export function inboundInventoryAction(state, productId, quantity) {
   const product = getProduct(productId);
   const qty = Math.max(1, Math.round(Number(quantity || 1)));
   if (!product) return current;
+  if (!Number.isSafeInteger(qty)) return addLog(current, '생산 수량을 확인하세요. 유효한 정수가 필요합니다.');
   const cost = product.unitCost * qty;
   if (Number(current.company.cashKrw || 0) < cost) return addLog(current, '현금이 부족해 생산 입고를 진행할 수 없습니다.');
+  const days = workDaysForUnits(current.company, qty);
+  const company = companyAfterWork(current.company, days);
+  if (!company) return workBlocked(current, days);
   const stock = current.inventory[product.id] || { onHand: 0, reserved: 0, avgCost: product.unitCost };
   const totalCost = stock.onHand * stock.avgCost + cost;
   const nextQty = stock.onHand + qty;
   return addLog({
     ...current,
-    company: { ...current.company, cashKrw: Number(current.company.cashKrw || 0) - cost },
+    company: { ...company, cashKrw: Number(current.company.cashKrw || 0) - cost },
     inventory: {
       ...current.inventory,
       [product.id]: { ...stock, onHand: nextQty, avgCost: Math.round(totalCost / Math.max(1, nextQty)) },
     },
-  }, `${product.name} ${qty}개를 생산 입고했습니다. ${formatMoney(cost)} 지출.`);
+  }, `${product.name} ${qty}개를 생산 입고했습니다. ${days}일 작업 → ${businessDate(company)} / ${formatMoney(cost)} 지출.`);
 }
 
 export function closeInventoryValuationAction(state) {
@@ -556,7 +667,7 @@ export function payVatAction(state, targetYear, targetMonth, paymentAmount = nul
     id: `VAT-${year}-${String(month).padStart(2, '0')}-${Date.now().toString(36)}-${current.vatPayments.length + 1}`,
     targetYear: year,
     targetMonth: month,
-    paymentDate: `${current.company.year}-${String(current.company.month).padStart(2, '0')}-25`,
+    paymentDate: businessDate(current.company),
     payableBefore: schedule.remainingAmount,
     paymentAmount: amount,
     remainingAfter: Math.max(0, schedule.remainingAmount - amount),
@@ -683,6 +794,15 @@ export function settleGlobalTradeAction(state) {
   const activeImports = current.global.importPlans.filter((plan) => plan.status === 'ACTIVE');
   if (!activeExports.length && !activeImports.length) return addLog(current, '정산할 활성 수출입 계획이 없습니다.');
 
+  const workUnits = activeExports.reduce((sum, plan) => {
+    const market = getMarket(plan.marketId);
+    const product = getProduct(plan.productId);
+    return sum + (market && product ? exportPlanTerms(current, plan, market, product).soldUnits : 0);
+  }, 0) + activeImports.reduce((sum, plan) => sum + Math.max(1, Number(plan.plannedUnits || 1)), 0);
+  const workDays = workDaysForUnits(current.company, workUnits);
+  const workingCompany = companyAfterWork(current.company, workDays);
+  if (!workingCompany) return workBlocked(current, workDays);
+
   let cashKrw = Number(current.company.cashKrw || 0);
   let nextForeignNo = Number(current.global.nextForeignArNo || 1);
   let nextInventory = JSON.parse(JSON.stringify(current.inventory));
@@ -768,7 +888,7 @@ export function settleGlobalTradeAction(state) {
   return addLog({
     ...current,
     company: {
-      ...current.company,
+      ...workingCompany,
       cashKrw,
       reputation: clamp(Number(current.company.reputation || 0) + exportResults.length * 2 + importResults.length, 0, 100),
       fanBase: Number(current.company.fanBase || 0) + exportResults.reduce((sum, row) => sum + row.soldUnits * 12, 0),
@@ -784,7 +904,7 @@ export function settleGlobalTradeAction(state) {
       hedgeContracts: hedgeSettlement.hedgeContracts,
       nextForeignArNo: nextForeignNo,
     },
-  }, `글로벌 수출입 정산 완료. 수출 ${exportResults.length}건, 수입 ${importResults.length}건, 환헤지 정산손익 ${formatMoney(hedgeSettlement.cashEffectKrw)}.`);
+  }, `글로벌 수출입 정산 완료. 수출 ${exportResults.length}건, 수입 ${importResults.length}건, ${workDays}일 작업 → ${businessDate(workingCompany)}, 환헤지 정산손익 ${formatMoney(hedgeSettlement.cashEffectKrw)}.`);
 }
 
 export function collectForeignReceivableAction(state, foreignArId) {
@@ -983,6 +1103,7 @@ export function monthEndCloseAction(state) {
       ...current.company,
       year: nextDate.year,
       month: nextDate.month,
+      day: 1,
       cashKrw: closingCashKrw,
       reputation: clamp(Number(current.company.reputation || 0) + (netProfit >= 0 ? 1 : -2), 0, 100),
     },
@@ -1269,9 +1390,15 @@ export function createProgressExportAction(state) {
   const summary = reportSummary(current);
   const management = managementReport(current);
   const diffRows = ledgerDiffRows(current);
+  const calendar = calendarSummary(current);
   const content = [
     `Company Report Export / ${current.company.name}`,
     `Period: ${current.company.year}-${String(current.company.month).padStart(2, '0')}`,
+    `Business Date: ${calendar.currentDate}`,
+    `Remaining Work Days: ${calendar.daysRemaining}`,
+    `Production Units Per Day: ${calendar.productionUnitsPerDay}`,
+    `Collectible Invoices: ${calendar.collectibleCount}`,
+    `Next Collection Date: ${calendar.nextCollectionDate || 'none'}`,
     `Score: ${scoreState(current)}`,
     `Cash: ${formatMoney(current.company.cashKrw)}`,
     `Period Cash Change: ${formatMoney(management.cashFlow.periodNetCashflow)}`,
@@ -1364,8 +1491,8 @@ export function vatScheduleRows(state, year = null) {
       .reduce((sum, payment) => sum + Number(payment.paymentAmount || 0), 0);
     const remainingAmount = Math.max(0, invoiceVatAmount - paidAmount);
     const due = advanceMonth(targetYear, month);
-    const overdue = Number(current.company.year || 0) > due.year
-      || (Number(current.company.year || 0) === due.year && Number(current.company.month || 0) > due.month);
+    const dueDate = `${due.year}-${String(due.month).padStart(2, '0')}-25`;
+    const overdue = dateValue(businessDate(current.company)) > dateValue(dueDate);
     const status = invoiceVatAmount <= 0
       ? 'NO_TAX'
       : remainingAmount <= 0
@@ -1377,7 +1504,7 @@ export function vatScheduleRows(state, year = null) {
       id: `${targetYear}-${String(month).padStart(2, '0')}`,
       targetYear,
       targetMonth: month,
-      dueDate: `${due.year}-${String(due.month).padStart(2, '0')}-25`,
+      dueDate,
       invoiceVatAmount,
       paidAmount,
       remainingAmount,
@@ -1416,11 +1543,18 @@ export function orderRows(state) {
 
 export function receivableRows(state) {
   const current = normalizeState(state);
-  return current.receivables.map((ar) => ({
-    ...ar,
-    partnerName: getPartner(ar.partnerId)?.name || ar.partnerId,
-    remaining: Math.max(0, Number(ar.amount || 0) - Number(ar.collected || 0)),
-  }));
+  return current.receivables.map((ar) => {
+    const remaining = Math.max(0, Number(ar.amount || 0) - Number(ar.collected || 0));
+    const timing = receivablePaymentTiming(current.company, ar);
+    const status = remaining <= 0 ? 'COLLECTED' : timing.daysUntilDue > 0 ? 'WAITING'
+      : timing.daysUntilDue < 0 ? 'OVERDUE' : ar.status;
+    const timingLabel = remaining <= 0 ? '회수 완료' : timing.timingCoverage === 'invalid' ? '날짜 확인 필요'
+      : timing.daysUntilDue === null ? '기한 미상 · 이전 기록' : timing.daysUntilDue > 0
+        ? `${timing.dueDate} · ${timing.daysUntilDue}일 뒤 회수` : `${timing.dueDate} · 회수 가능`;
+    return { ...ar, ...timing, status, timingLabel,
+      partnerName: getPartner(ar.partnerId)?.name || ar.partnerId,
+      remaining, canCollect: remaining > 0 && timing.timingEligible };
+  });
 }
 
 export function globalMarketRows(state = null) {
@@ -1591,7 +1725,7 @@ export function managementReport(state) {
   if (income.operatingExpenseCoverage === 'recorded-only') recommendations.push('이전 저장 자료에는 운영비 기록이 부족해, 이번 달 손익에 기록이 남은 지급비용만 반영합니다.');
   if (income.financialIncomeCoverage === 'recorded-only') recommendations.push('이전 환헤지 정산에 날짜 기록이 없어, 금융손익은 정산 월이 확인되는 기록만 반영합니다.');
   if (operatingProfit < 0) recommendations.push('영업손실 상태입니다. 고정비 또는 저마진 상품 비중을 먼저 점검하세요.');
-  if (receivableRatio >= 25) recommendations.push('매출채권 비중이 높습니다. 월말 결산 전에 회수 액션을 우선 처리하는 편이 좋습니다.');
+  if (receivableRatio >= 25) recommendations.push('매출채권 비중이 높습니다. 결제일이 지난 채권은 회수하고, 아직 기한이 남은 대금은 현금 계획에 반영하세요.');
   if (overdueAmount > 0) recommendations.push('연체 채권이 있습니다. 신용한도와 신규 주문 승인 기준을 보수적으로 두세요.');
   if (inventoryMonths === null) recommendations.push('이번 달 출고가 없어 재고 회전 월수를 계산할 수 없습니다. 주문 출고나 수출 정산 후 확인하세요.');
   else if (inventoryMonths >= 2) recommendations.push('재고 회전이 느립니다. 캠페인이나 출고 주문으로 재고를 줄일 필요가 있습니다.');

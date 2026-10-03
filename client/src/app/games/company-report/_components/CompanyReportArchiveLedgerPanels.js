@@ -3,6 +3,7 @@ import {
   LEDGER_RESTORE_MODES,
   PARTNERS,
   PRODUCTS,
+  calendarSummary,
   bookmarkCurrentReportAction,
   closeInventoryValuationAction,
   createLedgerSnapshotAction,
@@ -54,6 +55,7 @@ export default function CompanyReportArchiveLedgerPanels({
   state,
   stocks,
 }) {
+  const calendar = calendarSummary(state);
   return (
     <>
       <section className="games-detail-grid">
@@ -62,7 +64,7 @@ export default function CompanyReportArchiveLedgerPanels({
           <label className="game-save-json-field">
             <span>거래처</span>
             <select value={partnerId} onChange={(event) => setPartnerId(event.target.value)}>
-              {PARTNERS.map((partner) => <option value={partner.id} key={partner.id}>{partner.name} / {partner.type}</option>)}
+              {PARTNERS.map((partner) => <option value={partner.id} key={partner.id}>{partner.name} / 결제 {partner.termDays}일 / 한도 {formatMoney(partner.creditLimit)}</option>)}
             </select>
           </label>
           <label className="game-save-json-field">
@@ -73,13 +75,14 @@ export default function CompanyReportArchiveLedgerPanels({
           </label>
           <label className="game-save-json-field">
             <span>수량</span>
-            <input type="number" min="1" max="999" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
+            <input type="number" min="1" max="9999" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton action="order" cue="off" onClick={() => applyLedgerAction('주문 생성', (current) => createOrderAction(current, partnerId, productId, quantity))}>주문 생성</ActionButton>
             <ActionButton action="production" cue="off" onClick={() => applyLedgerAction('생산 입고', (current) => inboundInventoryAction(current, productId, quantity))}>선택 상품 생산 입고</ActionButton>
             <ActionButton action="sales" cue="off" onClick={() => applyLedgerAction('상품 캠페인', (current) => marketingCampaignAction(current, productId))}>선택 상품 캠페인</ActionButton>
           </div>
+          <p className="games-hint">오늘 {calendar.currentDate} · 남은 작업일 {calendar.daysRemaining}일 · 생산 {calendar.productionUnitsPerDay.toLocaleString('ko-KR')}개/일. 생산과 출고는 날짜가 진행되며, 결제일까지 대금을 회수할 수 없습니다.</p>
           <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
         </section>
 
@@ -94,13 +97,14 @@ export default function CompanyReportArchiveLedgerPanels({
           <label className="game-save-json-field">
             <span>회수 채권</span>
             <select value={selectedReceivable?.id || ''} onChange={(event) => setSelectedReceivableId(event.target.value)}>
-              {receivables.map((ar) => <option value={ar.id} key={ar.id}>{ar.id} / {ar.partnerName} / {formatMoney(ar.remaining)}</option>)}
+              {receivables.map((ar) => <option value={ar.id} key={ar.id}>{ar.id} / {ar.partnerName} / {formatMoney(ar.remaining)} / {ar.timingLabel}</option>)}
             </select>
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton action="shipment" cue="off" disabled={!selectedOrder} onClick={() => applyLedgerAction('주문 출고', (current) => shipOrderAction(current, selectedOrder?.id))}>선택 주문 출고</ActionButton>
-            <ActionButton action="collection" cue="off" disabled={!selectedReceivable || selectedReceivable.remaining <= 0} onClick={() => applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 전액 회수</ActionButton>
+            <ActionButton action="collection" cue="off" disabled={!selectedReceivable?.canCollect} onClick={() => applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 전액 회수</ActionButton>
           </div>
+          {selectedReceivable?.remaining > 0 ? <p className="games-hint">{selectedReceivable.timingLabel}. 기한이 남으면 상단의 날짜 진행이나 월말 결산으로 기다릴 수 있습니다.</p> : null}
         </section>
 
         <section className="games-panel">

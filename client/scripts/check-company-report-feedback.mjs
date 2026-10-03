@@ -9,6 +9,8 @@ import {
 } from '../src/app/games/company-report/_lib/companyReportFeedback.js';
 import { FIXED_EXPENSES } from '../src/app/games/company-report/_lib/companyReportData.js';
 import {
+  advanceBusinessDayAction,
+  calendarSummary,
   bookmarkCurrentReportAction,
   closeCapitalMarketAction,
   closeInventoryValuationAction,
@@ -104,8 +106,20 @@ const newReceivable = receivableRiskState.receivables.find(
   (row) => !base.receivables.some((baseRow) => baseRow.id === row.id),
 );
 assert.ok(newReceivable, '출고 후 새 매출채권이 생성되어야 합니다.');
-const receivableRecoveredState = collectReceivableAction(receivableRiskState, newReceivable.id);
-const receivableRecoveryPresentation = expectResult(receivableRiskState, receivableRecoveredState, {
+const pendingCollection = collectReceivableAction(receivableRiskState, newReceivable.id);
+const pendingPresentation = expectResult(receivableRiskState, pendingCollection, {
+  key: 'paymentPending', action: 'wait', cue: 'wait', tone: 'ready',
+});
+assert.equal(pendingCollection.company.cashKrw, receivableRiskState.company.cashKrw, '결제일 대기는 현금을 늘리면 안 됩니다.');
+assert.equal(companyReportTextPresentation(pendingCollection.log[0], pendingPresentation).key, 'paymentPending', '대기 사유를 일반 오류로 덮어쓰면 안 됩니다.');
+let maturityState = receivableRiskState;
+while (calendarSummary(maturityState).currentDate.slice(0, 7) < newReceivable.dueDate.slice(0, 7)) {
+  maturityState = monthEndCloseAction(maturityState);
+}
+const remainingDays = Math.round((Date.parse(newReceivable.dueDate) - Date.parse(calendarSummary(maturityState).currentDate)) / 86400000);
+if (remainingDays > 0) maturityState = advanceBusinessDayAction(maturityState, remainingDays);
+const receivableRecoveredState = collectReceivableAction(maturityState, newReceivable.id);
+const receivableRecoveryPresentation = expectResult(maturityState, receivableRecoveredState, {
   key: 'receivableRiskRecovered',
   action: 'company-receivable-recovery',
   cue: 'companyReceivableRecovered',
@@ -124,6 +138,15 @@ assert.match(collectionPresentation.impacts[1]?.value || '', /^-[\d,]+원$/, '�
 
 const inbound = inboundInventoryAction(base, 'book-akashi', 2);
 expectResult(base, inbound, { key: 'inventoryInbound', action: 'production', cue: 'productionPosted', tone: 'success' });
+
+const dayAdvanced = advanceBusinessDayAction(base, 1);
+const dayPresentation = expectResult(base, dayAdvanced, { key: 'dayAdvanced', action: 'advance', cue: 'advance', tone: 'highlight' });
+assert.equal(dayPresentation.impacts[0]?.value, '2026-02-02', '일정 진행 결과는 실제 새 날짜를 표시해야 합니다.');
+assert.equal(dayAdvanced.company.cashKrw, base.company.cashKrw, '하루 진행으로 월말 고정비를 중복 납부하면 안 됩니다.');
+const finalDay = advanceBusinessDayAction(base, calendarSummary(base).daysRemaining);
+const timeBlocked = inboundInventoryAction(finalDay, 'book-akashi', 2);
+expectResult(finalDay, timeBlocked, { key: 'timeBlocked', action: 'wait', cue: 'wait', tone: 'warning' });
+assert.equal(timeBlocked.company.cashKrw, finalDay.company.cashKrw, '작업일 부족은 비용을 차감하면 안 됩니다.');
 
 const inventorySafeState = JSON.parse(JSON.stringify(base));
 inventorySafeState.inventory['goods-aero'].onHand += 349;
@@ -382,6 +405,7 @@ const resultCues = [
   'companyFxRisk', 'companyFxRecovered',
   'companyInventoryRisk', 'companyInventoryRecovered',
   'warning', 'start',
+  'advance', 'wait',
 ];
 for (const cue of resultCues) {
   assert.match(soundSource, new RegExp(`\\n  ${cue}: \\[`), `${cue} 결과음 프로필이 있어야 합니다.`);
@@ -390,6 +414,7 @@ for (const icon of [
   'ledger', 'order', 'shipment', 'collection', 'production', 'inventory', 'valuation', 'inventory-write-down', 'sales', 'tax',
   'export', 'import', 'hedge', 'settle', 'disclosure', 'dividend', 'capital', 'finance',
   'closing', 'snapshot', 'analysis', 'restore', 'bookmark', 'download', 'warning', 'new',
+  'advance', 'wait',
   'archive', 'logs', 'guide', 'policy', 'inspect', 'advisor', 'trade', 'contract',
   'company-risk', 'company-recovery',
   'company-liquidity-risk', 'company-liquidity-recovery',
@@ -451,7 +476,7 @@ assert.match(cssSource, /\.company-report-risk-grid \{[\s\S]*repeat\(2, minmax\(
 assert.match(cssSource, /@media \(max-width: 760px\)[\s\S]*\.company-report-risk-grid \{[\s\S]*grid-template-columns: 1fr/, '모바일 리스크 지표는 1열로 복귀해야 합니다.');
 
 console.log(JSON.stringify({
-  feedbackTransitions: 44,
+  feedbackTransitions: 47,
   resultCues: resultCues.length,
   resultPanels: componentSources.reduce((sum, source) => sum + [...source.matchAll(/<RecentActionResult\b/g)].length, 0) + 1,
   semanticPanelTitles,

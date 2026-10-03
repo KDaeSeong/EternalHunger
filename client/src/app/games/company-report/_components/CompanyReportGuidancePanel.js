@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import GameActionIcon from '../../_components/GameActionIcon';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
-import { formatMoney } from '../_lib/companyReportEngine';
+import { calendarSummary, formatMoney } from '../_lib/companyReportEngine';
 import { CompanyReportIconRow, CompanyReportPanelTitle } from './CompanyReportVisuals';
 
 export const COMPANY_REPORT_GUIDANCE_LEVELS = [
@@ -60,8 +60,15 @@ function toPct(value) {
   return `${Number(value || 0).toLocaleString('ko-KR')}%`;
 }
 
-function buildPrimaryAction({ report, globalSummary, capitalSummary, selectedVatRow, restorePlan }) {
+function buildPrimaryAction({ calendar, report, globalSummary, capitalSummary, selectedVatRow, restorePlan }) {
   if (Number(report.openReceivables || 0) >= 2) {
+    if (!calendar.collectibleCount) return {
+      title: '결제 대금 입금 대기',
+      action: calendar.canAdvanceToNextCollection
+        ? `${calendar.nextCollectionDate}까지 일정을 진행한 뒤 채권을 회수하세요.`
+        : '채권의 결제일과 남은 현금을 확인하고, 월말 결산 비용을 준비하세요.',
+      reason: '아직 결제일이 오지 않은 대금은 지금 회수할 수 없습니다.',
+    };
     return {
       title: '미수 채권 회수',
       action: '거래/채권 탭에서 선택 채권 회수를 먼저 실행하세요.',
@@ -106,7 +113,7 @@ function buildPrimaryAction({ report, globalSummary, capitalSummary, selectedVat
 function buildGlossary(depth) {
   const basic = [
     ['현금', '지금 바로 쓸 수 있는 돈입니다. 부족하면 좋은 주문이 있어도 실행이 막힙니다.'],
-    ['채권', '이미 팔았지만 아직 받지 못한 돈입니다. 회수하면 현금이 늘어납니다.'],
+    ['채권', '이미 팔았지만 아직 받지 못한 돈입니다. 결제일이 지난 채권을 회수하면 현금이 늘어납니다.'],
     ['재고', '창고에 남아 있는 상품입니다. 너무 많으면 돈이 물건에 묶입니다.'],
   ];
   const intermediate = [
@@ -277,7 +284,7 @@ export function buildCompanyReportGuidance({
   const levelId = normalizeCompanyReportGuidanceLevel(level);
   const levelInfo = LEVEL_BY_ID[levelId];
   const depth = levelInfo.depth;
-  const primaryAction = buildPrimaryAction({ report, globalSummary, capitalSummary, selectedVatRow, restorePlan });
+  const primaryAction = buildPrimaryAction({ calendar: calendarSummary(state), report, globalSummary, capitalSummary, selectedVatRow, restorePlan });
   const focusRows = buildFocusRows({ depth, report, management, globalSummary, capitalSummary, reportTrend, restorePlan });
   const coachLines = buildCoachLines({ depth, report, management, globalSummary, capitalSummary, reportTrend, restorePlan });
   const glossaryRows = buildGlossary(depth);

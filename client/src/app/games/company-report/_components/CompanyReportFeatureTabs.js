@@ -10,6 +10,9 @@ import {
 import {
   CAPITAL_DISCLOSURE_TYPES,
   PARTNERS,
+  PRODUCTS,
+  advanceBusinessDayAction,
+  calendarSummary,
   bookmarkCurrentReportAction,
   closeCapitalMarketAction,
   closeInventoryValuationAction,
@@ -66,7 +69,8 @@ function buildOperationQueue({
 }) {
   const rows = [];
   const selectedOrderOpen = selectedOrder && selectedOrder.status !== 'SHIPPED' && selectedOrder.status !== 'COMPLETED';
-  const selectedReceivableOpen = selectedReceivable && Number(selectedReceivable.remaining || 0) > 0;
+  const selectedReceivableOpen = selectedReceivable?.canCollect;
+  const calendar = calendarSummary(state);
   const selectedVatOpen = selectedVatRow && Number(selectedVatRow.remainingAmount || 0) > 0;
   const selectedForeignOpen = selectedForeignAr && Number(selectedForeignAr.remainingKrw || 0) > 0;
 
@@ -82,6 +86,14 @@ function buildOperationQueue({
       expectedImpact: '현금 유입 · 미수금 감소',
       action: 'collect-receivable',
       actionLabel: '회수',
+    });
+  } else if (selectedReceivable?.daysUntilDue > 0) {
+    rows.push({
+      id: 'wait-receivable', tab: 'trade', kind: '일정', title: '매출채권 결제일 대기',
+      detail: selectedReceivable.timingLabel, priorityLabel: '대기', priorityTone: 'recommended',
+      expectedImpact: calendar.canAdvanceToNextCollection ? '가장 가까운 회수일까지 날짜 진행' : '고정비 지급 · 다음 달 진행',
+      action: calendar.canAdvanceToNextCollection ? 'advance-to-due' : 'close',
+      actionLabel: calendar.canAdvanceToNextCollection ? '다음 회수일' : '월말 결산',
     });
   }
 
@@ -250,6 +262,7 @@ export default function CompanyReportFeatureTabs({
   partnerId,
   productId,
   quantity,
+  receivables,
   recentActionText,
   resultPresentation,
   report,
@@ -262,10 +275,16 @@ export default function CompanyReportFeatureTabs({
   selectedReceivable,
   selectedRestoreTables,
   selectedVatRow,
+  setPartnerId,
+  setProductId,
+  setQuantity,
+  setSelectedOrderId,
+  setSelectedReceivableId,
   state,
   stocks,
   vatPayAmount,
 }) {
+  const calendar = calendarSummary(state);
   const operationQueue = useMemo(() => buildOperationQueue({
     capitalSummary,
     globalSummary,
@@ -302,6 +321,10 @@ export default function CompanyReportFeatureTabs({
     if (item.tab) onActiveTabChange(item.tab);
     if (item.action === 'collect-receivable') {
       applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id));
+      return;
+    }
+    if (item.action === 'advance-to-due') {
+      applyLedgerAction('다음 회수일', (current) => advanceBusinessDayAction(current, calendarSummary(current).nextCollectionInDays));
       return;
     }
     if (item.action === 'ship-order') {
@@ -424,11 +447,28 @@ export default function CompanyReportFeatureTabs({
               <section className="games-detail-grid">
                 <section className="games-panel">
                   <CompanyReportPanelTitle action="order" title="빠른 주문" meta={getProductName(productId)} />
+                  <label className="game-save-json-field">
+                    <span>거래처 · 결제 조건</span>
+                    <select value={partnerId} onChange={(event) => setPartnerId(event.target.value)}>
+                      {PARTNERS.map((partner) => <option value={partner.id} key={partner.id}>{partner.name} · {partner.termDays}일 결제 · 한도 {formatMoney(partner.creditLimit)}</option>)}
+                    </select>
+                  </label>
+                  <label className="game-save-json-field">
+                    <span>상품</span>
+                    <select value={productId} onChange={(event) => setProductId(event.target.value)}>
+                      {PRODUCTS.map((product) => <option value={product.id} key={product.id}>{product.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="game-save-json-field">
+                    <span>수량</span>
+                    <input type="number" min="1" max="9999" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
+                  </label>
                   <div className="games-rank-split">
                     <SmallStat label="수량" value={quantity} />
                     <SmallStat label="재고" value={stocks.find((row) => row.id === productId)?.onHand || 0} />
                     <SmallStat label="거래처" value={PARTNERS.find((partner) => partner.id === partnerId)?.name || partnerId} />
                   </div>
+                  <p className="games-hint">{calendar.currentDate} · 남은 작업일 {calendar.daysRemaining}일 · 생산 {calendar.productionUnitsPerDay.toLocaleString('ko-KR')}개/일 · 출고 {calendar.shipmentUnitsPerDay.toLocaleString('ko-KR')}개/일</p>
                   <div style={{ display: 'grid', gap: 8 }}>
                     <ActionButton action="order" cue="off" onClick={() => applyLedgerAction('주문 생성', (current) => createOrderAction(current, partnerId, productId, quantity))}>주문 생성</ActionButton>
                     <ActionButton action="production" cue="off" onClick={() => applyLedgerAction('생산 입고', (current) => inboundInventoryAction(current, productId, quantity))}>선택 상품 생산 입고</ActionButton>
@@ -438,6 +478,18 @@ export default function CompanyReportFeatureTabs({
                 </section>
                 <section className="games-panel">
                   <CompanyReportPanelTitle action="shipment" title="출고/회수" meta={formatMoney(report.receivableAmount)} />
+                  <label className="game-save-json-field">
+                    <span>출고 주문</span>
+                    <select value={selectedOrder?.id || ''} onChange={(event) => setSelectedOrderId(event.target.value)}>
+                      {orders.map((order) => <option value={order.id} key={order.id}>{order.no} · {order.partnerName} · {order.status}</option>)}
+                    </select>
+                  </label>
+                  <label className="game-save-json-field">
+                    <span>회수 채권</span>
+                    <select value={selectedReceivable?.id || ''} onChange={(event) => setSelectedReceivableId(event.target.value)}>
+                      {receivables.map((ar) => <option value={ar.id} key={ar.id}>{ar.partnerName} · {formatMoney(ar.remaining)} · {ar.timingLabel}</option>)}
+                    </select>
+                  </label>
                   <div className="games-rank-split">
                     <SmallStat label="미수 채권" value={report.openReceivables} />
                     <SmallStat label="출고 주문" value={report.shippedOrders} />
@@ -445,8 +497,9 @@ export default function CompanyReportFeatureTabs({
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
                     <ActionButton action="shipment" cue="off" disabled={!selectedOrder} onClick={() => applyLedgerAction('주문 출고', (current) => shipOrderAction(current, selectedOrder?.id))}>선택 주문 출고</ActionButton>
-                    <ActionButton action="collection" cue="off" disabled={!selectedReceivable || selectedReceivable.remaining <= 0} onClick={() => applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 회수</ActionButton>
+                    <ActionButton action="collection" cue="off" disabled={!selectedReceivable?.canCollect} onClick={() => applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 회수</ActionButton>
                   </div>
+                  {selectedReceivable?.remaining > 0 ? <p className="games-hint">{selectedReceivable.timingLabel}. 결제일이 남으면 상단의 날짜 진행이나 월말 결산으로 기다릴 수 있습니다.</p> : null}
                 </section>
               </section>
             ),

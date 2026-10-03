@@ -12,6 +12,8 @@ import useGameSfx from '../../_lib/useGameSfx';
 import {
   GAME_SLUG,
   SAVE_VERSION,
+  advanceBusinessDayAction,
+  calendarSummary,
   createNewState,
   createProgressExportAction,
   payVatAction,
@@ -119,6 +121,7 @@ export default function CompanyReportPlayPage() {
   ]);
   const {
     capitalSummary,
+    calendar,
     foreignReceivables,
     globalSummary,
     inventoryValuations,
@@ -311,6 +314,8 @@ export default function CompanyReportPlayPage() {
   const actions = (
     <>
       <GameControlButton action="new" cue="off" onClick={startNewRun}>새 원장</GameControlButton>
+      <GameControlButton action="advance" cue="off" disabled={calendar.daysRemaining <= 0} onClick={() => applyLedgerAction('하루 진행', (current) => advanceBusinessDayAction(current, 1))}>하루 진행</GameControlButton>
+      <GameControlButton action="clock" cue="off" disabled={!calendar.canAdvanceToNextCollection} onClick={() => applyLedgerAction('다음 회수일', (current) => advanceBusinessDayAction(current, calendarSummary(current).nextCollectionInDays))}>다음 회수일</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
       <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
@@ -456,6 +461,7 @@ export default function CompanyReportPlayPage() {
         partnerId={partnerId}
         productId={productId}
         quantity={quantity}
+        receivables={receivables}
         recentActionText={recentActionText}
         resultPresentation={resultPresentation}
         report={report}
@@ -468,6 +474,11 @@ export default function CompanyReportPlayPage() {
         selectedReceivable={selectedReceivable}
         selectedRestoreTables={selectedRestoreTables}
         selectedVatRow={selectedVatRow}
+        setPartnerId={setPartnerId}
+        setProductId={setProductId}
+        setQuantity={setQuantity}
+        setSelectedOrderId={setSelectedOrderId}
+        setSelectedReceivableId={setSelectedReceivableId}
         state={state}
         stocks={stocks}
         vatPayAmount={vatPayAmount}

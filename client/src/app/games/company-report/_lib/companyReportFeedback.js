@@ -1,5 +1,5 @@
 import { FIXED_EXPENSES } from './companyReportData.js';
-import { globalTradeSummary } from './companyReportEngine.js';
+import { calendarSummary, globalTradeSummary } from './companyReportEngine.js';
 
 const FIXED_EXPENSE_TOTAL = FIXED_EXPENSES.reduce(
   (sum, row) => sum + Math.max(0, Number(row?.amount || 0)),
@@ -61,6 +61,9 @@ const FEEDBACK_PROFILES = {
   orderCreated: { action: 'order', cue: 'orderCreated', label: '주문 확정', tone: 'success' },
   shipmentPosted: { action: 'shipment', cue: 'shipmentPosted', label: '출고 전표 반영', tone: 'success' },
   receivableCollected: { action: 'collection', cue: 'cashCollect', label: '매출채권 회수', tone: 'success' },
+  dayAdvanced: { action: 'advance', cue: 'advance', label: '일정 진행', tone: 'highlight' },
+  paymentPending: { action: 'wait', cue: 'wait', label: '결제일 대기', tone: 'ready' },
+  timeBlocked: { action: 'wait', cue: 'wait', label: '이번 달 작업일 부족', tone: 'warning' },
   inventoryInbound: { action: 'production', cue: 'productionPosted', label: '생산 입고 반영', tone: 'success' },
   inventoryValued: { action: 'valuation', cue: 'inventoryValued', label: '재고평가 완료', tone: 'highlight' },
   inventoryWrittenDown: { action: 'inventory-write-down', cue: 'inventoryWriteDown', label: '재고평가손실 반영', tone: 'warning' },
@@ -120,12 +123,16 @@ const BLOCKED_FEEDBACK_KEYS = new Set([
   'tradeBlocked',
   'restoreBlocked',
   'operationClosed',
+  'paymentPending',
+  'timeBlocked',
   'blocked',
 ]);
 
 function blockedResultKey(log) {
   const normalized = String(log || '');
   if (!BLOCKED_LOG.test(normalized)) return '';
+  if (/작업일.*부족/.test(normalized)) return 'timeBlocked';
+  if (/결제일.*(?:아직|남)/.test(normalized)) return 'paymentPending';
   if (/현금.*부족|유동성.*부족/.test(normalized)) return 'liquidityBlocked';
   if (/재고.*부족/.test(normalized)) return 'inventoryBlocked';
   if (/여신 한도.*부족/.test(normalized)) return 'creditBlocked';
@@ -147,10 +154,13 @@ export function companyReportFeedbackSnapshot(state) {
   const restoreHistory = safeArray(state?.restoreHistory);
   const latestSettlement = safeArray(state?.settlements)[0] || {};
   const tradeSummary = globalTradeSummary(state);
+  const calendar = calendarSummary(state);
   const { activeTradePlanCount, activeHedgeCount, unhedgedTradePlanCount } = tradeSummary;
   return {
     runId: String(state?.runId || ''),
     period: `${Number(state?.company?.year || 0)}-${String(Number(state?.company?.month || 0)).padStart(2, '0')}`,
+    businessDate: calendar.currentDate,
+    collectibleCount: calendar.collectibleCount,
     latestLog: String(state?.log?.[0] || ''),
     logCount: safeArray(state?.log).length,
     cashKrw: Number(state?.company?.cashKrw || 0),
@@ -239,6 +249,7 @@ function deltaImpact(previous, current, key, {
 }
 
 const IMPACT_KEYS_BY_RESULT = Object.freeze({
+  dayAdvanced: ['businessDate', 'collectibleCount'],
   orderCreated: ['orderCount'],
   shipmentPosted: ['shippedCount', 'inventoryUnits', 'receivableOutstanding'],
   receivableCollected: ['cashKrw', 'receivableOutstanding'],
@@ -278,6 +289,12 @@ const IMPACT_KEYS_BY_RESULT = Object.freeze({
 
 function companyReportImpactRows(previous, current, resultKey) {
   const candidates = {
+    businessDate: previous.businessDate !== current.businessDate
+      ? { action: 'calendar', key: 'businessDate', label: '진행 날짜', tone: 'highlight', value: current.businessDate }
+      : null,
+    collectibleCount: previous.collectibleCount !== current.collectibleCount
+      ? { action: 'collection', key: 'collectibleCount', label: '회수 가능 채권', tone: 'ready', value: `${current.collectibleCount}건` }
+      : null,
     period: previous.period !== current.period
       ? { action: 'calendar', key: 'period', label: '회계기간', tone: 'highlight', value: current.period }
       : null,
@@ -375,6 +392,7 @@ function monthCloseResultKey(snapshot) {
 }
 
 function transitionFromLog(log, snapshot) {
+  if (/일정 진행 완료/.test(log)) return 'dayAdvanced';
   if (/복원 dry-run/.test(log)) return 'restorePreviewed';
   if (/복원했습니다|복원 완료|테이블.*복원/.test(log)) return 'ledgerRestored';
   if (/월말 결산 완료/.test(log)) return monthCloseResultKey(snapshot);

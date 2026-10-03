@@ -1,5 +1,6 @@
 import {
   capitalMarketSummary,
+  calendarSummary,
   globalMarketRows,
   globalReceivableRows,
   globalTradeSummary,
@@ -34,6 +35,7 @@ export function buildCompanyReportPlayViewModel({
   const reportTrend = reportHistoryTrend(state);
   const globalSummary = globalTradeSummary(state);
   const capitalSummary = capitalMarketSummary(state);
+  const calendar = calendarSummary(state);
   const markets = globalMarketRows(state);
   const stocks = inventoryRows(state);
   const inventoryValuations = inventoryValuationRows(state);
@@ -49,6 +51,7 @@ export function buildCompanyReportPlayViewModel({
     || orders.find((order) => order.status === 'CONFIRMED')
     || orders[0];
   const selectedReceivable = receivables.find((ar) => ar.id === selectedReceivableId)
+    || receivables.find((ar) => ar.canCollect)
     || receivables.find((ar) => ar.remaining > 0)
     || receivables[0];
   const selectedVatRow = vatSchedule.find((row) => row.id === selectedVatKey)
@@ -61,6 +64,7 @@ export function buildCompanyReportPlayViewModel({
 
   return {
     capitalSummary,
+    calendar,
     foreignReceivables,
     globalSummary,
     inventoryValuations,
