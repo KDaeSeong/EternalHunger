@@ -150,7 +150,7 @@ export default function CompanyReportArchiveLedgerPanels({
           <CompanyReportPanelTitle
             action="finance"
             title="재무 요약"
-            meta={latestSettlement ? `${latestSettlement.year}-${String(latestSettlement.month).padStart(2, '0')}` : '결산 전'}
+            meta={`${state.company.year}-${String(state.company.month).padStart(2, '0')} · 이번 달`}
           />
           <div className="games-rank-split">
             <SmallStat label="총자산" value={formatMoney(report.assets)} />
@@ -164,7 +164,7 @@ export default function CompanyReportArchiveLedgerPanels({
             <div className="game-save-list">
               <CompanyReportIconRow action="closing">
                 <div>
-                  <span>최근 월말 결산</span>
+                  <span>최근 월말 결산 · {latestSettlement.year}-{String(latestSettlement.month).padStart(2, '0')}</span>
                   <strong>영업손익 {formatMoney(latestSettlement.operatingProfit)}</strong>
                 </div>
                 <strong>{formatMoney(latestSettlement.netProfit)}</strong>

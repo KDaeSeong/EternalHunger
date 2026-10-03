@@ -242,7 +242,6 @@ export default function CompanyReportFeatureTabs({
   globalSummary,
   globalUnits,
   guidance,
-  latestSettlement,
   latestSnapshot,
   ledgerDiff,
   management,
@@ -356,10 +355,10 @@ export default function CompanyReportFeatureTabs({
             children: (
               <section className="games-dashboard">
                 <section className="games-panel">
-                  <CompanyReportPanelTitle action="finance" title="경영 요약" meta={`${state.company.year}-${String(state.company.month).padStart(2, '0')}`} />
+                  <CompanyReportPanelTitle action="finance" title="경영 요약" meta={`${state.company.year}-${String(state.company.month).padStart(2, '0')} · 이번 달`} />
                   <div className="games-rank-split">
                     <SmallStat label="매출" value={formatMoney(management.income.sales)} />
-                    <SmallStat label="영업손익" value={formatMoney(management.income.operatingProfit)} />
+                    <SmallStat label="예상 영업손익" value={formatMoney(management.income.operatingProfit)} />
                     <SmallStat label="현금" value={formatMoney(management.cashFlow.cash)} />
                     <SmallStat label="런웨이" value={`${management.cashFlow.cashRunwayMonths}개월`} />
                   </div>
@@ -460,7 +459,7 @@ export default function CompanyReportFeatureTabs({
             children: (
               <section className="games-detail-grid">
                 <section className="games-panel">
-                  <CompanyReportPanelTitle action="closing" title="월말 결산" meta={latestSettlement ? '정산 있음' : '대기'} />
+                  <CompanyReportPanelTitle action="closing" title="월말 결산" meta={`${state.company.year}-${String(state.company.month).padStart(2, '0')} · 결산 전`} />
                   <div className="games-rank-split">
                     <SmallStat label="자산" value={formatMoney(report.assets)} />
                     <SmallStat label="부채" value={formatMoney(report.liabilities)} />

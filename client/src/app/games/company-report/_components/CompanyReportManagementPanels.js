@@ -11,12 +11,12 @@ export default function CompanyReportManagementPanels({
   return (
     <section className="games-dashboard">
       <section className="games-panel">
-        <CompanyReportPanelTitle action="finance" title="경영 리포트" meta="손익 / 현금흐름" />
+        <CompanyReportPanelTitle action="finance" title="경영 리포트" meta={`${management.income.year}-${String(management.income.month).padStart(2, '0')} · 이번 달`} />
         <div className="games-rank-split">
           <SmallStat label="매출" value={formatMoney(management.income.sales)} />
           <SmallStat label="매출총이익" value={formatMoney(management.income.grossProfit)} />
           <SmallStat label="매출총이익률" value={`${management.income.grossMarginPct}%`} />
-          <SmallStat label="영업손익" value={formatMoney(management.income.operatingProfit)} />
+          <SmallStat label="예상 영업손익" value={formatMoney(management.income.operatingProfit)} />
         </div>
         <div className="games-rank-split" style={{ marginTop: 12 }}>
           <SmallStat label="현금" value={formatMoney(management.cashFlow.cash)} />
@@ -32,7 +32,7 @@ export default function CompanyReportManagementPanels({
       </section>
 
       <section className="games-panel">
-        <CompanyReportPanelTitle action="sales" title="매출 분석" meta="상품 / 캐릭터" />
+        <CompanyReportPanelTitle action="sales" title="매출 분석" meta="이번 달 · 상품 / 캐릭터" />
         <div className="game-save-list">
           {management.productRows.length ? management.productRows.map((row) => (
             <CompanyReportIconRow action="sales" key={row.label}>

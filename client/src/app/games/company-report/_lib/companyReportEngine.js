@@ -228,7 +228,13 @@ export function shipOrderAction(state, orderId) {
       ...current.inventory,
       [order.productId]: { ...stock, onHand: stock.onHand - remaining },
     },
-    orders: current.orders.map((item) => item.id === order.id ? { ...item, shippedQty: item.quantity, status: 'SHIPPED' } : item),
+    orders: current.orders.map((item) => item.id === order.id ? {
+      ...item,
+      shippedQty: item.quantity,
+      shippedYear: Number(current.company.year),
+      shippedMonth: Number(current.company.month),
+      status: 'SHIPPED',
+    } : item),
     receivables: [receivable, ...current.receivables],
     nextReceivableNo: Number(current.nextReceivableNo || 1) + 1,
   }, `${order.no} 출고 완료. 매출채권 ${formatMoney(receivableAmount)}이 발생했습니다.`);
@@ -422,7 +428,7 @@ export function createExportPlanAction(state, marketId, productId, plannedUnits)
     ...current,
     global: {
       ...current.global,
-      exportPlans: [plan, ...current.global.exportPlans].slice(0, 16),
+      exportPlans: [plan, ...current.global.exportPlans],
       nextExportNo: Number(current.global.nextExportNo || 1) + 1,
     },
   }, `${market.name} 수출 계획 ${plan.id}를 등록했습니다. ${product.name} ${units}개.`);
@@ -448,7 +454,7 @@ export function createImportPlanAction(state, marketId, productId, plannedUnits)
     ...current,
     global: {
       ...current.global,
-      importPlans: [plan, ...current.global.importPlans].slice(0, 16),
+      importPlans: [plan, ...current.global.importPlans],
       nextImportNo: Number(current.global.nextImportNo || 1) + 1,
     },
   }, `${market.name} 수입 계획 ${plan.id}를 등록했습니다. ${product.name} ${units}개.`);
@@ -473,7 +479,7 @@ export function createHedgeContractAction(state) {
     company: { ...current.company, cashKrw: Number(current.company.cashKrw || 0) - premiumKrw },
     global: {
       ...current.global,
-      hedgeContracts: [hedge, ...current.global.hedgeContracts].slice(0, 12),
+      hedgeContracts: [hedge, ...current.global.hedgeContracts],
       nextHedgeNo: Number(current.global.nextHedgeNo || 1) + 1,
     },
   }, `${hedge.id} 환헤지 계약을 체결했습니다. 프리미엄 ${formatMoney(premiumKrw)}.`);
@@ -574,9 +580,9 @@ export function settleGlobalTradeAction(state) {
       ...current.global,
       exportPlans: current.global.exportPlans.map((plan) => plan.status === 'ACTIVE' ? { ...plan, status: 'COMPLETED' } : plan),
       importPlans: current.global.importPlans.map((plan) => plan.status === 'ACTIVE' ? { ...plan, status: 'COMPLETED' } : plan),
-      exportResults: [...exportResults, ...current.global.exportResults].slice(0, 18),
-      importResults: [...importResults, ...current.global.importResults].slice(0, 18),
-      foreignReceivables: [...foreignReceivables, ...current.global.foreignReceivables].slice(0, 18),
+      exportResults: [...exportResults, ...current.global.exportResults],
+      importResults: [...importResults, ...current.global.importResults],
+      foreignReceivables: [...foreignReceivables, ...current.global.foreignReceivables],
       hedgeContracts: current.global.hedgeContracts.map((hedge) => hedge.status === 'ACTIVE' ? { ...hedge, status: 'SETTLED', settlementKrw: Math.round(Number(hedge.notionalKrw || 0) * 0.018) } : hedge),
       nextForeignArNo: nextForeignNo,
     },
@@ -710,32 +716,30 @@ export function closeCapitalMarketAction(state) {
 
 export function monthEndCloseAction(state) {
   const current = normalizeState(state);
-  const year = Number(current.company.year || 2026);
-  const month = Number(current.company.month || 1);
-  const monthOrders = current.orders.filter((order) => order.year === year && order.month === month && (order.status === 'SHIPPED' || order.status === 'COMPLETED'));
-  const sales = monthOrders.reduce((sum, order) => sum + order.unitPrice * Number(order.shippedQty || order.quantity || 0), 0);
-  const cogs = monthOrders.reduce((sum, order) => sum + order.unitCost * Number(order.shippedQty || order.quantity || 0), 0);
-  const expense = FIXED_EXPENSES.reduce((sum, item) => sum + item.amount, 0);
-  const inventoryWriteDownNet = current.inventoryWriteDowns
-    .filter((row) => Number(row.year || 0) === year && Number(row.month || 0) === month)
-    .reduce((sum, row) => sum + Number(row.netEffectAmount || 0), 0);
-  const operatingProfit = sales - cogs - expense - inventoryWriteDownNet;
-  const tax = operatingProfit > 0 ? Math.round(operatingProfit * 0.22) : 0;
-  const netProfit = operatingProfit - tax;
+  const income = periodIncomeSummary(current);
+  const { year, month, inventoryWriteDownNet, operatingProfit, tax, netProfit } = income;
+  const expense = income.fixedExpenses;
+  const beforeClosing = reportSummary(current);
   // Production and collections already change cash in their own actions.
   // Closing pays only this month's fixed costs and profit tax, not COGS again.
   const closingCashKrw = Number(current.company.cashKrw || 0) - expense - tax;
   const settlement = {
     year,
     month,
-    totalSales: sales,
-    totalCost: cogs + expense,
+    totalSales: income.sales,
+    totalCost: income.totalCost,
+    localSales: income.localSales,
+    localCogs: income.localCogs,
+    exportSalesKrw: income.exportSalesKrw,
+    exportCostKrw: income.exportCostKrw,
     inventoryWriteDownNet,
     operatingProfit,
     tax,
     netProfit,
     openingCashKrw: current.cashFlowPeriod.openingCashKrw,
     closingCashKrw,
+    closingAssetsKrw: beforeClosing.assets - expense - tax,
+    closingReceivableKrw: beforeClosing.receivableAmount,
     fixedExpensesPaidKrw: expense,
     cashflowCoverage: current.cashFlowPeriod.coverage,
     netCashflow: closingCashKrw - current.cashFlowPeriod.openingCashKrw,
@@ -875,6 +879,8 @@ export function bookmarkCurrentReportAction(state) {
   const summary = reportSummary(current);
   const management = managementReport(current);
   const latest = summary.latestSettlement;
+  const hasClosingBalance = ['closingCashKrw', 'closingAssetsKrw', 'closingReceivableKrw']
+    .every((key) => Number.isFinite(latest?.[key]));
   const label = latest
     ? `${latest.year}-${String(latest.month).padStart(2, '0')} 결산 리포트`
     : `${current.company.year}-${String(current.company.month).padStart(2, '0')} 진행 리포트`;
@@ -885,14 +891,17 @@ export function bookmarkCurrentReportAction(state) {
     favorite: true,
     year: latest?.year || current.company.year,
     month: latest?.month || current.company.month,
-    sales: management.income.sales,
-    operatingProfit: management.income.operatingProfit,
-    netProfit: latest?.netProfit ?? management.income.operatingProfit,
-    cashKrw: current.company.cashKrw,
-    assets: summary.assets,
-    receivableAmount: summary.receivableAmount,
+    sales: latest?.totalSales ?? management.income.sales,
+    operatingProfit: latest?.operatingProfit ?? management.income.operatingProfit,
+    netProfit: latest?.netProfit ?? management.income.netProfit,
+    cashKrw: hasClosingBalance ? latest.closingCashKrw : current.company.cashKrw,
+    assets: hasClosingBalance ? latest.closingAssetsKrw : summary.assets,
+    receivableAmount: hasClosingBalance ? latest.closingReceivableKrw : summary.receivableAmount,
+    balanceScope: hasClosingBalance ? 'closing' : 'bookmark-time',
     score: scoreState(current),
-    note: management.recommendations[0] || '특이사항 없음',
+    note: latest && !hasClosingBalance
+      ? '손익은 결산 기준이며, 현금·자산·채권은 북마크 시점 기준입니다.'
+      : management.recommendations[0] || '특이사항 없음',
   };
   return addLog({
     ...current,
@@ -1234,9 +1243,11 @@ export function reportSummary(state) {
   const vatPayableAmount = vatScheduleRows(current, current.company.year).reduce((sum, row) => sum + Number(row.remainingAmount || 0), 0);
   const inventoryWriteDownBalance = current.inventoryWriteDowns.reduce((sum, row) => sum + Number(row.writeDownAmount || 0) - Number(row.reversalAmount || 0), 0);
   const assets = Number(current.company.cashKrw || 0) + inventoryAmount + receivableAmount + global.openForeignReceivableKrw;
-  const liabilities = Math.max(0, receivableAmount * 0.08 + vatPayableAmount + (latestSettlement?.tax || 0) + capital.debtKrw);
+  // Profit tax is paid immediately by monthEndCloseAction, including older
+  // web saves. Only unpaid VAT and the existing modeled debts remain due.
+  const liabilities = Math.max(0, receivableAmount * 0.08 + vatPayableAmount + capital.debtKrw);
   const equity = assets - liabilities;
-  const sales = (latestSettlement?.totalSales || orderRows(current).filter((order) => order.status === 'SHIPPED' || order.status === 'COMPLETED').reduce((sum, order) => sum + order.amount, 0)) + global.exportSalesKrw;
+  const sales = periodIncomeSummary(current).sales;
   return {
     assets,
     liabilities,
@@ -1264,29 +1275,29 @@ export function managementReport(state) {
   const summary = reportSummary(current);
   const global = globalTradeSummary(current);
   const capital = capitalMarketSummary(current);
-  const orders = orderRows(current);
   const receivables = receivableRows(current);
-  const shipped = orders.filter((order) => order.status === 'SHIPPED' || order.status === 'COMPLETED');
+  const income = periodIncomeSummary(current);
+  const shipped = current.orders.filter((order) => isShippedOrderInPeriod(current, order, income.year, income.month));
   const categorySales = new Map();
   const characterSales = new Map();
   const productSales = new Map();
-  const localCogs = shipped.reduce((sum, order) => {
-    const product = getProduct(order.productId);
-    const shippedQty = Number(order.shippedQty || order.quantity || 0);
-    const salesAmount = Number(order.unitPrice || 0) * shippedQty;
+  const addProductSales = (productId, salesAmount, productName) => {
+    const product = getProduct(productId);
     categorySales.set(product?.category || 'UNKNOWN', (categorySales.get(product?.category || 'UNKNOWN') || 0) + salesAmount);
     characterSales.set(product?.character || 'UNKNOWN', (characterSales.get(product?.character || 'UNKNOWN') || 0) + salesAmount);
-    productSales.set(product?.name || order.productName || order.productId, (productSales.get(product?.name || order.productName || order.productId) || 0) + salesAmount);
-    return sum + Number(order.unitCost || 0) * shippedQty;
-  }, 0);
-  const cogs = localCogs + global.exportCostKrw;
-  const fixedExpenses = FIXED_EXPENSES.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const grossProfit = summary.sales - cogs;
-  const operatingProfit = summary.latestSettlement?.operatingProfit ?? grossProfit - fixedExpenses;
+    const name = product?.name || productName || productId;
+    productSales.set(name, (productSales.get(name) || 0) + salesAmount);
+  };
+  shipped.forEach((order) => addProductSales(order.productId, Number(order.unitPrice || 0) * Number(order.shippedQty || order.quantity || 0), order.productName));
+  current.global.exportResults
+    .filter((row) => Number(row.year) === income.year && Number(row.month) === income.month)
+    .forEach((row) => addProductSales(row.productId, Number(row.salesKrw || 0)));
+  const { cogs, fixedExpenses, operatingProfit } = income;
   const collectedCash = receivables.reduce((sum, row) => sum + Number(row.collected || 0), 0);
   const overdueAmount = receivables.filter((row) => row.status === 'OVERDUE').reduce((sum, row) => sum + Number(row.remaining || 0), 0);
-  const inventoryTurnoverBase = Math.max(1, cogs);
-  const inventoryMonths = Number(((summary.inventoryAmount / inventoryTurnoverBase) || 0).toFixed(2));
+  const inventoryMonths = cogs > 0
+    ? Number((summary.inventoryAmount / cogs).toFixed(2))
+    : summary.inventoryAmount > 0 ? null : 0;
   const cashRunwayMonths = Number((Number(current.company.cashKrw || 0) / Math.max(1, fixedExpenses)).toFixed(2));
   const receivableRatio = summary.assets ? Number(((summary.receivableAmount / summary.assets) * 100).toFixed(1)) : 0;
   const currentVatRows = vatScheduleRows(current, current.company.year);
@@ -1303,7 +1314,8 @@ export function managementReport(state) {
   if (operatingProfit < 0) recommendations.push('영업손실 상태입니다. 고정비 또는 저마진 상품 비중을 먼저 점검하세요.');
   if (receivableRatio >= 25) recommendations.push('매출채권 비중이 높습니다. 월말 결산 전에 회수 액션을 우선 처리하는 편이 좋습니다.');
   if (overdueAmount > 0) recommendations.push('연체 채권이 있습니다. 신용한도와 신규 주문 승인 기준을 보수적으로 두세요.');
-  if (inventoryMonths >= 2) recommendations.push('재고 회전이 느립니다. 캠페인이나 출고 주문으로 재고를 줄일 필요가 있습니다.');
+  if (inventoryMonths === null) recommendations.push('이번 달 출고가 없어 재고 회전 월수를 계산할 수 없습니다. 주문 출고나 수출 정산 후 확인하세요.');
+  else if (inventoryMonths >= 2) recommendations.push('재고 회전이 느립니다. 캠페인이나 출고 주문으로 재고를 줄일 필요가 있습니다.');
   if (summary.vatPayableAmount > 0) recommendations.push('부가세 미납 잔액이 있습니다. 결산 전 VAT 예정표를 확인하고 납부를 반영하세요.');
   if (overdueVatAmount > 0) recommendations.push('기한이 지난 부가세가 있습니다. 현금 유출 계획을 조정하세요.');
   if (currentInventoryWriteDownNet > 0) recommendations.push('재고 손상 순액이 누적되고 있습니다. 저회전 상품 입고와 캠페인을 재점검하세요.');
@@ -1318,12 +1330,8 @@ export function managementReport(state) {
 
   return {
     income: {
-      sales: summary.sales,
-      cogs,
-      grossProfit,
-      grossMarginPct: summary.sales ? Number(((grossProfit / summary.sales) * 100).toFixed(1)) : 0,
-      fixedExpenses,
-      operatingProfit,
+      ...income,
+      grossMarginPct: income.sales ? Number(((income.grossProfit / income.sales) * 100).toFixed(1)) : 0,
     },
     cashFlow: {
       cash: Number(current.company.cashKrw || 0),
@@ -1375,10 +1383,10 @@ export function managementReport(state) {
         value: `${totalInventoryUnits.toLocaleString('ko-KR')}개`,
       },
       {
-        action: inventoryMonths >= 2 ? 'company-inventory-risk' : 'company-inventory-recovery',
+        action: inventoryMonths === null || inventoryMonths >= 2 ? 'company-inventory-risk' : 'company-inventory-recovery',
         label: '재고 회전 월수',
-        tone: inventoryMonths >= 2 ? 'warning' : 'safe',
-        value: `${inventoryMonths}개월`,
+        tone: inventoryMonths === null || inventoryMonths >= 2 ? 'warning' : 'safe',
+        value: inventoryMonths === null ? '집계 전 · 출고 없음' : `${inventoryMonths}개월`,
       },
       {
         action: 'tax',
@@ -1426,7 +1434,6 @@ export function managementReport(state) {
 export function reportHistoryTrend(state) {
   const current = normalizeState(state);
   const management = managementReport(current);
-  const liveSummary = reportSummary(current);
   const settlementRows = [...current.settlements]
     .sort((a, b) => Number(a.year || 0) - Number(b.year || 0) || Number(a.month || 0) - Number(b.month || 0))
     .map((settlement) => ({
@@ -1450,9 +1457,9 @@ export function reportHistoryTrend(state) {
     month: Number(current.company.month || 0),
     period: livePeriod,
     sales: Number(management.income.sales || 0),
-    cost: Number(management.income.cogs || 0),
+    cost: Number(management.income.totalCost || 0),
     operatingProfit: Number(management.income.operatingProfit || 0),
-    netProfit: Number(liveSummary.latestSettlement?.netProfit ?? management.income.operatingProfit ?? 0),
+    netProfit: Number(management.income.netProfit || 0),
     netCashflow: management.cashFlow.periodNetCashflow,
     cashflowCoverage: management.cashFlow.cashflowCoverage,
     source: 'live',
@@ -1662,6 +1669,49 @@ function outstandingByPartner(state, partnerId) {
 function advanceMonth(year, month) {
   if (month >= 12) return { year: year + 1, month: 1 };
   return { year, month: month + 1 };
+}
+
+function isShippedOrderInPeriod(state, order, year, month) {
+  if (order.status !== 'SHIPPED' && order.status !== 'COMPLETED') return false;
+  if (isValidPeriod(order.shippedYear, order.shippedMonth)) {
+    return Number(order.shippedYear) === year && Number(order.shippedMonth) === month;
+  }
+  // Before shipment dates were stored on orders, the linked invoice already
+  // recorded the real shipment month. Keep order-month fallback for old seeds
+  // or imported rows with no linked invoice; never rewrite their history.
+  const invoice = order.id && state.receivables.find((row) => row.orderId === order.id && isValidPeriod(row.year, row.month));
+  const period = invoice || order;
+  return Number(period.year) === year && Number(period.month) === month;
+}
+
+function isValidPeriod(year, month) {
+  return Number.isInteger(Number(year)) && Number(year) > 0
+    && Number.isInteger(Number(month)) && Number(month) >= 1 && Number(month) <= 12;
+}
+
+function periodIncomeSummary(state) {
+  const year = Number(state.company.year);
+  const month = Number(state.company.month);
+  const monthOrders = state.orders.filter((order) => isShippedOrderInPeriod(state, order, year, month));
+  const monthExports = state.global.exportResults.filter((row) => Number(row.year) === year && Number(row.month) === month);
+  const localSales = monthOrders.reduce((sum, order) => sum + Number(order.unitPrice || 0) * Number(order.shippedQty || order.quantity || 0), 0);
+  const localCogs = monthOrders.reduce((sum, order) => sum + Number(order.unitCost || 0) * Number(order.shippedQty || order.quantity || 0), 0);
+  const exportSalesKrw = monthExports.reduce((sum, row) => sum + Number(row.salesKrw || 0), 0);
+  const exportCostKrw = monthExports.reduce((sum, row) => sum + Number(row.exportCostKrw || 0), 0);
+  const fixedExpenses = FIXED_EXPENSES.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const inventoryWriteDownNet = state.inventoryWriteDowns
+    .filter((row) => Number(row.year) === year && Number(row.month) === month)
+    .reduce((sum, row) => sum + Number(row.netEffectAmount || 0), 0);
+  const sales = localSales + exportSalesKrw;
+  const cogs = localCogs + exportCostKrw;
+  const grossProfit = sales - cogs;
+  const operatingProfit = grossProfit - fixedExpenses - inventoryWriteDownNet;
+  const tax = operatingProfit > 0 ? Math.round(operatingProfit * 0.22) : 0;
+  return {
+    year, month, localSales, localCogs, exportSalesKrw, exportCostKrw,
+    sales, cogs, grossProfit, fixedExpenses, totalCost: cogs + fixedExpenses,
+    inventoryWriteDownNet, operatingProfit, tax, netProfit: operatingProfit - tax,
+  };
 }
 
 function snapshotPayload(state) {
@@ -1900,12 +1950,14 @@ function normalizeGlobalState(value, fallback) {
   return {
     ...fallback,
     ...source,
-    exportPlans: Array.isArray(source.exportPlans) ? source.exportPlans.slice(0, 16) : fallback.exportPlans,
-    importPlans: Array.isArray(source.importPlans) ? source.importPlans.slice(0, 16) : fallback.importPlans,
-    exportResults: Array.isArray(source.exportResults) ? source.exportResults.slice(0, 18) : fallback.exportResults,
-    importResults: Array.isArray(source.importResults) ? source.importResults.slice(0, 18) : fallback.importResults,
-    foreignReceivables: Array.isArray(source.foreignReceivables) ? source.foreignReceivables.slice(0, 18) : fallback.foreignReceivables,
-    hedgeContracts: Array.isArray(source.hedgeContracts) ? source.hedgeContracts.slice(0, 12) : fallback.hedgeContracts,
+    // These are financial source rows, not display logs. Truncation silently
+    // erased pending work, income and outstanding receivables after 12-18 rows.
+    exportPlans: Array.isArray(source.exportPlans) ? [...source.exportPlans] : fallback.exportPlans,
+    importPlans: Array.isArray(source.importPlans) ? [...source.importPlans] : fallback.importPlans,
+    exportResults: Array.isArray(source.exportResults) ? [...source.exportResults] : fallback.exportResults,
+    importResults: Array.isArray(source.importResults) ? [...source.importResults] : fallback.importResults,
+    foreignReceivables: Array.isArray(source.foreignReceivables) ? [...source.foreignReceivables] : fallback.foreignReceivables,
+    hedgeContracts: Array.isArray(source.hedgeContracts) ? [...source.hedgeContracts] : fallback.hedgeContracts,
     exchangeRateLog: Array.isArray(source.exchangeRateLog) ? source.exchangeRateLog.slice(0, 24) : fallback.exchangeRateLog,
     nextExportNo: Number(source.nextExportNo || fallback.nextExportNo || 1),
     nextImportNo: Number(source.nextImportNo || fallback.nextImportNo || 1),
