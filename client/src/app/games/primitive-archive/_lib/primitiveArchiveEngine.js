@@ -2220,6 +2220,8 @@ export function autoEquipAction(state, mode = 'role') {
 
   current.party.forEach((actor) => {
     equipment[actor.id] = emptyEquipmentSlots();
+  });
+  livingParty(current).forEach((actor) => {
     EQUIPMENT_SLOTS.forEach((slot) => {
       const itemId = bestEquipmentForSlot(current, pool, actor, slot, safeMode);
       if (!itemId) return;
@@ -6012,6 +6014,48 @@ function pickAutoRecipe(state) {
     .find((recipe) => autoRecipeAllowed(state, recipe) && autoRecipeNeeded(state, recipe, pool)) || null;
 }
 
+export function autoWarmClothingPlan(state) {
+  const current = normalizeState(state);
+  const living = livingParty(current);
+  const studyThreshold = Math.max(1, Math.floor(Number(current.apMax || 1) / 2));
+  const season = seasonForDay(current.day);
+  if (current.ended || !living.length || Number(current.ap || 0) <= studyThreshold
+    || !researchSystemStatus(current).unlocked
+    || (!['autumn', 'winter'].includes(season.id) && Number(current.weather?.cold || 0) < 5)
+    || foodUnitCount(current) < living.length + 1
+    || living.some((member) => Number(member.hp || 0) <= 45 || Number(member.hunger || 0) >= 46
+      || Number(member.stamina || 0) <= 28 || Number(member.bodyTemp ?? 37) <= 34.4)) return null;
+
+  // Shared camp heat must not indefinitely replace basic personal protection.
+  // Keep this bounded to a modest first layer before ordinary archive work.
+  const basicInsulation = 2;
+  const unprotected = living.filter((member) => actorInsulation(current, member.id) < basicInsulation);
+  if (!unprotected.length) return null;
+  const warmthGain = (itemId, member) => {
+    const item = ITEMS[itemId];
+    const previous = ITEMS[current.equipment?.[member.id]?.[item?.slot]];
+    return Math.min(basicInsulation - actorInsulation(current, member.id),
+      Number(item?.insulation || 0) - Number(previous?.insulation || 0));
+  };
+  // Existing stock is fitted by automatic operation before any new craft.
+  if (Object.entries(current.inventory).some(([itemId, qty]) => Number(qty || 0) > 0
+    && ITEMS[itemId]?.type === 'equip' && unprotected.some((member) => warmthGain(itemId, member) > 0))) return null;
+
+  const pool = buildEquipmentPool(current);
+  const candidates = RECIPES.filter((recipe) => autoRecipeAllowed(current, recipe) && autoRecipeNeeded(current, recipe, pool))
+    .flatMap((recipe) => Object.keys(recipe.reward || {}).filter((itemId) => ITEMS[itemId]?.type === 'equip'
+      && Number(ITEMS[itemId].insulation || 0) > 0).map((itemId) => ({
+      recipe, itemId,
+      gain: Math.max(...unprotected.map((member) => warmthGain(itemId, member))),
+      materialUnits: Object.values(recipe.requires).reduce((sum, qty) => sum + Number(qty || 0), 0),
+    }))).filter((candidate) => candidate.gain > 0)
+    .sort((a, b) => b.gain - a.gain || a.materialUnits - b.materialUnits);
+  const choice = candidates[0];
+  if (!choice) return null;
+  return { kind: 'craft', id: choice.recipe.id, itemId: choice.itemId, label: choice.recipe.name, cost: { ...choice.recipe.requires },
+    reason: `개인 보온 대비: ${choice.recipe.name} 제작 · ${unprotected.map((member) => member.name).join('·')}의 겨울 의복을 먼저 확보합니다.` };
+}
+
 export function autoArchiveDevelopmentPlan(state) {
   const current = normalizeState(state);
   if (current.ended || !livingParty(current).length) return null;
@@ -6559,6 +6603,14 @@ function runNextAutoArchiveAction(state, options = {}) {
   const developmentWindow = Number(state.ap || 0) > studyThreshold;
   const campKind = developmentWindow ? pickAutoCampKind(state) : '';
   if (campKind === 'fuel') return runCampAction(state, pickActorForAuto(state, 'craft'), campKind, options);
+  const clothingPlan = developmentWindow ? autoWarmClothingPlan(state) : null;
+  if (clothingPlan) {
+    const crafted = runCraftAction(addLog(state, clothingPlan.reason), pickActorForAuto(state, 'craft'), clothingPlan.id, options);
+    // Fit only a genuinely produced garment; failed crafting keeps its cost
+    // and failure result rather than being hidden by a no-op equipment log.
+    return Number(crafted.inventory[clothingPlan.itemId] || 0) > Number(state.inventory[clothingPlan.itemId] || 0)
+      ? autoEquipAction(crafted, 'weather') : crafted;
+  }
   const archivePlan = developmentWindow ? autoArchiveDevelopmentPlan(state) : null;
   if (archivePlan) {
     const planned = addLog(state, archivePlan.reason);

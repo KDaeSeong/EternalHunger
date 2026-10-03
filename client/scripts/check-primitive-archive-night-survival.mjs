@@ -159,5 +159,155 @@ check('ordinary JSON restoration keeps actual clothing and reproduces exposure w
   assert.equal(engine.SAVE_VERSION, 'primitive-archive-v1');
 });
 
+function clothingFixture(overrides = {}) {
+  const base = fixture();
+  return engine.normalizeState({
+    ...base, day: 18, ap: 3,
+    weather: { id: 'clear', name: '맑음', cold: 0, temp: 16, actionMod: 0 },
+    camp: { ...base.camp, fireLevel: 3, shelterLevel: 3, workbenchLevel: 1, fuel: 12 },
+    research: { ...base.research, completed: Object.fromEntries(engine.TECH_TREE.map((tech) => [tech.id, true])) },
+    inventory: { berry: 30, hide: 12, fiber: 6, wood: 15, stone: 10, resin: 5, clay: 10, twine: 3 },
+    equipment: {},
+    counters: { ...base.counters, craft: 100, gather: 0 },
+    ...overrides,
+  });
+}
+
+function ownedEquipment(state, itemId) {
+  return Number(state.inventory[itemId] || 0) + Object.values(state.equipment)
+    .reduce((sum, slots) => sum + Object.values(slots).filter((id) => id === itemId).length, 0);
+}
+
+function firstRoll(value) {
+  let first = true;
+  return () => { if (!first) return 0.999; first = false; return value; };
+}
+
+function newlyCommittedMaterial(before, after, itemId) {
+  return engine.TRIBE_PROJECTS.filter((project) => after.projects.resourceCommitted[project.id]
+    && !before.projects.resourceCommitted[project.id])
+    .reduce((sum, project) => sum + Number(project.cost[itemId] || 0), 0);
+}
+
+check('autumn operation makes and wears real basic clothing before archive work even when shared camp heat is sufficient', () => {
+  const state = clothingFixture();
+  const next = engine.runAutoDayAction(state, { rng: firstRoll(0) });
+  assert.equal(ownedEquipment(next, 'hide_pants'), 1);
+  assert.ok(engine.nightSurvivalRows(next).some((row) => row.insulation === 2));
+  assert.equal(next.counters.craft, state.counters.craft + 1, 'Basic survival clothing must not be blocked by an unrelated gather/craft ratio.');
+  assert.equal(next.inventory.hide, state.inventory.hide - 3 + Number(next.tribe.lastProduction.gains.hide || 0));
+  assert.equal(next.inventory.fiber, state.inventory.fiber - 1 - newlyCommittedMaterial(state, next, 'fiber')
+    + Number(next.tribe.lastProduction.gains.fiber || 0));
+  assert.equal(Number(next.inventory.book_craft_guide || 0), 0);
+  assert.ok(next.log.some((line) => line.includes('개인 보온 대비')));
+});
+
+check('the clothing plan is read-only and selects an unlocked affordable garment that improves a real unprotected survivor', () => {
+  const state = clothingFixture(); const original = structuredClone(state);
+  const plan = engine.autoWarmClothingPlan(state);
+  assert.equal(plan.kind, 'craft'); assert.equal(plan.id, 'hide_pants'); assert.equal(plan.itemId, 'hide_pants');
+  assert.deepEqual(plan.cost, { hide: 3, fiber: 1 });
+  assert.deepEqual(state, original);
+});
+
+check('a failed automatic garment attempt pays real materials and cannot invent worn clothing', () => {
+  const state = clothingFixture();
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(ownedEquipment(next, 'hide_pants'), 0);
+  assert.ok(engine.nightSurvivalRows(next).every((row) => row.insulation === 0));
+  assert.equal(next.inventory.hide, state.inventory.hide - 3 + Number(next.tribe.lastProduction.gains.hide || 0));
+  assert.equal(next.inventory.fiber, state.inventory.fiber - 1 - newlyCommittedMaterial(state, next, 'fiber')
+    + Number(next.tribe.lastProduction.gains.fiber || 0));
+  assert.ok(next.log.some((line) => line.includes('제작 실패')));
+});
+
+check('spring and summer warmth do not displace ordinary development with proactive winter garments', () => {
+  for (const day of [3, 9, 27, 33]) assert.equal(engine.autoWarmClothingPlan(clothingFixture({ day })), null);
+});
+
+check('actual cold weather still permits affordable basic personal protection outside the winter season', () => {
+  const state = clothingFixture({ day: 3, weather: { id: 'wind', name: '차가운 바람', cold: 5, temp: 4, actionMod: -0.04 } });
+  assert.equal(engine.autoWarmClothingPlan(state).id, 'hide_pants');
+});
+
+check('clothing preparation retains the food, care, camp and remaining-action survival gates', () => {
+  for (const changes of [
+    { ap: 2 }, { ap: 1 }, { inventory: { hide: 12, fiber: 6 } },
+    { camp: { fireLevel: 1, shelterLevel: 1, workbenchLevel: 0, fuel: 1 } },
+    { ended: true },
+  ]) assert.equal(engine.autoWarmClothingPlan(clothingFixture(changes)), null);
+  for (const patch of [{ hunger: 75 }, { hp: 30 }, { stamina: 20 }, { bodyTemp: 33 }]) {
+    const state = clothingFixture(); state.party[1] = { ...state.party[1], ...patch };
+    assert.equal(engine.autoWarmClothingPlan(state), null);
+  }
+});
+
+check('locked recipes and missing materials cannot become free garments or unlock bypasses', () => {
+  const locked = clothingFixture(); locked.research.completed = {};
+  assert.equal(engine.autoWarmClothingPlan(locked), null);
+  assert.equal(engine.autoWarmClothingPlan(clothingFixture({ inventory: { berry: 30, wood: 15 } })), null);
+});
+
+check('already owned or worn warm garments count toward basic coverage instead of being duplicated', () => {
+  const stocked = clothingFixture(); stocked.inventory.hide_pants = 3;
+  assert.equal(engine.autoWarmClothingPlan(stocked), null);
+  const equipped = engine.autoEquipAction(stocked, 'weather');
+  assert.ok(engine.nightSurvivalRows(equipped).every((row) => row.insulation === 2));
+  assert.equal(engine.autoWarmClothingPlan(equipped), null);
+  assert.equal(ownedEquipment(engine.runAutoDayAction(stocked, { rng: noEvents }), 'hide_pants'), 3);
+});
+
+check('basic coverage completes through paid bounded crafting without endlessly clothing already protected companions', () => {
+  let state = clothingFixture();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const plan = engine.autoWarmClothingPlan(state);
+    assert.equal(plan.id, 'hide_pants');
+    state = engine.runCraftAction(state, 'noa', plan.id, { rng: firstRoll(0) });
+    state = engine.autoEquipAction(state, 'weather');
+    assert.equal(ownedEquipment(state, 'hide_pants'), attempt + 1);
+    state = engine.normalizeState({ ...state, ap: 3, party: state.party.map((member) => ({ ...member, hp: 100, hunger: 0, stamina: 100, bodyTemp: 37 })) });
+  }
+  assert.ok(engine.nightSurvivalRows(state).every((row) => row.insulation >= 2));
+  assert.equal(engine.autoWarmClothingPlan(state), null);
+  assert.equal(state.inventory.hide, 3); assert.equal(state.inventory.fiber, 3);
+});
+
+check('automatic equipment redistribution protects living companions rather than leaving scarce clothing on a dead first member', () => {
+  const state = clothingFixture(); state.party[0].hp = 0;
+  state.equipment = { shiroko: { top: 'fur_coat' } }; state.inventory.hide_pants = 1;
+  const next = engine.autoEquipAction(state, 'weather');
+  assert.ok(Object.values(next.equipment.shiroko).every((id) => !id));
+  assert.equal(ownedEquipment(next, 'fur_coat'), 1); assert.equal(ownedEquipment(next, 'hide_pants'), 1);
+  assert.equal(next.party[0].hp, 0);
+  assert.ok(engine.nightSurvivalRows(next).some((row) => row.insulation >= 2));
+});
+
+check('ordinary JSON restoration derives the same clothing plan and exact paid operation without storing a new forecast or changing RNG draws', () => {
+  const state = clothingFixture(); const restored = engine.normalizeState(JSON.parse(JSON.stringify(state)));
+  assert.deepEqual(engine.autoWarmClothingPlan(restored), engine.autoWarmClothingPlan(state));
+  let firstDraws = 0; let restoredDraws = 0;
+  const first = engine.runAutoDayAction(state, { rng: () => firstDraws++ === 0 ? 0 : 0.999 });
+  const resumed = engine.runAutoDayAction(restored, { rng: () => restoredDraws++ === 0 ? 0 : 0.999 });
+  delete first.updatedAt; delete resumed.updatedAt;
+  assert.deepEqual(resumed, first); assert.equal(restoredDraws, firstDraws);
+  assert.equal(Object.hasOwn(resumed, 'clothingPlan'), false);
+  assert.equal(engine.SAVE_VERSION, 'primitive-archive-v1');
+});
+
+check('the same ordinary seeded runs acquire personal winter protection and still reach every archive objective', () => {
+  function seededRng(seed) { let value = seed >>> 0; return () => { value = (value * 1664525 + 1013904223) >>> 0; return value / 0x100000000; }; }
+  for (const seed of [3, 7, 43]) {
+    const rng = seededRng(seed);
+    let state = engine.createNewState({ rng, runId: `personal-clothing-${seed}`, now: '2026-10-03T00:00:00.000Z' });
+    for (let day = 0; day < 120 && !state.ended; day += 1) {
+      state = engine.runAutoDayAction(state, { rng });
+      if (state.day === 49) assert.ok(engine.nightSurvivalRows(state).every((row) => row.insulation >= 2), `Seed ${seed} must not leave three survivors unprotected after two winters.`);
+      if (state.day >= 49 && engine.archiveVictorySummary(state).canComplete) break;
+    }
+    assert.equal(state.ended, false); assert.equal(state.party.filter((member) => member.hp > 0).length, 3);
+    assert.equal(engine.archiveVictorySummary(state).canComplete, true, `Seed ${seed} must keep all five real archive objectives.`);
+  }
+});
+
 console.log(JSON.stringify({ checks, pass: !failures.length, failures, evidence: 'current real engine, member-specific clothing, paid camp actions; no old result files or accounts' }));
 if (failures.length) process.exitCode = 1;
