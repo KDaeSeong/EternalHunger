@@ -2581,7 +2581,7 @@ export function recoveryChoiceRows(state) {
       id: 'ration_break',
       tone: hunger > 65 ? 'danger' : 'normal',
       title: '비상 배식',
-      detail: '보존식/구운 고기/육포를 우선 사용해 희귀 자원 파밍 중 허기 누적을 낮춥니다.',
+      detail: '굶주린 위독 대원을 먼저, 그 외에는 허기 순으로 배식합니다. 보존식/구운 고기/육포를 우선 사용합니다.',
       costText: `식량 ${Math.min(foodUnits, partySize)}개`,
       enabled: (hunger >= 42 || foodUnits <= partySize + 1) && canFeed,
       priority: hunger + Math.max(0, partySize + 2 - foodUnits) * 10,
@@ -2692,8 +2692,7 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
   }
 
   if (id === 'ration_break') {
-    const targets = livingParty(current)
-      .sort((a, b) => Number(b.hunger || 0) - Number(a.hunger || 0));
+    const targets = foodRecoveryTargets(current);
     let inventory = { ...current.inventory };
     const updates = {};
     const used = [];
@@ -2717,7 +2716,8 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
       party: current.party.map((member) => updates[member.id] || member),
     };
     const names = used.map(itemName).join(', ');
-    next = addLog(next, `비상 배식 완료: ${names}. 허기가 높은 팀원부터 ${used.length}명에게 배분했습니다.`);
+    const priority = foodRecoveryPriorityText(targets[0]);
+    next = addLog(next, `비상 배식 완료: ${names}. ${priority || '허기가 높은 팀원부터'} ${used.length}명에게 배분했습니다.`);
     return finishRecoveryAction(next, actorId, { action: 'camp', staminaCost: 3, hungerAdd: 0 }, options);
   }
 
@@ -5795,6 +5795,28 @@ function livingParty(state) {
   return state.party.filter((member) => Number(member.hp || 0) > 0);
 }
 
+function isCriticalFoodRecipient(member) {
+  return Number(member?.hunger || 0) >= 75 && Number(member?.hp || 0) <= 30;
+}
+
+function foodRecoveryTargets(state) {
+  // Hunger alone cannot distinguish a healthy hungry survivor from one who
+  // is already dying. Keep ordinary hunger order outside that emergency.
+  return livingParty(state).sort((a, b) => {
+    const criticalA = isCriticalFoodRecipient(a);
+    const criticalB = isCriticalFoodRecipient(b);
+    return Number(criticalB) - Number(criticalA)
+      || (criticalA ? Number(a.hp || 0) - Number(b.hp || 0) : 0)
+      || Number(b.hunger || 0) - Number(a.hunger || 0);
+  });
+}
+
+function foodRecoveryPriorityText(member) {
+  return isCriticalFoodRecipient(member)
+    ? `생존 우선 배분: ${member.name} (HP ${Math.round(member.hp)} · 허기 ${Math.round(member.hunger)})부터`
+    : '';
+}
+
 function foodAvailable(state) {
   return FOOD_RECOVERY_IDS
     .some((id) => Number(state.inventory[id] || 0) > 0);
@@ -6160,8 +6182,7 @@ function runNextAutoArchiveAction(state, options = {}) {
   const careActor = getActor(state, careActorId);
   const averageHunger = averageParty(state, 'hunger');
   const foodStock = foodUnitCount(state);
-  const hungry = living.filter((member) => Number(member.hunger || 0) >= 46)
-    .sort((a, b) => Number(b.hunger || 0) - Number(a.hunger || 0));
+  const hungry = foodRecoveryTargets(state).filter((member) => Number(member.hunger || 0) >= 46);
   const canTreat = Number(state.inventory.herb_tonic || 0) > 0
     || (recipeUnlockInfo(state, 'herb_tonic').unlocked && hasResources(state.inventory, { herb: 2, berry: 1 }));
   if (living.some((member) => Number(member.hp || 0) <= 30) && canTreat) {
@@ -6198,7 +6219,10 @@ function runNextAutoArchiveAction(state, options = {}) {
       return runCampAction(state, pickActorForAuto(state, 'craft'), cookingKind, options);
     }
     if (hungry.length >= 2 && foodStock >= 2) return runRecoveryChoiceAction(state, careActorId, 'ration_break', options);
-    return runEatAction(state, hungry[0]?.id || careActorId, options);
+    const recipient = hungry[0] || careActor;
+    const priority = foodRecoveryPriorityText(recipient);
+    const planned = priority ? addLog(state, `${priority} 식사합니다. 위독한 굶주린 대원을 먼저 보호합니다.`) : state;
+    return runEatAction(planned, recipient?.id || careActorId, options);
   }
   // Rest cannot replace a meal. Without food, injured starving survivors must
   // still pay for a real procurement attempt rather than rest until they die.

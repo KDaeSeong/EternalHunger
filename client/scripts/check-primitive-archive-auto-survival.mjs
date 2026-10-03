@@ -61,6 +61,73 @@ check('one hungry member does not waste food on the healthy members', () => {
   assert.ok(!next.log.some((entry) => entry.includes('비상 배식 완료')));
 });
 
+function rationPriorityFixture(overrides = {}) {
+  const state = fixture({ inventory: { cooked_meat: 1 }, ...overrides });
+  state.weather = { ...state.weather, cold: 0, id: 'clear' };
+  state.party = state.party.map((member, index) => ({
+    ...member,
+    hp: index === 1 ? 4 : 80,
+    hunger: index === 1 ? 94 : index === 0 ? 99 : 85,
+  }));
+  return state;
+}
+
+check('the last automatic meal protects a critically injured starving survivor before a healthier hungrier member', () => {
+  const state = rationPriorityFixture();
+  const original = structuredClone(state);
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.ok(next.party.find((member) => member.id === 'hina').hp > 0, 'A usable meal must not be allocated away from a survivor who would die tonight.');
+  assert.equal(next.counters.meals, 1);
+  assert.ok(next.log.some((entry) => entry.includes('생존 우선 배분') && entry.includes('히나')));
+  expectSameOperation(next, engine.runEatAction(state, 'hina', { rng: noEvents }));
+  assert.deepEqual(state, original);
+});
+
+check('scarce group rations feed critically injured starving members before healthier recipients', () => {
+  const state = rationPriorityFixture({ inventory: { cooked_meat: 2 } });
+  state.party[1].hunger = 80;
+  state.party[2].hunger = 94;
+  const next = engine.runRecoveryChoiceAction(state, 'shiroko', 'ration_break', { rng: noEvents });
+  assert.ok(next.party.find((member) => member.id === 'hina').hp > 0);
+  assert.equal(next.counters.meals, 2);
+  assert.equal(next.party.find((member) => member.id === 'noa').hunger, 100, 'The third, healthier recipient waits when only two actual meals exist.');
+  assert.ok(next.log.some((entry) => entry.includes('생존 우선 배분') && entry.includes('히나')));
+});
+
+check('equally starving critical members receive scarce food in order of actual remaining HP', () => {
+  const state = rationPriorityFixture();
+  state.party[0].hp = 20;
+  state.party[0].hunger = 100;
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  expectSameOperation(next, engine.runEatAction(state, 'hina', { rng: noEvents }));
+});
+
+check('ordinary hunger ordering stays unchanged when nobody is critically injured and starving', () => {
+  const state = rationPriorityFixture();
+  state.party = state.party.map((member) => ({ ...member, hp: 80 }));
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  expectSameOperation(next, engine.runEatAction(state, 'shiroko', { rng: noEvents }));
+  assert.ok(!next.log.some((entry) => entry.includes('생존 우선 배분')));
+});
+
+check('low HP alone does not divert a scarce meal from someone actually starving', () => {
+  const state = rationPriorityFixture();
+  state.party[1].hunger = 20;
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  expectSameOperation(next, engine.runEatAction(state, 'shiroko', { rng: noEvents }));
+});
+
+check('scarce food priority is derived again after ordinary JSON restoration without reviving dead members', () => {
+  const state = rationPriorityFixture();
+  state.party[2].hp = 0;
+  state.party[2].hunger = 100;
+  const loaded = engine.normalizeState(JSON.parse(JSON.stringify(state)));
+  const next = engine.runAutoDayAction(loaded, { rng: noEvents });
+  assert.ok(next.party.find((member) => member.id === 'hina').hp > 0);
+  assert.equal(next.party.find((member) => member.id === 'noa').hp, 0);
+  expectSameOperation(next, engine.runEatAction(loaded, 'hina', { rng: noEvents }));
+});
+
 check('medicine is not consumed as a zero-nutrition meal', () => {
   const state = fixture({ inventory: { herb_tonic: 3 } });
   state.research.completed.FISHING = true;
@@ -495,6 +562,26 @@ check('normal runs survive and develop using ordinary paid actions across fiftee
       expectSameOperation(resumed, state);
     }
   }
+});
+
+check('a normal unfixed-hardness run no longer loses a starving injured companion while feeding a healthier one', () => {
+  const rng = seededRng(89);
+  let state = engine.createNewState({ difficulty: 'hard', rng, runId: 'hard-food-priority-89', now: '2026-10-03T00:00:00.000Z' });
+  let usedSurvivalPriority = false;
+  for (let day = 0; day < 120 && !state.ended && !engine.archiveVictorySummary(state).canComplete; day += 1) {
+    if (day === 26) state = engine.normalizeState(JSON.parse(JSON.stringify(state)));
+    const activeDay = state.day;
+    state = engine.runAutoDayAction(state, { rng });
+    usedSurvivalPriority ||= state.log.some((line) => line.startsWith(`Day ${activeDay}:`) && line.includes('생존 우선 배분'));
+    assert.equal(state.devTools.enabled, false);
+    assert.ok(Object.values(state.inventory).every((qty) => qty >= 0));
+  }
+  const victory = engine.archiveVictorySummary(state);
+  naturalRuns.push({ difficulty: 'hard', seed: 89, day: state.day, ended: state.ended, canComplete: victory.canComplete, alive: state.party.filter((member) => member.hp > 0).length, usedSurvivalPriority });
+  assert.equal(usedSurvivalPriority, true, 'The ordinary run must really exercise the changed food allocation.');
+  assert.equal(state.party.filter((member) => member.hp > 0).length, 3);
+  assert.equal(victory.canComplete, true, 'Survival triage must still leave room for all five paid development objectives.');
+  assert.equal(state.victory, false, 'Final completion remains the player\'s decision.');
 });
 
 console.log(JSON.stringify({ pass: !failures.length, checks, failures, naturalRuns, evidence: 'current engine actions only; no old result files, real saves, accounts, or original executable' }, null, 2));

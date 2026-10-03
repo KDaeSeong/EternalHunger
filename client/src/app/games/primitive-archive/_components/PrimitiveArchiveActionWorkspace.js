@@ -145,7 +145,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
             action="consume"
             cue="off"
             disabled={!actorCanAct || !rationChoice?.enabled}
-            title={`허기가 높은 생존 대원부터 한 명당 식량 1개를 나눕니다. ${rationChoice?.costText || '식량 필요'} · 1 AP`}
+            title={`굶주린 위독 대원을 먼저, 그 외에는 허기 순으로 한 명당 식량 1개를 나눕니다. ${rationChoice?.costText || '식량 필요'} · 1 AP`}
             onClick={() => runRecoveryChoice('ration_break')}
           >공동 식사 · 1 AP</ActionButton>
           <ActionButton action="rest" cue="off" disabled={!actorCanAct} onClick={runRest}>휴식</ActionButton>
