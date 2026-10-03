@@ -719,12 +719,17 @@ export function raiseCapitalAction(state, financingTypeId) {
 
 export function closeCapitalMarketAction(state) {
   const current = normalizeState(state);
-  const summary = reportSummary(current);
-  const global = globalTradeSummary(current);
+  const period = `${current.company.year}-${String(current.company.month).padStart(2, '0')}`;
+  if (capitalMarketClosingForPeriod(current)) {
+    return addLog(current, `${period} 자본시장은 이미 월마감했습니다. 다음 달에 새 실적을 반영할 수 있습니다.`);
+  }
+  const income = periodIncomeSummary(current);
   const trust = Number(current.capitalMarket.investorTrust || 0);
   const risk = Number(current.capitalMarket.disclosureRisk || 0);
-  const salesMomentum = Math.min(8, Math.round((summary.sales + global.exportSalesKrw) / 25000000));
-  const profitSignal = (summary.latestSettlement?.netProfit || managementReport(current).income.operatingProfit) >= 0 ? 2 : -3;
+  // Exports already belong to this period's income. Historical settlements and
+  // cumulative exports must not reward an idle or losing current month.
+  const salesMomentum = Math.min(8, Math.round(income.sales / 25000000));
+  const profitSignal = income.netProfit >= 0 ? 2 : -3;
   const trustDelta = profitSignal + salesMomentum - Math.round(risk / 28);
   const nextTrust = clamp(trust + trustDelta, 0, 100);
   const priceMovePct = (nextTrust - trust) * 0.018 + salesMomentum * 0.006 - risk * 0.0015;
@@ -735,6 +740,10 @@ export function closeCapitalMarketAction(state) {
     sharePrice: nextSharePrice,
     investorTrust: nextTrust,
     disclosureRisk: clamp(risk - 1, 0, 100),
+    salesKrw: income.sales,
+    netProfitKrw: income.netProfit,
+    salesMomentum,
+    profitSignal,
   };
   return addLog({
     ...current,
@@ -745,7 +754,7 @@ export function closeCapitalMarketAction(state) {
       disclosureRisk: stockPoint.disclosureRisk,
       stockHistory: [stockPoint, ...current.capitalMarket.stockHistory].slice(0, 18),
     },
-  }, `자본시장 월마감 완료. 주가 ${formatMoney(nextSharePrice)}, 투자자 신뢰 ${nextTrust}.`);
+  }, `자본시장 월마감 완료 (${period}). 매출 ${formatMoney(income.sales)} / 순손익 ${formatMoney(income.netProfit)} 기준. 주가 ${formatMoney(nextSharePrice)}, 투자자 신뢰 ${nextTrust}.`);
 }
 
 export function monthEndCloseAction(state) {
@@ -1285,6 +1294,8 @@ export function capitalMarketSummary(state) {
   if (Number(current.capitalMarket.debtKrw || 0) > marketCapKrw * 0.3) alerts.push('상장 부채 비중이 커졌습니다. 추가 차입은 보수적으로 봐야 합니다.');
   if (!alerts.length) alerts.push('상장 상태가 안정권입니다. 글로벌 매출 확대와 정기 공시를 유지하세요.');
   return {
+    closingPeriod: `${current.company.year}-${String(current.company.month).padStart(2, '0')}`,
+    closedThisMonth: Boolean(capitalMarketClosingForPeriod(current)),
     marketCapKrw,
     sharePrice: Number(current.capitalMarket.sharePrice || 0),
     sharesOutstanding: Number(current.capitalMarket.sharesOutstanding || 0),
@@ -1760,6 +1771,11 @@ function isShippedOrderInPeriod(state, order, year, month) {
 function isValidPeriod(year, month) {
   return Number.isInteger(Number(year)) && Number(year) > 0
     && Number.isInteger(Number(month)) && Number(month) >= 1 && Number(month) <= 12;
+}
+
+function capitalMarketClosingForPeriod(state) {
+  return state.capitalMarket.stockHistory.find((row) => Number(row?.year) === Number(state.company.year)
+    && Number(row?.month) === Number(state.company.month)) || null;
 }
 
 function periodIncomeSummary(state) {

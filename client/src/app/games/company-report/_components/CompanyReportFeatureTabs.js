@@ -551,8 +551,11 @@ export default function CompanyReportFeatureTabs({
                     <ActionButton action="disclosure" cue="off" onClick={() => applyLedgerAction('공시 대응', (current) => createDisclosureAction(current, disclosureTypeId))}>공시 대응 실행</ActionButton>
                     <ActionButton action="dividend" cue="off" onClick={() => applyLedgerAction('배당 결정', (current) => decideDividendAction(current))}>배당 결정</ActionButton>
                     <ActionButton action="capital" cue="off" onClick={() => applyLedgerAction('자금 조달', (current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
-                    <ActionButton action="closing" cue="off" onClick={() => applyLedgerAction('자본시장 월마감', (current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
+                    <ActionButton action="closing" cue="off" disabled={capitalSummary.closedThisMonth} onClick={() => applyLedgerAction('자본시장 월마감', (current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
                   </div>
+                  <p>{capitalSummary.closedThisMonth
+                    ? `${capitalSummary.closingPeriod} 자본시장 월마감 완료. 다음 달에 새 실적을 반영할 수 있습니다.`
+                    : '이번 달 매출과 순손익을 기준으로 한 번만 반영합니다.'}</p>
                   <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
               </section>

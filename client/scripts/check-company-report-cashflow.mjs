@@ -8,6 +8,8 @@ import ts from 'typescript';
 import {
   CAPITAL_DISCLOSURE_TYPES,
   CAPITAL_FINANCING_TYPES,
+  capitalMarketSummary,
+  closeCapitalMarketAction,
   closeInventoryValuationAction,
   collectForeignReceivableAction,
   collectReceivableAction,
@@ -23,6 +25,8 @@ import {
   FIXED_EXPENSES,
   formatMoney,
   GLOBAL_MARKETS,
+  globalMarketRows,
+  globalTradeSummary,
   inboundInventoryAction,
   inventoryRows,
   ledgerRestorePlan,
@@ -377,6 +381,7 @@ check('closing retains liquidity warnings and records the partial cashflow scope
 // compiled in memory, just like the existing observer-layout runtime check.
 const jsxModules = new Set([
   '../src/app/games/company-report/_components/CompanyReportArchiveLedgerPanels.js',
+  '../src/app/games/company-report/_components/CompanyReportGlobalCapitalPanels.js',
   '../src/app/games/company-report/_components/CompanyReportVisuals.js',
   '../src/app/games/company-report/_lib/companyReportPlayHelpers.js',
   '../src/app/games/_components/GamePlayPrimitives.js',
@@ -392,6 +397,7 @@ registerHooks({ load(url, context, nextLoad) {
   };
 } });
 const { default: LedgerPanel } = await import('../src/app/games/company-report/_components/CompanyReportArchiveLedgerPanels.js');
+const { default: GlobalCapitalPanels } = await import('../src/app/games/company-report/_components/CompanyReportGlobalCapitalPanels.js');
 const { buildCompanyReportExportPayload, buildCompanyReportExportCsv } = await import('../src/app/games/company-report/_lib/companyReportExportRuntime.js');
 
 function renderLedger(state) {
@@ -441,6 +447,38 @@ check('real JSON and CSV export helpers separate cash balance from period flow',
   const partialPayload = buildCompanyReportExportPayload({ state: partial, restoreMode: 'FULL_LEDGER', selectedRestoreTables: '' });
   assert.equal(partialPayload.management.cashFlow.cashflowCoverage, 'since-load');
   assert.ok(buildCompanyReportExportCsv(partialPayload).includes('"finance","cashflowCoverage","since-load"'));
+});
+
+function renderCapitalPanel(state) {
+  return renderToStaticMarkup(React.createElement(GlobalCapitalPanels, {
+    state, capitalSummary: capitalMarketSummary(state), globalSummary: globalTradeSummary(state),
+    foreignReceivables: [], markets: globalMarketRows(), globalMarketId: GLOBAL_MARKETS[0].id,
+    globalProductId: PRODUCTS[0].id, globalUnits: 100, selectedForeignAr: null,
+    disclosureTypeId: CAPITAL_DISCLOSURE_TYPES[0].id, financingTypeId: CAPITAL_FINANCING_TYPES[0].id,
+    recentActionText: state.log[0], resultPresentation: { action: 'closing', label: '자본시장 월마감', tone: 'highlight' },
+  }));
+}
+
+check('rendered market controls show one completed month and reopen only after real month advancement', () => {
+  const opened = seed();
+  const closed = closeCapitalMarketAction(opened);
+  const nextMonth = monthEndCloseAction(closed);
+  const legacy = clone(opened);
+  legacy.capitalMarket.stockHistory.unshift({ year: 2026, month: 2, sharePrice: 12500, investorTrust: 62, disclosureRisk: 13 });
+  for (const [state, disabled] of [[opened, false], [closed, true], [normalizeState(clone(closed)), true], [nextMonth, false], [legacy, true]]) {
+    const original = clone(state);
+    const html = renderCapitalPanel(state);
+    const buttons = [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)]
+      .map((match) => match[0]).filter((button) => button.includes('자본시장 월마감'));
+    assert.equal(buttons.length, 1);
+    assert.equal(/\sdisabled(?:=|[\s>])/.test(buttons[0]), disabled);
+    if (disabled) {
+      assert.ok(html.includes('2026-02 자본시장 월마감 완료. 다음 달에 새 실적을 반영할 수 있습니다.'));
+    } else {
+      assert.ok(html.includes('이번 달 매출과 순손익을 기준으로 한 번만 반영합니다.'));
+    }
+    assert.deepEqual(state, original);
+  }
 });
 
 console.log(JSON.stringify({ pass: true, checks: passed, fixedExpenses, evidence: 'engine, serialized state, real export helpers and static React markup; no account, browser or deployment' }));

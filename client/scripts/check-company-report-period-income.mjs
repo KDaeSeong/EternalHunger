@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import {
   bookmarkCurrentReportAction,
+  capitalMarketSummary,
+  closeCapitalMarketAction,
   closeInventoryValuationAction,
   collectForeignReceivableAction,
   collectReceivableAction,
   createExportPlanAction,
+  createDisclosureAction,
   createHedgeContractAction,
   createImportPlanAction,
   createLedgerSnapshotAction,
@@ -22,10 +25,12 @@ import {
   reportHistoryTrend,
   reportSummary,
   restoreLedgerSnapshotAction,
+  restoreLatestSnapshotAction,
   SAVE_VERSION,
   settleGlobalTradeAction,
   shipOrderAction,
 } from '../src/app/games/company-report/_lib/companyReportEngine.js';
+import { companyReportResultPresentation } from '../src/app/games/company-report/_lib/companyReportFeedback.js';
 
 const seed = () => createNewState({ runId: 'period-income-check', now: '2026-10-03T00:00:00.000Z' });
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -404,6 +409,149 @@ check('actual shipment costs survive save normalization and ledger restore witho
   assert.deepEqual(managementReport(restored).income, managementReport(loaded).income);
   assert.deepEqual(normalizeState(clone(seed())).orders, seed().orders, 'Do not recalculate old shipments against present inventory.');
   assert.equal(SAVE_VERSION, 'company-report-v1');
+});
+
+function expectCapitalClosing(state) {
+  const original = clone(state);
+  const income = managementReport(state).income;
+  const before = state.capitalMarket;
+  const momentum = Math.min(8, Math.round(income.sales / 25000000));
+  const profitSignal = income.netProfit >= 0 ? 2 : -3;
+  const trust = Math.min(100, Math.max(0, before.investorTrust + profitSignal + momentum - Math.round(before.disclosureRisk / 28)));
+  const price = Math.max(1000, Math.round(before.sharePrice * (1 + (trust - before.investorTrust) * 0.018 + momentum * 0.006 - before.disclosureRisk * 0.0015)));
+  const next = closeCapitalMarketAction(state);
+  const point = next.capitalMarket.stockHistory[0];
+  assert.equal(next.capitalMarket.sharePrice, price, 'Only this period\'s earned sales and profit may move its stock price.');
+  assert.equal(next.capitalMarket.investorTrust, trust);
+  assert.deepEqual([point.year, point.month], [income.year, income.month]);
+  assert.equal(point.salesKrw, income.sales);
+  assert.equal(point.netProfitKrw, income.netProfit);
+  assert.equal(point.salesMomentum, momentum);
+  assert.equal(point.profitSignal, profitSignal);
+  assert.equal(capitalMarketSummary(next).closedThisMonth, true);
+  assert.equal(next.company.cashKrw, state.company.cashKrw, 'Market marking must not collect an unpaid invoice or pay closing expenses.');
+  assert.deepEqual(next.orders, state.orders);
+  assert.deepEqual(next.receivables, state.receivables);
+  assert.deepEqual(next.global, state.global);
+  assert.deepEqual(next.settlements, state.settlements);
+  assert.deepEqual(state, original);
+  return next;
+}
+
+function profitableExportPeriod() {
+  let state = seed();
+  for (let index = 0; index < 20; index += 1) {
+    state = settleGlobalTradeAction(createExportPlanAction(state, 'jp-retail', 'book-akashi', 1000));
+  }
+  assert.ok(managementReport(state).income.netProfit > 0, 'Ordinary paid exports must really exercise profitable market marking.');
+  return state;
+}
+
+check('market closing counts this month\'s real export once, not income plus cumulative export sales', () => {
+  const state = settleGlobalTradeAction(createExportPlanAction(seed(), 'jp-retail', 'book-akashi', 1000));
+  assert.equal(managementReport(state).income.sales, 43146365);
+  assert.equal(expectCapitalClosing(state).capitalMarket.sharePrice, 12224);
+});
+
+check('this month\'s paid profitable exports replace the old losing settlement as the stock profit signal', () => {
+  const state = profitableExportPeriod();
+  assert.ok(state.settlements[0].netProfit < 0);
+  const next = expectCapitalClosing(state);
+  assert.equal(next.capitalMarket.investorTrust, 73);
+  assert.equal(next.capitalMarket.stockHistory[0].profitSignal, 2);
+});
+
+check('a new idle losing month does not inherit last month\'s profitable exports or stock momentum', () => {
+  const state = monthEndCloseAction(profitableExportPeriod());
+  assert.ok(state.settlements[0].netProfit > 0);
+  assert.equal(managementReport(state).income.sales, 0);
+  assert.equal(managementReport(state).income.netProfit, -fixedExpenses);
+  const next = expectCapitalClosing(state);
+  assert.equal(next.capitalMarket.investorTrust, 60);
+  assert.equal(next.capitalMarket.sharePrice, 11610);
+  assert.equal(next.capitalMarket.stockHistory[0].salesMomentum, 0);
+});
+
+check('a controlled break-even month is not replaced by a stale historical loss', () => {
+  const state = seed();
+  state.orders = [{ id: 'capital-break-even', productId: 'book-akashi', partnerId: 'future-book', quantity: 1, shippedQty: 1,
+    unitPrice: fixedExpenses + 9000, unitCost: 9000, year: 2026, month: 2, status: 'SHIPPED' }];
+  assert.equal(managementReport(state).income.netProfit, 0);
+  assert.ok(state.settlements[0].netProfit < 0);
+  assert.equal(expectCapitalClosing(state).capitalMarket.stockHistory[0].profitSignal, 2);
+});
+
+check('repeat market marking is rejected without replaying price, trust or risk even after later paid disclosures', () => {
+  const closed = expectCapitalClosing(seed());
+  for (const state of [closed, createDisclosureAction(closed, 'EARNINGS_CALL')]) {
+    const original = clone(state);
+    const again = closeCapitalMarketAction(state);
+    assert.deepEqual(again.capitalMarket, state.capitalMarket);
+    assert.deepEqual(again.company, state.company);
+    assert.deepEqual(again.operatingExpensePeriod, state.operatingExpensePeriod);
+    assert.match(again.log[0], /이미 월마감/);
+    assert.equal(companyReportResultPresentation(state, again).key, 'blocked');
+    assert.deepEqual(state, original);
+  }
+});
+
+check('legacy stock history alone preserves a completed month through save normalization without inventing old results', () => {
+  const old = seed();
+  old.capitalMarket.stockHistory.unshift({ year: '2026', month: '2', sharePrice: 12345, investorTrust: 60, disclosureRisk: 13 });
+  old.capitalMarket.sharePrice = 12345;
+  old.capitalMarket.investorTrust = 60;
+  old.capitalMarket.disclosureRisk = 13;
+  const loaded = normalizeState(clone(old));
+  assert.equal(capitalMarketSummary(loaded).closedThisMonth, true);
+  assert.equal(capitalMarketSummary(loaded).closingPeriod, '2026-02');
+  assert.deepEqual(closeCapitalMarketAction(loaded).capitalMarket, old.capitalMarket);
+  assert.deepEqual(loaded.capitalMarket.stockHistory, old.capitalMarket.stockHistory);
+  assert.equal(loaded.capitalMarket.stockHistory[0].salesKrw, undefined, 'Do not rewrite old history against present income.');
+  assert.equal(SAVE_VERSION, 'company-report-v1');
+});
+
+check('real month and year advancement unlocks exactly one new market close', () => {
+  const february = expectCapitalClosing(seed());
+  const march = monthEndCloseAction(february);
+  assert.equal(capitalMarketSummary(march).closedThisMonth, false);
+  assert.equal(capitalMarketSummary(march).closingPeriod, '2026-03');
+  const marchClosed = expectCapitalClosing(march);
+  assert.deepEqual(marchClosed.capitalMarket.stockHistory[1], february.capitalMarket.stockHistory[0]);
+  let december = seed();
+  for (let index = 0; index < 10; index += 1) december = monthEndCloseAction(december);
+  const january = monthEndCloseAction(expectCapitalClosing(december));
+  assert.deepEqual([january.company.year, january.company.month], [2027, 1]);
+  assert.equal(capitalMarketSummary(january).closedThisMonth, false, 'The old 2026 January point must not block 2027 January.');
+  expectCapitalClosing(january);
+});
+
+check('24 real monthly closes keep the latest month idempotent beyond the 18-row stock display limit', () => {
+  let state = seed();
+  for (let index = 0; index < 24; index += 1) {
+    const closed = expectCapitalClosing(state);
+    assert.equal(closed.capitalMarket.stockHistory.length, Math.min(18, index + 2));
+    assert.deepEqual(closeCapitalMarketAction(normalizeState(clone(closed))).capitalMarket, closed.capitalMarket);
+    state = monthEndCloseAction(closed);
+  }
+  assert.deepEqual([state.company.year, state.company.month], [2028, 2]);
+  assert.equal(capitalMarketSummary(state).closedThisMonth, false);
+});
+
+check('both full snapshot restore paths restore month closing eligibility with the matching stock history', () => {
+  for (const alreadyClosed of [false, true]) {
+    const original = alreadyClosed ? expectCapitalClosing(seed()) : seed();
+    const snapshotted = createLedgerSnapshotAction(original);
+    const changed = monthEndCloseAction(alreadyClosed ? snapshotted : expectCapitalClosing(snapshotted));
+    for (const restore of [restoreLatestSnapshotAction, restoreLedgerSnapshotAction]) {
+      const restored = restore(changed);
+      assert.deepEqual(restored.capitalMarket.stockHistory, original.capitalMarket.stockHistory);
+      assert.equal(restored.capitalMarket.sharePrice, original.capitalMarket.sharePrice);
+      assert.deepEqual([restored.company.year, restored.company.month], [2026, 2]);
+      assert.equal(capitalMarketSummary(restored).closedThisMonth, alreadyClosed);
+      if (alreadyClosed) assert.deepEqual(closeCapitalMarketAction(restored).capitalMarket, restored.capitalMarket);
+      else expectCapitalClosing(restored);
+    }
+  }
 });
 
 console.log(JSON.stringify({ pass: true, checks: passed, evidence: 'current source actions, serialized state and ledger restore; no historical result files or real account' }));
