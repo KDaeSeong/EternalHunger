@@ -1,6 +1,7 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import axios from 'axios';
 const require = createRequire(import.meta.url);
 const { actor, skill, runCombatScenario } = await import('./lib/run-combat-scenario.mjs');
@@ -11,6 +12,13 @@ const Character = require('../../server/models/Characters.js');
 const GameLog = require('../../server/models/GameLog.js');
 const User = require('../../server/models/User.js');
 const handler = router.stack.find(row => row.route?.path === '/end').route.stack.at(-1).handle;
+const pageController = readFileSync(new URL('../src/app/simulation/_lib/useSimulationPageController.js', import.meta.url), 'utf8');
+const phaseCall = pageController.indexOf('useSimulationPhaseController({');
+assert.ok(phaseCall >= 0);
+assert.match(pageController.slice(phaseCall, pageController.indexOf('helpers: {', phaseCall)), /^\s+evaluationMode,$/m,
+  'the page must pass its evaluation mode to the phase controller');
+assert.match(readFileSync(new URL('../src/app/simulation/_lib/useSimulationPhaseController.js', import.meta.url), 'utf8'),
+  /^\s+evaluationMode: state\.evaluationMode,$/m, 'phase completion must preserve evaluation mode');
 
 const item = { itemId: 'authored-rupture', name: '기록 검증 파열', type: '방어구', equipSlot: 'head', qty: 1, tier: 4,
   equipmentEffects: [{ version: 1, kind: 'rupture', delaySec: 0.8, cooldownSec: 8, radius: 2,
@@ -116,6 +124,28 @@ try {
   assert.equal(racePosts, 1); assert.equal(refreshGets, 1);
   assert.deepEqual(getUser(), latestUser);
   console.log('PASS concurrent receipt refreshes current account progress without resubmitting the run');
+  const evaluationStorage = JSON.stringify([...values.entries()]);
+  let evaluationRequests = 0, evaluationCaptures = 0, evaluationSummary;
+  axios.defaults.adapter = async config => {
+    evaluationRequests++;
+    return { data: { user: latestUser, lpEarnedApplied: 50, lpBreakdown: { base: 50, predictionBonus: 0 }, rewardStatus: 'client_reported' },
+      status: 200, statusText: 'OK', headers: {}, config };
+  };
+  await finishSimulationGame({ finalSurvivors: [combat.survivorMap.get('a')],
+    latestKillCounts: combat.roundKills, latestAssistCounts: combat.roundAssists,
+    options: { finalDead: [combat.survivorMap.get('b')] },
+    refs: { fullLogsRef: { current: [] }, isFinishingRef: { current: false } },
+    state: { evaluationMode: true, runEvents: [], runSeed: 'signed-in-evaluation', settings: { matchMode: 'solo' } },
+    actions: { completeReplay: () => { evaluationCaptures++; },
+      setResultSummary: value => { evaluationSummary = typeof value === 'function' ? value(evaluationSummary) : value; } },
+  });
+  assert.equal(evaluationRequests, 0, 'signed-in evaluation must never submit account results or refresh account state');
+  assert.equal(evaluationCaptures, 1, 'the local replay capture still runs');
+  assert.equal(evaluationSummary.rewardStatus, 'evaluation');
+  assert.equal(evaluationSummary.rewardLP, 0); assert.equal(evaluationSummary.projectedRewardLP, 0);
+  assert.deepEqual(evaluationSummary.saveStatus, { hallOfFame: 'skipped', localRun: 'skipped', userStats: 'skipped' });
+  assert.equal(JSON.stringify([...values.entries()]), evaluationStorage, 'evaluation must not change account-local history, hall of fame or user progress');
+  console.log('PASS signed-in evaluation captures its replay without account requests or local progress writes');
 } finally {
   globalThis.window = before.window; globalThis.localStorage = before.localStorage; globalThis.fetch = before.fetch;
   axios.defaults.adapter = before.adapter; Character.findOne = before.findOne; Character.find = before.find;

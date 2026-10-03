@@ -191,8 +191,9 @@ export async function finishSimulationGame(opts = {}) {
   // Capture synchronously before a guest return or account persistence awaits.
   // The replay task owns its separate storage status and never grants rewards.
   void actions.completeReplay?.();
-  if (state.replayMode) {
-    setResultSummary?.((prev) => ({ ...prev, rewardStatus: 'replay',
+  if (state.replayMode || state.evaluationMode) {
+    setResultSummary?.((prev) => ({ ...prev, rewardLP: 0, projectedRewardLP: 0,
+      rewardStatus: state.replayMode ? 'replay' : 'evaluation',
       saveStatus: { hallOfFame: 'skipped', localRun: 'skipped', userStats: 'skipped' } }));
     return;
   }

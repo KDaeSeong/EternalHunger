@@ -83,6 +83,7 @@ export function useSimulationPhaseController({
         runSeed,
         settings: refs.runInputRef?.current?.settings || settings,
         replayMode: state.replayMode,
+        evaluationMode: state.evaluationMode,
         winnerPredictionId,
       },
       actions: {

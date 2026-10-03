@@ -505,6 +505,7 @@ export function useSimulationPageController({
       day,
       dead,
       devRunTainted,
+      evaluationMode,
       droneOffers,
       isAdvancing,
       isGameOver,
