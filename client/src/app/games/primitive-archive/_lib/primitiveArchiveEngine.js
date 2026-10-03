@@ -1133,10 +1133,12 @@ export function tribeCapacity(state) {
   );
 }
 
-function forecastTribeFood(state, assignments = state.tribe.assignments) {
+function forecastTribeFood(state, assignments = state.tribe.assignments, includeParty = false) {
   // Current stock and job yields only: future actions, population/technology
   // changes and unearned project rewards are not promised in this forecast.
   const need = Math.ceil(Number(state.tribe.population || 0) / 4);
+  const party = includeParty ? livingParty(state) : [];
+  const nightlyHunger = Math.round(8 * difficultyPreset(state).hungerMultiplier);
   let inventory = { ...state.inventory };
   const days = [];
   for (let offset = 1; offset <= 2; offset += 1) {
@@ -1147,6 +1149,15 @@ function forecastTribeFood(state, assignments = state.tribe.assignments) {
     const availableInventory = addItems(inventory, Object.entries(gains));
     const food = consumeTribeFood(availableInventory, need);
     inventory = food.inventory;
+    // Automatic workers share these supplies with the student party. Count
+    // only the nutrition of real food left after whole-item tribe rations;
+    // do not promise cooking, future expeditions, medicine or new technology.
+    const partyNeed = party.reduce((sum, member) => sum + Math.max(
+      0, Number(member.hunger || 0) + nightlyHunger * offset - 45,
+    ), 0);
+    const partyNutrition = includeParty ? FOOD_RECOVERY_IDS.reduce((sum, itemId) => (
+      sum + Number(inventory[itemId] || 0) * foodNutritionValue(state, itemId)
+    ), 0) : 0;
     days.push({
       day,
       stock,
@@ -1157,9 +1168,14 @@ function forecastTribeFood(state, assignments = state.tribe.assignments) {
       shortage: food.shortage,
       reserve: tribeFoodStock(inventory),
       spent: food.spent,
+      ...(includeParty ? { partyNeed, partyNutrition, partyShortage: Math.max(0, partyNeed - partyNutrition) } : {}),
     });
   }
-  return { days, totalShortage: days.reduce((sum, row) => sum + row.shortage, 0) };
+  return {
+    days,
+    totalShortage: days.reduce((sum, row) => sum + row.shortage, 0),
+    ...(includeParty ? { partyShortage: days.reduce((sum, row) => sum + row.partyShortage, 0) } : {}),
+  };
 }
 
 export function tribeSummary(state) {
@@ -6077,20 +6093,23 @@ function pickAutoProductionAction(state) {
 }
 
 function pickAutoFoodJob(state, assignments, jobUnlocked) {
-  const before = forecastTribeFood(state, assignments);
-  if (before.totalShortage <= 0) return '';
+  const before = forecastTribeFood(state, assignments, true);
+  if (before.totalShortage <= 0 && before.partyShortage <= 0) return '';
   return ['farmer', 'forager', 'fisher', 'herder', 'trapper', 'hunter', 'herbalist']
     .filter(jobUnlocked)
     .map((id) => {
-      const after = forecastTribeFood(state, { ...assignments, [id]: Number(assignments[id] || 0) + 1 });
+      const after = forecastTribeFood(state, { ...assignments, [id]: Number(assignments[id] || 0) + 1 }, true);
       return {
         id,
         shortageGain: before.totalShortage - after.totalShortage,
         firstDayGain: before.days[0].shortage - after.days[0].shortage,
+        partyGain: before.partyShortage - after.partyShortage,
+        firstPartyGain: before.days[0].partyShortage - after.days[0].partyShortage,
       };
     })
-    .filter((job) => job.shortageGain > 0)
-    .sort((a, b) => b.shortageGain - a.shortageGain || b.firstDayGain - a.firstDayGain)[0]?.id || '';
+    .filter((job) => job.shortageGain > 0 || job.partyGain > 0)
+    .sort((a, b) => b.shortageGain - a.shortageGain || b.firstDayGain - a.firstDayGain
+      || b.partyGain - a.partyGain || b.firstPartyGain - a.firstPartyGain)[0]?.id || '';
 }
 
 function autoAssignTribeWorkers(state) {
@@ -6107,7 +6126,8 @@ function autoAssignTribeWorkers(state) {
 
   const added = Object.fromEntries(TRIBE_JOBS.map((job) => [job.id, 0]));
   const population = Number(tribe.population || 1);
-  const foodShortageBefore = forecastTribeFood(state).totalShortage;
+  const foodBefore = forecastTribeFood(state, tribe.assignments, true);
+  const foodShortageBefore = foodBefore.totalShortage;
   let foodWorkers = 0;
   const canStudy = researchSystemStatus(state).unlocked
     && Boolean(nextAvailableTech(normalizeResearch(state.research)));
@@ -6134,14 +6154,14 @@ function autoAssignTribeWorkers(state) {
   const priority = ['forager', 'hunter', 'builder', 'logger', 'herbalist', 'farmer', 'fisher', 'herder', 'trapper', 'miner', 'quarryman', 'scholar'];
 
   while (unassigned > 0) {
-    // Cover real upcoming ration shortages before filling development jobs.
+    // Feed both the tribe and living companions before development jobs.
     const foodJobId = pickAutoFoodJob(state, assignments, jobUnlocked);
     let jobId = foodJobId || priority.find((candidate) => (
       jobUnlocked(candidate) && Number(assignments[candidate] || 0) < Number(targets[candidate] || 0)
     ));
     // Daily tribe rations also share this inventory with the student party.
-    // Keep the existing low-stock reserve priority even when job production
-    // just covers tribal meals; the forecast does not promise party meals.
+    // Keep the existing low-stock reserve priority beyond the current hunger
+    // forecast, which cannot promise future expedition gains or meal actions.
     const foodPressure = forecastTribeFood(state, assignments).totalShortage > 0
       || tribeFoodStock(state.inventory) < Math.ceil(population / 4) * 2;
     if (!jobId && foodPressure && jobUnlocked('farmer')) jobId = 'farmer';
@@ -6165,6 +6185,9 @@ function autoAssignTribeWorkers(state) {
   const foodNote = foodWorkers > 0 && foodShortageBefore > 0
     ? ` 식량 부족 예방: 현재 재고·배치 기준 2일 부족 ${foodShortageBefore} → ${forecastTribeFood(state, assignments).totalShortage}단위.`
     : foodWorkers > 0 ? ' 식량 공급 우선: 자동 일손으로 앞으로 이틀의 부족 식사를 먼저 확보합니다.' : '';
+  const partyNote = foodWorkers > 0 && foodBefore.partyShortage > 0
+    ? ` 파티 식량 대비: 앞으로 이틀의 허기 회복 부족 ${Math.max(...foodBefore.days.map((row) => row.partyShortage))} → ${Math.max(...forecastTribeFood(state, assignments, true).days.map((row) => row.partyShortage))}. 부족 식사 뒤 남는 실제 음식만 계산합니다.`
+    : '';
   return addLog({
     ...state,
     tribe: {
@@ -6173,7 +6196,7 @@ function autoAssignTribeWorkers(state) {
       autoAssignments: added,
       assignmentSerial: Number(tribe.assignmentSerial || 0) + 1,
     },
-  }, `\uD558\uB8E8 \uC790\uB3D9 \uC6B4\uC601 \uC9C1\uC5C5 \uBC30\uCE58: ${summary}.${foodNote}`);
+  }, `\uD558\uB8E8 \uC790\uB3D9 \uC6B4\uC601 \uC9C1\uC5C5 \uBC30\uCE58: ${summary}.${foodNote}${partyNote}`);
 }
 function autoActionSignature(state) {
   return [

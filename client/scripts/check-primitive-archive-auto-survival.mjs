@@ -709,6 +709,50 @@ function sharedRationFixture(itemId = 'meat') {
   return state;
 }
 
+check('hungry party food competes with automatic development work even when tribe meals are already covered', () => {
+  const state = sharedRationFixture();
+  state.day = 2;
+  state.inventory = {};
+  state.tribe.assignments = { ...state.tribe.assignments, forager: 3, hunter: 2, builder: 1, scholar: 0 };
+  state.tribe.autoAssignments = { ...state.tribe.assignments };
+  const original = structuredClone(state);
+  assert.equal(engine.tribeSummary(state).foodForecast.totalShortage, 0);
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.tribe.lastProduction.shortage, 0);
+  assert.equal(next.tribe.assignments.builder, 0, 'Automatic project work must not outrank food for living hungry companions.');
+  assert.equal(next.tribe.assignments.scholar, 0);
+  assert.ok(next.tribe.lastProduction.gains.meat >= 1, 'Real workers must leave nutritious food after the tribe has eaten.');
+  assert.ok(Number(next.inventory.meat || 0) >= 1);
+  assert.ok(next.log.some((line) => line.includes('파티 식량 대비')));
+  assert.equal(Object.values(next.tribe.assignments).reduce((sum, count) => sum + count, 0), state.tribe.population);
+  assert.deepEqual(state, original);
+});
+
+check('healthy companions and stocked food keep affordable automatic development work available', () => {
+  for (const stocked of [false, true]) {
+    const state = sharedRationFixture();
+    state.inventory = stocked ? { berry: 40 } : {};
+    state.party = state.party.map((member) => ({ ...member, hunger: stocked ? 70 : 0 }));
+    const next = engine.runAutoDayAction(state, { rng: noEvents });
+    assert.ok(next.tribe.lastProduction.projectWork > 0, 'Food preparation must stop displacing construction once real provisions suffice.');
+    if (stocked) assert.ok(next.tribe.lastProduction.researchPoints > 0);
+    assert.equal(next.tribe.lastProduction.shortage, 0);
+  }
+});
+
+check('party food planning cannot borrow manual project workers or promise locked food professions', () => {
+  const state = sharedRationFixture();
+  state.inventory = {};
+  state.tribe.autoAssignments.builder = 0;
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.tribe.assignments.builder, 2);
+  assert.equal(next.tribe.autoAssignments.builder, 0);
+  for (const job of ['farmer', 'fisher', 'herder', 'trapper', 'herbalist']) assert.equal(next.tribe.assignments[job], 0);
+  assert.equal(next.tribe.lastProduction.shortage, 0);
+  assert.equal(next.tribe.lastProduction.projectWork, 2);
+  assert.equal(Object.values(next.tribe.assignments).reduce((sum, count) => sum + count, 0), state.tribe.population);
+});
+
 check('automatic closing replans real tribe food after the party eats its morning reserve', () => {
   for (const itemId of ['meat', 'jerky']) {
     const state = sharedRationFixture(itemId);
@@ -723,17 +767,34 @@ check('automatic closing replans real tribe food after the party eats its mornin
     assert.equal(next.tribe.lastProduction.foodNeed, 2);
     assert.equal(next.tribe.lastProduction.shortage, 0, 'Do not use the eaten morning reserve to promise the tribe a meal.');
     assert.equal(next.tribe.lastProduction.foodProvided, 2);
-    assert.equal(next.tribe.lastProduction.gains.meat, 1, 'The missing ration must come from real reassigned hunters.');
-    assert.equal(next.tribe.assignments.hunter, 2);
+    assert.equal(next.tribe.lastProduction.gains.meat, 2, 'Real reassigned hunters must cover tribe rations and leave a party meal.');
+    assert.equal(next.tribe.assignments.hunter, 5);
     assert.equal(next.tribe.assignments.scholar, 0);
     assert.equal(next.tribe.lastProduction.researchPoints, 0);
-    assert.equal(next.projects.progress['drying-rack'], 2, 'Actual committed project work remains possible after rations are covered.');
+    assert.equal(next.projects.progress['drying-rack'], 0, 'An automatic project must wait while actual companions still lack food.');
+    assert.equal(next.projects.resourceCommitted['drying-rack'], true);
+    assert.equal(next.inventory.meat, 1, 'The shared stock must contain exactly the real meat remaining after tribe rations.');
     assert.equal(next.ap, state.apMax);
     assert.equal(next.day, state.day + 1);
     assert.ok(!Object.hasOwn(next, 'autoWorkforce'), 'Automatic-action context must not leak into a save.');
     assert.deepEqual(options, { rng: noEvents });
     assert.deepEqual(state, original);
   }
+});
+
+check('automatic food demand excludes dead companions and does not treat medicine as nutrition', () => {
+  const healthy = sharedRationFixture();
+  healthy.inventory = {};
+  healthy.party = healthy.party.map((member, index) => ({ ...member, hp: index ? 0 : 100, hunger: index ? 100 : 0 }));
+  const healthyNext = engine.runAutoDayAction(healthy, { rng: noEvents });
+  assert.equal(healthyNext.tribe.lastProduction.projectWork, 2);
+  assert.equal(healthyNext.party.filter((member) => member.hp > 0).length, 1);
+  const medicine = sharedRationFixture();
+  medicine.inventory = { herb_tonic: 20 };
+  const medicineNext = engine.runAutoDayAction(medicine, { rng: noEvents });
+  assert.equal(medicineNext.inventory.herb_tonic, 20);
+  assert.equal(medicineNext.tribe.assignments.builder, 0);
+  assert.ok(Number(medicineNext.inventory.meat || 0) > 0);
 });
 
 check('manual meals and manual day transitions do not trigger automatic closing redistribution', () => {
@@ -963,6 +1024,53 @@ check('ordinary hard food-care regressions retain every companion and all five p
     assert.equal(state.party.filter((member) => member.hp > 0).length, 3, `Hard seed ${seed} must retain all companions.`);
     assert.equal(victory.canComplete, true, 'Survival care must still leave room for all five paid development objectives.');
     assert.equal(state.victory, false, 'Final completion remains the player\'s decision.');
+  }
+});
+
+check('real automatic economy sustains repeated seasons across every difficulty without forcing victory or restoring casualties', () => {
+  for (const difficulty of ['veryeasy', 'easy', 'normal', 'hard', 'nightmare']) {
+    for (const seed of difficulty === 'nightmare' ? [3, 43, 89] : [89]) {
+      const rng = seededRng(seed);
+      let state = engine.createNewState({ difficulty, rng, runId: `long-food-${difficulty}-${seed}`, now: '2026-10-03T00:00:00.000Z' });
+      let firstReady = 0;
+      let coldDays = 0;
+      let shortageDays = 0;
+      let midpointTech = 0;
+      const casualties = new Set();
+      for (let day = 0; day < 160 && !state.ended; day += 1) {
+        if (day === 80) state = engine.normalizeState(JSON.parse(JSON.stringify(state)));
+        const activeDay = state.day;
+        state = engine.runAutoDayAction(state, { rng });
+        assert.equal(state.day, activeDay + 1, 'An automatic day must still use ordinary paid actions and close exactly once.');
+        assert.equal(state.devTools.enabled, false);
+        assert.equal(state.victory, false, 'Continuing development must not force the player to settle the run.');
+        assert.ok(Number(state.camp.fuel) >= 0);
+        assert.ok(Object.values(state.inventory).every((qty) => Number.isFinite(qty) && qty >= 0));
+        assert.ok(Object.values(state.tribe.assignments).reduce((sum, count) => sum + count, 0) <= state.tribe.population);
+        for (const member of state.party) {
+          if (casualties.has(member.id)) assert.equal(member.hp, 0, 'Automatic food production cannot resurrect an actual casualty.');
+          if (member.hp <= 0) casualties.add(member.id);
+        }
+        if (state.tribe.lastProduction.shortage > 0) shortageDays += 1;
+        if (state.weather.cold >= 5) coldDays += 1;
+        if (!firstReady && engine.archiveVictorySummary(state).canComplete) firstReady = state.day;
+        if (day === 95) midpointTech = engine.techRows(state).filter((row) => row.completed).length;
+      }
+      const tech = engine.techRows(state).filter((row) => row.completed).length;
+      const civics = engine.civicRows(state).filter((row) => row.completed).length;
+      const alive = state.party.filter((member) => member.hp > 0).length;
+      naturalRuns.push({ difficulty, seed, longRun: true, day: state.day, alive, firstReady, shortageDays, coldDays, population: state.tribe.population, tech, civics });
+      assert.equal(state.day, 161, `Long-run ${difficulty} seed ${seed} must not repeat the old avoidable economy collapse.`);
+      assert.equal(state.ended, false);
+      assert.equal(shortageDays, 0);
+      assert.ok(coldDays > 0, 'The run must exercise actual cold weather rather than a warm controlled fixture.');
+      assert.ok(tech > midpointTech, 'Survival work must leave real room for later technological development.');
+      assert.ok(civics > 0);
+      if (seed === 89) {
+        assert.equal(alive, 3, 'The ordinary reference run must retain every living companion without free food or healing.');
+        assert.ok(firstReady > 0, 'Every difficulty reference must reach all five real development objectives.');
+      }
+    }
   }
 });
 
