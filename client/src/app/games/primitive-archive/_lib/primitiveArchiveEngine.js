@@ -3361,6 +3361,14 @@ function nightBodyTemperature(state, member, exposure) {
 }
 
 export function advanceDay(state, options = {}) {
+  // Party meals, crafting and discoveries can change the shared stock after
+  // the morning plan. Only automatic play lends its automatic workers again
+  // at closing, using actual remaining items before the next day's production.
+  const current = options.autoWorkforce ? autoAssignTribeWorkers(state) : state;
+  return settleNextDay(current, options);
+}
+
+function settleNextDay(state, options) {
   const preset = difficultyPreset(state);
   const weather = rollWeather(state.day + 1, options.rng || Math.random);
   const fireActive = campFireActive(state);
@@ -6394,6 +6402,7 @@ function runNextAutoArchiveAction(state, options = {}) {
 export function runAutoDayAction(state, options = {}) {
   let next = normalizeState(state);
   if (next.ended || Number(next.ap || 0) <= 0) return next;
+  const autoOptions = { ...options, autoWorkforce: true };
   next = autoAssignTribeWorkers(next);
   const hasEquipmentPool = Object.entries(buildEquipmentPool(next))
     .some(([itemId, qty]) => Number(qty || 0) > 0 && ITEMS[itemId]?.type === 'equip');
@@ -6405,10 +6414,10 @@ export function runAutoDayAction(state, options = {}) {
   let steps = 0;
   while (!next.ended && Number(next.ap || 0) > 0 && next.day === startDay && steps < 16) {
     const before = autoActionSignature(next);
-    next = runNextAutoArchiveAction(next, options);
+    next = runNextAutoArchiveAction(next, autoOptions);
     steps += 1;
     if (autoActionSignature(next) === before) {
-      next = runGatherAction(next, pickActorForAuto(next, 'gather'), pickAutoZone(next, 'gather'), options);
+      next = runGatherAction(next, pickActorForAuto(next, 'gather'), pickAutoZone(next, 'gather'), autoOptions);
       steps += 1;
       if (autoActionSignature(next) === before) break;
     }

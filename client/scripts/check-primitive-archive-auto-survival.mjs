@@ -698,6 +698,86 @@ check('all-manual food shortages stay visible and failed edits never change owne
   assert.equal(next.tribe.lastProduction.shortage, 1);
 });
 
+function sharedRationFixture(itemId = 'meat') {
+  const state = automaticTribeFixture({ inventory: { [itemId]: 1 } });
+  state.tribe.population = 6;
+  state.tribe.assignments = { ...state.tribe.assignments, builder: 2, scholar: 1 };
+  state.tribe.autoAssignments = { ...state.tribe.assignments };
+  state.research.completed = { GATHERING: true, HUNTING: true };
+  state.projects.resourceCommitted['drying-rack'] = true;
+  state.party = state.party.map((member) => ({ ...member, hunger: 70 }));
+  return state;
+}
+
+check('automatic closing replans real tribe food after the party eats its morning reserve', () => {
+  for (const itemId of ['meat', 'jerky']) {
+    const state = sharedRationFixture(itemId);
+    const original = structuredClone(state);
+    const morning = engine.tribeSummary(state).foodForecast;
+    assert.equal(morning.totalShortage, 0);
+    assert.equal(morning.days[0].stock, itemId === 'jerky' ? 2 : 1);
+    assert.equal(morning.days[0].produced, 1);
+    const options = { rng: noEvents };
+    const next = engine.runAutoDayAction(state, options);
+    assert.equal(next.counters.meals, 1, 'The party must really consume its only stored food.');
+    assert.equal(next.tribe.lastProduction.foodNeed, 2);
+    assert.equal(next.tribe.lastProduction.shortage, 0, 'Do not use the eaten morning reserve to promise the tribe a meal.');
+    assert.equal(next.tribe.lastProduction.foodProvided, 2);
+    assert.equal(next.tribe.lastProduction.gains.meat, 1, 'The missing ration must come from real reassigned hunters.');
+    assert.equal(next.tribe.assignments.hunter, 2);
+    assert.equal(next.tribe.assignments.scholar, 0);
+    assert.equal(next.tribe.lastProduction.researchPoints, 0);
+    assert.equal(next.projects.progress['drying-rack'], 2, 'Actual committed project work remains possible after rations are covered.');
+    assert.equal(next.ap, state.apMax);
+    assert.equal(next.day, state.day + 1);
+    assert.ok(!Object.hasOwn(next, 'autoWorkforce'), 'Automatic-action context must not leak into a save.');
+    assert.deepEqual(options, { rng: noEvents });
+    assert.deepEqual(state, original);
+  }
+});
+
+check('manual meals and manual day transitions do not trigger automatic closing redistribution', () => {
+  const state = sharedRationFixture();
+  const eaten = engine.runEatAction(state, 'shiroko', { rng: noEvents });
+  assert.equal(eaten.tribe.lastProduction.shortage, 1);
+  assert.equal(eaten.tribe.lastProduction.researchPoints, 1);
+  assert.deepEqual(eaten.tribe.assignments, state.tribe.assignments);
+  assert.equal(eaten.tribe.assignmentSerial, state.tribe.assignmentSerial);
+  const empty = { ...state, inventory: {} };
+  const advanced = engine.advanceDay(empty, { rng: noEvents });
+  assert.equal(advanced.tribe.lastProduction.shortage, 1);
+  assert.deepEqual(advanced.tribe.assignments, state.tribe.assignments);
+});
+
+check('automatic closing keeps manual work fixed and exposes shortages when no automatic workers remain', () => {
+  const state = sharedRationFixture();
+  state.tribe.autoAssignments = { forager: 2, hunter: 1 };
+  const next = engine.runAutoDayAction(state, { rng: noEvents });
+  assert.equal(next.tribe.assignments.builder, 2);
+  assert.equal(next.tribe.assignments.scholar, 1);
+  assert.equal(next.tribe.autoAssignments.builder, 0);
+  assert.equal(next.tribe.autoAssignments.scholar, 0);
+  assert.equal(next.tribe.lastProduction.researchPoints, 1);
+  assert.equal(next.tribe.lastProduction.shortage, 0);
+  assert.equal(next.tribe.assignments.hunter, 2);
+  const manual = { ...state, tribe: { ...state.tribe, autoAssignments: {} } };
+  const unable = engine.runAutoDayAction(manual, { rng: noEvents });
+  assert.deepEqual(unable.tribe.assignments, manual.tribe.assignments);
+  assert.equal(unable.tribe.lastProduction.shortage, 1);
+  assert.ok(unable.log.some((line) => line.includes('부족 식량 부족')));
+});
+
+check('closing planning adds no RNG draws and remains identical after ordinary save restoration', () => {
+  const state = sharedRationFixture();
+  let automaticDraws = 0;
+  let manualDraws = 0;
+  const next = engine.runAutoDayAction(state, { rng: () => { automaticDraws += 1; return 0.999; } });
+  engine.runEatAction(state, 'shiroko', { rng: () => { manualDraws += 1; return 0.999; } });
+  assert.equal(automaticDraws, manualDraws, 'Only the real meal and day transition may draw RNG.');
+  const restored = engine.normalizeState(JSON.parse(JSON.stringify(state)));
+  expectSameOperation(engine.runAutoDayAction(restored, { rng: noEvents }), next);
+});
+
 check('injured starving parties procure real food instead of repeatedly resting with no meals', () => {
   const state = fixture({ inventory: {} });
   state.party = state.party.map((member) => ({ ...member, hp: 20, hunger: 90 }));
@@ -825,11 +905,14 @@ check('normal runs survive and develop using ordinary paid actions across fiftee
   for (const seed of [3, 5, 7, 11, 17, 19, 23, 29, 31, 37, 43, 47, 53, 59, 61]) {
     const rng = seededRng(seed);
     let state = engine.createNewState({ difficulty: 'normal', rng, runId: `survival-${seed}`, now: '2026-10-03T00:00:00.000Z' });
+    let shortageDays = 0;
     for (let day = 0; day < 120 && !state.ended && !engine.archiveVictorySummary(state).canComplete; day += 1) {
       state = engine.runAutoDayAction(state, { rng });
+      if (state.tribe.lastProduction.shortage > 0) shortageDays += 1;
     }
     const victory = engine.archiveVictorySummary(state);
-    naturalRuns.push({ seed, day: state.day, ended: state.ended, canComplete: victory.canComplete, meals: state.counters.meals, crafts: state.counters.craft });
+    naturalRuns.push({ seed, day: state.day, ended: state.ended, canComplete: victory.canComplete, shortageDays, meals: state.counters.meals, crafts: state.counters.craft });
+    assert.equal(shortageDays, 0, `Seed ${seed} must not lose tribal meals to stale automatic stock planning.`);
     assert.equal(state.ended, false, `Seed ${seed} must not collapse while ignoring usable survival actions.`);
     assert.equal(victory.canComplete, true, `Seed ${seed} must still reach all five actual development objectives.`);
     assert.equal(state.party.filter((member) => member.hp > 0).length, 3, `Seed ${seed} must not neglect a starving survivor.`);
@@ -855,18 +938,21 @@ check('ordinary hard food-care regressions retain every companion and all five p
     let usedSurvivalPriority = false;
     let usedFoodSupplyPlan = false;
     let criticalFoodDays = 0;
+    let shortageDays = 0;
     for (let day = 0; day < 120 && !state.ended && !engine.archiveVictorySummary(state).canComplete; day += 1) {
       if (day === 26) state = engine.normalizeState(JSON.parse(JSON.stringify(state)));
       const activeDay = state.day;
       if (state.party.some((member) => member.hp > 0 && member.hp <= 30 && member.hunger >= 75)) criticalFoodDays += 1;
       state = engine.runAutoDayAction(state, { rng });
+      if (state.tribe.lastProduction.shortage > 0) shortageDays += 1;
       usedSurvivalPriority ||= state.log.some((line) => line.startsWith(`Day ${activeDay}:`) && line.includes('생존 우선 배분'));
       usedFoodSupplyPlan ||= state.log.some((line) => line.startsWith(`Day ${activeDay}:`) && line.includes('식량 확보:'));
       assert.equal(state.devTools.enabled, false);
       assert.ok(Object.values(state.inventory).every((qty) => qty >= 0));
     }
     const victory = engine.archiveVictorySummary(state);
-    naturalRuns.push({ difficulty: 'hard', seed, day: state.day, ended: state.ended, canComplete: victory.canComplete, alive: state.party.filter((member) => member.hp > 0).length, usedSurvivalPriority, usedFoodSupplyPlan, criticalFoodDays });
+    naturalRuns.push({ difficulty: 'hard', seed, day: state.day, ended: state.ended, canComplete: victory.canComplete, alive: state.party.filter((member) => member.hp > 0).length, shortageDays, usedSurvivalPriority, usedFoodSupplyPlan, criticalFoodDays });
+    assert.equal(shortageDays, 0, `Hard seed ${seed} must cover tribe rations through actual automatic production.`);
     assert.equal(usedFoodSupplyPlan, true, 'The ordinary run must exercise real food procurement.');
     // Better supply may prevent the old seed-89 triage emergency altogether.
     // Do not force survivors into a crisis just to count the old log branch.
