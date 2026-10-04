@@ -177,7 +177,7 @@ function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
     const packet = impact.packet;
     extraDamage = impact.hpDamage;
     if (extraDamage > 0) {
-      applyCombatDamageLifesteal(attacker, extraDamage, { type: 'skill', addLog: opts.addLog });
+      applyCombatDamageLifesteal(attacker, extraDamage, { type: 'skill', targetKind: opts.targetKind, addLog: opts.addLog });
       bits.push(`추가 피해 +${extraDamage}`);
     } else {
       extraDamage = 0;

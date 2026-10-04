@@ -81,11 +81,11 @@ check('lifesteal distinguishes basic, skill, area and wildlife damage', () => {
   assert.equal(run({ type: 'basic', area: true, targetKind: 'wildlife' }), 9);
   assert.equal(applyCombatDamageLifesteal(actor('a', { lifesteal: 1 }, { hp: 0 }), 100), 0);
 });
-const hit = (a, b, extra = {}, tactical = {}) => {
+const hit = (a, b, extra = {}, tactical = {}, actions = {}) => {
   const events = []; let eliminated = 0;
   resolveCombatWinnerOutcome({ state: { actor: a, target: b, nextDay: 1, currentActionSec: () => 100,
     pvpCfg: { criticalFleeHpBelow: 0 }, battleSettings: { skills: { characterSkills: true } }, ...extra }, tactical,
-    actions: { emitRunEvent: (kind, data) => events.push({ kind, ...data }) },
+    actions: { emitRunEvent: (kind, data) => events.push({ kind, ...data }), ...actions },
     combatElimination: { applyCombatElimination: () => eliminated++ } });
   return { a, b, events, eliminated };
 };
@@ -189,6 +189,33 @@ check('weapon follow-ups also apply skill defense and fully consumed shields sta
   assert.ok(open.result.damage > 0); assert.equal(armor.result.damage, Math.round(open.result.damage / 2));
   assert.equal(shield.result.damage, 0); assert.equal(shield.b.hp, 1000);
   assert.equal(armor.events.find((event) => event.kind === 'damage').appliedDefense, 100);
+}));
+check('weapon follow-up lifesteal preserves the wildlife multiplier and actual HP removal', () => withSimulationRandom(() => 0, () => {
+  const run = (targetKind, targetHp = 1000, shield = false) => {
+    const a = actor('a', { omnisyphon: 0.5 }, { hp: 100, weaponType: '권총', weaponMasteryLevel: 10 });
+    const b = actor('b', {}, { hp: targetHp });
+    const result = applyErWeaponSkillAfterCombat(a, b, { damageDealt: 100, nowSec: 100, targetKind,
+      ...(shield ? { shieldBlock: () => 0 } : {}) });
+    return { result, healed: a.hp - 100, removed: targetHp - b.hp };
+  };
+  const experiment = run('experiment'); const wildlife = run('wildlife');
+  assert.ok(wildlife.removed > 0); assert.equal(wildlife.removed, experiment.removed);
+  // The established modifier floors each packet's healing after the multiplier.
+  assert.equal(experiment.healed, Math.floor(experiment.removed * 0.5));
+  assert.equal(run(undefined).healed, experiment.healed, 'Unspecified targets retain the ordinary PvP default.');
+  assert.equal(wildlife.healed, Math.floor(wildlife.removed * 0.5 * 0.6), 'Weapon skill damage against wildlife must use the same 60% heal multiplier.');
+  const overkill = run('wildlife', 4); const shielded = run('wildlife', 1000, true);
+  assert.equal(overkill.removed, 4); assert.equal(overkill.healed, 1);
+  assert.equal(shielded.removed, 0); assert.equal(shielded.healed, 0);
+}));
+check('the live hit passes its target kind through to the real weapon follow-up', () => withSimulationRandom(() => 0, () => {
+  const a = actor('hunter', { omnisyphon: 0.5 }, { hp: 100, weaponType: '권총', weaponMasteryLevel: 10 });
+  const b = actor('wildlife:test');
+  const result = hit(a, b, { targetKind: 'wildlife' }, {}, { applyErWeaponSkillAfterCombat });
+  const packets = result.events.filter(event => event.kind === 'damage');
+  assert.equal(packets.length, 2, 'Exercise the basic hit and the actual weapon skill, not a mock callback.');
+  const expectedHeal = packets.reduce((sum, packet) => sum + Math.floor(packet.hpDamage * 0.5 * 0.6), 0);
+  assert.equal(a.hp - 100, expectedHeal);
 }));
 check('a tactical shield consuming the whole hit does not restore the original incoming damage', () => {
   const b = actor('b', {}, { tacticalSkill: '초월', tacticalSkillLevel: 2 });

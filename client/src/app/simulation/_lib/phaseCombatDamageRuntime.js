@@ -79,7 +79,7 @@ export function resolveCombatWinnerOutcome({ actions = {}, combatElimination = {
   const beforeWeapon = Number(target.hp);
   if (!preparedSkill && directDamage > 0 && beforeWeapon > 0 && !isDimensionRiftDefeated(target)) applyErWeaponSkillAfterCombat(actor, target, {
     damageDealt: directDamage, lethalPreview: false, settings: battleSettings, nowSec: currentActionSec(), at: atNow(),
-    shieldBlock, emitRunEvent, addLog,
+    shieldBlock, emitRunEvent, addLog, targetKind,
   });
   const weaponDamage = Math.max(0, beforeWeapon - Number(target.hp));
   if (skillResult?.statusPayload) applyCharacterSkillStatusEffects(actor, target, skillResult.statusPayload, {

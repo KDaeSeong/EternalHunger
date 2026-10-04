@@ -16,6 +16,7 @@ const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRun
 const { getRuleset } = await import('../src/utils/rulesets.js');
 const { makeShieldEffect, updateEffects } = await import('../src/utils/statusLogic.js');
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
+const { applyErWeaponSkillAfterCombat } = await import('../src/app/simulation/_lib/combatRuntime.js');
 
 let checks = 0;
 async function check(name, run) {
@@ -328,6 +329,27 @@ await check('an available ultimate recast is reserved in a hunt but remains avai
   assert.equal(choice.def.slot, 'r');
   assert.equal(choice.stage, 2);
   assert.equal(choice.targetId, opponent._id, 'Even a mixed roster must not redirect R onto wildlife.');
+});
+
+await check('ordinary and boss timed hunts preserve wildlife lifesteal in real weapon follow-ups', () => {
+  for (const kind of ['bear', 'alpha', 'omega', 'weakline']) {
+    const subject = actor({ hp: 100, maxHp: 1000, weaponType: '권총', weaponMasteryLevel: 10,
+      stats: { ...actor().stats, maxHp: 1000, omnisyphon: 0.5 } });
+    beginUltimateHunt(subject, kind);
+    const target = subject._wildlifeHunt.target;
+    target._spatial = { ...subject._spatial };
+    const observed = capture(() => 100.5);
+    const result = withSimulationRandom(() => 0, () => resolveTimedWildlifeAction({ ownerId: subject._id,
+      encounterId: subject._wildlifeHunt.id, actorId: subject._id, targetId: target._id, actionType: 'hunt_basic' },
+    { survivorMap: new Map([[subject._id, subject]]), nowSec: 100.5, battleSettings: {}, ruleset: rules,
+      actions: { ...observed.actions, applyErWeaponSkillAfterCombat } }));
+    assert.equal(result.performed, true, kind);
+    const packets = observed.events.filter(event => event.kind === 'damage');
+    assert.equal(packets.length, 2, `${kind}: exercise the actual basic and weapon skill damage.`);
+    const expectedHeal = packets.reduce((sum, packet) => sum + Math.floor(packet.hpDamage * 0.5 * 0.6), 0);
+    assert.equal(subject.hp - 100, expectedHeal, `${kind}: apply the wildlife multiplier to both packets.`);
+    assert.equal(result.targetLoss, packets.reduce((sum, packet) => sum + packet.hpDamage, 0));
+  }
 });
 
 await check('an R-enhanced basic prepared in PvP is not spent on an animal and can still hit an enemy before expiry', async () => {
