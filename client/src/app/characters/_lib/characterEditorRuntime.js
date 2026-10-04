@@ -15,6 +15,7 @@ import {
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
 import { normalizeUniqueResourceDefinition } from '../../simulation/_lib/uniqueResourceRuntime.js';
 import { normalizeHungerTraits } from '../../../utils/hungerTraits.js';
+import { HP_DAMAGE_PERCENT_UNIT, normalizeHpDamagePercent } from '../../../utils/characterSkillHpDamageUnit.js';
 
 const SKILL_LEVEL_COUNT = 5;
 
@@ -30,7 +31,7 @@ function normalizeSkillLevelArray(value, fallback = 0, opts = {}) {
   for (let index = 0; index < SKILL_LEVEL_COUNT; index += 1) {
     const picked = src[index] ?? src[src.length - 1] ?? fallback;
     let number = cleanNumber(picked, fallback);
-    if (opts.percent && number > 0 && number <= 0.25) number *= 100;
+    if (opts.percent) number = normalizeHpDamagePercent(number, opts.percentUnit);
     out.push(opts.integer ? Math.round(number) : Number(number.toFixed(3)));
   }
   return out;
@@ -107,13 +108,14 @@ function normalizeCharacterSkillForEditor(skills, slot = 'q') {
     radius: Math.max(0, cleanNumber(raw.radius, 0)),
     durationSec: Math.max(0, cleanNumber(raw.durationSec, 0)),
     statusEffects: raw.statusEffects,
+    hpDamagePercentUnit: HP_DAMAGE_PERCENT_UNIT,
     firstFlat: normalizeSkillLevelArray(raw.firstFlat, 0, { integer: true }),
     secondFlat: normalizeSkillLevelArray(raw.secondFlat, 0, { integer: true }),
     flatDamage: normalizeSkillLevelArray(raw.flatDamage ?? raw.firstFlat, 0, { integer: true }),
-    maxHpPct: normalizeSkillLevelArray(raw.maxHpPct, 0, { percent: true }),
-    currentHpPct: normalizeSkillLevelArray(raw.currentHpPct, 0, { percent: true }),
-    secondMaxHpPct: normalizeSkillLevelArray(raw.secondMaxHpPct, 0, { percent: true }),
-    secondCurrentHpPct: normalizeSkillLevelArray(raw.secondCurrentHpPct, 0, { percent: true }),
+    maxHpPct: normalizeSkillLevelArray(raw.maxHpPct, 0, { percent: true, percentUnit: raw.hpDamagePercentUnit }),
+    currentHpPct: normalizeSkillLevelArray(raw.currentHpPct, 0, { percent: true, percentUnit: raw.hpDamagePercentUnit }),
+    secondMaxHpPct: normalizeSkillLevelArray(raw.secondMaxHpPct, 0, { percent: true, percentUnit: raw.hpDamagePercentUnit }),
+    secondCurrentHpPct: normalizeSkillLevelArray(raw.secondCurrentHpPct, 0, { percent: true, percentUnit: raw.hpDamagePercentUnit }),
     heal: normalizeSkillLevelArray(raw.heal, 0, { integer: true }),
     shield: normalizeSkillLevelArray(raw.shield, 0, { integer: true }),
     firstSkillAmpScale: Math.max(0, cleanNumber(raw.firstSkillAmpScale, 0)),

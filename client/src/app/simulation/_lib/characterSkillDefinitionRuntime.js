@@ -7,6 +7,7 @@ import {
 } from '../../../utils/characterSkillCompiler.js';
 
 import { normalizeCharacterStatusEffects, getCharacterStatusSkillError } from '../../../utils/characterStatusSkillDefinition.js';
+import { HP_DAMAGE_PERCENT_UNIT } from '../../../utils/characterSkillHpDamageUnit.js';
 
 const CHARACTER_SKILL_MODE = 'character_skill';
 const BASIC_ATTACK_RECAST_TYPE = 'basic_attack_enhance';
@@ -197,6 +198,7 @@ function normalizeCustomSkill(actor, slot) {
     radius: clamp(raw.radius ?? 0, 0, 5),
     durationSec: clamp(raw.durationSec ?? 0, 0, 60),
     statusEffects: normalizeCharacterStatusEffects(raw, skillSlot),
+    ...(raw.hpDamagePercentUnit === HP_DAMAGE_PERCENT_UNIT ? { hpDamagePercentUnit: HP_DAMAGE_PERCENT_UNIT } : {}),
     firstFlat,
     secondFlat,
     flatDamage,

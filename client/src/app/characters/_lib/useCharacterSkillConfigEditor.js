@@ -87,7 +87,7 @@ export function useCharacterSkillConfigEditor({
     setEditCharacterSkills((prev) => {
       const skill = prev?.[skillSlot] || createDefaultCharacterSkill({}, skillSlot);
       const isPercentField = field === 'secondMaxHpPct' || field === 'secondCurrentHpPct' || field === 'maxHpPct' || field === 'currentHpPct';
-      const list = normalizeSkillLevelArray(skill[field], 0, { percent: isPercentField });
+      const list = normalizeSkillLevelArray(skill[field], 0, { percent: isPercentField, percentUnit: skill.hpDamagePercentUnit });
       list[index] = cleanNumber(value, 0);
       return {
         ...prev,

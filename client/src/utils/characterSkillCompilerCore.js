@@ -1,4 +1,5 @@
 import { normalizeCharacterStatusEffects } from './characterStatusSkillDefinition.js';
+import { HP_DAMAGE_PERCENT_UNIT, normalizeHpDamagePercent } from './characterSkillHpDamageUnit.js';
 
 const SKILL_LEVEL_COUNT = 5;
 
@@ -173,13 +174,14 @@ export function createDefaultCompiledSkill(base = {}, slot = 'q') {
     radius: Math.max(0, cleanNumber(base.radius, 0)),
     durationSec: Math.max(0, cleanNumber(base.durationSec, 0)),
     statusEffects: normalizeCharacterStatusEffects({ ...base, type: normalizeCharacterSkillType(base.type || defaultType, skillSlot) }, skillSlot),
+    hpDamagePercentUnit: HP_DAMAGE_PERCENT_UNIT,
     firstFlat: toLevelArray(base.firstFlat, 0, { integer: true }),
     secondFlat: toLevelArray(base.secondFlat, 0, { integer: true }),
     flatDamage: toLevelArray(base.flatDamage ?? base.firstFlat, 0, { integer: true }),
-    maxHpPct: toLevelArray(base.maxHpPct, 0),
-    currentHpPct: toLevelArray(base.currentHpPct, 0),
-    secondMaxHpPct: toLevelArray(base.secondMaxHpPct, 0),
-    secondCurrentHpPct: toLevelArray(base.secondCurrentHpPct, 0),
+    maxHpPct: toLevelArray(base.maxHpPct, 0).map(value => normalizeHpDamagePercent(value, base.hpDamagePercentUnit)),
+    currentHpPct: toLevelArray(base.currentHpPct, 0).map(value => normalizeHpDamagePercent(value, base.hpDamagePercentUnit)),
+    secondMaxHpPct: toLevelArray(base.secondMaxHpPct, 0).map(value => normalizeHpDamagePercent(value, base.hpDamagePercentUnit)),
+    secondCurrentHpPct: toLevelArray(base.secondCurrentHpPct, 0).map(value => normalizeHpDamagePercent(value, base.hpDamagePercentUnit)),
     heal: toLevelArray(base.heal, 0, { integer: true }),
     shield: toLevelArray(base.shield, 0, { integer: true }),
     firstSkillAmpScale: Math.max(0, cleanNumber(base.firstSkillAmpScale, 0)),

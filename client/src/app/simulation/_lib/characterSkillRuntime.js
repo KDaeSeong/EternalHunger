@@ -30,12 +30,7 @@ import {
 import { resolveCharacterSkillCooldownSec } from './cooldownRuntime.js';
 import { gainSkillResource, spendSkillResource } from './uniqueResourceRuntime.js';
 import { resolveCharacterSkillMovement } from './characterSkillMovementRuntime.js';
-
-function readPct(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  return n > 0.25 ? n / 100 : n;
-}
+import { readHpDamageRatio } from '../../../utils/characterSkillHpDamageUnit.js';
 
 function getSkillAmpDamage(actor, def, key, fallbackSettingsKey, settings) {
   const skills = settings?.skills && typeof settings.skills === 'object' ? settings.skills : {};
@@ -67,10 +62,10 @@ function actorId(actor) {
   return String(actor?._id || actor?.id || '');
 }
 
-function getHpScaledDamage(target, idx, maxHpPct, currentHpPct) {
+function getHpScaledDamage(target, idx, maxHpPct, currentHpPct, unit) {
   const { maxHp, currentHp } = getTargetHpSnapshot(target);
-  const maxHpDamage = Math.max(0, Math.round(maxHp * readPct(levelValue(maxHpPct, idx, 0))));
-  const currentHpDamage = Math.max(0, Math.round(currentHp * readPct(levelValue(currentHpPct, idx, 0))));
+  const maxHpDamage = Math.max(0, Math.round(maxHp * readHpDamageRatio(levelValue(maxHpPct, idx, 0), unit)));
+  const currentHpDamage = Math.max(0, Math.round(currentHp * readHpDamageRatio(levelValue(currentHpPct, idx, 0), unit)));
   return { maxHpDamage, currentHpDamage };
 }
 
@@ -89,8 +84,8 @@ function calculateSkillDamage(attacker, defender, def, idx, stage, settings, bas
     ? levelValue(def.secondFlat, idx, 0)
     : Math.max(levelValue(def.flatDamage, idx, 0), levelValue(def.firstFlat, idx, 0));
   const hpScaled = isSecond
-    ? getHpScaledDamage(defender, idx, def.secondMaxHpPct, def.secondCurrentHpPct)
-    : getHpScaledDamage(defender, idx, def.maxHpPct, def.currentHpPct);
+    ? getHpScaledDamage(defender, idx, def.secondMaxHpPct, def.secondCurrentHpPct, def.hpDamagePercentUnit)
+    : getHpScaledDamage(defender, idx, def.maxHpPct, def.currentHpPct, def.hpDamagePercentUnit);
   const skillAmpDamage = getSkillAmpDamage(
     attacker,
     def,

@@ -375,6 +375,7 @@ function cleanComparableCharacterSkill(raw, slot) {
     radius: Math.max(0, cleanComparableNumber(src.radius, 0)),
     durationSec: Math.max(0, cleanComparableNumber(src.durationSec, 0)),
     statusEffects: cleanComparableStatusEffects(src.statusEffects),
+    ...(src.hpDamagePercentUnit === 'percent' ? { hpDamagePercentUnit: 'percent' } : {}),
     firstSkillAmpScale: Math.max(0, cleanComparableNumber(src.firstSkillAmpScale, 0)),
     secondSkillAmpScale: Math.max(0, cleanComparableNumber(src.secondSkillAmpScale, 0)),
     skillAmpScale: Math.max(0, cleanComparableNumber(src.skillAmpScale ?? src.firstSkillAmpScale, 0)),

@@ -17,11 +17,11 @@ import CharacterStatusEffectFields from './CharacterStatusEffectFields';
 
 const LEVEL_FIELDS = [
   ['firstFlat', '1차 피해', 1],
-  ['currentHpPct', '1차 현재 체력 %', 0.5],
-  ['maxHpPct', '1차 최대 체력 %', 0.5],
+  ['currentHpPct', '1차 현재 체력 %', 0.001],
+  ['maxHpPct', '1차 최대 체력 %', 0.001],
   ['secondFlat', '재발동 피해', 1],
-  ['secondCurrentHpPct', '재발동 현재 체력 %', 0.5],
-  ['secondMaxHpPct', '재발동 최대 체력 %', 0.5],
+  ['secondCurrentHpPct', '재발동 현재 체력 %', 0.001],
+  ['secondMaxHpPct', '재발동 최대 체력 %', 0.001],
   ['heal', '회복량', 1],
   ['shield', '보호막', 1],
 ];

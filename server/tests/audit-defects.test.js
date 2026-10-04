@@ -187,6 +187,50 @@ test('character save keeps server-owned records and deletes only characters it w
   }
 });
 
+test('character save and read preserve explicit HP damage units without changing unmarked legacy values or records', async () => {
+  const Character = require('../models/Characters');
+  const Item = require('../models/Item');
+  const router = require('../routes/characters');
+  const save = routeHandler(router, 'post', '/save');
+  const read = routeHandler(router, 'get', '/');
+  const userId = '64b000000000000000000003';
+  const store = characterStore(userId);
+  const records = { totalKills: 5, totalAssists: 2, totalWins: 1, gamesPlayed: 4, deathCount: 3 };
+  const explicit = store.seed('퍼센트 단위', { ...records });
+  const legacy = store.seed('이전 단위', { ...records });
+  const saved = Object.fromEntries(['find', 'deleteMany', 'findOneAndUpdate', 'create'].map(key => [key, Character[key]]));
+  const savedDb = Character.db;
+  const savedItemFind = Item.find;
+  Object.assign(Character, store.model);
+  Object.defineProperty(Character, 'db', { value: store.model.db, configurable: true, writable: true });
+  Item.find = async () => [];
+  try {
+    const q = { enabled: true, type: 'attack_skill', name: '체력 피해', maxHpPct: [0.2, 0.25, 0.5, 1, 4] };
+    const response = fakeRes();
+    await save({ user: { id: userId }, body: { deletedIds: [], characters: [
+      { _id: explicit._id, name: explicit.name, characterSkills: { q: { ...q, hpDamagePercentUnit: 'percent' } },
+        records: { totalWins: 999 } },
+      { _id: legacy._id, name: legacy.name, characterSkills: { q: { ...q, hpDamagePercentUnit: 'forged-unit' } } },
+    ] } }, response);
+    assert.equal(response.code, 200, JSON.stringify(response.body));
+    const loaded = fakeRes();
+    await read({ user: { id: userId }, query: {} }, loaded);
+    assert.equal(loaded.code, 200);
+    const byId = new Map(loaded.body.map(row => [String(row._id), row]));
+    assert.equal(byId.get(explicit._id).characterSkills.q.hpDamagePercentUnit, 'percent');
+    assert.deepEqual(byId.get(explicit._id).characterSkills.q.maxHpPct, q.maxHpPct);
+    assert.equal(Object.hasOwn(byId.get(legacy._id).characterSkills.q, 'hpDamagePercentUnit'), false);
+    assert.deepEqual(byId.get(legacy._id).characterSkills.q.maxHpPct, q.maxHpPct);
+    assert.deepEqual(byId.get(explicit._id).records, records);
+    assert.deepEqual(byId.get(legacy._id).records, records);
+    assert.equal(store.docs.length, 2);
+  } finally {
+    Object.assign(Character, saved);
+    Object.defineProperty(Character, 'db', { value: savedDb, configurable: true, writable: true });
+    Item.find = savedItemFind;
+  }
+});
+
 test('POST /api/game/end reaches the unified game handler through the real app routing', async () => {
   const { app } = require('../index');
   const User = require('../models/User');
