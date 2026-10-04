@@ -4,7 +4,9 @@ const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./
 const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
 const { isEndgamePhase } = await import('../src/app/simulation/_lib/suddenDeathRuntime.js');
 
-const seed = process.argv[2] || '2202';
+// This coverage fixture must naturally reach final night. Seed 2202 now ends
+// in ordinary combat on day 5; do not change match rules to keep it alive.
+const seed = process.argv[2] || '1101';
 let beforeFrames = 0, afterFrames = 0, observedGrants = 0;
 const input = await createRandomIsolationInput(seed);
 const result = await runRandomIsolationMatch(input, { onFrame(frame) {
@@ -19,7 +21,11 @@ const result = await runRandomIsolationMatch(input, { onFrame(frame) {
 } });
 const grants = result.events.filter((event) => event.kind === 'detonation_bonus');
 assert.ok(beforeFrames > 0 && afterFrames > 0 && observedGrants > 0 && grants.length > 0,
-  'The fixture must reach the real final-night transition, not merely finish an early match.');
+  `The fixture must reach the real final-night transition, not merely finish an early match: ${JSON.stringify({
+    seed, beforeFrames, afterFrames, observedGrants, grants: grants.length,
+    ending: { day: result.evidence.ending.day, phase: result.evidence.ending.phase,
+      atSec: result.evidence.ending.atSec, cause: result.evidence.ending.cause },
+  })}`);
 assert.equal(new Set(grants.map((event) => event.who)).size, grants.length);
 for (const event of grants) {
   assert.equal(event.at.day, 6); assert.equal(event.at.phase, 'night'); assert.equal(event.at.sec, 1180);

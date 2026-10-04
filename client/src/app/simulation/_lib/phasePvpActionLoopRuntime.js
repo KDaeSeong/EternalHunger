@@ -459,7 +459,7 @@ function* pvpActionSteps({
         if (String(target?._id || '') === String(actor?._id || '')) return false;
         if (areSameTeam(actor, target)) return false;
         if (String(target?.zoneId || '') !== String(actor?.zoneId || '')) return false;
-        if (actorRecoveryLocked || isAiRecoveryLocked(target, currentActionSec())) return false;
+        if (actorRecoveryLocked) return false;
         return canObserveActor(actor, target, [...survivorMap.values()]);
       });
       const canDual = potentialTargets.length >= (pvpMinSameZone - 1);

@@ -183,6 +183,17 @@ await check('real discovery ignores unseen targets then patrol finds and engages
   assert.ok(result.times('searcher')[0] > 100);
   assert.ok(result.events.filter((row) => row.kind === 'damage').every((row) => row.distance <= row.reach + 1e-6));
 });
+await check('real discovery can engage a visible recovering enemy without unlocking its own attacks', async () => {
+  const a = unit('searcher', 4);
+  const b = unit('recovering', 4.5, { _recentCombatUntil: 1000, activeEffects: [effect('속박', 100)] });
+  const result = await runCombatScenario([a, b], { engage: false, nextDay: 2, duration: 20,
+    settings: { characterSkillsEnabled: false } });
+  assert.ok(result.times('searcher').length > 0, 'Incoming targeting must not wait for the enemys own AI recovery.');
+  assert.ok(result.times('searcher').every((sec) => sec < 1000));
+  assert.deepEqual(result.times('recovering'), []);
+  assert.ok(result.survivorMap.get('recovering').hp < 1000);
+  assert.equal(result.survivorMap.get('recovering')._recentCombatUntil, 1000);
+});
 await check('observer exposes actual coordinates, ranges, search intent and cancellation reasons without mutation', () => {
   const a = unit('a', 4); planSpatialPatrol(a, 100); const before = JSON.stringify(a);
   const model = buildTeamObserverModel({ survivors: [a], dead: [], matchSec: 100, events: [], publicItems: [] });

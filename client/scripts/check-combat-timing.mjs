@@ -1,6 +1,6 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
-const { getBasicAttackIntervalSec, findNextCombatAction, engageCombatParticipants, roundCombatTime } = await import('../src/app/simulation/_lib/combatTimingRuntime.js');
+const { getBasicAttackIntervalSec, findNextCombatAction, engageCombatParticipants, getCombatIntentOpponents, roundCombatTime } = await import('../src/app/simulation/_lib/combatTimingRuntime.js');
 const { runPvpActionLoop } = await import('../src/app/simulation/_lib/phasePvpActionLoopRuntime.js');
 const { resolveCombatWinnerOutcome } = await import('../src/app/simulation/_lib/phaseCombatDamageRuntime.js');
 const { createPhaseActionTimeline, lockActorActionTime } = await import('../src/app/simulation/_lib/phaseActionTimelineRuntime.js');
@@ -116,6 +116,41 @@ await check('stun cancels opportunities and release does not unleash a backlog',
 await check('travel/action lock delays the first attack without changing its later rate', async () => {
   const result = await fight([row('a', 2, { _actionReadyAtSec: 102.5 }), row('b', 0.5)]);
   assert.deepEqual(result.times('a'), [102.5, 103, 103.5, 104, 104.5, 105, 105.5]);
+});
+await check('AI recovery blocks the actors own intent, not incoming enemy targeting', () => {
+  const a = row('a', 2); const b = row('b', 1);
+  engageCombatParticipants(a, b, [a, b], 100);
+  b._recentCombatUntil = 104; b._recentCombatReason = 'lost_track';
+  assert.deepEqual(getCombatIntentOpponents(a, [a, b], 100).map((target) => target._id), ['b']);
+  assert.deepEqual(getCombatIntentOpponents(b, [a, b], 100), []);
+  a.activeEffects = [effect('도발', 3, { sourceActorId: 'b' })];
+  assert.deepEqual(getCombatIntentOpponents(a, [a, b], 100).map((target) => target._id), ['b']);
+  a._recentCombatUntil = 104;
+  assert.deepEqual(getCombatIntentOpponents(a, [a, b], 100), []);
+});
+await check('a recovering opponent still takes real hits without being granted a counterattack', async () => {
+  const result = await fight([row('a', 2), row('b', 1, { _recentCombatUntil: 104 })], { duration: 1 });
+  assert.deepEqual(result.times('a'), [100, 100.5]);
+  assert.deepEqual(result.times('b'), []);
+  assert.equal(result.survivorMap.get('b').hp, 9998);
+  assert.equal(result.survivorMap.get('b')._recentCombatUntil, 104);
+  assert.equal(result.survivorMap.get('b')._basicAttackReadyAtSec, undefined);
+});
+await check('AI recovery cannot conceal sleep from the hit that wakes it', async () => {
+  const attacker = row('a', 2); attacker.stats.attackPower = 100;
+  const result = await fight([attacker, row('b', 1, { _recentCombatUntil: 104,
+    activeEffects: [effect('수면', 8.5)] })], { duration: 1 });
+  assert.deepEqual(result.times('a'), [100, 100.5]);
+  assert.deepEqual(result.times('b'), []);
+  assert.equal(result.events.filter((event) => event.kind === 'sleep_break').length, 1);
+  assert.ok(result.events.some((event) => event.kind === 'sleep_break' && event.bonusDamage > 0));
+  assert.equal(getActiveStatusEffects(result.survivorMap.get('b')).some((active) => active.name === '수면'), false);
+});
+await check('real untargetability still protects a recovering target until its exact expiry', async () => {
+  const result = await fight([row('a', 2), row('b', 1, { _recentCombatUntil: 104,
+    activeEffects: [effect('대상 지정 불가', 0.25)] })], { duration: 1 });
+  assert.deepEqual(result.times('a'), [100.25, 100.75]);
+  assert.deepEqual(result.times('b'), []);
 });
 await check('fractional stun expiry opens an attack at that time, not the next integer tick', async () => {
   const result = await fight([row('a', 2, { activeEffects: [effect('기절', 0.25)] }), row('b', 0.5)]);

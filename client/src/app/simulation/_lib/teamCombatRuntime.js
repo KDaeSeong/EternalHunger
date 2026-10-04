@@ -43,8 +43,9 @@ export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = []
   random = simulationRandom, todaysSurvivors = [], estimatePower = () => 0, onlyActorId = '' } = {}) {
   const zoneId = String(actor?.zoneId || '');
   if (!actor || !target || !shareCombatSpace(actor, target) || !zoneId || zoneId !== String(target.zoneId) || areSameTeam(actor, target)) return { handled: false };
+  // Recovering members remain vulnerable; canJoinTeamCombat still gates their own turns.
   const live = [...survivorMap.values()].filter((row) => Number(row?.hp || 0) > 0 && !newDeadIds.includes(idOf(row))
-    && shareCombatSpace(actor, row) && String(row.zoneId) === zoneId && !isAiRecoveryLocked(row, nowSec));
+    && shareCombatSpace(actor, row) && String(row.zoneId) === zoneId);
   const sides = [actor, target].map((leader) => live.filter((row) => areSameTeam(leader, row)));
   if (sides.every((side) => side.length <= 1)) return { handled: false };
   const eligible = sides.map((side) => side.filter((row) => (!onlyActorId || idOf(row) === onlyActorId) && canJoinTeamCombat(row, { nowSec, zoneId, newDeadIds }))
@@ -70,7 +71,7 @@ export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = []
     if (!striker || !shareCombatSpace(actor, striker) || Number(striker.hp || 0) <= 0 || newDeadIds.includes(turn.id) || String(striker.zoneId) !== zoneId
       || !canJoinTeamCombat(striker, { nowSec, zoneId, newDeadIds })) continue;
     const opponents = sides[1 - turn.side].map((row) => survivorMap.get(idOf(row))).filter((row) => row
-      && !newDeadIds.includes(idOf(row)) && !isAiRecoveryLocked(row, nowSec));
+      && !newDeadIds.includes(idOf(row)));
     const victim = pickTeamFocusTarget(striker, opponents, focus[turn.side], [...survivorMap.values()]);
     if (!victim) continue;
     const heldFocus = focus[turn.side] === idOf(victim);

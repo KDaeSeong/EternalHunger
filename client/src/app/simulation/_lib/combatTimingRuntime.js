@@ -41,14 +41,15 @@ export function getCombatIntentOpponents(actor, roster, nowSec = 0) {
     const plan = getForcedControlMotion(actor, roster);
     const target = plan?.source;
     return plan?.control.mode === 'taunt' && target && !isDimensionRiftDefeated(target) && !areSameTeam(actor, target)
-      && !isAiRecoveryLocked(actor, nowSec) && !isAiRecoveryLocked(target, nowSec) ? [target] : [];
+      && !isAiRecoveryLocked(actor, nowSec) ? [target] : [];
   }
   const intent = actor?._combatIntent;
   if (!intent || Number(actor.hp || 0) <= 0 || String(actor.zoneId) !== intent.zoneId
     || String(intent.combatSpaceId || WORLD_COMBAT_SPACE) !== getCombatSpaceId(actor) || isAiRecoveryLocked(actor, nowSec)) return [];
+  // Recovery delays the actor's own decisions; it never grants incoming-hit immunity.
   return roster.filter((row) => Number(row?.hp || 0) > 0 && !isDimensionRiftDefeated(row) && !areSameTeam(actor, row)
     && shareCombatSpace(actor, row) && String(row.zoneId) === intent.zoneId && getActorTeamId(row) === intent.enemyTeamId
-    && !isAiRecoveryLocked(row, nowSec) && canObserveActor(actor, row, roster));
+    && canObserveActor(actor, row, roster));
 }
 
 export function engageCombatParticipants(actor, target, roster, nowSec, { teamCombat = true } = {}) {

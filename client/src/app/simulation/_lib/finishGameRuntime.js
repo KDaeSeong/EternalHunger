@@ -323,7 +323,7 @@ export async function finishSimulationGame(opts = {}) {
         const lpApplied = Math.max(0, Number(res?.lpEarnedApplied || 0));
         const breakdown = res?.lpBreakdown || {};
         if (res?.user && typeof res.user === 'object') {
-          const applied = updateStoredUser((currentUser) => mergeStoredUserProgress(currentUser, res.user), { session: resultSession });
+          const applied = updateStoredUser((storedUser) => mergeStoredUserProgress(storedUser, res.user), { session: resultSession });
           // A concurrent session refresh or another receipt may retire this
           // snapshot without changing accounts. Fetch fresh progress rather
           // than leave the header stale or apply an older account's receipt.

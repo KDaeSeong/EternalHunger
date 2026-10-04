@@ -47,6 +47,21 @@ check('dead, remote, travelling and stunned allies cannot contribute attacks', (
   const result = f.run();
   assert.deepEqual(result.teamRound.strikes.map((hit) => hit.who).sort(), ['a1', 'a2', 'b1']);
 }));
+check('recovering enemies remain team targets but cannot spend attacks of their own', () => withRandom(0, () => {
+  const f = fixture([row('a1'), row('a2'), row('b1', 'b', { hp: 300, _recentCombatUntil: 104,
+    activeEffects: [{ name: '수면', remainingDuration: 8.5, durationUnit: 'sec' }] }),
+  row('b2', 'b', { _recentCombatUntil: 104 })]);
+  const result = f.run();
+  assert.deepEqual(result.teamRound.participants.sort(), ['a1', 'a2']);
+  assert.deepEqual(result.teamRound.strikes.map((hit) => hit.targetId), ['b1', 'b1']);
+  assert.ok(f.survivorMap.get('b1').hp < 300);
+  assert.equal(f.events.filter((event) => event.kind === 'sleep_break').length, 1);
+  assert.deepEqual(f.events.find((event) => event.kind === 'team_engagement').teams[1], ['b1', 'b2']);
+  for (const id of ['b1', 'b2']) {
+    assert.equal(f.survivorMap.get(id)._recentCombatUntil, 104);
+    assert.equal(f.survivorMap.get(id)._basicAttackReadyAtSec, undefined);
+  }
+}));
 check('an ally physically joining deals more damage than the same ally being remote', () => withRandom(0, () => {
   const joined = fixture([row('a1'), row('a2'), row('a3'), row('b1', 'b')]); joined.run();
   const remote = fixture([row('a1'), row('a2', 'a', { zoneId: 'far' }), row('a3', 'a', { zoneId: 'far' }), row('b1', 'b')]); remote.run();

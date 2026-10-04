@@ -23,6 +23,7 @@ const { createPhaseActionTimeline } = await import('../src/app/simulation/_lib/p
 const { createFieldResources } = await import('../src/app/simulation/_lib/fieldResourceRuntime.js');
 const { buildRunActionSummary } = await import('../src/app/simulation/_lib/runActionSummary.js');
 const { buildDay1TargetCandidatesBySlot, buildItemIndexes } = await import('../src/app/simulation/_lib/routePlanBuilderRuntime.js');
+const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
 
 let checks = 0;
 const check = async (name, run) => { await run(); console.log(`PASS ${name}`); checks++; };
@@ -282,7 +283,11 @@ await check('an opening move pays its real travel time, while a longer action lo
   const state = { phaseSurvivors: [actor], ...world, publicItems: fixtureItems, craftables: fixtureItems,
     itemMetaById: meta, itemNameById: names, ruleset, nextDay: 1, nextPhase: 'morning',
     actionIntervalSec: 20, statusElapsedSec: 0, currentActionSec: () => 10 };
-  const moved = runPhaseActorActionPipeline({ state, actions: { isHyperloopTransit: () => true } }).updatedSurvivors[0];
+  // This case measures a chosen move, not the separate probability of choosing
+  // one. Keep the RNG local so it cannot intermittently test a hunt instead.
+  const moved = withSimulationRandom(() => 0, () => runPhaseActorActionPipeline({
+    state, actions: { isHyperloopTransit: () => true },
+  })).updatedSurvivors[0];
   assert.equal(moved.aiCurrentAction, 'moveTo'); assert.equal(moved._growthReadyAtSec, 13);
   assert.equal(moved._actionReadyAtSec, 13);
   const crafter = fixture(); refreshActorGrowthPlan(crafter, fixtureItems, world); receive(crafter, 'left'); receive(crafter, 'right');
@@ -290,6 +295,19 @@ await check('an opening move pays its real travel time, while a longer action lo
     emitQueueRunEvent: (who) => { who._actionReadyAtSec = 15; },
   } }).updatedSurvivors[0];
   assert.equal(locked._actionReadyAtSec, 15); assert.equal(locked._growthReadyAtSec, 15);
+});
+await check('a deferred opening move retains its material target without charging transit time', () => {
+  const actor = fixture(); refreshActorGrowthPlan(actor, fixtureItems, world); receive(actor, 'left');
+  const state = { phaseSurvivors: [actor], ...world, publicItems: fixtureItems, craftables: fixtureItems,
+    itemMetaById: meta, itemNameById: names, ruleset, nextDay: 1, nextPhase: 'morning',
+    actionIntervalSec: 20, statusElapsedSec: 0, currentActionSec: () => 10 };
+  const stayed = withSimulationRandom(() => 0.99, () => runPhaseActorActionPipeline({
+    state, actions: { isHyperloopTransit: () => true },
+  })).updatedSurvivors[0];
+  assert.equal(stayed.aiCurrentAction, 'hunt'); assert.equal(stayed.zoneId, 'a');
+  assert.equal(stayed._growthPlan.targetZoneId, 'c');
+  assert.equal(stayed._growthPlan.openingComplete, false); assert.equal(invQty(stayed.inventory, 'left'), 1);
+  assert.equal(stayed._actionReadyAtSec, 11); assert.equal(stayed._growthReadyAtSec, 11);
 });
 await check('a low-HP recovering actor queues truthful rest instead of a hunt that cannot start', () => {
   const actor = { ...fixture(), hp: 20, maxHp: 100 };
