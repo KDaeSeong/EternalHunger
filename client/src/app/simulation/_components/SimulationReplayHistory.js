@@ -15,6 +15,7 @@ import {
 import { classifySimulationReplayDeletionError, deleteSimulationReplay } from './simulationReplayDeletionRuntime.js';
 import { createReplayHistoryRequests, replayHistoryMetadata } from './simulationReplayHistoryLifetime';
 import { useObserverMemoryLifetime } from './useObserverMemoryLifetime';
+import { downloadTextFile } from '../_lib/logExportRuntime.js';
 
 function recordTitle(record) {
   return record ? `${record.summary?.winnerTeamName || record.summary?.winnerName || '전원 탈락'} · ${new Date(record.finishedAt).toLocaleString('ko-KR')}` : '선택 안 함';
@@ -279,21 +280,21 @@ export default function SimulationReplayHistory({
       if (format === 'copy') {
         await navigator.clipboard.writeText(payload);
       } else {
-        const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
         const safeCode = String(evaluationCode || 'eternal-hunger').replace(/[^a-z0-9._-]+/gi, '-');
-        try {
-          anchor.href = url;
-          anchor.download = `${safeCode}-evaluation.json`;
-          document.body.appendChild(anchor);
-          anchor.click();
-        } finally { anchor.remove(); URL.revokeObjectURL(url); }
+        // Share the battle-log URL lifetime; immediate revocation can leave
+        // the browser's queued download without a live object URL.
+        if (!downloadTextFile(`${safeCode}-evaluation.json`, payload, 'application/json;charset=utf-8')) {
+          throw new Error('Download API unavailable');
+        }
       }
       if (!requests.isCurrent(request)) return;
-      setMessage(exported.replayAvailability === 'full-record'
-        ? `평가 답변과 경기 원본 JSON을 ${format === 'copy' ? '복사' : '다운로드'}했습니다. 테스트를 요청한 사람에게 보내 주세요.`
-        : `평가 답변 JSON을 ${format === 'copy' ? '복사' : '다운로드'}했습니다. 경기 원본을 불러오지 못해 요약만 담았습니다. 경기 로그 JSON이 있다면 함께 보내 주세요.`);
+      const content = exported.replayAvailability === 'full-record' ? '평가 답변과 경기 원본 JSON' : '평가 답변 JSON';
+      const deliveryMessage = format === 'copy'
+        ? `${content}을 복사했습니다. 테스트를 요청한 사람에게 보내 주세요.`
+        : `${content} 다운로드를 요청했습니다. 브라우저의 다운로드 목록에서 파일을 확인한 뒤 테스트를 요청한 사람에게 보내 주세요. 파일이 없다면 ‘결과 JSON 복사’를 사용하세요.`;
+      const missingReplayNotice = exported.replayAvailability === 'full-record' ? ''
+        : ' 경기 원본을 불러오지 못해 요약만 담았습니다. 경기 로그 JSON이 있다면 함께 보내 주세요.';
+      setMessage(deliveryMessage + missingReplayNotice);
     } catch {
       if (requests.isCurrent(request)) setMessage(format === 'copy'
         ? '클립보드 복사 권한이 없습니다. JSON 다운로드를 사용하세요.'

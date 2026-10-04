@@ -173,6 +173,14 @@
 }
 .eh-modal-close:hover { background: rgba(0,0,0,0.55); }
 
+.survivor-board.modal-open .eh-modal-close { z-index: 1; }
+.survivor-board-order-hint {
+    margin: 0 0 12px;
+    padding-right: 44px;
+    font-size: 12px;
+    color: #b9cfdc;
+}
+
 /* === 좌측: 생존자 보드 === */
 /* client/src/styles/ERSimulation.css 수정 */
 

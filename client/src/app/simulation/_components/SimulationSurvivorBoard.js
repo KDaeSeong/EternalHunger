@@ -248,7 +248,7 @@ export default function SimulationSurvivorBoard(props) {
         </button>
       ) : null}
       {String(settings?.matchMode || '').toLowerCase() !== 'solo' ? (
-        <p style={{ margin: '0 0 12px', fontSize: 12, opacity: 0.8 }}>생존자·사망자 각각 팀 번호 · 팀원 순서로 표시</p>
+        <p className="survivor-board-order-hint">생존자·사망자 각각 팀 번호 · 팀원 순서로 표시</p>
       ) : null}
       <h2>생존자 ({safeArray(survivors).length}명)</h2>
       <div className="survivor-grid">

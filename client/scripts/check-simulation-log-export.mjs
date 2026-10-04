@@ -28,7 +28,7 @@ const oldCreate = URL.createObjectURL, oldRevoke = URL.revokeObjectURL;
 globalThis.window = { setTimeout: (callback) => callback() };
 globalThis.document = {
   body: { appendChild() {} },
-  createElement: () => ({ click() { downloads.push({ filename: this.download, blob: blobs.get(this.href) }); }, remove() {} }),
+  createElement: () => ({ click() { downloads.push({ filename: this.download, url: this.href, blob: blobs.get(this.href) }); }, remove() {} }),
 };
 URL.createObjectURL = (blob) => { const url = `blob:fixture-${blobs.size}`; blobs.set(url, blob); return url; };
 URL.revokeObjectURL = () => {};
@@ -67,6 +67,33 @@ try {
     const count = downloads.length;
     assert.equal(exportSimulationBattleLog({ refs: { fullLogsRef: { current: [] }, runInputRef: refs.runInputRef } }).status, 'empty');
     assert.equal(downloads.length, count);
+  });
+  await check('download URLs remain valid after click and are released by the deferred cleanup', async () => {
+    const oldTimeout = window.setTimeout, oldRevokeForCheck = URL.revokeObjectURL;
+    const timers = [], revoked = [];
+    window.setTimeout = (callback, delay) => { timers.push({ callback, delay }); return timers.length; };
+    URL.revokeObjectURL = (url) => { revoked.push(url); blobs.delete(url); };
+    try {
+      await exported();
+      const download = downloads.at(-1);
+      assert.equal(blobs.get(download.url), download.blob, 'A queued download must still be able to resolve its URL.');
+      assert.deepEqual(revoked, [], 'Do not revoke the URL in the same click handler.');
+      assert.equal(timers.length, 1);
+      assert.equal(timers[0].delay, 500, 'Keep the existing bounded cleanup delay.');
+      timers[0].callback();
+      assert.deepEqual(revoked, [download.url]);
+      assert.equal(blobs.has(download.url), false, 'Do not retain the exported Blob indefinitely.');
+    } finally { window.setTimeout = oldTimeout; URL.revokeObjectURL = oldRevokeForCheck; }
+  });
+  await check('evaluation JSON uses the same deferred download path and does not claim file-save completion', () => {
+    const history = readFileSync(new URL('../src/app/simulation/_components/SimulationReplayHistory.js', import.meta.url), 'utf8');
+    assert.ok(/import\s*\{\s*downloadTextFile\s*\}\s*from\s*['"]\.\.\/_lib\/logExportRuntime(?:\.js)?['"]/.test(history), 'Import the shared URL lifetime owner.');
+    assert.ok(/downloadTextFile\(\s*`\$\{safeCode\}-evaluation\.json`,\s*payload,/.test(history), 'Pass the evaluation payload and unchanged filename to the shared download.');
+    assert.ok(!/URL\.(?:createObjectURL|revokeObjectURL)/.test(history), 'Keep one URL lifetime owner for both exports.');
+    assert.ok(history.includes('다운로드를 요청했습니다'), 'Requesting a download is not proof that a file was saved.');
+    assert.ok(history.includes('다운로드 목록에서 파일을 확인'), 'Tell the evaluator where to verify the file.');
+    assert.ok(/파일이 없다면.*결과 JSON 복사/.test(history), 'Provide the existing copy fallback.');
+    assert.ok(!history.includes("'다운로드'}했습니다") && !history.includes('다운로드했습니다'), 'Do not claim download completion.');
   });
   await check('the page passes the live captured-input ref through the log hook', () => {
     const page = readFileSync(new URL('../src/app/simulation/_lib/useSimulationPageController.js', import.meta.url), 'utf8');

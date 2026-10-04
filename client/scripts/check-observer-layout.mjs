@@ -153,6 +153,13 @@ const assertCardOrder = (html, names) => {
     assert.ok(positions[index - 1] < positions[index], `${names[index - 1]} must appear before ${names[index]}.`);
   }
 };
+check('squad order hint reserves close-button space and the button stacks above content', () => {
+  const html = renderBoard([], []);
+  assert.match(html, /class="survivor-board-order-hint"/);
+  const styles = readFileSync(new URL('../src/styles/ERSimulation.css', import.meta.url), 'utf8');
+  assert.match(styles, /\.survivor-board\.modal-open \.eh-modal-close \{[^}]*z-index: 1;/);
+  assert.match(styles, /\.survivor-board-order-hint \{[^}]*padding-right: 44px;[^}]*color: #b9cfdc;/);
+});
 check('dead cards use numeric team and original member order, not elimination order', () => {
   const dead = [boardActor('dead-10-2', 'team:10', 2, 0), boardActor('dead-2-3', 'team:2', 3, 0),
     boardActor('dead-1-2', 'team:1', 2, 0), boardActor('dead-2-1', 'team:2', 1, 0), boardActor('dead-10-1', 'team:10', 1, 0)];
