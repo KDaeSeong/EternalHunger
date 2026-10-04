@@ -301,5 +301,65 @@ await test('craft receipts survive both account compaction boundaries with bound
   assert.equal(describeCraftReceipt(restored), describeCraftReceipt(events[0]));
 });
 
+// Construct the reservation case directly, never from an exported old match.
+const otherGrowth = (reservedQty = 2, blocked = '') => ({ targetId: 'other-gear', targetIds: ['other-gear'],
+  craftIds: [], componentIds: [], reservedQtyById: { [leaf.itemId]: reservedQty }, blocked });
+await test('an active gear goal permits consumable crafting from genuinely surplus ingredients', () => {
+  const who = actor({ _growthPlan: otherGrowth() });
+  const planBefore = JSON.stringify(who._growthPlan);
+  const result = craft(who);
+  assert.equal(result?.craftedId, recipe._id);
+  assert.equal(result.receipt.paidCost, 7);
+  assert.deepEqual(result.receipt.consumed, [{ itemId: leaf.itemId, qty: 2 }]);
+  assert.equal(invQty(who.inventory, recipe._id), 3);
+  assert.equal(invQty(who.inventory, leaf.itemId), 2);
+  assert.equal(who.simCredits, 13);
+  assert.equal(JSON.stringify(who._growthPlan), planBefore);
+});
+await test('consumables never spend reserved gear ingredients, including a blocked goal', () => {
+  for (const blocked of ['', 'inventory_full', 'insufficient_credits']) {
+    const who = actor({ _growthPlan: otherGrowth(3, blocked) });
+    const before = resources(who);
+    assert.equal(craft(who), null);
+    assert.equal(loot(who), null);
+    assert.equal(resources(who), before);
+  }
+});
+await test('loot preparation shares the same surplus reservation and commits the real food batch once', async () => {
+  const { commitCraftTransaction } = await transactions();
+  const who = actor({ _growthPlan: otherGrowth() });
+  const before = resources(who);
+  const result = loot(who);
+  assert.ok(result?.transaction);
+  assert.equal(resources(who), before);
+  assert.equal(commitCraftTransaction(who, result.transaction).ok, true);
+  assert.equal(invQty(who.inventory, leaf.itemId), 2);
+  assert.equal(invQty(who.inventory, recipe._id), 3);
+  assert.equal(who.simCredits, 13);
+  assert.equal(loot(who), null, 'the remaining ingredients now belong entirely to the gear goal');
+  const after = resources(who);
+  assert.equal(commitCraftTransaction(who, result.transaction).ok, false);
+  assert.equal(resources(who), after);
+});
+await test('a ready focused gear recipe still precedes a higher-tier surplus consumable', () => {
+  const target = { ...growthGoal, recipe: { ingredients: [{ itemId: leaf.itemId, qty: 2 }], creditsCost: 5 } };
+  const who = actor({ _growthPlan: { ...otherGrowth(), targetId: target._id, targetIds: [target._id], craftIds: [target._id] } });
+  const result = tryAutoCraftFromInventory(who, [{ ...recipe, tier: 6 }, target], {}, {}, 1, 0, rules);
+  assert.equal(result?.craftedId, target._id);
+  assert.equal(invQty(who.inventory, recipe._id), 0);
+  assert.equal(invQty(who.inventory, leaf.itemId), 2);
+  assert.equal(who.simCredits, 15);
+});
+await test('surplus eligibility cannot bypass real cost, missing materials or full output capacity', () => {
+  for (const extra of [{ simCredits: 6 }, { inventory: [] },
+    { inventory: [structuredClone(leaf), { ...recipe, itemId: recipe._id, qty: 5 }] }]) {
+    const who = actor({ _growthPlan: otherGrowth(0), ...extra });
+    const before = resources(who);
+    assert.equal(craft(who), null);
+    assert.equal(loot(who), null);
+    assert.equal(resources(who), before);
+  }
+});
+
 console.log(`CUSTOM_CRAFTING_CHECKS ${passed}/${passed + failed}`);
 if (failed) process.exitCode = 1;

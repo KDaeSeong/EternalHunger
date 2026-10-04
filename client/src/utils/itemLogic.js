@@ -194,7 +194,9 @@ export function applyItemEffect(character, item) {
     log: consumeEffectErrorText(custom), recovery: 0, satiety: 0, newEffects: [] };
   if (custom.explicit) {
     const data = custom.effect;
-    const timed = { durationUnit: 'sec', tags: ['positive', 'custom_consumable'] };
+    // A useful authored dose owns its duration; do not borrow a previous
+    // weaker shield/regen lifetime through the ordinary refresh-max policy.
+    const timed = { durationUnit: 'sec', tags: ['positive', 'custom_consumable'], stackMode: 'replace' };
     return {
       supported: true, explicit: true, recovery: data.heal || 0, satiety: data.satiety || 0,
       log: `💊 [${character.name}]은(는) [${name}]을(를) 사용했습니다.`,

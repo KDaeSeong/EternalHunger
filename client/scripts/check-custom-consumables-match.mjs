@@ -37,7 +37,8 @@ const original = await runRandomIsolationMatch(null, { savedInput: cloneReplayDa
     assert.equal(event.satiety, 0);
     assert.ok(Number.isSafeInteger(event.remainingQty));
     assert.ok(event.effects.some(row => row.shield === 20 || row.regen === 2 || row.stats?.attackPower === 5));
-    assert.ok(event.effects.every(row => row.durationSec === 3.5));
+    assert.ok(event.effects.every(row => row.durationSec === 3.5),
+      `Authored duration changed: ${JSON.stringify({ who: event.who, at: event.at, effects: event.effects })}`);
     const actor = [...frame.survivors, ...frame.dead].find(row => row._id === event.who);
     const observer = buildTeamObserverModel({ ...frame, settings: input.settings, publicItems, events, teamId: actor.teamId });
     assert.ok(observer.recent.some(row => row.kind === 'use' && row.sec === event.at.sec && row.text.includes(custom.name)));

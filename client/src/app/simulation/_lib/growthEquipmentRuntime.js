@@ -23,13 +23,19 @@ export function getActorEquipmentTier(actor, slot) {
 }
 
 // A focus reserves its ingredients, not the entire crafting catalogue. Ready
-// upgrades in another slot may use surplus; a blocked focus can release it
-// there, but a competing same-slot recipe must preserve its reserved base.
+// upgrades and consumables may use surplus. Only another equipment slot may
+// release a blocked focus's reservation; food must still preserve every unit.
 export function canCraftAlongsideGrowth(actor, item) {
   const plan = actor?._growthPlan;
   if (!plan?.targetId || plan.craftIds?.includes(String(item._id))) return true;
+  const category = inferItemCategory(item);
+  if (category === 'consumable') {
+    const terms = getCraftRecipeTerms(item);
+    return !!terms && terms.ingredients.every((row) =>
+      invQty(actor.inventory, row.itemId) - Number(plan.reservedQtyById?.[row.itemId] || 0) >= row.qty);
+  }
   const slot = inferEquipSlot(item);
-  if (inferItemCategory(item) !== 'equipment' || !GROWTH_EQUIPMENT_SLOTS.includes(slot)
+  if (category !== 'equipment' || !GROWTH_EQUIPMENT_SLOTS.includes(slot)
     || Number(item.tier) <= getActorEquipmentTier(actor, slot)
     || (slot === 'weapon' && !areEquipmentWeaponTypesCompatible(actor?.weaponType, item.weaponType))) return false;
   const terms = getCraftRecipeTerms(item);

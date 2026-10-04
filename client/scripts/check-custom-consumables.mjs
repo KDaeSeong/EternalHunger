@@ -11,7 +11,8 @@ const Item = require('../../server/models/Item.js');
 const { inferItemCategory, addItemToInventory, invQty, canReceiveItem, normalizeInventory } = await import('../src/app/simulation/_lib/inventoryRules.js');
 const { applyItemEffect } = await import('../src/utils/itemLogic.js');
 const { createPhaseConsumableRuntime, forceUseConsumableAtIndex } = await import('../src/app/simulation/_lib/consumableRuntime.js');
-const { makeStatusValueEffect, getShieldValue, getRegenValue, getEffectiveStats, updateEffects } = await import('../src/utils/statusLogic.js');
+const { makeStatusValueEffect, makeShieldEffect, makeRegenEffect, makeStatBuffEffect,
+  getShieldValue, getRegenValue, getEffectiveStats, updateEffects } = await import('../src/utils/statusLogic.js');
 const { emitConsumableRunEvent } = await import('../src/app/simulation/_lib/runEventRuntime.js');
 const { describeConsumableReceipt } = await import('../src/app/simulation/_lib/consumableObservationRuntime.js');
 
@@ -230,6 +231,37 @@ await check('actual consumption receipts survive client/server compaction and ex
   assert.equal(restored.effects[0].shield, 20);
   assert.match(describeConsumableReceipt(restored), /보호막 20 \(3초\)/);
   assert.match(describeConsumableReceipt(restored), /남은 수량 1개/);
+});
+
+await check('a stronger authored dose cannot borrow a weaker existing effect lifetime', () => {
+  const timed = { durationUnit: 'sec' };
+  const who = actor({ activeEffects: [makeShieldEffect(10, 19.25, 'old-shield', timed),
+    makeRegenEffect(1, 19.25, 'old-regen', timed),
+    makeStatBuffEffect('소모품 강화', { attackPower: 2 }, 19.25, 'old-buff', timed)],
+    inventory: [medicine({ consumeEffect: { shield: 20, regen: 2, durationSec: 3.5, stats: { attackPower: 5 } } })] });
+  const used = forceUseConsumableAtIndex(who, 0);
+  assert.equal(used.used, true);
+  assert.equal(getShieldValue(who), 20);
+  assert.equal(getRegenValue(who), 2);
+  assert.equal(getEffectiveStats(who).attackPower, 15);
+  assert.ok(used.effects.every(row => row.durationSec === 3.5), JSON.stringify(used.effects));
+  assert.ok(who.activeEffects.every(row => row.remainingDuration === 3.5));
+  const restored = JSON.parse(JSON.stringify(who));
+  const after = updateEffects(restored, { elapsedSec: 3.5 });
+  assert.equal(after.hp, 27);
+  assert.equal(getShieldValue(after), 0);
+  assert.equal(getRegenValue(after), 0);
+  assert.equal(getEffectiveStats(after).attackPower, 10);
+});
+await check('an equal-strength shorter dose preserves the existing effects and its unspent inventory', () => {
+  const timed = { durationUnit: 'sec' };
+  const who = actor({ hp: 100, activeEffects: [makeShieldEffect(20, 19.25, 'old-shield', timed),
+    makeRegenEffect(2, 19.25, 'old-regen', timed),
+    makeStatBuffEffect('소모품 강화', { attackPower: 5 }, 19.25, 'old-buff', timed)],
+    inventory: [medicine({ consumeEffect: { shield: 20, regen: 2, durationSec: 3.5, stats: { attackPower: 5 } } })] });
+  const before = structuredClone(who);
+  assert.equal(createPhaseConsumableRuntime().tryUseConsumable(who, 'before_battle'), false);
+  assert.deepEqual(who, before);
 });
 
 console.log(`CUSTOM_CONSUMABLE_CHECKS ${passed}/${passed + failed}`);
