@@ -11,9 +11,33 @@ import { getActionStatePresentation } from '../_lib/runtimeStatusDisplay.js';
 import { getCombatSpacePresentation } from '../_lib/combatSpacePresentation.js';
 import { getUniqueResourceSnapshot } from '../_lib/uniqueResourceRuntime.js';
 import { getDetonationMaxSec } from '../_lib/detonationTimerRuntime.js';
+import { getMinimapTeamPresentation } from '../_lib/minimapTeamPresentationRuntime.js';
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+// Sort presentation copies only. Survivor/death order is part of the runtime
+// and replay state, so the board must never reorder those source arrays.
+function orderBoardActors(value, settings) {
+  const actors = safeArray(value);
+  if (String(settings?.matchMode || '').toLowerCase() === 'solo') return [...actors];
+  const rows = actors.map((actor, index) => {
+    const slot = Number(actor?.teamSlot);
+    const rosterIndex = safeArray(actor?.matchTeamRosterIds).map(String).indexOf(String(actor?._id || actor?.id || ''));
+    const memberOrder = Number.isFinite(slot) && slot > 0 ? slot : rosterIndex >= 0 ? rosterIndex + 1 : Infinity;
+    return { actor, index, memberOrder, ...getMinimapTeamPresentation(actor) };
+  });
+  rows.sort((left, right) => {
+    if (left.teamId !== right.teamId) {
+      const byNumber = left.teamNumber != null && right.teamNumber != null ? left.teamNumber - right.teamNumber
+        : left.teamNumber != null ? -1 : right.teamNumber != null ? 1 : 0;
+      return byNumber || left.teamName.localeCompare(right.teamName, 'ko-KR', { numeric: true })
+        || left.teamId.localeCompare(right.teamId);
+    }
+    return left.memberOrder - right.memberOrder || left.index - right.index;
+  });
+  return rows.map(row => row.actor);
 }
 
 function TeamBadge({ actor, getTeamStateForActor }) {
@@ -223,9 +247,12 @@ export default function SimulationSurvivorBoard(props) {
           <GameActionIcon action="close" label="닫기" />
         </button>
       ) : null}
+      {String(settings?.matchMode || '').toLowerCase() !== 'solo' ? (
+        <p style={{ margin: '0 0 12px', fontSize: 12, opacity: 0.8 }}>생존자·사망자 각각 팀 번호 · 팀원 순서로 표시</p>
+      ) : null}
       <h2>생존자 ({safeArray(survivors).length}명)</h2>
       <div className="survivor-grid">
-        {safeArray(survivors).map((actor) => (
+        {orderBoardActors(survivors, settings).map((actor) => (
           <AliveSurvivorCard
             key={actor._id}
             actor={actor}
@@ -245,7 +272,7 @@ export default function SimulationSurvivorBoard(props) {
 
       <h2 style={{ marginTop: '30px', color: '#ff5252' }}>사망자 ({safeArray(dead).length}명)</h2>
       <div className="survivor-grid">
-        {safeArray(dead).map((actor) => (
+        {orderBoardActors(dead, settings).map((actor) => (
           <DeadSurvivorCard
             key={actor._id}
             actor={actor}
