@@ -8,13 +8,13 @@ import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
 import { apiGetCached, apiPost, clearApiGetCache, getToken } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { readCompressedPreviewImage } from '../../utils/previewImage';
-import { normalizeErStats } from '../../utils/erStats';
 import { Plus } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import SiteHeader from '../../components/SiteHeader';
 import CharacterBasicEditModal from './_components/CharacterBasicEditModal';
 import CharacterList from './_components/CharacterList';
 import CharacterSkillConfigModal from './_components/CharacterSkillConfigModal';
+import CharacterAutoSetupModal from './_components/CharacterAutoSetupModal';
 import {
   characterId,
   createBlankCharacter,
@@ -34,6 +34,8 @@ export default function CharactersPage() {
   const [deletedIds, setDeletedIds] = useState(() => new Set());
   const [dirty, setDirty] = useState(false);
   const [editCharId, setEditCharId] = useState(null);
+  const [setupCharId, setSetupCharId] = useState(null);
+  const [setupNotice, setSetupNotice] = useState('');
   const [filterText, setFilterText] = useState('');
   const [loaded, setLoaded] = useState(false);
   const { handleBackdropPointerDown, handleBackdropPointerUp } = useModalBackdropClose();
@@ -57,6 +59,7 @@ export default function CharactersPage() {
     () => characters.find((c) => String(characterId(c)) === String(editCharId)) || null,
     [characters, editCharId]
   );
+  const setupChar = characters.find(char => String(characterId(char)) === String(setupCharId)) || null;
 
   const {
     activeSkillSlot,
@@ -176,7 +179,7 @@ export default function CharactersPage() {
         return applyErSubjectPreset(char, { replaceDefaultTactical: true, statBiasScale: 1 });
       })
     );
-    alert(`ER 프리셋 적용: ${preset.names?.[0] || preset.code} / ${preset.primaryWeapon} / ${preset.tacticalSkill}`);
+    alert(`간이 ER 전투 성향 적용: ${preset.names?.[0] || preset.code} / ${preset.primaryWeapon} / ${preset.tacticalSkill}\n고유 QWER·패시브를 가져오는 기능은 아닙니다. 고유 스킬은 자동 설정에서 작성할 수 있습니다.`);
   };
 
   const closeEditModal = () => setEditCharId(null);
@@ -199,31 +202,13 @@ export default function CharactersPage() {
       });
   };
 
-  const handleAiAnalyze = async (targetId) => {
-    const text = prompt('캐릭터 설정 텍스트를 붙여넣어 주세요.');
-    if (!text || text.length < 2) return;
-
-    try {
-      alert('AI가 분석 중입니다. 잠시만 기다려주세요.');
-      const data = await apiPost('/analyze', { text });
-      const charName = data.name || '이름없음';
-      const gender = data.gender || '여';
-      const newStats = normalizeErStats(data.stats);
-
-      setDirty(true);
-      setCharacters((prev) =>
-        prev.map((char) => {
-          const id = characterId(char);
-          if (String(id) !== String(targetId)) return char;
-          return { ...char, name: charName, gender, stats: newStats };
-        })
-      );
-
-      alert(`분석 완료\n이름: ${charName}\n성별: ${gender}`);
-    } catch (error) {
-      console.error(error);
-      alert('AI 연결 오류가 발생했습니다. 서버 상태를 확인해 주세요.');
-    }
+  const openAutoSetup = (targetId) => { setEditCharId(null); setSetupCharId(targetId); setSetupNotice(''); };
+  const closeAutoSetup = useCallback(() => setSetupCharId(null), []);
+  const applyAutoSetup = (plan) => {
+    if (!setupChar) return { ok: false, message: '편집할 캐릭터를 찾지 못했습니다.' };
+    updateCharacter(characterId(setupChar), plan.patch);
+    setSetupNotice(`${setupChar.name || plan.draft.name}: ${plan.applied.join(' · ')} 초안을 편집 목록에 반영했습니다. 서버에 저장하려면 ‘지금 저장’을 눌러 주세요.`);
+    return { ok: true };
   };
 
   const saveCharacters = async () => {
@@ -314,7 +299,7 @@ export default function CharactersPage() {
         ) : (
           <CharacterList
             characters={visibleCharacters}
-            onAnalyze={handleAiAnalyze}
+            onAutoSetup={openAutoSetup}
             onApplyErPreset={applyErPresetToCharacter}
             onEditBasic={setEditCharId}
             onOpenConfig={openConfigModal}
@@ -329,6 +314,7 @@ export default function CharactersPage() {
           <button type="button" className="ui-button ui-button--primary" onClick={saveCharacters}>지금 저장</button>
         </div>
       ) : null}
+      {setupNotice ? <p className="character-setup-notice" role="status">{setupNotice}</p> : null}
 
       <CharacterBasicEditModal
         character={editChar}
@@ -337,7 +323,10 @@ export default function CharactersPage() {
         onClose={closeEditModal}
         onImageUpload={handleImageUpload}
         onUpdateCharacter={updateCharacter}
+        onAutoSetup={openAutoSetup}
       />
+      {setupChar ? <CharacterAutoSetupModal key={String(characterId(setupChar))}
+        character={setupChar} onClose={closeAutoSetup} onApply={applyAutoSetup} /> : null}
 
       <CharacterSkillConfigModal
         character={configChar}

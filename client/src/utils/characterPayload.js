@@ -192,6 +192,7 @@ function cleanCharacterSkill(raw, slot) {
     radius: Math.max(0, cleanNumber(src.radius, 0)),
     durationSec: Math.max(0, cleanNumber(src.durationSec, 0)),
     statusEffects: normalizeCharacterStatusEffects({ ...src, slot }, slot),
+    ...(src.hpDamagePercentUnit === 'percent' ? { hpDamagePercentUnit: 'percent' } : {}),
     firstSkillAmpScale: Math.max(0, cleanNumber(src.firstSkillAmpScale, 0)),
     secondSkillAmpScale: Math.max(0, cleanNumber(src.secondSkillAmpScale, 0)),
     skillAmpScale: Math.max(0, cleanNumber(src.skillAmpScale ?? src.firstSkillAmpScale, 0)),

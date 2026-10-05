@@ -13,6 +13,7 @@ function CharacterBasicEditModal({
   onClose,
   onImageUpload,
   onUpdateCharacter,
+  onAutoSetup,
 }) {
   if (!character) return null;
   const id = characterId(character);
@@ -50,6 +51,8 @@ function CharacterBasicEditModal({
           </div>
           <button type="button" onClick={onClose} aria-label="닫기">×</button>
         </div>
+
+        {onAutoSetup ? <button type="button" className="character-setup-trigger" onClick={() => onAutoSetup(id)}>이름·설명으로 능력치와 스킬 자동 설정</button> : null}
 
         <div className="character-edit-grid">
           <div className="character-edit-image">

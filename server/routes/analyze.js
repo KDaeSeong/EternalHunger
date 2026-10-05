@@ -1,8 +1,10 @@
 const express = require('express');
 const { GoogleGenAI } = require('@google/genai');
 const { consumeRateLimit, positiveInt } = require('../utils/rateLimit');
+const { createCharacterSetupHandler } = require('../utils/characterSetupService');
 
 const router = express.Router();
+router.post('/character-setup', createCharacterSetupHandler());
 const ANALYZE_WINDOW_MS = positiveInt(process.env.ANALYZE_RATE_LIMIT_WINDOW_MS, 10 * 60 * 1000);
 const ANALYZE_MAX_REQUESTS = positiveInt(process.env.ANALYZE_RATE_LIMIT_MAX, 12);
 const ANALYZE_MAX_TEXT_LENGTH = positiveInt(process.env.ANALYZE_MAX_TEXT_LENGTH, 3000);

@@ -7,7 +7,7 @@ import { characterId } from '../_lib/characterEditorRuntime';
 
 function CharacterList({
   characters,
-  onAnalyze,
+  onAutoSetup,
   onApplyErPreset,
   onEditBasic,
   onOpenConfig,
@@ -60,13 +60,13 @@ function CharacterList({
             </div>
 
             <div className="cl-card__actions">
+              <button type="button" className="ui-button ui-button--primary ui-button--small" onClick={() => onAutoSetup(realId)}>자동 설정</button>
               <button type="button" className="ui-button ui-button--quiet ui-button--small" onClick={() => onEditBasic(realId)}>기본 정보</button>
               <button type="button" className="ui-button ui-button--quiet ui-button--small" onClick={() => onOpenConfig(char)}>전술·스킬</button>
               <OverflowMenu
                 label={`${char.name || '캐릭터'} 메뉴 더보기`}
                 items={[
-                  { label: 'AI로 설정 분석', onSelect: () => onAnalyze(realId) },
-                  { label: 'ER 프리셋 적용', onSelect: () => onApplyErPreset(realId) },
+                  { label: '간이 ER 전투 성향 적용', onSelect: () => onApplyErPreset(realId) },
                   { label: '목록에서 삭제', onSelect: () => onRemove(realId), danger: true },
                 ]}
               />
