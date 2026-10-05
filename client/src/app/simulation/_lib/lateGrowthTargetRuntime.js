@@ -46,8 +46,15 @@ export function getLateGrowthTargets(actor, items, { authoredOnly = false } = {}
       }
     }
   }
-  const ownedIngredients = (item) => getCraftRecipeTerms(item).ingredients
-    .reduce((sum, row) => sum + Math.min(row.qty, invQty(inventory, row.itemId)), 0);
+  // Sorting compares the same candidates many times. Inventory cannot change
+  // during this synchronous call, but its score must be rebuilt on the next
+  // action after a pickup, craft, death or resource allocation.
+  const ingredientScores = new Map();
+  const ownedIngredients = (item) => {
+    if (!ingredientScores.has(item)) ingredientScores.set(item, getCraftRecipeTerms(item).ingredients
+      .reduce((sum, row) => sum + Math.min(row.qty, invQty(inventory, row.itemId)), 0));
+    return ingredientScores.get(item);
+  };
   candidates.sort((a, b) => Number(b.authored) - Number(a.authored) || a.tier - b.tier
     || ownedIngredients(b.target) - ownedIngredients(a.target)
     || slots.indexOf(a.slot) - slots.indexOf(b.slot) || String(a.target._id).localeCompare(String(b.target._id)));

@@ -169,7 +169,7 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
 
 // Recompute remaining recipe work from actual inventory. Consumed raw materials
 // represented by an owned intermediate are not requested a second time.
-function planGrowthTarget(actor, items, target, base, { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, distances }, strictSources = false) {
+function planGrowthTarget(actor, items, target, base, { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, distances, sourceZones, routes }, strictSources = false) {
   const byId = indexCatalog(items);
   base = { ...base, targetId: String(target._id), targetKey: target.itemKey || target.externalId || String(target._id),
     targetSlot: inferEquipSlot(target), targetTier: Number(target.tier) || 0, targetName: target.name || '',
@@ -177,7 +177,9 @@ function planGrowthTarget(actor, items, target, base, { mapObj, forbiddenIds, zo
   Object.assign(base, getGrowthRecipeWork(actor, items, target._id, { ruleset, targetIds: base.targetIds }));
   let hasUnsafeSource = false;
   base.missing = base.missing.map((row) => {
-    const sources = getGrowthItemZones(byId.get(row.itemId), mapObj, forbiddenIds, fieldResources);
+    const item = byId.get(row.itemId);
+    if (!sourceZones.has(item)) sourceZones.set(item, getGrowthItemZones(item, mapObj, forbiddenIds, fieldResources));
+    const sources = sourceZones.get(item);
     const zones = sources.filter((id) => distances.has(id));
     if (sources.length && !zones.length) hasUnsafeSource = true;
     return { ...row, zones };
@@ -197,7 +199,8 @@ function planGrowthTarget(actor, items, target, base, { mapObj, forbiddenIds, zo
   const candidates = new Map();
   for (const row of base.missing) for (const zone of row.zones) candidates.set(zone, (candidates.get(zone) || 0) + row.need);
   const ranked = [...candidates].map(([zoneId, need]) => {
-    const route = bfsNextStepToAnyTarget(current, new Set([zoneId]), zoneGraph, forbiddenIds);
+    if (!routes.has(zoneId)) routes.set(zoneId, bfsNextStepToAnyTarget(current, new Set([zoneId]), zoneGraph, forbiddenIds));
+    const route = routes.get(zoneId);
     return { zoneId, need, distance: distances.get(zoneId), ...route };
   }).filter((row) => row.nextStep && row.nextStep !== current);
   ranked.sort((a, b) => (a.distance - b.distance)
@@ -230,7 +233,11 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
     if (forbiddenIds.has(next) || distances.has(next)) continue;
     distances.set(next, distances.get(frontier[i]) + 1); frontier.push(next);
   }
-  const context = { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, distances };
+  // These reads are shared only while evaluating this actor's alternatives.
+  // A later action must re-read depleted stock, changed zones and forbidden
+  // paths; never attach this lookup to an actor, saved frame or global cache.
+  const context = { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, distances,
+    sourceZones: new Map(), routes: new Map() };
   const plans = [];
   let viable;
   const needsBasicGear = GROWTH_EQUIPMENT_SLOTS.some((slot) => tierBySlot[slot] < 4);
@@ -250,7 +257,7 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
   // rest of a match. Fill missing basic gear with existing, obtainable recipes,
   // including administrator additions without an itemKey or a tier-4 result.
   const recovery = [];
-  for (const target of getGrowthEquipmentCatalog(items)) {
+  for (const target of needsBasicGear ? getGrowthEquipmentCatalog(items) : []) {
     const slot = inferEquipSlot(target);
     const currentTier = tierBySlot[slot];
     if (currentTier >= 4 || Number(target.tier) <= currentTier || Number(target.tier) > 4
