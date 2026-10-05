@@ -212,17 +212,58 @@ check('a full protected bag and disabled default legendary sales do not create a
 });
 
 check('a real custom kiosk price and discount are honored by both selection and actual paid settlement', () => {
-  for (const scenario of ['catalog', 'discount']) {
-    const input = fixture(), crafter = input.roster[1], price = scenario === 'catalog' ? 75 : 100;
+  for (const scenario of [
+    { catalogPrice: 75, price: 75 },
+    { price: 100, discount: 0.5 },
+    ...[650, 651, 800, 1200].map(price => ({ catalogPrice: price, price })),
+    { catalogPrice: 75, price: 75, unrelatedPrice: 1200 },
+    { catalogPrice: 1200, price: 600, discount: 0.5, populatedId: true },
+  ]) {
+    const input = fixture(), crafter = input.roster[1], price = scenario.price;
     crafter.simCredits = price + 3;
-    if (scenario === 'catalog') input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c',
-      catalog: [{ itemId: tree._id, mode: 'sell', priceCredits: price }] }];
-    else crafter._perkRuntime = { kioskDiscountPct: 0.5 };
+    if (scenario.catalogPrice !== undefined) input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c',
+      catalog: [{ itemId: scenario.populatedId ? { _id: tree._id } : tree._id, mode: 'sell', priceCredits: scenario.catalogPrice },
+        ...(scenario.unrelatedPrice ? [{ itemId: cloth._id, mode: 'sell', priceCredits: scenario.unrelatedPrice }] : [])] }];
+    if (scenario.discount) crafter._perkRuntime = { kioskDiscountPct: scenario.discount };
+    const originalCatalog = structuredClone(input.state.kiosks);
     assert.equal(purchasePlans(input).length, 3);
-    const arrived = tick(input); input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
+    const arrived = tick(input);
+    assert.ok(arrived.updatedSurvivors.every(actor => actor.zoneId === 'c'));
+    assert.equal(arrived.events.filter(event => event.kind === 'procurement').length, 0);
+    assert.equal(arrived.updatedSurvivors.find(actor => actor._id === 'crafter').simCredits, price + 3);
+    input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
     const paid = tick(input), buyer = paid.updatedSurvivors.find(actor => actor._id === 'crafter');
     assert.equal(buyer.equipped.head, rare._id); assert.equal(buyer.simCredits, 0);
-    assert.equal(paid.events.find(event => event.kind === 'procurement' && event.who === 'crafter').paidCost, price);
+    assert.equal(invQty(buyer.inventory, hero._id), 0); assert.equal(invQty(buyer.inventory, tree._id), 0);
+    const receipts = paid.events.filter(event => event.kind === 'procurement' && event.who === 'crafter');
+    assert.equal(receipts.length, 1); assert.equal(receipts[0].outcome, 'completed');
+    assert.equal(receipts[0].paidCost, price);
+    assert.ok(paid.events.some(event => event.kind === 'craft' && event.who === 'crafter'));
+    assert.ok(paid.updatedSurvivors.filter(actor => actor._id !== 'crafter').every(actor => actor.simCredits === 20));
+    const watched = buildTeamObserverModel({ teamId: 'team:1', publicItems: input.state.publicItems,
+      spawnState: input.state.nextSpawn, forbiddenIds: [...input.state.forbiddenIds],
+      settings: { rulesetId: 'ER_S11', simulationRuleset: input.state.ruleset },
+      day: input.state.nextDay, phase: input.state.nextPhase, survivors: paid.updatedSurvivors,
+      events: JSON.parse(JSON.stringify([...arrived.events, ...paid.events])), matchSec: input.state.currentActionSec() });
+    const observedReceipt = watched.members.find(member => member.id === 'crafter').procurement;
+    assert.equal(observedReceipt.outcome, 'completed'); assert.equal(observedReceipt.matchedChoice, true);
+    assert.ok(observedReceipt.result.includes(`-${price}Cr`));
+    assert.ok(observedReceipt.result.includes(`보유 ${price + 3}→3Cr`));
+    assert.deepEqual(input.state.kiosks, originalCatalog);
+    console.log(`TEAM_KIOSK_PRICE_WITNESS ${JSON.stringify({ configuredPrice: scenario.catalogPrice ?? 200,
+      discount: scenario.discount || 0, paidCost: receipts[0].paidCost, recipeCost: 3,
+      remainingCredits: buyer.simCredits, equippedId: buyer.equipped.head })}`);
+  }
+});
+
+check('high-price custom orders still require the buyer\'s own purchase and recipe credits', () => {
+  for (const price of [300, 651, 800, 1200]) {
+    for (const credits of [price - 1, price, price + 2]) {
+      const input = fixture(); input.roster[1].simCredits = credits; input.roster[0].simCredits = 5000;
+      input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c',
+        catalog: [{ itemId: tree._id, mode: 'sell', priceCredits: price }] }];
+      assert.equal(purchasePlans(input).length, 0, `configured ${price}, buyer ${credits}`);
+    }
   }
 });
 

@@ -97,10 +97,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
     const zid = String(k?.zoneId || '').trim();
     return mid && String(mapObj?._id || '').trim() === mid && String(zoneId || '').trim() === zid;
   });
-  let catalog = Array.isArray(kioskDoc?.catalog) ? kioskDoc.catalog : [];
-
-  // 카탈로그 가격이 과도하게 크면(예: 800~1200) 시뮬 기본 규칙으로 fallback
-  if (catalog.length && catalog.some((r) => Number(r?.priceCredits || 0) > 650)) catalog = [];
+  const catalog = Array.isArray(kioskDoc?.catalog) ? kioskDoc.catalog : [];
 
   const hasCatalogNeed = catalog.some((r) => {
     const itemId = String(r?.itemId?._id || r?.itemId || '').trim();
@@ -133,7 +130,9 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
     // 업그레이드 목표(전설/초월)만 있어도 키오스크를 '조금 더 자주' 사용
     if (simulationRandom() >= chance) return null;
   }
-  const pickedByCatalog = pickKioskCatalogAction({
+  // A nonempty custom catalogue is the shop, not a suggestion. No affordable
+  // offer (or a missing exchange input) must not unlock hidden default stock.
+  if (catalog.length) return pickKioskCatalogAction({
     catalog,
     actor,
     miss,
@@ -142,7 +141,6 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
     findById,
     ruleset,
   });
-  if (pickedByCatalog) return pickedByCatalog;
 
   // --- 우선 교환/환급 규칙(키오스크 핵심) ---
   // - 포스 코어 → 미스릴

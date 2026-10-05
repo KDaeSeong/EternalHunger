@@ -47,8 +47,7 @@ export function chooseTeamPurchaseMove({ members = [], publicItems = [], ruleset
     for (const zoneId of zones) {
       const kiosk = kiosks.find(row => String(row.mapId?._id || row.mapId || '') === String(mapObj._id || '')
         && String(row.zoneId || '') === zoneId);
-      let catalog = Array.isArray(kiosk?.catalog) ? kiosk.catalog : [];
-      if (catalog.some(row => Number(row.priceCredits || 0) > 650)) catalog = [];
+      const catalog = Array.isArray(kiosk?.catalog) ? kiosk.catalog : [];
       // A custom catalogue is authoritative. Only its exact deterministic
       // missing-item buy is quoted; random unrelated catalogue offers are not.
       const row = catalog.find(entry => String(entry.itemId?._id || entry.itemId || '') === missing.itemId);
