@@ -161,8 +161,8 @@ const exportInput = createSimulationRunInput({ ...exportFixture, activeMap: expo
 const exportArchive = { ...record(), schema: exportInput.schema, input: exportInput, events: [{ kind: 'match_end' }],
   finalFrame: exportInput.initialFrame, random: { seed: exportInput.runSeed },
   summary: { ...record().summary, ending: { outcome: 'fixture', atSec: 1 } } };
-const exportDescriptors = Object.fromEntries(['localStorage', 'navigator', 'document'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-const exportValues = new Map(), copiedExports = [], downloadedExports = [];
+const exportDescriptors = Object.fromEntries(['localStorage', 'navigator', 'document', 'window'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+const exportValues = new Map(), copiedExports = [], downloadedExports = [], exportTimers = [], revokedExports = [];
 const savedCreateObjectURL = URL.createObjectURL, savedRevokeObjectURL = URL.revokeObjectURL;
 const downloadBlobs = new Map();
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
@@ -175,8 +175,12 @@ Object.defineProperty(globalThis, 'document', { configurable: true, value: {
   body: { appendChild() {} },
   createElement: () => ({ click() { downloadedExports.push(downloadBlobs.get(this.href)); }, remove() {} }),
 } });
+Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+  location: { search: '' },
+  setTimeout: (callback, delay) => { exportTimers.push({ callback, delay }); return exportTimers.length; },
+} });
 URL.createObjectURL = (blob) => { const url = `blob:export-${downloadBlobs.size}`; downloadBlobs.set(url, blob); return url; };
-URL.revokeObjectURL = () => {};
+URL.revokeObjectURL = (url) => { revokedExports.push(url); downloadBlobs.delete(url); };
 async function openEvaluation(props) {
   const h = await open(props); button(h, '5분 평가 기록').props.onClick(); h.flush(); return h;
 }
@@ -192,11 +196,30 @@ try {
     assert.equal(h.cells.some((cell) => cell.value?.input || cell.value?.events), false); h.unmount();
   });
   await check('an unsaved current evaluation archive exports without a failing IndexedDB read', async () => {
-    const h = await openEvaluation({ evaluationRunRecord: exportArchive }); let reads = 0;
+    const h = await openEvaluation({ evaluationRunRecord: exportArchive }), count = downloadedExports.length; let reads = 0;
     historyStorage.load = async () => { reads++; throw new Error('synthetic unavailable storage'); };
     await button(h, '결과 JSON 다운로드').props.onClick(); h.flush();
-    const payload = JSON.parse(await downloadedExports.at(-1).text());
-    assert.equal(payload.replayAvailability, 'full-record'); assert.equal(reads, 0); h.unmount();
+    assert.equal(downloadedExports.length, count + 1, textOf(h.tree));
+    const blob = downloadedExports.at(-1);
+    assert.ok(blob instanceof Blob); assert.equal(blob.type, 'application/json;charset=utf-8');
+    const payload = JSON.parse(await blob.text());
+    assert.equal(payload.replayAvailability, 'full-record'); assert.equal(reads, 0);
+    assert.equal(downloadBlobs.size, 1); assert.deepEqual(revokedExports, []);
+    assert.equal(exportTimers.length, 1); assert.equal(exportTimers[0].delay, 500);
+    exportTimers[0].callback();
+    assert.equal(revokedExports.length, 1); assert.equal(downloadBlobs.size, 0); h.unmount();
+  });
+  await check('a missing browser download API reports failure without inventing a download', async () => {
+    const h = await openEvaluation({ evaluationRunRecord: exportArchive });
+    const count = downloadedExports.length, timerCount = exportTimers.length;
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+    delete globalThis.window;
+    try {
+      await button(h, '결과 JSON 다운로드').props.onClick(); h.flush();
+      assert.equal(downloadedExports.length, count); assert.equal(exportTimers.length, timerCount);
+      assert.ok(textOf(h.tree).includes('평가 결과 파일을 만들지 못했습니다'));
+      assert.equal(button(h, '결과 JSON 다운로드').props.disabled, false);
+    } finally { Object.defineProperty(globalThis, 'window', descriptor); h.unmount(); }
   });
   await check('a missing archive still exports the answers and honestly reports summary-only', async () => {
     const h = await openEvaluation(); historyStorage.load = async () => { throw new Error('synthetic missing archive'); };
@@ -207,11 +230,11 @@ try {
   });
   for (const closeButton of ['평가 닫기', '보관함 닫기']) {
     await check(`closing ${closeButton} prevents a late evaluation download`, async () => {
-      const h = await openEvaluation(), pending = deferred(), count = downloadedExports.length;
+      const h = await openEvaluation(), pending = deferred(), count = downloadedExports.length, timerCount = exportTimers.length;
       historyStorage.load = () => pending.promise;
       const task = button(h, '결과 JSON 다운로드').props.onClick(); button(h, closeButton).props.onClick(); h.flush();
       pending.resolve(exportArchive); await task; h.flush();
-      assert.equal(downloadedExports.length, count); h.unmount();
+      assert.equal(downloadedExports.length, count); assert.equal(exportTimers.length, timerCount); h.unmount();
     });
   }
   await check('duplicate same-render evaluation export clicks read and download only once', async () => {

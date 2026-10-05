@@ -2,6 +2,46 @@ import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
 const { createSimulationRunInput, cloneReplayData, compareSimulationReplay } = await import('../src/app/simulation/_lib/simulationReplayRuntime.js');
+
+function trackHuntOwner(activeHunts, event) {
+  if (event.kind === 'hunt_start') {
+    assert.equal(activeHunts.has(event.who), false, 'A hunter cannot own two active encounters.');
+    activeHunts.set(event.who, event.encounterId);
+  }
+  if (event.kind === 'hunt_transfer') {
+    assert.equal(activeHunts.get(event.previousOwnerId), event.encounterId,
+      'A handoff must preserve the actual previous owner and encounter.');
+    assert.equal(activeHunts.has(event.who), false, 'A handoff cannot replace another active encounter.');
+    activeHunts.delete(event.previousOwnerId);
+    activeHunts.set(event.who, event.encounterId);
+  }
+  if (event.kind === 'hunt_end' && activeHunts.get(event.who) === event.encounterId) activeHunts.delete(event.who);
+}
+
+// Independent lifecycle inputs, not a saved match outcome. A former owner may
+// re-enter PvP after a handoff; its successor must still be treated as hunting.
+const ownership = new Map();
+trackHuntOwner(ownership, { kind: 'hunt_start', who: 'first', encounterId: 'boss' });
+assert.deepEqual([...ownership], [['first', 'boss']]);
+trackHuntOwner(ownership, { kind: 'hunt_transfer', previousOwnerId: 'first', who: 'second', encounterId: 'boss' });
+assert.equal(ownership.has('first'), false);
+assert.equal(ownership.get('second'), 'boss');
+trackHuntOwner(ownership, { kind: 'hunt_end', who: 'first', encounterId: 'boss' });
+assert.equal(ownership.get('second'), 'boss', 'A former owner ending must not close the live successor hunt.');
+assert.throws(() => trackHuntOwner(ownership,
+  { kind: 'hunt_transfer', previousOwnerId: 'first', who: 'third', encounterId: 'boss' }));
+assert.deepEqual([...ownership], [['second', 'boss']], 'A stale handoff must preserve the current owner.');
+trackHuntOwner(ownership, { kind: 'hunt_transfer', previousOwnerId: 'second', who: 'third', encounterId: 'boss' });
+assert.deepEqual([...ownership], [['third', 'boss']]);
+trackHuntOwner(ownership, { kind: 'hunt_start', who: 'first', encounterId: 'animal' });
+assert.throws(() => trackHuntOwner(ownership,
+  { kind: 'hunt_transfer', previousOwnerId: 'third', who: 'first', encounterId: 'boss' }));
+assert.deepEqual([...ownership], [['third', 'boss'], ['first', 'animal']]);
+trackHuntOwner(ownership, { kind: 'hunt_end', who: 'third', encounterId: 'boss' });
+trackHuntOwner(ownership, { kind: 'hunt_end', who: 'first', encounterId: 'animal' });
+assert.equal(ownership.size, 0);
+console.log('PASS ultimate diagnostic tracks handoff ownership and preserves live successor hunts');
+
 const fixture = JSON.parse(await createRandomIsolationInput('casting-integration-1'));
 // The generic guest roster has no character Q/W/E/R definitions. Give this
 // explicit test roster real delayed attacks, support and enhanced basics;
@@ -45,12 +85,22 @@ try {
   assert.ok(releases.some((event) => event.slot === 'r' && event.damage > 0));
   assert.ok(releases.some((event) => event.slot === 'r' && event.shield > 0));
   const activeHunts = new Map();
+  let huntTransfers = 0;
   for (const event of first.events) {
-    if (event.kind === 'hunt_start') activeHunts.set(event.who, event.encounterId);
-    if (event.kind === 'hunt_end' && activeHunts.get(event.who) === event.encounterId) activeHunts.delete(event.who);
-    if (event.kind === 'skill_cast' && event.slot === 'r') assert.equal(activeHunts.has(event.who), false,
-      'Self/ally-targeted R must not bypass the active-hunt restriction.');
+    trackHuntOwner(activeHunts, event);
+    if (event.kind === 'hunt_transfer') huntTransfers++;
+    if (event.kind === 'skill_cast' && event.slot === 'r') {
+      if (activeHunts.has(event.who)) console.error(`ULTIMATE_HUNT_WITNESS ${JSON.stringify({
+        cast: event, openEncounterId: activeHunts.get(event.who),
+        history: first.events.filter(row => Number(row.at?.sec) <= Number(event.at?.sec)
+          && (row.who === event.who || row.previousOwnerId === event.who)
+          && ['hunt_start', 'hunt_end', 'hunt_transfer', 'skill_cast', 'move', 'death'].includes(row.kind)).slice(-12),
+      })}`);
+      assert.equal(activeHunts.has(event.who), false,
+        'Self/ally-targeted R must not bypass the active-hunt restriction.');
+    }
   }
+  assert.ok(huntTransfers > 0, 'The actual casting match must exercise boss-hunt handoff ownership.');
   assert.ok(casts.length > 0 && cancels.length > 0 && releases.length > 0 && armed.length > 0);
   assert.ok(releases.some((event) => event.heal > 0)); assert.ok(releases.some((event) => event.shield > 0));
   const byId = new Map(casts.map((cast) => [cast.castId, cast])); assert.equal(byId.size, casts.length);
@@ -84,5 +134,5 @@ try {
   console.log(`CHARACTER_CASTING_MATCH ${JSON.stringify({ ...first.evidence, casts: casts.length, cancels: cancels.length,
     releases: releases.length, armed: armed.length, heals: releases.filter((event) => event.heal > 0).length,
     shields: releases.filter((event) => event.shield > 0).length, ultimateCasts: ultimateCasts.length,
-    ultimateCastFrames: ultimateCastFrames.size, huntingCasts: huntingCasts.length, comparison, apiCalls })}`);
+    ultimateCastFrames: ultimateCastFrames.size, huntingCasts: huntingCasts.length, huntTransfers, comparison, apiCalls })}`);
 } finally { globalThis.fetch = originalFetch; }
