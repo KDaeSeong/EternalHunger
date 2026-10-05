@@ -22,16 +22,18 @@ export function getActorEquipmentTier(actor, slot) {
     .map((entry) => Number(entry.tier) || 0));
 }
 
-// A focus reserves its ingredients, not the entire crafting catalogue. Ready
-// upgrades and consumables may use surplus. Only another equipment slot may
-// release a blocked focus's reservation; food must still preserve every unit.
+// A focus reserves its ingredients and remaining recipe fees, not the entire
+// catalogue. Routine consumables use real surplus; urgent recovery has its own
+// survival-first transaction. A recipe's own consumable intermediates are not
+// side crafts. Only another equipment slot may release blocked ingredients.
 export function canCraftAlongsideGrowth(actor, item) {
   const plan = actor?._growthPlan;
   if (!plan?.targetId || plan.craftIds?.includes(String(item._id))) return true;
   const category = inferItemCategory(item);
   if (category === 'consumable') {
     const terms = getCraftRecipeTerms(item);
-    return !!terms && terms.ingredients.every((row) =>
+    const surplusCredits = Math.max(0, Number(actor?.simCredits ?? 0) - Number(plan.plannedCredits ?? 0));
+    return !!terms && terms.creditsCost <= surplusCredits && terms.ingredients.every((row) =>
       invQty(actor.inventory, row.itemId) - Number(plan.reservedQtyById?.[row.itemId] || 0) >= row.qty);
   }
   const slot = inferEquipSlot(item);

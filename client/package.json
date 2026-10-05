@@ -62,7 +62,7 @@
     "check:guest-item-catalog": "node ./scripts/check-guest-item-catalog.mjs",
     "check:guest-farming": "node ./scripts/check-guest-farming.mjs && npm run check:custom-crafting && npm run check:custom-consumables && npm run check:custom-equipment && npm run check:recipe-only-gear",
     "check:custom-crafting": "node ./scripts/check-custom-crafting.mjs",
-    "check:custom-crafting:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-custom-crafting-match.mjs",
+    "check:custom-crafting:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-growth-consumable-budget-match.mjs && node ./scripts/check-custom-crafting-match.mjs",
     "check:custom-consumables": "node ./scripts/generate-consume-effect-contract.mjs --check && node ./scripts/check-custom-consumables.mjs && node ./scripts/check-guest-item-profiles.mjs",
     "check:custom-consumables:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-custom-consumables-match.mjs",
     "check:custom-equipment": "node ./scripts/generate-equipment-effect-contract.mjs --check && node ./scripts/check-custom-equipment-effects.mjs && node ./scripts/check-equipment-effect-combat.mjs && node ./scripts/check-equipment-account-recording.mjs",

@@ -8,11 +8,15 @@ const { tryAutoCraftFromLoot } = await import('../src/app/simulation/_lib/craftR
 const { getLootCraftOptions, emitCraftRunEvent } = await import('../src/app/simulation/_lib/runEventRuntime.js');
 const { tryImmediateCraftFromSpecial } = await import('../src/app/simulation/_lib/gearImmediateSpecialCraftRuntime.js');
 const { runCraftAction } = await import('../src/app/simulation/_lib/phaseCraftActionRuntime.js');
-const { getGrowthRecipeWork } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
+const { getGrowthRecipeWork, refreshActorGrowthPlan, getActorGrowthProgress } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
+const { createFieldResources, collectFieldResourceLoot, getFieldResourceQty } = await import('../src/app/simulation/_lib/fieldResourceRuntime.js');
+const { prepareActorPhaseActionPlan } = await import('../src/app/simulation/_lib/phaseActionQueueRuntime.js');
+const { buildActorRecoveryPlan, craftActorRecoveryItem } = await import('../src/app/simulation/_lib/recoveryPlanRuntime.js');
+const { forceUseConsumableAtIndex } = await import('../src/app/simulation/_lib/consumableRuntime.js');
 const { getActorGrowthObservation, describeCraftReceipt } = await import('../src/app/simulation/_lib/growthObservationRuntime.js');
 const { buildItemIndexes, buildDay1TargetCandidatesBySlot } = await import('../src/app/simulation/_lib/routePlanBuilderRuntime.js');
 const { createPhaseCombatEliminationRuntime } = await import('../src/app/simulation/_lib/phaseCombatEliminationRuntime.js');
-const { invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
+const { invQty, addItemToInventory } = await import('../src/app/simulation/_lib/inventoryRules.js');
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
 
 const rules = { inventory: { maxSlots: 10, stackMax: { material: 10, consumable: 6, equipment: 1 }, autoDropLowValue: false } };
@@ -359,6 +363,95 @@ await test('surplus eligibility cannot bypass real cost, missing materials or fu
     assert.equal(loot(who), null);
     assert.equal(resources(who), before);
   }
+});
+
+// Real remaining recipe accounting, not a manufactured reservation or an old
+// journal. One finite dye is still to be gathered; twenty credits finish gear.
+function paidGrowthFixture(credits = 20) {
+  const raw = { ...leaf, _id: leaf.itemId, spawnZones: ['a'] };
+  const dye = { _id: 'custom:paid-dye', name: '맞춤 염료', type: '재료', tier: 1, spawnZones: ['a'] };
+  const food = { ...recipe, consumeEffect: { version: 1, heal: 25 } };
+  const target = { ...growthGoal, recipe: { ingredients: [{ itemId: raw._id, qty: 2 }, { itemId: dye._id, qty: 1 }], creditsCost: 20 } };
+  const catalog = [raw, dye, food, target];
+  const mapObj = { _id: 'fresh-paid-growth', zones: [{ zoneId: 'a' }], fieldResourceStock: { a: { [dye._id]: 1 } } };
+  const fieldResources = createFieldResources(mapObj, catalog, rules);
+  const world = { mapObj, zoneGraph: { a: [] }, fieldResources, ruleset: rules };
+  const who = actor({ simCredits: credits, zoneId: 'a', routePlanTargetItemIds: [target._id], _growthFocusId: target._id });
+  const plan = refreshActorGrowthPlan(who, catalog, world);
+  assert.equal(plan.targetId, target._id); assert.equal(plan.blocked, '');
+  assert.equal(plan.plannedCredits, 20); assert.equal(plan.readyCraftId, '');
+  assert.equal(plan.reservedQtyById[raw._id], 2); assert.deepEqual(plan.currentZoneItemIds, [dye._id]);
+  return { who, raw, dye, food, target, catalog, world, fieldResources };
+}
+
+await test('routine surplus food cannot consume the credits needed to finish the current equipment recipe', () => {
+  for (const credits of [19, 20, 26]) {
+    const { who, food } = paidGrowthFixture(credits);
+    const before = resources(who);
+    assert.equal(craft(who, food), null, `routine food must retain a twenty-credit recipe budget from ${credits}`);
+    assert.equal(loot(who, food), null);
+    assert.equal(resources(who), before);
+  }
+});
+
+await test('the ordinary action queue gathers the missing gear material instead of spending its reserved credits on food', () => {
+  const { who, catalog, world, fieldResources, dye } = paidGrowthFixture();
+  const before = resources(who);
+  const queue = prepareActorPhaseActionPlan({ state: { actor: who, ...world, publicItems: catalog, craftables: catalog,
+    itemMetaById: Object.fromEntries(catalog.map(item => [item._id, item])),
+    itemNameById: Object.fromEntries(catalog.map(item => [item._id, item.name])),
+    nextDay: 1, nextPhase: 'morning', phaseIdxNow: 0 } });
+  assert.equal(queue.queuedActionType, 'routeFarm');
+  assert.equal(resources(who), before); assert.equal(getFieldResourceQty(fieldResources, 'a', dye._id), 1);
+});
+
+await test('genuine surplus credits still fund food before finite pickup and paid equipment completion', () => {
+  for (const credits of [27, 30]) {
+    const { who, dye, food, target, catalog, world, fieldResources } = paidGrowthFixture(credits);
+    const made = craft(who, food);
+    assert.equal(made.craftedId, food._id); assert.equal(made.receipt.paidCost, 7);
+    assert.equal(who.simCredits, credits - 7); assert.equal(invQty(who.inventory, leaf.itemId), 2);
+    assert.equal(invQty(who.inventory, food._id), 3);
+    const acquired = collectFieldResourceLoot(fieldResources, { item: dye, itemId: dye._id, zoneId: 'a', qty: 1 }, qty => {
+      const next = addItemToInventory(who.inventory, dye, dye._id, qty, 1, rules);
+      if (next._lastAdd.acceptedQty) who.inventory = next;
+      return next._lastAdd.acceptedQty;
+    });
+    assert.equal(acquired, 1); assert.equal(getFieldResourceQty(fieldResources, 'a', dye._id), 0);
+    who._actionCycleKey = 'paid-growth:next';
+    assert.equal(refreshActorGrowthPlan(who, catalog, world).readyCraftId, target._id);
+    const equipped = tryAutoCraftFromInventory(who, [food, target], {}, {}, 1, 0, rules);
+    assert.equal(equipped.craftedId, target._id); assert.equal(equipped.receipt.paidCost, 20);
+    assert.equal(who.simCredits, credits - 27); assert.equal(who.equipped.head, target._id);
+    assert.equal(invQty(who.inventory, leaf.itemId), 0); assert.equal(invQty(who.inventory, dye._id), 0);
+    assert.equal(getActorGrowthProgress(who, catalog).openingComplete, true);
+  }
+});
+
+await test('zero-cost surplus food and a consumable required by the gear recipe remain legitimate crafts', () => {
+  const { who, food } = paidGrowthFixture(19);
+  const free = { ...food, recipe: { ...food.recipe, creditsCost: 0 } };
+  assert.equal(craft(who, free).craftedId, food._id); assert.equal(who.simCredits, 19);
+  const paidHead = { ...growthGoal, recipe: { ...growthGoal.recipe, creditsCost: 3 } };
+  const intermediate = actor({ simCredits: 10, routePlanTargetItemIds: [paidHead._id], zoneId: 'a' });
+  const catalog = [{ _id: leaf.itemId, name: leaf.name, type: '재료' }, food, paidHead];
+  refreshActorGrowthPlan(intermediate, catalog, { mapObj: { zones: [{ zoneId: 'a' }] }, zoneGraph: { a: [] }, ruleset: rules });
+  assert.equal(intermediate._growthPlan.plannedCredits, 10);
+  assert.equal(craft(intermediate, food).craftedId, food._id); assert.equal(intermediate.simCredits, 3);
+  intermediate._actionCycleKey = 'paid-intermediate:next';
+  refreshActorGrowthPlan(intermediate, catalog, { mapObj: { zones: [{ zoneId: 'a' }] }, zoneGraph: { a: [] }, ruleset: rules });
+  assert.equal(craft(intermediate, paidHead).craftedId, paidHead._id); assert.equal(intermediate.simCredits, 0);
+});
+
+await test('urgent recovery still uses its own real recipe budget instead of waiting for future equipment', () => {
+  const { who, food, catalog, world } = paidGrowthFixture(); who.hp = 3;
+  const recovery = buildActorRecoveryPlan(who, catalog, world);
+  assert.equal(recovery.mode, 'craft'); assert.equal(recovery.readyCraftId, food._id);
+  const made = craftActorRecoveryItem(who, recovery, catalog, 1, 0, rules);
+  assert.equal(made.receipt.paidCost, 7); assert.equal(who.simCredits, 13);
+  const used = forceUseConsumableAtIndex(who, who.inventory.findIndex(item => item.itemId === food._id));
+  assert.equal(used.used, true); assert.equal(who.hp, 28); assert.equal(invQty(who.inventory, leaf.itemId), 2);
+  assert.equal(who._growthPlan.targetId, growthGoal._id);
 });
 
 console.log(`CUSTOM_CRAFTING_CHECKS ${passed}/${passed + failed}`);
