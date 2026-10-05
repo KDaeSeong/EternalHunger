@@ -1,0 +1,280 @@
+{
+  "schema": "eh-observer-cost-diagnostic.v1",
+  "date": "2026-10-05",
+  "sourceParent": "5fdac5d2",
+  "engine": "f0c872299190ed2ab027aa0f07f86dfb9e3c9e5ee9b349c4874a6fad8d5a4a61",
+  "buildId": "qH9V5QNmJ2yidmChKaL1X",
+  "rejectedCandidates": {
+    "periodicFrameWait": {
+      "pass": true,
+      "before": {
+        "engine": "1a68ef51161631c08ba76d36adb13f1ee6dd7543058420c86d604eccc7829256",
+        "seed": "1789192220412",
+        "events": 14307,
+        "simSec": 1255.583333,
+        "firstTs": 1791183986461,
+        "lastTs": 1791184094005,
+        "wallSec": 107.544,
+        "effectiveRate": 11.675066326340847
+      },
+      "after": {
+        "engine": "dabd9126c7f468ab8d45517ddf7f0ef0c3e256b7eb7b0003bda260e090f853d4",
+        "seed": "1789192220412",
+        "events": 14307,
+        "simSec": 1255.583333,
+        "firstTs": 1791186208542,
+        "lastTs": 1791186317333,
+        "wallSec": 108.791,
+        "effectiveRate": 11.541242685516266
+      },
+      "reductionPercent": -1.15952540355575,
+      "inputDigest": "8f619d6ad914d2bcfa17215c9ae981ba71f83b5b725850dd588fde6124617a5e",
+      "eventDigest": "4b5f2a5c6e4a4f1fbd9f4c6d3b910168985d2990d3521230a57da37a47fd7f2b",
+      "logDigest": "6c4f191645351f0b89b6cc663d4dce8a9843a8eda9f79ec9b61d9b8cd47e41b5",
+      "winner": {
+        "id": "guest-survivor-22",
+        "name": "바람",
+        "teamName": "2팀",
+        "kills": 6,
+        "assists": 1
+      },
+      "winnerTeam": {
+        "teamId": "team:2",
+        "teamName": "2팀",
+        "aliveCount": 3,
+        "originalSize": 3,
+        "rosterNames": [
+          "라온",
+          "노을",
+          "바람"
+        ]
+      },
+      "lp": {
+        "total": 0,
+        "base": 0,
+        "predictionBonus": 0,
+        "prediction": {
+          "predictedId": "",
+          "predictedName": "",
+          "correct": false,
+          "bonusLP": 0
+        }
+      },
+      "scope": "manual actual exports from two newly started fixed evaluation matches; not a maintained test fixture, historical version rewrite or frame equivalence proof"
+    },
+    "historyTailFormatting": {
+      "pass": true,
+      "before": {
+        "engine": "1a68ef51161631c08ba76d36adb13f1ee6dd7543058420c86d604eccc7829256",
+        "seed": "1789192220412",
+        "events": 14307,
+        "simSec": 1255.583333,
+        "firstTs": 1791183986461,
+        "lastTs": 1791184094005,
+        "wallSec": 107.544,
+        "effectiveRate": 11.675066326340847
+      },
+      "after": {
+        "engine": "3c9ca3658d50f2ae973febc2d4b2b6b45ca29fcfd8f8c568d884621651ce7482",
+        "seed": "1789192220412",
+        "events": 14307,
+        "simSec": 1255.583333,
+        "firstTs": 1791188243190,
+        "lastTs": 1791188361800,
+        "wallSec": 118.61,
+        "effectiveRate": 10.585813447432763
+      },
+      "reductionPercent": -10.289741873093817,
+      "inputDigest": "8f619d6ad914d2bcfa17215c9ae981ba71f83b5b725850dd588fde6124617a5e",
+      "eventDigest": "4b5f2a5c6e4a4f1fbd9f4c6d3b910168985d2990d3521230a57da37a47fd7f2b",
+      "logDigest": "6c4f191645351f0b89b6cc663d4dce8a9843a8eda9f79ec9b61d9b8cd47e41b5",
+      "winner": {
+        "id": "guest-survivor-22",
+        "name": "바람",
+        "teamName": "2팀",
+        "kills": 6,
+        "assists": 1
+      },
+      "winnerTeam": {
+        "teamId": "team:2",
+        "teamName": "2팀",
+        "aliveCount": 3,
+        "originalSize": 3,
+        "rosterNames": [
+          "라온",
+          "노을",
+          "바람"
+        ]
+      },
+      "lp": {
+        "total": 0,
+        "base": 0,
+        "predictionBonus": 0,
+        "prediction": {
+          "predictedId": "",
+          "predictedName": "",
+          "correct": false,
+          "bonusLP": 0
+        }
+      },
+      "scope": "manual actual exports from newly started fixed evaluation matches; not maintained fixture input, historical engine rewriting, or frame equivalence proof"
+    }
+  },
+  "currentBrowser": {
+    "coreMatchEqual": true,
+    "displayLogsEqual": false,
+    "sameLogContent": true,
+    "logDifferences": [
+      {
+        "position": 5750,
+        "before": {
+          "index": 5750,
+          "text": "✨ [새벽] 재생: 체력 회복 HP +1"
+        },
+        "after": {
+          "index": 5750,
+          "text": "🎯 하이퍼루프 대상 선택: 라온"
+        }
+      },
+      {
+        "position": 5751,
+        "before": {
+          "index": 5751,
+          "text": "🎯 하이퍼루프 대상 선택: 라온"
+        },
+        "after": {
+          "index": 5751,
+          "text": "✨ [새벽] 재생: 체력 회복 HP +1"
+        }
+      }
+    ],
+    "engine": "f0c872299190ed2ab027aa0f07f86dfb9e3c9e5ee9b349c4874a6fad8d5a4a61",
+    "seed": "1789192220412",
+    "events": 14307,
+    "logs": 8897,
+    "simSec": 1255.583333,
+    "firstTs": 1791189202541,
+    "lastTs": 1791189315134,
+    "wallSec": 112.593,
+    "effectiveRate": 11.151522146136971,
+    "inputDigest": "8f619d6ad914d2bcfa17215c9ae981ba71f83b5b725850dd588fde6124617a5e",
+    "eventDigest": "4b5f2a5c6e4a4f1fbd9f4c6d3b910168985d2990d3521230a57da37a47fd7f2b",
+    "logDigest": "f0b692e81faaca69704c9efdf9cb6278cdcb974ef15a122e5c38d687d9937694",
+    "scope": "new instrumented fixed evaluation: input/events/ending/winner/LP comparison; display log order is separately reported, not normalized into a pass; not a maintained fixture or speed improvement claim",
+    "measurementWindowMs": 179108.2,
+    "measurementIncludesResultDwell": true,
+    "stages": [
+      {
+        "name": "growth.slice",
+        "count": 4342,
+        "totalMs": 35226.1,
+        "maxMs": 36.9
+      },
+      {
+        "name": "growth.refreshPlans",
+        "count": 14226,
+        "totalMs": 16607.7,
+        "maxMs": 7.4
+      },
+      {
+        "name": "growth.teamCoordination",
+        "count": 906,
+        "totalMs": 4778.8,
+        "maxMs": 33.1
+      },
+      {
+        "name": "frame.snapshot",
+        "count": 6488,
+        "totalMs": 19150.8,
+        "maxMs": 11.4
+      },
+      {
+        "name": "observer.teamModel",
+        "count": 1889,
+        "totalMs": 6104.7,
+        "maxMs": 9
+      },
+      {
+        "name": "observer.trackedActors",
+        "count": 951,
+        "totalMs": 94,
+        "maxMs": 0.6
+      }
+    ],
+    "stagesAreNotAdditive": true,
+    "longTasks": {
+      "count": 21,
+      "totalMs": 1499,
+      "maxMs": 129
+    },
+    "longAnimationFrames": {
+      "count": 594,
+      "maxDurationMs": 129.9,
+      "slowest": {
+        "startOffsetMs": 319.3,
+        "durationMs": 129.9,
+        "workMs": 129.4,
+        "renderMs": 0.5,
+        "styleAndLayoutMs": 0.4,
+        "blockingMs": 79.8,
+        "entrypoint": "TimerHandler:setTimeout",
+        "scriptDurationMs": 129,
+        "sourceFunctionName": "",
+        "sourceCharPosition": 864678,
+        "chunk": "393-462a043c50a4cbe2.js"
+      }
+    },
+    "inputResponse": {
+      "samples": 4,
+      "maxMs": 5.7,
+      "scope": "measurement/start/export/close controls, not full in-match navigation or INP"
+    },
+    "heap": {
+      "baselineUsedBytes": 19098802,
+      "usedBytes": 47602415,
+      "scope": "one session; no leak or collection proof"
+    },
+    "raf": {
+      "samples": 10228,
+      "fps": 57.105,
+      "medianIntervalMs": 10,
+      "p95IntervalMs": 50.1,
+      "maxIntervalMs": 129.9,
+      "scope": "includes result dwell, not painted FPS"
+    },
+    "ordinaryEvaluation": {
+      "probePanels": 0,
+      "ready": true,
+      "speed": "32"
+    },
+    "consoleErrors": 0
+  },
+  "verification": {
+    "teamObserverChecks": 124,
+    "liveFrameChecks": 12,
+    "phaseChecks": 44,
+    "displayPacingChecks": 15,
+    "evaluationLinkCommandExitCode": 0,
+    "eslintFiles": 6,
+    "fullFixture": {
+      "seed": "1101",
+      "events": 14237,
+      "frames": 6606,
+      "rngDraws": 10090,
+      "eventDigest": "e01f9517aeaacc7f680fc91f6c21df0813a68f4ea6943774d697137c5740fb90",
+      "frameDigest": "dd4eefddde979f8a291741fcd0effee6e7dc8b780f072a43198a6e235e9a38a6",
+      "currentHeadlessMatchesEarlierFreshVisibleHost": true,
+      "finalEngineThreeHostRerun": false
+    }
+  },
+  "cleanup": {
+    "removedWebpackFiles": 16,
+    "removedBytes": 634081756,
+    "logicalMiB": 604.71,
+    "remainingWebpackFiles": 0,
+    "protectedHashesEqualImmediatelyAfterCleanup": 26,
+    "recovery": "npm run build regenerates the cache",
+    "physicalFreeSpaceMeasured": false
+  },
+  "scope": "local diagnostic only; rejected speed candidates are not current runtime; no user downloads or historical result files in maintained tests; no push, deployment, full project regression, true x32, human acceptance or memory lifetime completion"
+}

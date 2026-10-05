@@ -8,6 +8,7 @@ const { getMatchEndState } = await import('../src/app/simulation/_lib/matchEndRu
 const { finalizeSimulationPhase } = await import('../src/app/simulation/_lib/phaseFinalizationRuntime.js');
 const { getInvRules } = await import('../src/app/simulation/_lib/inventoryItemRules.js');
 const { getRuleset } = await import('../src/utils/rulesets.js');
+const { subscribeObserverWorkMeasurements } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
 
 let checks = 0;
 const check = async (name, run) => { await run(); checks += 1; console.log(`PASS ${name}`); };
@@ -48,6 +49,27 @@ await check('mutating the live engine or the UI cannot alter the other side of a
   assert.deepEqual(frame.forbiddenZoneIds, ['b']);
   frame.survivors[0].zoneId = 'b';
   assert.equal(source.survivors[0].zoneId, 'a');
+});
+
+await check('optional frame timing preserves the exact owned snapshot and reads no diagnostic clock after disposal', () => {
+  const source = input(); const original = structuredClone(source);
+  const expected = createSimulationFrame(source); const measured = []; let ticks = 0;
+  const dispose = subscribeObserverWorkMeasurements(() => ++ticks, entry => measured.push(entry));
+  let frame;
+  try { frame = createSimulationFrame(source); } finally { dispose(); }
+  assert.deepEqual(frame, expected); assert.deepEqual(source, original);
+  assert.notEqual(frame.survivors, source.survivors); assert.notEqual(frame.spawnState, source.spawnState);
+  assert.deepEqual(measured, [{ name: 'frame.snapshot', startTime: 1, duration: 1 }]);
+  createSimulationFrame(source); assert.equal(ticks, 2); assert.equal(measured.length, 1);
+});
+
+await check('frame diagnostic failures do not alter successful snapshots or hide authoritative clone errors', () => {
+  const source = input(); const expected = createSimulationFrame(source);
+  const dispose = subscribeObserverWorkMeasurements(() => 1, () => { throw new Error('diagnostic failed'); });
+  try {
+    assert.deepEqual(createSimulationFrame(source), expected);
+    assert.throws(() => createSimulationFrame(input({ spawnState: { unsupported: () => {} } })), { name: 'DataCloneError' });
+  } finally { dispose(); }
 });
 
 await check('revival removes the old corpse in the very same frame, without duplicates', () => {

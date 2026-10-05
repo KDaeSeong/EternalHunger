@@ -19,33 +19,57 @@ if (worker) {
   const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
   const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
   const input = await createRandomIsolationInput(seed);
-  let yields = 0, syntheticTime = 0;
+  let yields = 0, frameYields = 0, syntheticTime = 0;
+  const visible = worker === 'visible-cooperative', cooperative = worker === 'cooperative' || visible;
+  const timers = new Map(), frames = new Map(), listeners = new Set(); let hostId = 0;
   const originalWindow = globalThis.window, originalScheduler = globalThis.scheduler, originalPerformance = globalThis.performance;
-  if (worker === 'cooperative') {
+  if (cooperative) {
     // Inject only host scheduling/time and unrelated UI randomness. All
     // production growth, shared stocks, combat, frames and RNG code still runs.
     const uiSource = createSeedRng('unrelated-ui');
-    globalThis.window = { document: { visibilityState: 'hidden' } };
+    const hostNoise = () => {
+      assert.equal(getActiveSimulationRandom(), null, 'Browser waits must release the game RNG.');
+      withSimulationRandom(uiSource, () => uiSource()); Math.random();
+    };
+    globalThis.window = { document: { visibilityState: visible ? 'visible' : 'hidden',
+      addEventListener: (type, callback) => { assert.equal(type, 'visibilitychange'); listeners.add(callback); },
+      removeEventListener: (type, callback) => { assert.equal(type, 'visibilitychange'); listeners.delete(callback); } } };
+    if (visible) Object.assign(globalThis.window, {
+      // A deterministic host fixture, not real browser frame timing. Dispatch
+      // RAF and its follow-up task separately; hold the watchdog for cancellation.
+      requestAnimationFrame: callback => {
+        const id = hostId++; frames.set(id, callback);
+        queueMicrotask(() => { if (frames.delete(id)) { hostNoise(); frameYields += 1; callback(syntheticTime); } });
+        return id;
+      },
+      cancelAnimationFrame: id => frames.delete(id),
+      setTimeout: (callback, delay) => {
+        const id = hostId++; timers.set(id, callback);
+        if (delay === 0) queueMicrotask(() => { if (timers.delete(id)) { hostNoise(); callback(); } });
+        return id;
+      },
+      clearTimeout: id => timers.delete(id),
+    });
     globalThis.performance = { now: () => syntheticTime += 9 };
     globalThis.scheduler = { yield: () => Promise.resolve().then(() => {
       yields += 1;
-      assert.equal(getActiveSimulationRandom(), null, 'Browser waits must release the game RNG.');
-      withSimulationRandom(uiSource, () => uiSource());
-      Math.random();
+      hostNoise();
     }) };
   }
   let result;
-  try { result = await runRandomIsolationMatch(input, { noisy: worker === 'cooperative' }); }
+  try { result = await runRandomIsolationMatch(input, { noisy: cooperative }); }
   finally {
     globalThis.window = originalWindow; globalThis.scheduler = originalScheduler; globalThis.performance = originalPerformance;
   }
-  if (worker === 'cooperative') assert.ok(yields > 1000, 'Exercise repeated real scheduling, not only the synchronous fallback.');
-  console.log(JSON.stringify({ worker, engine: SIMULATION_ENGINE_VERSION, yields,
+  if (cooperative) assert.ok(yields > 1000, 'Exercise repeated scheduling, not only the synchronous fallback.');
+  if (visible) assert.ok(frameYields > 1000, 'Exercise repeated visible frame deadlines, not only task yields.');
+  assert.equal(frames.size, 0); assert.equal(timers.size, 0); assert.equal(listeners.size, 0);
+  console.log(JSON.stringify({ worker, engine: SIMULATION_ENGINE_VERSION, yields, frameYields,
     outcome: { inputDigest: digest(input), evidence: result.evidence, finalFrameDigest: digest(result.finalFrame), logDigest: digest(result.logs) },
   }));
 } else {
   const results = [];
-  for (const mode of ['headless', 'cooperative']) {
+  for (const mode of ['headless', 'cooperative', 'visible-cooperative']) {
     const output = execFileSync(process.execPath, [fileURLToPath(import.meta.url), `--worker=${mode}`, `--seed=${seed}`], {
       cwd: root, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit'],
     });
@@ -53,6 +77,8 @@ if (worker) {
     console.log(JSON.stringify({ completed: mode, ...result }));
   }
   assert.deepEqual(results[1].outcome, results[0].outcome, 'Browser checkpoints and UI noise must retain the current production match.');
-  console.log(JSON.stringify({ pass: true, seed, matches: 2, cooperativeYields: results[1].yields,
-    scope: 'current headless versus cooperative complete 24-actor fixture: input, events, every published frame, ending, logs and RNG; deliberate opening-rule change, not historical outcome preservation, browser performance or human evaluation' }));
+  assert.deepEqual(results[2].outcome, results[0].outcome, 'Visible frame deadlines must retain the current production match.');
+  console.log(JSON.stringify({ pass: true, seed, matches: 3, cooperativeYields: results[1].yields,
+    visibleTaskYields: results[2].yields, visibleFrameYields: results[2].frameYields,
+    scope: 'current headless versus hidden and visible cooperative complete 24-actor fixture: input, events, every published frame, ending, logs and RNG; deterministic host scheduling, not historical output dependency, real browser performance or human evaluation' }));
 }

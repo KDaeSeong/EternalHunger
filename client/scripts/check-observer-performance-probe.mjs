@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs';
 const { createObserverPerformanceProbe } = await import('../src/app/simulation/_lib/observerPerformanceRuntime.js');
 const { measureObserverWork, subscribeObserverWorkMeasurements } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
 const panelSource = readFileSync(new URL('../src/app/simulation/_components/SimulationObserverPerformancePanel.js', import.meta.url), 'utf8');
+const mainStageSource = readFileSync(new URL('../src/app/simulation/_components/SimulationMainStage.js', import.meta.url), 'utf8');
+const pageViewSource = readFileSync(new URL('../src/app/simulation/_components/SimulationPageView.js', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../src/styles/ERSimulation.css', import.meta.url), 'utf8');
 let checks = 0;
 const check = (name, run) => { run(); checks += 1; console.log(`PASS ${name}`); };
@@ -313,6 +315,19 @@ check('diagnostic JSON is collapsed by default and bounded so it cannot push the
   assert.match(panelSource, /<summary>측정 JSON 보기<\/summary>/);
   assert.match(styles, /\.sim-observer-performance \{[^}]*flex: 0 0 auto;[^}]*max-height: 25dvh;[^}]*overflow: auto;/);
   assert.match(styles, /\.sim-observer-performance-result pre \{[^}]*max-height: 160px;[^}]*overflow: auto;/);
+});
+
+check('fixed evaluation can opt into the same query-gated probe without changing ordinary evaluation UI', () => {
+  assert.match(pageViewSource, /<SimulationObserverPerformancePanel \/>/);
+  assert.doesNotMatch(pageViewSource, /!evaluationMode\s*\?\s*<SimulationObserverPerformancePanel/);
+  assert.match(panelSource, /if \(!enabled\) return null/);
+  assert.match(panelSource, /get\('perfProbe'\) === '1'/);
+});
+
+check('observer timing hooks retain memoization and do not build a model for inactive tabs', () => {
+  assert.match(mainStageSource, /const observerTrackedActorIds = useMemo\([\s\S]*measureObserverWork\('observer.trackedActors'/);
+  assert.match(mainStageSource, /const observerModel = useMemo\(\(\) => \{\s*if \(observerTab !== 'team'\) return null;\s*return measureObserverWork\('observer.teamModel'/);
+  assert.match(mainStageSource, /measureObserverWork\('observer.teamModel', \(\) => buildTeamObserverModel\(/);
 });
 
 console.log(`OBSERVER_PERFORMANCE_PROBE_CHECKS ${checks}/${checks}`);

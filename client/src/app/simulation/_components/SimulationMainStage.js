@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useRef, useState } from 'react';
 import { buildTeamObserverModel } from '../_lib/teamObserverRuntime';
+import { measureObserverWork } from '../_lib/observerWorkMeasurementRuntime';
 import { getActorTeamId } from '../_lib/teamRuntime';
 import SimulationTeamObserverPanel from './SimulationTeamObserverPanel';
 import SimulationPhaseHighlights from './SimulationPhaseHighlights';
@@ -139,16 +140,16 @@ export default function SimulationMainStage({
     observerTabsRef.current[nextId]?.focus();
   };
   const observerTrackedActorIds = useMemo(
-    () => buildObserverTrackedActorIds(survivors, dead, observedTeamId),
+    () => measureObserverWork('observer.trackedActors', () => buildObserverTrackedActorIds(survivors, dead, observedTeamId)),
     [survivors, dead, observedTeamId]
   );
   const observerModel = useMemo(() => {
     if (observerTab !== 'team') return null;
-    return buildTeamObserverModel({
+    return measureObserverWork('observer.teamModel', () => buildTeamObserverModel({
       survivors, dead, events: runEvents, teamId: observedTeamId, matchSec,
       publicItems, killCounts, assistCounts, isGameOver, zoneName: getZoneName,
       spawnState, forbiddenIds: forbiddenNow, settings, day, phase,
-    });
+    }));
   }, [observerTab, survivors, dead, runEvents, observedTeamId, matchSec, publicItems, killCounts, assistCounts, isGameOver, getZoneName, spawnState, forbiddenNow, settings, day, phase]);
   const battlefield = (
       <div className="simulation-stage">

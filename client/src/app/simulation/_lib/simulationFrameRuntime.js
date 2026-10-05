@@ -1,5 +1,6 @@
 import { createInitialSpawnState } from './spawnStateRuntime';
 import { getRuntimeActorKey } from './runtimeParticipantRuntime';
+import { measureObserverWork } from './observerWorkMeasurementRuntime';
 
 export function createInitialSimulationFrame() {
   return { day: 0, phase: 'night', matchSec: 0, survivors: [], dead: [],
@@ -37,17 +38,19 @@ function latestActors(rows) {
 export function createSimulationFrame({ day, phase, matchSec, survivors = [], dead = [],
   killCounts = {}, assistCounts = {}, spawnState, forbiddenAddedNow = [], forbiddenIds = new Set(), mapId = '',
 }) {
-  const living = latestActors(survivors).filter((actor) => Number(actor.hp) > 0);
-  const aliveIds = new Set(living.map(getRuntimeActorKey));
-  // Prefer the engine's normalized corpse over its older zero-HP live-map row.
-  // Preserve death order too: revival iterates that order using match RNG.
-  const recordedDead = latestActors(dead);
-  const recordedIds = new Set(recordedDead.map(getRuntimeActorKey));
-  const fallen = [...recordedDead, ...latestActors(survivors).filter((actor) => Number(actor.hp) <= 0 && !recordedIds.has(getRuntimeActorKey(actor)))]
-    .filter((actor) => !aliveIds.has(getRuntimeActorKey(actor)));
-  return structuredClone({ day, phase, matchSec, survivors: living, dead: fallen,
-    killCounts, assistCounts, spawnState, forbiddenAddedNow,
-    forbiddenZoneIds: [...forbiddenIds], frameMapId: String(mapId || ''),
+  return measureObserverWork('frame.snapshot', () => {
+    const living = latestActors(survivors).filter((actor) => Number(actor.hp) > 0);
+    const aliveIds = new Set(living.map(getRuntimeActorKey));
+    // Prefer the engine's normalized corpse over its older zero-HP live-map row.
+    // Preserve death order too: revival iterates that order using match RNG.
+    const recordedDead = latestActors(dead);
+    const recordedIds = new Set(recordedDead.map(getRuntimeActorKey));
+    const fallen = [...recordedDead, ...latestActors(survivors).filter((actor) => Number(actor.hp) <= 0 && !recordedIds.has(getRuntimeActorKey(actor)))]
+      .filter((actor) => !aliveIds.has(getRuntimeActorKey(actor)));
+    return structuredClone({ day, phase, matchSec, survivors: living, dead: fallen,
+      killCounts, assistCounts, spawnState, forbiddenAddedNow,
+      forbiddenZoneIds: [...forbiddenIds], frameMapId: String(mapId || ''),
+    });
   });
 }
 
