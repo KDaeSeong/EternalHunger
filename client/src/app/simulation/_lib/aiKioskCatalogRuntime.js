@@ -17,14 +17,14 @@ function catalogItem(findById, itemId, row) {
   return findById(itemId) || row?.itemId || null;
 }
 
-export function pickKioskCatalogAction({
+// Exact recipe quotes are shared by movement planning and action selection.
+// Keep catalogue order and real affordability, without any idle/random trades.
+export function pickKioskCatalogGoalAction({
   catalog = [],
   actor = null,
   miss = [],
-  hasMeaningfulNeed = false,
   applyKioskCost = (value) => value,
   findById = () => null,
-  ruleset = null,
 } = {}) {
   if (!catalog.length) return null;
 
@@ -53,6 +53,24 @@ export function pickKioskCatalogAction({
       }
     }
   }
+
+  return null;
+}
+
+export function pickKioskCatalogAction({
+  catalog = [],
+  actor = null,
+  miss = [],
+  hasMeaningfulNeed = false,
+  applyKioskCost = (value) => value,
+  findById = () => null,
+  ruleset = null,
+} = {}) {
+  if (!catalog.length) return null;
+  const exact = pickKioskCatalogGoalAction({ catalog, actor, miss, applyKioskCost, findById });
+  if (exact) return exact;
+  const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
+  const credits = Math.max(0, Number(actor?.simCredits || 0));
 
   // 2) 교환 우선: 가진 재료로 가능한 exchange를 실행(경제 안정화 위해 확률 게이트)
   const exchanges = catalog.filter((row) => String(row?.mode) === 'exchange');

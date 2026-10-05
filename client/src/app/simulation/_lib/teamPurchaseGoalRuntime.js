@@ -1,13 +1,15 @@
 import { getGrowthRecipeWork } from './growthPlanRuntime.js';
 import { getActorResourceRecipeTargets } from './lateGrowthTargetRuntime.js';
 import { getActorEquipmentTier, GROWTH_EQUIPMENT_SLOTS } from './growthEquipmentRuntime.js';
-import { canReceiveItem, inferItemCategory } from './inventoryRules.js';
+import { inferItemCategory } from './inventoryRules.js';
 import { classifySpecialByName } from './craftRuntime.js';
 import { listKioskZoneIdsForMap } from './mapTargeting.js';
 import { canUseKioskAtWorldTime, kioskLegendaryPrice } from './marketRuntime.js';
 import { resolveKioskSpecialItems } from './aiKioskSpecialItemsRuntime.js';
 import { pickKioskPrioritySpecialAction } from './aiKioskPriorityRuntime.js';
 import { applyPerkDiscount, getActorPerkEffects } from './perkRuntime.js';
+import { pickKioskCatalogGoalAction } from './aiKioskCatalogRuntime.js';
+import { commitProcurementTransaction } from './procurementTransactionRuntime.js';
 import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 
 // A teammate's immediately completable recipe is a squad need, even when the
@@ -48,19 +50,27 @@ export function chooseTeamPurchaseMove({ members = [], publicItems = [], ruleset
       const kiosk = kiosks.find(row => String(row.mapId?._id || row.mapId || '') === String(mapObj._id || '')
         && String(row.zoneId || '') === zoneId);
       const catalog = Array.isArray(kiosk?.catalog) ? kiosk.catalog : [];
-      // A custom catalogue is authoritative. Only its exact deterministic
-      // missing-item buy is quoted; random unrelated catalogue offers are not.
-      const row = catalog.find(entry => String(entry.itemId?._id || entry.itemId || '') === missing.itemId);
-      const offer = catalog.length ? row && String(row.mode || 'sell') === 'sell'
-        ? { kind: 'buy', itemId: missing.itemId, item: material, cost: discount(Math.max(0, Number(row.priceCredits || 0))) }
-        : null : defaultOffer;
-      if (offer?.kind !== 'buy' || String(offer.itemId) !== missing.itemId
-        || !Number.isFinite(offer.cost) || offer.cost < 0
-        || offer.cost + work.plannedCredits > credits
-        || !canReceiveItem(actor.inventory, offer.item, offer.itemId, 1, ruleset)) continue;
+      // Use the same exact quote as the action queue, including mixed modes
+      // and unavailable earlier rows; never invent an unrelated idle offer.
+      const offer = catalog.length ? pickKioskCatalogGoalAction({ catalog, actor, miss: [missing],
+        applyKioskCost: discount, findById: id => publicItems.find(item => String(item._id) === id) }) : defaultOffer;
+      if (!['buy', 'exchange'].includes(offer?.kind) || String(offer.itemId) !== missing.itemId) continue;
+      // Preview a prospective order, not a retry of the actor's old receipt.
+      // Settlement prepares inventory on copies; the real actor, funds and
+      // successful-action marker are never changed or reserved by this quote.
+      const preview = { ...actor, _procurementActionKey: undefined };
+      const receipt = commitProcurementTransaction({ actor: preview, offer, day, ruleset,
+        actionType: offer.kind === 'exchange' ? 'kioskExchange' : 'kioskBuy' });
+      if (!receipt.ok) continue;
+      // An exchange may free a bag slot, but may also consume a required base
+      // or ingredient. Re-account the real resulting recipe before travelling.
+      const afterWork = getGrowthRecipeWork(preview, publicItems, target._id, { ruleset });
+      if (afterWork.blocked || afterWork.missing.length || !afterWork.readyCraftId
+        || afterWork.plannedCredits > preview.simCredits) continue;
       if (!routes.has(zoneId)) routes.set(zoneId, routeForZone(zoneId));
       const route = routes.get(zoneId);
-      if (route) candidates.push({ actor, target, material, zoneId, distance: route.distance, cost: offer.cost });
+      if (route) candidates.push({ actor, target, material, zoneId, distance: route.distance,
+        kind: offer.kind, cost: receipt.paidCost });
     }
   }
   candidates.sort((a, b) => a.distance - b.distance || a.cost - b.cost
@@ -69,5 +79,5 @@ export function chooseTeamPurchaseMove({ members = [], publicItems = [], ruleset
     || a.zoneId.localeCompare(b.zoneId));
   const best = candidates[0];
   return best ? { targets: [best.zoneId],
-    reason: `팀 제작 구매: ${best.material.name} · ${best.actor.name || best.actor._id}의 ${best.target.name} 제작 재료` } : null;
+    reason: `팀 제작 ${best.kind === 'exchange' ? '교환' : '구매'}: ${best.material.name} · ${best.actor.name || best.actor._id}의 ${best.target.name} 제작 재료` } : null;
 }
