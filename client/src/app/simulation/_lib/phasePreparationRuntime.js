@@ -10,6 +10,7 @@ import { waitMs } from './simulationFormattingRuntime';
 import { worldPhaseIndex, worldTimeText } from './simulationEngine';
 import { createEndgamePressure, advanceEndgamePressure, getEndgameDurationSec, isEndgamePhase } from './suddenDeathRuntime';
 import { getDetonationBaseMaxSec, FINAL_NIGHT_DETONATION_BONUS_SEC } from './detonationTimerRuntime.js';
+import { createVisibleClockPacer } from './visibleClockPacingRuntime.js';
 
 export function beginSimulationPhase({
   actions = {},
@@ -81,10 +82,8 @@ export function beginSimulationPhase({
     phaseActionAbsSec = phaseStartSec + phaseRuntimeOffsetSec;
     return actionStart;
   };
-  const getVisibleTickDelayMs = () => {
-    const speed = normalizeAutoSpeed(autoSpeedRef?.current || autoSpeed);
-    return Math.max(24, Math.round(1000 / speed));
-  };
+  const visibleClockPacer = createVisibleClockPacer({ now: actions.visibleClockNow,
+    visibility: actions.visibleClockVisibility });
   const commitVisibleClock = async (absSec = phaseStartSec + phaseRuntimeOffsetSec, { wait = true } = {}) => {
     const nextSec = Math.max(
       phaseStartSec,
@@ -93,7 +92,15 @@ export function beginSimulationPhase({
     setMatchSec(nextSec);
     const elapsedSec = Math.max(0, roundTime(nextSec - lastVisibleAbsSec));
     lastVisibleAbsSec = nextSec;
-    if (wait && elapsedSec > 0) await waitForVisibleTick(Math.max(1, Math.round(getVisibleTickDelayMs() * elapsedSec)), { elapsedSec, atSec: nextSec });
+    if (!wait) visibleClockPacer.reset();
+    else if (elapsedSec > 0) {
+      const speed = normalizeAutoSpeed(autoSpeedRef?.current || autoSpeed);
+      const delayMs = visibleClockPacer.getDelayMs(elapsedSec, speed);
+      // The action loop already yields to browser input between frames. An
+      // overdue frame needs no extra zero-delay timer, nor any skipped action.
+      if (delayMs > 0 || waitForVisibleTick !== waitMs) await waitForVisibleTick(delayMs, { elapsedSec, atSec: nextSec });
+      visibleClockPacer.markCommitted();
+    }
   };
   const reserveVisibleSecond = async (seconds = tickSec) => {
     const actionSec = reserveActionSecond(seconds);

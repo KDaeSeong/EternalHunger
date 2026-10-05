@@ -79,6 +79,8 @@ export function runSimulationPhaseSetup({
       setMatchSec,
       setPhase,
       waitForVisibleTick: actions.waitForVisibleTick,
+      visibleClockNow: actions.visibleClockNow,
+      visibleClockVisibility: actions.visibleClockVisibility,
     },
   });
   const {
