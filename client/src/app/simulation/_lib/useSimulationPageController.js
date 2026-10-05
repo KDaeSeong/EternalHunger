@@ -16,7 +16,6 @@ import {
 import { useSimEquipmentPersistence } from './useSimEquipmentPersistence';
 import { useSimulationInitialData } from './useSimulationInitialData';
 import { useSimulationRuntimeGuards } from './useSimulationRuntimeGuards';
-import { useHyperloopPickLog } from './useHyperloopPickLog';
 import { logRuntimeEffectResults } from './runtimeStatus';
 import { useSimulationMarketState } from './useSimulationMarketState';
 import { useSimulationMarketActions } from './useSimulationMarketActions';
@@ -244,6 +243,8 @@ export function useSimulationPageController({
     zones,
   } = mapState;
 
+  // Selection (including fallback after a death) is view state, not travel.
+  // The picker and minimap display it; only the action runtime records moves.
   const hyperloopCharId = getPreferredHyperloopCharId(selectedCharId, survivors);
   const forbiddenCacheRef = useRef({});
   // ✅ UI용 logs는 "현재 페이즈"만 보여주고, 전체 기록은 따로 누적합니다.
@@ -323,9 +324,6 @@ export function useSimulationPageController({
     isAdvancingRef,
     setIsAdvancing,
   });
-
-  useHyperloopPickLog({ hyperloopCharId, survivors, addLog });
-
 
   // 🧾 구조적 이벤트 로그(재현/디버깅용)
   // - 문자열 로그는 사람용, runEvents는 "룰/상태"를 요약/집계하기 위한 데이터용

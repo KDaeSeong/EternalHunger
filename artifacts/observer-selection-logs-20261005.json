@@ -1,0 +1,189 @@
+{
+  "schema": "eternal-hunger.observer-selection-check.v1",
+  "engine": "8e9d5da581350a9a978d6f4c0db57e3e3fbf046d4896f4896fd57eaced9ff367",
+  "inputDigest": "e3073ff0e46ee8c9bc2b77234b84d64f4438fbfb0b5125e348024f3ee162327c",
+  "eventDigest": "4b5f2a5c6e4a4f1fbd9f4c6d3b910168985d2990d3521230a57da37a47fd7f2b",
+  "logDigest": "788c0e9bf67e71b690ae51e52427169a51586278e01b1bc2ba61c4aa7963f707",
+  "eventCount": 14307,
+  "logCount": 8895,
+  "actualHyperloopMoves": 290,
+  "passiveSelectionAnnouncements": 0,
+  "strictInputMatched": true,
+  "strictRawLogsMatched": true,
+  "strictOrderedEventsMatched": true,
+  "semanticSummaryMatched": true,
+  "normalization": {
+    "events": [
+      "top-level wall timestamp ts"
+    ],
+    "summary": [
+      "exportedAt"
+    ],
+    "logs": [],
+    "input": []
+  },
+  "ending": {
+    "atSec": 1255.583333,
+    "cause": "combat",
+    "winnerTeamId": "team:2"
+  },
+  "winner": {
+    "id": "guest-survivor-22",
+    "name": "바람",
+    "teamName": "2팀",
+    "kills": 6,
+    "assists": 1
+  },
+  "winnerTeam": {
+    "teamId": "team:2",
+    "teamName": "2팀",
+    "aliveCount": 3,
+    "originalSize": 3,
+    "rosterNames": [
+      "라온",
+      "노을",
+      "바람"
+    ]
+  },
+  "lpReward": {
+    "total": 0,
+    "base": 0,
+    "predictionBonus": 0,
+    "prediction": {
+      "predictedId": "",
+      "predictedName": "",
+      "correct": false,
+      "bonusLP": 0
+    }
+  },
+  "files": [
+    {
+      "path": "C:/Users/home/Downloads/eternal-hunger-log-바람-2026-10-05T12-17-43.json",
+      "bytes": 11827831,
+      "sha256": "15cd6e6e64a1c32d8c89742b8f517e4ae65252205b2dc91099502d6611b72229"
+    },
+    {
+      "path": "C:/Users/home/Downloads/eternal-hunger-log-바람-2026-10-05T12-22-12.json",
+      "bytes": 11827831,
+      "sha256": "642c770f3130ec33c8dd9197709c12a3d2ec779baa6a2217ecf54812a63b0af7"
+    }
+  ],
+  "recordedAt": "2026-10-05",
+  "verdict": "view_selection_decoupled_from_match_journal",
+  "sourceChange": {
+    "removed": "passive useHyperloopPickLog effect, import and controller binding",
+    "preserved": [
+      "selected character picker",
+      "minimap selection ID",
+      "AI movement log and event",
+      "manual action runtime",
+      "match clock",
+      "damage and equipment rules"
+    ]
+  },
+  "browser": {
+    "url": "http://127.0.0.1:3122/eternalhunger/evaluate",
+    "seed": "1789192220412",
+    "buildId": "ACbF9Llkmia0wLxGVmjgD",
+    "participants": 24,
+    "teams": 8,
+    "zones": 21,
+    "selectedSpeed": 32,
+    "requestedTabVisible": false,
+    "first": {
+      "observerTeam": "team:1",
+      "tab": "team observer",
+      "warningsAndErrors": 0
+    },
+    "second": {
+      "observerTeam": "team:2",
+      "tab": "all logs / summary",
+      "warningsAndErrors": 0
+    },
+    "scope": "two fresh production browser matches; not foreground speed, FPS, heap or human acceptance"
+  },
+  "headless": {
+    "seed": "observer-selection-replay",
+    "matches": 2,
+    "phases": 13,
+    "framesPerMatch": 6638,
+    "eventsPerMatch": 15094,
+    "matchSeconds": 1272.083333,
+    "winnerTeam": "team:5",
+    "endingCause": "combat",
+    "rngDraws": 20675,
+    "eventDigest": "351e335956ebb8af8d59f1e3c2dbc3b7fa7d090bb119ef9082c5c2def3b4ee8a",
+    "frameDigest": "efa82dafef8dedc66033975411599a41bacc667a651aeaa15cf0c8afde1a20cc",
+    "renderIntervals": [
+      1,
+      101
+    ],
+    "fallbackChanges": [
+      4,
+      2
+    ],
+    "exact": [
+      "all events",
+      "all engine logs in original order",
+      "every frame digest",
+      "final frame",
+      "RNG state",
+      "ending"
+    ],
+    "scope": "actual engine and real market/log hooks in a lifecycle model; not a React browser renderer"
+  },
+  "checks": {
+    "observerSelection": 7,
+    "withFreshCompleteMatches": 8,
+    "negativeControl": {
+      "flag": "--baseline",
+      "expectedExitCode": 1,
+      "observedExitCode": 1,
+      "reason": "passive fallback adds a false selection announcement"
+    },
+    "combatActionParity": 3,
+    "logExport": 8,
+    "displayPacing": 15,
+    "historyLifetime": 27,
+    "runtimeSweepExitCode": 0,
+    "build": {
+      "initialExitCode": 1,
+      "initialReason": "sandbox EPERM creating _global-error prerender output",
+      "sameCommandEscalatedRetryExitCode": 0,
+      "pages": 62
+    },
+    "latestWholeRegressionChainRun": false,
+    "checkIsolationRepair": "scope the fake window to hook render/unmount; do not intercept the actual engine cooperative yield"
+  },
+  "preservation": {
+    "maintainedChecksReadPastExports": false,
+    "userOriginalsChanged": false,
+    "otherDirtyTrackedFilesChanged": false,
+    "replayExportsPreserved": true,
+    "rawFramesOrCpuProfilesAdded": false
+  },
+  "cleanup": {
+    "status": "completed_own_regenerable_cache_only",
+    "target": "client/.next/cache/webpack",
+    "deletedFiles": 9,
+    "logicalBytesRemoved": 609104746,
+    "logicalMiBRemoved": 580.888,
+    "protectedHashesMatchedAtDeletion": 18,
+    "physicalFreeSpaceMeasured": false,
+    "recovery": "npm run build regenerates the webpack cache",
+    "documentsUpdatedAfterHashCheck": true,
+    "ownBrowserTabsClosed": true,
+    "ownServerStopped": true
+  },
+  "publicPush": false,
+  "publicDeploy": false,
+  "wholeGoalComplete": false,
+  "remaining": [
+    "normal foreground x32 measurement",
+    "latest full regression chain",
+    "long-run browser memory and responsiveness",
+    "actual account persistence",
+    "authorized AI draft quality",
+    "follow-up human evaluation"
+  ]
+}

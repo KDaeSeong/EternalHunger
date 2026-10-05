@@ -58,7 +58,7 @@
     "check:low-hp-recovery": "node ./scripts/check-low-hp-recovery.mjs",
     "check:low-hp-recovery:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-low-hp-recovery-match.mjs --probe-opening --with-starter-food && node ./scripts/check-low-hp-recovery-match.mjs",
     "check:simulation-evaluation": "node ./scripts/check-simulation-evaluation.mjs && node ./scripts/check-evaluation-link.mjs && npm run check:simulation-log-export",
-    "check:simulation-log-export": "node ./scripts/check-simulation-combat-actions.mjs && node ./scripts/check-simulation-log-export.mjs",
+    "check:simulation-log-export": "node ./scripts/check-simulation-combat-actions.mjs && node ./scripts/check-observer-selection-logs.mjs && node ./scripts/check-simulation-log-export.mjs",
     "generate:guest-item-catalog": "node ./scripts/generate-guest-item-catalog.mjs",
     "check:guest-item-catalog": "node ./scripts/check-guest-item-catalog.mjs",
     "check:guest-farming": "node ./scripts/check-guest-farming.mjs && npm run check:custom-crafting && npm run check:custom-consumables && npm run check:custom-equipment && npm run check:recipe-only-gear",
