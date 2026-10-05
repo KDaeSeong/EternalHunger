@@ -10,6 +10,7 @@ const Character = require('../models/Characters');
 const Item = require('../models/Item');
 const Perk = require('../models/Perk');
 const { scopedFilter } = require('../utils/requestScope');
+const { isMarketItemAllowed } = require('../../shared/marketItemPolicy.cjs');
 
 const {
   buildItemNameMap,
@@ -43,6 +44,7 @@ router.post('/buy', async (req, res) => {
 
     const item = offer.itemId;
     if (!item) return res.status(404).json({ error: '아이템 정보를 찾을 수 없습니다.' });
+    if (!isMarketItemAllowed(item, 'drone')) return res.status(400).json({ error: '전송 드론은 물을 제외한 음식을 판매하지 않습니다.' });
     if (Number(item.tier || 1) > Number(offer.maxTier || 1)) return res.status(400).json({ error: '티어 제한으로 구매할 수 없습니다.' });
 
     const perkCtx = await getOwnedPerkContext(user, Perk);

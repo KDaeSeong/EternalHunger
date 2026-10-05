@@ -132,7 +132,7 @@ export function* runPhaseActorActionPipelineSteps({
       }),
       upgradeNeed: computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, nextDay, nextPhase, ruleset),
       mapObj: state.mapObj, spawnState: state.nextSpawn, forbiddenIds: state.forbiddenIds,
-      day: nextDay, phase: nextPhase, kiosks: state.kiosks, itemMetaById, itemNameById,
+      day: nextDay, phase: nextPhase, kiosks: state.kiosks, publicItems, itemMetaById, itemNameById,
       nowSec: state.currentActionSec?.(), ruleset, isSoloMatch: state.isSoloMatch,
     }),
   }));

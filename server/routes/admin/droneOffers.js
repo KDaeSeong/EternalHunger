@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 
 const DroneOffer = require('../../models/DroneOffer');
+const Item = require('../../models/Item');
+const { isMarketItemAllowed, normalizeMarketItemId } = require('../../../shared/marketItemPolicy.cjs');
 const { requireUserId, ownedFilter, withOwner } = require('../../utils/requestScope');
 
 function scope(req, res, extra = {}) {
@@ -26,6 +28,8 @@ router.post('/', async (req, res) => {
   try {
     const userId = requireUserId(req, res);
     if (!userId) return;
+    const item = await Item.findOne(ownedFilter(userId, { _id: normalizeMarketItemId(req.body?.itemId) }));
+    if (!isMarketItemAllowed(item, 'drone')) return res.status(400).json({ error: '전송 드론에는 물을 제외한 음식을 등록할 수 없습니다.' });
     const offer = await new DroneOffer(withOwner(userId, req.body)).save();
     res.json({ message: '드론 판매가 추가되었습니다.', offer });
   } catch (err) {
@@ -38,6 +42,10 @@ router.put('/:id', async (req, res) => {
   try {
     const userId = requireUserId(req, res);
     if (!userId) return;
+    if (req.body?.itemId !== undefined) {
+      const item = await Item.findOne(ownedFilter(userId, { _id: normalizeMarketItemId(req.body.itemId) }));
+      if (!isMarketItemAllowed(item, 'drone')) return res.status(400).json({ error: '전송 드론에는 물을 제외한 음식을 등록할 수 없습니다.' });
+    }
     const updated = await DroneOffer.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, req.body), { new: true });
     if (!updated) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     res.json({ message: '수정 완료', offer: updated });

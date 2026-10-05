@@ -91,7 +91,7 @@
     "check:late-growth": "node ./scripts/check-late-growth-goals.mjs",
     "check:late-growth:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-late-growth-match.mjs",
     "check:field-resources": "node ./scripts/check-field-resources.mjs && npm run check:procurement",
-    "check:procurement": "node ./scripts/check-procurement-transactions.mjs && node ./scripts/check-kiosk-catalog-contract.mjs",
+    "check:procurement": "node ./scripts/check-procurement-transactions.mjs && node ./scripts/check-kiosk-catalog-contract.mjs && node ./scripts/check-market-item-policy.mjs",
     "check:team-tactics": "node ./scripts/check-team-tactics.mjs && npm run check:combat-decision-evidence && npm run check:team-regroup && npm run check:team-resource-goals",
     "check:team-resource-goals": "node ./scripts/check-team-resource-goals.mjs && npm run check:team-purchase-goals && npm run check:team-boss-goals",
     "check:team-purchase-goals": "node ./scripts/check-team-purchase-goals.mjs",

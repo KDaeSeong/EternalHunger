@@ -1,6 +1,7 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { shuffleArray } from './simulationCommon';
 import { invQty } from './inventoryRules';
+import { isKioskCatalogRowAllowed } from '../../../utils/marketItemPolicy.js';
 
 function normCatalogItemId(value) {
   return String(value?._id || value || '').trim();
@@ -35,6 +36,7 @@ export function pickKioskCatalogGoalAction({
 
   // 1) 목표 기반: 부족한 아이템(정확히 itemId 매칭)이 카탈로그에 있으면 우선 수행
   for (const row of catalog) {
+    if (!isKioskCatalogRowAllowed(row, findById)) continue;
     const itemId = normCatalogItemId(row?.itemId);
     if (!itemId || !missIds.has(itemId)) continue;
 
@@ -66,6 +68,7 @@ export function pickKioskCatalogAction({
   findById = () => null,
   ruleset = null,
 } = {}) {
+  catalog = catalog.filter(row => isKioskCatalogRowAllowed(row, findById));
   if (!catalog.length) return null;
   const exact = pickKioskCatalogGoalAction({ catalog, actor, miss, applyKioskCost, findById });
   if (exact) return exact;
