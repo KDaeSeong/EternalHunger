@@ -1,0 +1,252 @@
+{
+  "schema": "eh-owned-frame-copy-performance.v1",
+  "date": "2026-10-05",
+  "verdict": "browser_performance_inconclusive_candidate_not_adopted",
+  "scope": "Fresh local matches and independent frame contracts; not public deployment, real-account persistence or human acceptance.",
+  "candidate": {
+    "engineVersion": "f2b5f2921f63bd895550f58418cde02dcbb58d45c4d1d8b7d1c366375afcbca7",
+    "buildId": "dk9fdPX4BVsjJDdEu06yO",
+    "mechanism": "Guarded full graph copy of records/arrays; cycles and aliases retained; whole-graph structuredClone fallback for accessors or built-in objects.",
+    "didNotSkipFramesOrFields": true,
+    "sourceDigest": "084abea3e90c6680d1d80d1959e8fc197b9a848864712851a397bae63f4d29bf",
+    "runtimeAdopted": false,
+    "helperRemoved": true
+  },
+  "restored": {
+    "engineVersion": "a2e64954dc85e6d4f84b039c8e20b7a34ed799daedf4b3ce911962141fe6b8c0",
+    "sourceDigest": "22972ce3058f76d106a39e39ac35ded864806e303dc2cb355668ad8be3c7af96",
+    "runtimeMatchesOriginalSource": true,
+    "retainedIndependentFrameChecks": 19,
+    "newFrameBoundaryChecks": 7,
+    "finalBuild": {"buildId":"y3BBL3h8Gj7dYq2o1V5nu","pages":62,"exitCode":0},
+    "freshBrowserRollbackMatch": {"scope":"fresh restored runtime browser export compared strictly to current original baseline; no maintained saved-output dependency","path":"C:/Users/home/Downloads/eternal-hunger-log-바람-2026-10-05T11-41-21.json","engine":"a2e64954dc85e6d4f84b039c8e20b7a34ed799daedf4b3ce911962141fe6b8c0","firstTs":1791200129989,"endTs":1791200414307,"gameSec":1255.583333,"wallSec":284.318,"effectiveSpeed":4.41612325987099,"inputDigest":"8f619d6ad914d2bcfa17215c9ae981ba71f83b5b725850dd588fde6124617a5e","eventDigest":"4b5f2a5c6e4a4f1fbd9f4c6d3b910168985d2990d3521230a57da37a47fd7f2b","logsDigest":"6fbaf41b59c45320de4d0d08c0b05e319eea90d73c78e5bdd30de224e86f36e1","eventCount":14307,"logCount":8897,"sameInput":true,"sameEvents":true,"sameSummary":true,"sameLogOrder":false,"sameLogMultiset":true,"logDifferenceCount":6,"logDifferences":[{"index":5749,"before":"✨ [새벽] 재생: 체력 회복 HP +1","restored":"🎯 하이퍼루프 대상 선택: 라온"},{"index":5754,"before":"🎯 하이퍼루프 대상 선택: 라온","restored":"✨ [새벽] 재생: 체력 회복 HP +1"},{"index":7430,"before":"🤝 [나래] 합류 보류: 이동·행동 시간 대기 · 연못 · 현장 동료 2명","restored":"🎯 하이퍼루프 대상 선택: 바람"},{"index":7431,"before":"🤝 [다온] 합류 보류: 이동·행동 시간 대기 · 연못 · 현장 동료 2명","restored":"🤝 [나래] 합류 보류: 이동·행동 시간 대기 · 연못 · 현장 동료 2명"},{"index":7432,"before":"🤝 [보라] 합류 보류: 이동·행동 시간 대기 · 연못 · 현장 동료 2명","restored":"🤝 [다온] 합류 보류: 이동·행동 시간 대기 · 연못 · 현장 동료 2명"},{"index":7433,"before":"🎯 하이퍼루프 대상 선택: 바람","restored":"🤝 [보라] 합류 보류: 이동·행동 시간 대기 · 연못 · 현장 동료 2명"}]}
+  },
+  "browser": {
+    "route": "http://127.0.0.1:3122/eternalhunger/evaluate?perfProbe=1",
+    "seed": "1789192220412",
+    "participants": 24,
+    "teams": 8,
+    "regions": 21,
+    "selectedSpeed": 32,
+    "observerTeam": 1,
+    "noSpeedOrPauseChange": true,
+    "noConcurrentBuildOrHeavyCheck": true,
+    "visibilityAtObservedPoints": "visible",
+    "wallMethod": "First finite run-event ts through match_end.ts; excludes result dwell and export wait.",
+    "before": {
+      "path": "C:/Users/home/Downloads/eternal-hunger-log-바람-2026-10-05T10-27-26.json",
+      "engine": "a2e64954dc85e6d4f84b039c8e20b7a34ed799daedf4b3ce911962141fe6b8c0",
+      "inputDigest": "8f619d6ad914d2bcfa17215c9ae981ba71f83b5b725850dd588fde6124617a5e",
+      "eventDigest": "4b5f2a5c6e4a4f1fbd9f4c6d3b910168985d2990d3521230a57da37a47fd7f2b",
+      "logsDigest": "c35999d91e01e723faa0d211b3261fe6456cb8f0862d8a549ac0086668d13f34",
+      "eventCount": 14307,
+      "logCount": 8897,
+      "firstTs": 1791195892553,
+      "endTs": 1791195974888,
+      "gameSec": 1255.583333,
+      "wallSec": 82.335,
+      "effectiveSpeed": 15.249691297747011
+    },
+    "candidate": {
+      "path": "C:/Users/home/Downloads/eternal-hunger-log-바람-2026-10-05T11-26-08.json",
+      "engine": "f2b5f2921f63bd895550f58418cde02dcbb58d45c4d1d8b7d1c366375afcbca7",
+      "inputDigest": "8f619d6ad914d2bcfa17215c9ae981ba71f83b5b725850dd588fde6124617a5e",
+      "eventDigest": "4b5f2a5c6e4a4f1fbd9f4c6d3b910168985d2990d3521230a57da37a47fd7f2b",
+      "logsDigest": "6c4f191645351f0b89b6cc663d4dce8a9843a8eda9f79ec9b61d9b8cd47e41b5",
+      "eventCount": 14307,
+      "logCount": 8897,
+      "firstTs": 1791199290214,
+      "endTs": 1791199488203,
+      "gameSec": 1255.583333,
+      "wallSec": 197.989,
+      "effectiveSpeed": 6.341682280328706
+    },
+    "equality": {
+      "sameInputIgnoringEngineVersion": true,
+      "sameEventsIgnoringWallTs": true,
+      "sameSummaryIgnoringExportTime": true,
+      "sameDisplayedLogOrder": false,
+      "sameDisplayedLogMultiset": true,
+      "logDifferences": [
+        {
+          "index": 5750,
+          "before": "✨ [새벽] 재생: 체력 회복 HP +1",
+          "candidate": "🎯 하이퍼루프 대상 선택: 라온"
+        },
+        {
+          "index": 5754,
+          "before": "🎯 하이퍼루프 대상 선택: 라온",
+          "candidate": "✨ [새벽] 재생: 체력 회복 HP +1"
+        }
+      ]
+    },
+    "stageTotalsScope": "Instrumented synchronous stages can nest; totals are not additive.",
+    "measuredStages": {
+      "before": {
+        "snapshot": {
+          "count": 6488,
+          "totalMs": 15379.2,
+          "maxMs": 5.9
+        },
+        "growthSlice": {
+          "count": 3076,
+          "totalMs": 22185.8,
+          "maxMs": 31.2
+        },
+        "refreshPlans": {
+          "count": 14226,
+          "totalMs": 7529.4,
+          "maxMs": 5.5
+        },
+        "teamModel": {
+          "count": 1698,
+          "totalMs": 4561.3,
+          "maxMs": 7.1
+        }
+      },
+      "restored": {"snapshot":{"count":6488,"totalMs":18992.3,"maxMs":76.5},"growthSlice":{"count":3496,"totalMs":30614.4,"maxMs":968.4},"refreshPlans":{"count":14226,"totalMs":10918.7,"maxMs":968.4},"teamModel":{"count":1944,"totalMs":6443,"maxMs":32.9}},
+      "candidate": {
+        "snapshot": {
+          "count": 6488,
+          "totalMs": 17930.8,
+          "maxMs": 11.8
+        },
+        "growthSlice": {
+          "count": 3206,
+          "totalMs": 23920.4,
+          "maxMs": 37.3
+        },
+        "refreshPlans": {
+          "count": 14226,
+          "totalMs": 8095.9,
+          "maxMs": 4.4
+        },
+        "teamModel": {
+          "count": 1773,
+          "totalMs": 5258.5,
+          "maxMs": 13.5
+        }
+      }
+    },
+    "entireProbeSessionNotGameTime": {
+      "before": {
+        "elapsedMs": 155038.9,
+        "longTasks": {
+          "count": 13,
+          "totalMs": 773,
+          "maxMs": 94
+        }
+      },
+      "restored": {"elapsedMs":353319.4,"longTasks":{"count":75,"totalMs":7959,"maxMs":968},"raf":{"samples":753,"medianMs":50,"p95Ms":null,"maxMs":1010.1,"histogramOverflowSamples":180},"loaf":{"count":372,"totalDurationMs":343541.1,"maxDurationMs":1142.1,"maxBlockingMs":919.3}},
+      "candidate": {
+        "elapsedMs": 280255.1,
+        "longTasks": {
+          "count": 13,
+          "totalMs": 811,
+          "maxMs": 101
+        },
+        "raf": {
+          "samples": 9479,
+          "medianMs": 10,
+          "p95Ms": 59.9,
+          "maxMs": 1010.4,
+          "histogramOverflowSamples": 92
+        },
+        "loaf": {
+          "count": 525,
+          "totalDurationMs": 177754.9,
+          "maxDurationMs": 1044.9,
+          "maxBlockingMs": 51.9,
+          "maxRenderMs": 8.2,
+          "maxStyleAndLayoutMs": 1.4
+        }
+      }
+    },
+    "candidateConsoleWarningOrErrorCount": 0,
+    "restoredConsoleWarningOrErrorCount": 0,
+    "screenshot": {"path":"artifacts/owned-frame-copy-performance-20261005.jpg","scope":"Actual final restored native runtime result, not a speed-improvement proof."},
+    "limitations": [
+      "One fresh sample per build, not a causal or cross-machine performance guarantee.",
+      "Browser control kernel reset occurred between the earlier baseline and candidate; continuous host/window visibility, external CPU load, temperature and system-clock adjustments were not measured.",
+      "Repeated roughly one-second RAF/LoAF intervals require separating foreground/window state from engine cost.",
+      "No credible browser speed benefit was shown; Node-only speed improvement is insufficient to adopt the candidate.",
+      "UI hyperloop-pick notices still change display log order; equality of event contents is not equality of all UI log ordering.",
+      "Restored unchanged runtime also took 284.318 seconds in a new sample; unstable browser/host conditions preclude attributing the before/candidate gap solely to the clone implementation."
+    ]
+  },
+  "node": {
+    "scope": "Fresh complete seed 1101 match; freeze/hash fixture overhead included, no browser speed proof.",
+    "participants": 24,
+    "phases": 13,
+    "eventCount": 14237,
+    "frames": 6606,
+    "gameSec": 1279.833333,
+    "beforeElapsedMs": 102468.5054,
+    "candidateElapsedMs": 83584.4255,
+    "beforeSnapshot": {
+      "count": 6606,
+      "totalMs": 23902.669,
+      "maxMs": 34.357
+    },
+    "candidateSnapshot": {
+      "count": 6606,
+      "totalMs": 20127.507,
+      "maxMs": 22.923
+    },
+    "strictSameInputEventsFramesFinalFrameLogsAndRandom": true,
+    "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+    "eventDigest": "e01f9517aeaacc7f680fc91f6c21df0813a68f4ea6943774d697137c5740fb90",
+    "frameDigest": "dd4eefddde979f8a291741fcd0effee6e7dc8b780f072a43198a6e235e9a38a6",
+    "finalFrameDigest": "23aaf7af9bf0fba270d1c2b89eaaa17de78e35b5cc243f2f90ab42610939d269",
+    "logsDigest": "356be9f630586917811523fbe5d741e9da61715bd08a5c1162ae110638c95e3e",
+    "random": {
+      "algorithm": "fnv1a-mulberry32-v1",
+      "state": 1885223995,
+      "draws": 10090,
+      "ids": 0
+    }
+  },
+  "microbenchmark": {
+    "scope": "New bounded first-phase frame at 130 seconds, not a full match/browser gate.",
+    "uniqueItemKeyMaps": 1,
+    "plainObjects": 1880,
+    "arrays": 939,
+    "properties": 21574,
+    "loopsPerMethod": 250,
+    "guardedMs": [
+      371.4275,
+      357.2038,
+      353.3759
+    ],
+    "nativeMs": [
+      514.3145,
+      475.306,
+      461.3073
+    ],
+    "rawProfilesOrFramesWritten": false
+  },
+  "verification": {
+    "candidateCheckEternalHunger": "All checks and runtime sweep completed; command exit 1 at final build mkdir EPERM.",
+    "candidateBuildRetry": {
+      "exitCode": 0,
+      "pages": 62
+    },
+    "finalNativeLiveFrames": {
+      "exitCode": 0,
+      "checks": 19
+    },
+    "finalNativeBuild": {"exitCode":0,"pages":62,"buildId":"y3BBL3h8Gj7dYq2o1V5nu"},
+    "maintainedChecksDependOnDownloadsOrPriorResultFiles": false,
+    "publicPushOrDeploy": false,
+    "finalNativeRuntimeSweep": { "exitCode": 0 },
+    "cleanup": { "pass": true, "removedFiles": 12, "logicalBytesRemoved": 705894558, "protectedHashesUnchangedAtDeletion": 15, "remainingFiles": 0, "recoverableBy": "npm run build", "physicalFreeSpaceMeasured": false, "receiptAndDocsUpdatedIntentionallyAfterHashCheck": true }
+  },
+  "remaining": [
+    "True 32x under documented normal foreground conditions.",
+    "x1/map/tab responsiveness and three consecutive matches with memory recovery.",
+    "UI display log ordering.",
+    "Real account save/load and approved paid-AI setup quality.",
+    "Broader custom inputs and human follow-up evaluation.",
+    "Full original product goal acceptance."
+  ]
+}

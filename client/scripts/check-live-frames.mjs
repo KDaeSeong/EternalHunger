@@ -17,6 +17,9 @@ const actor = (id, extra = {}) => ({ _id: id, name: id, teamId: id, zoneId: 'a',
 const input = (extra = {}) => ({ day: 2, phase: 'night', matchSec: 380, survivors: [actor('a')], dead: [actor('b', { hp: 0 })],
   killCounts: { a: 1 }, spawnState: { mapId: 'map', fieldResources: { remaining: 2 } },
   forbiddenIds: new Set(['b']), mapId: 'map', ...extra });
+// Exercise the actual owned-frame boundary, not a candidate copy helper or an
+// old saved match. Keep these contracts when changing publication performance.
+const copyFrameData = (value) => createSimulationFrame(input({ spawnState: value })).spawnState;
 
 await check('one publish replaces clock, life state, gear, counters and world together', () => {
   const frame = createSimulationFrame(input());
@@ -49,6 +52,110 @@ await check('mutating the live engine or the UI cannot alter the other side of a
   assert.deepEqual(frame.forbiddenZoneIds, ['b']);
   frame.survivors[0].zoneId = 'b';
   assert.equal(source.survivors[0].zoneId, 'a');
+});
+
+await check('snapshot data retains primitive values, sparse arrays, own keys and native writable output', () => {
+  const tags = new Array(4); tags[1] = undefined; tags[3] = '검'; tags.extra = { count: 2 };
+  const record = Object.create(null);
+  Object.defineProperty(record, '__proto__', { value: { own: true }, enumerable: true });
+  Object.defineProperty(record, 'hidden', { value: 'ignore', enumerable: false });
+  record[Symbol('ignore')] = 'ignore';
+  record.primitive = [undefined, null, false, 0, -0, NaN, Infinity, -Infinity, 9n, '名字'];
+  record.tags = Object.freeze(tags);
+  Object.freeze(record);
+  const copied = copyFrameData(record);
+  assert.deepEqual(copied, structuredClone(record));
+  assert.equal(Object.getPrototypeOf(copied), Object.prototype);
+  assert.equal(Object.hasOwn(copied, '__proto__'), true);
+  assert.equal(copied.own, undefined);
+  assert.equal(Object.hasOwn(copied.tags, 0), false);
+  assert.equal(Object.hasOwn(copied.tags, 1), true);
+  assert.equal(Object.hasOwn(copied, 'hidden'), false);
+  assert.equal(Object.getOwnPropertyDescriptor(copied, '__proto__').writable, true);
+  copied.tags.extra.count = 3;
+  assert.equal(record.tags.extra.count, 2);
+});
+
+await check('snapshot data preserves cyclic and cross-field aliases while owning the complete graph', () => {
+  const shared = { key: 'same', nested: [1, 2] };
+  const root = { a: shared, b: shared, rows: [shared] };
+  shared.owner = root; root.self = root;
+  const copied = copyFrameData(root);
+  assert.deepEqual(copied, structuredClone(root));
+  assert.equal(copied.a, copied.b);
+  assert.equal(copied.a, copied.rows[0]);
+  assert.equal(copied.self, copied);
+  assert.equal(copied.a.owner, copied);
+  assert.notEqual(copied, root); assert.notEqual(copied.a, shared);
+  copied.a.nested.push(3);
+  assert.deepEqual(shared.nested, [1, 2]);
+});
+
+await check('frame publication retains built-in snapshot values and cross-aliases', () => {
+  const shared = { hp: 2 };
+  const buffer = new ArrayBuffer(8), bytes = new Uint8Array(buffer);
+  bytes[3] = 17;
+  const source = { shared, map: new Map([[shared, new Set([shared])]]), date: new Date(123),
+    regex: /test/gi, buffer, bytes, view: new DataView(buffer, 2, 4) };
+  source.map.set(source, shared); source.regex.lastIndex = 4;
+  const copied = copyFrameData(source);
+  assert.deepEqual(copied, structuredClone(source));
+  assert.equal(copied.map.get(copied), copied.shared);
+  assert.equal(copied.map.get(copied.shared).has(copied.shared), true);
+  assert.equal(copied.bytes.buffer, copied.buffer);
+  assert.equal(copied.view.buffer, copied.buffer);
+  copied.bytes[3] = 33; assert.equal(bytes[3], 17);
+  assert.equal(copied.regex.lastIndex, 0);
+});
+
+await check('frame publication reads each accessor once and preserves authoritative errors', () => {
+  let reads = 0;
+  const shared = { value: 7 };
+  const source = { first: shared, get value() { reads++; return shared; }, last: shared };
+  const copied = copyFrameData(source);
+  assert.equal(reads, 1);
+  assert.equal(copied.value, copied.first); assert.equal(copied.value, copied.last);
+  assert.notEqual(copied.value, shared);
+  const broken = { get value() { throw new Error('authoritative getter'); } };
+  assert.throws(() => copyFrameData(broken), /authoritative getter/);
+});
+
+await check('unsupported snapshot values still raise the authoritative native clone error', () => {
+  for (const value of [() => {}, Symbol('bad'), new WeakMap(), Promise.resolve(1)]) {
+    assert.throws(() => copyFrameData({ nested: { value } }), { name: 'DataCloneError' });
+  }
+});
+
+await check('frames copy shared item keys exactly once per frame without caching mutable state between frames', () => {
+  const keys = { item: '소재' };
+  const inventory = [{ itemId: 'item', qty: 2, equipmentEffects: [{ name: '파열', amount: 3 }] }];
+  const source = input({ survivors: [actor('a', { _itemKeyById: keys, inventory }), actor('c', { _itemKeyById: keys })],
+    dead: [actor('b', { hp: 0, _itemKeyById: keys })], spawnState: { keys, remaining: [3] } });
+  const first = createSimulationFrame(source);
+  assert.equal(first.survivors[0]._itemKeyById, first.survivors[1]._itemKeyById);
+  assert.equal(first.survivors[0]._itemKeyById, first.dead[0]._itemKeyById);
+  assert.equal(first.survivors[0]._itemKeyById, first.spawnState.keys);
+  assert.notEqual(first.spawnState.keys, keys);
+  keys.item = '변경'; inventory[0].qty = 1; inventory[0].equipmentEffects[0].amount = 4;
+  source.spawnState.remaining[0] = 2;
+  const second = createSimulationFrame(source);
+  assert.equal(first.spawnState.keys.item, '소재'); assert.equal(second.spawnState.keys.item, '변경');
+  assert.equal(first.survivors[0].inventory[0].qty, 2); assert.equal(second.survivors[0].inventory[0].qty, 1);
+  assert.equal(first.survivors[0].inventory[0].equipmentEffects[0].amount, 3);
+  assert.deepEqual(first.spawnState.remaining, [3]); assert.deepEqual(second.spawnState.remaining, [2]);
+  second.spawnState.keys.item = '화면 수정'; assert.equal(keys.item, '변경');
+  assert.notEqual(first.spawnState.keys, second.spawnState.keys);
+});
+
+await check('frame publication retains the full snapshot without changing death order or filtering', () => {
+  const source = input({ survivors: [actor('a'), actor('b', { hp: 0 })],
+    dead: [actor('c', { hp: 0, _deathAt: 10 }), actor('b', { hp: 0, _deathAt: 20 })] });
+  const expected = structuredClone({ day: source.day, phase: source.phase, matchSec: source.matchSec,
+    survivors: [source.survivors[0]], dead: source.dead, killCounts: source.killCounts,
+    assistCounts: {}, spawnState: source.spawnState, forbiddenAddedNow: [],
+    forbiddenZoneIds: [...source.forbiddenIds], frameMapId: source.mapId });
+  assert.deepEqual(createSimulationFrame(source), expected);
+  assert.deepEqual(source.dead.map(row => row._id), ['c', 'b']);
 });
 
 await check('optional frame timing preserves the exact owned snapshot and reads no diagnostic clock after disposal', () => {
