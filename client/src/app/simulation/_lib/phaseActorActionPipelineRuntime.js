@@ -3,7 +3,7 @@ import { runSingleActorPhaseAction } from './phaseActorActionStepRuntime';
 import { buildCraftGoal, chooseAiMoveTargets, computeLateGameUpgradeNeed, getActorPerkEffects, pickGoalLoadoutKeys } from './simulationEngine';
 import { buildTeamCoordination } from './teamTacticsRuntime';
 import { publishTeamRegroupDecision } from './teamRegroupRuntime';
-import { estimateMovePower } from './movePowerRuntime';
+import { createPlanningMovePowerSnapshot } from './movePowerRuntime';
 import { hasActionBlockStatus, getForcedControlEffect, canMoveByStatus } from '../../../utils/statusLogic';
 import { refreshActorGrowthPlan, getActorGrowthCraftGoal } from './growthPlanRuntime';
 import { getCombatIntentOpponents } from './combatTimingRuntime.js';
@@ -113,29 +113,32 @@ export function* runPhaseActorActionPipelineSteps({
     measureObserverWork('growth.refreshPlans', () => refreshActorGrowthPlan(actor, publicItems, state));
     yield;
   }
-  const { movementPlans: teamMovementPlans, regroupDecisions } = measureObserverWork('growth.teamCoordination', () => buildTeamCoordination({
-    roster: movementRoster, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds,
-    day: nextDay, phase: nextPhase, isSoloMatch: state.isSoloMatch,
-    spawnState: state.nextSpawn, ruleset, publicItems,
-    mapObj: state.mapObj, kiosks: state.kiosks,
-    getRotationHold: scheduled ? (actor) => {
-      const reason = growthHoldStatus(actor) || (!canMoveByStatus(actor) ? 'status' : '');
-      return reason ? { reason, readyAtSec: reason === 'action_wait'
-        ? Math.max(Number(actor._growthReadyAtSec || 0), Number(actor._actionReadyAtSec || 0)) : null } : null;
-    } : null,
-    maxDepth: Math.max(1, Number(ruleset?.ai?.safeSearchDepth ?? 3)),
-    estimatePower: (actor) => estimateMovePower(actor, state.movePowerContext),
-    chooseLeaderMove: (actor) => chooseAiMoveTargets({
-      actor,
-      craftGoal: getActorGrowthCraftGoal(actor, publicItems) || buildCraftGoal(actor.inventory, state.craftables, itemNameById, {
-        goalTier: actor.goalGearTier, goalItemKeys: pickGoalLoadoutKeys(actor), perkEffects: getActorPerkEffects(actor),
+  const { movementPlans: teamMovementPlans, regroupDecisions } = measureObserverWork('growth.teamCoordination', () => {
+    const estimatePlanningPower = createPlanningMovePowerSnapshot(movementRoster, state.movePowerContext);
+    return buildTeamCoordination({
+      roster: movementRoster, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds,
+      day: nextDay, phase: nextPhase, isSoloMatch: state.isSoloMatch,
+      spawnState: state.nextSpawn, ruleset, publicItems,
+      mapObj: state.mapObj, kiosks: state.kiosks,
+      getRotationHold: scheduled ? (actor) => {
+        const reason = growthHoldStatus(actor) || (!canMoveByStatus(actor) ? 'status' : '');
+        return reason ? { reason, readyAtSec: reason === 'action_wait'
+          ? Math.max(Number(actor._growthReadyAtSec || 0), Number(actor._actionReadyAtSec || 0)) : null } : null;
+      } : null,
+      maxDepth: Math.max(1, Number(ruleset?.ai?.safeSearchDepth ?? 3)),
+      estimatePower: estimatePlanningPower,
+      chooseLeaderMove: (actor) => chooseAiMoveTargets({
+        actor,
+        craftGoal: getActorGrowthCraftGoal(actor, publicItems) || buildCraftGoal(actor.inventory, state.craftables, itemNameById, {
+          goalTier: actor.goalGearTier, goalItemKeys: pickGoalLoadoutKeys(actor), perkEffects: getActorPerkEffects(actor),
+        }),
+        upgradeNeed: computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, nextDay, nextPhase, ruleset),
+        mapObj: state.mapObj, spawnState: state.nextSpawn, forbiddenIds: state.forbiddenIds,
+        day: nextDay, phase: nextPhase, kiosks: state.kiosks, itemMetaById, itemNameById,
+        nowSec: state.currentActionSec?.(), ruleset, isSoloMatch: state.isSoloMatch,
       }),
-      upgradeNeed: computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, nextDay, nextPhase, ruleset),
-      mapObj: state.mapObj, spawnState: state.nextSpawn, forbiddenIds: state.forbiddenIds,
-      day: nextDay, phase: nextPhase, kiosks: state.kiosks, itemMetaById, itemNameById,
-      nowSec: state.currentActionSec?.(), ruleset, isSoloMatch: state.isSoloMatch,
-    }),
-  }));
+    });
+  });
   yield;
   const planningActorsById = new Map(movementRoster.map((actor) => [String(actor._id || actor.id || ''), actor]));
   const newlyDead = [];

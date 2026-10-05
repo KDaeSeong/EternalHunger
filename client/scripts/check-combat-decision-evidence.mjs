@@ -10,6 +10,7 @@ const { describeObserverEvent, buildTeamObserverModel } = await import('../src/a
 const { emitQueueRunEvent } = await import('../src/app/simulation/_lib/runEventRuntime.js');
 const { prepareActorPhaseActionPlan } = await import('../src/app/simulation/_lib/phaseActionQueueRuntime.js');
 const { isCombatDetailLog } = await import('../src/app/simulation/_lib/logPresentation.js');
+const { withSimulationRandom, getActiveSimulationRandom } = await import('../src/utils/simulationRandom.js');
 
 let checks = 0;
 const check = (name, fn) => { fn(); checks += 1; console.log(`PASS ${name}`); };
@@ -27,11 +28,13 @@ const recorder = () => {
   return { events, logs, typedLogs, actions: { atNow: () => ({ ...at }), addLog: (text, type) => { logs.push(text); typedLogs.push({ text, type }); },
     emitRunEvent: (kind, payload, stamp) => events.push(structuredClone({ kind, ...payload, at: stamp })) } };
 };
-const movement = (who, roster, extra = {}, actionOverrides = {}) => {
+// The engine intentionally caps movement at 98%. Evidence scenarios need an
+// explicit successful draw; native Math.random made them intermittently fail.
+const movement = (who, roster, extra = {}, actionOverrides = {}, random = 0) => {
   const records = recorder();
-  const result = runActorMovementDecisionPhase({ state: { actor: structuredClone(who), phaseSurvivors: structuredClone(roster),
+  const result = withSimulationRandom(() => random, () => runActorMovementDecisionPhase({ state: { actor: structuredClone(who), phaseSurvivors: structuredClone(roster),
     craftables: [], itemKeyById: {}, itemMetaById: {}, itemNameById: {}, kiosks: [], mapObj: { zones: Object.keys(graph).map((zoneId) => ({ zoneId })) },
-    nextDay: 3, nextPhase: 'morning', phaseIdxNow: 4, ruleset, zoneGraph: graph, zones: [{ zoneId: 'a' }], ...extra }, actions: { ...records.actions, ...actionOverrides } });
+    nextDay: 3, nextPhase: 'morning', phaseIdxNow: 4, ruleset, zoneGraph: graph, zones: [{ zoneId: 'a' }], ...extra }, actions: { ...records.actions, ...actionOverrides } }));
   return { ...records, ...result };
 };
 
@@ -101,6 +104,13 @@ check('hyperloop retreat retains the same evidence in visible combat detail logs
   assert.ok(result.typedLogs.some((log) => log.text.includes('하이퍼루프')
     && log.text.includes(context(event.decisionEvidence, event.retreatOutcome)) && isCombatDetailLog(log)));
 });
+check('an unsuccessful movement draw emits no fake move and releases its random scope', () => {
+  const source = getActiveSimulationRandom();
+  const result = movement(me, [me, ...enemies], {}, { isHyperloopTransit: () => true }, 0.999);
+  assert.equal(result.didMove, false);
+  assert.ok(!result.events.some((row) => row.kind === 'move'));
+  assert.equal(getActiveSimulationRandom(), source);
+});
 check('actual outnumbered movement carries the same comparison to the observer', () => {
   const result = movement(me, [me, ...enemies]);
   const e = result.decisionEvidence;
@@ -167,9 +177,8 @@ const flee = (random, extra = {}, who = actor('me', 'team:1', { hp: 25 })) => {
   const survivorMap = new Map([who, opponent].map((row) => [row._id, structuredClone(row)]));
   const runtime = createPhaseCombatFleeRuntime({ actions: records.actions, state: { survivorMap,
     zoneGraph: graph, ruleset, currentActionSec: () => at.sec, estimatePower: estimateMovePower, ...extra.state }, tactical: extra.tactical });
-  const oldRandom = Math.random; Math.random = () => random;
-  try { return { ...records, survivorMap, result: runtime.resolveFleeSequence(who, opponent, { reason: 'low_hp', hpThreshold: 42, ...extra.options }) }; }
-  finally { Math.random = oldRandom; }
+  return { ...records, survivorMap, result: withSimulationRandom(() => random,
+    () => runtime.resolveFleeSequence(who, opponent, { reason: 'low_hp', hpThreshold: 42, ...extra.options })) };
 };
 check('failed escape retains the pre-attempt HP and explicitly reports failure', () => {
   const result = flee(0.99);

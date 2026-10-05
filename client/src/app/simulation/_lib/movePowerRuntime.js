@@ -51,6 +51,29 @@ function estimateMovePower(actor, context = {}) {
   return base + weaponTier * weaponPower + armorTierSum * armorPower + Number(er?.powerScore || 0);
 }
 
+// Team path searches only relocate shallow copies of this pre-action roster.
+// HP, equipment, statuses and mastery stay fixed until the complete planning
+// boundary has finished. Compute that strength once, not for every graph node.
+// The closure belongs to ONE boundary; never keep it on an actor or in a frame.
+export function createPlanningMovePowerSnapshot(roster, context = {}) {
+  const rows = new Map(), ambiguous = new Set();
+  for (const actor of Array.isArray(roster) ? roster : []) {
+    if (!actor) continue;
+    const id = String(actor._id || actor.id || '');
+    if (!id) continue;
+    if (rows.has(id)) ambiguous.add(id);
+    else rows.set(id, actor);
+  }
+  const scores = new Map();
+  for (const [id, actor] of rows) {
+    if (!ambiguous.has(id)) scores.set(id, estimateMovePower(actor, context));
+  }
+  return (actor) => {
+    const id = String(actor?._id || actor?.id || '');
+    return scores.has(id) ? scores.get(id) : estimateMovePower(actor, context);
+  };
+}
+
 function shouldAvoidCombatByMovePower(me, opponent, context = {}) {
   const ruleset = context?.ruleset || {};
   const battleSettings = context?.battleSettings || {};

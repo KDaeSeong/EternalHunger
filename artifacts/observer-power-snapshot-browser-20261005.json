@@ -1,0 +1,235 @@
+{
+  "schema": "eternal-hunger-planning-power-verification-v1",
+  "date": "2026-10-05",
+  "purpose": "Small manual verification receipt; maintained tests do not read this file.",
+  "change": "One move-power snapshot per pre-action coordination boundary; all action frames and cooperative yields preserved.",
+  "build": {
+    "before": "4Y1r2iS8fOAw7bQL7fyQL",
+    "after": "rd2QfQhH5ctDKIRW4gJzN",
+    "pages": 62
+  },
+  "browser": {
+    "surface": "127.0.0.1:3122/eternalhunger/evaluate",
+    "selectedSpeed": 32,
+    "participants": 24,
+    "teams": 8,
+    "pauseOrSpeedChangeByAgent": false,
+    "heavyTestsOrBuildDuringMatch": false,
+    "visibility": "visible at sampled checkpoints, not a continuous visibility log",
+    "timing": "First finite wall timestamp through match_end; result dwell excluded; not pure CPU time.",
+    "before": {
+      "engineVersion": "bdb438309b4ecad7eb4d2b19edb86d2832911e0faaf9d309763ba265e2de2811",
+      "runSeed": "1789192220412",
+      "inputHashWithoutEngine": "8f619d6ad914d2bcfa17215c9ae981ba71f83b5b725850dd588fde6124617a5e",
+      "eventHashWithoutTs": "4b5f2a5c6e4a4f1fbd9f4c6d3b910168985d2990d3521230a57da37a47fd7f2b",
+      "eventCount": 14307,
+      "logCount": 8897,
+      "firstWallMs": 1791183056987,
+      "finalWallMs": 1791183196392,
+      "wallSeconds": 139.405,
+      "simulatedSeconds": 1255.583333,
+      "actualRatio": 9.006730985258779,
+      "winnerTeamId": "team:2",
+      "winnerAlive": 3
+    },
+    "after": {
+      "engineVersion": "1a68ef51161631c08ba76d36adb13f1ee6dd7543058420c86d604eccc7829256",
+      "runSeed": "1789192220412",
+      "inputHashWithoutEngine": "8f619d6ad914d2bcfa17215c9ae981ba71f83b5b725850dd588fde6124617a5e",
+      "eventHashWithoutTs": "4b5f2a5c6e4a4f1fbd9f4c6d3b910168985d2990d3521230a57da37a47fd7f2b",
+      "eventCount": 14307,
+      "logCount": 8897,
+      "firstWallMs": 1791183986461,
+      "finalWallMs": 1791184094005,
+      "wallSeconds": 107.544,
+      "simulatedSeconds": 1255.583333,
+      "actualRatio": 11.675066326340847,
+      "winnerTeamId": "team:2",
+      "winnerAlive": 3
+    },
+    "assertions": {
+      "inputExceptEngineVersion": true,
+      "everyEventExceptWallTimestamp": true,
+      "winnerAndTeam": true,
+      "lpReward": true
+    },
+    "elapsedReductionPercent": 22.85499085398659,
+    "speedup": 1.2962601353864465,
+    "exact32xAchieved": false
+  },
+  "headless": {
+    "fixture": "createRandomIsolationInput('1101'), current maintained source",
+    "inputHash": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+    "evidence": {
+      "seed": "1101",
+      "phases": 13,
+      "frames": 6606,
+      "ticks": 1279.833333,
+      "eventCount": 14237,
+      "ending": {
+        "outcome": "last_team",
+        "atSec": 1279.833333,
+        "day": 7,
+        "phase": "morning",
+        "cause": "combat",
+        "causeName": "교전",
+        "finalZoneStage": "final",
+        "winnerTeamId": "team:5",
+        "dimensionRifts": {
+          "atSec": 1279.833333,
+          "settlements": [
+            {
+              "id": "RIFT_guest-lumia-island_3_1:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_1",
+              "atSec": 1279.833333,
+              "reason": "match_end",
+              "disposition": "claimed",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_3_2:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_2",
+              "atSec": 1279.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_3_3:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_3",
+              "atSec": 1279.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_3_4:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_4",
+              "atSec": 1279.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_1:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_1",
+              "atSec": 1279.833333,
+              "reason": "match_end",
+              "disposition": "claimed",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_2:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_2",
+              "atSec": 1279.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_3:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_3",
+              "atSec": 1279.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_4:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_4",
+              "atSec": 1279.833333,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            }
+          ],
+          "expiredWorldGifts": 0,
+          "expiredForElimination": 0,
+          "invalidRewards": 0,
+          "unfinishedContests": 0
+        }
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 1885223995,
+        "draws": 10090,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "eventDigest": "e01f9517aeaacc7f680fc91f6c21df0813a68f4ea6943774d697137c5740fb90",
+      "frameDigest": "dd4eefddde979f8a291741fcd0effee6e7dc8b780f072a43198a6e235e9a38a6"
+    },
+    "coordinationBefore": {
+      "name": "growth.teamCoordination",
+      "count": 1011,
+      "total": 20180.786200000162,
+      "max": 190.1270000000004
+    },
+    "coordinationAfter": {
+      "name": "growth.teamCoordination",
+      "count": 1011,
+      "total": 3611.4651999998127,
+      "max": 49.152399999999034
+    },
+    "wallMsBefore": 120924.6811,
+    "wallMsAfter": 120740.63579999999,
+    "limits": "CPU profile enabled only before; harness clone/hash costs dominate. Do not infer browser speedup from headless wall time."
+  },
+  "checks": {
+    "phaseRuntimePerformance": 44,
+    "teamTacticsChain": 176,
+    "eslintFiles": 4,
+    "fullBuildExitCode": 0,
+    "limits": "Focused and adjacent checks; not the full check:eternal-hunger chain, paid AI quality, account round-trip or human acceptance."
+  },
+  "preservation": {
+    "userExportsUnmodified": true,
+    "unrelatedTrackedChangesUnmodified": true,
+    "oldExportVersionsNotRewritten": true,
+    "publicPushOrDeploy": false
+  },
+  "cleanup": {
+    "removedFiles": 7,
+    "logicalBytes": 593029893,
+    "logicalMiB": 565.56,
+    "remainingWebpackFiles": 0,
+    "physicalFreeSpaceMeasured": false,
+    "recovery": "webpack cache: npm run build; disposable CPU profile: repeat the independent profiling run; summary retained",
+    "protectedFiles": 19,
+    "protectedHashesMatch": true,
+    "scope": "Only six regenerated webpack pack files and this turn own disposable CPU profile; complete build entrypoints, source, receipts, unrelated edits and user exports preserved.",
+    "limits": "Temporary profile bytes not archived; summarized data retained and profile can be recollected. Physical free-space delta not measured."
+  }
+}
