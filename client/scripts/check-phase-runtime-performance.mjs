@@ -13,6 +13,7 @@ const { ensureEquipped } = await import('../src/app/simulation/_lib/survivorRunt
 const { getInvItemId, inferEquipSlot, inferItemCategory, invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
 const { EQUIP_SLOTS } = await import('../src/app/simulation/_lib/simulationConstants.js');
 const { ER_STAT_FIELDS, ER_STAT_KEYS, DEFAULT_ER_STATS, normalizeErStats } = await import('../src/utils/erStats.js');
+const { itemDisplayName, safeTags } = await import('../src/app/simulation/_lib/simulationCommon.js');
 
 let checks = 0;
 const check = (name, run) => {
@@ -275,4 +276,87 @@ check('ingredient scoring reads each sortable recipe once and is recomputed afte
   assert.deepEqual(getLateGrowthTargets(who, items).targets.map(item => item._id), ['score-1', 'score-2', 'score-3', 'score-4']);
 });
 
-console.log(JSON.stringify({ checks, pass: true, scope: 'phase planning/log append, call-local growth lookups and hot normalization contracts; no browser/build' }));
+check('explicit consumable and equipment intent bypasses unused name and tag inference', () => {
+  let displayReads = 0, slotReads = 0;
+  const entry = { type: 'CONSUMABLE',
+    get equipSlot() { slotReads++; return 'head'; },
+    get name() { displayReads++; return '붕대 검'; },
+    get tags() { displayReads++; return ['weapon']; } };
+  assert.equal(inferItemCategory(entry), 'consumable');
+  assert.equal(inferEquipSlot(entry), '');
+  assert.equal(slotReads, 0, 'Consumable type must win without consulting a conflicting slot.');
+  assert.equal(displayReads, 0, 'Explicit type does not need display heuristics.');
+  entry.type = '방어구';
+  assert.equal(inferItemCategory(entry), 'equipment');
+  assert.equal(inferEquipSlot(entry), 'head');
+  assert.equal(displayReads, 0, 'An authored slot does not need incidental name or tag words.');
+});
+
+// Independent pre-optimization rule reference. These declarations retain the
+// legacy precedence and fallback vocabulary, not a saved match or old result.
+function referenceItemCategory(item) {
+  const tags = safeTags(item), type = String(item?.type || '').toLowerCase();
+  const name = itemDisplayName(item), lower = String(name || '').toLowerCase();
+  if (type === '소모품' || type === 'consumable') return 'consumable';
+  if (item && typeof item === 'object' && String(item.equipSlot || '').trim().toLowerCase()) return 'equipment';
+  if (lower.includes('bandage') || name.includes('붕대')) return 'material';
+  const consumable = type === 'food' || type === 'consumable'
+    || ['food', 'healthy', 'capsule', 'book'].some(tag => tags.includes(tag))
+    || ['apple', 'steak'].some(word => lower.includes(word))
+    || ['음식', '사과', '스테이크', '빵', '고기', '치킨'].some(word => name.includes(word));
+  const equipment = type === 'weapon' || item?.type === '무기' || item?.type === '방어구'
+    || ['weapon', 'armor', 'equipment', 'equip'].some(tag => tags.includes(tag))
+    || lower.includes('weapon')
+    || ['무기', '검', '총', '창', '활', '갑옷', '헬멧', '신발', '장갑'].some(word => name.includes(word));
+  return equipment ? 'equipment' : consumable ? 'consumable' : 'material';
+}
+
+function referenceEquipSlot(item) {
+  const tags = safeTags(item), type = String(item?.type || '').toLowerCase();
+  if (type === '소모품' || type === 'consumable') return '';
+  const name = itemDisplayName(item), lower = String(name || '').toLowerCase();
+  if (item && typeof item === 'object') {
+    const slot = String(item.equipSlot || '').trim().toLowerCase();
+    if (slot) return slot;
+  }
+  if (type === 'weapon' || item?.type === '무기' || tags.includes('weapon') || lower.includes('weapon')
+    || ['무기', '검', '총', '활', '창'].some(word => name.includes(word))) return 'weapon';
+  if (tags.includes('head') || lower.includes('helmet') || ['머리', '모자', '헬멧'].some(word => name.includes(word))) return 'head';
+  if (tags.includes('clothes') || tags.includes('body') || ['옷', '상의', '갑옷', '방어복'].some(word => name.includes(word))) return 'clothes';
+  if (tags.includes('arm') || lower.includes('glove') || ['팔', '장갑', '암가드'].some(word => name.includes(word))) return 'arm';
+  if (tags.includes('shoes') || lower.includes('boots') || ['신발', '부츠'].some(word => name.includes(word))) return 'shoes';
+  return '';
+}
+
+check('fast item inference retains legacy type, slot, name and tag precedence', () => {
+  const types = [undefined, '소모품', 'CONSUMABLE', 'food', '무기', 'weapon', '방어구', 'material', 'unknown'];
+  const slots = [undefined, '', '  ', 'head', 'WEAPON', '  arm ', 'custom-slot', '0', 0, false];
+  const names = ['', '붕대 검', 'bandage gloves', '검술 책', '사과 모자', 'weapon helmet', '머리', '모자',
+    'helmet', '갑옷', '방어복', 'glove', '장갑', 'boots', '신발', '돌'];
+  const tagLists = [undefined, null, 'weapon', [], ['food'], ['weapon'], ['head', 'food'], ['body', 'arm'], ['shoes', 'arm']];
+  let variants = 0;
+  for (const type of types) for (const equipSlot of slots) for (const name of names) for (const tags of tagLists) {
+    const item = Object.freeze({ type, equipSlot, name, tags });
+    assert.equal(inferItemCategory(item), referenceItemCategory(item), JSON.stringify(item));
+    assert.equal(inferEquipSlot(item), referenceEquipSlot(item), JSON.stringify(item));
+    variants++;
+  }
+  assert.equal(variants, 12960);
+  for (const item of [null, undefined, false, 0, 'weapon', [], { text: '장갑' }, { itemId: { name: '부츠' } }]) {
+    assert.equal(inferItemCategory(item), referenceItemCategory(item));
+    assert.equal(inferEquipSlot(item), referenceEquipSlot(item));
+  }
+});
+
+check('item inference is rebuilt after edits instead of retaining stale intent', () => {
+  const item = { type: '소모품', equipSlot: 'WEAPON', name: '붕대 검', tags: ['head'] };
+  assert.deepEqual([inferItemCategory(item), inferEquipSlot(item)], ['consumable', '']);
+  item.type = '방어구'; item.equipSlot = ' shoes ';
+  assert.deepEqual([inferItemCategory(item), inferEquipSlot(item)], ['equipment', 'shoes']);
+  item.equipSlot = ''; item.type = ''; item.name = '돌';
+  assert.deepEqual([inferItemCategory(item), inferEquipSlot(item)], ['material', 'head']);
+  item.tags = ['food']; item.name = '고기';
+  assert.deepEqual([inferItemCategory(item), inferEquipSlot(item)], ['consumable', '']);
+});
+
+console.log(JSON.stringify({ checks, pass: true, scope: 'phase planning/log append, call-local growth lookups and hot item/stat normalization contracts; no browser/build' }));

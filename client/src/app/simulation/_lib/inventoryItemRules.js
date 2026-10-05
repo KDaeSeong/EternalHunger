@@ -49,13 +49,11 @@ export function getInvRules(ruleset) {
 }
 
 export function inferItemCategory(it) {
-  const tags = safeTags(it);
   const type = String(it?.type || '').toLowerCase();
-  const name = itemDisplayName(it);
-  const lower = String(name || '').toLowerCase();
-  const bandageLike = lower.includes('bandage') || name.includes('붕대');
 
   // Explicit author intent precedes incidental words such as 검술 or 붕대.
+  // Most runtime entries already carry a slot. Do not read/normalize display
+  // text or tags unless classification actually needs those legacy fallbacks.
   if (type === '소모품' || type === 'consumable') return 'consumable';
 
   if (it && typeof it === 'object') {
@@ -63,6 +61,10 @@ export function inferItemCategory(it) {
     if (slot) return 'equipment';
   }
 
+  const tags = safeTags(it);
+  const name = itemDisplayName(it);
+  const lower = String(name || '').toLowerCase();
+  const bandageLike = lower.includes('bandage') || name.includes('붕대');
   if (bandageLike) return 'material';
 
   const isConsumable =
@@ -106,17 +108,17 @@ export function inferItemCategory(it) {
 }
 
 export function inferEquipSlot(it) {
-  const tags = safeTags(it);
   const type = String(it?.type || '').toLowerCase();
   if (type === '소모품' || type === 'consumable') return '';
-  const name = itemDisplayName(it);
-  const lower = String(name || '').toLowerCase();
 
   if (it && typeof it === 'object') {
     const s = String(it?.equipSlot || '').trim().toLowerCase();
     if (s) return s;
   }
 
+  const tags = safeTags(it);
+  const name = itemDisplayName(it);
+  const lower = String(name || '').toLowerCase();
   if (type === 'weapon' || it?.type === '무기' || tags.includes('weapon') || lower.includes('weapon') || name.includes('무기') || name.includes('검') || name.includes('총') || name.includes('활') || name.includes('창')) return 'weapon';
   if (tags.includes('head') || lower.includes('helmet') || name.includes('머리') || name.includes('모자') || name.includes('헬멧')) return 'head';
   if (tags.includes('clothes') || tags.includes('body') || name.includes('옷') || name.includes('상의') || name.includes('갑옷') || name.includes('방어복')) return 'clothes';

@@ -1,0 +1,242 @@
+{
+  "schema": "eternal-hunger-performance-evidence-v1",
+  "date": "2026-10-05",
+  "sourceParent": "e30c790752bc9d6ddac0d2e673c60834789e4e6b",
+  "change": {
+    "runtime": "client/src/app/simulation/_lib/inventoryItemRules.js",
+    "regression": "client/scripts/check-phase-runtime-performance.mjs",
+    "description": "Return explicit consumable type / authored equipment slot before reading unused name and tag heuristics. Legacy fallback precedence remains unchanged; no persistent item cache.",
+    "engineVersion": "a2e64954dc85e6d4f84b039c8e20b7a34ed799daedf4b3ce911962141fe6b8c0",
+    "buildId": "89yp5axhQNgoTEKkw96BK",
+    "rulesBalanceRngClockSnapshotSchemaChanged": false
+  },
+  "validation": {
+    "focusedAndAdjacentReportedChecksOrContracts": 956,
+    "groups": [
+      {
+        "name": "phase-growth",
+        "reported": 129
+      },
+      {
+        "name": "items-contracts",
+        "reported": 432
+      },
+      {
+        "name": "combat-tactics",
+        "reported": 259
+      },
+      {
+        "name": "observation",
+        "reported": 136
+      }
+    ],
+    "newInferenceChecks": 3,
+    "phasePerformanceChecks": 15,
+    "typeSlotNameTagVariants": 12960,
+    "runtimeSweepExitCode": 0,
+    "changedFilesEslintExitCode": 0,
+    "productionBuildExitCode": 0,
+    "productionBuildPages": 62,
+    "scopeNotes": [
+      "Includes one equipment-account contract using memory storage and HTTP/DB doubles; not actual account persistence.",
+      "Not the whole check:eternal-hunger chain; no paid AI calls or follow-up human acceptance.",
+      "Maintained checks use constructed inputs and independent rule references, not Downloads or old match outputs."
+    ]
+  },
+  "currentNodeFixture": {
+    "scope": "current complete Node fixture with harness freeze/hash; not browser throughput proof; raw profile kept only in memory",
+    "seed": "1101",
+    "phases": 13,
+    "actors": 24,
+    "beforeWallMs": 82292.7032,
+    "afterWallMs": 76391.73980000001,
+    "inferenceSampleSelfMs": {
+      "before": 4232,
+      "after": 2186
+    },
+    "inferenceSamples": {
+      "before": 2687,
+      "after": 1391
+    },
+    "inspectorSamplingIntervalUs": 1000,
+    "strictSameCurrentBaseline": {
+      "input": true,
+      "events": true,
+      "allFrames": true,
+      "finalFrame": true,
+      "logs": true,
+      "randomStateAndDraws": true
+    },
+    "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+    "eventCount": 14237,
+    "eventDigest": "e01f9517aeaacc7f680fc91f6c21df0813a68f4ea6943774d697137c5740fb90",
+    "frameCount": 6606,
+    "frameDigest": "dd4eefddde979f8a291741fcd0effee6e7dc8b780f072a43198a6e235e9a38a6",
+    "finalFrameDigest": "23aaf7af9bf0fba270d1c2b89eaaa17de78e35b5cc243f2f90ab42610939d269",
+    "logsDigest": "356be9f630586917811523fbe5d741e9da61715bd08a5c1162ae110638c95e3e",
+    "random": {
+      "algorithm": "fnv1a-mulberry32-v1",
+      "state": 1885223995,
+      "draws": 10090,
+      "ids": 0,
+      "nameHistory": []
+    },
+    "gameSeconds": 1279.833333,
+    "ending": {
+      "outcome": "last_team",
+      "cause": "combat",
+      "winnerTeamId": "team:5"
+    },
+    "rawCpuProfileSaved": false,
+    "timingLimit": "Includes freeze/hash fixture overhead. Sample self time is not a browser stage duration or a general speed guarantee."
+  },
+  "currentBrowserPair": {
+    "scope": "One current same-PC local production pair; each build starts a fresh fixed-seed game. Not a broad statistical speed claim.",
+    "route": "http://127.0.0.1:3122/eternalhunger/evaluate?perfProbe=1",
+    "runSeed": "1789192220412",
+    "actors": 24,
+    "teams": 8,
+    "regions": 21,
+    "selectedSpeed": 32,
+    "observedTeam": "1팀",
+    "visibilityAtCheckpoints": "visible",
+    "changedSpeedOrPausedDuringGame": false,
+    "concurrentBuildOrHeavyTestDuringGame": false,
+    "before": {
+      "engine": "15957eb221f7dfa20ea3db93126f61a9e60c53d847109af8416890572d0d591a",
+      "firstTs": 1791193998046,
+      "endTs": 1791194076491,
+      "wallSec": 78.445,
+      "simSec": 1255.583333,
+      "effectiveSpeed": 16.005906469500925,
+      "buildId": "pI80lFREkvH_x8ZJcdbKS"
+    },
+    "after": {
+      "engine": "a2e64954dc85e6d4f84b039c8e20b7a34ed799daedf4b3ce911962141fe6b8c0",
+      "firstTs": 1791194590796,
+      "endTs": 1791194665663,
+      "wallSec": 74.867,
+      "simSec": 1255.583333,
+      "effectiveSpeed": 16.77085141651195,
+      "buildId": "89yp5axhQNgoTEKkw96BK"
+    },
+    "wallDefinition": "First finite run-event wall ts to match_end wall ts. Excludes result dwell and export wait; performance-probe elapsedMs is not game wall time.",
+    "wallReductionPercent": 4.561157498884555,
+    "true32xAchieved": false,
+    "ideal32xWallSec": 39.23697915625,
+    "comparison": {
+      "inputExceptEngineVersionIdentical": true,
+      "allRunEventsExceptWallTsIdentical": true,
+      "matchWinnerWinnerTeamLpIdentical": true,
+      "inputDigest": "8f619d6ad914d2bcfa17215c9ae981ba71f83b5b725850dd588fde6124617a5e",
+      "eventDigest": "4b5f2a5c6e4a4f1fbd9f4c6d3b910168985d2990d3521230a57da37a47fd7f2b",
+      "runEvents": 14307,
+      "finiteWallTimestamps": 14306,
+      "logs": 8897,
+      "allDisplayLogsIdentical": false,
+      "beforeLogDigest": "bbee0dddef4cca5364d25d92a09bc46911e77865fbd2c03440949ead5bf2d45d",
+      "afterLogDigest": "d81efe903e1aea0eca6216e518dbfe2c8dee3d37af12b1bf789d2c83527663ad",
+      "differingLogPositions": 10,
+      "logTextMultisetIdentical": true,
+      "gameLogTextOrderIdenticalAfterExcludingObserverSelection": true,
+      "observerSelectionLogCount": 2,
+      "remainingDisplayOrderIssue": "Two UI-only hyperloop selection messages enter the log through useHyperloopPickLog useEffect at different positions. Do not classify full display-log ordering as passing.",
+      "source": "client/src/app/simulation/_lib/useHyperloopPickLog.js:27",
+      "lpReward": 0,
+      "winnerTeamId": "team:2",
+      "winnerName": "바람",
+      "winnerTeamAlive": 3,
+      "winnerTeamMembers": 3,
+      "winnerKills": 6,
+      "winnerAssists": 1,
+      "manualCurrentExportsOnly": [
+        "eternal-hunger-log-바람-2026-10-05T09-55-28.json",
+        "eternal-hunger-log-바람-2026-10-05T10-05-16.json"
+      ],
+      "maintainedVerifierDependsOnExports": false
+    },
+    "browserStageProbe": {
+      "scope": "Totals may be nested; do not sum. Session long-task totals include result dwell and control interactions; not FPS/INP proof.",
+      "before": {
+        "refreshPlans": {
+          "calls": 14226,
+          "totalMs": 8736,
+          "maxMs": 7
+        },
+        "growthSlice": {
+          "calls": 3166,
+          "totalMs": 22456.9,
+          "maxMs": 25.5
+        },
+        "frameSnapshot": {
+          "calls": 6488,
+          "totalMs": 14731.1,
+          "maxMs": 7.4
+        },
+        "longTasks": {
+          "count": 6,
+          "totalMs": 337,
+          "maxMs": 78
+        }
+      },
+      "after": {
+        "refreshPlans": {
+          "calls": 14226,
+          "totalMs": 6693.7,
+          "maxMs": 3.4
+        },
+        "growthSlice": {
+          "calls": 2868,
+          "totalMs": 19832.8,
+          "maxMs": 25.9
+        },
+        "frameSnapshot": {
+          "calls": 6488,
+          "totalMs": 14687.1,
+          "maxMs": 9.6
+        },
+        "longTasks": {
+          "count": 7,
+          "totalMs": 398,
+          "maxMs": 64
+        }
+      },
+      "capturedAfterWarnOrErrorMessages": 0
+    },
+    "screenshot": "artifacts/item-inference-performance-20261005.jpg"
+  },
+  "cleanup": {
+    "removedRegularFiles": 6,
+    "removedLogicalBytes": 590250799,
+    "removedLogicalMiB": 562.907,
+    "protectedHashCount": 14,
+    "allProtectedHashesUnchanged": true,
+    "cacheFilesRemaining": 0,
+    "buildId": "89yp5axhQNgoTEKkw96BK",
+    "physicalFreeSpaceMeasured": false,
+    "recoverableBy": "npm run build",
+    "removedPaths": [
+      "client/.next/cache/webpack/client-production/0.pack",
+      "client/.next/cache/webpack/client-production/index.pack",
+      "client/.next/cache/webpack/edge-server-production/0.pack",
+      "client/.next/cache/webpack/edge-server-production/index.pack",
+      "client/.next/cache/webpack/server-production/0.pack",
+      "client/.next/cache/webpack/server-production/index.pack"
+    ],
+    "boundary": "Only this build's regenerable webpack cache regular files; completed build, source, three unrelated dirty files, screenshot and original Vesna JSON/MD protected by 14 hashes at deletion. Docs subsequently updated intentionally.",
+    "originalVesnaFilesDeleted": false,
+    "rawProfilesOrFullFramesDuplicatedInArtifacts": false
+  },
+  "release": {
+    "localCommitOnly": true,
+    "pushed": false,
+    "publicDeploymentVerified": false
+  },
+  "overallGoalComplete": false,
+  "remainingGates": [
+    "True x32 throughput (~39.24 sec for this match), x1 and map/tab response, three consecutive game memory recovery.",
+    "UI-only hyperloop selection log insertion ordering.",
+    "Actual account storage and approved paid AI auto-setup quality.",
+    "Whole regression chain and all custom variants; independent follow-up human evaluation."
+  ]
+}
