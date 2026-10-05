@@ -12,6 +12,7 @@ import {
   characterId,
   cleanNumber,
   createDefaultCharacterSkill,
+  enableAllCharacterSkills,
   normalizeCharacterSkillForEditor,
   normalizeCharacterSkillLevels,
   normalizeCharacterSkillsForEditor,
@@ -80,6 +81,10 @@ export function useCharacterSkillConfigEditor({
       if (field === 'firstSkillAmpScale') next.skillAmpScale = value;
       return { ...prev, [skillSlot]: next };
     });
+  };
+
+  const enableAllEditSkills = () => {
+    setEditCharacterSkills(previous => enableAllCharacterSkills(previous));
   };
 
   const updateEditSkillLevelValue = (slot, field, index, value) => {
@@ -192,6 +197,7 @@ export function useCharacterSkillConfigEditor({
     editCharacterSkills,
     editUniqueResource,
     editTacticalSkill,
+    enableAllEditSkills,
     manualSkillInputEnabled,
     openConfigModal,
     saveConfigModal,

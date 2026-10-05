@@ -68,6 +68,7 @@ export default function CharactersPage() {
     editCharacterSkills,
     editUniqueResource,
     editTacticalSkill,
+    enableAllEditSkills,
     manualSkillInputEnabled,
     openConfigModal,
     saveConfigModal,
@@ -360,6 +361,7 @@ export default function CharactersPage() {
         onSetManualSkillInputEnabled={setManualSkillInputEnabled}
         onSetTacticalSkill={setEditTacticalSkill}
         onUpdateSkill={updateEditSkill}
+        onEnableAllSkills={enableAllEditSkills}
         onUpdateSkillLevelValue={updateEditSkillLevelValue}
       />
 

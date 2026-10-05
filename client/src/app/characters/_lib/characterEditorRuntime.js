@@ -189,6 +189,14 @@ function gearTierLabel() {
   return '초월';
 }
 
+// Preserve in-progress descriptions and invalid values for the existing save
+// validator. A bulk enable must never normalize away an unfinished draft.
+function enableAllCharacterSkills(skills = {}) {
+  return { ...skills, ...Object.fromEntries(CHARACTER_SKILL_SLOTS.map(slot => [slot, {
+    ...(skills?.[slot] || createDefaultCharacterSkill({}, slot)), enabled: true,
+  }])) };
+}
+
 function createBlankCharacter(id) {
   return {
     id,
@@ -219,6 +227,7 @@ export {
   createBlankCharacter,
   createDefaultCharacterSkill,
   createDefaultQSkill,
+  enableAllCharacterSkills,
   formatSaveMismatchMessage,
   gearTierLabel,
   loadCharactersAfterSave,

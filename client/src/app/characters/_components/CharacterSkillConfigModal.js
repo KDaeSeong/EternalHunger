@@ -38,6 +38,7 @@ function CharacterSkillConfigModal({
   onSetManualSkillInputEnabled = () => {},
   onSetTacticalSkill,
   onUpdateSkill,
+  onEnableAllSkills,
   onUpdateSkillLevelValue,
 }) {
   if (!character) return null;
@@ -46,6 +47,7 @@ function CharacterSkillConfigModal({
   const skill = editCharacterSkills?.[slot] || {};
   const isPassive = slot === 'passive';
   const disabled = skill.enabled !== true;
+  const allSkillsEnabled = CHARACTER_SKILL_SLOTS.every(skillSlot => editCharacterSkills?.[skillSlot]?.enabled === true);
 
   return (
     <div
@@ -104,14 +106,18 @@ function CharacterSkillConfigModal({
           <div className="character-skill-section">
             <div className="character-skill-section-head">
               <strong>캐릭터 스킬</strong>
-              <label className="character-skill-toggle">
-                <input
-                  type="checkbox"
-                  checked={skill.enabled === true}
-                  onChange={(event) => onUpdateSkill(slot, 'enabled', event.target.checked)}
-                />
-                <span>사용</span>
-              </label>
+              <div className="character-skill-section-controls">
+                <button type="button" onClick={onEnableAllSkills} disabled={allSkillsEnabled}
+                  title="Q·W·E·R·패시브를 모두 사용합니다. 고유 자원과 작성 내용은 바꾸지 않습니다.">전부 사용</button>
+                <label className="character-skill-toggle">
+                  <input
+                    type="checkbox"
+                    checked={skill.enabled === true}
+                    onChange={(event) => onUpdateSkill(slot, 'enabled', event.target.checked)}
+                  />
+                  <span>사용</span>
+                </label>
+              </div>
             </div>
 
             <div className="character-skill-tabs" role="tablist" aria-label="스킬 슬롯">
