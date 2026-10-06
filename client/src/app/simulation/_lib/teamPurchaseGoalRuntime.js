@@ -36,17 +36,17 @@ export function chooseTeamPurchaseMove({ members = [], publicItems = [], ruleset
     const credits = Number(actor.simCredits || 0);
     if (!Number.isFinite(credits) || credits < 0) continue;
     const key = classifySpecialByName(material?.name);
-    if (!key || inferItemCategory(material) !== 'material') continue;
+    if (inferItemCategory(material) !== 'material') continue;
     const perk = getActorPerkEffects(actor), prices = ruleset?.market?.kiosk?.prices || {};
     const discount = value => applyPerkDiscount(value, perk.kioskDiscountPct, perk.marketDiscountPct);
-    const defaultOffer = pickKioskPrioritySpecialAction({ missingSpecialKeys: new Set([key]), specialItems,
+    const defaultOffer = key ? pickKioskPrioritySpecialAction({ missingSpecialKeys: new Set([key]), specialItems,
       inv: actor.inventory, simCredits: actor.simCredits, curDay: day, curPhase: phase,
       allowVf: ruleset?.market?.kiosk?.categories?.vf !== false,
       allowLegendary: ruleset?.market?.kiosk?.categories?.legendary !== false,
       shouldDeferVfForLegend: Number(actor.goalGearTier ?? 6) >= 6
         && GROWTH_EQUIPMENT_SLOTS.some(slot => getActorEquipmentTier(actor, slot) < 5),
       kioskSpecialPrice: kind => discount(kind === 'vf' ? Number(prices.vf ?? 500)
-        : kioskLegendaryPrice(kind, prices.legendaryByKey)) });
+        : kioskLegendaryPrice(kind, prices.legendaryByKey)) }) : null;
     for (const zoneId of zones) {
       const kiosk = kiosks.find(row => String(row.mapId?._id || row.mapId || '') === String(mapObj._id || '')
         && String(row.zoneId || '') === zoneId);

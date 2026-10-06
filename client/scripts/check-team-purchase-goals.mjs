@@ -380,6 +380,191 @@ function individualMove(input, actor = input.roster[1]) {
     day: input.state.nextDay, phase: input.state.nextPhase, ruleset: input.state.ruleset });
 }
 
+function authoredMaterialFixture() {
+  const input = fixture();
+  const material = { _id: 'purchase-authored-alloy', name: '정제 합금', type: '재료', tier: 4 };
+  const target = { ...rare, name: '합금 모자', recipe: { ...rare.recipe,
+    ingredients: [{ itemId: hero._id, qty: 1 }, { itemId: material._id, qty: 1 }] } };
+  refresh(input, [...items.filter(item => ![tree._id, rare._id].includes(item._id)), material, target]);
+  input.roster[1].simCredits = 78;
+  input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c', catalog: [
+    { itemId: { _id: material._id }, mode: 'sell', priceCredits: 75 },
+  ] }];
+  return { ...input, material, target };
+}
+
+check('an exact authored material order guides squad travel and real crafting without a special material name', () => {
+  for (const reverse of [false, true]) {
+    const input = authoredMaterialFixture(), buyer = input.roster[1], random = createSeedRng('kiosk:authored:material');
+    if (reverse) input.roster.reverse();
+    const before = structuredClone({ roster: input.roster, shops: input.state.kiosks, spawn: input.state.nextSpawn });
+    const result = withSimulationRandom(() => { throw Error('Exact authored material planning cannot draw RNG.'); }, () => plan(input));
+    assert.equal(result.movementPlans.size, 3);
+    assert.ok([...result.movementPlans.values()].every(move => move.targetZoneId === 'c' && /^팀 제작 구매:/.test(move.sourceReason)));
+    assert.ok([...result.movementPlans.values()].every(move => /정제 합금.*crafter의 합금 모자/.test(move.sourceReason)));
+    assert.deepEqual({ roster: input.roster, shops: input.state.kiosks, spawn: input.state.nextSpawn }, before);
+    const arrived = tick(input, random);
+    assert.ok(arrived.updatedSurvivors.every(actor => actor.zoneId === 'c'));
+    assert.equal(arrived.events.filter(event => event.kind === 'procurement').length, 0);
+    assert.equal(arrived.updatedSurvivors.find(actor => actor._id === buyer._id).simCredits, 78);
+    input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
+    const paid = tick(input, random), paidBuyer = paid.updatedSurvivors.find(actor => actor._id === buyer._id);
+    // Ordinary material receipts retain the existing optional loot-craft roll.
+    // This seed defers it, so follow the real later inventory-craft action.
+    assert.equal(paidBuyer.simCredits, 3); assert.equal(paidBuyer.equipped.head, hero._id);
+    assert.equal(invQty(paidBuyer.inventory, hero._id), 1); assert.equal(invQty(paidBuyer.inventory, input.material._id), 1);
+    const receipts = paid.events.filter(event => event.kind === 'procurement' && event.who === buyer._id);
+    assert.equal(receipts.length, 1); assert.equal(receipts[0].itemId, input.material._id); assert.equal(receipts[0].paidCost, 75);
+    assert.equal(receipts[0].beforeCredits, 78); assert.equal(receipts[0].afterCredits, 3);
+    assert.ok(paid.updatedSurvivors.filter(actor => actor._id !== buyer._id).every(actor => actor.simCredits === 20));
+    const model = buildTeamObserverModel({ teamId: 'team:1', publicItems: input.state.publicItems,
+      survivors: JSON.parse(JSON.stringify(paid.updatedSurvivors)), events: JSON.parse(JSON.stringify([...arrived.events, ...paid.events])),
+      spawnState: input.state.nextSpawn, forbiddenIds: [], day: 3, phase: 'morning', matchSec: 540,
+      settings: { rulesetId: 'ER_S11', simulationRuleset: input.state.ruleset } });
+    const observed = model.members.find(actor => actor.id === buyer._id).procurement;
+    assert.equal(observed.matchedChoice, true); assert.equal(observed.actionKey, receipts[0].actionKey);
+    assert.match(observed.result, /정제 합금.*75Cr/);
+    const events = [...arrived.events, ...paid.events]; input.roster = paid.updatedSurvivors;
+    for (const sec of [580, 620, 660]) {
+      input.state.currentActionSec = () => sec;
+      const next = tick(input, random); input.roster = next.updatedSurvivors; events.push(...next.events);
+    }
+    const after = input.roster.find(actor => actor._id === buyer._id);
+    assert.equal(after.equipped.head, input.target._id); assert.equal(after.simCredits, 0);
+    assert.equal(invQty(after.inventory, hero._id), 0); assert.equal(invQty(after.inventory, input.material._id), 0);
+    const crafted = events.find(event => event.kind === 'craft' && event.who === buyer._id);
+    assert.equal(crafted.itemId, input.target._id); assert.equal(crafted.paidCost, 3);
+    assert.deepEqual(crafted.consumed.map(row => [row.itemId, row.qty]), [[hero._id, 1], [input.material._id, 1]]);
+    assert.equal(events.filter(event => event.kind === 'procurement' && event.who === buyer._id).length, 1);
+    console.log(`AUTHORED_MATERIAL_WITNESS ${JSON.stringify({ reverse, paidCost: receipts[0].paidCost,
+      recipeCost: 3, equippedId: after.equipped.head, remainingCredits: after.simCredits, observed: observed.matchedChoice })}`);
+  }
+});
+
+check('a solo crafter follows the exact authored material quote through actual travel and paid completion', () => {
+  const input = authoredMaterialFixture(), buyer = input.roster[1], random = createSeedRng('kiosk:authored:material');
+  input.roster = [buyer]; input.state.isSoloMatch = true;
+  const before = structuredClone(input.roster);
+  const move = withSimulationRandom(() => { throw Error('An exact solo quote cannot draw RNG.'); }, () => individualMove(input, buyer));
+  assert.deepEqual(move.targets, ['c']); assert.equal(move.reason, '키오스크 조달 검토');
+  assert.deepEqual(input.roster, before); assert.equal(purchasePlans(input).length, 0);
+  const events = [];
+  for (const sec of [500, 540, 580, 620, 660]) {
+    input.state.currentActionSec = () => sec;
+    const next = tick(input, random); input.roster = next.updatedSurvivors; events.push(...next.events);
+    if (sec === 500) {
+      assert.equal(input.roster[0].zoneId, 'c'); assert.equal(input.roster[0].simCredits, 78);
+      assert.equal(events.filter(event => event.kind === 'procurement').length, 0);
+    }
+    if (input.roster[0].equipped.head === input.target._id) break;
+  }
+  assert.equal(input.roster[0].equipped.head, input.target._id); assert.equal(input.roster[0].simCredits, 0);
+  const receipts = events.filter(event => event.kind === 'procurement');
+  assert.equal(receipts.length, 1); assert.equal(receipts[0].itemId, input.material._id); assert.equal(receipts[0].paidCost, 75);
+  assert.ok(events.some(event => event.kind === 'craft' && event.paidCost === 3));
+});
+
+check('a custom material with an obtainable field source keeps farming ahead of kiosk travel', () => {
+  const input = authoredMaterialFixture();
+  refresh(input, input.state.publicItems.map(item => item._id === input.material._id ? { ...item, tier: 1, spawnZones: ['b'] } : item));
+  assert.deepEqual(input.roster[1]._growthPlan.missing[0].zones, ['b']);
+  assert.equal(purchasePlans(input).length, 0); assert.deepEqual(individualMove(input).targets, ['b']);
+});
+
+check('custom materials require exact authored stock and never appear in default or unrelated catalogues', () => {
+  for (const scenario of ['default', 'filtered_empty', 'wrong_id', 'wrong_map', 'refund_only']) {
+    const input = authoredMaterialFixture();
+    if (scenario === 'default') input.state.kiosks = [];
+    if (scenario === 'filtered_empty') Object.assign(input.state.kiosks[0], { catalog: [], hasCustomCatalog: true });
+    if (scenario === 'wrong_id') {
+      const other = { ...input.material, _id: 'same-name-other-id' };
+      refresh(input, [...input.state.publicItems, other]);
+      input.state.kiosks[0].catalog[0].itemId = { ...other };
+    }
+    if (scenario === 'wrong_map') input.state.kiosks[0].mapId = 'other-map';
+    if (scenario === 'refund_only') input.state.kiosks[0].catalog[0].mode = 'buy';
+    const before = structuredClone({ roster: input.roster, shops: input.state.kiosks });
+    assert.equal(purchasePlans(input).length, 0, scenario);
+    assert.ok(!individualMove(input).targets.includes('c'), scenario);
+    assert.deepEqual({ roster: input.roster, shops: input.state.kiosks }, before);
+  }
+});
+
+check('authored materials retain recipe fees, receiving capacity, world time and squad safety gates', () => {
+  for (const scenario of ['recipe_fee', 'capacity', 'too_early', 'forbidden', 'disconnected', 'danger', 'recovery', 'opening']) {
+    const input = authoredMaterialFixture();
+    if (scenario === 'recipe_fee') input.roster[1].simCredits = 77;
+    if (scenario === 'capacity') input.state.ruleset.inventory = { ...input.state.ruleset.inventory, maxSlots: 1, autoDropLowValue: false };
+    if (scenario === 'too_early') { input.state.nextDay = 1; input.state.nextPhase = 'morning'; }
+    if (scenario === 'forbidden') input.state.forbiddenIds.add('c');
+    if (scenario === 'disconnected') input.state.zoneGraph.a = ['b'];
+    if (scenario === 'danger') for (let i = 0; i < 5; i++) input.roster.push({ ...structuredClone(input.roster[0]),
+      _id: `alloy-enemy-${i}`, teamId: 'enemy', zoneId: 'c' });
+    if (scenario === 'recovery') input.roster[1].hp = 15;
+    if (scenario === 'opening') input.roster[0]._growthPlan.openingComplete = false;
+    assert.equal(purchasePlans(input).length, 0, scenario);
+    if (['recipe_fee', 'capacity', 'too_early', 'forbidden'].includes(scenario)) {
+      assert.ok(!individualMove(input).targets.includes('c'), scenario);
+    }
+  }
+});
+
+check('a custom material exchange consumes surplus while preserving the worn recipe base and its fee', () => {
+  for (const giveBase of [false, true]) {
+    const input = authoredMaterialFixture(), buyer = input.roster[1]; buyer.simCredits = 3;
+    buyer.inventory.push({ ...cloth, itemId: cloth._id, qty: 1 }); refresh(input);
+    input.state.kiosks[0].catalog = [{ itemId: { _id: input.material._id }, mode: 'exchange',
+      exchange: { giveItemId: giveBase ? hero._id : { _id: cloth._id }, giveQty: 1 } }];
+    const plans = [...plan(input).movementPlans.values()].filter(move => /^팀 제작 교환:/.test(move.sourceReason));
+    if (giveBase) { assert.equal(plans.length, 0); assert.ok(!individualMove(input).targets.includes('c')); continue; }
+    assert.equal(plans.length, 3); assert.deepEqual(individualMove(input).targets, ['c']);
+    const random = createSeedRng('kiosk:recipe:ordered:0'), arrived = tick(input, random);
+    assert.equal(arrived.events.filter(event => event.kind === 'procurement').length, 0);
+    input.roster = arrived.updatedSurvivors; const events = [];
+    for (const sec of [540, 580, 620, 660]) {
+      input.state.currentActionSec = () => sec;
+      const next = tick(input, random); input.roster = next.updatedSurvivors; events.push(...next.events);
+      if (input.roster.find(actor => actor._id === buyer._id).equipped.head === input.target._id) break;
+    }
+    const after = input.roster.find(actor => actor._id === buyer._id);
+    assert.equal(after.equipped.head, input.target._id); assert.equal(after.simCredits, 0);
+    const receipts = events.filter(event => event.kind === 'procurement' && event.who === buyer._id);
+    assert.equal(receipts.length, 1); assert.equal(receipts[0].actionType, 'kioskExchange'); assert.equal(receipts[0].paidCost, 0);
+    assert.deepEqual(receipts[0].consumed.map(row => [row.itemId, row.qty]), [[cloth._id, 1]]);
+    assert.ok(events.some(event => event.kind === 'craft' && event.who === buyer._id && event.paidCost === 3));
+  }
+});
+
+check('authored material plans are invalidated when stock or buyer funds disappear during real travel', () => {
+  for (const scenario of ['stock_removed', 'funds_lost']) {
+    const input = authoredMaterialFixture(), arrived = tick(input, createSeedRng('kiosk:authored:material'));
+    assert.ok(arrived.updatedSurvivors.every(actor => actor.zoneId === 'c'));
+    assert.equal(arrived.events.filter(event => event.kind === 'procurement').length, 0);
+    input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
+    const buyer = input.roster.find(actor => actor._id === 'crafter');
+    if (scenario === 'stock_removed') Object.assign(input.state.kiosks[0], { catalog: [], hasCustomCatalog: true });
+    else buyer.simCredits = 0;
+    assert.equal(purchasePlans(input).length, 0); assert.ok(!individualMove(input, buyer).targets.includes('c'));
+    const next = tick(input, createSeedRng('kiosk:authored:material')), after = next.updatedSurvivors.find(actor => actor._id === buyer._id);
+    assert.equal(invQty(after.inventory, input.material._id), 0); assert.equal(invQty(after.inventory, input.target._id), 0);
+    assert.equal(invQty(after.inventory, hero._id), 1); assert.equal(after.simCredits, scenario === 'funds_lost' ? 0 : 78);
+    assert.ok(next.events.filter(event => event.who === buyer._id).every(event => event.kind !== 'procurement' && event.kind !== 'craft'));
+  }
+});
+
+check('exact custom material IDs cannot bypass canonical food or kiosk water exclusions', () => {
+  for (const material of [
+    { name: '냉동피자', type: '재료' }, { name: '정제 합금', type: '재료', tags: ['food'] }, { name: '물', type: '재료' },
+  ]) {
+    const input = authoredMaterialFixture();
+    refresh(input, input.state.publicItems.map(item => item._id === input.material._id ? { ...item, ...material } : item));
+    input.state.kiosks[0].catalog[0].itemId = { _id: input.material._id, name: '정제 합금', type: '재료' };
+    const before = structuredClone(input.roster);
+    assert.equal(purchasePlans(input).length, 0, material.name); assert.ok(!individualMove(input).targets.includes('c'), material.name);
+    assert.deepEqual(input.roster, before);
+  }
+});
+
 check('an earlier affordable price that spends the recipe fee cannot hide a later completable order', () => {
   for (const reverse of [false, true]) {
     for (const discount of [0, 0.5]) {

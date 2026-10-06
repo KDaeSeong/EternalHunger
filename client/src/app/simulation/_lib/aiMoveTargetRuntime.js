@@ -16,6 +16,7 @@ import {
 import { pickGoalResourceZoneTargets } from './resourceTargetingRuntime';
 import { getActorTeamId } from './teamRuntime';
 import { getKioskMovementTargets } from './kioskMovementRuntime.js';
+import { inferItemCategory } from './inventoryRules.js';
 import {
   actorHasSpecialKind,
   markObjectiveTarget,
@@ -88,9 +89,9 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   const hasNamedRareNeed = needKeys.size > 0;
   const hasMeteorInv = actorHasSpecialKind(actor, 'meteor', itemMetaById, itemNameById);
   const hasLifeInv = actorHasSpecialKind(actor, 'life_tree', itemMetaById, itemNameById);
-  const kioskMove = (defaultEligible, reason, desiredKeys) => {
+  const kioskMove = (defaultEligible, reason, desiredKeys, desiredItemIds = []) => {
     const targets = getKioskMovementTargets({ zoneIds: kioskZones, mapObj, kiosks, actor,
-      craftGoal, publicItems, ruleset, day, desiredKeys, defaultEligible });
+      craftGoal, publicItems, ruleset, day, desiredKeys, desiredItemIds, defaultEligible });
     const hasAuthoredShop = targets.some(zoneId => kiosks?.some(shop =>
       String(shop.mapId?._id || shop.mapId || '') === String(mapObj?._id || '')
       && String(shop.zoneId || '') === String(zoneId) && shop.catalog?.length));
@@ -112,6 +113,19 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   };
 
   if (kioskZones.length) {
+    // An authored recipe may need a material outside the six default names.
+    // Quote its exact shop ID only after real field sources are unavailable;
+    // the shop must not acquire invented default stock for that custom need.
+    if (hasGoal && canUseKioskAtWorldTime(day, phase)) {
+      const customIds = (growth?.missing || []).filter(row => {
+        const item = publicItems.find(item => String(item._id) === String(row.itemId));
+        return !row.zones?.length && inferItemCategory(item) === 'material' && !classifySpecialByName(item?.name);
+      }).map(row => row.itemId);
+      if (customIds.length) {
+        const move = kioskMove(false, '키오스크 조달 검토', [], customIds);
+        if (move) return move;
+      }
+    }
     if (needVf && isAtOrAfterWorldTime(day, phase, 4, 'day')) {
       const move = kioskMove(simCredits >= transCost, 'VF(키오스크 구매)', ['vf']);
       if (move) return move;
