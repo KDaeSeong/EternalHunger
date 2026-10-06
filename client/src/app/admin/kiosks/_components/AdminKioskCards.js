@@ -1,3 +1,5 @@
+import { isMarketItemAllowed } from '../../../../utils/marketItemPolicy';
+
 const emptyCatalogRow = () => ({
   itemId: '',
   mode: 'sell',
@@ -115,10 +117,19 @@ export function AdminKioskEditCard({
 }) {
   if (!editing) return null;
   const itemName = (id) => items.find((x) => x._id === id)?.name || '선택';
+  const allowedItems = items.filter((item) => isMarketItemAllowed(item, 'kiosk'));
+  const allowedId = (id) => allowedItems.some((item) => String(item._id) === String(id));
+  const hasRestrictedItems = (editing.catalog || []).some((row) =>
+    (row.itemId && !allowedId(row.itemId))
+    || (row.mode === 'exchange' && row.exchange?.giveItemId && !allowedId(row.exchange.giveItemId)));
 
   return (
     <div className="admin-card" style={{ marginTop: 14 }}>
       <h3 style={{ marginTop: 0 }}>키오스크 수정</h3>
+      <p className="admin-muted">음식과 물은 판매·환급·교환에 사용할 수 없습니다. 물은 전송 드론에서만 판매합니다.</p>
+      {hasRestrictedItems ? (
+        <p className="admin-muted">취급하지 않는 기존 항목을 다른 아이템으로 변경하거나 삭제한 뒤 저장하세요.</p>
+      ) : null}
 
       <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <div>
@@ -167,7 +178,10 @@ export function AdminKioskEditCard({
                     onSetEditing({ ...editing, catalog: next });
                   }}>
                     <option value="">선택</option>
-                    {items.map((it) => <option key={it._id} value={it._id}>{it.name}</option>)}
+                    {row.itemId && !allowedId(row.itemId) ? (
+                      <option value={row.itemId} disabled>취급 불가: {itemName(row.itemId)}</option>
+                    ) : null}
+                    {allowedItems.map((it) => <option key={it._id} value={it._id}>{it.name}</option>)}
                   </select>
                 </div>
                 <div className="admin-field">
@@ -202,7 +216,10 @@ export function AdminKioskEditCard({
                       onSetEditing({ ...editing, catalog: next });
                     }}>
                       <option value="">선택</option>
-                      {items.map((it) => <option key={it._id} value={it._id}>{it.name}</option>)}
+                      {row.exchange?.giveItemId && !allowedId(row.exchange.giveItemId) ? (
+                        <option value={row.exchange.giveItemId} disabled>취급 불가: {itemName(row.exchange.giveItemId)}</option>
+                      ) : null}
+                      {allowedItems.map((it) => <option key={it._id} value={it._id}>{it.name}</option>)}
                     </select>
                   </div>
                   <div className="admin-field">
@@ -235,7 +252,7 @@ export function AdminKioskEditCard({
       </div>
 
       <div className="admin-btn-row" style={{ marginTop: 12 }}>
-        <button className="admin-btn primary" onClick={onSave}>저장</button>
+        <button className="admin-btn primary" onClick={onSave} disabled={hasRestrictedItems}>저장</button>
         <button className="admin-btn" onClick={onClose}>닫기</button>
       </div>
     </div>
