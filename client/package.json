@@ -118,6 +118,8 @@
     "check:movement-objectives": "node ./scripts/check-movement-objectives.mjs && npm run check:growth-observation",
     "check:growth-observation": "node ./scripts/check-growth-observation.mjs",
     "check:observer-goals-match": "node ./scripts/check-observer-goals-match.mjs",
+    "check:observer-goals-match:strict": "node ./scripts/check-observer-goals-match.mjs --require-natural-purchase",
+    "check:observer-purchase-scenario": "node ./scripts/check-observer-purchase-scenario.mjs",
     "check:observer-performance-probe": "node ./scripts/check-observer-performance-probe.mjs && npm run check:observer-memory",
     "check:observer-memory": "node --expose-gc ./scripts/check-replay-history-lifetime.mjs",
     "check:observer-performance-guards": "node ./scripts/check-observer-performance-guards.mjs",

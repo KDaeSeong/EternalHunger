@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
 const { captureMovementObjective, getAvailableMovementObjective } = await import('../src/app/simulation/_lib/movementObjectiveRuntime.js');
 const { buildTeamObserverModel, describeObserverEvent } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
+const { runObserverPurchaseScenarioChecks } = await import('./check-observer-purchase-scenario.mjs');
+
+const args = process.argv.slice(2);
+assert.ok(args.every(arg => arg === '--require-natural-purchase'), 'Unknown observer match diagnostic argument.');
+const requireNaturalPurchase = args.includes('--require-natural-purchase');
+// A fixed natural match does not guarantee a payable one-ingredient squad
+// recipe. Always exercise that branch with explicit pre-action conditions;
+// keep its real travel, payment, craft and observer assertions mandatory.
+const purchaseScenario = runObserverPurchaseScenarioChecks();
+console.log(`OBSERVER_PURCHASE_WITNESS ${JSON.stringify(purchaseScenario)}`);
 
 const input = await createRandomIsolationInput('1101');
 const observerSettings = JSON.parse(input).settings;
@@ -101,7 +111,10 @@ const purchasePlans = sharedDecisions.filter((event) => /키오스크|구매|kio
 console.log(`OBSERVER_MATCH_WITNESS ${JSON.stringify({ activeFrames, distinctGoals: goalKeys.size, removedGoalChecks,
   actualGrowthChecks: growthKeys.size, actualReceiptChecks: receiptKeys.size, sharedDecisionCount: sharedDecisions.length,
   purchasePlanCount: purchasePlans.length, observerModelChecks, diagnosticContextChecks: 2, evidence: result.evidence })}`);
-assert.ok(purchasePlans.length > 0, 'The fixture must actually exercise shared purchase intentions.');
+if (requireNaturalPurchase) assert.ok(purchasePlans.length > 0,
+  'The natural fixture must actually exercise shared purchase intentions (--require-natural-purchase).');
+assert.ok(purchaseScenario.positiveCases > 0 && purchaseScenario.actualCompletedReceipts > 0,
+  'The diagnostic must actually exercise and settle shared purchase intentions in the dedicated scenario.');
 assert.ok(purchasePlans.every((event) => /검토/.test(describeObserverEvent(event))));
 const namedOrders = result.events.filter((event) => event.kind === 'queue' && ['kioskBuy', 'kioskExchange', 'droneOrder'].includes(event.chosen) && event.itemId);
 assert.ok(namedOrders.length > 0);
@@ -111,6 +124,8 @@ console.log(JSON.stringify({ pass: true, activeFrames, distinctGoals: goalKeys.s
   actualGrowthChecks: growthKeys.size, actualReceiptChecks: receiptKeys.size, growthSamples, receiptSamples,
   sharedDecisionCount: sharedDecisions.length, purchasePlanCount: purchasePlans.length, namedOrderCount: namedOrders.length,
   observerModelChecks, diagnosticContextChecks: 2,
+  naturalPurchaseCoverage: purchasePlans.length > 0 ? 'observed' : 'not_observed',
+  requireNaturalPurchase, purchaseScenario,
   purchaseSample: purchasePlans.slice(0, 2).map((event) => ({ sec: event.at?.sec, text: describeObserverEvent(event) })),
   evidence: result.evidence,
-  scope: 'actual default fixture decision-to-observer-model coverage; not browser rendering or human acceptance' }, null, 2));
+  scope: 'unchanged natural match observation plus mandatory controlled purchase-to-observer coverage; not natural purchase frequency, browser rendering or human acceptance' }, null, 2));
