@@ -1,5 +1,7 @@
 import { findItemByKeywords } from './simulationCommon';
 import { classifySpecialByName } from './craftRuntime';
+import { getInvItemId, invQty } from './inventoryRules';
+import { isMarketItemAllowed } from '../../../utils/marketItemPolicy.js';
 
 function findItemByTag(items, tagKey) {
   const key = String(tagKey || '').toLowerCase();
@@ -32,6 +34,28 @@ export function resolveKioskSpecialItems(publicItems = [], missing = []) {
     forceCoreItem: forGoal('force_core', () => findItemByTag(items, 'force_core') || findItemByKeywords(items, ['포스 코어', 'force core'])),
     tacModuleItem: forGoal('tac_skill_module', () => findItemByTag(items, 'tac_skill_module') || findItemByKeywords(items, ['전술 강화 모듈', 'tac. skill module', 'tactical'])),
     surplusVfItem: forGoal('vf', () => findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample'])),
+  };
+}
+
+// Exchange inputs come from the actor's inventory and the allowed catalogue.
+// Keep the old preferred ID first, then try other owned IDs of the same kind.
+export function resolveKioskForceCoreInputs(publicItems = [], inventory = [], specialItems = {}) {
+  const items = Array.isArray(publicItems) ? publicItems : [];
+  const inv = Array.isArray(inventory) ? inventory : [];
+  const owned = (preferred, tag, keywords) => {
+    const seen = new Set();
+    return (preferred ? [preferred, ...items] : items).filter(item => {
+      const id = String(item?._id || '');
+      if (!id || seen.has(id) || invQty(inv, id) < 1) return false;
+      if (!findItemByTag([item], tag) && !findItemByKeywords([item], keywords)) return false;
+      if (inv.some(entry => getInvItemId(entry) === id && !isMarketItemAllowed(entry, 'kiosk'))) return false;
+      seen.add(id);
+      return true;
+    });
+  };
+  return {
+    meteor: owned(specialItems.meteorItem, 'meteor', ['운석', 'meteor']),
+    life_tree: owned(specialItems.lifeTreeItem, 'life_tree', ['생명의 나무', 'tree of life', 'life tree']),
   };
 }
 
