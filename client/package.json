@@ -97,6 +97,7 @@
     "check:team-purchase-goals": "node ./scripts/check-team-purchase-goals.mjs",
     "check:default-kiosk-goals": "node ./scripts/check-default-kiosk-goals.mjs",
     "check:kiosk-material-identity": "node ./scripts/check-kiosk-material-identity.mjs",
+    "check:kiosk-exchange-inputs": "node ./scripts/check-kiosk-exchange-inputs.mjs",
     "check:team-boss-goals": "node ./scripts/check-team-boss-goals.mjs",
     "check:team-regroup": "node ./scripts/check-team-regroup.mjs && node ./scripts/check-team-regroup-lumia.mjs && node ./scripts/check-team-isolation-tracker.mjs && node ./scripts/check-isolation-fixture.mjs",
     "check:team-regroup-match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-team-regroup-match.mjs",

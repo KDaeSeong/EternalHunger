@@ -5,7 +5,7 @@ import { isDefaultKioskItem } from '../../../utils/marketItemPolicy.js';
 import { isAtOrAfterWorldTime } from './worldTime.js';
 import { canUseKioskAtWorldTime, kioskLegendaryPrice } from './marketRuntime.js';
 import { applyPerkDiscount, getActorPerkEffects } from './perkRuntime.js';
-import { resolveKioskSpecialItems } from './aiKioskSpecialItemsRuntime.js';
+import { resolveKioskSpecialItems, resolveKioskForceCoreInputs } from './aiKioskSpecialItemsRuntime.js';
 import { pickKioskPrioritySpecialAction } from './aiKioskPriorityRuntime.js';
 import { pickKioskSurplusBuyAction } from './aiKioskSurplusRuntime.js';
 
@@ -14,16 +14,20 @@ import { pickKioskSurplusBuyAction } from './aiKioskSurplusRuntime.js';
 export function createKioskRecipeOfferValidator({ actor, targetId = '', publicItems = [],
   ruleset, day = 1, requireComplete = false, validateWithoutRecipe = true } = {}) {
   let beforeWork;
-  return offer => {
+  return (offer, followingOffer = null) => {
     if (!ruleset || (!targetId && !validateWithoutRecipe)) return true;
     if (targetId) {
       beforeWork ??= getGrowthRecipeWork(actor, publicItems, targetId, { ruleset });
       if (beforeWork.blocked) return false;
     }
     const preview = { ...actor, _procurementActionKey: undefined };
-    const receipt = commitProcurementTransaction({ actor: preview, offer, day, ruleset,
-      actionType: offer.kind === 'exchange' ? 'kioskExchange' : 'kioskBuy' });
-    if (!receipt.ok) return false;
+    for (const step of followingOffer ? [offer, followingOffer] : [offer]) {
+      // These are separate future actions; only the preview's dedup key resets.
+      preview._procurementActionKey = undefined;
+      const receipt = commitProcurementTransaction({ actor: preview, offer: step, day, ruleset,
+        actionType: step.kind === 'exchange' ? 'kioskExchange' : 'kioskBuy' });
+      if (!receipt.ok) return false;
+    }
     if (!targetId) return true;
     const afterWork = getGrowthRecipeWork(preview, publicItems, targetId, { ruleset });
     const outstanding = new Map(beforeWork.missing.map(row => [row.itemId, row.need]));
@@ -50,10 +54,13 @@ export function quoteDefaultKioskGoalAction({ actor, craftGoal, publicItems = []
   const discount = value => applyPerkDiscount(value, perk.kioskDiscountPct, perk.marketDiscountPct);
   const missingSpecialKeys = new Set((craftGoal?.missing || [])
     .map(row => String(row.special || classifySpecialByName(row.name) || '')).filter(Boolean));
-  const specialItems = resolveKioskSpecialItems(getAvailableDefaultKioskItems(publicItems, marketRules, day, phase), craftGoal?.missing);
+  const availableItems = getAvailableDefaultKioskItems(publicItems, marketRules, day, phase);
+  const specialItems = resolveKioskSpecialItems(availableItems, craftGoal?.missing);
+  const forceCoreInputs = missingSpecialKeys.has('force_core')
+    ? resolveKioskForceCoreInputs(availableItems, actor?.inventory, specialItems) : null;
   const isOfferUsable = createKioskRecipeOfferValidator({ actor, targetId: String(craftGoal?.target?._id || ''),
     publicItems, ruleset, day });
-  const priority = pickKioskPrioritySpecialAction({ missingSpecialKeys, specialItems,
+  const priority = pickKioskPrioritySpecialAction({ missingSpecialKeys, specialItems, forceCoreInputs,
     inv: actor?.inventory, simCredits: Number(actor?.simCredits || 0), up: upgradeNeed,
     curDay: day, curPhase: phase, allowVf: mr.categories?.vf !== false,
     allowLegendary: mr.categories?.legendary !== false,
