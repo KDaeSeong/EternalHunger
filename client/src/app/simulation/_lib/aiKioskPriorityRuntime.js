@@ -19,6 +19,7 @@ export function pickKioskPrioritySpecialAction({
   allowLegendary = true,
   shouldDeferVfForLegend = false,
   kioskSpecialPrice = () => 0,
+  isOfferUsable = () => true,
 } = {}) {
   const {
     meteorItem,
@@ -55,7 +56,8 @@ export function pickKioskPrioritySpecialAction({
     if (!canBuySpecialKeyNow(specialKey)) return null;
     const cost = kioskSpecialPrice(specialKey);
     if (simCredits < cost) return null;
-    return { kind: 'buy', item, itemId: String(item._id), qty: 1, cost, label };
+    const offer = { kind: 'buy', item, itemId: String(item._id), qty: 1, cost, label };
+    return isOfferUsable(offer) ? offer : null;
   };
 
   // 목표 장비가 포스 코어를 요구하면 구매보다 운석+생나 조합을 우선한다.
@@ -66,7 +68,7 @@ export function pickKioskPrioritySpecialAction({
     && isAtOrAfterWorldTime(curDay, curPhase, 2, 'day')
   ) {
     if (has(meteorItem, 1) && has(lifeTreeItem, 1)) {
-      return {
+      const offer = {
         kind: 'exchange',
         item: forceCoreItem,
         itemId: String(forceCoreItem._id),
@@ -77,6 +79,7 @@ export function pickKioskPrioritySpecialAction({
         ],
         label: '운석+생나→포스 코어 조합',
       };
+      if (isOfferUsable(offer)) return offer;
     }
 
     const forceBuy = makeSpecialBuy('force_core', '포스 코어(목표)');
@@ -94,9 +97,8 @@ export function pickKioskPrioritySpecialAction({
     return null;
   }
 
-  if (hasMissingSpecial(missingSpecialKeys, 'vf')) {
-    const vfBuy = makeSpecialBuy('vf', 'VF 혈액 샘플(목표)');
-    if (vfBuy) return vfBuy;
+  if (hasMissingSpecial(missingSpecialKeys, 'vf') && !shouldDeferVfForLegend) {
+    return makeSpecialBuy('vf', 'VF 혈액 샘플(목표)');
   }
 
   for (const key of ['meteor', 'life_tree', 'mithril']) {
@@ -104,8 +106,11 @@ export function pickKioskPrioritySpecialAction({
     const buy = makeSpecialBuy(key, `전설 재료(${key})`);
     if (buy) return buy;
   }
+  // A rejected concrete goal order must not return as a recommendation,
+  // surplus purchase or random fallback later in the same action.
+  if (['meteor', 'life_tree', 'mithril', 'force_core'].some(key => hasMissingSpecial(missingSpecialKeys, key))) return null;
 
-  if (up?.wantTrans && !up?.hasVf) {
+  if (up?.wantTrans && !up?.hasVf && !shouldDeferVfForLegend) {
     const vfBuy = makeSpecialBuy('vf', 'VF 혈액 샘플(초월 목표)');
     if (vfBuy) return vfBuy;
   }
@@ -115,8 +120,9 @@ export function pickKioskPrioritySpecialAction({
       .map((key) => ({ key, buy: makeSpecialBuy(key, `전설 재료(${key})`) }))
       .filter((row) => row.buy)
       .sort((a, b) => Number(a.buy.cost || 0) - Number(b.buy.cost || 0));
-    if (candidates[0]?.buy) return candidates[0].buy;
+    return candidates[0]?.buy || null;
   }
+  if (up?.wantTrans && !up?.hasVf && !shouldDeferVfForLegend) return null;
 
   return undefined;
 }
