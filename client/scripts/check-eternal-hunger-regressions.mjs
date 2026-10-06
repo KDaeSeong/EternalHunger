@@ -1,3 +1,4 @@
+import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
@@ -5,12 +6,15 @@ import {
   normalizeInventory,
 } from '../src/app/simulation/_lib/inventoryRules.js';
 import { pickKioskPrioritySpecialAction } from '../src/app/simulation/_lib/aiKioskPriorityRuntime.js';
+import { withSimulationRandom } from '../src/utils/simulationRandom.js';
 import {
   buildGuestSimulationMap,
   buildGuestSimulationRoster,
   isGuestSimulationSession,
   resolveSimulationBootstrapData,
 } from '../src/app/simulation/_lib/guestSimulationBootstrap.js';
+
+const { rollDroneOrder } = await import('../src/app/simulation/_lib/aiDroneRuntime.js');
 
 const compactRuleset = {
   inventory: {
@@ -71,9 +75,19 @@ const kioskArgs = {
   kioskSpecialPrice: (key) => specialPrices[key] ?? 9999,
 };
 
-assert.equal(
-  pickKioskPrioritySpecialAction({ ...kioskArgs, missingSpecialKeys: new Set(['meteor']), curDay: 1, curPhase: 'morning' }),
-  undefined,
+function assertBlockedKioskGoal(options, message) {
+  let offerChecks = 0;
+  const args = { ...kioskArgs, ...options, isOfferUsable: () => { offerChecks++; return true; } };
+  const state = () => ({ specialItems: args.specialItems, inv: args.inv, simCredits: args.simCredits,
+    up: args.up, missingSpecialKeys: args.missingSpecialKeys });
+  const before = structuredClone(state());
+  // null explicitly blocks surplus/recommendation fallback; undefined means no goal.
+  assert.equal(pickKioskPrioritySpecialAction(args), null, message);
+  assert.equal(offerChecks, 0, 'A time-gated goal must not even validate an offer.');
+  assert.deepEqual(state(), before, 'A rejected goal must preserve credits, inventory and goal inputs.');
+}
+assertBlockedKioskGoal(
+  { missingSpecialKeys: new Set(['meteor']), curDay: 1, curPhase: 'morning', up: { wantLegend: true } },
   'Legendary materials must not be bought before day 2 daytime.',
 );
 assert.equal(
@@ -81,9 +95,8 @@ assert.equal(
   'meteor',
   'Missing legendary materials must be prioritized from day 2 daytime.',
 );
-assert.equal(
-  pickKioskPrioritySpecialAction({ ...kioskArgs, missingSpecialKeys: new Set(['vf']), curDay: 3, curPhase: 'night' }),
-  undefined,
+assertBlockedKioskGoal(
+  { missingSpecialKeys: new Set(['vf']), curDay: 3, curPhase: 'night', up: { wantTrans: true } },
   'VF blood must not be bought before day 4 daytime.',
 );
 assert.equal(
@@ -102,6 +115,34 @@ assert.equal(
   'meteor',
   'An overdue legendary build must take priority over VF blood.',
 );
+assert.equal(
+  pickKioskPrioritySpecialAction(kioskArgs), undefined,
+  'Only an absent priority goal may permit surplus purchase fallback.',
+);
+
+let droneEligibilityCases = 0;
+for (const path of ['catalog', 'craft_need', 'route_plan', 'keyword']) {
+  const order = (item, maxTier) => {
+    const actor = { inventory: [], simCredits: 100, goalGearTier: 4,
+      ...(path === 'route_plan' ? { routePlanDroneItemIds: [item._id] } : {}) };
+    const offers = path === 'catalog' ? [{ itemId: item._id, price: 10 }] : [];
+    const goal = path === 'craft_need' ? { missing: [{ itemId: item._id }] } : null;
+    return withSimulationRandom(() => 0, () => rollDroneOrder(offers, null, [item], 1, 'morning',
+      actor, 0, goal, () => item.name, { drone: { maxTier, fallbackKeywords: ['wood'] } }));
+  };
+  const material = { _id: 'drone-wood', name: 'wood', type: 'material', tier: 1 };
+  assert.equal(order(material)?.itemId, material._id, `${path}: T1 materials remain available.`);
+  assert.equal(order({ ...material, tier: 2 }), null, `${path}: the default T1 cap rejects T2 materials.`);
+  assert.equal(order({ ...material, tier: 2 }, 2)?.itemId, material._id, `${path}: configured T2 caps allow T2 materials.`);
+  assert.equal(order({ ...material, tier: 3 }, 2), null, `${path}: configured caps still reject higher tiers.`);
+  const water = { _id: 'drone-water', name: '물', type: 'drink', tier: 1 };
+  assert.equal(order(water)?.itemId, water._id, `${path}: plain water is the allowed drink exception.`);
+  assert.equal(order({ ...water, tier: 2 }), null, `${path}: the water exception cannot bypass the tier cap.`);
+  assert.equal(order({ ...material, type: 'food' }), null, `${path}: food cannot bypass material filtering.`);
+  assert.equal(order({ ...material, type: 'weapon', equipSlot: 'weapon' }), null, `${path}: equipment cannot be delivered.`);
+  assert.equal(order({ ...material, name: '운석' }), null, `${path}: rare materials cannot bypass their kiosk-only restriction.`);
+  droneEligibilityCases += 9;
+}
 
 const guestRoster = buildGuestSimulationRoster();
 assert.equal(guestRoster.length, 24, 'Guest bootstrap must provide a complete 24-player roster.');
@@ -124,7 +165,6 @@ assert.equal(resolvedGuestData.mapsList[0]?._id, guestMap._id, 'Guest fallback r
 assert.equal(resolvedGuestData.meValue?.isGuest, true, 'Guest fallback must not impersonate an account user.');
 
 const sources = Object.fromEntries(await Promise.all([
-  ['drone', '../src/app/simulation/_lib/aiDroneRuntime.js'],
   ['movement', '../src/app/simulation/_lib/actorMovementDecisionHelpers.js'],
   ['rift', '../src/app/simulation/_lib/phaseDimensionRiftRuntime.js'],
   ['devGuard', '../src/app/simulation/_lib/useSimulationDevRunGuard.js'],
@@ -138,8 +178,6 @@ const sources = Object.fromEntries(await Promise.all([
   ['mapDerived', '../src/app/simulation/_lib/mapDerived.js'],
 ].map(async ([key, relativePath]) => [key, await readFile(new URL(relativePath, import.meta.url), 'utf8')])));
 
-assert.match(sources.drone, /dm\?\.maxTier \?\? 1/, 'The transfer drone default maximum tier must remain T1.');
-assert.match(sources.drone, /category === 'material' && tier <= droneMaxTier/, 'Transfer drones must reject materials above the configured tier.');
 assert.match(sources.movement, /forceFirstDayMorningMove/, 'Day 1 must retain its first-move guard.');
 assert.match(sources.movement, /if \(forceFirstDayMorningMove\) willMove = true/, 'The first day move must not fail its random roll.');
 assert.match(sources.rift, /advanceDimensionRiftContest\(rift, updatedSurvivors,/, 'Dimension rifts must operate on the complete authoritative survivor list.');
@@ -197,7 +235,11 @@ console.log(JSON.stringify({
   duplicateStartingItemsMerged: true,
   protectedMaterialsPreserved: true,
   kioskTimeGatesCovered: 5,
+  kioskRejectedGoalFallbackBlocked: true,
+  kioskRejectedGoalStatePreserved: true,
+  kioskAbsentGoalFallbackAllowed: true,
   droneTierCapGuarded: true,
+  droneEligibilityCases,
   dayOneMovementGuarded: true,
   dimensionRiftRosterGuarded: true,
   developerRunRewardsBlocked: true,

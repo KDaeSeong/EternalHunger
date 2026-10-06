@@ -20,6 +20,7 @@ export default function CharacterAutoSetupModal({ character, onClose, onApply, r
   const generation = useRef({ revision: 0 });
   const panel = useRef(null);
   const preview = useRef(null);
+  const hasInput = Boolean(name.trim()) || mode === 'custom' && text.trim().length >= 2;
   useEffect(() => {
     const lifecycle = generation.current;
     panel.current?.querySelector('input')?.focus();
@@ -34,6 +35,7 @@ export default function CharacterAutoSetupModal({ character, onClose, onApply, r
   function change(setter, value) { generation.current.revision++; setter(value); setDraft(null); setMessage(''); }
   async function generate(event) {
     event.preventDefault();
+    if (busy || !hasInput) return;
     const revision = ++generation.current.revision;
     setBusy(true); setDraft(null); setMessage('');
     try {
@@ -84,7 +86,7 @@ export default function CharacterAutoSetupModal({ character, onClose, onApply, r
             placeholder="이미 알고 있는 설정이나 원작 설명을 한 번에 붙여넣어 주세요. 스킬별 수치를 직접 입력할 필요는 없습니다." /></label>
           <small>{mode === 'er' ? '설명을 비우면 공식 홈페이지에서 안내한 캐릭터 DB를 읽습니다. 자료를 가져오지 못하면 초안을 적용하지 않고 안내합니다.'
             : '이름만으로도 초안을 요청할 수 있습니다. 낯선 캐릭터·동명이인은 작품명이나 특징을 함께 적어 주세요. 추정된 능력은 표시됩니다.'}</small>
-          <button type="submit" className="character-setup-generate" disabled={busy || name.trim().length < 2 && text.trim().length < 2}>
+          <button type="submit" className="character-setup-generate" disabled={busy || !hasInput}>
             {busy ? '초안 작성 중…' : draft ? '초안 다시 만들기' : '자동 설정 초안 만들기'}
           </button>
           {busy ? <p role="status">자료와 스킬을 정리하고 있습니다. 닫으면 이 화면에 적용하지 않습니다.</p> : null}

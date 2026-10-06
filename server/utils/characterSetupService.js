@@ -12,8 +12,8 @@ function parseSetupRequest(body) {
   const name = (body.name || '').trim();
   const text = (body.text || '').replace(/\r\n?/g, '\n').trim();
   if (name.length > 40 || text.length > MAX_SETUP_TEXT_LENGTH) throw new Error('이름은 40자, 설정은 12,000자 이내로 입력해 주세요.');
-  if (name.length < 2 && text.length < 2) throw new Error('캐릭터 이름이나 설정을 입력해 주세요.');
-  if (body.mode === 'er' && name.length < 2) throw new Error('ER 실험체 이름을 입력해 주세요.');
+  if (!name && text.length < 2) throw new Error('캐릭터 이름이나 설정을 입력해 주세요.');
+  if (body.mode === 'er' && !name) throw new Error('ER 실험체 이름을 입력해 주세요.');
   return { mode: body.mode, name, text };
 }
 function setupPrompt(input) {

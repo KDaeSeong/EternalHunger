@@ -104,6 +104,9 @@ function sanitizeSkill(raw, slot) {
   if (type === 'support_skill' && damage.some(n => n > 0)) invalid('보호·정화 스킬에 공격 피해를 넣을 수 없습니다.');
   if (passive && [...damage, ...result.heal, ...result.shield, result.resourceCost, result.resourceGain].some(n => n > 0)) invalid('이 엔진의 패시브는 상시 능력치 보정만 지원합니다.');
   const useful = [...damage, ...result.heal, ...result.shield, ...Object.values(result.statModifiers), result.movementDistance, result.resourceGain];
+  if (!raw.enabled && ([...useful, result.resourceCost].some(n => n !== 0) || effects.length)) {
+    invalid(`${slot.toUpperCase()} 비활성 초안에 실행 효과가 남아 있습니다.`);
+  }
   if (raw.enabled && !useful.some(n => n !== 0) && !effects.length) invalid(`${slot.toUpperCase()}에 실제로 실행할 효과가 없습니다.`);
   return result;
 }

@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-06",
+  "baseRevision": "eab1c34bf931fa0a9fb4337fca0a17bd485d3d19",
+  "engine": "c6288b92b52c8c0acd9a346fa046cd2cd3b8ced16ef6219acd9c966e6a172ddf",
+  "scope": "Local automatic-setup input/disabled-effect contract and merged regression maintenance. Focused checks and split verification, NOT one successful full chain, browser x32, paid AI quality or human acceptance.",
+  "fixes": [
+    "Accept any nonempty trimmed character name in both modes; ER still requires a name, blank/typed/oversized input stays rejected. Client form submission shares the blank-input gate.",
+    "Reject executable effects in disabled AI draft slots, including damage, percentages, coefficients, healing, shields, movement, status, resources and positive/negative passive stats. Preserve harmless names/source descriptions and existing manually authored character slots.",
+    "Treat null as an explicitly rejected priority goal, not absent/undefined. Verify no offer validation or input mutation before unlock; absence still permits fallback.",
+    "Replace brittle drone source-expression matching with 36 independent actual delivery-selection cases.",
+    "Use a source-generated HP x2 custom roster for actual final-night coverage, with unchanged world/collar rules and no post-start injection. Keep all transition/per-frame/once-only grant assertions."
+  ],
+  "redEvidence": [
+    {
+      "check": "one-character server input and exact-source draft path",
+      "failures": 2,
+      "mode": "constructed source/provider doubles"
+    },
+    {
+      "check": "one-character actual modal SSR submit control",
+      "exitCode": 1
+    },
+    {
+      "check": "disabled generated effect contract",
+      "exitCode": 1,
+      "error": "Missing expected exception"
+    },
+    {
+      "check": "merged regression priority goal",
+      "exitCode": 1,
+      "actual": null,
+      "oldExpected": "undefined"
+    },
+    {
+      "check": "drone source-expression regression",
+      "exitCode": 1,
+      "reason": "Valid plain-water exception changed expression, actual tier semantics remained correct"
+    },
+    {
+      "check": "default-roster final-night coverage",
+      "exitCode": 1,
+      "seed": "1101",
+      "beforeFrames": 6032,
+      "afterFrames": 0,
+      "grants": 0,
+      "ending": {
+        "day": 6,
+        "phase": "morning",
+        "atSec": 1163.166666,
+        "cause": "combat"
+      }
+    }
+  ],
+  "fullAttempt": {
+    "runId": "2026-10-06T11-41-23.127Z-d529b37d-84f1-4b5f-924c-bae0342c3ff3",
+    "command": "npm run check:eternal-hunger",
+    "startedAt": "2026-10-06T11:41:23.131Z",
+    "pid": 12340,
+    "engineBefore": "c6288b92b52c8c0acd9a346fa046cd2cd3b8ced16ef6219acd9c966e6a172ddf",
+    "status": "failed",
+    "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+    "exitCode": 1,
+    "signal": null,
+    "engineAfter": "c6288b92b52c8c0acd9a346fa046cd2cd3b8ced16ef6219acd9c966e6a172ddf",
+    "sameEngine": true,
+    "finishedAt": "2026-10-06T12:17:53.380Z"
+  },
+  "fullAttemptResult": "client/.verification-runs/2026-10-06T11-41-23.127Z-d529b37d-84f1-4b5f-924c-bae0342c3ff3/result.json",
+  "fullAttemptLog": "client/.verification-runs/2026-10-06T11-41-23.127Z-d529b37d-84f1-4b5f-924c-bae0342c3ff3/output.log",
+  "singleFullChainPassed": false,
+  "focusedChecks": [
+    {
+      "command": "node --test tests/character-setup.test.js tests/audit-defects.test.js tests/security-contracts.test.js",
+      "cwd": "server",
+      "checks": 41,
+      "exitCode": 0,
+      "scope": "Constructed sources/models and auth/storage doubles; mounted anonymous API checks, not paid AI or actual account storage"
+    },
+    {
+      "command": "npm run check:skills",
+      "cwd": "client",
+      "exitCode": 0,
+      "basicLayout": 9,
+      "authoring": 22,
+      "automaticSetup": 11,
+      "automaticSetupUi": 5
+    },
+    {
+      "command": "node scripts/check-eternal-hunger-regressions.mjs",
+      "cwd": "client",
+      "exitCode": 0,
+      "droneDeliveryCases": 36
+    },
+    {
+      "command": "Changed client source/scripts ESLint, node syntax and git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "standardGateProgress": {
+    "prefix": "The full attempt passed regressions through replay and endgame/21 collar rules, then failed the final-night coverage assertion. Product engine fingerprint was unchanged.",
+    "firstNight": {
+      "seeds": [
+        "1101",
+        "2202",
+        "3303"
+      ],
+      "initialRosterSeeds": [
+        "FIRST-DAY:1101",
+        "FIRST-DAY:2202",
+        "FIRST-DAY:3303"
+      ],
+      "completedActorsPerSeed": 24,
+      "rosterSize": 24,
+      "firstDayEndSec": 250,
+      "scope": "Current canonical constructed competitive cases; not deleted logs or arbitrary custom recipe/death guarantees"
+    },
+    "isolatedRandomness": {
+      "matches": 3,
+      "events": 13657,
+      "frames": 6032,
+      "eventDigest": "4dc168590580a773fc7b268c0f3db6c7cf24920795c495b1357f702c604c17f3",
+      "frameDigest": "b529e942243ea64c00f0dc7c5c4c84438a6bf5e41a7566774c0b0ecaf8d56691",
+      "apiCalls": 0
+    },
+    "savedInputReplay": {
+      "hpScale": 2,
+      "events": 18401,
+      "frames": 6599,
+      "eventDigest": "ea0f68520daa00549ae031d50b8a8e2671dd13769e0546d04c2ad115af445366",
+      "frameDigest": "fe8b2b76863140d70947b51c51b452eceba1b38a8c515a3450806dbea382f983",
+      "sameFinalState": true,
+      "sameRandom": true,
+      "sameEnding": true,
+      "externalAccess": 0
+    }
+  },
+  "splitTail": {
+    "terminalSession": 24392,
+    "exitCode": 0,
+    "commands": [
+      "check:detonation:match",
+      "check:guest-local-progress",
+      "check:revive",
+      "check:custom-roster",
+      "check:lumia-minimap",
+      "check:custom-map-runtime",
+      "check:er-weapons",
+      "check:skills",
+      "check:eternal-hunger-feedback",
+      "check:eternal-hunger-soundtrack",
+      "check:phase-runtime-performance",
+      "check:runtime:sweep",
+      "build"
+    ],
+    "finalNight": {
+      "seed": "1101",
+      "hpScale": 2,
+      "beforeFrames": 6201,
+      "afterFrames": 398,
+      "grants": 7,
+      "grantAt": {
+        "day": 6,
+        "phase": "night",
+        "sec": 1180
+      },
+      "beforeSec": 30,
+      "afterSec": 45,
+      "onceOnly": true,
+      "worldRulesUnchanged": true,
+      "frames": 6599,
+      "events": 18401
+    },
+    "scope": "Remaining named command sequence only; original full failure is preserved, not relabelled as a single successful chain."
+  },
+  "liveErSourceRead": {
+    "name": "얀",
+    "skillSlots": [
+      "passive",
+      "q",
+      "w",
+      "e",
+      "r"
+    ],
+    "statCount": 20,
+    "weapons": [
+      "글러브",
+      "톤파"
+    ],
+    "sources": [
+      "https://game.naver.com/lounge/Eternal_Return/db/character/CH_AD_670_144",
+      "https://playeternalreturn.com/posts/news/1280?hl=ko-KR"
+    ],
+    "exitCode": 0,
+    "aiRequests": 0,
+    "accountWrites": 0,
+    "scope": "Current public source read, not latest patch fidelity, AI draft or balance proof"
+  },
+  "build": {
+    "exitCode": 0,
+    "staticPages": 62,
+    "buildId": "dz-7KcDeu9B5TJ4nlEPRn",
+    "publicDeployment": false
+  },
+  "cleanupAtDeletion": {
+    "Target": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+    "RemovedFiles": 6,
+    "LogicalBytesRemoved": 591200952,
+    "LogicalMiBRemoved": 563.813,
+    "RemainingCacheFiles": 0,
+    "ProtectedFileCount": 24,
+    "ProtectedSHA256": {
+      "server/index.js": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+      "docs/character-auto-setup-verification.md": "14F961F1144A3DC772609BDA89AA9B3299752C359C160A607633F89CF4E44942",
+      "client/scripts/check-detonation-match.mjs": "00B71610652ECFDB4B56693308CD9A7FD7291C1010B4C5007A908BE83871A748",
+      "client/.verification-runs/2026-10-06T11-41-23.127Z-d529b37d-84f1-4b5f-924c-bae0342c3ff3/result.json": "8F8EA7E2342B2EB508C002ACD57B211A17669C830FAD3A70D918D43253CD51D3",
+      "artifacts/pull-integration-20261006.json": "5B5683E2BFB402793E722E9C899D0B802F9FD4ECDF4788DFDD50B3B326605664",
+      "client/.next/server/app/eternalhunger/evaluate/page.js": "F916470BD1556887A8C883D65487E6EEFE9C1B6B7C5D06839BD5C4F1732581A3",
+      "client/.verification-runs/2026-10-06T11-29-12.856Z-8866aa2e-b950-4d1e-9145-e558d7ae0215/result.json": "046E4BD9BFDDE59C5010C59ECA9B5E815218BB500A09DA348E26F09A0AFE117F",
+      "docs/eternal-hunger-goal.md": "02DE59DE2044F586D2D9605B3F7EB5FA4C687386E00CA2EC7F8D194F48E92579",
+      "client/.verification-runs/2026-10-06T11-29-12.856Z-8866aa2e-b950-4d1e-9145-e558d7ae0215/output.log": "45BE7CA1663335A1A4EA803C1AF7CD528049D45849E5DBFF8E982202D99208A8",
+      "server/.env.example": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3",
+      "client/.next/server/app/characters/page.js": "AA8B15D146FF5E3BF17919B9F2E761E89661B1C57E37FD087D0DD721CB9DF076",
+      "client/.next/BUILD_ID": "593B8FDE621A7AD854DEA4F05893FC2A64903C20D91F53F3B88F44408580734B",
+      "client/scripts/check-eternal-hunger-regressions.mjs": "E8EE879C23EBC4B724712F4BED154D1413159327623320FF9F64CEDF000ADC1A",
+      "client/.next/server/app/characters.html": "B27E2DA74DAC2CC1743AC111215001E2C6E4D9256CDA8F72474F087D71734607",
+      "client/.next/build-manifest.json": "297D6D515C409D2DB424CB9E9E08786DB7A88D1780CEDA7B0F9D0B641FEBFFB4",
+      "server/tests/character-setup.test.js": "7A9D544C36BD06A2051CC055CBFDC1A68C2547C948C801B1F02FE4959CC540D6",
+      "client/scripts/check-observer-goals-match.mjs": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9",
+      "server/utils/characterSetupService.js": "C7A30E4E078007EB10467482132F5FC07E848926D2E5E34611897F190C690FDD",
+      "server/utils/characterSetupContract.js": "AF706B07283539BFF202D3F00693119D3BD9199C9FD72F2EAD2EB9A5278D9EC3",
+      "client/.verification-runs/2026-10-06T11-41-23.127Z-d529b37d-84f1-4b5f-924c-bae0342c3ff3/output.log": "39745B95C67A7DB9851A52E5C06B45B53E1E2D03B7D5685A60E49E623A52F053",
+      "docs/eternal-hunger-remaining-work.md": "3AC3D16A27D278157281D932F1281139D62F6EBC0124B71B7637B5F49D7B53C3",
+      "client/scripts/check-character-auto-setup.mjs": "DC261D89695DBA30A5DEBAB1E26F8D3EAC238AF032A277DADF8A1484ABF8C111",
+      "client/src/app/characters/_components/CharacterAutoSetupModal.js": "82A80BBDEDC1CEB0B7EDA52F334C6749705ADDF0B210B3695D6A1DD0C1B00967",
+      "client/scripts/check-character-auto-setup-ui.mjs": "5944AF10F0118834423EE6A976437CF2BF5BE7DCAD7DBDC3F289414391E8CA5D"
+    },
+    "ProtectedHashesUnchanged": true,
+    "BuildId": "dz-7KcDeu9B5TJ4nlEPRn",
+    "Recovery": "npm run build",
+    "PhysicalFreeSpaceMeasured": false
+  },
+  "documentationEditedAfterCleanup": true,
+  "userOwnedChangesExcluded": [
+    "client/scripts/check-observer-goals-match.mjs",
+    "server/index.js",
+    "server/.env.example",
+    "unrelated untracked files"
+  ],
+  "downloadsLogs": "User confirmed deleted; not restored, regenerated or used as runtime fixtures.",
+  "remaining": [
+    "Fresh successful single full chain",
+    "Foreground x32 and continuous browser memory/input measurement; permission reply pending",
+    "Two paid AI draft-quality checks (ER/custom); permission reply pending",
+    "Actual generated-draft account save/reopen/full-match path",
+    "Wider custom recipe/roster cases and human follow-up",
+    "Explicit public push/deployment authorization"
+  ]
+}

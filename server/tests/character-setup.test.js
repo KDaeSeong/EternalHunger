@@ -10,7 +10,14 @@ test('setup input is bounded and ignores arbitrary request properties', () => {
     userId: 'other-user', records: [{}] }), { mode: 'custom', name: '검사', text: '설정\n설명' });
   for (const input of [{ mode: 'other', name: '검사' }, { mode: 'er', text: '설명' },
     { mode: 'custom', name: {} }, { mode: 'custom', name: 'x'.repeat(41) },
-    { mode: 'custom', text: 'x'.repeat(12001) }, { mode: 'custom' }]) assert.throws(() => parseSetupRequest(input));
+    { mode: 'custom', text: 'x'.repeat(12001) }, { mode: 'custom' },
+    { mode: 'er', name: '  ', text: '원작 설명' }, { mode: 'custom', name: ' ', text: '\n ' },
+    { mode: 'custom', text: 'x' }]) assert.throws(() => parseSetupRequest(input));
+});
+test('one-character names are valid in both ER and custom name-only requests', () => {
+  for (const mode of ['er', 'custom']) {
+    assert.deepEqual(parseSetupRequest({ mode, name: ' 얀 ' }), { mode, name: '얀', text: '' });
+  }
 });
 test('full draft preserves explicit small percentage points and strips runtime/ownership fields', () => {
   const raw = makeSetup(); Object.assign(raw, { _id: 'forged', records: [{}], hp: 999, inventory: [{}] });
@@ -47,6 +54,33 @@ test('an unsupported passive can be explicitly disabled with a visible warning',
   const raw = makeSetup(); raw.characterSkills.passive = { enabled: false, name: '미지원 중첩', type: 'passive_stat' };
   const draft = sanitizeCharacterSetup(raw); assert.equal(draft.characterSkills.passive.enabled, false);
   assert.ok(draft.warnings.some(text => text.includes('PASSIVE')));
+});
+test('disabled generated slots cannot hide executable effects behind an unsupported warning', () => {
+  const cases = [
+    ['q', skill => { skill.firstFlat = [1]; }], ['q', skill => { skill.maxHpPct = [0.2]; }],
+    ['q', skill => { skill.secondAttackPowerScale = 0.5; }], ['q', skill => { skill.heal = [1]; }],
+    ['q', skill => { skill.shield = [1]; }],
+    ['q', skill => { skill.includesMovement = true; skill.movementDistance = 2; }],
+    ['q', skill => { skill.statusEffects = [{ name: '기절', target: 'target', durationSec: 1 }]; }],
+    ['q', skill => { skill.resourceCost = 1; }], ['q', skill => { skill.resourceGain = 1; }],
+    ['passive', skill => { skill.statModifiers = { defense: 2 }; }],
+    ['passive', skill => { skill.statModifiers = { defense: -2 }; }],
+  ];
+  for (const [slot, edit] of cases) {
+    const raw = makeSetup();
+    raw.uniqueResource = { enabled: true, name: '검사 자원', maxValue: 5, startValue: 5, regenPerSec: 0 };
+    raw.characterSkills[slot] = { enabled: false, name: '미지원 효과', type: slot === 'passive' ? 'passive_stat' : 'attack_skill' };
+    edit(raw.characterSkills[slot]);
+    assert.throws(() => sanitizeCharacterSetup(raw), /비활성/);
+  }
+});
+test('named disabled slots may retain source descriptions and harmless authoring metadata', () => {
+  const raw = makeSetup();
+  raw.characterSkills.q = { enabled: false, name: '원작 기술', sourceText: '미지원 변신은 생략', type: 'attack_skill',
+    cooldownSec: 12, range: 4, firstFlat: [0], firstSkillAmpScale: 0 };
+  const draft = sanitizeCharacterSetup(raw);
+  assert.equal(draft.characterSkills.q.enabled, false); assert.equal(draft.characterSkills.q.sourceText, '미지원 변신은 생략');
+  assert.deepEqual(draft.characterSkills.q.firstFlat, [0, 0, 0, 0, 0]); assert.ok(draft.warnings.some(value => value.includes('Q')));
 });
 test('skill costs cannot exceed the resource maximum', () => {
   const raw = makeSetup(); raw.uniqueResource = { enabled: true, name: '검사 자원', maxValue: 40, startValue: 0, regenPerSec: 2 };
@@ -121,6 +155,27 @@ test('ER source failure does not invoke a paid model or invent source facts', as
   const result = await invoke({ loadErSource: async () => { throw new Error('missing'); }, generate: async () => { generated = true; } },
     { mode: 'er', name: '검사 실험체' });
   assert.equal(result.status, 422); assert.equal(generated, false); assert.equal(result.body.code, 'ER_SOURCE_UNAVAILABLE');
+});
+test('one-character ER name reaches the exact source reader and validated draft path', async () => {
+  // Constructed source/response only: not live Yan stats, AI or account persistence.
+  const row = { name: '얀', objectId: 'CH_AD_670_999991' };
+  const source = extractErSource(makeErDetail(row), row), raw = makeSetup(row.name);
+  for (const slot of Object.keys(source.material.skills)) raw.characterSkills[slot].name = source.material.skills[slot].name;
+  const loadedNames = [], modelInputs = [];
+  const result = await invoke({ loadErSource: async name => { loadedNames.push(name); return source; },
+    generate: async input => { modelInputs.push(JSON.parse(input.contents)); return { text: JSON.stringify(raw) }; } },
+    { mode: 'er', name: ' 얀 ' });
+  assert.equal(result.status, 200); assert.equal(result.body.name, row.name); assert.equal(result.body.mode, 'er');
+  assert.deepEqual(loadedNames, [row.name]); assert.equal(modelInputs.length, 1);
+  assert.equal(modelInputs[0].name, row.name); assert.equal(modelInputs[0].erSource.name, row.name);
+  assert.deepEqual(result.body.sources, source.sources);
+});
+test('blank ER names fail before source, rate-limit or model calls even with pasted text', async () => {
+  let calls = 0;
+  const unexpected = async () => { calls++; throw new Error('Invalid input must not reach external services'); };
+  const result = await invoke({ rateLimit: unexpected, loadErSource: unexpected, generate: unexpected },
+    { mode: 'er', name: ' \n ', text: '원작 설명' });
+  assert.equal(result.status, 400); assert.equal(result.body.code, 'INVALID_SETUP_INPUT'); assert.equal(calls, 0);
 });
 test('ER source is separate data and model-provided citation URLs are ignored', async () => {
   let request; const source = extractErSource(makeErDetail(), { name: '검사 실험체', objectId: 'CH_AD_670_999991' });

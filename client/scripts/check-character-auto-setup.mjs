@@ -97,4 +97,12 @@ check('unsupported passive warning stays visible without fabricating a permanent
   assert.equal(normalized.characterSkills.passive.enabled, false); assert.deepEqual(normalized.characterSkills.passive.statModifiers, {});
   assert.ok(normalized.warnings.some(text => text.includes('PASSIVE')));
 });
+check('disabled generated effects fail atomically, without altering authored character skills', () => {
+  const character = createBlankCharacter('setup-fixture'), before = structuredClone(character);
+  for (const slot of ['q', 'passive']) {
+    const raw = draft(); raw.characterSkills[slot].enabled = false;
+    assert.throws(() => createCharacterSetupPatch(character, raw), /비활성/);
+    assert.deepEqual(character, before);
+  }
+});
 console.log(`Character automatic setup checks passed: ${passed}`);

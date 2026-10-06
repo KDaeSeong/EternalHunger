@@ -38,6 +38,17 @@ check('known ER name selects the source-backed mode and retains explicit approxi
   assert.match(erHtml, /value="er" selected/); assert.match(erHtml, /공식 홈페이지에서 안내한 캐릭터 DB/);
   assert.match(erHtml, /기존 캐릭터나 서버 저장값은 바뀌지 않습니다/);
 });
+check('a one-character name enables requesting a draft without applying or saving anything', () => {
+  const namedHtml = render({ ...createBlankCharacter('one-character-fixture'), name: '얀' });
+  assert.match(namedHtml, /value="얀"/);
+  assert.doesNotMatch(namedHtml.match(/<button type="submit"[^>]*>/)?.[0] || '', /disabled/);
+  assert.equal(applied, 0); assert.equal(requested, 0);
+});
+check('whitespace-only names cannot request a draft', () => {
+  const blankHtml = render({ ...createBlankCharacter('whitespace-fixture'), name: ' \n ' });
+  assert.match(blankHtml, /type="submit"[^>]*disabled/);
+  assert.equal(applied, 0); assert.equal(requested, 0);
+});
 console.log(`Character automatic setup UI checks passed: ${passed}`);
 
 if (process.argv.includes('--preview')) {
