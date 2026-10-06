@@ -1,0 +1,367 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-06",
+  "scope": "Local integration and named checks only; not whole standard chain, browser x32, generated AI quality or human acceptance.",
+  "upstreamRevision": "2411a50c0d8bff212c5dd4b29090e16ebcf1502c",
+  "localPrePullRevision": "348d8e00fa73dc402775eb9cebf435c71c78b5b0",
+  "mergeRevision": "59073752c8c7638607c5a3adc84f601eeb253d54",
+  "engine": "c6288b92b52c8c0acd9a346fa046cd2cd3b8ced16ef6219acd9c966e6a172ddf",
+  "conflictResolutions": [
+    "Retain local planning power snapshot and observer cost measurements; forward upstream publicItems to leader kiosk decisions.",
+    "Regenerate version from combined source including shared market policy.",
+    "Preserve both historical goal records.",
+    "Restore local --seed and --audit-purchase alongside upstream mandatory controlled purchase cases and optional strict natural coverage."
+  ],
+  "fixes": [
+    "Shared market policy is included in verification engine fingerprint; independent read-only source mutation check failed before and passed after.",
+    "Rename shadowed item callback variable; initial runtime ESLint failed no-shadow, final runtime sweep passed."
+  ],
+  "checks": [
+    {
+      "command": "check:team-purchase-goals",
+      "checks": 43,
+      "exitCode": 0
+    },
+    {
+      "command": "check:default-kiosk-goals; check:kiosk-material-identity; check:procurement; check:observer-purchase-scenario; check:phase-runtime-performance",
+      "exitCode": 0
+    },
+    {
+      "command": "node --test tests/market-item-policy.test.js",
+      "checks": 8,
+      "exitCode": 0,
+      "scope": "Actual handlers with model doubles, not production database writes."
+    },
+    {
+      "command": "check:skills",
+      "exitCode": 0,
+      "basicLayout": 9,
+      "authoring": 22,
+      "autoSetup": 10,
+      "autoSetupUi": 3,
+      "scope": "Compiler and editor contracts; not paid AI quality or actual account save."
+    },
+    {
+      "command": "check:display-pacing",
+      "checks": 15,
+      "exitCode": 0,
+      "scope": "Scheduler contract only; not actual browser x32."
+    },
+    {
+      "command": "check:live-frames",
+      "checks": 19,
+      "exitCode": 0
+    },
+    {
+      "command": "check:verification-fingerprint",
+      "checks": 4,
+      "exitCode": 0
+    },
+    {
+      "command": "check:runtime:sweep",
+      "exitCode": 0
+    },
+    {
+      "command": "eslint changed verifier and preserved observer diagnostic scripts",
+      "exitCode": 0
+    },
+    {
+      "command": "check:simulation-replay",
+      "checks": 16,
+      "comparisonChecks": 10,
+      "exitCode": 0
+    }
+  ],
+  "invocationCorrection": "An initial follow-on command used nonexistent check:simulation-display-pacing after check:skills; exit 1. Correct check:display-pacing was run separately and passed.",
+  "observerMatch": {
+    "command": "node scripts/check-observer-goals-match.mjs --audit-purchase",
+    "exitCode": 0,
+    "engineBeforeLintRename": "d39b168213ba6eb44b74245cf9bd8f6565b3002c0fae18c45424845ea1ee2bde",
+    "seed": "1101",
+    "eventCount": 13657,
+    "frames": 6032,
+    "ending": "last_team; combat; team:1",
+    "matchSec": 1163.166666,
+    "observerModelChecks": 934,
+    "actualReceiptChecks": 53,
+    "naturalPurchasePlans": 0,
+    "controlledPositiveCases": 3,
+    "controlledNegativeCases": 3,
+    "controlledCompletedReceipts": 3,
+    "scope": "Node observer and real engine; not browser rendering, natural purchase frequency or latest post-lint version replay equality."
+  },
+  "savedInputReplay": {
+    "seed": "1101",
+    "phases": 13,
+    "frames": 6599,
+    "ticks": 1254.666666,
+    "eventCount": 18401,
+    "ending": {
+      "outcome": "last_team",
+      "atSec": 1254.666666,
+      "day": 7,
+      "phase": "morning",
+      "cause": "combat",
+      "causeName": "교전",
+      "finalZoneStage": "approach",
+      "winnerTeamId": "team:2",
+      "dimensionRifts": {
+        "atSec": 1254.666666,
+        "settlements": [
+          {
+            "id": "RIFT_guest-lumia-island_3_1:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_1",
+            "atSec": 1254.666666,
+            "reason": "match_end",
+            "disposition": "claimed",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_3_2:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_2",
+            "atSec": 1254.666666,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_3_3:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_3",
+            "atSec": 1254.666666,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_3_4:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_4",
+            "atSec": 1254.666666,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_1:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_1",
+            "atSec": 1254.666666,
+            "reason": "match_end",
+            "disposition": "claimed",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_2:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_2",
+            "atSec": 1254.666666,
+            "reason": "match_end",
+            "disposition": "claimed",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_3:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_3",
+            "atSec": 1254.666666,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_4:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_4",
+            "atSec": 1254.666666,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          }
+        ],
+        "expiredWorldGifts": 0,
+        "expiredForElimination": 0,
+        "invalidRewards": 0,
+        "unfinishedContests": 0
+      }
+    },
+    "random": {
+      "algorithm": "fnv1a-mulberry32-v1",
+      "state": 1801884695,
+      "draws": 10838,
+      "ids": 0,
+      "nameHistory": []
+    },
+    "eventDigest": "ea0f68520daa00549ae031d50b8a8e2671dd13769e0546d04c2ad115af445366",
+    "frameDigest": "fe8b2b76863140d70947b51c51b452eceba1b38a8c515a3450806dbea382f983",
+    "comparison": {
+      "matched": true,
+      "firstDifference": -1,
+      "expectedEvents": 18401,
+      "actualEvents": 18401,
+      "sameFinalState": true,
+      "sameRandom": true,
+      "sameEnding": true
+    },
+    "externalAccess": 0,
+    "inputBytes": 731120,
+    "fixtureBoundary": "Source-generated archived-input contract fixture explicitly doubles actor HP; not a default-balance claim or a downloaded past result."
+  },
+  "buildAttempts": [
+    {
+      "command": "npm run build",
+      "sandbox": "default",
+      "exitCode": 1,
+      "failure": "EPERM mkdir client/.next/server/app/_global-error.segments/_global-error"
+    },
+    {
+      "command": "npm run build",
+      "sandbox": "authorized retry",
+      "exitCode": 0,
+      "buildId": "j1j5Ncq_jrINU49ooDhms",
+      "staticPages": 62,
+      "engine": "c6288b92b52c8c0acd9a346fa046cd2cd3b8ced16ef6219acd9c966e6a172ddf"
+    }
+  ],
+  "cleanup": {
+    "removedFiles": 9,
+    "removedBytes": 610108825,
+    "logicalRemovedMiB": 581.8451166152954,
+    "remainingCacheFiles": 0,
+    "protectedHashCount": 22,
+    "protectedHashesUnchanged": true,
+    "physicalFreeSpaceMeasured": false,
+    "recovery": "npm run build regenerates cache; completed build preserved",
+    "target": "client/.next/cache/webpack",
+    "protectedHashesAtDeletion": [
+      {
+        "path": "client/package.json",
+        "sha256": "407A23E1FD7C36AFF2F0A078D62157F35E341D22421BB3BB1BEDE50D79C3E287"
+      },
+      {
+        "path": "client/package-lock.json",
+        "sha256": "9024006A5AC9B451394E347C0A24A144EE5C32562912E6876C5F83250B89FB57"
+      },
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "sha256": "B13D8EE01011A6481B4BF1A34B61915C2AF27F624CF0A07439BD65295796931D"
+      },
+      {
+        "path": "client/scripts/check-verification-fingerprint.mjs",
+        "sha256": "CDDD3EC05C5D34CC4249216E5C03C528E1189A9152B6566DF90CA73A71EAB90C"
+      },
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+      },
+      {
+        "path": "client/scripts/check-team-purchase-goals.mjs",
+        "sha256": "B783CBD9D95B0AE2A5EFA3CFFB7701FC40D3E6AD2B1AEA098A2757B6EBF5B36F"
+      },
+      {
+        "path": "client/scripts/generate-simulation-version.mjs",
+        "sha256": "7497F2ADE31AA63DA2729AFB3AE5EBFCF82643AA1F66325B053D23F4E13B65CB"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/aiMoveTargetRuntime.js",
+        "sha256": "32A2EDB0899390A7929B90CB7483C38E63F2AF168758920DF7F2966328657161"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/phaseActorActionPipelineRuntime.js",
+        "sha256": "08D59F5EA2DA727EBF09307ABC50986FF6B388B533DF847601299F7A30DC3759"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/simulationFrameRuntime.js",
+        "sha256": "22972CE3058F76D106A39E39AC35DED864806E303DC2CB355668AD8BE3C7AF96"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "sha256": "DBA423E114B589A4B7BCDFB67E06B140F8523E9776DC9A846CC4D04BBE309BBF"
+      },
+      {
+        "path": "shared/marketItemPolicy.cjs",
+        "sha256": "EA34DF6B81B7C84E38F93A178DD3015F4EC2FB476A169F99C01F4BF39401D168"
+      },
+      {
+        "path": "server/index.js",
+        "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+      },
+      {
+        "path": "server/.env.example",
+        "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+      },
+      {
+        "path": "server/tests/market-item-policy.test.js",
+        "sha256": "899D92DDE47B61CA5E4A5863785FC4666477DF4CE9039CC94CAE52ECAA8CFDC4"
+      },
+      {
+        "path": "client/.next/BUILD_ID",
+        "sha256": "4F6BF23905488068EC784B63DBBB2C373C9331B473015CDB3B586B2B7271C668"
+      },
+      {
+        "path": "client/.next/build-manifest.json",
+        "sha256": "62BC6DF99C3B7A5379D5513D8B63E9D2F017EF13D253DDA4CAE4C88462AAC3CA"
+      },
+      {
+        "path": "client/.next/server/app-paths-manifest.json",
+        "sha256": "AB7F972355F60DB39A254132D7777D8C3622332D2FF44FD81BC06F3E450BC620"
+      },
+      {
+        "path": "client/.next/server/app/eternalhunger/evaluate/page.js",
+        "sha256": "F916470BD1556887A8C883D65487E6EEFE9C1B6B7C5D06839BD5C4F1732581A3"
+      },
+      {
+        "path": "docs/eternal-hunger-goal.md",
+        "sha256": "3CD3A03CD7E0EAD6BE9275639ED573878C7ECA8C99FD5E3E16F8639802C63ACD"
+      },
+      {
+        "path": "docs/eternal-hunger-remaining-work.md",
+        "sha256": "B42D79B716AB102FF04FF834FAF871B758ECEE586D60CD52106FDF78827C5CB6"
+      },
+      {
+        "path": "docs/observer-performance-verification.md",
+        "sha256": "5BC4A46114C2984FA507BC9A9E5156EB542B80D50BB92DFEC6062023FC661B0D"
+      }
+    ]
+  },
+  "preservation": {
+    "serverEnvSha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3",
+    "serverIndexSha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+    "localDiagnosticStash": "4a6470c9dcebaabb64fd045051553144b88b83a0",
+    "diagnosticLeftUnstaged": true,
+    "deletedDownloads": "User confirmed deleting the logs; this operation neither restored nor deleted Downloads files."
+  },
+  "notCompleted": [
+    "Final merged whole check:eternal-hunger chain",
+    "Real foreground x32 performance and consecutive-match heap/input responsiveness",
+    "Actual ER/custom AI generated draft quality and real generated draft account save/reopen/gameplay",
+    "Broader custom inputs and human follow-up acceptance",
+    "Push and public deployment of local integrated changes"
+  ]
+}

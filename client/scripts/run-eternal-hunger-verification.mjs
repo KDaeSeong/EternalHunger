@@ -16,7 +16,7 @@ mkdirSync(directory, { recursive: true });
 const log = createWriteStream(join(directory, 'output.log'), { flags: 'wx' });
 const resultPath = join(directory, 'result.json');
 function fingerprint() {
-  const paths = ['src/app/simulation/tacticalSkillTable.js'];
+  const paths = ['src/app/simulation/tacticalSkillTable.js', '../shared/marketItemPolicy.cjs'];
   for (const dir of ['src/app/simulation/_lib', 'src/utils']) {
     for (const file of readdirSync(join(root, dir))) if (file.endsWith('.js')) paths.push(`${dir}/${file}`);
   }

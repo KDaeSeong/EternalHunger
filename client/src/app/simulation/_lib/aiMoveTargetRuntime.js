@@ -109,7 +109,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
     // the shop must not acquire invented default stock for that custom need.
     if (hasGoal && canUseKioskAtWorldTime(day, phase)) {
       const customIds = (growth?.missing || []).filter(row => {
-        const item = publicItems.find(item => String(item._id) === String(row.itemId));
+        const item = publicItems.find(candidate => String(candidate._id) === String(row.itemId));
         return !row.zones?.length && inferItemCategory(item) === 'material' && !classifySpecialByName(item?.name);
       }).map(row => row.itemId);
       if (customIds.length) {
