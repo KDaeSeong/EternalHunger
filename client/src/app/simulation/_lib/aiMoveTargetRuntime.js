@@ -95,7 +95,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
     const hasAuthoredShop = targets.some(zoneId => kiosks?.some(shop =>
       String(shop.mapId?._id || shop.mapId || '') === String(mapObj?._id || '')
       && String(shop.zoneId || '') === String(zoneId) && shop.catalog?.length));
-    return targets.length ? { targets, reason: hasAuthoredShop ? '키오스크 조달 검토' : reason } : null;
+    return targets.length ? { targets, reason: hasAuthoredShop ? '키오스크 조달 검토' : reason, requiresRequote: true } : null;
   };
   const pickWildlifeTargets = () => {
     if (!s?.wildlife || typeof s.wildlife !== 'object') return [];
