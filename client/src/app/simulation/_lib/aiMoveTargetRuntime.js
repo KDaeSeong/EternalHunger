@@ -18,7 +18,6 @@ import { getActorTeamId } from './teamRuntime';
 import { getKioskMovementTargets } from './kioskMovementRuntime.js';
 import { inferItemCategory } from './inventoryRules.js';
 import {
-  actorHasSpecialKind,
   markObjectiveTarget,
   scoreWildlifeZoneForActor,
 } from './aiMoveTargetScoringRuntime';
@@ -58,7 +57,6 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
     return { targets: [growth.nextStep], reason: growth.readyCraftId ? 'growth_craft' : 'growth_farm' };
   }
 
-  const simCredits = Math.max(0, Number(actor?.simCredits || 0));
   const kioskZones = listKioskZoneIdsForMap(mapObj, kiosks, forbiddenIds);
 
   const up = (upgradeNeed && typeof upgradeNeed === 'object') ? upgradeNeed : null;
@@ -69,11 +67,6 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   const hasVfAny = !!up?.hasVf;
   const farmCredits = !!up?.farmCredits;
   const spendSurplus = !!up?.spendSurplus;
-
-  const legendCost = Math.max(0, Number(up?.legendCost ?? 200));
-  const mithrilCost = Math.max(0, Number(up?.mithrilCost ?? 250));
-  const forceCost = Math.max(0, Number(up?.forceCost ?? 350));
-  const transCost = Math.max(0, Number(up?.transCost ?? 500));
 
   const needKeys = new Set(
     miss
@@ -87,11 +80,9 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   const needMithril = needKeys.has('mithril');
   const needForce = needKeys.has('force_core');
   const hasNamedRareNeed = needKeys.size > 0;
-  const hasMeteorInv = actorHasSpecialKind(actor, 'meteor', itemMetaById, itemNameById);
-  const hasLifeInv = actorHasSpecialKind(actor, 'life_tree', itemMetaById, itemNameById);
-  const kioskMove = (defaultEligible, reason, desiredKeys, desiredItemIds = []) => {
+  const kioskMove = (reason, desiredKeys, desiredItemIds = []) => {
     const targets = getKioskMovementTargets({ zoneIds: kioskZones, mapObj, kiosks, actor,
-      craftGoal, publicItems, ruleset, day, desiredKeys, desiredItemIds, defaultEligible });
+      craftGoal, publicItems, ruleset, day, phase, upgradeNeed: up, desiredKeys, desiredItemIds });
     const hasAuthoredShop = targets.some(zoneId => kiosks?.some(shop =>
       String(shop.mapId?._id || shop.mapId || '') === String(mapObj?._id || '')
       && String(shop.zoneId || '') === String(zoneId) && shop.catalog?.length));
@@ -122,34 +113,27 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
         return !row.zones?.length && inferItemCategory(item) === 'material' && !classifySpecialByName(item?.name);
       }).map(row => row.itemId);
       if (customIds.length) {
-        const move = kioskMove(false, '키오스크 조달 검토', [], customIds);
+        const move = kioskMove('키오스크 조달 검토', [], customIds);
         if (move) return move;
       }
     }
     if (needVf && isAtOrAfterWorldTime(day, phase, 4, 'day')) {
-      const move = kioskMove(simCredits >= transCost, 'VF(키오스크 구매)', ['vf']);
+      const move = kioskMove('VF(키오스크 구매)', ['vf']);
       if (move) return move;
     }
 
-    const neededLegendCost = needForce
-      ? ((hasMeteorInv || hasLifeInv) ? legendCost : forceCost)
-      : needMithril
-        ? mithrilCost
-        : legendCost;
     if ((needMeteor || needLife || needMithril || needForce) && canUseKioskAtWorldTime(day, phase)) {
-      const move = kioskMove(simCredits >= neededLegendCost,
-        needForce ? '포스코어(키오스크 구매)' : '전설 재료(키오스크 구매)', [...needKeys]);
+      const move = kioskMove(needForce ? '포스코어(키오스크 구매)' : '전설 재료(키오스크 구매)', [...needKeys]);
       if (move) return move;
     }
 
     if (!shouldDeferVfForLegend && wantTransAny && !hasVfAny && isAtOrAfterWorldTime(day, phase, 4, 'day')) {
-      const move = kioskMove(simCredits >= transCost, '초월 목표 VF 구매', ['vf']);
+      const move = kioskMove('초월 목표 VF 구매', ['vf']);
       if (move) return move;
     }
 
     if (wantLegendAny && !hasLegendMatAny && canUseKioskAtWorldTime(day, phase)) {
-      const move = kioskMove(simCredits >= Math.min(legendCost, mithrilCost, forceCost),
-        '전설 목표 재료 구매', ['meteor', 'life_tree', 'mithril', 'force_core']);
+      const move = kioskMove('전설 목표 재료 구매', ['meteor', 'life_tree', 'mithril', 'force_core']);
       if (move) return move;
     }
   }
@@ -216,8 +200,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   }
 
   if (spendSurplus && canUseKioskAtWorldTime(day, phase) && kioskZones.length) {
-    const move = kioskMove(simCredits >= Math.min(legendCost, transCost || legendCost),
-      'surplus credits kiosk', ['meteor', 'life_tree', 'mithril', 'force_core', 'vf']);
+    const move = kioskMove('surplus credits kiosk', ['meteor', 'life_tree', 'mithril', 'force_core', 'vf']);
     if (move) return move;
   }
 
@@ -229,7 +212,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
       return result;
     }
     if (isAtOrAfterWorldTime(day, phase, 4, 'day') && kioskZones.length) {
-      const move = kioskMove(simCredits >= transCost, 'VF(키오스크)', ['vf']);
+      const move = kioskMove('VF(키오스크)', ['vf']);
       if (move) return move;
     }
   }
@@ -275,7 +258,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
     }
 
     if (canUseKioskAtWorldTime(day, phase) && kioskZones.length) {
-      const move = kioskMove(simCredits >= legendCost, '특수재료(키오스크)', ['meteor', 'life_tree', 'mithril', 'force_core']);
+      const move = kioskMove('특수재료(키오스크)', ['meteor', 'life_tree', 'mithril', 'force_core']);
       if (move) return move;
     }
   }
@@ -299,7 +282,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
     }
 
     if (canUseKioskAtWorldTime(day, phase) && kioskZones.length) {
-      const move = kioskMove(simCredits >= legendCost, '특수 재료(키오스크)', kinds);
+      const move = kioskMove('특수 재료(키오스크)', kinds);
       if (move) return move;
     }
   }
@@ -326,7 +309,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
     }
 
     if (canUseKioskAtWorldTime(day, phase) && kioskZones.length) {
-      const move = kioskMove(simCredits >= legendCost, '미스릴(키오스크)', ['mithril']);
+      const move = kioskMove('미스릴(키오스크)', ['mithril']);
       if (move) return move;
     }
   }
@@ -353,7 +336,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
     }
 
     if (canUseKioskAtWorldTime(day, phase) && kioskZones.length) {
-      const move = kioskMove(simCredits >= forceCost, '포스코어(키오스크)', ['force_core']);
+      const move = kioskMove('포스코어(키오스크)', ['force_core']);
       if (move) return move;
     }
   }

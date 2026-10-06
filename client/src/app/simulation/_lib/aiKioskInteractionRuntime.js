@@ -16,10 +16,10 @@ import {
   isSpecialCoreKind,
 } from './craftRuntime';
 import { getLegendaryCoreCandidates } from './legendaryRuntime';
-import { isDefaultKioskItem, isKioskCatalogRowAllowed } from '../../../utils/marketItemPolicy.js';
+import { isKioskCatalogRowAllowed } from '../../../utils/marketItemPolicy.js';
 import { pickKioskCatalogAction } from './aiKioskCatalogRuntime';
 import { pickKioskExchangeAction } from './aiKioskExchangeRuntime';
-import { pickKioskPrioritySpecialAction } from './aiKioskPriorityRuntime';
+import { createKioskRecipeOfferValidator, getAvailableDefaultKioskItems, quoteDefaultKioskGoalAction } from './kioskGoalQuoteRuntime.js';
 import { pickKioskSurplusBuyAction } from './aiKioskSurplusRuntime';
 import { resolveKioskSpecialItems } from './aiKioskSpecialItemsRuntime';
 
@@ -148,7 +148,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
   // - 미스릴 → 전술 강화 모듈
   // - 전술 강화 모듈 → 크레딧 환급
   // - 운석 ↔ 생명의 나무 (상호 교환)
-  const defaultItems = items.filter(isDefaultKioskItem);
+  const defaultItems = getAvailableDefaultKioskItems(items, marketRules, curDay, curPhase);
   const findDefaultById = id => defaultItems.find(item => String(item._id) === String(id)) || null;
   const specialItems = resolveKioskSpecialItems(defaultItems);
   const {
@@ -165,19 +165,8 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
   const tacIsLvMax = (tacUpgradeMode === 'level') && (tacSkillLv >= TAC_MAX_LV);
 
   const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
-  const prioritySpecialAction = pickKioskPrioritySpecialAction({
-    missingSpecialKeys,
-    specialItems,
-    inv,
-    simCredits,
-    up,
-    curDay,
-    curPhase,
-    allowVf,
-    allowLegendary,
-    shouldDeferVfForLegend,
-    kioskSpecialPrice,
-  });
+  const prioritySpecialAction = quoteDefaultKioskGoalAction({ actor, craftGoal, publicItems: items,
+    ruleset, marketRules, day: curDay, phase: curPhase, upgradeNeed: up, shouldDeferVfForLegend });
   if (prioritySpecialAction !== undefined) return prioritySpecialAction;
 
   const surplusBuy = pickKioskSurplusBuyAction({
@@ -199,6 +188,8 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
     tacModuleItem,
     applyKioskCost,
     tacIsLvMax,
+    isOfferUsable: createKioskRecipeOfferValidator({ actor, targetId: String(craftGoal?.target?._id || ''),
+      publicItems: items, ruleset, day: curDay }),
   });
   if (surplusBuy) return surplusBuy;
 

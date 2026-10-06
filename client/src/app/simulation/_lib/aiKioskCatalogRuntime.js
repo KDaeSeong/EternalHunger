@@ -2,8 +2,7 @@ import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { shuffleArray } from './simulationCommon';
 import { invQty } from './inventoryRules';
 import { isKioskCatalogRowAllowed } from '../../../utils/marketItemPolicy.js';
-import { getGrowthRecipeWork } from './growthPlanRuntime.js';
-import { commitProcurementTransaction } from './procurementTransactionRuntime.js';
+import { createKioskRecipeOfferValidator } from './kioskGoalQuoteRuntime.js';
 
 function normCatalogItemId(value) {
   return String(value?._id || value || '').trim();
@@ -40,23 +39,8 @@ export function pickKioskCatalogGoalAction({
   const credits = Math.max(0, Number(actor?.simCredits || 0));
   const missingRows = Array.isArray(miss) ? miss : [];
   const missIds = new Set(missingRows.map((m) => String(m?.itemId || '')).filter(Boolean));
-  let beforeWork;
-  const usableForRecipe = (offer) => {
-    if (!targetId || !ruleset) return true;
-    beforeWork ??= getGrowthRecipeWork(actor, publicItems, targetId, { ruleset });
-    if (beforeWork.blocked) return false;
-    // A payable catalogue row may still spend the recipe fee or consume its
-    // base equipment. Preview each candidate before stopping at the first one.
-    const preview = { ...actor, _procurementActionKey: undefined };
-    const receipt = commitProcurementTransaction({ actor: preview, offer, day, ruleset,
-      actionType: offer.kind === 'exchange' ? 'kioskExchange' : 'kioskBuy' });
-    if (!receipt.ok) return false;
-    const afterWork = getGrowthRecipeWork(preview, publicItems, targetId, { ruleset });
-    const outstanding = new Map(beforeWork.missing.map(row => [row.itemId, row.need]));
-    return !afterWork.blocked && afterWork.plannedCredits <= preview.simCredits
-      && afterWork.missing.every(row => row.need <= (outstanding.get(row.itemId) || 0))
-      && (!requireComplete || (!afterWork.missing.length && !!afterWork.readyCraftId));
-  };
+  const usableForRecipe = createKioskRecipeOfferValidator({ actor, targetId, publicItems, ruleset, day,
+    requireComplete, validateWithoutRecipe: false });
 
   // 1) 목표 기반: 부족한 아이템(정확히 itemId 매칭)이 카탈로그에 있으면 우선 수행
   for (const row of catalog) {

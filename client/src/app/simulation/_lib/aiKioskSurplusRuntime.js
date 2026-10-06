@@ -22,6 +22,8 @@ export function pickKioskSurplusBuyAction({
   tacModuleItem = null,
   applyKioskCost = (value) => value,
   tacIsLvMax = false,
+  quoteOnly = false,
+  isOfferUsable = () => true,
 } = {}) {
   if (!spendSurplus) return null;
 
@@ -39,6 +41,7 @@ export function pickKioskSurplusBuyAction({
     const have = invQty(inv, itemId);
     const holdLimit = key === 'vf' ? 1 : key === 'tac' ? 1 : 2;
     if (have >= holdLimit) return;
+    if (!isOfferUsable({ kind: 'buy', item, itemId, qty: 1, cost: safeCost, label })) return;
     buyRows.push({ item, itemId, cost: safeCost, label, key, have });
   };
 
@@ -60,7 +63,7 @@ export function pickKioskSurplusBuyAction({
     pushBuy(tacModuleItem, applyKioskCost(Number(mr?.prices?.tacModule ?? 10)), 'surplus tactical module', 'tac');
   }
 
-  if (!buyRows.length || simulationRandom() >= surplusBuyChance) return null;
+  if (!buyRows.length || (!quoteOnly && simulationRandom() >= surplusBuyChance)) return null;
 
   const picked = buyRows
     .sort((a, b) => (a.have - b.have) || (a.cost - b.cost) || String(a.key).localeCompare(String(b.key)))[0];
