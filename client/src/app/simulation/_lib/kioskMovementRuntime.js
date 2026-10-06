@@ -4,12 +4,13 @@ import { getGrowthRecipeWork } from './growthPlanRuntime.js';
 import { applyPerkDiscount, getActorPerkEffects } from './perkRuntime.js';
 import { commitProcurementTransaction } from './procurementTransactionRuntime.js';
 
-// Movement quotes only an outstanding named need. An authored shop cannot
+// Movement quotes only an outstanding recipe need. An authored shop cannot
 // borrow default stock or prices, and quoting never pays or reserves anything.
 export function getKioskMovementTargets({ zoneIds = [], mapObj, kiosks = [], actor,
-  craftGoal, publicItems = [], ruleset, day, desiredKeys = [], defaultEligible = false } = {}) {
+  craftGoal, publicItems = [], ruleset, day, desiredKeys = [], desiredItemIds = [], defaultEligible = false } = {}) {
   const keys = new Set(desiredKeys);
-  const missing = (craftGoal?.missing || []).filter(row => keys.has(
+  const itemIds = new Set(desiredItemIds.map(String));
+  const missing = (craftGoal?.missing || []).filter(row => itemIds.has(String(row.itemId)) || keys.has(
     String(row.special || classifySpecialByName(row.name) || '')));
   const perk = getActorPerkEffects(actor);
   const discount = value => applyPerkDiscount(value, perk.kioskDiscountPct, perk.marketDiscountPct);
