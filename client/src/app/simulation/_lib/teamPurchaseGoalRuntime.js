@@ -54,7 +54,8 @@ export function chooseTeamPurchaseMove({ members = [], publicItems = [], ruleset
       // Use the same exact quote as the action queue, including mixed modes
       // and unavailable earlier rows; never invent an unrelated idle offer.
       const offer = (catalog.length || kiosk?.hasCustomCatalog) ? pickKioskCatalogGoalAction({ catalog, actor, miss: [missing],
-        applyKioskCost: discount, findById: id => publicItems.find(item => String(item._id) === id) }) : defaultOffer;
+        applyKioskCost: discount, findById: id => publicItems.find(item => String(item._id) === id),
+        targetId: target._id, publicItems, ruleset, day, requireComplete: true }) : defaultOffer;
       if (!['buy', 'exchange'].includes(offer?.kind) || String(offer.itemId) !== missing.itemId) continue;
       // Preview a prospective order, not a retry of the actor's old receipt.
       // Settlement prepares inventory on copies; the real actor, funds and
