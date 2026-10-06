@@ -138,6 +138,9 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
     applyKioskCost,
     findById,
     ruleset,
+    targetId: String(craftGoal?.target?._id || ''),
+    publicItems: items,
+    day: curDay,
   });
 
   // --- 우선 교환/환급 규칙(키오스크 핵심) ---

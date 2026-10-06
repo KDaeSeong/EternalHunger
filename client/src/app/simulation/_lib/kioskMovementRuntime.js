@@ -21,7 +21,8 @@ export function getKioskMovementTargets({ zoneIds = [], mapObj, kiosks = [], act
     const catalog = Array.isArray(shop?.catalog) ? shop.catalog : [];
     if (!catalog.length) return !shop?.hasCustomCatalog && defaultEligible;
     const offer = pickKioskCatalogGoalAction({ catalog, actor, miss: missing, applyKioskCost: discount,
-      findById: id => publicItems.find(item => String(item._id) === id) });
+      findById: id => publicItems.find(item => String(item._id) === id),
+      targetId, publicItems, ruleset, day });
     if (!offer) return false;
     const preview = { ...actor, _procurementActionKey: undefined };
     const receipt = commitProcurementTransaction({ actor: preview, offer, day, ruleset,
