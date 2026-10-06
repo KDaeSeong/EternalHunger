@@ -97,6 +97,7 @@ export function clearActorMoveTargetMemory(actor) {
   updated.aiTargetContestPressure = 0;
   updated.aiTargetObjective = null;
   updated.aiTargetReason = '';
+  delete updated.aiTargetRequiresRequote;
 
   return updated;
 }
@@ -189,8 +190,14 @@ export function resolveActorMoveTargetMemory({
     const saved = String(updated.aiTargetZoneId || '');
     const ttlNow = Math.max(0, Number(updated.aiTargetTTL || 0));
 
-    const sourceStillAvailable = !updated.aiTargetObjective || !spawnState || isMovementObjectiveAvailable(updated.aiTargetObjective,
-      { spawnState, forbiddenIds, nowSec, teamId: getActorTeamId(updated), actor: updated, roster, publicItems });
+    // Kiosk memory is a destination, not a reserved or paid order. Keep it
+    // only while the fresh planner still quotes that same payable destination.
+    // Generic routes retain their TTL and do not borrow a new shop's marker.
+    const quoteStillAvailable = updated.aiTargetRequiresRequote !== true
+      || (plannedMove?.requiresRequote === true && Array.isArray(plannedMove.targets)
+        && plannedMove.targets.some(zoneId => String(zoneId) === saved));
+    const sourceStillAvailable = quoteStillAvailable && (!updated.aiTargetObjective || !spawnState || isMovementObjectiveAvailable(updated.aiTargetObjective,
+      { spawnState, forbiddenIds, nowSec, teamId: getActorTeamId(updated), actor: updated, roster, publicItems }));
     if (!sourceStillAvailable) updated = clearActorMoveTargetMemory(updated);
     if (saved && ttlNow > 0 && !forbiddenIds.has(saved) && sourceStillAvailable) {
       holdTarget = saved;
@@ -213,6 +220,8 @@ export function resolveActorMoveTargetMemory({
         updated.aiTargetContestPressure = plannedContestPressure;
         updated.aiTargetObjective = captureMovementObjective(plannedMove, pickedTarget, { spawnState, ruleset, publicItems });
         updated.aiTargetReason = String(plannedMove?.reason || 'goal');
+        if (plannedMove?.requiresRequote === true) updated.aiTargetRequiresRequote = true;
+        else delete updated.aiTargetRequiresRequote;
         holdTarget = pickedTarget;
       }
     }

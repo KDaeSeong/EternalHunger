@@ -1,6 +1,7 @@
 'use client';
 
 import GameActionIcon from '../../games/_components/GameActionIcon';
+import { visibleKioskCatalog } from '../../../utils/marketItemPolicy.js';
 
 export default function SimulationMarketKioskSection({
   doKioskTransaction,
@@ -22,7 +23,9 @@ export default function SimulationMarketKioskSection({
         <div className="market-card">키오스크가 없습니다. (관리자에서 키오스크/카탈로그를 등록하세요)</div>
       ) : (
         <>
-          {visibleKiosks.map((k) => (
+          {visibleKiosks.map((k) => {
+            const catalog = visibleKioskCatalog(k.catalog, id => ({ _id: id, name: itemNameById[id] }));
+            return (
             <div key={k._id} className="market-card">
               <div className="market-row">
                 <div>
@@ -41,7 +44,8 @@ export default function SimulationMarketKioskSection({
               </div>
 
               <div style={{ marginTop: 10 }}>
-                {(Array.isArray(k.catalog) ? k.catalog : []).slice(0, showAllMarketRows ? undefined : marketCardRenderLimit).map((entry, idx) => {
+                {catalog.slice(0, showAllMarketRows ? undefined : marketCardRenderLimit).map((entry) => {
+                  const idx = entry.catalogIndex;
                   const mode = entry.mode || 'sell';
                   const label = mode === 'sell' ? '구매' : mode === 'buy' ? '판매' : '교환';
                   const price = Math.max(0, Number(entry.priceCredits || 0));
@@ -87,14 +91,15 @@ export default function SimulationMarketKioskSection({
                     </div>
                   );
                 })}
-                {!showAllMarketRows && Array.isArray(k.catalog) && k.catalog.length > marketCardRenderLimit ? (
+                {!showAllMarketRows && catalog.length > marketCardRenderLimit ? (
                   <div className="market-small" style={{ marginTop: 8 }}>
-                    카탈로그 {marketCardRenderLimit}/{k.catalog.length}개 표시 중
+                    카탈로그 {marketCardRenderLimit}/{catalog.length}개 표시 중
                   </div>
                 ) : null}
               </div>
             </div>
-          ))}
+            );
+          })}
           {kiosks.length > visibleKiosks.length ? (
             <button type="button" className="market-mini-btn" onClick={() => setShowAllMarketRows(true)}>
               키오스크 더 보기 ({visibleKiosks.length}/{kiosks.length})

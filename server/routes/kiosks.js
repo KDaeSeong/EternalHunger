@@ -10,6 +10,7 @@ const Character = require('../models/Characters');
 const Item = require('../models/Item');
 const Perk = require('../models/Perk');
 const { scopedFilter } = require('../utils/requestScope');
+const { isKioskCatalogRowAllowed } = require('../../shared/marketItemPolicy.cjs');
 
 const {
   buildItemNameMap,
@@ -50,6 +51,7 @@ router.post('/:id/transaction', async (req, res) => {
 
     const entry = kiosk.catalog?.[idx];
     if (!entry) return res.status(404).json({ error: 'catalog 항목을 찾을 수 없습니다.' });
+    if (!isKioskCatalogRowAllowed(entry)) return res.status(400).json({ error: '키오스크에서는 음식과 물을 거래할 수 없습니다.' });
 
     const itemNameMap = buildItemNameMap(items);
     ch.inventory = normalizeInventory(ch.inventory, itemNameMap, { merge: true });

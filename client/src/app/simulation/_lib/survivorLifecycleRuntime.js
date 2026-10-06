@@ -136,6 +136,7 @@ function clearRuntimeCombatFields(actor) {
   actor.aiTargetContestPressure = 0;
   actor.aiTargetObjective = null;
   actor.aiTargetReason = '';
+  delete actor.aiTargetRequiresRequote;
   actor._movementObjective = null;
   actor._teamRegroup = null;
   actor.safeZoneUntil = 0;
@@ -167,6 +168,7 @@ function applyAiRecoveryWindow(actor, absSec, opts = {}) {
   actor.aiTargetObjectiveSubkind = '';
   actor.aiTargetContestPressure = 0;
   actor.aiTargetReason = reason;
+  delete actor.aiTargetRequiresRequote;
   actor._movementObjective = null;
   actor._recentCombatUntil = Math.max(0, now + recoverSec, Number(actor?._recentCombatUntil || 0));
   actor._recentCombatWith = opponentId;

@@ -1,6 +1,8 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { shuffleArray } from './simulationCommon';
 import { invQty } from './inventoryRules';
+import { isKioskCatalogRowAllowed } from '../../../utils/marketItemPolicy.js';
+import { createKioskRecipeOfferValidator } from './kioskGoalQuoteRuntime.js';
 
 function normCatalogItemId(value) {
   return String(value?._id || value || '').trim();
@@ -25,6 +27,11 @@ export function pickKioskCatalogGoalAction({
   miss = [],
   applyKioskCost = (value) => value,
   findById = () => null,
+  targetId = '',
+  publicItems = [],
+  ruleset = null,
+  day = 1,
+  requireComplete = false,
 } = {}) {
   if (!catalog.length) return null;
 
@@ -32,9 +39,12 @@ export function pickKioskCatalogGoalAction({
   const credits = Math.max(0, Number(actor?.simCredits || 0));
   const missingRows = Array.isArray(miss) ? miss : [];
   const missIds = new Set(missingRows.map((m) => String(m?.itemId || '')).filter(Boolean));
+  const usableForRecipe = createKioskRecipeOfferValidator({ actor, targetId, publicItems, ruleset, day,
+    requireComplete, validateWithoutRecipe: false });
 
   // 1) 목표 기반: 부족한 아이템(정확히 itemId 매칭)이 카탈로그에 있으면 우선 수행
   for (const row of catalog) {
+    if (!isKioskCatalogRowAllowed(row, findById)) continue;
     const itemId = normCatalogItemId(row?.itemId);
     if (!itemId || !missIds.has(itemId)) continue;
 
@@ -42,14 +52,16 @@ export function pickKioskCatalogGoalAction({
     if (mode === 'sell') {
       const cost = applyKioskCost(Math.max(0, Number(row?.priceCredits || 0)));
       if (credits >= cost) {
-        return { kind: 'buy', item: catalogItem(findById, itemId, row), itemId, qty: 1, cost, label: '카탈로그 구매' };
+        const offer = { kind: 'buy', item: catalogItem(findById, itemId, row), itemId, qty: 1, cost, label: '카탈로그 구매' };
+        if (usableForRecipe(offer)) return offer;
       }
     }
     if (mode === 'exchange') {
       const giveId = normCatalogItemId(row?.exchange?.giveItemId);
       const giveQty = Math.max(1, Number(row?.exchange?.giveQty || 1));
       if (giveId && invQty(inv, giveId) >= giveQty) {
-        return { kind: 'exchange', item: catalogItem(findById, itemId, row), itemId, qty: 1, consume: [{ itemId: giveId, qty: giveQty }], label: '카탈로그 교환' };
+        const offer = { kind: 'exchange', item: catalogItem(findById, itemId, row), itemId, qty: 1, consume: [{ itemId: giveId, qty: giveQty }], label: '카탈로그 교환' };
+        if (usableForRecipe(offer)) return offer;
       }
     }
   }
@@ -65,10 +77,22 @@ export function pickKioskCatalogAction({
   applyKioskCost = (value) => value,
   findById = () => null,
   ruleset = null,
+  targetId = '',
+  publicItems = [],
+  day = 1,
 } = {}) {
+  catalog = catalog.filter(row => isKioskCatalogRowAllowed(row, findById));
   if (!catalog.length) return null;
-  const exact = pickKioskCatalogGoalAction({ catalog, actor, miss, applyKioskCost, findById });
+  const exact = pickKioskCatalogGoalAction({ catalog, actor, miss, applyKioskCost, findById,
+    targetId, publicItems, ruleset, day });
   if (exact) return exact;
+  // An exact goal order rejected above cannot reappear as a random trade.
+  // Keep unrelated idle purchases/refunds and callers without recipe input.
+  if (targetId && ruleset) {
+    const missIds = new Set((Array.isArray(miss) ? miss : []).map(row => String(row?.itemId || '')));
+    catalog = catalog.filter(row => String(row?.mode || 'sell') === 'buy'
+      || !missIds.has(normCatalogItemId(row?.itemId)));
+  }
   const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
   const credits = Math.max(0, Number(actor?.simCredits || 0));
 

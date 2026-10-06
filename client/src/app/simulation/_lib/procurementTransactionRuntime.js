@@ -1,4 +1,5 @@
 import { addItemToInventory, consumeIngredientsFromInv, getInvItemId } from './inventoryRules.js';
+import { isMarketItemAllowed } from '../../../utils/marketItemPolicy.js';
 
 const ACTION_KINDS = { kioskBuy: 'buy', kioskExchange: 'exchange', kioskSell: 'sell', droneOrder: 'drone' };
 
@@ -52,6 +53,7 @@ export function commitProcurementTransaction({ actor, actionType, offer, day = 1
   const suppliedId = itemKey(item?._id || item?.itemId || item?.id);
   const qty = positiveQty(offer.qty);
   if (!itemId || !item || typeof item !== 'object' || suppliedId !== itemId) return reject('invalid_item');
+  if (!isMarketItemAllowed(item, kind === 'drone' ? 'drone' : 'kiosk')) return reject('restricted_item');
   if (!Number.isSafeInteger(qty)) return reject('invalid_quantity');
 
   const actionKey = getProcurementActionKey(actor, phaseIdxNow);
@@ -83,6 +85,8 @@ export function commitProcurementTransaction({ actor, actionType, offer, day = 1
     inventory.push({ ...entry, itemId: id, qty: count });
   }
   if (consumed.some((row) => (available.get(row.itemId) || 0) < row.qty)) return reject('insufficient_items');
+  if (kind === 'exchange' && consumed.some(row => currentInventory.some(entry =>
+    getInvItemId(entry) === row.itemId && !isMarketItemAllowed(entry, 'kiosk')))) return reject('restricted_item');
 
   let nextInventory = consumeIngredientsFromInv(inventory, consumed);
   let meta = null;
@@ -100,6 +104,7 @@ export function commitProcurementTransaction({ actor, actionType, offer, day = 1
 }
 
 const FAILURE_TEXT = {
+  restricted_item: '이 판매처에서 취급하지 않는 음식·물 거래 취소',
   actor_inactive: '생존 상태가 아니어서 거래 취소',
   insufficient_credits: '현재 크레딧 부족으로 거래 취소',
   insufficient_items: '현재 판매·교환 재료 부족으로 거래 취소',

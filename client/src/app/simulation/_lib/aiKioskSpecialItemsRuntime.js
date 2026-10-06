@@ -9,15 +9,29 @@ function findItemByTag(items, tagKey) {
   )) || null;
 }
 
-export function resolveKioskSpecialItems(publicItems = []) {
+export function resolveKioskSpecialItems(publicItems = [], missing = []) {
   const items = Array.isArray(publicItems) ? publicItems : [];
+  const needs = Array.isArray(missing) ? missing : [];
+  const forGoal = (key, fallback) => {
+    const rows = needs.filter(row => String(row?.itemId || '').trim()
+      && String(row.special || classifySpecialByName(row.name)
+        || (String(row.name || '').includes('전술 강화 모듈') ? 'tac_skill_module' : '')) === key);
+    if (!rows.length) return fallback();
+    // Names/tags identify a special kind, not a recipe ingredient. Never
+    // substitute another ID when the explicit required stock is unavailable.
+    for (const row of rows) {
+      const found = items.find(item => String(item?._id || '') === String(row.itemId || ''));
+      if (found) return found;
+    }
+    return null;
+  };
   return {
-    meteorItem: findItemByTag(items, 'meteor') || findItemByKeywords(items, ['운석', 'meteor']),
-    lifeTreeItem: findItemByTag(items, 'life_tree') || findItemByKeywords(items, ['생명의 나무', 'tree of life', 'life tree']),
-    mithrilItem: findItemByTag(items, 'mithril') || findItemByKeywords(items, ['미스릴', 'mythril', 'mithril']),
-    forceCoreItem: findItemByTag(items, 'force_core') || findItemByKeywords(items, ['포스 코어', 'force core']),
-    tacModuleItem: findItemByTag(items, 'tac_skill_module') || findItemByKeywords(items, ['전술 강화 모듈', 'tac. skill module', 'tactical']),
-    surplusVfItem: findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample']),
+    meteorItem: forGoal('meteor', () => findItemByTag(items, 'meteor') || findItemByKeywords(items, ['운석', 'meteor'])),
+    lifeTreeItem: forGoal('life_tree', () => findItemByTag(items, 'life_tree') || findItemByKeywords(items, ['생명의 나무', 'tree of life', 'life tree'])),
+    mithrilItem: forGoal('mithril', () => findItemByTag(items, 'mithril') || findItemByKeywords(items, ['미스릴', 'mythril', 'mithril'])),
+    forceCoreItem: forGoal('force_core', () => findItemByTag(items, 'force_core') || findItemByKeywords(items, ['포스 코어', 'force core'])),
+    tacModuleItem: forGoal('tac_skill_module', () => findItemByTag(items, 'tac_skill_module') || findItemByKeywords(items, ['전술 강화 모듈', 'tac. skill module', 'tactical'])),
+    surplusVfItem: forGoal('vf', () => findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample'])),
   };
 }
 

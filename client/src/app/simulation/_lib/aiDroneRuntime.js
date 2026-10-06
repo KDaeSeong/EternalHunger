@@ -4,6 +4,7 @@ import { EQUIP_SLOTS } from './simulationConstants';
 import { isAtOrAfterWorldTime } from './worldTime';
 import { applyPerkDiscount, getActorPerkEffects, perkNumber } from './perkRuntime';
 import { inferItemCategory, invQty } from './inventoryRules';
+import { isMarketItemAllowed, isPlainWater, normalizeMarketItemId } from '../../../utils/marketItemPolicy.js';
 import { ensureEquipped } from './survivorRuntime';
 import {
   classifySpecialByName,
@@ -96,10 +97,11 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
   const droneMaxTier = Math.max(1, Math.floor(Number(dm?.maxTier ?? 1)));
   function isDroneEligibleItem(item) {
     if (!item || typeof item !== 'object') return false;
+    if (!isMarketItemAllowed(item, 'drone')) return false;
     if (isSpecialName(item?.name)) return false;
     const category = inferItemCategory(item);
     const tier = clampGearTier(item?.tier || 1);
-    return category === 'material' && tier <= droneMaxTier;
+    return (category === 'material' || isPlainWater(item)) && tier <= droneMaxTier;
   }
 
   if (hasRouteDroneNeed) {
@@ -120,9 +122,10 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
 
   if (Array.isArray(droneOffers) && droneOffers.length) {
     for (const offer of droneOffers) {
-      const price = applyDroneCost(Math.max(0, Number(offer?.price ?? offer?.cost ?? 0)));
-      const itemId = String(offer?.itemId ?? offer?.item?._id ?? '');
-      const item = offer?.item || (itemId ? items.find((x) => String(x?._id) === itemId) : null);
+      const price = applyDroneCost(Math.max(0, Number(offer?.priceCredits ?? offer?.price ?? offer?.cost ?? 0)));
+      const itemId = normalizeMarketItemId(offer?.itemId ?? offer?.item?._id);
+      const item = items.find(x => String(x?._id) === itemId) || offer?.item
+        || (offer?.itemId && typeof offer.itemId === 'object' ? offer.itemId : null);
       if (!itemId || !item) continue;
 
       const nm = String(item?.name || '');
@@ -156,7 +159,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
 
       const low = name.toLowerCase();
       const ok = fallbackKeywords.some((k) => low.includes(String(k).toLowerCase()));
-      if (!ok) continue;
+      if (!ok && !isPlainWater(it)) continue;
 
       const price = applyDroneCost(Math.max(0, Number(dm?.price ?? 10)));
       if (credits >= price) {

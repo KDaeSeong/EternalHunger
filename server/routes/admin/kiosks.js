@@ -4,6 +4,7 @@ const MapModel = require('../../models/Map');
 const Kiosk = require('../../models/Kiosk');
 const { DEFAULT_ZONES, KIOSK_MAP_NAMES } = require('../../utils/defaultZones');
 const { requireUserId, ownedFilter, withOwner } = require('../../utils/requestScope');
+const { DEFAULT_KIOSK_ITEM_NAMES, normalizeMarketItemId, isKioskCatalogRowAllowed } = require('../../../shared/marketItemPolicy.cjs');
 
 module.exports = function createKioskRouter({ ensureDefaultLumiaMap }) {
   const router = express.Router();
@@ -13,6 +14,19 @@ module.exports = function createKioskRouter({ ensureDefaultLumiaMap }) {
     const userId = requireUserId(req, res);
     if (!userId) return null;
     return ownedFilter(userId, extra);
+  }
+
+  async function catalogAllowed(userId, catalog) {
+    if (!Array.isArray(catalog)) return false;
+    if (catalog.some(row => !row || typeof row !== 'object' || !normalizeMarketItemId(row.itemId))) return false;
+    const ids = catalog.flatMap(row => [normalizeMarketItemId(row.itemId),
+      ...(row.mode === 'exchange' ? [normalizeMarketItemId(row.exchange?.giveItemId)] : [])]);
+    if (!ids.length) return true;
+    const items = await Item.find(ownedFilter(userId, { _id: { $in: ids } })).select('_id name type tags');
+    const byId = new Map(items.map(item => [String(item._id), item]));
+    return catalog.every(row => byId.has(normalizeMarketItemId(row.itemId))
+      && (row.mode !== 'exchange' || byId.has(normalizeMarketItemId(row.exchange?.giveItemId)))
+      && isKioskCatalogRowAllowed(row, id => byId.get(id)));
   }
 
   function mapLooksLikeKioskMap(mapName) {
@@ -104,7 +118,7 @@ module.exports = function createKioskRouter({ ensureDefaultLumiaMap }) {
     // - 운석↔생나 교환
     // - 포스 코어 → 미스릴 교환
     // - 미스릴 → 전술 강화 모듈 교환
-    const kioskItemNames = ['운석', '생명의 나무', '미스릴', '포스 코어', '전술 강화 모듈'];
+    const kioskItemNames = DEFAULT_KIOSK_ITEM_NAMES;
     const kioskItems = await Item.find(ownedFilter(userId, { name: { $in: kioskItemNames } })).select('_id name');
     const itemIdByName = new Map((Array.isArray(kioskItems) ? kioskItems : []).map((it) => [String(it.name), it._id]));
 
@@ -114,6 +128,7 @@ module.exports = function createKioskRouter({ ensureDefaultLumiaMap }) {
       '미스릴': 15,
       '포스 코어': 20,
       '전술 강화 모듈': 100,
+      'VF 혈액 샘플': 500,
     };
 
     const getId = (nm) => itemIdByName.get(String(nm)) || null;
@@ -385,6 +400,7 @@ module.exports = function createKioskRouter({ ensureDefaultLumiaMap }) {
       payload.x = Number(payload.x || 0);
       payload.y = Number(payload.y || 0);
       if (!Array.isArray(payload.catalog)) payload.catalog = [];
+      if (!await catalogAllowed(userId, payload.catalog)) return res.status(400).json({ error: '키오스크 목록에 음식·물 또는 유효하지 않은 아이템을 등록할 수 없습니다.' });
 
       const kiosk = await new Kiosk(withOwner(userId, payload)).save();
       res.json({ message: '키오스크가 추가되었습니다.', kiosk });
@@ -398,6 +414,7 @@ module.exports = function createKioskRouter({ ensureDefaultLumiaMap }) {
     try {
       const userId = requireUserId(req, res);
       if (!userId) return;
+      if (req.body?.catalog !== undefined && !await catalogAllowed(userId, req.body.catalog)) return res.status(400).json({ error: '키오스크 목록에 음식·물 또는 유효하지 않은 아이템을 등록할 수 없습니다.' });
       const updated = await Kiosk.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, req.body), { new: true });
       if (!updated) return res.status(404).json({ error: '키오스크를 찾을 수 없습니다.' });
       res.json({ message: '키오스크가 수정되었습니다.', kiosk: updated });

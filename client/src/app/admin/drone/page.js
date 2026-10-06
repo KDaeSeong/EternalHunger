@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../../utils/api';
+import { isMarketItemAllowed } from '../../../utils/marketItemPolicy';
 
 export default function AdminDronePage() {
   const [offers, setOffers] = useState([]);
@@ -11,6 +12,9 @@ export default function AdminDronePage() {
 
   const [createForm, setCreateForm] = useState({ itemId: '', priceCredits: 0, maxTier: 1, isActive: true });
   const [editing, setEditing] = useState(null);
+
+  const allowedItems = useMemo(() => items.filter((item) => isMarketItemAllowed(item, 'drone')), [items]);
+  const editingItem = editing && items.find((item) => String(item._id) === String(editing.itemId));
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -116,11 +120,12 @@ export default function AdminDronePage() {
       <div className="admin-grid">
         <div className="admin-card">
           <h3 style={{ marginTop: 0 }}>판매 항목 추가</h3>
+          <p className="admin-muted">음식은 판매하지 않습니다. 물은 전송 드론에서 판매할 수 있습니다.</p>
           <div className="admin-field">
             <label>아이템</label>
             <select value={createForm.itemId} onChange={(e) => setCreateForm({ ...createForm, itemId: e.target.value })}>
               <option value="">선택</option>
-              {items.map((it) => <option key={it._id} value={it._id}>{it.name}</option>)}
+              {allowedItems.map((it) => <option key={it._id} value={it._id}>{it.name}</option>)}
             </select>
           </div>
           <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
@@ -140,7 +145,7 @@ export default function AdminDronePage() {
               </select>
             </div>
           </div>
-          <button className="admin-btn primary" onClick={create}>추가</button>
+          <button className="admin-btn primary" onClick={create} disabled={!allowedItems.some((item) => String(item._id) === String(createForm.itemId))}>추가</button>
         </div>
 
         <div className="admin-card">
@@ -164,7 +169,8 @@ export default function AdminDronePage() {
                 <tr key={o._id}>
                   <td>
                     <div style={{ fontWeight: 700 }}>{o.itemId?.name || '알 수 없음'}</div>
-                    <div className="admin-muted">{o.isActive ? '활성' : '비활성'}</div>
+                    <div className="admin-muted">{isMarketItemAllowed(items.find((item) => String(item._id) === String(o.itemId?._id || o.itemId)) || o.itemId, 'drone')
+                      ? (o.isActive ? '활성' : '비활성') : '판매 불가 · 아이템 변경 또는 삭제 필요'}</div>
                   </td>
                   <td>{o.priceCredits || 0}</td>
                   <td className="admin-muted">tier ≤ {o.maxTier || 1}</td>
@@ -189,12 +195,18 @@ export default function AdminDronePage() {
       {editing ? (
         <div className="admin-card" style={{ marginTop: 14 }}>
           <h3 style={{ marginTop: 0 }}>수정</h3>
+          {!isMarketItemAllowed(editingItem, 'drone') ? (
+            <p className="admin-muted">취급하지 않는 기존 항목입니다. 다른 아이템으로 변경하거나 목록에서 삭제하세요.</p>
+          ) : null}
           <div className="admin-grid" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr' }}>
             <div className="admin-field">
               <label>아이템</label>
               <select value={editing.itemId} onChange={(e) => setEditing({ ...editing, itemId: e.target.value })}>
                 <option value="">선택</option>
-                {items.map((it) => <option key={it._id} value={it._id}>{it.name}</option>)}
+                {editing.itemId && !isMarketItemAllowed(editingItem, 'drone') ? (
+                  <option value={editing.itemId} disabled>취급 불가: {editingItem?.name || '알 수 없는 아이템'}</option>
+                ) : null}
+                {allowedItems.map((it) => <option key={it._id} value={it._id}>{it.name}</option>)}
               </select>
             </div>
             <div className="admin-field">
@@ -214,7 +226,7 @@ export default function AdminDronePage() {
             </div>
           </div>
           <div className="admin-btn-row">
-            <button className="admin-btn primary" onClick={save}>저장</button>
+            <button className="admin-btn primary" onClick={save} disabled={!isMarketItemAllowed(editingItem, 'drone')}>저장</button>
             <button className="admin-btn" onClick={() => setEditing(null)}>닫기</button>
           </div>
         </div>

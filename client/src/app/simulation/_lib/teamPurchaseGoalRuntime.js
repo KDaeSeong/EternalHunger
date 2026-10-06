@@ -4,9 +4,8 @@ import { getActorEquipmentTier, GROWTH_EQUIPMENT_SLOTS } from './growthEquipment
 import { inferItemCategory } from './inventoryRules.js';
 import { classifySpecialByName } from './craftRuntime.js';
 import { listKioskZoneIdsForMap } from './mapTargeting.js';
-import { canUseKioskAtWorldTime, kioskLegendaryPrice } from './marketRuntime.js';
-import { resolveKioskSpecialItems } from './aiKioskSpecialItemsRuntime.js';
-import { pickKioskPrioritySpecialAction } from './aiKioskPriorityRuntime.js';
+import { canUseKioskAtWorldTime } from './marketRuntime.js';
+import { quoteDefaultKioskGoalAction } from './kioskGoalQuoteRuntime.js';
 import { applyPerkDiscount, getActorPerkEffects } from './perkRuntime.js';
 import { pickKioskCatalogGoalAction } from './aiKioskCatalogRuntime.js';
 import { commitProcurementTransaction } from './procurementTransactionRuntime.js';
@@ -20,7 +19,7 @@ export function chooseTeamPurchaseMove({ members = [], publicItems = [], ruleset
   if (!canUseKioskAtWorldTime(day, phase) || !mapObj || typeof routeForZone !== 'function') return null;
   const zones = listKioskZoneIdsForMap(mapObj, kiosks, forbiddenIds);
   if (!zones.length) return null;
-  const specialItems = resolveKioskSpecialItems(publicItems), routes = new Map(), candidates = [];
+  const routes = new Map(), candidates = [];
   for (const actor of members) {
     const growth = actor._growthPlan;
     if (getCombatSpaceId(actor) !== WORLD_COMBAT_SPACE || !growth?.openingComplete || !growth.targetId) continue;
@@ -35,25 +34,22 @@ export function chooseTeamPurchaseMove({ members = [], publicItems = [], ruleset
     const credits = Number(actor.simCredits || 0);
     if (!Number.isFinite(credits) || credits < 0) continue;
     const key = classifySpecialByName(material?.name);
-    if (!key || inferItemCategory(material) !== 'material') continue;
-    const perk = getActorPerkEffects(actor), prices = ruleset?.market?.kiosk?.prices || {};
+    if (inferItemCategory(material) !== 'material') continue;
+    const perk = getActorPerkEffects(actor);
     const discount = value => applyPerkDiscount(value, perk.kioskDiscountPct, perk.marketDiscountPct);
-    const defaultOffer = pickKioskPrioritySpecialAction({ missingSpecialKeys: new Set([key]), specialItems,
-      inv: actor.inventory, simCredits: actor.simCredits, curDay: day, curPhase: phase,
-      allowVf: ruleset?.market?.kiosk?.categories?.vf !== false,
-      allowLegendary: ruleset?.market?.kiosk?.categories?.legendary !== false,
+    const defaultOffer = key ? quoteDefaultKioskGoalAction({ actor, craftGoal: { target, missing: [missing] },
+      publicItems, ruleset, day, phase,
       shouldDeferVfForLegend: Number(actor.goalGearTier ?? 6) >= 6
-        && GROWTH_EQUIPMENT_SLOTS.some(slot => getActorEquipmentTier(actor, slot) < 5),
-      kioskSpecialPrice: kind => discount(kind === 'vf' ? Number(prices.vf ?? 500)
-        : kioskLegendaryPrice(kind, prices.legendaryByKey)) });
+        && GROWTH_EQUIPMENT_SLOTS.some(slot => getActorEquipmentTier(actor, slot) < 5) }) : null;
     for (const zoneId of zones) {
       const kiosk = kiosks.find(row => String(row.mapId?._id || row.mapId || '') === String(mapObj._id || '')
         && String(row.zoneId || '') === zoneId);
       const catalog = Array.isArray(kiosk?.catalog) ? kiosk.catalog : [];
       // Use the same exact quote as the action queue, including mixed modes
       // and unavailable earlier rows; never invent an unrelated idle offer.
-      const offer = catalog.length ? pickKioskCatalogGoalAction({ catalog, actor, miss: [missing],
-        applyKioskCost: discount, findById: id => publicItems.find(item => String(item._id) === id) }) : defaultOffer;
+      const offer = (catalog.length || kiosk?.hasCustomCatalog) ? pickKioskCatalogGoalAction({ catalog, actor, miss: [missing],
+        applyKioskCost: discount, findById: id => publicItems.find(item => String(item._id) === id),
+        targetId: target._id, publicItems, ruleset, day, requireComplete: true }) : defaultOffer;
       if (!['buy', 'exchange'].includes(offer?.kind) || String(offer.itemId) !== missing.itemId) continue;
       // Preview a prospective order, not a retry of the actor's old receipt.
       // Settlement prepares inventory on copies; the real actor, funds and

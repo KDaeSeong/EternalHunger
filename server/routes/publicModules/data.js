@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { isMarketItemAllowed, visibleKioskCatalog } = require('../../../shared/marketItemPolicy.cjs');
 const {
   mongoose,
   User,
@@ -124,10 +125,12 @@ router.get('/kiosks', async (req, res) => {
     const kiosks = await Kiosk.find(scopedFilter(req))
       .select('_id kioskId name mapId zoneId x y catalog')
       .populate('mapId', 'name')
-      .populate('catalog.itemId', 'name tier rarity baseCreditValue tags')
-      .populate('catalog.exchange.giveItemId', 'name tier rarity baseCreditValue tags')
+      .populate('catalog.itemId', 'name type tier rarity baseCreditValue tags')
+      .populate('catalog.exchange.giveItemId', 'name type tier rarity baseCreditValue tags')
       .lean();
-    res.json(kiosks);
+    res.json(kiosks.map(kiosk => ({ ...kiosk,
+      hasCustomCatalog: Array.isArray(kiosk.catalog) && kiosk.catalog.length > 0,
+      catalog: visibleKioskCatalog(kiosk.catalog) })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '키오스크 로드 실패' });
@@ -138,9 +141,9 @@ router.get('/drone-offers', async (req, res) => {
   try {
     const offers = await DroneOffer.find(scopedFilter(req, { isActive: true }))
       .select('_id itemId priceCredits maxTier')
-      .populate('itemId', 'name tier rarity baseCreditValue')
+      .populate('itemId', 'name type tier rarity baseCreditValue tags')
       .lean();
-    res.json(offers);
+    res.json(offers.filter(offer => isMarketItemAllowed(offer.itemId, 'drone')));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '드론 판매 목록 로드 실패' });

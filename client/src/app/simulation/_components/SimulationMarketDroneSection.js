@@ -1,6 +1,7 @@
 'use client';
 
 import GameActionIcon from '../../games/_components/GameActionIcon';
+import { isMarketItemAllowed } from '../../../utils/marketItemPolicy.js';
 
 export default function SimulationMarketDroneSection({
   doDroneBuy,
@@ -13,13 +14,15 @@ export default function SimulationMarketDroneSection({
   setShowAllMarketRows,
   visibleDroneOffers,
 }) {
+  const allowedOffers = droneOffers.filter(offer => isMarketItemAllowed(offer.itemId, 'drone'));
+  const visibleOffers = allowedOffers.slice(0, visibleDroneOffers.length);
   return (
     <div className="market-section">
-      {droneOffers.length === 0 ? (
+      {allowedOffers.length === 0 ? (
         <div className="market-card">드론 판매 목록이 없습니다. (관리자에서 드론 판매를 등록하세요)</div>
       ) : (
         <>
-          {visibleDroneOffers.map((o) => (
+          {visibleOffers.map((o) => (
             <div key={o._id} className="market-card">
               <div className="market-row">
                 <div>
@@ -56,9 +59,9 @@ export default function SimulationMarketDroneSection({
               </div>
             </div>
           ))}
-          {droneOffers.length > visibleDroneOffers.length ? (
+          {allowedOffers.length > visibleOffers.length ? (
             <button type="button" className="market-mini-btn" onClick={() => setShowAllMarketRows(true)}>
-              드론 목록 더 보기 ({visibleDroneOffers.length}/{droneOffers.length})
+              드론 목록 더 보기 ({visibleOffers.length}/{allowedOffers.length})
             </button>
           ) : null}
         </>

@@ -1,83 +1,20 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
-const { runPhaseActorActionPipeline } = await import('../src/app/simulation/_lib/phaseActorActionPipelineRuntime.js');
 const { refreshActorGrowthPlan, getActorGrowthCraftGoal } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
-const { buildTeamCoordination } = await import('../src/app/simulation/_lib/teamTacticsRuntime.js');
 const { chooseAiMoveTargets } = await import('../src/app/simulation/_lib/aiMoveTargetRuntime.js');
 const { computeLateGameUpgradeNeed } = await import('../src/app/simulation/_lib/gearUpgradeNeedRuntime.js');
 const { rollKioskInteraction } = await import('../src/app/simulation/_lib/aiKioskInteractionRuntime.js');
-const { buildItemMetaById, buildItemNameById, buildItemKeyById, buildCraftableItems } = await import('../src/app/simulation/_lib/itemOptionsRuntime.js');
-const { createFieldResources } = await import('../src/app/simulation/_lib/fieldResourceRuntime.js');
-const { applyLootCraftResult } = await import('../src/app/simulation/_lib/lootCraftResultRuntime.js');
 const { invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
-const { getRuleset } = await import('../src/utils/rulesets.js');
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
-const { emitSimulationRunEvent } = await import('../src/app/simulation/_lib/logActionRuntime.js');
+const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
 const { buildTeamObserverModel, describeObserverEvent } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
-const eventActions = await import('../src/app/simulation/_lib/runEventRuntime.js');
+const { resolveActorMoveTargetMemory } = await import('../src/app/simulation/_lib/actorMovementDecisionHelpers.js');
+const { clearRuntimeCombatFields, applyAiRecoveryWindow } = await import('../src/app/simulation/_lib/survivorLifecycleRuntime.js');
+const { createSimulationFrame } = await import('../src/app/simulation/_lib/simulationFrameRuntime.js');
+const { fixture, plan, tick, refresh, hero, cloth, tree, ordinary, rare, gear, items } = await import('./lib/team-purchase-fixture.mjs');
 
-// Explicit mid-match recipe, inventory and earned-credit conditions. This is
-// not a default-balance match, a prepared outcome, or the unavailable Marcus input.
-const hero = { _id: 'purchase-hero', itemKey: 'purchase-hero', name: '초기 모자', type: '방어구',
-  category: 'equipment', equipSlot: 'head', tier: 4, stats: { defense: 10 } };
-const cloth = { _id: 'purchase-cloth', name: '추가 천', type: '재료', tier: 1, spawnZones: ['b'] };
-const tree = { _id: 'purchase-tree', name: '생명의 나무', type: '재료', tier: 4 };
-const gear = (id, name, ingredient) => ({ ...hero, _id: id, itemKey: id, name, tier: 5,
-  recipe: { ingredients: [{ itemId: hero._id, qty: 1 }, { itemId: ingredient, qty: 1 }], resultQty: 1, creditsCost: 3 } });
-const ordinary = gear('purchase-ordinary', '천 모자', cloth._id);
-const rare = gear('purchase-rare', '생명 모자', tree._id);
-const items = [hero, cloth, tree, ordinary, rare];
-function fixture() {
-  const ruleset = structuredClone(getRuleset('ER_S11'));
-  ruleset.worldSpawns.dimensionRift.enabled = false;
-  const mapObj = { _id: 'purchase-map', zones: ['a', 'b', 'c'].map(zoneId => ({ zoneId, name: zoneId, hasKiosk: zoneId === 'c' })) };
-  const state = { mapObj, zones: mapObj.zones, zoneGraph: { a: ['b', 'c'], b: ['a'], c: ['a'] },
-    forbiddenIds: new Set(), nextDay: 3, nextPhase: 'morning', phaseIdxNow: 4, ruleset,
-    publicItems: items, craftables: buildCraftableItems(items), itemMetaById: buildItemMetaById(items),
-    itemNameById: buildItemNameById(items), itemKeyById: buildItemKeyById(items),
-    actionIntervalSec: 20, statusElapsedSec: 0, currentActionSec: () => 500, kiosks: [], droneOffers: [],
-    nextSpawn: { coreNodes: [], fieldResources: createFieldResources(mapObj, items, ruleset) } };
-  const roster = ['leader', 'crafter', 'escort'].map((_id, index) => ({ _id, name: _id, teamId: 'team:1', teamSlot: index + 1,
-    zoneId: 'a', hp: 100, maxHp: 100, stats: { attackPower: 20, defense: 10 }, simCredits: index === 1 ? 260 : 20,
-    inventory: [{ ...structuredClone(hero), itemId: hero._id, qty: 1 }], equipped: { head: hero._id },
-    routePlanTargetItemIds: [hero._id], goalLoadouts: { legend: { headKey: index === 1 ? rare.itemKey : ordinary.itemKey } } }));
-  for (const actor of roster) refreshActorGrowthPlan(actor, items, state);
-  return { state, roster };
-}
-function plan({ state, roster }) {
-  return buildTeamCoordination({ roster, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds,
-    day: state.nextDay, phase: state.nextPhase, spawnState: state.nextSpawn, ruleset: state.ruleset,
-    publicItems: state.publicItems, isSoloMatch: state.isSoloMatch,
-    mapObj: state.mapObj, kiosks: state.kiosks,
-    getRotationHold: state.getRotationHold,
-    estimatePower: () => 100, chooseLeaderMove: actor => chooseAiMoveTargets({ actor,
-      craftGoal: getActorGrowthCraftGoal(actor, state.publicItems),
-      upgradeNeed: computeLateGameUpgradeNeed(actor, state.itemMetaById, state.itemNameById, state.nextDay, state.nextPhase, state.ruleset),
-      mapObj: state.mapObj, spawnState: state.nextSpawn, forbiddenIds: state.forbiddenIds, kiosks: state.kiosks,
-      day: state.nextDay, phase: state.nextPhase, ruleset: state.ruleset }) });
-}
-function tick(input) {
-  const { state, roster } = input, events = [], logs = [];
-  const emitRunEvent = (kind, payload, at) => emitSimulationRunEvent({ kind, payload, at,
-    actions: { enqueueRunEvent: event => events.push(structuredClone(event)) } });
-  const actions = { atNow: () => ({ day: state.nextDay, phase: state.nextPhase, sec: state.currentActionSec() }),
-    emitRunEvent, addLog: message => logs.push(message),
-    emitItemGainIfAny: (...args) => eventActions.emitItemGainIfAny(emitRunEvent, ...args),
-    emitObjectiveRunEvent: (...args) => eventActions.emitObjectiveRunEvent(emitRunEvent, ...args),
-    emitQueueRunEvent: (...args) => eventActions.emitQueueRunEvent(emitRunEvent, ...args),
-    emitCraftRunEvent: (...args) => eventActions.emitCraftRunEvent(emitRunEvent, ...args) };
-  actions.applyLootCraftResult = (actor, result, meta, at, zoneId) => applyLootCraftResult(actor, result, meta,
-    { at, zoneId, addLog: actions.addLog, emitCraftRunEvent: actions.emitCraftRunEvent });
-  return { ...withSimulationRandom(() => 0, () => runPhaseActorActionPipeline({ state: { ...state, phaseSurvivors: roster }, actions })), events, logs };
-}
 let checks = 0;
 function check(name, run) { run(); checks++; console.log(`PASS ${name}`); }
-function refresh(input, catalog = input.state.publicItems) {
-  Object.assign(input.state, { publicItems: catalog, craftables: buildCraftableItems(catalog),
-    itemMetaById: buildItemMetaById(catalog), itemNameById: buildItemNameById(catalog), itemKeyById: buildItemKeyById(catalog) });
-  input.state.nextSpawn.fieldResources = createFieldResources(input.state.mapObj, catalog, input.state.ruleset);
-  for (const actor of input.roster) refreshActorGrowthPlan(actor, catalog, input.state);
-}
 const purchasePlans = input => [...plan(input).movementPlans.values()].filter(move => /^팀 제작 구매:/.test(move.sourceReason));
 
 check('a funded follower with only one missing rare ingredient can guide the squad to a real kiosk', () => {
@@ -421,6 +358,563 @@ check('credits lost during travel invalidate the next quote without receiving th
   assert.equal(invQty(after.inventory, tree._id), 0); assert.equal(invQty(after.inventory, rare._id), 0);
   assert.equal(invQty(after.inventory, hero._id), 1); assert.equal(after.simCredits, 0);
   assert.ok(next.events.filter(event => event.who === 'crafter').every(event => event.kind !== 'procurement'));
+});
+
+check('an unaffordable authored kiosk cannot attract the squad through a leader default-price fallback', () => {
+  const input = fixture();
+  input.roster[0].goalLoadouts.legend.headKey = rare.itemKey;
+  input.roster[0].simCredits = 260;
+  input.roster[1].goalLoadouts.legend.headKey = ordinary.itemKey;
+  input.roster[1].simCredits = 20;
+  input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c',
+    catalog: [{ itemId: tree._id, mode: 'sell', priceCredits: 800 }] }];
+  refresh(input);
+  const result = plan(input);
+  assert.ok([...result.movementPlans.values()].every(move => move.targetZoneId !== 'c'),
+    'The leader fallback must not send a gathered squad to an order it cannot pay.');
+});
+
+function individualMove(input, actor = input.roster[1]) {
+  return chooseAiMoveTargets({ actor, craftGoal: getActorGrowthCraftGoal(actor, input.state.publicItems),
+    upgradeNeed: computeLateGameUpgradeNeed(actor, input.state.itemMetaById, input.state.itemNameById,
+      input.state.nextDay, input.state.nextPhase, input.state.ruleset),
+    mapObj: input.state.mapObj, kiosks: input.state.kiosks, publicItems: input.state.publicItems,
+    forbiddenIds: input.state.forbiddenIds, spawnState: input.state.nextSpawn,
+    day: input.state.nextDay, phase: input.state.nextPhase, ruleset: input.state.ruleset });
+}
+
+function authoredMaterialFixture() {
+  const input = fixture();
+  const material = { _id: 'purchase-authored-alloy', name: '정제 합금', type: '재료', tier: 4 };
+  const target = { ...rare, name: '합금 모자', recipe: { ...rare.recipe,
+    ingredients: [{ itemId: hero._id, qty: 1 }, { itemId: material._id, qty: 1 }] } };
+  refresh(input, [...items.filter(item => ![tree._id, rare._id].includes(item._id)), material, target]);
+  input.roster[1].simCredits = 78;
+  input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c', catalog: [
+    { itemId: { _id: material._id }, mode: 'sell', priceCredits: 75 },
+  ] }];
+  return { ...input, material, target };
+}
+
+check('an exact authored material order guides squad travel and real crafting without a special material name', () => {
+  for (const reverse of [false, true]) {
+    const input = authoredMaterialFixture(), buyer = input.roster[1], random = createSeedRng('kiosk:authored:material');
+    if (reverse) input.roster.reverse();
+    const before = structuredClone({ roster: input.roster, shops: input.state.kiosks, spawn: input.state.nextSpawn });
+    const result = withSimulationRandom(() => { throw Error('Exact authored material planning cannot draw RNG.'); }, () => plan(input));
+    assert.equal(result.movementPlans.size, 3);
+    assert.ok([...result.movementPlans.values()].every(move => move.targetZoneId === 'c' && /^팀 제작 구매:/.test(move.sourceReason)));
+    assert.ok([...result.movementPlans.values()].every(move => /정제 합금.*crafter의 합금 모자/.test(move.sourceReason)));
+    assert.deepEqual({ roster: input.roster, shops: input.state.kiosks, spawn: input.state.nextSpawn }, before);
+    const arrived = tick(input, random);
+    assert.ok(arrived.updatedSurvivors.every(actor => actor.zoneId === 'c'));
+    assert.equal(arrived.events.filter(event => event.kind === 'procurement').length, 0);
+    assert.equal(arrived.updatedSurvivors.find(actor => actor._id === buyer._id).simCredits, 78);
+    input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
+    const paid = tick(input, random), paidBuyer = paid.updatedSurvivors.find(actor => actor._id === buyer._id);
+    // Ordinary material receipts retain the existing optional loot-craft roll.
+    // This seed defers it, so follow the real later inventory-craft action.
+    assert.equal(paidBuyer.simCredits, 3); assert.equal(paidBuyer.equipped.head, hero._id);
+    assert.equal(invQty(paidBuyer.inventory, hero._id), 1); assert.equal(invQty(paidBuyer.inventory, input.material._id), 1);
+    const receipts = paid.events.filter(event => event.kind === 'procurement' && event.who === buyer._id);
+    assert.equal(receipts.length, 1); assert.equal(receipts[0].itemId, input.material._id); assert.equal(receipts[0].paidCost, 75);
+    assert.equal(receipts[0].beforeCredits, 78); assert.equal(receipts[0].afterCredits, 3);
+    assert.ok(paid.updatedSurvivors.filter(actor => actor._id !== buyer._id).every(actor => actor.simCredits === 20));
+    const model = buildTeamObserverModel({ teamId: 'team:1', publicItems: input.state.publicItems,
+      survivors: JSON.parse(JSON.stringify(paid.updatedSurvivors)), events: JSON.parse(JSON.stringify([...arrived.events, ...paid.events])),
+      spawnState: input.state.nextSpawn, forbiddenIds: [], day: 3, phase: 'morning', matchSec: 540,
+      settings: { rulesetId: 'ER_S11', simulationRuleset: input.state.ruleset } });
+    const observed = model.members.find(actor => actor.id === buyer._id).procurement;
+    assert.equal(observed.matchedChoice, true); assert.equal(observed.actionKey, receipts[0].actionKey);
+    assert.match(observed.result, /정제 합금.*75Cr/);
+    const events = [...arrived.events, ...paid.events]; input.roster = paid.updatedSurvivors;
+    for (const sec of [580, 620, 660]) {
+      input.state.currentActionSec = () => sec;
+      const next = tick(input, random); input.roster = next.updatedSurvivors; events.push(...next.events);
+    }
+    const after = input.roster.find(actor => actor._id === buyer._id);
+    assert.equal(after.equipped.head, input.target._id); assert.equal(after.simCredits, 0);
+    assert.equal(invQty(after.inventory, hero._id), 0); assert.equal(invQty(after.inventory, input.material._id), 0);
+    const crafted = events.find(event => event.kind === 'craft' && event.who === buyer._id);
+    assert.equal(crafted.itemId, input.target._id); assert.equal(crafted.paidCost, 3);
+    assert.deepEqual(crafted.consumed.map(row => [row.itemId, row.qty]), [[hero._id, 1], [input.material._id, 1]]);
+    assert.equal(events.filter(event => event.kind === 'procurement' && event.who === buyer._id).length, 1);
+    console.log(`AUTHORED_MATERIAL_WITNESS ${JSON.stringify({ reverse, paidCost: receipts[0].paidCost,
+      recipeCost: 3, equippedId: after.equipped.head, remainingCredits: after.simCredits, observed: observed.matchedChoice })}`);
+  }
+});
+
+check('a solo crafter follows the exact authored material quote through actual travel and paid completion', () => {
+  const input = authoredMaterialFixture(), buyer = input.roster[1], random = createSeedRng('kiosk:authored:material');
+  input.roster = [buyer]; input.state.isSoloMatch = true;
+  const before = structuredClone(input.roster);
+  const move = withSimulationRandom(() => { throw Error('An exact solo quote cannot draw RNG.'); }, () => individualMove(input, buyer));
+  assert.deepEqual(move.targets, ['c']); assert.equal(move.reason, '키오스크 조달 검토');
+  assert.deepEqual(input.roster, before); assert.equal(purchasePlans(input).length, 0);
+  const events = [];
+  for (const sec of [500, 540, 580, 620, 660]) {
+    input.state.currentActionSec = () => sec;
+    const next = tick(input, random); input.roster = next.updatedSurvivors; events.push(...next.events);
+    if (sec === 500) {
+      assert.equal(input.roster[0].zoneId, 'c'); assert.equal(input.roster[0].simCredits, 78);
+      assert.equal(events.filter(event => event.kind === 'procurement').length, 0);
+    }
+    if (input.roster[0].equipped.head === input.target._id) break;
+  }
+  assert.equal(input.roster[0].equipped.head, input.target._id); assert.equal(input.roster[0].simCredits, 0);
+  const receipts = events.filter(event => event.kind === 'procurement');
+  assert.equal(receipts.length, 1); assert.equal(receipts[0].itemId, input.material._id); assert.equal(receipts[0].paidCost, 75);
+  assert.ok(events.some(event => event.kind === 'craft' && event.paidCost === 3));
+});
+
+check('a custom material with an obtainable field source keeps farming ahead of kiosk travel', () => {
+  const input = authoredMaterialFixture();
+  refresh(input, input.state.publicItems.map(item => item._id === input.material._id ? { ...item, tier: 1, spawnZones: ['b'] } : item));
+  assert.deepEqual(input.roster[1]._growthPlan.missing[0].zones, ['b']);
+  assert.equal(purchasePlans(input).length, 0); assert.deepEqual(individualMove(input).targets, ['b']);
+});
+
+check('custom materials require exact authored stock and never appear in default or unrelated catalogues', () => {
+  for (const scenario of ['default', 'filtered_empty', 'wrong_id', 'wrong_map', 'refund_only']) {
+    const input = authoredMaterialFixture();
+    if (scenario === 'default') input.state.kiosks = [];
+    if (scenario === 'filtered_empty') Object.assign(input.state.kiosks[0], { catalog: [], hasCustomCatalog: true });
+    if (scenario === 'wrong_id') {
+      const other = { ...input.material, _id: 'same-name-other-id' };
+      refresh(input, [...input.state.publicItems, other]);
+      input.state.kiosks[0].catalog[0].itemId = { ...other };
+    }
+    if (scenario === 'wrong_map') input.state.kiosks[0].mapId = 'other-map';
+    if (scenario === 'refund_only') input.state.kiosks[0].catalog[0].mode = 'buy';
+    const before = structuredClone({ roster: input.roster, shops: input.state.kiosks });
+    assert.equal(purchasePlans(input).length, 0, scenario);
+    assert.ok(!individualMove(input).targets.includes('c'), scenario);
+    assert.deepEqual({ roster: input.roster, shops: input.state.kiosks }, before);
+  }
+});
+
+check('authored materials retain recipe fees, receiving capacity, world time and squad safety gates', () => {
+  for (const scenario of ['recipe_fee', 'capacity', 'too_early', 'forbidden', 'disconnected', 'danger', 'recovery', 'opening']) {
+    const input = authoredMaterialFixture();
+    if (scenario === 'recipe_fee') input.roster[1].simCredits = 77;
+    if (scenario === 'capacity') input.state.ruleset.inventory = { ...input.state.ruleset.inventory, maxSlots: 1, autoDropLowValue: false };
+    if (scenario === 'too_early') { input.state.nextDay = 1; input.state.nextPhase = 'morning'; }
+    if (scenario === 'forbidden') input.state.forbiddenIds.add('c');
+    if (scenario === 'disconnected') input.state.zoneGraph.a = ['b'];
+    if (scenario === 'danger') for (let i = 0; i < 5; i++) input.roster.push({ ...structuredClone(input.roster[0]),
+      _id: `alloy-enemy-${i}`, teamId: 'enemy', zoneId: 'c' });
+    if (scenario === 'recovery') input.roster[1].hp = 15;
+    if (scenario === 'opening') input.roster[0]._growthPlan.openingComplete = false;
+    assert.equal(purchasePlans(input).length, 0, scenario);
+    if (['recipe_fee', 'capacity', 'too_early', 'forbidden'].includes(scenario)) {
+      assert.ok(!individualMove(input).targets.includes('c'), scenario);
+    }
+  }
+});
+
+check('a custom material exchange consumes surplus while preserving the worn recipe base and its fee', () => {
+  for (const giveBase of [false, true]) {
+    const input = authoredMaterialFixture(), buyer = input.roster[1]; buyer.simCredits = 3;
+    buyer.inventory.push({ ...cloth, itemId: cloth._id, qty: 1 }); refresh(input);
+    input.state.kiosks[0].catalog = [{ itemId: { _id: input.material._id }, mode: 'exchange',
+      exchange: { giveItemId: giveBase ? hero._id : { _id: cloth._id }, giveQty: 1 } }];
+    const plans = [...plan(input).movementPlans.values()].filter(move => /^팀 제작 교환:/.test(move.sourceReason));
+    if (giveBase) { assert.equal(plans.length, 0); assert.ok(!individualMove(input).targets.includes('c')); continue; }
+    assert.equal(plans.length, 3); assert.deepEqual(individualMove(input).targets, ['c']);
+    const random = createSeedRng('kiosk:recipe:ordered:0'), arrived = tick(input, random);
+    assert.equal(arrived.events.filter(event => event.kind === 'procurement').length, 0);
+    input.roster = arrived.updatedSurvivors; const events = [];
+    for (const sec of [540, 580, 620, 660]) {
+      input.state.currentActionSec = () => sec;
+      const next = tick(input, random); input.roster = next.updatedSurvivors; events.push(...next.events);
+      if (input.roster.find(actor => actor._id === buyer._id).equipped.head === input.target._id) break;
+    }
+    const after = input.roster.find(actor => actor._id === buyer._id);
+    assert.equal(after.equipped.head, input.target._id); assert.equal(after.simCredits, 0);
+    const receipts = events.filter(event => event.kind === 'procurement' && event.who === buyer._id);
+    assert.equal(receipts.length, 1); assert.equal(receipts[0].actionType, 'kioskExchange'); assert.equal(receipts[0].paidCost, 0);
+    assert.deepEqual(receipts[0].consumed.map(row => [row.itemId, row.qty]), [[cloth._id, 1]]);
+    assert.ok(events.some(event => event.kind === 'craft' && event.who === buyer._id && event.paidCost === 3));
+  }
+});
+
+check('authored material plans are invalidated when stock or buyer funds disappear during real travel', () => {
+  for (const scenario of ['stock_removed', 'funds_lost']) {
+    const input = authoredMaterialFixture(), arrived = tick(input, createSeedRng('kiosk:authored:material'));
+    assert.ok(arrived.updatedSurvivors.every(actor => actor.zoneId === 'c'));
+    assert.equal(arrived.events.filter(event => event.kind === 'procurement').length, 0);
+    input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
+    const buyer = input.roster.find(actor => actor._id === 'crafter');
+    if (scenario === 'stock_removed') Object.assign(input.state.kiosks[0], { catalog: [], hasCustomCatalog: true });
+    else buyer.simCredits = 0;
+    assert.equal(purchasePlans(input).length, 0); assert.ok(!individualMove(input, buyer).targets.includes('c'));
+    const next = tick(input, createSeedRng('kiosk:authored:material')), after = next.updatedSurvivors.find(actor => actor._id === buyer._id);
+    assert.equal(invQty(after.inventory, input.material._id), 0); assert.equal(invQty(after.inventory, input.target._id), 0);
+    assert.equal(invQty(after.inventory, hero._id), 1); assert.equal(after.simCredits, scenario === 'funds_lost' ? 0 : 78);
+    assert.ok(next.events.filter(event => event.who === buyer._id).every(event => event.kind !== 'procurement' && event.kind !== 'craft'));
+  }
+});
+
+check('exact custom material IDs cannot bypass canonical food or kiosk water exclusions', () => {
+  for (const material of [
+    { name: '냉동피자', type: '재료' }, { name: '정제 합금', type: '재료', tags: ['food'] }, { name: '물', type: '재료' },
+  ]) {
+    const input = authoredMaterialFixture();
+    refresh(input, input.state.publicItems.map(item => item._id === input.material._id ? { ...item, ...material } : item));
+    input.state.kiosks[0].catalog[0].itemId = { _id: input.material._id, name: '정제 합금', type: '재료' };
+    const before = structuredClone(input.roster);
+    assert.equal(purchasePlans(input).length, 0, material.name); assert.ok(!individualMove(input).targets.includes('c'), material.name);
+    assert.deepEqual(input.roster, before);
+  }
+});
+
+function travelingKioskFixture(named = false) {
+  const input = named ? { ...fixture(), material: tree, target: rare } : authoredMaterialFixture();
+  const buyer = input.roster.find(actor => actor._id === 'crafter'); buyer.simCredits = 78;
+  input.roster = [buyer]; input.state.isSoloMatch = true;
+  input.state.mapObj.zones.push({ zoneId: 'd', name: 'd', hasKiosk: true });
+  input.state.zoneGraph = { a: ['b'], b: ['a', 'c', 'd'], c: ['b'], d: ['b'] };
+  input.state.kiosks = ['c', 'd'].map(zoneId => ({ mapId: input.state.mapObj._id, zoneId,
+    catalog: [{ itemId: { _id: input.material._id }, mode: 'sell', priceCredits: zoneId === 'c' ? 75 : 800 }] }));
+  refresh(input); return input;
+}
+
+function rememberMovement(input, aiMove = individualMove(input, input.roster[0]), extra = {}) {
+  return resolveActorMoveTargetMemory({ state: { actor: input.roster[0], aiMove,
+    currentZone: input.roster[0].zoneId, day: input.state.nextDay, phase: input.state.nextPhase,
+    forbiddenIds: input.state.forbiddenIds, ruleset: input.state.ruleset, spawnState: input.state.nextSpawn,
+    publicItems: input.state.publicItems, roster: input.roster, nowSec: input.state.currentActionSec(), ...extra } });
+}
+
+check('a fresh payable shop replaces stale kiosk travel memory and really pays and crafts after rerouting', () => {
+  for (const named of [false, true]) for (const restored of [false, true]) {
+    const input = travelingKioskFixture(named), random = createSeedRng('kiosk:authored:material');
+    const first = tick(input, random); input.roster = first.updatedSurvivors;
+    assert.equal(input.roster[0].zoneId, 'b'); assert.equal(input.roster[0].aiTargetZoneId, 'c');
+    assert.ok(input.roster[0].aiTargetTTL > 0); assert.equal(first.events.filter(event => event.kind === 'procurement').length, 0);
+    if (restored) {
+      const frame = createSimulationFrame({ day: 3, phase: 'morning', matchSec: 500, survivors: input.roster,
+        spawnState: input.state.nextSpawn, forbiddenIds: input.state.forbiddenIds, mapId: input.state.mapObj._id });
+      input.roster = JSON.parse(JSON.stringify(frame)).survivors;
+    }
+    input.state.kiosks[0].catalog[0].priceCredits = 800; input.state.kiosks[1].catalog[0].priceCredits = 75;
+    assert.deepEqual(individualMove(input, input.roster[0]).targets, ['d']);
+    input.state.currentActionSec = () => 540;
+    const redirected = tick(input, random); input.roster = redirected.updatedSurvivors;
+    assert.equal(input.roster[0].aiTargetZoneId, 'd', 'Fresh payable stock must replace the stale saved destination before TTL expiry.');
+    assert.equal(input.roster[0].zoneId, 'd'); assert.equal(input.roster[0].simCredits, 78);
+    assert.equal(redirected.events.filter(event => event.kind === 'procurement').length, 0);
+    assert.ok(redirected.events.some(event => event.kind === 'move' && event.from === 'b' && event.to === 'd'));
+    const events = [...first.events, ...redirected.events];
+    for (const sec of [580, 620, 660, 700]) {
+      input.state.currentActionSec = () => sec;
+      const next = tick(input, random); input.roster = next.updatedSurvivors; events.push(...next.events);
+      if (input.roster[0].equipped.head === input.target._id) break;
+    }
+    assert.equal(input.roster[0].equipped.head, input.target._id); assert.equal(input.roster[0].simCredits, 0);
+    const receipts = events.filter(event => event.kind === 'procurement');
+    assert.equal(receipts.length, 1); assert.equal(receipts[0].zoneId, 'd'); assert.equal(receipts[0].paidCost, 75);
+    assert.equal(receipts[0].itemId, input.material._id); assert.equal(receipts[0].beforeCredits, 78); assert.equal(receipts[0].afterCredits, 3);
+    assert.ok(events.some(event => event.kind === 'craft' && event.paidCost === 3));
+    const observer = buildTeamObserverModel({ teamId: 'team:1', publicItems: input.state.publicItems,
+      survivors: JSON.parse(JSON.stringify(input.roster)), events: JSON.parse(JSON.stringify(events)),
+      spawnState: input.state.nextSpawn, forbiddenIds: [], day: 3, phase: 'morning', matchSec: input.state.currentActionSec(),
+      settings: { rulesetId: 'ER_S11', simulationRuleset: input.state.ruleset } });
+    assert.equal(observer.members[0].procurement.matchedChoice, true);
+    assert.equal(observer.members[0].procurement.actionKey, receipts[0].actionKey);
+    console.log(`KIOSK_REQUOTE_WITNESS ${JSON.stringify({ named, restored, from: 'b', to: 'd', paidCost: receipts[0].paidCost,
+      recipeCost: 3, remainingCredits: input.roster[0].simCredits, equippedId: input.roster[0].equipped.head })}`);
+  }
+});
+
+check('a still-payable remembered kiosk retains its TTL and catalogue choice without extra RNG draws', () => {
+  const input = travelingKioskFixture(), random = createSeedRng('kiosk:authored:material');
+  input.roster = tick(input, random).updatedSurvivors;
+  input.state.kiosks[1].catalog[0].priceCredits = 60;
+  const ttl = input.roster[0].aiTargetTTL, before = structuredClone({ inventory: input.roster[0].inventory,
+    credits: input.roster[0].simCredits, shops: input.state.kiosks, spawn: input.state.nextSpawn });
+  const held = withSimulationRandom(() => { throw Error('A valid remembered quote cannot redraw its TTL.'); }, () => rememberMovement(input));
+  assert.equal(held.holdTarget, 'c'); assert.equal(held.actor.aiTargetTTL, ttl - 1); assert.equal(held.actor.aiTargetRequiresRequote, true);
+  assert.equal(held.moveReason, '키오스크 조달 검토:ttl'); assert.equal(held.moveObjective, null);
+  assert.deepEqual({ inventory: input.roster[0].inventory, credits: input.roster[0].simCredits,
+    shops: input.state.kiosks, spawn: input.state.nextSpawn }, before);
+});
+
+check('unavailable stock, funds, capacity, acquired ingredients, field sources and policy invalidate remembered kiosk needs', () => {
+  for (const scenario of ['stock', 'funds', 'capacity', 'owned', 'field', 'food', 'water', 'forbidden', 'too_early']) {
+    const input = travelingKioskFixture(), random = createSeedRng('kiosk:authored:material');
+    input.roster = tick(input, random).updatedSurvivors; const buyer = input.roster[0];
+    if (scenario === 'stock') Object.assign(input.state.kiosks[0], { catalog: [], hasCustomCatalog: true });
+    if (scenario === 'funds') buyer.simCredits = 0;
+    if (scenario === 'capacity') input.state.ruleset.inventory = { ...input.state.ruleset.inventory, maxSlots: 1, autoDropLowValue: false };
+    if (scenario === 'owned') buyer.inventory.push({ ...input.material, itemId: input.material._id, qty: 1 });
+    if (['field', 'food', 'water'].includes(scenario)) refresh(input, input.state.publicItems.map(item => item._id !== input.material._id ? item
+      : { ...item, ...(scenario === 'field' ? { tier: 1, spawnZones: ['b'] } : scenario === 'food' ? { tags: ['food'] } : { name: '물' }) }));
+    if (scenario === 'forbidden') input.state.forbiddenIds.add('c');
+    if (scenario === 'too_early') { input.state.nextDay = 1; input.state.nextPhase = 'morning'; }
+    refreshActorGrowthPlan(buyer, input.state.publicItems, input.state);
+    const before = structuredClone({ inventory: buyer.inventory, credits: buyer.simCredits,
+      shops: input.state.kiosks, spawn: input.state.nextSpawn });
+    const next = withSimulationRandom(random, () => rememberMovement(input));
+    assert.notEqual(next.holdTarget, 'c', scenario); assert.ok(!next.moveTargets.includes('c'), scenario);
+    assert.notEqual(next.actor.aiTargetRequiresRequote, true, scenario);
+    assert.deepEqual({ inventory: buyer.inventory, credits: buyer.simCredits, shops: input.state.kiosks, spawn: input.state.nextSpawn }, before);
+  }
+});
+
+check('an exchange input lost in transit clears the remembered kiosk order without consuming the recipe base', () => {
+  const input = travelingKioskFixture(), buyer = input.roster[0], random = createSeedRng('kiosk:authored:material');
+  buyer.simCredits = 3; buyer.inventory.push({ ...cloth, itemId: cloth._id, qty: 1 }); refresh(input);
+  input.state.kiosks[0].catalog = [{ itemId: input.material._id, mode: 'exchange', exchange: { giveItemId: cloth._id, giveQty: 1 } }];
+  input.roster = tick(input, random).updatedSurvivors;
+  assert.equal(input.roster[0].zoneId, 'b'); assert.equal(input.roster[0].aiTargetZoneId, 'c');
+  input.roster[0].inventory = input.roster[0].inventory.filter(entry => entry.itemId !== cloth._id);
+  const before = structuredClone(input.roster[0].inventory);
+  const next = withSimulationRandom(random, () => rememberMovement(input));
+  assert.notEqual(next.holdTarget, 'c'); assert.notEqual(next.actor.aiTargetRequiresRequote, true);
+  assert.equal(next.actor.simCredits, 3); assert.deepEqual(next.actor.inventory, before);
+  assert.equal(invQty(next.actor.inventory, hero._id), 1); assert.equal(invQty(next.actor.inventory, input.material._id), 0);
+});
+
+check('a generic remembered route does not acquire a fresh kiosk revalidation marker or label', () => {
+  const input = travelingKioskFixture(), random = createSeedRng('kiosk:authored:material');
+  const first = withSimulationRandom(random, () => rememberMovement(input, { targets: ['b'], reason: 'wander' }));
+  input.roster = [first.actor];
+  const held = withSimulationRandom(() => { throw Error('Generic TTL holding cannot redraw RNG.'); }, () => rememberMovement(input));
+  assert.equal(held.holdTarget, 'b'); assert.equal(held.moveReason, 'wander:ttl');
+  assert.ok(!Object.hasOwn(held.actor, 'aiTargetRequiresRequote')); assert.equal(held.moveObjective, null);
+});
+
+check('kiosk revalidation memory is cleared on escape, arrival, regrouping, death and recovery retargeting', () => {
+  const input = travelingKioskFixture(), random = createSeedRng('kiosk:authored:material');
+  input.roster = tick(input, random).updatedSurvivors;
+  const traveling = structuredClone(input.roster[0]); assert.equal(traveling.aiTargetRequiresRequote, true);
+  const escaped = rememberMovement({ ...input, roster: [structuredClone(traveling)] }, undefined, { mustEscape: true });
+  assert.equal(escaped.holdTarget, null); assert.ok(!Object.hasOwn(escaped.actor, 'aiTargetRequiresRequote'));
+  const arrived = rememberMovement({ ...input, roster: [{ ...structuredClone(traveling), zoneId: 'c' }] }, { targets: [], reason: '' });
+  assert.equal(arrived.holdTarget, null); assert.ok(!Object.hasOwn(arrived.actor, 'aiTargetRequiresRequote'));
+  const dead = clearRuntimeCombatFields(structuredClone(traveling));
+  assert.ok(!Object.hasOwn(dead, 'aiTargetRequiresRequote')); assert.equal(dead.aiTargetTTL, 0);
+  const recovering = applyAiRecoveryWindow(structuredClone(traveling), 540, { retargetZoneId: 'a', retargetTtl: 2, reason: 'pvp:recover' });
+  assert.ok(!Object.hasOwn(recovering, 'aiTargetRequiresRequote')); assert.equal(recovering.aiTargetZoneId, 'a');
+  const retained = withSimulationRandom(() => { throw Error('Recovery retarget TTL must remain valid.'); },
+    () => rememberMovement({ ...input, roster: [recovering] }));
+  assert.equal(retained.holdTarget, 'a'); assert.equal(retained.moveReason, 'pvp:recover:ttl');
+  input.roster.push(...fixture().roster.filter(actor => actor._id !== 'crafter').map(actor => ({ ...actor, zoneId: 'b' })));
+  input.state.isSoloMatch = false; input.state.currentActionSec = () => 540;
+  const regrouped = tick(input, random);
+  assert.ok(regrouped.events.some(event => event.kind === 'team_decision'));
+  assert.ok(regrouped.updatedSurvivors.every(actor => !Object.hasOwn(actor, 'aiTargetRequiresRequote')));
+});
+
+check('an earlier affordable price that spends the recipe fee cannot hide a later completable order', () => {
+  for (const reverse of [false, true]) {
+    for (const discount of [0, 0.5]) {
+      const input = fixture(), buyer = input.roster[1]; const recipeRandom = createSeedRng('kiosk:recipe:ordered:0'); buyer.simCredits = 78;
+      if (discount) buyer._perkRuntime = { kioskDiscountPct: discount };
+      input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c', catalog: [
+        { itemId: tree._id, mode: 'sell', priceCredits: discount ? 156 : 78 },
+        { itemId: { _id: tree._id }, mode: 'sell', priceCredits: discount ? 150 : 75 },
+      ] }];
+      if (reverse) input.roster.reverse();
+      const before = structuredClone({ roster: input.roster, shops: input.state.kiosks, spawn: input.state.nextSpawn });
+      const quote = withSimulationRandom(() => { throw new Error('Recipe-aware quotes cannot draw RNG.'); },
+        () => rollKioskInteraction(input.state.mapObj, 'c', input.state.kiosks, input.state.publicItems, 3, 'morning',
+          buyer, getActorGrowthCraftGoal(buyer, input.state.publicItems), input.state.itemNameById,
+          input.state.ruleset.market, input.state.ruleset));
+      assert.equal(quote?.kind, 'buy'); assert.equal(quote.cost, 75);
+      assert.equal(purchasePlans(input).length, 3);
+      assert.deepEqual(individualMove(input, buyer).targets, ['c']);
+      assert.deepEqual({ roster: input.roster, shops: input.state.kiosks, spawn: input.state.nextSpawn }, before);
+      const arrived = tick(input, recipeRandom);
+      assert.ok(arrived.updatedSurvivors.every(actor => actor.zoneId === 'c'));
+      assert.equal(arrived.events.filter(event => event.kind === 'procurement').length, 0);
+      input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
+      const paid = tick(input, recipeRandom), after = paid.updatedSurvivors.find(actor => actor._id === 'crafter');
+      assert.equal(after.equipped.head, rare._id); assert.equal(after.simCredits, 0);
+      assert.equal(invQty(after.inventory, hero._id), 0); assert.equal(invQty(after.inventory, tree._id), 0);
+      const receipts = paid.events.filter(event => event.kind === 'procurement' && event.who === 'crafter');
+      assert.equal(receipts.length, 1); assert.equal(receipts[0].paidCost, 75);
+      assert.equal(receipts[0].beforeCredits, 78); assert.equal(receipts[0].afterCredits, 3);
+      assert.ok(paid.events.some(event => event.kind === 'craft' && event.who === 'crafter'));
+      assert.ok(paid.updatedSurvivors.filter(actor => actor._id !== 'crafter').every(actor => actor.simCredits === 20));
+      const model = buildTeamObserverModel({ teamId: 'team:1', publicItems: input.state.publicItems,
+        survivors: JSON.parse(JSON.stringify(paid.updatedSurvivors)), events: JSON.parse(JSON.stringify([...arrived.events, ...paid.events])),
+        spawnState: input.state.nextSpawn, forbiddenIds: [], day: 3, phase: 'morning', matchSec: 540,
+        settings: { rulesetId: 'ER_S11', simulationRuleset: input.state.ruleset } });
+      const receipt = model.members.find(actor => actor.id === 'crafter').procurement;
+      assert.equal(receipt.matchedChoice, true); assert.equal(receipt.actionKey, receipts[0].actionKey);
+      console.log(`RECIPE_AWARE_KIOSK_WITNESS ${JSON.stringify({ reverse, discount, chosenCost: quote.cost,
+        paidCost: receipts[0].paidCost, recipeCost: 3, remainingCredits: after.simCredits, equippedId: after.equipped.head })}`);
+    }
+  }
+});
+
+check('a recipe-destroying exchange cannot hide the next safe sale for shared and individual travel', () => {
+  const input = fixture(), buyer = input.roster[1]; const recipeRandom = createSeedRng('kiosk:recipe:ordered:1'); buyer.simCredits = 78;
+  input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c', catalog: [
+    { itemId: tree._id, mode: 'exchange', exchange: { giveItemId: hero._id, giveQty: 1 } },
+    { itemId: tree._id, mode: 'sell', priceCredits: 75 },
+  ] }];
+  const before = structuredClone({ actor: buyer, shops: input.state.kiosks });
+  const quote = rollKioskInteraction(input.state.mapObj, 'c', input.state.kiosks, input.state.publicItems, 3, 'morning',
+    buyer, getActorGrowthCraftGoal(buyer, input.state.publicItems), input.state.itemNameById, input.state.ruleset.market, input.state.ruleset);
+  assert.equal(quote?.kind, 'buy'); assert.equal(quote.cost, 75);
+  assert.equal(purchasePlans(input).length, 3); assert.deepEqual(individualMove(input, buyer).targets, ['c']);
+  assert.deepEqual({ actor: buyer, shops: input.state.kiosks }, before);
+  const arrived = tick(input, recipeRandom); input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
+  assert.ok(input.roster.every(actor => actor.zoneId === 'c'));
+  const paid = tick(input, recipeRandom), after = paid.updatedSurvivors.find(actor => actor._id === 'crafter');
+  assert.equal(after.equipped.head, rare._id); assert.equal(after.simCredits, 0);
+  const receipt = paid.events.find(event => event.kind === 'procurement' && event.who === 'crafter');
+  assert.equal(receipt.actionType, 'kioskBuy'); assert.equal(receipt.paidCost, 75); assert.deepEqual(receipt.consumed, []);
+  assert.equal(invQty(after.inventory, hero._id), 0); assert.equal(invQty(after.inventory, tree._id), 0);
+});
+
+check('a buy that cannot fit does not hide a later exchange that frees the needed inventory slot', () => {
+  const input = fixture(), buyer = input.roster[1]; const recipeRandom = createSeedRng('kiosk:recipe:ordered:2'); buyer.simCredits = 78;
+  buyer.inventory.push({ ...cloth, itemId: cloth._id, qty: 1 });
+  Object.assign(input.state.ruleset.inventory, { maxSlots: 2, autoDropLowValue: false });
+  input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c', catalog: [
+    { itemId: tree._id, mode: 'sell', priceCredits: 75 },
+    { itemId: tree._id, mode: 'exchange', exchange: { giveItemId: cloth._id, giveQty: 1 } },
+  ] }];
+  refreshActorGrowthPlan(buyer, input.state.publicItems, input.state);
+  const quote = rollKioskInteraction(input.state.mapObj, 'c', input.state.kiosks, input.state.publicItems, 3, 'morning',
+    buyer, getActorGrowthCraftGoal(buyer, input.state.publicItems), input.state.itemNameById, input.state.ruleset.market, input.state.ruleset);
+  assert.equal(quote?.kind, 'exchange'); assert.deepEqual(quote.consume, [{ itemId: cloth._id, qty: 1 }]);
+  assert.ok([...plan(input).movementPlans.values()].every(move => /^팀 제작 교환:/.test(move.sourceReason)));
+  assert.deepEqual(individualMove(input, buyer).targets, ['c']);
+  const arrived = tick(input, recipeRandom); input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
+  assert.ok(input.roster.every(actor => actor.zoneId === 'c'));
+  const paid = tick(input, recipeRandom), after = paid.updatedSurvivors.find(actor => actor._id === 'crafter');
+  assert.equal(after.equipped.head, rare._id); assert.equal(after.simCredits, 75);
+  for (const item of [hero, tree, cloth]) assert.equal(invQty(after.inventory, item._id), 0);
+  const receipt = paid.events.find(event => event.kind === 'procurement' && event.who === 'crafter');
+  assert.equal(receipt.actionType, 'kioskExchange'); assert.equal(receipt.paidCost, 0);
+});
+
+check('later goal offers preserve every remaining recipe fee in a real multi-stage craft', () => {
+  const input = fixture(), buyer = input.roster[1]; const recipeRandom = createSeedRng('kiosk:recipe:ordered:3'); buyer.simCredits = 82;
+  const component = { _id: 'purchase-component', name: '생명 부품', type: '재료', tier: 4,
+    recipe: { ingredients: [{ itemId: hero._id, qty: 1 }, { itemId: tree._id, qty: 1 }], resultQty: 1, creditsCost: 4 } };
+  const target = { ...rare, recipe: { ingredients: [{ itemId: component._id, qty: 1 }], resultQty: 1, creditsCost: 3 } };
+  refresh(input, [...items.filter(item => item._id !== rare._id), component, target]);
+  input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c', catalog: [
+    { itemId: tree._id, mode: 'sell', priceCredits: 78 },
+    { itemId: tree._id, mode: 'sell', priceCredits: 75 },
+  ] }];
+  assert.equal(buyer._growthPlan.plannedCredits, 7);
+  const quote = rollKioskInteraction(input.state.mapObj, 'c', input.state.kiosks, input.state.publicItems, 3, 'morning',
+    buyer, getActorGrowthCraftGoal(buyer, input.state.publicItems), input.state.itemNameById, input.state.ruleset.market, input.state.ruleset);
+  assert.equal(quote?.cost, 75); assert.equal(purchasePlans(input).length, 3);
+  const arrived = tick(input, recipeRandom); input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
+  const paid = tick(input, recipeRandom);
+  const receipt = paid.events.find(event => event.kind === 'procurement' && event.who === 'crafter');
+  assert.equal(receipt.paidCost, 75); assert.equal(receipt.afterCredits, 7);
+  const subsequentEvents = [];
+  input.roster = paid.updatedSurvivors;
+  for (const sec of [580, 620, 660, 700]) {
+    if (input.roster.find(actor => actor._id === 'crafter').equipped.head === rare._id) break;
+    input.state.currentActionSec = () => sec;
+    const result = tick(input, recipeRandom); input.roster = result.updatedSurvivors; subsequentEvents.push(...result.events);
+  }
+  const after = input.roster.find(actor => actor._id === 'crafter');
+  assert.equal(after.equipped.head, rare._id); assert.equal(after.simCredits, 0);
+  for (const item of [hero, tree, component]) assert.equal(invQty(after.inventory, item._id), 0);
+  assert.equal([...paid.events, ...subsequentEvents].filter(event => event.kind === 'procurement' && event.who === 'crafter').length, 1);
+  assert.equal([...paid.events, ...subsequentEvents].filter(event => event.kind === 'craft' && event.who === 'crafter').length, 2);
+});
+
+check('rejected exact recipe trades cannot return through random catalogue fallback', () => {
+  for (const random of [0, 0.5, 0.999]) {
+    const input = fixture(), buyer = input.roster[1]; buyer.simCredits = 78;
+    input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c', catalog: [
+      { itemId: tree._id, mode: 'sell', priceCredits: 78 },
+      { itemId: tree._id, mode: 'exchange', exchange: { giveItemId: hero._id, giveQty: 1 } },
+    ] }];
+    const before = structuredClone({ actor: buyer, shops: input.state.kiosks });
+    const quote = withSimulationRandom(() => random, () => rollKioskInteraction(input.state.mapObj, 'c', input.state.kiosks,
+      input.state.publicItems, 3, 'morning', buyer, getActorGrowthCraftGoal(buyer, input.state.publicItems),
+      input.state.itemNameById, input.state.ruleset.market, input.state.ruleset));
+    assert.equal(quote, null); assert.equal(purchasePlans(input).length, 0);
+    assert.deepEqual({ actor: buyer, shops: input.state.kiosks }, before);
+  }
+});
+
+check('catalogue order still prefers an earlier useful order over a cheaper later one', () => {
+  const input = fixture(), buyer = input.roster[1]; const recipeRandom = createSeedRng('kiosk:recipe:ordered:5'); buyer.simCredits = 81;
+  input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c', catalog: [
+    { itemId: tree._id, mode: 'sell', priceCredits: 78 },
+    { itemId: tree._id, mode: 'sell', priceCredits: 75 },
+  ] }];
+  const quote = rollKioskInteraction(input.state.mapObj, 'c', input.state.kiosks, input.state.publicItems, 3, 'morning',
+    buyer, getActorGrowthCraftGoal(buyer, input.state.publicItems), input.state.itemNameById, input.state.ruleset.market, input.state.ruleset);
+  assert.equal(quote?.cost, 78); assert.equal(purchasePlans(input).length, 3);
+  const arrived = tick(input, recipeRandom); input.roster = arrived.updatedSurvivors; input.state.currentActionSec = () => 540;
+  const paid = tick(input, recipeRandom), after = paid.updatedSurvivors.find(actor => actor._id === 'crafter');
+  assert.equal(paid.events.find(event => event.kind === 'procurement' && event.who === 'crafter').paidCost, 78);
+  assert.equal(after.equipped.head, rare._id); assert.equal(after.simCredits, 0);
+});
+
+check('individual travel uses the real cheap catalog price, pays once, and consumes the recipe without pooled credits', () => {
+  const input = fixture(); input.roster = [input.roster[1]]; input.state.isSoloMatch = true;
+  input.roster[0].simCredits = 78;
+  input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c',
+    catalog: [{ itemId: tree._id, mode: 'sell', priceCredits: 75 }] }];
+  refresh(input);
+  const before = structuredClone({ actor: input.roster[0], spawn: input.state.nextSpawn, shops: input.state.kiosks });
+  const choice = withSimulationRandom(() => { throw new Error('A concrete shop quote cannot use RNG.'); },
+    () => individualMove(input, input.roster[0]));
+  assert.deepEqual(choice.targets, ['c']); assert.match(choice.reason, /조달 검토/);
+  assert.deepEqual({ actor: input.roster[0], spawn: input.state.nextSpawn, shops: input.state.kiosks }, before);
+  const arrived = tick(input); input.roster = arrived.updatedSurvivors;
+  assert.equal(input.roster[0].zoneId, 'c'); assert.equal(input.roster[0].simCredits, 78);
+  assert.equal(arrived.events.filter(event => event.kind === 'procurement').length, 0);
+  input.state.currentActionSec = () => 540;
+  const paid = tick(input), actor = paid.updatedSurvivors[0];
+  assert.equal(actor.equipped.head, rare._id); assert.equal(actor.simCredits, 0);
+  assert.equal(invQty(actor.inventory, hero._id), 0); assert.equal(invQty(actor.inventory, tree._id), 0);
+  assert.equal(paid.events.filter(event => event.kind === 'procurement').length, 1);
+  assert.equal(paid.events.find(event => event.kind === 'procurement').paidCost, 75);
+});
+
+check('individual kiosk destinations exclude expensive, missing-stock, failed-exchange and full-bag orders', () => {
+  for (const scenario of ['price', 'recipe_credits', 'not_listed', 'missing_exchange', 'protected_bag']) {
+    const input = fixture(), actor = input.roster[1];
+    const row = { itemId: tree._id, mode: 'sell', priceCredits: scenario === 'price' ? 800 : 75 };
+    if (scenario === 'recipe_credits') actor.simCredits = 77;
+    if (scenario === 'not_listed') row.itemId = cloth._id;
+    if (scenario === 'missing_exchange') Object.assign(row, { mode: 'exchange', exchange: { giveItemId: cloth._id, giveQty: 1 } });
+    if (scenario === 'protected_bag') {
+      Object.assign(input.state.ruleset.inventory, { maxSlots: 1, autoDropLowValue: false });
+      actor.inventory[0].goalItem = true;
+    }
+    input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c', catalog: [row] }];
+    assert.ok(!individualMove(input).targets.includes('c'), scenario);
+  }
+});
+
+check('mixed kiosk prices, discounts and exchanges are quoted without admitting an unaffordable default shop', () => {
+  const input = fixture(), actor = input.roster[1]; actor.simCredits = 78;
+  input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'b',
+    catalog: [{ itemId: tree._id, mode: 'sell', priceCredits: 75 }] },
+  { mapId: input.state.mapObj._id, zoneId: 'c', catalog: [{ itemId: tree._id, mode: 'sell', priceCredits: 800 }] }];
+  assert.deepEqual(individualMove(input).targets, ['b']);
+  input.state.kiosks = [{ mapId: input.state.mapObj._id, zoneId: 'c',
+    catalog: [{ itemId: tree._id, mode: 'sell', priceCredits: 150 }] }];
+  actor._perkRuntime = { kioskDiscountPct: 0.5 };
+  assert.deepEqual(individualMove(input).targets, ['c']);
+  delete actor._perkRuntime; actor.simCredits = 3;
+  actor.inventory.push({ ...cloth, itemId: cloth._id, qty: 1 });
+  input.state.kiosks[0].catalog = [{ itemId: tree._id, mode: 'exchange',
+    exchange: { giveItemId: cloth._id, giveQty: 1 } }];
+  const before = structuredClone(actor), choice = individualMove(input);
+  assert.deepEqual(choice.targets, ['c']); assert.deepEqual(actor, before);
+  assert.match(describeObserverEvent({ kind: 'team_decision', reason: 'team_rotate',
+    sharedGoalReason: choice.reason, moved: false }), /조달 검토/);
+  input.state.kiosks[0].catalog[0].exchange.giveItemId = hero._id;
+  assert.ok(!individualMove(input).targets.includes('c'), 'An exchange cannot spend the required base gear.');
 });
 
 check('default VF purchases retain their time and legendary-readiness gates and pay the real transcend recipe', () => {
