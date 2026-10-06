@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "b81f2ae78b550a19625d4645e14c9bb073312c9e",
+  "engineVersion": "c6288b92b52c8c0acd9a346fa046cd2cd3b8ced16ef6219acd9c966e6a172ddf",
+  "scope": "Historical verification evidence only; not a runtime fixture, successful single full gate, public deployment, foreground performance measurement or human acceptance.",
+  "failedFullAttempt": {
+    "runId": "2026-10-06T12-35-37.680Z-81ea3387-8dcc-44d9-97b1-6499859db8f9",
+    "command": "npm run check:eternal-hunger",
+    "startedAt": "2026-10-06T12:35:37.687Z",
+    "finishedAt": "2026-10-06T13:12:50.334Z",
+    "exitCode": 1,
+    "sameEngine": true,
+    "functionalAndLintSequencePassed": true,
+    "failedStage": "production build",
+    "errorCode": "EPERM",
+    "operation": "mkdir",
+    "errorPath": "client/.next/server/app/srpg/[slug]/play",
+    "resultPath": "client/.verification-runs/2026-10-06T12-35-37.680Z-81ea3387-8dcc-44d9-97b1-6499859db8f9/result.json",
+    "resultSha256": "903e083bddef9c5b92c0a939065a6b3106945b5c1e3a6a58bd97b699f36aaf36",
+    "logPath": "client/.verification-runs/2026-10-06T12-35-37.680Z-81ea3387-8dcc-44d9-97b1-6499859db8f9/output.log",
+    "logSha256": "6d8dad501b029236abed6752f774aa069e349786997a7ebf6a23e64ea6cb649f"
+  },
+  "finalNightFixture": {
+    "inputOrigin": "fresh source-generated custom roster with explicit HP multiplier 2",
+    "worldAndCollarRulesChanged": false,
+    "framesBeforeTransition": 6201,
+    "framesAfterTransition": 398,
+    "grantedActors": 7,
+    "transitionAtSec": 1180,
+    "remainingBeforeSec": 30,
+    "remainingAfterSec": 45,
+    "onceOnlyGrantVerified": true,
+    "events": 18401,
+    "frames": 6599,
+    "naturalCombatEndingAtSec": 1254.666666,
+    "scope": "Explicit custom durability input, not default-roster balance evidence."
+  },
+  "independentBuildRecovery": {
+    "command": "cmd /d /c npm run build",
+    "cwd": "client",
+    "executionBoundary": "approved escalated execution",
+    "exitCode": 0,
+    "staticPages": 62,
+    "buildId": "GeRI7m7Ghyh8tY-oYKCta",
+    "engineUnchanged": true,
+    "sourceOrFixtureChangedForBuildFailure": false,
+    "scope": "Independent successful build; does not change the failed full attempt into success."
+  },
+  "singleFullChainPassedAtObservation": false,
+  "freshEscalatedRetryObservation": {
+    "observedAt": "2026-10-06T13:29:19Z",
+    "runId": "2026-10-06T13-17-13.057Z-71b4e95d-64c2-4d43-8978-d53d0c400d43",
+    "command": "npm run check:eternal-hunger",
+    "pid": 24632,
+    "statusAtObservation": "running",
+    "resultPath": "client/.verification-runs/2026-10-06T13-17-13.057Z-71b4e95d-64c2-4d43-8978-d53d0c400d43/result.json",
+    "scope": "Historical running observation only; use that run's terminal result for its final outcome."
+  },
+  "preservedTrackedChanges": [
+    {
+      "path": "client/scripts/check-observer-goals-match.mjs",
+      "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9"
+    },
+    {
+      "path": "server/index.js",
+      "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493"
+    },
+    {
+      "path": "server/.env.example",
+      "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3"
+    }
+  ],
+  "paidAiCalls": 0,
+  "operatingAccountWrites": 0,
+  "publicDeploymentPerformed": false,
+  "remainingGates": [
+    "Terminal success of the fresh single full chain",
+    "Foreground x32 and consecutive-match performance",
+    "Actual ER and custom AI draft quality",
+    "Authorized generated-draft account save/reopen and real match integration",
+    "Human follow-up evaluation",
+    "Authorized public release of the integrated local batch"
+  ]
+}

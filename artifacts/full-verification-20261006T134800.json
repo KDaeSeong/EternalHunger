@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "b81f2ae78b550a19625d4645e14c9bb073312c9e",
+  "scope": "Current client full verification chain and local production build only; not a runtime fixture, foreground performance, actual AI generation, public deployment, balance or human acceptance.",
+  "engineVersion": "c6288b92b52c8c0acd9a346fa046cd2cd3b8ced16ef6219acd9c966e6a172ddf",
+  "singleFullChainPassed": true,
+  "fullRun": {
+    "runId": "2026-10-06T13-17-13.057Z-71b4e95d-64c2-4d43-8978-d53d0c400d43",
+    "command": "npm run check:eternal-hunger",
+    "startedAt": "2026-10-06T13:17:13.063Z",
+    "pid": 24632,
+    "engineBefore": "c6288b92b52c8c0acd9a346fa046cd2cd3b8ced16ef6219acd9c966e6a172ddf",
+    "status": "passed",
+    "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+    "exitCode": 0,
+    "signal": null,
+    "engineAfter": "c6288b92b52c8c0acd9a346fa046cd2cd3b8ced16ef6219acd9c966e6a172ddf",
+    "sameEngine": true,
+    "finishedAt": "2026-10-06T13:48:00.496Z",
+    "launcher": "node scripts/run-eternal-hunger-verification.mjs full",
+    "cwd": "client",
+    "executionBoundary": "approved escalated execution",
+    "resultPath": "client/.verification-runs/2026-10-06T13-17-13.057Z-71b4e95d-64c2-4d43-8978-d53d0c400d43/result.json",
+    "resultSha256": "cd8da77a254b71199b3e50f012f5a75ea0cae7b51f321df033f8d421e7769eb9",
+    "logPath": "client/.verification-runs/2026-10-06T13-17-13.057Z-71b4e95d-64c2-4d43-8978-d53d0c400d43/output.log",
+    "logSha256": "e3eb889c1b37d6ea2217a0bdd910baa0b195e73b53578da87cfb39aaf107f281"
+  },
+  "previousAttempt": {
+    "evidence": "artifacts/full-verification-build-recovery-20261006T131250.json",
+    "fullAttemptExitCode": 1,
+    "failedStage": "production build mkdir EPERM",
+    "preservedAsFailure": true,
+    "independentBuildRecoveryDoesNotRewriteFailure": true
+  },
+  "selectedProof": {
+    "openingCompetitiveInputs": {
+      "sourceGenerated": true,
+      "inputs": 3,
+      "actorsPerInput": 24,
+      "completedActors": 72,
+      "scope": "Constructed first-day competitive conditions only; not all custom rosters."
+    },
+    "authoredStatusMatch": {
+      "events": 20506,
+      "frames": 7084,
+      "exactReplay": true,
+      "apiCalls": 0
+    },
+    "independentCastingMatch": {
+      "events": 16374,
+      "frames": 6866,
+      "casts": 433,
+      "pvpUltimateCasts": 99,
+      "huntingUltimateCasts": 0,
+      "exactReplay": true
+    },
+    "randomIsolation": {
+      "checks": 12,
+      "completeMatches": 3,
+      "events": 13657,
+      "frames": 6032,
+      "eventDigest": "4dc168590580a773fc7b268c0f3db6c7cf24920795c495b1357f702c604c17f3",
+      "frameDigest": "b529e942243ea64c00f0dc7c5c4c84438a6bf5e41a7566774c0b0ecaf8d56691"
+    },
+    "savedInputReplay": {
+      "checks": 16,
+      "events": 18401,
+      "frames": 6599,
+      "exactEventsFramesFinalStateRandomAndEnding": true,
+      "input": "Explicit HP multiplier 2 source-generated custom roster, unchanged world rules.",
+      "eventDigest": "ea0f68520daa00549ae031d50b8a8e2671dd13769e0546d04c2ad115af445366",
+      "frameDigest": "fe8b2b76863140d70947b51c51b452eceba1b38a8c515a3450806dbea382f983"
+    },
+    "collarRules": {
+      "checks": 21,
+      "normalCapSec": 30,
+      "finalNightBonusSec": 15,
+      "postFinalNightRecoveryCapSec": 45
+    },
+    "finalNightActualMatch": {
+      "hpScale": 2,
+      "beforeFrames": 6201,
+      "afterFrames": 398,
+      "grantedActors": 7,
+      "grantBeforeSec": 30,
+      "grantAfterSec": 45,
+      "atSec": 1180,
+      "onceOnly": true,
+      "worldRulesChanged": false
+    },
+    "automaticSetup": {
+      "patchAndBattleChecks": 11,
+      "actualModalSsrChecks": 5,
+      "paidAiCalls": 0,
+      "scope": "Draft contract, editor and controlled battle checks only; not actual model-generated draft quality."
+    },
+    "displayPacing": {
+      "checks": 15,
+      "scope": "Clock scheduling contract only; not foreground x32 throughput."
+    },
+    "runtimeSweepExitCode": 0
+  },
+  "build": {
+    "exitCode": 0,
+    "staticPages": 62,
+    "buildId": "T6X8x8hg6F0M-Q88x_A1d",
+    "publicDeployment": false
+  },
+  "cleanupAtDeletion": {
+    "target": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+    "files": [
+      {
+        "FullName": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "Length": 251872266
+      },
+      {
+        "FullName": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\1.pack",
+        "Length": 52535
+      },
+      {
+        "FullName": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\2.pack",
+        "Length": 8811313
+      },
+      {
+        "FullName": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "Length": 12795083
+      },
+      {
+        "FullName": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack.old",
+        "Length": 12794266
+      },
+      {
+        "FullName": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "Length": 276
+      },
+      {
+        "FullName": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "Length": 2464
+      },
+      {
+        "FullName": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "Length": 305739828
+      },
+      {
+        "FullName": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "Length": 18027276
+      }
+    ],
+    "removedFiles": 9,
+    "logicalBytesRemoved": 610095307,
+    "logicalMiBRemoved": 581.832,
+    "remainingCacheFiles": 0,
+    "protectedFileCount": 29,
+    "protectedSha256": {
+      "server/tests/character-setup.test.js": "7A9D544C36BD06A2051CC055CBFDC1A68C2547C948C801B1F02FE4959CC540D6",
+      "client/scripts/check-eternal-hunger-regressions.mjs": "E8EE879C23EBC4B724712F4BED154D1413159327623320FF9F64CEDF000ADC1A",
+      "client/.next/server/app/characters.html": "A286C13C060D4BA0D8B88D785DE156C4AB3D904A69C9C026B488896FFAA9FF2F",
+      "client/.verification-runs/2026-10-06T13-17-13.057Z-71b4e95d-64c2-4d43-8978-d53d0c400d43/result.json": "CD8DA77A254B71199B3E50F012F5A75EA0CAE7B51F321DF033F8D421E7769EB9",
+      "client/scripts/check-detonation-match.mjs": "00B71610652ECFDB4B56693308CD9A7FD7291C1010B4C5007A908BE83871A748",
+      "server/utils/characterSetupContract.js": "AF706B07283539BFF202D3F00693119D3BD9199C9FD72F2EAD2EB9A5278D9EC3",
+      "client/.verification-runs/2026-10-06T11-41-23.127Z-d529b37d-84f1-4b5f-924c-bae0342c3ff3/output.log": "39745B95C67A7DB9851A52E5C06B45B53E1E2D03B7D5685A60E49E623A52F053",
+      "client/.verification-runs/2026-10-06T13-17-13.057Z-71b4e95d-64c2-4d43-8978-d53d0c400d43/output.log": "E3EB889C1B37D6EA2217A0BDD910BAA0B195E73B53578DA87CFB39AAF107F281",
+      "docs/eternal-hunger-remaining-work.md": "6E64059C183CCBAAD9C0862F1E8B3C86A2C7BB108C6120C76E89A5C3AD3AC40E",
+      "client/.next/server/app/characters/page.js": "AA8B15D146FF5E3BF17919B9F2E761E89661B1C57E37FD087D0DD721CB9DF076",
+      "client/.next/BUILD_ID": "E66FEBB36B26399741E2D4A18FA2E0A3EF0D5A8C17C17DB668154DB6DC766BDD",
+      "docs/character-auto-setup-verification.md": "E56271A05FD8D41139313C8C5994246A3785596ACD67D3EBC35C92F3ECAE5335",
+      "client/scripts/check-character-auto-setup.mjs": "DC261D89695DBA30A5DEBAB1E26F8D3EAC238AF032A277DADF8A1484ABF8C111",
+      "client/.next/build-manifest.json": "A33AAC36AD9CC4D0605E0EA16CE9C232ADA21BBB09CC8DC3EA9361A7E13589B3",
+      "server/utils/characterSetupService.js": "C7A30E4E078007EB10467482132F5FC07E848926D2E5E34611897F190C690FDD",
+      "client/scripts/check-observer-goals-match.mjs": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9",
+      "server/.env.example": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3",
+      "client/src/app/characters/_components/CharacterAutoSetupModal.js": "82A80BBDEDC1CEB0B7EDA52F334C6749705ADDF0B210B3695D6A1DD0C1B00967",
+      "server/index.js": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+      "client/.verification-runs/2026-10-06T12-35-37.680Z-81ea3387-8dcc-44d9-97b1-6499859db8f9/output.log": "6D8DAD501B029236ABED6752F774AA069E349786997A7EBF6A23E64EA6CB649F",
+      "client/.verification-runs/2026-10-06T12-35-37.680Z-81ea3387-8dcc-44d9-97b1-6499859db8f9/result.json": "903E083BDDEF9C5B92C0A939065A6B3106945B5C1E3A6A58BD97B699F36AAF36",
+      "client/scripts/check-character-auto-setup-ui.mjs": "5944AF10F0118834423EE6A976437CF2BF5BE7DCAD7DBDC3F289414391E8CA5D",
+      "artifacts/full-verification-build-recovery-20261006T131250.json": "BBA6501A95773F702AAC1C6C471FC3FD2C45CDBBD4804C604CE777EA15F1706D",
+      "client/.verification-runs/2026-10-06T11-41-23.127Z-d529b37d-84f1-4b5f-924c-bae0342c3ff3/result.json": "8F8EA7E2342B2EB508C002ACD57B211A17669C830FAD3A70D918D43253CD51D3",
+      "artifacts/pull-integration-20261006.json": "5B5683E2BFB402793E722E9C899D0B802F9FD4ECDF4788DFDD50B3B326605664",
+      "docs/eternal-hunger-goal.md": "E7C60A62391F2A74E7618C911DE52F677EFD605C040C99818F8DEAEAF75ED9C4",
+      "client/.next/server/app/eternalhunger/evaluate/page.js": "F916470BD1556887A8C883D65487E6EEFE9C1B6B7C5D06839BD5C4F1732581A3",
+      "client/.verification-runs/2026-10-06T11-29-12.856Z-8866aa2e-b950-4d1e-9145-e558d7ae0215/result.json": "046E4BD9BFDDE59C5010C59ECA9B5E815218BB500A09DA348E26F09A0AFE117F",
+      "client/.verification-runs/2026-10-06T11-29-12.856Z-8866aa2e-b950-4d1e-9145-e558d7ae0215/output.log": "45BE7CA1663335A1A4EA803C1AF7CD528049D45849E5DBFF8E982202D99208A8"
+    },
+    "protectedHashesUnchanged": true,
+    "recovery": "cd client; npm run build",
+    "physicalFreeSpaceMeasured": false
+  },
+  "documentationEditedAfterCleanup": [
+    "docs/eternal-hunger-goal.md",
+    "docs/eternal-hunger-remaining-work.md",
+    "docs/character-auto-setup-verification.md"
+  ],
+  "userOwnedChangesExcluded": [
+    "client/scripts/check-observer-goals-match.mjs",
+    "server/index.js",
+    "server/.env.example",
+    "unrelated untracked files"
+  ],
+  "paidAiCalls": 0,
+  "operatingAccountWrites": 0,
+  "githubPushPerformed": false,
+  "publicDeploymentPerformed": false,
+  "remainingGates": [
+    "Foreground x32 and consecutive-match performance after permission",
+    "Actual ER and custom AI draft quality after two-call cost permission",
+    "Authorized generated-draft account save/reopen and actual-match integration",
+    "Human follow-up evaluation",
+    "Authorized public release of integrated local batch"
+  ],
+  "overallGoalComplete": false
+}
