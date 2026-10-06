@@ -11,6 +11,7 @@ import { applyPerkDiscount, getActorPerkEffects } from './perkRuntime.js';
 import { pickKioskCatalogGoalAction } from './aiKioskCatalogRuntime.js';
 import { commitProcurementTransaction } from './procurementTransactionRuntime.js';
 import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
+import { isDefaultKioskItem } from '../../../utils/marketItemPolicy.js';
 
 // A teammate's immediately completable recipe is a squad need, even when the
 // leader still has ordinary farming to do. Quote only a real available order;
@@ -20,7 +21,7 @@ export function chooseTeamPurchaseMove({ members = [], publicItems = [], ruleset
   if (!canUseKioskAtWorldTime(day, phase) || !mapObj || typeof routeForZone !== 'function') return null;
   const zones = listKioskZoneIdsForMap(mapObj, kiosks, forbiddenIds);
   if (!zones.length) return null;
-  const specialItems = resolveKioskSpecialItems(publicItems), routes = new Map(), candidates = [];
+  const specialItems = resolveKioskSpecialItems(publicItems.filter(isDefaultKioskItem)), routes = new Map(), candidates = [];
   for (const actor of members) {
     const growth = actor._growthPlan;
     if (getCombatSpaceId(actor) !== WORLD_COMBAT_SPACE || !growth?.openingComplete || !growth.targetId) continue;
@@ -52,7 +53,7 @@ export function chooseTeamPurchaseMove({ members = [], publicItems = [], ruleset
       const catalog = Array.isArray(kiosk?.catalog) ? kiosk.catalog : [];
       // Use the same exact quote as the action queue, including mixed modes
       // and unavailable earlier rows; never invent an unrelated idle offer.
-      const offer = catalog.length ? pickKioskCatalogGoalAction({ catalog, actor, miss: [missing],
+      const offer = (catalog.length || kiosk?.hasCustomCatalog) ? pickKioskCatalogGoalAction({ catalog, actor, miss: [missing],
         applyKioskCost: discount, findById: id => publicItems.find(item => String(item._id) === id) }) : defaultOffer;
       if (!['buy', 'exchange'].includes(offer?.kind) || String(offer.itemId) !== missing.itemId) continue;
       // Preview a prospective order, not a retry of the actor's old receipt.
