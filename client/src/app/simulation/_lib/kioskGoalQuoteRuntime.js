@@ -50,7 +50,7 @@ export function quoteDefaultKioskGoalAction({ actor, craftGoal, publicItems = []
   const discount = value => applyPerkDiscount(value, perk.kioskDiscountPct, perk.marketDiscountPct);
   const missingSpecialKeys = new Set((craftGoal?.missing || [])
     .map(row => String(row.special || classifySpecialByName(row.name) || '')).filter(Boolean));
-  const specialItems = resolveKioskSpecialItems(getAvailableDefaultKioskItems(publicItems, marketRules, day, phase));
+  const specialItems = resolveKioskSpecialItems(getAvailableDefaultKioskItems(publicItems, marketRules, day, phase), craftGoal?.missing);
   const isOfferUsable = createKioskRecipeOfferValidator({ actor, targetId: String(craftGoal?.target?._id || ''),
     publicItems, ruleset, day });
   const priority = pickKioskPrioritySpecialAction({ missingSpecialKeys, specialItems,

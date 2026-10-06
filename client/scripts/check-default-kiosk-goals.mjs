@@ -182,14 +182,18 @@ check('unavailable default quotes invalidate an in-flight kiosk target instead o
     const input = solo(), buyer = input.roster[0];
     Object.assign(buyer, { zoneId: 'b', aiTargetZoneId: 'c', aiTargetTTL: 2,
       aiTargetReason: '전설 재료(키오스크 구매)', aiTargetRequiresRequote: true });
+    const remember = () => resolveActorMoveTargetMemory({ state: { actor: structuredClone(buyer),
+      aiMove: movement(input), currentZone: buyer.zoneId, day: input.state.nextDay, phase: input.state.nextPhase,
+      forbiddenIds: input.state.forbiddenIds, ruleset: input.state.ruleset, spawnState: input.state.nextSpawn,
+      publicItems: input.state.publicItems, roster: input.roster, nowSec: 520 } });
+    const valid = withSimulationRandom(noRandom, remember);
+    assert.equal(valid.holdTarget, 'c'); assert.equal(valid.actor.aiTargetTTL, 1);
+    assert.equal(valid.actor.aiTargetRequiresRequote, true); assert.equal(buyer.aiTargetTTL, 2);
     if (scenario === 'fee') buyer.simCredits = 202;
     if (scenario === 'capacity') input.state.ruleset.inventory = { ...input.state.ruleset.inventory, maxSlots: 1, autoDropLowValue: false };
     if (scenario === 'disabled') input.state.ruleset.market.kiosk.categories.legendary = false;
     if (scenario === 'price') input.state.ruleset.market.kiosk.prices.legendaryByKey.life_tree = 800;
-    const next = withSimulationRandom(() => 0, () => resolveActorMoveTargetMemory({ actor: buyer,
-      plannedMove: movement(input), spawnState: input.state.nextSpawn, forbiddenIds: input.state.forbiddenIds,
-      zoneIdSet: new Set(input.state.zones.map(zone => zone.zoneId)), day: 3, phase: 'morning',
-      roster: input.roster, publicItems: input.state.publicItems, nowSec: 520 }));
+    const next = withSimulationRandom(() => 0, remember);
     assert.notEqual(next.holdTarget, 'c'); assert.notEqual(next.actor.aiTargetRequiresRequote, true);
     assert.equal(buyer.aiTargetZoneId, 'c', 'Read-only decision must leave the supplied actor unchanged.');
   }

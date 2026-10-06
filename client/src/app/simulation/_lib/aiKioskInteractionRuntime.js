@@ -150,7 +150,7 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
   // - 운석 ↔ 생명의 나무 (상호 교환)
   const defaultItems = getAvailableDefaultKioskItems(items, marketRules, curDay, curPhase);
   const findDefaultById = id => defaultItems.find(item => String(item._id) === String(id)) || null;
-  const specialItems = resolveKioskSpecialItems(defaultItems);
+  const specialItems = resolveKioskSpecialItems(defaultItems, miss);
   const {
     meteorItem,
     lifeTreeItem,
