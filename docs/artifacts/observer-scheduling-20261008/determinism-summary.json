@@ -1,0 +1,34 @@
+{
+  "pass": true,
+  "scope": "complete 24-actor fixture at seed 1101; exact input/events/every frame/ending/logs/RNG comparison, not browser performance",
+  "pr13Head": "050000ea600db850a5d7939304350a129ed9b367",
+  "beforeEngine": "ea908055e24ef525643337f5520f5d36f8d3c4f398b408791517c2a880e311a1",
+  "afterEngine": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+  "enabledDiagnosticModes": [
+    "headless",
+    "cooperative"
+  ],
+  "identicalToBefore": true,
+  "sameBetweenModes": true,
+  "eventsPerMatch": 14976,
+  "framesPerMatch": 6390,
+  "ending": {
+    "outcome": "last_team",
+    "winnerTeamId": "team:5",
+    "atSec": 1225.666666
+  },
+  "random": {
+    "algorithm": "fnv1a-mulberry32-v1",
+    "state": 2704637753,
+    "draws": 10672,
+    "ids": 0,
+    "nameHistory": []
+  },
+  "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+  "eventDigest": "b925a090eec72b299ba38fdbb4b323fba43e0d35672a714fc6133c50347535cb",
+  "frameDigest": "22dad0b4a6e6259c7c64166b4643b113baf5788735cd8f8f70e31550766b404d",
+  "finalFrameDigest": "7d79ab5a079c56b75f161990baa9919ab87d88db874f063c5b59e4c2dd538bd7",
+  "logDigest": "ca028617b54700897e0e70632098a0b3c1b8af2c6626227dfe7cb8f44d6c954a",
+  "cooperativeYields": 43301,
+  "completedBrowserRuns": 0
+}

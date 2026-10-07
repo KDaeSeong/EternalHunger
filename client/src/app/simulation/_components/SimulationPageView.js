@@ -213,7 +213,11 @@ export default function SimulationPageView(props) {
         onReplay={props.onReplay} onVariant={props.onVariant} replayMode={props.replayMode} draftMode={props.draftMode}
         evaluationMode={evaluationMode} evaluationCode={evaluationCode}
         evaluationRunRecord={props.currentReplayRecord} evaluationOpenRequest={evaluationOpenRequest} />
-      {!evaluationMode ? <SimulationObserverPerformancePanel /> : null}
+      {!evaluationMode ? <SimulationObserverPerformancePanel
+        speed={props.autoSpeed} seed={props.runSeed} autoPlay={autoPlay}
+        day={day} matchSec={props.matchSec} isGameOver={isGameOver}
+        replayMode={props.replayMode} replayId={props.replaySourceId} replayStatus={props.replayStatus}
+      /> : null}
 
       {uiModal ? (
         <div

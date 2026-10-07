@@ -756,6 +756,7 @@ export function useSimulationPageController({
   });
 
   pageViewProps.replayMode = replayMode;
+  pageViewProps.replaySourceId = replayMode ? sourceRecord?.id ?? null : null;
   pageViewProps.setAutoPlay = (next) => { if (!mapPreparationRef.current) setAutoPlay(next); };
   pageViewProps.draftMode = draftMode;
   pageViewProps.evaluationMode = evaluationMode;

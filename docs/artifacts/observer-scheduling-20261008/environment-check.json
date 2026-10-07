@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "title": "이터널 헝거 | 케이의 게임개발소",
+  "scope": "same-process-network HTTP route smoke; not browser hydration, rendering or performance",
+  "browserPreview": "Vercel login wall",
+  "browserLocal": "ERR_CONNECTION_REFUSED in cloud browser",
+  "measuredBrowserRuns": 0
+}
