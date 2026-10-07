@@ -1,0 +1,2789 @@
+{
+  "engineVersion": "491e4905d70a63007699b8b6a385d600ce6fb90d1f42f38a4a28804fc23adb18",
+  "seeds": [
+    "1101",
+    "2202",
+    "3303"
+  ],
+  "rows": [
+    {
+      "seed": "1101",
+      "variant": "baseline",
+      "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+      "changes": [],
+      "evidence": {
+        "seed": "1101",
+        "phases": 12,
+        "frames": 6390,
+        "ticks": 1225.666666,
+        "eventCount": 14976,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1225.666666,
+          "day": 6,
+          "phase": "night",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "approach",
+          "winnerTeamId": "team:5",
+          "dimensionRifts": {
+            "atSec": 1225.666666,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2704637753,
+          "draws": 10672,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "b925a090eec72b299ba38fdbb4b323fba43e0d35672a714fc6133c50347535cb",
+        "frameDigest": "22dad0b4a6e6259c7c64166b4643b113baf5788735cd8f8f70e31550766b404d"
+      },
+      "growthComplete": 24,
+      "growthCompleteBy250": 24,
+      "heroGearReady": 24,
+      "legendaryReady": 9,
+      "emptySlots": 0,
+      "team": {
+        "regroupMoves": 53,
+        "regroupHolds": 83,
+        "rotations": 273,
+        "retreats": 43
+      },
+      "growthActions": {
+        "opportunities": 1516,
+        "farm": 212,
+        "craft": 247,
+        "hunt": 323,
+        "move": 660,
+        "rest": 18
+      },
+      "survival": [
+        {
+          "actorId": "guest-survivor-06",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 627.666666
+        },
+        {
+          "actorId": "guest-survivor-01",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 627.666666
+        },
+        {
+          "actorId": "guest-survivor-19",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 388.833333
+        },
+        {
+          "actorId": "guest-survivor-13",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 188.333333
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 649.583333
+        },
+        {
+          "actorId": "guest-survivor-12",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 188.999999
+        },
+        {
+          "actorId": "guest-survivor-20",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 166.75
+        },
+        {
+          "actorId": "guest-survivor-17",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 168.083333
+        },
+        {
+          "actorId": "guest-survivor-16",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1190.833333
+        },
+        {
+          "actorId": "guest-survivor-22",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 547
+        },
+        {
+          "actorId": "guest-survivor-14",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 189.249999
+        },
+        {
+          "actorId": "guest-survivor-21",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 187.75
+        },
+        {
+          "actorId": "guest-survivor-23",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 529
+        },
+        {
+          "actorId": "guest-survivor-10",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 649.333333
+        },
+        {
+          "actorId": "guest-survivor-18",
+          "teamId": "team:5",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": 329.333333
+        },
+        {
+          "actorId": "guest-survivor-05",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 219.833333
+        },
+        {
+          "actorId": "guest-survivor-07",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 220.499999
+        },
+        {
+          "actorId": "guest-survivor-15",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 219.833333
+        },
+        {
+          "actorId": "guest-survivor-03",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 360.75
+        },
+        {
+          "actorId": "guest-survivor-24",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 230.333333
+        },
+        {
+          "actorId": "guest-survivor-08",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 230.333333
+        },
+        {
+          "actorId": "guest-survivor-09",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1225.666666
+        },
+        {
+          "actorId": "guest-survivor-04",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1196.333333
+        },
+        {
+          "actorId": "guest-survivor-02",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 547.5
+        }
+      ]
+    },
+    {
+      "seed": "1101",
+      "variant": "one-tactical-skill",
+      "inputDigest": "b28b29d39fe11fc3026dad52c0983a719bf98f741552da60f3b09785de388675",
+      "changes": [
+        {
+          "actorId": "guest-survivor-06",
+          "field": "tacticalSkill",
+          "before": "프로토콜 위반",
+          "after": "치유의 바람"
+        }
+      ],
+      "evidence": {
+        "seed": "1101",
+        "phases": 12,
+        "frames": 6390,
+        "ticks": 1225.666666,
+        "eventCount": 14976,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1225.666666,
+          "day": 6,
+          "phase": "night",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "approach",
+          "winnerTeamId": "team:5",
+          "dimensionRifts": {
+            "atSec": 1225.666666,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2704637753,
+          "draws": 10672,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "b925a090eec72b299ba38fdbb4b323fba43e0d35672a714fc6133c50347535cb",
+        "frameDigest": "f62c9d7566c0e53adc3fd7dca97190d12d89c2746c0eba2e5d42211b8ab91c2e"
+      },
+      "growthComplete": 24,
+      "growthCompleteBy250": 24,
+      "heroGearReady": 24,
+      "legendaryReady": 9,
+      "emptySlots": 0,
+      "team": {
+        "regroupMoves": 53,
+        "regroupHolds": 83,
+        "rotations": 273,
+        "retreats": 43
+      },
+      "growthActions": {
+        "opportunities": 1516,
+        "farm": 212,
+        "craft": 247,
+        "hunt": 323,
+        "move": 660,
+        "rest": 18
+      },
+      "survival": [
+        {
+          "actorId": "guest-survivor-06",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 627.666666
+        },
+        {
+          "actorId": "guest-survivor-01",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 627.666666
+        },
+        {
+          "actorId": "guest-survivor-19",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 388.833333
+        },
+        {
+          "actorId": "guest-survivor-13",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 188.333333
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 649.583333
+        },
+        {
+          "actorId": "guest-survivor-12",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 188.999999
+        },
+        {
+          "actorId": "guest-survivor-20",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 166.75
+        },
+        {
+          "actorId": "guest-survivor-17",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 168.083333
+        },
+        {
+          "actorId": "guest-survivor-16",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1190.833333
+        },
+        {
+          "actorId": "guest-survivor-22",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 547
+        },
+        {
+          "actorId": "guest-survivor-14",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 189.249999
+        },
+        {
+          "actorId": "guest-survivor-21",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 187.75
+        },
+        {
+          "actorId": "guest-survivor-23",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 529
+        },
+        {
+          "actorId": "guest-survivor-10",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 649.333333
+        },
+        {
+          "actorId": "guest-survivor-18",
+          "teamId": "team:5",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": 329.333333
+        },
+        {
+          "actorId": "guest-survivor-05",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 219.833333
+        },
+        {
+          "actorId": "guest-survivor-07",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 220.499999
+        },
+        {
+          "actorId": "guest-survivor-15",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 219.833333
+        },
+        {
+          "actorId": "guest-survivor-03",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 360.75
+        },
+        {
+          "actorId": "guest-survivor-24",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 230.333333
+        },
+        {
+          "actorId": "guest-survivor-08",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 230.333333
+        },
+        {
+          "actorId": "guest-survivor-09",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1225.666666
+        },
+        {
+          "actorId": "guest-survivor-04",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1196.333333
+        },
+        {
+          "actorId": "guest-survivor-02",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 547.5
+        }
+      ]
+    },
+    {
+      "seed": "1101",
+      "variant": "one-formation-swap",
+      "inputDigest": "dd9f0c61d912330aa9a33bf79c9fef3c92bcac95d0647a756951fc0811e8d754",
+      "changes": [
+        {
+          "actorId": "guest-survivor-01",
+          "field": "team",
+          "before": "team:1",
+          "after": "team:2"
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "field": "team",
+          "before": "team:2",
+          "after": "team:1"
+        }
+      ],
+      "evidence": {
+        "seed": "1101",
+        "phases": 12,
+        "frames": 6168,
+        "ticks": 1199.666666,
+        "eventCount": 13753,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1199.666666,
+          "day": 6,
+          "phase": "night",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "approach",
+          "winnerTeamId": "team:7",
+          "dimensionRifts": {
+            "atSec": 1199.666666,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1199.666666,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1199.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1199.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1199.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1199.666666,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1199.666666,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1199.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1199.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2730697450,
+          "draws": 11005,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "fd43340d991da1b870ce8c078d8347fe0275128000a1ae8c77f1eaeff0ca3d6f",
+        "frameDigest": "c25a64df8706fd9b0bcca97a16ed7cad222a8a3043e041113ccb5e7c3455c52d"
+      },
+      "growthComplete": 24,
+      "growthCompleteBy250": 24,
+      "heroGearReady": 24,
+      "legendaryReady": 8,
+      "emptySlots": 0,
+      "team": {
+        "regroupMoves": 72,
+        "regroupHolds": 98,
+        "rotations": 259,
+        "retreats": 66
+      },
+      "growthActions": {
+        "opportunities": 1453,
+        "farm": 273,
+        "craft": 238,
+        "hunt": 224,
+        "move": 666,
+        "rest": 5
+      },
+      "survival": [
+        {
+          "actorId": "guest-survivor-06",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 450.666666
+        },
+        {
+          "actorId": "guest-survivor-01",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 178.583332
+        },
+        {
+          "actorId": "guest-survivor-19",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 449.333333
+        },
+        {
+          "actorId": "guest-survivor-13",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 177.083333
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 893.083333
+        },
+        {
+          "actorId": "guest-survivor-12",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 177.916666
+        },
+        {
+          "actorId": "guest-survivor-20",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 434.833333
+        },
+        {
+          "actorId": "guest-survivor-17",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 762.249999
+        },
+        {
+          "actorId": "guest-survivor-16",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 201.25
+        },
+        {
+          "actorId": "guest-survivor-22",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 475
+        },
+        {
+          "actorId": "guest-survivor-14",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 327.583333
+        },
+        {
+          "actorId": "guest-survivor-21",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 324.583333
+        },
+        {
+          "actorId": "guest-survivor-23",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 324.833333
+        },
+        {
+          "actorId": "guest-survivor-10",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 360
+        },
+        {
+          "actorId": "guest-survivor-18",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1199.666666
+        },
+        {
+          "actorId": "guest-survivor-05",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 427.75
+        },
+        {
+          "actorId": "guest-survivor-07",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1006.25
+        },
+        {
+          "actorId": "guest-survivor-15",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 206
+        },
+        {
+          "actorId": "guest-survivor-03",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 490.75
+        },
+        {
+          "actorId": "guest-survivor-24",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 820.5
+        },
+        {
+          "actorId": "guest-survivor-08",
+          "teamId": "team:7",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": null
+        },
+        {
+          "actorId": "guest-survivor-09",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 428.416666
+        },
+        {
+          "actorId": "guest-survivor-04",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 203.25
+        },
+        {
+          "actorId": "guest-survivor-02",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 430.083333
+        }
+      ]
+    },
+    {
+      "seed": "2202",
+      "variant": "baseline",
+      "inputDigest": "8a5df62497bed659a757f5531f6a07b3c3436ab84f0a9440b1fb7b5e37e350b6",
+      "changes": [],
+      "evidence": {
+        "seed": "2202",
+        "phases": 12,
+        "frames": 6134,
+        "ticks": 1183.083333,
+        "eventCount": 14907,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1183.083333,
+          "day": 6,
+          "phase": "night",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "approach",
+          "winnerTeamId": "team:5",
+          "dimensionRifts": {
+            "atSec": 1183.083333,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 234952262,
+          "draws": 10132,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "e9f71e1d5aac4bc3bc53d4585ea22c037bb99d4f9f096cdd4812029c050ae20a",
+        "frameDigest": "540d7450b5f09f9350c05a8e3fb5f773cec84ccde8379eb0a52b3dbc1347d2b5"
+      },
+      "growthComplete": 24,
+      "growthCompleteBy250": 24,
+      "heroGearReady": 23,
+      "legendaryReady": 10,
+      "emptySlots": 1,
+      "team": {
+        "regroupMoves": 72,
+        "regroupHolds": 92,
+        "rotations": 330,
+        "retreats": 52
+      },
+      "growthActions": {
+        "opportunities": 1456,
+        "farm": 212,
+        "craft": 235,
+        "hunt": 225,
+        "move": 714,
+        "rest": 11
+      },
+      "survival": [
+        {
+          "actorId": "guest-survivor-06",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1183.083333
+        },
+        {
+          "actorId": "guest-survivor-01",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1182.75
+        },
+        {
+          "actorId": "guest-survivor-19",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1181.25
+        },
+        {
+          "actorId": "guest-survivor-13",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 383
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 384.749999
+        },
+        {
+          "actorId": "guest-survivor-12",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 385.583333
+        },
+        {
+          "actorId": "guest-survivor-20",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 308.25
+        },
+        {
+          "actorId": "guest-survivor-17",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 338.5
+        },
+        {
+          "actorId": "guest-survivor-16",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1142
+        },
+        {
+          "actorId": "guest-survivor-22",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 398.166666
+        },
+        {
+          "actorId": "guest-survivor-14",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 160.333333
+        },
+        {
+          "actorId": "guest-survivor-21",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 200.25
+        },
+        {
+          "actorId": "guest-survivor-23",
+          "teamId": "team:5",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": null
+        },
+        {
+          "actorId": "guest-survivor-10",
+          "teamId": "team:5",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": null
+        },
+        {
+          "actorId": "guest-survivor-18",
+          "teamId": "team:5",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": null
+        },
+        {
+          "actorId": "guest-survivor-05",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 337.75
+        },
+        {
+          "actorId": "guest-survivor-07",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 213
+        },
+        {
+          "actorId": "guest-survivor-15",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 216.083333
+        },
+        {
+          "actorId": "guest-survivor-03",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 162.999999
+        },
+        {
+          "actorId": "guest-survivor-24",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 912
+        },
+        {
+          "actorId": "guest-survivor-08",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 599.583333
+        },
+        {
+          "actorId": "guest-survivor-09",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 384.083333
+        },
+        {
+          "actorId": "guest-survivor-04",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 384.416666
+        },
+        {
+          "actorId": "guest-survivor-02",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 651.666413
+        }
+      ]
+    },
+    {
+      "seed": "2202",
+      "variant": "one-tactical-skill",
+      "inputDigest": "f2a99d19df87ac2252d4917354561f879f1796624ea2f07a62d5a91f7b589b71",
+      "changes": [
+        {
+          "actorId": "guest-survivor-06",
+          "field": "tacticalSkill",
+          "before": "프로토콜 위반",
+          "after": "치유의 바람"
+        }
+      ],
+      "evidence": {
+        "seed": "2202",
+        "phases": 9,
+        "frames": 5124,
+        "ticks": 986.333333,
+        "eventCount": 12028,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 986.333333,
+          "day": 5,
+          "phase": "morning",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "",
+          "winnerTeamId": "team:7",
+          "dimensionRifts": {
+            "atSec": 986.333333,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 986.333333,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 986.333333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 986.333333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 986.333333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 986.333333,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 986.333333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 986.333333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 986.333333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 183747574,
+          "draws": 8324,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "fa5c7218100425c36ec24568eab471e34a6660183a2f3624ce6ae413d41357fd",
+        "frameDigest": "b12dbfbac732801264ce93120fd41d7024c07d3c57411fb70d21fd93439ea884"
+      },
+      "growthComplete": 24,
+      "growthCompleteBy250": 24,
+      "heroGearReady": 23,
+      "legendaryReady": 9,
+      "emptySlots": 0,
+      "team": {
+        "regroupMoves": 58,
+        "regroupHolds": 61,
+        "rotations": 249,
+        "retreats": 35
+      },
+      "growthActions": {
+        "opportunities": 1178,
+        "farm": 168,
+        "craft": 209,
+        "hunt": 197,
+        "move": 565,
+        "rest": 6
+      },
+      "survival": [
+        {
+          "actorId": "guest-survivor-06",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 986.333333
+        },
+        {
+          "actorId": "guest-survivor-01",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 847.666666
+        },
+        {
+          "actorId": "guest-survivor-19",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 163.074028
+        },
+        {
+          "actorId": "guest-survivor-13",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 273.833333
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 275.166665
+        },
+        {
+          "actorId": "guest-survivor-12",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 274.499999
+        },
+        {
+          "actorId": "guest-survivor-20",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 230.833333
+        },
+        {
+          "actorId": "guest-survivor-17",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 376.333333
+        },
+        {
+          "actorId": "guest-survivor-16",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 722
+        },
+        {
+          "actorId": "guest-survivor-22",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 164.506518
+        },
+        {
+          "actorId": "guest-survivor-14",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 165.333333
+        },
+        {
+          "actorId": "guest-survivor-21",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 283.999999
+        },
+        {
+          "actorId": "guest-survivor-23",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 274.499999
+        },
+        {
+          "actorId": "guest-survivor-10",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 778
+        },
+        {
+          "actorId": "guest-survivor-18",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 889.5
+        },
+        {
+          "actorId": "guest-survivor-05",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 251.333333
+        },
+        {
+          "actorId": "guest-survivor-07",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 252.712121
+        },
+        {
+          "actorId": "guest-survivor-15",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 466.833333
+        },
+        {
+          "actorId": "guest-survivor-03",
+          "teamId": "team:7",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": 652
+        },
+        {
+          "actorId": "guest-survivor-24",
+          "teamId": "team:7",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": 247.583333
+        },
+        {
+          "actorId": "guest-survivor-08",
+          "teamId": "team:7",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": 299.75
+        },
+        {
+          "actorId": "guest-survivor-09",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 230.583333
+        },
+        {
+          "actorId": "guest-survivor-04",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 230.583333
+        },
+        {
+          "actorId": "guest-survivor-02",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 321.666666
+        }
+      ]
+    },
+    {
+      "seed": "2202",
+      "variant": "one-formation-swap",
+      "inputDigest": "25c695b2ee54d69a28e2f53378608b0a47c220e60d513e6398dc2199418f0ffa",
+      "changes": [
+        {
+          "actorId": "guest-survivor-01",
+          "field": "team",
+          "before": "team:1",
+          "after": "team:2"
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "field": "team",
+          "before": "team:2",
+          "after": "team:1"
+        }
+      ],
+      "evidence": {
+        "seed": "2202",
+        "phases": 9,
+        "frames": 5085,
+        "ticks": 978.75,
+        "eventCount": 13094,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 978.75,
+          "day": 5,
+          "phase": "morning",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "",
+          "winnerTeamId": "team:5",
+          "dimensionRifts": {
+            "atSec": 978.75,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 978.75,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 978.75,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 978.75,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 978.75,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 978.75,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 978.75,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 978.75,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 978.75,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 363749362,
+          "draws": 8976,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "e3c8a5c6c639cb951f0cdd5d1eacdf442788dec7c0103c97ea2e50cf553d504b",
+        "frameDigest": "ee4d7505f92d273c16915de2ec563e662e5f579cf5f40ea93265b489a0e8e778"
+      },
+      "growthComplete": 24,
+      "growthCompleteBy250": 24,
+      "heroGearReady": 24,
+      "legendaryReady": 5,
+      "emptySlots": 0,
+      "team": {
+        "regroupMoves": 55,
+        "regroupHolds": 102,
+        "rotations": 264,
+        "retreats": 42
+      },
+      "growthActions": {
+        "opportunities": 1319,
+        "farm": 195,
+        "craft": 224,
+        "hunt": 250,
+        "move": 606,
+        "rest": 5
+      },
+      "survival": [
+        {
+          "actorId": "guest-survivor-06",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 532.833333
+        },
+        {
+          "actorId": "guest-survivor-01",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 966.333333
+        },
+        {
+          "actorId": "guest-survivor-19",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 410.333333
+        },
+        {
+          "actorId": "guest-survivor-13",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 978.75
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 413.583333
+        },
+        {
+          "actorId": "guest-survivor-12",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 966.999999
+        },
+        {
+          "actorId": "guest-survivor-20",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 277.833333
+        },
+        {
+          "actorId": "guest-survivor-17",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 531.916666
+        },
+        {
+          "actorId": "guest-survivor-16",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 211.833333
+        },
+        {
+          "actorId": "guest-survivor-22",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 877.5
+        },
+        {
+          "actorId": "guest-survivor-14",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 253.25
+        },
+        {
+          "actorId": "guest-survivor-21",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 283.416666
+        },
+        {
+          "actorId": "guest-survivor-23",
+          "teamId": "team:5",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": null
+        },
+        {
+          "actorId": "guest-survivor-10",
+          "teamId": "team:5",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": null
+        },
+        {
+          "actorId": "guest-survivor-18",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 410.583333
+        },
+        {
+          "actorId": "guest-survivor-05",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 404.333333
+        },
+        {
+          "actorId": "guest-survivor-07",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 407.5
+        },
+        {
+          "actorId": "guest-survivor-15",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 405.754805
+        },
+        {
+          "actorId": "guest-survivor-03",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 439.333333
+        },
+        {
+          "actorId": "guest-survivor-24",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 899
+        },
+        {
+          "actorId": "guest-survivor-08",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 404.916666
+        },
+        {
+          "actorId": "guest-survivor-09",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 283.833332
+        },
+        {
+          "actorId": "guest-survivor-04",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 285.083333
+        },
+        {
+          "actorId": "guest-survivor-02",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 282.333333
+        }
+      ]
+    },
+    {
+      "seed": "3303",
+      "variant": "baseline",
+      "inputDigest": "3f7dedb0cdf561912b12d1f1fe61e4e4c9e8839f8c9e6273af5b3231ad074b5c",
+      "changes": [],
+      "evidence": {
+        "seed": "3303",
+        "phases": 13,
+        "frames": 6710,
+        "ticks": 1290.083333,
+        "eventCount": 13486,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1290.083333,
+          "day": 7,
+          "phase": "morning",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "final",
+          "winnerTeamId": "team:7",
+          "dimensionRifts": {
+            "atSec": 1290.083333,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 3381049983,
+          "draws": 9652,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "9a5dced9fed92a33121e0461ecde4e85367c056f12454300aae71adf4fc875cc",
+        "frameDigest": "b9ca7d86e7b198ab8722c71cd8a2b32ef79e25187e612df3c761aabbf4b48b56"
+      },
+      "growthComplete": 24,
+      "growthCompleteBy250": 24,
+      "heroGearReady": 24,
+      "legendaryReady": 8,
+      "emptySlots": 0,
+      "team": {
+        "regroupMoves": 56,
+        "regroupHolds": 63,
+        "rotations": 284,
+        "retreats": 31
+      },
+      "growthActions": {
+        "opportunities": 1324,
+        "farm": 204,
+        "craft": 241,
+        "hunt": 223,
+        "move": 611,
+        "rest": 2
+      },
+      "survival": [
+        {
+          "actorId": "guest-survivor-06",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 231.166666
+        },
+        {
+          "actorId": "guest-survivor-01",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 231.499999
+        },
+        {
+          "actorId": "guest-survivor-19",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 542.083333
+        },
+        {
+          "actorId": "guest-survivor-13",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 447.25
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 573.414144
+        },
+        {
+          "actorId": "guest-survivor-12",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 784
+        },
+        {
+          "actorId": "guest-survivor-20",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1192.666666
+        },
+        {
+          "actorId": "guest-survivor-17",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1272.249999
+        },
+        {
+          "actorId": "guest-survivor-16",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1290.083333
+        },
+        {
+          "actorId": "guest-survivor-22",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 233.25
+        },
+        {
+          "actorId": "guest-survivor-14",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 542.583333
+        },
+        {
+          "actorId": "guest-survivor-21",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 231.833332
+        },
+        {
+          "actorId": "guest-survivor-23",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 782.333333
+        },
+        {
+          "actorId": "guest-survivor-10",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 781
+        },
+        {
+          "actorId": "guest-survivor-18",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 784.333333
+        },
+        {
+          "actorId": "guest-survivor-05",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 300.833333
+        },
+        {
+          "actorId": "guest-survivor-07",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 154.5
+        },
+        {
+          "actorId": "guest-survivor-15",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 232.333333
+        },
+        {
+          "actorId": "guest-survivor-03",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 543.583333
+        },
+        {
+          "actorId": "guest-survivor-24",
+          "teamId": "team:7",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": null
+        },
+        {
+          "actorId": "guest-survivor-08",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 543.833333
+        },
+        {
+          "actorId": "guest-survivor-09",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 319.446074
+        },
+        {
+          "actorId": "guest-survivor-04",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 367.333333
+        },
+        {
+          "actorId": "guest-survivor-02",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 317.75
+        }
+      ]
+    },
+    {
+      "seed": "3303",
+      "variant": "one-tactical-skill",
+      "inputDigest": "3bb1d07b125d8293eda3658cc61fbec1d83856db134fd1fa609435cefb72fe9b",
+      "changes": [
+        {
+          "actorId": "guest-survivor-06",
+          "field": "tacticalSkill",
+          "before": "프로토콜 위반",
+          "after": "치유의 바람"
+        }
+      ],
+      "evidence": {
+        "seed": "3303",
+        "phases": 13,
+        "frames": 6638,
+        "ticks": 1282.25,
+        "eventCount": 13463,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1282.25,
+          "day": 7,
+          "phase": "morning",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "final",
+          "winnerTeamId": "team:5",
+          "dimensionRifts": {
+            "atSec": 1282.25,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1282.25,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1282.25,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1282.25,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1282.25,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1282.25,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1282.25,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1282.25,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1282.25,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 3768027962,
+          "draws": 10147,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "9998685b1e49bdcfd6d86a656ef4119ab703f2fb1b250c1cb1d73bde9de7bcad",
+        "frameDigest": "5e8b2b53408f3b46184a1687491b19ebfcaf08563aba591567faec982a15ab60"
+      },
+      "growthComplete": 24,
+      "growthCompleteBy250": 24,
+      "heroGearReady": 23,
+      "legendaryReady": 8,
+      "emptySlots": 1,
+      "team": {
+        "regroupMoves": 54,
+        "regroupHolds": 89,
+        "rotations": 300,
+        "retreats": 34
+      },
+      "growthActions": {
+        "opportunities": 1399,
+        "farm": 224,
+        "craft": 248,
+        "hunt": 236,
+        "move": 646,
+        "rest": 1
+      },
+      "survival": [
+        {
+          "actorId": "guest-survivor-06",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 198.833332
+        },
+        {
+          "actorId": "guest-survivor-01",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 198.166666
+        },
+        {
+          "actorId": "guest-survivor-19",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1176.333333
+        },
+        {
+          "actorId": "guest-survivor-13",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 678.333333
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 679.583333
+        },
+        {
+          "actorId": "guest-survivor-12",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 145.333333
+        },
+        {
+          "actorId": "guest-survivor-20",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 546
+        },
+        {
+          "actorId": "guest-survivor-17",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 465.333333
+        },
+        {
+          "actorId": "guest-survivor-16",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1282.25
+        },
+        {
+          "actorId": "guest-survivor-22",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 401.5
+        },
+        {
+          "actorId": "guest-survivor-14",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 397.833333
+        },
+        {
+          "actorId": "guest-survivor-21",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 397.583333
+        },
+        {
+          "actorId": "guest-survivor-23",
+          "teamId": "team:5",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": 345.333333
+        },
+        {
+          "actorId": "guest-survivor-10",
+          "teamId": "team:5",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": 502.5
+        },
+        {
+          "actorId": "guest-survivor-18",
+          "teamId": "team:5",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": null
+        },
+        {
+          "actorId": "guest-survivor-05",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 426
+        },
+        {
+          "actorId": "guest-survivor-07",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 161.833333
+        },
+        {
+          "actorId": "guest-survivor-15",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 427.75
+        },
+        {
+          "actorId": "guest-survivor-03",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 832.833333
+        },
+        {
+          "actorId": "guest-survivor-24",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 206
+        },
+        {
+          "actorId": "guest-survivor-08",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 206
+        },
+        {
+          "actorId": "guest-survivor-09",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 381
+        },
+        {
+          "actorId": "guest-survivor-04",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 430.5
+        },
+        {
+          "actorId": "guest-survivor-02",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 429.5
+        }
+      ]
+    },
+    {
+      "seed": "3303",
+      "variant": "one-formation-swap",
+      "inputDigest": "75ce81e26cca5c8b1dc9ee97753b06888cdd23ec0ac9ac53973192d9f808f8f0",
+      "changes": [
+        {
+          "actorId": "guest-survivor-01",
+          "field": "team",
+          "before": "team:1",
+          "after": "team:2"
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "field": "team",
+          "before": "team:2",
+          "after": "team:1"
+        }
+      ],
+      "evidence": {
+        "seed": "3303",
+        "phases": 13,
+        "frames": 6407,
+        "ticks": 1236.698767,
+        "eventCount": 15048,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1236.698767,
+          "day": 7,
+          "phase": "morning",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "approach",
+          "winnerTeamId": "team:7",
+          "dimensionRifts": {
+            "atSec": 1236.698767,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1236.698767,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1236.698767,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1236.698767,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1236.698767,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1236.698767,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1236.698767,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1236.698767,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1236.698767,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 3087403695,
+          "draws": 10020,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "5e70dd937b99e90d2e9332e842ebe7324ce4cc80e5b7ac8e8a24c5a34ff84e3d",
+        "frameDigest": "d14eb51f2ccae57f821e4636871d115048bb17ff73cf3ce2590ff3d6d42767ab"
+      },
+      "growthComplete": 24,
+      "growthCompleteBy250": 24,
+      "heroGearReady": 23,
+      "legendaryReady": 12,
+      "emptySlots": 1,
+      "team": {
+        "regroupMoves": 68,
+        "regroupHolds": 109,
+        "rotations": 305,
+        "retreats": 54
+      },
+      "growthActions": {
+        "opportunities": 1442,
+        "farm": 196,
+        "craft": 240,
+        "hunt": 241,
+        "move": 685,
+        "rest": 24
+      },
+      "survival": [
+        {
+          "actorId": "guest-survivor-06",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 311.583333
+        },
+        {
+          "actorId": "guest-survivor-01",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 470.166666
+        },
+        {
+          "actorId": "guest-survivor-19",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 309.333333
+        },
+        {
+          "actorId": "guest-survivor-13",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 532.469512
+        },
+        {
+          "actorId": "guest-survivor-11",
+          "teamId": "team:1",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 330.333333
+        },
+        {
+          "actorId": "guest-survivor-12",
+          "teamId": "team:2",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 919.083333
+        },
+        {
+          "actorId": "guest-survivor-20",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 891.583333
+        },
+        {
+          "actorId": "guest-survivor-17",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 304.916666
+        },
+        {
+          "actorId": "guest-survivor-16",
+          "teamId": "team:3",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 1138.25
+        },
+        {
+          "actorId": "guest-survivor-22",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 533.939024
+        },
+        {
+          "actorId": "guest-survivor-14",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 229.333333
+        },
+        {
+          "actorId": "guest-survivor-21",
+          "teamId": "team:4",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 531
+        },
+        {
+          "actorId": "guest-survivor-23",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 978.583333
+        },
+        {
+          "actorId": "guest-survivor-10",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 303.666666
+        },
+        {
+          "actorId": "guest-survivor-18",
+          "teamId": "team:5",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 908.25
+        },
+        {
+          "actorId": "guest-survivor-05",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 257.333333
+        },
+        {
+          "actorId": "guest-survivor-07",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 450
+        },
+        {
+          "actorId": "guest-survivor-15",
+          "teamId": "team:6",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 447.75
+        },
+        {
+          "actorId": "guest-survivor-03",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 718
+        },
+        {
+          "actorId": "guest-survivor-24",
+          "teamId": "team:7",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 722.916666
+        },
+        {
+          "actorId": "guest-survivor-08",
+          "teamId": "team:7",
+          "aliveAtEnd": true,
+          "firstDeathAtSec": null
+        },
+        {
+          "actorId": "guest-survivor-09",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 897.333333
+        },
+        {
+          "actorId": "guest-survivor-04",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 897.583333
+        },
+        {
+          "actorId": "guest-survivor-02",
+          "teamId": "team:8",
+          "aliveAtEnd": false,
+          "firstDeathAtSec": 934.333333
+        }
+      ]
+    }
+  ],
+  "scope": "paired ordinary guest inputs: unchanged credits, inventory, HP, map, catalog and rules; one tactical skill or one two-member formation swap; actual outcomes, not general win-rate or causal balance acceptance"
+}

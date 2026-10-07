@@ -9,7 +9,7 @@ const styles = readFileSync(new URL('../src/styles/ERSimulation.css', import.met
 let checks = 0;
 const check = (name, run) => { run(); checks += 1; console.log(`PASS ${name}`); };
 
-function harness({ observeThrows = false, animationFrames = false, animationObserveThrows = false } = {}) {
+function harness({ observeThrows = false, animationFrames = false, animationObserveThrows = false, visibilityEvents = true } = {}) {
   let now = 0, serial = 0;
   const callbacks = new Map(), timers = new Map(), observers = [];
   const performanceRef = { now: () => now, timeOrigin: 1000000,
@@ -27,9 +27,15 @@ function harness({ observeThrows = false, animationFrames = false, animationObse
     takeRecords() { return this.queued.splice(0); }
     disconnect() { this.disconnected = true; }
   }
-  const probe = createObserverPerformanceProbe({ windowRef, performanceRef, PerformanceObserverRef,
-    documentRef: { visibilityState: 'visible', getElementsByTagName: () => [] } });
-  return { probe, callbacks, timers, observers, performanceRef, setNow: (value) => { now = value; },
+  const visibilityListeners = new Set();
+  const documentRef = { visibilityState: 'visible', getElementsByTagName: () => [] };
+  if (visibilityEvents) {
+    documentRef.addEventListener = (type, callback) => { if (type === 'visibilitychange') visibilityListeners.add(callback); };
+    documentRef.removeEventListener = (type, callback) => { if (type === 'visibilitychange') visibilityListeners.delete(callback); };
+  }
+  const probe = createObserverPerformanceProbe({ windowRef, performanceRef, PerformanceObserverRef, documentRef });
+  return { probe, callbacks, timers, observers, performanceRef, visibilityListeners, setNow: (value) => { now = value; },
+    setVisibility: (value) => { documentRef.visibilityState = value; [...visibilityListeners].forEach((callback) => callback()); },
     frame: (timestamp) => {
       now = timestamp;
       const ready = [...callbacks.values()]; callbacks.clear();
@@ -292,6 +298,44 @@ check('diagnostic clock/callback failures cannot replace game results and stale 
   const newerDispose = subscribeObserverWorkMeasurements(() => 2, (entry) => captured.push(entry));
   dispose(); measureObserverWork('newer', () => value); newerDispose();
   assert.equal(captured.length, 1); assert.equal(captured[0].name, 'newer');
+});
+
+check('visibility events preserve hidden intervals even when both endpoints are visible', () => {
+  const h = harness(); h.probe.start(); h.setNow(100); h.setVisibility('hidden');
+  h.setNow(350); h.setVisibility('visible'); h.setNow(500);
+  const result = h.probe.stop();
+  assert.deepEqual(result.visibility, { supported: true, reason: null, initialState: 'visible', endState: 'visible',
+    transitions: 2, durationMs: { visible: 250, hidden: 250, unknown: 0 }, entireMeasurementVisible: false });
+  assert.equal(h.visibilityListeners.size, 0);
+});
+
+check('snapshots do not double-count visibility durations and unsupported events cannot prove visible coverage', () => {
+  const h = harness(); h.probe.start(); h.setNow(10);
+  assert.equal(h.probe.snapshot().visibility.durationMs.visible, 10);
+  assert.equal(h.probe.snapshot().visibility.durationMs.visible, 10);
+  h.setNow(30); assert.equal(h.probe.stop().visibility.durationMs.visible, 30);
+  const unsupported = harness({ visibilityEvents: false }); unsupported.probe.start(); unsupported.setNow(30);
+  const result = unsupported.probe.stop();
+  assert.equal(result.visibility.initialState, 'visible'); assert.equal(result.visibility.endState, 'visible');
+  assert.equal(result.visibility.supported, false); assert.equal(result.visibility.durationMs, null);
+  assert.equal(result.visibility.entireMeasurementVisible, false);
+});
+
+check('restart and automatic stop release visibility listeners and reject stale events', () => {
+  const h = harness(); h.probe.start(); const oldListener = [...h.visibilityListeners][0];
+  h.setNow(100); h.probe.start({ durationMs: 1000 }); assert.equal(h.visibilityListeners.size, 1);
+  h.setVisibility('hidden'); h.setNow(150); oldListener();
+  assert.deepEqual(h.probe.snapshot().visibility.durationMs, { visible: 0, hidden: 50, unknown: 0 });
+  h.setNow(200); [...h.timers.values()][0]();
+  assert.equal(h.visibilityListeners.size, 0); assert.equal(h.probe.isRunning(), false);
+});
+
+check('unknown and initially hidden documents never pass the continuous visibility condition', () => {
+  const h = harness(); h.setVisibility('hidden'); h.probe.start(); h.setNow(10); h.setVisibility('unknown');
+  h.setNow(20); h.setVisibility('visible'); h.setNow(30);
+  assert.deepEqual(h.probe.stop().visibility.durationMs, { visible: 10, hidden: 10, unknown: 10 });
+  h.probe.start(); h.setNow(40);
+  assert.equal(h.probe.stop().visibility.entireMeasurementVisible, true);
 });
 
 check('panel is query-gated and exposes accessible controls and JSON output', () => {

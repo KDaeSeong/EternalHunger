@@ -118,9 +118,33 @@ export function createObserverPerformanceProbe({
 } = {}) {
   let state = null;
 
+  const visibilityState = () => {
+    const value = documentRef?.visibilityState;
+    return value === 'visible' || value === 'hidden' ? value : 'unknown';
+  };
+
+  function visibilitySnapshot(target, now) {
+    const visibility = target.visibility;
+    const endState = visibilityState();
+    const durationMs = { ...visibility.durationMs };
+    durationMs[visibility.state] += Math.max(0, now - visibility.changedAt);
+    return {
+      supported: visibility.supported,
+      reason: visibility.supported ? null : 'document visibility events unavailable',
+      initialState: visibility.initialState,
+      endState,
+      transitions: visibility.supported ? visibility.transitions : null,
+      durationMs: visibility.supported ? Object.fromEntries(Object.entries(durationMs).map(([key, value]) => [key, round(value)])) : null,
+      entireMeasurementVisible: visibility.supported
+        && visibility.initialState === 'visible' && endState === 'visible'
+        && visibility.state === 'visible' && visibility.transitions === 0,
+    };
+  }
+
   function snapshot(target = state) {
     if (!target) return null;
-    const elapsedMs = performanceRef.now() - target.startedAt;
+    const now = performanceRef.now();
+    const elapsedMs = now - target.startedAt;
     const frames = target.frames;
     const median = framePercentile(frames, 0.5), p95 = framePercentile(frames, 0.95);
     const memory = heapSnapshot(performanceRef.memory);
@@ -159,6 +183,7 @@ export function createObserverPerformanceProbe({
         : { supported: false, reason: 'performance.memory unavailable' },
       domNodes: documentRef?.getElementsByTagName?.('*')?.length ?? null,
       visibilityState: documentRef?.visibilityState ?? 'unknown',
+      visibility: visibilitySnapshot(target, now),
     };
   }
 
@@ -175,6 +200,7 @@ export function createObserverPerformanceProbe({
     finished.longTaskObserver?.disconnect();
     finished.longAnimationFrameObserver?.disconnect();
     finished.unsubscribeWork?.();
+    if (finished.visibility.listener) documentRef.removeEventListener('visibilitychange', finished.visibility.listener);
     return snapshot(finished);
   }
 
@@ -223,6 +249,11 @@ export function createObserverPerformanceProbe({
       workStages: new Map(),
       unsubscribeWork: null,
     };
+    const initialVisibility = visibilityState();
+    next.visibility = {
+      supported: false, initialState: initialVisibility, state: initialVisibility,
+      changedAt: next.startedAt, transitions: 0, durationMs: { visible: 0, hidden: 0, unknown: 0 }, listener: null,
+    };
     if (typeof PerformanceObserverRef === 'function') {
       try {
         next.longTaskObserver = new PerformanceObserverRef((list) => {
@@ -240,6 +271,18 @@ export function createObserverPerformanceProbe({
       }
     }
     state = next;
+    if (typeof documentRef?.addEventListener === 'function' && typeof documentRef?.removeEventListener === 'function') {
+      const onVisibilityChange = () => {
+        if (state !== next) return;
+        const visibility = next.visibility, value = visibilityState();
+        if (value === visibility.state) return;
+        const now = performanceRef.now();
+        visibility.durationMs[visibility.state] += Math.max(0, now - visibility.changedAt);
+        visibility.changedAt = now; visibility.state = value; visibility.transitions += 1;
+      };
+      documentRef.addEventListener('visibilitychange', onVisibilityChange);
+      next.visibility.listener = onVisibilityChange; next.visibility.supported = true;
+    }
     next.unsubscribeWork = subscribeObserverWorkMeasurements(() => performanceRef.now(), (entry) => {
       if (state !== next || !Number.isFinite(entry.duration) || entry.duration < 0) return;
       const name = String(entry.name).slice(0, 80);

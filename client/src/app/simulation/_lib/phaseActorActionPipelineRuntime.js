@@ -1,7 +1,7 @@
 import { runDay1HeroGearDirectorWithLogs } from './phaseRouteProgressRuntime';
 import { runSingleActorPhaseAction } from './phaseActorActionStepRuntime';
 import { buildCraftGoal, chooseAiMoveTargets, computeLateGameUpgradeNeed, getActorPerkEffects, pickGoalLoadoutKeys } from './simulationEngine';
-import { buildTeamCoordination } from './teamTacticsRuntime';
+import { buildTeamCoordinationSteps } from './teamTacticsRuntime';
 import { publishTeamRegroupDecision } from './teamRegroupRuntime';
 import { estimateMovePower } from './movePowerRuntime';
 import { hasActionBlockStatus, getForcedControlEffect, canMoveByStatus } from '../../../utils/statusLogic';
@@ -113,7 +113,7 @@ export function* runPhaseActorActionPipelineSteps({
     measureObserverWork('growth.refreshPlans', () => refreshActorGrowthPlan(actor, publicItems, state));
     yield;
   }
-  const { movementPlans: teamMovementPlans, regroupDecisions } = measureObserverWork('growth.teamCoordination', () => buildTeamCoordination({
+  const coordinationSteps = buildTeamCoordinationSteps({
     roster: movementRoster, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds,
     day: nextDay, phase: nextPhase, isSoloMatch: state.isSoloMatch,
     spawnState: state.nextSpawn, ruleset, publicItems,
@@ -135,7 +135,17 @@ export function* runPhaseActorActionPipelineSteps({
       day: nextDay, phase: nextPhase, kiosks: state.kiosks, publicItems, itemMetaById, itemNameById,
       nowSec: state.currentActionSec?.(), ruleset, isSoloMatch: state.isSoloMatch,
     }),
-  }));
+  });
+  let coordinationStep;
+  try {
+    do {
+      coordinationStep = measureObserverWork('growth.teamCoordination', () => coordinationSteps.next());
+      if (!coordinationStep.done) yield;
+    } while (!coordinationStep.done);
+  } finally {
+    if (!coordinationStep?.done) coordinationSteps.return();
+  }
+  const { movementPlans: teamMovementPlans, regroupDecisions } = coordinationStep.value;
   yield;
   const planningActorsById = new Map(movementRoster.map((actor) => [String(actor._id || actor.id || ''), actor]));
   const newlyDead = [];

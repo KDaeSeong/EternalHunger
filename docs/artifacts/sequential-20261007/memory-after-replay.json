@@ -1,0 +1,84 @@
+{
+  "schema": "eh-observer-memory-lifetime.v1",
+  "supported": true,
+  "scope": "selected_object_roots_not_entire_heap",
+  "ownerLimit": 12,
+  "targetLimit": 8,
+  "evictedOwners": 0,
+  "owners": [
+    {
+      "id": 1,
+      "kind": "session",
+      "closed": true,
+      "targets": [
+        {
+          "name": "journal",
+          "state": "collected"
+        },
+        {
+          "name": "textLog",
+          "state": "collected"
+        },
+        {
+          "name": "visibleEvents",
+          "state": "collected"
+        },
+        {
+          "name": "survivors",
+          "state": "collected"
+        },
+        {
+          "name": "dead",
+          "state": "collected"
+        },
+        {
+          "name": "replayRecord",
+          "state": "collected"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "history",
+      "closed": true,
+      "targets": []
+    },
+    {
+      "id": 3,
+      "kind": "history",
+      "closed": true,
+      "targets": []
+    },
+    {
+      "id": 4,
+      "kind": "session",
+      "closed": false,
+      "targets": [
+        {
+          "name": "journal",
+          "state": "reachable_or_not_yet_collected"
+        },
+        {
+          "name": "textLog",
+          "state": "reachable_or_not_yet_collected"
+        },
+        {
+          "name": "visibleEvents",
+          "state": "reachable_or_not_yet_collected"
+        },
+        {
+          "name": "survivors",
+          "state": "reachable_or_not_yet_collected"
+        },
+        {
+          "name": "dead",
+          "state": "reachable_or_not_yet_collected"
+        },
+        {
+          "name": "replayRecord",
+          "state": "reachable_or_not_yet_collected"
+        }
+      ]
+    }
+  ]
+}

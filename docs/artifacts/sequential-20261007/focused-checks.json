@@ -1,0 +1,161 @@
+[
+  {
+    "name": "check-kiosk-goal-exchanges",
+    "exit": 0,
+    "summary": [
+      "Kiosk goal exchange checks passed: 6/6"
+    ]
+  },
+  {
+    "name": "check-default-kiosk-goals",
+    "exit": 0,
+    "summary": [
+      "Default kiosk goal checks passed: 12/12"
+    ]
+  },
+  {
+    "name": "check-kiosk-exchange-inputs",
+    "exit": 0,
+    "summary": [
+      "Kiosk exchange input checks passed: 9/9"
+    ]
+  },
+  {
+    "name": "check-kiosk-material-identity",
+    "exit": 0,
+    "summary": [
+      "Kiosk material identity checks passed: 7/7"
+    ]
+  },
+  {
+    "name": "check-team-purchase-goals",
+    "exit": 0,
+    "summary": []
+  },
+  {
+    "name": "check-kiosk-catalog-contract",
+    "exit": 0,
+    "summary": [
+      "KIOSK_CATALOG_CONTRACT_CHECKS 8/8"
+    ]
+  },
+  {
+    "name": "check-market-item-policy",
+    "exit": 0,
+    "summary": [
+      "{\"checks\":9,\"pass\":true,\"foodItemsChecked\":39,\"scope\":\"current catalogue, real kiosk/drone quote and atomic settlement; not live account or balance acceptance\"}"
+    ]
+  },
+  {
+    "name": "check-custom-crafting",
+    "exit": 0,
+    "summary": [
+      "CUSTOM_CRAFTING_CHECKS 33/33"
+    ]
+  },
+  {
+    "name": "check-custom-equipment-effects",
+    "exit": 0,
+    "summary": [
+      "CUSTOM_EQUIPMENT_DATA_CHECKS 10/10"
+    ]
+  },
+  {
+    "name": "check-custom-consumables",
+    "exit": 0,
+    "summary": [
+      "CUSTOM_CONSUMABLE_CHECKS 29/29"
+    ]
+  },
+  {
+    "name": "check-guest-item-profiles",
+    "exit": 0,
+    "summary": [
+      "GUEST_ITEM_PROFILE_CHECKS 9/9"
+    ]
+  },
+  {
+    "name": "check-growth-capacity",
+    "exit": 0,
+    "summary": [
+      "GROWTH_CAPACITY_CHECKS 15/15"
+    ]
+  },
+  {
+    "name": "check-growth-plan",
+    "exit": 0,
+    "summary": [
+      "GROWTH_PLAN_CHECKS 33/33"
+    ]
+  },
+  {
+    "name": "check-late-growth-goals",
+    "exit": 0,
+    "summary": [
+      "LATE_GROWTH_GOAL_CHECKS 29/29"
+    ]
+  },
+  {
+    "name": "check-team-tactics",
+    "exit": 0,
+    "summary": [
+      "{\"checks\":29,\"pass\":true,\"scope\":\"team tactics and actual movement/retreat integration; not match balance\"}"
+    ]
+  },
+  {
+    "name": "check-team-combat",
+    "exit": 0,
+    "summary": [
+      "TEAM_COMBAT_CHECKS 12/12"
+    ]
+  },
+  {
+    "name": "check-team-boss-goals",
+    "exit": 0,
+    "summary": [
+      "TEAM_BOSS_GOAL_CHECKS 22/22"
+    ]
+  },
+  {
+    "name": "check-team-resource-goals",
+    "exit": 0,
+    "summary": [
+      "TEAM_RESOURCE_GOAL_CHECKS 23/23"
+    ]
+  },
+  {
+    "name": "check-boss-loot-sharing",
+    "exit": 0,
+    "summary": [
+      "BOSS_LOOT_SHARING_CHECKS 23/23"
+    ]
+  },
+  {
+    "name": "check-team-isolation-tracker",
+    "exit": 0,
+    "summary": [
+      "TEAM_ISOLATION_TRACKER_CHECKS 7/7"
+    ]
+  },
+  {
+    "name": "check-map-navigation-contract",
+    "exit": 0,
+    "summary": [
+      "MAP_NAVIGATION_CONTRACT_CHECKS 17/17"
+    ]
+  },
+  {
+    "name": "check-growth-observation",
+    "exit": 0,
+    "summary": [
+      "GROWTH_OBSERVATION_CHECKS 21/21"
+    ]
+  },
+  {
+    "name": "check-team-observer",
+    "exit": 0,
+    "summary": [
+      "TEAM_OBSERVER_CHECKS 18/18"
+    ]
+  }
+]

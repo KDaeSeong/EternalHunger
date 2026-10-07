@@ -1,0 +1,650 @@
+{
+  "engineVersion": "d3c0f9b4681386336cf1a76b1374901a5a915a7b23175ab2debcb9c1b7241f25",
+  "cases": 3,
+  "rows": [
+    {
+      "seed": "1101",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "evidence": {
+        "seed": "1101",
+        "phases": 12,
+        "frames": 6390,
+        "ticks": 1225.666666,
+        "eventCount": 14976,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1225.666666,
+          "day": 6,
+          "phase": "night",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "approach",
+          "winnerTeamId": "team:5",
+          "dimensionRifts": {
+            "atSec": 1225.666666,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1225.666666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2704637753,
+          "draws": 10672,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "b925a090eec72b299ba38fdbb4b323fba43e0d35672a714fc6133c50347535cb",
+        "frameDigest": "22dad0b4a6e6259c7c64166b4643b113baf5788735cd8f8f70e31550766b404d"
+      },
+      "sharedPurchaseIntentions": 0,
+      "distinctSharedPurchaseReviews": 0,
+      "naturalPurchaseCoverage": "not_observed",
+      "kioskSettlements": 23,
+      "allSettlements": 56,
+      "observerReceiptChecks": 56,
+      "purchaseToCraftLinks": 17,
+      "equippedPurchaseCrafts": 16,
+      "craftSamples": [
+        {
+          "who": "guest-survivor-22",
+          "purchasedId": "namu:material:운석",
+          "paidCost": 200,
+          "craftId": "namu:아르카나:더 문",
+          "craftCost": 0,
+          "equippedObserved": true
+        },
+        {
+          "who": "guest-survivor-09",
+          "purchasedId": "namu:material:미스릴",
+          "paidCost": 250,
+          "craftId": "namu:망치:둠스데이",
+          "craftCost": 0,
+          "equippedObserved": true
+        },
+        {
+          "who": "guest-survivor-04",
+          "purchasedId": "namu:material:생명의 나무",
+          "paidCost": 200,
+          "craftId": "namu:단검:소울 리퍼",
+          "craftCost": 0,
+          "equippedObserved": true
+        }
+      ],
+      "openingComplete": 24,
+      "openingCompleteBy250Sec": 24,
+      "isolationEndReasons": {
+        "contact": 162,
+        "death": 8,
+        "last_living_member": 4,
+        "space_change": 1
+      },
+      "unfinishedIsolations": 0,
+      "longestIsolationSeconds": 158,
+      "longestContactIsolationSeconds": 158,
+      "regroupArrivals": 48,
+      "teamRetreats": {
+        "total": 36,
+        "uniqueActors": 18,
+        "maxPerActor": 8,
+        "reversals": 0,
+        "reversalSamples": [],
+        "byReason": {
+          "team_outnumbered": 36
+        },
+        "topActors": [
+          [
+            "guest-survivor-24",
+            8
+          ],
+          [
+            "guest-survivor-08",
+            3
+          ],
+          [
+            "guest-survivor-15",
+            3
+          ],
+          [
+            "guest-survivor-03",
+            2
+          ],
+          [
+            "guest-survivor-05",
+            2
+          ]
+        ]
+      },
+      "huntTransfers": 1,
+      "successfulBossSettlements": 2
+    },
+    {
+      "seed": "2202",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "evidence": {
+        "seed": "2202",
+        "phases": 12,
+        "frames": 6134,
+        "ticks": 1183.083333,
+        "eventCount": 14907,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1183.083333,
+          "day": 6,
+          "phase": "night",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "approach",
+          "winnerTeamId": "team:5",
+          "dimensionRifts": {
+            "atSec": 1183.083333,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1183.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 234952262,
+          "draws": 10132,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "e9f71e1d5aac4bc3bc53d4585ea22c037bb99d4f9f096cdd4812029c050ae20a",
+        "frameDigest": "540d7450b5f09f9350c05a8e3fb5f773cec84ccde8379eb0a52b3dbc1347d2b5"
+      },
+      "sharedPurchaseIntentions": 0,
+      "distinctSharedPurchaseReviews": 0,
+      "naturalPurchaseCoverage": "not_observed",
+      "kioskSettlements": 22,
+      "allSettlements": 59,
+      "observerReceiptChecks": 59,
+      "purchaseToCraftLinks": 21,
+      "equippedPurchaseCrafts": 21,
+      "craftSamples": [
+        {
+          "who": "guest-survivor-22",
+          "purchasedId": "namu:material:운석",
+          "paidCost": 200,
+          "craftId": "namu:아르카나:더 문",
+          "craftCost": 0,
+          "equippedObserved": true
+        },
+        {
+          "who": "guest-survivor-17",
+          "purchasedId": "namu:material:운석",
+          "paidCost": 200,
+          "craftId": "namu:망치:개밥바라기",
+          "craftCost": 0,
+          "equippedObserved": true
+        },
+        {
+          "who": "guest-survivor-16",
+          "purchasedId": "namu:material:미스릴",
+          "paidCost": 250,
+          "craftId": "namu:권총:악켈테",
+          "craftCost": 0,
+          "equippedObserved": true
+        }
+      ],
+      "openingComplete": 24,
+      "openingCompleteBy250Sec": 24,
+      "isolationEndReasons": {
+        "contact": 165,
+        "death": 13,
+        "last_living_member": 7
+      },
+      "unfinishedIsolations": 1,
+      "longestIsolationSeconds": 60,
+      "longestContactIsolationSeconds": 60,
+      "regroupArrivals": 65,
+      "teamRetreats": {
+        "total": 35,
+        "uniqueActors": 15,
+        "maxPerActor": 6,
+        "reversals": 0,
+        "reversalSamples": [],
+        "byReason": {
+          "team_outnumbered": 35
+        },
+        "topActors": [
+          [
+            "guest-survivor-19",
+            6
+          ],
+          [
+            "guest-survivor-24",
+            4
+          ],
+          [
+            "guest-survivor-05",
+            3
+          ],
+          [
+            "guest-survivor-09",
+            3
+          ],
+          [
+            "guest-survivor-14",
+            3
+          ]
+        ]
+      },
+      "huntTransfers": 2,
+      "successfulBossSettlements": 3
+    },
+    {
+      "seed": "3303",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "evidence": {
+        "seed": "3303",
+        "phases": 13,
+        "frames": 6710,
+        "ticks": 1290.083333,
+        "eventCount": 13486,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1290.083333,
+          "day": 7,
+          "phase": "morning",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "final",
+          "winnerTeamId": "team:7",
+          "dimensionRifts": {
+            "atSec": 1290.083333,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "claimed",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1290.083333,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 3381049983,
+          "draws": 9652,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "9a5dced9fed92a33121e0461ecde4e85367c056f12454300aae71adf4fc875cc",
+        "frameDigest": "b9ca7d86e7b198ab8722c71cd8a2b32ef79e25187e612df3c761aabbf4b48b56"
+      },
+      "sharedPurchaseIntentions": 0,
+      "distinctSharedPurchaseReviews": 0,
+      "naturalPurchaseCoverage": "not_observed",
+      "kioskSettlements": 22,
+      "allSettlements": 43,
+      "observerReceiptChecks": 43,
+      "purchaseToCraftLinks": 20,
+      "equippedPurchaseCrafts": 20,
+      "craftSamples": [
+        {
+          "who": "guest-survivor-09",
+          "purchasedId": "namu:material:운석",
+          "paidCost": 200,
+          "craftId": "namu:망치:개밥바라기",
+          "craftCost": 0,
+          "equippedObserved": true
+        },
+        {
+          "who": "guest-survivor-04",
+          "purchasedId": "namu:material:운석",
+          "paidCost": 200,
+          "craftId": "namu:head:캡틴 햇",
+          "craftCost": 0,
+          "equippedObserved": true
+        },
+        {
+          "who": "guest-survivor-03",
+          "purchasedId": "namu:material:미스릴",
+          "paidCost": 250,
+          "craftId": "namu:arm:오르비스",
+          "craftCost": 0,
+          "equippedObserved": true
+        }
+      ],
+      "openingComplete": 24,
+      "openingCompleteBy250Sec": 24,
+      "isolationEndReasons": {
+        "contact": 138,
+        "death": 8,
+        "last_living_member": 6
+      },
+      "unfinishedIsolations": 0,
+      "longestIsolationSeconds": 74,
+      "longestContactIsolationSeconds": 74,
+      "regroupArrivals": 53,
+      "teamRetreats": {
+        "total": 23,
+        "uniqueActors": 14,
+        "maxPerActor": 5,
+        "reversals": 0,
+        "reversalSamples": [],
+        "byReason": {
+          "team_outnumbered": 23
+        },
+        "topActors": [
+          [
+            "guest-survivor-22",
+            5
+          ],
+          [
+            "guest-survivor-01",
+            2
+          ],
+          [
+            "guest-survivor-04",
+            2
+          ],
+          [
+            "guest-survivor-05",
+            2
+          ],
+          [
+            "guest-survivor-14",
+            2
+          ]
+        ]
+      },
+      "huntTransfers": 0,
+      "successfulBossSettlements": 1
+    }
+  ],
+  "scope": "predetermined guest roster/seed matrix with unchanged default budgets/catalogue/rules; observed plans, actual settlements and craft/equip links are separate metrics; not guaranteed natural purchase, causal balance, browser performance or human acceptance"
+}

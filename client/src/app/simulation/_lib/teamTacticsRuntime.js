@@ -120,7 +120,17 @@ function countRallyReachability(members, roster, zoneGraph, forbiddenIds, zones,
   return counts;
 }
 
-export function buildTeamCoordination({
+export function buildTeamCoordination(options = {}) {
+  const steps = buildTeamCoordinationSteps(options);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+// A squad shares a planning snapshot and remains one atomic decision. Yield
+// between squads so a large roster cannot monopolize the browser task. The
+// synchronous entry point drains these identical decisions in the same order.
+export function* buildTeamCoordinationSteps({
   roster = [], zoneGraph = {}, forbiddenIds = new Set(), day = 1, phase = 'morning',
   estimatePower = estimateMovePower, chooseLeaderMove = () => null, maxDepth = 3, isSoloMatch = false,
   spawnState, ruleset, publicItems = [], getRotationHold = null,
@@ -138,6 +148,7 @@ export function buildTeamCoordination({
   }
   const destinationDepth = Math.max(1, Object.keys(zoneGraph).length);
   for (const members of groups.values()) {
+    yield;
     if (members.length < 2) continue;
     const managedGrowth = members.some((row) => row._growthPlan);
     const stillGrowing = (row) => row._growthPlan && !row._growthPlan.openingComplete && !row._growthPlan.blocked;

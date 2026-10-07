@@ -105,7 +105,7 @@ for (const initialRosterSeed of rosters) for (const seed of seeds) {
     purchaseToCraftLinks: craftLinks.length, equippedPurchaseCrafts: craftLinks.filter(link => link.equippedObserved).length,
     craftSamples: craftLinks.slice(0, 3),
     openingComplete: completeOpening.size, openingCompleteBy250Sec: [...completeOpening.values()].filter(sec => sec <= 250).length,
-    isolationEndReasons, unfinishedIsolations: isolation.unfinished.length,
+    isolationEndReasons, isolationCensoredAtMatchEnd: isolation.unfinished.length,
     longestIsolationSeconds: Math.max(0, ...isolation.finished.map(row => row.duration)),
     longestContactIsolationSeconds: Math.max(0, ...isolation.finished.filter(row => row.endReason === 'contact').map(row => row.duration)),
     regroupArrivals: result.events.filter(event => event.regroupEvidence?.status === 'arrived').length,
@@ -115,7 +115,8 @@ for (const initialRosterSeed of rosters) for (const seed of seeds) {
       && ['alpha', 'omega', 'weakline'].includes(event.subkind)).length,
   };
   rows.push(row);
-  const report = { engineVersion: SIMULATION_ENGINE_VERSION, cases: rows.length, rows,
+  const report = { engineVersion: SIMULATION_ENGINE_VERSION, cases: rows.length,
+    expectedCases: seeds.length * rosters.length, complete: rows.length === seeds.length * rosters.length, rows,
     scope: 'predetermined guest roster/seed matrix with unchanged default budgets/catalogue/rules; observed plans, actual settlements and craft/equip links are separate metrics; not guaranteed natural purchase, causal balance, browser performance or human acceptance' };
   if (options.output) writeFileSync(options.output, JSON.stringify(report, null, 2));
   console.log(`NATURAL_MATRIX_CASE ${JSON.stringify(row)}`);
