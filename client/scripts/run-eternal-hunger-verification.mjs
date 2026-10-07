@@ -6,9 +6,14 @@ import { join } from 'node:path';
 
 // Keep terminal output and the real exit code together across interrupted tool
 // observations. A stale "running" result is NOT evidence of a live process.
-const commands = { full: 'npm run check:eternal-hunger', unit: 'node scripts/check-character-status-skills.mjs' };
+const commands = {
+  full: 'npm run check:eternal-hunger',
+  unit: 'node scripts/check-character-status-skills.mjs',
+  build: 'npm run build',
+  growth: 'npm run check:growth-plan && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:character-auto-setup && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
+};
 const mode = process.argv[2] || 'full';
-if (!Object.hasOwn(commands, mode)) throw Error('Use full or unit.');
+if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth or build.');
 const root = fileURLToPath(new URL('../', import.meta.url));
 const runId = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}`;
 const directory = join(root, '.verification-runs', runId);

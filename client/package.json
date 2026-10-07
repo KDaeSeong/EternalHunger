@@ -88,7 +88,7 @@
     "check:cooldown-semantics": "node ./scripts/check-cooldown-semantics.mjs && npm run check:unique-resource",
     "check:unique-resource": "node ./scripts/check-unique-resource.mjs && npm run check:character-skill-movement",
     "check:character-skill-movement": "node ./scripts/check-character-skill-movement.mjs",
-    "check:growth-plan": "node ./scripts/check-growth-capacity.mjs && node ./scripts/check-growth-plan.mjs && npm run check:late-growth",
+    "check:growth-plan": "node ./scripts/check-growth-capacity.mjs && node ./scripts/check-growth-plan.mjs && node ./scripts/check-growth-progress-inventory.mjs && npm run check:late-growth",
     "check:opening-deadline:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-opening-deadline-match.mjs",
     "check:late-growth": "node ./scripts/check-late-growth-goals.mjs",
     "check:late-growth:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-late-growth-match.mjs",

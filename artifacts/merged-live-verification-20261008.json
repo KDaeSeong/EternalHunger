@@ -1,0 +1,278 @@
+{
+  "schema": "eh-local-verification.v1",
+  "scope": "Completed merged-engine verification and explicitly authorized foreground/AI observations before the 2026-10-08 follow-up fixes.",
+  "overallGoalComplete": false,
+  "fullChain": {
+    "runId": "2026-10-07T13-05-05.563Z-acb47fb8-2295-4521-a43d-528a44e58669",
+    "command": "npm run check:eternal-hunger",
+    "startedAt": "2026-10-07T13:05:05.590Z",
+    "finishedAt": "2026-10-07T13:44:14.580Z",
+    "engineBefore": "c2f7441fd5b9336b0b4801e553a2abd56f614bd53fbbd301b681b002f8aefdf5",
+    "engineAfter": "c2f7441fd5b9336b0b4801e553a2abd56f614bd53fbbd301b681b002f8aefdf5",
+    "sameEngine": true,
+    "passed": true,
+    "exitCode": 0,
+    "buildId": "E-WfupL16xeo2RmA5k4cS",
+    "pages": 62,
+    "resultPath": "client/.verification-runs/2026-10-07T13-05-05.563Z-acb47fb8-2295-4521-a43d-528a44e58669/result.json",
+    "outputPath": "client/.verification-runs/2026-10-07T13-05-05.563Z-acb47fb8-2295-4521-a43d-528a44e58669/output.log",
+    "scope": "Current merged engine before the subsequent growth-progress and AI error-handling changes; not balance/fun/human or later-source acceptance."
+  },
+  "foreground": {
+    "scope": "Two foreground browser evaluation matches before the subsequent growth-progress change. Raw REPL variables and temporary tabs were lost on interruption; this is a compact transcription of observed tool output, not a raw performance report.",
+    "engineVersion": "c2f7441fd5b9336b0b4801e553a2abd56f614bd53fbbd301b681b002f8aefdf5",
+    "buildId": "E-WfupL16xeo2RmA5k4cS",
+    "route": "http://127.0.0.1:3137/eternalhunger/evaluate?perfProbe=1",
+    "seed": "1789192220412",
+    "nominalSpeed": 32,
+    "cpuHeavyVerificationConcurrent": false,
+    "visibilitySamples": "visible; browser visibility was explicitly enabled, but continuous visibility was not logged",
+    "restart": "Evaluation UI reload regenerates built-in input with the same fixed seed; not a saved replay.",
+    "terminalUi": {
+      "day": 7,
+      "phase": "morning",
+      "clock": "21:17.58",
+      "simulatedSeconds": 1277.58,
+      "winner": "청람",
+      "winnerTeam": 5,
+      "winnerAlive": 1,
+      "winnerSize": 3,
+      "dead": 23
+    },
+    "coldRun": {
+      "inGameClockSamples": [
+        {
+          "wallMs": 33751.8874,
+          "simulatedSeconds": 366.75
+        },
+        {
+          "wallMs": 67605.5283,
+          "simulatedSeconds": 672.75
+        }
+      ],
+      "probeElapsedMs": 191512.8,
+      "probeIncludesPostFinishIdle": true,
+      "raf": {
+        "samples": 11920,
+        "medianMs": 10,
+        "p95Ms": 50.1,
+        "maxMs": 170
+      },
+      "longTasks": {
+        "count": 28,
+        "totalMs": 1552,
+        "maxMs": 75
+      },
+      "loaf": {
+        "count": 662,
+        "maxWorkMs": 168.6,
+        "maxRenderMs": 3.4
+      },
+      "heap": {
+        "baselineBytes": 17105031,
+        "finalBytes": 48854895,
+        "deltaBytes": 31749864
+      },
+      "workStages": [
+        {
+          "name": "growth.refreshPlans",
+          "count": 15503,
+          "totalMs": 8261.7,
+          "maxMs": 8
+        },
+        {
+          "name": "growth.slice",
+          "count": 3190,
+          "totalMs": 25246.8,
+          "maxMs": 75.5
+        },
+        {
+          "name": "frame.snapshot",
+          "count": 6591,
+          "totalMs": 19208.3,
+          "maxMs": 18.8
+        },
+        {
+          "name": "observer.teamModel",
+          "count": 1738,
+          "totalMs": 6095.4,
+          "maxMs": 15.2
+        },
+        {
+          "name": "phase.setup",
+          "count": 13,
+          "totalMs": 69.1,
+          "maxMs": 39.4
+        },
+        {
+          "name": "replay.captureResult",
+          "count": 1,
+          "totalMs": 59.4,
+          "lastObservedOffsetMs": 97336.8
+        }
+      ]
+    },
+    "repeatRun": {
+      "probeElapsedMs": 285717.1,
+      "probeIncludesPostFinishIdle": true,
+      "raf": {
+        "samples": 20421,
+        "medianMs": 10,
+        "p95Ms": 40,
+        "maxMs": 160
+      },
+      "longTasks": {
+        "count": 40,
+        "totalMs": 2378,
+        "maxMs": 82
+      },
+      "loaf": {
+        "count": 737,
+        "maxWorkMs": 153,
+        "maxRenderMs": 5.2
+      },
+      "heap": {
+        "baselineBytes": 23644742,
+        "finalBytes": 54630114,
+        "deltaBytes": 30985372
+      },
+      "workStages": [
+        {
+          "name": "growth.refreshPlans",
+          "count": 15503,
+          "totalMs": 10229.5,
+          "maxMs": 8.9
+        },
+        {
+          "name": "growth.slice",
+          "count": 3675,
+          "totalMs": 32286.5,
+          "maxMs": 64.7
+        },
+        {
+          "name": "frame.snapshot",
+          "count": 6591,
+          "totalMs": 18858.5,
+          "maxMs": 23
+        },
+        {
+          "name": "observer.teamModel",
+          "count": 1882,
+          "totalMs": 6407.4,
+          "maxMs": 12.3
+        },
+        {
+          "name": "phase.setup",
+          "count": 13,
+          "totalMs": 92.4,
+          "maxMs": 64.4
+        },
+        {
+          "name": "replay.captureResult",
+          "count": 1,
+          "totalMs": 70.3,
+          "lastObservedOffsetMs": 111337.6
+        }
+      ]
+    },
+    "limitations": [
+      "Viewport changed between observations: first screenshot 1280x720, saved final screenshot 582x862. Not a controlled same-viewport A/B comparison.",
+      "Capture-result offset is an approximate terminal-stage clue, not exact UI finish timing.",
+      "Probe totals include post-finish idle. Aggregate FPS/RAF is not in-game-only.",
+      "Work stages can be nested and must not be summed as independent costs.",
+      "Identical terminal UI/frame counts do not independently prove exact event/RNG equality between these browser runs."
+    ],
+    "evidenceScreenshot": "artifacts/foreground-x32-20261007.jpg",
+    "nominal32xAccepted": false
+  },
+  "liveAi": {
+    "schema": "eh-character-setup-live.v1",
+    "requests": 2,
+    "sdkAttemptsPerRequest": 1,
+    "automaticRetries": 0,
+    "operatingAccountWrites": 0,
+    "mountedAuthVerified": false,
+    "fullMatchBalanceVerified": false,
+    "passed": false,
+    "results": [
+      {
+        "mode": "er",
+        "name": "헤이즈",
+        "text": "",
+        "checks": [],
+        "provider": {
+          "requestNumber": 1,
+          "model": "gemini-3.6-flash",
+          "sdkAttempts": 1,
+          "elapsedMs": 231.876,
+          "failure": {
+            "name": "ApiError",
+            "status": 400
+          }
+        },
+        "status": 502,
+        "response": {
+          "error": "자동 설정 응답을 받지 못했습니다. 잠시 후 다시 시도해 주세요. 기존 설정은 유지됩니다.",
+          "code": "AI_UPSTREAM_FAILURE"
+        }
+      },
+      {
+        "mode": "custom",
+        "name": "라크리모사",
+        "text": "라크리모사. 제공된 스킬 설명은 Q뿐이며 다른 스킬과 능력치는 미제공. Q: 적 1인에게 10/20/30/40/50 피해, 쿨타임 7초, 5초 안에 다시 발동하면 20/30/40/50/60 피해. 범위 1. 대상 최대 체력의 1/1/2/2/3% 추가 피해.",
+        "checks": [],
+        "provider": {
+          "requestNumber": 2,
+          "model": "gemini-3.6-flash",
+          "sdkAttempts": 1,
+          "elapsedMs": 164.714,
+          "failure": {
+            "name": "ApiError",
+            "status": 400
+          }
+        },
+        "status": 502,
+        "response": {
+          "error": "자동 설정 응답을 받지 못했습니다. 잠시 후 다시 시도해 주세요. 기존 설정은 유지됩니다.",
+          "code": "AI_UPSTREAM_FAILURE"
+        }
+      }
+    ],
+    "execution": {
+      "turnId": "01a11676-b51a-7500-838e-aed4b54aee7f",
+      "commandId": "exec-bb4cdfba-807d-4d8d-9613-21ed03045b6f",
+      "status": "failed",
+      "exitCode": 1,
+      "durationMs": 11568
+    },
+    "readOnlyDiagnostic": {
+      "scope": "read-only model metadata; no content generation",
+      "configuredModel": "gemini-3.6-flash",
+      "keyPresent": true,
+      "generationRequests": 0,
+      "sdkAttempts": 1,
+      "ok": false,
+      "failure": {
+        "name": "ApiError",
+        "status": 400,
+        "providerStatus": "INVALID_ARGUMENT",
+        "reasons": [
+          "API_KEY_INVALID"
+        ],
+        "fetchFailed": false,
+        "networkCode": null
+      }
+    },
+    "firstSandboxDiagnostic": {
+      "failedLocallyWithTypeError": true,
+      "providerResponseReceived": false
+    },
+    "generatedDrafts": 0,
+    "newPaidRequestsAfterRecovery": 0,
+    "billingAmountNotMeasured": true,
+    "credentialOrModelModified": false
+  },
+  "operatingAccountWrites": 0,
+  "githubPushPerformed": false,
+  "publicDeploymentPerformed": false
+}

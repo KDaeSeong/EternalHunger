@@ -147,6 +147,7 @@ test('custom setup is a reviewable full draft and no Google Search tool is reque
   const result = await invoke({ generate: async input => { request = input; return { text: JSON.stringify(makeSetup()) }; } });
   assert.equal(result.status, 200); assert.equal(result.body.origin, 'ai-draft');
   assert.equal(request.config.responseMimeType, 'application/json'); assert.equal(request.config.tools, undefined);
+  assert.deepEqual(request.config.httpOptions, { timeout: 55000, retryOptions: { attempts: 1 } });
   assert.equal(JSON.parse(request.contents).name, '검사 캐릭터');
   assert.ok(result.body.warnings.some(text => text.includes('자동 작성')));
 });
@@ -221,6 +222,31 @@ test('invalid provider JSON or unsupported effects cannot escape the draft valid
   for (const raw of ['not JSON', JSON.stringify({ ...makeSetup(), characterSkills: {} })]) {
     const result = await invoke({ generate: async () => ({ text: raw }) });
     assert.equal(result.status, 502); assert.equal(result.body.code, 'INVALID_SETUP_DRAFT');
+  }
+});
+
+test('invalid provider keys and service access do not tell users to retry or disclose provider data', async () => {
+  const rejectedKey = Object.assign(new Error(JSON.stringify({ error: { status: 'INVALID_ARGUMENT',
+    message: 'secret provider credential', details: [{ reason: 'API_KEY_INVALID', metadata: { key: 'secret-key' } }] } })), { status: 400 });
+  for (const error of [rejectedKey, ...[401, 403, 404].map(status => Object.assign(new Error('secret provider credential'), { status }))]) {
+    let calls = 0;
+    const result = await invoke({ generate: async () => { calls += 1; throw error; } });
+    assert.equal(calls, 1); assert.equal(result.status, 503); assert.equal(result.body.code, 'AI_NOT_CONFIGURED');
+    assert.match(result.body.error, /관리자 확인/); assert.doesNotMatch(result.body.error, /다시 시도/);
+    assert.doesNotMatch(JSON.stringify(result), /secret|API_KEY_INVALID|INVALID_ARGUMENT/);
+  }
+});
+
+test('provider request rejection stays distinct from transient errors without a paid repair call', async () => {
+  for (const status of [400, 429, 500, 503]) {
+    let calls = 0;
+    const result = await invoke({ generate: async () => {
+      calls += 1; throw Object.assign(new Error('secret provider error'), { status });
+    } });
+    assert.equal(calls, 1); assert.equal(result.status, 502);
+    assert.equal(result.body.code, status === 400 ? 'AI_REQUEST_REJECTED' : 'AI_UPSTREAM_FAILURE');
+    assert.equal(result.body.error.includes('다시 시도'), status !== 400);
+    assert.doesNotMatch(JSON.stringify(result), /secret/);
   }
 });
 test('the real mounted automatic-setup endpoint requires authentication before using AI', async () => {

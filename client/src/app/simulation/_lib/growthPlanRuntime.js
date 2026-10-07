@@ -1,5 +1,5 @@
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
-import { canReceiveItem, getInvItemId, getInvRules, inferEquipSlot, inferItemCategory, invQty } from './inventoryRules';
+import { canReceiveItem, getInvItemId, getInvRules, inferEquipSlot, inferItemCategory } from './inventoryRules';
 import { getFieldItemSourceZones, getFieldResourceQty } from './fieldResourceRuntime';
 import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
 import { getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
@@ -26,6 +26,19 @@ function indexCatalogKeys(items) {
     catalogKeyCache.set(items, byKey);
   }
   return catalogKeyCache.get(items);
+}
+
+function indexInventoryQuantities(inventory) {
+  const quantities = new Map();
+  for (const entry of inventory) {
+    const id = getInvItemId(entry);
+    if (!quantities.has(id)) quantities.set(id, 0);
+    if (!id) continue;
+    const raw = entry?.qty === undefined ? 1 : entry.qty;
+    const qty = typeof raw === 'number' || (typeof raw === 'string' && raw.trim()) ? Number(raw) : NaN;
+    if (Number.isSafeInteger(qty) && qty > 0) quantities.set(id, quantities.get(id) + qty);
+  }
+  return quantities;
 }
 
 export function getGrowthItemZones(item, mapObj, forbiddenIds = new Set(), fieldResources = null) {
@@ -67,6 +80,7 @@ export function getActorGrowthProgress(actor, items = []) {
     else targets.push(item);
   }
   const inventory = actor.inventory || [];
+  const inventoryQuantities = indexInventoryQuantities(inventory);
   const usableWeapon = (item) => inferEquipSlot(item) !== 'weapon'
     || areEquipmentWeaponTypesCompatible(actor.weaponType, item.weaponType);
   const fallbackFulfills = (entry, target) => {
@@ -75,7 +89,7 @@ export function getActorGrowthProgress(actor, items = []) {
       && inferEquipSlot(entry) === slot && Number(entry.tier) >= Number(target.tier)
       && getInvItemId(entry) === actor._growthFallbackTargets?.[slot];
   };
-  const fulfilled = (target) => usableWeapon(target) && inventory.some((entry) => invQty(inventory, getInvItemId(entry)) > 0
+  const fulfilled = (target) => usableWeapon(target) && inventory.some((entry) => inventoryQuantities.get(getInvItemId(entry)) > 0
     && usableWeapon({ ...byId.get(getInvItemId(entry)), ...entry })
     && (getInvItemId(entry) === String(target._id)
       || fallbackFulfills(entry, target)
@@ -98,7 +112,8 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
   if (inferEquipSlot(target) === 'weapon' && !areEquipmentWeaponTypesCompatible(actor.weaponType, target.weaponType)) {
     return { ...work, blocked: 'weapon_mismatch' };
   }
-  const available = new Map(inventory.map((entry) => [getInvItemId(entry), invQty(inventory, getInvItemId(entry))]));
+  const inventoryQuantities = indexInventoryQuantities(inventory);
+  const available = new Map(inventoryQuantities);
   const missing = new Map();
   const components = new Set();
   const craftIds = new Set();
@@ -136,7 +151,7 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
   work.componentIds = [...components];
   work.reservedQtyById = reserved;
   const materialReady = work.craftIds.filter((id) => getCraftRecipeTerms(byId.get(id))?.ingredients
-    .every((row) => invQty(inventory, row.itemId) >= row.qty));
+    .every((row) => (inventoryQuantities.get(row.itemId) || 0) >= row.qty));
   const affordable = materialReady.filter((id) => getCraftRecipeTerms(byId.get(id)).creditsCost <= work.availableCredits);
   work.readyCraftId = affordable[0] || '';
   // A full bag or a partially receivable output stack can trap the focus on
@@ -146,7 +161,7 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
   // Ruleset-free callers only account for recipes; do not guess their limits.
   if (!work.blocked && work.readyCraftId && ruleset) {
     const previewCapacity = inventory.length >= getInvRules(ruleset).maxSlots
-      || affordable.some(id => getCraftRecipeTerms(byId.get(id)).resultQty > 1 || invQty(inventory, id) > 0);
+      || affordable.some(id => getCraftRecipeTerms(byId.get(id)).resultQty > 1 || inventoryQuantities.get(id) > 0);
     if (previewCapacity) {
       const context = { _growthPlan: { targetIds, componentIds: work.componentIds } };
       work.readyCraftId = affordable.find((id) => prepareCraftTransaction(actor,
@@ -162,7 +177,8 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
     }
   }
   work.requiredCredits = materialReady.length ? getCraftRecipeTerms(byId.get(work.readyCraftId || materialReady[0])).creditsCost : 0;
-  work.missing = [...missing].map(([id, qty]) => ({ itemId: id, name: byId.get(id)?.name || id, need: qty, have: invQty(inventory, id) }));
+  work.missing = [...missing].map(([id, qty]) => ({ itemId: id, name: byId.get(id)?.name || id,
+    need: qty, have: inventoryQuantities.get(id) || 0 }));
   if (!work.blocked && materialReady.length && !work.readyCraftId && !work.missing.length) work.blocked = 'insufficient_credits';
   return work;
 }

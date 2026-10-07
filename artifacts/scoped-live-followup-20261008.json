@@ -1,0 +1,350 @@
+{
+  "schema": "eh-scoped-live-followup.v1",
+  "localDate": "2026-10-08",
+  "engine": "e350440d20588751689bb56a432b747ee252d7de05366392d99c9b09c74e8bea",
+  "buildId": "GDT1TOWX4ikn03if2LB72",
+  "scope": "Local growth calculation and AI failure handling; no account write, push or deployment. Evidence is not a maintained test fixture.",
+  "implementation": {
+    "growth": "Index actual inventory quantities once per work/progress call, preserving quantity validation, ID order, separate virtual recipe stock and original refresh array metadata behavior.",
+    "ai": "One provider attempt; invalid credential/access/model and generic 400 request rejection have administrator guidance without automatic paid retry or raw provider data.",
+    "removedCandidate": "Allocation fast path was reverted because it retained non-index array metadata previously cleared by map().",
+    "behaviorAndTimingBoundariesChanged": false
+  },
+  "checks": {
+    "scopedChain": {
+      "runId": "2026-10-07T19-14-29.471Z-ea51904a-6fde-41a9-b95a-9535b89da9c1",
+      "result": "client/.verification-runs/2026-10-07T19-14-29.471Z-ea51904a-6fde-41a9-b95a-9535b89da9c1/result.json",
+      "startedAt": "2026-10-07T19:14:29.478Z",
+      "finishedAt": "2026-10-07T19:24:25.557Z",
+      "status": "failed",
+      "exitCode": 1,
+      "sameEngine": true,
+      "failedStep": "Final Next.js build prerender: EPERM mkdir _global-error.segments/_global-error",
+      "passedBeforeFailure": [
+        "growth plan/capacity/late growth",
+        "three fresh first-night competitive fixtures",
+        "71 purchase regressions",
+        "procurement/catalog/market policy",
+        "automatic setup contract/UI",
+        "three host scheduling whole-match parity fixtures",
+        "saved-input replay",
+        "runtime ESLint sweep"
+      ],
+      "firstNightFixtures": [
+        {
+          "seed": 1101,
+          "completed": 24,
+          "total": 24,
+          "completionGameSeconds": [
+            24,
+            42
+          ]
+        },
+        {
+          "seed": 2202,
+          "completed": 24,
+          "total": 24,
+          "completionGameSeconds": [
+            24,
+            41
+          ]
+        },
+        {
+          "seed": 3303,
+          "completed": 24,
+          "total": 24,
+          "completionGameSeconds": [
+            21,
+            73
+          ]
+        }
+      ],
+      "firstNightScope": "Controlled canonical competitive fixtures, not arbitrary custom items, deaths or user-acceptance proof",
+      "schedulerParity": {
+        "modes": [
+          "headless",
+          "cooperative-hidden-host-model",
+          "cooperative-visible-host-model"
+        ],
+        "framesPerMatch": 6032,
+        "eventsPerMatch": 13657,
+        "gameSeconds": 1163.166666,
+        "allInputsEventsFramesLogsEndingAndRngEqual": true,
+        "eventDigest": "4dc168590580a773fc7b268c0f3db6c7cf24920795c495b1357f702c604c17f3",
+        "frameDigest": "b529e942243ea64c00f0dc7c5c4c84438a6bf5e41a7566774c0b0ecaf8d56691",
+        "randomState": 1118516310,
+        "randomDraws": 14137,
+        "limitation": "Synthetic host-task contract; not browser main-thread/paint or physical multicore proof"
+      },
+      "savedInputReplay": {
+        "frames": 6599,
+        "events": 18401,
+        "gameSeconds": 1254.666666,
+        "allEventsFinalStateRngAndEndingEqual": true,
+        "externalRequests": 0
+      }
+    },
+    "buildRecovery": {
+      "runId": "2026-10-07T19-26-47.700Z-f057ab95-d35e-4e5f-a6f9-d14ceba05da9",
+      "result": "client/.verification-runs/2026-10-07T19-26-47.700Z-f057ab95-d35e-4e5f-a6f9-d14ceba05da9/result.json",
+      "startedAt": "2026-10-07T19:26:47.702Z",
+      "finishedAt": "2026-10-07T19:27:03.728Z",
+      "status": "passed",
+      "exitCode": 0,
+      "sameEngine": true,
+      "staticPages": 62,
+      "limitation": "Separate same-source build recovery; does not change the preceding chain's exit 1 into a whole-chain pass"
+    },
+    "expandedGrowthInventoryUnit": {
+      "quantityCases": 7,
+      "wholeRecipeParityCases": 18,
+      "passed": true,
+      "executedAfterScopedChain": true,
+      "pastResultFixtureReads": false
+    },
+    "aiServerUnit": {
+      "passed": 29,
+      "total": 29,
+      "realGenerationRequests": 0,
+      "mountedAnonymousRouteStatus": 401,
+      "precedingSandboxAttempt": {
+        "passed": 28,
+        "total": 29,
+        "exitCode": 1,
+        "reason": "Loopback EACCES"
+      },
+      "limitation": "Controlled provider mocks and auth rejection; not successful paid generation quality or account save proof"
+    }
+  },
+  "currentForeground": {
+    "url": "http://127.0.0.1:3137/eternalhunger/evaluate?perfProbe=1",
+    "seed": 1789192220412,
+    "selectedSpeed": 32,
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "startedUtc": "2026-10-07T19:37:27.041Z",
+    "externalClockScope": "Cua runtime monotonic clock sampled before browser match-start click; DOM game clock observed afterwards",
+    "samples": [
+      {
+        "wallMs": 418.0722,
+        "utc": "2026-10-07T19:37:27.459Z",
+        "gameClock": "00:00",
+        "gameSeconds": 0,
+        "visibility": "visible"
+      },
+      {
+        "wallMs": 42458.7649,
+        "utc": "2026-10-07T19:38:09.499Z",
+        "gameClock": "05:32.75",
+        "gameSeconds": 332.75,
+        "visibility": "visible"
+      },
+      {
+        "wallMs": 72491.9833,
+        "utc": "2026-10-07T19:38:39.533Z",
+        "gameClock": "11:12.75",
+        "gameSeconds": 672.75,
+        "visibility": "visible"
+      },
+      {
+        "wallMs": 111547.6715,
+        "utc": "2026-10-07T19:39:18.588Z",
+        "gameClock": "21:17.58",
+        "gameSeconds": 1277.58,
+        "visibility": "visible",
+        "ended": true
+      }
+    ],
+    "effectiveSpeedAtFirstMidSample": 7.8370155322158235,
+    "effectiveSpeedAtSecondMidSample": 9.280336519638302,
+    "completionObservedWithinWallMs": [
+      72491.9833,
+      111547.6715
+    ],
+    "end": {
+      "day": 7,
+      "phase": "day",
+      "clock": "21:17.58",
+      "winner": "청람",
+      "team": 5,
+      "teamAlive": 1,
+      "teamTotal": 3,
+      "dead": 23
+    },
+    "x32Accepted": false,
+    "scope": "A completed new current-source match; no past-result playback, no speed/pause change, no concurrent heavy verification or build",
+    "limitations": [
+      "End was not continuously watched. The last-running/first-ended DOM observations bound completion; no exact UI completion duration is claimed.",
+      "Probe stopped after dismissing the completion modal. elapsedMs/RAF/heap includes post-completion idle and report controls, not pure match speed.",
+      "Visibility is sampled, not a continuous ledger; external CPU/thermal state was not controlled.",
+      "Older engine runs did not maintain identical viewport conditions. No controlled before/after performance improvement is claimed.",
+      "Matching final UI/counts is not full browser event/RNG parity; exact parity proof above is independent fresh-input host execution.",
+      "Synchronous stage times may be nested; do not add them."
+    ],
+    "performanceSummary": {
+      "origin": "Current rendered diagnostic JSON, summarized directly; not a raw full-report file",
+      "schema": "eh-observer-performance.v2",
+      "label": "e350-current-x32-cold",
+      "elapsedMs": 166393.1,
+      "raf": {
+        "samples": 10371,
+        "fps": 62.328,
+        "medianIntervalMs": 10,
+        "p95IntervalMs": 50,
+        "maxIntervalMs": 120.1,
+        "scope": "entire probe, including post-completion idle"
+      },
+      "longTasks": {
+        "count": 23,
+        "totalMs": 1314,
+        "maxMs": 71
+      },
+      "longAnimationFrames": {
+        "count": 469,
+        "totalDurationMs": 31667.5,
+        "maxDurationMs": 115.9,
+        "maxWorkMs": 115.1,
+        "maxRenderMs": 5.5,
+        "maxStyleAndLayoutMs": 0.7,
+        "maxBlockingMs": 22.5
+      },
+      "stages": [
+        {
+          "name": "phase.setup",
+          "count": 13,
+          "totalMs": 53.2,
+          "maxMs": 29.3
+        },
+        {
+          "name": "growth.refreshPlans",
+          "count": 15503,
+          "totalMs": 8283.3,
+          "maxMs": 4.6
+        },
+        {
+          "name": "growth.teamCoordination",
+          "count": 962,
+          "totalMs": 4318.4,
+          "maxMs": 25.8
+        },
+        {
+          "name": "growth.actorMovement",
+          "count": 1550,
+          "totalMs": 4109.6,
+          "maxMs": 36.5
+        },
+        {
+          "name": "growth.actorLoot",
+          "count": 1550,
+          "totalMs": 2296.4,
+          "maxMs": 9.7
+        },
+        {
+          "name": "growth.actorPlan",
+          "count": 1550,
+          "totalMs": 4081.9,
+          "maxMs": 14.8
+        },
+        {
+          "name": "growth.actorQueue",
+          "count": 1550,
+          "totalMs": 1797.9,
+          "maxMs": 12.1
+        },
+        {
+          "name": "growth.singleActor",
+          "count": 1550,
+          "totalMs": 12448.3,
+          "maxMs": 60.1
+        },
+        {
+          "name": "growth.slice",
+          "count": 3369,
+          "totalMs": 26750,
+          "maxMs": 60.6
+        },
+        {
+          "name": "frame.snapshot",
+          "count": 6591,
+          "totalMs": 15324.1,
+          "maxMs": 7.2
+        },
+        {
+          "name": "observer.teamModel",
+          "count": 2164,
+          "totalMs": 6017.5,
+          "maxMs": 12
+        },
+        {
+          "name": "observer.trackedActors",
+          "count": 1262,
+          "totalMs": 97.4,
+          "maxMs": 0.9
+        },
+        {
+          "name": "replay.captureResult",
+          "count": 1,
+          "totalMs": 33.7,
+          "maxMs": 33.7,
+          "maxStartOffsetMs": 95412.1
+        }
+      ],
+      "longestFrameAttribution": {
+        "startOffsetMs": 55738.3,
+        "durationMs": 115.9,
+        "workMs": 115.1,
+        "renderMs": 0.8,
+        "scriptCount": 13,
+        "selectedEntryPoints": [
+          "MessagePort.onmessage",
+          "Scheduler.yield.then"
+        ],
+        "scope": "Browser entrypoint attribution, not full synchronous call stacks"
+      },
+      "inputResponse": {
+        "samples": 3,
+        "lastMs": 2.1,
+        "maxMs": 9.2
+      },
+      "heap": {
+        "baselineUsedBytes": 16497335,
+        "usedBytes": 48711681,
+        "deltaUsedBytes": 32214346
+      },
+      "domNodes": 579
+    },
+    "screenshot": "artifacts/foreground-x32-e350-20261008.jpg"
+  },
+  "realAi": {
+    "receipt": "artifacts/merged-live-verification-20261008.json",
+    "authorizedGenerationRequests": 2,
+    "completedRequests": 2,
+    "successfulDrafts": 0,
+    "extraRequests": 0,
+    "confirmedFailure": "API_KEY_INVALID on read-only provider model metadata",
+    "credentialModified": false,
+    "modelAvailabilityVerified": false,
+    "billingAmountMeasured": false,
+    "pending": "User credential replacement, then separately authorized paid generation verification"
+  },
+  "accountWrites": 0,
+  "gitPushes": 0,
+  "publicDeployments": 0,
+  "cleanup": {
+    "status": "removed",
+    "scope": "Only named regenerable webpack cache pack files after owned server termination; preserve sources, build and evidence",
+    "manifest": "artifacts/scoped-cache-cleanup-20261008.json",
+    "removedFiles": 14,
+    "logicalBytesRemoved": 634347217,
+    "remainingCacheFiles": 0,
+    "protectedFileCount": 26,
+    "allProtectedHashesEqualAtDeletion": true,
+    "physicalFreeSpaceMeasured": false,
+    "serverPort": 3137,
+    "serverListenerCountAfterTermination": 0,
+    "restore": "npm run build in client regenerates caches. Completed build remains available."
+  },
+  "overallGoalAccepted": false
+}
