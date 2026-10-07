@@ -1,0 +1,142 @@
+{
+  "schema": "eh-observer-performance.v3",
+  "label": "preflight-engine-check",
+  "startedAtMs": 43371.9,
+  "endedAtMs": 43473.1,
+  "timeOriginMs": 1791415530369.3,
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "viewportWidth": 1363,
+    "viewportHeight": 936,
+    "devicePixelRatio": 1,
+    "hardwareConcurrency": 5
+  },
+  "engineVersion": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+  "context": {
+    "initial": {
+      "engineVersion": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+      "speed": 1,
+      "seed": "1791415353213",
+      "autoPlay": false,
+      "day": 0,
+      "matchSec": 0,
+      "isGameOver": false,
+      "replayMode": false,
+      "replayId": null,
+      "comparisonMatched": null,
+      "comparedEvents": null
+    },
+    "final": {
+      "engineVersion": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+      "speed": 1,
+      "seed": "1791415353213",
+      "autoPlay": false,
+      "day": 0,
+      "matchSec": 0,
+      "isGameOver": false,
+      "replayMode": false,
+      "replayId": null,
+      "comparisonMatched": null,
+      "comparedEvents": null
+    },
+    "speedChanges": 0,
+    "identityChanges": 0,
+    "pauses": 0,
+    "activeStartOffsetMs": null,
+    "activeEndOffsetMs": null
+  },
+  "boundary": {
+    "status": "settled",
+    "stopReason": "manual",
+    "entryScope": "full_entries_intersecting_measurement_including_boundary_overlaps",
+    "reason": null
+  },
+  "elapsedMs": 101.2,
+  "raf": {
+    "supported": true,
+    "samples": 1,
+    "fps": 9.881,
+    "intervalMs": {
+      "median": 16.6,
+      "p95": 16.6,
+      "max": 16.644
+    },
+    "boundaryGapsMs": {
+      "firstRafDelay": 77.256,
+      "trailingRafGap": 7.3
+    },
+    "scope": "RAF_callback_cadence_not_presented_FPS",
+    "percentiles": {
+      "scope": "entire_measurement",
+      "method": "rounded_histogram",
+      "resolutionMs": 0.1,
+      "upperBoundMs": 1000,
+      "bins": 10001,
+      "overflowSamples": 0,
+      "medianRangeMs": null,
+      "p95RangeMs": null
+    }
+  },
+  "longTasks": {
+    "supported": true,
+    "count": 0,
+    "totalMs": 0,
+    "maxMs": null,
+    "reason": null
+  },
+  "longAnimationFrames": {
+    "count": 0,
+    "totalDurationMs": 0,
+    "maxDurationMs": null,
+    "maxWorkMs": null,
+    "maxRenderMs": null,
+    "maxStyleAndLayoutMs": null,
+    "maxBlockingMs": null,
+    "slowest": [],
+    "supported": true,
+    "reason": null,
+    "attribution": {
+      "selection": "slowest_by_duration",
+      "frameLimit": 8,
+      "scriptLimit": 8,
+      "textLimit": 512,
+      "scope": "browser_attributed_main_thread_entrypoints_not_full_call_stacks"
+    }
+  },
+  "workBreakdown": {
+    "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+    "stages": []
+  },
+  "inputResponse": {
+    "supported": true,
+    "samples": 1,
+    "pendingSamples": 0,
+    "scope": "captured_click_to_next_RAF_not_INP_or_presentation",
+    "lastMs": 10.2,
+    "maxMs": 10.2
+  },
+  "heap": {
+    "supported": true,
+    "baselineUsedBytes": 17232119,
+    "usedBytes": 17752823,
+    "deltaUsedBytes": 520704,
+    "totalBytes": 20530163,
+    "limitBytes": 4395630592
+  },
+  "domNodes": 732,
+  "visibilityState": "visible",
+  "visibility": {
+    "supported": true,
+    "reason": null,
+    "initialState": "visible",
+    "endState": "visible",
+    "transitions": 0,
+    "boundaryNotifications": 0,
+    "durationMs": {
+      "visible": 101.2,
+      "hidden": 0,
+      "unknown": 0
+    },
+    "entireMeasurementVisible": true
+  }
+}
