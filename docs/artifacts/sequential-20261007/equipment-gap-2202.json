@@ -1,0 +1,64 @@
+{
+  "engineVersion": "ea908055e24ef525643337f5520f5d36f8d3c4f398b408791517c2a880e311a1",
+  "seed": "2202",
+  "initialRosterSeed": "FIXTURE:initial-roster",
+  "eventDigest": "e9f71e1d5aac4bc3bc53d4585ea22c037bb99d4f9f096cdd4812029c050ae20a",
+  "frameDigest": "540d7450b5f09f9350c05a8e3fb5f773cec84ccde8379eb0a52b3dbc1347d2b5",
+  "samePairedBaselineEventsAndFrames": true,
+  "actor": {
+    "id": "guest-survivor-20",
+    "name": "구름",
+    "equippedCount": 4,
+    "heroOrBetter": 4,
+    "legendOrBetter": 0,
+    "bestTier": 4,
+    "source": "death"
+  },
+  "revivedOnce": true,
+  "revivedAtPhaseIdx": 3,
+  "deaths": [
+    {
+      "atSec": 308.25,
+      "reason": "combat",
+      "equippedCount": 5,
+      "heroOrBetter": 5
+    },
+    {
+      "atSec": 385,
+      "reason": "combat",
+      "equippedCount": 4,
+      "heroOrBetter": 4
+    }
+  ],
+  "growthAfterFirstDeath": [
+    {
+      "atSec": 380,
+      "completedSlots": 4,
+      "totalSlots": 5,
+      "targetName": "초진동나이프",
+      "reason": "growth_farm"
+    },
+    {
+      "atSec": 383,
+      "completedSlots": 4,
+      "totalSlots": 5,
+      "targetName": "초진동나이프",
+      "reason": "growth_farm"
+    },
+    {
+      "atSec": 384,
+      "completedSlots": 4,
+      "totalSlots": 5,
+      "targetName": "초진동나이프",
+      "reason": "growth_farm"
+    },
+    {
+      "atSec": 385,
+      "completedSlots": 4,
+      "totalSlots": 5,
+      "targetName": "초진동나이프",
+      "reason": "growth_farm"
+    }
+  ],
+  "scope": "read-only complete ordinary guest match; one late-death equipment gap after revival, not proof of continuous late-game failure or balance acceptance"
+}

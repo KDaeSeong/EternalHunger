@@ -28,6 +28,9 @@ const resultSummary = (initial, match) => {
     heroGearReady: diagnostics.equipment.heroGearReadyCount,
     legendaryReady: diagnostics.equipment.legendaryReadyCount,
     emptySlots: diagnostics.equipment.actors.reduce((sum, actor) => sum + 5 - actor.equippedCount, 0),
+    equipmentSnapshotScope: 'alive final state and latest death snapshot for finally dead participants',
+    emptySlotActors: diagnostics.equipment.actors.filter(actor => actor.equippedCount < 5)
+      .map(actor => ({ actorId: actor.id, source: actor.source, equippedCount: actor.equippedCount })),
     team: actions.team, growthActions: actions.growth,
     survival: initial.survivors.map(actor => {
       const death = match.finalFrame.dead.find(row => row._id === actor._id);

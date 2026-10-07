@@ -32,6 +32,11 @@
       "file": "final-full-match.log",
       "matches": 2,
       "exitCode": 0
+    },
+    {
+      "file": "equipment-gap-2202.json",
+      "matches": 1,
+      "exitCode": 0
     }
   ],
   "focusedChecks": {
@@ -116,9 +121,15 @@
     "Some earlier reports lack a completion flag; full process exit 0 and expected row counts were separately verified.",
     "The raw full-match test has a historical scope phrase about an opening-rule change; this PR does not change opening rules.",
     "Read-only frame-gate sampling is not a production planner rejection trace; natural shared purchase remains unobserved.",
-    "Raw account/mock-session and other individual unit-test stdout are excluded from the public artifact set. Counts record completed checks only."
+    "Raw account/mock-session and other individual unit-test stdout are excluded from the public artifact set. Counts record completed checks only.",
+    "Equipment diagnostics use final survivors and latest death snapshots for finally dead participants; emptySlotActors metadata was added after the nine-row strategy report."
   ],
   "files": [
+    {
+      "path": "equipment-gap-2202.json",
+      "bytes": 1660,
+      "sha256": "982bbf542cbc9bf387ce034b144f75d1f6a7e5e49ac3fade10a029280dfb0895"
+    },
     {
       "path": "final-full-match.log",
       "bytes": 6556,
