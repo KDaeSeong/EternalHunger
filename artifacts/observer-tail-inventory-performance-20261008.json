@@ -1,0 +1,348 @@
+{
+  "schema": "eh-observer-tail-inventory-performance.v1",
+  "localDate": "2026-10-08",
+  "engine": "5b40b16d5c57a49fab7b86914c01c6689e2282d1ead845b9bb5603d64d1374fe",
+  "buildId": "WupmmKdGRz9Ph2MNIJMwS",
+  "scope": "Local pure calculation changes and scoped regression/build/foreground verification. Not full-goal, human, account or deployment acceptance; not a maintained input fixture.",
+  "implementation": {
+    "growth": "One call-local actual quantity index shared by alternatives and equipment tiers; each recipe has a private touched-ID virtual overlay. Public APIs cannot inject cached quantities and every new call re-reads mutations.",
+    "observer": "Full ordered retained window still builds current member decisions/procurement/revival state. Descriptions are lazy and recent 10, important 8 and combat 3 are selected from the tail with original deduplication.",
+    "decisionsRngJournalFramesGameClockAndYieldBoundariesChanged": false,
+    "frameCacheCandidate": "Not implemented: mutable actor/corpse/world aliases do not permit skipping or sharing authoritative structuredClone snapshots."
+  },
+  "checks": {
+    "runId": "2026-10-07T20-26-00.564Z-6eb54f24-66fd-4bfb-9345-f7f6df9e74c8",
+    "result": "client/.verification-runs/2026-10-07T20-26-00.564Z-6eb54f24-66fd-4bfb-9345-f7f6df9e74c8/result.json",
+    "mode": "performance",
+    "startedAt": "2026-10-07T20:26:00.567Z",
+    "finishedAt": "2026-10-07T20:40:10.102Z",
+    "status": "passed",
+    "exitCode": 0,
+    "sameEngine": true,
+    "scope": "Named growth/observer/frame/pacing/performance/first-night/purchase/procurement/scheduling/replay/lint/build chain, not check:eternal-hunger full suite.",
+    "staticPages": 62,
+    "observerProjection": {
+      "groups": 11,
+      "inputPermutations": 120,
+      "fullModelEqual": true,
+      "fiveThousandEventZoneLookups": {
+        "forward": 10002,
+        "tail": 22
+      },
+      "limitation": "Shares unchanged formatting/membership helpers, so not an independent audit of every label or human understanding."
+    },
+    "sharedInventory": {
+      "recoveryCandidates": 61,
+      "quantityGetterReads": 4,
+      "independentMutationTargets": [
+        "fallback-clothes",
+        "fallback-arm",
+        "fallback-clothes"
+      ],
+      "scope": "Opening/late/recovery choices, exported equipment-tier rules, duplicate/shared recipe and batch-surplus accounting; not browser speed."
+    },
+    "firstNight": {
+      "seeds": [
+        1101,
+        2202,
+        3303
+      ],
+      "completedPerSeed": 24,
+      "totalPerSeed": 24,
+      "gameSecondsRange": [
+        21,
+        73
+      ],
+      "firstDayEndSec": 250,
+      "limitation": "Controlled canonical competitive inputs, not arbitrary custom items/deaths or exact supplied logs."
+    },
+    "schedulingParity": {
+      "modes": [
+        "headless",
+        "cooperative",
+        "visible-cooperative"
+      ],
+      "frames": 6032,
+      "events": 13657,
+      "gameSeconds": 1163.166666,
+      "inputEventsEveryFrameLogsEndingAndRngEqual": true,
+      "eventDigest": "4dc168590580a773fc7b268c0f3db6c7cf24920795c495b1357f702c604c17f3",
+      "frameDigest": "b529e942243ea64c00f0dc7c5c4c84438a6bf5e41a7566774c0b0ecaf8d56691",
+      "limitation": "Fresh deterministic host models, not real browser paint or physical multicore proof."
+    },
+    "savedInputReplay": {
+      "frames": 6599,
+      "events": 18401,
+      "gameSeconds": 1254.666666,
+      "allEventsFinalStateRngAndEndingEqual": true,
+      "externalRequests": 0
+    }
+  },
+  "foreground": {
+    "url": "http://127.0.0.1:3137/eternalhunger/evaluate?perfProbe=1",
+    "seed": "1789192220412",
+    "actors": 24,
+    "teams": 8,
+    "nominalSpeed": 32,
+    "observedTeam": "team:1",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "ownedHeavyVerificationWorkersAtStart": 0,
+    "speedChanges": 0,
+    "pauses": 0,
+    "externalClockOrigin": "2026-10-07T20:41:30.569Z",
+    "originScope": "Node monotonic clock immediately before start-button click; readings are DOM observations, not continuously sampled UI completion.",
+    "samples": [
+      {
+        "elapsedMs": 421.8411,
+        "clock": null,
+        "ended": false,
+        "visibility": "visible",
+        "note": "Initial clock selector returned no match; no fabricated zero-time reading."
+      },
+      {
+        "elapsedMs": 29735.9978,
+        "clock": "01:41.75",
+        "gameSeconds": 101.75,
+        "ended": false,
+        "visibility": "visible"
+      },
+      {
+        "elapsedMs": 58252.8793,
+        "clock": "04:52.75",
+        "gameSeconds": 292.75,
+        "ended": false,
+        "visibility": "visible"
+      },
+      {
+        "elapsedMs": 99785.0867,
+        "clock": "09:59.83",
+        "gameSeconds": 599.83,
+        "ended": false,
+        "visibility": "visible"
+      },
+      {
+        "elapsedMs": 202895.075,
+        "clock": "21:17.58",
+        "ended": true,
+        "visibility": "visible"
+      }
+    ],
+    "cumulativeSpeedFromRunningSamples": {
+      "at58Seconds": 5.025502662149097,
+      "at99Seconds": 6.0112189089274
+    },
+    "completionBoundMs": {
+      "lastObservedRunning": 99785.0867,
+      "firstObservedEnded": 202895.075
+    },
+    "ending": {
+      "clock": "21:17.58",
+      "winner": "청람",
+      "team": "team:5",
+      "alive": 1,
+      "dead": 23,
+      "teamAlive": 1,
+      "teamMembers": 3
+    },
+    "nominal32xAccepted": false,
+    "screenshot": "artifacts/foreground-x32-5b40-20261008.png",
+    "probe": {
+      "label": "x32-5b40-tail-inventory-visible",
+      "elapsedMs": 262069.4,
+      "rafFps": 63.395,
+      "rafIntervalMs": {
+        "median": 10,
+        "p95": 50.3,
+        "max": 130
+      },
+      "longTasks": {
+        "count": 81,
+        "totalMs": 5236,
+        "maxMs": 122
+      },
+      "longAnimationFrames": {
+        "count": 936,
+        "totalDurationMs": 68523.3,
+        "maxDurationMs": 127.5,
+        "maxWorkMs": 126.4,
+        "maxRenderMs": 27.3,
+        "maxStyleAndLayoutMs": 1,
+        "maxBlockingMs": 73.5
+      },
+      "slowest": {
+        "startOffsetMs": 25728.9,
+        "durationMs": 127.5,
+        "workMs": 126.4,
+        "renderMs": 1.1,
+        "entrypoint": "MessagePort.onmessage",
+        "scriptDurationMs": 122.4
+      },
+      "stages": [
+        {
+          "name": "observer.teamModel",
+          "count": 1953,
+          "totalMs": 6574.9,
+          "maxMs": 21.6,
+          "maxStartOffsetMs": 57946
+        },
+        {
+          "name": "start.captureInput",
+          "count": 1,
+          "totalMs": 6,
+          "maxMs": 6,
+          "maxStartOffsetMs": 12729.6
+        },
+        {
+          "name": "start.prepareInput",
+          "count": 1,
+          "totalMs": 6.7,
+          "maxMs": 6.7,
+          "maxStartOffsetMs": 12735.7
+        },
+        {
+          "name": "phase.fieldResources",
+          "count": 13,
+          "totalMs": 16.2,
+          "maxMs": 16.2,
+          "maxStartOffsetMs": 12747.7
+        },
+        {
+          "name": "phase.starterLoadout",
+          "count": 13,
+          "totalMs": 29.2,
+          "maxMs": 29.1,
+          "maxStartOffsetMs": 12764
+        },
+        {
+          "name": "phase.setup",
+          "count": 13,
+          "totalMs": 85.6,
+          "maxMs": 50.7,
+          "maxStartOffsetMs": 12744.2
+        },
+        {
+          "name": "growth.refreshPlans",
+          "count": 15503,
+          "totalMs": 11704,
+          "maxMs": 24,
+          "maxStartOffsetMs": 37057.1
+        },
+        {
+          "name": "growth.teamCoordination",
+          "count": 962,
+          "totalMs": 5915.2,
+          "maxMs": 48.2,
+          "maxStartOffsetMs": 44295.2
+        },
+        {
+          "name": "growth.slice",
+          "count": 3979,
+          "totalMs": 37814.6,
+          "maxMs": 77.3,
+          "maxStartOffsetMs": 79040.1
+        },
+        {
+          "name": "growth.actorMovement",
+          "count": 1550,
+          "totalMs": 5847.9,
+          "maxMs": 55.4,
+          "maxStartOffsetMs": 98280.5
+        },
+        {
+          "name": "growth.actorLoot",
+          "count": 1550,
+          "totalMs": 3331,
+          "maxMs": 21.3,
+          "maxStartOffsetMs": 71017.3
+        },
+        {
+          "name": "growth.actorPlan",
+          "count": 1550,
+          "totalMs": 5776.7,
+          "maxMs": 71.1,
+          "maxStartOffsetMs": 79046.2
+        },
+        {
+          "name": "growth.actorQueue",
+          "count": 1550,
+          "totalMs": 2615,
+          "maxMs": 21.5,
+          "maxStartOffsetMs": 82430.1
+        },
+        {
+          "name": "growth.singleActor",
+          "count": 1550,
+          "totalMs": 17793.6,
+          "maxMs": 77.2,
+          "maxStartOffsetMs": 79040.1
+        },
+        {
+          "name": "frame.snapshot",
+          "count": 6591,
+          "totalMs": 19767.1,
+          "maxMs": 33.2,
+          "maxStartOffsetMs": 82176.4
+        },
+        {
+          "name": "observer.trackedActors",
+          "count": 914,
+          "totalMs": 90.3,
+          "maxMs": 4,
+          "maxStartOffsetMs": 106323.8
+        },
+        {
+          "name": "replay.captureResult",
+          "count": 1,
+          "totalMs": 42.3,
+          "maxMs": 42.3,
+          "maxStartOffsetMs": 140992.4
+        }
+      ],
+      "inputResponse": {
+        "samples": 2,
+        "lastMs": 9.4,
+        "maxMs": 9.4
+      },
+      "heap": {
+        "baselineUsedBytes": 20785161,
+        "usedBytes": 57278038,
+        "deltaUsedBytes": 36492877
+      }
+    },
+    "limitations": [
+      "Probe elapsed/FPS include pre-click setup and post-finish idle/UI controls, so are not pure-match FPS or effective match speed.",
+      "Replay capture offset is a runtime marker, not an exact observed UI ending.",
+      "Synchronous stage timings include nested work and are not additive. Entrypoint attribution is not a full call stack.",
+      "No controlled old/new browser A/B or external CPU/temperature/continuous visibility measurement; no improvement or regression rate asserted.",
+      "One match does not prove consecutive-match memory reclamation or full actual browser event/RNG identity."
+    ]
+  },
+  "authority": {
+    "extraPaidAiRequests": 0,
+    "accountWrites": 0,
+    "pushes": 0,
+    "deployments": 0,
+    "priorAiEvidence": "artifacts/merged-live-verification-20261008.json",
+    "priorAiResult": "Authorized ER/custom requests both failed; metadata reported API_KEY_INVALID. No new generation attempted.",
+    "billingAmountMeasured": false
+  },
+  "shutdown": {
+    "ownedTabClosed": true,
+    "ownedServerSession": 26856,
+    "serverExitCodeAfterCtrlC": 1,
+    "port3137Listeners": 0
+  },
+  "cleanupEvidence": "artifacts/observer-tail-cache-cleanup-20261008.json",
+  "remaining": [
+    "actual x32 throughput",
+    "consecutive observer/memory evidence",
+    "successful AI drafts after user key repair and fresh permission",
+    "authorized account save/reopen and actual battle use",
+    "human reassessment",
+    "authorized remote merge/push/public release"
+  ],
+  "goalStatus": "active"
+}

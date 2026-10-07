@@ -1,0 +1,187 @@
+{
+  "schema": "eh-owned-cache-cleanup.v1",
+  "status": "removed",
+  "workspace": "C:\\2저장고\\EternalHunger",
+  "scope": "Only six exact generated webpack production pack files, no recursive directory deletion",
+  "files": [
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+      "bytes": 254671572,
+      "lastWriteUtc": "2026-10-07T20:40:01.1777838Z"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+      "bytes": 12794268,
+      "lastWriteUtc": "2026-10-07T20:40:01.0367544Z"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+      "bytes": 276,
+      "lastWriteUtc": "2026-10-07T20:39:46.9641898Z"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+      "bytes": 2464,
+      "lastWriteUtc": "2026-10-07T20:39:46.9651887Z"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+      "bytes": 305820121,
+      "lastWriteUtc": "2026-10-07T20:39:45.9379675Z"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+      "bytes": 18028725,
+      "lastWriteUtc": "2026-10-07T20:39:45.7828908Z"
+    }
+  ],
+  "totalBytes": 591317426,
+  "protected": [
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\package.json",
+      "sha256": "119AA008B669914A7C6B89B5CB198019118EA4C4F2B42629D59E9A85BA69DE52"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\package-lock.json",
+      "sha256": "9024006A5AC9B451394E347C0A24A144EE5C32562912E6876C5F83250B89FB57"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\run-eternal-hunger-verification.mjs",
+      "sha256": "CD956B633F988BCEC0A76C4EB9A3DF6A0703BD371F4102480648F38B769E5B9D"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-growth-progress-inventory.mjs",
+      "sha256": "9BEBA51062EA614CFB9D4BFE6C84B71E4A3ED7103EF60F9655A7A4251BEC5CC6"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\verify-character-auto-setup-live.mjs",
+      "sha256": "F789C2826972C2B4DE3716BBE580AF8533FA2D4ED9524AE4CD3BAC4F26FB9967"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-observer-goals-match.mjs",
+      "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\growthPlanRuntime.js",
+      "sha256": "41796FF861E8BDF0A2AD1DE61A6F0A50B0EFDD1A60638D58F9C961B7633755C4"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_generated\\simulationEngineVersion.js",
+      "sha256": "6237107F581F552E1D02B1A68EBB57F236A74B5A426759BEE7FD8FF9C7733DB6"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\server\\index.js",
+      "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\server\\.env.example",
+      "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\server\\package-lock.json",
+      "sha256": "D025D387E53B65E33C87A00156F62141CCA2B96AFB38A6F7A7E5E307C4030820"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\server\\tests\\character-setup.test.js",
+      "sha256": "CE9EF4C0B92C018793D16B6CFFCE3B369C487DEAF80F5B59C7947128E9A2BDB8"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\server\\utils\\characterSetupService.js",
+      "sha256": "1C7BA4EF242F270E789024DCD1FDF367D2C8AD08B9A29D7535D30402CD9E40A2"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\docs\\eternal-hunger-goal.md",
+      "sha256": "1F5A7A397D7009ECA0B99367085033354E1D16B5888E4389D71C5AC3445CB101"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\docs\\character-auto-setup-verification.md",
+      "sha256": "AA957C8251484B0EA16ED72C40F3AE1F2936ED192F0E9C21072B740E68EF9412"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\docs\\observer-performance-verification.md",
+      "sha256": "16900EBF4B034FD34AE184B928405066B0512BF764F2EA37A2FCE89075E8F02E"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\BUILD_ID",
+      "sha256": "64F622293088D82401D738470ECA9C9816F329AE4D1EF38418A2A0B4B7144431"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\build-manifest.json",
+      "sha256": "976E3C83FC07E7A80157644F20438B825534DFDD1F2D47932877A022DBAEBE52"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\prerender-manifest.json",
+      "sha256": "71C8AEA2A182AC0947B2116FB7655C89750A9B035EBEE83002ACBCCF8EFD4C13"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\routes-manifest.json",
+      "sha256": "64FD3F555FB99E9CE1965D8EC8567B6CCEBCDEB5A5F62E7E3C1B4B882896FB58"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\server\\app\\eternalhunger\\evaluate\\page_client-reference-manifest.js",
+      "sha256": "0BE7C03F2A50DED0AA1AAA1D5E2E0717C594CC2BE48D36252414C0823F1B18E3"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\server\\app\\eternalhunger\\evaluate\\page.js",
+      "sha256": "F916470BD1556887A8C883D65487E6EEFE9C1B6B7C5D06839BD5C4F1732581A3"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\artifacts\\merged-live-verification-20261008.json",
+      "sha256": "4A8B9A43EB0CCDC3596EB824BF6BDB968D72F5A6FB7599E5FE7F50233BFB7ACC"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\artifacts\\scoped-live-followup-20261008.json",
+      "sha256": "A3F3B1FBA548890CFA68C69237376576D5DDE6895A9E9CB1B971C050D487428C"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\artifacts\\foreground-x32-20261007.jpg",
+      "sha256": "FA81B586FD1BE4C4AA8B708670A2E0884EDF4358E9D2ED26CE25B9D9F8F39189"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\artifacts\\foreground-x32-e350-20261008.jpg",
+      "sha256": "EF314F4DB78655CB421A60C5E15A1CCFB37208FCF0513AC19EB9971DA53AD706"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\teamObserverRuntime.js",
+      "sha256": "5899622340B4AAD39C4CF1FF455A7C783E3853F2872B135169E12C087D7CF5F7"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-growth-plan-shared-inventory-index.mjs",
+      "sha256": "D7EB7987F582CC2E25ED3429FBC1BB7EF2EB2769D8D60808E3A25035CE2ADB58"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-observer-tail-projection.mjs",
+      "sha256": "1C45484B6A0510BCB762ABCB8E774FAA1F759EB6EBF197FF9952CDA760A827CC"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\artifacts\\observer-tail-inventory-performance-20261008.json",
+      "sha256": "957F3F20227EC5BB1AFD67EE517F5187AE762F535B548E8B13F314A10F2C3EF0"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\artifacts\\foreground-x32-5b40-20261008.png",
+      "sha256": "ECC017CA633F7E7C88BDACABFBD1A0A056FF587B62B5387EDBFEBBCE8D1508FC"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\docs\\eternal-hunger-remaining-work.md",
+      "sha256": "78679F7467590562E9370EE5CF69F11DBD2FDC0944ADBEB39F723CBCEE83D86A"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-07T20-26-00.564Z-6eb54f24-66fd-4bfb-9345-f7f6df9e74c8\\result.json",
+      "sha256": "74AD23A41ACE04094FDE4EBE41C680D786231250AA2D51E37DC0E1A297FFEDBC"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-07T20-26-00.564Z-6eb54f24-66fd-4bfb-9345-f7f6df9e74c8\\output.log",
+      "sha256": "14898AA5052638559E6131862D4E93923E0D3BA6EF73F820845E5368065D262A"
+    }
+  ],
+  "protectedFileCount": 34,
+  "activeOwnedBuildsAndChecks": false,
+  "port3137Listeners": 0,
+  "restore": "npm run build in client regenerates caches; completed current build and evidence are preserved",
+  "physicalFreeSpaceMeasured": false,
+  "removedFiles": 6,
+  "logicalBytesRemoved": 591317426,
+  "protectedHashesMatchedBeforeAndAfter": true,
+  "remainingCacheFiles": 0,
+  "completedAtUtc": "2026-10-07T20:55:49.2095697Z"
+}

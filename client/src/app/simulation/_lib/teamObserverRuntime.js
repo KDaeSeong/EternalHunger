@@ -277,14 +277,13 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
   const recent = [];
   const combat = [];
   const turningPoints = [];
-  const previousDecision = new Map();
+  const previousDecisionRows = new Map();
   const lastDecisionByActor = new Map();
   const lastRegroupByActor = new Map();
   const lastProcurementByActor = new Map();
-  const appendRecent = (rows, row, limit) => {
-    rows.push(row);
-    if (rows.length > limit) rows.shift();
-  };
+  // Scan the entire ordered window for current member state, but do not format
+  // every historical event just to discard all but the newest visible rows.
+  // Links belong to temporary rows, never to the caller's events or actors.
   for (const row of timed) {
     const whoId = String(row.event.who || '');
     if (whoId && memberIds.has(whoId) && ['queue', 'procurement'].includes(row.event.kind)) {
@@ -299,23 +298,36 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
     }
     if (decisionKinds.has(row.event.kind) && whoId) lastDecisionByActor.set(whoId, row);
     if (row.event.kind === 'hunt_transfer' && row.event.previousOwnerId) lastDecisionByActor.set(String(row.event.previousOwnerId), row);
-    if (row.event.kind === 'queue') continue;
-    const text = describeObserverEvent(row.event, { nameOf, zoneName });
-    if (!text) continue;
     if (['team_decision', 'growth_plan'].includes(row.event.kind)) {
       const key = `${row.event.kind}:${row.event.who}`;
-      if (previousDecision.get(key) === text) continue;
-      previousDecision.set(key, text);
+      row.previousDecision = previousDecisionRows.get(key);
+      previousDecisionRows.set(key, row);
     }
+  }
+  const eventText = new Map();
+  const textOf = (row) => {
+    if (!eventText.has(row)) eventText.set(row, describeObserverEvent(row.event, { nameOf, zoneName }));
+    return eventText.get(row);
+  };
+  for (let index = timed.length - 1; index >= 0; index -= 1) {
+    if (recent.length >= 10 && turningPoints.length >= 8 && combat.length >= 3) break;
+    const row = timed[index];
+    if (row.event.kind === 'queue') continue;
+    const needsRecent = recent.length < 10;
+    const needsTurningPoint = turningPoints.length < 8 && importantKinds.has(row.event.kind);
+    const needsCombat = combat.length < 3 && row.event.kind === 'battle';
+    if (!needsRecent && !needsTurningPoint && !needsCombat) continue;
+    const text = textOf(row);
+    if (!text || (row.previousDecision && textOf(row.previousDecision) === text)) continue;
     const formatted = { key: `${row.sec}:${row.index}`, sec: row.sec, clock: formatClock(row.sec), text, kind: row.event.kind };
-    appendRecent(recent, formatted, 10);
-    if (row.event.kind === 'battle') {
+    if (needsRecent) recent.push(formatted);
+    if (needsCombat) {
       const health = presentCombatHealth(row.event, nameOf);
-      if (health) appendRecent(combat, { ...formatted, ...health, zone: zoneName(row.event.zoneId),
+      if (health) combat.push({ ...formatted, ...health, zone: zoneName(row.event.zoneId),
         attack: row.event.subkind === 'equipment_effect' ? `${row.event.itemName || '장비'} · 파열`
-          : row.event.subkind === 'character_skill_splash' ? '광역 스킬' : row.event.subkind === 'character_skill_direct' ? '스킬' : '공격' }, 3);
+          : row.event.subkind === 'character_skill_splash' ? '광역 스킬' : row.event.subkind === 'character_skill_direct' ? '스킬' : '공격' });
     }
-    if (importantKinds.has(row.event.kind)) appendRecent(turningPoints, formatted, 8);
+    if (needsTurningPoint) turningPoints.push(formatted);
   }
   const members = [...team.members].sort((a, b) => num(a.matchTeamSlot || a.teamSlot) - num(b.matchTeamSlot || b.teamSlot) || idOf(a).localeCompare(idOf(b))).map((actor) => {
     const id = idOf(actor);
@@ -366,6 +378,6 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
     objectives,
     status: isGameOver ? (team.alive > 0 && aliveTeams === 1 ? '최후 생존 팀' : allDead && survival ? deadStatus : '경기 종료') : allDead ? deadStatus : '관전 중',
     summary: `생존 ${team.alive}/${members.length} · ${totalKills}처치 · ${totalAssists}어시스트`,
-    recent: recent.reverse(), turningPoints: turningPoints.reverse(), combat: combat.reverse(),
+    recent, turningPoints, combat,
     historyNote: '현재 보존된 경기 기록 기준 · 시각은 게임 내 경과 시간' };
 }

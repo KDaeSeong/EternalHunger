@@ -5,7 +5,7 @@ import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
 import { getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
 import { prepareCraftTransaction } from './craftTransactionRuntime.js';
 import { areEquipmentWeaponTypesCompatible } from '../../../utils/equipmentCatalog.js';
-import { GROWTH_EQUIPMENT_SLOTS, getActorEquipmentTier, getGrowthEquipmentCatalog } from './growthEquipmentRuntime.js';
+import { GROWTH_EQUIPMENT_SLOTS, getGrowthEquipmentCatalog } from './growthEquipmentRuntime.js';
 
 const catalogCache = new WeakMap();
 const catalogKeyCache = new WeakMap();
@@ -46,9 +46,24 @@ export function getGrowthItemZones(item, mapObj, forbiddenIds = new Set(), field
     .filter((id) => !forbiddenIds.has(id) && getFieldResourceQty(fieldResources, id, item._id) > 0);
 }
 
+function actorEquipmentTiers(actor, inventory, inventoryQuantities) {
+  const tiers = Object.fromEntries(GROWTH_EQUIPMENT_SLOTS.map((slot) => [slot, 0]));
+  const worn = new Set(Object.values(actor?.equipped || {}).filter(Boolean).map(String));
+  for (const entry of inventory) {
+    const slot = inferEquipSlot(entry);
+    if (!Object.hasOwn(tiers, slot)) continue;
+    const id = getInvItemId(entry);
+    if (!(inventoryQuantities.get(id) > 0)
+      || (entry.craftComponent && !worn.has(id))
+      || (slot === 'weapon' && !areEquipmentWeaponTypesCompatible(actor?.weaponType, entry.weaponType))) continue;
+    tiers[slot] = Math.max(tiers[slot], Number(entry.tier) || 0);
+  }
+  return tiers;
+}
+
 // Read-only progress shared by planning and observation; never run the planner
 // merely to render a card (planning also chooses destinations and reservations).
-export function getActorGrowthProgress(actor, items = []) {
+function getActorGrowthProgressWithQuantities(actor, items = [], providedInventoryQuantities = null) {
   if (!actor) return { targets: [], remaining: [], completedSlots: 0, totalSlots: 0, targetIds: [], goalIssues: [], openingComplete: true };
   items = Array.isArray(items) ? items : [];
   const byId = indexCatalog(items);
@@ -80,7 +95,7 @@ export function getActorGrowthProgress(actor, items = []) {
     else targets.push(item);
   }
   const inventory = actor.inventory || [];
-  const inventoryQuantities = indexInventoryQuantities(inventory);
+  const inventoryQuantities = providedInventoryQuantities || indexInventoryQuantities(inventory);
   const usableWeapon = (item) => inferEquipSlot(item) !== 'weapon'
     || areEquipmentWeaponTypesCompatible(actor.weaponType, item.weaponType);
   const fallbackFulfills = (entry, target) => {
@@ -100,9 +115,14 @@ export function getActorGrowthProgress(actor, items = []) {
     openingComplete: remaining.length === 0 && goalIssues.length === 0 };
 }
 
+export function getActorGrowthProgress(actor, items = []) {
+  return getActorGrowthProgressWithQuantities(actor, items);
+}
+
 // Shared read-only recipe accounting. Observation must not invoke the planner,
 // choose a different branch, reserve inventory or change the actor's route.
-export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds = [targetId] } = {}) {
+function getGrowthRecipeWorkWithQuantities(actor, items, targetId, { ruleset, targetIds = [targetId] } = {},
+  providedInventoryQuantities = null) {
   const byId = indexCatalog(items);
   const target = byId.get(String(targetId));
   const inventory = actor.inventory || [];
@@ -112,8 +132,9 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
   if (inferEquipSlot(target) === 'weapon' && !areEquipmentWeaponTypesCompatible(actor.weaponType, target.weaponType)) {
     return { ...work, blocked: 'weapon_mismatch' };
   }
-  const inventoryQuantities = indexInventoryQuantities(inventory);
-  const available = new Map(inventoryQuantities);
+  const inventoryQuantities = providedInventoryQuantities || indexInventoryQuantities(inventory);
+  const availableOverrides = new Map();
+  const availableQty = (id) => availableOverrides.has(id) ? availableOverrides.get(id) : inventoryQuantities.get(id);
   const missing = new Map();
   const components = new Set();
   const craftIds = new Set();
@@ -121,8 +142,8 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
   function visit(id, qty, path) {
     if (!Number.isSafeInteger(qty) || qty <= 0) { work.blocked = 'invalid_recipe'; return; }
     const item = byId.get(id);
-    const have = Math.min(qty, available.get(id) || 0);
-    available.set(id, (available.get(id) || 0) - have);
+    const have = Math.min(qty, availableQty(id) || 0);
+    availableOverrides.set(id, (availableQty(id) || 0) - have);
     if (id !== target._id) { components.add(id); reserved[id] = (reserved[id] || 0) + qty; }
     const need = qty - have;
     if (need <= 0) return;
@@ -139,7 +160,7 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
       for (const row of terms.ingredients) visit(String(row.itemId), batches * row.qty, nextPath);
       // Virtual surplus avoids farming a shared batch once for each branch.
       // Readiness below still uses actual inventory, never these future items.
-      available.set(id, (available.get(id) || 0) + batches * terms.resultQty - need);
+      availableOverrides.set(id, (availableQty(id) || 0) + batches * terms.resultQty - need);
       work.plannedCredits += cost;
       craftIds.add(id);
     } else {
@@ -183,14 +204,20 @@ export function getGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds
   return work;
 }
 
+export function getGrowthRecipeWork(actor, items, targetId, options = {}) {
+  return getGrowthRecipeWorkWithQuantities(actor, items, targetId, options);
+}
+
 // Recompute remaining recipe work from actual inventory. Consumed raw materials
 // represented by an owned intermediate are not requested a second time.
-function planGrowthTarget(actor, items, target, base, { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, distances, sourceZones, routes }, strictSources = false) {
+function planGrowthTarget(actor, items, target, base, { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset,
+  distances, sourceZones, routes, inventoryQuantities }, strictSources = false) {
   const byId = indexCatalog(items);
   base = { ...base, targetId: String(target._id), targetKey: target.itemKey || target.externalId || String(target._id),
     targetSlot: inferEquipSlot(target), targetTier: Number(target.tier) || 0, targetName: target.name || '',
     targetIds: [...new Set([...base.targetIds, String(target._id)])] };
-  Object.assign(base, getGrowthRecipeWork(actor, items, target._id, { ruleset, targetIds: base.targetIds }));
+  Object.assign(base, getGrowthRecipeWorkWithQuantities(actor, items, target._id,
+    { ruleset, targetIds: base.targetIds }, inventoryQuantities));
   let hasUnsafeSource = false;
   base.missing = base.missing.map((row) => {
     const item = byId.get(row.itemId);
@@ -228,8 +255,10 @@ function planGrowthTarget(actor, items, target, base, { mapObj, forbiddenIds, zo
 
 export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new Set(), zoneGraph = {}, attemptedTargets = [], nextSpawn, fieldResources = nextSpawn?.fieldResources, ruleset = {} } = {}) {
   if (!actor || !Array.isArray(items)) return null;
-  const progress = getActorGrowthProgress(actor, items);
-  const tierBySlot = Object.fromEntries(GROWTH_EQUIPMENT_SLOTS.map((slot) => [slot, getActorEquipmentTier(actor, slot)]));
+  const inventory = Array.isArray(actor.inventory) ? actor.inventory : [];
+  const inventoryQuantities = indexInventoryQuantities(inventory);
+  const progress = getActorGrowthProgressWithQuantities(actor, items, inventoryQuantities);
+  const tierBySlot = actorEquipmentTiers(actor, inventory, inventoryQuantities);
   const openingComplete = progress.openingComplete;
   const late = openingComplete ? getLateGrowthTargets(actor, items) : { targets: [], issues: [] };
   const remaining = openingComplete ? late.targets : [...progress.remaining].sort((a, b) =>
@@ -252,7 +281,7 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
   // These reads are shared only while evaluating this actor's alternatives.
   // A later action must re-read depleted stock, changed zones and forbidden
   // paths; never attach this lookup to an actor, saved frame or global cache.
-  const context = { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, distances,
+  const context = { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, distances, inventoryQuantities,
     sourceZones: new Map(), routes: new Map() };
   const plans = [];
   let viable;
