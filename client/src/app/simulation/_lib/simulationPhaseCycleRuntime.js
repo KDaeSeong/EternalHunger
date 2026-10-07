@@ -2,7 +2,7 @@ import { createPhaseDeathRuntime } from './phaseDeathRuntime';
 import { finalizeSimulationPhase } from './phaseFinalizationRuntime';
 import { runPvpActionLoop } from './phasePvpActionLoopRuntime';
 import { runPhaseActorActionPipelineSteps } from './phaseActorActionPipelineRuntime';
-import { runGrowthActionSteps } from './growthActionSchedulingRuntime.js';
+import { createHighSpeedGrowthYield, runGrowthActionSteps } from './growthActionSchedulingRuntime.js';
 import { runSimulationPhaseSetup } from './simulationPhaseSetupRuntime';
 import { runPhaseWorldResolution } from './phaseWorldResolutionRuntime';
 import { runDimensionRiftPhase } from './phaseDimensionRiftRuntime';
@@ -189,6 +189,11 @@ function* simulationPhaseSteps({
   });
   const movePowerContext = { ruleset, battleSettings };
   const growthHoldCache = {};
+  const requestGrowthYield = createHighSpeedGrowthYield({
+    readSpeed: () => normalizeAutoSpeed
+      ? normalizeAutoSpeed(autoSpeedRef?.current || autoSpeed)
+      : Number(autoSpeedRef?.current || autoSpeed || 1),
+  });
   const runGrowthActions = (roster) => runGrowthActionSteps(runPhaseActorActionPipelineSteps({
     state: {
       actionIntervalSec,
@@ -244,7 +249,7 @@ function* simulationPhaseSteps({
       setDeathMetadata,
       setPendingTranscendPick,
     },
-  }));
+  }), { requestYield: requestGrowthYield });
   let updatedSurvivors = phaseSurvivors;
   const getRiftRevivalContext = () => ({ canReviveThisMatch, reviveCfg: ruleset?.revive || {},
     dead: [...currentDead, ...phaseDeadSnapshots], rosterComplete: true });

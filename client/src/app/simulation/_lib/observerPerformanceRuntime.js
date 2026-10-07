@@ -7,6 +7,10 @@ const FRAME_BIN_COUNT = Math.round(FRAME_BIN_LIMIT_MS / FRAME_BIN_RESOLUTION_MS)
 const SLOW_FRAME_LIMIT = 8;
 const SLOW_SCRIPT_LIMIT = 8;
 const ATTRIBUTION_TEXT_LIMIT = 512;
+const WORK_STAGE_LIMIT = 24;
+const WORK_STAGE_NAME_LIMIT = 80;
+const MAX_WAIT_TOTAL_MS = Number.MAX_SAFE_INTEGER;
+const MAX_WAIT_COUNT = Number.MAX_SAFE_INTEGER;
 
 function framePercentile(frames, p) {
   if (!frames.count) return { value: null, range: null };
@@ -145,6 +149,9 @@ export function createObserverPerformanceProbe({
       workBreakdown: { scope: 'instrumented_synchronous_stages_including_nested_work_not_additive',
         stages: [...target.workStages.values()].map((stage) => ({ ...stage,
           totalMs: round(stage.totalMs), maxMs: round(stage.maxMs), maxStartOffsetMs: round(stage.maxStartOffsetMs) })) },
+      waitBreakdown: { scope: 'async_wait_settlements_separate_from_synchronous_work',
+        waits: [...target.waitStages.values()].map((stage) => ({ ...stage,
+          totalMs: round(stage.totalMs), maxMs: round(stage.maxMs) })) },
       inputResponse: { supported: true, samples: target.input.samples,
         lastMs: target.input.lastMs == null ? null : round(target.input.lastMs),
         maxMs: target.input.maxMs == null ? null : round(target.input.maxMs) },
@@ -221,6 +228,7 @@ export function createObserverPerformanceProbe({
       longTaskObserver: null,
       longAnimationFrameObserver: null,
       workStages: new Map(),
+      waitStages: new Map(),
       unsubscribeWork: null,
     };
     if (typeof PerformanceObserverRef === 'function') {
@@ -242,12 +250,21 @@ export function createObserverPerformanceProbe({
     state = next;
     next.unsubscribeWork = subscribeObserverWorkMeasurements(() => performanceRef.now(), (entry) => {
       if (state !== next || !Number.isFinite(entry.duration) || entry.duration < 0) return;
-      const name = String(entry.name).slice(0, 80);
-      if (!next.workStages.has(name) && next.workStages.size >= 24) return;
+      const name = String(entry.name).slice(0, WORK_STAGE_NAME_LIMIT);
+      if (!next.workStages.has(name) && next.workStages.size >= WORK_STAGE_LIMIT) return;
       const stage = next.workStages.get(name) || { name, count: 0, totalMs: 0, maxMs: -1, maxStartOffsetMs: 0 };
       stage.count += 1; stage.totalMs += entry.duration;
       if (entry.duration > stage.maxMs) { stage.maxMs = entry.duration; stage.maxStartOffsetMs = entry.startTime - next.startedAt; }
       next.workStages.set(name, stage);
+    }, (entry) => {
+      if (state !== next || !Number.isFinite(entry.duration) || entry.duration < 0) return;
+      const name = String(entry.name).slice(0, WORK_STAGE_NAME_LIMIT);
+      if (!next.waitStages.has(name) && next.waitStages.size >= WORK_STAGE_LIMIT) return;
+      const stage = next.waitStages.get(name) || { name, count: 0, totalMs: 0, maxMs: 0 };
+      stage.count = Math.min(MAX_WAIT_COUNT, stage.count + 1);
+      stage.totalMs = Math.min(MAX_WAIT_TOTAL_MS, stage.totalMs + entry.duration);
+      stage.maxMs = Math.max(stage.maxMs, entry.duration);
+      next.waitStages.set(name, stage);
     });
     const sample = (timestamp) => {
       if (state !== next) return;

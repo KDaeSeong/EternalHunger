@@ -1,0 +1,148 @@
+{
+  "schema": "eh-high-speed-growth-yield-candidate.v1",
+  "localDate": "2026-10-08",
+  "engine": "11c3a4b08353258acd4717bf79d0278bd647dbc34a969181b08e34ad7d3f329a",
+  "buildId": "lQpfveIT1HigoTfyGDWfm",
+  "scope": "Local x32-only scheduling candidate and optional bounded wait measurements. Not actual browser throughput, product acceptance or an input fixture.",
+  "implementation": {
+    "policy": "One closure per phase. Visible x32 uses task yields between frame requests, first/unknown/rollback clock requests a frame; the 32ms deadline starts after frame settlement.",
+    "unchanged": "Every growth checkpoint, shared costs, game clock, RNG ownership, journal and authoritative snapshot. Other speeds retain the original frame request; phase setup and PvP action-frame yields are unchanged.",
+    "hiddenAndHeadless": "Use existing task fallback without waiting for a visible RAF or adding a scheduling clock/timer in headless execution.",
+    "diagnostic": "Recording-only yield.growth.frame/task wait settlements in waitBreakdown, separate from synchronous nested work; 24 names, 80 characters, bounded totals/counts. Disabled requests retain their original identity.",
+    "limits": "32ms is a frame-request criterion, not a paint guarantee. Indivisible work, stalls, existing RAF fallback and host overhead remain.",
+    "historicalCandidate": "The 2026-10-05 16ms policy was withdrawn after an actual 107.544 -> 108.791 second sample; this x32-only 32ms candidate has no new foreground acceptance."
+  },
+  "checks": {
+    "performance": {
+      "runId": "2026-10-07T21-12-02.167Z-518b796b-26d6-4a64-bd6a-ad6692d87927",
+      "result": "client/.verification-runs/2026-10-07T21-12-02.167Z-518b796b-26d6-4a64-bd6a-ad6692d87927/result.json",
+      "startedAt": "2026-10-07T21:12:02.323Z",
+      "finishedAt": "2026-10-07T21:23:19.731Z",
+      "status": "failed",
+      "exitCode": 1,
+      "sameEngine": true,
+      "checksBeforeBuild": "Named growth, observer, frames, display pacing, phase scheduling, opening deadline, procurement, scheduling match, saved replay and runtime lint completed successfully.",
+      "failure": "Build EPERM mkdir client/.next/server/app/achievements. This chain is not relabeled passed by the separate recovery.",
+      "newHighSpeedGroupsInChain": 13,
+      "newWaitMeasurementGroups": 9,
+      "scope": "performance mode only, not a new full check:eternal-hunger run."
+    },
+    "finalSchedulingUnit": {
+      "command": "npm run check:growth-scheduling",
+      "terminalSession": 42478,
+      "exitCode": 0,
+      "existingGroups": 18,
+      "newHighSpeedGroups": 15,
+      "extraAfterChain": "Task request synchronous failure/rejection and cancellation during a pending frame.",
+      "refreshModel": [
+        {
+          "hz": 30,
+          "originalFrameRequests": 100,
+          "candidateFrameRequests": 25,
+          "candidateTaskRequests": 75,
+          "sameCheckpointsAndRng": true
+        },
+        {
+          "hz": 60,
+          "originalFrameRequests": 100,
+          "candidateFrameRequests": 25,
+          "candidateTaskRequests": 75,
+          "sameCheckpointsAndRng": true
+        },
+        {
+          "hz": 120,
+          "originalFrameRequests": 100,
+          "candidateFrameRequests": 25,
+          "candidateTaskRequests": 75,
+          "sameCheckpointsAndRng": true
+        }
+      ],
+      "limit": "Injected deterministic workload/host model, not a refresh-rate or browser speed benchmark."
+    },
+    "schedulingMatch": {
+      "modes": [
+        "headless",
+        "cooperative",
+        "visible-cooperative"
+      ],
+      "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+      "frames": 6032,
+      "events": 13657,
+      "gameSeconds": 1163.166666,
+      "inputEveryEventFrameLogsEndingAndRngEqual": true,
+      "random": {
+        "state": 1118516310,
+        "draws": 14137
+      },
+      "eventDigest": "4dc168590580a773fc7b268c0f3db6c7cf24920795c495b1357f702c604c17f3",
+      "frameDigest": "b529e942243ea64c00f0dc7c5c4c84438a6bf5e41a7566774c0b0ecaf8d56691",
+      "visibleTaskYields": 10516,
+      "visibleFrameYields": 22870,
+      "limit": "Fresh current production input and synthetic hidden/visible scheduling with speed changes/UI noise. No historical output dependency, actual browser paint or physical multicore claim."
+    },
+    "firstNight": {
+      "seeds": [
+        1101,
+        2202,
+        3303
+      ],
+      "completePerSeed": 24,
+      "totalPerSeed": 24,
+      "completionSecRange": [
+        21,
+        73
+      ],
+      "firstDayEndSec": 250,
+      "limit": "Canonical competitive fixtures, not arbitrary unavailable custom recipes or combat deaths."
+    },
+    "savedInputReplay": {
+      "groups": 16,
+      "frames": 6599,
+      "events": 18401,
+      "gameSeconds": 1254.666666,
+      "allEventsFinalStateRandomAndEndingEqual": true,
+      "externalAccess": 0
+    },
+    "separateBuild": {
+      "runId": "2026-10-07T21-24-19.722Z-1d0006b3-dd40-4180-9bd8-468ccc2a204c",
+      "result": "client/.verification-runs/2026-10-07T21-24-19.722Z-1d0006b3-dd40-4180-9bd8-468ccc2a204c/result.json",
+      "startedAt": "2026-10-07T21:24:19.724Z",
+      "finishedAt": "2026-10-07T21:25:10.312Z",
+      "command": "npm run build",
+      "status": "passed",
+      "exitCode": 0,
+      "sameEngine": true,
+      "staticPages": 62,
+      "limit": "Same-source local build retry with no permission-settings change or deployment; not the failed chain passing."
+    }
+  },
+  "foreground": {
+    "additionalRuns": 0,
+    "actualSpeedAcceptance": false,
+    "status": "Not run while awaiting fresh permission for one new foreground match. No browser launched this turn.",
+    "latestPriorEvidence": "artifacts/observer-tail-inventory-performance-20261008.json",
+    "latestPriorEngine": "5b40b16d5c57a49fab7b86914c01c6689e2282d1ead845b9bb5603d64d1374fe",
+    "limit": "Previous ~5-6x running observations remain prior-engine samples, not this candidate's gain or regression."
+  },
+  "authority": {
+    "paidAiRequests": 0,
+    "accountWrites": 0,
+    "pushes": 0,
+    "deployments": 0,
+    "credentialOrProtectionChanges": 0
+  },
+  "shutdown": {
+    "ownedVerificationProcesses": 0,
+    "port3137Listeners": 0
+  },
+  "cleanupEvidence": "artifacts/high-speed-growth-cache-cleanup-20261008.json",
+  "remaining": [
+    "actual x32 throughput and responsive visible rendering",
+    "consecutive-match memory reclamation",
+    "successful ER/custom AI drafts after user key repair and fresh permission",
+    "authorized account save/reopen and battle use",
+    "human reassessment",
+    "authorized remote integration/public release"
+  ],
+  "goalStatus": "active"
+}
