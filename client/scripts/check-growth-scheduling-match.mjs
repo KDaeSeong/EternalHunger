@@ -18,6 +18,7 @@ if (worker) {
   const { getActiveSimulationRandom, withSimulationRandom } = await import('../src/utils/simulationRandom.js');
   const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
   const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
+  const { createObserverPerformanceProbe } = await import('../src/app/simulation/_lib/observerPerformanceRuntime.js');
   const input = await createRandomIsolationInput(seed);
   let yields = 0, syntheticTime = 0;
   const originalWindow = globalThis.window, originalScheduler = globalThis.scheduler, originalPerformance = globalThis.performance;
@@ -34,13 +35,25 @@ if (worker) {
       Math.random();
     }) };
   }
-  let result;
+  // Exercise enabled diagnostic subscriptions as well as scheduler/UI noise.
+  // This independent fake clock proves non-interference, never browser timing.
+  let diagnosticTime = 0;
+  const probe = createObserverPerformanceProbe({
+    windowRef: { requestAnimationFrame: () => 1, cancelAnimationFrame: () => {} },
+    performanceRef: { now: () => diagnosticTime++ }, documentRef: {},
+  });
+  probe.start({ label: 'synthetic-node-determinism' });
+  let result, diagnostic;
   try { result = await runRandomIsolationMatch(input, { noisy: worker === 'cooperative' }); }
   finally {
+    diagnostic = probe.stop();
     globalThis.window = originalWindow; globalThis.scheduler = originalScheduler; globalThis.performance = originalPerformance;
   }
+  assert.ok(diagnostic.workBreakdown.stages.some(stage => stage.name === 'growth.teamCoordination' && stage.count > 0));
   if (worker === 'cooperative') assert.ok(yields > 1000, 'Exercise repeated real scheduling, not only the synchronous fallback.');
   console.log(JSON.stringify({ worker, engine: SIMULATION_ENGINE_VERSION, yields,
+    diagnosticScope: 'enabled probe with independent fake clock; not browser performance',
+    diagnosticStages: diagnostic.workBreakdown.stages.map(stage => ({ name: stage.name, count: stage.count })),
     outcome: { inputDigest: digest(input), evidence: result.evidence, finalFrameDigest: digest(result.finalFrame), logDigest: digest(result.logs) },
   }));
 } else {
@@ -54,5 +67,5 @@ if (worker) {
   }
   assert.deepEqual(results[1].outcome, results[0].outcome, 'Browser checkpoints and UI noise must retain the current production match.');
   console.log(JSON.stringify({ pass: true, seed, matches: 2, cooperativeYields: results[1].yields,
-    scope: 'current headless versus cooperative complete 24-actor fixture: input, events, every published frame, ending, logs and RNG; deliberate opening-rule change, not historical outcome preservation, browser performance or human evaluation' }));
+    scope: 'current headless versus cooperative complete 24-actor fixture with enabled diagnostics: input, events, every published frame, ending, logs and RNG; deliberate opening-rule change, not historical outcome preservation, browser performance or human evaluation' }));
 }

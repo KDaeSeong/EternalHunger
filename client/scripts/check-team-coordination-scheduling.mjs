@@ -77,4 +77,30 @@ await check('solo matches return no coordination and draw no randomness', () => 
   assert.deepEqual(source.getState(), before);
 });
 
+await check('a rejected real scheduling wait closes the remaining squad iterator and releases RNG', async () => {
+  const source = createSeedRng('failed-squad-wait'), expected = createSeedRng('failed-squad-wait');
+  let clock = 0, pauses = 0, choices = 0;
+  const steps = buildTeamCoordinationSteps(options(() => choices++));
+  const failure = new Error('host scheduling failed');
+  await assert.rejects(runSimulationSteps(source, runGrowthActionSteps(steps, {
+    now: () => clock += 9, requestYield: () => ++pauses === 2 ? Promise.reject(failure) : Promise.resolve(),
+  })), error => error === failure);
+  expected();
+  assert.equal(choices, 1); assert.equal(steps.next().done, true);
+  assert.deepEqual(source.getState(), expected.getState()); assert.equal(getActiveSimulationRandom(), null);
+});
+
+await check('one slow squad can exceed the slice budget and remains indivisible', async () => {
+  const source = createSeedRng('slow-squad'); let clock = 0, choices = 0, pauses = 0;
+  const steps = runGrowthActionSteps(buildTeamCoordinationSteps(options(() => { choices++; clock += 100; })), {
+    now: () => clock, sliceBudgetMs: 8, requestYield: () => { pauses++; return Promise.resolve(); },
+  });
+  const first = withSimulationRandom(source, () => steps.next());
+  assert.equal(first.done, false); assert.equal(choices, 1); assert.equal(clock, 100);
+  assert.equal(pauses, 1, 'The budget creates a checkpoint after work; it is not an 8ms hard ceiling.');
+  const before = source.getState(); steps.return();
+  assert.equal(choices, 1); assert.deepEqual(source.getState(), before);
+  await first.value;
+});
+
 console.log(JSON.stringify({ checks, pass: true, scope: 'squad scheduling, cancellation, snapshot and RNG contracts; not browser timing or paint proof' }));
