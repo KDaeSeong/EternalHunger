@@ -1,0 +1,47 @@
+{
+  "schema": "eh-observer-memory-lifetime.v1",
+  "supported": true,
+  "scope": "selected_object_roots_not_entire_heap",
+  "ownerLimit": 12,
+  "targetLimit": 8,
+  "evictedOwners": 0,
+  "owners": [
+    {
+      "id": 1,
+      "kind": "session",
+      "closed": false,
+      "targets": [
+        {
+          "name": "journal",
+          "state": "reachable_or_not_yet_collected"
+        },
+        {
+          "name": "textLog",
+          "state": "reachable_or_not_yet_collected"
+        },
+        {
+          "name": "visibleEvents",
+          "state": "reachable_or_not_yet_collected"
+        },
+        {
+          "name": "survivors",
+          "state": "reachable_or_not_yet_collected"
+        },
+        {
+          "name": "dead",
+          "state": "reachable_or_not_yet_collected"
+        },
+        {
+          "name": "replayRecord",
+          "state": "reachable_or_not_yet_collected"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "history",
+      "closed": true,
+      "targets": []
+    }
+  ]
+}

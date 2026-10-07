@@ -1,0 +1,324 @@
+{
+  "engineVersion": "491e4905d70a63007699b8b6a385d600ce6fb90d1f42f38a4a28804fc23adb18",
+  "seed": "1101",
+  "initialRosterSeed": "FIXTURE:initial-roster",
+  "counts": {
+    "opening_or_recovery": 33,
+    "not_gathered": 61,
+    "action_or_hunt_hold": 195,
+    "single_living_world_member": 130,
+    "recovery_health": 1,
+    "quote_available_before_coordination_gates": 3,
+    "no_immediately_completable_quote": 1,
+    "forbidden_region": 1,
+    "endgame": 2
+  },
+  "samples": [
+    {
+      "atSec": 400,
+      "teamId": "team:2",
+      "reason": "action_or_hunt_hold",
+      "quotedReason": "팀 제작 구매: 생명의 나무 · 가람의 낙원의 낫 제작 재료",
+      "members": [
+        {
+          "who": "guest-survivor-13",
+          "zoneId": "forest",
+          "credits": 202,
+          "target": "낙원의 낫",
+          "missing": [
+            {
+              "itemId": "namu:material:곡괭이",
+              "name": "곡괭이",
+              "need": 1,
+              "have": 0,
+              "zones": [
+                "alley",
+                "temple",
+                "beach",
+                "forest",
+                "warehouse",
+                "barge"
+              ]
+            },
+            {
+              "itemId": "namu:material:생명의 나무",
+              "name": "생명의 나무",
+              "need": 1,
+              "have": 0,
+              "zones": []
+            }
+          ]
+        },
+        {
+          "who": "guest-survivor-11",
+          "zoneId": "forest",
+          "credits": 554,
+          "target": "원더풀 투나잇",
+          "missing": [
+            {
+              "itemId": "namu:기타:보급형 기타",
+              "name": "보급형 기타",
+              "need": 1,
+              "have": 0,
+              "zones": [
+                "school",
+                "beach",
+                "cathedral"
+              ]
+            },
+            {
+              "itemId": "namu:material:운석",
+              "name": "운석",
+              "need": 1,
+              "have": 0,
+              "zones": []
+            }
+          ]
+        },
+        {
+          "who": "guest-survivor-12",
+          "zoneId": "forest",
+          "credits": 154,
+          "target": "소울 리퍼",
+          "missing": [
+            {
+              "itemId": "namu:단검:식칼",
+              "name": "식칼",
+              "need": 1,
+              "have": 0,
+              "zones": [
+                "school",
+                "apartment",
+                "port"
+              ]
+            },
+            {
+              "itemId": "namu:material:생명의 나무",
+              "name": "생명의 나무",
+              "need": 1,
+              "have": 0,
+              "zones": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "atSec": 630,
+      "teamId": "team:4",
+      "reason": "action_or_hunt_hold",
+      "quotedReason": "팀 제작 구매: 생명의 나무 · 이슬의 낙원의 낫 제작 재료",
+      "members": [
+        {
+          "who": "guest-survivor-14",
+          "zoneId": "park",
+          "credits": 354,
+          "target": "고스트",
+          "missing": []
+        },
+        {
+          "who": "guest-survivor-21",
+          "zoneId": "park",
+          "credits": 519,
+          "target": "낙원의 낫",
+          "missing": [
+            {
+              "itemId": "namu:material:곡괭이",
+              "name": "곡괭이",
+              "need": 1,
+              "have": 0,
+              "zones": [
+                "alley",
+                "temple",
+                "beach",
+                "barge"
+              ]
+            },
+            {
+              "itemId": "namu:material:생명의 나무",
+              "name": "생명의 나무",
+              "need": 1,
+              "have": 0,
+              "zones": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "atSec": 640,
+      "teamId": "team:4",
+      "reason": "action_or_hunt_hold",
+      "quotedReason": "팀 제작 구매: 생명의 나무 · 이슬의 낙원의 낫 제작 재료",
+      "members": [
+        {
+          "who": "guest-survivor-14",
+          "zoneId": "park",
+          "credits": 354,
+          "target": "고스트",
+          "missing": []
+        },
+        {
+          "who": "guest-survivor-21",
+          "zoneId": "park",
+          "credits": 519,
+          "target": "낙원의 낫",
+          "missing": [
+            {
+              "itemId": "namu:material:곡괭이",
+              "name": "곡괭이",
+              "need": 1,
+              "have": 0,
+              "zones": [
+                "alley",
+                "temple",
+                "beach",
+                "barge"
+              ]
+            },
+            {
+              "itemId": "namu:material:생명의 나무",
+              "name": "생명의 나무",
+              "need": 1,
+              "have": 0,
+              "zones": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "actualSharedPurchaseIntentions": 0,
+  "evidence": {
+    "seed": "1101",
+    "phases": 12,
+    "frames": 6390,
+    "ticks": 1225.666666,
+    "eventCount": 14976,
+    "ending": {
+      "outcome": "last_team",
+      "atSec": 1225.666666,
+      "day": 6,
+      "phase": "night",
+      "cause": "combat",
+      "causeName": "교전",
+      "finalZoneStage": "approach",
+      "winnerTeamId": "team:5",
+      "dimensionRifts": {
+        "atSec": 1225.666666,
+        "settlements": [
+          {
+            "id": "RIFT_guest-lumia-island_3_1:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_1",
+            "atSec": 1225.666666,
+            "reason": "match_end",
+            "disposition": "claimed",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_3_2:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_2",
+            "atSec": 1225.666666,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_3_3:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_3",
+            "atSec": 1225.666666,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_3_4:match-end",
+            "riftId": "RIFT_guest-lumia-island_3_4",
+            "atSec": 1225.666666,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_1:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_1",
+            "atSec": 1225.666666,
+            "reason": "match_end",
+            "disposition": "claimed",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_2:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_2",
+            "atSec": 1225.666666,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_3:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_3",
+            "atSec": 1225.666666,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          },
+          {
+            "id": "RIFT_guest-lumia-island_4_4:match-end",
+            "riftId": "RIFT_guest-lumia-island_4_4",
+            "atSec": 1225.666666,
+            "reason": "match_end",
+            "disposition": "no_reward",
+            "issue": "",
+            "contestClosed": false,
+            "rewardClosedAtSec": null,
+            "rewardClosureReason": "",
+            "expiredWorldGifts": 0
+          }
+        ],
+        "expiredWorldGifts": 0,
+        "expiredForElimination": 0,
+        "invalidRewards": 0,
+        "unfinishedContests": 0
+      }
+    },
+    "random": {
+      "algorithm": "fnv1a-mulberry32-v1",
+      "state": 2704637753,
+      "draws": 10672,
+      "ids": 0,
+      "nameHistory": []
+    },
+    "eventDigest": "b925a090eec72b299ba38fdbb4b323fba43e0d35672a714fc6133c50347535cb",
+    "frameDigest": "22dad0b4a6e6259c7c64166b4643b113baf5788735cd8f8f70e31550766b404d"
+  },
+  "scope": "unchanged ordinary guest match; read-only 20-second committed-frame samples, not exhaustive production planner rejections or forced natural coverage"
+}

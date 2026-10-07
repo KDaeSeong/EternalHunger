@@ -1,0 +1,14 @@
+PASS nine complete samples pass only their explicitly declared observational gates
+PASS defaults preserve the historical strict Long Task gate without inventing frame or memory budgets
+PASS all nine samples are required; missing runs and best-of duplicates cannot pass
+PASS old engine, v2, live snapshots and immediate stops cannot inherit the current browser verdict
+PASS unsupported APIs and null/NaN metrics are never coerced to a healthy zero
+PASS an initially and finally visible tab with a hidden interval is invalid
+PASS mixed speed, paused/mid-match windows, mismatched replays and post-result idle are invalid
+PASS label text cannot substitute for measured speed
+PASS first and trailing RAF stalls fail even when interval p95 is healthy
+PASS overflow and histogram rounding near a budget cannot silently pass
+PASS reloads, changed viewport, source and interleaved speeds cannot become a sequential memory pass
+PASS three increasing baselines remain unresolved even below a generous budget
+PASS CLI exit codes distinguish passing observational gates, failures and missing evidence
+{"checks":13,"pass":true,"scope":"synthetic report rejection and CLI contracts; not actual browser measurements"}

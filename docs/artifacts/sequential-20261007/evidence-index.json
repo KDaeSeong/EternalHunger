@@ -1,0 +1,213 @@
+{
+  "date": "2026-10-07",
+  "baseCommit": "3f34c66e95089d06998fd45b59a7277b8409aba5",
+  "finalEngineVersion": "ea908055e24ef525643337f5520f5d36f8d3c4f398b408791517c2a880e311a1",
+  "completedReports": [
+    {
+      "file": "natural-baseline.json",
+      "rows": 9,
+      "exitCode": 0
+    },
+    {
+      "file": "natural-exchanges.json",
+      "rows": 3,
+      "exitCode": 0
+    },
+    {
+      "file": "natural-expanded.json",
+      "rows": 2,
+      "exitCode": 0
+    },
+    {
+      "file": "natural-purchase-readiness.json",
+      "matches": 1,
+      "exitCode": 0
+    },
+    {
+      "file": "strategy-comparison.json",
+      "rows": 9,
+      "exitCode": 0
+    },
+    {
+      "file": "final-full-match.log",
+      "matches": 2,
+      "exitCode": 0
+    },
+    {
+      "file": "equipment-gap-2202.json",
+      "matches": 1,
+      "exitCode": 0
+    }
+  ],
+  "focusedChecks": {
+    "commands": 23,
+    "cases": 424,
+    "exitCode": 0,
+    "scope": "first exchange fix; adjacent final scheduling/probe checks separately recorded"
+  },
+  "additionalChecks": [
+    {
+      "name": "team-coordination-scheduling",
+      "cases": 4,
+      "exitCode": 0
+    },
+    {
+      "name": "growth-scheduling",
+      "cases": 18,
+      "exitCode": 0
+    },
+    {
+      "name": "observer-performance",
+      "cases": 23,
+      "exitCode": 0
+    },
+    {
+      "name": "observer-memory-lifetime",
+      "cases": 27,
+      "exitCode": 0
+    },
+    {
+      "name": "equipment-account-recording",
+      "cases": 3,
+      "exitCode": 0
+    },
+    {
+      "name": "run-comparison",
+      "cases": 15,
+      "exitCode": 0
+    },
+    {
+      "name": "replay-comparison-ownership",
+      "cases": 10,
+      "exitCode": 0
+    },
+    {
+      "name": "cooperative-runner",
+      "cases": 10,
+      "exitCode": 0
+    },
+    {
+      "name": "auth-session",
+      "cases": 15,
+      "exitCode": 0
+    },
+    {
+      "name": "simulation-log-export",
+      "cases": 8,
+      "exitCode": 0
+    }
+  ],
+  "eslint": {
+    "files": 14,
+    "exitCode": 0
+  },
+  "browser": {
+    "engineVersion": "42abaaf36fcafe8416e40bd08c727f9c07ca0a1c40b3baf28d34396a3a96e198",
+    "mode": "public_guest",
+    "matches": 2,
+    "replayEvents": 11905,
+    "endingSec": 860.25,
+    "winnerTeam": "team:7",
+    "customHelmetFinalWearers": 5,
+    "latestPreview": "Vercel sign-in required; latest browser not verified",
+    "actualAccountSaveVerified": false,
+    "logJsonDownloadVerified": false,
+    "continuousVisibilityVerified": false,
+    "performancePassed": false,
+    "humanEvaluationSubmitted": false
+  },
+  "notes": [
+    "Reports preserve their original engine versions; 491e4905 reports preceded the additive visibility probe change.",
+    "Some earlier reports lack a completion flag; full process exit 0 and expected row counts were separately verified.",
+    "The raw full-match test has a historical scope phrase about an opening-rule change; this PR does not change opening rules.",
+    "Read-only frame-gate sampling is not a production planner rejection trace; natural shared purchase remains unobserved.",
+    "Raw account/mock-session and other individual unit-test stdout are excluded from the public artifact set. Counts record completed checks only.",
+    "Equipment diagnostics use final survivors and latest death snapshots for finally dead participants; emptySlotActors metadata was added after the nine-row strategy report."
+  ],
+  "files": [
+    {
+      "path": "equipment-gap-2202.json",
+      "bytes": 1660,
+      "sha256": "982bbf542cbc9bf387ce034b144f75d1f6a7e5e49ac3fade10a029280dfb0895"
+    },
+    {
+      "path": "final-full-match.log",
+      "bytes": 6556,
+      "sha256": "79c90fe86727a1f0b0c0449c897eaf3b5683a5da7b680526d8ad1fe85e95465c"
+    },
+    {
+      "path": "focused-checks.json",
+      "bytes": 3109,
+      "sha256": "db7710a26de54ee2047e048730963b018471b7298e389a3fff03c429bc22fd1a"
+    },
+    {
+      "path": "guest-final-equipment.json",
+      "bytes": 4251,
+      "sha256": "c402a6ca763c1c5ddc90b3ae2f56d5e63354c1701f7f5e9368f42c135b2c3364"
+    },
+    {
+      "path": "guest-item-restored.jpg",
+      "bytes": 67837,
+      "sha256": "5db82c27ad46af0f7e6d47c0c0cbc70f0843791f399e22e69df57a5c73c650ab"
+    },
+    {
+      "path": "identical-replay-finished.jpg",
+      "bytes": 101605,
+      "sha256": "75014c1f1f10a7aecca95ab315e2803a78547d4d6bfc272b20228f9c4635b4e6"
+    },
+    {
+      "path": "map-reference.json",
+      "bytes": 12184,
+      "sha256": "5ed5797e0495f996a502b0a8a4f4521204b69b92eae16487df1679e91a7b76cf"
+    },
+    {
+      "path": "memory-after-first-match.json",
+      "bytes": 1020,
+      "sha256": "dd48721695c5a4a755253c9bbad7117c01ab645bd7ab2ea9f5ec9b181fe3e3a4"
+    },
+    {
+      "path": "memory-after-replay.json",
+      "bytes": 1712,
+      "sha256": "e1d8895ccd1ccac44e4345c767c87c2cd2eb86be1725758bd50be4a29c82197b"
+    },
+    {
+      "path": "natural-baseline.json",
+      "bytes": 63921,
+      "sha256": "18084413f9b7d30830a10971fbfe07a9a4a1222713ced9f20123db78b98a93e3"
+    },
+    {
+      "path": "natural-exchanges.json",
+      "bytes": 21322,
+      "sha256": "e4f89a4ab120763da51a9f468d454b803f4902c37db96d6c42c31eb282079892"
+    },
+    {
+      "path": "natural-expanded.json",
+      "bytes": 14363,
+      "sha256": "7f5904f02a122c9783b80a03c13421d73ef607e1e4d69936ef3c9fa060b73c29"
+    },
+    {
+      "path": "natural-purchase-readiness.json",
+      "bytes": 9472,
+      "sha256": "3394370b50da4ea5804f90961fed4fbf81d507dda7d1636389ce9e519d89dd73"
+    },
+    {
+      "path": "strategy-comparison.json",
+      "bytes": 85812,
+      "sha256": "cb2865a1eb8b39b492e07e6571a0d610d1b3f1178374be44a56d1d4bff111088"
+    },
+    {
+      "path": "visible-replay-x32-full.json",
+      "bytes": 34080,
+      "sha256": "a005e00a345fe6367e986a291e99c05ae31dc53698938d2be35c2eed7e4d245e"
+    },
+    {
+      "path": "visible-x32-midrun.json",
+      "bytes": 33799,
+      "sha256": "a622511e17408eb1151d29069cf93a463213280a5045abefbdc3740d26ae3a81"
+    }
+  ],
+  "evaluationContract": {
+    "exitCode": 0,
+    "counts": "start=1 partial=1 complete=1 export=1 corrupt=1"
+  }
+}

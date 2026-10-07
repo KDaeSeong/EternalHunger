@@ -1,0 +1,34 @@
+PASS RAF, long-task, heap, and DOM metrics are measured without timer-as-FPS substitution
+PASS unsupported heap and long-task APIs remain explicit
+PASS a long measurement does not overflow the argument stack when producing its snapshot
+PASS percentiles include the entire measurement with explicit rounding, not only a recent fast window
+PASS histogram overflow is reported as a range and cannot clamp a slow session into a passing value
+PASS many long tasks and pending records retain the complete count, total and earliest peak without a raw array
+PASS a large click burst uses one pending RAF and retains all input samples, first peak and last delay
+PASS epoch and invalid event timestamps normalize to the same performance clock
+PASS stop/restart rejects old input, RAF and observer callbacks and resets every metric
+PASS automatic stop and observer initialization failure release their scheduled resources
+PASS long animation frames distinguish work, render, layout and script entrypoints without replacing long tasks
+PASS animation attribution is bounded but totals and the first peak span the whole session
+PASS animation frame records are drained at stop, owned in snapshots and excluded across restarts
+PASS unsupported or failed animation attribution does not disable the long-task acceptance metric
+PASS optional work timings retain result identity and the original thrown error
+PASS work breakdown uses bounded names, owned snapshots and a restarted baseline
+PASS diagnostic clock/callback failures cannot replace game results and stale disposal cannot cancel a new recorder
+PASS visibility events preserve hidden intervals even when both endpoints are visible
+PASS snapshots do not double-count visibility durations and unsupported events cannot prove visible coverage
+PASS restart and automatic stop release visibility listeners and reject stale events
+PASS unknown and initially hidden documents never pass the continuous visibility condition
+PASS panel is query-gated and exposes accessible controls and JSON output
+PASS diagnostic JSON is collapsed by default and bounded so it cannot push the battlefield out of view
+PASS silently accepting an unsupported entry type cannot mark Long Tasks as supported
+PASS first RAF and unfinished trailing intervals cannot disappear behind a healthy p95
+PASS boundary-overlapping entries are retained but invalid timestamps and wholly old work are excluded
+PASS malformed heap numbers are unavailable rather than apparent zero memory growth
+PASS a queued visibility event with the same observed endpoint cannot certify continuous visibility
+PASS visibility notifications delivered during finalization invalidate coverage without extending cutoff durations
+PASS post-stop RAF then task drains late end records without extending the measured clock or heap
+PASS automatic stop preserves a retrievable result and timeout is explicitly incomplete
+PASS restarting during finalization cancels the old barrier and cannot contaminate the next run
+PASS actual context tracks speed, replay identity and pauses without retaining records
+OBSERVER_PERFORMANCE_PROBE_CHECKS 33/33

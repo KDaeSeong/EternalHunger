@@ -123,7 +123,11 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
     && allowLegendary
     && isAtOrAfterWorldTime(curDay, curPhase, 2, 'day')
     && simCredits >= Math.min(kioskSpecialPrice('meteor'), kioskSpecialPrice('life_tree'));
-  const shouldForceKioskAttempt = canBuyMissingSpecialNow || canBuyUpgradeSpecialNow || canBuyForceCoreComponentNow;
+  const authoredCatalog = catalog.length > 0 || !!kioskDoc?.hasCustomCatalog;
+  const prioritySpecialAction = authoredCatalog ? undefined : quoteDefaultKioskGoalAction({ actor, craftGoal, publicItems: items,
+    ruleset, marketRules, day: curDay, phase: curPhase, upgradeNeed: up, shouldDeferVfForLegend });
+  const shouldForceKioskAttempt = canBuyMissingSpecialNow || canBuyUpgradeSpecialNow || canBuyForceCoreComponentNow
+    || (hasNeed && prioritySpecialAction?.kind === 'exchange');
   if (!hasCatalogNeed && !shouldForceKioskAttempt) {
     // 업그레이드 목표(전설/초월)만 있어도 키오스크를 '조금 더 자주' 사용
     if (simulationRandom() >= chance) return null;
@@ -165,8 +169,6 @@ export function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay
   const tacIsLvMax = (tacUpgradeMode === 'level') && (tacSkillLv >= TAC_MAX_LV);
 
   const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
-  const prioritySpecialAction = quoteDefaultKioskGoalAction({ actor, craftGoal, publicItems: items,
-    ruleset, marketRules, day: curDay, phase: curPhase, upgradeNeed: up, shouldDeferVfForLegend });
   if (prioritySpecialAction !== undefined) return prioritySpecialAction;
 
   const surplusBuy = pickKioskSurplusBuyAction({
