@@ -1,0 +1,696 @@
+{
+  "schema": "eh-current-engine-cpu-audit.v1",
+  "localDate": "2026-10-08",
+  "head": "18424568",
+  "engine": "11c3a4b08353258acd4717bf79d0278bd647dbc34a969181b08e34ad7d3f329a",
+  "command": "node --cpu-prof --cpu-prof-name=headless-current.cpuprofile --cpu-prof-dir=<new-owned-output-directory> scripts/check-growth-scheduling-match.mjs --worker=headless --seed=1101",
+  "terminalSession": 12401,
+  "exitCode": 0,
+  "match": {
+    "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+    "seed": "1101",
+    "phases": 11,
+    "frames": 6032,
+    "events": 13657,
+    "gameSeconds": 1163.166666,
+    "eventDigest": "4dc168590580a773fc7b268c0f3db6c7cf24920795c495b1357f702c604c17f3",
+    "frameDigest": "b529e942243ea64c00f0dc7c5c4c84438a6bf5e41a7566774c0b0ecaf8d56691",
+    "random": {
+      "state": 1118516310,
+      "draws": 14137
+    },
+    "ending": "last_team/combat/team:1"
+  },
+  "profile": {
+    "schema": "eh-current-node-cpu-summary.v1",
+    "scope": "Fresh headless fixture including module load, harness freezing/hashing, GC and profiling overhead; not actual browser throughput or paint",
+    "profileBytes": 2696494,
+    "profileSha256": "8daa89b3898c8f5fa6666cc49a247fb7555bf16c637592ba74428c98f3f403b7",
+    "elapsedUs": 108787426,
+    "sampledMs": 108787.298,
+    "samples": 67777,
+    "topAllSelf": [
+      {
+        "functionName": "setSimulationFrame",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/scripts/lib/run-random-isolation-match.mjs",
+        "line": 144,
+        "sampledMs": 20919.316,
+        "samples": 12918,
+        "samplePercent": 19.23
+      },
+      {
+        "functionName": "structuredClone",
+        "url": "node:internal/worker/js_transferable",
+        "line": 112,
+        "sampledMs": 15442.094,
+        "samples": 9565,
+        "samplePercent": 14.195
+      },
+      {
+        "functionName": "update",
+        "url": "node:internal/crypto/hash",
+        "line": 134,
+        "sampledMs": 13778.376,
+        "samples": 8658,
+        "samplePercent": 12.665
+      },
+      {
+        "functionName": "",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationFrameRuntime.js",
+        "line": 41,
+        "sampledMs": 7326.045,
+        "samples": 4569,
+        "samplePercent": 6.734
+      },
+      {
+        "functionName": "normalizeRuntimeSurvivor",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/survivorRuntime.js",
+        "line": 129,
+        "sampledMs": 4673.226,
+        "samples": 2886,
+        "samplePercent": 4.296
+      },
+      {
+        "functionName": "freeze",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/scripts/lib/run-random-isolation-match.mjs",
+        "line": 24,
+        "sampledMs": 3806.214,
+        "samples": 2371,
+        "samplePercent": 3.499
+      },
+      {
+        "functionName": "open",
+        "url": "",
+        "line": 0,
+        "sampledMs": 3644.204,
+        "samples": 2129,
+        "samplePercent": 3.35
+      },
+      {
+        "functionName": "inferEquipSlot",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/inventoryItemRules.js",
+        "line": 110,
+        "sampledMs": 3190.042,
+        "samples": 1974,
+        "samplePercent": 2.932
+      },
+      {
+        "functionName": "(garbage collector)",
+        "url": "",
+        "line": 0,
+        "sampledMs": 1579.449,
+        "samples": 966,
+        "samplePercent": 1.452
+      },
+      {
+        "functionName": "normalizeErStats",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/utils/erStats.js",
+        "line": 57,
+        "sampledMs": 1362.979,
+        "samples": 857,
+        "samplePercent": 1.253
+      },
+      {
+        "functionName": "getValidRecipeIngredients",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/gearRecipeGuardRuntime.js",
+        "line": 2,
+        "sampledMs": 1216.968,
+        "samples": 751,
+        "samplePercent": 1.119
+      },
+      {
+        "functionName": "itemName",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/shared/marketItemPolicy.cjs",
+        "line": 10,
+        "sampledMs": 968.334,
+        "samples": 602,
+        "samplePercent": 0.89
+      },
+      {
+        "functionName": "",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/survivorRuntime.js",
+        "line": 91,
+        "sampledMs": 902.789,
+        "samples": 559,
+        "samplePercent": 0.83
+      },
+      {
+        "functionName": "",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/teamTacticsRuntime.js",
+        "line": 67,
+        "sampledMs": 819.046,
+        "samples": 501,
+        "samplePercent": 0.753
+      }
+    ],
+    "topRuntimeSelf": [
+      {
+        "functionName": "",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationFrameRuntime.js",
+        "line": 41,
+        "sampledMs": 7326.045,
+        "samples": 4569,
+        "samplePercent": 6.734
+      },
+      {
+        "functionName": "normalizeRuntimeSurvivor",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/survivorRuntime.js",
+        "line": 129,
+        "sampledMs": 4673.226,
+        "samples": 2886,
+        "samplePercent": 4.296
+      },
+      {
+        "functionName": "inferEquipSlot",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/inventoryItemRules.js",
+        "line": 110,
+        "sampledMs": 3190.042,
+        "samples": 1974,
+        "samplePercent": 2.932
+      },
+      {
+        "functionName": "normalizeErStats",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/utils/erStats.js",
+        "line": 57,
+        "sampledMs": 1362.979,
+        "samples": 857,
+        "samplePercent": 1.253
+      },
+      {
+        "functionName": "getValidRecipeIngredients",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/gearRecipeGuardRuntime.js",
+        "line": 2,
+        "sampledMs": 1216.968,
+        "samples": 751,
+        "samplePercent": 1.119
+      },
+      {
+        "functionName": "",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/survivorRuntime.js",
+        "line": 91,
+        "sampledMs": 902.789,
+        "samples": 559,
+        "samplePercent": 0.83
+      },
+      {
+        "functionName": "",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/teamTacticsRuntime.js",
+        "line": 67,
+        "sampledMs": 819.046,
+        "samples": 501,
+        "samplePercent": 0.753
+      },
+      {
+        "functionName": "normalizeStatusEffect",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/utils/statusEffectDefinitions.js",
+        "line": 473,
+        "sampledMs": 801.401,
+        "samples": 497,
+        "samplePercent": 0.737
+      },
+      {
+        "functionName": "",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+        "line": 58,
+        "sampledMs": 752.731,
+        "samples": 464,
+        "samplePercent": 0.692
+      },
+      {
+        "functionName": "movementBudget",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/combatSpatialRuntime.js",
+        "line": 193,
+        "sampledMs": 688.567,
+        "samples": 406,
+        "samplePercent": 0.633
+      },
+      {
+        "functionName": "applyActorPhaseStatusTick",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/phaseActorStatusRuntime.js",
+        "line": 10,
+        "sampledMs": 685.252,
+        "samples": 427,
+        "samplePercent": 0.63
+      },
+      {
+        "functionName": "compatible",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+        "line": 24,
+        "sampledMs": 563.354,
+        "samples": 333,
+        "samplePercent": 0.518
+      },
+      {
+        "functionName": "getLateGrowthTargets",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+        "line": 19,
+        "sampledMs": 539.376,
+        "samples": 339,
+        "samplePercent": 0.496
+      },
+      {
+        "functionName": "buildCraftGoal",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/craftRuntime.js",
+        "line": 127,
+        "sampledMs": 509.74,
+        "samples": 323,
+        "samplePercent": 0.469
+      }
+    ],
+    "topRuntimeInclusive": [
+      {
+        "functionName": "withSimulationRandom",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/utils/simulationRandom.js",
+        "line": 19,
+        "sampledMs": 101306.485,
+        "samples": 63302,
+        "samplePercent": 93.123
+      },
+      {
+        "functionName": "runSimulationSteps",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/utils/simulationRandom.js",
+        "line": 34,
+        "sampledMs": 100424.079,
+        "samples": 62732,
+        "samplePercent": 92.312
+      },
+      {
+        "functionName": "",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/utils/simulationRandom.js",
+        "line": 38,
+        "sampledMs": 100409.872,
+        "samples": 62723,
+        "samplePercent": 92.299
+      },
+      {
+        "functionName": "pvpActionSteps",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/phasePvpActionLoopRuntime.js",
+        "line": 65,
+        "sampledMs": 100095.784,
+        "samples": 62502,
+        "samplePercent": 92.011
+      },
+      {
+        "functionName": "publishActionFrame",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js",
+        "line": 436,
+        "sampledMs": 60961.189,
+        "samples": 37905,
+        "samplePercent": 56.037
+      },
+      {
+        "functionName": "publishFrame",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js",
+        "line": 315,
+        "sampledMs": 60895.777,
+        "samples": 37863,
+        "samplePercent": 55.977
+      },
+      {
+        "functionName": "measureObserverWork",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/observerWorkMeasurementRuntime.js",
+        "line": 61,
+        "sampledMs": 44263.955,
+        "samples": 27595,
+        "samplePercent": 40.689
+      },
+      {
+        "functionName": "publishSimulationFrame",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationFrameRuntime.js",
+        "line": 57,
+        "sampledMs": 38497.937,
+        "samples": 23943,
+        "samplePercent": 35.388
+      },
+      {
+        "functionName": "advanceWorldStep",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/phasePvpActionLoopRuntime.js",
+        "line": 323,
+        "sampledMs": 35393.092,
+        "samples": 22136,
+        "samplePercent": 32.534
+      },
+      {
+        "functionName": "advanceWorldSteps",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js",
+        "line": 392,
+        "sampledMs": 35352.815,
+        "samples": 22109,
+        "samplePercent": 32.497
+      },
+      {
+        "functionName": "advanceToSteps",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/phaseActionTimelineRuntime.js",
+        "line": 21,
+        "sampledMs": 34989.21,
+        "samples": 21879,
+        "samplePercent": 32.163
+      },
+      {
+        "functionName": "onGrowthSteps",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js",
+        "line": 340,
+        "sampledMs": 22317.938,
+        "samples": 13982,
+        "samplePercent": 20.515
+      },
+      {
+        "functionName": "runGrowthActionSteps",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/growthActionSchedulingRuntime.js",
+        "line": 53,
+        "sampledMs": 22160.57,
+        "samples": 13854,
+        "samplePercent": 20.371
+      },
+      {
+        "functionName": "",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/growthActionSchedulingRuntime.js",
+        "line": 62,
+        "sampledMs": 22146.455,
+        "samples": 13845,
+        "samplePercent": 20.358
+      }
+    ],
+    "structuredCloneNearestRuntimeCallers": [
+      {
+        "functionName": "",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationFrameRuntime.js",
+        "line": 41,
+        "sampledMs": 14689.546,
+        "samples": 9099
+      },
+      {
+        "functionName": "",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/phaseActorActionPipelineRuntime.js",
+        "line": 33,
+        "sampledMs": 436.248,
+        "samples": 273
+      },
+      {
+        "functionName": "prepareActorPhaseActionQueue",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/phaseActionQueueDecisionRuntime.js",
+        "line": 21,
+        "sampledMs": 352.767,
+        "samples": 222
+      },
+      {
+        "functionName": "emitSimulationRunEvent",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/logActionRuntime.js",
+        "line": 112,
+        "sampledMs": 112.083,
+        "samples": 72
+      },
+      {
+        "functionName": "prepareCraftTransaction",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/craftTransactionRuntime.js",
+        "line": 20,
+        "sampledMs": 91.223,
+        "samples": 53
+      },
+      {
+        "functionName": "simulationPhaseSteps",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js",
+        "line": 34,
+        "sampledMs": 38.477,
+        "samples": 20
+      },
+      {
+        "functionName": "publishTeamRegroupDecision",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/teamRegroupRuntime.js",
+        "line": 44,
+        "sampledMs": 25.573,
+        "samples": 16
+      },
+      {
+        "functionName": "commitConsumableAtIndex",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/consumableRuntime.js",
+        "line": 83,
+        "sampledMs": 8.155,
+        "samples": 6
+      },
+      {
+        "functionName": "mergeGuestItemCatalog",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/guestItemProfileRuntime.js",
+        "line": 123,
+        "sampledMs": 4.691,
+        "samples": 3
+      },
+      {
+        "functionName": "tryImmediateCraftFromSpecial",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/gearImmediateSpecialCraftRuntime.js",
+        "line": 33,
+        "sampledMs": 4.567,
+        "samples": 3
+      },
+      {
+        "functionName": "cloneSpawnState",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/spawnStateRuntime.js",
+        "line": 40,
+        "sampledMs": 3.11,
+        "samples": 2
+      },
+      {
+        "functionName": "emitQueueRunEvent",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/runEventRuntime.js",
+        "line": 61,
+        "sampledMs": 1.605,
+        "samples": 1
+      },
+      {
+        "functionName": "createTimedWildlifeEncounter",
+        "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/wildlifeCombatRuntime.js",
+        "line": 56,
+        "sampledMs": 1.514,
+        "samples": 1
+      }
+    ]
+  },
+  "interpretation": {
+    "harness": "setSimulationFrame self ~20.919s, crypto update ~13.778s and freeze ~3.806s are test host overhead, not browser React rendering. Inclusive publishActionFrame (~60.961s) contains that work and must not be called product publishing cost.",
+    "runtime": "Native structuredClone samples nearest to the authoritative frame snapshot ~14.690s; runtime survivor normalization ~4.673s self and equip-slot inference ~3.190s self remain measurable work. Sampling is not exact per-function timing or a browser bottleneck proof.",
+    "preservation": "No frame fields, checks, journal or ownership removed to improve the diagnostic. No persistent cache introduced; no game runtime changed this turn.",
+    "nextAction": "Run the current full automatic chain, not more unproven gameplay optimizations based on harness timing. Await permission for a fresh real foreground match before claiming x32 gain."
+  },
+  "sourceAudit": {
+    "modelReviewed": "G1-G5 and latest local source; no human scores entered.",
+    "lunarCandidate": "Old team_strike reason can leave the bounded recent tail after ten newer rows.",
+    "disposition": "Not adopted as a verified defect. Individual damage/HP records remain in combat-detail, team_engagement participants remain eligible important events, focus-fire counts remain in result summary. No reproducible current-decision misreading was established.",
+    "sources": [
+      "client/src/app/simulation/_lib/teamCombatRuntime.js",
+      "client/src/app/simulation/_lib/teamObserverRuntime.js",
+      "client/src/app/simulation/_lib/phaseCombatDamageRuntime.js",
+      "client/src/app/simulation/_components/SimulationLogPanel.js",
+      "client/src/app/simulation/_lib/runActionSummary.js"
+    ]
+  },
+  "rawProfile": {
+    "path": "client/.verification-runs/cpu-current-20261008-89098742-817b-45f2-b6d2-796401b6781e/headless-current.cpuprofile",
+    "status": "removed",
+    "regeneration": "Re-run the command in a fresh directory; exact timestamps/samples are not reproducible byte-for-byte.",
+    "cleanup": {
+      "status": "removed",
+      "logicalBytes": 2696494,
+      "exactFile": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\cpu-current-20261008-89098742-817b-45f2-b6d2-796401b6781e\\headless-current.cpuprofile",
+      "profileSha256": "8daa89b3898c8f5fa6666cc49a247fb7555bf16c637592ba74428c98f3f403b7",
+      "protected": [
+        {
+          "path": "C:\\2저장고\\EternalHunger\\artifacts\\current-engine-cpu-audit-20261008.json",
+          "sha256": "E798FA3D795D1F224B34AC363827405A023871EBCE0947FCB5A44A79AB9A5FE0"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\artifacts\\foreground-x32-20261007.jpg",
+          "sha256": "FA81B586FD1BE4C4AA8B708670A2E0884EDF4358E9D2ED26CE25B9D9F8F39189"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\artifacts\\foreground-x32-5b40-20261008.png",
+          "sha256": "ECC017CA633F7E7C88BDACABFBD1A0A056FF587B62B5387EDBFEBBCE8D1508FC"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\artifacts\\foreground-x32-e350-20261008.jpg",
+          "sha256": "EF314F4DB78655CB421A60C5E15A1CCFB37208FCF0513AC19EB9971DA53AD706"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\artifacts\\high-speed-growth-yield-20261008.json",
+          "sha256": "9299BA34AA3CD3AE7A3D013588FAE7224224FE85D4097716FE15145E862B4207"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\artifacts\\merged-live-verification-20261008.json",
+          "sha256": "4A8B9A43EB0CCDC3596EB824BF6BDB968D72F5A6FB7599E5FE7F50233BFB7ACC"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\artifacts\\observer-tail-inventory-performance-20261008.json",
+          "sha256": "957F3F20227EC5BB1AFD67EE517F5187AE762F535B548E8B13F314A10F2C3EF0"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\artifacts\\scoped-live-followup-20261008.json",
+          "sha256": "A3F3B1FBA548890CFA68C69237376576D5DDE6895A9E9CB1B971C050D487428C"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\BUILD_ID",
+          "sha256": "0F19FF279B0EC7BE917DBD732789C7C3D50E3276AEBE797DC92E6DC8D9B6DC96"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\build-manifest.json",
+          "sha256": "3C672A55AA80486DBB79F5E279BE1DF4EDE500C6EA42B661087CC097F674F5FB"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\prerender-manifest.json",
+          "sha256": "71C8AEA2A182AC0947B2116FB7655C89750A9B035EBEE83002ACBCCF8EFD4C13"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\routes-manifest.json",
+          "sha256": "64FD3F555FB99E9CE1965D8EC8567B6CCEBCDEB5A5F62E7E3C1B4B882896FB58"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\server\\app\\eternalhunger\\evaluate\\page_client-reference-manifest.js",
+          "sha256": "F92D55DE95EF08AB91237160F41E0D8F4996AAD929C5FF6D815D5AF34742824A"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\server\\app\\eternalhunger\\evaluate\\page.js",
+          "sha256": "F916470BD1556887A8C883D65487E6EEFE9C1B6B7C5D06839BD5C4F1732581A3"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-07T20-26-00.564Z-6eb54f24-66fd-4bfb-9345-f7f6df9e74c8\\output.log",
+          "sha256": "14898AA5052638559E6131862D4E93923E0D3BA6EF73F820845E5368065D262A"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-07T20-26-00.564Z-6eb54f24-66fd-4bfb-9345-f7f6df9e74c8\\result.json",
+          "sha256": "74AD23A41ACE04094FDE4EBE41C680D786231250AA2D51E37DC0E1A297FFEDBC"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-07T21-12-02.167Z-518b796b-26d6-4a64-bd6a-ad6692d87927\\output.log",
+          "sha256": "3345B3CCBCE8F0033DA9A0011BB57D1E00A09D80AC1438247DD5D0B3CAF59CAC"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-07T21-12-02.167Z-518b796b-26d6-4a64-bd6a-ad6692d87927\\result.json",
+          "sha256": "A464FE13AFE4A50768AD74124A0F5AAAA615389B7D1F72BC02AB5EE7094C7CC2"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-07T21-24-19.722Z-1d0006b3-dd40-4180-9bd8-468ccc2a204c\\output.log",
+          "sha256": "9EE2DB94E72D12C4142921AA29BAAE259729230EB489601D7D0B2D437A6BE0F1"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-07T21-24-19.722Z-1d0006b3-dd40-4180-9bd8-468ccc2a204c\\result.json",
+          "sha256": "CB169C8B878E408F1B888E5DA9ED8FE50CC656009A45503A5640FD4D96C24DB1"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\package-lock.json",
+          "sha256": "9024006A5AC9B451394E347C0A24A144EE5C32562912E6876C5F83250B89FB57"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\package.json",
+          "sha256": "1AA6EB9DBDACA6431B98426682C60D22A98ACB952840303E60EBD3B526F678B7"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-growth-plan-shared-inventory-index.mjs",
+          "sha256": "D7EB7987F582CC2E25ED3429FBC1BB7EF2EB2769D8D60808E3A25035CE2ADB58"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-growth-progress-inventory.mjs",
+          "sha256": "9BEBA51062EA614CFB9D4BFE6C84B71E4A3ED7103EF60F9655A7A4251BEC5CC6"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-high-speed-growth-yield.mjs",
+          "sha256": "8FCB04B7AADB6833FCBDBA64D36433039CD6955A8863E4D192EAE160E4E96E3F"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-observer-goals-match.mjs",
+          "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-observer-tail-projection.mjs",
+          "sha256": "1C45484B6A0510BCB762ABCB8E774FAA1F759EB6EBF197FF9952CDA760A827CC"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-observer-wait-measurement.mjs",
+          "sha256": "7B270F1FA361850EAB2E1A08CAE6337874B3E689EAD772AA76FE2B5F546469E2"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\run-eternal-hunger-verification.mjs",
+          "sha256": "CD956B633F988BCEC0A76C4EB9A3DF6A0703BD371F4102480648F38B769E5B9D"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\verify-character-auto-setup-live.mjs",
+          "sha256": "F789C2826972C2B4DE3716BBE580AF8533FA2D4ED9524AE4CD3BAC4F26FB9967"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_generated\\simulationEngineVersion.js",
+          "sha256": "9868B91A36E1728092009A53ABF5F78E24E0B533FC54A26705385F3E815DAB85"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\growthActionSchedulingRuntime.js",
+          "sha256": "CFC2464D50374E3668514EA3163FC1A6BCD28C6FE2EA2A1E72A690CD78ECB07E"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\growthPlanRuntime.js",
+          "sha256": "41796FF861E8BDF0A2AD1DE61A6F0A50B0EFDD1A60638D58F9C961B7633755C4"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\observerPerformanceRuntime.js",
+          "sha256": "2E28D35D5441DD51C43E73AE1D2E26343ED6FA95B166AB87CC67FFA0846A6E07"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\observerWorkMeasurementRuntime.js",
+          "sha256": "23B391F184CF9F421AF70BEF1DE4331C78C979C2E858BB7A5A8CA956E592A66F"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\simulationPhaseCycleRuntime.js",
+          "sha256": "3A385552C9900DEC032F59BF060A38B2A1D1CD22826973387AE4CC2FD915919F"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\teamObserverRuntime.js",
+          "sha256": "5899622340B4AAD39C4CF1FF455A7C783E3853F2872B135169E12C087D7CF5F7"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\docs\\character-auto-setup-verification.md",
+          "sha256": "AA957C8251484B0EA16ED72C40F3AE1F2936ED192F0E9C21072B740E68EF9412"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\docs\\eternal-hunger-goal.md",
+          "sha256": "74FA0814944530637167753628A140F898F39AB7BC482DCB7FE5240AB7E935E7"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\docs\\eternal-hunger-remaining-work.md",
+          "sha256": "78679F7467590562E9370EE5CF69F11DBD2FDC0944ADBEB39F723CBCEE83D86A"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\docs\\observer-performance-verification.md",
+          "sha256": "F27892E86365549AC65F3D9268C5031532B1E9CAE7FAFD13D0652013F617192E"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\server\\.env.example",
+          "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\server\\index.js",
+          "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\server\\package-lock.json",
+          "sha256": "D025D387E53B65E33C87A00156F62141CCA2B96AFB38A6F7A7E5E307C4030820"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\server\\tests\\character-setup.test.js",
+          "sha256": "CE9EF4C0B92C018793D16B6CFFCE3B369C487DEAF80F5B59C7947128E9A2BDB8"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\server\\utils\\characterSetupService.js",
+          "sha256": "1C7BA4EF242F270E789024DCD1FDF367D2C8AD08B9A29D7535D30402CD9E40A2"
+        }
+      ],
+      "protectedMatches": 46,
+      "ownedEmptyDirectoryRemoved": true,
+      "physicalFreeSpaceIncreaseMeasured": false,
+      "note": "Generated sampling trace removed only after compact summary captured; exact timestamps/sample trace cannot be recovered from the summary. Receipt intentionally updated after the preservation comparison."
+    }
+  },
+  "authority": {
+    "paidAiRequests": 0,
+    "foregroundBrowserRuns": 0,
+    "accountWrites": 0,
+    "pushes": 0,
+    "deployments": 0,
+    "credentialOrProtectionChanges": 0
+  },
+  "goalStatus": "active"
+}
