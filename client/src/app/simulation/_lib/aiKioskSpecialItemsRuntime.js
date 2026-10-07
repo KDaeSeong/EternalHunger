@@ -39,7 +39,7 @@ export function resolveKioskSpecialItems(publicItems = [], missing = []) {
 
 // Exchange inputs come from the actor's inventory and the allowed catalogue.
 // Keep the old preferred ID first, then try other owned IDs of the same kind.
-export function resolveKioskForceCoreInputs(publicItems = [], inventory = [], specialItems = {}) {
+export function resolveKioskExchangeInputs(publicItems = [], inventory = [], specialItems = {}) {
   const items = Array.isArray(publicItems) ? publicItems : [];
   const inv = Array.isArray(inventory) ? inventory : [];
   const owned = (preferred, tag, keywords) => {
@@ -56,8 +56,11 @@ export function resolveKioskForceCoreInputs(publicItems = [], inventory = [], sp
   return {
     meteor: owned(specialItems.meteorItem, 'meteor', ['운석', 'meteor']),
     life_tree: owned(specialItems.lifeTreeItem, 'life_tree', ['생명의 나무', 'tree of life', 'life tree']),
+    force_core: owned(specialItems.forceCoreItem, 'force_core', ['포스 코어', 'force core']),
   };
 }
+
+export const resolveKioskForceCoreInputs = resolveKioskExchangeInputs;
 
 export function itemCreditPrice(item, fallback) {
   const value = Number(item?.baseCreditValue ?? item?.value ?? item?.price ?? fallback);

@@ -5,7 +5,7 @@ import { isDefaultKioskItem } from '../../../utils/marketItemPolicy.js';
 import { isAtOrAfterWorldTime } from './worldTime.js';
 import { canUseKioskAtWorldTime, kioskLegendaryPrice } from './marketRuntime.js';
 import { applyPerkDiscount, getActorPerkEffects } from './perkRuntime.js';
-import { resolveKioskSpecialItems, resolveKioskForceCoreInputs } from './aiKioskSpecialItemsRuntime.js';
+import { resolveKioskSpecialItems, resolveKioskExchangeInputs } from './aiKioskSpecialItemsRuntime.js';
 import { pickKioskPrioritySpecialAction } from './aiKioskPriorityRuntime.js';
 import { pickKioskSurplusBuyAction } from './aiKioskSurplusRuntime.js';
 
@@ -56,11 +56,11 @@ export function quoteDefaultKioskGoalAction({ actor, craftGoal, publicItems = []
     .map(row => String(row.special || classifySpecialByName(row.name) || '')).filter(Boolean));
   const availableItems = getAvailableDefaultKioskItems(publicItems, marketRules, day, phase);
   const specialItems = resolveKioskSpecialItems(availableItems, craftGoal?.missing);
-  const forceCoreInputs = missingSpecialKeys.has('force_core')
-    ? resolveKioskForceCoreInputs(availableItems, actor?.inventory, specialItems) : null;
+  const exchangeInputs = missingSpecialKeys.size
+    ? resolveKioskExchangeInputs(availableItems, actor?.inventory, specialItems) : null;
   const isOfferUsable = createKioskRecipeOfferValidator({ actor, targetId: String(craftGoal?.target?._id || ''),
     publicItems, ruleset, day });
-  const priority = pickKioskPrioritySpecialAction({ missingSpecialKeys, specialItems, forceCoreInputs,
+  const priority = pickKioskPrioritySpecialAction({ missingSpecialKeys, specialItems, exchangeInputs,
     inv: actor?.inventory, simCredits: Number(actor?.simCredits || 0), up: upgradeNeed,
     curDay: day, curPhase: phase, allowVf: mr.categories?.vf !== false,
     allowLegendary: mr.categories?.legendary !== false,
