@@ -10,6 +10,7 @@ function hasMissingSpecial(missingSpecialKeys, key) {
 export function pickKioskPrioritySpecialAction({
   missingSpecialKeys = new Set(),
   specialItems = {},
+  forceCoreInputs = null,
   inv = [],
   simCredits = 0,
   up = null,
@@ -67,31 +68,36 @@ export function pickKioskPrioritySpecialAction({
     && allowLegendary
     && isAtOrAfterWorldTime(curDay, curPhase, 2, 'day')
   ) {
-    if (has(meteorItem, 1) && has(lifeTreeItem, 1)) {
-      const offer = {
-        kind: 'exchange',
-        item: forceCoreItem,
-        itemId: String(forceCoreItem._id),
-        qty: 1,
-        consume: [
-          { itemId: String(meteorItem._id), qty: 1 },
-          { itemId: String(lifeTreeItem._id), qty: 1 },
-        ],
-        label: '운석+생나→포스 코어 조합',
-      };
-      if (isOfferUsable(offer)) return offer;
+    const heldMeteors = (forceCoreInputs?.meteor ?? [meteorItem]).filter(item => has(item, 1));
+    const heldTrees = (forceCoreInputs?.life_tree ?? [lifeTreeItem]).filter(item => has(item, 1));
+    const exchange = (meteor, lifeTree) => ({
+      kind: 'exchange',
+      item: forceCoreItem,
+      itemId: String(forceCoreItem._id),
+      qty: 1,
+      consume: [
+        { itemId: String(meteor._id), qty: 1 },
+        { itemId: String(lifeTree._id), qty: 1 },
+      ],
+      label: '운석+생나→포스 코어 조합',
+    });
+    for (const meteor of heldMeteors) {
+      for (const lifeTree of heldTrees) {
+        const offer = exchange(meteor, lifeTree);
+        if (isOfferUsable(offer)) return offer;
+      }
     }
 
     const forceBuy = makeSpecialBuy('force_core', '포스 코어(목표)');
     if (forceBuy) return forceBuy;
 
-    if (has(meteorItem, 1) && !has(lifeTreeItem, 1)) {
+    if (heldMeteors.length && !heldTrees.length) {
       const lifeBuy = makeSpecialBuy('life_tree', '포스 코어 재료(생나)');
-      if (lifeBuy) return lifeBuy;
+      if (lifeBuy && heldMeteors.some(meteor => isOfferUsable(lifeBuy, exchange(meteor, lifeBuy.item)))) return lifeBuy;
     }
-    if (has(lifeTreeItem, 1) && !has(meteorItem, 1)) {
+    if (heldTrees.length && !heldMeteors.length) {
       const meteorBuy = makeSpecialBuy('meteor', '포스 코어 재료(운석)');
-      if (meteorBuy) return meteorBuy;
+      if (meteorBuy && heldTrees.some(lifeTree => isOfferUsable(meteorBuy, exchange(meteorBuy.item, lifeTree)))) return meteorBuy;
     }
 
     return null;
