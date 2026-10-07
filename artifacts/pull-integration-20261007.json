@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-07 12:57:37 UTC",
+  "scope": "origin/main integration and standard procurement regression wiring; focused checks only",
+  "integration": {
+    "previousLocalRevision": "88c60202813bb07dfa7e80cbc9f7ac14d5a261f4",
+    "upstreamMainRevision": "3f34c66e95089d06998fd45b59a7277b8409aba5",
+    "mergeRevision": "ee3f3205cd31087c2e8700730cbafc677742971f",
+    "bothDocumentationHistoriesPreserved": true,
+    "dependencyLockChanged": false,
+    "npmInstallPerformed": false,
+    "unmergedBranch": "origin/fix/kiosk-goal-exchanges-20261007",
+    "unmergedCommits": [
+      "5dd074c4",
+      "091a64be",
+      "050000ea"
+    ],
+    "unmergedBranchIntegrated": false
+  },
+  "engineVersion": "c2f7441fd5b9336b0b4801e553a2abd56f614bd53fbbd301b681b002f8aefdf5",
+  "followUpChange": {
+    "path": "client/package.json",
+    "description": "Make default-kiosk, exact-material-ID, and owned exchange-input regressions mandatory through check:team-purchase-goals.",
+    "runtimeBehaviorChangedByFollowUp": false,
+    "unconditionalFullCommandGraphReachability": true,
+    "reachableAliases": 93,
+    "requiredAliases": [
+      "check:default-kiosk-goals",
+      "check:kiosk-material-identity",
+      "check:kiosk-exchange-inputs"
+    ]
+  },
+  "checks": {
+    "focusedUniqueChecksPassed": 225,
+    "purchaseSubchain": {
+      "checks": {
+        "teamPurchaseGoals": 43,
+        "defaultKioskGoals": 12,
+        "kioskMaterialIdentity": 7,
+        "kioskExchangeInputs": 9
+      },
+      "allSubcommandsPassed": true,
+      "containingAttempt": {
+        "sessionId": 59102,
+        "exitCode": 1,
+        "failedAfterSuccessfulPurchaseSubchain": true,
+        "cause": "Invocation typo: check:procurement-transactions is not an npm script; corrected remainder executed separately.",
+        "failedAttemptPreservedAsFailure": true
+      }
+    },
+    "correctedRemainder": {
+      "sessionId": 18446,
+      "command": "npm run check:procurement && npm run check:growth-plan && npm run check:character-auto-setup && npm run check:display-pacing && npm run check:runtime:sweep",
+      "exitCode": 0,
+      "checks": {
+        "procurementTransactions": 29,
+        "kioskCatalog": 8,
+        "marketItemPolicy": 9,
+        "growthCapacity": 15,
+        "growthPlan": 33,
+        "lateGrowth": 29,
+        "automaticSetup": 11,
+        "actualModalSsr": 5,
+        "displayPacing": 15
+      },
+      "runtimeSimulationAndUtilsLintPassed": true,
+      "growthFixtureScope": "Source-generated safe-training input; 24/24 actors complete within 250 seconds. Not competitive first-night proof.",
+      "uiScope": "Modal SSR and clock scheduling contracts; not foreground interactivity, model-generated draft quality, or x32 throughput."
+    },
+    "currentMergedSingleFullChainExecuted": false,
+    "previousFullChainEvidence": "artifacts/full-verification-20261006T134800.json",
+    "previousFullChainEngineDifferent": true,
+    "previousFullChainNotClaimedAsCurrentProof": true
+  },
+  "build": {
+    "sessionId": 16193,
+    "command": "npm run build",
+    "executionBoundary": "approved escalated execution",
+    "exitCode": 0,
+    "generatedStaticPages": 62,
+    "buildId": "C1boxhzMsTN6lejpsikpO",
+    "compiledEngineMatches": true,
+    "compiledEngineWitnesses": [
+      "client/.next/server/chunks/4164.js",
+      "client/.next/static/chunks/8212-40162619fe8c9122.js"
+    ],
+    "contractGenerationChecksPassed": true
+  },
+  "cleanupAtDeletion": {
+    "status": "completed",
+    "priorAbortedAttempt": {
+      "exitCode": 1,
+      "filesDeleted": 0,
+      "cause": "PowerShell parsed ISO timestamps as DateTime; string comparison rejected unchanged files before deletion.",
+      "unchangedTimestampsConfirmed": true,
+      "retryUsedExactUtcTicks": true
+    },
+    "target": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+    "policy": "Only the six freshly generated webpack pack files listed below. No source, completed build, prior records, or unrelated files.",
+    "fileCount": 6,
+    "logicalBytes": 591282576,
+    "logicalMiB": 563.891,
+    "files": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 254635747,
+        "modifiedUtc": "2026-10-07T12:54:49.0957496Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12794268,
+        "modifiedUtc": "2026-10-07T12:54:48.9114770Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "modifiedUtc": "2026-10-07T12:54:26.7518175Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "modifiedUtc": "2026-10-07T12:54:26.7523163Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 305821776,
+        "modifiedUtc": "2026-10-07T12:54:25.2028599Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18028045,
+        "modifiedUtc": "2026-10-07T12:54:24.9574563Z"
+      }
+    ],
+    "protectedFiles": [
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9"
+      },
+      {
+        "path": "server/index.js",
+        "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493"
+      },
+      {
+        "path": "server/.env.example",
+        "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3"
+      },
+      {
+        "path": "client/package.json",
+        "sha256": "9813490a91f0989f7516792bf3ce3a05a4a9593e796cba5f96a4fdfd8fb7719a"
+      },
+      {
+        "path": "client/package-lock.json",
+        "sha256": "9024006a5ac9b451394e347c0a24a144ee5c32562912e6876c5f83250b89fb57"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "sha256": "8d8de28ff06be8a385e1afca5a4b35d5e189716599d8f4ce80c0701adfd3e4f9"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/aiKioskPriorityRuntime.js",
+        "sha256": "df4b8bd60e51393fbf5fa1778fa6f457f2f59a4e42d4093f60004ef8a918ca8a"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/aiKioskSpecialItemsRuntime.js",
+        "sha256": "3092c5a34929f7a5d8c8056c66475cf09df6a605cbdddcefdaca985534a22888"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/kioskGoalQuoteRuntime.js",
+        "sha256": "226fc2d16fb374b0f43c4966174b47e6ee5c827134f70a8d154e6b856e86f0fb"
+      },
+      {
+        "path": "client/scripts/check-kiosk-exchange-inputs.mjs",
+        "sha256": "a272631a1d6e70208d90e154fe0b7cd11d34f4b85a09eb745486a9d7f55e2e4f"
+      },
+      {
+        "path": "client/scripts/check-default-kiosk-goals.mjs",
+        "sha256": "989a5f430c9250980c4fbfcb93a1243045e7fa4aaf719b303a2221a55b1ef860"
+      },
+      {
+        "path": "client/scripts/check-kiosk-material-identity.mjs",
+        "sha256": "7136b8278d462ed615510b731c2e70819da608c4e3da58571fee6b614d91b1ea"
+      },
+      {
+        "path": "client/scripts/check-team-purchase-goals.mjs",
+        "sha256": "b783cbd9d95b0ae2a5efa3cffb7701fc40d3e6ad2b1aea098a2757b6ebf5b36f"
+      },
+      {
+        "path": "client/.next/BUILD_ID",
+        "sha256": "efaf75b854f7c47b6d241d6d53c27153e54fc0bd994f1758bb3b3c54a09a5c3b"
+      },
+      {
+        "path": "client/.next/prerender-manifest.json",
+        "sha256": "71c8aea2a182ac0947b2116fb7655c89750a9b035ebee83002acbccf8efd4c13"
+      },
+      {
+        "path": "client/.next/routes-manifest.json",
+        "sha256": "64fd3f555fb99e9ce1965d8ec8567b6ccebcdeb5a5f62e7e3c1b4b882896fb58"
+      },
+      {
+        "path": "client/.next/build-manifest.json",
+        "sha256": "2ca83bd3fd1d16b258feb240d030d102ab39e6533343535de3197627cdd66a3b"
+      },
+      {
+        "path": "client/.next/server/app/eternalhunger/evaluate/page.js",
+        "sha256": "f916470bd1556887a8c883d65487e6eefe9c1b6b7c5d06839bd5c4f1732581a3"
+      },
+      {
+        "path": "client/.next/server/app/simulation/page.js",
+        "sha256": "dde27fda61abac7f6f110fc16987a1f5aced93fbcf333b3ad5a86a6be32f4c31"
+      }
+    ],
+    "protectedCount": 19,
+    "protectedHashesMatchedBeforeAndAfter": true,
+    "remainingCacheFiles": 0,
+    "physicalFreeSpaceChangeMeasured": false,
+    "regeneratesWith": "npm run build"
+  },
+  "userOwnedChangesExcluded": [
+    {
+      "path": "client/scripts/check-observer-goals-match.mjs",
+      "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9"
+    },
+    {
+      "path": "server/index.js",
+      "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493"
+    },
+    {
+      "path": "server/.env.example",
+      "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3"
+    }
+  ],
+  "paidAiCalls": 0,
+  "operatingAccountWrites": 0,
+  "githubPushPerformed": false,
+  "publicDeploymentPerformed": false,
+  "remainingGates": [
+    "Current merged full-chain and wider natural inputs have not been revalidated by this focused run.",
+    "Actual foreground x32 and consecutive-run performance.",
+    "Actual ER/custom AI draft quality and separately authorized account save/reopen/battle.",
+    "Human observer follow-up assessment.",
+    "Public push/deployment of this local integration requires authorization."
+  ],
+  "overallGoalComplete": false
+}
