@@ -1,0 +1,424 @@
+{
+  "schema": "eh-pull-integration.v1",
+  "date": "2026-10-08",
+  "branch": "main",
+  "localParent": "fa451b15c570221d08dcf9f94de9b061d3a09eb3",
+  "remoteParent": "cbe27197878068bc8fa8791838099982bd89c3c0",
+  "divergenceBeforeMerge": { "local": 19, "remote": 9 },
+  "conflictFilesResolved": 8,
+  "engine": "dcb0e4228b7f086fd2ca56825d5884c88cd8433d2ff2468ef6ba9c72671617d8",
+  "integration": [
+    "Payable goal exchanges and existing exact-ID, stock, recipe-fee and capacity checks are retained.",
+    "Squad-by-squad coordination steps use the local boundary-owned move-power snapshot.",
+    "The v3 task, visibility, context and clock boundaries retain bounded separate wait metrics.",
+    "Fixed evaluation retains the opt-in probe and receives current match and replay context.",
+    "Standard scripts retain both sides' checks; no dependencies changed and no install was needed."
+  ],
+  "focusedVerification": {
+    "command": "npm run check:team-purchase-goals && npm run check:team-tactics && npm run check:phase-runtime-performance && npm run check:observer-performance-probe && npm run check:live-frames && npm run check:observer-layout && npm run check:runtime:sweep",
+    "initialSession": 64994,
+    "initialExitCode": 1,
+    "initialFailure": "The source guard required an empty probe JSX element. New context props invalidated that spelling, not the opt-in access contract.",
+    "correction": "The guard verifies the mounted probe, all nine current context bindings, explicit query opt-in and absence of the evaluation-mode exclusion.",
+    "finalSession": 9201,
+    "finalExitCode": 0,
+    "scope": "Named local tests and lint only; not full regression, live browser timing or human acceptance."
+  },
+  "build": {
+    "runId": "2026-10-08T12-07-26.534Z-94bde0dd-cc21-4194-8f0d-8c920078f029",
+    "command": "npm run build",
+    "exitCode": 0,
+    "sameEngine": true,
+    "pages": 62,
+    "buildId": "xgYGlXvO-QPx9g5KJgMlS",
+    "resultPath": "client/.verification-runs/2026-10-08T12-07-26.534Z-94bde0dd-cc21-4194-8f0d-8c920078f029/result.json"
+  },
+  "previousFullRun": {
+    "runId": "2026-10-07T21-44-31.681Z-77e7ff26-0018-4e8b-9e35-3a99d124a2bd",
+    "status": "interrupted_without_final_exit_evidence",
+    "engine": "11c3a4b08353258acd4717bf79d0278bd647dbc34a969181b08e34ad7d3f329a",
+    "observation": "Terminal handle 37353 was missing and the specified runner/match process inventory returned zero on 2026-10-08T11:56:50.7977695Z. The old running result file is not live-process or completion evidence.",
+    "completedSuccessfully": false
+  },
+  "preservedUserFiles": {
+    "client/scripts/check-observer-goals-match.mjs": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9",
+    "server/index.js": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+    "server/.env.example": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+  },
+  "cleanup": {
+    "status": "removed",
+    "removedFiles": 6,
+    "logicalBytes": 592041660,
+    "logicalMiB": 564.6149253845215,
+    "remainingCacheFiles": 0,
+    "protectedMatches": 76,
+    "observedAtUtc": "2026-10-08T12:15:52.8468958Z",
+    "cacheFiles": [
+      {
+        "path": "client/.next/cache/webpack/client-production/0.pack",
+        "bytes": 255021971,
+        "sha256": "7AAF053A3BCE4035D2DB2934589F430F64E255D4EF476EE58FEB376CCD8C08A1"
+      },
+      {
+        "path": "client/.next/cache/webpack/client-production/index.pack",
+        "bytes": 12799480,
+        "sha256": "37159DCE7E2A9339A26B290607CC6A418F8FB9304B6979FBA1CB71E28BF13074"
+      },
+      {
+        "path": "client/.next/cache/webpack/edge-server-production/0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC"
+      },
+      {
+        "path": "client/.next/cache/webpack/edge-server-production/index.pack",
+        "bytes": 2464,
+        "sha256": "53A2B00E532DAD4110E8A2A33BDFE2836C1F5421C572803621E5C94E37F79EB0"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/0.pack",
+        "bytes": 306177105,
+        "sha256": "0DBAEF38B71617243E3403EB604F86BB518ED5375211DBB023007D29F1E48CDA"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/index.pack",
+        "bytes": 18040364,
+        "sha256": "059A9E698A42BE03AAE41F478CC3AC4880BEE18CA1FCB0333CB206C890AAEB85"
+      }
+    ],
+    "protected": [
+      {
+        "path": "artifacts/current-engine-cpu-audit-20261008.json",
+        "sha256": "C9F6FE0FF610D8B5C7E7F2512647F902323025AAE65F67C29E499057E1935AC2"
+      },
+      {
+        "path": "artifacts/pull-integration-20261008.json",
+        "sha256": "DF98AEB1E4F758BA95095639302B0C183FECDD12F8FD5AD690018402DD99BBEC"
+      },
+      {
+        "path": "client/.next/BUILD_ID",
+        "sha256": "43FA51E649EE74C65DC5434D49818770C07529BB71681CC6BAF146A0357668EF"
+      },
+      {
+        "path": "client/.next/build-manifest.json",
+        "sha256": "701DB90A59C81417C10DA5431D08409340CE485E4E0AC2C4499889AE2DFE3B68"
+      },
+      {
+        "path": "client/.next/prerender-manifest.json",
+        "sha256": "71C8AEA2A182AC0947B2116FB7655C89750A9B035EBEE83002ACBCCF8EFD4C13"
+      },
+      {
+        "path": "client/.next/routes-manifest.json",
+        "sha256": "64FD3F555FB99E9CE1965D8EC8567B6CCEBCDEB5A5F62E7E3C1B4B882896FB58"
+      },
+      {
+        "path": "client/.next/server/app/eternalhunger/evaluate/page_client-reference-manifest.js",
+        "sha256": "F2CA525C1F0A251F8553E10B00E2E00EB0748839A988B01320A6F998979E3A9D"
+      },
+      {
+        "path": "client/.next/server/app/eternalhunger/evaluate/page.js",
+        "sha256": "F916470BD1556887A8C883D65487E6EEFE9C1B6B7C5D06839BD5C4F1732581A3"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T12-07-26.534Z-94bde0dd-cc21-4194-8f0d-8c920078f029/output.log",
+        "sha256": "3AA997FAC7BC7B7A8BA90274AF922F47EDADF40A384AB0633098EB2961940BA9"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T12-07-26.534Z-94bde0dd-cc21-4194-8f0d-8c920078f029/result.json",
+        "sha256": "8983F929DBE3DCB458B1ECF879706D504A331EC18FC946E5801792691B7B1216"
+      },
+      {
+        "path": "client/package-lock.json",
+        "sha256": "9024006A5AC9B451394E347C0A24A144EE5C32562912E6876C5F83250B89FB57"
+      },
+      {
+        "path": "client/package.json",
+        "sha256": "CE79F268F6B4CC21696B49578D6697B58A276FA091850218B82373399B1489D2"
+      },
+      {
+        "path": "client/scripts/analyze-map-reference.mjs",
+        "sha256": "D3FDBAB86ECCF9E5D77A28EA82EC38FB866A63072338648BE160E94A82D70A8C"
+      },
+      {
+        "path": "client/scripts/analyze-observer-performance.mjs",
+        "sha256": "6C5B1E12899ED231B71EBE932BF9550487F45A4616A681780D25D6C8E09ADF8C"
+      },
+      {
+        "path": "client/scripts/analyze-strategy-comparison.mjs",
+        "sha256": "A6E19B412263BF29B66DE72A7F777C92082A329E3C61B023DFED6744DD6A11E8"
+      },
+      {
+        "path": "client/scripts/check-growth-scheduling-match.mjs",
+        "sha256": "D3F26BAB9FCC126421EAF723ED06E935D02D5A709D03F4E81D1E7A82C6DF28D9"
+      },
+      {
+        "path": "client/scripts/check-high-speed-growth-yield.mjs",
+        "sha256": "8FCB04B7AADB6833FCBDBA64D36433039CD6955A8863E4D192EAE160E4E96E3F"
+      },
+      {
+        "path": "client/scripts/check-kiosk-goal-exchanges.mjs",
+        "sha256": "BF3E45873BBC6C2194C4579FEFF8B9B5DD3FCA43B2A60AB114CEFA982891C5D6"
+      },
+      {
+        "path": "client/scripts/check-natural-procurement-matrix.mjs",
+        "sha256": "3370F7E1184DEFC7E76748CAE712BA8250BB4F71A1753427187DF2A46186978B"
+      },
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+      },
+      {
+        "path": "client/scripts/check-observer-performance-probe.mjs",
+        "sha256": "656E190622CF23095FCAAB934F4882933E49AFCA413A20208473ABF3F0AF0BC9"
+      },
+      {
+        "path": "client/scripts/check-observer-performance-report.mjs",
+        "sha256": "CFAA81DDF1C297F3EBC1BDE2EE03CB2095C69B3E01CDECE82D6185F5227855E0"
+      },
+      {
+        "path": "client/scripts/check-observer-wait-measurement.mjs",
+        "sha256": "7B270F1FA361850EAB2E1A08CAE6337874B3E689EAD772AA76FE2B5F546469E2"
+      },
+      {
+        "path": "client/scripts/check-team-coordination-scheduling.mjs",
+        "sha256": "1A227C675FC04D563BC01EBB8CA9728D36B985ECDDAF3119DD662BE83C8B7B59"
+      },
+      {
+        "path": "client/scripts/diagnose-natural-team-purchases.mjs",
+        "sha256": "530C1809B0135CAA4599445A6D225F7F7B19F773182BCF282AB8533D6E1F65BF"
+      },
+      {
+        "path": "client/scripts/lib/observer-performance-report.mjs",
+        "sha256": "AF48B70AB37779443D1B21F32FC99320290D0AC95C0E2CA376C76E710A701A9A"
+      },
+      {
+        "path": "client/src/app/simulation/_components/SimulationObserverPerformancePanel.js",
+        "sha256": "09E41A9A6A145666B58E1C25017B92410C9EF15F40666BE2133CEABC3154D9D3"
+      },
+      {
+        "path": "client/src/app/simulation/_components/SimulationPageView.js",
+        "sha256": "A223A662B30A9AF4BE5264959955EB54190F214D5AC891BB5C5B027C75742BDC"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "sha256": "0A6ACD2C90A8349FAA6783E20FCD99D64C394DDA4FE57519E1D2566FDBCA8840"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/aiKioskInteractionRuntime.js",
+        "sha256": "3E6262DFCC30C6111BA06AFB3459B7C341270BDA0FADA7860C08B73EA937CA36"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/aiKioskPriorityRuntime.js",
+        "sha256": "79D21A27EBE68B41416235670ADFB6789064285AF86C2870B54FA143AAFB352A"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/aiKioskSpecialItemsRuntime.js",
+        "sha256": "A7DF0FEBF13F4586052AF036F013EC731307247D6F5FEE4FB37F08B3D10468A6"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/growthActionSchedulingRuntime.js",
+        "sha256": "CFC2464D50374E3668514EA3163FC1A6BCD28C6FE2EA2A1E72A690CD78ECB07E"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/kioskGoalQuoteRuntime.js",
+        "sha256": "77889295FC84D7CBC54741A39AC56D8D2185E813FAD786E8CEAE56785EF8BC50"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/observerPerformanceRuntime.js",
+        "sha256": "769A87E6FC7809675F66870A4543CAC69C401720CB09969F74512D6C6BE72D33"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/observerWorkMeasurementRuntime.js",
+        "sha256": "23B391F184CF9F421AF70BEF1DE4331C78C979C2E858BB7A5A8CA956E592A66F"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/phaseActorActionPipelineRuntime.js",
+        "sha256": "CA6A878AA100DFBA6ECB888A787D88A1C797D520AA4277C271E5DA4A784367F9"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/teamTacticsRuntime.js",
+        "sha256": "07F5FB6FEE9681D8EFDAC0D67C36EC05AB3F1B6BEEB9ECEC233114A09039DDD3"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/useSimulationPageController.js",
+        "sha256": "C0BC396BC4C1160D7E32C93A0208F8FFFA1AAE4B2297A09E8AAF7520C79CD8E3"
+      },
+      {
+        "path": "docs/artifacts/observer-scheduling-20261008/before-diagnostics-match-1101.json",
+        "sha256": "E7935B84B41281BCD601FF10A43A3C8F9A20FE0D4AFB77D12EC5A4AE88E75200"
+      },
+      {
+        "path": "docs/artifacts/observer-scheduling-20261008/browser-matrix.json",
+        "sha256": "9ED7ADF8634D62CAA6EFA555DE30FAC1777D902BED2206C0472F70E8319B7791"
+      },
+      {
+        "path": "docs/artifacts/observer-scheduling-20261008/determinism-summary.json",
+        "sha256": "E5079A9B701F7B4C1D3F3F8FA0B3E47D7AB64FDFB1865CA8202BE131FF3FD1C7"
+      },
+      {
+        "path": "docs/artifacts/observer-scheduling-20261008/diagnostics-match-1101.ndjson",
+        "sha256": "106ADB11B65EAFA35372E09A910CB81DD6E85EA4747D36FE15F390A95E6A0CA5"
+      },
+      {
+        "path": "docs/artifacts/observer-scheduling-20261008/environment-check.json",
+        "sha256": "2C6BED3C032E87124033F5E8781E17982BB199154BBCD6C8EE95B1F06ADD87C6"
+      },
+      {
+        "path": "docs/artifacts/observer-scheduling-20261008/focused-checks.json",
+        "sha256": "E9E4EC7AE5791D2EB9831939BF63DFB2C386EB7A73F4BD37F06D20C7D554ADC5"
+      },
+      {
+        "path": "docs/artifacts/observer-scheduling-20261008/probe-checks.txt",
+        "sha256": "8A7BA3B777E2D351721CF68850985C90A905750134914337A4B5BCD2208A9B11"
+      },
+      {
+        "path": "docs/artifacts/observer-scheduling-20261008/production-build.txt",
+        "sha256": "0B348E577DF5749222ED40D53AF469C1F89040B7639D27B3B5D48728ACA8612B"
+      },
+      {
+        "path": "docs/artifacts/observer-scheduling-20261008/report-checks.txt",
+        "sha256": "427302FB4BFF0E85429815902D26BBD991A24B6B217E3AC2EC3969FA09D16A29"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/equipment-gap-2202.json",
+        "sha256": "982BBF542CBC9BF387CE034B144F75D1F6A7E5E49AC3FADE10A029280DFB0895"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/evidence-index.json",
+        "sha256": "D82FF20BD80DC0EC2A6773E89F6888492E16B28E03F5E1FC537E5427437504D8"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/final-full-match.log",
+        "sha256": "CDC54B7F471CBFAEE160A8368234DEB76E5CDEDB4A461AF6B784B67A96ECD459"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/focused-checks.json",
+        "sha256": "DB7710A26DE54EE2047E048730963B018471B7298E389A3FFF03C429BC22FD1A"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/guest-final-equipment.json",
+        "sha256": "C402A6CA763C1C5DDC90B3AE2F56D5E63354C1701F7F5E9368F42C135B2C3364"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/guest-item-restored.jpg",
+        "sha256": "5DB82C27AD46AF0F7E6D47C0C0CBC70F0843791F399E22E69DF57A5C73C650AB"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/identical-replay-finished.jpg",
+        "sha256": "75014C1F1F10A7AECCA95AB315E2803A78547D4D6BFC272B20228F9C4635B4E6"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/map-reference.json",
+        "sha256": "5ED5797E0495F996A502B0A8A4F4521204B69B92EAE16487DF1679E91A7B76CF"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/memory-after-first-match.json",
+        "sha256": "DD48721695C5A4A755253C9BBAD7117C01AB645BD7AB2EA9F5EC9B181FE3E3A4"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/memory-after-replay.json",
+        "sha256": "E1D8895CCD1CCAC44E4345C767C87C2CD2EB86BE1725758BD50BE4A29C82197B"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/natural-baseline.json",
+        "sha256": "18084413F9B7D30830A10971FBFE07A9A4A1222713CED9F20123DB78B98A93E3"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/natural-exchanges.json",
+        "sha256": "E4F89A4AB120763DA51A9F468D454B803F4902C37DB96D6C42C31EB282079892"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/natural-expanded.json",
+        "sha256": "7F5904F02A122C9783B80A03C13421D73EF607E1E4D69936EF3C9FA060B73C29"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/natural-purchase-readiness.json",
+        "sha256": "3394370B50DA4EA5804F90961FED4FBF81D507DDA7D1636389CE9E519D89DD73"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/strategy-comparison.json",
+        "sha256": "CB2865A1EB8B39B492E07E6571A0D610D1B3F1178374BE44A56D1D4BFF111088"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/visible-replay-x32-full.json",
+        "sha256": "A005E00A345FE6367E986A291E99C05AE31DC53698938D2BE35C2EED7E4D245E"
+      },
+      {
+        "path": "docs/artifacts/sequential-20261007/visible-x32-midrun.json",
+        "sha256": "A622511E17408EB1151D29069CF93A463213280A5045ABEFBDC3740D26AE3A81"
+      },
+      {
+        "path": "docs/eternal-hunger-goal.md",
+        "sha256": "F15E31A5E51135FF2527CE9D95BFBE9ACB9BBD0F60F878C4EA0AF526B9283F54"
+      },
+      {
+        "path": "docs/eternal-hunger-remaining-work.md",
+        "sha256": "1E53543AA52D0901A7467EB665DA2394E820F7999F790D94D27B57F11A8846A4"
+      },
+      {
+        "path": "docs/map-reference-comparison-2026-10-07.md",
+        "sha256": "BBE30CF2C9406843E4901237A7B94847A83B49D100FEEC450A05D60F24D0126B"
+      },
+      {
+        "path": "docs/observer-followup-2026-10-07.md",
+        "sha256": "BEE8D14CF442422199EDD6302EF337A7B87270F51330635FBEFD80A849E574F6"
+      },
+      {
+        "path": "docs/observer-performance-diagnostic-contracts.md",
+        "sha256": "ADA0BE99E028B2F3AB3064848A5746CB442885513AEF20E663CA5B8780519C46"
+      },
+      {
+        "path": "docs/observer-performance-verification.md",
+        "sha256": "4F50C685DD6808137F2A6C6A512D5E6E421984E1CFC8CF2E1E9672C4EEAE807B"
+      },
+      {
+        "path": "docs/observer-scheduling-audit-2026-10-08.md",
+        "sha256": "481C031B24352E84B3CF88791F919A9D0C81F50F8769DCA97C7C8AE891345D27"
+      },
+      {
+        "path": "docs/remaining-work-2026-10-07.md",
+        "sha256": "B37AE9A9635B222FF42623344E2A4CB1F967485B319F8D797F46B9FFCD5466EB"
+      },
+      {
+        "path": "docs/sequential-work-verification-2026-10-07.md",
+        "sha256": "77A66589302E37524DC3AA74514C561680FDD5FF91A45DE1957EDA54C9962C35"
+      },
+      {
+        "path": "server/.env.example",
+        "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+      },
+      {
+        "path": "server/index.js",
+        "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+      }
+    ],
+    "receiptIntentionallyUpdatedAfterPreservationCheck": true,
+    "regeneration": "npm run build recreates disposable cache; completed build, sources and evidence remain.",
+    "physicalFreeSpaceIncreaseMeasured": false
+  },
+  "stagedWhitespaceAudit": {
+    "wholeStagedDiffCheckExitCode": 1,
+    "scopedDiffCheckExitCode": 0,
+    "disposition": "Only whitespace in two untouched upstream evidence/doc files is exempted. Their staged blobs are exactly the fetched origin blobs; no captured evidence was rewritten.",
+    "untouchedUpstream": [
+      {
+        "path": "docs/artifacts/observer-scheduling-20261008/production-build.txt",
+        "originBlob": "8ea101a64997ab90e221bec9acaadc10fe271f59",
+        "stagedBlob": "8ea101a64997ab90e221bec9acaadc10fe271f59"
+      },
+      {
+        "path": "docs/remaining-work-2026-10-07.md",
+        "originBlob": "99f3ed732959135c4e241257d3ba011ec238f5c9",
+        "stagedBlob": "99f3ed732959135c4e241257d3ba011ec238f5c9"
+      }
+    ]
+  },
+  "authority": {
+    "paidAiRequests": 0,
+    "foregroundBrowserRuns": 0,
+    "accountWrites": 0,
+    "pushes": 0,
+    "deployments": 0
+  },
+  "remaining": "The merged engine has no new full-chain, whole-match mode comparison or actual x32 measurement yet. AI generation success, authorized save/use, continuous memory recovery, human feedback and public release remain separate gates.",
+  "goalStatus": "active"
+}

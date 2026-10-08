@@ -1,0 +1,26 @@
+{
+  "scope": "synthetic/headless contracts, not browser performance",
+  "checks": {
+    "observerProbe": 33,
+    "observerReport": 13,
+    "teamCoordination": 6,
+    "growthScheduling": 18,
+    "cooperativeYield": 10,
+    "replayHistoryLifetime": 27,
+    "observerGuards": 8
+  },
+  "total": 115,
+  "pass": true,
+  "lint": {
+    "changedSourceFiles": 10,
+    "exitCode": 0
+  },
+  "build": {
+    "staticPages": 62,
+    "exitCode": 0
+  },
+  "browserMeasurements": {
+    "completedRuns": 0,
+    "status": "unverified"
+  }
+}

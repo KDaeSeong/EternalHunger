@@ -1,0 +1,51 @@
+{
+  "schema": "eh-observer-browser-verification.v1",
+  "status": "unverified",
+  "scope": "observed_nine_run_gates_not_painted_FPS_INP_or_absence_of_leaks",
+  "policy": {
+    "expectedEngine": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+    "maxLongTaskMs": 200,
+    "maxRafP95Ms": null,
+    "maxRafGapMs": null,
+    "maxBaselineHeapGrowthBytes": null
+  },
+  "issues": [
+    "require exactly nine runs: three consecutive replays at each of x1, x8 and x32",
+    "x1: require three consecutive runs, without selecting the best samples",
+    "x8: require three consecutive runs, without selecting the best samples",
+    "x32: require three consecutive runs, without selecting the best samples"
+  ],
+  "runs": [],
+  "groups": [
+    {
+      "speed": 1,
+      "runIndices": [],
+      "baselineBytes": [],
+      "memory": {
+        "status": "unverified",
+        "reason": "three supported baseline samples or predeclared heap growth budget missing",
+        "value": null
+      }
+    },
+    {
+      "speed": 8,
+      "runIndices": [],
+      "baselineBytes": [],
+      "memory": {
+        "status": "unverified",
+        "reason": "three supported baseline samples or predeclared heap growth budget missing",
+        "value": null
+      }
+    },
+    {
+      "speed": 32,
+      "runIndices": [],
+      "baselineBytes": [],
+      "memory": {
+        "status": "unverified",
+        "reason": "three supported baseline samples or predeclared heap growth budget missing",
+        "value": null
+      }
+    }
+  ]
+}

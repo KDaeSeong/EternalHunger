@@ -11,6 +11,7 @@ export function pickKioskPrioritySpecialAction({
   missingSpecialKeys = new Set(),
   specialItems = {},
   forceCoreInputs = null,
+  exchangeInputs = forceCoreInputs,
   inv = [],
   simCredits = 0,
   up = null,
@@ -68,8 +69,8 @@ export function pickKioskPrioritySpecialAction({
     && allowLegendary
     && isAtOrAfterWorldTime(curDay, curPhase, 2, 'day')
   ) {
-    const heldMeteors = (forceCoreInputs?.meteor ?? [meteorItem]).filter(item => has(item, 1));
-    const heldTrees = (forceCoreInputs?.life_tree ?? [lifeTreeItem]).filter(item => has(item, 1));
+    const heldMeteors = (exchangeInputs?.meteor ?? [meteorItem]).filter(item => has(item, 1));
+    const heldTrees = (exchangeInputs?.life_tree ?? [lifeTreeItem]).filter(item => has(item, 1));
     const exchange = (meteor, lifeTree) => ({
       kind: 'exchange',
       item: forceCoreItem,
@@ -109,6 +110,21 @@ export function pickKioskPrioritySpecialAction({
 
   for (const key of ['meteor', 'life_tree', 'mithril']) {
     if (!hasMissingSpecial(missingSpecialKeys, key)) continue;
+    // A goal exchange must be considered before a rejected credit purchase
+    // ends goal selection. Validate actual held IDs and all remaining recipe
+    // fees/materials with the same atomic preview as payment and movement.
+    if (canBuySpecialKeyNow(key)) {
+      const output = specialItemByKey[key];
+      const sourceKey = { meteor: 'life_tree', life_tree: 'meteor', mithril: 'force_core' }[key];
+      const preferred = specialItemByKey[sourceKey];
+      const sources = (exchangeInputs?.[sourceKey] ?? [preferred]).filter(item => has(item, 1));
+      for (const source of sources) {
+        if (!output?._id) continue;
+        const offer = { kind: 'exchange', item: output, itemId: String(output._id), qty: 1,
+          consume: [{ itemId: String(source._id), qty: 1 }], label: `${source.name}→${output.name}` };
+        if (isOfferUsable(offer)) return offer;
+      }
+    }
     const buy = makeSpecialBuy(key, `전설 재료(${key})`);
     if (buy) return buy;
   }

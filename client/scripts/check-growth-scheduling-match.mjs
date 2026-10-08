@@ -18,6 +18,7 @@ if (worker) {
   const { getActiveSimulationRandom, withSimulationRandom } = await import('../src/utils/simulationRandom.js');
   const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
   const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
+  const { createObserverPerformanceProbe } = await import('../src/app/simulation/_lib/observerPerformanceRuntime.js');
   const input = await createRandomIsolationInput(seed);
   let yields = 0, frameYields = 0, syntheticTime = 0;
   const visible = worker === 'visible-cooperative', cooperative = worker === 'cooperative' || visible;
@@ -56,15 +57,27 @@ if (worker) {
       hostNoise();
     }) };
   }
-  let result;
+  // Exercise enabled diagnostic subscriptions as well as scheduler/UI noise.
+  // This independent fake clock proves non-interference, never browser timing.
+  let diagnosticTime = 0;
+  const probe = createObserverPerformanceProbe({
+    windowRef: { requestAnimationFrame: () => 1, cancelAnimationFrame: () => {} },
+    performanceRef: { now: () => diagnosticTime++ }, documentRef: {},
+  });
+  probe.start({ label: 'synthetic-node-determinism' });
+  let result, diagnostic;
   try { result = await runRandomIsolationMatch(input, { noisy: cooperative }); }
   finally {
+    diagnostic = probe.stop();
     globalThis.window = originalWindow; globalThis.scheduler = originalScheduler; globalThis.performance = originalPerformance;
   }
   if (cooperative) assert.ok(yields > 1000, 'Exercise repeated scheduling, not only the synchronous fallback.');
   if (visible) assert.ok(frameYields > 1000, 'Exercise repeated visible frame deadlines, not only task yields.');
   assert.equal(frames.size, 0); assert.equal(timers.size, 0); assert.equal(listeners.size, 0);
+  assert.ok(diagnostic.workBreakdown.stages.some(stage => stage.name === 'growth.teamCoordination' && stage.count > 0));
   console.log(JSON.stringify({ worker, engine: SIMULATION_ENGINE_VERSION, yields, frameYields,
+    diagnosticScope: 'enabled probe with independent fake clock; not browser performance',
+    diagnosticStages: diagnostic.workBreakdown.stages.map(stage => ({ name: stage.name, count: stage.count })),
     outcome: { inputDigest: digest(input), evidence: result.evidence, finalFrameDigest: digest(result.finalFrame), logDigest: digest(result.logs) },
   }));
 } else {

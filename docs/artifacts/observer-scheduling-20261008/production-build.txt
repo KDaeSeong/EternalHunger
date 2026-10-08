@@ -1,0 +1,112 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> client@0.1.0 prebuild
+> node ./scripts/fix-proxy-migration.cjs && node ./scripts/generate-consume-effect-contract.mjs --check && node ./scripts/generate-equipment-effect-contract.mjs --check && node ./scripts/generate-simulation-version.mjs
+
+[prebuild] proxyExists=true
+CONSUME_EFFECT_CONTRACT 0624cd315cb828ea22f49e08ada70e63bf59ee788b76b730956e15b9e01876a4 verified
+EQUIPMENT_EFFECT_CONTRACT 29b5a312239609e54329cb86685c66cf954a8203a16c6a72eddf402a720bc841 verified
+SIMULATION_ENGINE_VERSION 30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4
+
+> client@0.1.0 build
+> next build --webpack
+
+▲ Next.js 16.1.4 (webpack)
+- Experiments (use with caution):
+  · cpus: 2
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 12.4s
+  Running TypeScript ...
+  Collecting page data using 2 workers ...
+  Generating static pages using 2 workers (0/62) ...
+  Generating static pages using 2 workers (15/62) 
+  Generating static pages using 2 workers (30/62) 
+  Generating static pages using 2 workers (46/62) 
+✓ Generating static pages using 2 workers (62/62) in 1414.2ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /account
+├ ○ /achievements
+├ ○ /activity
+├ ○ /admin
+├ ○ /admin/audit
+├ ○ /admin/crates
+├ ○ /admin/credits
+├ ○ /admin/drone
+├ ○ /admin/games
+├ ○ /admin/import
+├ ○ /admin/items
+├ ○ /admin/kiosks
+├ ○ /admin/maps
+├ ○ /admin/perks
+├ ○ /admin/reports
+├ ○ /admin/users
+├ ƒ /api/characters
+├ ƒ /api/proxy/[...path]
+├ ○ /balance
+├ ○ /board
+├ ƒ /board/[id]
+├ ○ /bookmarks
+├ ○ /characters
+├ ○ /details
+├ ○ /eternalhunger
+├ ƒ /eternalhunger/evaluate
+├ ○ /eternalhunger/items
+├ ○ /games
+├ ƒ /games/[slug]
+├ ○ /games/ba-srpg/play
+├ ○ /games/ba-vanguard/play
+├ ○ /games/company-report/play
+├ ○ /games/dual-academy-tcg/deck
+├ ○ /games/dual-academy-tcg/play
+├ ○ /games/myanimecraft/play
+├ ○ /games/primitive-archive/play
+├ ○ /games/racing-logos-demo/play
+├ ○ /games/rail3d-sim/play
+├ ○ /games/records
+├ ○ /games/rooms
+├ ƒ /games/rooms/[id]
+├ ○ /games/saves
+├ ○ /games/schale-idle-rpg/play
+├ ○ /games/school-simulator/play
+├ ○ /games/si-coding-sim/play
+├ ○ /games/tonkatsu-teacher/play
+├ ○ /guides
+├ ○ /help
+├ ○ /hungergames
+├ ○ /leaderboard
+├ ○ /login
+├ ○ /modifiers
+├ ○ /myanime
+├ ƒ /myanime/[slug]
+├ ƒ /myanime/[slug]/deck
+├ ƒ /myanime/[slug]/play
+├ ○ /notifications
+├ ○ /perks
+├ ○ /privacy
+├ ○ /records
+├ ƒ /records/runs/[id]
+├ ○ /reports
+├ ○ /reset-password
+├ ○ /search
+├ ○ /signup
+├ ƒ /simulation
+├ ○ /srpg
+├ ƒ /srpg/[slug]
+├ ƒ /srpg/[slug]/play
+├ ○ /terms
+├ ○ /twenty-questions
+├ ƒ /twenty-questions/[id]
+└ ƒ /users/[id]
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

@@ -1,0 +1,590 @@
+{
+  "engineVersion": "ea908055e24ef525643337f5520f5d36f8d3c4f398b408791517c2a880e311a1",
+  "mapId": "guest-lumia-island",
+  "zoneCount": 21,
+  "connectionRecords": 44,
+  "uniqueUndirectedPairs": 43,
+  "connections": [
+    {
+      "_id": "guest-edge-1",
+      "fromZoneId": "alley",
+      "toZoneId": "gas_station",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-2",
+      "fromZoneId": "alley",
+      "toZoneId": "police",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-3",
+      "fromZoneId": "alley",
+      "toZoneId": "temple",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-4",
+      "fromZoneId": "gas_station",
+      "toZoneId": "archery",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-5",
+      "fromZoneId": "gas_station",
+      "toZoneId": "school",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-6",
+      "fromZoneId": "gas_station",
+      "toZoneId": "firestation",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-7",
+      "fromZoneId": "archery",
+      "toZoneId": "school",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-8",
+      "fromZoneId": "archery",
+      "toZoneId": "hotel",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-9",
+      "fromZoneId": "school",
+      "toZoneId": "firestation",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-10",
+      "fromZoneId": "school",
+      "toZoneId": "hotel",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-11",
+      "fromZoneId": "school",
+      "toZoneId": "forest",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-12",
+      "fromZoneId": "school",
+      "toZoneId": "lab",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-13",
+      "fromZoneId": "police",
+      "toZoneId": "temple",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-14",
+      "fromZoneId": "police",
+      "toZoneId": "firestation",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-15",
+      "fromZoneId": "police",
+      "toZoneId": "stream",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-16",
+      "fromZoneId": "firestation",
+      "toZoneId": "park",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-17",
+      "fromZoneId": "firestation",
+      "toZoneId": "lab",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-18",
+      "fromZoneId": "temple",
+      "toZoneId": "stream",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-19",
+      "fromZoneId": "stream",
+      "toZoneId": "park",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-20",
+      "fromZoneId": "stream",
+      "toZoneId": "hospital",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-21",
+      "fromZoneId": "park",
+      "toZoneId": "hospital",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-22",
+      "fromZoneId": "park",
+      "toZoneId": "cemetery",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-23",
+      "fromZoneId": "hospital",
+      "toZoneId": "cemetery",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-24",
+      "fromZoneId": "hospital",
+      "toZoneId": "factory",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-25",
+      "fromZoneId": "hotel",
+      "toZoneId": "beach",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-26",
+      "fromZoneId": "hotel",
+      "toZoneId": "forest",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-27",
+      "fromZoneId": "beach",
+      "toZoneId": "forest",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-28",
+      "fromZoneId": "beach",
+      "toZoneId": "apartment",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-29",
+      "fromZoneId": "forest",
+      "toZoneId": "apartment",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-30",
+      "fromZoneId": "forest",
+      "toZoneId": "cathedral",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-31",
+      "fromZoneId": "forest",
+      "toZoneId": "lab",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-32",
+      "fromZoneId": "apartment",
+      "toZoneId": "warehouse",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-33",
+      "fromZoneId": "apartment",
+      "toZoneId": "cathedral",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-34",
+      "fromZoneId": "cemetery",
+      "toZoneId": "cathedral",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-35",
+      "fromZoneId": "cemetery",
+      "toZoneId": "factory",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-36",
+      "fromZoneId": "cemetery",
+      "toZoneId": "lab",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-37",
+      "fromZoneId": "cathedral",
+      "toZoneId": "warehouse",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-38",
+      "fromZoneId": "cathedral",
+      "toZoneId": "factory",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-39",
+      "fromZoneId": "cathedral",
+      "toZoneId": "port",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-40",
+      "fromZoneId": "warehouse",
+      "toZoneId": "port",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-41",
+      "fromZoneId": "port",
+      "toZoneId": "barge",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-42",
+      "fromZoneId": "port",
+      "toZoneId": "factory",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-43",
+      "fromZoneId": "barge",
+      "toZoneId": "factory",
+      "bidirectional": true,
+      "connectionType": "road"
+    },
+    {
+      "_id": "guest-edge-44",
+      "fromZoneId": "park",
+      "toZoneId": "cemetery",
+      "bidirectional": true,
+      "connectionType": "jump_paddle"
+    }
+  ],
+  "directedRoadGraph": {
+    "alley": [
+      "gas_station",
+      "police",
+      "temple"
+    ],
+    "gas_station": [
+      "alley",
+      "archery",
+      "school",
+      "firestation"
+    ],
+    "archery": [
+      "gas_station",
+      "school",
+      "hotel"
+    ],
+    "school": [
+      "gas_station",
+      "archery",
+      "firestation",
+      "hotel",
+      "forest",
+      "lab"
+    ],
+    "police": [
+      "alley",
+      "temple",
+      "firestation",
+      "stream"
+    ],
+    "firestation": [
+      "gas_station",
+      "school",
+      "police",
+      "park",
+      "lab"
+    ],
+    "temple": [
+      "alley",
+      "police",
+      "stream"
+    ],
+    "stream": [
+      "police",
+      "temple",
+      "park",
+      "hospital"
+    ],
+    "park": [
+      "firestation",
+      "stream",
+      "hospital",
+      "cemetery"
+    ],
+    "hospital": [
+      "stream",
+      "park",
+      "cemetery",
+      "factory"
+    ],
+    "hotel": [
+      "archery",
+      "school",
+      "beach",
+      "forest"
+    ],
+    "beach": [
+      "hotel",
+      "forest",
+      "apartment"
+    ],
+    "forest": [
+      "school",
+      "hotel",
+      "beach",
+      "apartment",
+      "cathedral",
+      "lab"
+    ],
+    "apartment": [
+      "beach",
+      "forest",
+      "warehouse",
+      "cathedral"
+    ],
+    "cemetery": [
+      "park",
+      "hospital",
+      "cathedral",
+      "factory",
+      "lab"
+    ],
+    "cathedral": [
+      "forest",
+      "apartment",
+      "cemetery",
+      "warehouse",
+      "factory",
+      "port"
+    ],
+    "warehouse": [
+      "apartment",
+      "cathedral",
+      "port"
+    ],
+    "port": [
+      "cathedral",
+      "warehouse",
+      "barge",
+      "factory"
+    ],
+    "barge": [
+      "port",
+      "factory"
+    ],
+    "factory": [
+      "hospital",
+      "cemetery",
+      "cathedral",
+      "port",
+      "barge"
+    ],
+    "lab": [
+      "school",
+      "firestation",
+      "forest",
+      "cemetery"
+    ]
+  },
+  "effectiveHyperloopSources": [
+    "gas_station",
+    "school",
+    "temple",
+    "stream",
+    "hospital",
+    "hotel",
+    "forest",
+    "apartment",
+    "cathedral",
+    "barge",
+    "factory",
+    "lab"
+  ],
+  "services": [
+    {
+      "zoneId": "alley",
+      "name": "골목길",
+      "hasHyperloop": false,
+      "hasKiosk": false
+    },
+    {
+      "zoneId": "gas_station",
+      "name": "주유소",
+      "hasHyperloop": true,
+      "hasKiosk": false
+    },
+    {
+      "zoneId": "archery",
+      "name": "양궁장",
+      "hasHyperloop": false,
+      "hasKiosk": true
+    },
+    {
+      "zoneId": "school",
+      "name": "학교",
+      "hasHyperloop": true,
+      "hasKiosk": true
+    },
+    {
+      "zoneId": "police",
+      "name": "경찰서",
+      "hasHyperloop": false,
+      "hasKiosk": true
+    },
+    {
+      "zoneId": "firestation",
+      "name": "소방서",
+      "hasHyperloop": false,
+      "hasKiosk": true
+    },
+    {
+      "zoneId": "temple",
+      "name": "절",
+      "hasHyperloop": true,
+      "hasKiosk": true
+    },
+    {
+      "zoneId": "stream",
+      "name": "개울",
+      "hasHyperloop": true,
+      "hasKiosk": false
+    },
+    {
+      "zoneId": "park",
+      "name": "연못",
+      "hasHyperloop": false,
+      "hasKiosk": false
+    },
+    {
+      "zoneId": "hospital",
+      "name": "병원",
+      "hasHyperloop": true,
+      "hasKiosk": true
+    },
+    {
+      "zoneId": "hotel",
+      "name": "호텔",
+      "hasHyperloop": true,
+      "hasKiosk": true
+    },
+    {
+      "zoneId": "beach",
+      "name": "모래사장",
+      "hasHyperloop": false,
+      "hasKiosk": false
+    },
+    {
+      "zoneId": "forest",
+      "name": "숲",
+      "hasHyperloop": true,
+      "hasKiosk": false
+    },
+    {
+      "zoneId": "apartment",
+      "name": "고급 주택가",
+      "hasHyperloop": true,
+      "hasKiosk": false
+    },
+    {
+      "zoneId": "cemetery",
+      "name": "묘지",
+      "hasHyperloop": false,
+      "hasKiosk": false
+    },
+    {
+      "zoneId": "cathedral",
+      "name": "성당",
+      "hasHyperloop": true,
+      "hasKiosk": true
+    },
+    {
+      "zoneId": "warehouse",
+      "name": "창고",
+      "hasHyperloop": false,
+      "hasKiosk": true
+    },
+    {
+      "zoneId": "port",
+      "name": "항구",
+      "hasHyperloop": false,
+      "hasKiosk": false
+    },
+    {
+      "zoneId": "barge",
+      "name": "바지선",
+      "hasHyperloop": true,
+      "hasKiosk": true
+    },
+    {
+      "zoneId": "factory",
+      "name": "공장",
+      "hasHyperloop": true,
+      "hasKiosk": false
+    },
+    {
+      "zoneId": "lab",
+      "name": "연구소",
+      "hasHyperloop": false,
+      "hasKiosk": true
+    }
+  ],
+  "scope": "current built-in simulation graph and devices; external patch-note comparison is documented separately, not a complete live-game topology certification"
+}
