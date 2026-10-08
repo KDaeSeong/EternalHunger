@@ -1,0 +1,8 @@
+Completion evidence from the observed UI; participant identity, HP, locations, trades and journal rows omitted.
+원본과 사건 17,847개·최종 상태·종료 판정이 모두 일치합니다.
+Actual speed: x1
+End match time: 1257 seconds
+Probe: settled / replay-complete
+Comparison: matched, 17847 events
+Visibility: entire measurement visible; transitions=0; boundary notifications=0
+Speed/identity changes and pauses: 0
