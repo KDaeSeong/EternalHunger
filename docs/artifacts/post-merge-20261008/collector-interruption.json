@@ -1,0 +1,35 @@
+{
+  "phase": "blocked",
+  "index": 0,
+  "speeds": [
+    1,
+    1,
+    1,
+    8,
+    8,
+    8,
+    32,
+    32,
+    32
+  ],
+  "completed": [],
+  "latest": {
+    "label": "replay-x1-1",
+    "elapsedSeconds": 373.5308,
+    "matchSec": 147.333333,
+    "day": 1,
+    "boundary": "recording",
+    "longTaskCount": 18,
+    "longTaskMax": 189,
+    "rafMax": 1049.8,
+    "rafP95": null,
+    "visibilityTransitions": 0,
+    "entireVisible": true,
+    "heapDelta": 19642503
+  },
+  "error": {
+    "name": "Error",
+    "message": "node_repl exec context not found"
+  },
+  "cancel": false
+}

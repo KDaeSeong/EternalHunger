@@ -1,0 +1,1022 @@
+{
+  "schema": "eh-observer-performance.v3",
+  "label": "replay-x1-1",
+  "startedAtMs": 1046972.5,
+  "endedAtMs": 3185198.2,
+  "timeOriginMs": 1791415530369.3,
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "viewportWidth": 1363,
+    "viewportHeight": 936,
+    "devicePixelRatio": 1,
+    "hardwareConcurrency": 5
+  },
+  "engineVersion": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+  "context": {
+    "initial": {
+      "engineVersion": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+      "speed": 1,
+      "seed": "1791415353213",
+      "autoPlay": false,
+      "day": 0,
+      "matchSec": 0,
+      "isGameOver": false,
+      "replayMode": true,
+      "replayId": "f0d5e466-58b0-4757-a15f-abef72e42a46",
+      "comparisonMatched": null,
+      "comparedEvents": null
+    },
+    "final": {
+      "engineVersion": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+      "speed": 1,
+      "seed": "1791415353213",
+      "autoPlay": false,
+      "day": 7,
+      "matchSec": 1257,
+      "isGameOver": true,
+      "replayMode": true,
+      "replayId": "f0d5e466-58b0-4757-a15f-abef72e42a46",
+      "comparisonMatched": true,
+      "comparedEvents": 17847
+    },
+    "speedChanges": 0,
+    "identityChanges": 0,
+    "pauses": 0,
+    "activeStartOffsetMs": 100.7,
+    "activeEndOffsetMs": 2138225.5
+  },
+  "boundary": {
+    "status": "settled",
+    "stopReason": "replay-complete",
+    "entryScope": "full_entries_intersecting_measurement_including_boundary_overlaps",
+    "reason": null
+  },
+  "elapsedMs": 2138225.7,
+  "raf": {
+    "supported": true,
+    "samples": 4158,
+    "fps": 1.945,
+    "intervalMs": {
+      "median": 366.7,
+      "p95": null,
+      "max": 1116.4
+    },
+    "boundaryGapsMs": {
+      "firstRafDelay": 55.8,
+      "trailingRafGap": 157
+    },
+    "scope": "RAF_callback_cadence_not_presented_FPS",
+    "percentiles": {
+      "scope": "entire_measurement",
+      "method": "rounded_histogram",
+      "resolutionMs": 0.1,
+      "upperBoundMs": 1000,
+      "bins": 10001,
+      "overflowSamples": 2020,
+      "medianRangeMs": null,
+      "p95RangeMs": [
+        1016.3,
+        1116.4
+      ]
+    }
+  },
+  "longTasks": {
+    "supported": true,
+    "count": 637,
+    "totalMs": 54348,
+    "maxMs": 318,
+    "reason": null
+  },
+  "longAnimationFrames": {
+    "count": 2070,
+    "totalDurationMs": 2035555.5,
+    "maxDurationMs": 1389.4,
+    "maxWorkMs": 1388.1,
+    "maxRenderMs": 11.5,
+    "maxStyleAndLayoutMs": 1.4,
+    "maxBlockingMs": 306.6,
+    "slowest": [
+      {
+        "startOffsetMs": 859280.4,
+        "durationMs": 1389.4,
+        "workMs": 1388.1,
+        "renderMs": 1.3,
+        "styleAndLayoutMs": 0,
+        "blockingMs": 306.6,
+        "scriptCount": 12,
+        "scripts": [
+          {
+            "durationMs": 253.7,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 508294,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 28,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 28,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 19.1,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 15.5,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 15.2,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 14.4,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "",
+            "sourceFunctionName": "",
+            "sourceCharPosition": -1,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 14,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 1678809.7,
+        "durationMs": 1193.1,
+        "workMs": 1191.2,
+        "renderMs": 1.9,
+        "styleAndLayoutMs": 0,
+        "blockingMs": 150.4,
+        "scriptCount": 12,
+        "scripts": [
+          {
+            "durationMs": 68.9,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 23.7,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 23.3,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 14.7,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 14.4,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.9,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.3,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "",
+            "sourceFunctionName": "",
+            "sourceCharPosition": -1,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 753990.8,
+        "durationMs": 1169.3,
+        "workMs": 1167.6,
+        "renderMs": 1.7,
+        "styleAndLayoutMs": 0,
+        "blockingMs": 119.4,
+        "scriptCount": 13,
+        "scripts": [
+          {
+            "durationMs": 36,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 508294,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 31.8,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 31.5,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "",
+            "sourceFunctionName": "",
+            "sourceCharPosition": -1,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 20.5,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 20.4,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 20.4,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 19.2,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 18.3,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 508294,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 1427648.8,
+        "durationMs": 1157.1,
+        "workMs": 1154.6,
+        "renderMs": 2.5,
+        "styleAndLayoutMs": 0.1,
+        "blockingMs": 30.2,
+        "scriptCount": 7,
+        "scripts": [
+          {
+            "durationMs": 57.5,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 34.8,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 34.4,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.9,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.4,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "",
+            "sourceFunctionName": "",
+            "sourceCharPosition": -1,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 12,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 10.7,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 584619,
+        "durationMs": 1143.1,
+        "workMs": 1141.7,
+        "renderMs": 1.4,
+        "styleAndLayoutMs": 0,
+        "blockingMs": 10.6,
+        "scriptCount": 10,
+        "scripts": [
+          {
+            "durationMs": 46.3,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 34.5,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 25.8,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 14.8,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.8,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 12.5,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 12,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 10.9,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 508294,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 538220,
+        "durationMs": 1129.7,
+        "workMs": 1128.5,
+        "renderMs": 1.2,
+        "styleAndLayoutMs": 0,
+        "blockingMs": 0,
+        "scriptCount": 10,
+        "scripts": [
+          {
+            "durationMs": 25.9,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 21.4,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 15.6,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.6,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "",
+            "sourceFunctionName": "",
+            "sourceCharPosition": -1,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 11.6,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 10.3,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 9.5,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 8.7,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "",
+            "sourceFunctionName": "",
+            "sourceCharPosition": -1,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 1218911.8,
+        "durationMs": 1124.8,
+        "workMs": 1123.8,
+        "renderMs": 1,
+        "styleAndLayoutMs": 0,
+        "blockingMs": 69,
+        "scriptCount": 7,
+        "scripts": [
+          {
+            "durationMs": 118.1,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.8,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.6,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.4,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "",
+            "sourceFunctionName": "",
+            "sourceCharPosition": -1,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.3,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 9.4,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 508294,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 8.3,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 1817913.7,
+        "durationMs": 1120.3,
+        "workMs": 1119,
+        "renderMs": 1.3,
+        "styleAndLayoutMs": 0,
+        "blockingMs": 57.4,
+        "scriptCount": 9,
+        "scripts": [
+          {
+            "durationMs": 104.6,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 51.3,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "o",
+            "sourceCharPosition": 508773,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 28.8,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 16.9,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 15,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/7830-ae94843aa3eb7f13.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 508294,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 15,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 14.2,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "https://eternal-hunger.vercel.app/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 12.7,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "",
+            "sourceFunctionName": "",
+            "sourceCharPosition": -1,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      }
+    ],
+    "supported": true,
+    "reason": null,
+    "attribution": {
+      "selection": "slowest_by_duration",
+      "frameLimit": 8,
+      "scriptLimit": 8,
+      "textLimit": 512,
+      "scope": "browser_attributed_main_thread_entrypoints_not_full_call_stacks"
+    }
+  },
+  "workBreakdown": {
+    "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+    "stages": [
+      {
+        "name": "start.captureInput",
+        "count": 1,
+        "totalMs": 8.7,
+        "maxMs": 8.7,
+        "maxStartOffsetMs": 322.4
+      },
+      {
+        "name": "start.prepareInput",
+        "count": 1,
+        "totalMs": 14.8,
+        "maxMs": 14.8,
+        "maxStartOffsetMs": 331.1
+      },
+      {
+        "name": "phase.fieldResources",
+        "count": 13,
+        "totalMs": 66.7,
+        "maxMs": 66.7,
+        "maxStartOffsetMs": 348.2
+      },
+      {
+        "name": "phase.starterLoadout",
+        "count": 13,
+        "totalMs": 42.9,
+        "maxMs": 42.7,
+        "maxStartOffsetMs": 414.9
+      },
+      {
+        "name": "phase.setup",
+        "count": 13,
+        "totalMs": 181.8,
+        "maxMs": 112.1,
+        "maxStartOffsetMs": 347.1
+      },
+      {
+        "name": "growth.slice",
+        "count": 8436,
+        "totalMs": 146895.6,
+        "maxMs": 242.1,
+        "maxStartOffsetMs": 1615425.3
+      },
+      {
+        "name": "growth.refreshPlans",
+        "count": 16209,
+        "totalMs": 26884.4,
+        "maxMs": 165.5,
+        "maxStartOffsetMs": 1716925.5
+      },
+      {
+        "name": "growth.teamCoordination",
+        "count": 8109,
+        "totalMs": 39915,
+        "maxMs": 139.7,
+        "maxStartOffsetMs": 643920.4
+      },
+      {
+        "name": "growth.actorMovement",
+        "count": 2365,
+        "totalMs": 41265.5,
+        "maxMs": 208.2,
+        "maxStartOffsetMs": 1907719.8
+      },
+      {
+        "name": "growth.actorLoot",
+        "count": 2365,
+        "totalMs": 7197.9,
+        "maxMs": 18.7,
+        "maxStartOffsetMs": 41911.8
+      },
+      {
+        "name": "growth.actorPlan",
+        "count": 2365,
+        "totalMs": 13816.4,
+        "maxMs": 76.1,
+        "maxStartOffsetMs": 1790498.5
+      },
+      {
+        "name": "growth.actorQueue",
+        "count": 2365,
+        "totalMs": 13319,
+        "maxMs": 53.3,
+        "maxStartOffsetMs": 1350611.3
+      },
+      {
+        "name": "growth.singleActor",
+        "count": 2365,
+        "totalMs": 76067,
+        "maxMs": 241.4,
+        "maxStartOffsetMs": 1615425.9
+      },
+      {
+        "name": "replay.captureResult",
+        "count": 1,
+        "totalMs": 88.9,
+        "maxMs": 88.9,
+        "maxStartOffsetMs": 2137879.2
+      },
+      {
+        "name": "replay.compareResult",
+        "count": 1,
+        "totalMs": 219.8,
+        "maxMs": 219.8,
+        "maxStartOffsetMs": 2137968.1
+      }
+    ]
+  },
+  "inputResponse": {
+    "supported": true,
+    "samples": 1,
+    "pendingSamples": 0,
+    "scope": "captured_click_to_next_RAF_not_INP_or_presentation",
+    "lastMs": 11.1,
+    "maxMs": 11.1
+  },
+  "heap": {
+    "supported": true,
+    "baselineUsedBytes": 37172993,
+    "usedBytes": 245584766,
+    "deltaUsedBytes": 208411773,
+    "totalBytes": 300629586,
+    "limitBytes": 4395630592
+  },
+  "domNodes": 859,
+  "visibilityState": "visible",
+  "visibility": {
+    "supported": true,
+    "reason": null,
+    "initialState": "visible",
+    "endState": "visible",
+    "transitions": 0,
+    "boundaryNotifications": 0,
+    "durationMs": {
+      "visible": 2138225.7,
+      "hidden": 0,
+      "unknown": 0
+    },
+    "entireMeasurementVisible": true
+  }
+}

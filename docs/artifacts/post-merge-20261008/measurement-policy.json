@@ -1,0 +1,23 @@
+{
+  "expectedEngine": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+  "requestedSpeeds": [
+    1,
+    1,
+    1,
+    8,
+    8,
+    8,
+    32,
+    32,
+    32
+  ],
+  "source": "new original match completed on this engine before the nine replays",
+  "replayCondition": "identical archived input; no reload, manual pauses, forced GC, or speed changes during each measurement",
+  "maxLongTaskMs": 200,
+  "comparison": "strict <200ms existing historical gate",
+  "maxRafP95Ms": null,
+  "maxRafGapMs": null,
+  "maxBaselineHeapGrowthBytes": null,
+  "budgetStatus": "no new RAF/heap acceptance budgets invented; compare observed metrics and preserve unverified aggregate when budgets are absent",
+  "preflight": "separate manual engine/API preflight, excluded from nine complete replay measurements"
+}

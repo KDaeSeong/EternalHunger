@@ -1,0 +1,116 @@
+{
+  "schema": "eh-observer-browser-verification.v1",
+  "status": "unverified",
+  "scope": "observed_nine_run_gates_not_painted_FPS_INP_or_absence_of_leaks",
+  "policy": {
+    "expectedEngine": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+    "maxLongTaskMs": 200,
+    "maxRafP95Ms": null,
+    "maxRafGapMs": null,
+    "maxBaselineHeapGrowthBytes": null
+  },
+  "issues": [
+    "require exactly nine runs: three consecutive replays at each of x1, x8 and x32",
+    "x1: require three consecutive runs, without selecting the best samples",
+    "x8: require three consecutive runs, without selecting the best samples",
+    "x32: require three consecutive runs, without selecting the best samples"
+  ],
+  "runs": [
+    {
+      "index": 1,
+      "speed": 1,
+      "label": "replay-x1-1",
+      "validity": {
+        "status": "pass",
+        "reason": [],
+        "value": null
+      },
+      "longTasks": {
+        "status": "fail",
+        "reason": "strict maximum Long Task budget",
+        "value": 318
+      },
+      "rafP95": {
+        "status": "unverified",
+        "reason": "RAF samples or predeclared p95 budget missing",
+        "value": null
+      },
+      "rafGap": {
+        "status": "unverified",
+        "reason": "RAF samples, boundary gaps or predeclared gap budget missing",
+        "value": 1116.4
+      },
+      "heap": {
+        "status": "measured",
+        "reason": "performance.memory sample; GC-sensitive, not leak proof",
+        "value": {
+          "baselineBytes": 37172993,
+          "endBytes": 245584766,
+          "deltaBytes": 208411773
+        }
+      },
+      "longAnimationFrames": {
+        "supported": true,
+        "maxMs": 1389.4,
+        "maxRenderMs": 11.5
+      },
+      "inputResponse": {
+        "scope": "click_to_next_RAF_not_INP_or_presentation",
+        "samples": 1,
+        "pendingSamples": 0,
+        "maxMs": 11.1
+      },
+      "visibility": {
+        "supported": true,
+        "reason": null,
+        "initialState": "visible",
+        "endState": "visible",
+        "transitions": 0,
+        "boundaryNotifications": 0,
+        "durationMs": {
+          "visible": 2138225.7,
+          "hidden": 0,
+          "unknown": 0
+        },
+        "entireMeasurementVisible": true
+      },
+      "elapsedMs": 2138225.7
+    }
+  ],
+  "groups": [
+    {
+      "speed": 1,
+      "runIndices": [
+        1
+      ],
+      "baselineBytes": [
+        37172993
+      ],
+      "memory": {
+        "status": "unverified",
+        "reason": "three supported baseline samples or predeclared heap growth budget missing",
+        "value": null
+      }
+    },
+    {
+      "speed": 8,
+      "runIndices": [],
+      "baselineBytes": [],
+      "memory": {
+        "status": "unverified",
+        "reason": "three supported baseline samples or predeclared heap growth budget missing",
+        "value": null
+      }
+    },
+    {
+      "speed": 32,
+      "runIndices": [],
+      "baselineBytes": [],
+      "memory": {
+        "status": "unverified",
+        "reason": "three supported baseline samples or predeclared heap growth budget missing",
+        "value": null
+      }
+    }
+  ]
+}

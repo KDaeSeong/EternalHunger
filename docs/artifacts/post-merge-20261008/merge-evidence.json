@@ -1,0 +1,21 @@
+{
+  "pr14": {
+    "number": 14,
+    "merged": true,
+    "mergeCommit": "5871f18179e08ae849cece999ebc873ccffa93ca",
+    "base": "fix/kiosk-goal-exchanges-20261007"
+  },
+  "pr13": {
+    "number": 13,
+    "merged": true,
+    "mergeCommit": "1667de82ad9f7ecb94f31f9e14b20f273bc14002",
+    "base": "main"
+  },
+  "sourceTree": "1baaa0f9c415ed16bf8212ea0cec4079fe07c4bc",
+  "identicalToTestedSourceTree": true,
+  "engineVersion": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+  "vercelBeforeMerge": "success on both PR heads",
+  "productionDeployment": "Vercel success; browser v3/engine verified",
+  "browserLocalErrorScope": "remote browser attempt only; not a failure observed on the user PC; exact cause unconfirmed",
+  "browserVerifiedEngine": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4"
+}
