@@ -33,6 +33,30 @@
     "buildId": "xgYGlXvO-QPx9g5KJgMlS",
     "resultPath": "client/.verification-runs/2026-10-08T12-07-26.534Z-94bde0dd-cc21-4194-8f0d-8c920078f029/result.json"
   },
+  "fullVerification": {
+    "runId": "2026-10-08T12-26-06.749Z-cb6c268d-3f51-4f71-b10f-32a81e7a01b6",
+    "command": "npm run check:eternal-hunger",
+    "engine": "dcb0e4228b7f086fd2ca56825d5884c88cd8433d2ff2468ef6ba9c72671617d8",
+    "status": "passed",
+    "exitCode": 0,
+    "sameEngine": true,
+    "startedAt": "2026-10-08T12:26:06.755Z",
+    "finishedAt": "2026-10-08T13:44:52.800Z",
+    "pages": 62,
+    "buildId": "t0VBCtnEqJxig44HJXGgH",
+    "resultPath": "client/.verification-runs/2026-10-08T12-26-06.749Z-cb6c268d-3f51-4f71-b10f-32a81e7a01b6/result.json",
+    "rngMatches": 3,
+    "savedInputReplay": {
+      "events": 18401,
+      "frames": 6599,
+      "matched": true,
+      "sameFinalState": true,
+      "sameRandom": true,
+      "sameEnding": true,
+      "externalAccess": 0
+    },
+    "scope": "The merged dcb engine's named full local chain and build. Subsequent product changes require their own evidence; not actual browser throughput, account saving, human acceptance or public release."
+  },
   "previousFullRun": {
     "runId": "2026-10-07T21-44-31.681Z-77e7ff26-0018-4e8b-9e35-3a99d124a2bd",
     "status": "interrupted_without_final_exit_evidence",
@@ -419,6 +443,6 @@
     "pushes": 0,
     "deployments": 0
   },
-  "remaining": "The merged engine has no new full-chain, whole-match mode comparison or actual x32 measurement yet. AI generation success, authorized save/use, continuous memory recovery, human feedback and public release remain separate gates.",
+  "remaining": "The merged dcb engine's full local chain passed. The subsequent e67 call-local recipe-accounting optimization passed 33 exact reference comparisons, focused checks, three complete execution-mode comparisons, a fresh saved-input replay and a separate 62-page build; see artifacts/growth-recipe-work-cache-20261008.json. This is not a new full check:eternal-hunger gate for e67. Actual x32 measurement, AI generation success, authorized save/use, continuous memory recovery, human feedback and public release remain separate gates.",
   "goalStatus": "active"
 }

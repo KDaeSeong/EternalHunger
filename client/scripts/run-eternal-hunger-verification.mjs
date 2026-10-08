@@ -10,11 +10,12 @@ const commands = {
   full: 'npm run check:eternal-hunger',
   unit: 'node scripts/check-character-status-skills.mjs',
   build: 'npm run build',
+  execution: 'npm run check:growth-scheduling:match',
   growth: 'npm run check:growth-plan && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:character-auto-setup && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
   performance: 'npm run check:growth-plan && npm run check:team-observer && npm run check:live-frames && npm run check:display-pacing && npm run check:phase-runtime-performance && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
 };
 const mode = process.argv[2] || 'full';
-if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, performance or build.');
+if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, performance, execution or build.');
 const root = fileURLToPath(new URL('../', import.meta.url));
 const runId = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}`;
 const directory = join(root, '.verification-runs', runId);

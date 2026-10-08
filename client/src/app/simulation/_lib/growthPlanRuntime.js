@@ -132,6 +132,13 @@ function getGrowthRecipeWorkWithQuantities(actor, items, targetId, { ruleset, ta
   if (inferEquipSlot(target) === 'weapon' && !areEquipmentWeaponTypesCompatible(actor.weaponType, target.weaponType)) {
     return { ...work, blocked: 'weapon_mismatch' };
   }
+  // Terms are immutable accounting inputs within this synchronous call only.
+  // A new call must re-read edited recipes; atomic receipts still revalidate.
+  const recipeTermsById = new Map();
+  const recipeTermsFor = (id) => {
+    if (!recipeTermsById.has(id)) recipeTermsById.set(id, getCraftRecipeTerms(byId.get(id)));
+    return recipeTermsById.get(id);
+  };
   const inventoryQuantities = providedInventoryQuantities || indexInventoryQuantities(inventory);
   const availableOverrides = new Map();
   const availableQty = (id) => availableOverrides.has(id) ? availableOverrides.get(id) : inventoryQuantities.get(id);
@@ -149,7 +156,7 @@ function getGrowthRecipeWorkWithQuantities(actor, items, targetId, { ruleset, ta
     if (need <= 0) return;
     if (!item || path.has(id) || path.size > 20) { work.blocked = 'invalid_recipe'; return; }
     if (Array.isArray(item.recipe?.ingredients) && item.recipe.ingredients.length) {
-      const terms = getCraftRecipeTerms(item);
+      const terms = recipeTermsFor(id);
       if (!terms) { work.blocked = 'invalid_recipe'; return; }
       const batches = Math.ceil(need / terms.resultQty);
       const cost = batches * terms.creditsCost;
@@ -171,9 +178,9 @@ function getGrowthRecipeWorkWithQuantities(actor, items, targetId, { ruleset, ta
   work.craftIds = [...craftIds];
   work.componentIds = [...components];
   work.reservedQtyById = reserved;
-  const materialReady = work.craftIds.filter((id) => getCraftRecipeTerms(byId.get(id))?.ingredients
+  const materialReady = work.craftIds.filter((id) => recipeTermsFor(id)?.ingredients
     .every((row) => (inventoryQuantities.get(row.itemId) || 0) >= row.qty));
-  const affordable = materialReady.filter((id) => getCraftRecipeTerms(byId.get(id)).creditsCost <= work.availableCredits);
+  const affordable = materialReady.filter((id) => recipeTermsFor(id).creditsCost <= work.availableCredits);
   work.readyCraftId = affordable[0] || '';
   // A full bag or a partially receivable output stack can trap the focus on
   // an impossible craft. Preview the real atomic receipt without discarding
@@ -182,7 +189,7 @@ function getGrowthRecipeWorkWithQuantities(actor, items, targetId, { ruleset, ta
   // Ruleset-free callers only account for recipes; do not guess their limits.
   if (!work.blocked && work.readyCraftId && ruleset) {
     const previewCapacity = inventory.length >= getInvRules(ruleset).maxSlots
-      || affordable.some(id => getCraftRecipeTerms(byId.get(id)).resultQty > 1 || inventoryQuantities.get(id) > 0);
+      || affordable.some(id => recipeTermsFor(id).resultQty > 1 || inventoryQuantities.get(id) > 0);
     if (previewCapacity) {
       const context = { _growthPlan: { targetIds, componentIds: work.componentIds } };
       work.readyCraftId = affordable.find((id) => prepareCraftTransaction(actor,
@@ -197,7 +204,7 @@ function getGrowthRecipeWorkWithQuantities(actor, items, targetId, { ruleset, ta
       }
     }
   }
-  work.requiredCredits = materialReady.length ? getCraftRecipeTerms(byId.get(work.readyCraftId || materialReady[0])).creditsCost : 0;
+  work.requiredCredits = materialReady.length ? recipeTermsFor(work.readyCraftId || materialReady[0]).creditsCost : 0;
   work.missing = [...missing].map(([id, qty]) => ({ itemId: id, name: byId.get(id)?.name || id,
     need: qty, have: inventoryQuantities.get(id) || 0 }));
   if (!work.blocked && materialReady.length && !work.readyCraftId && !work.missing.length) work.blocked = 'insufficient_credits';

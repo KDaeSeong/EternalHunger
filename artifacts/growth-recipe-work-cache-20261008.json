@@ -1,0 +1,271 @@
+{
+  "schema": "eh-growth-recipe-work-cache.v1",
+  "date": "2026-10-08",
+  "mergeCommit": "222f8f42",
+  "baselineEngine": "dcb0e4228b7f086fd2ca56825d5884c88cd8433d2ff2468ef6ba9c72671617d8",
+  "engine": "e67a85e5c96d9c431a7c29a24ad67a575a94597062afdf79debe1577b94b2085",
+  "change": "Cache normalized recipe terms, including null, only inside one synchronous growth-recipe accounting call. Preserve traversal and candidate ordering, virtual surplus versus actual inventory, all result fields, capacity previews and independent atomic craft revalidation.",
+  "referenceCheck": {
+    "command": "node scripts/check-growth-recipe-work-cache.mjs",
+    "exitCode": 0,
+    "exactCases": 33,
+    "singleReadyRecipeQtyReadsBefore": 8,
+    "singleReadyRecipeQtyReadsAfter": 2,
+    "guardQtyReadsPerNormalization": 2,
+    "scope": "A literal pre-cache reference algorithm compares full results and input ownership for plain controlled fixtures. Shared guard/inventory/transaction helpers are not independently validated by this oracle. The proxy measures reads, not time or browser acceleration."
+  },
+  "independentReview": {
+    "agent": "merge_growth_coordination",
+    "model": "luna",
+    "mode": "read_only",
+    "finding": "No change of result semantics, null-cache error, cross-call recipe mutation retention or atomic transaction revalidation omission found within the changed function.",
+    "excluded": "Does not fix or certify the existing catalog WeakMap behavior for same-ID whole-object replacement, or actual x32 browser throughput."
+  },
+  "focusedVerification": {
+    "command": "npm run check:growth-plan && npm run check:team-purchase-goals && npm run check:procurement && npm run check:team-observer && npm run check:live-frames && npm run check:phase-runtime-performance && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+    "session": 93081,
+    "exitCode": 0,
+    "scope": "Named local focused checks and lint; not a fresh full check:eternal-hunger run."
+  },
+  "executionVerification": {
+    "runId": "2026-10-08T13-48-50.877Z-5402dabd-d430-40b9-b700-cfbf994ee438",
+    "resultPath": "client/.verification-runs/2026-10-08T13-48-50.877Z-5402dabd-d430-40b9-b700-cfbf994ee438/result.json",
+    "status": "passed",
+    "exitCode": 0,
+    "sameEngine": true,
+    "startedAt": "2026-10-08T13:48:50.880Z",
+    "finishedAt": "2026-10-08T13:56:45.164Z",
+    "seed": "1101",
+    "matches": 3,
+    "events": 13657,
+    "frames": 6032,
+    "ticks": 1163.166666,
+    "winnerTeamId": "team:1",
+    "cooperativeYields": 38691,
+    "visibleTaskYields": 11339,
+    "visibleFrameYields": 27352,
+    "eventDigest": "4dc168590580a773fc7b268c0f3db6c7cf24920795c495b1357f702c604c17f3",
+    "frameDigest": "b529e942243ea64c00f0dc7c5c4c84438a6bf5e41a7566774c0b0ecaf8d56691",
+    "finalFrameDigest": "bfe69147b17b1aa81684caad80d32aa432fe0c9f7c54cc78f3b295c5a46e3f8a",
+    "logDigest": "5333ef83fb79e9de77bf5b561334ea47379a9a333d8055560816491204219af2",
+    "scope": "Fresh current inputs and full output comparison between headless, hidden-cooperative and visible-cooperative host fixtures. A simulated host is not an actual browser performance test."
+  },
+  "replayVerification": {
+    "command": "npm run check:simulation-replay",
+    "session": 82299,
+    "exitCode": 0,
+    "comparisonChecks": 10,
+    "replayChecks": 16,
+    "events": 18401,
+    "frames": 6599,
+    "matched": true,
+    "sameFinalState": true,
+    "sameRandom": true,
+    "sameEnding": true,
+    "externalAccess": 0,
+    "eventDigest": "ea0f68520daa00549ae031d50b8a8e2671dd13769e0546d04c2ad115af445366",
+    "frameDigest": "fe8b2b76863140d70947b51c51b452eceba1b38a8c515a3450806dbea382f983",
+    "scope": "Fresh captured input and full original/replay comparison in a controlled Node host; not real account saving or browser storage verification."
+  },
+  "build": {
+    "runId": "2026-10-08T14-03-52.009Z-18bc6e7e-8797-43a7-8de7-f478fe1d86d0",
+    "resultPath": "client/.verification-runs/2026-10-08T14-03-52.009Z-18bc6e7e-8797-43a7-8de7-f478fe1d86d0/result.json",
+    "status": "passed",
+    "exitCode": 0,
+    "sameEngine": true,
+    "startedAt": "2026-10-08T14:03:52.016Z",
+    "finishedAt": "2026-10-08T14:05:09.834Z",
+    "pages": 62,
+    "buildId": "M6z3lYt6bFtSx1RK-hMB2"
+  },
+  "cleanup": {
+    "status": "removed",
+    "observedAtUtc": "2026-10-08T14:09:27.6172192Z",
+    "activeRelevantProcesses": 0,
+    "removedFiles": 12,
+    "logicalBytes": 635140833,
+    "protectedMatches": 26,
+    "remainingCacheFiles": 0,
+    "recovery": "Cache files regenerate on the next build; completed build, source and verification evidence are preserved.",
+    "physicalFreeSpaceMeasured": false,
+    "logicalMiB": 605.7174997329712,
+    "scope": "Exact inventoried .pack/.pack.old files under this checkout's webpack cache only. No directory recursion during deletion.",
+    "hashComparisonScope": "These before/after hashes cover the deletion operation. This receipt is inserted afterward and deliberately changes the evidence file's hash.",
+    "cacheFiles": [
+      {
+        "path": "client/.next/cache/webpack/client-production/0.pack",
+        "bytes": 208782651,
+        "sha256": "B205DA9FBDCC04E1185DE610D4CF8866A3E61C21365F2F12BDAACA870CB2C741"
+      },
+      {
+        "path": "client/.next/cache/webpack/client-production/1.pack",
+        "bytes": 46190090,
+        "sha256": "6C1E702BB1889F9FB48CD18ADCF50891DED606CE5DFB8029DFC068D5E05DBBB9"
+      },
+      {
+        "path": "client/.next/cache/webpack/client-production/2.pack",
+        "bytes": 9562707,
+        "sha256": "173282D44E8FA3412EDCDD9FD79E01E90FE9E6F2AF4DA7602E12C82248FE7258"
+      },
+      {
+        "path": "client/.next/cache/webpack/client-production/index.pack",
+        "bytes": 12800554,
+        "sha256": "9736AEE2AA4268B53D3C6CFFEAF8FF23AD2307144FF674007FC9629D90BC53F0"
+      },
+      {
+        "path": "client/.next/cache/webpack/client-production/index.pack.old",
+        "bytes": 12799490,
+        "sha256": "AB0087E63ABFB0DABE8C07657B7878C0A1311571CB5A4B0D2015ED8996E4A964"
+      },
+      {
+        "path": "client/.next/cache/webpack/edge-server-production/0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC"
+      },
+      {
+        "path": "client/.next/cache/webpack/edge-server-production/index.pack",
+        "bytes": 2464,
+        "sha256": "670CB56F60C6D6CDB3AACE59362DB789D8370DCF1DE597ADA9A0EBD25D25E58F"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/0.pack",
+        "bytes": 259527995,
+        "sha256": "A73756CBCA260DF507805199D23B4EFD4D0E42574AACCBD9A1F169BF4B720A23"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/1.pack",
+        "bytes": 49200183,
+        "sha256": "EC8851682CDB73865152C125293E8E84416CC55B00950E7D1D5EFC4E18615A76"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/2.pack",
+        "bytes": 97101,
+        "sha256": "FB054952E6194557E087CFCD3CA41B96BC7BF42E79CB55523C8C8571039CBE07"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/index.pack",
+        "bytes": 18136958,
+        "sha256": "083A727E0892DE054492483FD740430123B7BE3E92B26729A50E15E7332309FC"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/index.pack.old",
+        "bytes": 18040364,
+        "sha256": "501DA8BC8A13913F2C498E54E4C17D13BCCFBEBA072E9A3EFF498BC04BAADD91"
+      }
+    ],
+    "protected": [
+      {
+        "path": "client/src/app/simulation/_lib/growthPlanRuntime.js",
+        "sha256": "0CD34C591D3A7E47D8CDC3FADE364DFF451DC3DF0D06F9BF0DEDE628EC17B02C"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "sha256": "51B24E42CA1B81AE951EBC39E41A1744F3DF0376111DBD22FA6C3DE26F46A003"
+      },
+      {
+        "path": "client/package.json",
+        "sha256": "52FBB8AE052893AE6177EB5306A5006401A5C7275E8DADBDCDA2A9DC67D87EA7"
+      },
+      {
+        "path": "client/package-lock.json",
+        "sha256": "9024006A5AC9B451394E347C0A24A144EE5C32562912E6876C5F83250B89FB57"
+      },
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "sha256": "9508B5079E6FE2D2888A794DFEC5DC9946FBC4759F9A05B8969394D213D1CC7E"
+      },
+      {
+        "path": "client/scripts/check-growth-recipe-work-cache.mjs",
+        "sha256": "72AA221F33CF3E48EAE3ECDD281E88F63FF5F9EDA23923DD40298208C39E6C4C"
+      },
+      {
+        "path": "docs/eternal-hunger-goal.md",
+        "sha256": "867C8A7200DD23C1ECE447CD55E6A576AE6566FDB9DA05BCF064AC83B81EF992"
+      },
+      {
+        "path": "docs/eternal-hunger-remaining-work.md",
+        "sha256": "96AC5EFA9CAA2B682BACEBEE825D22C0E09E5A1A1E266A5FB9859CA4898E7B0D"
+      },
+      {
+        "path": "docs/observer-performance-verification.md",
+        "sha256": "94AC55B94008E4645FE725CE2DE759C3F76CF2C0FE77D5EBB565144E00C55727"
+      },
+      {
+        "path": "artifacts/pull-integration-20261008.json",
+        "sha256": "0C298D8A3DEAEBEC6AC6C021D3C2E986D0D0A3C9AF751A03342ADBFE803678A8"
+      },
+      {
+        "path": "artifacts/growth-recipe-work-cache-20261008.json",
+        "sha256": "0BE182AC0E7517EEC8041BCB4034318010837F93C6E29435062077D7E0D669C9"
+      },
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+      },
+      {
+        "path": "server/index.js",
+        "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+      },
+      {
+        "path": "server/.env.example",
+        "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+      },
+      {
+        "path": "client/.next/BUILD_ID",
+        "sha256": "EB3912727A135DB2DE82CB845F009201049FF6D89D6DB36D00B6B387DA6435C1"
+      },
+      {
+        "path": "client/.next/build-manifest.json",
+        "sha256": "86642770B1073E2E768D725F86CFCBA79823CE4A2E1E61CB6ABE3D827DF110AE"
+      },
+      {
+        "path": "client/.next/prerender-manifest.json",
+        "sha256": "71C8AEA2A182AC0947B2116FB7655C89750A9B035EBEE83002ACBCCF8EFD4C13"
+      },
+      {
+        "path": "client/.next/routes-manifest.json",
+        "sha256": "64FD3F555FB99E9CE1965D8EC8567B6CCEBCDEB5A5F62E7E3C1B4B882896FB58"
+      },
+      {
+        "path": "client/.next/server/app/eternalhunger/evaluate/page.js",
+        "sha256": "F916470BD1556887A8C883D65487E6EEFE9C1B6B7C5D06839BD5C4F1732581A3"
+      },
+      {
+        "path": "client/.next/server/app/eternalhunger/page.js",
+        "sha256": "5DA7FFC2BC816E064D4160BC63EFC3FD292ED4CEAF2134DC1DD29D13B557FEDA"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T12-26-06.749Z-cb6c268d-3f51-4f71-b10f-32a81e7a01b6/result.json",
+        "sha256": "948996F36FE4E36CCC03FEAEB4CDE657D147A54775DF9A11F8084ECCE255F9C9"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T12-26-06.749Z-cb6c268d-3f51-4f71-b10f-32a81e7a01b6/output.log",
+        "sha256": "C2F456E4BD2EB7604111714918D660A8E16196A79322E175CD8EE14A24AD1EFE"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T13-48-50.877Z-5402dabd-d430-40b9-b700-cfbf994ee438/result.json",
+        "sha256": "3302BB1099213D8AC5BB9B01A7647F1FFA77FA4DC58C2E9FE282ACB8B2D3917D"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T13-48-50.877Z-5402dabd-d430-40b9-b700-cfbf994ee438/output.log",
+        "sha256": "B4BDE1B9E533E0A2921838E87DE2490AD04D116E94F01CEC46ECFDEE4B703359"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T14-03-52.009Z-18bc6e7e-8797-43a7-8de7-f478fe1d86d0/result.json",
+        "sha256": "C467B329F114C6C142241DA7157C889582B1656C02F01CE5F82EBF911371EFA5"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T14-03-52.009Z-18bc6e7e-8797-43a7-8de7-f478fe1d86d0/output.log",
+        "sha256": "A939FDF4AD6B19D8248CB387490625CA87CAC56B38C08CF231602E44F07660C5"
+      }
+    ]
+  },
+  "authority": {
+    "foregroundBrowserRuns": 0,
+    "paidAiRequests": 0,
+    "accountWrites": 0,
+    "pushes": 0,
+    "deployments": 0
+  },
+  "goalStatus": "active"
+}
