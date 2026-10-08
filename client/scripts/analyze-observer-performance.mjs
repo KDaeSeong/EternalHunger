@@ -3,7 +3,10 @@ import { analyzeObserverPerformanceRuns } from './lib/observer-performance-repor
 
 const args = process.argv.slice(2);
 const option = name => args.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
-const numeric = name => option(name) == null ? undefined : Number(option(name));
+const numeric = name => {
+  const value = option(name);
+  return value == null ? undefined : value.trim() === '' ? NaN : Number(value);
+};
 const runs = [];
 for (const path of args.filter(arg => !arg.startsWith('--'))) {
   const parsed = JSON.parse(readFileSync(path, 'utf8'));
@@ -11,7 +14,8 @@ for (const path of args.filter(arg => !arg.startsWith('--'))) {
 }
 const result = analyzeObserverPerformanceRuns(runs, { expectedEngine: option('expected-engine'),
   maxLongTaskMs: numeric('max-long-task-ms'), maxRafP95Ms: numeric('max-raf-p95-ms'),
-  maxRafGapMs: numeric('max-raf-gap-ms'), maxBaselineHeapGrowthBytes: numeric('max-baseline-heap-growth-bytes') });
+  maxRafGapMs: numeric('max-raf-gap-ms'), maxBaselineHeapGrowthBytes: numeric('max-baseline-heap-growth-bytes'),
+  maxInterRunGapMs: numeric('max-inter-run-gap-ms') });
 const output = `${JSON.stringify(result, null, 2)}\n`;
 if (option('output')) writeFileSync(option('output'), output);
 else process.stdout.write(output);

@@ -8,6 +8,8 @@ const panelSource = readFileSync(new URL('../src/app/simulation/_components/Simu
 const styles = readFileSync(new URL('../src/styles/ERSimulation.css', import.meta.url), 'utf8');
 let checks = 0;
 const check = (name, run) => { run(); checks += 1; console.log(`PASS ${name}`); };
+const assertTaskTotals = (actual, expected) => assert.deepEqual({ supported: actual.supported, count: actual.count,
+  totalMs: actual.totalMs, maxMs: actual.maxMs, reason: actual.reason }, expected);
 
 function harness({ observeThrows = false, animationFrames = false, animationObserveThrows = false, visibilityEvents = true,
   longTaskAdvertised = true } = {}) {
@@ -71,7 +73,9 @@ check('RAF, long-task, heap, and DOM metrics are measured without timer-as-FPS s
   assert.equal(result.heap.usedBytes, 18);
   assert.equal(result.heap.baselineUsedBytes, 10);
   assert.equal(result.heap.deltaUsedBytes, 8);
-  assert.deepEqual(result.longTasks, { supported: true, count: 1, totalMs: 55, maxMs: 55, reason: null });
+  assert.deepEqual(result.numericPrecision, { roundedMillisecondsResolutionMs: 0.001 });
+  assertTaskTotals(result.longTasks, { supported: true, count: 1, totalMs: 55, maxMs: 55, reason: null });
+  assert.deepEqual(result.longTasks.slowest, [{ startOffsetMs: 10, durationMs: 55 }]);
   assert.equal(result.domNodes, 3);
   assert.equal(typeof timer, 'function');
   assert.equal(cleared, true);
@@ -127,7 +131,7 @@ check('histogram overflow is reported as a range and cannot clamp a slow session
   assert.equal(result.raf.fps, 0.333);
 });
 
-check('many long tasks and pending records retain the complete count, total and earliest peak without a raw array', () => {
+check('many long tasks and pending records retain the complete count, total and earliest peak without an unbounded raw array', () => {
   const h = harness(); h.probe.start(); h.setNow(20000000);
   h.observers[0].callback({ getEntries: function* () {
     yield { startTime: -10000, duration: 9999 };
@@ -137,8 +141,32 @@ check('many long tasks and pending records retain the complete count, total and 
   } });
   h.observers[0].queued.push({ startTime: 18000000, duration: 80 });
   const result = h.probe.stop();
-  assert.deepEqual(result.longTasks, { supported: true, count: 200001, totalMs: 10000780, maxMs: 750, reason: null });
+  assertTaskTotals(result.longTasks, { supported: true, count: 200001, totalMs: 10000780, maxMs: 750, reason: null });
+  assert.equal(result.longTasks.slowest.length, 8);
+  assert.deepEqual(result.longTasks.slowest.slice(0, 2), [{ startOffsetMs: 0, durationMs: 750 },
+    { startOffsetMs: 18000000, durationMs: 80 }]);
+  assert.deepEqual(result.longTasks.timing, { selection: 'slowest_by_duration', taskLimit: 8,
+    scope: 'full_intersecting_task_elapsed_time_not_cpu_or_script_attribution' });
   assert.equal(h.observers[0].disconnected, true);
+});
+
+check('peak task clocks include boundary overlap, exclude invalid entries and own their bounded snapshots', () => {
+  const h = harness(); h.setNow(100); h.probe.start();
+  const observer = h.observers[0];
+  const entry = { startTime: 90, duration: 318, attribution: [{ containerName: 'private' }], window: {} };
+  observer.callback({ getEntries: () => [entry, { startTime: 0, duration: 100 }, { startTime: NaN, duration: 999 }] });
+  entry.duration = 9999;
+  const snapshot = h.probe.snapshot();
+  assert.deepEqual(snapshot.longTasks.slowest, [{ startOffsetMs: -10, durationMs: 318 }]);
+  snapshot.longTasks.slowest[0].durationMs = 0;
+  snapshot.longTasks.slowest.length = 0;
+  h.setNow(500);
+  const result = h.probe.stop();
+  assert.deepEqual(result.longTasks.slowest, [{ startOffsetMs: -10, durationMs: 318 }]);
+  assert.equal(JSON.stringify(result.longTasks).includes('private'), false);
+  h.setNow(1000); h.probe.start();
+  observer.callback({ getEntries: () => [{ startTime: 1001, duration: 999 }] });
+  assert.deepEqual(h.probe.stop().longTasks.slowest, [], 'Old callbacks cannot seed the next run peak list.');
 });
 
 check('a large click burst uses one pending RAF and retains all input samples, first peak and last delay', () => {
@@ -212,7 +240,7 @@ check('long animation frames distinguish work, render, layout and script entrypo
   assert.equal(frames.slowest[0].scripts[0].sourceURL, 'http://localhost:3107/_next/chunk.js');
   assert.equal(frames.slowest[0].scripts[0].forcedStyleAndLayoutMs, 3);
   assert.equal('window' in frames.slowest[0].scripts[0], false);
-  assert.deepEqual(result.longTasks, { supported: true, count: 0, totalMs: 0, maxMs: null, reason: null });
+  assertTaskTotals(result.longTasks, { supported: true, count: 0, totalMs: 0, maxMs: null, reason: null });
   assert.equal(observer.disconnected, true);
 });
 
@@ -232,10 +260,54 @@ check('animation attribution is bounded but totals and the first peak span the w
   assert.equal(frames.maxDurationMs, 950); assert.equal(frames.maxWorkMs, 950);
   assert.equal(frames.maxRenderMs, 0); assert.equal(frames.maxStyleAndLayoutMs, 0);
   assert.equal(frames.slowest.length, 8); assert.equal(frames.slowest[0].durationMs, 950);
+  assert.equal(frames.mostBlocking.length, 8); assert.equal(frames.mostBlocking[0].blockingMs, 900);
   assert.equal(frames.slowest[0].scriptCount, 12); assert.equal(frames.slowest[0].scripts.length, 8);
   assert.equal(frames.slowest[0].scripts[0].durationMs, 21);
   assert.equal(frames.slowest[0].scripts[0].sourceFunctionName.length, 512);
   assert.equal(frames.slowest[0].scripts[0].invoker.length, 512);
+  assert.equal(frames.mostBlocking[0].scripts.length, 8);
+  assert.equal(frames.mostBlocking[0].scripts[0].sourceFunctionName.length, 512);
+});
+
+check('shorter blocking frames retain attribution behind a full list of longer, lightly blocking frames', () => {
+  const h = harness({ animationFrames: true }); h.probe.start();
+  const observer = h.observers.find(row => row.type === 'long-animation-frame');
+  h.setNow(10400);
+  observer.callback({ getEntries: () => [
+    ...Array.from({ length: 8 }, (_, index) => ({ startTime: index * 1100, duration: 1000,
+      blockingDuration: 5, scripts: [{ duration: 20, sourceFunctionName: 'long-low-blocking-frame' }] })),
+    { startTime: 10000, duration: 350, blockingDuration: 300,
+      scripts: [{ duration: 320, sourceFunctionName: 'blocking-completion', window: {},
+        sourceURL: 'https://user:secret@example.test/chunk.js?token=private#fragment' }] },
+  ] });
+  const snapshot = h.probe.snapshot(), frames = snapshot.longAnimationFrames;
+  assert.equal(frames.count, 9); assert.equal(frames.maxDurationMs, 1000); assert.equal(frames.maxBlockingMs, 300);
+  assert.equal(frames.slowest.length, 8); assert.equal(frames.mostBlocking.length, 8);
+  assert.ok(frames.slowest.every(row => row.durationMs === 1000));
+  assert.equal(frames.mostBlocking[0].durationMs, 350);
+  assert.equal(frames.mostBlocking[0].scripts[0].sourceFunctionName, 'blocking-completion');
+  assert.equal(frames.mostBlocking[0].scripts[0].sourceURL, 'https://example.test/chunk.js');
+  assert.equal('window' in frames.mostBlocking[0].scripts[0], false);
+  frames.mostBlocking[0].scripts[0].sourceFunctionName = 'mutated'; frames.mostBlocking.length = 0;
+  h.setNow(10400);
+  const result = h.probe.stop();
+  assert.equal(result.longAnimationFrames.mostBlocking[0].scripts[0].sourceFunctionName, 'blocking-completion');
+  assert.equal(result.longAnimationFrames.attribution.mostBlockingSelection, 'largest_blocking_duration_then_duration');
+});
+
+check('missing or invalid frame blocking duration stays unavailable while a measured zero remains zero', () => {
+  const h = harness({ animationFrames: true }); h.probe.start(); h.setNow(1000);
+  const observer = h.observers.find(row => row.type === 'long-animation-frame');
+  observer.callback({ getEntries: () => [undefined, null, NaN, -1].map((blockingDuration, index) =>
+    ({ startTime: index * 100, duration: 60, blockingDuration })) });
+  const missing = h.probe.snapshot().longAnimationFrames;
+  assert.equal(missing.count, 4); assert.equal(missing.maxBlockingMs, null);
+  assert.deepEqual(missing.mostBlocking, []);
+  assert.ok(missing.slowest.every(row => row.blockingMs === null));
+  observer.callback({ getEntries: () => [{ startTime: 500, duration: 60, blockingDuration: 0 }] });
+  const measured = h.probe.stop().longAnimationFrames;
+  assert.equal(measured.maxBlockingMs, 0); assert.equal(measured.mostBlocking.length, 1);
+  assert.equal(measured.mostBlocking[0].blockingMs, 0);
 });
 
 check('animation frame records are drained at stop, owned in snapshots and excluded across restarts', () => {
@@ -429,6 +501,8 @@ await asyncCheck('post-stop RAF then task drains late end records without extend
   const h = harness({ animationFrames: true }); h.setNow(100); h.probe.start(); h.frame(116); h.frame(132);
   h.probe.recordInput(132); h.setNow(200);
   const pending = h.probe.stopAfterFrame({ reason: 'replay-complete' });
+  assert.equal(h.probe.snapshot().boundary.status, 'draining');
+  assert.equal(h.probe.snapshot().boundary.reason, 'awaiting post-stop frame and task');
   assert.equal(h.probe.recordInput(201), false);
   const task = h.observers.find(row => row.type === 'longtask');
   const animation = h.observers.find(row => row.type === 'long-animation-frame');
@@ -437,16 +511,21 @@ await asyncCheck('post-stop RAF then task drains late end records without extend
   h.performanceRef.memory.usedJSHeapSize = 180;
   h.frame(500);
   assert.equal(h.probe.isRunning(), true, 'An RAF callback alone is not the post-render task barrier.');
+  assert.equal(h.probe.snapshot().boundary.status, 'draining');
+  assert.equal(h.probe.snapshot().endedAtMs, 200);
   h.setNow(501); h.fireTimer([...h.timers.keys()].at(-1));
   const result = await pending;
   assert.equal(result.boundary.status, 'settled'); assert.equal(result.elapsedMs, 100);
   assert.equal(result.longTasks.count, 1); assert.equal(result.longTasks.maxMs, 284);
+  assert.deepEqual(result.longTasks.slowest, [{ startOffsetMs: 90, durationMs: 284 }]);
   assert.equal(result.longAnimationFrames.maxDurationMs, 300);
   assert.equal(result.heap.usedBytes, 100); assert.equal(result.visibility.durationMs.visible, 100);
   assert.equal(result.inputResponse.pendingSamples, 0);
   assert.equal(h.callbacks.size, 0); assert.equal(h.timers.size, 0); assert.equal(h.visibilityListeners.size, 0);
   result.longTasks.maxMs = 0;
+  result.longTasks.slowest[0].durationMs = 0;
   assert.equal(h.probe.getLastResult().longTasks.maxMs, 284, 'Persist an independently owned final result.');
+  assert.equal(h.probe.getLastResult().longTasks.slowest[0].durationMs, 284);
 });
 
 await asyncCheck('automatic stop preserves a retrievable result and timeout is explicitly incomplete', async () => {
