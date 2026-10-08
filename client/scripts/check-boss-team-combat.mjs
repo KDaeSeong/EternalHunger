@@ -420,6 +420,8 @@ await check('stale claims, dead bosses and nonboss hunts never transfer or mutat
 
 await check('an actual lethal boss strike records one death, retargets a living ally and pays one victory', async () => {
   const input = fixture(), owner = input.roster[0], hunt = owner._wildlifeHunt;
+  const startedHp = hunt.startedHp;
+  const originalActionKey = hunt.actionKey;
   owner.hp = 30;
   owner.activeEffects = [{ name: '기절', remainingDuration: 5, durationUnit: 'sec' }];
   hunt.target._spatial = { ...owner._spatial };
@@ -432,8 +434,34 @@ await check('an actual lethal boss strike records one death, retargets a living 
   assert.ok(result.newDeadIds.includes('owner'));
   const transfer = input.events.find((event) => event.kind === 'hunt_transfer');
   assert.equal(transfer.reason, '사망');
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_end').length, 1,
+    'The owner death cannot terminate a boss encounter that a teammate continues.');
+  assert.equal(input.events.find((event) => event.kind === 'hunt_end').outcome, 'victory');
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement').length, 1,
+    'A departed owner contribution is not a second encounter settlement.');
+  const participantEnd = input.events.find((event) => event.kind === 'hunt_participant_end');
+  assert.equal(participantEnd.who, 'owner');
+  assert.equal(participantEnd.outcome, 'hunter_defeated');
+  assert.equal(participantEnd.continuedBy, 'fast');
+  assert.equal(participantEnd.encounterId, transfer.encounterId);
+  const participantReceipt = input.events.find((event) => event.kind === 'hunt_participant_settlement');
+  assert.equal(participantReceipt.who, 'owner');
+  assert.equal(participantReceipt.encounterId, transfer.encounterId);
+  assert.equal(participantReceipt.hpBefore, startedHp);
+  assert.equal(participantReceipt.hpAfter, 0);
+  assert.equal(participantReceipt.died, true);
+  assert.equal(participantReceipt.defeated, false);
+  assert.equal(participantReceipt.credits, 0);
+  assert.deepEqual(participantReceipt.receivedDrops, []);
+  assert.equal(participantReceipt.settlement, 'participant_contribution');
   const retaliation = input.events.filter((event) => event.kind === 'hunt_exchange' && event.damageTaken > 0);
   assert.equal(retaliation[0].targetId, 'owner');
+  assert.deepEqual(participantReceipt, { who: 'owner', encounterId: transfer.encounterId,
+    actionKey: originalActionKey, zoneId: 'z', subkind: 'alpha', kind: 'hunt_participant_settlement',
+    defeated: false, died: true, hpBefore: startedHp, hpAfter: 0,
+    damage: retaliation.filter((event) => event.targetId === 'owner').reduce((sum, event) => sum + event.damageTaken, 0),
+    damageDealt: 0, credits: 0, receivedDrops: [], unreceivedDrops: [], posthumous: false,
+    settlement: 'participant_contribution', at: transfer.at });
   assert.ok(retaliation.slice(1).every((event) => event.targetId === 'fast'));
   for (let i = 1; i < retaliation.length; i++) assert.ok(retaliation[i].at.sec - retaliation[i - 1].at.sec >= 1 / 0.82 - 0.000002);
   assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement' && event.defeated).length, 1);
@@ -570,7 +598,13 @@ await check('a prior external death cause remains intact when allies continue th
   const result = await fight(input);
   assert.equal(result.survivorMap.get('owner')._deathBy, 'detonation');
   assert.deepEqual(extraDeaths, []);
-  assert.equal(input.events.find((event) => event.kind === 'hunt_end' && event.who === 'owner').continuedBy, 'fast');
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_end').length, 1);
+  assert.equal(input.events.find((event) => event.kind === 'hunt_end').outcome, 'victory');
+  const participantEnd = input.events.find((event) => event.kind === 'hunt_participant_end' && event.who === 'owner');
+  assert.equal(participantEnd.continuedBy, 'fast');
+  assert.equal(participantEnd.outcome, 'interrupted_by_death');
+  assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement').length, 1);
+  assert.equal(input.events.some((event) => event.kind === 'hunt_participant_settlement'), false);
   assert.equal(input.events.filter((event) => event.kind === 'hunt_settlement' && event.defeated).length, 1);
 });
 

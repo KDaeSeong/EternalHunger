@@ -24,6 +24,8 @@ const num = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const decisionKinds = new Set(['move', 'retreat', 'chase', 'team_decision', 'growth_plan', 'queue', 'hunt_start', 'hunt_transfer', 'hunt_end', 'dimension_rift_space']);
 const importantKinds = new Set(['death', 'revive', 'elimination', 'team_status', 'team_engagement', 'team_cover', 'chase', 'resource_replan', 'rest', 'hunt_start', 'hunt_transfer', 'hunt_end', 'skill_cancel', 'forced_control', 'sleep_break', 'effect', 'dimension_rift_space', 'dimension_rift_defeat', 'dimension_rift_reward_closed', 'spatial_displacement', 'spatial_displacement_pending', 'movement_goal', 'objective']);
 const observerScalarActorKeys = ['who', 'a', 'b', 'by', 'targetId', 'target', 'victimId', 'chaserId', 'sourceActorId', 'opponentId', 'strikerId', 'previousOwnerId', 'continuedBy'];
+decisionKinds.add('hunt_participant_end');
+importantKinds.add('hunt_participant_end');
 importantKinds.add('equipment_effect');
 const observerArrayActorKeys = ['assistIds', 'participants', 'helpers'];
 
@@ -166,6 +168,7 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
         ? `${nameOf(event.strikerId || event.who)} → ${event.wildlifeName || '야생동물'}: 실제 피해 ${num(event.damageDealt)} · 대상 HP ${num(event.wildlifeHp)}${where}`
         : `${event.wildlifeName || '야생동물'} → ${who}: 실제 피해 ${num(event.damageTaken)} · HP ${num(event.hunterHp)}${where}`;
     }
+    case 'hunt_participant_end': return `${who}: ${event.wildlifeName || event.subkind || '보스'} 사냥 참여 중 사망 · 가한 피해 ${num(event.damageDealt)} / 받은 피해 ${num(event.damageTaken)}${event.reason ? ` · ${event.reason}` : ''}${event.continuedBy ? ` · ${nameOf(event.continuedBy)} 사냥 계속` : ''}${where}`;
     case 'hunt_end': return `${who}: ${event.wildlifeName || event.subkind || '야생동물'} 사냥 ${event.outcome === 'victory' ? '완료' : event.outcome === 'hunter_defeated' ? '중 사망' : '중단'} · 가한 피해 ${num(event.damageDealt)} / 받은 피해 ${num(event.damageTaken)}${event.reason ? ` · ${event.reason}` : ''}${event.continuedBy ? ` · ${nameOf(event.continuedBy)} 사냥 계속` : ''}${where}`;
     case 'dimension_rift_defeat': return `${who}: 차원의 틈 전투 불능 · 경기 사망/처치 보상 없음${event.by ? ` · 공격자 ${nameOf(event.by)}` : ''}${where}`;
     case 'spatial_displacement': {

@@ -204,4 +204,25 @@ check('boss handoff names both teammates, reason and remaining HP; helper strike
   const model = buildTeamObserverModel({ survivors: [actor('a'), actor('b')], events: [transfer], matchSec: 10 });
   for (const member of model.members) assert.match(member.decision.text, /사냥 이어받기/);
 });
+check('a hunter death is shown as personal participation ending while the teammate keeps hunting', () => {
+  for (const outcome of ['hunter_defeated', 'interrupted_by_death']) {
+    const participantEnd = event('hunt_participant_end', 10, { who: 'a', continuedBy: 'b', outcome,
+      wildlifeName: '위클라인', damageDealt: 320, damageTaken: 93, reason: outcome === 'interrupted_by_death' ? '금지구역 시간 소진' : '' });
+    const before = structuredClone(participantEnd);
+    const text = describeObserverEvent(participantEnd, { nameOf: (id) => ({ a: '선발', b: '후속' })[id] || id });
+    assert.match(text, /선발: 위클라인 사냥 참여 중 사망/);
+    assert.match(text, /가한 피해 320 \/ 받은 피해 93/);
+    assert.match(text, /후속 사냥 계속/);
+    assert.doesNotMatch(text, /사냥 완료|사냥 중단/);
+    const transfer = event('hunt_transfer', 10, { who: 'b', previousOwnerId: 'a', previousOwnerName: '선발',
+      wildlifeName: '위클라인', reason: '사망', wildlifeHp: 551, wildlifeMaxHp: 871 });
+    const model = buildTeamObserverModel({ survivors: [actor('b')], dead: [actor('a', 'team:1', { hp: 0 })],
+      teamId: 'team:1', events: [transfer, participantEnd], matchSec: 10 });
+    assert.equal(model.recent[0].kind, 'hunt_participant_end');
+    assert.match(model.recent[0].text, /사냥 참여 중 사망/);
+    assert.match(model.members.find((member) => member.id === 'a').decision.text, /사냥 계속/);
+    assert.match(model.members.find((member) => member.id === 'b').decision.text, /사냥 이어받기/);
+    assert.deepEqual(participantEnd, before);
+  }
+});
 console.log(`TEAM_OBSERVER_CHECKS ${checks}/${checks}`);

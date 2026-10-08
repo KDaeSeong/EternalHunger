@@ -1,0 +1,467 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-08T15:48:16.5841948Z",
+  "task": "Boss-hunt handoff participant vs encounter lifecycle",
+  "source": {
+    "baseHead": "a274ee7567e9daea7d59934fb1e16e0d9aed81aa",
+    "remoteMain": "cbe27197878068bc8fa8791838099982bd89c3c0",
+    "engineVersion": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a"
+  },
+  "defect": {
+    "seed": "4402",
+    "initialRosterSeed": "FIXTURE:initial-roster",
+    "encounterId": "hunt:guest-survivor-10:7:7:876",
+    "target": "weakline",
+    "zoneId": "apartment",
+    "startedHp": 871,
+    "priorOwner": "guest-survivor-10",
+    "successor": "guest-survivor-18",
+    "transferAtSec": 878.220588,
+    "targetHpAtTransfer": 551,
+    "terminalVictoryAtSec": 879.55392,
+    "originalTerminalEndCount": 2,
+    "originalTerminalSettlementCount": 2,
+    "originalObservedVictoryCredits": 67,
+    "interpretation": "An owner death emitted terminal records even when the same live encounter was transferred. Duplicate actual reward payment was not established."
+  },
+  "implementation": {
+    "transferredHunterDeath": [
+      "hunt_participant_end",
+      "hunt_participant_settlement when wildlife-caused"
+    ],
+    "contributionSettlement": "participant_contribution",
+    "terminalEncounter": "Only the final victory, uncontinued wildlife defeat or genuine encounter cancellation ends the encounter.",
+    "observer": "Names the dead participant and continuing teammate without reporting a completed or interrupted encounter.",
+    "preserved": [
+      "target HP",
+      "strike clocks",
+      "actual death metadata",
+      "actual loot and credit payout",
+      "mastery payment",
+      "cast cancellation reasons",
+      "no-successor terminal paths"
+    ],
+    "regressionInputs": "Generated from current source/catalogue. No historical output file is used as an executable fixture.",
+    "defaultHandoffCheck": "Original seed 1101/HF4:roster-A is preserved and seed 4402 is added. This turn only ran --lifecycle-regression, not the complete default two-case command."
+  },
+  "verificationRuns": [
+    {
+      "purpose": "Initial ten-seed distribution; seed 4401 completed, seed 4402 failed; later seeds did not run.",
+      "resultPath": "client/.verification-runs/2026-10-08T14-25-39.112Z-43a3faef-4552-476b-8679-b044d493d03e/result.json",
+      "logPath": "client/.verification-runs/2026-10-08T14-25-39.112Z-43a3faef-4552-476b-8679-b044d493d03e/output.log",
+      "runId": "2026-10-08T14-25-39.112Z-43a3faef-4552-476b-8679-b044d493d03e",
+      "command": "npm run diagnose:match-distribution -- 4401 4402 4403 4404 4405 4406 4407 4408 4409 4410",
+      "startedAt": "2026-10-08T14:25:39.117Z",
+      "pid": 56868,
+      "engineBefore": "e67a85e5c96d9c431a7c29a24ad67a575a94597062afdf79debe1577b94b2085",
+      "status": "failed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 1,
+      "signal": null,
+      "engineAfter": "e67a85e5c96d9c431a7c29a24ad67a575a94597062afdf79debe1577b94b2085",
+      "sameEngine": true,
+      "finishedAt": "2026-10-08T14:29:28.135Z"
+    },
+    {
+      "purpose": "Focused original seed 4402 reproduced the duplicate terminal encounter records before the fix.",
+      "resultPath": "client/.verification-runs/2026-10-08T14-34-10.678Z-1f58b644-8a91-433d-9f62-5d26fdad8b99/result.json",
+      "logPath": "client/.verification-runs/2026-10-08T14-34-10.678Z-1f58b644-8a91-433d-9f62-5d26fdad8b99/output.log",
+      "runId": "2026-10-08T14-34-10.678Z-1f58b644-8a91-433d-9f62-5d26fdad8b99",
+      "command": "node scripts/check-boss-handoff-match.mjs --lifecycle-regression",
+      "startedAt": "2026-10-08T14:34:10.688Z",
+      "pid": 56980,
+      "engineBefore": "e67a85e5c96d9c431a7c29a24ad67a575a94597062afdf79debe1577b94b2085",
+      "status": "failed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 1,
+      "signal": null,
+      "engineAfter": "e67a85e5c96d9c431a7c29a24ad67a575a94597062afdf79debe1577b94b2085",
+      "sameEngine": true,
+      "finishedAt": "2026-10-08T14:37:15.65Z"
+    },
+    {
+      "purpose": "First post-fix same-input attempt failed with native structuredClone out-of-memory; no completed replay asserted.",
+      "resultPath": "client/.verification-runs/2026-10-08T14-42-15.875Z-d5538135-5797-4ce1-99ec-201443c8c4f9/result.json",
+      "logPath": "client/.verification-runs/2026-10-08T14-42-15.875Z-d5538135-5797-4ce1-99ec-201443c8c4f9/output.log",
+      "runId": "2026-10-08T14-42-15.875Z-d5538135-5797-4ce1-99ec-201443c8c4f9",
+      "command": "node scripts/check-boss-handoff-match.mjs --lifecycle-regression",
+      "startedAt": "2026-10-08T14:42:15.888Z",
+      "pid": 50904,
+      "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+      "status": "failed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 1,
+      "signal": null,
+      "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+      "sameEngine": true,
+      "finishedAt": "2026-10-08T14:47:12.994Z"
+    },
+    {
+      "purpose": "Focused neighboring unit, fingerprint and runtime-lint chain.",
+      "resultPath": "client/.verification-runs/2026-10-08T15-29-37.459Z-140fe649-d612-44d7-b490-a2c880256d7f/result.json",
+      "logPath": "client/.verification-runs/2026-10-08T15-29-37.459Z-140fe649-d612-44d7-b490-a2c880256d7f/output.log",
+      "runId": "2026-10-08T15-29-37.459Z-140fe649-d612-44d7-b490-a2c880256d7f",
+      "command": "node scripts/check-hunt-settlement.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-boss-team-combat.mjs && node scripts/check-boss-loot-sharing.mjs && node scripts/check-team-observer.mjs && node scripts/check-observer-tail-projection.mjs && node scripts/check-live-frames.mjs && node scripts/check-run-comparison.mjs && node scripts/check-character-casting.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAt": "2026-10-08T15:29:37.471Z",
+      "pid": 34652,
+      "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+      "sameEngine": true,
+      "finishedAt": "2026-10-08T15:31:29.31Z"
+    },
+    {
+      "purpose": "Fresh seed 4402 completion and exact same-JSON-input replay.",
+      "resultPath": "client/.verification-runs/2026-10-08T15-32-53.603Z-9a54390c-d01f-40b4-b7fb-bd6a434d8b4c/result.json",
+      "logPath": "client/.verification-runs/2026-10-08T15-32-53.603Z-9a54390c-d01f-40b4-b7fb-bd6a434d8b4c/output.log",
+      "runId": "2026-10-08T15-32-53.603Z-9a54390c-d01f-40b4-b7fb-bd6a434d8b4c",
+      "command": "node scripts/check-boss-handoff-match.mjs --lifecycle-regression",
+      "startedAt": "2026-10-08T15:32:53.606Z",
+      "pid": 41160,
+      "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+      "sameEngine": true,
+      "finishedAt": "2026-10-08T15:37:29.68Z"
+    },
+    {
+      "purpose": "First build failed creating a .next output directory with EPERM.",
+      "resultPath": "client/.verification-runs/2026-10-08T15-42-35.802Z-9956eb2f-0a65-4415-9e58-12c8a1b4c66c/result.json",
+      "logPath": "client/.verification-runs/2026-10-08T15-42-35.802Z-9956eb2f-0a65-4415-9e58-12c8a1b4c66c/output.log",
+      "runId": "2026-10-08T15-42-35.802Z-9956eb2f-0a65-4415-9e58-12c8a1b4c66c",
+      "command": "npm run build",
+      "startedAt": "2026-10-08T15:42:35.83Z",
+      "pid": 41736,
+      "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+      "status": "failed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 1,
+      "signal": null,
+      "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+      "sameEngine": true,
+      "finishedAt": "2026-10-08T15:43:48.177Z"
+    },
+    {
+      "purpose": "Same-engine, same-command permission-authorized build retry completed.",
+      "resultPath": "client/.verification-runs/2026-10-08T15-44-19.009Z-2aa351df-e2b5-40ff-ba89-5d11af7d354e/result.json",
+      "logPath": "client/.verification-runs/2026-10-08T15-44-19.009Z-2aa351df-e2b5-40ff-ba89-5d11af7d354e/output.log",
+      "runId": "2026-10-08T15-44-19.009Z-2aa351df-e2b5-40ff-ba89-5d11af7d354e",
+      "command": "npm run build",
+      "startedAt": "2026-10-08T15:44:19.012Z",
+      "pid": 58528,
+      "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+      "sameEngine": true,
+      "finishedAt": "2026-10-08T15:44:52.647Z"
+    }
+  ],
+  "focusedChecks": {
+    "huntSettlement": 19,
+    "wildlifeCombat": 27,
+    "bossTeamCombat": 28,
+    "bossLootSharing": 23,
+    "teamObserver": 19,
+    "observerTailProjection": 11,
+    "liveFrames": 19,
+    "runComparison": 15,
+    "characterCasting": 28,
+    "verificationFingerprint": 4,
+    "runtimeLintExitCode": 0,
+    "scope": "Named local checks only; not a new full check:eternal-hunger acceptance."
+  },
+  "naturalSameInputReplay": {
+    "passed": true,
+    "seed": "4402",
+    "initialRosterSeed": "FIXTURE:initial-roster",
+    "completedExecutions": 2,
+    "phases": 13,
+    "frames": 6606,
+    "events": 12726,
+    "simulationSec": 1287.5,
+    "ending": {
+      "outcome": "last_team",
+      "cause": "combat",
+      "causeName": "교전",
+      "winnerTeamId": "team:5",
+      "day": 7,
+      "phase": "morning",
+      "finalZoneStage": "final"
+    },
+    "dimensionRiftClosure": {
+      "settlements": 8,
+      "expiredForElimination": 0,
+      "invalidRewards": 0,
+      "unfinishedContests": 0
+    },
+    "random": {
+      "algorithm": "fnv1a-mulberry32-v1",
+      "state": 644435581,
+      "draws": 9619,
+      "ids": 0,
+      "nameHistory": []
+    },
+    "eventDigest": "7e160318f69487de6945478ff4e12fea7236ed18957f7f7379fb67af26c567a1",
+    "frameDigest": "0e7e7c0a5325da3708bbe0a9a73e6cd76ebd0c027c0abea6a7eaff0887034b75",
+    "lifecycle": {
+      "starts": 45,
+      "ends": 45,
+      "terminalSettlements": 43,
+      "participantEnds": 1,
+      "participantContributions": 1
+    },
+    "compared": [
+      "complete events",
+      "every frame digest",
+      "final frame/state",
+      "RNG state",
+      "ending",
+      "full existing evidence object"
+    ],
+    "frameRetentionScope": "The test hashes every frame using the existing contract; this compact artifact does not store every frame."
+  },
+  "failedAttemptBoundary": {
+    "memoryFailure": "DataCloneError: Data cannot be cloned, out of memory; native structuredClone in simulationFrameRuntime.js.",
+    "originalCompletionInFailedAttempt": "Not separately printed, so no first-match pass is claimed for that failed command.",
+    "resourceObservations": {
+      "earlierFreeRamApproxMiB": 26,
+      "concurrentExternalPwshPrivateBytes": 40837537792,
+      "externalPid": 25948,
+      "externalPidAbsentAtUtc": "2026-10-08T15:29:09Z",
+      "freeRamBeforeSuccessfulRetryMiB": 6027.9
+    },
+    "inference": "Concurrent external memory pressure was observed. This alone is not proof that project memory or browser performance is correct.",
+    "unchangedRetryContract": [
+      "same two complete matches",
+      "same native clone path",
+      "no forced GC",
+      "no raised heap limit",
+      "no dropped comparison data"
+    ],
+    "externalMutation": "No external process was killed and no other project's files or settings were changed."
+  },
+  "build": {
+    "sameEngine": true,
+    "pages": 62,
+    "buildId": "-ajHjpkLstBl1MG4XjH5a",
+    "successfulExitCode": 0,
+    "initialEpermFailurePreserved": true,
+    "scope": "Separate local production build; not full-suite, deployed-browser or performance acceptance."
+  },
+  "cleanupEvidence": {
+    "checkedAtUtc": "2026-10-08T15:48:16.5841948Z",
+    "root": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+    "relevantNodeCount": 0,
+    "deletedFiles": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 255036495,
+        "sha256": "C49B136DD2F2CBA3D9DD4F9DE7556079C6DEC65629D3D3988AD8B7ED3AB0CA84"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12799478,
+        "sha256": "67C6008CE58B1828C546A942982B924B5853D779ECDF92AD29D0AA04910A8CE0"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "sha256": "41A88157DA4011AEAE8F8BC645E63FA65DFFD5B4B4B6A1FE764E456CFBAE2E8A"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 306236990,
+        "sha256": "954514BEADA30674CFDA62E74B38CCEEC5672DFF01668AE4BBA1E46FD3205A1A"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18040573,
+        "sha256": "B94AF7D901ED6F2215EB9072C62D2B10B00D63E4A8913614E258659F4667CA74"
+      }
+    ],
+    "logicalBytesRemoved": 592116276,
+    "remainingCacheCount": 0,
+    "protectedHashes": [
+      {
+        "path": "client/src/app/simulation/_lib/phasePvpActionLoopRuntime.js",
+        "sha256": "BCBE27322B6F3482BB29187AE40EF4E09EC1EEE27E26BB718EE01060068AB5D4"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/teamObserverRuntime.js",
+        "sha256": "A5341AA2F30447BB11363A0C2F4E6FC3B84AB89BD7140D3E9F398EDA4C26391D"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "sha256": "241FFEC4608A3624262823D58C80B7AE2EC26444FB703EDC2A0FB099165B276F"
+      },
+      {
+        "path": "client/scripts/check-boss-team-combat.mjs",
+        "sha256": "6A4AD14AF4A008AD876B779638FE1F4065C0C1BF9D85E09A1AD685570FA9C038"
+      },
+      {
+        "path": "client/scripts/check-team-observer.mjs",
+        "sha256": "BF117853F549BF80708C2EA00CE3CE38E8DB9FE632196163D736961C81879B1C"
+      },
+      {
+        "path": "client/scripts/check-boss-handoff-match.mjs",
+        "sha256": "99158F1CEBF3C36E55E260AC8E967145094DF2412DA38C3B4C7261E4EC524D40"
+      },
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "sha256": "6E45A2E000A00AEA85B1F59D808AEFAD366551183D48C2B6AEC356A263DEACA6"
+      },
+      {
+        "path": "docs/eternal-hunger-goal.md",
+        "sha256": "9B3495A1269521AC6AC9584D1AD388857816B858E2C3F4237F46525920B2076D"
+      },
+      {
+        "path": "docs/eternal-hunger-remaining-work.md",
+        "sha256": "A98BA65B19C5B2D2936AF5FA5E8D6F212ACCEF42F0ABAB8A9377EC14B9E55870"
+      },
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+      },
+      {
+        "path": "server/index.js",
+        "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+      },
+      {
+        "path": "server/.env.example",
+        "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+      },
+      {
+        "path": "client/.next/BUILD_ID",
+        "sha256": "438CB0DFF372BE50B3519C8A457803F5AFE207ED976CE2D70F69139E6F5F16CF"
+      },
+      {
+        "path": "client/.next/build-manifest.json",
+        "sha256": "3C0E27F61016B80B87132C0A147ACB9474C263CDE578D397C09324568B09A39C"
+      },
+      {
+        "path": "client/.next/app-path-routes-manifest.json",
+        "sha256": "C0B69E153DD4B17D81A6BDA1F3AB05875D4E10D233F92A2588E1DF5982E9AF4C"
+      },
+      {
+        "path": "client/.next/server/app-paths-manifest.json",
+        "sha256": "383AEDDDD6C20D6795D3562BA18CC9B9BE80C1564D81E6C08B0674F836AA7D44"
+      },
+      {
+        "path": "client/.next/server/app/eternalhunger/evaluate/page.js",
+        "sha256": "F916470BD1556887A8C883D65487E6EEFE9C1B6B7C5D06839BD5C4F1732581A3"
+      },
+      {
+        "path": "client/.next/server/app/simulation/page.js",
+        "sha256": "DDE27FDA61ABAC7F6F110FC16987A1F5ACED93FBCF333B3AD5A86A6BE32F4C31"
+      },
+      {
+        "path": "client/src/app/simulation/tacticalSkillTable.js",
+        "sha256": "F87F77109A0439DDF10C151B945B9D564C934F65C65478DB607F05C0E814426D"
+      },
+      {
+        "path": "shared/marketItemPolicy.cjs",
+        "sha256": "EA34DF6B81B7C84E38F93A178DD3015F4EC2FB476A169F99C01F4BF39401D168"
+      },
+      {
+        "path": "artifacts/growth-recipe-work-cache-20261008.json",
+        "sha256": "4CDBCD6C097D6BD6EC01D1A32E27206AAACA15E7BD196165793777423985B090"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T14-25-39.112Z-43a3faef-4552-476b-8679-b044d493d03e/result.json",
+        "sha256": "6818BCAE0703E34DB53E55ED789FF926E9F91FBC12E040C15D9F5D362112CFBB"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T14-25-39.112Z-43a3faef-4552-476b-8679-b044d493d03e/output.log",
+        "sha256": "115AE964CFBD0219840BB683B845F8AB5908554B5607904BB457B1910D0E24FC"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T14-34-10.678Z-1f58b644-8a91-433d-9f62-5d26fdad8b99/result.json",
+        "sha256": "0C1C44E99B183A269CFA2F6F395A6574C375F19F5C7AA31D33CEC66D8E154BFD"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T14-34-10.678Z-1f58b644-8a91-433d-9f62-5d26fdad8b99/output.log",
+        "sha256": "4E1299A4D5F4D021007124C61B95E4E51CE1E7756E61617C673F7A318BA570AE"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T14-42-15.875Z-d5538135-5797-4ce1-99ec-201443c8c4f9/result.json",
+        "sha256": "D0510923388818E126D8D941C9E0C8309C08BF16F5361C2F64C19F86D726AA16"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T14-42-15.875Z-d5538135-5797-4ce1-99ec-201443c8c4f9/output.log",
+        "sha256": "2BCF7B402D4178AF5BBBB512AE5AF9B62E6B35F1D6D705DC21DAABE9CB32D37A"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T15-29-37.459Z-140fe649-d612-44d7-b490-a2c880256d7f/result.json",
+        "sha256": "F1F2AC8913992A1EAE5666923AC25E884DB0CA1E424C4BE74AB265498ACE833B"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T15-29-37.459Z-140fe649-d612-44d7-b490-a2c880256d7f/output.log",
+        "sha256": "3A2A89B2C1DD3DBBB3BB472562A5675F2731CE9B4F7F0FF63353436DB103F26F"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T15-32-53.603Z-9a54390c-d01f-40b4-b7fb-bd6a434d8b4c/result.json",
+        "sha256": "1A11617A56BF3BC27657C4BF89CAFCD8666AFCE745C9829E5133504A1E592EAC"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T15-32-53.603Z-9a54390c-d01f-40b4-b7fb-bd6a434d8b4c/output.log",
+        "sha256": "B7AAFE20FEBC38F3D77EB4ADDC0AE4714628A50283C220EC2C0BB553550F524F"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T15-42-35.802Z-9956eb2f-0a65-4415-9e58-12c8a1b4c66c/result.json",
+        "sha256": "2DB5B8C0789177327B30FA536D9BA94E498C0EC372FBC1ED7343F88B2DE01EDB"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T15-42-35.802Z-9956eb2f-0a65-4415-9e58-12c8a1b4c66c/output.log",
+        "sha256": "B46681A3DEC70BE48353773B3FF977C799FE77AABE889B1E0CA282DF022D1C41"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T15-44-19.009Z-2aa351df-e2b5-40ff-ba89-5d11af7d354e/result.json",
+        "sha256": "C5B02EF8106711FB25D8479661C0ABAB0248895F39AE8C409AF5E313FA9B99A6"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T15-44-19.009Z-2aa351df-e2b5-40ff-ba89-5d11af7d354e/output.log",
+        "sha256": "310F01201B9852BC9ED665D688EC5BD71A5A7F66B20901C3A61AE689D2917AB8"
+      }
+    ],
+    "protectedCount": 35,
+    "protectedContentUnchanged": true,
+    "buildId": "-ajHjpkLstBl1MG4XjH5a",
+    "recovery": "Regenerated by npm run build; completed build preserved",
+    "physicalFreeSpaceDeltaMeasured": false
+  },
+  "authority": {
+    "foregroundBrowserOpens": 0,
+    "newPaidAiCalls": 0,
+    "accountSaves": 0,
+    "pushes": 0,
+    "deployments": 0,
+    "protectedUserFiles": [
+      "client/scripts/check-observer-goals-match.mjs",
+      "server/index.js",
+      "server/.env.example"
+    ],
+    "unrelatedWork": "Not staged, edited or deleted."
+  },
+  "remaining": [
+    "Current-engine full check:eternal-hunger and broader varied-input natural baseline.",
+    "Growth completion timing; confirmed regroup success, not move/hold attempts; classified A-B-A movement and retreat reasons; ending causes.",
+    "Actual current foreground x1/x8/x32 and continuous memory behavior under appropriate authority.",
+    "Valid provider key configured by user, renewed paid-call authority, successful ER/custom drafts and approved save/reopen/live-use validation.",
+    "Real human follow-up evaluation and separately authorized public release.",
+    "Overall G1-G5 objective remains active and incomplete."
+  ]
+}

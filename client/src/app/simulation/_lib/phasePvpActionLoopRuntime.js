@@ -243,7 +243,7 @@ function* pvpActionSteps({
         const wildlifeCaused = !priorDeathReason || priorDeathReason === 'wildlife_hunt'
           || String(actor.lastDamagedBy || '') === String(encounter.target?._id || '');
         if (!wildlifeCaused) {
-          emitRunEvent('hunt_end', { who: String(actor._id || ''), encounterId: encounter.id, kind: encounter.kind,
+          emitRunEvent(successor ? 'hunt_participant_end' : 'hunt_end', { who: String(actor._id || ''), encounterId: encounter.id, kind: encounter.kind,
             zoneId: encounter.zoneId, wildlifeName: encounter.target?.name, outcome: 'interrupted_by_death',
             reason: actor._deathCauseName || actor.deathCauseName || priorDeathReason,
             damageDealt: actorDamageDealt, damageTaken: actorDamageTaken, continuedBy: successor?._id || null }, atNow());
@@ -258,11 +258,14 @@ function* pvpActionSteps({
         actor.hp = 0;
         addLog(`💀 [${actor.name}]이(가) ${encounter.target?.name || '야생동물'}의 공격으로 사망했습니다.`, 'death');
         emitDeathRunEventOnce(actor, { reason: 'wildlife_hunt', cause: '야생동물의 실제 공격', by: String(encounter.target?._id || '') });
-        emitRunEvent('hunt_settlement', { who: String(actor._id || ''), encounterId: encounter.id,
+        // Ownership may continue after this hunter dies. Keep its contribution
+        // receipt, but only a terminal encounter emits settlement/end events.
+        emitRunEvent(successor ? 'hunt_participant_settlement' : 'hunt_settlement', { who: String(actor._id || ''), encounterId: encounter.id,
           actionKey, zoneId: encounter.zoneId, kind: encounter.kind, defeated: false, died: true,
           hpBefore: startedHp, hpAfter: 0, damage: actorDamageTaken, damageDealt: actorDamageDealt,
-          credits: 0, receivedDrops: [], unreceivedDrops: [], posthumous: false, settlement: 'actual_encounter' }, atNow());
-        emitRunEvent('hunt_end', { who: String(actor._id || ''), encounterId: encounter.id, kind: encounter.kind,
+          credits: 0, receivedDrops: [], unreceivedDrops: [], posthumous: false,
+          settlement: successor ? 'participant_contribution' : 'actual_encounter' }, atNow());
+        emitRunEvent(successor ? 'hunt_participant_end' : 'hunt_end', { who: String(actor._id || ''), encounterId: encounter.id, kind: encounter.kind,
           zoneId: encounter.zoneId, wildlifeName: encounter.target?.name, outcome: 'hunter_defeated', damageDealt: actorDamageDealt,
           damageTaken: actorDamageTaken, continuedBy: successor?._id || null }, atNow());
         if (!newDeadIds.includes(String(actor._id))) newDeadIds.push(String(actor._id));
