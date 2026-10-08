@@ -18,7 +18,11 @@ Long Task의 기존 관문은 strict <200ms다. RAF p95·최대 간격·heap 증
 
 ## 요청된 전체 재경기
 
-측정 진행 중이다. 아래 부분 진단과 엔진 사전 확인은 전체 재경기 9회에 포함하지 않는다. 전체 실행 JSON과 판정 도구의 출력이 확보되기 전에는 완료나 합격을 표시하지 않는다.
+기준 원본이 게임 시각 1,257초에 2팀 3/3 생존으로 완주·보관됐다. [보관 UI](artifacts/post-merge-20261008/source-complete-ui.txt)와 [화면](artifacts/post-merge-20261008/source-complete.jpg)을 보존한다. 원본 ID `f0d5e466-58b0-4757-a15f-abef72e42a46`, 시드 `1791415353213`의 x1 첫 동일 재경기를 시작했고 실제 `day=0`, `matchSec=0`, `autoPlay=false`부터 계측했으며 100.7ms 안에 오토가 시작됐다. [시작 checkpoint](artifacts/post-merge-20261008/replay-x1-1-start.json)은 완주 표본이 아니다.
+
+측정 진행 중이다. 부분 진단·사전 확인·live/start checkpoint·수집 도구 오류를 전체 재경기 9회에 포함하지 않는다. 전체 실행 JSON과 판정 도구의 출력이 확보되기 전에는 완료나 합격을 표시하지 않는다. [실행 문맥](artifacts/post-merge-20261008/browser-execution-context.json)에 실제 원본과 환경 한계를 별도로 기록했다.
+
+이 브라우저의 foreground 탭 설정 API는 지원되지 않았다. 기존 문서의 계측된 가시성을 사용하며 창 focus나 실제 화면 presentation을 확인했다고 주장하지 않는다. 백그라운드 UI helper는 실행 문맥을 유지할 수 없어 중단됐으나 경기·계측은 유지됐고 실제 배속 변경·pause는 0이었다. 수집을 활성 도구 호출 안에서 회차별로 확인하는 방식으로 바꿨다. 40초 간격의 완료 확인은 결과 회수 절차이며, 자동 중지의 종료 시각을 40초 늘리지 않는다.
 
 ## 원본 경기 중간 진단
 

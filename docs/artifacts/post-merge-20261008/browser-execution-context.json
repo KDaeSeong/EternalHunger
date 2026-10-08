@@ -1,0 +1,33 @@
+{
+  "schema": "eh-browser-execution-context.v1",
+  "engineVersion": "30b286b86a44a0b31177b170f79383b421653dd150b97c3bdb31fe5a2710eee4",
+  "originalSource": {
+    "replayId": "f0d5e466-58b0-4757-a15f-abef72e42a46",
+    "seed": "1791415353213",
+    "participants": 24,
+    "teams": 8,
+    "endingMatchSec": 1257,
+    "winnerTeam": 2,
+    "survivingMembers": 3,
+    "stored": true,
+    "uiEvidence": "source-complete-ui.txt",
+    "screenshot": "source-complete.jpg"
+  },
+  "foregroundControl": {
+    "requested": "createBrowserTab visible=true before the first replay",
+    "result": "Capability is not available: visibility",
+    "newTabOpened": false,
+    "used": "existing original-match document",
+    "focusProven": false,
+    "scope": "recorded document visibility only; visible is not a guarantee of presentation or window focus"
+  },
+  "collection": {
+    "mode": "bounded foreground UI calls; complete result saved before restoration",
+    "pollIntervalMs": 40000,
+    "backgroundHelper": "unsupported execution context; helper error preserved separately, game/probe remained running with no speed changes or pauses",
+    "backgroundHelperEvidence": "collector-interruption.json",
+    "checkpointScope": "live/start/progress and tool errors are excluded from complete nine-run inputs",
+    "endScope": "probe automatically stops after replay comparison; poll interval does not extend cutoff time"
+  },
+  "acceptancePolicy": "measurement-policy.json; thresholds unchanged after measurement start"
+}
