@@ -5,18 +5,27 @@ const verdict = (status, reason, value = null) => ({ status, reason, value });
 
 // These are evidence gates, not a claim about painted FPS, INP, other machines
 // or absence of leaks. Only the repository's existing strict <200ms Long Task
-// gate has a default. Declare other quality budgets BEFORE collecting samples.
+// gate has a default. Declare other quality budgets and the maximum interval
+// between same-speed replays BEFORE collecting samples. Ordered files alone
+// cannot establish continuous sampling or a meaningful baseline comparison.
 export function analyzeObserverPerformanceRuns(runs, {
   expectedEngine, maxLongTaskMs = 200, maxRafP95Ms, maxRafGapMs, maxBaselineHeapGrowthBytes,
+  maxInterRunGapMs,
 } = {}) {
   const issues = [];
   if (!Array.isArray(runs)) runs = [];
   if (!/^[a-f0-9]{64}$/.test(expectedEngine ?? '')) issues.push('expected engine must be an explicit 64-character hash');
   if (runs.length !== 9) issues.push('require exactly nine runs: three consecutive replays at each of x1, x8 and x32');
+  if (!nonnegative(maxInterRunGapMs)) issues.push('predeclared finite nonnegative maximum inter-run gap missing');
   const rows = runs.map((run, index) => {
     const gaps = [];
     const context = run?.context, initial = context?.initial, final = context?.final;
     const speed = initial?.speed;
+    // Existing v3 exports use toFixed(3). New exports declare the formatter's
+    // resolution; explicit zero is reserved for exact, unrounded inputs.
+    const clockResolutionMs = run?.numericPrecision === undefined && run?.schema === 'eh-observer-performance.v3'
+      ? 0.001 : run?.numericPrecision?.roundedMillisecondsResolutionMs;
+    if (!nonnegative(clockResolutionMs)) gaps.push('exported millisecond precision missing or invalid');
     if (run?.schema !== 'eh-observer-performance.v3') gaps.push('v3 boundary and context evidence missing');
     if (!expectedEngine || run?.engineVersion !== expectedEngine
       || initial?.engineVersion !== expectedEngine || final?.engineVersion !== expectedEngine) gaps.push('engine mismatch or unidentified engine');
@@ -34,6 +43,7 @@ export function analyzeObserverPerformanceRuns(runs, {
       || initial.replayId !== final?.replayId || !initial?.seed || initial.seed !== final?.seed
       || context?.identityChanges !== 0) gaps.push('identical replay source/seed unproven');
     if (initial?.day !== 0 || initial?.matchSec !== 0 || initial?.autoPlay !== false || initial?.isGameOver !== false
+      || initial?.comparisonMatched !== null || initial?.comparedEvents !== null
       || final?.isGameOver !== true || !finite(final?.matchSec) || final.matchSec <= 0
       || final?.comparisonMatched !== true || !Number.isInteger(final?.comparedEvents) || final.comparedEvents <= 0) gaps.push('measurement must precede start and include a completed matching replay');
     if (context?.pauses !== 0 || !nonnegative(context?.activeStartOffsetMs) || context.activeStartOffsetMs > 5000
@@ -50,29 +60,32 @@ export function analyzeObserverPerformanceRuns(runs, {
     const validTasks = tasks?.supported === true && integer(tasks.count) && nonnegative(tasks.totalMs)
       && nonnegative(maxTask) && tasks.totalMs >= maxTask
       && (tasks.count === 0 ? tasks.totalMs === 0 : maxTask >= 50);
-    const longTasks = !validTasks || !finite(maxLongTaskMs) || maxLongTaskMs <= 0
+    const taskUpper = validTasks && nonnegative(clockResolutionMs) ? maxTask + (tasks.count === 0 ? 0 : clockResolutionMs / 2) : null;
+    const longTasks = !validTasks || taskUpper == null || !finite(maxLongTaskMs) || maxLongTaskMs <= 0
       ? verdict('unverified', 'Long Tasks support, metrics or budget missing')
-      : verdict(maxTask < maxLongTaskMs ? 'pass' : 'fail', 'strict maximum Long Task budget', maxTask);
+      : verdict(taskUpper < maxLongTaskMs ? 'pass' : 'fail', 'strict maximum Long Task upper rounding bound', maxTask);
     const raf = run?.raf;
     const validRaf = raf?.supported === true && Number.isInteger(raf.samples) && raf.samples > 0
       && raf.percentiles?.scope === 'entire_measurement' && nonnegative(raf.intervalMs?.max)
       && nonnegative(raf.boundaryGapsMs?.firstRafDelay) && nonnegative(raf.boundaryGapsMs?.trailingRafGap);
     const peakGap = validRaf ? Math.max(raf.intervalMs.max, raf.boundaryGapsMs.firstRafDelay, raf.boundaryGapsMs.trailingRafGap) : null;
-    const rafGap = !validRaf || !finite(maxRafGapMs) || maxRafGapMs <= 0
+    const gapUpper = validRaf && nonnegative(clockResolutionMs) ? peakGap + clockResolutionMs / 2 : null;
+    const rafGap = !validRaf || gapUpper == null || !finite(maxRafGapMs) || maxRafGapMs <= 0
       ? verdict('unverified', 'RAF samples, boundary gaps or predeclared gap budget missing', peakGap)
-      : verdict(peakGap <= maxRafGapMs ? 'pass' : 'fail', 'maximum including first/trailing RAF gaps', peakGap);
+      : verdict(gapUpper <= maxRafGapMs ? 'pass' : 'fail', 'maximum upper rounding bound including first/trailing RAF gaps', peakGap);
     // Rounded histogram values are estimates. Use their upper rounding bound;
     // null/overflow can never become zero or a healthy clamped percentile.
     const p95 = raf?.intervalMs?.p95, resolution = raf?.percentiles?.resolutionMs;
-    const rafP95 = !validRaf || !finite(maxRafP95Ms) || maxRafP95Ms <= 0
+    const rafP95 = !validRaf || !nonnegative(clockResolutionMs) || !finite(maxRafP95Ms) || maxRafP95Ms <= 0
       ? verdict('unverified', 'RAF samples or predeclared p95 budget missing', p95 ?? null)
       : !nonnegative(p95) || !finite(resolution) || resolution <= 0 || raf.percentiles.p95RangeMs != null
         ? verdict('unverified', 'p95 unavailable/overflow; preserve reported range', raf.percentiles?.p95RangeMs ?? null)
-        : verdict(p95 + resolution / 2 <= maxRafP95Ms ? 'pass' : 'fail', 'histogram p95 upper rounding bound', p95);
+        : verdict(p95 + resolution / 2 + clockResolutionMs / 2 <= maxRafP95Ms ? 'pass' : 'fail', 'histogram and export p95 upper rounding bound', p95);
     const heap = run?.heap;
     const validHeap = heap?.supported === true && nonnegative(heap.baselineUsedBytes) && nonnegative(heap.usedBytes)
       && finite(heap.deltaUsedBytes) && heap.usedBytes - heap.baselineUsedBytes === heap.deltaUsedBytes;
     return { index: index + 1, speed: speed ?? null, label: run?.label ?? null,
+      millisecondResolutionMs: nonnegative(clockResolutionMs) ? clockResolutionMs : null,
       validity: verdict(gaps.length ? 'unverified' : 'pass', gaps),
       longTasks, rafP95, rafGap,
       heap: verdict(validHeap ? 'measured' : 'unverified', 'performance.memory sample; GC-sensitive, not leak proof',
@@ -87,23 +100,46 @@ export function analyzeObserverPerformanceRuns(runs, {
   for (let index = 1; index < runs.length; index++) {
     const run = runs[index], previous = runs[index - 1];
     if (run?.timeOriginMs !== first?.timeOriginMs || JSON.stringify(run?.environment) !== JSON.stringify(first?.environment)) issues.push(`run ${index + 1}: document reload or environment changed`);
-    if (!finite(run?.startedAtMs) || !finite(previous?.endedAtMs) || run.startedAtMs < previous.endedAtMs) issues.push(`run ${index + 1}: chronological sequence overlaps or is unknown`);
+    const clockUncertainty = (rows[index].millisecondResolutionMs + rows[index - 1].millisecondResolutionMs) / 2;
+    if (!finite(run?.startedAtMs) || !finite(previous?.endedAtMs)
+      || rows[index].millisecondResolutionMs == null || rows[index - 1].millisecondResolutionMs == null
+      || run.startedAtMs - previous.endedAtMs - clockUncertainty < 0) issues.push(`run ${index + 1}: chronological sequence overlaps or is unknown within export rounding`);
     if (run?.context?.initial?.replayId !== first?.context?.initial?.replayId
       || run?.context?.initial?.seed !== first?.context?.initial?.seed) issues.push(`run ${index + 1}: different replay input identity`);
   }
   const groups = [1, 8, 32].map(speed => {
     const indices = rows.flatMap((row, index) => row.speed === speed ? [index] : []);
-    if (indices.length !== 3 || indices[2] - indices[0] !== 2) issues.push(`x${speed}: require three consecutive runs, without selecting the best samples`);
+    const consecutive = indices.length === 3 && indices[2] - indices[0] === 2;
+    if (!consecutive) issues.push(`x${speed}: require three consecutive runs, without selecting the best samples`);
+    const interRunGapsMs = indices.slice(1).map((index, position) => {
+      const start = runs[index]?.startedAtMs, end = runs[indices[position]]?.endedAtMs;
+      return finite(start) && finite(end) ? start - end : null;
+    });
+    const interRunGapRangesMs = indices.slice(1).map((index, position) => {
+      const currentResolution = rows[index].millisecondResolutionMs;
+      const previousResolution = rows[indices[position]].millisecondResolutionMs;
+      const gap = interRunGapsMs[position];
+      if (!finite(gap) || currentResolution == null || previousResolution == null) return null;
+      const uncertainty = (currentResolution + previousResolution) / 2;
+      return { lowerMs: gap - uncertainty, upperMs: gap + uncertainty };
+    });
+    const continuity = consecutive && nonnegative(maxInterRunGapMs)
+      && interRunGapRangesMs.every(range => range && nonnegative(range.lowerMs) && range.upperMs <= maxInterRunGapMs)
+      ? verdict('pass', 'same-speed replay intervals satisfy the predeclared continuity bound', interRunGapsMs)
+      : verdict('unverified', 'missing, overlapping or excessive same-speed replay intervals', interRunGapsMs);
+    if (consecutive && continuity.status !== 'pass') issues.push(`x${speed}: continuous sampling interval unproven or exceeds the predeclared bound`);
     const baselines = indices.map(index => rows[index].heap.value?.baselineBytes ?? null);
     const growth = baselines.length === 3 && baselines.every(nonnegative) ? Math.max(...baselines) - baselines[0] : null;
     const monotonicGrowth = baselines.length === 3 && baselines.every(nonnegative)
       && baselines[0] < baselines[1] && baselines[1] < baselines[2];
-    const memory = growth == null || !nonnegative(maxBaselineHeapGrowthBytes)
+    const memory = continuity.status !== 'pass'
+      ? verdict('unverified', 'continuous three-run baseline sampling unproven; retain observed growth', growth)
+      : growth == null || !nonnegative(maxBaselineHeapGrowthBytes)
       ? verdict('unverified', 'three supported baseline samples or predeclared heap growth budget missing', growth)
       : growth > maxBaselineHeapGrowthBytes ? verdict('fail', 'observed baseline growth exceeds budget; not a leak diagnosis', growth)
         : monotonicGrowth ? verdict('unverified', 'all three baselines grew; retain lifetime/GC investigation', growth)
           : verdict('pass', 'observed three-run baseline growth gate only; not absence of leaks', growth);
-    return { speed, runIndices: indices.map(index => index + 1), baselineBytes: baselines, memory };
+    return { speed, runIndices: indices.map(index => index + 1), continuity, interRunGapRangesMs, baselineBytes: baselines, memory };
   });
   const valid = !issues.length && rows.every(row => row.validity.status === 'pass');
   const gates = rows.flatMap(row => [row.longTasks, row.rafP95, row.rafGap]).concat(groups.map(group => group.memory));
@@ -112,6 +148,7 @@ export function analyzeObserverPerformanceRuns(runs, {
   return { schema: 'eh-observer-browser-verification.v1', status,
     scope: 'observed_nine_run_gates_not_painted_FPS_INP_or_absence_of_leaks',
     policy: { expectedEngine: expectedEngine ?? null, maxLongTaskMs, maxRafP95Ms: maxRafP95Ms ?? null,
-      maxRafGapMs: maxRafGapMs ?? null, maxBaselineHeapGrowthBytes: maxBaselineHeapGrowthBytes ?? null },
+      maxRafGapMs: maxRafGapMs ?? null, maxBaselineHeapGrowthBytes: maxBaselineHeapGrowthBytes ?? null,
+      maxInterRunGapMs: nonnegative(maxInterRunGapMs) ? maxInterRunGapMs : null },
     issues, runs: rows, groups };
 }

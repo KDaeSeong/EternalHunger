@@ -5,8 +5,10 @@ const FRAME_BIN_RESOLUTION_MS = 0.1;
 const FRAME_BIN_LIMIT_MS = 1000;
 const FRAME_BIN_COUNT = Math.round(FRAME_BIN_LIMIT_MS / FRAME_BIN_RESOLUTION_MS) + 1;
 const SLOW_FRAME_LIMIT = 8;
+const SLOW_TASK_LIMIT = 8;
 const SLOW_SCRIPT_LIMIT = 8;
 const ATTRIBUTION_TEXT_LIMIT = 512;
+const MILLISECOND_EXPORT_DECIMALS = 3;
 const finiteNumber = (value) => value != null && Number.isFinite(Number(value)) ? Number(value) : null;
 
 function framePercentile(frames, p) {
@@ -22,7 +24,7 @@ function framePercentile(frames, p) {
   return { value: null, range: [round(frames.overflowMin), round(frames.overflowMax)] };
 }
 
-function round(value) { return Number(value.toFixed(3)); }
+function round(value) { return Number(value.toFixed(MILLISECOND_EXPORT_DECIMALS)); }
 
 function heapSnapshot(memory) {
   if (!memory) return null;
@@ -50,6 +52,13 @@ function collectLongTasks(target, entries) {
     target.longTasks.count += 1;
     target.longTasks.totalMs += duration;
     target.longTasks.maxMs = Math.max(target.longTasks.maxMs ?? 0, duration);
+    const slowest = target.longTasks.slowest;
+    if (slowest.length === SLOW_TASK_LIMIT && duration <= slowest.at(-1).durationMs) continue;
+    // Retain the actual peak's clock without retaining PerformanceEntry,
+    // container identifiers, Window references or an unbounded task journal.
+    slowest.push({ startOffsetMs: startTime - target.startedAt, durationMs: duration });
+    slowest.sort((a, b) => b.durationMs - a.durationMs);
+    if (slowest.length > SLOW_TASK_LIMIT) slowest.pop();
   }
 }
 
@@ -74,14 +83,22 @@ function collectLongAnimationFrames(target, entries) {
     const workMs = hasRender ? render - start : duration;
     const renderMs = hasRender ? end - render : 0;
     const styleAndLayoutMs = hasLayout ? end - layout : 0;
-    const blockingMs = Math.max(0, finiteNumber(entry.blockingDuration) ?? 0);
+    const blocking = finiteNumber(entry.blockingDuration);
+    const blockingMs = blocking != null && blocking >= 0 ? blocking : null;
     frames.count += 1; frames.totalDurationMs += duration;
     frames.maxDurationMs = Math.max(frames.maxDurationMs ?? 0, duration);
     frames.maxWorkMs = Math.max(frames.maxWorkMs ?? 0, workMs);
     frames.maxRenderMs = Math.max(frames.maxRenderMs ?? 0, renderMs);
     frames.maxStyleAndLayoutMs = Math.max(frames.maxStyleAndLayoutMs ?? 0, styleAndLayoutMs);
-    frames.maxBlockingMs = Math.max(frames.maxBlockingMs ?? 0, blockingMs);
-    if (frames.slowest.length === SLOW_FRAME_LIMIT && duration <= frames.slowest.at(-1).durationMs) continue;
+    if (blockingMs != null) frames.maxBlockingMs = Math.max(frames.maxBlockingMs ?? 0, blockingMs);
+    const keepDuration = frames.slowest.length < SLOW_FRAME_LIMIT || duration > frames.slowest.at(-1).durationMs;
+    const lastBlocking = frames.mostBlocking.at(-1);
+    const keepBlocking = blockingMs != null && (frames.mostBlocking.length < SLOW_FRAME_LIMIT
+      || blockingMs > lastBlocking.blockingMs
+      || blockingMs === lastBlocking.blockingMs && duration > lastBlocking.durationMs);
+    // A shorter, heavily blocking frame must not disappear behind eight long
+    // frames with little blocking work (for example, a slow RAF cadence).
+    if (!keepDuration && !keepBlocking) continue;
     // Keep only bounded, owned scalar data. Never retain a PerformanceEntry or
     // its Window reference, and never sort an unbounded full-session array.
     const scripts = [];
@@ -98,10 +115,18 @@ function collectLongAnimationFrames(target, entries) {
       scripts.sort((a, b) => b.durationMs - a.durationMs);
       if (scripts.length > SLOW_SCRIPT_LIMIT) scripts.pop();
     }
-    frames.slowest.push({ startOffsetMs: start - target.startedAt, durationMs: duration,
-      workMs, renderMs, styleAndLayoutMs, blockingMs, scriptCount, scripts });
-    frames.slowest.sort((a, b) => b.durationMs - a.durationMs);
-    if (frames.slowest.length > SLOW_FRAME_LIMIT) frames.slowest.pop();
+    const row = { startOffsetMs: start - target.startedAt, durationMs: duration,
+      workMs, renderMs, styleAndLayoutMs, blockingMs, scriptCount, scripts };
+    if (keepDuration) {
+      frames.slowest.push(row);
+      frames.slowest.sort((a, b) => b.durationMs - a.durationMs);
+      if (frames.slowest.length > SLOW_FRAME_LIMIT) frames.slowest.pop();
+    }
+    if (keepBlocking) {
+      frames.mostBlocking.push(row);
+      frames.mostBlocking.sort((a, b) => b.blockingMs - a.blockingMs || b.durationMs - a.durationMs);
+      if (frames.mostBlocking.length > SLOW_FRAME_LIMIT) frames.mostBlocking.pop();
+    }
   }
 }
 
@@ -113,8 +138,10 @@ function animationFrameSnapshot(target) {
     ...rounded(frames), supported: Boolean(target.longAnimationFrameObserver),
     reason: target.longAnimationFrameObserver ? null : 'long-animation-frame unavailable',
     attribution: { selection: 'slowest_by_duration', frameLimit: SLOW_FRAME_LIMIT, scriptLimit: SLOW_SCRIPT_LIMIT,
+      mostBlockingSelection: 'largest_blocking_duration_then_duration',
       textLimit: ATTRIBUTION_TEXT_LIMIT, scope: 'browser_attributed_main_thread_entrypoints_not_full_call_stacks' },
     slowest: frames.slowest.map((row) => ({ ...rounded(row), scripts: row.scripts.map(rounded) })),
+    mostBlocking: frames.mostBlocking.map((row) => ({ ...rounded(row), scripts: row.scripts.map(rounded) })),
   };
 }
 
@@ -158,8 +185,10 @@ export function createObserverPerformanceProbe({
     const frames = target.frames;
     const median = framePercentile(frames, 0.5), p95 = framePercentile(frames, 0.95);
     const memory = target.stoppedAt == null ? heapSnapshot(performanceRef.memory) : target.finalHeap;
+    const draining = target.stoppedAt != null && state === target && Boolean(target.stopPromise);
     return {
       schema: 'eh-observer-performance.v3',
+      numericPrecision: { roundedMillisecondsResolutionMs: 10 ** -MILLISECOND_EXPORT_DECIMALS },
       label: target.label,
       startedAtMs: round(target.startedAt),
       endedAtMs: target.stoppedAt == null ? null : round(target.stoppedAt),
@@ -167,10 +196,10 @@ export function createObserverPerformanceProbe({
       environment: { ...target.environment },
       engineVersion: target.context?.initial?.engineVersion ?? null,
       context: target.context ? structuredClone(target.context) : null,
-      boundary: { status: target.stoppedAt == null ? 'recording' : target.boundarySettled ? 'settled' : 'incomplete',
+      boundary: { status: target.stoppedAt == null ? 'recording' : draining ? 'draining' : target.boundarySettled ? 'settled' : 'incomplete',
         stopReason: target.stopReason ?? null,
         entryScope: 'full_entries_intersecting_measurement_including_boundary_overlaps',
-        reason: target.boundarySettled ? null : target.boundaryReason ?? 'measurement still running' },
+        reason: target.boundarySettled ? null : draining ? 'awaiting post-stop frame and task' : target.boundaryReason ?? 'measurement still running' },
       elapsedMs: round(elapsedMs),
       raf: {
         supported: target.rafSupported,
@@ -188,6 +217,9 @@ export function createObserverPerformanceProbe({
         supported: Boolean(target.longTaskObserver), count: target.longTasks.count,
         totalMs: round(target.longTasks.totalMs), maxMs: target.longTasks.maxMs == null ? null : round(target.longTasks.maxMs),
         reason: target.longTaskObserver ? null : 'longtask not advertised or observation failed',
+        timing: { selection: 'slowest_by_duration', taskLimit: SLOW_TASK_LIMIT,
+          scope: 'full_intersecting_task_elapsed_time_not_cpu_or_script_attribution' },
+        slowest: target.longTasks.slowest.map((row) => ({ startOffsetMs: round(row.startOffsetMs), durationMs: round(row.durationMs) })),
       },
       longAnimationFrames: animationFrameSnapshot(target),
       workBreakdown: { scope: 'instrumented_synchronous_stages_including_nested_work_not_additive',
@@ -341,9 +373,9 @@ export function createObserverPerformanceProbe({
       // array or per-second full-session sorting. Maxima remain exact.
       frames: { bins: new Float64Array(FRAME_BIN_COUNT), count: 0, maxMs: 0,
         overflowCount: 0, overflowMin: Infinity, overflowMax: 0 },
-      longTasks: { count: 0, totalMs: 0, maxMs: null },
+      longTasks: { count: 0, totalMs: 0, maxMs: null, slowest: [] },
       longAnimationFrames: { count: 0, totalDurationMs: 0, maxDurationMs: null, maxWorkMs: null,
-        maxRenderMs: null, maxStyleAndLayoutMs: null, maxBlockingMs: null, slowest: [] },
+        maxRenderMs: null, maxStyleAndLayoutMs: null, maxBlockingMs: null, slowest: [], mostBlocking: [] },
       input: { samples: 0, lastMs: null, maxMs: null, pendingCount: 0, firstAt: Infinity, lastAt: 0, rafId: null },
       rafId: null,
       timerId: null,
