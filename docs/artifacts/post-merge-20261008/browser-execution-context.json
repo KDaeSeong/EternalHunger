@@ -27,7 +27,8 @@
     "backgroundHelper": "unsupported execution context; helper error preserved separately, game/probe remained running with no speed changes or pauses",
     "backgroundHelperEvidence": "collector-interruption.json",
     "checkpointScope": "live/start/progress and tool errors are excluded from complete nine-run inputs",
-    "endScope": "probe automatically stops after replay comparison; poll interval does not extend cutoff time"
+    "endScope": "probe automatically stops after replay comparison; poll interval does not extend cutoff time",
+    "pollIntervalScope": "40-second initial target; bounded waits may be 40-48 seconds and documentation publication or user handoff may delay retrieval; automatic cutoff is unchanged"
   },
   "acceptancePolicy": "measurement-policy.json; thresholds unchanged after measurement start"
 }
