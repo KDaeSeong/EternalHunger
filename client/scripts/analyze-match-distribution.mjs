@@ -1,65 +1,35 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { summarizeTeamRetreats } from './lib/match-distribution-diagnostics.mjs';
 
+// Load production-dependent diagnostics only after extensionless-module hooks.
+const { createMatchDistributionFrameTracker, summarizeMovement } = await import('./lib/match-distribution-frame-tracker.mjs');
 const { buildSimulationDiagnostics } = await import('../src/app/simulation/_lib/simulationDiagnostics.js');
 const { buildRunActionSummary } = await import('../src/app/simulation/_lib/runActionSummary.js');
 const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
+const { getRuleset, getPhaseDurationSec } = await import('../src/utils/rulesets.js');
+const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
 
-const requestedSeeds = process.argv.slice(2).map(String).filter(Boolean);
+const args = process.argv.slice(2);
+assert.ok(args.every((arg) => !arg.startsWith('--') || arg.startsWith('--rosters=') || /^--compare-observer(?:=.+)?$/.test(arg)),
+  'Only --rosters=<comma-separated initial roster seeds> and --compare-observer[=<match seed>] are supported.');
+const comparisonArgs = args.filter((arg) => arg.startsWith('--compare-observer'));
+assert.ok(comparisonArgs.length <= 1, 'Specify --compare-observer only once.');
+const comparisonSeed = comparisonArgs[0]?.split('=')[1] || null;
+const rosterArgs = args.filter((arg) => arg.startsWith('--rosters='));
+assert.ok(rosterArgs.length <= 1, 'Specify --rosters only once.');
+const initialRosterSeeds = rosterArgs.length ? rosterArgs[0].slice('--rosters='.length).split(',') : ['FIXTURE:initial-roster'];
+assert.ok(initialRosterSeeds.every((seed) => seed.trim()) && new Set(initialRosterSeeds).size === initialRosterSeeds.length,
+  'Initial roster seeds must be nonempty and unique.');
+const requestedSeeds = args.filter((arg) => !arg.startsWith('--')).map(String).filter(Boolean);
 const seeds = requestedSeeds.length ? requestedSeeds : ['1101', '1102', '1103'];
+assert.equal(new Set(seeds).size, seeds.length, 'Match seeds must be unique.');
+assert.ok(!comparisonSeed || seeds.includes(comparisonSeed), 'The comparison seed must be one of the requested matches.');
+const digest = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 function ratio(part, total) {
   return total > 0 ? Math.round(part / total * 1000) / 1000 : 0;
-}
-
-function summarizeMovement(initialActors, events) {
-  const paths = new Map((initialActors || []).map((actor) => [String(actor._id || ''), [String(actor.zoneId || '')]]));
-  const reversalsByReason = {};
-  const reversalsByActor = {};
-  const reversalPairs = {};
-  const reversalSamples = [];
-  const lastMoveByActor = new Map();
-  let reversals = 0;
-  let moves = 0;
-  for (const event of events) {
-    if (event?.kind !== 'move' || !event?.who || !event?.to) continue;
-    const id = String(event.who);
-    const path = paths.get(id) || [String(event.from || '')];
-    const previous = path[path.length - 1] || String(event.from || '');
-    const beforePrevious = path[path.length - 2] || '';
-    const next = String(event.to || '');
-    if (beforePrevious && next === beforePrevious && previous !== next) {
-      reversals += 1;
-      const reason = String(event?.reason || 'unknown');
-      const priorReason = String(lastMoveByActor.get(id)?.reason || 'unknown');
-      reversalsByReason[reason] = (reversalsByReason[reason] || 0) + 1;
-      reversalsByActor[id] = (reversalsByActor[id] || 0) + 1;
-      const pair = `${priorReason}->${reason}`;
-      reversalPairs[pair] = (reversalPairs[pair] || 0) + 1;
-      if (reversalSamples.length < 8) reversalSamples.push({
-        actorId: id,
-        atSec: Number(event?.at?.sec ?? event?.sec ?? 0),
-        from: String(event.from || previous),
-        to: next,
-        priorReason,
-        reason,
-      });
-    }
-    path.push(next);
-    paths.set(id, path);
-    lastMoveByActor.set(id, event);
-    moves += 1;
-  }
-  return {
-    moves,
-    reversals,
-    reversalShare: ratio(reversals, moves),
-    reversalsByReason,
-    reversalPairs,
-    reversalSamples,
-    topReversalActors: Object.entries(reversalsByActor).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5),
-  };
 }
 
 function summarizeHunts(events) {
@@ -126,10 +96,35 @@ function summarizeEquipment(equipment) {
 }
 
 const rows = [];
-for (const seed of seeds) {
-  const input = await createRandomIsolationInput(seed);
+const initialBuilds = new Map();
+let baselineCatalogDigest, baselineMapSettingsDigest;
+for (const initialRosterSeed of initialRosterSeeds) for (const seed of seeds) {
+  console.log(`MATCH_DISTRIBUTION_START ${JSON.stringify({ seed, initialRosterSeed, engineVersion: SIMULATION_ENGINE_VERSION })}`);
+  const input = await createRandomIsolationInput(seed, { initialRosterSeed });
   const initial = JSON.parse(input);
-  const match = await runRandomIsolationMatch(input, { phaseOnly: true });
+  const catalogDigest = digest(initial.items), mapSettingsDigest = digest({ map: initial.map, settings: initial.settings });
+  baselineCatalogDigest ??= catalogDigest; baselineMapSettingsDigest ??= mapSettingsDigest;
+  assert.equal(catalogDigest, baselineCatalogDigest, 'All input-axis cases keep the actual catalogue unchanged.');
+  assert.equal(mapSettingsDigest, baselineMapSettingsDigest, 'All input-axis cases keep the actual map/rules/settings unchanged.');
+  const initialBuildDigest = digest(initial.survivors);
+  if (initialBuilds.has(initialRosterSeed)) assert.equal(initialBuildDigest, initialBuilds.get(initialRosterSeed),
+    'Changing only the match RNG seed cannot change the initial actor build.');
+  initialBuilds.set(initialRosterSeed, initialBuildDigest);
+  const rules = getRuleset(initial.settings.rulesetId);
+  const tracker = createMatchDistributionFrameTracker({ initialActors: initial.survivors, items: initial.items,
+    firstDayDeadlineSec: getPhaseDurationSec(rules, 1, 'morning') + getPhaseDurationSec(rules, 1, 'night') });
+  const match = await runRandomIsolationMatch(input, { phaseOnly: true, onFrame: tracker.observe });
+  const observed = tracker.report();
+  const compareObserver = comparisonArgs.length > 0 && (!comparisonSeed || seed === comparisonSeed);
+  if (compareObserver) {
+    console.log(`MATCH_DISTRIBUTION_OBSERVED ${JSON.stringify({ seed, initialRosterSeed,
+      frames: match.evidence.frames, events: match.evidence.eventCount, eventDigest: match.evidence.eventDigest,
+      frameDigest: match.evidence.frameDigest })}`);
+    const plain = await runRandomIsolationMatch(input, { phaseOnly: true });
+    assert.deepEqual(plain.evidence, match.evidence, 'Measurement cannot change events, frames, ending or RNG.');
+    assert.deepEqual(plain.finalFrame, match.finalFrame, 'Measurement cannot change the final published state.');
+    assert.deepEqual(plain.events, match.events, 'Measurement cannot alter any real event.');
+  }
   const frame = match.finalFrame || {};
   const diagnostics = buildSimulationDiagnostics({
     runEvents: match.events,
@@ -140,10 +135,30 @@ for (const seed of seeds) {
   const actions = buildRunActionSummary(match.events);
   const row = {
     seed,
+    initialRosterSeed,
+    observerComparison: compareObserver ? 'pass' : 'not_requested',
+    engineVersion: SIMULATION_ENGINE_VERSION,
+    inputDigest: digest(initial),
+    catalogDigest,
+    mapSettingsDigest,
+    initialActorSetDigest: digest(initial.survivors.map((actor) => String(actor._id)).sort()),
+    initialBuildDigest,
+    formationDigest: digest(initial.survivors.map((actor) => [actor._id, actor.teamId, actor.teamSlot, actor.zoneId]).sort((a, b) => String(a[0]).localeCompare(String(b[0])))),
+    rulesetId: initial.settings.rulesetId,
+    initialAxisScope: 'Initial-roster-build seed may change selection, teams, weapons and route targets; not a positions-only controlled experiment.',
+    initialFormation: initial.survivors.map((actor) => ({ actorId: actor._id, teamId: actor.teamId,
+      teamSlot: actor.teamSlot, zoneId: actor.zoneId, weaponType: actor.weaponType,
+      routePlanTargetItemIds: actor.routePlanTargetItemIds, routePlanZoneIds: actor.routePlanZoneIds, heroGoals: actor.goalLoadouts?.hero || null })),
     phases: match.evidence.phases,
     endingAtSec: match.evidence.ending.atSec,
     outcome: match.evidence.ending.outcome,
     winnerTeamId: match.evidence.ending.winnerTeamId,
+    ending: match.evidence.ending,
+    endingCauseScope: 'The production ending.cause is its last recorded death cause, not the sole causal explanation of the winner.',
+    random: match.evidence.random,
+    eventDigest: match.evidence.eventDigest,
+    frameDigest: match.evidence.frameDigest,
+    frames: match.evidence.frames,
     events: match.events.length,
     participants: diagnostics.participants,
     deaths: diagnostics.deaths,
@@ -151,9 +166,11 @@ for (const seed of seeds) {
     legendaryReady: diagnostics.equipment.legendaryReadyCount,
     equipment: summarizeEquipment(diagnostics.equipment),
     growth: summarizeGrowth(match.events, diagnostics.participants.total),
+    growthTiming: observed.growth,
     actionMix: actions.growth,
     team: actions.team,
     teamRetreats: summarizeTeamRetreats(match.events),
+    regroupEpisodes: observed.regroup,
     teamCombat: actions.teamCombat,
     chase: diagnostics.chase,
     resources: actions.fieldResources,
@@ -167,6 +184,11 @@ for (const seed of seeds) {
 const total = (pick) => rows.reduce((sum, row) => sum + Number(pick(row) || 0), 0);
 const aggregate = {
   seeds,
+  initialRosterSeeds,
+  engineVersion: SIMULATION_ENGINE_VERSION,
+  uniqueInitialBuilds: new Set(rows.map((row) => row.initialBuildDigest)).size,
+  uniqueFormations: new Set(rows.map((row) => row.formationDigest)).size,
+  uniqueActorSets: new Set(rows.map((row) => row.initialActorSetDigest)).size,
   matches: rows.length,
   endingAtSec: {
     min: Math.min(...rows.map((row) => row.endingAtSec)),
@@ -184,10 +206,20 @@ const aggregate = {
     end: total((row) => row.deaths.byBand?.end),
   },
   growthCompleteShare: ratio(total((row) => row.growth.complete), total((row) => row.growth.total)),
+  observedGrowthCompleteShare: ratio(total((row) => row.growthTiming.complete), total((row) => row.growthTiming.total)),
+  beforeFirstNightEndShare: ratio(total((row) => row.growthTiming.beforeFirstNightEnd), total((row) => row.growthTiming.total)),
+  everFiveSlotHeroEquippedShare: ratio(total((row) => row.growthTiming.fiveSlotHeroEquipped), total((row) => row.growthTiming.total)),
   heroGearReadyShare: ratio(total((row) => row.heroGearReady), total((row) => row.participants.total)),
   teamCombatRounds: total((row) => row.teamCombat.rounds),
   regroupMoves: total((row) => row.team.regroupMoves),
   regroupHolds: total((row) => row.team.regroupHolds),
+  regroupEpisodes: total((row) => row.regroupEpisodes.started),
+  completedRegroupEpisodes: total((row) => row.regroupEpisodes.completed),
+  regroupCompletionShare: ratio(total((row) => row.regroupEpisodes.completed), total((row) => row.regroupEpisodes.started)),
+  regroupOutcomes: rows.reduce((counts, row) => {
+    for (const [outcome, count] of Object.entries(row.regroupEpisodes.outcomes)) counts[outcome] = (counts[outcome] || 0) + count;
+    return counts;
+  }, {}),
   retreats: total((row) => row.team.retreats),
   teamRetreatEvents: total((row) => row.teamRetreats.total),
   teamRetreatReversals: total((row) => row.teamRetreats.reversals),
@@ -196,5 +228,7 @@ const aggregate = {
   movementReversalShare: ratio(total((row) => row.movement.reversals), total((row) => row.movement.moves)),
   huntStarts: total((row) => row.hunts.starts),
   huntUnfinished: total((row) => row.hunts.unfinished),
+  lastDeathCauses: rows.reduce((counts, row) => { const cause = row.ending.cause || 'unknown'; counts[cause] = (counts[cause] || 0) + 1; return counts; }, {}),
+  scope: 'Current-source headless natural matches. Seed and initial-roster axes are explicit. Completion/contact metrics are not human, browser-speed or balance acceptance.',
 };
 console.log(`MATCH_DISTRIBUTION_AGGREGATE ${JSON.stringify(aggregate)}`);

@@ -1,0 +1,1673 @@
+{
+  "schemaVersion": 1,
+  "localDate": "2026-10-09",
+  "recordedAtUtc": "2026-10-08T22:57:30.3177746Z",
+  "scope": "Current-source natural-match measurement and standard-test integration; not balance, browser speed, human acceptance or whole-goal completion.",
+  "source": {
+    "engineVersion": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+    "headBeforeMeasurementCommit": "ee6f7f591d15c24b403dfeea57110ff774e7ea90",
+    "originMainAtVerifiedPull": "cbe27197878068bc8fa8791838099982bd89c3c0",
+    "pullOutcome": "Already up to date; 22 local commits ahead, 0 remote commits behind; local modifications preserved",
+    "runtimeRulesChanged": false,
+    "measurementSourceHashes": [
+      {
+        "path": "client/package.json",
+        "sha256": "5BC5CD648E16E8FC10A119E07584BED7CDF31F1D17FE0020E777B858C6912385",
+        "bytes": 25277
+      },
+      {
+        "path": "client/scripts/analyze-match-distribution.mjs",
+        "sha256": "151130FA096559E8832B127FC76A576D476CE9BF7D67C1F82045997E87992CDE",
+        "bytes": 14563
+      },
+      {
+        "path": "client/scripts/check-match-distribution-metrics.mjs",
+        "sha256": "9B60FFA7B9C0D7EBACE76F44928CBB031F6B57D360E23AA705C5ACD4581AE4D1",
+        "bytes": 15187
+      },
+      {
+        "path": "client/scripts/lib/match-distribution-frame-tracker.mjs",
+        "sha256": "EEAD7362CAC8E64F0FFF699932301CB88ACA9F08007391E6752A1A3CEAC8F015",
+        "bytes": 11369
+      },
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "sha256": "DB05AAC70A0BECADF0C95DC06D0F0E2925AD7FB4455D35A1C6E7A35057B6179D",
+        "bytes": 5928
+      }
+    ]
+  },
+  "definitions": {
+    "growthDenominator": "Every initial actor ID; no-goal/missing-goal actors remain in the conservative whole-input denominator. goalParticipants is reported separately.",
+    "growthComplete": "Initial target IDs and slot count must remain identical; production progress reports openingComplete and all target slots completed. The timestamp is the first published observed frame, not the exact craft-event instant.",
+    "firstNightComplete": "Observed initial-target completion strictly before day-1 morning plus night deadline (250 seconds for this unchanged rules input).",
+    "wornHero": "Ever observed five actual equipped tier>=4 items: current non-deleted equipment catalogue entries, matching slot, valid positive integer inventory quantity, compatible weapon. Target ownership alone is not five equipped items.",
+    "fullTeamRegroup": "Start only when >=2 current living members of the whole team are separated in one combat space and have a valid version-1 joining/waiting/arrived signal. Freeze those member IDs for the attempt; all must remain living, same team/space and contact one zone for completion.",
+    "regroupDenominator": "All started attempts, including member death, roster/space changes, cleared intent and unfinished attempts; partial pair contact is not full-team success. Recovery/threat/action holds do not create new attempts; stale revival intent cannot restart an old attempt.",
+    "movement": "Nonzero consecutive same-actor A-B-A move pairs. Break on mismatching from, death, revive or combat-space lifecycle events. These are observations, not automatically bugs.",
+    "teamRetreat": "Legacy consecutive explicit team-outnumbered move reversal counts are not bounded in elapsed time and do not by themselves prove an illegal immediate re-entry. The lifecycle-aware move pairs also contain 5 explicit reason pairs here.",
+    "ending": "Production ending.cause is the last recorded death cause, not a sole causal explanation of the winner.",
+    "initialAxes": "Three varied initial-roster-build seeds may change teams, weapons and route targets together. Catalogue/map/rules and actor IDs stay unchanged; this is not a positions-only or single-strategy causal comparison.",
+    "evidenceBoundary": "Past output logs are retained report evidence only; measurement unit checks generate fresh controlled inputs and do not use historic result files as expected fixtures."
+  },
+  "coverage": {
+    "measuredCases": 16,
+    "fixedCommand": {
+      "terminalResult": {
+        "result": {
+          "runId": "2026-10-08T16-21-57.320Z-ada7c4a9-4f49-4c5e-85cb-9979460af9d7",
+          "command": "npm run diagnose:match-distribution -- --compare-observer=4402 4401 4402 4403 4404 4405 4406 4407 4408 4409 4410",
+          "startedAt": "2026-10-08T16:21:57.331Z",
+          "pid": 1832,
+          "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+          "status": "passed",
+          "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+          "exitCode": 0,
+          "signal": null,
+          "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+          "sameEngine": true,
+          "finishedAt": "2026-10-08T16:39:02.46Z"
+        },
+        "resultPath": "client\\.verification-runs\\2026-10-08T16-21-57.320Z-ada7c4a9-4f49-4c5e-85cb-9979460af9d7\\result.json",
+        "outputLogSha256": "97BAC3AC606D5D58C30EA938C1B93C4322A66335DAA55D09B44B4FB28E68139F",
+        "outputLogBytes": 313156
+      },
+      "completedCases": 10
+    },
+    "interruptedVariedCommand": {
+      "originalResult": {
+        "result": {
+          "runId": "2026-10-08T16-39-08.293Z-157aa2ee-c5bd-4432-b1a9-842ad7268af9",
+          "command": "npm run diagnose:match-distribution -- --rosters=BASELINE:roster-A,BASELINE:roster-B,BASELINE:roster-C 5501 5502",
+          "startedAt": "2026-10-08T16:39:08.296Z",
+          "pid": 37400,
+          "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+          "status": "running",
+          "scope": "Named command only; not balance, fun or overall-goal acceptance."
+        },
+        "resultPath": "client\\.verification-runs\\2026-10-08T16-39-08.293Z-157aa2ee-c5bd-4432-b1a9-842ad7268af9\\result.json",
+        "outputLogSha256": "B271BB32F8DDE722FBFB808938CA4A7A8432C8E40C74A622EE3D39C0C9FA524B",
+        "outputLogBytes": 152817
+      },
+      "completedCases": 5,
+      "wholeCommandPassed": false,
+      "liveProcessInspection": {
+        "atUtc": "2026-10-08T22:53:11.8233023Z",
+        "projectNodes": [],
+        "regenerablePacks": []
+      },
+      "interpretation": "Stale status=running is preserved as interrupted evidence; process absence was verified. Completed row data is not a terminal pass for this command."
+    },
+    "missingVariedCase": {
+      "terminalResult": {
+        "result": {
+          "runId": "2026-10-08T22-41-50.590Z-5647acf7-c630-41a8-bdd1-f18dd72cd57e",
+          "command": "npm run diagnose:match-distribution -- --rosters=BASELINE:roster-C 5502",
+          "startedAt": "2026-10-08T22:41:50.598Z",
+          "pid": 42912,
+          "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+          "status": "passed",
+          "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+          "exitCode": 0,
+          "signal": null,
+          "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+          "sameEngine": true,
+          "finishedAt": "2026-10-08T22:43:32.756Z"
+        },
+        "resultPath": "client\\.verification-runs\\2026-10-08T22-41-50.590Z-5647acf7-c630-41a8-bdd1-f18dd72cd57e\\result.json",
+        "outputLogSha256": "19364D072EC5CDA07A438E6AE5B551A79D5E06D1DE84EFE6C43A0E02538905B2",
+        "outputLogBytes": 33580
+      },
+      "completedCases": 1
+    },
+    "variedInputs": {
+      "expected": [
+        "BASELINE:roster-A/5501",
+        "BASELINE:roster-A/5502",
+        "BASELINE:roster-B/5501",
+        "BASELINE:roster-B/5502",
+        "BASELINE:roster-C/5501",
+        "BASELINE:roster-C/5502"
+      ],
+      "observed": [
+        "BASELINE:roster-A/5501",
+        "BASELINE:roster-A/5502",
+        "BASELINE:roster-B/5501",
+        "BASELINE:roster-B/5502",
+        "BASELINE:roster-C/5501",
+        "BASELINE:roster-C/5502"
+      ],
+      "completeInputCombinationCoverage": true,
+      "wholeInterruptedCommandPass": false
+    },
+    "uniqueInitialBuilds": 4,
+    "uniqueFormations": 4,
+    "uniqueActorSets": 1,
+    "uniqueCatalogueDigests": 1,
+    "uniqueMapSettingsDigests": 1,
+    "participantScope": "Same 24 default guest actors observed across 16 inputs; 384 actor-match observations, not 384 distinct characters."
+  },
+  "summaries": {
+    "fixed": {
+      "cases": 10,
+      "participants": 240,
+      "firstNightComplete": 240,
+      "fiveSlotHeroEver": 240,
+      "regroupStarted": 253,
+      "regroupCompleted": 239,
+      "regroupOutcomes": {
+        "completed": 239,
+        "member_death": 13,
+        "roster_change": 1
+      },
+      "moves": 6923,
+      "reversals": 1401,
+      "rotationReversals": 570,
+      "legacyRetreatReversals": 4,
+      "lifecycleAwareRetreatReversals": 4,
+      "huntsStarted": 615,
+      "huntsUnfinished": 0,
+      "minEndingSec": 1109.333333,
+      "maxEndingSec": 1287.5,
+      "firstGrowthObservedMin": 21,
+      "firstGrowthObservedMax": 47,
+      "uniqueInitialBuilds": 1,
+      "uniqueFormations": 1,
+      "uniqueActorSets": 1
+    },
+    "varied": {
+      "cases": 6,
+      "participants": 144,
+      "firstNightComplete": 144,
+      "fiveSlotHeroEver": 144,
+      "regroupStarted": 143,
+      "regroupCompleted": 129,
+      "regroupOutcomes": {
+        "completed": 129,
+        "roster_change": 1,
+        "member_death": 12,
+        "unfinished": 1
+      },
+      "moves": 3751,
+      "reversals": 758,
+      "rotationReversals": 289,
+      "legacyRetreatReversals": 1,
+      "lifecycleAwareRetreatReversals": 1,
+      "huntsStarted": 392,
+      "huntsUnfinished": 0,
+      "minEndingSec": 863.333333,
+      "maxEndingSec": 1275.333333,
+      "firstGrowthObservedMin": 21,
+      "firstGrowthObservedMax": 57,
+      "uniqueInitialBuilds": 3,
+      "uniqueFormations": 3,
+      "uniqueActorSets": 1
+    },
+    "combined": {
+      "cases": 16,
+      "participants": 384,
+      "firstNightComplete": 384,
+      "fiveSlotHeroEver": 384,
+      "regroupStarted": 396,
+      "regroupCompleted": 368,
+      "regroupOutcomes": {
+        "completed": 368,
+        "member_death": 25,
+        "roster_change": 2,
+        "unfinished": 1
+      },
+      "moves": 10674,
+      "reversals": 2159,
+      "rotationReversals": 859,
+      "legacyRetreatReversals": 5,
+      "lifecycleAwareRetreatReversals": 5,
+      "huntsStarted": 1007,
+      "huntsUnfinished": 0,
+      "minEndingSec": 863.333333,
+      "maxEndingSec": 1287.5,
+      "firstGrowthObservedMin": 21,
+      "firstGrowthObservedMax": 57,
+      "uniqueInitialBuilds": 4,
+      "uniqueFormations": 4,
+      "uniqueActorSets": 1
+    }
+  },
+  "observerNoninterference": {
+    "case": {
+      "seed": "4402",
+      "eventCount": 12726,
+      "frameCount": 6606,
+      "eventDigest": "7e160318f69487de6945478ff4e12fea7236ed18957f7f7379fb67af26c567a1",
+      "frameDigest": "0e7e7c0a5325da3708bbe0a9a73e6cd76ebd0c027c0abea6a7eaff0887034b75",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 644435581,
+        "draws": 9619,
+        "ids": 0,
+        "nameHistory": []
+      }
+    },
+    "asserted": [
+      "Complete evidence object including event/frame digests, ending and RNG",
+      "Complete final published frame",
+      "Complete ordered event array"
+    ],
+    "extraPlainReplayCount": 1
+  },
+  "movementLead": {
+    "reasonPairTotals": [
+      {
+        "reasons": "team_rotate->team_rotate",
+        "count": 859
+      },
+      {
+        "reasons": "growth_farm->growth_farm",
+        "count": 170
+      },
+      {
+        "reasons": "growth_farm->team_regroup",
+        "count": 135
+      },
+      {
+        "reasons": "growth_farm->flee:team_outnumbered",
+        "count": 116
+      },
+      {
+        "reasons": "team_regroup->team_rotate",
+        "count": 105
+      },
+      {
+        "reasons": "flee:team_outnumbered->growth_farm",
+        "count": 80
+      },
+      {
+        "reasons": "team_rotate->escape",
+        "count": 41
+      },
+      {
+        "reasons": "team_rotate->team_regroup",
+        "count": 41
+      },
+      {
+        "reasons": "team_rotate->growth_farm",
+        "count": 39
+      },
+      {
+        "reasons": "growth_farm->escape",
+        "count": 37
+      },
+      {
+        "reasons": "team_regroup->growth_farm",
+        "count": 35
+      },
+      {
+        "reasons": "chase->team_regroup",
+        "count": 32
+      },
+      {
+        "reasons": "team_rotate->flee:team_outnumbered",
+        "count": 26
+      },
+      {
+        "reasons": "growth_farm->team_rotate",
+        "count": 23
+      },
+      {
+        "reasons": "flee:team_outnumbered->team_rotate",
+        "count": 21
+      },
+      {
+        "reasons": "growth_farm->tac_blink_escape",
+        "count": 18
+      }
+    ],
+    "nextAction": "Trace actual target/source/beneficiary/retreat/world changes around the observed reversals. Do not alter policy from reversal totals alone.",
+    "fullCountsRetainedIn": "Original MATCH_DISTRIBUTION_ROW logs with hashes above"
+  },
+  "cases": [
+    {
+      "seed": "4401",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "inputDigest": "09e41e3446c14c1d566172686d9871a7171a75e63ec232bd5ab7137bdb8e8644",
+      "initialBuildDigest": "394381f492439f5e524cfb8fe29617b16ebdfa0e426118d166409deca4e2440f",
+      "formationDigest": "1dbf54ea3d3be9ef091e8ceefcff50b2c5786a4dd806a91453fbf7546f6814b5",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 22,
+        "firstObservedCompletionMaxSec": 42,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 29,
+        "completed": 26,
+        "outcomes": {
+          "completed": 26,
+          "member_death": 3
+        },
+        "longestDurationSec": 147
+      },
+      "movement": {
+        "moves": 725,
+        "reversals": 149,
+        "share": 0.206,
+        "consecutiveTeamRotateReversals": 82,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 34,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 70,
+        "ends": 70,
+        "settlements": 66,
+        "outcomes": {
+          "victory": 66,
+          "retreat": 4
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 12,
+      "endingAtSec": 1216.416666,
+      "outcome": "last_team",
+      "winnerTeamId": "team:7",
+      "lastDeathCause": "combat",
+      "eventCount": 14058,
+      "frameCount": 6293,
+      "eventDigest": "6ccee6463b8d0d5be42c6ab7cd7c189af36ccb92fb2a022ff765d236c8f1c9b1",
+      "frameDigest": "a875747cd289554af2147a061c91bef1cd215d92b463b57db416c3576aa28f62",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 720074947,
+        "draws": 11624,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "4402",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "inputDigest": "a035d75c4c251e27cd8c9f52066779594f03097ec798642bff77cbf8446bdf3d",
+      "initialBuildDigest": "394381f492439f5e524cfb8fe29617b16ebdfa0e426118d166409deca4e2440f",
+      "formationDigest": "1dbf54ea3d3be9ef091e8ceefcff50b2c5786a4dd806a91453fbf7546f6814b5",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 22,
+        "firstObservedCompletionMaxSec": 41,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 25,
+        "completed": 25,
+        "outcomes": {
+          "completed": 25
+        },
+        "longestDurationSec": 69
+      },
+      "movement": {
+        "moves": 719,
+        "reversals": 118,
+        "share": 0.164,
+        "consecutiveTeamRotateReversals": 56,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 35,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 45,
+        "ends": 45,
+        "settlements": 43,
+        "outcomes": {
+          "victory": 43,
+          "retreat": 2
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 13,
+      "endingAtSec": 1287.5,
+      "outcome": "last_team",
+      "winnerTeamId": "team:5",
+      "lastDeathCause": "combat",
+      "eventCount": 12726,
+      "frameCount": 6606,
+      "eventDigest": "7e160318f69487de6945478ff4e12fea7236ed18957f7f7379fb67af26c567a1",
+      "frameDigest": "0e7e7c0a5325da3708bbe0a9a73e6cd76ebd0c027c0abea6a7eaff0887034b75",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 644435581,
+        "draws": 9619,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "4403",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "inputDigest": "4f95b62bf38100bb9af5b5caa47cb2cda18c613c532b23d5d8be38721c0d938d",
+      "initialBuildDigest": "394381f492439f5e524cfb8fe29617b16ebdfa0e426118d166409deca4e2440f",
+      "formationDigest": "1dbf54ea3d3be9ef091e8ceefcff50b2c5786a4dd806a91453fbf7546f6814b5",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 22,
+        "firstObservedCompletionMaxSec": 39,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 29,
+        "completed": 26,
+        "outcomes": {
+          "completed": 26,
+          "member_death": 2,
+          "roster_change": 1
+        },
+        "longestDurationSec": 123
+      },
+      "movement": {
+        "moves": 600,
+        "reversals": 83,
+        "share": 0.138,
+        "consecutiveTeamRotateReversals": 26,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 35,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 50,
+        "ends": 50,
+        "settlements": 46,
+        "outcomes": {
+          "victory": 46,
+          "retreat": 4
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 12,
+      "endingAtSec": 1189.416666,
+      "outcome": "last_team",
+      "winnerTeamId": "team:2",
+      "lastDeathCause": "combat",
+      "eventCount": 12492,
+      "frameCount": 6123,
+      "eventDigest": "f680ba2f503d9ba704c53c4d7e45ef5f1f95b716c7fd1f842af33852ef97dbff",
+      "frameDigest": "ab56513b95d2cb06b88f13cc60a0e675d2056c039e396be9af502e78914267b2",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 1729730152,
+        "draws": 9099,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "4404",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "inputDigest": "551567ae55ea21c07b130fd308c9f4eecb30bab0c3cafa64946a448bceb69d7d",
+      "initialBuildDigest": "394381f492439f5e524cfb8fe29617b16ebdfa0e426118d166409deca4e2440f",
+      "formationDigest": "1dbf54ea3d3be9ef091e8ceefcff50b2c5786a4dd806a91453fbf7546f6814b5",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 21,
+        "firstObservedCompletionMaxSec": 42,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 27,
+        "completed": 25,
+        "outcomes": {
+          "completed": 25,
+          "member_death": 2
+        },
+        "longestDurationSec": 173
+      },
+      "movement": {
+        "moves": 750,
+        "reversals": 156,
+        "share": 0.208,
+        "consecutiveTeamRotateReversals": 80,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 54,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 68,
+        "ends": 68,
+        "settlements": 65,
+        "outcomes": {
+          "victory": 65,
+          "retreat": 3
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 12,
+      "endingAtSec": 1208.833333,
+      "outcome": "last_team",
+      "winnerTeamId": "team:8",
+      "lastDeathCause": "combat",
+      "eventCount": 16741,
+      "frameCount": 6299,
+      "eventDigest": "21414ed7c36911fba7317ac3822b10da270b702e07e24960f76b0f39ebea9665",
+      "frameDigest": "b93ec50e232c9963777271c68963b29af82175562b829da92c9078b9ec4f31a0",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 82465889,
+        "draws": 20633,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "4405",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "inputDigest": "6f310731fb46f950ff5c0cd78a246d1f2d42679a34c816f5c74197a380c98699",
+      "initialBuildDigest": "394381f492439f5e524cfb8fe29617b16ebdfa0e426118d166409deca4e2440f",
+      "formationDigest": "1dbf54ea3d3be9ef091e8ceefcff50b2c5786a4dd806a91453fbf7546f6814b5",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 23,
+        "firstObservedCompletionMaxSec": 45,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 26,
+        "completed": 25,
+        "outcomes": {
+          "completed": 25,
+          "member_death": 1
+        },
+        "longestDurationSec": 155
+      },
+      "movement": {
+        "moves": 636,
+        "reversals": 133,
+        "share": 0.209,
+        "consecutiveTeamRotateReversals": 47,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": 1
+      },
+      "legacyTeamRetreat": {
+        "events": 27,
+        "reversals": 1,
+        "reversalSamples": [
+          {
+            "actorId": "guest-survivor-14",
+            "previousAtSec": 605,
+            "atSec": 645,
+            "from": "apartment",
+            "to": "beach",
+            "previousReason": "team_outnumbered",
+            "reason": "team_outnumbered"
+          }
+        ]
+      },
+      "hunts": {
+        "starts": 53,
+        "ends": 53,
+        "settlements": 51,
+        "outcomes": {
+          "victory": 51,
+          "retreat": 2
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 13,
+      "endingAtSec": 1277,
+      "outcome": "last_team",
+      "winnerTeamId": "team:5",
+      "lastDeathCause": "combat",
+      "eventCount": 13477,
+      "frameCount": 6531,
+      "eventDigest": "63edd9476793125cf5c3ce681c49630cb1cdac49acc8a51da938fdfd0b1a9778",
+      "frameDigest": "ce74ee5e1f83d558dc9ca7a544f9810c24b67ebed1837ca4ee92acacbaec4801",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 984169223,
+        "draws": 9856,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "4406",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "inputDigest": "52b9c55b4e93297e2f66ea87b3b6b4b3ed7739db31e03113e8c3f802cba6e694",
+      "initialBuildDigest": "394381f492439f5e524cfb8fe29617b16ebdfa0e426118d166409deca4e2440f",
+      "formationDigest": "1dbf54ea3d3be9ef091e8ceefcff50b2c5786a4dd806a91453fbf7546f6814b5",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 24,
+        "firstObservedCompletionMaxSec": 44,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 24,
+        "completed": 24,
+        "outcomes": {
+          "completed": 24
+        },
+        "longestDurationSec": 140
+      },
+      "movement": {
+        "moves": 695,
+        "reversals": 150,
+        "share": 0.216,
+        "consecutiveTeamRotateReversals": 67,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 38,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 54,
+        "ends": 54,
+        "settlements": 49,
+        "outcomes": {
+          "victory": 49,
+          "retreat": 5
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 12,
+      "endingAtSec": 1217.083333,
+      "outcome": "last_team",
+      "winnerTeamId": "team:8",
+      "lastDeathCause": "combat",
+      "eventCount": 14393,
+      "frameCount": 6306,
+      "eventDigest": "07f5fcc258dbba5ee072910c0f314596bfd81661e7b83e4c9b4d5990738703e2",
+      "frameDigest": "399204f1bef990a531825d41e1a9864fb5397f8e90e524507928c1e41c91a459",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2185524385,
+        "draws": 9995,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "4407",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "inputDigest": "9b68050517cf8708b3a92289b844fd7d169f3ab2b8ac9e1e2ae05f4a0b73f74e",
+      "initialBuildDigest": "394381f492439f5e524cfb8fe29617b16ebdfa0e426118d166409deca4e2440f",
+      "formationDigest": "1dbf54ea3d3be9ef091e8ceefcff50b2c5786a4dd806a91453fbf7546f6814b5",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 23,
+        "firstObservedCompletionMaxSec": 47,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 25,
+        "completed": 23,
+        "outcomes": {
+          "completed": 23,
+          "member_death": 2
+        },
+        "longestDurationSec": 40
+      },
+      "movement": {
+        "moves": 689,
+        "reversals": 149,
+        "share": 0.216,
+        "consecutiveTeamRotateReversals": 65,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": 2
+      },
+      "legacyTeamRetreat": {
+        "events": 44,
+        "reversals": 2,
+        "reversalSamples": [
+          {
+            "actorId": "guest-survivor-03",
+            "previousAtSec": 993,
+            "atSec": 996,
+            "from": "apartment",
+            "to": "beach",
+            "previousReason": "team_outnumbered",
+            "reason": "team_outnumbered"
+          },
+          {
+            "actorId": "guest-survivor-03",
+            "previousAtSec": 996,
+            "atSec": 1017,
+            "from": "beach",
+            "to": "apartment",
+            "previousReason": "team_outnumbered",
+            "reason": "team_outnumbered"
+          }
+        ]
+      },
+      "hunts": {
+        "starts": 74,
+        "ends": 74,
+        "settlements": 72,
+        "outcomes": {
+          "victory": 72,
+          "retreat": 2
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 11,
+      "endingAtSec": 1146,
+      "outcome": "last_team",
+      "winnerTeamId": "team:5",
+      "lastDeathCause": "combat",
+      "eventCount": 14963,
+      "frameCount": 5982,
+      "eventDigest": "e05b6c85b3b0772dd7e3287539dd39c2041290a51762f2c6bb90b599d23698c2",
+      "frameDigest": "6be26135801907352ddeb9afd04c222cc389a7744cd6a234c1a922c3a75016c2",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 1103738504,
+        "draws": 19855,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "4408",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "inputDigest": "b346617a45ee395ee5355541196d2d230d98a3fa54916c444004518262ab83fe",
+      "initialBuildDigest": "394381f492439f5e524cfb8fe29617b16ebdfa0e426118d166409deca4e2440f",
+      "formationDigest": "1dbf54ea3d3be9ef091e8ceefcff50b2c5786a4dd806a91453fbf7546f6814b5",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 23,
+        "firstObservedCompletionMaxSec": 38,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 22,
+        "completed": 22,
+        "outcomes": {
+          "completed": 22
+        },
+        "longestDurationSec": 120
+      },
+      "movement": {
+        "moves": 640,
+        "reversals": 106,
+        "share": 0.166,
+        "consecutiveTeamRotateReversals": 36,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 34,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 44,
+        "ends": 44,
+        "settlements": 40,
+        "outcomes": {
+          "victory": 40,
+          "retreat": 4
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 10,
+      "endingAtSec": 1109.333333,
+      "outcome": "last_team",
+      "winnerTeamId": "team:8",
+      "lastDeathCause": "combat",
+      "eventCount": 12779,
+      "frameCount": 5728,
+      "eventDigest": "d2976c98ca9dc095efa1cf870663ef66af61edf3e677a94bfeb25aa46e617563",
+      "frameDigest": "d5e33d6d08dc51a09dbae71831eae37a2c7386d5dc1abad53fb3913e9b322445",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2504294298,
+        "draws": 8994,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "4409",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "inputDigest": "af261f615cce09ed8b0c5a942d8b526701881139ed3fe8194e9bbcf9ed01b499",
+      "initialBuildDigest": "394381f492439f5e524cfb8fe29617b16ebdfa0e426118d166409deca4e2440f",
+      "formationDigest": "1dbf54ea3d3be9ef091e8ceefcff50b2c5786a4dd806a91453fbf7546f6814b5",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 23,
+        "firstObservedCompletionMaxSec": 40,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 19,
+        "completed": 16,
+        "outcomes": {
+          "completed": 16,
+          "member_death": 3
+        },
+        "longestDurationSec": 120
+      },
+      "movement": {
+        "moves": 662,
+        "reversals": 108,
+        "share": 0.163,
+        "consecutiveTeamRotateReversals": 30,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 38,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 57,
+        "ends": 57,
+        "settlements": 52,
+        "outcomes": {
+          "victory": 51,
+          "retreat": 5,
+          "hunter_defeated": 1
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 13,
+      "endingAtSec": 1237.5,
+      "outcome": "last_team",
+      "winnerTeamId": "team:7",
+      "lastDeathCause": "combat",
+      "eventCount": 13438,
+      "frameCount": 6379,
+      "eventDigest": "7dd95999038153810fa3927e2090575633d3cfdf37790db67f35c93c3f4a249d",
+      "frameDigest": "88fcc1f6fd565b120d83cd9a89ead9854a37308f0eef3a76f02f82f39f2cb3e8",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 741625498,
+        "draws": 9659,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "4410",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "inputDigest": "094820c9815dcedcd072dc483469aee6492c850c57e55f5d604481afdd90ff79",
+      "initialBuildDigest": "394381f492439f5e524cfb8fe29617b16ebdfa0e426118d166409deca4e2440f",
+      "formationDigest": "1dbf54ea3d3be9ef091e8ceefcff50b2c5786a4dd806a91453fbf7546f6814b5",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 22,
+        "firstObservedCompletionMaxSec": 42,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 27,
+        "completed": 27,
+        "outcomes": {
+          "completed": 27
+        },
+        "longestDurationSec": 140
+      },
+      "movement": {
+        "moves": 807,
+        "reversals": 249,
+        "share": 0.309,
+        "consecutiveTeamRotateReversals": 81,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": 1
+      },
+      "legacyTeamRetreat": {
+        "events": 55,
+        "reversals": 1,
+        "reversalSamples": [
+          {
+            "actorId": "guest-survivor-24",
+            "previousAtSec": 1160,
+            "atSec": 1181,
+            "from": "beach",
+            "to": "apartment",
+            "previousReason": "team_outnumbered",
+            "reason": "team_outnumbered"
+          }
+        ]
+      },
+      "hunts": {
+        "starts": 100,
+        "ends": 100,
+        "settlements": 92,
+        "outcomes": {
+          "victory": 92,
+          "retreat": 8
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 13,
+      "endingAtSec": 1271,
+      "outcome": "last_team",
+      "winnerTeamId": "team:5",
+      "lastDeathCause": "combat",
+      "eventCount": 15104,
+      "frameCount": 6587,
+      "eventDigest": "b8af3d0d05c8ddc7f0599464c8cbfb9aac43fe4004b165782c827d7874bb02db",
+      "frameDigest": "9272aae1733053bfb48ddec74eb4bfffab641b6c93a4b84563455bac10967a41",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 3572065005,
+        "draws": 11724,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "5501",
+      "initialRosterSeed": "BASELINE:roster-A",
+      "inputDigest": "c39623e287074cb53f80aa694fe704a786bfdea4d2d05aa11ee408752ab50e35",
+      "initialBuildDigest": "aa0b4a9a5c812377f4a0920f9b9fc88d6635221b2f8540bd50d9b87741bb4110",
+      "formationDigest": "75632b50c04caaf5a1dfcf34cace346adb9a85016f2bd52553366ef1565fc27e",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 23,
+        "firstObservedCompletionMaxSec": 41,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 34,
+        "completed": 32,
+        "outcomes": {
+          "completed": 32,
+          "roster_change": 1,
+          "member_death": 1
+        },
+        "longestDurationSec": 180
+      },
+      "movement": {
+        "moves": 731,
+        "reversals": 155,
+        "share": 0.212,
+        "consecutiveTeamRotateReversals": 43,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": 1
+      },
+      "legacyTeamRetreat": {
+        "events": 45,
+        "reversals": 1,
+        "reversalSamples": [
+          {
+            "actorId": "guest-survivor-05",
+            "previousAtSec": 176,
+            "atSec": 236,
+            "from": "apartment",
+            "to": "factory",
+            "previousReason": "team_outnumbered",
+            "reason": "team_outnumbered"
+          }
+        ]
+      },
+      "hunts": {
+        "starts": 78,
+        "ends": 78,
+        "settlements": 71,
+        "outcomes": {
+          "victory": 71,
+          "retreat": 7
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 13,
+      "endingAtSec": 1275.333333,
+      "outcome": "last_team",
+      "winnerTeamId": "team:4",
+      "lastDeathCause": "combat",
+      "eventCount": 15257,
+      "frameCount": 6656,
+      "eventDigest": "5e4c9d38cd5c109ea4003259839ad52ed2f139d6115ba1c78bca3b7c4355427b",
+      "frameDigest": "39016391c771c45e37141a412017a0f7e52e15c0543d28b10dc0f99889a24b94",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 3241813555,
+        "draws": 10538,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "5502",
+      "initialRosterSeed": "BASELINE:roster-A",
+      "inputDigest": "6f61f8211b684fb17e77b73739d6332b97878783e42b75066b5f5f4997fd64d2",
+      "initialBuildDigest": "aa0b4a9a5c812377f4a0920f9b9fc88d6635221b2f8540bd50d9b87741bb4110",
+      "formationDigest": "75632b50c04caaf5a1dfcf34cace346adb9a85016f2bd52553366ef1565fc27e",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 22,
+        "firstObservedCompletionMaxSec": 38,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 23,
+        "completed": 22,
+        "outcomes": {
+          "completed": 22,
+          "unfinished": 1
+        },
+        "longestDurationSec": 140
+      },
+      "movement": {
+        "moves": 592,
+        "reversals": 117,
+        "share": 0.198,
+        "consecutiveTeamRotateReversals": 43,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 28,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 61,
+        "ends": 61,
+        "settlements": 60,
+        "outcomes": {
+          "victory": 60,
+          "retreat": 1
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 12,
+      "endingAtSec": 1198.333333,
+      "outcome": "last_team",
+      "winnerTeamId": "team:5",
+      "lastDeathCause": "combat",
+      "eventCount": 12989,
+      "frameCount": 6165,
+      "eventDigest": "9b9a04ac985f91714b9f33d0efd062d2deb5553570cd9be9bfed9eff27152938",
+      "frameDigest": "c334b99f65f944e44fa4d3c2e30473b1327c9ecbf1272c22d9d08c3a08a80b3e",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 1025971006,
+        "draws": 9566,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "5501",
+      "initialRosterSeed": "BASELINE:roster-B",
+      "inputDigest": "1ad23a0761eff31eea4373444c4f01abc21ecd505c987a2c453a36f352f54c41",
+      "initialBuildDigest": "39fb2235812b85e98632a3065acf73630afe468f86eed3ae01527add8d8d124d",
+      "formationDigest": "419fa55b1270c24f8e1a937f889e68af807a4b8c36dfbfd5951527fdc3699b7f",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 24,
+        "firstObservedCompletionMaxSec": 42,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 24,
+        "completed": 22,
+        "outcomes": {
+          "completed": 22,
+          "member_death": 2
+        },
+        "longestDurationSec": 136
+      },
+      "movement": {
+        "moves": 649,
+        "reversals": 148,
+        "share": 0.228,
+        "consecutiveTeamRotateReversals": 72,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 35,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 67,
+        "ends": 67,
+        "settlements": 63,
+        "outcomes": {
+          "victory": 63,
+          "retreat": 4
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 12,
+      "endingAtSec": 1228.833333,
+      "outcome": "last_team",
+      "winnerTeamId": "team:6",
+      "lastDeathCause": "combat",
+      "eventCount": 12941,
+      "frameCount": 6351,
+      "eventDigest": "22f56d1594ee277c239026553bc550513438e406b76a84012eae1559fefc6d03",
+      "frameDigest": "eb7550ba560fb98edbd87af4e0d87aee036a49d678dcc73c0ffc487b207ac2ad",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2885140776,
+        "draws": 9771,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "5502",
+      "initialRosterSeed": "BASELINE:roster-B",
+      "inputDigest": "d1380f6c0af28926f50c5d0e9dfbea0ef4cabab2e6eb3f83f3e68c5b7dbfbb10",
+      "initialBuildDigest": "39fb2235812b85e98632a3065acf73630afe468f86eed3ae01527add8d8d124d",
+      "formationDigest": "419fa55b1270c24f8e1a937f889e68af807a4b8c36dfbfd5951527fdc3699b7f",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 22,
+        "firstObservedCompletionMaxSec": 41,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 17,
+        "completed": 15,
+        "outcomes": {
+          "completed": 15,
+          "member_death": 2
+        },
+        "longestDurationSec": 142
+      },
+      "movement": {
+        "moves": 525,
+        "reversals": 107,
+        "share": 0.204,
+        "consecutiveTeamRotateReversals": 52,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 27,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 46,
+        "ends": 46,
+        "settlements": 46,
+        "outcomes": {
+          "victory": 46
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 12,
+      "endingAtSec": 1186.583333,
+      "outcome": "last_team",
+      "winnerTeamId": "team:1",
+      "lastDeathCause": "combat",
+      "eventCount": 11881,
+      "frameCount": 6121,
+      "eventDigest": "264212127c0b74d4774437aaf48acc76b50aa9d9c3f61faadbd612ef67c69448",
+      "frameDigest": "8fb50aab177018d2d270d5471d82fee1ab0b2c5fc2de7e31ee130801c3d7b0c9",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 1334769894,
+        "draws": 9062,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "5501",
+      "initialRosterSeed": "BASELINE:roster-C",
+      "inputDigest": "00bc890aead944f1a55607fcb8cc69f808f901e7fc6efd745fd6a40f1d3b1237",
+      "initialBuildDigest": "d8f994ff89067059d6ad4c3764920d0c6a9e8a1210a2ffd4fa1d42f3d92210d9",
+      "formationDigest": "9bf0643ff732a96ab0fab8487375b725d25299c05adb6cad1d213b74c79e301c",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 21,
+        "firstObservedCompletionMaxSec": 43,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 17,
+        "completed": 15,
+        "outcomes": {
+          "completed": 15,
+          "member_death": 2
+        },
+        "longestDurationSec": 134
+      },
+      "movement": {
+        "moves": 596,
+        "reversals": 117,
+        "share": 0.196,
+        "consecutiveTeamRotateReversals": 60,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 22,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 61,
+        "ends": 61,
+        "settlements": 61,
+        "outcomes": {
+          "victory": 61
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 12,
+      "endingAtSec": 1198.333333,
+      "outcome": "last_team",
+      "winnerTeamId": "team:5",
+      "lastDeathCause": "combat",
+      "eventCount": 13617,
+      "frameCount": 6183,
+      "eventDigest": "eddaad7caab62ed6587b7595e9dc9ce17ab27cb6afc583d2d2d4fdadea6c699d",
+      "frameDigest": "0ac284c3e5dd56bcb2feb95a28b92272b68b465ecbafb05043572d9fed0a35a2",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 1133842118,
+        "draws": 17553,
+        "ids": 0
+      }
+    },
+    {
+      "seed": "5502",
+      "initialRosterSeed": "BASELINE:roster-C",
+      "inputDigest": "a9b9e2fa00e42bce84b8ee668611984c21e40403ab486db09372d7790b59da80",
+      "initialBuildDigest": "d8f994ff89067059d6ad4c3764920d0c6a9e8a1210a2ffd4fa1d42f3d92210d9",
+      "formationDigest": "9bf0643ff732a96ab0fab8487375b725d25299c05adb6cad1d213b74c79e301c",
+      "growth": {
+        "initialParticipants": 24,
+        "goalParticipants": 24,
+        "complete": 24,
+        "beforeFirstNightEnd": 24,
+        "deadlineSec": 250,
+        "firstObservedCompletionMinSec": 23,
+        "firstObservedCompletionMaxSec": 57,
+        "everFiveSlotHeroEquipped": 24,
+        "diedBeforeCompletion": 0,
+        "goalIdentityChanged": 0
+      },
+      "regroup": {
+        "started": 28,
+        "completed": 23,
+        "outcomes": {
+          "completed": 23,
+          "member_death": 5
+        },
+        "longestDurationSec": 84
+      },
+      "movement": {
+        "moves": 658,
+        "reversals": 114,
+        "share": 0.173,
+        "consecutiveTeamRotateReversals": 19,
+        "lifecycleAwareConsecutiveTeamPowerRetreatReversals": null
+      },
+      "legacyTeamRetreat": {
+        "events": 32,
+        "reversals": 0,
+        "reversalSamples": []
+      },
+      "hunts": {
+        "starts": 79,
+        "ends": 79,
+        "settlements": 72,
+        "outcomes": {
+          "victory": 71,
+          "retreat": 7,
+          "hunter_defeated": 1
+        },
+        "unfinished": 0,
+        "integrity": "pass"
+      },
+      "phases": 8,
+      "endingAtSec": 863.333333,
+      "outcome": "last_team",
+      "winnerTeamId": "team:6",
+      "lastDeathCause": "combat",
+      "eventCount": 13667,
+      "frameCount": 4541,
+      "eventDigest": "8a129a84fe5ef1be98d1150de6de5d21ae0991cd0fdc757a923f65a588e592c7",
+      "frameDigest": "e32e96a543b5c439a66aa553faf26ec94bc18a6e47c0718c12bbafc23cfd442a",
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 3591781865,
+        "draws": 13181,
+        "ids": 0
+      }
+    }
+  ],
+  "checks": {
+    "standardRegroupAndFingerprint": {
+      "result": {
+        "runId": "2026-10-08T22-45-12.853Z-845cf19d-71e6-48d2-a778-1e6834ccaf5f",
+        "command": "npm run check:team-regroup && npm run check:verification-fingerprint",
+        "startedAt": "2026-10-08T22:45:12.864Z",
+        "pid": 29416,
+        "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+        "sameEngine": true,
+        "finishedAt": "2026-10-08T22:45:40.957Z"
+      },
+      "resultPath": "client\\.verification-runs\\2026-10-08T22-45-12.853Z-845cf19d-71e6-48d2-a778-1e6834ccaf5f\\result.json",
+      "outputLogSha256": "27C294143FD4EE5FDAA6BEC35F522C190172A28CFF7601AE615EB65927604354",
+      "outputLogBytes": 8524
+    },
+    "groups": {
+      "teamRegroup": 29,
+      "actualLumiaRegroup": 19,
+      "isolationTracker": 7,
+      "isolationFixture": 6,
+      "naturalMetricBoundaries": 22,
+      "fingerprint": 4,
+      "total": 87
+    },
+    "additional": {
+      "nodeSyntaxFiles": 4,
+      "nodeSyntaxResult": "passed",
+      "gitDiffCheckExitCode": 0,
+      "gameRulesChanged": false
+    }
+  },
+  "failedAttempts": [
+    {
+      "result": {
+        "runId": "2026-10-08T16-07-40.270Z-0e66f800-f24e-449d-a4ac-a35cb2a695aa",
+        "command": "npm run diagnose:match-distribution -- --compare-observer 4402",
+        "startedAt": "2026-10-08T16:07:40.273Z",
+        "pid": 17600,
+        "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+        "status": "failed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 1,
+        "signal": null,
+        "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+        "sameEngine": true,
+        "finishedAt": "2026-10-08T16:07:42.643Z"
+      },
+      "resultPath": "client\\.verification-runs\\2026-10-08T16-07-40.270Z-0e66f800-f24e-449d-a4ac-a35cb2a695aa\\result.json",
+      "outputLogSha256": "D6F1F776315E23262600A59F572C2E9B3AADD91F2970CD86EC6C545F961186FA",
+      "outputLogBytes": 1315,
+      "reason": "Production-dependent diagnostic imported before extensionless module registration. Fixed by dynamic import after registration; no match data from this failed attempt."
+    },
+    {
+      "result": {
+        "runId": "2026-10-08T16-15-29.070Z-d40746d3-8798-4daa-9cca-47c80545f5a3",
+        "command": "npm run check:match-distribution-metrics && node scripts/check-team-isolation-tracker.mjs && npm run check:verification-fingerprint",
+        "startedAt": "2026-10-08T16:15:29.073Z",
+        "pid": 28292,
+        "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+        "status": "failed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 1,
+        "signal": null,
+        "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+        "sameEngine": true,
+        "finishedAt": "2026-10-08T16:15:38.769Z"
+      },
+      "resultPath": "client\\.verification-runs\\2026-10-08T16-15-29.070Z-d40746d3-8798-4daa-9cca-47c80545f5a3\\result.json",
+      "outputLogSha256": "F6B1949B916B86E47DEC46E9CA4AA9BF117C92F10A67452B05A07774E7A57955",
+      "outputLogBytes": 1568,
+      "reason": "A controlled full-roster fixture lacked the required version-1 intent field. Fixture corrected without weakening the production/measurement guard."
+    }
+  ],
+  "cleanupEvidence": {
+    "atUtc": "2026-10-08T22:57:30.3177746Z",
+    "allNodeProcessCount": 72,
+    "relevantNodeProcesses": [],
+    "completedRunPidPresence": [],
+    "packInventory": [],
+    "deletionCount": 0,
+    "deletedBytes": 0,
+    "buildId": "-ajHjpkLstBl1MG4XjH5a",
+    "scope": "Read-only process/cache inventory; only explicit project/script matches, not a claim that unrelated apps are stopped.",
+    "removedPaths": [],
+    "logicalRemovedBytes": 0,
+    "actualFreeSpaceIncreaseMeasured": false,
+    "protectedFilesBefore": [
+      {
+        "path": "client/package.json",
+        "sha256": "5BC5CD648E16E8FC10A119E07584BED7CDF31F1D17FE0020E777B858C6912385",
+        "bytes": 25277
+      },
+      {
+        "path": "client/scripts/analyze-match-distribution.mjs",
+        "sha256": "151130FA096559E8832B127FC76A576D476CE9BF7D67C1F82045997E87992CDE",
+        "bytes": 14563
+      },
+      {
+        "path": "client/scripts/check-match-distribution-metrics.mjs",
+        "sha256": "9B60FFA7B9C0D7EBACE76F44928CBB031F6B57D360E23AA705C5ACD4581AE4D1",
+        "bytes": 15187
+      },
+      {
+        "path": "client/scripts/lib/match-distribution-frame-tracker.mjs",
+        "sha256": "EEAD7362CAC8E64F0FFF699932301CB88ACA9F08007391E6752A1A3CEAC8F015",
+        "bytes": 11369
+      },
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "sha256": "DB05AAC70A0BECADF0C95DC06D0F0E2925AD7FB4455D35A1C6E7A35057B6179D",
+        "bytes": 5928
+      },
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9",
+        "bytes": 15715
+      },
+      {
+        "path": "server/index.js",
+        "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+        "bytes": 5619
+      },
+      {
+        "path": "server/.env.example",
+        "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3",
+        "bytes": 2125
+      },
+      {
+        "path": "docs/eternal-hunger-goal.md",
+        "sha256": "2CBFB85EEA2D21547340B7F048DBE208A08DEBFDA10E5A36FD5D0259E9C6BA0E",
+        "bytes": 186996
+      },
+      {
+        "path": "docs/team-regroup-feedback-verification.md",
+        "sha256": "A087903F075A65505F1AFD993CEE34B628B0C0A71546F4B56D8D5504B7AE3619",
+        "bytes": 21996
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "sha256": "241FFEC4608A3624262823D58C80B7AE2EC26444FB703EDC2A0FB099165B276F",
+        "bytes": 166
+      },
+      {
+        "path": "client/.next/BUILD_ID",
+        "sha256": "438CB0DFF372BE50B3519C8A457803F5AFE207ED976CE2D70F69139E6F5F16CF",
+        "bytes": 21
+      },
+      {
+        "path": "artifacts/boss-hunt-lifecycle-20261009.json",
+        "sha256": "3410A0E51D55D75058B56C5A99542B27A05E65513985029B0FC710C729934AC6",
+        "bytes": 21915
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T16-21-57.320Z-ada7c4a9-4f49-4c5e-85cb-9979460af9d7/result.json",
+        "sha256": "59704CAA3FCA34059C874C3D1A5A61B9A3C87BF6B5880AEEB716C0BC07C01825",
+        "bytes": 639
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T16-21-57.320Z-ada7c4a9-4f49-4c5e-85cb-9979460af9d7/output.log",
+        "sha256": "97BAC3AC606D5D58C30EA938C1B93C4322A66335DAA55D09B44B4FB28E68139F",
+        "bytes": 313156
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T16-39-08.293Z-157aa2ee-c5bd-4432-b1a9-842ad7268af9/result.json",
+        "sha256": "397E4A2ABCDD9E9DD81CAF22AB5A4855042CAEAAE7FEA3326E56C5AB2A5C5F80",
+        "bytes": 455
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T16-39-08.293Z-157aa2ee-c5bd-4432-b1a9-842ad7268af9/output.log",
+        "sha256": "B271BB32F8DDE722FBFB808938CA4A7A8432C8E40C74A622EE3D39C0C9FA524B",
+        "bytes": 152817
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T22-41-50.590Z-5647acf7-c630-41a8-bdd1-f18dd72cd57e/result.json",
+        "sha256": "822BF924D4A5C54EB7C27F28A90BE88E402ABFB585B4C6E31F9BC1B12A0F5555",
+        "bytes": 599
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T22-41-50.590Z-5647acf7-c630-41a8-bdd1-f18dd72cd57e/output.log",
+        "sha256": "19364D072EC5CDA07A438E6AE5B551A79D5E06D1DE84EFE6C43A0E02538905B2",
+        "bytes": 33580
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T22-45-12.853Z-845cf19d-71e6-48d2-a778-1e6834ccaf5f/result.json",
+        "sha256": "3C5D07BFBF55E1D558C0637D3D21CFE98CA27D62917045D7E5D3AABEBFD00DF7",
+        "bytes": 596
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T22-45-12.853Z-845cf19d-71e6-48d2-a778-1e6834ccaf5f/output.log",
+        "sha256": "27C294143FD4EE5FDAA6BEC35F522C190172A28CFF7601AE615EB65927604354",
+        "bytes": 8524
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T16-07-40.270Z-0e66f800-f24e-449d-a4ac-a35cb2a695aa/result.json",
+        "sha256": "14E32844108083A2B8CCE8A27D107F9C9C42F0C8CB9AC1BB3D7ECAD6A489B59D",
+        "bytes": 590
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T16-07-40.270Z-0e66f800-f24e-449d-a4ac-a35cb2a695aa/output.log",
+        "sha256": "D6F1F776315E23262600A59F572C2E9B3AADD91F2970CD86EC6C545F961186FA",
+        "bytes": 1315
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T16-15-29.070Z-d40746d3-8798-4daa-9cca-47c80545f5a3/result.json",
+        "sha256": "A67D6FF7373CBB2517A84CC207BBFCC3FD6BDD64D4D95AEAFCD0AA205FACB300",
+        "bytes": 659
+      },
+      {
+        "path": "client/.verification-runs/2026-10-08T16-15-29.070Z-d40746d3-8798-4daa-9cca-47c80545f5a3/output.log",
+        "sha256": "F6B1949B916B86E47DEC46E9CA4AA9BF117C92F10A67452B05A07774E7A57955",
+        "bytes": 1568
+      }
+    ],
+    "protectedHashesUnchanged": true,
+    "artifactSelfExcludedFromCircularHash": true,
+    "retained": "Completed build, current source, input/output evidence including failed/interrupted runs, protected user files and unrelated projects. No deletion was needed.",
+    "comparison": "All 25 path/hash/byte rows compared equal after read-only inventory; hashes below are shared by both before and after observations."
+  },
+  "authorizationBoundary": {
+    "newBrowserRuns": 0,
+    "newPaidAiCalls": 0,
+    "accountWrites": 0,
+    "keyOrProtectionChanges": 0,
+    "pushes": 0,
+    "deployments": 0,
+    "gitPull": "Explicit user request; verified current origin/main without overwriting local work"
+  },
+  "remainingGates": [
+    "Reproduce and fix any actual repeated movement/retreat decision defect using fresh read-only traces.",
+    "Current c94 single full check:eternal-hunger has not been rerun; earlier engine full passes are historical.",
+    "Current foreground x1/x8/x32 and continuous paint/heap/lifetime; earlier x32 observations were below requested speed.",
+    "Successful ER/custom AI generation requires a valid user-configured provider key and fresh paid-call approval; approved save/reopen and actual match linkage.",
+    "Human re-evaluation of map, objectives, regroup/retreat/defeat understanding and enjoyment.",
+    "Approved push/public release of local changes and actual public verification."
+  ],
+  "goalStatus": "active_incomplete"
+}

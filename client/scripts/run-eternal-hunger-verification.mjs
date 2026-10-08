@@ -11,14 +11,28 @@ const commands = {
   unit: 'node scripts/check-character-status-skills.mjs',
   build: 'npm run build',
   execution: 'npm run check:growth-scheduling:match',
-  distribution: 'npm run diagnose:match-distribution -- 4401 4402 4403 4404 4405 4406 4407 4408 4409 4410',
+  distribution: 'npm run diagnose:match-distribution -- --compare-observer=4402 4401 4402 4403 4404 4405 4406 4407 4408 4409 4410',
+  'distribution-varied': 'npm run diagnose:match-distribution -- --rosters=BASELINE:roster-A,BASELINE:roster-B,BASELINE:roster-C 5501 5502',
+  'distribution-unit': 'npm run check:team-regroup && npm run check:verification-fingerprint',
+  'distribution-observer': 'npm run diagnose:match-distribution -- --compare-observer 4402',
   handoff: 'node scripts/check-boss-handoff-match.mjs --lifecycle-regression',
   'handoff-unit': 'node scripts/check-hunt-settlement.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-boss-team-combat.mjs && node scripts/check-boss-loot-sharing.mjs && node scripts/check-team-observer.mjs && node scripts/check-observer-tail-projection.mjs && node scripts/check-live-frames.mjs && node scripts/check-run-comparison.mjs && node scripts/check-character-casting.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   growth: 'npm run check:growth-plan && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:character-auto-setup && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
   performance: 'npm run check:growth-plan && npm run check:team-observer && npm run check:live-frames && npm run check:display-pacing && npm run check:phase-runtime-performance && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
 };
 const mode = process.argv[2] || 'full';
-if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, performance, execution, distribution, handoff, handoff-unit or build.');
+if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, performance, execution, distribution, distribution-varied, distribution-unit, distribution-observer, handoff, handoff-unit or build.');
+// Resume only missing input-axis cases without rerunning completed matches.
+// These comma-separated identifiers are deliberately shell-safe, not raw CLI.
+if (mode === 'distribution-varied' && process.argv.length > 3) {
+  const [rosters, seeds] = process.argv.slice(3);
+  const identifiers = /^[A-Za-z0-9_:][A-Za-z0-9_:-]*(?:,[A-Za-z0-9_:][A-Za-z0-9_:-]*)*$/;
+  if (process.argv.length !== 5 || !identifiers.test(rosters) || !identifiers.test(seeds)
+    || rosters.trim() !== rosters || seeds.trim() !== seeds) {
+    throw Error('Use distribution-varied <comma-separated roster seeds> <comma-separated match seeds>; identifiers allow letters, digits, underscore, colon and hyphen only.');
+  }
+  commands[mode] = `npm run diagnose:match-distribution -- --rosters=${rosters} ${seeds.split(',').join(' ')}`;
+}
 const root = fileURLToPath(new URL('../', import.meta.url));
 const runId = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}`;
 const directory = join(root, '.verification-runs', runId);
