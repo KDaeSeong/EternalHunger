@@ -16,7 +16,8 @@ export function applyCombatHit(attacker, defender, packet, { shieldBlock, emitRu
   const damage = incoming + bonus;
   let afterShield = 0;
   if (!blockedReason && Number(defender.hp) > 0 && damage > 0) {
-    if (shieldBlock) afterShield = Math.max(0, Number(shieldBlock(defender, damage)) || 0);
+    if (shieldBlock) afterShield = Math.max(0, Number(shieldBlock(defender, damage,
+      { attackerId: String(attacker?._id || '') })) || 0);
     else {
       const shield = absorbShieldDamage(defender, damage);
       defender.activeEffects = shield.character.activeEffects;

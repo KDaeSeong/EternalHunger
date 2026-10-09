@@ -1,0 +1,910 @@
+{
+  "schema": "eternal-hunger.tactical-strategy-evidence.v1",
+  "date": "2026-10-09",
+  "outputOnly": true,
+  "scope": "Actual tactical game fix, bounded receipts, save-path serialization and strict strategy exposure. Historical outputs are report evidence, never test inputs or expected values. Overall G1-G5 remains active/incomplete.",
+  "engineVersion": "086cfa60688fa684d9eeeca927e239680cda8b44a7379fb260da75f0a10ed10b",
+  "latestFocusedRun": "2026-10-09T10-51-42.455Z-e7e4983c-8466-4d6d-872f-9dbd2cf2ef86",
+  "latestStorageRun": "2026-10-09T10-54-39.400Z-ba0cc63b-2e20-406a-b91f-6c6e6454a9ef",
+  "latestBuildRun": "2026-10-09T10-56-12.031Z-61296865-0c2a-4177-bf70-4b07793b6740",
+  "storageChecks": {
+    "tactical": 25,
+    "combatObservation": 16,
+    "growthObservation": 21,
+    "consumables": 29,
+    "crafting": 33,
+    "fingerprint": 5,
+    "equipmentAccountContract": "passed with memory storage, HTTP adapter and database doubles; not actual authentication, HTTP or Mongo persistence"
+  },
+  "priorActualFormationRun": {
+    "runId": "2026-10-09T10-28-07.103Z-372f3ada-0bbe-46f8-8ec3-97b893dd0ef8",
+    "engineVersion": "faadf968fad2154cf8e48e2d8a5b4850dc740632f199a8b3aa550efd808393fa",
+    "seed": 2202,
+    "variants": [
+      "baseline",
+      "one-formation-swap"
+    ],
+    "repeats": 2,
+    "actualVerifiedMatches": 4,
+    "matchesComplete": true,
+    "comparisonComplete": false,
+    "exitCode": 2,
+    "serializationChangeVerified": false,
+    "limit": "These matches precede the current save-path change. Match completion and exact replay passed; candidate changed-teammate cooperation exposure did not. They cannot be inherited as a current-engine full match, strategy causality or fun gate."
+  },
+  "build": {
+    "id": "Fk7FdfSDllRYMm1Qq7TsJ",
+    "nonCacheFileCount": 1429,
+    "nonCacheBytes": 73701751,
+    "digest": "DEB2E6DC5F3CC68196CD1A74179EAF7892030A46A073B0BC8683DF5FCE3E4228",
+    "digestDefinition": "SHA256(UTF8(compact JSON sorted full-path relative records of path, bytes, raw file SHA256)); entire .next/cache excluded",
+    "staticPageCount": 62,
+    "serverChunk": "client/.next/server/chunks/4394.js",
+    "browserChunk": "client/.next/static/chunks/9122-1283db7660b7e713.js",
+    "chunkEngineStringConfirmed": true,
+    "notPublicDeployment": true
+  },
+  "sourceFilesAtCleanupBoundary": [
+    {
+      "path": "client/package.json",
+      "bytes": 26228,
+      "sha256": "B4E43B5856D2041C1D7D6FC6773F88347A9F672ED7897E19C39BF9B70616B493",
+      "owned": true
+    },
+    {
+      "path": "client/scripts/analyze-strategy-comparison.mjs",
+      "bytes": 13101,
+      "sha256": "EE651F90B3CD062EA262D2F7946D86FD0E90D9D67A8AE38B05D8D078C3F5EBD8",
+      "owned": true
+    },
+    {
+      "path": "client/scripts/check-run-comparison.mjs",
+      "bytes": 15086,
+      "sha256": "82949F67257BE629EC5455FFB56E5A207CE3AECAC73C127D4D2CED83EE499CCF",
+      "owned": true
+    },
+    {
+      "path": "client/scripts/check-verification-fingerprint.mjs",
+      "bytes": 4375,
+      "sha256": "BB31D1E0A9878DA5F64D5BF68434EA3727B5116CB15589393EE2D55EB6B72081",
+      "owned": true
+    },
+    {
+      "path": "client/scripts/run-eternal-hunger-verification.mjs",
+      "bytes": 11440,
+      "sha256": "9A902D7764AFF351665986D9F36A0EE8C489B65A570CC76973D02264CBFEC4FF",
+      "owned": true
+    },
+    {
+      "path": "client/src/app/simulation/_components/SimulationReplayHistory.js",
+      "bytes": 27696,
+      "sha256": "AC98EAC4C0CBBE040CE30F20E54928F607815B27DB754A48D5BDCF7A68792C09",
+      "owned": true
+    },
+    {
+      "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+      "bytes": 166,
+      "sha256": "32DA688DD86DC86151455DE221CAF2F2AB164B532ED8919F9A19A1161A4B7ADC",
+      "owned": true
+    },
+    {
+      "path": "client/src/app/simulation/_lib/combatImpactRuntime.js",
+      "bytes": 3040,
+      "sha256": "65FDB365DD0C21BF472808302C35D674120AB5987C624222E5ABC21A5E2B9B06",
+      "owned": true
+    },
+    {
+      "path": "client/src/app/simulation/_lib/phaseCombatTacticalRuntime.js",
+      "bytes": 10783,
+      "sha256": "7F5BD4A954E680AB85D11413DAF4C4E2ECF8004B159CAC065FEA4B9F32EA090C",
+      "owned": true
+    },
+    {
+      "path": "client/src/app/simulation/_lib/simulationRunComparisonRuntime.js",
+      "bytes": 15996,
+      "sha256": "8D1249D82DF704F6A5DCA2E6F86FA6BF662A5B8E89E382289C5FA009CC8C90AF",
+      "owned": true
+    },
+    {
+      "path": "client/src/app/simulation/_lib/teamObserverRuntime.js",
+      "bytes": 35133,
+      "sha256": "CFE00B3AB5A641BF8A33D051A46015E4C46A2CCD717CDE1DB9D16090EB5DD0EA",
+      "owned": true
+    },
+    {
+      "path": "client/scripts/check-tactical-effect-evidence.mjs",
+      "bytes": 25310,
+      "sha256": "C7FE10268FB9A747A1AF969ACBD188D4CCE7FC5BDC8F23EC6D2E55CD4478B72D",
+      "owned": true
+    },
+    {
+      "path": "client/scripts/lib/tactical-impact-evidence.mjs",
+      "bytes": 3515,
+      "sha256": "98E11F15DCF58380D4DF74F37CE8962C9E9AC0791C559E53D4BFB1D5173AC7E7",
+      "owned": true
+    },
+    {
+      "path": "client/src/app/simulation/_lib/tacticalEffectEvidenceRuntime.js",
+      "bytes": 3700,
+      "sha256": "B3C3D029CDE08319EA56ADF9E6B36C84A3456DB371968F0F272FA5D9198436C9",
+      "owned": true
+    },
+    {
+      "path": "client/scripts/lib/strategy-comparison-contracts.mjs",
+      "bytes": 16090,
+      "sha256": "01DF1E67DE305B5CD37EFAF3C7D432CCD7874806CA7042CBA61C38894D616AC0",
+      "owned": true
+    },
+    {
+      "path": "client/scripts/check-strategy-comparison-contracts.mjs",
+      "bytes": 15748,
+      "sha256": "A4F35DFCCB0A5464637E21A1FD4E452A1206B57EC68C697AE4BF8E7754B95D83",
+      "owned": true
+    },
+    {
+      "path": "client/src/app/simulation/_lib/finishGameRuntime.js",
+      "bytes": 19534,
+      "sha256": "51B1E34C91DB0EF93CE4D5E41F813B266831DFB22E64E697F9DEC679AE3832C0",
+      "owned": true
+    },
+    {
+      "path": "server/routes/game.js",
+      "bytes": 26699,
+      "sha256": "A52E223D2E781469A5E7231097E863844D14D48FB9185A8AF896E11F900D46FB",
+      "owned": true
+    },
+    {
+      "path": "client/scripts/check-observer-goals-match.mjs",
+      "bytes": 15715,
+      "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9",
+      "owned": false
+    },
+    {
+      "path": "server/index.js",
+      "bytes": 5619,
+      "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+      "owned": false
+    },
+    {
+      "path": "server/.env.example",
+      "bytes": 2125,
+      "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3",
+      "owned": false
+    }
+  ],
+  "preservedRawFiles": [
+    {
+      "path": "client/.verification-runs/2026-10-09T08-45-04.355Z-1d91ab1c-45ef-45c5-aaff-86b4cbeae253/output.log",
+      "bytes": 3888,
+      "sha256": "B8239E0A9B64121F2AEA36CB4C7CD4D8613D2CCA2861C58397EB6B7DB5CA6170"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T08-45-04.355Z-1d91ab1c-45ef-45c5-aaff-86b4cbeae253/result.json",
+      "bytes": 749,
+      "sha256": "E28A1FF45504BBD8033CAA9BF98948F3F06556403650A7DE46303805A59ECB46"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-00-14.037Z-bc1caebf-80bd-45f5-bf7f-55ffe9f8cd0a/output.log",
+      "bytes": 7005,
+      "sha256": "94ADB92FB3CEA5F14977A00998C8E227DAC014F43B9808B93ABFCDDE1B082C2E"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-00-14.037Z-bc1caebf-80bd-45f5-bf7f-55ffe9f8cd0a/result.json",
+      "bytes": 745,
+      "sha256": "22041C7DCD8290CEA85DCE3EF08BC62AA72F36BB780B6275474738C1C16533B3"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-00-14.037Z-bc1caebf-80bd-45f5-bf7f-55ffe9f8cd0a/strategy-comparison.json",
+      "bytes": 1733685,
+      "sha256": "91A083B8B659C9AE0902899BED3F51B727E4197C4C1821523E2D629D4DF03547"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-25-43.607Z-274be29a-e5b1-47fc-9526-bfdb4f4c7944/output.log",
+      "bytes": 1505,
+      "sha256": "50C297C4019BABCBA44F9D23B4146699D6E7A5DC422721B33567EFEC3B438D3F"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-25-43.607Z-274be29a-e5b1-47fc-9526-bfdb4f4c7944/result.json",
+      "bytes": 788,
+      "sha256": "50F6BE52ACDF8C4CD276DCF9598C2F3BCB75AEEC3C414117E65C87FBBBC08EE0"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-27-47.585Z-b53905c6-3e58-41d2-b896-e416892d53ef/output.log",
+      "bytes": 30066,
+      "sha256": "491826C662103F09F9BB65EE8621F34843659B4CA91B559CDD02FC6AAE323B8C"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-27-47.585Z-b53905c6-3e58-41d2-b896-e416892d53ef/result.json",
+      "bytes": 788,
+      "sha256": "B112F2FE215BA1EEEE5274A48416AA0DE5A955B0C95F43E383BDDC3FAE198325"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-38-19.609Z-830df78f-1d09-40aa-9c19-46e3fe0a919c/output.log",
+      "bytes": 7644,
+      "sha256": "1306E049D1ED659D0AD13C949214440BFFB749A2C46D0EC3874431AA93278251"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-38-19.609Z-830df78f-1d09-40aa-9c19-46e3fe0a919c/result.json",
+      "bytes": 745,
+      "sha256": "888729AA99D690A530D137DE31E9A17ED0A8A5C9607520B28AE99757A2A65D37"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-38-19.609Z-830df78f-1d09-40aa-9c19-46e3fe0a919c/strategy-comparison.json",
+      "bytes": 1736622,
+      "sha256": "EE8923FDC798B04F64A8209214AE94DE198AA01BBFABC2D63B2FBA549D3DEDCA"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-44-04.223Z-b635dcc8-deba-4067-a8dd-8df2734768b5/output.log",
+      "bytes": 1444,
+      "sha256": "020B33C71B0761043D713E98E5E4CD6F4B2956C78F1111CDD5CFBEFB46F0B8B1"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-44-04.223Z-b635dcc8-deba-4067-a8dd-8df2734768b5/result.json",
+      "bytes": 622,
+      "sha256": "7FA741465B30DC07E0B2AD51501AB0851D7947EE37C56B2C8F9B77B9607F0D6F"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-45-32.063Z-1f575ec8-753d-4507-9e59-6a37d0e3b572/output.log",
+      "bytes": 2047,
+      "sha256": "6429C5F60C6F1DF70F164693438A3708937CEAA6A7D9E604248F4BAFD560D8EA"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-45-32.063Z-1f575ec8-753d-4507-9e59-6a37d0e3b572/result.json",
+      "bytes": 622,
+      "sha256": "10C88F44F52D55EBA6ACE40BF19A66C261BE78F50B100AB02A86A6FFB758D76A"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-50-49.276Z-0100c16b-5425-4947-9bcf-be1aa9690340/output.log",
+      "bytes": 2140,
+      "sha256": "DD567FFEEC6834FFCAAF40A91AD3144671A9795BAD14A7D1A73F814C8D83EE22"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-50-49.276Z-0100c16b-5425-4947-9bcf-be1aa9690340/result.json",
+      "bytes": 622,
+      "sha256": "9EC625ABF644FB2836F0C1F4F27D7238B0E9425EF2C1F5BB0076E4D0041CD487"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-51-52.616Z-48045fc2-7a71-4d61-b53e-f41cef99ff3d/output.log",
+      "bytes": 7739,
+      "sha256": "FC919C3339D800F2BA7BBE13E004B2457A07A65F0E1758CE2DE3D8DFE218FB99"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-51-52.616Z-48045fc2-7a71-4d61-b53e-f41cef99ff3d/result.json",
+      "bytes": 745,
+      "sha256": "896C66F72C280834DFD1F1CEBFA80396D4E438F6772E2B6689E1E3DD5570E6B5"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T09-51-52.616Z-48045fc2-7a71-4d61-b53e-f41cef99ff3d/strategy-comparison.json",
+      "bytes": 1754950,
+      "sha256": "9FE8F6EF6C639027835C0B2A4B70EAB89F0E9966A1C941E80854536F8196AB54"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-07-15.664Z-7f305951-4a40-4fcc-a1e2-99c5e913e889/output.log",
+      "bytes": 1903,
+      "sha256": "ADB379108A357BD932CC4B7A97D28CF2112B73F32BE9528738D4737680CD1BE9"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-07-15.664Z-7f305951-4a40-4fcc-a1e2-99c5e913e889/result.json",
+      "bytes": 622,
+      "sha256": "860DF0E7455DBFDC441EEDE9BD74897E5605720020F38CF0A4DA21629BB91017"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-07-57.870Z-a676814e-3508-4ce0-b76c-eedcf928e4a5/output.log",
+      "bytes": 30631,
+      "sha256": "CC9F59AF647A7CEE366596D5CD69353F92D868388724E9F9B0BC8D9C06843415"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-07-57.870Z-a676814e-3508-4ce0-b76c-eedcf928e4a5/result.json",
+      "bytes": 788,
+      "sha256": "E49AC37E6632EB897DD11AB801AFFF6439946D196D7F19E1DD781739A64A9ADA"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-10-41.361Z-df2af70e-7dcb-4e5e-8c30-957f369dddac/output.log",
+      "bytes": 2240,
+      "sha256": "194A461FDA54B454AFC69EE03A7ACDA2140FD5AB441693F2F51C0FF85738BA6B"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-10-41.361Z-df2af70e-7dcb-4e5e-8c30-957f369dddac/result.json",
+      "bytes": 622,
+      "sha256": "1418C0495C7138DCB02E8C301F98B02D9991AB3BE3C64317B6C243356295936F"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-11-11.841Z-796fef7c-2855-4eb1-9db0-44040910e0c6/output.log",
+      "bytes": 7739,
+      "sha256": "62F4C17716C80E97CE08C55E186CFD3BED3533E5EDBA75E1CA7C3FD2F5A834E7"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-11-11.841Z-796fef7c-2855-4eb1-9db0-44040910e0c6/result.json",
+      "bytes": 745,
+      "sha256": "1F729BDBB535B789771FFEDAC458F7408278E1158593E250AF157CCC3CF576CD"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-11-11.841Z-796fef7c-2855-4eb1-9db0-44040910e0c6/strategy-comparison.json",
+      "bytes": 1764269,
+      "sha256": "3E46C5D5EB3852A4B62C46397C8623E1915D2AFD39F7F8C8DF389859E6360174"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-21-04.981Z-6ac859e8-81b7-4282-87c1-17f5af765cfc/output.log",
+      "bytes": 2114,
+      "sha256": "2FF8CAA43C63A6B5D2178C3505EDAE0D1E26AC0A54A0D64B349533BEABB2CADB"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-21-04.981Z-6ac859e8-81b7-4282-87c1-17f5af765cfc/result.json",
+      "bytes": 617,
+      "sha256": "875251AF5284162D8E89CFD29E06FA0F010708EF1C8CA833D30B8C915F78D35D"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-21-54.592Z-c4af3da3-e602-4156-b181-2896c1a4da41/output.log",
+      "bytes": 31115,
+      "sha256": "390ACDBFA46A2BA1866FD41834B167EF05B9D49950338DF8B9DE337F968F0030"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-21-54.592Z-c4af3da3-e602-4156-b181-2896c1a4da41/result.json",
+      "bytes": 788,
+      "sha256": "14BD3E3CC060156E4FCA52ACCDC1FA12426EE8A0FAE1E5B89DE4BDF88B75F297"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-28-07.103Z-372f3ada-0bbe-46f8-8ec3-97b893dd0ef8/output.log",
+      "bytes": 7739,
+      "sha256": "8D4AC17646200882B692F833AC2E52FE27EBBFEF1A747D882A40007D6FA09F23"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-28-07.103Z-372f3ada-0bbe-46f8-8ec3-97b893dd0ef8/result.json",
+      "bytes": 745,
+      "sha256": "125BA634234AD65515D6A815EA3220E7B57A230A27A68D314008642A26E5F32F"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-28-07.103Z-372f3ada-0bbe-46f8-8ec3-97b893dd0ef8/strategy-comparison.json",
+      "bytes": 1764269,
+      "sha256": "A097506EDAB553CB4E54B16F68A908EC4435400BC4FEEFEE751525E83D15B03E"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-32-08.932Z-3b64bee9-eb17-43fe-99f4-af810a9d7ece/output.log",
+      "bytes": 2240,
+      "sha256": "C3230099FA6D737A353546864C69FDB587272974AB2875E0379974B0D11C320C"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-32-08.932Z-3b64bee9-eb17-43fe-99f4-af810a9d7ece/result.json",
+      "bytes": 622,
+      "sha256": "047311056A46F805C0CC79C1F4187728BA123EE09DFA3B5ACC045A5852D7CA50"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-36-48.956Z-4ab91b51-c8fd-4788-84b3-27beca1b6cc3/output.log",
+      "bytes": 3883,
+      "sha256": "347486E68688D791332932777535B440E846D5F19AC73807805A2CB057A99D45"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-36-48.956Z-4ab91b51-c8fd-4788-84b3-27beca1b6cc3/result.json",
+      "bytes": 554,
+      "sha256": "443B17C30B0A647CE4ED1DDE441652AF7025ECD59349D34514E7DF28BB7DF6CB"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-49-40.951Z-44c2d74d-46d3-43b0-b2e2-b8bd0ba0224b/output.log",
+      "bytes": 2613,
+      "sha256": "D553A6EB373F630BF2B3BDC46B2ED3B064AA61A0918EA1C304517B075F31D13F"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-49-40.951Z-44c2d74d-46d3-43b0-b2e2-b8bd0ba0224b/result.json",
+      "bytes": 1399,
+      "sha256": "62F40BACE7386FE6DABDA4C319F7AB6B563E81D2C1BF0E29C94566149D3DFFE6"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-51-42.455Z-e7e4983c-8466-4d6d-872f-9dbd2cf2ef86/output.log",
+      "bytes": 32343,
+      "sha256": "17F6DA88F337C1D12C4D621AE6FC589D08F7D794BB54F2656085B276DDF7D770"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-51-42.455Z-e7e4983c-8466-4d6d-872f-9dbd2cf2ef86/result.json",
+      "bytes": 1570,
+      "sha256": "A2671FD9A7EA132F0BD7985038E6066295B8F5F6DE97397BAD93A5544BE62584"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-54-39.400Z-ba0cc63b-2e20-406a-b91f-6c6e6454a9ef/output.log",
+      "bytes": 11659,
+      "sha256": "635BD89CB039E12B5B81EC8EF4515C780A3930EF9D089E04B9676C377B797F0C"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-54-39.400Z-ba0cc63b-2e20-406a-b91f-6c6e6454a9ef/result.json",
+      "bytes": 2762,
+      "sha256": "BD11060363063F59331E6034FB19024C9D063AFB3F735AE765C36EB7090790D7"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-56-12.031Z-61296865-0c2a-4177-bf70-4b07793b6740/output.log",
+      "bytes": 3018,
+      "sha256": "B7A345813542E98762CB1DA2CFBB1987B9D81E593110489D6A1679862A206852"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T10-56-12.031Z-61296865-0c2a-4177-bf70-4b07793b6740/result.json",
+      "bytes": 887,
+      "sha256": "9945CABA74ECE8C58B0CC1502AB36CFF15E3AF03E0DD7D394804A60DA28CB6A3"
+    }
+  ],
+  "rawRuns": [
+    {
+      "runId": "2026-10-09T08-45-04.355Z-1d91ab1c-45ef-45c5-aaff-86b4cbeae253",
+      "command": "npm run analyze:strategy-comparison -- --seeds=1101 --variants=baseline,one-tactical-skill --repeats=2 --output=\".verification-runs/2026-10-09T08-45-04.355Z-1d91ab1c-45ef-45c5-aaff-86b4cbeae253/strategy-comparison.json\"",
+      "startedAt": "2026-10-09T08:45:04.358Z",
+      "finishedAt": "2026-10-09T08:48:18.972Z",
+      "status": "failed",
+      "exitCode": 1,
+      "engineBefore": "9f7ddb85b7b537f6c1a54ddf68e6b78c197eabf61eaa0b6b5b4bcbf8db791077",
+      "engineAfter": "9f7ddb85b7b537f6c1a54ddf68e6b78c197eabf61eaa0b6b5b4bcbf8db791077",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T09-00-14.037Z-bc1caebf-80bd-45f5-bf7f-55ffe9f8cd0a",
+      "command": "npm run analyze:strategy-comparison -- --seeds=1101 --variants=baseline,one-tactical-skill --repeats=2 --output=.verification-runs/2026-10-09T09-00-14.037Z-bc1caebf-80bd-45f5-bf7f-55ffe9f8cd0a/strategy-comparison.json",
+      "startedAt": "2026-10-09T09:00:14.041Z",
+      "finishedAt": "2026-10-09T09:17:47.642Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "9f7ddb85b7b537f6c1a54ddf68e6b78c197eabf61eaa0b6b5b4bcbf8db791077",
+      "engineAfter": "9f7ddb85b7b537f6c1a54ddf68e6b78c197eabf61eaa0b6b5b4bcbf8db791077",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T09-25-43.607Z-274be29a-e5b1-47fc-9526-bfdb4f4c7944",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-tactical-effect-evidence.mjs && npm run check:team-combat && npm run check:run-comparison && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAt": "2026-10-09T09:25:43.613Z",
+      "finishedAt": "2026-10-09T09:25:46.036Z",
+      "status": "failed",
+      "exitCode": 1,
+      "engineBefore": "9f7ddb85b7b537f6c1a54ddf68e6b78c197eabf61eaa0b6b5b4bcbf8db791077",
+      "engineAfter": "9f7ddb85b7b537f6c1a54ddf68e6b78c197eabf61eaa0b6b5b4bcbf8db791077",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T09-27-47.585Z-b53905c6-3e58-41d2-b896-e416892d53ef",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-tactical-effect-evidence.mjs && npm run check:team-combat && npm run check:run-comparison && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAt": "2026-10-09T09:27:47.587Z",
+      "finishedAt": "2026-10-09T09:28:55.832Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "engineAfter": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T09-38-19.609Z-830df78f-1d09-40aa-9c19-46e3fe0a919c",
+      "command": "npm run analyze:strategy-comparison -- --seeds=2202 --variants=baseline,one-tactical-skill --repeats=2 --output=.verification-runs/2026-10-09T09-38-19.609Z-830df78f-1d09-40aa-9c19-46e3fe0a919c/strategy-comparison.json",
+      "startedAt": "2026-10-09T09:38:19.614Z",
+      "finishedAt": "2026-10-09T09:44:31.894Z",
+      "status": "failed",
+      "exitCode": 2,
+      "engineBefore": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "engineAfter": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T09-44-04.223Z-b635dcc8-deba-4067-a8dd-8df2734768b5",
+      "command": "node scripts/check-strategy-comparison-contracts.mjs && npm run check:verification-fingerprint",
+      "startedAt": "2026-10-09T09:44:04.226Z",
+      "finishedAt": "2026-10-09T09:44:07.418Z",
+      "status": "failed",
+      "exitCode": 1,
+      "engineBefore": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "engineAfter": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T09-45-32.063Z-1f575ec8-753d-4507-9e59-6a37d0e3b572",
+      "command": "node scripts/check-strategy-comparison-contracts.mjs && npm run check:verification-fingerprint",
+      "startedAt": "2026-10-09T09:45:32.065Z",
+      "finishedAt": "2026-10-09T09:45:34.951Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "engineAfter": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T09-50-49.276Z-0100c16b-5425-4947-9bcf-be1aa9690340",
+      "command": "node scripts/check-strategy-comparison-contracts.mjs && npm run check:verification-fingerprint",
+      "startedAt": "2026-10-09T09:50:49.285Z",
+      "finishedAt": "2026-10-09T09:51:13.764Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "engineAfter": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T09-51-52.616Z-48045fc2-7a71-4d61-b53e-f41cef99ff3d",
+      "command": "npm run analyze:strategy-comparison -- --seeds=2202 --variants=baseline,one-formation-swap --repeats=2 --output=.verification-runs/2026-10-09T09-51-52.616Z-48045fc2-7a71-4d61-b53e-f41cef99ff3d/strategy-comparison.json",
+      "startedAt": "2026-10-09T09:51:52.627Z",
+      "finishedAt": "2026-10-09T09:58:16.519Z",
+      "status": "failed",
+      "exitCode": 2,
+      "engineBefore": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "engineAfter": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T10-07-15.664Z-7f305951-4a40-4fcc-a1e2-99c5e913e889",
+      "command": "node scripts/check-strategy-comparison-contracts.mjs && npm run check:verification-fingerprint",
+      "startedAt": "2026-10-09T10:07:15.666Z",
+      "finishedAt": "2026-10-09T10:07:17.517Z",
+      "status": "failed",
+      "exitCode": 1,
+      "engineBefore": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "engineAfter": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T10-07-57.870Z-a676814e-3508-4ce0-b76c-eedcf928e4a5",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-tactical-effect-evidence.mjs && npm run check:team-combat && npm run check:run-comparison && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAt": "2026-10-09T10:07:57.872Z",
+      "finishedAt": "2026-10-09T10:09:02.698Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "engineAfter": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T10-10-41.361Z-df2af70e-7dcb-4e5e-8c30-957f369dddac",
+      "command": "node scripts/check-strategy-comparison-contracts.mjs && npm run check:verification-fingerprint",
+      "startedAt": "2026-10-09T10:10:41.369Z",
+      "finishedAt": "2026-10-09T10:10:48.659Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "engineAfter": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T10-11-11.841Z-796fef7c-2855-4eb1-9db0-44040910e0c6",
+      "command": "npm run analyze:strategy-comparison -- --seeds=2202 --variants=baseline,one-formation-swap --repeats=2 --output=.verification-runs/2026-10-09T10-11-11.841Z-796fef7c-2855-4eb1-9db0-44040910e0c6/strategy-comparison.json",
+      "startedAt": "2026-10-09T10:11:11.844Z",
+      "finishedAt": "2026-10-09T10:18:06.107Z",
+      "status": "failed",
+      "exitCode": 2,
+      "engineBefore": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "engineAfter": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T10-21-04.981Z-6ac859e8-81b7-4282-87c1-17f5af765cfc",
+      "command": "node scripts/check-tactical-effect-evidence.mjs && npm run check:verification-fingerprint",
+      "startedAt": "2026-10-09T10:21:04.983Z",
+      "finishedAt": "2026-10-09T10:21:06.319Z",
+      "status": "failed",
+      "exitCode": 1,
+      "engineBefore": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "engineAfter": "7b1f32e8ed6bb00d58dea9648f8ced8cfe2a405e6b6d21b7f01e5367f8780ff4",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T10-21-54.592Z-c4af3da3-e602-4156-b181-2896c1a4da41",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-tactical-effect-evidence.mjs && npm run check:team-combat && npm run check:run-comparison && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAt": "2026-10-09T10:21:54.594Z",
+      "finishedAt": "2026-10-09T10:25:59.472Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "faadf968fad2154cf8e48e2d8a5b4850dc740632f199a8b3aa550efd808393fa",
+      "engineAfter": "faadf968fad2154cf8e48e2d8a5b4850dc740632f199a8b3aa550efd808393fa",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T10-28-07.103Z-372f3ada-0bbe-46f8-8ec3-97b893dd0ef8",
+      "command": "npm run analyze:strategy-comparison -- --seeds=2202 --variants=baseline,one-formation-swap --repeats=2 --output=.verification-runs/2026-10-09T10-28-07.103Z-372f3ada-0bbe-46f8-8ec3-97b893dd0ef8/strategy-comparison.json",
+      "startedAt": "2026-10-09T10:28:07.105Z",
+      "finishedAt": "2026-10-09T10:35:23.706Z",
+      "status": "failed",
+      "exitCode": 2,
+      "engineBefore": "faadf968fad2154cf8e48e2d8a5b4850dc740632f199a8b3aa550efd808393fa",
+      "engineAfter": "faadf968fad2154cf8e48e2d8a5b4850dc740632f199a8b3aa550efd808393fa",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T10-32-08.932Z-3b64bee9-eb17-43fe-99f4-af810a9d7ece",
+      "command": "node scripts/check-strategy-comparison-contracts.mjs && npm run check:verification-fingerprint",
+      "startedAt": "2026-10-09T10:32:08.935Z",
+      "finishedAt": "2026-10-09T10:32:10.555Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "faadf968fad2154cf8e48e2d8a5b4850dc740632f199a8b3aa550efd808393fa",
+      "engineAfter": "faadf968fad2154cf8e48e2d8a5b4850dc740632f199a8b3aa550efd808393fa",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T10-36-48.956Z-4ab91b51-c8fd-4788-84b3-27beca1b6cc3",
+      "command": "npm run check:runtime:full",
+      "startedAt": "2026-10-09T10:36:48.958Z",
+      "finishedAt": "2026-10-09T10:38:23.716Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "faadf968fad2154cf8e48e2d8a5b4850dc740632f199a8b3aa550efd808393fa",
+      "engineAfter": "faadf968fad2154cf8e48e2d8a5b4850dc740632f199a8b3aa550efd808393fa",
+      "sameEngine": true,
+      "verificationSourcesBefore": null,
+      "verificationSourcesAfter": null,
+      "sameVerificationSources": null
+    },
+    {
+      "runId": "2026-10-09T10-49-40.951Z-44c2d74d-46d3-43b0-b2e2-b8bd0ba0224b",
+      "command": "node scripts/check-tactical-effect-evidence.mjs && npm run check:verification-fingerprint",
+      "startedAt": "2026-10-09T10:49:40.954Z",
+      "finishedAt": "2026-10-09T10:49:55.145Z",
+      "status": "failed",
+      "exitCode": 1,
+      "engineBefore": "3d763fe5c89017e1ef1e304a063febc5540b9fe37194540f6538fb0a340ddaad",
+      "engineAfter": "3d763fe5c89017e1ef1e304a063febc5540b9fe37194540f6538fb0a340ddaad",
+      "sameEngine": true,
+      "verificationSourcesBefore": {
+        "scripts/run-eternal-hunger-verification.mjs": "97e6dd44de6c4192f7c64e5e2b3d4af1234abdb715d6964442e79c227e77bb2f",
+        "scripts/check-tactical-effect-evidence.mjs": "36796e3e27b677ea022d622bf76a37b0c80a569ecef0e6680ef6c5f4cf8cd487",
+        "../server/routes/game.js": "a52e223d2e781469a5e7231097e863844d14d48fb9185a8af896e11f900d46fb"
+      },
+      "verificationSourcesAfter": {
+        "scripts/run-eternal-hunger-verification.mjs": "97e6dd44de6c4192f7c64e5e2b3d4af1234abdb715d6964442e79c227e77bb2f",
+        "scripts/check-tactical-effect-evidence.mjs": "36796e3e27b677ea022d622bf76a37b0c80a569ecef0e6680ef6c5f4cf8cd487",
+        "../server/routes/game.js": "a52e223d2e781469a5e7231097e863844d14d48fb9185a8af896e11f900d46fb"
+      },
+      "sameVerificationSources": true
+    },
+    {
+      "runId": "2026-10-09T10-51-42.455Z-e7e4983c-8466-4d6d-872f-9dbd2cf2ef86",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-tactical-effect-evidence.mjs && npm run check:team-combat && npm run check:run-comparison && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAt": "2026-10-09T10:51:42.458Z",
+      "finishedAt": "2026-10-09T10:53:00.196Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "086cfa60688fa684d9eeeca927e239680cda8b44a7379fb260da75f0a10ed10b",
+      "engineAfter": "086cfa60688fa684d9eeeca927e239680cda8b44a7379fb260da75f0a10ed10b",
+      "sameEngine": true,
+      "verificationSourcesBefore": {
+        "scripts/run-eternal-hunger-verification.mjs": "97e6dd44de6c4192f7c64e5e2b3d4af1234abdb715d6964442e79c227e77bb2f",
+        "scripts/check-tactical-effect-evidence.mjs": "c7fe10268fb9a747a1af969acbd188d4cce7fc5bdc8f23ec6d2e55cd4478b72d",
+        "../server/routes/game.js": "a52e223d2e781469a5e7231097e863844d14d48fb9185a8af896e11f900d46fb"
+      },
+      "verificationSourcesAfter": {
+        "scripts/run-eternal-hunger-verification.mjs": "97e6dd44de6c4192f7c64e5e2b3d4af1234abdb715d6964442e79c227e77bb2f",
+        "scripts/check-tactical-effect-evidence.mjs": "c7fe10268fb9a747a1af969acbd188d4cce7fc5bdc8f23ec6d2e55cd4478b72d",
+        "../server/routes/game.js": "a52e223d2e781469a5e7231097e863844d14d48fb9185a8af896e11f900d46fb"
+      },
+      "sameVerificationSources": true
+    },
+    {
+      "runId": "2026-10-09T10-54-39.400Z-ba0cc63b-2e20-406a-b91f-6c6e6454a9ef",
+      "command": "node scripts/check-tactical-effect-evidence.mjs && node scripts/check-combat-observation.mjs && node scripts/check-growth-observation.mjs && node scripts/check-custom-consumables.mjs && node scripts/check-custom-crafting.mjs && node scripts/check-equipment-account-recording.mjs && npm run check:verification-fingerprint",
+      "startedAt": "2026-10-09T10:54:39.401Z",
+      "finishedAt": "2026-10-09T10:54:51.037Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "086cfa60688fa684d9eeeca927e239680cda8b44a7379fb260da75f0a10ed10b",
+      "engineAfter": "086cfa60688fa684d9eeeca927e239680cda8b44a7379fb260da75f0a10ed10b",
+      "sameEngine": true,
+      "verificationSourcesBefore": {
+        "scripts/run-eternal-hunger-verification.mjs": "9a902d7764aff351665986d9f36a0ee8c489b65a570cc76973d02264cbfec4ff",
+        "scripts/check-tactical-effect-evidence.mjs": "c7fe10268fb9a747a1af969acbd188d4cce7fc5bdc8f23ec6d2e55cd4478b72d",
+        "../server/routes/game.js": "a52e223d2e781469a5e7231097e863844d14d48fb9185a8af896e11f900d46fb",
+        "scripts/check-combat-observation.mjs": "b963f0967283450783436eafa00ce1d4cee6c696516c9a7448a63489ef3d3c60",
+        "scripts/check-growth-observation.mjs": "0be77a84dbec3f7828f821ca16558edae7e6a9db05f9f9472734c1c6ed99393f",
+        "scripts/check-custom-consumables.mjs": "48ad96c32614151e951f03dd9a8f0740d6549de15d070278b397f32cf4614793",
+        "scripts/check-custom-crafting.mjs": "5b201c1ea888b2ca6bfc75d16c81c63c35fada1434825e27ef5356aa3071d800",
+        "scripts/check-equipment-account-recording.mjs": "9572be40aa96c483afdede3ee329295f04d101b6d71b2829497a6120d50957d2"
+      },
+      "verificationSourcesAfter": {
+        "scripts/run-eternal-hunger-verification.mjs": "9a902d7764aff351665986d9f36a0ee8c489b65a570cc76973d02264cbfec4ff",
+        "scripts/check-tactical-effect-evidence.mjs": "c7fe10268fb9a747a1af969acbd188d4cce7fc5bdc8f23ec6d2e55cd4478b72d",
+        "../server/routes/game.js": "a52e223d2e781469a5e7231097e863844d14d48fb9185a8af896e11f900d46fb",
+        "scripts/check-combat-observation.mjs": "b963f0967283450783436eafa00ce1d4cee6c696516c9a7448a63489ef3d3c60",
+        "scripts/check-growth-observation.mjs": "0be77a84dbec3f7828f821ca16558edae7e6a9db05f9f9472734c1c6ed99393f",
+        "scripts/check-custom-consumables.mjs": "48ad96c32614151e951f03dd9a8f0740d6549de15d070278b397f32cf4614793",
+        "scripts/check-custom-crafting.mjs": "5b201c1ea888b2ca6bfc75d16c81c63c35fada1434825e27ef5356aa3071d800",
+        "scripts/check-equipment-account-recording.mjs": "9572be40aa96c483afdede3ee329295f04d101b6d71b2829497a6120d50957d2"
+      },
+      "sameVerificationSources": true
+    },
+    {
+      "runId": "2026-10-09T10-56-12.031Z-61296865-0c2a-4177-bf70-4b07793b6740",
+      "command": "npm run build",
+      "startedAt": "2026-10-09T10:56:12.033Z",
+      "finishedAt": "2026-10-09T10:56:52.983Z",
+      "status": "passed",
+      "exitCode": 0,
+      "engineBefore": "086cfa60688fa684d9eeeca927e239680cda8b44a7379fb260da75f0a10ed10b",
+      "engineAfter": "086cfa60688fa684d9eeeca927e239680cda8b44a7379fb260da75f0a10ed10b",
+      "sameEngine": true,
+      "verificationSourcesBefore": {
+        "scripts/run-eternal-hunger-verification.mjs": "9a902d7764aff351665986d9f36a0ee8c489b65a570cc76973d02264cbfec4ff"
+      },
+      "verificationSourcesAfter": {
+        "scripts/run-eternal-hunger-verification.mjs": "9a902d7764aff351665986d9f36a0ee8c489b65a570cc76973d02264cbfec4ff"
+      },
+      "sameVerificationSources": true
+    }
+  ],
+  "originalGoalTail": {
+    "marker": "## 제품 정의와 범위",
+    "chars": 20641,
+    "sha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B",
+    "normalization": "CRLF to LF UTF8"
+  },
+  "cleanup": {
+    "inventoryCheckedAtUtc": "2026-10-09T11:00:06.0684334Z",
+    "cacheRoot": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+    "ancestorChecks": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+        "reparse": false
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache",
+        "reparse": false
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next",
+        "reparse": false
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client",
+        "reparse": false
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger",
+        "reparse": false
+      },
+      {
+        "path": "C:\\2저장고",
+        "reparse": false
+      },
+      {
+        "path": "C:\\",
+        "reparse": false
+      }
+    ],
+    "deleted": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 217304770,
+        "sha256": "D2C98C35E82C7A145D2B2B383019E9C0AEFDE7E9FAD1C3FC1C5793D50CE2E82E",
+        "modifiedUtc": "2026-10-09T10:56:42.7975701Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\1.pack",
+        "bytes": 38201341,
+        "sha256": "C8A014661AD872CC3D53BE90424CCAC2485A14635439A6DE5C3E2FE63D91F505",
+        "modifiedUtc": "2026-10-09T10:56:42.7572914Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\2.pack",
+        "bytes": 9575364,
+        "sha256": "A79F3199C21FC04C532C66F90F4674695F2930DA9F78EF4FFB2B27F4BC55B8DB",
+        "modifiedUtc": "2026-10-09T10:56:42.7397527Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12828222,
+        "sha256": "60AF580437C3974E92CFB6CE8DB484713A3EF754FAB6A087510970229B8667BE",
+        "modifiedUtc": "2026-10-09T10:56:42.7382495Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack.old",
+        "bytes": 12821961,
+        "sha256": "8C3284ADBACF7302E2708330BBEC15F48F4F08D0FCAFA58943C66B946BAAC386",
+        "modifiedUtc": "2026-10-09T10:38:14.9654428Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+        "modifiedUtc": "2026-10-09T10:38:00.5194600Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "sha256": "0AE92A08CF38F9F9E87426521FCDCC0C809645114CC7FC7A51D5DE09AC680AE2",
+        "modifiedUtc": "2026-10-09T10:38:00.5194600Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 271135877,
+        "sha256": "9FBDA56AB141DED65490B00C7176F3D7EA0C5B956A4CFB3EED04A3E70F2D3494",
+        "modifiedUtc": "2026-10-09T10:56:33.4886105Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\1.pack",
+        "bytes": 38024473,
+        "sha256": "8D6608B746A4C8D7095E911F4E092FE867E5834A893C9218D132CD6CE11A8604",
+        "modifiedUtc": "2026-10-09T10:56:33.3914785Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18068786,
+        "sha256": "6209750352BA4F55FB8B1D1CC43380C347C88C98DF9AA32A54C72BB829CB0B6C",
+        "modifiedUtc": "2026-10-09T10:56:33.3714242Z"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack.old",
+        "bytes": 18061457,
+        "sha256": "B522D7737481FEB765C0604352EC063880E3CB9F2F2CF6CE179FF562CACB311A",
+        "modifiedUtc": "2026-10-09T10:37:59.2866453Z"
+      }
+    ],
+    "completedAtUtc": "2026-10-09T11:01:18.4184547Z",
+    "deletedCount": 11,
+    "deletedLogicalBytes": 636024991,
+    "remainingPackCount": 0,
+    "preservedFileCount": 70,
+    "preservedFileHashesEqual": true,
+    "relatedProcessCount": 0,
+    "buildId": "Fk7FdfSDllRYMm1Qq7TsJ",
+    "buildNonCacheFileCount": 1429,
+    "buildNonCacheBytes": 73701751,
+    "buildNonCacheDigest": "DEB2E6DC5F3CC68196CD1A74179EAF7892030A46A073B0BC8683DF5FCE3E4228",
+    "buildNonCacheEqual": true,
+    "originalGoalTailSHA256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B",
+    "originalGoalTailEqual": true,
+    "recovery": "Regenerate derived webpack pack files with the next production build. No source, user data, complete build or raw result deleted.",
+    "physicalFreeSpaceMeasured": false
+  },
+  "externalWrites": {
+    "gitPush": 0,
+    "publicDeploy": 0,
+    "foregroundBrowser": 0,
+    "paidAI": 0,
+    "actualAccountOrDatabaseWrites": 0
+  },
+  "remainingGates": [
+    "Current-engine single full check:eternal-hunger command",
+    "Current-engine actual match after save-path change; wider custom/formation inputs",
+    "Both changed tactical conditions must have valid direct exposure",
+    "Actual foreground x1/x8/x32 and sequential memory",
+    "Actual approved account/AI generation proof, not mock contracts",
+    "Map fidelity and independent human understanding/fun/replay evaluation",
+    "Formation-derived roster display, whole escape/chase/ongoing attribution and non-active-turn causality"
+  ]
+}

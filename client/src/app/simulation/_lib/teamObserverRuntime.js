@@ -18,6 +18,7 @@ import { getActorGrowthObservation, describeCraftReceipt, describeProcurementRec
 import { getRuleset } from '../../../utils/rulesets.js';
 import { describeConsumableReceipt } from './consumableObservationRuntime.js';
 import { describeProcurementPurpose, isProcurementAction } from './procurementPurposeRuntime.js';
+import { describeTacticalEffectReceipt } from './tacticalEffectEvidenceRuntime.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 const idOf = (actor) => String(actor?._id || actor?.id || '');
@@ -218,7 +219,11 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
     case 'skill_cancel': return `${who}: ${event.skill} 취소 · ${({ dead: '시전자 사망', status: '행동 제한 상태', moved: '지역 이탈', target_dead: '대상 사망', target_moved: '대상 지역 이탈', untargetable: '대상 지정 불가', target_team: '대상 팀 변경', out_of_range: '대상 사거리 이탈', out_of_sight: '대상 시야 이탈', disabled: '스킬 꺼짐' })[event.reason] || '시전 조건 해제'}${where}`;
     case 'skill_armed': return `${who}: ${event.skill} 강화 준비 · 다음 기본 공격에 적용${where}`;
     case 'skill_expired': return `${who}: ${event.skill} 강화 종료${where}`;
-    case 'skill': return `${who}: ${event.skill} 발동 → ${nameOf(event.targetId || event.target)}${event.heal ? ` · 실제 회복 ${event.heal}` : ''}${event.shield ? ` · 보호막 ${event.shield}` : ''}${event.movementDistance ? ` · ${event.movementMode === 'away_from_target' ? '후퇴' : '돌진'} ${num(event.movementDistance)}m` : ''}${where}`;
+    case 'skill': {
+      const tacticalEffect = describeTacticalEffectReceipt(event);
+      if (tacticalEffect) return `${who}: 전술 스킬 ${event.skill} 발동 · ${tacticalEffect}${where}`;
+      return `${who}: ${event.skill} 발동 → ${nameOf(event.targetId || event.target)}${event.heal ? ` · 실제 회복 ${event.heal}` : ''}${event.shield ? ` · 보호막 ${event.shield}` : ''}${event.movementDistance ? ` · ${event.movementMode === 'away_from_target' ? '후퇴' : '돌진'} ${num(event.movementDistance)}m` : ''}${where}`;
+    }
     case 'battle': {
       const health = presentCombatHealth(event, nameOf);
       return `${nameOf(event.a)} → ${nameOf(event.b)} 공격${where}${health ? ` · ${health.text}` : ''}`;

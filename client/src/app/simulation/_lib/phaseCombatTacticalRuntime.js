@@ -14,6 +14,7 @@ import { collectRuntimeEffectResultTexts } from './runtimeStatus';
 import { resolveRiftTacticalMovement } from './riftDisplacementRuntime.js';
 import { getActorDimensionRiftId, getCombatSpaceId, shareCombatSpace, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 import { resolveTacticalSkillCooldownSec } from './cooldownRuntime.js';
+import { TACTICAL_EFFECT_SCHEMA } from './tacticalEffectEvidenceRuntime.js';
 
 export function createPhaseCombatTacticalRuntime({
   actions = {},
@@ -72,6 +73,17 @@ export function createPhaseCombatTacticalRuntime({
     actor._tacLastUsedAt = absNow;
   };
 
+  const emitTacticalUse = (actor, tac, mode, { opponentId = '', targetId = '', ...receipt }) => {
+    emitRunEvent('skill', { who: String(actor?._id || ''), whoName: actor?.name,
+      teamId: String(actor?.matchTeamId || actor?.teamId || ''), skill: String(tac || ''), source: 'tactical', mode,
+      targetId: String(targetId), opponentId: String(opponentId), zoneId: String(actor?.zoneId || ''),
+      heal: receipt.hpRecovered, tacticalEffect: { schema: TACTICAL_EFFECT_SCHEMA,
+        level: 1 + tacModuleLevel(actor), cooldownUntil: Number(actor._tacNextAbsSec),
+        hpSpent: 0, hpRecovered: 0, damagePrevented: 0, damageAdded: 0,
+        existingShieldAbsorbed: 0, movementDistance: 0, lethalPrevented: false, ...receipt },
+    }, atNow());
+  };
+
   const applyCombatTacAttack = (attacker, defender, baseDmg) => {
     const tac = normalizeTac(attacker?.tacticalSkill);
     const trigger = getTacTrigger(tac, 'combat');
@@ -87,16 +99,19 @@ export function createPhaseCombatTacticalRuntime({
 
     let damage = Math.max(0, Math.floor(Number(baseDmg || 0)));
     const flat = getTacEffectNumber(tac, 'openerFlatDmg', 1 + level, 0);
-    const heal = getTacEffectNumber(tac, 'selfHeal', 1 + level, 0);
+    const heal = getTacEffectNumber(tac, 'selfHeal', 1 + level,
+      getTacEffectNumber(tac, 'healCap', 1 + level, 0));
     const cost = getTacEffectNumber(tac, 'selfCost', 1 + level, 0);
     const regenRecovery = getTacEffectNumber(tac, 'regenRecovery', 1 + level, 0);
     if (cost > 0 && hp <= Math.max(12, cost + 2)) return damage;
 
+    const cooldownBefore = Number(attacker._tacNextAbsSec || 0);
     applyTacUse(attacker, tac);
     const tacticalMovement = resolveRiftTacticalMovement(attacker, defender, {
       skill: tac, distance: getTacEffectNumber(tac, 'movementDistance', 1 + level, 0), nowSec: absNow,
     }, { atNow, emitRunEvent, addLog });
     if (cost > 0) attacker.hp = Math.max(1, hp - cost);
+    const hpSpent = Math.max(0, hp - Number(attacker.hp));
     const requestedHeal = heal > 0 ? applyHealingModifier(attacker, heal) : 0;
     const finalHeal = restoreRuntimeHp(attacker, requestedHeal, maxHp);
 
@@ -119,13 +134,16 @@ export function createPhaseCombatTacticalRuntime({
       if (bits.length) addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'combat-detail');
     }
 
-    emitRunEvent('skill', { who: String(attacker?._id || ''), whoName: attacker?.name, skill: String(tac || ''), mode: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || ''), heal: finalHeal }, atNow());
+    emitTacticalUse(attacker, tac, 'combat_attack', { opponentId: defender?._id, targetId: defender?._id,
+      hpBefore: hp, hpAfter: Number(attacker.hp), hpSpent, hpRecovered: finalHeal, cooldownBefore,
+      damageBefore: Math.max(0, Math.floor(Number(baseDmg || 0))), damageAfter: Math.max(0, damage),
+      damageAdded: flat, movementDistance: Math.max(0, Number(tacticalMovement?.actualDistance || 0)) });
     emitEffectRunEvents(attacker, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, atNow());
     emitEffectRunEvents(defender, targetTacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack_target', zoneId: String(defender?.zoneId || attacker?.zoneId || '') }, atNow());
     return Math.max(0, damage);
   };
 
-  const shieldBlock = (defender, rawDmg) => {
+  const shieldBlock = (defender, rawDmg, impactContext = {}) => {
     let damage = Math.max(0, Number(rawDmg || 0));
     if (damage <= 0) return damage;
 
@@ -146,11 +164,21 @@ export function createPhaseCombatTacticalRuntime({
     if (minDamage > 0 && damage < minDamage) return damage;
 
     const level = tacModuleLevel(defender);
+    const cooldownBefore = Number(defender._tacNextAbsSec || 0);
+    const hpBefore = Number(defender.hp);
+    const emitDefenseUse = (remaining, lethalPrevented = false) => emitTacticalUse(defender, tac, 'combat_defense', {
+      opponentId: impactContext.attackerId, targetId: defender?._id,
+      hpBefore, hpAfter: Number(defender.hp), cooldownBefore, damageBefore: damage, damageAfter: remaining,
+      damagePrevented: Math.max(0, damage - remaining), existingShieldAbsorbed: Math.max(0, Number(preShield.absorbed || 0)),
+      lethalPrevented,
+    });
     const negateLethal = getTacEffectNumber(tac, 'negateLethal', 1 + level, 0) > 0;
     if (negateLethal && damage >= Number(defender?.hp || 0)) {
       applyTacUse(defender, tac);
       addLog(`🗿 [${defender.name}] 전술 스킬(${tac}): 치명타격 무효`, 'combat-detail');
-      return Math.max(0, Number(defender?.hp || 0) - 1);
+      const remaining = Math.max(0, Number(defender?.hp || 0) - 1);
+      emitDefenseUse(remaining, true);
+      return remaining;
     }
 
     const blockCap = getTacEffectNumber(tac, 'block', 1 + level, 0);
@@ -167,7 +195,7 @@ export function createPhaseCombatTacticalRuntime({
       if (block > 0) bits.push(`피해 -${block}`);
       if (bits.length) addLog(`⚡ [${defender.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'combat-detail');
     }
-    emitRunEvent('skill', { who: String(defender?._id || ''), whoName: defender?.name, skill: String(tac || ''), mode: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());
+    emitDefenseUse(Math.max(0, Number(blocked?.damage ?? damage)));
     emitEffectRunEvents(defender, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());
     return Math.max(0, Number(blocked?.damage ?? damage));
   };

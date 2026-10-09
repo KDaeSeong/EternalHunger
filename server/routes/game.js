@@ -50,6 +50,38 @@ function stampText(at) {
 }
 
 function compactRunEventsForStorage(runEvents) {
+  const tacticalEffectSchema = 'eternal-hunger.tactical-effect.v1';
+  const tacticalEffectFields = ['level', 'hpBefore', 'hpAfter', 'hpSpent', 'hpRecovered', 'cooldownBefore', 'cooldownUntil',
+    'damageBefore', 'damageAfter', 'damagePrevented', 'damageAdded', 'existingShieldAbsorbed', 'movementDistance'];
+  const same = (left, right) => Math.abs(left - right) < 1e-6;
+  const copyTacticalEffect = (event) => {
+    const receipt = event?.tacticalEffect;
+    const sec = event?.at?.sec;
+    if (event?.kind !== 'skill' || event.source !== 'tactical'
+      || !['combat_attack', 'combat_defense'].includes(event.mode)
+      || receipt?.schema !== tacticalEffectSchema
+      || tacticalEffectFields.some((field) => typeof receipt[field] !== 'number'
+        || !Number.isFinite(receipt[field]) || receipt[field] < 0)
+      || ![1, 2].includes(receipt.level) || typeof receipt.lethalPrevented !== 'boolean'
+      || typeof sec !== 'number' || !Number.isFinite(sec) || sec < 0
+      || receipt.cooldownBefore > sec || receipt.cooldownUntil < sec
+      || !same(receipt.hpAfter, receipt.hpBefore - receipt.hpSpent + receipt.hpRecovered)) return null;
+    if (event.mode === 'combat_defense') {
+      if (!same(receipt.damagePrevented, receipt.damageBefore - receipt.damageAfter)
+        || receipt.damageAdded !== 0 || receipt.hpSpent !== 0 || receipt.hpRecovered !== 0
+        || receipt.movementDistance !== 0) return null;
+      if (receipt.lethalPrevented && !(receipt.hpBefore > 0
+        && receipt.damageBefore >= receipt.hpBefore
+        && same(receipt.damageAfter, Math.max(0, receipt.hpBefore - 1)))) return null;
+    } else if (!same(receipt.damageAfter, receipt.damageBefore + receipt.damageAdded)
+      || receipt.damagePrevented !== 0 || receipt.existingShieldAbsorbed !== 0 || receipt.lethalPrevented) return null;
+
+    return {
+      schema: tacticalEffectSchema,
+      ...Object.fromEntries(tacticalEffectFields.map((field) => [field, receipt[field]])),
+      lethalPrevented: receipt.lethalPrevented,
+    };
+  };
   const allowedKeys = [
     'kind',
     'subkind',
@@ -112,6 +144,14 @@ function compactRunEventsForStorage(runEvents) {
           phase: String(event.at.phase || '').slice(0, 20),
           sec: Number(event.at.sec || 0),
         };
+      }
+      if (event.kind === 'skill' && event.source === 'tactical'
+        && ['combat_attack', 'combat_defense'].includes(event.mode)) {
+        const tacticalEffect = copyTacticalEffect(event);
+        if (tacticalEffect) {
+          if (typeof event.opponentId === 'string') out.opponentId = event.opponentId.slice(0, 180);
+          out.tacticalEffect = tacticalEffect;
+        }
       }
       if (Array.isArray(event.blockedReasons)) out.blockedReasons = event.blockedReasons.slice(0, 6).map((reason) => String(reason || '').slice(0, 120));
       if (event.kind === 'use' && Array.isArray(event.effects)) {

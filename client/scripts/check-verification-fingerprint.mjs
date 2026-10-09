@@ -54,5 +54,18 @@ const lineEndings = versions({ crlf: true });
 assert.equal(lineEndings.wrapper, base.wrapper);
 assert.equal(lineEndings.generator, base.generator);
 console.log('PASS CRLF normalization retains cross-platform engine identity');
-console.log(JSON.stringify({ pass: true, checks: 4, engine: base.wrapper,
+
+const strategyOutputStatement = wrapperSource.match(/^if \(\['strategy-paired', 'formation-paired'\]\.includes\(mode\)\) commands\[mode\] \+= .*;$/m)?.[0];
+assert.ok(strategyOutputStatement, 'Check the actual strategy output argument, not a replacement command.');
+for (const mode of ['strategy-paired', 'formation-paired']) {
+  const strategyCommand = vm.runInNewContext(`${strategyOutputStatement}\ncommands[mode];`, {
+    mode, commands: { [mode]: 'npm run analyze:strategy-comparison --' },
+    runId: '2000-01-01T00-00-00.000Z-00000000-0000-4000-8000-000000000000',
+  }, { timeout: 1000 });
+  assert.match(strategyCommand, / --output=\.verification-runs\/[A-Za-z0-9.-]+\/strategy-comparison\.json$/);
+  assert.ok(!strategyCommand.includes('"') && !strategyCommand.includes("'"),
+    'The safe relative output path must not acquire literal Windows npm quotes.');
+}
+console.log('PASS strategy output uses the actual shell-safe unquoted relative path');
+console.log(JSON.stringify({ pass: true, checks: 5, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));

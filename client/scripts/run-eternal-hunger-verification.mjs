@@ -16,6 +16,12 @@ const commands = {
   'distribution-varied': 'npm run diagnose:match-distribution -- --rosters=BASELINE:roster-A,BASELINE:roster-B,BASELINE:roster-C 5501 5502',
   'distribution-unit': 'npm run check:team-regroup && npm run check:verification-fingerprint',
   'retreat-diagnostics-unit': 'npm run check:match-distribution-metrics && npm run check:verification-fingerprint',
+  'tactical-effect-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-tactical-effect-evidence.mjs && npm run check:team-combat && npm run check:run-comparison && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'tactical-receipt-unit': 'node scripts/check-tactical-effect-evidence.mjs && npm run check:verification-fingerprint',
+  'tactical-storage-unit': 'node scripts/check-tactical-effect-evidence.mjs && node scripts/check-combat-observation.mjs && node scripts/check-growth-observation.mjs && node scripts/check-custom-consumables.mjs && node scripts/check-custom-crafting.mjs && node scripts/check-equipment-account-recording.mjs && npm run check:verification-fingerprint',
+  'strategy-comparison-unit': 'node scripts/check-strategy-comparison-contracts.mjs && npm run check:verification-fingerprint',
+  'strategy-paired': 'npm run analyze:strategy-comparison -- --seeds=1101 --variants=baseline,one-tactical-skill --repeats=2',
+  'formation-paired': 'npm run analyze:strategy-comparison -- --seeds=1101 --variants=baseline,one-formation-swap --repeats=2',
   'distribution-observer': 'npm run diagnose:match-distribution -- --compare-observer 4402',
   'movement-trace': 'npm run check:movement-reversal-trace && npm run diagnose:match-distribution -- --trace-movement --compare-observer 4407',
   'growth-planning-prefix': 'node scripts/diagnose-team-growth-planning.mjs',
@@ -34,7 +40,7 @@ const commands = {
   performance: 'npm run check:growth-plan && npm run check:team-observer && npm run check:live-frames && npm run check:display-pacing && npm run check:phase-runtime-performance && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
 };
 const mode = process.argv[2] || 'full';
-if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, growth-focus-unit, preset-editor-unit, phase-performance-unit, natural-procurement-unit, natural-procurement, procurement-purpose-unit, procurement-purpose-match, status-tick-unit, status-tick-match, performance, execution, distribution, distribution-varied, distribution-unit, retreat-diagnostics-unit, distribution-observer, movement-trace, growth-planning-prefix, handoff, handoff-unit, build or runtime-build.');
+if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, growth-focus-unit, preset-editor-unit, phase-performance-unit, natural-procurement-unit, natural-procurement, procurement-purpose-unit, procurement-purpose-match, status-tick-unit, status-tick-match, performance, execution, distribution, distribution-varied, distribution-unit, retreat-diagnostics-unit, tactical-effect-unit, tactical-receipt-unit, tactical-storage-unit, strategy-comparison-unit, strategy-paired, formation-paired, distribution-observer, movement-trace, growth-planning-prefix, handoff, handoff-unit, build or runtime-build.');
 // Resume only missing input-axis cases without rerunning completed matches.
 // These comma-separated identifiers are deliberately shell-safe, not raw CLI.
 if (mode === 'distribution-varied' && process.argv.length > 3) {
@@ -46,10 +52,21 @@ if (mode === 'distribution-varied' && process.argv.length > 3) {
   }
   commands[mode] = `npm run diagnose:match-distribution -- --rosters=${rosters} ${seeds.split(',').join(' ')}`;
 }
+if (['strategy-paired', 'formation-paired'].includes(mode) && process.argv.length > 3) {
+  const seedList = process.argv[3];
+  if (process.argv.length !== 4 || !/^\d+(?:,\d+)*$/.test(seedList)
+    || new Set(seedList.split(',')).size !== seedList.split(',').length) {
+    throw Error('Use strategy-paired or formation-paired <comma-separated numeric seeds>.');
+  }
+  commands[mode] = commands[mode].replace('--seeds=1101', `--seeds=${seedList}`);
+}
 const root = fileURLToPath(new URL('../', import.meta.url));
 const runId = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}`;
 const directory = join(root, '.verification-runs', runId);
 mkdirSync(directory, { recursive: true });
+// runId contains only timestamp/UUID characters, so this relative argument is
+// shell-safe without quotes. Windows npm otherwise forwards the quotes literally.
+if (['strategy-paired', 'formation-paired'].includes(mode)) commands[mode] += ` --output=.verification-runs/${runId}/strategy-comparison.json`;
 const log = createWriteStream(join(directory, 'output.log'), { flags: 'wx' });
 const resultPath = join(directory, 'result.json');
 function fingerprint() {
@@ -61,8 +78,21 @@ function fingerprint() {
   for (const path of paths.sort()) hash.update(path).update('\0').update(readFileSync(join(root, path), 'utf8').replaceAll('\r\n', '\n')).update('\0');
   return hash.digest('hex');
 }
+function verificationSourceHashes() {
+  const paths = ['scripts/run-eternal-hunger-verification.mjs'];
+  if (['tactical-effect-unit', 'tactical-receipt-unit', 'tactical-storage-unit'].includes(mode)) {
+    // The server sanitizer is outside the client engine fingerprint. Capture it
+    // together with the actual fresh-receipt test so source drift cannot pass.
+    paths.push('scripts/check-tactical-effect-evidence.mjs', '../server/routes/game.js');
+  }
+  if (mode === 'tactical-storage-unit') paths.push('scripts/check-combat-observation.mjs', 'scripts/check-growth-observation.mjs',
+    'scripts/check-custom-consumables.mjs', 'scripts/check-custom-crafting.mjs', 'scripts/check-equipment-account-recording.mjs');
+  return Object.fromEntries(paths.map((path) => [path,
+    createHash('sha256').update(readFileSync(join(root, path), 'utf8').replaceAll('\r\n', '\n')).digest('hex')]));
+}
 const result = { runId, command: commands[mode], startedAt: new Date().toISOString(), pid: process.pid,
-  engineBefore: fingerprint(), status: 'running', scope: 'Named command only; not balance, fun or overall-goal acceptance.' };
+  engineBefore: fingerprint(), verificationSourcesBefore: verificationSourceHashes(),
+  status: 'running', scope: 'Named command only; not balance, fun or overall-goal acceptance.' };
 const persist = () => writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`);
 persist(); console.log(`VERIFICATION_RESULT ${resultPath}`);
 try {
@@ -76,7 +106,9 @@ try {
   });
   result.exitCode = outcome.code; result.signal = outcome.signal;
   result.engineAfter = fingerprint(); result.sameEngine = result.engineBefore === result.engineAfter;
-  result.status = outcome.code === 0 && result.sameEngine ? 'passed' : 'failed';
+  result.verificationSourcesAfter = verificationSourceHashes();
+  result.sameVerificationSources = JSON.stringify(result.verificationSourcesBefore) === JSON.stringify(result.verificationSourcesAfter);
+  result.status = outcome.code === 0 && result.sameEngine && result.sameVerificationSources ? 'passed' : 'failed';
   process.exitCode = result.status === 'passed' ? 0 : outcome.code || 1;
 } catch (error) {
   result.status = 'failed'; result.error = String(error); process.exitCode = 1;

@@ -11,6 +11,7 @@ import {
   getWinningTeam,
 } from './teamRuntime';
 import { mergeStoredUserProgress, saveLocalHallOfFameBackup } from './userProgress';
+import { readTacticalEffectReceipt } from './tacticalEffectEvidenceRuntime';
 
 function hashRunIdentity(value) {
   const input = String(value || '');
@@ -437,6 +438,17 @@ export async function finishSimulationGame(opts = {}) {
           });
           if (event.at && typeof event.at === 'object') out.at = { day: event.at.day, phase: event.at.phase, sec: event.at.sec };
           if (Array.isArray(event.blockedReasons)) out.blockedReasons = event.blockedReasons.slice(0, 6).map(String);
+          if (event.tacticalEffect) {
+            const receipt = readTacticalEffectReceipt(event);
+            if (receipt) {
+              if (typeof event.opponentId === 'string') out.opponentId = event.opponentId.slice(0, 180);
+              out.tacticalEffect = Object.fromEntries([
+                'schema', 'level', 'hpBefore', 'hpAfter', 'hpSpent', 'hpRecovered', 'cooldownBefore', 'cooldownUntil',
+                'damageBefore', 'damageAfter', 'damagePrevented', 'damageAdded', 'existingShieldAbsorbed',
+                'movementDistance', 'lethalPrevented',
+              ].map((key) => [key, receipt[key]]));
+            }
+          }
           return out;
         })
         .filter(Boolean);

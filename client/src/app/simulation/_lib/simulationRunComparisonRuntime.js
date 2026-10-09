@@ -1,5 +1,6 @@
 import { buildRunActionSummary } from './runActionSummary.js';
 import { validateSimulationReplayRecord } from './simulationReplayRuntime';
+import { buildTacticalEffectSummary } from './tacticalEffectEvidenceRuntime.js';
 
 const idOf = (actor) => String(actor?._id || actor?.id || '');
 const teamIdOf = (actor) => String(actor?.matchTeamId || actor?.teamId || actor?.squadId || idOf(actor));
@@ -105,7 +106,25 @@ function compareConditions(baseline, candidate) {
   if (canonical(beforeRoster) !== canonical(afterRoster)) {
     changes.push({ key: 'teamRoster', label: '팀 편성', before: `${beforeRoster.length}팀`, after: `${afterRoster.length}팀` });
   }
+  for (const [key, label] of [['publicItems', '장비·재료 카탈로그'], ['kiosks', '키오스크 목록'], ['droneOffers', '드론 주문 목록']]) {
+    if (canonical(baseline.input[key]) !== canonical(candidate.input[key])) {
+      changes.push({ key, label, before: '기준 구성', after: '변경 구성' });
+    }
+  }
+  const worldState = (record) => Object.fromEntries(Object.entries(record.input.initialFrame).filter(([key]) => key !== 'survivors'));
+  if (canonical(worldState(baseline)) !== canonical(worldState(candidate))) {
+    changes.push({ key: 'initialWorld', label: '초기 전장 상태', before: '기준 상태', after: '변경 상태' });
+  }
   return changes;
+}
+
+function remainingActorState(actor) {
+  // All unclassified starting data (HP, credits, inventory, position, runtime
+  // clocks, custom fields, etc.) still prevents a false single-strategy claim.
+  // Disabled skill shells remain presentation-only, as in the named comparison.
+  const named = new Set(['_id', 'id', 'teamId', 'matchTeamId', 'squadId', 'name', 'tacticalSkill', 'weaponType',
+    'erRole', 'erTrait', 'goalGearTier', 'characterSkills', 'characterSkillLevels', 'uniqueResource', 'stats', 'goalLoadouts']);
+  return Object.fromEntries(Object.entries(actor).filter(([key]) => !named.has(key)));
 }
 
 function compareActors(baseline, candidate) {
@@ -129,6 +148,7 @@ function compareActors(baseline, candidate) {
       ['uniqueResource', '고유 자원 구성', activeUniqueResource(before), activeUniqueResource(after)],
       ['stats', '기본 능력치', before.stats, after.stats],
       ['goalLoadouts', '목표 장비 구성', before.goalLoadouts, after.goalLoadouts],
+      ['initialState', '초기 체력·자원·위치 등', remainingActorState(before), remainingActorState(after)],
     ];
     for (const [key, label, beforeValue, afterValue] of fields) {
       if (canonical(beforeValue) === canonical(afterValue)) continue;
@@ -197,6 +217,11 @@ export function buildSimulationRunComparison(baseline, candidate) {
   validateSimulationReplayRecord(candidate);
   const conditionChanges = compareConditions(baseline, candidate);
   const actorChanges = compareActors(baseline, candidate);
+  const tacticalEffects = actorChanges.filter((row) => row.key === 'tacticalSkill').map((row) => ({
+    actorId: row.actorId, actorName: row.actorName, skillBefore: row.before, skillAfter: row.after,
+    before: buildTacticalEffectSummary(baseline.events, row.actorId),
+    after: buildTacticalEffectSummary(candidate.events, row.actorId),
+  }));
   const left = outcomeMetrics(baseline); const right = outcomeMetrics(candidate);
   const metrics = METRICS.map(([key, label, unit]) => ({ key, label, unit, before: left[key], after: right[key], delta: right[key] - left[key] }));
   const winnerBefore = winnerLabel(baseline); const winnerAfter = winnerLabel(candidate);
@@ -224,7 +249,7 @@ export function buildSimulationRunComparison(baseline, candidate) {
         : '시드는 같지만 여러 조건이 함께 달라졌습니다. 어떤 변경이 결과를 만들었는지는 한 조건씩 바꾼 추가 경기가 필요합니다.';
   return { baselineId: String(baseline.id || ''), candidateId: String(candidate.id || ''), sameSeed,
     winnerBefore, winnerAfter, endingBefore, endingAfter, sameEnding,
-    conditionChanges, actorChanges, inputChangeCount, metrics, highlights, interpretation,
+    conditionChanges, actorChanges, tacticalEffects, inputChangeCount, metrics, highlights, interpretation,
     participantNamesBefore: finalActors(baseline).map(actorName), participantNamesAfter: finalActors(candidate).map(actorName) };
 }
 

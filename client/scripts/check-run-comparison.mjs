@@ -93,6 +93,42 @@ check('one changed condition with the same seed is distinguished from a multi-ch
   assert.equal(multipleResult.inputChangeCount, 2); assert.match(multipleResult.interpretation, /여러 조건/);
 });
 
+check('unclassified initial HP, credits, inventory and position changes cannot masquerade as a tactical-only edit', () => {
+  for (const [field, value] of [['hp', 30], ['simCredits', 999], ['inventory', [{ itemId: 'free-gear', qty: 1 }]],
+    ['zoneId', 'other'], ['_customStartingField', { extra: true }]]) {
+    const before = record('a'); const after = record('b');
+    after.input.initialFrame.survivors[0].tacticalSkill = '초월';
+    after.input.initialFrame.survivors[0][field] = value;
+    const out = buildSimulationRunComparison(before, after);
+    assert.equal(out.inputChangeCount, 2); assert.match(out.interpretation, /여러 조건/);
+    assert.ok(out.actorChanges.some((row) => row.key === 'initialState'));
+  }
+});
+
+check('catalog, service and initial-world differences prevent a false single-strategy comparison', () => {
+  for (const alter of [
+    (input) => { input.publicItems.push({ _id: 'different', tier: 9 }); },
+    (input) => { input.kiosks.push({ zoneId: 'z', price: 1 }); },
+    (input) => { input.droneOffers.push({ itemId: 'item', qty: 1 }); },
+    (input) => { input.initialFrame.spawnState = { extraStock: 1 }; },
+  ]) {
+    const before = record('a'); const after = record('b');
+    after.input.initialFrame.survivors[0].tacticalSkill = '초월'; alter(after.input);
+    const out = buildSimulationRunComparison(before, after);
+    assert.equal(out.inputChangeCount, 2); assert.match(out.interpretation, /여러 조건/);
+  }
+});
+
+check('comparison exposes missing tactical effect evidence instead of claiming a zero-effect result', () => {
+  const before = record('a'); const after = record('b');
+  after.input.initialFrame.survivors[0].tacticalSkill = '초월';
+  after.events.unshift({ kind: 'skill', who: 'a', skill: '초월', mode: 'combat_defense' });
+  const out = buildSimulationRunComparison(before, after);
+  assert.equal(out.tacticalEffects.length, 1); assert.equal(out.tacticalEffects[0].actorId, 'a');
+  assert.equal(out.tacticalEffects[0].after.uses, 1); assert.equal(out.tacticalEffects[0].after.recorded, 0);
+  assert.equal(out.tacticalEffects[0].after.unrecorded, 1);
+});
+
 check('a same-seed formation-only change remains attributable to the named actor', () => {
   const before = record('a'); const after = record('b');
   after.input.initialFrame.survivors[0].teamId = 'blue';
@@ -172,6 +208,7 @@ check('comparison history renders both evidence columns and the responsive resul
     'buildSimulationRunComparison', '기준:', '대상:', 'comparison.interpretation',
     '바뀐 시작 조건', '달라진 결과 지표', 'sim-run-comparison-table',
     'sim-run-comparison-highlights', 'role="table"', 'aria-label="경기 결과 지표 비교"',
+    '변경한 전술의 실제 발동', 'comparison.tacticalEffects', '효과가 0이라는 뜻이 아닙니다',
   ]) assert.ok(comparisonComponent.includes(token), `comparison UI contract missing: ${token}`);
   assert.match(simulationCss, /\.sim-replay-history\s*\{[\s\S]*?width:\s*min\(800px,\s*100%\)[\s\S]*?max-height:\s*85vh[\s\S]*?overflow-y:\s*auto/);
   assert.match(simulationCss, /\.sim-replay-history li span\s*\{[\s\S]*?overflow-wrap:\s*anywhere/);

@@ -350,6 +350,20 @@ export default function SimulationReplayHistory({
                   <strong>{row.actorName} · {row.label}</strong><span>{row.before} → {row.after}</span></li>)}
               </ul> : <p>기록된 시작 조건 차이가 없습니다.</p>}
             </details>
+            {comparison.tacticalEffects.length > 0 ? <details open>
+              <summary>변경한 전술의 실제 발동 ({comparison.tacticalEffects.length}명)</summary>
+              <p>직접 기록된 전투 발동만 비교합니다. 원피해·전술 단계 차단량은 최종 HP 피해나 승리 원인과 다릅니다. 도주·추격 발동과 지속 효과 전체의 합계가 아닙니다.</p>
+              <ul className="sim-run-comparison-changes">
+                {comparison.tacticalEffects.map((row) => <li key={row.actorId}>
+                  <strong>{row.actorName} · {row.skillBefore} → {row.skillAfter}</strong>
+                  <span>전투 발동 {row.before.uses} → {row.after.uses}회 · 효과 근거 {row.before.recorded}/{row.before.uses} → {row.after.recorded}/{row.after.uses}건</span>
+                  <span>실제 회복 {formatComparisonMetric(row.before.hpRecovered)} → {formatComparisonMetric(row.after.hpRecovered)} HP · HP 비용 {formatComparisonMetric(row.before.hpSpent)} → {formatComparisonMetric(row.after.hpSpent)}</span>
+                  <span>전술 단계 차단 {formatComparisonMetric(row.before.damagePrevented)} → {formatComparisonMetric(row.after.damagePrevented)} · 치명타격 무효 {row.before.lethalPrevented} → {row.after.lethalPrevented}회</span>
+                  <span>추가 원피해 {formatComparisonMetric(row.before.damageAdded)} → {formatComparisonMetric(row.after.damageAdded)} · 내부 이동 {formatComparisonMetric(row.before.movementDistance, 'm')} → {formatComparisonMetric(row.after.movementDistance, 'm')}</span>
+                  {row.before.unrecorded || row.after.unrecorded ? <em>효과 근거가 빠진 발동은 위 합계에서 제외되며, 효과가 0이라는 뜻이 아닙니다.</em> : null}
+                </li>)}
+              </ul>
+            </details> : null}
             <details open>
               <summary>달라진 결과 지표 ({comparison.metrics.filter((row) => row.delta !== 0).length})</summary>
               <div className="sim-run-comparison-table" role="table" aria-label="경기 결과 지표 비교">
