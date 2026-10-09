@@ -1,0 +1,214 @@
+{
+  "schema": "eternal-hunger.map-area-reference.v1",
+  "observedDate": "2026-10-09",
+  "engineVersion": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+  "extraction": {
+    "command": "node scripts/analyze-map-reference.mjs",
+    "mapId": "guest-lumia-island",
+    "zoneCount": 21,
+    "connectionRecords": 44,
+    "uniqueUndirectedPairs": 43,
+    "effectiveHyperloopSources": [
+      "gas_station",
+      "school",
+      "temple",
+      "stream",
+      "hospital",
+      "hotel",
+      "forest",
+      "apartment",
+      "cathedral",
+      "barge",
+      "factory",
+      "lab"
+    ]
+  },
+  "references": [
+    {
+      "url": "https://developer.eternalreturn.io/static/media/OpenAPI_EN_20260917_01.html",
+      "section": "4.7 AreaCode",
+      "documentVersion": "11.0.0",
+      "documentUpdated": "2026-05-04 18:33:39 +0900",
+      "purpose": "Official numeric area identities and English names; Korean label mapping is authored, not fetched via language API."
+    },
+    {
+      "url": "https://playeternalreturn.com/posts/news/3530?hl=ko-KR",
+      "patch": "11.0",
+      "patchDate": "2026-04-30",
+      "purpose": "21st area Barge and Harbor/Factory adjacency context; not an exhaustive road/device list."
+    }
+  ],
+  "areaComparisons": [
+    {
+      "officialAreaCode": 10,
+      "localZoneId": "port",
+      "expectedDisplayName": "항구",
+      "actualDisplayName": "항구",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 20,
+      "localZoneId": "warehouse",
+      "expectedDisplayName": "창고",
+      "actualDisplayName": "창고",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 30,
+      "localZoneId": "park",
+      "expectedDisplayName": "연못",
+      "actualDisplayName": "연못",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 40,
+      "localZoneId": "stream",
+      "expectedDisplayName": "개울",
+      "actualDisplayName": "개울",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 50,
+      "localZoneId": "beach",
+      "expectedDisplayName": "모래사장",
+      "actualDisplayName": "모래사장",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 60,
+      "localZoneId": "apartment",
+      "expectedDisplayName": "고급 주택가",
+      "actualDisplayName": "고급 주택가",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 70,
+      "localZoneId": "alley",
+      "expectedDisplayName": "골목길",
+      "actualDisplayName": "골목길",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 80,
+      "localZoneId": "gas_station",
+      "expectedDisplayName": "주유소",
+      "actualDisplayName": "주유소",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 90,
+      "localZoneId": "hotel",
+      "expectedDisplayName": "호텔",
+      "actualDisplayName": "호텔",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 100,
+      "localZoneId": "police",
+      "expectedDisplayName": "경찰서",
+      "actualDisplayName": "경찰서",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 110,
+      "localZoneId": "firestation",
+      "expectedDisplayName": "소방서",
+      "actualDisplayName": "소방서",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 120,
+      "localZoneId": "hospital",
+      "expectedDisplayName": "병원",
+      "actualDisplayName": "병원",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 130,
+      "localZoneId": "temple",
+      "expectedDisplayName": "절",
+      "actualDisplayName": "절",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 140,
+      "localZoneId": "archery",
+      "expectedDisplayName": "양궁장",
+      "actualDisplayName": "양궁장",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 150,
+      "localZoneId": "cemetery",
+      "expectedDisplayName": "묘지",
+      "actualDisplayName": "묘지",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 160,
+      "localZoneId": "forest",
+      "expectedDisplayName": "숲",
+      "actualDisplayName": "숲",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 170,
+      "localZoneId": "factory",
+      "expectedDisplayName": "공장",
+      "actualDisplayName": "공장",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 180,
+      "localZoneId": "cathedral",
+      "expectedDisplayName": "성당",
+      "actualDisplayName": "성당",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 190,
+      "localZoneId": "school",
+      "expectedDisplayName": "학교",
+      "actualDisplayName": "학교",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 200,
+      "localZoneId": "barge",
+      "expectedDisplayName": "바지선",
+      "actualDisplayName": "바지선",
+      "matched": true
+    },
+    {
+      "officialAreaCode": 1000,
+      "localZoneId": "lab",
+      "expectedDisplayName": "연구소",
+      "actualDisplayName": "연구소",
+      "matched": true
+    }
+  ],
+  "results": {
+    "areaCountAndMappedNamesMatch": true,
+    "matchingAreas": 21,
+    "completeRoadComparison": false,
+    "completeHyperloopComparison": false,
+    "officialLanguagePayloadFetched": false,
+    "referenceImagesInspected": false,
+    "foregroundVisualAcceptance": false,
+    "overallMapAcceptance": false
+  },
+  "limitations": [
+    "Official map image links returned HTTP 403; images were not inspected.",
+    "Area identities do not establish road direction, passage geometry or hyperloop sources.",
+    "No season 12 rules were mixed into the ER_S11 baseline.",
+    "Output-only evidence: validators must derive fresh current-code inputs rather than using this report as a golden result."
+  ],
+  "mutations": {
+    "simulationSource": false,
+    "rules": false,
+    "mapRuntime": false,
+    "credentials": false,
+    "account": false,
+    "deploy": false
+  }
+}

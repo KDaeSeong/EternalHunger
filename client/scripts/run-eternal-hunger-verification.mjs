@@ -19,6 +19,7 @@ const commands = {
   'movement-trace': 'npm run check:movement-reversal-trace && npm run diagnose:match-distribution -- --trace-movement --compare-observer 4407',
   'growth-planning-prefix': 'node scripts/diagnose-team-growth-planning.mjs',
   'preset-editor-unit': 'npm run check:skills && npm run check:er-weapons && node scripts/check-guest-character-profiles.mjs && node scripts/check-custom-roster.mjs && npm run check:verification-fingerprint && node node_modules/eslint/bin/eslint.js src/app/characters/page.js src/app/characters/_lib/characterEditorRuntime.js && npm run check:runtime:sweep',
+  'phase-performance-unit': 'npm run check:phase-runtime-performance && node scripts/check-late-growth-decision-index.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'status-tick-unit': 'npm run check:status-tick-normalization && node scripts/check-detonation-rules.mjs && node scripts/check-live-frames.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'status-tick-match': 'npm run check:status-tick-normalization:match',
   'growth-focus-unit': 'npm run check:growth-plan && npm run check:team-tactics && npm run check:verification-fingerprint && npm run check:runtime:sweep',
@@ -28,7 +29,7 @@ const commands = {
   performance: 'npm run check:growth-plan && npm run check:team-observer && npm run check:live-frames && npm run check:display-pacing && npm run check:phase-runtime-performance && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
 };
 const mode = process.argv[2] || 'full';
-if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, growth-focus-unit, preset-editor-unit, status-tick-unit, status-tick-match, performance, execution, distribution, distribution-varied, distribution-unit, distribution-observer, movement-trace, growth-planning-prefix, handoff, handoff-unit, build or runtime-build.');
+if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, growth-focus-unit, preset-editor-unit, phase-performance-unit, status-tick-unit, status-tick-match, performance, execution, distribution, distribution-varied, distribution-unit, distribution-observer, movement-trace, growth-planning-prefix, handoff, handoff-unit, build or runtime-build.');
 // Resume only missing input-axis cases without rerunning completed matches.
 // These comma-separated identifiers are deliberately shell-safe, not raw CLI.
 if (mode === 'distribution-varied' && process.argv.length > 3) {

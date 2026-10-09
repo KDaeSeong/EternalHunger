@@ -264,16 +264,74 @@ check('call-local ingredient scores preserve authored, tier, quantity and tie-br
   }
 });
 
-check('ingredient scoring reads each sortable recipe once and is recomputed after inventory changes', () => {
+check('ingredient scoring rebuilds its quantity index after in-place inventory changes', () => {
   const items = [1, 2, 3, 4].map(qty => planningGear(`score-${qty}`, 'head', 5, [{ itemId: 'raw', qty }]));
   const worn = { ...planningGear('owned-head', 'head', 4), itemId: 'owned-head', qty: 1 };
-  let reads = 0;
-  const raw = { itemId: 'raw', get qty() { reads++; return 4; } };
+  let reads = 0, quantity = 4;
+  const raw = { itemId: 'raw', get qty() { reads++; return quantity; }, set qty(value) { quantity = value; } };
   const who = planningActor({ inventory: [worn, raw], equipped: { head: worn.itemId } });
-  assert.deepEqual(getLateGrowthTargets(who, items).targets.map(item => item._id), ['score-4', 'score-3', 'score-2', 'score-1']);
-  assert.equal(reads, 10, 'The quantity helper reads qty twice: one ownership lookup plus one score per candidate, not per sort comparison.');
-  who.inventory[1] = { itemId: 'raw', qty: 1 };
-  assert.deepEqual(getLateGrowthTargets(who, items).targets.map(item => item._id), ['score-1', 'score-2', 'score-3', 'score-4']);
+  let previousReads = 0;
+  for (const [qty, expectedIds] of [
+    [4, ['score-4', 'score-3', 'score-2', 'score-1']],
+    [1, ['score-1', 'score-2', 'score-3', 'score-4']],
+    [3, ['score-3', 'score-4', 'score-2', 'score-1']],
+  ]) {
+    raw.qty = qty; // Keep both the inventory array and entry identity unchanged.
+    assert.deepEqual(getLateGrowthTargets(who, items).targets.map(item => item._id), expectedIds);
+    assert.ok(reads > previousReads && reads - previousReads <= 2,
+      'Re-read the entry on every call, at most an undefined check and one value read, not once per candidate.');
+    previousReads = reads;
+  }
+});
+
+check('quantity and recipe reads are bounded by input entries rather than candidate count', () => {
+  for (const candidateCount of [1, 4, 40]) {
+    const recipeReads = Array(candidateCount).fill(0), quantityReads = [0, 0, 0];
+    const items = Array.from({ length: candidateCount }, (_, index) => {
+      const item = planningGear(`candidate-${String(index + 1).padStart(2, '0')}`, 'head', 5,
+        [{ itemId: 'raw', qty: index + 1 }]);
+      const ingredients = item.recipe.ingredients;
+      Object.defineProperty(item.recipe, 'ingredients', { enumerable: true,
+        get() { recipeReads[index]++; return ingredients; } });
+      return item;
+    });
+    const worn = { ...planningGear('owned-head', 'head', 4), itemId: 'owned-head', qty: 1 };
+    const quantities = [1, '3', 7];
+    const inventory = [worn, ...quantities.map((quantity, index) => ({
+      itemId: index < 2 ? 'raw' : 'unrelated', get qty() { quantityReads[index]++; return quantity; },
+    }))];
+    const who = planningActor({ inventory, equipped: { head: worn.itemId } });
+    const actual = getLateGrowthTargets(who, items);
+    // Measure only the optimized decision, before the independent reference
+    // inspects its own plain inputs. Duplicate material stacks sum to four.
+    assert.ok(quantityReads.every(count => count <= 2), `candidate count ${candidateCount}: at most one quantity normalization per entry`);
+    assert.ok(quantityReads.slice(0, 2).every(count => count > 0), 'Read both relevant material stacks, not a previously cached quantity.');
+    assert.deepEqual(recipeReads, Array(candidateCount).fill(1), 'Normalize each eligible recipe once, not per sort comparison.');
+    const referenceActor = { ...who, inventory: [worn,
+      ...quantities.map((qty, index) => ({ itemId: index < 2 ? 'raw' : 'unrelated', qty }))] };
+    const expected = legacyLateGrowthTargets(referenceActor, items);
+    assert.deepEqual(actual.issues, expected.issues);
+    assert.deepEqual(actual.targets.map(item => item._id), expected.targets.map(item => item._id));
+    actual.targets.forEach((item, index) => assert.equal(item, expected.targets[index], 'Return the real catalog object.'));
+    assert.equal(who.inventory, inventory, 'A decision cannot replace the caller-owned inventory.');
+    assert.equal(who.simCredits, 20, 'A decision cannot pay for or grant a recipe.');
+  }
+});
+
+check('split material stacks change upgrade eligibility only when their real sum meets the recipe', () => {
+  const items = [planningGear('stack-goal', 'head', 5, [{ itemId: 'raw', qty: 3 }])];
+  const worn = { ...planningGear('owned-head', 'head', 3), itemId: 'owned-head', qty: 1 };
+  const first = { itemId: 'raw', qty: 1 }, second = { itemId: 'raw', qty: '1' };
+  const who = planningActor({ inventory: [worn, first, second], equipped: { head: worn.itemId } });
+  for (const [firstQty, secondQty, expectedIds] of [
+    [1, '1', []], [2, '1', ['stack-goal']], [2, '0', []], [2, undefined, ['stack-goal']],
+  ]) {
+    first.qty = firstQty; second.qty = secondQty;
+    const before = structuredClone(who), actual = getLateGrowthTargets(who, items);
+    assert.deepEqual(actual.targets.map(item => item._id), expectedIds);
+    assert.deepEqual(actual, legacyLateGrowthTargets(who, items));
+    assert.deepEqual(who, before, 'Planning cannot create the missing material or consume an owned stack.');
+  }
 });
 
 check('explicit consumable and equipment intent bypasses unused name and tag inference', () => {
