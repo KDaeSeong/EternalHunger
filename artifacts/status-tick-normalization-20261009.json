@@ -1,0 +1,506 @@
+{
+  "schema": "eh-status-tick-normalization-verification.v1",
+  "date": "2026-10-09",
+  "status": "scoped-verification-complete",
+  "goalStatus": "active",
+  "scope": "Current production cycle ingress normalization removal; original G1-G5 requirements and completion gates unchanged.",
+  "baseCommit": "7e2886494fb0bb6213cceece6eee4b31a67ab84d",
+  "engine": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+  "changes": {
+    "source": [
+      "client/src/app/simulation/_lib/phaseDetonationTickRuntime.js",
+      "client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js"
+    ],
+    "producer": "Fresh applyActorPhaseStatusTick results only; explicit cycle-only normalizedSurvivors boolean; no saved-input flag or long-lived actor identity cache.",
+    "removed": "One identical survivor ingress normalization pass per live actor/world second on this call path.",
+    "retained": [
+      "Default raw/world-resolution ingress normalization",
+      "Last duplicate ID wins with first insertion order and blank-ID filtering",
+      "Root, cooldown and skill-state entry copies",
+      "Interval-start effects and elapsed cooldown/resource/timer/hazard clocks",
+      "Egress normalization, actual death/log/event flow and game RNG order"
+    ],
+    "limitations": [
+      "Internal flag requires an already normalized current owned actor array. Arbitrary malformed fast-path API inputs are not a supported caller contract.",
+      "Dead actor objects may share read-only status-produced nested references on the internal consumed-input path; actual callbacks do not mutate these and phase death snapshots still normalize."
+    ]
+  },
+  "unit": {
+    "checks": 15,
+    "freshDifferentialComparisons": 336,
+    "detonationChecks": 21,
+    "liveFrameChecks": 19,
+    "fingerprintChecks": 4,
+    "runtimeLint": "passed",
+    "results": [
+      {
+        "path": "client/.verification-runs/2026-10-09T04-28-39.921Z-f49b8f45-e5fd-4bb9-a9be-a5d3bff4db7a/result.json",
+        "runId": "2026-10-09T04-28-39.921Z-f49b8f45-e5fd-4bb9-a9be-a5d3bff4db7a",
+        "command": "npm run check:status-tick-normalization && node scripts/check-detonation-rules.mjs && node scripts/check-live-frames.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+        "startedAt": "2026-10-09T04:28:39.926Z",
+        "pid": 35828,
+        "engineBefore": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+        "status": "failed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 1,
+        "signal": null,
+        "engineAfter": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T04:28:44.75Z"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-29-02.084Z-66907011-c1ba-445a-baea-44ba4c9a6018/result.json",
+        "runId": "2026-10-09T04-29-02.084Z-66907011-c1ba-445a-baea-44ba4c9a6018",
+        "command": "npm run check:status-tick-normalization && node scripts/check-detonation-rules.mjs && node scripts/check-live-frames.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+        "startedAt": "2026-10-09T04:29:02.086Z",
+        "pid": 22392,
+        "engineBefore": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T04:30:01.218Z"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-30-48.478Z-2ace1a2c-a9fb-47f6-9eab-d4b6f56f67a2/result.json",
+        "runId": "2026-10-09T04-30-48.478Z-2ace1a2c-a9fb-47f6-9eab-d4b6f56f67a2",
+        "command": "npm run check:status-tick-normalization:match",
+        "startedAt": "2026-10-09T04:30:48.48Z",
+        "pid": 37608,
+        "engineBefore": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T04:33:57.959Z"
+      }
+    ],
+    "retainedInitialFailure": "First unit run incorrectly expected 79.7 attack power to round to 80. Only the test expectation was corrected to the existing decimal rule; failure log retained.",
+    "getterReads": {
+      "defaultIngress": 3,
+      "normalizedIngress": 1,
+      "scope": "Actual stats reads at the tick input boundary, not total frame time or browser speed."
+    }
+  },
+  "completeMatch": {
+    "seed": "1101",
+    "actors": 24,
+    "matches": 2,
+    "control": "Current cycle in-memory load hook transforms exactly one normalizedSurvivors admission from true to false; no disk source rewrite or historical-output dependency.",
+    "sameInputEventsEveryFrameFinalEndingLogsRng": true,
+    "outcome": {
+      "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+      "evidence": {
+        "seed": "1101",
+        "phases": 11,
+        "frames": 5840,
+        "ticks": 1124.916666,
+        "eventCount": 11632,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1124.916666,
+          "day": 6,
+          "phase": "morning",
+          "cause": "combat",
+          "causeName": "교전",
+          "finalZoneStage": "",
+          "winnerTeamId": "team:1",
+          "dimensionRifts": {
+            "atSec": 1124.916666,
+            "settlements": [
+              {
+                "id": "RIFT_guest-lumia-island_3_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_1",
+                "atSec": 1124.916666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_2",
+                "atSec": 1124.916666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_3",
+                "atSec": 1124.916666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_3_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_3_4",
+                "atSec": 1124.916666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_1:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_1",
+                "atSec": 1124.916666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_2:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_2",
+                "atSec": 1124.916666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_3:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_3",
+                "atSec": 1124.916666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              },
+              {
+                "id": "RIFT_guest-lumia-island_4_4:match-end",
+                "riftId": "RIFT_guest-lumia-island_4_4",
+                "atSec": 1124.916666,
+                "reason": "match_end",
+                "disposition": "no_reward",
+                "issue": "",
+                "contestClosed": false,
+                "rewardClosedAtSec": null,
+                "rewardClosureReason": "",
+                "expiredWorldGifts": 0
+              }
+            ],
+            "expiredWorldGifts": 0,
+            "expiredForElimination": 0,
+            "invalidRewards": 0,
+            "unfinishedContests": 0
+          }
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2014021095,
+          "draws": 8934,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "b1095ecf031a3523f3245280af2c212725d1c7b85d2ca8a295688199d20f6112",
+        "frameDigest": "0c554b152b0f4befa9f53b9fe46c21cfcda06f9a89c812508fb7ad97c0d89206"
+      },
+      "finalFrameDigest": "1eb2b77b30b93d7920fb59517d115151e802e78f1fd6f24775c619c180999a74",
+      "logDigest": "057d9cde1b2c3013c03b7704dfb482d8fd72e76d665e36d7412400a3f3f83e9e"
+    },
+    "runs": [
+      {
+        "worker": "default-entry-control",
+        "transformations": 1,
+        "nodeHarnessElapsedMs": 95857.2037
+      },
+      {
+        "worker": "normalized-entry",
+        "transformations": 0,
+        "nodeHarnessElapsedMs": 89525.2735
+      }
+    ],
+    "timingLimitation": "Single Node harness runs include freeze/clone/hash overhead; not an x32 browser timing or performance acceptance gate.",
+    "savedInputReplayApiExercised": false
+  },
+  "build": {
+    "resultPath": "client/.verification-runs/2026-10-09T04-34-48.804Z-27f90c4d-af40-4321-9e88-c6566e52b754/result.json",
+    "runId": "2026-10-09T04-34-48.804Z-27f90c4d-af40-4321-9e88-c6566e52b754",
+    "command": "npm run build",
+    "startedAt": "2026-10-09T04:34:48.806Z",
+    "pid": 39740,
+    "engineBefore": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+    "status": "passed",
+    "scope": "Compiler and actual emitted client/server flag evidence, not interactive browser proof.",
+    "exitCode": 0,
+    "signal": null,
+    "engineAfter": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+    "sameEngine": true,
+    "finishedAt": "2026-10-09T04:36:05.670Z",
+    "buildId": "Y_-aWsXIQ9-pnGojfjnVN",
+    "staticPages": 62,
+    "compiledContractFiles": [
+      "client/.next/server/chunks/4164.js",
+      "client/.next/static/chunks/8212-95b9e04675caf42e.js"
+    ],
+    "compiledFileCount": 1429,
+    "compiledSha256": "890C5CE35EF0E9C8537CFB8F4304A1B368B5B5E49FA98FC1261D535F3C6EF254"
+  },
+  "sourceHashesBefore": [
+    {
+      "path": "client/src/app/simulation/_lib/phaseDetonationTickRuntime.js",
+      "sha256": "1E9D3016488A3CA16E1D339862559B968052B840B2A6E27F872A5827CCFBEDEA"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js",
+      "sha256": "8B3BD4091E765C1C5898B29E3A05D4715DA8A454DC4998559E9B2C846FD220E1"
+    },
+    {
+      "path": "client/scripts/check-status-tick-normalization.mjs",
+      "sha256": "22700E30F8FD39D2474093B92A305A24983936B8CC40632713ED771715F58AAB"
+    },
+    {
+      "path": "client/scripts/run-eternal-hunger-verification.mjs",
+      "sha256": "98642C1FD61E6C730DEBFAFF6A067005B4ADA32260C31B746D9236F029B9EA9A"
+    },
+    {
+      "path": "client/package.json",
+      "sha256": "F457F365DF4825A8AE984333564023DE896E31D5A0841A6C12AA7CD93585FCA5"
+    },
+    {
+      "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+      "sha256": "3648F26D56BCD4D9EF2620853C1F323787854EB40845443A9E9557E2C88ED0B9"
+    }
+  ],
+  "sourceHashesAfter": [
+    {
+      "path": "client/src/app/simulation/_lib/phaseDetonationTickRuntime.js",
+      "sha256": "1E9D3016488A3CA16E1D339862559B968052B840B2A6E27F872A5827CCFBEDEA"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js",
+      "sha256": "8B3BD4091E765C1C5898B29E3A05D4715DA8A454DC4998559E9B2C846FD220E1"
+    },
+    {
+      "path": "client/scripts/check-status-tick-normalization.mjs",
+      "sha256": "22700E30F8FD39D2474093B92A305A24983936B8CC40632713ED771715F58AAB"
+    },
+    {
+      "path": "client/scripts/run-eternal-hunger-verification.mjs",
+      "sha256": "98642C1FD61E6C730DEBFAFF6A067005B4ADA32260C31B746D9236F029B9EA9A"
+    },
+    {
+      "path": "client/package.json",
+      "sha256": "F457F365DF4825A8AE984333564023DE896E31D5A0841A6C12AA7CD93585FCA5"
+    },
+    {
+      "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+      "sha256": "3648F26D56BCD4D9EF2620853C1F323787854EB40845443A9E9557E2C88ED0B9"
+    }
+  ],
+  "sourceHashesIdentical": true,
+  "cleanup": {
+    "status": "complete",
+    "logicalBytesRemoved": 592288191,
+    "logicalMiBRemoved": 564.8500356674194,
+    "packs": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 255139901,
+        "lastWriteUtc": "2026-10-09T04:35:57.4833485Z",
+        "sha256": "BDCC7C609635319102A439868A16B20E72D9CD06B07D4235E765EDC6E6A32741"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12804673,
+        "lastWriteUtc": "2026-10-09T04:35:57.3612096Z",
+        "sha256": "3518522C720EF2EF0E829E0EF512D9DEEA38647EBAD3B837526FE0FEB63775B3"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "lastWriteUtc": "2026-10-09T04:35:29.2714164Z",
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "lastWriteUtc": "2026-10-09T04:35:29.2714164Z",
+        "sha256": "6A90C806C0C94A90603A54C8A48792E2D19DFD568AF9006FE04B55AEB9398CD2"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 306293846,
+        "lastWriteUtc": "2026-10-09T04:35:28.0601422Z",
+        "sha256": "4E0E31CD04B1CC6948D72457B7965CECD0CDCAB70F9AD79E2B1FEFC8C734E39E"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18047031,
+        "lastWriteUtc": "2026-10-09T04:35:27.8414926Z",
+        "sha256": "E4E5AA42DC947C46D76421E93A21ED9C2E400A01D2F3D7A480871837C7412DD6"
+      }
+    ],
+    "deletedCount": 6,
+    "remainingPackCount": 0,
+    "protectedCount": 23,
+    "protectedHashesIdentical": true,
+    "compiledBefore": {
+      "count": 1429,
+      "sha256": "890C5CE35EF0E9C8537CFB8F4304A1B368B5B5E49FA98FC1261D535F3C6EF254"
+    },
+    "compiledAfter": {
+      "count": 1429,
+      "sha256": "890C5CE35EF0E9C8537CFB8F4304A1B368B5B5E49FA98FC1261D535F3C6EF254"
+    },
+    "compiledIdentical": true,
+    "protectionSnapshot": [
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+      },
+      {
+        "path": "server/index.js",
+        "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+      },
+      {
+        "path": "server/.env.example",
+        "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/phaseDetonationTickRuntime.js",
+        "sha256": "1E9D3016488A3CA16E1D339862559B968052B840B2A6E27F872A5827CCFBEDEA"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js",
+        "sha256": "8B3BD4091E765C1C5898B29E3A05D4715DA8A454DC4998559E9B2C846FD220E1"
+      },
+      {
+        "path": "client/scripts/check-status-tick-normalization.mjs",
+        "sha256": "22700E30F8FD39D2474093B92A305A24983936B8CC40632713ED771715F58AAB"
+      },
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "sha256": "98642C1FD61E6C730DEBFAFF6A067005B4ADA32260C31B746D9236F029B9EA9A"
+      },
+      {
+        "path": "client/package.json",
+        "sha256": "F457F365DF4825A8AE984333564023DE896E31D5A0841A6C12AA7CD93585FCA5"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "sha256": "3648F26D56BCD4D9EF2620853C1F323787854EB40845443A9E9557E2C88ED0B9"
+      },
+      {
+        "path": "docs/status-tick-normalization-verification.md",
+        "sha256": "DCF898B076ACA53D95EAE50804BCE39CFF1A96813DCC2BC052345411D5AF804D"
+      },
+      {
+        "path": "docs/eternal-hunger-goal.md",
+        "sha256": "D99177FCD01037FC45A1A8A7E3AEA5227BC0BFBF8A82ADB8FE71AC5675B2AE87"
+      },
+      {
+        "path": "artifacts/er-preset-editor-20261009.json",
+        "sha256": "AFC110837F4D864624531BDDC64BCBC8C0A3FDB693ED527710CF8BAC3217E540"
+      },
+      {
+        "path": "artifacts/late-growth-decision-index-20261009.json",
+        "sha256": "7091E1960A2E7077BB0915BB03348FB8A7F790A3481F2886BF60275BE4863D26"
+      },
+      {
+        "path": "artifacts/first-phase-profile-20261009-current-selective/summary.json",
+        "sha256": "1317D778FE081CC59AF6389442F5F16FD6941A4983BC8C3BBAFE05ABD5E27F74"
+      },
+      {
+        "path": "artifacts/first-phase-profile-20261009-current-selective/first-phase.cpuprofile",
+        "sha256": "FD2623EA235E861F26746BE8E5708C2595BD036F5F24A4E549932DA4A711B5D4"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-28-39.921Z-f49b8f45-e5fd-4bb9-a9be-a5d3bff4db7a/result.json",
+        "sha256": "EF52609BE275C626235994751AE16A7882A8695DBDBB3EC5AB9204BA90274053"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-28-39.921Z-f49b8f45-e5fd-4bb9-a9be-a5d3bff4db7a/output.log",
+        "sha256": "50C07E316CD6F822EF4C9E7D80C6C10C3FFDAEA5C8C40AE33E309E8F25FFB174"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-29-02.084Z-66907011-c1ba-445a-baea-44ba4c9a6018/result.json",
+        "sha256": "1775574DD868C203C866D94EA70D77B93867A4FF0F3DCA03C7F6733C2E1CC4AA"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-29-02.084Z-66907011-c1ba-445a-baea-44ba4c9a6018/output.log",
+        "sha256": "F8F730229B6B6050509727C3A2C5E5E9B835147F71C6AD8A580E38BA9F16124A"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-30-48.478Z-2ace1a2c-a9fb-47f6-9eab-d4b6f56f67a2/result.json",
+        "sha256": "3AB37BD2CF77BAFB9D31FFD90B49FA3204CB01A539F5DD33BDC1C36E54381F86"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-30-48.478Z-2ace1a2c-a9fb-47f6-9eab-d4b6f56f67a2/output.log",
+        "sha256": "87886D1B120B1DC02542ED1ADDDFFD84503EAEA90D7B372D1D40D0E1CEDE47D1"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-34-48.804Z-27f90c4d-af40-4321-9e88-c6566e52b754/result.json",
+        "sha256": "B13A910F0425D3D6F1B0DA49BBABBCE5E50A2B7385EB2764E02FEFE11D78C1B9"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-34-48.804Z-27f90c4d-af40-4321-9e88-c6566e52b754/output.log",
+        "sha256": "15D639661C5916EBED3B23CFD75C87F8E5D9983005409E2C7AC11DD49EA908C6"
+      }
+    ],
+    "physicalFreeSpaceMeasured": false,
+    "recovery": "Regenerable webpack caches only; sources, unique results and compiled build were retained.",
+    "correctedInventoryAttempt": "A read-only first inventory exposed PowerShell JSON DateTime-to-string timezone coercion and an array-path concatenation mistake. No deletion occurred. Final inventory uses -DateKind String, explicit UTC conversion, individual paths, terminal build guard, exact path/hash/size/time and no-reparse checks before leaf-only Remove-Item."
+  },
+  "preservedUserFiles": [
+    {
+      "path": "client/scripts/check-observer-goals-match.mjs",
+      "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+    },
+    {
+      "path": "server/index.js",
+      "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+    },
+    {
+      "path": "server/.env.example",
+      "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+    }
+  ],
+  "subagent": "Luna read-only runtime ownership and new differential check review; no subagent file writes or heavy execution.",
+  "externalActions": {
+    "foregroundBrowserRuns": 0,
+    "paidAiCalls": 0,
+    "accountWrites": 0,
+    "protectionOrKeyChanges": 0,
+    "pushes": 0,
+    "deployments": 0
+  },
+  "remainingGates": [
+    "Actual current-engine foreground x1/x8/x32 and consecutive-match memory with authorized scope",
+    "AI draft generation with working approved credentials and separate paid-call authority",
+    "Actual account persistence boundaries",
+    "Complete current all-game gate and varied roster/shared-resource observation requirements",
+    "Human follow-up understanding/fun evaluation and separately authorized public deployment"
+  ],
+  "reportUsage": "Output-only evidence. Validators do not import this artifact or prior result files."
+}

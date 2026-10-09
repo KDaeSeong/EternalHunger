@@ -374,7 +374,7 @@ function* simulationPhaseSteps({
           startOffsetSec: offset, endOffsetSec: offset + elapsedSec,
           phaseIdxNow, phaseStartSec, reviveCutoffIdx, ruleset,
           suddenDeathActive: Boolean(suddenDeathActiveRef?.current), tickSec: 1,
-          updatedSurvivors: statusActors, useDetonation, zoneGraph,
+          updatedSurvivors: statusActors, normalizedSurvivors: true, useDetonation, zoneGraph,
           intervalStartActors: [...liveMap.values()],
         },
         actions: { addLog, atNow, emitDeathRunEventOnce, getZoneName, setDeathMetadata },

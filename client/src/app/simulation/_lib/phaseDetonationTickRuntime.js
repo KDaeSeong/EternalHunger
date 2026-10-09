@@ -75,7 +75,19 @@ export function runDetonationTickPhase({
   const fogWarnLocal = (fogStartLocal !== null) ? Math.max(0, fogStartLocal - fogWarningSec) : null;
   const fogEndLocal = (fogStartLocal !== null) ? fogStartLocal + fogDurationSec : null;
 
-  let aliveMap = buildRuntimeSurvivorMap(updatedSurvivors);
+  // The cycle supplies fresh, owned applyActorPhaseStatusTick results. Only
+  // that boundary may skip the identical ingress normalization; arbitrary
+  // callers (including world resolution) retain the full normalization path.
+  // No actor-identity cache is retained across ticks or mutable input edits.
+  let aliveMap;
+  if (state.normalizedSurvivors === true) {
+    aliveMap = new Map();
+    for (const survivor of Array.isArray(updatedSurvivors) ? updatedSurvivors : []) {
+      if (survivor && typeof survivor === 'object' && String(survivor._id || '').trim()) {
+        aliveMap.set(String(survivor._id), survivor);
+      }
+    }
+  } else aliveMap = buildRuntimeSurvivorMap(updatedSurvivors);
   const intervalStartActors = new Map((state.intervalStartActors || updatedSurvivors).map((actor) => [String(actor._id), actor]));
   aliveMap = new Map(Array.from(aliveMap.values()).map((survivor) => [String(survivor._id), { ...survivor,
     cooldowns: { ...(survivor.cooldowns || {}) },
