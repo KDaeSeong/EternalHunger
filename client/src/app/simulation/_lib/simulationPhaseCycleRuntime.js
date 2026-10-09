@@ -439,6 +439,7 @@ function* simulationPhaseSteps({
           assistCounts: isSoloMatch ? {} : combineSimulationCounts(assistCounts, roundAssists) });
         if (wait) await commitVisibleClock();
       },
+      observeCombatRuntime: actions.observeCombatRuntime,
       addEarnedCredits: (amount) => {
         earnedCredits += Math.max(0, Number(amount || 0));
       },

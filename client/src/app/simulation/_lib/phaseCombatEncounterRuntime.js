@@ -65,6 +65,7 @@ function resolvePhaseCombatEncounter({
     emitDeathRunEventOnce = () => {},
     emitEffectRunEvents = () => {},
     emitRunEvent = () => {},
+    observeCombatRuntime,
     flushDeadSnapshots = () => {},
     getZoneName = (zoneId) => String(zoneId || ''),
     grantPvpDamageMastery = () => {},
@@ -181,6 +182,16 @@ function resolvePhaseCombatEncounter({
     },
   });
   const { applyCombatElimination } = combatEliminationRuntime;
+  const onHostileHit = (striker, victim) => {
+    // Prepared/area skills can hit a hunter without the discovery/basic path.
+    // Stop only an actually HP-damaged, surviving owner; do not mobilize other
+    // boss helpers or overwrite the attacker's existing combat target.
+    if (!victim?._wildlifeHunt || Number(victim.hp || 0) <= 0 || Number(striker?.hp || 0) <= 0) return;
+    victim._wildlifeHunt.pvpInterruptedBy = String(striker._id || '');
+    victim._wildlifeHunt.pvpInterruptedAtSec = currentActionSec();
+    victim._wildlifeHunt.pvpInterruptedOwnerId = String(victim._id || '');
+    engageCombatParticipants(victim, striker, [victim], currentActionSec(), { teamCombat: false });
+  };
   if (equipmentAction) return { actor, target, skipRemainingTurn: false, ...resolveEquipmentEffectDamage({
     actor, effectId: equipmentEffectId, survivorMap, nowSec: absNow, phaseIdxNow,
     actions: { addLog, emitRunEvent, atNow, shieldBlock, grantPvpDamageMastery, applyCombatElimination },
@@ -198,6 +209,7 @@ function resolvePhaseCombatEncounter({
       emitRunEvent,
       grantPvpDamageMastery,
       shieldBlock,
+      onHostileHit,
     },
   });
   const {
@@ -268,7 +280,7 @@ function resolvePhaseCombatEncounter({
   if (actionType === 'discover') return { actor, target, skipRemainingTurn: false };
 
   const resolvePair = (striker, victim, strikeOnly = false) => resolveCombatWinnerOutcome({
-    actions: { addLog, applyErTraitAfterBattle, applyErWeaponSkillAfterCombat, atNow, emitRunEvent, grantPvpDamageMastery },
+    actions: { addLog, applyErTraitAfterBattle, applyErWeaponSkillAfterCombat, atNow, emitRunEvent, grantPvpDamageMastery, onHostileHit },
     combatElimination: { applyCombatElimination },
     flee: { resolveFleeSequence },
     skillSplash: { applyCharacterSkillSplashDamage, getCharacterSkillSplashTargets },
@@ -280,7 +292,7 @@ function resolvePhaseCombatEncounter({
   if (actionType === 'skill_release') return resolvePair(actor, target, true);
 
   if (!isSoloMatch && ruleset?.pvp?.teamCombatEnabled !== false) {
-    const round = runTeamCombatRound({ actor, target, survivorMap, newDeadIds, nowSec: currentActionSec(),
+    const round = runTeamCombatRound({ actor, target, survivorMap, newDeadIds, nowSec: currentActionSec(), observeCombatRuntime,
       estimatePower, todaysSurvivors, onlyActorId: actionType === 'basic' ? String(actor._id) : '',
       addLog, emitRunEvent, at: atNow(),
       resolveStrike: (striker, victim) => {

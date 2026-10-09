@@ -248,6 +248,11 @@ export function transferTimedBossEncounter(owner, nextSpawn, roster, {
   owner._huntActionKey = encounter.actionKey;
   encounter.actionKey = `phase:${phaseIdxNow}:cycle:${successor._actionCycleKey ?? 'legacy'}`;
   claim.claimantId = nextId;
+  // Interruption belongs to the damaged owner, not the shared live boss.
+  // A legitimate successor keeps the encounter without a stale cancellation.
+  delete encounter.pvpInterruptedBy;
+  delete encounter.pvpInterruptedAtSec;
+  delete encounter.pvpInterruptedOwnerId;
   if (encounter.reward?.claim) encounter.reward.claim.claimantId = nextId;
   row.engagedBy = nextId;
   encounter.target._wildlifeOwnerId = nextId;
@@ -320,7 +325,11 @@ export function collectTimedWildlifeOutcomes(roster) {
     else if (Number(encounter.target?.hp || 0) <= 0) outcomes.push({ type: 'target_defeated', actor, encounter });
     else if (getActorDimensionRiftId(actor) || getCombatSpaceId(actor) !== WORLD_COMBAT_SPACE
       || String(actor.zoneId || '') !== String(encounter.zoneId || '')) outcomes.push({ type: 'cancel', reason: '전장 또는 지역 이탈', actor, encounter });
-    else if (actor._combatIntent && actors.some((other) => other && idOf(other) !== idOf(actor)
+    // A real hostile HP hit interrupts even when AI recovery prevents assigning
+    // a combat intent. Claim release still pays its normal action delay; this
+    // marker never grants a hit, refunds a cast, or bypasses status/recovery.
+    else if (encounter.pvpInterruptedBy && encounter.pvpInterruptedOwnerId === idOf(actor)
+      || actor._combatIntent && actors.some((other) => other && idOf(other) !== idOf(actor)
       && Number(other.hp || 0) > 0 && !areSameTeam(actor, other)
       && String(other.zoneId || '') === String(actor.zoneId || '')
       && getCombatSpaceId(other) === getCombatSpaceId(actor))) {

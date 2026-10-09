@@ -12,6 +12,7 @@ const { buildTacticalEffectSummary } = await import('../src/app/simulation/_lib/
 const { buildTacticalImpactEvidence } = await import('./lib/tactical-impact-evidence.mjs');
 const { assertFormationRosterConsistency, buildFormationExposure, buildTacticalExposurePair,
   createFormationSwapInput, validateStrategyVariants } = await import('./lib/strategy-comparison-contracts.mjs');
+const { createTeamCombatParticipationDiagnostics } = await import('./lib/team-combat-participation-diagnostics.mjs');
 
 const options = Object.fromEntries(process.argv.slice(2).map(arg => {
   assert.match(arg, /^--(seeds|output|variants|repeats)=.+$/);
@@ -80,6 +81,7 @@ for (const seed of seeds) {
     publicItems: fixture.items, survivors: fixture.survivors, runSeed: fixture.runSeed }, { getItem: () => null });
   assertFormationRosterConsistency(original);
   const originalDigest = digest(original);
+  const formationProbe = variants.includes('one-formation-swap') ? createFormationSwapInput(original) : null;
   startingInputs.push({ seed, initialRosterSeed: fixture.initialRosterSeed, inputDigest: originalDigest, input: original });
   save();
   let baselineRecord;
@@ -105,7 +107,14 @@ for (const seed of seeds) {
     for (let execution = 1; execution <= repeats; execution += 1) {
       console.log(`STRATEGY_COMPARISON_START ${JSON.stringify({ seed, variant, execution, repeats, inputDigest: before, changes })}`);
       let lastCheckpoint = -1;
-      const current = await runRandomIsolationMatch('', { phaseOnly: true, savedInput: input, onFrame(frame) {
+      // Keep the first execution diagnostic-free and compare the exact second
+      // execution with observation enabled. Diagnostics never affect acceptance.
+      const participation = formationProbe && variant !== 'one-tactical-skill' && execution > 1
+        ? createTeamCombatParticipationDiagnostics({ roster: input.initialFrame.survivors,
+          actorIds: formationProbe.changes.map(change => change.actorId),
+          comparisonRoster: (variant === 'baseline' ? formationProbe.input : original).initialFrame.survivors }) : null;
+      const current = await runRandomIsolationMatch('', { phaseOnly: true, savedInput: input,
+        onCombatDiagnostic: participation?.observe, onFrame(frame) {
         const checkpoint = Math.floor(frame.matchSec / 120);
         if (checkpoint !== lastCheckpoint) {
           lastCheckpoint = checkpoint;
@@ -116,7 +125,10 @@ for (const seed of seeds) {
       completedMatches += 1;
       const exact = match ? compareSimulationReplay(asRecord('expected', input, match), asRecord('actual', input, current)) : null;
       const replay = { execution, evidence: current.evidence, finalDigest: digest(current.finalFrame),
-        logDigest: digest(current.logs), exact, verified: false };
+        logDigest: digest(current.logs), exact, verified: false,
+        participationDiagnostics: participation ? { ...participation.summary(),
+          scope: 'Bounded current runtime facts only; no missed-turn causality or comparison acceptance.',
+          comparedAgainstDiagnosticFreeExecution: Boolean(exact?.matched) } : null };
       const observation = { seed, variant, inputDigest: before, changes, ...replay };
       replays.push(replay); executions.push(observation); save();
       if (match) {

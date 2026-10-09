@@ -26,6 +26,7 @@ export function createPhaseCombatSkillSplashRuntime({
     atNow = () => null,
     emitRunEvent = () => {},
     grantPvpDamageMastery = () => {},
+    onHostileHit = () => {},
     shieldBlock = (_target, rawDamage) => Math.max(0, Number(rawDamage || 0)),
   } = actions;
 
@@ -85,6 +86,7 @@ export function createPhaseCombatSkillSplashRuntime({
       splashTarget.lastDamagedBy = String(attacker?._id || '');
       splashTarget.lastDamagedPhaseIdx = phaseIdxNow;
       total += finalSplash;
+      if (!areSameTeam(attacker, splashTarget)) onHostileHit(attacker, splashTarget);
 
       const hitKindText = hit?.primary ? '스킬 피해' : '광역 피해';
       const healthText = formatCombatHealthChange(healthBefore.target, captureCombatHealth(splashTarget));

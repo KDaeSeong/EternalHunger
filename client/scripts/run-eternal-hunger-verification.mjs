@@ -20,6 +20,9 @@ const commands = {
   'tactical-receipt-unit': 'node scripts/check-tactical-effect-evidence.mjs && npm run check:verification-fingerprint',
   'tactical-storage-unit': 'node scripts/check-tactical-effect-evidence.mjs && node scripts/check-combat-observation.mjs && node scripts/check-growth-observation.mjs && node scripts/check-custom-consumables.mjs && node scripts/check-custom-crafting.mjs && node scripts/check-equipment-account-recording.mjs && npm run check:verification-fingerprint',
   'strategy-comparison-unit': 'node scripts/check-strategy-comparison-contracts.mjs && npm run check:verification-fingerprint',
+  'team-participation-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'hunt-pvp-interruption': 'node scripts/check-hunt-pvp-interruption.mjs',
+  'hunt-pvp-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-hunt-pvp-interruption.mjs && node scripts/check-hunt-pvp-handoff.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-boss-team-combat.mjs && node scripts/check-boss-loot-sharing.mjs && node scripts/check-combat-timing.mjs && node scripts/check-character-casting.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'strategy-paired': 'npm run analyze:strategy-comparison -- --seeds=1101 --variants=baseline,one-tactical-skill --repeats=2',
   'formation-paired': 'npm run analyze:strategy-comparison -- --seeds=1101 --variants=baseline,one-formation-swap --repeats=2',
   'distribution-observer': 'npm run diagnose:match-distribution -- --compare-observer 4402',
@@ -40,7 +43,7 @@ const commands = {
   performance: 'npm run check:growth-plan && npm run check:team-observer && npm run check:live-frames && npm run check:display-pacing && npm run check:phase-runtime-performance && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
 };
 const mode = process.argv[2] || 'full';
-if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, growth-focus-unit, preset-editor-unit, phase-performance-unit, natural-procurement-unit, natural-procurement, procurement-purpose-unit, procurement-purpose-match, status-tick-unit, status-tick-match, performance, execution, distribution, distribution-varied, distribution-unit, retreat-diagnostics-unit, tactical-effect-unit, tactical-receipt-unit, tactical-storage-unit, strategy-comparison-unit, strategy-paired, formation-paired, distribution-observer, movement-trace, growth-planning-prefix, handoff, handoff-unit, build or runtime-build.');
+if (!Object.hasOwn(commands, mode)) throw Error(`Use one of: ${Object.keys(commands).join(', ')}.`);
 // Resume only missing input-axis cases without rerunning completed matches.
 // These comma-separated identifiers are deliberately shell-safe, not raw CLI.
 if (mode === 'distribution-varied' && process.argv.length > 3) {
@@ -79,7 +82,7 @@ function fingerprint() {
   return hash.digest('hex');
 }
 function verificationSourceHashes() {
-  const paths = ['scripts/run-eternal-hunger-verification.mjs'];
+  const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json'];
   if (['tactical-effect-unit', 'tactical-receipt-unit', 'tactical-storage-unit'].includes(mode)) {
     // The server sanitizer is outside the client engine fingerprint. Capture it
     // together with the actual fresh-receipt test so source drift cannot pass.
@@ -87,6 +90,16 @@ function verificationSourceHashes() {
   }
   if (mode === 'tactical-storage-unit') paths.push('scripts/check-combat-observation.mjs', 'scripts/check-growth-observation.mjs',
     'scripts/check-custom-consumables.mjs', 'scripts/check-custom-crafting.mjs', 'scripts/check-equipment-account-recording.mjs');
+  if (['team-participation-unit', 'formation-paired', 'strategy-paired'].includes(mode)) paths.push(
+    'scripts/analyze-strategy-comparison.mjs', 'scripts/lib/run-random-isolation-match.mjs',
+    'scripts/lib/strategy-comparison-contracts.mjs', 'scripts/lib/team-combat-participation-diagnostics.mjs',
+    'scripts/check-team-combat-participation-diagnostics.mjs');
+  if (mode === 'team-participation-unit') paths.push('scripts/check-combat-participation-observation.mjs',
+    'scripts/check-combat-timing.mjs', 'scripts/check-team-combat.mjs', 'scripts/check-team-observer.mjs');
+  if (['hunt-pvp-interruption', 'hunt-pvp-unit'].includes(mode)) paths.push('scripts/check-hunt-pvp-interruption.mjs');
+  if (mode === 'hunt-pvp-unit') paths.push('scripts/check-hunt-pvp-handoff.mjs',
+    'scripts/check-wildlife-combat.mjs', 'scripts/check-boss-team-combat.mjs',
+    'scripts/check-boss-loot-sharing.mjs', 'scripts/check-combat-timing.mjs', 'scripts/check-character-casting.mjs');
   return Object.fromEntries(paths.map((path) => [path,
     createHash('sha256').update(readFileSync(join(root, path), 'utf8').replaceAll('\r\n', '\n')).digest('hex')]));
 }

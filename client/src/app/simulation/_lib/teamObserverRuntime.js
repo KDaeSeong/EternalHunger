@@ -200,7 +200,7 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
         disabled: '틈 비활성화', eliminated: '참가자 사망' })[event.reason] || '전장 이탈';
       return `${who}: 차원의 틈 ${reason}${where}`;
     }
-    case 'team_engagement': return `${zoneName(event.zoneId)} 팀 교전 · 실제 행동 참가 ${list(event.participants).map(nameOf).join(', ') || '없음'}`;
+    case 'team_engagement': return `${zoneName(event.zoneId)} 팀 교전 · 공격 자격 후보 ${list(event.participants).map(nameOf).join(', ') || '없음'}`;
     case 'team_strike': return `${who} → ${nameOf(event.targetId)}: ${({ focus_fire: '같은 표적 집중 공격', taunted_target: '도발 시전자에게 기본 공격' })[event.reason] || '공격'} · HP 감소 ${num(event.damage)}`;
     case 'forced_control': return `${who}: ${event.effect} · ${event.reason || '강제 행동'} · 시전자 ${nameOf(event.sourceActorId || '미확인')}${where}`;
     case 'forced_control_end': return `${who}: ${event.effect} 강제 행동 종료${where}`;

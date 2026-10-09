@@ -6,6 +6,7 @@ import { lockActorActionTime } from './phaseActionTimelineRuntime';
 import { isBasicAttackReady } from './combatTimingRuntime.js';
 import { isInBasicAttackRange } from './combatSpatialRuntime.js';
 import { shareCombatSpace, getCombatSpaceId } from '../../../utils/combatSpaceLogic.js';
+import { observeCombatParticipation } from './combatParticipationObservationRuntime.js';
 
 const idOf = (actor) => String(actor?._id || actor?.id || '');
 
@@ -40,7 +41,7 @@ export function recordCombatContribution(victim, attacker, damage, phaseIdx, now
 // later turns. Sides alternate, with an unbiased starting side each round.
 export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = [], nowSec = 0,
   resolveStrike, emitRunEvent = () => {}, addLog = () => {}, at = null,
-  random = simulationRandom, todaysSurvivors = [], estimatePower = () => 0, onlyActorId = '' } = {}) {
+  random = simulationRandom, todaysSurvivors = [], estimatePower = () => 0, onlyActorId = '', observeCombatRuntime } = {}) {
   const zoneId = String(actor?.zoneId || '');
   if (!actor || !target || !shareCombatSpace(actor, target) || !zoneId || zoneId !== String(target.zoneId) || areSameTeam(actor, target)) return { handled: false };
   // Recovering members remain vulnerable; canJoinTeamCombat still gates their own turns.
@@ -51,6 +52,8 @@ export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = []
   const eligible = sides.map((side) => side.filter((row) => (!onlyActorId || idOf(row) === onlyActorId) && canJoinTeamCombat(row, { nowSec, zoneId, newDeadIds }))
     .sort((a, b) => Number(estimatePower(b)) - Number(estimatePower(a)) || idOf(a).localeCompare(idOf(b))));
   const participants = eligible.flat();
+  if (typeof observeCombatRuntime === 'function') observeCombatParticipation(observeCombatRuntime, {
+    stage: 'team_queue', nowSec, roster: [...survivorMap.values()], newDeadIds, actor, target, onlyActorId, sides, participants });
   if (!participants.length) return { handled: true, participants: [], strikes: [] };
   const committed = new Set(participants.map(idOf));
   for (let i = todaysSurvivors.length - 1; i >= 0; i--) if (committed.has(idOf(todaysSurvivors[i]))) todaysSurvivors.splice(i, 1);

@@ -45,6 +45,7 @@ import { getWildlifeMasteryEntries } from '../../../utils/masteryLogic.js';
 import { findNextEquipmentEffectAction, reconcileEquipmentEffects } from './equipmentEffectRuntime.js';
 import { runHuntAction } from './phaseHuntActionRuntime.js';
 import { getBossAssistAssignments, getBossAssistOwner, reconcileBossAssists } from './bossAssistRuntime.js';
+import { observeCombatParticipation } from './combatParticipationObservationRuntime.js';
 import {
   collectTimedWildlifeOutcomes,
   completeTimedWildlifeEncounter,
@@ -110,6 +111,7 @@ function* pvpActionSteps({
     emitItemGainIfAny = () => {},
     emitObjectiveRunEvent = () => {},
     emitRunEvent = () => {},
+    observeCombatRuntime,
     flushDeadSnapshots = () => {},
     getZoneName = (zoneId) => String(zoneId || ''),
     grantPvpDamageMastery = () => {},
@@ -187,7 +189,7 @@ function* pvpActionSteps({
       reviveCutoffIdx, roundAssists, roundKills, ruleset, shouldAvoidCombatByPower,
       survivorMap, todaysSurvivors, totalZonesCount, useDetonation, zoneGraph, actionType, preparedSkill, equipmentEffectId },
     actions: { addEarnedCredits, addLog, appendPhaseDeadSnapshots, applyErTraitAfterBattle,
-      applyErWeaponSkillAfterCombat, atNow, emitDeathRunEventOnce, emitEffectRunEvents, emitRunEvent,
+      applyErWeaponSkillAfterCombat, atNow, emitDeathRunEventOnce, emitEffectRunEvents, emitRunEvent, observeCombatRuntime,
       flushDeadSnapshots, getZoneName, grantPvpDamageMastery, grantPvpKillMastery,
       setDeathMetadata, tryUseConsumable },
   });
@@ -352,6 +354,9 @@ function* pvpActionSteps({
     try {
       const assistOwners = getBossAssistAssignments([...survivorMap.values()], bossAssistOptions());
       const nextPvpCombat = findNextCombatAction(survivorMap, currentActionSec(), newDeadIds, battleSettings, assistOwners);
+      if (typeof observeCombatRuntime === 'function') observeCombatParticipation(observeCombatRuntime, {
+        stage: 'schedule', nowSec: currentActionSec(), roster: [...survivorMap.values()],
+        newDeadIds, wildlifeAssistIds: assistOwners, scheduled: nextPvpCombat });
       const nextWildlifeCombat = findNextWildlifeAction(survivorMap, currentActionSec(), newDeadIds, battleSettings, ruleset,
         { isSoloMatch, forbiddenIds, assistOwners });
       const nextOrdinaryCombat = nextPvpCombat && (!nextWildlifeCombat || nextPvpCombat.atSec <= nextWildlifeCombat.atSec)

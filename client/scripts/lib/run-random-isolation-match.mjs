@@ -60,7 +60,7 @@ export async function createRandomIsolationInput(runSeed = '1101', {
   return JSON.stringify({ map, settings, items, survivors: shuffledChars, runSeed, initialRosterSeed });
 }
 
-export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseOnly = false, uiNoise = () => {}, savedInput = null, onFinish, onFrame, stopAfterPhase = null } = {}) {
+export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseOnly = false, uiNoise = () => {}, savedInput = null, onFinish, onFrame, onCombatDiagnostic, stopAfterPhase = null } = {}) {
   const fixture = savedInput ? { map: savedInput.map, settings: savedInput.settings, items: savedInput.publicItems,
     survivors: savedInput.initialFrame.survivors, runSeed: savedInput.runSeed } : JSON.parse(inputJson);
   const { map, settings, items, survivors, runSeed } = structuredClone(fixture);
@@ -95,6 +95,7 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
   let observerReads = 0;
   let source;
   let finishPromise;
+  let diagnosticError;
   function applyLogUpdate(update) {
     const before = refs.runRandomRef.current?.getState();
     const next = update(visibleLogs);
@@ -175,6 +176,13 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
   actions.applyLootCraftResult = (actor, result, meta, at, zoneId) => applyLootCraftResult(actor, result, meta,
     { at, zoneId, addLog, grantCraftMastery: mastery.grantCraftMastery, emitCraftRunEvent: actions.emitCraftRunEvent });
   const forbiddenCache = new Map();
+  if (typeof onCombatDiagnostic === 'function') actions.observeCombatRuntime = snapshot => {
+    const before = refs.runRandomRef.current?.getState();
+    try {
+      onCombatDiagnostic(snapshot, { eventCursor: events.length });
+      assert.deepEqual(refs.runRandomRef.current?.getState(), before, 'Combat diagnostics cannot draw game randomness.');
+    } catch (error) { diagnosticError ||= error; }
+  };
   const helpers = {
     getZoneName: (id) => zones.find((zone) => zone.zoneId === id)?.name || id,
     isHyperloopTransit: (from, to) => isHyperloopTransit(baseGraph, loops, from, to),
@@ -202,6 +210,7 @@ export async function runRandomIsolationMatch(inputJson, { noisy = false, phaseO
     if (stopAfterPhase && state.day === stopAfterPhase.day && state.phase === stopAfterPhase.phase) break;
   }
   await finishPromise;
+  if (diagnosticError) throw diagnosticError;
   flushLogs();
   if (stopAfterPhase) {
     assert.ok(ending || (state.day === stopAfterPhase.day && state.phase === stopAfterPhase.phase), 'Reach the requested production phase.');

@@ -8,11 +8,11 @@ const { beginSimulationPhase } = await import('../src/app/simulation/_lib/phaseP
 const { normalizeRevivedSurvivor, clearRuntimeCombatFields } = await import('../src/app/simulation/_lib/survivorLifecycleRuntime.js');
 const { runDetonationTickPhase } = await import('../src/app/simulation/_lib/phaseDetonationTickRuntime.js');
 const { runPhaseActorActionPipeline } = await import('../src/app/simulation/_lib/phaseActorActionPipelineRuntime.js');
+const { advanceSpatialMovement, spatialDistance, getSpatialStats } = await import('../src/app/simulation/_lib/combatSpatialRuntime.js');
 const { formatRuntimeEffectBadge, describeRuntimeEffect } = await import('../src/app/simulation/_lib/runtimeStatusDisplay.js');
 const { updateEffects, getActiveStatusEffects } = await import('../src/utils/statusLogic.js');
 const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
-const { advanceSpatialMovement } = await import('../src/app/simulation/_lib/combatSpatialRuntime.js');
 const effect = (name, seconds, extra = {}) => ({ name, remainingDuration: seconds, durationUnit: 'sec', ...extra });
 const row = (id, speed, extra = {}) => ({ _id: id, name: id, teamId: id, zoneId: 'zone', hp: 10000, maxHp: 10000,
   _spatial: { zoneId: 'zone', x: 4, y: 4 },
@@ -23,10 +23,10 @@ async function check(name, run) { await run(); checks++; console.log(`PASS ${nam
 
 // Real PvP loop, real encounter/hit/elimination, real status clock. Discovery
 // is disabled by the opening phase; the explicitly established fight continues.
-async function fight(rows, { duration = 6, onElapsed = () => {}, skills = false, teamCombat = false } = {}) {
+async function fight(rows, { duration = 6, onElapsed = () => {}, skills = false, teamCombat = false, preEngage = true } = {}) {
   let offset = 0; let live; let frames = 0;
   const events = [];
-  engageCombatParticipants(rows[0], rows[1], rows, 100);
+  if (preEngage) engageCombatParticipants(rows[0], rows[1], rows, 100);
   const timeline = createPhaseActionTimeline({ durationSec: duration, onElapsed: (start, elapsed) => {
     advanceSpatialMovement([...live.values()], 100 + start, elapsed);
     for (const [id, actor] of live) live.set(id, updateEffects(actor, { elapsedSec: elapsed }));
@@ -87,6 +87,58 @@ await check('three-versus-three allies retain individual intervals throughout a 
   assert.equal(result.events.filter((event) => event.kind === 'team_strike').length, 42);
   assert.ok(result.events.filter((event) => event.kind === 'team_strike' && event.reason === 'focus_fire').length > 0,
     'Team focus must persist between independently scheduled attacks.');
+});
+await check('a coordination-moved teammate receives intent and performs its own scheduled basic', async () => {
+  const leader = row('rally-leader', 1, { teamId: 'join-team', teamSlot: 1, zoneId: 'z0',
+    _spatial: { zoneId: 'z0', x: 12, y: 12 } });
+  const helper = row('joining-ally', 1, { teamId: 'join-team', teamSlot: 2, zoneId: 'z1',
+    _spatial: { zoneId: 'z1', x: 12, y: 12 } });
+  const moveEvents = [];
+  const zoneGraph = { z0: ['z1'], z1: ['z0'] };
+  const ruleset = { ai: { recoverHpBelow: 38, fightAvoidMinRatio: 0.4, safeSearchDepth: 3 },
+    pvp: { teamCombatEnabled: true } };
+  const moved = withSimulationRandom(createSeedRng('joined-ally-movement'), () => runPhaseActorActionPipeline({
+    state: { phaseSurvivors: [leader, helper], actionIntervalSec: 20, currentActionSec: () => 100,
+      nextDay: 3, nextPhase: 'night', phaseIdxNow: 5, ruleset, zoneGraph, forbiddenIds: new Set(),
+      zones: [{ zoneId: 'z0' }, { zoneId: 'z1' }], mapObj: { zones: [{ zoneId: 'z0' }, { zoneId: 'z1' }] },
+      publicItems: [], craftables: [] },
+    actions: { atNow: () => ({ sec: 100, day: 3, phase: 'night' }),
+      emitRunEvent: (kind, data, at) => moveEvents.push({ kind, ...data, at }) },
+  }));
+  const joinedRows = moved.updatedSurvivors;
+  const joined = joinedRows.find((actor) => actor._id === helper._id);
+  const arrival = moveEvents.find((event) => event.kind === 'move' && event.who === helper._id);
+  assert.ok(arrival, 'The real action pipeline must publish the teammate movement.');
+  assert.equal(arrival.from, 'z1'); assert.equal(arrival.to, 'z0');
+  assert.equal(joined.zoneId, 'z0', 'Combat must consume the movement-updated roster, not the pre-move snapshot.');
+  assert.ok(joined._actionReadyAtSec > 100, 'The movement/action readiness reservation must remain intact.');
+
+  // Controlled encounter setup: introduce the opposing actor only after the
+  // real join is complete. This proves scheduler integration, not natural
+  // enemy arrival or full-match pursuit causality.
+  const enemy = row('join-enemy', 1, { teamId: 'enemy-team', zoneId: 'z0',
+    _spatial: { zoneId: 'z0', x: 12, y: 12 } });
+  const combatRows = [...joinedRows, enemy];
+  engageCombatParticipants(joined, enemy, combatRows, 100);
+  assert.equal(joined._combatIntent?.zoneId, 'z0', 'The real combat-intent API must see the already-updated live roster.');
+  const result = await fight(combatRows, { duration: 44, teamCombat: true, preEngage: false });
+  const helperHits = result.events.filter((event) => event.kind === 'damage' && event.type === 'basic' && event.who === helper._id);
+  assert.ok(helperHits.length > 0, 'The moved teammate must eventually take its own scheduled basic action.');
+  assert.ok(helperHits.every((event) => event.at.sec >= joined._actionReadyAtSec),
+    'A teammate may not attack before its real movement/action lock expires.');
+  assert.ok(helperHits.every((event) => event.zoneId === 'z0' && event.targetId === enemy._id));
+  assert.ok(helperHits.every(event => event.hpDamage > 0 && event.distance <= event.reach + 1e-6
+    && event.fromPosition.zoneId === 'z0' && event.targetPosition.zoneId === 'z0'),
+    'Actual hit-time HP receipts and positions, not only final positions, must prove legal range.');
+  assert.ok(result.events.some((event) => event.kind === 'team_strike' && event.who === helper._id
+    && event.targetId === enemy._id && event.damage > 0), 'The helper must land a real strike under onlyActorId ownership.');
+  assert.ok(result.events.some((event) => event.kind === 'team_engagement'
+    && event.participants.includes(helper._id)), 'The completed join must receive actual combat intent/eligibility.');
+  const liveHelper = result.survivorMap.get(helper._id), liveEnemy = result.survivorMap.get(enemy._id);
+  assert.ok(liveHelper && liveHelper.hp > 0 && liveEnemy && liveEnemy.hp > 0, 'The fixture must preserve a live matchup.');
+  assert.equal(liveHelper.zoneId, liveEnemy.zoneId);
+  assert.ok(spatialDistance(liveHelper, liveEnemy) <= getSpatialStats(liveHelper).attackRange + 1e-6,
+    'The surviving controlled fixture remains local after its recorded legal attacks.');
 });
 await check('adding twenty-two remote spectators cannot slow an established duel', async () => {
   const base = await fight([row('fast', 2), row('slow', 0.5)]);

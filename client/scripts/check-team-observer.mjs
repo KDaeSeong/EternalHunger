@@ -5,6 +5,7 @@ const { buildTeamObserverModel, describeObserverReason, describeObserverEvent, o
 const { getActorGrowthProgress, buildActorGrowthPlan } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
 const { getEquipSummary } = await import('../src/app/simulation/_lib/survivorRuntime.js');
 const { formatClock } = await import('../src/app/simulation/_lib/simulationFormattingRuntime.js');
+const { runTeamCombatRound } = await import('../src/app/simulation/_lib/teamCombatRuntime.js');
 let checks = 0;
 const check = (name, run) => { run(); checks += 1; console.log(`PASS ${name}`); };
 const actor = (id, team = 'team:1', extra = {}) => ({ _id: id, name: id, teamId: team, hp: 100, maxHp: 100, zoneId: 'a', inventory: [], ...extra });
@@ -154,6 +155,35 @@ check('revival, focus fire and paid cover explanations match event outcomes', ()
   assert.match(describeObserverEvent(event('revive', 20, { who: 'a', by: 'b', hp: 65, paid: true, cost: 200 })), /HP 65 · 도움 b · 200Cr 소비/);
   assert.match(describeObserverEvent(event('team_strike', 20, { who: 'a', targetId: 'b', damage: 4, reason: 'focus_fire' })), /집중 공격 · HP 감소 4/);
   assert.match(describeObserverEvent(event('team_cover', 20, { who: 'a', helpers: ['b'] })), /행동 시간 소비/);
+});
+check('engagement candidate display does not claim queued allies completed attacks', () => {
+  const actors = [
+    actor('a1', 'team:1', { power: 20 }),
+    actor('a2', 'team:1', { power: 10 }),
+    actor('b1', 'team:2', { _actionReadyAtSec: 101 }),
+  ];
+  actors.forEach(row => { row._spatial = { zoneId: 'a', x: 4, y: 4 }; });
+  const survivorMap = new Map(actors.map((row) => [row._id, row]));
+  const emitted = [];
+  const result = runTeamCombatRound({ actor: actors[0], target: actors[2], survivorMap, nowSec: 100, random: () => 0,
+    emitRunEvent: (kind, payload) => emitted.push({ kind, ...payload }),
+    resolveStrike: (striker, target) => {
+      if (striker._id === 'a1') {
+        target.hp -= 5;
+        actors[1].activeEffects = [{ name: '기절', remainingDuration: 5 }];
+        return { performed: true };
+      }
+      return { performed: false };
+    },
+  });
+  const engagement = emitted.find((row) => row.kind === 'team_engagement');
+  const text = describeObserverEvent(engagement, { zoneName, nameOf: (id) => id });
+  assert.deepEqual(engagement.participants, ['a1', 'a2']);
+  assert.deepEqual(result.strikes.map((row) => row.who), ['a1']);
+  assert.equal(result.strikes[0].damage, 5);
+  assert.match(text, /공격 자격 후보 a1, a2/);
+  assert.doesNotMatch(text, /실제 행동 참가|공격 성공|HP 감소/);
+  assert.match(describeObserverEvent(emitted.find((row) => row.kind === 'team_strike'), { nameOf: (id) => id }), /HP 감소 5/);
 });
 check('a revived actor cannot present a previous-life decision as its latest plan', () => {
   const events = [event('queue', 10, { who: 'a', chosen: 'craft' }), event('death', 15, { who: 'a' }), event('revive', 20, { who: 'a', hp: 65 })];

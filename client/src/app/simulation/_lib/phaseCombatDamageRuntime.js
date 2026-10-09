@@ -24,7 +24,7 @@ export function resolveCombatWinnerOutcome({ actions = {}, combatElimination = {
   const { actor, target, battleSettings = {}, currentActionSec = () => 0, phaseIdxNow = 0, pvpCfg = {},
     supportRoster = [], strikeOnly = false, preparedSkill = null, targetKind = 'experiment' } = state;
   const { addLog = () => {}, applyErTraitAfterBattle = () => null, applyErWeaponSkillAfterCombat = () => null,
-    atNow = () => null, emitRunEvent = () => {}, grantPvpDamageMastery = () => {} } = actions;
+    atNow = () => null, emitRunEvent = () => {}, grantPvpDamageMastery = () => {}, onHostileHit = () => {} } = actions;
   const { applyCombatTacAttack = () => 0, shieldBlock = (_defender, damage) => damage } = tactical;
   const { applyCharacterSkillSplashDamage = () => 0, getCharacterSkillSplashTargets = () => [] } = skillSplash;
   const { resolveFleeSequence = () => null } = flee;
@@ -93,6 +93,7 @@ export function resolveCombatWinnerOutcome({ actions = {}, combatElimination = {
     target.lastDamagedPhaseIdx = phaseIdxNow;
     grantPvpDamageMastery(actor, { damageDealt: totalDamage, damageTaken: 0 }, '실제 타격');
     grantPvpDamageMastery(target, { damageDealt: 0, damageTaken: totalDamage }, '피격');
+    if (!areSameTeam(actor, target)) onHostileHit(actor, target);
   }
   let escape = null;
   if (target.hp > 0 && !isDimensionRiftDefeated(target) && totalDamage > 0 && target.hp <= Number(pvpCfg.criticalFleeHpBelow ?? 18)
