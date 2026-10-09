@@ -1,0 +1,1333 @@
+{
+  "schema": "eternal-hunger.natural-procurement-evidence.v1",
+  "observedDate": "2026-10-09",
+  "engineVersion": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+  "evidenceUse": "Output-only current-run record. Verification code does not read this report or previous result files as input/expected answers.",
+  "sourceHashes": [
+    {
+      "path": "client/scripts/check-natural-procurement-matrix.mjs",
+      "bytes": 18140,
+      "sha256": "30EEAE5659FC28AD49FEE2A3A4663075DF4F75F2BE0526600995358471A85090"
+    },
+    {
+      "path": "client/scripts/lib/natural-procurement-evidence.mjs",
+      "bytes": 7465,
+      "sha256": "5FA46B76AF3E7075E70CD99FCDDAD35C70082FAD6E3491CD1DCACCCA81286C2E"
+    },
+    {
+      "path": "client/scripts/check-natural-procurement-evidence.mjs",
+      "bytes": 11649,
+      "sha256": "EC1BF5BB0ED8084292D81BF7E9138BE257779CBAC7D6A1F2AA3F4248C2554762"
+    },
+    {
+      "path": "client/scripts/run-eternal-hunger-verification.mjs",
+      "bytes": 7648,
+      "sha256": "35DD9301F2588F003AF5728571E4853D7C926FE8E2D97F7B0115003BAAA99FBB"
+    }
+  ],
+  "originalRequirementsTailHash": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B",
+  "input": {
+    "seed": "1101",
+    "initialRosterSeed": "FIXTURE:initial-roster",
+    "catalogue": "unchanged default catalogue",
+    "rules": "unchanged default guest rules",
+    "editedInventory": false,
+    "editedCredits": false,
+    "editedHP": false,
+    "injectedSuccessfulOutcome": false,
+    "inputAxesObserved": 1
+  },
+  "runs": {
+    "initialUnit": {
+      "runId": "2026-10-09T06-19-31.074Z-31832aab-bbe6-4dd9-8b6d-0f0720364498",
+      "command": "node scripts/check-natural-procurement-evidence.mjs && npm run check:verification-fingerprint",
+      "startedAt": "2026-10-09T06:19:31.082Z",
+      "pid": 20076,
+      "engineBefore": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T06:19:31.970Z"
+    },
+    "firstNaturalV2": {
+      "runId": "2026-10-09T06-20-34.281Z-f455ca3e-1146-4a01-ac7b-bb674bf984dd",
+      "command": "npm run check:natural-procurement-matrix -- --seeds=1101 --rosters=FIXTURE:initial-roster",
+      "startedAt": "2026-10-09T06:20:34.284Z",
+      "pid": 11484,
+      "engineBefore": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T06:22:04.229Z"
+    },
+    "finalUnit": {
+      "runId": "2026-10-09T06-35-27.797Z-82d043a5-0192-48b6-80e0-04f535baef1e",
+      "command": "node scripts/check-natural-procurement-evidence.mjs && npm run check:verification-fingerprint",
+      "startedAt": "2026-10-09T06:35:27.803Z",
+      "pid": 33252,
+      "engineBefore": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T06:35:33.381Z"
+    },
+    "finalNaturalV3": {
+      "runId": "2026-10-09T06-35-48.651Z-488fad76-1473-4491-a2ed-e4d81c1c7718",
+      "command": "npm run check:natural-procurement-matrix -- --seeds=1101 --rosters=FIXTURE:initial-roster",
+      "startedAt": "2026-10-09T06:35:48.653Z",
+      "pid": 34140,
+      "engineBefore": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T06:37:11.560Z"
+    }
+  },
+  "outputHashes": [
+    {
+      "path": "client/.verification-runs/2026-10-09T06-19-31.074Z-31832aab-bbe6-4dd9-8b6d-0f0720364498/result.json",
+      "bytes": 621,
+      "sha256": "9072883500F831FD39F20DDDDAACB2A054178E31FDC693AFF33D10A34541D600"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T06-19-31.074Z-31832aab-bbe6-4dd9-8b6d-0f0720364498/output.log",
+      "bytes": 607,
+      "sha256": "B5B8F2DDA10A0CD9FB5CE39BF5A142E8B483C3A810A2F7863A0DA16CC5B9299B"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T06-20-34.281Z-f455ca3e-1146-4a01-ac7b-bb674bf984dd/result.json",
+      "bytes": 617,
+      "sha256": "B2E95E97FDDF698CBC8C4CD3E74509D1781C725FAEAB86356F182F7C50E5E5AB"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T06-20-34.281Z-f455ca3e-1146-4a01-ac7b-bb674bf984dd/output.log",
+      "bytes": 4846,
+      "sha256": "8C99C9701F427918D5CC0D7A54020AFF40F595C3CF13E9121D918410DCB20DB4"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T06-35-27.797Z-82d043a5-0192-48b6-80e0-04f535baef1e/result.json",
+      "bytes": 621,
+      "sha256": "755FF4B942AE94BD80F0CFADD316AC9DBA4DF07F9A325D142E49B5153FEC2DDA"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T06-35-27.797Z-82d043a5-0192-48b6-80e0-04f535baef1e/output.log",
+      "bytes": 607,
+      "sha256": "B5B8F2DDA10A0CD9FB5CE39BF5A142E8B483C3A810A2F7863A0DA16CC5B9299B"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T06-35-48.651Z-488fad76-1473-4491-a2ed-e4d81c1c7718/result.json",
+      "bytes": 617,
+      "sha256": "2D7F5DDF0A0DFC34EA2B3DE1C95C4496FDA99F5F5EF17F91532CA9916339867A"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-09T06-35-48.651Z-488fad76-1473-4491-a2ed-e4d81c1c7718/output.log",
+      "bytes": 23986,
+      "sha256": "56B70E3227AEFD3D113277DB5E655E93113F72E10A5EB6306451F4BC89C75189"
+    }
+  ],
+  "definitions": {
+    "explicitSharedRecipeIntent": "team_rotate plus an exact initial 팀 제작 구매: or 팀 제작 교환: reason; a presentation intention, not proof of execution.",
+    "broadProcurementRotation": "team_rotate plus any 키오스크|구매|교환|kiosk text; preserved separately, not an exact shared recipe intention.",
+    "receivedKioskSettlement": "completed kioskBuy/kioskExchange with actual string actor/action/item identity and positive integer received quantity; excludes kioskSell/cancelled receipts.",
+    "queueJoin": "preceding journal queue with the same actor, action key, buy/exchange type and item ID; no backwards temporal join.",
+    "paidCraftAssociation": "one-time quantity-bounded journal allocation from received catalogue materials to valid consuming craft events with positive craft cost and actual nonnegative credit delta.",
+    "zeroFeeCraftAssociation": "same consumption, event identity and credit checks, but authored craft cost is zero and before/after credits agree; not free equipment correction.",
+    "equipmentObservation": "same catalogue output ID occupies a real equipped slot and has positive inventory quantity in the craft publication frame; not physical item-lot provenance.",
+    "sharedPurposeTagged": "an exact joined queue carries the shared recipe prefix; a label, not proof that the real transaction matches the named intended recipient/material."
+  },
+  "syntheticUnitScope": {
+    "pureHelperPassed": true,
+    "fingerprintChecks": 4,
+    "sourceJournalAndEquipSetUnchanged": true,
+    "contracts": [
+      "exclude sales, cancellations and malformed receipts",
+      "exact actor/action/type/item queue joins before receipt",
+      "no repeated completed procurement/craft action identities",
+      "bound each received quantity and consume its evidence budget once",
+      "drain explicit sale/exchange consumption",
+      "separate positive fee and valid zero fee crafting",
+      "exclude invalid costs/balances/deltas/consumption/overflow",
+      "observe equipped catalog output at each craft event index"
+    ],
+    "failedDevelopmentAttempt": "Agent reported an initial stale expectation treating a valid zero-fee craft as excluded; corrected to the separate zeroFeeAssociations category before the final named unit run. No product rule change."
+  },
+  "firstNaturalV2": {
+    "seed": "1101",
+    "initialRosterSeed": "FIXTURE:initial-roster",
+    "evidence": {
+      "seed": "1101",
+      "phases": 11,
+      "frames": 5840,
+      "ticks": 1124.916666,
+      "eventCount": 11632,
+      "ending": {
+        "outcome": "last_team",
+        "atSec": 1124.916666,
+        "day": 6,
+        "phase": "morning",
+        "cause": "combat",
+        "causeName": "교전",
+        "finalZoneStage": "",
+        "winnerTeamId": "team:1"
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2014021095,
+        "draws": 8934,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "eventDigest": "b1095ecf031a3523f3245280af2c212725d1c7b85d2ca8a295688199d20f6112",
+      "frameDigest": "0c554b152b0f4befa9f53b9fe46c21cfcda06f9a89c812508fb7ad97c0d89206"
+    },
+    "sharedPurchaseIntentions": 252,
+    "distinctSharedPurchaseReviews": 18,
+    "naturalPurchaseCoverage": "observed",
+    "kioskSettlements": 31,
+    "kioskSaleSettlements": 0,
+    "kioskReceivedSettlements": 31,
+    "allSettlements": 50,
+    "observerReceiptChecks": 50,
+    "purchaseToCraftLinks": 0,
+    "linkedReceiptUnits": 0,
+    "distinctPaidCrafts": 0,
+    "equippedPurchaseCrafts": 0,
+    "sharedPurposePaidCraftLinks": 0,
+    "sharedPurposeDistinctPaidCrafts": 0,
+    "sharedPurposeEquippedPaidCrafts": 0,
+    "naturalSharedPurposeOrderCraftCoverage": "not_observed",
+    "craftAssociationScope": "quantity-bounded journal association, not lot provenance or causal shared procurement",
+    "craftSamples": [],
+    "openingComplete": 24,
+    "openingCompleteBy250Sec": 24,
+    "isolationEndReasons": {
+      "contact": 181,
+      "death": 6,
+      "last_living_member": 4
+    },
+    "isolationCensoredAtMatchEnd": 0,
+    "longestIsolationSeconds": 62,
+    "longestContactIsolationSeconds": 62,
+    "regroupArrivals": 63,
+    "teamRetreats": {
+      "total": 21,
+      "uniqueActors": 14,
+      "maxPerActor": 5,
+      "reversals": 0,
+      "reversalSamples": [],
+      "byReason": {
+        "team_outnumbered": 21
+      },
+      "topActors": [
+        [
+          "guest-survivor-05",
+          5
+        ],
+        [
+          "guest-survivor-02",
+          2
+        ],
+        [
+          "guest-survivor-07",
+          2
+        ],
+        [
+          "guest-survivor-24",
+          2
+        ],
+        [
+          "guest-survivor-01",
+          1
+        ]
+      ]
+    },
+    "huntTransfers": 1,
+    "successfulBossSettlements": 3,
+    "scope": "Historical first separate run preserved without rewriting: 252 broad kiosk intentions were not all exact shared recipe intentions; 0 paid-craft associations did not establish failure of zero-fee material-consuming crafting."
+  },
+  "finalNaturalV3": {
+    "seed": "1101",
+    "initialRosterSeed": "FIXTURE:initial-roster",
+    "evidence": {
+      "seed": "1101",
+      "phases": 11,
+      "frames": 5840,
+      "ticks": 1124.916666,
+      "eventCount": 11632,
+      "ending": {
+        "outcome": "last_team",
+        "atSec": 1124.916666,
+        "day": 6,
+        "phase": "morning",
+        "cause": "combat",
+        "causeName": "교전",
+        "finalZoneStage": "",
+        "winnerTeamId": "team:1"
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2014021095,
+        "draws": 8934,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "eventDigest": "b1095ecf031a3523f3245280af2c212725d1c7b85d2ca8a295688199d20f6112",
+      "frameDigest": "0c554b152b0f4befa9f53b9fe46c21cfcda06f9a89c812508fb7ad97c0d89206"
+    },
+    "sharedPurchaseIntentions": 207,
+    "distinctSharedPurchaseReviews": 16,
+    "sharedRecipeOrders": 21,
+    "broadProcurementRotationIntentions": 252,
+    "distinctBroadProcurementRotationReviews": 18,
+    "naturalPurchaseCoverage": "explicit_shared_recipe_intent_observed",
+    "purchaseIntentScope": "Only team_rotate reasons beginning with 팀 제작 구매: or 팀 제작 교환: are explicit shared recipe intentions; other kiosk mentions stay separate.",
+    "kioskSettlements": 31,
+    "kioskSaleSettlements": 0,
+    "kioskReceivedSettlements": 31,
+    "kioskReceivedByAction": {
+      "kioskBuy": 31,
+      "kioskExchange": 0
+    },
+    "allSettlements": 50,
+    "observerReceiptChecks": 50,
+    "purchaseToCraftLinks": 0,
+    "linkedReceiptUnits": 0,
+    "distinctPaidCrafts": 0,
+    "equippedPurchaseCrafts": 0,
+    "sharedPurposePaidCraftLinks": 0,
+    "sharedPurposeDistinctPaidCrafts": 0,
+    "sharedPurposeEquippedPaidCrafts": 0,
+    "zeroFeePurchaseToCraftLinks": 31,
+    "zeroFeeLinkedReceiptUnits": 31,
+    "distinctZeroFeeCrafts": 31,
+    "equippedZeroFeePurchaseCrafts": 31,
+    "sharedPurposeZeroFeeCraftLinks": 21,
+    "sharedPurposeDistinctZeroFeeCrafts": 21,
+    "sharedPurposeEquippedZeroFeeCrafts": 21,
+    "anyFeePurchaseToCraftLinks": 31,
+    "anyFeeLinkedReceiptUnits": 31,
+    "sharedPurposeAnyFeeCraftLinks": 21,
+    "sharedPurposeEquippedAnyFeeCrafts": 21,
+    "naturalSharedPurposeOrderCraftCoverage": "not_observed",
+    "naturalSharedPurposeZeroFeeOrderCraftCoverage": "tagged_order_zero_fee_craft_association_observed",
+    "naturalSharedPurposeAnyFeeOrderCraftCoverage": "tagged_order_craft_association_observed",
+    "craftAssociationScope": "quantity-bounded journal association, not lot provenance or causal shared procurement",
+    "craftSamples": [],
+    "zeroFeeCraftSamples": [
+      {
+        "receiptEventIndex": 6306,
+        "queueEventIndex": 6305,
+        "craftEventIndex": 6442,
+        "who": "guest-survivor-22",
+        "purchasedId": "namu:material:운석",
+        "linkedQty": 1,
+        "purchaseActionKey": "phase:2:cycle:2:263",
+        "craftActionKey": "craft:guest-survivor-22:15",
+        "actionType": "kioskBuy",
+        "paidCost": 200,
+        "craftId": "namu:아르카나:더 문",
+        "craftCost": 0,
+        "sharedPurposeTagged": false,
+        "equippedObserved": true,
+        "actorName": "바람",
+        "purchasedItemName": "운석",
+        "craftedItemName": "더 문",
+        "queue": {
+          "eventIndex": 6305,
+          "kind": "queue",
+          "atSec": 263,
+          "who": "guest-survivor-22",
+          "actorName": "바람",
+          "actionKey": "phase:2:cycle:2:263",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "",
+          "itemId": "namu:material:운석",
+          "itemName": "운석",
+          "consumed": null,
+          "equipObservation": null
+        },
+        "receipt": {
+          "eventIndex": 6306,
+          "kind": "procurement",
+          "atSec": 263,
+          "who": "guest-survivor-22",
+          "actorName": "바람",
+          "actionKey": "phase:2:cycle:2:263",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "",
+          "itemId": "namu:material:운석",
+          "itemName": "운석",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 200,
+          "gainedCredits": 0,
+          "beforeCredits": 200,
+          "afterCredits": 0,
+          "consumed": [],
+          "equipObservation": null
+        },
+        "craft": {
+          "eventIndex": 6442,
+          "kind": "craft",
+          "atSec": 283,
+          "who": "guest-survivor-22",
+          "actorName": "바람",
+          "actionKey": "craft:guest-survivor-22:15",
+          "sharedGoalReason": "",
+          "itemId": "namu:아르카나:더 문",
+          "itemName": "더 문",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 0,
+          "beforeCredits": 0,
+          "afterCredits": 0,
+          "consumed": [
+            {
+              "itemId": "namu:아르카나:유리구슬",
+              "itemName": "유리구슬",
+              "qty": 1
+            },
+            {
+              "itemId": "namu:material:운석",
+              "itemName": "운석",
+              "qty": 1
+            }
+          ],
+          "equipObservation": {
+            "frameMatchSec": 283,
+            "itemId": "namu:아르카나:더 문",
+            "slot": "weapon",
+            "inventoryQty": 1
+          }
+        }
+      },
+      {
+        "receiptEventIndex": 6448,
+        "queueEventIndex": 6447,
+        "craftEventIndex": 6450,
+        "who": "guest-survivor-14",
+        "purchasedId": "namu:material:운석",
+        "linkedQty": 1,
+        "purchaseActionKey": "phase:2:cycle:2:283",
+        "craftActionKey": "craft:guest-survivor-14:15",
+        "actionType": "kioskBuy",
+        "paidCost": 200,
+        "craftId": "namu:아르카나:더 문",
+        "craftCost": 0,
+        "sharedPurposeTagged": true,
+        "equippedObserved": true,
+        "actorName": "보라",
+        "purchasedItemName": "운석",
+        "craftedItemName": "더 문",
+        "queue": {
+          "eventIndex": 6447,
+          "kind": "queue",
+          "atSec": 283,
+          "who": "guest-survivor-14",
+          "actorName": "보라",
+          "actionKey": "phase:2:cycle:2:283",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "팀 제작 구매: 운석 · 보라의 더 문 제작 재료",
+          "itemId": "namu:material:운석",
+          "itemName": "운석",
+          "consumed": null,
+          "equipObservation": null
+        },
+        "receipt": {
+          "eventIndex": 6448,
+          "kind": "procurement",
+          "atSec": 283,
+          "who": "guest-survivor-14",
+          "actorName": "보라",
+          "actionKey": "phase:2:cycle:2:283",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "",
+          "itemId": "namu:material:운석",
+          "itemName": "운석",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 200,
+          "gainedCredits": 0,
+          "beforeCredits": 202,
+          "afterCredits": 2,
+          "consumed": [],
+          "equipObservation": null
+        },
+        "craft": {
+          "eventIndex": 6450,
+          "kind": "craft",
+          "atSec": 283,
+          "who": "guest-survivor-14",
+          "actorName": "보라",
+          "actionKey": "craft:guest-survivor-14:15",
+          "sharedGoalReason": "",
+          "itemId": "namu:아르카나:더 문",
+          "itemName": "더 문",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 0,
+          "beforeCredits": 2,
+          "afterCredits": 2,
+          "consumed": [
+            {
+              "itemId": "namu:아르카나:유리구슬",
+              "itemName": "유리구슬",
+              "qty": 1
+            },
+            {
+              "itemId": "namu:material:운석",
+              "itemName": "운석",
+              "qty": 1
+            }
+          ],
+          "equipObservation": {
+            "frameMatchSec": 283,
+            "itemId": "namu:아르카나:더 문",
+            "slot": "weapon",
+            "inventoryQty": 1
+          }
+        }
+      },
+      {
+        "receiptEventIndex": 6482,
+        "queueEventIndex": 6481,
+        "craftEventIndex": 6484,
+        "who": "guest-survivor-07",
+        "purchasedId": "namu:material:생명의 나무",
+        "linkedQty": 1,
+        "purchaseActionKey": "phase:2:cycle:2:290",
+        "craftActionKey": "craft:guest-survivor-07:16",
+        "actionType": "kioskBuy",
+        "paidCost": 200,
+        "craftId": "namu:레이피어:기어 헬릭스",
+        "craftCost": 0,
+        "sharedPurposeTagged": true,
+        "equippedObserved": true,
+        "actorName": "나래",
+        "purchasedItemName": "생명의 나무",
+        "craftedItemName": "기어 헬릭스",
+        "queue": {
+          "eventIndex": 6481,
+          "kind": "queue",
+          "atSec": 290,
+          "who": "guest-survivor-07",
+          "actorName": "나래",
+          "actionKey": "phase:2:cycle:2:290",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "팀 제작 구매: 생명의 나무 · 나래의 기어 헬릭스 제작 재료",
+          "itemId": "namu:material:생명의 나무",
+          "itemName": "생명의 나무",
+          "consumed": null,
+          "equipObservation": null
+        },
+        "receipt": {
+          "eventIndex": 6482,
+          "kind": "procurement",
+          "atSec": 290,
+          "who": "guest-survivor-07",
+          "actorName": "나래",
+          "actionKey": "phase:2:cycle:2:290",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "",
+          "itemId": "namu:material:생명의 나무",
+          "itemName": "생명의 나무",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 200,
+          "gainedCredits": 0,
+          "beforeCredits": 209,
+          "afterCredits": 9,
+          "consumed": [],
+          "equipObservation": null
+        },
+        "craft": {
+          "eventIndex": 6484,
+          "kind": "craft",
+          "atSec": 290,
+          "who": "guest-survivor-07",
+          "actorName": "나래",
+          "actionKey": "craft:guest-survivor-07:16",
+          "sharedGoalReason": "",
+          "itemId": "namu:레이피어:기어 헬릭스",
+          "itemName": "기어 헬릭스",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 0,
+          "beforeCredits": 9,
+          "afterCredits": 9,
+          "consumed": [
+            {
+              "itemId": "namu:레이피어:바늘",
+              "itemName": "바늘",
+              "qty": 1
+            },
+            {
+              "itemId": "namu:material:생명의 나무",
+              "itemName": "생명의 나무",
+              "qty": 1
+            }
+          ],
+          "equipObservation": {
+            "frameMatchSec": 290,
+            "itemId": "namu:레이피어:기어 헬릭스",
+            "slot": "weapon",
+            "inventoryQty": 1
+          }
+        }
+      }
+    ],
+    "sharedPurposeCraftSamples": [
+      {
+        "receiptEventIndex": 6448,
+        "queueEventIndex": 6447,
+        "craftEventIndex": 6450,
+        "who": "guest-survivor-14",
+        "purchasedId": "namu:material:운석",
+        "linkedQty": 1,
+        "purchaseActionKey": "phase:2:cycle:2:283",
+        "craftActionKey": "craft:guest-survivor-14:15",
+        "actionType": "kioskBuy",
+        "paidCost": 200,
+        "craftId": "namu:아르카나:더 문",
+        "craftCost": 0,
+        "sharedPurposeTagged": true,
+        "equippedObserved": true,
+        "actorName": "보라",
+        "purchasedItemName": "운석",
+        "craftedItemName": "더 문",
+        "queue": {
+          "eventIndex": 6447,
+          "kind": "queue",
+          "atSec": 283,
+          "who": "guest-survivor-14",
+          "actorName": "보라",
+          "actionKey": "phase:2:cycle:2:283",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "팀 제작 구매: 운석 · 보라의 더 문 제작 재료",
+          "itemId": "namu:material:운석",
+          "itemName": "운석",
+          "consumed": null,
+          "equipObservation": null
+        },
+        "receipt": {
+          "eventIndex": 6448,
+          "kind": "procurement",
+          "atSec": 283,
+          "who": "guest-survivor-14",
+          "actorName": "보라",
+          "actionKey": "phase:2:cycle:2:283",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "",
+          "itemId": "namu:material:운석",
+          "itemName": "운석",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 200,
+          "gainedCredits": 0,
+          "beforeCredits": 202,
+          "afterCredits": 2,
+          "consumed": [],
+          "equipObservation": null
+        },
+        "craft": {
+          "eventIndex": 6450,
+          "kind": "craft",
+          "atSec": 283,
+          "who": "guest-survivor-14",
+          "actorName": "보라",
+          "actionKey": "craft:guest-survivor-14:15",
+          "sharedGoalReason": "",
+          "itemId": "namu:아르카나:더 문",
+          "itemName": "더 문",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 0,
+          "beforeCredits": 2,
+          "afterCredits": 2,
+          "consumed": [
+            {
+              "itemId": "namu:아르카나:유리구슬",
+              "itemName": "유리구슬",
+              "qty": 1
+            },
+            {
+              "itemId": "namu:material:운석",
+              "itemName": "운석",
+              "qty": 1
+            }
+          ],
+          "equipObservation": {
+            "frameMatchSec": 283,
+            "itemId": "namu:아르카나:더 문",
+            "slot": "weapon",
+            "inventoryQty": 1
+          }
+        }
+      },
+      {
+        "receiptEventIndex": 6482,
+        "queueEventIndex": 6481,
+        "craftEventIndex": 6484,
+        "who": "guest-survivor-07",
+        "purchasedId": "namu:material:생명의 나무",
+        "linkedQty": 1,
+        "purchaseActionKey": "phase:2:cycle:2:290",
+        "craftActionKey": "craft:guest-survivor-07:16",
+        "actionType": "kioskBuy",
+        "paidCost": 200,
+        "craftId": "namu:레이피어:기어 헬릭스",
+        "craftCost": 0,
+        "sharedPurposeTagged": true,
+        "equippedObserved": true,
+        "actorName": "나래",
+        "purchasedItemName": "생명의 나무",
+        "craftedItemName": "기어 헬릭스",
+        "queue": {
+          "eventIndex": 6481,
+          "kind": "queue",
+          "atSec": 290,
+          "who": "guest-survivor-07",
+          "actorName": "나래",
+          "actionKey": "phase:2:cycle:2:290",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "팀 제작 구매: 생명의 나무 · 나래의 기어 헬릭스 제작 재료",
+          "itemId": "namu:material:생명의 나무",
+          "itemName": "생명의 나무",
+          "consumed": null,
+          "equipObservation": null
+        },
+        "receipt": {
+          "eventIndex": 6482,
+          "kind": "procurement",
+          "atSec": 290,
+          "who": "guest-survivor-07",
+          "actorName": "나래",
+          "actionKey": "phase:2:cycle:2:290",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "",
+          "itemId": "namu:material:생명의 나무",
+          "itemName": "생명의 나무",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 200,
+          "gainedCredits": 0,
+          "beforeCredits": 209,
+          "afterCredits": 9,
+          "consumed": [],
+          "equipObservation": null
+        },
+        "craft": {
+          "eventIndex": 6484,
+          "kind": "craft",
+          "atSec": 290,
+          "who": "guest-survivor-07",
+          "actorName": "나래",
+          "actionKey": "craft:guest-survivor-07:16",
+          "sharedGoalReason": "",
+          "itemId": "namu:레이피어:기어 헬릭스",
+          "itemName": "기어 헬릭스",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 0,
+          "beforeCredits": 9,
+          "afterCredits": 9,
+          "consumed": [
+            {
+              "itemId": "namu:레이피어:바늘",
+              "itemName": "바늘",
+              "qty": 1
+            },
+            {
+              "itemId": "namu:material:생명의 나무",
+              "itemName": "생명의 나무",
+              "qty": 1
+            }
+          ],
+          "equipObservation": {
+            "frameMatchSec": 290,
+            "itemId": "namu:레이피어:기어 헬릭스",
+            "slot": "weapon",
+            "inventoryQty": 1
+          }
+        }
+      },
+      {
+        "receiptEventIndex": 6572,
+        "queueEventIndex": 6571,
+        "craftEventIndex": 6574,
+        "who": "guest-survivor-09",
+        "purchasedId": "namu:material:운석",
+        "linkedQty": 1,
+        "purchaseActionKey": "phase:2:cycle:2:296",
+        "craftActionKey": "craft:guest-survivor-09:16",
+        "actionType": "kioskBuy",
+        "paidCost": 200,
+        "craftId": "namu:망치:개밥바라기",
+        "craftCost": 0,
+        "sharedPurposeTagged": true,
+        "equippedObserved": true,
+        "actorName": "미르",
+        "purchasedItemName": "운석",
+        "craftedItemName": "개밥바라기",
+        "queue": {
+          "eventIndex": 6571,
+          "kind": "queue",
+          "atSec": 296,
+          "who": "guest-survivor-09",
+          "actorName": "미르",
+          "actionKey": "phase:2:cycle:2:296",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료",
+          "itemId": "namu:material:운석",
+          "itemName": "운석",
+          "consumed": null,
+          "equipObservation": null
+        },
+        "receipt": {
+          "eventIndex": 6572,
+          "kind": "procurement",
+          "atSec": 296,
+          "who": "guest-survivor-09",
+          "actorName": "미르",
+          "actionKey": "phase:2:cycle:2:296",
+          "actionType": "kioskBuy",
+          "sharedGoalReason": "",
+          "itemId": "namu:material:운석",
+          "itemName": "운석",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 200,
+          "gainedCredits": 0,
+          "beforeCredits": 315,
+          "afterCredits": 115,
+          "consumed": [],
+          "equipObservation": null
+        },
+        "craft": {
+          "eventIndex": 6574,
+          "kind": "craft",
+          "atSec": 296,
+          "who": "guest-survivor-09",
+          "actorName": "미르",
+          "actionKey": "craft:guest-survivor-09:16",
+          "sharedGoalReason": "",
+          "itemId": "namu:망치:개밥바라기",
+          "itemName": "개밥바라기",
+          "qty": 1,
+          "receivedQty": 1,
+          "paidCost": 0,
+          "beforeCredits": 115,
+          "afterCredits": 115,
+          "consumed": [
+            {
+              "itemId": "namu:망치:망치",
+              "itemName": "망치",
+              "qty": 1
+            },
+            {
+              "itemId": "namu:material:운석",
+              "itemName": "운석",
+              "qty": 1
+            }
+          ],
+          "equipObservation": {
+            "frameMatchSec": 296,
+            "itemId": "namu:망치:개밥바라기",
+            "slot": "weapon",
+            "inventoryQty": 1
+          }
+        }
+      }
+    ],
+    "sharedReasonSamples": [
+      {
+        "atSec": 296,
+        "who": "guest-survivor-02",
+        "actorName": "매화",
+        "sharedGoalReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료"
+      },
+      {
+        "atSec": 283,
+        "who": "guest-survivor-21",
+        "actorName": "이슬",
+        "sharedGoalReason": "팀 제작 구매: 운석 · 보라의 더 문 제작 재료"
+      },
+      {
+        "atSec": 303,
+        "who": "guest-survivor-18",
+        "actorName": "다온",
+        "sharedGoalReason": "팀 제작 구매: 생명의 나무 · 새벽의 엔데버 AX 제작 재료"
+      },
+      {
+        "atSec": 290,
+        "who": "guest-survivor-05",
+        "actorName": "도담",
+        "sharedGoalReason": "팀 제작 구매: 생명의 나무 · 나래의 기어 헬릭스 제작 재료"
+      },
+      {
+        "atSec": 292,
+        "who": "guest-survivor-08",
+        "actorName": "초롱",
+        "sharedGoalReason": "팀 제작 구매: 운석 · 별하의 마탄의 사수 제작 재료"
+      },
+      {
+        "atSec": 314,
+        "who": "guest-survivor-19",
+        "actorName": "마루",
+        "sharedGoalReason": "팀 제작 구매: 운석 · 마루의 원더풀 투나잇 제작 재료"
+      }
+    ],
+    "sharedOrderSamples": [
+      {
+        "eventIndex": 6447,
+        "kind": "queue",
+        "atSec": 283,
+        "who": "guest-survivor-14",
+        "actorName": "보라",
+        "actionKey": "phase:2:cycle:2:283",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "팀 제작 구매: 운석 · 보라의 더 문 제작 재료",
+        "itemId": "namu:material:운석",
+        "itemName": "운석",
+        "consumed": null,
+        "equipObservation": null
+      },
+      {
+        "eventIndex": 6481,
+        "kind": "queue",
+        "atSec": 290,
+        "who": "guest-survivor-07",
+        "actorName": "나래",
+        "actionKey": "phase:2:cycle:2:290",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "팀 제작 구매: 생명의 나무 · 나래의 기어 헬릭스 제작 재료",
+        "itemId": "namu:material:생명의 나무",
+        "itemName": "생명의 나무",
+        "consumed": null,
+        "equipObservation": null
+      },
+      {
+        "eventIndex": 6489,
+        "kind": "queue",
+        "atSec": 290,
+        "who": "guest-survivor-15",
+        "actorName": "여울",
+        "actionKey": "phase:2:cycle:2:290",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "팀 제작 구매: 생명의 나무 · 나래의 기어 헬릭스 제작 재료",
+        "itemId": "namu:material:생명의 나무",
+        "itemName": "생명의 나무",
+        "consumed": null,
+        "equipObservation": null
+      },
+      {
+        "eventIndex": 6571,
+        "kind": "queue",
+        "atSec": 296,
+        "who": "guest-survivor-09",
+        "actorName": "미르",
+        "actionKey": "phase:2:cycle:2:296",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료",
+        "itemId": "namu:material:운석",
+        "itemName": "운석",
+        "consumed": null,
+        "equipObservation": null
+      },
+      {
+        "eventIndex": 6578,
+        "kind": "queue",
+        "atSec": 296,
+        "who": "guest-survivor-04",
+        "actorName": "은하",
+        "actionKey": "phase:2:cycle:2:296",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료",
+        "itemId": "namu:material:생명의 나무",
+        "itemName": "생명의 나무",
+        "consumed": null,
+        "equipObservation": null
+      },
+      {
+        "eventIndex": 6585,
+        "kind": "queue",
+        "atSec": 296,
+        "who": "guest-survivor-02",
+        "actorName": "매화",
+        "actionKey": "phase:2:cycle:2:296",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료",
+        "itemId": "namu:material:생명의 나무",
+        "itemName": "생명의 나무",
+        "consumed": null,
+        "equipObservation": null
+      }
+    ],
+    "receiptSamples": [
+      {
+        "eventIndex": 6306,
+        "kind": "procurement",
+        "atSec": 263,
+        "who": "guest-survivor-22",
+        "actorName": "바람",
+        "actionKey": "phase:2:cycle:2:263",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "",
+        "itemId": "namu:material:운석",
+        "itemName": "운석",
+        "qty": 1,
+        "receivedQty": 1,
+        "paidCost": 200,
+        "gainedCredits": 0,
+        "beforeCredits": 200,
+        "afterCredits": 0,
+        "consumed": [],
+        "equipObservation": null,
+        "queueEventIndex": 6305,
+        "queueSharedGoalReason": ""
+      },
+      {
+        "eventIndex": 6448,
+        "kind": "procurement",
+        "atSec": 283,
+        "who": "guest-survivor-14",
+        "actorName": "보라",
+        "actionKey": "phase:2:cycle:2:283",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "",
+        "itemId": "namu:material:운석",
+        "itemName": "운석",
+        "qty": 1,
+        "receivedQty": 1,
+        "paidCost": 200,
+        "gainedCredits": 0,
+        "beforeCredits": 202,
+        "afterCredits": 2,
+        "consumed": [],
+        "equipObservation": null,
+        "queueEventIndex": 6447,
+        "queueSharedGoalReason": "팀 제작 구매: 운석 · 보라의 더 문 제작 재료"
+      },
+      {
+        "eventIndex": 6482,
+        "kind": "procurement",
+        "atSec": 290,
+        "who": "guest-survivor-07",
+        "actorName": "나래",
+        "actionKey": "phase:2:cycle:2:290",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "",
+        "itemId": "namu:material:생명의 나무",
+        "itemName": "생명의 나무",
+        "qty": 1,
+        "receivedQty": 1,
+        "paidCost": 200,
+        "gainedCredits": 0,
+        "beforeCredits": 209,
+        "afterCredits": 9,
+        "consumed": [],
+        "equipObservation": null,
+        "queueEventIndex": 6481,
+        "queueSharedGoalReason": "팀 제작 구매: 생명의 나무 · 나래의 기어 헬릭스 제작 재료"
+      },
+      {
+        "eventIndex": 6490,
+        "kind": "procurement",
+        "atSec": 290,
+        "who": "guest-survivor-15",
+        "actorName": "여울",
+        "actionKey": "phase:2:cycle:2:290",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "",
+        "itemId": "namu:material:생명의 나무",
+        "itemName": "생명의 나무",
+        "qty": 1,
+        "receivedQty": 1,
+        "paidCost": 200,
+        "gainedCredits": 0,
+        "beforeCredits": 234,
+        "afterCredits": 34,
+        "consumed": [],
+        "equipObservation": null,
+        "queueEventIndex": 6489,
+        "queueSharedGoalReason": "팀 제작 구매: 생명의 나무 · 나래의 기어 헬릭스 제작 재료"
+      },
+      {
+        "eventIndex": 6572,
+        "kind": "procurement",
+        "atSec": 296,
+        "who": "guest-survivor-09",
+        "actorName": "미르",
+        "actionKey": "phase:2:cycle:2:296",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "",
+        "itemId": "namu:material:운석",
+        "itemName": "운석",
+        "qty": 1,
+        "receivedQty": 1,
+        "paidCost": 200,
+        "gainedCredits": 0,
+        "beforeCredits": 315,
+        "afterCredits": 115,
+        "consumed": [],
+        "equipObservation": null,
+        "queueEventIndex": 6571,
+        "queueSharedGoalReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료"
+      },
+      {
+        "eventIndex": 6579,
+        "kind": "procurement",
+        "atSec": 296,
+        "who": "guest-survivor-04",
+        "actorName": "은하",
+        "actionKey": "phase:2:cycle:2:296",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "",
+        "itemId": "namu:material:생명의 나무",
+        "itemName": "생명의 나무",
+        "qty": 1,
+        "receivedQty": 1,
+        "paidCost": 200,
+        "gainedCredits": 0,
+        "beforeCredits": 219,
+        "afterCredits": 19,
+        "consumed": [],
+        "equipObservation": null,
+        "queueEventIndex": 6578,
+        "queueSharedGoalReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료"
+      }
+    ],
+    "reportedCraftCostBreakdown": {
+      "total": 430,
+      "zeroFee": 430,
+      "positiveFee": 0,
+      "other": 0
+    },
+    "rawCraftSamples": [
+      {
+        "eventIndex": 56,
+        "kind": "craft",
+        "atSec": 0,
+        "who": "guest-survivor-12",
+        "actorName": "노을",
+        "actionKey": "craft:guest-survivor-12:1",
+        "sharedGoalReason": "",
+        "itemId": "namu:material:철판",
+        "itemName": "철판",
+        "qty": 1,
+        "receivedQty": 1,
+        "paidCost": 0,
+        "beforeCredits": 15,
+        "afterCredits": 15,
+        "consumed": [
+          {
+            "itemId": "namu:material:고철",
+            "itemName": "고철",
+            "qty": 1
+          },
+          {
+            "itemId": "namu:material:화학품",
+            "itemName": "화학품",
+            "qty": 1
+          }
+        ],
+        "equipObservation": null
+      },
+      {
+        "eventIndex": 73,
+        "kind": "craft",
+        "atSec": 0,
+        "who": "guest-survivor-17",
+        "actorName": "라온",
+        "actionKey": "craft:guest-survivor-17:1",
+        "sharedGoalReason": "",
+        "itemId": "namu:material:철판",
+        "itemName": "철판",
+        "qty": 1,
+        "receivedQty": 1,
+        "paidCost": 0,
+        "beforeCredits": 15,
+        "afterCredits": 15,
+        "consumed": [
+          {
+            "itemId": "namu:material:고철",
+            "itemName": "고철",
+            "qty": 1
+          },
+          {
+            "itemId": "namu:material:화학품",
+            "itemName": "화학품",
+            "qty": 1
+          }
+        ],
+        "equipObservation": null
+      },
+      {
+        "eventIndex": 83,
+        "kind": "craft",
+        "atSec": 0,
+        "who": "guest-survivor-16",
+        "actorName": "솔빛",
+        "actionKey": "craft:guest-survivor-16:1",
+        "sharedGoalReason": "",
+        "itemId": "namu:material:철판",
+        "itemName": "철판",
+        "qty": 1,
+        "receivedQty": 1,
+        "paidCost": 0,
+        "beforeCredits": 15,
+        "afterCredits": 15,
+        "consumed": [
+          {
+            "itemId": "namu:material:고철",
+            "itemName": "고철",
+            "qty": 1
+          },
+          {
+            "itemId": "namu:material:화학품",
+            "itemName": "화학품",
+            "qty": 1
+          }
+        ],
+        "equipObservation": null
+      }
+    ],
+    "openingComplete": 24,
+    "openingCompleteBy250Sec": 24,
+    "isolationEndReasons": {
+      "contact": 181,
+      "death": 6,
+      "last_living_member": 4
+    },
+    "isolationCensoredAtMatchEnd": 0,
+    "longestIsolationSeconds": 62,
+    "longestContactIsolationSeconds": 62,
+    "regroupArrivals": 63,
+    "teamRetreats": {
+      "total": 21,
+      "uniqueActors": 14,
+      "maxPerActor": 5,
+      "reversals": 0,
+      "reversalSamples": [],
+      "byReason": {
+        "team_outnumbered": 21
+      },
+      "topActors": [
+        [
+          "guest-survivor-05",
+          5
+        ],
+        [
+          "guest-survivor-02",
+          2
+        ],
+        [
+          "guest-survivor-07",
+          2
+        ],
+        [
+          "guest-survivor-24",
+          2
+        ],
+        [
+          "guest-survivor-01",
+          1
+        ]
+      ]
+    },
+    "huntTransfers": 1,
+    "successfulBossSettlements": 3
+  },
+  "comparison": {
+    "eventDigestSame": true,
+    "frameDigestSame": true,
+    "randomSame": true,
+    "endingSummarySame": true,
+    "scope": "Same event/frame digests, RNG state and ending summary for the predetermined input. These aggregate digests are not real browser performance or a new all-state deep comparison."
+  },
+  "observedReasonBoundary": {
+    "suspectedMismatchedSharedLabels": [
+      {
+        "eventIndex": 6489,
+        "kind": "queue",
+        "atSec": 290,
+        "who": "guest-survivor-15",
+        "actorName": "여울",
+        "actionKey": "phase:2:cycle:2:290",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "팀 제작 구매: 생명의 나무 · 나래의 기어 헬릭스 제작 재료",
+        "itemId": "namu:material:생명의 나무",
+        "itemName": "생명의 나무",
+        "consumed": null,
+        "equipObservation": null
+      },
+      {
+        "eventIndex": 6578,
+        "kind": "queue",
+        "atSec": 296,
+        "who": "guest-survivor-04",
+        "actorName": "은하",
+        "actionKey": "phase:2:cycle:2:296",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료",
+        "itemId": "namu:material:생명의 나무",
+        "itemName": "생명의 나무",
+        "consumed": null,
+        "equipObservation": null
+      },
+      {
+        "eventIndex": 6585,
+        "kind": "queue",
+        "atSec": 296,
+        "who": "guest-survivor-02",
+        "actorName": "매화",
+        "actionKey": "phase:2:cycle:2:296",
+        "actionType": "kioskBuy",
+        "sharedGoalReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료",
+        "itemId": "namu:material:생명의 나무",
+        "itemName": "생명의 나무",
+        "consumed": null,
+        "equipObservation": null
+      }
+    ],
+    "warning": "Shared label examples name another actor or a different material from the real order. The 21 tagged associations must not be counted as 21 causally correct designated shared procurement chains. The current engine's queue reason attribution needs source-level follow-up.",
+    "intendedBuyerOrMaterialCausalMatchAccepted": false
+  },
+  "cleanup": {
+    "relevantProcesses": [],
+    "remainingWebpackPacks": 0,
+    "additionalDeletions": 0,
+    "scope": "Fresh natural diagnostics did not create webpack packs; no extra deletion. Earlier full-gate six-pack cleanup is separately recorded."
+  },
+  "scope": {
+    "naturalMatchFinished": true,
+    "sameEngine": true,
+    "paidCraftNaturalCoverage": false,
+    "normalZeroFeeConsumptionAssociationsObserved": true,
+    "sharedTaggedOrdersObserved": true,
+    "causalSharedProcurementAccepted": false,
+    "naturalExchangeCoverage": false,
+    "multipleInputCoverage": false,
+    "balanceAccepted": false,
+    "actualForegroundPerformanceAccepted": false,
+    "realAccountSaveAccepted": false,
+    "paidAIInvocations": 0,
+    "additionalForegroundRuns": 0,
+    "pushed": false,
+    "deployed": false,
+    "allG1ToG5Accepted": false,
+    "gameRulesModified": false
+  }
+}

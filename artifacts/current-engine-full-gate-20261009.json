@@ -1,0 +1,484 @@
+{
+  "schema": "eternal-hunger.current-engine-full-gate.v1",
+  "observedDate": "2026-10-09",
+  "engineVersion": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+  "evidenceUse": "Current run outputs are retained as report evidence only, not historical expected answers or required validator inputs.",
+  "runs": {
+    "firstFailedFull": {
+      "runId": "2026-10-09T04-50-37.948Z-fffd0e5d-31dd-4360-bef2-a0ea7a1c7c51",
+      "command": "npm run check:eternal-hunger",
+      "startedAt": "2026-10-09T04:50:37.957Z",
+      "pid": 36808,
+      "engineBefore": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "status": "failed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 1,
+      "signal": null,
+      "engineAfter": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T05:25:14.366Z"
+    },
+    "focusedPhasePerformance": {
+      "runId": "2026-10-09T05-35-02.585Z-dc2b0d91-075d-4e58-994a-437e02a70ac2",
+      "command": "npm run check:phase-runtime-performance && node scripts/check-late-growth-decision-index.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAt": "2026-10-09T05:35:02.587Z",
+      "pid": 30692,
+      "engineBefore": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T05:35:23.798Z"
+    },
+    "completedFull": {
+      "runId": "2026-10-09T05-36-07.948Z-dbbf6d59-c7be-4102-a7e2-c22dc818436a",
+      "command": "npm run check:eternal-hunger",
+      "startedAt": "2026-10-09T05:36:07.950Z",
+      "pid": 28724,
+      "engineBefore": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T06:10:45.787Z"
+    }
+  },
+  "failedContract": {
+    "file": "client/scripts/check-phase-runtime-performance.mjs",
+    "oldExpectedQuantityReads": 10,
+    "actualCallLocalQuantityReads": 2,
+    "scope": "Obsolete implementation-count assertion; final contracts also verify fresh in-place quantities, split-stack eligibility, exact current-input reference results and bounded reads."
+  },
+  "focusedContracts": {
+    "phaseChecks": 17,
+    "lateGrowthGroups": 14,
+    "freshUnindexedComparisons": 400,
+    "fingerprintChecks": 4,
+    "runtimeSweepPassed": true
+  },
+  "build": {
+    "buildId": "6rNU820L9IRUYKMaXY9G1",
+    "generatedStaticPages": 62,
+    "actualEngineChunkMatches": {
+      "serverCount": 1,
+      "clientCount": 1,
+      "serverExamples": [
+        "client/.next/server\\chunks\\4164.js"
+      ],
+      "clientExamples": [
+        "client/.next/static\\chunks\\8212-95b9e04675caf42e.js"
+      ]
+    },
+    "compiledBuild": {
+      "fileCount": 1429,
+      "aggregateHash": "97EA85B16853ECF49738363674312C496E508510BDA74B9DC1C189B093D903B8",
+      "unchanged": true
+    }
+  },
+  "completeMatchEvidence": [
+    {
+      "marker": "FORCED_CONTROL_MATCH",
+      "seed": "forced-control-integration-1",
+      "phases": 13,
+      "frames": 6727,
+      "matchSec": 1286.25,
+      "events": 13372,
+      "eventDigest": "ab4a974b9ed76ee9519d998401cbbc168207e6af7788c037270360bc28c288da",
+      "frameDigest": "ee5b29b34b0cee2d1437aa64c2b534c5878fad5e3ef4c3121bd297ecc99f8dec",
+      "endingOutcome": "last_team",
+      "winnerTeamId": "team:6",
+      "finalDeathCause": "combat",
+      "comparison": {
+        "matched": true,
+        "firstDifference": -1,
+        "expectedEvents": 13372,
+        "actualEvents": 13372,
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 1243586560,
+        "draws": 9340,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "apiCalls": 0,
+      "externalAccess": null
+    },
+    {
+      "marker": "ACTION_STATES_MATCH",
+      "seed": "action-states-integration-1",
+      "phases": 13,
+      "frames": 6680,
+      "matchSec": 1283.333333,
+      "events": 13254,
+      "eventDigest": "eca408809838c484d83d9c5a33acadb74db751667cbb1d090cdcdf782a7b38b2",
+      "frameDigest": "fa3bd828f02a4a474a97f440a6ba502d4e4019741c8c9244991956cc6e246a02",
+      "endingOutcome": "last_team",
+      "winnerTeamId": "team:6",
+      "finalDeathCause": "combat",
+      "comparison": {
+        "matched": true,
+        "firstDifference": -1,
+        "expectedEvents": 13254,
+        "actualEvents": 13254,
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 1999618467,
+        "draws": 9285,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "apiCalls": 0,
+      "externalAccess": null
+    },
+    {
+      "marker": "CHARACTER_CASTING_MATCH",
+      "seed": "casting-integration-1",
+      "phases": 13,
+      "frames": 7000,
+      "matchSec": 1237.083333,
+      "events": 14756,
+      "eventDigest": "423f06d65fdef85dbee9edbe03698babf21ff74cbeeacfc39590e79ccb97c77b",
+      "frameDigest": "b01eab9624e0dbbba8740ce4e6862c0f1d975eecd21062e648b57ed2aefc27f0",
+      "endingOutcome": "last_team",
+      "winnerTeamId": "team:7",
+      "finalDeathCause": "combat",
+      "comparison": {
+        "matched": true,
+        "firstDifference": -1,
+        "expectedEvents": 14756,
+        "actualEvents": 14756,
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2076201591,
+        "draws": 9107,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "apiCalls": 0,
+      "externalAccess": null
+    },
+    {
+      "marker": "GUEST_CHARACTER_PROFILE_MATCH",
+      "seed": "local-profiles-1",
+      "phases": 13,
+      "frames": 7189,
+      "matchSec": 1276.25,
+      "events": 15769,
+      "eventDigest": "7e27da5d324b6fbc9cb5212937cbf0a6682fbf5da512d69e5b54ebc5c5d72de5",
+      "frameDigest": "1debb280c9f5fda8cc6b3fc81d812b652f8fe2f3e4c5881b8613d7b17cfdfac8",
+      "endingOutcome": "last_team",
+      "winnerTeamId": "team:2",
+      "finalDeathCause": "combat",
+      "comparison": {
+        "matched": true,
+        "firstDifference": -1,
+        "expectedEvents": 15769,
+        "actualEvents": 15769,
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2737238556,
+        "draws": 9350,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "apiCalls": 0,
+      "externalAccess": null
+    },
+    {
+      "marker": "CHARACTER_STATUS_SKILLS_MATCH",
+      "seed": "authored-status-skills-1",
+      "phases": 13,
+      "frames": 7150,
+      "matchSec": 1245.75,
+      "events": 17140,
+      "eventDigest": "61afee6fabf6dc863beb45f3f89fccd61b455e5f08b51c036d98e9ed210c6375",
+      "frameDigest": "1879c7466d4b30345c54d2a089b4709cd9f483839ea7027e76b33e51157ca583",
+      "endingOutcome": "last_team",
+      "winnerTeamId": "team:2",
+      "finalDeathCause": "combat",
+      "comparison": {
+        "matched": true,
+        "firstDifference": -1,
+        "expectedEvents": 17140,
+        "actualEvents": 17140,
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 289040634,
+        "draws": 10388,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "apiCalls": 0,
+      "externalAccess": null
+    },
+    {
+      "marker": "RNG_MATCH_REPLAYS",
+      "seed": "1101",
+      "phases": 11,
+      "frames": 5840,
+      "matchSec": 1124.916666,
+      "events": 11632,
+      "eventDigest": "b1095ecf031a3523f3245280af2c212725d1c7b85d2ca8a295688199d20f6112",
+      "frameDigest": "0c554b152b0f4befa9f53b9fe46c21cfcda06f9a89c812508fb7ad97c0d89206",
+      "endingOutcome": "last_team",
+      "winnerTeamId": "team:1",
+      "finalDeathCause": "combat",
+      "comparison": null,
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2014021095,
+        "draws": 8934,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "apiCalls": 0,
+      "externalAccess": null
+    },
+    {
+      "marker": "SAVED_INPUT_REPLAY",
+      "seed": "1101",
+      "phases": 12,
+      "frames": 6407,
+      "matchSec": 1217.333333,
+      "events": 14718,
+      "eventDigest": "3d0d9c60a10d08c98c63f56a5213bd1403fb1476ecc8ee3c076c3efe7b42e501",
+      "frameDigest": "d98f6cc7c0aa640c5f3ca92fe63f0649c5f132b91010c089264b073c0112caca",
+      "endingOutcome": "last_team",
+      "winnerTeamId": "team:5",
+      "finalDeathCause": "combat",
+      "comparison": {
+        "matched": true,
+        "firstDifference": -1,
+        "expectedEvents": 14718,
+        "actualEvents": 14718,
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 380025761,
+        "draws": 11128,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "apiCalls": null,
+      "externalAccess": 0
+    }
+  ],
+  "inputBoundaries": {
+    "savedInputReplay": "Current source-generated captured input uses explicit HP scale 2; exact captured-input replay is not unchanged-default balance evidence.",
+    "finalNightTimerMatch": "Explicit HP scale 2 fixture; once-only individual +15 seconds and normal ending are tested without claiming default-roster balance.",
+    "rngMatch": "Three actual current-source complete matches; all events/frames/final/RNG equivalence with independent UI draws. Not foreground browser performance."
+  },
+  "cleanup": {
+    "removedFiles": 6,
+    "removedLogicalBytes": 592296143,
+    "removedPaths": [
+      "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+      "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+      "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+      "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+      "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+      "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack"
+    ],
+    "remainingPackFiles": 0,
+    "protectedCount": 25,
+    "protectedDifferences": [],
+    "completeBuild": {
+      "fileCount": 1429,
+      "aggregateHash": "97EA85B16853ECF49738363674312C496E508510BDA74B9DC1C189B093D903B8",
+      "unchanged": true
+    },
+    "buildId": "6rNU820L9IRUYKMaXY9G1",
+    "recoverability": "Regenerated by next build; compiled build, sources and unique run evidence retained",
+    "physicalFreeSpaceDeltaMeasured": false,
+    "inventoryBefore": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "length": 255143611,
+        "hash": "8F71E4260EB3F688F35E9ED41BF634EDA7737CEDA70DE88C6A77158DE579BDC7",
+        "lastWriteUtc": "2026-10-09T06:10:37.3822304Z",
+        "attributes": "Archive"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "length": 12804672,
+        "hash": "64B00BB5E35472F79A5ED8E8DCE687D827983BEF23E7084CAE72EF22ADE5E3DB",
+        "lastWriteUtc": "2026-10-09T06:10:37.2488802Z",
+        "attributes": "Archive"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "length": 276,
+        "hash": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+        "lastWriteUtc": "2026-10-09T06:10:24.4709472Z",
+        "attributes": "Archive"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "length": 2464,
+        "hash": "3855709901C110EB7807E6A68BA85250EBB3F0FC0A6B7F408438E899F5EF943E",
+        "lastWriteUtc": "2026-10-09T06:10:24.4709472Z",
+        "attributes": "Archive"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "length": 306298089,
+        "hash": "20DAAB9E4E0F7C0C73915D0A3DB41135543EAD9D6E397E1DEFB1446BB2FFEE42",
+        "lastWriteUtc": "2026-10-09T06:10:23.5961278Z",
+        "attributes": "Archive"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "length": 18047031,
+        "hash": "65C81A58632DD557A7B55D01C8C047993815D16F83F049732AD5EA23167E6EE5",
+        "lastWriteUtc": "2026-10-09T06:10:23.4473110Z",
+        "attributes": "Archive"
+      }
+    ],
+    "protectedAtCleanupBoundary": [
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "hash": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+      },
+      {
+        "path": "server/index.js",
+        "hash": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+      },
+      {
+        "path": "server/.env.example",
+        "hash": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+      },
+      {
+        "path": "client/package.json",
+        "hash": "F457F365DF4825A8AE984333564023DE896E31D5A0841A6C12AA7CD93585FCA5"
+      },
+      {
+        "path": "client/package-lock.json",
+        "hash": "9024006A5AC9B451394E347C0A24A144EE5C32562912E6876C5F83250B89FB57"
+      },
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "hash": "1373BE21A76F05E06424E7214D2C9503C6CEE2A0C1A81827B00DDF2BAF956871"
+      },
+      {
+        "path": "client/scripts/check-phase-runtime-performance.mjs",
+        "hash": "BA172C03D518A322EDF1B412E35C40D1EA9C045CD2F25C9BCD5017A34304FFBC"
+      },
+      {
+        "path": "client/scripts/check-status-tick-normalization.mjs",
+        "hash": "22700E30F8FD39D2474093B92A305A24983936B8CC40632713ED771715F58AAB"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "hash": "3648F26D56BCD4D9EF2620853C1F323787854EB40845443A9E9557E2C88ED0B9"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/phaseDetonationTickRuntime.js",
+        "hash": "1E9D3016488A3CA16E1D339862559B968052B840B2A6E27F872A5827CCFBEDEA"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js",
+        "hash": "8B3BD4091E765C1C5898B29E3A05D4715DA8A454DC4998559E9B2C846FD220E1"
+      },
+      {
+        "path": "docs/eternal-hunger-goal.md",
+        "hash": "F1635A9B304EFFF9CD5601ECC8F7777B34D21FDFF47D26FFBFF26EBF45961212"
+      },
+      {
+        "path": "docs/status-tick-normalization-verification.md",
+        "hash": "600BA8485A21471C5EA36F33576B327916DFE8F6BFC2451CE9D0D51268E6D75A"
+      },
+      {
+        "path": "artifacts/status-tick-normalization-20261009.json",
+        "hash": "F62CE70B590B30C13CACA9FCAFE11510A722BF0587536F6578C1EEA5825A9617"
+      },
+      {
+        "path": "client/src/proxy.js",
+        "hash": "206977281F2646DFEDB1C1C25AD5946F35A0179E1901C7DFC76F36AD2EE4D2A8"
+      },
+      {
+        "path": "docs/current-engine-full-gate-2026-10-09.md",
+        "hash": "1F938B71681CD74A2D1D84FB0BC9F36D524B9EEBBE93E835F1B7D49052EE0656"
+      },
+      {
+        "path": "docs/map-reference-comparison-2026-10-07.md",
+        "hash": "BE567C362F094BC6886C2DCAB45251CC60C4DE166EB08C1AB2C1F7A7B1D2FDE0"
+      },
+      {
+        "path": "artifacts/map-area-reference-20261009.json",
+        "hash": "B1A75502DE9654052E1159BA54DD9B0E42DC7F473A5B3145C806EABA6F061C39"
+      },
+      {
+        "path": "client/scripts/check-natural-procurement-matrix.mjs",
+        "hash": "3370F7E1184DEFC7E76748CAE712BA8250BB4F71A1753427187DF2A46186978B"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T05-36-07.948Z-dbbf6d59-c7be-4102-a7e2-c22dc818436a/result.json",
+        "hash": "832B8BC0B36B773FCBECD3A12C14BBB6E854CB27330E377EE8BAB0F1CC1072C6"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T05-36-07.948Z-dbbf6d59-c7be-4102-a7e2-c22dc818436a/output.log",
+        "hash": "3FB3AF9DBBCACABCBF4ED8BC4264917A47FE07E387FEB2802D21A54016C145F8"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T05-35-02.585Z-dc2b0d91-075d-4e58-994a-437e02a70ac2/result.json",
+        "hash": "969E3AADEB96C11FF5B8D1D0E420A80034380766AC7D86653067F4E451796CAD"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T05-35-02.585Z-dc2b0d91-075d-4e58-994a-437e02a70ac2/output.log",
+        "hash": "FF6FA02E1277154F88EFAD5A179279967885FA3AEB708C9D43DBBC382BEEFC6B"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-50-37.948Z-fffd0e5d-31dd-4360-bef2-a0ea7a1c7c51/result.json",
+        "hash": "E2951336E5B5F08FF017B75A007AB78A3D7BE43AA711A74A00A8BA7F5B70D743"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T04-50-37.948Z-fffd0e5d-31dd-4360-bef2-a0ea7a1c7c51/output.log",
+        "hash": "A9A8F11B01D99B14CEA0CFCD6BD6151EF6AC4E031EAC11212CD361468EAEB213"
+      }
+    ],
+    "liveRelevantProcessesAtPreflight": []
+  },
+  "originalRequirementsTailHash": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B",
+  "scope": {
+    "fullNamedCommandPassed": true,
+    "sameCurrentProductEngine": true,
+    "newNaturalProcurementDiagnosticIncludedInFullCommand": false,
+    "allG1ToG5Accepted": false,
+    "actualForegroundSpeedAndContinuousMemoryAccepted": false,
+    "paidAIDraftQualityAccepted": false,
+    "realAccountSaveAccepted": false,
+    "humanFollowUpAccepted": false,
+    "pushed": false,
+    "deployed": false,
+    "gameRulesModified": false,
+    "accountOrCredentialChanges": false
+  },
+  "remaining": "Natural shared procurement causality, wider custom rosters/rules and strategies, real account/AI/foreground checks and human follow-up remain separate requirements; current full command does not complete the overall goal."
+}

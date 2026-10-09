@@ -1,6 +1,7 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
+import { summarizeKioskCraftEvidence } from './lib/natural-procurement-evidence.mjs';
 const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
 const { createTeamIsolationTracker } = await import('./lib/team-isolation-tracker.mjs');
 const { summarizeTeamRetreats } = await import('./lib/match-distribution-diagnostics.mjs');
@@ -22,6 +23,8 @@ assert.ok(seeds.length && rosters.length && seeds.every(Boolean) && rosters.ever
 assert.equal(new Set(seeds).size, seeds.length);
 assert.equal(new Set(rosters).size, rosters.length);
 const rows = [];
+const schema = 'eternal-hunger.natural-procurement-matrix.v3';
+const sharedRecipePurpose = /^팀 제작 (구매|교환):/;
 const idOf = value => typeof value === 'string' ? value : String(value?._id || value?.itemId || value?.item?._id || '');
 const secOf = event => Number(event.at?.sec || 0);
 
@@ -32,7 +35,8 @@ for (const initialRosterSeed of rosters) for (const seed of seeds) {
   const itemsById = new Map(initial.items.map(item => [String(item._id), item]));
   const actorsById = new Map(initial.survivors.map(actor => [String(actor._id), actor]));
   const tracker = createTeamIsolationTracker({ items: initial.items, zones: initial.map.zones });
-  const equippedCrafts = new Set(), completeOpening = new Map(), receiptKeys = new Set();
+  const equippedCraftEventIndexes = new Set(), completeOpening = new Map(), receiptKeys = new Set();
+  const equippedCraftObservations = new Map();
   let seenEvents = 0, observerReceiptChecks = 0, previousIsolationKey = '';
   const result = await runRandomIsolationMatch(input, { onFrame(frame, { events, publicItems }) {
     // Isolation can start/end only on membership, zone or combat-space change.
@@ -45,7 +49,7 @@ for (const initialRosterSeed of rosters) for (const seed of seeds) {
     previousIsolationKey = isolationKey;
     const newEvents = events.slice(seenEvents);
     const lastReceipts = new Map();
-    for (const event of newEvents) {
+    for (const [offset, event] of newEvents.entries()) {
       if (event.kind === 'procurement') {
         const key = `${event.who}:${event.actionKey}`;
         assert.ok(!receiptKeys.has(key), 'A procurement action must emit at most one settlement.');
@@ -65,8 +69,15 @@ for (const initialRosterSeed of rosters) for (const seed of seeds) {
       if (event.kind === 'craft') {
         const actor = [...frame.survivors, ...frame.dead].find(row => String(row._id) === event.who);
         assert.ok(actor, 'Crafts must belong to a real participant.');
-        if (Object.values(actor.equipped || {}).some(value => idOf(value) === event.itemId)) {
-          equippedCrafts.add(`${event.who}:${event.itemId}`);
+        const slot = Object.entries(actor.equipped || {}).find(([, value]) => idOf(value) === event.itemId)?.[0];
+        const inventoryQty = (actor.inventory || []).filter(entry => idOf(entry) === event.itemId)
+          .reduce((sum, entry) => sum + Number(entry.qty ?? 1), 0);
+        if (slot && inventoryQty > 0) {
+          // Preserve the actual craft's observation boundary. A later craft of
+          // the same catalog ID cannot retroactively equip an earlier event.
+          equippedCraftEventIndexes.add(seenEvents + offset);
+          equippedCraftObservations.set(seenEvents + offset, { frameMatchSec: frame.matchSec,
+            itemId: event.itemId, slot, inventoryQty });
         }
       }
       if (event.kind === 'growth_plan' && event.totalSlots > 0 && event.completedSlots === event.totalSlots
@@ -84,26 +95,107 @@ for (const initialRosterSeed of rosters) for (const seed of seeds) {
     }
     seenEvents = events.length;
   } });
-  const sharedPlans = result.events.filter(event => event.reason === 'team_rotate'
+  const broadProcurementPlans = result.events.filter(event => event.reason === 'team_rotate'
     && /키오스크|구매|교환|kiosk/.test(event.sharedGoalReason || ''));
+  const sharedPlans = broadProcurementPlans.filter(event => sharedRecipePurpose.test(event.sharedGoalReason || ''));
+  const indexedEvents = result.events.map((event, eventIndex) => ({ event, eventIndex }));
+  const sharedOrders = indexedEvents.filter(({ event }) => event.kind === 'queue'
+    && ['kioskBuy', 'kioskExchange'].includes(event.chosen) && sharedRecipePurpose.test(event.sharedGoalReason || ''));
   const completed = result.events.filter(event => event.kind === 'procurement' && event.outcome === 'completed');
-  const kioskReceipts = completed.filter(event => event.source === 'kiosk');
-  const craftLinks = kioskReceipts.flatMap(receipt => {
-    const craft = result.events.find(event => event.kind === 'craft' && event.who === receipt.who
-      && secOf(event) >= secOf(receipt) && (event.consumed || []).some(row => row.itemId === receipt.itemId));
-    return craft ? [{ who: receipt.who, purchasedId: receipt.itemId, paidCost: receipt.paidCost,
-      craftId: craft.itemId, craftCost: craft.paidCost, equippedObserved: equippedCrafts.has(`${craft.who}:${craft.itemId}`) }] : [];
+  const kioskSettlements = completed.filter(event => event.source === 'kiosk');
+  const craftEvidence = summarizeKioskCraftEvidence(result.events, { equippedCraftEventIndexes });
+  const craftLinks = craftEvidence.associations;
+  const zeroFeeCraftLinks = craftEvidence.zeroFeeAssociations;
+  const sharedPurposeLinks = craftLinks.filter(link => link.sharedPurposeTagged);
+  const sharedPurposeZeroFeeLinks = zeroFeeCraftLinks.filter(link => link.sharedPurposeTagged);
+  const anyFeeCraftLinks = [...craftLinks, ...zeroFeeCraftLinks];
+  const sharedPurposeAnyFeeLinks = [...sharedPurposeLinks, ...sharedPurposeZeroFeeLinks];
+  const uniqueCraftCount = links => new Set(links.map(link => link.craftEventIndex)).size;
+  const actorName = who => actorsById.get(who)?.name || who;
+  const itemName = itemId => itemsById.get(itemId)?.name || itemId;
+  const consumedSample = consumed => Array.isArray(consumed)
+    ? consumed.map(entry => ({ itemId: entry.itemId, itemName: itemName(entry.itemId), qty: entry.qty })) : null;
+  const journalSample = ({ event, eventIndex }) => ({ eventIndex, kind: event.kind, atSec: secOf(event),
+    who: event.who, actorName: actorName(event.who), actionKey: event.actionKey,
+    actionType: event.actionType || event.chosen, sharedGoalReason: event.sharedGoalReason || '',
+    itemId: event.itemId, itemName: itemName(event.itemId), qty: event.qty, receivedQty: event.receivedQty,
+    paidCost: event.paidCost, gainedCredits: event.gainedCredits,
+    beforeCredits: event.beforeCredits, afterCredits: event.afterCredits,
+    consumed: consumedSample(event.consumed), equipObservation: equippedCraftObservations.get(eventIndex) || null });
+  // Retain raw, bounded journal samples from this fresh match. A queue label
+  // and an allocation to consumed catalog quantities are not item-lot proof.
+  const receiptSamples = craftEvidence.receivedReceiptEventIndexes.slice(0, 6).map(eventIndex => {
+    const event = result.events[eventIndex];
+    let queueEventIndex = null;
+    for (let prior = eventIndex - 1; prior >= 0; prior -= 1) {
+      const candidate = result.events[prior];
+      if (candidate.kind === 'queue' && candidate.who === event.who && candidate.actionKey === event.actionKey
+        && candidate.chosen === event.actionType && candidate.itemId === event.itemId) {
+        queueEventIndex = prior;
+        break;
+      }
+    }
+    return { ...journalSample({ event, eventIndex }), queueEventIndex,
+      queueSharedGoalReason: queueEventIndex == null ? '' : result.events[queueEventIndex].sharedGoalReason || '' };
   });
+  const associationSample = link => ({ ...link, actorName: actorName(link.who),
+    purchasedItemName: itemName(link.purchasedId), craftedItemName: itemName(link.craftId),
+    queue: link.queueEventIndex == null ? null
+      : journalSample({ event: result.events[link.queueEventIndex], eventIndex: link.queueEventIndex }),
+    receipt: journalSample({ event: result.events[link.receiptEventIndex], eventIndex: link.receiptEventIndex }),
+    craft: journalSample({ event: result.events[link.craftEventIndex], eventIndex: link.craftEventIndex }) });
+  const craftEvents = indexedEvents.filter(({ event }) => event.kind === 'craft');
   const isolation = tracker.report(result.finalFrame.matchSec);
   const isolationEndReasons = Object.fromEntries([...new Set(isolation.finished.map(row => row.endReason))]
     .map(reason => [reason, isolation.finished.filter(row => row.endReason === reason).length]));
   const row = { seed, initialRosterSeed, evidence: result.evidence,
     sharedPurchaseIntentions: sharedPlans.length,
     distinctSharedPurchaseReviews: new Set(sharedPlans.map(event => `${actorsById.get(event.who)?.teamId}:${event.sharedGoalReason}`)).size,
-    naturalPurchaseCoverage: sharedPlans.length ? 'observed' : 'not_observed',
-    kioskSettlements: kioskReceipts.length, allSettlements: completed.length, observerReceiptChecks,
-    purchaseToCraftLinks: craftLinks.length, equippedPurchaseCrafts: craftLinks.filter(link => link.equippedObserved).length,
-    craftSamples: craftLinks.slice(0, 3),
+    sharedRecipeOrders: sharedOrders.length,
+    broadProcurementRotationIntentions: broadProcurementPlans.length,
+    distinctBroadProcurementRotationReviews: new Set(broadProcurementPlans.map(event => `${actorsById.get(event.who)?.teamId}:${event.sharedGoalReason}`)).size,
+    naturalPurchaseCoverage: sharedPlans.length ? 'explicit_shared_recipe_intent_observed' : 'not_observed',
+    purchaseIntentScope: 'Only team_rotate reasons beginning with 팀 제작 구매: or 팀 제작 교환: are explicit shared recipe intentions; other kiosk mentions stay separate.',
+    kioskSettlements: kioskSettlements.length,
+    kioskSaleSettlements: kioskSettlements.filter(event => event.actionType === 'kioskSell').length,
+    kioskReceivedSettlements: craftEvidence.receivedReceiptEventIndexes.length,
+    kioskReceivedByAction: Object.fromEntries(['kioskBuy', 'kioskExchange'].map(actionType => [actionType,
+      craftEvidence.receivedReceiptEventIndexes.filter(eventIndex => result.events[eventIndex].actionType === actionType).length])),
+    allSettlements: completed.length, observerReceiptChecks,
+    // These are quantity-bounded, journal-ordered associations, not receipt-lot
+    // provenance. Shared movement intentions remain a separate observation.
+    purchaseToCraftLinks: craftLinks.length, linkedReceiptUnits: craftLinks.reduce((sum, link) => sum + link.linkedQty, 0),
+    distinctPaidCrafts: uniqueCraftCount(craftLinks),
+    equippedPurchaseCrafts: uniqueCraftCount(craftLinks.filter(link => link.equippedObserved)),
+    sharedPurposePaidCraftLinks: sharedPurposeLinks.length,
+    sharedPurposeDistinctPaidCrafts: uniqueCraftCount(sharedPurposeLinks),
+    sharedPurposeEquippedPaidCrafts: uniqueCraftCount(sharedPurposeLinks.filter(link => link.equippedObserved)),
+    zeroFeePurchaseToCraftLinks: zeroFeeCraftLinks.length,
+    zeroFeeLinkedReceiptUnits: zeroFeeCraftLinks.reduce((sum, link) => sum + link.linkedQty, 0),
+    distinctZeroFeeCrafts: uniqueCraftCount(zeroFeeCraftLinks),
+    equippedZeroFeePurchaseCrafts: uniqueCraftCount(zeroFeeCraftLinks.filter(link => link.equippedObserved)),
+    sharedPurposeZeroFeeCraftLinks: sharedPurposeZeroFeeLinks.length,
+    sharedPurposeDistinctZeroFeeCrafts: uniqueCraftCount(sharedPurposeZeroFeeLinks),
+    sharedPurposeEquippedZeroFeeCrafts: uniqueCraftCount(sharedPurposeZeroFeeLinks.filter(link => link.equippedObserved)),
+    anyFeePurchaseToCraftLinks: anyFeeCraftLinks.length,
+    anyFeeLinkedReceiptUnits: anyFeeCraftLinks.reduce((sum, link) => sum + link.linkedQty, 0),
+    sharedPurposeAnyFeeCraftLinks: sharedPurposeAnyFeeLinks.length,
+    sharedPurposeEquippedAnyFeeCrafts: uniqueCraftCount(sharedPurposeAnyFeeLinks.filter(link => link.equippedObserved)),
+    naturalSharedPurposeOrderCraftCoverage: sharedPurposeLinks.length ? 'tagged_order_paid_craft_association_observed' : 'not_observed',
+    naturalSharedPurposeZeroFeeOrderCraftCoverage: sharedPurposeZeroFeeLinks.length ? 'tagged_order_zero_fee_craft_association_observed' : 'not_observed',
+    naturalSharedPurposeAnyFeeOrderCraftCoverage: sharedPurposeAnyFeeLinks.length ? 'tagged_order_craft_association_observed' : 'not_observed',
+    craftAssociationScope: craftEvidence.scope,
+    craftSamples: craftLinks.slice(0, 3).map(associationSample),
+    zeroFeeCraftSamples: zeroFeeCraftLinks.slice(0, 3).map(associationSample),
+    sharedPurposeCraftSamples: sharedPurposeAnyFeeLinks.slice(0, 3).map(associationSample),
+    sharedReasonSamples: [...new Map(sharedPlans.map(event => [event.sharedGoalReason, {
+      atSec: secOf(event), who: event.who, actorName: actorName(event.who), sharedGoalReason: event.sharedGoalReason }])).values()].slice(0, 6),
+    sharedOrderSamples: sharedOrders.slice(0, 6).map(journalSample), receiptSamples,
+    reportedCraftCostBreakdown: { total: craftEvents.length,
+      zeroFee: craftEvents.filter(({ event }) => event.paidCost === 0).length,
+      positiveFee: craftEvents.filter(({ event }) => Number.isFinite(event.paidCost) && event.paidCost > 0).length,
+      other: craftEvents.filter(({ event }) => !Number.isFinite(event.paidCost) || event.paidCost < 0).length },
+    rawCraftSamples: craftEvents.slice(0, 3).map(journalSample),
     openingComplete: completeOpening.size, openingCompleteBy250Sec: [...completeOpening.values()].filter(sec => sec <= 250).length,
     isolationEndReasons, isolationCensoredAtMatchEnd: isolation.unfinished.length,
     longestIsolationSeconds: Math.max(0, ...isolation.finished.map(row => row.duration)),
@@ -115,14 +207,22 @@ for (const initialRosterSeed of rosters) for (const seed of seeds) {
       && ['alpha', 'omega', 'weakline'].includes(event.subkind)).length,
   };
   rows.push(row);
-  const report = { engineVersion: SIMULATION_ENGINE_VERSION, cases: rows.length,
+  const report = { schema, engineVersion: SIMULATION_ENGINE_VERSION, cases: rows.length,
     expectedCases: seeds.length * rosters.length, complete: rows.length === seeds.length * rosters.length, rows,
-    scope: 'predetermined guest roster/seed matrix with unchanged default budgets/catalogue/rules; observed plans, actual settlements and craft/equip links are separate metrics; not guaranteed natural purchase, causal balance, browser performance or human acceptance' };
+    scope: 'predetermined guest roster/seed matrix with unchanged default budgets/catalogue/rules; exact shared recipe intentions, broad kiosk rotations, all settlements, actual kiosk receipts, exact queue joins, quantity-bounded paid/zero-fee craft associations and same-output equip observations are separate metrics; zero-fee material-consuming crafting is valid, not free equipment correction; not lot provenance, causal shared procurement, guaranteed natural purchase, balance, browser performance or human acceptance' };
   if (options.output) writeFileSync(options.output, JSON.stringify(report, null, 2));
   console.log(`NATURAL_MATRIX_CASE ${JSON.stringify(row)}`);
 }
-console.log(`NATURAL_MATRIX_RESULT ${JSON.stringify({ pass: true, engineVersion: SIMULATION_ENGINE_VERSION,
+console.log(`NATURAL_MATRIX_RESULT ${JSON.stringify({ pass: true, schema, engineVersion: SIMULATION_ENGINE_VERSION,
   cases: rows.length, observedPurchaseCases: rows.filter(row => row.sharedPurchaseIntentions > 0).length,
   kioskSettlements: rows.reduce((sum, row) => sum + row.kioskSettlements, 0),
+  kioskReceivedSettlements: rows.reduce((sum, row) => sum + row.kioskReceivedSettlements, 0),
   purchaseToCraftLinks: rows.reduce((sum, row) => sum + row.purchaseToCraftLinks, 0),
-  equippedPurchaseCrafts: rows.reduce((sum, row) => sum + row.equippedPurchaseCrafts, 0) })}`);
+  equippedPurchaseCrafts: rows.reduce((sum, row) => sum + row.equippedPurchaseCrafts, 0),
+  sharedPurposePaidCraftLinks: rows.reduce((sum, row) => sum + row.sharedPurposePaidCraftLinks, 0),
+  sharedPurposeEquippedPaidCrafts: rows.reduce((sum, row) => sum + row.sharedPurposeEquippedPaidCrafts, 0),
+  zeroFeePurchaseToCraftLinks: rows.reduce((sum, row) => sum + row.zeroFeePurchaseToCraftLinks, 0),
+  sharedPurposeZeroFeeCraftLinks: rows.reduce((sum, row) => sum + row.sharedPurposeZeroFeeCraftLinks, 0),
+  sharedPurposeEquippedZeroFeeCrafts: rows.reduce((sum, row) => sum + row.sharedPurposeEquippedZeroFeeCrafts, 0),
+  sharedPurposeAnyFeeCraftLinks: rows.reduce((sum, row) => sum + row.sharedPurposeAnyFeeCraftLinks, 0),
+  scope: 'quantity-bounded journal associations; zero shared coverage remains not observed, not overall acceptance' })}`);
