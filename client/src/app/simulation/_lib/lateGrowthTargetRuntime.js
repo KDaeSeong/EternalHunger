@@ -1,45 +1,96 @@
 import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../../utils/equipmentCatalog.js';
-import { getInvItemId, inferEquipSlot, inferItemCategory, invQty } from './inventoryRules.js';
+import { getInvItemId, inferEquipSlot, inferItemCategory } from './inventoryRules.js';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 import { getActorEquipmentTier } from './growthEquipmentRuntime.js';
 
 const slots = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
-const catalogs = new WeakMap();
 const keyOf = (item) => String(item?.itemKey || item?.externalId || item?._id || '').trim();
 
-function lateCatalog(items) {
-  if (!catalogs.has(items)) catalogs.set(items, items.filter((item) =>
-    [5, 6].includes(Number(item.tier)) && inferItemCategory(item) === 'equipment'
-    && slots.includes(inferEquipSlot(item)) && getCraftRecipeTerms(item)));
-  return catalogs.get(items);
+function inventoryFacts(actor, inventory) {
+  const quantities = new Map();
+  const entries = inventory.map((entry) => {
+    const id = getInvItemId(entry);
+    const raw = entry?.qty === undefined ? 1 : entry.qty;
+    const qty = typeof raw === 'number' || (typeof raw === 'string' && raw.trim()) ? Number(raw) : NaN;
+    if (id && Number.isSafeInteger(qty) && qty > 0) quantities.set(id, (quantities.get(id) || 0) + qty);
+    return { entry, id, slot: inferEquipSlot(entry) };
+  }).filter(Boolean); // Array holes, unlike explicit null entries, have no facts.
+  const worn = new Set(Object.values(actor.equipped || {}).filter(Boolean).map(String));
+  const tiers = Object.fromEntries(slots.map((slot) => [slot, 0]));
+  for (const { entry, id, slot } of entries) {
+    if (!Object.hasOwn(tiers, slot) || !(quantities.get(id) > 0)
+      || (entry.craftComponent && !worn.has(id))
+      || (slot === 'weapon' && !areEquipmentWeaponTypesCompatible(actor.weaponType, entry.weaponType))) continue;
+    tiers[slot] = Math.max(tiers[slot], Number(entry.tier) || 0);
+  }
+  return { quantities, tiers };
 }
 
 // A plan chooses an existing recipe, never grants its result. Authored choices
 // win over automatic upgrades; catalog order must not decide between them.
 export function getLateGrowthTargets(actor, items, { authoredOnly = false } = {}) {
   const inventory = Array.isArray(actor.inventory) ? actor.inventory : [];
-  const owned = new Set(inventory.filter((entry) => invQty(inventory, getInvItemId(entry)) > 0).map(getInvItemId));
+  // All indexes belong to this synchronous decision only. Re-read the same
+  // catalogue/entries on the next call after edits, crafting or loot changes;
+  // an array's identity does not prove that its recipes are still valid.
+  const { quantities, tiers } = inventoryFacts(actor, inventory);
+  const owned = new Set(quantities.keys());
   const weapon = normalizeWeaponType(actor.weaponType || '');
-  const catalog = lateCatalog(items);
-  const compatible = (item, slot, tier) => inferEquipSlot(item) === slot && Number(item.tier) === tier
-    && (slot !== 'weapon' || areEquipmentWeaponTypesCompatible(weapon, item.weaponType));
+  const requestedKeys = new Set(), automaticGroups = new Set();
+  for (const slot of slots) for (const [group, tier] of [['legend', 5], ['transcend', 6]]) {
+    if (tiers[slot] > tier) continue;
+    const requested = String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim();
+    if (requested) requestedKeys.add(requested);
+    else if (!authoredOnly && tiers[slot] < tier) automaticGroups.add(`${slot}:${tier}`);
+  }
+  if (!requestedKeys.size && !automaticGroups.size) return { targets: [], issues: [] };
+  const termsByItem = new Map(), byKey = new Map(), bySlotTier = new Map();
+  const catalogLength = items.length;
+  for (let index = 0; index < catalogLength; index += 1) {
+    if (!(index in items)) continue; // Preserve the original filter's sparse-array boundary.
+    const target = items[index];
+    const tier = Number(target.tier);
+    if (![5, 6].includes(tier) || inferItemCategory(target) !== 'equipment') continue;
+    const slot = inferEquipSlot(target);
+    if (!slots.includes(slot)) continue;
+    const keys = [keyOf(target), String(target._id)], group = `${slot}:${tier}`;
+    // Only parse recipes that this decision can use. Authored keys still search
+    // globally across all eligible slots/tiers, retaining first-valid collisions.
+    const needsAlias = keys.some((key) => requestedKeys.has(key) && !byKey.has(key));
+    if (!automaticGroups.has(group) && !needsAlias) continue;
+    if (!termsByItem.has(target)) termsByItem.set(target, getCraftRecipeTerms(target));
+    const terms = termsByItem.get(target);
+    if (!terms) continue;
+    const row = { target, slot, tier };
+    // Keep the first global alias/ID match, even when it belongs to another
+    // slot: silently falling through would change authored-key collision rules.
+    for (const key of keys) if (requestedKeys.has(key) && !byKey.has(key)) byKey.set(key, row);
+    if (automaticGroups.has(group)) {
+      if (!bySlotTier.has(group)) bySlotTier.set(group, []);
+      bySlotTier.get(group).push(target);
+    }
+  }
+  const compatibleWeapon = (target, slot) => slot !== 'weapon'
+    || areEquipmentWeaponTypesCompatible(weapon, target.weaponType);
   const candidates = [], issues = [];
   for (const slot of slots) {
-    const currentTier = getActorEquipmentTier(actor, slot);
+    const currentTier = tiers[slot];
     for (const [group, tier] of [['legend', 5], ['transcend', 6]]) {
       if (currentTier > tier) continue;
       const requested = String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim();
       if (requested) {
-        const target = catalog.find((item) => keyOf(item) === requested || String(item._id) === requested);
-        if (!target || !compatible(target, slot, tier)) {
+        const row = byKey.get(requested);
+        const target = row?.target;
+        if (!target || row.slot !== slot || row.tier !== tier || !compatibleWeapon(target, slot)) {
           issues.push({ slot, tier, key: requested, reason: 'invalid_target' });
         } else if (!owned.has(String(target._id))) candidates.push({ target, authored: true, slot, tier });
       } else if (!authoredOnly && currentTier < tier) {
-        for (const target of catalog.filter((item) => compatible(item, slot, tier) && !owned.has(String(item._id)))) {
+        for (const target of bySlotTier.get(`${slot}:${tier}`) || []) {
+          if (!compatibleWeapon(target, slot) || owned.has(String(target._id))) continue;
           // Custom recipes may legitimately skip a tier. An under-equipped
           // actor only attempts such an upgrade when its real inputs are owned.
-          if (currentTier >= 4 || getCraftRecipeTerms(target).ingredients
-            .every((row) => invQty(inventory, row.itemId) >= row.qty)) {
+          if (currentTier >= 4 || termsByItem.get(target).ingredients
+            .every((row) => (quantities.get(row.itemId) || 0) >= row.qty)) {
             candidates.push({ target, authored: false, slot, tier });
           }
         }
@@ -51,8 +102,8 @@ export function getLateGrowthTargets(actor, items, { authoredOnly = false } = {}
   // action after a pickup, craft, death or resource allocation.
   const ingredientScores = new Map();
   const ownedIngredients = (item) => {
-    if (!ingredientScores.has(item)) ingredientScores.set(item, getCraftRecipeTerms(item).ingredients
-      .reduce((sum, row) => sum + Math.min(row.qty, invQty(inventory, row.itemId)), 0));
+    if (!ingredientScores.has(item)) ingredientScores.set(item, termsByItem.get(item).ingredients
+      .reduce((sum, row) => sum + Math.min(row.qty, quantities.get(row.itemId) || 0), 0));
     return ingredientScores.get(item);
   };
   candidates.sort((a, b) => Number(b.authored) - Number(a.authored) || a.tier - b.tier

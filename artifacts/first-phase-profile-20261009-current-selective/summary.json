@@ -1,0 +1,296 @@
+{
+  "schema": "eh-first-phase-node-profile.v1",
+  "scope": "Node diagnostic including test harness overhead; no browser timing or completed-match acceptance",
+  "seed": "1101",
+  "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+  "stopAtSec": 130,
+  "frameCount": 645,
+  "eventCount": 4749,
+  "frameDigest": "d3ce9d316219afc4aafd9fb62d2e17389f06c0b8a10a410c8c1232434a12bb13",
+  "eventDigest": "c6462f89497dfd5d9f912657c66909930837f3f111fa81f0eadd0d4ad86741c0",
+  "elapsedMs": 25895.2997,
+  "topRuntimeSelf": [
+    {
+      "functionName": "normalizeRuntimeSurvivor",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/survivorRuntime.js",
+      "line": 129,
+      "selfMs": 1476.5,
+      "samples": 821
+    },
+    {
+      "functionName": "",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationFrameRuntime.js",
+      "line": 41,
+      "selfMs": 915.289,
+      "samples": 466
+    },
+    {
+      "functionName": "getValidRecipeIngredients",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/gearRecipeGuardRuntime.js",
+      "line": 2,
+      "selfMs": 864.558,
+      "samples": 510
+    },
+    {
+      "functionName": "inferEquipSlot",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/inventoryItemRules.js",
+      "line": 110,
+      "selfMs": 774.857,
+      "samples": 464
+    },
+    {
+      "functionName": "normalizeErStats",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/utils/erStats.js",
+      "line": 57,
+      "selfMs": 511.913,
+      "samples": 303
+    },
+    {
+      "functionName": "",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/teamTacticsRuntime.js",
+      "line": 67,
+      "selfMs": 485.265,
+      "samples": 259
+    },
+    {
+      "functionName": "getLateGrowthTargets",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+      "line": 31,
+      "selfMs": 432.842,
+      "samples": 269
+    },
+    {
+      "functionName": "buildCraftGoal",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/craftRuntime.js",
+      "line": 127,
+      "selfMs": 340.843,
+      "samples": 216
+    },
+    {
+      "functionName": "inferItemCategory",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/inventoryItemRules.js",
+      "line": 51,
+      "selfMs": 339.621,
+      "samples": 202
+    },
+    {
+      "functionName": "normalizeMatchKey",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationCommon.js",
+      "line": 153,
+      "selfMs": 288.473,
+      "samples": 167
+    },
+    {
+      "functionName": "",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/survivorRuntime.js",
+      "line": 91,
+      "selfMs": 280.889,
+      "samples": 170
+    },
+    {
+      "functionName": "",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+      "line": 109,
+      "selfMs": 246.719,
+      "samples": 146
+    },
+    {
+      "functionName": "canCraftAlongsideGrowth",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/growthEquipmentRuntime.js",
+      "line": 29,
+      "selfMs": 218.308,
+      "samples": 139
+    },
+    {
+      "functionName": "liveRoster",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/teamTacticsRuntime.js",
+      "line": 13,
+      "selfMs": 211.479,
+      "samples": 120
+    },
+    {
+      "functionName": "buildActorGrowthPlan",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/growthPlanRuntime.js",
+      "line": 264,
+      "selfMs": 192.237,
+      "samples": 115
+    },
+    {
+      "functionName": "getActorEquipmentTier",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/growthEquipmentRuntime.js",
+      "line": 15,
+      "selfMs": 187.324,
+      "samples": 120
+    },
+    {
+      "functionName": "applyActorPhaseStatusTick",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/phaseActorStatusRuntime.js",
+      "line": 10,
+      "selfMs": 185.071,
+      "samples": 113
+    },
+    {
+      "functionName": "ensureEquipped",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/survivorRuntime.js",
+      "line": 26,
+      "selfMs": 177.209,
+      "samples": 89
+    },
+    {
+      "functionName": "normalizeErWeaponType",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/utils/erMeta.js",
+      "line": 132,
+      "selfMs": 172.312,
+      "samples": 104
+    },
+    {
+      "functionName": "normalizeStatusEffect",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/utils/statusEffectDefinitions.js",
+      "line": 473,
+      "selfMs": 165.367,
+      "samples": 82
+    }
+  ],
+  "topAllSelf": [
+    {
+      "functionName": "setSimulationFrame",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/scripts/lib/run-random-isolation-match.mjs",
+      "line": 144,
+      "selfMs": 3587.106,
+      "samples": 2028
+    },
+    {
+      "functionName": "structuredClone",
+      "url": "node:internal/worker/js_transferable",
+      "line": 112,
+      "selfMs": 3126.671,
+      "samples": 1846
+    },
+    {
+      "functionName": "update",
+      "url": "node:internal/crypto/hash",
+      "line": 134,
+      "selfMs": 1831.386,
+      "samples": 983
+    },
+    {
+      "functionName": "normalizeRuntimeSurvivor",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/survivorRuntime.js",
+      "line": 129,
+      "selfMs": 1476.5,
+      "samples": 821
+    },
+    {
+      "functionName": "",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationFrameRuntime.js",
+      "line": 41,
+      "selfMs": 915.289,
+      "samples": 466
+    },
+    {
+      "functionName": "getValidRecipeIngredients",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/gearRecipeGuardRuntime.js",
+      "line": 2,
+      "selfMs": 864.558,
+      "samples": 510
+    },
+    {
+      "functionName": "inferEquipSlot",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/inventoryItemRules.js",
+      "line": 110,
+      "selfMs": 774.857,
+      "samples": 464
+    },
+    {
+      "functionName": "update",
+      "url": "",
+      "line": 0,
+      "selfMs": 685.617,
+      "samples": 407
+    },
+    {
+      "functionName": "freeze",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/scripts/lib/run-random-isolation-match.mjs",
+      "line": 24,
+      "selfMs": 655.326,
+      "samples": 373
+    },
+    {
+      "functionName": "normalizeErStats",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/utils/erStats.js",
+      "line": 57,
+      "selfMs": 511.913,
+      "samples": 303
+    },
+    {
+      "functionName": "",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/teamTacticsRuntime.js",
+      "line": 67,
+      "selfMs": 485.265,
+      "samples": 259
+    },
+    {
+      "functionName": "getLateGrowthTargets",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+      "line": 31,
+      "selfMs": 432.842,
+      "samples": 269
+    },
+    {
+      "functionName": "(garbage collector)",
+      "url": "",
+      "line": 0,
+      "selfMs": 420.407,
+      "samples": 225
+    },
+    {
+      "functionName": "buildCraftGoal",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/craftRuntime.js",
+      "line": 127,
+      "selfMs": 340.843,
+      "samples": 216
+    },
+    {
+      "functionName": "inferItemCategory",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/inventoryItemRules.js",
+      "line": 51,
+      "selfMs": 339.621,
+      "samples": 202
+    },
+    {
+      "functionName": "normalizeMatchKey",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/simulationCommon.js",
+      "line": 153,
+      "selfMs": 288.473,
+      "samples": 167
+    },
+    {
+      "functionName": "",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/survivorRuntime.js",
+      "line": 91,
+      "selfMs": 280.889,
+      "samples": 170
+    },
+    {
+      "functionName": "",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+      "line": 109,
+      "selfMs": 246.719,
+      "samples": 146
+    },
+    {
+      "functionName": "canCraftAlongsideGrowth",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/growthEquipmentRuntime.js",
+      "line": 29,
+      "selfMs": 218.308,
+      "samples": 139
+    },
+    {
+      "functionName": "liveRoster",
+      "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/teamTacticsRuntime.js",
+      "line": 13,
+      "selfMs": 211.479,
+      "samples": 120
+    }
+  ]
+}

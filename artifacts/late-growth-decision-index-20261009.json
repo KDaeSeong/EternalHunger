@@ -1,0 +1,690 @@
+{
+  "schema": "eh-late-growth-decision-index.v1",
+  "date": "2026-10-09",
+  "status": "scoped-verification-complete",
+  "goal": {
+    "objective": "설정한 목표를 모두 구현, 새 작업마다 작업물 정리",
+    "status": "active",
+    "complete": false
+  },
+  "scope": "Current-input late equipment decision correctness and bounded per-call indexes. Output-only evidence; never a required verifier input.",
+  "engine": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+  "defects": [
+    {
+      "engine": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1",
+      "kind": "warm same-array recipe invalidation",
+      "reproduction": {
+        "warm": [
+          "a",
+          "b"
+        ],
+        "edit": "a.recipe.resultQty = 0",
+        "exitCode": 1,
+        "error": "TypeError:Cannot read properties of null (reading 'ingredients')",
+        "expected": "Exclude invalid a; retain valid b"
+      },
+      "scope": "Direct production helper and current growth-plan boundary; not a supplied user-match replay."
+    },
+    {
+      "engine": "14a111f0b7088e5a75f09838d3bd5a2a377067ea3df69cf351b2dc9fda7552be",
+      "kind": "sparse regression in initial index candidate",
+      "exitCode": 1,
+      "groupsPassed": 11,
+      "groupsTotal": 13,
+      "errors": [
+        "Cannot destructure property 'entry' of '.for' as it is undefined.",
+        "Cannot read properties of undefined (reading 'tier')"
+      ],
+      "resolution": "Skip array holes with original filter semantics. Explicit null inventory entries keep their prior non-equipment/quantity meaning."
+    }
+  ],
+  "implementation": {
+    "lifetime": "Synchronous call only; no persistent catalog, quantity, tier or recipe-result cache in getLateGrowthTargets.",
+    "recipeWork": "Normalize each eligible unique target once; parse only requested aliases and automatic slot/tier groups this decision can use.",
+    "preserved": [
+      "Authored priority and invalid-target issues",
+      "First-valid global alias/ID collisions including wrong-slot/tier",
+      "Candidate order and tie-breaks",
+      "Valid quantity aggregation and legacy IDs",
+      "Weapon compatibility, worn components and equipment tiers",
+      "Real catalog object identity",
+      "Independent atomic crafting/payment/receipt revalidation",
+      "RNG, world time, frame ownership and actual game rules"
+    ],
+    "notChanged": [
+      "Owned native frame copy",
+      "Other growth module array-identity caches",
+      "Account/API work and other projects"
+    ]
+  },
+  "independentCheck": {
+    "command": "node scripts/check-late-growth-decision-index.mjs",
+    "exitCode": 0,
+    "groups": 14,
+    "freshComparisons": 400,
+    "reference": "Unindexed current-input decision with fresh eligibility each call; shares primitive recipe, weapon and slot rules, not the indexed selector or historical outputs.",
+    "coverage": [
+      "Quantity/weapon/tier matrix",
+      "Authored/global alias collision and order",
+      "Warm invalid/deleted and repaired recipes",
+      "Actual growth-plan integration",
+      "Sparse inventory and catalog boundaries",
+      "Current-call read bounds and no cross-call reuse",
+      "Unused recipe getter zero reads with first-valid collision invalidation/restoration",
+      "No possessions/catalog mutation or global RNG"
+    ]
+  },
+  "focusedLateGrowth": {
+    "command": "npm run check:late-growth",
+    "exitCode": 0,
+    "goalGroups": 29,
+    "focusGroups": 18,
+    "decisionGroups": 14
+  },
+  "sourceHashes": [
+    {
+      "path": "client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+      "sha256": "0ad8fcb768a2631003f3b4ae30d71f9719cf35f8f04f12d85dc99dd638d40fba"
+    },
+    {
+      "path": "client/scripts/check-late-growth-decision-index.mjs",
+      "sha256": "ecd2deba7aaaf6d4667358acce2f5c2ab9b24d6d01c83beb174390aaf2af7993"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/simulationFrameRuntime.js",
+      "sha256": "22972ce3058f76d106a39e39ac35ded864806e303dc2cb355668ad8be3c7af96"
+    },
+    {
+      "path": "client/package.json",
+      "sha256": "4d07e6d42a59bc704dad8050cb47b7523ef13f9b218e00f5d24b77385f7ce747"
+    },
+    {
+      "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+      "sha256": "7cc6a4b687b03e54b7f3c5c9c18ded1d28e09ab0ffbc3091fe79f30f63a35962"
+    }
+  ],
+  "profiles": {
+    "method": "Fresh independent current input, seed 1101; production engine stops at 130 match seconds. Node inspector plus frame freeze/hash and GC, not browser performance.",
+    "outcomesIdentical": {
+      "inputDigest": true,
+      "stopAtSec": true,
+      "frameCount": true,
+      "eventCount": true,
+      "frameDigest": true,
+      "eventDigest": true
+    },
+    "rows": [
+      {
+        "name": "current-before",
+        "directory": "artifacts/first-phase-profile-20261009-current-before",
+        "seed": "1101",
+        "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+        "stopAtSec": 130,
+        "frameCount": 645,
+        "eventCount": 4749,
+        "frameDigest": "d3ce9d316219afc4aafd9fb62d2e17389f06c0b8a10a410c8c1232434a12bb13",
+        "eventDigest": "c6462f89497dfd5d9f912657c66909930837f3f111fa81f0eadd0d4ad86741c0",
+        "elapsedMs": 29467.451499999996,
+        "runtimeSelf": [
+          {
+            "functionName": "inferEquipSlot",
+            "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/inventoryItemRules.js",
+            "line": 110,
+            "selfMs": 1598.059,
+            "samples": 650
+          },
+          {
+            "functionName": "getValidRecipeIngredients",
+            "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/gearRecipeGuardRuntime.js",
+            "line": 2,
+            "selfMs": 865.465,
+            "samples": 334
+          },
+          {
+            "functionName": "getLateGrowthTargets",
+            "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+            "line": 19,
+            "selfMs": 268.129,
+            "samples": 74
+          }
+        ],
+        "summarySha256": "d50bda6f4c56896ebf1c699176474fd1c1def7864abe79ffcfc177006489c552",
+        "profileSha256": "61a34730e07410b3fabb6c769cdfc7600e4a06bf998247c6d73c9e5fc457af1a",
+        "profileBytes": 753285,
+        "engine": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1"
+      },
+      {
+        "name": "current-after",
+        "directory": "artifacts/first-phase-profile-20261009-current-after",
+        "seed": "1101",
+        "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+        "stopAtSec": 130,
+        "frameCount": 645,
+        "eventCount": 4749,
+        "frameDigest": "d3ce9d316219afc4aafd9fb62d2e17389f06c0b8a10a410c8c1232434a12bb13",
+        "eventDigest": "c6462f89497dfd5d9f912657c66909930837f3f111fa81f0eadd0d4ad86741c0",
+        "elapsedMs": 131353.40290000002,
+        "runtimeSelf": [
+          {
+            "functionName": "getValidRecipeIngredients",
+            "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/gearRecipeGuardRuntime.js",
+            "line": 2,
+            "selfMs": 4227.015,
+            "samples": 1014
+          },
+          {
+            "functionName": "inferEquipSlot",
+            "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/inventoryItemRules.js",
+            "line": 110,
+            "selfMs": 3503.939,
+            "samples": 918
+          },
+          {
+            "functionName": "getLateGrowthTargets",
+            "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+            "line": 31,
+            "selfMs": 2710.049,
+            "samples": 587
+          }
+        ],
+        "summarySha256": "6728aa186d0086df78018d89bd27d3e87d928c4625d41cd2e646a9de03b72b5f",
+        "profileSha256": "33c0a09799cdd57e4bde17bfb3f3f3f219326f49cb615ead5103bd68cc8d2c28",
+        "profileBytes": 1207357,
+        "engine": "2025e880c33d51def067cd384d73f58d504036ff4e498cd5866d287a4e221ce8"
+      },
+      {
+        "name": "current-selective",
+        "directory": "artifacts/first-phase-profile-20261009-current-selective",
+        "seed": "1101",
+        "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+        "stopAtSec": 130,
+        "frameCount": 645,
+        "eventCount": 4749,
+        "frameDigest": "d3ce9d316219afc4aafd9fb62d2e17389f06c0b8a10a410c8c1232434a12bb13",
+        "eventDigest": "c6462f89497dfd5d9f912657c66909930837f3f111fa81f0eadd0d4ad86741c0",
+        "elapsedMs": 25895.2997,
+        "runtimeSelf": [
+          {
+            "functionName": "getValidRecipeIngredients",
+            "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/gearRecipeGuardRuntime.js",
+            "line": 2,
+            "selfMs": 864.558,
+            "samples": 510
+          },
+          {
+            "functionName": "inferEquipSlot",
+            "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/inventoryItemRules.js",
+            "line": 110,
+            "selfMs": 774.857,
+            "samples": 464
+          },
+          {
+            "functionName": "getLateGrowthTargets",
+            "url": "file:///C:/2%EC%A0%80%EC%9E%A5%EA%B3%A0/EternalHunger/client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+            "line": 31,
+            "selfMs": 432.842,
+            "samples": 269
+          }
+        ],
+        "summarySha256": "1317d778fe081cc59af6389442f5f16fd6941a4983bc8c3bbafe05abd5e27f74",
+        "profileSha256": "fd2623ea235e861f26746be8e5708c2595bd036f5f24a4e549932da4a711b5d4",
+        "profileBytes": 852926,
+        "engine": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894"
+      }
+    ],
+    "interpretation": "Retain all three samples, including the slow intermediate. Host CPU/temperature/external load were not controlled. No causal speedup/regression percentage, x32, FPS, memory or complete-match claim from these bounded samples."
+  },
+  "unit": {
+    "runId": "2026-10-09T02-24-26.451Z-013d333f-797c-47af-b319-62caedafd346",
+    "command": "npm run check:growth-plan && npm run check:team-tactics && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+    "startedAt": "2026-10-09T02:24:26.455Z",
+    "pid": 34440,
+    "engineBefore": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+    "status": "passed",
+    "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+    "exitCode": 0,
+    "signal": null,
+    "engineAfter": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+    "sameEngine": true,
+    "finishedAt": "2026-10-09T02:30:02.513Z"
+  },
+  "completeMatch": {
+    "resultPath": "client/.verification-runs/2026-10-09T02-32-32.266Z-b01d668b-6c1b-425d-b1df-1807975775c0/result.json",
+    "result": {
+      "runId": "2026-10-09T02-32-32.266Z-b01d668b-6c1b-425d-b1df-1807975775c0",
+      "command": "npm run check:growth-scheduling:match",
+      "startedAt": "2026-10-09T02:32:32.279Z",
+      "pid": 28908,
+      "engineBefore": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T02:42:09.841Z"
+    },
+    "commandSummary": {
+      "pass": true,
+      "seed": "1101",
+      "matches": 3,
+      "cooperativeYields": 35096,
+      "visibleTaskYields": 10511,
+      "visibleFrameYields": 24585,
+      "scope": "current headless versus hidden and visible cooperative complete 24-actor fixture: input, events, every published frame, ending, logs and RNG; deterministic host scheduling, not historical output dependency, real browser performance or human evaluation"
+    },
+    "outputSha256": "637423ab1fe349d596e55c500a932664d5922a7d3a745377b610b1ec988892f5",
+    "modes": [
+      {
+        "mode": "headless",
+        "engine": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+        "yields": 0,
+        "frameYields": 0,
+        "outcomeDigest": "c28b8bc7cd0bda784620d2413fdac56ce42c6083618d626bafbb5f2318f6079f"
+      },
+      {
+        "mode": "cooperative",
+        "engine": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+        "yields": 35096,
+        "frameYields": 0,
+        "outcomeDigest": "c28b8bc7cd0bda784620d2413fdac56ce42c6083618d626bafbb5f2318f6079f"
+      },
+      {
+        "mode": "visible-cooperative",
+        "engine": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+        "yields": 10511,
+        "frameYields": 24585,
+        "outcomeDigest": "c28b8bc7cd0bda784620d2413fdac56ce42c6083618d626bafbb5f2318f6079f"
+      }
+    ],
+    "outcome": {
+      "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+      "seed": "1101",
+      "phases": 11,
+      "frames": 5840,
+      "eventCount": 11632,
+      "ending": {
+        "outcome": "last_team",
+        "atSec": 1124.916666,
+        "day": 6,
+        "phase": "morning",
+        "cause": "combat",
+        "winnerTeamId": "team:1"
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2014021095,
+        "draws": 8934,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "eventDigest": "b1095ecf031a3523f3245280af2c212725d1c7b85d2ca8a295688199d20f6112",
+      "frameDigest": "0c554b152b0f4befa9f53b9fe46c21cfcda06f9a89c812508fb7ad97c0d89206",
+      "finalFrameDigest": "1eb2b77b30b93d7920fb59517d115151e802e78f1fd6f24775c619c180999a74",
+      "logDigest": "057d9cde1b2c3013c03b7704dfb482d8fd72e76d665e36d7412400a3f3f83e9e"
+    },
+    "scope": "Fresh complete current-engine matches with independent synthetic scheduling and UI noise; not actual browser timing or a historical expected-result dependency."
+  },
+  "build": {
+    "status": "passed",
+    "scope": "Separate permission-authorized retry passed; initial build failed and its original record/log are preserved.",
+    "staticPages": 62,
+    "buildId": "O08wdo7TkCAzv4NuoBBIa",
+    "compiledEngineFiles": [
+      "client/.next/static/chunks/8212-298bdb6ae97476cb.js",
+      "client/.next/server/chunks/4164.js"
+    ],
+    "attempts": [
+      {
+        "resultPath": "client/.verification-runs/2026-10-09T02-43-02.423Z-cf354a56-f4e7-45ef-a7e9-3b4e8b072c96/result.json",
+        "result": {
+          "runId": "2026-10-09T02-43-02.423Z-cf354a56-f4e7-45ef-a7e9-3b4e8b072c96",
+          "command": "npm run build",
+          "startedAt": "2026-10-09T02:43:02.438Z",
+          "pid": 24308,
+          "engineBefore": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+          "status": "failed",
+          "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+          "exitCode": 1,
+          "signal": null,
+          "engineAfter": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+          "sameEngine": true,
+          "finishedAt": "2026-10-09T02:50:42.661Z"
+        },
+        "outputSha256": "94f737c84f5d95ca002c0ddf44f4e9ec34cbdf047fa51021d4010bacaa224685"
+      },
+      {
+        "resultPath": "client/.verification-runs/2026-10-09T02-51-34.778Z-a5395f01-9ef1-4b23-a0f2-c996bca27a77/result.json",
+        "result": {
+          "runId": "2026-10-09T02-51-34.778Z-a5395f01-9ef1-4b23-a0f2-c996bca27a77",
+          "command": "npm run build",
+          "startedAt": "2026-10-09T02:51:34.781Z",
+          "pid": 46752,
+          "engineBefore": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+          "status": "passed",
+          "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+          "exitCode": 0,
+          "signal": null,
+          "engineAfter": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+          "sameEngine": true,
+          "finishedAt": "2026-10-09T02:56:11.389Z"
+        },
+        "outputSha256": "a097c82704aca9d738408c21d908c046e7d0c0bcf544e64535faa769e52f75da"
+      }
+    ]
+  },
+  "review": {
+    "agent": "Luna current_runtime_hotspot_review",
+    "scope": "Read-only source comparison; no execution or edits.",
+    "finding": "Current indexed ordering/first-valid aliases and atomic craft boundaries match source/reference for stable inputs. Existing other array-identity caches and sparse getActorResourceRecipeTargets are separate boundaries. No same-array mutation route was found in the inspected UI/catalog load/replay/local-item paths; that is static scope, not universal runtime proof."
+  },
+  "cleanup": {
+    "status": "passed",
+    "scope": "Only this turn's generated webpack pack leaves under client/.next/cache/webpack; sources, user data, raw profiles, all primary success/failure records and completed runtime build retained.",
+    "root": "C:/2저장고/EternalHunger/client/.next/cache/webpack",
+    "preflightAttempt": {
+      "status": "preflight-rejected",
+      "exitCode": 1,
+      "removedFiles": 0,
+      "reason": "ConvertFrom-Json converted expected UTC timestamps to DateTime; direct string comparison rejected an unchanged file before the removal loop. Bytes, SHA256 and UTC ticks matched in read-only diagnosis."
+    },
+    "guards": [
+      {
+        "candidateCount": 0,
+        "sampledAtUtc": "2026-10-09T03:07:51.6146308Z"
+      },
+      {
+        "candidateCount": 0,
+        "sampledAtUtc": "2026-10-09T03:08:04.4390884Z"
+      },
+      {
+        "candidateCount": 0,
+        "sampledAtUtc": "2026-10-09T03:08:14.7088816Z"
+      }
+    ],
+    "removedFiles": [
+      {
+        "path": "client/.next/cache/webpack/client-production/0.pack",
+        "bytes": 21845565,
+        "sha256": "cfc91a13d41a6661265246520fafdf58f3f2be4efdfde33947c6df4ac35867af",
+        "lastWriteUtc": "2026-10-09T02:53:38.4385386Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/client-production/1.pack",
+        "bytes": 245440788,
+        "sha256": "85f370f2654fd4734bef4d7e95fb094a30c5cb5579a8a829b5f5d8bc3eee6a92",
+        "lastWriteUtc": "2026-10-09T02:53:39.8325393Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/client-production/2.pack",
+        "bytes": 270831,
+        "sha256": "f1ef1b53401fa773744977a1c1487caf5b5f25c1c4b875d775f307f6a7bb47f5",
+        "lastWriteUtc": "2026-10-09T02:53:38.4194774Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/client-production/3.pack",
+        "bytes": 5235222,
+        "sha256": "38ce3e1183e81879697fa79f06e597140025c8b177b075bbf1203058c1efbd76",
+        "lastWriteUtc": "2026-10-09T02:53:38.4254899Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/client-production/index.pack",
+        "bytes": 12799925,
+        "sha256": "e0fdc3d5e9d4ecbb4acd2a9cc258f2ffa061f1e5132955e21aaaba02a5df3c53",
+        "lastWriteUtc": "2026-10-09T02:53:38.4274917Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/client-production/index.pack.old",
+        "bytes": 12799508,
+        "sha256": "b89f3144cfdef60922bdd950b435241ae01dbd690499711b9d2c65ac77f90a47",
+        "lastWriteUtc": "2026-10-09T02:50:06.0085861Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/edge-server-production/0.pack",
+        "bytes": 276,
+        "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc",
+        "lastWriteUtc": "2026-10-09T02:47:50.0511380Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/edge-server-production/index.pack",
+        "bytes": 2464,
+        "sha256": "28d34932a93b3f3fe0c1e1baeafb592d1d427dd75bcb08699913649a99c502bf",
+        "lastWriteUtc": "2026-10-09T02:47:50.0556555Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/0.pack",
+        "bytes": 11142115,
+        "sha256": "340a7becb42382f01463f4256a363962cbd6df42caed3fe65ce305de1d779ab5",
+        "lastWriteUtc": "2026-10-09T02:47:22.3700794Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/1.pack",
+        "bytes": 1592098,
+        "sha256": "66fd04d745f88adca36c1710881136c0e58623c25ee665d75d634995659f9979",
+        "lastWriteUtc": "2026-10-09T02:47:22.3640787Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/2.pack",
+        "bytes": 290895964,
+        "sha256": "4cd6ddd0d52d4c23f833a3970aca9cfe3b924b2df80d00f6fe9595853e98b354",
+        "lastWriteUtc": "2026-10-09T02:47:22.7658443Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/3.pack",
+        "bytes": 8279226,
+        "sha256": "702301d79fbeab42e55bfb7c93c1202afcd56ca442b3cbe231ca4a534b15d7a6",
+        "lastWriteUtc": "2026-10-09T02:47:22.3740790Z"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/index.pack",
+        "bytes": 18042086,
+        "sha256": "ea9c8988973e4a76be0c3fb924581e27aa5a1d7336ffa79de5e77b293f8bd72d",
+        "lastWriteUtc": "2026-10-09T02:47:22.3881538Z"
+      }
+    ],
+    "logicalBytes": 628346068,
+    "logicalMiB": 599.2375068664551,
+    "physicalFreeSpaceChange": "not-measured",
+    "remainingCacheFiles": 0,
+    "protectedFileCount": 30,
+    "allProtectedFilesUnchanged": true,
+    "protectedAtDeletion": [
+      {
+        "path": "client/src/app/simulation/_lib/lateGrowthTargetRuntime.js",
+        "bytes": 7966,
+        "sha256": "0ad8fcb768a2631003f3b4ae30d71f9719cf35f8f04f12d85dc99dd638d40fba"
+      },
+      {
+        "path": "client/scripts/check-late-growth-decision-index.mjs",
+        "bytes": 16692,
+        "sha256": "ecd2deba7aaaf6d4667358acce2f5c2ab9b24d6d01c83beb174390aaf2af7993"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/simulationFrameRuntime.js",
+        "bytes": 3170,
+        "sha256": "22972ce3058f76d106a39e39ac35ded864806e303dc2cb355668ad8be3c7af96"
+      },
+      {
+        "path": "client/package.json",
+        "bytes": 25508,
+        "sha256": "4d07e6d42a59bc704dad8050cb47b7523ef13f9b218e00f5d24b77385f7ce747"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "bytes": 166,
+        "sha256": "7cc6a4b687b03e54b7f3c5c9c18ded1d28e09ab0ffbc3091fe79f30f63a35962"
+      },
+      {
+        "path": "docs/eternal-hunger-goal.md",
+        "bytes": 195821,
+        "sha256": "f5d13ad2134193de887d1ca7eaa6b2ffc0903f53ae37fb740842d6f61063a4cd"
+      },
+      {
+        "path": "docs/observer-performance-verification.md",
+        "bytes": 96584,
+        "sha256": "1a3421e4fdfff0272e690800aced8b7cc0aa0a03a395a3e2cf7758daa9db0f03"
+      },
+      {
+        "path": "artifacts/late-growth-decision-index-20261009.json",
+        "bytes": 17687,
+        "sha256": "945bf18fc46ad03a6d9c18037ab91282266ea599776cb6292db24e0eed83b24e"
+      },
+      {
+        "path": "artifacts/late-growth-focus-20261009.json",
+        "bytes": 62286,
+        "sha256": "8314d501ebd7c881d03b0c2497a2f72688e5586ac4f3b564f47c0a2080b38bd5"
+      },
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "bytes": 15715,
+        "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9"
+      },
+      {
+        "path": "server/index.js",
+        "bytes": 5619,
+        "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493"
+      },
+      {
+        "path": "server/.env.example",
+        "bytes": 2125,
+        "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3"
+      },
+      {
+        "path": "client/.next/BUILD_ID",
+        "bytes": 21,
+        "sha256": "e64238830a1e74312471ed413480a220eca565d80e7d52d24e76091f8fc804f8"
+      },
+      {
+        "path": "client/.next/build-manifest.json",
+        "bytes": 511,
+        "sha256": "aa6f1cf2761f128fb40f88e3831c197b10762c812329c2048b7787874406b8d5"
+      },
+      {
+        "path": "artifacts/first-phase-profile-20261009-current-before/summary.json",
+        "bytes": 9785,
+        "sha256": "d50bda6f4c56896ebf1c699176474fd1c1def7864abe79ffcfc177006489c552"
+      },
+      {
+        "path": "artifacts/first-phase-profile-20261009-current-before/first-phase.cpuprofile",
+        "bytes": 753285,
+        "sha256": "61a34730e07410b3fabb6c769cdfc7600e4a06bf998247c6d73c9e5fc457af1a"
+      },
+      {
+        "path": "artifacts/first-phase-profile-20261009-current-after/summary.json",
+        "bytes": 9763,
+        "sha256": "6728aa186d0086df78018d89bd27d3e87d928c4625d41cd2e646a9de03b72b5f"
+      },
+      {
+        "path": "artifacts/first-phase-profile-20261009-current-after/first-phase.cpuprofile",
+        "bytes": 1207357,
+        "sha256": "33c0a09799cdd57e4bde17bfb3f3f3f219326f49cb615ead5103bd68cc8d2c28"
+      },
+      {
+        "path": "artifacts/first-phase-profile-20261009-current-selective/summary.json",
+        "bytes": 9743,
+        "sha256": "1317d778fe081cc59af6389442f5f16fd6941a4983bc8c3bbafe05abd5e27f74"
+      },
+      {
+        "path": "artifacts/first-phase-profile-20261009-current-selective/first-phase.cpuprofile",
+        "bytes": 852926,
+        "sha256": "fd2623ea235e861f26746be8e5708c2595bd036f5f24a4e549932da4a711b5d4"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T02-10-33.463Z-bd67d30f-3f5a-4c93-862b-064641cd7570/result.json",
+        "bytes": 655,
+        "sha256": "6af4d3159f1ec8bd5b1aa2f75c3a1112115e0485786afacbe1ff348b76430963"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T02-10-33.463Z-bd67d30f-3f5a-4c93-862b-064641cd7570/output.log",
+        "bytes": 53385,
+        "sha256": "b3e776455c2b558164f84cee58d06259a6ee68faec6b6b4f6e94b39269a85324"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T02-24-26.451Z-013d333f-797c-47af-b319-62caedafd346/result.json",
+        "bytes": 656,
+        "sha256": "1ab5824a433c45da33552d6b53b95ed3b4a34cce9f01fcc0e973a93e6b702a18"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T02-24-26.451Z-013d333f-797c-47af-b319-62caedafd346/output.log",
+        "bytes": 53657,
+        "sha256": "3a16fd779cd1aa3bba2ad1246eb05d76ff21843593bf09550ea6a4d1b85ed7e9"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T02-32-32.266Z-b01d668b-6c1b-425d-b1df-1807975775c0/result.json",
+        "bytes": 565,
+        "sha256": "e685f4dcb80bbf930c4dee0dd62606c314ba2fcac6b4b35cdeeb8d9d59d71716"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T02-32-32.266Z-b01d668b-6c1b-425d-b1df-1807975775c0/output.log",
+        "bytes": 11885,
+        "sha256": "637423ab1fe349d596e55c500a932664d5922a7d3a745377b610b1ec988892f5"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T02-43-02.423Z-cf354a56-f4e7-45ef-a7e9-3b4e8b072c96/result.json",
+        "bytes": 541,
+        "sha256": "a609a9ead6d0af2499974ab5aa829b5a4b9559718101b544bd10c62bc55df912"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T02-43-02.423Z-cf354a56-f4e7-45ef-a7e9-3b4e8b072c96/output.log",
+        "bytes": 1506,
+        "sha256": "94f737c84f5d95ca002c0ddf44f4e9ec34cbdf047fa51021d4010bacaa224685"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T02-51-34.778Z-a5395f01-9ef1-4b23-a0f2-c996bca27a77/result.json",
+        "bytes": 541,
+        "sha256": "a02417f12156d76926d5cb18df25194a0793c29615da7323392cbc5054d54c83"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T02-51-34.778Z-a5395f01-9ef1-4b23-a0f2-c996bca27a77/output.log",
+        "bytes": 3013,
+        "sha256": "a097c82704aca9d738408c21d908c046e7d0c0bcf544e64535faa769e52f75da"
+      }
+    ],
+    "compiledBefore": [
+      {
+        "root": "client/.next/server",
+        "fileCount": 872,
+        "bytes": 14413651,
+        "sha256": "e628b0f0fdf8af2d371729838a405cfae81d3d4ed3d7a7ad6a9d3c1f5c263702"
+      },
+      {
+        "root": "client/.next/static",
+        "fileCount": 266,
+        "bytes": 10439767,
+        "sha256": "de042e00c5eda31454f3348a4f9331a392190d567ef4d5086dc667404370bebd"
+      }
+    ],
+    "compiledAfter": [
+      {
+        "root": "client/.next/server",
+        "fileCount": 872,
+        "bytes": 14413651,
+        "sha256": "e628b0f0fdf8af2d371729838a405cfae81d3d4ed3d7a7ad6a9d3c1f5c263702"
+      },
+      {
+        "root": "client/.next/static",
+        "fileCount": 266,
+        "bytes": 10439767,
+        "sha256": "de042e00c5eda31454f3348a4f9331a392190d567ef4d5086dc667404370bebd"
+      }
+    ],
+    "compiledUnchanged": true,
+    "hashScope": "Compared immediately around cache removal. This report and goal/performance documents are intentionally finalized after cleanup; their recorded hashes refer to the deletion boundary, not the later final documents.",
+    "recovery": "Generated webpack packs are regenerated by npm run build; no unique source, user data or diagnostic records removed.",
+    "finishedAtUtc": "2026-10-09T03:08:14.7117704Z"
+  },
+  "authority": {
+    "newForegroundBrowserRuns": 0,
+    "newPaidAiCalls": 0,
+    "accountWrites": 0,
+    "pushes": 0,
+    "deployments": 0,
+    "credentialsOrProtectionChanges": 0
+  },
+  "remaining": [
+    "Actual foreground x1/x8/x32 and continuous-match response/memory",
+    "Successful authorized AI drafts and authorized real account persistence",
+    "Broad custom inputs, strategy interpretation and human follow-up evaluation",
+    "Authorized public release"
+  ]
+}
