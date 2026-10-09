@@ -66,7 +66,9 @@ export default function SimulationTeamObserverPanel({ model, onTeamChange, isGam
             </> : <p className="team-observer-reason">{actor.death}</p>}
             {actor.procurement ? <div className="team-observer-procurement" aria-label={`${actor.name} 최근 거래`}>
               <strong>최근 거래 · <time>{actor.procurement.clock}</time></strong>
-              {actor.procurement.choice ? <small>{actor.procurement.choice}{actor.procurement.matchedChoice ? ' → 정산 확인' : ''}</small> : null}
+              {actor.procurement.choice ? <small>{actor.procurement.choice}{actor.procurement.matchedChoice ? ' → 결과 연결' : ''}</small> : null}
+              {actor.procurement.purpose ? <p aria-label={`${actor.name} 개인 조달 목적`}>{actor.procurement.purpose}</p> : null}
+              {actor.procurement.teamMovementReason ? <small>팀 이동 목적: {actor.procurement.teamMovementReason} · 이 개인 주문의 목적과는 별개</small> : null}
               <p>{actor.procurement.result}</p>
             </div> : null}
             <details><summary>장비와 성장 목표</summary><p>{actor.equipment}</p>{actor.goal ? <p>미확보 목표: {actor.goal}</p> : null}</details>

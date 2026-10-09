@@ -95,6 +95,7 @@ export function emitQueueRunEvent(emitRunEvent, who, payload = {}, at = null) {
     objectiveSubkind: String(payload?.objectiveSubkind || ''),
     movementObjective: payload?.movementObjective ? structuredClone(payload.movementObjective) : null,
     sharedGoalReason: String(payload?.sharedGoalReason || ''),
+    ...(payload?.procurementPurpose ? { procurementPurpose: structuredClone(payload.procurementPurpose) } : {}),
     decisionEvidence: payload?.decisionEvidence ? structuredClone(payload.decisionEvidence) : null,
     retreatOutcome: String(payload?.retreatOutcome || ''),
     targetZoneId: String(payload?.targetZoneId || ''),

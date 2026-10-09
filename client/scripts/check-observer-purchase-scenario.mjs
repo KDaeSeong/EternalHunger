@@ -7,6 +7,7 @@ const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRun
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
 const { invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
 const { buildTeamObserverModel, describeObserverEvent } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
+const { describeProcurementPurpose } = await import('../src/app/simulation/_lib/procurementPurposeRuntime.js');
 
 const seed = 'observer:team-purchase:1101';
 const isPurchase = event => event.reason === 'team_rotate' && /키오스크|구매|kiosk/.test(event.sharedGoalReason);
@@ -84,6 +85,17 @@ function runCase({ name, reverse = false, credits = 260, price = 200, forbidden 
     assert.equal(observedBuyer.procurement.outcome, 'completed');
     assert.equal(observedBuyer.procurement.actionKey, completed[0].actionKey);
     assert.equal(observedBuyer.procurement.matchedChoice, true);
+    const selected = paid.events.find(event => event.kind === 'queue' && event.who === buyer._id
+      && event.actionKey === completed[0].actionKey && event.chosen === completed[0].actionType
+      && event.itemId === completed[0].itemId);
+    assert.ok(selected, 'The purpose must come from this real selected order, not an observer fixture.');
+    assert.equal(selected.procurementPurpose.actorId, buyer._id);
+    assert.equal(selected.procurementPurpose.kind, 'recipe_material');
+    assert.equal(selected.procurementPurpose.targetId, rare._id,
+      'The paid tree order must describe this actor\'s actual rare recipe target.');
+    assert.equal(observedBuyer.procurement.purpose, describeProcurementPurpose(selected),
+      'JSON-restored observer cards must retain the real selected personal recipe purpose.');
+    assert.match(observedBuyer.procurement.purpose, /본인 목표 생명 모자의 부족 재료 생명의 나무/);
     assert.ok(observedBuyer.procurement.result.includes(price + 'Cr'));
     assert.ok(observedBuyer.procurement.result.includes(credits + '→' + (credits - price) + 'Cr'));
     assert.ok(paidModel.members.filter(member => member.id !== buyer._id).every(member => !member.procurement));

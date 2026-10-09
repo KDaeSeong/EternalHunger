@@ -22,6 +22,8 @@ const commands = {
   'phase-performance-unit': 'npm run check:phase-runtime-performance && node scripts/check-late-growth-decision-index.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'natural-procurement-unit': 'node scripts/check-natural-procurement-evidence.mjs && npm run check:verification-fingerprint',
   'natural-procurement': 'npm run check:natural-procurement-matrix -- --seeds=1101 --rosters=FIXTURE:initial-roster',
+  'procurement-purpose-unit': 'node scripts/generate-simulation-version.mjs && npm run check:observer-purchase-scenario && npm run check:procurement && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'procurement-purpose-match': 'node scripts/generate-simulation-version.mjs && node scripts/check-procurement-purpose-match.mjs',
   'status-tick-unit': 'npm run check:status-tick-normalization && node scripts/check-detonation-rules.mjs && node scripts/check-live-frames.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'status-tick-match': 'npm run check:status-tick-normalization:match',
   'growth-focus-unit': 'npm run check:growth-plan && npm run check:team-tactics && npm run check:verification-fingerprint && npm run check:runtime:sweep',
@@ -31,7 +33,7 @@ const commands = {
   performance: 'npm run check:growth-plan && npm run check:team-observer && npm run check:live-frames && npm run check:display-pacing && npm run check:phase-runtime-performance && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
 };
 const mode = process.argv[2] || 'full';
-if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, growth-focus-unit, preset-editor-unit, phase-performance-unit, natural-procurement-unit, natural-procurement, status-tick-unit, status-tick-match, performance, execution, distribution, distribution-varied, distribution-unit, distribution-observer, movement-trace, growth-planning-prefix, handoff, handoff-unit, build or runtime-build.');
+if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, growth-focus-unit, preset-editor-unit, phase-performance-unit, natural-procurement-unit, natural-procurement, procurement-purpose-unit, procurement-purpose-match, status-tick-unit, status-tick-match, performance, execution, distribution, distribution-varied, distribution-unit, distribution-observer, movement-trace, growth-planning-prefix, handoff, handoff-unit, build or runtime-build.');
 // Resume only missing input-axis cases without rerunning completed matches.
 // These comma-separated identifiers are deliberately shell-safe, not raw CLI.
 if (mode === 'distribution-varied' && process.argv.length > 3) {

@@ -5,6 +5,8 @@ import {
   tryAutoCraftFromInventory,
 } from './simulationEngine';
 import { getProcurementActionKey } from './procurementTransactionRuntime.js';
+import { getGrowthRecipeWork } from './growthPlanRuntime.js';
+import { buildProcurementPurpose, isProcurementAction } from './procurementPurposeRuntime.js';
 
 function normalizeGoalMissingIds(goalMissingIds) {
   return goalMissingIds instanceof Set
@@ -270,6 +272,21 @@ export function prepareActorPhaseActionQueue({
   })();
 
   const queuedActionType = String(queuedAtomicAction?.type || 'hunt');
+  const procurementActionKey = isProcurementAction(queuedActionType) ? getProcurementActionKey(updated, phaseIdxNow) : '';
+  const selectedItemId = String(queuedAtomicAction?.itemId || '');
+  // Reuse the selected action; never rescore, buy or reserve to explain it.
+  // Read only this actor's exact current target, not aggregate team shortages.
+  const personalTarget = isProcurementAction(queuedActionType) && queuedActionType !== 'kioskSell'
+    ? (Array.isArray(publicItems) ? publicItems : []).find(item => String(item._id) === goalTargetId) : null;
+  const personalWork = personalTarget
+    ? getGrowthRecipeWork(updated, publicItems, personalTarget._id, { ruleset }) : null;
+  const procurementPurpose = buildProcurementPurpose({ actorId: String(updated._id || updated.id || ''),
+    actionKey: procurementActionKey, actionType: queuedActionType, itemId: selectedItemId,
+    itemName: String(itemNameById?.[selectedItemId] || ''),
+    targetId: personalWork && personalWork.blocked !== 'invalid_recipe' ? String(personalTarget._id) : '',
+    targetName: String(personalTarget?.name || ''),
+    recipeMissingIds: personalWork?.missing.filter(row => Number(row.need) > 0).map(row => String(row.itemId)) || [],
+    routeNeedIds: [...routeDroneNeedIds] });
   const queuePreview = [queuedAtomicAction].filter(Boolean).map((act) => {
     const type = String(act?.type || 'hunt');
     const zoneText = getZoneName(act?.toZoneId || act?.zoneId || '');
@@ -347,8 +364,8 @@ export function prepareActorPhaseActionQueue({
       // Record the chosen action's item, never a deferred candidate's item.
       itemId: String(queuedAtomicAction?.itemId || ''),
       itemName: String(itemNameById?.[String(queuedAtomicAction?.itemId || '')] || ''),
-      actionKey: ['kioskBuy', 'kioskExchange', 'kioskSell', 'droneOrder'].includes(queuedActionType)
-        ? getProcurementActionKey(updated, phaseIdxNow) : '',
+      actionKey: procurementActionKey,
+      procurementPurpose,
       movementObjective,
       sharedGoalReason,
       targetZoneId: movementTargetZoneId,

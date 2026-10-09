@@ -1,0 +1,896 @@
+{
+  "schemaVersion": 1,
+  "outputOnly": true,
+  "subject": "Separate actual personal procurement relationship from shared team movement context",
+  "engineVersion": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+  "priorFullGateEngine": "4347d44ee766a2923169b80a5fd95b131fb75718efcbe3ba730b7bc8eb8cb103",
+  "currentFullGateRun": false,
+  "productChange": {
+    "snapshot": "Selected actor/actionKey/actionType/itemId, exact current target/missing recipe IDs and current route needs",
+    "teamContext": "Original common movement reason remains separate and unchanged",
+    "transactionJoin": "Actor, actionKey, action type and item ID all must match an actual receipt",
+    "legacy": "Missing or invalid personal snapshot never borrows another actor's shared recipe",
+    "notChanged": [
+      "action scores",
+      "movement choices",
+      "trade prices and payment",
+      "real ingredients and craft fees",
+      "loot",
+      "damage",
+      "random draws",
+      "winner rules"
+    ],
+    "limits": [
+      "Snapshot states the relation between selected item and actor's then-current goal/route; it is not proof of candidate-selection cause or unowned target gear",
+      "Selection is not payment, receipt, successful craft or successful shared delivery"
+    ]
+  },
+  "finalUnit": {
+    "result": {
+      "runId": "2026-10-09T07-04-58.966Z-bd077a69-c24a-4795-8436-6a34e055470e",
+      "command": "node scripts/generate-simulation-version.mjs && npm run check:observer-purchase-scenario && npm run check:procurement && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAt": "2026-10-09T07:04:58.976Z",
+      "pid": 31012,
+      "engineBefore": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T07:06:04.589Z"
+    },
+    "resultPath": "client/.verification-runs/2026-10-09T07-04-58.966Z-bd077a69-c24a-4795-8436-6a34e055470e/result.json",
+    "logPath": "client/.verification-runs/2026-10-09T07-04-58.966Z-bd077a69-c24a-4795-8436-6a34e055470e/output.log",
+    "resultSha256": "39F7CDCC0C836B3FB5106F14E27B8A152420C047FB66D8D74376681E75A38335",
+    "logSha256": "09B7EB8E28B0C7A49522C83ED4B1A01901A92237340A6FB89BA4F4051E9F3CDA",
+    "covered": {
+      "personalPurposeGroups": 9,
+      "realPurchaseScenarios": 6,
+      "realPurchasePositiveCases": 3,
+      "realPurchaseNegativeCases": 3,
+      "procurementTransactionChecks": 29,
+      "kioskCatalogChecks": 8,
+      "teamObserverChecks": 19,
+      "growthObservationChecks": 21,
+      "fingerprintChecks": 4,
+      "runtimeSweep": "simulation and utils eslint commands, completed"
+    },
+    "realPurchaseScenario": {
+      "checks": 6,
+      "pass": true,
+      "seed": "observer:team-purchase:1101",
+      "positiveCases": 3,
+      "negativeCases": 3,
+      "actualCompletedReceipts": 3,
+      "cases": [
+        {
+          "name": "default paid recipe and observer receipt",
+          "expectsTravel": true,
+          "expectsPayment": true,
+          "sharedIntentionCount": 9,
+          "sharedActorCount": 3,
+          "completedReceiptCount": 1,
+          "otherCompletedReceiptCount": 0,
+          "paidCost": 200,
+          "remainingCredits": 57,
+          "observedReceiptMatched": true,
+          "random": {
+            "algorithm": "fnv1a-mulberry32-v1",
+            "state": 2816407875,
+            "draws": 6,
+            "ids": 0,
+            "nameHistory": []
+          }
+        },
+        {
+          "name": "reversed member processing",
+          "expectsTravel": true,
+          "expectsPayment": true,
+          "sharedIntentionCount": 9,
+          "sharedActorCount": 3,
+          "completedReceiptCount": 1,
+          "otherCompletedReceiptCount": 0,
+          "paidCost": 200,
+          "remainingCredits": 57,
+          "observedReceiptMatched": true,
+          "random": {
+            "algorithm": "fnv1a-mulberry32-v1",
+            "state": 2816407875,
+            "draws": 6,
+            "ids": 0,
+            "nameHistory": []
+          }
+        },
+        {
+          "name": "authored 75Cr order and 3Cr recipe",
+          "expectsTravel": true,
+          "expectsPayment": true,
+          "sharedIntentionCount": 9,
+          "sharedActorCount": 3,
+          "completedReceiptCount": 1,
+          "otherCompletedReceiptCount": 0,
+          "paidCost": 75,
+          "remainingCredits": 0,
+          "observedReceiptMatched": true,
+          "random": {
+            "algorithm": "fnv1a-mulberry32-v1",
+            "state": 2816407875,
+            "draws": 6,
+            "ids": 0,
+            "nameHistory": []
+          }
+        },
+        {
+          "name": "purchase affordable but recipe funds missing",
+          "expectsTravel": false,
+          "expectsPayment": false,
+          "sharedIntentionCount": 0,
+          "sharedActorCount": 0,
+          "completedReceiptCount": 0,
+          "otherCompletedReceiptCount": 1,
+          "paidCost": 0,
+          "remainingCredits": 192,
+          "observedReceiptMatched": true,
+          "random": {
+            "algorithm": "fnv1a-mulberry32-v1",
+            "state": 3952196821,
+            "draws": 16,
+            "ids": 0,
+            "nameHistory": []
+          }
+        },
+        {
+          "name": "credits lost after shared travel",
+          "expectsTravel": true,
+          "expectsPayment": false,
+          "sharedIntentionCount": 9,
+          "sharedActorCount": 3,
+          "completedReceiptCount": 0,
+          "otherCompletedReceiptCount": 0,
+          "paidCost": 0,
+          "remainingCredits": 0,
+          "observedReceiptMatched": false,
+          "random": {
+            "algorithm": "fnv1a-mulberry32-v1",
+            "state": 2816407875,
+            "draws": 6,
+            "ids": 0,
+            "nameHistory": []
+          }
+        },
+        {
+          "name": "forbidden kiosk destination",
+          "expectsTravel": false,
+          "expectsPayment": false,
+          "sharedIntentionCount": 0,
+          "sharedActorCount": 0,
+          "completedReceiptCount": 0,
+          "otherCompletedReceiptCount": 1,
+          "paidCost": 0,
+          "remainingCredits": 250,
+          "observedReceiptMatched": true,
+          "random": {
+            "algorithm": "fnv1a-mulberry32-v1",
+            "state": 3952196821,
+            "draws": 16,
+            "ids": 0,
+            "nameHistory": []
+          }
+        }
+      ],
+      "scope": "explicit mid-match conditions, real travel/payment/craft and JSON-restored observer model; not natural balance or browser rendering"
+    }
+  },
+  "finalStrictNaturalComparison": {
+    "result": {
+      "runId": "2026-10-09T07-11-17.744Z-3375f04b-a36c-4a51-a287-bb6109118d0c",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-procurement-purpose-match.mjs",
+      "startedAt": "2026-10-09T07:11:17.747Z",
+      "pid": 39952,
+      "engineBefore": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T07:13:50.813Z"
+    },
+    "resultPath": "client/.verification-runs/2026-10-09T07-11-17.744Z-3375f04b-a36c-4a51-a287-bb6109118d0c/result.json",
+    "logPath": "client/.verification-runs/2026-10-09T07-11-17.744Z-3375f04b-a36c-4a51-a287-bb6109118d0c/output.log",
+    "resultSha256": "EBCA43F194B2C694CE3B44DEBDBC14311973AB8DA38317D097C6D026548E3755",
+    "logSha256": "56258360C7B24263FC1C21AA4ACCA6BA34BE9DC25D775441AC99DCDD872FFFEC",
+    "match": {
+      "pass": true,
+      "engineVersion": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+      "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+      "seed": "1101",
+      "initialRosterSeed": "FIXTURE:initial-roster",
+      "baselineSource": "current queue source with only the exact new explanation block and metadata removed in memory",
+      "phases": 11,
+      "frames": 5840,
+      "eventCount": 11632,
+      "ending": {
+        "outcome": "last_team",
+        "atSec": 1124.916666,
+        "day": 6,
+        "phase": "morning",
+        "cause": "combat",
+        "causeName": "교전",
+        "finalZoneStage": "",
+        "winnerTeamId": "team:1",
+        "dimensionRifts": {
+          "atSec": 1124.916666,
+          "settlements": [
+            {
+              "id": "RIFT_guest-lumia-island_3_1:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_1",
+              "atSec": 1124.916666,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_3_2:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_2",
+              "atSec": 1124.916666,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_3_3:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_3",
+              "atSec": 1124.916666,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_3_4:match-end",
+              "riftId": "RIFT_guest-lumia-island_3_4",
+              "atSec": 1124.916666,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_1:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_1",
+              "atSec": 1124.916666,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_2:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_2",
+              "atSec": 1124.916666,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_3:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_3",
+              "atSec": 1124.916666,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            },
+            {
+              "id": "RIFT_guest-lumia-island_4_4:match-end",
+              "riftId": "RIFT_guest-lumia-island_4_4",
+              "atSec": 1124.916666,
+              "reason": "match_end",
+              "disposition": "no_reward",
+              "issue": "",
+              "contestClosed": false,
+              "rewardClosedAtSec": null,
+              "rewardClosureReason": "",
+              "expiredWorldGifts": 0
+            }
+          ],
+          "expiredWorldGifts": 0,
+          "expiredForElimination": 0,
+          "invalidRewards": 0,
+          "unfinishedContests": 0
+        }
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2014021095,
+        "draws": 8934,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "frameDigest": "0c554b152b0f4befa9f53b9fe46c21cfcda06f9a89c812508fb7ad97c0d89206",
+      "projectedEventDigest": "b1095ecf031a3523f3245280af2c212725d1c7b85d2ca8a295688199d20f6112",
+      "baselineRawEventDigest": "b1095ecf031a3523f3245280af2c212725d1c7b85d2ca8a295688199d20f6112",
+      "currentRawEventDigest": "50a89b6ea8d7034d6ba540a045376176e4cf40985b34fc7d46d6fe89c9ecd4a2",
+      "logDigest": "057d9cde1b2c3013c03b7704dfb482d8fd72e76d665e36d7412400a3f3f83e9e",
+      "matchedReceipts": 50,
+      "receiptEvents": 50,
+      "queueOnlyPurposeMetadata": true,
+      "oneReceiptPerActorFrame": true,
+      "everyReceiptObserved": true,
+      "personalQueues": 50,
+      "recipeQueues": 40,
+      "purposeSamples": [
+        {
+          "atSec": 283,
+          "who": "guest-survivor-14",
+          "actorName": "보라",
+          "itemId": "namu:material:운석",
+          "actionKey": "phase:2:cycle:2:283",
+          "personalPurpose": {
+            "version": 1,
+            "actorId": "guest-survivor-14",
+            "actionKey": "phase:2:cycle:2:283",
+            "actionType": "kioskBuy",
+            "itemId": "namu:material:운석",
+            "itemName": "운석",
+            "kind": "recipe_material",
+            "targetId": "namu:아르카나:더 문",
+            "targetName": "더 문"
+          },
+          "personalText": "본인 목표 더 문의 부족 재료 운석 조달",
+          "teamMovementReason": "팀 제작 구매: 운석 · 보라의 더 문 제작 재료"
+        },
+        {
+          "atSec": 290,
+          "who": "guest-survivor-07",
+          "actorName": "나래",
+          "itemId": "namu:material:생명의 나무",
+          "actionKey": "phase:2:cycle:2:290",
+          "personalPurpose": {
+            "version": 1,
+            "actorId": "guest-survivor-07",
+            "actionKey": "phase:2:cycle:2:290",
+            "actionType": "kioskBuy",
+            "itemId": "namu:material:생명의 나무",
+            "itemName": "생명의 나무",
+            "kind": "recipe_material",
+            "targetId": "namu:레이피어:기어 헬릭스",
+            "targetName": "기어 헬릭스"
+          },
+          "personalText": "본인 목표 기어 헬릭스의 부족 재료 생명의 나무 조달",
+          "teamMovementReason": "팀 제작 구매: 생명의 나무 · 나래의 기어 헬릭스 제작 재료"
+        },
+        {
+          "atSec": 290,
+          "who": "guest-survivor-15",
+          "actorName": "여울",
+          "itemId": "namu:material:생명의 나무",
+          "actionKey": "phase:2:cycle:2:290",
+          "personalPurpose": {
+            "version": 1,
+            "actorId": "guest-survivor-15",
+            "actionKey": "phase:2:cycle:2:290",
+            "actionType": "kioskBuy",
+            "itemId": "namu:material:생명의 나무",
+            "itemName": "생명의 나무",
+            "kind": "recipe_material",
+            "targetId": "namu:레이피어:기어 헬릭스",
+            "targetName": "기어 헬릭스"
+          },
+          "personalText": "본인 목표 기어 헬릭스의 부족 재료 생명의 나무 조달",
+          "teamMovementReason": "팀 제작 구매: 생명의 나무 · 나래의 기어 헬릭스 제작 재료"
+        },
+        {
+          "atSec": 296,
+          "who": "guest-survivor-09",
+          "actorName": "미르",
+          "itemId": "namu:material:운석",
+          "actionKey": "phase:2:cycle:2:296",
+          "personalPurpose": {
+            "version": 1,
+            "actorId": "guest-survivor-09",
+            "actionKey": "phase:2:cycle:2:296",
+            "actionType": "kioskBuy",
+            "itemId": "namu:material:운석",
+            "itemName": "운석",
+            "kind": "recipe_material",
+            "targetId": "namu:망치:개밥바라기",
+            "targetName": "개밥바라기"
+          },
+          "personalText": "본인 목표 개밥바라기의 부족 재료 운석 조달",
+          "teamMovementReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료"
+        },
+        {
+          "atSec": 296,
+          "who": "guest-survivor-04",
+          "actorName": "은하",
+          "itemId": "namu:material:생명의 나무",
+          "actionKey": "phase:2:cycle:2:296",
+          "personalPurpose": {
+            "version": 1,
+            "actorId": "guest-survivor-04",
+            "actionKey": "phase:2:cycle:2:296",
+            "actionType": "kioskBuy",
+            "itemId": "namu:material:생명의 나무",
+            "itemName": "생명의 나무",
+            "kind": "recipe_material",
+            "targetId": "namu:단검:소울 리퍼",
+            "targetName": "소울 리퍼"
+          },
+          "personalText": "본인 목표 소울 리퍼의 부족 재료 생명의 나무 조달",
+          "teamMovementReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료"
+        },
+        {
+          "atSec": 296,
+          "who": "guest-survivor-02",
+          "actorName": "매화",
+          "itemId": "namu:material:생명의 나무",
+          "actionKey": "phase:2:cycle:2:296",
+          "personalPurpose": {
+            "version": 1,
+            "actorId": "guest-survivor-02",
+            "actionKey": "phase:2:cycle:2:296",
+            "actionType": "kioskBuy",
+            "itemId": "namu:material:생명의 나무",
+            "itemName": "생명의 나무",
+            "kind": "recipe_material",
+            "targetId": "namu:돌격소총:엔데버 AX",
+            "targetName": "엔데버 AX"
+          },
+          "personalText": "본인 목표 엔데버 AX의 부족 재료 생명의 나무 조달",
+          "teamMovementReason": "팀 제작 구매: 운석 · 미르의 개밥바라기 제작 재료"
+        }
+      ],
+      "finalStateExact": true,
+      "allFramesExact": true,
+      "projectedEventsExact": true,
+      "logsExact": true,
+      "randomExact": true,
+      "scope": "fresh ordinary guest input, metadata-free current-source baseline and candidate; real natural order/receipt/observer coverage and unchanged gameplay; not causal designated shared procurement, all custom inputs, browser timing/rendering, account storage, fun or full gate"
+    }
+  },
+  "build": {
+    "result": {
+      "runId": "2026-10-09T07-14-21.372Z-9e3f341a-e2ec-48c9-874b-6c5d1abd6da9",
+      "command": "npm run build",
+      "startedAt": "2026-10-09T07:14:21.373Z",
+      "pid": 25288,
+      "engineBefore": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T07:15:06.422Z"
+    },
+    "resultPath": "client/.verification-runs/2026-10-09T07-14-21.372Z-9e3f341a-e2ec-48c9-874b-6c5d1abd6da9/result.json",
+    "logPath": "client/.verification-runs/2026-10-09T07-14-21.372Z-9e3f341a-e2ec-48c9-874b-6c5d1abd6da9/output.log",
+    "resultSha256": "280B9E0846F12A3AA6E5161F8EB588FFC8A5BE51861621CC96BC79CE4F95269C",
+    "logSha256": "C3BF76B94EC56F8C6D487F46E72050B2A797E3108ADEDEA28A371DC78066803B",
+    "buildId": "sOskRcLmriVPK4vyBgio_",
+    "pagesGenerated": 62,
+    "compiledEvidencePaths": [
+      "client/.next/server/chunks/9449.js",
+      "client/.next/static/chunks/9201-5fb684bc955a85bf.js"
+    ],
+    "compiledContentConfirmed": [
+      "current engine version",
+      "이 개인 주문의 목적과는 별개",
+      "결과 연결"
+    ]
+  },
+  "intermediateVerification": [
+    {
+      "result": {
+        "runId": "2026-10-09T06-55-28.316Z-ebf02865-e475-4d39-9dd5-40b41542fb2e",
+        "command": "node scripts/generate-simulation-version.mjs && npm run check:observer-purchase-scenario && npm run check:procurement && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+        "startedAt": "2026-10-09T06:55:28.324Z",
+        "pid": 15372,
+        "engineBefore": "9169446f16401a0b8edf178b377f373b6132458392babb66894329c9b03c6e2e",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "9169446f16401a0b8edf178b377f373b6132458392babb66894329c9b03c6e2e",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T06:56:23.166Z"
+      },
+      "resultPath": "client/.verification-runs/2026-10-09T06-55-28.316Z-ebf02865-e475-4d39-9dd5-40b41542fb2e/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T06-55-28.316Z-ebf02865-e475-4d39-9dd5-40b41542fb2e/output.log",
+      "resultSha256": "3ABDDCD00ADBB688A771543881BA7086D318BA3894446B89036CFBE9ADA43A1D",
+      "logSha256": "E431EBBB536A25BA38CD96221C5A1F277BEEA0203DBFBA6CD16A70DF19BA88A0",
+      "role": "intermediate verification, preserved separately; not final strict-boundary coverage"
+    },
+    {
+      "result": {
+        "runId": "2026-10-09T06-57-21.842Z-12541f00-bbe5-4f8e-8fb2-bbd52e171f54",
+        "command": "node scripts/generate-simulation-version.mjs && node scripts/check-procurement-purpose-match.mjs",
+        "startedAt": "2026-10-09T06:57:21.844Z",
+        "pid": 9620,
+        "engineBefore": "9169446f16401a0b8edf178b377f373b6132458392babb66894329c9b03c6e2e",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "9169446f16401a0b8edf178b377f373b6132458392babb66894329c9b03c6e2e",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T07:00:20.211Z"
+      },
+      "resultPath": "client/.verification-runs/2026-10-09T06-57-21.842Z-12541f00-bbe5-4f8e-8fb2-bbd52e171f54/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T06-57-21.842Z-12541f00-bbe5-4f8e-8fb2-bbd52e171f54/output.log",
+      "resultSha256": "5B3D2C191DA5DA82ED8E21D87EE4FBF626303538C8B9BDC0CCA1E7A64216B3F1",
+      "logSha256": "CD9726E194CCAFFCCC4C66A0D22B9ABED59A5553130C8CDF2F7AA8EAF28F0531",
+      "role": "intermediate verification, preserved separately; not final strict-boundary coverage"
+    },
+    {
+      "result": {
+        "runId": "2026-10-09T07-06-34.852Z-7e81ac62-5b01-40aa-becb-19f08186e4c5",
+        "command": "node scripts/generate-simulation-version.mjs && node scripts/check-procurement-purpose-match.mjs",
+        "startedAt": "2026-10-09T07:06:34.859Z",
+        "pid": 21308,
+        "engineBefore": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T07:09:33.044Z"
+      },
+      "resultPath": "client/.verification-runs/2026-10-09T07-06-34.852Z-7e81ac62-5b01-40aa-becb-19f08186e4c5/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T07-06-34.852Z-7e81ac62-5b01-40aa-becb-19f08186e4c5/output.log",
+      "resultSha256": "779CC92BD817D18EFB835879A29DAAB4AE18F74EFA2EF6661A1A304BC7948D94",
+      "logSha256": "57E5B26F9E74F273962358FA640914FD5D7DB9436F97823B17EF4518B158492C",
+      "role": "intermediate verification, preserved separately; not final strict-boundary coverage"
+    }
+  ],
+  "agentReview": {
+    "model": "gpt-6-luna",
+    "scope": "Read-only current source and isolated pure-contract work; no browser, paid call or account write",
+    "correction": "Queue reason was already serialized; the problem was shared context being treated as private order reason",
+    "acceptedFindings": [
+      "target-item wording narrowed to ID relationship, not unowned-target acquisition cause",
+      "matched completed/cancelled receipt label now result connection, not settlement success",
+      "comparison rejects purpose metadata on non-queue events",
+      "comparison rejects same-actor receipt overwrites within a frame and requires every emitted receipt to be observed"
+    ],
+    "initialIsolatedTestFailure": "Agent reported a positive fixture actionKey mismatch; corrected fixture key without relaxing mismatch tests, then real focused chain passed"
+  },
+  "sourceFiles": [
+    {
+      "path": "client/package.json",
+      "bytes": 25894,
+      "sha256": "4988546FDCE092F5A31C85F2FD95937A464D6295F39D6A11C45744B563AA7986"
+    },
+    {
+      "path": "client/scripts/run-eternal-hunger-verification.mjs",
+      "bytes": 8087,
+      "sha256": "C46CDAF4DF197DC94D637EAD0C29CC13DFA3AAA7FB531E1F4ABFFCDE7955B04B"
+    },
+    {
+      "path": "client/scripts/check-observer-purchase-scenario.mjs",
+      "bytes": 10167,
+      "sha256": "E2A5B3E52B2BC5E55305CCE41ACB7022970F03F47BDA589E66B0A1A7A3CF0647"
+    },
+    {
+      "path": "client/scripts/check-procurement-purpose.mjs",
+      "bytes": 12378,
+      "sha256": "3C5830D556F33D0B93766353BBD46B84927EBD561AD5BC7A809734451B851B6C"
+    },
+    {
+      "path": "client/scripts/check-procurement-purpose-match.mjs",
+      "bytes": 9518,
+      "sha256": "E9617EA8DAD066E840D4B0B66E794202A1878A6A9532F656762B14857A562025"
+    },
+    {
+      "path": "client/src/app/simulation/_components/SimulationTeamObserverPanel.js",
+      "bytes": 6658,
+      "sha256": "87C10E2B37FCB972B678AB89913FE8B5095E46E8EC57E57B2F5446BE5CFE8B6D"
+    },
+    {
+      "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+      "bytes": 166,
+      "sha256": "925BFF6C24AAD958BD10FC4503E74C23C4D1588FFFF5F7AC31C1F5E57E76B8A1"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/growthObservationRuntime.js",
+      "bytes": 11041,
+      "sha256": "8EA5ECFBB2213CAA1B0621D7C3464290A71119C7DAEA18BAB442184660FB4669"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/phaseActionQueueDecisionRuntime.js",
+      "bytes": 18904,
+      "sha256": "4C97F00CB970046965832730BEE5B22179856134CDB9D025A51261624A02CF2E"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/runEventRuntime.js",
+      "bytes": 7072,
+      "sha256": "7357071EEE1E481B6E618C0AA9068DFA5A532831E106C20B78E4E5B919EB7C71"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/teamObserverRuntime.js",
+      "bytes": 34859,
+      "sha256": "C57C86CD80B0D6A0D3DAA86D413604DC50F7DDBD608C50EFCCFE462907139818"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/procurementPurposeRuntime.js",
+      "bytes": 3046,
+      "sha256": "5E2363FBD6B34F61F2FA33EDE4B367C194A411131592FFB5B750CCC31BD9D507"
+    }
+  ],
+  "protectedUserFiles": [
+    {
+      "path": "client/scripts/check-observer-goals-match.mjs",
+      "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+    },
+    {
+      "path": "server/index.js",
+      "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+    },
+    {
+      "path": "server/.env.example",
+      "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+    }
+  ],
+  "originalGoalTailSha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B",
+  "cleanup": {
+    "phase": "complete",
+    "removedFiles": 6,
+    "removedBytes": 592536631,
+    "cacheFiles": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 255255139,
+        "creationUtc": "2026-10-09T07:14:57.5449740Z",
+        "lastWriteUtc": "2026-10-09T07:14:57.6699584Z",
+        "attributes": "Archive",
+        "sha256": "4BF6CBBD283EDBE955AEB77BD799CEE4FF9CF58A30A1D136272A189B501261E7"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12815910,
+        "creationUtc": "2026-10-09T07:14:57.5449740Z",
+        "lastWriteUtc": "2026-10-09T07:14:57.5534862Z",
+        "attributes": "Archive",
+        "sha256": "8D75737B7774833AA839E2299D20796ADB0D0CAAB265A5495FC56A0711369A23"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "creationUtc": "2026-10-09T07:14:44.5212446Z",
+        "lastWriteUtc": "2026-10-09T07:14:44.5222484Z",
+        "attributes": "Archive",
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "creationUtc": "2026-10-09T07:14:44.5212446Z",
+        "lastWriteUtc": "2026-10-09T07:14:44.5222484Z",
+        "attributes": "Archive",
+        "sha256": "F91B42FD9A8AB7C8089B7605023068ECE133B9D0B02D128540AC68ED8CF6E334"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 306407260,
+        "creationUtc": "2026-10-09T07:14:43.4787269Z",
+        "lastWriteUtc": "2026-10-09T07:14:43.6388738Z",
+        "attributes": "Archive",
+        "sha256": "DC38400A6EDEA75C88D8CA6B230240061676833DD8B1D2CD1192F622A74CE622"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18055582,
+        "creationUtc": "2026-10-09T07:14:43.4787269Z",
+        "lastWriteUtc": "2026-10-09T07:14:43.4922404Z",
+        "attributes": "Archive",
+        "sha256": "DA848B8B0D28D60D0546E94F1E9B4561DB440B4014BF4E24C9A530D3F8641092"
+      }
+    ],
+    "protectedFiles": [
+      {
+        "path": "client/package.json",
+        "sha256": "4988546FDCE092F5A31C85F2FD95937A464D6295F39D6A11C45744B563AA7986"
+      },
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "sha256": "C46CDAF4DF197DC94D637EAD0C29CC13DFA3AAA7FB531E1F4ABFFCDE7955B04B"
+      },
+      {
+        "path": "client/scripts/check-observer-purchase-scenario.mjs",
+        "sha256": "E2A5B3E52B2BC5E55305CCE41ACB7022970F03F47BDA589E66B0A1A7A3CF0647"
+      },
+      {
+        "path": "client/scripts/check-procurement-purpose.mjs",
+        "sha256": "3C5830D556F33D0B93766353BBD46B84927EBD561AD5BC7A809734451B851B6C"
+      },
+      {
+        "path": "client/scripts/check-procurement-purpose-match.mjs",
+        "sha256": "E9617EA8DAD066E840D4B0B66E794202A1878A6A9532F656762B14857A562025"
+      },
+      {
+        "path": "client/src/app/simulation/_components/SimulationTeamObserverPanel.js",
+        "sha256": "87C10E2B37FCB972B678AB89913FE8B5095E46E8EC57E57B2F5446BE5CFE8B6D"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "sha256": "925BFF6C24AAD958BD10FC4503E74C23C4D1588FFFF5F7AC31C1F5E57E76B8A1"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/growthObservationRuntime.js",
+        "sha256": "8EA5ECFBB2213CAA1B0621D7C3464290A71119C7DAEA18BAB442184660FB4669"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/phaseActionQueueDecisionRuntime.js",
+        "sha256": "4C97F00CB970046965832730BEE5B22179856134CDB9D025A51261624A02CF2E"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/runEventRuntime.js",
+        "sha256": "7357071EEE1E481B6E618C0AA9068DFA5A532831E106C20B78E4E5B919EB7C71"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/teamObserverRuntime.js",
+        "sha256": "C57C86CD80B0D6A0D3DAA86D413604DC50F7DDBD608C50EFCCFE462907139818"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/procurementPurposeRuntime.js",
+        "sha256": "5E2363FBD6B34F61F2FA33EDE4B367C194A411131592FFB5B750CCC31BD9D507"
+      },
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+      },
+      {
+        "path": "server/index.js",
+        "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+      },
+      {
+        "path": "server/.env.example",
+        "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+      },
+      {
+        "path": "client/package-lock.json",
+        "sha256": "9024006A5AC9B451394E347C0A24A144EE5C32562912E6876C5F83250B89FB57"
+      },
+      {
+        "path": "docs/eternal-hunger-goal.md",
+        "sha256": "EABB2EA41BB4F3437FEE6DA0076E239DF484B6199764020A4D83B8C6D7DBDAA2"
+      },
+      {
+        "path": "artifacts/current-engine-full-gate-20261009.json",
+        "sha256": "8A8849C550C516E20DBC20185662C3EEB037661934A6AAFE1452AC5C3EAFE909"
+      },
+      {
+        "path": "artifacts/natural-procurement-evidence-20261009.json",
+        "sha256": "A8F12CAB7DDD43FC2D1B96E3E48526D7A53B9942520CD936D1B8A10D3927BC10"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T06-55-28.316Z-ebf02865-e475-4d39-9dd5-40b41542fb2e/result.json",
+        "sha256": "3ABDDCD00ADBB688A771543881BA7086D318BA3894446B89036CFBE9ADA43A1D"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T06-55-28.316Z-ebf02865-e475-4d39-9dd5-40b41542fb2e/output.log",
+        "sha256": "E431EBBB536A25BA38CD96221C5A1F277BEEA0203DBFBA6CD16A70DF19BA88A0"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T06-57-21.842Z-12541f00-bbe5-4f8e-8fb2-bbd52e171f54/result.json",
+        "sha256": "5B3D2C191DA5DA82ED8E21D87EE4FBF626303538C8B9BDC0CCA1E7A64216B3F1"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T06-57-21.842Z-12541f00-bbe5-4f8e-8fb2-bbd52e171f54/output.log",
+        "sha256": "CD9726E194CCAFFCCC4C66A0D22B9ABED59A5553130C8CDF2F7AA8EAF28F0531"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T07-04-58.966Z-bd077a69-c24a-4795-8436-6a34e055470e/result.json",
+        "sha256": "39F7CDCC0C836B3FB5106F14E27B8A152420C047FB66D8D74376681E75A38335"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T07-04-58.966Z-bd077a69-c24a-4795-8436-6a34e055470e/output.log",
+        "sha256": "09B7EB8E28B0C7A49522C83ED4B1A01901A92237340A6FB89BA4F4051E9F3CDA"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T07-06-34.852Z-7e81ac62-5b01-40aa-becb-19f08186e4c5/result.json",
+        "sha256": "779CC92BD817D18EFB835879A29DAAB4AE18F74EFA2EF6661A1A304BC7948D94"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T07-06-34.852Z-7e81ac62-5b01-40aa-becb-19f08186e4c5/output.log",
+        "sha256": "57E5B26F9E74F273962358FA640914FD5D7DB9436F97823B17EF4518B158492C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T07-11-17.744Z-3375f04b-a36c-4a51-a287-bb6109118d0c/result.json",
+        "sha256": "EBCA43F194B2C694CE3B44DEBDBC14311973AB8DA38317D097C6D026548E3755"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T07-11-17.744Z-3375f04b-a36c-4a51-a287-bb6109118d0c/output.log",
+        "sha256": "56258360C7B24263FC1C21AA4ACCA6BA34BE9DC25D775441AC99DCDD872FFFEC"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T07-14-21.372Z-9e3f341a-e2ec-48c9-874b-6c5d1abd6da9/result.json",
+        "sha256": "280B9E0846F12A3AA6E5161F8EB588FFC8A5BE51861621CC96BC79CE4F95269C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T07-14-21.372Z-9e3f341a-e2ec-48c9-874b-6c5d1abd6da9/output.log",
+        "sha256": "C3BF76B94EC56F8C6D487F46E72050B2A797E3108ADEDEA28A371DC78066803B"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T05-36-07.948Z-dbbf6d59-c7be-4102-a7e2-c22dc818436a/result.json",
+        "sha256": "832B8BC0B36B773FCBECD3A12C14BBB6E854CB27330E377EE8BAB0F1CC1072C6"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T05-36-07.948Z-dbbf6d59-c7be-4102-a7e2-c22dc818436a/output.log",
+        "sha256": "3FB3AF9DBBCACABCBF4ED8BC4264917A47FE07E387FEB2802D21A54016C145F8"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T06-35-48.651Z-488fad76-1473-4491-a2ed-e4d81c1c7718/result.json",
+        "sha256": "2D7F5DDF0A0DFC34EA2B3DE1C95C4496FDA99F5F5EF17F91532CA9916339867A"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T06-35-48.651Z-488fad76-1473-4491-a2ed-e4d81c1c7718/output.log",
+        "sha256": "56B70E3227AEFD3D113277DB5E655E93113F72E10A5EB6306451F4BC89C75189"
+      }
+    ],
+    "protectedUnchanged": true,
+    "compiledBefore": {
+      "count": 1429,
+      "sha256": "3706494172EE312722274D56CB5BE63FFA73B3D716B589713F3AAE990FFCB943"
+    },
+    "compiledAfter": {
+      "count": 1429,
+      "sha256": "3706494172EE312722274D56CB5BE63FFA73B3D716B589713F3AAE990FFCB943"
+    },
+    "compiledUnchanged": true,
+    "ownLiveProcesses": 0,
+    "relatedNodeJobs": 0,
+    "recovery": "Webpack packs are regenerable by building; source, completed build, user changes and unique proof preserved",
+    "physicalFreeSpaceMeasured": false,
+    "firstPreflight": {
+      "exitCode": 1,
+      "removedFiles": 0,
+      "reason": "ConvertFrom-Json parsed ISO timestamp strings as System.DateTime, so an exact string comparison rejected unchanged UTC times; all six files were then independently found present with identical sizes, creation/write UTC and hashes",
+      "repair": "Use DateKind String with the original inventory; retain exact time, size, hash, process and no-reparse guards"
+    }
+  },
+  "authorizationBoundary": {
+    "push": false,
+    "publicDeployment": false,
+    "additionalForegroundBrowserRun": false,
+    "paidAiCall": false,
+    "realAccountWrite": false,
+    "protectionChange": false
+  },
+  "remainingAcceptance": [
+    "Actual browser x1/x8/x32 and continuous memory on current build",
+    "Authorized AI/real account generation, save/load, quota and replay checks",
+    "Designated shared procurement causality and wider natural/custom input axes",
+    "Map season/road/hyperloop verification and human readability/fun follow-up",
+    "Full G1-G5 product and common completion requirements remain active"
+  ],
+  "validatorInputs": "This report, prior result logs and artifacts are output evidence only, not expected answers or mandatory inputs for validators"
+}

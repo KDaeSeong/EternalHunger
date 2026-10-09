@@ -5,6 +5,8 @@ import { procurementFailureText } from './procurementTransactionRuntime.js';
 import { prepareCraftTransaction, craftFailureText } from './craftTransactionRuntime.js';
 import { getActorEquipmentTier } from './growthEquipmentRuntime.js';
 import { inferEquipSlot } from './inventoryRules.js';
+import { describeProcurementPurpose } from './procurementPurposeRuntime.js';
+import { formatMoveIntentLabel } from './moveIntentRuntime.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 export const PROCUREMENT_LABELS = Object.freeze({ kioskBuy: '키오스크 구매', kioskExchange: '키오스크 교환', kioskSell: '키오스크 판매', droneOrder: '드론 주문' });
@@ -103,14 +105,19 @@ export function describeProcurementReceipt(event) {
 
 export function updateProcurementObservation(previous, event, clock) {
   if (event.kind === 'queue' && Object.hasOwn(PROCUREMENT_LABELS, event.chosen)) return {
+    who: String(event.who || ''),
     actionKey: event.actionKey || '', actionType: event.chosen, itemId: event.itemId || '', outcome: 'unconfirmed',
     clock, choice: `${PROCUREMENT_LABELS[event.chosen]} · ${event.itemName || '품목 미기록'} 선택`,
     result: '정산 결과 기록 없음 · 획득 여부 미확인', matchedChoice: false,
+    purpose: describeProcurementPurpose(event) || '개인 조달 목적 기록 없음',
+    teamMovementReason: event.sharedGoalReason ? formatMoveIntentLabel(event.sharedGoalReason) : '',
   };
   const result = describeProcurementReceipt(event);
   if (!result) return previous;
-  const matched = !!event.actionKey && previous?.actionKey === event.actionKey && previous.actionType === event.actionType
+  const matched = !!event.who && previous?.who === event.who && !!event.actionKey
+    && previous.actionKey === event.actionKey && previous.actionType === event.actionType
     && previous.itemId === event.itemId;
-  return { actionKey: event.actionKey, actionType: event.actionType, itemId: event.itemId, outcome: event.outcome,
+  return { who: String(event.who || ''), actionKey: event.actionKey, actionType: event.actionType, itemId: event.itemId, outcome: event.outcome,
+    purpose: matched ? previous.purpose : '', teamMovementReason: matched ? previous.teamMovementReason : '',
     clock, choice: matched ? previous.choice : '', choiceClock: matched ? previous.choiceClock || previous.clock : '', matchedChoice: matched, result };
 }

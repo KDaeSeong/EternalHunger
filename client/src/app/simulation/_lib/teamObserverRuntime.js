@@ -17,6 +17,7 @@ import { describeTeamSurvival, getTeamSurvivalContext, getTeamSurvivalStates } f
 import { getActorGrowthObservation, describeCraftReceipt, describeProcurementReceipt, updateProcurementObservation } from './growthObservationRuntime.js';
 import { getRuleset } from '../../../utils/rulesets.js';
 import { describeConsumableReceipt } from './consumableObservationRuntime.js';
+import { describeProcurementPurpose, isProcurementAction } from './procurementPurposeRuntime.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
 const idOf = (actor) => String(actor?._id || actor?.id || '');
@@ -72,6 +73,11 @@ export function getObserverVisibleActors(actors, trackedIds = [], limit = 12) {
 }
 
 export function describeObserverReason(event = {}) {
+  // The team movement context is not the reason for a personal shop order.
+  // Older recordings lack a personal-purpose snapshot; do not guess one.
+  if (event.kind === 'queue' && isProcurementAction(event.chosen)) {
+    return describeProcurementPurpose(event) || '개인 조달 선택 · 구체적인 목적 기록 없음';
+  }
   const raw = String(event.reason || '').replace(/:ttl|:priority/g, '');
   const recordsMove = event.moved === true || event.kind === 'move';
   const labels = {

@@ -125,7 +125,7 @@
     "check:team-combat": "node ./scripts/check-team-combat.mjs",
     "check:team-observer": "node ./scripts/check-team-observer.mjs && node ./scripts/check-observer-tail-projection.mjs && npm run check:movement-objectives && npm run check:observer-performance-guards && npm run check:observer-performance-probe",
     "check:movement-objectives": "node ./scripts/check-movement-objectives.mjs && npm run check:growth-observation",
-    "check:growth-observation": "node ./scripts/check-growth-observation.mjs",
+    "check:growth-observation": "node ./scripts/check-procurement-purpose.mjs && node ./scripts/check-growth-observation.mjs",
     "check:observer-goals-match": "node ./scripts/check-observer-goals-match.mjs",
     "check:natural-procurement-matrix": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-natural-procurement-matrix.mjs",
     "check:observer-goals-match:strict": "node ./scripts/check-observer-goals-match.mjs --require-natural-purchase",
