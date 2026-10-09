@@ -178,6 +178,9 @@ await check('AI recovery blocks the actors own intent, not incoming enemy target
   a.activeEffects = [effect('도발', 3, { sourceActorId: 'b' })];
   assert.deepEqual(getCombatIntentOpponents(a, [a, b], 100).map((target) => target._id), ['b']);
   a._recentCombatUntil = 104;
+  assert.deepEqual(getCombatIntentOpponents(a, [a, b], 100).map((target) => target._id), ['b'],
+    'Taunt still commands its live caster target while voluntary AI recovers.');
+  a.activeEffects = [];
   assert.deepEqual(getCombatIntentOpponents(a, [a, b], 100), []);
 });
 await check('a recovering opponent still takes real hits without being granted a counterattack', async () => {

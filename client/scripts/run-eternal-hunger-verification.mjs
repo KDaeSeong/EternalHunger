@@ -23,6 +23,8 @@ const commands = {
   'team-participation-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'hunt-pvp-interruption': 'node scripts/check-hunt-pvp-interruption.mjs',
   'hunt-pvp-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-hunt-pvp-interruption.mjs && node scripts/check-hunt-pvp-handoff.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-boss-team-combat.mjs && node scripts/check-boss-loot-sharing.mjs && node scripts/check-combat-timing.mjs && node scripts/check-character-casting.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'ai-recovery-forced': 'node scripts/check-ai-recovery-forced-control.mjs',
+  'ai-recovery-forced-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-forced-control.mjs && node scripts/check-status-protection.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-combat-timing.mjs && npm run check:team-combat && node scripts/check-character-casting.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'strategy-paired': 'npm run analyze:strategy-comparison -- --seeds=1101 --variants=baseline,one-tactical-skill --repeats=2',
   'formation-paired': 'npm run analyze:strategy-comparison -- --seeds=1101 --variants=baseline,one-formation-swap --repeats=2',
   'distribution-observer': 'npm run diagnose:match-distribution -- --compare-observer 4402',
@@ -100,6 +102,15 @@ function verificationSourceHashes() {
   if (mode === 'hunt-pvp-unit') paths.push('scripts/check-hunt-pvp-handoff.mjs',
     'scripts/check-wildlife-combat.mjs', 'scripts/check-boss-team-combat.mjs',
     'scripts/check-boss-loot-sharing.mjs', 'scripts/check-combat-timing.mjs', 'scripts/check-character-casting.mjs');
+  if (['ai-recovery-forced', 'ai-recovery-forced-unit', 'full'].includes(mode)) paths.push(
+    'scripts/check-ai-recovery-forced-control.mjs', 'scripts/lib/run-combat-scenario.mjs');
+  if (mode === 'full') paths.push('scripts/check-combat-timing.mjs');
+  if (mode === 'ai-recovery-forced-unit') paths.push('scripts/check-forced-control.mjs',
+    'scripts/check-status-protection.mjs', 'scripts/check-action-states.mjs',
+    'scripts/check-combat-spatial.mjs', 'scripts/check-combat-timing.mjs',
+    'scripts/check-team-combat.mjs', 'scripts/check-character-casting.mjs',
+    'scripts/check-combat-participation-observation.mjs', 'scripts/check-team-combat-participation-diagnostics.mjs',
+    'scripts/check-hunt-pvp-interruption.mjs', 'scripts/check-hunt-pvp-handoff.mjs');
   return Object.fromEntries(paths.map((path) => [path,
     createHash('sha256').update(readFileSync(join(root, path), 'utf8').replaceAll('\r\n', '\n')).digest('hex')]));
 }

@@ -5,9 +5,8 @@ import { createPhaseCombatSkillSplashRuntime } from './phaseCombatSkillSplashRun
 import { createPhaseCombatTacticalRuntime } from './phaseCombatTacticalRuntime';
 import { canJoinTeamCombat, runTeamCombatRound } from './teamCombatRuntime';
 import { engageCombatParticipants } from './combatTimingRuntime.js';
-import { isAiRecoveryLocked } from './survivorLifecycleRuntime';
 import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
-import { hasActionBlockStatus, canMoveByStatus, isTargetableByStatus, getForcedControlEffect } from '../../../utils/statusLogic.js';
+import { canMoveByStatus, isTargetableByStatus, getForcedControlEffect } from '../../../utils/statusLogic.js';
 import { resolveEquipmentEffectDamage } from './equipmentEffectDamageRuntime.js';
 import { settleEquipmentNotifications } from './equipmentEffectNotificationRuntime.js';
 
@@ -306,10 +305,14 @@ function resolvePhaseCombatEncounter({
       target: survivorMap.get(String(target._id)) || target, teamRound: round, skipRemainingTurn: false };
   }
   const nowSec = currentActionSec();
-  const eligible = (actionType === 'basic' ? [actor] : [actor, target]).filter((row) => canJoinTeamCombat(row, { nowSec, zoneId: String(actor.zoneId), newDeadIds }));
+  const canTakeTurn = (row) => canJoinTeamCombat(row, { nowSec, zoneId: String(actor.zoneId), newDeadIds,
+    scheduledBasicTargetId: actionType === 'basic' && String(row._id) === String(actor._id) ? String(target._id) : '' });
+  const eligible = (actionType === 'basic' ? [actor] : [actor, target]).filter(canTakeTurn);
   for (const striker of eligible) {
     const victim = striker === actor ? target : actor;
-    if (striker.hp <= 0 || victim.hp <= 0 || hasActionBlockStatus(striker) || isAiRecoveryLocked(striker, nowSec)
+    // Recheck after the previous strike; only this scheduled actor's active
+    // taunt can bypass AI recovery, never another participant's reserved turn.
+    if (striker.hp <= 0 || victim.hp <= 0 || !canTakeTurn(striker)
       || String(striker.zoneId) !== String(victim.zoneId)) continue;
     resolvePair(striker, victim, true);
     survivorMap.set(String(striker._id), striker);

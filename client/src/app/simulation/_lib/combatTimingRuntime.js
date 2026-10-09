@@ -40,8 +40,9 @@ export function getCombatIntentOpponents(actor, roster, nowSec = 0) {
   if (getForcedControlEffect(actor)) {
     const plan = getForcedControlMotion(actor, roster);
     const target = plan?.source;
-    return plan?.control.mode === 'taunt' && target && !isDimensionRiftDefeated(target) && !areSameTeam(actor, target)
-      && !isAiRecoveryLocked(actor, nowSec) ? [target] : [];
+    // Forced taunt is not an autonomous combat decision. Its own action/basic
+    // clocks and the live caster's visibility/range remain scheduling guards.
+    return plan?.control.mode === 'taunt' && target && !isDimensionRiftDefeated(target) && !areSameTeam(actor, target) ? [target] : [];
   }
   const intent = actor?._combatIntent;
   if (!intent || Number(actor.hp || 0) <= 0 || String(actor.zoneId) !== intent.zoneId

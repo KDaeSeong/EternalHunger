@@ -187,12 +187,16 @@ export function getSpatialMoveDelay(actor, nowSec, { forced = false } = {}) {
   const statusDelay = getActiveStatusEffects(actor).reduce((delay, effect) =>
     effect.tags.some((tag) => tag === 'move_block' || tag === 'action_block' || !forced && tag === 'voluntary_block')
       ? Math.max(delay, effect.remainingDuration == null ? Infinity : effect.remainingDuration) : delay, 0);
-  return Math.max(0, statusDelay, Number(actor._actionReadyAtSec || 0) - nowSec, Number(actor._recentCombatUntil || 0) - nowSec);
+  // AI recovery suspends voluntary decisions, not a caster's forced walking.
+  // Actual action locks and movement-blocking statuses still consume time.
+  return Math.max(0, statusDelay, Number(actor._actionReadyAtSec || 0) - nowSec,
+    forced ? 0 : Number(actor._recentCombatUntil || 0) - nowSec);
 }
 
 function movementBudget(actor, startSec, elapsedSec, { forced = false } = {}) {
   const effects = getStoredActiveStatusEffects(actor);
-  const delay = Math.max(0, Number(actor._actionReadyAtSec || 0) - startSec, Number(actor._recentCombatUntil || 0) - startSec);
+  const delay = Math.max(0, Number(actor._actionReadyAtSec || 0) - startSec,
+    forced ? 0 : Number(actor._recentCombatUntil || 0) - startSec);
   if (delay >= elapsedSec) return 0;
   const boundaries = [...new Set([delay, elapsedSec, ...effects.map((effect) => effect.remainingDuration)
     .filter((end) => end != null && end > delay && end < elapsedSec)])].sort((a, b) => a - b);

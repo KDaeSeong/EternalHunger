@@ -10,10 +10,14 @@ import { observeCombatParticipation } from './combatParticipationObservationRunt
 
 const idOf = (actor) => String(actor?._id || actor?.id || '');
 
-export function canJoinTeamCombat(actor, { nowSec = 0, zoneId = '', newDeadIds = [] } = {}) {
+export function canJoinTeamCombat(actor, { nowSec = 0, zoneId = '', newDeadIds = [], scheduledBasicTargetId = '' } = {}) {
+  const control = getForcedControlEffect(actor);
+  const forcedBasic = control?.mode === 'taunt' && scheduledBasicTargetId
+    && String(control.sourceActorId || '') === String(scheduledBasicTargetId);
   return !!idOf(actor) && Number(actor.hp || 0) > 0 && !newDeadIds.includes(idOf(actor))
     && (!zoneId || String(actor.zoneId) === String(zoneId)) && canBasicAttackByStatus(actor)
-    && !actor._pendingCharacterCast && !isAiRecoveryLocked(actor, nowSec) && Number(actor._actionReadyAtSec || 0) <= nowSec && isBasicAttackReady(actor, nowSec);
+    && !actor._pendingCharacterCast && (forcedBasic || !isAiRecoveryLocked(actor, nowSec))
+    && Number(actor._actionReadyAtSec || 0) <= nowSec && isBasicAttackReady(actor, nowSec);
 }
 
 export function pickTeamFocusTarget(actor, targets, preferredId = '', roster = [actor]) {
@@ -49,7 +53,9 @@ export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = []
     && shareCombatSpace(actor, row) && String(row.zoneId) === zoneId);
   const sides = [actor, target].map((leader) => live.filter((row) => areSameTeam(leader, row)));
   if (sides.every((side) => side.length <= 1)) return { handled: false };
-  const eligible = sides.map((side) => side.filter((row) => (!onlyActorId || idOf(row) === onlyActorId) && canJoinTeamCombat(row, { nowSec, zoneId, newDeadIds }))
+  const canTakeTurn = (row) => canJoinTeamCombat(row, { nowSec, zoneId, newDeadIds,
+    scheduledBasicTargetId: onlyActorId && idOf(row) === onlyActorId ? idOf(target) : '' });
+  const eligible = sides.map((side) => side.filter((row) => (!onlyActorId || idOf(row) === onlyActorId) && canTakeTurn(row))
     .sort((a, b) => Number(estimatePower(b)) - Number(estimatePower(a)) || idOf(a).localeCompare(idOf(b))));
   const participants = eligible.flat();
   if (typeof observeCombatRuntime === 'function') observeCombatParticipation(observeCombatRuntime, {
@@ -72,7 +78,7 @@ export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = []
     const striker = survivorMap.get(turn.id);
     // Earlier hits can kill, move or control a queued participant.
     if (!striker || !shareCombatSpace(actor, striker) || Number(striker.hp || 0) <= 0 || newDeadIds.includes(turn.id) || String(striker.zoneId) !== zoneId
-      || !canJoinTeamCombat(striker, { nowSec, zoneId, newDeadIds })) continue;
+      || !canTakeTurn(striker)) continue;
     const opponents = sides[1 - turn.side].map((row) => survivorMap.get(idOf(row))).filter((row) => row
       && !newDeadIds.includes(idOf(row)));
     const victim = pickTeamFocusTarget(striker, opponents, focus[turn.side], [...survivorMap.values()]);

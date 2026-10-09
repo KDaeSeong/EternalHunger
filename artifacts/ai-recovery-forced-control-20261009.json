@@ -1,0 +1,805 @@
+{
+  "schemaVersion": 1,
+  "kind": "output-only-ai-recovery-forced-control-evidence",
+  "engine": "1f6f88223adadb654db266fea5db49d7fe7b07ce2f931ee3ce81e7c365fe3f88",
+  "notice": "Evidence output only. Runtime checkers construct fresh inputs and must not consume this file or historical result artifacts as required inputs or expected values.",
+  "changes": [
+    "client/src/app/simulation/_lib/combatSpatialRuntime.js",
+    "client/src/app/simulation/_lib/combatTimingRuntime.js",
+    "client/src/app/simulation/_lib/phaseCombatEncounterRuntime.js",
+    "client/src/app/simulation/_lib/teamCombatRuntime.js",
+    "client/src/app/simulation/_generated/simulationEngineVersion.js",
+    "client/package.json",
+    "client/scripts/run-eternal-hunger-verification.mjs",
+    "client/scripts/check-ai-recovery-forced-control.mjs",
+    "client/scripts/check-combat-timing.mjs",
+    "docs/ai-recovery-forced-control-verification-2026-10-09.md",
+    "docs/eternal-hunger-goal.md",
+    "artifacts/ai-recovery-forced-control-20261009.json"
+  ],
+  "runtimeScope": "AI decision recovery no longer blocks forced walking or this scheduled taunted actor's basic attack against its actual caster. Action/basic clocks, hard controls, pending casts, targetability, combat space, range and ordinary recovery remain enforced.",
+  "runs": [
+    {
+      "interpretation": "Initial pre-fix checker: 9/17, including two incorrect expectations; raw failure retained.",
+      "resultPath": "client/.verification-runs/2026-10-09T12-17-59.839Z-3385f9c0-2501-4241-b394-3ef2006bbd35/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T12-17-59.839Z-3385f9c0-2501-4241-b394-3ef2006bbd35/output.log",
+      "resultSHA256": "BD3A99D12545403D70D9A6158A6532EC2FB6001A3DCEAE7D28F59B99F7168788",
+      "logSHA256": "647E01F5FCA36F171B952B4CFAFA13AA9020F3DC5541962688D3D1A8CEC95426",
+      "logBytes": 12364,
+      "result": {
+        "runId": "2026-10-09T12-17-59.839Z-3385f9c0-2501-4241-b394-3ef2006bbd35",
+        "command": "node scripts/check-ai-recovery-forced-control.mjs",
+        "startedAt": "2026-10-09T12:17:59.842Z",
+        "pid": 14324,
+        "engineBefore": "b1ba133bb54ba9e3524a28413fea3daa2d244016d60e03c61ef7625df7986252",
+        "verificationSourcesBefore": {
+          "scripts/run-eternal-hunger-verification.mjs": "2108f21ac19e3e2d9a17988a6f42654b51107dc927504df94c92ad4d008dedac",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "8b4d1b65c60948caf3f47c97c194beaa4078f203aa5e4e5e446fa6b6fdb3ec12",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e"
+        },
+        "status": "failed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 1,
+        "signal": null,
+        "engineAfter": "b1ba133bb54ba9e3524a28413fea3daa2d244016d60e03c61ef7625df7986252",
+        "sameEngine": true,
+        "verificationSourcesAfter": {
+          "scripts/run-eternal-hunger-verification.mjs": "2108f21ac19e3e2d9a17988a6f42654b51107dc927504df94c92ad4d008dedac",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "8b4d1b65c60948caf3f47c97c194beaa4078f203aa5e4e5e446fa6b6fdb3ec12",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e"
+        },
+        "sameVerificationSources": true,
+        "finishedAt": "2026-10-09T12:18:03.947Z"
+      }
+    },
+    {
+      "interpretation": "Corrected and expanded pre-fix checker: 9/22; 13 forced-control behavior cases failed.",
+      "resultPath": "client/.verification-runs/2026-10-09T12-20-51.339Z-840890df-a17a-4d67-8683-5ea012866f67/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T12-20-51.339Z-840890df-a17a-4d67-8683-5ea012866f67/output.log",
+      "resultSHA256": "DD855F99F44CA1A007D18C1EA000F37C3ABF0C58A157668A9E93E55EEA7385BC",
+      "logSHA256": "D69C72885C1417BD1D45001237D23E23914CB7317E916A42C305C2414EC17BE7",
+      "logBytes": 19471,
+      "result": {
+        "runId": "2026-10-09T12-20-51.339Z-840890df-a17a-4d67-8683-5ea012866f67",
+        "command": "node scripts/check-ai-recovery-forced-control.mjs",
+        "startedAt": "2026-10-09T12:20:51.342Z",
+        "pid": 47672,
+        "engineBefore": "b1ba133bb54ba9e3524a28413fea3daa2d244016d60e03c61ef7625df7986252",
+        "verificationSourcesBefore": {
+          "scripts/run-eternal-hunger-verification.mjs": "2108f21ac19e3e2d9a17988a6f42654b51107dc927504df94c92ad4d008dedac",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "bf8a1f72aa3b2c127fdb080f0e5e9c04b65939d61993d08fde034c14794ef2a2",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e"
+        },
+        "status": "failed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 1,
+        "signal": null,
+        "engineAfter": "b1ba133bb54ba9e3524a28413fea3daa2d244016d60e03c61ef7625df7986252",
+        "sameEngine": true,
+        "verificationSourcesAfter": {
+          "scripts/run-eternal-hunger-verification.mjs": "2108f21ac19e3e2d9a17988a6f42654b51107dc927504df94c92ad4d008dedac",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "bf8a1f72aa3b2c127fdb080f0e5e9c04b65939d61993d08fde034c14794ef2a2",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e"
+        },
+        "sameVerificationSources": true,
+        "finishedAt": "2026-10-09T12:20:51.934Z"
+      }
+    },
+    {
+      "interpretation": "Same 22 checks and checker fingerprint after minimal runtime fix: 22/22.",
+      "resultPath": "client/.verification-runs/2026-10-09T12-21-34.301Z-d25f828d-0c4b-4d1c-ba99-eb1f622c6855/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T12-21-34.301Z-d25f828d-0c4b-4d1c-ba99-eb1f622c6855/output.log",
+      "resultSHA256": "E758857D353858AD3DFACC3CD54214BC3474FC2750F22F679D6EDEE1F213BE14",
+      "logSHA256": "19A183CF722DD0B36DBC44D204ED11298891081EA771E85C486EADFE0465EC20",
+      "logBytes": 1609,
+      "result": {
+        "runId": "2026-10-09T12-21-34.301Z-d25f828d-0c4b-4d1c-ba99-eb1f622c6855",
+        "command": "node scripts/check-ai-recovery-forced-control.mjs",
+        "startedAt": "2026-10-09T12:21:34.306Z",
+        "pid": 27188,
+        "engineBefore": "1f6f88223adadb654db266fea5db49d7fe7b07ce2f931ee3ce81e7c365fe3f88",
+        "verificationSourcesBefore": {
+          "scripts/run-eternal-hunger-verification.mjs": "2108f21ac19e3e2d9a17988a6f42654b51107dc927504df94c92ad4d008dedac",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "bf8a1f72aa3b2c127fdb080f0e5e9c04b65939d61993d08fde034c14794ef2a2",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e"
+        },
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "1f6f88223adadb654db266fea5db49d7fe7b07ce2f931ee3ce81e7c365fe3f88",
+        "sameEngine": true,
+        "verificationSourcesAfter": {
+          "scripts/run-eternal-hunger-verification.mjs": "2108f21ac19e3e2d9a17988a6f42654b51107dc927504df94c92ad4d008dedac",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "bf8a1f72aa3b2c127fdb080f0e5e9c04b65939d61993d08fde034c14794ef2a2",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e"
+        },
+        "sameVerificationSources": true,
+        "finishedAt": "2026-10-09T12:21:35.082Z"
+      }
+    },
+    {
+      "interpretation": "Focused chain failed on legacy timing expectation that taunt had no target during AI recovery.",
+      "resultPath": "client/.verification-runs/2026-10-09T12-22-17.041Z-2a45ccc8-66ea-4a54-b36b-6ba793d52180/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T12-22-17.041Z-2a45ccc8-66ea-4a54-b36b-6ba793d52180/output.log",
+      "resultSHA256": "D904DF898D89C95F680A0D700D9652D40FA110EF30C156FF0C986C676638C4B8",
+      "logSHA256": "149A299514EE25AC9761F2B21F80D9D7D9152505526FD6507D219E5E6664FB78",
+      "logBytes": 13209,
+      "result": {
+        "runId": "2026-10-09T12-22-17.041Z-2a45ccc8-66ea-4a54-b36b-6ba793d52180",
+        "command": "node scripts/generate-simulation-version.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-forced-control.mjs && node scripts/check-status-protection.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-combat-timing.mjs && npm run check:team-combat && node scripts/check-character-casting.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+        "startedAt": "2026-10-09T12:22:17.043Z",
+        "pid": 48920,
+        "engineBefore": "1f6f88223adadb654db266fea5db49d7fe7b07ce2f931ee3ce81e7c365fe3f88",
+        "verificationSourcesBefore": {
+          "scripts/run-eternal-hunger-verification.mjs": "2108f21ac19e3e2d9a17988a6f42654b51107dc927504df94c92ad4d008dedac",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "bf8a1f72aa3b2c127fdb080f0e5e9c04b65939d61993d08fde034c14794ef2a2",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e",
+          "scripts/check-forced-control.mjs": "bcac3d00b6abe8ebb3cfaaea3109f9052c3e2c9a63cb7e7ca5fe9ff161c20637",
+          "scripts/check-status-protection.mjs": "2c63a22eb37119137deaf19a432c11cf2c6389dd67fe1b112ed91d43eaef8506",
+          "scripts/check-action-states.mjs": "7ebb4393ce8c16ff2da94963834b5d9f6472e6f2b5048b493b463d767de60039",
+          "scripts/check-combat-spatial.mjs": "707ff173fe4b3996e778ccb7b99647a71d0e58b11c187127aa6e04f18fe2ab20",
+          "scripts/check-combat-timing.mjs": "351276b71b95a48a052e61dc08d2a082775ad4d5f47b4a54e40c7bb6db4ece55",
+          "scripts/check-team-combat.mjs": "ba3e57e05cf431d314b981a25494a326536460379bb69ada22910e78bdb55904",
+          "scripts/check-character-casting.mjs": "b93fffc29ff178b455b0693bb36c8e19b1066334cad01f3b00d14c395a87cbe1",
+          "scripts/check-combat-participation-observation.mjs": "2a78c09c95dbb1ffea64af9eaf2ee17aafe25fa6c42c9925d32b43cf81b0041a",
+          "scripts/check-team-combat-participation-diagnostics.mjs": "39112093ae8fbedc87808bc38574fd06dfab1e45e0c4407d6230698e6b645380",
+          "scripts/check-hunt-pvp-interruption.mjs": "de9df17f6c92b96cd6d4f6fe32f6670317330442aefb30d27c303b4d86f65a1c",
+          "scripts/check-hunt-pvp-handoff.mjs": "3e76104ff6d60d246d59614402ac4c84b27214cca05902cdc3d9a4abae161faa"
+        },
+        "status": "failed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 1,
+        "signal": null,
+        "engineAfter": "1f6f88223adadb654db266fea5db49d7fe7b07ce2f931ee3ce81e7c365fe3f88",
+        "sameEngine": true,
+        "verificationSourcesAfter": {
+          "scripts/run-eternal-hunger-verification.mjs": "2108f21ac19e3e2d9a17988a6f42654b51107dc927504df94c92ad4d008dedac",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "bf8a1f72aa3b2c127fdb080f0e5e9c04b65939d61993d08fde034c14794ef2a2",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e",
+          "scripts/check-forced-control.mjs": "bcac3d00b6abe8ebb3cfaaea3109f9052c3e2c9a63cb7e7ca5fe9ff161c20637",
+          "scripts/check-status-protection.mjs": "2c63a22eb37119137deaf19a432c11cf2c6389dd67fe1b112ed91d43eaef8506",
+          "scripts/check-action-states.mjs": "7ebb4393ce8c16ff2da94963834b5d9f6472e6f2b5048b493b463d767de60039",
+          "scripts/check-combat-spatial.mjs": "707ff173fe4b3996e778ccb7b99647a71d0e58b11c187127aa6e04f18fe2ab20",
+          "scripts/check-combat-timing.mjs": "351276b71b95a48a052e61dc08d2a082775ad4d5f47b4a54e40c7bb6db4ece55",
+          "scripts/check-team-combat.mjs": "ba3e57e05cf431d314b981a25494a326536460379bb69ada22910e78bdb55904",
+          "scripts/check-character-casting.mjs": "b93fffc29ff178b455b0693bb36c8e19b1066334cad01f3b00d14c395a87cbe1",
+          "scripts/check-combat-participation-observation.mjs": "2a78c09c95dbb1ffea64af9eaf2ee17aafe25fa6c42c9925d32b43cf81b0041a",
+          "scripts/check-team-combat-participation-diagnostics.mjs": "39112093ae8fbedc87808bc38574fd06dfab1e45e0c4407d6230698e6b645380",
+          "scripts/check-hunt-pvp-interruption.mjs": "de9df17f6c92b96cd6d4f6fe32f6670317330442aefb30d27c303b4d86f65a1c",
+          "scripts/check-hunt-pvp-handoff.mjs": "3e76104ff6d60d246d59614402ac4c84b27214cca05902cdc3d9a4abae161faa"
+        },
+        "sameVerificationSources": true,
+        "finishedAt": "2026-10-09T12:22:20.905Z"
+      }
+    },
+    {
+      "interpretation": "Focused chain passed after separately asserting forced taunt targeting and ordinary recovery lock.",
+      "resultPath": "client/.verification-runs/2026-10-09T12-22-52.098Z-af470bcc-c47d-464b-b298-d05bd00beda6/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T12-22-52.098Z-af470bcc-c47d-464b-b298-d05bd00beda6/output.log",
+      "resultSHA256": "FAE8CCDA1D3B1CB77BE6711571F6B2C433014DD435EC5C658C616288F7F7FA34",
+      "logSHA256": "EC96C977F04333F68D33E9B22E2015E2F1BB90519D366A0DACA308190C7A26F3",
+      "logBytes": 20781,
+      "result": {
+        "runId": "2026-10-09T12-22-52.098Z-af470bcc-c47d-464b-b298-d05bd00beda6",
+        "command": "node scripts/generate-simulation-version.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-forced-control.mjs && node scripts/check-status-protection.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-combat-timing.mjs && npm run check:team-combat && node scripts/check-character-casting.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+        "startedAt": "2026-10-09T12:22:52.1Z",
+        "pid": 54276,
+        "engineBefore": "1f6f88223adadb654db266fea5db49d7fe7b07ce2f931ee3ce81e7c365fe3f88",
+        "verificationSourcesBefore": {
+          "scripts/run-eternal-hunger-verification.mjs": "2108f21ac19e3e2d9a17988a6f42654b51107dc927504df94c92ad4d008dedac",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "bf8a1f72aa3b2c127fdb080f0e5e9c04b65939d61993d08fde034c14794ef2a2",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e",
+          "scripts/check-forced-control.mjs": "bcac3d00b6abe8ebb3cfaaea3109f9052c3e2c9a63cb7e7ca5fe9ff161c20637",
+          "scripts/check-status-protection.mjs": "2c63a22eb37119137deaf19a432c11cf2c6389dd67fe1b112ed91d43eaef8506",
+          "scripts/check-action-states.mjs": "7ebb4393ce8c16ff2da94963834b5d9f6472e6f2b5048b493b463d767de60039",
+          "scripts/check-combat-spatial.mjs": "707ff173fe4b3996e778ccb7b99647a71d0e58b11c187127aa6e04f18fe2ab20",
+          "scripts/check-combat-timing.mjs": "71e97c723d0dd12109d5aecd5f16fdaccd133e75a17ae7d5ff192549ab621181",
+          "scripts/check-team-combat.mjs": "ba3e57e05cf431d314b981a25494a326536460379bb69ada22910e78bdb55904",
+          "scripts/check-character-casting.mjs": "b93fffc29ff178b455b0693bb36c8e19b1066334cad01f3b00d14c395a87cbe1",
+          "scripts/check-combat-participation-observation.mjs": "2a78c09c95dbb1ffea64af9eaf2ee17aafe25fa6c42c9925d32b43cf81b0041a",
+          "scripts/check-team-combat-participation-diagnostics.mjs": "39112093ae8fbedc87808bc38574fd06dfab1e45e0c4407d6230698e6b645380",
+          "scripts/check-hunt-pvp-interruption.mjs": "de9df17f6c92b96cd6d4f6fe32f6670317330442aefb30d27c303b4d86f65a1c",
+          "scripts/check-hunt-pvp-handoff.mjs": "3e76104ff6d60d246d59614402ac4c84b27214cca05902cdc3d9a4abae161faa"
+        },
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "1f6f88223adadb654db266fea5db49d7fe7b07ce2f931ee3ce81e7c365fe3f88",
+        "sameEngine": true,
+        "verificationSourcesAfter": {
+          "scripts/run-eternal-hunger-verification.mjs": "2108f21ac19e3e2d9a17988a6f42654b51107dc927504df94c92ad4d008dedac",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "bf8a1f72aa3b2c127fdb080f0e5e9c04b65939d61993d08fde034c14794ef2a2",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e",
+          "scripts/check-forced-control.mjs": "bcac3d00b6abe8ebb3cfaaea3109f9052c3e2c9a63cb7e7ca5fe9ff161c20637",
+          "scripts/check-status-protection.mjs": "2c63a22eb37119137deaf19a432c11cf2c6389dd67fe1b112ed91d43eaef8506",
+          "scripts/check-action-states.mjs": "7ebb4393ce8c16ff2da94963834b5d9f6472e6f2b5048b493b463d767de60039",
+          "scripts/check-combat-spatial.mjs": "707ff173fe4b3996e778ccb7b99647a71d0e58b11c187127aa6e04f18fe2ab20",
+          "scripts/check-combat-timing.mjs": "71e97c723d0dd12109d5aecd5f16fdaccd133e75a17ae7d5ff192549ab621181",
+          "scripts/check-team-combat.mjs": "ba3e57e05cf431d314b981a25494a326536460379bb69ada22910e78bdb55904",
+          "scripts/check-character-casting.mjs": "b93fffc29ff178b455b0693bb36c8e19b1066334cad01f3b00d14c395a87cbe1",
+          "scripts/check-combat-participation-observation.mjs": "2a78c09c95dbb1ffea64af9eaf2ee17aafe25fa6c42c9925d32b43cf81b0041a",
+          "scripts/check-team-combat-participation-diagnostics.mjs": "39112093ae8fbedc87808bc38574fd06dfab1e45e0c4407d6230698e6b645380",
+          "scripts/check-hunt-pvp-interruption.mjs": "de9df17f6c92b96cd6d4f6fe32f6670317330442aefb30d27c303b4d86f65a1c",
+          "scripts/check-hunt-pvp-handoff.mjs": "3e76104ff6d60d246d59614402ac4c84b27214cca05902cdc3d9a4abae161faa"
+        },
+        "sameVerificationSources": true,
+        "finishedAt": "2026-10-09T12:23:50.783Z"
+      }
+    },
+    {
+      "interpretation": "Final focused chain: 24/24 new groups including real HP damage, helper guards and no Q/R casts.",
+      "resultPath": "client/.verification-runs/2026-10-09T12-25-30.429Z-4df4b350-c362-4da9-96d3-5773c956e4d8/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T12-25-30.429Z-4df4b350-c362-4da9-96d3-5773c956e4d8/output.log",
+      "resultSHA256": "ACB1D616DAAD7598A4F3878B44395CB5311116495B53249CBADFB06F891B0DC3",
+      "logSHA256": "9457AE7AAFCED26B61A1A16F5241C0927E2618442FD1B7076910A59DBD1A4BF3",
+      "logBytes": 20960,
+      "result": {
+        "runId": "2026-10-09T12-25-30.429Z-4df4b350-c362-4da9-96d3-5773c956e4d8",
+        "command": "node scripts/generate-simulation-version.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-forced-control.mjs && node scripts/check-status-protection.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-combat-timing.mjs && npm run check:team-combat && node scripts/check-character-casting.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+        "startedAt": "2026-10-09T12:25:30.431Z",
+        "pid": 33788,
+        "engineBefore": "1f6f88223adadb654db266fea5db49d7fe7b07ce2f931ee3ce81e7c365fe3f88",
+        "verificationSourcesBefore": {
+          "scripts/run-eternal-hunger-verification.mjs": "817fb5b71769adf754ca6bf6b4b564ac4da98f60021a184afce8358c021f2455",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "24ce7dd09d9fec23658129f73212601c5a632d8f061b2ed6cba1a8de866ceb65",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e",
+          "scripts/check-forced-control.mjs": "bcac3d00b6abe8ebb3cfaaea3109f9052c3e2c9a63cb7e7ca5fe9ff161c20637",
+          "scripts/check-status-protection.mjs": "2c63a22eb37119137deaf19a432c11cf2c6389dd67fe1b112ed91d43eaef8506",
+          "scripts/check-action-states.mjs": "7ebb4393ce8c16ff2da94963834b5d9f6472e6f2b5048b493b463d767de60039",
+          "scripts/check-combat-spatial.mjs": "707ff173fe4b3996e778ccb7b99647a71d0e58b11c187127aa6e04f18fe2ab20",
+          "scripts/check-combat-timing.mjs": "71e97c723d0dd12109d5aecd5f16fdaccd133e75a17ae7d5ff192549ab621181",
+          "scripts/check-team-combat.mjs": "ba3e57e05cf431d314b981a25494a326536460379bb69ada22910e78bdb55904",
+          "scripts/check-character-casting.mjs": "b93fffc29ff178b455b0693bb36c8e19b1066334cad01f3b00d14c395a87cbe1",
+          "scripts/check-combat-participation-observation.mjs": "2a78c09c95dbb1ffea64af9eaf2ee17aafe25fa6c42c9925d32b43cf81b0041a",
+          "scripts/check-team-combat-participation-diagnostics.mjs": "39112093ae8fbedc87808bc38574fd06dfab1e45e0c4407d6230698e6b645380",
+          "scripts/check-hunt-pvp-interruption.mjs": "de9df17f6c92b96cd6d4f6fe32f6670317330442aefb30d27c303b4d86f65a1c",
+          "scripts/check-hunt-pvp-handoff.mjs": "3e76104ff6d60d246d59614402ac4c84b27214cca05902cdc3d9a4abae161faa"
+        },
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "1f6f88223adadb654db266fea5db49d7fe7b07ce2f931ee3ce81e7c365fe3f88",
+        "sameEngine": true,
+        "verificationSourcesAfter": {
+          "scripts/run-eternal-hunger-verification.mjs": "817fb5b71769adf754ca6bf6b4b564ac4da98f60021a184afce8358c021f2455",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "24ce7dd09d9fec23658129f73212601c5a632d8f061b2ed6cba1a8de866ceb65",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e",
+          "scripts/check-forced-control.mjs": "bcac3d00b6abe8ebb3cfaaea3109f9052c3e2c9a63cb7e7ca5fe9ff161c20637",
+          "scripts/check-status-protection.mjs": "2c63a22eb37119137deaf19a432c11cf2c6389dd67fe1b112ed91d43eaef8506",
+          "scripts/check-action-states.mjs": "7ebb4393ce8c16ff2da94963834b5d9f6472e6f2b5048b493b463d767de60039",
+          "scripts/check-combat-spatial.mjs": "707ff173fe4b3996e778ccb7b99647a71d0e58b11c187127aa6e04f18fe2ab20",
+          "scripts/check-combat-timing.mjs": "71e97c723d0dd12109d5aecd5f16fdaccd133e75a17ae7d5ff192549ab621181",
+          "scripts/check-team-combat.mjs": "ba3e57e05cf431d314b981a25494a326536460379bb69ada22910e78bdb55904",
+          "scripts/check-character-casting.mjs": "b93fffc29ff178b455b0693bb36c8e19b1066334cad01f3b00d14c395a87cbe1",
+          "scripts/check-combat-participation-observation.mjs": "2a78c09c95dbb1ffea64af9eaf2ee17aafe25fa6c42c9925d32b43cf81b0041a",
+          "scripts/check-team-combat-participation-diagnostics.mjs": "39112093ae8fbedc87808bc38574fd06dfab1e45e0c4407d6230698e6b645380",
+          "scripts/check-hunt-pvp-interruption.mjs": "de9df17f6c92b96cd6d4f6fe32f6670317330442aefb30d27c303b4d86f65a1c",
+          "scripts/check-hunt-pvp-handoff.mjs": "3e76104ff6d60d246d59614402ac4c84b27214cca05902cdc3d9a4abae161faa"
+        },
+        "sameVerificationSources": true,
+        "finishedAt": "2026-10-09T12:25:55.196Z"
+      }
+    },
+    {
+      "interpretation": "Current full check:eternal-hunger chain, runtime lint and 62-page production build passed. Headless/mocked contracts do not establish browser, account or human acceptance.",
+      "resultPath": "client/.verification-runs/2026-10-09T12-29-04.424Z-f76bd3bb-1356-410a-b45f-34b28c9ddf00/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T12-29-04.424Z-f76bd3bb-1356-410a-b45f-34b28c9ddf00/output.log",
+      "resultSHA256": "C9BB6B1E8065EC3042BC63509028A57DF844709B805C48F1AD8A5E1DEBEE2B34",
+      "logSHA256": "1B646F398544D24258851DCB1CC2634EB5920C957467AECF5CF0321AB52845C1",
+      "logBytes": 243761,
+      "result": {
+        "runId": "2026-10-09T12-29-04.424Z-f76bd3bb-1356-410a-b45f-34b28c9ddf00",
+        "command": "npm run check:eternal-hunger",
+        "startedAt": "2026-10-09T12:29:04.431Z",
+        "pid": 56196,
+        "engineBefore": "1f6f88223adadb654db266fea5db49d7fe7b07ce2f931ee3ce81e7c365fe3f88",
+        "verificationSourcesBefore": {
+          "scripts/run-eternal-hunger-verification.mjs": "817fb5b71769adf754ca6bf6b4b564ac4da98f60021a184afce8358c021f2455",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "24ce7dd09d9fec23658129f73212601c5a632d8f061b2ed6cba1a8de866ceb65",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e",
+          "scripts/check-combat-timing.mjs": "71e97c723d0dd12109d5aecd5f16fdaccd133e75a17ae7d5ff192549ab621181"
+        },
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "1f6f88223adadb654db266fea5db49d7fe7b07ce2f931ee3ce81e7c365fe3f88",
+        "sameEngine": true,
+        "verificationSourcesAfter": {
+          "scripts/run-eternal-hunger-verification.mjs": "817fb5b71769adf754ca6bf6b4b564ac4da98f60021a184afce8358c021f2455",
+          "package.json": "1a9e2592ea4e2002676fd4f9d4467164ea69be756085ea040fa9c2d00ff15df6",
+          "scripts/check-ai-recovery-forced-control.mjs": "24ce7dd09d9fec23658129f73212601c5a632d8f061b2ed6cba1a8de866ceb65",
+          "scripts/lib/run-combat-scenario.mjs": "703bb83bfea14650d3e947370ccf93dfd11adb262807d2574f8c8402812dd97e",
+          "scripts/check-combat-timing.mjs": "71e97c723d0dd12109d5aecd5f16fdaccd133e75a17ae7d5ff192549ab621181"
+        },
+        "sameVerificationSources": true,
+        "finishedAt": "2026-10-09T13:02:02.877Z"
+      }
+    }
+  ],
+  "finalFocused": {
+    "newGroups": 24,
+    "forcedControlGroups": 22,
+    "statusProtectionGroups": 28,
+    "actionStatesGroups": 23,
+    "spatialGroups": 25,
+    "timingGroups": 31,
+    "teamCombatGroups": 12,
+    "observationContractGroups": 5,
+    "diagnosticGroups": 19,
+    "huntInterruptionGroups": 4,
+    "handoffGroups": 3,
+    "castingGroups": 28,
+    "fingerprintGroups": 5,
+    "runtimeSweepPassed": true,
+    "capturedSourceCount": 15
+  },
+  "fullObserved": [
+    {
+      "marker": "FORCED_CONTROL_MATCH",
+      "seed": "forced-control-integration-1",
+      "phases": 13,
+      "frames": 6727,
+      "ticks": 1286.25,
+      "eventCount": 13372,
+      "controlledHits": 7,
+      "transitions": 24,
+      "comparison": {
+        "matched": true,
+        "firstDifference": -1,
+        "expectedEvents": 13372,
+        "actualEvents": 13372,
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true
+      },
+      "apiCalls": 0
+    },
+    {
+      "marker": "CHARACTER_CASTING_MATCH",
+      "seed": "casting-integration-1",
+      "phases": 13,
+      "frames": 7000,
+      "ticks": 1237.083333,
+      "eventCount": 14756,
+      "casts": 377,
+      "cancels": 46,
+      "releases": 323,
+      "ultimateCasts": 86,
+      "huntingCasts": 78,
+      "huntTransfers": 1,
+      "comparison": {
+        "matched": true,
+        "firstDifference": -1,
+        "expectedEvents": 14756,
+        "actualEvents": 14756,
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true
+      },
+      "apiCalls": 0
+    },
+    {
+      "marker": "CHARACTER_STATUS_SKILLS_MATCH",
+      "seed": "authored-status-skills-1",
+      "phases": 13,
+      "frames": 7361,
+      "ticks": 1289.5,
+      "eventCount": 17214,
+      "effects": 250,
+      "comparison": {
+        "matched": true,
+        "firstDifference": -1,
+        "expectedEvents": 17214,
+        "actualEvents": 17214,
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true
+      },
+      "apiCalls": 0
+    },
+    {
+      "marker": "RNG_MATCH_REPLAYS",
+      "apiCalls": 0,
+      "seed": "1101",
+      "phases": 11,
+      "frames": 5840,
+      "ticks": 1124.916666,
+      "eventCount": 11632
+    },
+    {
+      "marker": "SAVED_INPUT_REPLAY",
+      "seed": "1101",
+      "phases": 12,
+      "frames": 6407,
+      "ticks": 1217.333333,
+      "eventCount": 14718,
+      "comparison": {
+        "matched": true,
+        "firstDifference": -1,
+        "expectedEvents": 14718,
+        "actualEvents": 14718,
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true
+      },
+      "externalAccess": 0
+    }
+  ],
+  "firstNight": [
+    {
+      "pass": true,
+      "seed": "1101",
+      "initialRosterSeed": "FIRST-DAY:1101",
+      "firstDayEndSec": 250,
+      "complete": 24,
+      "total": 24,
+      "completionSec": [
+        24,
+        24,
+        25,
+        25,
+        26,
+        26,
+        27,
+        27,
+        29,
+        31,
+        31,
+        33,
+        34,
+        34,
+        34,
+        34,
+        35,
+        36,
+        36,
+        37,
+        38,
+        39,
+        40,
+        42
+      ],
+      "battles": 10,
+      "eventCount": 6121,
+      "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes"
+    },
+    {
+      "pass": true,
+      "seed": "2202",
+      "initialRosterSeed": "FIRST-DAY:2202",
+      "firstDayEndSec": 250,
+      "complete": 24,
+      "total": 24,
+      "completionSec": [
+        24,
+        26,
+        26,
+        26,
+        28,
+        28,
+        28,
+        30,
+        30,
+        31,
+        32,
+        32,
+        34,
+        34,
+        35,
+        35,
+        35,
+        35,
+        36,
+        37,
+        37,
+        38,
+        38,
+        39
+      ],
+      "battles": 7,
+      "eventCount": 6343,
+      "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes"
+    },
+    {
+      "pass": true,
+      "seed": "3303",
+      "initialRosterSeed": "FIRST-DAY:3303",
+      "firstDayEndSec": 250,
+      "complete": 24,
+      "total": 24,
+      "completionSec": [
+        21,
+        23,
+        25,
+        25,
+        26,
+        27,
+        27,
+        30,
+        31,
+        31,
+        31,
+        34,
+        34,
+        35,
+        35,
+        35,
+        36,
+        36,
+        37,
+        37,
+        38,
+        40,
+        44,
+        68
+      ],
+      "battles": 7,
+      "eventCount": 6409,
+      "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes"
+    }
+  ],
+  "build": {
+    "id": "kV3GSyLL37D5y0UfLF1zD",
+    "staticPages": 62,
+    "serverEngineMarkers": [
+      "client/.next/server\\chunks\\7457.js"
+    ],
+    "clientEngineMarkers": [
+      "client/.next/static\\chunks\\6642-bfdca00834c2615a.js"
+    ],
+    "snapshot": {
+      "files": 1429,
+      "bytes": 74745356,
+      "sha256": "A30687000C636A0F9D3965F23AC3EA2FFC62BCBE4E11771784DC4B62102BC51E"
+    },
+    "scope": "Production build and engine strings in real server/client chunks; not browser execution or deployment."
+  },
+  "cleanup": {
+    "status": "passed",
+    "error": null,
+    "target": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+    "baselinePackFiles": 0,
+    "deletedFiles": 6,
+    "deletedBytes": 593446858,
+    "deleted": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "relative": "client/.next/cache/webpack/client-production/0.pack",
+        "bytes": 255668292,
+        "sha256": "A381CB1353CF5FACA1C0058966185176999D80C9788B6E8A1C249162C368CFE6"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "relative": "client/.next/cache/webpack/client-production/index.pack",
+        "bytes": 12833242,
+        "sha256": "77A7E4FCA749487114FB40B2D32D87DA25ADE9EF5C0EF10684EF62B742DFC447"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "relative": "client/.next/cache/webpack/edge-server-production/0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "relative": "client/.next/cache/webpack/edge-server-production/index.pack",
+        "bytes": 2464,
+        "sha256": "F194D9838367F02D4AB8A211792BFB8D097A5F764741C77F558601155ECB5880"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "relative": "client/.next/cache/webpack/server-production/0.pack",
+        "bytes": 306867325,
+        "sha256": "DFE41E4C82B045BD1B5A3DC405013A8F01AFD57025C397523AA5865CAC319BEE"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "relative": "client/.next/cache/webpack/server-production/index.pack",
+        "bytes": 18075259,
+        "sha256": "1E3429FAE4501E77BEA2E03E456DC5315D4472DA25B14113672F901C9D98FAD0"
+      }
+    ],
+    "remainingPackFiles": 0,
+    "protectedBefore": {
+      "files": 27,
+      "bytes": 507555,
+      "sha256": "282013FE6A5EE8BE0FF7B4F544FCFE9BD343EC6511E50859BFE66A7491263A0B",
+      "entries": [
+        {
+          "path": "client/.verification-runs/2026-10-09T12-17-59.839Z-3385f9c0-2501-4241-b394-3ef2006bbd35/output.log",
+          "bytes": 12364,
+          "sha256": "647E01F5FCA36F171B952B4CFAFA13AA9020F3DC5541962688D3D1A8CEC95426"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-17-59.839Z-3385f9c0-2501-4241-b394-3ef2006bbd35/result.json",
+          "bytes": 1561,
+          "sha256": "BD3A99D12545403D70D9A6158A6532EC2FB6001A3DCEAE7D28F59B99F7168788"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-20-51.339Z-840890df-a17a-4d67-8683-5ea012866f67/output.log",
+          "bytes": 19471,
+          "sha256": "D69C72885C1417BD1D45001237D23E23914CB7317E916A42C305C2414EC17BE7"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-20-51.339Z-840890df-a17a-4d67-8683-5ea012866f67/result.json",
+          "bytes": 1561,
+          "sha256": "DD855F99F44CA1A007D18C1EA000F37C3ABF0C58A157668A9E93E55EEA7385BC"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-21-34.301Z-d25f828d-0c4b-4d1c-ba99-eb1f622c6855/output.log",
+          "bytes": 1609,
+          "sha256": "19A183CF722DD0B36DBC44D204ED11298891081EA771E85C486EADFE0465EC20"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-21-34.301Z-d25f828d-0c4b-4d1c-ba99-eb1f622c6855/result.json",
+          "bytes": 1561,
+          "sha256": "E758857D353858AD3DFACC3CD54214BC3474FC2750F22F679D6EDEE1F213BE14"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-22-17.041Z-2a45ccc8-66ea-4a54-b36b-6ba793d52180/output.log",
+          "bytes": 13209,
+          "sha256": "149A299514EE25AC9761F2B21F80D9D7D9152505526FD6507D219E5E6664FB78"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-22-17.041Z-2a45ccc8-66ea-4a54-b36b-6ba793d52180/result.json",
+          "bytes": 4439,
+          "sha256": "D904DF898D89C95F680A0D700D9652D40FA110EF30C156FF0C986C676638C4B8"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-22-52.098Z-af470bcc-c47d-464b-b298-d05bd00beda6/output.log",
+          "bytes": 20781,
+          "sha256": "EC96C977F04333F68D33E9B22E2015E2F1BB90519D366A0DACA308190C7A26F3"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-22-52.098Z-af470bcc-c47d-464b-b298-d05bd00beda6/result.json",
+          "bytes": 4439,
+          "sha256": "FAE8CCDA1D3B1CB77BE6711571F6B2C433014DD435EC5C658C616288F7F7FA34"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-25-30.429Z-4df4b350-c362-4da9-96d3-5773c956e4d8/output.log",
+          "bytes": 20960,
+          "sha256": "9457AE7AAFCED26B61A1A16F5241C0927E2618442FD1B7076910A59DBD1A4BF3"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-25-30.429Z-4df4b350-c362-4da9-96d3-5773c956e4d8/result.json",
+          "bytes": 4439,
+          "sha256": "ACB1D616DAAD7598A4F3878B44395CB5311116495B53249CBADFB06F891B0DC3"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-29-04.424Z-f76bd3bb-1356-410a-b45f-34b28c9ddf00/output.log",
+          "bytes": 243761,
+          "sha256": "1B646F398544D24258851DCB1CC2634EB5920C957467AECF5CF0321AB52845C1"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T12-29-04.424Z-f76bd3bb-1356-410a-b45f-34b28c9ddf00/result.json",
+          "bytes": 1754,
+          "sha256": "C9BB6B1E8065EC3042BC63509028A57DF844709B805C48F1AD8A5E1DEBEE2B34"
+        },
+        {
+          "path": "client/package.json",
+          "bytes": 26719,
+          "sha256": "1A9E2592EA4E2002676FD4F9D4467164EA69BE756085EA040FA9C2D00FF15DF6"
+        },
+        {
+          "path": "client/scripts/check-ai-recovery-forced-control.mjs",
+          "bytes": 17944,
+          "sha256": "24CE7DD09D9FEC23658129F73212601C5A632D8F061B2ED6CBA1A8DE866CEB65"
+        },
+        {
+          "path": "client/scripts/check-combat-timing.mjs",
+          "bytes": 23989,
+          "sha256": "71E97C723D0DD12109D5AECD5F16FDACCD133E75A17AE7D5FF192549AB621181"
+        },
+        {
+          "path": "client/scripts/check-observer-goals-match.mjs",
+          "bytes": 15715,
+          "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+        },
+        {
+          "path": "client/scripts/lib/run-combat-scenario.mjs",
+          "bytes": 3460,
+          "sha256": "703BB83BFEA14650D3E947370CCF93DFD11ADB262807D2574F8C8402812DD97E"
+        },
+        {
+          "path": "client/scripts/run-eternal-hunger-verification.mjs",
+          "bytes": 14163,
+          "sha256": "817FB5B71769ADF754CA6BF6B4B564AC4DA98F60021A184AFCE8358C021F2455"
+        },
+        {
+          "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+          "bytes": 166,
+          "sha256": "2A3FAB53AEAE2FC9E828A0E18CD12BA286896636ED8F77085407FCE0D22ACA30"
+        },
+        {
+          "path": "client/src/app/simulation/_lib/combatSpatialRuntime.js",
+          "bytes": 15465,
+          "sha256": "7792DDF4BE24F0000F9E65D3246F8E0A30BA0B5F2C63E6D3C97174C50E421577"
+        },
+        {
+          "path": "client/src/app/simulation/_lib/combatTimingRuntime.js",
+          "bytes": 9383,
+          "sha256": "98712F0FB2C061E4727D144395C73E508617586A595C388696A045757CEB59AD"
+        },
+        {
+          "path": "client/src/app/simulation/_lib/phaseCombatEncounterRuntime.js",
+          "bytes": 12273,
+          "sha256": "14E15517614397D3D7DE86F023C74EBE9CE9BEC6DF17D84FF368E17CF5FDE346"
+        },
+        {
+          "path": "client/src/app/simulation/_lib/teamCombatRuntime.js",
+          "bytes": 8625,
+          "sha256": "1A0F557FEF3179A1E7A19D8ECB5E41AC3F659ADFF88AE87BACB2F83CF2E0DE75"
+        },
+        {
+          "path": "server/.env.example",
+          "bytes": 2125,
+          "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+        },
+        {
+          "path": "server/index.js",
+          "bytes": 5619,
+          "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+        }
+      ]
+    },
+    "protectedAfter": {
+      "files": 27,
+      "bytes": 507555,
+      "sha256": "282013FE6A5EE8BE0FF7B4F544FCFE9BD343EC6511E50859BFE66A7491263A0B"
+    },
+    "buildBefore": {
+      "files": 1429,
+      "bytes": 74745356,
+      "sha256": "A30687000C636A0F9D3965F23AC3EA2FFC62BCBE4E11771784DC4B62102BC51E"
+    },
+    "buildAfter": {
+      "files": 1429,
+      "bytes": 74745356,
+      "sha256": "A30687000C636A0F9D3965F23AC3EA2FFC62BCBE4E11771784DC4B62102BC51E"
+    },
+    "sameProtected": true,
+    "sameBuild": true,
+    "recovery": "Generated webpack packs can be recreated by rebuilding; complete build, source, user changes and unique run evidence are retained.",
+    "spaceScope": "Logical removed file bytes; physical free-space increase was not measured.",
+    "finishedAt": "2026-10-09T13:08:42.0920398Z"
+  },
+  "originalGoal": {
+    "marker": "## 제품 정의와 범위",
+    "normalizedTailChars": 20641,
+    "normalizedTailUTF8Bytes": 43026,
+    "normalizedTailSHA256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B",
+    "normalization": "CRLF to LF, then UTF-8"
+  },
+  "remainingGates": [
+    "Diverse natural inputs showing actual changed cooperation and survival contribution; this forced-control fix is not proof that the prior Baekro zero-hit comparison is resolved.",
+    "Foreground x1/x8/x32 pace, long-session memory and map/observer readability.",
+    "Actual new browser-session save/resume, authenticated HTTP/database persistence and AI output quality.",
+    "Follow-up human understanding/fun/replay-intent evaluation and current public release acceptance."
+  ],
+  "authorizationScope": {
+    "newAgentInitiatedPaidAICalls": 0,
+    "newAgentInitiatedBrowserSessions": 0,
+    "newActualAccountWrites": 0,
+    "pushes": 0,
+    "publicDeployments": 0,
+    "goalStatus": "active_incomplete",
+    "scopeNote": "Static call-path review and isolated contract evidence are not outbound-packet observation."
+  }
+}
