@@ -6,6 +6,7 @@ import { getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
 import { prepareCraftTransaction } from './craftTransactionRuntime.js';
 import { areEquipmentWeaponTypesCompatible } from '../../../utils/equipmentCatalog.js';
 import { GROWTH_EQUIPMENT_SLOTS, getGrowthEquipmentCatalog } from './growthEquipmentRuntime.js';
+import { classifySpecialByName } from './craftRuntime.js';
 
 const catalogCache = new WeakMap();
 const catalogKeyCache = new WeakMap();
@@ -292,12 +293,52 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
     sourceZones: new Map(), routes: new Map() };
   const plans = [];
   let viable;
+  let waitingFocus;
+  let earlierAuthoredTarget = false;
+  const authoredLateKeys = new Set(GROWTH_EQUIPMENT_SLOTS.flatMap(slot => ['legend', 'transcend']
+    .map(group => String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim())).filter(Boolean));
+  const wornIds = new Set(Object.values(actor.equipped || {}).filter(Boolean).map(String));
   const needsBasicGear = GROWTH_EQUIPMENT_SLOTS.some((slot) => tierBySlot[slot] < 4);
   for (const target of remaining) {
     if (attemptedTargets.includes(target._id)) continue;
+    if (waitingFocus) {
+      // Only a ready final result may supersede this wait. Reject unowned or
+      // unaffordable direct inputs before expensive source/path accounting;
+      // capacity and the atomic receipt are still checked by the real plan.
+      const terms = getCraftRecipeTerms(target);
+      if (!terms || !(terms.creditsCost <= Number(actor.simCredits ?? 0))
+        || !terms.ingredients.every(row => (inventoryQuantities.get(row.itemId) || 0) >= row.qty)) continue;
+    }
     const plan = planGrowthTarget(actor, items, target, base, context);
     plans.push(plan);
+    const precededByAuthoredTarget = earlierAuthoredTarget;
+    earlierAuthoredTarget ||= authoredLateKeys.has(plan.targetId)
+      || authoredLateKeys.has(String(plan.targetKey).trim());
+    // A started late recipe can be waiting only for a timed rare source. Do
+    // not unreserve its owned components merely to farm another unfinished
+    // recipe: low-tier weapon ingredients would then be discarded by the
+    // next inventory normalization and requested again. Earlier authored
+    // targets and viable recipes retain priority; blocked automatic options
+    // cannot discard this real progress. Other blocking reasons still replan.
+    if (openingComplete && !precededByAuthoredTarget && plan.targetId === String(actor._growthFocusId || '')
+      && plan.blocked === 'no_material_source' && plan.missing.length
+      && plan.missing.every(row => !row.zones.length
+        && inferItemCategory(indexCatalog(items).get(row.itemId)) === 'material'
+        && classifySpecialByName(row.name)
+        // Stock behind a closed/disconnected path is not a future spawn wait.
+        && !getFieldItemSourceZones(indexCatalog(items).get(row.itemId), mapObj)
+          .some(zoneId => getFieldResourceQty(fieldResources, zoneId, row.itemId) > 0))
+      // Worn base gear already survives normalization. It cannot lend stale
+      // higher-tier focus memory priority over an earlier authored recipe.
+      && plan.componentIds.some(id => (inventoryQuantities.get(id) || 0) > 0
+        && !wornIds.has(id) && !!inferEquipSlot(indexCatalog(items).get(id)))) {
+      waitingFocus = plan;
+      continue;
+    }
     if (!plan.blocked) {
+      // A payable, receivable final result may still improve equipment while
+      // the focus waits. Merely finding another raw-material route may not.
+      if (waitingFocus && plan.readyCraftId !== plan.targetId) continue;
       if (!openingComplete || !needsBasicGear) return plan;
       viable = plan;
       break;
@@ -324,6 +365,7 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
     || a.plan.targetId.localeCompare(b.plan.targetId));
   if (recovery.length) return recovery[0].plan;
   if (viable) return viable;
+  if (waitingFocus) return waitingFocus;
   // A late recipe's missing field source may still be supplied by a core or
   // boss. Preserve its ranked need; retain opening capacity-replanning order.
   if (plans.length) return openingComplete ? plans[0] : plans.at(-1);

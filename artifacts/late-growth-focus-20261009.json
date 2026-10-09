@@ -1,0 +1,1627 @@
+{
+  "schemaVersion": 1,
+  "scope": "Late recipe component preservation and read-only natural-match diagnostics. No browser, paid AI, account save, push, deployment or human acceptance. This report is a recorded output, never a verification input or expected-result dependency.",
+  "engines": {
+    "before": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+    "candidate": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1"
+  },
+  "implementation": {
+    "problem": "A rare-only late recipe could lose reserved unworn low-tier equipment to normalization after switching to another unfinished recipe, then re-farm it.",
+    "preservationRequires": [
+      "Completed opening goals",
+      "Valid current late focus",
+      "No-material-source wait only for named special materials, no stocked declared source behind unsafe/disconnected routes",
+      "Actually owned unworn equipment component",
+      "No earlier valid authored late target"
+    ],
+    "retainedPriority": [
+      "Earlier viable recipes",
+      "Earlier valid authored targets including shared boss-material claims",
+      "Payable and wholly receivable ready final alternatives",
+      "Real basic-gear recovery"
+    ],
+    "unchangedFallback": [
+      "Ordinary exhaustion",
+      "Unsafe/disconnected stocked sources",
+      "Invalid/deleted/incompatible goals",
+      "Credit failure",
+      "Whole output batch capacity failure"
+    ],
+    "computePrefilter": "After a rare wait, reject alternatives lacking real direct inputs or the final recipe fee before field/path accounting. The real plan and atomic receipt remain authoritative.",
+    "grants": [],
+    "trajectoryScope": "The runtime fix legitimately changes matches from the old engine; it is not meant to preserve the old winner. The latest compute-only refinement retained this seed's prefix event/frame/RNG evidence."
+  },
+  "evidence": {
+    "originalFullTrace": {
+      "result": {
+        "runId": "2026-10-08T23-11-19.687Z-d651862d-c7e2-498d-b3bd-8a58bfcc3d1f",
+        "command": "npm run check:movement-reversal-trace && npm run diagnose:match-distribution -- --trace-movement --compare-observer 4407",
+        "startedAt": "2026-10-08T23:11:19.697Z",
+        "pid": 29684,
+        "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+        "sameEngine": true,
+        "finishedAt": "2026-10-08T23:20:03.203Z"
+      },
+      "logSHA256": "7B7D26DCB0A4ACA10786A21E40565AAE88CECBA3CFC50277AD2AF9FB3DE3384F",
+      "focusResult": [],
+      "match": {
+        "seed": "4407",
+        "engineVersion": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+        "inputDigest": "9b68050517cf8708b3a92289b844fd7d169f3ab2b8ac9e1e2ae05f4a0b73f74e",
+        "eventDigest": "e05b6c85b3b0772dd7e3287539dd39c2041290a51762f2c6bb90b599d23698c2",
+        "frameDigest": "6be26135801907352ddeb9afd04c222cc389a7744cd6a234c1a922c3a75016c2",
+        "frames": 5982,
+        "events": 14963,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1146,
+          "day": 6,
+          "phase": "morning",
+          "cause": "combat",
+          "winnerTeamId": "team:5"
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 1103738504,
+          "draws": 19855,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "observerComparison": "pass",
+        "movement": {
+          "moves": 689,
+          "reversals": 149,
+          "reversalShare": 0.216,
+          "reversalPairs": {
+            "growth_farm->growth_farm": 9,
+            "growth_farm->team_regroup": 11,
+            "team_regroup->growth_farm": 1,
+            "team_rotate->team_regroup": 6,
+            "team_regroup->team_rotate": 8,
+            "team_rotate->growth_farm": 4,
+            "growth_farm->team_rotate": 7,
+            "team_rotate->team_rotate": 65,
+            "growth_farm->flee:team_outnumbered": 12,
+            "team_regroup->team_regroup": 1,
+            "team_rotate->early_route_avoid": 1,
+            "team_rotate->avoid_power": 1,
+            "team_rotate->escape": 1,
+            "growth_farm->critical_flee": 1,
+            "team_rotate->chase": 1,
+            "chase->team_regroup": 1,
+            "team_rotate->flee:team_outnumbered": 1,
+            "team_regroup->tac_blink_escape": 1,
+            "flee:team_outnumbered->avoid_power": 2,
+            "growth_farm->escape": 2,
+            "escape->growth_farm": 1,
+            "flee:team_outnumbered->growth_farm": 9,
+            "flee:team_outnumbered->flee:team_outnumbered": 2,
+            "avoid_power->flee:team_outnumbered": 1
+          },
+          "classification": "observed movement reversals, not automatic bugs"
+        },
+        "regroup": {
+          "started": 25,
+          "completed": 23,
+          "completionShare": 0.92,
+          "outcomes": {
+            "completed": 23,
+            "member_death": 2
+          },
+          "scope": "Full starting living team roster, fixed through the attempt; all started outcomes remain in the denominator. Partial pair contact and cross-space cohorts are not full-team completion."
+        },
+        "growth": {
+          "total": 24,
+          "goalParticipants": 24,
+          "complete": 24,
+          "firstDayDeadlineSec": 250,
+          "beforeFirstNightEnd": 24,
+          "fiveSlotHeroEquipped": 24
+        },
+        "hunts": {
+          "starts": 74,
+          "ends": 74,
+          "settlements": 72,
+          "outcomes": {
+            "victory": 72,
+            "retreat": 2
+          },
+          "unfinished": 0,
+          "integrity": "pass"
+        },
+        "traceCounts": [
+          {
+            "type": "teamRotate",
+            "total": 65,
+            "sampleCount": 24
+          },
+          {
+            "type": "explicitOutnumbered",
+            "total": 2,
+            "sampleCount": 2
+          },
+          {
+            "type": "explicitPowerGap",
+            "total": 0,
+            "sampleCount": 0
+          }
+        ]
+      },
+      "interpretation": "First 24 retained team-rotate samples were growth_farm; do not infer all historical reversals share this cause. Same-zone retreat cooldown/path rejection is not a successful move."
+    },
+    "originalPrefix": {
+      "legacyProbeNote": "An inputFocusId null in the compact old rows can mean the old probe did not emit that field; it is not proof of the actor's exact planner-time focus.",
+      "result": {
+        "runId": "2026-10-08T23-33-21.065Z-817bffc3-fab6-4e98-afdb-b40fb88667ff",
+        "command": "node scripts/diagnose-team-growth-planning.mjs",
+        "startedAt": "2026-10-08T23:33:21.078Z",
+        "pid": 47016,
+        "engineBefore": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "c94ca971c87ea1147617ad639a011165478d60d38f67065f358ca392f6d4912a",
+        "sameEngine": true,
+        "finishedAt": "2026-10-08T23:36:00.396Z"
+      },
+      "logSHA256": "D61507808B2A4B59D7A42BA10E8B6D40F0C218D42BCA2A883733C97051BB7B8A",
+      "focusResult": [],
+      "prefix": {
+        "scope": "Fresh day-1-night prefix only; not a full match or causal proof.",
+        "evidence": {
+          "seed": "4407",
+          "phases": 2,
+          "frames": 1264,
+          "ticks": 250,
+          "eventCount": 5707,
+          "random": {
+            "algorithm": "fnv1a-mulberry32-v1",
+            "state": 3112959389,
+            "draws": 4656,
+            "ids": 0,
+            "nameHistory": []
+          },
+          "eventDigest": "b4eedf8df70dc614b26152ba7b3292189ea84a694e25ef7fdcb64b73dd79ea04",
+          "frameDigest": "d7a91350b4d59d6621eba9ed7a2a0a07bc544245f9b8f2eefa6d575a1e4a7911"
+        },
+        "observerComparison": "pass",
+        "observations": 7
+      },
+      "lossObservations": [
+        {
+          "atSec": 117,
+          "sourceFrameAtSec": 116.75,
+          "inputFocusId": null,
+          "planningTarget": "namu:head:검은 베일",
+          "executionTarget": "namu:도끼:반고부",
+          "beforeHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": false,
+              "reserved": false,
+              "equipped": false
+            }
+          ],
+          "executionHandaxe": []
+        },
+        {
+          "atSec": 157,
+          "sourceFrameAtSec": 156.75,
+          "inputFocusId": null,
+          "planningTarget": "namu:head:검은 베일",
+          "executionTarget": "namu:도끼:반고부",
+          "beforeHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": false,
+              "reserved": false,
+              "equipped": false
+            }
+          ],
+          "executionHandaxe": []
+        },
+        {
+          "atSec": 197,
+          "sourceFrameAtSec": 196.75,
+          "inputFocusId": null,
+          "planningTarget": "namu:head:검은 베일",
+          "executionTarget": "namu:도끼:반고부",
+          "beforeHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": false,
+              "reserved": false,
+              "equipped": false
+            }
+          ],
+          "executionHandaxe": []
+        }
+      ]
+    },
+    "candidateChains": [
+      {
+        "result": {
+          "runId": "2026-10-08T23-42-13.956Z-875d4c35-5029-48ad-a779-0407fdc0f0a7",
+          "command": "npm run check:growth-plan && npm run check:team-tactics && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+          "startedAt": "2026-10-08T23:42:13.962Z",
+          "pid": 40056,
+          "engineBefore": "6375cf58a5143485d8499db51fd2cccbbd15abafe589bd0d50af9a9abc30bfb6",
+          "status": "failed",
+          "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+          "exitCode": 1,
+          "signal": null,
+          "engineAfter": "6375cf58a5143485d8499db51fd2cccbbd15abafe589bd0d50af9a9abc30bfb6",
+          "sameEngine": true,
+          "finishedAt": "2026-10-08T23:43:50.5Z"
+        },
+        "logSHA256": "043FDA86489D65F85B721D8ED58A392C63A6EACD00969E6D0E0B367A0DBF285A",
+        "focusResult": [
+          "RESULT late-growth-focus: 10/10 groups passed"
+        ],
+        "terminalLogTail": [
+          "  actual: 'hat-vf_blood_sample',",
+          "  expected: 'hat-_cloth',",
+          "  operator: 'strictEqual',",
+          "  diff: 'simple'",
+          "}",
+          "",
+          "Node.js v24.13.0"
+        ]
+      },
+      {
+        "result": {
+          "runId": "2026-10-08T23-49-14.411Z-73b3e3de-8bcc-4a21-9954-1d6f87d4200c",
+          "command": "npm run check:growth-plan && npm run check:team-tactics && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+          "startedAt": "2026-10-08T23:49:14.438Z",
+          "pid": 45488,
+          "engineBefore": "42e522fb1366102ce6146895647ae47870969b7982951c0877f7b664e4b5e990",
+          "status": "passed",
+          "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+          "exitCode": 0,
+          "signal": null,
+          "engineAfter": "42e522fb1366102ce6146895647ae47870969b7982951c0877f7b664e4b5e990",
+          "sameEngine": true,
+          "finishedAt": "2026-10-08T23:53:59.684Z"
+        },
+        "logSHA256": "7209366590F1E29B7880A259A0FBECE8F2435CD1BDE9DDB91F98031A6FE10529",
+        "focusResult": [
+          "RESULT late-growth-focus: 13/13 groups passed"
+        ]
+      },
+      {
+        "result": {
+          "runId": "2026-10-08T23-55-13.911Z-587f3991-2c87-4983-b153-37ab1a71d86c",
+          "command": "npm run check:growth-plan && npm run check:team-tactics && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+          "startedAt": "2026-10-08T23:55:13.914Z",
+          "pid": 11864,
+          "engineBefore": "7f23e923c883515e3ff9ca6652baacc86db4cb8f8309c25a674035c7913c8755",
+          "status": "passed",
+          "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+          "exitCode": 0,
+          "signal": null,
+          "engineAfter": "7f23e923c883515e3ff9ca6652baacc86db4cb8f8309c25a674035c7913c8755",
+          "sameEngine": true,
+          "finishedAt": "2026-10-08T23:59:01.139Z"
+        },
+        "logSHA256": "894BE70AC06F415D648C394E3FEAE6314EB9E9D6F86027BAF8A223E147C70E60",
+        "focusResult": [
+          "RESULT late-growth-focus: 14/14 groups passed"
+        ]
+      }
+    ],
+    "firstCandidatePrefix": {
+      "legacyProbeNote": "The old probe did not emit inputFocusId; null in the compact rows means unrecorded, not an exact planner-time focus value.",
+      "result": {
+        "runId": "2026-10-08T23-59-50.626Z-416db4ba-37a5-4caf-a8b9-7aadd31e39f8",
+        "command": "node scripts/diagnose-team-growth-planning.mjs",
+        "startedAt": "2026-10-08T23:59:50.631Z",
+        "pid": 52716,
+        "engineBefore": "7f23e923c883515e3ff9ca6652baacc86db4cb8f8309c25a674035c7913c8755",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "7f23e923c883515e3ff9ca6652baacc86db4cb8f8309c25a674035c7913c8755",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T00:01:36.884Z"
+      },
+      "logSHA256": "1D854113C1D612A5BD493624F89DE15BEB98EB8992DE46A9DC2A4A5DDC1949D2",
+      "focusResult": [],
+      "prefix": {
+        "scope": "Fresh day-1-night prefix only; not a full match or causal proof.",
+        "evidence": {
+          "seed": "4407",
+          "phases": 2,
+          "frames": 1315,
+          "ticks": 250,
+          "eventCount": 6158,
+          "random": {
+            "algorithm": "fnv1a-mulberry32-v1",
+            "state": 442581715,
+            "draws": 4814,
+            "ids": 0,
+            "nameHistory": []
+          },
+          "eventDigest": "5f8afaef43fabe7ea8ea756809c778239ea9ad31ee0ae9163f20220e5855fd4b",
+          "frameDigest": "3ca14d1a5d92a5c00cda0df588aa32488f6879d615a2d99fbbe1ddb401849580"
+        },
+        "observerComparison": "pass",
+        "observations": 4
+      },
+      "lossObservations": [
+        {
+          "atSec": 141,
+          "sourceFrameAtSec": 141,
+          "inputFocusId": null,
+          "planningTarget": "namu:head:검은 베일",
+          "executionTarget": "namu:도끼:반고부",
+          "beforeHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": false,
+              "reserved": false,
+              "equipped": false
+            }
+          ],
+          "executionHandaxe": []
+        }
+      ],
+      "functionalAcceptance": "Failed: held handaxe still disappears at the 141-second normalization despite diagnostic reproducibility passing."
+    },
+    "earlierPreservingPrefix": {
+      "result": {
+        "runId": "2026-10-09T00-05-02.387Z-46db9058-6e64-4dc5-b3ee-fc206fbdaab8",
+        "command": "node scripts/diagnose-team-growth-planning.mjs",
+        "startedAt": "2026-10-09T00:05:02.408Z",
+        "pid": 51512,
+        "engineBefore": "70b7447e5dadb6e2710ead0bc420a7e0ad054aa837b1f534d4167a3ecd903c53",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "70b7447e5dadb6e2710ead0bc420a7e0ad054aa837b1f534d4167a3ecd903c53",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T00:07:44.261Z"
+      },
+      "logSHA256": "01EF5289D0EE98D1C77056745A8A537876B7DAD70B9E1044D09EEFA7B14F9947",
+      "focusResult": [],
+      "prefix": {
+        "scope": "Fresh day-1-night prefix only; not a full match or causal proof.",
+        "evidence": {
+          "seed": "4407",
+          "phases": 2,
+          "frames": 1324,
+          "ticks": 250,
+          "eventCount": 6233,
+          "random": {
+            "algorithm": "fnv1a-mulberry32-v1",
+            "state": 258334424,
+            "draws": 4767,
+            "ids": 0,
+            "nameHistory": []
+          },
+          "eventDigest": "437219b36a67d1d5bcd262b06789ddcee57642ff202c6407b6109d3a6a37f128",
+          "frameDigest": "fd8a07451d18df91e35c20203d54c98821a3f77974caa5c043ccff53fb814bf1"
+        },
+        "observerComparison": "pass",
+        "observations": 4
+      },
+      "observations": [
+        {
+          "atSec": 143,
+          "sourceFrameAtSec": 143,
+          "inputFocusId": "namu:도끼:반고부",
+          "planningTarget": "namu:도끼:반고부",
+          "executionTarget": "namu:도끼:반고부",
+          "beforeHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": true,
+              "reserved": true,
+              "equipped": false
+            }
+          ],
+          "executionHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": true,
+              "reserved": true,
+              "equipped": false
+            }
+          ]
+        },
+        {
+          "atSec": 157,
+          "sourceFrameAtSec": 156.959693,
+          "inputFocusId": "namu:도끼:반고부",
+          "planningTarget": "namu:도끼:반고부",
+          "executionTarget": "namu:도끼:반고부",
+          "beforeHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": true,
+              "reserved": true,
+              "equipped": false
+            }
+          ],
+          "executionHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": true,
+              "reserved": true,
+              "equipped": false
+            }
+          ]
+        }
+      ],
+      "scope": "Two phases only, not a complete match."
+    },
+    "latestPrefix": {
+      "result": {
+        "runId": "2026-10-09T01-02-07.042Z-ef761a2f-fd86-4343-80bc-5fdd3bc2988b",
+        "command": "node scripts/diagnose-team-growth-planning.mjs",
+        "startedAt": "2026-10-09T01:02:07.047Z",
+        "pid": 59720,
+        "engineBefore": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T01:04:06.88Z"
+      },
+      "logSHA256": "01EF5289D0EE98D1C77056745A8A537876B7DAD70B9E1044D09EEFA7B14F9947",
+      "prefix": {
+        "scope": "Fresh day-1-night prefix only; not a full match or causal proof.",
+        "evidence": {
+          "seed": "4407",
+          "phases": 2,
+          "frames": 1324,
+          "ticks": 250,
+          "eventCount": 6233,
+          "random": {
+            "algorithm": "fnv1a-mulberry32-v1",
+            "state": 258334424,
+            "draws": 4767,
+            "ids": 0,
+            "nameHistory": []
+          },
+          "eventDigest": "437219b36a67d1d5bcd262b06789ddcee57642ff202c6407b6109d3a6a37f128",
+          "frameDigest": "fd8a07451d18df91e35c20203d54c98821a3f77974caa5c043ccff53fb814bf1"
+        },
+        "observerComparison": "pass",
+        "observations": 4
+      },
+      "scope": "Last published input copied into controlled planning/execution normalization, not exact planner-time consumption.",
+      "observations": [
+        {
+          "atSec": 117,
+          "sourceFrameAtSec": 116.998004,
+          "sourceEventCount": 4558,
+          "inputFocusId": "namu:도끼:반고부",
+          "actualMove": {
+            "at": {
+              "day": 1,
+              "phase": "morning",
+              "sec": 117
+            },
+            "from": "alley",
+            "to": "temple",
+            "reason": "team_regroup",
+            "sourceReason": "",
+            "targetZoneId": "temple"
+          },
+          "planningTarget": "namu:도끼:반고부",
+          "executionTarget": "namu:도끼:반고부",
+          "beforeHandaxe": [],
+          "executionHandaxe": []
+        },
+        {
+          "atSec": 137,
+          "sourceFrameAtSec": 136.998004,
+          "sourceEventCount": 4729,
+          "inputFocusId": "namu:도끼:반고부",
+          "actualMove": {
+            "at": {
+              "day": 1,
+              "phase": "morning",
+              "sec": 137
+            },
+            "from": "temple",
+            "to": "factory",
+            "reason": "growth_farm",
+            "sourceReason": "",
+            "targetZoneId": "factory"
+          },
+          "planningTarget": "namu:도끼:반고부",
+          "executionTarget": "namu:도끼:반고부",
+          "beforeHandaxe": [],
+          "executionHandaxe": []
+        },
+        {
+          "atSec": 143,
+          "sourceFrameAtSec": 143,
+          "sourceEventCount": 4810,
+          "inputFocusId": "namu:도끼:반고부",
+          "actualMove": {
+            "at": {
+              "day": 1,
+              "phase": "night",
+              "sec": 143
+            },
+            "from": "factory",
+            "to": "apartment",
+            "reason": "early_route_avoid"
+          },
+          "planningTarget": "namu:도끼:반고부",
+          "executionTarget": "namu:도끼:반고부",
+          "beforeHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": true,
+              "reserved": true,
+              "equipped": false
+            }
+          ],
+          "executionHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": true,
+              "reserved": true,
+              "equipped": false
+            }
+          ]
+        },
+        {
+          "atSec": 157,
+          "sourceFrameAtSec": 156.959693,
+          "sourceEventCount": 5002,
+          "inputFocusId": "namu:도끼:반고부",
+          "actualMove": {
+            "at": {
+              "day": 1,
+              "phase": "night",
+              "sec": 157
+            },
+            "from": "apartment",
+            "to": "beach",
+            "reason": "early_route:ttl",
+            "sourceReason": "",
+            "targetZoneId": "beach"
+          },
+          "planningTarget": "namu:도끼:반고부",
+          "executionTarget": "namu:도끼:반고부",
+          "beforeHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": true,
+              "reserved": true,
+              "equipped": false
+            }
+          ],
+          "executionHandaxe": [
+            {
+              "id": "namu:도끼:손도끼",
+              "qty": 1,
+              "craftComponent": true,
+              "reserved": true,
+              "equipped": false
+            }
+          ]
+        }
+      ],
+      "actualWitnessEvents": [
+        {
+          "kind": "growth_plan",
+          "who": "guest-survivor-13",
+          "at": {
+            "day": 1,
+            "phase": "morning",
+            "sec": 97
+          },
+          "reason": "team_regroup_wait",
+          "targetId": "namu:도끼:반고부",
+          "targetZoneId": "factory",
+          "blocked": "",
+          "missing": [
+            {
+              "itemId": "namu:도끼:손도끼",
+              "need": 1
+            },
+            {
+              "itemId": "namu:material:미스릴",
+              "need": 1
+            }
+          ]
+        },
+        {
+          "kind": "move",
+          "who": "guest-survivor-13",
+          "at": {
+            "day": 1,
+            "phase": "morning",
+            "sec": 117
+          },
+          "from": "alley",
+          "to": "temple",
+          "reason": "team_regroup",
+          "targetZoneId": "temple"
+        },
+        {
+          "kind": "growth_plan",
+          "who": "guest-survivor-13",
+          "at": {
+            "day": 1,
+            "phase": "morning",
+            "sec": 117
+          },
+          "reason": "team_regroup",
+          "targetId": "namu:도끼:반고부",
+          "targetZoneId": "factory",
+          "blocked": "",
+          "missing": [
+            {
+              "itemId": "namu:도끼:손도끼",
+              "need": 1
+            },
+            {
+              "itemId": "namu:material:미스릴",
+              "need": 1
+            }
+          ]
+        },
+        {
+          "kind": "move",
+          "who": "guest-survivor-13",
+          "at": {
+            "day": 1,
+            "phase": "morning",
+            "sec": 137
+          },
+          "from": "temple",
+          "to": "factory",
+          "reason": "growth_farm",
+          "targetZoneId": "factory"
+        },
+        {
+          "kind": "growth_plan",
+          "who": "guest-survivor-13",
+          "at": {
+            "day": 1,
+            "phase": "morning",
+            "sec": 137
+          },
+          "reason": "growth_farm",
+          "targetId": "namu:도끼:반고부",
+          "targetZoneId": "factory",
+          "blocked": "",
+          "missing": [
+            {
+              "itemId": "namu:도끼:손도끼",
+              "need": 1
+            },
+            {
+              "itemId": "namu:material:미스릴",
+              "need": 1
+            }
+          ]
+        },
+        {
+          "kind": "gain",
+          "who": "guest-survivor-13",
+          "at": {
+            "day": 1,
+            "phase": "morning",
+            "sec": 137
+          },
+          "itemId": "namu:도끼:손도끼",
+          "qty": 1
+        },
+        {
+          "kind": "move",
+          "who": "guest-survivor-13",
+          "at": {
+            "day": 1,
+            "phase": "night",
+            "sec": 143
+          },
+          "from": "factory",
+          "to": "apartment",
+          "reason": "early_route_avoid"
+        },
+        {
+          "kind": "move",
+          "who": "guest-survivor-13",
+          "at": {
+            "day": 1,
+            "phase": "night",
+            "sec": 157
+          },
+          "from": "apartment",
+          "to": "beach",
+          "reason": "early_route:ttl",
+          "targetZoneId": "beach"
+        },
+        {
+          "kind": "growth_plan",
+          "who": "guest-survivor-13",
+          "at": {
+            "day": 1,
+            "phase": "night",
+            "sec": 157
+          },
+          "reason": "early_route:ttl",
+          "targetId": "namu:도끼:반고부",
+          "targetZoneId": "",
+          "blocked": "no_material_source",
+          "missing": [
+            {
+              "itemId": "namu:material:미스릴",
+              "need": 1
+            }
+          ]
+        },
+        {
+          "kind": "gain",
+          "who": "guest-survivor-13",
+          "at": {
+            "day": 1,
+            "phase": "night",
+            "sec": 157
+          },
+          "itemId": "namu:material:유리병",
+          "qty": 1
+        }
+      ],
+      "witnessEventCount": 10,
+      "witnessOmittedEvents": 0,
+      "prefixEndAlive": false
+    },
+    "latestFullGate": {
+      "result": {
+        "runId": "2026-10-09T01-04-55.080Z-e5b2467e-2f16-42d1-8e48-b3665048c5fd",
+        "command": "npm run check:eternal-hunger",
+        "startedAt": "2026-10-09T01:04:55.083Z",
+        "pid": 37476,
+        "engineBefore": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1",
+        "status": "running",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance."
+      },
+      "logSHA256": "8028973B18519934B024C3AE706D0F62F25E85572250030561B8BDAD22F7FF24",
+      "focused": [
+        "RESULT late-growth-focus: 18/18 groups passed"
+      ],
+      "boss": [
+        "TEAM_BOSS_GOAL_CHECKS 22/22"
+      ],
+      "lastLines": [
+        "PASS immunity, unstoppable suppression and cleanse affect forced behavior instead of just its badge",
+        "PASS new charm cancels an actual pending cast before release and remains reproducible after JSON",
+        "PASS batched and split movement respect protected and rooted control boundaries identically",
+        "PASS latest taunt overrides older fear for basics, then remaining fear resumes after taunt expires",
+        "PASS fear keeps the exact opposite direction and stops at the region boundary",
+        "PASS control tracks observed caster positions, freezes the last observation and never guesses skill IDs",
+        "PASS missing, friendly and untargetable taunt sources never authorize unrelated or friendly hits",
+        "PASS moving-caster integration is simultaneous and preserves roster-order and JSON independence",
+        "PASS death and revival clear forced-controller runtime memory",
+        "PASS effect bundles and events preserve caster identity independently of skill identity",
+        "PASS observer explains forced movement and taunted strikes without changing game state",
+        "FORCED_CONTROL_CHECKS 22/22"
+      ],
+      "disposition": "Deliberately interrupted by parent after core unit and three first-night groups; observed tool exit 1 from termination is not a test assertion failure. The original running record remains untouched.",
+      "observedFirstNight": [
+        {
+          "pass": true,
+          "seed": "1101",
+          "initialRosterSeed": "FIRST-DAY:1101",
+          "firstDayEndSec": 250,
+          "complete": 24,
+          "total": 24,
+          "completionSec": [
+            24,
+            24,
+            25,
+            25,
+            26,
+            26,
+            27,
+            27,
+            29,
+            31,
+            31,
+            33,
+            34,
+            34,
+            34,
+            34,
+            35,
+            36,
+            36,
+            37,
+            38,
+            39,
+            40,
+            42
+          ],
+          "battles": 10,
+          "eventCount": 6121,
+          "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes"
+        },
+        {
+          "pass": true,
+          "seed": "2202",
+          "initialRosterSeed": "FIRST-DAY:2202",
+          "firstDayEndSec": 250,
+          "complete": 24,
+          "total": 24,
+          "completionSec": [
+            24,
+            26,
+            26,
+            26,
+            28,
+            28,
+            28,
+            30,
+            30,
+            31,
+            32,
+            32,
+            34,
+            34,
+            35,
+            35,
+            35,
+            35,
+            36,
+            37,
+            37,
+            38,
+            38,
+            39
+          ],
+          "battles": 7,
+          "eventCount": 6343,
+          "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes"
+        },
+        {
+          "pass": true,
+          "seed": "3303",
+          "initialRosterSeed": "FIRST-DAY:3303",
+          "firstDayEndSec": 250,
+          "complete": 24,
+          "total": 24,
+          "completionSec": [
+            21,
+            23,
+            25,
+            25,
+            26,
+            27,
+            27,
+            30,
+            31,
+            31,
+            31,
+            34,
+            34,
+            35,
+            35,
+            35,
+            36,
+            36,
+            37,
+            37,
+            38,
+            40,
+            44,
+            68
+          ],
+          "battles": 7,
+          "eventCount": 6409,
+          "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes"
+        }
+      ]
+    },
+    "latestFullMovementTrace": {
+      "result": {
+        "runId": "2026-10-09T01-23-43.673Z-9a2bd6b3-2ea1-484c-b724-74be3cff7b98",
+        "command": "npm run check:movement-reversal-trace && npm run diagnose:match-distribution -- --trace-movement --compare-observer 4407",
+        "startedAt": "2026-10-09T01:23:43.683Z",
+        "pid": 21200,
+        "engineBefore": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T01:34:53.146Z"
+      },
+      "logSHA256": "8C083311E3F319966D677608DB901789B749D63FC9F4333D8DC6B361CFF92FCB",
+      "match": {
+        "hunts": {
+          "starts": 82,
+          "ends": 82,
+          "settlements": 77,
+          "outcomes": {
+            "victory": 77,
+            "retreat": 5
+          },
+          "unfinished": 0,
+          "integrity": "pass"
+        },
+        "frameDigest": "c6c9baefcaccab637a5cedc089e766d4b46432068dbc4ccf8427d88dc7a6b28c",
+        "seed": "4407",
+        "events": 13998,
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1281.25,
+          "day": 7,
+          "phase": "morning",
+          "cause": "combat",
+          "winnerTeamId": "team:5"
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2135030010,
+          "draws": 9465,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "growth": {
+          "total": 24,
+          "goalParticipants": 24,
+          "complete": 24,
+          "firstDayDeadlineSec": 250,
+          "beforeFirstNightEnd": 24,
+          "fiveSlotHeroEquipped": 24
+        },
+        "regroup": {
+          "started": 26,
+          "completed": 25,
+          "completionShare": 0.962,
+          "outcomes": {
+            "completed": 25,
+            "member_death": 1
+          },
+          "scope": "Full starting living team roster, fixed through the attempt; all started outcomes remain in the denominator. Partial pair contact and cross-space cohorts are not full-team completion."
+        },
+        "movement": {
+          "moves": 668,
+          "reversals": 89,
+          "reversalShare": 0.133,
+          "reversalPairs": {
+            "growth_farm->growth_farm": 10,
+            "growth_farm->team_regroup": 5,
+            "team_regroup->growth_farm": 1,
+            "team_rotate->team_regroup": 3,
+            "team_regroup->team_rotate": 7,
+            "team_regroup->재료 파밍(목표):ttl": 1,
+            "team_rotate->early_route:priority:ttl": 1,
+            "재료 파밍(목표):ttl->flee:team_outnumbered": 1,
+            "team_regroup->early_route:priority:ttl": 4,
+            "chase->flee:team_outnumbered": 1,
+            "early_route:priority:ttl->team_regroup": 1,
+            "early_route_avoid->team_rotate": 1,
+            "team_regroup->team_regroup": 2,
+            "team_rotate->team_rotate": 9,
+            "flee:team_outnumbered->team_rotate": 1,
+            "early_route:priority:ttl->team_rotate": 2,
+            "team_rotate->avoid_power": 1,
+            "team_rotate->flee:team_outnumbered": 3,
+            "growth_farm->escape": 1,
+            "flee:team_outnumbered->크레딧 파밍(야생동물):ttl": 1,
+            "전설 재료(키오스크 구매):ttl->tac_blink_escape": 1,
+            "tac_blink_escape->growth_farm": 1,
+            "critical_flee->growth_farm": 1,
+            "escape->escape": 1,
+            "growth_farm->tac_blink_escape": 4,
+            "avoid_power->전설 재료(키오스크 구매):ttl": 1,
+            "전설 재료(키오스크 구매):ttl->avoid_power": 1,
+            "tac_blink_escape->전설 재료(키오스크 구매):ttl": 1,
+            "growth_farm->team_rotate": 1,
+            "chase->team_regroup": 1,
+            "wander->wander": 1,
+            "tac_blink_escape->크레딧 파밍(야생동물):ttl": 2,
+            "크레딧 파밍(야생동물):ttl->tac_blink_escape": 3,
+            "team_regroup->크레딧 파밍(야생동물):ttl": 1,
+            "tac_blink_escape->team_rotate": 2,
+            "전설 재료(키오스크 구매):ttl->escape": 1,
+            "growth_farm->avoid_power": 1,
+            "avoid_power->escape": 1,
+            "flee:team_outnumbered->wander": 1,
+            "flee:team_outnumbered->growth_farm": 1,
+            "team_rotate->escape": 1,
+            "wander->chase": 1,
+            "team_rotate->endgame_rotate": 2,
+            "chase->tac_blink_escape": 1,
+            "tac_blink_escape->escape": 1
+          },
+          "classification": "observed movement reversals, not automatic bugs"
+        },
+        "eventDigest": "887cb2313787ebbb7c71fce9b99f2b1e35e32dbdec1afb57a1b44e4ae2e91a48",
+        "traceCounts": [
+          {
+            "type": "teamRotate",
+            "total": 9,
+            "sampleCount": 9
+          },
+          {
+            "type": "explicitOutnumbered",
+            "total": 0,
+            "sampleCount": 0
+          },
+          {
+            "type": "explicitPowerGap",
+            "total": 0,
+            "sampleCount": 0
+          }
+        ],
+        "frames": 6694,
+        "observerComparison": "pass",
+        "engineVersion": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1",
+        "inputDigest": "9b68050517cf8708b3a92289b844fd7d169f3ab2b8ac9e1e2ae05f4a0b73f74e"
+      },
+      "comparison": {
+        "sameInputDigest": true,
+        "scope": "One fixed seed/input before-versus-after observation. Do not generalize to all rosters, balance, survival or enjoyment."
+      }
+    },
+    "runtimeBuildFailures": [
+      {
+        "result": {
+          "runId": "2026-10-09T01-35-21.850Z-754cd395-7e1c-4cd8-8bb6-db6753d0be6c",
+          "command": "npm run check:runtime:full",
+          "startedAt": "2026-10-09T01:35:21.856Z",
+          "pid": 49100,
+          "engineBefore": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1",
+          "status": "failed",
+          "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+          "exitCode": 1,
+          "signal": null,
+          "engineAfter": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1",
+          "sameEngine": true,
+          "finishedAt": "2026-10-09T01:39:22.231Z"
+        },
+        "logSHA256": "07B5D2935B7755BD86D81042586D77570A0518B29B7A4B16EEBBD5A76C5BD443",
+        "error": "EPERM: operation not permitted, mkdir client/.next/server/app/account",
+        "componentScope": "Runtime ESLint commands completed before prebuild/build; the named runtime-build command failed and is not marked passed."
+      }
+    ],
+    "latestRuntimeBuild": {
+      "result": {
+        "runId": "2026-10-09T01-42-14.928Z-f8e48f10-a5f2-4813-b14a-caeafdd1d308",
+        "command": "npm run check:runtime:full",
+        "startedAt": "2026-10-09T01:42:14.931Z",
+        "pid": 41464,
+        "engineBefore": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "cd1ddeb4f9dd029c9e43492dbeb4a9c7e96a4a0d064fe36aeba5b6e323a1a2a1",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T01:44:04.581Z"
+      },
+      "logSHA256": "8010D3A0928AFC637B6A98C8195AC78AB977F279390C5B1EFC38ED6973F4EC03",
+      "buildId": "Vpg1mzzYA1v-jga98Vctf",
+      "staticGeneration": [
+        "  Generating static pages using 2 workers (0/62) ...",
+        "  Generating static pages using 2 workers (15/62) ",
+        "  Generating static pages using 2 workers (30/62) ",
+        "  Generating static pages using 2 workers (46/62) ",
+        "✓ Generating static pages using 2 workers (62/62) in 3.3s"
+      ],
+      "compiledEngineFiles": [
+        "client/.next/server/chunks\\4164.js",
+        "client/.next/static/chunks\\8212-7757dd53d3557984.js"
+      ]
+    },
+    "readOnlyReview": {
+      "model": "gpt-6-luna",
+      "scope": "Source review only, no test execution",
+      "result": "No essential prefilter counterexample found; basic recovery coverage added by the parent.",
+      "testScope": "18 focused synchronous fixture groups, not 18 matches.",
+      "basicRecoveryCoverage": "The added basic-gear recovery fixture passed in the current full gate's 18/18 focused groups."
+    }
+  },
+  "interruptedAttempts": [
+    {
+      "result": {
+        "runId": "2026-10-09T00-08-52.254Z-4a3e4707-6975-446e-982b-e5090a4348c7",
+        "command": "npm run check:movement-reversal-trace && npm run diagnose:match-distribution -- --trace-movement --compare-observer 4407",
+        "startedAt": "2026-10-09T00:08:52.258Z",
+        "pid": 48216,
+        "engineBefore": "70b7447e5dadb6e2710ead0bc420a7e0ad054aa837b1f534d4167a3ecd903c53",
+        "status": "running",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance."
+      },
+      "logSHA256": "BBB8DEBABD865C0C83986E47A0C89CB1977B9B0F78E95B3CE6EDDFD054D9ACD5",
+      "focusResult": [],
+      "terminalLogTail": [
+        "PASS explicit source IDs can match while typed goals without IDs remain source-unknown",
+        "{\"checks\":14,\"pass\":true,\"scope\":\"pure event-only reversal tracing; no simulation execution\"}",
+        "",
+        "> client@0.1.0 diagnose:match-distribution",
+        "> node ./scripts/analyze-match-distribution.mjs --trace-movement --compare-observer 4407",
+        "",
+        "MATCH_DISTRIBUTION_START {\"seed\":\"4407\",\"initialRosterSeed\":\"FIXTURE:initial-roster\",\"engineVersion\":\"70b7447e5dadb6e2710ead0bc420a7e0ad054aa837b1f534d4167a3ecd903c53\"}"
+      ],
+      "observedProcessAudit": "Original runner and related scripts absent at 2026-10-09T01:01Z; old result.json remains running and is not rewritten.",
+      "terminalInterpretation": "Interrupted/unknown, neither pass nor completed failure; stop cause unproven."
+    },
+    {
+      "launchPid": 10016,
+      "stdoutPath": "client/.verification-runs/launch-def31980-5ddc-46aa-a14f-f68ecd4e158e.stdout.log",
+      "stderrPath": "client/.verification-runs/launch-def31980-5ddc-46aa-a14f-f68ecd4e158e.stderr.log",
+      "stdoutBytes": 0,
+      "stderrBytes": 0,
+      "resultCreated": false,
+      "processAbsent": true,
+      "interpretation": "Detached launch produced no verification result and proves no test execution."
+    }
+  ],
+  "cleanup": {
+    "status": "completed",
+    "beforeObservedAtUtc": "2026-10-09T01:52:04.6076586Z",
+    "deletionStartedAtUtc": "2026-10-09T01:53:55.4809901Z",
+    "deletionFinishedAtUtc": "2026-10-09T01:53:55.5966011Z",
+    "afterObservedAtUtc": "2026-10-09T01:54:31.9381574Z",
+    "exactTargets": [
+      {
+        "path": "client/.next/cache/webpack/client-production/0.pack",
+        "bytes": 255080497,
+        "sha256": "C91891FB4F70DB4F1D6CEF339EB7BBC29EC23795F0F4EB3424FC9E5D6CC9698A"
+      },
+      {
+        "path": "client/.next/cache/webpack/client-production/index.pack",
+        "bytes": 12799480,
+        "sha256": "CA4C60F69330F66DA023202C3D1F87B2581B8469A8ED10C53AE1CA91732A2C5E"
+      },
+      {
+        "path": "client/.next/cache/webpack/edge-server-production/0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC"
+      },
+      {
+        "path": "client/.next/cache/webpack/edge-server-production/index.pack",
+        "bytes": 2464,
+        "sha256": "F1E4A54BF0D7237A29244A2ABF60B7A922B8373E2997000CB042E3D7C8B01326"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/0.pack",
+        "bytes": 306274196,
+        "sha256": "F975D69C8D79D73F314F6D52D66132E7732CBD75C1CECEB9BC8E671DE24A13BC"
+      },
+      {
+        "path": "client/.next/cache/webpack/server-production/index.pack",
+        "bytes": 18041764,
+        "sha256": "46B7ED5F2CE4F65FBDCF4F715C1FE3614C3B49D0CA50F1640D919591C0A30026"
+      },
+      {
+        "path": "client/.verification-runs/launch-def31980-5ddc-46aa-a14f-f68ecd4e158e.stdout.log",
+        "bytes": 0,
+        "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+      },
+      {
+        "path": "client/.verification-runs/launch-def31980-5ddc-46aa-a14f-f68ecd4e158e.stderr.log",
+        "bytes": 0,
+        "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+      }
+    ],
+    "cachePackCount": 6,
+    "emptyLaunchLogCount": 2,
+    "logicalBytesRemoved": 592198677,
+    "logicalMiBRemoved": 564.7646684646606,
+    "actualDriveFreeSpaceIncrease": "Not measured; logical file bytes are not a drive free-space guarantee.",
+    "regeneration": "Webpack packs regenerate on build; two zero-byte launch logs contained no unique evidence.",
+    "protections": {
+      "allExplicitFileHashesUnchanged": true,
+      "explicitFileCount": 60,
+      "primaryVerificationRunCount": 13,
+      "protectedFilesAtDeletionBoundary": [
+        {
+          "path": "client/package.json",
+          "bytes": 25453,
+          "sha256": "D0469992330BA287B377CA2FB19D81249D65369DA7A2146D0EA1ED466550070A"
+        },
+        {
+          "path": "client/scripts/analyze-match-distribution.mjs",
+          "bytes": 15627,
+          "sha256": "C9B63A94C8AC4FA44D29756603005EC7ECB64D3DE6C15E6D8F2E7A005DC35A26"
+        },
+        {
+          "path": "client/scripts/run-eternal-hunger-verification.mjs",
+          "bytes": 6428,
+          "sha256": "6E1CA3323A4D9B4D2FA6451157C4BCBC59E4228B69F2F9887BD6AD8A16AF1250"
+        },
+        {
+          "path": "client/scripts/lib/movement-reversal-trace.mjs",
+          "bytes": 18496,
+          "sha256": "97DD59E97516EB92D3BBD41C25D6AA25B0DE21532A249F26A879D53471C8442B"
+        },
+        {
+          "path": "client/scripts/check-movement-reversal-trace.mjs",
+          "bytes": 19012,
+          "sha256": "313FCFFCC017A1056783AE9D9EAFEF0CB6E57FF6B4D38CBD7626B0366364B0AD"
+        },
+        {
+          "path": "client/scripts/diagnose-team-growth-planning.mjs",
+          "bytes": 6328,
+          "sha256": "A61B7224765E4297DA151FC5DD2DF7AC4342F9D7933295AB2C0291F478D3C95E"
+        },
+        {
+          "path": "client/scripts/check-late-growth-focus.mjs",
+          "bytes": 21672,
+          "sha256": "D4F203D9A41DB27F713A8E5FE568ACFB81BF450979F651BEEFD08F89C979DD21"
+        },
+        {
+          "path": "client/src/app/simulation/_lib/growthPlanRuntime.js",
+          "bytes": 24540,
+          "sha256": "59D7D4710806E3BDFC4A3ADF418415886F4C735E551E03E1C8DB9155BAAB6256"
+        },
+        {
+          "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+          "bytes": 166,
+          "sha256": "3CFBAB44342E4C7AAD75234B9AB86AF399150DB2C84EB4EBDA3E68597C20BB45"
+        },
+        {
+          "path": "docs/eternal-hunger-goal.md",
+          "bytes": 192044,
+          "sha256": "C8DD9E9E24F45941E7AE5F6F7E54C803D141CD103F79D20AA7DE14CAC77FBBCB"
+        },
+        {
+          "path": "docs/team-regroup-feedback-verification.md",
+          "bytes": 24887,
+          "sha256": "D4DC187694BC556D687EDDFF8F136BEAACB708A5DD164C24CBAE0F5753C54B85"
+        },
+        {
+          "path": "artifacts/late-growth-focus-20261009.json",
+          "bytes": 44111,
+          "sha256": "9D26060B68EED72A85A3E05D06AEF31F21B5CC31743E1082C6380760A065C845"
+        },
+        {
+          "path": "client/scripts/check-observer-goals-match.mjs",
+          "bytes": 15715,
+          "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+        },
+        {
+          "path": "server/index.js",
+          "bytes": 5619,
+          "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+        },
+        {
+          "path": "server/.env.example",
+          "bytes": 2125,
+          "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-11-19.687Z-d651862d-c7e2-498d-b3bd-8a58bfcc3d1f/result.json",
+          "bytes": 648,
+          "sha256": "37E3CE917DCC54C860D7B6E83D248925CDB5B756D3F4E451BFF846C6E02D2B7F"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-11-19.687Z-d651862d-c7e2-498d-b3bd-8a58bfcc3d1f/output.log",
+          "bytes": 227448,
+          "sha256": "7B7D26DCB0A4ACA10786A21E40565AAE88CECBA3CFC50277AD2AF9FB3DE3384F"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-33-21.065Z-817bffc3-fab6-4e98-afdb-b40fb88667ff/result.json",
+          "bytes": 574,
+          "sha256": "BA0F9CE00BCD16EE6CA06B03CBA2C778F87A2451EEE1B95D25CAE644B36369A0"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-33-21.065Z-817bffc3-fab6-4e98-afdb-b40fb88667ff/output.log",
+          "bytes": 20144,
+          "sha256": "D61507808B2A4B59D7A42BA10E8B6D40F0C218D42BCA2A883733C97051BB7B8A"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-42-13.956Z-875d4c35-5029-48ad-a779-0407fdc0f0a7/result.json",
+          "bytes": 656,
+          "sha256": "C0FEE8BF8FA6490B030217B5A84BFBA98A065836934BFC3A289E5EA2AFFC10B0"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-42-13.956Z-875d4c35-5029-48ad-a779-0407fdc0f0a7/output.log",
+          "bytes": 50455,
+          "sha256": "043FDA86489D65F85B721D8ED58A392C63A6EACD00969E6D0E0B367A0DBF285A"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-49-14.411Z-73b3e3de-8bcc-4a21-9954-1d6f87d4200c/result.json",
+          "bytes": 656,
+          "sha256": "01B20C84298986C9C3726F7F27CA09F34B701E471B4E28DE0141868425000572"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-49-14.411Z-73b3e3de-8bcc-4a21-9954-1d6f87d4200c/output.log",
+          "bytes": 51686,
+          "sha256": "7209366590F1E29B7880A259A0FBECE8F2435CD1BDE9DDB91F98031A6FE10529"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-55-13.911Z-587f3991-2c87-4983-b153-37ab1a71d86c/result.json",
+          "bytes": 656,
+          "sha256": "7A6754FD39695E1EC303C99F841AFB629F4640D653C51C513F64B932FE58330A"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-55-13.911Z-587f3991-2c87-4983-b153-37ab1a71d86c/output.log",
+          "bytes": 51781,
+          "sha256": "894BE70AC06F415D648C394E3FEAE6314EB9E9D6F86027BAF8A223E147C70E60"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-59-50.626Z-416db4ba-37a5-4caf-a8b9-7aadd31e39f8/result.json",
+          "bytes": 574,
+          "sha256": "61D7D70BB3B8EAE878E206852D4F51E909E74FCA96EB24A649E46AAAB4B3D751"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-08T23-59-50.626Z-416db4ba-37a5-4caf-a8b9-7aadd31e39f8/output.log",
+          "bytes": 16255,
+          "sha256": "1D854113C1D612A5BD493624F89DE15BEB98EB8992DE46A9DC2A4A5DDC1949D2"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T00-05-02.387Z-46db9058-6e64-4dc5-b3ee-fc206fbdaab8/result.json",
+          "bytes": 574,
+          "sha256": "CBFA2E022C84AF90ED250B4EE6DBA1642E6D86BEE4A89201DA33C0CEA9068C2B"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T00-05-02.387Z-46db9058-6e64-4dc5-b3ee-fc206fbdaab8/output.log",
+          "bytes": 14958,
+          "sha256": "01EF5289D0EE98D1C77056745A8A537876B7DAD70B9E1044D09EEFA7B14F9947"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T00-08-52.254Z-4a3e4707-6975-446e-982b-e5090a4348c7/result.json",
+          "bytes": 463,
+          "sha256": "256DD90596E10DAA1A82455F700C9B6A117E50ABB54455CDAE984764206325A7"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T00-08-52.254Z-4a3e4707-6975-446e-982b-e5090a4348c7/output.log",
+          "bytes": 1740,
+          "sha256": "BBB8DEBABD865C0C83986E47A0C89CB1977B9B0F78E95B3CE6EDDFD054D9ACD5"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T01-02-07.042Z-ef761a2f-fd86-4343-80bc-5fdd3bc2988b/result.json",
+          "bytes": 574,
+          "sha256": "5825E384BCDD3E58039D81589CAB8AAC44314A9DD21E6FA8E3E0B281B2888DCF"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T01-02-07.042Z-ef761a2f-fd86-4343-80bc-5fdd3bc2988b/output.log",
+          "bytes": 14958,
+          "sha256": "01EF5289D0EE98D1C77056745A8A537876B7DAD70B9E1044D09EEFA7B14F9947"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T01-04-55.080Z-e5b2467e-2f16-42d1-8e48-b3665048c5fd/result.json",
+          "bytes": 371,
+          "sha256": "A2BDB3945C5C677BE6232B3513E09AC197C2C72DAC3240D136073567ECF09629"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T01-04-55.080Z-e5b2467e-2f16-42d1-8e48-b3665048c5fd/output.log",
+          "bytes": 124215,
+          "sha256": "8028973B18519934B024C3AE706D0F62F25E85572250030561B8BDAD22F7FF24"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T01-23-43.673Z-9a2bd6b3-2ea1-484c-b724-74be3cff7b98/result.json",
+          "bytes": 648,
+          "sha256": "344C641F3BBF22DF07FE14804D5EDEDB4FBDCE74D55FEC7625C8DCC385A24710"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T01-23-43.673Z-9a2bd6b3-2ea1-484c-b724-74be3cff7b98/output.log",
+          "bytes": 126513,
+          "sha256": "8C083311E3F319966D677608DB901789B749D63FC9F4333D8DC6B361CFF92FCB"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T01-35-21.850Z-754cd395-7e1c-4cd8-8bb6-db6753d0be6c/result.json",
+          "bytes": 554,
+          "sha256": "7D92D2C1AB7A18178DAC140CBF3446665C14CD1EA603682D14DF5D31AEA987C8"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T01-35-21.850Z-754cd395-7e1c-4cd8-8bb6-db6753d0be6c/output.log",
+          "bytes": 1765,
+          "sha256": "07B5D2935B7755BD86D81042586D77570A0518B29B7A4B16EEBBD5A76C5BD443"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T01-42-14.928Z-f8e48f10-a5f2-4813-b14a-caeafdd1d308/result.json",
+          "bytes": 554,
+          "sha256": "AFA87CE00330FBCDEBD60D31F7957B9546E35BFF355FFF4A73BFA316F87FDBCF"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-09T01-42-14.928Z-f8e48f10-a5f2-4813-b14a-caeafdd1d308/output.log",
+          "bytes": 3879,
+          "sha256": "8010D3A0928AFC637B6A98C8195AC78AB977F279390C5B1EFC38ED6973F4EC03"
+        },
+        {
+          "path": "client/.next/app-path-routes-manifest.json",
+          "bytes": 3333,
+          "sha256": "495073402461CE8292D1DC05A20D75E3297B3556DE867B59A88700E624FFEFC3"
+        },
+        {
+          "path": "client/.next/BUILD_ID",
+          "bytes": 21,
+          "sha256": "AD307E490FCC50D6B35D9A828BC3A53BA238F267283F6C80BE338ABCCB8ADF63"
+        },
+        {
+          "path": "client/.next/build-manifest.json",
+          "bytes": 511,
+          "sha256": "02A2C5055DA52205111A1D0271E8D392BB325FF7CD012A2EB9E7B4558286132D"
+        },
+        {
+          "path": "client/.next/dev-3005.err.log",
+          "bytes": 167766,
+          "sha256": "8E8D2A9CFE02AD683AF35E175AACDE1B8C093B45375666407B41F9F374A820E8"
+        },
+        {
+          "path": "client/.next/dev-3005.out.log",
+          "bytes": 16515,
+          "sha256": "F2D9BF4CC10A09AA14DA075EB69D25DBB1BBAD9A50DBC4AB43F0FC49442FF59C"
+        },
+        {
+          "path": "client/.next/export-marker.json",
+          "bytes": 111,
+          "sha256": "82356527DB218ADB95BD1ECA0EDE6F3391165B38B22D667D064E62E6B539D974"
+        },
+        {
+          "path": "client/.next/images-manifest.json",
+          "bytes": 1123,
+          "sha256": "5430BACE7AC1CD08DC35019429548A83ED380342E65033B99ABE9CF2C9F46200"
+        },
+        {
+          "path": "client/.next/next-minimal-server.js.nft.json",
+          "bytes": 6588,
+          "sha256": "ACE221A2B2EB6FC4F03F6F56B73EAF429B3C092860DD0D6083ED693E8B9B0E42"
+        },
+        {
+          "path": "client/.next/next-server.js.nft.json",
+          "bytes": 41891,
+          "sha256": "5AD2002A45391F6F2E180A458ABC28E297F150AB73A858EC7A4E546211A14567"
+        },
+        {
+          "path": "client/.next/package.json",
+          "bytes": 20,
+          "sha256": "091A04FA67C7907B98E106FCFF8B964E13129754FCE72D24F3025B97C4887FA3"
+        },
+        {
+          "path": "client/.next/prerender-manifest.json",
+          "bytes": 39172,
+          "sha256": "71C8AEA2A182AC0947B2116FB7655C89750A9B035EBEE83002ACBCCF8EFD4C13"
+        },
+        {
+          "path": "client/.next/react-loadable-manifest.json",
+          "bytes": 520,
+          "sha256": "F817A0D8C5128A40F118B70A2B3E66E46F67AE6094B08294CD724AF1CD94AABF"
+        },
+        {
+          "path": "client/.next/required-server-files.js",
+          "bytes": 9492,
+          "sha256": "60B3DC64C768698EC6B61FD1C42FB7B0F3F668482676AEE5B7713D0EBF1A951D"
+        },
+        {
+          "path": "client/.next/required-server-files.json",
+          "bytes": 9463,
+          "sha256": "F96DE0780D386C19E6CC8E2399D3730E65F67C401953F24EC11CE05AFCD47250"
+        },
+        {
+          "path": "client/.next/routes-manifest.json",
+          "bytes": 14938,
+          "sha256": "64FD3F555FB99E9CE1965D8EC8567B6CCEBCDEB5A5F62E7E3C1B4B882896FB58"
+        },
+        {
+          "path": "client/.next/trace",
+          "bytes": 660265,
+          "sha256": "B210571567882E4627652E0240053212B13FD7A88FD5F40C194B310A3C69BB88"
+        },
+        {
+          "path": "client/.next/trace-build",
+          "bytes": 1210,
+          "sha256": "BEE81D9A581CE9A8BE651FDD4BC288F66F925527BECF526394A7C296070666AD"
+        },
+        {
+          "path": "artifacts/boss-hunt-lifecycle-20261009.json",
+          "bytes": 21915,
+          "sha256": "3410A0E51D55D75058B56C5A99542B27A05E65513985029B0FC710C729934AC6"
+        },
+        {
+          "path": "artifacts/natural-baseline-20261009.json",
+          "bytes": 57837,
+          "sha256": "84483DAB436695F18ECDFF603C0D6B3A5AD899ADF764B75C68FB490C905B48B8"
+        }
+      ],
+      "buildDirectories": [
+        {
+          "path": "client/.next/server",
+          "files": 872,
+          "bytes": 14412487,
+          "sha256PathSizeContents": "A26185356794A7258222ABCCC7242AACE9060C99007BF7779E61E0CB4AF1D0A3"
+        },
+        {
+          "path": "client/.next/static",
+          "files": 266,
+          "bytes": 10438603,
+          "sha256PathSizeContents": "E91B163FA8922110BC85ABB4177615C0DB0BE26F6DEDA684462AE35234BFE059"
+        }
+      ],
+      "buildId": "Vpg1mzzYA1v-jga98Vctf",
+      "relevantNodeProcessesBeforeDelete": 0,
+      "relevantNodeProcessesAfterDelete": 0,
+      "remainingCachePacks": 0,
+      "remainingDeletedTargets": 0,
+      "guardedTargets": "Only exact validated files; ancestor reparse points refused, resolved absolute paths and SHA256 checked before deletion.",
+      "boundaryNote": "These hashes cover the deletion boundary. This report and the two owned documentation files are intentionally updated afterward to record cleanup; all runtime/scripts, unrelated user changes, primary logs/results and build outputs remain unchanged."
+    }
+  },
+  "sourceHashes": [
+    {
+      "path": "client/package.json",
+      "sha256": "D0469992330BA287B377CA2FB19D81249D65369DA7A2146D0EA1ED466550070A"
+    },
+    {
+      "path": "client/scripts/analyze-match-distribution.mjs",
+      "sha256": "C9B63A94C8AC4FA44D29756603005EC7ECB64D3DE6C15E6D8F2E7A005DC35A26"
+    },
+    {
+      "path": "client/scripts/run-eternal-hunger-verification.mjs",
+      "sha256": "6E1CA3323A4D9B4D2FA6451157C4BCBC59E4228B69F2F9887BD6AD8A16AF1250"
+    },
+    {
+      "path": "client/scripts/lib/movement-reversal-trace.mjs",
+      "sha256": "97DD59E97516EB92D3BBD41C25D6AA25B0DE21532A249F26A879D53471C8442B"
+    },
+    {
+      "path": "client/scripts/check-movement-reversal-trace.mjs",
+      "sha256": "313FCFFCC017A1056783AE9D9EAFEF0CB6E57FF6B4D38CBD7626B0366364B0AD"
+    },
+    {
+      "path": "client/scripts/diagnose-team-growth-planning.mjs",
+      "sha256": "A61B7224765E4297DA151FC5DD2DF7AC4342F9D7933295AB2C0291F478D3C95E"
+    },
+    {
+      "path": "client/scripts/check-late-growth-focus.mjs",
+      "sha256": "D4F203D9A41DB27F713A8E5FE568ACFB81BF450979F651BEEFD08F89C979DD21"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/growthPlanRuntime.js",
+      "sha256": "59D7D4710806E3BDFC4A3ADF418415886F4C735E551E03E1C8DB9155BAAB6256"
+    },
+    {
+      "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+      "sha256": "3CFBAB44342E4C7AAD75234B9AB86AF399150DB2C84EB4EBDA3E68597C20BB45"
+    }
+  ],
+  "protectedUserChanges": [
+    {
+      "path": "client/scripts/check-observer-goals-match.mjs",
+      "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+    },
+    {
+      "path": "server/index.js",
+      "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+    },
+    {
+      "path": "server/.env.example",
+      "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+    }
+  ],
+  "remaining": [
+    "Current broad check:eternal-hunger command is not complete; use separately scoped command evidence only.",
+    "Wider natural-input strategy/regroup distribution",
+    "Foreground x1/x8/x32 observation, continuous heap/paint proof under new authority",
+    "Valid AI credential and explicitly scoped new paid/save verification",
+    "Human re-evaluation",
+    "Explicit push/deployment approval",
+    "Overall G1-G5 objective remains active and incomplete"
+  ]
+}

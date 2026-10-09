@@ -2,6 +2,7 @@ import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { summarizeTeamRetreats } from './lib/match-distribution-diagnostics.mjs';
+import { summarizeMovementReversalTrace } from './lib/movement-reversal-trace.mjs';
 
 // Load production-dependent diagnostics only after extensionless-module hooks.
 const { createMatchDistributionFrameTracker, summarizeMovement } = await import('./lib/match-distribution-frame-tracker.mjs');
@@ -12,8 +13,11 @@ const { getRuleset, getPhaseDurationSec } = await import('../src/utils/rulesets.
 const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
 
 const args = process.argv.slice(2);
-assert.ok(args.every((arg) => !arg.startsWith('--') || arg.startsWith('--rosters=') || /^--compare-observer(?:=.+)?$/.test(arg)),
-  'Only --rosters=<comma-separated initial roster seeds> and --compare-observer[=<match seed>] are supported.');
+assert.ok(args.every((arg) => !arg.startsWith('--') || arg.startsWith('--rosters=') || /^--compare-observer(?:=.+)?$/.test(arg)
+  || arg === '--trace-movement'),
+  'Only --rosters=<comma-separated initial roster seeds>, --compare-observer[=<match seed>] and --trace-movement are supported.');
+assert.ok(args.filter((arg) => arg === '--trace-movement').length <= 1, 'Specify --trace-movement only once.');
+const traceMovement = args.includes('--trace-movement');
 const comparisonArgs = args.filter((arg) => arg.startsWith('--compare-observer'));
 assert.ok(comparisonArgs.length <= 1, 'Specify --compare-observer only once.');
 const comparisonSeed = comparisonArgs[0]?.split('=')[1] || null;
@@ -115,6 +119,15 @@ for (const initialRosterSeed of initialRosterSeeds) for (const seed of seeds) {
     firstDayDeadlineSec: getPhaseDurationSec(rules, 1, 'morning') + getPhaseDurationSec(rules, 1, 'night') });
   const match = await runRandomIsolationMatch(input, { phaseOnly: true, onFrame: tracker.observe });
   const observed = tracker.report();
+  const movement = summarizeMovement(initial.survivors, match.events);
+  const movementTrace = traceMovement ? summarizeMovementReversalTrace(initial.survivors, match.events,
+    { maxRotationSamples: 24, maxExplicitOutnumberedSamples: 8, maxContextEvents: 20 }) : null;
+  if (movementTrace) {
+    assert.equal(digest(initial), digest(JSON.parse(input)), 'Event tracing cannot mutate the actual fresh match input.');
+    assert.equal(digest(match.events), match.evidence.eventDigest, 'Event tracing cannot mutate the real event stream.');
+    assert.equal(movementTrace.counts.teamRotate.total, movement.reversalPairs['team_rotate->team_rotate'] || 0,
+      'Detailed team rotation traces and the nonzero-edge baseline must count the same actual reversals.');
+  }
   const compareObserver = comparisonArgs.length > 0 && (!comparisonSeed || seed === comparisonSeed);
   if (compareObserver) {
     console.log(`MATCH_DISTRIBUTION_OBSERVED ${JSON.stringify({ seed, initialRosterSeed,
@@ -174,7 +187,8 @@ for (const initialRosterSeed of initialRosterSeeds) for (const seed of seeds) {
     teamCombat: actions.teamCombat,
     chase: diagnostics.chase,
     resources: actions.fieldResources,
-    movement: summarizeMovement(initial.survivors, match.events),
+    movement,
+    ...(movementTrace ? { movementTrace } : {}),
     hunts: summarizeHunts(match.events),
   };
   rows.push(row);
