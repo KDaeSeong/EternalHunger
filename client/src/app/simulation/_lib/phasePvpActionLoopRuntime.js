@@ -353,7 +353,7 @@ function* pvpActionSteps({
     if (shouldEndMatch()) break;
     try {
       const assistOwners = getBossAssistAssignments([...survivorMap.values()], bossAssistOptions());
-      const nextPvpCombat = findNextCombatAction(survivorMap, currentActionSec(), newDeadIds, battleSettings, assistOwners);
+      const nextPvpCombat = findNextCombatAction(survivorMap, currentActionSec(), newDeadIds, battleSettings, assistOwners, observeCombatRuntime);
       if (typeof observeCombatRuntime === 'function') observeCombatParticipation(observeCombatRuntime, {
         stage: 'schedule', nowSec: currentActionSec(), roster: [...survivorMap.values()],
         newDeadIds, wildlifeAssistIds: assistOwners, scheduled: nextPvpCombat });
@@ -367,6 +367,7 @@ function* pvpActionSteps({
         ? nextEquipment : nextOrdinaryCombat;
       const scheduled = nextCombat && nextCombat.atSec <= nextDecisionSec;
       const actionAtSec = scheduled ? nextCombat.atSec : nextDecisionSec;
+      const actionFromSec = currentActionSec();
       if (typeof observeCombatRuntime === 'function') observeCombatParticipation(observeCombatRuntime, {
         stage: 'arbitration', nowSec: currentActionSec(), roster: [...survivorMap.values()],
         newDeadIds, wildlifeAssistIds: assistOwners, scheduled: nextPvpCombat,
@@ -377,6 +378,11 @@ function* pvpActionSteps({
       yield* advanceWorldStep();
       reconcileWildlife();
       reconcileCasts();
+      if (typeof observeCombatRuntime === 'function' && scheduled && nextCombat.scheduler === 'pvp') {
+        observeCombatParticipation(observeCombatRuntime, { stage: 'post_world', nowSec: currentActionSec(),
+          roster: [...survivorMap.values()], newDeadIds, wildlifeAssistIds: assistOwners, scheduled: nextCombat,
+          worldStep: { fromSec: actionFromSec, toSec: currentActionSec(), decisionSec: nextDecisionSec } });
+      }
       if (shouldEndMatch()) break;
       // Effects exactly on a phase boundary resolve at that instant, before
       // returning the roster. Later effects remain in the next phase's queue.

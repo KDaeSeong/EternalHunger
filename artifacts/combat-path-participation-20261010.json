@@ -1,0 +1,1971 @@
+{
+  "schemaVersion": 1,
+  "title": "대원별 접근·공격 후보와 늦은 합류 관찰·검증",
+  "localDate": "2026-10-10",
+  "timeZone": "Asia/Seoul",
+  "artifactRole": "Output-only provenance and cleanup receipt. Not a fixture, expected result, or prerequisite input for any verification script.",
+  "baseCommit": "39d1cbcb76f40acdb79355d7afe877705eec3feb",
+  "goal": {
+    "objective": "설정한 목표를 모두 구현, 새 작업마다 작업물 정리",
+    "status": "active",
+    "complete": false,
+    "originalProductDefinitionPreserved": {
+      "sha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B",
+      "chars": 20641,
+      "bytes": 43026,
+      "algorithm": "SHA256 UTF-8 from product-definition heading to EOF, CRLF normalized to LF"
+    }
+  },
+  "engineVersion": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+  "agents": {
+    "model": "Luna",
+    "count": 3,
+    "roles": [
+      "late-join fixtures and final timing review",
+      "bounded runtime/collector observation and semantics review",
+      "read-only ownership, preservation and evidence review"
+    ]
+  },
+  "implementation": {
+    "perActorCandidate": "Same existing single scheduler pass; at most one considered best candidate per actor; not the global selected action and no second planner invocation.",
+    "postWorld": "Pairs only a selected watched PvP reservation with that same world interval after normal reconciliation; no extra movement or attack time.",
+    "sampleCaps": {
+      "legacySchedule": 6,
+      "legacyExecution": 6,
+      "perActorCandidate": 3,
+      "postWorld": 3,
+      "overallPerActor": 18
+    },
+    "observerChangesGameRules": false,
+    "randomActionClocksDamageRewardsChanged": false,
+    "testHelper": "Uses the product event emitter so hunt species cannot overwrite hunt_end; only wall-clock event ts is omitted from deterministic comparisons.",
+    "lateJoin": {
+      "cases": 7,
+      "freshRepetitionsPerCase": 2,
+      "arrivalAtSec": 102,
+      "personalActionReadyAtSec": 103.25,
+      "basicReadyAtSec": 103.5,
+      "allBasicAttemptsIncludingZeroHpAndAllTeamStrikesRespectReadyTime": true,
+      "exactCompared": [
+        "events",
+        "frames",
+        "final actors",
+        "RNG",
+        "newDeadIds",
+        "roundKills",
+        "roundAssists"
+      ],
+      "limitations": [
+        "Controlled co-presence is not natural pathfinding proof.",
+        "The hunt control has no stock to return and does not certify claim-stock restoration.",
+        "onlyActorId is a queue filter, not an independent cast-blocking proof."
+      ]
+    }
+  },
+  "currentSourceCompatibility": [
+    {
+      "runId": "2026-10-09T15-38-52.749Z-e5ece962-b100-486f-b5f6-b66e929628ae",
+      "sourceCount": 25,
+      "changedSinceRun": [
+        {
+          "path": "scripts/check-late-combat-join.mjs",
+          "verifiedSha256": "14319445bd7871eab0f2ae4d7328665307523e96e10f705aed9620c727773623",
+          "currentSha256": "fb5ab9a374ad9ecfc93c91e08af76651490afba344ef9dcb2cdfc0c73affeb9c"
+        }
+      ]
+    },
+    {
+      "runId": "2026-10-09T15-41-08.981Z-19404612-248a-4785-8060-cab8d24fdba7",
+      "sourceCount": 7,
+      "changedSinceRun": []
+    },
+    {
+      "runId": "2026-10-09T15-46-00.485Z-2cb29856-ee0e-4b67-9ab3-6ce723489dfb",
+      "sourceCount": 2,
+      "changedSinceRun": []
+    },
+    {
+      "runId": "2026-10-09T16-05-27.643Z-fb0a5f7e-8611-4c55-bcd7-0aaa4e9b1d18",
+      "sourceCount": 4,
+      "changedSinceRun": []
+    }
+  ],
+  "latestEvidence": {
+    "focusedRunId": "2026-10-09T15-38-52.749Z-e5ece962-b100-486f-b5f6-b66e929628ae",
+    "naturalRunId": "2026-10-09T15-41-08.981Z-19404612-248a-4785-8060-cab8d24fdba7",
+    "productionBuildRunId": "2026-10-09T15-46-00.485Z-2cb29856-ee0e-4b67-9ab3-6ce723489dfb",
+    "finalTestOnlyLateJoinRunId": "2026-10-09T16-05-27.643Z-fb0a5f7e-8611-4c55-bcd7-0aaa4e9b1d18",
+    "fullCanonicalChainRerunOnFinalSources": false,
+    "focusChangedAfterRun": "Only check-late-combat-join.mjs changed after the successful focused chain; its stronger assertions were freshly rerun. The current runtime fingerprint and all other 24 captured sources are unchanged.",
+    "visualBrowserOrHumanAcceptance": false,
+    "realAuthenticatedAccountStorageAcceptance": false,
+    "formationComparisonAccepted": false
+  },
+  "runs": [
+    {
+      "runId": "2026-10-09T15-10-43.155Z-e4028a0d-d8c1-4cb3-b175-818ba694df54",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs",
+      "startedAtUtc": "2026-10-09T15:10:43.157Z",
+      "finishedAtUtc": "2026-10-09T15:10:48.009Z",
+      "status": "passed",
+      "rawExitCode": 0,
+      "engineBefore": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "engineAfter": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "sameEngine": true,
+      "capturedSourceCount": 4,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-10-43.155Z-e4028a0d-d8c1-4cb3-b175-818ba694df54/result.json",
+        "bytes": 1626,
+        "sha256": "549CFDEB8185B2F12E2B4D27438D06DCE2089C61448CC3A75976B40C0432582D"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-10-43.155Z-e4028a0d-d8c1-4cb3-b175-818ba694df54/output.log",
+        "bytes": 934,
+        "sha256": "E9C3944E95F1CEA494180B53536FC3BD42E32905471D94285E0E0DEDED4D9399"
+      },
+      "note": "Initial observer checks passed before the final runtime and collector changes; not inherited as final proof."
+    },
+    {
+      "runId": "2026-10-09T15-15-10.113Z-7e8c2bf9-7c78-40ec-b904-ca12ee55512f",
+      "command": "node scripts/check-late-combat-join.mjs",
+      "startedAtUtc": "2026-10-09T15:15:10.115Z",
+      "finishedAtUtc": "2026-10-09T15:15:10.828Z",
+      "status": "failed",
+      "rawExitCode": 1,
+      "engineBefore": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "engineAfter": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "sameEngine": true,
+      "capturedSourceCount": 4,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-15-10.113Z-7e8c2bf9-7c78-40ec-b904-ca12ee55512f/result.json",
+        "bytes": 1531,
+        "sha256": "58CF3F7B0624D9DB1FA83C4889516C62F76AB3F0289756D5FC6C2A9DFA762C6F"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-15-10.113Z-7e8c2bf9-7c78-40ec-b904-ca12ee55512f/output.log",
+        "bytes": 1620,
+        "sha256": "0B17345BA90860D1860A9E2FD7EDBBA3DF94F5CDB616CBDC5A6482190CA31AFD"
+      },
+      "note": "Invalid synthetic pending-cast fixture; retained failed result."
+    },
+    {
+      "runId": "2026-10-09T15-19-47.505Z-1a9376b3-4ce0-458e-8f02-387072caf495",
+      "command": "node scripts/check-late-combat-join.mjs",
+      "startedAtUtc": "2026-10-09T15:19:47.507Z",
+      "finishedAtUtc": "2026-10-09T15:19:50.011Z",
+      "status": "failed",
+      "rawExitCode": 1,
+      "engineBefore": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "engineAfter": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "sameEngine": true,
+      "capturedSourceCount": 4,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-19-47.505Z-1a9376b3-4ce0-458e-8f02-387072caf495/result.json",
+        "bytes": 1531,
+        "sha256": "3C5BBBC638C92085A4DB87AD11061F7F54D3350DB42A2F107E1A82AA0E654E81"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-19-47.505Z-1a9376b3-4ce0-458e-8f02-387072caf495/output.log",
+        "bytes": 990,
+        "sha256": "6BADE2CD71FF9D5A488BA33F24D480EF8DD867922E5B556372D3D410BB83C0E1"
+      },
+      "note": "Hunt-end event capture assertion failed; retained for investigation."
+    },
+    {
+      "runId": "2026-10-09T15-21-13.486Z-04d086ac-5298-471a-ae30-2b7736b59ff6",
+      "command": "node scripts/check-late-combat-join.mjs",
+      "startedAtUtc": "2026-10-09T15:21:13.488Z",
+      "finishedAtUtc": "2026-10-09T15:21:14.17Z",
+      "status": "failed",
+      "rawExitCode": 1,
+      "engineBefore": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "engineAfter": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "sameEngine": true,
+      "capturedSourceCount": 4,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-21-13.486Z-04d086ac-5298-471a-ae30-2b7736b59ff6/result.json",
+        "bytes": 1531,
+        "sha256": "085B732100161F45F0696730F82AF793AF2458CABC3CBFBD0ECC5EE78D21E63D"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-21-13.486Z-04d086ac-5298-471a-ae30-2b7736b59ff6/output.log",
+        "bytes": 6081,
+        "sha256": "99FD87A9501DCE04398B8F7EE791929BF3E6C1CB5AD9C325784B4D4C404AEAA3"
+      },
+      "note": "The helper's payload species overwrote the product hunt_end kind; retained raw failure."
+    },
+    {
+      "runId": "2026-10-09T15-23-00.564Z-914169b8-b40e-4310-8689-404ec9c66c2f",
+      "command": "node scripts/check-late-combat-join.mjs",
+      "startedAtUtc": "2026-10-09T15:23:00.566Z",
+      "finishedAtUtc": "2026-10-09T15:23:01.591Z",
+      "status": "passed",
+      "rawExitCode": 0,
+      "engineBefore": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "engineAfter": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "sameEngine": true,
+      "capturedSourceCount": 4,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-23-00.564Z-914169b8-b40e-4310-8689-404ec9c66c2f/result.json",
+        "bytes": 1531,
+        "sha256": "1BCD919C53EA40881AA76B088820104BAF42EAD7FD2D4F74F9EB070689B2CF30"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-23-00.564Z-914169b8-b40e-4310-8689-404ec9c66c2f/output.log",
+        "bytes": 634,
+        "sha256": "78ABE5CF30B779B5E64BCD3130939AC83EA3268FCFDC2C8B3794CB0F392BE905"
+      },
+      "note": "Initial late-join checks passed before later isolation and timing assertions were strengthened."
+    },
+    {
+      "runId": "2026-10-09T15-30-22.715Z-8667c642-2d3f-489f-a237-a3e5afeb0309",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-late-combat-join.mjs && node scripts/check-team-survival-contribution.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-character-casting.mjs && node scripts/check-forced-control.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAtUtc": "2026-10-09T15:30:22.721Z",
+      "finishedAtUtc": "2026-10-09T15:30:27.753Z",
+      "status": "failed",
+      "rawExitCode": 1,
+      "engineBefore": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "engineAfter": "b09841a59d8fca4a087906ab54e8713640574fd1c6b8790ae6315e95ebf161ad",
+      "sameEngine": true,
+      "capturedSourceCount": 19,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-30-22.715Z-8667c642-2d3f-489f-a237-a3e5afeb0309/result.json",
+        "bytes": 5631,
+        "sha256": "04342E734BFB95394890FCE178AF3771B70CE01A62A3F6A56F2B4DE7292A5D56"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-30-22.715Z-8667c642-2d3f-489f-a237-a3e5afeb0309/output.log",
+        "bytes": 1373,
+        "sha256": "49DA60299E0ACB1FA3DDACEEF3821A2C21D1B0C2592B19E0BE7A57AA505BBCA9"
+      },
+      "note": "A one-versus-one fixture incorrectly expected a team-execution-only HP counter."
+    },
+    {
+      "runId": "2026-10-09T15-33-30.776Z-c623b36c-f062-4c7e-962a-99d4a75b489f",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-late-combat-join.mjs && node scripts/check-team-survival-contribution.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-character-casting.mjs && node scripts/check-forced-control.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAtUtc": "2026-10-09T15:33:30.778Z",
+      "finishedAtUtc": "2026-10-09T15:33:32.083Z",
+      "status": "failed",
+      "rawExitCode": 1,
+      "engineBefore": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "engineAfter": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "sameEngine": true,
+      "capturedSourceCount": 19,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-33-30.776Z-c623b36c-f062-4c7e-962a-99d4a75b489f/result.json",
+        "bytes": 5631,
+        "sha256": "A55E1EE3017A892C1AC825AA45EA15C40E23928F9580E9F51AAB3CC89186D428"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-33-30.776Z-c623b36c-f062-4c7e-962a-99d4a75b489f/output.log",
+        "bytes": 2255,
+        "sha256": "3EE7AAF6A3D595E2A005E58C01680C4BD5340CCD1AC2F9B5319808B2A50A7C99"
+      },
+      "note": "Syntax error in a new collector fixture; retained raw failure."
+    },
+    {
+      "runId": "2026-10-09T15-35-15.802Z-3d3920c8-1f0b-41cb-bc7d-ba03901de51e",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-late-combat-join.mjs && node scripts/check-team-survival-contribution.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-character-casting.mjs && node scripts/check-forced-control.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-character-status-skills.mjs && node scripts/check-equipment-account-recording.mjs && node scripts/check-equipment-effect-combat.mjs && node scripts/check-guest-character-profiles.mjs && node scripts/check-status-protection.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAtUtc": "2026-10-09T15:35:15.804Z",
+      "finishedAtUtc": "2026-10-09T15:35:16.71Z",
+      "status": "failed",
+      "rawExitCode": 1,
+      "engineBefore": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "engineAfter": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "sameEngine": true,
+      "capturedSourceCount": 25,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-35-15.802Z-3d3920c8-1f0b-41cb-bc7d-ba03901de51e/result.json",
+        "bytes": 7308,
+        "sha256": "7C04AA9240B59D4851753995FC3F6FE623902D182AC8799AF2539ADE71CF02D8"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-35-15.802Z-3d3920c8-1f0b-41cb-bc7d-ba03901de51e/output.log",
+        "bytes": 4144,
+        "sha256": "920CAF0495BF624A284E30B6CF7F5D672FC57E6A6BD0E06107942DB42334B8D4"
+      },
+      "note": "Double normalization changed the chase motion bucket to other; corrected in the diagnostics collector."
+    },
+    {
+      "runId": "2026-10-09T15-36-21.152Z-df3483d0-4040-4b30-bebf-b5bc2a17b63e",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-late-combat-join.mjs && node scripts/check-team-survival-contribution.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-character-casting.mjs && node scripts/check-forced-control.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-character-status-skills.mjs && node scripts/check-equipment-account-recording.mjs && node scripts/check-equipment-effect-combat.mjs && node scripts/check-guest-character-profiles.mjs && node scripts/check-status-protection.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAtUtc": "2026-10-09T15:36:21.155Z",
+      "finishedAtUtc": "2026-10-09T15:36:21.966Z",
+      "status": "failed",
+      "rawExitCode": 1,
+      "engineBefore": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "engineAfter": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "sameEngine": true,
+      "capturedSourceCount": 25,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-36-21.152Z-df3483d0-4040-4b30-bebf-b5bc2a17b63e/result.json",
+        "bytes": 7307,
+        "sha256": "F97814B5DDEF105DFFDF2F7A5EBA8C6218C60AE80971CFC1B1B122A29AF74856"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-36-21.152Z-df3483d0-4040-4b30-bebf-b5bc2a17b63e/output.log",
+        "bytes": 5059,
+        "sha256": "8FEE178DC9E624B23D2A503F9CA01FFA98000CB8E2176A01E4E3EF2185CD2C8D"
+      },
+      "note": "A stale wording expectation failed after observation semantics were clarified."
+    },
+    {
+      "runId": "2026-10-09T15-36-51.206Z-d7b36035-3c88-4e12-8b14-1fa8ce9f4a4d",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-late-combat-join.mjs && node scripts/check-team-survival-contribution.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-character-casting.mjs && node scripts/check-forced-control.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-character-status-skills.mjs && node scripts/check-equipment-account-recording.mjs && node scripts/check-equipment-effect-combat.mjs && node scripts/check-guest-character-profiles.mjs && node scripts/check-status-protection.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAtUtc": "2026-10-09T15:36:51.208Z",
+      "finishedAtUtc": "2026-10-09T15:36:52.013Z",
+      "status": "failed",
+      "rawExitCode": 1,
+      "engineBefore": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "engineAfter": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "sameEngine": true,
+      "capturedSourceCount": 25,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-36-51.206Z-d7b36035-3c88-4e12-8b14-1fa8ce9f4a4d/result.json",
+        "bytes": 7308,
+        "sha256": "359AE88DD1F497C8B242E9828E974DC8BE7055E695E1F558F78F4BEFDD792216"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-36-51.206Z-d7b36035-3c88-4e12-8b14-1fa8ce9f4a4d/output.log",
+        "bytes": 4610,
+        "sha256": "CA5401EBAF235B8D47B762341BE41AC6A32D674BBB892B3B8C81B78D5AF040DC"
+      },
+      "note": "Stationary-event and capped latest-basic sample expectations were corrected."
+    },
+    {
+      "runId": "2026-10-09T15-37-34.327Z-24d93aa8-946c-4f0c-8143-39d3383700f7",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-late-combat-join.mjs && node scripts/check-team-survival-contribution.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-character-casting.mjs && node scripts/check-forced-control.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-character-status-skills.mjs && node scripts/check-equipment-account-recording.mjs && node scripts/check-equipment-effect-combat.mjs && node scripts/check-guest-character-profiles.mjs && node scripts/check-status-protection.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAtUtc": "2026-10-09T15:37:34.329Z",
+      "finishedAtUtc": "2026-10-09T15:37:35.149Z",
+      "status": "failed",
+      "rawExitCode": 1,
+      "engineBefore": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "engineAfter": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "sameEngine": true,
+      "capturedSourceCount": 25,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-37-34.327Z-24d93aa8-946c-4f0c-8143-39d3383700f7/result.json",
+        "bytes": 7308,
+        "sha256": "770DD6628EF72F4515007EE09FAFC1E1F714C566CA3268687F49C1C46AC0DB73"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-37-34.327Z-24d93aa8-946c-4f0c-8143-39d3383700f7/output.log",
+        "bytes": 4802,
+        "sha256": "6F0040D7B4E90AE18471E244D585A8FA7A1BEC37C4BF1FBD78832CC3D5FF5276"
+      },
+      "note": "A post-world fixture lacked the action type needed for exact pairing."
+    },
+    {
+      "runId": "2026-10-09T15-38-09.068Z-eb1c1c5c-3bf1-4d8d-8318-f190768fd5d1",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-late-combat-join.mjs && node scripts/check-team-survival-contribution.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-character-casting.mjs && node scripts/check-forced-control.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-character-status-skills.mjs && node scripts/check-equipment-account-recording.mjs && node scripts/check-equipment-effect-combat.mjs && node scripts/check-guest-character-profiles.mjs && node scripts/check-status-protection.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAtUtc": "2026-10-09T15:38:09.07Z",
+      "finishedAtUtc": "2026-10-09T15:38:10.545Z",
+      "status": "failed",
+      "rawExitCode": 1,
+      "engineBefore": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "engineAfter": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "sameEngine": true,
+      "capturedSourceCount": 25,
+      "sameCapturedSourcesDuringRun": true,
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-38-09.068Z-eb1c1c5c-3bf1-4d8d-8318-f190768fd5d1/result.json",
+        "bytes": 7308,
+        "sha256": "D08479994C076C743F9DAF969AD3C3EEF645CB87CC51D19E3071B4A63C0DB051"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-38-09.068Z-eb1c1c5c-3bf1-4d8d-8318-f190768fd5d1/output.log",
+        "bytes": 5074,
+        "sha256": "36A7B4773AA4006C1BD433E711F4422556DE34195F9AADD58360EF3BEFF67CDF"
+      },
+      "note": "A repeated-chase fixture expected multiple retained latest-chase entries instead of its single bounded slot."
+    },
+    {
+      "runId": "2026-10-09T15-38-52.749Z-e5ece962-b100-486f-b5f6-b66e929628ae",
+      "command": "node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-late-combat-join.mjs && node scripts/check-team-survival-contribution.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-character-casting.mjs && node scripts/check-forced-control.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-character-status-skills.mjs && node scripts/check-equipment-account-recording.mjs && node scripts/check-equipment-effect-combat.mjs && node scripts/check-guest-character-profiles.mjs && node scripts/check-status-protection.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "startedAtUtc": "2026-10-09T15:38:52.751Z",
+      "finishedAtUtc": "2026-10-09T15:48:14.405Z",
+      "status": "passed",
+      "rawExitCode": 0,
+      "engineBefore": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "engineAfter": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "sameEngine": true,
+      "capturedSourceCount": 25,
+      "sameCapturedSourcesDuringRun": true,
+      "capturedSourceHashes": {
+        "scripts/run-eternal-hunger-verification.mjs": "fde4f679e9953387e141a8f3cd562d1ed1568474951e15ee53b0130583aa6652",
+        "package.json": "fb2c5523e960c61ffc9ccb8d32a5f5a1a45fa248177682ba77fc094fd482edd1",
+        "scripts/analyze-strategy-comparison.mjs": "b934b2a0366601c71108db2cfd3c87b177bbbcbfd4ad0371720277f8fbd2bb8b",
+        "scripts/lib/run-random-isolation-match.mjs": "af468024a2dfc8120016640f13c60e7325499c6e045a022fec1627322f25d504",
+        "scripts/lib/strategy-comparison-contracts.mjs": "01df1e67de305b5cd37efaf3c7d432ccd7874806ca7042cba61c38894d616ac0",
+        "scripts/lib/team-combat-participation-diagnostics.mjs": "b9e5e0adbb5208d1a3bbe00ffd16611c6e1ff61422228301c175729392d5d50a",
+        "scripts/check-team-combat-participation-diagnostics.mjs": "cfbdcb12ac9258c6496d536834858124318bbe5bcc24f9fe705ba403cb14484c",
+        "scripts/check-combat-participation-observation.mjs": "8cf2e28b74a8028800f58e7c1da5d4e61b02bdbe788d6dbd78cc69ac8e4fb7d6",
+        "scripts/check-combat-timing.mjs": "71e97c723d0dd12109d5aecd5f16fdaccd133e75a17ae7d5ff192549ab621181",
+        "scripts/check-team-combat.mjs": "ba3e57e05cf431d314b981a25494a326536460379bb69ada22910e78bdb55904",
+        "scripts/check-team-observer.mjs": "a6318ec9e9e4cdd9bc3d533502020c47d92c73ff015f9c0b6907548a1e56b591",
+        "scripts/check-character-casting.mjs": "b93fffc29ff178b455b0693bb36c8e19b1066334cad01f3b00d14c395a87cbe1",
+        "scripts/check-forced-control.mjs": "bcac3d00b6abe8ebb3cfaaea3109f9052c3e2c9a63cb7e7ca5fe9ff161c20637",
+        "scripts/check-ai-recovery-forced-control.mjs": "24ce7dd09d9fec23658129f73212601c5a632d8f061b2ed6cba1a8de866ceb65",
+        "scripts/check-late-combat-join.mjs": "14319445bd7871eab0f2ae4d7328665307523e96e10f705aed9620c727773623",
+        "scripts/check-action-states.mjs": "7ebb4393ce8c16ff2da94963834b5d9f6472e6f2b5048b493b463d767de60039",
+        "scripts/check-combat-spatial.mjs": "707ff173fe4b3996e778ccb7b99647a71d0e58b11c187127aa6e04f18fe2ab20",
+        "scripts/check-character-status-skills.mjs": "14ae9fb21e0cd8915e39684c76f315d1d42f604755eb15263bdfa0e4e6ece108",
+        "scripts/check-equipment-account-recording.mjs": "9572be40aa96c483afdede3ee329295f04d101b6d71b2829497a6120d50957d2",
+        "scripts/check-equipment-effect-combat.mjs": "ce8d44149f3fe498b669b944ad945496033a4507e3c8bbe71f33b84da894ff98",
+        "scripts/check-guest-character-profiles.mjs": "ca9b06bf6149a0b151ae6d96faf130a96736971441a7e43ad05774a71536125d",
+        "scripts/check-status-protection.mjs": "2c63a22eb37119137deaf19a432c11cf2c6389dd67fe1b112ed91d43eaef8506",
+        "scripts/check-wildlife-combat.mjs": "d7f331c0ec8832f81c1c29b43588c7e9cf1a36c8f43bda431c11af7054cf235b",
+        "scripts/check-team-survival-contribution.mjs": "30c92601b60994f06fc4a1c69773f3cf953079c38369c63595e575f309f86579",
+        "scripts/lib/run-combat-scenario.mjs": "1b9dcd2a2ce9befc749760f79a03510d0e6952abd4ed3d123bf31b06532e4f16"
+      },
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-38-52.749Z-e5ece962-b100-486f-b5f6-b66e929628ae/result.json",
+        "bytes": 7308,
+        "sha256": "8E3544AB6009664A99662E299EBAB39CC7370FFB1E05C3223BA44E1DBB288AE6"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-38-52.749Z-e5ece962-b100-486f-b5f6-b66e929628ae/output.log",
+        "bytes": 36893,
+        "sha256": "D9003C927A82216C0FA7FB3BC7FF90CC7933B750396476946E5CFBAF699CC85E"
+      },
+      "note": "Focused chain passed on its captured 25 sources; one test-only assertion file was strengthened afterward and rerun separately."
+    },
+    {
+      "runId": "2026-10-09T15-41-08.981Z-19404612-248a-4785-8060-cab8d24fdba7",
+      "command": "npm run analyze:strategy-comparison -- --seeds=2202 --variants=baseline,one-formation-swap --repeats=2 --output=.verification-runs/2026-10-09T15-41-08.981Z-19404612-248a-4785-8060-cab8d24fdba7/strategy-comparison.json",
+      "startedAtUtc": "2026-10-09T15:41:08.983Z",
+      "finishedAtUtc": "2026-10-09T15:52:55.018Z",
+      "status": "failed",
+      "rawExitCode": 2,
+      "engineBefore": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "engineAfter": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "sameEngine": true,
+      "capturedSourceCount": 7,
+      "sameCapturedSourcesDuringRun": true,
+      "capturedSourceHashes": {
+        "scripts/run-eternal-hunger-verification.mjs": "fde4f679e9953387e141a8f3cd562d1ed1568474951e15ee53b0130583aa6652",
+        "package.json": "fb2c5523e960c61ffc9ccb8d32a5f5a1a45fa248177682ba77fc094fd482edd1",
+        "scripts/analyze-strategy-comparison.mjs": "b934b2a0366601c71108db2cfd3c87b177bbbcbfd4ad0371720277f8fbd2bb8b",
+        "scripts/lib/run-random-isolation-match.mjs": "af468024a2dfc8120016640f13c60e7325499c6e045a022fec1627322f25d504",
+        "scripts/lib/strategy-comparison-contracts.mjs": "01df1e67de305b5cd37efaf3c7d432ccd7874806ca7042cba61c38894d616ac0",
+        "scripts/lib/team-combat-participation-diagnostics.mjs": "b9e5e0adbb5208d1a3bbe00ffd16611c6e1ff61422228301c175729392d5d50a",
+        "scripts/check-team-combat-participation-diagnostics.mjs": "cfbdcb12ac9258c6496d536834858124318bbe5bcc24f9fe705ba403cb14484c"
+      },
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-41-08.981Z-19404612-248a-4785-8060-cab8d24fdba7/result.json",
+        "bytes": 2495,
+        "sha256": "44DB4C723D48A37DDCB3BB4E3150B15ADF6A3323E34E7459F8FD9DEB56032750"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-41-08.981Z-19404612-248a-4785-8060-cab8d24fdba7/output.log",
+        "bytes": 7739,
+        "sha256": "EFDCCE60D9E76D3987DC8701C6A2083C6801C8E023D4BC73EC99A1115E28B280"
+      },
+      "note": "Four natural matches completed with exact per-condition reproduction, but formation exposure remains unaccepted; raw exit 2 retained."
+    },
+    {
+      "runId": "2026-10-09T15-46-00.485Z-2cb29856-ee0e-4b67-9ab3-6ce723489dfb",
+      "command": "npm run check:runtime:full",
+      "startedAtUtc": "2026-10-09T15:46:00.487Z",
+      "finishedAtUtc": "2026-10-09T15:49:35.605Z",
+      "status": "passed",
+      "rawExitCode": 0,
+      "engineBefore": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "engineAfter": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "sameEngine": true,
+      "capturedSourceCount": 2,
+      "sameCapturedSourcesDuringRun": true,
+      "capturedSourceHashes": {
+        "scripts/run-eternal-hunger-verification.mjs": "fde4f679e9953387e141a8f3cd562d1ed1568474951e15ee53b0130583aa6652",
+        "package.json": "fb2c5523e960c61ffc9ccb8d32a5f5a1a45fa248177682ba77fc094fd482edd1"
+      },
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T15-46-00.485Z-2cb29856-ee0e-4b67-9ab3-6ce723489dfb/result.json",
+        "bytes": 1076,
+        "sha256": "DCFF586C395B2087B50B5928338394B25F41C16E0BA1E9409A821A09178880E3"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T15-46-00.485Z-2cb29856-ee0e-4b67-9ab3-6ce723489dfb/output.log",
+        "bytes": 3877,
+        "sha256": "22578DD71099BB74C5C375E9132C7B52E1C9EA22D5C13A5D30D893319B0E1A15"
+      },
+      "note": "Static checks and production build passed; 62 pages generated."
+    },
+    {
+      "runId": "2026-10-09T16-05-27.643Z-fb0a5f7e-8611-4c55-bcd7-0aaa4e9b1d18",
+      "command": "node scripts/check-late-combat-join.mjs",
+      "startedAtUtc": "2026-10-09T16:05:27.644Z",
+      "finishedAtUtc": "2026-10-09T16:05:33.055Z",
+      "status": "passed",
+      "rawExitCode": 0,
+      "engineBefore": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "engineAfter": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+      "sameEngine": true,
+      "capturedSourceCount": 4,
+      "sameCapturedSourcesDuringRun": true,
+      "capturedSourceHashes": {
+        "scripts/run-eternal-hunger-verification.mjs": "fde4f679e9953387e141a8f3cd562d1ed1568474951e15ee53b0130583aa6652",
+        "package.json": "fb2c5523e960c61ffc9ccb8d32a5f5a1a45fa248177682ba77fc094fd482edd1",
+        "scripts/check-late-combat-join.mjs": "fb5ab9a374ad9ecfc93c91e08af76651490afba344ef9dcb2cdfc0c73affeb9c",
+        "scripts/lib/run-combat-scenario.mjs": "1b9dcd2a2ce9befc749760f79a03510d0e6952abd4ed3d123bf31b06532e4f16"
+      },
+      "rawResult": {
+        "path": "client/.verification-runs/2026-10-09T16-05-27.643Z-fb0a5f7e-8611-4c55-bcd7-0aaa4e9b1d18/result.json",
+        "bytes": 1531,
+        "sha256": "B8B1537566CA208ABBD41054C839DCEBFC9FA6C491618126E1E8D0FC9D65AB90"
+      },
+      "rawLog": {
+        "path": "client/.verification-runs/2026-10-09T16-05-27.643Z-fb0a5f7e-8611-4c55-bcd7-0aaa4e9b1d18/output.log",
+        "bytes": 634,
+        "sha256": "78ABE5CF30B779B5E64BCD3130939AC83EA3268FCFDC2C8B3794CB0F392BE905"
+      },
+      "note": "Final test-only strengthening covers every basic attempt including zero-HP damage and every team strike before the personal ready time; seven fresh cases each repeated twice passed."
+    }
+  ],
+  "natural": {
+    "engineVersion": "efabec8aa2882b363b9bcb383950a47e671a47da84236516e7ca1aca9b4228d1",
+    "seeds": [
+      "2202"
+    ],
+    "variants": [
+      "baseline",
+      "one-formation-swap"
+    ],
+    "repeats": 2,
+    "expectedCases": 2,
+    "expectedMatches": 4,
+    "completedMatches": 4,
+    "complete": true,
+    "comparisonComplete": false,
+    "rows": [
+      {
+        "variant": "baseline",
+        "inputDigest": "dc74749836981f4f72efc353d67e0948efa73a180f7666d4da4136ef12bc3b73",
+        "changes": [],
+        "derivedChanges": [],
+        "eventCount": 13600,
+        "frameCount": 6540,
+        "phases": 13,
+        "endingAtSec": 1257.083333,
+        "winnerTeamId": "team:5",
+        "eventDigest": "7a18804fc3081208721be20eee928b36b02af5d934928a58085f6a3195ebf822",
+        "frameDigest": "07f142498bdccb914bad23ae11390f5d29f4f9280c62c9056852e815c687c53a",
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 1702268996,
+          "draws": 9434,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "replayEquality": {
+          "matched": true,
+          "firstDifference": -1,
+          "expectedEvents": 13600,
+          "actualEvents": 13600,
+          "sameFinalState": true,
+          "sameRandom": true,
+          "sameEnding": true
+        },
+        "verified": true,
+        "observerNeutral": true,
+        "growthCompleteBy250": 24,
+        "emptySlots": 0,
+        "equipmentSnapshotScope": "alive final state and latest death snapshot for finally dead participants",
+        "countsByActor": {
+          "guest-survivor-01": {
+            "schedule": {
+              "hunt": 8,
+              "support": 0,
+              "recovery": 61,
+              "cast": 0,
+              "action_locked": 462,
+              "attack_locked": 6,
+              "no_intent": 2795,
+              "self_turn": 790,
+              "other_turn": 5724
+            },
+            "actor_schedule": {
+              "candidate": 2850,
+              "no_candidate": 8,
+              "byActionType": {
+                "basic": 2,
+                "approach": 2846,
+                "skill_start": 0,
+                "skill_release": 0,
+                "skill_expire": 0,
+                "status_boundary": 2,
+                "other": 0,
+                "none": 8
+              },
+              "availability": {
+                "candidate_row": 2858,
+                "missing_candidate_row": 3656,
+                "truncated": 0,
+                "actor_missing": 0,
+                "invalid_candidate_actor": 0
+              },
+              "branches": {
+                "dead_or_rift": 0,
+                "wildlife_hunt": 8,
+                "boss_assist": 0,
+                "forced_control": 0,
+                "pending_cast": 0,
+                "no_intent_patrol": 2785,
+                "no_opponents_last_seen": 32,
+                "no_opponents_patrol": 2,
+                "observed_out_of_range": 29,
+                "basic_in_range": 2,
+                "other": 0
+              },
+              "motion": {
+                "none": 5,
+                "patrol": 2788,
+                "last_seen": 32,
+                "chase": 33,
+                "forced": 0,
+                "other": 0
+              }
+            },
+            "team_queue": {
+              "on_field": 23,
+              "queued": 1,
+              "other_actor_turn": 22
+            },
+            "arbitration": {
+              "candidate": 790,
+              "selected": 536,
+              "deferred": 149,
+              "wildlife_first": 105,
+              "equipment_first": 0
+            },
+            "arbitrationByActionType": {
+              "basic": {
+                "candidate": 2,
+                "selected": 2,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "approach": {
+                "candidate": 786,
+                "selected": 532,
+                "deferred": 149,
+                "wildlife_first": 105,
+                "equipment_first": 0
+              },
+              "skill_start": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_release": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_expire": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "status_boundary": {
+                "candidate": 2,
+                "selected": 2,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "other": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              }
+            },
+            "team_execution": {
+              "invalidated_before_strike": 0,
+              "no_valid_target": 0,
+              "not_performed": 0,
+              "performed_no_hp": 0,
+              "hp_hit": 1
+            },
+            "post_world": {
+              "pairing": {
+                "matched": 536,
+                "no_pending": 0,
+                "identity_mismatch": 0,
+                "time_mismatch": 0
+              },
+              "motionBefore": {
+                "none": 2,
+                "patrol": 534,
+                "last_seen": 0,
+                "chase": 0,
+                "forced": 0,
+                "other": 0
+              },
+              "motionAfter": {
+                "none": 9,
+                "patrol": 527,
+                "last_seen": 0,
+                "chase": 0,
+                "forced": 0,
+                "other": 0
+              },
+              "actorMovement": {
+                "moved": 512,
+                "stationary": 17,
+                "changed_zone_space": 7,
+                "missing_actor": 0,
+                "truncated_roster": 0,
+                "position_missing": 0
+              },
+              "targetMovement": {
+                "moved": 0,
+                "stationary": 2,
+                "changed_zone_space": 0,
+                "no_target": 534,
+                "missing_target": 0,
+                "truncated_roster": 0,
+                "position_missing": 0
+              }
+            },
+            "changedBuddyAbsence": {
+              "absent_runtime_roster": 1323,
+              "team_changed": 0,
+              "dead": 789,
+              "different_zone": 1291,
+              "different_space": 0,
+              "present": 3339,
+              "actor_absent_runtime_roster": 6332,
+              "truncated_roster": 0
+            }
+          },
+          "guest-survivor-11": {
+            "schedule": {
+              "hunt": 24,
+              "support": 19,
+              "recovery": 45,
+              "cast": 0,
+              "action_locked": 434,
+              "attack_locked": 24,
+              "no_intent": 3470,
+              "self_turn": 14,
+              "other_turn": 6500
+            },
+            "actor_schedule": {
+              "candidate": 3558,
+              "no_candidate": 43,
+              "byActionType": {
+                "basic": 16,
+                "approach": 3529,
+                "skill_start": 0,
+                "skill_release": 0,
+                "skill_expire": 0,
+                "status_boundary": 13,
+                "other": 0,
+                "none": 43
+              },
+              "availability": {
+                "candidate_row": 3601,
+                "missing_candidate_row": 2913,
+                "truncated": 0,
+                "actor_missing": 0,
+                "invalid_candidate_actor": 0
+              },
+              "branches": {
+                "dead_or_rift": 0,
+                "wildlife_hunt": 24,
+                "boss_assist": 19,
+                "forced_control": 0,
+                "pending_cast": 0,
+                "no_intent_patrol": 3421,
+                "no_opponents_last_seen": 90,
+                "no_opponents_patrol": 6,
+                "observed_out_of_range": 25,
+                "basic_in_range": 16,
+                "other": 0
+              },
+              "motion": {
+                "none": 37,
+                "patrol": 3431,
+                "last_seen": 90,
+                "chase": 43,
+                "forced": 0,
+                "other": 0
+              }
+            },
+            "team_queue": {
+              "on_field": 10,
+              "queued": 6,
+              "other_actor_turn": 4
+            },
+            "arbitration": {
+              "candidate": 14,
+              "selected": 13,
+              "deferred": 0,
+              "wildlife_first": 1,
+              "equipment_first": 0
+            },
+            "arbitrationByActionType": {
+              "basic": {
+                "candidate": 8,
+                "selected": 8,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "approach": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_start": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_release": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_expire": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "status_boundary": {
+                "candidate": 6,
+                "selected": 5,
+                "deferred": 0,
+                "wildlife_first": 1,
+                "equipment_first": 0
+              },
+              "other": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              }
+            },
+            "team_execution": {
+              "invalidated_before_strike": 0,
+              "no_valid_target": 0,
+              "not_performed": 0,
+              "performed_no_hp": 0,
+              "hp_hit": 6
+            },
+            "post_world": {
+              "pairing": {
+                "matched": 13,
+                "no_pending": 0,
+                "identity_mismatch": 0,
+                "time_mismatch": 0
+              },
+              "motionBefore": {
+                "none": 8,
+                "patrol": 5,
+                "last_seen": 0,
+                "chase": 0,
+                "forced": 0,
+                "other": 0
+              },
+              "motionAfter": {
+                "none": 8,
+                "patrol": 5,
+                "last_seen": 0,
+                "chase": 0,
+                "forced": 0,
+                "other": 0
+              },
+              "actorMovement": {
+                "moved": 4,
+                "stationary": 9,
+                "changed_zone_space": 0,
+                "missing_actor": 0,
+                "truncated_roster": 0,
+                "position_missing": 0
+              },
+              "targetMovement": {
+                "moved": 3,
+                "stationary": 5,
+                "changed_zone_space": 0,
+                "no_target": 5,
+                "missing_target": 0,
+                "truncated_roster": 0,
+                "position_missing": 0
+              }
+            },
+            "changedBuddyAbsence": {
+              "absent_runtime_roster": 565,
+              "team_changed": 0,
+              "dead": 910,
+              "different_zone": 1604,
+              "different_space": 0,
+              "present": 4765,
+              "actor_absent_runtime_roster": 5204,
+              "truncated_roster": 0
+            }
+          }
+        },
+        "comparisonExposure": null
+      },
+      {
+        "variant": "one-formation-swap",
+        "inputDigest": "4d5783bcbd17086701c1c3636178b276b353fea2d1e2cd845e89cf1830e59045",
+        "changes": [
+          {
+            "actorId": "guest-survivor-01",
+            "field": "team",
+            "before": "team:1",
+            "after": "team:2"
+          },
+          {
+            "actorId": "guest-survivor-11",
+            "field": "team",
+            "before": "team:2",
+            "after": "team:1"
+          }
+        ],
+        "derivedChanges": [
+          {
+            "actorId": "guest-survivor-06",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-06",
+              "guest-survivor-01",
+              "guest-survivor-19"
+            ],
+            "after": [
+              "guest-survivor-06",
+              "guest-survivor-19",
+              "guest-survivor-11"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-06",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "해오름",
+              "백로",
+              "마루"
+            ],
+            "after": [
+              "해오름",
+              "마루",
+              "윤슬"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-01",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-06",
+              "guest-survivor-01",
+              "guest-survivor-19"
+            ],
+            "after": [
+              "guest-survivor-01",
+              "guest-survivor-13",
+              "guest-survivor-12"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-01",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "해오름",
+              "백로",
+              "마루"
+            ],
+            "after": [
+              "백로",
+              "가람",
+              "노을"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-19",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-06",
+              "guest-survivor-01",
+              "guest-survivor-19"
+            ],
+            "after": [
+              "guest-survivor-06",
+              "guest-survivor-19",
+              "guest-survivor-11"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-19",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "해오름",
+              "백로",
+              "마루"
+            ],
+            "after": [
+              "해오름",
+              "마루",
+              "윤슬"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-13",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-13",
+              "guest-survivor-11",
+              "guest-survivor-12"
+            ],
+            "after": [
+              "guest-survivor-01",
+              "guest-survivor-13",
+              "guest-survivor-12"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-13",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "가람",
+              "윤슬",
+              "노을"
+            ],
+            "after": [
+              "백로",
+              "가람",
+              "노을"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-11",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-13",
+              "guest-survivor-11",
+              "guest-survivor-12"
+            ],
+            "after": [
+              "guest-survivor-06",
+              "guest-survivor-19",
+              "guest-survivor-11"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-11",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "가람",
+              "윤슬",
+              "노을"
+            ],
+            "after": [
+              "해오름",
+              "마루",
+              "윤슬"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-12",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-13",
+              "guest-survivor-11",
+              "guest-survivor-12"
+            ],
+            "after": [
+              "guest-survivor-01",
+              "guest-survivor-13",
+              "guest-survivor-12"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-12",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "가람",
+              "윤슬",
+              "노을"
+            ],
+            "after": [
+              "백로",
+              "가람",
+              "노을"
+            ]
+          }
+        ],
+        "eventCount": 14769,
+        "frameCount": 6729,
+        "phases": 13,
+        "endingAtSec": 1287,
+        "winnerTeamId": "team:8",
+        "eventDigest": "d16689bc4e6f9a7b8e58e32195aab42d8fb91ee851f119fa5a8e317d3a39d2d3",
+        "frameDigest": "dc03490a1d2c5b5e8bb8c185b8f4ae6d2cf848581bc0d095516c305668c6a497",
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 3390799815,
+          "draws": 9585,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "replayEquality": {
+          "matched": true,
+          "firstDifference": -1,
+          "expectedEvents": 14769,
+          "actualEvents": 14769,
+          "sameFinalState": true,
+          "sameRandom": true,
+          "sameEnding": true
+        },
+        "verified": true,
+        "observerNeutral": true,
+        "growthCompleteBy250": 24,
+        "emptySlots": 1,
+        "equipmentSnapshotScope": "alive final state and latest death snapshot for finally dead participants",
+        "countsByActor": {
+          "guest-survivor-01": {
+            "schedule": {
+              "hunt": 7,
+              "support": 0,
+              "recovery": 43,
+              "cast": 0,
+              "action_locked": 353,
+              "attack_locked": 3,
+              "no_intent": 2696,
+              "self_turn": 1588,
+              "other_turn": 5115
+            },
+            "actor_schedule": {
+              "candidate": 2179,
+              "no_candidate": 7,
+              "byActionType": {
+                "basic": 0,
+                "approach": 2179,
+                "skill_start": 0,
+                "skill_release": 0,
+                "skill_expire": 0,
+                "status_boundary": 0,
+                "other": 0,
+                "none": 7
+              },
+              "availability": {
+                "candidate_row": 2186,
+                "missing_candidate_row": 4517,
+                "truncated": 0,
+                "actor_missing": 0,
+                "invalid_candidate_actor": 0
+              },
+              "branches": {
+                "dead_or_rift": 0,
+                "wildlife_hunt": 7,
+                "boss_assist": 0,
+                "forced_control": 0,
+                "pending_cast": 0,
+                "no_intent_patrol": 2148,
+                "no_opponents_last_seen": 15,
+                "no_opponents_patrol": 1,
+                "observed_out_of_range": 15,
+                "basic_in_range": 0,
+                "other": 0
+              },
+              "motion": {
+                "none": 2,
+                "patrol": 2150,
+                "last_seen": 15,
+                "chase": 19,
+                "forced": 0,
+                "other": 0
+              }
+            },
+            "team_queue": {
+              "on_field": 8,
+              "queued": 0,
+              "other_actor_turn": 8
+            },
+            "arbitration": {
+              "candidate": 1588,
+              "selected": 1160,
+              "deferred": 313,
+              "wildlife_first": 115,
+              "equipment_first": 0
+            },
+            "arbitrationByActionType": {
+              "basic": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "approach": {
+                "candidate": 1588,
+                "selected": 1160,
+                "deferred": 313,
+                "wildlife_first": 115,
+                "equipment_first": 0
+              },
+              "skill_start": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_release": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_expire": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "status_boundary": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "other": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              }
+            },
+            "team_execution": {
+              "invalidated_before_strike": 0,
+              "no_valid_target": 0,
+              "not_performed": 0,
+              "performed_no_hp": 0,
+              "hp_hit": 0
+            },
+            "post_world": {
+              "pairing": {
+                "matched": 1160,
+                "no_pending": 0,
+                "identity_mismatch": 0,
+                "time_mismatch": 0
+              },
+              "motionBefore": {
+                "none": 0,
+                "patrol": 1160,
+                "last_seen": 0,
+                "chase": 0,
+                "forced": 0,
+                "other": 0
+              },
+              "motionAfter": {
+                "none": 10,
+                "patrol": 1150,
+                "last_seen": 0,
+                "chase": 0,
+                "forced": 0,
+                "other": 0
+              },
+              "actorMovement": {
+                "moved": 1129,
+                "stationary": 21,
+                "changed_zone_space": 10,
+                "missing_actor": 0,
+                "truncated_roster": 0,
+                "position_missing": 0
+              },
+              "targetMovement": {
+                "moved": 0,
+                "stationary": 0,
+                "changed_zone_space": 0,
+                "no_target": 1160,
+                "missing_target": 0,
+                "truncated_roster": 0,
+                "position_missing": 0
+              }
+            },
+            "changedBuddyAbsence": {
+              "absent_runtime_roster": 0,
+              "team_changed": 0,
+              "dead": 1023,
+              "different_zone": 2388,
+              "different_space": 0,
+              "present": 3031,
+              "actor_absent_runtime_roster": 6980,
+              "truncated_roster": 0
+            }
+          },
+          "guest-survivor-11": {
+            "schedule": {
+              "hunt": 28,
+              "support": 0,
+              "recovery": 380,
+              "cast": 0,
+              "action_locked": 679,
+              "attack_locked": 37,
+              "no_intent": 4699,
+              "self_turn": 361,
+              "other_turn": 6342
+            },
+            "actor_schedule": {
+              "candidate": 4776,
+              "no_candidate": 28,
+              "byActionType": {
+                "basic": 26,
+                "approach": 4741,
+                "skill_start": 0,
+                "skill_release": 0,
+                "skill_expire": 0,
+                "status_boundary": 9,
+                "other": 0,
+                "none": 28
+              },
+              "availability": {
+                "candidate_row": 4804,
+                "missing_candidate_row": 1899,
+                "truncated": 0,
+                "actor_missing": 0,
+                "invalid_candidate_actor": 0
+              },
+              "branches": {
+                "dead_or_rift": 0,
+                "wildlife_hunt": 28,
+                "boss_assist": 0,
+                "forced_control": 0,
+                "pending_cast": 0,
+                "no_intent_patrol": 4661,
+                "no_opponents_last_seen": 52,
+                "no_opponents_patrol": 10,
+                "observed_out_of_range": 27,
+                "basic_in_range": 26,
+                "other": 0
+              },
+              "motion": {
+                "none": 51,
+                "patrol": 4674,
+                "last_seen": 52,
+                "chase": 27,
+                "forced": 0,
+                "other": 0
+              }
+            },
+            "team_queue": {
+              "on_field": 12,
+              "queued": 6,
+              "other_actor_turn": 6
+            },
+            "arbitration": {
+              "candidate": 361,
+              "selected": 288,
+              "deferred": 71,
+              "wildlife_first": 2,
+              "equipment_first": 0
+            },
+            "arbitrationByActionType": {
+              "basic": {
+                "candidate": 14,
+                "selected": 13,
+                "deferred": 1,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "approach": {
+                "candidate": 340,
+                "selected": 269,
+                "deferred": 69,
+                "wildlife_first": 2,
+                "equipment_first": 0
+              },
+              "skill_start": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_release": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_expire": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "status_boundary": {
+                "candidate": 7,
+                "selected": 6,
+                "deferred": 1,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "other": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              }
+            },
+            "team_execution": {
+              "invalidated_before_strike": 0,
+              "no_valid_target": 0,
+              "not_performed": 0,
+              "performed_no_hp": 0,
+              "hp_hit": 6
+            },
+            "post_world": {
+              "pairing": {
+                "matched": 288,
+                "no_pending": 0,
+                "identity_mismatch": 0,
+                "time_mismatch": 0
+              },
+              "motionBefore": {
+                "none": 13,
+                "patrol": 270,
+                "last_seen": 0,
+                "chase": 5,
+                "forced": 0,
+                "other": 0
+              },
+              "motionAfter": {
+                "none": 18,
+                "patrol": 265,
+                "last_seen": 0,
+                "chase": 5,
+                "forced": 0,
+                "other": 0
+              },
+              "actorMovement": {
+                "moved": 265,
+                "stationary": 18,
+                "changed_zone_space": 5,
+                "missing_actor": 0,
+                "truncated_roster": 0,
+                "position_missing": 0
+              },
+              "targetMovement": {
+                "moved": 8,
+                "stationary": 10,
+                "changed_zone_space": 0,
+                "no_target": 270,
+                "missing_target": 0,
+                "truncated_roster": 0,
+                "position_missing": 0
+              }
+            },
+            "changedBuddyAbsence": {
+              "absent_runtime_roster": 5297,
+              "team_changed": 0,
+              "dead": 1336,
+              "different_zone": 2146,
+              "different_space": 0,
+              "present": 1171,
+              "actor_absent_runtime_roster": 3480,
+              "truncated_roster": 0
+            }
+          }
+        },
+        "comparisonExposure": {
+          "ready": false,
+          "scope": "Consistent formation inputs and actual changed-teammate team actions on both sides; not ally action, survival contribution or winner causality.",
+          "baseline": {
+            "ready": true,
+            "participants": [
+              {
+                "actorId": "guest-survivor-01",
+                "teamId": "team:1",
+                "changedTeammateIds": [
+                  "guest-survivor-06",
+                  "guest-survivor-19"
+                ],
+                "ready": true,
+                "engagementActions": 1,
+                "coverActions": 0,
+                "diagnostics": {
+                  "outgoingHpHits": 1,
+                  "incomingHpHits": 9,
+                  "engagements": 23,
+                  "changedTeammateEngagements": 20,
+                  "activeEngagementTurns": 1,
+                  "strikeCandidates": 1,
+                  "rejectedStrikes": {}
+                }
+              },
+              {
+                "actorId": "guest-survivor-11",
+                "teamId": "team:2",
+                "changedTeammateIds": [
+                  "guest-survivor-13",
+                  "guest-survivor-12"
+                ],
+                "ready": true,
+                "engagementActions": 6,
+                "coverActions": 0,
+                "diagnostics": {
+                  "outgoingHpHits": 7,
+                  "incomingHpHits": 3,
+                  "engagements": 10,
+                  "changedTeammateEngagements": 10,
+                  "activeEngagementTurns": 6,
+                  "strikeCandidates": 6,
+                  "rejectedStrikes": {}
+                }
+              }
+            ]
+          },
+          "candidate": {
+            "ready": false,
+            "participants": [
+              {
+                "actorId": "guest-survivor-01",
+                "teamId": "team:2",
+                "changedTeammateIds": [
+                  "guest-survivor-13",
+                  "guest-survivor-12"
+                ],
+                "ready": false,
+                "engagementActions": 0,
+                "coverActions": 0,
+                "diagnostics": {
+                  "outgoingHpHits": 0,
+                  "incomingHpHits": 4,
+                  "engagements": 8,
+                  "changedTeammateEngagements": 5,
+                  "activeEngagementTurns": 0,
+                  "strikeCandidates": 0,
+                  "rejectedStrikes": {}
+                }
+              },
+              {
+                "actorId": "guest-survivor-11",
+                "teamId": "team:1",
+                "changedTeammateIds": [
+                  "guest-survivor-06",
+                  "guest-survivor-19"
+                ],
+                "ready": false,
+                "engagementActions": 0,
+                "coverActions": 0,
+                "diagnostics": {
+                  "outgoingHpHits": 10,
+                  "incomingHpHits": 7,
+                  "engagements": 12,
+                  "changedTeammateEngagements": 3,
+                  "activeEngagementTurns": 6,
+                  "strikeCandidates": 6,
+                  "rejectedStrikes": {
+                    "changed_teammates_absent": 6
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "rawComparison": {
+      "path": "client/.verification-runs/2026-10-09T15-41-08.981Z-19404612-248a-4785-8060-cab8d24fdba7/strategy-comparison.json",
+      "bytes": 2208793,
+      "sha256": "1B04C57BF89F7F9551663B9A98AE8AF0292FBBCF3A7F71D6C3F51DECDBA17217"
+    },
+    "scope": "Current fresh seed 2202 matches only. Missing candidate rows are not no-candidate facts. Selected watched PvP post-world endpoints do not cover all actors' common world intervals. Endpoint changes do not establish chase failure, visibility loss, or winner causality."
+  },
+  "preservedUserFiles": [
+    {
+      "path": "client/scripts/check-observer-goals-match.mjs",
+      "bytes": 15715,
+      "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+    },
+    {
+      "path": "server/.env.example",
+      "bytes": 2125,
+      "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+    },
+    {
+      "path": "server/index.js",
+      "bytes": 5619,
+      "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+    }
+  ],
+  "cleanup": {
+    "inventoryAtUtc": "2026-10-09T16:08:02.7193692Z",
+    "cleanedAtUtc": "2026-10-09T16:10:27.4968836Z",
+    "targetRoot": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+    "removedFileCount": 6,
+    "removedBytes": 593665996,
+    "removedMiB": 566.1640129089355,
+    "removedFiles": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 255802018,
+        "modifiedUtc": "2026-10-09T15:49:16.5295380Z",
+        "sha256": "53BFEAD2645B7EF12A6A756C1CF1B9BAFEF9E72BADE70D6857D70371DE6F982D"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12833247,
+        "modifiedUtc": "2026-10-09T15:49:16.3587189Z",
+        "sha256": "9AD4B10AEAADDC002E6DB74CB30200667CCCF20E9CA6DED8B2F4509C7B87522D"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "modifiedUtc": "2026-10-09T15:48:54.4864343Z",
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "modifiedUtc": "2026-10-09T15:48:54.4864343Z",
+        "sha256": "6CBD3EA9E865CA983F73328F1FA28711944EEA4A83060961F0B01CBA77460F74"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 306951913,
+        "modifiedUtc": "2026-10-09T15:48:53.0308715Z",
+        "sha256": "3DE0E4E50B36549BB6B096DC95BA1279C35E15299644BECDB9FCEC8FB7F873C2"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18076078,
+        "modifiedUtc": "2026-10-09T15:48:52.8124498Z",
+        "sha256": "5863B2EE49AE7C7C2C77C6E5A7A737287F84AC4C17197007EB482775EC428064"
+      }
+    ],
+    "exactResolvedPathsAndParentReparseChecks": true,
+    "liveRelevantProcessesBeforeAndAfter": 0,
+    "protectedFileCount": 49,
+    "protectedFilesUnchangedDuringCacheDeletion": true,
+    "protectedManifestBeforeAndAfterCacheDeletion": [
+      {
+        "path": "client/.verification-runs/2026-10-09T15-10-43.155Z-e4028a0d-d8c1-4cb3-b175-818ba694df54/output.log",
+        "bytes": 934,
+        "sha256": "E9C3944E95F1CEA494180B53536FC3BD42E32905471D94285E0E0DEDED4D9399"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-10-43.155Z-e4028a0d-d8c1-4cb3-b175-818ba694df54/result.json",
+        "bytes": 1626,
+        "sha256": "549CFDEB8185B2F12E2B4D27438D06DCE2089C61448CC3A75976B40C0432582D"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-15-10.113Z-7e8c2bf9-7c78-40ec-b904-ca12ee55512f/output.log",
+        "bytes": 1620,
+        "sha256": "0B17345BA90860D1860A9E2FD7EDBBA3DF94F5CDB616CBDC5A6482190CA31AFD"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-15-10.113Z-7e8c2bf9-7c78-40ec-b904-ca12ee55512f/result.json",
+        "bytes": 1531,
+        "sha256": "58CF3F7B0624D9DB1FA83C4889516C62F76AB3F0289756D5FC6C2A9DFA762C6F"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-19-47.505Z-1a9376b3-4ce0-458e-8f02-387072caf495/output.log",
+        "bytes": 990,
+        "sha256": "6BADE2CD71FF9D5A488BA33F24D480EF8DD867922E5B556372D3D410BB83C0E1"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-19-47.505Z-1a9376b3-4ce0-458e-8f02-387072caf495/result.json",
+        "bytes": 1531,
+        "sha256": "3C5BBBC638C92085A4DB87AD11061F7F54D3350DB42A2F107E1A82AA0E654E81"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-21-13.486Z-04d086ac-5298-471a-ae30-2b7736b59ff6/output.log",
+        "bytes": 6081,
+        "sha256": "99FD87A9501DCE04398B8F7EE791929BF3E6C1CB5AD9C325784B4D4C404AEAA3"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-21-13.486Z-04d086ac-5298-471a-ae30-2b7736b59ff6/result.json",
+        "bytes": 1531,
+        "sha256": "085B732100161F45F0696730F82AF793AF2458CABC3CBFBD0ECC5EE78D21E63D"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-23-00.564Z-914169b8-b40e-4310-8689-404ec9c66c2f/output.log",
+        "bytes": 634,
+        "sha256": "78ABE5CF30B779B5E64BCD3130939AC83EA3268FCFDC2C8B3794CB0F392BE905"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-23-00.564Z-914169b8-b40e-4310-8689-404ec9c66c2f/result.json",
+        "bytes": 1531,
+        "sha256": "1BCD919C53EA40881AA76B088820104BAF42EAD7FD2D4F74F9EB070689B2CF30"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-30-22.715Z-8667c642-2d3f-489f-a237-a3e5afeb0309/output.log",
+        "bytes": 1373,
+        "sha256": "49DA60299E0ACB1FA3DDACEEF3821A2C21D1B0C2592B19E0BE7A57AA505BBCA9"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-30-22.715Z-8667c642-2d3f-489f-a237-a3e5afeb0309/result.json",
+        "bytes": 5631,
+        "sha256": "04342E734BFB95394890FCE178AF3771B70CE01A62A3F6A56F2B4DE7292A5D56"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-33-30.776Z-c623b36c-f062-4c7e-962a-99d4a75b489f/output.log",
+        "bytes": 2255,
+        "sha256": "3EE7AAF6A3D595E2A005E58C01680C4BD5340CCD1AC2F9B5319808B2A50A7C99"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-33-30.776Z-c623b36c-f062-4c7e-962a-99d4a75b489f/result.json",
+        "bytes": 5631,
+        "sha256": "A55E1EE3017A892C1AC825AA45EA15C40E23928F9580E9F51AAB3CC89186D428"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-35-15.802Z-3d3920c8-1f0b-41cb-bc7d-ba03901de51e/output.log",
+        "bytes": 4144,
+        "sha256": "920CAF0495BF624A284E30B6CF7F5D672FC57E6A6BD0E06107942DB42334B8D4"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-35-15.802Z-3d3920c8-1f0b-41cb-bc7d-ba03901de51e/result.json",
+        "bytes": 7308,
+        "sha256": "7C04AA9240B59D4851753995FC3F6FE623902D182AC8799AF2539ADE71CF02D8"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-36-21.152Z-df3483d0-4040-4b30-bebf-b5bc2a17b63e/output.log",
+        "bytes": 5059,
+        "sha256": "8FEE178DC9E624B23D2A503F9CA01FFA98000CB8E2176A01E4E3EF2185CD2C8D"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-36-21.152Z-df3483d0-4040-4b30-bebf-b5bc2a17b63e/result.json",
+        "bytes": 7307,
+        "sha256": "F97814B5DDEF105DFFDF2F7A5EBA8C6218C60AE80971CFC1B1B122A29AF74856"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-36-51.206Z-d7b36035-3c88-4e12-8b14-1fa8ce9f4a4d/output.log",
+        "bytes": 4610,
+        "sha256": "CA5401EBAF235B8D47B762341BE41AC6A32D674BBB892B3B8C81B78D5AF040DC"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-36-51.206Z-d7b36035-3c88-4e12-8b14-1fa8ce9f4a4d/result.json",
+        "bytes": 7308,
+        "sha256": "359AE88DD1F497C8B242E9828E974DC8BE7055E695E1F558F78F4BEFDD792216"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-37-34.327Z-24d93aa8-946c-4f0c-8143-39d3383700f7/output.log",
+        "bytes": 4802,
+        "sha256": "6F0040D7B4E90AE18471E244D585A8FA7A1BEC37C4BF1FBD78832CC3D5FF5276"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-37-34.327Z-24d93aa8-946c-4f0c-8143-39d3383700f7/result.json",
+        "bytes": 7308,
+        "sha256": "770DD6628EF72F4515007EE09FAFC1E1F714C566CA3268687F49C1C46AC0DB73"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-38-09.068Z-eb1c1c5c-3bf1-4d8d-8318-f190768fd5d1/output.log",
+        "bytes": 5074,
+        "sha256": "36A7B4773AA4006C1BD433E711F4422556DE34195F9AADD58360EF3BEFF67CDF"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-38-09.068Z-eb1c1c5c-3bf1-4d8d-8318-f190768fd5d1/result.json",
+        "bytes": 7308,
+        "sha256": "D08479994C076C743F9DAF969AD3C3EEF645CB87CC51D19E3071B4A63C0DB051"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-38-52.749Z-e5ece962-b100-486f-b5f6-b66e929628ae/output.log",
+        "bytes": 36893,
+        "sha256": "D9003C927A82216C0FA7FB3BC7FF90CC7933B750396476946E5CFBAF699CC85E"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-38-52.749Z-e5ece962-b100-486f-b5f6-b66e929628ae/result.json",
+        "bytes": 7308,
+        "sha256": "8E3544AB6009664A99662E299EBAB39CC7370FFB1E05C3223BA44E1DBB288AE6"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-41-08.981Z-19404612-248a-4785-8060-cab8d24fdba7/output.log",
+        "bytes": 7739,
+        "sha256": "EFDCCE60D9E76D3987DC8701C6A2083C6801C8E023D4BC73EC99A1115E28B280"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-41-08.981Z-19404612-248a-4785-8060-cab8d24fdba7/result.json",
+        "bytes": 2495,
+        "sha256": "44DB4C723D48A37DDCB3BB4E3150B15ADF6A3323E34E7459F8FD9DEB56032750"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-41-08.981Z-19404612-248a-4785-8060-cab8d24fdba7/strategy-comparison.json",
+        "bytes": 2208793,
+        "sha256": "1B04C57BF89F7F9551663B9A98AE8AF0292FBBCF3A7F71D6C3F51DECDBA17217"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-46-00.485Z-2cb29856-ee0e-4b67-9ab3-6ce723489dfb/output.log",
+        "bytes": 3877,
+        "sha256": "22578DD71099BB74C5C375E9132C7B52E1C9EA22D5C13A5D30D893319B0E1A15"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T15-46-00.485Z-2cb29856-ee0e-4b67-9ab3-6ce723489dfb/result.json",
+        "bytes": 1076,
+        "sha256": "DCFF586C395B2087B50B5928338394B25F41C16E0BA1E9409A821A09178880E3"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T16-05-27.643Z-fb0a5f7e-8611-4c55-bcd7-0aaa4e9b1d18/output.log",
+        "bytes": 634,
+        "sha256": "78ABE5CF30B779B5E64BCD3130939AC83EA3268FCFDC2C8B3794CB0F392BE905"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T16-05-27.643Z-fb0a5f7e-8611-4c55-bcd7-0aaa4e9b1d18/result.json",
+        "bytes": 1531,
+        "sha256": "B8B1537566CA208ABBD41054C839DCEBFC9FA6C491618126E1E8D0FC9D65AB90"
+      },
+      {
+        "path": "client/package.json",
+        "bytes": 26941,
+        "sha256": "FB2C5523E960C61FFC9CCB8D32A5F5A1A45FA248177682BA77FC094FD482EDD1"
+      },
+      {
+        "path": "client/scripts/check-combat-participation-observation.mjs",
+        "bytes": 16873,
+        "sha256": "8CF2E28B74A8028800F58E7C1DA5D4E61B02BDBE788D6DBD78CC69AC8E4FB7D6"
+      },
+      {
+        "path": "client/scripts/check-late-combat-join.mjs",
+        "bytes": 10276,
+        "sha256": "FB5AB9A374AD9ECFC93C91E08AF76651490AFBA344EF9DCB2CDFC0C73AFFEB9C"
+      },
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "bytes": 15715,
+        "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+      },
+      {
+        "path": "client/scripts/check-team-combat-participation-diagnostics.mjs",
+        "bytes": 40289,
+        "sha256": "CFBDCB12AC9258C6496D536834858124318BBE5BCC24F9FE705BA403CB14484C"
+      },
+      {
+        "path": "client/scripts/lib/run-combat-scenario.mjs",
+        "bytes": 4031,
+        "sha256": "1B9DCD2A2CE9BEFC749760F79A03510D0E6952ABD4ED3D123BF31B06532E4F16"
+      },
+      {
+        "path": "client/scripts/lib/team-combat-participation-diagnostics.mjs",
+        "bytes": 32728,
+        "sha256": "B9E5E0ADBB5208D1A3BBE00FFD16611C6E1FF61422228301C175729392D5D50A"
+      },
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "bytes": 16317,
+        "sha256": "FDE4F679E9953387E141A8F3CD562D1ED1568474951E15EE53B0130583AA6652"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "bytes": 166,
+        "sha256": "D8FAB81670C952825F66F84066DCCB5123590E193221C387C51D3850E327CC5B"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/combatParticipationObservationRuntime.js",
+        "bytes": 6200,
+        "sha256": "BE04A8976B1C3F9A3A9F302911B274264A082E0D452C0E74E7098B9821581DE8"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/combatTimingRuntime.js",
+        "bytes": 11523,
+        "sha256": "73081F7FB630161AED060AC122F6E2A9B2A1350CDD3A58D6580099B38B2DE31C"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/phasePvpActionLoopRuntime.js",
+        "bytes": 33690,
+        "sha256": "3DE069CF38721D0493383A49251CD5203B6605B6F93F8A66D1E7EAFEFB291821"
+      },
+      {
+        "path": "docs/combat-path-participation-verification-2026-10-10.md",
+        "bytes": 9264,
+        "sha256": "2B10F5FDB4909D21B045728FB33011666B6B608A460311F50F02DF3BE3FD52FB"
+      },
+      {
+        "path": "docs/eternal-hunger-goal.md",
+        "bytes": 224703,
+        "sha256": "9DA0F3C9F60BBD1C0D4F403673EF95CAB50BFFBA6E92942566F1CAD3C92F0CED"
+      },
+      {
+        "path": "server/.env.example",
+        "bytes": 2125,
+        "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+      },
+      {
+        "path": "server/index.js",
+        "bytes": 5619,
+        "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+      }
+    ],
+    "completedBuildBefore": {
+      "fileCount": 1429,
+      "bytes": 74753287,
+      "sha256": "2838BF9213F0111078E07450080F65F1BE896188CDC280B160953E86612D48CB",
+      "algorithm": "SHA256 UTF-8; sorted relativePath|bytes|uppercaseFileSHA256 lines joined by LF, no trailing LF",
+      "buildId": "HAVefKyCXFPZMx8BHeZcH"
+    },
+    "completedBuildAfter": {
+      "fileCount": 1429,
+      "bytes": 74753287,
+      "sha256": "2838BF9213F0111078E07450080F65F1BE896188CDC280B160953E86612D48CB",
+      "algorithm": "SHA256 UTF-8; sorted relativePath|bytes|uppercaseFileSHA256 lines joined by LF, no trailing LF",
+      "buildId": "HAVefKyCXFPZMx8BHeZcH"
+    },
+    "completedBuildUnchanged": true,
+    "engineMarkerChunks": [
+      "client/.next/server/chunks/7457.js",
+      "client/.next/static/chunks/6642-d7d529b943d8be9b.js"
+    ],
+    "remainingWebpackPackFiles": 0,
+    "recovery": "Generated webpack packs can be regenerated by the normal build; no backup or rollback copy of these disposable packs was created.",
+    "physicalFreeSpaceMeasured": false,
+    "sourceResultLogsAndCompletedBuildRemoved": false,
+    "intentionalWritesAfterCleanup": [
+      "artifacts/combat-path-participation-20261010.json created",
+      "cleanup facts appended to the new report and prepended goal journal only"
+    ],
+    "scope": "Only six validated generated packs were removed. User changes, all failed/passed raw runs, completed build, and unrelated projects were preserved."
+  },
+  "remainingGates": [
+    "Trace watched movement and visibility-related facts across all common world intervals before concluding why swapped 백로 had no basic attacks.",
+    "Natural collaboration/survival and actual formation exposure.",
+    "Current full canonical chain; real foreground pacing, continuous memory, map, and new-session save/resume.",
+    "Actual AI and authenticated account storage; human follow-up and current public-version acceptance."
+  ],
+  "externalActions": {
+    "push": 0,
+    "deploy": 0,
+    "browserInteraction": 0,
+    "accountWrite": 0,
+    "paidAiCall": 0,
+    "humanScoreEntry": 0
+  }
+}

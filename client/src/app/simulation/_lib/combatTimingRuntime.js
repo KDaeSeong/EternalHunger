@@ -6,6 +6,7 @@ import { isAiRecoveryLocked } from './survivorLifecycleRuntime.js';
 import { findCharacterSkillChoice } from './characterCastRuntime.js';
 import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { getCombatSpaceId, shareCombatSpace, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
+import { observeCombatParticipation } from './combatParticipationObservationRuntime.js';
 import { canObserveActor, spatialDistance, getSpatialStats, planSpatialApproach, planSpatialPatrol, rememberSpatialContact,
   getForcedControlMotion, isInBasicAttackRange, SPATIAL_STEP_SEC } from './combatSpatialRuntime.js';
 
@@ -72,24 +73,48 @@ export function engageCombatParticipants(actor, target, roster, nowSec, { teamCo
 
 // Find a real future attack, independently of the encounter-discovery queue.
 // No stored "missed turns": after stun/travel the next attack starts from now.
-export function findNextCombatAction(survivorMap, nowSec, newDeadIds = [], settings = {}, wildlifeAssistIds = new Set()) {
+export function findNextCombatAction(survivorMap, nowSec, newDeadIds = [], settings = {}, wildlifeAssistIds = new Set(), observeCombatRuntime) {
   const roster = [...survivorMap.values()].filter((row) => !newDeadIds.includes(idOf(row)));
   let next = null;
+  const observing = typeof observeCombatRuntime === 'function';
+  const actorCandidates = observing ? [] : null;
+  let actorCandidate = null;
   const priority = { status_boundary: -1, skill_release: 0, skill_expire: 0, skill_start: 1, basic: 2, approach: 3 };
+  const precedes = (candidate, current) => !current || candidate.atSec < current.atSec || candidate.atSec === current.atSec && (
+    priority[candidate.actionType] < priority[current.actionType]
+    || priority[candidate.actionType] === priority[current.actionType] && (candidate.initiative < current.initiative
+      || candidate.initiative === current.initiative && candidate.actorId.localeCompare(current.actorId) < 0));
   const consider = (candidate, actor) => {
     if (!candidate || !Number.isFinite(candidate.atSec)) return;
     candidate.combatSpaceId = getCombatSpaceId(actor);
     candidate.initiative = Number(actor._combatInitiative || 0);
-    if (!next || candidate.atSec < next.atSec || candidate.atSec === next.atSec && (
-      priority[candidate.actionType] < priority[next.actionType]
-      || priority[candidate.actionType] === priority[next.actionType] && (candidate.initiative < next.initiative
-        || candidate.initiative === next.initiative && candidate.actorId.localeCompare(next.actorId) < 0))) next = candidate;
+    if (observing && precedes(candidate, actorCandidate)) actorCandidate = candidate;
+    if (precedes(candidate, next)) next = candidate;
   };
   for (const actor of roster) {
-    if (Number(actor.hp || 0) <= 0 || isDimensionRiftDefeated(actor)) { actor._spatialMotion = null; continue; }
+    actorCandidate = null;
+    // Capture the candidates already considered by this one production pass.
+    // Never run the planner again for diagnostics: it updates motion/contacts.
+    const record = observing ? (branch, opponents = []) => {
+      if (actorCandidates.length >= 512) return;
+      const nearestTarget = opponents.reduce((nearest, target) => !nearest
+        || spatialDistance(actor, target) < spatialDistance(actor, nearest) ? target : nearest, null);
+      const distance = nearestTarget ? spatialDistance(actor, nearestTarget) : null;
+      actorCandidates.push({ actorId: idOf(actor), branch,
+        candidate: actorCandidate ? { actorId: actorCandidate.actorId, targetId: actorCandidate.targetId || '',
+          actionType: actorCandidate.actionType, atSec: actorCandidate.atSec } : null,
+        opponentCount: opponents.length, nearestTargetId: idOf(nearestTarget),
+        nearestDistance: Number.isFinite(distance) ? distance : null,
+        attackRange: getSpatialStats(actor).attackRange, motionReason: String(actor._spatialMotion?.reason || '') });
+    } : null;
+    if (Number(actor.hp || 0) <= 0 || isDimensionRiftDefeated(actor)) {
+      actor._spatialMotion = null; record?.('dead_or_rift'); continue;
+    }
     // Timed wildlife encounters have their own hostile target and scheduler.
     // They re-enter PvP scheduling after that claim is completed or released.
-    if (actor._wildlifeHunt || wildlifeAssistIds.has(idOf(actor))) continue;
+    if (actor._wildlifeHunt || wildlifeAssistIds.has(idOf(actor))) {
+      record?.(actor._wildlifeHunt ? 'wildlife_hunt' : 'boss_assist'); continue;
+    }
     const statusExpiry = getStoredActiveStatusEffects(actor).reduce((seconds, effect) =>
       effect.remainingDuration != null && Number.isFinite(effect.remainingDuration)
         ? Math.min(seconds, effect.remainingDuration) : seconds, Infinity);
@@ -105,19 +130,22 @@ export function findNextCombatAction(survivorMap, nowSec, newDeadIds = [], setti
         consider({ actorId: idOf(actor), targetId: idOf(target), actionType: 'basic',
           atSec: roundCombatTime(Math.max(nowSec, Number(actor._actionReadyAtSec || 0), Number(actor._basicAttackReadyAtSec || 0))) }, actor);
       }
+      record?.('forced_control', target ? [target] : []);
       continue;
     }
     if (actor._pendingCharacterCast) {
       consider({ actorId: idOf(actor), targetId: actor._pendingCharacterCast.targetId,
         atSec: Math.max(nowSec, actor._pendingCharacterCast.releaseAtSec), actionType: 'skill_release' }, actor);
+      record?.('pending_cast');
       continue;
     }
-    if (!actor._combatIntent) { consider(planSpatialPatrol(actor, nowSec), actor); continue; }
+    if (!actor._combatIntent) { consider(planSpatialPatrol(actor, nowSec), actor); record?.('no_intent_patrol'); continue; }
     const opponents = getCombatIntentOpponents(actor, roster, nowSec);
     if (!opponents.length) {
       const searching = planSpatialApproach(actor, null, nowSec, roster);
       if (searching) consider(searching, actor);
       else { actor._combatIntent = null; consider(planSpatialPatrol(actor, nowSec), actor); }
+      record?.(searching ? 'no_opponents_last_seen' : 'no_opponents_patrol');
       continue;
     }
     const choice = findCharacterSkillChoice(actor, opponents, roster, nowSec, settings);
@@ -129,6 +157,7 @@ export function findNextCombatAction(survivorMap, nowSec, newDeadIds = [], setti
     if (!reachable.length) {
       const nearest = [...candidates].sort((a, b) => spatialDistance(actor, a.target) - spatialDistance(actor, b.target))[0].target;
       consider(planSpatialApproach(actor, nearest, nowSec, roster), actor);
+      record?.('observed_out_of_range', opponents);
       continue;
     }
     actor._spatialMotion = null;
@@ -136,6 +165,9 @@ export function findNextCombatAction(survivorMap, nowSec, newDeadIds = [], setti
     rememberSpatialContact(actor, target, nowSec, roster);
     const atSec = roundCombatTime(Math.max(Number(nowSec) + Math.max(actionDelay, delay), Number(actor._basicAttackReadyAtSec || 0), Number(actor._actionReadyAtSec || 0)));
     consider({ actorId: idOf(actor), targetId: idOf(target), atSec, actionType: 'basic' }, actor);
+    record?.('basic_in_range', opponents);
   }
+  if (observing) observeCombatParticipation(observeCombatRuntime, { stage: 'actor_schedule', nowSec,
+    roster: [...survivorMap.values()], newDeadIds, wildlifeAssistIds, scheduled: next, actorCandidates });
   return next;
 }

@@ -1,8 +1,8 @@
-import { canBasicAttackByStatus, hasActionBlockStatus } from '../../../utils/statusLogic.js';
+import { canBasicAttackByStatus, canMoveByStatus, hasActionBlockStatus } from '../../../utils/statusLogic.js';
 import { getCombatSpaceId } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { getActorTeamId } from './teamRuntime.js';
-import { getSpatialPosition } from './combatSpatialRuntime.js';
+import { getSpatialPosition, getSpatialStats, getSpatialLastSeen } from './combatSpatialRuntime.js';
 
 const idOf = actor => String(actor?._id || actor?.id || '');
 const finite = value => Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -19,7 +19,7 @@ const owned = value => {
 // A schedule snapshot is not an executed attack, nor proof of a missed turn.
 export function observeCombatParticipation(observer, { stage, nowSec = 0, roster = [], newDeadIds = [],
   wildlifeAssistIds = new Map(), scheduled = null, actor = null, target = null, onlyActorId = '',
-  sides = [], participants = [], arbitration = null, resolution = null } = {}) {
+  sides = [], participants = [], arbitration = null, resolution = null, actorCandidates = [], worldStep = null } = {}) {
   if (typeof observer !== 'function') return;
   const deadIds = new Set(newDeadIds.map(String));
   const rows = Array.isArray(roster) ? roster : [];
@@ -27,6 +27,15 @@ export function observeCombatParticipation(observer, { stage, nowSec = 0, roster
     stage, nowSec: finite(nowSec),
     scope: 'Read-only candidates, arbitration and actual team resolution facts; not missed-turn or survival causality acceptance.',
     truncated: rows.length > 512,
+    actorCandidatesTruncated: actorCandidates.length > 512 || stage === 'actor_schedule' && rows.length > 512,
+    actorCandidates: actorCandidates.slice(0, 512).map(row => ({ actorId: String(row.actorId || ''), branch: String(row.branch || ''),
+      candidate: row.candidate ? { actorId: String(row.candidate.actorId || ''), targetId: String(row.candidate.targetId || ''),
+        actionType: String(row.candidate.actionType || ''), atSec: finite(row.candidate.atSec) } : null,
+      opponentCount: finite(row.opponentCount), nearestTargetId: String(row.nearestTargetId || ''),
+      nearestDistance: Number.isFinite(row.nearestDistance) ? row.nearestDistance : null,
+      attackRange: Number.isFinite(row.attackRange) ? row.attackRange : null, motionReason: String(row.motionReason || '') })),
+    worldStep: worldStep ? { fromSec: finite(worldStep.fromSec), toSec: finite(worldStep.toSec),
+      decisionSec: finite(worldStep.decisionSec) } : null,
     scheduled: scheduled ? { actorId: String(scheduled.actorId || ''), targetId: String(scheduled.targetId || ''),
       actionType: String(scheduled.actionType || ''), atSec: finite(scheduled.atSec) } : null,
     initiatorId: idOf(actor), targetId: idOf(target), onlyActorId: String(onlyActorId || ''),
@@ -47,6 +56,8 @@ export function observeCombatParticipation(observer, { stage, nowSec = 0, roster
     sides: sides.map(side => side.map(idOf)), participants: participants.map(idOf),
     actors: rows.slice(0, 512).map(row => {
       const point = getSpatialPosition(row);
+      const stats = getSpatialStats(row);
+      const seen = getSpatialLastSeen(row);
       return { actorId: idOf(row), teamId: getActorTeamId(row), zoneId: String(row?.zoneId || ''),
         combatSpaceId: getCombatSpaceId(row), hp: finite(row?.hp), maxHp: finite(row?.maxHp),
         deadInThisPhase: deadIds.has(idOf(row)),
@@ -58,7 +69,13 @@ export function observeCombatParticipation(observer, { stage, nowSec = 0, roster
         bossAssistOwnerId: typeof wildlifeAssistIds.get === 'function' ? String(wildlifeAssistIds.get(idOf(row)) || '') : '',
         hasCombatIntent: Boolean(row?._combatIntent), intentEnemyTeamId: String(row?._combatIntent?.enemyTeamId || ''),
         intentTargetId: String(row?._combatIntent?.targetId || ''),
-        basicAllowed: canBasicAttackByStatus(row), actionBlocked: hasActionBlockStatus(row),
+        basicAllowed: canBasicAttackByStatus(row), actionBlocked: hasActionBlockStatus(row), moveAllowed: canMoveByStatus(row),
+        attackRange: stats.attackRange, moveSpeed: stats.moveSpeed,
+        spatialMotion: row?._spatialMotion ? { reason: String(row._spatialMotion.reason || ''),
+          targetId: String(row._spatialMotion.targetId || ''), x: finite(row._spatialMotion.x), y: finite(row._spatialMotion.y),
+          stopRange: finite(row._spatialMotion.stopRange) } : null,
+        spatialLastSeen: seen ? { targetId: String(seen.targetId), x: finite(seen.x), y: finite(seen.y),
+          seenAtSec: finite(seen.seenAtSec) } : null,
         riftDefeated: isDimensionRiftDefeated(row), spatial: point ? { x: finite(point.x), y: finite(point.y) } : null };
     }),
   };
