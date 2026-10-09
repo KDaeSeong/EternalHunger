@@ -15,6 +15,7 @@ const commands = {
   distribution: 'npm run diagnose:match-distribution -- --compare-observer=4402 4401 4402 4403 4404 4405 4406 4407 4408 4409 4410',
   'distribution-varied': 'npm run diagnose:match-distribution -- --rosters=BASELINE:roster-A,BASELINE:roster-B,BASELINE:roster-C 5501 5502',
   'distribution-unit': 'npm run check:team-regroup && npm run check:verification-fingerprint',
+  'retreat-diagnostics-unit': 'npm run check:match-distribution-metrics && npm run check:verification-fingerprint',
   'distribution-observer': 'npm run diagnose:match-distribution -- --compare-observer 4402',
   'movement-trace': 'npm run check:movement-reversal-trace && npm run diagnose:match-distribution -- --trace-movement --compare-observer 4407',
   'growth-planning-prefix': 'node scripts/diagnose-team-growth-planning.mjs',
@@ -33,7 +34,7 @@ const commands = {
   performance: 'npm run check:growth-plan && npm run check:team-observer && npm run check:live-frames && npm run check:display-pacing && npm run check:phase-runtime-performance && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
 };
 const mode = process.argv[2] || 'full';
-if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, growth-focus-unit, preset-editor-unit, phase-performance-unit, natural-procurement-unit, natural-procurement, procurement-purpose-unit, procurement-purpose-match, status-tick-unit, status-tick-match, performance, execution, distribution, distribution-varied, distribution-unit, distribution-observer, movement-trace, growth-planning-prefix, handoff, handoff-unit, build or runtime-build.');
+if (!Object.hasOwn(commands, mode)) throw Error('Use full, unit, growth, growth-focus-unit, preset-editor-unit, phase-performance-unit, natural-procurement-unit, natural-procurement, procurement-purpose-unit, procurement-purpose-match, status-tick-unit, status-tick-match, performance, execution, distribution, distribution-varied, distribution-unit, retreat-diagnostics-unit, distribution-observer, movement-trace, growth-planning-prefix, handoff, handoff-unit, build or runtime-build.');
 // Resume only missing input-axis cases without rerunning completed matches.
 // These comma-separated identifiers are deliberately shell-safe, not raw CLI.
 if (mode === 'distribution-varied' && process.argv.length > 3) {

@@ -103,7 +103,7 @@
     "check:kiosk-goal-exchanges": "node ./scripts/check-kiosk-goal-exchanges.mjs",
     "check:team-boss-goals": "node ./scripts/check-team-boss-goals.mjs",
     "check:team-regroup": "node ./scripts/check-team-regroup.mjs && node ./scripts/check-team-regroup-lumia.mjs && node ./scripts/check-team-isolation-tracker.mjs && node ./scripts/check-isolation-fixture.mjs && npm run check:match-distribution-metrics",
-    "check:match-distribution-metrics": "node ./scripts/check-match-distribution-metrics.mjs && npm run check:movement-reversal-trace",
+    "check:match-distribution-metrics": "node ./scripts/check-match-distribution-metrics.mjs && node ./scripts/check-team-retreat-diagnostics.mjs && npm run check:movement-reversal-trace",
     "check:movement-reversal-trace": "node ./scripts/check-movement-reversal-trace.mjs",
     "check:team-regroup-match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-team-regroup-match.mjs",
     "check:combat-decision-evidence": "node ./scripts/check-combat-decision-evidence.mjs",

@@ -1,0 +1,2503 @@
+{
+  "purpose": "Output-only fresh current-source evidence; never a validator input or expected historical outcome.",
+  "engineVersion": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+  "originalGoalTailSha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B",
+  "goalStatus": "active_incomplete",
+  "sixMatches": {
+    "result": {
+      "runId": "2026-10-09T07-40-03.528Z-3f7a9fb1-3ce7-46aa-9563-e5c40ceb0737",
+      "command": "npm run diagnose:match-distribution -- --rosters=BASELINE:roster-A,BASELINE:roster-B,BASELINE:roster-C 5501 5502",
+      "startedAt": "2026-10-09T07:40:03.530Z",
+      "pid": 42392,
+      "engineBefore": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+      "status": "passed",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "exitCode": 0,
+      "signal": null,
+      "engineAfter": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+      "sameEngine": true,
+      "finishedAt": "2026-10-09T07:53:03.830Z"
+    },
+    "scope": "Actual current-source guest roster, catalogue, map and rules; 3 initial roster-build seeds x 2 match RNG seeds. Same 24 actor IDs recur; not 144 distinct characters, a positions-only control or broad custom-input/balance acceptance.",
+    "diagnosticSourceAtImportSha256": "5E21950526BEBE76145B9395506B09BABC5A50250175F203DB9AF4382D56EA17",
+    "analysisScriptSha256": "C9B63A94C8AC4FA44D29756603005EC7ECB64D3DE6C15E6D8F2E7A005DC35A26",
+    "growthScope": "Initial target configuration remains fixed; production progress accepts higher-tier same-slot fulfillment. This is not proof that every requested item ID was crafted or equipped. Valid five-slot tier>=4 equipment is a separate observed metric.",
+    "aggregate": {
+      "seeds": [
+        "5501",
+        "5502"
+      ],
+      "initialRosterSeeds": [
+        "BASELINE:roster-A",
+        "BASELINE:roster-B",
+        "BASELINE:roster-C"
+      ],
+      "engineVersion": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+      "uniqueInitialBuilds": 3,
+      "uniqueFormations": 3,
+      "uniqueActorSets": 1,
+      "matches": 6,
+      "endingAtSec": {
+        "min": 661.083333,
+        "max": 1283.678505,
+        "avg": 1138.141
+      },
+      "deaths": {
+        "total": 205,
+        "pvp": 202,
+        "wildlife": 3,
+        "environment": 0,
+        "opening": 34,
+        "early": 38,
+        "mid": 120,
+        "end": 13
+      },
+      "growthCompleteShare": 1,
+      "observedGrowthCompleteShare": 1,
+      "beforeFirstNightEndShare": 1,
+      "everFiveSlotHeroEquippedShare": 1,
+      "heroGearReadyShare": 1,
+      "teamCombatRounds": 430,
+      "regroupMoves": 378,
+      "regroupHolds": 598,
+      "regroupEpisodes": 139,
+      "completedRegroupEpisodes": 132,
+      "regroupCompletionShare": 0.95,
+      "regroupOutcomes": {
+        "completed": 132,
+        "member_death": 7
+      },
+      "retreats": 222,
+      "restActions": 34,
+      "chaseCaughtShare": 0.699,
+      "movementReversalShare": 0.105,
+      "huntStarts": 439,
+      "huntUnfinished": 0,
+      "lastDeathCauses": {
+        "combat": 6
+      },
+      "scope": "Current-source headless natural matches. Seed and initial-roster axes are explicit. Completion/contact metrics are not human, browser-speed or balance acceptance."
+    },
+    "invalidatedRetreatStatistics": {
+      "rawTotal": 142,
+      "rawReversals": 0,
+      "useAsFixedDiagnosticEvidence": false,
+      "reason": "All six matches imported the old diagnostics before its lifecycle/no-op/actor-key fix. These raw values are preserved but not inherited as corrected retreat counts."
+    },
+    "firstProgressCompletionObservedSec": {
+      "min": 21,
+      "max": 56,
+      "deadlineSec": 250,
+      "scope": "first published frame, not necessarily the exact craft timestamp"
+    },
+    "totals": {
+      "actorObservations": 144,
+      "goalProgressBeforeNightEnd": 144,
+      "everValidFiveSlotHeroEquipment": 144,
+      "fullStartingCrewRegroupCompleted": 132,
+      "fullStartingCrewRegroupAttempts": 139,
+      "moves": 3518,
+      "reversals": 370,
+      "teamRotateReversePairs": 59,
+      "huntStarts": 439,
+      "huntUnfinished": 0,
+      "events": 76359,
+      "frames": 35476
+    },
+    "cases": [
+      {
+        "initialRosterSeed": "BASELINE:roster-A",
+        "matchSeed": "5501",
+        "engineVersion": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "inputDigest": "c39623e287074cb53f80aa694fe704a786bfdea4d2d05aa11ee408752ab50e35",
+        "catalogDigest": "0bb0bc60fcdbb639118f10d4102196d9f768b8ba90a1ce6ba1b80c79225f86f6",
+        "mapSettingsDigest": "2c54858da39f48af82a189d459278149fbfb3779afd51eca30a39770548f1c88",
+        "initialActorSetDigest": "54c8c20a1bdc79d746a9defc69bcde76426094cc517f87267d9f64156db445b8",
+        "initialBuildDigest": "aa0b4a9a5c812377f4a0920f9b9fc88d6635221b2f8540bd50d9b87741bb4110",
+        "formationDigest": "75632b50c04caaf5a1dfcf34cace346adb9a85016f2bd52553366ef1565fc27e",
+        "observerComparison": "not_requested",
+        "rulesetId": "ER_S11",
+        "eventDigest": "7b4e8148f7256afe6bcc2f8ec4acd6f731ce12fc48288d4afb8e5c3ed3ac5d06",
+        "frameDigest": "ed3c6d292fe7d9a4bddbffa763b37409a389c23e348b96cb4c9a5d6809120be3",
+        "events": 14772,
+        "frames": 6243,
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 1000212836,
+          "draws": 15351,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "growth": {
+          "total": 24,
+          "goalParticipants": 24,
+          "complete": 24,
+          "beforeFirstNightEnd": 24,
+          "fiveSlotHeroEquipped": 24,
+          "firstDayDeadlineSec": 250,
+          "firstProgressCompletionObservedSec": {
+            "min": 23,
+            "max": 42
+          },
+          "changedInitialGoalActors": 0,
+          "initialGoalIssues": 0,
+          "diedBeforeCompletion": 0
+        },
+        "regroup": {
+          "started": 25,
+          "completed": 23,
+          "outcomes": {
+            "completed": 23,
+            "member_death": 2
+          },
+          "scope": "Full starting living team roster, fixed through the attempt; all started outcomes remain in the denominator. Partial pair contact and cross-space cohorts are not full-team completion."
+        },
+        "movement": {
+          "moves": 614,
+          "reversals": 56,
+          "reversalShare": 0.091,
+          "reversalPairs": {
+            "growth_farm->growth_farm": 11,
+            "growth_farm->team_regroup": 4,
+            "team_regroup->growth_farm": 1,
+            "team_regroup->재료 파밍(목표):ttl": 2,
+            "재료 파밍(목표):ttl->team_regroup": 1,
+            "team_regroup->early_route:priority:ttl": 1,
+            "team_rotate->escape": 2,
+            "early_route:priority:ttl->flee:team_outnumbered": 1,
+            "avoid_power->team_rotate": 1,
+            "flee:team_outnumbered->team_rotate": 1,
+            "growth_farm->team_rotate": 1,
+            "재료 파밍(목표):ttl->avoid_power": 1,
+            "team_regroup->team_rotate": 3,
+            "early_route_avoid->team_rotate": 1,
+            "team_rotate->team_regroup": 4,
+            "재료 파밍(목표):ttl->tac_blink_escape": 1,
+            "team_rotate->team_rotate": 7,
+            "avoid_power->dimension_rift:ttl": 1,
+            "chase->team_regroup": 3,
+            "크레딧 파밍(야생동물):ttl->크레딧 파밍(야생동물):ttl": 1,
+            "크레딧 파밍(야생동물):ttl->escape": 1,
+            "growth_farm->tac_blink_escape": 2,
+            "chase->escape": 1,
+            "avoid_power->avoid_power": 1,
+            "avoid_power->크레딧 파밍(야생동물):ttl": 1,
+            "team_rotate->크레딧 파밍(야생동물):ttl": 2
+          },
+          "continuityBreaks": 40,
+          "classification": "observed movement reversals, not automatic bugs"
+        },
+        "hunts": {
+          "starts": 91,
+          "ends": 91,
+          "settlements": 87,
+          "outcomes": {
+            "victory": 86,
+            "retreat": 4,
+            "hunter_defeated": 1
+          },
+          "unfinished": 0,
+          "integrity": "pass"
+        },
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1190.583332,
+          "day": 6,
+          "phase": "night",
+          "cause": "combat",
+          "winnerTeamId": "team:7"
+        },
+        "endingCauseScope": "The production ending.cause is its last recorded death cause, not the sole causal explanation of the winner."
+      },
+      {
+        "initialRosterSeed": "BASELINE:roster-A",
+        "matchSeed": "5502",
+        "engineVersion": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "inputDigest": "6f61f8211b684fb17e77b73739d6332b97878783e42b75066b5f5f4997fd64d2",
+        "catalogDigest": "0bb0bc60fcdbb639118f10d4102196d9f768b8ba90a1ce6ba1b80c79225f86f6",
+        "mapSettingsDigest": "2c54858da39f48af82a189d459278149fbfb3779afd51eca30a39770548f1c88",
+        "initialActorSetDigest": "54c8c20a1bdc79d746a9defc69bcde76426094cc517f87267d9f64156db445b8",
+        "initialBuildDigest": "aa0b4a9a5c812377f4a0920f9b9fc88d6635221b2f8540bd50d9b87741bb4110",
+        "formationDigest": "75632b50c04caaf5a1dfcf34cace346adb9a85016f2bd52553366ef1565fc27e",
+        "observerComparison": "not_requested",
+        "rulesetId": "ER_S11",
+        "eventDigest": "24407d13360798bde4e5445dcff3c81e491016149cc872ae413d40f348f6e91e",
+        "frameDigest": "dd620e0ec79cfbc46760cd9842d71c2a28c1ad141df1b3b14b17b692eb2a42f5",
+        "events": 10257,
+        "frames": 3471,
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 403541048,
+          "draws": 7216,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "growth": {
+          "total": 24,
+          "goalParticipants": 24,
+          "complete": 24,
+          "beforeFirstNightEnd": 24,
+          "fiveSlotHeroEquipped": 24,
+          "firstDayDeadlineSec": 250,
+          "firstProgressCompletionObservedSec": {
+            "min": 22,
+            "max": 38
+          },
+          "changedInitialGoalActors": 0,
+          "initialGoalIssues": 0,
+          "diedBeforeCompletion": 0
+        },
+        "regroup": {
+          "started": 19,
+          "completed": 18,
+          "outcomes": {
+            "completed": 18,
+            "member_death": 1
+          },
+          "scope": "Full starting living team roster, fixed through the attempt; all started outcomes remain in the denominator. Partial pair contact and cross-space cohorts are not full-team completion."
+        },
+        "movement": {
+          "moves": 491,
+          "reversals": 46,
+          "reversalShare": 0.094,
+          "reversalPairs": {
+            "growth_farm->growth_farm": 12,
+            "growth_farm->team_regroup": 6,
+            "team_regroup->team_rotate": 2,
+            "team_rotate->team_rotate": 8,
+            "early_route:priority:ttl->team_regroup": 1,
+            "team_regroup->early_route:priority:ttl": 1,
+            "team_regroup->growth_farm": 1,
+            "team_rotate->tac_blink_escape": 1,
+            "growth_farm->flee:team_outnumbered": 2,
+            "flee:team_outnumbered->critical_flee": 1,
+            "chase->avoid_power": 1,
+            "escape->전설 재료(키오스크 구매):ttl": 1,
+            "chase->team_regroup": 1,
+            "growth_farm->escape": 1,
+            "team_rotate->크레딧 파밍(야생동물):ttl": 1,
+            "dimension_rift:ttl->critical_flee": 1,
+            "team_rotate->growth_farm": 2,
+            "team_regroup->team_regroup": 1,
+            "flee:team_outnumbered->growth_farm": 1,
+            "growth_farm->크레딧 파밍(야생동물):ttl": 1
+          },
+          "continuityBreaks": 39,
+          "classification": "observed movement reversals, not automatic bugs"
+        },
+        "hunts": {
+          "starts": 53,
+          "ends": 53,
+          "settlements": 52,
+          "outcomes": {
+            "victory": 52,
+            "retreat": 1
+          },
+          "unfinished": 0,
+          "integrity": "pass"
+        },
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 661.083333,
+          "day": 3,
+          "phase": "night",
+          "cause": "combat",
+          "winnerTeamId": "team:7"
+        },
+        "endingCauseScope": "The production ending.cause is its last recorded death cause, not the sole causal explanation of the winner."
+      },
+      {
+        "initialRosterSeed": "BASELINE:roster-B",
+        "matchSeed": "5501",
+        "engineVersion": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "inputDigest": "1ad23a0761eff31eea4373444c4f01abc21ecd505c987a2c453a36f352f54c41",
+        "catalogDigest": "0bb0bc60fcdbb639118f10d4102196d9f768b8ba90a1ce6ba1b80c79225f86f6",
+        "mapSettingsDigest": "2c54858da39f48af82a189d459278149fbfb3779afd51eca30a39770548f1c88",
+        "initialActorSetDigest": "54c8c20a1bdc79d746a9defc69bcde76426094cc517f87267d9f64156db445b8",
+        "initialBuildDigest": "39fb2235812b85e98632a3065acf73630afe468f86eed3ae01527add8d8d124d",
+        "formationDigest": "419fa55b1270c24f8e1a937f889e68af807a4b8c36dfbfd5951527fdc3699b7f",
+        "observerComparison": "not_requested",
+        "rulesetId": "ER_S11",
+        "eventDigest": "a5f76d45b1e3ea3e2fadaea570ca5f7ca109278575dbc0c62c46be31ab8f267a",
+        "frameDigest": "57235d02002929a65cc2d5496aca41ce2a5f9cd8cc45f660fdb975a759bb5c29",
+        "events": 12134,
+        "frames": 6471,
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 87795414,
+          "draws": 8801,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "growth": {
+          "total": 24,
+          "goalParticipants": 24,
+          "complete": 24,
+          "beforeFirstNightEnd": 24,
+          "fiveSlotHeroEquipped": 24,
+          "firstDayDeadlineSec": 250,
+          "firstProgressCompletionObservedSec": {
+            "min": 24,
+            "max": 42
+          },
+          "changedInitialGoalActors": 0,
+          "initialGoalIssues": 0,
+          "diedBeforeCompletion": 0
+        },
+        "regroup": {
+          "started": 24,
+          "completed": 24,
+          "outcomes": {
+            "completed": 24
+          },
+          "scope": "Full starting living team roster, fixed through the attempt; all started outcomes remain in the denominator. Partial pair contact and cross-space cohorts are not full-team completion."
+        },
+        "movement": {
+          "moves": 596,
+          "reversals": 61,
+          "reversalShare": 0.102,
+          "reversalPairs": {
+            "growth_farm->growth_farm": 10,
+            "growth_farm->team_regroup": 5,
+            "growth_farm->flee:team_outnumbered": 1,
+            "team_regroup->early_route:priority:ttl": 2,
+            "early_route:priority:ttl->team_regroup": 2,
+            "growth_farm->avoid_power": 1,
+            "chase->team_regroup": 2,
+            "team_regroup->재료 파밍(목표):ttl": 1,
+            "escape->early_route:priority:ttl": 1,
+            "team_regroup->team_rotate": 4,
+            "team_rotate->tac_blink_escape": 1,
+            "early_route_avoid->team_regroup": 1,
+            "크레딧 파밍(야생동물):ttl->team_regroup": 2,
+            "team_rotate->chase": 1,
+            "team_regroup->크레딧 파밍(야생동물):ttl": 1,
+            "team_rotate->growth_farm": 1,
+            "team_rotate->team_rotate": 13,
+            "team_rotate->flee:team_outnumbered": 1,
+            "escape->team_regroup": 1,
+            "team_rotate->dimension_rift:ttl": 3,
+            "escape->전설 재료(키오스크 구매):ttl": 1,
+            "avoid_power->크레딧 파밍(야생동물):ttl": 1,
+            "크레딧 파밍(야생동물):ttl->tac_blink_escape": 2,
+            "tac_blink_escape->tac_blink_escape": 1,
+            "tac_blink_escape->크레딧 파밍(야생동물):ttl": 1,
+            "team_rotate->team_regroup": 1
+          },
+          "continuityBreaks": 33,
+          "classification": "observed movement reversals, not automatic bugs"
+        },
+        "hunts": {
+          "starts": 80,
+          "ends": 80,
+          "settlements": 73,
+          "outcomes": {
+            "victory": 73,
+            "retreat": 7
+          },
+          "unfinished": 0,
+          "integrity": "pass"
+        },
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1251.75,
+          "day": 7,
+          "phase": "morning",
+          "cause": "combat",
+          "winnerTeamId": "team:8"
+        },
+        "endingCauseScope": "The production ending.cause is its last recorded death cause, not the sole causal explanation of the winner."
+      },
+      {
+        "initialRosterSeed": "BASELINE:roster-B",
+        "matchSeed": "5502",
+        "engineVersion": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "inputDigest": "d1380f6c0af28926f50c5d0e9dfbea0ef4cabab2e6eb3f83f3e68c5b7dbfbb10",
+        "catalogDigest": "0bb0bc60fcdbb639118f10d4102196d9f768b8ba90a1ce6ba1b80c79225f86f6",
+        "mapSettingsDigest": "2c54858da39f48af82a189d459278149fbfb3779afd51eca30a39770548f1c88",
+        "initialActorSetDigest": "54c8c20a1bdc79d746a9defc69bcde76426094cc517f87267d9f64156db445b8",
+        "initialBuildDigest": "39fb2235812b85e98632a3065acf73630afe468f86eed3ae01527add8d8d124d",
+        "formationDigest": "419fa55b1270c24f8e1a937f889e68af807a4b8c36dfbfd5951527fdc3699b7f",
+        "observerComparison": "not_requested",
+        "rulesetId": "ER_S11",
+        "eventDigest": "8ebaaae3561e58371a40fa79d89ab47e289d94c9a2973de691c024cef0f1e137",
+        "frameDigest": "70ebd90f0ef2621c2bb2396557d0b9421af2f03d3d068b27958f1026a71d67f2",
+        "events": 14084,
+        "frames": 6118,
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2654806131,
+          "draws": 9119,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "growth": {
+          "total": 24,
+          "goalParticipants": 24,
+          "complete": 24,
+          "beforeFirstNightEnd": 24,
+          "fiveSlotHeroEquipped": 24,
+          "firstDayDeadlineSec": 250,
+          "firstProgressCompletionObservedSec": {
+            "min": 22,
+            "max": 42
+          },
+          "changedInitialGoalActors": 0,
+          "initialGoalIssues": 0,
+          "diedBeforeCompletion": 0
+        },
+        "regroup": {
+          "started": 22,
+          "completed": 21,
+          "outcomes": {
+            "completed": 21,
+            "member_death": 1
+          },
+          "scope": "Full starting living team roster, fixed through the attempt; all started outcomes remain in the denominator. Partial pair contact and cross-space cohorts are not full-team completion."
+        },
+        "movement": {
+          "moves": 616,
+          "reversals": 67,
+          "reversalShare": 0.109,
+          "reversalPairs": {
+            "growth_farm->growth_farm": 13,
+            "team_regroup->team_rotate": 4,
+            "growth_farm->flee:team_outnumbered": 2,
+            "wander->wander": 1,
+            "team_regroup->early_route:priority:ttl": 3,
+            "growth_farm->early_route:priority:ttl": 1,
+            "chase->team_regroup": 2,
+            "escape->재료 파밍(목표):ttl": 1,
+            "재료 파밍(목표):ttl->avoid_power": 1,
+            "early_route:priority:ttl->team_regroup": 3,
+            "team_rotate->team_regroup": 2,
+            "team_rotate->team_rotate": 12,
+            "tac_blink_escape->크레딧 파밍(야생동물):ttl": 3,
+            "크레딧 파밍(야생동물):ttl->tac_blink_escape": 4,
+            "team_rotate->escape": 1,
+            "escape->전설 재료(키오스크 구매):ttl": 1,
+            "team_rotate->avoid_power": 2,
+            "avoid_power->크레딧 파밍(야생동물):ttl": 1,
+            "크레딧 파밍(야생동물):ttl->avoid_power": 2,
+            "growth_farm->tac_blink_escape": 1,
+            "tac_blink_escape->avoid_power": 1,
+            "team_rotate->flee:team_outnumbered": 2,
+            "avoid_power->VF(키오스크 구매):ttl": 1,
+            "VF(키오스크 구매):ttl->avoid_power": 1,
+            "flee:team_outnumbered->team_rotate": 2
+          },
+          "continuityBreaks": 45,
+          "classification": "observed movement reversals, not automatic bugs"
+        },
+        "hunts": {
+          "starts": 76,
+          "ends": 76,
+          "settlements": 72,
+          "outcomes": {
+            "victory": 70,
+            "retreat": 4,
+            "hunter_defeated": 2
+          },
+          "unfinished": 0,
+          "integrity": "pass"
+        },
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1170,
+          "day": 6,
+          "phase": "morning",
+          "cause": "combat",
+          "winnerTeamId": "team:2"
+        },
+        "endingCauseScope": "The production ending.cause is its last recorded death cause, not the sole causal explanation of the winner."
+      },
+      {
+        "initialRosterSeed": "BASELINE:roster-C",
+        "matchSeed": "5501",
+        "engineVersion": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "inputDigest": "00bc890aead944f1a55607fcb8cc69f808f901e7fc6efd745fd6a40f1d3b1237",
+        "catalogDigest": "0bb0bc60fcdbb639118f10d4102196d9f768b8ba90a1ce6ba1b80c79225f86f6",
+        "mapSettingsDigest": "2c54858da39f48af82a189d459278149fbfb3779afd51eca30a39770548f1c88",
+        "initialActorSetDigest": "54c8c20a1bdc79d746a9defc69bcde76426094cc517f87267d9f64156db445b8",
+        "initialBuildDigest": "d8f994ff89067059d6ad4c3764920d0c6a9e8a1210a2ffd4fa1d42f3d92210d9",
+        "formationDigest": "9bf0643ff732a96ab0fab8487375b725d25299c05adb6cad1d213b74c79e301c",
+        "observerComparison": "not_requested",
+        "rulesetId": "ER_S11",
+        "eventDigest": "7d6e0aec626a6b58517be5f80c87c8ce82ec7eaf8baf6bff30e115e1476c604f",
+        "frameDigest": "66317dbd87f70f7117552653e9a864aab4ce5dd18bd403030973bed8acbc9745",
+        "events": 12162,
+        "frames": 6557,
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 4277609216,
+          "draws": 8611,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "growth": {
+          "total": 24,
+          "goalParticipants": 24,
+          "complete": 24,
+          "beforeFirstNightEnd": 24,
+          "fiveSlotHeroEquipped": 24,
+          "firstDayDeadlineSec": 250,
+          "firstProgressCompletionObservedSec": {
+            "min": 21,
+            "max": 44
+          },
+          "changedInitialGoalActors": 0,
+          "initialGoalIssues": 0,
+          "diedBeforeCompletion": 0
+        },
+        "regroup": {
+          "started": 23,
+          "completed": 21,
+          "outcomes": {
+            "completed": 21,
+            "member_death": 2
+          },
+          "scope": "Full starting living team roster, fixed through the attempt; all started outcomes remain in the denominator. Partial pair contact and cross-space cohorts are not full-team completion."
+        },
+        "movement": {
+          "moves": 582,
+          "reversals": 67,
+          "reversalShare": 0.115,
+          "reversalPairs": {
+            "growth_farm->growth_farm": 12,
+            "growth_farm->team_regroup": 3,
+            "team_regroup->team_rotate": 8,
+            "team_rotate->team_rotate": 8,
+            "team_regroup->재료 파밍(목표):ttl": 1,
+            "team_regroup->early_route:priority:ttl": 1,
+            "team_rotate->team_regroup": 3,
+            "flee:team_outnumbered->team_rotate": 2,
+            "escape->team_rotate": 1,
+            "early_route_avoid->team_rotate": 1,
+            "team_rotate->early_route_avoid": 1,
+            "team_rotate->escape": 1,
+            "team_rotate->chase": 1,
+            "early_route:priority:ttl->team_regroup": 1,
+            "team_rotate->early_route:ttl": 1,
+            "team_regroup->크레딧 파밍(야생동물):ttl": 1,
+            "크레딧 파밍(야생동물):ttl->avoid_power": 1,
+            "chase->team_rotate": 1,
+            "team_rotate->avoid_power": 1,
+            "growth_farm->team_rotate": 1,
+            "escape->avoid_power": 1,
+            "chase->flee:team_outnumbered": 1,
+            "team_rotate->tac_blink_escape": 1,
+            "team_rotate->wander": 2,
+            "크레딧 파밍(야생동물):ttl->team_regroup": 1,
+            "wander->team_rotate": 1,
+            "초월 장비 선택 상자:ttl->크레딧 파밍(야생동물):ttl": 1,
+            "avoid_power->VF(키오스크 구매):ttl": 1,
+            "VF(키오스크 구매):ttl->tac_blink_escape": 1,
+            "wander->tac_blink_escape": 2,
+            "tac_blink_escape->wander": 1,
+            "tac_blink_escape->endgame_rotate": 1,
+            "endgame_rotate->escape": 1,
+            "chase->endgame_rotate": 1,
+            "escape->escape": 1
+          },
+          "continuityBreaks": 44,
+          "classification": "observed movement reversals, not automatic bugs"
+        },
+        "hunts": {
+          "starts": 65,
+          "ends": 65,
+          "settlements": 60,
+          "outcomes": {
+            "victory": 60,
+            "retreat": 5
+          },
+          "unfinished": 0,
+          "integrity": "pass"
+        },
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1271.75,
+          "day": 7,
+          "phase": "morning",
+          "cause": "combat",
+          "winnerTeamId": "team:1"
+        },
+        "endingCauseScope": "The production ending.cause is its last recorded death cause, not the sole causal explanation of the winner."
+      },
+      {
+        "initialRosterSeed": "BASELINE:roster-C",
+        "matchSeed": "5502",
+        "engineVersion": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "inputDigest": "a9b9e2fa00e42bce84b8ee668611984c21e40403ab486db09372d7790b59da80",
+        "catalogDigest": "0bb0bc60fcdbb639118f10d4102196d9f768b8ba90a1ce6ba1b80c79225f86f6",
+        "mapSettingsDigest": "2c54858da39f48af82a189d459278149fbfb3779afd51eca30a39770548f1c88",
+        "initialActorSetDigest": "54c8c20a1bdc79d746a9defc69bcde76426094cc517f87267d9f64156db445b8",
+        "initialBuildDigest": "d8f994ff89067059d6ad4c3764920d0c6a9e8a1210a2ffd4fa1d42f3d92210d9",
+        "formationDigest": "9bf0643ff732a96ab0fab8487375b725d25299c05adb6cad1d213b74c79e301c",
+        "observerComparison": "not_requested",
+        "rulesetId": "ER_S11",
+        "eventDigest": "0b2b662afc86f4fdf97a6a406c1662e0c85949bbbfb795c6b48c9557ee189c4c",
+        "frameDigest": "da65648977feb70798c4bbc1d3e1f0baa5c43570aef17b20a2f5a1ac11bc06db",
+        "events": 12950,
+        "frames": 6616,
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2094487958,
+          "draws": 9046,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "growth": {
+          "total": 24,
+          "goalParticipants": 24,
+          "complete": 24,
+          "beforeFirstNightEnd": 24,
+          "fiveSlotHeroEquipped": 24,
+          "firstDayDeadlineSec": 250,
+          "firstProgressCompletionObservedSec": {
+            "min": 23,
+            "max": 56
+          },
+          "changedInitialGoalActors": 0,
+          "initialGoalIssues": 0,
+          "diedBeforeCompletion": 0
+        },
+        "regroup": {
+          "started": 26,
+          "completed": 25,
+          "outcomes": {
+            "completed": 25,
+            "member_death": 1
+          },
+          "scope": "Full starting living team roster, fixed through the attempt; all started outcomes remain in the denominator. Partial pair contact and cross-space cohorts are not full-team completion."
+        },
+        "movement": {
+          "moves": 619,
+          "reversals": 73,
+          "reversalShare": 0.118,
+          "reversalPairs": {
+            "growth_farm->growth_farm": 14,
+            "growth_farm->team_regroup": 5,
+            "team_regroup->growth_farm": 1,
+            "early_route:priority:ttl->flee:team_outnumbered": 1,
+            "team_regroup->team_rotate": 3,
+            "early_route:priority:ttl->team_regroup": 1,
+            "growth_farm->flee:team_outnumbered": 1,
+            "크레딧 파밍(야생동물):ttl->flee:team_outnumbered": 1,
+            "chase->flee:team_outnumbered": 1,
+            "team_rotate->dimension_rift:ttl": 3,
+            "크레딧 파밍(야생동물):ttl->team_regroup": 1,
+            "dimension_rift:ttl->team_regroup": 1,
+            "team_rotate->escape": 1,
+            "tac_blink_escape->team_rotate": 1,
+            "flee:low_hp->크레딧 파밍(야생동물):ttl": 1,
+            "team_rotate->growth_farm": 3,
+            "escape->team_regroup": 1,
+            "growth_farm->크레딧 파밍(야생동물):ttl": 1,
+            "growth_farm->avoid_power": 2,
+            "avoid_power->growth_farm": 2,
+            "growth_farm->tac_blink_escape": 4,
+            "team_rotate->team_rotate": 11,
+            "avoid_power->크레딧 파밍(야생동물):ttl": 1,
+            "team_rotate->tac_blink_escape": 2,
+            "team_rotate->avoid_power": 1,
+            "크레딧 파밍(야생동물):ttl->tac_blink_escape": 1,
+            "tac_blink_escape->tac_blink_escape": 4,
+            "tac_blink_escape->endgame_rotate": 1,
+            "team_rotate->endgame_rotate": 1,
+            "endgame_rotate->tac_blink_escape": 1,
+            "tac_blink_escape->escape": 1
+          },
+          "continuityBreaks": 45,
+          "classification": "observed movement reversals, not automatic bugs"
+        },
+        "hunts": {
+          "starts": 74,
+          "ends": 74,
+          "settlements": 71,
+          "outcomes": {
+            "victory": 71,
+            "retreat": 3
+          },
+          "unfinished": 0,
+          "integrity": "pass"
+        },
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1283.678505,
+          "day": 7,
+          "phase": "morning",
+          "cause": "combat",
+          "winnerTeamId": "team:8"
+        },
+        "endingCauseScope": "The production ending.cause is its last recorded death cause, not the sole causal explanation of the winner."
+      }
+    ]
+  },
+  "diagnosticsFix": {
+    "beforeSha256": "5E21950526BEBE76145B9395506B09BABC5A50250175F203DB9AF4382D56EA17",
+    "afterSha256": "CE6721F3A441C35D3B5598FC6FDFF0DCD6DFCEAC34A687A67555A9DD7C735A73",
+    "changes": [
+      "Clear same-actor edge history on death, revive and dimension_rift_space.",
+      "Exclude same-region notices from actual edge totals and adjacency.",
+      "Keep actor counters in a Map to preserve prototype-like IDs independently.",
+      "Start a fresh adjacency segment on from discontinuity."
+    ],
+    "testSourceSha256": "E77D27A9343AD022FD3743359FFBD90295AF2D27C94ED4CDC944A64681FE48E9",
+    "beforeUnit": {
+      "passed": 4,
+      "total": 9,
+      "failed": 5,
+      "nativeExitCode": 1
+    },
+    "afterUnit": {
+      "retreatCases": 9,
+      "existingMetrics": 22,
+      "traceCases": 14,
+      "fingerprintCases": 4,
+      "totalChecks": 49,
+      "nativeExitCode": 0
+    },
+    "changedGameRules": false
+  },
+  "fixedTrace": {
+    "seed": "4407",
+    "initialRosterSeed": "FIXTURE:initial-roster",
+    "engineVersion": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+    "inputDigest": "9b68050517cf8708b3a92289b844fd7d169f3ab2b8ac9e1e2ae05f4a0b73f74e",
+    "catalogDigest": "0bb0bc60fcdbb639118f10d4102196d9f768b8ba90a1ce6ba1b80c79225f86f6",
+    "mapSettingsDigest": "2c54858da39f48af82a189d459278149fbfb3779afd51eca30a39770548f1c88",
+    "initialBuildDigest": "394381f492439f5e524cfb8fe29617b16ebdfa0e426118d166409deca4e2440f",
+    "formationDigest": "1dbf54ea3d3be9ef091e8ceefcff50b2c5786a4dd806a91453fbf7546f6814b5",
+    "eventDigest": "84506e234e8219ab000a2e2c04966b05365a5dd10e6ac0316b993f00a04783e1",
+    "frameDigest": "c6c9baefcaccab637a5cedc089e766d4b46432068dbc4ccf8427d88dc7a6b28c",
+    "observerComparison": "pass",
+    "frames": 6694,
+    "events": 13998,
+    "teamRetreats": {
+      "total": 36,
+      "uniqueActors": 17,
+      "maxPerActor": 7,
+      "reversals": 0,
+      "reversalSamples": [],
+      "byReason": {
+        "team_outnumbered": 36
+      },
+      "topActors": [
+        [
+          "guest-survivor-24",
+          7
+        ],
+        [
+          "guest-survivor-08",
+          6
+        ],
+        [
+          "guest-survivor-06",
+          3
+        ],
+        [
+          "guest-survivor-16",
+          3
+        ],
+        [
+          "guest-survivor-17",
+          3
+        ]
+      ]
+    },
+    "hunts": {
+      "starts": 82,
+      "ends": 82,
+      "settlements": 77,
+      "outcomes": {
+        "victory": 77,
+        "retreat": 5
+      },
+      "unfinished": 0,
+      "integrity": "pass"
+    },
+    "endingAtSec": 1281.25,
+    "outcome": "last_team",
+    "winnerTeamId": "team:5",
+    "movement": {
+      "moves": 668,
+      "reversals": 89,
+      "teamRotateReversePairs": 9,
+      "classification": "Observed reversals, not confirmed product bugs."
+    },
+    "regroup": {
+      "started": 26,
+      "completed": 25,
+      "outcomes": {
+        "completed": 25,
+        "member_death": 1
+      }
+    },
+    "growth": {
+      "total": 24,
+      "beforeFirstNightEnd": 24,
+      "everValidFiveSlotHeroEquipment": 24
+    },
+    "observerComparisonScope": "Same fresh input measured versus plain: full evidence (event/frame digests, ending and RNG), all events and final published state deep-equal. This is one input, not GUI/display-speed or all-input proof.",
+    "samples": [
+      {
+        "ActorId": "guest-survivor-23",
+        "TeamId": "team:5",
+        "Previous": {
+          "seq": 6188,
+          "at": {
+            "day": 1,
+            "phase": "night",
+            "sec": 238
+          },
+          "from": "cathedral",
+          "to": "cemetery",
+          "reason": "team_rotate",
+          "sourceReason": "재료 파밍(목표)",
+          "targetZoneId": "cemetery",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 2,
+            "allyPower": 317,
+            "enemyPower": 209,
+            "powerRatio": 0.602,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 317.3050076190476,
+              "opP": 209.39,
+              "ratio": 0.6024454438128084,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 6189,
+            "at": {
+              "day": 1,
+              "phase": "night",
+              "sec": 238
+            },
+            "reason": "team_rotate",
+            "teamId": "team:5",
+            "leaderId": "guest-survivor-23",
+            "targetZoneId": "cemetery",
+            "sharedGoalReason": "재료 파밍(목표)",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 2,
+              "allyPower": 317,
+              "enemyPower": 209,
+              "powerRatio": 0.602,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 317.3050076190476,
+                "opP": 209.39,
+                "ratio": 0.6024454438128084,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Current": {
+          "seq": 6761,
+          "at": {
+            "day": 2,
+            "phase": "morning",
+            "sec": 279
+          },
+          "from": "cemetery",
+          "to": "cathedral",
+          "reason": "team_rotate",
+          "sourceReason": "팀 제작 구매: 생명의 나무 · 새벽의 엔데버 AX 제작 재료",
+          "targetZoneId": "cathedral",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 314,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 314.1376242613834,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 6762,
+            "at": {
+              "day": 2,
+              "phase": "morning",
+              "sec": 279
+            },
+            "reason": "team_rotate",
+            "teamId": "team:5",
+            "leaderId": "guest-survivor-23",
+            "targetZoneId": "cathedral",
+            "sharedGoalReason": "팀 제작 구매: 생명의 나무 · 새벽의 엔데버 AX 제작 재료",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 314,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 314.1376242613834,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Observations": {
+          "targetChanged": true,
+          "sourceChanged": null,
+          "beneficiaryChanged": null,
+          "objectiveChanged": null,
+          "sourceReasonChanged": true,
+          "causeConfirmed": false,
+          "interpretation": "observed_reversal_only"
+        },
+        "ContextMeta": {
+          "candidateCount": 29,
+          "returnedCount": 20,
+          "omittedCount": 9,
+          "omittedByScope": {
+            "team": 8,
+            "global_world": 1
+          },
+          "excludedUnrelatedCount": 153,
+          "truncated": true
+        }
+      },
+      {
+        "ActorId": "guest-survivor-24",
+        "TeamId": "team:7",
+        "Previous": {
+          "seq": 6944,
+          "at": {
+            "day": 2,
+            "phase": "morning",
+            "sec": 295
+          },
+          "from": "alley",
+          "to": "police",
+          "reason": "team_rotate",
+          "sourceReason": "팀 제작 구매: 운석 · 별하의 마탄의 사수 제작 재료",
+          "targetZoneId": "police",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 2,
+            "enemyCount": 0,
+            "allyPower": 212,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 211.97719999999998,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 6945,
+            "at": {
+              "day": 2,
+              "phase": "morning",
+              "sec": 295
+            },
+            "reason": "team_rotate",
+            "teamId": "team:7",
+            "leaderId": "guest-survivor-24",
+            "targetZoneId": "police",
+            "sharedGoalReason": "팀 제작 구매: 운석 · 별하의 마탄의 사수 제작 재료",
+            "assessment": {
+              "allyCount": 2,
+              "enemyCount": 0,
+              "allyPower": 212,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 211.97719999999998,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Current": {
+          "seq": 7589,
+          "at": {
+            "day": 2,
+            "phase": "morning",
+            "sec": 355
+          },
+          "from": "police",
+          "to": "alley",
+          "reason": "team_rotate",
+          "sourceReason": "growth_farm",
+          "targetZoneId": "alley",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 2,
+            "enemyCount": 0,
+            "allyPower": 212,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 211.76,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 7590,
+            "at": {
+              "day": 2,
+              "phase": "morning",
+              "sec": 355
+            },
+            "reason": "team_rotate",
+            "teamId": "team:7",
+            "leaderId": "guest-survivor-24",
+            "targetZoneId": "alley",
+            "sharedGoalReason": "growth_farm",
+            "assessment": {
+              "allyCount": 2,
+              "enemyCount": 0,
+              "allyPower": 212,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 211.76,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Observations": {
+          "targetChanged": true,
+          "sourceChanged": null,
+          "beneficiaryChanged": null,
+          "objectiveChanged": null,
+          "sourceReasonChanged": true,
+          "causeConfirmed": false,
+          "interpretation": "observed_reversal_only"
+        },
+        "ContextMeta": {
+          "candidateCount": 20,
+          "returnedCount": 20,
+          "omittedCount": 0,
+          "omittedByScope": {},
+          "excludedUnrelatedCount": 153,
+          "truncated": false
+        }
+      },
+      {
+        "ActorId": "guest-survivor-08",
+        "TeamId": "team:7",
+        "Previous": {
+          "seq": 6949,
+          "at": {
+            "day": 2,
+            "phase": "morning",
+            "sec": 295
+          },
+          "from": "alley",
+          "to": "police",
+          "reason": "team_rotate",
+          "sourceReason": "팀 제작 구매: 운석 · 별하의 마탄의 사수 제작 재료",
+          "targetZoneId": "police",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 2,
+            "enemyCount": 0,
+            "allyPower": 212,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 211.97719999999998,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 6950,
+            "at": {
+              "day": 2,
+              "phase": "morning",
+              "sec": 295
+            },
+            "reason": "team_rotate",
+            "teamId": "team:7",
+            "leaderId": "guest-survivor-24",
+            "targetZoneId": "police",
+            "sharedGoalReason": "팀 제작 구매: 운석 · 별하의 마탄의 사수 제작 재료",
+            "assessment": {
+              "allyCount": 2,
+              "enemyCount": 0,
+              "allyPower": 212,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 211.97719999999998,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Current": {
+          "seq": 7596,
+          "at": {
+            "day": 2,
+            "phase": "morning",
+            "sec": 355
+          },
+          "from": "police",
+          "to": "alley",
+          "reason": "team_rotate",
+          "sourceReason": "growth_farm",
+          "targetZoneId": "alley",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 2,
+            "enemyCount": 0,
+            "allyPower": 212,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 211.76,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 7597,
+            "at": {
+              "day": 2,
+              "phase": "morning",
+              "sec": 355
+            },
+            "reason": "team_rotate",
+            "teamId": "team:7",
+            "leaderId": "guest-survivor-24",
+            "targetZoneId": "alley",
+            "sharedGoalReason": "growth_farm",
+            "assessment": {
+              "allyCount": 2,
+              "enemyCount": 0,
+              "allyPower": 212,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 211.76,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Observations": {
+          "targetChanged": true,
+          "sourceChanged": null,
+          "beneficiaryChanged": null,
+          "objectiveChanged": null,
+          "sourceReasonChanged": true,
+          "causeConfirmed": false,
+          "interpretation": "observed_reversal_only"
+        },
+        "ContextMeta": {
+          "candidateCount": 22,
+          "returnedCount": 20,
+          "omittedCount": 2,
+          "omittedByScope": {
+            "team": 2
+          },
+          "excludedUnrelatedCount": 153,
+          "truncated": true
+        }
+      },
+      {
+        "ActorId": "guest-survivor-09",
+        "TeamId": "team:8",
+        "Previous": {
+          "seq": 7861,
+          "at": {
+            "day": 2,
+            "phase": "morning",
+            "sec": 377
+          },
+          "from": "beach",
+          "to": "apartment",
+          "reason": "team_rotate",
+          "sourceReason": "크레딧 파밍(야생동물)",
+          "targetZoneId": "park",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 309,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 308.69910724043723,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 7862,
+            "at": {
+              "day": 2,
+              "phase": "morning",
+              "sec": 377
+            },
+            "reason": "team_rotate",
+            "teamId": "team:8",
+            "leaderId": "guest-survivor-09",
+            "targetZoneId": "park",
+            "sharedGoalReason": "크레딧 파밍(야생동물)",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 309,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 308.69910724043723,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Current": {
+          "seq": 8251,
+          "at": {
+            "day": 2,
+            "phase": "night",
+            "sec": 397
+          },
+          "from": "apartment",
+          "to": "beach",
+          "reason": "team_rotate",
+          "sourceReason": "dimension_rift",
+          "targetZoneId": "beach",
+          "objectiveType": "dimension_rift",
+          "objectiveSubkind": "aglaia",
+          "movementObjective": {
+            "type": "dimension_rift",
+            "subkind": "aglaia",
+            "targetZoneId": "beach",
+            "sourceIds": [
+              "RIFT_guest-lumia-island_2_1"
+            ],
+            "resourceKinds": []
+          },
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 309,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 308.69910724043723,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 8252,
+            "at": {
+              "day": 2,
+              "phase": "night",
+              "sec": 397
+            },
+            "reason": "team_rotate",
+            "teamId": "team:8",
+            "leaderId": "guest-survivor-09",
+            "targetZoneId": "beach",
+            "sharedGoalReason": "dimension_rift",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 309,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 308.69910724043723,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": {
+              "type": "dimension_rift",
+              "subkind": "aglaia",
+              "targetZoneId": "beach",
+              "sourceIds": [
+                "RIFT_guest-lumia-island_2_1"
+              ],
+              "resourceKinds": []
+            }
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Observations": {
+          "targetChanged": true,
+          "sourceChanged": null,
+          "beneficiaryChanged": null,
+          "objectiveChanged": null,
+          "sourceReasonChanged": true,
+          "causeConfirmed": false,
+          "interpretation": "observed_reversal_only"
+        },
+        "ContextMeta": {
+          "candidateCount": 14,
+          "returnedCount": 14,
+          "omittedCount": 0,
+          "omittedByScope": {},
+          "excludedUnrelatedCount": 123,
+          "truncated": false
+        }
+      },
+      {
+        "ActorId": "guest-survivor-04",
+        "TeamId": "team:8",
+        "Previous": {
+          "seq": 7868,
+          "at": {
+            "day": 2,
+            "phase": "morning",
+            "sec": 377
+          },
+          "from": "beach",
+          "to": "apartment",
+          "reason": "team_rotate",
+          "sourceReason": "크레딧 파밍(야생동물)",
+          "targetZoneId": "park",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 309,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 308.69910724043723,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 7869,
+            "at": {
+              "day": 2,
+              "phase": "morning",
+              "sec": 377
+            },
+            "reason": "team_rotate",
+            "teamId": "team:8",
+            "leaderId": "guest-survivor-09",
+            "targetZoneId": "park",
+            "sharedGoalReason": "크레딧 파밍(야생동물)",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 309,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 308.69910724043723,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Current": {
+          "seq": 8260,
+          "at": {
+            "day": 2,
+            "phase": "night",
+            "sec": 397
+          },
+          "from": "apartment",
+          "to": "beach",
+          "reason": "team_rotate",
+          "sourceReason": "dimension_rift",
+          "targetZoneId": "beach",
+          "objectiveType": "dimension_rift",
+          "objectiveSubkind": "aglaia",
+          "movementObjective": {
+            "type": "dimension_rift",
+            "subkind": "aglaia",
+            "targetZoneId": "beach",
+            "sourceIds": [
+              "RIFT_guest-lumia-island_2_1"
+            ],
+            "resourceKinds": []
+          },
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 309,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 308.69910724043723,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 8261,
+            "at": {
+              "day": 2,
+              "phase": "night",
+              "sec": 397
+            },
+            "reason": "team_rotate",
+            "teamId": "team:8",
+            "leaderId": "guest-survivor-09",
+            "targetZoneId": "beach",
+            "sharedGoalReason": "dimension_rift",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 309,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 308.69910724043723,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": {
+              "type": "dimension_rift",
+              "subkind": "aglaia",
+              "targetZoneId": "beach",
+              "sourceIds": [
+                "RIFT_guest-lumia-island_2_1"
+              ],
+              "resourceKinds": []
+            }
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Observations": {
+          "targetChanged": true,
+          "sourceChanged": null,
+          "beneficiaryChanged": null,
+          "objectiveChanged": null,
+          "sourceReasonChanged": true,
+          "causeConfirmed": false,
+          "interpretation": "observed_reversal_only"
+        },
+        "ContextMeta": {
+          "candidateCount": 16,
+          "returnedCount": 16,
+          "omittedCount": 0,
+          "omittedByScope": {},
+          "excludedUnrelatedCount": 123,
+          "truncated": false
+        }
+      },
+      {
+        "ActorId": "guest-survivor-02",
+        "TeamId": "team:8",
+        "Previous": {
+          "seq": 7875,
+          "at": {
+            "day": 2,
+            "phase": "morning",
+            "sec": 377
+          },
+          "from": "beach",
+          "to": "apartment",
+          "reason": "team_rotate",
+          "sourceReason": "크레딧 파밍(야생동물)",
+          "targetZoneId": "park",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 309,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 308.69910724043723,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 7876,
+            "at": {
+              "day": 2,
+              "phase": "morning",
+              "sec": 377
+            },
+            "reason": "team_rotate",
+            "teamId": "team:8",
+            "leaderId": "guest-survivor-09",
+            "targetZoneId": "park",
+            "sharedGoalReason": "크레딧 파밍(야생동물)",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 309,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 308.69910724043723,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Current": {
+          "seq": 8266,
+          "at": {
+            "day": 2,
+            "phase": "night",
+            "sec": 397
+          },
+          "from": "apartment",
+          "to": "beach",
+          "reason": "team_rotate",
+          "sourceReason": "dimension_rift",
+          "targetZoneId": "beach",
+          "objectiveType": "dimension_rift",
+          "objectiveSubkind": "aglaia",
+          "movementObjective": {
+            "type": "dimension_rift",
+            "subkind": "aglaia",
+            "targetZoneId": "beach",
+            "sourceIds": [
+              "RIFT_guest-lumia-island_2_1"
+            ],
+            "resourceKinds": []
+          },
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 309,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 308.69910724043723,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 8267,
+            "at": {
+              "day": 2,
+              "phase": "night",
+              "sec": 397
+            },
+            "reason": "team_rotate",
+            "teamId": "team:8",
+            "leaderId": "guest-survivor-09",
+            "targetZoneId": "beach",
+            "sharedGoalReason": "dimension_rift",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 309,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 308.69910724043723,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": {
+              "type": "dimension_rift",
+              "subkind": "aglaia",
+              "targetZoneId": "beach",
+              "sourceIds": [
+                "RIFT_guest-lumia-island_2_1"
+              ],
+              "resourceKinds": []
+            }
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Observations": {
+          "targetChanged": true,
+          "sourceChanged": null,
+          "beneficiaryChanged": null,
+          "objectiveChanged": null,
+          "sourceReasonChanged": true,
+          "causeConfirmed": false,
+          "interpretation": "observed_reversal_only"
+        },
+        "ContextMeta": {
+          "candidateCount": 15,
+          "returnedCount": 15,
+          "omittedCount": 0,
+          "omittedByScope": {},
+          "excludedUnrelatedCount": 123,
+          "truncated": false
+        }
+      },
+      {
+        "ActorId": "guest-survivor-23",
+        "TeamId": "team:5",
+        "Previous": {
+          "seq": 12962,
+          "at": {
+            "day": 5,
+            "phase": "night",
+            "sec": 1079
+          },
+          "from": "factory",
+          "to": "cathedral",
+          "reason": "team_rotate",
+          "sourceReason": "팀 제작 구매: VF 혈액 샘플 · 다온의 헬파이어 제작 재료",
+          "targetZoneId": "cathedral",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 339,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 338.8652739726027,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 12963,
+            "at": {
+              "day": 5,
+              "phase": "night",
+              "sec": 1079
+            },
+            "reason": "team_rotate",
+            "teamId": "team:5",
+            "leaderId": "guest-survivor-23",
+            "targetZoneId": "cathedral",
+            "sharedGoalReason": "팀 제작 구매: VF 혈액 샘플 · 다온의 헬파이어 제작 재료",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 339,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 338.8652739726027,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Current": {
+          "seq": 13048,
+          "at": {
+            "day": 6,
+            "phase": "morning",
+            "sec": 1119
+          },
+          "from": "cathedral",
+          "to": "factory",
+          "reason": "team_rotate",
+          "sourceReason": "크레딧 파밍(야생동물)",
+          "targetZoneId": "factory",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 336,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 336.46527397260274,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 13049,
+            "at": {
+              "day": 6,
+              "phase": "morning",
+              "sec": 1119
+            },
+            "reason": "team_rotate",
+            "teamId": "team:5",
+            "leaderId": "guest-survivor-23",
+            "targetZoneId": "factory",
+            "sharedGoalReason": "크레딧 파밍(야생동물)",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 336,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 336.46527397260274,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Observations": {
+          "targetChanged": true,
+          "sourceChanged": null,
+          "beneficiaryChanged": null,
+          "objectiveChanged": null,
+          "sourceReasonChanged": true,
+          "causeConfirmed": false,
+          "interpretation": "observed_reversal_only"
+        },
+        "ContextMeta": {
+          "candidateCount": 16,
+          "returnedCount": 16,
+          "omittedCount": 0,
+          "omittedByScope": {},
+          "excludedUnrelatedCount": 13,
+          "truncated": false
+        }
+      },
+      {
+        "ActorId": "guest-survivor-18",
+        "TeamId": "team:5",
+        "Previous": {
+          "seq": 12967,
+          "at": {
+            "day": 5,
+            "phase": "night",
+            "sec": 1079
+          },
+          "from": "factory",
+          "to": "cathedral",
+          "reason": "team_rotate",
+          "sourceReason": "팀 제작 구매: VF 혈액 샘플 · 다온의 헬파이어 제작 재료",
+          "targetZoneId": "cathedral",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 339,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 338.8652739726027,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 12968,
+            "at": {
+              "day": 5,
+              "phase": "night",
+              "sec": 1079
+            },
+            "reason": "team_rotate",
+            "teamId": "team:5",
+            "leaderId": "guest-survivor-23",
+            "targetZoneId": "cathedral",
+            "sharedGoalReason": "팀 제작 구매: VF 혈액 샘플 · 다온의 헬파이어 제작 재료",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 339,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 338.8652739726027,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Current": {
+          "seq": 13054,
+          "at": {
+            "day": 6,
+            "phase": "morning",
+            "sec": 1119
+          },
+          "from": "cathedral",
+          "to": "factory",
+          "reason": "team_rotate",
+          "sourceReason": "크레딧 파밍(야생동물)",
+          "targetZoneId": "factory",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 336,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 336.46527397260274,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 13055,
+            "at": {
+              "day": 6,
+              "phase": "morning",
+              "sec": 1119
+            },
+            "reason": "team_rotate",
+            "teamId": "team:5",
+            "leaderId": "guest-survivor-23",
+            "targetZoneId": "factory",
+            "sharedGoalReason": "크레딧 파밍(야생동물)",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 336,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 336.46527397260274,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Observations": {
+          "targetChanged": true,
+          "sourceChanged": null,
+          "beneficiaryChanged": null,
+          "objectiveChanged": null,
+          "sourceReasonChanged": true,
+          "causeConfirmed": false,
+          "interpretation": "observed_reversal_only"
+        },
+        "ContextMeta": {
+          "candidateCount": 17,
+          "returnedCount": 17,
+          "omittedCount": 0,
+          "omittedByScope": {},
+          "excludedUnrelatedCount": 13,
+          "truncated": false
+        }
+      },
+      {
+        "ActorId": "guest-survivor-10",
+        "TeamId": "team:5",
+        "Previous": {
+          "seq": 12972,
+          "at": {
+            "day": 5,
+            "phase": "night",
+            "sec": 1079
+          },
+          "from": "factory",
+          "to": "cathedral",
+          "reason": "team_rotate",
+          "sourceReason": "팀 제작 구매: VF 혈액 샘플 · 다온의 헬파이어 제작 재료",
+          "targetZoneId": "cathedral",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 339,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 338.8652739726027,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 12973,
+            "at": {
+              "day": 5,
+              "phase": "night",
+              "sec": 1079
+            },
+            "reason": "team_rotate",
+            "teamId": "team:5",
+            "leaderId": "guest-survivor-23",
+            "targetZoneId": "cathedral",
+            "sharedGoalReason": "팀 제작 구매: VF 혈액 샘플 · 다온의 헬파이어 제작 재료",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 339,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 338.8652739726027,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Current": {
+          "seq": 13059,
+          "at": {
+            "day": 6,
+            "phase": "morning",
+            "sec": 1119
+          },
+          "from": "cathedral",
+          "to": "factory",
+          "reason": "team_rotate",
+          "sourceReason": "크레딧 파밍(야생동물)",
+          "targetZoneId": "factory",
+          "objectiveType": "",
+          "objectiveSubkind": "",
+          "movementObjective": null,
+          "teamAssessment": {
+            "allyCount": 3,
+            "enemyCount": 0,
+            "allyPower": 336,
+            "enemyPower": 0,
+            "powerRatio": 1,
+            "shouldAvoid": false,
+            "comparison": {
+              "scope": "team",
+              "myP": 336.46527397260274,
+              "opP": 0,
+              "ratio": 1,
+              "minRatio": 0.4
+            },
+            "reason": ""
+          },
+          "decisionEvidence": null,
+          "retreatOutcome": "",
+          "teamDecision": {
+            "seq": 13060,
+            "at": {
+              "day": 6,
+              "phase": "morning",
+              "sec": 1119
+            },
+            "reason": "team_rotate",
+            "teamId": "team:5",
+            "leaderId": "guest-survivor-23",
+            "targetZoneId": "factory",
+            "sharedGoalReason": "크레딧 파밍(야생동물)",
+            "assessment": {
+              "allyCount": 3,
+              "enemyCount": 0,
+              "allyPower": 336,
+              "enemyPower": 0,
+              "powerRatio": 1,
+              "shouldAvoid": false,
+              "comparison": {
+                "scope": "team",
+                "myP": 336.46527397260274,
+                "opP": 0,
+                "ratio": 1,
+                "minRatio": 0.4
+              },
+              "reason": "team_rotate"
+            },
+            "teamAssessment": null,
+            "decisionEvidence": null,
+            "retreatOutcome": "",
+            "movementObjective": null
+          },
+          "teamDecisionPairStatus": "matched_exact"
+        },
+        "Observations": {
+          "targetChanged": true,
+          "sourceChanged": null,
+          "beneficiaryChanged": null,
+          "objectiveChanged": null,
+          "sourceReasonChanged": true,
+          "causeConfirmed": false,
+          "interpretation": "observed_reversal_only"
+        },
+        "ContextMeta": {
+          "candidateCount": 17,
+          "returnedCount": 17,
+          "omittedCount": 0,
+          "omittedByScope": {},
+          "excludedUnrelatedCount": 13,
+          "truncated": false
+        }
+      }
+    ],
+    "causeScope": "All nine sampled team-rotation reverse pairs have causeConfirmed=false. Two context samples are truncated; source and beneficiary ID changes remain unknown. Labels alone do not prove designated procurement or tactical failure."
+  },
+  "runEvidence": [
+    {
+      "Result": {
+        "runId": "2026-10-09T07-39-28.375Z-2b25af4d-db36-4e7b-9d3c-c4a06ce4e81f",
+        "command": "npm run check:team-regroup && npm run check:verification-fingerprint",
+        "startedAt": "2026-10-09T07:39:28.377Z",
+        "pid": 23980,
+        "engineBefore": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T07:39:41.19Z"
+      },
+      "Files": [
+        {
+          "Path": "client\\.verification-runs\\2026-10-09T07-39-28.375Z-2b25af4d-db36-4e7b-9d3c-c4a06ce4e81f\\output.log",
+          "Bytes": 10002,
+          "Sha256": "16605EEF3B38DFC7565354A47BE1566FB57F22E919E4657249D2A92DFF1FD900"
+        },
+        {
+          "Path": "client\\.verification-runs\\2026-10-09T07-39-28.375Z-2b25af4d-db36-4e7b-9d3c-c4a06ce4e81f\\result.json",
+          "Bytes": 596,
+          "Sha256": "D44F8A31E46CCF793B52A601B60BB9080FCD82F3B3BA5C86A15C8D439BC04456"
+        }
+      ]
+    },
+    {
+      "Result": {
+        "runId": "2026-10-09T07-40-03.528Z-3f7a9fb1-3ce7-46aa-9563-e5c40ceb0737",
+        "command": "npm run diagnose:match-distribution -- --rosters=BASELINE:roster-A,BASELINE:roster-B,BASELINE:roster-C 5501 5502",
+        "startedAt": "2026-10-09T07:40:03.53Z",
+        "pid": 42392,
+        "engineBefore": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T07:53:03.83Z"
+      },
+      "Files": [
+        {
+          "Path": "client\\.verification-runs\\2026-10-09T07-40-03.528Z-3f7a9fb1-3ce7-46aa-9563-e5c40ceb0737\\output.log",
+          "Bytes": 186340,
+          "Sha256": "E91BBB7C985FE1587185D1639B45566F73128085C8E52DB25441D526747A6F8E"
+        },
+        {
+          "Path": "client\\.verification-runs\\2026-10-09T07-40-03.528Z-3f7a9fb1-3ce7-46aa-9563-e5c40ceb0737\\result.json",
+          "Bytes": 640,
+          "Sha256": "60EE98D5ABF125335E1103CE7CA8554440CFB7952B0D9119BF21496C641ED1F6"
+        }
+      ]
+    },
+    {
+      "Result": {
+        "runId": "2026-10-09T07-48-09.727Z-00482696-2263-4d9e-af3d-a7630c8b1f4d",
+        "command": "npm run check:match-distribution-metrics && npm run check:verification-fingerprint",
+        "startedAt": "2026-10-09T07:48:09.73Z",
+        "pid": 40256,
+        "engineBefore": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "status": "failed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 1,
+        "signal": null,
+        "engineAfter": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T07:48:16.433Z"
+      },
+      "Files": [
+        {
+          "Path": "client\\.verification-runs\\2026-10-09T07-48-09.727Z-00482696-2263-4d9e-af3d-a7630c8b1f4d\\output.log",
+          "Bytes": 6361,
+          "Sha256": "6B1D28E8729160E05C13A2420488EE29430BE71D04ECDFD22286D6EB1AC5BBDB"
+        },
+        {
+          "Path": "client\\.verification-runs\\2026-10-09T07-48-09.727Z-00482696-2263-4d9e-af3d-a7630c8b1f4d\\result.json",
+          "Bytes": 610,
+          "Sha256": "80D9D996BCCED36807C9594B0F7B9A5D8B1389B89F6E65CCB5E0D6DBCDDFAB55"
+        }
+      ]
+    },
+    {
+      "Result": {
+        "runId": "2026-10-09T07-50-46.727Z-6f815278-78c3-4281-b86c-6c5337a72ea9",
+        "command": "npm run check:match-distribution-metrics && npm run check:verification-fingerprint",
+        "startedAt": "2026-10-09T07:50:46.729Z",
+        "pid": 24836,
+        "engineBefore": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T07:50:49.463Z"
+      },
+      "Files": [
+        {
+          "Path": "client\\.verification-runs\\2026-10-09T07-50-46.727Z-6f815278-78c3-4281-b86c-6c5337a72ea9\\output.log",
+          "Bytes": 4752,
+          "Sha256": "B6AEDDF47E20A03648A7B452A6C51AD7E6059AE88573C68DD3AFBABD72AE4A17"
+        },
+        {
+          "Path": "client\\.verification-runs\\2026-10-09T07-50-46.727Z-6f815278-78c3-4281-b86c-6c5337a72ea9\\result.json",
+          "Bytes": 610,
+          "Sha256": "FCC62E9F562BB9DE52990296C036EA3AC1BA2F0909DC172BBD8437A57925203E"
+        }
+      ]
+    },
+    {
+      "Result": {
+        "runId": "2026-10-09T07-54-26.407Z-5cd301d7-93c0-4fad-841c-6592065638b4",
+        "command": "npm run check:movement-reversal-trace && npm run diagnose:match-distribution -- --trace-movement --compare-observer 4407",
+        "startedAt": "2026-10-09T07:54:26.409Z",
+        "pid": 42344,
+        "engineBefore": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "status": "passed",
+        "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+        "exitCode": 0,
+        "signal": null,
+        "engineAfter": "28f87669be40b43af3b1d6150d918079c02819799581710c1b0c992e6c7a1fc2",
+        "sameEngine": true,
+        "finishedAt": "2026-10-09T07:57:34.892Z"
+      },
+      "Files": [
+        {
+          "Path": "client\\.verification-runs\\2026-10-09T07-54-26.407Z-5cd301d7-93c0-4fad-841c-6592065638b4\\output.log",
+          "Bytes": 126513,
+          "Sha256": "B8EC4A91D64CD49DFF40090142333324851304EE9120105FD0E223E6DA6AC566"
+        },
+        {
+          "Path": "client\\.verification-runs\\2026-10-09T07-54-26.407Z-5cd301d7-93c0-4fad-841c-6592065638b4\\result.json",
+          "Bytes": 648,
+          "Sha256": "484D60E4E2FF0F80FEA5BF08E12C70ABA175350AA0CA3F19ACF8EEC257C17296"
+        }
+      ]
+    }
+  ],
+  "cleanup": {
+    "before": {
+      "build": {
+        "Method": "sorted relative-path plus literal-backtick-t plus length plus literal-backtick-t plus SHA256 joined by LF",
+        "Count": 1429,
+        "Sha256": "7A6011B039491ECC5D37B6D9147C4773793ECFAD828BF339EA95F6C7E61271AF",
+        "BuildId": "sOskRcLmriVPK4vyBgio_"
+      },
+      "cachePacks": [],
+      "liveRelatedProcesses": []
+    },
+    "after": {
+      "BuildProtection": {
+        "Count": 1429,
+        "Sha256": "7A6011B039491ECC5D37B6D9147C4773793ECFAD828BF339EA95F6C7E61271AF",
+        "BuildId": "sOskRcLmriVPK4vyBgio_"
+      },
+      "ProtectedSources": [
+        {
+          "Path": "client/scripts/check-observer-goals-match.mjs",
+          "Sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+        },
+        {
+          "Path": "server/index.js",
+          "Sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+        },
+        {
+          "Path": "server/.env.example",
+          "Sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+        }
+      ],
+      "CachePacks": [],
+      "DeletedFiles": [],
+      "DeletedBytes": 0,
+      "PhysicalFreeSpaceMeasured": false
+    },
+    "rawRunFiles": 10,
+    "rawRunBytes": 337072,
+    "preserved": "User sources, original requirements, completed build, source code and unique success/failure run records. No deletions and no physical free-space claim."
+  },
+  "remainingGates": [
+    "Current-engine single full check:eternal-hunger remains distinct from these named checks.",
+    "Actual foreground x1/x8/x32 and continuous memory/asset lifecycle.",
+    "Approved AI success and quality plus actual account save/load behavior.",
+    "Broader authored/custom input and same-input single-strategy paired causal evidence.",
+    "Map roads/hyperloop visual fidelity and actual human follow-up comprehension/fun.",
+    "Public push/deployment requires task-specific authority."
+  ],
+  "authority": "No browser, paid AI, account write, push, deployment or protection change."
+}
