@@ -1,0 +1,321 @@
+{
+  "schema": 1,
+  "date": "2026-10-09",
+  "status": "scoped-verification-complete",
+  "gitBase": "9133cbe3eb2af52e907278e5231626ad644bb48b",
+  "engine": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+  "goalStatus": "active",
+  "scope": "ER account-editor base-stat preservation; not overall gameplay, paid AI, actual account persistence or foreground performance acceptance.",
+  "defect": {
+    "subject": "haze",
+    "baseAttack": 24,
+    "oldEditorOnce": 29.7,
+    "oldMatchAfterOnce": 35.4,
+    "oldEditorTwice": 35.4,
+    "oldMatchAfterTwice": 41.1,
+    "evidence": "Actual Git-base page callback and production roster, executed in memory; exit 0 confirming the defective trace, no saved-result input.",
+    "correctedEditorAttack": 24,
+    "correctedMatchAttack": 29.7
+  },
+  "implementation": {
+    "editorPreservesStatsReference": true,
+    "editorPresetScale": 0,
+    "editorFallback": false,
+    "rosterUsesActualRulesetScaleOnce": true,
+    "inferredMigration": false,
+    "oldUnmarkedBiasOrManualStatsPreserved": true,
+    "subjectResolutionPriorityUnchanged": true
+  },
+  "focusedEvidence": {
+    "productionPageCallbackChecksPassed": 9,
+    "presetComparisons": 90,
+    "presets": 30,
+    "scales": [
+      0,
+      0.45,
+      1
+    ],
+    "autoDraftChecksPassed": 11,
+    "modalSSRChecksPassed": 5,
+    "scope": "Executed inside the live named unit chain; SSR/callback/serializer/roster tests are not foreground UI or HTTP/DB account writes.",
+    "finalConflictingKnownNameBoundary": true,
+    "guestNamedPresetOptOut": true,
+    "genericRuntimeFallbackPolicyUnchanged": true
+  },
+  "recovery": {
+    "rootCause": "Unknown; do not infer a disk/hardware cause.",
+    "verifiedNulFilledBeforePull": true,
+    "files": [
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "bytesBefore": 6807,
+        "nonzeroBytesBefore": 0,
+        "sha256Before": "F3F45872C0127EFE803BCBCBCEE0D1510A51266BC882AC719807B2D022FB740B",
+        "recovery": "Git HEAD source plus scoped preset-editor-unit command",
+        "sha256After": "64495B98BE6DCFC2991CC8966783CE1C98F0030DD7AFAF466861AC3C382BE76A"
+      },
+      {
+        "path": "client/scripts/check-er-preset-editor.mjs",
+        "bytesBefore": 9171,
+        "nonzeroBytesBefore": 0,
+        "sha256Before": "4FAAB2E119E717000716D899BD1BCD72E1E83B5C578790F7EE73D51527B4B108",
+        "recovery": "Reconstructed independent tests of actual production contracts",
+        "sha256After": "FF40387AF0ACEAC8CCD6CEF8CF718C65DC7F95753FB1698EECC3C267A9FB88EB"
+      }
+    ],
+    "failedAttempts": [
+      "Combined delete/add rejected by apply_patch for duplicate target; no write performed.",
+      "Separate sandboxed apply_patch delete failed; file remained."
+    ],
+    "successfulTool": "Installed native apply_patch entry point with authorized escalation; both exact targets replaced, syntax and diff checks passed."
+  },
+  "sourceHashesBeforeNamedUnit": {
+    "client/package.json": "5FA309744111E3D8C85A1B95519BC55BA9CBA7BF0640F57DA96DDF50810A9BA3",
+    "client/scripts/run-eternal-hunger-verification.mjs": "64495B98BE6DCFC2991CC8966783CE1C98F0030DD7AFAF466861AC3C382BE76A",
+    "client/scripts/check-er-preset-editor.mjs": "FF40387AF0ACEAC8CCD6CEF8CF718C65DC7F95753FB1698EECC3C267A9FB88EB",
+    "client/src/app/characters/_lib/characterEditorRuntime.js": "39C62976E43031E12EC3B616A0140BF1D52E90C03F3E41B5DC8762459201D374",
+    "client/src/app/characters/page.js": "3248C2B1318E3848F6A2729B1910295D2FF31464F51691B0E5DF7BE1B7420E01",
+    "client/scripts/check-observer-goals-match.mjs": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9",
+    "server/index.js": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+    "server/.env.example": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+  },
+  "namedUnit": {
+    "runId": "2026-10-09T03-43-15.223Z-9a93bfd7-e1a6-454b-91f4-599af603bce5",
+    "command": "npm run check:skills && npm run check:er-weapons && node scripts/check-guest-character-profiles.mjs && node scripts/check-custom-roster.mjs && npm run check:verification-fingerprint && node node_modules/eslint/bin/eslint.js src/app/characters/page.js src/app/characters/_lib/characterEditorRuntime.js && npm run check:runtime:sweep",
+    "startedAt": "2026-10-09T03:43:15.24Z",
+    "pid": 34000,
+    "engineBefore": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+    "status": "passed",
+    "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+    "exitCode": 0,
+    "signal": null,
+    "engineAfter": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+    "sameEngine": true,
+    "finishedAt": "2026-10-09T03:55:19.356Z",
+    "result": "client/.verification-runs/2026-10-09T03-43-15.223Z-9a93bfd7-e1a6-454b-91f4-599af603bce5/result.json",
+    "outputLog": "client/.verification-runs/2026-10-09T03-43-15.223Z-9a93bfd7-e1a6-454b-91f4-599af603bce5/output.log",
+    "outputLogSha256": "12178076B49E9AF550D1085E6CDB1E04B3A54D643CEEA525621AF1FCC8F6A290",
+    "resultSha256": "79D7820200FDDCFD880948FD62060FA5A527A266CE4A2FD7ABD8BEBDF056C7F4",
+    "sourceHashesMatch": true,
+    "checkerBoundaryStrengthenedOnlyAfterTerminal": true
+  },
+  "build": {
+    "runId": "2026-10-09T03-57-26.927Z-4734e9e8-35bf-4f4e-b2c4-7304391abe22",
+    "command": "npm run build",
+    "startedAt": "2026-10-09T03:57:26.929Z",
+    "pid": 33600,
+    "engineBefore": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+    "status": "passed",
+    "scope": "Compiled production editor including the scale-zero helper; no foreground visual/UI or performance acceptance.",
+    "exitCode": 0,
+    "signal": null,
+    "engineAfter": "2cc30ea2b320786af781c7cb5c1b57c9bd14b24c66bf007d5d750eb7287b5894",
+    "sameEngine": true,
+    "finishedAt": "2026-10-09T03:58:42.732Z",
+    "result": "client/.verification-runs/2026-10-09T03-57-26.927Z-4734e9e8-35bf-4f4e-b2c4-7304391abe22/result.json",
+    "outputLog": "client/.verification-runs/2026-10-09T03-57-26.927Z-4734e9e8-35bf-4f4e-b2c4-7304391abe22/output.log",
+    "resultSha256": "09213F570A49CF9149D365F62E5BECC3D3F82197A3B92044761EC036BD12857F",
+    "outputLogSha256": "27FFF6E8D3C12446F2CDC420F18CB28642ED09DC991C9159ABCAD9EC81BE05AE",
+    "buildId": "XdC5T7HoZh6ionroUczBR",
+    "pages": 62,
+    "compiledNoteHits": [
+      "client/.next/server\\app\\characters\\page.js",
+      "client/.next/static\\chunks\\app\\characters\\page-fd77831e3e2e4efa.js"
+    ],
+    "compiledZeroBiasHelperHits": [
+      "client/.next/static\\chunks\\3781-15941f61f0928fc0.js",
+      "client/.next/server\\chunks\\2040.js"
+    ],
+    "sourceHashesMatch": true
+  },
+  "cleanup": {
+    "observedAt": "2026-10-09T04:04:29.5000729Z",
+    "removedFiles": 6,
+    "removedBytes": 592273140,
+    "remainingCacheFiles": 0,
+    "protectedCount": 18,
+    "changedProtectedFiles": [],
+    "protectedHashesAfter": {
+      "server/.env.example": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3",
+      "artifacts/er-preset-editor-20261009.json": "CEA91114D5623595A2A8230C6756A16D3414B6BC9A8F2D6C4216046C2D1A2A1C",
+      "docs/eternal-hunger-goal.md": "0B377865B29966CA2E95B731EAFEE84F5B85280ED718330B01D1F804223AE661",
+      "artifacts/first-phase-profile-20261009-current-before/first-phase.cpuprofile": "61A34730E07410B3FABB6C769CDFC7600E4A06BF998247C6D73C9E5FC457AF1A",
+      "docs/character-auto-setup-verification.md": "AA957C8251484B0EA16ED72C40F3AE1F2936ED192F0E9C21072B740E68EF9412",
+      "server/index.js": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+      "artifacts/first-phase-profile-20261009-current-selective/first-phase.cpuprofile": "FD2623EA235E861F26746BE8E5708C2595BD036F5F24A4E549932DA4A711B5D4",
+      "client/scripts/run-eternal-hunger-verification.mjs": "64495B98BE6DCFC2991CC8966783CE1C98F0030DD7AFAF466861AC3C382BE76A",
+      "client/src/app/characters/_lib/characterEditorRuntime.js": "39C62976E43031E12EC3B616A0140BF1D52E90C03F3E41B5DC8762459201D374",
+      "client/.verification-runs/2026-10-09T03-43-15.223Z-9a93bfd7-e1a6-454b-91f4-599af603bce5/result.json": "79D7820200FDDCFD880948FD62060FA5A527A266CE4A2FD7ABD8BEBDF056C7F4",
+      "client/.verification-runs/2026-10-09T03-57-26.927Z-4734e9e8-35bf-4f4e-b2c4-7304391abe22/output.log": "27FFF6E8D3C12446F2CDC420F18CB28642ED09DC991C9159ABCAD9EC81BE05AE",
+      "client/scripts/check-er-preset-editor.mjs": "DB57F7E96AF2A59161729985D5246C453BCA81B698D17AAD829AD4D28ACA1BB4",
+      "client/scripts/check-observer-goals-match.mjs": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9",
+      "client/.verification-runs/2026-10-09T03-57-26.927Z-4734e9e8-35bf-4f4e-b2c4-7304391abe22/result.json": "09213F570A49CF9149D365F62E5BECC3D3F82197A3B92044761EC036BD12857F",
+      "client/package.json": "5FA309744111E3D8C85A1B95519BC55BA9CBA7BF0640F57DA96DDF50810A9BA3",
+      "client/src/app/characters/page.js": "3248C2B1318E3848F6A2729B1910295D2FF31464F51691B0E5DF7BE1B7420E01",
+      "client/.verification-runs/2026-10-09T03-43-15.223Z-9a93bfd7-e1a6-454b-91f4-599af603bce5/output.log": "12178076B49E9AF550D1085E6CDB1E04B3A54D643CEEA525621AF1FCC8F6A290",
+      "artifacts/first-phase-profile-20261009-current-after/first-phase.cpuprofile": "33C0A09799CDD57E4BDE17BFB3F3F3F219326F49CB615EAD5103BD68CC8D2C28"
+    },
+    "compiledCountAfter": 1427,
+    "compiledDigestAfter": "1968179B271C6778407C7CC638DD4F0618D96A57A805B89CD9694C8A3EE69C1D",
+    "relevantNodesAfter": 0,
+    "physicalFreeSpaceIncreaseMeasured": false,
+    "recovery": "npm run build regenerates webpack packs; completed build and unique evidence retained",
+    "beforeBuildWebpackPackCount": 0,
+    "deletedFiles": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 255132803,
+        "modifiedAt": "2026-10-09T03:58:16.2492089Z",
+        "reparsePoint": false,
+        "sha256": "413E8CFF62C94BEEE1D17860E90BA16DA029503671DC709456DDA2D24068B0B7"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12804672,
+        "modifiedAt": "2026-10-09T03:58:16.0071968Z",
+        "reparsePoint": false,
+        "sha256": "68ABCCA67E463D006120AD5E7FF16BB383E8F1E57CAA9A65DD54D2DDA3BD78A9"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "modifiedAt": "2026-10-09T03:57:55.5319699Z",
+        "reparsePoint": false,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "modifiedAt": "2026-10-09T03:57:55.5319699Z",
+        "reparsePoint": false,
+        "sha256": "401FEA64FFCBEF44EC7EEF899AB6D6822D46A3222A7B182D3361E4C8F1D3B264"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 306286994,
+        "modifiedAt": "2026-10-09T03:57:54.4572649Z",
+        "reparsePoint": false,
+        "sha256": "1B908E68E8C9A41BE9EDB423ACFF5F34629BAA1AD36E296A72A0E0D00E425D31"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18045931,
+        "modifiedAt": "2026-10-09T03:57:54.2826952Z",
+        "reparsePoint": false,
+        "sha256": "95F9E0D05872AC723E470E9269F7001806A372BA7BC535D61132B8A40EEB2C96"
+      }
+    ],
+    "protectedHashesBefore": {
+      "artifacts/first-phase-profile-20261009-current-before/first-phase.cpuprofile": "61A34730E07410B3FABB6C769CDFC7600E4A06BF998247C6D73C9E5FC457AF1A",
+      "client/.verification-runs/2026-10-09T03-43-15.223Z-9a93bfd7-e1a6-454b-91f4-599af603bce5/output.log": "12178076B49E9AF550D1085E6CDB1E04B3A54D643CEEA525621AF1FCC8F6A290",
+      "client/.verification-runs/2026-10-09T03-57-26.927Z-4734e9e8-35bf-4f4e-b2c4-7304391abe22/result.json": "09213F570A49CF9149D365F62E5BECC3D3F82197A3B92044761EC036BD12857F",
+      "client/scripts/check-observer-goals-match.mjs": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9",
+      "docs/character-auto-setup-verification.md": "AA957C8251484B0EA16ED72C40F3AE1F2936ED192F0E9C21072B740E68EF9412",
+      "artifacts/first-phase-profile-20261009-current-after/first-phase.cpuprofile": "33C0A09799CDD57E4BDE17BFB3F3F3F219326F49CB615EAD5103BD68CC8D2C28",
+      "artifacts/first-phase-profile-20261009-current-selective/first-phase.cpuprofile": "FD2623EA235E861F26746BE8E5708C2595BD036F5F24A4E549932DA4A711B5D4",
+      "server/.env.example": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3",
+      "client/.verification-runs/2026-10-09T03-57-26.927Z-4734e9e8-35bf-4f4e-b2c4-7304391abe22/output.log": "27FFF6E8D3C12446F2CDC420F18CB28642ED09DC991C9159ABCAD9EC81BE05AE",
+      "client/src/app/characters/_lib/characterEditorRuntime.js": "39C62976E43031E12EC3B616A0140BF1D52E90C03F3E41B5DC8762459201D374",
+      "server/index.js": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+      "docs/eternal-hunger-goal.md": "0B377865B29966CA2E95B731EAFEE84F5B85280ED718330B01D1F804223AE661",
+      "client/.verification-runs/2026-10-09T03-43-15.223Z-9a93bfd7-e1a6-454b-91f4-599af603bce5/result.json": "79D7820200FDDCFD880948FD62060FA5A527A266CE4A2FD7ABD8BEBDF056C7F4",
+      "artifacts/er-preset-editor-20261009.json": "CEA91114D5623595A2A8230C6756A16D3414B6BC9A8F2D6C4216046C2D1A2A1C",
+      "client/src/app/characters/page.js": "3248C2B1318E3848F6A2729B1910295D2FF31464F51691B0E5DF7BE1B7420E01",
+      "client/scripts/run-eternal-hunger-verification.mjs": "64495B98BE6DCFC2991CC8966783CE1C98F0030DD7AFAF466861AC3C382BE76A",
+      "client/package.json": "5FA309744111E3D8C85A1B95519BC55BA9CBA7BF0640F57DA96DDF50810A9BA3",
+      "client/scripts/check-er-preset-editor.mjs": "DB57F7E96AF2A59161729985D5246C453BCA81B698D17AAD829AD4D28ACA1BB4"
+    },
+    "compiledCountBefore": 1427,
+    "compiledDigestBefore": "1968179B271C6778407C7CC638DD4F0618D96A57A805B89CD9694C8A3EE69C1D",
+    "compiledPreserved": true,
+    "protectedPreserved": true,
+    "snapshotScope": "Docs/report were intentionally updated only AFTER this cleanup preservation snapshot.",
+    "unrelatedProcessLeftUntouched": "A Node controller in C:/3저장고/MyAnimecraft-작업 is outside this workspace/cache scope; not terminated.",
+    "validationFailureBeforeDeletion": "Local DateTime parsing of a Z timestamp incorrectly compared local ticks with UTC. All six files remained; corrected DateTimeOffset.UtcDateTime retained the exact original cutoff and all safety checks.",
+    "initialScriptConstructionError": "JavaScript template quoting failed before any cleanup command ran; no file deletion."
+  },
+  "permissions": {
+    "additionalPaidAiCalls": 0,
+    "accountWrites": 0,
+    "foregroundBrowserRuns": 0,
+    "pushes": 0,
+    "deployments": 0
+  },
+  "remaining": [
+    "Broad G1-G5 original requirements and varied growth/team/strategy inputs remain incomplete; this slice does not certify overall balance or gameplay value.",
+    "Actual foreground x1/x8/x32 and continuous memory measurements require the separately requested user authorization.",
+    "Successful actual ER/custom AI drafts, valid provider access and separately authorized account persistence/reopen remain unverified; failed paid attempts are not retried.",
+    "Human follow-up understanding/enjoyment/replay-intent and authorized GitHub push/public release remain separate gates."
+  ],
+  "focusedFinalVerification": {
+    "command": "npm run check:character-auto-setup",
+    "exitCode": 0,
+    "stdout": "\n> client@0.1.0 check:character-auto-setup\n> node ./scripts/check-er-preset-editor.mjs && node ./scripts/check-character-auto-setup.mjs && node ./scripts/check-character-auto-setup-ui.mjs\n\nPASS actual editor callback preserves the base and the real roster applies one Haze bias\nPASS repeated actual editor applications and new matches do not accumulate bias\nPASS editor helper preserves authored precision and object identity without consuming randomness\nPASS all current named presets use the actual selected ruleset scale exactly once\nPASS actual save payload and editor reload keep base stats before new roster initialization\nPASS authored tactical/weapon/skills/resources/loadouts/results and explicit zero biases remain intact\nPASS unknown custom character and missing target do not become a guessed ER preset\nPASS explicit subject wins a conflicting known name and local profiles opt out of named ER presets\nPASS old unmarked or deliberate stat values are not guessed and reverse-subtracted\nER_PRESET_EDITOR_CHECKS 9/9 presetComparisons=90\nPASS the API contract uses the actual stat and weapon vocabulary\nPASS a blank account character gains all five executable slots without source mutation\nPASS authored names, stats, weapons and enabled or unfinished skills are kept by default\nPASS explicit replacement switches authored content while keeping IDs/images/results/loadouts\nPASS numeric unfinished slot edits are not mistaken for blank shells\nPASS resource mismatch rejects the patch before mutating the character\nPASS invalid drafts and forged origins fail with the original character untouched\nPASS small percentage values survive editor normalization and the real save payload\nPASS an applied auto-draft is read by actual combat, not merely displayed in the editor\nPASS unsupported passive warning stays visible without fabricating a permanent bonus\nPASS disabled generated effects fail atomically, without altering authored character skills\nCharacter automatic setup checks passed: 11\nPASS actual modal exposes a labelled dialog, both input modes and a bounded form\nPASS blank input cannot generate or apply, and rendering has no request/save side effects\nPASS known ER name selects the source-backed mode and retains explicit approximation boundaries\nPASS a one-character name enables requesting a draft without applying or saving anything\nPASS whitespace-only names cannot request a draft\nCharacter automatic setup UI checks passed: 5\n",
+    "checkerSha256": "DB57F7E96AF2A59161729985D5246C453BCA81B698D17AAD829AD4D28ACA1BB4",
+    "scope": "Final strengthened checker plus auto setup and modal SSR; not a foreground browser or HTTP/DB save."
+  },
+  "sourceHashesAfterNamedUnit": {
+    "client/src/app/characters/page.js": "3248C2B1318E3848F6A2729B1910295D2FF31464F51691B0E5DF7BE1B7420E01",
+    "server/index.js": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+    "client/src/app/characters/_lib/characterEditorRuntime.js": "39C62976E43031E12EC3B616A0140BF1D52E90C03F3E41B5DC8762459201D374",
+    "client/scripts/run-eternal-hunger-verification.mjs": "64495B98BE6DCFC2991CC8966783CE1C98F0030DD7AFAF466861AC3C382BE76A",
+    "server/.env.example": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3",
+    "client/scripts/check-observer-goals-match.mjs": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9",
+    "client/scripts/check-er-preset-editor.mjs": "FF40387AF0ACEAC8CCD6CEF8CF718C65DC7F95753FB1698EECC3C267A9FB88EB",
+    "client/package.json": "5FA309744111E3D8C85A1B95519BC55BA9CBA7BF0640F57DA96DDF50810A9BA3"
+  },
+  "sourceHashesBeforeBuild": {
+    "client/src/app/characters/_lib/characterEditorRuntime.js": "39C62976E43031E12EC3B616A0140BF1D52E90C03F3E41B5DC8762459201D374",
+    "server/.env.example": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3",
+    "client/package.json": "5FA309744111E3D8C85A1B95519BC55BA9CBA7BF0640F57DA96DDF50810A9BA3",
+    "server/index.js": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+    "client/scripts/check-er-preset-editor.mjs": "DB57F7E96AF2A59161729985D5246C453BCA81B698D17AAD829AD4D28ACA1BB4",
+    "client/scripts/run-eternal-hunger-verification.mjs": "64495B98BE6DCFC2991CC8966783CE1C98F0030DD7AFAF466861AC3C382BE76A",
+    "client/src/app/characters/page.js": "3248C2B1318E3848F6A2729B1910295D2FF31464F51691B0E5DF7BE1B7420E01",
+    "client/scripts/check-observer-goals-match.mjs": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+  },
+  "sourceHashesAfterBuild": {
+    "client/src/app/characters/_lib/characterEditorRuntime.js": "39C62976E43031E12EC3B616A0140BF1D52E90C03F3E41B5DC8762459201D374",
+    "server/.env.example": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3",
+    "client/package.json": "5FA309744111E3D8C85A1B95519BC55BA9CBA7BF0640F57DA96DDF50810A9BA3",
+    "server/index.js": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+    "client/scripts/check-er-preset-editor.mjs": "DB57F7E96AF2A59161729985D5246C453BCA81B698D17AAD829AD4D28ACA1BB4",
+    "client/scripts/run-eternal-hunger-verification.mjs": "64495B98BE6DCFC2991CC8966783CE1C98F0030DD7AFAF466861AC3C382BE76A",
+    "client/src/app/characters/page.js": "3248C2B1318E3848F6A2729B1910295D2FF31464F51691B0E5DF7BE1B7420E01",
+    "client/scripts/check-observer-goals-match.mjs": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+  },
+  "guestMatch": {
+    "seed": "local-profiles-1",
+    "phases": 13,
+    "frames": 7189,
+    "eventCount": 15769,
+    "ending": {
+      "outcome": "last_team",
+      "atSec": 1276.25,
+      "cause": "combat",
+      "winnerTeamId": "team:2"
+    },
+    "random": {
+      "algorithm": "fnv1a-mulberry32-v1",
+      "state": 2737238556,
+      "draws": 9350,
+      "ids": 0,
+      "nameHistory": []
+    },
+    "eventDigest": "7e27da5d324b6fbc9cb5212937cbf0a6682fbf5da512d69e5b54ebc5c5d72de5",
+    "frameDigest": "1debb280c9f5fda8cc6b3fc81d812b652f8fe2f3e4c5881b8613d7b17cfdfac8",
+    "casts": 337,
+    "impacts": 281,
+    "comparison": {
+      "matched": true,
+      "firstDifference": -1,
+      "expectedEvents": 15769,
+      "actualEvents": 15769,
+      "sameFinalState": true,
+      "sameRandom": true,
+      "sameEnding": true
+    },
+    "apiCalls": 0,
+    "guestChecksLine": "GUEST_CHARACTER_PROFILE_CHECKS 19/19"
+  }
+}

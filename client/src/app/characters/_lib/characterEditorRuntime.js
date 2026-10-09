@@ -16,6 +16,7 @@ import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable'
 import { normalizeUniqueResourceDefinition } from '../../simulation/_lib/uniqueResourceRuntime.js';
 import { normalizeHungerTraits } from '../../../utils/hungerTraits.js';
 import { HP_DAMAGE_PERCENT_UNIT, normalizeHpDamagePercent } from '../../../utils/characterSkillHpDamageUnit.js';
+import { applyErSubjectPreset } from '../../../utils/erMeta.js';
 
 const SKILL_LEVEL_COUNT = 5;
 
@@ -197,6 +198,16 @@ function enableAllCharacterSkills(skills = {}) {
   }])) };
 }
 
+// Editable stats are the authored base, not a runtime actor. The actual roster
+// applies preset stat bias once using the selected ruleset. Do not normalize or
+// reverse-subtract here: old unmarked values may also be deliberate edits.
+function applyErPresetForEditing(character) {
+  const configured = applyErSubjectPreset(character, {
+    replaceDefaultTactical: true, statBiasScale: 0, allowFallback: false,
+  });
+  return configured === character ? character : { ...configured, stats: character.stats };
+}
+
 function createBlankCharacter(id) {
   return {
     id,
@@ -222,6 +233,7 @@ function createBlankCharacter(id) {
 export {
   SKILL_LEVEL_COUNT,
   WEAPON_TYPES_KO,
+  applyErPresetForEditing,
   characterId,
   cleanNumber,
   createBlankCharacter,

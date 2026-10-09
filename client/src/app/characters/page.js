@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import '../../styles/ERCharacters.css';
 import '../../styles/Home.css';
-import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
+import { getErSubjectPreset } from '../../utils/erMeta';
 import { apiGetCached, apiPost, clearApiGetCache, getToken } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { readCompressedPreviewImage } from '../../utils/previewImage';
@@ -16,6 +16,7 @@ import CharacterList from './_components/CharacterList';
 import CharacterSkillConfigModal from './_components/CharacterSkillConfigModal';
 import CharacterAutoSetupModal from './_components/CharacterAutoSetupModal';
 import {
+  applyErPresetForEditing,
   characterId,
   createBlankCharacter,
   formatSaveMismatchMessage,
@@ -176,10 +177,10 @@ export default function CharactersPage() {
       prev.map((char) => {
         const id = characterId(char);
         if (String(id) !== String(targetId)) return char;
-        return applyErSubjectPreset(char, { replaceDefaultTactical: true, statBiasScale: 1 });
+        return applyErPresetForEditing(char);
       })
     );
-    alert(`간이 ER 전투 성향 적용: ${preset.names?.[0] || preset.code} / ${preset.primaryWeapon} / ${preset.tacticalSkill}\n고유 QWER·패시브를 가져오는 기능은 아닙니다. 고유 스킬은 자동 설정에서 작성할 수 있습니다.`);
+    alert(`간이 ER 전투 성향 적용: ${preset.names?.[0] || preset.code} / ${preset.primaryWeapon} / ${preset.tacticalSkill}\n기본 능력치는 유지하며 경기 시작 때 규칙에 따른 보정을 한 번 적용합니다.\n고유 QWER·패시브를 가져오는 기능은 아닙니다. 고유 스킬은 자동 설정에서 작성할 수 있습니다.`);
   };
 
   const closeEditModal = () => setEditCharId(null);
