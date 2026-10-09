@@ -224,6 +224,7 @@ check('state labels cannot expand the fixed counter schema', () => {
   ]);
   assert.deepEqual(Object.keys(counts.changedBuddyAbsence), [
     'absent_runtime_roster', 'team_changed', 'dead', 'different_zone', 'different_space', 'present',
+    'actor_absent_runtime_roster', 'truncated_roster',
   ]);
 });
 
@@ -234,6 +235,105 @@ check('counter semantics distinguish candidates, relevant queues and aggregate s
   assert.match(semantics.team_queue, /unrelated encounters are excluded/);
   assert.match(semantics.team_queue, /Counts continue after sample limits/);
   assert.match(semantics.changedBuddyAbsence, /not per-encounter absence causes or elapsed seconds/);
+  assert.match(semantics.arbitration, /not an executed attack/);
+  assert.match(semantics.team_execution, /does not establish survival causality/);
+});
+
+const arbitration = (scheduler, due = true, extra = {}) => snapshot('arbitration', {
+  scheduled: { actorId: 'watch', targetId: 'other', actionType: 'basic', atSec: 11 }, sides: [],
+  arbitration: { selectedScheduler: scheduler, selectedActorId: scheduler === 'pvp' ? 'watch' : 'other',
+    selectedActionType: 'basic', selectedAtSec: 11, decisionSec: due ? 11 : 10.5, scheduled: due }, ...extra,
+});
+check('unavailable watched actors and truncated buddies are not counted as actual buddy absence', () => {
+  const missingActor = collector();
+  missingActor.observe(snapshot('schedule', { actors: [actor('buddy')], sides: [] }));
+  assert.equal(missingActor.summary().countsByActor.watch.changedBuddyAbsence.actor_absent_runtime_roster, 1);
+  assert.equal(missingActor.summary().countsByActor.watch.changedBuddyAbsence.absent_runtime_roster, 0);
+  const partial = collector();
+  partial.observe(snapshot('schedule', { truncated: true, actors: [actor('watch')], sides: [] }));
+  partial.observe(snapshot('schedule', { truncated: true, actors: [actor('buddy')], sides: [] }));
+  partial.observe(snapshot('schedule', { truncated: true, actors: [actor('watch'), actor('buddy')], sides: [] }));
+  assert.equal(partial.summary().countsByActor.watch.changedBuddyAbsence.truncated_roster, 2);
+  assert.equal(partial.summary().countsByActor.watch.changedBuddyAbsence.absent_runtime_roster, 0);
+  assert.equal(partial.summary().countsByActor.watch.changedBuddyAbsence.present, 1);
+});
+check('final arbitration separates reservation, deadline deferral and wildlife/equipment priority', () => {
+  const diagnostics = collector();
+  for (const state of [arbitration('pvp'), arbitration('pvp', false), arbitration('wildlife'), arbitration('equipment')]) {
+    diagnostics.observe(state, { eventCursor: 10 });
+  }
+  diagnostics.observe(arbitration('pvp', true, {
+    scheduled: { actorId: 'other', targetId: 'watch', actionType: 'basic', atSec: 11 },
+  }));
+  assert.deepEqual(diagnostics.summary().countsByActor.watch.arbitration,
+    { candidate: 4, selected: 1, deferred: 1, wildlife_first: 1, equipment_first: 1 });
+  assert.equal(diagnostics.summary().countsByActor.watch.schedule.self_turn, 0,
+    'Final reservation facts must not inflate the separate pre-arbitration snapshot count.');
+});
+const execution = outcome => snapshot('team_execution', {
+  resolution: { actorId: 'watch', targetId: 'other', encounterId: 'actual', outcome,
+    hpBefore: 100, hpAfter: outcome === 'hp_hit' ? 90 : 100, hpDamage: outcome === 'hp_hit' ? 10 : 0 },
+});
+check('actual team resolution counters exclude other strikers, unknown labels and hypothetical queue membership', () => {
+  const diagnostics = collector();
+  diagnostics.observe(snapshot('team_queue'));
+  for (const outcome of ['invalidated_before_strike', 'no_valid_target', 'not_performed', 'performed_no_hp', 'hp_hit']) {
+    diagnostics.observe(execution(outcome));
+  }
+  diagnostics.observe(execution('unknown-label'));
+  const other = execution('hp_hit'); other.resolution.actorId = 'buddy'; diagnostics.observe(other);
+  assert.deepEqual(diagnostics.summary().countsByActor.watch.team_execution,
+    { invalidated_before_strike: 1, no_valid_target: 1, not_performed: 1, performed_no_hp: 1, hp_hit: 1 });
+  assert.equal(diagnostics.summary().countsByActor.watch.team_queue.queued, 1);
+  assert.equal(diagnostics.summary().countsByActor.watch.changedBuddyAbsence.present, 1,
+    'New point-in-time observations must not redefine the existing schedule/queue absence frequency.');
+});
+check('final-stage samples are separately bounded and do not retain or alias caller graphs', () => {
+  const diagnostics = collector();
+  for (let index = 0; index < 20; index++) {
+    diagnostics.observe(arbitration(index % 2 ? 'pvp' : 'equipment', index % 3 !== 0, {
+      scheduled: { actorId: 'watch', targetId: 'other', actionType: 'approach', atSec: index },
+    }), { eventCursor: index });
+    diagnostics.observe(execution('hp_hit'), { eventCursor: index });
+  }
+  const out = diagnostics.summary();
+  assert.equal(out.samplesByActor.watch.length, 0);
+  assert.equal(out.executionSamplesByActor.watch.length, 6);
+  assert.equal(out.executionSamplesByActor.watch.filter(value => value.stage === 'arbitration').length, 3);
+  assert.equal(out.executionSamplesByActor.watch.filter(value => value.stage === 'team_execution').length, 3);
+  assert.equal(out.countsByActor.watch.arbitration.candidate, 20);
+  assert.equal(out.countsByActor.watch.team_execution.hp_hit, 20);
+  out.executionSamplesByActor.watch[0].currentState.arbitration.selectedActorId = 'mutated';
+  assert.notEqual(diagnostics.summary().executionSamplesByActor.watch[0].currentState.arbitration.selectedActorId, 'mutated');
+  const zero = collector({ sampleLimit: 0 }); zero.observe(execution('hp_hit')); zero.observe(arbitration('pvp'));
+  assert.deepEqual(zero.summary().executionSamplesByActor.watch, []);
+  assert.equal(zero.summary().countsByActor.watch.team_execution.hp_hit, 1);
+});
+check('action-type counters are fixed and retain the latest late basic without expanding sample bounds', () => {
+  for (const sampleLimit of [1, 2, 6]) {
+    const diagnostics = collector({ sampleLimit });
+    for (let index = 0; index < 20; index++) {
+      diagnostics.observe(arbitration('pvp', true, {
+        scheduled: { actorId: 'watch', targetId: '', actionType: 'approach', atSec: index },
+      }), { eventCursor: index });
+    }
+    for (let index = 20; index < 30; index++) diagnostics.observe(arbitration('pvp'), { eventCursor: index });
+    const out = diagnostics.summary();
+    assert.equal(out.countsByActor.watch.arbitrationByActionType.approach.selected, 20);
+    assert.equal(out.countsByActor.watch.arbitrationByActionType.basic.selected, 10);
+    assert.equal(out.executionSamplesByActor.watch.find(item => item.currentState.scheduled.actionType === 'basic').eventCursor, 29);
+    assert.ok(out.executionSamplesByActor.watch.length <= Math.ceil(sampleLimit / 2));
+    for (const key of Object.keys(out.countsByActor.watch.arbitration)) assert.equal(
+      Object.values(out.countsByActor.watch.arbitrationByActionType).reduce((sum, counts) => sum + counts[key], 0),
+      out.countsByActor.watch.arbitration[key]);
+  }
+  const diagnostics = collector();
+  diagnostics.observe(arbitration('pvp', true, {
+    scheduled: { actorId: 'watch', targetId: 'other', actionType: '__proto__', atSec: 11 },
+  }));
+  assert.equal(diagnostics.summary().countsByActor.watch.arbitrationByActionType.other.selected, 1);
+  assert.deepEqual(Object.keys(diagnostics.summary().countsByActor.watch.arbitrationByActionType),
+    ['basic', 'approach', 'skill_start', 'skill_release', 'skill_expire', 'status_boundary', 'other']);
 });
 
 console.log(`PASS ${checks} team combat participation diagnostic checks`);

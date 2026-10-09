@@ -1,0 +1,2869 @@
+{
+  "schema": "eternal-hunger.team-survival-evidence.v1",
+  "type": "output-only verification evidence; never a required test input or golden result",
+  "recordedAt": "2026-10-09",
+  "engine": "52adc7a6438b360227befc66b5d2c102ad1e2440def9d6723030e9ecfa3fefea",
+  "goalStatus": "active; incomplete",
+  "scope": "Scheduled support/focus survival in short controlled production-loop fixtures; bounded natural participation facts and fresh full regression/build. Not broad natural survival causality, formation winner causality, foreground timing, authenticated storage, paid AI quality, public deployment or human acceptance.",
+  "controlledComparisons": [
+    {
+      "comparison": "automatic support cast → real incoming hit → teammate survival",
+      "heal": 20,
+      "incomingDamage": 55,
+      "supportedHp": 15,
+      "unsupportedHp": 0
+    },
+    {
+      "comparison": "same seeded matchup, same helper stats, near versus remote",
+      "nearbyHelperDamage": 30,
+      "nearbyEnemyHp": 0,
+      "nearbyLeaderHp": 100,
+      "remoteEnemyHp": 20,
+      "remoteLeaderHp": 0
+    }
+  ],
+  "controlledRepeatContract": "Four fresh conditions rerun with the same explicit seed; exact events, frames, final survivor states and RNG. Combat intent is pre-established in the short fixture, not natural encounter discovery or retreat cover.",
+  "runs": [
+    {
+      "runId": "2026-10-09T13-39-49.301Z-2c2781fc-23f3-4a8f-8c00-ed0453decd7b",
+      "status": "failed",
+      "exitCode": 1,
+      "engine": "52adc7a6438b360227befc66b5d2c102ad1e2440def9d6723030e9ecfa3fefea",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "capturedSourceCount": 16,
+      "finishedAt": "2026-10-09T13:39:53.842Z",
+      "resultPath": "client/.verification-runs/2026-10-09T13-39-49.301Z-2c2781fc-23f3-4a8f-8c00-ed0453decd7b/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T13-39-49.301Z-2c2781fc-23f3-4a8f-8c00-ed0453decd7b/output.log"
+    },
+    {
+      "runId": "2026-10-09T13-40-32.313Z-1c6702f7-79de-4c1b-9eb7-00a288aaf454",
+      "status": "failed",
+      "exitCode": 1,
+      "engine": "52adc7a6438b360227befc66b5d2c102ad1e2440def9d6723030e9ecfa3fefea",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "capturedSourceCount": 16,
+      "finishedAt": "2026-10-09T13:40:33.292Z",
+      "resultPath": "client/.verification-runs/2026-10-09T13-40-32.313Z-1c6702f7-79de-4c1b-9eb7-00a288aaf454/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T13-40-32.313Z-1c6702f7-79de-4c1b-9eb7-00a288aaf454/output.log"
+    },
+    {
+      "runId": "2026-10-09T13-41-22.133Z-b8337195-115d-4563-8c8c-ce2865d0782a",
+      "status": "passed",
+      "exitCode": 0,
+      "engine": "52adc7a6438b360227befc66b5d2c102ad1e2440def9d6723030e9ecfa3fefea",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "capturedSourceCount": 16,
+      "finishedAt": "2026-10-09T13:42:14.176Z",
+      "resultPath": "client/.verification-runs/2026-10-09T13-41-22.133Z-b8337195-115d-4563-8c8c-ce2865d0782a/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T13-41-22.133Z-b8337195-115d-4563-8c8c-ce2865d0782a/output.log"
+    },
+    {
+      "runId": "2026-10-09T13-42-54.442Z-bfb9dfe9-4510-40c5-bf28-50c569859b15",
+      "status": "failed",
+      "exitCode": 2,
+      "engine": "52adc7a6438b360227befc66b5d2c102ad1e2440def9d6723030e9ecfa3fefea",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "capturedSourceCount": 7,
+      "finishedAt": "2026-10-09T13:49:26.017Z",
+      "resultPath": "client/.verification-runs/2026-10-09T13-42-54.442Z-bfb9dfe9-4510-40c5-bf28-50c569859b15/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T13-42-54.442Z-bfb9dfe9-4510-40c5-bf28-50c569859b15/output.log"
+    },
+    {
+      "runId": "2026-10-09T13-53-21.379Z-85b405bc-f617-4e6d-a324-3b481e490446",
+      "status": "failed",
+      "exitCode": 1,
+      "engine": "52adc7a6438b360227befc66b5d2c102ad1e2440def9d6723030e9ecfa3fefea",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "capturedSourceCount": 16,
+      "finishedAt": "2026-10-09T13:53:23.494Z",
+      "resultPath": "client/.verification-runs/2026-10-09T13-53-21.379Z-85b405bc-f617-4e6d-a324-3b481e490446/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T13-53-21.379Z-85b405bc-f617-4e6d-a324-3b481e490446/output.log"
+    },
+    {
+      "runId": "2026-10-09T13-58-19.847Z-9d1edc8b-b7d3-4be1-b818-183130ce3554",
+      "status": "passed",
+      "exitCode": 0,
+      "engine": "52adc7a6438b360227befc66b5d2c102ad1e2440def9d6723030e9ecfa3fefea",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "capturedSourceCount": 16,
+      "finishedAt": "2026-10-09T13:59:15.195Z",
+      "resultPath": "client/.verification-runs/2026-10-09T13-58-19.847Z-9d1edc8b-b7d3-4be1-b818-183130ce3554/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T13-58-19.847Z-9d1edc8b-b7d3-4be1-b818-183130ce3554/output.log"
+    },
+    {
+      "runId": "2026-10-09T13-59-30.575Z-c78356af-d9a7-46f0-bfb9-589e7f3a2773",
+      "status": "failed",
+      "exitCode": 2,
+      "engine": "52adc7a6438b360227befc66b5d2c102ad1e2440def9d6723030e9ecfa3fefea",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "capturedSourceCount": 7,
+      "finishedAt": "2026-10-09T14:05:26.491Z",
+      "resultPath": "client/.verification-runs/2026-10-09T13-59-30.575Z-c78356af-d9a7-46f0-bfb9-589e7f3a2773/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T13-59-30.575Z-c78356af-d9a7-46f0-bfb9-589e7f3a2773/output.log"
+    },
+    {
+      "runId": "2026-10-09T14-06-23.599Z-891db159-25d6-4b7b-861c-4441bd6b8825",
+      "status": "passed",
+      "exitCode": 0,
+      "engine": "52adc7a6438b360227befc66b5d2c102ad1e2440def9d6723030e9ecfa3fefea",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "capturedSourceCount": 9,
+      "finishedAt": "2026-10-09T14:44:18.276Z",
+      "resultPath": "client/.verification-runs/2026-10-09T14-06-23.599Z-891db159-25d6-4b7b-861c-4441bd6b8825/result.json",
+      "logPath": "client/.verification-runs/2026-10-09T14-06-23.599Z-891db159-25d6-4b7b-861c-4441bd6b8825/output.log"
+    }
+  ],
+  "currentVerificationSourceHashes": {
+    "focused": {
+      "scripts/run-eternal-hunger-verification.mjs": "6a7e7e624777c22863abf2e859261c2b5b028e7fe28e6bfdd0f6af0b25fc9f91",
+      "package.json": "ef636c60ac91677589f5fff0487620400301d5ab6424c678397450635dfd2e21",
+      "scripts/analyze-strategy-comparison.mjs": "b934b2a0366601c71108db2cfd3c87b177bbbcbfd4ad0371720277f8fbd2bb8b",
+      "scripts/lib/run-random-isolation-match.mjs": "af468024a2dfc8120016640f13c60e7325499c6e045a022fec1627322f25d504",
+      "scripts/lib/strategy-comparison-contracts.mjs": "01df1e67de305b5cd37efaf3c7d432ccd7874806ca7042cba61c38894d616ac0",
+      "scripts/lib/team-combat-participation-diagnostics.mjs": "1850b4643366cde12edf1201f5188587b609cf75b9338f7f94baf8cfb0e94ae1",
+      "scripts/check-team-combat-participation-diagnostics.mjs": "cdf6a5e3b1a6f4adcdcb7ba8b4315dcedf37c0d793c301ac616958829bfcc4f1",
+      "scripts/check-combat-participation-observation.mjs": "6da5595cffe075786173cfe701b03bdad2ec93f55882f97bf8dc81afb490f392",
+      "scripts/check-combat-timing.mjs": "71e97c723d0dd12109d5aecd5f16fdaccd133e75a17ae7d5ff192549ab621181",
+      "scripts/check-team-combat.mjs": "ba3e57e05cf431d314b981a25494a326536460379bb69ada22910e78bdb55904",
+      "scripts/check-team-observer.mjs": "a6318ec9e9e4cdd9bc3d533502020c47d92c73ff015f9c0b6907548a1e56b591",
+      "scripts/check-character-casting.mjs": "b93fffc29ff178b455b0693bb36c8e19b1066334cad01f3b00d14c395a87cbe1",
+      "scripts/check-forced-control.mjs": "bcac3d00b6abe8ebb3cfaaea3109f9052c3e2c9a63cb7e7ca5fe9ff161c20637",
+      "scripts/check-ai-recovery-forced-control.mjs": "24ce7dd09d9fec23658129f73212601c5a632d8f061b2ed6cba1a8de866ceb65",
+      "scripts/check-team-survival-contribution.mjs": "30c92601b60994f06fc4a1c69773f3cf953079c38369c63595e575f309f86579",
+      "scripts/lib/run-combat-scenario.mjs": "d37993c8a42c8cd2d4f9a53e1f460e7946fc110b7a5eb7499554e4b864b6f1fc"
+    },
+    "full": {
+      "scripts/run-eternal-hunger-verification.mjs": "6a7e7e624777c22863abf2e859261c2b5b028e7fe28e6bfdd0f6af0b25fc9f91",
+      "package.json": "ef636c60ac91677589f5fff0487620400301d5ab6424c678397450635dfd2e21",
+      "scripts/check-team-survival-contribution.mjs": "30c92601b60994f06fc4a1c69773f3cf953079c38369c63595e575f309f86579",
+      "scripts/lib/run-combat-scenario.mjs": "d37993c8a42c8cd2d4f9a53e1f460e7946fc110b7a5eb7499554e4b864b6f1fc",
+      "scripts/check-combat-participation-observation.mjs": "6da5595cffe075786173cfe701b03bdad2ec93f55882f97bf8dc81afb490f392",
+      "scripts/check-team-combat-participation-diagnostics.mjs": "cdf6a5e3b1a6f4adcdcb7ba8b4315dcedf37c0d793c301ac616958829bfcc4f1",
+      "scripts/lib/team-combat-participation-diagnostics.mjs": "1850b4643366cde12edf1201f5188587b609cf75b9338f7f94baf8cfb0e94ae1",
+      "scripts/check-ai-recovery-forced-control.mjs": "24ce7dd09d9fec23658129f73212601c5a632d8f061b2ed6cba1a8de866ceb65",
+      "scripts/check-combat-timing.mjs": "71e97c723d0dd12109d5aecd5f16fdaccd133e75a17ae7d5ff192549ab621181"
+    }
+  },
+  "naturalFormation": {
+    "runId": "2026-10-09T13-59-30.575Z-c78356af-d9a7-46f0-bfb9-589e7f3a2773",
+    "rawPath": "client/.verification-runs/2026-10-09T13-59-30.575Z-c78356af-d9a7-46f0-bfb9-589e7f3a2773/strategy-comparison.json",
+    "complete": true,
+    "comparisonComplete": false,
+    "completedMatches": 4,
+    "expectedMatches": 4,
+    "rows": [
+      {
+        "seed": "2202",
+        "variant": "baseline",
+        "inputDigest": "4cfceaa32b5fe804d31911e89d82fb22263923eac6939af4a9a4f67a72896a88",
+        "changes": [],
+        "derivedChanges": [],
+        "events": 13600,
+        "frames": 6540,
+        "endingSec": 1257.083333,
+        "winnerTeamId": "team:5",
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 1702268996,
+          "draws": 9434,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "7a18804fc3081208721be20eee928b36b02af5d934928a58085f6a3195ebf822",
+        "frameDigest": "07f142498bdccb914bad23ae11390f5d29f4f9280c62c9056852e815c687c53a",
+        "growthCompleteBy250": 24,
+        "finalEmptySlots": 0,
+        "equipmentSnapshotScope": "alive final state and latest death snapshot for finally dead participants",
+        "exposure": null
+      },
+      {
+        "seed": "2202",
+        "variant": "one-formation-swap",
+        "inputDigest": "a6032d9708838464b295fc5fce70b2956ec5798233dfa27a1b7e7f532cb278a0",
+        "changes": [
+          {
+            "actorId": "guest-survivor-01",
+            "field": "team",
+            "before": "team:1",
+            "after": "team:2"
+          },
+          {
+            "actorId": "guest-survivor-11",
+            "field": "team",
+            "before": "team:2",
+            "after": "team:1"
+          }
+        ],
+        "derivedChanges": [
+          {
+            "actorId": "guest-survivor-06",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-06",
+              "guest-survivor-01",
+              "guest-survivor-19"
+            ],
+            "after": [
+              "guest-survivor-06",
+              "guest-survivor-19",
+              "guest-survivor-11"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-06",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "해오름",
+              "백로",
+              "마루"
+            ],
+            "after": [
+              "해오름",
+              "마루",
+              "윤슬"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-01",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-06",
+              "guest-survivor-01",
+              "guest-survivor-19"
+            ],
+            "after": [
+              "guest-survivor-01",
+              "guest-survivor-13",
+              "guest-survivor-12"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-01",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "해오름",
+              "백로",
+              "마루"
+            ],
+            "after": [
+              "백로",
+              "가람",
+              "노을"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-19",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-06",
+              "guest-survivor-01",
+              "guest-survivor-19"
+            ],
+            "after": [
+              "guest-survivor-06",
+              "guest-survivor-19",
+              "guest-survivor-11"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-19",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "해오름",
+              "백로",
+              "마루"
+            ],
+            "after": [
+              "해오름",
+              "마루",
+              "윤슬"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-13",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-13",
+              "guest-survivor-11",
+              "guest-survivor-12"
+            ],
+            "after": [
+              "guest-survivor-01",
+              "guest-survivor-13",
+              "guest-survivor-12"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-13",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "가람",
+              "윤슬",
+              "노을"
+            ],
+            "after": [
+              "백로",
+              "가람",
+              "노을"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-11",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-13",
+              "guest-survivor-11",
+              "guest-survivor-12"
+            ],
+            "after": [
+              "guest-survivor-06",
+              "guest-survivor-19",
+              "guest-survivor-11"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-11",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "가람",
+              "윤슬",
+              "노을"
+            ],
+            "after": [
+              "해오름",
+              "마루",
+              "윤슬"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-12",
+            "field": "matchTeamRosterIds",
+            "before": [
+              "guest-survivor-13",
+              "guest-survivor-11",
+              "guest-survivor-12"
+            ],
+            "after": [
+              "guest-survivor-01",
+              "guest-survivor-13",
+              "guest-survivor-12"
+            ]
+          },
+          {
+            "actorId": "guest-survivor-12",
+            "field": "matchTeamRosterNames",
+            "before": [
+              "가람",
+              "윤슬",
+              "노을"
+            ],
+            "after": [
+              "백로",
+              "가람",
+              "노을"
+            ]
+          }
+        ],
+        "events": 14769,
+        "frames": 6729,
+        "endingSec": 1287,
+        "winnerTeamId": "team:8",
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 3390799815,
+          "draws": 9585,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "eventDigest": "d16689bc4e6f9a7b8e58e32195aab42d8fb91ee851f119fa5a8e317d3a39d2d3",
+        "frameDigest": "dc03490a1d2c5b5e8bb8c185b8f4ae6d2cf848581bc0d095516c305668c6a497",
+        "growthCompleteBy250": 24,
+        "finalEmptySlots": 1,
+        "equipmentSnapshotScope": "alive final state and latest death snapshot for finally dead participants",
+        "exposure": {
+          "baseline": {
+            "participants": [
+              {
+                "actorId": "guest-survivor-01",
+                "teamId": "team:1",
+                "changedTeammateIds": [
+                  "guest-survivor-06",
+                  "guest-survivor-19"
+                ],
+                "committedHits": 10,
+                "invalidHpHits": 0,
+                "engagementActions": 1,
+                "coverActions": 0,
+                "teamActions": 1,
+                "samples": [
+                  {
+                    "kind": "team_strike",
+                    "engagementIndex": 5417,
+                    "strikeIndex": 5424,
+                    "damageIndexes": [
+                      5418
+                    ],
+                    "encounterId": "178.583332:alley:world:team:1:team:4",
+                    "changedAllyIds": [
+                      "guest-survivor-19"
+                    ],
+                    "targetId": "guest-survivor-22",
+                    "hpDamage": 74,
+                    "atSec": 178.583332
+                  }
+                ],
+                "ready": true,
+                "diagnostics": {
+                  "outgoingHpHits": 1,
+                  "incomingHpHits": 9,
+                  "engagements": 23,
+                  "changedTeammateEngagements": 20,
+                  "activeEngagementTurns": 1,
+                  "strikeCandidates": 1,
+                  "rejectedStrikes": {},
+                  "rejectedStrikeSamples": []
+                }
+              },
+              {
+                "actorId": "guest-survivor-11",
+                "teamId": "team:2",
+                "changedTeammateIds": [
+                  "guest-survivor-13",
+                  "guest-survivor-12"
+                ],
+                "committedHits": 10,
+                "invalidHpHits": 0,
+                "engagementActions": 6,
+                "coverActions": 0,
+                "teamActions": 6,
+                "samples": [
+                  {
+                    "kind": "team_strike",
+                    "engagementIndex": 6970,
+                    "strikeIndex": 6975,
+                    "damageIndexes": [
+                      6973
+                    ],
+                    "encounterId": "296:archery:world:team:2:team:3",
+                    "changedAllyIds": [
+                      "guest-survivor-13",
+                      "guest-survivor-12"
+                    ],
+                    "targetId": "guest-survivor-17",
+                    "hpDamage": 54,
+                    "atSec": 296
+                  },
+                  {
+                    "kind": "team_strike",
+                    "engagementIndex": 6977,
+                    "strikeIndex": 6983,
+                    "damageIndexes": [
+                      6978
+                    ],
+                    "encounterId": "296.333333:archery:world:team:2:team:3",
+                    "changedAllyIds": [
+                      "guest-survivor-13",
+                      "guest-survivor-12"
+                    ],
+                    "targetId": "guest-survivor-17",
+                    "hpDamage": 44,
+                    "atSec": 296.333333
+                  },
+                  {
+                    "kind": "team_strike",
+                    "engagementIndex": 7377,
+                    "strikeIndex": 7380,
+                    "damageIndexes": [
+                      7378
+                    ],
+                    "encounterId": "335.25:archery:world:team:2:team:6",
+                    "changedAllyIds": [
+                      "guest-survivor-13"
+                    ],
+                    "targetId": "guest-survivor-07",
+                    "hpDamage": 90,
+                    "atSec": 335.25
+                  },
+                  {
+                    "kind": "team_strike",
+                    "engagementIndex": 7382,
+                    "strikeIndex": 7388,
+                    "damageIndexes": [
+                      7383
+                    ],
+                    "encounterId": "335.583333:archery:world:team:2:team:6",
+                    "changedAllyIds": [
+                      "guest-survivor-13"
+                    ],
+                    "targetId": "guest-survivor-07",
+                    "hpDamage": 3,
+                    "atSec": 335.583333
+                  },
+                  {
+                    "kind": "team_strike",
+                    "engagementIndex": 7548,
+                    "strikeIndex": 7558,
+                    "damageIndexes": [
+                      7551,
+                      7552
+                    ],
+                    "encounterId": "359.5:archery:world:team:1:team:2",
+                    "changedAllyIds": [
+                      "guest-survivor-13"
+                    ],
+                    "targetId": "guest-survivor-01",
+                    "hpDamage": 68,
+                    "atSec": 359.5
+                  },
+                  {
+                    "kind": "team_strike",
+                    "engagementIndex": 7560,
+                    "strikeIndex": 7566,
+                    "damageIndexes": [
+                      7561
+                    ],
+                    "encounterId": "359.833333:archery:world:team:1:team:2",
+                    "changedAllyIds": [
+                      "guest-survivor-13"
+                    ],
+                    "targetId": "guest-survivor-01",
+                    "hpDamage": 23,
+                    "atSec": 359.833333
+                  }
+                ],
+                "ready": true,
+                "diagnostics": {
+                  "outgoingHpHits": 7,
+                  "incomingHpHits": 3,
+                  "engagements": 10,
+                  "changedTeammateEngagements": 10,
+                  "activeEngagementTurns": 6,
+                  "strikeCandidates": 6,
+                  "rejectedStrikes": {},
+                  "rejectedStrikeSamples": []
+                }
+              }
+            ],
+            "ready": true,
+            "scope": "Each swapped actor has valid enemy-player HP hits and changed-teammate membership in an exact successful team strike or positive retreat cover. Co-present allies need not also act; no regroup, survival contribution or winner causality acceptance."
+          },
+          "candidate": {
+            "participants": [
+              {
+                "actorId": "guest-survivor-01",
+                "teamId": "team:2",
+                "changedTeammateIds": [
+                  "guest-survivor-13",
+                  "guest-survivor-12"
+                ],
+                "committedHits": 4,
+                "invalidHpHits": 0,
+                "engagementActions": 0,
+                "coverActions": 0,
+                "teamActions": 0,
+                "samples": [],
+                "ready": false,
+                "diagnostics": {
+                  "outgoingHpHits": 0,
+                  "incomingHpHits": 4,
+                  "engagements": 8,
+                  "changedTeammateEngagements": 5,
+                  "activeEngagementTurns": 0,
+                  "strikeCandidates": 0,
+                  "rejectedStrikes": {},
+                  "rejectedStrikeSamples": []
+                }
+              },
+              {
+                "actorId": "guest-survivor-11",
+                "teamId": "team:1",
+                "changedTeammateIds": [
+                  "guest-survivor-06",
+                  "guest-survivor-19"
+                ],
+                "committedHits": 17,
+                "invalidHpHits": 0,
+                "engagementActions": 0,
+                "coverActions": 0,
+                "teamActions": 0,
+                "samples": [],
+                "ready": false,
+                "diagnostics": {
+                  "outgoingHpHits": 10,
+                  "incomingHpHits": 7,
+                  "engagements": 12,
+                  "changedTeammateEngagements": 3,
+                  "activeEngagementTurns": 6,
+                  "strikeCandidates": 6,
+                  "rejectedStrikes": {
+                    "changed_teammates_absent": 6
+                  },
+                  "rejectedStrikeSamples": [
+                    {
+                      "reason": "changed_teammates_absent",
+                      "eventIndex": 10743,
+                      "who": "guest-survivor-11",
+                      "targetId": "guest-survivor-23",
+                      "teamId": "team:1",
+                      "atSec": 601,
+                      "zoneId": "factory",
+                      "encounterId": "601:factory:world:team:1:team:5",
+                      "damage": 87,
+                      "changedTeammateIds": [
+                        "guest-survivor-06",
+                        "guest-survivor-19"
+                      ],
+                      "engagement": {
+                        "eventIndex": 10740,
+                        "atSec": 601,
+                        "actionSec": 601,
+                        "zoneId": "factory",
+                        "teams": [
+                          [
+                            "guest-survivor-11"
+                          ],
+                          [
+                            "guest-survivor-23",
+                            "guest-survivor-10",
+                            "guest-survivor-18"
+                          ]
+                        ],
+                        "participants": [
+                          "guest-survivor-11"
+                        ]
+                      }
+                    },
+                    {
+                      "reason": "changed_teammates_absent",
+                      "eventIndex": 10752,
+                      "who": "guest-survivor-11",
+                      "targetId": "guest-survivor-23",
+                      "teamId": "team:1",
+                      "atSec": 601.333333,
+                      "zoneId": "factory",
+                      "encounterId": "601.333333:factory:world:team:1:team:5",
+                      "damage": 16,
+                      "changedTeammateIds": [
+                        "guest-survivor-06",
+                        "guest-survivor-19"
+                      ],
+                      "engagement": {
+                        "eventIndex": 10745,
+                        "atSec": 601.333333,
+                        "actionSec": 601.333333,
+                        "zoneId": "factory",
+                        "teams": [
+                          [
+                            "guest-survivor-11"
+                          ],
+                          [
+                            "guest-survivor-23",
+                            "guest-survivor-10",
+                            "guest-survivor-18"
+                          ]
+                        ],
+                        "participants": [
+                          "guest-survivor-11"
+                        ]
+                      }
+                    },
+                    {
+                      "reason": "changed_teammates_absent",
+                      "eventIndex": 10757,
+                      "who": "guest-survivor-11",
+                      "targetId": "guest-survivor-18",
+                      "teamId": "team:1",
+                      "atSec": 601.833333,
+                      "zoneId": "factory",
+                      "encounterId": "601.833333:factory:world:team:1:team:5",
+                      "damage": 99,
+                      "changedTeammateIds": [
+                        "guest-survivor-06",
+                        "guest-survivor-19"
+                      ],
+                      "engagement": {
+                        "eventIndex": 10754,
+                        "atSec": 601.833333,
+                        "actionSec": 601.833333,
+                        "zoneId": "factory",
+                        "teams": [
+                          [
+                            "guest-survivor-11"
+                          ],
+                          [
+                            "guest-survivor-10",
+                            "guest-survivor-18"
+                          ]
+                        ],
+                        "participants": [
+                          "guest-survivor-11"
+                        ]
+                      }
+                    },
+                    {
+                      "reason": "changed_teammates_absent",
+                      "eventIndex": 10776,
+                      "who": "guest-survivor-11",
+                      "targetId": "guest-survivor-18",
+                      "teamId": "team:1",
+                      "atSec": 602.166666,
+                      "zoneId": "factory",
+                      "encounterId": "602.166666:factory:world:team:1:team:5",
+                      "damage": 31,
+                      "changedTeammateIds": [
+                        "guest-survivor-06",
+                        "guest-survivor-19"
+                      ],
+                      "engagement": {
+                        "eventIndex": 10767,
+                        "atSec": 602.166666,
+                        "actionSec": 602.166666,
+                        "zoneId": "factory",
+                        "teams": [
+                          [
+                            "guest-survivor-11"
+                          ],
+                          [
+                            "guest-survivor-10",
+                            "guest-survivor-18"
+                          ]
+                        ],
+                        "participants": [
+                          "guest-survivor-11"
+                        ]
+                      }
+                    },
+                    {
+                      "reason": "changed_teammates_absent",
+                      "eventIndex": 12769,
+                      "who": "guest-survivor-11",
+                      "targetId": "guest-survivor-09",
+                      "teamId": "team:1",
+                      "atSec": 917.5,
+                      "zoneId": "beach",
+                      "encounterId": "917.5:beach:world:team:1:team:8",
+                      "damage": 64,
+                      "changedTeammateIds": [
+                        "guest-survivor-06",
+                        "guest-survivor-19"
+                      ],
+                      "engagement": {
+                        "eventIndex": 12764,
+                        "atSec": 917.5,
+                        "actionSec": 917.5,
+                        "zoneId": "beach",
+                        "teams": [
+                          [
+                            "guest-survivor-11"
+                          ],
+                          [
+                            "guest-survivor-02",
+                            "guest-survivor-09",
+                            "guest-survivor-04"
+                          ]
+                        ],
+                        "participants": [
+                          "guest-survivor-11"
+                        ]
+                      }
+                    },
+                    {
+                      "reason": "changed_teammates_absent",
+                      "eventIndex": 12776,
+                      "who": "guest-survivor-11",
+                      "targetId": "guest-survivor-09",
+                      "teamId": "team:1",
+                      "atSec": 917.833333,
+                      "zoneId": "beach",
+                      "encounterId": "917.833333:beach:world:team:1:team:8",
+                      "damage": 82,
+                      "changedTeammateIds": [
+                        "guest-survivor-06",
+                        "guest-survivor-19"
+                      ],
+                      "engagement": {
+                        "eventIndex": 12773,
+                        "atSec": 917.833333,
+                        "actionSec": 917.833333,
+                        "zoneId": "beach",
+                        "teams": [
+                          [
+                            "guest-survivor-11"
+                          ],
+                          [
+                            "guest-survivor-02",
+                            "guest-survivor-09",
+                            "guest-survivor-04"
+                          ]
+                        ],
+                        "participants": [
+                          "guest-survivor-11"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "ready": false,
+            "scope": "Each swapped actor has valid enemy-player HP hits and changed-teammate membership in an exact successful team strike or positive retreat cover. Co-present allies need not also act; no regroup, survival contribution or winner causality acceptance."
+          },
+          "ready": false,
+          "scope": "Consistent formation inputs and actual changed-teammate team actions on both sides; not ally action, survival contribution or winner causality."
+        }
+      }
+    ],
+    "observedExecutions": [
+      {
+        "variant": "baseline",
+        "exact": {
+          "matched": true,
+          "firstDifference": -1,
+          "expectedEvents": 13600,
+          "actualEvents": 13600,
+          "sameFinalState": true,
+          "sameRandom": true,
+          "sameEnding": true
+        },
+        "verified": true,
+        "comparedAgainstDiagnosticFreeExecution": true,
+        "counterSemantics": {
+          "schedule": "self_turn/other_turn identify the PvP candidate before wildlife/equipment arbitration and decision deadline checks; not an executed turn.",
+          "team_queue": "Only queues with the watched actor on a side are counted; unrelated encounters are excluded. Counts continue after sample limits.",
+          "arbitration": "Only the watched PvP candidate is counted after wildlife/equipment arbitration and deadline checks; selected means dispatch reservation, not an executed attack.",
+          "arbitrationByActionType": "Fixed action-type buckets split basic from approach/patrol and other reservations. A selected approach is not a basic attack. One latest-basic sample is retained within the unchanged stage sample cap.",
+          "team_execution": "Only the watched queued striker is counted at actual recheck/target/resolve points. performed_no_hp is not a positive HP hit; hp_hit does not establish survival causality.",
+          "changedBuddyAbsence": "Snapshot-level facts accumulated across schedule and relevant queues, not per-encounter absence causes or elapsed seconds. actor_absent_runtime_roster and truncated_roster are unavailable comparisons, not positive evidence of buddy absence."
+        },
+        "countsByActor": {
+          "guest-survivor-01": {
+            "schedule": {
+              "hunt": 8,
+              "support": 0,
+              "recovery": 61,
+              "cast": 0,
+              "action_locked": 462,
+              "attack_locked": 6,
+              "no_intent": 2795,
+              "self_turn": 790,
+              "other_turn": 5724
+            },
+            "team_queue": {
+              "on_field": 23,
+              "queued": 1,
+              "other_actor_turn": 22
+            },
+            "arbitration": {
+              "candidate": 790,
+              "selected": 536,
+              "deferred": 149,
+              "wildlife_first": 105,
+              "equipment_first": 0
+            },
+            "arbitrationByActionType": {
+              "basic": {
+                "candidate": 2,
+                "selected": 2,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "approach": {
+                "candidate": 786,
+                "selected": 532,
+                "deferred": 149,
+                "wildlife_first": 105,
+                "equipment_first": 0
+              },
+              "skill_start": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_release": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_expire": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "status_boundary": {
+                "candidate": 2,
+                "selected": 2,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "other": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              }
+            },
+            "team_execution": {
+              "invalidated_before_strike": 0,
+              "no_valid_target": 0,
+              "not_performed": 0,
+              "performed_no_hp": 0,
+              "hp_hit": 1
+            },
+            "changedBuddyAbsence": {
+              "absent_runtime_roster": 1323,
+              "team_changed": 0,
+              "dead": 789,
+              "different_zone": 1291,
+              "different_space": 0,
+              "present": 3339,
+              "actor_absent_runtime_roster": 6332,
+              "truncated_roster": 0
+            }
+          },
+          "guest-survivor-11": {
+            "schedule": {
+              "hunt": 24,
+              "support": 19,
+              "recovery": 45,
+              "cast": 0,
+              "action_locked": 434,
+              "attack_locked": 24,
+              "no_intent": 3470,
+              "self_turn": 14,
+              "other_turn": 6500
+            },
+            "team_queue": {
+              "on_field": 10,
+              "queued": 6,
+              "other_actor_turn": 4
+            },
+            "arbitration": {
+              "candidate": 14,
+              "selected": 13,
+              "deferred": 0,
+              "wildlife_first": 1,
+              "equipment_first": 0
+            },
+            "arbitrationByActionType": {
+              "basic": {
+                "candidate": 8,
+                "selected": 8,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "approach": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_start": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_release": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_expire": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "status_boundary": {
+                "candidate": 6,
+                "selected": 5,
+                "deferred": 0,
+                "wildlife_first": 1,
+                "equipment_first": 0
+              },
+              "other": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              }
+            },
+            "team_execution": {
+              "invalidated_before_strike": 0,
+              "no_valid_target": 0,
+              "not_performed": 0,
+              "performed_no_hp": 0,
+              "hp_hit": 6
+            },
+            "changedBuddyAbsence": {
+              "absent_runtime_roster": 565,
+              "team_changed": 0,
+              "dead": 910,
+              "different_zone": 1604,
+              "different_space": 0,
+              "present": 4765,
+              "actor_absent_runtime_roster": 5204,
+              "truncated_roster": 0
+            }
+          }
+        },
+        "executionSamplesByActor": {
+          "guest-survivor-01": [
+            {
+              "stage": "arbitration",
+              "eventCursor": 248,
+              "nowSec": 0,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-01",
+                  "targetId": "",
+                  "actionType": "approach",
+                  "atSec": 1
+                },
+                "arbitration": {
+                  "selectedScheduler": "pvp",
+                  "selectedActorId": "guest-survivor-01",
+                  "selectedActionType": "approach",
+                  "selectedAtSec": 1,
+                  "decisionSec": 1,
+                  "scheduled": true
+                },
+                "actor": {
+                  "actorId": "guest-survivor-01",
+                  "teamId": "team:1",
+                  "zoneId": "hotel",
+                  "combatSpaceId": "world",
+                  "hp": 118,
+                  "maxHp": 118,
+                  "actionReadyAtSec": 1,
+                  "basicAttackReadyAtSec": 0,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": false,
+                  "intentEnemyTeamId": "",
+                  "intentTargetId": "",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 18.886946,
+                    "y": 18.123262
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-06",
+                  "reason": "different_zone"
+                },
+                {
+                  "buddyId": "guest-survivor-19",
+                  "reason": "different_zone"
+                }
+              ]
+            },
+            {
+              "stage": "arbitration",
+              "eventCursor": 417,
+              "nowSec": 1,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-01",
+                  "targetId": "",
+                  "actionType": "approach",
+                  "atSec": 2
+                },
+                "arbitration": {
+                  "selectedScheduler": "wildlife",
+                  "selectedActorId": "wildlife:hunt:guest-survivor-06:0:0:1",
+                  "selectedActionType": "wildlife_approach",
+                  "selectedAtSec": 1.25,
+                  "decisionSec": 1,
+                  "scheduled": false
+                },
+                "actor": {
+                  "actorId": "guest-survivor-01",
+                  "teamId": "team:1",
+                  "zoneId": "hotel",
+                  "combatSpaceId": "world",
+                  "hp": 118,
+                  "maxHp": 118,
+                  "actionReadyAtSec": 2,
+                  "basicAttackReadyAtSec": 0,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": false,
+                  "intentEnemyTeamId": "",
+                  "intentTargetId": "",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 18.886946,
+                    "y": 18.123262
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-06",
+                  "reason": "different_zone"
+                },
+                {
+                  "buddyId": "guest-survivor-19",
+                  "reason": "different_zone"
+                }
+              ]
+            },
+            {
+              "stage": "arbitration",
+              "eventCursor": 7159,
+              "nowSec": 314.5,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-01",
+                  "targetId": "guest-survivor-07",
+                  "actionType": "basic",
+                  "atSec": 314.5
+                },
+                "arbitration": {
+                  "selectedScheduler": "pvp",
+                  "selectedActorId": "guest-survivor-01",
+                  "selectedActionType": "basic",
+                  "selectedAtSec": 314.5,
+                  "decisionSec": 315,
+                  "scheduled": true
+                },
+                "actor": {
+                  "actorId": "guest-survivor-01",
+                  "teamId": "team:1",
+                  "zoneId": "apartment",
+                  "combatSpaceId": "world",
+                  "hp": 91,
+                  "maxHp": 146,
+                  "actionReadyAtSec": 313,
+                  "basicAttackReadyAtSec": 178.916665,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": true,
+                  "intentEnemyTeamId": "team:6",
+                  "intentTargetId": "guest-survivor-07",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 15.656878,
+                    "y": 8.307218
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-06",
+                  "reason": "present"
+                },
+                {
+                  "buddyId": "guest-survivor-19",
+                  "reason": "present"
+                }
+              ]
+            },
+            {
+              "stage": "team_execution",
+              "eventCursor": 5425,
+              "nowSec": 178.583332,
+              "currentState": {
+                "resolution": {
+                  "actorId": "guest-survivor-01",
+                  "targetId": "guest-survivor-22",
+                  "encounterId": "178.583332:alley:world:team:1:team:4",
+                  "outcome": "hp_hit",
+                  "hpBefore": 74,
+                  "hpAfter": 0,
+                  "hpDamage": 74
+                },
+                "onlyActorId": "guest-survivor-01",
+                "actor": {
+                  "actorId": "guest-survivor-01",
+                  "teamId": "team:1",
+                  "zoneId": "alley",
+                  "combatSpaceId": "world",
+                  "hp": 47,
+                  "maxHp": 142,
+                  "actionReadyAtSec": 165,
+                  "basicAttackReadyAtSec": 178.916665,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": true,
+                  "intentEnemyTeamId": "team:4",
+                  "intentTargetId": "guest-survivor-22",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 18.149503,
+                    "y": 17.860895
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-06",
+                  "reason": "dead"
+                },
+                {
+                  "buddyId": "guest-survivor-19",
+                  "reason": "present"
+                }
+              ]
+            }
+          ],
+          "guest-survivor-11": [
+            {
+              "stage": "arbitration",
+              "eventCursor": 4564,
+              "nowSec": 114.75,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "",
+                  "actionType": "status_boundary",
+                  "atSec": 115
+                },
+                "arbitration": {
+                  "selectedScheduler": "wildlife",
+                  "selectedActorId": "wildlife:hunt:guest-survivor-18:0:0:114",
+                  "selectedActionType": "wildlife_basic",
+                  "selectedAtSec": 114.75,
+                  "decisionSec": 115,
+                  "scheduled": true
+                },
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:2",
+                  "zoneId": "factory",
+                  "combatSpaceId": "world",
+                  "hp": 102,
+                  "maxHp": 132,
+                  "actionReadyAtSec": 115,
+                  "basicAttackReadyAtSec": 95.666666,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": false,
+                  "intentEnemyTeamId": "",
+                  "intentTargetId": "",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 9.5,
+                    "y": 20
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-13",
+                  "reason": "present"
+                },
+                {
+                  "buddyId": "guest-survivor-12",
+                  "reason": "different_zone"
+                }
+              ]
+            },
+            {
+              "stage": "arbitration",
+              "eventCursor": 4567,
+              "nowSec": 114.75,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "",
+                  "actionType": "status_boundary",
+                  "atSec": 115
+                },
+                "arbitration": {
+                  "selectedScheduler": "pvp",
+                  "selectedActorId": "guest-survivor-11",
+                  "selectedActionType": "status_boundary",
+                  "selectedAtSec": 115,
+                  "decisionSec": 115,
+                  "scheduled": true
+                },
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:2",
+                  "zoneId": "factory",
+                  "combatSpaceId": "world",
+                  "hp": 102,
+                  "maxHp": 132,
+                  "actionReadyAtSec": 115,
+                  "basicAttackReadyAtSec": 95.666666,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": false,
+                  "intentEnemyTeamId": "",
+                  "intentTargetId": "",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 9.5,
+                    "y": 20
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-13",
+                  "reason": "present"
+                },
+                {
+                  "buddyId": "guest-survivor-12",
+                  "reason": "different_zone"
+                }
+              ]
+            },
+            {
+              "stage": "arbitration",
+              "eventCursor": 10385,
+              "nowSec": 574.25,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "guest-survivor-08",
+                  "actionType": "basic",
+                  "atSec": 574.25
+                },
+                "arbitration": {
+                  "selectedScheduler": "pvp",
+                  "selectedActorId": "guest-survivor-11",
+                  "selectedActionType": "basic",
+                  "selectedAtSec": 574.25,
+                  "decisionSec": 575,
+                  "scheduled": true
+                },
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:2",
+                  "zoneId": "apartment",
+                  "combatSpaceId": "world",
+                  "hp": 114,
+                  "maxHp": 144,
+                  "actionReadyAtSec": 573,
+                  "basicAttackReadyAtSec": 360.166666,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": true,
+                  "intentEnemyTeamId": "team:7",
+                  "intentTargetId": "guest-survivor-03",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 11.881219,
+                    "y": 11.418322
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-13",
+                  "reason": "present"
+                },
+                {
+                  "buddyId": "guest-survivor-12",
+                  "reason": "present"
+                }
+              ]
+            },
+            {
+              "stage": "team_execution",
+              "eventCursor": 6976,
+              "nowSec": 296,
+              "currentState": {
+                "resolution": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "guest-survivor-17",
+                  "encounterId": "296:archery:world:team:2:team:3",
+                  "outcome": "hp_hit",
+                  "hpBefore": 98,
+                  "hpAfter": 44,
+                  "hpDamage": 54
+                },
+                "onlyActorId": "guest-survivor-11",
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:2",
+                  "zoneId": "archery",
+                  "combatSpaceId": "world",
+                  "hp": 102,
+                  "maxHp": 132,
+                  "actionReadyAtSec": 293,
+                  "basicAttackReadyAtSec": 296.333333,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": true,
+                  "intentEnemyTeamId": "team:3",
+                  "intentTargetId": "guest-survivor-17",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 15.827565,
+                    "y": 4.902149
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-13",
+                  "reason": "present"
+                },
+                {
+                  "buddyId": "guest-survivor-12",
+                  "reason": "present"
+                }
+              ]
+            },
+            {
+              "stage": "team_execution",
+              "eventCursor": 6984,
+              "nowSec": 296.333333,
+              "currentState": {
+                "resolution": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "guest-survivor-17",
+                  "encounterId": "296.333333:archery:world:team:2:team:3",
+                  "outcome": "hp_hit",
+                  "hpBefore": 44,
+                  "hpAfter": 0,
+                  "hpDamage": 44
+                },
+                "onlyActorId": "guest-survivor-11",
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:2",
+                  "zoneId": "archery",
+                  "combatSpaceId": "world",
+                  "hp": 106,
+                  "maxHp": 136,
+                  "actionReadyAtSec": 293,
+                  "basicAttackReadyAtSec": 296.666666,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": true,
+                  "intentEnemyTeamId": "team:3",
+                  "intentTargetId": "guest-survivor-17",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 15.827565,
+                    "y": 4.902149
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-13",
+                  "reason": "present"
+                },
+                {
+                  "buddyId": "guest-survivor-12",
+                  "reason": "present"
+                }
+              ]
+            },
+            {
+              "stage": "team_execution",
+              "eventCursor": 7381,
+              "nowSec": 335.25,
+              "currentState": {
+                "resolution": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "guest-survivor-07",
+                  "encounterId": "335.25:archery:world:team:2:team:6",
+                  "outcome": "hp_hit",
+                  "hpBefore": 93,
+                  "hpAfter": 3,
+                  "hpDamage": 90
+                },
+                "onlyActorId": "guest-survivor-11",
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:2",
+                  "zoneId": "archery",
+                  "combatSpaceId": "world",
+                  "hp": 110,
+                  "maxHp": 140,
+                  "actionReadyAtSec": 331,
+                  "basicAttackReadyAtSec": 335.583333,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": true,
+                  "intentEnemyTeamId": "team:6",
+                  "intentTargetId": "guest-survivor-07",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 9.667432,
+                    "y": 13.867161
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-13",
+                  "reason": "present"
+                },
+                {
+                  "buddyId": "guest-survivor-12",
+                  "reason": "different_zone"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "variant": "one-formation-swap",
+        "exact": {
+          "matched": true,
+          "firstDifference": -1,
+          "expectedEvents": 14769,
+          "actualEvents": 14769,
+          "sameFinalState": true,
+          "sameRandom": true,
+          "sameEnding": true
+        },
+        "verified": true,
+        "comparedAgainstDiagnosticFreeExecution": true,
+        "counterSemantics": {
+          "schedule": "self_turn/other_turn identify the PvP candidate before wildlife/equipment arbitration and decision deadline checks; not an executed turn.",
+          "team_queue": "Only queues with the watched actor on a side are counted; unrelated encounters are excluded. Counts continue after sample limits.",
+          "arbitration": "Only the watched PvP candidate is counted after wildlife/equipment arbitration and deadline checks; selected means dispatch reservation, not an executed attack.",
+          "arbitrationByActionType": "Fixed action-type buckets split basic from approach/patrol and other reservations. A selected approach is not a basic attack. One latest-basic sample is retained within the unchanged stage sample cap.",
+          "team_execution": "Only the watched queued striker is counted at actual recheck/target/resolve points. performed_no_hp is not a positive HP hit; hp_hit does not establish survival causality.",
+          "changedBuddyAbsence": "Snapshot-level facts accumulated across schedule and relevant queues, not per-encounter absence causes or elapsed seconds. actor_absent_runtime_roster and truncated_roster are unavailable comparisons, not positive evidence of buddy absence."
+        },
+        "countsByActor": {
+          "guest-survivor-01": {
+            "schedule": {
+              "hunt": 7,
+              "support": 0,
+              "recovery": 43,
+              "cast": 0,
+              "action_locked": 353,
+              "attack_locked": 3,
+              "no_intent": 2696,
+              "self_turn": 1588,
+              "other_turn": 5115
+            },
+            "team_queue": {
+              "on_field": 8,
+              "queued": 0,
+              "other_actor_turn": 8
+            },
+            "arbitration": {
+              "candidate": 1588,
+              "selected": 1160,
+              "deferred": 313,
+              "wildlife_first": 115,
+              "equipment_first": 0
+            },
+            "arbitrationByActionType": {
+              "basic": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "approach": {
+                "candidate": 1588,
+                "selected": 1160,
+                "deferred": 313,
+                "wildlife_first": 115,
+                "equipment_first": 0
+              },
+              "skill_start": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_release": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_expire": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "status_boundary": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "other": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              }
+            },
+            "team_execution": {
+              "invalidated_before_strike": 0,
+              "no_valid_target": 0,
+              "not_performed": 0,
+              "performed_no_hp": 0,
+              "hp_hit": 0
+            },
+            "changedBuddyAbsence": {
+              "absent_runtime_roster": 0,
+              "team_changed": 0,
+              "dead": 1023,
+              "different_zone": 2388,
+              "different_space": 0,
+              "present": 3031,
+              "actor_absent_runtime_roster": 6980,
+              "truncated_roster": 0
+            }
+          },
+          "guest-survivor-11": {
+            "schedule": {
+              "hunt": 28,
+              "support": 0,
+              "recovery": 380,
+              "cast": 0,
+              "action_locked": 679,
+              "attack_locked": 37,
+              "no_intent": 4699,
+              "self_turn": 361,
+              "other_turn": 6342
+            },
+            "team_queue": {
+              "on_field": 12,
+              "queued": 6,
+              "other_actor_turn": 6
+            },
+            "arbitration": {
+              "candidate": 361,
+              "selected": 288,
+              "deferred": 71,
+              "wildlife_first": 2,
+              "equipment_first": 0
+            },
+            "arbitrationByActionType": {
+              "basic": {
+                "candidate": 14,
+                "selected": 13,
+                "deferred": 1,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "approach": {
+                "candidate": 340,
+                "selected": 269,
+                "deferred": 69,
+                "wildlife_first": 2,
+                "equipment_first": 0
+              },
+              "skill_start": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_release": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "skill_expire": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "status_boundary": {
+                "candidate": 7,
+                "selected": 6,
+                "deferred": 1,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              },
+              "other": {
+                "candidate": 0,
+                "selected": 0,
+                "deferred": 0,
+                "wildlife_first": 0,
+                "equipment_first": 0
+              }
+            },
+            "team_execution": {
+              "invalidated_before_strike": 0,
+              "no_valid_target": 0,
+              "not_performed": 0,
+              "performed_no_hp": 0,
+              "hp_hit": 6
+            },
+            "changedBuddyAbsence": {
+              "absent_runtime_roster": 5297,
+              "team_changed": 0,
+              "dead": 1336,
+              "different_zone": 2146,
+              "different_space": 0,
+              "present": 1171,
+              "actor_absent_runtime_roster": 3480,
+              "truncated_roster": 0
+            }
+          }
+        },
+        "executionSamplesByActor": {
+          "guest-survivor-01": [
+            {
+              "stage": "arbitration",
+              "eventCursor": 248,
+              "nowSec": 0,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-01",
+                  "targetId": "",
+                  "actionType": "approach",
+                  "atSec": 1
+                },
+                "arbitration": {
+                  "selectedScheduler": "pvp",
+                  "selectedActorId": "guest-survivor-01",
+                  "selectedActionType": "approach",
+                  "selectedAtSec": 1,
+                  "decisionSec": 1,
+                  "scheduled": true
+                },
+                "actor": {
+                  "actorId": "guest-survivor-01",
+                  "teamId": "team:2",
+                  "zoneId": "hotel",
+                  "combatSpaceId": "world",
+                  "hp": 118,
+                  "maxHp": 118,
+                  "actionReadyAtSec": 1,
+                  "basicAttackReadyAtSec": 0,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": false,
+                  "intentEnemyTeamId": "",
+                  "intentTargetId": "",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 18.886946,
+                    "y": 18.123262
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-13",
+                  "reason": "present"
+                },
+                {
+                  "buddyId": "guest-survivor-12",
+                  "reason": "different_zone"
+                }
+              ]
+            },
+            {
+              "stage": "arbitration",
+              "eventCursor": 417,
+              "nowSec": 1,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-01",
+                  "targetId": "",
+                  "actionType": "approach",
+                  "atSec": 2
+                },
+                "arbitration": {
+                  "selectedScheduler": "wildlife",
+                  "selectedActorId": "wildlife:hunt:guest-survivor-06:0:0:1",
+                  "selectedActionType": "wildlife_approach",
+                  "selectedAtSec": 1.25,
+                  "decisionSec": 1,
+                  "scheduled": false
+                },
+                "actor": {
+                  "actorId": "guest-survivor-01",
+                  "teamId": "team:2",
+                  "zoneId": "hotel",
+                  "combatSpaceId": "world",
+                  "hp": 118,
+                  "maxHp": 118,
+                  "actionReadyAtSec": 2,
+                  "basicAttackReadyAtSec": 0,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": false,
+                  "intentEnemyTeamId": "",
+                  "intentTargetId": "",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 18.886946,
+                    "y": 18.123262
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-13",
+                  "reason": "different_zone"
+                },
+                {
+                  "buddyId": "guest-survivor-12",
+                  "reason": "different_zone"
+                }
+              ]
+            },
+            {
+              "stage": "arbitration",
+              "eventCursor": 417,
+              "nowSec": 1,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-01",
+                  "targetId": "",
+                  "actionType": "approach",
+                  "atSec": 2
+                },
+                "arbitration": {
+                  "selectedScheduler": "wildlife",
+                  "selectedActorId": "wildlife:hunt:guest-survivor-06:0:0:1",
+                  "selectedActionType": "wildlife_approach",
+                  "selectedAtSec": 1.25,
+                  "decisionSec": 2,
+                  "scheduled": true
+                },
+                "actor": {
+                  "actorId": "guest-survivor-01",
+                  "teamId": "team:2",
+                  "zoneId": "hotel",
+                  "combatSpaceId": "world",
+                  "hp": 118,
+                  "maxHp": 118,
+                  "actionReadyAtSec": 2,
+                  "basicAttackReadyAtSec": 0,
+                  "recoveryUntilSec": 0,
+                  "recoveryReason": "",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": false,
+                  "intentEnemyTeamId": "",
+                  "intentTargetId": "",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 18.886946,
+                    "y": 18.123262
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-13",
+                  "reason": "different_zone"
+                },
+                {
+                  "buddyId": "guest-survivor-12",
+                  "reason": "different_zone"
+                }
+              ]
+            }
+          ],
+          "guest-survivor-11": [
+            {
+              "stage": "arbitration",
+              "eventCursor": 5933,
+              "nowSec": 218.5,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "",
+                  "actionType": "status_boundary",
+                  "atSec": 218.583333
+                },
+                "arbitration": {
+                  "selectedScheduler": "pvp",
+                  "selectedActorId": "guest-survivor-11",
+                  "selectedActionType": "status_boundary",
+                  "selectedAtSec": 218.583333,
+                  "decisionSec": 219,
+                  "scheduled": true
+                },
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:1",
+                  "zoneId": "school",
+                  "combatSpaceId": "world",
+                  "hp": 132,
+                  "maxHp": 132,
+                  "actionReadyAtSec": 217,
+                  "basicAttackReadyAtSec": 196.333333,
+                  "recoveryUntilSec": 206.583333,
+                  "recoveryReason": "escape",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": false,
+                  "intentEnemyTeamId": "",
+                  "intentTargetId": "",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 12.154431,
+                    "y": 14.473727
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-06",
+                  "reason": "dead"
+                },
+                {
+                  "buddyId": "guest-survivor-19",
+                  "reason": "dead"
+                }
+              ]
+            },
+            {
+              "stage": "arbitration",
+              "eventCursor": 12771,
+              "nowSec": 917.75,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "guest-survivor-09",
+                  "actionType": "basic",
+                  "atSec": 917.833333
+                },
+                "arbitration": {
+                  "selectedScheduler": "pvp",
+                  "selectedActorId": "guest-survivor-11",
+                  "selectedActionType": "basic",
+                  "selectedAtSec": 917.833333,
+                  "decisionSec": 918,
+                  "scheduled": true
+                },
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:1",
+                  "zoneId": "beach",
+                  "combatSpaceId": "world",
+                  "hp": 77,
+                  "maxHp": 152,
+                  "actionReadyAtSec": 917,
+                  "basicAttackReadyAtSec": 917.833333,
+                  "recoveryUntilSec": 916.5,
+                  "recoveryReason": "escape",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": true,
+                  "intentEnemyTeamId": "team:8",
+                  "intentTargetId": "guest-survivor-09",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 9.757456,
+                    "y": 19.370728
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-06",
+                  "reason": "absent_runtime_roster"
+                },
+                {
+                  "buddyId": "guest-survivor-19",
+                  "reason": "absent_runtime_roster"
+                }
+              ]
+            },
+            {
+              "stage": "arbitration",
+              "eventCursor": 8858,
+              "nowSec": 432.5,
+              "currentState": {
+                "scheduled": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "",
+                  "actionType": "status_boundary",
+                  "atSec": 432.75
+                },
+                "arbitration": {
+                  "selectedScheduler": "pvp",
+                  "selectedActorId": "guest-survivor-11",
+                  "selectedActionType": "status_boundary",
+                  "selectedAtSec": 432.75,
+                  "decisionSec": 433,
+                  "scheduled": true
+                },
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:1",
+                  "zoneId": "school",
+                  "combatSpaceId": "world",
+                  "hp": 136,
+                  "maxHp": 136,
+                  "actionReadyAtSec": 416,
+                  "basicAttackReadyAtSec": 413.083333,
+                  "recoveryUntilSec": 411,
+                  "recoveryReason": "avoid_power",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": false,
+                  "intentEnemyTeamId": "",
+                  "intentTargetId": "",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 20,
+                    "y": 13.333336
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-06",
+                  "reason": "present"
+                },
+                {
+                  "buddyId": "guest-survivor-19",
+                  "reason": "absent_runtime_roster"
+                }
+              ]
+            },
+            {
+              "stage": "team_execution",
+              "eventCursor": 10744,
+              "nowSec": 601,
+              "currentState": {
+                "resolution": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "guest-survivor-23",
+                  "encounterId": "601:factory:world:team:1:team:5",
+                  "outcome": "hp_hit",
+                  "hpBefore": 103,
+                  "hpAfter": 16,
+                  "hpDamage": 87
+                },
+                "onlyActorId": "guest-survivor-11",
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:1",
+                  "zoneId": "factory",
+                  "combatSpaceId": "world",
+                  "hp": 140,
+                  "maxHp": 140,
+                  "actionReadyAtSec": 598,
+                  "basicAttackReadyAtSec": 601.333333,
+                  "recoveryUntilSec": 516,
+                  "recoveryReason": "avoid_power",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": true,
+                  "intentEnemyTeamId": "team:5",
+                  "intentTargetId": "guest-survivor-23",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 8.389284,
+                    "y": 7.802248
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-06",
+                  "reason": "absent_runtime_roster"
+                },
+                {
+                  "buddyId": "guest-survivor-19",
+                  "reason": "absent_runtime_roster"
+                }
+              ]
+            },
+            {
+              "stage": "team_execution",
+              "eventCursor": 10753,
+              "nowSec": 601.333333,
+              "currentState": {
+                "resolution": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "guest-survivor-23",
+                  "encounterId": "601.333333:factory:world:team:1:team:5",
+                  "outcome": "hp_hit",
+                  "hpBefore": 16,
+                  "hpAfter": 0,
+                  "hpDamage": 16
+                },
+                "onlyActorId": "guest-survivor-11",
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:1",
+                  "zoneId": "factory",
+                  "combatSpaceId": "world",
+                  "hp": 144,
+                  "maxHp": 144,
+                  "actionReadyAtSec": 598,
+                  "basicAttackReadyAtSec": 601.666666,
+                  "recoveryUntilSec": 516,
+                  "recoveryReason": "avoid_power",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": true,
+                  "intentEnemyTeamId": "team:5",
+                  "intentTargetId": "guest-survivor-23",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 8.389284,
+                    "y": 7.802248
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-06",
+                  "reason": "absent_runtime_roster"
+                },
+                {
+                  "buddyId": "guest-survivor-19",
+                  "reason": "absent_runtime_roster"
+                }
+              ]
+            },
+            {
+              "stage": "team_execution",
+              "eventCursor": 10758,
+              "nowSec": 601.833333,
+              "currentState": {
+                "resolution": {
+                  "actorId": "guest-survivor-11",
+                  "targetId": "guest-survivor-18",
+                  "encounterId": "601.833333:factory:world:team:1:team:5",
+                  "outcome": "hp_hit",
+                  "hpBefore": 130,
+                  "hpAfter": 31,
+                  "hpDamage": 99
+                },
+                "onlyActorId": "guest-survivor-11",
+                "actor": {
+                  "actorId": "guest-survivor-11",
+                  "teamId": "team:1",
+                  "zoneId": "factory",
+                  "combatSpaceId": "world",
+                  "hp": 144,
+                  "maxHp": 144,
+                  "actionReadyAtSec": 598,
+                  "basicAttackReadyAtSec": 602.166666,
+                  "recoveryUntilSec": 516,
+                  "recoveryReason": "avoid_power",
+                  "pendingCast": null,
+                  "hunt": null,
+                  "bossAssistOwnerId": "",
+                  "hasCombatIntent": true,
+                  "intentEnemyTeamId": "team:5",
+                  "intentTargetId": "guest-survivor-18",
+                  "basicAllowed": true,
+                  "actionBlocked": false,
+                  "deadInThisPhase": false,
+                  "riftDefeated": false,
+                  "spatial": {
+                    "x": 7.468857,
+                    "y": 8.510056
+                  }
+                }
+              },
+              "changedBuddyFacts": [
+                {
+                  "buddyId": "guest-survivor-06",
+                  "reason": "absent_runtime_roster"
+                },
+                {
+                  "buddyId": "guest-survivor-19",
+                  "reason": "absent_runtime_roster"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "limits": "basic candidate counts are globally returned next-PvP candidates, not every per-actor possibility. approach includes patrol, last-seen tracking and chase; selected is a reservation, not a strike. Team resolution excludes solo fallback. Missing actor/truncated roster categories are unavailable comparisons, not positive buddy-absence evidence. Zero exposure remains a failed comparison; no seed selection, free attacks or relaxed thresholds."
+  },
+  "fullGate": {
+    "runId": "2026-10-09T14-06-23.599Z-891db159-25d6-4b7b-861c-4441bd6b8825",
+    "exitCode": 0,
+    "finishedAt": "2026-10-09T14:44:18.276Z",
+    "executionEnvironment": "Headless Node; not foreground browser",
+    "opening": [
+      {
+        "pass": true,
+        "seed": "1101",
+        "initialRosterSeed": "FIRST-DAY:1101",
+        "firstDayEndSec": 250,
+        "complete": 24,
+        "total": 24,
+        "completionSec": [
+          24,
+          24,
+          25,
+          25,
+          26,
+          26,
+          27,
+          27,
+          29,
+          31,
+          31,
+          33,
+          34,
+          34,
+          34,
+          34,
+          35,
+          36,
+          36,
+          37,
+          38,
+          39,
+          40,
+          42
+        ],
+        "battles": 10,
+        "eventCount": 6121,
+        "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes"
+      },
+      {
+        "pass": true,
+        "seed": "2202",
+        "initialRosterSeed": "FIRST-DAY:2202",
+        "firstDayEndSec": 250,
+        "complete": 24,
+        "total": 24,
+        "completionSec": [
+          24,
+          26,
+          26,
+          26,
+          28,
+          28,
+          28,
+          30,
+          30,
+          31,
+          32,
+          32,
+          34,
+          34,
+          35,
+          35,
+          35,
+          35,
+          36,
+          37,
+          37,
+          38,
+          38,
+          39
+        ],
+        "battles": 7,
+        "eventCount": 6343,
+        "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes"
+      },
+      {
+        "pass": true,
+        "seed": "3303",
+        "initialRosterSeed": "FIRST-DAY:3303",
+        "firstDayEndSec": 250,
+        "complete": 24,
+        "total": 24,
+        "completionSec": [
+          21,
+          23,
+          25,
+          25,
+          26,
+          27,
+          27,
+          30,
+          31,
+          31,
+          31,
+          34,
+          34,
+          35,
+          35,
+          35,
+          36,
+          36,
+          37,
+          37,
+          38,
+          40,
+          44,
+          68
+        ],
+        "battles": 7,
+        "eventCount": 6409,
+        "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes"
+      }
+    ],
+    "matchSummaries": [
+      {
+        "kind": "FORCED_CONTROL_MATCH",
+        "seed": "forced-control-integration-1",
+        "events": 13372,
+        "frames": 6727,
+        "endingSec": 1286.25,
+        "eventDigest": "da0b25246dbada1e7f4fb2f397ce03567525331a79f23117f55bc7e1523247bb",
+        "frameDigest": "ee5b29b34b0cee2d1437aa64c2b534c5878fad5e3ef4c3121bd297ecc99f8dec",
+        "comparison": {
+          "matched": true,
+          "firstDifference": -1,
+          "expectedEvents": 13372,
+          "actualEvents": 13372,
+          "sameFinalState": true,
+          "sameRandom": true,
+          "sameEnding": true
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 1243586560,
+          "draws": 9340,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "matches": null,
+        "apiCalls": 0,
+        "externalAccess": null
+      },
+      {
+        "kind": "ACTION_STATES_MATCH",
+        "seed": "action-states-integration-1",
+        "events": 12008,
+        "frames": 4296,
+        "endingSec": 816.583333,
+        "eventDigest": "cb5457e296a454f1d46234d58f06b582fbd64a1e5988b7f512475a1533b7244d",
+        "frameDigest": "db5c15d23b216a20de1df77198057eb2ae8b369c8bb81c4a777949dfb26fbe4a",
+        "comparison": {
+          "matched": true,
+          "firstDifference": -1,
+          "expectedEvents": 12008,
+          "actualEvents": 12008,
+          "sameFinalState": true,
+          "sameRandom": true,
+          "sameEnding": true
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2734191540,
+          "draws": 7794,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "matches": null,
+        "apiCalls": 0,
+        "externalAccess": null
+      },
+      {
+        "kind": "CHARACTER_CASTING_MATCH",
+        "seed": "casting-integration-1",
+        "events": 14756,
+        "frames": 7000,
+        "endingSec": 1237.083333,
+        "eventDigest": "f4d3f61ab7b5992bb5b714489b1270bf55684f0be692b909d6ab3eb9bc2c6f24",
+        "frameDigest": "b01eab9624e0dbbba8740ce4e6862c0f1d975eecd21062e648b57ed2aefc27f0",
+        "comparison": {
+          "matched": true,
+          "firstDifference": -1,
+          "expectedEvents": 14756,
+          "actualEvents": 14756,
+          "sameFinalState": true,
+          "sameRandom": true,
+          "sameEnding": true
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2076201591,
+          "draws": 9107,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "matches": null,
+        "apiCalls": 0,
+        "externalAccess": null
+      },
+      {
+        "kind": "GUEST_CHARACTER_PROFILE_MATCH",
+        "seed": "local-profiles-1",
+        "events": 15769,
+        "frames": 7189,
+        "endingSec": 1276.25,
+        "eventDigest": "cab1c2cdb84a9606ef4b7b4cfbaa3a77c41b9c655b7232bb3996b0d2c6ba866d",
+        "frameDigest": "1debb280c9f5fda8cc6b3fc81d812b652f8fe2f3e4c5881b8613d7b17cfdfac8",
+        "comparison": {
+          "matched": true,
+          "firstDifference": -1,
+          "expectedEvents": 15769,
+          "actualEvents": 15769,
+          "sameFinalState": true,
+          "sameRandom": true,
+          "sameEnding": true
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2737238556,
+          "draws": 9350,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "matches": null,
+        "apiCalls": 0,
+        "externalAccess": null
+      },
+      {
+        "kind": "CHARACTER_STATUS_SKILLS_MATCH",
+        "seed": "authored-status-skills-1",
+        "events": 17214,
+        "frames": 7361,
+        "endingSec": 1289.5,
+        "eventDigest": "8d0cee784af646681880c4c59b03b32ab51d2f8688053c9dd8eede97d4d4fddf",
+        "frameDigest": "1d8eea3e6d7c58355cf9a554c2e01d56491ceaad6d7db74da115d1b33ed853af",
+        "comparison": {
+          "matched": true,
+          "firstDifference": -1,
+          "expectedEvents": 17214,
+          "actualEvents": 17214,
+          "sameFinalState": true,
+          "sameRandom": true,
+          "sameEnding": true
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 217523137,
+          "draws": 10463,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "matches": null,
+        "apiCalls": 0,
+        "externalAccess": null
+      },
+      {
+        "kind": "RNG_MATCH_REPLAYS",
+        "seed": "1101",
+        "events": 11632,
+        "frames": 5840,
+        "endingSec": 1124.916666,
+        "eventDigest": "43b334cadcbb3061d36792ba5f3cb53bce543886c8202c1b7b9d7a76402f9e24",
+        "frameDigest": "0c554b152b0f4befa9f53b9fe46c21cfcda06f9a89c812508fb7ad97c0d89206",
+        "comparison": null,
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2014021095,
+          "draws": 8934,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "matches": 3,
+        "apiCalls": 0,
+        "externalAccess": null
+      },
+      {
+        "kind": "SAVED_INPUT_REPLAY",
+        "seed": "1101",
+        "events": 14718,
+        "frames": 6407,
+        "endingSec": 1217.333333,
+        "eventDigest": "f2c15a8180b76f4ab4fc2722c439d7996830d88480bef728a695ce07a0b2fa08",
+        "frameDigest": "d98f6cc7c0aa640c5f3ca92fe63f0649c5f132b91010c089264b073c0112caca",
+        "comparison": {
+          "matched": true,
+          "firstDifference": -1,
+          "expectedEvents": 14718,
+          "actualEvents": 14718,
+          "sameFinalState": true,
+          "sameRandom": true,
+          "sameEnding": true
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 380025761,
+          "draws": 11128,
+          "ids": 0,
+          "nameHistory": []
+        },
+        "matches": null,
+        "apiCalls": null,
+        "externalAccess": 0
+      }
+    ],
+    "buildId": "YBL-FyEzXS-QmfhIa1pVs",
+    "pages": 62,
+    "engineMarkerChunks": [
+      "client/.next/server/chunks/7457.js",
+      "client/.next/static/chunks/6642-cdfbd6d685aa99c1.js"
+    ]
+  },
+  "cleanup": {
+    "removedFiles": 6,
+    "removedBytes": 593536223,
+    "protectedFiles": 32,
+    "protectedUnchanged": true,
+    "buildBefore": {
+      "count": 1429,
+      "bytes": 74748075,
+      "sha256": "47CC9625D9827AA8C2A20A1AC64F6C9D7C5ED5ADC4727CF42614BD11FECF7462"
+    },
+    "buildAfter": {
+      "count": 1429,
+      "bytes": 74748075,
+      "sha256": "47CC9625D9827AA8C2A20A1AC64F6C9D7C5ED5ADC4727CF42614BD11FECF7462"
+    },
+    "goalTailUnchanged": true,
+    "remainingRemovedTargets": 0,
+    "physicalFreeSpaceMeasured": false,
+    "scope": "Only exact checked regeneratable webpack pack files; original successful and failed run records retained.",
+    "removedTargets": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 255712254,
+        "sha256": "7A4748EE1381AA0647556759C5B4A5FA205138333012C80E2800E93365782105",
+        "lastWriteTicks": "639271538463783448",
+        "reparse": false
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12833244,
+        "sha256": "C1CB546F8742632524789B66E378E3F35AF3BC28C358120A5FB190676C6B9AFE",
+        "lastWriteTicks": "639271538462419171",
+        "reparse": false
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+        "lastWriteTicks": "639271538309356662",
+        "reparse": false
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "sha256": "29BA103836F512EF338B1EC641D5D75949E78CB560D4B919D2DD0EBB9D65694F",
+        "lastWriteTicks": "639271538309356662",
+        "reparse": false
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 306912310,
+        "sha256": "9C6946467373B08A89F14E0729F74055C10AF09521A66C81477142FEFB610224",
+        "lastWriteTicks": "639271538300131833",
+        "reparse": false
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18075675,
+        "sha256": "80852EF6D6A103A21E603F172ED02C981804215FCD81643081455D36BD70313C",
+        "lastWriteTicks": "639271538298371482",
+        "reparse": false
+      }
+    ],
+    "protectedManifest": [
+      {
+        "path": "client/package.json",
+        "bytes": 26832,
+        "sha256": "EF636C60AC91677589F5FFF0487620400301D5AB6424C678397450635DFD2E21"
+      },
+      {
+        "path": "client/scripts/check-combat-participation-observation.mjs",
+        "bytes": 9659,
+        "sha256": "6DA5595CFFE075786173CFE701B03BDAD2EC93F55882F97BF8DC81AFB490F392"
+      },
+      {
+        "path": "client/scripts/check-team-combat-participation-diagnostics.mjs",
+        "bytes": 19416,
+        "sha256": "CDF6A5E3B1A6F4ADCDCB7BA8B4315DCEDF37C0D793C301AC616958829BFCC4F1"
+      },
+      {
+        "path": "client/scripts/check-team-survival-contribution.mjs",
+        "bytes": 9207,
+        "sha256": "30C92601B60994F06FC4A1C69773F3CF953079C38369C63595E575F309F86579"
+      },
+      {
+        "path": "client/scripts/lib/run-combat-scenario.mjs",
+        "bytes": 3582,
+        "sha256": "D37993C8A42C8CD2D4F9A53E1F460E7946FC110B7A5EB7499554E4B864B6F1FC"
+      },
+      {
+        "path": "client/scripts/lib/team-combat-participation-diagnostics.mjs",
+        "bytes": 17924,
+        "sha256": "1850B4643366CDE12EDF1201F5188587B609CF75B9338F7F94BAF8CFB0E94AE1"
+      },
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "bytes": 14941,
+        "sha256": "6A7E7E624777C22863ABF2E859261C2B5B028E7FE28E6BFDD0F6AF0B25FC9F91"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "bytes": 166,
+        "sha256": "3F0BB1366294F8AEE9045DC9691A312774384E03ACB40C0377A1110C3822878F"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/combatParticipationObservationRuntime.js",
+        "bytes": 4511,
+        "sha256": "CC4F025C5CB8FFD19FE259DC954C44B2FFFC15BA7CE3D7ABE8B970E6D791DA43"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/phasePvpActionLoopRuntime.js",
+        "bytes": 33179,
+        "sha256": "AA02BA0BCE23252EBD5E84F7E61D96DF0BEDBFAA0F46690B28C801BA526F2914"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/teamCombatRuntime.js",
+        "bytes": 9474,
+        "sha256": "6EFE16E9D69AB911EAFC239BE3B847BDA8180566CD34AD54EE42A3C55FDC2719"
+      },
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "bytes": 15715,
+        "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+      },
+      {
+        "path": "server/index.js",
+        "bytes": 5619,
+        "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+      },
+      {
+        "path": "server/.env.example",
+        "bytes": 2125,
+        "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-39-49.301Z-2c2781fc-23f3-4a8f-8c00-ed0453decd7b/result.json",
+        "bytes": 4857,
+        "sha256": "97D38DDC737ACD10B1DACADCC3617EAFD5E74F5A722D511D55838E02FE1CC8EE"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-39-49.301Z-2c2781fc-23f3-4a8f-8c00-ed0453decd7b/output.log",
+        "bytes": 113765,
+        "sha256": "679735FB469AA97D8A4AD3790D583FE63F7DA64D497678C31FE7083C68713855"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-40-32.313Z-1c6702f7-79de-4c1b-9eb7-00a288aaf454/result.json",
+        "bytes": 4857,
+        "sha256": "876DA375EE24A99DFE20F9CE321DF7143C16A590615E3BD1F0D6BB6AC8391563"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-40-32.313Z-1c6702f7-79de-4c1b-9eb7-00a288aaf454/output.log",
+        "bytes": 3476,
+        "sha256": "9643D2D33E2BC891D93CF4B5476613327FE8E69684C57600B389F0E1280E9506"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-41-22.133Z-b8337195-115d-4563-8c8c-ce2865d0782a/result.json",
+        "bytes": 4857,
+        "sha256": "3E786EFCF48408280D408C46FF59ED07954D2F5AD0820739E1360CF6217859EE"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-41-22.133Z-b8337195-115d-4563-8c8c-ce2865d0782a/output.log",
+        "bytes": 16332,
+        "sha256": "36316C5026A21B1406D185DCAD5A0A7C0B0E710B6436090AF86291F6EA6BEB93"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-42-54.442Z-bfb9dfe9-4510-40c5-bf28-50c569859b15/result.json",
+        "bytes": 2495,
+        "sha256": "7CE9817C6CB260049330AEBF0CC2841C93DFE1B0212E8BC4B09BD5976D935ED3"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-42-54.442Z-bfb9dfe9-4510-40c5-bf28-50c569859b15/output.log",
+        "bytes": 7739,
+        "sha256": "12F0C2AE5CB65496DA96D86B48D5CE80FE4A569D9E670E61E2326D8432CFBD31"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-42-54.442Z-bfb9dfe9-4510-40c5-bf28-50c569859b15/strategy-comparison.json",
+        "bytes": 1946753,
+        "sha256": "FFD70415F8073C95D25338C39C5C1A19416688CAB6570EAE6D99E2AE6B9EE497"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-53-21.379Z-85b405bc-f617-4e6d-a324-3b481e490446/result.json",
+        "bytes": 4857,
+        "sha256": "4319C1741BDC228D9AEB3D0F01026B269844CC777480C8F7884DF9A0194E1D0E"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-53-21.379Z-85b405bc-f617-4e6d-a324-3b481e490446/output.log",
+        "bytes": 3423,
+        "sha256": "BCCDBFCB33B75022E937ECD2E18C067004AAD73F5CD3D481F0557770B146778D"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-58-19.847Z-9d1edc8b-b7d3-4be1-b818-183130ce3554/result.json",
+        "bytes": 4857,
+        "sha256": "8D49BBED619792D878FA65EFB723F0B8CD8777D2CF580B10674D5F4D6D5F74E3"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-58-19.847Z-9d1edc8b-b7d3-4be1-b818-183130ce3554/output.log",
+        "bytes": 16527,
+        "sha256": "5431C222737E3D5CE03A81DFDD56EF45B5A7BF4DF0F85296CF1CF3039FC90DB6"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-59-30.575Z-c78356af-d9a7-46f0-bfb9-589e7f3a2773/result.json",
+        "bytes": 2495,
+        "sha256": "0F2C825C71D0747622D574FFB36EDE56511332D6ECED5FD2B489DD219C94F8F5"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-59-30.575Z-c78356af-d9a7-46f0-bfb9-589e7f3a2773/output.log",
+        "bytes": 7739,
+        "sha256": "BA70DF8CE6D640F9A2801658B8257873DBF3638971031C6F0C35DC0AE9FED85C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T13-59-30.575Z-c78356af-d9a7-46f0-bfb9-589e7f3a2773/strategy-comparison.json",
+        "bytes": 1962317,
+        "sha256": "334E0868A830B7F263630ECBA1EF5AAA780A7B47C056EEDA131E34646E602F0D"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T14-06-23.599Z-891db159-25d6-4b7b-861c-4441bd6b8825/result.json",
+        "bytes": 2766,
+        "sha256": "3F16AE7D575FD2101B4E9CF20FAB31E19C99EE38081C227682C16BB9A6A1F9F6"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-09T14-06-23.599Z-891db159-25d6-4b7b-861c-4441bd6b8825/output.log",
+        "bytes": 245313,
+        "sha256": "80F622DC9CF7FC411F6275B9648A650B3B5491357A8000D40B423B0F9DD26B93"
+      }
+    ],
+    "goalTail": {
+      "chars": 20641,
+      "bytes": 43026,
+      "sha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B"
+    }
+  },
+  "externalWrites": {
+    "push": 0,
+    "deploy": 0,
+    "browser": 0,
+    "account": 0,
+    "paidAi": 0,
+    "humanScoresEntered": 0
+  }
+}

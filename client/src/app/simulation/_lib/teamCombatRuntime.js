@@ -71,6 +71,12 @@ export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = []
   const focus = sides.map((side) => side.find((row) => row._combatIntent?.focusTargetId)?._combatIntent.focusTargetId || '');
   const strikes = [];
   const encounterId = `${nowSec}:${zoneId}:${getCombatSpaceId(actor)}:${[getActorTeamId(actor), getActorTeamId(target)].sort().join(':')}`;
+  const observeResolution = (strikerId, victimId, outcome, hpBefore = null, hpAfter = null, hpDamage = null) => {
+    if (typeof observeCombatRuntime !== 'function') return;
+    observeCombatParticipation(observeCombatRuntime, { stage: 'team_execution', nowSec,
+      roster: [...survivorMap.values()], newDeadIds, actor, target, onlyActorId, sides, participants,
+      resolution: { actorId: strikerId, targetId: victimId, encounterId, outcome, hpBefore, hpAfter, hpDamage } });
+  };
   emitRunEvent('team_engagement', { encounterId, zoneId, combatSpaceId: getCombatSpaceId(actor), teams: sides.map((side) => side.map(idOf)),
     participants: participants.map(idOf), atSec: nowSec }, at);
   addLog(`🤝 팀 교전: ${actor.teamName || actor.name} ${sides[0].length}명 ↔ ${target.teamName || target.name} ${sides[1].length}명`, 'combat-detail');
@@ -78,11 +84,17 @@ export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = []
     const striker = survivorMap.get(turn.id);
     // Earlier hits can kill, move or control a queued participant.
     if (!striker || !shareCombatSpace(actor, striker) || Number(striker.hp || 0) <= 0 || newDeadIds.includes(turn.id) || String(striker.zoneId) !== zoneId
-      || !canTakeTurn(striker)) continue;
+      || !canTakeTurn(striker)) {
+      observeResolution(turn.id, '', 'invalidated_before_strike');
+      continue;
+    }
     const opponents = sides[1 - turn.side].map((row) => survivorMap.get(idOf(row))).filter((row) => row
       && !newDeadIds.includes(idOf(row)));
     const victim = pickTeamFocusTarget(striker, opponents, focus[turn.side], [...survivorMap.values()]);
-    if (!victim) continue;
+    if (!victim) {
+      observeResolution(turn.id, '', 'no_valid_target');
+      continue;
+    }
     const heldFocus = focus[turn.side] === idOf(victim);
     if (!getForcedControlEffect(striker)) focus[turn.side] = idOf(victim);
     for (const member of getForcedControlEffect(striker) ? [] : sides[turn.side]) {
@@ -91,12 +103,16 @@ export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = []
     }
     const beforeHp = Number(victim.hp);
     const result = resolveStrike(striker, victim);
-    if (result?.performed === false) continue;
+    if (result?.performed === false) {
+      observeResolution(turn.id, idOf(victim), 'not_performed');
+      continue;
+    }
     const after = survivorMap.get(idOf(victim)) || victim;
     const hit = { who: turn.id, targetId: idOf(victim), teamId: getActorTeamId(striker), encounterId,
       damage: Math.max(0, beforeHp - Number(after.hp)), reason: getForcedControlEffect(striker) ? 'taunted_target' : heldFocus ? 'focus_fire' : 'vulnerable_target', zoneId };
     strikes.push(hit);
     emitRunEvent('team_strike', hit, at);
+    observeResolution(turn.id, idOf(victim), hit.damage > 0 ? 'hp_hit' : 'performed_no_hp', beforeHp, Number(after.hp), hit.damage);
   }
   return { handled: true, participants: participants.map(idOf), strikes, encounterId };
 }

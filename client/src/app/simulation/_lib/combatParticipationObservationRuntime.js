@@ -19,17 +19,31 @@ const owned = value => {
 // A schedule snapshot is not an executed attack, nor proof of a missed turn.
 export function observeCombatParticipation(observer, { stage, nowSec = 0, roster = [], newDeadIds = [],
   wildlifeAssistIds = new Map(), scheduled = null, actor = null, target = null, onlyActorId = '',
-  sides = [], participants = [] } = {}) {
+  sides = [], participants = [], arbitration = null, resolution = null } = {}) {
   if (typeof observer !== 'function') return;
   const deadIds = new Set(newDeadIds.map(String));
   const rows = Array.isArray(roster) ? roster : [];
   const snapshot = {
     stage, nowSec: finite(nowSec),
-    scope: 'Read-only scheduler/queue state; not executed actions, missed-turn causality or acceptance.',
+    scope: 'Read-only candidates, arbitration and actual team resolution facts; not missed-turn or survival causality acceptance.',
     truncated: rows.length > 512,
     scheduled: scheduled ? { actorId: String(scheduled.actorId || ''), targetId: String(scheduled.targetId || ''),
       actionType: String(scheduled.actionType || ''), atSec: finite(scheduled.atSec) } : null,
     initiatorId: idOf(actor), targetId: idOf(target), onlyActorId: String(onlyActorId || ''),
+    arbitration: arbitration ? {
+      selectedScheduler: String(arbitration.selectedScheduler || ''),
+      selectedActorId: String(arbitration.selectedActorId || ''),
+      selectedActionType: String(arbitration.selectedActionType || ''),
+      selectedAtSec: finite(arbitration.selectedAtSec), decisionSec: finite(arbitration.decisionSec),
+      scheduled: arbitration.scheduled === true,
+    } : null,
+    resolution: resolution ? {
+      actorId: String(resolution.actorId || ''), targetId: String(resolution.targetId || ''),
+      encounterId: String(resolution.encounterId || ''), outcome: String(resolution.outcome || ''),
+      hpBefore: Number.isFinite(resolution.hpBefore) ? resolution.hpBefore : null,
+      hpAfter: Number.isFinite(resolution.hpAfter) ? resolution.hpAfter : null,
+      hpDamage: Number.isFinite(resolution.hpDamage) ? resolution.hpDamage : null,
+    } : null,
     sides: sides.map(side => side.map(idOf)), participants: participants.map(idOf),
     actors: rows.slice(0, 512).map(row => {
       const point = getSpatialPosition(row);

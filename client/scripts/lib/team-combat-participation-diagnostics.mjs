@@ -1,11 +1,15 @@
-const STAGES = Object.freeze(['schedule', 'team_queue']);
+const STAGES = Object.freeze(['schedule', 'team_queue', 'arbitration', 'team_execution']);
 const ABSENCE_REASONS = Object.freeze([
   'absent_runtime_roster', 'team_changed', 'dead', 'different_zone', 'different_space', 'present',
+  'actor_absent_runtime_roster', 'truncated_roster',
 ]);
 const SCHEDULE_KEYS = Object.freeze([
   'hunt', 'support', 'recovery', 'cast', 'action_locked', 'attack_locked', 'no_intent', 'self_turn', 'other_turn',
 ]);
 const TEAM_QUEUE_KEYS = Object.freeze(['on_field', 'queued', 'other_actor_turn']);
+const ARBITRATION_KEYS = Object.freeze(['candidate', 'selected', 'deferred', 'wildlife_first', 'equipment_first']);
+const ARBITRATION_ACTION_TYPES = Object.freeze(['basic', 'approach', 'skill_start', 'skill_release', 'skill_expire', 'status_boundary', 'other']);
+const EXECUTION_KEYS = Object.freeze(['invalidated_before_strike', 'no_valid_target', 'not_performed', 'performed_no_hp', 'hp_hit']);
 
 const idOf = actor => cleanId(actor?._id ?? actor?.id ?? actor?.actorId);
 const cleanId = value => typeof value === 'string' && value.length > 0 ? value : '';
@@ -103,10 +107,15 @@ export function createTeamCombatParticipationDiagnostics({ roster, actorIds, com
   const counts = new Map(watchedIds.map(actorId => [actorId, {
     schedule: emptyCounts(SCHEDULE_KEYS),
     team_queue: emptyCounts(TEAM_QUEUE_KEYS),
+    arbitration: emptyCounts(ARBITRATION_KEYS),
+    arbitrationByActionType: Object.fromEntries(ARBITRATION_ACTION_TYPES.map(type => [type, emptyCounts(ARBITRATION_KEYS)])),
+    team_execution: emptyCounts(EXECUTION_KEYS),
     changedBuddyAbsence: emptyCounts(ABSENCE_REASONS),
   }]));
   const samples = new Map(watchedIds.map(actorId => [actorId, []]));
+  const executionSamples = new Map(watchedIds.map(actorId => [actorId, []]));
   const scheduleSignatures = new Map(watchedIds.map(actorId => [actorId, new Set()]));
+  const arbitrationSignatures = new Map(watchedIds.map(actorId => [actorId, new Set()]));
 
   const observe = (snapshot, { eventCursor } = {}) => {
     if (!snapshot || !STAGES.includes(snapshot.stage)) return;
@@ -126,6 +135,19 @@ export function createTeamCombatParticipationDiagnostics({ roster, actorIds, com
     const initiatorId = cleanId(snapshot.initiatorId);
     const targetId = cleanId(snapshot.targetId);
     const onlyActorId = cleanId(snapshot.onlyActorId);
+    const arbitration = snapshot.arbitration && typeof snapshot.arbitration === 'object' ? {
+      selectedScheduler: cleanId(snapshot.arbitration.selectedScheduler),
+      selectedActorId: cleanId(snapshot.arbitration.selectedActorId),
+      selectedActionType: cleanId(snapshot.arbitration.selectedActionType),
+      selectedAtSec: finite(snapshot.arbitration.selectedAtSec), decisionSec: finite(snapshot.arbitration.decisionSec),
+      scheduled: snapshot.arbitration.scheduled === true,
+    } : null;
+    const resolution = snapshot.resolution && typeof snapshot.resolution === 'object' ? {
+      actorId: cleanId(snapshot.resolution.actorId), targetId: cleanId(snapshot.resolution.targetId),
+      encounterId: cleanId(snapshot.resolution.encounterId), outcome: cleanId(snapshot.resolution.outcome),
+      hpBefore: finite(snapshot.resolution.hpBefore), hpAfter: finite(snapshot.resolution.hpAfter),
+      hpDamage: finite(snapshot.resolution.hpDamage),
+    } : null;
     const sideSet = new Set(sides.flat());
     const participantSet = new Set(participants);
 
@@ -135,22 +157,77 @@ export function createTeamCombatParticipationDiagnostics({ roster, actorIds, com
       // A different team's encounter says nothing about this actor's missing
       // buddies. Keep queue facts local to a watched actor actually on the side.
       if (stage === 'team_queue' && !ownSide) continue;
+      // These stages concern a specific candidate or actual queued striker,
+      // not every actor whose roster happens to appear in the snapshot.
+      if (stage === 'arbitration' && (!arbitration || scheduled?.actorId !== actorId)) continue;
+      if (stage === 'team_execution' && (!resolution || resolution.actorId !== actorId
+        || !EXECUTION_KEYS.includes(resolution.outcome))) continue;
       const actorCounts = counts.get(actorId);
       const buddyFacts = [];
       for (const buddyId of changedBuddies.get(actorId) ?? []) {
         const buddy = actorsById.get(buddyId);
         let reason;
-        if (!buddy) reason = 'absent_runtime_roster';
+        if (snapshot.truncated === true && (!actor || !buddy)) reason = 'truncated_roster';
+        else if (!actor) reason = 'actor_absent_runtime_roster';
+        else if (!buddy) reason = 'absent_runtime_roster';
         else if (buddy.hp !== null && buddy.hp <= 0 || buddy.deadInThisPhase || buddy.riftDefeated) reason = 'dead';
         else if (actor && buddy.teamId !== actor.teamId) reason = 'team_changed';
         else if (actor && buddy.zoneId !== actor.zoneId) reason = 'different_zone';
         else if (actor && buddy.combatSpaceId !== actor.combatSpaceId) reason = 'different_space';
         else if (ownSide?.includes(buddyId)) reason = 'present';
-        else if (stage === 'schedule' && !sideSet.size && actor && buddy.teamId === actor.teamId
+        else if (['schedule', 'arbitration'].includes(stage) && !sideSet.size && actor && buddy.teamId === actor.teamId
           && buddy.zoneId === actor.zoneId && buddy.combatSpaceId === actor.combatSpaceId) reason = 'present';
         else reason = 'absent_runtime_roster';
-        actorCounts.changedBuddyAbsence[reason] += 1;
+        if (stage === 'schedule' || stage === 'team_queue') actorCounts.changedBuddyAbsence[reason] += 1;
         buddyFacts.push({ buddyId, reason });
+      }
+
+      if (stage === 'arbitration' || stage === 'team_execution') {
+        let currentState;
+        if (stage === 'arbitration') {
+          const stageCounts = actorCounts.arbitration;
+          const actionType = ARBITRATION_ACTION_TYPES.includes(scheduled.actionType) ? scheduled.actionType : 'other';
+          const actionCounts = actorCounts.arbitrationByActionType[actionType];
+          stageCounts.candidate += 1;
+          actionCounts.candidate += 1;
+          const outcome = !arbitration.scheduled ? 'deferred'
+            : arbitration.selectedScheduler === 'pvp' && arbitration.selectedActorId === actorId ? 'selected'
+              : arbitration.selectedScheduler === 'wildlife' ? 'wildlife_first'
+                : arbitration.selectedScheduler === 'equipment' ? 'equipment_first' : '';
+          if (outcome) { stageCounts[outcome] += 1; actionCounts[outcome] += 1; }
+          currentState = { scheduled, arbitration, actor: actor ?? null };
+        } else {
+          actorCounts.team_execution[resolution.outcome] += 1;
+          currentState = { resolution, onlyActorId, actor: actor ?? null };
+        }
+        const actorSamples = executionSamples.get(actorId);
+        const stageLimit = stage === 'arbitration' ? scheduleLimit : queueLimit;
+        if (!stageLimit) continue;
+        const sample = { stage, eventCursor: sampleCursor(eventCursor), nowSec,
+          currentState: cloneSimple(currentState), changedBuddyFacts: buddyFacts };
+        // Early patrol approaches must not consume every sample before a late
+        // basic candidate. Keep one latest-basic slot within the same bound.
+        if (stage === 'arbitration' && scheduled.actionType === 'basic') {
+          const latestBasic = actorSamples.findIndex(item => item.stage === stage && item.currentState.scheduled.actionType === 'basic');
+          if (latestBasic >= 0) actorSamples[latestBasic] = sample;
+          else if (actorSamples.filter(item => item.stage === stage).length < stageLimit) actorSamples.push(sample);
+          else {
+            const replaceIndex = actorSamples.findLastIndex(item => item.stage === stage);
+            actorSamples[replaceIndex] = sample;
+          }
+          continue;
+        }
+        if (actorSamples.filter(item => item.stage === stage).length >= stageLimit) continue;
+        if (stage === 'arbitration') {
+          const signature = JSON.stringify({ scheduler: arbitration.selectedScheduler,
+            selected: arbitration.scheduled, actionType: scheduled.actionType, targetId: scheduled.targetId, atSec: scheduled.atSec,
+            actorId: arbitration.selectedActorId, actorState: scheduleSignature(actor, actorId, scheduled, nowSec) });
+          const seen = arbitrationSignatures.get(actorId);
+          if (seen.has(signature)) continue;
+          seen.add(signature);
+        }
+        actorSamples.push(sample);
+        continue;
       }
 
       if (stage === 'schedule') {
@@ -207,16 +284,21 @@ export function createTeamCombatParticipationDiagnostics({ roster, actorIds, com
   };
 
   const summary = () => ({
-    scope: 'Snapshot frequency of current runtime facts; not executed turns, durations or causal acceptance.',
+    scope: 'Bounded candidate, arbitration and actual team-resolution facts; not durations or causal acceptance.',
     counterSemantics: {
       schedule: 'self_turn/other_turn identify the PvP candidate before wildlife/equipment arbitration and decision deadline checks; not an executed turn.',
       team_queue: 'Only queues with the watched actor on a side are counted; unrelated encounters are excluded. Counts continue after sample limits.',
-      changedBuddyAbsence: 'Snapshot-level facts accumulated across schedule and relevant queues, not per-encounter absence causes or elapsed seconds.',
+      arbitration: 'Only the watched PvP candidate is counted after wildlife/equipment arbitration and deadline checks; selected means dispatch reservation, not an executed attack.',
+      arbitrationByActionType: 'Fixed action-type buckets split basic from approach/patrol and other reservations. A selected approach is not a basic attack. One latest-basic sample is retained within the unchanged stage sample cap.',
+      team_execution: 'Only the watched queued striker is counted at actual recheck/target/resolve points. performed_no_hp is not a positive HP hit; hp_hit does not establish survival causality.',
+      changedBuddyAbsence: 'Snapshot-level facts accumulated across schedule and relevant queues, not per-encounter absence causes or elapsed seconds. actor_absent_runtime_roster and truncated_roster are unavailable comparisons, not positive evidence of buddy absence.',
     },
     actorIds: [...watchedIds],
     sampleLimit: boundedLimit,
+    executionSampleLimit: boundedLimit,
     countsByActor: Object.fromEntries(watchedIds.map(actorId => [actorId, cloneSimple(counts.get(actorId))])),
     samplesByActor: Object.fromEntries(watchedIds.map(actorId => [actorId, cloneSimple(samples.get(actorId))])),
+    executionSamplesByActor: Object.fromEntries(watchedIds.map(actorId => [actorId, cloneSimple(executionSamples.get(actorId))])),
   });
 
   return Object.freeze({ observe, summary });

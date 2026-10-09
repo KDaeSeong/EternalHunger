@@ -20,7 +20,8 @@ const commands = {
   'tactical-receipt-unit': 'node scripts/check-tactical-effect-evidence.mjs && npm run check:verification-fingerprint',
   'tactical-storage-unit': 'node scripts/check-tactical-effect-evidence.mjs && node scripts/check-combat-observation.mjs && node scripts/check-growth-observation.mjs && node scripts/check-custom-consumables.mjs && node scripts/check-custom-crafting.mjs && node scripts/check-equipment-account-recording.mjs && npm run check:verification-fingerprint',
   'strategy-comparison-unit': 'node scripts/check-strategy-comparison-contracts.mjs && npm run check:verification-fingerprint',
-  'team-participation-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'team-survival': 'node scripts/check-team-survival-contribution.mjs',
+  'team-participation-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-team-survival-contribution.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-character-casting.mjs && node scripts/check-forced-control.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'hunt-pvp-interruption': 'node scripts/check-hunt-pvp-interruption.mjs',
   'hunt-pvp-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-hunt-pvp-interruption.mjs && node scripts/check-hunt-pvp-handoff.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-boss-team-combat.mjs && node scripts/check-boss-loot-sharing.mjs && node scripts/check-combat-timing.mjs && node scripts/check-character-casting.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'ai-recovery-forced': 'node scripts/check-ai-recovery-forced-control.mjs',
@@ -97,7 +98,12 @@ function verificationSourceHashes() {
     'scripts/lib/strategy-comparison-contracts.mjs', 'scripts/lib/team-combat-participation-diagnostics.mjs',
     'scripts/check-team-combat-participation-diagnostics.mjs');
   if (mode === 'team-participation-unit') paths.push('scripts/check-combat-participation-observation.mjs',
-    'scripts/check-combat-timing.mjs', 'scripts/check-team-combat.mjs', 'scripts/check-team-observer.mjs');
+    'scripts/check-combat-timing.mjs', 'scripts/check-team-combat.mjs', 'scripts/check-team-observer.mjs',
+    'scripts/check-character-casting.mjs', 'scripts/check-forced-control.mjs', 'scripts/check-ai-recovery-forced-control.mjs');
+  if (['team-survival', 'team-participation-unit', 'full'].includes(mode)) paths.push(
+    'scripts/check-team-survival-contribution.mjs', 'scripts/lib/run-combat-scenario.mjs');
+  if (mode === 'full') paths.push('scripts/check-combat-participation-observation.mjs',
+    'scripts/check-team-combat-participation-diagnostics.mjs', 'scripts/lib/team-combat-participation-diagnostics.mjs');
   if (['hunt-pvp-interruption', 'hunt-pvp-unit'].includes(mode)) paths.push('scripts/check-hunt-pvp-interruption.mjs');
   if (mode === 'hunt-pvp-unit') paths.push('scripts/check-hunt-pvp-handoff.mjs',
     'scripts/check-wildlife-combat.mjs', 'scripts/check-boss-team-combat.mjs',

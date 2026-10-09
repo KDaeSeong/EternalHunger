@@ -16,7 +16,7 @@ export const skill = (extra = {}) => ({ enabled: true, name: 'test skill', type:
   cooldownSec: 10, castDelaySec: 1.25, recoveryDelaySec: 0.25, ...extra });
 
 export async function runCombatScenario(rows, { duration = 4, startSec = 100, settings = {}, onElapsed = () => {},
-  engage = true, nextDay = 1, onFrame = () => {} } = {}) {
+  engage = true, nextDay = 1, onFrame = () => {}, observeCombatRuntime, seed = 'cast-scenario' } = {}) {
   let offset = 0; let live; const events = []; const frames = [];
   const timeline = createPhaseActionTimeline({ durationSec: duration, onElapsed: (from, elapsed) => {
     advanceSpatialMovement([...live.values()], startSec + from, elapsed);
@@ -24,13 +24,15 @@ export async function runCombatScenario(rows, { duration = 4, startSec = 100, se
     onElapsed(live, roundCombatTime(from + elapsed));
   } });
   let promise;
-  withSimulationRandom(createSeedRng('cast-scenario'), () => {
+  const random = createSeedRng(seed);
+  withSimulationRandom(random, () => {
     if (engage) engageCombatParticipants(rows[0], rows[1], rows, startSec);
     promise = runPvpActionLoop({ state: { updatedSurvivors: rows, phaseSurvivors: rows, phaseDurationSec: duration,
       nextDay, nextPhase: 'morning', currentActionSec: () => roundCombatTime(startSec + offset),
       getPhaseRuntimeOffsetSec: () => offset, battleSettings: settings,
       ruleset: { ai: { escapeHpBelow: 0 }, pvp: { criticalFleeHpBelow: 0, teamCombatEnabled: true } } },
       actions: { reserveActionSecond: (seconds) => { offset = Math.min(duration, roundCombatTime(offset + seconds)); },
+        observeCombatRuntime,
         advanceWorld: ({ survivorMap, offsetSec }) => { live = survivorMap; timeline.advanceTo(offsetSec); },
         emitRunEvent: (kind, data, at) => events.push({ kind, ...data, at }),
         atNow: () => ({ sec: roundCombatTime(startSec + offset), day: 1, phase: 'morning' }),
@@ -42,6 +44,6 @@ export async function runCombatScenario(rows, { duration = 4, startSec = 100, se
       } });
   });
   const result = await promise;
-  return { ...result, events, frames, times: (id, type = 'basic') => events.filter((event) => event.kind === 'damage'
+  return { ...result, events, frames, randomState: random.getState(), times: (id, type = 'basic') => events.filter((event) => event.kind === 'damage'
     && event.who === id && event.type === type).map((event) => event.at.sec) };
 }

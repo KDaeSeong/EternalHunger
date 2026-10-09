@@ -367,6 +367,12 @@ function* pvpActionSteps({
         ? nextEquipment : nextOrdinaryCombat;
       const scheduled = nextCombat && nextCombat.atSec <= nextDecisionSec;
       const actionAtSec = scheduled ? nextCombat.atSec : nextDecisionSec;
+      if (typeof observeCombatRuntime === 'function') observeCombatParticipation(observeCombatRuntime, {
+        stage: 'arbitration', nowSec: currentActionSec(), roster: [...survivorMap.values()],
+        newDeadIds, wildlifeAssistIds: assistOwners, scheduled: nextPvpCombat,
+        arbitration: { selectedScheduler: nextCombat?.scheduler, selectedActorId: nextCombat?.actorId,
+          selectedActionType: nextCombat?.actionType, selectedAtSec: nextCombat?.atSec,
+          decisionSec: nextDecisionSec, scheduled: Boolean(scheduled) } });
       reserveActionSecond(Math.max(0, roundCombatTime(actionAtSec - currentActionSec())));
       yield* advanceWorldStep();
       reconcileWildlife();
