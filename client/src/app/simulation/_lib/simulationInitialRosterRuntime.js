@@ -3,8 +3,8 @@ import { resetDetonationTimer } from './detonationTimerRuntime.js';
 import {
   applyErSubjectPreset,
   normalizeErWeaponTypes,
-  pickInitialErWeaponType,
 } from '../../../utils/erMeta';
+import { pickInitialErWeaponTypeForGoals } from './initialWeaponGoalRuntime.js';
 import { ER_STAT_KEYS, normalizeErStats } from '../../../utils/erStats';
 import { applyStartingPassiveHealth } from '../../../utils/characterPassiveStats.js';
 import { createInitialMasteryState } from '../../../utils/masteryLogic';
@@ -222,7 +222,7 @@ export function buildInitialSimulationRoster({
       replaceDefaultTactical: false,
       statBiasScale: Number(ruleset?.ai?.erPresetStatScale ?? 1),
     });
-    const runWeaponType = pickInitialErWeaponType(erPresetSeed);
+    const runWeaponType = pickInitialErWeaponTypeForGoals(erPresetSeed, routeItems);
     const erSeed = {
       ...erPresetSeed,
       erWeapons: normalizeErWeaponTypes(erPresetSeed?.erWeapons),

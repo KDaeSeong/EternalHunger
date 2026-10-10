@@ -37,6 +37,26 @@ export function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, 
   if (!['vf', 'force_core', 'mithril', 'meteor', 'life_tree'].includes(kind)) return unchanged('not_special_material');
   const specialId = String(specialItemId || '');
   if (!specialId || invQty(actor.inventory, specialId) <= 0) return unchanged('special_material_missing');
+  const catalogInput = (Array.isArray(publicItems) ? publicItems : [])
+    .find((item) => String(item?._id || '') === specialId);
+  const inventoryInput = (Array.isArray(actor.inventory) ? actor.inventory : [])
+    .find((item) => String(item?.itemId || item?.id || '') === specialId);
+  const metadataInput = itemMetaById?.[specialId];
+  const isEquipmentOrConsumable = (item) => {
+    if (!item || typeof item !== 'object') return false;
+    const type = String(item.type || '').trim().toLowerCase();
+    const category = String(item.category || '').trim().toLowerCase();
+    if (['equipment', 'weapon', 'armor', 'consumable', 'food', '장비', '무기', '방어구', '소모품', '음식']
+      .includes(type) || ['equipment', 'consumable', '장비', '소모품'].includes(category)) return true;
+    const inferredCategory = inferItemCategory(item);
+    return inferredCategory === 'equipment' || inferredCategory === 'consumable';
+  };
+  // The caller classifies by display name, but a gear/consumable may share that
+  // name. Prefer canonical catalog semantics and also honor explicit inventory
+  // metadata; when those are absent, retain the existing inference behavior.
+  if ([catalogInput, inventoryInput, metadataInput].some(isEquipmentOrConsumable)) {
+    return unchanged('not_special_material');
+  }
   if (actor._growthPlan && !actor._growthPlan.openingComplete) return unchanged('opening_growth_pending');
 
   const targetTier = kind === 'vf' ? 6 : 5;

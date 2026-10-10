@@ -51,7 +51,8 @@ const mergeSource = await readFile(new URL('../src/app/simulation/_lib/runtimePa
 const modalSource = await readFile(new URL('../src/app/characters/_components/CharacterBasicEditModal.js', import.meta.url), 'utf8');
 const gearCatalogSource = await readFile(new URL('../src/app/simulation/_lib/gearCatalogRuntime.js', import.meta.url), 'utf8');
 
-assert.match(rosterSource, /pickInitialErWeaponType\(erPresetSeed\)/, '경기 시작 로스터에서 무기를 추첨해야 합니다.');
+assert.match(rosterSource, /pickInitialErWeaponTypeForGoals\(erPresetSeed, routeItems\)/,
+  '경기 시작 로스터에서 현재 카탈로그의 목표 장비와 양립하는 허용 무기를 추첨해야 합니다.');
 assert.match(rosterSource, /runWeaponType/, '경기 중 사용할 무기를 별도 필드로 고정해야 합니다.');
 assert.match(mergeSource, /if \(base\.runWeaponType\)/, '서버 동기화가 경기 무기를 덮어쓰면 안 됩니다.');
 assert.match(modalSource, /type="checkbox"/, '캐릭터 설정은 다중 무기 체크박스를 제공해야 합니다.');

@@ -37,7 +37,7 @@
     "check:runtime:utils": "eslint -c eslint.runtime.config.mjs src/utils/battleLogic.js src/utils/equipmentCatalog.js src/utils/erMeta.js src/utils/itemLogic.js src/utils/tacticalSkillCatalog.js src/utils/statusEffectApplication.js src/utils/statusEffectDefinitions.js src/utils/statusEffectSelectors.js src/utils/statusLogic.js src/utils/simulationRandom.js src/utils/erStats.js src/utils/statusEffectiveStats.js src/utils/battleEquipmentLogic.js",
     "check:runtime:sweep": "npm run check:runtime:simulation && npm run check:runtime:utils",
     "check:runtime:full": "npm run check:runtime:sweep && npm run build",
-    "check:er-weapons": "node ./scripts/check-er-weapons.mjs",
+    "check:er-weapons": "node ./scripts/check-er-weapons.mjs && node ./scripts/check-initial-weapon-goals.mjs",
     "check:skills": "node ./scripts/check-character-basic-layout.mjs && node ./scripts/check-character-skill-compiler.mjs && node ./scripts/check-character-skill-authoring.mjs && npm run check:character-auto-setup",
     "check:character-auto-setup": "node ./scripts/check-er-preset-editor.mjs && node ./scripts/check-character-auto-setup.mjs && node ./scripts/check-character-auto-setup-ui.mjs",
     "check:starleague": "npm run check:starleague-broadcast && npm run check:starleague-feedback && npm run check:starleague-soundtrack",

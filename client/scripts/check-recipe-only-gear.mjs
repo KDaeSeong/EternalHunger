@@ -35,7 +35,7 @@ const actor = (extra = {}) => ({ _id: 'a', name: '제작자', hp: 100, simCredit
   inventory: [held(mithril), held(cloth, 2)], _actionCycleKey: '4:20', day1Moves: 8, day1HeroDone: false, ...extra });
 const special = (subject, items = [mithril, cloth, target], options = {}) => tryImmediateCraftFromSpecial(subject,
   options.kind || 'mithril', options.specialId || mithril._id, items,
-  buildItemNameById(items || []), buildItemMetaById(items || []),
+  buildItemNameById(items || []), options.metaById ?? buildItemMetaById(items || []),
   options.day ?? 3, options.phase ?? 'morning', options.phaseIdx ?? 4, options.ruleset || ruleset);
 const resources = (subject) => structuredClone({ inventory: subject.inventory, equipped: subject.equipped,
   hp: subject.hp, simCredits: subject.simCredits, day1HeroDone: subject.day1HeroDone,
@@ -149,12 +149,69 @@ await check('all five special material kinds require their own exact recipe', ()
     const core = material(kind, { tier: 4 });
     const resultItem = gear(`result-${kind}`, kind === 'vf' ? 6 : 5, { recipe: { ingredients: [
       { itemId: core._id, qty: 1 }, { itemId: cloth._id, qty: 2 },
-    ] } });
+    ], creditsCost: 7 } });
     const subject = actor({ inventory: [held(core), held(cloth, 2)] });
     const result = special(subject, [core, cloth, resultItem], { kind, specialId: core._id, day: 4 });
     assert.equal(result.craftedId, resultItem._id, kind);
     assert.equal(result.pvpBonus, 0, kind);
+    assert.equal(subject.simCredits, 93, kind);
     assert.equal(invQty(subject.inventory, core._id), 0, kind);
+  }
+});
+
+await check('missing input catalog metadata retains the legacy material inference path', () => {
+  const subject = actor({ inventory: [{ itemId: mithril._id, qty: 1 }, held(cloth, 2)] });
+  const result = special(subject, [cloth, target], { kind: 'mithril', specialId: mithril._id });
+  assert.equal(result.craftedId, target._id);
+  assert.equal(subject.simCredits, 100);
+  assert.equal(invQty(subject.inventory, mithril._id), 0);
+});
+
+await check('equipment and consumables named like special materials cannot act as special recipe inputs', () => {
+  const lookalikes = [
+    { _id: 'finished-mithril-weapon', name: '미스릴', type: 'equipment', equipSlot: 'weapon', weaponType: '창', tier: 4 },
+    { _id: 'mithril-tonic', name: '미스릴', type: 'consumable', tier: 4 },
+  ];
+  for (const input of lookalikes) {
+    const resultItem = gear(`result-${input._id}`, 5, { recipe: { ingredients: [
+      { itemId: input._id, qty: 1 }, { itemId: cloth._id, qty: 2 },
+    ] } });
+    const subject = actor({ inventory: [held(input), held(cloth, 2)] });
+    const before = structuredClone(subject);
+    const result = special(subject, [input, cloth, resultItem], { kind: 'mithril', specialId: input._id });
+    assert.equal(result.changed, false, input._id);
+    assert.equal(result.reason, 'not_special_material', input._id);
+    assert.deepEqual(subject, before, input._id);
+  }
+});
+
+await check('special input classification is independently enforced from catalog, held inventory and metadata', () => {
+  const attempt = ({ id, catalogInput, heldInput, metaById }) => {
+    const resultItem = gear(`result-${id}`, 5, { recipe: { ingredients: [
+      { itemId: id, qty: 1 }, { itemId: cloth._id, qty: 2 },
+    ] } });
+    const items = [catalogInput, cloth, resultItem];
+    const subject = actor({ inventory: [heldInput, held(cloth, 2)] });
+    const before = structuredClone(subject);
+    const result = special(subject, items, { kind: 'mithril', specialId: id, metaById });
+    assert.equal(result.changed, false, id);
+    assert.equal(result.reason, 'not_special_material', id);
+    assert.deepEqual(subject, before, id);
+  };
+
+  for (const [id, type] of [['catalog-equipment-only', 'equipment'], ['catalog-consumable-only', 'consumable']]) {
+    attempt({ id, catalogInput: { _id: id, name: '미스릴', type, tier: 4 },
+      heldInput: { itemId: id, qty: 1 }, metaById: {} });
+  }
+
+  attempt({ id: 'inventory-equipment-only',
+    catalogInput: { _id: 'inventory-equipment-only', name: '미스릴', tier: 4 },
+    heldInput: { itemId: 'inventory-equipment-only', qty: 1, category: 'equipment' },
+    metaById: { 'inventory-equipment-only': { name: '미스릴', tier: 4 } } });
+
+  for (const [id, type] of [['metadata-consumable-only', 'consumable'], ['metadata-weapon-only', 'weapon']]) {
+    attempt({ id, catalogInput: { _id: id, name: '미스릴', tier: 4 },
+      heldInput: { itemId: id, qty: 1 }, metaById: { [id]: { name: '미스릴', type, tier: 4 } } });
   }
 });
 

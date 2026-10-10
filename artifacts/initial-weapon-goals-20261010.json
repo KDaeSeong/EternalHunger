@@ -1,0 +1,677 @@
+{
+  "schemaVersion": 1,
+  "reportOnly": true,
+  "neverUseAsVerificationInput": true,
+  "date": "2026-10-10",
+  "baseCommit": "a7bf0de7f8810639a89d41138c4a3a49e90d673e",
+  "engine": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+  "scope": "Initial run weapon selection constrained only by valid authored equipment goals; special-material input classification; fresh recipes/competitive execution. Not original-log replay, broad balance, browser speed/memory, AI/account write, deployment or overall-goal acceptance.",
+  "historicalUserLogAnalysis": {
+    "sourceEngine": "35d53313521f110df48c95e910698a697becc641d9c3c14968f713ee61962824",
+    "firstOpeningCompletions": {
+      "count": 21,
+      "total": 24,
+      "minSec": 21,
+      "maxSec": 39
+    },
+    "selectedVersusHeroWeaponMismatch": 3,
+    "caution": "Actual hero+ equipment and saved target completion are different; death/revival state is not first-farming evidence. T1 axe missing only in supplied effective catalog. No original user inputs/results serve as fresh fixtures.",
+    "sources": [
+      {
+        "path": "C:/Users/home/Downloads/eternal-hunger-log-霞澤 美遊-2026-10-09T11-45-38.md",
+        "bytes": 848646,
+        "sha256": "AF443FB04F9A81A5447859C63E96AF910D223D0EE2D8D8DB2D171E3C4E2EFA85"
+      },
+      {
+        "path": "C:/Users/home/Downloads/eternal-hunger-log-霞澤 美遊-2026-10-09T11-45-39.json",
+        "bytes": 17820619,
+        "sha256": "3455608313315AEE5A589FF6734BEE901715C922842EED92BA98DA7EE47E2B3F"
+      }
+    ]
+  },
+  "previousFreshBoundaryBaseline": {
+    "engine": "e2ac0131efeea55fecf0c5b0b6f369ba26c69c9f46a45a937d5b470544be1e77",
+    "evidence": {
+      "scope": "Fresh independent two-roll initial roster/route/progress boundary only; synthetic owned inventory is not an actual craft/match or old-log replay.",
+      "historicalFileReads": 0,
+      "productEdits": 0,
+      "rows": [
+        {
+          "roll": 0,
+          "selectedWeapon": "창",
+          "savedGoal": "fresh:weapon",
+          "routeWeapon": "fresh-weapon",
+          "routeTargets": [
+            "fresh-weapon",
+            "fresh-head",
+            "fresh-clothes",
+            "fresh-arm",
+            "fresh-shoes"
+          ],
+          "completedSlots": 5,
+          "totalSlots": 5,
+          "issues": [],
+          "blocked": "",
+          "savedInputUnchanged": true
+        },
+        {
+          "roll": 0.999,
+          "selectedWeapon": "박격포",
+          "savedGoal": "fresh:weapon",
+          "routeWeapon": "fresh-weapon-other",
+          "routeTargets": [
+            "fresh-weapon-other",
+            "fresh-head",
+            "fresh-clothes",
+            "fresh-arm",
+            "fresh-shoes"
+          ],
+          "completedSlots": 4,
+          "totalSlots": 5,
+          "issues": [
+            {
+              "stage": "opening",
+              "itemId": "fresh-weapon",
+              "key": "fresh:weapon",
+              "slot": "weapon",
+              "reason": "weapon_mismatch"
+            }
+          ],
+          "blocked": "invalid_target",
+          "savedInputUnchanged": true
+        }
+      ]
+    },
+    "scope": "Previous-turn inline actual initial roster/route/progress; assumed owned gear only, no actual crafting. Kept as reporting evidence, never a test input or expected outcome."
+  },
+  "implementation": [
+    "Pick only allowed normalized weapon labels whose equipment family fits valid authored opening and later goals; retain one RNG draw and unchanged authored data.",
+    "Keep legacy draw if goals are absent or intersection is empty; retain missing/deleted/wrong-slot/tier/conflict diagnostics and existing distinct opening/late alias contracts.",
+    "Reject equipment/consumable special inputs using canonical catalog, held entry and metadata classification; metadata-missing material inference and real recipe/cost/gates remain."
+  ],
+  "verification": {
+    "namedRuns": [
+      {
+        "runId": "2026-10-10T04-25-11.314Z-5286307a-0e33-47ba-97af-feabd2fdff7b",
+        "command": "npm run check:er-weapons && npm run check:recipe-only-gear && npm run check:growth-plan && npm run check:character-auto-setup && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+        "status": "failed",
+        "exitCode": 1,
+        "engine": "daacbebf3abc900b2ca2643e5257af58e67441c0b711032036836a90159afe0b",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "startedAt": "2026-10-10T04:25:11.319Z",
+        "finishedAt": "2026-10-10T04:25:16.822Z",
+        "pid": 59620,
+        "verificationSources": {
+          "scripts/run-eternal-hunger-verification.mjs": "9b5092c89dc759dfaa6987e7c74033c334bdd0c6eb7de69943aed873340a2ee1",
+          "package.json": "d55c59c290d356b79c2798a3c727a378c794bf762b45d9dcb4929eeca0b3904d",
+          "scripts/check-er-weapons.mjs": "50fa439363bd2ceb2bff960ca70c0a462362fc310986a108294b57690bb34653",
+          "scripts/check-initial-weapon-goals.mjs": "78a0c4a4afbf041c1fd1d7c66a7ffa65b2ab5a8cf35b88a83ece37552d446417",
+          "scripts/check-recipe-only-gear.mjs": "5e89b7b96e5fad35a8ff65de01ee305171e9b7dc29c5303c99bd4aaab486d9fa",
+          "scripts/check-hunt-settlement.mjs": "7b6e2077389fdf6f9e4b53675ce11d02f041ea688e8b9e198eda2e7a2c206ed7",
+          "scripts/check-growth-plan.mjs": "7b4e47450c19545f366fcde8f76880fd7c13aeeedf975caf3e116dd05b817db9",
+          "scripts/check-character-auto-setup.mjs": "dc261d89695dba30a5debab1e26f8d3eac238af032a277dadf8a1484abf8c111",
+          "scripts/check-team-observer.mjs": "a6318ec9e9e4cdd9bc3d533502020c47d92c73ff015f9c0b6907548a1e56b591"
+        }
+      },
+      {
+        "runId": "2026-10-10T04-25-49.328Z-809984e0-2bc4-47b9-b3fb-e69ba2ee6737",
+        "command": "npm run check:er-weapons && npm run check:recipe-only-gear && npm run check:growth-plan && npm run check:character-auto-setup && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+        "status": "passed",
+        "exitCode": 0,
+        "engine": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "startedAt": "2026-10-10T04:25:49.331Z",
+        "finishedAt": "2026-10-10T04:28:18.042Z",
+        "pid": 18476,
+        "verificationSources": {
+          "scripts/run-eternal-hunger-verification.mjs": "9b5092c89dc759dfaa6987e7c74033c334bdd0c6eb7de69943aed873340a2ee1",
+          "package.json": "d55c59c290d356b79c2798a3c727a378c794bf762b45d9dcb4929eeca0b3904d",
+          "scripts/check-er-weapons.mjs": "50fa439363bd2ceb2bff960ca70c0a462362fc310986a108294b57690bb34653",
+          "scripts/check-initial-weapon-goals.mjs": "78a0c4a4afbf041c1fd1d7c66a7ffa65b2ab5a8cf35b88a83ece37552d446417",
+          "scripts/check-recipe-only-gear.mjs": "5e89b7b96e5fad35a8ff65de01ee305171e9b7dc29c5303c99bd4aaab486d9fa",
+          "scripts/check-hunt-settlement.mjs": "7b6e2077389fdf6f9e4b53675ce11d02f041ea688e8b9e198eda2e7a2c206ed7",
+          "scripts/check-growth-plan.mjs": "7b4e47450c19545f366fcde8f76880fd7c13aeeedf975caf3e116dd05b817db9",
+          "scripts/check-character-auto-setup.mjs": "dc261d89695dba30a5debab1e26f8d3eac238af032a277dadf8a1484abf8c111",
+          "scripts/check-team-observer.mjs": "a6318ec9e9e4cdd9bc3d533502020c47d92c73ff015f9c0b6907548a1e56b591"
+        }
+      },
+      {
+        "runId": "2026-10-10T04-26-28.106Z-a437933e-4f4a-4e2c-8c28-a5d4d1efb172",
+        "command": "npm run build",
+        "status": "passed",
+        "exitCode": 0,
+        "engine": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "startedAt": "2026-10-10T04:26:28.110Z",
+        "finishedAt": "2026-10-10T04:28:05.701Z",
+        "pid": 18048,
+        "verificationSources": {
+          "scripts/run-eternal-hunger-verification.mjs": "9b5092c89dc759dfaa6987e7c74033c334bdd0c6eb7de69943aed873340a2ee1",
+          "package.json": "d55c59c290d356b79c2798a3c727a378c794bf762b45d9dcb4929eeca0b3904d"
+        }
+      },
+      {
+        "runId": "2026-10-10T04-28-23.388Z-91d89673-7b05-4af9-a830-7fdd3c18fadb",
+        "command": "node scripts/check-initial-weapon-goals-match.mjs && npm run check:opening-deadline:match && npm run check:growth-scheduling:match",
+        "status": "passed",
+        "exitCode": 0,
+        "engine": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "startedAt": "2026-10-10T04:28:23.390Z",
+        "finishedAt": "2026-10-10T04:35:50.652Z",
+        "pid": 42936,
+        "verificationSources": {
+          "scripts/run-eternal-hunger-verification.mjs": "9b5092c89dc759dfaa6987e7c74033c334bdd0c6eb7de69943aed873340a2ee1",
+          "package.json": "d55c59c290d356b79c2798a3c727a378c794bf762b45d9dcb4929eeca0b3904d",
+          "scripts/check-initial-weapon-goals-match.mjs": "a2604c0a599ea988d36532ba38d8a72bb95cb42ba391edb62c5ac7e3bd6c984b",
+          "scripts/check-opening-deadline-match.mjs": "a6698cd5897978ffbb5e5554e722d25c564195e1fac74a407cb370c1bdca5111",
+          "scripts/check-growth-scheduling-match.mjs": "d3f26bab9fcc126421eaf723ed06e935d02d5a709d03f4e81d1e7a82c6df28d9",
+          "scripts/lib/run-random-isolation-match.mjs": "af468024a2dfc8120016640f13c60e7325499c6e045a022fec1627322f25d504",
+          "scripts/lib/register-simulation-modules.mjs": "4bc7e4e316d91b92e709610bf0a77b2d7fd0459368c9f5e5a01ba63744693eef"
+        }
+      }
+    ],
+    "failedFirstUnit": {
+      "runId": "2026-10-10T04-25-11.314Z-5286307a-0e33-47ba-97af-feabd2fdff7b",
+      "exitCode": 1,
+      "reason": "This implementation misread late target item array as candidate wrappers; the fresh conflict fixture caught it. Corrected mapping and reran a separate command."
+    },
+    "unit": {
+      "initialWeaponGroups": 10,
+      "recipeOnlyGearChecks": 27,
+      "rngDrawsPerPick": 1,
+      "scope": "Actual initial roster/route/progress and adjacent recipe/hunt/growth/preset/observer/fingerprint/runtime lint chains; no whole-suite acceptance."
+    },
+    "freshCompetitiveGoal": {
+      "pass": true,
+      "runSeed": "initial-weapon-goal-competitive-20261010",
+      "initialRosterSeed": "initial-weapon-goal-roster-20261010",
+      "watchedId": "guest-survivor-01",
+      "goalItemId": "namu:권총:글록 48",
+      "goalWeaponType": "권총",
+      "allowedWeapons": [
+        "돌격소총",
+        "권총"
+      ],
+      "selectedRunWeaponType": "권총",
+      "watchedCrafts": 1,
+      "equippedGoal": true,
+      "fiveSlotCompletionSec": 29,
+      "events": 6291,
+      "frames": 1350,
+      "frameDigest": "81adf4a7e637fa8ef20f6a6f96b6e377276f73c104a4985f620c427e8c73fc55",
+      "eventDigest": "5bd28eab7512bd51424fb8c70bd6dfabb992ed8d7b801a726570d7bab14e7c5b",
+      "finalRandomState": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 544239308,
+        "draws": 5016,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "scope": "One current bundled catalog and fresh 24-actor competitive input through day-one night; not a guarantee for custom catalogs, deaths, unavailable recipes, all seeds, UI behavior or human evaluation."
+    },
+    "firstNightInputs": [
+      {
+        "pass": true,
+        "seed": "1101",
+        "initialRosterSeed": "FIRST-DAY:1101",
+        "firstDayEndSec": 250,
+        "complete": 24,
+        "total": 24,
+        "battles": 10,
+        "eventCount": 6121,
+        "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes",
+        "minCompletionSec": 24,
+        "maxCompletionSec": 42
+      },
+      {
+        "pass": true,
+        "seed": "2202",
+        "initialRosterSeed": "FIRST-DAY:2202",
+        "firstDayEndSec": 250,
+        "complete": 24,
+        "total": 24,
+        "battles": 7,
+        "eventCount": 6343,
+        "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes",
+        "minCompletionSec": 24,
+        "maxCompletionSec": 39
+      },
+      {
+        "pass": true,
+        "seed": "3303",
+        "initialRosterSeed": "FIRST-DAY:3303",
+        "firstDayEndSec": 250,
+        "complete": 24,
+        "total": 24,
+        "battles": 7,
+        "eventCount": 6409,
+        "scope": "current canonical competitive fixture, real recipes/stocks and two production phases; not exact reproduction of supplied battle-log-only exports or a guarantee for combat deaths/custom unavailable recipes",
+        "minCompletionSec": 21,
+        "maxCompletionSec": 68
+      }
+    ],
+    "schedulingWorkers": [
+      {
+        "worker": "headless",
+        "engine": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+        "yields": 0,
+        "frameYields": 0,
+        "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+        "eventCount": 11633,
+        "frames": 5840,
+        "eventDigest": "52c99d0295115037af6964d786024a717dd0861db2358efc579d5e6a5d4cad35",
+        "frameDigest": "66cdcace028367955150991953de1c83f43cffa394c3b3530bb3d4865b6ac69c",
+        "finalFrameDigest": "b19f2e6b60a9bc6c4cfeef71a8c8a63ae03fd2ad642f74f2a1beef36630da75b",
+        "logDigest": "220f77fa4cb9a9900e2052d0d1a33c365a828f502ffc9aa2ed2c2642b6e564ae",
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1124.916666,
+          "day": 6,
+          "phase": "morning",
+          "cause": "combat",
+          "winnerTeamId": "team:1"
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2014021095,
+          "draws": 8934,
+          "ids": 0,
+          "nameHistory": []
+        }
+      },
+      {
+        "worker": "cooperative",
+        "engine": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+        "yields": 35096,
+        "frameYields": 0,
+        "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+        "eventCount": 11633,
+        "frames": 5840,
+        "eventDigest": "52c99d0295115037af6964d786024a717dd0861db2358efc579d5e6a5d4cad35",
+        "frameDigest": "66cdcace028367955150991953de1c83f43cffa394c3b3530bb3d4865b6ac69c",
+        "finalFrameDigest": "b19f2e6b60a9bc6c4cfeef71a8c8a63ae03fd2ad642f74f2a1beef36630da75b",
+        "logDigest": "220f77fa4cb9a9900e2052d0d1a33c365a828f502ffc9aa2ed2c2642b6e564ae",
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1124.916666,
+          "day": 6,
+          "phase": "morning",
+          "cause": "combat",
+          "winnerTeamId": "team:1"
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2014021095,
+          "draws": 8934,
+          "ids": 0,
+          "nameHistory": []
+        }
+      },
+      {
+        "worker": "visible-cooperative",
+        "engine": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+        "yields": 10537,
+        "frameYields": 24559,
+        "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+        "eventCount": 11633,
+        "frames": 5840,
+        "eventDigest": "52c99d0295115037af6964d786024a717dd0861db2358efc579d5e6a5d4cad35",
+        "frameDigest": "66cdcace028367955150991953de1c83f43cffa394c3b3530bb3d4865b6ac69c",
+        "finalFrameDigest": "b19f2e6b60a9bc6c4cfeef71a8c8a63ae03fd2ad642f74f2a1beef36630da75b",
+        "logDigest": "220f77fa4cb9a9900e2052d0d1a33c365a828f502ffc9aa2ed2c2642b6e564ae",
+        "ending": {
+          "outcome": "last_team",
+          "atSec": 1124.916666,
+          "day": 6,
+          "phase": "morning",
+          "cause": "combat",
+          "winnerTeamId": "team:1"
+        },
+        "random": {
+          "algorithm": "fnv1a-mulberry32-v1",
+          "state": 2014021095,
+          "draws": 8934,
+          "ids": 0,
+          "nameHistory": []
+        }
+      }
+    ],
+    "schedulingComparison": {
+      "pass": true,
+      "seed": "1101",
+      "matches": 3,
+      "cooperativeYields": 35096,
+      "visibleTaskYields": 10537,
+      "visibleFrameYields": 24559,
+      "scope": "current headless versus hidden and visible cooperative complete 24-actor fixture: input, events, every published frame, ending, logs and RNG; deterministic host scheduling, not historical output dependency, real browser performance or human evaluation"
+    },
+    "build": {
+      "files": 1429,
+      "bytes": 74758642,
+      "sha256": "E0DFD12CA892EE0DB9F1C241478474BFA0AC06E47D77AD60A8F0F2F1FF2BD705",
+      "buildId": "fG47U78RZFJOA6LFHG1F1",
+      "hardlinkedFiles": 0,
+      "staticPages": 62,
+      "compiledEngineMarkerPaths": [
+        "client/.next/server/chunks/2433.js",
+        "client/.next/static/chunks/5167-b5b2e2753e15af22.js"
+      ]
+    },
+    "standaloneScriptLint": {
+      "exitCode": 0,
+      "toolChunk": "d5d52e",
+      "paths": [
+        "client/scripts/check-er-weapons.mjs",
+        "client/scripts/check-initial-weapon-goals.mjs",
+        "client/scripts/check-initial-weapon-goals-match.mjs",
+        "client/scripts/check-recipe-only-gear.mjs",
+        "client/scripts/run-eternal-hunger-verification.mjs"
+      ]
+    },
+    "fullCheckEternalHungerRerun": false,
+    "rawTerminalRecords": [
+      {
+        "path": "client/.verification-runs/2026-10-10T04-25-11.314Z-5286307a-0e33-47ba-97af-feabd2fdff7b/result.json",
+        "bytes": 2805,
+        "sha256": "8BD5C764C1FD03C64B761E7AF645201EDB1B0754B7DB034D5B85E00200AD108C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-25-11.314Z-5286307a-0e33-47ba-97af-feabd2fdff7b/output.log",
+        "bytes": 1574,
+        "sha256": "8831B67EFB851183838A5FF46B8E42C9F1673CECE21EB7459D8D3C9368831F8A"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-25-49.328Z-809984e0-2bc4-47b9-b3fb-e69ba2ee6737/result.json",
+        "bytes": 2805,
+        "sha256": "4241339ABA70C13365A9195AB3CAA292A7EC2FD4D7F7CB22B6F6958A78219C57"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-25-49.328Z-809984e0-2bc4-47b9-b3fb-e69ba2ee6737/output.log",
+        "bytes": 72944,
+        "sha256": "8C465F800B50F4D72452E1312101208D16899DF60BB875E7E463E6B214B1362C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-26-28.106Z-a437933e-4f4a-4e2c-8c28-a5d4d1efb172/result.json",
+        "bytes": 1063,
+        "sha256": "D92EE4E1954059DC9702AA18CA763EFA16C688FB4B5423502D624F37DC57420B"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-26-28.106Z-a437933e-4f4a-4e2c-8c28-a5d4d1efb172/output.log",
+        "bytes": 3012,
+        "sha256": "DA4E583643A457098EFF6F6BC7CE131A210E6567EB7D290F4F36E54416C2127C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-28-23.388Z-91d89673-7b05-4af9-a830-7fdd3c18fadb/result.json",
+        "bytes": 2360,
+        "sha256": "94CCB18797F056BE3E1138BEA8A1084560EE86C63A129B710FDFC837D357B39C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-28-23.388Z-91d89673-7b05-4af9-a830-7fdd3c18fadb/output.log",
+        "bytes": 14616,
+        "sha256": "DD25EA96BBD900D4BA0D513529179AE839A43980A6DD6251F1C58F555E0BF296"
+      }
+    ]
+  },
+  "cleanup": {
+    "scope": "Only this build's six verified regenerable webpack packs. No recursive directory deletion, project/archive duplicate, .codex session rewrite or unique evidence deletion.",
+    "activeRelevantJobs": 0,
+    "removedCount": 6,
+    "removedBytes": 593972882,
+    "remainingPackFiles": 0,
+    "pathsVerifiedInside": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+    "recovery": "Regenerate with npm run build",
+    "physicalFreeSpaceMeasured": false,
+    "protectedCount": 29,
+    "sameProtectedFiles": true,
+    "sameBuild": true,
+    "sameGoalTail": true,
+    "nextScopeBefore": {
+      "files": 1443,
+      "uniqueFiles": 1443,
+      "bytes": 668882660
+    },
+    "nextScopeAfter": {
+      "files": 1437,
+      "uniqueFiles": 1437,
+      "bytes": 74909778
+    },
+    "logicalReduction": 593972882,
+    "deletedFiles": [
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/0.pack",
+        "bytes": 255946686,
+        "sha256": "C29B08033DED50CBE826551F1FE89A755AEFAEFE03302832713F390187555718",
+        "result": "removed; rebuildable"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/index.pack",
+        "bytes": 12844488,
+        "sha256": "BE1BBD248488CC3D29C5B8CC88AEFB50EFB5970E0AED88A90E13A59EC1186C0C",
+        "result": "removed; rebuildable"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/edge-server-production/0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+        "result": "removed; rebuildable"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/edge-server-production/index.pack",
+        "bytes": 2464,
+        "sha256": "FBC7631CAD6C690852705244ECDD5C64FEEC7C0729588DD86F471DB4AFE70096",
+        "result": "removed; rebuildable"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/server-production/0.pack",
+        "bytes": 307093628,
+        "sha256": "0E5D555E302A600D26FCFA60A7D444BC364DF4B72163B3F0F7AFB3FC9CE75D26",
+        "result": "removed; rebuildable"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/server-production/index.pack",
+        "bytes": 18085340,
+        "sha256": "E55B378928787463ED8A7FEF44F42E5DD37045C20846A9F292101817059D071A",
+        "result": "removed; rebuildable"
+      }
+    ],
+    "protectedFilesAtDeletionBoundary": [
+      {
+        "path": "client/package.json",
+        "bytes": 27176,
+        "sha256": "D55C59C290D356B79C2798A3C727A378C794BF762B45D9DCB4929EECA0B3904D"
+      },
+      {
+        "path": "client/scripts/check-er-weapons.mjs",
+        "bytes": 3826,
+        "sha256": "50FA439363BD2CEB2BFF960CA70C0A462362FC310986A108294B57690BB34653"
+      },
+      {
+        "path": "client/scripts/check-initial-weapon-goals.mjs",
+        "bytes": 19375,
+        "sha256": "78A0C4A4AFBF041C1FD1D7C66A7FFA65B2AB5A8CF35B88A83ECE37552D446417"
+      },
+      {
+        "path": "client/scripts/check-initial-weapon-goals-match.mjs",
+        "bytes": 9077,
+        "sha256": "A2604C0A599EA988D36532BA38D8A72BB95CB42BA391EDB62C5AC7E3BD6C984B"
+      },
+      {
+        "path": "client/scripts/check-recipe-only-gear.mjs",
+        "bytes": 21699,
+        "sha256": "5E89B7B96E5FAD35A8FF65DE01EE305171E9B7DC29C5303C99BD4AAAB486D9FA"
+      },
+      {
+        "path": "client/scripts/run-eternal-hunger-verification.mjs",
+        "bytes": 20323,
+        "sha256": "9B5092C89DC759DFAA6987E7C74033C334BDD0C6EB7DE69943AED873340A2EE1"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "bytes": 166,
+        "sha256": "95FBD27E7A01D69F72FCAB7B928D1FC9CA5B22C90C255788FBAA30972B6FC65E"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/gearImmediateSpecialCraftRuntime.js",
+        "bytes": 5765,
+        "sha256": "AD90AEA53B5EC9AD472010D6081AF3783B818441EFCFB341D418C3A9741E6078"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/simulationInitialRosterRuntime.js",
+        "bytes": 11807,
+        "sha256": "AB8D90E39595024FBE543E464923F7C365ECCCA0BFD1502ADF41435F368C671E"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/initialWeaponGoalRuntime.js",
+        "bytes": 2584,
+        "sha256": "4A2F962226B6822C224201979E4B4746C2017F0E61434A4287A759005731F728"
+      },
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "bytes": 15715,
+        "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+      },
+      {
+        "path": "server/index.js",
+        "bytes": 5619,
+        "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+      },
+      {
+        "path": "server/.env.example",
+        "bytes": 2125,
+        "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+      },
+      {
+        "path": "docs/eternal-hunger-goal.md",
+        "bytes": 233280,
+        "sha256": "D14D295527FD397D3E5C4F66E25CE650EF0DCCD48392F4977D9CD7C4697B9E4E"
+      },
+      {
+        "path": "docs/late-growth-goals-verification.md",
+        "bytes": 25775,
+        "sha256": "B28803BCEBFE7CAB5F8FBC7CB2ED54C88D66C8838B034A241311D1F478B59BCF"
+      },
+      {
+        "path": "C:/Users/home/Downloads/eternal-hunger-log-霞澤 美遊-2026-10-09T11-45-38.md",
+        "bytes": 848646,
+        "sha256": "AF443FB04F9A81A5447859C63E96AF910D223D0EE2D8D8DB2D171E3C4E2EFA85"
+      },
+      {
+        "path": "C:/Users/home/Downloads/eternal-hunger-log-霞澤 美遊-2026-10-09T11-45-39.json",
+        "bytes": 17820619,
+        "sha256": "3455608313315AEE5A589FF6734BEE901715C922842EED92BA98DA7EE47E2B3F"
+      },
+      {
+        "path": "docs/world-contact-investigation-2026-10-10.md",
+        "bytes": 5735,
+        "sha256": "FA09050C17FCFEA0A90C06B6B78BE02DAA62A099A4ECFA2C8A40B0323E81DC97"
+      },
+      {
+        "path": "artifacts/world-contact-investigation-20261010.json",
+        "bytes": 21461,
+        "sha256": "E5424CF0682F505BC17ECC224894CB49C8734C06C55042F887A8176E62D1C473"
+      },
+      {
+        "path": "docs/combat-path-participation-verification-2026-10-10.md",
+        "bytes": 10268,
+        "sha256": "258FD6F34281491D707299455C90E576B4B226B2D289C92C53770E73C303B537"
+      },
+      {
+        "path": "artifacts/combat-path-participation-20261010.json",
+        "bytes": 84631,
+        "sha256": "E658A848E55D1A9A2DFEFD46C077DD57DA20FB85269D3D22CFD2846E0100BF9C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-25-11.314Z-5286307a-0e33-47ba-97af-feabd2fdff7b/result.json",
+        "bytes": 2805,
+        "sha256": "8BD5C764C1FD03C64B761E7AF645201EDB1B0754B7DB034D5B85E00200AD108C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-25-11.314Z-5286307a-0e33-47ba-97af-feabd2fdff7b/output.log",
+        "bytes": 1574,
+        "sha256": "8831B67EFB851183838A5FF46B8E42C9F1673CECE21EB7459D8D3C9368831F8A"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-25-49.328Z-809984e0-2bc4-47b9-b3fb-e69ba2ee6737/result.json",
+        "bytes": 2805,
+        "sha256": "4241339ABA70C13365A9195AB3CAA292A7EC2FD4D7F7CB22B6F6958A78219C57"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-25-49.328Z-809984e0-2bc4-47b9-b3fb-e69ba2ee6737/output.log",
+        "bytes": 72944,
+        "sha256": "8C465F800B50F4D72452E1312101208D16899DF60BB875E7E463E6B214B1362C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-26-28.106Z-a437933e-4f4a-4e2c-8c28-a5d4d1efb172/result.json",
+        "bytes": 1063,
+        "sha256": "D92EE4E1954059DC9702AA18CA763EFA16C688FB4B5423502D624F37DC57420B"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-26-28.106Z-a437933e-4f4a-4e2c-8c28-a5d4d1efb172/output.log",
+        "bytes": 3012,
+        "sha256": "DA4E583643A457098EFF6F6BC7CE131A210E6567EB7D290F4F36E54416C2127C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-28-23.388Z-91d89673-7b05-4af9-a830-7fdd3c18fadb/result.json",
+        "bytes": 2360,
+        "sha256": "94CCB18797F056BE3E1138BEA8A1084560EE86C63A129B710FDFC837D357B39C"
+      },
+      {
+        "path": "client/.verification-runs/2026-10-10T04-28-23.388Z-91d89673-7b05-4af9-a830-7fdd3c18fadb/output.log",
+        "bytes": 14616,
+        "sha256": "DD25EA96BBD900D4BA0D513529179AE839A43980A6DD6251F1C58F555E0BF296"
+      }
+    ],
+    "completedBuildBefore": {
+      "files": 1429,
+      "bytes": 74758642,
+      "sha256": "E0DFD12CA892EE0DB9F1C241478474BFA0AC06E47D77AD60A8F0F2F1FF2BD705",
+      "buildId": "fG47U78RZFJOA6LFHG1F1",
+      "hardlinkedFiles": 0
+    },
+    "completedBuildAfter": {
+      "files": 1429,
+      "bytes": 74758642,
+      "sha256": "E0DFD12CA892EE0DB9F1C241478474BFA0AC06E47D77AD60A8F0F2F1FF2BD705",
+      "buildId": "fG47U78RZFJOA6LFHG1F1",
+      "hardlinkedFiles": 0
+    },
+    "intentionalDocumentationEditsAfterCleanup": [
+      {
+        "Path": "C:\\2저장고\\EternalHunger\\docs\\eternal-hunger-goal.md",
+        "Hash": "08F4B40D41E226B66DE27A39146825AF49F183B69F336732D837DD1978622536"
+      },
+      {
+        "Path": "C:\\2저장고\\EternalHunger\\docs\\late-growth-goals-verification.md",
+        "Hash": "9FEE24E73D188E38E980B4F5431F3F0FEC114F3DFD61D31814F58F9234027C83"
+      }
+    ],
+    "physicalAllocationMeasured": false,
+    "retained": "Current completed build; all four raw named-run result/output pairs including first failure; original user JSON/MD; previous unique investigation records; unrelated/ambiguous untracked files."
+  },
+  "originalGoalTail": {
+    "chars": 20641,
+    "bytes": 43026,
+    "sha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B"
+  },
+  "overallGoalStatus": "active; original G1-G5/common acceptance unchanged and incomplete",
+  "remainingGates": [
+    "public reflection",
+    "foreground browser speed and continuous memory",
+    "new-session save/resume",
+    "real AI generation and authorized authenticated save",
+    "follow-up human evaluation"
+  ],
+  "externalWrites": {
+    "gitPush": 0,
+    "deployment": 0,
+    "foregroundBrowser": 0,
+    "accountWrites": 0,
+    "paidAiCalls": 0,
+    "humanScoresEntered": 0
+  }
+}
