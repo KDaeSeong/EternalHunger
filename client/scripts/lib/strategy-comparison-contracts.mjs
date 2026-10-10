@@ -141,7 +141,7 @@ export function buildFormationExposure(events, initialActors, actorIds, comparis
         activeEngagementTurns: 0, strikeCandidates: 0, rejectedStrikes: {}, rejectedStrikeSamples: [] } };
   });
   const watched = new Map(participants.map(row => [row.actorId, row]));
-  const damageByAction = new Map(), engagements = new Map();
+  const damageByAction = new Map(), engagements = new Map(), presenceInvalidatedAt = new Map();
   const isEnemy = (left, right) => actors.has(left) && actors.has(right)
     && getActorTeamId(actors.get(left)) !== getActorTeamId(actors.get(right));
   const remember = (row, sample) => { if (row.samples.length < 6) row.samples.push(sample); };
@@ -162,6 +162,16 @@ export function buildFormationExposure(events, initialActors, actorIds, comparis
   };
 
   for (const [index, event] of events.entries()) {
+    // The round-start side is not a fresh live roster for every later strike.
+    // Revival does not prove a return to that combat space; only a subsequent
+    // actual engagement snapshot can establish teammate presence again.
+    if (event.kind === 'death' || event.kind === 'revive') {
+      const actorId = String(event.who);
+      if (actors.has(actorId)) presenceInvalidatedAt.set(actorId, index);
+    } else if (event.kind === 'damage' && actors.has(String(event.targetId))
+      && validHpHit(event) && event.hpAfter === 0) {
+      presenceInvalidatedAt.set(String(event.targetId), index);
+    }
     if (event.kind === 'damage') {
       const who = String(event.who), target = String(event.targetId);
       if (!isEnemy(who, target)) continue;
@@ -217,8 +227,10 @@ export function buildFormationExposure(events, initialActors, actorIds, comparis
         || enemySide.some(id => getActorTeamId(actors.get(id)) !== getActorTeamId(actors.get(String(event.targetId))))) {
         rejectStrike(row, 'inconsistent_team_sides', index, event, entry); continue;
       }
-      const changedAllies = ownSide.filter(id => row.changedTeammateIds.includes(id));
-      if (!changedAllies.length) { rejectStrike(row, 'changed_teammates_absent', index, event, entry); continue; }
+      const changedSideAllies = ownSide.filter(id => row.changedTeammateIds.includes(id));
+      if (!changedSideAllies.length) { rejectStrike(row, 'changed_teammates_absent', index, event, entry); continue; }
+      const changedAllies = changedSideAllies.filter(id => (presenceInvalidatedAt.get(id) ?? -1) < entry.index);
+      if (!changedAllies.length) { rejectStrike(row, 'changed_teammates_unavailable', index, event, entry); continue; }
       const packets = (damageByAction.get(actionKey(event)) || []).filter(hit => hit.index > entry.index && hit.index < index);
       if (!packets.length || packets.some(hit => !validHpHit(hit.event))
         || packets.some((hit, packetIndex) => packetIndex > 0
@@ -254,5 +266,5 @@ export function buildFormationExposure(events, initialActors, actorIds, comparis
     row.ready = row.committedHits > 0 && row.invalidHpHits === 0 && row.teamActions > 0;
   }
   return { participants, ready: participants.length > 0 && participants.every(row => row.ready),
-    scope: 'Each swapped actor has valid enemy-player HP hits and changed-teammate membership in an exact successful team strike or positive retreat cover. Co-present allies need not also act; no regroup, survival contribution or winner causality acceptance.' };
+    scope: 'Each swapped actor has valid enemy-player HP hits and changed-teammate membership in an exact successful team strike or positive retreat cover. Strike membership is invalidated by intervening death, committed zero HP or revival until a fresh engagement; this is not a full movement trace. Co-present allies need not also act; no regroup, survival contribution or winner causality acceptance.' };
 }

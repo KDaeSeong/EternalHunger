@@ -1,5 +1,414 @@
 {
   "schemaVersion": 1,
+  "naturalFormationFollowUp": {
+    "baseCommit": "6ccc583fe785cc44bd188ec7965e2e9ee8e07b93",
+    "engineVersion": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+    "artifactRole": "Output-only follow-up. Never an input or expected result of a verifier. Older sections below retain their earlier source/run scope.",
+    "goalStatus": "active",
+    "naturalComparison": {
+      "phase": "before-presence-guard",
+      "command": "node scripts/run-eternal-hunger-verification.mjs formation-paired 1101,2202,3303",
+      "run": {
+        "runId": "2026-10-10T06-04-39.401Z-4dd0e930-a265-457d-8e55-0bad5372f6bb",
+        "status": "failed",
+        "exitCode": 2,
+        "startedAt": "2026-10-10T06:04:39.404Z",
+        "finishedAt": "2026-10-10T06:28:34.065Z",
+        "engineBefore": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+        "engineAfter": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "verificationSources": {
+          "scripts/run-eternal-hunger-verification.mjs": "9b5092c89dc759dfaa6987e7c74033c334bdd0c6eb7de69943aed873340a2ee1",
+          "package.json": "d55c59c290d356b79c2798a3c727a378c794bf762b45d9dcb4929eeca0b3904d",
+          "scripts/analyze-strategy-comparison.mjs": "b934b2a0366601c71108db2cfd3c87b177bbbcbfd4ad0371720277f8fbd2bb8b",
+          "scripts/lib/run-random-isolation-match.mjs": "af468024a2dfc8120016640f13c60e7325499c6e045a022fec1627322f25d504",
+          "scripts/lib/strategy-comparison-contracts.mjs": "01df1e67de305b5cd37efaf3c7d432ccd7874806ca7042cba61c38894d616ac0",
+          "scripts/lib/team-combat-participation-diagnostics.mjs": "4b558f81031212f77435cfa112b448334e1845854903ea9256cbf2138cfd4843",
+          "scripts/check-team-combat-participation-diagnostics.mjs": "cfc1acfa7ef33f676802dec233f887359ab879c917e233639f997f179cdddb76"
+        }
+      },
+      "outerExecExitCode": 1,
+      "complete": true,
+      "comparisonComplete": false,
+      "completedMatches": 12,
+      "expectedMatches": 12,
+      "exactConditionPairs": 6,
+      "diagnosticFreeThenObservedPerCondition": true,
+      "conditions": [
+        {
+          "seed": "1101",
+          "variant": "baseline",
+          "repeatCount": 2,
+          "exact": true,
+          "events": 11634,
+          "frames": 5840,
+          "endingSec": 1124.916666,
+          "winnerTeamId": "team:1",
+          "growthCompleteBy250": 24,
+          "emptySlots": 0,
+          "comparisonReady": null,
+          "participants": []
+        },
+        {
+          "seed": "1101",
+          "variant": "one-formation-swap",
+          "repeatCount": 2,
+          "exact": true,
+          "events": 13837,
+          "frames": 6685,
+          "endingSec": 1276,
+          "winnerTeamId": "team:7",
+          "growthCompleteBy250": 24,
+          "emptySlots": 0,
+          "comparisonReady": false,
+          "participants": [
+            {
+              "condition": "baseline",
+              "actorId": "guest-survivor-01",
+              "hits": 5,
+              "outgoing": 1,
+              "incoming": 4,
+              "teamActions": 1,
+              "ready": true,
+              "rejected": {}
+            },
+            {
+              "condition": "baseline",
+              "actorId": "guest-survivor-11",
+              "hits": 4,
+              "outgoing": 1,
+              "incoming": 3,
+              "teamActions": 0,
+              "ready": false,
+              "rejected": {
+                "changed_teammates_absent": 1
+              }
+            },
+            {
+              "condition": "candidate",
+              "actorId": "guest-survivor-01",
+              "hits": 4,
+              "outgoing": 1,
+              "incoming": 3,
+              "teamActions": 1,
+              "ready": true,
+              "rejected": {}
+            },
+            {
+              "condition": "candidate",
+              "actorId": "guest-survivor-11",
+              "hits": 12,
+              "outgoing": 7,
+              "incoming": 5,
+              "teamActions": 1,
+              "ready": true,
+              "rejected": {
+                "changed_teammates_absent": 4
+              }
+            }
+          ]
+        },
+        {
+          "seed": "2202",
+          "variant": "baseline",
+          "repeatCount": 2,
+          "exact": true,
+          "events": 13602,
+          "frames": 6543,
+          "endingSec": 1257.083333,
+          "winnerTeamId": "team:5",
+          "growthCompleteBy250": 24,
+          "emptySlots": 0,
+          "comparisonReady": null,
+          "participants": []
+        },
+        {
+          "seed": "2202",
+          "variant": "one-formation-swap",
+          "repeatCount": 2,
+          "exact": true,
+          "events": 14298,
+          "frames": 6280,
+          "endingSec": 1195.583333,
+          "winnerTeamId": "team:3",
+          "growthCompleteBy250": 24,
+          "emptySlots": 1,
+          "comparisonReady": false,
+          "participants": [
+            {
+              "condition": "baseline",
+              "actorId": "guest-survivor-01",
+              "hits": 10,
+              "outgoing": 1,
+              "incoming": 9,
+              "teamActions": 1,
+              "ready": true,
+              "rejected": {}
+            },
+            {
+              "condition": "baseline",
+              "actorId": "guest-survivor-11",
+              "hits": 10,
+              "outgoing": 7,
+              "incoming": 3,
+              "teamActions": 6,
+              "ready": true,
+              "rejected": {}
+            },
+            {
+              "condition": "candidate",
+              "actorId": "guest-survivor-01",
+              "hits": 2,
+              "outgoing": 0,
+              "incoming": 2,
+              "teamActions": 0,
+              "ready": false,
+              "rejected": {}
+            },
+            {
+              "condition": "candidate",
+              "actorId": "guest-survivor-11",
+              "hits": 8,
+              "outgoing": 4,
+              "incoming": 4,
+              "teamActions": 0,
+              "ready": false,
+              "rejected": {
+                "changed_teammates_absent": 1
+              }
+            }
+          ]
+        },
+        {
+          "seed": "3303",
+          "variant": "baseline",
+          "repeatCount": 2,
+          "exact": true,
+          "events": 11187,
+          "frames": 5449,
+          "endingSec": 1055.75,
+          "winnerTeamId": "team:7",
+          "growthCompleteBy250": 24,
+          "emptySlots": 0,
+          "comparisonReady": null,
+          "participants": []
+        },
+        {
+          "seed": "3303",
+          "variant": "one-formation-swap",
+          "repeatCount": 2,
+          "exact": true,
+          "events": 13846,
+          "frames": 6200,
+          "endingSec": 1182.333333,
+          "winnerTeamId": "team:1",
+          "growthCompleteBy250": 24,
+          "emptySlots": 0,
+          "comparisonReady": false,
+          "participants": [
+            {
+              "condition": "baseline",
+              "actorId": "guest-survivor-01",
+              "hits": 5,
+              "outgoing": 1,
+              "incoming": 4,
+              "teamActions": 0,
+              "ready": false,
+              "rejected": {
+                "changed_teammates_absent": 1
+              }
+            },
+            {
+              "condition": "baseline",
+              "actorId": "guest-survivor-11",
+              "hits": 1,
+              "outgoing": 0,
+              "incoming": 1,
+              "teamActions": 0,
+              "ready": false,
+              "rejected": {}
+            },
+            {
+              "condition": "candidate",
+              "actorId": "guest-survivor-01",
+              "hits": 7,
+              "outgoing": 1,
+              "incoming": 6,
+              "teamActions": 0,
+              "ready": false,
+              "rejected": {
+                "changed_teammates_absent": 1
+              }
+            },
+            {
+              "condition": "candidate",
+              "actorId": "guest-survivor-11",
+              "hits": 6,
+              "outgoing": 3,
+              "incoming": 3,
+              "teamActions": 3,
+              "ready": true,
+              "rejected": {}
+            }
+          ]
+        }
+      ],
+      "scope": "Fresh saved inputs from current source; only two team identities and their exact derived rosters changed. Six full conditions repeat exactly, but none of three formation pairs has both swapped actors exposed on both sides. Winner changes do not prove collaboration, survival contribution or winner causality. These rows are before-guard evidence, not post-guard natural acceptance."
+    },
+    "counterexample": {
+      "schema": "Fresh declared team engagement, changed teammate death, committed enemy HP packet, matching team strike.",
+      "before": {
+        "ready": true,
+        "expectedReady": false,
+        "executionRunId": "2026-10-10T06-31-51.985Z-eee305aa-30c9-46e6-8702-29c563fab406",
+        "exitCode": 1,
+        "firstFailedCheck": "a changed teammate who dies before the strike cannot count from a stale round roster",
+        "sourceCaptureCount": 2,
+        "captureScope": "The old named wrapper captured itself and package.json only, not the new fixture/helper. Do not retroactively claim their capture."
+      },
+      "after": {
+        "ready": false,
+        "executionRunId": "2026-10-10T06-33-36.296Z-ff5e4260-d63e-4c60-90fe-f78b0554d330",
+        "exitCode": 0,
+        "sourceCaptureCount": 6
+      },
+      "guard": "Track registered-actor death, valid committed zero HP and revival in event-array order. Changed teammates invalidated after the latest engagement do not count; a fresh actual engagement snapshot may establish presence again. One still-present changed teammate is sufficient. Nonlethal HP loss, enemy death, kill credit and death after a strike do not invalidate earlier valid exposure.",
+      "boundaries": "Verification-only change; no movement, damage, targeting, RNG, recovery, resource or turn changes. No full movement trace or proof that a co-present ally acted, increased survival or changed the winner."
+    },
+    "focusedVerification": {
+      "checks": 23,
+      "fingerprintChecks": 5,
+      "sourceCount": 6,
+      "runs": [
+        {
+          "runId": "2026-10-10T06-31-51.985Z-eee305aa-30c9-46e6-8702-29c563fab406",
+          "status": "failed",
+          "exitCode": 1,
+          "startedAt": "2026-10-10T06:31:51.993Z",
+          "finishedAt": "2026-10-10T06:31:53.985Z",
+          "engineBefore": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+          "engineAfter": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+          "sameEngine": true,
+          "sameVerificationSources": true,
+          "verificationSources": {
+            "scripts/run-eternal-hunger-verification.mjs": "9b5092c89dc759dfaa6987e7c74033c334bdd0c6eb7de69943aed873340a2ee1",
+            "package.json": "d55c59c290d356b79c2798a3c727a378c794bf762b45d9dcb4929eeca0b3904d"
+          }
+        },
+        {
+          "runId": "2026-10-10T06-33-36.296Z-ff5e4260-d63e-4c60-90fe-f78b0554d330",
+          "status": "passed",
+          "exitCode": 0,
+          "startedAt": "2026-10-10T06:33:36.299Z",
+          "finishedAt": "2026-10-10T06:33:39.11Z",
+          "engineBefore": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+          "engineAfter": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+          "sameEngine": true,
+          "sameVerificationSources": true,
+          "verificationSources": {
+            "scripts/run-eternal-hunger-verification.mjs": "52816760a65a9daa62f1ec589b605dbfdb329214da76455a0691d8e9c3af9e2b",
+            "package.json": "d55c59c290d356b79c2798a3c727a378c794bf762b45d9dcb4929eeca0b3904d",
+            "scripts/check-strategy-comparison-contracts.mjs": "164b5df611029f480b5fd0aa50071ec97e10cdf61d8a35d176e6ae5fe0e675f4",
+            "scripts/lib/strategy-comparison-contracts.mjs": "62eb430b7dde8a1c37f5830022cfc9e02dd97577f683fbb5fab87db8528e6007",
+            "scripts/lib/register-simulation-modules.mjs": "4bc7e4e316d91b92e709610bf0a77b2d7fd0459368c9f5e5a01ba63744693eef",
+            "scripts/check-verification-fingerprint.mjs": "bb31d1e0a9878da5f64d5bf68434ea3727b5116cb15589393ee2d55eb6b72081"
+          }
+        }
+      ],
+      "changedSourcesAfter": [
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-strategy-comparison-contracts.mjs",
+          "bytes": 19733,
+          "sha256": "164B5DF611029F480B5FD0AA50071EC97E10CDF61D8A35D176E6AE5FE0E675F4"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\lib\\strategy-comparison-contracts.mjs",
+          "bytes": 17118,
+          "sha256": "62EB430B7DDE8A1C37F5830022CFC9E02DD97577F683FBB5FAB87DB8528E6007"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\run-eternal-hunger-verification.mjs",
+          "bytes": 20596,
+          "sha256": "52816760A65A9DAA62F1EC589B605DBFDB329214DA76455A0691D8E9C3AF9E2B"
+        }
+      ],
+      "static": {
+        "nodeCheckFiles": 3,
+        "gitDiffCheck": true
+      },
+      "scope": "Fresh independent fixtures include actual shared-clock controlled combat in two formations. Not a new natural full match, new build/full canonical gate, foreground timing, account storage or human evaluation. Earlier a14 full gate remains earlier evidence, not post-edit full-gate proof."
+    },
+    "preservation": {
+      "unavailableAttachedPaths": [
+        "C:/Users/home/Downloads/eternal-hunger-log-霞澤 美遊-2026-10-09T11-45-38.md",
+        "C:/Users/home/Downloads/eternal-hunger-log-霞澤 美遊-2026-10-09T11-45-39.json"
+      ],
+      "scope": "Both paths were absent at the fresh start inventory; this task deleted no files. Historical hash observations do not assert current availability. Existing user-dirty files, prior unique raw evidence, completed build and original G1-G5 tail remain protected."
+    },
+    "cleanup": {
+      "filesDeleted": 0,
+      "bytesDeleted": 0,
+      "remainingWebpackPackFiles": 0,
+      "nextBytesBefore": 74909321,
+      "nextBytesAfter": 74909321,
+      "nextFilesBefore": 1437,
+      "nextFilesAfter": 1437,
+      "buildId": "_cFQW5lwSAjldz20_VJvY",
+      "uniqueCurrentRawFiles": [
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-10T06-04-39.401Z-4dd0e930-a265-457d-8e55-0bad5372f6bb\\output.log",
+          "bytes": 20184,
+          "sha256": "51F44A351321723FDB3C5BA3DF750AC39923A7785115D9FBAB3D7FE0BEC05FA8"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-10T06-04-39.401Z-4dd0e930-a265-457d-8e55-0bad5372f6bb\\result.json",
+          "bytes": 2505,
+          "sha256": "803D4DA8D45EC636156DB9AB9B7AA4F6A07F90133A4D701C01548D8562E0A238"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-10T06-04-39.401Z-4dd0e930-a265-457d-8e55-0bad5372f6bb\\strategy-comparison.json",
+          "bytes": 6590249,
+          "sha256": "9624050838E73EC03ACC3A93D9212332BC9375EB689BD1283983567A05EE91F7"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-10T06-31-51.985Z-eee305aa-30c9-46e6-8702-29c563fab406\\output.log",
+          "bytes": 1708,
+          "sha256": "BFC10C04217CFFDD721C826F5B7274E7F2845B98562EAC83E4AD0E4E2593B1CC"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-10T06-31-51.985Z-eee305aa-30c9-46e6-8702-29c563fab406\\result.json",
+          "bytes": 1144,
+          "sha256": "EFD8C4FD99D3E5228D693DD9F882A555A67F541D36DE28C1FB1D34B72C6AB36E"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-10T06-33-36.296Z-ff5e4260-d63e-4c60-90fe-f78b0554d330\\output.log",
+          "bytes": 2752,
+          "sha256": "1AA366D0DED309560096DF83EE15ED828A7FFEE7404B9F5E015AF55F15482E33"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.verification-runs\\2026-10-10T06-33-36.296Z-ff5e4260-d63e-4c60-90fe-f78b0554d330\\result.json",
+          "bytes": 2106,
+          "sha256": "7B88B1097C8439A52FF320682FCB790A3261C968EEA63065268CB1C690B28770"
+        }
+      ],
+      "uniqueCurrentRawBytes": 6620648,
+      "scope": "No new build/cache. Retain the unique natural failure, independent pre-fix failure and post-fix success. No whole-project clone or duplicate archive. Selected .next and owned outputs only, not total workspace size or physical free space."
+    },
+    "remainingGates": [
+      "Actual natural collaboration and explainable formation/survival contribution beyond shared round membership. No forced turns, free resources or lower exposure thresholds.",
+      "Real foreground pacing, continuous memory, map readability and new-session storage/resume.",
+      "Actual AI and authenticated account storage, human follow-up and authorized current public-version verification."
+    ],
+    "externalActions": {
+      "push": 0,
+      "deploy": 0,
+      "browserInteraction": 0,
+      "accountWrite": 0,
+      "paidAiCall": 0,
+      "humanScoreEntry": 0
+    }
+  },
   "title": "대원별 접근·공격 후보와 늦은 합류 관찰·검증",
   "localDate": "2026-10-10",
   "timeZone": "Asia/Seoul",

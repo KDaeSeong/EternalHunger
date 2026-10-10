@@ -95,6 +95,9 @@ function fingerprint() {
 }
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json'];
+  if (['strategy-comparison-unit', 'full'].includes(mode)) paths.push(
+    'scripts/check-strategy-comparison-contracts.mjs', 'scripts/lib/strategy-comparison-contracts.mjs',
+    'scripts/lib/register-simulation-modules.mjs', 'scripts/check-verification-fingerprint.mjs');
   if (['initial-weapon-goal-unit', 'full'].includes(mode)) paths.push(
     'scripts/check-er-weapons.mjs', 'scripts/check-initial-weapon-goals.mjs',
     'scripts/check-recipe-only-gear.mjs', 'scripts/check-hunt-settlement.mjs',

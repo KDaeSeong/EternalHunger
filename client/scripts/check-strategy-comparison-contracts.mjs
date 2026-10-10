@@ -142,6 +142,67 @@ check('current formation must reach a successful exact team strike with changed 
     [['actor-3', 'actor-5'], ['actor-0', 'actor-2']]);
   assert.equal(baseline[0].participants.length, 1, 'The shared clock may permit only one actor turn.');
 });
+check('a changed teammate who dies before the strike cannot count from a stale round roster', () => {
+  const events = freeze([engagement('one', 'actor-1', 'actor-0', 'actor-3'),
+    { kind: 'death', who: 'actor-0', by: 'actor-3', zoneId: 'shared-zone', at: { sec: 20 } },
+    hit('actor-1', 'actor-3'), strike('one', 'actor-1', 'actor-3', 'team:1')]);
+  const out = exposed(events, actors, swappedActors, ['actor-1']);
+  assert.equal(out.ready, false); assert.equal(out.participants[0].teamActions, 0);
+  assert.equal(out.participants[0].committedHits, 1, 'The real solo hit remains valid HP evidence.');
+  assert.equal(out.participants[0].diagnostics.rejectedStrikes.changed_teammates_unavailable, 1);
+});
+check('a committed zero-HP packet invalidates teammate presence even before a death event', () => {
+  for (const source of ['actor-3', 'animal']) {
+    const events = freeze([engagement('one', 'actor-1', 'actor-0', 'actor-3'),
+      hit(source, 'actor-0', 100), hit('actor-1', 'actor-3'),
+      strike('one', 'actor-1', 'actor-3', 'team:1')]);
+    const out = exposed(events, actors, swappedActors, ['actor-1']);
+    assert.equal(out.ready, false); assert.equal(out.participants[0].teamActions, 0);
+  }
+});
+check('revival alone cannot restore old combat-space evidence but a fresh engagement can', () => {
+  const before = [engagement('one', 'actor-1', 'actor-0', 'actor-3'),
+    { kind: 'death', who: 'actor-0', at: { sec: 20 } },
+    { kind: 'revive', who: 'actor-0', hp: 100, zoneId: 'other-zone', at: { sec: 20 } },
+    hit('actor-1', 'actor-3'), strike('one', 'actor-1', 'actor-3', 'team:1')];
+  assert.equal(exposed(freeze(before), actors, swappedActors, ['actor-1']).ready, false);
+  const fresh = groupAttack('one', 'actor-1', 'actor-0', 'actor-3', 'team:1');
+  for (const event of fresh) {
+    event.at.sec = 21;
+    if (event.kind === 'team_engagement') event.atSec = 21;
+  }
+  const out = exposed(freeze([...before, ...fresh]), actors, swappedActors, ['actor-1']);
+  assert.equal(out.ready, true); assert.equal(out.participants[0].teamActions, 1);
+  assert.equal(out.participants[0].samples[0].atSec, 21);
+  const reviveOnly = [engagement('one', 'actor-1', 'actor-0', 'actor-3'), before[2],
+    hit('actor-1', 'actor-3'), strike('one', 'actor-1', 'actor-3', 'team:1')];
+  assert.equal(exposed(freeze(reviveOnly), actors, swappedActors, ['actor-1']).ready, false);
+});
+check('nonlethal teammate damage and deaths after a committed strike keep valid exposure', () => {
+  const events = freeze([engagement('one', 'actor-1', 'actor-0', 'actor-3'),
+    hit('actor-3', 'actor-0', 1, { hpBefore: 10, hpAfter: 9 }),
+    hit('actor-1', 'actor-3'), strike('one', 'actor-1', 'actor-3', 'team:1'),
+    { kind: 'death', who: 'actor-0', at: { sec: 20 } }]);
+  const out = exposed(events, actors, swappedActors, ['actor-1']);
+  assert.equal(out.ready, true); assert.equal(out.participants[0].teamActions, 1);
+});
+check('one live changed teammate is sufficient and dead teammates are excluded from samples', () => {
+  const round = engagement('one', 'actor-1', 'actor-0', 'actor-3');
+  round.teams[0].push('actor-2');
+  const events = freeze([round, { kind: 'death', who: 'actor-0', at: { sec: 20 } },
+    hit('actor-1', 'actor-3'), strike('one', 'actor-1', 'actor-3', 'team:1')]);
+  const out = exposed(events, actors, swappedActors, ['actor-1']);
+  assert.equal(out.ready, true);
+  assert.deepEqual(out.participants[0].samples[0].changedAllyIds, ['actor-2']);
+});
+check('enemy deaths and kill rewards are not misread as teammate deaths', () => {
+  const events = freeze([engagement('one', 'actor-1', 'actor-0', 'actor-3'),
+    hit('actor-1', 'actor-3', 10, { hpBefore: 10, hpAfter: 0 }),
+    { kind: 'death', who: 'actor-3', by: 'actor-0', at: { sec: 20 } },
+    { kind: 'elimination', who: 'actor-0', victimId: 'actor-3', at: { sec: 20 } },
+    strike('one', 'actor-1', 'actor-3', 'team:1')]);
+  assert.equal(exposed(events, actors, swappedActors, ['actor-1']).ready, true);
+});
 check('a claimed team strike cannot reuse unrelated, later or differently timed HP evidence', () => {
   const base = groupAttack('one', 'actor-1', 'actor-0', 'actor-3', 'team:1');
   for (const alter of [
