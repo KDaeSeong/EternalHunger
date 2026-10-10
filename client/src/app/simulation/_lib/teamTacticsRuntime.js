@@ -199,7 +199,9 @@ export function* buildTeamCoordinationSteps({
     // their existing priorities; nobody is teleported or given a free action.
     const canWaitForRotation = grouped && getRotationHold && !spawnState?.endgame
       && members.every((row) => Number(row.hp) > Math.max(0, Number(ruleset?.ai?.recoverHpBelow ?? 38)))
-      && assessTeamCombat(leader, roster, { estimatePower }).enemyCount === 0;
+      // Waiting needs presence, not power. Keep the full assessment after the
+      // hold callbacks so recipe planning reads their latest roster state.
+      && getLocalTeamCombatants(leader, roster).enemies.length === 0;
     const waitingFor = canWaitForRotation ? ordered.flatMap((row) => {
       const hold = getRotationHold(row);
       return hold ? [{ who: idOf(row), name: String(row.name || idOf(row)), ...hold }] : [];

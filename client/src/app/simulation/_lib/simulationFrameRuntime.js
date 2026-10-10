@@ -39,13 +39,14 @@ export function createSimulationFrame({ day, phase, matchSec, survivors = [], de
   killCounts = {}, assistCounts = {}, spawnState, forbiddenAddedNow = [], forbiddenIds = new Set(), mapId = '',
 }) {
   return measureObserverWork('frame.snapshot', () => {
-    const living = latestActors(survivors).filter((actor) => Number(actor.hp) > 0);
+    const latestSurvivors = latestActors(survivors);
+    const living = latestSurvivors.filter((actor) => Number(actor.hp) > 0);
     const aliveIds = new Set(living.map(getRuntimeActorKey));
     // Prefer the engine's normalized corpse over its older zero-HP live-map row.
     // Preserve death order too: revival iterates that order using match RNG.
     const recordedDead = latestActors(dead);
     const recordedIds = new Set(recordedDead.map(getRuntimeActorKey));
-    const fallen = [...recordedDead, ...latestActors(survivors).filter((actor) => Number(actor.hp) <= 0 && !recordedIds.has(getRuntimeActorKey(actor)))]
+    const fallen = [...recordedDead, ...latestSurvivors.filter((actor) => Number(actor.hp) <= 0 && !recordedIds.has(getRuntimeActorKey(actor)))]
       .filter((actor) => !aliveIds.has(getRuntimeActorKey(actor)));
     return structuredClone({ day, phase, matchSec, survivors: living, dead: fallen,
       killCounts, assistCounts, spawnState, forbiddenAddedNow,

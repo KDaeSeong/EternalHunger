@@ -13,15 +13,20 @@ import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
 import { getRetreatAvoidZoneId } from './retreatDecisionMemoryRuntime.js';
 import { getBossAssistOwner } from './bossAssistRuntime.js';
 
-function buildBaseZonePopulation(phaseSurvivors, combatSpaceId) {
-  const baseZonePop = {};
-  (Array.isArray(phaseSurvivors) ? phaseSurvivors : []).forEach((survivor) => {
-    if (!survivor || getCombatSpaceId(survivor) !== combatSpaceId || Number(survivor.hp || 0) <= 0) return;
+function buildBaseZonePopulations(roster) {
+  const bySpace = new Map();
+  for (const survivor of roster) {
+    const spaceId = getCombatSpaceId(survivor);
+    // Retain spaces first seen on dead/invalid rows and each zone's original
+    // insertion order. Population counts are fresh for every action boundary.
+    if (!bySpace.has(spaceId)) bySpace.set(spaceId, {});
+    if (!survivor || Number(survivor.hp || 0) <= 0) continue;
     const zoneId = String(survivor.zoneId || '');
-    if (!zoneId) return;
+    if (!zoneId) continue;
+    const baseZonePop = bySpace.get(spaceId);
     baseZonePop[zoneId] = (baseZonePop[zoneId] || 0) + 1;
-  });
-  return baseZonePop;
+  }
+  return bySpace;
 }
 
 // Movement planning mutates only the actor's growth markers and inventory
@@ -104,8 +109,7 @@ export function* runPhaseActorActionPipelineSteps({
     return { newlyDead: [], pendingPickAssigned: initialPendingPickAssigned,
       updatedSurvivors: roster.filter((actor) => Number(actor?.hp || 0) > 0) };
   }
-  const baseZonePopBySpace = new Map([...new Set(roster.map(getCombatSpaceId))]
-    .map((spaceId) => [spaceId, buildBaseZonePopulation(roster, spaceId)]));
+  const baseZonePopBySpace = buildBaseZonePopulations(roster);
   // Every member plans from the same pre-action roster, not a partly moved team.
   const movementRoster = cloneMovementRosterForPlanning(roster);
   yield;
