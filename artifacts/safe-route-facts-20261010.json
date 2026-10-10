@@ -1,0 +1,637 @@
+{
+  "schema": "eh-safe-route-facts-verification.v1",
+  "date": "2026-10-10",
+  "classification": "progress",
+  "goalStatus": "active/incomplete",
+  "parentCommit": "db137abb6a0607006862785ac498925845aa9b49",
+  "originalGoal": {
+    "marker": "## 제품 정의와 범위",
+    "normalizedTailSHA256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+    "scopeAndAcceptanceCriteriaChanged": false
+  },
+  "engineVersion": "84d56a20ed7efb57fff7beefac4884de44d4e88647cd86ae1e32a07649672099",
+  "implementation": {
+    "scope": "Reuse roster-derived combat-space, team and virtual-arrival facts within one synchronous safe-route search when its power estimator is an actual pre-action planning snapshot.",
+    "factoryBrand": "Private WeakSet of function objects; no string/property duck typing; external estimators and wrappers retain original per-node calls.",
+    "ownership": "No actor, frame, serialized state, cross-action cache or retained roster index.",
+    "unchanged": [
+      "Paths, graph directions, forbidden/excluded zones and pressure ranking",
+      "Active actor override/fallback, latest living duplicate identities and row reduction order",
+      "Per-action state refresh and direct scoring fallback for ambiguous or missing identities",
+      "Combat rules, growth costs, event/frame publication, native snapshot ownership and RNG"
+    ],
+    "domainLimit": "Stable serialized product input within the documented pre-action boundary. Arbitrary getters/Proxy or mutations inside a branded estimator's fallback context are not guaranteed."
+  },
+  "checks": {
+    "negative": {
+      "exitCode": 1,
+      "failedGroups": 2,
+      "passedGroups": 5,
+      "originalNormalizationCount": 18,
+      "expectedNormalizationCount": 2,
+      "missingPlanningSnapshotBrand": true,
+      "sourceUnchangedBeforeImplementation": true
+    },
+    "focusedFixtures": {
+      "command": "node ./scripts/check-safe-route-facts.mjs --fixtures-only",
+      "exitCode": 0,
+      "groups": 7,
+      "routeComparisons": 1152,
+      "operationCountExample": {
+        "original": 18,
+        "current": 2
+      },
+      "scope": "Final routes and result assessments across fresh fixture inputs; internal Map insertion order is statically reviewed, not separately asserted."
+    },
+    "planningPowerFixtures": {
+      "command": "node ./scripts/check-planning-power-snapshot.mjs",
+      "exitCode": 0,
+      "groups": 5
+    },
+    "related": {
+      "commands": [
+        "npm run check:team-tactics",
+        "npm run check:phase-runtime-performance",
+        "npm run check:live-frames"
+      ],
+      "exitCode": 0,
+      "liveFrameChecks": 19,
+      "oneOrderedChain": true
+    },
+    "lint": {
+      "exitCode": 0,
+      "scope": "Changed runtime modules and the new verification script",
+      "rulesDisabled": false
+    },
+    "fullEternalHungerChainExecutedThisEngine": false,
+    "freshWholeMatches": {
+      "exitCode": 0,
+      "rows": [
+        {
+          "completed": "reference",
+          "engine": "84d56a20ed7efb57fff7beefac4884de44d4e88647cd86ae1e32a07649672099",
+          "overlays": 1,
+          "seed": "1101",
+          "phases": 11,
+          "frames": 5840,
+          "matchSec": 1124.916666,
+          "events": 11633,
+          "ending": "last_team",
+          "randomState": 2014021095,
+          "randomDraws": 8934,
+          "inputDigest": "adea609cdf5dc279b8e00713fec346394954393f9810ff5676423c383413c1f9",
+          "eventDigest": "52c99d0295115037af6964d786024a717dd0861db2358efc579d5e6a5d4cad35",
+          "frameDigest": "66cdcace028367955150991953de1c83f43cffa394c3b3530bb3d4865b6ac69c",
+          "endingDigest": "508160d19668fef897046b97e4c8d9edba5bda391241c9dbfa6544c53cb4bcc0",
+          "finalFrameDigest": "b19f2e6b60a9bc6c4cfeef71a8c8a63ae03fd2ad642f74f2a1beef36630da75b",
+          "logDigest": "220f77fa4cb9a9900e2052d0d1a33c365a828f502ffc9aa2ed2c2642b6e564ae"
+        },
+        {
+          "completed": "production",
+          "engine": "84d56a20ed7efb57fff7beefac4884de44d4e88647cd86ae1e32a07649672099",
+          "overlays": 0,
+          "seed": "1101",
+          "phases": 11,
+          "frames": 5840,
+          "matchSec": 1124.916666,
+          "events": 11633,
+          "ending": "last_team",
+          "randomState": 2014021095,
+          "randomDraws": 8934,
+          "inputDigest": "adea609cdf5dc279b8e00713fec346394954393f9810ff5676423c383413c1f9",
+          "eventDigest": "52c99d0295115037af6964d786024a717dd0861db2358efc579d5e6a5d4cad35",
+          "frameDigest": "66cdcace028367955150991953de1c83f43cffa394c3b3530bb3d4865b6ac69c",
+          "endingDigest": "508160d19668fef897046b97e4c8d9edba5bda391241c9dbfa6544c53cb4bcc0",
+          "finalFrameDigest": "b19f2e6b60a9bc6c4cfeef71a8c8a63ae03fd2ad642f74f2a1beef36630da75b",
+          "logDigest": "220f77fa4cb9a9900e2052d0d1a33c365a828f502ffc9aa2ed2c2642b6e564ae"
+        },
+        {
+          "pass": true,
+          "seed": "1101",
+          "completeMatches": 2,
+          "scope": "fresh whole matches with original route assessment; surrounding helpers shared, not historical outputs or all inputs"
+        },
+        {
+          "completed": "reference",
+          "engine": "84d56a20ed7efb57fff7beefac4884de44d4e88647cd86ae1e32a07649672099",
+          "overlays": 1,
+          "seed": "20261010",
+          "phases": 9,
+          "frames": 5096,
+          "matchSec": 985.75,
+          "events": 11506,
+          "ending": "last_team",
+          "randomState": 329775704,
+          "randomDraws": 8166,
+          "inputDigest": "5b40932d4d999ff7e557568d36a3fc076fe86408dda19bad723a897db42d2fd8",
+          "eventDigest": "4ec151a72190bded254dcbe4a7081245fc6770484fd37ca8933484e8377a081d",
+          "frameDigest": "5f64baa86ca9413029accfee7503fe0398f1c74f8291c683701baa8112e04c8f",
+          "endingDigest": "4bc87c1a791b6761a17e404cdba574215c4712a609c62f914962b1bc47bb84cb",
+          "finalFrameDigest": "2472d12b6f4cd3a77a6a0428f303909a4d409ee5305b73b9ef12c1138f5cab93",
+          "logDigest": "2d6ea4815fe268a9f65fa1a91a1ade3ddcd44bb34674e79b52b80b4b35755fd3"
+        },
+        {
+          "completed": "production",
+          "engine": "84d56a20ed7efb57fff7beefac4884de44d4e88647cd86ae1e32a07649672099",
+          "overlays": 0,
+          "seed": "20261010",
+          "phases": 9,
+          "frames": 5096,
+          "matchSec": 985.75,
+          "events": 11506,
+          "ending": "last_team",
+          "randomState": 329775704,
+          "randomDraws": 8166,
+          "inputDigest": "5b40932d4d999ff7e557568d36a3fc076fe86408dda19bad723a897db42d2fd8",
+          "eventDigest": "4ec151a72190bded254dcbe4a7081245fc6770484fd37ca8933484e8377a081d",
+          "frameDigest": "5f64baa86ca9413029accfee7503fe0398f1c74f8291c683701baa8112e04c8f",
+          "endingDigest": "4bc87c1a791b6761a17e404cdba574215c4712a609c62f914962b1bc47bb84cb",
+          "finalFrameDigest": "2472d12b6f4cd3a77a6a0428f303909a4d409ee5305b73b9ef12c1138f5cab93",
+          "logDigest": "2d6ea4815fe268a9f65fa1a91a1ade3ddcd44bb34674e79b52b80b4b35755fd3"
+        },
+        {
+          "pass": true,
+          "seed": "20261010",
+          "completeMatches": 2,
+          "scope": "fresh whole matches with original route assessment; surrounding helpers shared, not historical outputs or all inputs"
+        }
+      ]
+    }
+  },
+  "review": {
+    "agent": "/root/core_cooperation_audit",
+    "confirmedDefectFound": false,
+    "fixtureScope": "Final route outcomes; internal insertion order and intermediate assessments not directly asserted",
+    "freshMatchBuildBrowserNotCoveredByReview": true
+  },
+  "sourceIntegrity": {
+    "files": [
+      {
+        "path": "scripts/check-safe-route-facts.mjs",
+        "bytes": 13013,
+        "sha256": "d805ebff472ec6174408cbd91e8f6f99fb82def835e924ed0a6b318439a13faa"
+      },
+      {
+        "path": "scripts/lib/run-random-isolation-match.mjs",
+        "bytes": 13546,
+        "sha256": "af468024a2dfc8120016640f13c60e7325499c6e045a022fec1627322f25d504"
+      },
+      {
+        "path": "scripts/lib/register-simulation-modules.mjs",
+        "bytes": 531,
+        "sha256": "4bc7e4e316d91b92e709610bf0a77b2d7fd0459368c9f5e5a01ba63744693eef"
+      },
+      {
+        "path": "src/app/simulation/_lib/teamTacticsRuntime.js",
+        "bytes": 18247,
+        "sha256": "275fec5b5364cbfd8d41467a6fc4e409e62d09e98a1c8b8ca28d9f17fbf3ec91"
+      },
+      {
+        "path": "src/app/simulation/_lib/movePowerRuntime.js",
+        "bytes": 5114,
+        "sha256": "695f958558e2743e0d65b5f13353327c13df63863fd99845d9cfec59130297db"
+      },
+      {
+        "path": "src/app/simulation/_generated/simulationEngineVersion.js",
+        "bytes": 166,
+        "sha256": "719de162fc82dc0568bcff443b11c145e379568c456acc37652a3a112d7a6235"
+      },
+      {
+        "path": "package.json",
+        "bytes": 27616,
+        "sha256": "23af425240f95f8d2a69786faf39f04078328eec21ed9d7156fd857b32237618"
+      }
+    ],
+    "matchesAndBuildSourceUnchanged": true,
+    "beforeAndAfterCapture": true
+  },
+  "build": {
+    "command": "npm run build",
+    "defaultAttempt": {
+      "exitCode": 1,
+      "output": "\n> client@0.1.0 prebuild\n> node ./scripts/fix-proxy-migration.cjs && node ./scripts/generate-consume-effect-contract.mjs --check && node ./scripts/generate-equipment-effect-contract.mjs --check && node ./scripts/generate-simulation-version.mjs\n\n[prebuild] proxyExists=true\nCONSUME_EFFECT_CONTRACT 0624cd315cb828ea22f49e08ada70e63bf59ee788b76b730956e15b9e01876a4 verified\nEQUIPMENT_EFFECT_CONTRACT 29b5a312239609e54329cb86685c66cf954a8203a16c6a72eddf402a720bc841 verified\nSIMULATION_ENGINE_VERSION 84d56a20ed7efb57fff7beefac4884de44d4e88647cd86ae1e32a07649672099\n\n> client@0.1.0 build\n> next build --webpack\n\n▲ Next.js 16.1.4 (webpack)\n- Experiments (use with caution):\n  · cpus: 2\n\n  Creating an optimized production build ...\n✓ Compiled successfully in 51s\n  Running TypeScript ...\n  Collecting page data using 2 workers ...\n  Generating static pages using 2 workers (0/62) ...\nError occurred prerendering page \"/admin/audit\". Read more: https://nextjs.org/docs/messages/prerender-error\nError: EPERM: operation not permitted, mkdir 'C:\\2저장고\\EternalHunger\\client\\.next\\server\\app\\admin\\audit.segments\\admin\\audit'\n    at ignore-listed frames {\n  errno: -4048,\n  code: 'EPERM',\n  syscall: 'mkdir',\n  path: 'C:\\\\2저장고\\\\EternalHunger\\\\client\\\\.next\\\\server\\\\app\\\\admin\\\\audit.segments\\\\admin\\\\audit'\n}\nExport encountered an error on /admin/audit/page: /admin/audit, exiting the build.\n⨯ Next.js build worker exited with code: 1 and signal: null\n"
+    },
+    "separatePermissionRetry": {
+      "exitCode": 0,
+      "observedPrebuildEngine": "84d56a20ed7efb57fff7beefac4884de44d4e88647cd86ae1e32a07649672099",
+      "buildId": "bKQv8OfMNHb1sw0nAIjUh",
+      "engine": "84d56a20ed7efb57fff7beefac4884de44d4e88647cd86ae1e32a07649672099",
+      "serverChunk": ".next/server/chunks/2433.js",
+      "clientChunk": ".next/static/chunks/5167-2cfcebbd7eaca94d.js",
+      "pages": 62
+    },
+    "defaultFailureReclassifiedAsPass": false
+  },
+  "foregroundObservation": {
+    "schema": "eh-observer-performance.v3",
+    "numericPrecision": {
+      "roundedMillisecondsResolutionMs": 0.001
+    },
+    "label": "84d5-x32-fresh",
+    "engineVersion": "84d56a20ed7efb57fff7beefac4884de44d4e88647cd86ae1e32a07649672099",
+    "url": "http://127.0.0.1:3137/eternalhunger/evaluate?perfProbe=1",
+    "environment": {
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewportWidth": 1280,
+      "viewportHeight": 720,
+      "devicePixelRatio": 1,
+      "hardwareConcurrency": 12
+    },
+    "context": {
+      "initial": {
+        "engineVersion": "84d56a20ed7efb57fff7beefac4884de44d4e88647cd86ae1e32a07649672099",
+        "speed": 32,
+        "seed": "1789192220412",
+        "autoPlay": false,
+        "day": 0,
+        "matchSec": 0,
+        "isGameOver": false,
+        "replayMode": false,
+        "replayId": null,
+        "comparisonMatched": null,
+        "comparedEvents": null
+      },
+      "final": {
+        "engineVersion": "84d56a20ed7efb57fff7beefac4884de44d4e88647cd86ae1e32a07649672099",
+        "speed": 32,
+        "seed": "1789192220412",
+        "autoPlay": false,
+        "day": 7,
+        "matchSec": 1233.5,
+        "isGameOver": true,
+        "replayMode": false,
+        "replayId": null,
+        "comparisonMatched": null,
+        "comparedEvents": null
+      },
+      "speedChanges": 0,
+      "identityChanges": 0,
+      "pauses": 0,
+      "activeStartOffsetMs": 268.5,
+      "activeEndOffsetMs": 82166.9
+    },
+    "elapsedMs": 148854.6,
+    "activeElapsedMs": 81898.4,
+    "observedSimulationRatio": 15.06134429976654,
+    "visibleResult": {
+      "winnerName": "매화",
+      "clock": "20:33.5",
+      "ending": "last_team",
+      "lastElimination": "combat"
+    },
+    "visibility": {
+      "supported": true,
+      "reason": null,
+      "initialState": "visible",
+      "endState": "visible",
+      "transitions": 0,
+      "boundaryNotifications": 0,
+      "durationMs": {
+        "visible": 148854.6,
+        "hidden": 0,
+        "unknown": 0
+      },
+      "entireMeasurementVisible": true
+    },
+    "raf": {
+      "supported": true,
+      "samples": 8758,
+      "fps": 58.836,
+      "intervalMs": {
+        "median": 10,
+        "p95": 69.9,
+        "max": 140
+      },
+      "scope": "RAF_callback_cadence_not_presented_FPS",
+      "percentileScope": "entire_measurement_including_post_result_idle"
+    },
+    "longTasks": {
+      "supported": true,
+      "count": 79,
+      "totalMs": 5892,
+      "maxMs": 109
+    },
+    "longAnimationFrames": {
+      "supported": true,
+      "count": 756,
+      "totalDurationMs": 54653.9,
+      "maxDurationMs": 152.2,
+      "maxWorkMs": 151.4,
+      "maxRenderMs": 4.7,
+      "maxStyleAndLayoutMs": 0.7,
+      "maxBlockingMs": 60.8,
+      "reason": null
+    },
+    "workBreakdown": {
+      "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+      "stages": [
+        {
+          "name": "observer.teamModel",
+          "count": 1419,
+          "totalMs": 3615.9,
+          "maxMs": 8.3
+        },
+        {
+          "name": "growth.refreshPlans",
+          "count": 13262,
+          "totalMs": 5822.4,
+          "maxMs": 7.2
+        },
+        {
+          "name": "growth.teamCoordination",
+          "count": 5922,
+          "totalMs": 9028.9,
+          "maxMs": 89.7
+        },
+        {
+          "name": "growth.slice",
+          "count": 2927,
+          "totalMs": 27805.7,
+          "maxMs": 95.1
+        },
+        {
+          "name": "growth.actorMovement",
+          "count": 1300,
+          "totalMs": 3737.3,
+          "maxMs": 86.1
+        },
+        {
+          "name": "growth.actorLoot",
+          "count": 1300,
+          "totalMs": 1943.5,
+          "maxMs": 8.8
+        },
+        {
+          "name": "growth.actorPlan",
+          "count": 1300,
+          "totalMs": 3610.6,
+          "maxMs": 13.1
+        },
+        {
+          "name": "growth.actorQueue",
+          "count": 1300,
+          "totalMs": 1575.7,
+          "maxMs": 11.1
+        },
+        {
+          "name": "growth.singleActor",
+          "count": 1300,
+          "totalMs": 11012.1,
+          "maxMs": 94.1
+        },
+        {
+          "name": "frame.snapshot",
+          "count": 6428,
+          "totalMs": 15751.9,
+          "maxMs": 12.2
+        },
+        {
+          "name": "replay.captureResult",
+          "count": 1,
+          "totalMs": 36.1,
+          "maxMs": 36.1
+        }
+      ]
+    },
+    "waitBreakdown": {
+      "scope": "async_wait_settlements_separate_from_synchronous_work",
+      "waits": [
+        {
+          "name": "yield.growth.frame",
+          "count": 900,
+          "totalMs": 15184.7,
+          "maxMs": 125.3
+        },
+        {
+          "name": "yield.growth.task",
+          "count": 793,
+          "totalMs": 48,
+          "maxMs": 0.5
+        }
+      ]
+    },
+    "inputResponse": {
+      "supported": true,
+      "samples": 3,
+      "pendingSamples": 0,
+      "scope": "captured_click_to_next_RAF_not_INP_or_presentation",
+      "lastMs": 2.1,
+      "maxMs": 8.6
+    },
+    "heap": {
+      "supported": true,
+      "baselineUsedBytes": 34139598,
+      "usedBytes": 47970687,
+      "deltaUsedBytes": 13831089,
+      "totalBytes": 52482795,
+      "limitBytes": 4395630592
+    },
+    "domNodes": 593,
+    "claims": {
+      "nominal32Achieved": false,
+      "controlledBeforeAfterComparison": false,
+      "improvementRateMeasured": false,
+      "actualPresentedFpsMeasured": false,
+      "leakAbsenceProven": false,
+      "strictNineRunGateComplete": false
+    },
+    "screenshots": {
+      "inspectedOneInProgressNativeScreenshot": true,
+      "savedLocalPath": null,
+      "note": "The supported screenshot API returned inline pixels, not a local path; no base64 copy or invented image file was created."
+    },
+    "downloadCount": 0,
+    "paidAiCalls": 0,
+    "accountWrites": 0
+  },
+  "lifecycle": {
+    "closedTemporaryTabId": "5",
+    "remainingSelectedBrowserTabs": 0,
+    "listenerCount": 0,
+    "serverSessionTerminal": true,
+    "relevantProcessGuard": {
+      "RelevantLiveProcessCount": 0,
+      "ProcessIds": [
+        null
+      ],
+      "ListenerCount": 0
+    },
+    "serverStopExitCode": 1,
+    "serverStopReason": "Intentional interrupt after final measurement recovery; zero listener observed afterwards.",
+    "processGuardDefaultPermissionFailure": 1,
+    "guardPermissionRetrySucceeded": true
+  },
+  "cleanup": {
+    "exactTargetRoot": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+    "selected": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 253325900,
+        "sha256": "2d793a9dc073b8c8ffa391089c16ea00fdfa9be1d0307a08d657692c88752b3d",
+        "fileIdentity": "File ID is 0x000000000000000000130000001d8ad4"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\1.pack",
+        "bytes": 4469,
+        "sha256": "1d42e0967724ae38cc9431846d8bd284883ab0bdd59dd982e3b7b8737b092b8d",
+        "fileIdentity": "File ID is 0x000000000000000000160000001d8ad5"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\2.pack",
+        "bytes": 8849643,
+        "sha256": "d58325ee11b9a942d34d9df1c69fc8f749d28bb413d1ccfeaaf7c6842c7e0e3e",
+        "fileIdentity": "File ID is 0x0000000000000000001e0000001d8ab8"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12844890,
+        "sha256": "9f5c48e0f27481835bb0de745201ad37781ef3fead1d74354150d781e552cd1e",
+        "fileIdentity": "File ID is 0x000000000000000000130000001d8ad7"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc",
+        "fileIdentity": "File ID is 0x000000000000000000130000001cb46c"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "sha256": "8e76f16f64ee9b7a3fbdf73909db6e3ea93b84eb2cae29ec156cc2b56993917b",
+        "fileIdentity": "File ID is 0x000000000000000000110000001cb46d"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 307174824,
+        "sha256": "1d297b9b978d6bdcc508999cd972a54d7eae9d695f02abc422984f4725b2e657",
+        "fileIdentity": "File ID is 0x0000000000000000001c0000001c7d44"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18087034,
+        "sha256": "eab13c976d4ad60e1bcf1c95bad8afd904a774a246c22b71e415b08298b59deb",
+        "fileIdentity": "File ID is 0x000000000000000000140000001c7d4c"
+      }
+    ],
+    "selectedIdentitiesUnique": true,
+    "before": {
+      "buildFiles": 1446,
+      "buildLogicalBytes": 687003387,
+      "unselectedBuildManifestSHA256": "1fbd0e9399681fa633d450625b0d95beaf4b8b316d9123e487220592480e5c1d"
+    },
+    "result": {
+      "removedCount": 8,
+      "removedLogicalBytes": 600289500,
+      "remainingExactPacks": 0,
+      "buildFileCount": 1438,
+      "buildLogicalBytes": 86713887,
+      "oldPacks": [
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack.old",
+          "bytes": 12844474,
+          "sha256": "4bdb38fab993bfbecca7fd6d9aa187671c5eae589dfa6b4613a571921d597e9b"
+        }
+      ],
+      "allSelectedAbsent": true
+    },
+    "preservation": {
+      "unselectedBuildCount": 1438,
+      "unselectedBuildManifestSHA256": "1fbd0e9399681fa633d450625b0d95beaf4b8b316d9123e487220592480e5c1d",
+      "protectedFiles": [
+        {
+          "path": "client\\scripts\\check-safe-route-facts.mjs",
+          "bytes": 13013,
+          "sha256": "d805ebff472ec6174408cbd91e8f6f99fb82def835e924ed0a6b318439a13faa"
+        },
+        {
+          "path": "client\\scripts\\lib\\run-random-isolation-match.mjs",
+          "bytes": 13546,
+          "sha256": "af468024a2dfc8120016640f13c60e7325499c6e045a022fec1627322f25d504"
+        },
+        {
+          "path": "client\\scripts\\lib\\register-simulation-modules.mjs",
+          "bytes": 531,
+          "sha256": "4bc7e4e316d91b92e709610bf0a77b2d7fd0459368c9f5e5a01ba63744693eef"
+        },
+        {
+          "path": "client\\src\\app\\simulation\\_lib\\teamTacticsRuntime.js",
+          "bytes": 18247,
+          "sha256": "275fec5b5364cbfd8d41467a6fc4e409e62d09e98a1c8b8ca28d9f17fbf3ec91"
+        },
+        {
+          "path": "client\\src\\app\\simulation\\_lib\\movePowerRuntime.js",
+          "bytes": 5114,
+          "sha256": "695f958558e2743e0d65b5f13353327c13df63863fd99845d9cfec59130297db"
+        },
+        {
+          "path": "client\\src\\app\\simulation\\_generated\\simulationEngineVersion.js",
+          "bytes": 166,
+          "sha256": "719de162fc82dc0568bcff443b11c145e379568c456acc37652a3a112d7a6235"
+        },
+        {
+          "path": "client\\package.json",
+          "bytes": 27616,
+          "sha256": "23af425240f95f8d2a69786faf39f04078328eec21ed9d7156fd857b32237618"
+        },
+        {
+          "path": "client\\scripts\\check-observer-goals-match.mjs",
+          "bytes": 15715,
+          "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9"
+        },
+        {
+          "path": "server\\index.js",
+          "bytes": 5619,
+          "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493"
+        },
+        {
+          "path": "server\\.env.example",
+          "bytes": 2125,
+          "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3"
+        },
+        {
+          "path": "docs\\eternal-hunger-goal.md",
+          "bytes": 248080,
+          "sha256": "baecdefc308f53fb934f7ebba1c85ad380967d8774be3567fc68d0dec07d1922"
+        },
+        {
+          "path": "docs\\observer-performance-verification.md",
+          "bytes": 113700,
+          "sha256": "7d279f207017f5b08458cf90cad8a8ec9b0e93b5038717c37f80ecf303d2ac37"
+        }
+      ],
+      "unselectedAndProtectedHashesUnchangedDuringDeletion": true,
+      "unselectedOldPackPreservedAtDeletionBoundary": true
+    },
+    "selectedBuildStartLogicalBytes": 86714474,
+    "selectedBuildFinalLogicalBytes": 86713887,
+    "selectedBuildNetLogicalByteChange": -587,
+    "recovery": "Only current generated webpack .pack files were deleted. A normal build recreates them; the complete current build is retained.",
+    "wholeWorkspaceBytesMeasured": false,
+    "physicalAllocatedBytesMeasured": false,
+    "physicalFreeSpaceChangeMeasured": false,
+    "sourceOrUserDataDeleted": false,
+    "projectCloneCreated": false
+  },
+  "unavailableUserInputs": {
+    "paths": [
+      "C:/Users/home/Downloads/eternal-hunger-log-霞澤 美遊-2026-10-09T11-45-38.md",
+      "C:/Users/home/Downloads/eternal-hunger-log-霞澤 美遊-2026-10-09T11-45-39.json"
+    ],
+    "currentlyExist": false,
+    "deletedByThisTurn": false,
+    "attachedMatchReproducedThisTurn": false
+  },
+  "outputOnly": true,
+  "historicalOutputsReadAsVerificationInput": false,
+  "paidAiCalls": 0,
+  "accountWrites": 0,
+  "humanScoresSubmitted": 0,
+  "pushes": 0,
+  "publicDeployments": 0,
+  "remainingGates": [
+    "Nominal x32 actual throughput and latest strict x1/x8/x32 nine-run lifecycle criteria",
+    "Broader natural cooperation, survival, roster-change causal comparisons and pacing balance",
+    "Fresh browser process storage resume and authorized actual AI/authenticated save flows",
+    "Follow-up human understanding/fun evaluation and separately authorized public release"
+  ]
+}

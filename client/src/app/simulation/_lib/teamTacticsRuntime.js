@@ -1,5 +1,5 @@
 import { areSameTeam, getActorTeamId } from './teamRuntime';
-import { estimateMovePower } from './movePowerRuntime';
+import { estimateMovePower, isPlanningMovePowerSnapshot } from './movePowerRuntime';
 import { getCombatSpaceId, shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { captureMovementObjective } from './movementObjectiveRuntime.js';
@@ -25,8 +25,7 @@ export function getLocalTeamCombatants(actor, roster, zoneId = actor?.zoneId) {
   return { allies, enemies };
 }
 
-export function assessTeamCombat(actor, roster, { estimatePower = estimateMovePower, minRatio = 0.4, zoneId = actor?.zoneId } = {}) {
-  const { allies, enemies } = getLocalTeamCombatants(actor, roster, zoneId);
+function assessLocalCombatants({ allies, enemies }, estimatePower, minRatio) {
   const allyPower = allies.reduce((sum, row) => sum + powerOf(row, estimatePower), 0);
   const enemyPower = enemies.reduce((sum, row) => sum + powerOf(row, estimatePower), 0);
   const powerRatio = enemyPower > 0 ? allyPower / Math.max(1, allyPower + enemyPower) : 1;
@@ -41,6 +40,34 @@ export function assessTeamCombat(actor, roster, { estimatePower = estimateMovePo
   };
 }
 
+export function assessTeamCombat(actor, roster, { estimatePower = estimateMovePower, minRatio = 0.4, zoneId = actor?.zoneId } = {}) {
+  return assessLocalCombatants(getLocalTeamCombatants(actor, roster, zoneId), estimatePower, minRatio);
+}
+
+// A branded power snapshot reads a stable pre-action planning roster. Keep
+// these facts inside one synchronous path search, never across a callback,
+// yield, action or frame. Preserve liveRoster's latest-value/insertion order.
+function createRouteCombatAssessment(actor, roster, travelParty, estimatePower) {
+  const partyIds = new Set(travelParty.map(idOf));
+  const actorAlive = alive(actor);
+  const rows = liveRoster(actor, roster).filter(row => shareCombatSpace(actor, row)).map(row => ({
+    actor: row, zoneId: String(row.zoneId || ''), ally: areSameTeam(actor, row),
+    // liveRoster overrides a projected active actor with the original one.
+    arriving: row !== actor && partyIds.has(idOf(row)),
+  }));
+  return (zoneId) => {
+    const target = String(zoneId || ''), allies = [], enemies = [];
+    for (const row of rows) {
+      if (!row.arriving && row.zoneId !== target) continue;
+      (row.ally ? allies : enemies).push(row.actor);
+    }
+    if (actorAlive && !allies.some(row => idOf(row) === idOf(actor))) allies.push(actor);
+    // Planning power does not depend on the projected zone. Unknown/ambiguous
+    // identities still pass through the snapshot's original direct estimator.
+    return assessLocalCombatants({ allies, enemies }, estimatePower, 0.4);
+  };
+}
+
 // Evaluate the path, not just its endpoint. A safe destination behind a more
 // dangerous enemy zone is not a valid retreat. No synthetic teleport fallback.
 export function pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds = new Set(), {
@@ -52,6 +79,8 @@ export function pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds = new Se
   const excluded = excludedZoneIds instanceof Set ? excludedZoneIds : new Set(excludedZoneIds || []);
   if (!from || !zoneGraph?.[from]) return null;
   const current = assessTeamCombat(actor, roster, { estimatePower });
+  const routeAssessment = isPlanningMovePowerSnapshot(estimatePower)
+    ? createRouteCombatAssessment(actor, roster, travelParty, estimatePower) : null;
   const pressure = (info) => info.enemyPower / Math.max(1, info.allyPower);
   const maxPressure = enemyFree ? 0 : Math.max(1, pressure(current));
   const queue = [{ zoneId: from, nextStep: from, distance: 0, assessment: current }];
@@ -63,9 +92,13 @@ export function pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds = new Se
     if (row.distance >= maxDepth) continue;
     for (const value of [...(zoneGraph[row.zoneId] || [])].map(String).sort()) {
       if (!value || seen.has(value) || forbidden.has(value) || excluded.has(value)) continue;
-      const partyIds = new Set(travelParty.map(idOf));
-      const arrivingRoster = partyIds.size ? roster.map((member) => partyIds.has(idOf(member)) ? { ...member, zoneId: value } : member) : roster;
-      const assessment = assessTeamCombat(actor, arrivingRoster, { estimatePower, zoneId: value });
+      let assessment;
+      if (routeAssessment) assessment = routeAssessment(value);
+      else {
+        const partyIds = new Set(travelParty.map(idOf));
+        const arrivingRoster = partyIds.size ? roster.map((member) => partyIds.has(idOf(member)) ? { ...member, zoneId: value } : member) : roster;
+        assessment = assessTeamCombat(actor, arrivingRoster, { estimatePower, zoneId: value });
+      }
       if (pressure(assessment) > maxPressure) continue;
       seen.add(value);
       queue.push({ zoneId: value, nextStep: row.distance === 0 ? value : row.nextStep, distance: row.distance + 1, assessment });

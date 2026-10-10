@@ -4,6 +4,13 @@ import { getRegenValue, getShieldValue } from '../../../utils/statusLogic';
 import { getPerkAggressionBias } from './perkRuntime';
 import { getCombatEquipment } from '../../../utils/battleEquipmentLogic.js';
 
+// Brand only functions created here. External estimators may mutate their
+// inputs, so route planners must not reuse their roster-derived facts.
+const planningPowerSnapshots = new WeakSet();
+export function isPlanningMovePowerSnapshot(estimatePower) {
+  return planningPowerSnapshots.has(estimatePower);
+}
+
 function combatScoreForMovePower(actor) {
   const stats = normalizeErStats(actor?.stats || {});
   const maxHp = Math.max(1, Number(actor?.maxHp || stats.maxHp || 100));
@@ -68,10 +75,12 @@ export function createPlanningMovePowerSnapshot(roster, context = {}) {
   for (const [id, actor] of rows) {
     if (!ambiguous.has(id)) scores.set(id, estimateMovePower(actor, context));
   }
-  return (actor) => {
+  const estimatePlanningPower = (actor) => {
     const id = String(actor?._id || actor?.id || '');
     return scores.has(id) ? scores.get(id) : estimateMovePower(actor, context);
   };
+  planningPowerSnapshots.add(estimatePlanningPower);
+  return estimatePlanningPower;
 }
 
 function shouldAvoidCombatByMovePower(me, opponent, context = {}) {
