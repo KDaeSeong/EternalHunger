@@ -658,6 +658,294 @@
     "bytes": 43026,
     "sha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B"
   },
+  "fullGateFollowUp": {
+    "date": "2026-10-10",
+    "parentCommit": "d80611ae1e9ebcdc84faa059e1a7d445b1fefda0",
+    "scope": "Fresh full named verification/build of the existing fix, bounded read-only audits and own cache cleanup; no new runtime implementation",
+    "newRuntimeSourceEdits": 0,
+    "fullNamedGate": {
+      "path": "client/.verification-runs/2026-10-10T05-01-44.127Z-e8e07a9f-399d-4894-af01-5c03d7113c9e",
+      "status": "passed",
+      "exitCode": 0,
+      "command": "npm run check:eternal-hunger",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "selectedVerifierSourceCount": 25,
+      "engineBefore": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+      "engineAfter": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+      "startedAt": "2026-10-10T05:01:44.13Z",
+      "finishedAt": "2026-10-10T05:44:00.283Z",
+      "scope": "Named command only; not balance, fun or overall-goal acceptance.",
+      "rawFiles": [
+        {
+          "path": "client/.verification-runs/2026-10-10T05-01-44.127Z-e8e07a9f-399d-4894-af01-5c03d7113c9e/result.json",
+          "bytes": 6416,
+          "sha256": "3E596AFE7139E001CA34A9C731A2F3631F1808432210A662A20DBF8C3846222C"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-10T05-01-44.127Z-e8e07a9f-399d-4894-af01-5c03d7113c9e/output.log",
+          "bytes": 271338,
+          "sha256": "74C90D21273510065F29416CC7CEB28DFD90D818B328BC554B7B58933E992BD5"
+        }
+      ],
+      "elapsedSec": 2536.153,
+      "repeatedPassLinesNotDistinctTestCount": true,
+      "allCheckerFilesHashCaptured": false,
+      "note": "25 selected critical verifier source hashes are stable; the entire named npm chain exited 0. This is not all-input balance, browser performance, account, deployment or human acceptance."
+    },
+    "freshRuntimeObservations": {
+      "firstNightSeeds": [
+        "1101",
+        "2202",
+        "3303"
+      ],
+      "firstNightCompletedOfOriginalRoster": [
+        {
+          "seed": "1101",
+          "completed": 24,
+          "original": 24
+        },
+        {
+          "seed": "2202",
+          "completed": 24,
+          "original": 24
+        },
+        {
+          "seed": "3303",
+          "completed": 24,
+          "original": 24
+        }
+      ],
+      "baseline1101": {
+        "events": 11633,
+        "frames": 5840,
+        "simulatedSec": 1124.916666,
+        "ending": "last_team/combat/team1"
+      },
+      "authoredStatuses": {
+        "phases": 13,
+        "frames": 7361,
+        "events": 17214,
+        "simulatedSec": 1289.5,
+        "effects": 250,
+        "cleanses": 2,
+        "ending": "last_team/combat/team2",
+        "savedInputReexecution": "MATCH"
+      },
+      "replayScope": "Actual engine saved-input reexecution and memory IndexedDB tests, not a real fresh browser session or authenticated account save"
+    },
+    "readOnlyLunaAudits": [
+      {
+        "area": "growth component/recipe refresh",
+        "finding": "No confirmed opening-completion or regroup-termination failure in the fresh real addItem/refresh/tryAutoCraft chain",
+        "boundary": "Transient slot count is not proof of whole growth completion; hypothetical in-place catalog mutations were not patched"
+      },
+      {
+        "area": "late helper actual combat",
+        "finding": "Actual approach from distance 11 reached distance 2 and dealt 15 HP at t=103 after the helper's own ready clocks",
+        "boundary": "Controlled actual action-loop case, not diverse natural cooperation, survival contribution or paired strategy causality"
+      },
+      {
+        "area": "depleted resource route",
+        "finding": "Actual movement decision replanned b -> c after b stock was exhausted, and next movement changed x -> y",
+        "boundary": "A bounded fresh movement-decision case, not complete natural route distribution"
+      }
+    ],
+    "boundedCpuProfile": {
+      "files": [
+        {
+          "path": "artifacts/first-phase-profile-current/first-phase.cpuprofile",
+          "bytes": 678540,
+          "sha256": "53315A304CD9332753C4825C2C86ED1B47A7FDBBD35DBE8EF3B57A6EAEFE55B9"
+        },
+        {
+          "path": "artifacts/first-phase-profile-current/summary.json",
+          "bytes": 9788,
+          "sha256": "D779B1F47BB31C260F600FCFCAF3B56357FE098555B13FFF5B93094EEFB83D3E"
+        }
+      ],
+      "retainedBytes": 688328,
+      "reason": "Unique current-engine performance evidence retained pending foreground performance validation; no whole project/input copies",
+      "invocation": "node client/scripts/profile-simulation-first-phase.mjs artifacts/first-phase-profile-current",
+      "actualExitCode": 0,
+      "engineCheckedUnchangedByCaller": true,
+      "engine": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+      "summaryHasEngineHashField": false,
+      "seed": "1101",
+      "stopAtSec": 130,
+      "frames": 645,
+      "events": 4749,
+      "elapsedMsIncludingHarness": 16083.878,
+      "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+      "frameDigest": "d3ce9d316219afc4aafd9fb62d2e17389f06c0b8a10a410c8c1232434a12bb13",
+      "eventDigest": "b7e4c1fcdeb48fe528d88fa92ca868176d92f322571dd238fedb7bba1af1f47a",
+      "topRuntimeSelfMs": {
+        "normalizeRuntimeSurvivor": 616.337,
+        "inferEquipSlot": 508.039,
+        "getValidRecipeIngredients": 455.335
+      },
+      "boundary": "The harness also clones, freezes and hashes output. This single 130-second CPU profile is neither a complete match nor real x32 wall-clock/memory proof."
+    },
+    "build": {
+      "files": 1429,
+      "bytes": 74758185,
+      "sha256": "FC54517DC000F8CBBC0677A70FF0613CCD6DB0D05979D17FBD3B98E8764A2567",
+      "buildId": "_cFQW5lwSAjldz20_VJvY",
+      "digestAlgorithm": "SHA256 of UTF8 LF-joined path|bytes|uppercase-SHA256, sorted by full path, excluding cache/",
+      "engineMarkers": [
+        "client/.next/static\\chunks\\5167-b5b2e2753e15af22.js",
+        "client/.next/server\\chunks\\2433.js"
+      ],
+      "completionLines": [
+        "Route (app)"
+      ],
+      "staticPagesGenerated": 62,
+      "allStaticPagesFinished": true,
+      "actualBuildExitCode": 0
+    },
+    "cleanup": {
+      "measuredAt": "2026-10-10T05:52:03.1585437+00:00",
+      "scope": "Only six exact regenerable webpack pack leaves produced by the finished current full gate",
+      "activeRelevantJobs": 0,
+      "removedCount": 6,
+      "removedBytes": 593970171,
+      "deletedFiles": [
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+          "relativePath": "client/.next/cache/webpack/client-production/0.pack",
+          "bytes": 255946818,
+          "sha256": "A71D027D2ED4156E6B0C8B391BE7B59F2ABAE87FA8E5C93F0171AEC753DDE441",
+          "links": 1
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+          "relativePath": "client/.next/cache/webpack/client-production/index.pack",
+          "bytes": 12844478,
+          "sha256": "901D278D731E91EAAE92C69E88331C61AC5F1FACC353E0A29DA2B6C218312C1E",
+          "links": 1
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+          "relativePath": "client/.next/cache/webpack/edge-server-production/0.pack",
+          "bytes": 276,
+          "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+          "links": 1
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+          "relativePath": "client/.next/cache/webpack/edge-server-production/index.pack",
+          "bytes": 2464,
+          "sha256": "F2CF87C03A02C233A80EE0CDF2FA5F186B86C2E9752ABC2DF86EF89CCE4BB6D5",
+          "links": 1
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+          "relativePath": "client/.next/cache/webpack/server-production/0.pack",
+          "bytes": 307090792,
+          "sha256": "79AB37F732B21D05A96C8F54DB038252CACAC95ED3829ADE001B8BFCB3AA6ECD",
+          "links": 1
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+          "relativePath": "client/.next/cache/webpack/server-production/index.pack",
+          "bytes": 18085343,
+          "sha256": "ED84840119CDD2C5D1DF83EF9FBC61D1F4346268A0902BE628AACD74C10CD4D2",
+          "links": 1
+        }
+      ],
+      "remainingPackFiles": 0,
+      "pathsVerifiedInside": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+      "recovery": "Regenerate caches with normal build; no unique source, save, release, raw result or CPU profile removed",
+      "protectedCount": 33,
+      "sameProtectedFiles": true,
+      "sameBuild": true,
+      "completedBuildBefore": {
+        "files": 1429,
+        "bytes": 74758185,
+        "sha256": "FC54517DC000F8CBBC0677A70FF0613CCD6DB0D05979D17FBD3B98E8764A2567",
+        "buildId": "_cFQW5lwSAjldz20_VJvY"
+      },
+      "completedBuildAfter": {
+        "files": 1429,
+        "bytes": 74758185,
+        "sha256": "FC54517DC000F8CBBC0677A70FF0613CCD6DB0D05979D17FBD3B98E8764A2567",
+        "buildId": "_cFQW5lwSAjldz20_VJvY"
+      },
+      "nextScopeBefore": {
+        "files": 1443,
+        "uniqueFiles": 1443,
+        "bytes": 668879492,
+        "hardlinkedPaths": 0
+      },
+      "nextScopeAfter": {
+        "files": 1437,
+        "uniqueFiles": 1437,
+        "bytes": 74909321,
+        "hardlinkedPaths": 0
+      },
+      "logicalReduction": 593970171,
+      "physicalFreeSpaceMeasured": false,
+      "physicalAllocationMeasured": false,
+      "protectedFilesAtDeletionBoundaryDefinition": "29 existing protected paths from cleanup.protectedFilesAtDeletionBoundary plus the two current raw full-run files and two current CPU files; all 33 hashed before and after",
+      "retained": "Current completed build; current raw full-run and CPU evidence; all old raw failures/successes; original user JSON/MD; original product goal tail; unrelated/ambiguous untracked files",
+      "newEvidenceBytes": 966082,
+      "nextAtTaskStart": {
+        "files": 1437,
+        "bytes": 74909778
+      },
+      "nextNetChangeFromTaskStartBytes": -457,
+      "wholeWorkspaceSizeMeasured": false,
+      "intentionalDocumentationEditsAfterCleanup": [
+        "docs/eternal-hunger-goal.md",
+        "docs/late-growth-goals-verification.md",
+        "artifacts/initial-weapon-goals-20261010.json"
+      ]
+    },
+    "preservedUserFiles": [
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "bytes": 15715,
+        "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+      },
+      {
+        "path": "server/index.js",
+        "bytes": 5619,
+        "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+      },
+      {
+        "path": "server/.env.example",
+        "bytes": 2125,
+        "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+      }
+    ],
+    "originalGoalTail": {
+      "characters": 20641,
+      "bytes": 43026,
+      "sha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B"
+    },
+    "remainingGates": [
+      "Diverse natural cooperation/composition causal comparison",
+      "Foreground x32 wall-clock, continuous memory and observer/map legibility",
+      "Actual fresh browser-session save/replay/resume",
+      "Actual ER/custom AI drafts and explicitly authorized authenticated save",
+      "Follow-up human evaluation and public reflection"
+    ],
+    "overallGoalStatus": "active; original G1-G5/common acceptance unchanged and incomplete",
+    "externalWrites": {
+      "gitPush": 0,
+      "deployment": 0,
+      "foregroundBrowser": 0,
+      "accountWrites": 0,
+      "paidAiCalls": 0,
+      "humanScoresEntered": 0
+    },
+    "cleanupPreflightCorrection": {
+      "issue": "PowerShell Split-Path LiteralPath/Parent parameter-set error",
+      "removedBeforeCorrection": 0,
+      "action": "Used native directory-parent lookup and reran every guard before removing the exact six cache leaves",
+      "scope": "Cleanup guard command, not a product regression failure"
+    }
+  },
   "overallGoalStatus": "active; original G1-G5/common acceptance unchanged and incomplete",
   "remainingGates": [
     "public reflection",
