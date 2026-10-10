@@ -1,0 +1,206 @@
+{
+  "schema": "eh-live-observer-followup.v1",
+  "date": "2026-10-10",
+  "status": "partial_actual_browser_evidence_not_acceptance_pass",
+  "sourceCommit": "a0b4f047e0d8b8b56d4b123f361ea6c8efdaa5e4",
+  "engineVersion": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+  "buildId": "_cFQW5lwSAjldz20_VJvY",
+  "target": "http://127.0.0.1:3000/eternalhunger/evaluate?perfProbe=1",
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "viewportWidth": 1280,
+    "viewportHeight": 720,
+    "devicePixelRatio": 1,
+    "hardwareConcurrency": 12
+  },
+  "baseline": {
+    "schema": "eh-observer-performance.v3",
+    "label": "x32-current-build",
+    "numericPrecision": { "roundedMillisecondsResolutionMs": 0.001 },
+    "startedAtMs": 30380.8,
+    "endedAtMs": 263957.4,
+    "timeOriginMs": 1791615857738,
+    "elapsedMs": 233576.6,
+    "boundary": {
+      "status": "settled",
+      "stopReason": "manual",
+      "entryScope": "full_entries_intersecting_measurement_including_boundary_overlaps"
+    },
+    "context": {
+      "speed": 32,
+      "seed": "1789192220412",
+      "replayMode": false,
+      "initialDay": 0,
+      "initialMatchSec": 0,
+      "finalDay": 7,
+      "finalMatchSec": 1233.5,
+      "finalIsGameOver": true,
+      "speedChanges": 0,
+      "identityChanges": 0,
+      "pauses": 0,
+      "activeStartOffsetMs": 30937.1,
+      "activeEndOffsetMs": 113632.8
+    },
+    "derivedActiveObservation": {
+      "durationMs": 82695.7,
+      "simulationSecondsPerObservedSecond": 14.916132277736324,
+      "scope": "React_autoplay_and_game_over_context_boundaries_not_exact_engine_CPU_or_presented_frames",
+      "nominalX32Achieved": false
+    },
+    "resultObservedInUI": {
+      "winnerTeam": 4,
+      "winnerName": "매화",
+      "winnerTeamAlive": 3,
+      "winnerTeamSize": 3,
+      "endClock": "20:33.5",
+      "ending": "last_team",
+      "lastEliminationCause": "combat"
+    },
+    "visibility": {
+      "supported": true,
+      "initialState": "visible",
+      "endState": "visible",
+      "transitions": 0,
+      "boundaryNotifications": 0,
+      "durationMs": { "visible": 233576.6, "hidden": 0, "unknown": 0 },
+      "entireMeasurementVisible": true
+    },
+    "wholeMeasurementRaf": {
+      "samples": 16320,
+      "callbackFps": 69.87,
+      "intervalMs": { "median": 10, "p95": 50, "max": 359.9 },
+      "scope": "entire_measurement_including_setup_and_result_idle_not_active_game_FPS_or_presentation"
+    },
+    "wholeMeasurementLongTasks": { "count": 32, "totalMs": 2421, "maxMs": 234 },
+    "wholeMeasurementLongAnimationFrames": {
+      "count": 828,
+      "totalDurationMs": 65837.9,
+      "maxDurationMs": 302,
+      "maxWorkMs": 301.2,
+      "maxRenderMs": 36.7,
+      "maxStyleAndLayoutMs": 3.7,
+      "maxBlockingMs": 185.8,
+      "attributionScope": "browser_main_thread_entrypoints_not_full_call_stacks"
+    },
+    "synchronousWork": {
+      "scope": "nested_instrumented_stages_not_additive_or_full_CPU_attribution",
+      "stages": [
+        { "name": "observer.teamModel", "count": 928, "totalMs": 3233.8, "maxMs": 23 },
+        { "name": "start.captureInput", "count": 1, "totalMs": 5.2, "maxMs": 5.2 },
+        { "name": "start.prepareInput", "count": 1, "totalMs": 4.8, "maxMs": 4.8 },
+        { "name": "phase.fieldResources", "count": 13, "totalMs": 12.2, "maxMs": 12.1 },
+        { "name": "phase.starterLoadout", "count": 13, "totalMs": 20.5, "maxMs": 20.5 },
+        { "name": "phase.setup", "count": 13, "totalMs": 72.3, "maxMs": 38.3 },
+        { "name": "growth.refreshPlans", "count": 13262, "totalMs": 5864.3, "maxMs": 29.3 },
+        { "name": "growth.teamCoordination", "count": 5922, "totalMs": 7193.5, "maxMs": 49.2 },
+        { "name": "growth.slice", "count": 2927, "totalMs": 23129.5, "maxMs": 95 },
+        { "name": "growth.actorMovement", "count": 1300, "totalMs": 2543.1, "maxMs": 59.5 },
+        { "name": "growth.actorLoot", "count": 1300, "totalMs": 981, "maxMs": 10 },
+        { "name": "growth.actorPlan", "count": 1300, "totalMs": 3042.5, "maxMs": 20.9 },
+        { "name": "growth.actorQueue", "count": 1300, "totalMs": 1288.3, "maxMs": 71 },
+        { "name": "growth.singleActor", "count": 1300, "totalMs": 8017.2, "maxMs": 90.2 },
+        { "name": "frame.snapshot", "count": 6428, "totalMs": 21626.2, "maxMs": 144.5 },
+        { "name": "observer.trackedActors", "count": 768, "totalMs": 85.6, "maxMs": 4.2 },
+        { "name": "replay.captureResult", "count": 1, "totalMs": 62.8, "maxMs": 62.8 }
+      ]
+    },
+    "asyncWaits": {
+      "scope": "separate_wait_settlements_not_synchronous_work_or_CPU_time",
+      "waits": [
+        { "name": "yield.growth.frame", "count": 818, "totalMs": 16564.6, "maxMs": 163.9 },
+        { "name": "yield.growth.task", "count": 875, "totalMs": 86.4, "maxMs": 23.8 }
+      ]
+    },
+    "inputResponse": {
+      "samples": 4,
+      "pendingSamples": 0,
+      "lastMs": 1.1,
+      "maxMs": 1.8,
+      "scope": "captured_click_to_next_RAF_not_INP_or_presentation"
+    },
+    "heap": {
+      "baselineUsedBytes": 18361568,
+      "usedBytes": 45942032,
+      "deltaUsedBytes": 27580464,
+      "totalBytes": 54505184,
+      "limitBytes": 4395630592,
+      "scope": "one_probe_without_forced_GC_or_continuous_same_speed_replays_not_leak_verdict"
+    },
+    "domNodesAtStop": 579
+  },
+  "sameInputX8Replay": {
+    "label": "x8-current-build-same-replay",
+    "speedObserved": 8,
+    "originalRecordSelectedFromHistory": true,
+    "completed": true,
+    "comparisonMatchedObservedInUI": true,
+    "comparedEventsObservedInUI": 13211,
+    "finalStateAndEndingMatchedObservedInUI": true,
+    "endClock": "20:33.5",
+    "winnerTeam": 4,
+    "winnerName": "매화",
+    "performanceProbeStoppedAutomaticallyObservedInUI": true,
+    "finalPerformanceProbeRecovered": false,
+    "activeDurationMs": null,
+    "heap": null,
+    "missingReason": "temporary_browser_tab_closed_at_session_boundary_before_final_probe_retrieval"
+  },
+  "mapObservations": {
+    "defaultViewport": "1280x720",
+    "expandedMapActuallyOpenedDuringX8": true,
+    "regionLabelsTeamNumberMarkersHpBarsObserved": true,
+    "expandedMapApproximateIslandSizePixels": [474, 488],
+    "scope": "agent_visual_observation_not_human_readability_acceptance"
+  },
+  "newBattleLogDownload": {
+    "path": "C:/Users/home/Downloads/eternal-hunger-log-매화-2026-10-10T07-18-51.json",
+    "bytes": 11123671,
+    "sha256": "51dc80936415775f731c464748ec29099cc2b877ea81e5f5250c756ea9c8e360",
+    "schema": "eternal-hunger.battle-log.v1",
+    "inputSchema": "eternal-hunger.replay.v1",
+    "engineVersion": "a14c74287f899bd5887a3206e00437c39ebeaf5fe305242e5ae765b62269f856",
+    "runSeed": "1789192220412",
+    "exportedAt": "2026-10-10T07:18:51.441Z",
+    "logCount": 8282,
+    "runEventCount": 13211,
+    "participantsCount": 24,
+    "teamCount": 8,
+    "lpRewardTotal": 0,
+    "topLevelAndInputAccountFieldsFound": [],
+    "accountFieldCheckScope": "listed_top_level_and_input_keys_only_not_deep_private_data_audit",
+    "purpose": "unique_new_actual_UI_output_evidence_not_regression_fixture_or_expected_input",
+    "duplicated": false,
+    "retained": true
+  },
+  "acceptanceLimits": [
+    "x32_nominal_speed_not_reached_in_this_observation",
+    "baseline_manual_stop_and_pre_post_idle_not_canonical_nine_replay_performance_gate",
+    "x8_final_probe_missing_do_not_fill_from_baseline_or_source",
+    "x1_and_three_consecutive_same_speed_replays_not_completed_this_turn",
+    "heap_lifetime_and_collection_not_verified",
+    "browser_tab_remount_not_new_browser_process_restart",
+    "no_controlled_before_after_speedup_claim",
+    "source_log_accumulation_suspicion_retracted_after_actual_session_remount_paths_found",
+    "no_current_human_scores_or_public_deployment_acceptance"
+  ],
+  "cleanup": {
+    "ownedServerStopped": true,
+    "port3000ListenersAfterStop": 0,
+    "temporaryBrowserTabsRemaining": 0,
+    "buildFiles": 1437,
+    "buildLogicalBytes": 74909321,
+    "webpackPackFiles": 0,
+    "deletedFiles": 0,
+    "projectCopyCreated": false,
+    "physicalFreeSpaceChangeMeasured": false,
+    "scope": "selected_build_and_new_evidence_not_whole_workspace_size"
+  },
+  "authority": {
+    "accountWrites": 0,
+    "paidAiCalls": 0,
+    "pushes": 0,
+    "deployments": 0,
+    "humanScoresEntered": 0,
+    "runtimeSourceEdits": 0
+  }
+}
