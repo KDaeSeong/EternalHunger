@@ -1,0 +1,132 @@
+{
+  "schema": "eh-growth-fulfillment-facts.v1",
+  "date": "2026-10-10",
+  "status": "focused_regressions_and_separate_build_passed_not_browser_acceptance",
+  "engineVersion": "c2169738f12647bf1806b0d340704770a8502cbe5ae34742f84585e84d201f7c",
+  "change": "Cache inventory quantity eligibility and merged weapon compatibility by entry identity within one synchronous growth-progress call only.",
+  "preserved": ["fresh reads on next call", "duplicate ID row overrides", "authored and fallback targets", "craft component rules", "costs", "clock", "movement", "combat", "owned frame copies", "RNG"],
+  "focusedChecks": {
+    "duplicateWorkGuardBefore": {"exitCode": 1, "actualReads": 5, "expectedReads": 1, "scope": "duplicate work counter failure, not a gameplay-result mismatch", "rawLog": "tool output only"},
+    "inventoryAfter": {"exitCode": 0, "quantityCases": 7, "recipeParityCases": 18, "fulfillmentParityCases": 137, "actualMergedWeaponReads": 1},
+    "verificationFingerprint": {"checks": 6, "pass": true, "growthProofModes": ["growth", "performance", "growth-focus-unit", "initial-weapon-goal-unit", "full"]}
+  },
+  "freshMatchPair": {
+    "exitCode": 0,
+    "seed": "1101",
+    "matches": 2,
+    "referenceOverrides": 1,
+    "productionOverrides": 0,
+    "exactOutcomeMatch": true,
+    "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+    "phases": 11,
+    "frames": 5840,
+    "events": 11633,
+    "simulationSeconds": 1124.916666,
+    "ending": {"outcome": "last_team", "day": 6, "phase": "morning", "cause": "combat", "winnerTeamId": "team:1"},
+    "random": {"algorithm": "fnv1a-mulberry32-v1", "state": 2014021095, "draws": 8934, "ids": 0, "nameHistory": []},
+    "eventDigest": "52c99d0295115037af6964d786024a717dd0861db2358efc579d5e6a5d4cad35",
+    "frameDigest": "66cdcace028367955150991953de1c83f43cffa394c3b3530bb3d4865b6ac69c",
+    "finalFrameDigest": "b19f2e6b60a9bc6c4cfeef71a8c8a63ae03fd2ad642f74f2a1beef36630da75b",
+    "logDigest": "220f77fa4cb9a9900e2052d0d1a33c365a828f502ffc9aa2ed2c2642b6e564ae",
+    "scope": "One fresh seed, separate workers, original fulfillment expression overlaid in reference only. Unchanged helpers are shared; not a historic engine replay or all-input proof."
+  },
+  "performanceChain": {
+    "runId": "2026-10-10T07-52-02.519Z-3a135026-910e-4eb1-a9e6-ff93439d16b5",
+    "result": "client/.verification-runs/2026-10-10T07-52-02.519Z-3a135026-910e-4eb1-a9e6-ff93439d16b5/result.json",
+    "log": "client/.verification-runs/2026-10-10T07-52-02.519Z-3a135026-910e-4eb1-a9e6-ff93439d16b5/output.log",
+    "status": "failed",
+    "exitCode": 1,
+    "sameEngine": true,
+    "sameVerificationSources": true,
+    "verificationSourceCount": 6,
+    "finishedAt": "2026-10-10T08:06:51.196Z",
+    "failure": "EPERM mkdir C:/2저장고/EternalHunger/client/.next/types/app/board/[id]",
+    "resultBytes": 2388,
+    "resultSha256": "5fdf0018d6a7b5a05878a5872778fafda96d708cad08418b162861364c9b5b30",
+    "logBytes": 98401,
+    "logSha256": "8e3fa099d80cb34ed01859e0102fdcaa5a0c826368dcc17cefd41a86ab648d7d"
+  },
+  "completedRegressionsBeforeBuild": {
+    "firstNightDeadlineSeconds": 250,
+    "competitiveCanonicalFixtures": [
+      {"seed": "1101", "complete": 24, "total": 24, "battles": 10},
+      {"seed": "2202", "complete": 24, "total": 24, "battles": 7},
+      {"seed": "3303", "complete": 24, "total": 24, "battles": 7}
+    ],
+    "scheduledMatches": {"matches": 3, "modes": ["headless", "cooperative", "visible-cooperative"], "exactOutcomeMatch": true, "events": 11633, "frames": 5840, "visibleTaskYields": 10537, "visibleFrameYields": 24559, "scope": "Injected host clock and RAF, not actual browser throughput."},
+    "freshSavedInputReplay": {"matched": true, "events": 14119, "frames": 6488, "sameFinalState": true, "sameRandom": true, "sameEnding": true, "externalAccess": 0},
+    "runtimeLint": "passed",
+    "scope": "Preceding commands in the && chain passed before the build-only permission failure. Canonical fixtures do not guarantee arbitrary custom recipes or exact uploaded-game reproduction."
+  },
+  "buildRecovery": {
+    "runId": "2026-10-10T08-09-33.942Z-4f347a69-9bda-4c81-92bb-15201bfe6c21",
+    "result": "client/.verification-runs/2026-10-10T08-09-33.942Z-4f347a69-9bda-4c81-92bb-15201bfe6c21/result.json",
+    "log": "client/.verification-runs/2026-10-10T08-09-33.942Z-4f347a69-9bda-4c81-92bb-15201bfe6c21/output.log",
+    "status": "passed",
+    "exitCode": 0,
+    "sameEngine": true,
+    "sameVerificationSources": true,
+    "verificationSourceCount": 2,
+    "finishedAt": "2026-10-10T08:10:07.738Z",
+    "pages": 62,
+    "buildId": "QxkSsky3GmK01L4X_0GC2",
+    "serverMarker": "client/.next/server/chunks/2433.js",
+    "clientMarker": "client/.next/static/chunks/5167-24d8df09a2bc5fc8.js",
+    "resultBytes": 1063,
+    "resultSha256": "20846444b7cce2f38283e8a4f425a3b4420972a83d44d378db712f7570df7f61",
+    "logBytes": 3018,
+    "logSha256": "bf70bc72484a7f521142554babc12b2ab4537be7e9d44986c784a592498af57b"
+  },
+  "storage": {
+    "scope": "Selected .next build folder and new evidence only, not the full workspace or physical allocated/free space.",
+    "before": {"buildId": "_cFQW5lwSAjldz20_VJvY", "files": 1437, "logicalBytes": 74909321, "packFiles": 0, "packBytes": 0},
+    "folder": "C:/2저장고/EternalHunger/client/.next",
+    "afterBuild": {"files": 1443, "uniqueFiles": 1443, "logicalBytes": 668346694},
+    "after": {"files": 1437, "uniqueFiles": 1437, "logicalBytes": 74330407, "packFiles": 0},
+    "selectedBuildDeltaFromInitialBytes": -578914,
+    "cleanup": {
+      "exitCode": 0,
+      "deletedFiles": 6,
+      "deletedLogicalBytes": 594016287,
+      "remainingTargets": 0,
+      "relevantWorkspaceNodeProcesses": 0,
+      "recoverableBy": "npm run build",
+      "retainedManifestSha256BeforeAndAfter": "3dda7e7e5097e116da80d19a80caf7ca674df5ce8a3f345bc5059429c9193de8",
+      "retainedBuildManifestUnchanged": true,
+      "protectedFilesAtDeletionBoundary": 13,
+      "protectedFilesUnchangedAtDeletionBoundary": true,
+      "uniqueFileIdsVerified": true,
+      "initialGuard": {"blockedUnrelatedOtherProject": true, "deletedFiles": 0, "processesTerminated": 0},
+      "deleted": [
+        {"path": "cache/webpack/client-production/0.pack", "bytes": 255952927, "fileId": "821886821:1407374885774969", "links": 1, "sha256": "eb0e6f12605fc240694dfaedd838d268da9f13b9b51657e55b0e512771903f86"},
+        {"path": "cache/webpack/client-production/index.pack", "bytes": 12844485, "fileId": "821886821:1407374885774966", "links": 1, "sha256": "85e7ed6db678a1ff9f34b7ca9b1ee161f2c82cc278bd24c699f7e64a7521d4e2"},
+        {"path": "cache/webpack/edge-server-production/0.pack", "bytes": 276, "fileId": "821886821:3377699722394758", "links": 1, "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc"},
+        {"path": "cache/webpack/edge-server-production/index.pack", "bytes": 2464, "fileId": "821886821:3377699722394761", "links": 1, "sha256": "76829c66871c5d698187757909d392ca840807b9b7cef88a522c7f94a3a1331c"},
+        {"path": "cache/webpack/server-production/0.pack", "bytes": 307130583, "fileId": "821886821:9288674233317880", "links": 1, "sha256": "65cdcf8b71bfe50aebe2318422d41374956cf492c6c9b36c540f14881cc27542"},
+        {"path": "cache/webpack/server-production/index.pack", "bytes": 18085552, "fileId": "821886821:6755399442922095", "links": 1, "sha256": "d193c7a391c39d0f4a50838ef83eb2705ba094102f03459d6b1f7bbb2569f2da"}
+      ]
+    },
+    "newUniqueRawEvidence": {"files": 4, "logicalBytes": 104870},
+    "projectCopiesCreated": 0,
+    "oldResultsUsedAsTestInputs": 0
+  },
+  "protected": {
+    "client/scripts/check-observer-goals-match.mjs": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9",
+    "server/index.js": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+    "server/.env.example": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3",
+    "goalTailMarker": "## 제품 정의와 범위",
+    "goalTailNormalizedSha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+    "unchanged": true
+  },
+  "acceptance": {
+    "actualBrowserSpeedAfterChange": null,
+    "browserSpeedImprovementClaimed": false,
+    "fullGoalComplete": false,
+    "pushes": 0,
+    "deployments": 0,
+    "accountWrites": 0,
+    "paidAiCalls": 0,
+    "humanScoresEntered": 0
+  },
+  "limitations": ["Stable serialized metadata within one synchronous call; adversarial changing getters are not covered.", "One-call read reduction is not wall-clock or browser throughput evidence.", "Old a14 browser/build evidence is not current c216 acceptance."]
+}

@@ -90,7 +90,7 @@
     "check:cooldown-semantics": "node ./scripts/check-cooldown-semantics.mjs && npm run check:unique-resource",
     "check:unique-resource": "node ./scripts/check-unique-resource.mjs && npm run check:character-skill-movement",
     "check:character-skill-movement": "node ./scripts/check-character-skill-movement.mjs",
-    "check:growth-plan": "node ./scripts/check-growth-capacity.mjs && node ./scripts/check-growth-plan.mjs && node ./scripts/check-growth-progress-inventory.mjs && node ./scripts/check-growth-plan-shared-inventory-index.mjs && node ./scripts/check-growth-recipe-work-cache.mjs && npm run check:late-growth",
+    "check:growth-plan": "node ./scripts/check-growth-capacity.mjs && node ./scripts/check-growth-plan.mjs && node ./scripts/check-growth-progress-inventory.mjs && node ./scripts/check-growth-plan-shared-inventory-index.mjs && node ./scripts/check-growth-recipe-work-cache.mjs && node ./scripts/check-growth-fulfillment-match.mjs && npm run check:late-growth",
     "check:opening-deadline:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-opening-deadline-match.mjs",
     "check:late-growth": "node ./scripts/check-late-growth-goals.mjs && node ./scripts/check-late-growth-focus.mjs && node ./scripts/check-late-growth-decision-index.mjs",
     "check:late-growth:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-late-growth-match.mjs",

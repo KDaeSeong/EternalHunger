@@ -95,6 +95,9 @@ function fingerprint() {
 }
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json'];
+  if (['growth', 'performance', 'growth-focus-unit', 'initial-weapon-goal-unit', 'full'].includes(mode)) paths.push(
+    'scripts/check-growth-progress-inventory.mjs', 'scripts/check-growth-fulfillment-match.mjs',
+    'scripts/lib/run-random-isolation-match.mjs', 'scripts/lib/register-simulation-modules.mjs');
   if (['strategy-comparison-unit', 'full'].includes(mode)) paths.push(
     'scripts/check-strategy-comparison-contracts.mjs', 'scripts/lib/strategy-comparison-contracts.mjs',
     'scripts/lib/register-simulation-modules.mjs', 'scripts/check-verification-fingerprint.mjs');

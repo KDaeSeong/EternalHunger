@@ -67,5 +67,26 @@ for (const mode of ['strategy-paired', 'formation-paired']) {
     'The safe relative output path must not acquire literal Windows npm quotes.');
 }
 console.log('PASS strategy output uses the actual shell-safe unquoted relative path');
-console.log(JSON.stringify({ pass: true, checks: 5, engine: base.wrapper,
+
+function verificationSources(mode, mutatePath = '') {
+  return vm.runInNewContext(`${wrapperBody}\nverificationSourceHashes();`, {
+    mode, root: fileURLToPath(root), createHash, join,
+    readFileSync: (path, encoding) => {
+      const content = readFileSync(path, encoding);
+      return resolve(path) === mutatePath ? `${content}\n// Independent test mutation.\n` : content;
+    },
+  }, { timeout: 10000 });
+}
+const growthProofPaths = ['scripts/check-growth-progress-inventory.mjs', 'scripts/check-growth-fulfillment-match.mjs',
+  'scripts/lib/run-random-isolation-match.mjs', 'scripts/lib/register-simulation-modules.mjs'];
+for (const mode of ['growth', 'performance', 'growth-focus-unit', 'initial-weapon-goal-unit', 'full']) {
+  const sourceHashes = verificationSources(mode);
+  for (const path of growthProofPaths) {
+    assert.equal(typeof sourceHashes[path], 'string', `${mode} must fingerprint ${path}.`);
+    const changed = verificationSources(mode, fileURLToPath(new URL(path, root)));
+    assert.notEqual(changed[path], sourceHashes[path], 'Changing a growth proof must invalidate same-source verification.');
+  }
+}
+console.log('PASS growth proof and fixture mutations invalidate all applicable verification modes');
+console.log(JSON.stringify({ pass: true, checks: 6, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));

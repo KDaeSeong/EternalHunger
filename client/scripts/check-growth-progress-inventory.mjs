@@ -165,3 +165,119 @@ for (const rows of [
 
 console.log(JSON.stringify({ pass: true, quantityCases: 7,
   recipeParityCases: 18, scope: 'growth quantity indexing parity, paid recipes, actual ruleset capacity/batch accounting and refresh marker/receipt contracts' }));
+
+// Independent pre-index fulfillment algorithm over new fixture data. Do not
+// obtain expected decisions from another wrapper around the product helper or
+// from a saved match/result file.
+function referenceRemainingTargets(who, catalog, targets) {
+  const byId = new Map(catalog.map(item => [String(item._id), item]));
+  const usableWeapon = item => inferEquipSlot(item) !== 'weapon'
+    || areEquipmentWeaponTypesCompatible(who.weaponType, item.weaponType);
+  const fallbackFulfills = (entry, target) => {
+    const slot = inferEquipSlot(target);
+    return !who.goalLoadouts?.hero?.[`${slot}Key`] && !entry.craftComponent
+      && inferEquipSlot(entry) === slot && Number(entry.tier) >= Number(target.tier)
+      && getInvItemId(entry) === who._growthFallbackTargets?.[slot];
+  };
+  return targets.filter(target => !(usableWeapon(target) && who.inventory.some(entry =>
+    invQty(who.inventory, getInvItemId(entry)) > 0
+    && usableWeapon({ ...byId.get(getInvItemId(entry)), ...entry })
+    && (getInvItemId(entry) === String(target._id) || fallbackFulfills(entry, target)
+      || (!entry.craftComponent && inferEquipSlot(entry) === inferEquipSlot(target)
+        && Number(entry.tier || 0) > Number(target.tier))))));
+}
+
+const progressSlots = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
+const progressCatalog = progressSlots.map(slot => ({
+  _id: `progress-${slot}`, itemKey: `progress-${slot}`, name: `목표 ${slot}`,
+  category: 'equipment', equipSlot: slot, tier: 4,
+  ...(slot === 'weapon' ? { weaponType: '권총' } : {}),
+  recipe: { ingredients: [{ itemId: 'raw', qty: 1 }] },
+}));
+const progressActor = (inventory, extra = {}) => makeActor(inventory, {
+  weaponType: '권총', routePlanTargetItemIds: progressCatalog.map(item => item._id), ...extra,
+});
+let fulfillmentParityCases = 0;
+const assertFulfillmentParity = (who, label) => {
+  const before = structuredClone(who);
+  const actual = getActorGrowthProgress(who, progressCatalog);
+  assert.deepEqual(actual.targets.map(item => item._id), progressCatalog.map(item => item._id),
+    `${label}: fixture declares five valid targets independently`);
+  const remaining = referenceRemainingTargets(who, progressCatalog, progressCatalog);
+  assert.deepEqual(actual.remaining, remaining, `${label}: original row-by-row fulfillment semantics`);
+  assert.equal(actual.completedSlots, progressCatalog.length - remaining.length);
+  assert.equal(actual.openingComplete, remaining.length === 0);
+  assert.deepEqual(actual.goalIssues, []);
+  assert.deepEqual(who, before, `${label}: read-only progress cannot change inventory or markers`);
+  fulfillmentParityCases += 1;
+  return actual;
+};
+const progressEntry = (slot, extra = {}) => ({ ...progressCatalog.find(item => item.equipSlot === slot),
+  itemId: `progress-${slot}`, qty: 1, ...extra });
+
+const duplicateWeaponActor = progressActor([
+  progressEntry('weapon', { qty: 0, weaponType: '활' }),
+  progressEntry('weapon', { qty: 1, weaponType: '권총' }),
+]);
+assert.equal(assertFulfillmentParity(duplicateWeaponActor, 'same ID, different row weapon overrides').completedSlots, 1,
+  'positive aggregate quantity does not make the first incompatible row compatible');
+assert.equal(assertFulfillmentParity(progressActor([
+  progressEntry('weapon', { craftComponent: true }),
+]), 'exact authored item remains usable as a component').completedSlots, 1,
+  'the exact target-ID branch does not exclude craft components');
+assert.equal(assertFulfillmentParity(progressActor([
+  progressEntry('head', { itemId: 'other-head', tier: 5, craftComponent: true }),
+]), 'higher-tier component is not fallback equipment').completedSlots, 0);
+const sparseProgressInventory = new Array(5);
+sparseProgressInventory[1] = null;
+sparseProgressInventory[4] = progressEntry('shoes');
+assert.equal(assertFulfillmentParity(progressActor(sparseProgressInventory), 'sparse and explicit null rows').completedSlots, 1);
+
+const progressQuantities = [undefined, 0, 1, '2', null, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, true, '', ' 1 '];
+for (let variant = 0; variant < 128; variant += 1) {
+  const rows = Array.from({ length: 9 }, (_, index) => {
+    const slot = progressSlots[(variant + index * 3) % progressSlots.length];
+    return progressEntry(slot, {
+      itemId: (variant + index) % 4 ? `progress-${slot}` : `other-${slot}`,
+      qty: progressQuantities[(variant * 7 + index) % progressQuantities.length],
+      equipSlot: (variant + index) % 5 ? slot : progressSlots[(index + 1) % progressSlots.length],
+      tier: 1 + (variant + index) % 6,
+      weaponType: (variant + index) % 3 ? '권총' : '활',
+      craftComponent: (variant + index) % 4 === 0,
+    });
+  });
+  const authored = variant % 2 ? { goalLoadouts: { hero: Object.fromEntries(
+    progressSlots.map(slot => [`${slot}Key`, `progress-${slot}`])) } } : {};
+  assertFulfillmentParity(progressActor(rows, {
+    _growthFallbackTargets: Object.fromEntries(progressSlots.map(slot => [slot, `other-${slot}`])), ...authored,
+  }), `fresh fulfillment variant ${variant}`);
+}
+
+const mutableProgressRows = progressSlots.map(slot => progressEntry(slot));
+const mutableProgressActor = progressActor(mutableProgressRows);
+assert.equal(assertFulfillmentParity(mutableProgressActor, 'before mutation').completedSlots, 5);
+mutableProgressRows[0].weaponType = '활';
+assert.equal(assertFulfillmentParity(mutableProgressActor, 'same row after weapon change').completedSlots, 4);
+mutableProgressRows[0].weaponType = '권총';
+mutableProgressRows[1].qty = 0;
+assert.equal(assertFulfillmentParity(mutableProgressActor, 'same array after consumption').completedSlots, 4);
+mutableProgressRows[1].qty = 1;
+mutableProgressRows[1].itemId = 'other-head';
+assert.equal(assertFulfillmentParity(mutableProgressActor, 'same row after identity change').completedSlots, 4);
+mutableProgressRows[1].tier = 5;
+assert.equal(assertFulfillmentParity(mutableProgressActor, 'same row after higher-tier replacement').completedSlots, 5);
+assert.strictEqual(mutableProgressActor.inventory, mutableProgressRows);
+
+let mergedWeaponReads = 0;
+const observedProgressEntry = { itemId: 'unrelated', qty: 1, equipSlot: 'head', tier: 1,
+  get weaponType() { mergedWeaponReads += 1; return '권총'; } };
+const observedProgressActor = progressActor([observedProgressEntry, ...progressSlots.map(slot => progressEntry(slot))]);
+const observedProgress = getActorGrowthProgress(observedProgressActor, progressCatalog);
+const actualMergedWeaponReads = mergedWeaponReads;
+assert.equal(observedProgress.completedSlots, 5);
+assert.deepEqual(observedProgress.remaining,
+  referenceRemainingTargets(observedProgressActor, progressCatalog, progressCatalog));
+assert.equal(actualMergedWeaponReads, 1,
+  'stable entry metadata must be merged at most once within one progress decision, not once per target');
+console.log(JSON.stringify({ pass: true, fulfillmentParityCases, actualMergedWeaponReads,
+  scope: 'call-local entry facts, original fulfillment reference, duplicate row overrides and fresh mutation; not a browser speed claim' }));

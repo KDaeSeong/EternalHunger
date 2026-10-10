@@ -99,17 +99,30 @@ function getActorGrowthProgressWithQuantities(actor, items = [], providedInvento
   const inventoryQuantities = providedInventoryQuantities || indexInventoryQuantities(inventory);
   const usableWeapon = (item) => inferEquipSlot(item) !== 'weapon'
     || areEquipmentWeaponTypesCompatible(actor.weaponType, item.weaponType);
+  // One synchronous decision only: read changed identities, quantities and
+  // weapon overrides again on the next call. Rows with the same item ID may
+  // override catalogue metadata differently, so cache by row, not item ID.
+  const inventoryFacts = new Map();
+  const factsFor = (entry) => {
+    if (!inventoryFacts.has(entry)) {
+      const id = getInvItemId(entry);
+      inventoryFacts.set(entry, { id, usable: inventoryQuantities.get(id) > 0
+        && usableWeapon({ ...byId.get(id), ...entry }) });
+    }
+    return inventoryFacts.get(entry);
+  };
   const fallbackFulfills = (entry, target) => {
     const slot = inferEquipSlot(target);
     return !actor.goalLoadouts?.hero?.[`${slot}Key`] && !entry.craftComponent
       && inferEquipSlot(entry) === slot && Number(entry.tier) >= Number(target.tier)
       && getInvItemId(entry) === actor._growthFallbackTargets?.[slot];
   };
-  const fulfilled = (target) => usableWeapon(target) && inventory.some((entry) => inventoryQuantities.get(getInvItemId(entry)) > 0
-    && usableWeapon({ ...byId.get(getInvItemId(entry)), ...entry })
-    && (getInvItemId(entry) === String(target._id)
+  const fulfilled = (target) => usableWeapon(target) && inventory.some((entry) => {
+    const facts = factsFor(entry);
+    return facts.usable && (facts.id === String(target._id)
       || fallbackFulfills(entry, target)
-      || (!entry.craftComponent && inferEquipSlot(entry) === inferEquipSlot(target) && Number(entry.tier || 0) > Number(target.tier))));
+      || (!entry.craftComponent && inferEquipSlot(entry) === inferEquipSlot(target) && Number(entry.tier || 0) > Number(target.tier)));
+  });
   const remaining = targets.filter((target) => !fulfilled(target));
   return { targets, remaining, completedSlots: targets.length - remaining.length, totalSlots: requested.length,
     targetIds: [...new Set(requested.map((row) => row.id))], goalIssues,
