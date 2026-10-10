@@ -202,5 +202,270 @@
     "deployments": 0,
     "humanScoresEntered": 0,
     "runtimeSourceEdits": 0
+  },
+  "growthFulfillmentBrowserFollowUp": {
+    "reportOnly": true,
+    "neverUseAsVerificationInput": true,
+    "status": "partial_actual_browser_evidence_not_acceptance_pass",
+    "sourceCommit": "b35c6bb047d978457bc7fbf5b8e014c2b005ae09",
+    "engineVersion": "c2169738f12647bf1806b0d340704770a8502cbe5ae34742f84585e84d201f7c",
+    "buildId": "QxkSsky3GmK01L4X_0GC2",
+    "target": "http://127.0.0.1:3137/eternalhunger/evaluate?perfProbe=1",
+    "probeSourceFormat": "eh-observer-performance.v3",
+    "retainedProjection": "bounded_metric_extracts_not_complete_raw_probe_or_battle_logs",
+    "numericPrecision": { "roundedMillisecondsResolutionMs": 0.001 },
+    "timeOriginMs": 1791621097210.6,
+    "environment": {
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewportWidth": 1280,
+      "viewportHeight": 720,
+      "devicePixelRatio": 1,
+      "hardwareConcurrency": 12
+    },
+    "commonObservedContext": {
+      "speed": 32,
+      "seed": "1789192220412",
+      "initialDay": 0,
+      "initialMatchSec": 0,
+      "initialAutoPlay": false,
+      "initialIsGameOver": false,
+      "initialComparisonMatched": null,
+      "initialComparedEvents": null,
+      "finalDay": 7,
+      "finalMatchSec": 1233.5,
+      "finalAutoPlay": false,
+      "finalIsGameOver": true,
+      "speedChanges": 0,
+      "identityChanges": 0,
+      "pauses": 0
+    },
+    "resultObservedInUI": {
+      "winnerTeam": 4,
+      "winnerName": "매화",
+      "winnerTeamAlive": 3,
+      "winnerTeamSize": 3,
+      "endClock": "20:33.5",
+      "ending": "last_team",
+      "lastEliminationCause": "combat",
+      "lpRewardTotal": 0
+    },
+    "partialPolicyDeclaredBeforeReplays": {
+      "declaredAtUtc": "2026-10-10T08:43:47.240Z",
+      "runsPlanned": 3,
+      "speed": 32,
+      "maxLongTaskMs": 200,
+      "maxInterRunGapMs": 120000,
+      "maxBaselineHeapGrowthBytes": 16777216,
+      "maxRafP95Ms": null,
+      "maxRafGapMs": null,
+      "scope": "three_x32_diagnostic_not_nine_run_acceptance_or_absence_of_leaks"
+    },
+    "freshRun": {
+      "label": "c216-x32-fresh-20261010",
+      "startedAtMs": 392248.1,
+      "endedAtMs": 525662.2,
+      "elapsedMs": 133414.1,
+      "boundary": { "status": "settled", "stopReason": "manual", "reason": null },
+      "replayMode": false,
+      "replayId": null,
+      "activeStartOffsetMs": 261.6,
+      "activeEndOffsetMs": 63150.7,
+      "derivedActiveObservation": { "durationMs": 62889.1, "simulationSecondsPerObservedSecond": 19.61389175548704 },
+      "wholeMeasurementRaf": { "samples": 9061, "callbackFps": 67.916, "medianMs": 10, "p95Ms": 50.1, "maxMs": 120, "firstRafDelayMs": 5.6, "trailingRafGapMs": 5.3 },
+      "longTasks": { "supported": true, "count": 1, "totalMs": 56, "maxMs": 56 },
+      "longAnimationFrames": { "supported": true, "count": 521, "maxDurationMs": 118.3, "maxWorkMs": 117.9, "maxRenderMs": 8.7, "maxStyleAndLayoutMs": 0.5, "maxBlockingMs": 7.4 },
+      "selectedSynchronousStages": [
+        { "name": "growth.refreshPlans", "count": 13262, "totalMs": 4002.2, "maxMs": 6 },
+        { "name": "growth.teamCoordination", "count": 5922, "totalMs": 5485.3, "maxMs": 35.9 },
+        { "name": "growth.slice", "count": 2477, "totalMs": 16941.7, "maxMs": 45.2 },
+        { "name": "frame.snapshot", "count": 6428, "totalMs": 15278.6, "maxMs": 9.4 },
+        { "name": "replay.captureResult", "count": 1, "totalMs": 36.6, "maxMs": 36.6 }
+      ],
+      "asyncWaits": [
+        { "name": "yield.growth.frame", "count": 635, "totalMs": 10582.8, "maxMs": 45.9 },
+        { "name": "yield.growth.task", "count": 608, "totalMs": 37.4, "maxMs": 0.3 }
+      ],
+      "inputResponse": { "samples": 4, "pendingSamples": 0, "lastMs": 5.5, "maxMs": 8.7 },
+      "heap": { "supported": true, "baselineUsedBytes": 18785562, "usedBytes": 45545560, "deltaUsedBytes": 26759998, "totalBytes": 49826812, "limitBytes": 4395630592 },
+      "visibility": { "supported": true, "initialState": "visible", "endState": "visible", "transitions": 0, "boundaryNotifications": 0, "durationMs": { "visible": 133414.1, "hidden": 0, "unknown": 0 }, "entireMeasurementVisible": true },
+      "domNodesAtStop": 579,
+      "measurementLimit": "manual_stop_after_result_modal_closed_includes_result_idle_not_canonical_replay_sample"
+    },
+    "sameInputX32Replays": [
+      {
+        "label": "c216-x32-replay-1",
+        "startedAtMs": 737700.4,
+        "endedAtMs": 818413.9,
+        "elapsedMs": 80713.5,
+        "boundary": { "status": "settled", "stopReason": "replay-complete", "reason": null },
+        "replayMode": true,
+        "replayId": "fa8a064e-18e4-4c8a-86f5-06ec2ac67c66",
+        "comparisonMatched": true,
+        "comparedEvents": 13211,
+        "activeStartOffsetMs": 280.8,
+        "activeEndOffsetMs": 80713.4,
+        "derivedActiveObservation": { "durationMs": 80432.6, "simulationSecondsPerObservedSecond": 15.335821544995438 },
+        "wholeMeasurementRaf": { "samples": 1991, "callbackFps": 24.667, "medianMs": 30.2, "p95Ms": 100, "maxMs": 200, "firstRafDelayMs": 1.3, "trailingRafGapMs": 50.4 },
+        "longTasks": { "supported": true, "count": 67, "totalMs": 4696, "maxMs": 162 },
+        "longAnimationFrames": { "supported": true, "count": 748, "maxDurationMs": 197, "maxWorkMs": 196.4, "maxRenderMs": 7.7, "maxStyleAndLayoutMs": 0.6, "maxBlockingMs": 113.2 },
+        "selectedSynchronousStages": [
+          { "name": "growth.refreshPlans", "count": 13262, "totalMs": 5376.5, "maxMs": 7.6 },
+          { "name": "growth.teamCoordination", "count": 5922, "totalMs": 11393.1, "maxMs": 93.4 },
+          { "name": "growth.slice", "count": 3142, "totalMs": 29498.2, "maxMs": 93.6 },
+          { "name": "frame.snapshot", "count": 6428, "totalMs": 15761.6, "maxMs": 18.5 },
+          { "name": "replay.captureResult", "count": 1, "totalMs": 41.4, "maxMs": 41.4 },
+          { "name": "replay.compareResult", "count": 1, "totalMs": 116.4, "maxMs": 116.4 }
+        ],
+        "asyncWaits": [
+          { "name": "yield.growth.frame", "count": 902, "totalMs": 14050, "maxMs": 46.7 },
+          { "name": "yield.growth.task", "count": 1006, "totalMs": 56.2, "maxMs": 0.4 }
+        ],
+        "inputResponse": { "samples": 1, "pendingSamples": 0, "lastMs": 4.7, "maxMs": 4.7 },
+        "heap": { "supported": true, "baselineUsedBytes": 66708689, "usedBytes": 270101343, "deltaUsedBytes": 203392654, "totalBytes": 366480375, "limitBytes": 4395630592 },
+        "visibility": { "supported": true, "initialState": "visible", "endState": "visible", "transitions": 0, "boundaryNotifications": 0, "durationMs": { "visible": 80713.5, "hidden": 0, "unknown": 0 }, "entireMeasurementVisible": true },
+        "domNodesAtStop": 743
+      },
+      {
+        "label": "c216-x32-replay-2",
+        "startedAtMs": 861042.2,
+        "endedAtMs": 948013.5,
+        "elapsedMs": 86971.3,
+        "boundary": { "status": "settled", "stopReason": "replay-complete", "reason": null },
+        "replayMode": true,
+        "replayId": "fa8a064e-18e4-4c8a-86f5-06ec2ac67c66",
+        "comparisonMatched": true,
+        "comparedEvents": 13211,
+        "activeStartOffsetMs": 319.3,
+        "activeEndOffsetMs": 86971.2,
+        "derivedActiveObservation": { "durationMs": 86651.9, "simulationSecondsPerObservedSecond": 14.235117752755567 },
+        "wholeMeasurementRaf": { "samples": 2056, "callbackFps": 23.64, "medianMs": 40, "p95Ms": 100, "maxMs": 249.9, "firstRafDelayMs": 2.3, "trailingRafGapMs": 37.1 },
+        "longTasks": { "supported": true, "count": 75, "totalMs": 5747, "maxMs": 153 },
+        "longAnimationFrames": { "supported": true, "count": 827, "maxDurationMs": 252.9, "maxWorkMs": 252.3, "maxRenderMs": 3.3, "maxStyleAndLayoutMs": 1.8, "maxBlockingMs": 104.2 },
+        "selectedSynchronousStages": [
+          { "name": "growth.refreshPlans", "count": 13262, "totalMs": 6034.6, "maxMs": 5.3 },
+          { "name": "growth.teamCoordination", "count": 5922, "totalMs": 12738.3, "maxMs": 123.9 },
+          { "name": "growth.slice", "count": 3307, "totalMs": 32537.3, "maxMs": 131.7 },
+          { "name": "frame.snapshot", "count": 6428, "totalMs": 16556.4, "maxMs": 10.8 },
+          { "name": "replay.captureResult", "count": 1, "totalMs": 39, "maxMs": 39 },
+          { "name": "replay.compareResult", "count": 1, "totalMs": 111, "maxMs": 111 }
+        ],
+        "asyncWaits": [
+          { "name": "yield.growth.frame", "count": 1009, "totalMs": 15381.8, "maxMs": 42.1 },
+          { "name": "yield.growth.task", "count": 1064, "totalMs": 65.7, "maxMs": 0.5 }
+        ],
+        "inputResponse": { "samples": 1, "pendingSamples": 0, "lastMs": 9.3, "maxMs": 9.3 },
+        "heap": { "supported": true, "baselineUsedBytes": 36437074, "usedBytes": 142592844, "deltaUsedBytes": 106155770, "totalBytes": 288410040, "limitBytes": 4395630592 },
+        "visibility": { "supported": true, "initialState": "visible", "endState": "visible", "transitions": 0, "boundaryNotifications": 0, "durationMs": { "visible": 86971.3, "hidden": 0, "unknown": 0 }, "entireMeasurementVisible": true },
+        "domNodesAtStop": 743
+      },
+      {
+        "label": "c216-x32-replay-3",
+        "startedAtMs": 1001797.2,
+        "endedAtMs": 1090191,
+        "elapsedMs": 88393.8,
+        "boundary": { "status": "settled", "stopReason": "replay-complete", "reason": null },
+        "replayMode": true,
+        "replayId": "fa8a064e-18e4-4c8a-86f5-06ec2ac67c66",
+        "comparisonMatched": true,
+        "comparedEvents": 13211,
+        "activeStartOffsetMs": 284.8,
+        "activeEndOffsetMs": 88393.8,
+        "derivedActiveObservation": { "durationMs": 88109, "simulationSecondsPerObservedSecond": 13.999704910962558 },
+        "wholeMeasurementRaf": { "samples": 1860, "callbackFps": 21.042, "medianMs": 50, "p95Ms": 100, "maxMs": 190, "firstRafDelayMs": 0.5, "trailingRafGapMs": 41.3 },
+        "longTasks": { "supported": true, "count": 86, "totalMs": 6571, "maxMs": 159 },
+        "longAnimationFrames": { "supported": true, "count": 859, "maxDurationMs": 172.4, "maxWorkMs": 171.4, "maxRenderMs": 2.7, "maxStyleAndLayoutMs": 1.8, "maxBlockingMs": 89.4 },
+        "selectedSynchronousStages": [
+          { "name": "growth.refreshPlans", "count": 13262, "totalMs": 6233.4, "maxMs": 12.5 },
+          { "name": "growth.teamCoordination", "count": 5922, "totalMs": 13175.9, "maxMs": 131.7 },
+          { "name": "growth.slice", "count": 3297, "totalMs": 32945.7, "maxMs": 137 },
+          { "name": "frame.snapshot", "count": 6428, "totalMs": 17085.6, "maxMs": 11.3 },
+          { "name": "replay.captureResult", "count": 1, "totalMs": 44.7, "maxMs": 44.7 },
+          { "name": "replay.compareResult", "count": 1, "totalMs": 111.1, "maxMs": 111.1 }
+        ],
+        "asyncWaits": [
+          { "name": "yield.growth.frame", "count": 993, "totalMs": 15798.9, "maxMs": 97.7 },
+          { "name": "yield.growth.task", "count": 1070, "totalMs": 70.4, "maxMs": 10 }
+        ],
+        "inputResponse": { "samples": 1, "pendingSamples": 0, "lastMs": 9.2, "maxMs": 9.2 },
+        "heap": { "supported": true, "baselineUsedBytes": 36331038, "usedBytes": 216086731, "deltaUsedBytes": 179755693, "totalBytes": 361086291, "limitBytes": 4395630592 },
+        "visibility": { "supported": true, "initialState": "visible", "endState": "visible", "transitions": 0, "boundaryNotifications": 0, "durationMs": { "visible": 88393.8, "hidden": 0, "unknown": 0 }, "entireMeasurementVisible": true },
+        "domNodesAtStop": 743
+      }
+    ],
+    "partialThreeReplayAnalysis": {
+      "sameDocumentEnvironmentReplayInput": true,
+      "autoFinalizedAfterMatchingComparison": true,
+      "interRunGapsMs": [42628.3, 53783.7],
+      "interRunGapWithinDeclaredBudget": true,
+      "baselineUsedBytes": [66708689, 36437074, 36331038],
+      "maxBaselineGrowthOverFirstBytes": 0,
+      "strictlyIncreasingBaselines": false,
+      "observedBaselineGrowthWithinDeclaredBudget": true,
+      "maxLongTasksMs": [162, 153, 159],
+      "observedStrictLongTaskGate": "below_200_ms_for_these_three_samples_only",
+      "nominalX32Achieved": false,
+      "strictNineRunAcceptance": "unverified_missing_x1_x8_and_RAF_budgets",
+      "leakConclusion": "not_established",
+      "speedAndRafScope": "React_autoplay_game_over_observations_and_RAF_callback_cadence_not_exact_CPU_or_presented_FPS",
+      "workScope": "nested_instrumented_synchronous_stages_not_additive_or_full_CPU_attribution",
+      "waitScope": "async_wait_settlements_separate_from_synchronous_work",
+      "comparisonScope": "current_engine_same_input_UI_events_final_state_and_ending_not_historical_engine_A_B_or_all_inputs",
+      "externalCpuLoadTemperaturesAndPhysicalMemory": "not_measured_or_controlled",
+      "forcedGcRecordDeletionOrDocumentReload": false
+    },
+    "selectedObjectLifetimeObservedAfterThirdReplay": {
+      "schema": "eh-observer-memory-lifetime.v1",
+      "supported": true,
+      "scope": "selected_object_roots_not_entire_heap",
+      "ownerLimit": 12,
+      "targetLimit": 8,
+      "evictedOwners": 0,
+      "closedSessionOwners": [1, 3, 4],
+      "closedHistoryOwner": { "id": 2, "targets": [] },
+      "collectedClosedRootCount": 16,
+      "reachableOrNotYetCollectedClosedRootCount": 2,
+      "closedReachableRoots": [
+        { "owner": 3, "name": "replayRecord", "state": "reachable_or_not_yet_collected" },
+        { "owner": 4, "name": "replayRecord", "state": "reachable_or_not_yet_collected" }
+      ],
+      "activeSessionOwner": 5,
+      "activeRootCount": 6,
+      "interpretation": "selected_closed_journals_logs_events_and_actors_collected_not_all_heap_collection_or_absence_of_leaks"
+    },
+    "cleanup": {
+      "ownedServerSession": 13936,
+      "ownedServerStopped": true,
+      "port3137ListenersAfterStop": 0,
+      "temporaryBrowserTabsRemaining": 0,
+      "buildFiles": 1437,
+      "buildLogicalBytesBefore": 74330407,
+      "buildLogicalBytesAfter": 74330407,
+      "webpackPackFiles": 0,
+      "deletedFiles": 0,
+      "newBattleLogDownloads": 0,
+      "projectCopyCreated": false,
+      "physicalFreeSpaceChangeMeasured": false,
+      "wholeWorkspaceSizeChangeMeasured": false,
+      "scope": "existing_selected_build_and_bounded_evidence_not_whole_workspace_or_physical_space"
+    },
+    "preservation": {
+      "originalGoalTailNormalizedSha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+      "protectedDirtyFiles": [
+        { "path": "client/scripts/check-observer-goals-match.mjs", "bytes": 15715, "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9" },
+        { "path": "server/index.js", "bytes": 5619, "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493" },
+        { "path": "server/.env.example", "bytes": 2125, "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3" }
+      ],
+      "historicalRootFieldsPreserved": true,
+      "missingHistoricalUserDownloads": "not_deleted_by_this_follow_up"
+    },
+    "authority": {
+      "accountWrites": 0,
+      "paidAiCalls": 0,
+      "pushes": 0,
+      "deployments": 0,
+      "humanScoresEntered": 0,
+      "runtimeSourceEdits": 0,
+      "testsOrBuildsRun": 0
+    }
   }
 }
