@@ -41,15 +41,26 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
   const goalKeys = new Set(Object.values(goalBySlot).map((value) => String(value || '').trim()).filter(Boolean));
   const keyOfId = (id) => String(itemKeyById?.[String(id || '')] || '').trim();
   const growthIds = actor._growthPlan?.targetId ? new Set(actor._growthPlan.craftIds) : null;
+  // Inventory cannot change during the read-only candidate filters. Do not
+  // retain quantities across a transaction, another action, or saved frames.
+  const quantities = new Map();
+  const ownedQty = (id) => {
+    if (!quantities.has(id)) quantities.set(id, invQty(inv0, id));
+    return quantities.get(id);
+  };
 
   const candidates = (Array.isArray(craftables) ? craftables : [])
-    .filter((item) => canCraftAlongsideGrowth(actor, item))
-    .filter((item) => getCraftRecipeTerms(item))
     .filter((item) => {
-      const ingredients = compactIO(item?.recipe?.ingredients || []);
-      if (!ingredients.length) return false;
-      return ingredients.every((ingredient) => invQty(inv0, ingredient.itemId) >= Number(ingredient.qty || 1));
+      // Preserve the legacy null-candidate error boundary before terms reject it.
+      if (item == null) return canCraftAlongsideGrowth(actor, item) && getCraftRecipeTerms(item);
+      const rows = item?.recipe?.ingredients;
+      // An absent positive input cannot craft. Aggregate duplicate amounts and
+      // validate malformed recipes below; presence alone is not readiness.
+      if (Array.isArray(rows) && rows.some(row => typeof row?.itemId === 'string' && !(ownedQty(row.itemId) > 0))) return false;
+      const terms = getCraftRecipeTerms(item);
+      return terms && terms.ingredients.every((ingredient) => ownedQty(ingredient.itemId) >= ingredient.qty);
     })
+    .filter((item) => canCraftAlongsideGrowth(actor, item))
     .filter((item) => {
       const category = inferItemCategory(item);
       if (category !== 'equipment') return true;

@@ -1,0 +1,349 @@
+{
+  "schema": "eh-craft-readiness-order-evidence.v1",
+  "date": "2026-10-10",
+  "scope": "Output-only record; never a verification input.",
+  "engine": "f3ebd57600a033398a0b8a08b81766eea0d38b082b0c1058e4e5e3d353eaf787",
+  "baseCommit": "5b924a09724beb8e9495707b86f3a59dbdd91b38",
+  "change": "Candidate-local inventory quantities and missing-input rejection before the expensive growth gate; aggregate recipe validation and fresh transactional settlement remain authoritative.",
+  "rejectedCandidate": {
+    "kind": "per-plan recipe normalization cache",
+    "freshDiagnostic": {
+      "seed": 1101,
+      "untilSec": 130,
+      "plannerCalls": 4435,
+      "recipeNormalizations": 187082,
+      "duplicateWithinPlan": 0
+    },
+    "sourceChanged": false
+  },
+  "checks": {
+    "negative": {
+      "exitCode": 1,
+      "passedGroups": 6,
+      "failedGroups": 1
+    },
+    "finalFixtures": {
+      "exitCode": 0,
+      "passedGroups": 7,
+      "growthGateCalls": {
+        "reference": 243,
+        "production": 1
+      },
+      "directCandidateQuantityReads": {
+        "reference": 241,
+        "production": 2
+      }
+    },
+    "fullMatches": {
+      "exitCode": 0,
+      "completeMatches": 4,
+      "immutableSevenFiles": true
+    },
+    "growthPlanChain": {
+      "exitCode": 0
+    },
+    "liveFrames": {
+      "exitCode": 0,
+      "passed": 19
+    },
+    "customCrafting": {
+      "exitCode": 0,
+      "passed": 33
+    },
+    "customConsumables": {
+      "exitCode": 0,
+      "passed": 29,
+      "guestItemProfiles": 9
+    },
+    "scopedLint": {
+      "exitCode": 0
+    },
+    "wholeEternalHungerChain": {
+      "run": false
+    }
+  },
+  "matches": [
+    {
+      "worker": "reference",
+      "referenceOverlays": 1,
+      "seed": "1101",
+      "growthGateCalls": 593338,
+      "localQuantityReads": 42209,
+      "inputDigest": "adea609cdf5dc279b8e00713fec346394954393f9810ff5676423c383413c1f9",
+      "phases": 11,
+      "frames": 5840,
+      "eventCount": 11633,
+      "ticks": 1124.916666,
+      "ending": {
+        "outcome": "last_team",
+        "atSec": 1124.916666,
+        "cause": "combat"
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2014021095,
+        "draws": 8934,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "eventDigest": "52c99d0295115037af6964d786024a717dd0861db2358efc579d5e6a5d4cad35",
+      "frameDigest": "66cdcace028367955150991953de1c83f43cffa394c3b3530bb3d4865b6ac69c",
+      "finalFrameDigest": "b19f2e6b60a9bc6c4cfeef71a8c8a63ae03fd2ad642f74f2a1beef36630da75b",
+      "logDigest": "220f77fa4cb9a9900e2052d0d1a33c365a828f502ffc9aa2ed2c2642b6e564ae"
+    },
+    {
+      "worker": "production",
+      "referenceOverlays": 0,
+      "seed": "1101",
+      "growthGateCalls": 589,
+      "localQuantityReads": 239756,
+      "inputDigest": "adea609cdf5dc279b8e00713fec346394954393f9810ff5676423c383413c1f9",
+      "phases": 11,
+      "frames": 5840,
+      "eventCount": 11633,
+      "ticks": 1124.916666,
+      "ending": {
+        "outcome": "last_team",
+        "atSec": 1124.916666,
+        "cause": "combat"
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 2014021095,
+        "draws": 8934,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "eventDigest": "52c99d0295115037af6964d786024a717dd0861db2358efc579d5e6a5d4cad35",
+      "frameDigest": "66cdcace028367955150991953de1c83f43cffa394c3b3530bb3d4865b6ac69c",
+      "finalFrameDigest": "b19f2e6b60a9bc6c4cfeef71a8c8a63ae03fd2ad642f74f2a1beef36630da75b",
+      "logDigest": "220f77fa4cb9a9900e2052d0d1a33c365a828f502ffc9aa2ed2c2642b6e564ae"
+    },
+    {
+      "worker": "reference",
+      "referenceOverlays": 1,
+      "seed": "20261010",
+      "growthGateCalls": 624134,
+      "localQuantityReads": 36385,
+      "inputDigest": "5b40932d4d999ff7e557568d36a3fc076fe86408dda19bad723a897db42d2fd8",
+      "phases": 9,
+      "frames": 5096,
+      "eventCount": 11506,
+      "ticks": 985.75,
+      "ending": {
+        "outcome": "last_team",
+        "atSec": 985.75,
+        "cause": "wildlife_hunt"
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 329775704,
+        "draws": 8166,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "eventDigest": "4ec151a72190bded254dcbe4a7081245fc6770484fd37ca8933484e8377a081d",
+      "frameDigest": "5f64baa86ca9413029accfee7503fe0398f1c74f8291c683701baa8112e04c8f",
+      "finalFrameDigest": "2472d12b6f4cd3a77a6a0428f303909a4d409ee5305b73b9ef12c1138f5cab93",
+      "logDigest": "2d6ea4815fe268a9f65fa1a91a1ade3ddcd44bb34674e79b52b80b4b35755fd3"
+    },
+    {
+      "worker": "production",
+      "referenceOverlays": 0,
+      "seed": "20261010",
+      "growthGateCalls": 693,
+      "localQuantityReads": 252083,
+      "inputDigest": "5b40932d4d999ff7e557568d36a3fc076fe86408dda19bad723a897db42d2fd8",
+      "phases": 9,
+      "frames": 5096,
+      "eventCount": 11506,
+      "ticks": 985.75,
+      "ending": {
+        "outcome": "last_team",
+        "atSec": 985.75,
+        "cause": "wildlife_hunt"
+      },
+      "random": {
+        "algorithm": "fnv1a-mulberry32-v1",
+        "state": 329775704,
+        "draws": 8166,
+        "ids": 0,
+        "nameHistory": []
+      },
+      "eventDigest": "4ec151a72190bded254dcbe4a7081245fc6770484fd37ca8933484e8377a081d",
+      "frameDigest": "5f64baa86ca9413029accfee7503fe0398f1c74f8291c683701baa8112e04c8f",
+      "finalFrameDigest": "2472d12b6f4cd3a77a6a0428f303909a4d409ee5305b73b9ef12c1138f5cab93",
+      "logDigest": "2d6ea4815fe268a9f65fa1a91a1ade3ddcd44bb34674e79b52b80b4b35755fd3"
+    }
+  ],
+  "immutableManifest": [
+    {
+      "path": "client/scripts/check-craft-readiness-order.mjs",
+      "bytes": 13446,
+      "sha256": "98b0e51270632223e60b5192d763a281946267bcf64efdedff65a1d481bdacc6"
+    },
+    {
+      "path": "client/scripts/lib/run-random-isolation-match.mjs",
+      "bytes": 13546,
+      "sha256": "af468024a2dfc8120016640f13c60e7325499c6e045a022fec1627322f25d504"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/gearInventoryCraftRuntime.js",
+      "bytes": 8972,
+      "sha256": "7dff74750f2312060bba197591c15ff1cc623cbfd0865a0b556d72197b95fa83"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/growthEquipmentRuntime.js",
+      "bytes": 3462,
+      "sha256": "abee5f92480aed0a7bc1d89815f0f3ce5bdb6fbe7b5ea1d41b45d64cd07e1278"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/gearRecipeGuardRuntime.js",
+      "bytes": 1976,
+      "sha256": "c66cc60129b3ee374e3ff5a6a381dfd323be082238fec797341f577a89c53d35"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/inventoryRules.js",
+      "bytes": 18280,
+      "sha256": "3bac12c3f2d94e8093056b0b559b7efb15b7cf3dde2335eefb5e68b8a34e051d"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/guestSimulationBootstrap.js",
+      "bytes": 8536,
+      "sha256": "ef909281e5acad3d3debcbb4ea9dce6e7a27ed43822feee667766c23dfec2a1e"
+    }
+  ],
+  "build": {
+    "default": {
+      "exitCode": 1,
+      "reason": "EPERM mkdir client/.next/server/app/games/records"
+    },
+    "separateEscalatedRun": {
+      "exitCode": 0,
+      "pages": 62,
+      "buildId": "SsD8vceDNeAA_QFK_WW9U"
+    }
+  },
+  "browser": {
+    "run": false,
+    "reason": "User requested minimal essential completion and pause after build; no current-version speed claim."
+  },
+  "cleanup": {
+    "baselineBuildFiles": 1438,
+    "baselineBuildBytes": 86713887,
+    "beforeBuildCleanupBytes": 681256234,
+    "removedFiles": 6,
+    "removedLogicalBytes": 594080593,
+    "preservedBefore": {
+      "files": 1438,
+      "bytes": 87175641,
+      "manifestSHA256": "1303401b3294ccdd79faac8992ab6c8520aec1cfee8acd935cbf0775745af49d"
+    },
+    "preservedAfter": {
+      "files": 1438,
+      "bytes": 87175641,
+      "manifestSHA256": "1303401b3294ccdd79faac8992ab6c8520aec1cfee8acd935cbf0775745af49d"
+    },
+    "remainingSelected": 0,
+    "preservedOldPackCount": 1,
+    "files": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 256000710,
+        "sha256": "349832336367cc61c93929d47c9f18410cf6bc23ce5c0e8992a9e143523feca6",
+        "id": "0x0000000000000000001b0000001d8b17"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12844478,
+        "sha256": "eb925d839304244638fcc7a2ff085e628e496ac24846eafa9a64ee44ebaba747",
+        "id": "0x000000000000000000110000001d8b19"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc",
+        "id": "0x0000000000000000001c0000001cb62c"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "sha256": "14c90f2cf663bf14c7eafce0ae55eced2195644963e4083065d192affdfa9a10",
+        "id": "0x000000000000000000180000001cb636"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 307144866,
+        "sha256": "b64eb17522721a2953b308fc0c69f77d0be0d2db8c6acdbe6d4a20655ae3e84b",
+        "id": "0x0000000000000000001a0000001c7eba"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18087799,
+        "sha256": "9a56da4686b6bf49361a162e613661992a2e2ca9b93c8911693330c89eae1837",
+        "id": "0x0000000000000000001a0000001c7eb9"
+      }
+    ],
+    "finalBuildVsStartBytes": 461754,
+    "scope": "Exact new pack files only; preserved-build digest is at deletion boundary, not a historical build. Whole workspace, allocation and physical free space were not measured."
+  },
+  "preservation": {
+    "protected": [
+      {
+        "path": "client/scripts/check-observer-goals-match.mjs",
+        "bytes": 15715,
+        "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9"
+      },
+      {
+        "path": "server/index.js",
+        "bytes": 5619,
+        "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493"
+      },
+      {
+        "path": "server/.env.example",
+        "bytes": 2125,
+        "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/growthPlanRuntime.js",
+        "bytes": 25033,
+        "sha256": "9ae4d6670760aff0d8cdd0e022704cf70249e07bc2cf45648132a9b214f4f8f5"
+      },
+      {
+        "path": "client/src/app/simulation/_lib/gearInventoryCraftRuntime.js",
+        "bytes": 8972,
+        "sha256": "7dff74750f2312060bba197591c15ff1cc623cbfd0865a0b556d72197b95fa83"
+      },
+      {
+        "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+        "bytes": 166,
+        "sha256": "6b2b2bbefcb9dabf27178560b80c0f7899577724792b3640161e930e42d2af45"
+      },
+      {
+        "path": "client/scripts/check-craft-readiness-order.mjs",
+        "bytes": 13446,
+        "sha256": "98b0e51270632223e60b5192d763a281946267bcf64efdedff65a1d481bdacc6"
+      }
+    ],
+    "goalTailSHA256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+    "unrelatedUserChangesStaged": false
+  },
+  "limits": [
+    "Original candidate filters are overlaid; surrounding current helpers are shared. Not whole old-engine or all-input parity.",
+    "Read-only ordinary serialized inputs; no arbitrary getter, Proxy or property-order side-effect guarantee.",
+    "Whole-match local invQty probe calls increased; helper-internal scans are not counted. Gate reduction is not wall-clock improvement.",
+    "Latest attached Downloads MD/JSON paths were absent; this turn did not delete them and did not reproduce that match.",
+    "Strict browser performance, balance, save/load, real AI/auth storage and human/public acceptance gates remain incomplete."
+  ],
+  "suspension": {
+    "requestedByUser": true,
+    "after": "Local commit and own cache cleanup",
+    "goalCompletion": false
+  },
+  "externalWrites": {
+    "push": 0,
+    "deployment": 0,
+    "paidAI": 0,
+    "accountWrites": 0
+  }
+}
