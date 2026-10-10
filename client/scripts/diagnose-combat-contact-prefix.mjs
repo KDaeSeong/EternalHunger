@@ -2,6 +2,7 @@ import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
+import { createWorldStepContactDiagnostics } from './lib/world-step-contact-diagnostics.mjs';
 
 const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
 const { createFormationSwapInput } = await import('./lib/strategy-comparison-contracts.mjs');
@@ -16,7 +17,8 @@ assert.ok(outputPath, 'The output path must be nonempty.');
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const idOf = actor => String(actor?._id || actor?.id || '');
 const nameOf = actor => String(actor?.name || actor?.nickname || actor?.charName || '').trim();
-const stopAfterPhase = { day: 2, phase: 'morning' };
+const stopAfterPhase = { day: 2, phase: 'night' };
+const worldTraceWindow = { fromSec: 400, toSec: 412 };
 const sampleLimitPerActor = 256;
 const eventLimitPerActor = 256;
 const linkedEventsPerTransition = 32;
@@ -24,7 +26,7 @@ const watchedNames = ['백로', '윤슬'];
 const boundedRelationIds = 32;
 const relevantCandidateBranches = new Set(['forced_control', 'pending_cast', 'observed_out_of_range', 'basic_in_range']);
 const engagedMotionReasons = new Set(['approach', 'last_seen', 'forced_control']);
-const eventFields = ['kind', 'who', 'targetId', 'actorId', 'victimId', 'killerId', 'ownerId', 'chaserId', 'zoneId',
+const eventFields = ['kind', 'who', 'targetId', 'by', 'actorId', 'victimId', 'killerId', 'ownerId', 'chaserId', 'zoneId',
   'from', 'to', 'reason', 'actionType', 'source', 'mode', 'outcome', 'result', 'damage', 'hpDamage', 'hpBefore', 'hpAfter',
   'encounterId', 'atSec', 'escapeBonus', 'escaped', 'caught', 'fatal', 'preDamage'];
 
@@ -40,8 +42,10 @@ function compactActor(actor, nowSec) {
     recoveryUntilSec: actor.recoveryUntilSec, recoveryReason: actor.recoveryReason,
     recoveryLockedAtPass: Number(actor.recoveryUntilSec || 0) > Number(nowSec || 0),
     hasCombatIntent: actor.hasCombatIntent, intentEnemyTeamId: actor.intentEnemyTeamId, intentTargetId: actor.intentTargetId,
+    intentZoneId: actor.intentZoneId, intentCombatSpaceId: actor.intentCombatSpaceId,
     pendingCast: actor.pendingCast, spatial: actor.spatial, spatialMotion: actor.spatialMotion,
     spatialLastSeen: actor.spatialLastSeen, attackRange: actor.attackRange, moveSpeed: actor.moveSpeed,
+    sightRange: actor.sightRange,
     moveAllowed: actor.moveAllowed, basicAllowed: actor.basicAllowed, actionBlocked: actor.actionBlocked,
   };
 }
@@ -74,7 +78,7 @@ function engaged(actor, fact) {
 }
 
 function eventInvolves(event, ids) {
-  if (['who', 'targetId', 'actorId', 'victimId', 'killerId', 'ownerId', 'chaserId']
+  if (['who', 'targetId', 'by', 'actorId', 'victimId', 'killerId', 'ownerId', 'chaserId']
     .some(field => ids.has(String(event?.[field] || '')))) return true;
   if (Array.isArray(event?.participants) && event.participants.some(value => ids.has(String(value || '')))) return true;
   if (Array.isArray(event?.helpers) && event.helpers.some(value => ids.has(String(value || '')))) return true;
@@ -99,7 +103,8 @@ function compactEvent(event, eventIndex) {
 function transitionSignature(actor, candidate, nowSec) {
   const next = candidate?.actorBestConsideredCandidate;
   return JSON.stringify({
-    intent: [Boolean(actor?.hasCombatIntent), String(actor?.intentEnemyTeamId || ''), String(actor?.intentTargetId || '')],
+    intent: [Boolean(actor?.hasCombatIntent), String(actor?.intentEnemyTeamId || ''), String(actor?.intentTargetId || ''),
+      String(actor?.intentZoneId || ''), String(actor?.intentCombatSpaceId || '')],
     branch: String(candidate?.branch || ''),
     recovery: [Number(actor?.recoveryUntilSec || 0), String(actor?.recoveryReason || ''),
       Number(actor?.recoveryUntilSec || 0) > Number(nowSec || 0)],
@@ -151,6 +156,8 @@ async function execute(observe) {
   frameCapture.wholeArrayHash.update('[');
   const transitionsByActor = new Map(watched.map(({ actorId }) => [actorId, []]));
   const previousByActor = new Map();
+  const worldContact = observe ? createWorldStepContactDiagnostics({ actorIds: watched.map(row => row.actorId),
+    ...worldTraceWindow }) : null;
   const passCounts = Object.fromEntries(watched.map(({ actorId }) => [actorId,
     { seen: 0, engaged: 0, transitions: 0, retainedTransitions: 0, evictedTransitions: 0 }]));
   const runInputDigest = digest(savedInput);
@@ -167,6 +174,7 @@ async function execute(observe) {
       frameCapture.count += 1;
     },
     ...(observe ? { onCombatDiagnostic(snapshot, { eventCursor: eventBoundaryExclusive }) {
+      worldContact.observe(snapshot, { eventCursor: eventBoundaryExclusive });
       if (snapshot.stage !== 'actor_schedule') return;
       const actorsById = new Map(snapshot.actors.map(actor => [actor.actorId, actor]));
       const candidatesById = new Map(snapshot.actorCandidates.map(fact => [fact.actorId, fact]));
@@ -202,10 +210,13 @@ async function execute(observe) {
   assert.equal(digest(savedInput), runInputDigest, 'The runner/observer must not mutate the saved replay input.');
   assert.equal(run.events.filter(event => event.kind === 'match_end').length, 0,
     'This diagnostic must stop at the requested phase, not claim a completed match.');
+  assert.ok(run.finalFrame.matchSec >= worldTraceWindow.toSec,
+    'The fresh production prefix must pass the entire requested world trace window.');
   frameCapture.wholeArrayHash.update(']');
   frameCapture.wholeArrayStreamSha256 = frameCapture.wholeArrayHash.digest('hex');
   assert.equal(frameCapture.count, run.evidence.frames, 'Hash every actual prefix frame in callback order.');
-  return { ...run, frameCapture, transitionsByActor, passCounts };
+  return { ...run, frameCapture, transitionsByActor, passCounts,
+    worldContact: worldContact ? worldContact.summary(run.events) : null };
 }
 
 const beforeInput = structuredClone(savedInput);
@@ -222,6 +233,64 @@ assert.equal(observed.frameCapture.wholeArrayStreamSha256, plain.frameCapture.wh
   'Observer on/off must preserve the ordered full-frame JSON array stream digest.');
 assert.deepEqual(observed.finalFrame, plain.finalFrame, 'Observer on/off must preserve the complete final prefix frame.');
 assert.deepEqual(observed.logs, plain.logs, 'Observer on/off must preserve the complete prefix logs.');
+
+const worldTrace = observed.worldContact;
+assert.equal(worldTrace.enabled, true);
+assert.deepEqual(worldTrace.actorIds, watched.map(row => row.actorId));
+assert.equal(worldTrace.actorIdsTruncated, false);
+assert.deepEqual(worldTrace.window, worldTraceWindow);
+for (const key of ['invalidSnapshots', 'duplicateBefore', 'duplicateAfter', 'mismatchedAfter', 'unmatchedBefore',
+  'orphanAfter', 'cursorReversals', 'cursorInvalid', 'cursorOutOfRange', 'timeReversals', 'timeInvalid',
+  'actorFactsTruncated', 'snapshotTruncated', 'stepSamplesTruncated', 'eventSamplesTruncated',
+  'invalidEventWindows', 'issueSamplesTruncated']) {
+  assert.equal(worldTrace.counts[key], 0, `The actual world trace cannot silently pass ${key}.`);
+}
+assert.equal(worldTrace.unmatchedBeforeAtEnd, false);
+assert.equal(worldTrace.invalidEventIndexes, 0);
+assert.equal(worldTrace.eventSamplesOmitted, 0);
+assert.deepEqual(worldTrace.issues, []);
+assert.equal(worldTrace.counts.beforeSnapshots, worldTrace.counts.afterSnapshots);
+assert.equal(worldTrace.counts.beforeSnapshots, worldTrace.counts.matchedPairs);
+assert.equal(worldTrace.counts.matchedPairs, worldTrace.counts.retainedPairs + worldTrace.counts.outsideWindowPairs);
+assert.equal(worldTrace.counts.retainedPairs, worldTrace.steps.length);
+assert.ok(worldTrace.steps.some(step => step.kind === 'growth'), 'Retain actual growth boundaries within the window.');
+assert.equal(new Set(worldTrace.steps.map(step => step.stepId)).size, worldTrace.steps.length);
+for (const step of worldTrace.steps) {
+  assert.deepEqual(step.beforeMissingActorIds, [], 'Both watched actors must have before facts.');
+  assert.deepEqual(step.afterMissingActorIds, [], 'Both watched actors must have after facts.');
+  assert.deepEqual(step.beforeUnknownActorIds, []);
+  assert.deepEqual(step.afterUnknownActorIds, []);
+  assert.deepEqual(step.beforeUnknownRelatedActorIds, []);
+  assert.deepEqual(step.afterUnknownRelatedActorIds, []);
+  assert.deepEqual(step.beforeOmittedActorIds, []);
+  assert.deepEqual(step.afterOmittedActorIds, []);
+  assert.deepEqual(step.beforeOmittedRelatedActorIds, []);
+  assert.deepEqual(step.afterOmittedRelatedActorIds, []);
+  assert.equal(step.relatedActorTruncated, false);
+  assert.equal(step.omittedActorCount, 0);
+}
+const elapsedIntersections = worldTrace.steps.filter(step => step.kind === 'elapsed'
+  && step.intersection.toSec > step.intersection.fromSec).map(step => ({ ...step.intersection }));
+assert.ok(elapsedIntersections.length > 0, 'Actual elapsed pairs, not growth points, must cover the window.');
+let coveredUntilSec = worldTraceWindow.fromSec;
+for (const interval of elapsedIntersections) {
+  assert.ok(Math.abs(interval.fromSec - coveredUntilSec) <= 1e-6,
+    `Actual elapsed coverage must have no gap/overlap at ${coveredUntilSec}; received ${interval.fromSec}.`);
+  coveredUntilSec = interval.toSec;
+}
+assert.ok(Math.abs(coveredUntilSec - worldTraceWindow.toSec) <= 1e-6,
+  'Actual elapsed coverage must reach the requested window end.');
+for (const directions of Object.values(worldTrace.eventCounts)) {
+  for (const counts of Object.values(directions)) assert.equal(counts.invalidHpReceipts, 0,
+    'HP damage evidence must match its actual before/after delta.');
+}
+assert.equal(new Set(worldTrace.eventSamples.map(event => event.eventIndex)).size, worldTrace.eventSamples.length);
+const worldTraceCoverage = { complete: true, watchedActorFactsComplete: true,
+  actualElapsedIntervals: elapsedIntersections, coveredFromSec: worldTraceWindow.fromSec, coveredToSec: coveredUntilSec,
+  stepKinds: Object.fromEntries(['elapsed', 'growth'].map(kind => [kind,
+    worldTrace.steps.filter(step => step.kind === kind).length])),
+  stepIdHistoryEvictions: worldTrace.counts.stepHistoryEvictions,
+  historyEvictionSemantics: 'Only bounded duplicate-ID detection history is evicted; retained trace steps, actor snapshots and event samples are not removed. This counter is not trace loss and does not establish whole-prefix duplicate detection beyond the history bound.' };
 
 const watchedEventsByActor = Object.fromEntries(watched.map(({ actorId, name }) => [name,
   { events: [], omitted: 0, capPerActor: eventLimitPerActor }]));
@@ -253,14 +322,14 @@ for (const { actorId, name } of watched) {
   }
 }
 const output = {
-  schema: 'eternal-hunger.combat-contact-prefix.v1',
+  schema: 'eternal-hunger.combat-contact-prefix.v2',
   engineVersion: savedInput.engineVersion,
   seed: savedInput.runSeed,
   inputDigest,
   formation: { changes: formation.changes, derivedChanges: formation.derivedChanges },
   watched,
   stopAfterPhase,
-  scope: 'Fresh saved-input day-2 morning prefix only. Candidate-pass endpoint transitions for engaged watched actors; not a full match, not a paired world-step trace, and not evidence that a candidate executed or caused survival/winner outcomes. Frames are not retained or raw-object deep-compared: every complete frame JSON is streamed in callback order into a per-frame UTF-8 byte-length/SHA-256 vector and an ordered JSON-array-stream SHA-256.',
+  scope: 'Fresh saved-input day-2 night prefix only, not a full match. Candidate-pass endpoint transitions stay separate from actual shared elapsed/growth before/after pairs in the explicit 400-412-second trace window. Candidate and movement facts alone are not completed attacks or survival/winner causality acceptance. Frames are not retained or raw-object deep-compared: every complete frame JSON is streamed in callback order into a per-frame UTF-8 byte-length/SHA-256 vector and an ordered JSON-array-stream SHA-256.',
   observationNeutrality: {
     exact: true,
     compared: ['all events', 'every full-frame JSON byte length and SHA-256 by callback ordinal',
@@ -275,6 +344,8 @@ const output = {
     passCounts: observed.passCounts,
     transitions: Object.fromEntries(watched.map(({ actorId, name }) => [name, observed.transitionsByActor.get(actorId)])),
   },
+  worldStepDiagnostics: observed.worldContact,
+  worldTraceCoverage,
   watchedEvents: {
     eventBoundarySemantics: 'snapshot eventBoundaryExclusive is the insertion boundary: the number of events already present when the snapshot callback runs. Each event has a separate zero-based eventIndex into the returned event array.',
     joinRule: 'For each transition, relatedEvents is matched from the exact returned prefix event array using eventIndex in [fromInclusive,toExclusive), corresponding to the immediately previous candidate-pass boundary and this pass boundary. These are insertion-index bounds, not timestamps.',
@@ -286,7 +357,8 @@ const output = {
 
 writeFileSync(outputPath, `${JSON.stringify(output, null, 2)}\n`, { flag: 'wx' });
 console.log(`COMBAT_CONTACT_PREFIX ${JSON.stringify({ outputPath, inputDigest, actors: watched,
-  partialPrefixOnly: true, stopAfterPhase, observerExact: true,
+  partialPrefixOnly: true, stopAfterPhase, worldTraceWindow, observerExact: true,
   eventCount: observed.evidence.eventCount, frameCount: observed.evidence.frames,
   fullFrameArrayStreamSha256: observed.frameCapture.wholeArrayStreamSha256,
+  worldTracePairs: worldTrace.steps.length, worldTraceCoverageComplete: worldTraceCoverage.complete,
   samples: observed.passCounts })}`);

@@ -19,6 +19,7 @@ import { getActiveSimulationRandom, runSimulationSteps } from '../../../utils/si
 import { advanceTimedWildlifeEffects, getWildlifeCombatRoster } from './wildlifeCombatRuntime.js';
 import { requestSimulationFrameYield, requestSimulationMainThreadYield } from './simulationCooperativeYieldRuntime.js';
 import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
+import { observeCombatParticipation } from './combatParticipationObservationRuntime.js';
 
 const HYPERLOOP_DELAY_SEC = 3;
 
@@ -332,6 +333,24 @@ function* simulationPhaseSteps({
     });
     if (deaths.length) flushDeadSnapshots(appendPhaseDeadSnapshots(deaths));
   };
+  let observedWorldStepSerial = 0;
+  const observeWorldStep = (stage, step) => {
+    if (!step) return;
+    try {
+    observeCombatParticipation(actions.observeCombatRuntime, { stage,
+      nowSec: stage === 'world_step_before' ? step.fromSec : step.toSec,
+      roster: getWildlifeCombatRoster([...liveMap.values()]), newDeadIds: timelineDeadIds, worldStep: step });
+    } catch { /* Roster projection cannot interrupt the shared-world update. */ }
+  };
+  const beginObservedWorldStep = (kind, fromSec, toSec) => {
+    // Disabled in the product UI. Do not read actors, plan movement, or sample
+    // clocks/RNG merely to diagnose a headless shared-world interval.
+    if (typeof actions.observeCombatRuntime !== 'function') return null;
+    const step = { stepId: `${phaseStartSec}:${++observedWorldStepSerial}`, kind,
+      fromSec: Math.round(fromSec * 1e6) / 1e6, toSec: Math.round(toSec * 1e6) / 1e6 };
+    observeWorldStep('world_step_before', step);
+    return step;
+  };
   const timeline = createPhaseActionTimeline({
     durationSec: phaseDurationSec,
     // Observe individual deadlines on the same one-second world clock. The
@@ -339,18 +358,21 @@ function* simulationPhaseSteps({
     intervalSec: 1,
     onGrowthSteps: function* (offset) {
       timelineActionSec = Math.round((phaseStartSec + offset) * 1e6) / 1e6;
+      const observedStep = beginObservedWorldStep('growth', timelineActionSec, timelineActionSec);
       // Admission/closure and damaged saved memberships are boundaries at this
       // exact second. Resolve them before field growth can inspect the actor.
       advanceRifts([...liveMap.values()]);
-      if (shouldEndMatch()) return;
+      if (shouldEndMatch()) { observeWorldStep('world_step_after', observedStep); return; }
       const result = yield* runGrowthActions([...liveMap.values()].filter((actor) => Number(actor.hp) > 0 && !timelineDeadIds.includes(actor._id)));
       pendingPickAssigned = result.pendingPickAssigned;
       commitTimelineActors(result.updatedSurvivors, result.newlyDead);
       syncSpatialPositions(getWildlifeCombatRoster([...liveMap.values()]));
       advanceRifts([...liveMap.values()]);
+      observeWorldStep('world_step_after', observedStep);
     },
     onElapsed: (offset, elapsedSec) => {
       timelineActionSec = Math.round((phaseStartSec + offset) * 1e6) / 1e6;
+      const observedStep = beginObservedWorldStep('elapsed', timelineActionSec, phaseStartSec + offset + elapsedSec);
       // Quarantine invalid arena memberships before movement, DOT and field
       // hazards process this interval. The post-interval observation below
       // still commits defeats and deadlines that occur at its far boundary.
@@ -387,6 +409,7 @@ function* simulationPhaseSteps({
         currentForbiddenAdded = [...forbiddenIds].slice(previousForbiddenCount);
       }
       advanceRifts([...liveMap.values()]);
+      observeWorldStep('world_step_after', observedStep);
     },
   });
   const advanceWorldSteps = function* ({ survivorMap, newDeadIds, offsetSec }) {

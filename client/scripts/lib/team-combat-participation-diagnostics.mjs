@@ -210,6 +210,9 @@ export function createTeamCombatParticipationDiagnostics({ roster, actorIds, com
   };
 
   const observe = (snapshot, { eventCursor } = {}) => {
+    // These observations belong to the separate shared-world collector. They
+    // describe the work inside an existing reservation, not a new arbitration.
+    if (snapshot?.stage === 'world_step_before' || snapshot?.stage === 'world_step_after') return;
     if (!snapshot || !STAGES.includes(snapshot.stage)) {
       pendingPreWorld.clear();
       return;

@@ -25,6 +25,7 @@ const commands = {
   'late-combat-join': 'node scripts/check-late-combat-join.mjs',
   'recovery-combat-resume': 'node scripts/check-recovery-combat-resume.mjs',
   'combat-contact-prefix': 'node scripts/diagnose-combat-contact-prefix.mjs',
+  'world-step-contact-unit': 'node scripts/check-world-step-contact-diagnostics.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'recovery-combat-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-recovery-combat-resume.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-forced-control.mjs && node scripts/check-status-protection.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-combat-timing.mjs && node scripts/check-character-casting.mjs && node scripts/check-team-combat.mjs && node scripts/check-late-combat-join.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-team-observer.mjs && node scripts/check-hunt-pvp-interruption.mjs && node scripts/check-hunt-pvp-handoff.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'team-participation-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-late-combat-join.mjs && node scripts/check-team-survival-contribution.mjs && node scripts/check-combat-timing.mjs && node scripts/check-team-combat.mjs && node scripts/check-character-casting.mjs && node scripts/check-forced-control.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-character-status-skills.mjs && node scripts/check-equipment-account-recording.mjs && node scripts/check-equipment-effect-combat.mjs && node scripts/check-guest-character-profiles.mjs && node scripts/check-status-protection.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-team-observer.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'hunt-pvp-interruption': 'node scripts/check-hunt-pvp-interruption.mjs',
@@ -118,7 +119,12 @@ function verificationSourceHashes() {
   if (['recovery-combat-resume', 'recovery-combat-unit', 'full'].includes(mode)) paths.push(
     'scripts/check-recovery-combat-resume.mjs', 'scripts/lib/run-combat-scenario.mjs');
   if (mode === 'combat-contact-prefix') paths.push('scripts/diagnose-combat-contact-prefix.mjs',
-    'scripts/lib/run-random-isolation-match.mjs', 'scripts/lib/strategy-comparison-contracts.mjs');
+    'scripts/lib/run-random-isolation-match.mjs', 'scripts/lib/strategy-comparison-contracts.mjs',
+    'scripts/lib/world-step-contact-diagnostics.mjs');
+  if (['world-step-contact-unit', 'full'].includes(mode)) paths.push('scripts/check-world-step-contact-diagnostics.mjs',
+    'scripts/lib/world-step-contact-diagnostics.mjs', 'scripts/check-combat-participation-observation.mjs',
+    'scripts/lib/run-combat-scenario.mjs', 'scripts/lib/team-combat-participation-diagnostics.mjs',
+    'scripts/check-team-combat-participation-diagnostics.mjs');
   if (mode === 'recovery-combat-unit') paths.push('scripts/check-ai-recovery-forced-control.mjs',
     'scripts/check-forced-control.mjs', 'scripts/check-status-protection.mjs', 'scripts/check-action-states.mjs',
     'scripts/check-combat-spatial.mjs', 'scripts/check-combat-timing.mjs', 'scripts/check-character-casting.mjs',

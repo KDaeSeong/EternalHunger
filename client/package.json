@@ -127,7 +127,7 @@
     "check:character-casting:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-character-casting-match.mjs",
     "check:team-combat": "node ./scripts/check-team-combat.mjs && npm run check:team-survival && npm run check:combat-participation && npm run check:late-combat-join && npm run check:recovery-combat-resume && npm run check:hunt-pvp-interruption",
     "check:team-survival": "node ./scripts/check-team-survival-contribution.mjs",
-    "check:combat-participation": "node ./scripts/check-combat-participation-observation.mjs && node ./scripts/check-team-combat-participation-diagnostics.mjs",
+    "check:combat-participation": "node ./scripts/check-combat-participation-observation.mjs && node ./scripts/check-team-combat-participation-diagnostics.mjs && node ./scripts/check-world-step-contact-diagnostics.mjs",
     "check:late-combat-join": "node ./scripts/check-late-combat-join.mjs",
     "check:recovery-combat-resume": "node ./scripts/check-recovery-combat-resume.mjs",
     "check:hunt-pvp-interruption": "node ./scripts/check-hunt-pvp-interruption.mjs && node ./scripts/check-hunt-pvp-handoff.mjs",

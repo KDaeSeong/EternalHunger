@@ -454,6 +454,21 @@ check('post_world pairs exact selected PvP identity/time and reports before/afte
   assert.match(out.counterSemantics.post_world, /not proof of movement\/attack causation or a successful attack/);
 });
 
+check('shared-world observations do not invalidate a selected PvP post-world reservation', () => {
+  const diagnostics = collector();
+  diagnostics.observe(selectedPvp(), { eventCursor: 'before' });
+  const worldStep = { stepId: '10:1', kind: 'elapsed', fromSec: 10, toSec: 11 };
+  diagnostics.observe(snapshot('world_step_before', { nowSec: 10, worldStep }), { eventCursor: 'world-before' });
+  diagnostics.observe(snapshot('world_step_after', { nowSec: 11, worldStep }), { eventCursor: 'world-after' });
+  diagnostics.observe(postWorld(), { eventCursor: 'after' });
+  const out = diagnostics.summary();
+  assert.deepEqual(out.countsByActor.watch.post_world.pairing,
+    { matched: 1, no_pending: 0, identity_mismatch: 0, time_mismatch: 0 });
+  assert.equal(out.causalSamplesByActor.watch.filter(item => item.stage === 'post_world').length, 1);
+  assert.equal(out.causalSamplesByActor.watch.some(item => item.stage.startsWith('world_step_')), false,
+    'Shared-world pairs must not be counted as selected-PvP reservation samples.');
+});
+
 check('post_world motion buckets stay idempotent after minimal-actor normalization', () => {
   for (const [raw, expected] of [['', 'none'], ['none', 'none'], ['patrol', 'patrol'],
     ['last_seen', 'last_seen'], ['approach', 'chase'], ['chase', 'chase'],

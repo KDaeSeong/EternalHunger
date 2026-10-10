@@ -1,5 +1,5 @@
 import { canBasicAttackByStatus, canMoveByStatus, hasActionBlockStatus } from '../../../utils/statusLogic.js';
-import { getCombatSpaceId } from '../../../utils/combatSpaceLogic.js';
+import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { getActorTeamId } from './teamRuntime.js';
 import { getSpatialPosition, getSpatialStats, getSpatialLastSeen } from './combatSpatialRuntime.js';
@@ -21,11 +21,12 @@ export function observeCombatParticipation(observer, { stage, nowSec = 0, roster
   wildlifeAssistIds = new Map(), scheduled = null, actor = null, target = null, onlyActorId = '',
   sides = [], participants = [], arbitration = null, resolution = null, actorCandidates = [], worldStep = null } = {}) {
   if (typeof observer !== 'function') return;
+  try {
   const deadIds = new Set(newDeadIds.map(String));
   const rows = Array.isArray(roster) ? roster : [];
   const snapshot = {
     stage, nowSec: finite(nowSec),
-    scope: 'Read-only candidates, arbitration and actual team resolution facts; not missed-turn or survival causality acceptance.',
+    scope: 'Read-only candidates, arbitration, shared-world before/after and actual team resolution facts; not missed-turn or survival causality acceptance.',
     truncated: rows.length > 512,
     actorCandidatesTruncated: actorCandidates.length > 512 || stage === 'actor_schedule' && rows.length > 512,
     actorCandidates: actorCandidates.slice(0, 512).map(row => ({ actorId: String(row.actorId || ''), branch: String(row.branch || ''),
@@ -35,7 +36,9 @@ export function observeCombatParticipation(observer, { stage, nowSec = 0, roster
       nearestDistance: Number.isFinite(row.nearestDistance) ? row.nearestDistance : null,
       attackRange: Number.isFinite(row.attackRange) ? row.attackRange : null, motionReason: String(row.motionReason || '') })),
     worldStep: worldStep ? { fromSec: finite(worldStep.fromSec), toSec: finite(worldStep.toSec),
-      decisionSec: finite(worldStep.decisionSec) } : null,
+      decisionSec: finite(worldStep.decisionSec),
+      ...(typeof worldStep.stepId === 'string' ? { stepId: worldStep.stepId } : {}),
+      ...(typeof worldStep.kind === 'string' ? { kind: worldStep.kind } : {}) } : null,
     scheduled: scheduled ? { actorId: String(scheduled.actorId || ''), targetId: String(scheduled.targetId || ''),
       actionType: String(scheduled.actionType || ''), atSec: finite(scheduled.atSec) } : null,
     initiatorId: idOf(actor), targetId: idOf(target), onlyActorId: String(onlyActorId || ''),
@@ -69,8 +72,10 @@ export function observeCombatParticipation(observer, { stage, nowSec = 0, roster
         bossAssistOwnerId: typeof wildlifeAssistIds.get === 'function' ? String(wildlifeAssistIds.get(idOf(row)) || '') : '',
         hasCombatIntent: Boolean(row?._combatIntent), intentEnemyTeamId: String(row?._combatIntent?.enemyTeamId || ''),
         intentTargetId: String(row?._combatIntent?.targetId || ''),
+        intentZoneId: String(row?._combatIntent?.zoneId || ''),
+        intentCombatSpaceId: String(row?._combatIntent?.combatSpaceId || (row?._combatIntent ? WORLD_COMBAT_SPACE : '')),
         basicAllowed: canBasicAttackByStatus(row), actionBlocked: hasActionBlockStatus(row), moveAllowed: canMoveByStatus(row),
-        attackRange: stats.attackRange, moveSpeed: stats.moveSpeed,
+        attackRange: stats.attackRange, sightRange: stats.sightRange, moveSpeed: stats.moveSpeed,
         spatialMotion: row?._spatialMotion ? { reason: String(row._spatialMotion.reason || ''),
           targetId: String(row._spatialMotion.targetId || ''), x: finite(row._spatialMotion.x), y: finite(row._spatialMotion.y),
           stopRange: finite(row._spatialMotion.stopRange) } : null,
@@ -81,5 +86,6 @@ export function observeCombatParticipation(observer, { stage, nowSec = 0, roster
   };
   // A failed observer must not interrupt hit/death/claim settlement. Headless
   // hosts can capture a diagnostic error separately and fail their own check.
-  try { observer(owned(snapshot)); } catch { /* No gameplay side effect. */ }
+  observer(owned(snapshot));
+  } catch { /* Projection and callback failure have no gameplay side effect. */ }
 }

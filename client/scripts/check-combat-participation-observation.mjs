@@ -20,6 +20,16 @@ check('disabled observation does not inspect actors or build a snapshot', () => 
   const actor = { get _id() { throw Error('No disabled-path actor read'); } };
   observeCombatParticipation(undefined, { roster: [actor] });
 });
+check('an invalid actor projection cannot interrupt gameplay or fabricate a complete snapshot', () => {
+  let calls = 0;
+  const actor = { get _id() { throw Error('Projection failed'); } };
+  const random = createSeedRng('failed-projection'), before = random.getState();
+  assert.doesNotThrow(() => withSimulationRandom(random, () => observeCombatParticipation(() => { calls++; }, {
+    stage: 'world_step_before', roster: [actor], worldStep: { stepId: '0:1', kind: 'elapsed', fromSec: 0, toSec: 1 },
+  })));
+  assert.equal(calls, 0, 'A failed projection is not a complete before/after observation.');
+  assert.deepEqual(random.getState(), before);
+});
 check('compact owned diagnostics do not retain live actor, cast, hunt or scheduler graphs', () => {
   const actor = row('a', 'one');
   actor._pendingCharacterCast = { targetId: 'b', releaseAtSec: 103, def: { nested: 'not retained' } };
@@ -60,6 +70,27 @@ check('compact owned diagnostics do not retain live actor, cast, hunt or schedul
   actor._pendingCharacterCast.targetId = 'changed'; actor._spatial.x = 10; actor._spatialMotion.x = 20;
   assert.equal(captured.actors[0].pendingCast.targetId, 'b'); assert.equal(captured.actors[0].spatial.x, 4);
   assert.equal(captured.actors[0].spatialMotion.x, 8);
+});
+
+check('shared-world interval identity and sight range are owned scalars, not live state', () => {
+  const actor = row('a', 'one');
+  const step = { stepId: '380:12', kind: 'elapsed', fromSec: 409.583333, toSec: 409.833333,
+    decisionSec: 410, actor, mutable: { marker: 'not retained' } };
+  const before = structuredClone({ actor, step });
+  const random = createSeedRng('world-observation'), randomBefore = random.getState();
+  let snapshot;
+  withSimulationRandom(random, () => observeCombatParticipation(value => { snapshot = value; }, {
+    stage: 'world_step_before', nowSec: step.fromSec, roster: [actor], worldStep: step,
+  }));
+  assert.deepEqual({ actor, step }, before);
+  assert.deepEqual(random.getState(), randomBefore);
+  assert.deepEqual(snapshot.worldStep, { fromSec: 409.583333, toSec: 409.833333, decisionSec: 410,
+    stepId: '380:12', kind: 'elapsed' });
+  assert.equal(snapshot.actors[0].sightRange, 10);
+  assert.ok(Object.isFrozen(snapshot.worldStep));
+  actor.stats.sightRange = 1; step.stepId = 'changed';
+  assert.equal(snapshot.actors[0].sightRange, 10);
+  assert.equal(snapshot.worldStep.stepId, '380:12');
 });
 
 const round = observer => {

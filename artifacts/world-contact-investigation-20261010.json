@@ -1,0 +1,582 @@
+{
+  "schema": "eternal-hunger.world-contact-investigation.v1",
+  "date": "2026-10-10",
+  "parentCommit": "846c835ac000521932405c5401917a7b1da715e4",
+  "objective": "설정한 목표를 모두 구현, 새 작업마다 작업물 정리",
+  "overallGoalComplete": false,
+  "engineVersion": "e2ac0131efeea55fecf0c5b0b6f369ba26c69c9f46a45a937d5b470544be1e77",
+  "scope": "Fresh seed-2202 swapped-formation prefix through day-2 night only. No whole-match, balance, human, account, foreground or public acceptance; output-only lineage, never a verifier input or expectation.",
+  "runs": [
+    {
+      "role": "unit",
+      "directory": "client/.verification-runs/2026-10-10T03-33-17.163Z-be2585aa-4b19-418b-9cd6-a5929044e70b",
+      "runId": "2026-10-10T03-33-17.163Z-be2585aa-4b19-418b-9cd6-a5929044e70b",
+      "command": "node scripts/check-world-step-contact-diagnostics.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep",
+      "pid": 9140,
+      "startedAt": "2026-10-10T03:33:17.165Z",
+      "finishedAt": "2026-10-10T03:34:47.084Z",
+      "exitCode": 0,
+      "status": "passed",
+      "engine": "e2ac0131efeea55fecf0c5b0b6f369ba26c69c9f46a45a937d5b470544be1e77",
+      "verificationSourceCount": 8,
+      "sameEngine": true,
+      "sameVerificationSources": true
+    },
+    {
+      "role": "prefix",
+      "directory": "client/.verification-runs/2026-10-10T03-33-14.791Z-3e27091c-38fd-4cf5-890c-b58c86a79dfe",
+      "runId": "2026-10-10T03-33-14.791Z-3e27091c-38fd-4cf5-890c-b58c86a79dfe",
+      "command": "node scripts/diagnose-combat-contact-prefix.mjs --output=.verification-runs/2026-10-10T03-33-14.791Z-3e27091c-38fd-4cf5-890c-b58c86a79dfe/combat-contact-prefix.json",
+      "pid": 33188,
+      "startedAt": "2026-10-10T03:33:14.794Z",
+      "finishedAt": "2026-10-10T03:37:02.881Z",
+      "exitCode": 0,
+      "status": "passed",
+      "engine": "e2ac0131efeea55fecf0c5b0b6f369ba26c69c9f46a45a937d5b470544be1e77",
+      "verificationSourceCount": 6,
+      "sameEngine": true,
+      "sameVerificationSources": true
+    },
+    {
+      "role": "build",
+      "directory": "client/.verification-runs/2026-10-10T03-35-06.280Z-7a4955c7-1dce-4d83-b8b6-e89ee5fafc15",
+      "runId": "2026-10-10T03-35-06.280Z-7a4955c7-1dce-4d83-b8b6-e89ee5fafc15",
+      "command": "npm run build",
+      "pid": 55768,
+      "startedAt": "2026-10-10T03:35:06.283Z",
+      "finishedAt": "2026-10-10T03:36:21.203Z",
+      "exitCode": 0,
+      "status": "passed",
+      "engine": "e2ac0131efeea55fecf0c5b0b6f369ba26c69c9f46a45a937d5b470544be1e77",
+      "verificationSourceCount": 2,
+      "sameEngine": true,
+      "sameVerificationSources": true
+    }
+  ],
+  "rawEvidenceFiles": [
+    {
+      "path": "client/.verification-runs/2026-10-10T03-33-17.163Z-be2585aa-4b19-418b-9cd6-a5929044e70b/result.json",
+      "bytes": 2784,
+      "sha256": "8D76E5836D4890FA7B70CB56DF437792DB465F87D036FA0656A95905789CF218"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-10T03-33-17.163Z-be2585aa-4b19-418b-9cd6-a5929044e70b/output.log",
+      "bytes": 7031,
+      "sha256": "AE5AA1A01ADD7A9E2B84DA8AF18F671DFA04DF5B53DCB7D1B1E67FA8D50E9C0E"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-10T03-33-14.791Z-3e27091c-38fd-4cf5-890c-b58c86a79dfe/result.json",
+      "bytes": 2172,
+      "sha256": "AEAABB25600600A46D04D88EFA442BF3F69D202017C25F134694B86B4658CD01"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-10T03-33-14.791Z-3e27091c-38fd-4cf5-890c-b58c86a79dfe/output.log",
+      "bytes": 895,
+      "sha256": "5D2DBDE4A8C52097130C7C530C06805493EDA1FE41B147B2BEAD2ACC0FDB2DEF"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-10T03-35-06.280Z-7a4955c7-1dce-4d83-b8b6-e89ee5fafc15/result.json",
+      "bytes": 1063,
+      "sha256": "03718BC8DBF0A0A28E9B872DA6DDB87295165BD390D061A89802D3239F57E207"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-10T03-35-06.280Z-7a4955c7-1dce-4d83-b8b6-e89ee5fafc15/output.log",
+      "bytes": 3012,
+      "sha256": "D2792D9D9BF4A0DFFA4636066E0D640F58EEEBC7DA4A96CDE5D94F99A72425A0"
+    },
+    {
+      "path": "client/.verification-runs/2026-10-10T03-33-14.791Z-3e27091c-38fd-4cf5-890c-b58c86a79dfe/combat-contact-prefix.json",
+      "bytes": 2596582,
+      "sha256": "9A22E338515E7BA5038EEF3BF282B0B360F7535C2A4B07B2ECA5A936175D450B"
+    }
+  ],
+  "rawEvidenceBytes": 2613539,
+  "unitChecks": {
+    "worldStepCollector": 13,
+    "observationRuntime": 13,
+    "legacyParticipationCollector": 39,
+    "fingerprint": 5,
+    "runtimeSweepPassed": true
+  },
+  "prefix": {
+    "inputDigest": "1502694173574493ac30d3c0f7d5215a870f6dc8d6d8ff022bd1b059199e785e",
+    "seed": "2202",
+    "endClock": {
+      "day": 2,
+      "phase": "night",
+      "matchSec": 500
+    },
+    "matchEndEvents": 0,
+    "events": 9736,
+    "frames": 2655,
+    "exactObservationOnOff": true,
+    "frameComparison": "Complete frame JSON UTF-8 byte length and SHA-256 by callback ordinal plus ordered JSON-array-stream SHA-256; not retained raw-frame deepEqual.",
+    "fullFrameArrayStreamSha256": "4e6f90734e2d6354deb712beb23d1b5b499aa4a3b62a0186b1434391d29e2ff5",
+    "worldTrace": {
+      "window": {
+        "fromSec": 400,
+        "toSec": 412
+      },
+      "retainedPairs": 66,
+      "kinds": {
+        "elapsed": 53,
+        "growth": 13
+      },
+      "actualPositiveElapsedIntersections": 51,
+      "coverageComplete": true,
+      "pairingCursorTimeAndSnapshotIssues": 0,
+      "missingRelatedActorOccurrences": 0,
+      "eventSamplesOmitted": 0,
+      "stepIdHistoryEvictions": 2044,
+      "historyEvictionsAreNotRetainedTraceLoss": true
+    },
+    "watcher": "guest-survivor-01",
+    "attacker": "guest-survivor-18",
+    "movementAndAttackRangeEvidence": [
+      {
+        "from": 409,
+        "to": 409.25,
+        "distanceBefore": 7.144002235294724,
+        "distanceAfter": 5.394003357466514,
+        "walked": 0.8749994389141048,
+        "movementBudget": 0.875,
+        "watcherHp": [
+          139,
+          139
+        ],
+        "watcherReady": [
+          408,
+          246.333333,
+          0
+        ],
+        "attackerReady": [
+          382.166666,
+          382.166666
+        ],
+        "range": [
+          1.4,
+          5.2
+        ]
+      },
+      {
+        "from": 409.25,
+        "to": 409.5,
+        "distanceBefore": 5.394003357466514,
+        "distanceAfter": 4.325000746606758,
+        "walked": 0.8749994389141061,
+        "movementBudget": 0.875,
+        "watcherHp": [
+          139,
+          139
+        ],
+        "watcherReady": [
+          408,
+          246.333333,
+          0
+        ],
+        "attackerReady": [
+          382.166666,
+          382.166666
+        ],
+        "range": [
+          1.4,
+          5.2
+        ]
+      },
+      {
+        "from": 409.5,
+        "to": 409.583333,
+        "distanceBefore": 4.325000746606758,
+        "distanceAfter": 4.033335416289849,
+        "walked": 0.2916653303171293,
+        "movementBudget": 0.29166549999993663,
+        "watcherHp": [
+          69,
+          69
+        ],
+        "watcherReady": [
+          408,
+          246.333333,
+          0
+        ],
+        "attackerReady": [
+          409.833333,
+          409.833333
+        ],
+        "range": [
+          1.4,
+          5.2
+        ]
+      },
+      {
+        "from": 409.583333,
+        "to": 409.833333,
+        "distanceBefore": 4.033335416289849,
+        "distanceAfter": 3.158335977375745,
+        "walked": 0.8749994389141061,
+        "movementBudget": 0.875,
+        "watcherHp": [
+          69,
+          69
+        ],
+        "watcherReady": [
+          408,
+          246.333333,
+          0
+        ],
+        "attackerReady": [
+          409.833333,
+          409.833333
+        ],
+        "range": [
+          1.4,
+          5.2
+        ]
+      }
+    ],
+    "damageAndDeathEvents": [
+      {
+        "eventIndex": 8600,
+        "window": "between_pairs",
+        "kind": "damage",
+        "who": "guest-survivor-18",
+        "targetId": "guest-survivor-01",
+        "type": "basic",
+        "damage": 88,
+        "hpDamage": 70,
+        "hpBefore": 139,
+        "hpAfter": 69,
+        "maxHpBefore": 146,
+        "maxHpAfter": 146,
+        "absorbed": 18,
+        "zoneId": "archery",
+        "at": {
+          "sec": 409.5
+        },
+        "stepId": "380:151",
+        "senderWatchedIds": [],
+        "recipientWatchedIds": [
+          "guest-survivor-01"
+        ],
+        "relatedByWatchedIds": []
+      },
+      {
+        "eventIndex": 8615,
+        "window": "between_pairs",
+        "kind": "damage",
+        "who": "guest-survivor-18",
+        "targetId": "guest-survivor-01",
+        "type": "basic",
+        "damage": 89,
+        "hpDamage": 69,
+        "hpBefore": 69,
+        "hpAfter": 0,
+        "maxHpBefore": 146,
+        "maxHpAfter": 146,
+        "absorbed": 0,
+        "zoneId": "archery",
+        "at": {
+          "sec": 409.833333
+        },
+        "stepId": "380:153",
+        "senderWatchedIds": [],
+        "recipientWatchedIds": [
+          "guest-survivor-01"
+        ],
+        "relatedByWatchedIds": []
+      },
+      {
+        "eventIndex": 8617,
+        "window": "between_pairs",
+        "kind": "death",
+        "who": "guest-survivor-01",
+        "by": "guest-survivor-18",
+        "cause": "교전",
+        "reason": "combat",
+        "zoneId": "archery",
+        "at": {
+          "sec": 409.833333
+        },
+        "stepId": "380:153",
+        "senderWatchedIds": [
+          "guest-survivor-01"
+        ],
+        "recipientWatchedIds": [],
+        "relatedByWatchedIds": []
+      }
+    ],
+    "sceneConclusion": "The watched actor moved with its normal movement budget but died from two clock-valid ranged basic hits before entering its own 1.4 attack range. This scene is not evidence of stalled movement, extra free attacks, or whole-match cooperative/balance acceptance."
+  },
+  "sourceFilesAtVerification": [
+    {
+      "path": "client/package.json",
+      "bytes": 27127,
+      "sha256": "B9B77934A203F15974555197BB4B9CD28C9E325CA46E0BEEFE2F526C4317966E"
+    },
+    {
+      "path": "client/scripts/check-combat-participation-observation.mjs",
+      "bytes": 18668,
+      "sha256": "D16C7340D48561A0B8AD7E5E28A9082923364D55216B18280D73953FB29B4EF2"
+    },
+    {
+      "path": "client/scripts/check-team-combat-participation-diagnostics.mjs",
+      "bytes": 42095,
+      "sha256": "CFC1ACFA7EF33F676802DEC233F887359AB879C917E233639F997F179CDDDB76"
+    },
+    {
+      "path": "client/scripts/check-world-step-contact-diagnostics.mjs",
+      "bytes": 18978,
+      "sha256": "B52826C8186540203AEEAD798FCCDA9DCA85AF46E19E7A3F42524DAF1BED6FB7"
+    },
+    {
+      "path": "client/scripts/diagnose-combat-contact-prefix.mjs",
+      "bytes": 22669,
+      "sha256": "98D531A2B2687E4675FE190833427D60624B8468FA06F4CD2B009C08F1397A99"
+    },
+    {
+      "path": "client/scripts/lib/team-combat-participation-diagnostics.mjs",
+      "bytes": 33004,
+      "sha256": "4B558F81031212F77435CFA112B448334E1845854903EA9256CBF2138CFD4843"
+    },
+    {
+      "path": "client/scripts/lib/world-step-contact-diagnostics.mjs",
+      "bytes": 26083,
+      "sha256": "73709F86D598041406AB9F9DE81B7AD04670F407F9B090893060AF49A6D188AD"
+    },
+    {
+      "path": "client/scripts/run-eternal-hunger-verification.mjs",
+      "bytes": 19237,
+      "sha256": "E4A0F5F0C3B320E1A6CB9BAB99837BA6E5FB0C4A6AB96EE4639D8F7F6C97DE85"
+    },
+    {
+      "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+      "bytes": 166,
+      "sha256": "B6914937EA6043265BFF6C37F3A5DF56774D228DDCF84717F5F7D2ED826225B4"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/combatParticipationObservationRuntime.js",
+      "bytes": 6668,
+      "sha256": "443D3F2C0927B50BD4D432E11C54EE68550879CB7CE0545784BFCF496210603E"
+    },
+    {
+      "path": "client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js",
+      "bytes": 19370,
+      "sha256": "ADA0F19C3F20534E8A6A64984EADD5A2AB5F0D6F4247CCC1CB138D719A8C2ABB"
+    }
+  ],
+  "build": {
+    "id": "7pdjkdZuRlrqU3ePawlZN",
+    "pages": 62,
+    "serverChunk": "client/.next/server/chunks/7457.js",
+    "clientChunk": "client/.next/static/chunks/6642-c9617232603a1d2d.js",
+    "engineMarkerPresentInBoth": true,
+    "currentFullChainRerun": false
+  },
+  "cleanup": {
+    "removed": [
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/0.pack",
+        "bytes": 255863387,
+        "sha256": "6FF43893AAC2FD6C632BABAF785BB2B3D8EB3DE773DA0B11B223034ED478F055"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/index.pack",
+        "bytes": 12833247,
+        "sha256": "4EFE2B370129879AB111009B09B3780E2487E24A2D403A86426F6CDF150979B6"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/edge-server-production/0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/edge-server-production/index.pack",
+        "bytes": 2464,
+        "sha256": "226B0727EE566D0A550FB816707694EBB143C5DC1CFB7BDB63CB05C52EDA7D64"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/server-production/0.pack",
+        "bytes": 307009917,
+        "sha256": "FDDC0DC198FA867ADD0B2B877B3D9B8748351A348E8D2756C1D17CFF5F355ACC"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/server-production/index.pack",
+        "bytes": 18076786,
+        "sha256": "B24C7946CF299AF1FA613CD1DFFD3FD4798D726A4ABA7D46FA67FE1CCA90709D"
+      }
+    ],
+    "removedFiles": 6,
+    "removedBytes": 593786077,
+    "remainingPackFiles": 0,
+    "scopedWrapperPidsAbsent": true,
+    "processCheck": "CIM exact completed wrapper PIDs",
+    "recoverable": "Normal production build regenerates webpack packs",
+    "physicalFreeSpaceChangeMeasured": false,
+    "before": {
+      "protectedFileCount": 24,
+      "protectedRows": [
+        {
+          "path": "artifacts/recovery-combat-resume-20261010.json",
+          "bytes": 95253,
+          "sha256": "4D0D6C0DDAD785B926D47A9B492024944CBAA6BE4C23B1214A2F8DE5F77561E3"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-10T03-33-14.791Z-3e27091c-38fd-4cf5-890c-b58c86a79dfe/combat-contact-prefix.json",
+          "bytes": 2596582,
+          "sha256": "9A22E338515E7BA5038EEF3BF282B0B360F7535C2A4B07B2ECA5A936175D450B"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-10T03-33-14.791Z-3e27091c-38fd-4cf5-890c-b58c86a79dfe/output.log",
+          "bytes": 895,
+          "sha256": "5D2DBDE4A8C52097130C7C530C06805493EDA1FE41B147B2BEAD2ACC0FDB2DEF"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-10T03-33-14.791Z-3e27091c-38fd-4cf5-890c-b58c86a79dfe/result.json",
+          "bytes": 2172,
+          "sha256": "AEAABB25600600A46D04D88EFA442BF3F69D202017C25F134694B86B4658CD01"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-10T03-33-17.163Z-be2585aa-4b19-418b-9cd6-a5929044e70b/output.log",
+          "bytes": 7031,
+          "sha256": "AE5AA1A01ADD7A9E2B84DA8AF18F671DFA04DF5B53DCB7D1B1E67FA8D50E9C0E"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-10T03-33-17.163Z-be2585aa-4b19-418b-9cd6-a5929044e70b/result.json",
+          "bytes": 2784,
+          "sha256": "8D76E5836D4890FA7B70CB56DF437792DB465F87D036FA0656A95905789CF218"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-10T03-35-06.280Z-7a4955c7-1dce-4d83-b8b6-e89ee5fafc15/output.log",
+          "bytes": 3012,
+          "sha256": "D2792D9D9BF4A0DFFA4636066E0D640F58EEEBC7DA4A96CDE5D94F99A72425A0"
+        },
+        {
+          "path": "client/.verification-runs/2026-10-10T03-35-06.280Z-7a4955c7-1dce-4d83-b8b6-e89ee5fafc15/result.json",
+          "bytes": 1063,
+          "sha256": "03718BC8DBF0A0A28E9B872DA6DDB87295165BD390D061A89802D3239F57E207"
+        },
+        {
+          "path": "client/package.json",
+          "bytes": 27127,
+          "sha256": "B9B77934A203F15974555197BB4B9CD28C9E325CA46E0BEEFE2F526C4317966E"
+        },
+        {
+          "path": "client/scripts/check-combat-participation-observation.mjs",
+          "bytes": 18668,
+          "sha256": "D16C7340D48561A0B8AD7E5E28A9082923364D55216B18280D73953FB29B4EF2"
+        },
+        {
+          "path": "client/scripts/check-observer-goals-match.mjs",
+          "bytes": 15715,
+          "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+        },
+        {
+          "path": "client/scripts/check-team-combat-participation-diagnostics.mjs",
+          "bytes": 42095,
+          "sha256": "CFC1ACFA7EF33F676802DEC233F887359AB879C917E233639F997F179CDDDB76"
+        },
+        {
+          "path": "client/scripts/check-world-step-contact-diagnostics.mjs",
+          "bytes": 18978,
+          "sha256": "B52826C8186540203AEEAD798FCCDA9DCA85AF46E19E7A3F42524DAF1BED6FB7"
+        },
+        {
+          "path": "client/scripts/diagnose-combat-contact-prefix.mjs",
+          "bytes": 22669,
+          "sha256": "98D531A2B2687E4675FE190833427D60624B8468FA06F4CD2B009C08F1397A99"
+        },
+        {
+          "path": "client/scripts/lib/team-combat-participation-diagnostics.mjs",
+          "bytes": 33004,
+          "sha256": "4B558F81031212F77435CFA112B448334E1845854903EA9256CBF2138CFD4843"
+        },
+        {
+          "path": "client/scripts/lib/world-step-contact-diagnostics.mjs",
+          "bytes": 26083,
+          "sha256": "73709F86D598041406AB9F9DE81B7AD04670F407F9B090893060AF49A6D188AD"
+        },
+        {
+          "path": "client/scripts/run-eternal-hunger-verification.mjs",
+          "bytes": 19237,
+          "sha256": "E4A0F5F0C3B320E1A6CB9BAB99837BA6E5FB0C4A6AB96EE4639D8F7F6C97DE85"
+        },
+        {
+          "path": "client/src/app/simulation/_generated/simulationEngineVersion.js",
+          "bytes": 166,
+          "sha256": "B6914937EA6043265BFF6C37F3A5DF56774D228DDCF84717F5F7D2ED826225B4"
+        },
+        {
+          "path": "client/src/app/simulation/_lib/combatParticipationObservationRuntime.js",
+          "bytes": 6668,
+          "sha256": "443D3F2C0927B50BD4D432E11C54EE68550879CB7CE0545784BFCF496210603E"
+        },
+        {
+          "path": "client/src/app/simulation/_lib/simulationPhaseCycleRuntime.js",
+          "bytes": 19370,
+          "sha256": "ADA0F19C3F20534E8A6A64984EADD5A2AB5F0D6F4247CCC1CB138D719A8C2ABB"
+        },
+        {
+          "path": "docs/eternal-hunger-goal.md",
+          "bytes": 228794,
+          "sha256": "DED28C28A687B21C201488E558A747AB84DB0B291FE64C98E15F2C64F81AD761"
+        },
+        {
+          "path": "docs/recovery-combat-resume-verification-2026-10-10.md",
+          "bytes": 14349,
+          "sha256": "0A5D7A91FE46690971A8BEF9ABB966E8E44E4B99F7DB6C66D435A7E30BD31BCA"
+        },
+        {
+          "path": "server/.env.example",
+          "bytes": 2125,
+          "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+        },
+        {
+          "path": "server/index.js",
+          "bytes": 5619,
+          "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+        }
+      ],
+      "protectedDigest": "0663894C25FC473C9D2D59EA5B5042EE043D26DD01A5E4F97C64C93F91546DBD",
+      "buildFileCount": 1437,
+      "buildBytes": 74907045,
+      "buildDigest": "A9E3931FAFB5167282312BF3B47073D4FF8388EF2555648A1E6429770C9F2E99"
+    },
+    "after": {
+      "protectedFiles": 24,
+      "protectedDigest": "0663894C25FC473C9D2D59EA5B5042EE043D26DD01A5E4F97C64C93F91546DBD",
+      "protectedExact": true,
+      "buildFileCount": 1437,
+      "buildBytes": 74907045,
+      "buildDigest": "A9E3931FAFB5167282312BF3B47073D4FF8388EF2555648A1E6429770C9F2E99",
+      "buildExact": true,
+      "remainingPacks": 0,
+      "scope": "Exact deletion boundary only; subsequent authorized journal/report edits are separate."
+    },
+    "scope": "Hashes describe the exact cache-deletion boundary; later authorized journal/report/manifest additions are separate."
+  },
+  "originalGoalTail": {
+    "chars": 20641,
+    "bytes": 43026,
+    "sha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B"
+  },
+  "protectedUserFiles": {
+    "client/scripts/check-observer-goals-match.mjs": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9",
+    "server/index.js": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493",
+    "server/.env.example": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+  },
+  "externalActions": {
+    "push": 0,
+    "deploy": 0,
+    "browser": 0,
+    "accountWrites": 0,
+    "paidAiCalls": 0,
+    "humanScoreEntries": 0
+  },
+  "remainingAcceptance": [
+    "Diverse natural cooperative contribution and explainable formation differences",
+    "Foreground pacing, sustained memory and map readability",
+    "New-session saved-input continuation and actual AI/authenticated storage",
+    "Follow-up human evaluation and current public build"
+  ],
+  "newUserLogAnalysis": "User-provided October-9 match arrived after this completed verification stage; it is a separate old-engine source analysis, not an input or expectation for these runs."
+}
