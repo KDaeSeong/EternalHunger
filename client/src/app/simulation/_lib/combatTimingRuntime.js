@@ -139,6 +139,20 @@ export function findNextCombatAction(survivorMap, nowSec, newDeadIds = [], setti
       record?.('pending_cast');
       continue;
     }
+    const intent = actor._combatIntent;
+    if (intent && String(actor.zoneId) === intent.zoneId
+      && String(intent.combatSpaceId || WORLD_COMBAT_SPACE) === getCombatSpaceId(actor) && isAiRecoveryLocked(actor, nowSec)) {
+      // No opponents are queried during voluntary AI recovery. That is a
+      // temporary decision lock, not evidence that a visible enemy was lost.
+      // Keep the contact without refreshing unseen positions, then re-evaluate
+      // live opponents/range/clocks at unlock. This boundary dispatches no action.
+      // Never round a still-future floating deadline back to this same clock
+      // tick: the no-op boundary would otherwise be selected without progress.
+      const unlockAtSec = Math.max(roundCombatTime(nowSec + 1e-6), Math.ceil(Number(actor._recentCombatUntil) * 1e6) / 1e6);
+      consider({ actorId: idOf(actor), atSec: unlockAtSec, actionType: 'status_boundary' }, actor);
+      record?.('recovery_locked');
+      continue;
+    }
     if (!actor._combatIntent) { consider(planSpatialPatrol(actor, nowSec), actor); record?.('no_intent_patrol'); continue; }
     const opponents = getCombatIntentOpponents(actor, roster, nowSec);
     if (!opponents.length) {

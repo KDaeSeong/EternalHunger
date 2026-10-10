@@ -11,7 +11,7 @@ const ARBITRATION_KEYS = Object.freeze(['candidate', 'selected', 'deferred', 'wi
 const ARBITRATION_ACTION_TYPES = Object.freeze(['basic', 'approach', 'skill_start', 'skill_release', 'skill_expire', 'status_boundary', 'other']);
 const ACTOR_CANDIDATE_ACTION_TYPES = Object.freeze(['basic', 'approach', 'skill_start', 'skill_release', 'skill_expire', 'status_boundary', 'other', 'none']);
 const EXECUTION_KEYS = Object.freeze(['invalidated_before_strike', 'no_valid_target', 'not_performed', 'performed_no_hp', 'hp_hit']);
-const ACTOR_BRANCHES = Object.freeze(['dead_or_rift', 'wildlife_hunt', 'boss_assist', 'forced_control', 'pending_cast',
+const ACTOR_BRANCHES = Object.freeze(['dead_or_rift', 'wildlife_hunt', 'boss_assist', 'forced_control', 'pending_cast', 'recovery_locked',
   'no_intent_patrol', 'no_opponents_last_seen', 'no_opponents_patrol', 'observed_out_of_range', 'basic_in_range', 'other']);
 const MOTION_BUCKETS = Object.freeze(['none', 'patrol', 'last_seen', 'chase', 'forced', 'other']);
 const WORLD_PAIR_KEYS = Object.freeze(['matched', 'no_pending', 'identity_mismatch', 'time_mismatch']);

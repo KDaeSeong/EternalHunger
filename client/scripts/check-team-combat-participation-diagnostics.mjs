@@ -32,7 +32,7 @@ const collector = (overrides = {}) => {
   return createTeamCombatParticipationDiagnostics({ roster: rosters.roster, actorIds: ['watch'],
     comparisonRoster: rosters.comparisonRoster, ...overrides });
 };
-const ACTOR_BRANCH_TEST_KEYS = ['dead_or_rift', 'wildlife_hunt', 'boss_assist', 'forced_control', 'pending_cast',
+const ACTOR_BRANCH_TEST_KEYS = ['dead_or_rift', 'wildlife_hunt', 'boss_assist', 'forced_control', 'pending_cast', 'recovery_locked',
   'no_intent_patrol', 'no_opponents_last_seen', 'no_opponents_patrol', 'observed_out_of_range', 'basic_in_range', 'other'];
 
 check('input rosters and watched IDs are owned at construction time', () => {
@@ -375,7 +375,7 @@ check('actor_schedule is a per-watched-actor top candidate, not the global winne
     byActionType: { basic: 0, approach: 1, skill_start: 0, skill_release: 0, skill_expire: 0,
       status_boundary: 0, other: 0, none: 0 },
     availability: { candidate_row: 2, missing_candidate_row: 0, truncated: 0, actor_missing: 0, invalid_candidate_actor: 1 },
-    branches: { dead_or_rift: 0, wildlife_hunt: 0, boss_assist: 0, forced_control: 0, pending_cast: 0,
+    branches: { dead_or_rift: 0, wildlife_hunt: 0, boss_assist: 0, forced_control: 0, pending_cast: 0, recovery_locked: 0,
       no_intent_patrol: 0, no_opponents_last_seen: 0, no_opponents_patrol: 0, observed_out_of_range: 1,
       basic_in_range: 0, other: 1 },
     motion: { none: 0, patrol: 0, last_seen: 0, chase: 1, forced: 0, other: 1 },
@@ -388,6 +388,21 @@ check('actor_schedule is a per-watched-actor top candidate, not the global winne
     'A mismatched actor candidate cannot occupy the latest-basic retention slot.');
   assert.match(out.counterSemantics.actor_schedule, /single best candidate/);
   assert.match(out.counterSemantics.actor_schedule, /not the global winner/);
+});
+
+check('a recovery boundary candidate is neither an attack nor a missing intent', () => {
+  const diagnostics = collector();
+  diagnostics.observe(actorSchedule({
+    nowSec: 10,
+    actors: [actor('watch', { recoveryUntilSec: 15, hasCombatIntent: true })],
+    actorCandidates: [candidateFact({ branch: 'recovery_locked', motionReason: 'approach',
+      candidate: { actorId: 'watch', actionType: 'status_boundary', atSec: 15 } })],
+  }));
+  const counts = diagnostics.summary().countsByActor.watch.actor_schedule;
+  assert.equal(counts.branches.recovery_locked, 1);
+  assert.equal(counts.branches.no_intent_patrol, 0);
+  assert.equal(counts.byActionType.status_boundary, 1);
+  assert.equal(counts.byActionType.basic, 0);
 });
 
 check('actor_schedule input snapshots are reduced to bounded owned facts and missing/truncated rows stay unavailable', () => {
