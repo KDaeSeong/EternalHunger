@@ -1,0 +1,240 @@
+{
+  "schema": "eh-frame-followup-task-verification.v1",
+  "status": "candidate not adopted: no convincing actual throughput improvement; current runtime restored to committed catalogue engine",
+  "scope": "Output-only evidence. This file is not a test fixture or expected result input. Browser timings are uncontrolled observations, not a controlled speedup claim.",
+  "baseline": {
+    "commit": "4426e93a7ae509d83e490d0d94eff61ce4a0167a",
+    "engine": "60258d08de10ed3ffbd39030cd20a873ed96a1b59dd2909e35a8963ff04aa045",
+    "buildId": "teUG2dEEfpS9iFp0WxbGr",
+    "seed": "1789192220412",
+    "requestedSpeed": 32,
+    "viewport": { "width": 1280, "height": 720, "devicePixelRatio": 1 },
+    "environment": "Windows 10; Chrome 155; hardwareConcurrency 12; visible Codex in-app browser; localhost production build",
+    "runs": [
+      {
+        "label": "x32-frame-task-timer-20261011-A1",
+        "matchSeconds": 1233.5,
+        "activeStartOffsetMs": 267.5,
+        "activeEndOffsetMs": 60448.9,
+        "activeWallMs": 60181.4,
+        "effectiveSpeed": 20.49636598683314,
+        "speedChanges": 0,
+        "identityChanges": 0,
+        "pauses": 0,
+        "naturalEnd": true,
+        "finalDay": 7,
+        "winner": "매화",
+        "workStages": [
+          { "name": "growth.refreshPlans", "count": 13262, "totalMs": 2341.5, "maxMs": 6.1 },
+          { "name": "growth.slice", "count": 2094, "totalMs": 14121.1, "maxMs": 61.4 },
+          { "name": "growth.teamCoordination", "count": 5922, "totalMs": 4674.1, "maxMs": 54.2 },
+          { "name": "frame.snapshot", "count": 6428, "totalMs": 17723.1, "maxMs": 14.4 }
+        ],
+        "asyncWaits": [
+          { "name": "yield.growth.frame", "count": 504, "totalMs": 9256.3, "maxMs": 63.1 },
+          { "name": "yield.growth.task", "count": 356, "totalMs": 26.1, "maxMs": 0.3 }
+        ],
+        "longTasks": { "count": 16, "maxMs": 66, "totalMs": 879 },
+        "raf": { "samples": 7266, "intervalMs": { "median": 10, "p95": 69.9, "max": 130 }, "scope": "entire_measurement", "overflowSamples": 0 },
+        "inputToNextRaf": { "count": 3, "pending": 0, "lastMs": 10.2, "maxMs": 10.2 },
+        "heap": { "startBytes": 21152359, "endBytes": 48051687, "deltaBytes": 26899328 },
+        "visibleProbeMs": 118833.9,
+        "visibilityTransitions": 0
+      },
+      {
+        "label": "x32-frame-task-timer-20261011-A2",
+        "matchSeconds": 1233.5,
+        "activeStartOffsetMs": 989.2,
+        "activeEndOffsetMs": 105707.2,
+        "activeWallMs": 104718,
+        "effectiveSpeed": 11.779254760404132,
+        "speedChanges": 0,
+        "identityChanges": 0,
+        "pauses": 0,
+        "naturalEnd": true,
+        "finalDay": 7,
+        "winner": "매화",
+        "workStages": [
+          { "name": "growth.refreshPlans", "count": 13262, "totalMs": 2988.7, "maxMs": 16.6 },
+          { "name": "growth.slice", "count": 2495, "totalMs": 25218.2, "maxMs": 276 },
+          { "name": "growth.teamCoordination", "count": 5922, "totalMs": 10030.5, "maxMs": 104.8 },
+          { "name": "frame.snapshot", "count": 6428, "totalMs": 17373.6, "maxMs": 13.4 }
+        ],
+        "asyncWaits": [
+          { "name": "yield.growth.frame", "count": 750, "totalMs": 38930.8, "maxMs": 655.3 },
+          { "name": "yield.growth.task", "count": 511, "totalMs": 128.5, "maxMs": 41.6 }
+        ],
+        "longTasks": { "count": 137, "maxMs": 641 },
+        "raf": { "samples": 6505, "intervalMs": { "median": 10, "p95": 70.1, "max": 1170 }, "scope": "entire_measurement", "overflowSamples": 34 },
+        "inputToNextRaf": { "count": 3, "pending": 0, "lastMs": 1.1, "maxMs": 107.5 },
+        "heap": { "startBytes": 56120251, "endBytes": 47308322, "deltaBytes": -8811929 },
+        "visibleProbeMs": 161864.5,
+        "visibilityTransitions": 0
+      }
+    ],
+    "interpretation": "Two unchanged-engine runs varied substantially. Nested work stages are not additive. Async waits are wall time, not CPU work. Input-to-next-RAF is not INP or pixel presentation latency. Probe-visible time includes postgame time and is not the active-throughput denominator. Heap endpoints do not establish a leak.",
+    "lifecycle": "Both temporary matches completed naturally; their temporary browser tab was closed and the owned production server was stopped. No account save, paid AI call, push or deployment occurred."
+  },
+  "candidate": {
+    "engine": "d8feeed0fb3b3d4f9bded7016cae089b23bb024ab21949b9c6eb58686d3ec481",
+    "change": "After a visible animation callback, use an owned MessageChannel task to resume. Close both ports on completion, timeout, hidden document or channel failure. Keep the 100ms watchdog and zero-delay timer fallback.",
+    "negativeCheck": { "exitCode": 1, "baselineGroupsPassed": 10, "failedAssertion": "MessageChannel-specific fixture expected one queued message; prior runtime produced zero." },
+    "checks": [
+      { "name": "simulation-cooperative-yield", "exitCode": 0, "passedGroups": 18 },
+      { "name": "high-speed-growth-slices", "exitCode": 0, "passedGroups": 15 },
+      { "name": "live-frames", "exitCode": 0, "passedGroups": 19 },
+      { "name": "scoped-eslint", "exitCode": 0 },
+      { "name": "runtime-sweep", "exitCode": 0 }
+    ],
+    "build": {
+      "ordinary": { "exitCode": 1, "error": "EPERM mkdir client/.next/types/app/srpg/[slug]" },
+      "authorizedRetry": { "exitCode": 0, "pages": 62, "buildId": "CcT_LameSVSy7_eiwHjEV" },
+      "engineMarkerMatches": ["client/.next/static/chunks/5167-a472a8d897edac1a.js", "client/.next/server/chunks/2433.js"]
+    },
+    "completeMatchComparison": {
+      "exitCode": 0,
+      "seed": "1101",
+      "sourceFingerprintBeforeAndAfter": "1524d118a06556bbfe55881af62ad63242c28af90576e22f6b475f8e2b3eb68b",
+      "modes": [
+        { "name": "headless", "taskYields": 0, "frameYields": 0, "messageYields": 0, "resumeTimers": 0 },
+        { "name": "cooperative", "taskYields": 35096, "frameYields": 0, "messageYields": 0, "resumeTimers": 0 },
+        { "name": "visible-cooperative", "taskYields": 10537, "frameYields": 24559, "messageYields": 0, "resumeTimers": 24559 },
+        { "name": "visible-channel", "taskYields": 10537, "frameYields": 24559, "messageYields": 24559, "resumeTimers": 0 }
+      ],
+      "equalOutcome": {
+        "phases": 11,
+        "frames": 5840,
+        "matchSeconds": 1124.916666,
+        "events": 11633,
+        "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+        "eventDigest": "52c99d0295115037af6964d786024a717dd0861db2358efc579d5e6a5d4cad35",
+        "frameDigest": "66cdcace028367955150991953de1c83f43cffa394c3b3530bb3d4865b6ac69c",
+        "finalFrameDigest": "b19f2e6b60a9bc6c4cfeef71a8c8a63ae03fd2ad642f74f2a1beef36630da75b",
+        "logDigest": "220f77fa4cb9a9900e2052d0d1a33c365a828f502ffc9aa2ed2c2642b6e564ae",
+        "endingDigest": "508160d19668fef897046b97e4c8d9edba5bda391241c9dbfa6544c53cb4bcc0",
+        "randomDigest": "95396c4bb2089a74fd858f2515a98a8683d5dcd19e0f691fff0f340526647628"
+      },
+      "scope": "Four fresh current-production execution modes with unchanged source, owned frame freezing and unrelated UI RNG noise. Full outcomes are compared before compact reporting. Synthetic host dispatch is not real-browser scheduling, an independent historical-engine oracle, all-input coverage or human acceptance."
+    },
+    "browser": {
+      "environmentAndSeed": "Same viewport, browser, requested x32 and seed as the two baseline observations. No task-owned CPU fixture or build runs overlapped the candidate observations. External host load remains uncontrolled.",
+      "runs": [
+        {
+          "label": "x32-frame-task-channel-20261011-B1",
+          "matchSeconds": 1233.5,
+          "activeStartOffsetMs": 264.1,
+          "activeEndOffsetMs": 57974.7,
+          "activeWallMs": 57710.6,
+          "effectiveSpeed": 21.373889718699857,
+          "speedChanges": 0,
+          "identityChanges": 0,
+          "pauses": 0,
+          "naturalEnd": true,
+          "finalDay": 7,
+          "winner": "매화",
+          "boundary": "settled",
+          "workStages": [
+            { "name": "growth.refreshPlans", "count": 13262, "totalMs": 2302.8, "maxMs": 3.7 },
+            { "name": "growth.teamCoordination", "count": 5922, "totalMs": 4391.1, "maxMs": 39.9 },
+            { "name": "growth.slice", "count": 2042, "totalMs": 13444.1, "maxMs": 45.2 },
+            { "name": "frame.snapshot", "count": 6428, "totalMs": 17057, "maxMs": 9.3 }
+          ],
+          "asyncWaits": [
+            { "name": "yield.growth.frame", "count": 482, "totalMs": 8437.8, "maxMs": 51.8 },
+            { "name": "yield.growth.task", "count": 326, "totalMs": 23.4, "maxMs": 0.4 }
+          ],
+          "longTasks": { "count": 0, "maxMs": null },
+          "raf": { "samples": 3670, "intervalMs": { "median": 10, "p95": 89.9, "max": 130.1 }, "scope": "entire_measurement", "overflowSamples": 0 },
+          "inputToNextRaf": { "count": 3, "pending": 0, "lastMs": 6.4, "maxMs": 7.1 },
+          "heap": { "startBytes": 19611116, "endBytes": 48323569, "deltaBytes": 28712453 },
+          "visibleProbeMs": 80001.2,
+          "visibilityTransitions": 0
+        },
+        {
+          "runId": "B2",
+          "intendedLabel": "x32-frame-task-channel-20261011-B2",
+          "label": "x32-frame-task-channel-20261011-B232-frame-task-channel-20261011-B2ㅐ",
+          "labelNote": "The label field was visibly duplicated during filling. Preserve the actual exported label instead of renaming it. Engine, seed, speed and match identity remained unchanged; no attribution for the text change is established.",
+          "matchSeconds": 1233.5,
+          "activeStartOffsetMs": 261.6,
+          "activeEndOffsetMs": 62957.1,
+          "activeWallMs": 62695.5,
+          "effectiveSpeed": 19.674458294454944,
+          "speedChanges": 0,
+          "identityChanges": 0,
+          "pauses": 0,
+          "naturalEnd": true,
+          "finalDay": 7,
+          "winner": "매화",
+          "boundary": "settled",
+          "workStages": [
+            { "name": "growth.refreshPlans", "count": 13262, "totalMs": 2439, "maxMs": 4.1 },
+            { "name": "growth.teamCoordination", "count": 5922, "totalMs": 4505.2, "maxMs": 43.8 },
+            { "name": "growth.slice", "count": 2116, "totalMs": 14001, "maxMs": 47.3 },
+            { "name": "frame.snapshot", "count": 6428, "totalMs": 17576.1, "maxMs": 27.6 }
+          ],
+          "asyncWaits": [
+            { "name": "yield.growth.frame", "count": 541, "totalMs": 10510.1, "maxMs": 248.5 },
+            { "name": "yield.growth.task", "count": 341, "totalMs": 27.9, "maxMs": 0.3 }
+          ],
+          "longTasks": { "count": 3, "maxMs": 230 },
+          "raf": { "samples": 5704, "intervalMs": { "median": 10, "p95": 70.1, "max": 250 }, "scope": "entire_measurement", "overflowSamples": 0 },
+          "inputToNextRaf": { "count": 3, "pending": 0, "lastMs": 10, "maxMs": 10 },
+          "heap": { "startBytes": 58026420, "endBytes": 48441178, "deltaBytes": -9585242 },
+          "visibleProbeMs": 103347.1,
+          "visibilityTransitions": 0
+        }
+      ],
+      "visualObservation": "Native inline screenshot during day 1 night showed advancing map team markers, HP and event text. The screenshot API returned inline pixels without a local save path; no fabricated screenshot link or extra base64 copy was created.",
+      "interpretation": "Candidate observations were about 21.37x and 19.67x, both below requested 32x; B2 also exceeded the strict 200ms Long Task ceiling at 230ms. Baselines themselves differed substantially, so no causal percentage speedup or regression is established. These observations do not justify adopting additional runtime complexity.",
+      "lifecycle": "Both candidate matches completed naturally; the temporary tab was closed, temporary browser visibility hidden and the owned 3137 server stopped. No account save, paid AI call, push or deployment occurred."
+    },
+    "commandCorrection": "An invocation used the nonexistent check-live-simulation-frames.mjs name and exited 1 before tests ran. The actual check-live-frames.mjs then passed 19/19 with exit 0.",
+    "independentReview": "Read-only Luna review found no current channel ownership, cleanup or RNG defect. An initial claim that channel unit tests were missing was withdrawn after the added eight groups were read. Review is not runtime or human acceptance evidence.",
+    "limitations": "Synthetic scheduling checks establish task separation, fallback cleanup and RNG isolation, not browser paint or throughput. Current browser timings are local uncontrolled observations, not full x1/x8/x32, memory-leak or human acceptance gates."
+  },
+  "decision": {
+    "adopted": false,
+    "reason": "No convincing actual throughput gain; requested x32 and strict latency gate remain unmet. Keep the previously committed catalogue optimization rather than make a performance-completion claim.",
+    "candidatePatch": "artifacts/frame-task-channel-candidate-20261011.patch",
+    "restoredEngine": "60258d08de10ed3ffbd39030cd20a873ed96a1b59dd2909e35a8963ff04aa045",
+    "restoredFixtureChecks": [
+      { "name": "simulation-cooperative-yield", "exitCode": 0, "passedGroups": 10 },
+      { "name": "high-speed-growth-slices", "exitCode": 0, "passedGroups": 15 }
+    ],
+    "restoredBuild": { "exitCode": 0, "pages": 62, "buildId": "AlqwfMBZI-mRErAJqsbXn", "engineMarkerMatches": ["client/.next/server/chunks/2433.js", "client/.next/static/chunks/5167-cfd0b8f52c9f78d5.js"] },
+    "scope": "Only the four owned uncommitted candidate files were restored using a reverse patch. Unrelated user changes remain untouched. The small candidate patch and compact evidence preserve the failed experiment without a project clone. The restored-engine build is complete. No new runtime candidate was adopted."
+  },
+  "cleanup": {
+    "exitCode": 0,
+    "deletedFiles": 9,
+    "deletedLogicalBytes": 606322599,
+    "uniqueFileIds": 9,
+    "protectedFiles": 17,
+    "protectedDigestBeforeAndAfter": "b2bdc68d05eac7e0bb05763cd81549b1973d0efc664821a3bca57d263fbfaca6",
+    "preservedBuildFiles": 1439,
+    "preservedBuildBytes": 104806973,
+    "preservedBuildDigestBeforeAndAfter": "b7d133f095ba15c381c93b39c9c900c927e416297ef7d9f708ac4ea2dcf51124",
+    "targets": [
+      { "path": "client/.next/cache/webpack/client-production/0.pack", "bytes": 217387714, "sha256": "6734453062bbcf9f3855ba12e97134ca074331d5a1be4303dce9556cfffba15c" },
+      { "path": "client/.next/cache/webpack/client-production/1.pack", "bytes": 38666766, "sha256": "20a30550782462ee90d623e229ac32980e1b20e6a108923062f2fe1c91520b98" },
+      { "path": "client/.next/cache/webpack/client-production/2.pack", "bytes": 9588163, "sha256": "c2abe1364ae8d4aafddc958d3ee4ddee93181ff102e546e330b2b67a3f86d078" },
+      { "path": "client/.next/cache/webpack/client-production/index.pack", "bytes": 12845540, "sha256": "d2f2c1a58d54fa9c3e5582b858b7b921d86b85eaf8e8738c410d5528e39beb6f" },
+      { "path": "client/.next/cache/webpack/edge-server-production/0.pack", "bytes": 276, "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc" },
+      { "path": "client/.next/cache/webpack/edge-server-production/index.pack", "bytes": 2464, "sha256": "af7eedc7ef94b42c9318309a8ba110b16efea39d677b81706c0ceda9f7d03d1a" },
+      { "path": "client/.next/cache/webpack/server-production/0.pack", "bytes": 271261747, "sha256": "0d8474ce8ca4e3cf67fbf61ba353ff31704d60c61f973fb69d9ecadbf27ab4d6" },
+      { "path": "client/.next/cache/webpack/server-production/1.pack", "bytes": 38481262, "sha256": "49559a8d0854c37d97ac0d2d2acefda1d14613245e49b3bfb3ab1ad8ceb8987c" },
+      { "path": "client/.next/cache/webpack/server-production/index.pack", "bytes": 18088667, "sha256": "02c8c19f436ab7be351b8edc735fc2dc1e7631815341cb4ce119ab08de0055db" }
+    ],
+    "preservedOldPacks": [
+      { "path": "client/.next/cache/webpack/client-production/index.pack.old", "bytes": 12844478, "sha256": "1437863af74b5392ebad7667da4f51624354a0974f5f20049524b84e1dd5b953" },
+      { "path": "client/.next/cache/webpack/server-production/index.pack.old", "bytes": 18088637, "sha256": "2ec7b9a32b4ac92af4c5b4c97ec985b92a814441055bc5e787d7c5dce09c26cd" }
+    ],
+    "oldPackScope": "Webpack builds regenerated or updated cache index backups before cleanup. The listed old packs were preserved at this cleanup boundary, not asserted unchanged across earlier builds.",
+    "scopedLogicalBytesBeforeHelper": 1350302430,
+    "scopedLogicalBytesObservedAfterReports": 743983153,
+    "scopeMeasurementNote": "Nonoverlapping logical file sizes of .local, artifacts, client/.next, client/.verification-runs and client/audio-source. Measured after cleanup and report edits, before appending these measurement fields; not whole-workspace allocation or physical free space.",
+    "livePreflight": { "checkedNodeProcesses": 0, "port3137Listeners": 0 },
+    "scope": "Only explicitly inventoried task-generated webpack packs removed after path, reparse ancestry, size, hash and unique file identity verification. Complete restored build, source, unique evidence, profiles and user changes are preserved. Helper removed after success. Packs can be regenerated by a normal build; no broad recursive deletion or physical-free-space claim."
+  }
+}

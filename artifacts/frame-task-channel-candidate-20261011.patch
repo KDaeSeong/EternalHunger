@@ -1,0 +1,327 @@
+diff --git a/client/scripts/check-growth-scheduling-match.mjs b/client/scripts/check-growth-scheduling-match.mjs
+index 31820ec5..d47f7ed2 100644
+--- a/client/scripts/check-growth-scheduling-match.mjs
++++ b/client/scripts/check-growth-scheduling-match.mjs
+@@ -2,6 +2,7 @@ import './lib/register-simulation-modules.mjs';
+ import assert from 'node:assert/strict';
+ import { createHash } from 'node:crypto';
+ import { execFileSync } from 'node:child_process';
++import { readFileSync, readdirSync } from 'node:fs';
+ import { fileURLToPath } from 'node:url';
+ 
+ // Opening cadence is intentionally different from the old twenty-second
+@@ -12,17 +13,35 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
+ const digest = value => createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
+ const seed = process.argv.find(arg => arg.startsWith('--seed='))?.slice(7) || '1101';
+ const worker = process.argv.find(arg => arg.startsWith('--worker='))?.slice(9);
++const modes = ['headless', 'cooperative', 'visible-cooperative', 'visible-channel'];
++function sourceFingerprint() {
++  const base = new URL('../', import.meta.url);
++  const paths = ['src/app/simulation/tacticalSkillTable.js', '../shared/marketItemPolicy.cjs',
++    'src/app/simulation/_generated/simulationEngineVersion.js',
++    'scripts/check-growth-scheduling-match.mjs', 'scripts/lib/register-simulation-modules.mjs',
++    'scripts/lib/run-random-isolation-match.mjs'];
++  for (const dir of ['src/app/simulation/_lib', 'src/utils']) {
++    for (const file of readdirSync(new URL(`${dir}/`, base))) if (file.endsWith('.js')) paths.push(`${dir}/${file}`);
++  }
++  const hash = createHash('sha256');
++  for (const path of paths.sort()) hash.update(path).update('\0')
++    .update(readFileSync(new URL(path, base), 'utf8').replaceAll('\r\n', '\n')).update('\0');
++  return hash.digest('hex');
++}
++const sourcesBefore = sourceFingerprint();
+ 
+ if (worker) {
++  assert.ok(modes.includes(worker), `Unknown scheduling mode: ${worker}`);
+   const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
+   const { getActiveSimulationRandom, withSimulationRandom } = await import('../src/utils/simulationRandom.js');
+   const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
+   const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
+   const { createObserverPerformanceProbe } = await import('../src/app/simulation/_lib/observerPerformanceRuntime.js');
+   const input = await createRandomIsolationInput(seed);
+-  let yields = 0, frameYields = 0, syntheticTime = 0;
+-  const visible = worker === 'visible-cooperative', cooperative = worker === 'cooperative' || visible;
+-  const timers = new Map(), frames = new Map(), listeners = new Set(); let hostId = 0;
++  let yields = 0, frameYields = 0, messageYields = 0, resumeTimers = 0, syntheticTime = 0;
++  const channelMode = worker === 'visible-channel';
++  const visible = worker === 'visible-cooperative' || channelMode, cooperative = worker === 'cooperative' || visible;
++  const timers = new Map(), frames = new Map(), messages = new Map(), ports = new Set(), listeners = new Set(); let hostId = 0;
+   const originalWindow = globalThis.window, originalScheduler = globalThis.scheduler, originalPerformance = globalThis.performance;
+   if (cooperative) {
+     // Inject only host scheduling/time and unrelated UI randomness. All
+@@ -46,11 +65,32 @@ if (worker) {
+       cancelAnimationFrame: id => frames.delete(id),
+       setTimeout: (callback, delay) => {
+         const id = hostId++; timers.set(id, callback);
+-        if (delay === 0) queueMicrotask(() => { if (timers.delete(id)) { hostNoise(); callback(); } });
++        if (delay === 0) {
++          resumeTimers += 1;
++          queueMicrotask(() => { if (timers.delete(id)) { hostNoise(); callback(); } });
++        }
+         return id;
+       },
+       clearTimeout: id => timers.delete(id),
+     });
++    if (channelMode) globalThis.window.MessageChannel = class {
++      constructor() {
++        const id = hostId++;
++        const port1 = { onmessage: null, close: () => { ports.delete(port1); messages.delete(id); } };
++        const port2 = { close: () => { ports.delete(port2); messages.delete(id); }, postMessage: value => {
++          assert.equal(value, null, 'The channel carries only a scheduling signal.');
++          assert.equal(messages.has(id), false, 'Each owned channel schedules one follow-up.');
++          messages.set(id, true);
++          // Deterministic host dispatch is deliberately separate from RAF.
++          // A fake microtask is not evidence of browser task priority or paint.
++          queueMicrotask(() => {
++            if (messages.delete(id)) { hostNoise(); messageYields += 1; port1.onmessage?.({ data: value }); }
++          });
++        } };
++        ports.add(port1); ports.add(port2);
++        this.port1 = port1; this.port2 = port2;
++      }
++    };
+     globalThis.performance = { now: () => syntheticTime += 9 };
+     globalThis.scheduler = { yield: () => Promise.resolve().then(() => {
+       yields += 1;
+@@ -73,25 +113,41 @@ if (worker) {
+   }
+   if (cooperative) assert.ok(yields > 1000, 'Exercise repeated scheduling, not only the synchronous fallback.');
+   if (visible) assert.ok(frameYields > 1000, 'Exercise repeated visible frame deadlines, not only task yields.');
++  if (channelMode) {
++    assert.equal(messageYields, frameYields, 'Each visible frame resumes through its owned message task.');
++    assert.equal(resumeTimers, 0, 'Supported channels must not fall back to zero-delay resume timers.');
++  } else assert.equal(messageYields, 0);
+   assert.equal(frames.size, 0); assert.equal(timers.size, 0); assert.equal(listeners.size, 0);
++  assert.equal(messages.size, 0); assert.equal(ports.size, 0);
++  assert.equal(sourceFingerprint(), sourcesBefore, 'Do not compare matches across changing source files.');
+   assert.ok(diagnostic.workBreakdown.stages.some(stage => stage.name === 'growth.teamCoordination' && stage.count > 0));
+-  console.log(JSON.stringify({ worker, engine: SIMULATION_ENGINE_VERSION, yields, frameYields,
++  console.log(JSON.stringify({ worker, engine: SIMULATION_ENGINE_VERSION, sourceFingerprint: sourcesBefore,
++    yields, frameYields, messageYields, resumeTimers,
+     diagnosticScope: 'enabled probe with independent fake clock; not browser performance',
+     diagnosticStages: diagnostic.workBreakdown.stages.map(stage => ({ name: stage.name, count: stage.count })),
+     outcome: { inputDigest: digest(input), evidence: result.evidence, finalFrameDigest: digest(result.finalFrame), logDigest: digest(result.logs) },
+   }));
+ } else {
+   const results = [];
+-  for (const mode of ['headless', 'cooperative', 'visible-cooperative']) {
++  for (const mode of modes) {
+     const output = execFileSync(process.execPath, [fileURLToPath(import.meta.url), `--worker=${mode}`, `--seed=${seed}`], {
+       cwd: root, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit'],
+     });
+     const result = JSON.parse(output.trim()); results.push(result);
+-    console.log(JSON.stringify({ completed: mode, ...result }));
++    assert.equal(result.sourceFingerprint, sourcesBefore, 'Every worker must load the same current source.');
++    const { evidence, ...outcomeDigests } = result.outcome;
++    console.log(JSON.stringify({ completed: mode, engine: result.engine, sourceFingerprint: result.sourceFingerprint,
++      yields: result.yields, frameYields: result.frameYields, messageYields: result.messageYields, resumeTimers: result.resumeTimers,
++      ...outcomeDigests, eventDigest: evidence.eventDigest, frameDigest: evidence.frameDigest,
++      phases: evidence.phases, frames: evidence.frames, ticks: evidence.ticks, eventCount: evidence.eventCount,
++      endingDigest: digest(evidence.ending), randomDigest: digest(evidence.random) }));
+   }
+-  assert.deepEqual(results[1].outcome, results[0].outcome, 'Browser checkpoints and UI noise must retain the current production match.');
+-  assert.deepEqual(results[2].outcome, results[0].outcome, 'Visible frame deadlines must retain the current production match.');
+-  console.log(JSON.stringify({ pass: true, seed, matches: 3, cooperativeYields: results[1].yields,
++  for (const result of results.slice(1)) assert.deepEqual(result.outcome, results[0].outcome,
++    `${result.worker}: browser checkpoints and UI noise must retain the current production match.`);
++  assert.equal(sourceFingerprint(), sourcesBefore, 'Do not finish comparison after source changes.');
++  console.log(JSON.stringify({ pass: true, seed, matches: modes.length, sourceFingerprint: sourcesBefore,
++    cooperativeYields: results[1].yields,
+     visibleTaskYields: results[2].yields, visibleFrameYields: results[2].frameYields,
+-    scope: 'current headless versus hidden and visible cooperative complete 24-actor fixture: input, events, every published frame, ending, logs and RNG; deterministic host scheduling, not historical output dependency, real browser performance or human evaluation' }));
++    channelTaskYields: results[3].messageYields,
++    scope: 'current headless versus hidden, visible timer and visible message-channel complete 24-actor fixture: input, events, every published frame, ending, logs and RNG; deterministic host scheduling, not historical output dependency, real browser performance or human evaluation' }));
+ }
+diff --git a/client/scripts/check-simulation-cooperative-yield.mjs b/client/scripts/check-simulation-cooperative-yield.mjs
+index ff9ed498..ab0fa690 100644
+--- a/client/scripts/check-simulation-cooperative-yield.mjs
++++ b/client/scripts/check-simulation-cooperative-yield.mjs
+@@ -38,6 +38,33 @@ function fakeBrowser(visibilityState = 'visible') {
+   return { windowRef, documentRef, frames, timers, listeners, fireFrame, fireTimer, hide, assertEmpty };
+ }
+ 
++function channelBrowser({ constructorFails = false, postFails = false } = {}) {
++  const browser = fakeBrowser(), messages = new Map(), ports = new Set();
++  let nextId = 0, constructors = 0;
++  browser.windowRef.MessageChannel = class {
++    constructor() {
++      constructors += 1;
++      if (constructorFails) throw new Error('channel unavailable');
++      const id = nextId++;
++      const close = port => { ports.delete(port); messages.delete(id); };
++      this.port1 = { onmessage: null, close: () => close(this.port1) };
++      this.port2 = { close: () => close(this.port2), postMessage: value => {
++        assert.equal(value, null, 'Only a scheduling signal, never match data.');
++        messages.set(id, () => this.port1.onmessage?.());
++        if (postFails) throw new Error('post unavailable after queueing');
++      } };
++      ports.add(this.port1); ports.add(this.port2);
++    }
++  };
++  const fireMessage = () => {
++    const [id, callback] = messages.entries().next().value || [];
++    assert.ok(callback, 'Expected a queued message task.');
++    messages.delete(id); callback();
++  };
++  const assertEmpty = () => { browser.assertEmpty(); assert.equal(messages.size, 0); assert.equal(ports.size, 0); };
++  return { ...browser, messages, ports, fireMessage, assertEmpty, constructorCount: () => constructors };
++}
++
+ await check('headless frame yields do not schedule host work', () => {
+   assert.equal(requestSimulationFrameYield({ windowRef: null }), null);
+   assert.equal(requestSimulationMainThreadYield({ windowRef: null }), null);
+@@ -128,4 +155,96 @@ await check('phase preparation requests a frame opportunity; action-frame schedu
+   assert.match(cycle, /const phaseFinalizationYield = requestSimulationMainThreadYield\(\)/);
+ });
+ 
++await check('supported channels resume only in a separate message task after RAF without a nested timer', async () => {
++  const browser = channelBrowser(); let resumed = false;
++  const pause = requestSimulationFrameYield({ ...browser, schedulerRef: null });
++  pause.then(() => { resumed = true; });
++  browser.fireFrame(); await Promise.resolve();
++  assert.equal(resumed, false);
++  assert.equal(browser.messages.size, 1); assert.equal(browser.ports.size, 2);
++  assert.equal([...browser.timers.values()].some(timer => timer.delay === 0), false);
++  browser.fireMessage(); await pause;
++  assert.equal(resumed, true); browser.assertEmpty();
++});
++
++await check('concurrent frame waits own independent message ports and settle independently', async () => {
++  const browser = channelBrowser(), completed = [];
++  const first = requestSimulationFrameYield({ ...browser, schedulerRef: null }).then(() => completed.push(1));
++  const second = requestSimulationFrameYield({ ...browser, schedulerRef: null }).then(() => completed.push(2));
++  browser.fireFrame(); assert.equal(browser.messages.size, 2); assert.equal(browser.ports.size, 4);
++  browser.fireMessage(); await first;
++  assert.deepEqual(completed, [1]); assert.equal(browser.messages.size, 1); assert.equal(browser.ports.size, 2);
++  browser.fireMessage(); await second;
++  assert.deepEqual(completed, [1, 2]); browser.assertEmpty();
++});
++
++await check('watchdog and hiding cancel queued channel tasks, close both ports and ignore late delivery', async () => {
++  for (const cancel of ['watchdog', 'hide']) {
++    const browser = channelBrowser(); let completions = 0;
++    const pause = requestSimulationFrameYield({ ...browser, schedulerRef: null }).then(() => { completions += 1; });
++    browser.fireFrame();
++    const staleHandler = [...browser.ports].find(port => port.onmessage).onmessage;
++    if (cancel === 'watchdog') browser.fireTimer(100); else browser.hide();
++    await pause; browser.assertEmpty();
++    staleHandler(); await Promise.resolve();
++    assert.equal(completions, 1); browser.assertEmpty();
++  }
++});
++
++await check('hiding before RAF cannot allocate channels from a stale callback', async () => {
++  const browser = channelBrowser();
++  const pause = requestSimulationFrameYield({ ...browser, schedulerRef: null });
++  const staleFrame = [...browser.frames.values()][0];
++  browser.hide(); await pause; staleFrame(16);
++  assert.equal(browser.constructorCount(), 0); browser.assertEmpty();
++});
++
++await check('channel construction and queued-post failures keep the timer fallback without retained ports', async () => {
++  for (const options of [{ constructorFails: true }, { postFails: true }]) {
++    const browser = channelBrowser(options);
++    const pause = requestSimulationFrameYield({ ...browser, schedulerRef: null });
++    browser.fireFrame();
++    assert.equal(browser.messages.size, 0); assert.equal(browser.ports.size, 0);
++    browser.fireTimer(0); await pause; browser.assertEmpty();
++  }
++});
++
++await check('message task and watchdog races complete once regardless of which wins', async () => {
++  for (const winner of ['message', 'watchdog']) {
++    const browser = channelBrowser(); let completions = 0;
++    const pause = requestSimulationFrameYield({ ...browser, schedulerRef: null }).then(() => { completions += 1; });
++    browser.fireFrame();
++    const staleMessage = [...browser.ports].find(port => port.onmessage).onmessage;
++    const staleWatchdog = [...browser.timers.values()].find(timer => timer.delay === 100).callback;
++    if (winner === 'message') browser.fireMessage(); else browser.fireTimer(100);
++    await pause; staleMessage(); staleWatchdog(); await Promise.resolve();
++    assert.equal(completions, 1); browser.assertEmpty();
++  }
++});
++
++await check('message task waits release RNG without changing event time, order or draw state', async () => {
++  const browser = channelBrowser(), source = createSeedRng('channel-boundary'), expected = createSeedRng('channel-boundary');
++  const events = [], clock = { seconds: 20 };
++  function* steps() {
++    events.push({ seconds: clock.seconds, draw: simulationRandom() });
++    yield requestSimulationFrameYield({ ...browser, schedulerRef: null });
++    events.push({ seconds: clock.seconds, draw: simulationRandom() });
++  }
++  const done = runSimulationSteps(source, steps());
++  assert.equal(getActiveSimulationRandom(), null);
++  browser.fireFrame(); await Promise.resolve();
++  assert.equal(events.length, 1); assert.equal(getActiveSimulationRandom(), null);
++  browser.fireMessage(); await done;
++  assert.deepEqual(events, [{ seconds: 20, draw: expected() }, { seconds: 20, draw: expected() }]);
++  assert.deepEqual(source.getState(), expected.getState());
++  assert.equal(getActiveSimulationRandom(), null); browser.assertEmpty();
++});
++
++await check('a RAF request failure never allocates a message channel', async () => {
++  const browser = channelBrowser(); browser.windowRef.requestAnimationFrame = () => { throw new Error('no RAF'); };
++  const pause = requestSimulationFrameYield({ ...browser, schedulerRef: null });
++  assert.equal(browser.constructorCount(), 0);
++  browser.fireTimer(0); await pause; browser.assertEmpty();
++});
++
+ console.log(JSON.stringify({ checks, pass: true, scope: 'scheduler ownership, fallback, RNG and wiring contracts; not browser timing or paint proof' }));
+diff --git a/client/src/app/simulation/_generated/simulationEngineVersion.js b/client/src/app/simulation/_generated/simulationEngineVersion.js
+index 078415ae..c68a62ec 100644
+--- a/client/src/app/simulation/_generated/simulationEngineVersion.js
++++ b/client/src/app/simulation/_generated/simulationEngineVersion.js
+@@ -1,2 +1,2 @@
+ // Generated by scripts/generate-simulation-version.mjs.
+-export const SIMULATION_ENGINE_VERSION = '60258d08de10ed3ffbd39030cd20a873ed96a1b59dd2909e35a8963ff04aa045';
++export const SIMULATION_ENGINE_VERSION = 'd8feeed0fb3b3d4f9bded7016cae089b23bb024ab21949b9c6eb58686d3ec481';
+diff --git a/client/src/app/simulation/_lib/simulationCooperativeYieldRuntime.js b/client/src/app/simulation/_lib/simulationCooperativeYieldRuntime.js
+index 449f90e5..8eade294 100644
+--- a/client/src/app/simulation/_lib/simulationCooperativeYieldRuntime.js
++++ b/client/src/app/simulation/_lib/simulationCooperativeYieldRuntime.js
+@@ -32,13 +32,24 @@ export function requestSimulationFrameYield({
+   }
+   return new Promise((resolve) => {
+     let frameId = null, fallbackId = null, resumeId = null, finished = false;
++    let resumeChannel = null;
+     let onVisibilityChange = null;
++    const closeResumeChannel = () => {
++      const channel = resumeChannel;
++      resumeChannel = null;
++      if (!channel) return;
++      try { channel.port1.onmessage = null; } catch { /* Partial or unavailable channel. */ }
++      for (const port of [channel.port1, channel.port2]) {
++        try { port?.close?.(); } catch { /* Do not strand a completed wait. */ }
++      }
++    };
+     const finish = () => {
+       if (finished) return;
+       finished = true;
+       if (frameId !== null) windowRef.cancelAnimationFrame(frameId);
+       if (fallbackId !== null) windowRef.clearTimeout(fallbackId);
+       if (resumeId !== null) windowRef.clearTimeout(resumeId);
++      closeResumeChannel();
+       documentRef.removeEventListener?.('visibilitychange', onVisibilityChange);
+       resolve();
+     };
+@@ -51,7 +62,19 @@ export function requestSimulationFrameYield({
+     fallbackId = windowRef.setTimeout(finish, 100);
+     const afterFrame = () => {
+       frameId = null;
+-      if (!finished) resumeId = windowRef.setTimeout(finish, 0);
++      if (finished) return;
++      // A port message is a separate task, not a RAF microtask. Prefer it to
++      // a nested zero-delay timer, while retaining the watchdog and fallback.
++      // Task-source priority and actual paint remain browser decisions.
++      if (typeof windowRef.MessageChannel === 'function') {
++        try {
++          resumeChannel = new windowRef.MessageChannel();
++          resumeChannel.port1.onmessage = finish;
++          resumeChannel.port2.postMessage(null);
++          return;
++        } catch { closeResumeChannel(); }
++      }
++      resumeId = windowRef.setTimeout(finish, 0);
+     };
+     try { frameId = windowRef.requestAnimationFrame(afterFrame); }
+     catch { resumeId = windowRef.setTimeout(finish, 0); }
