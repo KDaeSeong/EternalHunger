@@ -1,0 +1,146 @@
+{
+  "date": "2026-10-11",
+  "scope": "Output-only local observer layout evidence; never a verification input",
+  "baseCommit": "b5fd31ac",
+  "engineVersion": "60258d08de10ed3ffbd39030cd20a873ed96a1b59dd2909e35a8963ff04aa045",
+  "rulesAndFrameSourceChanged": false,
+  "build": {
+    "id": "RUtu_aTmqdoedAe64EFQH",
+    "exitCode": 0,
+    "staticPages": 62,
+    "css": "client/.next/static/css/dfe3d4ca7595089e.css",
+    "cssSha256": "49dd3fe612aac99ca941ecd98ceb215e7936b5433cdd82669ee2d371fcfdced0",
+    "engineMarkers": ["client/.next/server/chunks/2433.js", "client/.next/static/chunks/5167-cfd0b8f52c9f78d5.js"],
+    "earlierFailure": { "exitCode": 1, "reason": "EPERM mkdir .next/server/app/admin.segments/admin after successful compilation" },
+    "supersededBuilds": ["Tqdy0mSHvwx8mluj1eE0Q", "370Sb6NkaRBmrhxN_jI9j"]
+  },
+  "source": [
+    { "path": "client/src/styles/ERSimulation.css", "sha256": "b13c2cd79e6718e5523f1345121a85754b1bfeab37df66cbb917b02f99bd10d3" },
+    { "path": "client/scripts/check-observer-layout.mjs", "sha256": "2b611c1590c3677d2c72d4e6d12f8cbe1ebde339396f3b116fd59d0b5ed916f9" }
+  ],
+  "checks": {
+    "redBeforeCssChange": { "exitCode": 1, "passedBeforeFailure": 16, "failure": "First new contract: inline map must reserve a 540px row" },
+    "finalLumiaMinimapChainExitCode": 0,
+    "observerLayoutGroups": 25,
+    "actualMinimapSsrGroups": 7,
+    "referenceGeometry": { "regions": 21, "passages": 43, "rosters": 126, "placements": 233, "crowdSummaries": 60 },
+    "evaluationLinkExitCode": 0,
+    "changedTestEslintExitCode": 0,
+    "diffCheckExitCode": 0,
+    "wholeEternalHungerChainRunThisTurn": false
+  },
+  "browser": {
+    "runner": "Computer-use in-app browser, owned local 127.0.0.1:3137 tab",
+    "evaluationSeed": "1789192220412",
+    "evaluationProgress": "x32 partial match, stopped at DAY 2 NIGHT 08:20; no new complete-match or speed benchmark claim",
+    "imageMetric": "DOM bounding box of the unchanged reference image, not a measured island polygon or human readability score",
+    "baseline1280x720": {
+      "ready": { "canvasWidth": 727.59375, "canvasHeight": 397.765625, "imageWidth": 378.4544677734375 },
+      "active": { "canvasWidth": 727.59375, "canvasHeight": 301.984375, "imageWidth": 286.86279296875, "phase": "DAY 1 DAY" }
+    },
+    "final1280x720Active": {
+      "canvasWidth": 718.59375, "canvasHeight": 540, "imageWidth": 514.4673461914062,
+      "phase": "DAY 2 NIGHT", "markers": 13, "pageHeight": 936, "pageScrollY": 216,
+      "documentWidth": 1265, "clientWidth": 1265,
+      "controlTop": 0, "controlBottom": 44.140625, "tabTop": 56,
+      "sideHeight": 632, "tabControlOverlap": false
+    },
+    "final1100x720": {
+      "columns": [624.594, 416.391], "canvasWidth": 610.59375, "canvasHeight": 540,
+      "documentWidth": 1085, "clientWidth": 1085,
+      "scrolledControlBottom": 44.140625, "scrolledTabTop": 56, "tabControlOverlap": false,
+      "logOverflowY": "auto", "logClientHeight": 377, "logScrollHeight": 3412
+    },
+    "final1280x480": {
+      "columns": [732.594, 488.391], "canvasWidth": 718.59375, "canvasHeight": 540,
+      "documentWidth": 1265, "clientWidth": 1265, "pageScrollY": 456,
+      "controlBottom": 44.140625, "tabTop": 56, "sideHeight": 392, "sideBottom": 448,
+      "tabControlOverlap": false, "wholeMapVisibleWithoutPageScroll": false
+    },
+    "independentLogScroll": { "pageBefore": 456, "pageAfter": 456, "logBefore": 0, "logAfter": 960 },
+    "final1600x900": {
+      "canvasWidth": 910.59375, "canvasHeight": 549.359375, "imageWidth": 523.4173583984375,
+      "sideHeight": 720, "documentWidth": 1585, "clientWidth": 1585, "tabControlOverlap": false
+    },
+    "final390x844": {
+      "singleColumn": true, "canvasWidth": 331, "canvasHeight": 518.140625, "sideHeight": 560,
+      "documentWidth": 375, "clientWidth": 375, "pageHeight": 1656,
+      "scrolledControlTop": 0, "scrolledControlBottom": 46,
+      "legendOverflowY": "hidden", "mobileFitStillWidthLimited": true
+    },
+    "expandedDesktop": {
+      "panelWidth": 1180, "panelHeight": 846,
+      "fitViewport": [1152, 664], "fitScrollSize": [1152, 664],
+      "zoomViewport": [1137, 649], "zoomScrollSize": [2274, 1298],
+      "keyboardScrollTop": 512, "closeHit": true, "fitZoomAndCloseSucceeded": true
+    },
+    "expandedMobile": {
+      "panelWidth": 374.390625, "panelHeight": 793.359375, "closeHit": true,
+      "fitViewport": [346, 596], "fitScrollSize": [346, 596],
+      "zoomViewport": [331, 581], "zoomScrollSize": [663, 1163], "fitZoomAndCloseSucceeded": true
+    },
+    "normalGuestReady1280x720": {
+      "canvasWidth": 718.59375, "canvasHeight": 540, "imageWidth": 514.4673461914062,
+      "primaryActions": 1, "accountRewardsAdvertised": false,
+      "documentWidth": 1265, "clientWidth": 1265, "pageHeight": 804,
+      "scrolledControlBottom": 44.140625, "scrolledTabTop": 56, "tabControlOverlap": false
+    },
+    "supersededFailures": [
+      "Sticky controls initially obscured the log tab after page scroll",
+      "First sticky-pane candidate still overlapped: tabTop 32.375, controlBottom 44.140625; containing-block bottom gutter needed",
+      "A pending-phase hidden-selector wait hit the browser deadline; fresh observation later confirmed manual controls at 08:20",
+      "First background screenshot immediately after mobile resize was stale; visible screenshot and DOM width were rechecked"
+    ],
+    "warningOrErrorLogsAtFinish": 0,
+    "screenshotEvidence": "Inline tool images inspected; API exposes JPEG bytes but no local save path, so no invented image-file reference",
+    "ownedTabClosed": true, "viewportReset": true, "browserHidden": true, "ownedServerStopped": true
+  },
+  "cleanup": {
+    "status": "PASS",
+    "deletedBytes": 600968269,
+    "deletedCount": 13,
+    "uniqueFileIds": 13,
+    "remainingNewPacks": 0,
+    "files": [
+      { "path": "client/.next/cache/webpack/client-production/0.pack", "bytes": 252573116, "sha256": "13bdbd6b973e044e8c484b34ebe2b96a01ba93151acf28e5327d20183579ef07" },
+      { "path": "client/.next/cache/webpack/client-production/1.pack", "bytes": 11221, "sha256": "703cf762d0e80a4dc908c31eb7a9fba2eec65411dffb565b4f7c78bda61c52dc" },
+      { "path": "client/.next/cache/webpack/client-production/2.pack", "bytes": 100744, "sha256": "01d64f6ea53189f888ce277e635f3493e2e6b67f7bb5368462f37e31162275a5" },
+      { "path": "client/.next/cache/webpack/client-production/3.pack", "bytes": 280198, "sha256": "21626149707cf440dbc669a1f03bfa68ef6b3a96a49928da31ff99b6241c6ebd" },
+      { "path": "client/.next/cache/webpack/client-production/4.pack", "bytes": 276224, "sha256": "198bc5283a313e89fea386120c2fa27a3a5bfdab66c2d0cbece60defd7047216" },
+      { "path": "client/.next/cache/webpack/client-production/5.pack", "bytes": 1338077, "sha256": "816cfd3beb58f75ba978e98288bb73950dabbd159b520754d25ebae9fd150956" },
+      { "path": "client/.next/cache/webpack/client-production/6.pack", "bytes": 8203749, "sha256": "7b25222c31f0b032531cb3dc2e1b9b2b51577bbf99e1b091f9bffcb77fc8e454" },
+      { "path": "client/.next/cache/webpack/client-production/index.pack", "bytes": 12846885, "sha256": "228c9583aabe0890bb8f774004b1bce708743bdcb69f173149dab5985eda2895" },
+      { "path": "client/.next/cache/webpack/edge-server-production/0.pack", "bytes": 276, "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc" },
+      { "path": "client/.next/cache/webpack/edge-server-production/index.pack", "bytes": 2464, "sha256": "7861db8b6021215d6c09f6e32119188f7c935b183ea2314c7ccae6ee99d0f61f" },
+      { "path": "client/.next/cache/webpack/server-production/0.pack", "bytes": 307208661, "sha256": "f885a906d63a58fad14d95d2344150963253406a5a31be07354ba875232c6547" },
+      { "path": "client/.next/cache/webpack/server-production/1.pack", "bytes": 37979, "sha256": "2bd4db3277f14a7f54c338ea991ec9e9795c3421c30a2c3bf7c3cf6c2923f559" },
+      { "path": "client/.next/cache/webpack/server-production/index.pack", "bytes": 18088675, "sha256": "5f4f0e2e2f577da70f90c50abdfd35d15ea92b3b47f2f641a3757c55fc8d05cd" }
+    ],
+    "preservedBuild": { "files": 1439, "bytes": 104809799, "sameBeforeAndAfterDigest": "50c36fdd747c66b065ab5a52c96ca1b41903fb43219e40dc782a86ed21bf466f" },
+    "protectedAtDeletionBoundary": { "files": 15, "sameBeforeAndAfterDigest": "01b2e2565b5280942950e9c40bbd3ce7abab4ddcaaf1681ed8c3903589c79c59", "note": "Docs subsequently updated intentionally; original goal suffix still preserved" },
+    "preservedOldPacks": [
+      { "path": "client/.next/cache/webpack/client-production/index.pack.old", "bytes": 12845891, "sha256": "9f1ad5cd29b14a6bbfaee9f3430230c2b0fdf91cf65eee5f3a0694c23f1629e5" },
+      { "path": "client/.next/cache/webpack/server-production/index.pack.old", "bytes": 18088675, "sha256": "3a62ec6b8ab460303bd5d552976f76d6a1b091de637d5228f66b6528bcb83c23" }
+    ],
+    "nonOverlappingRoots": [".local", "artifacts", "client/.next", "client/.verification-runs", "client/audio-source"],
+    "beforeBytes": 1344961084,
+    "afterBytes": 743992815,
+    "measurementIncludesTemporaryCleanupHelper": true,
+    "measurementPrecedesThisReceiptAndDocUpdates": true,
+    "physicalFreeSpaceMeasured": false,
+    "recovery": "Only regenerable webpack cache packs deleted; a future build recreates them"
+  },
+  "preservedUnrelatedChanges": [
+    { "path": "client/scripts/check-observer-goals-match.mjs", "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9" },
+    { "path": "server/index.js", "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493" },
+    { "path": "server/.env.example", "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3" }
+  ],
+  "originalGoalSuffixSha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+  "limits": [
+    "CSS allocation only; unchanged map geometry, RNG, frames, rules and account contracts",
+    "Desktop readability gain uses vertical page scroll; very short windows cannot show a 540px map at once",
+    "Mobile whole-map fit remains width-limited; use the existing explicit detail zoom",
+    "No new public deployment, account write, paid AI invocation, complete-match replay or speed benchmark",
+    "Human map readability and G1-G5 overall acceptance remain incomplete"
+  ]
+}

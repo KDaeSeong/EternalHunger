@@ -4591,7 +4591,7 @@
 }
 
 /* Observer shell: controls precede the battlefield in both DOM and visual order.
-   Desktop shares the available height; narrow/short windows scroll as a page. */
+   Reserve readable map height before fitting the page into the viewport. */
 body:has(.simulation-page--observer) { overflow: visible; }
 .simulation-page.simulation-page--observer {
   --sim-shell-width: min(calc(100% - 16px), 1800px);
@@ -4659,7 +4659,7 @@ body:has(.simulation-page--observer [role="dialog"]) .game-utility-dock { visibi
 .simulation-page--observer .minimap-panel-heading button { min-height: 28px; padding: 4px 8px; }
 .simulation-page--observer .minimap-status-row { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 4px; }
 .simulation-page--observer .minimap-status-row > span { flex: 1 1 auto; min-height: 23px; padding: 3px 6px; border-radius: 5px; }
-.simulation-page--observer .minimap-team-legend { flex: 0 0 auto; flex-wrap: nowrap; overflow-x: auto; gap: 4px; margin: 0 0 4px; padding-bottom: 2px; }
+.simulation-page--observer .minimap-team-legend { flex: 0 0 auto; flex-wrap: nowrap; min-height: 28px; overflow-x: auto; overflow-y: hidden; gap: 4px; margin: 0 0 4px; padding-bottom: 2px; }
 .simulation-page--observer .minimap-team-legend > span { flex: 0 0 auto; }
 .minimap-fitted-view { display: flex; flex: 1 1 0; min-height: 0; flex-direction: column; gap: 4px; }
 .simulation-page--observer .simulation-battlefield-column > .battlefield-panel:not(.modal-open) .minimap-canvas { flex: 1 1 0; min-height: 0; width: 100%; height: auto; max-width: none; max-height: none; margin: 0; aspect-ratio: auto; }
@@ -4678,7 +4678,16 @@ body:has(.simulation-page--observer [role="dialog"]) .game-utility-dock { visibi
 .simulation-page--observer .simulation-container.devtools-open { grid-template-columns: minmax(0, 1fr) 320px; }
 .simulation-page--observer .simulation-container.devtools-open .simulation-stage { grid-template-columns: minmax(0, 1fr) minmax(280px, .8fr); }
 
-@media (max-width: 999px), (max-height: 599px) {
+@media (min-width: 1000px) {
+  .simulation-page.simulation-page--observer { height: auto; min-height: 100dvh; overflow: visible; }
+  .simulation-page--observer > .simulation-container { flex: 1 0 auto; overflow: visible; }
+  .simulation-page--observer .simulation-container.modal-layout .game-screen { height: auto; overflow: visible; }
+  .simulation-page--observer .simulation-stage { min-height: 680px; overflow: visible; }
+  .simulation-page--observer .simulation-battlefield-column > .battlefield-panel:not(.modal-open) { grid-template-rows: auto auto auto minmax(540px, 1fr) auto; }
+  .simulation-page--observer .simulation-side-column { position: sticky; top: 56px; align-self: start; height: clamp(320px, calc(100dvh - 88px), max(680px, calc(100dvh - 180px))); }
+  .simulation-page--observer .control-panel { position: sticky; top: 0; }
+}
+@media (max-width: 999px) {
   .simulation-page.simulation-page--observer { height: auto; min-height: 100dvh; overflow: visible; }
   .simulation-page--observer > .simulation-container { flex: 0 0 auto; overflow: visible; }
   .simulation-page--observer .simulation-container.modal-layout .game-screen { display: flex; height: auto; overflow: visible; }

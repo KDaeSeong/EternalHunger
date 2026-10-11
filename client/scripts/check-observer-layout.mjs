@@ -139,6 +139,49 @@ check('log heading and limit notice have separate wrapping space', () => {
   assert.match(styles, /\.simulation-page--observer \.log-scroll-area \{[^}]*padding-bottom: 52px;/);
 });
 
+const styles = readFileSync(new URL('../src/styles/ERSimulation.css', import.meta.url), 'utf8');
+const mediaBlock = (query) => {
+  const start = styles.indexOf(`@media ${query} {`);
+  if (start < 0) return '';
+  let depth = 1;
+  let end = styles.indexOf('{', start) + 1;
+  const body = end;
+  for (; end < styles.length && depth > 0; end += 1) {
+    if (styles[end] === '{') depth += 1;
+    if (styles[end] === '}') depth -= 1;
+  }
+  assert.equal(depth, 0, 'Responsive map rules must form a complete media block.');
+  return styles.slice(body, end - 1);
+};
+check('desktop map reserves readable height without stretching map geometry or modals', () => {
+  const desktop = mediaBlock('(min-width: 1000px)');
+  assert.ok(/\.simulation-page--observer \.simulation-battlefield-column > \.battlefield-panel:not\(\.modal-open\) \{[^}]*grid-template-rows: auto auto auto minmax\(540px, 1fr\) auto;/.test(desktop),
+    'Keep at least 540px for the inline map independently of header/status row height.');
+  assert.ok(/\.simulation-page--observer \.simulation-stage \{[^}]*min-height: 680px;[^}]*overflow: visible;/.test(desktop),
+    'Allow the desktop stage to grow rather than clip the reserved map row.');
+  assert.ok(!/preserveAspectRatio|\.minimap-map-content|\.minimap-svg|\.modal-open \{/.test(desktop),
+    'Viewport allocation must not distort island geometry, zoom content, or expanded dialogs.');
+});
+check('desktop page can scroll while controls and observation remain bounded', () => {
+  const desktop = mediaBlock('(min-width: 1000px)');
+  assert.ok(/\.simulation-page\.simulation-page--observer \{[^}]*height: auto;[^}]*min-height: 100dvh;[^}]*overflow: visible;/.test(desktop),
+    'A short desktop must not squeeze the map into a fixed 100dvh shell.');
+  assert.ok(/\.simulation-page--observer > \.simulation-container \{[^}]*overflow: visible;/.test(desktop));
+  assert.ok(/\.simulation-page--observer \.simulation-container\.modal-layout \.game-screen \{[^}]*height: auto;[^}]*overflow: visible;/.test(desktop));
+  assert.ok(/\.simulation-page--observer \.simulation-side-column \{[^}]*position: sticky;[^}]*top: 56px;[^}]*align-self: start;[^}]*height: clamp\(320px, calc\(100dvh - 88px\), max\(680px, calc\(100dvh - 180px\)\)\);/.test(desktop),
+    'Keep the independently scrollable observer pane below sticky controls and inside short viewports.');
+  assert.ok(/\.simulation-page--observer \.control-panel \{[^}]*position: sticky;[^}]*top: 0;/.test(desktop));
+});
+check('short desktop retains two columns and only narrow width stacks the observation pane', () => {
+  assert.ok(!styles.includes('@media (max-width: 999px), (max-height: 599px)'),
+    'Height alone must not hide the log beside the desktop map.');
+  const narrow = mediaBlock('(max-width: 999px)');
+  assert.ok(/\.simulation-page--observer \.simulation-stage \{[^}]*grid-template-columns: minmax\(0, 1fr\);/.test(narrow));
+  assert.ok(/height: clamp\(540px, 80dvh, 760px\);/.test(narrow), 'Preserve the mobile map-height policy.');
+  assert.ok(/\.simulation-page--observer \.minimap-team-legend \{[^}]*min-height: 28px;[^}]*overflow-x: auto;[^}]*overflow-y: hidden;/.test(styles),
+    'Let overflowing team legends scroll horizontally without a distracting vertical gutter.');
+});
+
 const boardActor = (name, teamId, teamSlot, hp = 100, extra = {}) => ({
   _id: name, name, teamId, teamSlot, hp, maxHp: 100, zoneId: 'hospital', inventory: [], ...extra,
 });
