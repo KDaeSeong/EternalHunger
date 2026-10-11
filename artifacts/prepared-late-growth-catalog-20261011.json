@@ -1,0 +1,129 @@
+{
+  "schema": "eh-prepared-late-growth-catalog-evidence.v1",
+  "date": "2026-10-11",
+  "scope": "Output-only record. Never a verification input or expected result.",
+  "baseCommit": "93a5afa6b23f874fe57dfa03d976a755cea0e299",
+  "baseEngine": "f3ebd57600a033398a0b8a08b81766eea0d38b082b0c1058e4e5e3d353eaf787",
+  "engine": "60258d08de10ed3ffbd39030cd20a873ed96a1b59dd2909e35a8963ff04aa045",
+  "change": "Reuse recipe, alias and tier facts only for the JSON-detached, deeply frozen catalogue owned by a prepared run. Actor inventory, goals, weapon compatibility and decisions stay fresh. Ordinary mutable callers retain fresh scans.",
+  "checks": {
+    "beforeImplementation": { "exitCode": 1, "passedGroups": 3, "failedGroups": 2 },
+    "preparedFixtures": { "exitCode": 0, "groups": 5, "comparisons": 112 },
+    "mutableDecisionIndex": { "exitCode": 0, "groups": 14, "comparisons": 400, "scope": "Independent old mutable-path oracle; not 400 cached-path comparisons." },
+    "lateGrowthChain": { "exitCode": 0, "goalChecks": 29, "focusChecks": 18 },
+    "nativeLiveFrames": { "exitCode": 0, "checks": 19 },
+    "replayComparison": { "exitCode": 0, "checks": 10 },
+    "simulationReplay": { "exitCode": 0, "checks": 16, "events": 14119, "frames": 6488, "externalAccess": 0 },
+    "scopedLint": { "exitCode": 0 },
+    "diffCheck": { "exitCode": 0 },
+    "wholeEternalHungerChain": { "run": false },
+    "sourceGuard": "42f7aa424791fa80aff555e5f53d6769017ec766b65461e545ae6a7f9d066bb7",
+    "sourceGuardUnchangedDuringFourMatches": true,
+    "resumptionFixtureRecheck": { "exitCode": 0, "groups": 5, "comparisons": 112, "sameSourceGuard": true }
+  },
+  "freshMatchComparisons": {
+    "exitCode": 0,
+    "completeExecutions": 4,
+    "reference": "Disable only the prepared catalogue index in current source; surrounding helpers are shared. Not a whole old-engine oracle.",
+    "equalFields": ["input", "events", "allFrames", "finalFrame", "logs", "ending", "random"],
+    "seeds": [
+      {
+        "seed": "1101", "events": 11634, "frames": 5840, "phases": 11, "matchSeconds": 1124.916666,
+        "recipeReads": { "reference": 2729135, "production": 284 },
+        "inputDigest": "aa303167682a1fc116383760492269fb0459cb69f95c9313c7792bdac4eb2b6a",
+        "eventDigest": "59e81eaf7f5fb7fc7592fcda15ba9438cc1082880a74b8e2810771b03874cd9c",
+        "frameDigest": "99ec6655c0a3fa9cf8fba5472925c65261909d32a9450820e791269255cb241f",
+        "finalFrameDigest": "a5d26e902de70afe471a00ffee581e8afd108d7fac030f1c5c36255b0c961a03",
+        "logsDigest": "220f77fa4cb9a9900e2052d0d1a33c365a828f502ffc9aa2ed2c2642b6e564ae",
+        "ending": { "outcome": "last_team", "cause": "combat", "team": 1 },
+        "random": { "state": 2014021095, "draws": 8934, "ids": 0 }
+      },
+      {
+        "seed": "20261010", "events": 11507, "frames": 5096, "phases": 9, "matchSeconds": 985.75,
+        "recipeReads": { "reference": 2568544, "production": 284 },
+        "inputDigest": "01c1aebe30b5ca244e0c61f7b955a1b2bbd2dfb1471d880d863607630feff08e",
+        "eventDigest": "cd5a1b3f62c07a75ac23e280bfee05fc848e2fb4017bc9fe07ca2c473b2e9165",
+        "frameDigest": "25874d3bc71860f45129a0d143b0a9debef242cdec61cbdd567fd715bc9dabe6",
+        "finalFrameDigest": "73717496f30b76d417eb9e37c31a7e08217133eddc14d92f4abe5f4f4fb4bddc",
+        "logsDigest": "2d6ea4815fe268a9f65fa1a91a1ade3ddcd44bb34674e79b52b80b4b35755fd3",
+        "ending": { "outcome": "last_team", "cause": "wildlife_hunt", "team": 5 },
+        "random": { "state": 329775704, "draws": 8166, "ids": 0 }
+      }
+    ]
+  },
+  "build": {
+    "ordinary": { "exitCode": 1, "error": "EPERM mkdir client/.next/types/app/games/dual-academy-tcg/play" },
+    "authorizedRetry": { "exitCode": 0, "pages": 62, "buildId": "teUG2dEEfpS9iFp0WxbGr" },
+    "clientEngineChunk": "client/.next/static/chunks/5167-cfd0b8f52c9f78d5.js",
+    "serverChunkStringChecked": false
+  },
+  "browserObservations": {
+    "origin": "Compact transcription of native foreground browser probe outputs from this work chain; full raw browser JSON and inline screenshots were not persisted.",
+    "environment": { "browser": "Chrome 155 Windows 10", "viewport": [1280, 720], "devicePixelRatio": 1, "hardwareConcurrency": 12, "seed": "1789192220412", "players": 24, "teams": 8, "speed": 32 },
+    "controlledAB": false,
+    "base": {
+      "label": "x32-f3-20261011-live", "buildId": "SsD8vceDNeAA_QFK_WW9U", "completed": true,
+      "matchSeconds": 1233.5, "activeWallMs": 58501.1, "effectiveSpeed": 21.08507361400042,
+      "nestedWorkMs": { "growthSlice": 13862.9, "snapshot": 15613.6, "refreshPlans": 4094.3, "teamCoordination": 3581.5 },
+      "asyncFrameWait": { "count": 545, "totalMs": 9291.5, "maxMs": 57.2 },
+      "longTasks": { "count": 3, "maxMs": 64 },
+      "heap": { "startBytes": 20219206, "endBytes": 47555419 },
+      "ending": { "day": 7, "outcome": "last_team", "cause": "combat", "team": 4, "survivors": 3 }
+    },
+    "current": {
+      "label": "x32-60258d08-20261011-complete", "buildId": "teUG2dEEfpS9iFp0WxbGr", "completed": true,
+      "matchSeconds": 1233.5, "activeStartOffsetMs": 258.3, "activeEndOffsetMs": 83076.6, "activeWallMs": 82818.3, "effectiveSpeed": 14.894051193999394,
+      "probeElapsedMs": 122764.5, "visibleTransitions": 0, "contextChanges": 0,
+      "nestedWorkMs": { "prepare": 7.3, "growthSlice": 14615.1, "snapshot": 16553.6, "refreshPlans": 2578.4, "teamCoordination": 5093.7 },
+      "workCounts": { "prepare": 1, "growthSlice": 2141, "snapshot": 6428, "refreshPlans": 13262, "teamCoordination": 5922 },
+      "asyncFrameWait": { "count": 554, "totalMs": 31404.3, "maxMs": 116 },
+      "asyncTaskWait": { "count": 353, "totalMs": 31.8, "maxMs": 6.7 },
+      "longTasks": { "count": 17, "maxMs": 97 },
+      "wholeProbeRaf": { "samples": 528, "callbackCadencePerSec": 4.301, "medianMs": 60.1, "p95Ms": null, "p95RangeMs": [1000.1, 1050], "maxMs": 1050, "overflowSamples": 60, "notPresentedFPS": true },
+      "heap": { "startBytes": 17961864, "endBytes": 48545919, "deltaBytes": 30584055, "notLeakProof": true },
+      "inputResponse": { "count": 3, "maxMs": 989.6, "scope": "Click to next RAF, including result interaction; not INP or presentation latency." },
+      "ending": { "day": 7, "outcome": "last_team", "cause": "combat", "team": 4, "survivors": 3 },
+      "renderedCheckpoint": { "day": 2, "period": "night", "time": "08:02.75", "alive": 18, "dead": 6, "map": "Reference island with team colours and health", "inlineScreenshotOnly": true },
+      "saveNotificationSeen": true,
+      "memoryDiagnostic": { "openSessions": 1, "closed": false, "targets": 6, "evictions": 0, "notGCProof": true }
+    },
+    "interruptedAttempt": { "label": "x32-60258d08-20261011-live", "completed": false, "excludedFromTiming": true, "terminalEvidence": "After continuation, tab 4 and process handle 92826 were missing; read-only process/listener check then confirmed absence before restarting the same existing build." },
+    "teardown": { "temporaryTabClosed": true, "ownedServerStopped": true, "serverExitCode": 1, "intentionalInterrupt": true, "listeners3137": 0, "matchingWorkProcesses": 0 },
+    "limits": ["Neither observation meets nominal x32.", "No controlled performance improvement or regression claim.", "Nested synchronous work is not additive; asynchronous waits are not CPU time.", "Whole-probe RAF includes result waiting and is not active-game presented FPS.", "Single heap growth and selected ownership counts do not prove leak freedom.", "Actual user readability and the current nine-run gate remain incomplete."]
+  },
+  "baselineNodeProfile": {
+    "scope": "Fresh seed 1101 first 130 seconds on base engine, including test harness overhead; not a complete match or browser benchmark.",
+    "profile": { "path": "artifacts/first-phase-profile-20261011-f3/first-phase.cpuprofile", "bytes": 484547, "sha256": "02dac8a5d9d1de90971a829571cfd1987092b8b65d2179067e43613bab24f8d9" },
+    "summary": { "path": "artifacts/first-phase-profile-20261011-f3/summary.json", "bytes": 9699, "sha256": "3b90ae3e17502f1f240713beb6995ff10cfa8b01873b613b5c036936334c0699" }
+  },
+  "cleanup": {
+    "status": "completed; all six selected files absent and preservation fingerprints unchanged",
+    "scope": [".local", "artifacts", "client/.next", "client/.verification-runs", "client/audio-source"],
+    "thresholdBytes": 2147483648, "scopeBytesBefore": 1320498692, "newCacheCandidateBytes": 594195904,
+    "deletionBoundary": { "scopeBytesBefore": 1320514688, "scopeBytesAfter": 726318784, "removedFiles": 6, "logicalBytesRemoved": 594195904, "uniqueFileIds": 6 },
+    "buildRemainder": { "files": 1438, "bytes": 87175285, "sha256BeforeAndAfter": "d4912f36500e672acab855acf7085850b6378a8744749ce0440213f94d520d34" },
+    "protectedFiles": { "count": 13, "sha256BeforeAndAfter": "24715cf1481080dbc26c1413a4a5a9864db26d0dc8336307f770203ea13f5f57" },
+    "preflightFailures": ["Windows PowerShell 5 file execution policy rejected the helper before execution; zero deletions.", "PowerShell 7 rejected incompatible Split-Path parameters in preflight; zero deletions. Corrected directory-parent resolution before successful cleanup."],
+    "cacheRecovery": "Regenerate with a normal build. No cache backup or project copy was created.",
+    "temporaryHelperRemoved": true,
+    "notWholeWorkspaceOrPhysicalFreeSpace": true,
+    "targets": [
+      { "path": "client/.next/cache/webpack/client-production/0.pack", "bytes": 256036729, "sha256": "034acd675de9c138495d2470862aa7e7edbea2aea8e2b357c63c1e26403f9852" },
+      { "path": "client/.next/cache/webpack/client-production/index.pack", "bytes": 12844472, "sha256": "640b026a5bcbb53af83333ba9c0f8745d4f883c446b479460ca939dab51d6905" },
+      { "path": "client/.next/cache/webpack/edge-server-production/0.pack", "bytes": 276, "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc" },
+      { "path": "client/.next/cache/webpack/edge-server-production/index.pack", "bytes": 2464, "sha256": "45b73cbc74cb76c75169f6d486a9aa7697f52205110acb84589abd87a84f4825" },
+      { "path": "client/.next/cache/webpack/server-production/0.pack", "bytes": 307223320, "sha256": "8f9b0d5a21f55b34c953f0a2fe64e6ea32f1659e90603811ef724af0c231c84e" },
+      { "path": "client/.next/cache/webpack/server-production/index.pack", "bytes": 18088643, "sha256": "f81ab89af5dfe3167cd3b1b41fa78c927d6ea6afe95b19d5eb22101227bd9494" }
+    ],
+    "preservedOldPack": { "path": "client/.next/cache/webpack/client-production/index.pack.old", "bytes": 12844474, "sha256": "4bdb38fab993bfbecca7fd6d9aa187671c5eae589dfa6b4613a571921d597e9b" }
+  },
+  "preservedUnrelatedChanges": [
+    { "path": "client/scripts/check-observer-goals-match.mjs", "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9" },
+    { "path": "server/index.js", "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493" },
+    { "path": "server/.env.example", "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3" }
+  ],
+  "goalScopeTailSha256NormalizedLF": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+  "remaining": ["Actual x32 performance and continuous memory gate", "Broader custom growth and natural team cooperation", "Explainable formation/strategy contribution and balance", "New browser session saved-input resume", "Human follow-up evaluation and authorized public release"],
+  "externalMutations": { "push": 0, "deploy": 0, "paidAI": 0, "accountWrites": 0 },
+  "goal": "active and incomplete"
+}

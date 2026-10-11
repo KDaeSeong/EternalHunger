@@ -5,6 +5,45 @@ import { getActorEquipmentTier } from './growthEquipmentRuntime.js';
 
 const slots = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
 const keyOf = (item) => String(item?.itemKey || item?.externalId || item?._id || '').trim();
+const lockedCatalogs = new WeakMap();
+
+// Called only after prepareSimulationRunInput has detached the catalogue
+// through JSON. Never freeze an editor's array or infer ownership from identity.
+// No brand or index is attached to actors, saved input, or published frames.
+export function lockPreparedLateGrowthCatalog(items) {
+  const pending = [items], visited = new Set();
+  while (pending.length) {
+    const value = pending.pop();
+    if (!value || typeof value !== 'object' || visited.has(value)) continue;
+    visited.add(value);
+    for (const child of Object.values(value)) pending.push(child);
+    Object.freeze(value);
+  }
+  lockedCatalogs.set(items, null);
+  return items;
+}
+
+function lockedCatalogFacts(items) {
+  if (!lockedCatalogs.has(items)) return null;
+  if (lockedCatalogs.get(items)) return lockedCatalogs.get(items);
+  const termsByItem = new Map(), byKey = new Map(), bySlotTier = new Map();
+  for (let index = 0; index < items.length; index++) {
+    if (!(index in items)) continue;
+    const target = items[index], tier = Number(target.tier);
+    if (![5, 6].includes(tier) || inferItemCategory(target) !== 'equipment') continue;
+    const slot = inferEquipSlot(target);
+    if (!slots.includes(slot)) continue;
+    if (!termsByItem.has(target)) termsByItem.set(target, getCraftRecipeTerms(target));
+    if (!termsByItem.get(target)) continue;
+    const row = { target, slot, tier }, group = `${slot}:${tier}`;
+    for (const key of [keyOf(target), String(target._id)]) if (!byKey.has(key)) byKey.set(key, row);
+    if (!bySlotTier.has(group)) bySlotTier.set(group, []);
+    bySlotTier.get(group).push(target);
+  }
+  const facts = { termsByItem, byKey, bySlotTier };
+  lockedCatalogs.set(items, facts);
+  return facts;
+}
 
 function inventoryFacts(actor, inventory) {
   const quantities = new Map();
@@ -30,9 +69,9 @@ function inventoryFacts(actor, inventory) {
 // win over automatic upgrades; catalog order must not decide between them.
 export function getLateGrowthTargets(actor, items, { authoredOnly = false } = {}) {
   const inventory = Array.isArray(actor.inventory) ? actor.inventory : [];
-  // All indexes belong to this synchronous decision only. Re-read the same
-  // catalogue/entries on the next call after edits, crafting or loot changes;
-  // an array's identity does not prove that its recipes are still valid.
+  // Inventory, goals and weapon compatibility are always a fresh decision.
+  // Only the explicitly owned, deeply frozen run catalogue can reuse facts;
+  // ordinary callers still re-read edited recipes on every call.
   const { quantities, tiers } = inventoryFacts(actor, inventory);
   const owned = new Set(quantities.keys());
   const weapon = normalizeWeaponType(actor.weaponType || '');
@@ -44,9 +83,11 @@ export function getLateGrowthTargets(actor, items, { authoredOnly = false } = {}
     else if (!authoredOnly && tiers[slot] < tier) automaticGroups.add(`${slot}:${tier}`);
   }
   if (!requestedKeys.size && !automaticGroups.size) return { targets: [], issues: [] };
-  const termsByItem = new Map(), byKey = new Map(), bySlotTier = new Map();
+  const preparedCatalog = lockedCatalogFacts(items);
+  const { termsByItem, byKey, bySlotTier } = preparedCatalog
+    || { termsByItem: new Map(), byKey: new Map(), bySlotTier: new Map() };
   const catalogLength = items.length;
-  for (let index = 0; index < catalogLength; index += 1) {
+  for (let index = 0; !preparedCatalog && index < catalogLength; index += 1) {
     if (!(index in items)) continue; // Preserve the original filter's sparse-array boundary.
     const target = items[index];
     const tier = Number(target.tier);

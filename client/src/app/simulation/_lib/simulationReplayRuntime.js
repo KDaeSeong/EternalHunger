@@ -4,6 +4,7 @@ import { applyRegionDataToZones } from './lumiaRegionData';
 import { buildBaseZoneGraph, buildHyperloopZoneGraph, getHyperloopZoneIds, isHyperloopTransit } from './mapGraphRuntime';
 import { getForbiddenAddedZoneIdsForPhase, getForbiddenZoneIdsForPhase } from './forbiddenZoneRuntime';
 import { buildCraftableItems, buildItemKeyById, buildItemMetaById, buildItemNameById } from './itemOptionsRuntime';
+import { lockPreparedLateGrowthCatalog } from './lateGrowthTargetRuntime.js';
 
 export const REPLAY_SCHEMA = 'eternal-hunger.replay.v1';
 const SETTINGS_KEYS = ['rulesetId', 'matchMode', 'statWeights', 'suddenDeathTurn', 'forbiddenZoneEnabled',
@@ -93,6 +94,7 @@ export function validateSimulationReplayRecord(record) {
 export function prepareSimulationRunInput(input) {
   validateSimulationRunInput(input);
   const owned = cloneReplayData(input);
+  lockPreparedLateGrowthCatalog(owned.publicItems);
   const zones = applyRegionDataToZones(owned.map.zones);
   const baseGraph = buildBaseZoneGraph(owned.map, zones);
   const loops = getHyperloopZoneIds(owned.map, zones);
