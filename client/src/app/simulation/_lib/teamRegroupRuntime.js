@@ -7,7 +7,7 @@ export function describeTeamRegroupDecision(evidence, zoneName = String) {
   if (evidence?.version !== 1 || evidence.cleared) return '';
   const goal = evidence.targetZoneId ? `${zoneName(evidence.targetZoneId)} · 현장 동료 ${evidence.companionsAtTarget}명` : '';
   const labels = {
-    together: `동료 ${evidence.memberCount}명이 같은 지역에서 공동 행동 계획`,
+    together: `동료 ${evidence.memberCount}명이 같은 지역에 집결`,
     arrived: '합류 지점 도착', waiting: '동료 합류 대기', joining: '팀원에게 합류 이동',
     opening: '초기 분산 파밍 유지', growing: '목표 장비 파밍·제작 우선',
     enemy_path: '합류 보류: 경로에 적이 있음', forbidden_path: '합류 보류: 금지구역이 경로를 막음',
@@ -17,6 +17,7 @@ export function describeTeamRegroupDecision(evidence, zoneName = String) {
     action_wait: '합류 보류: 이동·행동 시간 대기', forbidden: '합류 보류: 금지구역 탈출 우선',
     endgame: '합류보다 최종 안전구역 진입 우선', reentry: '합류 보류: 직전 위험 지역 재진입 방지',
     rotation_wait: '팀 이동 대기: 동료의 행동이 끝나면 함께 출발',
+    growth_wait: '동료 장비 성장 대기: 완료 후 팀 목표 재검토',
     replanned: '합류 계획 재검토',
   };
   const parts = [labels[evidence.status] || '합류 판단 기록', evidence.status === 'together' ? '' : goal];
@@ -31,6 +32,10 @@ export function describeTeamRegroupDecision(evidence, zoneName = String) {
   if (evidence.status === 'rotation_wait' && evidence.waitingFor?.length) {
     const reasons = { hunt: '사냥 중', cast: '스킬 시전 중', status: '이동 제한', combat: '교전 중', action_wait: '이동·행동 마무리 중' };
     parts.push(evidence.waitingFor.map((row) => `${row.name || row.who}: ${reasons[row.reason] || '행동 마무리 중'}`).join(', '));
+  }
+  if (evidence.status === 'growth_wait' && evidence.waitingFor?.length) {
+    parts.push(evidence.waitingFor.map(row => `${row.name || row.who}: ${row.targetName || '목표 장비'}${num(row.totalSlots) > 0
+      ? ` · 확보 ${num(row.completedSlots)}/${num(row.totalSlots)}` : ''}`).join(', '));
   }
   if (evidence.rallySelection?.reason === 'reachable_rendezvous') {
     const choice = evidence.rallySelection;
@@ -56,11 +61,18 @@ export function publishTeamRegroupDecision(actor, planned, { from = actor?.zoneI
   // Do not alternate "joining" and "waiting" logs every scheduler tick.
   if (status === 'action_wait' && previous && previous.targetZoneId === planned.targetZoneId
     && previous.to === String(to) && previous.combatSpaceId === getCombatSpaceId(actor)
-    && ['joining', 'arrived', 'waiting', 'growing', 'recovery', 'threat', 'forbidden', 'endgame', 'reentry'].includes(previous.status)) return;
+    && ['joining', 'arrived', 'waiting', 'growing', 'growth_wait', 'recovery', 'threat', 'forbidden', 'endgame', 'reentry'].includes(previous.status)
+    // A timer can hold the actor, not an obsolete companion progress snapshot.
+    && (previous.status !== 'growth_wait' && planned.stage !== 'growth_wait'
+      || previous.status === 'growth_wait' && planned.stage === 'growth_wait'
+      && previous.memberCount === planned.memberCount
+      && JSON.stringify(previous.waitingFor || []) === JSON.stringify(planned.waitingFor || []))) return;
   const overrides = { 'flee:forbidden': 'forbidden', recover: 'recovery', 'flee:low_hp': 'recovery',
     recovery_supply: 'recovery', recovery_craft: 'recovery', recovery_regroup: 'recovery', healing_unavailable: 'recovery',
     status_move_block: 'status', retreat_cooldown: 'reentry', endgame_rotate: 'endgame' };
   let outcome = status || overrides[reason] || (reason.startsWith('flee:') ? 'threat' : '');
+  if (status === 'action_wait' && planned.stage === 'growth_wait'
+    && !overrides[reason] && !reason.startsWith('flee:')) outcome = 'growth_wait';
   if (!outcome) {
     if (planned.stage === 'path_blocked') outcome = planned.blocked;
     else if (growthPlan && !growthPlan.openingComplete && !growthPlan.blocked) outcome = 'growing';
@@ -82,7 +94,7 @@ export function publishTeamRegroupDecision(actor, planned, { from = actor?.zoneI
     companionsAtTarget: Math.max(0, num(planned.atTargetCount) - (String(from) === planned.targetZoneId ? 1 : 0)),
     from: String(from || ''), to: String(to || ''), distance: planned.distance ?? null, status: outcome, growth,
     hp: Math.max(0, num(actor.hp)), maxHp: Math.max(1, num(actor.maxHp)), recoverHpBelow,
-    ...(outcome === 'rotation_wait' ? { waitingFor: structuredClone(planned.waitingFor || []) } : {}),
+    ...(['rotation_wait', 'growth_wait'].includes(outcome) ? { waitingFor: structuredClone(planned.waitingFor || []) } : {}),
     ...(planned.rallySelection ? { rallySelection: structuredClone(planned.rallySelection) } : {}),
   };
   const semanticKey = (row) => JSON.stringify(row && { teamId: row.teamId, combatSpaceId: row.combatSpaceId,

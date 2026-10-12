@@ -23,9 +23,10 @@ export function createMatchDistributionFrameTracker({ initialActors = [], items 
   const byItemId = new Map(items.map((item) => [String(item._id), item]));
   const growthRows = new Map(initialActors.map((actor) => {
     const progress = getActorGrowthProgress(actor, items);
+    const initialGoalStatus = progress.totalSlots === 0 ? 'none' : progress.goalIssues.length ? 'invalid' : 'valid';
     return [actorId(actor), { actorId: actorId(actor), name: actor.name, teamId: getActorTeamId(actor),
       totalSlots: progress.totalSlots, targetIds: [...progress.targetIds].sort(),
-      initialGoalIssues: structuredClone(progress.goalIssues), goalIdentityChanged: false,
+      initialGoalStatus, initialGoalIssues: structuredClone(progress.goalIssues), goalIdentityChanged: false,
       completeAtSec: null, heroEquippedAtSec: null, diedBeforeCompletion: false }];
   }));
   if (growthRows.size !== initialActors.length || growthRows.has('')) throw Error('Initial participant IDs must be unique and nonempty.');
@@ -124,14 +125,45 @@ export function createMatchDistributionFrameTracker({ initialActors = [], items 
     const outcomes = {};
     for (const episode of episodes) outcomes[episode.outcome] = (outcomes[episode.outcome] || 0) + 1;
     const completed = outcomes.completed || 0;
-    return structuredClone({ growth: { total: rows.length, goalParticipants: rows.filter((row) => row.totalSlots > 0).length,
-      complete: rows.filter((row) => row.completeAtSec != null).length, firstDayDeadlineSec,
+    const goalRows = rows.filter((row) => row.initialGoalStatus !== 'none');
+    const complete = goalRows.filter((row) => row.completeAtSec != null).length;
+    return structuredClone({ growth: { total: rows.length, goalParticipants: goalRows.length,
+      validGoalParticipants: rows.filter((row) => row.initialGoalStatus === 'valid').length,
+      invalidGoalParticipants: rows.filter((row) => row.initialGoalStatus === 'invalid').length,
+      noGoalParticipants: rows.filter((row) => row.initialGoalStatus === 'none').length,
+      complete, completeShare: share(complete, goalRows.length),
+      diedBeforeCompletion: goalRows.filter((row) => row.diedBeforeCompletion).length,
+      goalIdentityChanged: goalRows.filter((row) => row.goalIdentityChanged).length, firstDayDeadlineSec,
       beforeFirstNightEnd: rows.filter((row) => row.completeAtSec != null && firstDayDeadlineSec != null && row.completeAtSec < firstDayDeadlineSec).length,
       fiveSlotHeroEquipped: rows.filter((row) => row.heroEquippedAtSec != null).length, rows },
     regroup: { started: episodes.length, completed, completionShare: share(completed, episodes.length), outcomes, episodes,
       scope: 'Full starting living team roster, fixed through the attempt; all started outcomes remain in the denominator. Partial pair contact and cross-space cohorts are not full-team completion.' } });
   }
   return { observe, report };
+}
+
+// These event counters describe emitted plan snapshots only. They are not a
+// substitute for frame-tracked completion of each participant's initial goal.
+export function summarizeGrowthPlanEvents(events = []) {
+  const plans = events.filter((event) => event?.kind === 'growth_plan');
+  const slotComplete = plans.filter((event) => Number(event.totalSlots || 0) > 0
+    && Number(event.completedSlots || 0) === Number(event.totalSlots || 0));
+  const planOpeningComplete = plans.filter((event) => event.openingComplete === true);
+  const actorIds = (rows) => new Set(rows.map((event) => String(event.who || '')).filter(Boolean)).size;
+  return { planEvents: plans.length, slotCompleteEvents: slotComplete.length,
+    slotCompleteEventActors: actorIds(slotComplete), planOpeningCompleteEvents: planOpeningComplete.length,
+    planOpeningCompleteEventActors: actorIds(planOpeningComplete) };
+}
+
+export function summarizeInitialGoalCompletion(reports = []) {
+  const total = (field) => reports.reduce((sum, row) => sum + Number(row?.[field] || 0), 0);
+  const complete = total('complete'), goalParticipants = total('goalParticipants');
+  const beforeFirstNightEnd = total('beforeFirstNightEnd');
+  return { complete, goalParticipants, completeShare: share(complete, goalParticipants),
+    validGoalParticipants: total('validGoalParticipants'), invalidGoalParticipants: total('invalidGoalParticipants'),
+    noGoalParticipants: total('noGoalParticipants'), diedBeforeCompletion: total('diedBeforeCompletion'),
+    goalIdentityChanged: total('goalIdentityChanged'), beforeFirstNightEnd,
+    beforeFirstNightEndShare: share(beforeFirstNightEnd, goalParticipants) };
 }
 
 export function summarizeMovement(initialActors = [], events = []) {

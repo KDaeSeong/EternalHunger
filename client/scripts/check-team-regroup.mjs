@@ -27,16 +27,21 @@ const record = () => {
 };
 const world = { mapObj: { zones: Object.keys(graph).map((zoneId) => ({ zoneId, name: zoneId })) },
   zoneGraph: graph, forbiddenIds: new Set() };
+const unfinishedRecipeItems = () => [
+  { _id: 'raw', name: '부족 재료', type: '재료', category: 'material', tier: 1, spawnZones: ['e'], recipe: { ingredients: [] } },
+  { _id: 'hat', name: '목표 모자', type: '머리', category: 'equipment', equipSlot: 'head', tier: 2, recipe: { ingredients: [{ itemId: 'raw', qty: 1 }] } },
+];
 const move = (who, roster, extra = {}) => {
+  const { omitRegroupObservation = false, ...stateExtra } = extra;
   const state = { ...world, actor: structuredClone(who), phaseSurvivors: structuredClone(roster), publicItems: [],
     craftables: [], itemKeyById: {}, itemMetaById: {}, itemNameById: {}, kiosks: [], zones: world.mapObj.zones,
-    nextDay: 2, nextPhase: 'night', phaseIdxNow: 3, ruleset, ...extra };
+    nextDay: 2, nextPhase: 'night', phaseIdxNow: 3, ruleset, ...stateExtra };
   const plans = buildTeamCoordination({ ...options, roster: state.phaseSurvivors, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds });
   state.teamMovementPlan = plans.movementPlans.get(who._id);
-  state.teamRegroupDecision = plans.regroupDecisions.get(who._id);
+  state.teamRegroupDecision = omitRegroupObservation ? null : plans.regroupDecisions.get(who._id);
   const rec = record(); let cost = 0;
   const result = runActorMovementDecisionPhase({ state, actions: { ...rec.actions, reserveActionSecond: (seconds) => { cost += seconds; } } });
-  return { ...rec, ...result, cost };
+  return { ...rec, ...result, cost, teamMovementPlan: state.teamMovementPlan };
 };
 
 check('a safe four-edge rally is reachable without extending retreat search or teleporting', () => {
@@ -69,6 +74,94 @@ check('actual movement reaches a distant rally one edge at a time and records ar
     lone = result.actor;
   }
   assert.deepEqual(distances, [4, 3, 2, 1]);
+
+  let leaderChoices = 0;
+  const gathered = [lone, ...squad.slice(1)];
+  const shared = buildTeamCoordination({ ...options, roster: gathered, chooseLeaderMove: () => {
+    leaderChoices += 1; return { targets: ['d'], reason: 'shared_goal' };
+  } });
+  assert.equal(leaderChoices, 1, 'Only a fully gathered, ready squad may choose one common objective.');
+  for (const member of gathered) {
+    const plan = shared.movementPlans.get(member._id);
+    assert.equal(shared.regroupDecisions.get(member._id).stage, 'together');
+    assert.equal(plan.mode, 'team_rotate'); assert.equal(plan.targetZoneId, 'd');
+    assert.equal(plan.nextStep, 'd'); assert.equal(plan.sourceReason, 'shared_goal');
+  }
+
+  const unfinished = gathered.map((member, index) => index === 0
+    ? { ...member, _growthPlan: { openingComplete: false, blocked: '', targetId: 'real-recipe',
+      targetName: '목표 모자', completedSlots: 3, totalSlots: 5 } } : member);
+  const beforeWait = structuredClone(unfinished); let waitLeaderChoices = 0, draws = 0;
+  const held = withSimulationRandom(() => { draws += 1; return 0.5; }, () => buildTeamCoordination({
+    ...options, roster: unfinished, chooseLeaderMove: () => {
+      waitLeaderChoices += 1;
+      throw new Error('A co-located unfinished member must defer the common goal.');
+    },
+  }));
+  assert.deepEqual([...held.regroupDecisions].map(([id, decision]) => [id, decision.stage])
+    .sort(([a], [b]) => a.localeCompare(b)), [
+    ['anchor', 'growth_wait'], ['friend', 'growth_wait'], ['lone', 'growing'],
+  ]);
+  const expectedWaitingFor = [{ who: 'lone', name: 'lone', targetName: '목표 모자', completedSlots: 3, totalSlots: 5 }];
+  for (const id of ['anchor', 'friend']) assert.deepEqual(held.regroupDecisions.get(id).waitingFor, expectedWaitingFor);
+  assert.equal(held.regroupDecisions.get('lone').targetZoneId, 'e');
+  assert.equal(held.movementPlans.has('lone'), false);
+  assert.ok([...held.movementPlans.values()].every((plan) => plan.mode !== 'team_rotate' && plan.nextStep === 'e'));
+  assert.equal(waitLeaderChoices, 0); assert.equal(draws, 0);
+  assert.deepEqual(unfinished, beforeWait, 'Planning must not mutate roster positions, inventory or the real growth plan.');
+
+  const readyDecision = held.regroupDecisions.get('anchor'), readyRecord = record();
+  publishTeamRegroupDecision(unfinished[1], readyDecision, { ...readyRecord.actions, at: { day: 2, phase: 'night', sec: 400 } });
+  const readyEvent = readyRecord.events[0], readyEvidence = structuredClone(readyEvent.regroupEvidence);
+  assert.equal(readyEvidence.status, 'growth_wait');
+  assert.deepEqual(readyEvidence.waitingFor, expectedWaitingFor);
+  const readyText = describeTeamRegroupDecision(readyEvidence, (id) => id);
+  assert.match(readyText, /성장.*대기/); assert.doesNotMatch(readyText, /공동 행동 계획/);
+  assert.match(readyText, /lone.*목표 모자.*3\/5/);
+
+  publishTeamRegroupDecision(unfinished[1], structuredClone(readyDecision), {
+    ...readyRecord.actions, status: 'action_wait', at: { day: 2, phase: 'night', sec: 400.25 },
+  });
+  assert.equal(readyRecord.events.length, 1, 'Scheduler cooldown must not replace growth-wait evidence with action_wait.');
+
+  publishTeamRegroupDecision(unfinished[1], structuredClone(readyDecision), {
+    ...readyRecord.actions, at: { day: 2, phase: 'night', sec: 401 },
+  });
+  assert.equal(readyRecord.events.length, 1, 'An identical growth-wait decision must be semantically deduplicated.');
+  readyDecision.waitingFor[0].completedSlots = 4;
+  assert.deepEqual(readyEvent.regroupEvidence, readyEvidence, 'Published waiting evidence must own its roster snapshot.');
+  publishTeamRegroupDecision(unfinished[1], { ...structuredClone(readyDecision), waitingFor: [
+    { ...expectedWaitingFor[0], completedSlots: 4 },
+  ] }, { ...readyRecord.actions, status: 'action_wait', at: { day: 2, phase: 'night', sec: 402 } });
+  assert.equal(readyRecord.events.length, 2, 'A real progress change must publish updated waiting evidence.');
+  assert.equal(readyRecord.events[1].regroupEvidence.waitingFor[0].completedSlots, 4);
+  const completedDecision = { ...structuredClone(readyDecision), stage: 'together', waitingFor: [] };
+  publishTeamRegroupDecision(unfinished[1], completedDecision, {
+    ...readyRecord.actions, status: 'action_wait', at: { day: 2, phase: 'night', sec: 403 },
+  });
+  assert.equal(readyRecord.events.length, 3, 'Completion must replace the stale growth-wait with physical gathering status.');
+  assert.equal(readyRecord.events[2].regroupEvidence.status, 'together');
+
+  const farmerRecord = record();
+  publishTeamRegroupDecision(unfinished[0], held.regroupDecisions.get('lone'), { ...farmerRecord.actions,
+    growthPlan: unfinished[0]._growthPlan, at: { day: 2, phase: 'night', sec: 400 } });
+  const farmerEvidence = farmerRecord.events[0].regroupEvidence;
+  assert.equal(farmerEvidence.status, 'growing');
+  assert.match(describeTeamRegroupDecision(farmerEvidence), /목표 모자.*확보 3\/5/);
+
+  const completed = unfinished.map((member, index) => index === 0
+    ? { ...member, _growthPlan: { ...member._growthPlan, openingComplete: true } } : member);
+  let resumedLeaderChoices = 0;
+  const resumed = buildTeamCoordination({ ...options, roster: completed, chooseLeaderMove: () => {
+    resumedLeaderChoices += 1; return { targets: ['d'], reason: 'shared_goal' };
+  } });
+  assert.equal(resumedLeaderChoices, 1);
+  for (const member of completed) {
+    const plan = resumed.movementPlans.get(member._id);
+    assert.equal(resumed.regroupDecisions.get(member._id).stage, 'together');
+    assert.equal(plan.mode, 'team_rotate'); assert.equal(plan.targetZoneId, 'd');
+    assert.equal(plan.sourceReason, 'shared_goal');
+  }
 });
 
 check('committed steps still reject a non-edge or a newly forbidden region', () => {
@@ -85,6 +178,24 @@ check('the one-decision retreat reversal guard still interrupts a committed regr
   assert.equal(result.nextZoneId, 'a'); assert.equal(result.actor._teamRegroup.status, 'reentry');
   assert.equal(result.actor._retreatAvoidZoneId, '');
   assert.equal(move(result.actor, [result.actor, ...squad.slice(1)]).nextZoneId, 'b');
+});
+
+check('a live threat keeps regroup off the dangerous route, then a cleared threat permits delayed reentry', () => {
+  const detour = { ...graph, a: ['b', 'x'], e: ['d', 'x'], x: ['a', 'e'] };
+  const retreating = { ...squad[0], _retreatAvoidZoneId: 'b', _retreatAvoidDecisions: 1 };
+  const enemy = actor('enemy', 'b', { teamId: 'enemy', stats: { attackPower: 500, defense: 100 } });
+  const threatenedRoster = [retreating, ...squad.slice(1), enemy];
+  const threatened = move(retreating, threatenedRoster, { zoneGraph: detour });
+  assert.equal(threatened.nextZoneId, 'x', 'The current enemy blocks the shorter route through b.');
+  assert.equal(threatened.moveReason, 'team_regroup');
+  assert.ok(![retreating.zoneId, threatened.nextZoneId].includes('b'));
+
+  const cleared = { ...squad[0], _retreatAvoidZoneId: 'b', _retreatAvoidDecisions: 1 };
+  const first = move(cleared, [cleared, ...squad.slice(1)]);
+  assert.equal(first.nextZoneId, 'a'); assert.equal(first.actor._teamRegroup.status, 'reentry');
+  const allowed = move(first.actor, [first.actor, ...squad.slice(1)]);
+  assert.equal(allowed.nextZoneId, 'b', 'Once the threat is absent and the one-turn guard expires, regroup may resume.');
+  assert.equal(allowed.actor._teamRegroup.status, 'joining');
 });
 
 check('a longer safe detour is preferred to crossing an enemy', () => {
@@ -220,10 +331,7 @@ check('an escortable farmer remains first and an unsafe or impossible alternativ
 });
 
 check('unfinished growth keeps the real recipe while ready allies have a full-map escort route', () => {
-  const items = [
-    { _id: 'raw', name: '부족 재료', type: '재료', category: 'material', tier: 1, spawnZones: ['e'], recipe: { ingredients: [] } },
-    { _id: 'hat', name: '목표 모자', type: '머리', category: 'equipment', equipSlot: 'head', tier: 2, recipe: { ingredients: [{ itemId: 'raw', qty: 1 }] } },
-  ];
+  const items = unfinishedRecipeItems();
   const farmer = actor('farmer', 'e', { routePlanTargetItemIds: ['hat'] });
   refreshActorGrowthPlan(farmer, items, world);
   const roster = [actor('ready', 'a'), farmer];
@@ -236,6 +344,72 @@ check('unfinished growth keeps the real recipe while ready allies have a full-ma
   assert.match(describeTeamRegroupDecision(result.actor._teamRegroup), /목표 모자.*부족 재료 ×1/);
   assert.deepEqual(result.actor.inventory, []);
   assert.deepEqual(result.actor.routePlanTargetItemIds, ['hat']);
+});
+
+check('a co-located real-recipe farmer and ready ally keep growth waiting through actual movement decisions', () => {
+  const items = [...unfinishedRecipeItems(),
+    { _id: 'ready-weapon', name: '준비 무기', type: '무기', category: 'equipment', equipSlot: 'weapon', weaponType: '단검', tier: 4 },
+    { _id: 'ready-clothes', name: '준비 옷', type: '방어구', category: 'equipment', equipSlot: 'clothes', tier: 4 },
+    { _id: 'ready-arm', name: '준비 팔', type: '방어구', category: 'equipment', equipSlot: 'arm', tier: 4 },
+    { _id: 'ready-shoes', name: '준비 신발', type: '방어구', category: 'equipment', equipSlot: 'shoes', tier: 4 },
+  ];
+  const farmer = actor('farmer', 'e', { routePlanTargetItemIds: ['hat'], simCredits: 137 });
+  refreshActorGrowthPlan(farmer, items, world);
+  assert.equal(farmer._growthPlan.targetId, 'hat'); assert.equal(farmer._growthPlan.targetName, '목표 모자');
+  assert.equal(farmer._growthPlan.completedSlots, 0); assert.equal(farmer._growthPlan.totalSlots, 1);
+  assert.deepEqual(farmer._growthPlan.missing.map(({ itemId, need }) => ({ itemId, need })), [{ itemId: 'raw', need: 1 }]);
+  const readyGearIds = ['ready-weapon', 'hat', 'ready-clothes', 'ready-arm', 'ready-shoes'];
+  const ready = actor('ready', 'e', { teamSlot: 1, simCredits: 211, weaponType: '단검',
+    routePlanTargetItemIds: readyGearIds, equipped: Object.fromEntries([
+      ['weapon', 'ready-weapon'], ['head', 'hat'], ['clothes', 'ready-clothes'], ['arm', 'ready-arm'], ['shoes', 'ready-shoes'],
+    ]), inventory: readyGearIds.map((id) => ({ ...items.find((item) => item._id === id), itemId: id })) });
+  refreshActorGrowthPlan(ready, items, world);
+  assert.equal(ready._growthPlan.openingComplete, true);
+  const roster = [farmer, ready], before = structuredClone(roster);
+  const randomTape = [0.125, 0.875, 0.25, 0.75, 0.375, 0.625, 0.5, 0.0625];
+  const withDrawTrace = (run) => {
+    const draws = [];
+    const result = withSimulationRandom(() => {
+      const value = randomTape[draws.length % randomTape.length]; draws.push(value);
+      return value;
+    }, run);
+    return { draws, result };
+  };
+  const teamFarmerRun = withDrawTrace(() => move(farmer, roster, { publicItems: items }));
+  const readyRun = withDrawTrace(() => move(ready, roster, { publicItems: items }));
+  const readyObservationControl = withDrawTrace(() => move(ready, roster, { publicItems: items, omitRegroupObservation: true }));
+  const soloFarmer = structuredClone(farmer);
+  const soloFarmerRun = withDrawTrace(() => move(soloFarmer, [soloFarmer], { publicItems: items }));
+  assert.deepEqual(readyRun.result.teamMovementPlan, readyObservationControl.result.teamMovementPlan,
+    'Omitting only the regroup observation must preserve the same committed movement plan.');
+  assert.deepEqual(readyRun.draws, readyObservationControl.draws,
+    'Growth-wait observation must add no RNG beyond the same committed movement plan.');
+  assert.equal(readyRun.draws.length, 0, 'A ready actor following a committed regroup step must bypass ordinary movement RNG.');
+  assert.ok(teamFarmerRun.draws.length > 0, 'The active growth actor retains the ordinary individual target-memory decisions.');
+  assert.deepEqual(teamFarmerRun.draws, soloFarmerRun.draws,
+    'Co-location must add no random draws to the farmer relative to the same non-regroup growth control.');
+  const movementSnapshot = (result) => ({ nextZoneId: result.nextZoneId, didMove: result.didMove,
+    moveReason: result.moveReason, moveTargets: result.moveTargets, moveEtaSec: result.moveEtaSec,
+    zoneId: result.actor.zoneId, inventory: result.actor.inventory, simCredits: result.actor.simCredits,
+    growthPlan: result.actor._growthPlan, routePlanTargetItemIds: result.actor.routePlanTargetItemIds });
+  assert.deepEqual(movementSnapshot(teamFarmerRun.result), movementSnapshot(soloFarmerRun.result),
+    'Ignore regroup observation, and compare actual growth movement/state against the no-regroup control.');
+  const farmerResult = teamFarmerRun.result, readyResult = readyRun.result;
+  assert.equal(farmerResult.nextZoneId, 'e'); assert.equal(farmerResult.didMove, false);
+  assert.equal(farmerResult.moveReason, 'growth_farm'); assert.equal(farmerResult.actor._teamRegroup.status, 'growing');
+  assert.equal(readyResult.nextZoneId, 'e'); assert.equal(readyResult.didMove, false);
+  assert.equal(readyResult.actor._growthPlan.openingComplete, true);
+  assert.equal(readyResult.moveReason, 'team_regroup'); assert.equal(readyResult.actor._teamRegroup.status, 'growth_wait');
+  assert.deepEqual(readyResult.actor._teamRegroup.waitingFor, [{ who: 'farmer', name: 'farmer', targetName: '목표 모자',
+    completedSlots: 0, totalSlots: 1 }]);
+  for (const result of [farmerResult, readyResult]) {
+    assert.deepEqual(result.actor.inventory.map(({ itemId, qty }) => [itemId, qty]),
+      result.actor._id === 'farmer' ? [] : readyGearIds.map((id) => [id, 1]));
+    assert.equal(result.actor.simCredits, result.actor._id === 'farmer' ? 137 : 211);
+    assert.equal(result.actor.zoneId, 'e'); assert.equal(result.moveEtaSec, 1, 'A no-op keeps the movement phase one-second baseline without reserving travel time.');
+    assert.equal(result.events.some((event) => ['move', 'field_resource', 'craft'].includes(event.kind)), false);
+  }
+  assert.deepEqual(roster, before, 'Both movement decisions must leave the shared pre-action fixture untouched.');
 });
 
 check('legacy opening routes and solo matches keep their original movement policy', () => {
@@ -260,6 +434,43 @@ check('low HP, control, forbidden escape and endgame override regroup without cl
   const final = move(squad[0], squad, { nextSpawn: { endgame: { zoneIds: Object.keys(graph), finalZoneId: 'e', singleZoneAtSec: 0, stage: 'final' } } });
   assert.equal(final.actor._teamRegroup.status, 'endgame');
   assert.equal(final.actor._teamRegroup.status === 'arrived', false);
+});
+
+check('action_wait publishes growth-wait transitions from every prior same-route status', () => {
+  const waitingFor = [{ who: 'farmer', name: '농부', targetName: '목표 모자', completedSlots: 4, totalSlots: 5 }];
+  const transitions = [
+    { previous: 'growing', from: 'e', to: 'e', growthPlan: { openingComplete: false, targetId: 'old-goal',
+      targetName: '완료된 과거 목표', completedSlots: 4, totalSlots: 5, missing: [{ itemId: 'old-material', name: '과거 재료', need: 1 }] } },
+    { previous: 'joining', from: 'c', to: 'd' },
+    { previous: 'arrived', from: 'd', to: 'e' },
+    { previous: 'waiting', from: 'd', to: 'd' },
+  ];
+  const stale = [];
+  for (const [index, transition] of transitions.entries()) {
+    const member = actor(`ready-${transition.previous}`, 'e');
+    if (transition.growthPlan) member._growthPlan = transition.growthPlan;
+    const rec = record(), targetZoneId = 'e';
+    const previousPlan = { teamId: 't', stage: transition.previous === 'growing' ? 'growing' : 'joining',
+      memberCount: 2, targetZoneId, atTargetCount: 2, distance: 1 };
+    publishTeamRegroupDecision(member, previousPlan, { ...rec.actions, reason: 'team_regroup',
+      from: transition.from, to: transition.to, growthPlan: transition.growthPlan, at: { sec: 410 + index } });
+    const previousEvidence = structuredClone(member._teamRegroup);
+    const nextPlan = { teamId: 't', stage: 'growth_wait', memberCount: 2, targetZoneId,
+      atTargetCount: 2, distance: 0, waitingFor };
+    publishTeamRegroupDecision(member, nextPlan, { ...rec.actions, reason: 'team_regroup', status: 'action_wait',
+      from: transition.from, to: transition.to, growthPlan: { openingComplete: true }, at: { sec: 420 + index } });
+    const evidence = member._teamRegroup, description = describeTeamRegroupDecision(evidence, (id) => id);
+    const defects = [];
+    if (rec.events.length !== 2) defects.push(`events=${rec.events.length}`);
+    if (evidence.status !== 'growth_wait') defects.push(`status=${evidence.status}`);
+    if (evidence === previousEvidence || JSON.stringify(evidence) === JSON.stringify(previousEvidence)) defects.push('stale evidence retained');
+    if (evidence.growth !== null) defects.push('old growth summary retained');
+    if (JSON.stringify(evidence.waitingFor) !== JSON.stringify(waitingFor)) defects.push('waiting roster missing/old');
+    if (!description.includes('농부') || !description.includes('4/5')) defects.push('ready ally progress not described');
+    if (transition.previous === 'growing' && description.includes('완료된 과거 목표')) defects.push('completed growth text retained');
+    if (defects.length) stale.push({ from: transition.previous, defects });
+  }
+  assert.deepEqual(stale, [], 'A new growth wait must replace stale same-route status and its explanation.');
 });
 
 check('repeated scheduler cooldowns preserve the committed join instead of spamming wait events', () => {

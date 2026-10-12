@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const { createMatchDistributionFrameTracker, summarizeMovement } = await import('./lib/match-distribution-frame-tracker.mjs');
+const { createMatchDistributionFrameTracker, summarizeGrowthPlanEvents, summarizeInitialGoalCompletion, summarizeMovement } = await import('./lib/match-distribution-frame-tracker.mjs');
 
 let checks = 0;
 const check = (name, run) => { run(); checks++; console.log(`PASS ${name}`); };
@@ -41,6 +41,61 @@ check('growth denominator retains all initial actors and separates configured go
   assert.equal(growth.goalParticipants, 2);
   assert.equal(growth.complete, 0);
   assert.equal(growth.rows.find((row) => row.actorId === 'missing').totalSlots, 1);
+});
+
+check('growth report classifies valid, invalid, and absent initial goals separately', () => {
+  const actors = [goalActor('valid'), goalActor('invalid', {
+    goalLoadouts: { hero: { headKey: 'invalid' } }, routePlanTargetItemIds: ['invalid'],
+  }), goalActor('absent', { goalLoadouts: {}, routePlanTargetItemIds: [] })];
+  const tracker = trackerFor(actors);
+  tracker.observe(frame(1, actors));
+  const growth = tracker.report().growth;
+  assert.deepEqual([growth.validGoalParticipants, growth.invalidGoalParticipants, growth.noGoalParticipants], [1, 1, 1]);
+  assert.equal(growth.rows.find((row) => row.actorId === 'valid').initialGoalStatus, 'valid');
+  assert.equal(growth.rows.find((row) => row.actorId === 'invalid').initialGoalStatus, 'invalid');
+  assert.equal(growth.rows.find((row) => row.actorId === 'absent').initialGoalStatus, 'none');
+});
+
+check('initial-goal completion and slot-completion events are separately reported', () => {
+  const actor = goalActor('initial-goal');
+  const tracker = trackerFor([actor]);
+  tracker.observe(frame(1, [actor]));
+  tracker.observe(frame(2, [equippedGoal(actor)]));
+  const growth = tracker.report().growth;
+  assert.equal(growth.complete, 1);
+  assert.equal(growth.goalParticipants, 1);
+  assert.equal(growth.completeShare, 1);
+  assert.equal(growth.rows[0].completeAtSec, 2);
+  const events = summarizeGrowthPlanEvents([
+    { kind: 'growth_plan', who: 'initial-goal', completedSlots: 2, totalSlots: 2, openingComplete: true },
+    { kind: 'growth_plan', who: 'invalid-goal', completedSlots: 2, totalSlots: 2, openingComplete: false },
+    { kind: 'growth_plan', who: 'partial', completedSlots: 1, totalSlots: 2, openingComplete: false },
+    { kind: 'growth_plan', who: 'initial-goal', completedSlots: 2, totalSlots: 2, openingComplete: true },
+  ]);
+  assert.equal(events.slotCompleteEvents, 3);
+  assert.equal(events.slotCompleteEventActors, 2);
+  assert.equal(events.planOpeningCompleteEvents, 2);
+  assert.equal(events.planOpeningCompleteEventActors, 1);
+});
+
+check('goal completion share excludes no-goal actors but keeps invalid goals and deaths visible', () => {
+  const valid = goalActor('valid');
+  const dead = goalActor('dead');
+  const invalid = goalActor('invalid', { goalLoadouts: { hero: { headKey: 'invalid' } }, routePlanTargetItemIds: ['invalid'] });
+  const absent = goalActor('absent', { goalLoadouts: {}, routePlanTargetItemIds: [] });
+  const tracker = trackerFor([valid, dead, invalid, absent]);
+  tracker.observe(frame(1, [equippedGoal(valid), dead, invalid, absent]));
+  tracker.observe(frame(2, [equippedGoal(valid), invalid, absent], [{ ...dead, hp: 0 }]));
+  const growth = tracker.report().growth;
+  assert.deepEqual([growth.complete, growth.goalParticipants, growth.completeShare], [1, 3, 0.333]);
+  assert.deepEqual([growth.validGoalParticipants, growth.invalidGoalParticipants, growth.noGoalParticipants], [2, 1, 1]);
+  assert.equal(growth.diedBeforeCompletion, 1);
+  assert.equal(growth.rows.find((row) => row.actorId === 'invalid').initialGoalIssues[0].reason, 'unavailable_target');
+  assert.deepEqual(summarizeInitialGoalCompletion([growth]), {
+    complete: 1, goalParticipants: 3, completeShare: 0.333, validGoalParticipants: 2,
+    invalidGoalParticipants: 1, noGoalParticipants: 1, diedBeforeCompletion: 1,
+    goalIdentityChanged: 0, beforeFirstNightEnd: 1, beforeFirstNightEndShare: 0.333,
+  });
 });
 
 check('initial target progress records its first completion time and counts a pre-deadline completion', () => {
@@ -139,9 +194,17 @@ check('original member death censors the episode instead of awarding regroup suc
   const a = regroupActor('a', 'a'), b = regroupActor('b', 'b');
   const tracker = trackerFor([a, b]);
   tracker.observe(frame(5, [a, b]));
-  tracker.observe(frame(8, [a], [ { ...b, hp: 0 } ]));
-  assert.equal(episodeOf(tracker.report(), 'member_death')?.endedAtSec, 8);
-  assert.equal(tracker.report().regroup.completed, 0);
+  const growthWait = (actor) => ({ ...actor, _teamRegroup: { ...actor._teamRegroup, status: 'growth_wait', at: { sec: 6 } } });
+  const waiting = [growthWait(a), growthWait(b)];
+  tracker.observe(frame(6, waiting));
+  assert.equal(tracker.report().regroup.started, 1);
+  tracker.observe(frame(8, [waiting[0]], [{ ...waiting[1], hp: 0 }]));
+  const regroup = tracker.report().regroup;
+  assert.equal(episodeOf({ regroup }, 'member_death')?.endedAtSec, 8);
+  assert.equal(regroup.started, 1, 'A later status label must not remove the started attempt from the denominator.');
+  assert.equal(regroup.outcomes.member_death, 1);
+  assert.equal(regroup.completed, 0);
+  assert.equal(regroup.completionShare, 0);
 });
 
 check('revived roster cannot reuse pre-death intent as a new regroup attempt', () => {
@@ -159,7 +222,8 @@ check('revived roster cannot reuse pre-death intent as a new regroup attempt', (
 
 check('unsupported or future regroup evidence cannot start an episode', () => {
   const a = regroupActor('a', 'a'), b = regroupActor('b', 'b', { _teamRegroup: null });
-  for (const record of [{ ...a._teamRegroup, version: 9 }, { ...a._teamRegroup, at: { sec: 100 } }]) {
+  for (const record of [{ ...a._teamRegroup, version: 9 }, { ...a._teamRegroup, at: { sec: 100 } },
+    { ...a._teamRegroup, status: 'growth_wait' }]) {
     const tracker = trackerFor([a, b]);
     tracker.observe(frame(5, [{ ...a, _teamRegroup: record }, b]));
     assert.equal(tracker.report().regroup.started, 0);
@@ -174,8 +238,16 @@ check('combat-space change and roster change end episodes with distinct outcomes
   assert.ok(episodeOf(spaceTracker.report(), 'space_change'));
   const rosterTracker = trackerFor([a, b]);
   rosterTracker.observe(frame(5, [a, b]));
-  rosterTracker.observe(frame(8, [a, { ...b, teamId: 'team:2' }]));
-  assert.ok(episodeOf(rosterTracker.report(), 'roster_change'));
+  const growthWait = (actor) => ({ ...actor, _teamRegroup: { ...actor._teamRegroup, status: 'growth_wait', at: { sec: 6 } } });
+  const waiting = [growthWait(a), growthWait(b)];
+  rosterTracker.observe(frame(6, waiting));
+  assert.equal(rosterTracker.report().regroup.started, 1);
+  rosterTracker.observe(frame(8, [waiting[0], { ...waiting[1], teamId: 'team:2' }]));
+  const regroup = rosterTracker.report().regroup;
+  assert.ok(episodeOf({ regroup }, 'roster_change'));
+  assert.equal(regroup.started, 1, 'Roster changes end but do not erase a previously started attempt.');
+  assert.equal(regroup.outcomes.roster_change, 1);
+  assert.equal(regroup.completed, 0);
 });
 
 check('cleared intent and open episodes remain explicit outcomes in the all-started denominator', () => {

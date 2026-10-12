@@ -5,7 +5,7 @@ import { summarizeTeamRetreats } from './lib/match-distribution-diagnostics.mjs'
 import { summarizeMovementReversalTrace } from './lib/movement-reversal-trace.mjs';
 
 // Load production-dependent diagnostics only after extensionless-module hooks.
-const { createMatchDistributionFrameTracker, summarizeMovement } = await import('./lib/match-distribution-frame-tracker.mjs');
+const { createMatchDistributionFrameTracker, summarizeGrowthPlanEvents, summarizeInitialGoalCompletion, summarizeMovement } = await import('./lib/match-distribution-frame-tracker.mjs');
 const { buildSimulationDiagnostics } = await import('../src/app/simulation/_lib/simulationDiagnostics.js');
 const { buildRunActionSummary } = await import('../src/app/simulation/_lib/runActionSummary.js');
 const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
@@ -76,12 +76,8 @@ function summarizeHunts(events) {
   };
 }
 
-function summarizeGrowth(events, participantCount) {
-  const completeIds = new Set(events.filter((event) => event?.kind === 'growth_plan'
-    && Number(event.totalSlots || 0) > 0 && Number(event.completedSlots || 0) === Number(event.totalSlots || 0))
-    .map((event) => String(event.who || '')).filter(Boolean));
-  const crafts = events.filter((event) => event?.kind === 'craft').length;
-  return { complete: completeIds.size, total: participantCount, completeShare: ratio(completeIds.size, participantCount), crafts };
+function summarizeGrowth(events) {
+  return { ...summarizeGrowthPlanEvents(events), crafts: events.filter((event) => event?.kind === 'craft').length };
 }
 
 function summarizeEquipment(equipment) {
@@ -178,8 +174,8 @@ for (const initialRosterSeed of initialRosterSeeds) for (const seed of seeds) {
     heroGearReady: diagnostics.equipment.heroGearReadyCount,
     legendaryReady: diagnostics.equipment.legendaryReadyCount,
     equipment: summarizeEquipment(diagnostics.equipment),
-    growth: summarizeGrowth(match.events, diagnostics.participants.total),
-    growthTiming: observed.growth,
+    growthPlanEvents: summarizeGrowth(match.events),
+    initialGoalCompletion: observed.growth,
     actionMix: actions.growth,
     team: actions.team,
     teamRetreats: summarizeTeamRetreats(match.events),
@@ -219,10 +215,13 @@ const aggregate = {
     mid: total((row) => row.deaths.byBand?.mid),
     end: total((row) => row.deaths.byBand?.end),
   },
-  growthCompleteShare: ratio(total((row) => row.growth.complete), total((row) => row.growth.total)),
-  observedGrowthCompleteShare: ratio(total((row) => row.growthTiming.complete), total((row) => row.growthTiming.total)),
-  beforeFirstNightEndShare: ratio(total((row) => row.growthTiming.beforeFirstNightEnd), total((row) => row.growthTiming.total)),
-  everFiveSlotHeroEquippedShare: ratio(total((row) => row.growthTiming.fiveSlotHeroEquipped), total((row) => row.growthTiming.total)),
+  initialGoalCompletion: summarizeInitialGoalCompletion(rows.map((row) => row.initialGoalCompletion)),
+  growthPlanSlotCompleteEvents: total((row) => row.growthPlanEvents.slotCompleteEvents),
+  growthPlanSlotCompleteActorMatches: total((row) => row.growthPlanEvents.slotCompleteEventActors),
+  growthPlanOpeningCompleteEvents: total((row) => row.growthPlanEvents.planOpeningCompleteEvents),
+  growthPlanOpeningCompleteActorMatches: total((row) => row.growthPlanEvents.planOpeningCompleteEventActors),
+  growthPlanCraftEvents: total((row) => row.growthPlanEvents.crafts),
+  everFiveSlotHeroEquippedShare: ratio(total((row) => row.initialGoalCompletion.fiveSlotHeroEquipped), total((row) => row.initialGoalCompletion.total)),
   heroGearReadyShare: ratio(total((row) => row.heroGearReady), total((row) => row.participants.total)),
   teamCombatRounds: total((row) => row.teamCombat.rounds),
   regroupMoves: total((row) => row.team.regroupMoves),
@@ -243,6 +242,6 @@ const aggregate = {
   huntStarts: total((row) => row.hunts.starts),
   huntUnfinished: total((row) => row.hunts.unfinished),
   lastDeathCauses: rows.reduce((counts, row) => { const cause = row.ending.cause || 'unknown'; counts[cause] = (counts[cause] || 0) + 1; return counts; }, {}),
-  scope: 'Current-source headless natural matches. Seed and initial-roster axes are explicit. Completion/contact metrics are not human, browser-speed or balance acceptance.',
+  scope: 'Current-source headless natural matches. Initial-goal completion is frame-observed per configured initial goal; plan-slot counters are event snapshots, not that completion metric. Seed and initial-roster axes are explicit. Metrics are not human, browser-speed or balance acceptance.',
 };
 console.log(`MATCH_DISTRIBUTION_AGGREGATE ${JSON.stringify(aggregate)}`);

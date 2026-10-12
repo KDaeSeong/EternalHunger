@@ -255,16 +255,26 @@ export function* buildTeamCoordinationSteps({
     const target = grouped && !rotationWaiting ? (proposed?.targets || []).find((zone) => !forbiddenIds.has(String(zone))) : rallyZone;
     if (!target) continue;
     const objective = grouped ? captureMovementObjective(proposed, target, { spawnState, ruleset, publicItems }) : null;
+    // Sharing a region does not mean the squad has selected a common goal.
+    // Keep the active farmer and its ready companions' real wait distinct.
+    const growthWaitingFor = !separated && !grouped ? ordered.filter(stillGrowing).map(row => ({
+      who: idOf(row), name: String(row.name || idOf(row)),
+      targetName: String(row._growthPlan.targetName || ''),
+      completedSlots: Number(row._growthPlan.completedSlots) || 0,
+      totalSlots: Number(row._growthPlan.totalSlots) || 0,
+    })) : [];
     for (const actor of members) {
       const decision = { version: 1, teamId: getActorTeamId(actor), memberCount: members.length,
         targetZoneId: rallyZone, atTargetCount: members.filter((row) => String(row.zoneId) === rallyZone).length,
-        nextStep: '', distance: null, stage: rotationWaiting ? 'rotation_wait' : separated ? 'joining' : 'together', blocked: '',
+        nextStep: '', distance: null, stage: rotationWaiting ? 'rotation_wait' : separated ? 'joining'
+          : growthWaitingFor.length ? 'growth_wait' : 'together', blocked: '',
         ...(rotationWaiting ? { waitingFor: waitingFor.map((row) => ({ ...row })) } : {}),
+        ...(growthWaitingFor.length ? { waitingFor: growthWaitingFor.map(row => ({ ...row })) } : {}),
         ...(rallySelection ? { rallySelection: { ...rallySelection } } : {}) };
       // An unfinished farmer keeps its real recipe. Ready allies can join it;
       // the observer must be told why this actor is not following a rally yet.
       if (stillGrowing(actor)) {
-        if (separated) decision.stage = 'growing';
+        decision.stage = 'growing';
         regroupDecisions.set(idOf(actor), decision);
         continue;
       }

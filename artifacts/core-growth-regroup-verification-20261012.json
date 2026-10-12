@@ -1,0 +1,343 @@
+{
+  "generatedAt": "2026-10-12T12:19:11.8468522Z",
+  "buildId": "L8sv8KK_wL7vCm19kiRV8",
+  "relevantProcessCountBefore": 0,
+  "cleanup": {
+    "root": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack",
+    "removedFiles": 8,
+    "removedBytes": 600454979,
+    "remainingTargets": 0,
+    "recoverableBy": "npm run build",
+    "candidates": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 253357935,
+        "sha256": "bc9b5c79f4c1bb8268069b8ed46939587fffb793481aec7dc6ccc7aab915ee42",
+        "fileId": "0x000000000000000000090000001cc134"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\1.pack",
+        "bytes": 52535,
+        "sha256": "fe6fea093101c609351de65c2c819529faa48e2807dc6cb02efc3d09fe6460c1",
+        "fileId": "0x00000000000000000016000000090113"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\2.pack",
+        "bytes": 8860327,
+        "sha256": "0ffbe0b17673e87716cddcd51ee7472bf948a7abe5dcefae7324c96bb77ea0ac",
+        "fileId": "0x000000000000000000090000001cc136"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12845297,
+        "sha256": "9c4783402c6a09479ba1bb8435563c293d89b9b11de582d0e8418f9b6fcdf7fa",
+        "fileId": "0x000000000000000000090000001cc133"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc",
+        "fileId": "0x0000000000000000000b00000008feb7"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "sha256": "76f452e03336f1cf052da156807dfdf64ec1cc47c509e5049ec9cafff37b4f70",
+        "fileId": "0x0000000000000000000b00000008feb8"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 307247499,
+        "sha256": "bf5a5675e1bae6d362fe753ea33ee7d13830b20af11413ca8e057d20824115b7",
+        "fileId": "0x00000000000000000027000000201e7d"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18088646,
+        "sha256": "bba087d34c4efca613d840477b3d6af92ed879ff04ee56a51f0c9dc723298637",
+        "fileId": "0x0000000000000000001c000000201e80"
+      }
+    ],
+    "nonPackBefore": {
+      "files": 1439,
+      "bytes": 104807254,
+      "sha256": "f6e89928e75d60688d18436ebe4501de88c071b6d8d02c0e146bf6734c51be62"
+    },
+    "nonPackAfter": {
+      "files": 1439,
+      "bytes": 104807254,
+      "sha256": "f6e89928e75d60688d18436ebe4501de88c071b6d8d02c0e146bf6734c51be62"
+    },
+    "nonPackEqual": true,
+    "protectedBefore": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\analyze-match-distribution.mjs",
+        "bytes": 15662,
+        "sha256": "4fc66dedfb5b0b1ea7bc5dc18cc9ed6d9c0d25aa3368da0d37a691a60831ffd7"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\lib\\match-distribution-frame-tracker.mjs",
+        "bytes": 13739,
+        "sha256": "313132ba6a530f33eb1e56e1987b6c2a28cd5388ba2d731d978787877433ae88"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-match-distribution-metrics.mjs",
+        "bytes": 19746,
+        "sha256": "e61167808a0d6ff5fc87f9ae8f70f52777d90025ca29f20a100fe3873af46398"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-team-regroup.mjs",
+        "bytes": 40083,
+        "sha256": "fd394dffbaad01068ea5941ac427a5167caecc5d80d31763856b01ca48aa3149"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\teamTacticsRuntime.js",
+        "bytes": 18895,
+        "sha256": "76e1c9a3299566432c7b1add7cd16a76c2f90558fd542969513739ad85f2559a"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\teamRegroupRuntime.js",
+        "bytes": 8603,
+        "sha256": "1c994afb424917a555be417b88d0d6306acb7f1923148c259bdf0b28dfcc4ba2"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_generated\\simulationEngineVersion.js",
+        "bytes": 166,
+        "sha256": "1a8e3cb0fb7620ee7fe3716dda2298ab7e7f5da3a9bbb4484aff9cbeffe9a5fb"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\docs\\eternal-hunger-goal.md",
+        "bytes": 261819,
+        "sha256": "f258e4a8104bc0187635c8d86ae7bd43673c7ba7dd5a7ab3b5f9799b72be347e"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-observer-goals-match.mjs",
+        "bytes": 15715,
+        "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\server\\index.js",
+        "bytes": 5619,
+        "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\server\\.env.example",
+        "bytes": 2125,
+        "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\artifacts\\core-growth-regroup-20261011.json",
+        "bytes": 1069016,
+        "sha256": "5d2bdd49421bfafbc4bc3d607776be138f24555135a64359a5b630ac34701b4f"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\artifacts\\core-growth-regroup-current-20261011.json",
+        "bytes": 1069503,
+        "sha256": "845353e3d9b4573a62434474d986341e06b7f1946ec4f70226770cf08b2ae31c"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\artifacts\\first-phase-profile-20261011-f3\\first-phase.cpuprofile",
+        "bytes": 484547,
+        "sha256": "02dac8a5d9d1de90971a829571cfd1987092b8b65d2179067e43613bab24f8d9"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\artifacts\\first-phase-profile-20261011-f3\\summary.json",
+        "bytes": 9699,
+        "sha256": "3b90ae3e17502f1f240713beb6995ff10cfa8b01873b613b5c036936334c0699"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\package.json",
+        "bytes": 28087,
+        "sha256": "cce83441a9196a0b4311215048b0e41afd2e0ba7f2cfd80ea4e863b4df610721"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-team-retreat-survival.mjs",
+        "bytes": 8855,
+        "sha256": "a571f934da6de5ff06c1243a607c6179177def0768902bd715d057e5c8e43a74"
+      }
+    ],
+    "protectedAfter": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\analyze-match-distribution.mjs",
+        "bytes": 15662,
+        "sha256": "4fc66dedfb5b0b1ea7bc5dc18cc9ed6d9c0d25aa3368da0d37a691a60831ffd7"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\lib\\match-distribution-frame-tracker.mjs",
+        "bytes": 13739,
+        "sha256": "313132ba6a530f33eb1e56e1987b6c2a28cd5388ba2d731d978787877433ae88"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-match-distribution-metrics.mjs",
+        "bytes": 19746,
+        "sha256": "e61167808a0d6ff5fc87f9ae8f70f52777d90025ca29f20a100fe3873af46398"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-team-regroup.mjs",
+        "bytes": 40083,
+        "sha256": "fd394dffbaad01068ea5941ac427a5167caecc5d80d31763856b01ca48aa3149"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\teamTacticsRuntime.js",
+        "bytes": 18895,
+        "sha256": "76e1c9a3299566432c7b1add7cd16a76c2f90558fd542969513739ad85f2559a"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\teamRegroupRuntime.js",
+        "bytes": 8603,
+        "sha256": "1c994afb424917a555be417b88d0d6306acb7f1923148c259bdf0b28dfcc4ba2"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_generated\\simulationEngineVersion.js",
+        "bytes": 166,
+        "sha256": "1a8e3cb0fb7620ee7fe3716dda2298ab7e7f5da3a9bbb4484aff9cbeffe9a5fb"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\docs\\eternal-hunger-goal.md",
+        "bytes": 261819,
+        "sha256": "f258e4a8104bc0187635c8d86ae7bd43673c7ba7dd5a7ab3b5f9799b72be347e"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-observer-goals-match.mjs",
+        "bytes": 15715,
+        "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\server\\index.js",
+        "bytes": 5619,
+        "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\server\\.env.example",
+        "bytes": 2125,
+        "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\artifacts\\core-growth-regroup-20261011.json",
+        "bytes": 1069016,
+        "sha256": "5d2bdd49421bfafbc4bc3d607776be138f24555135a64359a5b630ac34701b4f"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\artifacts\\core-growth-regroup-current-20261011.json",
+        "bytes": 1069503,
+        "sha256": "845353e3d9b4573a62434474d986341e06b7f1946ec4f70226770cf08b2ae31c"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\artifacts\\first-phase-profile-20261011-f3\\first-phase.cpuprofile",
+        "bytes": 484547,
+        "sha256": "02dac8a5d9d1de90971a829571cfd1987092b8b65d2179067e43613bab24f8d9"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\artifacts\\first-phase-profile-20261011-f3\\summary.json",
+        "bytes": 9699,
+        "sha256": "3b90ae3e17502f1f240713beb6995ff10cfa8b01873b613b5c036936334c0699"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\package.json",
+        "bytes": 28087,
+        "sha256": "cce83441a9196a0b4311215048b0e41afd2e0ba7f2cfd80ea4e863b4df610721"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-team-retreat-survival.mjs",
+        "bytes": 8855,
+        "sha256": "a571f934da6de5ff06c1243a607c6179177def0768902bd715d057e5c8e43a74"
+      }
+    ],
+    "protectedEqual": true,
+    "scope": "Logical bytes for eight distinct current-task cache file identities; not physical free-space or whole-repository reduction."
+  },
+  "engineVersion": "1cb4a1b1524de2829dd3dfd46e6881ce40c4292c39a53858713d7aebcd76754a",
+  "verification": {
+    "teamRegroup": {
+      "command": "npm run check:team-regroup",
+      "exitCode": 0,
+      "checks": {
+        "regroup": 32,
+        "lumia": 19,
+        "isolationTracker": 7,
+        "isolationFixture": 6,
+        "distributionMetrics": 25,
+        "retreatDiagnostics": 9,
+        "movementReversal": 14
+      }
+    },
+    "teamSurvival": {
+      "command": "npm run check:team-survival",
+      "exitCode": 0,
+      "supportAndFocusChecks": 3,
+      "retreatPipelineChecks": 5,
+      "scope": "Controlled real product pipeline and PvP packets; not continuous transit or natural-match balance."
+    },
+    "simulationReplay": {
+      "command": "npm run check:simulation-replay",
+      "exitCode": 0,
+      "comparisonChecks": 10,
+      "replayChecks": 16,
+      "events": 14133,
+      "frames": 6488,
+      "externalAccess": 0
+    },
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0,
+      "pages": 62,
+      "buildId": "L8sv8KK_wL7vCm19kiRV8",
+      "engineMarkerServer": "client/.next/server/chunks/2433.js",
+      "engineMarkerClient": "client/.next/static/chunks/5167-dfaf65c4ef86f457.js"
+    }
+  },
+  "currentMatrix": {
+    "path": "artifacts/core-growth-regroup-current-20261011.json",
+    "sha256": "845353e3d9b4573a62434474d986341e06b7f1946ec4f70226770cf08b2ae31c",
+    "exitCode": 0,
+    "sourceStable": true,
+    "rows": 4,
+    "initialGoalsComplete": 96,
+    "initialGoalParticipants": 96,
+    "beforeFirstNightEnd": 96,
+    "regroupCompleted": 85,
+    "regroupStarted": 94,
+    "regroupIncomplete": {
+      "memberDeath": 6,
+      "rosterChange": 3
+    },
+    "scope": "Fresh current-source two-seed by two-roster-axis headless matches. Observer comparisons requested only for both 1101 rows."
+  },
+  "temporaryCleanup": {
+    "path": "C:\\2저장고\\EternalHunger\\.local\\current-core-distribution-capture.mjs",
+    "bytes": 3888,
+    "sha256": "30dcde4dfb322bb7d5a76093f1bc603b4715dace14e4bc2b5fd19304ba5e462d",
+    "result": "removed",
+    "scope": "Owned one-off capture wrapper, with no source/test/document consumer found. Production analyzer and both output receipts remain."
+  },
+  "selectedRootInventoryBoundary": {
+    "roots": [".local", "artifacts", "client/.next", "client/.verification-runs", "client/audio-source"],
+    "beforeFiles": 2149,
+    "beforeBytes": 1346591449,
+    "afterFiles": 2141,
+    "afterBytes": 746146046,
+    "duplicateVolumeFileIds": 0,
+    "fileIdErrors": 0,
+    "accessErrors": 0,
+    "reparsePoints": 0,
+    "scope": "Read-only count after cache/temp removal and initial receipt creation. Later small receipt edits are outside this boundary. Excludes other project inputs, node_modules and Git; not whole-repository or physical free-space measurement."
+  },
+  "documentationUpdateAfterCleanup": {
+    "path": "docs/eternal-hunger-goal.md",
+    "wholeFileSha256": "d4f4b94d082f0ba26bd9f607415a4e691d2f531322d789dfc3538a1b8c75ecb6",
+    "originalGoalSuffixSha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+    "scope": "Only the latest progress section was prepended after the deletion boundary. Original product definition and G1-G5/common gates remain unchanged."
+  },
+  "staticChecks": {
+    "eslint": {"exitCode": 0, "scope": "Seven changed product/diagnostic JavaScript files including the new retreat checker"},
+    "gitDiffCheck": {"exitCode": 0}
+  },
+  "goalStatus": "active/incomplete",
+  "remainingGates": [
+    "Broad custom growth and natural collaboration/formation causal evidence",
+    "Actual foreground x32 performance and repeated memory",
+    "New browser-session local save/resume",
+    "Human follow-up spectator understanding",
+    "Public deployment and paid/authenticated paths need separate authority"
+  ]
+}
