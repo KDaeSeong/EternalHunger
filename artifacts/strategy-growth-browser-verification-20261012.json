@@ -1,0 +1,106 @@
+{
+  "schema": "eh-strategy-growth-browser-verification.v1",
+  "date": "2026-10-12",
+  "parentCommit": "7d16d6c0a38524b640aa0fba44adf348372b234b",
+  "engineVersion": "1cb4a1b1524de2829dd3dfd46e6881ce40c4292c39a53858713d7aebcd76754a",
+  "goalStatus": "active_incomplete",
+  "changeScope": "Diagnostic initial-goal growth metrics only; no gameplay, random, exposure-acceptance or build changes.",
+  "checks": {
+    "syntax": { "command": "node --check scripts/analyze-strategy-comparison.mjs", "exitCode": 0 },
+    "eslint": { "command": "node_modules/.bin/eslint.cmd scripts/analyze-strategy-comparison.mjs", "exitCode": 0 },
+    "strategyContracts": { "command": "node scripts/check-strategy-comparison-contracts.mjs", "checks": 23, "exitCode": 0 },
+    "distributionMetrics": { "command": "node scripts/check-match-distribution-metrics.mjs", "checks": 25, "exitCode": 0 },
+    "diffCheck": { "command": "git diff --check", "exitCode": 0 }
+  },
+  "strategyComparison": {
+    "command": "node scripts/analyze-strategy-comparison.mjs --seeds=1101 --variants=baseline,one-formation-swap --repeats=2 --output=../artifacts/strategy-comparison-20261012-current.json",
+    "expectedMatches": 4,
+    "completedMatches": 4,
+    "sameConditionExact": true,
+    "comparisonComplete": false,
+    "observedTerminalExitCode": 1,
+    "declaredIncompleteExitCode": 2,
+    "exitCodeDiscrepancyCause": "unverified; observed terminal result is preserved",
+    "baseline": { "completeInitialGoals": 24, "goalParticipants": 24, "beforeFirstNightEnd": 24, "deadlineSec": 250, "slotCompletePlanEvents": 702 },
+    "candidate": { "completeInitialGoals": 24, "goalParticipants": 24, "beforeFirstNightEnd": 24, "deadlineSec": 250, "slotCompletePlanEvents": 818 },
+    "negativeExposure": {
+      "actorId": "guest-survivor-11",
+      "variant": "baseline",
+      "atSec": 479.75,
+      "reason": "changed_teammates_absent",
+      "evidenceKind": "bounded current runtime arbitration and team-execution snapshots, not a full raw match-event archive",
+      "sourceFile": "artifacts/strategy-comparison-20261012-current.json",
+      "sourcePointers": [
+        "/executions/1/participationDiagnostics/executionSamplesByActor/guest-survivor-11/2",
+        "/executions/1/participationDiagnostics/executionSamplesByActor/guest-survivor-11/3"
+      ],
+      "changedBuddyFacts": "both changed teammates already dead",
+      "actorHp": 82,
+      "actorMaxHp": 140,
+      "targetId": "guest-survivor-06",
+      "targetHpBefore": 24,
+      "targetHpAfter": 0,
+      "scope": "Valid final-member combat, not evidence of failing to wait for a living reachable teammate. Team exposure and survival/winner causality remain unproven."
+    }
+  },
+  "browserReplay": {
+    "url": "http://127.0.0.1:3141/eternalhunger/evaluate?perfProbe=1",
+    "sessionScope": "Original agent-owned document closed; a fresh document loaded persisted history and replayed its stored input. Not a browser-process restart or separate profile.",
+    "seed": "1789192220412",
+    "replayId": "33fc498b-40cd-4bf5-b28a-a75515ffeb58",
+    "comparisonMatched": true,
+    "comparedEvents": 13237,
+    "finalStateAndEndingMatched": true,
+    "winnerTeam": "4팀",
+    "survivors": 3,
+    "matchSec": 1233.5,
+    "nominalSpeed": 32,
+    "activeMs": 71429.2,
+    "effectiveSpeed": 17.2688480341373,
+    "elapsedMs": 78240.7,
+    "stopReason": "replay-complete",
+    "entireMeasurementVisible": true,
+    "speedChanges": 0,
+    "identityChanges": 0,
+    "pauses": 0,
+    "longTaskMaxMs": 178,
+    "heapDeltaUsedBytes": 175357161,
+    "accountsWritten": false,
+    "humanSurveyFilled": false,
+    "scope": "One foreground current-engine replay; not three runs per speed, memory-recovery, performance-improvement, leak or human-acceptance proof. Nested work times are not additive and external load was not controlled."
+  },
+  "originalBrowserSample": {
+    "activeMs": 52664.2,
+    "matchSec": 1233.5,
+    "effectiveSpeed": 23.4219830549,
+    "scope": "One foreground original run; manual probe stop also includes setup and postgame idle in whole-probe heap/work/long-task counters. Not directly comparable to replay mode."
+  },
+  "artifacts": [
+    { "path": "artifacts/strategy-comparison-20261012-current.json", "bytes": 2323990, "sha256": "62080785f6a56c672373e291fabb814c1f2990ecfd5d19e3236911e6893af8f0" },
+    { "path": "artifacts/observer-current-1cb-x32-20261012.json", "bytes": 43613, "sha256": "26d2944238c59d2e0b210f211ade616b478ae058cb54ac81adea19bf0219694e" },
+    { "path": "artifacts/observer-current-1cb-replay-x32-20261012.json", "bytes": 50244, "sha256": "52d5c5a051006082d1aa6c042c87790a001d6c56af71b4ae0ea3de7d651abe7a" },
+    { "path": "artifacts/observer-resume-1cb-20261012.png", "bytes": 81036, "sha256": "fe664270a7cc13f47e7d68dbf48fb3febca88feddd015db3e0c08637553aa913" }
+  ],
+  "protection": {
+    "originalGoalSuffixHeading": "## 제품 정의와 범위",
+    "originalGoalLfUtf8Sha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+    "foreignDirtyFiles": [
+      { "path": "client/scripts/check-observer-goals-match.mjs", "bytes": 15715, "sha256": "65742d1846000274e934aeb732c0114e21382b96819acbc6aea941a2bc491fc9" },
+      { "path": "server/index.js", "bytes": 5619, "sha256": "5b45ac5230734857b2225dffb19f49ce30393936a21788072edbce02acbf7493" },
+      { "path": "server/.env.example", "bytes": 2125, "sha256": "8f688f24c8551ebbadb25bd3381c97c7a25072ec2a8182c677ab755fcd7519a3" }
+    ]
+  },
+  "storage": {
+    "selectedNonoverlappingRoots": [".local", "artifacts", "client/.next", "client/.verification-runs", "client/audio-source"],
+    "beforeNewReplayArtifactsBytes": 748514884,
+    "thresholdBytes": 2147483648,
+    "thresholdExceeded": false,
+    "deletedFilesThisVerification": 0,
+    "scope": "Logical selected-output scope, not total repository, physical allocated size or free space. Preserve unknown other-project outputs and internal .codex records."
+  },
+  "release": {
+    "commitThenPushAuthorized": true,
+    "pendingPreviousCommitsBeforeThisChange": 51,
+    "publicDeployment": "not established by local checks or push alone"
+  }
+}

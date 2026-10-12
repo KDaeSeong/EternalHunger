@@ -13,6 +13,8 @@ const { buildTacticalImpactEvidence } = await import('./lib/tactical-impact-evid
 const { assertFormationRosterConsistency, buildFormationExposure, buildTacticalExposurePair,
   createFormationSwapInput, validateStrategyVariants } = await import('./lib/strategy-comparison-contracts.mjs');
 const { createTeamCombatParticipationDiagnostics } = await import('./lib/team-combat-participation-diagnostics.mjs');
+const { createMatchDistributionFrameTracker, summarizeGrowthPlanEvents } = await import('./lib/match-distribution-frame-tracker.mjs');
+const { getRuleset, getPhaseDurationSec } = await import('../src/utils/rulesets.js');
 
 const options = Object.fromEntries(process.argv.slice(2).map(arg => {
   assert.match(arg, /^--(seeds|output|variants|repeats)=.+$/);
@@ -31,15 +33,12 @@ const executions = [];
 let completedMatches = 0;
 let outputInitialized = false;
 const teamOf = actor => String(actor.matchTeamId || actor.teamId);
-const resultSummary = (initial, match) => {
+const resultSummary = (initial, match, growthSummary) => {
   const diagnostics = buildSimulationDiagnostics({ runEvents: match.events, ...match.finalFrame,
     itemMetaById: Object.fromEntries(initial.publicItems.map(item => [String(item._id), item])) });
-  const completed = new Set(match.events.filter(event => event.kind === 'growth_plan'
-    && event.totalSlots > 0 && event.completedSlots === event.totalSlots).map(event => event.who));
-  const completedBy250 = new Set(match.events.filter(event => event.kind === 'growth_plan'
-    && event.at?.sec <= 250 && event.totalSlots > 0 && event.completedSlots === event.totalSlots).map(event => event.who));
   const actions = buildRunActionSummary(match.events);
-  return { evidence: match.evidence, growthComplete: completed.size, growthCompleteBy250: completedBy250.size,
+  return { evidence: match.evidence, initialGoalCompletion: growthSummary.initialGoalCompletion,
+    growthPlanEvents: growthSummary.growthPlanEvents,
     heroGearReady: diagnostics.equipment.heroGearReadyCount,
     legendaryReady: diagnostics.equipment.legendaryReadyCount,
     emptySlots: diagnostics.equipment.actors.reduce((sum, actor) => sum + 5 - actor.equippedCount, 0),
@@ -104,6 +103,7 @@ for (const seed of seeds) {
     const trackedActors = variant === 'baseline' ? [input.initialFrame.survivors[0]._id] : changes.map(change => change.actorId);
     let match;
     const replays = [];
+    const growthSummaries = [];
     for (let execution = 1; execution <= repeats; execution += 1) {
       console.log(`STRATEGY_COMPARISON_START ${JSON.stringify({ seed, variant, execution, repeats, inputDigest: before, changes })}`);
       let lastCheckpoint = -1;
@@ -113,8 +113,13 @@ for (const seed of seeds) {
         ? createTeamCombatParticipationDiagnostics({ roster: input.initialFrame.survivors,
           actorIds: formationProbe.changes.map(change => change.actorId),
           comparisonRoster: (variant === 'baseline' ? formationProbe.input : original).initialFrame.survivors }) : null;
+      const rules = getRuleset(input.settings.rulesetId);
+      const growthTracker = createMatchDistributionFrameTracker({ initialActors: input.initialFrame.survivors,
+        items: input.publicItems,
+        firstDayDeadlineSec: getPhaseDurationSec(rules, 1, 'morning') + getPhaseDurationSec(rules, 1, 'night') });
       const current = await runRandomIsolationMatch('', { phaseOnly: true, savedInput: input,
         onCombatDiagnostic: participation?.observe, onFrame(frame) {
+        growthTracker.observe(frame);
         const checkpoint = Math.floor(frame.matchSec / 120);
         if (checkpoint !== lastCheckpoint) {
           lastCheckpoint = checkpoint;
@@ -122,6 +127,11 @@ for (const seed of seeds) {
             matchSec: frame.matchSec, alive: frame.survivors.length })}`);
         }
       } });
+      const growthSummary = { initialGoalCompletion: growthTracker.report().growth,
+        growthPlanEvents: summarizeGrowthPlanEvents(current.events) };
+      if (growthSummaries.length) assert.deepEqual(growthSummary, growthSummaries[0],
+        'Same-condition actual executions must have identical frame-tracked growth and plan-event summaries.');
+      growthSummaries.push(growthSummary);
       completedMatches += 1;
       const exact = match ? compareSimulationReplay(asRecord('expected', input, match), asRecord('actual', input, current)) : null;
       const replay = { execution, evidence: current.evidence, finalDigest: digest(current.finalFrame),
@@ -129,7 +139,7 @@ for (const seed of seeds) {
         participationDiagnostics: participation ? { ...participation.summary(),
           scope: 'Bounded current runtime facts only; no missed-turn causality or comparison acceptance.',
           comparedAgainstDiagnosticFreeExecution: Boolean(exact?.matched) } : null };
-      const observation = { seed, variant, inputDigest: before, changes, ...replay };
+      const observation = { seed, variant, inputDigest: before, changes, growthSummary, ...replay };
       replays.push(replay); executions.push(observation); save();
       if (match) {
         assert.equal(exact.matched, true, 'This actual condition must replay exactly.');
@@ -175,13 +185,14 @@ for (const seed of seeds) {
         actorId: actor._id, actorName: actor.name, teamId: teamOf(actor), tacticalSkill: actor.tacticalSkill,
         startingTeamMembers: input.initialFrame.survivors.filter(other => teamOf(other) === teamOf(actor)).map(other => other._id),
         effects: buildTacticalEffectSummary(match.events, actor._id),
-      })), ...resultSummary(input, match),
+      })), ...resultSummary(input, match, growthSummaries[0]),
       sharedPurchaseIntentions: match.events.filter(event => event.reason === 'team_rotate'
         && /키오스크|구매|교환|kiosk/.test(event.sharedGoalReason || '')).length };
     rows.push(row); save();
     console.log(`STRATEGY_COMPARISON_CASE ${JSON.stringify({ seed, variant,
       endingSec: row.evidence.ending.atSec, winnerTeamId: row.evidence.ending.winnerTeamId,
-      growthCompleteBy250: row.growthCompleteBy250, emptySlots: row.emptySlots })}`);
+      initialGoalCompletion: row.initialGoalCompletion.complete,
+      growthPlanSlotCompleteEvents: row.growthPlanEvents.slotCompleteEvents, emptySlots: row.emptySlots })}`);
   }
 }
 console.log(`STRATEGY_COMPARISON_RESULT ${JSON.stringify({ pass: comparisonComplete(), matchesComplete: matchesComplete(), engineVersion: SIMULATION_ENGINE_VERSION,

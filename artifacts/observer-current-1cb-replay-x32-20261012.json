@@ -1,0 +1,1487 @@
+{
+  "schema": "eh-observer-performance.v3",
+  "numericPrecision": {
+    "roundedMillisecondsResolutionMs": 0.001
+  },
+  "label": "new-document-1cb-replay-x32-20261012",
+  "startedAtMs": 29301.1,
+  "endedAtMs": 107541.8,
+  "timeOriginMs": 1791811210175.5,
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "viewportWidth": 1280,
+    "viewportHeight": 720,
+    "devicePixelRatio": 1,
+    "hardwareConcurrency": 12
+  },
+  "engineVersion": "1cb4a1b1524de2829dd3dfd46e6881ce40c4292c39a53858713d7aebcd76754a",
+  "context": {
+    "initial": {
+      "engineVersion": "1cb4a1b1524de2829dd3dfd46e6881ce40c4292c39a53858713d7aebcd76754a",
+      "speed": 32,
+      "seed": "1789192220412",
+      "autoPlay": false,
+      "day": 0,
+      "matchSec": 0,
+      "isGameOver": false,
+      "replayMode": true,
+      "replayId": "33fc498b-40cd-4bf5-b28a-a75515ffeb58",
+      "comparisonMatched": null,
+      "comparedEvents": null
+    },
+    "final": {
+      "engineVersion": "1cb4a1b1524de2829dd3dfd46e6881ce40c4292c39a53858713d7aebcd76754a",
+      "speed": 32,
+      "seed": "1789192220412",
+      "autoPlay": false,
+      "day": 7,
+      "matchSec": 1233.5,
+      "isGameOver": true,
+      "replayMode": true,
+      "replayId": "33fc498b-40cd-4bf5-b28a-a75515ffeb58",
+      "comparisonMatched": true,
+      "comparedEvents": 13237
+    },
+    "speedChanges": 0,
+    "identityChanges": 0,
+    "pauses": 0,
+    "activeStartOffsetMs": 6811.3,
+    "activeEndOffsetMs": 78240.5
+  },
+  "boundary": {
+    "status": "settled",
+    "stopReason": "replay-complete",
+    "entryScope": "full_entries_intersecting_measurement_including_boundary_overlaps",
+    "reason": null
+  },
+  "elapsedMs": 78240.7,
+  "raf": {
+    "supported": true,
+    "samples": 1879,
+    "fps": 24.016,
+    "intervalMs": {
+      "median": 29.9,
+      "p95": 110,
+      "max": 220
+    },
+    "boundaryGapsMs": {
+      "firstRafDelay": 6.2,
+      "trailingRafGap": 62.6
+    },
+    "scope": "RAF_callback_cadence_not_presented_FPS",
+    "percentiles": {
+      "scope": "entire_measurement",
+      "method": "rounded_histogram",
+      "resolutionMs": 0.1,
+      "upperBoundMs": 1000,
+      "bins": 10001,
+      "overflowSamples": 0,
+      "medianRangeMs": null,
+      "p95RangeMs": null
+    }
+  },
+  "longTasks": {
+    "supported": true,
+    "count": 37,
+    "totalMs": 2102,
+    "maxMs": 178,
+    "reason": null,
+    "timing": {
+      "selection": "slowest_by_duration",
+      "taskLimit": 8,
+      "scope": "full_intersecting_task_elapsed_time_not_cpu_or_script_attribution"
+    },
+    "slowest": [
+      {
+        "startOffsetMs": 78004.3,
+        "durationMs": 178
+      },
+      {
+        "startOffsetMs": 34122.7,
+        "durationMs": 63
+      },
+      {
+        "startOffsetMs": 47045.7,
+        "durationMs": 61
+      },
+      {
+        "startOffsetMs": 37071.8,
+        "durationMs": 58
+      },
+      {
+        "startOffsetMs": 37842.2,
+        "durationMs": 58
+      },
+      {
+        "startOffsetMs": 6897,
+        "durationMs": 57
+      },
+      {
+        "startOffsetMs": 29239.7,
+        "durationMs": 57
+      },
+      {
+        "startOffsetMs": 44977,
+        "durationMs": 57
+      }
+    ]
+  },
+  "longAnimationFrames": {
+    "count": 745,
+    "totalDurationMs": 59650.1,
+    "maxDurationMs": 224.1,
+    "maxWorkMs": 223.6,
+    "maxRenderMs": 6.7,
+    "maxStyleAndLayoutMs": 3.6,
+    "maxBlockingMs": 129.3,
+    "slowest": [
+      {
+        "startOffsetMs": 77959.6,
+        "durationMs": 224.1,
+        "workMs": 223.6,
+        "renderMs": 0.5,
+        "styleAndLayoutMs": 0.3,
+        "blockingMs": 129.3,
+        "scriptCount": 5,
+        "scripts": [
+          {
+            "durationMs": 178.8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 10.9,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 10,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 5.2,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 36149.1,
+        "durationMs": 132.2,
+        "workMs": 131.3,
+        "renderMs": 0.9,
+        "styleAndLayoutMs": 0.2,
+        "blockingMs": 4.1,
+        "scriptCount": 10,
+        "scripts": [
+          {
+            "durationMs": 53.1,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 14.2,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 12,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.6,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.4,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.4,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 5.9,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 56997.8,
+        "durationMs": 127.3,
+        "workMs": 125.9,
+        "renderMs": 1.4,
+        "styleAndLayoutMs": 0.2,
+        "blockingMs": 0,
+        "scriptCount": 7,
+        "scripts": [
+          {
+            "durationMs": 37.3,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 15.5,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 8.9,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 5.6,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 5.5,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 5.3,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 48781.7,
+        "durationMs": 122.9,
+        "workMs": 122.1,
+        "renderMs": 0.8,
+        "styleAndLayoutMs": 0.3,
+        "blockingMs": 4.8,
+        "scriptCount": 8,
+        "scripts": [
+          {
+            "durationMs": 53.9,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 11.3,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "s",
+            "sourceCharPosition": 530195,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 11.2,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 9.4,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 7.5,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.4,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.2,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 77064,
+        "durationMs": 121.9,
+        "workMs": 121.4,
+        "renderMs": 0.5,
+        "styleAndLayoutMs": 0.1,
+        "blockingMs": 0,
+        "scriptCount": 6,
+        "scripts": [
+          {
+            "durationMs": 34.7,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 27,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 7.4,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.6,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 5.5,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 4.9,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 43728.6,
+        "durationMs": 121.7,
+        "workMs": 121.1,
+        "renderMs": 0.6,
+        "styleAndLayoutMs": 0.1,
+        "blockingMs": 0,
+        "scriptCount": 7,
+        "scripts": [
+          {
+            "durationMs": 36.3,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 29.9,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "s",
+            "sourceCharPosition": 530195,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.8,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 9.5,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 7.7,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.7,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 5.6,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 43851.5,
+        "durationMs": 120.2,
+        "workMs": 118.9,
+        "renderMs": 1.3,
+        "styleAndLayoutMs": 0.3,
+        "blockingMs": 0,
+        "scriptCount": 10,
+        "scripts": [
+          {
+            "durationMs": 20.3,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 15.4,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 14.1,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 7.8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 7.3,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.9,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.5,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.4,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 40979.2,
+        "durationMs": 118.1,
+        "workMs": 117.3,
+        "renderMs": 0.8,
+        "styleAndLayoutMs": 0.1,
+        "blockingMs": 0,
+        "scriptCount": 10,
+        "scripts": [
+          {
+            "durationMs": 17.5,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 14.8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 14.8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 9.5,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "s",
+            "sourceCharPosition": 530195,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 9.1,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 9,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 7.4,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.2,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      }
+    ],
+    "mostBlocking": [
+      {
+        "startOffsetMs": 77959.6,
+        "durationMs": 224.1,
+        "workMs": 223.6,
+        "renderMs": 0.5,
+        "styleAndLayoutMs": 0.3,
+        "blockingMs": 129.3,
+        "scriptCount": 5,
+        "scripts": [
+          {
+            "durationMs": 178.8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 10.9,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 10,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 5.2,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 34091.9,
+        "durationMs": 110.7,
+        "workMs": 110,
+        "renderMs": 0.7,
+        "styleAndLayoutMs": 0.3,
+        "blockingMs": 14.2,
+        "scriptCount": 6,
+        "scripts": [
+          {
+            "durationMs": 63.5,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 14.9,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 9,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.7,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 5.6,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "",
+            "sourceFunctionName": "",
+            "sourceCharPosition": -1,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 5.6,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 46998.6,
+        "durationMs": 112.3,
+        "workMs": 110.9,
+        "renderMs": 1.4,
+        "styleAndLayoutMs": 0.2,
+        "blockingMs": 12.4,
+        "scriptCount": 6,
+        "scripts": [
+          {
+            "durationMs": 61,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.5,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 8.4,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 7.8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.5,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 5.2,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 37033,
+        "durationMs": 100.5,
+        "workMs": 99.7,
+        "renderMs": 0.8,
+        "styleAndLayoutMs": 0.1,
+        "blockingMs": 9.7,
+        "scriptCount": 5,
+        "scripts": [
+          {
+            "durationMs": 58.8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 15.2,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.3,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.2,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 6.2,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 44933.4,
+        "durationMs": 104.2,
+        "workMs": 103.3,
+        "renderMs": 0.9,
+        "styleAndLayoutMs": 0,
+        "blockingMs": 9,
+        "scriptCount": 5,
+        "scripts": [
+          {
+            "durationMs": 57.8,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 15.8,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 10.9,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 7.7,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 7.3,
+            "invoker": "Scheduler.yield.then",
+            "invokerType": "resolve-promise",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 529716,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 37320.1,
+        "durationMs": 74.4,
+        "workMs": 72.1,
+        "renderMs": 2.3,
+        "styleAndLayoutMs": 0.8,
+        "blockingMs": 9,
+        "scriptCount": 2,
+        "scripts": [
+          {
+            "durationMs": 56.7,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "s",
+            "sourceCharPosition": 530195,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 13.8,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 6897,
+        "durationMs": 79.8,
+        "workMs": 78.9,
+        "renderMs": 0.9,
+        "styleAndLayoutMs": 0.3,
+        "blockingMs": 8.7,
+        "scriptCount": 2,
+        "scripts": [
+          {
+            "durationMs": 57.9,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "",
+            "sourceCharPosition": 904976,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          },
+          {
+            "durationMs": 19.9,
+            "invoker": "MessagePort.onmessage",
+            "invokerType": "event-listener",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/3794-084a406ae2f53c6d.js",
+            "sourceFunctionName": "M",
+            "sourceCharPosition": 40859,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      },
+      {
+        "startOffsetMs": 37841.9,
+        "durationMs": 59.2,
+        "workMs": 58.7,
+        "renderMs": 0.5,
+        "styleAndLayoutMs": 0.4,
+        "blockingMs": 8.7,
+        "scriptCount": 1,
+        "scripts": [
+          {
+            "durationMs": 58.2,
+            "invoker": "TimerHandler:setTimeout",
+            "invokerType": "user-callback",
+            "sourceURL": "http://127.0.0.1:3141/_next/static/chunks/5167-dfaf65c4ef86f457.js",
+            "sourceFunctionName": "s",
+            "sourceCharPosition": 530195,
+            "windowAttribution": "self",
+            "forcedStyleAndLayoutMs": 0,
+            "pauseMs": 0
+          }
+        ]
+      }
+    ],
+    "supported": true,
+    "reason": null,
+    "attribution": {
+      "selection": "slowest_by_duration",
+      "frameLimit": 8,
+      "scriptLimit": 8,
+      "mostBlockingSelection": "largest_blocking_duration_then_duration",
+      "textLimit": 512,
+      "scope": "browser_attributed_main_thread_entrypoints_not_full_call_stacks"
+    }
+  },
+  "workBreakdown": {
+    "scope": "instrumented_synchronous_stages_including_nested_work_not_additive",
+    "stages": [
+      {
+        "name": "observer.teamModel",
+        "count": 750,
+        "totalMs": 2643,
+        "maxMs": 15.4,
+        "maxStartOffsetMs": 77159.6
+      },
+      {
+        "name": "start.captureInput",
+        "count": 1,
+        "totalMs": 4.9,
+        "maxMs": 4.9,
+        "maxStartOffsetMs": 6898.9
+      },
+      {
+        "name": "start.prepareInput",
+        "count": 1,
+        "totalMs": 8.5,
+        "maxMs": 8.5,
+        "maxStartOffsetMs": 6903.9
+      },
+      {
+        "name": "phase.fieldResources",
+        "count": 13,
+        "totalMs": 12.8,
+        "maxMs": 12.8,
+        "maxStartOffsetMs": 6917.9
+      },
+      {
+        "name": "phase.starterLoadout",
+        "count": 13,
+        "totalMs": 21.6,
+        "maxMs": 21.4,
+        "maxStartOffsetMs": 6930.7
+      },
+      {
+        "name": "phase.setup",
+        "count": 13,
+        "totalMs": 70.1,
+        "maxMs": 39.5,
+        "maxStartOffsetMs": 6914.2
+      },
+      {
+        "name": "growth.refreshPlans",
+        "count": 13262,
+        "totalMs": 3020.7,
+        "maxMs": 13.4,
+        "maxStartOffsetMs": 22046.5
+      },
+      {
+        "name": "growth.teamCoordination",
+        "count": 5922,
+        "totalMs": 5932.8,
+        "maxMs": 56.5,
+        "maxStartOffsetMs": 37509.7
+      },
+      {
+        "name": "growth.slice",
+        "count": 2305,
+        "totalMs": 17293.2,
+        "maxMs": 58,
+        "maxStartOffsetMs": 37842.3
+      },
+      {
+        "name": "growth.actorMovement",
+        "count": 1300,
+        "totalMs": 2495,
+        "maxMs": 55.7,
+        "maxStartOffsetMs": 29240.4
+      },
+      {
+        "name": "growth.actorLoot",
+        "count": 1300,
+        "totalMs": 1128.7,
+        "maxMs": 11,
+        "maxStartOffsetMs": 71064.8
+      },
+      {
+        "name": "growth.actorPlan",
+        "count": 1300,
+        "totalMs": 1721.2,
+        "maxMs": 14.3,
+        "maxStartOffsetMs": 7010.6
+      },
+      {
+        "name": "growth.actorQueue",
+        "count": 1300,
+        "totalMs": 770.5,
+        "maxMs": 14.2,
+        "maxStartOffsetMs": 77135.4
+      },
+      {
+        "name": "growth.singleActor",
+        "count": 1300,
+        "totalMs": 6261.4,
+        "maxMs": 57,
+        "maxStartOffsetMs": 29240.3
+      },
+      {
+        "name": "frame.snapshot",
+        "count": 6428,
+        "totalMs": 21618.6,
+        "maxMs": 21.5,
+        "maxStartOffsetMs": 63647.6
+      },
+      {
+        "name": "observer.trackedActors",
+        "count": 673,
+        "totalMs": 72.2,
+        "maxMs": 1.5,
+        "maxStartOffsetMs": 43339.1
+      },
+      {
+        "name": "replay.captureResult",
+        "count": 1,
+        "totalMs": 45.1,
+        "maxMs": 45.1,
+        "maxStartOffsetMs": 78011.7
+      },
+      {
+        "name": "replay.compareResult",
+        "count": 1,
+        "totalMs": 126.1,
+        "maxMs": 126.1,
+        "maxStartOffsetMs": 78056.8
+      }
+    ]
+  },
+  "waitBreakdown": {
+    "scope": "async_wait_settlements_separate_from_synchronous_work",
+    "waits": [
+      {
+        "name": "yield.growth.frame",
+        "count": 660,
+        "totalMs": 11980.8,
+        "maxMs": 51.8
+      },
+      {
+        "name": "yield.growth.task",
+        "count": 411,
+        "totalMs": 36.4,
+        "maxMs": 0.4
+      }
+    ]
+  },
+  "inputResponse": {
+    "supported": true,
+    "samples": 1,
+    "pendingSamples": 0,
+    "scope": "captured_click_to_next_RAF_not_INP_or_presentation",
+    "lastMs": 0.4,
+    "maxMs": 0.4
+  },
+  "heap": {
+    "supported": true,
+    "baselineUsedBytes": 27064711,
+    "usedBytes": 202421872,
+    "deltaUsedBytes": 175357161,
+    "totalBytes": 377383152,
+    "limitBytes": 4395630592
+  },
+  "domNodes": 741,
+  "visibilityState": "visible",
+  "visibility": {
+    "supported": true,
+    "reason": null,
+    "initialState": "visible",
+    "endState": "visible",
+    "transitions": 0,
+    "boundaryNotifications": 0,
+    "durationMs": {
+      "visible": 78240.7,
+      "hidden": 0,
+      "unknown": 0
+    },
+    "entireMeasurementVisible": true
+  }
+}
