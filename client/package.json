@@ -135,7 +135,7 @@
     "check:late-combat-join": "node ./scripts/check-late-combat-join.mjs",
     "check:recovery-combat-resume": "node ./scripts/check-recovery-combat-resume.mjs",
     "check:hunt-pvp-interruption": "node ./scripts/check-hunt-pvp-interruption.mjs && node ./scripts/check-hunt-pvp-handoff.mjs",
-    "check:team-observer": "node ./scripts/check-team-observer.mjs && node ./scripts/check-observer-tail-projection.mjs && npm run check:movement-objectives && npm run check:observer-performance-guards && npm run check:observer-performance-probe",
+    "check:team-observer": "node ./scripts/check-team-observer.mjs && node ./scripts/check-observer-tail-projection.mjs && node ./scripts/check-observer-event-window.mjs && node ./scripts/check-observer-event-window-ui.mjs && npm run check:movement-objectives && npm run check:observer-performance-guards && npm run check:observer-performance-probe",
     "check:movement-objectives": "node ./scripts/check-movement-objectives.mjs && npm run check:growth-observation",
     "check:growth-observation": "node ./scripts/check-procurement-purpose.mjs && node ./scripts/check-growth-observation.mjs",
     "check:observer-goals-match": "node ./scripts/check-observer-goals-match.mjs",

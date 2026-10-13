@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 
 const observerURL = new URL('../src/app/simulation/_lib/teamObserverRuntime.js', import.meta.url);
-const { buildTeamObserverModel } = await import(observerURL.href);
+const { buildTeamObserverModel, buildTeamObserverEventWindow } = await import(observerURL.href);
 
 // Test-only forward projection of the same complete event window. No past
 // result files, Git revisions, browser state, saved logs or external calls.
@@ -88,9 +88,17 @@ const zoneName = id => ({ alpha: '공장', beta: '학교' })[id] || String(id);
 function compare(input) {
   const { zoneName: inputZoneName, ...dataInput } = input;
   const before = structuredClone(dataInput);
-  const expected = forwardModel({ survivors, zoneName, ...input });
-  const actual = buildTeamObserverModel({ survivors, zoneName, ...input });
+  const sourceEvents = input.events || [];
+  const completeInput = { survivors, zoneName, ...input, events: sourceEvents };
+  const expected = forwardModel(completeInput);
+  const actual = buildTeamObserverModel(completeInput);
+  const eventWindow = buildTeamObserverEventWindow(sourceEvents, new Set(expected.trackedActorIds));
+  assert.strictEqual(eventWindow.eventsRef, sourceEvents, 'the indexed window retains the exact source identity');
+  assert.ok(Object.isFrozen(eventWindow.rows));
+  assert.ok(eventWindow.rows.every(Object.isFrozen), 'indexed row snapshots are immutable');
+  const indexed = buildTeamObserverModel({ ...completeInput, eventWindow });
   assert.deepEqual(actual, expected);
+  assert.deepEqual(indexed, expected, 'indexed and stateless paths preserve the complete oracle model');
   assert.deepEqual(dataInput, before, 'all source event/actor data remains unchanged');
   assert.equal(input.zoneName, inputZoneName, 'label callback is not replaced');
   return actual;

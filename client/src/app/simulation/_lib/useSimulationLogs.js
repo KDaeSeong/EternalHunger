@@ -79,8 +79,9 @@ export function useSimulationLogs({
 
   function setRunEvents(events) {
     pendingVisibleRunEventsRef.current = [];
-    fullRunEventsRef.current = structuredClone(events);
-    setVisibleRunEvents(events.slice(-5000));
+    const owned = structuredClone(events);
+    fullRunEventsRef.current = owned;
+    setVisibleRunEvents(owned.slice(-5000));
   }
 
   function enqueueVisibleRunEvent(event) {
@@ -152,7 +153,7 @@ export function useSimulationLogs({
       at,
       state: { day, phase, matchSec },
       refs: { fullRunEventsRef },
-      actions: { enqueueRunEvent: enqueueVisibleRunEvent },
+      actions: { enqueueOwnedRunEvent: enqueueVisibleRunEvent },
     });
   }
 

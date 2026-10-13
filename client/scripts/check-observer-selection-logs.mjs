@@ -34,7 +34,7 @@ const actor = (id) => Object.freeze({ _id: id, name: id, teamId: 'team:1', hp: 1
 
 // Negative control for the removed effect, not a past result file. It reproduces
 // the old passive selection notification without filtering or sorting any logs.
-function passiveSelectionEffect(id, survivors, addLog) {
+function PassiveSelectionEffect(id, survivors, addLog) {
   const previous = useRef({ inited: false, last: '' });
   useEffect(() => {
     if (!id) return;
@@ -45,11 +45,11 @@ function passiveSelectionEffect(id, survivors, addLog) {
     addLog(`🎯 하이퍼루프 대상 선택: ${survivors.find(row => row._id === id)?.name || '선택 캐릭터'}`, 'system');
   }, [id, survivors, addLog]);
 }
-function observer(props) {
+function Observer(props) {
   const market = useSimulationMarketState(props);
   const logs = useSimulationLogs(props);
   const hyperloopCharId = getPreferredHyperloopCharId(market.selectedCharId, props.survivors);
-  if (baseline) passiveSelectionEffect(hyperloopCharId, props.survivors, logs.addLog);
+  if (baseline) PassiveSelectionEffect(hyperloopCharId, props.survivors, logs.addLog);
   return { market, logs, hyperloopCharId };
 }
 const previousWindow = globalThis.window;
@@ -66,7 +66,7 @@ function fixture(survivors = [actor('a'), actor('b'), actor('c')]) {
   const props = { survivors, day: 1, phase: 'night', matchSec: 10, runInputRef: { current: null },
     runLockedRef: { current: true }, runEvents: [], fireAndReport: () => { throw new Error('No account action'); },
     setSurvivors: () => mutations.push('survivors'), setDead: () => mutations.push('dead') };
-  const h = createHandlerHarness(observer, props);
+  const h = createHandlerHarness(Observer, props);
   const rng = createSeedRng('observer-selection-independent');
   function render() {
     const oldWindow = globalThis.window;
@@ -88,6 +88,45 @@ function fixture(survivors = [actor('a'), actor('b'), actor('c')]) {
   } };
 }
 try {
+  await check('the real log hook publishes a detached event snapshot to both read-only views', async () => {
+    const f = fixture();
+    try {
+      const payload = { who: 'a', participants: ['a', 'b'], detail: { hp: 70 } };
+      const at = { day: 1, phase: 'night', sec: 10 };
+      f.value.logs.emitRunEvent('battle', payload, at);
+      payload.participants[0] = 'other'; payload.detail.hp = 0; at.sec = 900;
+      await Promise.resolve(); f.render();
+      const published = f.value.logs.runEvents[0];
+      assert.equal(f.value.logs.runEvents.length, 1);
+      assert.equal(published, f.value.logs.fullRunEventsRef.current[0]);
+      assert.deepEqual(published.participants, ['a', 'b']);
+      assert.equal(published.detail.hp, 70); assert.equal(published.at.sec, 10);
+      const previousWindow = f.value.logs.runEvents;
+      f.h.dirty = true; f.props.matchSec = 11; f.render();
+      assert.equal(f.value.logs.runEvents, previousWindow, 'A frame-only update reuses the owned event window.');
+    } finally { await f.dispose(); }
+  });
+  await check('replay event replacement detaches its input and drops a queued previous-match event', async () => {
+    const f = fixture();
+    try {
+      f.value.logs.emitRunEvent('move', { who: 'old', detail: { target: 'old-zone' } });
+      const replayEvents = [{ kind: 'move', who: 'a', at: { sec: 3 }, detail: { target: 'new-zone' } }];
+      f.value.logs.setRunEvents(replayEvents);
+      replayEvents[0].who = 'mutated'; replayEvents[0].at.sec = 999;
+      replayEvents[0].detail.target = 'mutated-zone';
+      await Promise.resolve(); f.render();
+      assert.equal(f.value.logs.runEvents.length, 1);
+      assert.equal(f.value.logs.fullRunEventsRef.current.length, 1);
+      const published = f.value.logs.runEvents[0];
+      assert.equal(published, f.value.logs.fullRunEventsRef.current[0]);
+      assert.equal(published.who, 'a'); assert.equal(published.at.sec, 3);
+      assert.equal(published.detail.target, 'new-zone');
+      assert.notEqual(published, replayEvents[0]);
+      assert.notEqual(f.value.logs.runEvents, f.value.logs.fullRunEventsRef.current);
+      f.value.logs.setRunEvents([]); f.render();
+      assert.deepEqual(f.value.logs.runEvents, []); assert.deepEqual(f.value.logs.fullRunEventsRef.current, []);
+    } finally { await f.dispose(); }
+  });
   await check('mount and fallback after death update the selected actor without recording travel', async () => {
     const f = fixture();
     try {

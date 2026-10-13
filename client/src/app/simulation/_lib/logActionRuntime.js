@@ -118,8 +118,8 @@ export function emitSimulationRunEvent({
   refs = {},
 } = {}) {
   const { day, phase, matchSec } = state;
-  const { enqueueRunEvent, setRunEvents } = actions;
-  if (typeof enqueueRunEvent !== 'function' && typeof setRunEvents !== 'function') return;
+  const { enqueueOwnedRunEvent, enqueueRunEvent, setRunEvents } = actions;
+  if (typeof enqueueOwnedRunEvent !== 'function' && typeof enqueueRunEvent !== 'function' && typeof setRunEvents !== 'function') return;
 
   const stamp = at || { day, phase, sec: matchSec };
   const eventPayload = payload && typeof payload === 'object' ? { ...payload } : {};
@@ -136,7 +136,11 @@ export function emitSimulationRunEvent({
   ) {
     event.subkind = String(payloadKind);
   }
-  if (refs.fullRunEventsRef) refs.fullRunEventsRef.current.push(structuredClone(event));
-  if (typeof enqueueRunEvent === 'function') enqueueRunEvent(event);
+  // The UI and full journal only read owned snapshots. Detach once from the
+  // producer; legacy callbacks retain their independent journal-copy contract.
+  const snapshot = refs.fullRunEventsRef || typeof enqueueOwnedRunEvent === 'function' ? structuredClone(event) : null;
+  if (refs.fullRunEventsRef) refs.fullRunEventsRef.current.push(snapshot);
+  if (typeof enqueueOwnedRunEvent === 'function') enqueueOwnedRunEvent(snapshot);
+  else if (typeof enqueueRunEvent === 'function') enqueueRunEvent(event);
   else setRunEvents((prev) => appendVisibleRunEvents(prev, [event]));
 }

@@ -30,6 +30,7 @@ decisionKinds.add('hunt_participant_end');
 importantKinds.add('hunt_participant_end');
 importantKinds.add('equipment_effect');
 const observerArrayActorKeys = ['assistIds', 'participants', 'helpers'];
+const observerEventWindows = new WeakSet();
 
 export function observerEventActorIds(event) {
   return [...new Set([event.who, event.a, event.b, event.by, event.targetId, event.target, event.victimId, event.chaserId, event.sourceActorId, event.opponentId, event.strikerId, event.previousOwnerId, event.continuedBy,
@@ -59,6 +60,27 @@ function observerEventInvolvesMember(event, memberIds) {
     }
   }
   return false;
+}
+
+function observerMemberKey(memberIds) {
+  return JSON.stringify([...new Set(memberIds)].sort());
+}
+
+// UI-only projection of one owned, immutable event window. Keep future rows
+// for clock rewind/advance, and never retain an earlier window or actor state.
+// Mutable callers should omit this option or build a fresh window after edits.
+export function buildTeamObserverEventWindow(events, memberIds = []) {
+  const members = new Set((memberIds instanceof Set ? [...memberIds] : list(memberIds))
+    .filter(id => typeof id === 'string' || typeof id === 'number').map(String).filter(Boolean));
+  const rows = [];
+  list(events).forEach((event, index) => {
+    const sec = event?.at?.sec == null ? NaN : Number(event.at.sec);
+    if (!Number.isFinite(sec) || sec < 0 || !observerEventInvolvesMember(event, members)) return;
+    rows.push(Object.freeze({ event, index, sec }));
+  });
+  const window = Object.freeze({ eventsRef: events, memberKey: observerMemberKey(members), rows: Object.freeze(rows) });
+  observerEventWindows.add(window);
+  return window;
 }
 
 export function getObserverVisibleActors(actors, trackedIds = [], limit = 12) {
@@ -241,7 +263,7 @@ export function describeObserverEvent(event, { nameOf = String, zoneName = Strin
 // setters. Names are labels; exact participant IDs determine event membership.
 export function buildTeamObserverModel({ survivors = [], dead = [], events = [], teamId = '', matchSec = 0,
   publicItems = [], killCounts = {}, assistCounts = {}, isGameOver = false, zoneName = String, spawnState, forbiddenIds = [],
-  settings, day, phase } = {}) {
+  settings, day, phase, eventWindow = null } = {}) {
   const observerRuleset = getRuleset(settings?.rulesetId, settings?.simulationRuleset);
   const actors = new Map();
   for (const actor of [...list(dead), ...list(survivors)]) if (idOf(actor)) actors.set(idOf(actor), actor);
@@ -278,14 +300,26 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
   const timed = [];
   let ordered = true;
   let previousSec = -Infinity;
-  list(events).forEach((event, index) => {
-    const sec = event?.at?.sec == null ? NaN : Number(event.at.sec);
-    if (!Number.isFinite(sec) || sec < 0 || sec > matchSec
-      || !observerEventInvolvesMember(event, memberIds)) return;
+  const appendTimed = (event, index, sec) => {
     if (sec < previousSec) ordered = false;
     previousSec = sec;
+    // Decision links are query-local. Do not attach them to cached rows/events.
     timed.push({ event, index, sec });
-  });
+  };
+  if (observerEventWindows.has(eventWindow) && eventWindow.eventsRef === events
+    && eventWindow.memberKey === observerMemberKey(memberIds)) {
+    for (const row of eventWindow.rows) {
+      if (row.sec > matchSec) continue;
+      appendTimed(row.event, row.index, row.sec);
+    }
+  } else {
+    list(events).forEach((event, index) => {
+      const sec = event?.at?.sec == null ? NaN : Number(event.at.sec);
+      if (!Number.isFinite(sec) || sec < 0 || sec > matchSec
+        || !observerEventInvolvesMember(event, memberIds)) return;
+      appendTimed(event, index, sec);
+    });
+  }
   if (!ordered) timed.sort((a, b) => a.sec - b.sec || a.index - b.index);
 
   const recent = [];

@@ -50,6 +50,68 @@ check('the event emitter can enqueue one UI batch item while preserving the full
   assert.notEqual(fullRunEventsRef.current[0], queued[0]);
 });
 
+check('owned event publication shares one producer-detached snapshot with the full journal', () => {
+  const fullRunEventsRef = { current: [] };
+  const owned = [];
+  const legacy = [];
+  let directUpdates = 0;
+  const nested = { values: ['before'] };
+  const stamp = { day: 2, phase: 'night', sec: 17, detail: { marker: 'original' } };
+  emitSimulationRunEvent({
+    kind: 'objective', payload: { kind: 'gather', nested }, at: stamp,
+    refs: { fullRunEventsRef },
+    actions: {
+      enqueueOwnedRunEvent: (event) => owned.push(event),
+      enqueueRunEvent: (event) => legacy.push(event),
+      setRunEvents: () => { directUpdates += 1; },
+    },
+  });
+  assert.equal(owned.length, 1);
+  assert.equal(legacy.length, 0);
+  assert.equal(directUpdates, 0);
+  assert.equal(fullRunEventsRef.current[0], owned[0]);
+  assert.equal(owned[0].kind, 'objective');
+  assert.equal(owned[0].subkind, 'gather');
+  assert.deepEqual(owned[0].at, stamp);
+  assert.equal(Number.isFinite(owned[0].ts), true);
+  nested.values[0] = 'mutated';
+  stamp.detail.marker = 'mutated';
+  assert.deepEqual(owned[0].nested, { values: ['before'] });
+  assert.equal(owned[0].at.detail.marker, 'original');
+  assert.equal(fullRunEventsRef.current[0].nested.values[0], 'before');
+});
+
+check('owned event publication deep-detaches without a journal and setRunEvents fallback stays owned-only', () => {
+  const nested = { values: ['before'] };
+  const stamp = { day: 3, phase: 'morning', sec: 8, detail: { marker: 'original' } };
+  const owned = [];
+  let directUpdates = 0;
+  emitSimulationRunEvent({
+    kind: 'move', payload: { nested }, at: stamp,
+    actions: {
+      enqueueOwnedRunEvent: (event) => owned.push(event),
+      setRunEvents: (updater) => { directUpdates += 1; assert.equal(typeof updater, 'function'); },
+    },
+  });
+  assert.equal(owned.length, 1);
+  assert.equal(directUpdates, 0);
+  nested.values[0] = 'mutated';
+  stamp.detail.marker = 'mutated';
+  assert.deepEqual(owned[0].nested, { values: ['before'] });
+  assert.equal(owned[0].at.detail.marker, 'original');
+});
+
+check('the event emitter preserves the legacy callback behavior when no owned callback is supplied', () => {
+  const fullRunEventsRef = { current: [] };
+  const queued = [];
+  emitSimulationRunEvent({
+    kind: 'move', payload: { nested: { value: 1 } }, at: { day: 1, phase: 'day', sec: 2 },
+    refs: { fullRunEventsRef }, actions: { enqueueRunEvent: (event) => queued.push(event) },
+  });
+  assert.equal(queued.length, 1);
+  assert.notEqual(fullRunEventsRef.current[0], queued[0]);
+});
+
 check('kill and combat detail views scan from the tail and cap rendered rows', () => {
   const kills = Array.from({ length: 260 }, (_, index) => ({ id: `kill-${index}`, type: 'death', text: `+1 킬 ${index}` }));
   const details = Array.from({ length: 460 }, (_, index) => ({ id: `detail-${index}`, type: 'combat-detail', text: `피해: ${index}` }));

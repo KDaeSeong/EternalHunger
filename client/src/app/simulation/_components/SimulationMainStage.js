@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useRef, useState } from 'react';
-import { buildTeamObserverModel } from '../_lib/teamObserverRuntime';
+import { buildTeamObserverEventWindow, buildTeamObserverModel } from '../_lib/teamObserverRuntime';
 import { measureObserverWork } from '../_lib/observerWorkMeasurementRuntime';
 import { getActorTeamId } from '../_lib/teamRuntime';
 import SimulationTeamObserverPanel from './SimulationTeamObserverPanel';
@@ -143,14 +143,20 @@ export default function SimulationMainStage({
     () => measureObserverWork('observer.trackedActors', () => buildObserverTrackedActorIds(survivors, dead, observedTeamId)),
     [survivors, dead, observedTeamId]
   );
+  const observerMemberKey = JSON.stringify([...observerTrackedActorIds].sort());
+  const observerEventWindow = useMemo(() => {
+    if (observerTab !== 'team') return null;
+    return measureObserverWork('observer.eventWindow', () =>
+      buildTeamObserverEventWindow(runEvents, JSON.parse(observerMemberKey)));
+  }, [observerTab, runEvents, observerMemberKey]);
   const observerModel = useMemo(() => {
     if (observerTab !== 'team') return null;
     return measureObserverWork('observer.teamModel', () => buildTeamObserverModel({
-      survivors, dead, events: runEvents, teamId: observedTeamId, matchSec,
+      survivors, dead, events: runEvents, eventWindow: observerEventWindow, teamId: observedTeamId, matchSec,
       publicItems, killCounts, assistCounts, isGameOver, zoneName: getZoneName,
       spawnState, forbiddenIds: forbiddenNow, settings, day, phase,
     }));
-  }, [observerTab, survivors, dead, runEvents, observedTeamId, matchSec, publicItems, killCounts, assistCounts, isGameOver, getZoneName, spawnState, forbiddenNow, settings, day, phase]);
+  }, [observerTab, survivors, dead, runEvents, observerEventWindow, observedTeamId, matchSec, publicItems, killCounts, assistCounts, isGameOver, getZoneName, spawnState, forbiddenNow, settings, day, phase]);
   const battlefield = (
       <div className="simulation-stage">
         <div className="simulation-battlefield-column">

@@ -33,6 +33,7 @@ const gear = (id, name, materialId) => ({ ...hero, _id: id, itemKey: id, name, t
 const ordinary = gear('team-ordinary', '천 모자', cloth._id), rare = gear('team-rare', '생명 모자', tree._id);
 const items = [hero, cloth, tree, meteor, ordinary, rare];
 const fixture = () => {
+  let currentSec = 500;
   const ruleset = structuredClone(getRuleset('ER_S11'));
   ruleset.worldSpawns.dimensionRift.enabled = false;
   const mapObj = { zones: ['a', 'b', 'c'].map((zoneId) => ({ zoneId, name: zoneId, hasKiosk: false })) };
@@ -40,7 +41,7 @@ const fixture = () => {
     forbiddenIds: new Set(), nextDay: 3, nextPhase: 'morning', phaseIdxNow: 4, ruleset,
     publicItems: items, craftables: buildCraftableItems(items), itemMetaById: buildItemMetaById(items),
     itemNameById: buildItemNameById(items), itemKeyById: buildItemKeyById(items),
-    actionIntervalSec: 20, statusElapsedSec: 0, currentActionSec: () => 500, kiosks: [], droneOffers: [],
+    actionIntervalSec: 20, statusElapsedSec: 0, currentActionSec: () => currentSec, kiosks: [], droneOffers: [],
     nextSpawn: { coreNodes: [{ id: 'tree-c', kind: 'life_tree', zoneId: 'c', picked: false }],
       fieldResources: createFieldResources(mapObj, items, ruleset) } };
   const roster = ['leader', 'crafter', 'escort'].map((_id, index) => ({ _id, name: _id, teamId: 'team:1', teamSlot: index + 1,
@@ -48,7 +49,10 @@ const fixture = () => {
     inventory: [{ ...structuredClone(hero), itemId: hero._id, qty: 1 }], equipped: { head: hero._id },
     routePlanTargetItemIds: [hero._id], goalLoadouts: { legend: { headKey: index === 1 ? rare.itemKey : ordinary.itemKey } } }));
   for (const actor of roster) refreshActorGrowthPlan(actor, items, state);
-  return { state, roster };
+  return { state, roster, advanceClock(actors) {
+    currentSec = Math.max(currentSec, ...actors.flatMap((actor) => [Number(actor._actionReadyAtSec || 0), Number(actor._growthReadyAtSec || 0)])) + 20;
+    return currentSec;
+  } };
 };
 const plan = ({ state, roster }) => buildTeamCoordination({ roster, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds,
   day: state.nextDay, phase: state.nextPhase, spawnState: state.nextSpawn, ruleset: state.ruleset, publicItems: state.publicItems,
@@ -86,6 +90,79 @@ check('a teammate\'s real rare recipe can set the shared destination instead of 
     assert.deepEqual(move.objective.sourceIds, ['tree-c']);
   }
   assert.deepEqual(input.roster, before.roster); assert.deepEqual(input.state.nextSpawn, before.spawn);
+});
+
+check('a nonleader\'s ordinary custom field recipe is still completed after the leader\'s first shared choice', () => {
+  const input = fixture();
+  input.roster = input.roster.slice(0, 2);
+  const customLeaf = { _id: 'guest-item-team-custom-field-leaf', name: '맞춤 들풀', type: '재료', category: 'material',
+    tier: 1, stackMax: 10, spawnZones: ['c'] };
+  const customGear = gear('guest-item-team-custom-field-head', '맞춤 들풀 투구', customLeaf._id);
+  const catalog = [...items, customLeaf, customGear];
+  input.state.publicItems = catalog;
+  input.state.craftables = buildCraftableItems(catalog);
+  input.state.itemMetaById = buildItemMetaById(catalog);
+  input.state.itemNameById = buildItemNameById(catalog);
+  input.state.itemKeyById = buildItemKeyById(catalog);
+  input.state.nextSpawn.coreNodes = [];
+  input.state.nextSpawn.fieldResources = createFieldResources(input.state.mapObj, catalog, input.state.ruleset);
+  input.roster[1].goalLoadouts.legend.headKey = customGear.itemKey;
+  for (const actor of input.roster) refreshActorGrowthPlan(actor, catalog, input.state);
+
+  const leader = input.roster.find((actor) => actor._id === 'leader');
+  const crafter = input.roster.find((actor) => actor._id === 'crafter');
+  assert.equal(leader.teamId, crafter.teamId);
+  assert.equal(leader.zoneId, crafter.zoneId);
+  assert.equal(leader._growthPlan.missing[0].itemId, cloth._id);
+  assert.equal(crafter._growthPlan.missing[0].itemId, customLeaf._id);
+  const initialBStock = input.state.nextSpawn.fieldResources.byZone.b[cloth._id].remaining;
+  const initialCStock = input.state.nextSpawn.fieldResources.byZone.c[customLeaf._id].remaining;
+  assert.ok(initialBStock > 0 && initialCStock > 0, 'Both recipe inputs have declared real field stock.');
+
+  const observations = [];
+  let firstResult = null;
+  for (let tickIndex = 0; tickIndex < 6; tickIndex++) {
+    if (tickIndex > 0) input.advanceClock(input.roster);
+    for (const actor of input.roster) refreshActorGrowthPlan(actor, input.state.publicItems, input.state);
+    const coordinated = plan(input);
+    const leaderMove = coordinated.movementPlans.get('leader');
+    const result = tick(input);
+    firstResult ||= result;
+    observations.push({
+      day: input.state.nextDay,
+      nowSec: input.state.currentActionSec(),
+      selectedTarget: leaderMove?.targetZoneId ?? null,
+      beneficiary: leaderMove?.objective?.beneficiary?.who ?? null,
+      actorZones: Object.fromEntries(result.updatedSurvivors.map((actor) => [actor._id, actor.zoneId])),
+      fieldGains: result.events.filter((event) => event.kind === 'gain').map((event) => ({ who: event.who, itemId: event.itemId })),
+      crafts: result.events.filter((event) => event.kind === 'craft').map((event) => ({ who: event.who, itemId: event.itemId })),
+      credits: Object.fromEntries(result.updatedSurvivors.map((actor) => [actor._id, actor.simCredits])),
+      growth: Object.fromEntries(result.updatedSurvivors.map((actor) => [actor._id, {
+        openingComplete: actor._growthPlan?.openingComplete,
+        stage: actor._growthPlan?.stage,
+        targetId: actor._growthPlan?.targetId,
+        blocked: actor._growthPlan?.blocked,
+        actionReadyAtSec: actor._actionReadyAtSec || 0,
+        growthReadyAtSec: actor._growthReadyAtSec || 0,
+      }])),
+    });
+    input.roster = result.updatedSurvivors;
+    input.state.phaseSurvivors = input.roster;
+  }
+  console.log(`OBSERVED_CUSTOM_TEAM_FIELD_GOAL ${JSON.stringify(observations)}`);
+  const firstLeader = firstResult.updatedSurvivors.find((actor) => actor._id === 'leader');
+  assert.equal(firstLeader.equipped.head, ordinary._id, 'The first ordinary leader recipe is a valid shared-goal choice.');
+  assert.equal(firstLeader.simCredits, 17);
+  assert.equal(invQty(firstLeader.inventory, cloth._id), 0);
+  assert.equal(invQty(firstLeader.inventory, hero._id), 0);
+  assert.ok(input.roster.some((actor) => actor._id === 'crafter' && actor.equipped.head === customGear._id),
+    'Within six bounded ticks, the remaining teammate demand must be selected or actually satisfied.');
+  const updatedCrafter = input.roster.find((actor) => actor._id === 'crafter');
+  assert.equal(updatedCrafter.simCredits, 17);
+  assert.equal(invQty(updatedCrafter.inventory, customLeaf._id), 0);
+  assert.equal(invQty(updatedCrafter.inventory, hero._id), 0);
+  assert.ok(input.state.nextSpawn.fieldResources.byZone.b[cloth._id].remaining < initialBStock);
+  assert.equal(input.state.nextSpawn.fieldResources.byZone.c[customLeaf._id].remaining, initialCStock - 1);
 });
 
 check('the real action pipeline collects once for the needing teammate and pays its actual recipe in either actor order', () => {
