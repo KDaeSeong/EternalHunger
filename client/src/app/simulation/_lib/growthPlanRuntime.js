@@ -163,12 +163,21 @@ function getGrowthRecipeWorkWithQuantities(actor, items, targetId, { ruleset, ta
   function visit(id, qty, path) {
     if (!Number.isSafeInteger(qty) || qty <= 0) { work.blocked = 'invalid_recipe'; return; }
     const item = byId.get(id);
-    const have = Math.min(qty, availableQty(id) || 0);
-    availableOverrides.set(id, (availableQty(id) || 0) - have);
-    if (id !== target._id) { components.add(id); reserved[id] = (reserved[id] || 0) + qty; }
+    const stock = availableQty(id) || 0;
+    if (!Number.isSafeInteger(stock) || stock < 0) { work.blocked = 'invalid_recipe'; return; }
+    const have = Math.min(qty, stock);
+    availableOverrides.set(id, stock - have);
+    if (id !== target._id) {
+      const total = (reserved[id] || 0) + qty;
+      if (!Number.isSafeInteger(total)) { work.blocked = 'invalid_recipe'; return; }
+      components.add(id); reserved[id] = total;
+    }
     const need = qty - have;
     if (need <= 0) return;
-    if (!item || path.has(id) || path.size > 20) { work.blocked = 'invalid_recipe'; return; }
+    // An acyclic path cannot exceed its catalog's distinct item count. The
+    // authoring boundary accepts longer chains than the old fixed 20 stages.
+    // Keep missing/cyclic inputs invalid without truncating valid recipes.
+    if (!item || path.has(id) || path.size >= byId.size) { work.blocked = 'invalid_recipe'; return; }
     if (Array.isArray(item.recipe?.ingredients) && item.recipe.ingredients.length) {
       const terms = recipeTermsFor(id);
       if (!terms) { work.blocked = 'invalid_recipe'; return; }
@@ -179,13 +188,20 @@ function getGrowthRecipeWorkWithQuantities(actor, items, targetId, { ruleset, ta
       }
       const nextPath = new Set(path).add(id);
       for (const row of terms.ingredients) visit(String(row.itemId), batches * row.qty, nextPath);
+      // Child recipes add their costs during traversal, after the parent's
+      // initial check. Validate the final accumulated total before adding it.
+      if (!Number.isSafeInteger(work.plannedCredits + cost)) { work.blocked = 'invalid_recipe'; return; }
       // Virtual surplus avoids farming a shared batch once for each branch.
       // Readiness below still uses actual inventory, never these future items.
-      availableOverrides.set(id, (availableQty(id) || 0) + batches * terms.resultQty - need);
+      const surplus = (availableQty(id) || 0) + (batches * terms.resultQty - need);
+      if (!Number.isSafeInteger(surplus) || surplus < 0) { work.blocked = 'invalid_recipe'; return; }
+      availableOverrides.set(id, surplus);
       work.plannedCredits += cost;
       craftIds.add(id);
     } else {
-      missing.set(id, (missing.get(id) || 0) + need);
+      const total = (missing.get(id) || 0) + need;
+      if (!Number.isSafeInteger(total)) { work.blocked = 'invalid_recipe'; return; }
+      missing.set(id, total);
     }
   }
   visit(String(target._id), 1, new Set());

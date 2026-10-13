@@ -36,12 +36,19 @@ function referenceGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds 
   function visit(id, qty, path) {
     if (!Number.isSafeInteger(qty) || qty <= 0) { work.blocked = 'invalid_recipe'; return; }
     const item = byId.get(id);
-    const have = Math.min(qty, availableQty(id) || 0);
-    availableOverrides.set(id, (availableQty(id) || 0) - have);
-    if (id !== target._id) { components.add(id); reserved[id] = (reserved[id] || 0) + qty; }
+    const stock = availableQty(id) || 0;
+    if (!Number.isSafeInteger(stock) || stock < 0) { work.blocked = 'invalid_recipe'; return; }
+    const have = Math.min(qty, stock);
+    availableOverrides.set(id, stock - have);
+    if (id !== target._id) {
+      const total = (reserved[id] || 0) + qty;
+      if (!Number.isSafeInteger(total)) { work.blocked = 'invalid_recipe'; return; }
+      components.add(id); reserved[id] = total;
+    }
     const need = qty - have;
     if (need <= 0) return;
-    if (!item || path.has(id) || path.size > 20) { work.blocked = 'invalid_recipe'; return; }
+    // Match the accepted acyclic catalog contract, not the retired depth cap.
+    if (!item || path.has(id) || path.size >= byId.size) { work.blocked = 'invalid_recipe'; return; }
     if (Array.isArray(item.recipe?.ingredients) && item.recipe.ingredients.length) {
       const terms = getCraftRecipeTerms(item);
       if (!terms) { work.blocked = 'invalid_recipe'; return; }
@@ -52,11 +59,16 @@ function referenceGrowthRecipeWork(actor, items, targetId, { ruleset, targetIds 
       }
       const nextPath = new Set(path).add(id);
       for (const row of terms.ingredients) visit(String(row.itemId), batches * row.qty, nextPath);
-      availableOverrides.set(id, (availableQty(id) || 0) + batches * terms.resultQty - need);
+      if (!Number.isSafeInteger(work.plannedCredits + cost)) { work.blocked = 'invalid_recipe'; return; }
+      const surplus = (availableQty(id) || 0) + (batches * terms.resultQty - need);
+      if (!Number.isSafeInteger(surplus) || surplus < 0) { work.blocked = 'invalid_recipe'; return; }
+      availableOverrides.set(id, surplus);
       work.plannedCredits += cost;
       craftIds.add(id);
     } else {
-      missing.set(id, (missing.get(id) || 0) + need);
+      const total = (missing.get(id) || 0) + need;
+      if (!Number.isSafeInteger(total)) { work.blocked = 'invalid_recipe'; return; }
+      missing.set(id, total);
     }
   }
   visit(String(target._id), 1, new Set());
@@ -164,7 +176,7 @@ compare('cycle', actor([]), [cycleA, cycleB], 'cycle-a');
 const deepChain = Array.from({ length: 22 }, (_, i) => material(`depth-${i}`, {
   recipe: i === 21 ? undefined : { ingredients: [{ itemId: `depth-${i + 1}`, qty: 1 }], resultQty: 1, creditsCost: 0 },
 }));
-compare('depth 21 boundary', actor([]), deepChain, 'depth-0');
+compare('acyclic depth 21 catalog is valid', actor([]), deepChain, 'depth-0');
 compare('missing catalog ID', actor([]), [gear('missing-target', [{ itemId: 'absent', qty: 2 }])], 'missing-target');
 compare('empty recipe', actor([]), [gear('empty-target', [])], 'empty-target');
 compare('absent target ID', actor([]), [material('raw')], 'absent-target');

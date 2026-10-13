@@ -64,7 +64,8 @@ export function* buildDay1HeroRoutePlanSteps(actor, mapObj, publicItems, opts = 
       next.sort((a, b) => {
         const sa = a.stats;
         const sb = b.stats;
-        return (sa.missingCount - sb.missingCount)
+        return (Number(a.invalid === true) - Number(b.invalid === true))
+          || (sa.missingCount - sb.missingCount)
           || (sa.missingQty - sb.missingQty)
           || (sa.totalQty - sb.totalQty);
       });
@@ -76,7 +77,8 @@ export function* buildDay1HeroRoutePlanSteps(actor, mapObj, publicItems, opts = 
       const stats = state.stats;
       const penalty = conn.routePenalty(route);
       const score = {
-        feasible: stats.droneBlockedMissing <= 0 && stats.missingCount <= droneLimit && stats.droneMissingQty <= droneLimit,
+        invalid: stats.invalid === true,
+        feasible: !stats.invalid && stats.droneBlockedMissing <= 0 && stats.missingCount <= droneLimit && stats.droneMissingQty <= droneLimit,
         missingCount: stats.missingCount,
         missingQty: stats.missingQty,
         penalty,
@@ -90,7 +92,8 @@ export function* buildDay1HeroRoutePlanSteps(actor, mapObj, publicItems, opts = 
       }
       const a = row.score;
       const b = best.score;
-      const cmp = (a.feasible === b.feasible ? 0 : (a.feasible ? -1 : 1))
+      const cmp = (Number(a.invalid) - Number(b.invalid))
+        || (a.feasible === b.feasible ? 0 : (a.feasible ? -1 : 1))
         || (a.missingCount - b.missingCount)
         || (a.missingQty - b.missingQty)
         || (a.penalty - b.penalty)

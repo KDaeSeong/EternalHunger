@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "recordedDate": "2026-10-13",
+  "baseCommit": "540591740b7a19ca3171667490b8c45e50462f75",
+  "engine": "db301550ac3262f9868c4ffe35e2542a2c5cbcda9e3da476f5f0fbab289eab4e",
+  "goalStatus": "active_incomplete",
+  "originalGoalLFsha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+  "tests": {
+    "deepRecipes": {
+      "command": "npm run check:deep-custom-recipes",
+      "exitCode": 0,
+      "routeChecks": 10,
+      "growthChecks": 15,
+      "stages": [
+        6,
+        24,
+        128
+      ],
+      "scope": "Fresh authored inputs, independent arithmetic. Direct craft controls declare their starting ingredients and credits."
+    },
+    "naturalOpening": {
+      "command": "node scripts/check-deep-custom-recipe-match.mjs",
+      "exitCode": 0,
+      "participants": 24,
+      "alteredTargets": 2,
+      "deadlineSec": 250,
+      "startingCredits": [
+        15,
+        15
+      ],
+      "startingInventories": "unchanged_empty",
+      "craftedStages": [
+        6,
+        24
+      ],
+      "pickupSec": [
+        33,
+        12
+      ],
+      "equipSec": [
+        40,
+        85
+      ],
+      "paidCosts": [
+        6,
+        24
+      ],
+      "battles": 21,
+      "events": 6498,
+      "frames": 1336,
+      "replay": "events_frames_final_rng_exact",
+      "apiCalls": 0,
+      "eventSha256": "abd45ad9e5f8152077bc606da080b1671d2a919be161035bab3b0bb121c1054d",
+      "frameSha256": "89be88d9fb0054ab3f0c9cc99898bbc972861fe0eb0b548ef0876e5cf0003811",
+      "scope": "One current competitive opening plus saved-input noisy repeat; no callbacks award resources, money or gear; not a full match or survival guarantee."
+    },
+    "canonicalOpening": {
+      "command": "node scripts/check-opening-deadline-match.mjs --seeds=1101",
+      "exitCode": 0,
+      "initialRosterSeed": "FIRST-DAY:1101",
+      "completed": 24,
+      "total": 24,
+      "completionRangeSec": [
+        24,
+        42
+      ],
+      "deadlineSec": 250,
+      "battles": 10,
+      "events": 6171
+    },
+    "fullCustomBatch": {
+      "command": "node scripts/check-custom-crafting-match.mjs",
+      "exitCode": 0,
+      "events": 12431,
+      "frames": 6387,
+      "customCrafts": 6,
+      "firstEquippedSec": 1,
+      "endingSec": 1225.666666,
+      "endingCause": "combat",
+      "outcome": "last_team",
+      "winnerTeamId": "team:7",
+      "replay": "events_frames_final_rng_ending_exact",
+      "apiCalls": 0,
+      "eventSha256": "b7c3ce2dac2fc0613d5a69bb20de8301796474bc80c251d5c61c008a937c40fc",
+      "frameSha256": "7556cd95254202e3f5a7cb749218854a4a1cda5c22f84ee123e41d2c3dad672e",
+      "scope": "Controlled starting materials/budget, actual transactions and complete saved replay; not natural starting acquisition."
+    },
+    "adjacent": {
+      "exitCode": 0,
+      "recipeCacheReferenceComparisons": 33,
+      "recipeOnlyGearChecks": 27,
+      "planningChecks": 7,
+      "mapPreparationChecks": 8,
+      "mapRouteComparisons": 61,
+      "scripts": [
+        "check-growth-recipe-work-cache.mjs",
+        "check-growth-plan-shared-inventory-index.mjs",
+        "check-custom-crafting.mjs",
+        "check-recipe-only-gear.mjs",
+        "check-safe-route-facts.mjs --fixtures-only",
+        "check-map-preparation.mjs"
+      ]
+    },
+    "lint": {
+      "exitCode": 0,
+      "configuration": "eslint.runtime.config.mjs",
+      "changedSourceAndTestFiles": 7
+    },
+    "build": {
+      "command": "npm run build",
+      "firstExitCode": 1,
+      "firstFailure": "EPERM mkdir .next/server/app/admin/games.segments/admin after successful compile",
+      "retryExitCode": 0,
+      "retryMode": "same source outside permission restrictions",
+      "staticPages": 62
+    }
+  },
+  "protectedFiles": [
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\growthPlanRuntime.js",
+      "bytes": 26004,
+      "sha256": "BD1DC9934AC0D03B9FEA8AFE28F048579A554A69D672D6432E8864D07C5CB045"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\routePlanBuilderRuntime.js",
+      "bytes": 19237,
+      "sha256": "5A8730E2BFED5CDF05CD2F7F9A6067C079AF8213FFA2C18548A5553A301BA335"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_lib\\routePlanRuntime.js",
+      "bytes": 13245,
+      "sha256": "07F95381E30EF33E7CA8E048ADAD4555AE4DFFD91D80D35773EF887310BD7DC6"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\src\\app\\simulation\\_generated\\simulationEngineVersion.js",
+      "bytes": 166,
+      "sha256": "A064AB70AEC9B5057BF00C81F85C515CFA0C15BE4C88D3A60BE89D00F1872A6F"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-deep-custom-recipe-growth.mjs",
+      "bytes": 9436,
+      "sha256": "361360C787D4C03F39231C5DFB55E43BA3F3D0A5C9F69B768A762E17BBB0F017"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-deep-custom-recipe-routes.mjs",
+      "bytes": 15396,
+      "sha256": "8548FB08C2D8641251D09FED0E7938A620772B4917F41B6E846CAD76E0C3ED6A"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-deep-custom-recipe-match.mjs",
+      "bytes": 9037,
+      "sha256": "36FFC72B929EB301A33FB2804BA566D1FF71B45A7FA4C168DEFD7A6090E39593"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\package.json",
+      "bytes": 28400,
+      "sha256": "9B8453770FE6D32E2A85B91650AAF57E532E14215D3181278BE9706EE63818AF"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\BUILD_ID",
+      "bytes": 21,
+      "sha256": "4D7D705FA88390DC48158CF3F337EF27807DF2A5A784559BFF95F8DB372CF5DB"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\build-manifest.json",
+      "bytes": 511,
+      "sha256": "66BC6128EEA9143AF47D3CE1BBC3ED078095C9EFFF7F481BD55A3F60D2661891"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\server\\app-paths-manifest.json",
+      "bytes": 4182,
+      "sha256": "83C2C369EB2404DD17BF4711EA76628E7475FDCE6FA9AB6A16822E02BBA0BF9A"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\.next\\server\\app\\eternalhunger\\evaluate\\page.js",
+      "bytes": 19765,
+      "sha256": "F8A3EEC28F8C626F187A9D128DCA8FB5E5049112F4A32EF4708F0C7FEAC45F97"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\client\\scripts\\check-observer-goals-match.mjs",
+      "bytes": 15715,
+      "sha256": "65742D1846000274E934AEB732C0114E21382B96819ACBC6AEA941A2BC491FC9"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\server\\index.js",
+      "bytes": 5619,
+      "sha256": "5B45AC5230734857B2225DFFB19F49CE30393936A21788072EDBCE02ACBF7493"
+    },
+    {
+      "path": "C:\\2저장고\\EternalHunger\\server\\.env.example",
+      "bytes": 2125,
+      "sha256": "8F688F24C8551EBBADB25BD3381C97C7A25072EC2A8182C677AB755FCD7519A3"
+    }
+  ],
+  "cleanup": {
+    "status": "completed",
+    "beforeLogicalBytes": 1349114278,
+    "beforeFileCount": 2154,
+    "roots": [
+      ".local",
+      "artifacts",
+      "client/.next",
+      "client/.verification-runs",
+      "client/audio-source"
+    ],
+    "measure": "Nonoverlapping logical file bytes, volume/file-ID deduplicated, no reparse entries; not whole project or physical allocation.",
+    "targets": [
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/0.pack",
+        "bytes": 253376527,
+        "sha256": "484D444F8CFBC0739EC75C9B7360CE85E4BBBD834DC0433E759FA766AD197FF4"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/1.pack",
+        "bytes": 243182,
+        "sha256": "0EF490D5EE1AA93ADE9F0AE9F0864709170967F0A219CDB568D23AD321E5A350"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/2.pack",
+        "bytes": 8606585,
+        "sha256": "128B7CD006326DAD48BE988113FB5F6ADBFBA38967FB4D7B579B3E6E5943D7C4"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/index.pack",
+        "bytes": 12845296,
+        "sha256": "696A855769552A5C882984609CD87676DFB60E53D0334D5406FD679012CD60AA"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/index.pack.old",
+        "bytes": 12844478,
+        "sha256": "8C69CA0527C2B1BD71AE325E8D43D285AE374EE3068C77AE0A5CBA82B6856262"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/edge-server-production/0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/edge-server-production/index.pack",
+        "bytes": 2464,
+        "sha256": "CA15B934AC33A36EB2C3AA5D2A87EB853A5127F14BAE0EF045F836BCD239A164"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/server-production/0.pack",
+        "bytes": 307293734,
+        "sha256": "F0D512F58DF46600B708246129E350CE11FE4A27582DB640C78125573B17915E"
+      },
+      {
+        "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/server-production/index.pack",
+        "bytes": 18090023,
+        "sha256": "678476AD895FFDE84A480B5B159D61AADEC79229FA8A85986BE7276303E990B8"
+      }
+    ],
+    "plannedRemovedBytes": 613302565,
+    "preservedOlderCache": {
+      "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/server-production/index.pack.old",
+      "bytes": 18088675,
+      "sha256": "3A62EC6B8AB460303BD5D552976F76D6A1B091DE637D5228F66B6528BCB83C23",
+      "reason": "Predates this build; left untouched."
+    },
+    "recovery": "Only disposable webpack cache packs. npm run build regenerates caches. Current completed build and sources retained.",
+    "afterLogicalBytes": 735822157,
+    "afterFileCount": 2146,
+    "protectedHashesMatched": true,
+    "removedFiles": 9,
+    "removedBytes": 613302565,
+    "targetsRemaining": 0
+  },
+  "unresolved": [
+    "Exact three other-owner changes await permission for 11 untracked server runtime dependencies; no foreign file included.",
+    "Nominal foreground speeds, browser process restart restoration, broader natural cooperation/strategy outcomes and human evaluation remain open."
+  ],
+  "usage": "Output-only receipt; no verification code reads this file as an oracle."
+}

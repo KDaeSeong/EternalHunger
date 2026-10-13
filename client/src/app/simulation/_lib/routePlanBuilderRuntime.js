@@ -178,22 +178,26 @@ function getItemRouteZoneIds(item, mapObj, forbiddenIds) {
 function mergeRequirement(list, item, itemId, qty, getRouteZoneIds) {
   const id = String(itemId || normId(item));
   if (!id) return;
-  const found = list.get(id) || {
+  const amount = Math.max(1, Number(qty || 1));
+  const current = list.get(id);
+  const total = (current?.qty || 0) + amount;
+  if (!Number.isSafeInteger(amount) || amount <= 0 || !Number.isSafeInteger(total)) return false;
+  const found = current || {
     item,
     itemId: id,
     name: String(item?.name || id),
-    qty: 0,
+    qty: total,
     tier: Number(item?.tier || 0),
     zones: new Set(),
   };
-  found.qty += Math.max(1, Number(qty || 1));
+  found.qty = total;
   for (const zoneId of getRouteZoneIds(item)) found.zones.add(zoneId);
   list.set(id, found);
+  return true;
 }
 
-function collectRecipeLeafRequirements(target, indexes, getRouteZoneIds, opts = {}) {
+function collectRecipeLeafRequirements(target, indexes, getRouteZoneIds) {
   const byId = indexes?.byId instanceof Map ? indexes.byId : new Map();
-  const maxDepth = Math.max(1, Math.floor(Number(opts.maxDepth ?? 5)));
   const out = new Map();
   const surplus = new Map();
   let invalid = false;
@@ -201,20 +205,23 @@ function collectRecipeLeafRequirements(target, indexes, getRouteZoneIds, opts = 
   function visit(itemId, qty, depth, seen) {
     const id = String(itemId || '').trim();
     if (!id || !Number.isSafeInteger(qty) || qty <= 0) { invalid = true; return; }
-    const held = Math.min(qty, surplus.get(id) || 0);
-    surplus.set(id, (surplus.get(id) || 0) - held);
+    const available = surplus.get(id) ?? 0;
+    if (!Number.isSafeInteger(available) || available < 0) { invalid = true; return; }
+    const held = Math.min(qty, available);
+    surplus.set(id, available - held);
     const needed = qty - held;
     if (!needed) return;
     const item = byId.get(id) || null;
-    if (!item || seen.has(id) || depth >= maxDepth) {
-      mergeRequirement(out, item || { _id: id, name: id }, id, needed, getRouteZoneIds);
-      return;
-    }
+    // A valid acyclic walk cannot visit more recipe nodes than this catalogue
+    // contains. Keep the path check for cycles and the catalogue bound as a
+    // defensive guard, but never turn either invalid case into a farm target.
+    if (!item || seen.has(id) || depth > byId.size) { invalid = true; return; }
 
-    if (!Array.isArray(item?.recipe?.ingredients) || !item.recipe.ingredients.length) {
-      if (depth > 0 && isEarlyRouteScorableItem(item)) {
-        mergeRequirement(out, item, id, needed, getRouteZoneIds);
-      }
+    const rows = item?.recipe?.ingredients;
+    if (item?.recipe && rows != null && !Array.isArray(rows)) { invalid = true; return; }
+    if (!Array.isArray(rows) || !rows.length) {
+      if (depth > 0 && isEarlyRouteScorableItem(item)
+        && !mergeRequirement(out, item, id, needed, getRouteZoneIds)) invalid = true;
       return;
     }
 
@@ -223,11 +230,15 @@ function collectRecipeLeafRequirements(target, indexes, getRouteZoneIds, opts = 
     const terms = getCraftRecipeTerms(item);
     if (!terms) { invalid = true; return; }
     const batches = Math.ceil(needed / terms.resultQty);
-    if (!Number.isSafeInteger(batches * terms.resultQty)) { invalid = true; return; }
+    const produced = batches * terms.resultQty;
+    if (!Number.isSafeInteger(batches) || !Number.isSafeInteger(produced) || produced < needed) { invalid = true; return; }
     for (const ing of terms.ingredients) {
       visit(ing.itemId, batches * ing.qty, depth + 1, nextSeen);
+      if (invalid) return;
     }
-    surplus.set(id, (surplus.get(id) || 0) + batches * terms.resultQty - needed);
+    const nextSurplus = (surplus.get(id) || 0) + produced - needed;
+    if (!Number.isSafeInteger(nextSurplus) || nextSurplus < 0) { invalid = true; return; }
+    surplus.set(id, nextSurplus);
   }
 
   visit(normId(target), 1, 0, new Set());
@@ -267,18 +278,27 @@ function requirementStatsForRoute(requirements, routeSet) {
   let missingQty = 0;
   let coveredQty = 0;
   let totalQty = 0;
+  let invalid = requirements?.invalid === true;
+  const addTotal = (current, amount) => {
+    const next = current + amount;
+    if (!Number.isSafeInteger(amount) || amount < 0 || !Number.isSafeInteger(next)) {
+      invalid = true;
+      return current;
+    }
+    return next;
+  };
   for (const req of requirements instanceof Map ? requirements.values() : []) {
     const qty = Math.max(1, Math.floor(Number(req?.qty || 1)));
-    totalQty += qty;
+    totalQty = addTotal(totalQty, qty);
     const covered = (Array.isArray(req?.zones) ? req.zones : [...(req?.zones || [])])
       .some((z) => routeSet.has(String(z || '')));
-    if (covered) coveredQty += qty;
+    if (covered) coveredQty = addTotal(coveredQty, qty);
     else {
       missing.push(req);
-      missingQty += qty;
+      missingQty = addTotal(missingQty, qty);
     }
   }
-  return { missing, missingQty, coveredQty, totalQty };
+  return { missing, missingQty, coveredQty, totalQty, invalid };
 }
 
 function cloneRequirementMap(reqs) {
@@ -289,6 +309,7 @@ function cloneRequirementMap(reqs) {
       zones: new Set(Array.isArray(req.zones) ? req.zones : [...(req.zones || [])]),
     });
   }
+  if (reqs?.invalid === true) out.invalid = true;
   return out;
 }
 
@@ -302,7 +323,13 @@ function addRequirementsToState(baseReqs, addList) {
       qty: 0,
       zones: new Set(),
     };
-    prev.qty = Math.max(0, Number(prev.qty || 0)) + Math.max(1, Number(req.qty || 1));
+    const amount = Math.max(1, Number(req.qty || 1));
+    const total = Math.max(0, Number(prev.qty || 0)) + amount;
+    if (!Number.isSafeInteger(amount) || amount <= 0 || !Number.isSafeInteger(total)) {
+      out.invalid = true;
+    } else {
+      prev.qty = total;
+    }
     const zones = prev.zones instanceof Set ? prev.zones : new Set(Array.isArray(prev.zones) ? prev.zones : []);
     for (const z of Array.isArray(req.zones) ? req.zones : []) zones.add(String(z || ''));
     prev.zones = zones;
@@ -331,7 +358,7 @@ function buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, op
     const goalSlot = goalItem ? String(goalItem?.equipSlot || inferEquipSlot(goalItem) || '').toLowerCase() : '';
     if (goalItem && goalSlot === slot && (slot !== 'weapon'
       || areEquipmentWeaponTypesCompatible(actorWeaponType, goalItem.weaponType))) {
-      const requirements = collectRecipeLeafRequirements(goalItem, indexes, getRouteZoneIds, opts);
+      const requirements = collectRecipeLeafRequirements(goalItem, indexes, getRouteZoneIds);
       if (requirements.length) {
         bySlot.set(slot, [{
           item: goalItem,
@@ -356,7 +383,7 @@ function buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, op
         if (!areEquipmentWeaponTypesCompatible(actorWeaponType, itemWeaponType)) continue;
       }
 
-      const requirements = collectRecipeLeafRequirements(it, indexes, getRouteZoneIds, opts);
+      const requirements = collectRecipeLeafRequirements(it, indexes, getRouteZoneIds);
       if (!requirements.length) continue;
       const noZoneCount = requirements.filter((r) => !Array.isArray(r.zones) || r.zones.length === 0).length;
       const highTierCount = requirements.filter((r) => Number(r.tier || 0) >= 5).length;
@@ -412,26 +439,41 @@ function prepareRouteRequirementSearch(candidatesBySlot, droneMaxTier) {
     extend(state, candidate, covered) {
       const quantities = state.quantities.slice();
       const ids = state.ids.slice();
+      let invalid = state.invalid === true;
       for (const [index, qty] of candidate.entries) {
         if (!quantities[index]) ids.push(index);
-        quantities[index] = Math.max(0, quantities[index]) + qty;
+        const total = Math.max(0, quantities[index]) + qty;
+        if (!Number.isSafeInteger(qty) || qty <= 0 || !Number.isSafeInteger(total)) invalid = true;
+        else quantities[index] = total;
       }
       let totalQty = 0, missingQty = 0, coveredQty = 0, missingCount = 0, droneBlockedMissing = 0, droneMissingQty = 0;
       // Traverse first-use order, including floating-point addition order, just
       // like the previous Map-based search. Search breadth and tie order stay intact.
       for (const index of ids) {
         const qty = Math.max(1, Math.floor(Number(quantities[index] || 1)));
-        totalQty += qty;
-        if (covered[index]) coveredQty += qty;
+        const total = totalQty + qty;
+        if (!Number.isSafeInteger(qty) || !Number.isSafeInteger(total)) invalid = true;
+        else totalQty = total;
+        if (covered[index]) {
+          const coveredTotal = coveredQty + qty;
+          if (!Number.isSafeInteger(coveredTotal)) invalid = true;
+          else coveredQty = coveredTotal;
+        }
         else {
           missingCount += 1;
-          missingQty += qty;
-          if (Math.max(1, Number(materials[index].tier || 1)) <= droneMaxTier) droneMissingQty += qty;
+          const missingTotal = missingQty + qty;
+          if (!Number.isSafeInteger(missingTotal)) invalid = true;
+          else missingQty = missingTotal;
+          if (Math.max(1, Number(materials[index].tier || 1)) <= droneMaxTier) {
+            const droneTotal = droneMissingQty + qty;
+            if (!Number.isSafeInteger(droneTotal)) invalid = true;
+            else droneMissingQty = droneTotal;
+          }
           else droneBlockedMissing += 1;
         }
       }
       return { quantities, ids, picks: [...state.picks, candidate],
-        stats: { totalQty, missingQty, coveredQty, missingCount, droneBlockedMissing, droneMissingQty } };
+        invalid, stats: { totalQty, missingQty, coveredQty, missingCount, droneBlockedMissing, droneMissingQty, invalid } };
     },
   };
 }
