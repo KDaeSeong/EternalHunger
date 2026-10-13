@@ -4,17 +4,29 @@ const { buildIsolationNavigation, createRandomIsolationInput, runRandomIsolation
 const { buildTeamObserverModel } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
 const { describeTeamRegroupDecision } = await import('../src/app/simulation/_lib/teamRegroupRuntime.js');
 const { createTeamIsolationTracker } = await import('./lib/team-isolation-tracker.mjs');
+const { createMatchDistributionFrameTracker } = await import('./lib/match-distribution-frame-tracker.mjs');
 const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
 
 const args = process.argv.slice(2);
-const initialRosterSeed = args.find(arg => arg.startsWith('--roster-seed='))?.slice('--roster-seed='.length) || 'FIXTURE:initial-roster';
+assert.ok(args.every(arg => !arg.startsWith('--') || arg.startsWith('--roster-seed=')
+  || arg === '--summary-only' || arg === '--compare-observer'), 'Unknown regroup check option.');
+const summaryOnly = args.includes('--summary-only');
+const compareObserver = args.includes('--compare-observer');
+const rosterArgs = args.filter(arg => arg.startsWith('--roster-seed='));
+assert.ok(rosterArgs.length <= 1, 'Specify only one initial roster seed.');
+const initialRosterSeed = rosterArgs[0]?.slice('--roster-seed='.length) ?? 'FIXTURE:initial-roster';
+assert.ok(initialRosterSeed.trim(), 'The initial roster seed must not be empty.');
 const requestedSeeds = args.filter(arg => !arg.startsWith('--'));
 const seeds = requestedSeeds.length ? requestedSeeds : ['1101', '2202', '3303'];
+assert.ok(seeds.every(seed => seed.trim()) && new Set(seeds).size === seeds.length, 'Match seeds must be nonempty and unique.');
 for (const seed of seeds) {
   const input = await createRandomIsolationInput(seed, { initialRosterSeed }), fixture = JSON.parse(input);
   const { zoneGraph: graph } = buildIsolationNavigation(fixture.map);
   const checkedStatuses = new Set();
   const isolation = createTeamIsolationTracker({ items: fixture.items, zones: fixture.map.zones });
+  // Reuse the fixed-attempt membership metric. An arrival or pair contact does
+  // not prove that every member alive at the start of that attempt reunited.
+  const distribution = createMatchDistributionFrameTracker({ initialActors: fixture.survivors, items: fixture.items });
   const equipmentProgress = new Map();
   let inspected = 0, modelChecks = 0;
   const result = await runRandomIsolationMatch(input, { onFrame(frame, { publicItems, events }) {
@@ -28,6 +40,7 @@ for (const seed of seeds) {
       checkedStatuses.add(evidence.status); modelChecks += 1;
     }
     isolation.observe(frame);
+    distribution.observe(frame);
     for (const actor of [...frame.survivors, ...frame.dead]) {
       const current = isolation.describe(actor), previous = equipmentProgress.get(String(actor._id));
       equipmentProgress.set(String(actor._id), { who: String(actor._id), name: actor.name,
@@ -36,6 +49,13 @@ for (const seed of seeds) {
         last: current });
     }
   } });
+  const observerComparison = compareObserver && seed === seeds[0];
+  if (observerComparison) {
+    const plain = await runRandomIsolationMatch(input);
+    assert.deepEqual(result.evidence, plain.evidence, 'Regroup diagnostics cannot change events, frames, ending or RNG.');
+    assert.deepEqual(result.finalFrame, plain.finalFrame, 'Regroup diagnostics cannot change the final state.');
+    assert.deepEqual(result.events, plain.events, 'Regroup diagnostics cannot change any committed event.');
+  }
   assert.equal(result.events.at(-1).kind, 'match_end');
   const decisions = result.events.filter((event) => event.regroupEvidence), counts = {};
   assert.ok(decisions.length > 0 && modelChecks > 0);
@@ -63,20 +83,51 @@ for (const seed of seeds) {
     counts[e.status] = (counts[e.status] || 0) + 1;
   }
   assert.ok(counts.arrived > 0, 'This fixture must exercise actual arrival, not only intentions.');
+  const regroup = distribution.report().regroup;
+  assert.equal(regroup.started, Object.values(regroup.outcomes).reduce((sum, count) => sum + count, 0),
+    'Every started attempt, including failed and unfinished attempts, must remain in the denominator.');
+  assert.equal(regroup.completed, regroup.episodes.filter(episode => episode.outcome === 'completed').length);
+  for (const episode of regroup.episodes) {
+    assert.ok(episode.memberIds.length >= 2 && new Set(episode.memberIds).size === episode.memberIds.length,
+      'An attempt must retain its complete, unique starting living membership.');
+    assert.ok(episode.durationSec >= 0);
+  }
+  const regroupSummary = { started: regroup.started, completed: regroup.completed, completionShare: regroup.completionShare,
+    outcomes: regroup.outcomes, maxDurationSec: Math.max(0, ...regroup.episodes.map(episode => episode.durationSec)),
+    scope: `${regroup.scope} Completion means same region, not within-region spatial clustering or survival causality.` };
+  const strikes = result.events.filter(event => event.kind === 'team_strike' && Number(event.damage) > 0);
+  const sameClockTargets = new Map();
+  for (const event of strikes) {
+    const key = JSON.stringify([event.at.sec, event.zoneId, event.teamId, event.targetId]);
+    if (!sameClockTargets.has(key)) sameClockTargets.set(key, new Set());
+    sameClockTargets.get(key).add(event.who);
+  }
+  const teamCombat = { positiveHpStrikes: strikes.length,
+    focusFireStrikes: strikes.filter(event => event.reason === 'focus_fire').length,
+    sameClockMultiActorTargets: [...sameClockTargets.values()].filter(ids => ids.size > 1).length,
+    scope: 'Committed positive HP loss and multiple allies hitting one target at the same match time. Not a counterfactual survival benefit or a winner-causality metric.' };
+  const evidence = summaryOnly ? { ...result.evidence, ending: {
+    outcome: result.evidence.ending.outcome, atSec: result.evidence.ending.atSec,
+    winnerTeamId: result.evidence.ending.winnerTeamId, cause: result.evidence.ending.cause,
+  } } : result.evidence;
   const periods = isolation.report();
   const isolationEndCounts = {};
   for (const period of [...periods.finished, ...periods.unfinished]) {
     isolationEndCounts[period.endReason] = (isolationEndCounts[period.endReason] || 0) + 1;
   }
   console.log(JSON.stringify({ pass: true, seed, initialRosterSeed, engineVersion: SIMULATION_ENGINE_VERSION,
+    observerComparison: observerComparison ? 'exact_events_frames_final_rng' : 'not_requested',
     hyperloopZones: buildIsolationNavigation(fixture.map).loops,
-    teams: fixture.survivors.map(actor => ({ id: actor._id, name: actor.name, team: actor.teamId })),
-    reachableRendezvousEvents: decisions.filter(event => event.regroupEvidence.rallySelection).map(event => ({
+    ...(!summaryOnly ? { teams: fixture.survivors.map(actor => ({ id: actor._id, name: actor.name, team: actor.teamId })),
+      reachableRendezvousEvents: decisions.filter(event => event.regroupEvidence.rallySelection).map(event => ({
       at: event.at, who: event.who, teamId: event.regroupEvidence.teamId, status: event.regroupEvidence.status,
-      targetZoneId: event.regroupEvidence.targetZoneId, selection: event.regroupEvidence.rallySelection })),
+      targetZoneId: event.regroupEvidence.targetZoneId, selection: event.regroupEvidence.rallySelection })) } : {}),
     decisions: decisions.length, modelChecks, counts,
-    isolationEndCounts, longestEndedIsolationPeriods: periods.finished.sort((a, b) => b.duration - a.duration).slice(0, 3),
-    unfinishedIsolationPeriods: periods.unfinished, equipmentProgress: [...equipmentProgress.values()],
-    evidence: result.evidence,
-    scope: 'actual fixture matches, graph steps and observer-model evidence; isolation durations are diagnostics, not original Marcus reproduction or human/balance acceptance' }));
+    regroup: summaryOnly ? regroupSummary : regroup,
+    teamCombat,
+    isolationEndCounts,
+    ...(!summaryOnly ? { longestEndedIsolationPeriods: periods.finished.sort((a, b) => b.duration - a.duration).slice(0, 3),
+      unfinishedIsolationPeriods: periods.unfinished, equipmentProgress: [...equipmentProgress.values()] } : {}),
+    evidence,
+    scope: 'Fresh natural default-world matches, graph steps and observer-model evidence. Full fixed-attempt regroup outcomes are separate from per-actor contact. Neither metric proves original Marcus reproduction, human/balance acceptance or survival causality.' }));
 }

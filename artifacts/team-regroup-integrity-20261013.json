@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-13",
+  "sourceCommitBeforeChanges": "012c06edd776f560fc608e666c4d68a6cd399767",
+  "engineVersion": "db301550ac3262f9868c4ffe35e2542a2c5cbcda9e3da476f5f0fbab289eab4e",
+  "scope": "Verification-only changes. No simulation rules, actor resources, UI, account or server changes. This receipt is output evidence, not an input or oracle for a check.",
+  "changes": [
+    "Reuse the existing fixed-attempt living-member regroup tracker in the natural regroup check; pair contact and arrival counts remain separate.",
+    "Reject empty and duplicate frame actor IDs before diagnostic state updates; label a missing member as dead only with explicit zero-HP evidence.",
+    "Add invalid-ally scheduled-action coverage to the existing production-loop survival test instead of retaining a duplicate new check file.",
+    "Support bounded natural-run summaries and an optional exact diagnostic-free comparison for the first requested seed."
+  ],
+  "regression": {
+    "before": "The added absent-from-both-rosters contract failed: roster_change was undefined instead of 1.",
+    "afterMetricChecks": "29/29",
+    "regroupPackage": { "command": "npm run check:team-regroup", "exitCode": 0, "groups": 116 },
+    "survivalPackage": { "command": "npm run check:team-survival", "exitCode": 0, "contributionGroups": 4, "retreatGroups": 5 },
+    "lint": { "config": "eslint.runtime.config.mjs", "files": 4, "exitCode": 0 },
+    "build": "Not rerun: only headless verification consumers changed; no product code, UI or dependency changes."
+  },
+  "controlledSurvival": {
+    "support": { "heal": 20, "sameIncomingCalculatedDamage": 55, "supportedHp": 15, "unsupportedHp": 0 },
+    "formation": { "helperDamage": 30, "nearbyEnemyHp": 0, "nearbyLeaderHp": 100, "remoteEnemyHp": 20, "remoteLeaderHp": 0 },
+    "replay": "Both support conditions and both formation conditions reproduce current fresh events, frames, final state and RNG state.",
+    "scope": "Explicit short synthetic production-action-loop controls; not natural-match survival or win-rate estimates."
+  },
+  "naturalRuns": [
+    {
+      "seed": "1101", "initialRosterSeed": "FIXTURE:initial-roster",
+      "metricRevision": "Before the frame-ID guard; fixed-attempt membership already used.",
+      "events": 11647, "frames": 5840, "endingAtSec": 1124.916666,
+      "ending": "last_team", "cause": "combat", "winnerTeamId": "team:1",
+      "regroup": { "started": 23, "completed": 22, "outcomes": { "completed": 22, "member_death": 1 }, "maxDurationSec": 60 },
+      "observerComparison": "exact events, frames, final state, ending and RNG",
+      "eventDigest": "35afec00498bc065a34ee69dffc51c9c3ff2d8e59d589671715541bb8ee333f4",
+      "frameDigest": "7ad3f0ba4ec2c54784fee33d0073d25b67523297051492ad1ed0eae7a4e394e0"
+    },
+    {
+      "seed": "2202", "initialRosterSeed": "FIXTURE:initial-roster",
+      "metricRevision": "Before the frame-ID guard; fixed-attempt membership already used.",
+      "events": 13676, "frames": 6543, "endingAtSec": 1257.083333,
+      "ending": "last_team", "cause": "combat", "winnerTeamId": "team:5",
+      "regroup": { "started": 22, "completed": 19, "outcomes": { "completed": 19, "member_death": 2, "roster_change": 1 }, "maxDurationSec": 100 },
+      "observerComparison": "not requested",
+      "eventDigest": "d27b76b38139ef9785d9a57705db063db03d7d03a7d1ebba0c79a1dcd3847d3d",
+      "frameDigest": "b1a0e55440bc6761237ed5105bc4f7c5060e6259341aae65589ef3e348d047e3"
+    },
+    {
+      "seed": "3303", "initialRosterSeed": "FIXTURE:initial-roster",
+      "metricRevision": "Before the frame-ID guard; fixed-attempt membership already used.",
+      "events": 11224, "frames": 5449, "endingAtSec": 1055.75,
+      "ending": "last_team", "cause": "combat", "winnerTeamId": "team:7",
+      "regroup": { "started": 28, "completed": 27, "outcomes": { "completed": 27, "roster_change": 1 }, "maxDurationSec": 60 },
+      "observerComparison": "not requested",
+      "eventDigest": "52ef16da84856d1aad2d4beaaa0da15912b2c300a97640110c850d99580d148b",
+      "frameDigest": "d0db2564ea3e9f8248a6e48a83b77ca84be490b61523f26e8d262d473206927a"
+    },
+    {
+      "seed": "1101", "initialRosterSeed": "FIRST-DAY:1101",
+      "metricRevision": "After the frame-ID guard; the current metric processed the entire match.",
+      "events": 12973, "frames": 5518, "endingAtSec": 1055,
+      "ending": "last_team", "cause": "combat", "winnerTeamId": "team:8",
+      "regroup": { "started": 28, "completed": 25, "outcomes": { "completed": 25, "member_death": 3 }, "maxDurationSec": 108 },
+      "teamCombat": { "positiveHpStrikes": 83, "focusFireStrikes": 30, "sameClockMultiActorTargets": 3 },
+      "observerComparison": "exact events, frames, final state, ending and RNG",
+      "eventDigest": "5d95cb175cba625e8bafbef060b426ae366061a6d76d8e5a85a8433e45bb639a",
+      "frameDigest": "147842268139ad047708c75f18d246aee82ba065ecb9d2e979993f4ddd6c30f3"
+    }
+  ],
+  "naturalScope": "Four fresh default-world input cases, two initial-roster builds, six completed executions including two diagnostic-free comparisons. Whole-attempt success means every living member at attempt start survives and shares one combat space and region. It does not mean within-region spatial clustering, original Marcus reproduction, broad custom-profile balance, counterfactual survival contribution, or human acceptance.",
+  "storageBeforeReceipt": {
+    "roots": [".local", "artifacts", "client/.next", "client/.verification-runs", "client/audio-source"],
+    "uniqueLogicalBytes": 735822157, "files": 2146, "skippedLinks": 0, "duplicateFiles": 0,
+    "cleanup": "Below 2 GiB. No existing user or prior-work artifacts were deleted.",
+    "removedTemporarySource": {
+      "path": "client/scripts/check-team-combat-loop.mjs",
+      "result": "This turn's redundant newly created check was removed; required coverage was consolidated into the existing check-team-survival-contribution.mjs.",
+      "preDeletionSizeAndHash": "Not captured; this receipt does not claim a verified pre-deletion size or hash for the temporary source."
+    }
+  },
+  "protectedChanges": {
+    "unchanged": ["client/scripts/check-observer-goals-match.mjs", "server/index.js", "server/.env.example"],
+    "status": "The requested three-file commit remains deferred pending approval for its eleven untracked MyAnimecraft runtime dependencies."
+  },
+  "remaining": [
+    "Broader natural custom-team cooperation and strategy comparisons, without equating a different full-match winner with same-time causality.",
+    "Foreground nominal speed and data lifetime, browser process-restart restoration, and actual human follow-up evaluation.",
+    "Server dependency-closure permission and the separately requested protected three-file commit."
+  ]
+}

@@ -207,6 +207,51 @@ check('original member death censors the episode instead of awarding regroup suc
   assert.equal(regroup.completionShare, 0);
 });
 
+check('missing cohort member without death evidence is a roster change, not a death', () => {
+  const a = regroupActor('a', 'a'), b = regroupActor('b', 'b');
+  const tracker = trackerFor([a, b]);
+  tracker.observe(frame(5, [a, b]));
+  tracker.observe(frame(8, [a]));
+  const regroup = tracker.report().regroup;
+  assert.equal(regroup.outcomes.roster_change, 1);
+  assert.equal(regroup.outcomes.member_death || 0, 0);
+  assert.equal(regroup.completed, 0);
+});
+
+check('zero-HP survivor is explicit death evidence for a missing cohort member', () => {
+  const a = regroupActor('a', 'a'), b = regroupActor('b', 'b');
+  const tracker = trackerFor([a, b]);
+  tracker.observe(frame(5, [a, b]));
+  tracker.observe(frame(8, [a, { ...b, hp: 0 }]));
+  assert.equal(tracker.report().regroup.outcomes.member_death, 1);
+  assert.equal(tracker.report().regroup.completed, 0);
+});
+
+check('duplicate or empty actor IDs across survivors and dead fail closed', () => {
+  const a = regroupActor('a', 'a'), b = regroupActor('b', 'b');
+  for (const malformed of [
+    frame(1, [a, { ...b, _id: '' }]),
+    frame(1, [a, b], [{ ...b, hp: 0 }]),
+    frame(1, [{ ...a, _id: 'same' }, { ...b, _id: 'same' }]),
+  ]) {
+    const tracker = trackerFor([a, b]);
+    assert.throws(() => tracker.observe(malformed), /Frame actor IDs must be unique and nonempty/);
+  }
+});
+
+check('cross-team duplicate cannot turn a missing original member into regroup success', () => {
+  const a = regroupActor('a', 'a'), b = regroupActor('b', 'b');
+  const tracker = trackerFor([a, b]);
+  tracker.observe(frame(5, [a, b]));
+  const malformed = frame(8, [
+    { ...a, zoneId: 'together' },
+    { ...b, teamId: 'team:2', zoneId: 'elsewhere' },
+    { ...b, teamId: 'team:1', zoneId: 'together' },
+  ]);
+  assert.throws(() => tracker.observe(malformed), /Frame actor IDs must be unique and nonempty/);
+  assert.equal(tracker.report().regroup.completed, 0);
+});
+
 check('revived roster cannot reuse pre-death intent as a new regroup attempt', () => {
   const a = regroupActor('a', 'a'), b = regroupActor('b', 'b');
   const tracker = trackerFor([a, b]);

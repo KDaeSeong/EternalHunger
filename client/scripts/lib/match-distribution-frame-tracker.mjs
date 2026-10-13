@@ -58,10 +58,19 @@ export function createMatchDistributionFrameTracker({ initialActors = [], items 
   function observe(frame) {
     const sec = Number(frame.matchSec);
     if (!Number.isFinite(sec) || sec < lastSec) throw Error('Diagnostic frames must use a monotonic match clock.');
+    const survivors = frame.survivors || [];
+    const dead = frame.dead || [];
+    const frameIds = [...survivors, ...dead].map(actorId);
+    if (frameIds.some((id) => !id) || new Set(frameIds).size !== frameIds.length) {
+      throw Error('Frame actor IDs must be unique and nonempty.');
+    }
     lastSec = sec;
-    const living = (frame.survivors || []).filter((actor) => Number(actor.hp) > 0);
+    const living = survivors.filter((actor) => Number(actor.hp) > 0);
     const byActorId = new Map(living.map((actor) => [actorId(actor), actor]));
-    const deadIds = new Set((frame.dead || []).filter((actor) => Number(actor.hp) <= 0).map(actorId));
+    const deadIds = new Set([
+      ...dead.filter((actor) => Number(actor.hp) <= 0).map(actorId),
+      ...survivors.filter((actor) => Number(actor.hp) <= 0).map(actorId),
+    ]);
     for (const row of growthRows.values()) {
       const actor = byActorId.get(row.actorId);
       if (!actor) { if (deadIds.has(row.actorId) && row.completeAtSec == null) row.diedBeforeCompletion = true; continue; }
@@ -83,8 +92,9 @@ export function createMatchDistributionFrameTracker({ initialActors = [], items 
     for (const [teamId, episode] of active) {
       const members = groups.get(teamId) || [];
       const originalMembers = episode.memberIds.map((id) => byActorId.get(id));
+      const missingIds = episode.memberIds.filter((id, index) => !originalMembers[index]);
       let outcome = '';
-      if (originalMembers.some((actor) => !actor)) outcome = 'member_death';
+      if (missingIds.length) outcome = missingIds.some((id) => !deadIds.has(id)) ? 'roster_change' : 'member_death';
       else if (originalMembers.some((actor) => getActorTeamId(actor) !== teamId) || !sameIds(sortedIds(members), episode.memberIds)) outcome = 'roster_change';
       else if (originalMembers.some((actor) => getCombatSpaceId(actor) !== episode.combatSpaceId || isDimensionRiftDefeated(actor))) outcome = 'space_change';
       else if (originalMembers.every((actor) => actor.zoneId && actor.zoneId === originalMembers[0].zoneId)) outcome = 'completed';

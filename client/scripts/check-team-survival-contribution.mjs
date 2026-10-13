@@ -1,6 +1,6 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
-import { actor, runCombatScenario, skill } from './lib/run-combat-scenario.mjs';
+import { actor, effect, runCombatScenario, skill } from './lib/run-combat-scenario.mjs';
 
 // These cases use the production runPvpActionLoop, cast scheduler, combat
 // damage, and team-round path. No instant-skill release or winner override.
@@ -130,6 +130,25 @@ await check('each fresh support and formation input reproduces events, frames, f
     assert.equal(repeatSignature(first.result), repeatSignature(second.result),
       'runCombatScenario restarts the same explicit seed for every fresh identical input.');
   }
+});
+
+await check('the production scheduler excludes remote, dead and controlled allies from actual attacks', async () => {
+  const member = (id, zoneId = 'zone', extra = {}) => actor(id, { teamId: 'team-a', zoneId,
+    _combatIntent: { zoneId, combatSpaceId: 'world', enemyTeamId: 'team-z', targetId: 'z-enemy', focusTargetId: '' }, ...extra });
+  const result = await runCombatScenario([
+    member('a-active'), member('a-remote', 'far'), member('a-dead', 'zone', { hp: 0 }),
+    member('a-stunned', 'zone', { activeEffects: [effect('기절', 10)] }),
+    actor('z-enemy', { teamId: 'team-z', _combatIntent: {
+      zoneId: 'zone', combatSpaceId: 'world', enemyTeamId: 'team-a', targetId: 'a-active', focusTargetId: '' } }),
+  ], { duration: 3, seed, engage: false, settings: { skills: { characterSkills: false } } });
+  const excluded = new Set(['a-remote', 'a-dead', 'a-stunned']);
+  assert.equal(result.events.some(event => event.kind === 'damage' && excluded.has(event.who)), false);
+  const engagements = result.events.filter(event => event.kind === 'team_engagement');
+  assert.ok(engagements.length > 0, 'The controlled case must actually reach team action scheduling.');
+  assert.ok(engagements.every(event => event.participants.every(id => !excluded.has(id))));
+  const attacks = result.events.filter(event => event.kind === 'damage' && event.who === 'a-active' && event.hpDamage > 0);
+  assert.deepEqual(attacks.map(event => event.at.sec), [100, 101, 102],
+    'The eligible local actor must spend its own scheduled turns, without duplicate same-time attacks.');
 });
 
 console.log(`TEAM_SURVIVAL_CONTRIBUTION_CHECKS ${checks}/${checks}`);
