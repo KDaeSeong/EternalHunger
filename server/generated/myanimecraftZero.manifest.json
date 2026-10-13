@@ -1,0 +1,6 @@
+{
+  "engineVersion": "0.10.0",
+  "buildHash": "d581b50a52721cae18aa185110364b3b5f6e5da8f24525f1d6c9c750c00a5874",
+  "hashScope": "sha256 of bundled engine body before appended buildHash",
+  "artifactSha256": "457a758f2e1693749bea3d17074fc48005d5fb5c9332d96965c3e25d16799852"
+}

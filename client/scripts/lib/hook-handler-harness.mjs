@@ -37,10 +37,13 @@ export function useEffect(effect, deps) {
   const cell = owner.cells[index] ||= {};
   if (!same(cell.deps, deps)) owner.effects.push(() => { cell.cleanup?.(); cell.deps = deps; cell.cleanup = effect(); });
 }
-export const historyStorage = { rows: [], list: null, load: null, deletes: 0 };
+export const historyStorage = { rows: [], list: null, load: null, save: null, saves: [], deletes: 0 };
 export const REPLAY_HISTORY_LIMIT = 10;
 export const listSimulationReplays = () => historyStorage.list ? historyStorage.list() : Promise.resolve(historyStorage.rows);
 export const loadSimulationReplay = (id) => historyStorage.load(id);
+export const saveSimulationReplay = (record) => historyStorage.save
+  ? historyStorage.save(record) : (historyStorage.saves.push(record), Promise.resolve());
+export const classifySimulationReplayStorageError = (error) => ({ kind: 'unknown', text: error?.message || 'storage failed' });
 export const deleteSimulationReplay = async () => { historyStorage.deletes++; };
 export const classifySimulationReplayDeletionError = () => ({ text: 'test deletion error' });
 

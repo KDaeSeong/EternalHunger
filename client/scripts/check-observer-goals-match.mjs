@@ -1,12 +1,20 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
-const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
+const { createRandomIsolationInput, runRandomIsolationMatch, buildIsolationNavigation } = await import('./lib/run-random-isolation-match.mjs');
 const { captureMovementObjective, getAvailableMovementObjective } = await import('../src/app/simulation/_lib/movementObjectiveRuntime.js');
 const { buildTeamObserverModel, describeObserverEvent } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
 const { runObserverPurchaseScenarioChecks } = await import('./check-observer-purchase-scenario.mjs');
+const { classifySpecialByName } = await import('../src/app/simulation/_lib/craftRuntime.js');
+const { inferItemCategory } = await import('../src/app/simulation/_lib/inventoryRules.js');
+const { chooseTeamPurchaseMove } = await import('../src/app/simulation/_lib/teamPurchaseGoalRuntime.js');
+const { chooseTeamResourceMove } = await import('../src/app/simulation/_lib/teamResourceGoalRuntime.js');
+const { pickTeamSafeZone } = await import('../src/app/simulation/_lib/teamTacticsRuntime.js');
+const { getCombatSpaceId, WORLD_COMBAT_SPACE } = await import('../src/utils/combatSpaceLogic.js');
+const { getRuleset } = await import('../src/utils/rulesets.js');
 
 const args = process.argv.slice(2);
-assert.ok(args.every(arg => arg === '--require-natural-purchase'), 'Unknown observer match diagnostic argument.');
+assert.ok(args.every(arg => arg === '--require-natural-purchase' || arg === '--audit-purchase' || arg.startsWith('--seed=')),
+  'Unknown observer match diagnostic argument.');
 const requireNaturalPurchase = args.includes('--require-natural-purchase');
 // A fixed natural match does not guarantee a payable one-ingredient squad
 // recipe. Always exercise that branch with explicit pre-action conditions;
@@ -14,8 +22,80 @@ const requireNaturalPurchase = args.includes('--require-natural-purchase');
 const purchaseScenario = runObserverPurchaseScenarioChecks();
 console.log(`OBSERVER_PURCHASE_WITNESS ${JSON.stringify(purchaseScenario)}`);
 
-const input = await createRandomIsolationInput('1101');
+const fixtureSeed = process.argv.find(arg => arg.startsWith('--seed='))?.slice('--seed='.length) || '1101';
+const input = await createRandomIsolationInput(fixtureSeed);
 const observerSettings = JSON.parse(input).settings;
+// Optional, read-only diagnostics of the same failed input. Never alter funds,
+// actors, stock, actions or mandatory controlled/optional strict coverage.
+const purchaseAudit = process.argv.includes('--audit-purchase');
+const auditFixture = purchaseAudit ? JSON.parse(input) : null;
+const auditRules = purchaseAudit ? getRuleset(observerSettings.rulesetId, observerSettings.simulationRuleset) : null;
+const auditGraph = purchaseAudit ? buildIsolationNavigation(auditFixture.map).zoneGraph : null;
+const auditCounts = {};
+const auditSamples = [];
+const auditMissingSamples = [];
+const auditMissingKeys = new Set();
+const countAudit = key => { auditCounts[key] = (auditCounts[key] || 0) + 1; };
+function auditPurchaseFrame(frame, publicItems) {
+  const groups = new Map(), candidates = new Set();
+  for (const actor of frame.survivors) {
+    if (getCombatSpaceId(actor) !== WORLD_COMBAT_SPACE) continue;
+    if (!groups.has(actor.teamId)) groups.set(actor.teamId, []);
+    groups.get(actor.teamId).push(actor);
+    const growth = actor._growthPlan;
+    if (!growth?.openingComplete || !growth.targetId) { countAudit('no_late_focus'); continue; }
+    if (growth.readyCraftId) { countAudit('focused_recipe_ready'); continue; }
+    const missingRows = (growth.missing || []).map(row => {
+      const item = publicItems.find(item => String(item._id) === row.itemId);
+      return { item: item?.name || row.itemId, need: row.need, sourceCount: row.zones?.length || 0,
+        special: inferItemCategory(item) === 'material' ? classifySpecialByName(item?.name) : null };
+    });
+    if (missingRows.some(row => row.special)) {
+      countAudit('focus_includes_special');
+      const key = JSON.stringify([actor._id, growth.targetId, missingRows]);
+      if (!auditMissingKeys.has(key) && auditMissingSamples.length < 8) {
+        auditMissingKeys.add(key);
+        auditMissingSamples.push({ sec: frame.matchSec, actor: actor.name, target: growth.targetName,
+          credits: actor.simCredits, plannedCredits: growth.plannedCredits, blocked: growth.blocked,
+          missing: missingRows });
+      }
+    }
+    if (!missingRows.length) { countAudit('no_missing'); continue; }
+    if (missingRows.length > 1) { countAudit('multiple_missing_types'); continue; }
+    if (growth.missing[0].need !== 1) { countAudit('multiple_missing_units'); continue; }
+    const missing = growth.missing[0], material = publicItems.find(item => String(item._id) === missing.itemId);
+    if (inferItemCategory(material) !== 'material' || !classifySpecialByName(material?.name)) {
+      countAudit('ordinary_material'); continue;
+    }
+    if (missing.zones?.length) { countAudit('obtainable_field_material'); continue; }
+    candidates.add(actor._id); countAudit('single_special_candidate');
+    if (auditSamples.length < 3) auditSamples.push({ sec: frame.matchSec, who: actor._id, team: actor.teamId,
+      material: material.name, target: growth.targetName, credits: actor.simCredits, blocked: growth.blocked });
+  }
+  for (const members of groups.values()) {
+    if (members.length < 2) { countAudit('solo_group'); continue; }
+    if (new Set(members.map(actor => actor.zoneId)).size !== 1) { countAudit('separated_group'); continue; }
+    if (members.some(actor => actor._growthPlan && !actor._growthPlan.openingComplete && !actor._growthPlan.blocked)) {
+      countAudit('unfinished_group'); continue;
+    }
+    if (!members.some(actor => candidates.has(actor._id))) { countAudit('no_current_purchase_demand'); continue; }
+    if (frame.spawnState?.endgame) { countAudit('endgame_group'); continue; }
+    if (members.some(actor => actor.hp <= Math.max(0, Number(auditRules?.ai?.recoverHpBelow ?? 38)))) {
+      countAudit('recovering_group'); continue;
+    }
+    const ordered = [...members].sort((a, b) => Number(a.teamSlot || 99) - Number(b.teamSlot || 99));
+    const forbiddenIds = new Set(frame.forbiddenZoneIds);
+    const routeForZone = targetZoneId => pickTeamSafeZone(ordered[0], frame.survivors, auditGraph, forbiddenIds,
+      { targetZoneId, maxDepth: Object.keys(auditGraph).length, travelParty: members });
+    const quote = chooseTeamPurchaseMove({ members: ordered, publicItems, ruleset: auditRules, mapObj: auditFixture.map,
+      day: frame.day, phase: frame.phase, forbiddenIds, routeForZone });
+    if (!quote) { countAudit('no_payable_reachable_quote'); continue; }
+    countAudit('payable_quote');
+    if (members.some(actor => actor._teamRegroup?.status === 'rotation_wait')) countAudit('observed_rotation_hold');
+    if (chooseTeamResourceMove({ members: ordered, publicItems, ruleset: auditRules, spawnState: frame.spawnState,
+      routeForZone })) countAudit('natural_source_priority');
+  }
+}
 let observerModelChecks = 0;
 function observeFrame(frame, { teamId, publicItems, events }) {
   assert.ok(Array.isArray(frame.forbiddenZoneIds), 'The diagnostic requires the committed frame forbidden-zone list.');
@@ -55,6 +135,7 @@ let previousTeams = new Set();
 let activeFrames = 0;
 let removedGoalChecks = 0;
 const result = await runRandomIsolationMatch(input, { onFrame(frame, { publicItems, events }) {
+  if (purchaseAudit) auditPurchaseFrame(frame, publicItems);
   for (const actor of frame.survivors) {
     if (!actor._growthPlan?.targetId) continue;
     const key = `${actor._id}:${actor._growthPlan.targetId}`;
@@ -108,6 +189,14 @@ assert.ok(sharedDecisions.length > 0);
 assert.deepEqual(sharedDecisions.filter((event) => !event.sharedGoalReason).slice(0, 3), [],
   'Shared purpose must survive movement, growth and queue event serialization.');
 const purchasePlans = sharedDecisions.filter((event) => /키오스크|구매|kiosk/.test(event.sharedGoalReason));
+if (purchaseAudit) console.log(`PURCHASE_COVERAGE_AUDIT ${JSON.stringify({ seed: fixtureSeed,
+  counts: auditCounts, samples: auditSamples, missingSamples: auditMissingSamples,
+  completedTransactions: result.events.filter(event => event.kind === 'procurement' && event.outcome === 'completed')
+    .reduce((counts, event) => { counts[event.actionType] = (counts[event.actionType] || 0) + 1; return counts; }, {}),
+  transactionItems: Object.entries(result.events.filter(event => event.kind === 'procurement' && event.outcome === 'completed')
+    .reduce((counts, event) => { const key = `${event.actionType}:${event.itemName || event.itemId}`;
+      counts[key] = (counts[key] || 0) + 1; return counts; }, {})).sort((a, b) => b[1] - a[1]),
+  scope: 'Read-only committed-frame demand/quote diagnostics, not proof of eligibility at every pre-action boundary.' })}`);
 console.log(`OBSERVER_MATCH_WITNESS ${JSON.stringify({ activeFrames, distinctGoals: goalKeys.size, removedGoalChecks,
   actualGrowthChecks: growthKeys.size, actualReceiptChecks: receiptKeys.size, sharedDecisionCount: sharedDecisions.length,
   purchasePlanCount: purchasePlans.length, observerModelChecks, diagnosticContextChecks: 2, evidence: result.evidence })}`);

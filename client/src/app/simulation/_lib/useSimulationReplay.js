@@ -24,6 +24,7 @@ export function useSimulationReplay(replayRecord = null) {
     if (savingRef.current) return;
     savingRef.current = true;
     if (tainted) {
+      preparedRunRef.current = null;
       setReplayStatus({ kind: 'unavailable', text: '수동 조작이 들어간 경기는 동일 재경기로 보관하지 않습니다.' });
       savingRef.current = false;
       return;
@@ -60,7 +61,12 @@ export function useSimulationReplay(replayRecord = null) {
       const classified = classifySimulationReplayStorageError(error);
       setReplayStatus({ kind: 'error', storageKind: classified.kind, canRetrySave: Boolean(retryableRecord),
         text: `경기 보관 실패: ${classified.text}` });
-    } finally { savingRef.current = false; }
+    } finally {
+      // The completed session keeps its input and replay record for export,
+      // comparison and retry, but no later phase may reuse this prepared cache.
+      preparedRunRef.current = null;
+      savingRef.current = false;
+    }
   }
 
   async function retrySaveReplay() {

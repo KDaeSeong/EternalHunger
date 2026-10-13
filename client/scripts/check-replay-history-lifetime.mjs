@@ -9,13 +9,15 @@ import { createHandlerHarness, elements, historyStorage, textOf } from './lib/ho
 const harnessUrl = new URL('./lib/hook-handler-harness.mjs', import.meta.url).href;
 const componentUrl = new URL('../src/app/simulation/_components/SimulationReplayHistory.js', import.meta.url).href;
 const hookUrl = new URL('../src/app/simulation/_components/useObserverMemoryLifetime.js', import.meta.url).href;
+const replayHookUrl = new URL('../src/app/simulation/_lib/useSimulationReplay.js', import.meta.url).href;
 registerHooks({ load(url, context, nextLoad) {
-  if (url !== componentUrl && url !== hookUrl) return nextLoad(url, context);
+  if (url !== componentUrl && url !== hookUrl && url !== replayHookUrl) return nextLoad(url, context);
   let source = url === componentUrl && process.argv.includes('--baseline')
     ? execFileSync('git', ['show', '944637a7:client/src/app/simulation/_components/SimulationReplayHistory.js'], { encoding: 'utf8' })
     : readFileSync(new URL(url), 'utf8');
   source = source.replaceAll("from 'react'", `from '${harnessUrl}'`)
     .replaceAll("from '../_lib/simulationReplayStorage'", `from '${harnessUrl}'`)
+    .replaceAll("from './simulationReplayStorage'", `from '${harnessUrl}'`)
     .replaceAll("from './simulationReplayDeletionRuntime.js'", `from '${harnessUrl}'`);
   return { format: 'module', shortCircuit: true, source: ts.transpileModule(source, {
     compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext },
@@ -26,6 +28,7 @@ const { createReplayHistoryRequests, replayHistoryMetadata } = await import('../
 const { createObserverMemoryRegistry } = await import('../src/app/simulation/_components/observerMemoryLifetime.js');
 const { createRandomIsolationInput } = await import('./lib/run-random-isolation-match.mjs');
 const { createSimulationRunInput } = await import('../src/app/simulation/_lib/simulationReplayRuntime.js');
+const { useSimulationReplay } = await import(replayHookUrl);
 let passed = 0;
 async function check(name, run) { await run(); passed++; console.log(`PASS ${name}`); }
 const settle = () => new Promise((resolve) => setImmediate(resolve));
@@ -33,6 +36,12 @@ const deferred = () => { let resolve, reject; const promise = new Promise((a, b)
 const record = () => ({ id: 'run-a', finishedAt: 123456789, summary: { winnerName: 'fixture', participantCount: 24 },
   input: { runSeed: '1101', privateFixture: {} }, events: Array.from({ length: 5000 }, (_, i) => ({ i })) });
 const button = (h, name) => { const list = elements(h.flush(), (node) => node.type === 'button' && textOf(node) === name); assert.equal(list.length, 1, name); return list[0]; };
+function mountReplayHook(replayRecord = null) {
+  let api;
+  const h = createHandlerHarness(() => { api = useSimulationReplay(replayRecord); return null; }, {});
+  h.render();
+  return { h, get api() { return api; } };
+}
 async function open(props = {}) {
   historyStorage.rows = [replayHistoryMetadata(record())]; historyStorage.list = null; historyStorage.load = async () => record(); historyStorage.deletes = 0;
   const h = createHandlerHarness(History, props); h.flush(); await button(h, '경기 보관함').props.onClick(); h.flush(); return h;
@@ -269,6 +278,73 @@ try {
   }
   URL.createObjectURL = savedCreateObjectURL; URL.revokeObjectURL = savedRevokeObjectURL;
 }
+
+const replayStartState = { ...exportFixture, activeMap: exportFixture.map, activeMapId: exportFixture.map._id,
+  publicItems: exportFixture.items, dead: [], killCounts: {}, assistCounts: {}, spawnState: null,
+  kiosks: [], droneOffers: [], day: 0, phase: 'night', matchSec: 0 };
+const replayCompletion = { events: exportArchive.events, random: exportArchive.random, ending: exportArchive.summary.ending, tainted: false };
+function mountReplayFixture(replayRecord = null) {
+  const mounted = mountReplayHook(replayRecord);
+  const prepared = mounted.api.prepareRun(replayStartState);
+  assert.ok(prepared?.state && prepared?.helpers);
+  mounted.api.lastFrameRef.current = exportInput.initialFrame;
+  return { h: mounted.h, get api() { return mounted.api; }, prepared };
+}
+await check('prepared run stays reusable through phases, then releases after successful save while replay data remains', async () => {
+  historyStorage.saves = []; historyStorage.save = null;
+  const fixture = mountReplayFixture();
+  assert.equal(fixture.api.prepareRun(replayStartState), fixture.prepared);
+  await fixture.api.completeReplay(replayCompletion); fixture.h.flush();
+  assert.equal(fixture.api.prepareRun(replayStartState) === null, true, 'completed prepared cache released');
+  assert.ok(fixture.api.runInputRef.current); assert.equal(fixture.api.lastFrameRef.current, exportInput.initialFrame);
+  assert.equal(fixture.api.savedRecordRef.current, historyStorage.saves[0]);
+  await fixture.api.retrySaveReplay(); fixture.h.flush();
+  assert.equal(historyStorage.saves.length, 2, 'retry uses the retained record after prepared state release');
+  fixture.h.unmount();
+});
+await check('tainted and failed terminal completion release prepared state; failed save remains retryable', async () => {
+  historyStorage.saves = []; historyStorage.save = null;
+  const tainted = mountReplayFixture();
+  await tainted.api.completeReplay({ ...replayCompletion, tainted: true }); tainted.h.flush();
+  assert.equal(tainted.api.prepareRun(replayStartState) === null, true, 'tainted prepared cache released');
+  assert.equal(tainted.api.replayStatus.kind, 'unavailable'); assert.equal(historyStorage.saves.length, 0);
+  tainted.h.unmount();
+
+  const failed = mountReplayFixture();
+  historyStorage.save = async () => { throw new Error('synthetic quota'); };
+  await failed.api.completeReplay(replayCompletion); failed.h.flush();
+  assert.equal(failed.api.prepareRun(replayStartState) === null, true, 'failed prepared cache released');
+  assert.equal(failed.api.replayStatus.canRetrySave, true);
+  const retainedRecord = failed.api.savedRecordRef.current;
+  assert.ok(retainedRecord);
+  historyStorage.save = null;
+  await failed.api.retrySaveReplay(); failed.h.flush();
+  assert.equal(historyStorage.saves[0], retainedRecord);
+  failed.h.unmount(); historyStorage.save = null;
+});
+await check('replay comparison releases prepared state but preserves the source archive', async () => {
+  historyStorage.saves = []; historyStorage.save = null;
+  const fixture = mountReplayFixture(exportArchive);
+  await fixture.api.completeReplay(replayCompletion); fixture.h.flush();
+  assert.equal(fixture.api.replayStatus.comparison.matched, true);
+  assert.equal(fixture.api.prepareRun(replayStartState) === null, true, 'compared prepared cache released');
+  assert.equal(fixture.api.savedRecordRef.current, exportArchive);
+  assert.equal(fixture.api.runInputRef.current.schema, exportInput.schema);
+  assert.equal(historyStorage.saves.length, 0);
+  fixture.h.unmount();
+});
+await check('overlapping completion is single-flight and keeps prepared state until its terminal save settles', async () => {
+  historyStorage.saves = []; const pending = deferred(); let saves = 0;
+  historyStorage.save = () => { saves++; return pending.promise; };
+  const fixture = mountReplayFixture();
+  const first = fixture.api.completeReplay(replayCompletion);
+  const duplicate = fixture.api.completeReplay(replayCompletion);
+  assert.equal(saves, 1); assert.equal(fixture.api.prepareRun(replayStartState), fixture.prepared);
+  pending.resolve(); await Promise.all([first, duplicate]); fixture.h.flush();
+  assert.equal(fixture.api.prepareRun(replayStartState) === null, true, 'single-flight prepared cache released');
+  assert.equal(saves, 1);
+  fixture.h.unmount(); historyStorage.save = null;
+});
 
 await check('weak diagnostics distinguish unobserved GC from collection and stay bounded', () => {
   const weak = []; class FakeWeakRef { constructor(target) { this.target = target; weak.push(this); } deref() { return this.target; } }

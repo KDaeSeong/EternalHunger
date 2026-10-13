@@ -35,6 +35,8 @@ app.use('/api/game-saves', verifyToken, require('./routes/gameSaves'));  // 게�
 app.use('/api/game-records', verifyToken, require('./routes/gameRecords')); // 게임별 공통 기록
 app.use('/api/game-rooms', optionalAuth, require('./routes/gameRoomSecurityOverrides')); // 비공개 초대/원자적 revision
 app.use('/api/game-rooms', require('./routes/gameRooms'));                // 게임별 공통 방/매치
+app.use('/api/myanimecraft/news', require('./routes/myanimecraftNews'));
+app.use('/api/myanimecraft-exchange', require('./routes/myanimecraftExchange'));
 app.use('/api/tcg', optionalAuth, require('./routes/tcg'));                            // TCG cards/decks
 app.use('/api/records', verifyToken, require('./routes/records'));       // 기록소
 app.use('/api/analytics', verifyToken, require('./routes/analytics'));   // 분석실
