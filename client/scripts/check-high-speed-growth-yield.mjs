@@ -220,11 +220,13 @@ await check('a deterministic refresh-rate model reduces forced RAF waits without
 
 await check('production phase creates one speed-aware policy and keeps action-frame and setup yields', () => {
   const cycle = fs.readFileSync(new URL('../src/app/simulation/_lib/simulationPhaseCycleRuntime.js', import.meta.url), 'utf8');
-  assert.match(cycle, /const requestGrowthYield = createHighSpeedGrowthYield\(/);
-  assert.match(cycle, /readSpeed:[\s\S]*?autoSpeedRef\?\.current \|\| autoSpeed/);
-  assert.match(cycle, /\{ requestYield: requestGrowthYield \}/);
-  assert.match(cycle, /const phaseSetupYield = requestSimulationFrameYield\(\)/);
-  assert.match(cycle, /requestMainThreadYield:\s*requestSimulationMainThreadYield/);
+  assert.ok(/const requestGrowthYield = createHighSpeedGrowthYield\(/.test(cycle), 'Production creates the phase growth-yield policy.');
+  assert.ok(/readSpeed:[\s\S]*?autoSpeedRef\?\.current \|\| autoSpeed/.test(cycle), 'Growth yield reads the live auto speed.');
+  assert.ok(/\{ requestYield: requestGrowthYield \}/.test(cycle), 'Growth batches receive the phase policy.');
+  assert.ok(/const phaseSetupYield = \(actions\.requestFrameYield \|\| requestSimulationFrameYield\)\(\)/.test(cycle),
+    'Phase setup retains the native frame-yield default and accepts the worker override.');
+  assert.ok(/requestMainThreadYield:\s*actions\.requestMainThreadYield \|\| requestSimulationMainThreadYield/.test(cycle),
+    'The action loop retains the native task-yield default and accepts the worker override.');
 });
 
 console.log(JSON.stringify({ checks, pass: true, modelResults,

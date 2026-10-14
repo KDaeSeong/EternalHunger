@@ -122,10 +122,13 @@ await check('frame waits release the match RNG and do not change event order, ti
 
 await check('phase preparation requests a frame opportunity; action-frame scheduling stays unchanged', () => {
   const cycle = fs.readFileSync(new URL('../src/app/simulation/_lib/simulationPhaseCycleRuntime.js', import.meta.url), 'utf8');
-  assert.match(cycle, /const phaseSetupYield = requestSimulationFrameYield\(\)/);
-  assert.match(cycle, /if \(phaseSetupYield\) yield phaseSetupYield/);
-  assert.match(cycle, /requestMainThreadYield:\s*requestSimulationMainThreadYield/);
-  assert.match(cycle, /const phaseFinalizationYield = requestSimulationMainThreadYield\(\)/);
+  assert.ok(/const phaseSetupYield = \(actions\.requestFrameYield \|\| requestSimulationFrameYield\)\(\)/.test(cycle),
+    'Phase setup retains the native frame-yield default and accepts the worker override.');
+  assert.ok(/if \(phaseSetupYield\) yield phaseSetupYield/.test(cycle), 'A configured phase setup yield is awaited.');
+  assert.ok(/requestMainThreadYield:\s*actions\.requestMainThreadYield \|\| requestSimulationMainThreadYield/.test(cycle),
+    'The action loop retains the native task-yield default and accepts the worker override.');
+  assert.ok(/const phaseFinalizationYield = \(actions\.requestMainThreadYield \|\| requestSimulationMainThreadYield\)\(\)/.test(cycle),
+    'Phase finalization retains the native task-yield default and accepts the worker override.');
 });
 
 console.log(JSON.stringify({ checks, pass: true, scope: 'scheduler ownership, fallback, RNG and wiring contracts; not browser timing or paint proof' }));

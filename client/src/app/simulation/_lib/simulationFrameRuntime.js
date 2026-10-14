@@ -35,24 +35,28 @@ function latestActors(rows) {
 
 // A single owned snapshot is used by the map, roster, clock, and team counters.
 // Do not normalize or award anything here: observing cannot change gameplay.
-export function createSimulationFrame({ day, phase, matchSec, survivors = [], dead = [],
+// This projection borrows engine data. Only a synchronous native transport may
+// consume it; ordinary callers must use createSimulationFrame for ownership.
+export function projectSimulationFrame({ day, phase, matchSec, survivors = [], dead = [],
   killCounts = {}, assistCounts = {}, spawnState, forbiddenAddedNow = [], forbiddenIds = new Set(), mapId = '',
 }) {
-  return measureObserverWork('frame.snapshot', () => {
-    const latestSurvivors = latestActors(survivors);
-    const living = latestSurvivors.filter((actor) => Number(actor.hp) > 0);
-    const aliveIds = new Set(living.map(getRuntimeActorKey));
-    // Prefer the engine's normalized corpse over its older zero-HP live-map row.
-    // Preserve death order too: revival iterates that order using match RNG.
-    const recordedDead = latestActors(dead);
-    const recordedIds = new Set(recordedDead.map(getRuntimeActorKey));
-    const fallen = [...recordedDead, ...latestSurvivors.filter((actor) => Number(actor.hp) <= 0 && !recordedIds.has(getRuntimeActorKey(actor)))]
-      .filter((actor) => !aliveIds.has(getRuntimeActorKey(actor)));
-    return structuredClone({ day, phase, matchSec, survivors: living, dead: fallen,
-      killCounts, assistCounts, spawnState, forbiddenAddedNow,
-      forbiddenZoneIds: [...forbiddenIds], frameMapId: String(mapId || ''),
-    });
-  });
+  const latestSurvivors = latestActors(survivors);
+  const living = latestSurvivors.filter((actor) => Number(actor.hp) > 0);
+  const aliveIds = new Set(living.map(getRuntimeActorKey));
+  // Prefer the engine's normalized corpse over its older zero-HP live-map row.
+  // Preserve death order too: revival iterates that order using match RNG.
+  const recordedDead = latestActors(dead);
+  const recordedIds = new Set(recordedDead.map(getRuntimeActorKey));
+  const fallen = [...recordedDead, ...latestSurvivors.filter((actor) => Number(actor.hp) <= 0 && !recordedIds.has(getRuntimeActorKey(actor)))]
+    .filter((actor) => !aliveIds.has(getRuntimeActorKey(actor)));
+  return { day, phase, matchSec, survivors: living, dead: fallen,
+    killCounts, assistCounts, spawnState, forbiddenAddedNow,
+    forbiddenZoneIds: [...forbiddenIds], frameMapId: String(mapId || ''),
+  };
+}
+
+export function createSimulationFrame(input) {
+  return measureObserverWork('frame.snapshot', () => structuredClone(projectSimulationFrame(input)));
 }
 
 export function publishSimulationFrame(frame, actions = {}) {

@@ -191,6 +191,7 @@ function* simulationPhaseSteps({
   const movePowerContext = { ruleset, battleSettings };
   const growthHoldCache = {};
   const requestGrowthYield = createHighSpeedGrowthYield({
+    ...(actions.growthYieldOptions || {}),
     readSpeed: () => normalizeAutoSpeed
       ? normalizeAutoSpeed(autoSpeedRef?.current || autoSpeed)
       : Number(autoSpeedRef?.current || autoSpeed || 1),
@@ -314,15 +315,23 @@ function* simulationPhaseSteps({
     dead: [...currentDead, ...phaseDeadSnapshots], canReviveThisMatch, phaseIdxNow, wipeProtectionCutoffIdx,
   }).finished;
   const publishFrame = (overrides = {}) => {
-    const frame = createSimulationFrame({
+    const input = {
     day: nextDay, phase: nextPhase, matchSec: Math.round((phaseStartSec + getPhaseRuntimeOffsetSec()) * 1e6) / 1e6,
     dead: [...currentDead, ...phaseDeadSnapshots], spawnState: nextSpawn,
     forbiddenIds, forbiddenAddedNow: currentForbiddenAdded, mapId: mapObj?._id,
     ...overrides,
-    });
-    observeTeamSurvival({ survivors: frame.survivors, dead: frame.dead,
+    };
+    const observe = (frame) => observeTeamSurvival({ survivors: frame.survivors, dead: frame.dead,
       canReviveThisMatch, phaseIdxNow, wipeProtectionCutoffIdx },
     { day: nextDay, phase: nextPhase, sec: frame.matchSec });
+    // The worker serializes synchronously before any further engine mutation.
+    // Generic hosts retain the full native-owned frame contract.
+    if (actions.publishSimulationFrameFromSource) {
+      actions.publishSimulationFrameFromSource(input, observe);
+      return;
+    }
+    const frame = createSimulationFrame(input);
+    observe(frame);
     publishSimulationFrame(frame, actions);
   };
   const commitTimelineActors = (actors, deaths = []) => {
@@ -422,7 +431,7 @@ function* simulationPhaseSteps({
     }
     finally { timelineActionSec = null; }
   };
-  const phaseSetupYield = requestSimulationFrameYield();
+  const phaseSetupYield = (actions.requestFrameYield || requestSimulationFrameYield)();
   if (phaseSetupYield) yield phaseSetupYield;
   const pvpActionLoopResult = yield runPvpActionLoop({
     state: {
@@ -452,7 +461,7 @@ function* simulationPhaseSteps({
       zoneGraph,
     },
     actions: {
-      requestMainThreadYield: requestSimulationMainThreadYield,
+      requestMainThreadYield: actions.requestMainThreadYield || requestSimulationMainThreadYield,
       advanceWorldSteps,
       shouldEndMatch,
       resolveWorldObjectives: ({ survivorMap }) => advanceRifts([...survivorMap.values()]),
@@ -494,7 +503,7 @@ function* simulationPhaseSteps({
     roundKills,
     survivorMap,
   } = pvpActionLoopResult;
-  const phaseFinalizationYield = requestSimulationMainThreadYield();
+  const phaseFinalizationYield = (actions.requestMainThreadYield || requestSimulationMainThreadYield)();
   if (phaseFinalizationYield) yield phaseFinalizationYield;
   const phaseFinalizationResult = yield finalizeSimulationPhase({
     refs: {

@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-
-export function normalizeAutoSpeed(value) {
-  return Math.max(1, Math.min(32, Number(value) || 1));
-}
+import { normalizeAutoSpeed } from './simulationSpeedRuntime.js';
+export { normalizeAutoSpeed } from './simulationSpeedRuntime.js';
 
 export function useSimulationFlowState(initialAutoSpeed = 1) {
   const normalizedInitialAutoSpeed = normalizeAutoSpeed(initialAutoSpeed);

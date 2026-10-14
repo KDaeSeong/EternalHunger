@@ -1,0 +1,155 @@
+{
+  "schema": "eternal-hunger.phase-worker-evidence.v1",
+  "observedOn": "2026-10-14",
+  "role": "Output evidence only. Verification creates fresh inputs and never reads this receipt as input or expected output.",
+  "engineVersion": "01fcdc201e53411807867e0e7b9c095e2f70ba9bf04a28d0addc98ff4b73607d",
+  "verification": {
+    "command": "node scripts/run-eternal-hunger-verification.mjs phase-worker-release",
+    "resultPath": "client/.verification-runs/2026-10-14T12-55-49.287Z-66d0eeb2-3027-4221-93f4-48b37ea1df07/result.json",
+    "status": "passed",
+    "exitCode": 0,
+    "sameEngine": true,
+    "sameVerificationSources": true,
+    "cases": {
+      "workerInput": 3,
+      "workerClient": 9,
+      "executorHook": 8,
+      "nativeWorkerMatch": 1,
+      "replayComparison": 10,
+      "savedInputReplay": 16,
+      "liveFrames": 19,
+      "displayPacing": 15,
+      "cooperativeYield": 10,
+      "highSpeedGrowthYield": 15,
+      "growthScheduling": 18,
+      "fingerprint": 6
+    },
+    "runtimeSweepExitCode": 0
+  },
+  "nativeWorkerMatch": {
+    "seed": "1101",
+    "rosterSeed": "FIXTURE:initial-roster",
+    "inputBytes": 851792,
+    "inputSha256": "df17d5d7bbf8fa258f793de2f1b87a0fe072f5e101127082ea7bdc968073deef",
+    "participants": 24,
+    "phases": 11,
+    "nativeFrames": 5840,
+    "publishedUiFrames": 44,
+    "events": 11648,
+    "logEntries": 7107,
+    "allNativeFramesExact": true,
+    "uiFramesUnchangedOrderedSubsequence": true,
+    "fullJournalExact": true,
+    "logsExact": true,
+    "finalFrameExact": true,
+    "randomExact": true,
+    "endingExact": true,
+    "finishCalls": 1,
+    "ending": "last_team",
+    "endedAtSec": 1124.916666,
+    "randomDraws": 8934,
+    "frameSha256": "9958d8a2d1491ad631809d9f33e6133b7c79710f07988cfddde51561cfaa1541",
+    "eventSha256": "244d837cc478cf2e6a2dbb8fdbcd69dfac2b1ff8fa8efc30eeb9ab3e1482a9b5",
+    "logSha256": "ab61fc6fcbbf47af13e3a3ad5bcd17c4c7592f5115e7011019a2fc6218ffb8f3",
+    "accountAndPersistenceScope": "Main callbacks are test doubles. Equipment persistence callback was exercised 11 times; account callback 0 times. No paid API callback is available. This is not real HTTP, authentication, database persistence or browser proof.",
+    "pacingScope": "Test-only nonfinite wall clock, no real display delays, setImmediate task yields. Real worker_threads transport, not browser throughput or paint evidence."
+  },
+  "savedInputReplay": {
+    "seed": "1101",
+    "inputBytes": 731120,
+    "events": 14133,
+    "frames": 6488,
+    "endedAtSec": 1238.999999,
+    "winnerTeamId": "team:8",
+    "externalAccess": 0,
+    "matched": true,
+    "scope": "Separate fresh fixture from nativeWorkerMatch, not the same input just because the seed matches."
+  },
+  "build": {
+    "id": "ixrvwRKz4i5eBogJvlPIh",
+    "exitCode": 0,
+    "staticPages": 62,
+    "compileSeconds": 67,
+    "mainChunk": "client/.next/static/chunks/5008-bb181cfd9b1a0013.js",
+    "workerChunk": "client/.next/static/chunks/770.4ad13db032284889.js",
+    "workerChunkBytes": 326056,
+    "scope": "Webpack production compilation and emitted worker asset/URL; not loaded-browser execution."
+  },
+  "browser": {
+    "verified": false,
+    "effective32x": null,
+    "heapVerified": false,
+    "reason": "cua_repl init/reset/getState and node_repl computer-use initialization failed: failed to write kernel assets: specified path not found (os error 3). No replacement CDP/Playwright path or UI claim."
+  },
+  "corrections": {
+    "readyOverlap": "Observed old second invocation remaining pending before ready; starting gate now rejects it and posts only one phase.",
+    "cancellation": "Dispose is PHASE_WORKER_DISPOSED and never enters startup fallback; hook/controller tests verify no ghost run or journal reset.",
+    "testExpectations": "Incorrect fixed 13-phase expectation and repeated Hash.digest were corrected. Natural phase count stays unchanged; all native frames remain exact, UI publications use an ordered-subsequence contract."
+  },
+  "cleanup": {
+    "removedFiles": 6,
+    "removedBytes": 610184354,
+    "targets": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 264093821,
+        "sha256": "0BFB3123FCF602D01FE135A73DD0999EB3DC7236060D7CA1EECD9F94172CD01A",
+        "fileId": "0x0000000000000000001300000008a608"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12994762,
+        "sha256": "D21BB33051D7BF2CD4CEF1B9A055790926E56FEAF813D41D0165875BD4D93E65",
+        "fileId": "0x0000000000000000001600000008a609"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+        "fileId": "0x000000000000000000210000000884f2"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "sha256": "C398235A9535AC2F2410DA24CCD1734188443AB1A6520CAC20ECDE2CE0C38643",
+        "fileId": "0x000000000000000000510000000884f5"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 314869660,
+        "sha256": "0E7078F69B6283A7D5D174528A9EC8BF2A6A0DE1B07D669AB89B93155C5CBF21",
+        "fileId": "0x0000000000000000004a000000088439"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18223371,
+        "sha256": "1570F248A7820363D6A9A250B2A06C16984C508FC95D96035452222FC64B357A",
+        "fileId": "0x00000000000000000037000000088521"
+      }
+    ],
+    "recovery": "Regenerate with npm run build",
+    "before": {
+      "buildId": "ixrvwRKz4i5eBogJvlPIh",
+      "beforeFiles": 1452,
+      "beforeBytes": 703929726,
+      "protectedCount": 1446,
+      "protectedAggregate": "C3A914B1791CF4FF463E49B1802262F366A853C2559D9A7A87BE525AB452FBFD"
+    },
+    "after": {
+      "afterFiles": 1446,
+      "afterBytes": 93745372,
+      "protectedAggregate": "C3A914B1791CF4FF463E49B1802262F366A853C2559D9A7A87BE525AB452FBFD",
+      "oldPackSha256": "3A62EC6B8AB460303BD5D552976F76D6A1B091DE637D5228F66B6528BCB83C23"
+    },
+    "protectedBuildUnchanged": true,
+    "initialValidationAttempt": "Split-Path LiteralPath/Parent parameter error occurred before any deletion; revalidated all six files with Path.GetDirectoryName before removal.",
+    "scope": "Only six new regenerable webpack build-cache files. Completed .next outputs, source, old pack, user files and .codex records preserved."
+  },
+  "fullGoalComplete": false,
+  "remaining": [
+    "Actual current-engine browser Worker run and x1/x8/x32 qualifying repeats including heap and readability",
+    "Browser process restart replay recovery",
+    "Broader authored-roster growth/cooperation and strategy/balance evidence",
+    "Human follow-up understanding and enjoyment"
+  ]
+}

@@ -3,7 +3,7 @@ import {
   runGuardedPhaseAdvance,
 } from './phaseControllerGuards';
 import { finishSimulationGame } from './finishGameRuntime';
-import { runSimulationPhaseCycle } from './simulationPhaseCycleRuntime';
+import { useSimulationPhaseExecutor } from './useSimulationPhaseExecutor.js';
 import { useSimulationPhaseSideEffects } from './useSimulationPhaseSideEffects';
 import { SIMULATION_FRAME_FIELDS } from './simulationFrameRuntime';
 
@@ -13,6 +13,7 @@ export function useSimulationPhaseController({
   refs = {},
   state = {},
 } = {}) {
+  const executePhase = useSimulationPhaseExecutor({ autoSpeed: state.autoSpeed });
   const {
     autoSpeedRef,
     devRunTaintedRef,
@@ -110,7 +111,7 @@ export function useSimulationPhaseController({
     if (prepared && day > 0) {
       for (const key of SIMULATION_FRAME_FIELDS) if (key in state) engineState[key] = state[key];
     }
-    return runSimulationPhaseCycle({
+    return executePhase({
       refs: prepared ? { ...refs, activeMapRef: { current: prepared.state.activeMap }, activeMapIdRef: { current: prepared.state.activeMapId } } : refs,
       state: engineState,
       helpers: prepared?.helpers || helpers,
@@ -122,6 +123,10 @@ export function useSimulationPhaseController({
   }
 
   async function proceedPhaseGuarded() {
+    if (executePhase.isRunFailed(refs.runInputRef?.current)) {
+      setAutoPlay?.(false);
+      return;
+    }
     return runGuardedPhaseAdvance({
       refs: {
         isAdvancingRef,

@@ -12,6 +12,7 @@ const commands = {
   build: 'npm run build',
   'runtime-build': 'npm run check:runtime:full',
   execution: 'npm run check:growth-scheduling:match',
+  'phase-worker-release': 'npm run check:simulation-replay && npm run check:runtime:sweep',
   distribution: 'npm run diagnose:match-distribution -- --compare-observer=4402 4401 4402 4403 4404 4405 4406 4407 4408 4409 4410',
   'distribution-varied': 'npm run diagnose:match-distribution -- --rosters=BASELINE:roster-A,BASELINE:roster-B,BASELINE:roster-C 5501 5502',
   'distribution-unit': 'npm run check:team-regroup && npm run check:verification-fingerprint',
@@ -95,6 +96,13 @@ function fingerprint() {
 }
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json'];
+  if (['phase-worker-release', 'full', 'performance', 'growth'].includes(mode)) paths.push(
+    'scripts/check-simulation-phase-worker-input.mjs', 'scripts/check-simulation-phase-worker-client.mjs',
+    'scripts/check-simulation-phase-executor-hook.mjs', 'scripts/check-simulation-phase-worker-match.mjs',
+    'scripts/lib/simulation-phase-worker-host.mjs', 'scripts/lib/hook-handler-harness.mjs',
+    'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/run-random-isolation-match.mjs',
+    'scripts/check-simulation-replay.mjs', 'scripts/check-replay-comparison-performance.mjs',
+    'scripts/generate-simulation-version.mjs', 'eslint.runtime.config.mjs');
   if (['growth', 'performance', 'growth-focus-unit', 'initial-weapon-goal-unit', 'full'].includes(mode)) paths.push(
     'scripts/check-growth-progress-inventory.mjs', 'scripts/check-growth-fulfillment-match.mjs',
     'scripts/lib/run-random-isolation-match.mjs', 'scripts/lib/register-simulation-modules.mjs');
