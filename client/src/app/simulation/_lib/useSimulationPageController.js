@@ -78,6 +78,7 @@ export function useSimulationPageController({
   } = useSimulationMatchState();
   const simulationLogs = useSimulationLogs({
     day,
+    isGameOver,
     matchSec,
     phase,
     runInputRef,

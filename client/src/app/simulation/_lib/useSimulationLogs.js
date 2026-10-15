@@ -55,6 +55,7 @@ function resizeSimulationWindowToContent() {
 export function useSimulationLogs({
   day,
   exportState = {},
+  isGameOver = false,
   matchSec,
   phase,
   runInputRef,
@@ -73,43 +74,85 @@ export function useSimulationLogs({
   const fullLogEntriesRef = useRef([]);
   const fullRunEventsRef = useRef([]);
   const pendingVisibleLogsRef = useRef([]);
-  const visibleLogFlushQueuedRef = useRef(false);
   const pendingVisibleRunEventsRef = useRef([]);
-  const visibleRunEventFlushQueuedRef = useRef(false);
+  const visiblePublicationRef = useRef(null);
+  const publicationDisposedRef = useRef(false);
+  const flushVisibleJournalRef = useRef(null);
+  const viewWindow = typeof window === 'undefined' ? null : window;
+
+  function cancelVisiblePublication() {
+    visiblePublicationRef.current?.cancel();
+    visiblePublicationRef.current = null;
+  }
+
+  function flushVisibleJournal() {
+    cancelVisiblePublication();
+    if (publicationDisposedRef.current) return;
+    const pendingLogs = pendingVisibleLogsRef.current;
+    const pendingEvents = pendingVisibleRunEventsRef.current;
+    pendingVisibleLogsRef.current = [];
+    pendingVisibleRunEventsRef.current = [];
+    if (pendingLogs.length) setLogs((previous) => [...previous, ...pendingLogs]);
+    if (pendingEvents.length) setVisibleRunEvents((previous) => appendVisibleRunEvents(previous, pendingEvents));
+  }
+  useEffect(() => {
+    flushVisibleJournalRef.current = flushVisibleJournal;
+  });
+
+  function requestVisiblePublication() {
+    if (publicationDisposedRef.current || visiblePublicationRef.current) return;
+    const publication = { cancel() {} };
+    visiblePublicationRef.current = publication;
+    const flush = () => {
+      if (visiblePublicationRef.current !== publication) return;
+      flushVisibleJournalRef.current();
+    };
+    // Worker messages have separate microtask checkpoints. Publish their
+    // read-only views together, while the full journals stay immediate FIFO.
+    if (typeof viewWindow?.requestAnimationFrame === 'function') {
+      const frameId = viewWindow.requestAnimationFrame(flush);
+      const timerId = viewWindow.setTimeout(flush, 100);
+      publication.cancel = () => {
+        viewWindow.cancelAnimationFrame(frameId);
+        viewWindow.clearTimeout(timerId);
+      };
+    } else if (typeof queueMicrotask === 'function') queueMicrotask(flush);
+    else Promise.resolve().then(flush);
+  }
+
+  useEffect(() => {
+    publicationDisposedRef.current = false;
+    return () => {
+      visiblePublicationRef.current?.cancel();
+      visiblePublicationRef.current = null;
+      publicationDisposedRef.current = true;
+      pendingVisibleLogsRef.current = [];
+      pendingVisibleRunEventsRef.current = [];
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isGameOver) flushVisibleJournalRef.current();
+  }, [isGameOver]);
 
   function setRunEvents(events) {
     pendingVisibleRunEventsRef.current = [];
+    if (!pendingVisibleLogsRef.current.length) cancelVisiblePublication();
     const owned = structuredClone(events);
     fullRunEventsRef.current = owned;
     setVisibleRunEvents(owned.slice(-5000));
   }
 
   function enqueueVisibleRunEvent(event) {
+    if (publicationDisposedRef.current) return;
     pendingVisibleRunEventsRef.current.push(event);
-    if (visibleRunEventFlushQueuedRef.current) return;
-    visibleRunEventFlushQueuedRef.current = true;
-    const flush = () => {
-      visibleRunEventFlushQueuedRef.current = false;
-      const pending = pendingVisibleRunEventsRef.current;
-      pendingVisibleRunEventsRef.current = [];
-      if (pending.length) setVisibleRunEvents((previous) => appendVisibleRunEvents(previous, pending));
-    };
-    if (typeof queueMicrotask === 'function') queueMicrotask(flush);
-    else Promise.resolve().then(flush);
+    requestVisiblePublication();
   }
 
   function enqueueVisibleLog(entry) {
+    if (publicationDisposedRef.current) return;
     pendingVisibleLogsRef.current.push(entry);
-    if (visibleLogFlushQueuedRef.current) return;
-    visibleLogFlushQueuedRef.current = true;
-    const flush = () => {
-      visibleLogFlushQueuedRef.current = false;
-      const pending = pendingVisibleLogsRef.current;
-      pendingVisibleLogsRef.current = [];
-      if (pending.length) setLogs((previous) => [...previous, ...pending]);
-    };
-    if (typeof queueMicrotask === 'function') queueMicrotask(flush);
-    else Promise.resolve().then(flush);
+    requestVisiblePublication();
   }
 
   useEffect(() => {
@@ -159,6 +202,7 @@ export function useSimulationLogs({
 
   function resetPhaseLogs() {
     pendingVisibleLogsRef.current = [];
+    if (!pendingVisibleRunEventsRef.current.length) cancelVisiblePublication();
     setPrevPhaseLogs([]);
     setShowPrevLogs(false);
     setLogs(() => []);
