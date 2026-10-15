@@ -8,7 +8,9 @@ const { runFieldLootPhase } = await import('../src/app/simulation/_lib/phaseFiel
 const { runFacilityGatherPhase } = await import('../src/app/simulation/_lib/phaseFacilityGatherRuntime.js');
 const { buildActorGrowthPlan, refreshActorGrowthPlan } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
 const { runActorMovementDecisionPhase } = await import('../src/app/simulation/_lib/phaseActorMovementRuntime.js');
+const { resolveActorNextMoveZone } = await import('../src/app/simulation/_lib/actorMovementDecisionHelpers.js');
 const { addItemToInventory, invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
+const { applyLootCraftResult } = await import('../src/app/simulation/_lib/lootCraftResultRuntime.js');
 const { buildRunActionSummary } = await import('../src/app/simulation/_lib/runActionSummary.js');
 const { getRuleset } = await import('../src/utils/rulesets.js');
 const { pickGoalResourceZoneTargets } = await import('../src/app/simulation/_lib/resourceTargetingRuntime.js');
@@ -113,6 +115,102 @@ try {
     assert.equal(nextSpawn.fieldResources.byZone.b.raw.remaining, 1);
     assert.equal(events.filter((event) => event.kind === 'resource_replan').length, 1);
     assert.equal(events.filter((event) => event.kind === 'field_resource').length, 2);
+  });
+  check('two actual teams reroute, pay a recipe, equip the goal, and fail closed without a source', () => {
+    const paidRaw = { ...raw, _id: 'paid-raw', spawnZones: ['a', 'b'] };
+    const paidTarget = { _id: 'paid-target', name: '유료 목표 장비', type: '머리', category: 'equipment', equipSlot: 'head', tier: 4,
+      recipe: { ingredients: [{ itemId: paidRaw._id, qty: 1 }], creditsCost: 7 } };
+    const paidItems = [paidRaw, paidTarget]; const paidMap = { ...mapObj, fieldResourceStock: { a: { [paidRaw._id]: 1 }, b: { [paidRaw._id]: 1 } } };
+    const paidCraftables = [paidTarget], paidSpawn = { fieldResources: createFieldResources(paidMap, paidItems, ruleset) };
+    const events = [];
+    const paidActions = { emitRunEvent: (kind, payload) => events.push({ kind, ...payload }), atNow: () => ({ sec: 20 }),
+      applyLootCraftResult: (row, crafted, meta, at, zoneId) => applyLootCraftResult(row, crafted, meta,
+        { at, zoneId, emitCraftRunEvent: (who, result, when, where) => events.push({ kind: 'craft', who,
+          itemId: result.craftedId, zoneId: where, ...result.receipt }) }) };
+    const paidState = { mapObj: paidMap, zoneGraph, nextSpawn: paidSpawn, ruleset, publicItems: paidItems,
+      craftables: paidCraftables, itemNameById: { [paidRaw._id]: paidRaw.name }, itemMetaById: {}, nextDay: 1,
+      nextPhase: 'morning', forbiddenIds: new Set() };
+    const paidActor = (id) => ({ ...actor(id), teamId: id, routePlanTargetItemIds: [paidTarget._id], inventory: [],
+      simCredits: 7, equipped: { head: null } });
+    let firstTeam = paidActor('paid-team-one'); let secondTeam = paidActor('paid-team-two');
+    for (const row of [firstTeam, secondTeam]) {
+      assert.deepEqual(row.inventory, []);
+      assert.equal(row.equipped.head, null);
+      const authored = buildActorGrowthPlan(row, paidItems, paidState);
+      assert.equal(authored.targetId, paidTarget._id);
+      assert.deepEqual(authored.goalIssues, []);
+    }
+    refreshActorGrowthPlan(firstTeam, paidItems, paidState); refreshActorGrowthPlan(secondTeam, paidItems, paidState);
+    runRouteFarmAction({ actions: paidActions, state: { ...paidState, actor: firstTeam,
+      fallbackRouteItemIds: [paidRaw._id], goalMissingIds: [paidRaw._id] } });
+    assert.equal(invQty(firstTeam.inventory, paidRaw._id), 0, 'The last local unit must be consumed by the real recipe.');
+    assert.equal(invQty(firstTeam.inventory, paidTarget._id), 1);
+    assert.equal(firstTeam.simCredits, 0);
+    assert.equal(firstTeam.equipped.head, paidTarget._id);
+    assert.equal(refreshActorGrowthPlan(firstTeam, paidItems, paidState).openingComplete, true);
+    secondTeam = runActorMovementDecisionPhase({ actions: paidActions, state: { ...paidState, actor: secondTeam,
+      zones: paidMap.zones, phaseSurvivors: [secondTeam] } }).actor;
+    assert.equal(secondTeam.zoneId, 'b', 'The real movement executor must reroute to the alternative supply.');
+    runRouteFarmAction({ actions: paidActions, state: { ...paidState, actor: secondTeam,
+      fallbackRouteItemIds: [paidRaw._id], goalMissingIds: [paidRaw._id] } });
+    assert.equal(invQty(secondTeam.inventory, paidRaw._id), 0);
+    assert.equal(invQty(secondTeam.inventory, paidTarget._id), 1);
+    assert.equal(secondTeam.simCredits, 0);
+    assert.equal(secondTeam.equipped.head, paidTarget._id);
+    assert.equal(refreshActorGrowthPlan(secondTeam, paidItems, paidState).openingComplete, true);
+    assert.equal(paidSpawn.fieldResources.byZone.a[paidRaw._id].remaining, 0);
+    assert.equal(paidSpawn.fieldResources.byZone.b[paidRaw._id].remaining, 0);
+    assert.equal(events.filter((event) => event.kind === 'craft' && event.itemId === paidTarget._id).length, 2);
+    assert.ok(events.filter((event) => event.kind === 'craft' && event.itemId === paidTarget._id)
+      .every((event) => event.paidCost === 7 && event.afterCredits === 0));
+
+    const exhausted = paidActor('paid-team-exhausted');
+    const noSourceState = { ...paidState, actor: exhausted };
+    refreshActorGrowthPlan(exhausted, paidItems, noSourceState);
+    runRouteFarmAction({ actions: paidActions, state: { ...noSourceState,
+      fallbackRouteItemIds: [paidRaw._id], goalMissingIds: [paidRaw._id] } });
+    assert.equal(invQty(exhausted.inventory, paidRaw._id), 0);
+    assert.equal(invQty(exhausted.inventory, paidTarget._id), 0);
+    assert.equal(exhausted.simCredits, 7);
+    assert.equal(exhausted.equipped.head, null);
+
+    const blockedMap = { ...paidMap, _id: 'paid-blocked-path', fieldResourceStock: {
+      a: { [paidRaw._id]: 0 }, b: { [paidRaw._id]: 1 } } };
+    const blockedSpawn = { fieldResources: createFieldResources(blockedMap, paidItems, ruleset) };
+    let blocked = paidActor('paid-team-forbidden');
+    const blockedState = { ...paidState, mapObj: blockedMap, nextSpawn: blockedSpawn, actor: blocked, forbiddenIds: new Set(['b']) };
+    refreshActorGrowthPlan(blocked, paidItems, blockedState);
+    blocked = runActorMovementDecisionPhase({ actions: paidActions, state: { ...blockedState, zones: blockedMap.zones,
+      phaseSurvivors: [blocked] } }).actor;
+    assert.equal(blocked.zoneId, 'a');
+    const beforeCraftCount = events.filter((event) => event.kind === 'craft').length;
+    runRouteFarmAction({ actions: paidActions, state: { ...blockedState, actor: blocked,
+      fallbackRouteItemIds: [paidRaw._id], goalMissingIds: [paidRaw._id] } });
+    assert.equal(invQty(blocked.inventory, paidRaw._id), 0);
+    assert.equal(invQty(blocked.inventory, paidTarget._id), 0);
+    assert.equal(blocked.simCredits, 7);
+    assert.equal(blocked.equipped.head, null);
+    assert.equal(blockedSpawn.fieldResources.byZone.b[paidRaw._id].remaining, 1);
+    assert.equal(events.filter((event) => event.kind === 'craft').length, beforeCraftCount);
+  });
+  check('voluntary, targeted and committed movement respect forbidden neighbors while escape remains active', () => {
+    const traveler = { ...actor('movement-boundary'), day1Moves: 0 };
+    const forbidden = new Set(['b']);
+    const resolve = (overrides = {}) => resolveActorNextMoveZone({ state: { actor: traveler, currentZone: 'a',
+      day: 2, phase: 'night', neighbors: ['b'], zoneGraph: { a: ['b'], b: ['a'], c: [] }, forbiddenIds: forbidden,
+      ruleset, ...overrides } });
+    assert.equal(resolve().nextZoneId, 'a', 'Voluntary wandering waits when every adjacent zone is forbidden.');
+    assert.equal(resolve({ day: 1, phase: 'morning' }).nextZoneId, 'a', 'Forced first-morning movement also waits.');
+    assert.equal(resolve({ neighbors: ['b', 'c'], zoneGraph: { a: ['b', 'c'], b: ['a'], c: [] } }).nextZoneId, 'c',
+      'A safe adjacent zone remains available for ordinary movement.');
+    assert.equal(resolve({ currentZone: 'b', neighbors: ['a'], mustEscape: true }).nextZoneId, 'a',
+      'An actor already in a forbidden zone still attempts a safe escape.');
+    assert.equal(resolve({ mustEscape: true, forbiddenIds: new Set(['a', 'b']) }).nextZoneId, 'b',
+      'An actor trapped in forbidden zones retains the existing escape-step fallback.');
+    assert.equal(resolve({ moveTargets: ['c'], zoneGraph: { a: ['b'], b: ['c'], c: [] } }).nextZoneId, 'a',
+      'A planned route cannot cross a forbidden intermediate zone.');
+    assert.equal(resolve({ committedNextStep: 'b' }).nextZoneId, 'a',
+      'A committed step cannot bypass a forbidden destination.');
   });
   check('an impossible recipe switches equipment branches before wasting other local materials', () => {
     const other = { ...raw, _id: 'other' };

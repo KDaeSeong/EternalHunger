@@ -152,6 +152,218 @@
       "scope": "Fresh same-engine first-night actual execution. All six authored targets must be observed in positive-quantity inventory and correctly equipped by the deadline, rather than merely reporting inventory growth or terminal equipment. A death or missing exposure is not silently repaired. This is one fixed input, not a general survival, completion or winner rate."
     }
   },
+  "voluntaryMovementSafetyFollowup": {
+    "engineVersion": "67f01eb86186f4b50efcf5daf53086963005436608442a8d8d650346a79975ae",
+    "priorEngineVersion": "18b0405b3638ff8f726c87eec80c444428e46a5f1468a50604743f9fc30c0ffa",
+    "reproducedBug": {
+      "currentZone": "a",
+      "forbiddenZones": ["b"],
+      "neighbors": ["b"],
+      "moveTargets": [],
+      "randomValue": 0,
+      "redCases": ["ordinary day 2 night", "forced day 1 morning"],
+      "actualBeforeFix": "b",
+      "expected": "a",
+      "independentHelperReproductionExitCode": 1,
+      "priorIntegrationCheck": "New actual shared-stock-to-paid-equipment scenario passed its positive path but failed when the isolated blocked actor moved from safe a to forbidden b. This remains a failed pre-fix observation, not a fixture compensation."
+    },
+    "fix": "Only voluntary wandering and the forced first-morning fallback select safe adjacent zones. Stay in a safe current zone when no safe neighbor exists. Existing mustEscape and knockback fallback rules are unchanged.",
+    "sourceSha256LfNormalized": {
+      "client/scripts/check-field-resources.mjs": "321a8f9eb17e9dabf36079984eb30c7230d78a8a344bdb4ebe6a4eec423a8710",
+      "client/src/app/simulation/_lib/actorMovementDecisionHelpers.js": "8fb3204ba11caee7c6bdcd0419a478f18e31e3dbc3874923db119532e3710e12",
+      "client/src/app/simulation/_generated/simulationEngineVersion.js": "dd8fc1d2ae3bc677376c89644e44d241a099eb89edc0b3e96db9a38ea6fb05b0"
+    },
+    "focusedChecks": {
+      "fieldResourceGroups": 16,
+      "fieldResourceExitCode": 0,
+      "paidReplanScenario": { "teams": 2, "startingInventoryEmpty": true, "startingEquipmentEmpty": true, "authoredGoalValid": true, "startingCreditsEach": 7, "recipeCostEach": 7, "bothGoalsActuallyEquipped": true, "bothFinalCredits": 0, "sharedSuppliesInitial": 2, "sharedSuppliesRemaining": 0 },
+      "negativeCases": ["all supplies exhausted", "alternative supply remains stocked but the only route is forbidden"],
+      "ordinaryAndFirstMorningStayVerified": true,
+      "safeNeighborMovementVerified": true,
+      "existingForbiddenEscapeAndTrappedEscapeFallbackVerified": true,
+      "plannedAndCommittedForbiddenStepsRejected": true,
+      "relatedScriptExitCodes": {
+        "check-team-regroup.mjs": 0,
+        "check-eternal-hunger-regressions.mjs": 0,
+        "check-rift-knockback.mjs": 0,
+        "check-team-retreat-survival.mjs": 0,
+        "check-endgame.mjs": 0,
+        "check-battle-log-regressions.mjs": 0
+      },
+      "targetedLintExitCode": 0
+    },
+    "build": {
+      "resultPath": "client/.verification-runs/2026-10-15T13-07-55.121Z-5b88c513-f0a5-4e04-9620-dc18f81fde53/result.json",
+      "status": "passed",
+      "exitCode": 0,
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "finishedAt": "2026-10-15T13:09:34.374Z",
+      "id": "5PORBcstT1Y0lw-Lfid-i",
+      "staticPages": 62,
+      "compileSeconds": 29.8,
+      "compiledWorkerReady": true,
+      "firstPhaseFrames": 701,
+      "firstPhaseFinalMatchSec": 140
+    },
+    "release": {
+      "resultPath": "client/.verification-runs/2026-10-15T13-09-54.781Z-31f23496-faf2-4e39-ad3d-c94eb7c3fc28/result.json",
+      "command": "node scripts/run-eternal-hunger-verification.mjs phase-worker-release",
+      "status": "passed",
+      "exitCode": 0,
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "finishedAt": "2026-10-15T13:18:08.941Z",
+      "savedInputReplay": {
+        "checks": 16,
+        "phases": 13,
+        "frames": 6488,
+        "events": 14133,
+        "endedAtSec": 1238.999999,
+        "randomDraws": 8835,
+        "comparisonMatched": true,
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true,
+        "externalAccess": 0
+      },
+      "nativeWorkerMatch": {
+        "phases": 11,
+        "allFrames": 5840,
+        "publishedFrames": 39,
+        "events": 11648,
+        "logs": 7107,
+        "ending": "last_team",
+        "endedAtSec": 1124.916666,
+        "randomDraws": 8934,
+        "framesEventsLogsFinalStateRandomAndEndingExact": true,
+        "frameSha256": "9958d8a2d1491ad631809d9f33e6133b7c79710f07988cfddde51561cfaa1541",
+        "eventSha256": "244d837cc478cf2e6a2dbb8fdbcd69dfac2b1ff8fa8efc30eeb9ab3e1482a9b5",
+        "logSha256": "ab61fc6fcbbf47af13e3a3ad5bcd17c4c7592f5115e7011019a2fc6218ffb8f3",
+        "publishedFrameScope": "Ordered subset of native frames in a test clock; not browser FPS."
+      },
+      "authAndProxyContractsPassed": true,
+      "runtimeSweepExitCode": 0
+    },
+    "cleanup": {
+      "observedAt": "2026-10-15T13:20:36.9155307Z",
+      "removedFiles": 6,
+      "removedBytes": 610240391,
+      "targets": [
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+          "bytes": 264118836,
+          "sha256": "A9ED097FEDE5502E85D99280FD09FC619F7034B9CBF4A3746E47A0EFC0219496",
+          "fileId": "30FCFF65:001400000008A71D"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+          "bytes": 12994759,
+          "sha256": "06663CDDF37D0F24C596EE1590E248295B9D51682A3BC895260E1698D7E8C26E",
+          "fileId": "30FCFF65:001400000008A71C"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+          "bytes": 314899294,
+          "sha256": "9C29CEFDF0675097DE4482C7622DF2CC0E32A154C943E87660D6483CBBAFE8B1",
+          "fileId": "30FCFF65:001C000000089B66"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+          "bytes": 18224762,
+          "sha256": "252B26F149DE6FD24B08BB5CB9DC93758E15E20877660F83D2F9828160B3C2F7",
+          "fileId": "30FCFF65:0048000000089B6B"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+          "bytes": 276,
+          "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+          "fileId": "30FCFF65:003C000000089C68"
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+          "bytes": 2464,
+          "sha256": "C878B313FD2F06550566F059033501EB127367282D9EBA17F3486CC300D6395B",
+          "fileId": "30FCFF65:01D5000000089CA9"
+        }
+      ],
+      "protectedBefore": {
+        "files": 1446,
+        "sha256": "907E6F61E8B623010F64EB790D4FF8DD9E8EA7B563875ECE3324E3FA281F4568"
+      },
+      "protectedAfter": {
+        "files": 1446,
+        "sha256": "907E6F61E8B623010F64EB790D4FF8DD9E8EA7B563875ECE3324E3FA281F4568"
+      },
+      "oldPackUnchanged": true,
+      "buildId": "5PORBcstT1Y0lw-Lfid-i",
+      "before": {
+        "roots": [
+          {
+            "root": ".local",
+            "files": 96,
+            "bytes": 403043999
+          },
+          {
+            "root": "artifacts",
+            "files": 198,
+            "bytes": 174675593
+          },
+          {
+            "root": "client\\.next",
+            "files": 1452,
+            "bytes": 703985344
+          },
+          {
+            "root": "client\\.verification-runs",
+            "files": 393,
+            "bytes": 40722926
+          },
+          {
+            "root": "client\\audio-source",
+            "files": 52,
+            "bytes": 30265181
+          }
+        ],
+        "totalBytes": 1352693043,
+        "method": "Logical bytes; native volume and file ID deduplication across five disjoint output roots; reparse points skipped; not whole project or physical allocation"
+      },
+      "after": {
+        "roots": [
+          {
+            "root": ".local",
+            "files": 96,
+            "bytes": 403043999
+          },
+          {
+            "root": "artifacts",
+            "files": 198,
+            "bytes": 174675593
+          },
+          {
+            "root": "client\\.next",
+            "files": 1446,
+            "bytes": 93744953
+          },
+          {
+            "root": "client\\.verification-runs",
+            "files": 393,
+            "bytes": 40722926
+          },
+          {
+            "root": "client\\audio-source",
+            "files": 52,
+            "bytes": 30265181
+          }
+        ],
+        "totalBytes": 742452652,
+        "method": "Logical bytes; native volume and file ID deduplication across five disjoint output roots; reparse points skipped; not whole project or physical allocation"
+      },
+      "recovery": "Regenerate only the deleted webpack cache with normal npm run build; completed runtime build is retained.",
+      "initialPreflightAbortedBeforeRemoval": true
+    },
+    "limits": "Controlled small-world actual movement, farming, recipe transaction and equipment boundaries. Not the original evaluator match, latest browser execution, natural completion rates, cooperation balance or enjoyment. The prior engine's eight paired executions are not inherited as current-engine outcome distribution."
+  },
   "formationPairedFollowup": {
     "resultPath": "client/.verification-runs/2026-10-15T12-01-21.309Z-d6299d94-ebc9-4e7a-afe8-d7191c65164b/result.json",
     "comparisonPath": "client/.verification-runs/2026-10-15T12-01-21.309Z-d6299d94-ebc9-4e7a-afe8-d7191c65164b/strategy-comparison.json",

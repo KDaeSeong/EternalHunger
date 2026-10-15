@@ -311,8 +311,11 @@ export function resolveActorNextMoveZone({
       if (picked && !forbiddenIds.has(String(picked))) nextZoneId = String(picked);
     } else if (neighbors.length > 0) {
       const safeNeighbors = neighbors.filter((zoneId) => !forbiddenIds.has(String(zoneId)));
-      const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
-      nextZoneId = String(candidates[Math.floor(simulationRandom() * candidates.length)] || currentZone);
+      // Voluntary wandering must not turn a blocked safe position into a
+      // forbidden-zone visit. Forced escape and knockback keep their own rules.
+      if (safeNeighbors.length > 0) {
+        nextZoneId = String(safeNeighbors[Math.floor(simulationRandom() * safeNeighbors.length)] || currentZone);
+      }
     } else {
       nextZoneId = currentZone;
     }
@@ -320,8 +323,9 @@ export function resolveActorNextMoveZone({
 
   if (forceFirstDayMorningMove && String(nextZoneId) === String(currentZone)) {
     const safeNeighbors = neighbors.filter((zoneId) => !forbiddenIds.has(String(zoneId)));
-    const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
-    nextZoneId = String(candidates[Math.floor(simulationRandom() * candidates.length)] || currentZone);
+    if (safeNeighbors.length > 0) {
+      nextZoneId = String(safeNeighbors[Math.floor(simulationRandom() * safeNeighbors.length)] || currentZone);
+    }
   }
 
   return {
