@@ -133,7 +133,24 @@
     "inputNotMutated": true,
     "limits": "Fresh first-night observation only. Second participant declares one weapon goal; the other four route goals are natural fallback, not missing authored goals. Progress, inventory and actual equipment are checked separately. No direct same-bucket rivalry between the two selected actors, depletion-to-replan or full-match balance/survival-rate claim.",
     "priorFailedRun": "2026-10-15T11-11-42.205Z-973d8f85-cdbc-4a4f-a535-1fb121dd985b remains failed. Test incorrectly expected total route goals to equal one authored weapon; corrected to allow normal fallback. No gameplay or resource compensation was added.",
-    "outputLabelCorrection": "The START line says goals=5+2; actual authored goal arrays and assertions contain five goals plus one weapon for two participants."
+    "outputLabelCorrection": "The earlier START line said goals=5+2; the strict follow-up corrects it to goals=5+1, matching the actual authored goal arrays.",
+    "strictEquipmentFollowup": {
+      "resultPath": "client/.verification-runs/2026-10-15T11-49-25.703Z-42b4c509-1a0e-4b4d-901f-6a28d184d75f/result.json",
+      "status": "passed",
+      "exitCode": 0,
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "finishedAt": "2026-10-15T11:49:52.18Z",
+      "assertedAuthoredTargets": 6,
+      "positiveEquipmentQuantitySlotAndWeaponCompatibilityRequired": true,
+      "firstActorFirstObservedEquipmentSec": { "weapon": 5, "head": 1, "clothes": 2, "arm": 4, "shoes": 6 },
+      "secondActorFirstObservedWeaponSec": 20,
+      "equipmentPredicateCases": 6,
+      "negativeCases": ["inventory only", "wrong actor equipped slot", "wrong inventory slot metadata", "incompatible weapon family", "zero quantity"],
+      "scriptSyntaxAndLintExitCode": 0,
+      "noProductOrInputCompensation": true,
+      "scope": "Fresh same-engine first-night actual execution. All six authored targets must be observed in positive-quantity inventory and correctly equipped by the deadline, rather than merely reporting inventory growth or terminal equipment. A death or missing exposure is not silently repaired. This is one fixed input, not a general survival, completion or winner rate."
+    }
   },
   "browser": {
     "priorPublicWarmup": {
@@ -152,6 +169,17 @@
     "currentEffective32x": null,
     "currentHeapVerified": false,
     "reason": "Screen connection reset/getState failed to write kernel assets: specified path not found (os error 3). No alternative CDP/Playwright path or invented UI result."
+  },
+  "deploymentObservation": {
+    "commit": "f8a9dcdcf004f40ad3993b2c017682aad5854bc8",
+    "pushVerified": true,
+    "state": "failure",
+    "statusUpdatedAt": "2026-10-15T11:38:14Z",
+    "url": "https://vercel.com/kurokosis-projects/eternal-hunger/3oYk9QNcFNGWfZNB1C5DHhS6bMvT",
+    "publicLogReadHttp": 403,
+    "localVercelCliAndAuthenticationAvailable": false,
+    "failureCauseConfirmed": false,
+    "scope": "Historical release observation for this specific commit, not a status claim for later commits. No guessed runtime upgrade, project setting change or failed-test bypass. Browser inventory also failed with the existing kernel-assets path error."
   },
   "cleanup": {
     "removedFiles": 6,

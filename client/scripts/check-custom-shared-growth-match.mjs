@@ -6,8 +6,10 @@ const { GUEST_ITEM_PROFILE_KEY, readGuestItems } = await import('../src/app/simu
 const { buildInitialFastRoutePlan, mergeInitialRoutePlanFields } = await import('../src/app/simulation/_lib/simulationInitialRosterRuntime.js');
 const { createSimulationRunInput } = await import('../src/app/simulation/_lib/simulationReplayRuntime.js');
 const { getActorGrowthProgress } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
+const { getInvItemId, inferEquipSlot } = await import('../src/app/simulation/_lib/inventoryItemRules.js');
 const { getRuleset, getPhaseDurationSec } = await import('../src/utils/rulesets.js');
 const { areEquipmentWeaponTypesCompatible, normalizeWeaponType } = await import('../src/utils/equipmentCatalog.js');
+const { ER_WEAPON_TYPES_KO } = await import('../src/utils/erMeta.js');
 const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
 
 // Fresh 24-participant input, unchanged world resources and starting budgets.
@@ -56,6 +58,44 @@ fixture.items.push(...profileResult.items);
 assert.ok(areEquipmentWeaponTypesCompatible(first.weaponType, fixture.items.find(item => item._id === targets.get(`${first._id}:weapon`)).weaponType));
 assert.ok(areEquipmentWeaponTypesCompatible(second.weaponType, fixture.items.find(item => item._id === secondWeaponId).weaponType));
 
+function isAuthoredTargetActuallyEquipped(actor, target, items = fixture.items) {
+  const slot = inferEquipSlot(target);
+  if (!slot) return false;
+  const equippedId = String(actor?.equipped?.[slot] || '');
+  if (equippedId !== String(target?._id || '')) return false;
+  const catalogItem = items.find(item => String(item._id) === equippedId);
+  const inventoryItem = (actor?.inventory || []).find(entry => {
+    const quantity = entry.qty === undefined ? 1 : Number(entry.qty);
+    return getInvItemId(entry) === equippedId && Number.isSafeInteger(quantity) && quantity > 0;
+  });
+  if (!catalogItem || !inventoryItem) return false;
+  const equippedItem = { ...catalogItem, ...inventoryItem };
+  if (inferEquipSlot(equippedItem) !== slot) return false;
+  return slot !== 'weapon' || areEquipmentWeaponTypesCompatible(actor.weaponType, equippedItem.weaponType);
+}
+
+const authoredWeaponTarget = fixture.items.find(item => item._id === secondWeaponId);
+const invalidWeaponType = ER_WEAPON_TYPES_KO.find(type => !areEquipmentWeaponTypesCompatible(type, authoredWeaponTarget.weaponType));
+assert.ok(invalidWeaponType, 'A known incompatible weapon family must exist for the negative contract.');
+const contractActor = { _id: 'equipped-contract-copy', weaponType: second.weaponType,
+  inventory: [{ itemId: secondWeaponId, qty: 1, equipSlot: 'weapon', weaponType: secondWeapon }],
+  equipped: { weapon: secondWeaponId } };
+assert.equal(isAuthoredTargetActuallyEquipped(contractActor, authoredWeaponTarget), true,
+  'A positive-quantity, correctly slotted, compatible equipped authored item is observed.');
+assert.equal(isAuthoredTargetActuallyEquipped({ ...contractActor, equipped: {} }, authoredWeaponTarget), false,
+  'Inventory-only ownership is not actual equipment.');
+assert.equal(isAuthoredTargetActuallyEquipped({ ...contractActor, equipped: { head: secondWeaponId } }, authoredWeaponTarget), false,
+  'An equipped reference in the wrong actor slot is not actual equipment.');
+assert.equal(isAuthoredTargetActuallyEquipped({ ...contractActor,
+  inventory: [{ ...contractActor.inventory[0], equipSlot: 'head' }] }, authoredWeaponTarget), false,
+  'An item recorded in the wrong equipment slot is not actual equipment.');
+assert.equal(isAuthoredTargetActuallyEquipped({ ...contractActor, weaponType: invalidWeaponType }, authoredWeaponTarget), false,
+  'An incompatible equipped weapon is not actual equipment.');
+assert.equal(isAuthoredTargetActuallyEquipped({ ...contractActor,
+  inventory: [{ ...contractActor.inventory[0], qty: 0 }] }, authoredWeaponTarget), false,
+  'A zero-quantity inventory row is not actual equipment.');
+console.log('PASS actual-equipment-contracts 6/6; independent of inventory growth progress.');
+
 function setGoals(actor, goals) {
   const goalLoadouts = { ...(actor.goalLoadouts || {}), hero: goals };
   const updated = { ...actor, goalLoadouts };
@@ -94,12 +134,14 @@ const goalActors = new Set([first._id, second._id]);
 const recipeById = new Map(profileResult.items.map(item => [item._id, item.recipe]));
 const crafts = new Map();
 const lastProgress = new Map();
+const authoredGoals = new Map([[first._id, firstGoalIds], [second._id, [secondWeaponId]]]);
+const firstEquippedAt = new Map();
 const rawPickups = new Map();
 const stockRemaining = new Map();
 const rawDepletions = [];
 let cursor = 0;
 
-console.log(`CUSTOM_SHARED_GROWTH_START engine=${SIMULATION_ENGINE_VERSION} participants=24 goals=5+2 `
+console.log(`CUSTOM_SHARED_GROWTH_START engine=${SIMULATION_ENGINE_VERSION} participants=24 goals=5+1 `
   + `sharedLeaf=${rawId} initialCredits=${first.simCredits}/${second.simCredits} deadline=${deadline}s`);
 const result = await runRandomIsolationMatch(null, { savedInput, stopAfterPhase: { day: 1, phase: 'night' },
   onFrame(frame, { events, publicItems }) {
@@ -132,6 +174,15 @@ const result = await runRandomIsolationMatch(null, { savedInput, stopAfterPhase:
         totalSlots: progress.totalSlots, openingComplete: progress.openingComplete,
         issues: progress.goalIssues, targetIds: progress.targetIds, targetId: actor._growthPlan?.targetId || '',
         blocked: actor._growthPlan?.blocked || '', equipped: { ...(actor.equipped || {}) }, credits: actor.simCredits });
+      for (const targetId of authoredGoals.get(actor._id) || []) {
+        const key = `${actor._id}:${targetId}`;
+        if (!firstEquippedAt.has(key)) {
+          const target = publicItems.find(item => String(item._id) === targetId);
+          if (target && isAuthoredTargetActuallyEquipped(actor, target, publicItems)) {
+            firstEquippedAt.set(key, { sec: frame.matchSec, actorId: actor._id, targetId });
+          }
+        }
+      }
     }
     for (const actor of frame.dead) if (goalActors.has(actor._id)) {
       const progress = getActorGrowthProgress(actor, publicItems);
@@ -139,6 +190,15 @@ const result = await runRandomIsolationMatch(null, { savedInput, stopAfterPhase:
         totalSlots: progress.totalSlots, openingComplete: progress.openingComplete,
         issues: progress.goalIssues, targetIds: progress.targetIds, targetId: actor._growthPlan?.targetId || '',
         blocked: actor._growthPlan?.blocked || '', equipped: { ...(actor.equipped || {}) }, credits: actor.simCredits });
+      for (const targetId of authoredGoals.get(actor._id) || []) {
+        const key = `${actor._id}:${targetId}`;
+        if (!firstEquippedAt.has(key)) {
+          const target = publicItems.find(item => String(item._id) === targetId);
+          if (target && isAuthoredTargetActuallyEquipped(actor, target, publicItems)) {
+            firstEquippedAt.set(key, { sec: frame.matchSec, actorId: actor._id, targetId });
+          }
+        }
+      }
     }
   },
 });
@@ -146,12 +206,15 @@ const result = await runRandomIsolationMatch(null, { savedInput, stopAfterPhase:
 assert.equal(result.finalFrame.matchSec, deadline, 'This is a bounded first-night observation, not a full match.');
 assert.equal(JSON.stringify(savedInput), savedInputBefore, 'The actual run must not mutate the saved input.');
 assert.ok(result.events.some(event => event.kind === 'battle'), 'The unchanged natural roster should reach combat during the sample.');
-const authoredGoals = new Map([[first._id, firstGoalIds], [second._id, [secondWeaponId]]]);
 const equippedTierBySlot = (actor, slot) => {
   const equippedId = String(actor.equipped?.[slot] || '');
-  const inventoryItem = (actor.inventory || []).find(entry => String(entry.itemId || entry.id || entry._id || '') === equippedId);
+  const inventoryItem = (actor.inventory || []).find(entry => {
+    const quantity = entry.qty === undefined ? 1 : Number(entry.qty);
+    return getInvItemId(entry) === equippedId && Number.isSafeInteger(quantity) && quantity > 0;
+  });
   const item = fixture.items.find(row => String(row._id) === equippedId);
-  return { equippedId, item: item ? { ...item, ...inventoryItem } : inventoryItem };
+  const equippedItem = item && inventoryItem ? { ...item, ...inventoryItem } : null;
+  return { equippedId, item: equippedItem && inferEquipSlot(equippedItem) === slot ? equippedItem : null };
 };
 const terminalGrowth = [];
 for (const [actorId, declaredIds] of authoredGoals) {
@@ -167,15 +230,24 @@ for (const [actorId, declaredIds] of authoredGoals) {
   const actualEquipped = progress.targets.filter(target => {
     const slot = target.equipSlot;
     const { equippedId, item } = equippedTierBySlot(actor, slot);
-    return !!equippedId && !!item && (equippedId === String(target._id)
-      || (item.equipSlot === slot && Number(item.tier || 0) > Number(target.tier || 0)
-        && (slot !== 'weapon' || areEquipmentWeaponTypesCompatible(actor.weaponType, item.weaponType))));
+    return !!equippedId && !!item
+      && (slot !== 'weapon' || areEquipmentWeaponTypesCompatible(actor.weaponType, item.weaponType))
+      && (equippedId === String(target._id)
+        || Number(item.tier || 0) > Number(target.tier || 0));
   }).map(target => target._id);
   terminalGrowth.push({ actorId, alive: result.finalFrame.survivors.some(row => row._id === actorId),
     declaredTargetIds: declaredIds, routeTargetIds: progress.targetIds, reportedCompletedSlots: progress.completedSlots,
     reportedTotalSlots: progress.totalSlots, equipped: { ...(actor.equipped || {}) },
     actualEquippedSatisfiedIds: actualEquipped });
 }
+const firstNightAuthoredEquipment = [...authoredGoals].flatMap(([actorId, targetIds]) => targetIds.map(targetId => ({
+  actorId, targetId, firstEquippedAtSec: firstEquippedAt.get(`${actorId}:${targetId}`)?.sec ?? null,
+})));
+console.log(`CUSTOM_SHARED_GROWTH_EQUIPPED_EXPOSURE ${JSON.stringify(firstNightAuthoredEquipment)}`);
+assert.equal(firstNightAuthoredEquipment.length, 6, 'The scoped first-night contract contains five plus one authored equipment targets.');
+assert.ok(firstNightAuthoredEquipment.every(row => Number.isFinite(row.firstEquippedAtSec)
+  && row.firstEquippedAtSec <= deadline),
+  `Every authored target for the two selected participants must be in positive-quantity inventory and correctly equipped by the first-night deadline; observed=${JSON.stringify(firstNightAuthoredEquipment)}`);
 for (const actor of [fixture.survivors[0], fixture.survivors[secondIndex]]) {
   const rows = crafts.get(actor._id) || [];
   assert.equal(new Set(rows.map(event => event.actionKey)).size, rows.length, 'No authored craft receipt may execute twice.');
@@ -194,4 +266,5 @@ console.log(`CUSTOM_SHARED_GROWTH_OBSERVATION ${JSON.stringify({ engine: SIMULAT
   sharedLeafPickups: observedStock.length, sharedStockZones: stockRemaining.size, participants: summary,
   sharedLeafDepletions: rawDepletions,
   terminalGrowth,
-  scope: 'Fresh 24-participant first-night actual-loop observation; one five-slot authored profile plus a distinct compatible weapon goal sharing one real field leaf. No completion, survival, or winner rate assertion.' })}`);
+  firstNightAuthoredEquipment,
+  scope: 'Fresh 24-participant first-night actual-loop observation; five authored equipment goals plus one distinct compatible weapon goal sharing one real field leaf. Scoped authored-equipment exposure assertion only; no general survival, completion, or winner rate assertion.' })}`);
