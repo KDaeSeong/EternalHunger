@@ -34,17 +34,20 @@ export function getApiBase() {
   const env = process.env.NEXT_PUBLIC_API_BASE;
   if (env && String(env).trim()) return normalizeApiBase(env);
 
-  if (typeof window !== 'undefined') {
+  // Client bundlers can fold `typeof window` even in a dedicated Worker entry.
+  // Inspect the host at runtime instead; Workers must not read browser storage.
+  const browserWindow = globalThis.window;
+  if (browserWindow?.location) {
     // Debug override for local development only: in production a stored value
     // (e.g. planted by injected script) must not redirect API calls elsewhere.
     if (process.env.NODE_ENV !== 'production') {
       try {
-        const saved = window.localStorage.getItem('EH_API_BASE');
+        const saved = browserWindow.localStorage.getItem('EH_API_BASE');
         if (saved && String(saved).trim()) return normalizeApiBase(saved);
       } catch {}
     }
 
-    const { hostname, origin } = window.location;
+    const { hostname, origin } = browserWindow.location;
     if (hostname === 'localhost' || hostname === '127.0.0.1') return 'http://localhost:5000/api';
     if (origin && /^https?:\/\//.test(origin)) return `${origin}/api/proxy`;
   }

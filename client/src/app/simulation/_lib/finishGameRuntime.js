@@ -295,6 +295,7 @@ export async function finishSimulationGame(opts = {}) {
     return;
   }
 
+  actions.onResultReady?.();
   try {
     if (winner) {
       const aliveIds = new Set(finalAlive.map((actor) => getRuntimeActorKey(actor)).filter(Boolean));
@@ -330,6 +331,9 @@ export async function finishSimulationGame(opts = {}) {
           // than leave the header stale or apply an older account's receipt.
           if (!applied && getUser()) void refreshStoredAuthSession().catch(() => {});
         }
+        // The account receipt remains valid after a new match starts, but its
+        // logs and result panel belong only to the finished originating run.
+        if (actions.isCurrentRun && !actions.isCurrentRun()) return;
         addLog?.(
           res?.duplicate
             ? `✅ 이미 저장된 경기입니다 · LP +${lpApplied} (중복 지급 없음)`
@@ -470,6 +474,7 @@ export async function finishSimulationGame(opts = {}) {
     }
   } catch (error) {
     console.error(error);
+    if (actions.isCurrentRun && !actions.isCurrentRun()) return;
     addLog?.(
       localRunResult.ok
         ? '⚠️ 서버 경기 기록 저장 실패 · 로컬 완주 기록은 유지됩니다.'

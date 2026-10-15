@@ -63,8 +63,15 @@ export function useSimulationPhaseController({
     startBlockedText,
   } = getSimulationStartGate({ day, settings, survivors });
 
-  async function finishGame(finalSurvivors, latestKillCounts, latestAssistCounts, options = {}) {
-    return finishSimulationGame({
+  function finishGame(finalSurvivors, latestKillCounts, latestAssistCounts, options = {}) {
+    const originatingInput = refs.runInputRef?.current;
+    const originatingEvents = fullRunEventsRef?.current;
+    const isCurrentRun = () => (!refs.runInputRef || refs.runInputRef.current === originatingInput)
+      && (!fullRunEventsRef || fullRunEventsRef.current === originatingEvents);
+    let resolveReady;
+    let rejectReady;
+    const resultReady = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
+    const persistence = finishSimulationGame({
       finalSurvivors,
       latestAssistCounts,
       latestKillCounts,
@@ -89,6 +96,8 @@ export function useSimulationPhaseController({
       },
       actions: {
         addLog,
+        isCurrentRun,
+        onResultReady: resolveReady,
         setAutoPlay,
         setCredits,
         setIsGameOver,
@@ -102,6 +111,10 @@ export function useSimulationPhaseController({
         }),
       },
     });
+    // Local result/replay capture releases phase controls independently of the
+    // account request. Observe both early failures and late persistence errors.
+    Promise.resolve(persistence).then(resolveReady, rejectReady);
+    return resultReady;
   }
 
   async function proceedPhase() {

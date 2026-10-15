@@ -1,0 +1,291 @@
+{
+  "schema": "eternal-hunger.phase-worker-followup-evidence.v1",
+  "observedOn": "2026-10-15",
+  "role": "Output evidence only. Verification creates fresh inputs and never reads this receipt as an oracle or input.",
+  "engineVersion": "18b0405b3638ff8f726c87eec80c444428e46a5f1468a50604743f9fc30c0ffa",
+  "fixes": {
+    "compiledWorkerStartup": "Actual production Worker initialization failed before READY because getApiBase used a compile-time-foldable typeof window guard. Read globalThis.window at runtime without adding browser storage, authentication or network access to the Worker.",
+    "localResultReadiness": "Unlock phase controls after local final-frame, event, RNG and replay capture rather than waiting for account HTTP persistence. Observe the persistence promise and retain existing final-frame/once-finish behavior.",
+    "staleReceipt": "Valid account progress may update, but old match logs and result panels cannot mutate a run with a different saved input or event-journal identity."
+  },
+  "verification": {
+    "command": "node scripts/run-eternal-hunger-verification.mjs phase-worker-release",
+    "resultPath": "client/.verification-runs/2026-10-15T11-16-05.803Z-27638166-ce87-4995-9a1d-cada2f87c2fc/result.json",
+    "status": "passed",
+    "exitCode": 0,
+    "sameEngine": true,
+    "sameVerificationSources": true,
+    "finishedAt": "2026-10-15T11:26:34.153Z",
+    "cases": {
+      "cookieSessionIsolation": 15,
+      "workerInput": 3,
+      "workerClient": 9,
+      "executorHook": 8,
+      "deferredResultReceipts": 4,
+      "nativeWorkerMatch": 1,
+      "replayComparison": 10,
+      "savedInputReplay": 16
+    },
+    "proxySessionContractsPassed": true,
+    "runtimeSweepExitCode": 0,
+    "additional": {
+      "replayHistoryLifetime": {
+        "command": "node --expose-gc scripts/check-replay-history-lifetime.mjs",
+        "passed": 31,
+        "exitCode": 0
+      },
+      "verificationFingerprint": {
+        "passed": 6,
+        "exitCode": 0
+      },
+      "targetedLintExitCode": 0
+    },
+    "limits": "HTTP, account and storage checks use test doubles; no real account/database/paid-provider writes. The history test initially lacked its required GC flag; that caller error is not a product regression."
+  },
+  "build": {
+    "id": "aN-OY3-uBIlp0eJc5jKGs",
+    "compileAndStaticGenerationCompleted": true,
+    "staticPages": 62,
+    "compileSeconds": 22.6,
+    "initialWrapper": {
+      "resultPath": "client/.verification-runs/2026-10-14T14-10-11.753Z-a01ab82d-5e5a-486e-bf03-95809e4ba7bd/result.json",
+      "status": "failed",
+      "exitCode": 1,
+      "sameEngine": true,
+      "sameVerificationSources": false,
+      "reason": "Next compilation and 62 pages completed, then the new gate overmatched legitimate window references outside getApiBase. Its assertion was corrected while that initial wrapper ran. This run remains a failure."
+    },
+    "correctedCompiledGate": {
+      "resultPath": "client/.verification-runs/2026-10-15T11-16-05.803Z-27638166-ce87-4995-9a1d-cada2f87c2fc/result.json",
+      "status": "passed",
+      "currentSourceGeneratedRouteAndWorkerFingerprintsChecked": true,
+      "ready": true,
+      "freshCommandPhaseId": 1,
+      "frames": 701,
+      "frameFields": 11,
+      "finalMatchSec": 140,
+      "complete": 1,
+      "failures": 0,
+      "limits": "Current production Worker plus referenced chunks executed in isolated Node VM. JSON input boundary and simplified VM callbacks are not browser structured-clone scheduling, paint, heap or throughput proof."
+    }
+  },
+  "nativeWorkerMatch": {
+    "phases": 11,
+    "allFrames": 5840,
+    "publishedUiFrames": 45,
+    "events": 11648,
+    "logEntries": 7107,
+    "allNativeFramesExact": true,
+    "uiFramesUnchangedOrderedSubsequence": true,
+    "fullJournalExact": true,
+    "logsExact": true,
+    "finalFrameExact": true,
+    "randomExact": true,
+    "endingExact": true,
+    "finishCalls": 1,
+    "ending": "last_team",
+    "endedAtSec": 1124.916666,
+    "randomDraws": 8934,
+    "frameSha256": "9958d8a2d1491ad631809d9f33e6133b7c79710f07988cfddde51561cfaa1541",
+    "eventSha256": "244d837cc478cf2e6a2dbb8fdbcd69dfac2b1ff8fa8efc30eeb9ab3e1482a9b5",
+    "logSha256": "ab61fc6fcbbf47af13e3a3ad5bcd17c4c7592f5115e7011019a2fc6218ffb8f3",
+    "persistenceTestDoubleCalls": 11,
+    "accountTestDoubleCalls": 0,
+    "paidApiTestDoubleCalls": 0,
+    "limits": "Actual Node worker_threads transport with a test clock and no real display delays. UI publication count is not FPS; persistence callbacks are test doubles, not real HTTP/auth/database proof."
+  },
+  "sharedCustomGrowth": {
+    "command": "node scripts/run-eternal-hunger-verification.mjs custom-shared-growth-match",
+    "resultPath": "client/.verification-runs/2026-10-15T11-16-18.256Z-19d8f424-a320-46bb-8d08-7232383a3c68/result.json",
+    "status": "passed",
+    "exitCode": 0,
+    "sameEngine": true,
+    "sameVerificationSources": true,
+    "participants": 24,
+    "initialInventory": "empty",
+    "initialCreditsEach": 15,
+    "defaultWorldResourcesPreserved": true,
+    "authoredGoals": {
+      "first": 5,
+      "second": 1
+    },
+    "firstFiveActuallyCraftedAndEquippedBySec": 6,
+    "secondWeaponActuallyCraftedAndEquippedBySec": 20,
+    "firstNightEndSec": 250,
+    "events": 6555,
+    "frames": 1377,
+    "sharedLeafPickups": 43,
+    "sharedStockZones": 5,
+    "globalStockDepletions": [
+      {
+        "zoneId": "factory",
+        "sec": 4,
+        "actorId": "guest-survivor-22"
+      },
+      {
+        "zoneId": "stream",
+        "sec": 6,
+        "actorId": "guest-survivor-06"
+      }
+    ],
+    "paidMaterialsAndCreditsConsumed": true,
+    "fieldStockConservationChecked": true,
+    "inputNotMutated": true,
+    "limits": "Fresh first-night observation only. Second participant declares one weapon goal; the other four route goals are natural fallback, not missing authored goals. Progress, inventory and actual equipment are checked separately. No direct same-bucket rivalry between the two selected actors, depletion-to-replan or full-match balance/survival-rate claim.",
+    "priorFailedRun": "2026-10-15T11-11-42.205Z-973d8f85-cdbc-4a4f-a535-1fb121dd985b remains failed. Test incorrectly expected total route goals to equal one authored weapon; corrected to allow normal fallback. No gameplay or resource compensation was added.",
+    "outputLabelCorrection": "The START line says goals=5+2; actual authored goal arrays and assertions contain five goals plus one weapon for two participants."
+  },
+  "browser": {
+    "priorPublicWarmup": {
+      "engineVersion": "01fcdc201e53411807867e0e7b9c095e2f70ba9bf04a28d0addc98ff4b73607d",
+      "matchSec": 1233.5,
+      "activeElapsedMs": 72803.1,
+      "effectiveSpeedApprox": 16.94,
+      "mainGrowthSlices": 2289,
+      "mainGrowthTotalMs": 16914.3,
+      "mainSnapshotCount": 6428,
+      "mainSnapshotTotalMs": 18216.7,
+      "fallbackObserved": true,
+      "limits": "Visible functional warmup; a simultaneous Node comparison contaminated CPU timing. Not a controlled performance comparison or x32 acceptance."
+    },
+    "currentEngineVerified": false,
+    "currentEffective32x": null,
+    "currentHeapVerified": false,
+    "reason": "Screen connection reset/getState failed to write kernel assets: specified path not found (os error 3). No alternative CDP/Playwright path or invented UI result."
+  },
+  "cleanup": {
+    "removedFiles": 6,
+    "removedBytes": 610279761,
+    "targets": [
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+        "bytes": 264120853,
+        "sha256": "2ADD73D4CD5CA088CF71CCC7E539B4F5C1C97E0FC2485035E8CD79F387FD9268",
+        "fileId": "30FCFF65:001400000008A652"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+        "bytes": 12994759,
+        "sha256": "D77628FBEF7ED1C2758731AFD287E5D817BF1C1ED92D1E24DB24039C086DD01D",
+        "fileId": "30FCFF65:001300000008A651"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+        "bytes": 314936878,
+        "sha256": "0719377FF7E812C104FFA99B16F57DA241FD3903C960BC6594DE9D5B91C60437",
+        "fileId": "30FCFF65:0042000000085C65"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+        "bytes": 18224531,
+        "sha256": "B5A716D8AD626BFE52580C75C60CA3B9173C86D0D945D09EA555E66CFB216547",
+        "fileId": "30FCFF65:006C000000085C56"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+        "bytes": 276,
+        "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+        "fileId": "30FCFF65:00AB000000088DCF"
+      },
+      {
+        "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+        "bytes": 2464,
+        "sha256": "DDD5490791D0BB6F76A1DB60AF110E19A5556D2046384A7F8BA0B3A5EA1D9B86",
+        "fileId": "30FCFF65:0033000000088817"
+      }
+    ],
+    "buildId": "aN-OY3-uBIlp0eJc5jKGs",
+    "buildBefore": {
+      "bytes": 704024228,
+      "files": 1452
+    },
+    "buildAfter": {
+      "bytes": 93744467,
+      "files": 1446
+    },
+    "protectedAggregateBefore": "34A66E9B1D4EE757A20314190C93EA7E59AA8FE4B2CE0EEFC4C3DEDA31D89F67",
+    "protectedAggregateAfter": "34A66E9B1D4EE757A20314190C93EA7E59AA8FE4B2CE0EEFC4C3DEDA31D89F67",
+    "protectedBuildUnchanged": true,
+    "preservedOldPackSha256": "3A62EC6B8AB460303BD5D552976F76D6A1B091DE637D5228F66B6528BCB83C23",
+    "outputStatsBefore": {
+      "roots": [
+        {
+          "root": ".local",
+          "files": 96,
+          "bytes": 403043999
+        },
+        {
+          "root": "artifacts",
+          "files": 197,
+          "bytes": 174651400
+        },
+        {
+          "root": "client\\.next",
+          "files": 1452,
+          "bytes": 704024228
+        },
+        {
+          "root": "client\\.verification-runs",
+          "files": 377,
+          "bytes": 35991482
+        },
+        {
+          "root": "client\\audio-source",
+          "files": 52,
+          "bytes": 30265181
+        }
+      ],
+      "totalBytes": 1347976290,
+      "method": "Logical bytes; volume+file-id deduplicated across five disjoint output roots; reparse points skipped; not physical disk allocation or whole workspace."
+    },
+    "outputStatsAfter": {
+      "roots": [
+        {
+          "root": ".local",
+          "files": 96,
+          "bytes": 403043999
+        },
+        {
+          "root": "artifacts",
+          "files": 197,
+          "bytes": 174651400
+        },
+        {
+          "root": "client\\.next",
+          "files": 1446,
+          "bytes": 93744467
+        },
+        {
+          "root": "client\\.verification-runs",
+          "files": 377,
+          "bytes": 35991482
+        },
+        {
+          "root": "client\\audio-source",
+          "files": 52,
+          "bytes": 30265181
+        }
+      ],
+      "totalBytes": 737696529,
+      "method": "Logical bytes; volume+file-id deduplicated across five disjoint output roots; reparse points skipped; not physical disk allocation or whole workspace."
+    },
+    "recovery": "Regenerate only the deleted webpack cache with the normal client npm run build; completed runtime build remains preserved."
+  },
+  "storageMeasurementNote": "Five output-root totals were measured with native volume/file IDs and skip reparse points. Post-cleanup measurement precedes this small receipt; no claim of whole-project or physical allocated disk usage.",
+  "approvedServerClosure": {
+    "commit": "23fb1975779809727b4858786d0052dc255b01ba",
+    "scope": "The originally requested three files plus the approved twelve runtime/dependency files are already in this ancestor. Unrelated untracked work is preserved."
+  },
+  "originalScope": {
+    "anchor": "docs/eternal-hunger-goal.md: ## 제품 정의와 범위 through EOF, LF normalized",
+    "sha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+    "unchanged": true
+  },
+  "fullGoalComplete": false,
+  "remaining": [
+    "Current-engine browser Worker run and qualifying x1/x8/x32 repeats with heap and readability",
+    "Browser process restart and saved-input replay recovery",
+    "Broader natural cooperation, composition causality and balance evidence",
+    "Human follow-up on understanding, enjoyment and replay intent"
+  ]
+}
