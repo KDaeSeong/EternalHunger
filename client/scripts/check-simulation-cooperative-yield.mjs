@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const { requestSimulationFrameYield, requestSimulationMainThreadYield } = await import('../src/app/simulation/_lib/simulationCooperativeYieldRuntime.js');
+const { requestSimulationWorkerTaskYield } = await import('../src/app/simulation/_lib/simulationPhaseWorkerRuntime.js');
 const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
 const { getActiveSimulationRandom, runSimulationSteps, simulationRandom } = await import('../src/utils/simulationRandom.js');
 
@@ -41,6 +42,69 @@ function fakeBrowser(visibilityState = 'visible') {
 await check('headless frame yields do not schedule host work', () => {
   assert.equal(requestSimulationFrameYield({ windowRef: null }), null);
   assert.equal(requestSimulationMainThreadYield({ windowRef: null }), null);
+});
+
+await check('worker task yield uses a supported scheduler without window or timer work', async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalScheduler = Object.getOwnPropertyDescriptor(globalThis, 'scheduler');
+  let calls = 0, timerCalls = 0;
+  const expected = Promise.resolve('scheduler-result');
+  const schedulerRef = { yield() { assert.equal(this, schedulerRef); calls += 1; return expected; } };
+  const result = requestSimulationWorkerTaskYield({ schedulerRef, scheduleTimeout() { timerCalls += 1; } });
+  assert.equal(result, expected, 'Return the scheduler promise itself, without wrapping it.');
+  assert.equal(await result, 'scheduler-result');
+  assert.equal(calls, 1); assert.equal(timerCalls, 0);
+  assert.deepEqual(Object.getOwnPropertyDescriptor(globalThis, 'window'), originalWindow);
+  assert.deepEqual(Object.getOwnPropertyDescriptor(globalThis, 'scheduler'), originalScheduler);
+});
+
+await check('worker task yield falls back to one zero-delay timer when scheduler is absent or invalid', async () => {
+  for (const schedulerRef of [null, {}, { yield: true }]) {
+    let scheduled = 0, delay = -1, callback;
+    const result = requestSimulationWorkerTaskYield({ schedulerRef, scheduleTimeout(fn, ms) {
+      scheduled += 1; callback = fn; delay = ms;
+    } });
+    assert.equal(scheduled, 1); assert.equal(delay, 0);
+    let settled = false; result.then(() => { settled = true; });
+    await Promise.resolve(); assert.equal(settled, false);
+    callback(); assert.equal(await result, undefined); assert.equal(settled, true);
+  }
+});
+
+await check('worker task yield propagates synchronous throws and asynchronous rejections', async () => {
+  const syncError = new Error('scheduler threw');
+  assert.throws(() => requestSimulationWorkerTaskYield({ schedulerRef: {
+    yield() { throw syncError; },
+  } }), error => error === syncError);
+  const asyncError = new Error('scheduler rejected');
+  const rejected = requestSimulationWorkerTaskYield({ schedulerRef: {
+    yield() { return Promise.reject(asyncError); },
+  } });
+  await assert.rejects(rejected, error => error === asyncError);
+});
+
+await check('worker task-yield fixture releases RNG and observes intervening controls without changing draws or game time; not browser fairness proof', async () => {
+  const source = createSeedRng('worker-task-boundary'), expected = createSeedRng('worker-task-boundary');
+  const events = [], clock = { seconds: 37 }, controls = { speed: 1, visibility: 'visible' };
+  let resume;
+  const schedulerRef = { yield() { return new Promise(resolve => { resume = resolve; }); } };
+  function* steps() {
+    events.push({ kind: 'before', sec: clock.seconds, draw: simulationRandom(), ...controls });
+    yield requestSimulationWorkerTaskYield({ schedulerRef });
+    events.push({ kind: 'after', sec: clock.seconds, draw: simulationRandom(), ...controls });
+  }
+  const done = runSimulationSteps(source, steps());
+  assert.equal(getActiveSimulationRandom(), null, 'The match RNG is released while the task-yield promise is pending.');
+  assert.equal(typeof resume, 'function');
+  controls.speed = 4; controls.visibility = 'hidden';
+  resume(); await done;
+  const expectedEvents = [
+    { kind: 'before', sec: 37, draw: expected(), speed: 1, visibility: 'visible' },
+    { kind: 'after', sec: 37, draw: expected(), speed: 4, visibility: 'hidden' },
+  ];
+  assert.deepEqual(events, expectedEvents);
+  assert.deepEqual(source.getState(), expected.getState());
+  assert.equal(getActiveSimulationRandom(), null);
 });
 
 await check('visible phase boundaries resume in a task after RAF, never in the RAF callback', async () => {

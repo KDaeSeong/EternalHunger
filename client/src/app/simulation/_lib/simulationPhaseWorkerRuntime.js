@@ -5,12 +5,20 @@ import { projectSimulationFrame } from './simulationFrameRuntime.js';
 import { normalizeAutoSpeed } from './simulationSpeedRuntime.js';
 import { captureSimulationPhaseWorkerRefState, restoreSimulationPhaseWorkerOptions } from './simulationPhaseWorkerInputRuntime.js';
 
+export function requestSimulationWorkerTaskYield({
+  schedulerRef = globalThis.scheduler,
+  scheduleTimeout = (callback, ms) => globalThis.setTimeout(callback, ms),
+} = {}) {
+  if (typeof schedulerRef?.yield === 'function') return schedulerRef.yield();
+  return new Promise((resolve) => scheduleTimeout(resolve, 0));
+}
+
 // No UI/account callbacks enter this host. Native postMessage is the synchronous
 // ownership boundary for frames, action arguments and the final RNG state.
 export function createSimulationPhaseWorkerRuntime({
   send,
   now = () => globalThis.performance.now(),
-  taskYield = () => new Promise((resolve) => globalThis.setTimeout(resolve, 0)),
+  taskYield = requestSimulationWorkerTaskYield,
   wait = (ms) => new Promise((resolve) => globalThis.setTimeout(resolve, Math.max(0, ms))),
 } = {}) {
   let prepared = null;
