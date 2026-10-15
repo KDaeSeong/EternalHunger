@@ -88,5 +88,14 @@ for (const mode of ['growth', 'performance', 'growth-focus-unit', 'initial-weapo
   }
 }
 console.log('PASS growth proof and fixture mutations invalidate all applicable verification modes');
-console.log(JSON.stringify({ pass: true, checks: 6, engine: base.wrapper,
+for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module-resolution-compat']) {
+  const sourceHashes = verificationSources(mode);
+  for (const path of ['scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs']) {
+    assert.equal(typeof sourceHashes[path], 'string', `${mode} must fingerprint ${path}.`);
+    const changed = verificationSources(mode, fileURLToPath(new URL(path, root)));
+    assert.notEqual(changed[path], sourceHashes[path], 'Changing a module-resolution policy must invalidate same-source verification.');
+  }
+}
+console.log('PASS module registration and resolution policy mutations invalidate applicable verification modes');
+console.log(JSON.stringify({ pass: true, checks: 7, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));

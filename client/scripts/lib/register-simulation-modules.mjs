@@ -1,14 +1,14 @@
-import { registerHooks } from 'node:module';
+import * as moduleApi from 'node:module';
+import { resolve } from './simulation-module-resolution.mjs';
 
 // Next resolves extensionless local JS imports. Give headless runtime checks
 // the same resolution without rewriting or mocking any simulation module.
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    try {
-      return nextResolve(specifier, context);
-    } catch (error) {
-      if (error.code !== 'ERR_MODULE_NOT_FOUND' || !specifier.startsWith('.') || /\.[a-z]+$/i.test(specifier)) throw error;
-      return nextResolve(`${specifier}.js`, context);
-    }
-  },
-});
+const hooks = { resolve };
+
+if (typeof moduleApi.registerHooks === 'function') {
+  moduleApi.registerHooks(hooks);
+} else if (typeof moduleApi.register === 'function') {
+  moduleApi.register('./simulation-module-resolution.mjs', import.meta.url);
+} else {
+  throw new Error('This Node.js version does not provide module customization hooks.');
+}

@@ -181,7 +181,7 @@ assert.ok([...workerDependencySources.values()].some(source => source.includes(s
 
 if (topLevelErrors.length) {
   const firstError = topLevelErrors[0];
-  console.error(`FAIL buildId=${buildId} sourceEngineVersion=${sourceEngineVersion} worker=${workerName} error=${firstError.name}: ${firstError.message}`);
+  console.error(`FAIL node=${process.version} buildId=${buildId} sourceEngineVersion=${sourceEngineVersion} worker=${workerName} error=${firstError.name}: ${firstError.message}`);
   process.exitCode = 1;
 } else {
   assert.ok(importCount > 0, 'Worker bootstrap did not load any shared chunks.');
@@ -224,7 +224,7 @@ if (topLevelErrors.length) {
     const reason = phaseMessages.failures ? `phase-failed:${phaseMessages.failure}`
       : topLevelErrors.length ? `vm-error:${topLevelErrors[0].name}:${topLevelErrors[0].message}`
         : 'timeout-60s';
-    console.error(`FAIL isolated Node vm production Worker first-phase smoke (not browser execution); buildId=${buildId} sourceEngineVersion=${sourceEngineVersion} reason=${reason} phaseId=${phaseMessages.phaseId ?? 'none'} lastSeq=${phaseMessages.lastSeq} frames=${phaseMessages.frames} actions=${phaseMessages.actions} completes=${phaseMessages.completes} failures=${phaseMessages.failures}`);
+    console.error(`FAIL isolated Node vm production Worker first-phase smoke (not browser execution); node=${process.version} buildId=${buildId} sourceEngineVersion=${sourceEngineVersion} reason=${reason} phaseId=${phaseMessages.phaseId ?? 'none'} lastSeq=${phaseMessages.lastSeq} frames=${phaseMessages.frames} actions=${phaseMessages.actions} completes=${phaseMessages.completes} failures=${phaseMessages.failures}`);
     process.exitCode = 1;
   } else {
   assert.equal(phaseMessages.phaseId, 1, 'Fresh Worker phase must preserve phaseId 1.');
@@ -233,6 +233,6 @@ if (topLevelErrors.length) {
     'Fresh Worker first phase must retain a final frame with a finite match clock.');
   const finalMatchSec = phaseMessages.finalFrame.matchSec;
   phaseMessages.finalFrame = null;
-  console.log(`PASS isolated Node vm production Worker READY + fresh first-phase smoke (not browser or performance acceptance); buildId=${buildId} sourceEngineVersion=${sourceEngineVersion} commandSeq=1 frames=${phaseMessages.frames} frameFields=${phaseMessages.frameFields} finalMatchSec=${finalMatchSec} complete=${phaseMessages.completes} failures=${phaseMessages.failures}`);
+  console.log(`PASS isolated Node vm production Worker READY + fresh first-phase smoke (not browser or performance acceptance); node=${process.version} buildId=${buildId} sourceEngineVersion=${sourceEngineVersion} commandSeq=1 frames=${phaseMessages.frames} frameFields=${phaseMessages.frameFields} finalMatchSec=${finalMatchSec} complete=${phaseMessages.completes} failures=${phaseMessages.failures}`);
   }
 }

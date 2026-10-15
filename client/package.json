@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
-    "postbuild": "node ./scripts/check-phase-worker-build-entry.mjs",
+    "postbuild": "node ./scripts/check-simulation-module-resolution.mjs && node ./scripts/check-phase-worker-build-entry.mjs",
     "start": "next start",
     "share:evaluation": "node ./scripts/evaluation-link-proxy.mjs",
     "lint": "eslint",

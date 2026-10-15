@@ -152,6 +152,63 @@
       "scope": "Fresh same-engine first-night actual execution. All six authored targets must be observed in positive-quantity inventory and correctly equipped by the deadline, rather than merely reporting inventory growth or terminal equipment. A death or missing exposure is not silently repaired. This is one fixed input, not a general survival, completion or winner rate."
     }
   },
+  "formationPairedFollowup": {
+    "resultPath": "client/.verification-runs/2026-10-15T12-01-21.309Z-d6299d94-ebc9-4e7a-afe8-d7191c65164b/result.json",
+    "comparisonPath": "client/.verification-runs/2026-10-15T12-01-21.309Z-d6299d94-ebc9-4e7a-afe8-d7191c65164b/strategy-comparison.json",
+    "status": "passed",
+    "exitCode": 0,
+    "sameEngine": true,
+    "sameVerificationSources": true,
+    "finishedAt": "2026-10-15T12:20:45.950Z",
+    "uniqueConditions": 4,
+    "repeatsPerCondition": 2,
+    "completedExecutions": 8,
+    "complete": true,
+    "comparisonComplete": true,
+    "allWithinConditionFramesEventsLogsFinalStateRandomAndEndingExact": true,
+    "onlyTeamMembershipAndDerivedRosterFieldsChanged": true,
+    "swappedActorIds": ["guest-survivor-01", "guest-survivor-11"],
+    "positionsStatsInventoryAndBudgetUnchanged": true,
+    "strictChangedTeammateValidHpExposureInBothConditionsAndSeeds": true,
+    "cases": [
+      { "seed": "2026101501", "variant": "baseline", "events": 13307, "frames": 6571, "endedAtSec": 1275.25, "winningTeamId": "team:5", "initialInventoryGoalCompleted": 24, "terminalEmptyEquipmentSlots": 0 },
+      { "seed": "2026101501", "variant": "one-formation-swap", "events": 15608, "frames": 6325, "endedAtSec": 1219.333333, "winningTeamId": "team:5", "initialInventoryGoalCompleted": 24, "terminalEmptyEquipmentSlots": 0 },
+      { "seed": "2026101502", "variant": "baseline", "events": 13684, "frames": 6645, "endedAtSec": 1278.216184, "winningTeamId": "team:1", "initialInventoryGoalCompleted": 24, "terminalEmptyEquipmentSlots": 0 },
+      { "seed": "2026101502", "variant": "one-formation-swap", "events": 15505, "frames": 6437, "endedAtSec": 1252.333333, "winningTeamId": "team:3", "initialInventoryGoalCompleted": 24, "terminalEmptyEquipmentSlots": 0 }
+    ],
+    "controlledFollowupChecks": { "teamSurvivalContribution": 4, "strategyComparisonContracts": 23, "wildlifeCombat": 27, "bossTeamCombat": 28, "allExitCodes": 0 },
+    "limits": "Four unique conditions, not eight independent win-rate samples. Valid changed-teammate encounter exposure is not proof of ally action causing a particular natural-match winner or a general survival benefit. Inventory goal completion and terminal survivor/latest-death equipment snapshots are not first-night all-slot actual equipment. This run preceded the tooling-only module-loader compatibility change; game engine is unchanged."
+  },
+  "moduleResolutionCompatibility": {
+    "reproducedFailure": { "node": "v20.20.2", "code": "SyntaxError", "reason": "node:module does not export registerHooks in this runtime", "exitCode": 1 },
+    "fix": "Use synchronous registerHooks where supported and module.register otherwise, sharing the same relative extensionless .js fallback policy. Preserve context and non-retry errors; no dependency, engines or lockfile change.",
+    "node24": { "resultPath": "client/.verification-runs/2026-10-15T12-32-06.026Z-c7bf670d-02ac-4287-b2d9-7667189d3437/result.json", "version": "v24.13.0", "registration": "registerHooks", "checks": 23, "status": "passed", "exitCode": 0, "sameEngine": true, "sameVerificationSources": true, "finishedAt": "2026-10-15T12:33:04.493Z" },
+    "node20": { "resultPath": "client/.verification-runs/2026-10-15T12-35-26.456Z-42e8bc3d-4187-45e7-aeef-21e623ddd0ef/result.json", "version": "v20.20.2", "registration": "register", "checks": 23, "status": "passed", "exitCode": 0, "sameEngine": true, "sameVerificationSources": true, "finishedAt": "2026-10-15T12:36:15.079Z" },
+    "bothCompiledWorkerChecks": { "buildId": "aN-OY3-uBIlp0eJc5jKGs", "ready": true, "frames": 701, "finalMatchSec": 140, "complete": 1, "failures": 0 },
+    "verificationFingerprintChecks": 7,
+    "targetedLintExitCode": 0,
+    "releaseFollowup": {
+      "resultPath": "client/.verification-runs/2026-10-15T12-36-36.206Z-bea5c5da-e642-48d7-9650-2bfe2963a0e0/result.json",
+      "command": "node scripts/run-eternal-hunger-verification.mjs phase-worker-release",
+      "status": "passed",
+      "exitCode": 0,
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "finishedAt": "2026-10-15T12:45:30.967Z",
+      "authAndProxyContractsPassed": true,
+      "replayComparisonCases": 10,
+      "savedInputReplayCases": 16,
+      "workerInputCases": 3,
+      "workerClientCases": 9,
+      "executorHookCases": 8,
+      "deferredReceiptCases": 4,
+      "nativeWorkerMatch": { "phases": 11, "allFrames": 5840, "publishedFrames": 45, "events": 11648, "logs": 7107, "framesEventsLogsFinalStateRandomAndEndingExact": true },
+      "runtimeSweepExitCode": 0
+    },
+    "vercelRuntimeVersionConfirmed": false,
+    "vercelFailureCauseConfirmed": false,
+    "limits": "Actual separate local Node runtimes and isolated compiled Worker execution, not browser scheduling, heap, performance or a complete Node20 match. Vercel logs remain unavailable; this independently reproduced defect is not a confirmed deployment root cause."
+  },
   "browser": {
     "priorPublicWarmup": {
       "engineVersion": "01fcdc201e53411807867e0e7b9c095e2f70ba9bf04a28d0addc98ff4b73607d",
@@ -299,7 +356,29 @@
     },
     "recovery": "Regenerate only the deleted webpack cache with the normal client npm run build; completed runtime build remains preserved."
   },
-  "storageMeasurementNote": "Five output-root totals were measured with native volume/file IDs and skip reparse points. Post-cleanup measurement precedes this small receipt; no claim of whole-project or physical allocated disk usage.",
+  "temporaryRuntimeCleanup": {
+    "path": "C:\\2저장고\\EternalHunger\\.local\\tools\\node20-compat\\node.exe",
+    "sha256": "56C1520EE33B801E8BDB92FB321CF2E98529735B6D12BD4A2A6DEC0AC0BAB937",
+    "removedBytes": 72446160,
+    "removed": true,
+    "emptyOwnLeafRemoved": true,
+    "noRuntimeProcessesBeforeRemoval": true,
+    "targetAndAncestorsValidatedWithoutReparsePoints": true,
+    "sourceUrl": "https://nodejs.org/download/release/v20.20.2/win-x64/node.exe",
+    "recovery": "Download the same versioned official executable and verify SHA-256. No system runtime, project version, source, complete build or saved match evidence was removed.",
+    "observedAt": "2026-10-15T12:46:37.5771324Z",
+    "outputBytesBefore": 814864561,
+    "outputBytesAfter": 742418401,
+    "rootsAfter": [
+      { "root": ".local", "files": 96, "bytes": 403043999 },
+      { "root": "artifacts", "files": 198, "bytes": 174669904 },
+      { "root": "client/.next", "files": 1446, "bytes": 93744467 },
+      { "root": "client/.verification-runs", "files": 388, "bytes": 40694850 },
+      { "root": "client/audio-source", "files": 52, "bytes": 30265181 }
+    ],
+    "method": "Logical bytes; native volume and file ID deduplication across five disjoint output roots; no reparse points encountered. Measurement precedes this small receipt update; not whole workspace, physical allocation or free-space proof."
+  },
+  "storageMeasurementNote": "Five output-root totals were measured with native volume/file IDs and skip reparse points. Post-cleanup measurements precede the corresponding small receipt updates; no claim of whole-project or physical allocated disk usage.",
   "approvedServerClosure": {
     "commit": "23fb1975779809727b4858786d0052dc255b01ba",
     "scope": "The originally requested three files plus the approved twelve runtime/dependency files are already in this ancestor. Unrelated untracked work is preserved."

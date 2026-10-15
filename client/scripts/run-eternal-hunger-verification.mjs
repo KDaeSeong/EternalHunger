@@ -13,6 +13,7 @@ const commands = {
   'runtime-build': 'npm run check:runtime:full',
   execution: 'npm run check:growth-scheduling:match',
   'phase-worker-release': 'npm run check:auth-session && npm run postbuild && npm run check:simulation-replay && npm run check:runtime:sweep',
+  'module-resolution-compat': 'node scripts/check-simulation-module-resolution.mjs && node scripts/check-phase-worker-build-entry.mjs',
   'custom-shared-growth-match': 'npm run check:custom-shared-growth:match',
   distribution: 'npm run diagnose:match-distribution -- --compare-observer=4402 4401 4402 4403 4404 4405 4406 4407 4408 4409 4410',
   'distribution-varied': 'npm run diagnose:match-distribution -- --rosters=BASELINE:roster-A,BASELINE:roster-B,BASELINE:roster-C 5501 5502',
@@ -96,8 +97,10 @@ function fingerprint() {
   return hash.digest('hex');
 }
 function verificationSourceHashes() {
-  const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json'];
-  if (['build', 'runtime-build', 'full', 'phase-worker-release'].includes(mode)) paths.push('scripts/check-phase-worker-build-entry.mjs');
+  const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json',
+    'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs'];
+  if (['build', 'runtime-build', 'full', 'phase-worker-release', 'module-resolution-compat'].includes(mode)) paths.push(
+    'scripts/check-phase-worker-build-entry.mjs', 'scripts/check-simulation-module-resolution.mjs');
   if (['phase-worker-release', 'full'].includes(mode)) paths.push('scripts/check-auth-session.mjs', 'scripts/check-proxy-session-contract.mjs');
   if (['custom-shared-growth-match', 'full'].includes(mode)) paths.push('scripts/check-custom-shared-growth-match.mjs',
     'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/run-random-isolation-match.mjs');
