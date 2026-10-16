@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { MessageChannel } from 'node:worker_threads';
 
 const { createSimulationPhaseWorkerClient } = await import('../src/app/simulation/_lib/simulationPhaseWorkerClientRuntime.js');
+const { createSimulationPhaseWorkerCommand } = await import('../src/app/simulation/_lib/simulationPhaseWorkerInputRuntime.js');
+const { createInitialSimulationFrame } = await import('../src/app/simulation/_lib/simulationFrameRuntime.js');
 const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
 
 let checks = 0;
@@ -116,10 +118,38 @@ function makeClient(workerFactory, clock = createClock()) {
   return { client, clock, created };
 }
 
-async function startPhase(client, worker, command = { frame: { day: 1 } }, actions = {}, refs = {}) {
+async function startPhase(client, worker, command = { frame: { day: 1 } }, actions = {}, refs = {}, phaseCount = 1) {
   const run = client.runPhase({ command, actions, refs });
-  await until(() => worker.clientMessages.some((message) => message.kind === 'phase'));
+  await until(() => worker.clientMessages.filter((message) => message.kind === 'phase').length >= phaseCount);
   return { run };
+}
+
+async function startCreatedPhase(client, workers, workerCount, command, phaseCount = 1, actions = {}, refs = {}) {
+  const run = client.runPhase({ command, actions, refs });
+  await until(() => workers.length >= workerCount
+    && workers[workerCount - 1].clientMessages.filter((message) => message.kind === 'phase').length >= phaseCount);
+  return { run, worker: workers[workerCount - 1] };
+}
+
+function transferCommand({ day, input, mainLogEntries = [] }) {
+  const frame = { ...createInitialSimulationFrame(), day, phase: 'night', matchSec: day * 60,
+    survivors: [{ _id: 'actor', hp: 100 + day }] };
+  return createSimulationPhaseWorkerCommand({ input, state: { ...frame,
+    autoSpeed: 32, selectedCharId: `actor-${day}`, showMarketPanel: day % 2 === 0,
+    pendingTranscendPick: { actorId: 'actor', choice: `choice-${day}` } }, refs: {
+    runRandomRef: { current: createSeedRng('phase-transfer') },
+    fullLogEntriesRef: { current: mainLogEntries },
+    startStarterLoadoutAppliedRef: { current: day > 0 },
+    suddenDeathActiveRef: { current: false },
+    suddenDeathEndAtSecRef: { current: 900 + day },
+    suddenDeathForbiddenAnnouncedRef: { current: false },
+  } });
+}
+
+function completeWorkerPhase(worker, refState = {}) {
+  const phase = worker.clientMessages.filter((message) => message.kind === 'phase').at(-1);
+  assert.ok(phase, 'A phase command has reached the native MessageChannel.');
+  worker.send({ kind: 'complete', phaseId: phase.phaseId, seq: 1, refState });
 }
 
 await check('constructor, startup timeout, and postMessage serialization failures are startup-only', async () => {
@@ -144,6 +174,96 @@ await check('constructor, startup timeout, and postMessage serialization failure
     (error) => error.code === 'PHASE_WORKER_STARTUP');
   assert.equal(serializationWorker.clientMessages.some((message) => message.kind === 'phase'), false);
   assert.equal(serializationWorker.terminateCount, 1);
+});
+
+await check('a live worker receives immutable input once and only phase-local state and logs afterward', async () => {
+  const clock = createClock();
+  const workers = [];
+  const { client, created } = makeClient(() => {
+    const worker = createWorkerHarness(); workers.push(worker); return worker;
+  }, clock);
+  const input = { schema: 'fixture.run.v1', immutable: { map: 'map-copy', catalog: ['a', 'b'] } };
+  const mainLogEntries = [{ text: 'start', type: 'system' }, { text: 'older phase', type: 'normal' }];
+  const firstCommand = transferCommand({ day: 1, input, mainLogEntries });
+  const first = await startCreatedPhase(client, workers, 1, firstCommand);
+  firstCommand.frame.survivors[0].hp = -500;
+  firstCommand.ui.pendingTranscendPick.choice = 'producer mutation';
+  const firstPosted = workers[0].clientMessages.find((message) => message.kind === 'phase').command;
+  assert.deepEqual(firstPosted.input, input, 'The first phase carries the complete immutable run input.');
+  assert.equal(firstPosted.frame.survivors[0].hp, 101, 'Native transport owns a detached frame snapshot.');
+  assert.equal(firstPosted.ui.pendingTranscendPick.choice, 'choice-1', 'Native transport owns detached UI state.');
+  completeWorkerPhase(workers[0], { random: { seed: 'phase-transfer', draws: 6 } });
+  await first.run;
+
+  mainLogEntries.push({ text: 'newly accumulated', type: 'normal' });
+  const second = await startCreatedPhase(client, workers, 1,
+    transferCommand({ day: 2, input, mainLogEntries }), 2);
+  const postedPhases = workers[0].clientMessages.filter((message) => message.kind === 'phase');
+  const secondPosted = postedPhases[1].command;
+  assert.equal(secondPosted.input, undefined, 'A prepared worker must not receive the immutable input again.');
+  assert.deepEqual(secondPosted.frame, transferCommand({ day: 2, input, mainLogEntries }).frame);
+  assert.deepEqual(secondPosted.ui, transferCommand({ day: 2, input, mainLogEntries }).ui);
+  assert.deepEqual(secondPosted.random, transferCommand({ day: 2, input, mainLogEntries }).random);
+  assert.deepEqual(secondPosted.refState, transferCommand({ day: 2, input, mainLogEntries }).refState);
+  assert.deepEqual(secondPosted.logEntries, [], 'The worker starts with an empty phase-local log journal.');
+  assert.deepEqual(mainLogEntries, [
+    { text: 'start', type: 'system' }, { text: 'older phase', type: 'normal' },
+    { text: 'newly accumulated', type: 'normal' },
+  ], 'Transport must not truncate or consume the main-thread full log journal.');
+  completeWorkerPhase(workers[0], { random: { seed: 'phase-transfer', draws: 7 } });
+  await second.run;
+
+  const nextRun = await startCreatedPhase(client, workers, 2,
+    transferCommand({ day: 0, input, mainLogEntries }));
+  assert.equal(created.length, 2, 'Day zero replaces the worker for a fresh run.');
+  const replacementCommand = workers[1].clientMessages.find((message) => message.kind === 'phase').command;
+  assert.deepEqual(replacementCommand.input, input, 'A replacement worker receives the new run input in full.');
+  assert.deepEqual(replacementCommand.logEntries, []);
+  completeWorkerPhase(workers[1], { random: { seed: 'phase-transfer', draws: 5 } });
+  await nextRun.run;
+  client.dispose();
+});
+
+await check('new workers receive input again after serialization and execution failures', async () => {
+  const input = { schema: 'fixture.run.v1', immutable: { map: 'retry-map' } };
+  const logs = [{ text: 'main log stays owned', type: 'normal' }];
+
+  {
+    const workers = [];
+    const { client } = makeClient(() => {
+      const worker = createWorkerHarness(); workers.push(worker); return worker;
+    });
+    const invalid = transferCommand({ day: 1, input, mainLogEntries: logs });
+    invalid.uncloneable = () => {};
+    await assert.rejects(client.runPhase({ command: invalid }),
+      (error) => ['PHASE_WORKER_STARTUP', 'PHASE_WORKER_EXECUTION'].includes(error.code));
+    assert.equal(workers[0].terminateCount, 1);
+    const retry = await startCreatedPhase(client, workers, 2,
+      transferCommand({ day: 1, input, mainLogEntries: logs }));
+    assert.deepEqual(workers[1].clientMessages.find((message) => message.kind === 'phase').command.input, input);
+    completeWorkerPhase(workers[1]);
+    await retry.run;
+    client.dispose();
+  }
+
+  {
+    const workers = [];
+    const { client } = makeClient(() => {
+      const worker = createWorkerHarness(); workers.push(worker); return worker;
+    });
+    const failed = await startCreatedPhase(client, workers, 1,
+      transferCommand({ day: 1, input, mainLogEntries: logs }));
+    workers[0].send({ kind: 'failed', phaseId: 1, seq: 1, message: 'fixture execution failure' });
+    await assert.rejects(failed.run, (error) => error.code === 'PHASE_WORKER_EXECUTION');
+    assert.equal(workers[0].terminateCount, 1);
+    const retry = await startCreatedPhase(client, workers, 2,
+      transferCommand({ day: 1, input, mainLogEntries: logs }));
+    assert.deepEqual(workers[1].clientMessages.find((message) => message.kind === 'phase').command.input, input);
+    completeWorkerPhase(workers[1]);
+    await retry.run;
+    client.dispose();
+  }
+  assert.deepEqual(logs, [{ text: 'main log stays owned', type: 'normal' }]);
 });
 
 await check('native MessageChannel delivery isolates producer mutations and RAF keeps only the latest frame', async () => {

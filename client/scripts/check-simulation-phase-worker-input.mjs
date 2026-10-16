@@ -85,9 +85,13 @@ const state = { ...frame, autoSpeed: 32, selectedCharId: frame.survivors[0]?._id
   accountSession: { accountId: 'TEST_ACCOUNT_MUST_NOT_CROSS', token: 'TEST_TOKEN_MUST_NOT_CROSS' },
   nonTransferableHelper: () => 'TEST_FUNCTION_MUST_NOT_CROSS' };
 
-await check('a real MessageChannel clone owns frame, input and log data without leaking UI helpers or account secrets', async () => {
+await check('a real MessageChannel clone owns frame and input while logs stay in the main journal', async () => {
+  const mainLogEntries = refs.fullLogEntriesRef.current;
+  const expectedMainLogs = structuredClone(mainLogEntries);
   const command = createSimulationPhaseWorkerCommand({ input, state, refs });
   assert.deepEqual(Object.keys(command.frame).sort(), [...SIMULATION_FRAME_FIELDS].sort());
+  assert.deepEqual(command.logEntries, [], 'Worker receives only its phase-local log journal.');
+  assert.equal(refs.fullLogEntriesRef.current, mainLogEntries, 'Command construction keeps the main journal owned by Main.');
   assert.deepEqual(command.refState, {
     startStarterLoadoutApplied: true,
     suddenDeathActive: false,
@@ -109,7 +113,6 @@ await check('a real MessageChannel clone owns frame, input and log data without 
   input.map.zones[0].name = 'producer mutation';
   input.publicItems[0].name = 'producer mutation';
   state.survivors[0].hp = -998;
-  refs.fullLogEntriesRef.current[0].text = 'producer mutation';
   command.ui.pendingTranscendPick.actorId = 'producer mutation';
   command.refState.startStarterLoadoutApplied = false;
   command.random.nameHistory[0][1][0] = 'producer mutation';
@@ -117,7 +120,9 @@ await check('a real MessageChannel clone owns frame, input and log data without 
   assert.equal(workerCommand.input.map.zones[0].name, expectedZone);
   assert.equal(workerCommand.input.publicItems[0].name, expectedItem);
   assert.equal(workerCommand.frame.survivors[0].hp, expectedFrameHp);
-  assert.equal(workerCommand.logEntries[0].text, '시작');
+  assert.deepEqual(workerCommand.logEntries, []);
+  assert.equal(refs.fullLogEntriesRef.current, mainLogEntries);
+  assert.deepEqual(mainLogEntries, expectedMainLogs, 'Transport leaves all existing Main log entries intact.');
   assert.equal(workerCommand.ui.pendingTranscendPick.actorId, frame.survivors[0]?._id || '');
   assert.equal(workerCommand.refState.startStarterLoadoutApplied, true);
   assert.equal(workerCommand.random.nameHistory[0][1][0], '에메랄드');
@@ -145,11 +150,13 @@ await check('worker restore preserves every frame field, prepared helpers, flags
     suddenDeathActiveRef: { current: true }, suddenDeathEndAtSecRef: { current: 9876 },
     suddenDeathForbiddenAnnouncedRef: { current: false }, fullLogEntriesRef: { current: [] } };
   const command = createSimulationPhaseWorkerCommand({ input: sourceInput, state: sourceState, refs: sourceRefs });
+  assert.deepEqual(command.logEntries, []);
   const workerCommand = await throughMessageChannel(command);
   const workerPrepared = prepareSimulationRunInput(workerCommand.input);
   const restored = restoreSimulationPhaseWorkerOptions(workerCommand, workerPrepared);
   const restoredFrame = Object.fromEntries(SIMULATION_FRAME_FIELDS.map(field => [field, restored.state[field]]));
   assert.deepEqual(restoredFrame, workerCommand.frame);
+  assert.deepEqual(restored.refs.fullLogEntriesRef.current, [], 'Each restored phase starts with an empty local log list.');
   assert.deepEqual(restored.state.pendingTranscendPick, workerCommand.ui.pendingTranscendPick);
   assert.equal(restored.state.autoSpeed, workerCommand.ui.autoSpeed);
   assert.equal(restored.state.selectedCharId, workerCommand.ui.selectedCharId);

@@ -32,7 +32,9 @@ export function createSimulationPhaseWorkerCommand({ input, state = {}, refs = {
     ui,
     refState: captureRefState(refs),
     random,
-    logEntries: refs.fullLogEntriesRef?.current ?? [],
+    // Death-log deduplication only reads entries written during this phase.
+    // The complete Main journal stays on Main instead of crossing again.
+    logEntries: [],
   };
 }
 

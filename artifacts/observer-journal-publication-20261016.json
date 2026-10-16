@@ -498,5 +498,270 @@
     "Actual browser process restart/resume",
     "Human follow-up on map, team decisions and enjoyment"
   ],
+  "workerInputTransmissionFollowup": {
+    "engineVersion": "d95f15d724e5b2c77506a8c041d92c180fbf20c666b7deb80aa64c7471c116ad",
+    "outputOnly": true,
+    "sourceChange": {
+      "immutableInput": "Send once after the first successful phase post to each live Worker; reset on Worker close/replacement/failure.",
+      "successfulPostMeaning": "postMessage returned without a synchronous clone/transport exception; not a Worker execution/completion acknowledgement.",
+      "phaseState": "Continue transferring the complete current frame, UI, flags/refState and RNG each phase.",
+      "journal": "Keep the complete historical text/event journal on Main; Worker death deduplication only needs its current-phase entries.",
+      "ownership": "Retain the native structured-clone boundary and do not mutate the producer command.",
+      "scope": "Remove demonstrably repeated transport, not simulation rules or authoritative records. No measured causal speedup claim."
+    },
+    "verification": {
+      "inputChecks": 3,
+      "clientChecks": 11,
+      "executorHookChecks": 8,
+      "phaseResultReadinessChecks": 4,
+      "scriptLintExitCode": 0,
+      "directTeamChecks": { "survivalContribution": 4, "retreatSurvival": 5, "teamCombat": 12 },
+      "build": {
+        "runId": "2026-10-15T21-47-22.655Z-9e420e4a-5060-492d-a19b-264f757b6250",
+        "exitCode": 0,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "pages": 62,
+        "buildId": "oLrH3w3Kq0aKD1S78RE6O",
+        "isolatedGeneratedWorker": { "ready": true, "finalMatchSec": 140, "frames": 701, "complete": 1, "failures": 0 }
+      },
+      "interruptedRelease": {
+        "runId": "2026-10-15T21-50-51.198Z-b43616fb-a082-4c26-80e5-4198f635c197",
+        "observationUtc": "2026-10-16T11:07:41Z",
+        "recordedStatus": "running",
+        "observedRunnerAndChildrenAbsent": true,
+        "knownExitCode": null,
+        "currentVerificationSourceHashesEqual": "20/20",
+        "savedInputReplayBeforeInterruption": { "events": 14133, "frames": 6488, "sameFinalState": true, "sameRandom": true, "sameEnding": true },
+        "wholeCommandPassed": false
+      },
+      "concurrentReleaseFailure": {
+        "runId": "2026-10-16T11-09-53.288Z-004684c6-005d-45af-b51d-84cdcdec71fb",
+        "exitCode": 1,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "stage": "isolated generated Worker first phase",
+        "reason": "timeout-60s",
+        "framesAtTimeout": 567,
+        "actionsAtTimeout": 7330,
+        "lastSeqAtTimeout": 7897,
+        "completeMessages": 0,
+        "failedMessages": 0,
+        "formationOverlapped": true,
+        "scope": "No terminal Worker result within the unchanged 60-second VM limit. Progress occurred; not proof of a hang, browser performance or a particular competing-process cause."
+      },
+      "sequentialRelease": {
+        "runId": "2026-10-16T11-28-36.620Z-f316f2b2-1771-4e8c-bfbc-0ce67bf2b4d4",
+        "status": "passed",
+        "exitCode": 0,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "finishedAtUtc": "2026-10-16T11:38:55.644Z",
+        "freshSavedInputReplay": { "events": 14133, "frames": 6488, "sameEvents": true, "sameFinalState": true, "sameRandom": true, "sameEnding": true, "externalAccess": 0 },
+        "nativeNodeWorkerComparison": { "phases": 11, "allFrames": 5840, "publishedFrames": 61, "events": 11648, "logs": 7107, "allFrameSha256": "9958d8a2d1491ad631809d9f33e6133b7c79710f07988cfddde51561cfaa1541", "eventsSha256": "244d837cc478cf2e6a2dbb8fdbcd69dfac2b1ff8fa8efc30eeb9ab3e1482a9b5", "logsSha256": "ab61fc6fcbbf47af13e3a3ad5bcd17c4c7592f5115e7011019a2fc6218ffb8f3", "sameFinalState": true, "sameRandom": true, "sameEnding": true, "rngDraws": 8934, "endingAtSec": 1124.916666, "blockedStorageCalls": 11, "accountCalls": 0, "paidApiCalls": 0 },
+        "scope": "Named release chain only, including fresh baseline, saved-input replay, native Node Worker comparison and runtime lint; not browser speed, balance, general causality or human acceptance.",
+        "sameBuildAndUnchangedVmLimit": true,
+        "isolatedGeneratedWorker": { "ready": true, "finalMatchSec": 140, "frames": 701, "complete": 1, "failures": 0 }
+      }
+    },
+    "formationComparison": {
+      "predeclaredSeeds": ["2026101601", "2026101602"],
+      "initialBuild": "FIXTURE:initial-roster",
+      "variants": ["baseline", "one-formation-swap"],
+      "repeatsPerCondition": 2,
+      "selectedCompleteExecutions": 8,
+      "interruptedRunner": {
+        "runId": "2026-10-15T21-47-22.847Z-c84aa3d7-7b15-446d-9f01-52f95be799e8",
+        "outputFile": "client/.verification-runs/2026-10-15T21-47-22.847Z-c84aa3d7-7b15-446d-9f01-52f95be799e8/strategy-comparison.json",
+        "recordedCompleteExecutions": 5,
+        "expectedExecutions": 8,
+        "observedRunnerAndChildrenAbsent": true,
+        "currentVerificationSourceHashesEqual": "9/9",
+        "selectedForThisReport": "Only the four fully completed first-seed executions. The incomplete second-seed case is not a completed condition."
+      },
+      "secondSeedRunner": {
+        "runId": "2026-10-16T11-09-53.410Z-1262d468-6eae-45b2-889b-b4bd59036e20",
+        "outputFile": "client/.verification-runs/2026-10-16T11-09-53.410Z-1262d468-6eae-45b2-889b-b4bd59036e20/strategy-comparison.json",
+        "exitCode": 0,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "finishedAtUtc": "2026-10-16T11:19:54.972Z"
+      },
+      "cases": [
+        { "seed": "2026101601", "variant": "baseline", "events": 12214, "frames": 6159, "endingSec": 1188.833333, "winnerTeamId": "team:3", "exactRepeat": true, "initialGoalCompletion": 24, "actualFiveSlotEquippedByFirstNight": 24, "equipmentCompleteAtSecRange": [22, 43] },
+        { "seed": "2026101601", "variant": "one-formation-swap", "events": 13280, "frames": 6667, "endingSec": 1286.25, "winnerTeamId": "team:5", "exactRepeat": true, "initialGoalCompletion": 24, "actualFiveSlotEquippedByFirstNight": 24, "equipmentCompleteAtSecRange": [22, 43], "pairedExposureReady": false, "missing": "guest-survivor-01 has actual PvP HP contacts but no qualifying changed-teammate strike/cover turn in this case." },
+        { "seed": "2026101602", "variant": "baseline", "events": 12625, "frames": 6263, "endingSec": 1207.333333, "winnerTeamId": "team:8", "exactRepeat": true, "initialGoalCompletion": 24, "actualFiveSlotEquippedByFirstNight": 24, "equipmentCompleteAtSecRange": [24, 41] },
+        { "seed": "2026101602", "variant": "one-formation-swap", "events": 13292, "frames": 6627, "endingSec": 1281.5, "winnerTeamId": "team:4", "exactRepeat": true, "initialGoalCompletion": 24, "actualFiveSlotEquippedByFirstNight": 24, "equipmentCompleteAtSecRange": [24, 40], "pairedExposureReady": true }
+      ],
+      "firstNightDeadlineSec": 250,
+      "equipmentScope": "Actual equipped slots and positive owned inventory, tier 4 or better under the existing higher-tier replacement rule; not every exact target item ID or arbitrary custom roster coverage. No invalid/changed goals or pre-completion deaths in these four conditions.",
+      "exactRepeatScope": "All events, per-frame digests, full logs, final state, RNG and ending for each condition; repeats are not independent win-rate samples.",
+      "coverage": "Same fixed guest actor build. Only two actors' team identity and its derived roster fields change; no free gear, resources, skills, location or budget changes. Swap actors have tactical skills but no configured character skill slots.",
+      "causalScope": "First-seed exposure failure is retained. Second-seed exposure is evidence of actual HP hits and team-action participation, not contribution by every teammate, temporal survival benefit, general cooperation advantage or winner causality. These split observations are not a single all-seed runner pass."
+    },
+    "browser": {
+      "engineVersion": "d95f15d724e5b2c77506a8c041d92c180fbf20c666b7deb80aa64c7471c116ad",
+      "buildId": "oLrH3w3Kq0aKD1S78RE6O",
+      "url": "http://127.0.0.1:3137/eternalhunger/evaluate?perfProbe=1",
+      "environment": { "platform": "Windows Chromium 155", "viewportWidth": 1280, "viewportHeight": 720, "devicePixelRatio": 1, "hardwareConcurrency": 12 },
+      "seed": "1789192220412",
+      "actors": 24,
+      "teams": 8,
+      "speed": 32,
+      "watchedTeam": 1,
+      "browserPresentedBeforeAllProbes": true,
+      "otherProgramsNotTerminated": true,
+      "heavyOwnJobsEndedBeforeReplays": true,
+      "functionalOriginal": {
+        "formationOverlapped": true,
+        "finalMatchSec": 1233.5,
+        "winnerTeamId": "team:4",
+        "survivingMembers": 3,
+        "savedCompleteInputAndJournalUiConfirmed": true,
+        "activeMs": 68857.3,
+        "effectiveSpeed": 17.913859532685713,
+        "probeElapsedMs": 164998.2,
+        "boundaryStatus": "settled",
+        "stopReason": "manual",
+        "scope": "Functional baseline only. Own formation computation overlapped, and the probe includes substantial post-result idle and dismissal of the result modal. Whole-probe RAF is not active-match FPS."
+      },
+      "replays": [
+        { "label": "d95-x32-replay-1-current-env", "activeMs": 66918.4, "effectiveSpeed": 18.432897379495024, "probeElapsedMs": 67212, "events": 13237, "comparisonMatched": true, "sameFinalStateAndEndingUi": true, "boundaryStatus": "settled", "stopReason": "replay-complete", "speedChanges": 0, "identityChanges": 0, "pauses": 0, "rafSamples": 4813, "rafMedianMs": 10, "rafP95Ms": 29.9, "rafMaxMs": 190.1, "firstRafDelayMs": 7.2, "longTaskCount": 1, "longTaskTotalMs": 189, "longTaskMaxMs": 189, "heapBaselineUsedBytes": 29576684, "heapEndUsedBytes": 127533429, "entireMeasurementVisible": true, "domNodes": 741 },
+        { "label": "d95-x32-replay-2-current-env", "activeMs": 52990.6, "effectiveSpeed": 23.277713405773856, "probeElapsedMs": 53275.5, "events": 13237, "comparisonMatched": true, "sameFinalStateAndEndingUi": true, "boundaryStatus": "settled", "stopReason": "replay-complete", "speedChanges": 0, "identityChanges": 0, "pauses": 0, "rafSamples": 4146, "rafMedianMs": 10, "rafP95Ms": 20.1, "rafMaxMs": 140, "firstRafDelayMs": 0.2, "longTaskCount": 1, "longTaskTotalMs": 139, "longTaskMaxMs": 139, "heapBaselineUsedBytes": 31999481, "heapEndUsedBytes": 167677085, "entireMeasurementVisible": true, "domNodes": 741 },
+        { "label": "d95-x32-replay-3-current-env", "activeMs": 51926.2, "effectiveSpeed": 23.754867485007573, "probeElapsedMs": 52196, "events": 13237, "comparisonMatched": true, "sameFinalStateAndEndingUi": true, "boundaryStatus": "settled", "stopReason": "replay-complete", "speedChanges": 0, "identityChanges": 0, "pauses": 0, "rafSamples": 3728, "rafMedianMs": 10, "rafP95Ms": 29.9, "rafMaxMs": 189.9, "firstRafDelayMs": 4.7, "longTaskCount": 1, "longTaskTotalMs": 176, "longTaskMaxMs": 176, "heapBaselineUsedBytes": 32149746, "heapEndUsedBytes": 133307309, "entireMeasurementVisible": true, "domNodes": 741 }
+      ],
+      "sameDocument": true,
+      "timeOriginMs": 1792149154809.9,
+      "replayEndToNextStartGapMs": [86918.7, 47352.3],
+      "x32DiagnosticTarget": 28.8,
+      "x32ThroughputPassed": false,
+      "consoleErrorsOrWarnings": [],
+      "replayRewards": 0,
+      "memory": {
+        "scope": "selected_object_roots_not_entire_heap",
+        "evictedOwners": 0,
+        "closedSessionIds": [1, 3, 4],
+        "collectedForEveryClosedSession": ["journal", "textLog", "visibleEvents", "survivors", "dead"],
+        "replayRecordCollectedSessionIds": [1],
+        "replayRecordReachableOrNotYetCollectedSessionIds": [3, 4],
+        "currentOpenSessionId": 5,
+        "strictWholeHeapAcceptance": false
+      },
+      "scope": "Actual browser same-input completion and diagnostic observations, not full frame/RNG comparison in browser, paint-complete FPS, controlled before/after speedup, whole-heap leak acceptance, process-restart proof, x1/x8 or human readability/fun acceptance.",
+      "ownedTabClosed": true,
+      "browserPresentedAfterRestoration": false,
+      "priorBrowserPresented": false,
+      "browserPresentationRestored": true,
+      "ownedServerPidStopped": 34488
+    },
+    "cleanup": {
+      "observedUtc": "2026-10-16T11:42:23.8104034Z",
+      "removedFiles": 6,
+      "removedBytes": 610323767,
+      "targets": [
+        {
+          "relativePath": "client-production\\0.pack",
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+          "bytes": 264163626,
+          "sha256": "630A6CFA3B89E05BE4B9C5CF24133F0EAB3D1A9F415AF6551A048DFF5BD7728C",
+          "fileId": "0x0000000000000000002300000008a6fe",
+          "hardlinkCount": 1,
+          "result": "removed"
+        },
+        {
+          "relativePath": "client-production\\index.pack",
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+          "bytes": 12994762,
+          "sha256": "5FE3BA2B94FCBA0F27DE9FAF7598C316AC398AE05B44F72720220CF2210FF85A",
+          "fileId": "0x0000000000000000001600000016b1d8",
+          "hardlinkCount": 1,
+          "result": "removed"
+        },
+        {
+          "relativePath": "edge-server-production\\0.pack",
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+          "bytes": 276,
+          "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+          "fileId": "0x0000000000000000001200000017f709",
+          "hardlinkCount": 1,
+          "result": "removed"
+        },
+        {
+          "relativePath": "edge-server-production\\index.pack",
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+          "bytes": 2464,
+          "sha256": "DCCECBAF9BB38E6916D6CEBC26FFB1D9C00FD6C3DE09A7EBB2121D27CDF72644",
+          "fileId": "0x0000000000000000001200000017f708",
+          "hardlinkCount": 1,
+          "result": "removed"
+        },
+        {
+          "relativePath": "server-production\\0.pack",
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+          "bytes": 314937877,
+          "sha256": "EAF88709CBBEC3DB7E516917DA313BC03334EDDA604F9876547846AF81B710C8",
+          "fileId": "0x0000000000000000001400000016b596",
+          "hardlinkCount": 1,
+          "result": "removed"
+        },
+        {
+          "relativePath": "server-production\\index.pack",
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+          "bytes": 18224762,
+          "sha256": "D1A05B2A5181F83FE53CD271682C112FF3957B1CFBD0D7C1F5CE42CADB895F04",
+          "fileId": "0x000000000000000000460000000a6647",
+          "hardlinkCount": 1,
+          "result": "removed"
+        }
+      ],
+      "nextFilesBefore": 1452,
+      "nextBytesBefore": 704069957,
+      "nextFilesAfter": 1446,
+      "nextBytesAfter": 93746190,
+      "protectedFiles": 1446,
+      "protectedSha256Before": "5C751AEC9496EE61B91B1C908EB326087FE7191E88DCB255F108A66C2ECB3936",
+      "protectedSha256After": "5C751AEC9496EE61B91B1C908EB326087FE7191E88DCB255F108A66C2ECB3936",
+      "buildIdBefore": "oLrH3w3Kq0aKD1S78RE6O",
+      "buildIdAfter": "oLrH3w3Kq0aKD1S78RE6O",
+      "oldCacheSha256Before": "3A62EC6B8AB460303BD5D552976F76D6A1B091DE637D5228F66B6528BCB83C23",
+      "oldCacheSha256After": "3A62EC6B8AB460303BD5D552976F76D6A1B091DE637D5228F66B6528BCB83C23",
+      "exactPathsAndHashesAndNativeIdsRevalidated": true,
+      "uniqueTargetFileIds": 6,
+      "rebuildRecoverable": true,
+      "noBackupCopyOfDeletedPacks": true,
+      "ownHeavyJobsCount": 0,
+      "verificationServerListenerCount": 0,
+      "outputRoots": [
+        {
+          "path": ".local",
+          "files": 96,
+          "logicalUpperBoundBytes": 403043999
+        },
+        {
+          "path": "artifacts",
+          "files": 199,
+          "logicalUpperBoundBytes": 174725195
+        },
+        {
+          "path": "client\\.next",
+          "files": 1446,
+          "logicalUpperBoundBytes": 93746190
+        },
+        {
+          "path": "client\\.verification-runs",
+          "files": 418,
+          "logicalUpperBoundBytes": 47272774
+        },
+        {
+          "path": "client\\audio-source",
+          "files": 52,
+          "logicalUpperBoundBytes": 30265181
+        }
+      ],
+      "outputRootsLogicalUpperBoundBeforeBytes": 1359377106,
+      "outputRootsLogicalUpperBoundAfterBytes": 749053339,
+      "scope": "Five disjoint output roots before this final receipt/doc update; conservative logical upper bounds, not whole workspace, physical allocation or free disk. Removed files have distinct native IDs and one hardlink each. User originals, source, complete build, old cache and all success/failure/interruption evidence are preserved."
+    }
+  },
   "goalAnchorSha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B"
 }

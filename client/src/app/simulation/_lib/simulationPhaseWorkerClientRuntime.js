@@ -28,6 +28,7 @@ export function createSimulationPhaseWorkerClient({
   let frameId = null, frameTimer = null, disposed = false, starting = false;
   let controls = { visibility: 'visible' };
   let messageListener = null, errorListener = null;
+  let runInputPosted = false;
 
   function cancelPublication() {
     if (frameId !== null && frameId !== undefined) cancelFrame(frameId);
@@ -52,6 +53,7 @@ export function createSimulationPhaseWorkerClient({
       worker.terminate();
     }
     worker = null;
+    runInputPosted = false;
     ready = null;
     resolveReady = null;
     rejectReady = null;
@@ -165,7 +167,12 @@ export function createSimulationPhaseWorkerClient({
         frame: null, finished: false, finishResult: null, posted: false, completing: false };
       try {
         worker.postMessage({ kind: 'controls', controls });
-        worker.postMessage({ kind: 'phase', phaseId, command });
+        // This worker prepares the immutable run input once. Every phase still
+        // transfers its complete current frame, controls, flags and RNG state.
+        const workerCommand = { ...command };
+        if (runInputPosted) delete workerCommand.input;
+        worker.postMessage({ kind: 'phase', phaseId, command: workerCommand });
+        if (command.input !== undefined) runInputPosted = true;
         active.posted = true;
       } catch (error) { fail(error); }
     });
