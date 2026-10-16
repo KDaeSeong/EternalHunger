@@ -15,10 +15,78 @@ const { normalizeAutoSpeed } = await import('../src/app/simulation/_lib/simulati
 const { createSimulationPhaseWorkerClient } = await import('../src/app/simulation/_lib/simulationPhaseWorkerClientRuntime.js');
 const { createSimulationPhaseWorkerCommand } = await import('../src/app/simulation/_lib/simulationPhaseWorkerInputRuntime.js');
 const { runSimulationPhaseCycle } = await import('../src/app/simulation/_lib/simulationPhaseCycleRuntime.js');
+const { subscribeObserverWorkMeasurements } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
 
 const taskYield = () => new Promise((resolve) => setImmediate(resolve));
 const now = () => Number.NaN;
 const wait = async () => {};
+const WORKER_MEASUREMENT_ENTRY_LIMIT = 64;
+
+function scalarWorkerDiagnostics(value) {
+  if (!value || typeof value !== 'object') return null;
+  const scalarStats = (stats) => ({ count: stats?.count, measuredCount: stats?.measuredCount,
+    totalMs: stats?.totalMs ?? null, maxMs: stats?.maxMs ?? null });
+  return {
+    schema: value.schema,
+    status: value.status,
+    elapsedMs: value.elapsedMs ?? null,
+    stages: (Array.isArray(value.stages) ? value.stages : []).slice(0, 24).map((row) => ({
+      name: typeof row?.name === 'string' ? row.name.slice(0, 80) : '', ...scalarStats(row),
+    })),
+    hostWaits: { task: scalarStats(value.hostWaits?.task), display: scalarStats(value.hostWaits?.display) },
+    messagesBeforeTerminal: (Array.isArray(value.messagesBeforeTerminal) ? value.messagesBeforeTerminal : [])
+      .slice(0, 32).map((row) => ({ kind: typeof row?.kind === 'string' ? row.kind.slice(0, 80) : '', ...scalarStats(row) })),
+  };
+}
+
+function assertWorkerMeasurementSummary(entries, dropped, phases) {
+  assert.equal(dropped, 0, 'Worker measurement event cap must not be exceeded.');
+  assert.ok(entries.length <= WORKER_MEASUREMENT_ENTRY_LIMIT, 'Worker measurement event list must remain bounded.');
+  const starts = entries.filter((entry) => entry.kind === 'start');
+  const terminals = entries.filter((entry) => entry.kind === 'terminal');
+  assert.equal(entries.length, phases * 2, 'Every worker phase must have exactly one request and terminal measurement.');
+  assert.equal(starts.length, phases, 'Worker measurement request count differs from phase count.');
+  assert.equal(terminals.length, phases, 'Worker measurement terminal count differs from phase count.');
+  assert.equal(new Set(starts.map((entry) => entry.id)).size, phases, 'Worker measurement ids must be unique.');
+  assert.equal(new Set(starts.map((entry) => entry.phaseId)).size, phases, 'Worker measurement phase ids must be unique.');
+  for (const start of starts) {
+    assert.ok(Number.isSafeInteger(start.id) && start.id > 0 && Number.isSafeInteger(start.phaseId) && start.phaseId > 0,
+      'Worker measurement request ids must be positive safe integers.');
+    const matches = terminals.filter((entry) => entry.id === start.id && entry.phaseId === start.phaseId);
+    assert.equal(matches.length, 1, 'Each request must have exactly one matching terminal id/phase pair.');
+    const terminal = matches[0];
+    assert.ok(terminal.clientElapsedMs === null || (Number.isFinite(terminal.clientElapsedMs) && terminal.clientElapsedMs >= 0),
+      'Worker client elapsed time must be null or a finite nonnegative scalar.');
+    assert.equal(terminal.diagnostics?.schema, 'eh-worker-phase-performance.v1', 'Worker diagnostic schema is incomplete.');
+    assert.equal(terminal.diagnostics?.status, 'complete', 'Worker diagnostic terminal status must be complete.');
+    const diagnostics = terminal.diagnostics;
+    assert.ok(diagnostics.elapsedMs === null || (Number.isFinite(diagnostics.elapsedMs) && diagnostics.elapsedMs >= 0),
+      'Worker elapsed time must be null or a finite nonnegative scalar.');
+    assert.ok(diagnostics.stages.length <= 24 && diagnostics.messagesBeforeTerminal.length <= 32,
+      'Worker diagnostic row caps must be respected.');
+    const checkStats = (stats) => {
+      assert.ok(Number.isSafeInteger(stats.count) && stats.count >= 0
+        && Number.isSafeInteger(stats.measuredCount) && stats.measuredCount >= 0 && stats.measuredCount <= stats.count,
+      'Worker diagnostic counters must be bounded nonnegative integers.');
+      for (const duration of [stats.totalMs, stats.maxMs]) {
+        assert.ok(duration === null || (Number.isFinite(duration) && duration >= 0),
+          'Worker diagnostic durations must be null or finite nonnegative scalars.');
+      }
+    };
+    for (const row of diagnostics.stages) {
+      assert.ok(typeof row.name === 'string' && row.name.length <= 80, 'Worker stage name must be bounded.');
+      checkStats(row);
+    }
+    for (const row of diagnostics.messagesBeforeTerminal) {
+      assert.ok(typeof row.kind === 'string' && row.kind.length <= 80, 'Worker message kind must be bounded.');
+      checkStats(row);
+    }
+    checkStats(diagnostics.hostWaits.task);
+    checkStats(diagnostics.hostWaits.display);
+  }
+  return { phases, pairs: starts.length, stageRows: terminals.reduce((sum, entry) => sum + entry.diagnostics.stages.length, 0),
+    messageRows: terminals.reduce((sum, entry) => sum + entry.diagnostics.messagesBeforeTerminal.length, 0) };
+}
 
 function hashFrame(hash, frame) {
   const serialized = JSON.stringify(frame);
@@ -155,6 +223,8 @@ async function runWorker(savedInput) {
   let workerClockMonotonic = true;
   let lastWorkerFrameSec = -Infinity;
   let didMutatePostMessageInput = false;
+  const workerMeasurementEntries = [];
+  let droppedWorkerMeasurementEntries = 0;
   let worker;
   const client = createSimulationPhaseWorkerClient({
     createWorker: () => {
@@ -201,6 +271,15 @@ async function runWorker(savedInput) {
     scheduleFrame: (callback) => setImmediate(callback),
     cancelFrame: clearImmediate,
   });
+  const unsubscribeWorkerMeasurements = subscribeObserverWorkMeasurements(now, () => {}, null, (entry) => {
+    if (workerMeasurementEntries.length >= WORKER_MEASUREMENT_ENTRY_LIMIT) {
+      droppedWorkerMeasurementEntries += 1;
+      return;
+    }
+    workerMeasurementEntries.push({ kind: entry?.kind, id: entry?.id, phaseId: entry?.phaseId,
+      clientElapsedMs: entry?.clientElapsedMs ?? null,
+      diagnostics: entry?.kind === 'terminal' ? scalarWorkerDiagnostics(entry.diagnostics) : null });
+  });
 
   try {
     for (let count = 0; !harness.finish && count < 20; count += 1) {
@@ -216,12 +295,17 @@ async function runWorker(savedInput) {
     }
     assert.ok(harness.finish, 'Worker did not naturally finish within 20 phases.');
   } finally {
-    client.dispose();
-    // The client terminates after the finish action. Keep this fallback for startup/assertion failures.
-    if (!harness.finish) await worker?.terminate?.();
+    try {
+      client.dispose();
+      // The client terminates after the finish action. Keep this fallback for startup/assertion failures.
+      if (!harness.finish) await worker?.terminate?.();
+    } finally {
+      unsubscribeWorkerMeasurements();
+    }
   }
   return { ...harness, allWorkerFrames, allWorkerFramesHash: allWorkerFramesHash.digest('hex'),
-    workerFrameDigests, didMutatePostMessageInput, workerClockMonotonic };
+    workerFrameDigests, didMutatePostMessageInput, workerClockMonotonic, workerMeasurementEntries,
+    droppedWorkerMeasurementEntries };
 }
 
 const fixture = JSON.parse(await createRandomIsolationInput('1101'));
@@ -274,7 +358,10 @@ assert.ok(workerRun.finish.random && workerRun.finish.random.draws === baseline.
 assert.ok(workerRun.counters.blockedStorageCalls > 0, 'Persistence path should be exercised only through its blocked test callback.');
 assert.equal(workerRun.counters.blockedPaidApiCalls, 0, 'No paid API callback is available to the test.');
 assert.equal(baseline.counters.blockedPaidApiCalls, 0, 'No paid API callback is available to the baseline.');
+const workerMeasurementSummary = assertWorkerMeasurementSummary(workerRun.workerMeasurementEntries,
+  workerRun.droppedWorkerMeasurementEntries, workerRun.counters.phases);
 
+console.log(`SIMULATION_PHASE_WORKER_DIAGNOSTICS schema=eh-worker-phase-performance.v1 phases=${workerMeasurementSummary.phases} pairs=${workerMeasurementSummary.pairs} stages=${workerMeasurementSummary.stageRows} messages=${workerMeasurementSummary.messageRows}`);
 console.log(`SIMULATION_PHASE_WORKER_MATCH phases=${workerRun.counters.phases} allFrames=${workerRun.allWorkerFrames} publishedFrames=${workerRun.counters.frames} events=${workerRun.finish.events.length} logs=${workerRun.finish.logEntries.length}`);
 console.log(`SIMULATION_PHASE_WORKER_MATCH frameSha256=${workerRun.allWorkerFramesHash} eventsSha256=${digest(workerRun.finish.events)} logsSha256=${digest(workerRun.finish.logEntries)}`);
 console.log(`SIMULATION_PHASE_WORKER_MATCH ending=${workerRun.finish.options.ending.outcome}@${workerRun.finish.options.ending.atSec}s rngDraws=${workerRun.finish.random.draws} blockedStorage=${workerRun.counters.blockedStorageCalls} blockedAccount=${workerRun.counters.blockedAccountCalls} blockedPaidApi=${workerRun.counters.blockedPaidApiCalls}`);

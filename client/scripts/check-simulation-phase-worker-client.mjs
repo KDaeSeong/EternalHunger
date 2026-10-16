@@ -6,6 +6,7 @@ const { createSimulationPhaseWorkerClient } = await import('../src/app/simulatio
 const { createSimulationPhaseWorkerCommand } = await import('../src/app/simulation/_lib/simulationPhaseWorkerInputRuntime.js');
 const { createInitialSimulationFrame } = await import('../src/app/simulation/_lib/simulationFrameRuntime.js');
 const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
+const { subscribeObserverWorkMeasurements } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
 
 let checks = 0;
 async function check(name, run) {
@@ -399,25 +400,67 @@ await check('dispose during ready removes startup timer and every worker listene
   assert.equal(worker.clientMessages.some((message) => message.kind === 'phase'), false);
 });
 
-await check('async finish rejection fails the phase without starting a replacement worker', async () => {
+await check('worker terminal diagnostics stay complete when async host finish rejects, without changing FIFO or RNG state', async () => {
   const worker = createWorkerHarness();
   const { client, created } = makeClient(() => worker);
   const finishResult = deferred();
+  let now = 10;
+  const diagnostics = [];
+  const work = [];
+  const unsubscribe = subscribeObserverWorkMeasurements(() => now, entry => work.push(entry), null,
+    entry => diagnostics.push(entry));
   let finishCalls = 0;
+  const order = [];
+  const finishRandom = createSeedRng('finish-reject').getState();
+  const refs = { runRandomRef: { current: createSeedRng('before-finish') } };
   const { run } = await startPhase(client, worker, { frame: { day: 1 } }, {
-    finishGame() { finishCalls += 1; return finishResult.promise; },
-  });
-  const rejected = assert.rejects(run, (error) => error.code === 'PHASE_WORKER_EXECUTION');
-  worker.send({ kind: 'finish', phaseId: 1, seq: 1,
-    args: [[], {}, {}, {}], refState: { random: createSeedRng('finish-reject').getState() } });
+    addLog(text) { order.push(`log:${text}`); },
+    setSimulationFrame(frame) { order.push(`frame:${frame.day}`); },
+    finishGame() {
+      finishCalls += 1;
+      order.push(`finish:${refs.runRandomRef.current.getState().seed}`);
+      return finishResult.promise;
+    },
+  }, refs);
+  const rejected = assert.rejects(run, (error) => error.code === 'PHASE_WORKER_EXECUTION'
+    && error.cause?.message === 'host finish rejected');
+  worker.send({ kind: 'frame', phaseId: 1, seq: 1, frame: { day: 4 } });
+  worker.send({ kind: 'action', phaseId: 1, seq: 2, name: 'addLog', args: ['ordered'] });
+  worker.send({ kind: 'finish', phaseId: 1, seq: 3,
+    args: [[], {}, {}, {}], refState: { random: finishRandom } });
   await until(() => finishCalls === 1);
-  worker.send({ kind: 'complete', phaseId: 1, seq: 2,
-    refState: { random: createSeedRng('finish-reject').getState() } });
+  assert.deepEqual(order, ['log:ordered', 'frame:4', `finish:${finishRandom.seed}`]);
+  now = 40;
+  worker.send({ kind: 'complete', phaseId: 1, seq: 4,
+    refState: { random: finishRandom }, diagnostics: {
+      schema: 'eh-worker-phase-performance.v1', status: 'complete', elapsedMs: 3,
+    } });
+  await until(() => diagnostics.some(entry => entry.kind === 'terminal'));
+  assert.equal(diagnostics.length, 2);
+  assert.equal(diagnostics[1].diagnostics.status, 'complete',
+    'terminal records the Worker complete message, not the later host promise outcome');
+  assert.equal(diagnostics[1].clientElapsedMs, 30);
+  assert.deepEqual(refs.runRandomRef.current.getState(), finishRandom);
+  assert.deepEqual(worker.clientMessages.map(message => message.kind), ['controls', 'phase']);
+  assert.equal(worker.clientMessages.find(message => message.kind === 'phase').diagnostics, true);
+  assert.deepEqual(work.map(entry => entry.name), ['worker.postMessage.controls', 'worker.postMessage.phase']);
   finishResult.reject(new Error('host finish rejected'));
   await rejected;
+  assert.equal(worker.listenerCount, 0, 'client failure detaches the native terminal listener');
+  worker.send({ kind: 'complete', phaseId: 1, seq: 5,
+    refState: { random: createSeedRng('duplicate-terminal').getState() }, diagnostics: {
+      schema: 'eh-worker-phase-performance.v1', status: 'complete', elapsedMs: 99,
+    } });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(diagnostics.map(entry => entry.kind), ['start', 'terminal'],
+    'after client failure the detached listener cannot record a later terminal');
+  assert.deepEqual(refs.runRandomRef.current.getState(), finishRandom,
+    'a late terminal cannot overwrite the already accepted RNG snapshot');
+  assert.deepEqual(order, ['log:ordered', 'frame:4', `finish:${finishRandom.seed}`]);
   assert.equal(created.length, 1);
   assert.equal(finishCalls, 1);
   assert.equal(worker.terminateCount, 1);
+  unsubscribe();
 });
 
 await check('a concurrent run is rejected during ready and only one phase is posted', async () => {
@@ -446,6 +489,101 @@ await check('a concurrent run is rejected during ready and only one phase is pos
   assert.notEqual(secondError, 'still-waiting',
     'runPhase must reserve the in-flight slot before awaiting ready; current code accepts both calls.');
   assert.equal(worker.clientMessages.filter((message) => message.kind === 'phase').length, 1);
+});
+
+await check('inactive worker diagnostics neither read a diagnostic clock nor add a protocol field', async () => {
+  let clockReads = 0;
+  const unsubscribe = subscribeObserverWorkMeasurements(() => { clockReads += 1; throw new Error('inactive clock'); }, () => {});
+  const worker = createWorkerHarness();
+  const { client } = makeClient(() => worker);
+  try {
+    const { run } = await startPhase(client, worker);
+    const phase = worker.clientMessages.find(message => message.kind === 'phase');
+    assert.equal(Object.hasOwn(phase, 'diagnostics'), false);
+    completeWorkerPhase(worker);
+    await run;
+    assert.equal(clockReads, 0);
+    assert.deepEqual(worker.clientMessages.map(message => message.kind), ['controls', 'phase']);
+  } finally { client.dispose(); unsubscribe(); }
+});
+
+await check('opted phase diagnostics preserve native FIFO and original command ownership', async () => {
+  let now = 10;
+  const recorded = [], work = [], actions = [];
+  const unsubscribe = subscribeObserverWorkMeasurements(() => now, entry => work.push(entry), null, entry => recorded.push(entry));
+  const worker = createWorkerHarness();
+  const { client } = makeClient(() => worker);
+  const command = { frame: { day: 1 }, input: { nested: { retained: true } } };
+  const original = structuredClone(command);
+  try {
+    const { run } = await startPhase(client, worker, command, { addLog: text => actions.push(text) });
+    const phase = worker.clientMessages.find(message => message.kind === 'phase');
+    assert.equal(phase.diagnostics, true);
+    assert.deepEqual(command, original);
+    now = 60;
+    const diagnostics = { schema: 'eh-worker-phase-performance.v1', status: 'complete', elapsedMs: 40 };
+    worker.send({ kind: 'action', phaseId: phase.phaseId, seq: 1, name: 'addLog', args: ['one'] });
+    worker.send({ kind: 'complete', phaseId: phase.phaseId, seq: 2, refState: {}, diagnostics });
+    await run;
+    assert.deepEqual(actions, ['one']);
+    assert.deepEqual(recorded.map(entry => entry.kind), ['start', 'terminal']);
+    assert.equal(recorded[0].id, recorded[1].id);
+    assert.equal(recorded[1].clientElapsedMs, 50);
+    assert.deepEqual(recorded[1].diagnostics, diagnostics);
+    assert.deepEqual(work.map(entry => entry.name), ['worker.postMessage.controls', 'worker.postMessage.phase']);
+    assert.deepEqual(worker.clientMessages.map(message => message.kind), ['controls', 'phase']);
+  } finally { client.dispose(); unsubscribe(); }
+});
+
+await check('late phase measurements cannot read or publish into a replacement probe', async () => {
+  const oldEntries = [], nextEntries = [];
+  const unsubscribeOld = subscribeObserverWorkMeasurements(() => 1, () => {}, null, entry => oldEntries.push(entry));
+  const worker = createWorkerHarness();
+  const { client } = makeClient(() => worker);
+  let unsubscribeNext;
+  let nextClockReads = 0;
+  try {
+    const first = await startPhase(client, worker);
+    unsubscribeOld();
+    unsubscribeNext = subscribeObserverWorkMeasurements(() => { nextClockReads += 1; return 50; }, () => {}, null, entry => nextEntries.push(entry));
+    completeWorkerPhase(worker);
+    await first.run;
+    assert.deepEqual(oldEntries.map(entry => entry.kind), ['start']);
+    assert.equal(nextClockReads, 0);
+    assert.equal(nextEntries.length, 0);
+    const second = await startPhase(client, worker, { frame: { day: 2 } }, {}, {}, 2);
+    completeWorkerPhase(worker);
+    await second.run;
+    assert.deepEqual(nextEntries.map(entry => entry.kind), ['start', 'terminal']);
+    assert.notEqual(oldEntries[0].id, nextEntries[0].id);
+  } finally { client.dispose(); unsubscribeOld(); unsubscribeNext?.(); }
+});
+
+await check('failed and disposed phases close their diagnostic request once without changing game errors', async () => {
+  const entries = [];
+  const unsubscribe = subscribeObserverWorkMeasurements(() => 10, () => {}, null, entry => entries.push(entry));
+  const worker = createWorkerHarness();
+  const { client } = makeClient(() => worker);
+  try {
+    const { run } = await startPhase(client, worker);
+    const rejected = assert.rejects(run, error => error.code === 'PHASE_WORKER_EXECUTION');
+    worker.send({ kind: 'failed', phaseId: 1, seq: 1, message: 'engine failure',
+      diagnostics: { schema: 'eh-worker-phase-performance.v1', status: 'failed', elapsedMs: 3 } });
+    await rejected;
+    assert.deepEqual(entries.map(entry => entry.kind), ['start', 'terminal']);
+    assert.equal(entries[1].diagnostics.status, 'failed');
+  } finally { client.dispose(); unsubscribe(); }
+  const disposedEntries = [];
+  const unsubscribeDisposed = subscribeObserverWorkMeasurements(() => 20, () => {}, null, entry => disposedEntries.push(entry));
+  const disposedWorker = createWorkerHarness();
+  const disposedClient = makeClient(() => disposedWorker).client;
+  try {
+    const { run } = await startPhase(disposedClient, disposedWorker);
+    const rejected = assert.rejects(run, error => error.code === 'PHASE_WORKER_DISPOSED');
+    disposedClient.dispose();
+    await rejected;
+    assert.deepEqual(disposedEntries.map(entry => entry.kind), ['start', 'client-failure']);
+  } finally { disposedClient.dispose(); unsubscribeDisposed(); }
 });
 
 console.log(`PASS ${checks} simulation phase worker client checks`);

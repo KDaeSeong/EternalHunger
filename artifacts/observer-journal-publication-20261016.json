@@ -1190,5 +1190,524 @@
       "scope": "Five disjoint output roots before this final receipt/doc update; conservative logical upper bounds, not whole workspace, physical allocation or free disk. Removed files have distinct native IDs and one hardlink each. User originals, source, complete build, old cache and all success/failure/interruption evidence are preserved."
     }
   },
+  "workerPhaseDiagnosticsFollowup": {
+    "schema": "eh-observer-worker-diagnostics-followup.v1",
+    "outputOnly": true,
+    "noVerificationConsumesThisObjectAsInputOrOracle": true,
+    "engineVersion": "8e184810ec642610629bb0e5f9ec634a468582a7adce1171d7b9dff1c0b67c4e",
+    "sourceChange": "Opt-in per-worker-phase diagnostics only; no match rules, frame/event sequence, RNG or pacing-policy changes.",
+    "diagnosticContract": {
+      "defaultOff": "No extra Worker diagnostic clocks, Promise observers or diagnostics message field without an active onWorker recorder.",
+      "bounds": {
+        "phases": 64,
+        "stages": 24,
+        "messageKinds": 32,
+        "nameCharacters": 80
+      },
+      "correlation": "Probe-owned opaque token plus unique measurement id and client phaseId; stopped/replaced probes reject late reports without reading a new probe clock.",
+      "scope": "Synchronous stage/send-call wall durations and async wait settlements, not CPU attribution, delivery latency or shared absolute clocks. Nested stages are non-additive.",
+      "terminal": "Worker terminal receipt is not successful Main frame/ref/finishResult settlement. Terminal send itself is excluded.",
+      "missing": "Started measurements without valid report, including pending/evicted/client failures; retained pending and client failures are separately counted.",
+      "stop": "Already opted-in Worker continues collecting until its phase ends; late results are discarded by the stopped/replaced probe."
+    },
+    "units": [
+      {
+        "script": "client/scripts/check-observer-performance-probe.mjs",
+        "checks": 42,
+        "exitCode": 0
+      },
+      {
+        "script": "client/scripts/check-observer-wait-measurement.mjs",
+        "checks": 9,
+        "exitCode": 0
+      },
+      {
+        "script": "client/scripts/check-observer-performance-report.mjs",
+        "checks": 16,
+        "exitCode": 0
+      },
+      {
+        "script": "client/scripts/check-simulation-cooperative-yield.mjs",
+        "checks": 23,
+        "exitCode": 0
+      },
+      {
+        "script": "client/scripts/check-simulation-phase-worker-client.mjs",
+        "checks": 15,
+        "exitCode": 0
+      },
+      {
+        "script": "client/scripts/check-simulation-phase-worker-input.mjs",
+        "checks": 3,
+        "exitCode": 0
+      },
+      {
+        "script": "client/scripts/check-simulation-phase-executor-hook.mjs",
+        "checks": 8,
+        "exitCode": 0
+      }
+    ],
+    "build": {
+      "result": "client/.verification-runs/2026-10-16T13-07-15.790Z-423f37af-4474-49c6-8b1b-4dd7a1c0c8d1/result.json",
+      "exitCode": 0,
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "finishedAtUTC": "2026-10-16T13:08:53.542Z",
+      "buildID": "CLFzKv5YK-ZtVqqjIvl_S",
+      "pages": 62,
+      "isolatedNodeVmSmoke": {
+        "matchSec": 140,
+        "frames": 701,
+        "complete": 1,
+        "failed": 0,
+        "scope": "Finite native clock first phase only, not browser or performance acceptance."
+      }
+    },
+    "release": {
+      "result": "client/.verification-runs/2026-10-16T13-09-27.331Z-8879c2e5-27c7-4d48-bf1c-547f1faef6b2/result.json",
+      "exitCode": 0,
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "finishedAtUTC": "2026-10-16T13:18:22.646Z",
+      "savedInput": {
+        "seed": "1101",
+        "inputBytes": 731120,
+        "phases": 13,
+        "events": 14133,
+        "frames": 6488,
+        "eventSha256": "b71205d91bf5153ca808a50b3236c6430e878ea647234e513efb545915d30029",
+        "frameSha256": "e6d68ae8d0cac73c7de4344defba6f6bf83f0033649fa41f09a95c6f868f5f81",
+        "externalAccess": 0,
+        "comparison": "Fresh baseline exact events/all frames/final state/RNG/ending."
+      },
+      "nativeWorker": {
+        "baselineDiagnostics": false,
+        "workerDiagnostics": true,
+        "phases": 11,
+        "diagnosticPairs": 11,
+        "stageRows": 144,
+        "messageRows": 23,
+        "allFrames": 5840,
+        "publishedFrames": 52,
+        "events": 11648,
+        "logs": 7107,
+        "rngDraws": 8934,
+        "ending": "last_team@1124.916666s",
+        "frameSha256": "9958d8a2d1491ad631809d9f33e6133b7c79710f07988cfddde51561cfaa1541",
+        "eventsSha256": "244d837cc478cf2e6a2dbb8fdbcd69dfac2b1ff8fa8efc30eeb9ab3e1482a9b5",
+        "logsSha256": "ab61fc6fcbbf47af13e3a3ad5bcd17c4c7592f5115e7011019a2fc6218ffb8f3",
+        "blockedStorage": 11,
+        "accountCalls": 0,
+        "paidApiCalls": 0,
+        "scope": "Fresh baseline vs real Node Worker full frame/event/text/final/RNG/ending equality; UI publications ordered subsequence. NaN host clock/no-op waits, not browser timing."
+      }
+    },
+    "browser": {
+      "url": "http://127.0.0.1:3137/eternalhunger/evaluate?perfProbe=1",
+      "browser": "Windows Chromium 155",
+      "viewport": [
+        1280,
+        720
+      ],
+      "devicePixelRatio": 1,
+      "hardwareConcurrency": 12,
+      "timeOriginMs": 1792156740939,
+      "seed": "1789192220412",
+      "replayId": "b7e0d490-a0af-463a-928c-b69faf5a2cb9",
+      "actors": 24,
+      "teams": 8,
+      "watchedTeam": 1,
+      "selectedTab": "team",
+      "environmentPolicy": "User programs left running as requested. Own heavy build/release jobs finished before browser matches. Browser presented/continuously visible. No controlled external-load baseline.",
+      "common": {
+        "speed": 32,
+        "speedChanges": 0,
+        "identityChanges": 0,
+        "pauses": 0,
+        "matchSec": 1233.5,
+        "winnerTeam": 4,
+        "alive": 3,
+        "comparisonMatched": true,
+        "comparedEvents": 13237,
+        "boundary": "settled/replay-complete",
+        "workerRequested": 13,
+        "workerReports": 13,
+        "workerMissing": 0,
+        "clientFailures": 0,
+        "frameSendCount": 6428,
+        "actionSendCount": 21569,
+        "domNodes": 741
+      },
+      "runs": [
+        {
+          "label": "x32-worker-replay-1",
+          "startedAtMs": 201465.6,
+          "endedAtMs": 264892.8,
+          "elapsedMs": 63427.2,
+          "activeMs": 63137.1,
+          "effectiveSpeed": 19.53684917425729,
+          "longTasks": {
+            "count": 9,
+            "totalMs": 1228,
+            "maxMs": 597
+          },
+          "raf": {
+            "samples": 4076,
+            "medianMs": 10.1,
+            "p95Ms": 30,
+            "maxMs": 640,
+            "firstDelayMs": 2.2,
+            "trailingGapMs": 43.6
+          },
+          "heap": {
+            "startBytes": 31205169,
+            "endBytes": 187714211
+          },
+          "workerElapsedMs": 61239.1,
+          "taskWait": {
+            "count": 4325,
+            "totalMs": 199.9,
+            "maxMs": 12.9
+          },
+          "displayWait": {
+            "count": 294,
+            "totalMs": 2980.2,
+            "maxMs": 26.6
+          },
+          "growthSlice": {
+            "count": 2544,
+            "totalMs": 21302.7,
+            "maxMs": 117.9
+          },
+          "growthTeamCoordination": {
+            "count": 5922,
+            "totalMs": 6802.1,
+            "maxMs": 112.7
+          },
+          "frameSend": {
+            "totalMs": 16424.6,
+            "maxMs": 52.5
+          },
+          "actionSend": {
+            "totalMs": 238.3,
+            "maxMs": 7.2
+          }
+        },
+        {
+          "label": "x32-worker-replay-2",
+          "startedAtMs": 422554.4,
+          "endedAtMs": 474203.8,
+          "elapsedMs": 51649.4,
+          "activeMs": 51367.5,
+          "effectiveSpeed": 24.01323794227868,
+          "longTasks": {
+            "count": 2,
+            "totalMs": 197,
+            "maxMs": 141
+          },
+          "raf": {
+            "samples": 3652,
+            "medianMs": 10,
+            "p95Ms": 30,
+            "maxMs": 140.1,
+            "firstDelayMs": 8.6,
+            "trailingGapMs": 39.6
+          },
+          "heap": {
+            "startBytes": 59405244,
+            "endBytes": 115595404
+          },
+          "workerElapsedMs": 49680,
+          "taskWait": {
+            "count": 2832,
+            "totalMs": 71.4,
+            "maxMs": 1.1
+          },
+          "displayWait": {
+            "count": 950,
+            "totalMs": 9887.2,
+            "maxMs": 32.7
+          },
+          "growthSlice": {
+            "count": 2280,
+            "totalMs": 16594.9,
+            "maxMs": 94.8
+          },
+          "growthTeamCoordination": {
+            "count": 5922,
+            "totalMs": 5515.8,
+            "maxMs": 94.6
+          },
+          "frameSend": {
+            "totalMs": 9578.7,
+            "maxMs": 37.4
+          },
+          "actionSend": {
+            "totalMs": 161.7,
+            "maxMs": 2
+          }
+        },
+        {
+          "label": "x32-worker-replay-3",
+          "startedAtMs": 536919.4,
+          "endedAtMs": 592389.1,
+          "elapsedMs": 55469.7,
+          "activeMs": 55176.8,
+          "effectiveSpeed": 22.355410244885533,
+          "longTasks": {
+            "count": 2,
+            "totalMs": 200,
+            "maxMs": 147
+          },
+          "raf": {
+            "samples": 3483,
+            "medianMs": 10.1,
+            "p95Ms": 30.1,
+            "maxMs": 150,
+            "firstDelayMs": 6.3,
+            "trailingGapMs": 42.1
+          },
+          "heap": {
+            "startBytes": 60043981,
+            "endBytes": 189812560
+          },
+          "workerElapsedMs": 53298,
+          "taskWait": {
+            "count": 3542,
+            "totalMs": 115.7,
+            "maxMs": 1.3
+          },
+          "displayWait": {
+            "count": 665,
+            "totalMs": 6784.8,
+            "maxMs": 32.2
+          },
+          "growthSlice": {
+            "count": 2441,
+            "totalMs": 18556.6,
+            "maxMs": 60.7
+          },
+          "growthTeamCoordination": {
+            "count": 5922,
+            "totalMs": 5879.1,
+            "maxMs": 56.8
+          },
+          "frameSend": {
+            "totalMs": 11888.1,
+            "maxMs": 32.7
+          },
+          "actionSend": {
+            "totalMs": 194.2,
+            "maxMs": 3.3
+          }
+        }
+      ],
+      "originalExploration": {
+        "label": "x32-worker-original",
+        "activeMs": 49121.1,
+        "workerElapsedMs": 47464.3,
+        "workerReports": 13,
+        "growthSliceMs": 15623.2,
+        "frameSendMs": 9335.4,
+        "taskWaitMs": 64.6,
+        "displayWaitMs": 9764.3,
+        "notAcceptanceSample": "JSON read immediately after manual stop still had recording/null endedAt; used only for exploratory work attribution."
+      },
+      "memory": {
+        "scope": "Selected object roots only, not whole heap or leak freedom.",
+        "closedSessionOwners": [
+          1,
+          3,
+          5
+        ],
+        "collectedTargetsPerClosedOwner": [
+          "journal",
+          "textLog",
+          "visibleEvents",
+          "survivors",
+          "dead",
+          "replayRecord"
+        ],
+        "currentOpenOwner": 7,
+        "evictedOwners": 0,
+        "wholeHeapStability": "unresolved; rising starting baselines and non-monotonic endpoints cannot prove stability"
+      },
+      "warningErrorCount": 0,
+      "ownTemporaryTabClosed": true,
+      "priorBrowserVisibilityRestored": true,
+      "verdict": "All 3 same-input replays semantically equal within UI comparison; all below 28.8x diagnostic target. Strict Long Task gate and complete G4 acceptance remain unresolved; no before/after gain or other-program causal attribution.",
+      "next": "Reduce lossless full-frame transmission cost, measuring comparison/encoding overhead as well. Preserve all frame fields, nested custom mutation, ownership, seq, events, clock and RNG. Do not assume actor object identity means immutable."
+    },
+    "cleanup": {
+      "scope": "Six newly created regenerable single-hardlink pack files only. No recursive delete. All ancestor paths non-reparse and canonical in workspace; size, SHA, native ID, hardlink and UTC creation-window checked again immediately before removal.",
+      "before": {
+        "checkedUTC": "2026-10-16T13:32:44.6690939Z",
+        "targets": [
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+            "logicalBytes": 264460855,
+            "createdUTC": "2026-10-16T13:08:04.9305885Z",
+            "sha256": "73B1D1767509F3FC25C8FA04C4BF8E7970955EEACFF69C49ACCFCB58BF2BFA8A",
+            "fileID": "File ID is 0x000000000000000000140000001770e9",
+            "hardlinks": [
+              "\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack"
+            ]
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+            "logicalBytes": 12994762,
+            "createdUTC": "2026-10-16T13:08:04.9305885Z",
+            "sha256": "334B2522F98CC141C391E97E31EDF675587493CCD26A3B3E82EAA09D65042BD8",
+            "fileID": "File ID is 0x000000000000000000140000001770ee",
+            "hardlinks": [
+              "\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack"
+            ]
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+            "logicalBytes": 276,
+            "createdUTC": "2026-10-16T13:07:46.7314578Z",
+            "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+            "fileID": "File ID is 0x000000000000000000650000000a6d18",
+            "hardlinks": [
+              "\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack"
+            ]
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+            "logicalBytes": 2464,
+            "createdUTC": "2026-10-16T13:07:46.7314578Z",
+            "sha256": "C26E1F9DC9D9FF18CED0C3C2C1DBF5D242522D21CF7EED69863593B0765663E4",
+            "fileID": "File ID is 0x000000000000000003070000000a6ccf",
+            "hardlinks": [
+              "\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack"
+            ]
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+            "logicalBytes": 315236635,
+            "createdUTC": "2026-10-16T13:07:45.2310591Z",
+            "sha256": "6D6628249DF198793A90492994D7497FA9634C0A1FCDDEBD3A879E2363BC4302",
+            "fileID": "File ID is 0x0000000000000000001500000016b4ea",
+            "hardlinks": [
+              "\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack"
+            ]
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+            "logicalBytes": 18224759,
+            "createdUTC": "2026-10-16T13:07:45.2310591Z",
+            "sha256": "778DDF239F0F178C51C0DDB3E32E49BCF13B2B9273F0AD17E2DE9C1AE12AB1EF",
+            "fileID": "File ID is 0x0000000000000000001300000016b4ee",
+            "hardlinks": [
+              "\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack"
+            ]
+          }
+        ],
+        "targetLogicalBytes": 610919751,
+        "nextFileCount": 1452,
+        "nextLogicalBytes": 704682493,
+        "protectedFiles": 1446,
+        "protectedManifestSha256": "18B6C4A921B841B89C7F29EC81A95EEB106F4E539D76006D5AC91E6B02E1645A",
+        "buildID": "CLFzKv5YK-ZtVqqjIvl_S",
+        "byteTotalMeasuredUTC": "2026-10-16T13:33:26.8059020Z"
+      },
+      "removed": {
+        "removedUTC": "2026-10-16T13:34:10.6908380Z",
+        "removed": [
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+            "logicalBytes": 264460855,
+            "sha256": "73B1D1767509F3FC25C8FA04C4BF8E7970955EEACFF69C49ACCFCB58BF2BFA8A",
+            "fileID": "File ID is 0x000000000000000000140000001770e9",
+            "result": "removed"
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+            "logicalBytes": 12994762,
+            "sha256": "334B2522F98CC141C391E97E31EDF675587493CCD26A3B3E82EAA09D65042BD8",
+            "fileID": "File ID is 0x000000000000000000140000001770ee",
+            "result": "removed"
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+            "logicalBytes": 276,
+            "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+            "fileID": "File ID is 0x000000000000000000650000000a6d18",
+            "result": "removed"
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+            "logicalBytes": 2464,
+            "sha256": "C26E1F9DC9D9FF18CED0C3C2C1DBF5D242522D21CF7EED69863593B0765663E4",
+            "fileID": "File ID is 0x000000000000000003070000000a6ccf",
+            "result": "removed"
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+            "logicalBytes": 315236635,
+            "sha256": "6D6628249DF198793A90492994D7497FA9634C0A1FCDDEBD3A879E2363BC4302",
+            "fileID": "File ID is 0x0000000000000000001500000016b4ea",
+            "result": "removed"
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+            "logicalBytes": 18224759,
+            "sha256": "778DDF239F0F178C51C0DDB3E32E49BCF13B2B9273F0AD17E2DE9C1AE12AB1EF",
+            "fileID": "File ID is 0x0000000000000000001300000016b4ee",
+            "result": "removed"
+          }
+        ],
+        "logicalBytes": 610919751,
+        "recovery": "Regenerate by npm run build; no backup copy created"
+      },
+      "after": {
+        "checkedUTC": "2026-10-16T13:34:39.3846302Z",
+        "nextFileCount": 1446,
+        "nextLogicalBytes": 93762742,
+        "protectedManifestSha256": "18B6C4A921B841B89C7F29EC81A95EEB106F4E539D76006D5AC91E6B02E1645A",
+        "buildID": "CLFzKv5YK-ZtVqqjIvl_S",
+        "roots": [
+          {
+            "path": ".local",
+            "logicalBytes": 403043999
+          },
+          {
+            "path": "artifacts",
+            "logicalBytes": 174745963
+          },
+          {
+            "path": "client/.next",
+            "logicalBytes": 93762742
+          },
+          {
+            "path": "client/.verification-runs",
+            "logicalBytes": 47329886
+          },
+          {
+            "path": "client/audio-source",
+            "logicalBytes": 30265181
+          }
+        ],
+        "logicalUpperBound": 749147771
+      },
+      "logicalRootScope": "Five named disjoint output roots only; conservative logical upper bounds, not whole workspace, physical allocation or disk free space. Earlier root inventory and final root inventory are at different times; verification logs grew. Byte-exact delta is the frozen .next inventory.",
+      "preserved": "Complete build, old cache, all success/failure verification output, source, user data, .codex and unrelated untracked names. No backup copy of deleted cache made.",
+      "ownServerStoppedPid": 27852,
+      "listeners3137AfterStop": 0,
+      "ownBuildReleaseRunnersAfterStop": 0
+    },
+    "scopeGuard": {
+      "goalAnchorSha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B",
+      "untrackedCount": 2592,
+      "untrackedFilenameManifestSha256": "761E8E032E25195E8B859512ADD38DF7797A11BCFF1027E6555A31AA9ED32D08"
+    },
+    "remaining": [
+      "Actual G4 x1/x8/latest fixed-environment repeat/process-restart and whole-heap gates",
+      "Broader current-engine G1-G3 distributions and controlled causal team-contribution interpretation",
+      "G5.3 human follow-up",
+      "Public deployment build logs and current engine verification; local success does not imply deployment success"
+    ]
+  },
   "goalAnchorSha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B"
 }

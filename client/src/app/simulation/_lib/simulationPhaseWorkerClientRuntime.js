@@ -1,8 +1,37 @@
 import { applySimulationPhaseWorkerRefState } from './simulationPhaseWorkerInputRuntime.js';
 import { publishSimulationFrame } from './simulationFrameRuntime.js';
+import { captureObserverWorkerMeasurementToken, readObserverWorkerMeasurementTime,
+  publishObserverWorkerMeasurement, measureObserverWork } from './observerWorkMeasurementRuntime.js';
 
 const ACTIONS = new Set(['addLog', 'emitRunEvent', 'resetPhaseLogs', 'applyUserEconomyProgress',
   'persistSimEquipmentsFromChars', 'setPendingTranscendPick']);
+let workerMeasurementSerial = 0;
+
+function startWorkerMeasurement(phaseId) {
+  const token = captureObserverWorkerMeasurementToken();
+  if (!token) return null;
+  const measurement = { token, id: ++workerMeasurementSerial, phaseId,
+    startedAt: readObserverWorkerMeasurementTime(token), ended: false };
+  publishObserverWorkerMeasurement(token, { kind: 'start', id: measurement.id, phaseId });
+  return measurement;
+}
+
+function finishWorkerMeasurement(run, diagnostics, kind = 'terminal') {
+  const measurement = run?.measurement;
+  if (!measurement || measurement.ended) return;
+  measurement.ended = true;
+  const endedAt = readObserverWorkerMeasurementTime(measurement.token);
+  const elapsed = measurement.startedAt != null && endedAt != null ? endedAt - measurement.startedAt : null;
+  publishObserverWorkerMeasurement(measurement.token, { kind, id: measurement.id, phaseId: measurement.phaseId,
+    clientElapsedMs: elapsed != null && elapsed >= 0 ? elapsed : null, diagnostics });
+}
+
+function postWorkerMessage(worker, message) {
+  if (captureObserverWorkerMeasurementToken()) {
+    return measureObserverWork(`worker.postMessage.${message.kind}`, () => worker.postMessage(message));
+  }
+  return worker.postMessage(message);
+}
 
 function workerError(code, cause) {
   const error = new Error(code === 'PHASE_WORKER_STARTUP'
@@ -60,6 +89,7 @@ export function createSimulationPhaseWorkerClient({
   }
   function fail(cause, overrideCode) {
     const run = active;
+    finishWorkerMeasurement(run, null, 'client-failure');
     const code = overrideCode || (run?.posted ? 'PHASE_WORKER_EXECUTION' : 'PHASE_WORKER_STARTUP');
     const error = workerError(code, cause);
     const rejectStartup = rejectReady;
@@ -121,6 +151,7 @@ export function createSimulationPhaseWorkerClient({
       } else if (message.kind === 'complete') {
         if (active.completing) throw new Error('Duplicate phase completion.');
         active.completing = true;
+        finishWorkerMeasurement(active, message.diagnostics);
         flushFrame();
         applySimulationPhaseWorkerRefState(message.refState, active.refs);
         const run = active;
@@ -131,6 +162,7 @@ export function createSimulationPhaseWorkerClient({
           run.resolve();
         }, fail);
       } else if (message.kind === 'failed') {
+        finishWorkerMeasurement(active, message.diagnostics);
         flushFrame();
         if (message.refState) applySimulationPhaseWorkerRefState(message.refState, active.refs);
         throw new Error(String(message.message || 'Phase worker failed.'));
@@ -165,13 +197,16 @@ export function createSimulationPhaseWorkerClient({
     return new Promise((resolve, reject) => {
       active = { id: ++phaseId, seq: 0, actions, refs, resolve, reject,
         frame: null, finished: false, finishResult: null, posted: false, completing: false };
+      active.measurement = startWorkerMeasurement(active.id);
       try {
-        worker.postMessage({ kind: 'controls', controls });
+        postWorkerMessage(worker, { kind: 'controls', controls });
         // This worker prepares the immutable run input once. Every phase still
         // transfers its complete current frame, controls, flags and RNG state.
         const workerCommand = { ...command };
         if (runInputPosted) delete workerCommand.input;
-        worker.postMessage({ kind: 'phase', phaseId, command: workerCommand });
+        const message = { kind: 'phase', phaseId, command: workerCommand };
+        if (active.measurement) message.diagnostics = true;
+        postWorkerMessage(worker, message);
         if (command.input !== undefined) runInputPosted = true;
         active.posted = true;
       } catch (error) { fail(error); }
@@ -179,7 +214,7 @@ export function createSimulationPhaseWorkerClient({
   }
   function updateControls(next) {
     controls = { ...controls, ...next };
-    try { worker?.postMessage({ kind: 'controls', controls }); }
+    try { if (worker) postWorkerMessage(worker, { kind: 'controls', controls }); }
     catch (error) { fail(error); }
   }
   function dispose() {

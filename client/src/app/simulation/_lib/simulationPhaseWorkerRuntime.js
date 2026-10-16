@@ -4,6 +4,7 @@ import { prepareSimulationRunInput } from './simulationReplayRuntime.js';
 import { projectSimulationFrame } from './simulationFrameRuntime.js';
 import { normalizeAutoSpeed } from './simulationSpeedRuntime.js';
 import { captureSimulationPhaseWorkerRefState, restoreSimulationPhaseWorkerOptions } from './simulationPhaseWorkerInputRuntime.js';
+import { createObserverWorkerPhaseMeasurements } from './observerWorkMeasurementRuntime.js';
 
 export function requestSimulationWorkerTaskYield({
   schedulerRef = globalThis.scheduler,
@@ -76,19 +77,31 @@ export function createSimulationPhaseWorkerRuntime({
     if (message?.kind !== 'phase') return;
     const { phaseId, command } = message;
     let seq = 0;
-    const emit = (kind, payload = {}) => send({ kind, phaseId, seq: ++seq, ...payload });
+    let measurements = null;
+    const rawEmit = (kind, payload = {}) => send({ kind, phaseId, seq: ++seq, ...payload });
+    const emit = (kind, payload = {}) => (measurements?.send || send)({ kind, phaseId, seq: ++seq, ...payload });
     if (busy) {
       emit('failed', { message: 'A simulation phase is already running.' });
       return;
     }
     busy = true;
     try {
+      if (message.diagnostics === true) {
+        measurements = createObserverWorkerPhaseMeasurements({ now, send,
+          taskYield, wait: (ms) => wait(ms) });
+      }
       // Main starts a new worker for a new run; later phases reuse this private
       // immutable catalogue/navigation preparation, never UI-owned objects.
-      prepared ||= prepareSimulationRunInput(command.input);
-      options = restoreSimulationPhaseWorkerOptions(command, prepared);
+      prepared ||= measurements
+        ? measurements.work('worker.prepareInput', () => prepareSimulationRunInput(command.input))
+        : prepareSimulationRunInput(command.input);
+      options = measurements
+        ? measurements.work('worker.restoreOptions', () => restoreSimulationPhaseWorkerOptions(command, prepared))
+        : restoreSimulationPhaseWorkerOptions(command, prepared);
       if (controls.autoSpeed !== undefined) options.refs.autoSpeedRef.current = controls.autoSpeed;
-      const yieldPolicy = createSimulationPhaseWorkerYieldPolicy({ taskYield, wait, now });
+      const yieldPolicy = createSimulationPhaseWorkerYieldPolicy({
+        taskYield: measurements?.taskYield || taskYield,
+        wait: measurements?.wait || wait, now });
       const emitAction = (name, ...args) => emit('action', { name, args });
       const addLog = (text, type = 'normal') => {
         options.refs.fullLogEntriesRef.current.push({ text: String(text || ''), type: String(type || 'normal') });
@@ -120,11 +133,23 @@ export function createSimulationPhaseWorkerRuntime({
         waitForVisibleTick: yieldPolicy.waitForVisibleTick,
       };
       await runSimulationPhaseCycle(options);
-      emit('complete', { refState: captureSimulationPhaseWorkerRefState(options.refs) });
+      const refState = measurements
+        ? measurements.work('worker.captureRefState', () => captureSimulationPhaseWorkerRefState(options.refs))
+        : captureSimulationPhaseWorkerRefState(options.refs);
+      const diagnostics = measurements?.snapshot('complete');
+      rawEmit('complete', { refState, ...(diagnostics ? { diagnostics } : {}) });
     } catch (error) {
-      emit('failed', { message: String(error?.message || error),
-        refState: options ? captureSimulationPhaseWorkerRefState(options.refs) : null });
+      let refState = null;
+      try {
+        refState = options ? (measurements
+          ? measurements.work('worker.captureRefState', () => captureSimulationPhaseWorkerRefState(options.refs))
+          : captureSimulationPhaseWorkerRefState(options.refs)) : null;
+      } catch { /* Preserve the original phase error. */ }
+      const diagnostics = measurements?.snapshot('failed');
+      rawEmit('failed', { message: String(error?.message || error), refState,
+        ...(diagnostics ? { diagnostics } : {}) });
     } finally {
+      measurements?.dispose();
       busy = false;
       options = null;
     }

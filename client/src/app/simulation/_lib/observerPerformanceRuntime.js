@@ -10,6 +10,7 @@ const SLOW_SCRIPT_LIMIT = 8;
 const ATTRIBUTION_TEXT_LIMIT = 512;
 const WORK_STAGE_LIMIT = 24;
 const WORK_STAGE_NAME_LIMIT = 80;
+const WORKER_PHASE_LIMIT = 64;
 const MAX_WAIT_TOTAL_MS = Number.MAX_SAFE_INTEGER;
 const MAX_WAIT_COUNT = Number.MAX_SAFE_INTEGER;
 const MILLISECOND_EXPORT_DECIMALS = 3;
@@ -29,6 +30,57 @@ function framePercentile(frames, p) {
 }
 
 function round(value) { return Number(value.toFixed(MILLISECOND_EXPORT_DECIMALS)); }
+
+function workerAggregate(value = {}) {
+  const count = Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.floor(finiteNumber(value?.count) ?? 0)));
+  const measuredCount = Math.min(count, Math.max(0, Math.floor(finiteNumber(value?.measuredCount) ?? 0)));
+  const total = finiteNumber(value?.totalMs), max = finiteNumber(value?.maxMs);
+  return { count, measuredCount,
+    totalMs: measuredCount && total != null && total >= 0 ? round(total) : null,
+    maxMs: measuredCount && max != null && max >= 0 ? round(max) : null };
+}
+
+function workerReport(value) {
+  if (value?.schema !== 'eh-worker-phase-performance.v1' || !['complete', 'failed'].includes(value.status)) return null;
+  const elapsed = finiteNumber(value.elapsedMs);
+  const rows = (source, key, limit) => (Array.isArray(source) ? source : []).slice(0, limit)
+    .filter(row => typeof row?.[key] === 'string').map(row => ({
+      [key]: row[key].slice(0, WORK_STAGE_NAME_LIMIT), ...workerAggregate(row) }));
+  return { schema: value.schema, status: value.status,
+    elapsedMs: elapsed != null && elapsed >= 0 ? round(elapsed) : null,
+    elapsedIncludesNestedStagesAndWaits: true, detailDurationsAreNonAdditive: true,
+    stages: rows(value.stages, 'name', WORK_STAGE_LIMIT),
+    hostWaits: { task: workerAggregate(value.hostWaits?.task), display: workerAggregate(value.hostWaits?.display) },
+    messagesBeforeTerminal: rows(value.messagesBeforeTerminal, 'kind', 32),
+    messageTimingScope: 'synchronous_send_call_only_not_delivery_reception_or_host_processing_latency',
+    terminalMessageTiming: 'excluded; snapshot precedes terminal send' };
+}
+
+function recordWorkerMeasurement(target, entry) {
+  if (!Number.isSafeInteger(entry?.id) || entry.id <= 0 || !Number.isSafeInteger(entry.phaseId) || entry.phaseId <= 0) return;
+  if (entry.kind === 'start') {
+    if (target.workerPhases.has(entry.id)) return;
+    target.workerPhasesRequested += 1;
+    if (target.workerPhases.size >= WORKER_PHASE_LIMIT) {
+      target.workerPhases.delete(target.workerPhases.keys().next().value);
+      target.evictedWorkerPhases += 1;
+    }
+    target.workerPhases.set(entry.id, { id: entry.id, phaseId: entry.phaseId,
+      status: 'pending', clientElapsedMs: null, diagnostics: null });
+    return;
+  }
+  if (!['terminal', 'client-failure'].includes(entry.kind)) return;
+  const phase = target.workerPhases.get(entry.id);
+  if (!phase || phase.phaseId !== entry.phaseId || phase.status !== 'pending') return;
+  const elapsed = finiteNumber(entry.clientElapsedMs);
+  phase.clientElapsedMs = elapsed != null && elapsed >= 0 ? round(elapsed) : null;
+  phase.diagnostics = entry.kind === 'terminal' ? workerReport(entry.diagnostics) : null;
+  phase.status = entry.kind === 'client-failure' ? 'client-failure'
+    : phase.diagnostics?.status || 'missing-worker-report';
+  if (entry.kind === 'terminal') target.workerTerminalMessages += 1;
+  else target.workerClientFailures += 1;
+  if (phase.diagnostics) target.workerReports += 1;
+}
 
 function heapSnapshot(memory) {
   if (!memory) return null;
@@ -232,6 +284,23 @@ export function createObserverPerformanceProbe({
       waitBreakdown: { scope: 'async_wait_settlements_separate_from_synchronous_work',
         waits: [...target.waitStages.values()].map((stage) => ({ ...stage,
           totalMs: round(stage.totalMs), maxMs: round(stage.maxMs) })) },
+      workerBreakdown: {
+        scope: 'whole_worker_phases_requested_during_this_probe_not_CPU_attribution',
+        clockScope: 'worker_and_client_elapsed_durations_only_not_shared_absolute_timestamps',
+        clientElapsedScope: 'ready_worker_before_command_posts_to_terminal_receipt_excludes_host_finish_settlement',
+        statusScope: 'worker_terminal_report_not_client_phase_success',
+        measurementStartScope: 'client_measurement_start_before_command_posts_not_successful_phase_posts',
+        coverage: 'no_retroactive_mid_phase_capture_or_results_from_stopped_or_replaced_probes',
+        stopScope: 'late_reports_discarded_but_an_opted_in_worker_phase_keeps_measuring_until_it_ends',
+        phaseLimit: WORKER_PHASE_LIMIT, requestedPhases: target.workerPhasesRequested,
+        terminalMessages: target.workerTerminalMessages, clientFailures: target.workerClientFailures,
+        reports: target.workerReports,
+        missingReports: target.workerPhasesRequested - target.workerReports,
+        missingReportsScope: 'started_measurements_without_valid_report_including_pending_evicted_and_client_failures',
+        retainedPendingPhases: [...target.workerPhases.values()].filter(phase => phase.status === 'pending').length,
+        evictedPhases: target.evictedWorkerPhases,
+        phases: structuredClone([...target.workerPhases.values()]),
+      },
       inputResponse: { supported: true, samples: target.input.samples, pendingSamples: target.input.pendingCount,
         scope: 'captured_click_to_next_RAF_not_INP_or_presentation',
         lastMs: target.input.lastMs == null ? null : round(target.input.lastMs),
@@ -391,6 +460,12 @@ export function createObserverPerformanceProbe({
       longAnimationFrameObserver: null,
       workStages: new Map(),
       waitStages: new Map(),
+      workerPhases: new Map(),
+      workerPhasesRequested: 0,
+      workerTerminalMessages: 0,
+      workerClientFailures: 0,
+      workerReports: 0,
+      evictedWorkerPhases: 0,
       unsubscribeWork: null,
     };
     const initialVisibility = visibilityState();
@@ -457,6 +532,9 @@ export function createObserverPerformanceProbe({
       stage.totalMs = Math.min(MAX_WAIT_TOTAL_MS, stage.totalMs + entry.duration);
       stage.maxMs = Math.max(stage.maxMs, entry.duration);
       next.waitStages.set(name, stage);
+    }, (entry) => {
+      if (state !== next || next.stoppedAt != null) return;
+      recordWorkerMeasurement(next, entry);
     });
     const sample = (timestamp) => {
       if (state !== next || next.stoppedAt != null) return;

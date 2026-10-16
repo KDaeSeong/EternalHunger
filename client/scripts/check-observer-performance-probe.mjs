@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const { createObserverPerformanceProbe } = await import('../src/app/simulation/_lib/observerPerformanceRuntime.js');
-const { measureObserverWork, subscribeObserverWorkMeasurements } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
+const { measureObserverWork, subscribeObserverWorkMeasurements, captureObserverWorkerMeasurementToken,
+  publishObserverWorkerMeasurement } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
 const panelSource = readFileSync(new URL('../src/app/simulation/_components/SimulationObserverPerformancePanel.js', import.meta.url), 'utf8');
 const mainStageSource = readFileSync(new URL('../src/app/simulation/_components/SimulationMainStage.js', import.meta.url), 'utf8');
 const pageViewSource = readFileSync(new URL('../src/app/simulation/_components/SimulationPageView.js', import.meta.url), 'utf8');
@@ -581,6 +582,103 @@ check('actual context tracks speed, replay identity and pauses without retaining
   assert.equal(result.context.identityChanges, 1); assert.equal(result.context.pauses, 1);
   assert.equal(result.context.activeStartOffsetMs, 10); assert.equal(result.context.activeEndOffsetMs, 40);
   assert.equal('record' in result.context.initial, false);
+});
+
+check('worker phases retain bounded owned scalars with separate elapsed, wait and nested work scopes', () => {
+  const h = harness(); h.probe.start();
+  const token = captureObserverWorkerMeasurementToken();
+  assert.ok(token);
+  publishObserverWorkerMeasurement(token, { kind: 'start', id: 1, phaseId: 1 });
+  const diagnostics = { schema: 'eh-worker-phase-performance.v1', status: 'complete', elapsedMs: 12.3456,
+    privateActor: { name: 'private-actor' },
+    stages: [{ name: 'growth.slice', count: 3, measuredCount: 3, totalMs: 8, maxMs: 4 }],
+    hostWaits: { task: { count: 2, measuredCount: 2, totalMs: 7, maxMs: 5 },
+      display: { count: 0, measuredCount: 0, totalMs: null, maxMs: null } },
+    messagesBeforeTerminal: [{ kind: 'frame', count: 4, measuredCount: 4, totalMs: 2, maxMs: 1 }] };
+  publishObserverWorkerMeasurement(token, { kind: 'terminal', id: 1, phaseId: 1, clientElapsedMs: 46, diagnostics });
+  diagnostics.stages[0].totalMs = 1000;
+  const worker = h.probe.snapshot().workerBreakdown;
+  assert.equal(worker.requestedPhases, 1); assert.equal(worker.reports, 1); assert.equal(worker.missingReports, 0);
+  assert.equal(worker.phases[0].clientElapsedMs, 46);
+  assert.equal(worker.phases[0].diagnostics.elapsedMs, 12.346);
+  assert.equal(worker.phases[0].diagnostics.stages[0].totalMs, 8);
+  assert.equal(worker.phases[0].diagnostics.hostWaits.display.totalMs, null);
+  assert.equal(worker.phases[0].diagnostics.detailDurationsAreNonAdditive, true);
+  assert.match(worker.statusScope, /not_client_phase_success/);
+  assert.match(worker.phases[0].diagnostics.messageTimingScope, /synchronous_send_call_only/);
+  assert.match(worker.phases[0].diagnostics.terminalMessageTiming, /excluded/);
+  assert.equal(JSON.stringify(worker).includes('private-actor'), false);
+  worker.phases[0].diagnostics.stages[0].count = 99;
+  assert.equal(h.probe.snapshot().workerBreakdown.phases[0].diagnostics.stages[0].count, 3);
+  h.probe.stop();
+});
+
+check('worker phase capacity, duplicate results and missing or invalid reports remain explicit', () => {
+  const h = harness(); h.probe.start();
+  const token = captureObserverWorkerMeasurementToken();
+  const diagnostics = { schema: 'eh-worker-phase-performance.v1', status: 'complete', elapsedMs: 3 };
+  for (let id = 1; id <= 70; id++) {
+    publishObserverWorkerMeasurement(token, { kind: 'start', id, phaseId: id });
+    publishObserverWorkerMeasurement(token, { kind: 'terminal', id, phaseId: id, clientElapsedMs: 4, diagnostics });
+    publishObserverWorkerMeasurement(token, { kind: 'terminal', id, phaseId: id, clientElapsedMs: 999, diagnostics });
+  }
+  let worker = h.probe.snapshot().workerBreakdown;
+  assert.equal(worker.requestedPhases, 70); assert.equal(worker.reports, 70);
+  assert.equal(worker.terminalMessages, 70); assert.equal(worker.clientFailures, 0);
+  assert.equal(worker.phases.length, worker.phaseLimit); assert.equal(worker.evictedPhases, 6);
+  assert.equal(worker.phases[0].phaseId, 7);
+  assert.ok(worker.phases.every(phase => phase.clientElapsedMs === 4));
+  publishObserverWorkerMeasurement(token, { kind: 'start', id: 71, phaseId: 71 });
+  publishObserverWorkerMeasurement(token, { kind: 'terminal', id: 71, phaseId: 71,
+    clientElapsedMs: -1, diagnostics: { schema: 'wrong-schema', status: 'complete' } });
+  worker = h.probe.snapshot().workerBreakdown;
+  assert.equal(worker.missingReports, 1);
+  assert.equal(worker.phases.at(-1).status, 'missing-worker-report');
+  assert.equal(worker.phases.at(-1).clientElapsedMs, null);
+  assert.equal(worker.phases.at(-1).diagnostics, null);
+  h.probe.stop();
+});
+
+check('stopping or replacing a probe rejects late worker reports and does not invent mid-phase coverage', () => {
+  const h = harness(); h.probe.start();
+  const token = captureObserverWorkerMeasurementToken();
+  publishObserverWorkerMeasurement(token, { kind: 'start', id: 1, phaseId: 1 });
+  const first = h.probe.stop();
+  assert.equal(first.workerBreakdown.missingReports, 1);
+  assert.equal(first.workerBreakdown.phases[0].status, 'pending');
+  assert.equal(first.workerBreakdown.retainedPendingPhases, 1);
+  assert.match(first.workerBreakdown.missingReportsScope, /including_pending_evicted_and_client_failures/);
+  h.probe.start();
+  publishObserverWorkerMeasurement(token, { kind: 'terminal', id: 1, phaseId: 1,
+    diagnostics: { schema: 'eh-worker-phase-performance.v1', status: 'complete', elapsedMs: 5 } });
+  const current = h.probe.stop().workerBreakdown;
+  assert.equal(current.requestedPhases, 0); assert.equal(current.reports, 0);
+  assert.match(current.coverage, /no_retroactive_mid_phase_capture/);
+});
+
+check('worker report bounds, mismatched and evicted results cannot extend retained measurements', () => {
+  const h = harness(); h.probe.start();
+  const token = captureObserverWorkerMeasurementToken();
+  for (let id = 1; id <= 65; id++) publishObserverWorkerMeasurement(token, { kind: 'start', id, phaseId: id });
+  const diagnostics = { schema: 'eh-worker-phase-performance.v1', status: 'complete', elapsedMs: 1,
+    stages: Array.from({ length: 30 }, (_, index) => ({ name: `${index}:${'s'.repeat(100)}`, count: 1, measuredCount: 1, totalMs: 1, maxMs: 1 })),
+    messagesBeforeTerminal: Array.from({ length: 40 }, (_, index) => ({ kind: `${index}:${'m'.repeat(100)}`, count: 1, measuredCount: 1, totalMs: 1, maxMs: 1 })) };
+  publishObserverWorkerMeasurement(token, { kind: 'terminal', id: 1, phaseId: 1, diagnostics });
+  publishObserverWorkerMeasurement(token, { kind: 'terminal', id: 65, phaseId: 999, diagnostics });
+  let worker = h.probe.snapshot().workerBreakdown;
+  assert.equal(worker.reports, 0); assert.equal(worker.terminalMessages, 0);
+  assert.equal(worker.retainedPendingPhases, 64);
+  publishObserverWorkerMeasurement(token, { kind: 'terminal', id: 65, phaseId: 65, diagnostics });
+  publishObserverWorkerMeasurement(token, { kind: 'client-failure', id: 64, phaseId: 64, diagnostics });
+  worker = h.probe.stop().workerBreakdown;
+  assert.equal(worker.terminalMessages, 1); assert.equal(worker.clientFailures, 1);
+  assert.equal(worker.reports, 1); assert.equal(worker.missingReports, 64);
+  assert.equal(worker.retainedPendingPhases, 62);
+  assert.equal(worker.phases.at(-2).diagnostics, null);
+  assert.equal(worker.phases.at(-1).diagnostics.stages.length, 24);
+  assert.equal(worker.phases.at(-1).diagnostics.messagesBeforeTerminal.length, 32);
+  assert.ok(worker.phases.at(-1).diagnostics.stages.every(row => row.name.length === 80));
+  assert.ok(worker.phases.at(-1).diagnostics.messagesBeforeTerminal.every(row => row.kind.length === 80));
 });
 
 console.log(`OBSERVER_PERFORMANCE_PROBE_CHECKS ${checks}/${checks}`);

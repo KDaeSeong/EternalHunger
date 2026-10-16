@@ -5,6 +5,9 @@ import fs from 'node:fs';
 const { requestSimulationFrameYield, requestSimulationMainThreadYield } = await import('../src/app/simulation/_lib/simulationCooperativeYieldRuntime.js');
 const { requestSimulationWorkerTaskYield, createSimulationPhaseWorkerYieldPolicy } = await import('../src/app/simulation/_lib/simulationPhaseWorkerRuntime.js');
 const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
+const { captureObserverWorkerMeasurementToken, createObserverWorkerPhaseMeasurements,
+  publishObserverWorkerMeasurement, readObserverWorkerMeasurementTime, subscribeObserverWorkMeasurements,
+  measureObserverWork } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
 const { getActiveSimulationRandom, runSimulationSteps, simulationRandom } = await import('../src/utils/simulationRandom.js');
 
 let checks = 0;
@@ -193,6 +196,112 @@ await check('invalid/backward diagnostic clocks yield conservatively and failure
   await assert.rejects(rejectedPolicy.waitForVisibleTick(1), error => error === asyncError);
 });
 
+await check('worker measurement tokens are opaque, stale-safe, and disabled paths read no clock', () => {
+  let clocks = 0, callbacks = 0;
+  const unsubscribe = subscribeObserverWorkMeasurements(() => { clocks += 1; return 4; }, () => {}, () => {}, () => { callbacks += 1; });
+  const oldToken = captureObserverWorkerMeasurementToken();
+  assert.equal(typeof oldToken, 'object');
+  assert.equal(readObserverWorkerMeasurementTime(oldToken), 4);
+  assert.equal(publishObserverWorkerMeasurement(oldToken, { value: 1 }), true);
+  assert.equal(callbacks, 1);
+  unsubscribe();
+  const before = clocks;
+  assert.equal(readObserverWorkerMeasurementTime(oldToken), null);
+  assert.equal(publishObserverWorkerMeasurement(oldToken, { value: 2 }), false);
+  assert.equal(clocks, before, 'A stale token does not read its old clock.');
+  let disabledClockCalls = 0;
+  const disabledUnsubscribe = subscribeObserverWorkMeasurements(() => { disabledClockCalls += 1; return 1; }, () => {}, () => {});
+  assert.equal(captureObserverWorkerMeasurementToken(), null);
+  assert.equal(readObserverWorkerMeasurementTime({}), null);
+  disabledUnsubscribe();
+  assert.equal(disabledClockCalls, 0);
+  assert.equal(measureObserverWork('disabled.identity', () => 7), 7);
+  assert.equal(disabledClockCalls, 0);
+  let invalidClockCalls = 0;
+  const invalidUnsubscribe = subscribeObserverWorkMeasurements(() => { invalidClockCalls += 1; return 2; }, () => {}, () => {}, true);
+  assert.equal(captureObserverWorkerMeasurementToken(), null);
+  assert.equal(readObserverWorkerMeasurementTime(true), null);
+  assert.equal(readObserverWorkerMeasurementTime(null), null);
+  assert.equal(publishObserverWorkerMeasurement(true, {}), false);
+  assert.equal(publishObserverWorkerMeasurement(null, {}), false);
+  assert.equal(invalidClockCalls, 0, 'Truthy non-function callbacks and invalid tokens never read a clock.');
+  invalidUnsubscribe();
+});
+
+await check('worker phase collector bounds records, separates sequential waits, and preserves results/errors', async () => {
+  let now = 0, sent = [], resolveWait;
+  const collector = createObserverWorkerPhaseMeasurements({ now: () => now,
+    send: message => { sent.push(message); now += 2; return 'sent'; },
+    taskYield: () => new Promise(resolve => { resolveWait = resolve; }), wait: () => Promise.resolve('waited') });
+  const workValue = collector.work('one', () => { now += 3; return 19; });
+  assert.equal(workValue, 19);
+  measureObserverWork('one', () => { now += 1; return 20; });
+  for (let i = 0; i < 30; i += 1) collector.work(`stage-${i}`, () => { now += 1; });
+  assert.equal(collector.send({ kind: 'event' }), 'sent');
+  const task = collector.taskYield();
+  assert.equal(typeof resolveWait, 'function');
+  now += 4; resolveWait('yielded');
+  assert.equal(await task, 'yielded');
+  assert.equal(await collector.wait(10), 'waited');
+  const snapshot = collector.snapshot('complete');
+  assert.equal(snapshot.schema, 'eh-worker-phase-performance.v1');
+  assert.equal(snapshot.status, 'complete');
+  assert.ok(snapshot.stages.length <= 24);
+  assert.equal(snapshot.stages.find(row => row.name === 'one').count, 2);
+  assert.equal(snapshot.messagesBeforeTerminal[0].kind, 'event');
+  assert.equal(snapshot.messagesBeforeTerminal[0].count, 1);
+  assert.equal(snapshot.hostWaits.task.count, 1);
+  assert.equal(snapshot.hostWaits.display.count, 1);
+  assert.equal(snapshot.terminalMessageTiming, 'excluded; snapshot precedes terminal send');
+  const syncError = new Error('work sync');
+  assert.throws(() => collector.work('throws', () => { throw syncError; }), error => error === syncError);
+  const rejectError = new Error('wait reject');
+  const rejectCollector = createObserverWorkerPhaseMeasurements({ now: () => now, send: () => {},
+    taskYield: () => Promise.reject(rejectError), wait: () => Promise.reject(rejectError) });
+  await assert.rejects(rejectCollector.taskYield(), error => error === rejectError);
+  await assert.rejects(rejectCollector.wait(1), error => error === rejectError);
+  rejectCollector.dispose(); collector.dispose();
+});
+
+await check('worker phase collector invalid clock uses null measurements and task yield releases RNG', async () => {
+  let now = 10, resume;
+  const collector = createObserverWorkerPhaseMeasurements({ now: () => now, send: () => {},
+    taskYield: () => new Promise(resolve => { resume = resolve; }), wait: () => Promise.resolve() });
+  collector.work('clocked', () => { now = 9; });
+  const snapshot = collector.snapshot('failed');
+  assert.equal(snapshot.elapsedMs, null);
+  assert.equal(snapshot.stages[0].totalMs, null);
+  const source = createSeedRng('worker-measured-yield'), expected = createSeedRng('worker-measured-yield');
+  let draw;
+  function* steps() { draw = simulationRandom(); yield collector.taskYield(); }
+  const done = runSimulationSteps(source, steps());
+  assert.equal(draw, expected());
+  assert.equal(getActiveSimulationRandom(), null);
+  resume(); await done;
+  assert.deepEqual(source.getState(), expected.getState());
+  assert.equal(getActiveSimulationRandom(), null);
+  collector.dispose();
+});
+
+await check('worker phase collector bounds stage/message/name records and disposal stops clock reads', () => {
+  let now = 0, clockCalls = 0, sendCalls = 0;
+  const collector = createObserverWorkerPhaseMeasurements({ now: () => { clockCalls += 1; return now++; },
+    send: () => { sendCalls += 1; }, taskYield: () => Promise.resolve(), wait: () => Promise.resolve() });
+  for (let i = 0; i < 30; i += 1) collector.work(i === 0 ? 'x'.repeat(100) : `stage-${i}`, () => {});
+  for (let i = 0; i < 40; i += 1) collector.send({ kind: `message-${i}` });
+  const snapshot = collector.snapshot('complete');
+  assert.equal(snapshot.stages.length, 24);
+  assert.ok(snapshot.stages.every(row => row.name.length <= 80));
+  assert.equal(snapshot.stages[0].name.length, 80);
+  assert.equal(snapshot.messagesBeforeTerminal.length, 32);
+  const beforeDispose = clockCalls;
+  collector.dispose();
+  assert.equal(collector.snapshot('disposed').elapsedMs, null);
+  collector.send({ kind: 'after-dispose' });
+  assert.equal(clockCalls, beforeDispose, 'Disposed diagnostics do not read the clock.');
+  assert.equal(sendCalls, 41, 'Disposal does not suppress the wrapped authoritative send.');
+});
+
 await check('due routine yield blocks frame/event/draw continuation, releases RNG, and observes intervening controls', async () => {
   const source = createSeedRng('worker-coalesced-boundary'), expected = createSeedRng('worker-coalesced-boundary');
   let now = 0, controls = { speed: 1, visibility: 'visible' }, resume;
@@ -310,8 +419,8 @@ await check('phase preparation requests a frame opportunity; action-frame schedu
     'The action loop retains the native task-yield default and accepts the worker override.');
   assert.ok(/const phaseFinalizationYield = \(actions\.requestMainThreadYield \|\| requestSimulationMainThreadYield\)\(\)/.test(cycle),
     'Phase finalization retains the native task-yield default and accepts the worker override.');
-  assert.ok(/const yieldPolicy = createSimulationPhaseWorkerYieldPolicy\(\{ taskYield, wait, now \}\)/.test(worker),
-    'The Worker creates a fresh scheduling-only yield policy for each phase.');
+  assert.ok(/const yieldPolicy = createSimulationPhaseWorkerYieldPolicy\(\{[\s\S]*taskYield: measurements\?\.taskYield \|\| taskYield,[\s\S]*wait: measurements\?\.wait \|\| wait, now \}\)/.test(worker),
+    'The Worker creates a fresh scheduling-only yield policy and conditionally instruments requested phases.');
   assert.ok(/requestMainThreadYield: yieldPolicy\.requestMainThreadYield/.test(worker)
     && /requestFrameYield: yieldPolicy\.requestFrameYield/.test(worker)
     && /waitForVisibleTick: yieldPolicy\.waitForVisibleTick/.test(worker),
