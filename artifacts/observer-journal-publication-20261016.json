@@ -498,6 +498,433 @@
     "Actual browser process restart/resume",
     "Human follow-up on map, team decisions and enjoyment"
   ],
+  "workerYieldBudgetFollowup": {
+    "engineVersion": "96e5fc6d992e559253da249fbd092c590660be8543c083ee3519f442a1424e90",
+    "goalAnchorSha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+    "outputOnly": true,
+    "sourceChange": {
+      "scope": "Worker phase-local routine pre-frame and zero-delay yield coalescing only",
+      "intervalMs": 8,
+      "explicitSetupAndGrowthYieldsPreserved": true,
+      "positiveDisplayWaitsPreserved": true,
+      "allFramesEventsAndRngPreserved": true,
+      "notAControlLatencyUpperBound": true,
+      "clockNotPartOfAuthoritativeState": true
+    },
+    "verification": {
+      "unit": {
+        "cooperativeYield": 19,
+        "displayPacing": 15,
+        "highSpeedGrowthYield": 15,
+        "growthScheduling": 18,
+        "observedPreFixRed": false,
+        "changedFilesLintExitCode": 0,
+        "testSha256": "60FA95DD7E248BAE3570B2EC266078991DBAC6A8F6F6AD27B9F5A8780DD5F311",
+        "runtimeSha256": "3D1B5EDF76D89A819F86D7729F3AD3F56CBB4336F2A231A4C36BD3C7AB641E39"
+      },
+      "build": {
+        "result": "client/.verification-runs/2026-10-16T12-08-19.718Z-dcfe62a3-3364-4f00-b51b-e1d7c0940c77/result.json",
+        "exitCode": 0,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "buildId": "JV_R-N5Ynv9xpZkyToWYO",
+        "pages": 62,
+        "isolatedVm": {
+          "simulationSeconds": 140,
+          "frames": 701,
+          "completes": 1,
+          "failures": 0,
+          "scope": "generated production Worker with native Node performance clock; not browser throughput"
+        }
+      },
+      "release": {
+        "result": "client/.verification-runs/2026-10-16T12-10-18.796Z-cf561cae-af4d-4c8a-bf4c-80affd91421f/result.json",
+        "exitCode": 0,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "finishedAt": "2026-10-16T12:17:24.973Z"
+      },
+      "freshSavedInput": {
+        "phases": 13,
+        "frames": 6488,
+        "events": 14133,
+        "eventSha256": "b71205d91bf5153ca808a50b3236c6430e878ea647234e513efb545915d30029",
+        "frameSha256": "e6d68ae8d0cac73c7de4344defba6f6bf83f0033649fa41f09a95c6f868f5f81",
+        "sameFinalState": true,
+        "sameRandom": true,
+        "sameEnding": true,
+        "externalAccess": 0
+      },
+      "nativeWorker": {
+        "phases": 11,
+        "allFrames": 5840,
+        "publishedFrames": 44,
+        "events": 11648,
+        "logs": 7107,
+        "frameSha256": "9958d8a2d1491ad631809d9f33e6133b7c79710f07988cfddde51561cfaa1541",
+        "eventSha256": "244d837cc478cf2e6a2dbb8fdbcd69dfac2b1ff8fa8efc30eeb9ab3e1482a9b5",
+        "logSha256": "ab61fc6fcbbf47af13e3a3ad5bcd17c4c7592f5115e7011019a2fc6218ffb8f3",
+        "sameAllFramesAndFifoEvents": true,
+        "sameFullLogsFinalRngAndEnding": true,
+        "publishedFramesOrderedSubsequence": true,
+        "ending": "last_team@1124.916666",
+        "rngDraws": 8934,
+        "blockedStorageCalls": 11,
+        "accountCalls": 0,
+        "paidApiCalls": 0,
+        "scope": "Native Node Worker with test-only NaN clock and wait overrides, not finite-clock browser pacing"
+      }
+    },
+    "browser": {
+      "environment": {
+        "browser": "Windows Chromium 155",
+        "viewport": [
+          1280,
+          720
+        ],
+        "dpr": 1,
+        "hardwareConcurrency": 12,
+        "timeOriginMs": 1792153115682.9,
+        "seed": "1789192220412",
+        "actors": 24,
+        "teams": 8,
+        "watchedTeam": 1,
+        "browserPresented": true,
+        "otherUserProgramsNotStopped": true,
+        "noOwnHeavyVerificationOverlap": true
+      },
+      "originalControls": {
+        "label": "96e5-controls-x32-x1-x8-x32",
+        "speedChanges": 3,
+        "pauses": 1,
+        "identityChanges": 0,
+        "pausedPhase": "day 3 night",
+        "clockHeld": "12:20",
+        "twoObservationsIdentical": true,
+        "resumedAt": "day 4 day 12:24.5",
+        "endingSec": 1233.5,
+        "winnerTeam": 4,
+        "winnerAlive": 3,
+        "activeMsIncludesPause": 125372.6,
+        "fullProbeMs": 151400.5,
+        "scope": "functional controls sample only, not a constant-speed benchmark",
+        "pauseContract": "Current phase finishes; next automatic phase does not start until resumed"
+      },
+      "replays": [
+        {
+          "label": "96e5-x32-replay-1",
+          "startedAtMs": 326205.1,
+          "endedAtMs": 374142.2,
+          "activeMs": 47658.4,
+          "elapsedMs": 47937.1,
+          "effectiveSpeed": 25.88211102345022,
+          "rafSamples": 3471,
+          "rafIntervalMs": {
+            "median": 10,
+            "p95": 30,
+            "max": 150.1
+          },
+          "firstRafDelayMs": 2.7,
+          "longTasks": {
+            "count": 1,
+            "totalMs": 142,
+            "maxMs": 142
+          },
+          "heap": {
+            "start": 30293343,
+            "end": 146132970
+          },
+          "observerEventWindow": {
+            "count": 1431,
+            "totalMs": 2357.8,
+            "maxMs": 9.1
+          },
+          "observerTeamModel": {
+            "count": 2747,
+            "totalMs": 2230.8,
+            "maxMs": 11.6
+          },
+          "endingSec": 1233.5,
+          "winnerTeam": 4,
+          "winnerAlive": 3,
+          "comparedEvents": 13237,
+          "sameFinalAndEnding": true,
+          "speedChanges": 0,
+          "pauses": 0,
+          "identityChanges": 0,
+          "boundary": "settled/replay-complete",
+          "entireMeasurementVisible": true,
+          "visibilityChanges": 0,
+          "domNodes": 741,
+          "rewards": 0
+        },
+        {
+          "label": "96e5-x32-replay-2",
+          "startedAtMs": 421308.7,
+          "endedAtMs": 477344.5,
+          "activeMs": 55742.4,
+          "elapsedMs": 56035.8,
+          "effectiveSpeed": 22.12857716926433,
+          "rafSamples": 3679,
+          "rafIntervalMs": {
+            "median": 10.1,
+            "p95": 30.1,
+            "max": 179.9
+          },
+          "firstRafDelayMs": 1.5,
+          "longTasks": {
+            "count": 1,
+            "totalMs": 165,
+            "maxMs": 165
+          },
+          "heap": {
+            "start": 90512705,
+            "end": 172521098
+          },
+          "observerEventWindow": {
+            "count": 1565,
+            "totalMs": 3427,
+            "maxMs": 12.2
+          },
+          "observerTeamModel": {
+            "count": 2842,
+            "totalMs": 2706.6,
+            "maxMs": 8.7
+          },
+          "endingSec": 1233.5,
+          "winnerTeam": 4,
+          "winnerAlive": 3,
+          "comparedEvents": 13237,
+          "sameFinalAndEnding": true,
+          "speedChanges": 0,
+          "pauses": 0,
+          "identityChanges": 0,
+          "boundary": "settled/replay-complete",
+          "entireMeasurementVisible": true,
+          "visibilityChanges": 0,
+          "domNodes": 741,
+          "rewards": 0
+        },
+        {
+          "label": "96e5-x32-replay-3",
+          "startedAtMs": 499112.6,
+          "endedAtMs": 557275.8,
+          "activeMs": 57867.3,
+          "elapsedMs": 58163.2,
+          "effectiveSpeed": 21.316010942276556,
+          "rafSamples": 3369,
+          "rafIntervalMs": {
+            "median": 10.1,
+            "p95": 39.9,
+            "max": 230.1
+          },
+          "firstRafDelayMs": 0,
+          "longTasks": {
+            "count": 6,
+            "totalMs": 503,
+            "maxMs": 201
+          },
+          "heap": {
+            "start": 99619847,
+            "end": 156864192
+          },
+          "observerEventWindow": {
+            "count": 1514,
+            "totalMs": 3393,
+            "maxMs": 13.9
+          },
+          "observerTeamModel": {
+            "count": 2658,
+            "totalMs": 2927.2,
+            "maxMs": 37
+          },
+          "endingSec": 1233.5,
+          "winnerTeam": 4,
+          "winnerAlive": 3,
+          "comparedEvents": 13237,
+          "sameFinalAndEnding": true,
+          "speedChanges": 0,
+          "pauses": 0,
+          "identityChanges": 0,
+          "boundary": "settled/replay-complete",
+          "entireMeasurementVisible": true,
+          "visibilityChanges": 0,
+          "domNodes": 741,
+          "rewards": 0
+        }
+      ],
+      "gapsBetweenReplaysMs": [
+        47166.5,
+        21768.1
+      ],
+      "consoleWarnings": 0,
+      "consoleErrors": 0,
+      "selectedRoots": {
+        "scope": "Selected object roots only, not entire heap",
+        "evictedOwners": 0,
+        "closedSessionOwners": [
+          1,
+          4,
+          6
+        ],
+        "collectedForEach": [
+          "journal",
+          "textLog",
+          "visibleEvents",
+          "survivors",
+          "dead",
+          "replayRecord"
+        ],
+        "currentOpenSessionOwner": 8
+      },
+      "interpretation": {
+        "throughputThreshold": 28.8,
+        "allThreeBelowThreshold": true,
+        "wholeHeapStabilityNotPassed": true,
+        "rafScope": "full-probe RAF callback cadence, not presented FPS",
+        "workScope": "Main-realm instrumented synchronous spans, may include nested work and are not additive CPU attribution; Worker internal work/waits not measured",
+        "controlledBeforeAfterSpeedupClaim": false,
+        "fullBrowserFramesAndRngComparison": false,
+        "latestFullX1X8AndProcessRestartAndHumanAcceptancePending": true
+      }
+    },
+    "cleanup": {
+      "removedFiles": 6,
+      "removedBytes": 610379356,
+      "targets": [
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+          "bytes": 264189507,
+          "sha256": "65270B1DE54D3517EFDFD7486020DBBAB0654F629DEE2310314171589119F431",
+          "fileId": "0x000000000000000000860000000a6d52",
+          "hardlinks": 1
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+          "bytes": 12994759,
+          "sha256": "C263CDC55CE0F0204CA7F504B6C5DFAEF0FFFD3A63BF4C416A895FA4CB518F42",
+          "fileId": "0x0000000000000000003300000008a72b",
+          "hardlinks": 1
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+          "bytes": 276,
+          "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+          "fileId": "0x0000000000000000001600000016b4b2",
+          "hardlinks": 1
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+          "bytes": 2464,
+          "sha256": "9523108C6F8B8CA26ADAF4CB7E234794A3DC2A73880032676AAAB8510F9E3D1B",
+          "fileId": "0x0000000000000000001600000016b4b1",
+          "hardlinks": 1
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+          "bytes": 314967594,
+          "sha256": "97E841C99E16A963666600C741A693A87E19B3E213F262BE76BA69B926FC38F8",
+          "fileId": "0x0000000000000000001300000016b4aa",
+          "hardlinks": 1
+        },
+        {
+          "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+          "bytes": 18224756,
+          "sha256": "FDF89A99A7F77F1C059E16F6CE603585F1787299EF001456907B2FAAC8D8A980",
+          "fileId": "0x0000000000000000001400000016b4ab",
+          "hardlinks": 1
+        }
+      ],
+      "recoverableBy": "npm run build",
+      "allAncestorsNonReparse": true,
+      "uniqueNativeIds": 6,
+      "allSingleHardlink": true,
+      "hashSizeIdLinksRecheckedBeforeLiteralRemoval": true,
+      "noRecursiveDeletion": true,
+      "protected": {
+        "files": 1446,
+        "sha256Before": "B52770FA4ABBBA26FA1A3CF314BC7406F43D7F2E7F2700601F9797C4413701E1",
+        "sha256After": "B52770FA4ABBBA26FA1A3CF314BC7406F43D7F2E7F2700601F9797C4413701E1",
+        "entryFormat": "relative path with forward slashes + NUL + size + NUL + SHA256; entries joined with literal backslash-n; UTF-8",
+        "sameBuildId": true,
+        "oldPackSha256": "3A62EC6B8AB460303BD5D552976F76D6A1B091DE637D5228F66B6528BCB83C23",
+        "oldPackPreserved": true
+      },
+      "nextBefore": {
+        "files": 1452,
+        "logicalBytes": 704126355
+      },
+      "nextAfter": {
+        "files": 1446,
+        "logicalBytes": 93746999
+      },
+      "sizeSnapshotBeforeEvidenceUpdate": {
+        "scope": "disjoint named artifact roots, conservative logical upper bounds; not physical allocation or whole workspace",
+        "rootsBefore": [
+          {
+            "path": ".local",
+            "files": 96,
+            "logicalBytes": 403043999
+          },
+          {
+            "path": "artifacts",
+            "files": 199,
+            "logicalBytes": 174731429
+          },
+          {
+            "path": "client/.next",
+            "files": 1452,
+            "logicalBytes": 704126355
+          },
+          {
+            "path": "client/.verification-runs",
+            "files": 425,
+            "logicalBytes": 47301311
+          },
+          {
+            "path": "client/audio-source",
+            "files": 52,
+            "logicalBytes": 30265181
+          }
+        ],
+        "rootsAfter": [
+          {
+            "path": ".local",
+            "files": 96,
+            "logicalBytes": 403043999
+          },
+          {
+            "path": "artifacts",
+            "files": 199,
+            "logicalBytes": 174731429
+          },
+          {
+            "path": "client/.next",
+            "files": 1446,
+            "logicalBytes": 93746999
+          },
+          {
+            "path": "client/.verification-runs",
+            "files": 425,
+            "logicalBytes": 47301311
+          },
+          {
+            "path": "client/audio-source",
+            "files": 52,
+            "logicalBytes": 30265181
+          }
+        ],
+        "totalBefore": 1359468275,
+        "totalAfter": 749088919
+      },
+      "ownedServerPidStoppedAfterIdentityCheck": 41960,
+      "ownedBrowserTabClosed": "3",
+      "browserVisibilityRestored": false,
+      "unrelatedUntrackedCount": 2592,
+      "unrelatedUntrackedNamesSha256": "761E8E032E25195E8B859512ADD38DF7797A11BCFF1027E6555A31AA9ED32D08"
+    },
+    "remaining": "Original G1-G5 and common acceptance conditions unchanged. Throughput, whole-heap stability, full lower-speed repeats, process restart and human feedback are not passed by these checks. Publication status requires a separate live check."
+  },
   "workerInputTransmissionFollowup": {
     "engineVersion": "d95f15d724e5b2c77506a8c041d92c180fbf20c666b7deb80aa64c7471c116ad",
     "outputOnly": true,
