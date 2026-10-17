@@ -1709,5 +1709,555 @@
       "Public deployment build logs and current engine verification; local success does not imply deployment success"
     ]
   },
+  "framePublicationLimiterFollowup": {
+    "dateKst": "2026-10-17",
+    "outputOnly": true,
+    "noVerificationConsumesThisFileAsInputOrOracle": true,
+    "baseCommit": "f162b57d24427e3a5b4196eb86b6c438c0f76f4a",
+    "engineVersion": "2bc6f9b4652a70b7ba0cb3bba57f00d2f8504a85e908369570085c0d5f7bff29",
+    "authority": "User approved limiting intermediate display transport only, preserving calculation, all events/logs and final result.",
+    "sourceChange": {
+      "ordinaryDisplayIntervalMs": 33.333333333333336,
+      "exceptions": [
+        "First source frame per phase",
+        "Final source frame per phase",
+        "Invalid, throwing or backward clock publishes conservatively and clears baselines"
+      ],
+      "preserves": [
+        "Every source frame is projected and observed before send selection",
+        "Calculation, events, logs, RNG, final state, ending and next-phase ref state",
+        "Final frame sent before match-end/finish",
+        "Native structured-clone boundary and existing client coalescing"
+      ],
+      "retainedState": "Two scalar timestamps and phase-first flag only; no borrowed frame queue or delayed callback.",
+      "testSeam": "Synchronous onSourceFrame callback is unset by production host.",
+      "sortOptimization": "Estimate each same-zone opponent once within one stable sort; no cross-call/phase score cache."
+    },
+    "checks": {
+      "unitCounts": {
+        "cooperativeYieldAndPublication": 26,
+        "phaseWorkerClient": 15,
+        "phaseWorkerInput": 3,
+        "realExecutorHook": 8,
+        "verificationFingerprint": 9
+      },
+      "finiteTransport": {
+        "receipt": "client/.verification-runs/2026-10-16T14-52-11.425Z-405bc3bc-0cfb-49c8-a789-68856ead6171/result.json",
+        "finishedAt": "2026-10-16T14:56:26.523Z",
+        "exitCode": 0,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "phases": 11,
+        "sourceFrames": 5840,
+        "transmittedFrames": 1783,
+        "skippedIntermediateFrames": 4057,
+        "hostPublishedFrames": 1778,
+        "routineIntervals": 1761,
+        "minimumRoutineIntervalMs": 33.336,
+        "events": 11648,
+        "logs": 7107,
+        "transmittedFrameSha256": "2871d53b2898bffb5434ba36a3a19ac69c03f3424fed5a4c5a07441e30d7c288",
+        "eventsSha256": "244d837cc478cf2e6a2dbb8fdbcd69dfac2b1ff8fa8efc30eeb9ab3e1482a9b5",
+        "logsSha256": "ab61fc6fcbbf47af13e3a3ad5bcd17c4c7592f5115e7011019a2fc6218ffb8f3",
+        "fullSourceSequenceComparison": "Every JSON-serialized source digest matches fresh baseline; actual messages equal ordered emitted subsequence.",
+        "phaseFinalsAndFinishOrder": true,
+        "finalStateRngEndingEqual": true,
+        "ending": {
+          "reason": "last_team",
+          "atSec": 1124.916666,
+          "rngDraws": 8934
+        },
+        "limits": [
+          "JSON digest is not lossless for undefined/non-finite/-0 distinctions; final deep comparisons are separate.",
+          "Proof clone/hash and extra test messages add overhead; this is not pure send-cost or browser FPS evidence."
+        ]
+      },
+      "build": {
+        "receipt": "client/.verification-runs/2026-10-16T14-58-11.909Z-9772bbaa-2dec-463f-af04-d668d2697d92/result.json",
+        "startedAt": "2026-10-16T14:58:11.911Z",
+        "finishedAt": "2026-10-16T14:59:53.928Z",
+        "exitCode": 0,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "pages": 62,
+        "buildId": "YMybZK0J_khWWzUsfUnCA",
+        "generatedWorkerSmoke": {
+          "matchSec": 140,
+          "transmittedFrames": 292,
+          "complete": 1,
+          "failed": 0,
+          "scope": "First phase generated bundle in isolated VM, not whole browser match"
+        }
+      },
+      "release": {
+        "receipt": "client/.verification-runs/2026-10-16T15-01-09.524Z-c125e18a-25a1-4918-a15b-1d0b74fae768/result.json",
+        "startedAt": "2026-10-16T15:01:09.526Z",
+        "finishedAt": "2026-10-16T15:08:41.257Z",
+        "exitCode": 0,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "freshSavedInput": {
+          "events": 14133,
+          "frames": 6488,
+          "comparison": "Fresh capture/replay events, frame JSON digests, final state, RNG and ending"
+        },
+        "unchangedNaNClockWorker": {
+          "phases": 11,
+          "allFrames": 5840,
+          "hostPublishedFrames": 40,
+          "events": 11648,
+          "logs": 7107,
+          "frameSha256": "9958d8a2d1491ad631809d9f33e6133b7c79710f07988cfddde51561cfaa1541",
+          "eventsSha256": "244d837cc478cf2e6a2dbb8fdbcd69dfac2b1ff8fa8efc30eeb9ab3e1482a9b5",
+          "logsSha256": "ab61fc6fcbbf47af13e3a3ad5bcd17c4c7592f5115e7011019a2fc6218ffb8f3",
+          "finalStateRngEndingEqual": true,
+          "diagnostics": {
+            "phases": 11,
+            "pairs": 11,
+            "stages": 144,
+            "messages": 23
+          },
+          "blockedStorage": 11,
+          "blockedAccount": 0,
+          "blockedPaidApi": 0
+        },
+        "scope": "Original NaN all-frame branch retained; not finite browser cadence or fun/balance acceptance."
+      },
+      "sortComparison": {
+        "failedEntryReceipt": "client/.verification-runs/2026-10-16T14-25-26.786Z-4386b3f9-c67e-4026-a6d8-d106e3772086/result.json",
+        "failedReason": "New checker Node loader registration order; corrected checker entry imports module registration first.",
+        "passedReceipt": "client/.verification-runs/2026-10-16T14-25-46.834Z-cdb1fec0-48ed-4569-a7da-d85a6bfaa390/result.json",
+        "finishedAt": "2026-10-16T14:32:11.065Z",
+        "exitCode": 0,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "intermediateEngine": "f4d6dda6cdfa65a1f954264ee3cefec504389ddd24714d646a083413b9ac0f35",
+        "freshInputSha256": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+        "phases": 11,
+        "frames": 5840,
+        "events": 11647,
+        "logs": 6369,
+        "finalStateRngEndingEqual": true,
+        "reference": "Guarded single-statement replacement with original sort comparator in separate serial Worker threads; no past output oracle.",
+        "intermediateBuildReceipt": "client/.verification-runs/2026-10-16T14-32-41.992Z-fe57fbf0-676f-4360-b08c-a876b03139ca/result.json",
+        "intermediateReleaseReceipt": "client/.verification-runs/2026-10-16T14-34-43.033Z-f5ab0a77-95fa-4e52-95b2-3205202f22f3/result.json",
+        "intermediateBuildAndReleaseExitCodes": [
+          0,
+          0
+        ]
+      }
+    },
+    "browser": {
+      "origin": "http://127.0.0.1:3137/eternalhunger/evaluate?perfProbe=1",
+      "environment": {
+        "os": "Windows",
+        "browser": "Chromium 155",
+        "viewport": [
+          1280,
+          720
+        ],
+        "devicePixelRatio": 1,
+        "hardwareConcurrency": 12
+      },
+      "seed": "1789192220412",
+      "participants": 24,
+      "teams": 8,
+      "watchedTeam": 1,
+      "watchedTab": "team",
+      "originalCompleted": true,
+      "originalTimingNotMeasured": true,
+      "sameDocumentReplays": true,
+      "replayId": "52a23627-cb64-4323-afbf-ff46cb94bba0",
+      "ownHeavyJobsFinishedBeforeMeasurement": true,
+      "userProgramsKeptRunning": true,
+      "common": {
+        "speed": 32,
+        "speedChanges": 0,
+        "identityChanges": 0,
+        "pauses": 0,
+        "entireMeasurementVisible": true,
+        "boundaryStatus": "settled",
+        "stopReason": "replay-complete",
+        "finalMatchSec": 1233.5,
+        "winnerTeam": 4,
+        "survivors": 3,
+        "events": 13237,
+        "uiEventsFinalStateEndingMatched": true,
+        "workerRequested": 13,
+        "workerTerminal": 13,
+        "workerReports": 13,
+        "workerFailures": 0,
+        "workerMissingReports": 0,
+        "actionMessages": 21569
+      },
+      "runs": [
+        {
+          "label": "x32-limited-1",
+          "elapsedMs": 44527.9,
+          "activeMs": 44234.6,
+          "effectiveSpeed": 27.88541096788487,
+          "longTaskCount": 1,
+          "longTaskTotalMs": 143,
+          "longTaskMaxMs": 143,
+          "rafIntervalMs": {
+            "median": 10,
+            "p95": 10.1,
+            "max": 140.1
+          },
+          "heapStartBytes": 33319785,
+          "heapEndBytes": 103412621,
+          "domNodes": 741,
+          "workerElapsedSumMs": 42552.6,
+          "transmittedFrames": 932,
+          "frameSendSumMs": 1279.9,
+          "actionSendSumMs": 134.9,
+          "growthSliceSumMs": 12835.1,
+          "taskWaitSumMs": 31.7,
+          "displayWaitSumMs": 18174.9
+        },
+        {
+          "label": "x32-limited-2",
+          "elapsedMs": 50397.4,
+          "activeMs": 50113,
+          "effectiveSpeed": 24.614371520363978,
+          "longTaskCount": 1,
+          "longTaskTotalMs": 156,
+          "longTaskMaxMs": 156,
+          "rafIntervalMs": {
+            "median": 10,
+            "p95": 20,
+            "max": 150
+          },
+          "heapStartBytes": 34177574,
+          "heapEndBytes": 103011770,
+          "domNodes": 741,
+          "workerElapsedSumMs": 48503.2,
+          "transmittedFrames": 988,
+          "frameSendSumMs": 1666.9,
+          "actionSendSumMs": 164.5,
+          "growthSliceSumMs": 17782.6,
+          "taskWaitSumMs": 52.8,
+          "displayWaitSumMs": 15922.8
+        },
+        {
+          "label": "x32-limited-3",
+          "elapsedMs": 48664.1,
+          "activeMs": 48369.4,
+          "effectiveSpeed": 25.501660140502054,
+          "longTaskCount": 1,
+          "longTaskTotalMs": 171,
+          "longTaskMaxMs": 171,
+          "rafIntervalMs": {
+            "median": 10,
+            "p95": 20,
+            "max": 170
+          },
+          "heapStartBytes": 32689254,
+          "heapEndBytes": 127149676,
+          "domNodes": 744,
+          "workerElapsedSumMs": 46730.5,
+          "transmittedFrames": 965,
+          "frameSendSumMs": 1548.7,
+          "actionSendSumMs": 172,
+          "growthSliceSumMs": 16736.2,
+          "taskWaitSumMs": 47.7,
+          "displayWaitSumMs": 16156.1
+        }
+      ],
+      "speedDiagnosticThreshold": 28.8,
+      "speedDiagnosticPassed": false,
+      "consoleWarnings": 0,
+      "consoleErrors": 0,
+      "selectedRootMemoryObservation": {
+        "scope": "selected_object_roots_not_entire_heap",
+        "closedOwners": [
+          1,
+          2,
+          3
+        ],
+        "collectedPerClosedOwner": [
+          "journal",
+          "textLog",
+          "visibleEvents",
+          "survivors",
+          "dead"
+        ],
+        "sharedReplayRecord": "reachable_or_not_yet_collected",
+        "openOwner": 4,
+        "evictedOwners": 0
+      },
+      "limits": [
+        "UI comparison covers events/final state/ending, not every source frame or RNG.",
+        "RAF callback cadence is not presented FPS.",
+        "Nested stage elapsed values are non-additive; synchronous send is not delivery/reception/processing latency.",
+        "No controlled external-load before/after or diagnostic-OFF browser comparison; no causal speedup/CPU attribution.",
+        "Latest full x1/x8, process restart and entire-heap acceptance remain open."
+      ],
+      "cleanup": {
+        "ownTabClosed": true,
+        "ownServerPid": 19296,
+        "ownServerStopped": true,
+        "port3137Listeners": 0,
+        "restoredBrowserVisibility": false
+      }
+    },
+    "rejectedExperiments": [
+      {
+        "kind": "generic-graph-delta",
+        "trial": "client/.verification-runs/2026-10-16T13-58-30.357Z-e5a14d21-65f1-4da5-bdb1-512591416196",
+        "phaseFrames": 701,
+        "sampledFrames": 176,
+        "unitChecks": 7,
+        "nativePostPlusReadMs": 2168.3239,
+        "candidateMeasuredTotalMs": 9608.702,
+        "adopted": false,
+        "reason": "Encoding/acceptance/sampled restoration outweighed wire-call savings in this Node instrumented trial.",
+        "sourcesMovedNotCopied": [
+          {
+            "original": "client/src/app/simulation/_lib/simulationFrameTransportRuntime.js",
+            "bytes": 11133,
+            "sha256": "7A660550429F1D8E0A838B9DAE46BA3657AE206C2EF9FA9B8845F352E1CEBB43"
+          },
+          {
+            "original": "client/scripts/check-simulation-frame-transport.mjs",
+            "bytes": 11152,
+            "sha256": "9CED2366C3E7D7DFA5A475D3E61536A10032187AA30F1C76E629DB49A43068F9"
+          },
+          {
+            "original": "client/scripts/check-simulation-frame-transport-cost.mjs",
+            "bytes": 6973,
+            "sha256": "41B0392232877B77C608CAE68BDBC1F72CE4923E9F523D3E6FFED9114C91B15F"
+          }
+        ]
+      },
+      {
+        "kind": "item-key-payload-counterfactual",
+        "trial": "client/.verification-runs/2026-10-16T14-19-54.223Z-bbb00d00-18c6-4c8d-81f9-3a31fbd4e290",
+        "phaseFrames": 701,
+        "sampledFrames": 176,
+        "keyEntries": 774,
+        "sharedMapperPerFrame": true,
+        "nativePostPlusReadMs": 439.693,
+        "lookupRemovedMs": 407.9123,
+        "perActorPackedStringMs": 525.189,
+        "sharedWrapperMs": 427.2703,
+        "sampledWrapperEncodeMs": 15.1874,
+        "adopted": false,
+        "exitCode": null,
+        "completedOutputObserved": true,
+        "reason": "JSON byte estimates ignore native alias preservation; small measured benefit did not justify representation/metadata risk. Counterfactual is not gameplay-equivalence proof.",
+        "sourcesMovedNotCopied": [
+          {
+            "original": "client/scripts/check-simulation-item-key-payload-cost.mjs",
+            "bytes": 12850,
+            "sha256": "27629F9F276CA3AF2842A9DD63FCE53989094375DCF6A8D49F558B5ACD26D743"
+          }
+        ]
+      }
+    ],
+    "cleanup": {
+      "scope": "Only exact files created by the two current-turn builds; no recursive directory deletion, original cache deletion or duplicate backup.",
+      "intermediateBuild": {
+        "removed": [
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+            "bytes": 264469688,
+            "sha256": "98EAC0960E10635049770F45E46E972CC78D98E838112BB4CEB4933D034F41AC",
+            "fileId": "0x0000000000000000001700000016b62d",
+            "hardlinkCount": 1,
+            "creationUtcVerifiedWithinBuildWindow": true
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+            "bytes": 12994765,
+            "sha256": "49A5D44D225162DE5EAD644B7DAF2A4810B8A9E29AF3229D94F7F6AEE7C152DA",
+            "fileId": "0x0000000000000000001700000016b62e",
+            "hardlinkCount": 1,
+            "creationUtcVerifiedWithinBuildWindow": true
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+            "bytes": 276,
+            "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+            "fileId": "0x0000000000000000001500000016b59e",
+            "hardlinkCount": 1,
+            "creationUtcVerifiedWithinBuildWindow": true
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+            "bytes": 2464,
+            "sha256": "EBED77B38BFEB4098BC71B50AAD735119000A30AFA96953A4B75307954A026A2",
+            "fileId": "0x0000000000000000001600000016b59f",
+            "hardlinkCount": 1,
+            "creationUtcVerifiedWithinBuildWindow": true
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+            "bytes": 315240380,
+            "sha256": "B07958FCE71812AFB141A3A3964322D798458D9BC2C825C04113ECDE5F0E98EB",
+            "fileId": "0x0000000000000000001500000016b597",
+            "hardlinkCount": 1,
+            "creationUtcVerifiedWithinBuildWindow": true
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+            "bytes": 18225063,
+            "sha256": "C2E2AAFDEBD38F4BE0FA752E8741A5802F9410E83550905C8BEEED46EFB52958",
+            "fileId": "0x0000000000000000001700000016b594",
+            "hardlinkCount": 1,
+            "creationUtcVerifiedWithinBuildWindow": true
+          }
+        ],
+        "removedBytes": 610932636,
+        "windowUtc": {
+          "start": "2026-10-16T14:32:41.994Z",
+          "end": "2026-10-16T14:34:05.561Z"
+        },
+        "protectedBefore": {
+          "files": 1446,
+          "sha256": "45B79F707D55179C468098F7D569A1D6A9A1CB3C33A7CA8A46C364822C28AED3",
+          "buildId": "-ClqUsM1b1_6MtBtAAVGO"
+        },
+        "protectedAfter": {
+          "files": 1446,
+          "sha256": "45B79F707D55179C468098F7D569A1D6A9A1CB3C33A7CA8A46C364822C28AED3",
+          "buildId": "-ClqUsM1b1_6MtBtAAVGO"
+        },
+        "result": "Exact guarded removal completed; six paths absent; protected manifest unchanged.",
+        "creationTimeEvidence": "All six creation UTC values passed the build-window guard; individual timestamp strings were not retained in the earlier compact receipt."
+      },
+      "finalBuild": {
+        "removed": [
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+            "bytes": 264511012,
+            "sha256": "415664907524480EFBCF5623207B8EC875F91EE7D249B2167BAC121FEADA356C",
+            "fileId": "0x0000000000000000002900000016b650",
+            "hardlinkCount": 1,
+            "createdUtc": "2026-10-16T14:59:01.7911101Z"
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+            "bytes": 13000828,
+            "sha256": "9638E3A72534D7CE287938FC549D4E50C727B4353A764EF6AC7F4704EC70FE6B",
+            "fileId": "0x00000000000000000014000000178de7",
+            "hardlinkCount": 1,
+            "createdUtc": "2026-10-16T14:59:01.7911101Z"
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+            "bytes": 276,
+            "sha256": "4CF621D6541D0B5F1971D04D8ACD429B63EF068B3EAF45A684BD7BF9F121AADC",
+            "fileId": "0x0000000000000000001800000016b636",
+            "hardlinkCount": 1,
+            "createdUtc": "2026-10-16T14:58:39.4935014Z"
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+            "bytes": 2464,
+            "sha256": "83B9A4DCA86954AD100E10E1FA9023BBE0693228F454407E005B02558FBA7D21",
+            "fileId": "0x0000000000000000001800000016b633",
+            "hardlinkCount": 1,
+            "createdUtc": "2026-10-16T14:58:39.4935014Z"
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+            "bytes": 315315232,
+            "sha256": "E952A8EBD1A0D8C47EA867A131CB96B3B832A2121FC3280D396EBFF88C0A7B54",
+            "fileId": "0x0000000000000000001b00000016b67c",
+            "hardlinkCount": 1,
+            "createdUtc": "2026-10-16T14:58:37.9164438Z"
+          },
+          {
+            "path": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+            "bytes": 18230181,
+            "sha256": "ECAF9C15A37C434A53048722935719DB4DEF997978046C83683332E45226018D",
+            "fileId": "0x0000000000000000001e00000016b684",
+            "hardlinkCount": 1,
+            "createdUtc": "2026-10-16T14:58:37.9174495Z"
+          }
+        ],
+        "removedBytes": 611059993,
+        "windowUtc": {
+          "start": "2026-10-16T14:58:11.911Z",
+          "end": "2026-10-16T14:59:53.928Z"
+        },
+        "protectedBefore": {
+          "files": 1446,
+          "sha256": "59D909C8B04EF2101D3D642A67CD0F27267DA20C48F29424C8BE1C7A6262F1A3",
+          "buildId": "YMybZK0J_khWWzUsfUnCA"
+        },
+        "protectedAfter": {
+          "files": 1446,
+          "sha256": "59D909C8B04EF2101D3D642A67CD0F27267DA20C48F29424C8BE1C7A6262F1A3",
+          "buildId": "YMybZK0J_khWWzUsfUnCA"
+        },
+        "result": "Exact guarded removal completed; six paths absent; protected manifest unchanged."
+      },
+      "protectedManifestEncoding": "Sorted relative path with / separators, NUL, size, NUL, uppercase SHA256; literal backslash-n join; UTF-8 SHA256.",
+      "receiptFinalizedKst": "2026-10-18",
+      "totalRemovedBytes": 1221992629,
+      "oldPackSha256": "3A62EC6B8AB460303BD5D552976F76D6A1B091DE637D5228F66B6528BCB83C23",
+      "originalCacheFilesProtected": 9,
+      "finalNamedRootsBeforeEvidenceWrite": [
+        {
+          "path": ".local",
+          "files": 96,
+          "logicalBytes": 403043999
+        },
+        {
+          "path": "artifacts",
+          "files": 199,
+          "logicalBytes": 174766271
+        },
+        {
+          "path": "client/.next",
+          "files": 1446,
+          "logicalBytes": 93765576
+        },
+        {
+          "path": "client/.verification-runs",
+          "files": 459,
+          "logicalBytes": 47508632
+        },
+        {
+          "path": "client/audio-source",
+          "files": 52,
+          "logicalBytes": 30265181
+        }
+      ],
+      "finalNamedRootLogicalUpperBoundBytesBeforeEvidenceWrite": 749349659,
+      "finalCachePreCleanupNamedRootLogicalUpperBoundBytes": 1360409652,
+      "initialNamedRootLogicalUpperBoundBytes": 749227893,
+      "sizeScope": "Named disjoint roots, logical upper bound only; not total workspace or physical allocation.",
+      "candidateSourcesRetainedBytes": 42108,
+      "recovery": "Rebuild regenerates deleted caches. Rejected sources were moved under their trial candidate-source directory, not deleted; restore original paths to rerun."
+    },
+    "scopeGuard": {
+      "goalAnchorSha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B",
+      "unrelatedUntrackedCount": 2592,
+      "unrelatedUntrackedFilenameManifestSha256": "761E8E032E25195E8B859512ADD38DF7797A11BCFF1027E6555A31AA9ED32D08",
+      "filenameManifestEncoding": "Default git ls-files --others --exclude-standard output, LF join with no trailing LF, UTF-8; default path quoting retained.",
+      "guardNote": "First audit changed core.quotepath to false and mismatched the quoted-name encoding; rechecked original default representation and anchor successfully. No file mutation occurred."
+    },
+    "deployment": {
+      "lastObservedCommit": "f162b57d24427e3a5b4196eb86b6c438c0f76f4a",
+      "lastObservedAtUtc": "2026-10-16T13:44:20Z",
+      "lastObservedState": "failure",
+      "detailsUrl": "https://vercel.com/kurokosis-projects/eternal-hunger/GVqkmH221divb3H4LtHqTABQrRmg",
+      "logs": "Details page requires Vercel login; no authenticated build error available. Current local build passes; do not infer failure cause.",
+      "trackedBuildImportClosureChecked": 355,
+      "untrackedRequiredSourceImportsFound": 0,
+      "currentPushStatus": "Check exact new commit after push; local success is not public deployment proof."
+    },
+    "remaining": [
+      "G4 actual x32 effective-speed gate remains below 28.8 in all three current samples.",
+      "Investigate growth computation/display waits without altering game decisions or claiming causality from nested elapsed sums.",
+      "Latest full x1/x8 repeated runs, process restart and whole-heap acceptance.",
+      "Broader current-engine G1-G3 distributions and controlled causal team-contribution interpretation.",
+      "G5.3 human follow-up and exact public engine/build-log verification.",
+      "Original G1-G5 scope and completion criteria remain unchanged."
+    ]
+  },
   "goalAnchorSha256": "1FD3108993D2D6BE2182C88B6DA70C08A71AB55E58BC040FB522D433991E265B"
 }

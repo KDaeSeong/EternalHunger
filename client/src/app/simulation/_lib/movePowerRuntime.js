@@ -58,6 +58,17 @@ function estimateMovePower(actor, context = {}) {
   return base + weaponTier * weaponPower + armorTierSum * armorPower + Number(er?.powerScore || 0);
 }
 
+// Sort one local candidate list without recomputing the pure internal score
+// from the comparator. Keep the historical coercion and stable tie behavior.
+export function sortActorsByMovePowerDescending(rows, context = {}) {
+  const candidates = Array.isArray(rows) ? rows : [];
+  if (candidates.length < 2) return candidates.slice();
+  return candidates.map((actor) => ({
+    actor,
+    score: Number(estimateMovePower(actor, context) || 0),
+  })).sort((a, b) => b.score - a.score).map(({ actor }) => actor);
+}
+
 // Team path searches only relocate shallow copies of this pre-action roster.
 // HP, equipment, statuses and mastery stay fixed until the complete planning
 // boundary has finished. Compute that strength once, not for every graph node.

@@ -5,6 +5,7 @@ import { projectSimulationFrame } from './simulationFrameRuntime.js';
 import { normalizeAutoSpeed } from './simulationSpeedRuntime.js';
 import { captureSimulationPhaseWorkerRefState, restoreSimulationPhaseWorkerOptions } from './simulationPhaseWorkerInputRuntime.js';
 import { createObserverWorkerPhaseMeasurements } from './observerWorkMeasurementRuntime.js';
+import { createSimulationFramePublicationLimiter } from './simulationFramePublicationRuntime.js';
 
 export function requestSimulationWorkerTaskYield({
   schedulerRef = globalThis.scheduler,
@@ -60,6 +61,7 @@ export function createSimulationPhaseWorkerRuntime({
   now = () => globalThis.performance.now(),
   taskYield = requestSimulationWorkerTaskYield,
   wait = (ms) => new Promise((resolve) => globalThis.setTimeout(resolve, Math.max(0, ms))),
+  onSourceFrame = null,
 } = {}) {
   let prepared = null;
   let busy = false;
@@ -85,6 +87,9 @@ export function createSimulationPhaseWorkerRuntime({
       return;
     }
     busy = true;
+    const framePublicationLimiter = createSimulationFramePublicationLimiter({ now });
+    let sourceFrameIndex = 0;
+    let firstSourceFrame = true;
     try {
       if (message.diagnostics === true) {
         measurements = createObserverWorkerPhaseMeasurements({ now, send,
@@ -119,10 +124,18 @@ export function createSimulationPhaseWorkerRuntime({
         },
         setPendingTranscendPick: (...args) => emitAction('setPendingTranscendPick', ...args),
         finishGame: (...args) => emit('finish', { args, refState: captureSimulationPhaseWorkerRefState(options.refs) }),
-        publishSimulationFrameFromSource: (input, observe) => {
+        publishSimulationFrameFromSource: (input, observe, { force = false } = {}) => {
           const frame = projectSimulationFrame(input);
           observe(frame);
-          emit('frame', { frame });
+          const shouldForce = Boolean(force || firstSourceFrame);
+          const emitted = framePublicationLimiter.shouldPublish({ force: shouldForce });
+          firstSourceFrame = false;
+          if (typeof onSourceFrame === 'function') {
+            sourceFrameIndex += 1;
+            onSourceFrame(frame, { phaseId, sourceIndex: sourceFrameIndex, force: shouldForce,
+              emitted, atMs: framePublicationLimiter.getLastObservationTimeMs() });
+          }
+          if (emitted) emit('frame', { frame });
         },
         requestMainThreadYield: yieldPolicy.requestMainThreadYield,
         requestFrameYield: yieldPolicy.requestFrameYield,

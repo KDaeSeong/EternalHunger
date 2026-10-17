@@ -1,6 +1,7 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import { Worker } from 'node:worker_threads';
 
 const { createRandomIsolationInput } = await import('./lib/run-random-isolation-match.mjs');
@@ -19,6 +20,11 @@ const { subscribeObserverWorkMeasurements } = await import('../src/app/simulatio
 
 const taskYield = () => new Promise((resolve) => setImmediate(resolve));
 const now = () => Number.NaN;
+const args = process.argv.slice(2);
+assert.ok(args.every((arg) => arg === '--finite-transport'), `Unknown arguments: ${args.filter((arg) => arg !== '--finite-transport').join(' ')}`);
+assert.ok(new Set(args).size === args.length, 'Duplicate arguments are not supported.');
+const finiteTransport = args.includes('--finite-transport');
+const clockNow = finiteTransport ? () => performance.now() : now;
 const wait = async () => {};
 const WORKER_MEASUREMENT_ENTRY_LIMIT = 64;
 
@@ -99,7 +105,7 @@ function digest(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-function makeHarness(savedInput) {
+function makeHarness(savedInput, { nowFn = now } = {}) {
   const prepared = prepareSimulationRunInput(savedInput);
   const frame = { ...createInitialSimulationFrame(), ...prepared.state,
     forbiddenAddedNow: [], forbiddenZoneIds: [], frameMapId: String(prepared.state.activeMapId || '') };
@@ -183,8 +189,8 @@ function makeHarness(savedInput) {
     setSimulationFrame: setFrame,
     requestMainThreadYield: taskYield,
     requestFrameYield: taskYield,
-    growthYieldOptions: { visibility: () => 'visible', now, requestTaskYield: taskYield, requestFrameYield: taskYield },
-    visibleClockNow: now,
+    growthYieldOptions: { visibility: () => 'visible', now: nowFn, requestTaskYield: taskYield, requestFrameYield: taskYield },
+    visibleClockNow: nowFn,
     visibleClockVisibility: () => 'visible',
     waitForVisibleTick: (ms) => ms > 0 ? wait(ms) : taskYield(),
     setIsAdvancing: () => {},
@@ -200,8 +206,8 @@ function makeHarness(savedInput) {
     frameDigests, get finalFrame() { return finalFrame; }, get visibleEvents() { return visibleEvents; } };
 }
 
-async function runBaseline(savedInput) {
-  const harness = makeHarness(savedInput);
+async function runBaseline(savedInput, { nowFn = now } = {}) {
+  const harness = makeHarness(savedInput, { nowFn });
   for (let count = 0; !harness.finish && count < 20; count += 1) {
     await runGuardedPhaseAdvance({ refs: harness.refs, state: harness.state, actions: harness.actions,
       proceedPhase: async () => {
@@ -215,10 +221,11 @@ async function runBaseline(savedInput) {
   return harness;
 }
 
-async function runWorker(savedInput) {
-  const harness = makeHarness(savedInput);
+async function runWorker(savedInput, { finiteTransport: useFiniteTransport = false, nowFn = now } = {}) {
+  const harness = makeHarness(savedInput, { nowFn });
   const allWorkerFramesHash = createHash('sha256');
   const workerFrameDigests = [];
+  const sourceFrameReceipts = [];
   let allWorkerFrames = 0;
   let workerClockMonotonic = true;
   let lastWorkerFrameSec = -Infinity;
@@ -228,12 +235,21 @@ async function runWorker(savedInput) {
   let worker;
   const client = createSimulationPhaseWorkerClient({
     createWorker: () => {
-      const rawWorker = new Worker(new URL('./lib/simulation-phase-worker-host.mjs', import.meta.url));
+      const rawWorker = new Worker(new URL('./lib/simulation-phase-worker-host.mjs', import.meta.url), {
+        workerData: { finiteTransport: useFiniteTransport },
+      });
       const adapters = new Map();
       worker = {
         addEventListener(type, callback) {
           const adapter = type === 'message'
-            ? (data) => callback({ data })
+            ? (data) => {
+              if (useFiniteTransport && data?.kind === 'source-proof') {
+                sourceFrameReceipts.push({ sourceDigest: data.sourceDigest, phaseId: data.phaseId,
+                  sourceIndex: data.sourceIndex, emitted: data.emitted, force: data.force, atMs: data.atMs });
+                return;
+              }
+              callback({ data });
+            }
             : (error) => callback({ error, preventDefault() {} });
           adapters.set(callback, { type, adapter });
           rawWorker.on(type, adapter);
@@ -271,7 +287,7 @@ async function runWorker(savedInput) {
     scheduleFrame: (callback) => setImmediate(callback),
     cancelFrame: clearImmediate,
   });
-  const unsubscribeWorkerMeasurements = subscribeObserverWorkMeasurements(now, () => {}, null, (entry) => {
+  const unsubscribeWorkerMeasurements = subscribeObserverWorkMeasurements(nowFn, () => {}, null, (entry) => {
     if (workerMeasurementEntries.length >= WORKER_MEASUREMENT_ENTRY_LIMIT) {
       droppedWorkerMeasurementEntries += 1;
       return;
@@ -305,7 +321,7 @@ async function runWorker(savedInput) {
   }
   return { ...harness, allWorkerFrames, allWorkerFramesHash: allWorkerFramesHash.digest('hex'),
     workerFrameDigests, didMutatePostMessageInput, workerClockMonotonic, workerMeasurementEntries,
-    droppedWorkerMeasurementEntries };
+    droppedWorkerMeasurementEntries, sourceFrameReceipts };
 }
 
 const fixture = JSON.parse(await createRandomIsolationInput('1101'));
@@ -313,17 +329,95 @@ const savedInput = createSimulationRunInput({ activeMap: fixture.map, runSeed: f
   settings: fixture.settings, publicItems: fixture.items, survivors: fixture.survivors,
   dead: [], kiosks: [], droneOffers: [], spawnState: null });
 const inputBefore = JSON.stringify(savedInput);
-const baseline = await runBaseline(savedInput);
-const workerRun = await runWorker(savedInput);
+const baseline = await runBaseline(savedInput, { nowFn: clockNow });
+const workerRun = await runWorker(savedInput, { finiteTransport, nowFn: clockNow });
 
 assert.equal(JSON.stringify(savedInput), inputBefore, 'A run must not mutate its owned saved input.');
 assert.equal(workerRun.didMutatePostMessageInput, true, 'The native Worker send must be followed by an input mutation probe.');
 assert.equal(workerRun.counters.phases, baseline.counters.phases, 'Worker phase count differs.');
 assert.equal(baseline.counters.finishCalls, 1, 'Baseline finish callback must run exactly once.');
 assert.equal(workerRun.counters.finishCalls, 1, 'Worker finish callback must run exactly once.');
-assert.equal(workerRun.allWorkerFrames, baseline.counters.frames, 'Worker frame messages were lost or duplicated.');
 const baselineFrameHash = baseline.frameHash.digest('hex');
-assert.equal(workerRun.allWorkerFramesHash, baselineFrameHash, 'All worker frame messages differ from native baseline snapshots.');
+if (finiteTransport) {
+  assert.equal(workerRun.sourceFrameReceipts.length, baseline.counters.frames,
+    'Every source frame callback must have exactly one test-only source proof.');
+  assert.deepEqual(workerRun.sourceFrameReceipts.map((receipt) => receipt.sourceDigest), baseline.frameDigests,
+    'All finite-clock Worker source frames must exactly match the fresh full-frame baseline.');
+  const receiptsByPhase = new Map();
+  for (const receipt of workerRun.sourceFrameReceipts) {
+    assert.ok(Number.isSafeInteger(receipt.phaseId) && receipt.phaseId > 0
+      && Number.isSafeInteger(receipt.sourceIndex) && receipt.sourceIndex > 0,
+    'Source proof phase and index must be positive integers.');
+    assert.match(receipt.sourceDigest, /^[0-9a-f]{64}$/, 'Source proof must contain a SHA-256 digest.');
+    assert.ok(Number.isFinite(receipt.atMs), 'Finite-clock source proof timestamps must be finite.');
+    const phaseRows = receiptsByPhase.get(receipt.phaseId) || [];
+    phaseRows.push(receipt);
+    receiptsByPhase.set(receipt.phaseId, phaseRows);
+  }
+  assert.equal(receiptsByPhase.size, workerRun.counters.phases, 'Every completed phase must expose its source frames.');
+  const emittedReceipts = [];
+  const phaseFinalDigests = [];
+  let routineIntervals = 0;
+  let minRoutineGapMs = Infinity;
+  for (let phaseId = 1; phaseId <= workerRun.counters.phases; phaseId += 1) {
+    const phaseRows = receiptsByPhase.get(phaseId) || [];
+    assert.ok(phaseRows.length > 0, `Phase ${phaseId} must expose source frames.`);
+    for (let index = 0; index < phaseRows.length; index += 1) {
+      assert.equal(phaseRows[index].sourceIndex, index + 1, 'Source frame indices must be contiguous within each phase.');
+      assert.equal(phaseRows[index].force, index === 0 || index === phaseRows.length - 1,
+        'Only the first and final source frames may bypass the routine transport interval.');
+      if (index > 0) assert.ok(phaseRows[index].atMs >= phaseRows[index - 1].atMs,
+        'Finite source timestamps must be monotonic within each phase.');
+    }
+    const phaseEmitted = phaseRows.filter((receipt) => receipt.emitted);
+    assert.ok(phaseEmitted.length > 0, `Phase ${phaseId} must transmit at least one frame.`);
+    assert.equal(phaseRows[0].force, true, 'The first source frame of each phase must remain forced.');
+    assert.equal(phaseRows[0].emitted, true, 'The first source frame of each phase must be transmitted.');
+    assert.equal(phaseRows.at(-1).force, true, 'The phase-final source frame must remain forced.');
+    assert.equal(phaseRows.at(-1).emitted, true, 'The phase-final forced frame must be transmitted.');
+    assert.equal(phaseEmitted.at(-1).sourceDigest, phaseRows.at(-1).sourceDigest,
+      'The last transmitted frame in each phase must be its final source frame.');
+    phaseFinalDigests.push(phaseRows.at(-1).sourceDigest);
+    for (let index = 1; index < phaseEmitted.length; index += 1) {
+      const current = phaseEmitted[index], previous = phaseEmitted[index - 1];
+      if (current.force) continue;
+      const gap = current.atMs - previous.atMs;
+      routineIntervals += 1;
+      minRoutineGapMs = Math.min(minRoutineGapMs, gap);
+      assert.ok(gap + 1e-6 >= 1000 / 30,
+        'Routine transmitted frames must respect the 30 Hz minimum interval; first/final force frames are exempt.');
+    }
+    emittedReceipts.push(...phaseEmitted);
+  }
+  assert.ok(workerRun.sourceFrameReceipts.some((receipt) => !receipt.emitted),
+    'Finite-clock transport must skip at least one intermediate source frame.');
+  assert.ok(routineIntervals > 0, 'The fixture must include routine transmissions for the cap assertion.');
+  assert.deepEqual(workerRun.workerFrameDigests, emittedReceipts.map((receipt) => receipt.sourceDigest),
+    'Actual Worker frame messages must exactly match the ordered emitted source-frame subset.');
+  let sourceCursor = 0;
+  for (const transmittedDigest of workerRun.workerFrameDigests) {
+    while (sourceCursor < workerRun.sourceFrameReceipts.length
+      && workerRun.sourceFrameReceipts[sourceCursor].sourceDigest !== transmittedDigest) sourceCursor += 1;
+    assert.ok(sourceCursor < workerRun.sourceFrameReceipts.length,
+      'Every transmitted frame must be an unchanged, ordered source-frame subsequence.');
+    sourceCursor += 1;
+  }
+  assert.equal(workerRun.allWorkerFrames, emittedReceipts.length, 'Transmitted frame count must match emitted source receipts.');
+  let publishedFinalCursor = 0;
+  for (const phaseFinalDigest of phaseFinalDigests) {
+    while (publishedFinalCursor < workerRun.frameDigests.length
+      && workerRun.frameDigests[publishedFinalCursor] !== phaseFinalDigest) publishedFinalCursor += 1;
+    assert.ok(publishedFinalCursor < workerRun.frameDigests.length,
+      'Each phase-final forced frame must flush to the host in phase order.');
+    publishedFinalCursor += 1;
+  }
+  assert.equal(workerRun.finish.finalFrame && digest(workerRun.finish.finalFrame),
+    workerRun.sourceFrameReceipts.at(-1)?.sourceDigest, 'The forced final source frame must flush before finishGame.');
+  console.log(`SIMULATION_PHASE_WORKER_FINITE_TRANSPORT sourceFrames=${workerRun.sourceFrameReceipts.length} transmittedFrames=${workerRun.allWorkerFrames} skippedFrames=${workerRun.sourceFrameReceipts.filter((receipt) => !receipt.emitted).length} routineIntervals=${routineIntervals} minRoutineGapMs=${Number.isFinite(minRoutineGapMs) ? minRoutineGapMs.toFixed(3) : 'none'}`);
+} else {
+  assert.equal(workerRun.allWorkerFrames, baseline.counters.frames, 'Worker frame messages were lost or duplicated.');
+  assert.equal(workerRun.allWorkerFramesHash, baselineFrameHash, 'All worker frame messages differ from native baseline snapshots.');
+}
 assert.equal(workerRun.workerClockMonotonic, true, 'Every direct worker frame must have a full schema and monotonic clock.');
 let workerFrameCursor = 0;
 for (const publishedDigest of workerRun.frameDigests) {
@@ -362,6 +456,11 @@ const workerMeasurementSummary = assertWorkerMeasurementSummary(workerRun.worker
   workerRun.droppedWorkerMeasurementEntries, workerRun.counters.phases);
 
 console.log(`SIMULATION_PHASE_WORKER_DIAGNOSTICS schema=eh-worker-phase-performance.v1 phases=${workerMeasurementSummary.phases} pairs=${workerMeasurementSummary.pairs} stages=${workerMeasurementSummary.stageRows} messages=${workerMeasurementSummary.messageRows}`);
-console.log(`SIMULATION_PHASE_WORKER_MATCH phases=${workerRun.counters.phases} allFrames=${workerRun.allWorkerFrames} publishedFrames=${workerRun.counters.frames} events=${workerRun.finish.events.length} logs=${workerRun.finish.logEntries.length}`);
-console.log(`SIMULATION_PHASE_WORKER_MATCH frameSha256=${workerRun.allWorkerFramesHash} eventsSha256=${digest(workerRun.finish.events)} logsSha256=${digest(workerRun.finish.logEntries)}`);
+if (finiteTransport) {
+  console.log(`SIMULATION_PHASE_WORKER_MATCH phases=${workerRun.counters.phases} transmittedFrames=${workerRun.allWorkerFrames} publishedFrames=${workerRun.counters.frames} events=${workerRun.finish.events.length} logs=${workerRun.finish.logEntries.length}`);
+  console.log(`SIMULATION_PHASE_WORKER_MATCH transmittedFrameSha256=${workerRun.allWorkerFramesHash} eventsSha256=${digest(workerRun.finish.events)} logsSha256=${digest(workerRun.finish.logEntries)}`);
+} else {
+  console.log(`SIMULATION_PHASE_WORKER_MATCH phases=${workerRun.counters.phases} allFrames=${workerRun.allWorkerFrames} publishedFrames=${workerRun.counters.frames} events=${workerRun.finish.events.length} logs=${workerRun.finish.logEntries.length}`);
+  console.log(`SIMULATION_PHASE_WORKER_MATCH frameSha256=${workerRun.allWorkerFramesHash} eventsSha256=${digest(workerRun.finish.events)} logsSha256=${digest(workerRun.finish.logEntries)}`);
+}
 console.log(`SIMULATION_PHASE_WORKER_MATCH ending=${workerRun.finish.options.ending.outcome}@${workerRun.finish.options.ending.atSec}s rngDraws=${workerRun.finish.random.draws} blockedStorage=${workerRun.counters.blockedStorageCalls} blockedAccount=${workerRun.counters.blockedAccountCalls} blockedPaidApi=${workerRun.counters.blockedPaidApiCalls}`);

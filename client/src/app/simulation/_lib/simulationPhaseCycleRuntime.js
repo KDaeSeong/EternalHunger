@@ -314,7 +314,7 @@ function* simulationPhaseSteps({
     survivors: [...liveMap.values()].filter((actor) => !timelineDeadIds.includes(actor._id)),
     dead: [...currentDead, ...phaseDeadSnapshots], canReviveThisMatch, phaseIdxNow, wipeProtectionCutoffIdx,
   }).finished;
-  const publishFrame = (overrides = {}) => {
+  const publishFrame = (overrides = {}, { force = false } = {}) => {
     const input = {
     day: nextDay, phase: nextPhase, matchSec: Math.round((phaseStartSec + getPhaseRuntimeOffsetSec()) * 1e6) / 1e6,
     dead: [...currentDead, ...phaseDeadSnapshots], spawnState: nextSpawn,
@@ -327,7 +327,7 @@ function* simulationPhaseSteps({
     // The worker serializes synchronously before any further engine mutation.
     // Generic hosts retain the full native-owned frame contract.
     if (actions.publishSimulationFrameFromSource) {
-      actions.publishSimulationFrameFromSource(input, observe);
+      actions.publishSimulationFrameFromSource(input, observe, { force });
       return;
     }
     const frame = createSimulationFrame(input);
@@ -538,7 +538,7 @@ function* simulationPhaseSteps({
       survivorMap,
     },
     actions: {
-      publishFinalFrame: publishFrame,
+      publishFinalFrame: (overrides) => publishFrame(overrides, { force: true }),
       addLog,
       appendPhaseDeadSnapshots,
       applyUserEconomyProgress,

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 
 const { requestSimulationFrameYield, requestSimulationMainThreadYield } = await import('../src/app/simulation/_lib/simulationCooperativeYieldRuntime.js');
 const { requestSimulationWorkerTaskYield, createSimulationPhaseWorkerYieldPolicy } = await import('../src/app/simulation/_lib/simulationPhaseWorkerRuntime.js');
+const { createSimulationFramePublicationLimiter } = await import('../src/app/simulation/_lib/simulationFramePublicationRuntime.js');
 const { createSeedRng } = await import('../src/app/simulation/_lib/randomSeedRuntime.js');
 const { captureObserverWorkerMeasurementToken, createObserverWorkerPhaseMeasurements,
   publishObserverWorkerMeasurement, readObserverWorkerMeasurementTime, subscribeObserverWorkMeasurements,
@@ -194,6 +195,97 @@ await check('invalid/backward diagnostic clocks yield conservatively and failure
     taskYield: () => Promise.reject(asyncError), wait: () => Promise.reject(asyncError) });
   await assert.rejects(rejectedPolicy.requestFrameYield(), error => error === asyncError);
   await assert.rejects(rejectedPolicy.waitForVisibleTick(1), error => error === asyncError);
+});
+
+await check('frame publication limiter uses a 30Hz real-time boundary, permits x1 cadence, and forces phase finals', () => {
+  const intervalMs = 1000 / 30;
+  let now = 0, clockReads = 0;
+  const limiter = createSimulationFramePublicationLimiter({ now: () => { clockReads += 1; return now; } });
+  assert.equal(limiter.shouldPublish(), true, 'The first source frame is always publishable.');
+  assert.equal(limiter.getLastObservationTimeMs(), 0);
+  now = intervalMs - 1e-7;
+  assert.equal(limiter.shouldPublish(), false, 'A time just below 30Hz is skipped.');
+  assert.equal(limiter.getLastObservationTimeMs(), now, 'Skipped source frames still advance only numeric clock state.');
+  now = intervalMs;
+  assert.equal(limiter.shouldPublish(), true, 'The exact 1000/30ms boundary publishes.');
+  now += 200;
+  assert.equal(limiter.shouldPublish(), true, 'The natural 1x visible-clock cadence is below the cap.');
+  assert.equal(limiter.shouldPublish({ force: true }), true, 'A phase-final frame publishes even at the same clock time.');
+  assert.equal(limiter.getLastObservationTimeMs(), now);
+  now += 10;
+  assert.equal(limiter.shouldPublish(), false, 'Forced publication resets the interval baseline.');
+  assert.equal(clockReads, 6, 'Publication decisions must read the clock exactly once each.');
+});
+
+await check('frame publication limiter falls back to full sends after invalid/backward clocks and resets per phase', () => {
+  let now = 0;
+  const limiter = createSimulationFramePublicationLimiter({ now: () => now });
+  assert.equal(limiter.shouldPublish(), true);
+  now = 20;
+  assert.equal(limiter.shouldPublish(), false);
+  now = 10;
+  assert.equal(limiter.shouldPublish(), true, 'Backward relative to last observed time forces a send even if after last emitted time.');
+  assert.equal(limiter.getLastObservationTimeMs(), null, 'Backward time clears the baseline.');
+  now = 11;
+  assert.equal(limiter.shouldPublish(), true, 'The first valid frame after reset is sent.');
+  for (const invalid of [NaN, Infinity]) {
+    now = invalid;
+    assert.equal(limiter.shouldPublish(), true, 'Non-finite clock values conservatively publish.');
+    assert.equal(limiter.getLastObservationTimeMs(), null);
+    now = 100;
+    assert.equal(limiter.shouldPublish(), true, 'The first finite value after an invalid clock is sent.');
+  }
+  let throwClock = false;
+  const throwingClockLimiter = createSimulationFramePublicationLimiter({ now: () => {
+    if (throwClock) throw new Error('clock unavailable');
+    return 0;
+  } });
+  assert.equal(throwingClockLimiter.shouldPublish(), true);
+  throwClock = true;
+  assert.equal(throwingClockLimiter.shouldPublish(), true);
+  assert.equal(throwingClockLimiter.getLastObservationTimeMs(), null);
+  throwClock = false;
+  assert.equal(throwingClockLimiter.shouldPublish(), true);
+
+  const nextPhase = createSimulationFramePublicationLimiter({ now: () => 100 });
+  assert.equal(nextPhase.shouldPublish(), true, 'A fresh phase owns a fresh first-frame baseline.');
+});
+
+await check('frame source observation and action FIFO stay independent of skipped publications', () => {
+  const intervalMs = 1000 / 30;
+  let now = 0, seq = 0;
+  const limiter = createSimulationFramePublicationLimiter({ now: () => now });
+  const observed = [], messages = [];
+  const publishSource = (frame, { observe, force = false } = {}) => {
+    observe(frame);
+    if (!limiter.shouldPublish({ force })) return false;
+    messages.push(structuredClone({ kind: 'frame', seq: ++seq, frame }));
+    return true;
+  };
+  const observe = frame => observed.push(frame.state);
+  const borrowed = { state: 'first' };
+  assert.equal(publishSource(borrowed, { observe }), true);
+  messages.push({ kind: 'action', seq: ++seq, name: 'addLog' });
+  now = 5;
+  borrowed.state = 'skipped-mutated';
+  assert.equal(publishSource(borrowed, { observe }), false);
+  now = intervalMs;
+  borrowed.state = 'next-published';
+  assert.equal(publishSource(borrowed, { observe }), true);
+  now = intervalMs;
+  borrowed.state = 'final';
+  assert.equal(publishSource(borrowed, { observe, force: true }), true);
+  messages.push({ kind: 'finish', seq: ++seq });
+
+  assert.deepEqual(observed, ['first', 'skipped-mutated', 'next-published', 'final'],
+    'Every source frame is observed even when its UI publication is skipped.');
+  assert.deepEqual(messages.map(row => [row.kind, row.seq]), [
+    ['frame', 1], ['action', 2], ['frame', 3], ['frame', 4], ['finish', 5],
+  ], 'Skipped frames consume no sequence and the final frame precedes finish.');
+  assert.deepEqual(messages.filter(row => row.kind === 'frame').map(row => row.frame.state),
+    ['first', 'next-published', 'final'], 'Only synchronous structured-clone sends cross the ownership boundary.');
+  assert.deepEqual(messages.filter(row => row.kind === 'frame')[0].frame, { state: 'first' },
+    'Later borrowed-source mutation cannot alter an already-published frame.');
 });
 
 await check('worker measurement tokens are opaque, stale-safe, and disabled paths read no clock', () => {

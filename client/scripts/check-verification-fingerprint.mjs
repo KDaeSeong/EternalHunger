@@ -88,6 +88,23 @@ for (const mode of ['growth', 'performance', 'growth-focus-unit', 'initial-weapo
   }
 }
 console.log('PASS growth proof and fixture mutations invalidate all applicable verification modes');
+
+for (const path of ['scripts/check-planning-power-snapshot.mjs', 'scripts/check-move-power-sort-match.mjs',
+  'scripts/lib/run-random-isolation-match.mjs', 'scripts/check-team-tactics.mjs', 'scripts/check-live-frames.mjs']) {
+  const before = verificationSources('move-power-sort');
+  const after = verificationSources('move-power-sort', fileURLToPath(new URL(path, root)));
+  assert.equal(typeof before[path], 'string');
+  assert.notEqual(after[path], before[path], 'Changing a sorting proof must invalidate its verification receipt.');
+}
+console.log('PASS sorting reference, fixture and boundary test mutations invalidate their verification mode');
+for (const path of ['scripts/check-simulation-cooperative-yield.mjs', 'scripts/check-simulation-phase-worker-match.mjs',
+  'scripts/lib/simulation-phase-worker-host.mjs', 'scripts/lib/run-random-isolation-match.mjs']) {
+  const before = verificationSources('frame-transport');
+  const after = verificationSources('frame-transport', fileURLToPath(new URL(path, root)));
+  assert.equal(typeof before[path], 'string');
+  assert.notEqual(after[path], before[path], 'Changing a finite-transport proof must invalidate its verification receipt.');
+}
+console.log('PASS finite-transport source-stream proofs and fixtures invalidate their verification mode');
 for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module-resolution-compat']) {
   const sourceHashes = verificationSources(mode);
   for (const path of ['scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs']) {
@@ -97,5 +114,5 @@ for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module
   }
 }
 console.log('PASS module registration and resolution policy mutations invalidate applicable verification modes');
-console.log(JSON.stringify({ pass: true, checks: 7, engine: base.wrapper,
+console.log(JSON.stringify({ pass: true, checks: 9, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));

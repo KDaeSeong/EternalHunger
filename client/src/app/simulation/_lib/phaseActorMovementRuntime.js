@@ -11,6 +11,7 @@ import {
 import { formatMoveIntentLabel } from './moveIntentRuntime';
 import {
   estimateMovePower,
+  sortActorsByMovePowerDescending,
   shouldAvoidCombatByMovePower,
 } from './movePowerRuntime';
 import { advanceActorRouteProgressForGoal } from './phaseRouteProgressRuntime';
@@ -146,9 +147,7 @@ export function runActorMovementDecisionPhase({
     && !isDimensionRiftDefeated(target)
     && String(target?.zoneId || '') === String(currentZone)
   ));
-  const worstSameZoneOpponent = sameZoneOpponents
-    .slice()
-    .sort((a, b) => Number(estimateMovePower(b, movePowerContext) || 0) - Number(estimateMovePower(a, movePowerContext) || 0))[0] || null;
+  const worstSameZoneOpponent = sortActorsByMovePowerDescending(sameZoneOpponents, movePowerContext)[0] || null;
   const avoidInfoNow = worstSameZoneOpponent ? shouldAvoidCombatByMovePower(updated, worstSameZoneOpponent, movePowerContext) : null;
   const estimatePower = (row) => estimateMovePower(row, movePowerContext);
   const teamAssessment = assessTeamCombat(updated, phaseSurvivors, {

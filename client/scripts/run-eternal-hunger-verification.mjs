@@ -44,6 +44,8 @@ const commands = {
   'growth-planning-prefix': 'node scripts/diagnose-team-growth-planning.mjs',
   'preset-editor-unit': 'npm run check:skills && npm run check:er-weapons && node scripts/check-guest-character-profiles.mjs && node scripts/check-custom-roster.mjs && npm run check:verification-fingerprint && node node_modules/eslint/bin/eslint.js src/app/characters/page.js src/app/characters/_lib/characterEditorRuntime.js && npm run check:runtime:sweep',
   'phase-performance-unit': 'npm run check:phase-runtime-performance && node scripts/check-late-growth-decision-index.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'move-power-sort': 'node scripts/check-planning-power-snapshot.mjs && npm run check:move-power-sort:match && npm run check:team-tactics && npm run check:live-frames && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'frame-transport': 'node scripts/check-simulation-cooperative-yield.mjs && node scripts/check-simulation-phase-worker-client.mjs && node scripts/check-simulation-phase-worker-input.mjs && node scripts/check-simulation-phase-executor-hook.mjs && npm run check:simulation-phase-worker:finite-transport && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'natural-procurement-unit': 'node scripts/check-natural-procurement-evidence.mjs && npm run check:verification-fingerprint',
   'natural-procurement': 'npm run check:natural-procurement-matrix -- --seeds=1101 --rosters=FIXTURE:initial-roster',
   'procurement-purpose-unit': 'node scripts/generate-simulation-version.mjs && npm run check:observer-purchase-scenario && npm run check:procurement && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep',
@@ -99,6 +101,15 @@ function fingerprint() {
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json',
     'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs'];
+  if (mode === 'move-power-sort') paths.push('scripts/check-planning-power-snapshot.mjs',
+    'scripts/check-move-power-sort-match.mjs', 'scripts/lib/run-random-isolation-match.mjs',
+    'scripts/check-team-tactics.mjs', 'scripts/check-live-frames.mjs',
+    'scripts/check-verification-fingerprint.mjs', 'eslint.runtime.config.mjs');
+  if (mode === 'frame-transport') paths.push('scripts/check-simulation-cooperative-yield.mjs',
+    'scripts/check-simulation-phase-worker-client.mjs', 'scripts/check-simulation-phase-worker-input.mjs',
+    'scripts/check-simulation-phase-executor-hook.mjs', 'scripts/check-simulation-phase-worker-match.mjs',
+    'scripts/lib/simulation-phase-worker-host.mjs', 'scripts/lib/hook-handler-harness.mjs',
+    'scripts/lib/run-random-isolation-match.mjs', 'scripts/check-verification-fingerprint.mjs', 'eslint.runtime.config.mjs');
   if (['build', 'runtime-build', 'full', 'phase-worker-release', 'module-resolution-compat'].includes(mode)) paths.push(
     'scripts/check-phase-worker-build-entry.mjs', 'scripts/check-simulation-module-resolution.mjs');
   if (['phase-worker-release', 'full'].includes(mode)) paths.push('scripts/check-auth-session.mjs', 'scripts/check-proxy-session-contract.mjs');
