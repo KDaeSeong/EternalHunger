@@ -1,5 +1,476 @@
 {
   "schema": "eternal-hunger.observer-journal-publication-evidence.v1",
+  "growthDecisionSharingFollowup": {
+    "dateKst": "2026-10-18",
+    "parentCommit": "c6d2962b89dc05b44ab8fe6b73c826f9c5495280",
+    "engineVersion": "f57a6ae31e4c52da4df3828e65ebd7587b9f3ab66b07c42a045e3a91bb69763a",
+    "buildId": "F55Sh2G82voSGeJB889B9",
+    "changes": [
+      "Compute late candidates and authored subset in one decision, reusing only same-build actual inventory quantities and per-row equipment tiers.",
+      "Share parsed recipe terms across alternatives only within one build; virtual stock, reservations, affordability, source/path checks and atomic commit remain independent.",
+      "Do not reuse producer decisions from before acquisition-history updates; no actor/global cache expansion, skipped game work, changed pacing limit or lower speed threshold."
+    ],
+    "checks": {
+      "unit": {
+        "path": "client/.verification-runs/2026-10-18T01-03-42.430Z-314b834d-cf56-4dbd-bac1-0a92b59b5f8d/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T01:03:42.433Z",
+        "finishedAt": "2026-10-18T01:05:03.802Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "currentSourceDrift": [],
+        "verificationSources": 28
+      },
+      "freshMatch": {
+        "path": "client/.verification-runs/2026-10-18T00-58-56.858Z-374d69b7-be56-4e5a-ad4c-b668487319cf/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T00:58:56.860Z",
+        "finishedAt": "2026-10-18T01:02:51.211Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "currentSourceDrift": [],
+        "verificationSources": 9
+      },
+      "build": {
+        "path": "client/.verification-runs/2026-10-18T01-02-18.308Z-1daf9ebc-43e5-4acc-854a-f87d92645d15/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T01:02:18.310Z",
+        "finishedAt": "2026-10-18T01:04:02.083Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "currentSourceDrift": [],
+        "verificationSources": 6
+      },
+      "finiteWorker": {
+        "path": "client/.verification-runs/2026-10-18T01-04-16.725Z-7e3b42c3-87c1-455f-8e3b-4156c5d63d99/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T01:04:16.727Z",
+        "finishedAt": "2026-10-18T01:08:28.322Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "currentSourceDrift": [],
+        "verificationSources": 14
+      },
+      "static": {
+        "changedJavaScriptLintExitCode": 0,
+        "diffCheckExitCode": 0,
+        "phasePerformanceContracts": 20,
+        "recipeReferenceComparisons": 33,
+        "scope": "Named commands; not all custom inputs or whole G1-G5 acceptance."
+      }
+    },
+    "freshReference": {
+      "seed": "1101",
+      "reference": "Current independent original fulfillment row scan; separate late target/authored queries and per-alternative recipe-term maps. Both matches freshly generated, no old result input/oracle.",
+      "phases": 11,
+      "frames": 5840,
+      "events": 11647,
+      "matchSec": 1124.916666,
+      "allFrameOrderDigestMatched": true,
+      "eventsLogsRngFinalAndEndingMatched": true,
+      "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+      "frameDigest": "ad4a40e83791a621eee5172a136c6316c9f6cfce1a6cfee78f5f24e3fb238a38",
+      "eventDigest": "35afec00498bc065a34ee69dffc51c9c3ff2d8e59d589671715541bb8ee333f4",
+      "finalFrameDigest": "8c1181cf2a17615b3721df5a6c6774c12909cd92297f76e6fafcc5c221cc90cf",
+      "logDigest": "e3795ccdc486afc6915a8cb5fce84e5928930a1762c8776c6e72c2f89da69bde"
+    },
+    "firstNight": {
+      "phases": 2,
+      "frames": 1354,
+      "events": 6154,
+      "authoredEquipmentGoals": 6,
+      "firstEquippedAtSec": [
+        5,
+        1,
+        2,
+        4,
+        6,
+        19
+      ],
+      "openingHeadCrafts": 1,
+      "upgradeCrafts": 1,
+      "sameInputReplayExact": true,
+      "scope": "Fresh normal 24-participant first-night fixture with actual field stock, empty bags and 15Cr; not custom full-match or general completion/survival rate."
+    },
+    "finiteWorker": {
+      "sourceFrames": 5840,
+      "transmittedFrames": 2104,
+      "skippedIntermediateTransmissions": 3736,
+      "sourceFrameOrderAndDigestExact": true,
+      "minRoutineGapMs": 33.335,
+      "phases": 11,
+      "events": 11648,
+      "logs": 7107,
+      "ending": "last_team@1124.916666s",
+      "rngDraws": 8934,
+      "eventsLogsRngFinalAndEndingMatched": true,
+      "scope": "Actual Node Worker vs its fresh baseline, distinct harness from fulfillment comparison; original frame proof callback adds instrumentation, not browser performance."
+    },
+    "buildSmoke": {
+      "pages": 62,
+      "node": "v24.13.0",
+      "isolatedVmProductionWorker": true,
+      "ready": true,
+      "commandSeq": 1,
+      "finalMatchSec": 140,
+      "transmittedFrames": 307,
+      "complete": 1,
+      "failures": 0,
+      "scope": "Generated production entry in isolated VM, not browser/full-match acceptance."
+    },
+    "browser": {
+      "origin": "http://127.0.0.1:3137/eternalhunger/evaluate?perfProbe=1",
+      "seed": "1789192220412",
+      "replayId": "d79155ac-0884-4cb7-b1d8-2bd2de144c4c",
+      "participants": 24,
+      "teams": 8,
+      "observedTeam": "team:1",
+      "environment": {
+        "platform": "Windows",
+        "browser": "Chromium 155",
+        "viewportWidth": 1280,
+        "viewportHeight": 720,
+        "devicePixelRatio": 1,
+        "hardwareConcurrency": 12
+      },
+      "timeOriginMs": 1792285551982.4,
+      "method": "Fresh original input followed by three same-document x32 replays via visible controls. Original overlapped an own verifier and is excluded from speed evidence. All three measurements ran after terminal own heavy checks, with user programs unchanged. Capture complete diagnostic object before starting next trial.",
+      "predeclaredInterrunGapLimitMs": 60000,
+      "interrunGapsMs": [
+        33006.1,
+        20479.6
+      ],
+      "speedDiagnosticThreshold": 28.8,
+      "allSpeedSamplesPass": false,
+      "common": {
+        "matchSec": 1233.5,
+        "winnerTeamId": "team:4",
+        "survivingMembers": 3,
+        "uiEventCount": 13237,
+        "uiEventsFinalAndEndingMatched": true,
+        "boundary": "settled",
+        "stopReason": "replay-complete",
+        "continuousVisible": true,
+        "visibilityTransitions": 0,
+        "speedChanges": 0,
+        "identityChanges": 0,
+        "pauses": 0,
+        "workerRequested": 13,
+        "workerTerminal": 13,
+        "workerReports": 13,
+        "workerFailures": 0,
+        "workerMissing": 0,
+        "workerEvicted": 0
+      },
+      "trials": [
+        {
+          "trial": 1,
+          "startedAtMs": 172201,
+          "endedAtMs": 216926.6,
+          "elapsedMs": 44725.6,
+          "activeStartOffsetMs": 286.9,
+          "activeEndOffsetMs": 44725.3,
+          "activeWallMs": 44438.4,
+          "effectiveSpeed": 27.757525023403183,
+          "longTasks": {
+            "count": 1,
+            "maxMs": 167,
+            "totalMs": 167
+          },
+          "rafIntervalMs": {
+            "median": 10,
+            "p95": 10.2,
+            "max": 170
+          },
+          "heap": {
+            "baselineUsedBytes": 31198305,
+            "usedBytes": 123878100,
+            "totalBytes": 209556636
+          },
+          "worker": {
+            "clientElapsedSumMs": 43127.6,
+            "elapsedSumMs": 42866,
+            "frames": 941,
+            "framePostMessageMs": 1329.7,
+            "actionPostMessageMs": 137.3,
+            "actionMessages": 21569,
+            "growthSliceMs": 13311,
+            "refreshPlansMs": 2422.4,
+            "teamCoordinationMs": 4260.2,
+            "actorPlanMs": 1371.9,
+            "displayWaitMs": 17440.1,
+            "taskWaitMs": 33
+          },
+          "main": {
+            "observerTeamModelMs": 1556.4,
+            "observerEventWindowMs": 2605.2,
+            "replayCaptureMs": 37.5,
+            "replayCompareMs": 127.3
+          }
+        },
+        {
+          "trial": 2,
+          "startedAtMs": 249932.7,
+          "endedAtMs": 297764.4,
+          "elapsedMs": 47831.7,
+          "activeStartOffsetMs": 287.2,
+          "activeEndOffsetMs": 47831.7,
+          "activeWallMs": 47544.5,
+          "effectiveSpeed": 25.944115512835346,
+          "longTasks": {
+            "count": 1,
+            "maxMs": 147,
+            "totalMs": 147
+          },
+          "rafIntervalMs": {
+            "median": 10,
+            "p95": 20,
+            "max": 150.1
+          },
+          "heap": {
+            "baselineUsedBytes": 30102445,
+            "usedBytes": 182228697,
+            "totalBytes": 248396281
+          },
+          "worker": {
+            "clientElapsedSumMs": 46248.5,
+            "elapsedSumMs": 45988.9,
+            "frames": 965,
+            "framePostMessageMs": 1383.5,
+            "actionPostMessageMs": 159,
+            "actionMessages": 21569,
+            "growthSliceMs": 15681.2,
+            "refreshPlansMs": 2885.6,
+            "teamCoordinationMs": 4925.8,
+            "actorPlanMs": 1676.5,
+            "displayWaitMs": 17013,
+            "taskWaitMs": 54.5
+          },
+          "main": {
+            "observerTeamModelMs": 1736.9,
+            "observerEventWindowMs": 2770.7,
+            "replayCaptureMs": 49.4,
+            "replayCompareMs": 95.7
+          }
+        },
+        {
+          "trial": 3,
+          "startedAtMs": 318244,
+          "endedAtMs": 362381.2,
+          "elapsedMs": 44137.2,
+          "activeStartOffsetMs": 292.8,
+          "activeEndOffsetMs": 44137.2,
+          "activeWallMs": 43844.4,
+          "effectiveSpeed": 28.133581483610225,
+          "longTasks": {
+            "count": 1,
+            "maxMs": 108,
+            "totalMs": 108
+          },
+          "rafIntervalMs": {
+            "median": 10,
+            "p95": 10.1,
+            "max": 100
+          },
+          "heap": {
+            "baselineUsedBytes": 30411128,
+            "usedBytes": 102258598,
+            "totalBytes": 217113686
+          },
+          "worker": {
+            "clientElapsedSumMs": 42544.7,
+            "elapsedSumMs": 42337.2,
+            "frames": 930,
+            "framePostMessageMs": 1227.6,
+            "actionPostMessageMs": 129.2,
+            "actionMessages": 21569,
+            "growthSliceMs": 12709.9,
+            "refreshPlansMs": 2320.4,
+            "teamCoordinationMs": 4098.1,
+            "actorPlanMs": 1321.8,
+            "displayWaitMs": 18452.5,
+            "taskWaitMs": 34.3
+          },
+          "main": {
+            "observerTeamModelMs": 1404.4,
+            "observerEventWindowMs": 2267.5,
+            "replayCaptureMs": 28.8,
+            "replayCompareMs": 78.1
+          }
+        }
+      ],
+      "consoleWarningsOrErrors": [],
+      "limits": [
+        "UI comparison does not prove every intermediate browser frame or RNG.",
+        "Nested elapsed stages/waits are not additive, CPU attribution or message-delivery latency.",
+        "RAF callback cadence is not presented FPS; GC-sensitive heap samples are not whole-memory acceptance.",
+        "No causal before/after improvement rate under uncontrolled external load."
+      ],
+      "nextPriority": "Reduce repeated actual team-coordination computation: 5,922 calls and 4.0981-4.9258 seconds in these measured samples; preserve real decisions/RNG/events and existing pacing."
+    },
+    "previousPublicRelease": {
+      "commit": "c6d2962b89dc05b44ab8fe6b73c826f9c5495280",
+      "githubVercelStatus": "success",
+      "deploymentUrl": "https://vercel.com/kurokosis-projects/eternal-hunger/156ExgqMkajKsjJ4aLXz5fJTP2d7",
+      "observedUrl": "https://eternal-hunger.vercel.app/eternalhunger/evaluate?perfProbe=1",
+      "observedEngine": "8945cb6f6ba9b0ab4bae50e86d336823cd193cbe062b1c91681154b172d4a840",
+      "anonymousGameReady": true,
+      "evaluationStartEnabled": true,
+      "consoleWarningsOrErrors": [],
+      "scope": "Public anonymous initialization only; not the current unpushed f57 engine or a public full match. e6d deployment failure remains historical with unknown cause."
+    },
+    "developmentFailuresAndLimits": [
+      "Initial new getter assertion <=2 failed because it counted recipe property accesses as normalizations; source has existing existence checks plus normalization. Corrected bound <=4 still catches a second late scan (5), then final integration reran. No game/test fidelity relaxation.",
+      "An initial summary treated hostWaits as rows; re-read the raw UI object and corrected task/display aggregates before saving this receipt. Missing/unsupported fields are not zero/pass.",
+      "Existing mutable ordinary growth catalog ID/alias/array-shape changes can leave catalogCache/catalogKeyCache stale between calls. This pre-existing editor/input boundary issue is unmodified and not certified by recipe/quantity freshness checks.",
+      "Baseline Node profile finalized at 1,156,123B; prior 26,123B observation was before final serialization. It includes initialization and hashing harness cost, not browser hotspot attribution."
+    ],
+    "ownedResources": {
+      "serverPid": 17880,
+      "serverStartUtc": "2026-10-18T01:05:42.3126161Z",
+      "node": "C:\\Program Files\\nodejs\\node.exe",
+      "serverBind": "127.0.0.1:3137",
+      "serverStoppedAfterExactIdentityCheck": true,
+      "listenersAfter": 0,
+      "otherProgramsStopped": 0,
+      "temporaryTabsClosed": true,
+      "browserVisibilityRestored": true,
+      "browserVisibilityAfter": false,
+      "serverLogDirectory": "client/.verification-runs/2026-10-18T01-02-18.308Z-1daf9ebc-43e5-4acc-854a-f87d92645d15",
+      "profilePreserved": "client/.verification-runs/2026-10-18-opening-morning-8945cb6f/opening-morning.cpuprofile"
+    },
+    "cleanup": {
+      "removedUtc": "2026-10-18T01:14:14.4360083Z",
+      "removedFiles": 6,
+      "removedBytes": 611317406,
+      "targets": [
+        {
+          "path": "client/.next/cache/webpack/client-production/0.pack",
+          "bytes": 264657739,
+          "dev": "821886821",
+          "ino": "25051272927936552",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:03:14.024Z",
+          "sha256": "c5d91a4c9622716cdaf45c1086040001ac7438e03b5f31bb6765706bbb120d9b",
+          "result": "removed after immediate identity/hash/size/build-window recheck; exact non-recursive Remove-Item"
+        },
+        {
+          "path": "client/.next/cache/webpack/client-production/index.pack",
+          "bytes": 13000835,
+          "dev": "821886821",
+          "ino": "40250921670406261",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:03:14.024Z",
+          "sha256": "8928f9085e368eff3d87b1302e6fe743fc826d0503c287520b1eb8a7c9128dce",
+          "result": "removed after immediate identity/hash/size/build-window recheck; exact non-recursive Remove-Item"
+        },
+        {
+          "path": "client/.next/cache/webpack/edge-server-production/0.pack",
+          "bytes": 276,
+          "dev": "821886821",
+          "ino": "15199648743063781",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:02:52.609Z",
+          "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc",
+          "result": "removed after immediate identity/hash/size/build-window recheck; exact non-recursive Remove-Item"
+        },
+        {
+          "path": "client/.next/cache/webpack/edge-server-production/index.pack",
+          "bytes": 2464,
+          "dev": "821886821",
+          "ino": "15481123719774784",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:02:52.609Z",
+          "sha256": "2b06b1af67b7483cfd86de003faf4810d91774f79aa43ee795782bb0aff0e931",
+          "result": "removed after immediate identity/hash/size/build-window recheck; exact non-recursive Remove-Item"
+        },
+        {
+          "path": "client/.next/cache/webpack/server-production/0.pack",
+          "bytes": 315425914,
+          "dev": "821886821",
+          "ino": "7881299349212437",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:02:49.662Z",
+          "sha256": "0bda4e48d3851e94155ea2661f81c8bf72fa5e902061684a42f9d5d193f1e683",
+          "result": "removed after immediate identity/hash/size/build-window recheck; exact non-recursive Remove-Item"
+        },
+        {
+          "path": "client/.next/cache/webpack/server-production/index.pack",
+          "bytes": 18230178,
+          "dev": "821886821",
+          "ino": "13229323906089535",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:02:49.662Z",
+          "sha256": "c6495c1214e981922ac899c03214c0df57e983bd04e9ef3838a729aa7f559624",
+          "result": "removed after immediate identity/hash/size/build-window recheck; exact non-recursive Remove-Item"
+        }
+      ],
+      "recovery": "Normal source rebuild regenerates only these webpack caches; no recursive delete or full project copy.",
+      "protectedBuild": {
+        "filesBefore": 1446,
+        "filesAfter": 1446,
+        "bytes": 93772434,
+        "manifestBeforeSha256": "7055c6f011923378803ef78760b5bdc4fa16621a9af60e5bdd19bfc25579705f",
+        "manifestAfterSha256": "7055c6f011923378803ef78760b5bdc4fa16621a9af60e5bdd19bfc25579705f",
+        "buildIdBefore": "F55Sh2G82voSGeJB889B9",
+        "buildIdAfter": "F55Sh2G82voSGeJB889B9",
+        "oldPackBytes": 18088675,
+        "oldPackSha256": "3a62ec6b8ab460303bd5d552976f76d6a1b091de637d5228f66b6528bcb83c23"
+      }
+    },
+    "outputSizeBeforeReceiptEdits": {
+      "atUtc": "2026-10-18T01:14:35.850Z",
+      "roots": [
+        {
+          "path": ".local",
+          "files": 96,
+          "bytes": 403043999
+        },
+        {
+          "path": "artifacts",
+          "files": 199,
+          "bytes": 174818517
+        },
+        {
+          "path": "client/.next",
+          "files": 1446,
+          "bytes": 93772434
+        },
+        {
+          "path": "client/.verification-runs",
+          "files": 502,
+          "bytes": 49260542
+        },
+        {
+          "path": "client/audio-source",
+          "files": 52,
+          "bytes": 30265181
+        }
+      ],
+      "totalBytes": 751160673,
+      "thresholdBytes": 2147483648,
+      "duplicateFileIds": 0,
+      "reparse": 0,
+      "errors": 0,
+      "scope": "Five disjoint named output roots logical bytes, dev/ino deduplicated; not whole project, physical allocation or free-space gain."
+    },
+    "scopeGuards": {
+      "originalGoalSuffixSha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+      "unrelatedUntrackedFiles": 2592,
+      "untrackedNameListSha256": "761e8e032e25195e8b859512add38df7797a11bcff1027e6555a31aa9ed32d08"
+    },
+    "remaining": [
+      "Actual x32 effective-speed gate remains below 28.8 in all three current samples.",
+      "Latest full x1/x8/complete nine-run acceptance, restart and whole-memory acceptance.",
+      "Broader G1-G3 custom growth/cooperation/strategy distributions and G5.3 human follow-up.",
+      "Current engine public deployment is distinct from the confirmed previous release.",
+      "Original G1-G5 scope and completion criteria remain unchanged."
+    ]
+  },
   "authoredGoalPolicyBrowserFollowup": {
     "dateKst": "2026-10-18",
     "sourceCommit": "e6d6def3fc62a3bb465bca3b3b2fda5cc0c88f76",

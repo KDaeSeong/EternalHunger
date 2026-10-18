@@ -6,9 +6,10 @@ import { registerHooks } from 'node:module';
 import { compileFunction } from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
-// Generate both matches now. The reference replaces only fulfillment's row
-// fact reuse with the independent original scan; it never reads an old result,
-// copies a project or changes the fixture, clock, transactions or random source.
+// Generate both matches now. The reference uses the independent fulfillment
+// scan and evaluates late views/recipe terms separately, without call-local
+// sharing. It never reads an old result, copies a project or changes the
+// fixture, clock, transactions or random source.
 const worker = process.argv.find(arg => arg.startsWith('--worker='))?.slice(9);
 const seed = process.argv.find(arg => arg.startsWith('--seed='))?.slice(7) || '1101';
 const digest = value => createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
@@ -56,8 +57,22 @@ if (worker) {
     });
   };`;
       assert.doesNotThrow(() => compileFunction(reference), 'The independent replacement must parse before a match starts.');
+      let referenceSource = source.slice(0, start) + reference + source.slice(end);
+      const separateLateViews = `  const late = openingComplete ? getLateGrowthDecision(actor, items, {},
+    { quantities: inventoryQuantities, tiers: tierBySlot }) : { targets: [], issues: [], authoredTargets: [] };`;
+      assert.equal(referenceSource.split(separateLateViews).length, 2,
+        'Reference must disable exactly the production late inventory/candidate sharing.');
+      referenceSource = referenceSource.replace(separateLateViews,
+        `  const late = openingComplete ? {
+    ...getLateGrowthTargets(actor, items),
+    authoredTargets: getLateGrowthTargets(actor, items, { authoredOnly: true }).targets,
+  } : { targets: [], issues: [], authoredTargets: [] };`);
+      const sharedTerms = '  const recipeTermsById = providedRecipeTerms || new Map();';
+      assert.equal(referenceSource.split(sharedTerms).length, 2,
+        'Reference must disable exactly the production cross-candidate recipe-term sharing.');
+      referenceSource = referenceSource.replace(sharedTerms, '  const recipeTermsById = new Map();');
       referenceOverrides += 1;
-      return { ...loaded, source: source.slice(0, start) + reference + source.slice(end) };
+      return { ...loaded, source: referenceSource };
     },
   }) : null;
   try {
@@ -85,7 +100,7 @@ if (worker) {
   }
   assert.equal(rows[0].engine, rows[1].engine);
   assert.deepEqual(rows[1].outcome, rows[0].outcome,
-    'Call-local entry facts must preserve every emitted frame, event, ending, log and RNG result.');
+    'Call-local entry, inventory, late-view and recipe facts must preserve every emitted frame, event, ending, log and RNG result.');
   console.log(JSON.stringify({ pass: true, seed, matches: 2,
-    scope: 'fresh complete production match against independent original fulfillment scan; not real browser speed, all custom inputs or an old-engine replay' }));
+    scope: 'fresh complete production match against independent fulfillment scan and separate late views/recipe terms; not real browser speed, all custom inputs or an old-engine replay' }));
 }

@@ -2,7 +2,7 @@ import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 import { canReceiveItem, getInvItemId, getInvRules, inferEquipSlot, inferItemCategory } from './inventoryRules';
 import { getFieldItemSourceZones, getFieldResourceQty } from './fieldResourceRuntime';
 import { bfsNextStepToAnyTarget } from './pathfindingRuntime';
-import { getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
+import { getLateGrowthDecision, getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
 import { prepareCraftTransaction } from './craftTransactionRuntime.js';
 import { areEquipmentWeaponTypesCompatible } from '../../../utils/equipmentCatalog.js';
 import { GROWTH_EQUIPMENT_SLOTS, getActorEquipmentTier, getGrowthEquipmentCatalog } from './growthEquipmentRuntime.js';
@@ -146,7 +146,7 @@ export function getActorGrowthProgress(actor, items = []) {
 // Shared read-only recipe accounting. Observation must not invoke the planner,
 // choose a different branch, reserve inventory or change the actor's route.
 function getGrowthRecipeWorkWithQuantities(actor, items, targetId, { ruleset, targetIds = [targetId] } = {},
-  providedInventoryQuantities = null) {
+  providedInventoryQuantities = null, providedRecipeTerms = null) {
   const byId = indexCatalog(items);
   const target = byId.get(String(targetId));
   const inventory = actor.inventory || [];
@@ -156,9 +156,9 @@ function getGrowthRecipeWorkWithQuantities(actor, items, targetId, { ruleset, ta
   if (inferEquipSlot(target) === 'weapon' && !areEquipmentWeaponTypesCompatible(actor.weaponType, target.weaponType)) {
     return { ...work, blocked: 'weapon_mismatch' };
   }
-  // Terms are immutable accounting inputs within this synchronous call only.
+  // Terms are immutable accounting inputs within this synchronous decision only.
   // A new call must re-read edited recipes; atomic receipts still revalidate.
-  const recipeTermsById = new Map();
+  const recipeTermsById = providedRecipeTerms || new Map();
   const recipeTermsFor = (id) => {
     if (!recipeTermsById.has(id)) recipeTermsById.set(id, getCraftRecipeTerms(byId.get(id)));
     return recipeTermsById.get(id);
@@ -258,13 +258,13 @@ export function getGrowthRecipeWork(actor, items, targetId, options = {}) {
 // Recompute remaining recipe work from actual inventory. Consumed raw materials
 // represented by an owned intermediate are not requested a second time.
 function planGrowthTarget(actor, items, target, base, { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset,
-  distances, sourceZones, routes, inventoryQuantities }, strictSources = false) {
+  distances, sourceZones, routes, inventoryQuantities, recipeTermsById }, strictSources = false) {
   const byId = indexCatalog(items);
   base = { ...base, targetId: String(target._id), targetKey: target.itemKey || target.externalId || String(target._id),
     targetSlot: inferEquipSlot(target), targetTier: Number(target.tier) || 0, targetName: target.name || '',
     targetIds: [...new Set([...base.targetIds, String(target._id)])] };
   Object.assign(base, getGrowthRecipeWorkWithQuantities(actor, items, target._id,
-    { ruleset, targetIds: base.targetIds }, inventoryQuantities));
+    { ruleset, targetIds: base.targetIds }, inventoryQuantities, recipeTermsById));
   let hasUnsafeSource = false;
   base.missing = base.missing.map((row) => {
     const item = byId.get(row.itemId);
@@ -307,7 +307,8 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
   const progress = getActorGrowthProgressWithQuantities(actor, items, inventoryQuantities);
   const tierBySlot = actorEquipmentTiers(actor, inventory, inventoryQuantities);
   const openingComplete = progress.openingComplete;
-  const late = openingComplete ? getLateGrowthTargets(actor, items) : { targets: [], issues: [] };
+  const late = openingComplete ? getLateGrowthDecision(actor, items, {},
+    { quantities: inventoryQuantities, tiers: tierBySlot }) : { targets: [], issues: [], authoredTargets: [] };
   const remaining = openingComplete ? late.targets : [...progress.remaining].sort((a, b) =>
     // Finish a viable recipe before spreading intermediates across empty
     // slots. Blocked/attempted focuses still fall through to real replanning.
@@ -315,7 +316,7 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
     || tierBySlot[inferEquipSlot(a)] - tierBySlot[inferEquipSlot(b)]);
   const base = { targetIds: openingComplete ? [] : progress.targetIds,
     exactTargetIds: [...progress.targets.filter(target => isAuthoredOpeningGrowthTarget(actor, target, items)),
-      ...(openingComplete ? getLateGrowthTargets(actor, items, { authoredOnly: true }).targets : [])]
+      ...late.authoredTargets]
       .map(target => String(target._id)),
     completedSlots: progress.completedSlots, totalSlots: progress.totalSlots, openingComplete,
     stage: openingComplete ? 'late' : 'opening', goalIssues: [...progress.goalIssues, ...late.issues],
@@ -332,7 +333,7 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
   // A later action must re-read depleted stock, changed zones and forbidden
   // paths; never attach this lookup to an actor, saved frame or global cache.
   const context = { mapObj, forbiddenIds, zoneGraph, fieldResources, ruleset, distances, inventoryQuantities,
-    sourceZones: new Map(), routes: new Map() };
+    sourceZones: new Map(), routes: new Map(), recipeTermsById: new Map() };
   const plans = [];
   let viable;
   let waitingFocus;

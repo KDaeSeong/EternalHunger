@@ -88,13 +88,19 @@ function hasUnacquiredDirectTarget(actor, items, target, owned) {
 
 // A plan chooses an existing recipe, never grants its result. Authored choices
 // win over automatic upgrades; catalog order must not decide between them.
-export function getLateGrowthTargets(actor, items, { authoredOnly = false, includeAcquired = false } = {}) {
+export function getLateGrowthDecision(actor, items, { authoredOnly = false, includeAcquired = false } = {},
+  providedInventoryFacts = null) {
   const inventory = Array.isArray(actor.inventory) ? actor.inventory : [];
   // Inventory, goals and weapon compatibility are always a fresh decision.
   // Only the explicitly owned, deeply frozen run catalogue can reuse facts;
   // ordinary callers still re-read edited recipes on every call.
-  const { quantities, tiers } = inventoryFacts(actor, inventory);
-  const owned = new Set(quantities.keys());
+  // The planner may reuse quantities/tiers from this same synchronous call.
+  // Public target reads do not accept a supplied snapshot, and a later plan
+  // must rebuild it after inventory, equipment or weapon changes.
+  const { quantities, tiers } = providedInventoryFacts || inventoryFacts(actor, inventory);
+  // Planning's quantity index also retains invalid/zero rows with quantity 0.
+  // Such an entry is not ownership and cannot fulfill an authored target.
+  const owned = new Set([...quantities].filter(([, qty]) => qty > 0).map(([id]) => id));
   const weapon = normalizeWeaponType(actor.weaponType || '');
   const requestedKeys = new Set(), automaticGroups = new Set();
   for (const slot of slots) for (const [group, tier] of [['legend', 5], ['transcend', 6]]) {
@@ -102,7 +108,7 @@ export function getLateGrowthTargets(actor, items, { authoredOnly = false, inclu
     if (requested) requestedKeys.add(requested);
     else if (!authoredOnly && tiers[slot] < tier) automaticGroups.add(`${slot}:${tier}`);
   }
-  if (!requestedKeys.size && !automaticGroups.size) return { targets: [], issues: [] };
+  if (!requestedKeys.size && !automaticGroups.size) return { targets: [], issues: [], authoredTargets: [] };
   const preparedCatalog = lockedCatalogFacts(items);
   const { termsByItem, byKey, bySlotTier } = preparedCatalog
     || { termsByItem: new Map(), byKey: new Map(), bySlotTier: new Map() };
@@ -174,7 +180,15 @@ export function getLateGrowthTargets(actor, items, { authoredOnly = false, inclu
   candidates.sort((a, b) => Number(b.authored) - Number(a.authored) || a.tier - b.tier
     || ownedIngredients(b.target) - ownedIngredients(a.target)
     || slots.indexOf(a.slot) - slots.indexOf(b.slot) || String(a.target._id).localeCompare(String(b.target._id)));
-  return { targets: candidates.map((row) => row.target), issues };
+  return { targets: candidates.map((row) => row.target), issues,
+    authoredTargets: candidates.filter((row) => row.authored).map((row) => row.target) };
+}
+
+// Both views come from this one synchronous decision. Do not persist its
+// inventory scores or target choices across an acquisition or later action.
+export function getLateGrowthTargets(actor, items, options = {}) {
+  const { targets, issues } = getLateGrowthDecision(actor, items, options);
+  return { targets, issues };
 }
 
 // Movement and earned-loot allocation read the same real recipe candidates.

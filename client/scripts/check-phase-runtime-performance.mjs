@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 
 const { cloneMovementRosterForPlanning, runPhaseActorActionPipeline } = await import('../src/app/simulation/_lib/phaseActorActionPipelineRuntime.js');
 const { buildActorGrowthPlan, refreshActorGrowthPlan } = await import('../src/app/simulation/_lib/growthPlanRuntime.js');
-const { getLateGrowthTargets } = await import('../src/app/simulation/_lib/lateGrowthTargetRuntime.js');
+const { getActorGrowthObservation } = await import('../src/app/simulation/_lib/growthObservationRuntime.js');
+const { getLateGrowthDecision, getLateGrowthTargets } = await import('../src/app/simulation/_lib/lateGrowthTargetRuntime.js');
 const { getActorEquipmentTier } = await import('../src/app/simulation/_lib/growthEquipmentRuntime.js');
 const { getCraftRecipeTerms } = await import('../src/app/simulation/_lib/gearRecipeGuardRuntime.js');
 const { areEquipmentWeaponTypesCompatible, normalizeWeaponType } = await import('../src/utils/equipmentCatalog.js');
@@ -203,6 +204,146 @@ check('growth lookups expire after every call and re-read stock, forbidden zones
   assert.equal(buildActorGrowthPlan(who, items, world).blocked, 'no_safe_path');
   world.zoneGraph.a = ['b', 'c'];
   assert.equal(buildActorGrowthPlan(who, items, world).targetZoneId, 'c');
+});
+
+check('growth planning, refresh and observation share only decision-local facts and re-read mutable inputs next call', () => {
+  const raw = planningMaterial('dynamic-raw', ['b']);
+  const base = planningGear('dynamic-base', 'head', 4);
+  const authored = planningGear('dynamic-authored', 'head', 5, [
+    { itemId: base._id, qty: 1 }, { itemId: raw._id, qty: 1 },
+  ]);
+  const alternative = planningGear('dynamic-alternative', 'head', 5, [
+    { itemId: base._id, qty: 1 }, { itemId: raw._id, qty: 2 },
+  ]);
+  const items = [raw, base, authored, alternative];
+  const who = planningActor({ routePlanTargetItemIds: [base._id],
+    inventory: [{ ...base, itemId: base._id, qty: 1 }], equipped: { head: base._id },
+    goalLoadouts: { hero: { headKey: base.itemKey }, legend: { headKey: authored.itemKey } } });
+  const world = planningWorld();
+  world.fieldResources = { byZone: { b: { [raw._id]: { remaining: 3 } } } };
+
+  const refreshed = refreshActorGrowthPlan(who, items, world);
+  assert.equal(refreshed.targetId, authored._id);
+  assert.equal(refreshed.missing[0].itemId, raw._id);
+  assert.equal(who._openingAcquiredItemIds.head, base._id, 'Only refresh records actual owned authored opening gear.');
+  const beforeReadOnly = structuredClone(who);
+  const replanned = buildActorGrowthPlan(who, items, world);
+  assert.equal(replanned.targetId, authored._id);
+  assert.deepEqual(who, beforeReadOnly, 'Build planning cannot publish acquisitions, route tags or reservations.');
+  getActorGrowthObservation(who, items, { ruleset: {} });
+  assert.deepEqual(who, beforeReadOnly, 'Observation cannot refresh acquisition history or mutate the plan.');
+
+  const rawStack = { itemId: raw._id, qty: 1 };
+  who.inventory.push(rawStack);
+  const available = buildActorGrowthPlan(who, items, world);
+  assert.equal(available.targetId, authored._id);
+  assert.equal(available.readyCraftId, authored._id, 'A later call sees newly owned exact recipe quantity.');
+  authored.recipe.ingredients[1].qty = 2;
+  const editedRecipe = buildActorGrowthPlan(who, items, world);
+  assert.equal(editedRecipe.missing[0].itemId, raw._id);
+  assert.equal(editedRecipe.missing[0].need, 1, 'Recipe terms are not reused after an in-place edit.');
+  rawStack.qty = 2;
+  assert.equal(buildActorGrowthPlan(who, items, world).readyCraftId, authored._id,
+    'The next call re-reads quantities on the same inventory and entry objects.');
+
+  who.goalLoadouts.legend.headKey = alternative.itemKey;
+  assert.deepEqual(getLateGrowthTargets(who, items, { authoredOnly: true }).targets.map(item => item._id), [alternative._id],
+    'The next call sees a changed direct goal on the same mutable catalog.');
+  assert.deepEqual(getLateGrowthTargets(who, items, { authoredOnly: true }), legacyLateGrowthTargets(who, items, { authoredOnly: true }));
+  rawStack.qty = 0;
+  assert.deepEqual(getLateGrowthTargets(who, items, { authoredOnly: true }).targets.map(item => item._id), [alternative._id],
+    'Changing a stack to zero does not make an authored result appear acquired.');
+  rawStack.qty = 1;
+  who.inventory.push({ ...alternative, itemId: alternative._id, qty: 1 });
+  assert.deepEqual(getLateGrowthTargets(who, items, { authoredOnly: true }).targets, [],
+    'Actual exact possession satisfies the direct target without weakening acquisition policy.');
+});
+
+check('combined late decision matches the independent legacy oracle and build avoids a second candidate scan', () => {
+  for (const candidateCount of [1, 4, 40]) {
+    const bases = EQUIP_SLOTS.map(slot => planningGear(`shared-base-${slot}`, slot, 4));
+    const authored = planningGear('shared-authored-legend', 'head', 5,
+      [{ itemId: bases[0]._id, qty: 1 }, { itemId: 'shared-raw', qty: 1 }]);
+    const candidates = Array.from({ length: candidateCount }, (_, index) => planningGear(
+      `shared-auto-${String(index + 1).padStart(2, '0')}`, 'head', 6,
+      [{ itemId: bases[0]._id, qty: 1 }, { itemId: 'shared-raw', qty: 1 }]));
+    const items = [planningMaterial('shared-raw'), ...bases, authored, ...candidates];
+    const recipeReads = new Map();
+    for (const item of [authored, ...candidates]) {
+      const ingredients = item.recipe.ingredients;
+      Object.defineProperty(item.recipe, 'ingredients', { enumerable: true,
+        get() { recipeReads.set(item._id, (recipeReads.get(item._id) || 0) + 1); return ingredients; } });
+    }
+    let rawQtyReads = 0;
+    const rawStack = { itemId: 'shared-raw', get qty() { rawQtyReads += 1; return 1; } };
+    const inventory = [...bases.map(item => ({ ...item, itemId: item._id, qty: 1 })), rawStack];
+    const who = planningActor({ routePlanTargetItemIds: bases.map(item => item._id), inventory,
+      equipped: Object.fromEntries(bases.map(item => [item.equipSlot, item._id])),
+      goalLoadouts: { hero: Object.fromEntries(bases.map(item => [`${item.equipSlot}Key`, item.itemKey])),
+        legend: { headKey: authored.itemKey } } });
+    const expected = legacyLateGrowthTargets(who, items);
+    const expectedAuthored = legacyLateGrowthTargets(who, items, { authoredOnly: true });
+    const decision = getLateGrowthDecision(who, items);
+    assert.deepEqual(decision.issues, expected.issues);
+    assert.deepEqual(decision.targets.map(item => item._id), expected.targets.map(item => item._id));
+    assert.deepEqual(decision.authoredTargets.map(item => item._id), expectedAuthored.targets.map(item => item._id));
+
+    recipeReads.clear(); rawQtyReads = 0;
+    const before = structuredClone({ ...who, inventory: inventory.map(entry => entry === rawStack ? { itemId: entry.itemId, qty: 1 } : entry) });
+    const plan = buildActorGrowthPlan(who, items, planningWorld());
+    assert.equal(plan.targetId, authored._id, 'Authored priority remains ahead of automatic tier-six candidates.');
+    assert.ok(rawQtyReads <= 2, `candidate count ${candidateCount}: one inventory quantity normalization (undefined check plus value read) is shared by build and late decision, observed ${rawQtyReads}`);
+    // One read belongs to the combined decision. Recipe-work traversal's
+    // legacy existence check reads the ingredient accessor twice before its
+    // own one-time normalization, so a second late-goal scan would be the
+    // fifth read rather than the fourth.
+    assert.ok((recipeReads.get(authored._id) || 0) <= 4,
+      `candidate count ${candidateCount}: authored recipe must not be parsed by a second late-goal scan`);
+    for (const candidate of candidates) assert.ok((recipeReads.get(candidate._id) || 0) <= 1,
+      `candidate count ${candidateCount}: automatic candidate ${candidate._id} is indexed once in this build`);
+    assert.deepEqual({ ...who, inventory: inventory.map(entry => entry === rawStack ? { itemId: entry.itemId, qty: 1 } : entry) }, before,
+      'Combined decisions and shared recipe terms cannot mutate actor or inventory.');
+  }
+});
+
+check('cross-candidate recipe terms are shared only within one build and edited intermediate quantities re-read next build', () => {
+  for (const candidateCount of [1, 4, 40]) {
+    const bases = EQUIP_SLOTS.map(slot => planningGear(`shared-recipe-base-${slot}`, slot, 4));
+    const raw = planningMaterial('shared-recipe-raw', []);
+    let ingredientQty = 1, ingredientQtyReads = 0;
+    const intermediateIngredient = { itemId: raw._id,
+      get qty() { ingredientQtyReads += 1; return ingredientQty; },
+      set qty(value) { ingredientQty = value; } };
+    const intermediate = { ...planningMaterial('shared-recipe-intermediate', []), tier: 2,
+      recipe: { ingredients: [intermediateIngredient], resultQty: 1, creditsCost: 0 } };
+    const candidates = Array.from({ length: candidateCount }, (_, index) => planningGear(
+      `shared-recipe-candidate-${String(index + 1).padStart(2, '0')}`, 'head', 5,
+      [{ itemId: bases.find(item => item.equipSlot === 'head')._id, qty: 1 }, { itemId: intermediate._id, qty: 1 }]));
+    const items = [raw, intermediate, ...bases, ...candidates];
+    const inventory = bases.map(item => ({ ...item, itemId: item._id, qty: 1 }));
+    const who = planningActor({ routePlanTargetItemIds: bases.map(item => item._id), inventory,
+      equipped: Object.fromEntries(bases.map(item => [item.equipSlot, item._id])) });
+    const world = planningWorld();
+
+    const before = structuredClone(who);
+    const first = buildActorGrowthPlan(who, items, world);
+    assert.equal(first.targetId, candidates[0]._id);
+    assert.equal(first.blocked, 'no_material_source');
+    assert.deepEqual(first.missing.map(row => [row.itemId, row.need]), [[raw._id, 1]]);
+    assert.equal(ingredientQtyReads, 2,
+      `candidate count ${candidateCount}: normalize the shared intermediate recipe once (undefined check plus value read), not once per candidate`);
+    assert.deepEqual(who, before, 'Planning cannot consume or synthesize shared ingredients.');
+
+    ingredientQtyReads = 0;
+    intermediateIngredient.qty = 3;
+    const second = buildActorGrowthPlan(who, items, world);
+    assert.equal(second.targetId, candidates[0]._id);
+    assert.equal(second.blocked, 'no_material_source');
+    assert.deepEqual(second.missing.map(row => [row.itemId, row.need]), [[raw._id, 3]],
+      'A later call must discard the previous build-local terms after an in-place recipe edit.');
+    assert.equal(ingredientQtyReads, 2, 'The edited dependency is again normalized exactly once in the new build.');
+    assert.deepEqual(who, before, 'The new decision remains read-only after an input edit.');
+  }
 });
 
 check('actors with all five basic equipment slots do not enumerate irrelevant recovery recipes', () => {
