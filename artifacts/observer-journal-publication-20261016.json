@@ -1,5 +1,83 @@
 {
   "schema": "eternal-hunger.observer-journal-publication-evidence.v1",
+  "authoredGoalPolicyBrowserFollowup": {
+    "dateKst": "2026-10-18",
+    "sourceCommit": "e6d6def3fc62a3bb465bca3b3b2fda5cc0c88f76",
+    "engineVersion": "8945cb6f6ba9b0ab4bae50e86d336823cd193cbe062b1c91681154b172d4a840",
+    "buildId": "VXuf8xqQmXV5KINJCiBuh",
+    "origin": "http://127.0.0.1:3137/eternalhunger/evaluate?perfProbe=1",
+    "environment": {"platform": "Windows", "browser": "Chromium 155", "viewportWidth": 1280, "viewportHeight": 720, "devicePixelRatio": 1, "hardwareConcurrency": 12},
+    "method": "A fresh ordinary evaluation match supplied the saved replay input. Three same-document x32 replays used the existing visible diagnostic controls. No paid calls, account writes, input edits, speed changes, pauses or user-program termination. No own heavy verifier/build ran during measurement.",
+    "seed": "1789192220412",
+    "replayId": "1b76abd6-63d7-4215-8778-26e1f1b0a62b",
+    "participants": 24,
+    "teams": 8,
+    "observedTeam": "team:1",
+    "ending": {"matchSec": 1233.5, "winnerTeamId": "team:4", "survivingMembers": 3, "cause": "combat"},
+    "allThreeUiComparisons": {"matched": true, "events": 13237, "finalState": true, "ending": true, "boundaryStatus": "settled", "stopReason": "replay-complete", "speedChanges": 0, "identityChanges": 0, "pauses": 0},
+    "speedDiagnosticThreshold": 28.8,
+    "trials": [
+      {
+        "label": "8945-x32-1", "captureScope": "Partial diagnostic export; advisory only, not a strict consecutive acceptance sample.",
+        "elapsedMs": 46175.9, "activeStartOffsetMs": 291, "activeEndOffsetMs": 46175.7, "activeMs": 45884.7,
+        "effectiveSpeed": 26.882599210630126, "speedVerdict": "below-threshold",
+        "longTasks": {"count": 2, "maxMs": 153, "totalMs": 210},
+        "raf": {"samples": 4054, "medianMs": 10, "p95Ms": 20, "maxMs": 149.9},
+        "heap": {"baselineUsedBytes": 31822672, "usedBytes": 90250001, "deltaUsedBytes": 58427329},
+        "continuousVisibilityEvidence": null, "workerDetail": null,
+        "captureIssue": "A result variable declared inside a conditional was not retained across REPL cells. The printed completion/context/timing/Long Task/RAF/heap fields survive, but full visibility and Worker detail were not captured before starting the next measurement. Missing fields are not zero or pass."
+      },
+      {
+        "label": "8945-x32-2", "timeOriginMs": 1792283126277.1, "startedAtMs": 211924.6, "endedAtMs": 261462.9,
+        "elapsedMs": 49538.3, "activeStartOffsetMs": 290.6, "activeEndOffsetMs": 49538.3, "activeMs": 49247.7,
+        "effectiveSpeed": 25.046854980029522, "speedVerdict": "below-threshold",
+        "visibility": {"entireMeasurementVisible": true, "initialState": "visible", "endState": "visible", "transitions": 0, "boundaryNotifications": 0, "visibleMs": 49538.3, "hiddenMs": 0, "unknownMs": 0},
+        "longTasks": {"count": 10, "maxMs": 147, "totalMs": 732},
+        "raf": {"samples": 4186, "medianMs": 10, "p95Ms": 20, "maxMs": 150, "firstRafDelayMs": 7.9, "trailingRafGapMs": 29.2},
+        "heap": {"baselineUsedBytes": 32773520, "usedBytes": 109915845, "deltaUsedBytes": 77142325}, "domNodes": 741,
+        "worker": {"requested": 13, "reports": 13, "terminals": 13, "clientFailures": 0, "missingReports": 0, "evicted": 0,
+          "phaseElapsedSumMs": 47590.7, "growthSliceSumMs": 17143.4, "refreshPlansSumMs": 3272.7, "actorPlanSumMs": 1857.9,
+          "displayWaitSumMs": 15006.2, "taskWaitSumMs": 61.3, "frameCalls": 996, "frameCallSumMs": 1787.4,
+          "actionCalls": 21569, "actionCallSumMs": 174.2},
+        "main": {"observerTeamModelSumMs": 1920.7, "observerEventWindowSumMs": 3019.2, "replayCaptureMs": 41.4, "replayCompareMs": 104.6}
+      },
+      {
+        "label": "8945-x32-3", "timeOriginMs": 1792283126277.1, "startedAtMs": 309834.3, "endedAtMs": 357868.8,
+        "elapsedMs": 48034.5, "activeStartOffsetMs": 280.1, "activeEndOffsetMs": 48034.4, "activeMs": 47754.3,
+        "effectiveSpeed": 25.830134668501056, "speedVerdict": "below-threshold",
+        "visibility": {"entireMeasurementVisible": true, "initialState": "visible", "endState": "visible", "transitions": 0, "boundaryNotifications": 0, "visibleMs": 48034.5, "hiddenMs": 0, "unknownMs": 0},
+        "longTasks": {"count": 2, "maxMs": 148, "totalMs": 207},
+        "raf": {"samples": 4114, "medianMs": 10, "p95Ms": 20.1, "maxMs": 150, "firstRafDelayMs": 0.7, "trailingRafGapMs": 32.6},
+        "heap": {"baselineUsedBytes": 31156569, "usedBytes": 134638158, "deltaUsedBytes": 103481589}, "domNodes": 744,
+        "worker": {"requested": 13, "reports": 13, "terminals": 13, "clientFailures": 0, "missingReports": 0, "evicted": 0,
+          "phaseElapsedSumMs": 46034.3, "growthSliceSumMs": 16666.8, "refreshPlansSumMs": 2995.3, "actorPlanSumMs": 1954.7,
+          "displayWaitSumMs": 14996.8, "taskWaitSumMs": 63.2, "frameCalls": 964, "frameCallSumMs": 1563.4,
+          "actionCalls": 21569, "actionCallSumMs": 203.1},
+        "main": {"observerTeamModelSumMs": 1939.9, "observerEventWindowSumMs": 2994.1, "replayCaptureMs": 34.9, "replayCompareMs": 112.2}
+      }
+    ],
+    "interpretation": {
+      "scope": "UI replay equality covers every event plus final state and ending, not every intermediate browser frame or RNG. Headless independent-current-source evidence is recorded separately in the core-growth artifact.",
+      "timing": "Nested stage totals are non-additive; send-call duration is not delivery/CPU attribution. RAF cadence is not presented FPS. External user-program load was not controlled, so no causal improvement percentage is claimed.",
+      "fullPerformanceGate": "Incomplete: x1/x8, nine-run predeclared-gap acceptance, restart and full memory gates remain. Trial 1 has incomplete export coverage and cannot substitute for a complete acceptance sample.",
+      "nextCorePriority": "The display pacer already uses wall-clock deadlines and bounded lag recovery. Investigate the measured early growth slices rather than blindly removing waits, increasing lag budgets, reducing game work or loosening the 28.8 threshold."
+    },
+    "publication": {
+      "commit": "e6d6def3fc62a3bb465bca3b3b2fda5cc0c88f76", "gitPush": "succeeded", "vercelState": "failure",
+      "statusUpdatedAt": "2026-10-18T00:26:19Z",
+      "detailsUrl": "https://vercel.com/kurokosis-projects/eternal-hunger/3mfSc4JFuaWedJNaHdSU56gyiCSy",
+      "detailAccess": "The deployment detail redirects to Vercel login. Offline-only CLI inspection exited ENOTCACHED; no CLI download, login, permission change or deployment retry was performed. Requested the final Build Logs error from the user.",
+      "anonymousCurrentEnginePublicProof": false
+    },
+    "ownedResourceCleanup": {
+      "serverPid": 38908, "serverStartedAtUtc": "2026-10-18T00:25:03.3306350Z", "port": 3137,
+      "stoppedAfterExactCommandAndStartIdentityCheck": true, "remainingListeners": 0,
+      "ownedTabsClosed": 2, "remainingTabs": 0, "restoredBrowserVisible": false, "browserVisibilityRestorationSucceeded": true, "otherProgramsStopped": 0,
+      "keptServerLogBytes": 132,
+      "cacheRemovalScope": "The earlier 12-file / 1,222,495,429-byte core-policy cache cleanup is not counted again. Completed build and synthetic local replay remain; no full source copies or full match JSON exports were created."
+    },
+    "scope": "Current-engine localhost diagnostic output only, not input/oracle for any verifier, a public deployment success, full performance/memory acceptance, broad custom-input success or human evaluation. Historical root fields below retain their own engine/date scope."
+  },
   "dateKst": "2026-10-16",
   "outputOnly": true,
   "noVerificationConsumesThisFileAsInputOrOracle": true,
