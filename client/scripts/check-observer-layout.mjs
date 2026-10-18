@@ -198,6 +198,16 @@ check('desktop page can scroll while controls and observation remain bounded', (
     'Keep the independently scrollable observer pane below sticky controls and inside short viewports.');
   assert.ok(/\.simulation-page--observer \.control-panel \{[^}]*position: sticky;[^}]*top: 0;/.test(desktop));
 });
+check('diagnostic panel stays reachable while scrolling without stacking above controls or dialogs', () => {
+  assert.match(styles, /\.sim-observer-performance \{[^}]*position: sticky;[^}]*top: 0;[^}]*z-index: 80;/,
+    'Keep the diagnostic panel at the viewport top so its start control is reachable with the map in view.');
+  assert.match(styles, /\.simulation-page--observer \.control-panel \{[^}]*z-index: 90;/,
+    'Ordinary game controls must stack above the diagnostic panel.');
+  assert.match(styles, /\.sim-replay-backdrop \{[^}]*z-index: 1200;/,
+    'Replay dialogs must remain above the diagnostic panel.');
+  assert.match(styles, /\.minimap-panel\.modal-open,\s*\.log-window\.modal-open \{[^}]*z-index: 9001;/,
+    'Expanded map dialogs must remain above the diagnostic panel.');
+});
 check('short desktop retains two columns and only narrow width stacks the observation pane', () => {
   assert.ok(!styles.includes('@media (max-width: 999px), (max-height: 599px)'),
     'Height alone must not hide the log beside the desktop map.');

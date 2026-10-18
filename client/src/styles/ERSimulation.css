@@ -4463,7 +4463,7 @@
 .sim-replay-toolbar { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 12px; padding: 6px 18px; color: #e4edfa; background: #10263a; font-size: 13px; }
 .sim-replay-toolbar button, .sim-replay-result button { padding: 9px 14px; border: 1px solid #527aa0; border-radius: 7px; color: #edf6ff; background: #1d354e; cursor: pointer; }
 .sim-replay-toolbar button:disabled { opacity: .5; cursor: default; }
-.sim-observer-performance { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 6px 10px; max-height: 25dvh; overflow: auto; padding: 4px 18px; background: #10263a; color: #e4edfa; font-size: 12px; }
+.sim-observer-performance { position: sticky; top: 0; z-index: 80; display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 6px 10px; max-height: 25dvh; overflow: auto; padding: 4px 18px; background: #10263a; color: #e4edfa; font-size: 12px; }
 .sim-observer-performance input { min-width: 0; width: min(220px, 45vw); padding: 3px 6px; border: 1px solid #527aa0; border-radius: 4px; background: #1d354e; color: #edf6ff; }
 .sim-observer-performance button { padding: 3px 8px; border: 1px solid #527aa0; border-radius: 4px; background: #1d354e; color: #edf6ff; cursor: pointer; }
 .sim-observer-performance button:disabled { opacity: .5; cursor: default; }

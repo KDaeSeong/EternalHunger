@@ -1,4 +1,70 @@
 {
+  "focusedFieldDemandVariedBaselineFollowup": {
+    "recordedAt": "2026-10-18",
+    "sourceCommitBeforeFollowup": "1326a9d9b4a621bfa7bcc1d20ca9df68348b433d",
+    "engineVersion": "d672a14f6583f454ad9d77f05c2d21e2c3197ad8e481213ce45854c390d1b3a5",
+    "status": "six-current-engine-baseline-matches-and-diagnostic-layout-browser-replay-verified; overall-goal-incomplete",
+    "preservedPriorSections": {"count":19,"canonicalSha256":"661122e46b1c889c02151768464383953632ebb59b2ba3aaefffb4546b32afde","algorithm":"PowerShell parsed JSON -> ConvertTo-Json -Depth 100 -Compress -> UTF8 SHA256, excluding this newly added root section."},
+    "variedBaseline": {
+      "command": "node scripts/run-eternal-hunger-verification.mjs distribution-varied",
+      "runDirectory": "client/.verification-runs/2026-10-18T07-10-23.584Z-aa93b98e-8165-43db-97b2-6b1e58a22b78",
+      "startedAt": "2026-10-18T07:10:23.585Z",
+      "finishedAt": "2026-10-18T07:17:21.017Z",
+      "status": "passed", "exitCode":0,
+      "resultSha256": "fde50f5bc6b23e0090c4d611003734343a3951649eec3abe978eef71a3f128fb",
+      "outputLogSha256": "452e99f2aa421f0ff13414c517d2354e0041d4f751589c8a9f579a52e90a39c3",
+      "sameEngineBeforeAfter": true,
+      "sameRunnerPackageModuleResolutionHashesBeforeAfter": true,
+      "separateVerificationFingerprintEntry": false,
+      "inputAxes": "Fresh generated baseline roster A/B/C, each with independent match seed 5501/5502. Roster seed may alter participants, teams, weapons, target routes and placement; map, default settings and catalog remain fixed. Not arbitrary custom-roster/strategy coverage.",
+      "firstNightDeadlineSec":250,
+      "beforeDeadlineComparison":"strictly less than deadline; invalid initial goals remain in denominator; completion keeps initial target identity",
+      "rows": [
+        {"roster":"BASELINE:roster-A","seed":"5501","initialActors":24,"initialGoals":24,"goalsBeforeDeadline":24,"actualFiveSlotHeroObserved":24,"goalCompletionRangeSec":[23,41],"finalFullLoadouts":24,"finalHeroReady":24,"regroupCompleted":19,"regroupStarted":19,"regroupMemberDeaths":0,"regroupRosterChanges":0,"moveReversals":65,"moves":602,"teamRetreatEdges":26,"retreatReversals":0,"ending":"last_team","endingAtSec":1278.75,"lastRecordedDeathCause":"combat"},
+        {"roster":"BASELINE:roster-A","seed":"5502","initialActors":24,"initialGoals":24,"goalsBeforeDeadline":24,"actualFiveSlotHeroObserved":24,"goalCompletionRangeSec":[24,39],"finalFullLoadouts":24,"finalHeroReady":23,"regroupCompleted":19,"regroupStarted":25,"regroupMemberDeaths":5,"regroupRosterChanges":1,"moveReversals":106,"moves":563,"teamRetreatEdges":20,"retreatReversals":0,"ending":"last_team","endingAtSec":1190.333333,"lastRecordedDeathCause":"combat"},
+        {"roster":"BASELINE:roster-B","seed":"5501","initialActors":24,"initialGoals":24,"goalsBeforeDeadline":24,"actualFiveSlotHeroObserved":24,"goalCompletionRangeSec":[24,41],"finalFullLoadouts":24,"finalHeroReady":24,"regroupCompleted":18,"regroupStarted":23,"regroupMemberDeaths":4,"regroupRosterChanges":1,"moveReversals":49,"moves":545,"teamRetreatEdges":22,"retreatReversals":0,"ending":"last_team","endingAtSec":1194.833333,"lastRecordedDeathCause":"combat"},
+        {"roster":"BASELINE:roster-B","seed":"5502","initialActors":24,"initialGoals":24,"goalsBeforeDeadline":24,"actualFiveSlotHeroObserved":24,"goalCompletionRangeSec":[23,41],"finalFullLoadouts":24,"finalHeroReady":24,"regroupCompleted":23,"regroupStarted":23,"regroupMemberDeaths":0,"regroupRosterChanges":0,"moveReversals":57,"moves":579,"teamRetreatEdges":29,"retreatReversals":0,"ending":"last_team","endingAtSec":1193.381578,"lastRecordedDeathCause":"wildlife_hunt"},
+        {"roster":"BASELINE:roster-C","seed":"5501","initialActors":24,"initialGoals":24,"goalsBeforeDeadline":24,"actualFiveSlotHeroObserved":24,"goalCompletionRangeSec":[22,40],"finalFullLoadouts":24,"finalHeroReady":24,"regroupCompleted":26,"regroupStarted":26,"regroupMemberDeaths":0,"regroupRosterChanges":0,"moveReversals":78,"moves":647,"teamRetreatEdges":27,"retreatReversals":0,"ending":"last_team","endingAtSec":1277,"lastRecordedDeathCause":"combat"},
+        {"roster":"BASELINE:roster-C","seed":"5502","initialActors":24,"initialGoals":24,"goalsBeforeDeadline":24,"actualFiveSlotHeroObserved":24,"goalCompletionRangeSec":[24,39],"finalFullLoadouts":24,"finalHeroReady":24,"regroupCompleted":24,"regroupStarted":25,"regroupMemberDeaths":1,"regroupRosterChanges":0,"moveReversals":91,"moves":610,"teamRetreatEdges":27,"retreatReversals":0,"ending":"last_team","endingAtSec":1275.333333,"lastRecordedDeathCause":"combat"}
+      ],
+      "totals": {"initialGoalsBeforeFirstNight":144,"initialGoalActors":144,"actualFiveSlotHeroObserved":144,"regroupCompleted":129,"regroupStarted":141,"regroupMemberDeaths":10,"regroupRosterChanges":2,"regroupUnfinished":0,"moveReversals":446,"moves":3546,"teamRetreatEdges":151,"retreatReversals":0,"naturalLastTeamEndings":6,"forcedEndings":0},
+      "metricLimits": [
+        "Initial-goal and ever-equipped observations are not final gear retention guarantees; A/5502 final hero-ready is 23/24 although all 24 initially equipped five hero slots.",
+        "Regroup uses each attempt's fixed full living-member list; deaths and roster changes remain non-completion outcomes in its denominator.",
+        "Move reversal counts consecutive actual A->B->A edges per actor; death/revive/rift break continuity. Retreat reversal uses only explicit team-outnumbered/power-gap retreat edges.",
+        "Ending cause is the last recorded death cause, not proof of the winner's sole causal advantage. One last-team ending records wildlife_hunt, not combat.",
+        "No baseline success rate, reversal count or event total is a human fun/balance verdict or an arbitrary-custom-input guarantee."
+      ]
+    },
+    "observerPanel": {
+      "productionChange": "One diagnostic-only CSS rule: sticky top 0, z-index 80, below controls 90 and existing dialogs. No game calculation, map geometry, viewport override or acceptance threshold change.",
+      "cssSha256":"648f27cdb06b8f27f87d3624ba016c478457cdb79ddbdea64456f6b40fcdf416",
+      "layoutCheckSha256":"4feac5f628e680dc0d118d3e38170fc007405a2c3dcbd45e0d68b221a7e27d70",
+      "layoutChecksPassed":27,"layoutCheckExitCode":0,"layoutCheckEslintExitCode":0,
+      "buildDirectory":"client/.verification-runs/2026-10-18T07-23-45.302Z-17505ce9-4430-457a-99cb-44a70d4a45bb",
+      "buildId":"tF3CQa0ctacUl04QzTOMI","buildExitCode":0,"sameEngineBeforeAfter":true,"sameVerificationSourcesBeforeAfter":true,
+      "buildResultSha256":"7d8b8131e21ca6efc3cdeeac454a682bd8009c85a38b79d3b49d969e7264ba13",
+      "buildOutputSha256":"4c17dde0512e53e313898dafea1cd1c33cd8c85ff3566c91b9f35ef0aaa7e82d",
+      "routeRows":75,"staticRouteRows":60,"dynamicRouteRows":15,"staticGenerationWorkItems":62,
+      "moduleResolutionChecks":23,"isolatedNodeVmWorker":{"frames":295,"finalMatchSec":140,"completes":1,"failures":0,"browserOrPerformanceProof":false},
+      "browserSummaryFile":"client/.verification-runs/2026-10-18T07-23-45.302Z-17505ce9-4430-457a-99cb-44a70d4a45bb/observer-sticky-panel-summary.json",
+      "browserSummarySha256":"158afc98a2615b386aee796cbe11a2325cbe5dbdc5503861979f5c20868ba7dc",
+      "browserSummaryScope":"Selected scalar observations, not raw v3 reports. Semantic-click-contaminated original is excluded. Physical x32 original and one saved-input replay retained complete map geometry through settled stop. Replay compared 12165 events and matched final result, effective 29.55825x, map samples 3241/3241 full, Long Task max111ms. Not the strict nine-run/memory/session/native-foreground/human gates.",
+      "rawV3ReportsPersisted":false,"strictNineRunAcceptanceComplete":false,
+      "agentCreatedTabsAndServerClosed":true
+    },
+    "cleanup": {
+      "receipt":"client/.verification-runs/2026-10-18T07-23-45.302Z-17505ce9-4430-457a-99cb-44a70d4a45bb/cleanup-sticky-panel.json",
+      "sha256":"5f41157a4e16eceda9e510dbb83b3093df427510734eb8ffe5504fba360aee97",
+      "webpackPacksRemoved":6,"temporaryPreFixBuildFilesRemoved":1276,"logicalBytesRemoved":640469555,
+      "currentBuildPayloadPreserved":{"files":1276,"bytes":27517716,"sha256":"8b9446da362afab9927cec8fa0e45e7d0f140d8d25fb406695d0504529245c53"},
+      "fiveArtifactRootsAfterCleanupBeforeFinalEvidenceUpdatesBytes":2136657209,
+      "unrelatedUntrackedPathsPreservationExpected":2592,
+      "recovery":"Webpack packs regenerate with the standard build. Temporary ZSW bundle can be rebuilt from commit1326a9d9; current successful build and other unique recovery/reproduction bundles remain."
+    },
+    "overallGoalComplete":false,
+    "remainingGates":["Latest public deployment/build logs", "Strict foreground x1/x8/x32 nine-run and repeated memory/session acceptance with raw reports", "Broader custom/formation causal evidence where still unverified", "Actual follow-up human spectator understanding and replay intent"]
+  },
   "focusedFieldDemandAcceptanceFollowup": {
     "recordedAt": "2026-10-18T06:52:53.5108885Z",
     "sourceCommit": "4900991ea2909e22933ac00f52e67b80a775365b",
