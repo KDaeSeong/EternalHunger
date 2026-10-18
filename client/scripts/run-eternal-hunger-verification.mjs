@@ -7,7 +7,7 @@ import { join } from 'node:path';
 // Keep terminal output and the real exit code together across interrupted tool
 // observations. A stale "running" result is NOT evidence of a live process.
 const commands = {
-  full: 'npm run check:eternal-hunger',
+  full: 'npm run check:eternal-hunger:chain',
   unit: 'node scripts/check-character-status-skills.mjs',
   build: 'npm run build',
   'runtime-build': 'npm run check:runtime:full',
@@ -84,12 +84,14 @@ if (mode === 'distribution-varied' && process.argv.length > 3) {
   commands[mode] = `npm run diagnose:match-distribution -- --rosters=${rosters} ${seeds.split(',').join(' ')}`;
 }
 if (['strategy-paired', 'formation-paired'].includes(mode) && process.argv.length > 3) {
-  const seedList = process.argv[3];
-  if (process.argv.length !== 4 || !/^\d+(?:,\d+)*$/.test(seedList)
-    || new Set(seedList.split(',')).size !== seedList.split(',').length) {
-    throw Error('Use strategy-paired or formation-paired <comma-separated numeric seeds>.');
+  const [seedList, rosterSeed] = process.argv.slice(3);
+  if (![4, 5].includes(process.argv.length) || !/^\d+(?:,\d+)*$/.test(seedList)
+    || new Set(seedList.split(',')).size !== seedList.split(',').length
+    || (rosterSeed !== undefined && !/^[A-Za-z0-9_:][A-Za-z0-9_:-]*$/.test(rosterSeed))) {
+    throw Error('Use strategy-paired or formation-paired <comma-separated numeric seeds> [initial-roster-seed]; roster seed allows letters, digits, underscore, colon and hyphen only.');
   }
   commands[mode] = commands[mode].replace('--seeds=1101', `--seeds=${seedList}`);
+  if (rosterSeed !== undefined) commands[mode] += ` --roster-seed=${rosterSeed}`;
 }
 const root = fileURLToPath(new URL('../', import.meta.url));
 const runId = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}`;
@@ -271,6 +273,9 @@ function verificationSourceHashes() {
     'scripts/check-team-survival-contribution.mjs', 'scripts/lib/run-combat-scenario.mjs');
   if (['team-survival', 'full'].includes(mode)) paths.push('scripts/check-team-retreat-survival.mjs',
     'scripts/check-verification-fingerprint.mjs');
+  if (mode === 'full') paths.push('scripts/check-eternal-hunger-regressions.mjs',
+    'scripts/check-guest-character-profiles.mjs', 'scripts/check-simulation-random.mjs',
+    'scripts/check-team-regroup.mjs');
   if (mode === 'combat-path-observation') paths.push('scripts/check-combat-participation-observation.mjs',
     'scripts/lib/run-combat-scenario.mjs', 'scripts/lib/team-combat-participation-diagnostics.mjs');
   if (mode === 'late-combat-join') paths.push('scripts/check-late-combat-join.mjs', 'scripts/lib/run-combat-scenario.mjs');
@@ -309,16 +314,24 @@ function verificationSourceHashes() {
   return Object.fromEntries(paths.map((path) => [path,
     createHash('sha256').update(readFileSync(join(root, path), 'utf8').replaceAll('\r\n', '\n')).digest('hex')]));
 }
+function verificationChildEnvironment(mode, environment, modulePreloadUrl) {
+  if (mode !== 'full') return environment;
+  return { ...environment, NODE_OPTIONS: [environment.NODE_OPTIONS,
+    `--import=${modulePreloadUrl}`].filter(Boolean).join(' ') };
+}
 const result = { runId, command: commands[mode], startedAt: new Date().toISOString(), pid: process.pid,
   engineBefore: fingerprint(), verificationSourcesBefore: verificationSourceHashes(),
   status: 'running', scope: 'Named command only; not balance, fun or overall-goal acceptance.' };
+const modulePreloadUrl = new URL('./lib/register-simulation-modules.mjs', import.meta.url).href;
+const childEnvironment = verificationChildEnvironment(mode, process.env, modulePreloadUrl);
+if (mode === 'full') result.modulePreloadUrl = modulePreloadUrl;
 const persist = () => writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`);
 persist(); console.log(`VERIFICATION_RESULT ${resultPath}`);
 try {
   const outcome = await new Promise((resolve, reject) => {
     const child = process.platform === 'win32'
-      ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', commands[mode]], { cwd: root, windowsHide: true })
-      : spawn('/bin/sh', ['-c', commands[mode]], { cwd: root });
+      ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', commands[mode]], { cwd: root, windowsHide: true, env: childEnvironment })
+      : spawn('/bin/sh', ['-c', commands[mode]], { cwd: root, env: childEnvironment });
     child.stdout.on('data', (chunk) => { log.write(chunk); process.stdout.write(chunk); });
     child.stderr.on('data', (chunk) => { log.write(chunk); process.stderr.write(chunk); });
     child.once('error', reject); child.once('close', (code, signal) => resolve({ code, signal }));

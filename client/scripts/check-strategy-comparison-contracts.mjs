@@ -1,5 +1,7 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const { createRandomIsolationInput } = await import('./lib/run-random-isolation-match.mjs');
 const { assertFormationRosterConsistency, buildFormationExposure, buildTacticalExposure, buildTacticalExposurePair, createFormationSwapInput,
   validateStrategyVariants } = await import('./lib/strategy-comparison-contracts.mjs');
 const { TACTICAL_EFFECT_SCHEMA } = await import('../src/app/simulation/_lib/tacticalEffectEvidenceRuntime.js');
@@ -8,6 +10,7 @@ const { getRuleset } = await import('../src/utils/rulesets.js');
 
 let checks = 0;
 const check = (name, run) => { run(); checks += 1; console.log(`PASS ${name}`); };
+const checkAsync = async (name, run) => { await run(); checks += 1; console.log(`PASS ${name}`); };
 const freeze = value => {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
     Object.values(value).forEach(freeze); Object.freeze(value);
@@ -35,6 +38,34 @@ check('baseline-only, duplicate and unknown variants cannot pass a strategy comp
     assert.throws(() => validateStrategyVariants(variants));
   }
   validateStrategyVariants(['baseline', 'one-tactical-skill', 'one-formation-swap']);
+});
+check('strategy runner forwards an explicit roster seed and records the actual generated seed', () => {
+  const source = readFileSync(new URL('./analyze-strategy-comparison.mjs', import.meta.url), 'utf8');
+  assert.match(source, /\^--\(seeds\|output\|variants\|repeats\|roster-seed\)=/,
+    'The CLI contract must admit the explicit --roster-seed=<identifier> option.');
+  assert.match(source, /createRandomIsolationInput\(seed,\s*options\.rosterSeed === undefined \? \{\} : \{ initialRosterSeed: options\.rosterSeed \}\)/,
+    'The selected roster seed must be passed into the actual fresh-input generator; omission must keep generator defaults.');
+  assert.match(source, /rosterSeed:\s*options\.rosterSeed \?\? null/,
+    'The selected CLI value must be included in incremental output and the final result.');
+  assert.match(source, /startingInputs\.push\(\{ seed, initialRosterSeed, inputDigest/,
+    'Each starting input must record the generator-returned roster seed.');
+  assert.match(source, /const observation = \{ seed, initialRosterSeed, variant/,
+    'Each actual execution must record the generator-returned roster seed.');
+});
+await checkAsync('distinct roster seeds reach the fresh roster generator while the unspecified default stays intact', async () => {
+  const runSeed = 'same-in-match-seed';
+  const generated = await Promise.all([
+    createRandomIsolationInput(runSeed),
+    createRandomIsolationInput(runSeed, { initialRosterSeed: 'strategy-roster-axis-a' }),
+    createRandomIsolationInput(runSeed, { initialRosterSeed: 'strategy-roster-axis-b' }),
+  ]).then(rows => rows.map(JSON.parse));
+  assert.equal(generated[0].initialRosterSeed, 'FIXTURE:initial-roster');
+  assert.equal(generated[1].initialRosterSeed, 'strategy-roster-axis-a');
+  assert.equal(generated[2].initialRosterSeed, 'strategy-roster-axis-b');
+  assert.ok(new Set(generated.map(row => JSON.stringify(row.survivors.map(actor => actor._id)))).size > 1,
+    'The explicit roster seed must reach roster generation, not just be copied into metadata.');
+  assert.deepEqual(generated.map(row => row.runSeed), [runSeed, runSeed, runSeed],
+    'Changing the roster seed must not alter the in-match random seed.');
 });
 check('formation swaps rebuild snapshots for every affected teammate', () => {
   const out = createFormationSwapInput(input);

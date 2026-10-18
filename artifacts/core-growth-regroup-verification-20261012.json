@@ -1,4 +1,312 @@
 {
+  "minimumPlayReleaseAndPauseFollowup": {
+    "observedAtUtc": "2026-10-18 10:28:32 UTC",
+    "scope": "Verification tooling and tests only; no gameplay rule, account save or server behavior changes. Preserve all original G1-G5 and common acceptance criteria.",
+    "engineVersion": "d672a14f6583f454ad9d77f05c2d21e2c3197ad8e481213ce45854c390d1b3a5",
+    "automaticFullChain": {
+      "runDirectory": "client/.verification-runs/2026-10-18T09-38-17.998Z-1bf30aa5-c674-4dc6-aa12-7f5aa817c117/",
+      "status": "passed",
+      "exitCode": 0,
+      "startedAt": "2026-10-18T09:38:18.001Z",
+      "finishedAt": "2026-10-18T10:15:34.873Z",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "resultSha256": "2f45a0884f5c5ecb4a7c8f699486c9c9c86110ee0f5b9b1913dcef344fb30385",
+      "outputSha256": "7280cf5bb00aa8b5766d079db9f68b85d79d7f36b26cb6ed4c1c54b078f3030e"
+    },
+    "standaloneBuild": {
+      "runDirectory": "client/.verification-runs/2026-10-18T10-16-02.373Z-7f0da2df-4aee-4ce3-bc77-fcce181ae239/",
+      "status": "passed",
+      "exitCode": 0,
+      "startedAt": "2026-10-18T10:16:02.375Z",
+      "finishedAt": "2026-10-18T10:16:28.858Z",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "resultSha256": "ef732d2adbe84058d2879dd253f49d419264df8216c55cd0485c41e4e5f12f9a",
+      "outputSha256": "c9909762401e3e81dd50c03f49b1875aaa89af5dbffa871ce71d6c5660572b57",
+      "buildId": "hsk2UDbK5Z7hPxYgrrxxQ",
+      "parentNodeOptionsAbsent": true,
+      "childModulePreload": false,
+      "verifiedPayload": {
+        "files": 1274,
+        "bytes": 26477955,
+        "sha256": "1652a84e7c20424ed08cb4db14206ca458444cdb49d142ffb4e0047039708440"
+      }
+    },
+    "sourceRepairs": [
+      "Canonical full CLI keeps the original 30-task chain and preloads relative module resolution in child processes only.",
+      "Regression entry imports product modules after registration.",
+      "RNG wiring assertion checks the current Worker override plus native fallback.",
+      "Controlled regroup fixture explicitly checks successful and failed movement draws without changing the production 98-percent movement cap.",
+      "Optional paired-comparison roster seed is recorded as a normal initial input; default behavior is unchanged."
+    ],
+    "coldLocalIntegration": {
+      "source": "client/scripts/check-guest-character-profiles.mjs",
+      "participants": 24,
+      "goalActors": [
+        "guest-survivor-01",
+        "guest-survivor-04"
+      ],
+      "rawPickups": 56,
+      "paidCraftReceipts": 31,
+      "goalEquipTimes": [
+        [
+          "guest-survivor-04:guest-item-cold-bootstrap-clothes",
+          17
+        ],
+        [
+          "guest-survivor-01:guest-item-cold-bootstrap-head",
+          22
+        ]
+      ],
+      "replayExact": true,
+      "apiCalls": 0,
+      "ending": "last_team",
+      "scope": "Fresh memoryStorage reconstruction through product local item bootstrap, guest profiles, saved custom roster and initial-roster path. Not physical-browser cold storage."
+    },
+    "focusedVerification": {
+      "regroupIndependentExecutions": 10,
+      "regroupChecksPerExecution": 33,
+      "rngChecks": 12,
+      "cooperativeYieldChecks": 26,
+      "fingerprintGroups": 21,
+      "receipt": "client/.verification-runs/2026-10-18T09-24-37.335Z-d400e9b3-0dce-4948-83bc-5a67aeffb4dc/focused-verification-followup.json"
+    },
+    "pairedComparison": {
+      "contracts": {
+        "runDirectory": "client/.verification-runs/2026-10-18T10-17-02.659Z-46df6ab8-3cad-4ea2-ac78-6d9911157e76/",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T10:17:02.660Z",
+        "finishedAt": "2026-10-18T10:17:08.129Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "resultSha256": "e62cafc3394d41fe98fd6b3c9bc7dca7332172e98c64458996671a0bb4912c4a",
+        "outputSha256": "deb424e9595608926c72214404d3d3baf46a1b52ca6a14cde8fd95bdd38752c1",
+        "contracts": {
+          "pass": true,
+          "checks": 25,
+          "scope": "Fresh independent formation and exposure contracts; not actual match or browser proof."
+        }
+      },
+      "partialRun": {
+        "runDirectory": "client/.verification-runs/2026-10-18T10-17-08.177Z-73050489-20ed-4634-8e86-0411ffdc6401/",
+        "status": "running",
+        "exitCode": null,
+        "startedAt": "2026-10-18T10:17:08.179Z",
+        "finishedAt": null,
+        "sameEngine": null,
+        "sameVerificationSources": null,
+        "resultSha256": "6dc8cd6b1b237ee932ad1abf5cc085302fd3081aa18788fe05cced87b003361c",
+        "outputSha256": "0e7dceeb1cf465682be13969926e6f8067488abb9cbf040f96b8f505dd9cf036",
+        "observations": {
+          "completedMatches": 5,
+          "expectedMatches": 8,
+          "cases": 2,
+          "comparisonComplete": false
+        },
+        "dataSha256": "443a98edc3fe68ab332cc1405292f9a5d96bafb68e2b5f006926cbd0fd6a308c"
+      },
+      "userInterrupted": true,
+      "interruptionReceipt": "client/.verification-runs/2026-10-18T10-17-08.177Z-73050489-20ed-4634-8e86-0411ffdc6401//user-interruption.json",
+      "interruptionSha256": "59594d1ef2bef0513dc3b582e45ae48d9a5db7f0bf8e4289b13b460321e7b332",
+      "comparisonAccepted": false,
+      "scope": "Five of eight executions retained; first seed's two conditions each repeated exactly. Remaining cases/exposure acceptance were deferred by user, not reported as passed."
+    },
+    "foregroundPerformance": {
+      "collectionStarted": false,
+      "plan": "client/.verification-runs/2026-10-18T09-38-17.998Z-1bf30aa5-c674-4dc6-aa12-7f5aa817c117/observer-nine-run-plan.json",
+      "deferredByUser": true
+    },
+    "cleanup": {
+      "manifest": "client/.verification-runs/2026-10-18T10-16-02.373Z-7f0da2df-4aee-4ce3-bc77-fcce181ae239/cleanup-minimum-pause.json",
+      "manifestSha256": "b14bdccb07db8776285ab3714a800690c440e67541a868dd4f055f2e3d111a68",
+      "removedFiles": 9,
+      "removedLogicalBytes": 632398387,
+      "selectedRootsLogicalBytesBefore": 2774118464,
+      "selectedRootsLogicalBytesAfterCacheRemoval": 2141724267,
+      "measurementAt": "2026-10-18T10:26:19.968Z",
+      "scope": "Five disjoint artifact roots only, dev/inode deduplicated logical sizes; not whole-workspace allocation or free disk space. Closeout documentation bytes are added afterward.",
+      "buildPayloadUnchanged": true,
+      "userSourcesRecoveryAndEvidencePreserved": true
+    },
+    "preservation": {
+      "existingProofRoots": 21,
+      "existingRootsCanonicalSha256": "8620f24d602f881cf921db90e55cbb6a4bbdda97873f85c8052b93a8af5afe26",
+      "originalGoalSuffix": {
+        "marker": "## 제품 정의와 범위",
+        "bytes": 43026,
+        "sha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b"
+      },
+      "unrelatedUntrackedCount": 2592,
+      "untrackedNamesSha256": "761e8e032e25195e8b859512add38df7797a11bcff1027e6555a31aa9ed32d08"
+    },
+    "goal": {
+      "complete": false,
+      "pauseRequested": true,
+      "reason": "User requested play-essential updates only, then pause.",
+      "deferred": [
+        "Remaining three scheduled formation executions and full exposure acceptance",
+        "Strict foreground nine-run comparison and separate new-document memory/restart checks",
+        "Physical-browser cold persistence and external AI draft quality remain outside the new headless proof",
+        "Human follow-up and all other unresolved original G1-G5 gates"
+      ]
+    }
+  },
+  "minimumPlayReleaseAndPauseFollowup": {
+    "observedAtUtc": "2026-10-18 10:28:32 UTC",
+    "scope": "Verification tooling and tests only; no gameplay rule, account save or server behavior changes. Preserve all original G1-G5 and common acceptance criteria.",
+    "engineVersion": "d672a14f6583f454ad9d77f05c2d21e2c3197ad8e481213ce45854c390d1b3a5",
+    "automaticFullChain": {
+      "runDirectory": "client/.verification-runs/2026-10-18T09-38-17.998Z-1bf30aa5-c674-4dc6-aa12-7f5aa817c117/",
+      "status": "passed",
+      "exitCode": 0,
+      "startedAt": "2026-10-18T09:38:18.001Z",
+      "finishedAt": "2026-10-18T10:15:34.873Z",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "resultSha256": "2f45a0884f5c5ecb4a7c8f699486c9c9c86110ee0f5b9b1913dcef344fb30385",
+      "outputSha256": "7280cf5bb00aa8b5766d079db9f68b85d79d7f36b26cb6ed4c1c54b078f3030e"
+    },
+    "standaloneBuild": {
+      "runDirectory": "client/.verification-runs/2026-10-18T10-16-02.373Z-7f0da2df-4aee-4ce3-bc77-fcce181ae239/",
+      "status": "passed",
+      "exitCode": 0,
+      "startedAt": "2026-10-18T10:16:02.375Z",
+      "finishedAt": "2026-10-18T10:16:28.858Z",
+      "sameEngine": true,
+      "sameVerificationSources": true,
+      "resultSha256": "ef732d2adbe84058d2879dd253f49d419264df8216c55cd0485c41e4e5f12f9a",
+      "outputSha256": "c9909762401e3e81dd50c03f49b1875aaa89af5dbffa871ce71d6c5660572b57",
+      "buildId": "hsk2UDbK5Z7hPxYgrrxxQ",
+      "parentNodeOptionsAbsent": true,
+      "childModulePreload": false,
+      "verifiedPayload": {
+        "files": 1274,
+        "bytes": 26477955,
+        "sha256": "1652a84e7c20424ed08cb4db14206ca458444cdb49d142ffb4e0047039708440"
+      }
+    },
+    "sourceRepairs": [
+      "Canonical full CLI keeps the original 30-task chain and preloads relative module resolution in child processes only.",
+      "Regression entry imports product modules after registration.",
+      "RNG wiring assertion checks the current Worker override plus native fallback.",
+      "Controlled regroup fixture explicitly checks successful and failed movement draws without changing the production 98-percent movement cap.",
+      "Optional paired-comparison roster seed is recorded as a normal initial input; default behavior is unchanged."
+    ],
+    "coldLocalIntegration": {
+      "source": "client/scripts/check-guest-character-profiles.mjs",
+      "participants": 24,
+      "goalActors": [
+        "guest-survivor-01",
+        "guest-survivor-04"
+      ],
+      "rawPickups": 56,
+      "paidCraftReceipts": 31,
+      "goalEquipTimes": [
+        [
+          "guest-survivor-04:guest-item-cold-bootstrap-clothes",
+          17
+        ],
+        [
+          "guest-survivor-01:guest-item-cold-bootstrap-head",
+          22
+        ]
+      ],
+      "replayExact": true,
+      "apiCalls": 0,
+      "ending": "last_team",
+      "scope": "Fresh memoryStorage reconstruction through product local item bootstrap, guest profiles, saved custom roster and initial-roster path. Not physical-browser cold storage."
+    },
+    "focusedVerification": {
+      "regroupIndependentExecutions": 10,
+      "regroupChecksPerExecution": 33,
+      "rngChecks": 12,
+      "cooperativeYieldChecks": 26,
+      "fingerprintGroups": 21,
+      "receipt": "client/.verification-runs/2026-10-18T09-24-37.335Z-d400e9b3-0dce-4948-83bc-5a67aeffb4dc/focused-verification-followup.json"
+    },
+    "pairedComparison": {
+      "contracts": {
+        "runDirectory": "client/.verification-runs/2026-10-18T10-17-02.659Z-46df6ab8-3cad-4ea2-ac78-6d9911157e76/",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T10:17:02.660Z",
+        "finishedAt": "2026-10-18T10:17:08.129Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "resultSha256": "e62cafc3394d41fe98fd6b3c9bc7dca7332172e98c64458996671a0bb4912c4a",
+        "outputSha256": "deb424e9595608926c72214404d3d3baf46a1b52ca6a14cde8fd95bdd38752c1",
+        "contracts": {
+          "pass": true,
+          "checks": 25,
+          "scope": "Fresh independent formation and exposure contracts; not actual match or browser proof."
+        }
+      },
+      "partialRun": {
+        "runDirectory": "client/.verification-runs/2026-10-18T10-17-08.177Z-73050489-20ed-4634-8e86-0411ffdc6401/",
+        "status": "running",
+        "exitCode": null,
+        "startedAt": "2026-10-18T10:17:08.179Z",
+        "finishedAt": null,
+        "sameEngine": null,
+        "sameVerificationSources": null,
+        "resultSha256": "6dc8cd6b1b237ee932ad1abf5cc085302fd3081aa18788fe05cced87b003361c",
+        "outputSha256": "0e7dceeb1cf465682be13969926e6f8067488abb9cbf040f96b8f505dd9cf036",
+        "observations": {
+          "completedMatches": 5,
+          "expectedMatches": 8,
+          "cases": 2,
+          "comparisonComplete": false
+        },
+        "dataSha256": "443a98edc3fe68ab332cc1405292f9a5d96bafb68e2b5f006926cbd0fd6a308c"
+      },
+      "userInterrupted": true,
+      "interruptionReceipt": "client/.verification-runs/2026-10-18T10-17-08.177Z-73050489-20ed-4634-8e86-0411ffdc6401//user-interruption.json",
+      "interruptionSha256": "59594d1ef2bef0513dc3b582e45ae48d9a5db7f0bf8e4289b13b460321e7b332",
+      "comparisonAccepted": false,
+      "scope": "Five of eight executions retained; first seed's two conditions each repeated exactly. Remaining cases/exposure acceptance were deferred by user, not reported as passed."
+    },
+    "foregroundPerformance": {
+      "collectionStarted": false,
+      "plan": "client/.verification-runs/2026-10-18T09-38-17.998Z-1bf30aa5-c674-4dc6-aa12-7f5aa817c117/observer-nine-run-plan.json",
+      "deferredByUser": true
+    },
+    "cleanup": {
+      "manifest": "client/.verification-runs/2026-10-18T10-16-02.373Z-7f0da2df-4aee-4ce3-bc77-fcce181ae239/cleanup-minimum-pause.json",
+      "manifestSha256": "b14bdccb07db8776285ab3714a800690c440e67541a868dd4f055f2e3d111a68",
+      "removedFiles": 9,
+      "removedLogicalBytes": 632398387,
+      "selectedRootsLogicalBytesBefore": 2774118464,
+      "selectedRootsLogicalBytesAfterCacheRemoval": 2141724267,
+      "measurementAt": "2026-10-18T10:26:19.968Z",
+      "scope": "Five disjoint artifact roots only, dev/inode deduplicated logical sizes; not whole-workspace allocation or free disk space. Closeout documentation bytes are added afterward.",
+      "buildPayloadUnchanged": true,
+      "userSourcesRecoveryAndEvidencePreserved": true
+    },
+    "preservation": {
+      "existingProofRoots": 21,
+      "existingRootsCanonicalSha256": "8620f24d602f881cf921db90e55cbb6a4bbdda97873f85c8052b93a8af5afe26",
+      "originalGoalSuffix": {
+        "marker": "## 제품 정의와 범위",
+        "bytes": 43026,
+        "sha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b"
+      },
+      "unrelatedUntrackedCount": 2592,
+      "untrackedNamesSha256": "761e8e032e25195e8b859512add38df7797a11bcff1027e6555a31aa9ed32d08"
+    },
+    "goal": {
+      "complete": false,
+      "pauseRequested": true,
+      "reason": "User requested play-essential updates only, then pause.",
+      "deferred": [
+        "Remaining three scheduled formation executions and full exposure acceptance",
+        "Strict foreground nine-run comparison and separate new-document memory/restart checks",
+        "Physical-browser cold persistence and external AI draft quality remain outside the new headless proof",
+        "Human follow-up and all other unresolved original G1-G5 gates"
+      ]
+    }
+  },
   "observerReportExportAndBuildContextFollowup": {
     "recordedAt": "2026-10-18",
     "sourceCommitBeforeFollowup": "da539d429612adef3bae3e73f7e938508a746b3d",

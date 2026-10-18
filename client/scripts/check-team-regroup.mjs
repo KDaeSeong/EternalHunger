@@ -439,7 +439,10 @@ check('a depleted direct growth goal releases the ready squad to regroup, then r
   const refresh = () => {
     for (const member of roster) refreshActorGrowthPlan(member, items, { ...state, fieldResources });
   };
-  const runMove = (member, extra = {}) => move(member, roster, { ...state, publicItems: items, ...extra });
+  // Control the decision draw in this unit scenario, not the production rule.
+  // Escape and resumed farming still use the shared movement probability cap.
+  const runMove = (member, extra = {}, random = () => 0) => withSimulationRandom(random,
+    () => move(member, roster, { ...state, publicItems: items, ...extra }));
   const noRewards = (result, before) => {
     assert.deepEqual(result.actor.inventory, before.inventory,
       `${result.actor._id} must not receive remote or unearned items.`);
@@ -480,8 +483,19 @@ check('a depleted direct growth goal releases the ready squad to regroup, then r
   assert.equal(farmer._growthPlan.openingComplete, false);
   assert.ok(farmer._growthPlan.blocked, 'The depleted/forbidden recipe must not remain falsely farmable.');
   const beforeEscape = { inventory: structuredClone(farmer.inventory), simCredits: farmer.simCredits };
+  const delayedEscape = runMove(farmer, {}, () => 0.999999);
+  assert.equal(delayedEscape.mustEscape, true);
+  assert.equal(delayedEscape.moveReason, 'flee:forbidden');
+  assert.equal(delayedEscape.didMove, false);
+  assert.equal(delayedEscape.actor.zoneId, 'e', 'A failed movement draw does not claim an escape or award anything.');
+  assert.equal(delayedEscape.events.some(event => event.kind === 'move'), false);
+  assert.equal(delayedEscape.actor._growthPlan.targetId, farmer._growthPlan.targetId);
+  noRewards(delayedEscape, beforeEscape);
   const escape = runMove(farmer);
   assert.equal(escape.actor.zoneId, 'd', 'Forbidden-area escape overrides the blocked direct recipe.');
+  assert.equal(escape.mustEscape, true);
+  assert.equal(escape.moveReason, 'flee:forbidden');
+  assert.equal(escape.didMove, true);
   assert.equal(escape.actor._growthPlan.targetId, farmer._growthPlan.targetId);
   noRewards(escape, beforeEscape);
   farmer = escape.actor;

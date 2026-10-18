@@ -1,18 +1,18 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import {
+const {
   addItemToInventory,
   normalizeInventory,
-} from '../src/app/simulation/_lib/inventoryRules.js';
-import { pickKioskPrioritySpecialAction } from '../src/app/simulation/_lib/aiKioskPriorityRuntime.js';
-import { withSimulationRandom } from '../src/utils/simulationRandom.js';
-import {
+} = await import('../src/app/simulation/_lib/inventoryRules.js');
+const { pickKioskPrioritySpecialAction } = await import('../src/app/simulation/_lib/aiKioskPriorityRuntime.js');
+const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
+const {
   buildGuestSimulationMap,
   buildGuestSimulationRoster,
   isGuestSimulationSession,
   resolveSimulationBootstrapData,
-} from '../src/app/simulation/_lib/guestSimulationBootstrap.js';
+} = await import('../src/app/simulation/_lib/guestSimulationBootstrap.js');
 
 const { rollDroneOrder } = await import('../src/app/simulation/_lib/aiDroneRuntime.js');
 

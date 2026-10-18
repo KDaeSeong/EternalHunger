@@ -17,9 +17,15 @@ const { createMatchDistributionFrameTracker, summarizeGrowthPlanEvents } = await
 const { getRuleset, getPhaseDurationSec } = await import('../src/utils/rulesets.js');
 
 const options = Object.fromEntries(process.argv.slice(2).map(arg => {
-  assert.match(arg, /^--(seeds|output|variants|repeats)=.+$/);
-  const split = arg.indexOf('='); return [arg.slice(2, split), arg.slice(split + 1)];
+  assert.match(arg, /^--(seeds|output|variants|repeats|roster-seed)=.+$/);
+  const split = arg.indexOf('=');
+  const key = arg.slice(2, split).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+  return [key, arg.slice(split + 1)];
 }));
+assert.ok(options.rosterSeed === undefined || options.rosterSeed.trim().length > 0,
+  '--roster-seed must be a non-empty identifier.');
+assert.ok(options.rosterSeed === undefined || options.rosterSeed === options.rosterSeed.trim(),
+  '--roster-seed must not have leading or trailing whitespace.');
 const seeds = (options.seeds || '1101,2202,3303').split(',');
 assert.ok(seeds.every(Boolean)); assert.equal(new Set(seeds).size, seeds.length);
 const variants = (options.variants || 'baseline,one-tactical-skill,one-formation-swap').split(',');
@@ -63,7 +69,9 @@ const comparisonComplete = () => matchesComplete()
   && rows.filter(row => row.variant !== 'baseline').every(row => row.comparisonExposure?.ready === true);
 const save = () => {
   if (options.output) writeFileSync(options.output, JSON.stringify({ engineVersion: SIMULATION_ENGINE_VERSION,
-    seeds, variants, repeats, expectedCases: seeds.length * variants.length, expectedMatches: seeds.length * variants.length * repeats,
+    seeds, rosterSeed: options.rosterSeed ?? null, variants, repeats,
+    initialRosterSeeds: startingInputs.map(({ seed, initialRosterSeed }) => ({ seed, initialRosterSeed })),
+    expectedCases: seeds.length * variants.length, expectedMatches: seeds.length * variants.length * repeats,
     completedMatches, complete: matchesComplete(), comparisonComplete: comparisonComplete(),
     startingInputs, executions, rows,
     scope: 'fresh ordinary full saved inputs and explicit deltas; each condition reruns exactly; tactical-stage facts joined to actual defensive HP hits; not general win-rate, full winner causality, browser, account or human acceptance' }, null, 2),
@@ -75,13 +83,15 @@ const save = () => {
 save();
 
 for (const seed of seeds) {
-  const fixture = JSON.parse(await createRandomIsolationInput(seed));
+  const fixture = JSON.parse(await createRandomIsolationInput(seed,
+    options.rosterSeed === undefined ? {} : { initialRosterSeed: options.rosterSeed }));
   const original = createSimulationRunInput({ activeMap: fixture.map, settings: fixture.settings,
     publicItems: fixture.items, survivors: fixture.survivors, runSeed: fixture.runSeed }, { getItem: () => null });
   assertFormationRosterConsistency(original);
   const originalDigest = digest(original);
   const formationProbe = variants.includes('one-formation-swap') ? createFormationSwapInput(original) : null;
-  startingInputs.push({ seed, initialRosterSeed: fixture.initialRosterSeed, inputDigest: originalDigest, input: original });
+  const initialRosterSeed = fixture.initialRosterSeed;
+  startingInputs.push({ seed, initialRosterSeed, inputDigest: originalDigest, input: original });
   save();
   let baselineRecord;
   for (const variant of variants) {
@@ -105,7 +115,7 @@ for (const seed of seeds) {
     const replays = [];
     const growthSummaries = [];
     for (let execution = 1; execution <= repeats; execution += 1) {
-      console.log(`STRATEGY_COMPARISON_START ${JSON.stringify({ seed, variant, execution, repeats, inputDigest: before, changes })}`);
+      console.log(`STRATEGY_COMPARISON_START ${JSON.stringify({ seed, initialRosterSeed, variant, execution, repeats, inputDigest: before, changes })}`);
       let lastCheckpoint = -1;
       // Keep the first execution diagnostic-free and compare the exact second
       // execution with observation enabled. Diagnostics never affect acceptance.
@@ -139,7 +149,7 @@ for (const seed of seeds) {
         participationDiagnostics: participation ? { ...participation.summary(),
           scope: 'Bounded current runtime facts only; no missed-turn causality or comparison acceptance.',
           comparedAgainstDiagnosticFreeExecution: Boolean(exact?.matched) } : null };
-      const observation = { seed, variant, inputDigest: before, changes, growthSummary, ...replay };
+      const observation = { seed, initialRosterSeed, variant, inputDigest: before, changes, growthSummary, ...replay };
       replays.push(replay); executions.push(observation); save();
       if (match) {
         assert.equal(exact.matched, true, 'This actual condition must replay exactly.');
@@ -180,7 +190,7 @@ for (const seed of seeds) {
       comparisonExposure = { baseline, candidate, ready: baseline.ready && candidate.ready,
         scope: 'Consistent formation inputs and actual changed-teammate team actions on both sides; not ally action, survival contribution or winner causality.' };
     }
-    const row = { seed, variant, inputDigest: before, changes, derivedChanges, replays, comparison, comparisonExposure, tacticalImpacts,
+    const row = { seed, initialRosterSeed, variant, inputDigest: before, changes, derivedChanges, replays, comparison, comparisonExposure, tacticalImpacts,
       trackedActors: input.initialFrame.survivors.filter(actor => trackedActors.includes(actor._id)).map(actor => ({
         actorId: actor._id, actorName: actor.name, teamId: teamOf(actor), tacticalSkill: actor.tacticalSkill,
         startingTeamMembers: input.initialFrame.survivors.filter(other => teamOf(other) === teamOf(actor)).map(other => other._id),
@@ -189,13 +199,15 @@ for (const seed of seeds) {
       sharedPurchaseIntentions: match.events.filter(event => event.reason === 'team_rotate'
         && /키오스크|구매|교환|kiosk/.test(event.sharedGoalReason || '')).length };
     rows.push(row); save();
-    console.log(`STRATEGY_COMPARISON_CASE ${JSON.stringify({ seed, variant,
+    console.log(`STRATEGY_COMPARISON_CASE ${JSON.stringify({ seed, initialRosterSeed, variant,
       endingSec: row.evidence.ending.atSec, winnerTeamId: row.evidence.ending.winnerTeamId,
       initialGoalCompletion: row.initialGoalCompletion.complete,
       growthPlanSlotCompleteEvents: row.growthPlanEvents.slotCompleteEvents, emptySlots: row.emptySlots })}`);
   }
 }
 console.log(`STRATEGY_COMPARISON_RESULT ${JSON.stringify({ pass: comparisonComplete(), matchesComplete: matchesComplete(), engineVersion: SIMULATION_ENGINE_VERSION,
+  rosterSeed: options.rosterSeed ?? null,
+  initialRosterSeeds: startingInputs.map(({ seed, initialRosterSeed }) => ({ seed, initialRosterSeed })),
   matches: completedMatches, cases: rows.length, repeats, variants, seeds,
   scope: 'fresh full input, exact reruns per condition, explicit tactical-stage and committed HP evidence; no injected resources or manufactured winner; no broad causal balance acceptance' })}`);
 if (!comparisonComplete()) {

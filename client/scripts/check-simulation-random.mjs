@@ -244,7 +244,8 @@ await check('all engine random draws route through the isolated boundary, wired 
   assert.match(controller, /useSimulationPhaseController\(\{\s*refs: \{[^}]*runRandomRef/s);
   const cycle = fs.readFileSync(new URL('simulationPhaseCycleRuntime.js', lib), 'utf8');
   const pvp = fs.readFileSync(new URL('phasePvpActionLoopRuntime.js', lib), 'utf8');
-  assert.match(cycle, /requestMainThreadYield:\s*requestSimulationMainThreadYield/);
+  assert.match(cycle, /requestMainThreadYield:\s*actions\.requestMainThreadYield \|\| requestSimulationMainThreadYield/,
+    'The action loop must preserve the native RNG-safe yield fallback and accept the Worker scheduling override.');
   assert.match(pvp, /if \(framePublishYield\) yield framePublishYield/);
 });
 

@@ -2,14 +2,19 @@ import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 const { GUEST_CHARACTER_PROFILE_KEY: key, normalizeGuestCharacterProfile, readGuestCharacterProfiles,
   saveGuestCharacterProfile, applyGuestCharacterProfiles, saveGuestCharacterBeforeMatch } = await import('../src/app/simulation/_lib/guestCharacterProfileRuntime.js');
-const { buildGuestSimulationRoster, resolveSimulationBootstrapData } = await import('../src/app/simulation/_lib/guestSimulationBootstrap.js');
+const { buildGuestSimulationRoster, loadGuestSimulationItemCatalog,
+  resolveSimulationBootstrapData } = await import('../src/app/simulation/_lib/guestSimulationBootstrap.js');
+const { GUEST_ITEM_PROFILE_KEY, saveGuestItem } = await import('../src/app/simulation/_lib/guestItemProfileRuntime.js');
 const { getCharacterSkillDef, getCharacterSkillLevel } = await import('../src/app/simulation/_lib/characterSkillDefinitionRuntime.js');
 const { normalizeCharacterSkillForEditor } = await import('../src/app/characters/_lib/characterEditorRuntime.js');
 const { createDefaultCompiledSkill } = await import('../src/utils/characterSkillCompilerCore.js');
 const { getErSubjectPreset, applyErSubjectPreset } = await import('../src/utils/erMeta.js');
 const { createParticipantPresetActionRuntime } = await import('../src/app/simulation/_lib/participantPresetActionRuntime.js');
-const { readLocalParticipantPresets, CUSTOM_PARTICIPANT_PRESET_ID } = await import('../src/app/simulation/_lib/participantPresetRuntime.js');
+const { readLocalParticipantPresets, getInitialParticipantPresetId, CUSTOM_PARTICIPANT_PRESET_ID,
+  PARTICIPANT_PRESET_SELECTED_KEY } = await import('../src/app/simulation/_lib/participantPresetRuntime.js');
 const { pickParticipantsForRun } = await import('../src/app/simulation/_lib/matchRosterRuntime.js');
+const { buildInitialSimulationRoster } = await import('../src/app/simulation/_lib/simulationInitialRosterRuntime.js');
+const { getDefaultSimulationSettings } = await import('../src/app/simulation/_lib/simulationPageRuntime.js');
 const { createSimulationRunInput, prepareSimulationRunInput, compareSimulationReplay } = await import('../src/app/simulation/_lib/simulationReplayRuntime.js');
 const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
 const { actor, skill, runCombatScenario } = await import('./lib/run-combat-scenario.mjs');
@@ -178,6 +183,155 @@ await check('changing local definitions after input capture cannot rewrite a sav
   saveGuestCharacterProfile({ ...definition(), name: '나중 이름', characterSkills: {} }, store);
   const restored = prepareSimulationRunInput(input).state.survivors.find((row) => row._id === base[0]._id);
   assert.equal(restored.name, definition().name); assert.equal(getCharacterSkillDef(restored, 'q').name, '시간차 일격');
+});
+await check('cold local recipe, equipment goals and saved custom 24-person roster bootstrap into paid crafts and exact replay', async () => {
+  const seedStorage = memoryStorage(); const coldStorage = memoryStorage();
+  const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const fetchBefore = globalThis.fetch; let apiCalls = 0;
+  globalThis.fetch = () => { apiCalls++; throw Error('Cold local custom growth must not access account APIs.'); };
+  try {
+    const builtins = await loadGuestSimulationItemCatalog({ includeLocal: false, storage: seedStorage });
+    const rawId = 'namu:material:고철';
+    const raw = builtins.find(item => item._id === rawId);
+    assert.ok(raw && raw.spawnZones?.length, 'Authored recipes must use a real field material from the product catalog.');
+    const batchId = 'guest-item-cold-bootstrap-batch';
+    const headId = 'guest-item-cold-bootstrap-head';
+    const clothesId = 'guest-item-cold-bootstrap-clothes';
+    const batch = { _id: batchId, name: '저장 재진입 묶음 원단', type: '재료', tier: 2, stackMax: 10,
+      recipe: { ingredients: [{ itemId: rawId, qty: 3 }], resultQty: 2, creditsCost: 2 } };
+    const head = { _id: headId, name: '저장 재진입 맞춤 투구', type: '방어구', equipSlot: 'head', tier: 4,
+      stackMax: 1, stats: { def: 3 }, recipe: { ingredients: [{ itemId: batchId, qty: 1 }], resultQty: 1, creditsCost: 3 } };
+    const clothes = { _id: clothesId, name: '저장 재진입 맞춤 옷', type: '방어구', equipSlot: 'clothes', tier: 4,
+      stackMax: 1, stats: { def: 3 }, recipe: { ingredients: [{ itemId: batchId, qty: 1 }], resultQty: 1, creditsCost: 3 } };
+    for (const item of [batch, head, clothes]) assert.equal(saveGuestItem(item, builtins, seedStorage).ok, true);
+
+    const headActorId = base[0]._id, clothesActorId = base[3]._id;
+    const headProfile = { ...definition(), id: headActorId, name: '저장 투구 목표자',
+      goalLoadouts: { hero: { headKey: headId } } };
+    const clothesProfile = { ...definition(), id: clothesActorId, name: '저장 의복 목표자',
+      goalLoadouts: { hero: { clothesKey: clothesId } } };
+    assert.equal(saveGuestCharacterProfile(headProfile, seedStorage).ok, true);
+    assert.equal(saveGuestCharacterProfile(clothesProfile, seedStorage).ok, true);
+
+    const settings = { ...getDefaultSimulationSettings(), matchMode: 'squad' };
+    const authoredRoster = resolveSimulationBootstrapData({ guestMode: true, charList: buildGuestSimulationRoster(),
+      guestProfiles: readGuestCharacterProfiles(seedStorage).profiles, defaultSettings: settings }).charList;
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: seedStorage });
+    const firstIds = [...authoredRoster].reverse().map(row => row._id);
+    const firstAssignments = Object.fromEntries(firstIds.map((id, index) => [id, Math.floor(index / 3) + 1]));
+    const actions = createParticipantPresetActionRuntime({ state: { day: 0, matchSec: 0,
+      candidateSurvivors: authoredRoster, settings, participantPresets: [] }, actions: {
+      saveSelectedParticipantPresetId: id => seedStorage.setItem(PARTICIPANT_PRESET_SELECTED_KEY, id),
+    } });
+    const savedRoster = actions.applyCustomParticipantRoster({ characterIds: firstIds, teamAssignments: firstAssignments });
+    assert.equal(savedRoster.ok, true, JSON.stringify(savedRoster.errors));
+    assert.equal(savedRoster.orderedCharacterIds.length, 24);
+    const seedKeys = [...seedStorage.values.entries()];
+    assert.ok(seedKeys.some(([name]) => name === GUEST_ITEM_PROFILE_KEY));
+    for (const [name, value] of seedKeys) coldStorage.setItem(name, value);
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: coldStorage });
+
+    const itemCatalog = await loadGuestSimulationItemCatalog({ storage: coldStorage });
+    assert.ok([batchId, headId, clothesId].every(id => itemCatalog.some(item => item._id === id)),
+      'The fresh product item bootstrap must restore the saved local recipe graph.');
+    const profiles = readGuestCharacterProfiles(coldStorage).profiles;
+    const bootstrap = resolveSimulationBootstrapData({ guestMode: true, charList: buildGuestSimulationRoster(),
+      guestProfiles: profiles, defaultSettings: settings });
+    const map = bootstrap.mapsList[0];
+    assert.equal(getInitialParticipantPresetId(), CUSTOM_PARTICIPANT_PRESET_ID,
+      'The selected custom roster must survive the raw storage handoff.');
+    const initial = buildInitialSimulationRoster({ charList: bootstrap.charList, routeItems: itemCatalog,
+      initialMap: map, initialZoneIds: map.zones.map(zone => zone.zoneId), loadedSettings: bootstrap.settingValue,
+      participantPresets: readLocalParticipantPresets(), selectedParticipantPresetId: getInitialParticipantPresetId() });
+    const survivors = initial.shuffledChars;
+    assert.equal(survivors.length, 24);
+    assert.deepEqual(survivors.map(row => row._id), savedRoster.orderedCharacterIds);
+    assert.equal(new Set(survivors.map(row => row.teamId)).size, 8);
+    assert.ok(survivors.every(row => row.simCredits === 15 && (row.inventory || []).length === 0),
+      'The product initial roster must preserve the normal budget and empty bags; no grants are allowed.');
+    const headActor = survivors.find(row => row._id === headActorId);
+    const clothesActor = survivors.find(row => row._id === clothesActorId);
+    assert.notEqual(headActor.teamId, clothesActor.teamId, 'The two saved goals must begin on separate teams.');
+    assert.equal(headActor.goalLoadouts?.hero?.headKey, headId);
+    assert.equal(clothesActor.goalLoadouts?.hero?.clothesKey, clothesId);
+    assert.ok(headActor.routePlanTargetItemIds.includes(headId));
+    assert.ok(clothesActor.routePlanTargetItemIds.includes(clothesId));
+
+    const savedInput = createSimulationRunInput({ activeMap: map, settings: bootstrap.settingValue,
+      survivors, publicItems: itemCatalog, runSeed: 'cold-local-custom-growth-20261018' }, coldStorage);
+    const savedInputBefore = JSON.stringify(savedInput);
+    const recipeById = new Map([[batchId, batch.recipe], [headId, head.recipe], [clothesId, clothes.recipe]]);
+    const equippedAt = new Map();
+    const original = await runRandomIsolationMatch(null, { savedInput, onFrame(frame) {
+      for (const actor of [...(frame.survivors || []), ...(frame.dead || [])]) {
+        for (const [targetId, slot] of [[headId, 'head'], [clothesId, 'clothes']]) {
+          const key = `${actor._id}:${targetId}`;
+          const hasItem = (actor.inventory || []).some(row => String(row.itemId || row._id || row.id) === targetId
+            && Number(row.qty ?? 1) > 0);
+          if (actor.equipped?.[slot] === targetId && hasItem && !equippedAt.has(key)) equippedAt.set(key, frame.matchSec);
+        }
+      }
+    } });
+    const receipts = original.events.filter(event => event.kind === 'craft' && recipeById.has(event.itemId));
+    const batchCrafters = new Set(receipts.filter(event => event.itemId === batchId).map(event => event.who));
+    assert.ok(batchCrafters.has(headActorId) && batchCrafters.has(clothesActorId),
+      'Each target actor must craft the real shared intermediate used by their own goal.');
+    const goalOwnerByItem = new Map([[headId, headActorId], [clothesId, clothesActorId]]);
+    for (const [itemId, recipe] of recipeById) {
+      const rows = receipts.filter(event => event.itemId === itemId);
+      if (itemId === batchId) assert.ok(rows.length >= 2, 'Both teams must actually craft their shared intermediate.');
+      else assert.equal(rows.filter(event => event.who === goalOwnerByItem.get(itemId)).length, 1,
+        `Each saved equipment goal should be crafted exactly once by its designated actor: ${itemId}`);
+      for (const event of rows) {
+        assert.equal(event.qty, recipe.resultQty);
+        assert.equal(event.paidCost, recipe.creditsCost);
+        assert.equal(event.beforeCredits - event.afterCredits, recipe.creditsCost);
+        assert.deepEqual(event.consumed, recipe.ingredients);
+      }
+    }
+    assert.ok(original.events.some(event => event.kind === 'field_resource' && event.itemId === rawId),
+      'Real field acquisition, not an injected inventory grant, must supply the recipe.');
+    assert.ok(equippedAt.has(`${headActorId}:${headId}`) && equippedAt.has(`${clothesActorId}:${clothesId}`),
+      `Both saved goals must be positively owned and equipped; observed=${JSON.stringify([...equippedAt])}`);
+    assert.ok(original.evidence.ending && Number.isFinite(original.evidence.ending.atSec));
+    assert.equal(original.events.filter(event => event.kind === 'match_end').length, 1);
+    assert.equal(JSON.stringify(savedInput), savedInputBefore);
+
+    assert.equal(saveGuestItem({ ...batch, name: '재경기 뒤 변경 원단', recipe: { ...batch.recipe, creditsCost: 9 } },
+      builtins, coldStorage).ok, true);
+    assert.equal(saveGuestCharacterProfile({ ...headProfile, name: '재경기 뒤 변경 목표', goalLoadouts: { hero: {} } }, coldStorage).ok, true);
+    const revisedIds = [...authoredRoster].map(row => row._id);
+    const revisedAssignments = Object.fromEntries(revisedIds.map((id, index) => [id, Math.floor(index / 3) + 1]));
+    const reviseActions = createParticipantPresetActionRuntime({ state: { day: 0, matchSec: 0,
+      candidateSurvivors: authoredRoster, settings, participantPresets: readLocalParticipantPresets() }, actions: {
+      saveSelectedParticipantPresetId: id => coldStorage.setItem(PARTICIPANT_PRESET_SELECTED_KEY, id),
+    } });
+    assert.equal(reviseActions.applyCustomParticipantRoster({ characterIds: revisedIds,
+      teamAssignments: revisedAssignments }).ok, true);
+    const replay = await runRandomIsolationMatch(null, { savedInput, noisy: true });
+    const compared = compareSimulationReplay({ events: original.events, finalFrame: original.finalFrame,
+      random: original.evidence.random, summary: { ending: original.evidence.ending } },
+    { events: replay.events, finalFrame: replay.finalFrame, random: replay.evidence.random,
+      summary: { ending: replay.evidence.ending } });
+    assert.equal(compared.matched, true);
+    assert.deepEqual(replay.evidence, original.evidence);
+    assert.deepEqual(replay.finalFrame, original.finalFrame);
+    assert.deepEqual(replay.events, original.events);
+    assert.deepEqual(replay.logs, original.logs);
+    assert.equal(original.evidence.frameDigest, replay.evidence.frameDigest);
+    assert.equal(original.evidence.eventDigest, replay.evidence.eventDigest);
+    assert.equal(JSON.stringify(savedInput), savedInputBefore);
+    assert.equal(apiCalls, 0);
+    console.log(`GUEST_COLD_CUSTOM_GROWTH_MATCH ${JSON.stringify({
+      participants: survivors.length, goalActors: [headActorId, clothesActorId], teams: [headActor.teamId, clothesActor.teamId],
+      realRawPickups: original.events.filter(event => event.kind === 'field_resource' && event.itemId === rawId).length,
+      paidCraftReceipts: receipts.length, equippedAt: [...equippedAt], ending: original.evidence.ending,
+      replayExact: compared.matched, apiCalls, scope: 'Fresh memoryStorage reconstruction through product local item bootstrap, guest profiles, saved custom roster and initial-roster path. Not physical-browser cold storage.' })}`);
+  } finally {
+    globalThis.fetch = fetchBefore;
+    if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage);
+    else delete globalThis.localStorage;
+  }
 });
 await check('24 saved local character definitions survive full initialization, a complete match and replay after later profile edits', async () => {
   const store = memoryStorage(); let apiCalls = 0; const fetchBefore = globalThis.fetch;

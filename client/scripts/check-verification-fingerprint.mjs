@@ -68,6 +68,56 @@ for (const mode of ['strategy-paired', 'formation-paired']) {
 }
 console.log('PASS strategy output uses the actual shell-safe unquoted relative path');
 
+const strategyArgsStart = wrapperSource.indexOf("if (['strategy-paired', 'formation-paired'].includes(mode) &&");
+const strategyArgumentBlock = wrapperSource.slice(strategyArgsStart,
+  wrapperSource.indexOf('\nconst root = fileURLToPath', strategyArgsStart));
+assert.ok(strategyArgsStart >= 0 && strategyArgumentBlock.includes('--roster-seed='),
+  'Evaluate the production strategy argument parser rather than a copied parser.');
+for (const mode of ['strategy-paired', 'formation-paired']) {
+  const parse = args => vm.runInNewContext(`${strategyArgumentBlock}\ncommands[mode];`, {
+    mode, process: { argv: ['node', 'verification', mode, ...args] },
+    commands: { [mode]: 'npm run analyze:strategy-comparison -- --seeds=1101 --repeats=2' },
+  }, { timeout: 1000 });
+  assert.match(parse([]), /--seeds=1101/);
+  assert.ok(!parse(['5501,5502']).includes('--roster-seed='));
+  assert.match(parse(['5501,5502', 'STRATEGY:roster-B']),
+    /--seeds=5501,5502 --repeats=2 --roster-seed=STRATEGY:roster-B$/);
+  for (const args of [['5501,5501'], ['5501', ''], ['5501', 'a,b'], ['5501', 'with space'],
+    ['5501', 'a;b'], ['5501', 'a"b'], ['5501', 'safe', 'extra']]) assert.throws(() => parse(args));
+}
+console.log('PASS paired strategy roster seeds use the real shell-safe parser without changing defaults');
+
+const packageScripts = JSON.parse(readFileSync(new URL('package.json', root), 'utf8')).scripts;
+const originalFullTasks = ['check:eternal-hunger:regressions', 'check:guest-item-catalog', 'check:guest-farming',
+  'check:growth-plan', 'check:opening-deadline:match', 'check:field-resources', 'check:team-tactics',
+  'check:team-combat', 'check:combat-damage', 'check:combat-status', 'check:combat-timing',
+  'check:character-casting', 'check:team-observer', 'check:live-frames', 'check:action-timeline',
+  'check:simulation-random', 'check:simulation-replay', 'check:endgame', 'check:guest-local-progress',
+  'check:revive', 'check:custom-roster', 'check:lumia-minimap', 'check:custom-map-runtime', 'check:er-weapons',
+  'check:skills', 'check:eternal-hunger-feedback', 'check:eternal-hunger-soundtrack',
+  'check:phase-runtime-performance', 'check:runtime:sweep', 'build'];
+assert.equal(packageScripts['check:eternal-hunger'], 'node ./scripts/run-eternal-hunger-verification.mjs full');
+assert.equal(packageScripts['check:eternal-hunger:chain'], originalFullTasks.map(task => `npm run ${task}`).join(' && '));
+assert.match(wrapperSource, /full: 'npm run check:eternal-hunger:chain'/);
+const preloadUrl = new URL('scripts/lib/register-simulation-modules.mjs', root).href;
+const originalEnvironment = { NODE_OPTIONS: '--trace-warnings', VERIFICATION_TEST: 'preserved' };
+const fullEnvironment = vm.runInNewContext(`${wrapperBody}\nverificationChildEnvironment(mode, environment, preloadUrl);`,
+  { mode: 'full', environment: originalEnvironment, preloadUrl }, { timeout: 1000 });
+assert.equal(fullEnvironment.NODE_OPTIONS, `--trace-warnings --import=${preloadUrl}`);
+assert.equal(fullEnvironment.VERIFICATION_TEST, 'preserved');
+assert.deepEqual(originalEnvironment, { NODE_OPTIONS: '--trace-warnings', VERIFICATION_TEST: 'preserved' });
+const noOptionsEnvironment = {};
+const preloadOnly = vm.runInNewContext(`${wrapperBody}\nverificationChildEnvironment(mode, environment, preloadUrl);`,
+  { mode: 'full', environment: noOptionsEnvironment, preloadUrl }, { timeout: 1000 });
+assert.equal(preloadOnly.NODE_OPTIONS, `--import=${preloadUrl}`);
+assert.deepEqual(noOptionsEnvironment, {});
+const otherEnvironment = vm.runInNewContext(`${wrapperBody}\nverificationChildEnvironment(mode, environment, preloadUrl);`,
+  { mode: 'build', environment: originalEnvironment, preloadUrl }, { timeout: 1000 });
+assert.equal(otherEnvironment, originalEnvironment);
+assert.equal((wrapperSource.match(/env: childEnvironment/g) || []).length, 2,
+  'Both platform spawn branches must receive the child-only preload environment.');
+console.log('PASS canonical full entry preserves all 30 tasks and preloads resolution only in its child environment');
+
 function verificationSources(mode, mutatePath = '') {
   return vm.runInNewContext(`${wrapperBody}\nverificationSourceHashes();`, {
     mode, root: fileURLToPath(root), createHash, join,
@@ -279,5 +329,13 @@ for (const mode of ['build', 'runtime-build', 'full', 'phase-worker-release',
   }
 }
 console.log('PASS Worker build-entry and fresh-input mutations invalidate all six release verification modes');
-console.log(JSON.stringify({ pass: true, checks: 18, engine: base.wrapper,
+for (const path of ['scripts/check-eternal-hunger-regressions.mjs', 'scripts/check-guest-character-profiles.mjs',
+  'scripts/check-simulation-random.mjs', 'scripts/check-team-regroup.mjs']) {
+  const before = verificationSources('full');
+  const after = verificationSources('full', fileURLToPath(new URL(path, root)));
+  assert.equal(typeof before[path], 'string', `The full chain must fingerprint ${path}.`);
+  assert.notEqual(after[path], before[path], 'Regression entry and cold local bootstrap changes must invalidate the full receipt.');
+}
+console.log('PASS regression entry, RNG/movement fixtures and cold local bootstrap proofs invalidate the full-chain receipt');
+console.log(JSON.stringify({ pass: true, checks: 21, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));
