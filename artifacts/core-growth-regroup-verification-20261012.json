@@ -1,4 +1,113 @@
 {
+  "focusedFieldDemandAcceptanceFollowup": {
+    "recordedAt": "2026-10-18T06:52:53.5108885Z",
+    "sourceCommit": "4900991ea2909e22933ac00f52e67b80a775365b",
+    "engineVersion": "d672a14f6583f454ad9d77f05c2d21e2c3197ad8e481213ce45854c390d1b3a5",
+    "status": "current-engine-focused-units-expanded-matches-opening-replay-and-local-production-build-passed; overall-product-acceptance-incomplete",
+    "authorization": "User explicitly allowed complete match and build verification after requesting reduced load while gaming.",
+    "productionSourceChangedInThisFollowup": false,
+    "lowImpactUnits": {
+      "workingDirectory": "client",
+      "commandTemplate": "node --max-old-space-size=256 scripts/<script>",
+      "startedAt": "2026-10-18T06:32:00.3070842Z",
+      "finishedAt": "2026-10-18T06:32:10.4197454Z",
+      "suites": [
+        { "script": "check-growth-capacity.mjs", "checks": 15 },
+        { "script": "check-deep-custom-recipe-routes.mjs", "checks": 10 },
+        { "script": "check-deep-custom-recipe-growth.mjs", "checks": 15 },
+        { "script": "check-team-tactics.mjs", "checks": 29 },
+        { "script": "check-team-regroup.mjs", "checks": 33 },
+        { "script": "check-team-purchase-goals.mjs", "checks": 43 },
+        { "script": "check-team-resource-goals.mjs", "checks": 26 },
+        { "script": "check-match-distribution-metrics.mjs", "checks": 29 },
+        { "script": "check-growth-plan.mjs", "checks": 38 }
+      ],
+      "passed": "238/238",
+      "limits": "Serial, BelowNormal, one logical core (affinity 2048), 256MiB old-space, ten-second per-script timebox; all exited zero without timeout or stderr.",
+      "sourceAndEngineHashesUnchanged": true,
+      "counting": "The 26 team-resource cases overlap the prior 84-case focused followup; do not count that overlap twice. The growth-plan suite contains a bounded 24-actor first-day training case, not a full competitive match."
+    },
+    "lint": {
+      "command": "node node_modules/eslint/bin/eslint.js src/app/simulation/_lib/fieldLootRuntime.js scripts/check-field-resources.mjs scripts/check-team-resource-goals.mjs",
+      "exitCode": 0,
+      "diagnostics": 0,
+      "replacesEarlierTimeboxUnverifiedStatus": true
+    },
+    "expandedCompetitiveMatches": {
+      "command": "node scripts/run-eternal-hunger-verification.mjs custom-growth-expanded-match",
+      "result": "client/.verification-runs/2026-10-18T06-36-03.623Z-f51c9ee5-1abe-4148-95db-ce1ae563f0b8/result.json",
+      "resultSha256": "1097efa4e7ca351f32918ee6fdf77b5456d2bfb84972277c826711080d246fd1",
+      "outputLogSha256": "09c635c32148852546e540b5db24a2ac9e00845ff5ebf6251d957dfd2540c83a",
+      "startedAt": "2026-10-18T06:36:03.625Z",
+      "finishedAt": "2026-10-18T06:40:42.105Z",
+      "exitCode": 0,
+      "cases": [
+        { "case": "shared-batch", "seed": 5501, "roster": "HF4 roster-A", "phases": 13, "frames": 6556, "events": 13417, "initialGoalAcquisition": "24/24", "selectedCustomPaidCraftAndFirstNightEquip": "4/4", "fullTeamRegroup": "19/21", "replayExact": true },
+        { "case": "multi-leaf-cost", "seed": 5502, "roster": "HF4 roster-C", "phases": 12, "frames": 6260, "events": 14436, "initialGoalAcquisition": "24/24", "selectedCustomPaidCraftAndFirstNightEquip": "4/4", "fullTeamRegroup": "23/26; deaths 2 and roster change 1 remain in denominator", "replayExact": true }
+      ],
+      "naturalEndings": "Both last_team/combat; designated crafters were not guaranteed survival and all four in each case were eliminated before the end.",
+      "receipts": "Actual ingredients, credit costs, finite field stock, paid crafting and equipped targets asserted.",
+      "verificationFingerprint": "17/17",
+      "engineAndVerificationSourcesUnchanged": true,
+      "preflightPermissions": "Default-sandbox mkdir EPERM attempts ended before gameplay; the single authorized elevated runner produced the successful results."
+    },
+    "fiveSlotOpening": {
+      "command": "node scripts/run-eternal-hunger-verification.mjs custom-shared-growth-match",
+      "result": "client/.verification-runs/2026-10-18T06-51-16.149Z-5853c11f-89eb-4151-968b-11ad641b45a5/result.json",
+      "resultSha256": "be77cd6efeb08f3f36ead5f9e199896f5defc6e4a582325b4b7f643f38b45022",
+      "outputLogSha256": "4da5c6599414a2090d399d39b05ef23a6522ad3c5ce1374ce5f20f3d0c0b4775",
+      "exitCode": 0,
+      "scope": "first-night-not-full-match; fresh 24-participant input observed through 250 seconds",
+      "contracts": "6/6 actual equipment contracts: weapon/head/clothes/arm/shoes and another compatible weapon",
+      "observedEquipTimes": "Five authored slots at 1-7 seconds; second compatible weapon at 21 seconds in this defined input, not a universal farming-time target.",
+      "actualCraftReceipts": "Paid cost 1 per craft; batch quantity 2 and intermediate/target outputs observed; 47 shared leaf pickups and two depletion observations across five stock zones.",
+      "replay": { "phases": 2, "frames": 1322, "events": 5983, "exact": true },
+      "engineAndVerificationSourcesUnchanged": true,
+      "doesNotProve": "Full competitive ending, winners, broad equipment balance or every custom catalog."
+    },
+    "localProductionBuild": {
+      "command": "node scripts/run-eternal-hunger-verification.mjs build",
+      "lifecycle": "npm run build with prebuild effect contracts/version generation, next build --webpack and both postbuild checks unchanged",
+      "result": "client/.verification-runs/2026-10-18T06-43-14.180Z-82ec4f6f-ebbc-4dc0-a48a-c9f365b565a2/result.json",
+      "resultSha256": "7f1d77933465e937a0a418409d5aaa65052a767ebc133a1954b6ea4631fbca6f",
+      "outputLogSha256": "4ce927bff9c6a5b2076086cce43c9054192f80e84fd757ed78d0bd171594ca7f",
+      "startedAt": "2026-10-18T06:43:14.182Z",
+      "finishedAt": "2026-10-18T06:44:24.769Z",
+      "buildId": "ZSWoJPaPz85gQ3e6bCpre",
+      "node": "v24.13.0",
+      "routes": 75,
+      "staticRouteRows": 60,
+      "dynamicRouteRows": 15,
+      "staticGenerationProgress": "62/62 work items in Next output, not the number of route rows",
+      "exitCode": 0,
+      "engineAndVerificationSourcesUnchanged": true,
+      "moduleResolutionChecks": "23/23",
+      "workerSmoke": { "scope": "isolated Node VM production Worker READY plus fresh first phase, not browser/performance acceptance", "frames": 291, "finalMatchSec": 140, "complete": 1, "failures": 0 },
+      "previousSuccessPreserved": { "path": ".local/build-recovery/previous-success-next", "buildId": "yz6vQGhf5JlYsKW-qp00f", "operation": "move, no full copy", "reason": "Unique immediately preceding verified success for rollback and comparison." }
+    },
+    "cleanup": {
+      "receipt": "client/.verification-runs/2026-10-18T06-43-14.180Z-82ec4f6f-ebbc-4dc0-a48a-c9f365b565a2/cleanup.json",
+      "candidateManifestSha256": "153d52c790e46b6a57ea2fb455f31255e32164c99b5620b3221cb91eae198a03",
+      "scope": "Five disjoint roots: .local, artifacts, client/.next, client/.verification-runs, client/audio-source; native file-ID deduplication, not whole-workspace size or physical allocation.",
+      "beforeLogicalBytes": 2749404005,
+      "removed": { "root": "client/.next/cache/webpack", "files": 6, "logicalBytes": 612993061, "sha256AndAbsolutePathValidated": true, "allTargetsAbsent": true },
+      "afterLogicalBytesBeforeReceiptUpdates": 2136411943,
+      "twoGiBThresholdBytes": 2147483648,
+      "afterThresholdExceeded": false,
+      "manifestGrowthDuringMeasurementBytes": 999,
+      "preservedPayload": { "files": 1276, "logicalBytes": 27518050, "sha256BeforeAndAfter": "91673af74a0f253ad5669c6a1db041cbeb5760571ab36d339c45adcedaf6d09c" },
+      "sourcesUserDataOrRuntimeDeleted": false,
+      "recovery": "Only regenerable compilation packs removed; npm run build recreates them. Existing recovery/reproduction builds and logs retained."
+    },
+    "preservation": { "prior18ArtifactSectionsCanonicalSha256": "59f87b684c0d964da8bfda225365e02ca4b43454e81415ae6e381f1d32f675fa", "productionAndVerificationCodeEdited": false },
+    "remainingGates": [
+      "Current foreground whole-map x1/x8/x32 nine-run series, memory lifetime and session-resume acceptance; READY geometry and Node VM smoke do not replace it.",
+      "Broader natural roster/seed/custom-input growth, regroup, competition, ending and controlled strategy/formation acceptance; two expanded matches and one first-night case do not prove all combinations.",
+      "Public deployment of the changed engine remains unverified; last observed 4900991e Vercel status failure and actual Build Logs unavailable. Local Windows Node v24.13.0 success is not cloud-build proof.",
+      "Refreshed human understanding, readability, enjoyment and voluntary replay evaluation."
+    ],
+    "goalStatus": "Original G1-G5 and common acceptance scope unchanged; active/incomplete."
+  },
   "focusedFieldDemandFollowup": {
     "recordedAt": "2026-10-18T06:09:08.093Z",
     "status": "focused-semantics-passed; lint-and-release-gates-incomplete",
