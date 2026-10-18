@@ -15,6 +15,8 @@ const commands = {
   'phase-worker-release': 'npm run check:auth-session && npm run postbuild && npm run check:simulation-replay && npm run check:runtime:sweep',
   'module-resolution-compat': 'node scripts/check-simulation-module-resolution.mjs && node scripts/check-phase-worker-build-entry.mjs',
   'custom-shared-growth-match': 'npm run check:custom-shared-growth:match',
+  'custom-growth-expanded-match': 'npm run check:custom-shared-growth:match -- --expanded && npm run check:verification-fingerprint',
+  'custom-growth-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-growth-plan.mjs && node scripts/check-growth-capacity.mjs && npm run check:deep-custom-recipes && node scripts/check-team-tactics.mjs && node scripts/check-team-regroup.mjs && node scripts/check-team-resource-goals.mjs && node scripts/check-team-purchase-goals.mjs && node scripts/check-match-distribution-metrics.mjs && npm run check:verification-fingerprint',
   'authored-opening-match': 'node scripts/generate-simulation-version.mjs && node scripts/check-growth-fulfillment-match.mjs && npm run check:custom-shared-growth:match && npm run check:verification-fingerprint',
   'authored-opening-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-growth-plan.mjs && node scripts/check-growth-progress-inventory.mjs && node scripts/check-growth-observation.mjs && node scripts/check-custom-crafting.mjs && node scripts/check-growth-capacity.mjs && node scripts/check-growth-plan-shared-inventory-index.mjs && node scripts/check-growth-recipe-work-cache.mjs && node scripts/check-detonation-rules.mjs && node scripts/check-simulation-phase-worker-input.mjs && node scripts/check-boss-loot-sharing.mjs && node scripts/check-phase-runtime-performance.mjs && npm run check:late-growth && npm run check:team-tactics && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   distribution: 'npm run diagnose:match-distribution -- --compare-observer=4402 4401 4402 4403 4404 4405 4406 4407 4408 4409 4410',
@@ -107,6 +109,18 @@ function fingerprint() {
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json',
     'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs'];
+  if (['custom-growth-expanded-match', 'custom-growth-unit', 'custom-shared-growth-match',
+    'authored-opening-match', 'full'].includes(mode)) paths.push(
+    'scripts/generate-simulation-version.mjs', 'scripts/check-verification-fingerprint.mjs',
+    'scripts/lib/run-random-isolation-match.mjs', 'scripts/lib/match-distribution-frame-tracker.mjs');
+  if (mode === 'custom-growth-expanded-match') paths.push('scripts/check-custom-shared-growth-match.mjs');
+  if (mode === 'custom-growth-unit') paths.push('scripts/check-growth-plan.mjs',
+    'scripts/check-growth-capacity.mjs', 'scripts/check-deep-custom-recipe-routes.mjs',
+    'scripts/check-deep-custom-recipe-growth.mjs', 'scripts/check-team-tactics.mjs',
+    'scripts/check-team-regroup.mjs', 'scripts/check-team-resource-goals.mjs',
+    'scripts/check-team-purchase-goals.mjs', 'scripts/lib/team-purchase-fixture.mjs',
+    'scripts/check-match-distribution-metrics.mjs', 'scripts/lib/match-distribution-diagnostics.mjs',
+    'scripts/lib/movement-reversal-trace.mjs');
   if (['kiosk-quote-unit', 'kiosk-quote-match', 'full'].includes(mode)) paths.push(
     'scripts/generate-simulation-version.mjs', 'scripts/check-kiosk-movement-quote-cache.mjs',
     'scripts/lib/run-random-isolation-match.mjs', 'scripts/check-verification-fingerprint.mjs',

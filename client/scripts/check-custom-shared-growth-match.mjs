@@ -1,5 +1,6 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 
 const { createRandomIsolationInput, runRandomIsolationMatch } = await import('./lib/run-random-isolation-match.mjs');
 const { GUEST_ITEM_PROFILE_KEY, readGuestItems } = await import('../src/app/simulation/_lib/guestItemProfileRuntime.js');
@@ -11,7 +12,258 @@ const { getRuleset, getPhaseDurationSec } = await import('../src/utils/rulesets.
 const { areEquipmentWeaponTypesCompatible, normalizeWeaponType } = await import('../src/utils/equipmentCatalog.js');
 const { ER_WEAPON_TYPES_KO } = await import('../src/utils/erMeta.js');
 const { SIMULATION_ENGINE_VERSION } = await import('../src/app/simulation/_generated/simulationEngineVersion.js');
+const { createMatchDistributionFrameTracker } = await import('./lib/match-distribution-frame-tracker.mjs');
 
+const args = process.argv.slice(2);
+assert.ok(args.length <= 1 && args.every(arg => arg === '--expanded'),
+  'Usage: node scripts/check-custom-shared-growth-match.mjs [--expanded]');
+const expanded = args.includes('--expanded');
+
+function expandedTargetActuallyEquipped(actor, target, items) {
+  const slot = inferEquipSlot(target);
+  if (!slot) return false;
+  const equippedId = String(actor?.equipped?.[slot] || '');
+  if (equippedId !== String(target?._id || '')) return false;
+  const catalogItem = items.find(item => String(item._id) === equippedId);
+  const inventoryItem = (actor?.inventory || []).find(entry => {
+    const quantity = entry.qty === undefined ? 1 : Number(entry.qty);
+    return getInvItemId(entry) === equippedId && Number.isSafeInteger(quantity) && quantity > 0;
+  });
+  if (!catalogItem || !inventoryItem) return false;
+  const equippedItem = { ...catalogItem, ...inventoryItem };
+  if (inferEquipSlot(equippedItem) !== slot) return false;
+  return slot !== 'weapon' || areEquipmentWeaponTypesCompatible(actor.weaponType, equippedItem.weaponType);
+}
+
+async function runExpandedCases() {
+  const cases = [
+    { name: 'shared-batch', matchSeed: '5501', rosterSeed: 'HF4:roster-A', leaves: ['namu:material:고철'],
+      stages: [{ id: 'batch', ingredients: [{ itemId: 'namu:material:고철', qty: 3 }], resultQty: 2, cost: 1 }],
+      targetIngredients: [{ key: 'batch', qty: 1 }], targetCost: 1 },
+    { name: 'multi-leaf-cost', matchSeed: '5502', rosterSeed: 'HF4:roster-C',
+      leaves: ['namu:material:나뭇가지', 'namu:material:고철'],
+      stages: [
+        { id: 'branch-batch', ingredients: [{ itemId: 'namu:material:나뭇가지', qty: 2 }], resultQty: 2, cost: 2 },
+        { id: 'scrap-batch', ingredients: [{ itemId: 'namu:material:고철', qty: 3 }], resultQty: 1, cost: 1 },
+      ], targetIngredients: [{ key: 'branch-batch', qty: 1 }, { key: 'scrap-batch', qty: 1 }], targetCost: 3 },
+  ];
+  const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const protectedAxes = fixture => ({ map: fixture.map, settings: fixture.settings,
+    roster: fixture.survivors.map(actor => ({ id: actor._id, hp: actor.hp, maxHp: actor.maxHp,
+      stats: actor.stats, erStats: actor.erStats, weaponType: actor.weaponType, credits: actor.simCredits,
+      inventory: actor.inventory || [], teamId: actor.teamId, zoneId: actor.zoneId })) });
+  const summaries = [];
+
+  for (const spec of cases) {
+    const fixture = JSON.parse(await createRandomIsolationInput(spec.matchSeed, { initialRosterSeed: spec.rosterSeed }));
+    assert.equal(fixture.survivors.length, 24, `${spec.name}: use the full natural 24-person roster.`);
+    const protectedBefore = digest(protectedAxes(fixture));
+    const originalCatalog = JSON.stringify(fixture.items);
+    const emptyInventoryBaseline = fixture.survivors.every(actor => JSON.stringify(actor.inventory || []) === '[]');
+    assert.ok(emptyInventoryBaseline, `${spec.name}: all 24 initial inventories remain empty.`);
+    const groups = new Map();
+    for (const actor of fixture.survivors) {
+      const teamId = String(actor.teamId || '');
+      assert.ok(teamId, `${spec.name}: every participant retains its team.`);
+      if (!groups.has(teamId)) groups.set(teamId, []);
+      groups.get(teamId).push(actor);
+    }
+    const eligibleTeams = [...groups.entries()].filter(([, actors]) => actors.length >= 2).sort(([a], [b]) => a.localeCompare(b));
+    assert.ok(eligibleTeams.length >= 2, `${spec.name}: need two distinct teams with two members each.`);
+    const selected = [...eligibleTeams[0][1].slice(0, 2), ...eligibleTeams[1][1].slice(0, 2)];
+    const targetByActor = new Map();
+    const itemIds = new Map();
+    const profileRows = [];
+    for (const stage of spec.stages) {
+      const id = `guest-item-expanded-${spec.name}-${stage.id}`;
+      itemIds.set(stage.id, id);
+      profileRows.push({ _id: id, name: `${spec.name} ${stage.id}`, type: '재료', tier: 2, stackMax: 10,
+        recipe: { ingredients: stage.ingredients, resultQty: stage.resultQty, creditsCost: stage.cost } });
+    }
+    for (const [selectedIndex, actor] of selected.entries()) {
+      const weaponType = normalizeWeaponType(actor.weaponType);
+      assert.ok(weaponType, `${spec.name}: selected weapon target needs a valid weapon family.`);
+      const id = `guest-item-expanded-${spec.name}-goal-${selectedIndex + 1}`;
+      targetByActor.set(actor._id, id);
+      profileRows.push({ _id: id, name: `${spec.name} authored goal ${actor._id}`, type: '무기', equipSlot: 'weapon',
+        weaponType, tier: 4, stackMax: 1,
+        recipe: { ingredients: spec.targetIngredients.map(row => ({ itemId: itemIds.get(row.key), qty: row.qty })),
+          resultQty: 1, creditsCost: spec.targetCost } });
+    }
+    for (const leafId of spec.leaves) assert.ok(fixture.items.some(item => item._id === leafId), `${spec.name}: ${leafId} must be a real catalog leaf.`);
+    const profileResult = readGuestItems(fixture.items, { getItem(key) {
+      assert.equal(key, GUEST_ITEM_PROFILE_KEY);
+      return JSON.stringify({ schemaVersion: 1, items: profileRows });
+    } });
+    assert.equal(profileResult.ok, true, profileResult.error);
+    assert.equal(JSON.stringify(fixture.items), originalCatalog, 'Reading custom profiles must not mutate the original catalogue.');
+    fixture.items.push(...profileResult.items);
+    assert.equal(JSON.stringify(fixture.items.slice(0, -profileResult.items.length)), originalCatalog,
+      'Custom equipment must extend, not replace or rewrite the real catalogue.');
+    for (const actor of selected) {
+      const targetId = targetByActor.get(actor._id);
+      const target = fixture.items.find(item => item._id === targetId);
+      assert.ok(areEquipmentWeaponTypesCompatible(actor.weaponType, target.weaponType));
+      const updated = { ...actor, goalLoadouts: { ...(actor.goalLoadouts || {}), hero: { weaponKey: targetId } } };
+      const planned = mergeInitialRoutePlanFields(updated, buildInitialFastRoutePlan(updated, fixture.map, fixture.items));
+      assert.ok(planned.routePlanTargetItemIds.includes(targetId), `${spec.name}: authored target must be in initial route.`);
+      fixture.survivors[fixture.survivors.findIndex(row => row._id === actor._id)] = planned;
+    }
+    assert.equal(digest(protectedAxes(fixture)), protectedBefore,
+      `${spec.name}: map/settings and all 24 initial HP/budget/inventory/team/start-zone values are unchanged.`);
+
+    const savedInput = createSimulationRunInput({ activeMap: fixture.map, settings: fixture.settings,
+      survivors: fixture.survivors, publicItems: fixture.items, runSeed: fixture.runSeed }, { getItem: () => null });
+    const savedInputBefore = JSON.stringify(savedInput);
+    const rules = getRuleset(savedInput.settings.rulesetId || 'ER_S11');
+    const firstNightDeadline = getPhaseDurationSec(rules, 1, 'morning') + getPhaseDurationSec(rules, 1, 'night');
+    const tracker = createMatchDistributionFrameTracker({ initialActors: savedInput.initialFrame.survivors,
+      items: savedInput.publicItems, firstDayDeadlineSec: firstNightDeadline });
+    const recipes = new Map(profileResult.items.map(item => [String(item._id), item.recipe]));
+    const receipts = new Map(), customActionKeys = new Set(), firstEquippedAt = new Map(), lastTargets = new Map();
+    const stock = new Map(), pickupTeamsByStock = new Map();
+    let cursor = 0;
+    console.log(`CUSTOM_SHARED_GROWTH_EXPANDED_START ${JSON.stringify({ case: spec.name,
+      matchSeed: spec.matchSeed, rosterSeed: spec.rosterSeed, engine: SIMULATION_ENGINE_VERSION,
+      inputSha256: digest(savedInput), selectedActors: selected.map(actor => ({ id: actor._id, teamId: actor.teamId })) })}`);
+    const result = await runRandomIsolationMatch(null, { savedInput,
+      onFrame(frame, { events, publicItems }) {
+        tracker.observe(frame);
+        const fieldByZone = frame.spawnState?.fieldResources?.byZone || {};
+        for (const [zoneId, rows] of Object.entries(fieldByZone)) for (const [itemId, row] of Object.entries(rows || {})) {
+          if (!spec.leaves.includes(itemId)) continue;
+          const key = JSON.stringify([zoneId, itemId]);
+          if (!stock.has(key)) stock.set(key, { zoneId, itemId, initial: Number(row.initial),
+            remaining: Number(row.initial), taken: 0 });
+        }
+        for (const event of events.slice(cursor)) {
+          const recipe = recipes.get(String(event.itemId));
+          if (event.kind === 'craft' && recipe) {
+            assert.equal(event.receiptVersion, 1);
+            assert.equal(event.qty, recipe.resultQty);
+            assert.equal(event.paidCost, recipe.creditsCost);
+            assert.equal(event.beforeCredits - event.afterCredits, recipe.creditsCost);
+            assert.deepEqual(event.consumed, recipe.ingredients);
+            assert.ok(event.actionKey, 'Each custom craft transaction needs an action key.');
+            assert.ok(!customActionKeys.has(event.actionKey), `${spec.name}: custom action key must not be reused.`);
+            customActionKeys.add(event.actionKey);
+            const rows = receipts.get(`${event.who}:${event.itemId}`) || [];
+            rows.push(event); receipts.set(`${event.who}:${event.itemId}`, rows);
+          }
+          if (event.kind === 'field_resource' && spec.leaves.includes(event.itemId)) {
+            const key = JSON.stringify([String(event.zoneId), String(event.itemId)]);
+            const stockRow = stock.get(key);
+            assert.ok(stockRow, `${spec.name}: pickup must map to a published stock row for ${key}`);
+            assert.equal(event.initial, stockRow.initial, `${spec.name}: stock initial remains stable at ${key}`);
+            assert.ok(Number.isSafeInteger(event.qty) && event.qty > 0);
+            assert.equal(event.remaining, stockRow.remaining - event.qty, `${spec.name}: shared stock conservation at ${key}`);
+            assert.ok(event.remaining >= 0);
+            stockRow.remaining = event.remaining;
+            stockRow.taken += event.qty;
+            const teamId = targetByActor.has(event.who)
+              ? String(savedInput.initialFrame.survivors.find(actor => actor._id === event.who)?.teamId || '') : '';
+            if (teamId) {
+              const teams = pickupTeamsByStock.get(key) || new Set();
+              teams.add(teamId); pickupTeamsByStock.set(key, teams);
+            }
+          }
+        }
+        cursor = events.length;
+        for (const [key, stockRow] of stock) {
+          const published = fieldByZone[stockRow.zoneId]?.[stockRow.itemId];
+          assert.ok(published, `${spec.name}: published frame must retain shared stock row ${key}`);
+          assert.equal(Number(published.initial), stockRow.initial, `${spec.name}: published initial stock ${key}`);
+          assert.equal(Number(published.remaining), stockRow.remaining, `${spec.name}: published remaining stock ${key}`);
+          assert.equal(Number(published.taken), stockRow.taken, `${spec.name}: published taken stock ${key}`);
+        }
+        for (const actor of [...frame.survivors, ...frame.dead]) {
+          if (!targetByActor.has(actor._id)) continue;
+          const targetId = targetByActor.get(actor._id);
+          const progress = getActorGrowthProgress(actor, publicItems);
+          const priorTargets = lastTargets.get(actor._id);
+          if (priorTargets) assert.ok(progress.targetIds.includes(targetId), `${spec.name}: original goal ID persists.`);
+          lastTargets.set(actor._id, [...progress.targetIds]);
+          const target = publicItems.find(item => item._id === targetId);
+          if (target && expandedTargetActuallyEquipped(actor, target, publicItems) && !firstEquippedAt.has(actor._id)) {
+            firstEquippedAt.set(actor._id, frame.matchSec);
+          }
+        }
+      } });
+    assert.equal(JSON.stringify(savedInput), savedInputBefore, `${spec.name}: full run input must remain immutable.`);
+    assert.ok(result.events.some(event => event.kind === 'match_end'), `${spec.name}: natural full match must finish.`);
+    assert.equal(result.events.at(-1)?.kind, 'match_end');
+    for (const leafId of spec.leaves) assert.ok(result.events.some(event => event.kind === 'field_resource'
+      && event.itemId === leafId), `${spec.name}: each declared real field leaf must have an actual pickup.`);
+    for (const [key, rows] of receipts) assert.equal(new Set(rows.map(event => event.actionKey)).size, rows.length,
+      `${spec.name}: no duplicate custom craft receipt for ${key}.`);
+    console.log(`CUSTOM_SHARED_GROWTH_EXPANDED_MATCH case=${spec.name} phases=${result.evidence.phases} `
+      + `frames=${result.evidence.frames} events=${result.events.length} replay=pending`);
+    const replay = await runRandomIsolationMatch(null, { savedInput });
+    assert.deepEqual(replay.evidence, result.evidence, `${spec.name}: exact full replay evidence.`);
+    assert.deepEqual(replay.finalFrame, result.finalFrame);
+    assert.deepEqual(replay.events, result.events);
+    assert.deepEqual(replay.logs, result.logs);
+    assert.equal(JSON.stringify(savedInput), savedInputBefore);
+
+    const finalActors = new Map([...result.finalFrame.survivors, ...result.finalFrame.dead].map(actor => [actor._id, actor]));
+    const goalRows = selected.map(actor => {
+      const endingActor = finalActors.get(actor._id);
+      assert.ok(endingActor, `${spec.name}: retain all four selected actors in the terminal frame.`);
+      const targetId = targetByActor.get(actor._id);
+      const craftRows = receipts.get(`${actor._id}:${targetId}`) || [];
+      const actuallyEquipped = expandedTargetActuallyEquipped(endingActor, fixture.items.find(item => item._id === targetId), fixture.items);
+      const everActuallyEquipped = firstEquippedAt.has(actor._id);
+      const receiptBeforeEquipment = craftRows.some(event => event.who === actor._id && event.itemId === targetId
+        && Number(event.at?.sec) <= Number(firstEquippedAt.get(actor._id)));
+      const aliveAtEnd = result.finalFrame.survivors.some(row => row._id === actor._id);
+      const completed = !!craftRows.length && everActuallyEquipped;
+      return { actorId: actor._id, teamId: actor.teamId, targetId, aliveAtEnd,
+        deadAtEnd: result.finalFrame.dead.some(row => row._id === actor._id), completed,
+        status: completed ? 'custom-target-equipped' : aliveAtEnd ? 'alive-unfinished' : 'dead-unfinished',
+        everActuallyEquipped, firstNightEquipped: (firstEquippedAt.get(actor._id) ?? Infinity) <= firstNightDeadline,
+        firstEquippedAtSec: firstEquippedAt.get(actor._id) ?? null, terminalActuallyEquipped: actuallyEquipped,
+        customTargetReceiptCount: craftRows.length, receiptBeforeEquipment,
+        initialGoalTargetRetained: lastTargets.get(actor._id)?.includes(targetId) === true };
+    });
+    const trackerReport = tracker.report();
+    const crossTeamStock = [...pickupTeamsByStock.entries()].filter(([, teams]) => teams.size > 1).map(([key, teams]) => {
+      const row = stock.get(key);
+      return { zoneId: row.zoneId, itemId: row.itemId, selectedGoalTeams: [...teams].sort() };
+    });
+    const casePass = goalRows.every(row => row.customTargetReceiptCount > 0 && row.receiptBeforeEquipment
+      && row.firstEquippedAtSec !== null && row.initialGoalTargetRetained);
+    const summary = { case: spec.name, matchSeed: spec.matchSeed, initialRosterSeed: spec.rosterSeed,
+      participants: 24, selectedGoalDenominator: 4, selectedTeamIds: [...new Set(selected.map(actor => String(actor.teamId)))],
+      sameTeamGoalActorCount: selected.filter(actor => String(actor.teamId) === String(selected[0].teamId)).length,
+      opposingTeamGoalActorCount: selected.filter(actor => String(actor.teamId) !== String(selected[0].teamId)).length,
+      goalRows, initialGoalDenominator: trackerReport.growth.goalParticipants,
+      initialGoalAcquisition: { complete: trackerReport.growth.complete, denominator: trackerReport.growth.goalParticipants,
+        diedBeforeCompletion: trackerReport.growth.diedBeforeCompletion, identityChanged: trackerReport.growth.goalIdentityChanged,
+        participants: trackerReport.growth.total },
+      fullTeamRegroup: { started: trackerReport.regroup.started, outcomes: trackerReport.regroup.outcomes,
+        denominator: trackerReport.regroup.started },
+      customCraftReceiptRows: receipts.size, stockZones: stock.size,
+      crossTeamSameZoneLeafPickupsBySelectedGoalActors: crossTeamStock,
+      crossTeamDemandLabel: crossTeamStock.length ? 'selected-goal-actors-same-zone-multi-team-pickups-observed' : 'co-demand-only',
+      casePass, replayExact: true, savedInputSha256: digest(savedInput), protectedAxisSha256: protectedBefore,
+      engine: SIMULATION_ENGINE_VERSION, phases: result.evidence.phases, matchSec: result.finalFrame.matchSec,
+      ending: result.evidence.ending, terminalRoster: { survivors: result.finalFrame.survivors.length,
+        dead: result.finalFrame.dead.length, denominator: result.finalFrame.survivors.length + result.finalFrame.dead.length },
+      events: result.events.length, frames: result.evidence.frames,
+      scope: 'Fresh natural 24-person full match; cross-team pickup scope is the four selected goal actors only. No population-rate claim.' };
+    summaries.push(summary);
+    console.log(`CUSTOM_SHARED_GROWTH_EXPANDED ${JSON.stringify(summary)}`);
+  }
+  const allCasesPass = summaries.length === 2 && summaries.every(row => row.casePass && row.goalRows.length === 4);
+  console.log(`CUSTOM_SHARED_GROWTH_EXPANDED_RESULT ${JSON.stringify({ cases: summaries.length, expectedCases: 2,
+    allFourActorsEquippedInBothCases: allCasesPass,
+    scope: 'Both fixed cases must pass all four actor/item craft-and-equipment assertions; no replacing seeds or weakening expectations.' })}`);
+  assert.ok(allCasesPass, `Both fixed cases require all four actor/item craft-and-equipment assertions; cases=${JSON.stringify(summaries.map(row => ({ case: row.case, casePass: row.casePass, goalRows: row.goalRows })))}`);
+}
+
+if (expanded) {
+  await runExpandedCases();
+} else {
 // Fresh 24-participant input, unchanged world resources and starting budgets.
 // Only authored item profiles and selected actors' declared goals are changed.
 const fixture = JSON.parse(await createRandomIsolationInput('custom-shared-growth-20261014'));
@@ -291,3 +543,4 @@ assert.deepEqual(replay.logs, result.logs);
 assert.equal(JSON.stringify(savedInput), savedInputBefore);
 console.log(`CUSTOM_SHARED_GROWTH_REPLAY phases=${result.evidence.phases} frames=${result.evidence.frames} events=${result.events.length} `
   + `upgradeCrafts=${upgradeReceipts.length} openingHeadCrafts=1 exact=true scope=first-night-not-full-match`);
+}

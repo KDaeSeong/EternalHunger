@@ -212,10 +212,22 @@ check('catalogued cyclic authored head can route around to shallow fallback with
 
   const betterFallbackOnly = getActorGrowthProgress({ ...actor, routePlanTargetItemIds: route.targetItemIds,
     inventory: [...otherSlotsOwned, { ...betterOwned.item, itemId: betterOwned.item._id, qty: 1 }] }, items);
-  assert.equal(betterFallbackOnly.openingComplete, true,
-    'an actually owned higher-tier item may satisfy the equipment slot despite a malformed authored recipe');
-  assert.equal(betterFallbackOnly.remaining.length, 0,
-    'this assertion covers higher-tier slot satisfaction, not successful crafting of the cyclic authored target');
+  assert.equal(betterFallbackOnly.openingComplete, false,
+    'a higher-tier fallback cannot fulfill an exact authored item, even when its recipe is malformed');
+  assert.deepEqual(betterFallbackOnly.remaining.map(item => item._id), [targetId]);
+
+  const authoredOwned = getActorGrowthProgress({ ...actor, routePlanTargetItemIds: route.targetItemIds,
+    inventory: [...otherSlotsOwned, { ...target, itemId: targetId, qty: 1 }] }, items);
+  assert.equal(authoredOwned.openingComplete, true,
+    'actual ownership fulfills the declared item without claiming that its cyclic recipe was crafted');
+  assert.equal(authoredOwned.remaining.length, 0);
+
+  const automaticFallback = getActorGrowthProgress({ ...actor, goalLoadouts: {},
+    routePlanTargetItemIds: route.targetItemIds,
+    inventory: [...otherSlotsOwned, { ...betterOwned.item, itemId: betterOwned.item._id, qty: 1 }] }, items);
+  assert.equal(automaticFallback.openingComplete, true,
+    'automatic route targets retain higher-tier substitution; only direct declarations require the exact item');
+  assert.equal(automaticFallback.remaining.length, 0);
 });
 
 console.log(`DEEP_CUSTOM_RECIPE_ROUTE_CHECKS ${passed}/${passed + failed}`);

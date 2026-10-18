@@ -110,6 +110,29 @@ for (const path of ['scripts/check-growth-fulfillment-match.mjs', 'scripts/check
 }
 console.log('PASS authored opening full-match and bounded replay proof mutations invalidate their verification mode');
 
+const customGrowthProofPaths = {
+  'custom-growth-expanded-match': ['scripts/check-custom-shared-growth-match.mjs'],
+  'custom-shared-growth-match': ['scripts/check-custom-shared-growth-match.mjs'],
+  'authored-opening-match': ['scripts/check-custom-shared-growth-match.mjs'],
+  'custom-growth-unit': ['scripts/check-growth-plan.mjs', 'scripts/check-growth-capacity.mjs',
+    'scripts/check-deep-custom-recipe-routes.mjs', 'scripts/check-deep-custom-recipe-growth.mjs',
+    'scripts/check-team-tactics.mjs', 'scripts/check-team-regroup.mjs', 'scripts/check-team-resource-goals.mjs',
+    'scripts/check-team-purchase-goals.mjs', 'scripts/lib/team-purchase-fixture.mjs',
+    'scripts/check-match-distribution-metrics.mjs', 'scripts/lib/match-distribution-diagnostics.mjs',
+    'scripts/lib/movement-reversal-trace.mjs'],
+};
+for (const [mode, paths] of Object.entries(customGrowthProofPaths)) {
+  const before = verificationSources(mode);
+  for (const path of [...paths, 'scripts/generate-simulation-version.mjs',
+    'scripts/check-verification-fingerprint.mjs', 'scripts/lib/run-random-isolation-match.mjs',
+    'scripts/lib/match-distribution-frame-tracker.mjs']) {
+    assert.equal(typeof before[path], 'string', `${mode} must fingerprint ${path}.`);
+    const after = verificationSources(mode, fileURLToPath(new URL(path, root)));
+    assert.notEqual(after[path], before[path], 'Changing a custom growth proof, fixture, tracker, or verification policy must invalidate its receipt.');
+  }
+}
+console.log('PASS expanded custom match and blocked-growth regroup proofs invalidate their verification modes');
+
 for (const path of ['scripts/check-planning-power-snapshot.mjs', 'scripts/check-move-power-sort-match.mjs',
   'scripts/lib/run-random-isolation-match.mjs', 'scripts/check-team-tactics.mjs', 'scripts/check-live-frames.mjs']) {
   const before = verificationSources('move-power-sort');
@@ -184,5 +207,5 @@ for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module
   }
 }
 console.log('PASS module registration and resolution policy mutations invalidate applicable verification modes');
-console.log(JSON.stringify({ pass: true, checks: 13, engine: base.wrapper,
+console.log(JSON.stringify({ pass: true, checks: 14, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));

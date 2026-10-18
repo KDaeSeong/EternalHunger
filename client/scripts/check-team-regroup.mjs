@@ -10,6 +10,7 @@ const { withSimulationRandom } = await import('../src/utils/simulationRandom.js'
 const { resolveActorNextMoveZone } = await import('../src/app/simulation/_lib/actorMovementDecisionHelpers.js');
 const { initializeSpatialPosition } = await import('../src/app/simulation/_lib/combatSpatialRuntime.js');
 const { getCombatIntentOpponents } = await import('../src/app/simulation/_lib/combatTimingRuntime.js');
+const { createFieldResources, collectFieldResourceLoot } = await import('../src/app/simulation/_lib/fieldResourceRuntime.js');
 
 const actor = (id, zoneId, extra = {}) => ({ _id: id, name: id, teamId: 't', zoneId, hp: 100, maxHp: 100,
   stats: { attackPower: 20, defense: 10 }, inventory: [], _growthPlan: { openingComplete: true }, ...extra });
@@ -36,7 +37,9 @@ const move = (who, roster, extra = {}) => {
   const state = { ...world, actor: structuredClone(who), phaseSurvivors: structuredClone(roster), publicItems: [],
     craftables: [], itemKeyById: {}, itemMetaById: {}, itemNameById: {}, kiosks: [], zones: world.mapObj.zones,
     nextDay: 2, nextPhase: 'night', phaseIdxNow: 3, ruleset, ...stateExtra };
-  const plans = buildTeamCoordination({ ...options, roster: state.phaseSurvivors, zoneGraph: state.zoneGraph, forbiddenIds: state.forbiddenIds });
+  const plans = buildTeamCoordination({ ...options, roster: state.phaseSurvivors, zoneGraph: state.zoneGraph,
+    forbiddenIds: state.forbiddenIds, spawnState: state.nextSpawn, ruleset: state.ruleset,
+    publicItems: state.publicItems, mapObj: state.mapObj, kiosks: state.kiosks, day: state.nextDay, phase: state.nextPhase });
   state.teamMovementPlan = plans.movementPlans.get(who._id);
   state.teamRegroupDecision = omitRegroupObservation ? null : plans.regroupDecisions.get(who._id);
   const rec = record(); let cost = 0;
@@ -410,6 +413,135 @@ check('a co-located real-recipe farmer and ready ally keep growth waiting throug
     assert.equal(result.events.some((event) => ['move', 'field_resource', 'craft'].includes(event.kind)), false);
   }
   assert.deepEqual(roster, before, 'Both movement decisions must leave the shared pre-action fixture untouched.');
+});
+
+check('a depleted direct growth goal releases the ready squad to regroup, then resumes safely when stock returns', () => {
+  const items = [...unfinishedRecipeItems().map((item) => item._id === 'hat' ? { ...item, itemKey: 'direct-hat', tier: 4 } : item),
+    { _id: 'ready-weapon', name: '준비 무기', type: '무기', category: 'equipment', equipSlot: 'weapon', weaponType: '단검', tier: 4 },
+    { _id: 'ready-clothes', name: '준비 옷', type: '방어구', category: 'equipment', equipSlot: 'clothes', tier: 4 },
+    { _id: 'ready-arm', name: '준비 팔', type: '방어구', category: 'equipment', equipSlot: 'arm', tier: 4 },
+    { _id: 'ready-shoes', name: '준비 신발', type: '방어구', category: 'equipment', equipSlot: 'shoes', tier: 4 },
+  ];
+  const mapObj = { zones: world.mapObj.zones, fieldResourceStock: { e: { raw: 1 } } };
+  const fieldResources = createFieldResources(mapObj, items, ruleset);
+  const nextSpawn = { fieldResources };
+  const state = { mapObj, zoneGraph: graph, forbiddenIds: new Set(), ruleset, nextSpawn };
+  let farmer = actor('direct-farmer', 'e', { routePlanTargetItemIds: ['hat'],
+    goalLoadouts: { hero: { headKey: 'direct-hat' } }, simCredits: 50 });
+  const readyGearIds = ['ready-weapon', 'hat', 'ready-clothes', 'ready-arm', 'ready-shoes'];
+  const makeReady = (id, zoneId, teamSlot, simCredits) => actor(id, zoneId, { teamSlot, simCredits, weaponType: '단검',
+    routePlanTargetItemIds: readyGearIds, equipped: Object.fromEntries([
+      ['weapon', 'ready-weapon'], ['head', 'hat'], ['clothes', 'ready-clothes'], ['arm', 'ready-arm'], ['shoes', 'ready-shoes'],
+    ]), inventory: readyGearIds.map((itemId) => ({ ...items.find((item) => item._id === itemId), itemId, qty: 1 })) });
+  const readyA = makeReady('ready-a', 'a', 1, 70);
+  let readyB = makeReady('ready-b', 'b', 2, 80);
+  let roster = [farmer, readyA, readyB];
+  const refresh = () => {
+    for (const member of roster) refreshActorGrowthPlan(member, items, { ...state, fieldResources });
+  };
+  const runMove = (member, extra = {}) => move(member, roster, { ...state, publicItems: items, ...extra });
+  const noRewards = (result, before) => {
+    assert.deepEqual(result.actor.inventory, before.inventory,
+      `${result.actor._id} must not receive remote or unearned items.`);
+    assert.equal(result.actor.simCredits, before.simCredits, `${result.actor._id} must not receive team funds.`);
+    assert.equal(result.events.some((event) => ['gain', 'field_resource', 'craft', 'procurement'].includes(event.kind)), false,
+      'Coordination and movement must not award, collect, craft or buy anything.');
+  };
+
+  refresh();
+  assert.equal(readyA._growthPlan.openingComplete, true);
+  assert.equal(readyB._growthPlan.openingComplete, true);
+  assert.equal(farmer._growthPlan.targetId, 'hat');
+  assert.equal(farmer._growthPlan.openingComplete, false);
+  assert.equal(farmer._growthPlan.blocked, '');
+  assert.equal(fieldResources.byZone.e.raw.remaining, 1);
+  const escorting = buildTeamCoordination({ ...options, roster, zoneGraph: graph, spawnState: nextSpawn,
+    ruleset, publicItems: items, mapObj, forbiddenIds: state.forbiddenIds });
+  assert.equal(escorting.movementPlans.get('ready-a').targetZoneId, 'e',
+    'A reachable, unfinished direct-goal farmer remains the escort target while its finite source is available.');
+
+  // A competing actor's accepted pickup exhausts the one finite field unit
+  // before this team's next fresh planning pass; the callback deliberately
+  // does not credit any roster member or simulate a natural supply event.
+  assert.equal(collectFieldResourceLoot(fieldResources,
+    { zoneId: 'e', itemId: 'raw', item: items.find((item) => item._id === 'raw'), qty: 1 }, (qty) => qty), 1);
+  assert.equal(fieldResources.byZone.e.raw.remaining, 0);
+  assert.equal(fieldResources.byZone.e.raw.taken, 1);
+  refresh();
+  assert.equal(farmer.goalLoadouts.hero.headKey, 'direct-hat');
+  assert.equal(farmer._growthPlan.targetId, 'hat');
+  assert.equal(farmer._growthPlan.openingComplete, false);
+  assert.equal(farmer._growthPlan.blocked, 'no_material_source',
+    'Stock depletion by itself must be identified before adding the forbidden-zone constraint.');
+  assert.deepEqual(farmer._growthPlan.goalIssues, [], 'A valid authored direct target must not become a malformed-goal warning when stock runs out.');
+  state.forbiddenIds = new Set(['e']);
+  refresh();
+  assert.equal(farmer.goalLoadouts.hero.headKey, 'direct-hat');
+  assert.equal(farmer._growthPlan.openingComplete, false);
+  assert.ok(farmer._growthPlan.blocked, 'The depleted/forbidden recipe must not remain falsely farmable.');
+  const beforeEscape = { inventory: structuredClone(farmer.inventory), simCredits: farmer.simCredits };
+  const escape = runMove(farmer);
+  assert.equal(escape.actor.zoneId, 'd', 'Forbidden-area escape overrides the blocked direct recipe.');
+  assert.equal(escape.actor._growthPlan.targetId, farmer._growthPlan.targetId);
+  noRewards(escape, beforeEscape);
+  farmer = escape.actor;
+  roster = roster.map((member) => member._id === farmer._id ? escape.actor : member);
+
+  // The source remains depleted and is now disconnected. Fresh coordination
+  // must not send the ready pair back to it or freeze them at a stale rally.
+  state.forbiddenIds = new Set();
+  state.zoneGraph = { a: ['b'], b: ['a', 'c'], c: ['b', 'd'], d: ['c'], e: [] };
+  refresh();
+  assert.equal(farmer._growthPlan.blocked !== '', true);
+  const disconnected = buildTeamCoordination({ ...options, roster, zoneGraph: state.zoneGraph,
+    spawnState: nextSpawn, ruleset, publicItems: items, mapObj, forbiddenIds: state.forbiddenIds });
+  assert.equal(disconnected.regroupDecisions.get('direct-farmer').targetZoneId, 'a');
+  assert.equal(disconnected.regroupDecisions.get('direct-farmer').stage, 'joining');
+  assert.equal(disconnected.movementPlans.get('ready-b').nextStep, 'a',
+    'A ready teammate at b must receive an adjacent regroup step toward its teammate already at a.');
+  const beforeReadyJoin = { inventory: structuredClone(readyB.inventory), simCredits: readyB.simCredits };
+  const readyJoin = runMove(readyB);
+  assert.equal(readyJoin.nextZoneId, 'a');
+  assert.equal(readyJoin.moveReason, 'team_regroup');
+  noRewards(readyJoin, beforeReadyJoin);
+  readyB = readyJoin.actor;
+  roster = roster.map((member) => member._id === readyB._id ? readyB : member);
+  const beforeJoin = { inventory: structuredClone(farmer.inventory), simCredits: farmer.simCredits };
+  const join = runMove(farmer);
+  assert.equal(join.nextZoneId, 'c', `The blocked farmer rejoins the reachable ready pair instead of following the unavailable source: ${JSON.stringify({
+    from: join.currentZone, nextZoneId: join.nextZoneId, moveReason: join.moveReason,
+    decision: disconnected.regroupDecisions.get('direct-farmer'), teamMovementPlan: join.teamMovementPlan,
+    growthTarget: join.actor._growthPlan?.targetId, growthBlocked: join.actor._growthPlan?.blocked,
+  })}`);
+  assert.equal(join.moveReason, 'team_regroup');
+  noRewards(join, beforeJoin);
+  farmer = join.actor;
+  roster = roster.map((member) => member._id === farmer._id ? join.actor : member);
+
+  // Restore the graph edge and re-seed one stock unit in this controlled test
+  // fixture; natural stock regeneration is neither implemented nor verified
+  // here. The same authored key must resume; teammates cannot receive the
+  // ingredient or craft result on its behalf.
+  state.zoneGraph = graph;
+  fieldResources.byZone.e.raw.remaining = 1;
+  fieldResources.byZone.e.raw.taken = 0;
+  refresh();
+  assert.equal(farmer.goalLoadouts.hero.headKey, 'direct-hat');
+  assert.equal(farmer._growthPlan.targetId, 'hat');
+  assert.equal(farmer._growthPlan.openingComplete, false);
+  assert.equal(farmer._growthPlan.blocked, '');
+  assert.equal(farmer._growthPlan.targetZoneId, 'e');
+  const resumed = buildTeamCoordination({ ...options, roster, zoneGraph: graph, spawnState: nextSpawn,
+    ruleset, publicItems: items, mapObj, forbiddenIds: state.forbiddenIds });
+  assert.equal(resumed.regroupDecisions.get('direct-farmer').stage, 'growing');
+  assert.equal(resumed.regroupDecisions.get('ready-a').targetZoneId, 'c',
+    'The ready squad can resume escorting the direct goal from the farmer’s fresh reachable zone.');
+  const beforeResume = { inventory: structuredClone(farmer.inventory), simCredits: farmer.simCredits };
+  const resume = runMove(farmer);
+  assert.equal(resume.moveReason, 'growth_farm');
+  assert.equal(resume.nextZoneId, 'd');
+  assert.equal(resume.actor._growthPlan.targetId, 'hat');
+  noRewards(resume, beforeResume);
 });
 
 check('legacy opening routes and solo matches keep their original movement policy', () => {
