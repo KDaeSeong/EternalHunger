@@ -236,6 +236,126 @@ check('two teams commit the same batch departure but only one settles a shared r
   }
 });
 
+check('two teams compete for a custom head field leaf, then the loser replans to remaining stock or preserves inputs when that route is forbidden', () => {
+  const makeCompetition = ({ alternateStock, forbidAlternate = false, reverse = false }) => {
+    const input = fixture();
+    input.state.nextSpawn.coreNodes = [];
+    input.state.zoneGraph = { a: ['c'], b: ['c'], c: ['a', 'b'] };
+    const raw = { _id: 'guest-item-contested-head-leaf', name: '맞춤 투구 원재료', type: '재료', category: 'material',
+      tier: 1, stackMax: 10, spawnZones: ['b', 'c'] };
+    const target = gear('guest-item-contested-head', '맞춤 경합 투구', raw._id);
+    const catalog = [...items, raw, target];
+    input.state.publicItems = catalog;
+    input.state.craftables = buildCraftableItems(catalog);
+    input.state.itemMetaById = buildItemMetaById(catalog);
+    input.state.itemNameById = buildItemNameById(catalog);
+    input.state.itemKeyById = buildItemKeyById(catalog);
+    input.state.mapObj.fieldResourceStock = { b: { [raw._id]: alternateStock }, c: { [raw._id]: 1 } };
+    input.state.nextSpawn.fieldResources = createFieldResources(input.state.mapObj, catalog, input.state.ruleset);
+    if (forbidAlternate) input.state.forbiddenIds.add('b');
+    const firstTeam = input.roster.slice(0, 2);
+    const secondTeam = firstTeam.map(actor => ({ ...structuredClone(actor), _id: `other-${actor._id}`,
+      name: `other-${actor.name}`, teamId: 'team:2' }));
+    input.roster = [...firstTeam, ...secondTeam];
+    for (const actor of input.roster) {
+      if (actor._id.endsWith('leader')) actor.goalLoadouts.legend.headKey = target.itemKey;
+      refreshActorGrowthPlan(actor, catalog, input.state);
+    }
+    const targetActorIds = new Set(input.roster.filter(actor => actor.goalLoadouts?.legend?.headKey === target.itemKey)
+      .map(actor => actor._id));
+    if (reverse) input.roster.reverse();
+    return { ...input, raw, target, targetActorIds };
+  };
+
+  for (const reverse of [false, true]) {
+    const input = makeCompetition({ alternateStock: 1, reverse });
+    const initialPlans = plan(input).movementPlans;
+    for (const leaderId of ['leader', 'other-leader']) {
+      assert.equal(initialPlans.get(leaderId)?.nextStep, 'c',
+        'Both teams commit the same currently stocked source before either team consumes it.');
+    }
+    const initialC = input.state.nextSpawn.fieldResources.byZone.c[input.raw._id].remaining;
+    const initialB = input.state.nextSpawn.fieldResources.byZone.b[input.raw._id].remaining;
+    const first = tick(input);
+    assert.ok(first.updatedSurvivors.every(actor => actor.zoneId === 'c'), 'The already planned departures settle together.');
+    const firstHarvests = first.events.filter(event => event.kind === 'field_resource' && event.itemId === input.raw._id);
+    assert.equal(firstHarvests.length, 1, 'Finite source stock creates exactly one real resource receipt.');
+    assert.equal(firstHarvests[0].zoneId, 'c');
+    assert.equal(firstHarvests[0].qty, 1);
+    assert.equal(firstHarvests[0].remaining, 0);
+    assert.equal(input.state.nextSpawn.fieldResources.byZone.c[input.raw._id].remaining, initialC - 1);
+    assert.equal(input.state.nextSpawn.fieldResources.byZone.b[input.raw._id].remaining, initialB);
+    const winners = first.updatedSurvivors.filter(actor => input.targetActorIds.has(actor._id)
+      && actor.equipped.head === input.target._id);
+    assert.equal(winners.length, 1, 'Only one target owner can complete the same single-unit source this batch.');
+    const winner = winners[0];
+    assert.equal(firstHarvests[0].who, winner._id);
+    assert.equal(firstHarvests[0].teamId, winner.teamId);
+    const loser = first.updatedSurvivors.find(actor => input.targetActorIds.has(actor._id) && actor.teamId !== winner.teamId);
+    assert.ok(loser, 'The opposite team retains an active custom head goal after losing the contested source.');
+    const firstCrafts = first.events.filter(event => event.kind === 'craft' && event.itemId === input.target._id);
+    assert.equal(firstCrafts.length, 1);
+    const firstCraft = firstCrafts[0];
+    assert.equal(firstCraft.who, winner._id);
+    assert.equal(firstCraft.qty, 1);
+    assert.equal(firstCraft.paidCost, 3);
+    assert.equal(winner.simCredits, 17);
+    assert.equal(invQty(winner.inventory, input.raw._id), 0, 'The real leaf is consumed by the paid custom head recipe.');
+    assert.equal(loser.simCredits, 20);
+    assert.equal(loser.equipped.head, hero._id);
+    assert.equal(invQty(loser.inventory, input.target._id), 0);
+    assert.equal(invQty(loser.inventory, input.raw._id), 0);
+    assert.equal(invQty(loser.inventory, hero._id), 1);
+
+    input.roster = first.updatedSurvivors;
+    input.state.phaseSurvivors = input.roster;
+    input.advanceClock(input.roster);
+    for (const actor of input.roster) refreshActorGrowthPlan(actor, input.state.publicItems, input.state);
+    const replannedLoser = input.roster.find(actor => actor._id === loser._id);
+    assert.equal(replannedLoser._growthPlan?.targetZoneId, 'b',
+      'Only the later growth decision sees c depleted and selects reachable remaining stock.');
+    assert.equal(replannedLoser._growthPlan?.nextStep, 'b');
+    const second = tick(input);
+    const secondHarvests = second.events.filter(event => event.kind === 'field_resource' && event.itemId === input.raw._id);
+    assert.equal(secondHarvests.length, 1);
+    assert.equal(secondHarvests[0].zoneId, 'b');
+    assert.equal(secondHarvests[0].teamId, loser.teamId);
+    const recovered = second.updatedSurvivors.find(actor => actor._id === loser._id);
+    assert.equal(recovered.equipped.head, input.target._id);
+    assert.equal(recovered.simCredits, 17);
+    assert.equal(invQty(recovered.inventory, input.raw._id), 0);
+    assert.ok(second.events.some(event => event.kind === 'craft' && event.who === loser._id
+      && event.itemId === input.target._id && event.paidCost === 3));
+  }
+
+  for (const reverse of [false, true]) {
+    const blocked = makeCompetition({ alternateStock: 1, forbidAlternate: true, reverse });
+    const first = tick(blocked);
+    const blockedLoser = first.updatedSurvivors.find(actor => blocked.targetActorIds.has(actor._id)
+      && actor.equipped.head !== blocked.target._id);
+    assert.ok(blockedLoser, 'The contested source still has exactly one winner.');
+    blocked.roster = first.updatedSurvivors;
+    blocked.state.phaseSurvivors = blocked.roster;
+    blocked.advanceClock(blocked.roster);
+    for (const actor of blocked.roster) refreshActorGrowthPlan(actor, blocked.state.publicItems, blocked.state);
+    const deniedPlan = blocked.roster.find(actor => actor._id === blockedLoser._id)._growthPlan;
+    assert.notEqual(deniedPlan?.targetZoneId, 'b', 'The remaining source is not assigned through the forbidden zone.');
+    assert.notEqual(deniedPlan?.nextStep, 'b');
+    const bStockBeforeSecondAction = structuredClone(blocked.state.nextSpawn.fieldResources.byZone.b[blocked.raw._id]);
+    const cStockBeforeSecondAction = structuredClone(blocked.state.nextSpawn.fieldResources.byZone.c[blocked.raw._id]);
+    const second = tick(blocked);
+    assert.equal(second.events.filter(event => event.kind === 'field_resource' && event.itemId === blocked.raw._id).length, 0);
+    assert.equal(second.events.filter(event => event.kind === 'craft' && event.itemId === blocked.target._id).length, 0);
+    const stillBlocked = second.updatedSurvivors.find(actor => actor._id === blockedLoser._id);
+    assert.equal(stillBlocked.simCredits, 20);
+    assert.equal(stillBlocked.equipped.head, hero._id);
+    assert.equal(invQty(stillBlocked.inventory, blocked.raw._id), 0);
+    assert.equal(invQty(stillBlocked.inventory, hero._id), 1);
+    assert.deepEqual(blocked.state.nextSpawn.fieldResources.byZone.b[blocked.raw._id], bStockBeforeSecondAction);
+    assert.deepEqual(blocked.state.nextSpawn.fieldResources.byZone.c[blocked.raw._id], cStockBeforeSecondAction);
+  }
+});
+
 check('a team goal names the recipient and recipe, then disappears when that exact source is collected', () => {
   const input = fixture(), goal = plan(input).movementPlans.get('leader').objective;
   assert.match(describeMovementObjective(goal), /생명의 나무 확보.*crafter의 생명 모자 제작 재료/);

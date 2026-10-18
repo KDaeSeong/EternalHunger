@@ -87,6 +87,32 @@ try {
     }
     assert.equal(rollFieldLoot(mapObj, 'unknown', items, ruleset, { fieldResources: resources, moved: true }), null);
   });
+  check('focused shared-field loot only selects positive live growth demand', () => {
+    const incidental = { ...raw, _id: 'incidental-leaf', spawnZones: ['a'] };
+    const wanted = { ...raw, _id: 'wanted-leaf', spawnZones: ['a'] };
+    const zeroDemand = { ...raw, _id: 'zero-demand-leaf', spawnZones: ['a'] };
+    const unavailableRare = { ...raw, _id: 'unavailable-rare', tier: 2, spawnZones: ['b'] };
+    const catalog = [incidental, wanted, zeroDemand, unavailableRare];
+    const stockMap = { ...mapObj, _id: 'focused-demand-stock', fieldResourceStock: { a: {
+      [incidental._id]: 1, [wanted._id]: 1, [zeroDemand._id]: 1,
+    } } };
+    const resources = createFieldResources(stockMap, catalog, ruleset);
+    const roll = (opts = {}) => rollFieldLoot(stockMap, 'a', catalog, ruleset,
+      { fieldResources: resources, moved: true, ...opts });
+
+    assert.equal(roll({ focusedGrowth: true,
+      neededQtyById: { [wanted._id]: 1, [incidental._id]: 0, [zeroDemand._id]: 0 } })?.itemId, wanted._id,
+    'A needed supply must remain selectable even when an unrelated catalog item comes first.');
+    assert.equal(roll({ focusedGrowth: true,
+      neededQtyById: { [unavailableRare._id]: 1 } }), null,
+    'A blocked rare-material demand must not award an unrelated stocked item.');
+    assert.equal(roll({ focusedGrowth: false, neededQtyById: { [wanted._id]: 1 } })?.itemId, incidental._id,
+      'Unfocused growth keeps the prior incidental candidate pool.');
+    assert.equal(roll({ focusedGrowth: true })?.itemId, incidental._id,
+      'A focused call without a demand map keeps the prior incidental candidate pool.');
+    assert.equal(roll({ focusedGrowth: true, neededQtyById: { [zeroDemand._id]: 0 } }), null,
+      'Zero-quantity demand is not a candidate.');
+  });
   check('plans move to remaining supplies, respect forbidden paths, and never fake completion', () => {
     const fieldResources = createFieldResources(mapObj, items, ruleset); const row = actor();
     assert.equal(buildActorGrowthPlan(row, items, { mapObj, zoneGraph, fieldResources }).targetZoneId, 'a');

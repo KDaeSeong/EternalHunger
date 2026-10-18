@@ -124,7 +124,16 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   // Live matches use a finite shared local pool, not an infinite catalog
   // fallback. Legendary materials and supply crates remain world objectives.
   if (opts.fieldResources) {
-    const candidates = list.filter((item) => getFieldResourceQty(opts.fieldResources, zoneId, item?._id) > 0)
+    const neededQtyById = opts.neededQtyById;
+    const hasFocusedDemand = opts.focusedGrowth === true
+      && neededQtyById && typeof neededQtyById === 'object' && !Array.isArray(neededQtyById);
+    const candidates = list.filter((item) => {
+      const itemId = String(item?._id || '');
+      if (getFieldResourceQty(opts.fieldResources, zoneId, itemId) <= 0) return false;
+      if (!hasFocusedDemand) return true;
+      const need = Number(neededQtyById[itemId]);
+      return Number.isFinite(need) && need > 0;
+    })
       .map((item) => ({ item, weight: applyPerkLootWeight(1 + (goalItemIds.has(String(item._id)) ? goalLootBoost : 0), opts.perkEffects || {}) }));
     const item = pickWeighted(candidates)?.item;
     if (!item) return null;

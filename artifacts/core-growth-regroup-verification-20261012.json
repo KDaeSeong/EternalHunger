@@ -1,4 +1,110 @@
 {
+  "focusedFieldDemandFollowup": {
+    "recordedAt": "2026-10-18T06:09:08.093Z",
+    "status": "focused-semantics-passed; lint-and-release-gates-incomplete",
+    "engineVersion": "d672a14f6583f454ad9d77f05c2d21e2c3197ad8e481213ce45854c390d1b3a5",
+    "predecessorEngineVersion": "520fc98ee16474ea15dc8db313bc03dc00af17e0e071ff6a565bf69719318c27",
+    "productionChange": {
+      "file": "client/src/app/simulation/_lib/fieldLootRuntime.js",
+      "boundary": "Only the finite shared-field fallback with focusedGrowth === true and a supplied non-array demand object filters candidates to finite positive demand.",
+      "preserved": [
+        "Unfocused and absent-demand incidental pools",
+        "Existing route search and special world-source branches",
+        "Local inventory acceptance and finite-stock quantity caps",
+        "Real recipe ingredients, credit costs and same-batch departure semantics"
+      ],
+      "noTeamReservationOrRemoteTransfer": true
+    },
+    "regression": {
+      "teams": 2,
+      "membersPerTeam": 2,
+      "initialSourceStock": {
+        "c": 1,
+        "b": 1
+      },
+      "authoredCustomTarget": "head",
+      "before": "In reversed roster order, an actor waiting for life_tree collected an unrelated custom head ingredient; both intended recipients remained without the crafted result.",
+      "after": [
+        "Both roster orders commit the existing departure",
+        "Exactly one real first-source field receipt is tied to the paying crafter",
+        "The losing target owner replans to the remaining b supply, pays 3 credits and equips the target",
+        "A forbidden b source in either roster order produces no forbidden pickup, free craft or lost ingredients/credits"
+      ],
+      "initialCatalogAndStockOnly": true,
+      "noMidRunStockOrGoalRepair": true,
+      "oldResultFilesUsedAsOracle": false
+    },
+    "verification": {
+      "startedAt": "2026-10-18T06:07:32.135Z",
+      "finishedAt": "2026-10-18T06:07:45.283Z",
+      "checks": [
+        {
+          "script": "check-field-resources.mjs",
+          "checks": "17/17",
+          "exitCode": 0,
+          "elapsedMs": 528
+        },
+        {
+          "script": "check-team-resource-goals.mjs",
+          "checks": "26/26",
+          "exitCode": 0,
+          "elapsedMs": 871
+        },
+        {
+          "script": "check-low-hp-recovery.mjs",
+          "checks": "27/27",
+          "exitCode": 0,
+          "elapsedMs": 652
+        },
+        {
+          "script": "check-healing-craft-recovery.mjs",
+          "checks": "14/14",
+          "exitCode": 0,
+          "elapsedMs": 1080
+        }
+      ],
+      "belowNormalChildPriority": true,
+      "perCommandTimeoutMs": 10000,
+      "lint": {
+        "exitCode": null,
+        "signal": "SIGTERM",
+        "elapsedMs": 10015,
+        "status": "timeout/unverified",
+        "scope": "Only the agent-owned lint process was terminated; no user application was stopped."
+      },
+      "engineGeneration": {
+        "initialSandboxAttempt": "EPERM writing generated version",
+        "approvedGeneratorRetry": "success"
+      },
+      "sameVerificationSourcesBeforeAndAfter": true,
+      "sha256": {
+        "client/src/app/simulation/_lib/fieldLootRuntime.js": "9e521476b95ba0ea3726fc8a400300081cda9aec55977d4ad3673d8d72183cdd",
+        "client/scripts/check-field-resources.mjs": "7c97453902d9a45300e2cd9012681196a5232a6a71431d7df61dd6345b7b14f9",
+        "client/scripts/check-team-resource-goals.mjs": "fe025286cfb185c1f5cb6e946d0526310fb9faa31f939bba1fbf5502dc4c68cc",
+        "client/src/app/simulation/_generated/simulationEngineVersion.js": "eba291a16a6c56cf2b084548ab6324f334a6495c6a1339cf96983cc96364f638"
+      },
+      "fullMatchRun": false,
+      "fullBuildRun": false,
+      "browserOrHumanAcceptance": false,
+      "previousSuccessfulBuildIsNotCurrentEngineProof": "yz6vQGhf5JlYsKW-qp00f belongs to engine 520fc98e, not this change."
+    },
+    "previousDeployment": {
+      "commit": "a62a61bcad874f5193576f77d5c1763161953bdf",
+      "status": "failure",
+      "url": "https://vercel.com/kurokosis-projects/eternal-hunger/5XoNadzDNvYDpsgSKv1CSR8wwv4i",
+      "cause": "unconfirmed; build error log requested from user"
+    },
+    "preservation": {
+      "previousSeventeenSectionsSha256": "7ac99af3fe81824fc38f07bfcf684f985c7e60c0fee356678f29ba00ad9d4cc3",
+      "originalGoalBodySha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b"
+    },
+    "goalStatus": "active/incomplete",
+    "remainingGates": [
+      "Current-engine full-match/replay and production build checks",
+      "Actual foreground map, speed, memory and session-resume checks",
+      "Broader custom inputs and human spectator follow-up"
+    ]
+  },
   "authoredMaterialReservationFollowup": {
     "observedDateKst": "2026-10-18",
     "baseCommit": "fc33f0f5779a1ebcda7c451361438bc38039a8e1",
