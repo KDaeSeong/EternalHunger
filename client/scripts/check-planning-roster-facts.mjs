@@ -36,8 +36,10 @@ function referenceSource(kind, source) {
     return replaceOnce(source, '&& getLocalTeamCombatants(leader, roster).enemies.length === 0;',
       '&& assessTeamCombat(leader, roster, { estimatePower }).enemyCount === 0;');
   }
-  if (kind === 'frame' && source.includes('    const latestSurvivors = latestActors(survivors);')) {
-    source = replaceOnce(source, '    const latestSurvivors = latestActors(survivors);\n', '');
+  if (kind === 'frame') {
+    const declaration = source.match(/^[ \t]*const latestSurvivors = latestActors\(survivors\);\r?\n/m)?.[0];
+    assert.ok(declaration, 'The independent frame scan must replace the current projection declaration, regardless of indentation.');
+    source = replaceOnce(source, declaration, '');
     source = replaceOnce(source, 'const living = latestSurvivors.filter', 'const living = latestActors(survivors).filter');
     return replaceOnce(source, '...latestSurvivors.filter', '...latestActors(survivors).filter');
   }

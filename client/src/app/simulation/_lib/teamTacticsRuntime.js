@@ -45,8 +45,8 @@ export function assessTeamCombat(actor, roster, { estimatePower = estimateMovePo
 }
 
 // A branded power snapshot reads a stable pre-action planning roster. Keep
-// these facts inside one synchronous path search, never across a callback,
-// yield, action or frame. Preserve liveRoster's latest-value/insertion order.
+// these facts inside a synchronous search/recipe decision, never across an
+// external callback, yield, action or frame. Preserve liveRoster's order.
 function createRouteCombatAssessment(actor, roster, travelParty, estimatePower) {
   const partyIds = new Set(travelParty.map(idOf));
   const actorAlive = alive(actor);
@@ -70,8 +70,8 @@ function createRouteCombatAssessment(actor, roster, travelParty, estimatePower) 
 
 // Evaluate the path, not just its endpoint. A safe destination behind a more
 // dangerous enemy zone is not a valid retreat. No synthetic teleport fallback.
-export function pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds = new Set(), {
-  estimatePower = estimateMovePower, maxDepth = 3, targetZoneId = '', enemyFree = false, travelParty = [], allowStay = true,
+function collectTeamSafeRoutes(actor, roster, zoneGraph, forbiddenIds = new Set(), {
+  estimatePower = estimateMovePower, maxDepth = 3, enemyFree = false, travelParty = [], allowStay = true,
   excludedZoneIds = [],
 } = {}) {
   const from = String(actor?.zoneId || '');
@@ -104,11 +104,38 @@ export function pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds = new Se
       queue.push({ zoneId: value, nextStep: row.distance === 0 ? value : row.nextStep, distance: row.distance + 1, assessment });
     }
   }
+  return candidates;
+}
+
+function pickSafeRouteCandidate(candidates, targetZoneId) {
+  if (!candidates) return null;
   if (targetZoneId) return candidates.find((row) => row.zoneId === String(targetZoneId)) || null;
-  candidates.sort((a, b) => pressure(a.assessment) - pressure(b.assessment)
+  const pressure = (info) => info.enemyPower / Math.max(1, info.allyPower);
+  return [...candidates].sort((a, b) => pressure(a.assessment) - pressure(b.assessment)
     || b.assessment.allyCount - a.assessment.allyCount
-    || a.distance - b.distance || a.zoneId.localeCompare(b.zoneId));
-  return candidates[0] || null;
+    || a.distance - b.distance || a.zoneId.localeCompare(b.zoneId))[0] || null;
+}
+
+export function pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds = new Set(), {
+  estimatePower = estimateMovePower, maxDepth = 3, targetZoneId = '', enemyFree = false, travelParty = [], allowStay = true,
+  excludedZoneIds = [],
+} = {}) {
+  return pickSafeRouteCandidate(collectTeamSafeRoutes(actor, roster, zoneGraph, forbiddenIds,
+    { estimatePower, maxDepth, enemyFree, travelParty, allowStay, excludedZoneIds }), targetZoneId);
+}
+
+// Recipe selection changes only the requested destination. Its internal
+// callbacks read this fixed squad; target-independent BFS results may be
+// shared here, but never passed to leader callbacks or the next squad/action.
+// Generic estimators retain their original per-query invocation semantics.
+function createTeamRecipeRouteQuery(actor, roster, zoneGraph, forbiddenIds, options) {
+  const reuseRoutes = isPlanningMovePowerSnapshot(options.estimatePower);
+  let candidates;
+  return (targetZoneId) => {
+    if (!reuseRoutes) return pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds, { ...options, targetZoneId });
+    if (candidates === undefined) candidates = collectTeamSafeRoutes(actor, roster, zoneGraph, forbiddenIds, options);
+    return pickSafeRouteCandidate(candidates, targetZoneId);
+  };
 }
 
 // A known rally is a destination, not a search for a nearby retreat. Search
@@ -243,14 +270,15 @@ export function* buildTeamCoordinationSteps({
     const canPlanRecipe = grouped && !rotationWaiting && !spawnState?.endgame
       && members.every((row) => Number(row.hp) > Math.max(0, Number(ruleset?.ai?.recoverHpBelow ?? 38)))
       && !assessTeamCombat(leader, roster, { estimatePower, minRatio: Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.4) }).shouldAvoid;
-    const recipeRoute = (targetZoneId) => pickTeamSafeZone(leader, roster, zoneGraph, forbiddenIds,
-      { estimatePower, maxDepth: destinationDepth, targetZoneId, travelParty: members });
+    const recipeRoute = createTeamRecipeRouteQuery(leader, roster, zoneGraph, forbiddenIds,
+      { estimatePower, maxDepth: destinationDepth, travelParty: members });
     const teamResource = canPlanRecipe
       ? chooseTeamResourceMove({ members: ordered, spawnState, ruleset, publicItems,
         routeForZone: recipeRoute }) : null;
     const teamPurchase = canPlanRecipe && !teamResource
       ? chooseTeamPurchaseMove({ members: ordered, publicItems, ruleset, mapObj, kiosks, day, phase,
-        forbiddenIds, routeForZone: recipeRoute }) : null;
+        forbiddenIds, routeForZone: createTeamRecipeRouteQuery(leader, roster, zoneGraph, forbiddenIds,
+          { estimatePower, maxDepth: destinationDepth, travelParty: members }) }) : null;
     const proposed = grouped && !rotationWaiting ? teamResource || teamPurchase || chooseLeaderMove(leader) : null;
     const target = grouped && !rotationWaiting ? (proposed?.targets || []).find((zone) => !forbiddenIds.has(String(zone))) : rallyZone;
     if (!target) continue;

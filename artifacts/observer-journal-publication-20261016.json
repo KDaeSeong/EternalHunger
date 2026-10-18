@@ -1,5 +1,425 @@
 {
   "schema": "eternal-hunger.observer-journal-publication-evidence.v1",
+  "teamRecipeRouteSharingFollowup": {
+    "dateKst": "2026-10-18",
+    "parentCommit": "47248780f3e725a787366135304ee5781b58d85d",
+    "engineVersion": "225224ba573614eb1fa129e317a0881c4e174fec7ffa839284f822a27748e872",
+    "buildId": "r3Vxe8aLi_KHiLN8oXY1O",
+    "outputOnly": true,
+    "noVerificationConsumesThisSectionAsInputOrOracle": true,
+    "changes": [
+      "Collect target-independent safe-route BFS candidates once inside one synchronous branded-snapshot resource decision; purchase decisions have a separate private query.",
+      "Public pickTeamSafeZone and unbranded estimators perform a fresh search. No reuse across external callbacks, squad yields, actions, frames, or final actor routes.",
+      "Preserve falsey numeric-zero target behavior, BFS order, pressure ranking, forbidden/excluded/depth/stay semantics and latest-living roster ordering."
+    ],
+    "checks": {
+      "unit": {
+        "path": "client/.verification-runs/2026-10-18T01-35-26.087Z-068f14e3-cb56-4897-b0af-9e25526e537b/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T01:35:26.090Z",
+        "finishedAt": "2026-10-18T01:36:29.099Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "currentSourceDrift": [],
+        "verificationSources": 36
+      },
+      "freshMatch": {
+        "path": "client/.verification-runs/2026-10-18T01-30-47.355Z-871cb355-06eb-4f0e-916a-28111ff2c460/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T01:30:47.357Z",
+        "finishedAt": "2026-10-18T01:33:26.065Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "currentSourceDrift": [],
+        "verificationSources": 8
+      },
+      "build": {
+        "path": "client/.verification-runs/2026-10-18T01-29-24.256Z-b94da0e9-f41f-4646-b90c-be9d31829efc/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T01:29:24.258Z",
+        "finishedAt": "2026-10-18T01:31:05.159Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "currentSourceDrift": [],
+        "verificationSources": 6
+      },
+      "static": {
+        "changedCheckerLintExitCode": 0,
+        "diffCheckExitCode": 0,
+        "safeRouteFixtures": 8,
+        "planningRosterFixtures": 7,
+        "verificationFingerprintGroups": 12,
+        "scope": "Named checks and current-source fingerprints, not overall G1-G5 acceptance."
+      }
+    },
+    "controlledCollections": {
+      "resourceQueriesPerSquad": 3,
+      "actorsPerSquad": 2,
+      "referenceBfsCollections": 5,
+      "productionBfsCollections": 3,
+      "unbrandedWrapperBfsCollections": 5,
+      "mutationsBetweenSquadsReevaluated": true,
+      "scope": "Two controlled squads and final actor routes; not a universal match-speed percentage."
+    },
+    "freshReference": {
+      "seed": "1101",
+      "completeMatches": 2,
+      "phases": 11,
+      "frames": 5840,
+      "events": 11647,
+      "matchSec": 1124.916666,
+      "ending": "last_team",
+      "randomState": 2014021095,
+      "randomDraws": 8934,
+      "inputDigest": "adea609cdf5dc279b8e00713fec346394954393f9810ff5676423c383413c1f9",
+      "eventDigest": "35afec00498bc065a34ee69dffc51c9c3ff2d8e59d589671715541bb8ee333f4",
+      "frameDigest": "ad4a40e83791a621eee5172a136c6316c9f6cfce1a6cfee78f5f24e3fb238a38",
+      "logDigest": "e3795ccdc486afc6915a8cb5fce84e5928930a1762c8776c6e72c2f89da69bde",
+      "finalFrameDigest": "8c1181cf2a17615b3721df5a6c6774c12909cd92297f76e6fafcc5c221cc90cf",
+      "endingDigest": "508160d19668fef897046b97e4c8d9edba5bda391241c9dbfa6544c53cb4bcc0",
+      "scope": "Fresh current-input reference disables both route-assessment reuse and recipe-route reuse; current surrounding helpers are shared. All frames/events/logs/RNG/final/ending agree, not all possible inputs."
+    },
+    "buildSmoke": {
+      "pages": 62,
+      "node": "24.13.0",
+      "resolutionContracts": 23,
+      "generatedProductionWorker": "isolated Node VM READY and first phase only",
+      "matchSec": 140,
+      "transmittedFrames": 303,
+      "complete": 1,
+      "failures": 0
+    },
+    "browser": {
+      "url": "http://127.0.0.1:3137/eternalhunger/evaluate?perfProbe=1",
+      "environment": {
+        "platform": "Windows",
+        "browser": "Chromium 155",
+        "viewport": [
+          1280,
+          720
+        ],
+        "devicePixelRatio": 1,
+        "hardwareConcurrency": 12
+      },
+      "seed": "1789192220412",
+      "actors": 24,
+      "teams": 8,
+      "observedTeam": 1,
+      "replayId": "3bb94752-a8aa-417f-8098-a17db2a35bf9",
+      "protocol": {
+        "trials": 3,
+        "speed": 32,
+        "minimumEffectiveSpeed": 28.8,
+        "maximumInterTrialGapMs": 60000,
+        "actualInterTrialGapMs": [
+          31331,
+          20816.199951171875
+        ],
+        "ownHeavyJobsDuringMeasurement": false,
+        "userProgramsUnchanged": true
+      },
+      "final": {
+        "matchSec": 1233.5,
+        "winnerTeam": 4,
+        "survivingWinners": 3,
+        "comparedEvents": 13237,
+        "comparisonMatchedAllThree": true,
+        "scope": "UI event/final/ending comparison; not every intermediate frame or RNG proof."
+      },
+      "common": {
+        "documentEntireMeasurementVisible": true,
+        "visibilityTransitions": 0,
+        "speedChanges": 0,
+        "identityChanges": 0,
+        "pauses": 0,
+        "boundary": "settled/replay-complete",
+        "workerRequested": 13,
+        "workerTerminal": 13,
+        "workerReports": 13,
+        "workerFailures": 0,
+        "workerMissing": 0,
+        "workerEvicted": 0,
+        "actionMessages": 21569
+      },
+      "samples": [
+        {
+          "label": "x32-recipe-route-1",
+          "activeMs": 43276.9,
+          "effectiveSpeed": 28.502503645131696,
+          "longTaskCount": 1,
+          "longTaskMaxMs": 119,
+          "framesSent": 938,
+          "growthSliceMs": 11486.3,
+          "teamCoordinationMs": 3840.2,
+          "teamCoordinationNextCalls": 5922,
+          "refreshPlansMs": 2036.4,
+          "actorMovementMs": 1623.2,
+          "frameSendCallMs": 1103.4,
+          "displayWaitMs": 20804.7,
+          "taskWaitMs": 19.8,
+          "heapStartBytes": 31017199,
+          "heapEndBytes": 105875093,
+          "domNodes": 741,
+          "rafSamples": 48,
+          "rafMaxMs": 1010,
+          "rafMedianRangeMs": [
+            1000.1,
+            1010
+          ],
+          "rafP95RangeMs": [
+            1000.1,
+            1010
+          ]
+        },
+        {
+          "label": "x32-recipe-route-2",
+          "activeMs": 44407,
+          "effectiveSpeed": 27.777152250771277,
+          "longTaskCount": 1,
+          "longTaskMaxMs": 128,
+          "framesSent": 931,
+          "growthSliceMs": 13033.1,
+          "teamCoordinationMs": 4378.1,
+          "teamCoordinationNextCalls": 5922,
+          "refreshPlansMs": 2312.2,
+          "actorMovementMs": 1825,
+          "frameSendCallMs": 1214.5,
+          "displayWaitMs": 18886.1,
+          "taskWaitMs": 32.3,
+          "heapStartBytes": 31567848,
+          "heapEndBytes": 134758836,
+          "domNodes": 741,
+          "rafSamples": 48,
+          "rafMaxMs": 1010.1,
+          "rafMedianRangeMs": [
+            1000.1,
+            1010.1
+          ],
+          "rafP95RangeMs": [
+            1000.1,
+            1010.1
+          ]
+        },
+        {
+          "label": "x32-recipe-route-3",
+          "activeMs": 47381.2,
+          "effectiveSpeed": 26.033532287067445,
+          "longTaskCount": 1,
+          "longTaskMaxMs": 152,
+          "framesSent": 964,
+          "growthSliceMs": 16084.9,
+          "teamCoordinationMs": 5437.4,
+          "teamCoordinationNextCalls": 5922,
+          "refreshPlansMs": 2840.8,
+          "actorMovementMs": 2256.8,
+          "frameSendCallMs": 1501.1,
+          "displayWaitMs": 15871.3,
+          "taskWaitMs": 48.7,
+          "heapStartBytes": 30396794,
+          "heapEndBytes": 167083606,
+          "domNodes": 741,
+          "rafSamples": 51,
+          "rafMaxMs": 1010.1,
+          "rafMedianMs": 1000,
+          "rafP95RangeMs": [
+            1000.1,
+            1010.1
+          ]
+        }
+      ],
+      "consoleWarningsAndErrors": [],
+      "performanceGate": "not-passed",
+      "foregroundQualification": "not-qualified: show requested before measurements, but final visibility capability was false; another explicit set(true) immediately followed by get() also returned false at 2026-10-18T01:42:13.913Z. DOM visible and approximately one-second RAF do not establish foreground/presented FPS.",
+      "limits": [
+        "All three observed rates are below 28.8; no causal before/after improvement percentage.",
+        "Nested stage elapsed times are non-additive, not CPU attribution or transmission latency; 5922 counts iterator next() calls, not 5922 full team decisions.",
+        "Heap samples and stable start bytes do not prove whole-memory stability; latest x1/x8, full nine-run protocol and process restart remain."
+      ]
+    },
+    "developmentFailuresAndLimits": [
+      {
+        "path": "client/.verification-runs/2026-10-18T01-29-52.349Z-698e745c-290c-42c7-b414-08e2bb5ef503/result.json",
+        "exitCode": 1,
+        "reason": "Frame reference used a four-space exact declaration while the current projection uses two spaces, so the old reference was not restored and 7 !== 12. Only reference declaration matching was repaired; expected 7/12 scan counts and death ordering retained. Fresh whole unit chain then passed."
+      },
+      {
+        "reason": "Development fixture probe initially entered a destructured parameter rather than the body; a wrapper fixture argument was also misplaced. Both corrected before final 8/8 fixtures and whole-match comparison."
+      },
+      {
+        "reason": "Production selector draft sort-return typo was corrected before testing; no successful receipt is attributed to that draft."
+      },
+      {
+        "reason": "Fixtures-only reference restoration is permissive if future source boundary strings disappear; both are present now, and the full-match reference requires exact restoration. This is not proof for future source versions."
+      }
+    ],
+    "ownedResources": {
+      "tab": "7 closed",
+      "serverPid": 44496,
+      "serverCreatedUtc": "2026-10-18T01:36:22.2621530Z",
+      "serverIdentityCheckedBeforeStop": true,
+      "remaining3137Listeners": 0,
+      "visibilityBefore": false,
+      "visibilityAfter": false,
+      "userProgramsStopped": 0
+    },
+    "cleanup": {
+      "removedFiles": 6,
+      "removedBytes": 611421223,
+      "removedUtc": "2026-10-18T01:43:53.5179665Z",
+      "recovery": "Rebuild regenerates only these six webpack caches; completed build and old pack excluded.",
+      "targets": [
+        {
+          "path": "client/.next/cache/webpack/client-production/0.pack",
+          "absolute": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\0.pack",
+          "bytes": 264686797,
+          "dev": "821886821",
+          "ino": "12103423999622299",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:30:20.511Z",
+          "modifiedUtc": "2026-10-18T01:30:20.673Z",
+          "sha256": "0578623d9ad09d1b4de6999dcf2b93ca03aa4f785ff34e93d67ce8a769fc3486",
+          "result": "removed after immediate native identity, hash, size, build-window and exact-path recheck"
+        },
+        {
+          "path": "client/.next/cache/webpack/client-production/index.pack",
+          "absolute": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\client-production\\index.pack",
+          "bytes": 13000835,
+          "dev": "821886821",
+          "ino": "5629499535544947",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:30:20.511Z",
+          "modifiedUtc": "2026-10-18T01:30:20.520Z",
+          "sha256": "aa52f53254d84e16993b889e0345dc5735741780b4ce200dac56ded64f4a43cb",
+          "result": "removed after immediate native identity, hash, size, build-window and exact-path recheck"
+        },
+        {
+          "path": "client/.next/cache/webpack/edge-server-production/0.pack",
+          "absolute": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\0.pack",
+          "bytes": 276,
+          "dev": "821886821",
+          "ino": "31243722415917024",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:30:00.129Z",
+          "modifiedUtc": "2026-10-18T01:30:00.133Z",
+          "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc",
+          "result": "removed after immediate native identity, hash, size, build-window and exact-path recheck"
+        },
+        {
+          "path": "client/.next/cache/webpack/edge-server-production/index.pack",
+          "absolute": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\edge-server-production\\index.pack",
+          "bytes": 2464,
+          "dev": "821886821",
+          "ino": "15199648743410010",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:30:00.130Z",
+          "modifiedUtc": "2026-10-18T01:30:00.134Z",
+          "sha256": "7b86827403d4666f526891eae0f8b918ed8743e694ed680edc1523c75959f362",
+          "result": "removed after immediate native identity, hash, size, build-window and exact-path recheck"
+        },
+        {
+          "path": "client/.next/cache/webpack/server-production/0.pack",
+          "absolute": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\0.pack",
+          "bytes": 315500670,
+          "dev": "821886821",
+          "ino": "11821949023153448",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:29:57.374Z",
+          "modifiedUtc": "2026-10-18T01:29:57.729Z",
+          "sha256": "1169b8a9312d05bfb29f559cbd43ba0f3e83f735bdfac2886d36ff5a86f897a5",
+          "result": "removed after immediate native identity, hash, size, build-window and exact-path recheck"
+        },
+        {
+          "path": "client/.next/cache/webpack/server-production/index.pack",
+          "absolute": "C:\\2저장고\\EternalHunger\\client\\.next\\cache\\webpack\\server-production\\index.pack",
+          "bytes": 18230181,
+          "dev": "821886821",
+          "ino": "11540474046245723",
+          "nlink": 1,
+          "createdUtc": "2026-10-18T01:29:57.374Z",
+          "modifiedUtc": "2026-10-18T01:29:57.386Z",
+          "sha256": "be3bf5135feaa87d7bc95ecbd129d39a5eb0dc9d8008bef4b7ce2c26b798a56c",
+          "result": "removed after immediate native identity, hash, size, build-window and exact-path recheck"
+        }
+      ],
+      "protectedBuildBefore": {
+        "files": 1446,
+        "bytes": 93774403,
+        "manifestSha256": "7e5d501c7a4bfc82e57008449eaf375ceaac6ef084c43b8dae28a8d05c520534",
+        "buildId": "r3Vxe8aLi_KHiLN8oXY1O",
+        "oldPack": {
+          "bytes": 18088675,
+          "dev": "821886821",
+          "ino": "2533274792501814",
+          "nlink": 1,
+          "sha256": "3a62ec6b8ab460303bd5d552976f76d6a1b091de637d5228f66b6528bcb83c23"
+        }
+      },
+      "protectedBuildAfter": {
+        "files": 1446,
+        "bytes": 93774403,
+        "manifestSha256": "7e5d501c7a4bfc82e57008449eaf375ceaac6ef084c43b8dae28a8d05c520534",
+        "buildId": "r3Vxe8aLi_KHiLN8oXY1O",
+        "oldPack": {
+          "bytes": 18088675,
+          "dev": "821886821",
+          "ino": "2533274792501814",
+          "nlink": 1,
+          "sha256": "3a62ec6b8ab460303bd5d552976f76d6a1b091de637d5228f66b6528bcb83c23"
+        }
+      }
+    },
+    "outputSizeBeforeReceiptEdits": {
+      "roots": [
+        {
+          "path": ".local",
+          "files": 96,
+          "bytes": 403043999
+        },
+        {
+          "path": "artifacts",
+          "files": 199,
+          "bytes": 174837772
+        },
+        {
+          "path": "client/.next",
+          "files": 1446,
+          "bytes": 93774403
+        },
+        {
+          "path": "client/.verification-runs",
+          "files": 512,
+          "bytes": 49404929
+        },
+        {
+          "path": "client/audio-source",
+          "files": 52,
+          "bytes": 30265181
+        }
+      ],
+      "bytes": 751326284,
+      "fileIdDuplicates": 0,
+      "excludedReparsePoints": 0,
+      "physicalAllocationMeasured": false
+    },
+    "scopeGuards": {
+      "goalSuffixSha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+      "unrelatedUntrackedCount": 2592,
+      "untrackedNamesSha256": "761e8e032e25195e8b859512add38df7797a11bcff1027e6555a31aa9ed32d08"
+    },
+    "publication": {
+      "scope": "Pre-push source snapshot. Public deployment must be checked against the exact release commit and anonymous engine separately.",
+      "postPushReceiptPath": "client/.verification-runs/2026-10-18T01-29-24.256Z-b94da0e9-f41f-4646-b90c-be9d31829efc/publication.json"
+    },
+    "remaining": [
+      "Original G1-G5 acceptance unchanged.",
+      "Latest foreground x1/x8/x32 performance, full nine-run and memory/restart verification.",
+      "Broader custom growth, resource/movement distributions, controlled team-effect interpretation.",
+      "Human follow-up evaluation of map/goal/regroup/defeat readability and fun."
+    ]
+  },
   "growthDecisionSharingFollowup": {
     "dateKst": "2026-10-18",
     "parentCommit": "c6d2962b89dc05b44ab8fe6b73c826f9c5495280",
