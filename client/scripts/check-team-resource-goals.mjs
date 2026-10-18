@@ -180,6 +180,62 @@ check('the real action pipeline collects once for the needing teammate and pays 
   }
 });
 
+check('two teams commit the same batch departure but only one settles a shared rare core and the loser replans next action', () => {
+  for (const reverse of [false, true]) {
+    const input = fixture();
+    const otherTeam = input.roster.slice(0, 2).map(actor => ({ ...structuredClone(actor),
+      _id: `other-${actor._id}`, name: `other-${actor.name}`, teamId: 'team:2' }));
+    input.roster = [...input.roster.slice(0, 2), ...otherTeam];
+    for (const actor of input.roster) actor.name = `display-${actor._id}`;
+    if (reverse) input.roster.reverse();
+
+    const openingPlans = plan(input).movementPlans;
+    for (const leaderId of ['leader', 'other-leader']) {
+      const move = openingPlans.get(leaderId);
+      assert.equal(move?.nextStep, 'c');
+      assert.equal(move?.objective?.type, 'natural_core');
+      assert.ok(move.objective.sourceIds.includes('tree-c'));
+    }
+
+    const first = tick(input);
+    assert.ok(first.updatedSurvivors.every(actor => actor.zoneId === 'c'),
+      'Both teams complete their already planned departure within this batch.');
+    assert.equal(input.state.nextSpawn.coreNodes[0].picked, true);
+    const coreGains = first.events.filter(event => event.kind === 'gain' && event.itemId === tree._id);
+    assert.equal(coreGains.length, 1, 'The contested unique core emits one actual acquisition.');
+    const gainers = first.updatedSurvivors.filter(actor => invQty(actor.inventory, tree._id) > 0);
+    assert.equal(gainers.length, 0, 'The winning pickup is consumed by its actual recipe, not left as a duplicate core.');
+    const paidCrafters = first.updatedSurvivors.filter(actor => actor._id.endsWith('crafter')
+      && actor.equipped.head === rare._id && actor.simCredits === 17);
+    assert.equal(paidCrafters.length, 1, 'Exactly one team receives the crafted result and pays the recipe cost.');
+    assert.equal(coreGains[0].who, paidCrafters[0]._id);
+    assert.equal(input.state.nextSpawn.coreNodes[0].pickedBy, paidCrafters[0].name,
+      'The unique core is settled by the same actor whose real recipe was paid.');
+    const rareInventoryQty = first.updatedSurvivors.reduce((count, actor) => count + invQty(actor.inventory, rare._id), 0);
+    assert.equal(rareInventoryQty, 1, 'The roster inventory contains exactly one rare result.');
+    const rareOwners = first.updatedSurvivors.filter(actor => invQty(actor.inventory, rare._id) > 0
+      || actor.equipped.head === rare._id);
+    assert.equal(rareOwners.length, 1, 'Inventory and equipped state identify the same single recipient.');
+    const rareCrafts = first.events.filter(event => event.kind === 'craft' && event.itemId === rare._id);
+    assert.equal(rareCrafts.length, 1, 'The paid recipe produces one actual craft receipt.');
+    const unpaidCrafters = first.updatedSurvivors.filter(actor => actor._id.endsWith('crafter')
+      && actor.equipped.head !== rare._id);
+    assert.equal(unpaidCrafters.length, 1);
+    assert.equal(unpaidCrafters[0].simCredits, 20, 'The losing team does not receive free recipe credit or gear.');
+    assert.equal(invQty(unpaidCrafters[0].inventory, tree._id), 0);
+    assert.equal(invQty(unpaidCrafters[0].inventory, rare._id), 0);
+    assert.equal(unpaidCrafters[0].equipped.head, hero._id);
+    assert.equal(invQty(unpaidCrafters[0].inventory, hero._id), 1);
+    assert.equal(invQty(paidCrafters[0].inventory, hero._id), 0, 'The winner consumes its real recipe input.');
+
+    input.roster = first.updatedSurvivors;
+    input.advanceClock(input.roster);
+    const next = tick(input);
+    assert.ok(next.updatedSurvivors.every(actor => !actor._movementObjective?.sourceIds?.includes('tree-c')),
+      'The next action does not republish the depleted core as an active objective.');
+  }
+});
+
 check('a team goal names the recipient and recipe, then disappears when that exact source is collected', () => {
   const input = fixture(), goal = plan(input).movementPlans.get('leader').objective;
   assert.match(describeMovementObjective(goal), /생명의 나무 확보.*crafter의 생명 모자 제작 재료/);
