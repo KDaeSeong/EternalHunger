@@ -1,4 +1,247 @@
 {
+  "authoredMaterialReservationFollowup": {
+    "observedDateKst": "2026-10-18",
+    "baseCommit": "fc33f0f5779a1ebcda7c451361438bc38039a8e1",
+    "engineVersion": "c48d602c82392faa93e8996a2279e09cd06d329d6ad20b12e9dcfacef764ef5d",
+    "changedProductionScope": "Only the active authored equipment focus's same-slot non-authored higher-tier side-craft reservation policy; automatic substitution and valid authored later-goal paid crafting remain supported.",
+    "protections": [
+      "Reserved ingredient quantities",
+      "Reserved currently worn recipe ingredients lost through implicit same-slot replacement",
+      "Remaining planned recipe credits"
+    ],
+    "explicitLaterGoalContract": "A valid later exact target may use its real complete recipe and personal credits; acquiring it never fabricates acquisition of the earlier direct goal.",
+    "preFixWitness": {
+      "preFixReproduced": true,
+      "baseCommit": "fc33f0f5779a1ebcda7c451361438bc38039a8e1",
+      "preFixSourceSha256": "abee5f92480aed0a7bc1d89815f0f3ce5bdb6fbe7b5ea1d41b45d64cd07e1278",
+      "case": "inventory replacement loses the equipped ingredient for a direct goal",
+      "observedUnrelatedCraft": "unrelated-tier5-head",
+      "actualPaidCost": 7,
+      "expectedCraft": null,
+      "scope": "Fresh generated fixture against committed source loaded in memory only; no old result files and no source writes."
+    },
+    "focusedChecks": {
+      "groups": 14,
+      "craftPaths": [
+        "inventory",
+        "loot"
+      ],
+      "directStages": [
+        "hero-tier4",
+        "legend-tier5"
+      ],
+      "laterAuthoredTranscendPositiveControl": true,
+      "automaticGoalPositiveControl": true,
+      "actualReceiptAssertions": true,
+      "pastResultFilesUsedAsTestInputs": false
+    },
+    "knownFailedCandidate": {
+      "runId": "2026-10-18T04-24-40.491Z-43246f7f-43db-4723-82aa-cf09875f1d7f",
+      "engineVersion": "fabdd93be22cb6e78c5143086438d77cf321f9d51f14fa961eb274cc0e1ea667",
+      "status": "failed",
+      "exitCode": 1,
+      "reason": "Existing boss-loot-sharing assertion expected the explicitly requested later blood hat but the first reservation candidate left the base hat. Corrected production candidate classification, not the existing expectation."
+    },
+    "verificationReceipts": [
+      {
+        "mode": "authored-opening-unit",
+        "path": "client/.verification-runs/2026-10-18T04-27-57.656Z-0be2bfdf-54a2-4af7-917b-2789b752b70b/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "verificationSources": 29,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "currentEngineMatches": true,
+        "currentSourceDrift": [],
+        "startedAt": "2026-10-18T04:27:57.658Z",
+        "finishedAt": "2026-10-18T04:29:23.119Z"
+      },
+      {
+        "mode": "authored-opening-match",
+        "path": "client/.verification-runs/2026-10-18T04-29-20.026Z-4b602268-c6d9-46ed-822c-ef734a4b6dd6/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "verificationSources": 10,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "currentEngineMatches": true,
+        "currentSourceDrift": [],
+        "startedAt": "2026-10-18T04:29:20.027Z",
+        "finishedAt": "2026-10-18T04:32:16.831Z"
+      },
+      {
+        "mode": "build",
+        "path": "client/.verification-runs/2026-10-18T04-32-40.066Z-bc6d4997-a751-424f-b8d0-1f72748c5976/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "verificationSources": 16,
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "currentEngineMatches": true,
+        "currentSourceDrift": [],
+        "startedAt": "2026-10-18T04:32:40.068Z",
+        "finishedAt": "2026-10-18T04:33:52.593Z"
+      }
+    ],
+    "freshFullMatch": {
+      "mode": "production",
+      "seed": "1101",
+      "phases": 11,
+      "frames": 5840,
+      "events": 11647,
+      "matchSec": 1124.916666,
+      "cause": "combat",
+      "outcome": "last_team",
+      "winnerTeamId": "team:1",
+      "inputDigest": "75e5df964d5b5626afd56f8bfce67323c7e05ac6a86c2e061a3304492df9000b",
+      "eventDigest": "35afec00498bc065a34ee69dffc51c9c3ff2d8e59d589671715541bb8ee333f4",
+      "frameDigest": "ad4a40e83791a621eee5172a136c6316c9f6cfce1a6cfee78f5f24e3fb238a38",
+      "finalFrameDigest": "8c1181cf2a17615b3721df5a6c6774c12909cd92297f76e6fafcc5c221cc90cf",
+      "logDigest": "e3795ccdc486afc6915a8cb5fce84e5928930a1762c8776c6e72c2f89da69bde",
+      "referenceExactlyMatchesProduction": true,
+      "compared": [
+        "Every frame",
+        "All events",
+        "Logs",
+        "Final state",
+        "Random state",
+        "Ending"
+      ],
+      "scope": "One fresh 24-person complete match evaluated independently twice; not a population rate, balance or browser-performance claim."
+    },
+    "freshAuthoredFirstNight": {
+      "deadline": 250,
+      "actualSec": 250,
+      "frames": 1354,
+      "events": 6154,
+      "sharedLeafPickups": 43,
+      "goals": [
+        {
+          "actorId": "guest-survivor-06",
+          "targetId": "guest-item-shared-growth-first-weapon",
+          "firstEquippedAtSec": 5
+        },
+        {
+          "actorId": "guest-survivor-06",
+          "targetId": "guest-item-shared-growth-first-head",
+          "firstEquippedAtSec": 1
+        },
+        {
+          "actorId": "guest-survivor-06",
+          "targetId": "guest-item-shared-growth-first-clothes",
+          "firstEquippedAtSec": 2
+        },
+        {
+          "actorId": "guest-survivor-06",
+          "targetId": "guest-item-shared-growth-first-arm",
+          "firstEquippedAtSec": 4
+        },
+        {
+          "actorId": "guest-survivor-06",
+          "targetId": "guest-item-shared-growth-first-shoes",
+          "firstEquippedAtSec": 6
+        },
+        {
+          "actorId": "guest-survivor-01",
+          "targetId": "guest-item-shared-growth-second-weapon",
+          "firstEquippedAtSec": 19
+        }
+      ],
+      "replay": "CUSTOM_SHARED_GROWTH_REPLAY phases=2 frames=1354 events=6154 upgradeCrafts=1 openingHeadCrafts=1 exact=true scope=first-night-not-full-match",
+      "phaseCount": 2,
+      "exactReplay": true,
+      "scope": "Six explicitly selected equipment goals for two actors in a fresh 24-person match through first night only; not a custom full-match or general completion-rate claim."
+    },
+    "productionBuild": {
+      "buildId": "QOKQxEUReU8jpKWzf2k5C",
+      "pages": 62,
+      "moduleResolutionChecks": 23,
+      "node": "v24.13.0",
+      "isolatedVmWorker": {
+        "ready": true,
+        "phaseComplete": 1,
+        "failures": 0,
+        "sourceFrames": 281,
+        "matchSec": 140
+      },
+      "scope": "Isolated Node VM production Worker smoke, not browser timing or paint acceptance."
+    },
+    "storage": {
+      "observedAt": "2026-10-18T04:34:33.333Z",
+      "roots": [
+        {
+          "path": ".local",
+          "files": 2829,
+          "bytes": 1155079912,
+          "duplicateNativeIds": 0
+        },
+        {
+          "path": "artifacts",
+          "files": 199,
+          "bytes": 174895163,
+          "duplicateNativeIds": 0
+        },
+        {
+          "path": "client/.next",
+          "files": 1282,
+          "bytes": 640116373,
+          "duplicateNativeIds": 0
+        },
+        {
+          "path": "client/.verification-runs",
+          "files": 570,
+          "bytes": 53644728,
+          "duplicateNativeIds": 0
+        },
+        {
+          "path": "client/audio-source",
+          "files": 52,
+          "bytes": 30265181,
+          "duplicateNativeIds": 0
+        }
+      ],
+      "bytes": 2054001357,
+      "gib": 1.9129378320649266,
+      "thresholdBytes": 2147483648,
+      "atOrAboveThreshold": false,
+      "skippedLinks": [],
+      "measurementBeforeThisEvidenceInsertion": true,
+      "bytesBefore": 1413751543,
+      "deletedBytes": 0,
+      "deletedFiles": 0,
+      "logicalBytesExcludeDuplicateNativeIds": true,
+      "notWholeProjectOrPhysicalAllocation": true,
+      "preservedMovedBuild": {
+        "path": "C:\\2저장고\\EternalHunger\\.local\\build-recovery\\guest-goals-next",
+        "files": 1285,
+        "bytes": 658260132,
+        "sha256": "402611ffdeae69415efbac73ab5363de4d6ac9df7133aa93cf306a16a2132b21",
+        "movedBuildUnchanged": true
+      },
+      "unrelatedUntracked": {
+        "preservedUnrelatedCount": 2592,
+        "rawQuotedPathsSha256": "761e8e032e25195e8b859512add38df7797a11bcff1027e6555a31aa9ed32d08"
+      },
+      "priorEvidenceSections": {
+        "artifactSections": 16,
+        "preservedSectionsDigest": "1724fab74792af0756044a80ef2a05420f6f14c109767050b77be34edef97a02"
+      }
+    },
+    "originalGoalBodySha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+    "originalG1ThroughG5CriteriaUnchanged": true,
+    "overallGoalStatus": "active-incomplete",
+    "remainingAcceptance": [
+      "Current strict foreground x1/x8/x32 and stable memory/restarts",
+      "Full-map in-viewport measurement throughout the performance interval",
+      "Broader growth/team/strategy acceptance in the original goal",
+      "Human follow-up observation and voluntary replay evaluation"
+    ],
+    "deferredReadOnlyFindings": [
+      "A one-action stale shared-core destination after cross-team pickup in one batch remains a source-audit candidate, not a reproduced fix.",
+      "distribution-varied/distribution-unit proof source coverage needs separate correction before claiming source-frozen distribution evidence."
+    ],
+    "publication": "Commit/push and exact deployment status are checked separately after this pre-commit evidence."
+  },
   "guestEquipmentGoalsFollowup": {
     "observedDateKst": "2026-10-18",
     "baseCommit": "64c755da6e94eed9998cbec63013dc746f1af079",

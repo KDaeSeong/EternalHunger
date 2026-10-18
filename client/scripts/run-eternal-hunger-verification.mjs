@@ -18,7 +18,7 @@ const commands = {
   'custom-growth-expanded-match': 'npm run check:custom-shared-growth:match -- --expanded && npm run check:verification-fingerprint',
   'custom-growth-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-growth-plan.mjs && node scripts/check-growth-capacity.mjs && npm run check:deep-custom-recipes && node scripts/check-team-tactics.mjs && node scripts/check-team-regroup.mjs && node scripts/check-team-resource-goals.mjs && node scripts/check-team-purchase-goals.mjs && node scripts/check-match-distribution-metrics.mjs && npm run check:verification-fingerprint',
   'authored-opening-match': 'node scripts/generate-simulation-version.mjs && node scripts/check-growth-fulfillment-match.mjs && npm run check:custom-shared-growth:match && npm run check:verification-fingerprint',
-  'authored-opening-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-growth-plan.mjs && node scripts/check-growth-progress-inventory.mjs && node scripts/check-growth-observation.mjs && node scripts/check-custom-crafting.mjs && node scripts/check-growth-capacity.mjs && node scripts/check-growth-plan-shared-inventory-index.mjs && node scripts/check-growth-recipe-work-cache.mjs && node scripts/check-detonation-rules.mjs && node scripts/check-simulation-phase-worker-input.mjs && node scripts/check-boss-loot-sharing.mjs && node scripts/check-phase-runtime-performance.mjs && npm run check:late-growth && npm run check:team-tactics && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'authored-opening-unit': 'node scripts/generate-simulation-version.mjs && npm run check:authored-goal-material-reservation && node scripts/check-growth-plan.mjs && node scripts/check-growth-progress-inventory.mjs && node scripts/check-growth-observation.mjs && node scripts/check-custom-crafting.mjs && node scripts/check-growth-capacity.mjs && node scripts/check-growth-plan-shared-inventory-index.mjs && node scripts/check-growth-recipe-work-cache.mjs && node scripts/check-detonation-rules.mjs && node scripts/check-simulation-phase-worker-input.mjs && node scripts/check-boss-loot-sharing.mjs && node scripts/check-phase-runtime-performance.mjs && npm run check:late-growth && npm run check:team-tactics && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   distribution: 'npm run diagnose:match-distribution -- --compare-observer=4402 4401 4402 4403 4404 4405 4406 4407 4408 4409 4410',
   'distribution-varied': 'npm run diagnose:match-distribution -- --rosters=BASELINE:roster-A,BASELINE:roster-B,BASELINE:roster-C 5501 5502',
   'distribution-unit': 'npm run check:team-regroup && npm run check:verification-fingerprint',
@@ -111,6 +111,8 @@ function fingerprint() {
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json',
     'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs'];
+  if (['authored-opening-unit', 'growth', 'performance', 'growth-focus-unit',
+    'initial-weapon-goal-unit', 'full'].includes(mode)) paths.push('scripts/check-authored-goal-material-reservation.mjs');
   if (['guest-equipment-unit', 'guest-equipment-match', 'build', 'runtime-build', 'full'].includes(mode)) paths.push(
     'scripts/generate-simulation-version.mjs', 'scripts/check-verification-fingerprint.mjs',
     'scripts/check-guest-equipment-goals.mjs', 'scripts/check-guest-equipment-goals-ui.mjs',

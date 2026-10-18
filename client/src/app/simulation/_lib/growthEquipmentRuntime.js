@@ -43,8 +43,27 @@ export function canCraftAlongsideGrowth(actor, item) {
   const terms = getCraftRecipeTerms(item);
   if (!terms) return false;
   // A real higher-tier result in this slot already fulfills the lower-tier
-  // need. Its transaction still has to supply every ingredient and credit.
-  if (slot === plan.targetSlot && Number(plan.targetTier) > 0 && Number(item.tier) > Number(plan.targetTier)) return true;
+  // automatic need. A specifically authored focus remains exact: only actual
+  // ingredient and credit surplus may fund an unrelated higher-tier result.
+  if (slot === plan.targetSlot && Number(plan.targetTier) > 0 && Number(item.tier) > Number(plan.targetTier)) {
+    const exactAuthoredFocus = Array.isArray(plan.exactTargetIds)
+      && plan.exactTargetIds.includes(String(plan.targetId));
+    if (!exactAuthoredFocus) return true;
+    const candidateAuthored = Array.isArray(plan.exactTargetIds)
+      && String(item._id) !== String(plan.targetId)
+      && plan.exactTargetIds.includes(String(item._id));
+    if (candidateAuthored) {
+      // A later explicitly selected same-slot goal may replace this focus when
+      // its own real recipe is payable and all inputs are actually present.
+      return terms.creditsCost <= Number(actor?.simCredits ?? 0)
+        && terms.ingredients.every((row) => invQty(actor.inventory, row.itemId) >= row.qty);
+    }
+    const surplusCredits = Math.max(0, Number(actor?.simCredits ?? 0) - Number(plan.plannedCredits ?? 0));
+    if (terms.creditsCost > surplusCredits || !terms.ingredients.every((row) =>
+      invQty(actor.inventory, row.itemId) - Number(plan.reservedQtyById?.[row.itemId] || 0) >= row.qty)) return false;
+    // Surplus is necessary, but a same-slot auto-equip also replaces the
+    // current item. Let the shared replacement-item guard below decide that.
+  }
   // Receiving a same-slot upgrade replaces the current non-component item,
   // even when that item is absent from the upgrade's ingredient list.
   const replaced = (actor.inventory || []).find((entry) => !entry.craftComponent

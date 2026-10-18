@@ -89,6 +89,16 @@ for (const mode of ['growth', 'performance', 'growth-focus-unit', 'initial-weapo
 }
 console.log('PASS growth proof and fixture mutations invalidate all applicable verification modes');
 
+for (const mode of ['authored-opening-unit', 'growth', 'performance', 'growth-focus-unit',
+  'initial-weapon-goal-unit', 'full']) {
+  const path = 'scripts/check-authored-goal-material-reservation.mjs';
+  const before = verificationSources(mode);
+  const after = verificationSources(mode, fileURLToPath(new URL(path, root)));
+  assert.equal(typeof before[path], 'string', `${mode} must fingerprint the authored material reservation proof.`);
+  assert.notEqual(after[path], before[path], 'Changing the real recipe reservation proof must invalidate its receipt.');
+}
+console.log('PASS authored material reservation proof mutations invalidate their growth verification modes');
+
 for (const path of ['scripts/check-growth-plan.mjs', 'scripts/check-growth-progress-inventory.mjs',
   'scripts/check-growth-observation.mjs', 'scripts/check-custom-crafting.mjs', 'scripts/check-detonation-rules.mjs',
   'scripts/check-late-growth-goals.mjs', 'scripts/check-late-growth-decision-index.mjs',
@@ -229,5 +239,5 @@ for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module
   }
 }
 console.log('PASS module registration and resolution policy mutations invalidate applicable verification modes');
-console.log(JSON.stringify({ pass: true, checks: 15, engine: base.wrapper,
+console.log(JSON.stringify({ pass: true, checks: 16, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));
