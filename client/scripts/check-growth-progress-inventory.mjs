@@ -33,7 +33,10 @@ function referenceGrowthRecipeWork(actor, catalog, targetId, { ruleset, targetId
   const missing = new Map(); const components = new Set(); const craftIds = new Set(); const reserved = {};
   function visit(id, qty, path) {
     if (!Number.isSafeInteger(qty) || qty <= 0) { work.blocked = 'invalid_recipe'; return; }
-    const item = byId.get(id); const have = Math.min(qty, available.get(id) || 0);
+    const item = byId.get(id);
+    const availableQty = available.get(id) || 0;
+    if (!Number.isSafeInteger(availableQty) || availableQty < 0) { work.blocked = 'invalid_recipe'; return; }
+    const have = Math.min(qty, availableQty);
     available.set(id, (available.get(id) || 0) - have);
     if (id !== target._id) { components.add(id); reserved[id] = (reserved[id] || 0) + qty; }
     const need = qty - have;
@@ -154,6 +157,17 @@ assert.deepEqual(releasingWork, referenceGrowthRecipeWork(releasingActor, items,
 assert.equal(releasingWork.readyCraftId, 'component');
 assert.equal(releasingWork.blocked, '');
 
+const overflowingRawActor = makeActor([
+  { itemId: 'raw', qty: Number.MAX_SAFE_INTEGER },
+  { itemId: 'raw', qty: Number.MAX_SAFE_INTEGER },
+], { simCredits: 20 });
+const overflowingRawBefore = JSON.stringify(overflowingRawActor);
+const overflowingRawWork = getGrowthRecipeWork(overflowingRawActor, batchCatalog, 'gear', { ruleset: rules });
+const overflowingRawReference = referenceGrowthRecipeWork(overflowingRawActor, batchCatalog, 'gear', { ruleset: rules });
+assert.deepEqual(overflowingRawReference, overflowingRawWork);
+assert.equal(overflowingRawReference.blocked, 'invalid_recipe', 'unsafe aggregated stock cannot enter recipe accounting');
+assert.equal(JSON.stringify(overflowingRawActor), overflowingRawBefore, 'overflow rejection preserves the actual input');
+
 for (const rows of [
   [{ itemId: 'raw', qty: Number.MAX_SAFE_INTEGER }, { itemId: 'raw', qty: Number.MAX_SAFE_INTEGER }],
   [{ itemId: 'raw', qty: 1 }, { itemId: 'component', qty: 0 }, { itemId: 'component', qty: 1 }],
@@ -173,18 +187,42 @@ function referenceRemainingTargets(who, catalog, targets) {
   const byId = new Map(catalog.map(item => [String(item._id), item]));
   const usableWeapon = item => inferEquipSlot(item) !== 'weapon'
     || areEquipmentWeaponTypesCompatible(who.weaponType, item.weaponType);
+  const authoredKeyFor = target => {
+    const slot = inferEquipSlot(target);
+    if (!slot) return false;
+    return String(who.goalLoadouts?.hero?.[`${slot}Key`] || '').trim();
+  };
+  const authoredTarget = target => {
+    const key = authoredKeyFor(target);
+    if (!key) return false;
+    // Mirror catalog key resolution independently: first item in catalog order
+    // whose itemKey, externalId, or ID matches the authored key wins.
+    const resolved = catalog.find(item => [item.itemKey, item.externalId, item._id]
+      .some(alias => String(alias ?? '').trim() === key));
+    return !!resolved && String(resolved._id) === String(target._id);
+  };
   const fallbackFulfills = (entry, target) => {
     const slot = inferEquipSlot(target);
     return !who.goalLoadouts?.hero?.[`${slot}Key`] && !entry.craftComponent
       && inferEquipSlot(entry) === slot && Number(entry.tier) >= Number(target.tier)
       && getInvItemId(entry) === who._growthFallbackTargets?.[slot];
   };
-  return targets.filter(target => !(usableWeapon(target) && who.inventory.some(entry =>
-    invQty(who.inventory, getInvItemId(entry)) > 0
-    && usableWeapon({ ...byId.get(getInvItemId(entry)), ...entry })
-    && (getInvItemId(entry) === String(target._id) || fallbackFulfills(entry, target)
-      || (!entry.craftComponent && inferEquipSlot(entry) === inferEquipSlot(target)
-        && Number(entry.tier || 0) > Number(target.tier))))));
+  return targets.filter(target => {
+    const id = String(target._id);
+    const slot = inferEquipSlot(target);
+    const authored = authoredTarget(target);
+    const authoredSlotDeclared = !!authoredKeyFor(target);
+    const acquired = authored && who._openingAcquiredItemIds?.[slot] === id;
+    if (acquired) return false;
+    return !(usableWeapon(target) && who.inventory.some(entry => {
+      const entryId = getInvItemId(entry);
+      return invQty(who.inventory, entryId) > 0
+        && usableWeapon({ ...byId.get(entryId), ...entry })
+        && (entryId === id || (!authoredSlotDeclared && (fallbackFulfills(entry, target)
+          || (!entry.craftComponent && inferEquipSlot(entry) === slot
+            && Number(entry.tier || 0) > Number(target.tier)))));
+    }));
+  });
 }
 
 const progressSlots = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
@@ -223,11 +261,28 @@ assert.equal(assertFulfillmentParity(duplicateWeaponActor, 'same ID, different r
   'positive aggregate quantity does not make the first incompatible row compatible');
 assert.equal(assertFulfillmentParity(progressActor([
   progressEntry('weapon', { craftComponent: true }),
-]), 'exact authored item remains usable as a component').completedSlots, 1,
+]), 'exact target-ID item remains usable as a component').completedSlots, 1,
   'the exact target-ID branch does not exclude craft components');
 assert.equal(assertFulfillmentParity(progressActor([
   progressEntry('head', { itemId: 'other-head', tier: 5, craftComponent: true }),
 ]), 'higher-tier component is not fallback equipment').completedSlots, 0);
+const authoredHead = progressCatalog.find(item => item.equipSlot === 'head');
+const assertAuthoredPolicyParity = (who, label) => {
+  const actual = getActorGrowthProgress(who, progressCatalog);
+  const remaining = referenceRemainingTargets(who, progressCatalog, progressCatalog);
+  assert.equal(actual.totalSlots, progressCatalog.length, `${label}: all five route goals remain in the denominator`);
+  assert.equal(actual.completedSlots, progressCatalog.length - remaining.length, `${label}: completed count matches independent oracle`);
+  assert.deepEqual(actual.remaining.map(item => item._id).sort(), remaining.map(item => item._id).sort(),
+    `${label}: completion is compared as a target set, independent of route ordering`);
+  assert.equal(actual.openingComplete, remaining.length === 0);
+  return actual;
+};
+const authoredSubstituteActor = progressActor([
+  progressEntry('head', { itemId: 'other-head', tier: 5 }),
+], { goalLoadouts: { hero: { headKey: authoredHead.itemKey } } });
+assert.equal(assertAuthoredPolicyParity(authoredSubstituteActor, 'higher tier cannot fulfill an exact authored goal').completedSlots, 0);
+authoredSubstituteActor._openingAcquiredItemIds = { head: authoredHead._id };
+assert.equal(assertAuthoredPolicyParity(authoredSubstituteActor, 'recorded exact authored acquisition survives component consumption').completedSlots, 1);
 const sparseProgressInventory = new Array(5);
 sparseProgressInventory[1] = null;
 sparseProgressInventory[4] = progressEntry('shoes');

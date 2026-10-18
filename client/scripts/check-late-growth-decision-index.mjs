@@ -13,7 +13,7 @@ const { normalizeWeaponType, areEquipmentWeaponTypesCompatible } = await import(
 // fixture file. The old scans/sort define valid-input order. Rebuild eligibility
 // for each call so edited/deleted recipes cannot survive a stale array cache.
 const slots = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
-function referenceTargets(actor, items, { authoredOnly = false } = {}) {
+function referenceTargets(actor, items, { authoredOnly = false, includeAcquired = false } = {}) {
   const inventory = Array.isArray(actor.inventory) ? actor.inventory : [];
   const owned = new Set(inventory.filter(entry => invQty(inventory, getInvItemId(entry)) > 0).map(getInvItemId));
   const weapon = normalizeWeaponType(actor.weaponType || '');
@@ -26,12 +26,12 @@ function referenceTargets(actor, items, { authoredOnly = false } = {}) {
   for (const slot of slots) {
     const currentTier = getActorEquipmentTier(actor, slot);
     for (const [group, tier] of [['legend', 5], ['transcend', 6]]) {
-      if (currentTier > tier) continue;
       const requested = String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim();
       if (requested) {
         const target = catalog.find(item => keyOf(item) === requested || String(item._id) === requested);
         if (!target || !compatible(target, slot, tier)) issues.push({ slot, tier, key: requested, reason: 'invalid_target' });
-        else if (!owned.has(String(target._id))) candidates.push({ target, authored: true, slot, tier });
+        else if (includeAcquired || (!owned.has(String(target._id))
+          && actor._lateAcquiredItemIds?.[group]?.[slot] !== String(target._id))) candidates.push({ target, authored: true, slot, tier });
       } else if (!authoredOnly && currentTier < tier) {
         for (const target of catalog.filter(item => compatible(item, slot, tier) && !owned.has(String(item._id)))) {
           if (currentTier >= 4 || getCraftRecipeTerms(target).ingredients.every(row => invQty(inventory, row.itemId) >= row.qty)) {
@@ -191,6 +191,24 @@ check('input goals and quantities are fresh on every decision including authored
   who.goalLoadouts.legend.headKey = second.itemKey; compare(who, items, { authoredOnly: true });
   who.inventory.push({ ...second, itemId: second._id, qty: 1 }); compare(who, items);
   who.inventory.at(-1).qty = 0; compare(who, items);
+});
+
+check('direct late goals require exact possession or the matching per-slot acquisition record; automatic upgrades still skip higher gear', () => {
+  const legend = gear('authored-legend', 'head', 5), trans = gear('held-transcend', 'head', 6);
+  const items = [ore, legend, trans];
+  const who = actor([{ ...trans, itemId: trans._id, qty: 1 }], {
+    equipped: { head: trans._id }, goalLoadouts: { legend: { headKey: legend.itemKey } },
+  });
+  assert.deepEqual(compare(who, items).targets.map(item => item._id), [legend._id], 'higher tier alone cannot satisfy direct legend intent');
+  assert.deepEqual(compare(who, items, { authoredOnly: true, includeAcquired: true }).targets.map(item => item._id), [legend._id]);
+  who._lateAcquiredItemIds = { legend: { head: 'wrong-id' } };
+  assert.deepEqual(compare(who, items).targets.map(item => item._id), [legend._id], 'wrong marker cannot complete the slot');
+  who._lateAcquiredItemIds.legend.head = legend._id;
+  assert.deepEqual(compare(who, items).targets, [], 'matching record completes a consumed exact target');
+  assert.deepEqual(compare(who, items, { authoredOnly: true, includeAcquired: true }).targets.map(item => item._id), [legend._id],
+    'producer query still enumerates valid authored goals despite acquisition');
+  who.goalLoadouts = {};
+  assert.deepEqual(compare(who, items).targets, [], 'automatic upgrades do not downgrade a usable higher tier');
 });
 
 check('current catalog decisions integrate into real growth planning after invalidation without touching possessions', () => {

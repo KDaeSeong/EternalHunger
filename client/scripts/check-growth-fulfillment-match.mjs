@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { registerHooks } from 'node:module';
+import { compileFunction } from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 // Generate both matches now. The reference replaces only fulfillment's row
@@ -25,11 +26,36 @@ if (worker) {
       const end = source.indexOf('\n  const remaining = targets.filter', start);
       assert.ok(start >= 0 && end > start, 'Reference must replace only the real fulfillment expression.');
       assert.equal(source.indexOf('  const fulfilled = (target) =>', start + 1), -1);
-      const reference = `  const fulfilled = (target) => usableWeapon(target) && inventory.some((entry) => inventoryQuantities.get(getInvItemId(entry)) > 0
-    && usableWeapon({ ...byId.get(getInvItemId(entry)), ...entry })
-    && (getInvItemId(entry) === String(target._id)
-      || fallbackFulfills(entry, target)
-      || (!entry.craftComponent && inferEquipSlot(entry) === inferEquipSlot(target) && Number(entry.tier || 0) > Number(target.tier))));`;
+      const reference = `  const isAuthoredTarget = (target) => {
+    const slot = inferEquipSlot(target);
+    if (!slot) return false;
+    const key = String(actor.goalLoadouts?.hero?.[slot + 'Key'] || '').trim();
+    if (!key) return false;
+    const resolved = items.find((item) => [item.itemKey, item.externalId, item._id]
+      .some((alias) => String(alias ?? '').trim() === key));
+    return !!resolved && String(resolved._id) === String(target._id);
+  };
+  const hasAuthoredSlot = (target) => {
+    const slot = inferEquipSlot(target);
+    return !!slot && !!String(actor.goalLoadouts?.hero?.[slot + 'Key'] || '').trim();
+  };
+  const fulfilled = (target) => {
+    const slot = inferEquipSlot(target);
+    const id = String(target._id);
+    if (!usableWeapon(target)) return false;
+    const authored = isAuthoredTarget(target);
+    if (authored && actor._openingAcquiredItemIds?.[slot] === id) return true;
+    return inventory.some((entry) => {
+      const entryId = getInvItemId(entry);
+      if (!(inventoryQuantities.get(entryId) > 0)
+        || !usableWeapon({ ...byId.get(entryId), ...entry })) return false;
+      if (entryId === id) return true;
+      if (hasAuthoredSlot(target)) return false;
+      return fallbackFulfills(entry, target) || (!entry.craftComponent
+        && inferEquipSlot(entry) === slot && Number(entry.tier || 0) > Number(target.tier));
+    });
+  };`;
+      assert.doesNotThrow(() => compileFunction(reference), 'The independent replacement must parse before a match starts.');
       referenceOverrides += 1;
       return { ...loaded, source: source.slice(0, start) + reference + source.slice(end) };
     },

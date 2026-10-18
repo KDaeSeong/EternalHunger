@@ -90,18 +90,19 @@ check('buying must leave enough for the real recipe, and neither absent funds no
 });
 
 check('owned or superseded gear, additional missing inputs and multiple missing units cannot masquerade as one-order completion', () => {
-  for (const scenario of ['material_owned', 'completed', 'superseded', 'extra_input', 'two_units']) {
+  for (const scenario of ['material_owned', 'completed', 'superseded', 'direct_unacquired_higher', 'extra_input', 'two_units']) {
     const input = fixture(), crafter = input.roster[1];
-    if (['material_owned', 'completed', 'superseded'].includes(scenario)) {
+    if (['material_owned', 'completed', 'superseded', 'direct_unacquired_higher'].includes(scenario)) {
       const item = scenario === 'material_owned' ? tree : scenario === 'completed' ? rare : { ...rare, _id: 'higher', tier: 6 };
       crafter.inventory.push({ ...item, itemId: item._id, qty: 1 });
+      if (scenario === 'superseded') delete crafter.goalLoadouts.legend;
     } else {
       const changed = structuredClone(rare);
       if (scenario === 'extra_input') changed.recipe.ingredients.push({ itemId: cloth._id, qty: 1 });
       else changed.recipe.ingredients[1].qty = 2;
       refresh(input, items.map(item => item._id === rare._id ? changed : item));
     }
-    assert.equal(purchasePlans(input).length, 0, scenario);
+    assert.equal(purchasePlans(input).length, scenario === 'direct_unacquired_higher' ? 3 : 0, scenario);
   }
 });
 

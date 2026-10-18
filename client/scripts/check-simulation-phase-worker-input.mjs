@@ -65,6 +65,8 @@ const input = createSimulationRunInput({
 const prepared = prepareSimulationRunInput(input);
 const frame = { ...createInitialSimulationFrame(), ...prepared.state,
   forbiddenAddedNow: [], forbiddenZoneIds: [], frameMapId: String(prepared.state.activeMapId || '') };
+frame.survivors[0] = { ...frame.survivors[0], _openingAcquiredItemIds: { head: 'phase-fixture:acquired-head' },
+  _lateAcquiredItemIds: { legend: { head: 'phase-fixture:acquired-legend-head' } } };
 const initialRandom = createSeedRng('WORKER:phase-input:1101');
 initialRandom();
 initialRandom.nextId('worker-input');
@@ -109,10 +111,16 @@ await check('a real MessageChannel clone owns frame and input while logs stay in
   const expectedZone = workerCommand.input.map.zones[0].name;
   const expectedItem = workerCommand.input.publicItems[0].name;
   const expectedFrameHp = workerCommand.frame.survivors[0].hp;
+  assert.deepEqual(workerCommand.frame.survivors[0]._openingAcquiredItemIds, { head: 'phase-fixture:acquired-head' },
+    'An ongoing phase transfer preserves its already-recorded opening acquisitions.');
+  assert.deepEqual(workerCommand.frame.survivors[0]._lateAcquiredItemIds,
+    { legend: { head: 'phase-fixture:acquired-legend-head' } });
   input.initialFrame.survivors[0].hp = -999;
   input.map.zones[0].name = 'producer mutation';
   input.publicItems[0].name = 'producer mutation';
   state.survivors[0].hp = -998;
+  state.survivors[0]._openingAcquiredItemIds.head = 'producer mutation';
+  state.survivors[0]._lateAcquiredItemIds.legend.head = 'producer mutation';
   command.ui.pendingTranscendPick.actorId = 'producer mutation';
   command.refState.startStarterLoadoutApplied = false;
   command.random.nameHistory[0][1][0] = 'producer mutation';
@@ -120,6 +128,8 @@ await check('a real MessageChannel clone owns frame and input while logs stay in
   assert.equal(workerCommand.input.map.zones[0].name, expectedZone);
   assert.equal(workerCommand.input.publicItems[0].name, expectedItem);
   assert.equal(workerCommand.frame.survivors[0].hp, expectedFrameHp);
+  assert.equal(workerCommand.frame.survivors[0]._openingAcquiredItemIds.head, 'phase-fixture:acquired-head');
+  assert.equal(workerCommand.frame.survivors[0]._lateAcquiredItemIds.legend.head, 'phase-fixture:acquired-legend-head');
   assert.deepEqual(workerCommand.logEntries, []);
   assert.equal(refs.fullLogEntriesRef.current, mainLogEntries);
   assert.deepEqual(mainLogEntries, expectedMainLogs, 'Transport leaves all existing Main log entries intact.');

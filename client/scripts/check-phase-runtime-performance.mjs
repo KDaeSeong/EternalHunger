@@ -228,12 +228,12 @@ function legacyLateGrowthTargets(actor, items, { authoredOnly = false } = {}) {
   for (const slot of EQUIP_SLOTS) {
     const currentTier = getActorEquipmentTier(actor, slot);
     for (const [group, tier] of [['legend', 5], ['transcend', 6]]) {
-      if (currentTier > tier) continue;
       const requested = String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim();
       if (requested) {
         const target = catalog.find(item => String(item.itemKey || item.externalId || item._id || '').trim() === requested || String(item._id) === requested);
         if (!target || !compatible(target, slot, tier)) issues.push({ slot, tier, key: requested, reason: 'invalid_target' });
-        else if (!owned.has(String(target._id))) candidates.push({ target, authored: true, slot, tier });
+        else if (!owned.has(String(target._id))
+          && actor._lateAcquiredItemIds?.[group]?.[slot] !== String(target._id)) candidates.push({ target, authored: true, slot, tier });
       } else if (!authoredOnly && currentTier < tier) {
         for (const target of catalog.filter(item => compatible(item, slot, tier) && !owned.has(String(item._id)))) {
           if (currentTier >= 4 || getCraftRecipeTerms(target).ingredients.every(row => invQty(inventory, row.itemId) >= row.qty)) {

@@ -15,6 +15,8 @@ const commands = {
   'phase-worker-release': 'npm run check:auth-session && npm run postbuild && npm run check:simulation-replay && npm run check:runtime:sweep',
   'module-resolution-compat': 'node scripts/check-simulation-module-resolution.mjs && node scripts/check-phase-worker-build-entry.mjs',
   'custom-shared-growth-match': 'npm run check:custom-shared-growth:match',
+  'authored-opening-match': 'node scripts/generate-simulation-version.mjs && node scripts/check-growth-fulfillment-match.mjs && npm run check:custom-shared-growth:match && npm run check:verification-fingerprint',
+  'authored-opening-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-growth-plan.mjs && node scripts/check-growth-progress-inventory.mjs && node scripts/check-growth-observation.mjs && node scripts/check-custom-crafting.mjs && node scripts/check-growth-capacity.mjs && node scripts/check-growth-plan-shared-inventory-index.mjs && node scripts/check-growth-recipe-work-cache.mjs && node scripts/check-detonation-rules.mjs && node scripts/check-simulation-phase-worker-input.mjs && node scripts/check-boss-loot-sharing.mjs && node scripts/check-phase-runtime-performance.mjs && npm run check:late-growth && npm run check:team-tactics && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   distribution: 'npm run diagnose:match-distribution -- --compare-observer=4402 4401 4402 4403 4404 4405 4406 4407 4408 4409 4410',
   'distribution-varied': 'npm run diagnose:match-distribution -- --rosters=BASELINE:roster-A,BASELINE:roster-B,BASELINE:roster-C 5501 5502',
   'distribution-unit': 'npm run check:team-regroup && npm run check:verification-fingerprint',
@@ -101,6 +103,21 @@ function fingerprint() {
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json',
     'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs'];
+  if (mode === 'authored-opening-match') paths.push('scripts/generate-simulation-version.mjs',
+    'scripts/check-growth-fulfillment-match.mjs', 'scripts/check-custom-shared-growth-match.mjs',
+    'scripts/lib/run-random-isolation-match.mjs', 'scripts/check-verification-fingerprint.mjs');
+  if (mode === 'authored-opening-unit') paths.push('scripts/generate-simulation-version.mjs',
+    'scripts/check-growth-plan.mjs', 'scripts/check-growth-progress-inventory.mjs', 'scripts/check-growth-observation.mjs',
+    'scripts/check-custom-crafting.mjs', 'scripts/check-growth-capacity.mjs', 'scripts/check-growth-plan-shared-inventory-index.mjs',
+    'scripts/check-growth-recipe-work-cache.mjs', 'scripts/check-detonation-rules.mjs',
+    'scripts/check-boss-loot-sharing.mjs', 'scripts/check-phase-runtime-performance.mjs',
+    'scripts/check-prepared-late-growth-catalog.mjs', 'scripts/check-late-growth-goals.mjs',
+    'scripts/check-late-growth-focus.mjs', 'scripts/check-late-growth-decision-index.mjs',
+    'scripts/check-team-tactics.mjs', 'scripts/check-combat-decision-evidence.mjs',
+    'scripts/check-team-regroup.mjs', 'scripts/check-team-resource-goals.mjs',
+    'scripts/check-team-purchase-goals.mjs', 'scripts/check-team-boss-goals.mjs',
+    'scripts/check-simulation-phase-worker-input.mjs',
+    'scripts/check-verification-fingerprint.mjs', 'eslint.runtime.config.mjs');
   if (mode === 'move-power-sort') paths.push('scripts/check-planning-power-snapshot.mjs',
     'scripts/check-move-power-sort-match.mjs', 'scripts/lib/run-random-isolation-match.mjs',
     'scripts/check-team-tactics.mjs', 'scripts/check-live-frames.mjs',

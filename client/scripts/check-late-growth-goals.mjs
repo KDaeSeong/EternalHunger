@@ -7,7 +7,7 @@ const { prepareActorPhaseActionPlan } = await import('../src/app/simulation/_lib
 const { buildItemMetaById, buildItemNameById } = await import('../src/app/simulation/_lib/itemOptionsRuntime.js');
 const { getRuleset } = await import('../src/utils/rulesets.js');
 const { getCombatEquipment } = await import('../src/utils/battleEquipmentLogic.js');
-const { normalizeInventory, invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
+const { addItemToInventory, normalizeInventory, invQty } = await import('../src/app/simulation/_lib/inventoryRules.js');
 const { autoEquipBest } = await import('../src/app/simulation/_lib/gearFallbackRuntime.js');
 const { tryAutoCraftFromInventory } = await import('../src/app/simulation/_lib/gearInventoryCraftRuntime.js');
 const { tryAutoCraftFromLoot } = await import('../src/app/simulation/_lib/craftRuntime.js');
@@ -21,7 +21,7 @@ const { buildTeamMovementPlans } = await import('../src/app/simulation/_lib/team
 const { runActorMovementDecisionPhase } = await import('../src/app/simulation/_lib/phaseActorMovementRuntime.js');
 const { chooseAiMoveTargets } = await import('../src/app/simulation/_lib/aiMoveTargetRuntime.js');
 const { countMissingSpecialNeed } = await import('../src/app/simulation/_lib/aiKioskSpecialItemsRuntime.js');
-const { getLateGrowthTargets } = await import('../src/app/simulation/_lib/lateGrowthTargetRuntime.js');
+const { getLateGrowthTargets, getActorResourceRecipeTargets } = await import('../src/app/simulation/_lib/lateGrowthTargetRuntime.js');
 
 // HF2/HF6 focused acceptance gate, separate from the equipment-effect release.
 // These are authored fixture recipes, not invented Eternal Return item stats.
@@ -173,28 +173,34 @@ await check('an unrelated same-slot recipe cannot replace a reserved worn base w
   }
 });
 
-await check('a newly available higher-tier recipe can supersede a blocked legendary need with real inputs and payment', () => {
+await check('an actually acquired legendary can be consumed by a paid higher-tier recipe without recurring material demand', () => {
   const blood = { ...stone, name: 'VF 혈액 샘플', spawnZones: [], tier: 4 };
-  const upgrade = { ...other, _id: 'late-superseding-head', itemKey: 'late-superseding-head-key', tier: 6 };
+  const upgrade = { ...other, _id: 'late-superseding-head', itemKey: 'late-superseding-head-key', tier: 6,
+    recipe: { ingredients: [{ itemId: selected._id, qty: 1 }, { itemId: blood._id, qty: 1 }], creditsCost: 3 } };
   for (const mode of ['inventory', 'special']) {
     const who = actor(), catalog = [{ ...cloth, spawnZones: [] }, blood, hero, selected, upgrade];
     assert.equal(refreshActorGrowthPlan(who, catalog, world).targetId, selected._id);
     assert.equal(who._growthPlan.blocked, 'no_material_source');
-    who.inventory.push({ ...structuredClone(blood), itemId: blood._id, qty: 1 });
+    who.inventory.push({ ...cloth, itemId: cloth._id, qty: 1 });
     const names = buildItemNameById(catalog), meta = buildItemMetaById(catalog);
+    const acquired = tryAutoCraftFromInventory(who, catalog, names, meta, 3, 5, ruleset);
+    assert.equal(acquired?.craftedId, selected._id);
+    refreshActorGrowthPlan(who, catalog, world);
+    assert.equal(who._lateAcquiredItemIds.legend.head, selected._id);
+    who.inventory.push({ ...structuredClone(blood), itemId: blood._id, qty: 1 });
     const result = mode === 'special'
       ? tryImmediateCraftFromSpecial(who, 'vf', blood._id, catalog, names, meta, 4, 'morning', 6, ruleset)
       : tryAutoCraftFromInventory(who, catalog, names, meta, 4, 6, ruleset);
     assert.equal(result?.craftedId, upgrade._id, mode); assert.equal(who.equipped.head, upgrade._id);
-    assert.equal(who.simCredits, 17); assert.equal(invQty(who.inventory, selected._id), 0);
+    assert.equal(who.simCredits, 14); assert.equal(invQty(who.inventory, selected._id), 0);
     assert.equal(invQty(who.inventory, hero._id), 0); assert.equal(invQty(who.inventory, blood._id), 0);
-    assert.deepEqual(result.receipt.consumed, [{ itemId: hero._id, qty: 1 }, { itemId: blood._id, qty: 1 }]);
+    assert.deepEqual(result.receipt.consumed, [{ itemId: selected._id, qty: 1 }, { itemId: blood._id, qty: 1 }]);
     const beforeView = structuredClone(who);
     const view = withSimulationRandom(() => { throw new Error('Observation cannot reroll or replan.'); }, () =>
       getActorGrowthObservation(who, catalog, { ruleset }));
-    assert.equal(view.targetId, ''); assert.equal(view.status, 'replanning'); assert.match(view.label, /상위 장비 확보/);
+    assert.equal(view.targetId, ''); assert.equal(view.status, 'replanning'); assert.match(view.label, /현재 목표 확보/);
     assert.deepEqual(who, beforeView, 'a completed higher-tier result must disappear from obsolete material demands without mutating the plan');
-    assert.equal(refreshActorGrowthPlan(who, catalog, world).targetId, '', 'a real higher-tier result completes the lower-tier need');
+    assert.equal(refreshActorGrowthPlan(who, catalog, world).targetId, '', 'a matching acquisition receipt prevents infinite lower-tier recrafting');
   }
 });
 
@@ -268,12 +274,44 @@ await check('failed payment preserves worn gear, material, credits and a truthfu
 await check('finishing legendary equipment advances to an authored transcend recipe without downgrading', () => {
   const trans = { ...gear('late-trans', stone._id), tier: 6,
     recipe: { ingredients: [{ itemId: selected._id, qty: 1 }, { itemId: stone._id, qty: 1 }] } };
-  const who = actor(); who.inventory = [{ ...selected, itemId: selected._id, qty: 1 }];
-  who.equipped.head = selected._id; who.goalLoadouts.transcend = { headKey: trans.itemKey };
+  const who = actor(); who.goalLoadouts.transcend = { headKey: trans.itemKey };
   const catalog = [...items, trans];
+  const names = buildItemNameById(catalog), meta = buildItemMetaById(catalog);
+  refreshActorGrowthPlan(who, catalog, world);
+  assert.equal(who._openingAcquiredItemIds.head, hero._id, 'Observe the actually owned opening item before consuming it.');
+  who.inventory = addItemToInventory(who.inventory, cloth, cloth._id, 1, 3, ruleset);
+  who._actionCycleKey = 'real-legend-craft';
+  const legendary = tryAutoCraftFromInventory(who, catalog, names, meta, 3, 4, ruleset);
+  assert.equal(legendary?.craftedId, selected._id);
+  assert.deepEqual(legendary.receipt.consumed, [{ itemId: hero._id, qty: 1 }, { itemId: cloth._id, qty: 1 }]);
+  assert.equal(who.simCredits, 17); assert.equal(invQty(who.inventory, hero._id), 0);
+  refreshActorGrowthPlan(who, catalog, world);
+  assert.equal(who._lateAcquiredItemIds.legend.head, selected._id,
+    'refresh records actual authored legendary acquisition before a later recipe consumes it');
   assert.equal(buildActorGrowthPlan(who, catalog, world).targetId, trans._id);
-  who.inventory = [{ ...trans, itemId: trans._id, qty: 1 }]; who.equipped.head = trans._id;
+  who.inventory = addItemToInventory(who.inventory, stone, stone._id, 1, 3, ruleset);
+  who._actionCycleKey = 'real-transcend-craft';
+  const transcendent = tryAutoCraftFromInventory(who, catalog, names, meta, 3, 4, ruleset);
+  assert.equal(transcendent?.craftedId, trans._id);
+  assert.deepEqual(transcendent.receipt.consumed, [{ itemId: selected._id, qty: 1 }, { itemId: stone._id, qty: 1 }]);
+  assert.equal(invQty(who.inventory, selected._id), 0); assert.equal(who.equipped.head, trans._id);
   assert.equal(buildActorGrowthPlan(who, catalog, world).targetId, '');
+});
+
+await check('higher equipment alone cannot complete or suppress a directly authored exact late target', () => {
+  const who = actor();
+  const higher = { ...selected, _id: 'late-unrelated-transcend', itemKey: 'late-unrelated-transcend-key', tier: 6 };
+  const catalog = [...items, higher];
+  who.inventory.push({ ...higher, itemId: higher._id, qty: 1 });
+  who.equipped.head = higher._id;
+  const before = structuredClone(who);
+  assert.deepEqual(getLateGrowthTargets(who, catalog).targets.map(item => item._id), [selected._id]);
+  assert.deepEqual(who, before, 'late target discovery remains read-only');
+  who._growthPlan = { targetId: selected._id, openingComplete: true };
+  assert.ok(getActorResourceRecipeTargets(who, catalog).some(item => item._id === selected._id),
+    'higher equipment must not remove an unacquired directly authored recipe from resource claims');
+  who._lateAcquiredItemIds = { legend: { head: selected._id } };
+  assert.deepEqual(getLateGrowthTargets(who, catalog).targets, [], 'the exact acquisition record completes even after consumption');
 });
 
 await check('late field farming consumes shared stock and the real recipe, with no hidden grant', () => {
@@ -418,13 +456,13 @@ await check('late weapon readiness uses the same extended equipment families as 
   }
 });
 
-await check('a usable transcend weapon still prevents downgrading to an authored legendary weapon', () => {
+await check('usable transcend weapon alone does not complete a directly authored exact legendary weapon', () => {
   const { who, wrong, catalog } = weaponGrowthFixture({ authored: true });
   const held = who.inventory.find(item => item.itemId === wrong._id);
   held.weaponType = who.weaponType;
   who.equipped.weapon = wrong._id;
-  assert.deepEqual(getLateGrowthTargets(who, catalog).targets, []);
-  assert.equal(buildActorGrowthPlan(who, catalog, world).targetId, '');
+  assert.deepEqual(getLateGrowthTargets(who, catalog).targets.map(item => item._id), ['late-weapon-upgrade']);
+  assert.equal(buildActorGrowthPlan(who, catalog, world).targetId, 'late-weapon-upgrade');
 });
 
 await check('unusable high-tier loot cannot cancel automatic or authored weapon upgrades', () => {
@@ -445,6 +483,9 @@ await check('unusable high-tier loot cannot cancel automatic or authored weapon 
     assert.equal(crafted.craftedId, legend._id); assert.equal(who.equipped.weapon, legend._id);
     assert.equal(who.simCredits, 17); assert.equal(invQty(who.inventory, cloth._id), 0);
     assert.deepEqual(crafted.receipt.consumed, [{ itemId: cloth._id, qty: 1 }], 'foreign loot cannot become a recipe input');
+    refreshActorGrowthPlan(who, catalog, world);
+    if (authored) assert.equal(who._lateAcquiredItemIds.legend.weapon, legend._id,
+      'actual authored craft is recorded before its later consumption');
     who.inventory = [{ ...trans, itemId: trans._id, qty: 1 }]; who.equipped.weapon = trans._id;
     assert.equal(buildActorGrowthPlan(who, catalog, world).targetId, '', 'usable top-tier gear still completes growth');
   }

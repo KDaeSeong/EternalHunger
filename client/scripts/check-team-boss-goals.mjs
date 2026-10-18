@@ -430,7 +430,7 @@ await check('the future boss destination executes travel, one real Wickeline fig
   }
 });
 
-await check('a real paid side craft releases the old boss recipe purpose without deleting the still-living boss or committed team move', () => {
+await check('a real paid side craft does not supersede an unacquired exact boss recipe purpose or delete the committed team move', () => {
   for (const reverse of [false, true]) {
     const input = fixture(), alternative = { ...recipe(materials[0]), _id: 'ordinary-transcend',
       itemKey: 'ordinary-transcend', name: '천 초월 모자', tier: 6 };
@@ -457,12 +457,14 @@ await check('a real paid side craft releases the old boss recipe purpose without
     assert.equal(input.events.some(event => event.kind === 'hunt_start' || event.itemId === 'mithril'), false);
     const context = { spawnState: input.state.nextSpawn, roster: input.roster, publicItems: catalog,
       actor: input.roster.find(actor => actor._id === 'leader'), teamId: 'team:1' };
-    assert.equal(getAvailableMovementObjective(goal, context), null);
+    const stillNeeded = getAvailableMovementObjective(goal, context);
+    assert.equal(stillNeeded?.type, 'boss');
+    assert.equal(stillNeeded?.beneficiary?.targetItemId, 'hat-mithril');
     const generic = { ...goal }; delete generic.beneficiary;
     assert.ok(getAvailableMovementObjective(generic, context), 'The boss remains a valid generic fight intention.');
     const model = buildTeamObserverModel({ survivors: input.roster, spawnState: input.state.nextSpawn,
       publicItems: catalog, events: input.events, teamId: 'team:1', matchSec: 960 });
-    assert.equal(model.objectives.length, 0);
+    assert.equal(model.objectives.length, 1);
   }
 });
 

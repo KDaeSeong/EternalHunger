@@ -9,6 +9,7 @@ const { withSimulationRandom } = await import('../src/utils/simulationRandom.js'
 const { emitSimulationRunEvent } = await import('../src/app/simulation/_lib/logActionRuntime.js');
 const { chooseBossLootRecipient } = await import('../src/app/simulation/_lib/bossLootRecipientRuntime.js');
 const { getActorResourceRecipeTargets } = await import('../src/app/simulation/_lib/lateGrowthTargetRuntime.js');
+const { tryAutoCraftFromInventory } = await import('../src/app/simulation/_lib/gearInventoryCraftRuntime.js');
 const { runPvpActionLoop } = await import('../src/app/simulation/_lib/phasePvpActionLoopRuntime.js');
 const { runPhaseActorActionPipeline } = await import('../src/app/simulation/_lib/phaseActorActionPipelineRuntime.js');
 const { advanceSpatialMovement } = await import('../src/app/simulation/_lib/combatSpatialRuntime.js');
@@ -340,12 +341,13 @@ await check('wrong-slot or wrong-tier authored keys cannot promote an automatic 
   }
 });
 
-await check('an actual higher-tier craft releases a stale lower-tier claim before the next boss drop', () => {
+await check('an actual higher-tier craft releases an automatic lower-tier claim before the next boss drop', () => {
   for (const reverse of [false, true]) for (const escortNeedsMaterial of [false, true]) {
     const input = fixture('weakline', blood);
-    input.crafter.goalLoadouts.legend.headKey = recipe(mithril).itemKey;
+    input.crafter.goalLoadouts = { transcend: { headKey: recipe(blood).itemKey } };
     refreshActorGrowthPlan(input.crafter, items, input.state);
-    assert.equal(input.crafter._growthPlan.targetId, recipe(mithril)._id);
+    assert.equal(input.crafter._growthPlan.stage, 'late');
+    assert.ok(input.crafter._growthPlan.targetId);
     if (escortNeedsMaterial) {
       input.escort.goalLoadouts.legend.headKey = recipe(mithril).itemKey;
       input.escort.simCredits = 0;
@@ -380,12 +382,13 @@ await check('an actual higher-tier craft releases a stale lower-tier claim befor
   }
 });
 
-await check('only a usable higher-tier result supersedes the active claim, not a component or another requested recipe', () => {
+await check('only a usable higher-tier result supersedes an automatic active claim, not a direct legend goal or another recipe', () => {
   for (const scenario of ['higher', 'unworn_component', 'other_slot', 'same_tier', 'future_dependency']) {
     const input = fixture(), higher = { ...recipe(blood), itemId: recipe(blood)._id, qty: 1 };
     if (scenario === 'unworn_component') higher.craftComponent = true;
     if (scenario === 'other_slot') higher.equipSlot = 'clothes';
     if (scenario === 'same_tier') { higher._id = higher.itemId = 'alternate-legend'; higher.tier = 5; }
+    if (scenario === 'higher' || scenario === 'future_dependency') delete input.crafter.goalLoadouts.legend;
     input.crafter.inventory.push(held(higher));
     if (scenario === 'higher' || scenario === 'future_dependency') input.crafter.equipped.head = higher._id;
     let expected = recipe(mithril)._id;
@@ -409,9 +412,75 @@ await check('only a usable higher-tier result supersedes the active claim, not a
   }
 });
 
+await check('an unacquired direct hero goal keeps its rare-material claim beside worn higher gear, through later consumption', () => {
+  const input = fixture();
+  const heroGoal = { ...base, _id: 'hero-custom-head', itemKey: 'hero-custom-head-key', name: '직접 지정 모자', tier: 4,
+    recipe: { ingredients: [{ itemId: base._id, qty: 1 }, { itemId: mithril._id, qty: 1 }], creditsCost: 3, resultQty: 1 } };
+  const laterGoal = { ...base, _id: 'later-transcend-head', itemKey: 'later-transcend-head-key', name: '후속 초월 모자', tier: 6,
+    recipe: { ingredients: [{ itemId: heroGoal._id, qty: 1 }, { itemId: blood._id, qty: 1 }], creditsCost: 3, resultQty: 1 } };
+  const catalog = [...items, heroGoal, laterGoal];
+  input.state.publicItems = catalog;
+  input.crafter.goalLoadouts = { hero: { headKey: heroGoal.itemKey }, transcend: { headKey: laterGoal.itemKey } };
+  input.crafter.routePlanTargetItemIds = [heroGoal._id];
+  input.crafter.inventory.push(held(recipe(blood)));
+  input.crafter.equipped.head = recipe(blood)._id;
+  refreshActorGrowthPlan(input.crafter, catalog, input.state);
+  assert.equal(input.crafter._growthPlan.targetId, heroGoal._id);
+  const firstClaim = withSimulationRandom(() => { throw new Error('Authored hero resource selection cannot draw randomness.'); }, () =>
+    chooseBossLootRecipient({ hunter: input.hunter, roster: input.state.rewardRoster, drop: { item: mithril, itemId: mithril._id },
+      remaining: 1, publicItems: catalog, ruleset: input.state.ruleset }));
+  assert.equal(firstClaim?.actor._id, input.crafter._id);
+
+  input.crafter.inventory.push(held(mithril));
+  input.crafter._actionCycleKey = '6:601';
+  const heroCraft = tryAutoCraftFromInventory(input.crafter, catalog, names, meta, 4, 6, input.state.ruleset);
+  assert.equal(heroCraft?.craftedId, heroGoal._id);
+  assert.equal(input.crafter.equipped.head, recipe(blood)._id, 'The existing higher worn gear stays equipped.');
+  refreshActorGrowthPlan(input.crafter, catalog, input.state);
+  assert.equal(input.crafter._openingAcquiredItemIds.head, heroGoal._id);
+  assert.equal(input.crafter._growthPlan.targetId, laterGoal._id);
+
+  input.crafter.inventory.push(held(blood));
+  input.crafter._actionCycleKey = '6:602';
+  const laterCraft = tryAutoCraftFromInventory(input.crafter, catalog, names, meta, 4, 6, input.state.ruleset);
+  assert.equal(laterCraft?.craftedId, laterGoal._id, 'A real later recipe consumes the exact hero target.');
+  assert.equal(invQty(input.crafter.inventory, heroGoal._id), 0);
+  refreshActorGrowthPlan(input.crafter, catalog, input.state);
+  assert.equal(input.crafter._openingAcquiredItemIds.head, heroGoal._id,
+    'The acquired-item fact survives consumption by a later recipe.');
+  assert.equal(getActorResourceRecipeTargets(input.crafter, catalog).some(item => item._id === heroGoal._id), false);
+  assert.equal(chooseBossLootRecipient({ hunter: input.hunter, roster: input.state.rewardRoster,
+    drop: { item: mithril, itemId: mithril._id }, remaining: 1, publicItems: catalog, ruleset: input.state.ruleset }), null,
+  'A later rare-material drop cannot revive the consumed hero target as an obsolete claim.');
+});
+
+await check('an unacquired direct legend goal remains a rare-material candidate despite a worn transcend item, then releases it after acquisition', () => {
+  const input = fixture();
+  const higher = held(recipe(blood));
+  input.crafter.inventory.push(higher);
+  input.crafter.equipped.head = higher.itemId;
+  input.crafter.goalLoadouts = { legend: { headKey: recipe(mithril).itemKey } };
+  refreshActorGrowthPlan(input.crafter, items, input.state);
+  assert.equal(input.crafter._growthPlan.targetId, recipe(mithril)._id);
+  const selected = withSimulationRandom(() => { throw new Error('Authored legend resource selection cannot draw randomness.'); }, () =>
+    chooseBossLootRecipient({ hunter: input.hunter, roster: input.state.rewardRoster, drop: { item: mithril, itemId: mithril._id },
+      remaining: 1, publicItems: items, ruleset: input.state.ruleset }));
+  assert.equal(selected?.actor._id, input.crafter._id);
+
+  input.crafter.inventory.push(held(mithril));
+  input.crafter._actionCycleKey = '6:601';
+  const crafted = tryAutoCraftFromInventory(input.crafter, items, names, meta, 4, 6, input.state.ruleset);
+  assert.equal(crafted?.craftedId, recipe(mithril)._id);
+  refreshActorGrowthPlan(input.crafter, items, input.state);
+  assert.equal(getActorResourceRecipeTargets(input.crafter, items).some(item => item._id === recipe(mithril)._id), false);
+  assert.equal(chooseBossLootRecipient({ hunter: input.hunter, roster: input.state.rewardRoster,
+    drop: { item: mithril, itemId: mithril._id }, remaining: 1, publicItems: items, ruleset: input.state.ruleset }), null,
+  'An already owned exact legend target cannot claim another copy of its rare ingredient.');
+});
+
 await check('real timed Wickeline combat distributes the second drop by current equipment after actual transcend crafting', async () => {
   const input = fixture('weakline', blood);
-  input.crafter.goalLoadouts.legend.headKey = recipe(mithril).itemKey;
+  delete input.crafter.goalLoadouts.legend;
   input.escort.goalLoadouts.legend.headKey = recipe(mithril).itemKey;
   input.escort.simCredits = 0;
   for (const actor of input.state.rewardRoster) refreshActorGrowthPlan(actor, items, input.state);

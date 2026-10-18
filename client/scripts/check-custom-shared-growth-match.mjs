@@ -48,6 +48,10 @@ targets.set(`${second._id}:weapon`, secondWeaponId);
 profiles.push({ _id: secondWeaponId, name: '둘째 대원 무기 목표', type: '무기', equipSlot: 'weapon',
   weaponType: secondWeapon, tier: 4, stackMax: 1,
   recipe: { ingredients: [{ itemId: batchId, qty: 1 }], resultQty: 1, creditsCost: 1 } });
+const headUpgradeId = 'guest-item-shared-growth-head-upgrade';
+profiles.push({ _id: headUpgradeId, name: '확보한 목표로 만드는 상위 투구', type: '방어구', equipSlot: 'head', tier: 5, stackMax: 1,
+  recipe: { ingredients: [{ itemId: targets.get(`${first._id}:head`), qty: 1 }, { itemId: batchId, qty: 1 }],
+    resultQty: 1, creditsCost: 1 } });
 
 const profileResult = readGuestItems(fixture.items, { getItem(key) {
   assert.equal(key, GUEST_ITEM_PROFILE_KEY);
@@ -108,6 +112,7 @@ fixture.survivors[0] = setGoals(first, {
   shoesKey: targets.get(`${first._id}:shoes`),
 });
 fixture.survivors[secondIndex] = setGoals(second, { weaponKey: secondWeaponId });
+fixture.survivors[0].goalLoadouts.legend = { ...(fixture.survivors[0].goalLoadouts.legend || {}), headKey: headUpgradeId };
 const firstGoalIds = slots.map(slot => targets.get(`${first._id}:${slot}`));
 assert.deepEqual(firstGoalIds.filter(id => fixture.survivors[0].routePlanTargetItemIds.includes(id)).sort(), [...firstGoalIds].sort(),
   'The five distinct authored goals must remain in the actual initial route.');
@@ -248,6 +253,14 @@ assert.equal(firstNightAuthoredEquipment.length, 6, 'The scoped first-night cont
 assert.ok(firstNightAuthoredEquipment.every(row => Number.isFinite(row.firstEquippedAtSec)
   && row.firstEquippedAtSec <= deadline),
   `Every authored target for the two selected participants must be in positive-quantity inventory and correctly equipped by the first-night deadline; observed=${JSON.stringify(firstNightAuthoredEquipment)}`);
+const firstActorCrafts = crafts.get(first._id) || [];
+const upgradeReceipts = firstActorCrafts.filter(event => event.itemId === headUpgradeId);
+assert.equal(upgradeReceipts.length, 1, 'The real loop must consume the actual authored head in its requested upgrade.');
+assert.equal(firstActorCrafts.filter(event => event.itemId === targets.get(`${first._id}:head`)).length, 1,
+  'An acquired-and-consumed opening target must not be crafted again forever.');
+const firstTerminal = [...result.finalFrame.survivors, ...result.finalFrame.dead].find(actor => actor._id === first._id);
+assert.equal(firstTerminal._openingAcquiredItemIds.head, targets.get(`${first._id}:head`));
+assert.equal(getActorGrowthProgress(firstTerminal, fixture.items).openingComplete, true);
 for (const actor of [fixture.survivors[0], fixture.survivors[secondIndex]]) {
   const rows = crafts.get(actor._id) || [];
   assert.equal(new Set(rows.map(event => event.actionKey)).size, rows.length, 'No authored craft receipt may execute twice.');
@@ -268,3 +281,13 @@ console.log(`CUSTOM_SHARED_GROWTH_OBSERVATION ${JSON.stringify({ engine: SIMULAT
   terminalGrowth,
   firstNightAuthoredEquipment,
   scope: 'Fresh 24-participant first-night actual-loop observation; five authored equipment goals plus one distinct compatible weapon goal sharing one real field leaf. Scoped authored-equipment exposure assertion only; no general survival, completion, or winner rate assertion.' })}`);
+
+const replay = await runRandomIsolationMatch(null, { savedInput,
+  stopAfterPhase: { day: 1, phase: 'night' } });
+assert.deepEqual(replay.evidence, result.evidence, 'Fresh bounded replay retains all event/frame digests, RNG and the same stopping boundary.');
+assert.deepEqual(replay.finalFrame, result.finalFrame);
+assert.deepEqual(replay.events, result.events);
+assert.deepEqual(replay.logs, result.logs);
+assert.equal(JSON.stringify(savedInput), savedInputBefore);
+console.log(`CUSTOM_SHARED_GROWTH_REPLAY phases=${result.evidence.phases} frames=${result.evidence.frames} events=${result.events.length} `
+  + `upgradeCrafts=${upgradeReceipts.length} openingHeadCrafts=1 exact=true scope=first-night-not-full-match`);

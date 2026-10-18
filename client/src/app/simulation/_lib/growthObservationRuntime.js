@@ -1,4 +1,4 @@
-import { getActorGrowthProgress, getGrowthRecipeWork, markGrowthComponent } from './growthPlanRuntime.js';
+import { getActorGrowthProgress, getGrowthRecipeWork, isAuthoredOpeningGrowthTarget, markGrowthComponent } from './growthPlanRuntime.js';
 import { getFieldResourceQty } from './fieldResourceRuntime.js';
 import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 import { procurementFailureText } from './procurementTransactionRuntime.js';
@@ -45,7 +45,9 @@ export function getActorGrowthObservation(actor, items, { progress = getActorGro
   if (!plan) return { ...empty, status: 'unplanned', label: '성장 목표 선택 대기', note: issueNote };
   const target = (['late', 'recovery'].includes(plan.stage) ? items : progress.remaining).find((item) => String(item._id) === String(plan.targetId));
   if (!target) return openingIssues.length ? pendingIssue : { ...empty, status: 'replanning', label: '현재 목표 확보 · 다음 성장 판단 대기' };
-  if (getActorEquipmentTier(actor, inferEquipSlot(target)) > Number(target.tier)) {
+  if (!isAuthoredOpeningGrowthTarget(actor, target, items)
+    && !plan.exactTargetIds?.includes(String(target._id))
+    && getActorEquipmentTier(actor, inferEquipSlot(target)) > Number(target.tier)) {
     return openingIssues.length ? pendingIssue : { ...empty, status: 'replanning', label: '상위 장비 확보 · 다음 성장 판단 대기' };
   }
   const work = getGrowthRecipeWork(actor, items, target._id, { ruleset, targetIds: plan.targetIds });
@@ -54,7 +56,7 @@ export function getActorGrowthObservation(actor, items, { progress = getActorGro
   const missing = work.missing.slice(0, 3).map((row) => `${row.name} ${row.need}개`).join(' · ');
   const ready = items.find((item) => String(item._id) === work.readyCraftId);
   const receiptPreview = ready && ruleset ? prepareCraftTransaction(actor,
-    markGrowthComponent(ready, { _growthPlan: { targetIds: plan.targetIds, componentIds: work.componentIds } }), 1, ruleset) : null;
+    markGrowthComponent(ready, { ...actor, _growthPlan: { ...plan, componentIds: work.componentIds } }), 1, ruleset) : null;
   const materials = receiptPreview && !receiptPreview.ok ? craftFailureText(receiptPreview.reason, receiptPreview)
     : work.blocked === 'insufficient_credits' ? `제작 비용 부족 · 필요 ${work.requiredCredits}Cr / 보유 ${work.availableCredits}Cr`
     : work.blocked === 'inventory_full' ? craftFailureText('inventory_full')

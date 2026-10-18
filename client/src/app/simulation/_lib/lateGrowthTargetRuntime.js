@@ -65,9 +65,30 @@ function inventoryFacts(actor, inventory) {
   return { quantities, tiers };
 }
 
+function firstCatalogAlias(items, key) {
+  const wanted = String(key || '').trim();
+  if (!wanted) return null;
+  return items.find(item => [item?._id, item?.itemKey, item?.externalId]
+    .some(value => String(value ?? '').trim() === wanted)) || null;
+}
+
+function hasUnacquiredDirectTarget(actor, items, target, owned) {
+  const targetId = String(target?._id || '');
+  const slot = inferEquipSlot(target);
+  if (!targetId || !slots.includes(slot) || owned.has(targetId)) return false;
+  const compatible = slot !== 'weapon' || areEquipmentWeaponTypesCompatible(actor.weaponType, target.weaponType);
+  if (!compatible) return false;
+  const heroKey = String(actor.goalLoadouts?.hero?.[`${slot}Key`] || '').trim();
+  if (heroKey && String(firstCatalogAlias(items, heroKey)?._id || '') === targetId
+    && actor._openingAcquiredItemIds?.[slot] !== targetId) return true;
+  const lateTargets = getLateGrowthTargets(actor, items, { authoredOnly: true, includeAcquired: true }).targets;
+  return lateTargets.some(row => String(row._id) === targetId
+    && actor._lateAcquiredItemIds?.[Number(row.tier) === 5 ? 'legend' : 'transcend']?.[slot] !== targetId);
+}
+
 // A plan chooses an existing recipe, never grants its result. Authored choices
 // win over automatic upgrades; catalog order must not decide between them.
-export function getLateGrowthTargets(actor, items, { authoredOnly = false } = {}) {
+export function getLateGrowthTargets(actor, items, { authoredOnly = false, includeAcquired = false } = {}) {
   const inventory = Array.isArray(actor.inventory) ? actor.inventory : [];
   // Inventory, goals and weapon compatibility are always a fresh decision.
   // Only the explicitly owned, deeply frozen run catalogue can reuse facts;
@@ -77,7 +98,6 @@ export function getLateGrowthTargets(actor, items, { authoredOnly = false } = {}
   const weapon = normalizeWeaponType(actor.weaponType || '');
   const requestedKeys = new Set(), automaticGroups = new Set();
   for (const slot of slots) for (const [group, tier] of [['legend', 5], ['transcend', 6]]) {
-    if (tiers[slot] > tier) continue;
     const requested = String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim();
     if (requested) requestedKeys.add(requested);
     else if (!authoredOnly && tiers[slot] < tier) automaticGroups.add(`${slot}:${tier}`);
@@ -117,14 +137,18 @@ export function getLateGrowthTargets(actor, items, { authoredOnly = false } = {}
   for (const slot of slots) {
     const currentTier = tiers[slot];
     for (const [group, tier] of [['legend', 5], ['transcend', 6]]) {
-      if (currentTier > tier) continue;
       const requested = String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim();
       if (requested) {
         const row = byKey.get(requested);
         const target = row?.target;
         if (!target || row.slot !== slot || row.tier !== tier || !compatibleWeapon(target, slot)) {
           issues.push({ slot, tier, key: requested, reason: 'invalid_target' });
-        } else if (!owned.has(String(target._id))) candidates.push({ target, authored: true, slot, tier });
+        } else {
+          const acquired = actor._lateAcquiredItemIds?.[group]?.[slot] === String(target._id);
+          if (includeAcquired || (!owned.has(String(target._id)) && !acquired)) {
+            candidates.push({ target, authored: true, slot, tier });
+          }
+        }
       } else if (!authoredOnly && currentTier < tier) {
         for (const target of bySlotTier.get(`${slot}:${tier}`) || []) {
           if (!compatibleWeapon(target, slot) || owned.has(String(target._id))) continue;
@@ -159,13 +183,16 @@ export function getLateGrowthTargets(actor, items, { authoredOnly = false } = {}
 export function getActorResourceRecipeTargets(actor, items) {
   const targets = new Map();
   const current = items.find(item => String(item._id) === String(actor?._growthPlan?.targetId || ''));
+  const owned = current
+    ? new Set(inventoryFacts(actor, Array.isArray(actor?.inventory) ? actor.inventory : []).quantities.keys()) : new Set();
+  const unacquiredDirect = current && hasUnacquiredDirectTarget(actor, items, current, owned);
   // A preceding loot receipt may already have completed a higher-tier result
   // before the next growth action refreshes the plan. Do not allocate another
   // scarce material to its obsolete lower-tier focus. The shared tier check
-  // excludes unusable weapons and unworn crafting components; an authored
-  // same-tier alternative or a genuine later recipe keeps its normal claim.
+  // excludes unusable weapons and unworn crafting components. An unacquired
+  // direct goal remains eligible even when the actor owns better gear.
   const superseded = current && inferItemCategory(current) === 'equipment' && slots.includes(inferEquipSlot(current))
-    && getActorEquipmentTier(actor, inferEquipSlot(current)) > Number(current.tier || 0);
+    && getActorEquipmentTier(actor, inferEquipSlot(current)) > Number(current.tier || 0) && !unacquiredDirect;
   if (current && !superseded) targets.set(String(current._id), current);
   if (actor?._growthPlan?.openingComplete) {
     for (const target of getLateGrowthTargets(actor, items, { authoredOnly: true }).targets) {

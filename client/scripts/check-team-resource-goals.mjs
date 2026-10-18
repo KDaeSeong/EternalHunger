@@ -477,7 +477,7 @@ check('a future shared recipe still pays real credits and cannot craft from a pa
   }
 });
 
-check('a paid higher-tier craft on the way releases the obsolete recipe goal while the distant source still exists', () => {
+check('a paid higher-tier craft cannot satisfy an unacquired direct goal or release its needed recipe source', () => {
   for (const reverse of [false, true]) {
     const input = fixture();
     const alternative = { ...gear('team-alternative-transcend', '우회 초월 모자', cloth._id), tier: 6 };
@@ -514,7 +514,7 @@ check('a paid higher-tier craft on the way releases the obsolete recipe goal whi
       const before = structuredClone(snapshot);
       const model = withSimulationRandom(() => { throw new Error('Observation must not consume simulation RNG.'); },
         () => buildTeamObserverModel(snapshot));
-      assert.equal(model.objectives.some(goal => goal.objective?.beneficiary?.targetItemId === rare._id), false,
+      assert.equal(model.objectives.some(goal => goal.objective?.beneficiary?.targetItemId === rare._id), true,
         JSON.stringify(model.objectives));
       assert.deepEqual(snapshot, before);
       const decision = snapshot.events.find(event => event.kind === 'movement_goal' && event.objective?.beneficiary);
@@ -525,8 +525,8 @@ check('a paid higher-tier craft on the way releases the obsolete recipe goal whi
       actor: remembered.actor, aiMove: { targets: ['a'], reason: 'wander' }, currentZone: 'b', day: 3, phase: 'morning',
       ruleset: input.state.ruleset, spawnState: input.state.nextSpawn, publicItems: catalog,
       roster: result.updatedSurvivors, nowSec: 520 } }));
-    assert.equal(redirected.holdTarget, 'a', 'Obsolete recipe memory must release before its TTL expires.');
-    assert.equal(redirected.moveObjective, null); assert.equal(redirected.moveObjectiveType, '');
+    assert.equal(redirected.holdTarget, 'c', 'A paid but unrelated higher-tier result must not release the exact authored recipe source.');
+    assert.ok(redirected.moveObjective); assert.equal(redirected.moveObjectiveType, 'natural_core');
   }
 });
 

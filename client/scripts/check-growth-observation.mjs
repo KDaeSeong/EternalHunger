@@ -33,6 +33,35 @@ function transact(subject, selected = offer(), actionType = 'kioskBuy', extra = 
 const choice = (extra = {}) => ({ kind: 'queue', who: 'a', chosen: 'kioskBuy', itemId: 'cloth', itemName: '천',
   actionKey: 'phase:0:cycle:0:20', at: { sec: 20 }, ...extra });
 
+check('a better unrelated item cannot hide the actual declared opening target', () => {
+  const higher = { ...gear('higher-head', ['stone']), tier: 5 };
+  const catalog = [...items, higher];
+  const subject = actor({ routePlanTargetItemIds: ['first'], goalLoadouts: { hero: { headKey: 'first' } },
+    inventory: [held(higher)], equipped: { head: higher._id } });
+  refreshActorGrowthPlan(subject, catalog, world);
+  const before = JSON.stringify(subject);
+  const member = model(subject, [], { publicItems: catalog }).members[0];
+  assert.equal(member.progress, '0/1'); assert.equal(member.growth.status, 'growing');
+  assert.equal(member.growth.targetId, 'first'); assert.match(member.growth.materials, /천 1개/);
+  assert.doesNotMatch(member.growth.label, /상위 장비 확보/);
+  assert.equal(JSON.stringify(subject), before, 'Observation cannot create acquisition receipts.');
+});
+
+check('a better unrelated item cannot hide an unacquired declared legendary target', () => {
+  const selected = { ...gear('declared-legend-head', ['cloth']), tier: 5 };
+  const higher = { ...gear('other-transcend-head', ['stone']), tier: 6 };
+  const basics = ['weapon', 'clothes', 'arm', 'shoes'].map(slot => gear(`late-base-${slot}`, [], slot));
+  const catalog = [...items, selected, higher, ...basics];
+  const subject = actor({ routePlanTargetItemIds: [], goalLoadouts: { legend: { headKey: selected._id } },
+    inventory: [held(higher), ...basics.map(item => held(item))], equipped: { head: higher._id } });
+  refreshActorGrowthPlan(subject, catalog, world);
+  const before = JSON.stringify(subject);
+  const member = model(subject, [], { publicItems: catalog }).members[0];
+  assert.equal(member.growth.targetId, selected._id); assert.equal(member.growth.status, 'growing');
+  assert.match(member.growth.materials, /천 1개/); assert.doesNotMatch(member.growth.label, /상위 장비 확보/);
+  assert.equal(JSON.stringify(subject), before); assert.equal(subject._lateAcquiredItemIds, undefined);
+});
+
 check('the visible growth target is the actual chosen branch, not the first missing slot', () => {
   const subject = prepare();
   assert.equal(model(subject).members[0].growth?.targetId, 'chosen');

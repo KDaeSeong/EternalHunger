@@ -24,6 +24,9 @@ const { createFieldResources } = await import('../src/app/simulation/_lib/fieldR
 const { buildRunActionSummary } = await import('../src/app/simulation/_lib/runActionSummary.js');
 const { buildDay1TargetCandidatesBySlot, buildItemIndexes } = await import('../src/app/simulation/_lib/routePlanBuilderRuntime.js');
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
+const { tryAutoCraftFromLoot } = await import('../src/app/simulation/_lib/craftRuntime.js');
+const { getLootCraftOptions } = await import('../src/app/simulation/_lib/runEventRuntime.js');
+const { commitCraftTransaction } = await import('../src/app/simulation/_lib/craftTransactionRuntime.js');
 
 let checks = 0;
 const check = async (name, run) => { await run(); console.log(`PASS ${name}`); checks++; };
@@ -39,6 +42,151 @@ const receive = (actor, id) => {
   const item = fixtureItems.find((row) => row._id === id);
   actor.inventory = addItemToInventory(actor.inventory, markGrowthComponent(item, actor), id, 1, 1, ruleset);
 };
+
+await check('authored opening aliases require the exact item while automatic goals still accept upgrades', () => {
+  const target = gear('authored-head', ['raw'], { tier: 4, itemKey: 'authored-head-key', externalId: 'authored-head-external' });
+  const higher = gear('other-head', ['raw'], { tier: 5 });
+  const items = [material('raw', ['c']), target, higher];
+  const inventory = [{ ...higher, itemId: higher._id, qty: 1 }];
+  for (const key of [target._id, target.itemKey, target.externalId]) {
+    const actor = { ...fixture(), routePlanTargetItemIds: [target._id], inventory: structuredClone(inventory),
+      equipped: { head: higher._id }, goalLoadouts: { hero: { headKey: key } } };
+    const before = JSON.stringify(actor);
+    const progress = getActorGrowthProgress(actor, items);
+    assert.equal(progress.completedSlots, 0, `${key}: an unrelated higher item is not the declared item`);
+    assert.equal(progress.totalSlots, 1); assert.equal(progress.openingComplete, false);
+    assert.deepEqual(progress.remaining.map(item => item._id), [target._id]);
+    const plan = buildActorGrowthPlan(actor, items, { ...world, ruleset });
+    assert.equal(plan.stage, 'opening'); assert.equal(plan.targetId, target._id);
+    assert.equal(plan.targetZoneId, 'c'); assert.equal(plan.nextStep, 'b');
+    assert.equal(JSON.stringify(actor), before, 'Progress and planning are read-only.');
+  }
+  const automatic = { ...fixture(), routePlanTargetItemIds: [target._id], inventory };
+  assert.equal(getActorGrowthProgress(automatic, items).openingComplete, true,
+    'The existing higher-tier substitution remains valid for automatic goals.');
+});
+
+await check('an authored lower-tier target is really paid for and retained beside the better worn item', () => {
+  const target = gear('authored-head', ['raw'], { tier: 4, itemKey: 'authored-head-key',
+    recipe: { ingredients: [{ itemId: 'raw', qty: 1 }], creditsCost: 7 } });
+  const higher = gear('other-head', ['raw'], { tier: 5 });
+  const upgrade = gear('authored-upgrade', [target._id], { tier: 6,
+    recipe: { ingredients: [{ itemId: target._id, qty: 1 }], creditsCost: 3 } });
+  const items = [material('raw'), target, higher, upgrade];
+  const actor = { ...fixture(), routePlanTargetItemIds: [target._id], goalLoadouts: { hero: { headKey: target.itemKey } },
+    inventory: [{ ...higher, itemId: higher._id, qty: 1 }, { ...items[0], itemId: 'raw', qty: 1 }],
+    equipped: { head: higher._id }, simCredits: 20, _actionCycleKey: 'authored:1' };
+  const plan = refreshActorGrowthPlan(actor, items, { ...world, ruleset });
+  assert.equal(plan.readyCraftId, target._id); assert.equal(plan.openingComplete, false);
+  const crafted = tryAutoCraftFromInventory(actor, items, buildItemNameById(items), buildItemMetaById(items), 1, 0, ruleset);
+  assert.equal(crafted?.craftedId, target._id);
+  assert.deepEqual(crafted.receipt.consumed, [{ itemId: 'raw', qty: 1 }]);
+  assert.equal(crafted.receipt.paidCost, 7); assert.equal(actor.simCredits, 13);
+  assert.equal(invQty(actor.inventory, 'raw'), 0); assert.equal(invQty(actor.inventory, target._id), 1);
+  assert.equal(invQty(actor.inventory, higher._id), 1); assert.equal(actor.equipped.head, higher._id,
+    'Acquiring a lower-tier requested item must not remove the better worn item.');
+  assert.equal(refreshActorGrowthPlan(actor, items, { ...world, ruleset }).openingComplete, true);
+  assert.equal(actor._openingAcquiredItemIds.head, target._id);
+  const restored = JSON.parse(JSON.stringify(actor));
+  actor._actionCycleKey = 'authored:2';
+  const next = refreshActorGrowthPlan(actor, items, { ...world, ruleset });
+  assert.equal(next.stage, 'late'); assert.equal(next.readyCraftId, upgrade._id);
+  const upgraded = tryAutoCraftFromInventory(actor, items, buildItemNameById(items), buildItemMetaById(items), 1, 0, ruleset);
+  assert.equal(upgraded?.craftedId, upgrade._id);
+  assert.deepEqual(upgraded.receipt.consumed, [{ itemId: target._id, qty: 1 }]);
+  assert.equal(actor.simCredits, 10); assert.equal(invQty(actor.inventory, target._id), 0);
+  assert.equal(getActorGrowthProgress(actor, items).openingComplete, true,
+    'Actual acquisition survives its subsequent real recipe consumption.');
+  assert.equal(getActorGrowthProgress(restored, items).openingComplete, true);
+  const changed = { ...actor, goalLoadouts: { hero: { headKey: higher._id } } };
+  assert.equal(getActorGrowthProgress(changed, items).openingComplete, false,
+    'A previous different target receipt cannot satisfy an edited declaration.');
+});
+
+await check('authored later goals require real acquisition, preserve better gear and survive actual upgrade consumption', () => {
+  const raw = material('raw');
+  const target = gear('declared-legend-head', ['raw'], { tier: 5, itemKey: 'legend-head-key',
+    recipe: { ingredients: [{ itemId: 'raw', qty: 1 }], creditsCost: 7 } });
+  const higher = gear('other-transcend-head', ['raw'], { tier: 6 });
+  const upgrade = gear('declared-transcend-head', [target._id], { tier: 6,
+    recipe: { ingredients: [{ itemId: target._id, qty: 1 }], creditsCost: 3 } });
+  const edited = gear('edited-legend-head', ['raw'], { tier: 5 });
+  const items = [raw, target, higher, upgrade, edited];
+  const who = { ...fixture(), routePlanTargetItemIds: [],
+    goalLoadouts: { legend: { headKey: target.itemKey }, transcend: { headKey: upgrade._id } },
+    inventory: [{ ...higher, itemId: higher._id, qty: 1 }, { ...raw, itemId: raw._id, qty: 1 }],
+    equipped: { head: higher._id }, simCredits: 20, _actionCycleKey: 'authored-late:1' };
+  let plan = refreshActorGrowthPlan(who, items, { ...world, ruleset });
+  assert.equal(plan.stage, 'late'); assert.equal(plan.targetId, target._id); assert.equal(plan.readyCraftId, target._id);
+  assert.equal(who._lateAcquiredItemIds, undefined, 'Unrelated higher gear is not an acquisition.');
+  const legend = tryAutoCraftFromInventory(who, items, buildItemNameById(items), buildItemMetaById(items), 1, 0, ruleset);
+  assert.equal(legend?.craftedId, target._id); assert.equal(legend.receipt.paidCost, 7);
+  assert.equal(who.equipped.head, higher._id); assert.equal(invQty(who.inventory, higher._id), 1);
+  assert.equal(invQty(who.inventory, target._id), 1); assert.equal(who.simCredits, 13);
+  plan = refreshActorGrowthPlan(who, items, { ...world, ruleset });
+  assert.equal(who._lateAcquiredItemIds.legend.head, target._id); assert.equal(plan.readyCraftId, upgrade._id);
+  who._actionCycleKey = 'authored-late:2';
+  const transcend = tryAutoCraftFromInventory(who, items, buildItemNameById(items), buildItemMetaById(items), 1, 0, ruleset);
+  assert.equal(transcend?.craftedId, upgrade._id); assert.equal(transcend.receipt.paidCost, 3);
+  assert.deepEqual(transcend.receipt.consumed, [{ itemId: target._id, qty: 1 }]);
+  assert.equal(invQty(who.inventory, target._id), 0); assert.equal(who.simCredits, 10);
+  plan = refreshActorGrowthPlan(who, items, { ...world, ruleset });
+  assert.deepEqual(who._lateAcquiredItemIds, { legend: { head: target._id }, transcend: { head: upgrade._id } });
+  assert.equal(plan?.targetId || '', '', 'A real consumed legend goal must not be crafted repeatedly.');
+  who.goalLoadouts.legend.headKey = edited._id;
+  refreshActorGrowthPlan(who, items, { ...world, ruleset });
+  assert.equal(who._lateAcquiredItemIds.legend, undefined, 'Edited declarations do not inherit another item receipt.');
+  delete who.goalLoadouts;
+  refreshActorGrowthPlan(who, items, { ...world, ruleset });
+  assert.equal(who._lateAcquiredItemIds, undefined);
+  const zero = { ...fixture(), routePlanTargetItemIds: [], simCredits: 20,
+    goalLoadouts: { legend: { headKey: target._id } }, inventory: [{ ...target, qty: 0 }, { ...higher, qty: 1 }] };
+  refreshActorGrowthPlan(zero, items, { ...world, ruleset });
+  assert.equal(zero._lateAcquiredItemIds, undefined);
+  assert.equal(zero._growthPlan.targetId, target._id);
+});
+
+await check('loot crafting also receives the exact lower target without dropping better gear or bypassing capacity', () => {
+  const target = gear('authored-head', ['raw'], { tier: 4,
+    recipe: { ingredients: [{ itemId: 'raw', qty: 1 }], creditsCost: 7 } });
+  const higher = gear('other-head', ['raw'], { tier: 5 });
+  const items = [material('raw'), target, higher];
+  const make = qty => ({ ...fixture(), routePlanTargetItemIds: [target._id], goalLoadouts: { hero: { headKey: target._id } },
+    inventory: [{ ...higher, itemId: higher._id, qty: 1 }, { ...items[0], itemId: 'raw', qty }],
+    equipped: { head: higher._id }, simCredits: 20, _actionCycleKey: 'authored-loot' });
+  const who = make(1);
+  refreshActorGrowthPlan(who, items, { ...world, ruleset });
+  const before = JSON.stringify(who);
+  const preview = withSimulationRandom(() => 0, () => tryAutoCraftFromLoot(who.inventory, 'raw', items,
+    buildItemNameById(items), buildItemMetaById(items), 1, ruleset, getLootCraftOptions(who)));
+  assert.equal(preview?.craftedId, target._id);
+  assert.equal(JSON.stringify(who), before, 'Loot preview cannot spend resources or record acquisition.');
+  assert.equal(commitCraftTransaction(who, preview.transaction).ok, true);
+  assert.equal(who.simCredits, 13); assert.equal(invQty(who.inventory, target._id), 1);
+  autoEquipBest(who, buildItemMetaById(items));
+  assert.equal(who.equipped.head, higher._id); assert.equal(invQty(who.inventory, higher._id), 1);
+  assert.equal(refreshActorGrowthPlan(who, items, { ...world, ruleset }).openingComplete, true);
+  const smallBag = { ...ruleset, inventory: { ...ruleset.inventory, maxSlots: 2, autoDropLowValue: false } };
+  const full = make(2);
+  assert.equal(refreshActorGrowthPlan(full, items, { ...world, ruleset: smallBag }).blocked, 'inventory_full');
+  const fullBefore = JSON.stringify(full);
+  assert.equal(withSimulationRandom(() => 0, () => tryAutoCraftFromLoot(full.inventory, 'raw', items,
+    buildItemNameById(items), buildItemMetaById(items), 1, smallBag, getLootCraftOptions(full))), null);
+  assert.equal(JSON.stringify(full), fullBefore); assert.equal(full._openingAcquiredItemIds?.head, undefined);
+});
+
+await check('zero quantities and a stale completed plan cannot fabricate authored acquisition', () => {
+  const target = gear('authored-head', ['raw'], { tier: 4 });
+  const higher = gear('other-head', ['raw'], { tier: 5 });
+  const items = [material('raw'), target, higher];
+  const actor = { ...fixture(), routePlanTargetItemIds: [target._id], goalLoadouts: { hero: { headKey: target._id } },
+    inventory: [{ ...target, itemId: target._id, qty: 0 }, { ...higher, itemId: higher._id, qty: 1 }],
+    _growthPlan: { openingComplete: true, stage: 'late', targetId: higher._id } };
+  assert.equal(getActorGrowthProgress(actor, items).openingComplete, false);
+  refreshActorGrowthPlan(actor, items, { ...world, ruleset });
+  assert.equal(actor._openingAcquiredItemIds?.head, undefined);
+  assert.equal(getActorGrowthProgress(actor, items).openingComplete, false);
+});
 
 await check('missing opening targets remain incomplete even when every known target is owned', () => {
   const actor = { ...fixture(), routePlanTargetItemIds: ['goal', 'deleted-body-goal', 'deleted-body-goal'] };

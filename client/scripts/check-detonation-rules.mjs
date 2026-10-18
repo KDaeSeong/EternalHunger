@@ -179,11 +179,17 @@ check('actual phase setup grants at final-night entry and preserves the ledger i
 });
 check('initial roster construction never imports the final-night timer or grant marker into a new match', () => {
   const old = actor('old', { detonationSec: 45, detonationMaxSec: 45, detonationFinalNight: true,
-    detonationFinalNightBonusGranted: true, detonationFinalNightBonusAtSec: 1180 });
+    detonationFinalNightBonusGranted: true, detonationFinalNightBonusAtSec: 1180,
+    _openingAcquiredItemIds: ['guest-item-prior-match-goal'],
+    _lateAcquiredItemIds: { head: 'guest-legend-prior-match-goal' } });
   const result = buildInitialSimulationRoster({ charList: [old], initialZoneIds: ['safe'], loadedSettings: { rulesetId: 'ER_S11' } });
   const fresh = result.candidateChars[0];
   assert.equal(fresh.detonationSec, 20); assert.equal(fresh.detonationMaxSec, 30);
   assert.equal(fresh.detonationFinalNightBonusGranted, false); assert.equal(fresh.detonationFinalNightBonusAtSec, null);
+  assert.equal(Object.hasOwn(fresh, '_openingAcquiredItemIds'), false);
+  assert.equal(Object.hasOwn(fresh, '_lateAcquiredItemIds'), false);
+  assert.deepEqual(old._openingAcquiredItemIds, ['guest-item-prior-match-goal']);
+  assert.deepEqual(old._lateAcquiredItemIds, { head: 'guest-legend-prior-match-goal' });
 });
 check('Legacy uses the same 30/45-second cap and once-only 15-second grant', () => {
   const row = actor('legacy', { detonationSec: 8 }), legacy = getRuleset('LEGACY');

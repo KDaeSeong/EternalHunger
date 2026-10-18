@@ -310,7 +310,8 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
       ? clampGearTier(target?.tier || computeCraftTierFromIngredients(ings, itemMetaById, itemNameById))
       : clampTier4(target?.tier || 1);
 
-    const craftedItem = markGrowthComponent((cat === 'equipment') ? applyEquipTier(target, craftTier) : target, { _growthPlan: opts.growthPlan });
+    const craftedItem = markGrowthComponent((cat === 'equipment') ? applyEquipTier(target, craftTier) : target,
+      { ...opts.craftActor, inventory, weaponType: opts.weaponType, _growthPlan: opts.growthPlan });
 
     // Standalone callers may preview legacy free recipes without an actor.
     // Product callers always supply the real actor context; commit verifies it.

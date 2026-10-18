@@ -89,6 +89,27 @@ for (const mode of ['growth', 'performance', 'growth-focus-unit', 'initial-weapo
 }
 console.log('PASS growth proof and fixture mutations invalidate all applicable verification modes');
 
+for (const path of ['scripts/check-growth-plan.mjs', 'scripts/check-growth-progress-inventory.mjs',
+  'scripts/check-growth-observation.mjs', 'scripts/check-custom-crafting.mjs', 'scripts/check-detonation-rules.mjs',
+  'scripts/check-late-growth-goals.mjs', 'scripts/check-late-growth-decision-index.mjs',
+  'scripts/check-boss-loot-sharing.mjs', 'scripts/check-phase-runtime-performance.mjs', 'scripts/check-team-tactics.mjs',
+  'scripts/check-team-resource-goals.mjs', 'scripts/check-team-purchase-goals.mjs',
+  'scripts/check-team-boss-goals.mjs', 'scripts/check-simulation-phase-worker-input.mjs']) {
+  const before = verificationSources('authored-opening-unit');
+  const after = verificationSources('authored-opening-unit', fileURLToPath(new URL(path, root)));
+  assert.equal(typeof before[path], 'string');
+  assert.notEqual(after[path], before[path], 'Authored acquisition/initialization proofs must invalidate the receipt.');
+}
+console.log('PASS authored opening acquisition and initialization proof mutations invalidate their verification mode');
+for (const path of ['scripts/check-growth-fulfillment-match.mjs', 'scripts/check-custom-shared-growth-match.mjs',
+  'scripts/lib/run-random-isolation-match.mjs']) {
+  const before = verificationSources('authored-opening-match');
+  const after = verificationSources('authored-opening-match', fileURLToPath(new URL(path, root)));
+  assert.equal(typeof before[path], 'string');
+  assert.notEqual(after[path], before[path], 'Authored opening match fixtures and source overlays must invalidate the receipt.');
+}
+console.log('PASS authored opening full-match and bounded replay proof mutations invalidate their verification mode');
+
 for (const path of ['scripts/check-planning-power-snapshot.mjs', 'scripts/check-move-power-sort-match.mjs',
   'scripts/lib/run-random-isolation-match.mjs', 'scripts/check-team-tactics.mjs', 'scripts/check-live-frames.mjs']) {
   const before = verificationSources('move-power-sort');
@@ -114,5 +135,5 @@ for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module
   }
 }
 console.log('PASS module registration and resolution policy mutations invalidate applicable verification modes');
-console.log(JSON.stringify({ pass: true, checks: 9, engine: base.wrapper,
+console.log(JSON.stringify({ pass: true, checks: 11, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));
