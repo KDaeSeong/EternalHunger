@@ -26,6 +26,7 @@ function getInitialParticipantSelectionMode() {
 }
 
 export function useSimulationParticipantPresets({
+  activeMap,
   candidateSurvivors,
   day,
   isAdvancing,
@@ -33,6 +34,7 @@ export function useSimulationParticipantPresets({
   isRunLocked,
   replayMode,
   matchSec,
+  publicItems,
   settings,
   survivors,
   actions = {},
@@ -100,7 +102,7 @@ export function useSimulationParticipantPresets({
 
   return {
     saveLocalCharacter: (actorId, draft) => saveGuestCharacterBeforeMatch({ actorId, draft,
-      state: { candidateSurvivors, day, matchSec, isAdvancing, isGameOver, isRunLocked, replayMode }, actions }),
+      state: { activeMap, candidateSurvivors, day, matchSec, publicItems, survivors, isAdvancing, isGameOver, isRunLocked, replayMode }, actions }),
     applyCustomParticipantRoster,
     applyParticipantPresetToCurrent,
     deleteSelectedParticipantPreset,

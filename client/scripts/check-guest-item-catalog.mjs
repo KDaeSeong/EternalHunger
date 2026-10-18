@@ -1,8 +1,8 @@
+import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { loadGuestSimulationItemCatalog } from '../src/app/simulation/_lib/guestSimulationBootstrap.js';
 import {
   GUEST_ITEM_CATALOG_SCHEMA_VERSION,
   OUTPUT_PATH,
@@ -10,6 +10,8 @@ import {
   buildGuestItemCatalog,
   generateGuestItemCatalog,
 } from './generate-guest-item-catalog.mjs';
+
+const { loadGuestSimulationItemCatalog } = await import('../src/app/simulation/_lib/guestSimulationBootstrap.js');
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');

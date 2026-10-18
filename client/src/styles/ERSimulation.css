@@ -4579,10 +4579,21 @@
 .simulation-local-character-editor__description { padding: 12px; border: 1px solid #405970; border-radius: 6px; }
 .simulation-local-character-editor__description summary { cursor: pointer; }
 .simulation-local-character-editor__description p { font-size: 13px; line-height: 1.6; }
+.simulation-guest-equipment-goals { padding: 12px; border: 1px solid #52758e; border-radius: 6px; background: #132c3e; }
+.simulation-guest-equipment-goals summary { cursor: pointer; font-weight: 600; }
+.simulation-guest-equipment-goals > p { font-size: 13px; line-height: 1.6; }
+.simulation-guest-equipment-goals__weapon { max-width: 320px; margin: 12px 0; }
+.simulation-guest-equipment-goals__tiers { display: grid; gap: 10px; margin: 12px 0; }
+.simulation-guest-equipment-goals__tier { padding: 10px; border: 1px solid #405970; border-radius: 5px; }
+.simulation-guest-equipment-goals__slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.simulation-guest-equipment-goals__slots select { text-overflow: ellipsis; }
+.simulation-guest-equipment-goals__errors { padding: 10px 10px 10px 28px; border-left: 3px solid #f29891; color: #ffd5cc; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.simulation-guest-equipment-goals__guard, .simulation-guest-equipment-goals__waiting { color: #c4d8e8; }
 .simulation-local-character-editor .simulation-roster-modal__header, .simulation-local-character-editor .simulation-roster-modal__footer { flex: 0 0 auto; }
 .simulation-local-character-editor .simulation-roster-modal__footer { align-items: center; }
 .simulation-local-character-editor .simulation-roster-modal__footer p { overflow-wrap: anywhere; white-space: normal; overflow: visible; }
 @media (max-width: 640px) {
+  .simulation-guest-equipment-goals__slots { grid-template-columns: minmax(0, 1fr); }
   .simulation-local-character-editor .character-skill-inline-grid,
   .simulation-local-character-editor .character-skill-level-grid.passive { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .simulation-local-character-editor .character-skill-level-grid { gap: 4px; }

@@ -3,6 +3,9 @@ import { normalizeSupportedTacSkill } from '../../../utils/tacticalSkillCatalog.
 import { applyStartingPassiveHealth } from '../../../utils/characterPassiveStats.js';
 import { getCharacterStatusSkillError } from '../../../utils/characterStatusSkillDefinition.js';
 import { normalizeUniqueResourceDefinition } from './uniqueResourceRuntime.js';
+import { ER_WEAPON_TYPES_KO, normalizeErWeaponType } from '../../../utils/erMeta.js';
+import { buildInitialFastRoutePlan, mergeInitialRoutePlanFields } from './simulationInitialRosterRuntime.js';
+import { getGuestEquipmentGoalErrors, normalizeGuestGoalLoadouts } from './guestEquipmentGoalRuntime.js';
 
 export const GUEST_CHARACTER_PROFILE_KEY = 'eh_guest_character_profiles_v1';
 const MAX_BYTES = 1000000;
@@ -29,7 +32,7 @@ export function normalizeGuestCharacterProfile(raw) {
     const level = Number(raw.characterSkillLevels?.[slot]);
     if (Number.isFinite(level) && level >= 1 && level <= 5) characterSkillLevels[slot] = Math.floor(level);
   }
-  return {
+  const profile = {
     id: String(raw.id),
     name,
     tacticalSkill: normalizeSupportedTacSkill(raw.tacticalSkill),
@@ -37,6 +40,16 @@ export function normalizeGuestCharacterProfile(raw) {
     characterSkillLevels,
     uniqueResource: normalizeUniqueResourceDefinition(raw.uniqueResource),
   };
+  if (Object.hasOwn(raw, 'weaponType')) {
+    const weaponType = String(raw.weaponType ?? '');
+    if (!ER_WEAPON_TYPES_KO.includes(weaponType) || normalizeErWeaponType(weaponType) !== weaponType) return null;
+    profile.weaponType = weaponType;
+  }
+  if (Object.hasOwn(raw, 'goalLoadouts')) {
+    profile.goalLoadouts = normalizeGuestGoalLoadouts(raw.goalLoadouts);
+    if (profile.goalLoadouts === null) return null;
+  }
+  return profile;
 }
 
 function profileStorage(storage) { return storage === undefined ? globalThis.localStorage : storage; }
@@ -63,6 +76,15 @@ export function readGuestCharacterProfiles(storage) {
 }
 
 export function saveGuestCharacterProfile(raw, storage) {
+  if (Object.hasOwn(raw || {}, 'weaponType')) {
+    const weaponType = String(raw.weaponType ?? '');
+    if (!ER_WEAPON_TYPES_KO.includes(weaponType) || normalizeErWeaponType(weaponType) !== weaponType) {
+      return failure('무기 종류는 지원되는 이터널 리턴 무기 유형에서 선택해 주세요.');
+    }
+  }
+  if (Object.hasOwn(raw || {}, 'goalLoadouts') && normalizeGuestGoalLoadouts(raw.goalLoadouts) === null) {
+    return failure('장비 목표는 영웅·전설·초월의 지원 슬롯에 유효한 아이템 키를 지정해 주세요.');
+  }
   for (const slot of CHARACTER_SKILL_SLOTS) {
     const error = getCharacterStatusSkillError(raw?.characterSkills?.[slot], slot)
       || getCharacterSkillMovementError(raw?.characterSkills?.[slot], slot);
@@ -119,6 +141,10 @@ export function applyGuestCharacterProfiles(roster, profiles = []) {
     const profile = actor?.guestDefault === true && byId.get(idOf(actor));
     if (!profile) return actor;
     const definition = structuredClone(profile); delete definition.id;
+    if (Object.hasOwn(definition, 'weaponType')) {
+      definition.runWeaponType = definition.weaponType;
+      definition.erWeapons = [definition.weaponType];
+    }
     return applyStartingPassiveHealth({
       ...actor,
       ...definition,
@@ -137,9 +163,69 @@ export function saveGuestCharacterBeforeMatch({ actorId, draft, state = {}, acti
   }
   const actor = (state.candidateSurvivors || []).find((row) => idOf(row) === actorId && row.guestDefault === true);
   if (!actor) return failure('게스트 기본 명단의 캐릭터만 이 기기에서 편집할 수 있습니다.');
+  const hasGoalInput = Object.hasOwn(draft || {}, 'goalLoadouts') || Object.hasOwn(draft || {}, 'weaponType');
+  const candidateDraft = { ...actor, ...draft, id: actorId };
+  if (hasGoalInput) {
+    if (!state.activeMap || !Array.isArray(state.activeMap.zones) || !Array.isArray(state.publicItems) || !state.publicItems.length) {
+      return failure('지도를 포함한 아이템 목록이 준비된 뒤 장비 목표를 저장할 수 있습니다.');
+    }
+    const goalErrors = getGuestEquipmentGoalErrors(candidateDraft, state.publicItems);
+    if (goalErrors.length) return failure(goalErrors[0]);
+  }
+  const nextGoals = Object.hasOwn(candidateDraft, 'goalLoadouts') ? normalizeGuestGoalLoadouts(candidateDraft.goalLoadouts) : undefined;
+  const priorGoals = Object.hasOwn(actor, 'goalLoadouts') ? normalizeGuestGoalLoadouts(actor.goalLoadouts) : undefined;
+  const goalsChanged = JSON.stringify(nextGoals ?? null) !== JSON.stringify(priorGoals ?? null);
+  const nextWeapon = Object.hasOwn(draft || {}, 'weaponType') ? String(draft.weaponType) : '';
+  const priorWeapon = normalizeErWeaponType(actor.runWeaponType || actor.weaponType || '');
+  const weaponChanged = Boolean(nextWeapon && (nextWeapon !== priorWeapon
+    || normalizeErWeaponType(actor.weaponType || '') !== nextWeapon
+    || JSON.stringify(actor.erWeapons || []) !== JSON.stringify([nextWeapon])));
+  const replan = goalsChanged || weaponChanged;
+  if (replan && (!state.activeMap || !Array.isArray(state.activeMap.zones)
+    || !Array.isArray(state.publicItems) || !state.publicItems.length)) {
+    return failure('지도를 포함한 아이템 목록이 준비된 뒤 변경된 장비 목표의 시작 루트를 계산할 수 있습니다.');
+  }
+  const normalizedDraft = normalizeGuestCharacterProfile({ ...draft, id: actorId });
+  if (!normalizedDraft) return failure('캐릭터 이름과 게스트 식별자·스킬·장비 목표를 확인해 주세요.');
+  const routeFieldNames = ['routePlanZoneIds', 'routePlanItemIdsByZone', 'routePlanTargetItemIds',
+    'routePlanRequiredItemIds', 'routePlanRequiredQtyById', 'routePlanDroneItemIds',
+    'routePlanTargetNamesBySlot', 'routePlanSource'];
+  const updateRows = (rows, profile, preparedRouteRow = null) => (Array.isArray(rows) ? rows : []).map((row) => {
+    if (idOf(row) !== actorId || row.guestDefault !== true) return row;
+    const [updated] = applyGuestCharacterProfiles([row], [profile]);
+    if (!replan) return updated;
+    const clean = { ...updated };
+    for (const key of ['_growthPlan', '_growthFocusId', '_growthFallbackTargets',
+      '_openingAcquiredItemIds', '_lateAcquiredItemIds']) delete clean[key];
+    const replanned = preparedRouteRow
+      ? { ...clean, ...Object.fromEntries(routeFieldNames.map((key) => [key, preparedRouteRow[key]])) }
+      : mergeInitialRoutePlanFields(clean,
+        buildInitialFastRoutePlan(clean, state.activeMap, state.publicItems), clean.routePlanSource || 'fast_start');
+    // Route normalization may retain transient growth metadata from its input;
+    // a pregame edit must publish a fresh route without a stale action plan.
+    for (const key of ['_growthPlan', '_growthFocusId', '_growthFallbackTargets',
+      '_openingAcquiredItemIds', '_lateAcquiredItemIds']) delete replanned[key];
+    return replanned;
+  });
+  let preparedCandidates, preparedSurvivors;
+  try {
+    if (Array.isArray(state.candidateSurvivors)) preparedCandidates = updateRows(state.candidateSurvivors, normalizedDraft);
+    if (Array.isArray(state.survivors)) preparedSurvivors = updateRows(state.survivors, normalizedDraft);
+  } catch {
+    return failure('장비 목표의 시작 경로를 계산하지 못했습니다. 저장과 현재 명단은 변경하지 않았습니다.');
+  }
   const result = saveGuestCharacterProfile({ ...draft, id: actorId }, storage);
   if (!result.ok) return result;
-  actions.setCandidateSurvivors?.((rows) => applyGuestCharacterProfiles(rows, [result.profile]));
-  actions.setSurvivors?.((rows) => applyGuestCharacterProfiles(rows, [result.profile]));
+  // All potentially failing route work happened before persistence. The React
+  // functional updaters below are pure and only publish the prepared snapshots.
+  if (preparedCandidates) actions.setCandidateSurvivors?.(() => preparedCandidates);
+  if (preparedSurvivors) actions.setSurvivors?.(() => preparedSurvivors);
+  else if (actions.setSurvivors) {
+    // Older callers supplied only the candidate list. Preserve that public
+    // API: update the selected list from its current value without rebuilding
+    // a route (the candidate route, if needed, was already prepared above).
+    const preparedRouteRow = replan ? preparedCandidates?.find((row) => idOf(row) === actorId) : null;
+    actions.setSurvivors((rows) => updateRows(rows, normalizedDraft, preparedRouteRow));
+  }
   return result;
 }

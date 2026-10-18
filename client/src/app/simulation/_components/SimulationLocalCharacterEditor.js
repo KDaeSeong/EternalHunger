@@ -5,8 +5,9 @@ import { CHARACTER_SKILL_SLOTS, CHARACTER_SKILL_SLOT_LABELS, compileNaturalSkill
 import { CharacterActiveSkillFields, CharacterPassiveSkillFields } from '../../characters/_components/CharacterSkillConfigFields';
 import { TACTICAL_SKILL_OPTIONS_KO } from '../tacticalSkillTable';
 import { normalizeGuestCharacterProfile } from '../_lib/guestCharacterProfileRuntime';
+import SimulationGuestEquipmentGoals from './SimulationGuestEquipmentGoals';
 
-export default function SimulationLocalCharacterEditor({ actor, onClose, onSave }) {
+export default function SimulationLocalCharacterEditor({ actor, items = [], onClose, onSave }) {
   const [draft, setDraft] = useState(() => normalizeGuestCharacterProfile({ ...actor, id: actor._id || actor.id }));
   const [slot, setSlot] = useState('q');
   const [message, setMessage] = useState('');
@@ -54,15 +55,15 @@ export default function SimulationLocalCharacterEditor({ actor, onClose, onSave 
 
   function save() {
     const result = onSave(actor._id || actor.id, draft);
-    if (result?.ok) onClose(`${result.profile.name}: 이름·스킬을 이 기기에 저장하고 현재 편성에 반영했습니다.`);
+    if (result?.ok) onClose(`${result.profile.name}: 캐릭터 설정을 이 기기에 저장하고 현재 편성에 반영했습니다.`);
     else setMessage(result?.errors?.[0] || '저장하지 못했습니다.');
   }
 
   function containFocus(event) {
     if (event.key !== 'Tab') return;
-    const items = [...panel.current.querySelectorAll('button, input, textarea, select, summary, [tabindex="0"]')]
+    const focusableElements = [...panel.current.querySelectorAll('button, input, textarea, select, summary, [tabindex="0"]')]
       .filter((element) => !element.disabled && element.getClientRects().length > 0);
-    const first = items[0]; const last = items.at(-1);
+    const first = focusableElements[0]; const last = focusableElements.at(-1);
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
     if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   }
@@ -72,17 +73,21 @@ export default function SimulationLocalCharacterEditor({ actor, onClose, onSave 
       <section className="simulation-roster-modal simulation-local-character-editor" role="dialog" aria-modal="true"
         aria-labelledby="local-character-title" ref={panel} onKeyDown={containFocus}>
         <header className="simulation-roster-modal__header">
-          <div><span>로그인 없이 · 이 기기에 저장</span><h2 id="local-character-title">이름·스킬 편집</h2></div>
+          <div><span>로그인 없이 · 이 기기에 저장</span><h2 id="local-character-title">이름·스킬·장비 목표 편집</h2></div>
           <button type="button" onClick={() => onClose()} aria-label="편집 취소">닫기</button>
         </header>
         <div className="simulation-local-character-editor__body">
-          <p className="simulation-local-character-editor__notice">사용자가 작성하는 설정입니다. 원작 스킬을 자동 제공하지 않으며, 이름을 바꿔도 능력치·무기·숨은 원작 보정은 추가하지 않습니다. 저장하면 이 캐릭터의 이후 새 경기에도 사용됩니다.</p>
+          <p className="simulation-local-character-editor__notice">사용자가 작성하는 설정입니다. 원작 스킬을 자동 제공하지 않으며, 이름만 바꿔도 능력치·스킬·숨은 원작 보정은 추가하지 않습니다. 무기와 장비 목표는 아래에서 선택할 수 있으며, 비워 두면 기존 자동 추천을 사용합니다. 저장하면 이 캐릭터의 이후 새 경기에도 사용됩니다.</p>
           <div className="character-skill-inline-grid">
             <label>캐릭터 이름<input value={draft.name} maxLength={80} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
             <label>전술 스킬<select value={draft.tacticalSkill} onChange={(event) => setDraft({ ...draft, tacticalSkill: event.target.value })}>
               {TACTICAL_SKILL_OPTIONS_KO.map((value) => <option key={value}>{value}</option>)}
             </select></label>
           </div>
+          <SimulationGuestEquipmentGoals actor={actor} draft={draft} items={items} onChange={(patch) => {
+            setDraft((previous) => ({ ...previous, ...patch }));
+            setMessage('');
+          }} />
           <label className="simulation-local-character-editor__toggle"><input type="checkbox"
             checked={draft.uniqueResource.enabled === true}
             onChange={(event) => updateUniqueResource('enabled', event.target.checked)} />고유 자원 사용</label>

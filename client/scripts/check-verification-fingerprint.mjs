@@ -133,6 +133,28 @@ for (const [mode, paths] of Object.entries(customGrowthProofPaths)) {
 }
 console.log('PASS expanded custom match and blocked-growth regroup proofs invalidate their verification modes');
 
+for (const mode of ['guest-equipment-unit', 'guest-equipment-match', 'build', 'runtime-build', 'full']) {
+  const before = verificationSources(mode);
+  for (const path of ['scripts/check-guest-equipment-goals.mjs', 'scripts/check-guest-equipment-goals-ui.mjs',
+    'scripts/lib/hook-handler-harness.mjs',
+    'src/app/simulation/_components/SimulationGuestEquipmentGoals.js',
+    'src/app/simulation/_components/SimulationLocalCharacterEditor.js',
+    'src/app/simulation/_components/SimulationPregameRosterSetup.js',
+    'src/app/simulation/_components/SimulationMainStage.js', 'src/styles/ERSimulation.css']) {
+    assert.equal(typeof before[path], 'string', `${mode} must fingerprint ${path}.`);
+    const after = verificationSources(mode, fileURLToPath(new URL(path, root)));
+    assert.notEqual(after[path], before[path], 'Guest goal UI, storage bridge and verification changes must invalidate their receipt.');
+  }
+}
+for (const path of ['scripts/check-team-survival-contribution.mjs', 'scripts/check-team-retreat-survival.mjs',
+  'scripts/lib/run-combat-scenario.mjs', 'scripts/check-verification-fingerprint.mjs']) {
+  const before = verificationSources('team-survival');
+  const after = verificationSources('team-survival', fileURLToPath(new URL(path, root)));
+  assert.equal(typeof before[path], 'string');
+  assert.notEqual(after[path], before[path], 'Cover survival proof and fixture changes must invalidate their receipt.');
+}
+console.log('PASS guest equipment UI bridge and real cover survival proof mutations invalidate their verification modes');
+
 for (const path of ['scripts/check-planning-power-snapshot.mjs', 'scripts/check-move-power-sort-match.mjs',
   'scripts/lib/run-random-isolation-match.mjs', 'scripts/check-team-tactics.mjs', 'scripts/check-live-frames.mjs']) {
   const before = verificationSources('move-power-sort');
@@ -207,5 +229,5 @@ for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module
   }
 }
 console.log('PASS module registration and resolution policy mutations invalidate applicable verification modes');
-console.log(JSON.stringify({ pass: true, checks: 14, engine: base.wrapper,
+console.log(JSON.stringify({ pass: true, checks: 15, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));

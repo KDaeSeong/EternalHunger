@@ -55,6 +55,7 @@ function RosterSetupModal({
   candidateSurvivors,
   matchMode,
   onClose,
+  publicItems,
   survivors,
 }) {
   const squadMode = matchMode === 'squad';
@@ -198,7 +199,7 @@ function RosterSetupModal({
   }
 
   const editingActor = candidateById.get(editingId);
-  if (editingActor) return <SimulationLocalCharacterEditor key={editingId} actor={editingActor} onSave={saveLocalCharacter}
+  if (editingActor) return <SimulationLocalCharacterEditor key={editingId} actor={editingActor} items={publicItems} onSave={saveLocalCharacter}
     onClose={(notice) => { setEditingId(''); if (notice) setValidationMessage(notice); }} />;
 
   return (
@@ -277,7 +278,7 @@ function RosterSetupModal({
                     {selected ? <b>{squadMode ? `${teamAssignments[id] || '-'}팀` : '선택'}</b> : null}
                   </button>
                   {actor.guestDefault && saveLocalCharacter ? <button type="button" className="simulation-roster-edit-character"
-                    aria-label={`${actorName(actor)} 이름·스킬 편집`} onClick={() => setEditingId(id)}>이름·스킬 편집</button> : null}
+                    aria-label={`${actorName(actor)} 이름·스킬·장비 목표 편집`} onClick={() => setEditingId(id)}>이름·스킬·장비 목표 편집</button> : null}
                   </article>
                 );
               })}
@@ -350,6 +351,7 @@ export default function SimulationPregameRosterSetup({
   matchMode,
   matchSec,
   participantSelectionMode,
+  publicItems,
   survivors,
 }) {
   const [open, setOpen] = useState(false);
@@ -398,6 +400,7 @@ export default function SimulationPregameRosterSetup({
           candidateSurvivors={candidateSurvivors}
           matchMode={matchMode}
           onClose={() => setOpen(false)}
+          publicItems={publicItems}
           survivors={survivors}
         />
       ) : null}

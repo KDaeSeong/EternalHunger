@@ -1,4 +1,269 @@
 {
+  "guestEquipmentGoalsFollowup": {
+    "observedDateKst": "2026-10-18",
+    "baseCommit": "64c755da6e94eed9998cbec63013dc746f1af079",
+    "engineVersion": "49e9f52f899a51642b5c082b8cd647cc90717a0f1db809474d84a32f59bb71fe",
+    "changedProductionScope": "Guest definition fields, local save validation and unstarted-roster route replanning only; combat/growth costs and team rules unchanged.",
+    "guestProfileSchemaVersion": 1,
+    "legacyOptionalFieldAbsencePreserved": true,
+    "explicitWeaponFields": [
+      "weaponType",
+      "runWeaponType",
+      "erWeapons"
+    ],
+    "authoredGoalSlots": [
+      "weapon",
+      "head",
+      "clothes",
+      "arm",
+      "shoes"
+    ],
+    "authoredGoalTiers": [
+      4,
+      5,
+      6
+    ],
+    "blankGoalKeepsAutomaticRecommendation": true,
+    "savedGoalAliasAndRecipeResolutionMatchesProduction": true,
+    "pregameGuardAndEvaluationAccountReplayIsolationPreserved": true,
+    "pastResultFilesUsedAsTestInputs": false,
+    "verificationReceipts": {
+      "unit": {
+        "path": "client/.verification-runs/2026-10-18T03-54-33.638Z-02c20a73-86a9-42bd-b21c-3ba025c76422/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T03:54:33.641Z",
+        "finishedAt": "2026-10-18T03:55:07.554Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "verificationSourceCount": 18,
+        "currentSourceDrift": []
+      },
+      "match": {
+        "path": "client/.verification-runs/2026-10-18T03-59-53.781Z-23ac66c7-1e52-45e2-bca1-3c80c09b74f1/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T03:59:53.782Z",
+        "finishedAt": "2026-10-18T04:05:34.335Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "verificationSourceCount": 17,
+        "currentSourceDrift": []
+      },
+      "team": {
+        "path": "client/.verification-runs/2026-10-18T03-51-27.410Z-224a8d40-6500-4a21-adf4-78acf428d281/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T03:51:27.413Z",
+        "finishedAt": "2026-10-18T03:51:33.231Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "verificationSourceCount": 8,
+        "currentSourceDrift": []
+      },
+      "build": {
+        "path": "client/.verification-runs/2026-10-18T03-56-21.423Z-ed32e3f3-5b52-4f02-b35d-973e27a669b6/result.json",
+        "status": "passed",
+        "exitCode": 0,
+        "startedAt": "2026-10-18T03:56:21.425Z",
+        "finishedAt": "2026-10-18T03:57:16.387Z",
+        "sameEngine": true,
+        "sameVerificationSources": true,
+        "verificationSourceCount": 16,
+        "currentSourceDrift": []
+      }
+    },
+    "checks": {
+      "guestGoals": 10,
+      "componentAndPresetHook": 28,
+      "legacyGuestProfiles": 19,
+      "initialWeaponGoals": 10,
+      "teamSurvivalContribution": 5,
+      "teamRetreatSurvival": 5,
+      "fingerprintGroups": 15,
+      "embeddedCatalogRows": 774,
+      "runtimeLintPassed": true
+    },
+    "freshProfileMatch": {
+      "seed": "guest-equipment-goal-match-seed-v1",
+      "initialRosterSeed": "guest-equipment-goal-match-initial-v1",
+      "engineVersion": "49e9f52f899a51642b5c082b8cd647cc90717a0f1db809474d84a32f59bb71fe",
+      "participants": 24,
+      "phases": 12,
+      "frames": 6307,
+      "matchSec": 1209.25,
+      "events": 12670,
+      "logs": 7322,
+      "inputSha256": "cecb6c5e90bf96db095591cc99afc9ed5a0ed170c411667cf0d030afe95c3467",
+      "protectedAxesSha256": "92fdcc1acc888131cd6716dda9e7bd0f7619c3d49e73786933b60f0620800e3e",
+      "firstNightDeadlineSec": 250,
+      "firstEquippedAt": {
+        "matchSec": 29,
+        "day": 1,
+        "phase": "morning",
+        "alive": true,
+        "weaponType": "망치"
+      },
+      "craftActionFrame": {
+        "matchSec": 29,
+        "credits": 14
+      },
+      "craftedTarget": "guest-item-goal-match-hero-weapon",
+      "receipt": {
+        "paidCost": 1,
+        "consumed": [
+          {
+            "itemId": "namu:material:고철",
+            "qty": 1
+          },
+          {
+            "itemId": "namu:material:나뭇가지",
+            "qty": 1
+          }
+        ],
+        "beforeCredits": 15,
+        "afterCredits": 14
+      },
+      "equippedByFirstNight": "guest-item-goal-match-hero-weapon",
+      "ending": {
+        "outcome": "last_team",
+        "atSec": 1209.25,
+        "cause": "combat",
+        "winnerTeamId": "team:2"
+      },
+      "terminal": {
+        "denominator": 24,
+        "alive": 2,
+        "dead": 22
+      },
+      "everActuallyEquipped": true,
+      "replayExact": {
+        "inputUnchangedAfterProfileClear": true,
+        "events": true,
+        "logs": true,
+        "fullFrames": "5213c0e184d61e7480ed7ce56a3eb81f06d261a20c7317071c34ae21e2e1e6f9",
+        "finalFrame": true,
+        "randomState": true,
+        "ending": true
+      },
+      "profileClearedAfterCapture": true
+    },
+    "controlledCover": {
+      "sameEscapeChaseCatchRolls": [
+        0.1,
+        0.1,
+        0.64
+      ],
+      "atSec": 100,
+      "initialHp": 5,
+      "noCover": {
+        "catchProbability": 0.7,
+        "actualCatchDamage": 5,
+        "hpAfter": 0
+      },
+      "cover": {
+        "catchProbability": 0.58,
+        "hpAfter": 5,
+        "helperActionReadyAtSec": 108
+      },
+      "bothFinalCredits": 15,
+      "scope": "Controlled production flee/chase/catch comparison; not general natural-match survival or continuous transit proof."
+    },
+    "productionBuild": {
+      "buildId": "UNzhKImrzo7HNHUFlHflk",
+      "pages": 62,
+      "worker": {
+        "scope": "isolated Node VM, not browser performance",
+        "commandSeq": 1,
+        "frames": 308,
+        "finalMatchSec": 140,
+        "completes": 1,
+        "failures": 0
+      }
+    },
+    "actualBrowserUi": {
+      "scope": "Local production-build UI only; no new foreground speed trial",
+      "receipt": "client/.verification-runs/2026-10-18T03-56-21.423Z-ed32e3f3-5b52-4f02-b35d-973e27a669b6/guest-equipment-goals-ui.json",
+      "screenshot": "client/.verification-runs/2026-10-18T03-56-21.423Z-ed32e3f3-5b52-4f02-b35d-973e27a669b6/guest-equipment-goals-ui.png",
+      "screenshotSha256": "db775212a18a079716ae3aca31ea9c5d09d6b06d56654605b27131c505ded352",
+      "savedAndReloaded": {
+        "actor": "백로",
+        "weaponType": "활",
+        "heroWeaponId": "namu:활:골든래쇼 보우"
+      },
+      "incompatibleSaveRefused": true,
+      "defaultGoalsCollapsed": true,
+      "horizontalOverflow": false,
+      "viewportWidth": 1265,
+      "bodyClientAndScrollWidth": 943,
+      "ownedTabClosed": true,
+      "ownedLoopbackServerStopped": true,
+      "originalPublicTabPreserved": "10",
+      "accountWrites": 0,
+      "paidAiCalls": 0
+    },
+    "preservedFailures": [
+      {
+        "receipt": "client/.verification-runs/2026-10-18T03-51-27.410Z-20712cd3-6c91-4bda-862f-5fb976666df6/result.json",
+        "reason": "Catalog checker needed runtime registration before dynamic bootstrap import."
+      },
+      {
+        "receipt": "client/.verification-runs/2026-10-18T03-52-08.383Z-36fe3727-d346-49d3-bd6b-8b38cf0d77bc/result.json",
+        "reason": "Static bootstrap import linked before registration; changed to dynamic import without changing catalog assertions."
+      },
+      {
+        "receipt": "client/.verification-runs/2026-10-18T03-52-37.285Z-dcdca39c-45da-41a1-ad7c-3cc340a6e94d/result.json",
+        "reason": "Lint no-shadow on focus-loop variable; renamed local variable."
+      },
+      {
+        "receipt": "client/.verification-runs/2026-10-18T03-52-14.321Z-a594d1a0-d6e0-417b-a2ed-e41cc2935bb6/result.json",
+        "reason": "Underlying matches exited 0, but UI-only focus variable rename changed source during verification; final frozen-source match was rerun."
+      },
+      {
+        "receipt": "client/.verification-runs/2026-10-18T03-55-05.815Z-a7f3846d-71ee-4f3d-9bd0-64a34f6b6d83/result.json",
+        "reason": "Local Next output-folder mkdir EPERM; unchanged build command passed with authorized workspace permissions."
+      }
+    ],
+    "storageBeforeFinalEvidenceMetadata": {
+      "at": "2026-10-18T04:05:02.278Z",
+      "logicalBytes": 1413732595,
+      "baselineLogicalBytes": 755313611,
+      "changeBytes": 658418984,
+      "disjointRoots": [
+        ".local",
+        "artifacts",
+        "client/.next",
+        "client/.verification-runs",
+        "client/audio-source"
+      ],
+      "deduplicatedBy": "Native device and file identity; logical length, not physical allocation or whole-workspace size",
+      "duplicateFileIdentities": 0,
+      "belowTwoGiB": true,
+      "filesDeleted": 0,
+      "recoveryBuild": {
+        "path": ".local/build-recovery/previous-next",
+        "buildId": "lCLTNJfALXJcnRXyKUW5m",
+        "files": 1446,
+        "bytes": 93774021,
+        "sha256": "a49925261518f7da6b8c3d76bfdaa5b847098fc875d9add2a8d11c965323b380",
+        "movedNotCopied": true
+      },
+      "recoveryOldPackSha256": "3a62ec6b8ab460303bd5d552976f76d6a1b091de637d5228f66b6528bcb83c23"
+    },
+    "unrelatedUntrackedPreserved": {
+      "count": 2592,
+      "gitQuotedNamesLfSha256": "761e8e032e25195e8b859512add38df7797a11bcff1027e6555a31aa9ed32d08"
+    },
+    "originalGoalBodySha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+    "previousArtifactSectionsPreserved": 15,
+    "publicationAtEvidenceWrite": "Commit/push/deployment confirmation follows; do not infer public success from this local evidence.",
+    "overallGoalComplete": false,
+    "remaining": [
+      "Current strict foreground x1/x8/x32 and repeated memory/restart acceptance",
+      "Broader natural-roster growth/team survival and actual human follow-up acceptance",
+      "Original G1-G5 scope remains unchanged"
+    ]
+  },
   "customGrowthIntegrationFollowup": {
     "observedDateKst": "2026-10-18",
     "baseCommit": "e8aa6126fa544e2ccbbfe964440fc4bceb7c150c",

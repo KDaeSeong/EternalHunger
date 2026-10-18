@@ -27,7 +27,9 @@ const commands = {
   'tactical-receipt-unit': 'node scripts/check-tactical-effect-evidence.mjs && npm run check:verification-fingerprint',
   'tactical-storage-unit': 'node scripts/check-tactical-effect-evidence.mjs && node scripts/check-combat-observation.mjs && node scripts/check-growth-observation.mjs && node scripts/check-custom-consumables.mjs && node scripts/check-custom-crafting.mjs && node scripts/check-equipment-account-recording.mjs && npm run check:verification-fingerprint',
   'strategy-comparison-unit': 'node scripts/check-strategy-comparison-contracts.mjs && npm run check:verification-fingerprint',
-  'team-survival': 'node scripts/check-team-survival-contribution.mjs',
+  'team-survival': 'npm run check:team-survival && npm run check:verification-fingerprint',
+  'guest-equipment-unit': 'node scripts/generate-simulation-version.mjs && npm run check:guest-equipment-goals && node scripts/check-guest-item-catalog.mjs && node scripts/check-custom-roster.mjs && node scripts/check-initial-weapon-goals.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'guest-equipment-match': 'node scripts/generate-simulation-version.mjs && node scripts/check-guest-equipment-goals.mjs --match && node scripts/check-guest-character-profiles.mjs && npm run check:verification-fingerprint',
   'combat-path-observation': 'node scripts/generate-simulation-version.mjs && node scripts/check-combat-participation-observation.mjs',
   'late-combat-join': 'node scripts/check-late-combat-join.mjs',
   'recovery-combat-resume': 'node scripts/check-recovery-combat-resume.mjs',
@@ -109,6 +111,18 @@ function fingerprint() {
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json',
     'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs'];
+  if (['guest-equipment-unit', 'guest-equipment-match', 'build', 'runtime-build', 'full'].includes(mode)) paths.push(
+    'scripts/generate-simulation-version.mjs', 'scripts/check-verification-fingerprint.mjs',
+    'scripts/check-guest-equipment-goals.mjs', 'scripts/check-guest-equipment-goals-ui.mjs',
+    'scripts/lib/hook-handler-harness.mjs',
+    'src/app/simulation/_components/SimulationGuestEquipmentGoals.js',
+    'src/app/simulation/_components/SimulationLocalCharacterEditor.js',
+    'src/app/simulation/_components/SimulationPregameRosterSetup.js',
+    'src/app/simulation/_components/SimulationMainStage.js', 'src/styles/ERSimulation.css');
+  if (mode === 'guest-equipment-unit') paths.push('scripts/check-guest-item-catalog.mjs',
+    'scripts/check-custom-roster.mjs', 'scripts/check-initial-weapon-goals.mjs', 'eslint.runtime.config.mjs');
+  if (mode === 'guest-equipment-match') paths.push('scripts/check-guest-character-profiles.mjs',
+    'scripts/lib/run-combat-scenario.mjs', 'scripts/lib/run-random-isolation-match.mjs');
   if (['custom-growth-expanded-match', 'custom-growth-unit', 'custom-shared-growth-match',
     'authored-opening-match', 'full'].includes(mode)) paths.push(
     'scripts/generate-simulation-version.mjs', 'scripts/check-verification-fingerprint.mjs',
@@ -220,6 +234,8 @@ function verificationSourceHashes() {
     'scripts/check-status-protection.mjs', 'scripts/check-wildlife-combat.mjs');
   if (['team-survival', 'team-participation-unit', 'full'].includes(mode)) paths.push(
     'scripts/check-team-survival-contribution.mjs', 'scripts/lib/run-combat-scenario.mjs');
+  if (['team-survival', 'full'].includes(mode)) paths.push('scripts/check-team-retreat-survival.mjs',
+    'scripts/check-verification-fingerprint.mjs');
   if (mode === 'combat-path-observation') paths.push('scripts/check-combat-participation-observation.mjs',
     'scripts/lib/run-combat-scenario.mjs', 'scripts/lib/team-combat-participation-diagnostics.mjs');
   if (mode === 'late-combat-join') paths.push('scripts/check-late-combat-join.mjs', 'scripts/lib/run-combat-scenario.mjs');

@@ -283,6 +283,7 @@ export default function SimulationMainStage({
         matchMode={normalizeMatchMode(settings?.matchMode)}
         matchSec={matchSec}
         participantSelectionMode={participantSelectionMode}
+        publicItems={publicItems}
         survivors={survivors}
       /> : null}
 

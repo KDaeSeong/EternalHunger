@@ -282,7 +282,9 @@ export function useSimulationPageController({
   } = runSeedState;
 
   const participantPresetState = useSimulationParticipantPresets({
+    activeMap,
     candidateSurvivors,
+    publicItems,
     replayMode,
     isRunLocked: () => runLockedRef.current || isAdvancingRef.current || Boolean(mapPreparationRef.current),
     day,

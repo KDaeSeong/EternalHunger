@@ -1,6 +1,8 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 import { actor, effect, runCombatScenario, skill } from './lib/run-combat-scenario.mjs';
+import { withSimulationRandom } from '../src/utils/simulationRandom.js';
+const { createPhaseCombatFleeRuntime } = await import('../src/app/simulation/_lib/phaseCombatFleeRuntime.js');
 
 // These cases use the production runPvpActionLoop, cast scheduler, combat
 // damage, and team-round path. No instant-skill release or winner override.
@@ -120,6 +122,75 @@ await check('a same-stat nearby teammate focuses a real enemy kill before the re
     nearbyLeaderHp: result.survivorMap.get(leaderId).hp,
     remoteEnemyHp: remote.result.survivorMap.get(remote.enemyId).hp,
     remoteLeaderHp: remote.result.survivorMap.get(remote.leaderId).hp }));
+});
+
+function runCoveredRetreatCase(withHelper) {
+  const flee = actor('a-flee', { teamId: 'team-a', teamName: 'A', hp: 5, maxHp: 100, power: 100,
+    simCredits: 15, stats: stats(20, 0, 1, 3.5) });
+  const chaser = actor('z-chaser', { teamId: 'team-z', teamName: 'Z', hp: 100, maxHp: 100, power: 100,
+    simCredits: 15, stats: stats(20, 0, 1, 3.5) });
+  const helper = withHelper ? actor('b-cover', { teamId: 'team-a', teamName: 'A', hp: 100, maxHp: 100, power: 100,
+    simCredits: 15, stats: stats(20, 0, 1, 3.5) }) : null;
+  const roster = [flee, chaser, ...(helper ? [helper] : [])];
+  const before = { flee: structuredClone(flee), chaser: structuredClone(chaser), helper: helper && structuredClone(helper) };
+  const events = [];
+  const draws = [0.1, 0.1, 0.64];
+  let drawCount = 0;
+  const random = () => {
+    assert.ok(drawCount < draws.length, 'The production escape/chase/catch sequence must use exactly three shared rolls.');
+    return draws[drawCount++];
+  };
+  const runtime = createPhaseCombatFleeRuntime({
+    state: { currentActionSec: () => 100, estimatePower: row => row.power,
+      forbiddenIds: new Set(), restrictedRatio: 0, totalZonesCount: 10,
+      zoneGraph: { zone: ['safe'], safe: ['zone'] }, ruleset: {
+        ai: { escapeBaseChance: 0.5, chaseBaseChance: 0.8, catchBaseChance: 0.7 },
+        pvp: { teamCombatEnabled: true, teamRoundCooldownSec: 8 },
+      }, survivorMap: new Map(roster.map(row => [row._id, row])) },
+    actions: { atNow: () => ({ sec: 100, day: 1, phase: 'morning' }),
+      emitRunEvent: (kind, payload, at) => events.push({ kind, ...payload, at }) },
+  });
+  const result = withSimulationRandom(random, () => runtime.resolveFleeSequence(flee, chaser));
+  assert.equal(drawCount, draws.length, 'Escape, chase and catch use the same three controlled rolls in each condition.');
+  return { before, flee, chaser, helper, result, events };
+}
+
+await check('paid team cover changes a real production chase/catch from lethal HP damage to survival', async () => {
+  const covered = runCoveredRetreatCase(true);
+  const uncovered = runCoveredRetreatCase(false);
+  assert.deepEqual(covered.before.flee, uncovered.before.flee, 'Flee actor, initial HP and credits are identical.');
+  assert.deepEqual(covered.before.chaser, uncovered.before.chaser, 'Chaser, attack power, HP and credits are identical.');
+  assert.equal(covered.before.helper.hp, 100, 'The helper begins alive and able to cover.');
+  assert.equal(covered.before.helper.simCredits, 15);
+  const coveredEvent = covered.events.find(event => event.kind === 'chase');
+  const uncoveredEvent = uncovered.events.find(event => event.kind === 'chase');
+  const coverEvent = covered.events.find(event => event.kind === 'team_cover');
+  assert.ok(coverEvent, 'The production flee runtime must commit actual teammate cover.');
+  assert.deepEqual(coverEvent.helpers, ['b-cover']);
+  assert.equal(coverEvent.at.sec, 100);
+  assert.equal(covered.helper._actionReadyAtSec, 108, 'Cover consumes the helper action for the configured eight seconds.');
+  assert.equal(covered.helper.simCredits, covered.before.helper.simCredits, 'Cover spends time, not credits.');
+  assert.equal(coveredEvent.outcome, 'escaped_after_chase');
+  assert.equal(coveredEvent.caught, false);
+  assert.equal(coveredEvent.preDamage, undefined);
+  assert.equal(covered.flee.hp, 5, 'The covered actor remains alive at unchanged HP after the same chase roll.');
+  assert.equal(covered.flee.zoneId, 'safe');
+  assert.equal(uncovered.events.some(event => event.kind === 'team_cover'), false);
+  assert.equal(uncoveredEvent.outcome, 'caught');
+  assert.equal(uncoveredEvent.caught, true);
+  assert.equal(uncoveredEvent.preDamage, 5, 'The production catch calculation applies its actual lethal five-HP packet.');
+  assert.equal(uncoveredEvent.fatal, true);
+  assert.equal(uncovered.flee.hp, 0, 'Without cover, the same escape/chase/catch rolls actually eliminate the flee actor.');
+  assert.equal(uncovered.flee.simCredits, uncovered.before.flee.simCredits);
+  assert.equal(coveredEvent.at.sec, uncoveredEvent.at.sec, 'Both paired outcomes occur at the same action time.');
+  assert.ok(coveredEvent.pCatch < uncoveredEvent.pCatch, 'Only the actual cover bonus lowers the catch probability.');
+  assert.deepEqual(covered.chaser.stats, uncovered.chaser.stats);
+  assert.equal(covered.chaser.hp, uncovered.chaser.hp);
+  console.log(JSON.stringify({ comparison: 'same production flee/chase/catch rolls; cover action cost versus lethal catch',
+    rolls: 3, actionTimeSec: 100, coverHelperReadyAtSec: covered.helper._actionReadyAtSec,
+    coveredHp: covered.flee.hp, uncoveredCatchDamage: uncoveredEvent.preDamage,
+    uncoveredHp: uncovered.flee.hp, coveredCredits: covered.flee.simCredits,
+    uncoveredCredits: uncovered.flee.simCredits }));
 });
 
 await check('each fresh support and formation input reproduces events, frames, final state, and RNG-seeded outcome', async () => {
