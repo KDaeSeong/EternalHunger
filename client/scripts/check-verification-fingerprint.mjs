@@ -99,6 +99,32 @@ for (const mode of ['authored-opening-unit', 'growth', 'performance', 'growth-fo
 }
 console.log('PASS authored material reservation proof mutations invalidate their growth verification modes');
 
+for (const mode of ['observer-evidence-unit', 'build', 'runtime-build', 'performance', 'full']) {
+  const before = verificationSources(mode);
+  for (const path of ['scripts/check-observer-performance-probe.mjs',
+    'scripts/check-observer-performance-report.mjs', 'scripts/lib/observer-performance-report.mjs',
+    'scripts/check-simulation-cooperative-yield.mjs',
+    'src/app/simulation/_components/SimulationMinimapCanvas.js',
+    'src/app/simulation/_components/SimulationMinimapPanel.js',
+    'src/app/simulation/_components/SimulationMinimapHyperloopControl.js',
+    'src/app/games/_components/GameActionIcon.js',
+    'src/app/simulation/_components/SimulationControlPanel.js',
+    'src/app/simulation/_components/SimulationMarketSeedCard.js',
+    'src/app/simulation/_components/SimulationSurvivorBoard.js',
+    'src/app/simulation/_components/SimulationGameScreen.js',
+    'src/app/simulation/_components/SimulationScreenHeader.js',
+    'src/app/simulation/_components/SimulationForbiddenStatusBar.js',
+    'src/app/simulation/_components/SimulationEventFeedbackBar.js',
+    'src/app/simulation/_components/SimulationWorldSpawnToolbar.js',
+    'src/app/simulation/_components/simulationReplayHistoryLifetime.js',
+    'src/app/simulation/_components/observerMemoryLifetime.js']) {
+    const after = verificationSources(mode, fileURLToPath(new URL(path, root)));
+    assert.equal(typeof before[path], 'string', `${mode} must fingerprint the map coverage and Worker projection proof.`);
+    assert.notEqual(after[path], before[path], 'Changing map geometry hooks or observer evidence policy must invalidate the receipt.');
+  }
+}
+console.log('PASS full-map geometry and Worker projection proof mutations invalidate their verification modes');
+
 for (const path of ['scripts/check-growth-plan.mjs', 'scripts/check-growth-progress-inventory.mjs',
   'scripts/check-growth-observation.mjs', 'scripts/check-custom-crafting.mjs', 'scripts/check-detonation-rules.mjs',
   'scripts/check-late-growth-goals.mjs', 'scripts/check-late-growth-decision-index.mjs',
@@ -239,5 +265,5 @@ for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module
   }
 }
 console.log('PASS module registration and resolution policy mutations invalidate applicable verification modes');
-console.log(JSON.stringify({ pass: true, checks: 16, engine: base.wrapper,
+console.log(JSON.stringify({ pass: true, checks: 17, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));

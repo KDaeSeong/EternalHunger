@@ -519,6 +519,11 @@ await check('phase preparation requests a frame opportunity; action-frame schedu
   'Only routine Worker task yields are coalesced; explicit frame yields and visible-clock waits use policy boundaries.');
   assert.ok(/requestTaskYield: yieldPolicy\.requestTaskYield, requestFrameYield: yieldPolicy\.requestFrameYield/.test(worker),
     'Growth task/frame yields remain explicit actual task boundaries.');
+  assert.ok(/measurements\s*\?\s*measurements\.work\('worker\.projectFrame',\s*\(\)\s*=>\s*projectSimulationFrame\(input\)\)\s*:\s*projectSimulationFrame\(input\)/.test(worker),
+    'Each source frame is still projected synchronously; opted-in Worker diagnostics time only that projection body.');
+  assert.ok(worker.indexOf("measurements.work('worker.projectFrame'") < worker.indexOf('observe(frame)')
+    && worker.indexOf('observe(frame)') < worker.indexOf('framePublicationLimiter.shouldPublish'),
+  'Projection timing ends before team observation and publication limiting; ordering remains unchanged.');
 });
 
 console.log(JSON.stringify({ checks, pass: true, scope: 'scheduler ownership, fallback, RNG and wiring contracts; not browser timing or paint proof' }));

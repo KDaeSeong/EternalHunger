@@ -8,6 +8,7 @@ const { measureObserverWork, subscribeObserverWorkMeasurements, captureObserverW
 const panelSource = readFileSync(new URL('../src/app/simulation/_components/SimulationObserverPerformancePanel.js', import.meta.url), 'utf8');
 const mainStageSource = readFileSync(new URL('../src/app/simulation/_components/SimulationMainStage.js', import.meta.url), 'utf8');
 const pageViewSource = readFileSync(new URL('../src/app/simulation/_components/SimulationPageView.js', import.meta.url), 'utf8');
+const minimapCanvasSource = readFileSync(new URL('../src/app/simulation/_components/SimulationMinimapCanvas.js', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../src/styles/ERSimulation.css', import.meta.url), 'utf8');
 let checks = 0;
 const check = (name, run) => { run(); checks += 1; console.log(`PASS ${name}`); };
@@ -20,9 +21,14 @@ function harness({ observeThrows = false, animationFrames = false, animationObse
   const callbacks = new Map(), timers = new Map(), observers = [];
   const performanceRef = { now: () => now, timeOrigin: 1000000,
     memory: { usedJSHeapSize: 100, totalJSHeapSize: 200, jsHeapSizeLimit: 300 } };
-  const windowRef = { requestAnimationFrame: (callback) => { callbacks.set(++serial, callback); return serial; },
+  const resizeListeners = new Set();
+  const windowRef = { innerWidth: 1280, innerHeight: 720,
+    requestAnimationFrame: (callback) => { callbacks.set(++serial, callback); return serial; },
     cancelAnimationFrame: (id) => callbacks.delete(id),
-    setTimeout: (callback) => { timers.set(++serial, callback); return serial; }, clearTimeout: (id) => timers.delete(id) };
+    setTimeout: (callback) => { timers.set(++serial, callback); return serial; }, clearTimeout: (id) => timers.delete(id),
+    addEventListener: (type, callback) => { if (type === 'resize') resizeListeners.add(callback); },
+    removeEventListener: (type, callback) => { if (type === 'resize') resizeListeners.delete(callback); },
+    getComputedStyle: (element) => element.computedStyle || { display: 'block', visibility: 'visible', overflow: 'visible', overflowX: 'visible', overflowY: 'visible' } };
   class PerformanceObserverRef {
     static supportedEntryTypes = [...(longTaskAdvertised ? ['longtask'] : []), ...(animationFrames ? ['long-animation-frame'] : [])];
     constructor(callback) { this.callback = callback; this.queued = []; this.disconnected = false; observers.push(this); }
@@ -34,15 +40,40 @@ function harness({ observeThrows = false, animationFrames = false, animationObse
     disconnect() { this.disconnected = true; }
   }
   const visibilityListeners = new Set();
-  const documentRef = { visibilityState: 'visible', getElementsByTagName: () => [] };
+  const rect = (left, top, width, height) => ({ left, top, right: left + width, bottom: top + height, width, height });
+  const outer = { parentElement: null, computedStyle: { overflow: 'visible', overflowX: 'visible', overflowY: 'visible' },
+    getBoundingClientRect: () => rect(0, 0, 1280, 720), clientLeft: 0, clientTop: 0, clientWidth: 1280, clientHeight: 720,
+    offsetWidth: 1280, offsetHeight: 720 };
+  const mapContent = { isConnected: true, parentElement: null, getBoundingClientRect: () => rect(100, 100, 800, 500) };
+  const mapWorld = { isConnected: true, parentElement: mapContent, rect: rect(100, 100, 800, 500),
+    getBoundingClientRect() { return this.rect; } };
+  const mapViewport = { isConnected: true, parentElement: outer, clientLeft: 0, clientTop: 0, clientWidth: 800, clientHeight: 500,
+    offsetWidth: 800, offsetHeight: 500, rect: rect(100, 100, 800, 500),
+    computedStyle: { display: 'block', visibility: 'visible', opacity: '1', transform: 'none', rotate: 'none', scale: 'none',
+      overflow: 'visible', overflowX: 'visible', overflowY: 'visible' },
+    getBoundingClientRect() { return this.rect; },
+    querySelector: (selector) => selector === '[data-observer-map-content]' ? mapContent
+      : selector === '[data-observer-map-world]' ? mapWorld : null };
+  mapContent.parentElement = mapViewport;
+  const documentRef = { visibilityState: 'visible', documentElement: outer, getElementsByTagName: () => [],
+    querySelector: (selector) => selector === '[data-observer-map-viewport]' ? mapViewport : null };
+  const scrollListeners = new Set();
   if (visibilityEvents) {
-    documentRef.addEventListener = (type, callback) => { if (type === 'visibilitychange') visibilityListeners.add(callback); };
-    documentRef.removeEventListener = (type, callback) => { if (type === 'visibilitychange') visibilityListeners.delete(callback); };
+    documentRef.addEventListener = (type, callback) => {
+      if (type === 'visibilitychange') visibilityListeners.add(callback);
+      if (type === 'scroll') scrollListeners.add(callback);
+    };
+    documentRef.removeEventListener = (type, callback) => {
+      if (type === 'visibilitychange') visibilityListeners.delete(callback);
+      if (type === 'scroll') scrollListeners.delete(callback);
+    };
   }
   const probe = createObserverPerformanceProbe({ windowRef, performanceRef, PerformanceObserverRef, documentRef });
-  return { probe, callbacks, timers, observers, performanceRef, visibilityListeners, setNow: (value) => { now = value; },
+  return { probe, callbacks, timers, observers, performanceRef, visibilityListeners, scrollListeners, resizeListeners,
+    mapViewport, mapContent, mapWorld, setNow: (value) => { now = value; },
     fireTimer: (id) => { const callback = timers.get(id); timers.delete(id); callback(); },
     setVisibility: (value) => { documentRef.visibilityState = value; [...visibilityListeners].forEach((callback) => callback()); },
+    scroll: () => [...scrollListeners].forEach((callback) => callback()), resize: () => [...resizeListeners].forEach((callback) => callback()),
     frame: (timestamp) => {
       now = timestamp;
       const ready = [...callbacks.values()]; callbacks.clear();
@@ -82,6 +113,81 @@ check('RAF, long-task, heap, and DOM metrics are measured without timer-as-FPS s
   assert.equal(result.domNodes, 3);
   assert.equal(typeof timer, 'function');
   assert.equal(cleared, true);
+});
+
+check('full-map geometry samples start, every RAF, scroll, resize and stop and releases listeners', () => {
+  const h = harness(); h.probe.start();
+  h.setNow(16); h.frame(16); h.scroll(); h.resize();
+  h.setNow(32); h.frame(32);
+  const result = h.probe.stop();
+  assert.deepEqual(result.mapCoverage.lifecycleCounts, { start: 1, raf: 2, scroll: 1, resize: 1, end: 1 });
+  assert.equal(result.mapCoverage.samples, 6);
+  assert.equal(result.mapCoverage.fullSamples, 6);
+  assert.equal(result.mapCoverage.fullyDisplayedThroughout, true);
+  assert.equal(result.mapCoverage.nativeOcclusionProven, false);
+  assert.equal(result.mapCoverage.paintProven, false);
+  assert.equal(result.mapCoverage.humanLegibilityProven, false);
+  assert.equal(result.mapCoverage.lastSample.source, 'end');
+  assert.ok(result.mapCoverage.lastSample.offsetMs <= result.elapsedMs);
+  assert.equal(h.scrollListeners.size, 0); assert.equal(h.resizeListeners.size, 0);
+});
+
+check('final map geometry read is included in the measurement cutoff rather than timestamp-clamped', () => {
+  const h = harness(); h.probe.start(); h.setNow(100);
+  const original = h.mapWorld.getBoundingClientRect.bind(h.mapWorld);
+  let chargeReadCost = false;
+  h.mapWorld.getBoundingClientRect = () => {
+    if (chargeReadCost) { chargeReadCost = false; h.setNow(104); }
+    return original();
+  };
+  chargeReadCost = true;
+  const result = h.probe.stop();
+  assert.equal(result.mapCoverage.lastSample.source, 'end');
+  assert.equal(result.mapCoverage.lastSample.offsetMs, 104);
+  assert.equal(result.elapsedMs, 104, 'The synchronous end geometry collection cost belongs inside elapsed time.');
+});
+
+check('zoomed or panned world geometry fails continuous full-map evidence even if the viewport fits', () => {
+  const h = harness(); h.probe.start();
+  h.mapWorld.rect = { left: -300, top: -250, right: 1300, bottom: 750, width: 1600, height: 1000 };
+  h.setNow(16); h.frame(16);
+  const result = h.probe.stop();
+  assert.equal(result.mapCoverage.lastSample.fullyDisplayed, false);
+  assert.equal(result.mapCoverage.clippedSamples, 2, 'clipped RAF and stop samples both invalidate the whole measurement');
+  assert.equal(result.mapCoverage.fullyDisplayedThroughout, false);
+  assert.equal(result.mapCoverage.firstFailure.kind, 'clipped');
+});
+
+check('transformed viewport client clip uses rendered scale instead of untransformed client dimensions', () => {
+  const h = harness(); h.probe.start();
+  h.mapViewport.rect = { left: 100, top: 100, right: 500, bottom: 350, width: 400, height: 250 };
+  h.mapContent.getBoundingClientRect = () => ({ left: 100, top: 100, right: 600, bottom: 400, width: 500, height: 300 });
+  h.mapWorld.rect = { left: 100, top: 100, right: 600, bottom: 400, width: 500, height: 300 };
+  const result = h.probe.stop();
+  assert.equal(result.mapCoverage.lastSample.viewport.width, 400);
+  assert.equal(result.mapCoverage.lastSample.fullyDisplayed, false);
+  assert.equal(result.mapCoverage.fullyDisplayedThroughout, false);
+});
+
+check('an inconsistent intermediate RAF DOMRect cannot be repaired by a later normal end sample', () => {
+  const h = harness(); h.probe.start();
+  h.mapWorld.rect = { left: 100, top: 100, right: 900, bottom: 600, width: 400, height: 500 };
+  h.setNow(16); h.frame(16);
+  h.mapWorld.rect = { left: 100, top: 100, right: 900, bottom: 600, width: 800, height: 500 };
+  h.setNow(32); h.frame(32);
+  const result = h.probe.stop();
+  assert.equal(result.mapCoverage.lastSample.source, 'end');
+  assert.equal(result.mapCoverage.missingSamples, 1);
+  assert.equal(result.mapCoverage.firstFailure.kind, 'geometry_unavailable');
+  assert.equal(result.mapCoverage.fullyDisplayedThroughout, false);
+});
+
+check('zero-opacity map ancestors cannot pass positive geometry as visible', () => {
+  const h = harness(); h.probe.start();
+  h.mapViewport.computedStyle.opacity = '0';
+  const result = h.probe.stop();
+  assert.equal(result.mapCoverage.lastSample.hiddenByStyle, true);
+  assert.equal(result.mapCoverage.fullyDisplayedThroughout, false);
 });
 
 check('unsupported heap and long-task APIs remain explicit', () => {
@@ -432,6 +538,9 @@ check('panel is query-gated and exposes accessible controls and JSON output', ()
   assert.match(panelSource, /removeEventListener\('click', onCaptureClick, true\)/);
   assert.match(panelSource, /probe\.stop\(\)/);
   assert.doesNotMatch(panelSource, /Math\.max\(\.\.\.|samples\.push|pending\.push|requestAnimationFrame/);
+  for (const hook of ['data-observer-map-viewport', 'data-observer-map-content', 'data-observer-map-world']) {
+    assert.ok(minimapCanvasSource.includes(hook), `Rendered minimap source must expose ${hook} to the geometry probe.`);
+  }
 });
 
 check('diagnostic JSON is collapsed by default and bounded so it cannot push the battlefield out of view', () => {
@@ -505,6 +614,27 @@ check('a queued visibility event with the same observed endpoint cannot certify 
 });
 
 const asyncCheck = async (name, run) => { await run(); checks += 1; console.log(`PASS ${name}`); };
+await asyncCheck('map scroll/resize notifications during drain invalidate evidence without moving cutoff or resampling', async () => {
+  const h = harness(); h.probe.start(); h.frame(16); h.frame(32); h.setNow(100);
+  const pending = h.probe.stopAfterFrame({ reason: 'replay-complete' });
+  const lateScroll = [...h.scrollListeners][0], lateResize = [...h.resizeListeners][0];
+  const before = h.probe.snapshot();
+  assert.equal(before.mapCoverage.fullyDisplayedThroughout, true);
+  assert.equal(before.mapCoverage.lastSample.source, 'end');
+  h.setNow(110); h.scroll(); h.resize();
+  const duringDrain = h.probe.snapshot();
+  assert.equal(duringDrain.endedAtMs, 100);
+  assert.equal(duringDrain.elapsedMs, 100);
+  assert.equal(duringDrain.mapCoverage.samples, before.mapCoverage.samples, 'Post-cutoff notifications do not resample geometry.');
+  assert.equal(duringDrain.mapCoverage.boundaryNotifications, 2);
+  assert.equal(duringDrain.mapCoverage.fullyDisplayedThroughout, false);
+  h.frame(120); h.fireTimer([...h.timers.keys()].at(-1));
+  const result = await pending;
+  assert.equal(result.mapCoverage.fullyDisplayedThroughout, false);
+  const finalResult = structuredClone(h.probe.getLastResult());
+  lateScroll(); lateResize();
+  assert.deepEqual(h.probe.getLastResult(), finalResult, 'Removed stale listeners cannot mutate a completed report.');
+});
 await asyncCheck('visibility notifications delivered during finalization invalidate coverage without extending cutoff durations', async () => {
   const h = harness(); h.probe.start(); h.frame(16); h.setNow(100);
   const pending = h.probe.stopAfterFrame({ reason: 'replay-complete' });
@@ -527,6 +657,8 @@ await asyncCheck('post-stop RAF then task drains late end records without extend
   const pending = h.probe.stopAfterFrame({ reason: 'replay-complete' });
   assert.equal(h.probe.snapshot().boundary.status, 'draining');
   assert.equal(h.probe.snapshot().boundary.reason, 'awaiting post-stop frame and task');
+  assert.equal(h.probe.snapshot().mapCoverage.lastSample.source, 'end');
+  assert.equal(h.probe.snapshot().mapCoverage.fullyDisplayedThroughout, true);
   assert.equal(h.probe.recordInput(201), false);
   const task = h.observers.find(row => row.type === 'longtask');
   const animation = h.observers.find(row => row.type === 'long-animation-frame');
@@ -540,6 +672,9 @@ await asyncCheck('post-stop RAF then task drains late end records without extend
   h.setNow(501); h.fireTimer([...h.timers.keys()].at(-1));
   const result = await pending;
   assert.equal(result.boundary.status, 'settled'); assert.equal(result.elapsedMs, 100);
+  assert.equal(result.mapCoverage.boundaryNotifications, 0);
+  assert.equal(result.mapCoverage.fullyDisplayedThroughout, true);
+  assert.equal(result.mapCoverage.lastSample.source, 'end');
   assert.equal(result.longTasks.count, 1); assert.equal(result.longTasks.maxMs, 284);
   assert.deepEqual(result.longTasks.slowest, [{ startOffsetMs: 90, durationMs: 284 }]);
   assert.equal(result.longAnimationFrames.maxDurationMs, 300);

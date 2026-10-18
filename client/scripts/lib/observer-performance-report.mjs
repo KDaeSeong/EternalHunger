@@ -2,6 +2,12 @@ const finite = value => typeof value === 'number' && Number.isFinite(value);
 const nonnegative = value => finite(value) && value >= 0;
 const integer = value => Number.isInteger(value) && value >= 0;
 const verdict = (status, reason, value = null) => ({ status, reason, value });
+const validRect = rect => rect && ['left', 'top', 'right', 'bottom', 'width', 'height'].every(key => finite(rect[key]))
+  && rect.width > 0 && rect.height > 0 && Math.abs(rect.right - rect.left - rect.width) < 1
+  && Math.abs(rect.bottom - rect.top - rect.height) < 1;
+const contains = (outer, inner) => validRect(outer) && validRect(inner)
+  && inner.left >= outer.left - 0.5 && inner.top >= outer.top - 0.5
+  && inner.right <= outer.right + 0.5 && inner.bottom <= outer.bottom + 0.5;
 
 // These are evidence gates, not a claim about painted FPS, INP, other machines
 // or absence of leaks. Only the repository's existing strict <200ms Long Task
@@ -38,6 +44,31 @@ export function analyzeObserverPerformanceRuns(runs, {
       || visibility.boundaryNotifications !== 0
       || visibility.durationMs?.hidden !== 0 || visibility.durationMs?.unknown !== 0
       || !finite(visibility.durationMs?.visible) || Math.abs(visibility.durationMs.visible - run?.elapsedMs) > 0.003) gaps.push('continuous visible coverage unproven');
+    const map = run?.mapCoverage, counts = map?.lifecycleCounts, sample = map?.lastSample;
+    const lifecycleSamples = counts && ['start', 'raf', 'scroll', 'resize', 'end'].every(key => integer(counts[key]))
+      ? counts.start + counts.raf + counts.scroll + counts.resize + counts.end : null;
+    const clipChainValid = Array.isArray(sample?.clipChain) && sample.clipChain.length <= 8
+      && sample.clipChain.every(row => validRect(row?.rect) && (row.clipsX === true || row.clipsY === true));
+    const clipChainContains = clipChainValid && validRect(sample?.world) && validRect(sample?.viewport)
+      && sample.clipChain.every(row =>
+      (!row.clipsX || sample.world.left >= row.rect.left - 0.5 && sample.world.right <= row.rect.right + 0.5
+        && sample.viewport.left >= row.rect.left - 0.5 && sample.viewport.right <= row.rect.right + 0.5)
+      && (!row.clipsY || sample.world.top >= row.rect.top - 0.5 && sample.world.bottom <= row.rect.bottom + 0.5
+        && sample.viewport.top >= row.rect.top - 0.5 && sample.viewport.bottom <= row.rect.bottom + 0.5));
+    const validMap = map?.supported === true && map.reason == null && map.fullyDisplayedThroughout === true
+      && map.nativeOcclusionProven === false && map.paintProven === false && map.humanLegibilityProven === false
+      && typeof map.scope === 'string' && map.scope.includes('every RAF callback') && map.scope.includes('no native occlusion')
+      && integer(map.samples) && map.samples > 0 && integer(map.fullSamples) && map.fullSamples === map.samples
+      && integer(map.missingSamples) && map.missingSamples === 0 && integer(map.clippedSamples) && map.clippedSamples === 0
+      && integer(map.boundaryNotifications) && map.boundaryNotifications === 0
+      && map.firstFailure == null && lifecycleSamples === map.samples && counts.start === 1 && counts.end === 1
+      && counts.raf >= 2 && counts.raf === run?.raf?.samples + 1
+      && sample?.fullyDisplayed === true && sample.hiddenByStyle === false
+      && sample.source === 'end' && nonnegative(sample.offsetMs)
+      && sample.offsetMs <= run?.elapsedMs + clockResolutionMs
+      && contains(sample.browserViewport, sample.viewport) && contains(sample.viewport, sample.world)
+      && contains(sample.content, sample.world) && clipChainContains;
+    if (!validMap) gaps.push('continuous full-map DOM geometry unproven (no proof of native occlusion or paint)');
     if (![1, 8, 32].includes(speed) || final?.speed !== speed || context?.speedChanges !== 0) gaps.push('actual speed missing or changed; free-text labels are not evidence');
     if (initial?.replayMode !== true || final?.replayMode !== true || !initial?.replayId
       || initial.replayId !== final?.replayId || !initial?.seed || initial.seed !== final?.seed
@@ -94,7 +125,7 @@ export function analyzeObserverPerformanceRuns(runs, {
         maxMs: run?.longAnimationFrames?.maxDurationMs ?? null, maxRenderMs: run?.longAnimationFrames?.maxRenderMs ?? null },
       inputResponse: { scope: 'click_to_next_RAF_not_INP_or_presentation', samples: run?.inputResponse?.samples ?? null,
         pendingSamples: run?.inputResponse?.pendingSamples ?? null, maxMs: run?.inputResponse?.maxMs ?? null },
-      visibility: visibility ?? null, elapsedMs: run?.elapsedMs ?? null };
+      visibility: visibility ?? null, mapCoverage: map ?? null, elapsedMs: run?.elapsedMs ?? null };
   });
   const first = runs[0];
   for (let index = 1; index < runs.length; index++) {
@@ -146,7 +177,7 @@ export function analyzeObserverPerformanceRuns(runs, {
   const status = !valid ? 'unverified' : gates.some(gate => gate.status === 'fail') ? 'fail'
     : gates.every(gate => gate.status === 'pass') ? 'pass' : 'unverified';
   return { schema: 'eh-observer-browser-verification.v1', status,
-    scope: 'observed_nine_run_gates_not_painted_FPS_INP_or_absence_of_leaks',
+    scope: 'observed_nine_run_gates_with_DOM_map_geometry_not_native_occlusion_painted_FPS_INP_or_absence_of_leaks',
     policy: { expectedEngine: expectedEngine ?? null, maxLongTaskMs, maxRafP95Ms: maxRafP95Ms ?? null,
       maxRafGapMs: maxRafGapMs ?? null, maxBaselineHeapGrowthBytes: maxBaselineHeapGrowthBytes ?? null,
       maxInterRunGapMs: nonnegative(maxInterRunGapMs) ? maxInterRunGapMs : null },

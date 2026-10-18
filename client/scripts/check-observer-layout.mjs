@@ -162,6 +162,32 @@ check('desktop map reserves readable height without stretching map geometry or m
   assert.ok(!/preserveAspectRatio|\.minimap-map-content|\.minimap-svg|\.modal-open \{/.test(desktop),
     'Viewport allocation must not distort island geometry, zoom content, or expanded dialogs.');
 });
+check('desktop ready and active game-screen states reserve the same top rows and field-summary slot', () => {
+  const desktop = mediaBlock('(min-width: 1000px)');
+  assert.ok(/\.simulation-page--observer \.simulation-container\.modal-layout \.game-screen \{[^}]*grid-template-rows: auto minmax\(36px, auto\) minmax\(34px, auto\) minmax\(0, 1fr\);/.test(desktop),
+    'Reserve row 2 and row 3 space before forbidden-zone and feedback content appears.');
+  const stage = readComponent('SimulationMainStage');
+  assert.match(stage, /\{day > 0 \? <details className="simulation-field-details">[\s\S]*?<SimulationWorldSpawnToolbar[\s\S]*?<\/details> : <div className="simulation-field-details simulation-field-details--placeholder">\s*필드 현황 · 경기 시작 전\s*<\/div>\}/,
+    'Before day one, show the field-status placeholder in the same slot; after start, retain the actual collapsible toolbar.');
+  assert.ok(stage.indexOf('className="simulation-field-details simulation-field-details--placeholder"')
+    < stage.indexOf('<SimulationMinimapPanel'), 'Keep the reserved field slot before the map in both states.');
+  assert.match(styles, /\.simulation-field-details > summary \{ padding: 3px 6px; cursor: pointer; \}/,
+    'Leave the native summary list-item marker intact.');
+  assert.doesNotMatch(styles, /\.simulation-field-details > summary \{[^}]*display: flex;/);
+  assert.ok(/\.simulation-page--observer \.simulation-field-details,\s*\.simulation-page--observer \.simulation-field-details--placeholder \{ min-height: 24px; box-sizing: border-box; \}/.test(desktop),
+    'Constrain the shared field-summary slot to the desktop observer layout only.');
+  assert.match(desktop, /\.simulation-page--observer \.simulation-field-details > summary \{ min-height: 24px; box-sizing: border-box; \}/);
+  assert.match(styles, /\.simulation-field-details--placeholder \{ display: none; \}/,
+    'The preparation placeholder stays hidden on mobile and non-observer layouts.');
+  assert.match(desktop, /\.simulation-page--observer \.simulation-field-details--placeholder \{ display: block; padding: 3px 6px; \}/,
+    'Show the same-height preparation text only for desktop observer sessions.');
+  assert.match(styles, /\.simulation-field-details \.worldspawn-toolbar \{ position: absolute; top: 100%; left: 0; right: 0;/,
+    'The active toolbar remains an overlay rather than increasing the field slot.');
+  const narrow = mediaBlock('(max-width: 999px)');
+  assert.match(narrow, /\.simulation-container\.modal-layout \.game-screen \{ display: flex;/,
+    'Keep the existing narrow-screen conditional layout instead of imposing desktop grid rows.');
+  assert.doesNotMatch(narrow, /simulation-field-details--placeholder\s*\{[^}]*display:\s*block/);
+});
 check('desktop page can scroll while controls and observation remain bounded', () => {
   const desktop = mediaBlock('(min-width: 1000px)');
   assert.ok(/\.simulation-page\.simulation-page--observer \{[^}]*height: auto;[^}]*min-height: 100dvh;[^}]*overflow: visible;/.test(desktop),

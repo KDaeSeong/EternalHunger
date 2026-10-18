@@ -168,7 +168,9 @@ export default function SimulationMainStage({
             spawnState={spawnState}
             zones={zones}
           />
-          </details> : null}
+          </details> : <div className="simulation-field-details simulation-field-details--placeholder">
+            필드 현황 · 경기 시작 전
+          </div>}
 
           <SimulationMinimapPanel
             trackedActorIds={observerTrackedActorIds}

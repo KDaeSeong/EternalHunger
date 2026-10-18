@@ -10,6 +10,16 @@ import { analyzeObserverPerformanceRuns } from './lib/observer-performance-repor
 const engine = 'a'.repeat(64);
 const policy = { expectedEngine: engine, maxLongTaskMs: 200, maxRafP95Ms: 50,
   maxRafGapMs: 200, maxBaselineHeapGrowthBytes: 1000, maxInterRunGapMs: 60000 };
+const mapRect = (left, top, width, height) => ({ left, top, right: left + width, bottom: top + height, width, height });
+function validDOMgeometry() {
+  const viewport = mapRect(100, 100, 800, 500), world = mapRect(100, 100, 800, 500);
+  return { scope: 'DOM geometry at start, every RAF callback, captured scroll/resize and stop; no native occlusion, paint or human-legibility proof',
+    supported: true, reason: null, samples: 63, fullSamples: 63, missingSamples: 0, clippedSamples: 0, firstFailure: null,
+    boundaryNotifications: 0, lifecycleCounts: { start: 1, raf: 61, scroll: 0, resize: 0, end: 1 },
+    lastSample: { source: 'end', offsetMs: 1000, viewport, content: viewport, world, browserViewport: mapRect(0, 0, 1280, 720),
+      clipChain: [], fullyDisplayed: true, hiddenByStyle: false },
+    nativeOcclusionProven: false, paintProven: false, humanLegibilityProven: false, fullyDisplayedThroughout: true };
+}
 function fixture() {
   return [1, 1, 1, 8, 8, 8, 32, 32, 32].map((speed, index) => ({
     schema: 'eh-observer-performance.v3', label: 'arbitrary label', engineVersion: engine,
@@ -19,6 +29,7 @@ function fixture() {
     boundary: { status: 'settled', stopReason: 'replay-complete' },
     visibility: { supported: true, entireMeasurementVisible: true, initialState: 'visible', endState: 'visible',
       transitions: 0, boundaryNotifications: 0, durationMs: { visible: 1000, hidden: 0, unknown: 0 } },
+    mapCoverage: validDOMgeometry(),
     context: { initial: { engineVersion: engine, speed, seed: '1101', replayId: 'synthetic-source', replayMode: true,
       day: 0, matchSec: 0, autoPlay: false, isGameOver: false, comparisonMatched: null, comparedEvents: null },
     final: { engineVersion: engine, speed, seed: '1101', replayId: 'synthetic-source', replayMode: true,
@@ -37,7 +48,7 @@ check('nine complete samples pass only their explicitly declared observational g
   const before = fixture(), copy = structuredClone(before);
   const report = analyzeObserverPerformanceRuns(before, policy);
   assert.equal(report.status, 'pass'); assert.deepEqual(before, copy);
-  assert.match(report.scope, /not_painted_FPS_INP_or_absence_of_leaks/);
+  assert.match(report.scope, /DOM_map_geometry_not_native_occlusion_painted_FPS_INP_or_absence_of_leaks/);
 });
 check('defaults preserve the historical strict Long Task gate without inventing frame or memory budgets', () => {
   const report = analyzeObserverPerformanceRuns(fixture(), { expectedEngine: engine });
@@ -57,6 +68,21 @@ check('old engine, v2, live snapshots and immediate stops cannot inherit the cur
     run => run.boundary.status = 'recording', run => run.boundary.status = 'draining',
     run => run.boundary.status = 'incomplete', run => run.endedAtMs = null]) {
     const runs = fixture(); change(runs[0]); assert.equal(analyzeObserverPerformanceRuns(runs, policy).status, 'unverified');
+  }
+});
+check('old v3 reports without map geometry and clipped/undersampled maps are unverified', () => {
+  for (const change of [run => delete run.mapCoverage,
+    run => { run.mapCoverage.lastSample.world = mapRect(100, 100, 1600, 1000); run.mapCoverage.fulllyDisplayedThroughout = true; },
+    run => run.mapCoverage.lifecycleCounts.raf = 1,
+    run => run.mapCoverage.lifecycleCounts.end = 0,
+    run => run.mapCoverage.missingSamples = 1,
+    run => run.mapCoverage.boundaryNotifications = 1,
+    run => run.mapCoverage.lastSample.source = 'raf',
+    run => run.mapCoverage.lastSample.offsetMs = run.elapsedMs + 1,
+    run => { run.mapCoverage.lastSample.world = null; run.mapCoverage.lastSample.clipChain = [{ rect: mapRect(0, 0, 100, 100), clipsX: true, clipsY: true }]; },
+    run => run.mapCoverage.nativeOcclusionProven = true]) {
+    const runs = fixture(); change(runs[0]);
+    assert.equal(analyzeObserverPerformanceRuns(runs, policy).status, 'unverified');
   }
 });
 check('unsupported APIs and null/NaN metrics are never coerced to a healthy zero', () => {

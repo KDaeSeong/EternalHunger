@@ -15,6 +15,49 @@ const MAX_WAIT_TOTAL_MS = Number.MAX_SAFE_INTEGER;
 const MAX_WAIT_COUNT = Number.MAX_SAFE_INTEGER;
 const MILLISECOND_EXPORT_DECIMALS = 3;
 const finiteNumber = (value) => value != null && Number.isFinite(Number(value)) ? Number(value) : null;
+const MAP_VIEWPORT_SELECTOR = '[data-observer-map-viewport]';
+const MAP_WORLD_SELECTOR = '[data-observer-map-world]';
+
+function rectEvidence(rect) {
+  if (!rect) return null;
+  const values = ['left', 'top', 'right', 'bottom', 'width', 'height'];
+  const result = Object.fromEntries(values.map((key) => [key, finiteNumber(rect[key])]));
+  return values.every((key) => result[key] != null) && result.width > 0 && result.height > 0
+    && Math.abs(result.right - result.left - result.width) < 1
+    && Math.abs(result.bottom - result.top - result.height) < 1 ? result : null;
+}
+
+function hasSupportedAxisTransform(style) {
+  const transform = String(style?.transform || 'none');
+  if (transform !== 'none') {
+    const match = transform.match(/^matrix\(\s*([-+\deE.]+)\s*,\s*([-+\deE.]+)\s*,\s*([-+\deE.]+)\s*,\s*([-+\deE.]+)\s*,\s*([-+\deE.]+)\s*,\s*([-+\deE.]+)\s*\)$/);
+    if (!match || Math.abs(Number(match[2])) > 1e-7 || Math.abs(Number(match[3])) > 1e-7
+      || !(Number(match[1]) > 0) || !(Number(match[4]) > 0)) return false;
+  }
+  return !(style?.rotate && style.rotate !== 'none' && style.rotate !== '0deg'
+    || style?.scale && style.scale !== 'none');
+}
+
+function clientBox(element, style) {
+  const rect = rectEvidence(element?.getBoundingClientRect?.());
+  const left = finiteNumber(element?.clientLeft), top = finiteNumber(element?.clientTop);
+  const width = finiteNumber(element?.clientWidth), height = finiteNumber(element?.clientHeight);
+  const offsetWidth = finiteNumber(element?.offsetWidth), offsetHeight = finiteNumber(element?.offsetHeight);
+  if (!rect || left == null || top == null || width == null || height == null || offsetWidth == null || offsetHeight == null
+    || width <= 0 || height <= 0 || offsetWidth <= 0 || offsetHeight <= 0) return null;
+  const scaleX = rect.width / offsetWidth, scaleY = rect.height / offsetHeight;
+  if (!(scaleX > 0) || !(scaleY > 0) || !Number.isFinite(scaleX) || !Number.isFinite(scaleY)) return null;
+  if (!hasSupportedAxisTransform(style)) return null;
+  const scaledLeft = rect.left + left * scaleX, scaledTop = rect.top + top * scaleY;
+  const scaledWidth = width * scaleX, scaledHeight = height * scaleY;
+  return { left: scaledLeft, top: scaledTop, right: scaledLeft + scaledWidth,
+    bottom: scaledTop + scaledHeight, width: scaledWidth, height: scaledHeight };
+}
+
+function containsRect(outer, inner, tolerance = 0.5) {
+  return !!outer && !!inner && inner.left >= outer.left - tolerance && inner.top >= outer.top - tolerance
+    && inner.right <= outer.right + tolerance && inner.bottom <= outer.bottom + tolerance;
+}
 
 function framePercentile(frames, p) {
   if (!frames.count) return { value: null, range: null };
@@ -234,6 +277,111 @@ export function createObserverPerformanceProbe({
     };
   }
 
+  function captureMapCoverage(target, source) {
+    const coverage = target.mapCoverage;
+    coverage.samples += 1;
+    if (Object.hasOwn(coverage.lifecycleCounts, source)) coverage.lifecycleCounts[source] += 1;
+    const fail = (kind, reason, supported = coverage.supported) => {
+      coverage.supported = supported;
+      coverage.missingSamples += kind === 'map_missing' || kind === 'geometry_unavailable' ? 1 : 0;
+      coverage.clippedSamples += kind === 'clipped' ? 1 : 0;
+      coverage.fullSamples += 0;
+      coverage.reason ||= reason;
+      coverage.firstFailure ||= { kind, offsetMs: round(performanceRef.now() - target.startedAt) };
+    };
+    if (typeof documentRef?.querySelector !== 'function' || typeof windowRef?.getComputedStyle !== 'function') {
+      fail('geometry_unavailable', 'DOM map geometry APIs unavailable', false);
+      return;
+    }
+    let viewport, content, world;
+    try {
+      viewport = documentRef.querySelector(MAP_VIEWPORT_SELECTOR);
+      content = viewport?.querySelector?.('[data-observer-map-content]');
+      world = viewport?.querySelector?.(MAP_WORLD_SELECTOR);
+    } catch {
+      fail('geometry_unavailable', 'map geometry lookup failed', false);
+      return;
+    }
+    if (!viewport || !content || !world || viewport.isConnected === false || world.isConnected === false) {
+      fail('map_missing', 'minimap viewport, content or world SVG missing');
+      return;
+    }
+    let viewportBox, contentRect, worldRect, clipChain = [], hidden = false;
+    try {
+      const viewportStyle = windowRef.getComputedStyle(viewport);
+      const contentStyle = windowRef.getComputedStyle(content);
+      const worldStyle = windowRef.getComputedStyle(world);
+      const hiddenStyle = (style) => style?.display === 'none' || style?.visibility === 'hidden'
+        || style?.visibility === 'collapse' || Number(style?.opacity) === 0;
+      hidden = [viewportStyle, contentStyle, worldStyle].some(hiddenStyle);
+      for (const style of [viewportStyle, contentStyle, worldStyle]) {
+        if (!hasSupportedAxisTransform(style)) {
+          fail('geometry_unavailable', 'rotated, skewed or unresolved CSS transform', false); return;
+        }
+      }
+      viewportBox = clientBox(viewport, viewportStyle);
+      contentRect = rectEvidence(content.getBoundingClientRect?.());
+      worldRect = rectEvidence(world.getBoundingClientRect?.());
+      const viewportWidth = finiteNumber(windowRef.innerWidth), viewportHeight = finiteNumber(windowRef.innerHeight);
+      if (!viewportBox || !contentRect || !worldRect || viewportWidth == null || viewportHeight == null
+        || viewportWidth <= 0 || viewportHeight <= 0 || worldRect.width <= 0 || worldRect.height <= 0) {
+        fail('geometry_unavailable', 'map or viewport has no measurable positive bounds', false);
+        return;
+      }
+      const browserBox = { left: 0, top: 0, right: viewportWidth, bottom: viewportHeight,
+        width: viewportWidth, height: viewportHeight };
+      let clipped = !containsRect(browserBox, viewportBox) || !containsRect(viewportBox, worldRect)
+        || !containsRect(contentRect, worldRect);
+      let ancestor = viewport.parentElement;
+      while (ancestor) {
+        const style = windowRef.getComputedStyle(ancestor);
+        if (!hasSupportedAxisTransform(style)) {
+          fail('geometry_unavailable', 'rotated, skewed or unresolved ancestor transform', false); return;
+        }
+        hidden ||= hiddenStyle(style);
+        const overflowX = String(style?.overflowX || style?.overflow || '').toLowerCase();
+        const overflowY = String(style?.overflowY || style?.overflow || '').toLowerCase();
+        const clipsX = ['auto', 'scroll', 'hidden', 'clip'].includes(overflowX);
+        const clipsY = ['auto', 'scroll', 'hidden', 'clip'].includes(overflowY);
+        if (ancestor !== documentRef.documentElement && (clipsX || clipsY)) {
+          if (clipChain.length >= 8) { fail('geometry_unavailable', 'too many clipping ancestors to retain bounded evidence', false); return; }
+          const box = clientBox(ancestor, style);
+          if (!box) { fail('geometry_unavailable', 'clipping ancestor bounds unavailable', false); return; }
+          clipChain.push({ rect: box, clipsX, clipsY });
+          if (clipsX && (worldRect.left < box.left - 0.5 || worldRect.right > box.right + 0.5
+            || viewportBox.left < box.left - 0.5 || viewportBox.right > box.right + 0.5)) clipped = true;
+          if (clipsY && (worldRect.top < box.top - 0.5 || worldRect.bottom > box.bottom + 0.5
+            || viewportBox.top < box.top - 0.5 || viewportBox.bottom > box.bottom + 0.5)) clipped = true;
+        }
+        ancestor = ancestor.parentElement;
+      }
+      const fullyDisplayed = !clipped && !hidden;
+      coverage.lastSample = { source, offsetMs: round(performanceRef.now() - target.startedAt), viewport: viewportBox,
+        content: contentRect, world: worldRect, browserViewport: browserBox, clipChain,
+        fullyDisplayed, hiddenByStyle: hidden };
+      if (fullyDisplayed) coverage.fullSamples += 1;
+      else fail('clipped', hidden ? 'map viewport or SVG is hidden by CSS' : 'transformed map world is clipped by a viewport');
+    } catch {
+      fail('geometry_unavailable', 'map geometry measurement failed', false);
+    }
+  }
+
+  function mapCoverageSnapshot(target) {
+    const coverage = target.mapCoverage;
+    return { scope: 'DOM geometry at start, every RAF callback, captured scroll/resize and stop; no native occlusion, paint or human-legibility proof',
+      supported: coverage.supported, reason: coverage.reason,
+      samples: coverage.samples, fullSamples: coverage.fullSamples, missingSamples: coverage.missingSamples,
+      clippedSamples: coverage.clippedSamples, firstFailure: coverage.firstFailure,
+      boundaryNotifications: coverage.boundaryNotifications,
+      lifecycleCounts: { ...coverage.lifecycleCounts }, lastSample: coverage.lastSample ? structuredClone(coverage.lastSample) : null,
+      nativeOcclusionProven: false, paintProven: false, humanLegibilityProven: false,
+      fullyDisplayedThroughout: coverage.supported && coverage.samples > 0 && coverage.missingSamples === 0
+        && coverage.clippedSamples === 0 && coverage.fullSamples === coverage.samples
+        && coverage.boundaryNotifications === 0
+        && coverage.lifecycleCounts.start === 1 && coverage.lifecycleCounts.end === 1
+        && coverage.lifecycleCounts.raf >= 2 };
+  }
+
   function snapshot(target = state) {
     if (!target) return null;
     const now = target.stoppedAt ?? performanceRef.now();
@@ -317,11 +465,15 @@ export function createObserverPerformanceProbe({
       domNodes: target.stoppedAt == null ? documentRef?.getElementsByTagName?.('*')?.length ?? null : target.finalDomNodes,
       visibilityState: target.finalVisibility?.endState ?? documentRef?.visibilityState ?? 'unknown',
       visibility: target.finalVisibility ? structuredClone(target.finalVisibility) : visibilitySnapshot(target, now),
+      mapCoverage: mapCoverageSnapshot(target),
     };
   }
 
   function closeBoundary(target, reason) {
     if (target.stoppedAt != null) return;
+    captureMapCoverage(target, 'end');
+    // Include the synchronous final geometry read in the measured interval;
+    // never clamp its sample timestamp to conceal collection cost.
     target.stoppedAt = performanceRef.now();
     target.stopReason = reason;
     target.finalHeap = heapSnapshot(performanceRef.memory);
@@ -349,6 +501,8 @@ export function createObserverPerformanceProbe({
     finished.longAnimationFrameObserver?.disconnect();
     finished.unsubscribeWork?.();
     if (finished.visibility.listener) documentRef.removeEventListener('visibilitychange', finished.visibility.listener);
+    if (finished.mapCoverage.scrollListener) documentRef.removeEventListener('scroll', finished.mapCoverage.scrollListener, true);
+    if (finished.mapCoverage.resizeListener) windowRef.removeEventListener('resize', finished.mapCoverage.resizeListener);
     const result = snapshot(finished);
     lastResult = structuredClone(result);
     finished.resolveStop?.(structuredClone(result));
@@ -467,6 +621,15 @@ export function createObserverPerformanceProbe({
       workerReports: 0,
       evictedWorkerPhases: 0,
       unsubscribeWork: null,
+      mapCoverage: { supported: typeof documentRef?.querySelector === 'function'
+          && typeof windowRef?.getComputedStyle === 'function'
+          && typeof documentRef?.addEventListener === 'function' && typeof documentRef?.removeEventListener === 'function'
+          && typeof windowRef?.addEventListener === 'function' && typeof windowRef?.removeEventListener === 'function',
+        reason: null, samples: 0, fullSamples: 0, missingSamples: 0, clippedSamples: 0,
+        firstFailure: null, lastSample: null,
+        boundaryNotifications: 0,
+        lifecycleCounts: { start: 0, raf: 0, scroll: 0, resize: 0, end: 0 },
+        scrollListener: null, resizeListener: null },
     };
     const initialVisibility = visibilityState();
     next.visibility = {
@@ -491,6 +654,20 @@ export function createObserverPerformanceProbe({
     }
     state = next;
     updateContext(context);
+    if (next.mapCoverage.supported) {
+      const notifyMapChange = (source) => {
+        if (state !== next) return;
+        if (next.stoppedAt != null) { next.mapCoverage.boundaryNotifications += 1; return; }
+        captureMapCoverage(next, source);
+      };
+      next.mapCoverage.scrollListener = () => notifyMapChange('scroll');
+      next.mapCoverage.resizeListener = () => notifyMapChange('resize');
+      documentRef.addEventListener('scroll', next.mapCoverage.scrollListener, true);
+      windowRef.addEventListener('resize', next.mapCoverage.resizeListener);
+    } else {
+      next.mapCoverage.reason = 'DOM geometry or scroll/resize lifecycle events unavailable';
+    }
+    captureMapCoverage(next, 'start');
     if (typeof documentRef?.addEventListener === 'function' && typeof documentRef?.removeEventListener === 'function') {
       const onVisibilityChange = () => {
         if (state !== next) return;
@@ -538,6 +715,7 @@ export function createObserverPerformanceProbe({
     });
     const sample = (timestamp) => {
       if (state !== next || next.stoppedAt != null) return;
+      captureMapCoverage(next, 'raf');
       if (Number.isFinite(timestamp)) {
         if (next.firstFrameAt == null) next.firstFrameAt = timestamp;
         const interval = timestamp - next.previousFrameAt;

@@ -323,10 +323,12 @@ export default function SimulationMinimapCanvas({
         {!safeArray(aliveByZone[openedZoneId]).length ? <p>현재 이 지역에 생존자가 없습니다.</p> : null}
       </div> : null}
       <div ref={viewportRef} className={useViewport ? `minimap-viewport${zoomed ? ' is-zoomed' : ''}` : 'minimap-inline-surface'}
+        data-observer-map-viewport="true"
         tabIndex={useViewport ? 0 : undefined} role={useViewport ? 'region' : undefined} aria-label={useViewport ? (expanded ? '확대 전장 지도' : '전장 지도') : undefined}>
-      <div className="minimap-map-content">
+      <div className="minimap-map-content" data-observer-map-content="true">
       <svg
         className="minimap-svg"
+        data-observer-map-world="true"
         viewBox={`${paddedViewBox.x} ${paddedViewBox.y} ${paddedViewBox.width} ${paddedViewBox.height}`}
         role="group"
         aria-label={customGeometry ? '사용자 지도 미니맵' : '루미아 섬 미니맵'}

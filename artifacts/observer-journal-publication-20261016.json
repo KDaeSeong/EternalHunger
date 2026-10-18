@@ -1,5 +1,376 @@
 {
   "schema": "eternal-hunger.observer-journal-publication-evidence.v1",
+  "mapCoverageProjectionFollowup": {
+    "dateKst": "2026-10-18",
+    "parentCommit": "16bdddd3da6f505cf0666f4aebaeca0469d15d03",
+    "engineVersion": "520fc98ee16474ea15dc8db313bc03dc00af17e0e071ff6a565bf69719318c27",
+    "buildId": "yz6vQGhf5JlYsKW-qp00f",
+    "outputOnly": true,
+    "noVerificationConsumesThisSectionAsInputOrOracle": true,
+    "changes": [
+      "Capture bounded transformed SVG, content, viewport and clipping-ancestor geometry at start, every RAF, captured scroll/resize and final boundary. Queued boundary notifications invalidate evidence without extending cutoff; geometry does not prove native occlusion, paint or human legibility.",
+      "Require continuous full-map geometry in the existing strict nine-run reporter. Older exports without this evidence remain unverified; speed, Long Task, replay, memory and continuity gates are not relaxed.",
+      "Time every source-frame projectSimulationFrame call in opted-in Worker diagnostics before observation/publication limiting; diagnostics-off still takes the original direct call. Physics, events, RNG and logical frame observation are unchanged.",
+      "Reserve desktop-only 36px/34px minimum status rows and the 24px field-summary slot before the first phase. Keep the 540px map minimum, expanded-map geometry, native details marker, real active toolbar and narrow-screen layout."
+    ],
+    "verification": {
+      "summaries": [
+        {
+          "id": "2026-10-18T05-26-27.556Z-a54e1d8a-25b8-41ec-a18a-a060329b4914",
+          "status": "passed",
+          "exitCode": 0,
+          "engine": "520fc98ee16474ea15dc8db313bc03dc00af17e0e071ff6a565bf69719318c27",
+          "startedAt": "2026-10-18T05:26:27.559Z",
+          "finishedAt": "2026-10-18T05:27:11.348Z",
+          "sameEngine": true,
+          "sameVerificationSources": true,
+          "sources": 41
+        },
+        {
+          "id": "2026-10-18T05-26-37.730Z-2a7e6773-4749-41ef-b5dc-a8542c5be019",
+          "status": "passed",
+          "exitCode": 0,
+          "engine": "520fc98ee16474ea15dc8db313bc03dc00af17e0e071ff6a565bf69719318c27",
+          "startedAt": "2026-10-18T05:26:37.732Z",
+          "finishedAt": "2026-10-18T05:30:04.074Z",
+          "sameEngine": true,
+          "sameVerificationSources": true,
+          "sources": 14
+        },
+        {
+          "id": "2026-10-18T05-27-55.511Z-478fd5da-91aa-40d1-aa28-d5c9a64050e6",
+          "status": "passed",
+          "exitCode": 0,
+          "engine": "520fc98ee16474ea15dc8db313bc03dc00af17e0e071ff6a565bf69719318c27",
+          "startedAt": "2026-10-18T05:27:55.513Z",
+          "finishedAt": "2026-10-18T05:29:03.302Z",
+          "sameEngine": true,
+          "sameVerificationSources": true,
+          "sources": 48
+        }
+      ],
+      "focused": {
+        "probe": 49,
+        "reporter": 17,
+        "observerLayout": 26,
+        "guards": 11,
+        "waitMeasurement": 9,
+        "replayHistoryMemoryLifetime": 31,
+        "cooperativeYield": 26,
+        "fingerprintMutationGroups": 17
+      },
+      "finiteWorkerMatch": {
+        "phases": 11,
+        "sourceFrames": 5840,
+        "transmittedFrames": 1778,
+        "skippedPublications": 4062,
+        "minRoutineGapMs": 33.335,
+        "events": 11648,
+        "logs": 7107,
+        "ending": "last_team@1124.916666s",
+        "rngDraws": 8934,
+        "eventsSha256": "244d837cc478cf2e6a2dbb8fdbcd69dfac2b1ff8fa8efc30eeb9ab3e1482a9b5",
+        "logsSha256": "ab61fc6fcbbf47af13e3a3ad5bcd17c4c7592f5115e7011019a2fc6218ffb8f3",
+        "allSourceFrameProjectionsTimedExactlyOnce": true,
+        "freshBaselineAndSourceFrameEventsLogsRngFinalEndingMatch": true,
+        "scope": "Fresh generated source-based reference versus real Node Worker with finite diagnostic clock; not browser speed."
+      },
+      "build": {
+        "pages": 62,
+        "buildId": "yz6vQGhf5JlYsKW-qp00f",
+        "moduleResolutionChecks": 23,
+        "node": "v24.13.0",
+        "isolatedCompiledWorker": {
+          "ready": true,
+          "frames": 299,
+          "finalMatchSec": 140,
+          "complete": 1,
+          "failures": 0,
+          "scope": "Isolated Node VM, not browser execution or performance."
+        }
+      }
+    },
+    "browserBeforeLayoutFix": {
+      "buildId": "lwp9_vqTI-Ed-Tou0wGgP",
+      "receipt": "client/.verification-runs/2026-10-18T05-06-09.131Z-299f2510-8011-41cb-b2e8-7bcbdc9193fd/result.json",
+      "seed": "1789192220412",
+      "actors": 24,
+      "teams": 8,
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "userApplicationsUnchanged": true,
+      "heavyOwnChecksActiveDuringMeasurement": false,
+      "negatives": [
+        {
+          "kind": "partly offscreen",
+          "samples": 471,
+          "fullSamples": 0,
+          "clippedSamples": 471,
+          "fullyDisplayedThroughout": false,
+          "raw": "client/.verification-runs/2026-10-18T05-06-09.131Z-299f2510-8011-41cb-b2e8-7bcbdc9193fd/map-clipped-negative.json"
+        },
+        {
+          "kind": "zoomed world clipped inside fitted viewport",
+          "samples": 337,
+          "fullSamples": 0,
+          "clippedSamples": 337,
+          "fullyDisplayedThroughout": false,
+          "raw": "client/.verification-runs/2026-10-18T05-06-09.131Z-299f2510-8011-41cb-b2e8-7bcbdc9193fd/map-zoom-negative.json"
+        }
+      ],
+      "x32Replay": {
+        "raw": "client/.verification-runs/2026-10-18T05-06-09.131Z-299f2510-8011-41cb-b2e8-7bcbdc9193fd/observer-x32-map-projection-1.json",
+        "elapsedMs": 41647.1,
+        "activeElapsedMs": 41369.6,
+        "effectiveSpeed": 29.816580290841586,
+        "matchSec": 1233.5,
+        "winningTeam": "4",
+        "matchedEvents": 13237,
+        "eventsFinalStateAndEndingMatch": true,
+        "automaticStop": "settled/replay-complete",
+        "longTaskCount": 1,
+        "maxLongTaskMs": 123,
+        "workerReports": 13,
+        "workerRequestedPhases": 13,
+        "workerFailures": 0,
+        "workerMissingReports": 0,
+        "mapSamples": 2994,
+        "mapFullSamples": 19,
+        "mapClippedSamples": 2975,
+        "fullyDisplayedThroughout": false,
+        "visibilityTransitions": 0,
+        "entireDocumentVisible": true,
+        "projection": {
+          "count": 6428,
+          "totalMs": 47,
+          "maxMs": 0.2
+        },
+        "growthSlice": {
+          "count": 1895,
+          "totalMs": 8915.8
+        },
+        "teamCoordination": {
+          "count": 5922,
+          "totalMs": 1339.6
+        },
+        "detailDurationsNonAdditive": true,
+        "heapBaselineUsedBytes": 32518044,
+        "heapEndUsedBytes": 122761305,
+        "noStableMemoryOrForegroundPaintPass": true
+      },
+      "nativeClickPartialObservation": {
+        "ready": {
+          "scrollY": 175,
+          "mapTop": 132.78125,
+          "mapBottom": 670.78125
+        },
+        "running": {
+          "scrollY": 176,
+          "mapTop": 227.5625,
+          "mapBottom": 765.5625
+        },
+        "observedTopDisplacementPx": 94.78125,
+        "terminalCapture": "Unavailable after browser control transport closed; not counted as a completed second speed sample."
+      },
+      "analyzer": {
+        "path": "client/.verification-runs/2026-10-18T05-06-09.131Z-299f2510-8011-41cb-b2e8-7bcbdc9193fd/observer-analysis.json",
+        "status": "unverified",
+        "rowValidity": "continuous full-map DOM geometry unproven",
+        "series": "One run, not the required nine; no new inter-run budget was predeclared."
+      }
+    },
+    "postFixBrowser": {
+      "status": "unverified",
+      "reason": "Browser transport closed before terminal capture of the second pre-fix run; bounded recovery attempts could not restore it. No post-fix geometry, foreground, screenshot or speed acceptance is claimed."
+    },
+    "cleanup": {
+      "start": {
+        "at": "2026-10-18T04:45:55.091Z",
+        "files": 4934,
+        "bytes": 2054119065,
+        "gib": 1.9130474561825395,
+        "thresholdExceeded": false
+      },
+      "finalBeforeDocumentationMetadata": {
+        "at": "2026-10-18T05:31:26.189Z",
+        "scope": "five disjoint artifact roots; native-ID-deduplicated logical file bytes, not whole-project allocation or disk free space",
+        "roots": [
+          {
+            "root": ".local",
+            "files": 5389,
+            "bytes": 1822139271
+          },
+          {
+            "root": "artifacts",
+            "files": 199,
+            "bytes": 174904828
+          },
+          {
+            "root": "client/.next",
+            "files": 1276,
+            "bytes": 27525219
+          },
+          {
+            "root": "client/.verification-runs",
+            "files": 592,
+            "bytes": 53979566
+          },
+          {
+            "root": "client/audio-source",
+            "files": 52,
+            "bytes": 30265181
+          }
+        ],
+        "files": 7508,
+        "bytes": 2108814065,
+        "gib": 1.963986144401133,
+        "threshold": 2147483648,
+        "thresholdExceeded": false,
+        "duplicates": 0,
+        "symlinks": [],
+        "errors": []
+      },
+      "selectedRootsOnly": true,
+      "logicalBytesNotPhysicalAllocation": true,
+      "totalRemovedFiles": 12,
+      "totalRemovedBytes": 1225855537,
+      "cycles": [
+        {
+          "receipt": "client/.verification-runs/2026-10-18T05-06-09.131Z-299f2510-8011-41cb-b2e8-7bcbdc9193fd/cleanup.json",
+          "removedBytes": 612929418,
+          "targets": [
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/0.pack",
+              "bytes": 265433834,
+              "nativeId": "821886821:4503599629071173",
+              "sha256": "8431a604cc024799bb13126677dace22fb464ff4c88949f7ab996a6026b55901"
+            },
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/index.pack",
+              "bytes": 13029858,
+              "nativeId": "821886821:4503599629071174",
+              "sha256": "1d35d9217d97316f1d560767b01d4fe6c9e8ff8369987c6341616aa5e3e7a453"
+            },
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/edge-server-production/0.pack",
+              "bytes": 276,
+              "nativeId": "821886821:5348024559202653",
+              "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc"
+            },
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/edge-server-production/index.pack",
+              "bytes": 2464,
+              "nativeId": "821886821:5348024559202651",
+              "sha256": "0728376f5e3f3f5f9154bf5497c47d85c3c252f82185b0ac567aaf1581c3da99"
+            },
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/server-production/0.pack",
+              "bytes": 316205442,
+              "nativeId": "821886821:10414574139358775",
+              "sha256": "a091a9f7cbbde197059333b0462b45b6bc91238b71b86c021b25c950508c0ddb"
+            },
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/server-production/index.pack",
+              "bytes": 18257544,
+              "nativeId": "821886821:7036874418830897",
+              "sha256": "922b45851cf034da0ca5b0aa3967eb16bc7bb4e9222ceaee7b58bc9093a9e360"
+            }
+          ]
+        },
+        {
+          "receipt": "client/.verification-runs/2026-10-18T05-27-55.511Z-478fd5da-91aa-40d1-aa28-d5c9a64050e6/cleanup.json",
+          "removedBytes": 612926119,
+          "targets": [
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/0.pack",
+              "bytes": 265442288,
+              "nativeId": "821886821:20547673301404703",
+              "sha256": "1958a316c040e743f9b55dda969c79fc2b1438645bd3f2f4b07c54c9e8e9d1fc"
+            },
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/client-production/index.pack",
+              "bytes": 13029859,
+              "nativeId": "821886821:4785074605784162",
+              "sha256": "5fe4e165df46dd5be940be36f0328ef928540e6e93a8c9ece16b0250b201bd33"
+            },
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/edge-server-production/0.pack",
+              "bytes": 276,
+              "nativeId": "821886821:25895697859082099",
+              "sha256": "4cf621d6541d0b5f1971d04d8acd429b63ef068b3eaf45a684bd7bf9f121aadc"
+            },
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/edge-server-production/index.pack",
+              "bytes": 2464,
+              "nativeId": "821886821:14355223813945205",
+              "sha256": "a2b496cb23bfe96ce426e3f244554a7ca7b6f2f632903d518a5557de47934bd6"
+            },
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/server-production/0.pack",
+              "bytes": 316193679,
+              "nativeId": "821886821:5066549582494312",
+              "sha256": "d0477c16175841b88e86dbe348fda56b5870d730d4d9c21dba2865f325261e9e"
+            },
+            {
+              "path": "C:/2저장고/EternalHunger/client/.next/cache/webpack/server-production/index.pack",
+              "bytes": 18257553,
+              "nativeId": "821886821:4785074605783657",
+              "sha256": "abf94018ddf36c518e7cd460e3d64af6b8720fab9a303ae05704a3f00d264e89"
+            }
+          ]
+        }
+      ],
+      "runtimePayloadHashUnchanged": true,
+      "runtimePayloadSha256": "27d46ce93c79b3ef6d876b84e74bc0a05174e8d96323b6e394764b42f7d9f1ff",
+      "protectedBuilds": [
+        {
+          "path": ".local/build-recovery/observer-baseline-next",
+          "sha256": "7c6e44635267591f53852b383a917489b298dfcaead2999938ddbca80d5c8459",
+          "hashMethod": "globally sorted normalized relative paths"
+        },
+        {
+          "path": ".local/build-recovery/guest-goals-next",
+          "sha256": "402611ffdeae69415efbac73ab5363de4d6ac9df7133aa93cf306a16a2132b21",
+          "hashMethod": "globally sorted normalized relative paths"
+        },
+        {
+          "path": ".local/build-recovery/previous-next",
+          "sha256": "a49925261518f7da6b8c3d76bfdaa5b847098fc875d9add2a8d11c965323b380",
+          "hashMethod": "original recursive per-directory ordinal traversal"
+        },
+        {
+          "path": ".local/build-recovery/map-shift-repro-next",
+          "sha256": "a8f5b8d58e7b032c26e1590cdfe0dc1589321922105dc83515161a32cf38f5eb",
+          "hashMethod": "globally sorted normalized relative paths"
+        }
+      ],
+      "extraReproductionBuildReason": "Preserve actual READY-to-running displacement reproduction until live post-fix confirmation; moved, not copied.",
+      "ownedServerPidsStopped": [
+        17676,
+        56620
+      ],
+      "agentTabsUnclosedDueToTransport": [
+        "14",
+        "15"
+      ],
+      "userTab10Untouched": true,
+      "unrelatedUntracked": {
+        "count": 2592,
+        "gitQuotedLfRowsSha256": "761e8e032e25195e8b859512add38df7797a11bcff1027e6555a31aa9ed32d08"
+      }
+    },
+    "preservedOriginalGoalBodySha256": "1fd3108993d2d6be2182c88b6da70c08a71ab55e58bc040fb522d433991e265b",
+    "previousPerformanceSectionsSha256": "ac5f0fe1ebd13076bef7095a97f042bd28bb086a65706682d6ff32868f8c4941",
+    "overallGoalComplete": false,
+    "remaining": [
+      "Post-fix real full-map geometry, strict foreground x1/x8/x32 nine-run and memory/restart gates.",
+      "G2 cross-team stale natural-core destination revalidation; same-team atomic batch semantics must remain.",
+      "Original G1-G5 requirements, broader rosters and actual human understanding/fun follow-up."
+    ],
+    "publication": "Commit/push/deployment verification is recorded separately in the local publication receipt; local checks are not public runtime proof."
+  },
   "defaultKioskQuoteSharingFollowup": {
     "dateKst": "2026-10-18",
     "parentCommit": "18a3c947b3cb1c50dc642d04bfa8c06803ec6721",

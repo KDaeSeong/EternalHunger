@@ -454,6 +454,24 @@ assert.equal(workerRun.counters.blockedPaidApiCalls, 0, 'No paid API callback is
 assert.equal(baseline.counters.blockedPaidApiCalls, 0, 'No paid API callback is available to the baseline.');
 const workerMeasurementSummary = assertWorkerMeasurementSummary(workerRun.workerMeasurementEntries,
   workerRun.droppedWorkerMeasurementEntries, workerRun.counters.phases);
+if (finiteTransport) {
+  const sourceFramesByPhase = new Map();
+  for (const receipt of workerRun.sourceFrameReceipts) {
+    sourceFramesByPhase.set(receipt.phaseId, (sourceFramesByPhase.get(receipt.phaseId) || 0) + 1);
+  }
+  const terminalByPhase = new Map(workerRun.workerMeasurementEntries
+    .filter((entry) => entry.kind === 'terminal').map((entry) => [entry.phaseId, entry]));
+  for (const [phaseId, sourceFrameCount] of sourceFramesByPhase) {
+    const terminal = terminalByPhase.get(phaseId);
+    assert.ok(terminal, `Phase ${phaseId} must have a Worker diagnostic terminal.`);
+    const projection = terminal.diagnostics?.stages.find((row) => row.name === 'worker.projectFrame');
+    assert.ok(projection, `Phase ${phaseId} must retain its Worker projection stage within the bounded stage list.`);
+    assert.equal(projection.count, sourceFrameCount,
+      `Phase ${phaseId} must time every source-frame projection exactly once, including frames skipped by publication limiting.`);
+    assert.equal(projection.measuredCount, sourceFrameCount,
+      `Phase ${phaseId} must have finite timing for every source-frame projection under the finite clock.`);
+  }
+}
 
 console.log(`SIMULATION_PHASE_WORKER_DIAGNOSTICS schema=eh-worker-phase-performance.v1 phases=${workerMeasurementSummary.phases} pairs=${workerMeasurementSummary.pairs} stages=${workerMeasurementSummary.stageRows} messages=${workerMeasurementSummary.messageRows}`);
 if (finiteTransport) {

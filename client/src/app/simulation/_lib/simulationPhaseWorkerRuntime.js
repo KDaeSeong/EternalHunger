@@ -125,7 +125,9 @@ export function createSimulationPhaseWorkerRuntime({
         setPendingTranscendPick: (...args) => emitAction('setPendingTranscendPick', ...args),
         finishGame: (...args) => emit('finish', { args, refState: captureSimulationPhaseWorkerRefState(options.refs) }),
         publishSimulationFrameFromSource: (input, observe, { force = false } = {}) => {
-          const frame = projectSimulationFrame(input);
+          const frame = measurements
+            ? measurements.work('worker.projectFrame', () => projectSimulationFrame(input))
+            : projectSimulationFrame(input);
           observe(frame);
           const shouldForce = Boolean(force || firstSourceFrame);
           const emitted = framePublicationLimiter.shouldPublish({ force: shouldForce });

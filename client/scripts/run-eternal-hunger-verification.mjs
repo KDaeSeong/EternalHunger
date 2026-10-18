@@ -50,6 +50,7 @@ const commands = {
   'growth-planning-prefix': 'node scripts/diagnose-team-growth-planning.mjs',
   'preset-editor-unit': 'npm run check:skills && npm run check:er-weapons && node scripts/check-guest-character-profiles.mjs && node scripts/check-custom-roster.mjs && npm run check:verification-fingerprint && node node_modules/eslint/bin/eslint.js src/app/characters/page.js src/app/characters/_lib/characterEditorRuntime.js && npm run check:runtime:sweep',
   'phase-performance-unit': 'npm run check:phase-runtime-performance && node scripts/check-late-growth-decision-index.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'observer-evidence-unit': 'node scripts/generate-simulation-version.mjs && npm run check:observer-performance-guards && npm run check:observer-performance-probe && npm run check:lumia-minimap && node scripts/check-simulation-cooperative-yield.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'safe-route-unit': 'node scripts/generate-simulation-version.mjs && npm run check:team-tactics && npm run check:phase-runtime-performance && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'safe-route-match': 'npm run check:safe-route-facts && npm run check:verification-fingerprint',
   'kiosk-quote-unit': 'node scripts/generate-simulation-version.mjs && npm run check:procurement && npm run check:team-purchase-goals && node scripts/check-kiosk-movement-quote-cache.mjs --fixtures-only && npm run check:verification-fingerprint && npm run check:runtime:sweep',
@@ -111,6 +112,35 @@ function fingerprint() {
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json',
     'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs'];
+  if (['observer-evidence-unit', 'build', 'runtime-build', 'performance', 'full'].includes(mode)) paths.push(
+    'scripts/generate-simulation-version.mjs', 'scripts/check-verification-fingerprint.mjs',
+    'scripts/check-observer-performance-guards.mjs', 'scripts/check-observer-performance-probe.mjs',
+    'scripts/check-observer-wait-measurement.mjs', 'scripts/check-observer-performance-report.mjs',
+    'scripts/lib/observer-performance-report.mjs', 'scripts/analyze-observer-performance.mjs',
+    'scripts/check-replay-history-lifetime.mjs', 'scripts/lib/hook-handler-harness.mjs',
+    'scripts/check-lumia-minimap-geometry.mjs', 'scripts/check-minimap-team-presentation.mjs',
+    'scripts/check-lumia-reference-map.mjs', 'scripts/check-minimap-interaction.mjs',
+    'scripts/check-observer-layout.mjs', 'scripts/check-simulation-cooperative-yield.mjs',
+    'src/app/simulation/_components/SimulationMinimapCanvas.js',
+    'src/app/simulation/_components/SimulationMinimapPanel.js',
+    'src/app/simulation/_components/SimulationMinimapHyperloopControl.js',
+    'src/app/games/_components/GameActionIcon.js',
+    'src/app/simulation/_components/SimulationControlPanel.js',
+    'src/app/simulation/_components/SimulationMarketSeedCard.js',
+    'src/app/simulation/_components/SimulationSurvivorBoard.js',
+    'src/app/simulation/_components/SimulationObserverPerformancePanel.js',
+    'src/app/simulation/_components/SimulationMainStage.js',
+    'src/app/simulation/_components/SimulationGameScreen.js',
+    'src/app/simulation/_components/SimulationScreenHeader.js',
+    'src/app/simulation/_components/SimulationForbiddenStatusBar.js',
+    'src/app/simulation/_components/SimulationEventFeedbackBar.js',
+    'src/app/simulation/_components/SimulationWorldSpawnToolbar.js',
+    'src/app/simulation/_components/SimulationPageView.js',
+    'src/app/simulation/_components/SimulationReplayHistory.js',
+    'src/app/simulation/_components/useObserverMemoryLifetime.js',
+    'src/app/simulation/_components/simulationReplayHistoryLifetime.js',
+    'src/app/simulation/_components/observerMemoryLifetime.js',
+    'src/styles/ERSimulation.css', 'eslint.runtime.config.mjs');
   if (['authored-opening-unit', 'growth', 'performance', 'growth-focus-unit',
     'initial-weapon-goal-unit', 'full'].includes(mode)) paths.push('scripts/check-authored-goal-material-reservation.mjs');
   if (['guest-equipment-unit', 'guest-equipment-match', 'build', 'runtime-build', 'full'].includes(mode)) paths.push(
