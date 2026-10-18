@@ -1,4 +1,54 @@
 {
+  "observerReportExportAndBuildContextFollowup": {
+    "recordedAt": "2026-10-18",
+    "sourceCommitBeforeFollowup": "da539d429612adef3bae3e73f7e938508a746b3d",
+    "engineVersion": "d672a14f6583f454ad9d77f05c2d21e2c3197ad8e481213ce45854c390d1b3a5",
+    "status": "local-build-and-current-input-context-parity-passed; public-redeployment-pending; overall-goal-incomplete",
+    "preservedPriorSections": {"count":20,"canonicalSha256":"1bb52f77ad6f969a61ec5e6c464ad0a8bb02ef9e31d336cae4678f84f7c10f5d","algorithm":"PowerShell parsed JSON -> ConvertTo-Json -Depth 100 -Compress -> UTF8 SHA256, excluding this new root section."},
+    "latestRemoteFailure": {
+      "source":"User-supplied latest Vercel build log, not inferred from local success",
+      "commit":"da539d4","deployment":"https://vercel.com/kurokosis-projects/eternal-hunger/HJ5by4Z3zTKKD6G8sRpt75en9JGC",
+      "node":"v24.21.0","cpuCores":2,"ramGiB":8,
+      "compiledAndPageGenerationPassed":true,"moduleResolutionChecks":23,
+      "failure":"postbuild isolated VM first-phase timeout-60s",
+      "lastSeq":8279,"frames":471,"actions":7808,"completes":0,"failures":0,
+      "scope":"Known failure location, not proof of a product deadlock or a Node version regression."
+    },
+    "buildSmokeRepair": {
+      "change":"Keep the separate VM realm, same compiled chunks, fixture, JSON boundary, blocked network, READY/FIFO checks and 60-second deadline; use ordinary realm globals with DONT_CONTEXTIFY when supported, preserving legacy fallback.",
+      "freshInputPairRun":"client/.verification-runs/2026-10-18T08-11-27.236Z-34f0e99e-1918-4283-88e3-95dd6277c326",
+      "pairResultSha256":"b0727c2f12a7c14796b0c410fcec167c6f8200ce66148ca0748e0ce034b91e58",
+      "pairOutputLogSha256":"d4e084c9ae7677792c7fc74b435f96f03a6a455edd863d43e12f70d100c67cb3",
+      "sameEngineAndVerificationSources":true,
+      "ordinaryGlobalsElapsedMs":6979,"contextifiedElapsedMs":27397,
+      "actionsEach":7996,"finalMatchSecEach":140,
+      "actionDigestEach":"91485f7814ae2fbdd3d5c57cac869b5a06785f59236ec00b10559f3abe557097",
+      "finalFrameDigestEach":"edb2b2fa5d7a608dfda3503c81ed58d6fd2f8210c12bdbba913180c13ae3db67",
+      "finalRefStateAndRngDigestEach":"d8c5d9e1044a4f329c54b34e0fd289dc8b2c3aa836724c46a29e713c1ec51935",
+      "scope":"A same-input compiled-bundle first-phase VM comparison; not a browser, whole-match or CI acceptance result. Wall-clock frame throttling may change transmission count without changing actions or the final state."
+    },
+    "normalProductionBuild": {
+      "run":"client/.verification-runs/2026-10-18T08-10-33.340Z-ebc35e6e-7582-4d48-a453-2287a47f2125",
+      "resultSha256":"639908268c43f7fa5a6df70966cd774796257624915866fc6563a7483b94b591",
+      "outputLogSha256":"200fa47b325e8e48e48d24af97e1ff55aa66bd709e73bec6f249b23ca08f5b0a",
+      "startedAt":"2026-10-18T08:10:33.342Z","finishedAt":"2026-10-18T08:11:01.958Z",
+      "exitCode":0,"sameEngine":true,"sameVerificationSources":true,
+      "buildId":"GU5e2v21BvklS5GrBSDCH","pageGenerationWorkItems":62,"routeRows":75,
+      "moduleResolutionChecks":23,"workerFirstPhaseElapsedMs":6769,"workerFinalMatchSec":140,"workerCompletes":1,"workerFailures":0
+    },
+    "observerRawExport": {
+      "behavior":"Query-gated diagnostic UI exports a finished v3 report without wrapping or truncating; manual, clipped, hidden and incomplete reports remain exportable. Active reports are disabled. Filename-only sanitization and a 2MiB UTF8 byte limit do not edit report contents.",
+      "actualBrowserDownload":{"buildId":"W7VBo9mZsD8iZQ4o1VLhs","bytes":7028,"domAndFileSha256":"5e373f877b5134b9601eebb251debc738613753259897d6e567652a41e594995","preservedAt":"client/.verification-runs/2026-10-18T08-10-33.340Z-ebc35e6e-7582-4d48-a453-2287a47f2125/raw-observer-export.json"},
+      "sampleStatus":"settled/manual, autoPlay=false, matchSec=0, clippedSamples=670; proves raw failed-sample preservation, not performance acceptance",
+      "strictReportOrder":"Only x1 x1 x1 x8 x8 x8 x32 x32 x32 can proceed to existing acceptance gates; the five other whole-block permutations are unverified, not passing.",
+      "focusedChecks":{"probe":53,"report":18,"fingerprint":18,"layout":27,"logExport":8,"total":124,"changedJsEslintExitCode":0},
+      "scope":"Source and synthetic rejection contracts plus one actual UI download. No strict nine-run speed/memory or human acceptance is claimed."
+    },
+    "cleanup": {"cacheFilesRemoved":9,"temporaryBuildFilesRemoved":1276,"logicalBytesRemoved":659826777,"retainedBuildPayloadSha256":"b1ae42421549e7e083ad0466a273fcf0eb2234e07003ecfdd557bfba098e6511","receipt":"client/.verification-runs/2026-10-18T08-10-33.340Z-ebc35e6e-7582-4d48-a453-2287a47f2125/cleanup-observer-export.json","receiptSha256":"c8f0a0017ee6021aeddd2e3447d7da785949811e32a7b7e430164bb5794f36e3","fiveRootLogicalBytesAfterDeletionBeforeFinalProofUpdates":2136773147,"nativeIdentityDuplicates":0,"notWholeWorkspaceOrPhysicalAllocation":true},
+    "unrelatedUntrackedPathsPreserved":{"count":2592,"quotedGitNamesLfJoinedSha256":"761e8e032e25195e8b859512add38df7797a11bcff1027e6555a31aa9ed32d08"},
+    "remainingGates":["Actual new public deployment and hydrated UI", "Raw-report-backed strict foreground nine-run and memory/session evidence", "Remaining custom/formation causal coverage", "Human follow-up"],
+    "originalG1ToG5AndCommonAcceptanceUnchanged":true
+  },
   "focusedFieldDemandVariedBaselineFollowup": {
     "recordedAt": "2026-10-18",
     "sourceCommitBeforeFollowup": "1326a9d9b4a621bfa7bcc1d20ca9df68348b433d",

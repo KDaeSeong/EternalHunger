@@ -108,6 +108,8 @@ for (const mode of ['observer-evidence-unit', 'build', 'runtime-build', 'perform
     'src/app/simulation/_components/SimulationMinimapPanel.js',
     'src/app/simulation/_components/SimulationMinimapHyperloopControl.js',
     'src/app/games/_components/GameActionIcon.js',
+    'src/app/simulation/_components/SimulationObserverPerformancePanel.js',
+    'src/app/simulation/_components/observerPerformanceExport.js',
     'src/app/simulation/_components/SimulationControlPanel.js',
     'src/app/simulation/_components/SimulationMarketSeedCard.js',
     'src/app/simulation/_components/SimulationSurvivorBoard.js',
@@ -265,5 +267,17 @@ for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module
   }
 }
 console.log('PASS module registration and resolution policy mutations invalidate applicable verification modes');
-console.log(JSON.stringify({ pass: true, checks: 17, engine: base.wrapper,
+for (const mode of ['build', 'runtime-build', 'full', 'phase-worker-release',
+  'module-resolution-compat', 'worker-build-context-parity']) {
+  const sourceHashes = verificationSources(mode);
+  for (const path of ['scripts/check-phase-worker-build-entry.mjs',
+    'scripts/lib/run-random-isolation-match.mjs']) {
+    assert.equal(typeof sourceHashes[path], 'string', `${mode} must fingerprint ${path}.`);
+    const changed = verificationSources(mode, fileURLToPath(new URL(path, root)));
+    assert.notEqual(changed[path], sourceHashes[path],
+      'Changing the Worker build-entry check or fresh-input helper must invalidate its verification receipt.');
+  }
+}
+console.log('PASS Worker build-entry and fresh-input mutations invalidate all six release verification modes');
+console.log(JSON.stringify({ pass: true, checks: 18, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));

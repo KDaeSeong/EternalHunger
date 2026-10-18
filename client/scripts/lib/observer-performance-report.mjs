@@ -127,6 +127,11 @@ export function analyzeObserverPerformanceRuns(runs, {
         pendingSamples: run?.inputResponse?.pendingSamples ?? null, maxMs: run?.inputResponse?.maxMs ?? null },
       visibility: visibility ?? null, mapCoverage: map ?? null, elapsedMs: run?.elapsedMs ?? null };
   });
+  const expectedSpeedSequence = [1, 1, 1, 8, 8, 8, 32, 32, 32];
+  if (runs.length === expectedSpeedSequence.length
+    && rows.some((row, index) => row.speed !== expectedSpeedSequence[index])) {
+    issues.push('require ordered speed blocks: three x1, then three x8, then three x32');
+  }
   const first = runs[0];
   for (let index = 1; index < runs.length; index++) {
     const run = runs[index], previous = runs[index - 1];

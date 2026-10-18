@@ -14,6 +14,7 @@ const commands = {
   execution: 'npm run check:growth-scheduling:match',
   'phase-worker-release': 'npm run check:auth-session && npm run postbuild && npm run check:simulation-replay && npm run check:runtime:sweep',
   'module-resolution-compat': 'node scripts/check-simulation-module-resolution.mjs && node scripts/check-phase-worker-build-entry.mjs',
+  'worker-build-context-parity': 'node scripts/check-phase-worker-build-entry.mjs --compare-contexts',
   'custom-shared-growth-match': 'npm run check:custom-shared-growth:match',
   'custom-growth-expanded-match': 'npm run check:custom-shared-growth:match -- --expanded && npm run check:verification-fingerprint',
   'custom-growth-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-growth-plan.mjs && node scripts/check-growth-capacity.mjs && npm run check:deep-custom-recipes && node scripts/check-team-tactics.mjs && node scripts/check-team-regroup.mjs && node scripts/check-team-resource-goals.mjs && node scripts/check-team-purchase-goals.mjs && node scripts/check-match-distribution-metrics.mjs && npm run check:verification-fingerprint',
@@ -129,6 +130,7 @@ function verificationSourceHashes() {
     'src/app/simulation/_components/SimulationMarketSeedCard.js',
     'src/app/simulation/_components/SimulationSurvivorBoard.js',
     'src/app/simulation/_components/SimulationObserverPerformancePanel.js',
+    'src/app/simulation/_components/observerPerformanceExport.js',
     'src/app/simulation/_components/SimulationMainStage.js',
     'src/app/simulation/_components/SimulationGameScreen.js',
     'src/app/simulation/_components/SimulationScreenHeader.js',
@@ -219,8 +221,9 @@ function verificationSourceHashes() {
     'scripts/check-simulation-phase-executor-hook.mjs', 'scripts/check-simulation-phase-worker-match.mjs',
     'scripts/lib/simulation-phase-worker-host.mjs', 'scripts/lib/hook-handler-harness.mjs',
     'scripts/lib/run-random-isolation-match.mjs', 'scripts/check-verification-fingerprint.mjs', 'eslint.runtime.config.mjs');
-  if (['build', 'runtime-build', 'full', 'phase-worker-release', 'module-resolution-compat'].includes(mode)) paths.push(
-    'scripts/check-phase-worker-build-entry.mjs', 'scripts/check-simulation-module-resolution.mjs');
+  if (['build', 'runtime-build', 'full', 'phase-worker-release', 'module-resolution-compat', 'worker-build-context-parity'].includes(mode)) paths.push(
+    'scripts/check-phase-worker-build-entry.mjs', 'scripts/check-simulation-module-resolution.mjs',
+    'scripts/lib/run-random-isolation-match.mjs');
   if (['phase-worker-release', 'full'].includes(mode)) paths.push('scripts/check-auth-session.mjs', 'scripts/check-proxy-session-contract.mjs');
   if (['custom-shared-growth-match', 'full'].includes(mode)) paths.push('scripts/check-custom-shared-growth-match.mjs',
     'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/run-random-isolation-match.mjs');

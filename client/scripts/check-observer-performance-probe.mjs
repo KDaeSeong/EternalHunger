@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const { createObserverPerformanceProbe } = await import('../src/app/simulation/_lib/observerPerformanceRuntime.js');
+const { canExportObserverPerformanceReport, buildObserverPerformanceReportDownload,
+  OBSERVER_REPORT_MAX_BYTES } = await import('../src/app/simulation/_components/observerPerformanceExport.js');
 const { measureObserverWork, subscribeObserverWorkMeasurements, captureObserverWorkerMeasurementToken,
   publishObserverWorkerMeasurement } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
 const panelSource = readFileSync(new URL('../src/app/simulation/_components/SimulationObserverPerformancePanel.js', import.meta.url), 'utf8');
+const exportSource = readFileSync(new URL('../src/app/simulation/_components/observerPerformanceExport.js', import.meta.url), 'utf8');
 const mainStageSource = readFileSync(new URL('../src/app/simulation/_components/SimulationMainStage.js', import.meta.url), 'utf8');
 const pageViewSource = readFileSync(new URL('../src/app/simulation/_components/SimulationPageView.js', import.meta.url), 'utf8');
 const minimapCanvasSource = readFileSync(new URL('../src/app/simulation/_components/SimulationMinimapCanvas.js', import.meta.url), 'utf8');
@@ -814,6 +817,80 @@ check('worker report bounds, mismatched and evicted results cannot extend retain
   assert.equal(worker.phases.at(-1).diagnostics.messagesBeforeTerminal.length, 32);
   assert.ok(worker.phases.at(-1).diagnostics.stages.every(row => row.name.length === 80));
   assert.ok(worker.phases.at(-1).diagnostics.messagesBeforeTerminal.every(row => row.kind.length === 80));
+});
+
+const exportNow = new Date('2026-10-18T08:00:00.000Z');
+const reportFixture = (overrides = {}) => ({
+  schema: 'eh-observer-performance.v3', label: 'x8 / 측정:raw label', startedAtMs: 10, endedAtMs: 20, elapsedMs: 10,
+  engineVersion: 'engine-hash', context: { initial: { speed: 8, seed: 'seed/5501' }, final: { speed: 8, seed: 'seed/5501' } },
+  boundary: { status: 'settled', stopReason: 'manual' }, visibility: { supported: false, entireMeasurementVisible: false },
+  mapCoverage: { fullyDisplayedThroughout: false, clippedSamples: 1 }, workerBreakdown: { status: 'unsupported' },
+  comparison: { matched: false }, ...overrides,
+});
+
+check('observer report export accepts settled or incomplete v3 samples but rejects missing or active results', () => {
+  for (const result of [reportFixture(), reportFixture({ boundary: { status: 'incomplete', stopReason: 'timeout' } }),
+    reportFixture({ boundary: { status: 'settled', stopReason: 'replay-comparison-failed' } })]) {
+    assert.equal(canExportObserverPerformanceReport(result), true);
+    assert.equal(buildObserverPerformanceReportDownload(result, exportNow).ok, true);
+  }
+  for (const result of [null, undefined, {}, reportFixture({ schema: 'eh-observer-performance.v2' }),
+    reportFixture({ endedAtMs: null }), reportFixture({ endedAtMs: Infinity }),
+    reportFixture({ boundary: { status: 'recording', stopReason: null } }),
+    reportFixture({ boundary: { status: 'draining', stopReason: 'manual' } }),
+    reportFixture({ boundary: null })]) {
+    assert.equal(canExportObserverPerformanceReport(result), false);
+    assert.deepEqual(buildObserverPerformanceReportDownload(result, exportNow), { ok: false, reason: 'not-finalized' });
+  }
+});
+
+check('observer report export is an owned raw-v3 round trip and only sanitizes bounded filename parts', () => {
+  const source = reportFixture();
+  const before = structuredClone(source);
+  const exported = buildObserverPerformanceReportDownload(source, exportNow);
+  assert.equal(exported.ok, true);
+  assert.equal(exported.mimeType, 'application/json;charset=utf-8');
+  assert.deepEqual(JSON.parse(exported.text), before, 'No analysis wrapper, field stripping, or normalization is permitted.');
+  assert.deepEqual(source, before, 'Serialization must not mutate the caller-owned result.');
+  assert.match(exported.filename, /^eternal-hunger-observer-v3-[\p{L}\p{N}._-]+\.json$/u);
+  assert.ok(exported.filename.includes('5501'));
+  assert.ok(exported.filename.length <= 240);
+  assert.doesNotMatch(exported.filename, /[\\/:*?"<>|]/);
+  assert.equal(exported.filename.includes(source.label), false, 'Unsafe raw label text belongs in the JSON, not the filename.');
+});
+
+check('observer report export enforces the exact UTF-8 byte ceiling and rejects serialization errors', () => {
+  assert.equal(OBSERVER_REPORT_MAX_BYTES, 2 * 1024 * 1024);
+  const base = reportFixture({ label: '' });
+  const baseExport = buildObserverPerformanceReportDownload(base, exportNow);
+  assert.equal(baseExport.ok, true);
+  const baseBytes = new TextEncoder().encode(baseExport.text).byteLength;
+  const exact = reportFixture({ label: 'a'.repeat(OBSERVER_REPORT_MAX_BYTES - baseBytes) });
+  const atLimit = buildObserverPerformanceReportDownload(exact, exportNow);
+  assert.equal(atLimit.ok, true);
+  assert.equal(new TextEncoder().encode(atLimit.text).byteLength, OBSERVER_REPORT_MAX_BYTES);
+  assert.deepEqual(JSON.parse(atLimit.text), exact);
+  const over = reportFixture({ label: `${exact.label}a` });
+  assert.deepEqual(buildObserverPerformanceReportDownload(over, exportNow), { ok: false, reason: 'too-large' });
+  const availableBytes = OBSERVER_REPORT_MAX_BYTES - baseBytes;
+  const unicode = reportFixture({ label: '가'.repeat(Math.floor(availableBytes / 3)) + 'a'.repeat(availableBytes % 3) });
+  const unicodeAtLimit = buildObserverPerformanceReportDownload(unicode, exportNow);
+  assert.equal(unicodeAtLimit.ok, true);
+  assert.equal(new TextEncoder().encode(unicodeAtLimit.text).byteLength, OBSERVER_REPORT_MAX_BYTES);
+  assert.deepEqual(JSON.parse(unicodeAtLimit.text), unicode);
+  assert.deepEqual(buildObserverPerformanceReportDownload(reportFixture({ label: `${unicode.label}a` }), exportNow),
+    { ok: false, reason: 'too-large' }, 'The limit applies to UTF-8 bytes, not UTF-16 string length.');
+  const circular = reportFixture(); circular.circular = circular;
+  assert.deepEqual(buildObserverPerformanceReportDownload(circular, exportNow), { ok: false, reason: 'serialization-failed' });
+});
+
+check('observer report UI is query-gated, guards download readiness, and uses the existing download helper', () => {
+  assert.match(panelSource, /get\('perfProbe'\) === '1'/);
+  assert.match(panelSource, /data-testid="observer-performance-download"/);
+  assert.match(panelSource, /canExportObserverPerformanceReport/);
+  assert.match(panelSource, /disabled=\{running \|\| stopping \|\| !canExportObserverPerformanceReport\(result\)\}/);
+  assert.match(panelSource, /downloadTextFile\(file\.filename, file\.text, file\.mimeType\)/);
+  assert.match(exportSource, /application\/json;charset=utf-8/);
 });
 
 console.log(`OBSERVER_PERFORMANCE_PROBE_CHECKS ${checks}/${checks}`);

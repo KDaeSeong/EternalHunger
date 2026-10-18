@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createObserverPerformanceProbe } from '../_lib/observerPerformanceRuntime';
 import { SIMULATION_ENGINE_VERSION } from '../_generated/simulationEngineVersion';
 import { observerMemoryRegistry } from './observerMemoryLifetime';
+import { downloadTextFile } from '../_lib/logExportRuntime';
+import { buildObserverPerformanceReportDownload, canExportObserverPerformanceReport } from './observerPerformanceExport';
 
 export default function SimulationObserverPerformancePanel({ speed, seed, autoPlay, day, matchSec,
   isGameOver, replayMode, replayId, replayStatus } = {}) {
@@ -12,6 +14,7 @@ export default function SimulationObserverPerformancePanel({ speed, seed, autoPl
   const [result, setResult] = useState(null);
   const [memoryLifetime, setMemoryLifetime] = useState(null);
   const [finalizing, setFinalizing] = useState(false);
+  const [downloadError, setDownloadError] = useState(null);
   const mounted = useRef(false);
   const context = useMemo(() => ({ engineVersion: SIMULATION_ENGINE_VERSION, speed: Number(speed),
     seed: String(seed ?? ''), autoPlay: Boolean(autoPlay), day: Number(day), matchSec: Number(matchSec),
@@ -56,6 +59,7 @@ export default function SimulationObserverPerformancePanel({ speed, seed, autoPl
   if (!enabled) return null;
   if (!probe) return <aside data-testid="observer-performance-panel" aria-label="관전자 성능 진단 패널"><output role="status">초기화 중</output></aside>;
   const start = () => {
+    setDownloadError(null);
     probe.start({ label, context });
     setRunning(true);
     setResult(probe.snapshot());
@@ -67,12 +71,30 @@ export default function SimulationObserverPerformancePanel({ speed, seed, autoPl
     setRunning(false); setFinalizing(false); setResult(value);
   };
   const stopping = finalizing || running && context.isGameOver && context.comparisonMatched != null;
+  const download = () => {
+    if (running || stopping) return;
+    setDownloadError(null);
+    const file = buildObserverPerformanceReportDownload(result);
+    if (!file.ok) {
+      setDownloadError(file.reason === 'too-large'
+        ? '측정 JSON이 저장 한도(2 MiB)를 넘었습니다. 내용은 자르지 않았습니다.'
+        : '중지된 측정 결과를 저장할 수 없습니다. 측정 상태와 결과를 확인해 주세요.');
+      return;
+    }
+    try {
+      if (!downloadTextFile(file.filename, file.text, file.mimeType)) throw new Error('Download unavailable');
+    } catch {
+      setDownloadError('측정 JSON을 저장하지 못했습니다. 브라우저의 다운로드 상태를 확인해 주세요.');
+    }
+  };
   return <aside className="sim-observer-performance" data-testid="observer-performance-panel" aria-label="관전자 성능 진단 패널">
     <label htmlFor="observer-performance-label">측정 라벨</label>
     <input id="observer-performance-label" data-testid="observer-performance-label" aria-label="측정 라벨" value={label} onChange={(event) => setLabel(event.target.value)} />
     <button type="button" data-testid="observer-performance-start" aria-label="성능 측정 시작" onClick={start} disabled={running}>시작</button>
     <button type="button" data-testid="observer-performance-stop" aria-label="성능 측정 중지" onClick={stop} disabled={!running || stopping}>중지</button>
+    <button type="button" data-testid="observer-performance-download" aria-label="성능 측정 JSON 저장" onClick={download} disabled={running || stopping || !canExportObserverPerformanceReport(result)}>JSON 저장</button>
     <output data-testid="observer-performance-status" role="status">{stopping ? '종료 표본 수집 중' : running ? '측정 중' : result ? '측정 완료' : '대기 중'}</output>
+    {downloadError && <output role="alert">{downloadError}</output>}
     <p>동일 재경기는 결과 비교 뒤 자동 중지합니다. 측정 완료는 성능 합격을 뜻하지 않습니다.</p>
     <details className="sim-observer-performance-result">
       <summary>측정 JSON 보기</summary>

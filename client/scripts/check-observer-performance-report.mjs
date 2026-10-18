@@ -50,6 +50,26 @@ check('nine complete samples pass only their explicitly declared observational g
   assert.equal(report.status, 'pass'); assert.deepEqual(before, copy);
   assert.match(report.scope, /DOM_map_geometry_not_native_occlusion_painted_FPS_INP_or_absence_of_leaks/);
 });
+check('speed blocks require x1 then x8 then x32 and analyzer leaves every input unchanged', () => {
+  const canonical = fixture(), canonicalBefore = structuredClone(canonical);
+  assert.equal(analyzeObserverPerformanceRuns(canonical, policy).status, 'pass');
+  assert.deepEqual(canonical, canonicalBefore);
+
+  const blockOrders = [[1, 32, 8], [8, 1, 32], [8, 32, 1], [32, 1, 8], [32, 8, 1]];
+  for (const order of blockOrders) {
+    const runs = fixture();
+    for (let index = 0; index < runs.length; index++) {
+      const speed = order[Math.floor(index / 3)];
+      runs[index].context.initial.speed = speed;
+      runs[index].context.final.speed = speed;
+    }
+    const before = structuredClone(runs);
+    const report = analyzeObserverPerformanceRuns(runs, policy);
+    assert.equal(report.status, 'unverified', `block order ${order.join('-')} must be unverified`);
+    assert.ok(report.issues.includes('require ordered speed blocks: three x1, then three x8, then three x32'));
+    assert.deepEqual(runs, before, `block order ${order.join('-')} input must remain unchanged`);
+  }
+});
 check('defaults preserve the historical strict Long Task gate without inventing frame or memory budgets', () => {
   const report = analyzeObserverPerformanceRuns(fixture(), { expectedEngine: engine });
   assert.equal(report.runs[0].longTasks.status, 'pass'); assert.equal(report.status, 'unverified');
