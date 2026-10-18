@@ -14,17 +14,23 @@ export function getKioskMovementTargets({ zoneIds = [], mapObj, kiosks = [], act
   const perk = getActorPerkEffects(actor);
   const discount = value => applyPerkDiscount(value, perk.kioskDiscountPct, perk.marketDiscountPct);
   const targetId = String(craftGoal?.target?._id || '');
+  // Default shops quote the same actor/recipe within this synchronous call.
+  // Keep only availability, including a failed quote; custom stock remains
+  // per-shop and the next movement decision must quote fresh inputs again.
+  let defaultOfferAvailable;
   return zoneIds.filter(zoneId => {
     const shop = kiosks.find(row => String(row.mapId?._id || row.mapId || '') === String(mapObj?._id || '')
       && String(row.zoneId || '') === String(zoneId));
     const catalog = Array.isArray(shop?.catalog) ? shop.catalog : [];
     if (!catalog.length) {
       if (shop?.hasCustomCatalog) return false;
-      const offer = quoteDefaultKioskGoalAction({ actor, craftGoal: { ...craftGoal, missing }, publicItems,
-        ruleset, day, phase, includeSurplus: true, upgradeNeed: upgradeNeed && { ...upgradeNeed,
-          wantLegend: upgradeNeed.wantLegend && ['meteor', 'life_tree', 'mithril', 'force_core'].some(key => keys.has(key)),
-          wantTrans: upgradeNeed.wantTrans && keys.has('vf') } });
-      return !!offer;
+      if (defaultOfferAvailable === undefined) {
+        defaultOfferAvailable = !!quoteDefaultKioskGoalAction({ actor, craftGoal: { ...craftGoal, missing }, publicItems,
+          ruleset, day, phase, includeSurplus: true, upgradeNeed: upgradeNeed && { ...upgradeNeed,
+            wantLegend: upgradeNeed.wantLegend && ['meteor', 'life_tree', 'mithril', 'force_core'].some(key => keys.has(key)),
+            wantTrans: upgradeNeed.wantTrans && keys.has('vf') } });
+      }
+      return defaultOfferAvailable;
     }
     const offer = pickKioskCatalogGoalAction({ catalog, actor, miss: missing, applyKioskCost: discount,
       findById: id => publicItems.find(item => String(item._id) === id),

@@ -16,6 +16,11 @@ function compact(value) {
   return String(value || '').toLowerCase().replace(/[\s._-]+/g, '');
 }
 
+// These names are immutable policy, not catalogue or actor-derived state.
+const defaultKioskNames = new Set(DEFAULT_KIOSK_ITEM_NAMES.map(compact));
+const defaultKioskAliases = Object.freeze(['meteor', 'treeoflife', 'lifetree', '생나', 'mythril', 'mithril',
+  'tacticalskillmodule', 'tacskillmodule', '혈액팩', '혈팩', 'bloodpack', 'bloodsample', 'vfbloodsample', 'forcecore']);
+
 function isPlainWater(item) {
   return ['물', 'water'].includes(compact(itemName(item)))
     && !item?.equipSlot && !['무기', '방어구', 'weapon', 'armor'].includes(item?.type);
@@ -41,10 +46,7 @@ function isMarketItemAllowed(item, source) {
 function isDefaultKioskItem(item) {
   if (!isMarketItemAllowed(item, 'kiosk') || item?.equipSlot
     || ['무기', '방어구', 'weapon', 'armor', 'equipment'].includes(item?.type)) return false;
-  const names = new Set(DEFAULT_KIOSK_ITEM_NAMES.map(compact));
-  const aliases = ['meteor', 'treeoflife', 'lifetree', '생나', 'mythril', 'mithril',
-    'tacticalskillmodule', 'tacskillmodule', '혈액팩', '혈팩', 'bloodpack', 'bloodsample', 'vfbloodsample', 'forcecore'];
-  if (names.has(compact(itemName(item))) || aliases.includes(compact(itemName(item)))) return true;
+  if (defaultKioskNames.has(compact(itemName(item))) || defaultKioskAliases.includes(compact(itemName(item)))) return true;
   return (Array.isArray(item.tags) ? item.tags : []).some(tag => ['meteor', 'life_tree', 'mithril', 'force_core', 'vf', 'tac_skill_module'].includes(String(tag).toLowerCase()));
 }
 

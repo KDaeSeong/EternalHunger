@@ -48,6 +48,8 @@ const commands = {
   'phase-performance-unit': 'npm run check:phase-runtime-performance && node scripts/check-late-growth-decision-index.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'safe-route-unit': 'node scripts/generate-simulation-version.mjs && npm run check:team-tactics && npm run check:phase-runtime-performance && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'safe-route-match': 'npm run check:safe-route-facts && npm run check:verification-fingerprint',
+  'kiosk-quote-unit': 'node scripts/generate-simulation-version.mjs && npm run check:procurement && npm run check:team-purchase-goals && node scripts/check-kiosk-movement-quote-cache.mjs --fixtures-only && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'kiosk-quote-match': 'npm run check:kiosk-movement-quote-cache && npm run check:verification-fingerprint',
   'move-power-sort': 'node scripts/check-planning-power-snapshot.mjs && npm run check:move-power-sort:match && npm run check:team-tactics && npm run check:live-frames && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'frame-transport': 'node scripts/check-simulation-cooperative-yield.mjs && node scripts/check-simulation-phase-worker-client.mjs && node scripts/check-simulation-phase-worker-input.mjs && node scripts/check-simulation-phase-executor-hook.mjs && npm run check:simulation-phase-worker:finite-transport && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'natural-procurement-unit': 'node scripts/check-natural-procurement-evidence.mjs && npm run check:verification-fingerprint',
@@ -105,10 +107,20 @@ function fingerprint() {
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json',
     'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs'];
+  if (['kiosk-quote-unit', 'kiosk-quote-match', 'full'].includes(mode)) paths.push(
+    'scripts/generate-simulation-version.mjs', 'scripts/check-kiosk-movement-quote-cache.mjs',
+    'scripts/lib/run-random-isolation-match.mjs', 'scripts/check-verification-fingerprint.mjs',
+    'scripts/lib/team-purchase-fixture.mjs');
+  if (mode === 'kiosk-quote-unit') paths.push('scripts/check-procurement-transactions.mjs',
+    'scripts/check-kiosk-catalog-contract.mjs', 'scripts/check-market-item-policy.mjs',
+    'scripts/check-team-purchase-goals.mjs', 'scripts/check-default-kiosk-goals.mjs',
+    'scripts/check-kiosk-material-identity.mjs', 'scripts/check-kiosk-exchange-inputs.mjs',
+    'scripts/check-kiosk-goal-exchanges.mjs', 'eslint.runtime.config.mjs');
   if (['safe-route-unit', 'safe-route-match'].includes(mode)) paths.push(
     'scripts/generate-simulation-version.mjs', 'scripts/check-safe-route-facts.mjs',
     'scripts/lib/run-random-isolation-match.mjs', 'scripts/check-verification-fingerprint.mjs');
   if (mode === 'safe-route-unit') paths.push('scripts/check-team-tactics.mjs',
+    'scripts/lib/team-purchase-fixture.mjs',
     'scripts/check-combat-decision-evidence.mjs', 'scripts/check-team-regroup.mjs',
     'scripts/check-team-regroup-lumia.mjs', 'scripts/check-team-isolation-tracker.mjs',
     'scripts/check-isolation-fixture.mjs', 'scripts/check-match-distribution-metrics.mjs',

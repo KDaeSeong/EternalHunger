@@ -136,13 +136,45 @@ for (const mode of ['safe-route-unit', 'safe-route-match']) {
 }
 for (const path of ['scripts/check-team-resource-goals.mjs', 'scripts/check-team-purchase-goals.mjs',
   'scripts/check-team-coordination-scheduling.mjs', 'scripts/check-planning-power-snapshot.mjs',
-  'scripts/lib/match-distribution-diagnostics.mjs', 'scripts/lib/movement-reversal-trace.mjs']) {
+  'scripts/lib/match-distribution-diagnostics.mjs', 'scripts/lib/movement-reversal-trace.mjs',
+  'scripts/lib/team-purchase-fixture.mjs']) {
   const before = verificationSources('safe-route-unit');
   const after = verificationSources('safe-route-unit', fileURLToPath(new URL(path, root)));
   assert.equal(typeof before[path], 'string');
   assert.notEqual(after[path], before[path], 'Changing a team route boundary test must invalidate its receipt.');
 }
 console.log('PASS safe-route full-match oracle and team-decision fixture mutations invalidate their verification modes');
+const kioskQuoteSharedPaths = ['scripts/check-kiosk-movement-quote-cache.mjs',
+  'scripts/lib/run-random-isolation-match.mjs', 'scripts/generate-simulation-version.mjs',
+  'scripts/check-verification-fingerprint.mjs'];
+for (const mode of ['kiosk-quote-unit', 'kiosk-quote-match']) {
+  const before = verificationSources(mode);
+  for (const path of kioskQuoteSharedPaths) {
+    assert.equal(typeof before[path], 'string', `${mode} must fingerprint ${path}.`);
+    const after = verificationSources(mode, fileURLToPath(new URL(path, root)));
+    assert.notEqual(after[path], before[path], 'Changing a kiosk quote proof, fixture, generator, or fingerprint checker must invalidate its verification receipt.');
+  }
+}
+const kioskQuoteUnitPaths = ['scripts/check-procurement-transactions.mjs',
+  'scripts/check-kiosk-catalog-contract.mjs', 'scripts/check-market-item-policy.mjs',
+  'scripts/check-team-purchase-goals.mjs', 'scripts/check-default-kiosk-goals.mjs',
+  'scripts/check-kiosk-material-identity.mjs', 'scripts/check-kiosk-exchange-inputs.mjs',
+  'scripts/check-kiosk-goal-exchanges.mjs', 'scripts/lib/team-purchase-fixture.mjs',
+  'eslint.runtime.config.mjs'];
+const kioskQuoteUnitBefore = verificationSources('kiosk-quote-unit');
+for (const path of kioskQuoteUnitPaths) {
+  assert.equal(typeof kioskQuoteUnitBefore[path], 'string', `kiosk-quote-unit must fingerprint ${path}.`);
+  const after = verificationSources('kiosk-quote-unit', fileURLToPath(new URL(path, root)));
+  assert.notEqual(after[path], kioskQuoteUnitBefore[path], 'Changing a kiosk quote unit proof, shared fixture, or lint boundary must invalidate its verification receipt.');
+}
+const safeRouteFixtureBefore = verificationSources('safe-route-unit');
+const safeRouteFixtureAfter = verificationSources('safe-route-unit',
+  fileURLToPath(new URL('scripts/lib/team-purchase-fixture.mjs', root)));
+assert.equal(typeof safeRouteFixtureBefore['scripts/lib/team-purchase-fixture.mjs'], 'string');
+assert.notEqual(safeRouteFixtureAfter['scripts/lib/team-purchase-fixture.mjs'],
+  safeRouteFixtureBefore['scripts/lib/team-purchase-fixture.mjs'],
+  'Changing the safe-route team-purchase fixture helper must invalidate its verification receipt.');
+console.log('PASS kiosk quote unit/match and safe-route shared fixture mutations invalidate their verification modes');
 for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module-resolution-compat']) {
   const sourceHashes = verificationSources(mode);
   for (const path of ['scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs']) {
@@ -152,5 +184,5 @@ for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module
   }
 }
 console.log('PASS module registration and resolution policy mutations invalidate applicable verification modes');
-console.log(JSON.stringify({ pass: true, checks: 12, engine: base.wrapper,
+console.log(JSON.stringify({ pass: true, checks: 13, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));
