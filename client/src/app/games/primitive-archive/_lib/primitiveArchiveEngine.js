@@ -4184,6 +4184,48 @@ export function archiveVictorySummary(state) {
   };
 }
 
+export function runRecordStatus(state) {
+  const current = normalizeState(state);
+  const survivors = current.party.filter((member) => Number(member.hp || 0) > 0).length;
+
+  if (current.ended && current.victory) {
+    return {
+      canRecord: true,
+      result: 'clear',
+      reason: '아카이브 완성 기록을 저장할 수 있습니다.',
+      label: '아카이브 완성',
+    };
+  }
+
+  if (survivors === 0) {
+    return {
+      canRecord: true,
+      result: 'fail',
+      reason: '파티가 전멸했습니다. 실패 기록을 저장할 수 있습니다.',
+      label: '실패',
+    };
+  }
+
+  if (current.ended) {
+    return {
+      canRecord: true,
+      result: 'none',
+      reason: '미완성 런의 정산 기록을 저장할 수 있습니다.',
+      label: '미완성 정산',
+    };
+  }
+
+  const victory = archiveVictorySummary(current);
+  return {
+    canRecord: false,
+    result: 'none',
+    reason: victory.canComplete
+      ? '기록하려면 먼저 아카이브 완성을 선택하세요.'
+      : '기록하려면 먼저 런 정산을 선택하세요.',
+    label: '진행 중',
+  };
+}
+
 export function scoreState(state) {
   const hp = averageParty(state, 'hp');
   const hunger = averageParty(state, 'hunger');

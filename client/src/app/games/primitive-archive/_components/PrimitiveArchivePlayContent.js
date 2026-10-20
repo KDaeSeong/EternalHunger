@@ -171,8 +171,6 @@ export default function PrimitiveArchivePlayContent() {
     saveRun,
     setMessage,
   } = usePrimitiveArchivePersistence({
-    hp,
-    score,
     setActionResult,
     setNewRunDifficulty,
     setState: replaceState,
@@ -514,6 +512,7 @@ export default function PrimitiveArchivePlayContent() {
   };
 
   const startNewRun = () => {
+    if (busy) return;
     const nextState = startNewRunFromMeta(stateRef.current, { difficulty: newRunDifficulty });
     const nextMessage = `${selectedDifficulty.label} 난이도로 새 문명 아카이브 런을 시작했습니다.`;
     const presentation = primitiveTextPresentation(nextMessage);
@@ -601,11 +600,13 @@ export default function PrimitiveArchivePlayContent() {
   const guide = {
     title: '생존 코치',
     badge: archiveVictory.victory ? '완성' : dead ? '위험' : `Day ${state.day}`,
-    primaryTitle: archiveVictory.victory ? '아카이브 완성 가능' : dead ? '런 종료' : canAct ? `${actor?.name || '대원'} 행동 가능` : '정산 필요',
+    primaryTitle: archiveVictory.victory ? '아카이브 완성' : dead ? '런 종료' : canAct ? `${actor?.name || '대원'} 행동 가능` : '정산 필요',
     primaryText: archiveVictory.victory
-      ? '아카이브 완성을 눌러 이번 런을 마무리할 수 있습니다.'
+      ? '완성한 런입니다. 결과를 기록하거나 새 런을 시작하세요.'
       : dead
-        ? '결과를 기록하거나 새 런을 시작하세요.'
+        ? state.meta?.lastSettledRunId === state.runId
+          ? '결과를 기록하거나 새 런을 시작하세요.'
+          : '런 관리에서 보상을 정산할 수 있습니다. 전적 기록은 보상 정산과 별개입니다.'
         : `${zone.note} 제작 목표는 ${recipe.name}${recipe.unlocked ? '' : ' (잠김)'}입니다.`,
     focusRows: [
       { label: 'HP', value: hp },
