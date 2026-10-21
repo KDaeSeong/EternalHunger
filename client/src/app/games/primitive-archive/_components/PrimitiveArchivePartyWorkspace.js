@@ -1,6 +1,5 @@
 import Image from 'next/image';
-import { ActionButton, GameControlButton } from '../../_components/GamePlayPrimitives';
-import { completeArchiveAction } from '../_lib/primitiveArchiveEngine';
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import {
   PARTY_SORT_OPTIONS,
   actionLabel,
@@ -11,8 +10,10 @@ import { PrimitiveArchiveIconRow, PrimitiveArchivePanelTitle } from './Primitive
 export default function PrimitiveArchivePartyWorkspace(props) {
   const {
     actorId,
-    applyAction,
     archiveVictory,
+    busy,
+    completeRun,
+    hydrated,
     partyCap,
     partySort,
     partyView,
@@ -102,9 +103,14 @@ export default function PrimitiveArchivePartyWorkspace(props) {
             </PrimitiveArchiveIconRow>
           ))}
         </div>
-        <ActionButton action="complete" disabled={!archiveVictory.canComplete} onClick={() => applyAction('아카이브 완성', (current) => completeArchiveAction(current))}>
-          아카이브 완성
-        </ActionButton>
+        <GameControlButton
+          action="complete"
+          onClick={completeRun}
+          disabled={!hydrated || Boolean(busy) || !archiveVictory.canComplete || typeof completeRun !== 'function'}
+          title="기초 완주로 현재 런을 종료하고 보상을 정산합니다."
+        >
+          기초 아카이브 완성·런 종료
+        </GameControlButton>
       </section>
     </section>
   );

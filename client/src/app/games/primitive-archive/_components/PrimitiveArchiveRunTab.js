@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { ActionButton, GameControlButton } from '../../_components/GamePlayPrimitives';
 import {
-  completeArchiveAction,
   difficultyRows,
   runRecordStatus,
   settleRunAction,
@@ -19,6 +18,7 @@ export default function PrimitiveArchiveRunTab(props) {
     applyAction,
     archiveVictory,
     busy,
+    completeRun,
     currentDifficulty,
     hydrated,
     newRunDifficulty,
@@ -37,12 +37,6 @@ export default function PrimitiveArchiveRunTab(props) {
   const progression = archiveProgressionSummary(state, archiveVictory);
   const advancementCompleted = progression.longTerm.rows.reduce((sum, row) => sum + row.completed, 0);
   const advancementTotal = progression.longTerm.rows.reduce((sum, row) => sum + row.total, 0);
-  const completeRun = () => {
-    if (!hydrated || persistenceBusy || runEnded || !archiveVictory.canComplete) return;
-    if (!window.confirm('기초 아카이브를 완성하고 이 런을 종료할까요? 보상이 정산되며, 종료한 런에서는 문명 발전을 더 이어갈 수 없습니다.')) return;
-    applyAction('아카이브 완성', (current) => completeArchiveAction(current));
-  };
-
   return (
     <section className="games-panel primitive-run-management" role="tabpanel">
       <PrimitiveArchivePanelTitle
@@ -125,7 +119,7 @@ export default function PrimitiveArchiveRunTab(props) {
         <GameControlButton
           action="complete"
           onClick={completeRun}
-          disabled={!hydrated || !archiveVictory.canComplete || persistenceBusy || runEnded}
+          disabled={!hydrated || !archiveVictory.canComplete || persistenceBusy || runEnded || typeof completeRun !== 'function'}
           title={persistenceBusy ? '저장 작업이 끝난 뒤 완료할 수 있습니다.' : '기초 완주로 현재 런을 종료하고 보상을 정산합니다.'}
         >
           기초 아카이브 완성·런 종료

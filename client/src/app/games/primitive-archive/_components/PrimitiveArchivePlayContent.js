@@ -94,6 +94,7 @@ import {
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
 import usePrimitiveArchiveCheckpoint from '../_hooks/usePrimitiveArchiveCheckpoint';
+import { requestArchiveCompletion } from '../_lib/primitiveArchiveCompletion';
 import { primitiveArchiveCoachMessage } from '../_lib/primitiveArchiveCoach';
 import {
   primitiveActionResultPresentation,
@@ -434,6 +435,14 @@ export default function PrimitiveArchivePlayContent() {
     setActionFeedback({ ...feedback, runId: nextState.runId });
   };
 
+  const completeRun = () => requestArchiveCompletion({
+    getState: () => stateRef.current,
+    ready: hydrated && checkpoint.ready,
+    busy: Boolean(busy),
+    confirm: (message) => window.confirm(message),
+    applyAction,
+  });
+
   const runGather = () => {
     if (!canAct) return;
     applyAction('채집', (current) => runGatherAction(current, actorId, activeRegionId));
@@ -727,6 +736,7 @@ export default function PrimitiveArchivePlayContent() {
         civicPlannerRows={civicPlannerRows}
         civics={civics}
         clearEquipment={clearEquipment}
+        completeRun={completeRun}
         craftChance={craftChance}
         currentEquipmentRows={currentEquipmentRows}
         currentDifficulty={currentDifficulty}

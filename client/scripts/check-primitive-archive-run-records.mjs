@@ -335,6 +335,7 @@ function renderRunTab(state, overrides = {}) {
   const difficulty = engine.difficultyRows().find((row) => row.key === state.difficulty) || engine.difficultyRows()[0];
   return renderToStaticMarkup(React.createElement(PrimitiveArchiveRunTab, {
     applyAction() {},
+    completeRun() {},
     archiveVictory: engine.archiveVictorySummary(state),
     busy: '',
     currentDifficulty: difficulty,

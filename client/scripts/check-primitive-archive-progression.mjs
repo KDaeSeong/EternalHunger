@@ -10,6 +10,7 @@ globalThis.__primitiveArchiveProgressionReact = React;
 const engine = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveEngine.js');
 const progression = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveProgression.js');
 const coach = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveCoach.js');
+const completion = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveCompletion.js');
 const ERA_IDS = [
   'PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL',
   'MEDIEVAL', 'EARLY_MODERN', 'MODERN_EARLY', 'MODERN_LATE',
@@ -18,6 +19,7 @@ const checks = [];
 const failures = [];
 
 const runTabUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveRunTab.js', import.meta.url).href;
+const partyWorkspaceUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePartyWorkspace.js', import.meta.url).href;
 const tribeTabUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveTribeTab.js', import.meta.url).href;
 const advisorPanelUrl = new URL('../src/app/games/_components/GameAdvisorPanel.js', import.meta.url).href;
 const runTabModules = new Map([
@@ -35,6 +37,20 @@ const runTabModules = new Map([
   ['./PrimitiveArchiveVisuals', `
     const jsx = (...args) => globalThis.__primitiveArchiveProgressionReact.createElement(...args);
     export function PrimitiveArchivePanelTitle(props) { return jsx('header', { children: props.children }); }
+  `],
+]);
+const partyWorkspaceModules = new Map([
+  ['next/image', `export default function Image(props) { return globalThis.__primitiveArchiveProgressionReact.createElement('img', props); }`],
+  ['../../_components/GamePlayPrimitives', `
+    const jsx = (...args) => globalThis.__primitiveArchiveProgressionReact.createElement(...args);
+    export function ActionButton(props) { globalThis.__primitiveArchiveProgressionButtons.push(props); return jsx('button', { type: 'button', 'data-action': props.action, disabled: props.disabled, children: props.children }); }
+    export function GameControlButton(props) { globalThis.__primitiveArchiveProgressionButtons.push(props); return jsx('button', { type: 'button', 'data-action': props.action, disabled: props.disabled, children: props.children }); }
+  `],
+  ['../_lib/primitiveArchivePageRuntime', `export const PARTY_SORT_OPTIONS = []; export const actionLabel = () => ''; export const chanceText = () => '';`],
+  ['./PrimitiveArchiveVisuals', `
+    const jsx = (...args) => globalThis.__primitiveArchiveProgressionReact.createElement(...args);
+    export function PrimitiveArchiveIconRow(props) { return jsx('div', { children: props.children }); }
+    export function PrimitiveArchivePanelTitle(props) { return jsx('header', { children: props.title }); }
   `],
 ]);
 const tribeTabModules = new Map([
@@ -60,10 +76,13 @@ registerHooks({
     if (context.parentURL === tribeTabUrl && tribeTabModules.has(specifier)) {
       return { url: asDataModule(tribeTabModules.get(specifier)), shortCircuit: true };
     }
+    if (context.parentURL === partyWorkspaceUrl && partyWorkspaceModules.has(specifier)) {
+      return { url: asDataModule(partyWorkspaceModules.get(specifier)), shortCircuit: true };
+    }
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if (url !== runTabUrl && url !== tribeTabUrl && url !== advisorPanelUrl) return nextLoad(url, context);
+    if (url !== runTabUrl && url !== tribeTabUrl && url !== partyWorkspaceUrl && url !== advisorPanelUrl) return nextLoad(url, context);
     return {
       format: 'module',
       shortCircuit: true,
@@ -74,6 +93,7 @@ registerHooks({
   },
 });
 const { default: PrimitiveArchiveRunTab } = await import(runTabUrl);
+const { default: PrimitiveArchivePartyWorkspace } = await import(partyWorkspaceUrl);
 const { default: PrimitiveArchiveTribeTab } = await import(tribeTabUrl);
 const { default: GameAdvisorPanel } = await import(advisorPanelUrl);
 
@@ -134,6 +154,15 @@ function renderRunTab(state, overrides = {}) {
   const difficulty = engine.difficultyRows()[0];
   const props = {
     applyAction() {},
+    completeRun() {
+      return completion.requestArchiveCompletion({
+        getState: () => props.state,
+        ready: Boolean(props.hydrated && props.archiveVictory?.canComplete),
+        busy: Boolean(props.busy),
+        confirm: (message) => typeof window !== 'undefined' && typeof window.confirm === 'function' ? window.confirm(message) : false,
+        applyAction: props.applyAction,
+      });
+    },
     archiveVictory: engine.archiveVictorySummary(state),
     busy: '',
     currentDifficulty: difficulty,
@@ -149,6 +178,26 @@ function renderRunTab(state, overrides = {}) {
     ...overrides,
   };
   const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveRunTab, props));
+  return { html, buttons: globalThis.__primitiveArchiveProgressionButtons, props };
+}
+
+function renderPartyWorkspace(state, overrides = {}) {
+  globalThis.__primitiveArchiveProgressionButtons = [];
+  const props = {
+    actorId: state.party[0].id,
+    applyAction() {},
+    archiveVictory: engine.archiveVictorySummary(state),
+    busy: '',
+    completeRun() {},
+    hydrated: true,
+    partyCap: 6,
+    partySort: 'default',
+    partyView: [],
+    recruitCandidates: [],
+    state,
+    ...overrides,
+  };
+  const html = renderToStaticMarkup(React.createElement(PrimitiveArchivePartyWorkspace, props));
   return { html, buttons: globalThis.__primitiveArchiveProgressionButtons, props };
 }
 
@@ -266,6 +315,91 @@ check('completion settlement rewards and clear-record classification retain the 
   assert.deepEqual(ready, original, 'Completion must preserve the input state.');
 });
 
+check('the shared completion request accepts only the latest ready, hydrated, idle, active run and dispatches after confirmation', () => {
+  const ready = basicReadyFixture();
+  let current = ready;
+  const actions = [];
+  const confirmations = [];
+  const result = completion.requestArchiveCompletion({
+    getState: () => current,
+    ready: true,
+    busy: false,
+    confirm: (message) => { confirmations.push(message); return true; },
+    applyAction(label, updater) { actions.push({ label, result: updater(current) }); },
+  });
+  assert.equal(result, true);
+  assert.equal(confirmations.length, 1);
+  assert.match(confirmations[0], /종료.*문명 발전.*이어갈 수 없습니다/);
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].label, '아카이브 완성');
+  assert.equal(actions[0].result.ended, true);
+  assert.equal(actions[0].result.victory, true);
+  assert.equal(actions[0].result.ap, ready.ap);
+  assert.equal(ready.ended, false, 'The shared request must leave the current state immutable.');
+
+  let confirmationCount = 0;
+  assert.equal(completion.requestArchiveCompletion({
+    getState: () => ready,
+    ready: true,
+    busy: false,
+    confirm: () => { confirmationCount += 1; return false; },
+    applyAction() { assert.fail('Cancellation must not dispatch.'); },
+  }), false);
+  assert.equal(confirmationCount, 1);
+});
+
+check('the shared completion request rejects missing prerequisites, busy or ended latest state, and incomplete handlers', () => {
+  const ready = basicReadyFixture();
+  const calls = [];
+  const valid = {
+    getState: () => ready,
+    ready: true,
+    busy: false,
+    confirm: () => { calls.push('confirm'); return true; },
+    applyAction: () => calls.push('apply'),
+  };
+  for (const patch of [
+    { ready: false },
+    { busy: true },
+    { getState: () => ({ ...ready, ended: true }) },
+    { getState: () => ({ ...ready, day: 1 }) },
+    { getState: undefined },
+    { confirm: undefined },
+    { applyAction: undefined },
+  ]) {
+    assert.equal(completion.requestArchiveCompletion({ ...valid, ...patch }), false);
+  }
+  assert.deepEqual(calls, [], 'Rejected requests must neither prompt nor dispatch.');
+
+  let latest = ready;
+  const applied = [];
+  assert.equal(completion.requestArchiveCompletion({
+    ...valid,
+    getState: () => latest,
+    confirm: () => { latest = { ...ready, ended: true }; return true; },
+    applyAction(label, updater) { applied.push(updater(latest)); },
+  }), true);
+  assert.equal(applied[0].victory, false, 'The action must evaluate the latest state at dispatch time; it cannot complete a run that ended during confirmation.');
+  assert.equal(applied[0].ended, true);
+});
+
+check('the shared completion request reads current state at invocation instead of a stale render snapshot', () => {
+  const ready = basicReadyFixture();
+  let latest = { ...ready, day: 1 };
+  const actions = [];
+  const options = {
+    getState: () => latest,
+    ready: true,
+    busy: false,
+    confirm: () => true,
+    applyAction(label, updater) { actions.push({ label, result: updater(latest) }); },
+  };
+  latest = ready;
+  assert.equal(completion.requestArchiveCompletion(options), true);
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].result.victory, true);
+});
+
 check('the helper only reads frozen source state and consumes no RNG after the engine summary is prepared', () => {
   let draws = 0;
   const state = fixture({}, () => { draws += 1; return 0.5; });
@@ -293,6 +427,44 @@ check('controlled RunTab SSR separates basic completion from optional era progre
   assert.doesNotMatch(detailsTag, /\sopen(?:=|\s|>)/);
   for (const row of summarize(state).longTerm.rows) assert.match(rendered.html, new RegExp(row.label));
   assert.equal((rendered.html.match(/<li>/g) || []).length, 8);
+});
+
+check('controlled PartyWorkspace SSR delegates completion to the injected shared handler', () => {
+  const state = basicReadyFixture();
+  const callbacks = [];
+  const rendered = renderPartyWorkspace(state, {
+    applyAction() { assert.fail('PartyWorkspace must not apply the raw engine action.'); },
+    completeRun: () => callbacks.push('shared'),
+  });
+  assert.match(rendered.html, /아카이브 목표/);
+  assert.match(rendered.html, /아카이브 완성/);
+  const button = actionButton(rendered, 'complete');
+  assert.equal(button.disabled, false);
+  button.onClick();
+  assert.deepEqual(callbacks, ['shared']);
+  assert.equal(state.ended, false);
+
+  for (const overrides of [
+    { hydrated: false },
+    { busy: 'save' },
+    { archiveVictory: { ...engine.archiveVictorySummary(state), canComplete: false } },
+    { completeRun: undefined },
+  ]) {
+    assert.equal(actionButton(renderPartyWorkspace(state, overrides), 'complete').disabled, true);
+  }
+
+  const partySource = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePartyWorkspace.js', import.meta.url), 'utf8');
+  const runSource = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveRunTab.js', import.meta.url), 'utf8');
+  const playSource = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js', import.meta.url), 'utf8');
+  const tabsSource = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveFeatureTabs.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(partySource, /completeArchiveAction|primitiveArchiveEngine/);
+  assert.doesNotMatch(runSource, /completeArchiveAction/);
+  assert.match(partySource, /completeRun/);
+  assert.match(runSource, /completeRun/);
+  assert.match(playSource, /const completeRun = \(\) => requestArchiveCompletion/);
+  assert.match(playSource, /<PrimitiveArchiveFeatureTabs[\s\S]*?completeRun=\{completeRun\}/);
+  assert.match(tabsSource, /<PrimitiveArchivePartyWorkspace \{\.\.\.props\} \/>/);
+  assert.match(tabsSource, /<PrimitiveArchiveRunTab \{\.\.\.props\} \/>/);
 });
 
 check('completion action preserves metadata, guards readiness, and asks before ending the run', () => {
@@ -324,12 +496,13 @@ check('completion action preserves metadata, guards readiness, and asks before e
       { busy: 'save' },
       { state: { ...ready, ended: true } },
       { archiveVictory: { ...engine.archiveVictorySummary(ready), canComplete: false } },
+      { completeRun: undefined },
     ]) {
       const blocked = renderRunTab(ready, overrides);
       const blockedButton = actionButton(blocked, 'complete');
       assert.equal(blockedButton.disabled, true);
       const before = actions.length;
-      blockedButton.onClick();
+      blockedButton.onClick?.();
       assert.equal(actions.length, before, 'Guarded completion must never dispatch.');
     }
   } finally {
