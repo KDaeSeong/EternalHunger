@@ -90,6 +90,104 @@ function eventProtectedSnapshot(state) {
   };
 }
 
+function trackingFixture({ cartography = true, cave = false, plains = false, inventory = {} } = {}) {
+  const base = eventFixture();
+  return engine.normalizeState({
+    ...base,
+    eventChains: [],
+    research: { ...base.research, completed: cartography ? { CARTOGRAPHY: true } : {} },
+    inventory: { ...base.inventory, ...inventory },
+    exploration: {
+      ...base.exploration,
+      selectedRegionId: 'whisper-woods',
+      revealed: {
+        'camp-heart': true,
+        'whisper-woods': true,
+        'river-ford': true,
+        'echo-cave': cave,
+        'sun-meadow': plains,
+      },
+    },
+  });
+}
+
+function trackingProtectedSnapshot(state) {
+  const snapshot = structuredClone(state);
+  delete snapshot.log;
+  delete snapshot.updatedAt;
+  return snapshot;
+}
+
+check('targeted rare tracking refuses locked or undiscovered terrain without AP, resource or RNG costs', () => {
+  for (const options of [
+    { cartography: false, cave: true },
+    { cartography: true, cave: false },
+    { cartography: true, cave: false, plains: true },
+  ]) {
+    const state = trackingFixture(options);
+    const original = structuredClone(state);
+    const row = engine.recoveryChoiceRows(state).find((entry) => entry.id === 'risk_track');
+    assert.equal(row.enabled, false, 'Targeted tracking must not silently become a random or fallback action.');
+    assert.match(row.detail, options.cartography ? /동굴.*발견/ : /지도 제작.*연구/);
+    let draws = 0;
+    const next = engine.runRecoveryChoiceAction(state, 'shiroko', 'risk_track', {
+      rng: () => { draws += 1; return 0.999; },
+    });
+    assert.equal(draws, 0, 'Rejected tracking must not consume the gameplay RNG stream.');
+    assert.deepEqual(trackingProtectedSnapshot(next), trackingProtectedSnapshot(state));
+    assert.deepEqual(state, original);
+  }
+});
+
+check('unlocked rare tracking names and visits the discovered cave instead of the selected forest', () => {
+  for (const inventory of [{}, { dino_bone: 2 }]) {
+    const state = trackingFixture({ cave: true, inventory });
+    const original = structuredClone(state);
+    const row = engine.recoveryChoiceRows(state).find((entry) => entry.id === 'risk_track');
+    assert.equal(row.enabled, true);
+    assert.equal(row.title, '희귀 흔적 추적', 'Missing obsidian still requires cave gathering after other rare loot is found.');
+    assert.match(row.detail, /메아리 동굴.*채집/);
+    assert.match(row.costText, /동굴 채집/);
+    let draws = 0;
+    const next = engine.runRecoveryChoiceAction(state, 'shiroko', 'risk_track', {
+      rng: () => draws++ === 0 ? 0 : 0.999,
+    });
+    assert.equal(next.ap, state.ap - 1);
+    assert.equal(next.counters.gather, state.counters.gather + 1);
+    assert.ok(next.log.some((line) => /채집 성공.*메아리 동굴/.test(line)));
+    assert.equal(next.exploration.selectedRegionId, 'whisper-woods', 'A one-off tracking action must not replace the ordinary selected region.');
+    assert.deepEqual(state, original);
+  }
+});
+
+check('sufficient rare stock switches both tracking guidance and the paid action to discovered plains hunting', () => {
+  const state = trackingFixture({ plains: true, inventory: { obsidian_shard: 2 } });
+  const original = structuredClone(state);
+  const row = engine.recoveryChoiceRows(state).find((entry) => entry.id === 'risk_track');
+  assert.equal(row.enabled, true);
+  assert.equal(row.title, '메가파우나 추적');
+  assert.match(row.detail, /햇살 초원.*사냥/);
+  assert.match(row.costText, /초원 사냥/);
+  let draws = 0;
+  const next = engine.runRecoveryChoiceAction(state, 'hina', 'risk_track', {
+    rng: () => draws++ === 0 ? 0 : 0.999,
+  });
+  assert.equal(next.ap, state.ap - 1);
+  assert.equal(next.counters.hunt, state.counters.hunt + 1);
+  assert.ok(next.log.some((line) => /사냥 성공.*햇살 초원/.test(line)));
+  assert.equal(next.exploration.selectedRegionId, 'whisper-woods');
+  assert.deepEqual(state, original);
+
+  const missingPlains = trackingFixture({ cave: true, inventory: { obsidian_shard: 2 } });
+  const missingRow = engine.recoveryChoiceRows(missingPlains).find((entry) => entry.id === 'risk_track');
+  assert.equal(missingRow.enabled, false);
+  assert.match(missingRow.detail, /초원.*발견/);
+  const rejected = engine.runRecoveryChoiceAction(missingPlains, 'hina', 'risk_track', {
+    rng: () => { throw new Error('Undiscovered plains tracking consumed RNG.'); },
+  });
+  assert.deepEqual(trackingProtectedSnapshot(rejected), trackingProtectedSnapshot(missingPlains));
+});
+
 check('manual project work charges shared materials once, persists its commitment, and grants completion reward once', () => {
   const initial = projectFixture();
   const original = structuredClone(initial);

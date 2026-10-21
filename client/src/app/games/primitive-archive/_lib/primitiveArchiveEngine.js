@@ -2634,6 +2634,28 @@ function bestLivingActorFor(state, action = 'gather') {
   return pickActorForAuto(state, action);
 }
 
+function rareTrackingPlan(state, pressure = explorationEventPressure(state)) {
+  const needsObsidian = pressure.rareTotal < 2 || Number(state.inventory.obsidian_shard || 0) < 1;
+  const action = needsObsidian ? 'gather' : 'hunt';
+  const zoneId = needsObsidian ? 'cave' : 'plains';
+  const zoneName = needsObsidian ? '동굴' : '초원';
+  const actionLabel = `${zoneName} ${needsObsidian ? '채집' : '사냥'}`;
+  const region = revealedActionRegions(state).find((entry) => entry.zoneId === zoneId);
+  const blockedReason = !canSelectActionZone(state)
+    ? `${actionLabel}을 지정하려면 지도 제작 연구가 필요합니다. 연구 전에는 행동 지역을 지정할 수 없습니다.`
+    : !region
+      ? `${zoneName} 지역을 먼저 발견해야 ${actionLabel}을 실행할 수 있습니다. 지도 답사나 일반 탐험으로 지역을 발견하세요.`
+      : '';
+  return {
+    action,
+    region,
+    actionLabel,
+    title: needsObsidian ? '희귀 흔적 추적' : '메가파우나 추적',
+    blockedReason,
+    detail: blockedReason || `${region.name}에서 ${needsObsidian ? '채집으로 희귀 자원 사건' : '사냥으로 대형 사냥감 부산물'}을 노립니다. 사건 발생은 보장되지 않으며, HP와 스태미나가 낮으면 먼저 회복하세요.`,
+  };
+}
+
 export function recoveryChoiceRows(state) {
   const current = normalizeState(state);
   const eventPressure = explorationEventPressure(current);
@@ -2650,6 +2672,7 @@ export function recoveryChoiceRows(state) {
   const canWarm = Number(current.inventory.wood || 0) > 0 || Number(current.camp.fuel || 0) > 0;
   const canGear = Boolean(bestRareRecipe) || hasAnyEquipInPool(current);
   const canTrack = Number(current.ap || 0) > 0 && hp >= 45 && stamina >= 30;
+  const tracking = rareTrackingPlan(current, eventPressure);
   const rows = [
     {
       id: 'field_tonic',
@@ -2694,12 +2717,10 @@ export function recoveryChoiceRows(state) {
     {
       id: 'risk_track',
       tone: eventPressure.rareTotal < 2 && Number(current.day || 1) >= 6 ? 'danger' : 'normal',
-      title: eventPressure.rareTotal < 2 ? '희귀 흔적 추적' : '메가파우나 추적',
-      detail: eventPressure.rareTotal < 2
-        ? '동굴/초원의 희귀 자원 사건을 노리는 행동을 즉시 실행합니다.'
-        : '초원 사냥으로 대형 사냥감 부산물을 노립니다. HP와 스태미나가 낮으면 먼저 회복하세요.',
-      costText: 'AP 1',
-      enabled: canTrack && (Number(current.day || 1) >= 5 || eventPressure.eventCount < 2 || eventPressure.rareTotal < 2),
+      title: tracking.title,
+      detail: tracking.detail,
+      costText: `AP 1 · ${tracking.actionLabel}`,
+      enabled: canTrack && !tracking.blockedReason && (Number(current.day || 1) >= 5 || eventPressure.eventCount < 2 || eventPressure.rareTotal < 2),
       priority: (Number(current.day || 1) >= 6 ? 18 : 0) + Math.max(0, 2 - eventPressure.rareTotal) * 14 + Math.max(0, 2 - eventPressure.eventCount) * 8,
     },
   ];
@@ -2856,11 +2877,12 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
   }
 
   if (id === 'risk_track') {
-    const pressure = explorationEventPressure(current);
-    if (pressure.rareTotal < 2 || Number(current.inventory.obsidian_shard || 0) < 1) {
-      return runGatherAction(current, recoveryActionActorId(current, actorId, 'gather'), 'cave', options);
-    }
-    return runHuntAction(current, recoveryActionActorId(current, actorId, 'hunt'), 'plains', options);
+    const tracking = rareTrackingPlan(current);
+    if (tracking.blockedReason) return addLog(current, tracking.blockedReason);
+    const trackingActorId = recoveryActionActorId(current, actorId, tracking.action);
+    return tracking.action === 'gather'
+      ? runGatherAction(current, trackingActorId, tracking.region.id, options)
+      : runHuntAction(current, trackingActorId, tracking.region.id, options);
   }
 
   return addLog(current, '대응 선택지를 찾을 수 없습니다.');
