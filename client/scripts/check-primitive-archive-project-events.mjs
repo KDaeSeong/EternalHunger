@@ -54,6 +54,30 @@ function eventFixture(kind = 'obsidian_vein') {
   });
 }
 
+const RARE_EVENT_EXPECTATIONS = {
+  megafauna_tracks: {
+    rewards: { dino_hide: 1, dino_bone: 2, meat: 2 },
+    staminaCost: 20,
+    hungerAdd: 5,
+    failDamage: 11,
+    failStamina: 11,
+  },
+  rune_cache: {
+    rewards: { rune_shard: 1, clay: 1, resin: 1 },
+    staminaCost: 14,
+    hungerAdd: 4,
+    failDamage: 5,
+    failStamina: 9,
+  },
+  mutant_nest: {
+    rewards: { mutant_gland: 1, tooth: 2, bone: 2 },
+    staminaCost: 22,
+    hungerAdd: 5,
+    failDamage: 13,
+    failStamina: 12,
+  },
+};
+
 function eventProtectedSnapshot(state) {
   return {
     ap: state.ap,
@@ -158,6 +182,89 @@ check('pending rare event survives a day boundary and success or failure is pers
     const repeated = engine.runEventChainAction(restored, 'noa', 'rare-chain', { rng: () => { throw new Error('Resolved event consumed RNG.'); } });
     assert.deepEqual(eventProtectedSnapshot(repeated), restoredSnapshot);
   }
+});
+
+check('remaining rare-event branches apply their declared loot, AP, hunger, stamina, and failure costs', () => {
+  for (const [kind, expected] of Object.entries(RARE_EVENT_EXPECTATIONS)) {
+    for (const outcome of ['success', 'failure']) {
+      const initial = eventFixture(kind);
+      const row = engine.eventChainRows(initial, 'noa').find((entry) => entry.id === 'rare-chain');
+      assert.ok(row?.enabled, `${kind} ${outcome} fixture should be actionable`);
+      const actorBefore = initial.party.find((member) => member.id === row.actorId);
+      assert.ok(actorBefore, `${kind} should resolve the declared actor`);
+      const draw = outcome === 'success' ? () => 0 : () => 0.999;
+      const resolved = engine.runEventChainAction(initial, 'noa', 'rare-chain', { rng: draw });
+      const actorAfter = resolved.party.find((member) => member.id === row.actorId);
+
+      assert.equal(resolved.ap, initial.ap - 1, `${kind} consumes one AP`);
+      assert.equal(resolved.eventChains[0].resolved, true);
+      assert.equal(resolved.eventChains[0].ok, outcome === 'success');
+      assert.equal(actorAfter.hunger, actorBefore.hunger + expected.hungerAdd);
+      if (outcome === 'success') {
+        assert.equal(actorAfter.stamina, actorBefore.stamina - expected.staminaCost);
+        assert.equal(actorAfter.hp, actorBefore.hp);
+        for (const [itemId, quantity] of Object.entries(expected.rewards)) {
+          assert.equal(resolved.inventory[itemId], Number(initial.inventory[itemId] || 0) + quantity, `${kind} rewards ${itemId}`);
+        }
+      } else {
+        assert.equal(actorAfter.stamina, actorBefore.stamina - expected.staminaCost - expected.failStamina);
+        assert.equal(actorAfter.hp, actorBefore.hp - expected.failDamage, `${kind} failure damage`);
+        for (const itemId of Object.keys(expected.rewards)) {
+          assert.equal(Number(resolved.inventory[itemId] || 0), Number(initial.inventory[itemId] || 0), `${kind} failure grants no ${itemId}`);
+        }
+      }
+    }
+  }
+});
+
+check('expired, exhausted, and under-stamina event chains cannot resolve or charge the run', () => {
+  const expired = engine.normalizeState({ ...eventFixture('megafauna_tracks'), day: 11 });
+  assert.equal(engine.eventChainRows(expired, 'noa').some((row) => row.id === 'rare-chain'), false);
+  const expiredSnapshot = eventProtectedSnapshot(expired);
+  const expiredAttempt = engine.runEventChainAction(expired, 'noa', 'rare-chain', { rng: () => 0 });
+  assert.deepEqual(eventProtectedSnapshot(expiredAttempt), expiredSnapshot);
+
+  const exhausted = engine.normalizeState({ ...eventFixture('rune_cache'), ap: 0 });
+  assert.equal(engine.eventChainRows(exhausted, 'noa').find((row) => row.id === 'rare-chain').enabled, false);
+  const exhaustedSnapshot = eventProtectedSnapshot(exhausted);
+  const exhaustedAttempt = engine.runEventChainAction(exhausted, 'noa', 'rare-chain', { rng: () => 0 });
+  assert.deepEqual(eventProtectedSnapshot(exhaustedAttempt), exhaustedSnapshot);
+
+  const tired = engine.normalizeState({
+    ...eventFixture('mutant_nest'),
+    party: eventFixture('mutant_nest').party.map((member) => ({ ...member, stamina: 11 })),
+  });
+  assert.equal(engine.eventChainRows(tired, 'noa').find((row) => row.id === 'rare-chain').enabled, false);
+  const tiredSnapshot = eventProtectedSnapshot(tired);
+  const tiredAttempt = engine.runEventChainAction(tired, 'noa', 'rare-chain', { rng: () => 0 });
+  assert.deepEqual(eventProtectedSnapshot(tiredAttempt), tiredSnapshot);
+});
+
+check('locked or unaffordable projects preserve materials, progress, and AP', () => {
+  const locked = engine.normalizeState({
+    ...projectFixture(),
+    research: { ...projectFixture().research, completed: {} },
+  });
+  const lockedRow = engine.projectRows(locked).find((row) => row.id === 'drying-rack');
+  assert.equal(lockedRow.available, false);
+  assert.equal(lockedRow.canWork, false);
+  const lockedResult = engine.runProjectAction(locked, locked.party[0].id, 'drying-rack', { rng: () => 0 });
+  assert.equal(lockedResult.ap, locked.ap);
+  assert.deepEqual(lockedResult.inventory, locked.inventory);
+  assert.deepEqual(lockedResult.projects, locked.projects);
+
+  const shortOnMaterials = engine.normalizeState({
+    ...projectFixture(),
+    inventory: { ...projectFixture().inventory, wood: 2, fiber: 2 },
+  });
+  const shortRow = engine.projectRows(shortOnMaterials).find((row) => row.id === 'drying-rack');
+  assert.equal(shortRow.available, true);
+  assert.equal(shortRow.hasCost, false);
+  assert.equal(shortRow.canWork, false);
+  const rejected = engine.runProjectAction(shortOnMaterials, shortOnMaterials.party[0].id, 'drying-rack', { rng: () => 0 });
+  assert.equal(rejected.ap, shortOnMaterials.ap);
+  assert.deepEqual(rejected.inventory, shortOnMaterials.inventory);
+  assert.deepEqual(rejected.projects, shortOnMaterials.projects);
 });
 
 console.log(JSON.stringify({

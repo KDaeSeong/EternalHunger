@@ -33,8 +33,13 @@ const apiStub = `
   export const apiPost = (path, payload, options) => call('POST', path, payload, options);
   export const apiPut = (path, payload, options) => call('PUT', path, payload, options);
   export const clearApiGetCache = (path) => globalThis.__primitiveArchivePersistenceHarness.cacheClears.push(path);
-  export const captureAuthSession = () => ({ scope: 'fixture', revision: 0 });
-  export const isCurrentAuthSession = () => true;
+  export const captureAuthSession = () => ({ ...globalThis.__primitiveArchivePersistenceHarness.authSession });
+  export const isCurrentAuthSession = (session) => {
+    const current = globalThis.__primitiveArchivePersistenceHarness.authSession;
+    return session?.scope === current.scope
+      && session?.revision === current.revision
+      && session?.csrfToken === current.csrfToken;
+  };
 `;
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 registerHooks({
@@ -192,6 +197,7 @@ check('a crypto-less runtime still separates same-millisecond runs without consu
 function persistenceHarness(state, options = {}) {
   const harness = {
     apiCalls: [],
+    authSession: { scope: 'fixture', revision: 0, csrfToken: '' },
     cacheClears: [],
     handlers: options.handlers || {},
     refs: [],
@@ -201,6 +207,8 @@ function persistenceHarness(state, options = {}) {
   globalThis.__primitiveArchivePersistenceHarness = harness;
   const writes = { actionResults: [], difficulties: [], states: [], toasts: [] };
   const controls = invokePersistenceHook({
+    latestStateRef: options.latestStateRef || { current: state },
+    replaceRun: options.replaceRun,
     setActionResult: (value) => writes.actionResults.push(value),
     setNewRunDifficulty: (value) => writes.difficulties.push(value),
     setState: (value) => writes.states.push(value),
@@ -495,6 +503,74 @@ await checkAsync('a replayed server record reports the existing result without c
   assert.deepEqual(state, original);
 });
 
+await checkAsync('a successful server save writes the captured run snapshot to the quick-save slot and reports success', async () => {
+  const state = fixture({ runId: 'server-save-snapshot' });
+  const original = structuredClone(state);
+  const { controls, harness, writes } = persistenceHarness(state);
+  await controls.saveRun();
+  assert.equal(harness.apiCalls.length, 1);
+  const [request] = harness.apiCalls;
+  assert.equal(request.method, 'PUT');
+  assert.equal(request.path, `/game-saves/${engine.GAME_SLUG}/${engine.QUICK_SAVE_SLOT}`);
+  assert.equal(request.payload.version, engine.SAVE_VERSION);
+  assert.equal(request.payload.saveName, `Civilization Archive Day ${state.day}`);
+  assert.deepEqual(request.payload.summary, engine.summaryForState(state));
+  assert.deepEqual(request.payload.payload.state, engine.normalizeState(state));
+  assert.equal(typeof request.payload.lastPlayedAt, 'string');
+  assert.ok(harness.stateWrites.includes('런을 저장했습니다.'));
+  assert.equal(writes.actionResults.at(-1), '런을 서버 저장 슬롯에 저장했습니다.');
+  assert.equal(writes.toasts.at(-1).tone, 'success');
+  assert.match(writes.toasts.at(-1).message, /런을 저장했습니다/);
+  assert.deepEqual(harness.cacheClears, ['/game-saves']);
+  assert.deepEqual(state, original);
+});
+
+await checkAsync('a successful server load resolves the quick-save list entry and detail before replacing the run', async () => {
+  const current = fixture({ runId: 'before-server-load' });
+  const saved = fixture({ runId: 'saved-server-run', day: 7, ap: 1 });
+  const replaced = [];
+  const { controls, harness, writes } = persistenceHarness(current, {
+    handlers: {
+      GET: ({ path }) => path === `/game-saves?gameSlug=${engine.GAME_SLUG}`
+        ? { saves: [{ id: 'quick-save-detail', slotKey: engine.QUICK_SAVE_SLOT }] }
+        : { save: { version: engine.SAVE_VERSION, payload: { state: saved } } },
+    },
+    replaceRun: (nextState) => {
+      replaced.push(nextState);
+      return { ok: true };
+    },
+  });
+  await controls.loadRun();
+  assert.deepEqual(harness.apiCalls.map(({ method, path }) => [method, path]), [
+    ['GET', `/game-saves?gameSlug=${engine.GAME_SLUG}`],
+    ['GET', '/game-saves/quick-save-detail'],
+  ]);
+  assert.equal(replaced.length, 1);
+  assert.deepEqual(replaced[0], engine.normalizeState(saved));
+  assert.equal(writes.states.length, 0);
+  assert.deepEqual(writes.difficulties, [saved.difficulty]);
+  assert.equal(writes.actionResults.at(-1), saved.log?.[0] || '');
+  assert.ok(harness.stateWrites.includes('저장된 런을 불러왔습니다.'));
+  assert.equal(writes.toasts.at(-1).tone, 'success');
+  assert.match(writes.toasts.at(-1).message, /불러왔습니다/);
+});
+
+await checkAsync('a delayed server-save response from a retired auth session is not applied to the current UI', async () => {
+  const request = deferred();
+  const state = fixture({ runId: 'auth-session-save' });
+  const { controls, harness, writes } = persistenceHarness(state, {
+    handlers: { PUT: () => request.promise },
+  });
+  const saving = controls.saveRun();
+  assert.equal(harness.apiCalls.length, 1);
+  harness.authSession = { scope: 'new-fixture-session', revision: 1, csrfToken: 'rotated' };
+  request.resolve({ ok: true });
+  await saving;
+  assert.equal(writes.actionResults.length, 0);
+  assert.equal(writes.toasts.length, 0);
+  assert.deepEqual(harness.cacheClears, []);
+});
+
 await checkAsync('same-tick record calls and save/load attempts share the pending-operation lock', async () => {
   const request = deferred();
   const { controls, harness, writes } = persistenceHarness(fixture({ ended: true }), {
@@ -515,13 +591,16 @@ await checkAsync('a delayed record of the previous run cannot settle or overwrit
   const request = deferred();
   const oldRun = fixture({ ended: true });
   const newRun = fixture({ runId: 'new-run-after-record-start', day: 1, ended: false, victory: false });
+  const latestStateRef = { current: oldRun };
   let currentRun = newRun;
   const { controls, harness, writes } = persistenceHarness(oldRun, {
     handlers: { POST: () => request.promise },
+    latestStateRef,
   });
   const recordInFlight = controls.recordRun();
   assert.equal(harness.apiCalls[0].payload.payload.state.runId, oldRun.runId);
   currentRun = newRun;
+  latestStateRef.current = newRun;
   request.resolve({ ok: true });
   await recordInFlight;
   assert.equal(currentRun, newRun);
@@ -529,6 +608,10 @@ await checkAsync('a delayed record of the previous run cannot settle or overwrit
   assert.equal(currentRun.victory, false);
   assert.equal(writes.states.length, 0);
   assert.equal(writes.difficulties.length, 0);
+  assert.equal(writes.actionResults.length, 0);
+  assert.equal(writes.toasts.length, 0);
+  assert.deepEqual(harness.cacheClears, []);
+  assert.ok(!harness.stateWrites.includes(`${engine.runRecordStatus(oldRun).label} 결과를 전적에 기록했습니다.`));
   assert.deepEqual(oldRun, fixture({ ended: true }));
 });
 
