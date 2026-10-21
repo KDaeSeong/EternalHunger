@@ -551,7 +551,23 @@ await checkAsync('the actual hook never writes for an unknown authenticated owne
   await settleHookEffects();
   const unknownStatus = unknown.render();
   assert.equal(unknownStatus.status, 'owner-unknown');
+  assert.equal(unknownStatus.ready, false, 'An unknown authenticated owner must not be treated as save-ready.');
+  assert.match(unknownStatus.message, /계정 정보를 확인할 수 없어 자동 저장을 중단했습니다/, 'The settled unknown-owner state must retain its actionable warning instead of showing loading forever.');
+  const unknownFlush = unknownStatus.flush();
+  assert.equal(unknownFlush.ok, false, 'Unknown owners must not flush an unowned run.');
+  const unknownReplacement = unknownStatus.replaceRun(fixture('unknown-replacement'));
+  assert.equal(unknownReplacement.ok, false, 'Unknown owners must not replace a run from a server load.');
   assert.equal(storage.writes, 1);
+  unknown.updateState(fixture('unowned-progress', { day: 15 }));
+  unknown.render({ user: { id: 'hook-account-a' }, token: 'token-a' });
+  await settleHookEffects();
+  const recoveredOwner = unknown.render();
+  assert.equal(recoveredOwner.ready, true, 'A valid identity must finish owner bootstrap.');
+  assert.equal(recoveredOwner.status, 'ready');
+  assert.equal(unknown.state.runId, savedA.runId, 'The valid account must restore its own checkpoint, not the unowned state.');
+  assert.equal(unknown.state.day, savedA.day);
+  assert.deepEqual(snapshotState(checkpointApi.readCheckpoint(storage, accountA).checkpoint.current), snapshotState(savedA));
+  assert.equal(checkpointApi.readCheckpoint(storage, accountB).status, 'missing', 'Unowned progress must not be copied into another account.');
   unknown.unmount();
 
   const account = hookHarness({ storage, user: { id: 'hook-account-a' }, token: 'token-a', state: fixture('pre-account') });

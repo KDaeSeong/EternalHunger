@@ -480,14 +480,15 @@ export default function usePrimitiveArchiveCheckpoint({
     return successResult('ready', result.revision, result.savedAt);
   }, [flush, hydrated, setStatus, setTrackedState, storage]);
 
-  const currentOwnerReady = hydrated && readyState && ownerKey === activeOwnerState;
+  const ownerBootstrapSettled = hydrated && readyState && ownerKey === activeOwnerState;
+  const currentOwnerReady = ownerBootstrapSettled && Boolean(ownerKey);
   const authExpiredMessage = !authenticated && expiredOwner
     ? '로그인이 만료되었습니다. 현재 런은 이 탭에서 유지되며, 서버 저장은 다시 로그인한 뒤 사용할 수 있습니다.'
     : '';
   return {
     ready: currentOwnerReady,
-    status: currentOwnerReady ? statusState : 'loading',
-    message: currentOwnerReady
+    status: ownerBootstrapSettled ? statusState : 'loading',
+    message: ownerBootstrapSettled
       ? [messageState, transitionWarningState, authExpiredMessage].filter(Boolean).join(' ')
       : checkpointMessage('loading'),
     hasPrevious: currentOwnerReady && hasPreviousState,
