@@ -33,6 +33,8 @@ const apiStub = `
   export const apiPost = (path, payload, options) => call('POST', path, payload, options);
   export const apiPut = (path, payload, options) => call('PUT', path, payload, options);
   export const clearApiGetCache = (path) => globalThis.__primitiveArchivePersistenceHarness.cacheClears.push(path);
+  export const captureAuthSession = () => ({ scope: 'fixture', revision: 0 });
+  export const isCurrentAuthSession = () => true;
 `;
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 registerHooks({
@@ -46,7 +48,7 @@ registerHooks({
     return nextResolve(specifier, context);
   },
 });
-const { default: usePrimitiveArchivePersistence } = await import(persistenceUrl);
+const { default: invokePersistenceHook } = await import(persistenceUrl);
 
 const runTabUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveRunTab.js', import.meta.url).href;
 const runTabModules = new Map([
@@ -158,7 +160,7 @@ function persistenceHarness(state, options = {}) {
   };
   globalThis.__primitiveArchivePersistenceHarness = harness;
   const writes = { actionResults: [], difficulties: [], states: [], toasts: [] };
-  const controls = usePrimitiveArchivePersistence({
+  const controls = invokePersistenceHook({
     setActionResult: (value) => writes.actionResults.push(value),
     setNewRunDifficulty: (value) => writes.difficulties.push(value),
     setState: (value) => writes.states.push(value),

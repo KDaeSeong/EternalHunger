@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
-import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import { useAuthToken, useAuthUser, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
@@ -93,6 +93,7 @@ import {
 } from '../_lib/primitiveArchiveEngine';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
+import usePrimitiveArchiveCheckpoint from '../_hooks/usePrimitiveArchiveCheckpoint';
 import {
   primitiveActionResultPresentation,
   primitiveActionResultText,
@@ -124,6 +125,7 @@ function createHydrationSafeState() {
 
 export default function PrimitiveArchivePlayContent() {
   const token = useAuthToken();
+  const user = useAuthUser();
   const hydrated = useHydrated();
   const { showToast } = useToast();
   const playGameSfx = useGameSfx({ theme: 'civilization' });
@@ -143,13 +145,37 @@ export default function PrimitiveArchivePlayContent() {
   const feedbackRef = useRef(primitiveMilestoneSnapshot(state));
   const musicSceneTimerRef = useRef(null);
   const replaceState = useCallback((nextValue) => {
+    if (typeof nextValue !== 'function') {
+      stateRef.current = nextValue;
+      feedbackRef.current = primitiveMilestoneSnapshot(nextValue);
+      setState(nextValue);
+      return;
+    }
     setState((current) => {
-      const nextState = typeof nextValue === 'function' ? nextValue(current) : nextValue;
+      const nextState = nextValue(current);
       stateRef.current = nextState;
       feedbackRef.current = primitiveMilestoneSnapshot(nextState);
       return nextState;
     });
   }, []);
+  const handleRestoredRun = useCallback((nextState) => {
+    setNewRunDifficulty(nextState.difficulty || 'normal');
+    setActorId(nextState.party.find((member) => member.hp > 0)?.id || nextState.party[0]?.id || 'shiroko');
+    setZoneId(nextState.exploration?.selectedRegionId || 'whisper-woods');
+    setRecipeId('twine');
+    setSelectedRecruitId('');
+    setActionResult(nextState.log?.[0] || '이 브라우저의 진행을 복구했습니다.');
+    setActionFeedback({ key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: nextState.runId, tone: 'ready' });
+  }, []);
+  const checkpoint = usePrimitiveArchiveCheckpoint({
+    state,
+    setState: replaceState,
+    hydrated,
+    user,
+    token,
+    onRestore: handleRestoredRun,
+    latestStateRef: stateRef,
+  });
 
   const actor = getActor(state, actorId);
   const recipes = useMemo(() => recipeRows(state), [state]);
@@ -171,6 +197,8 @@ export default function PrimitiveArchivePlayContent() {
     saveRun,
     setMessage,
   } = usePrimitiveArchivePersistence({
+    latestStateRef: stateRef,
+    replaceRun: checkpoint.replaceRun,
     setActionResult,
     setNewRunDifficulty,
     setState: replaceState,
@@ -179,7 +207,7 @@ export default function PrimitiveArchivePlayContent() {
     token,
   });
   const dead = state.ended || hp <= 0;
-  const canAct = !dead && state.ap > 0;
+  const canAct = checkpoint.ready && !busy && !dead && state.ap > 0;
   const exploration = useMemo(() => explorationSummary(state), [state]);
   const regions = exploration.rows;
   const zoneSelectionUnlocked = canSelectActionZone(state);
@@ -374,6 +402,7 @@ export default function PrimitiveArchivePlayContent() {
         : '다음 사회 제도를 선택하면 선행 조건과 영감 진행도를 여기에서 확인할 수 있습니다.';
 
   const applyAction = (label, updater, fallbackText = '') => {
+    if (!checkpoint.ready || busy) return;
     const previousState = stateRef.current;
     const nextState = updater(previousState);
     const previousMilestones = civilizationMilestoneRows(previousState);
@@ -512,13 +541,16 @@ export default function PrimitiveArchivePlayContent() {
   };
 
   const startNewRun = () => {
-    if (busy) return;
+    if (!hydrated || !checkpoint.ready || busy) return;
+    if (!window.confirm('현재 진행을 직전 런으로 보관하고 새 런을 시작할까요? 직전 런은 이 브라우저에서 하나만 보관합니다.')) return;
     const nextState = startNewRunFromMeta(stateRef.current, { difficulty: newRunDifficulty });
+    const replacement = checkpoint.replaceRun(nextState);
+    if (!replacement.ok) {
+      setMessage(replacement.message);
+      return;
+    }
     const nextMessage = `${selectedDifficulty.label} 난이도로 새 문명 아카이브 런을 시작했습니다.`;
     const presentation = primitiveTextPresentation(nextMessage);
-    stateRef.current = nextState;
-    feedbackRef.current = primitiveMilestoneSnapshot(nextState);
-    setState(nextState);
     setActorId('shiroko');
     setZoneId('whisper-woods');
     setRecipeId('twine');
@@ -527,6 +559,18 @@ export default function PrimitiveArchivePlayContent() {
     setActionFeedback({ ...presentation, runId: nextState.runId });
     setMessage('');
     if (presentation.cue) playGameSfx(presentation.cue);
+  };
+  const restorePreviousRun = () => {
+    if (!hydrated || !checkpoint.ready || !checkpoint.hasPrevious || busy) return;
+    if (!window.confirm('직전 런을 복구할까요? 현재 런은 직전 런 칸에 보관되어 다시 되돌릴 수 있습니다.')) return;
+    const restored = checkpoint.restorePrevious();
+    if (!restored.ok) setMessage(restored.message);
+    else setMessage('직전 런을 복구했습니다. 바꾸기 전 런도 직전 런 칸에 보관했습니다.');
+  };
+  const loadServerRun = () => {
+    if (!hydrated || !checkpoint.ready || !token || busy) return;
+    if (!window.confirm('현재 진행을 직전 런으로 보관한 뒤 서버 저장본을 불러올까요?')) return;
+    void loadRun();
   };
 
   const recruitMember = () => {
@@ -572,9 +616,10 @@ export default function PrimitiveArchivePlayContent() {
 
   const playActions = (
     <>
-      <GameControlButton action="new" cue="off" onClick={startNewRun}>{selectedDifficulty.label} 새 런</GameControlButton>
-      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
-      <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun} disabled={!hydrated || !checkpoint.ready || Boolean(busy)}>{selectedDifficulty.label} 새 런</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || !checkpoint.ready || !token || Boolean(busy)}>{busy === 'save' ? '저장 중...' : '서버 저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={loadServerRun} disabled={!hydrated || !checkpoint.ready || !token || Boolean(busy)}>{busy === 'load' ? '불러오는 중...' : '서버 불러오기'}</GameControlButton>
+      <GameControlButton action="load" onClick={restorePreviousRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.hasPrevious || Boolean(busy)}>직전 런 복구</GameControlButton>
       <GameControlButton action="auto" cue="off" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</GameControlButton>
     </>
   );
@@ -591,6 +636,7 @@ export default function PrimitiveArchivePlayContent() {
   ];
 
   const playMessages = [
+    { key: 'checkpoint', text: checkpoint.message, tone: ['corrupt', 'conflict', 'unavailable', 'owner-unknown', 'invalid-state'].includes(checkpoint.status) ? 'error' : undefined },
     message ? { key: 'message', text: message } : null,
     archiveVictory.victory ? { key: 'victory', text: '아카이브를 완성했습니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
     archiveVictory.canComplete ? { key: 'complete-ready', text: '모든 목표를 달성했습니다. 아카이브 완성으로 런을 마무리할 수 있습니다.' } : null,
@@ -651,7 +697,7 @@ export default function PrimitiveArchivePlayContent() {
         archiveVictory={archiveVictory}
         autoEquip={autoEquip}
         buyPerk={buyPerk}
-        busy={busy}
+        busy={busy || (!checkpoint.ready ? 'checkpoint' : '')}
         campActions={campActions}
         campFacilities={campFacilities}
         canAct={canAct}
