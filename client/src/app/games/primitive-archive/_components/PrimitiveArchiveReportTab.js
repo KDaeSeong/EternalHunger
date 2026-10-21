@@ -29,6 +29,7 @@ export default function PrimitiveArchiveReportTab(props) {
                 title={archiveReport.title}
                 meta={`${archiveReport.grade}등급 · ${archiveReport.archiveScore}%`}
               />
+              <p className="primitive-run-management__note">런 완주 여부는 기초 목표와 완성·종료 선택으로 결정됩니다. 아래 등급과 기술·제도 진척은 별도 기록이며, 후기 근대까지 모두 마칠 필요는 없습니다. 런 관리에서 시대별 진척을 확인할 수 있습니다.</p>
               <div className="games-rank-split">
                 <SmallStat icon="target" label="목표" value={`${archiveReport.objectivePct}%`} />
                 <SmallStat icon="title" label="점수" value={archiveReport.score.toLocaleString('ko-KR')} />
@@ -53,7 +54,7 @@ export default function PrimitiveArchiveReportTab(props) {
             <section className="games-panel">
               <PrimitiveArchivePanelTitle
                 action="guide"
-                title="아카이브 챕터"
+                title="분야별 진행 기록"
                 meta={`${archiveReport.chapters.filter((chapter) => chapter.status === '완성').length}/${archiveReport.chapters.length}`}
               />
               <div className="game-save-list">
@@ -72,7 +73,7 @@ export default function PrimitiveArchiveReportTab(props) {
             </section>
 
             <section className="games-panel">
-              <PrimitiveArchivePanelTitle action="archive" title="전적 요약" meta="저장/전적 payload" />
+              <PrimitiveArchivePanelTitle action="archive" title="전적 요약" meta="서버 저장·전적에 남기는 정보" />
               <div className="games-rank-split">
                 <SmallStat icon="research" label="연구" value={`${archiveReport.recordSummary.researchPct}%`} />
                 <SmallStat icon="survival" label="생존" value={`${archiveReport.recordSummary.survivalPct}%`} />

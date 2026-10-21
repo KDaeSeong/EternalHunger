@@ -94,6 +94,7 @@ import {
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
 import usePrimitiveArchiveCheckpoint from '../_hooks/usePrimitiveArchiveCheckpoint';
+import { primitiveArchiveCoachMessage } from '../_lib/primitiveArchiveCoach';
 import {
   primitiveActionResultPresentation,
   primitiveActionResultText,
@@ -638,22 +639,38 @@ export default function PrimitiveArchivePlayContent() {
   const playMessages = [
     { key: 'checkpoint', text: checkpoint.message, tone: ['corrupt', 'conflict', 'unavailable', 'owner-unknown', 'invalid-state'].includes(checkpoint.status) ? 'error' : undefined },
     message ? { key: 'message', text: message } : null,
-    archiveVictory.victory ? { key: 'victory', text: '아카이브를 완성했습니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
-    archiveVictory.canComplete ? { key: 'complete-ready', text: '모든 목표를 달성했습니다. 아카이브 완성으로 런을 마무리할 수 있습니다.' } : null,
+    archiveVictory.victory ? { key: 'victory', text: '기초 아카이브 완주로 런이 종료되었습니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
+    archiveVictory.canComplete ? { key: 'complete-ready', text: '기초 완주 목표를 달성했습니다. 런 관리에서 완성·종료하거나, 종료하지 않고 문명 발전을 계속할 수 있습니다.' } : null,
     dead && !archiveVictory.victory ? { key: 'dead', tone: 'error', text: '런이 종료 상태입니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
   ];
 
+  const locationAndCraftAdvice = `${zone.note} 제작 목표는 ${recipe.name}${recipe.unlocked ? '' : ' (잠김)'}입니다.`;
+  const coachMessage = primitiveArchiveCoachMessage({
+    state,
+    nightRows: partyView.map((row) => row.nightSurvival).filter(Boolean),
+    fallbackText: locationAndCraftAdvice,
+  });
   const guide = {
     title: '생존 코치',
-    badge: archiveVictory.victory ? '완성' : dead ? '위험' : `Day ${state.day}`,
-    primaryTitle: archiveVictory.victory ? '아카이브 완성' : dead ? '런 종료' : canAct ? `${actor?.name || '대원'} 행동 가능` : '정산 필요',
+    badge: archiveVictory.victory ? '기초 완주' : dead ? '위험' : `Day ${state.day}`,
+    primaryTitle: archiveVictory.victory
+      ? '기초 아카이브 완주'
+      : dead
+        ? '런 종료'
+        : canAct
+          ? coachMessage.urgent ? coachMessage.title : `${actor?.name || '대원'} 행동 가능`
+          : !checkpoint.ready ? '진행 정보 확인 중' : busy ? '서버 작업 중' : 'AP 확인 필요',
     primaryText: archiveVictory.victory
-      ? '완성한 런입니다. 결과를 기록하거나 새 런을 시작하세요.'
+      ? '기초 완주로 종료한 런입니다. 이 런은 더 진행할 수 없으며 결과를 기록하거나 새 런을 시작할 수 있습니다.'
       : dead
         ? state.meta?.lastSettledRunId === state.runId
           ? '결과를 기록하거나 새 런을 시작하세요.'
           : '런 관리에서 보상을 정산할 수 있습니다. 전적 기록은 보상 정산과 별개입니다.'
-        : `${zone.note} 제작 목표는 ${recipe.name}${recipe.unlocked ? '' : ' (잠김)'}입니다.`,
+        : !checkpoint.ready
+          ? '이 기기의 진행 정보를 확인한 뒤 행동할 수 있습니다.'
+          : busy
+            ? '서버 작업이 끝난 뒤 다음 행동을 고를 수 있습니다.'
+            : coachMessage.text,
     focusRows: [
       { label: 'HP', value: hp },
       { label: '허기', value: hunger },
@@ -661,10 +678,12 @@ export default function PrimitiveArchivePlayContent() {
       { label: '체온', value: bodyTemp.toFixed(1) },
     ],
     adviceLines: [
+      !dead && coachMessage.urgent ? { kind: '우선', title: coachMessage.title, detail: coachMessage.text } : null,
       hp <= 35 ? { kind: '우선', title: '회복/휴식', detail: 'HP가 낮습니다. 전투보다 캠프와 회복을 먼저 검토하세요.' } : null,
       hunger >= 65 ? { kind: '우선', title: '식량 확보', detail: '허기가 높으면 다음 행동 안정성이 떨어집니다.' } : null,
       tribe.unassigned > 0 ? { kind: '운영', title: '직업 배치', detail: `미배치 부족원 ${tribe.unassigned}명을 생산·건설·연구에 투입할 수 있습니다.` } : null,
-      archiveVictory.canComplete ? { kind: '완료', title: '아카이브 완성', detail: '목표를 달성했습니다. 기록 전 마무리를 준비하세요.' } : null,
+      archiveVictory.canComplete ? { kind: '선택', title: '기초 완주 또는 문명 발전', detail: '기초 목표를 달성했습니다. 런 관리에서 완주·종료하거나, 종료 전에 더 높은 시대의 발전을 이어갈 수 있습니다.' } : null,
+      { kind: '현재', title: '지역·제작 목표', detail: locationAndCraftAdvice },
       { kind: '진행', title: '연구/제작 병행', detail: `${research.completed}/${research.total} 연구 완료, 기록 점수 ${archiveReport.archiveScore}%입니다.` },
     ],
   };

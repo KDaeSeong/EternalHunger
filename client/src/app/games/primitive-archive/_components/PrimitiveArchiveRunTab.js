@@ -12,6 +12,7 @@ import {
   startInventoryText,
 } from '../_lib/primitiveArchivePageRuntime';
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
+import { archiveProgressionSummary } from '../_lib/primitiveArchiveProgression';
 
 export default function PrimitiveArchiveRunTab(props) {
   const {
@@ -23,6 +24,7 @@ export default function PrimitiveArchiveRunTab(props) {
     newRunDifficulty,
     recordRun,
     selectedDifficulty,
+    setActiveTabId,
     setNewRunDifficulty,
     startNewRun,
     state,
@@ -32,6 +34,14 @@ export default function PrimitiveArchiveRunTab(props) {
   const persistenceBusy = Boolean(busy);
   const runEnded = Boolean(state?.ended);
   const runSettled = Boolean(state?.runId) && state.meta?.lastSettledRunId === state.runId;
+  const progression = archiveProgressionSummary(state, archiveVictory);
+  const advancementCompleted = progression.longTerm.rows.reduce((sum, row) => sum + row.completed, 0);
+  const advancementTotal = progression.longTerm.rows.reduce((sum, row) => sum + row.total, 0);
+  const completeRun = () => {
+    if (!hydrated || persistenceBusy || runEnded || !archiveVictory.canComplete) return;
+    if (!window.confirm('기초 아카이브를 완성하고 이 런을 종료할까요? 보상이 정산되며, 종료한 런에서는 문명 발전을 더 이어갈 수 없습니다.')) return;
+    applyAction('아카이브 완성', (current) => completeArchiveAction(current));
+  };
 
   return (
     <section className="games-panel primitive-run-management" role="tabpanel">
@@ -42,6 +52,41 @@ export default function PrimitiveArchiveRunTab(props) {
       >
         <strong>난이도는 새 런부터 적용</strong>
       </PrimitiveArchivePanelTitle>
+
+      <div className="primitive-progression-goals">
+        <section className="primitive-progression-goal" aria-label={progression.basic.title}>
+          <h3>{progression.basic.title}</h3>
+          <strong>{runEnded
+            ? progression.basic.victory ? '기초 완주로 런 종료' : '기초 완주 없이 런 종료'
+            : progression.basic.canComplete ? '기초 완주 가능' : `${progression.basic.completed}/${progression.basic.total} 목표 달성`}</strong>
+          <p>{progression.basic.description}</p>
+          <small>더 높은 시대의 기술·제도를 모두 마칠 필요는 없습니다.</small>
+        </section>
+        <section className="primitive-progression-goal" aria-label={progression.longTerm.title}>
+          <h3>{progression.longTerm.title} · 선택 목표</h3>
+          <p>{progression.longTerm.description}</p>
+          <GameControlButton
+            action="research"
+            onClick={() => setActiveTabId?.('growth')}
+            disabled={!hydrated || persistenceBusy || runEnded}
+            title={runEnded ? '종료된 런에서는 추가 발전을 진행할 수 없습니다.' : '발전 탭으로 이동합니다. AP나 시간은 소모하지 않습니다.'}
+          >
+            문명 발전 계속
+          </GameControlButton>
+          <details className="primitive-progression-eras">
+            <summary>시대별 발전 보기 · {advancementCompleted}/{advancementTotal}</summary>
+            <p>이 표의 학술 진입은 해당 시대 항목 1개 이상 완료, 시대 항목 완료는 그 시대의 기술·제도를 모두 완료한 상태입니다.</p>
+            <ul>
+              {progression.longTerm.rows.map((row) => (
+                <li key={row.id}>
+                  <strong>{row.label}</strong>
+                  <span>{row.completed}/{row.total} · {row.complete ? '시대 항목 완료' : row.entered ? '학술 진입' : '연구 완료 전'}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </section>
+      </div>
 
       <div className="primitive-difficulty-grid">
         {difficultyRows().map((row) => (
@@ -79,11 +124,11 @@ export default function PrimitiveArchiveRunTab(props) {
         </GameControlButton>
         <GameControlButton
           action="complete"
-          onClick={() => applyAction('아카이브 완성', (current) => completeArchiveAction(current))}
-          disabled={!archiveVictory.canComplete || persistenceBusy || runEnded}
-          title={persistenceBusy ? '저장 작업이 끝난 뒤 완료할 수 있습니다.' : undefined}
+          onClick={completeRun}
+          disabled={!hydrated || !archiveVictory.canComplete || persistenceBusy || runEnded}
+          title={persistenceBusy ? '저장 작업이 끝난 뒤 완료할 수 있습니다.' : '기초 완주로 현재 런을 종료하고 보상을 정산합니다.'}
         >
-          아카이브 완성
+          기초 아카이브 완성·런 종료
         </GameControlButton>
         <GameControlButton
           action="settle"
@@ -109,7 +154,7 @@ export default function PrimitiveArchiveRunTab(props) {
           : null}
       </p>
       {!token && hydrated ? (
-        <p className="primitive-run-management__note">플레이는 가능하지만 저장·불러오기·전적 기록은 로그인 후 사용할 수 있습니다.</p>
+        <p className="primitive-run-management__note">로그인 없이 플레이하며 이 기기에 자동 저장하고 직전 런을 복구할 수 있습니다. 저장 상태는 상단 안내에서 확인하세요. 서버 저장·서버 불러오기·전적 기록은 로그인 후 사용할 수 있습니다.</p>
       ) : null}
     </section>
   );

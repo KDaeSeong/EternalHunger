@@ -6977,6 +6977,24 @@
   white-space: nowrap;
 }
 
+.primitive-archive-page-shell .game-advisor-panel--minimal:not(.is-expanded) .game-advisor-compact-summary {
+  display: grid;
+  gap: 4px;
+}
+
+.primitive-archive-page-shell .game-advisor-panel--minimal:not(.is-expanded) .game-advisor-compact-summary span {
+  display: block;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+@media (max-width: 600px) {
+  .primitive-archive-page-shell .game-advisor-panel--minimal:not(.is-expanded) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .game-advisor-title-actions {
   display: inline-flex;
   align-items: center;
@@ -9101,6 +9119,62 @@
 
 .primitive-run-management {
   gap: 12px;
+}
+
+.primitive-progression-goals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 10px;
+}
+
+.primitive-progression-goal {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(44, 111, 158, 0.2);
+  border-radius: 8px;
+  background: #f8fbfd;
+  overflow-wrap: anywhere;
+}
+
+.primitive-progression-goal h3,
+.primitive-progression-goal p {
+  margin: 0;
+}
+
+.primitive-progression-goal h3 {
+  font-size: 0.92rem;
+}
+
+.primitive-progression-goal p,
+.primitive-progression-goal small,
+.primitive-progression-eras li span {
+  color: #64717d;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.primitive-progression-eras summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.primitive-progression-eras ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 7px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.primitive-progression-eras li {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
 }
 
 .primitive-run-management__actions {

@@ -68,8 +68,8 @@ export default function PrimitiveArchiveTribeTab({
           <small>{tribe.atCapacity ? '대피소·정착·국가 노동력 연구로 수용력을 늘릴 수 있습니다.' : `다음 날 예상 생산: ${tribe.nextProductionText}`}</small>
           {nextFood && (
             <>
-              <small>다음 부족 배식 예상: 재고 {nextFood.stock} + 생산 {nextFood.produced} → 필요 {nextFood.need}단위 · {nextFood.shortage > 0 ? `부족 ${nextFood.shortage}단위` : `잔여 ${nextFood.reserve}단위`}</small>
-              <small>2일 부족 식량 전망: {tribe.foodForecast.totalShortage > 0 ? `부족 ${tribe.foodForecast.totalShortage}단위` : '부족 없음'} · 현재 재고·직업만 반영하며, 파티 식사·추가 행동·성장·사업 보상에 따라 달라집니다.</small>
+              <small>다음 날 부족 배식(현재 인구 {tribe.population}명 기준): 재고 {nextFood.stock} + 생산 {nextFood.produced} → 필요 {nextFood.need}단위 · {nextFood.shortage > 0 ? `부족 ${nextFood.shortage}단위` : `잔여 ${nextFood.reserve}단위`}</small>
+              <small>부족 전용 식량 전망(2일): {tribe.foodForecast.totalShortage > 0 ? `부족 ${tribe.foodForecast.totalShortage}단위` : '부족 없음'} · 현재 인구·재고·직업 배치 기준이며, 파티 식사분·인구 증가·추가 행동·사업 보상은 포함하지 않습니다.</small>
             </>
           )}
         </div>
