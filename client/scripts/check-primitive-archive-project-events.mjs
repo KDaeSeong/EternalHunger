@@ -188,6 +188,61 @@ check('sufficient rare stock switches both tracking guidance and the paid action
   assert.deepEqual(trackingProtectedSnapshot(rejected), trackingProtectedSnapshot(missingPlains));
 });
 
+check('controlled RNG cave gather creates a visible obsidian chain and verifies its event reward after JSON restoration', () => {
+  const fixture = trackingFixture({ cave: true });
+  const regionIds = [
+    'camp-heart', 'whisper-woods', 'river-ford', 'sun-meadow', 'old-grove', 'echo-cave',
+    'clay-bank', 'red-cliffs', 'bone-field', 'wind-plains', 'obsidian-hollow', 'marsh-delta', 'north-ridge',
+  ];
+  const initial = engine.normalizeState({
+    ...fixture,
+    exploration: {
+      ...fixture.exploration,
+      revealed: Object.fromEntries(regionIds.map((id) => [id, true])),
+    },
+  });
+  const original = structuredClone(initial);
+  const next = engine.runGatherAction(initial, 'shiroko', 'echo-cave', { rng: () => 0 });
+
+  let noEventDraws = 0;
+  // Fixed fixture: one success roll, six loot rolls and one dialogue roll precede the event roll.
+  const withoutEvent = engine.runGatherAction(initial, 'shiroko', 'echo-cave', {
+    rng: () => ++noEventDraws === 9 ? 0.999 : 0,
+  });
+
+  assert.equal(next.ap, initial.ap - 1);
+  assert.equal(next.counters.gather, initial.counters.gather + 1);
+  assert.ok(next.log.some((line) => /채집 성공.*메아리 동굴/.test(line)));
+  assert.ok(next.log.some((line) => /검은 유리맥/.test(line)), 'The controlled exploration event should exercise the cave obsidian branch.');
+  assert.equal(next.eventChains.length, 1);
+  assert.equal(next.eventChains[0].kind, 'obsidian_vein');
+  assert.equal(next.eventChains[0].zoneId, 'cave');
+  assert.equal(next.eventChains[0].resolved, false);
+  assert.equal(next.eventChains[0].expiresDay, next.day + 3);
+  assert.equal(noEventDraws, 9, 'The counterfactual RNG must skip the event at the ninth draw after the same ordinary gather rolls.');
+  assert.equal(withoutEvent.ap, next.ap);
+  assert.equal(withoutEvent.counters.gather, next.counters.gather);
+  assert.equal(withoutEvent.eventChains.length, 0);
+  assert.equal(withoutEvent.log.find((line) => /채집 성공.*메아리 동굴/.test(line)),
+    next.log.find((line) => /채집 성공.*메아리 동굴/.test(line)),
+    'Event and no-event runs must have the same ordinary cave harvest before comparing event rewards.');
+  assert.ok(!withoutEvent.log.some((line) => /검은 유리맥/.test(line)), 'The counterfactual must not trigger an exploration event.');
+  assert.equal(next.inventory.obsidian_shard - withoutEvent.inventory.obsidian_shard, 2,
+    'Day-7 검은 유리맥 event reward is 2 obsidian shards beyond the same ordinary cave gather.');
+  assert.equal(next.inventory.flint - withoutEvent.inventory.flint, 1,
+    '검은 유리맥 event reward includes 1 flint beyond the same ordinary cave gather.');
+
+  const restored = engine.normalizeState(JSON.parse(JSON.stringify(next)));
+  const row = engine.eventChainRows(restored, 'shiroko').find((entry) => entry.id === next.eventChains[0].id);
+  const report = engine.getRunProgressReport(restored, 'shiroko');
+  assert.equal(row?.title, '흑요석 광맥 추적');
+  assert.equal(row?.actionLabel, '광맥 회수');
+  assert.equal(row?.enabled, true);
+  assert.ok(report.activeEventChains.some((entry) => entry.id === next.eventChains[0].id));
+  assert.ok(report.recentEvents.some((entry) => /검은 유리맥/.test(entry.summary)));
+  assert.deepEqual(initial, original, 'The fresh deterministic fixture must remain unchanged.');
+});
+
 check('manual project work charges shared materials once, persists its commitment, and grants completion reward once', () => {
   const initial = projectFixture();
   const original = structuredClone(initial);
