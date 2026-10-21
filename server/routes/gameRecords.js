@@ -7,6 +7,8 @@ const router = express.Router();
 
 const MAX_RECORD_PAYLOAD_BYTES = toPositiveInt(process.env.GAME_RECORD_MAX_BYTES, 512 * 1024);
 const VALID_RESULTS = new Set(['win', 'loss', 'draw', 'clear', 'fail', 'none']);
+const PRIMITIVE_ARCHIVE_GAME_SLUG = 'primitive-archive';
+const MAX_CLIENT_RUN_ID_LENGTH = 160;
 
 function toPositiveInt(value, fallback) {
   const n = Number(value);
@@ -43,6 +45,38 @@ function toFiniteNumber(value, fallback = 0) {
 function toNonNegativeInt(value) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+function getPrimitiveArchiveRunId(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const state = payload.state;
+  if (!state || typeof state !== 'object' || Array.isArray(state) || typeof state.runId !== 'string') return null;
+
+  const runId = state.runId.trim();
+  if (!runId || runId.length > MAX_CLIENT_RUN_ID_LENGTH || /[\u0000-\u001f\u007f-\u009f]/.test(runId)) return null;
+  return runId;
+}
+
+function findPrimitiveArchiveRecord(userId, clientRunId) {
+  return GamePlayRecord.findOne({
+    userId,
+    gameSlug: PRIMITIVE_ARCHIVE_GAME_SLUG,
+    $or: [
+      { clientRunId },
+      { 'payload.state.runId': clientRunId },
+    ],
+  }).sort({ createdAt: 1, _id: 1 });
+}
+
+function sendRecordResponse(res, row, { status = 201, replayed } = {}) {
+  const response = {
+    message: replayed === true
+      ? '이미 저장된 게임 기록입니다. 중복으로 추가하지 않았습니다.'
+      : '게임 기록을 저장했습니다.',
+    record: mapRecord(row, { includePayload: true }),
+  };
+  if (typeof replayed === 'boolean') response.replayed = replayed;
+  return res.status(status).json(response);
 }
 
 function mapRecord(row, options = {}) {
@@ -98,11 +132,14 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/:gameSlug', async (req, res) => {
+  let gameSlug = '';
+  let clientRunId = null;
+  let userId = null;
   try {
-    const userId = getUserObjectId(req, res);
+    userId = getUserObjectId(req, res);
     if (!userId) return;
 
-    const gameSlug = normalizeKey(req.params?.gameSlug);
+    gameSlug = normalizeKey(req.params?.gameSlug);
     if (!gameSlug) return res.status(400).json({ error: '게임 키가 올바르지 않습니다.' });
 
     const payload = req.body?.payload ?? {};
@@ -112,10 +149,33 @@ router.post('/:gameSlug', async (req, res) => {
       return res.status(413).json({ error: `기록 데이터는 ${MAX_RECORD_PAYLOAD_BYTES.toLocaleString('ko-KR')}바이트 이내로 입력해주세요.` });
     }
 
+    const isPrimitiveArchiveRun = gameSlug === PRIMITIVE_ARCHIVE_GAME_SLUG
+      && (String(req.body?.mode || '').trim() === 'survival-loop'
+        || (payload && typeof payload === 'object'
+          && !Array.isArray(payload)
+          && Object.prototype.hasOwnProperty.call(payload, 'state')));
+
+    if (isPrimitiveArchiveRun) {
+      clientRunId = getPrimitiveArchiveRunId(payload);
+      if (!clientRunId) {
+        return res.status(400).json({ error: '문명 아카이브 런 식별자가 올바르지 않습니다.' });
+      }
+
+      const existing = await findPrimitiveArchiveRecord(userId, clientRunId);
+      if (existing) return sendRecordResponse(res, existing, { status: 200, replayed: true });
+
+      try {
+        await GamePlayRecord.ensureRunIdentityIndex();
+      } catch (error) {
+        console.error(error);
+        return res.status(503).json({ error: '전적 저장을 안전하게 준비하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+      }
+    }
+
     const result = VALID_RESULTS.has(String(req.body?.result || '')) ? String(req.body.result) : 'none';
     const playedAt = req.body?.playedAt ? new Date(req.body.playedAt) : new Date();
 
-    const row = await GamePlayRecord.create({
+    const recordData = {
       userId,
       gameSlug,
       title: cleanText(req.body?.title, '플레이 기록', 120),
@@ -127,10 +187,27 @@ router.post('/:gameSlug', async (req, res) => {
       payload,
       payloadBytes,
       playedAt: playedAt && !Number.isNaN(playedAt.getTime()) ? playedAt : new Date(),
-    });
+    };
+    if (clientRunId) recordData.clientRunId = clientRunId;
 
-    res.status(201).json({ message: '게임 기록을 저장했습니다.', record: mapRecord(row, { includePayload: true }) });
+    const row = await GamePlayRecord.create(recordData);
+
+    return sendRecordResponse(res, row, {
+      status: 201,
+      ...(clientRunId ? { replayed: false } : {}),
+    });
   } catch (err) {
+    if (gameSlug === PRIMITIVE_ARCHIVE_GAME_SLUG && clientRunId && err?.code === 11000) {
+      try {
+        const existing = await findPrimitiveArchiveRecord(
+          userId,
+          clientRunId,
+        );
+        if (existing) return sendRecordResponse(res, existing, { status: 200, replayed: true });
+      } catch (lookupError) {
+        console.error(lookupError);
+      }
+    }
     console.error(err);
     res.status(500).json({ error: '게임 기록 저장에 실패했습니다.' });
   }

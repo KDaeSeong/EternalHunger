@@ -106,6 +106,19 @@ function normalizeDeveloperTools(value = {}) {
   };
 }
 
+let fallbackRunSequence = 0;
+
+function freshRunId() {
+  const crypto = globalThis.crypto;
+  if (typeof crypto?.randomUUID === 'function') return `pa-${crypto.randomUUID()}`;
+  if (typeof crypto?.getRandomValues === 'function') {
+    const entropy = crypto.getRandomValues(new Uint32Array(4));
+    return `pa-${Array.from(entropy, (value) => value.toString(16).padStart(8, '0')).join('')}`;
+  }
+  fallbackRunSequence += 1;
+  return `pa-${Date.now().toString(36)}-${fallbackRunSequence.toString(36)}`;
+}
+
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   const rng = options.rng || Math.random;
@@ -119,7 +132,7 @@ export function createNewState(options = {}) {
     [itemId]: Math.max(0, Number(acc[itemId] || 0) + Number(qty || 0)),
   }), { wood: 2, stone: 2, fiber: 2, berry: 2 });
   const base = {
-    runId: options.runId || `pa-${Date.now().toString(36)}`,
+    runId: options.runId || freshRunId(),
     startedAt: now,
     updatedAt: now,
     difficulty,

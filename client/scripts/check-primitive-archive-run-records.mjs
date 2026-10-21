@@ -149,6 +149,46 @@ function expectStatus(state, expected) {
   return status;
 }
 
+check('separate runs started in the same millisecond have distinct identities without extra gameplay RNG draws', () => {
+  const originalNow = Date.now;
+  let generatedDraws = 0;
+  let explicitDraws = 0;
+  try {
+    Date.now = () => 1792540800000;
+    const options = { now: '2026-10-21T00:00:00.000Z' };
+    const first = engine.createNewState({ ...options, rng: () => { generatedDraws += 1; return 0.5; } });
+    const second = engine.createNewState({ ...options, rng: () => { generatedDraws += 1; return 0.5; } });
+    const explicit = engine.createNewState({ ...options, runId: 'legacy-preserved-run', rng: () => { explicitDraws += 1; return 0.5; } });
+    assert.notEqual(first.runId, second.runId);
+    assert.equal(generatedDraws, explicitDraws * 2);
+    assert.deepEqual({ ...first, runId: explicit.runId }, explicit);
+    assert.equal(engine.normalizeState(explicit).runId, explicit.runId);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+check('a crypto-less runtime still separates same-millisecond runs without consuming gameplay RNG', () => {
+  const originalNow = Date.now;
+  const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  let draws = 0;
+  try {
+    Date.now = () => 1792540800000;
+    Object.defineProperty(globalThis, 'crypto', { configurable: true, value: undefined });
+    const options = { now: '2026-10-21T00:00:00.000Z', rng: () => { draws += 1; return 0.5; } };
+    const first = engine.createNewState(options);
+    const firstDraws = draws;
+    const second = engine.createNewState(options);
+    assert.notEqual(first.runId, second.runId);
+    assert.equal(draws, firstDraws * 2);
+    assert.deepEqual({ ...first, runId: second.runId }, second);
+  } finally {
+    Date.now = originalNow;
+    if (cryptoDescriptor) Object.defineProperty(globalThis, 'crypto', cryptoDescriptor);
+    else delete globalThis.crypto;
+  }
+});
+
 function persistenceHarness(state, options = {}) {
   const harness = {
     apiCalls: [],
@@ -435,6 +475,23 @@ await checkAsync('a rejected record leaves the run untouched and the same hook c
   assert.equal(harness.cacheClears.at(-1), '/game-records');
   assert.deepEqual(state, original);
   assert.equal(writes.states.length, 0);
+});
+
+await checkAsync('a replayed server record reports the existing result without changing the run or inventing a second success', async () => {
+  const state = fixture({ ended: true });
+  const original = structuredClone(state);
+  const { controls, harness, writes } = persistenceHarness(state, {
+    handlers: { POST: () => ({ replayed: true, record: { id: 'existing-record' } }) },
+  });
+  await controls.recordRun();
+  assert.equal(harness.apiCalls.length, 1);
+  assert.equal(harness.apiCalls[0].payload.payload.state.runId, state.runId);
+  assert.equal(harness.cacheClears.at(-1), '/game-records');
+  assert.match(writes.actionResults.at(-1), /이미 저장/);
+  assert.match(writes.toasts.at(-1).message, /중복 기록을 추가하지 않았/);
+  assert.equal(writes.toasts.at(-1).tone, 'success');
+  assert.equal(writes.states.length, 0);
+  assert.deepEqual(state, original);
 });
 
 await checkAsync('same-tick record calls and save/load attempts share the pending-operation lock', async () => {

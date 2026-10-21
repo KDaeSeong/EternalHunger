@@ -140,7 +140,7 @@ export default function usePrimitiveArchivePersistence({
     busyRef.current = 'record';
     setBusy('record');
     try {
-      await apiPost(`/game-records/${GAME_SLUG}`, {
+      const response = await apiPost(`/game-records/${GAME_SLUG}`, {
         title: `문명 아카이브 · ${snapshot.day}일 · ${status.label}`,
         mode: 'survival-loop',
         result: status.result,
@@ -151,7 +151,9 @@ export default function usePrimitiveArchivePersistence({
       }, { timeoutMs: 15000 });
       if (!requestIsCurrent(request)) return;
       clearApiGetCache('/game-records');
-      const nextMessage = `${status.label} 결과를 전적에 기록했습니다.`;
+      const nextMessage = response?.replayed === true
+        ? '이 런의 전적은 이미 저장되어 있습니다. 중복 기록을 추가하지 않았습니다.'
+        : `${status.label} 결과를 전적에 기록했습니다.`;
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
       setActionResult(nextMessage);
