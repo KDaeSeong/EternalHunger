@@ -354,25 +354,51 @@ check('loading and busy plans block navigation, while ended runs remain navigabl
   assert.doesNotMatch(renderFocus(ended).html, /disabled/);
 });
 
-check('actual navigation JSX exposes three primary tabs, keeps other screens collapsed, and labels a secondary active pane', () => {
+check('actual feature navigation exposes three primary and seven collapsed secondary buttons with one linked current region for every screen', () => {
   const state = freshState('focus-tab-navigation');
-  const primary = renderFeatureTabs(state, 'actions');
-  const primaryList = primary.html.match(/<div[^>]*role="tablist" aria-label="주요 화면"[^>]*>([\s\S]*?)<\/div>/)?.[1];
-  assert.ok(primaryList, 'The real primary tablist must render.');
-  assert.deepEqual([...primaryList.matchAll(/<button[^>]*role="tab"[^>]*>[\s\S]*?<span>([^<]+)<\/span>/g)].map((match) => match[1]), ['행동', '캠프', '발전']);
-  assert.equal((primaryList.match(/role="tab"/g) || []).length, 3);
-  const secondaryDetails = primary.html.match(/<details class="primitive-secondary-navigation"([^>]*)>/)?.[0];
-  assert.ok(secondaryDetails);
-  assert.doesNotMatch(secondaryDetails, /\sopen(?:=|\s|>)/, 'Secondary navigation must start collapsed.');
-  assert.match(primary.html, /role="tabpanel" aria-labelledby="primitive-archive-tab-actions"/);
+  const tabIds = ['actions', 'map', 'party', 'camp', 'archive-report', 'growth', 'tribe', 'inventory', 'developer', 'run'];
+  const expectedLabels = ['행동', '지도', '파티', '캠프', '기록서', '발전', '부족', '장비', '개발자', '런 관리'];
+  for (const activeTabId of tabIds) {
+    const rendered = renderFeatureTabs(state, activeTabId);
+    const { html } = rendered;
+    const navHtml = html.match(/<nav aria-label="문명 아카이브 화면 선택">([\s\S]*?)<\/nav>/)?.[1];
+    assert.ok(navHtml, 'The actual feature navigation must render.');
+    const buttonTags = [...navHtml.matchAll(/<button\b[^>]*>/g)].map(([tag]) => tag);
+    const expectedIndex = tabIds.indexOf(activeTabId);
+    const expectedId = `primitive-archive-tab-${activeTabId}`;
+    const primaryGroup = navHtml.match(/<div[^>]*role="group" aria-label="주요 화면"[^>]*>([\s\S]*?)<\/div>/)?.[1];
+    const secondaryGroup = navHtml.match(/<div[^>]*role="group" aria-label="다른 화면"[^>]*>([\s\S]*?)<\/div>/)?.[1];
+    assert.ok(primaryGroup && secondaryGroup, 'Both primary and secondary navigation groups must remain available.');
+    assert.equal((primaryGroup.match(/<button\b/g) || []).length, 3, 'Three primary navigation buttons must remain directly available.');
+    assert.equal((secondaryGroup.match(/<button\b/g) || []).length, 7, 'All seven secondary screens must remain available inside the disclosure.');
+    assert.deepEqual([...primaryGroup.matchAll(/<span>([^<]+)<\/span>/g)].map(([, label]) => label), ['행동', '캠프', '발전']);
+    const currentButtons = buttonTags.filter((tag) => /\baria-current="page"/.test(tag));
+    assert.equal(currentButtons.length, 1, `${activeTabId} must have exactly one current navigation button.`);
+    assert.match(currentButtons[0], new RegExp(`\\bid="${expectedId}"`));
+    assert.equal(buttonTags.length, 10, 'All three primary and seven secondary navigation buttons must remain rendered.');
+    assert.ok(buttonTags.every((tag) => /\baria-controls="primitive-archive-feature-panel"/.test(tag)), 'Every navigation button must retain its controlled-panel link.');
+    assert.ok(buttonTags.every((tag) => /\bid="primitive-archive-tab-[^"]+"/.test(tag)), 'Every navigation button must retain a stable id.');
+    assert.equal((navHtml.match(/role="group"/g) || []).length, 2, 'Primary and secondary native button groups must be exposed as groups.');
+    assert.doesNotMatch(navHtml, /role="tablist"|role="tab"|aria-selected=/, 'Native navigation buttons must not retain tab-widget semantics.');
 
-  const secondary = renderFeatureTabs(state, 'run');
-  assert.match(secondary.html, /<button[^>]*role="tab"[^>]*id="primitive-archive-tab-run"[^>]*aria-selected="true"/);
-  assert.match(secondary.html, /role="tabpanel" aria-labelledby="primitive-archive-tab-run"/);
-  assert.match(secondary.html, /런 관리/);
-  assert.match(secondary.html, /id="primitive-archive-tab-run"/);
-  assert.match(secondary.html, /<details class="primitive-secondary-navigation"[^>]*>/);
-  assert.doesNotMatch(secondary.html.match(/<details class="primitive-secondary-navigation"[^>]*>/)?.[0] || '', /\sopen(?:=|\s|>)/);
+    const regionTags = [...html.matchAll(/<div\b[^>]*role="region"[^>]*>/g)].map(([tag]) => tag);
+    assert.equal(regionTags.length, 1, 'The actual feature body must expose one named region.');
+    assert.match(regionTags[0], /\bid="primitive-archive-feature-panel"/);
+    assert.match(regionTags[0], new RegExp(`\\baria-labelledby="${expectedId}"`));
+    assert.match(html, new RegExp(`<span>${expectedLabels[expectedIndex]}</span>`));
+
+    const detailsTag = html.match(/<details class="primitive-secondary-navigation"[^>]*>/)?.[0];
+    assert.ok(detailsTag, 'Secondary screens must remain inside a native disclosure.');
+    assert.doesNotMatch(detailsTag, /\sopen(?:=|\s|>)/, 'Secondary navigation must start collapsed.');
+    if (activeTabId === 'actions') {
+      assert.match(html, /primitive-basic-action-grid/, 'The actual action workspace must remain reachable in the primary group.');
+      assert.doesNotMatch(html, /data-focus-check-stub=/, 'The actions view is the actual component, not a child stub.');
+    } else if (activeTabId === 'run') {
+      assert.doesNotMatch(html, /data-focus-check-stub=/, 'Run management is rendered from its actual child component.');
+    } else {
+      assert.match(html, new RegExp(`data-focus-check-stub="${activeTabId}"`), `${activeTabId} body uses the documented child stub while actual FeatureTabs navigation is rendered.`);
+    }
+  }
 });
 
 check('actual action-workspace JSX puts the latest result before technology lists and keeps both lists closed by default', () => {

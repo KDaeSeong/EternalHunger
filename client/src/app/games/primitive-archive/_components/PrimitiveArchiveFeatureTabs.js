@@ -106,14 +106,13 @@ export default function PrimitiveArchiveFeatureTabs(props) {
   return (
     <section className="primitive-archive-workspace primitive-play-navigation">
       <nav aria-label="문명 아카이브 화면 선택">
-        <div className="primitive-primary-tabs" role="tablist" aria-label="주요 화면">
+        <div className="primitive-primary-tabs" role="group" aria-label="주요 화면">
           {primaryTabs.map((tab) => {
             const selected = activeTab.id === tab.id;
             return (
               <button
                 type="button"
-                role="tab"
-                aria-selected={selected}
+                aria-current={selected ? 'page' : undefined}
                 aria-controls="primitive-archive-feature-panel"
                 id={`primitive-archive-tab-${tab.id}`}
                 className={selected ? 'is-active' : ''}
@@ -132,7 +131,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
           </summary>
           <div
             className="primitive-secondary-navigation__items"
-            role="tablist"
+            role="group"
             aria-label="다른 화면"
           >
             {secondaryTabs.map((tab) => {
@@ -140,10 +139,9 @@ export default function PrimitiveArchiveFeatureTabs(props) {
               return (
                 <button
                   type="button"
-                  role="tab"
                   key={tab.id}
                   id={`primitive-archive-tab-${tab.id}`}
-                  aria-selected={selected}
+                  aria-current={selected ? 'page' : undefined}
                   aria-controls="primitive-archive-feature-panel"
                   className={selected ? 'is-active' : ''}
                   onClick={(event) => {
@@ -166,7 +164,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
       <div
         className="primitive-archive-feature-panel"
         id="primitive-archive-feature-panel"
-        role="tabpanel"
+        role="region"
         aria-labelledby={`primitive-archive-tab-${activeTab.id}`}
         tabIndex={0}
       >
