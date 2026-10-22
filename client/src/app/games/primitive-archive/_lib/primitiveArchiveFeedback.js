@@ -230,6 +230,14 @@ export function primitiveActionResultText(previous, current, label, fallback = '
   return matched || newLogs[0] || fallback || `${label || '행동'}을 실행했습니다.`;
 }
 
+export function primitiveRestoredResultText(state, fallback = '이 브라우저의 진행을 복구했습니다.') {
+  const logs = Array.isArray(state?.log)
+    ? state.log.filter((line) => typeof line === 'string' && line.trim())
+    : [];
+  const dialoguePattern = /^Day \d+: [^:\r\n]+: ".*"$/;
+  return logs.find((line) => !dialoguePattern.test(line)) || logs[0] || fallback;
+}
+
 export function primitiveActionFeedback(previous, current, label, options = {}) {
   const resultText = options.resultText || primitiveActionResultText(previous, current, label);
   const previousMilestone = primitiveMilestoneSnapshot(previous, options.previousSeasonId, options.previousEraId);

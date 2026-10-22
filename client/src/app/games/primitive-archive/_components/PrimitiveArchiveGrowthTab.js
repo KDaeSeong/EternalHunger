@@ -189,9 +189,6 @@ export default function PrimitiveArchiveGrowthTab(props) {
   };
   const openPlanner = () => setResearchPlannerOpen?.(true);
   const closePlanner = () => setResearchPlannerOpen?.(false);
-  const scrollToPreview = () => {
-    document.getElementById(`primitive-${activeTrack}-tree-preview`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   if (!research.unlocked) {
     return (
@@ -213,12 +210,12 @@ export default function PrimitiveArchiveGrowthTab(props) {
             ))}
           </div>
           <div className="games-empty">세 시설을 갖추면 기술 RP와 사회 제도 CP가 함께 축적되기 시작합니다.</div>
-          <GameControlButton action={isCivics ? 'policy' : 'research'} className="primitive-research-preview-link" onClick={scrollToPreview}>
-            전체 {trackLabel} 트리 미리보기
-          </GameControlButton>
         </section>
 
-        <PrimitiveArchiveResearchTreePreview key={activeTrack} researchMap={advancementMap} track={activeTrack} />
+        <details className="primitive-growth-preview" key={activeTrack}>
+          <summary>전체 {trackLabel} 트리 미리보기</summary>
+          <PrimitiveArchiveResearchTreePreview researchMap={advancementMap} track={activeTrack} />
+        </details>
 
         <PrimitiveArchiveProjectsPanel
           canAct={canAct}

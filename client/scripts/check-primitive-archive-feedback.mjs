@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import './lib/register-simulation-modules.mjs';
 import {
   primitiveActionFeedback,
   primitiveActionResultPresentation,
   primitiveMilestoneCue,
   primitiveMilestoneSnapshot,
+  primitiveRestoredResultText,
   primitiveTextPresentation,
 } from '../src/app/games/primitive-archive/_lib/primitiveArchiveFeedback.js';
+
+const engine = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveEngine.js');
 
 const routeUrl = new URL('../src/app/games/primitive-archive/', import.meta.url);
 const componentUrl = new URL('_components/', routeUrl);
@@ -32,6 +36,52 @@ const iconSource = await readFile(new URL('../src/app/games/_components/GameActi
 const soundSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
 const audioThemeSource = await readFile(new URL('../src/app/games/_lib/gameAudioThemes.js', import.meta.url), 'utf8');
 const styleSource = await readFile(new URL('../src/styles/AppShell.css', import.meta.url), 'utf8');
+
+const restoreFixture = engine.createNewState({
+  rng: () => 0.5,
+  runId: 'feedback-restore-gather-failure',
+  now: '2026-10-22T00:00:00.000Z',
+});
+const restoreActorId = restoreFixture.party[0].id;
+let gatherRngCalls = 0;
+const failedGather = engine.runGatherAction(restoreFixture, restoreActorId, 'whisper-woods', {
+  rng: () => {
+    gatherRngCalls += 1;
+    return 0.999;
+  },
+});
+const engineGatherFailure = failedGather.log.find((line) => line.includes('채집 실패'));
+assert.ok(engineGatherFailure, '실제 엔진 채집 실패 결과가 새 런에서 생성되어야 합니다.');
+const immediatelyDisplayedFailure = primitiveActionResultPresentation(restoreFixture, failedGather, '채집').detail;
+assert.equal(immediatelyDisplayedFailure, engineGatherFailure, '실제 채집 결과 패널은 생성된 실패 원인을 즉시 보여야 합니다.');
+const rngCallsAfterAction = gatherRngCalls;
+const beforeRestoreDisplay = JSON.stringify(failedGather);
+assert.equal(primitiveRestoredResultText(failedGather), engineGatherFailure, '실패 직후 복원 문구는 최신 채집 실패 원인을 보여야 합니다.');
+assert.equal(JSON.stringify(failedGather), beforeRestoreDisplay, '복원 문구 계산은 라이브 런 상태를 바꾸면 안 됩니다.');
+assert.equal(gatherRngCalls, rngCallsAfterAction, '복원 문구 계산은 추가 난수 호출을 하면 안 됩니다.');
+const restoredGather = JSON.parse(JSON.stringify(failedGather));
+assert.equal(primitiveRestoredResultText(restoredGather), immediatelyDisplayedFailure, 'JSON 저장/복원 뒤에도 즉시 표시한 채집 실패 원인이 같아야 합니다.');
+assert.equal(JSON.stringify(restoredGather), beforeRestoreDisplay, '복원 문구 계산은 저장된 스냅샷도 바꾸면 안 됩니다.');
+assert.equal(gatherRngCalls, rngCallsAfterAction, 'JSON 복원 결과 표시도 추가 난수 호출을 하면 안 됩니다.');
+
+const dialogueLogs = [
+  'Day 8: 하루: "큰따옴표 \\"인용\\" 포함 대사"',
+  'Day 7: 하루: "이전 대사"',
+];
+assert.equal(primitiveRestoredResultText({ log: dialogueLogs }), dialogueLogs[0], '모두 대사라면 최신 대사를 유지해야 합니다.');
+assert.equal(primitiveRestoredResultText({ log: ['', '   ', dialogueLogs[0]] }, '대체 문구'), dialogueLogs[0], '공백 로그는 건너뛰되 유효 대사는 보존해야 합니다.');
+assert.equal(primitiveRestoredResultText({ log: ['', '   '] }, '대체 문구'), '대체 문구', '공백뿐인 로그는 대체 문구를 써야 합니다.');
+assert.equal(primitiveRestoredResultText({ log: [] }, '대체 문구'), '대체 문구', '빈 로그는 대체 문구를 써야 합니다.');
+assert.equal(primitiveRestoredResultText({}, '대체 문구'), '대체 문구', '로그가 없는 상태는 대체 문구를 써야 합니다.');
+const newerNightAndEvent = {
+  log: [
+    'Day 9: 밤 정산 완료. 부족원이 휴식했습니다.',
+    'Day 9: 동굴에서 희귀 흔적을 발견했습니다.',
+    engineGatherFailure,
+    dialogueLogs[0],
+  ],
+};
+assert.equal(primitiveRestoredResultText(newerNightAndEvent), newerNightAndEvent.log[0], '새 밤 정산/이벤트가 과거 행동보다 앞서면 최신 비대사 로그를 보존해야 합니다.');
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -264,9 +314,13 @@ for (const source of [actionSource, campSource, growthSource, projectSource, tri
 }
 assert.match(actionSource, /action="research" cue="off"/, '연구 버튼은 결과음과 클릭음이 겹치지 않아야 합니다.');
 assert.match(actionSource, /기술 해금 운영/, '행동 화면에는 기술 해금 운영 구역이 있어야 합니다.');
-const foldableActionPanels = [...actionSource.matchAll(/<details className="primitive-specialized-actions[^"]*" open>([\s\S]*?)<\/details>/g)];
-assert.equal(foldableActionPanels.length, 2, '기술 해금 생업과 운영은 각각 기본 펼침 상태의 독립 폴더블 영역이어야 합니다.');
-for (const [, panel] of foldableActionPanels) {
+const actionResultPosition = actionSource.indexOf('<div className="primitive-action-result">');
+const firstTechnologyListPosition = actionSource.indexOf('<details className="primitive-specialized-actions');
+assert.ok(actionResultPosition >= 0 && firstTechnologyListPosition > actionResultPosition, '행동 결과는 기술 해금 목록보다 먼저 보여야 합니다.');
+const foldableActionPanels = [...actionSource.matchAll(/<details className="primitive-specialized-actions[^"]*"([^>]*)>([\s\S]*?)<\/details>/g)];
+assert.equal(foldableActionPanels.length, 2, '기술 해금 생업과 운영은 각각 독립 폴더블 영역이어야 합니다.');
+for (const [, attributes, panel] of foldableActionPanels) {
+  assert.doesNotMatch(attributes, /\bopen\b/, '기술 목록은 첫 화면을 복잡하게 만들지 않도록 기본 닫힘이어야 합니다.');
   const summary = panel.match(/<summary className="primitive-specialized-actions__header">([\s\S]*?)<\/summary>/)?.[1];
   assert.ok(summary, '폴더블 제목은 마우스와 키보드로 조작할 수 있는 기본 summary 요소여야 합니다.');
   assert.match(summary, /primitive-specialized-actions__meta/, '접힌 상태에서도 해금 현황은 제목에 남아 있어야 합니다.');
@@ -321,6 +375,8 @@ assert.match(styleSource, /\.primitive-archive-icon-row\.is-locked/, '잠긴 발
 const resultPanels = [actionSource, campSource, growthSource, projectSource, tribeSource, inventorySource]
   .reduce((sum, source) => sum + [...source.matchAll(/<RecentActionResult\b/g)].length, 0);
 assert.equal(resultPanels, 7, '행동 화면 전반에 7개 결과 패널이 있어야 합니다.');
+assert.match(playSource, /setActionResult\(primitiveRestoredResultText\(nextState\)\)/, '런 복원 핸들러는 대사 로그를 걸러내는 결과 문구 도우미를 사용해야 합니다.');
+assert.match(playSource, /primitiveRestoredResultText\(state, '아직 실행한 행동이 없습니다\.'\)/, '화면 결과 fallback도 동일한 결과 문구 도우미를 사용해야 합니다.');
 
 console.log(JSON.stringify({
   actionProfiles: actionRows.length,
@@ -333,4 +389,5 @@ console.log(JSON.stringify({
   developerCues: 2,
   latestStateWrapper: true,
   foldableActionPanels: foldableActionPanels.length,
+  restoredResultTextCases: 13,
 }, null, 2));

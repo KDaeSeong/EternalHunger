@@ -58,6 +58,54 @@ export default function PrimitiveArchiveCampWorkspace(props) {
   return (
     <section className="games-detail-grid primitive-workspace-panel" role="tabpanel">
       <section className="games-panel">
+        <PrimitiveArchivePanelTitle action="primitive-camp" title="캠프" meta={`연료 ${state.camp.fuel}`} />
+        <div className="games-rank-split games-rank-split--compact primitive-camp-stat-grid">
+          <SmallStat icon="fuel" label={`모닥불 Lv.${state.camp.fireLevel}`} value={fireStatus} />
+          <SmallStat icon="camp" label="대피소" value={`Lv.${state.camp.shelterLevel}`} />
+          <SmallStat icon="craft" label="작업대" value={`Lv.${state.camp.workbenchLevel}`} />
+          <SmallStat icon="archive" label="기록실" value={`Lv.${state.camp.archiveRoomLevel || 0}`} />
+          <SmallStat icon="scribe" label="필사대" value={`Lv.${state.camp.scribeDeskLevel || 0}`} />
+          <SmallStat icon="library" label="서가" value={`Lv.${state.camp.libraryShelfLevel || 0}`} />
+        </div>
+        <p className="games-muted">연료가 있어야 모닥불이 추위를 막아 줍니다. 대피소와 보온 장비는 연료 없이도 보호하며, 요리와 밤을 지내는 데 쓸 연료를 각각 준비해야 합니다.</p>
+        <div className="primitive-camp-action-grid">
+          {(campActions || []).map((action) => (
+            <CampActionControl
+              action={action}
+              canAct={actorCanAct}
+              key={action.id}
+              label={action.label}
+              onClick={() => runCamp(action.id)}
+            />
+          ))}
+          {campFacilities.map((facility) => (
+            <CampActionControl
+              action={{ ...facility, action: 'camp' }}
+              canAct={actorCanAct}
+              key={facility.id}
+              label={facility.buttonLabel}
+              onClick={() => runCamp(facility.action)}
+            />
+          ))}
+        </div>
+        <RecentActionResult
+          action={actionFeedback?.action || 'camp'}
+          label={actionFeedback?.label || '이번 캠프 결과'}
+          text={recentActionText}
+          tone={actionFeedback?.tone || 'ready'}
+          pinned
+        />
+        <details className="primitive-facility-details">
+          <summary>기록 시설 효과 보기</summary>
+          <div>
+            {campFacilities.map((facility) => (
+              <p key={`${facility.id}-desc`}><strong>{facility.name}</strong>{facility.desc}</p>
+            ))}
+          </div>
+        </details>
+      </section>
+
+      <section className="games-panel">
         <PrimitiveArchivePanelTitle
           action={runProgressReport.riskTone === 'danger' ? 'primitive-survival-fail' : 'status'}
           title="런 리포트"
@@ -107,54 +155,6 @@ export default function PrimitiveArchiveCampWorkspace(props) {
             </article>
           ))}
         </div>
-      </section>
-
-      <section className="games-panel">
-        <PrimitiveArchivePanelTitle action="primitive-camp" title="캠프" meta={`연료 ${state.camp.fuel}`} />
-        <div className="games-rank-split games-rank-split--compact primitive-camp-stat-grid">
-          <SmallStat icon="fuel" label={`모닥불 Lv.${state.camp.fireLevel}`} value={fireStatus} />
-          <SmallStat icon="camp" label="대피소" value={`Lv.${state.camp.shelterLevel}`} />
-          <SmallStat icon="craft" label="작업대" value={`Lv.${state.camp.workbenchLevel}`} />
-          <SmallStat icon="archive" label="기록실" value={`Lv.${state.camp.archiveRoomLevel || 0}`} />
-          <SmallStat icon="scribe" label="필사대" value={`Lv.${state.camp.scribeDeskLevel || 0}`} />
-          <SmallStat icon="library" label="서가" value={`Lv.${state.camp.libraryShelfLevel || 0}`} />
-        </div>
-        <p className="games-muted">연료가 있어야 모닥불이 추위를 막아 줍니다. 대피소와 보온 장비는 연료 없이도 보호하며, 요리와 밤을 지내는 데 쓸 연료를 각각 준비해야 합니다.</p>
-        <div className="primitive-camp-action-grid">
-          {(campActions || []).map((action) => (
-            <CampActionControl
-              action={action}
-              canAct={actorCanAct}
-              key={action.id}
-              label={action.label}
-              onClick={() => runCamp(action.id)}
-            />
-          ))}
-          {campFacilities.map((facility) => (
-            <CampActionControl
-              action={{ ...facility, action: 'camp' }}
-              canAct={actorCanAct}
-              key={facility.id}
-              label={facility.buttonLabel}
-              onClick={() => runCamp(facility.action)}
-            />
-          ))}
-        </div>
-        <RecentActionResult
-          action={actionFeedback?.action || 'camp'}
-          label={actionFeedback?.label || '이번 캠프 결과'}
-          text={recentActionText}
-          tone={actionFeedback?.tone || 'ready'}
-          pinned
-        />
-        <details className="primitive-facility-details">
-          <summary>기록 시설 효과 보기</summary>
-          <div>
-            {campFacilities.map((facility) => (
-              <p key={`${facility.id}-desc`}><strong>{facility.name}</strong>{facility.desc}</p>
-            ))}
-          </div>
-        </details>
       </section>
     </section>
   );

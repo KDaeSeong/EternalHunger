@@ -92,6 +92,8 @@ import {
   tribeSummary,
 } from '../_lib/primitiveArchiveEngine';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
+import PrimitiveArchiveFocusPanel from './PrimitiveArchiveFocusPanel';
+import { primitiveArchiveFocusPlan } from '../_lib/primitiveArchiveFocus';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
 import usePrimitiveArchiveCheckpoint from '../_hooks/usePrimitiveArchiveCheckpoint';
 import { requestArchiveCompletion } from '../_lib/primitiveArchiveCompletion';
@@ -101,6 +103,7 @@ import {
   primitiveActionResultText,
   primitiveMilestoneCue,
   primitiveMilestoneSnapshot,
+  primitiveRestoredResultText,
   primitiveTextPresentation,
 } from '../_lib/primitiveArchiveFeedback';
 import {
@@ -166,7 +169,7 @@ export default function PrimitiveArchivePlayContent() {
     setZoneId(nextState.exploration?.selectedRegionId || 'whisper-woods');
     setRecipeId('twine');
     setSelectedRecruitId('');
-    setActionResult(nextState.log?.[0] || '이 브라우저의 진행을 복구했습니다.');
+    setActionResult(primitiveRestoredResultText(nextState));
     setActionFeedback({ key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: nextState.runId, tone: 'ready' });
   }, []);
   const checkpoint = usePrimitiveArchiveCheckpoint({
@@ -347,7 +350,7 @@ export default function PrimitiveArchivePlayContent() {
   const scopedActionFeedback = actionFeedback.runId === state.runId
     ? actionFeedback
     : { key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: state.runId, tone: 'ready' };
-  const recentActionText = message || actionResult || state.log?.[0] || '아직 실행한 행동이 없습니다.';
+  const recentActionText = message || actionResult || primitiveRestoredResultText(state, '아직 실행한 행동이 없습니다.');
   const resultPresentation = primitiveTextPresentation(recentActionText, scopedActionFeedback);
   const equipmentAdviceMode = Number(state.weather?.cold || 0) >= 5 || Number(actor?.bodyTemp ?? 37) <= 35.5 ? 'weather' : 'role';
   const equipmentAdviceRows = useMemo(() => {
@@ -625,17 +628,23 @@ export default function PrimitiveArchivePlayContent() {
   };
 
   const playActions = (
-    <>
+    <details className="primitive-run-tools">
+      <summary>저장·경기 관리</summary>
+      <div className="primitive-run-tools__items">
       <GameControlButton action="new" cue="off" onClick={startNewRun} disabled={!hydrated || !checkpoint.ready || Boolean(busy)}>{selectedDifficulty.label} 새 런</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || !checkpoint.ready || !token || Boolean(busy)}>{busy === 'save' ? '저장 중...' : '서버 저장'}</GameControlButton>
       <GameControlButton action="load" onClick={loadServerRun} disabled={!hydrated || !checkpoint.ready || !token || Boolean(busy)}>{busy === 'load' ? '불러오는 중...' : '서버 불러오기'}</GameControlButton>
       <GameControlButton action="load" onClick={restorePreviousRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.hasPrevious || Boolean(busy)}>직전 런 복구</GameControlButton>
       <GameControlButton action="auto" cue="off" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</GameControlButton>
-    </>
+      </div>
+    </details>
   );
 
   const playMetrics = [
-    { label: 'Day/AP', value: `${state.day} · ${state.ap}/${state.apMax}` },
+    { label: '일차 · 행동력', value: `${state.day}일 · ${state.ap}/${state.apMax}` },
+    { label: '식량', value: `${runProgressReport.foodUnits}단위` },
+    { label: '모닥불 연료', value: Number(state.camp.fuel || 0) },
+    { label: '생존 대원', value: state.party.filter((member) => member.hp > 0).length },
     { label: '난이도', value: currentDifficulty.label },
     { label: '파티/부족', value: `${state.party.length}/${partyCap} · ${tribe.population}/${tribe.capacity}` },
     { label: '상태', value: `${hp}HP · 허기 ${hunger} · ST ${stamina}` },
@@ -697,21 +706,29 @@ export default function PrimitiveArchivePlayContent() {
     ],
   };
 
+  const focusPlan = primitiveArchiveFocusPlan({
+    state,
+    nightRows: partyView.map((row) => row.nightSurvival).filter(Boolean),
+    research,
+    campActions,
+    archiveVictory,
+    ready: checkpoint.ready,
+    busy,
+  });
+
   return (
     <GamePlayShell
       className="primitive-archive-page-shell"
-      kicker="Civilization Archive"
       title="문명 아카이브"
-      description="학생 파티와 부족이 채집, 사냥, 제작, 기술, 사회 제도를 발전시키며 원시 지대에서 문명을 세우는 생존 시뮬레이션입니다."
       summaryLabel="문명 아카이브 요약"
       summaryDensity="micro"
-      primaryMetricLimit={8}
+      primaryMetricLimit={4}
       heroLayout="compact"
       actions={playActions}
       metrics={playMetrics}
       messages={playMessages}
     >
-      <GameAdvisorPanel {...guide} compact minimal storageKey="primitive-archive-survival-coach" />
+      <PrimitiveArchiveFocusPanel plan={focusPlan} onNavigate={setActiveTabId} />
 
       <PrimitiveArchiveFeatureTabs
         activeTabId={activeTabId}
@@ -821,6 +838,10 @@ export default function PrimitiveArchivePlayContent() {
         zoneId={activeRegionId}
         zoneSelectionUnlocked={zoneSelectionUnlocked}
       />
+      <details className="primitive-guide-details">
+        <summary>상세 생존 안내</summary>
+        <GameAdvisorPanel {...guide} compact minimal storageKey="primitive-archive-survival-coach" />
+      </details>
     </GamePlayShell>
   );
 }

@@ -55,6 +55,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const recipeMaterialsReady = Boolean(recipe?.materialsReady);
   const rationChoice = runProgressReport?.recoveryChoices?.find((choice) => choice.id === 'ration_break');
+  const forecastById = Object.fromEntries((actionForecasts || []).map((row) => [row.id, row]));
   const specializedRows = specializedActions || [];
   const utilityRows = utilityActions || [];
   const lockedSpecializedRows = specializedRows.filter((row) => !row.available);
@@ -92,68 +93,104 @@ export default function PrimitiveArchiveActionWorkspace(props) {
             <span>체온 <strong>{Number(actor?.bodyTemp ?? 37).toFixed(1)}도</strong></span>
           </div>
         </div>
-        <div className="games-action-dock__controls">
-          <label className="game-save-json-field">
-            <span>지역</span>
-            <select
-              value={zoneSelectionUnlocked ? selectedRegion?.id || zoneId : 'random'}
-              disabled={!zoneSelectionUnlocked}
-              onChange={(event) => selectRegion(event.target.value)}
-            >
-              {!zoneSelectionUnlocked ? <option value="random">미지의 구역 · 행동 시 무작위</option> : null}
-              {(regions || []).filter((row) => row.revealed && !row.safe).map((row) => (
-                <option value={row.id} key={row.id}>{row.name} · {row.dangerLabel}</option>
-              ))}
-            </select>
-            <small>{zoneSelectionUnlocked ? '지도 제작 완료 · 구역 지정 가능' : '지도 제작 연구 후 구역 지정 가능'}</small>
-          </label>
-          <label className="game-save-json-field">
-            <span>제작</span>
-            <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
-              {(recipeRows || []).map((row) => (
-                <option value={row.id} key={row.id}>
-                  {!row.unlocked ? `${row.name} · 잠김` : row.materialsReady ? row.name : `${row.name} · 재료 부족`}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="primitive-action-result">
+          <RecentActionResult
+            action={actionFeedback?.action || 'survival'}
+            label={actionFeedback?.label || '이번 행동 결과'}
+            text={recentActionText}
+            tone={actionFeedback?.tone || 'ready'}
+            pinned
+          />
         </div>
-        <div className="games-action-dock__notes">
-          <span>
-            {zoneSelectionUnlocked
+        <div className="primitive-basic-action-grid" aria-label="기본 행동 선택">
+          <article className="primitive-action-choice">
+            <ActionButton action="gather" cue="off" disabled={!actorCanAct} onClick={runGather}>채집 · {Math.round(gatherChance * 100)}%</ActionButton>
+            <small className="primitive-action-choice__hint">{forecastById.gather?.outcome || '주변 자원을 확보합니다.'} · {forecastById.gather?.cost || 'AP 1'}</small>
+          </article>
+          <article className="primitive-action-choice">
+            <ActionButton action="combat" cue="off" disabled={!actorCanAct} onClick={runHunt}>사냥 · {Math.round(huntChance * 100)}%</ActionButton>
+            <small className="primitive-action-choice__hint">{forecastById.hunt?.outcome || '식량을 노리며 실패 시 피해를 입을 수 있습니다.'} · {forecastById.hunt?.cost || 'AP 1'}</small>
+          </article>
+          <article className="primitive-action-choice">
+            <ActionButton action="consume" cue="off" disabled={!actorCanAct || forecastById.consume?.locked} onClick={runEat}>개인 식사</ActionButton>
+            <small className="primitive-action-choice__hint">{forecastById.consume?.outcome || '허기와 체력을 회복합니다.'} · {forecastById.consume?.cost || '음식 1개 · AP 1'}</small>
+          </article>
+          <article className="primitive-action-choice">
+            <ActionButton
+              action="consume"
+              cue="off"
+              disabled={!actorCanAct || !rationChoice?.enabled}
+              title={`위독하거나 허기진 대원부터 식량을 나눕니다. ${rationChoice?.costText || '식량 필요'} · 1 AP`}
+              onClick={() => runRecoveryChoice('ration_break')}
+            >공동 식사 · 1 AP</ActionButton>
+            <small className="primitive-action-choice__hint">{rationChoice?.costText || '식량 필요'} · 대원별 허기에 따라 배식</small>
+          </article>
+          <article className="primitive-action-choice">
+            <ActionButton action="rest" cue="off" disabled={!actorCanAct} onClick={runRest}>휴식</ActionButton>
+            <small className="primitive-action-choice__hint">{forecastById.rest?.outcome || '체력과 기력을 회복합니다.'} · {forecastById.rest?.cost || 'AP 1'}</small>
+          </article>
+          {recipe?.unlocked ? (
+            <article className="primitive-action-choice">
+              <ActionButton
+                action="craft"
+                cue="off"
+                disabled={!actorCanAct || !recipeMaterialsReady}
+                title={!recipeMaterialsReady ? `재료 부족: ${recipe?.materialText || ''}` : '선택한 제작 실행'}
+                onClick={runCraft}
+              >제작 · {Math.round(craftChance * 100)}%</ActionButton>
+              <small className="primitive-action-choice__hint">{forecastById.craft?.outcome || recipe?.materialText || '선택한 도구를 제작합니다.'} · {forecastById.craft?.cost || 'AP 1 · 재료 필요'}</small>
+            </article>
+          ) : null}
+          {research.actionUnlocked ? (
+            <article className="primitive-action-choice">
+              <ActionButton action="research" cue="off" disabled={!actorCanAct || !research.selected?.available} onClick={runResearch}>
+                연구
+              </ActionButton>
+              <small className="primitive-action-choice__hint">{forecastById.research?.outcome || research.selected?.name || '연구 목표를 선택하세요.'} · {forecastById.research?.cost || '일일 자동 연구 진행'}</small>
+            </article>
+          ) : null}
+        </div>
+        <details className="primitive-action-settings">
+          <summary>지역·제작 설정 <span>{selectedRegion?.name || zone?.name || '무작위 지역'} · {recipe?.name || '제작 선택'}</span></summary>
+          <div className="games-action-dock__controls">
+            <label className="game-save-json-field">
+              <span>지역</span>
+              <select
+                value={zoneSelectionUnlocked ? selectedRegion?.id || zoneId : 'random'}
+                disabled={!zoneSelectionUnlocked}
+                onChange={(event) => selectRegion(event.target.value)}
+              >
+                {!zoneSelectionUnlocked ? <option value="random">미지의 구역 · 행동 시 무작위</option> : null}
+                {(regions || []).filter((row) => row.revealed && !row.safe).map((row) => (
+                  <option value={row.id} key={row.id}>{row.name} · {row.dangerLabel}</option>
+                ))}
+              </select>
+              <small>{zoneSelectionUnlocked ? '지도 제작 완료 · 구역 지정 가능' : `지도 제작 연구 후 지정 가능 · 발견 ${exploration?.revealed || 0}곳`}</small>
+            </label>
+            <label className="game-save-json-field">
+              <span>제작</span>
+              <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
+                {(recipeRows || []).map((row) => (
+                  <option value={row.id} key={row.id}>
+                    {!row.unlocked ? `${row.name} · 잠김` : row.materialsReady ? row.name : `${row.name} · 재료 부족`}
+                  </option>
+                ))}
+              </select>
+              <small>{recipe?.unlocked
+                ? `${recipe.materialText || formatRequires(recipe.requires)} · ${recipeMaterialsReady ? '제작 가능' : '재료 부족'} · ${recipe.note}${recipe.prototype ? ` · ${recipe.statusLabel}` : ''}`
+                : `제작 잠김 · ${recipe?.lockedReason || '연구 조건 확인'}`}</small>
+            </label>
+          </div>
+          <div className="games-action-dock__notes">
+            <span>{zoneSelectionUnlocked
               ? `${selectedRegion?.landmark || zone.note} · ${selectedRegion?.yieldHint || zone.note}`
-              : `발견 지역 ${exploration?.revealed || 0}곳 중 무작위 행동`}
-          </span>
-          <span>
-            {recipe?.unlocked
-              ? `${recipe.materialText || formatRequires(recipe.requires)} · ${recipeMaterialsReady ? '제작 가능' : '재료 부족'} · ${recipe.note}${recipe.prototype ? ` · ${recipe.statusLabel}` : ''}`
-              : `제작 잠김 · ${recipe?.lockedReason || '연구 조건 확인'}`}
-          </span>
-        </div>
-        <div className="games-action-dock__buttons">
-          <ActionButton action="gather" cue="off" disabled={!actorCanAct} onClick={runGather}>채집 · {Math.round(gatherChance * 100)}%</ActionButton>
-          <ActionButton action="combat" cue="off" disabled={!actorCanAct} onClick={runHunt}>사냥 · {Math.round(huntChance * 100)}%</ActionButton>
-          <ActionButton
-            action="craft"
-            cue="off"
-            disabled={!actorCanAct || !recipe?.unlocked || !recipeMaterialsReady}
-            title={!recipe?.unlocked ? recipe?.lockedReason : !recipeMaterialsReady ? `재료 부족: ${recipe?.materialText || ''}` : '선택한 제작 실행'}
-            onClick={runCraft}
-          >제작 · {Math.round(craftChance * 100)}%</ActionButton>
-          <ActionButton action="consume" cue="off" disabled={!actorCanAct} onClick={runEat}>개인 식사</ActionButton>
-          <ActionButton
-            action="consume"
-            cue="off"
-            disabled={!actorCanAct || !rationChoice?.enabled}
-            title={`굶주린 위독 대원을 먼저, 그 외에는 허기 순으로 한 명당 식량 1개를 나눕니다. ${rationChoice?.costText || '식량 필요'} · 1 AP`}
-            onClick={() => runRecoveryChoice('ration_break')}
-          >공동 식사 · 1 AP</ActionButton>
-          <ActionButton action="rest" cue="off" disabled={!actorCanAct} onClick={runRest}>휴식</ActionButton>
-          <ActionButton action="research" cue="off" disabled={!actorCanAct || !research.actionUnlocked || !research.selected?.available} onClick={runResearch}>
-            {research.actionUnlocked ? '연구' : '직접 연구 잠김'}
-          </ActionButton>
-        </div>
-        <details className="primitive-specialized-actions" open>
+              : `발견 지역 ${exploration?.revealed || 0}곳 중 무작위 행동`}</span>
+            {!research.actionUnlocked ? (
+              <span>직접 연구 잠김 · {research.actionReason || forecastById.research?.outcome || '발전 화면에서 선행 조건을 확인하세요.'}</span>
+            ) : null}
+          </div>
+        </details>
+        <details className="primitive-specialized-actions">
           <summary className="primitive-specialized-actions__header">
             <strong>{'\uAE30\uC220 \uD574\uAE08 \uC0DD\uC5C5'}</strong>
             <span className="primitive-specialized-actions__meta">{specializedRows.filter((row) => row.available).length}/{specializedRows.length} {'\uD574\uAE08'}</span>
@@ -180,10 +217,10 @@ export default function PrimitiveArchiveActionWorkspace(props) {
             <small>{lockedSpecializedText || '\uBAA8\uB4E0 \uD2B9\uD654 \uC0DD\uC5C5\uC774 \uD65C\uC131\uD654\uB410\uC2B5\uB2C8\uB2E4.'}</small>
           </div>
         </details>
-        <details className="primitive-specialized-actions primitive-utility-actions" open>
+        <details className="primitive-specialized-actions primitive-utility-actions">
           <summary className="primitive-specialized-actions__header">
             <strong>기술 해금 운영</strong>
-            <span className="primitive-specialized-actions__meta">{utilityRows.filter((row) => row.unlocked).length}/{utilityRows.length} 해금 · 경계 {Number(state.exploration?.patrolCharges || 0)}/2 · 훈련 {Number(state.exploration?.drillCharges || 0)}/3 · 계절 {Number(state.exploration?.seasonPlanCharges || 0)}/3 · 관개 {Number(state.exploration?.irrigationCharges || 0)}/3 · 도로 {Number(state.exploration?.roadCharges || 0)}/4 · 교역 {Number(state.diplomacy?.tradeRouteCharges || 0)}/3</span>
+            <span className="primitive-specialized-actions__meta">{utilityRows.filter((row) => row.unlocked).length}/{utilityRows.length} 해금</span>
             <span className="primitive-specialized-actions__toggle" aria-hidden="true">
               <span className="primitive-specialized-actions__when-open">접기 ▴</span>
               <span className="primitive-specialized-actions__when-closed">펼치기 ▾</span>
@@ -204,16 +241,10 @@ export default function PrimitiveArchiveActionWorkspace(props) {
                 </ActionButton>
               ))}
             </div>
+            <small>남은 사용 횟수 · 경계 {Number(state.exploration?.patrolCharges || 0)}/2 · 훈련 {Number(state.exploration?.drillCharges || 0)}/3 · 계절 {Number(state.exploration?.seasonPlanCharges || 0)}/3 · 관개 {Number(state.exploration?.irrigationCharges || 0)}/3 · 도로 {Number(state.exploration?.roadCharges || 0)}/4 · 교역 {Number(state.diplomacy?.tradeRouteCharges || 0)}/3</small>
             <small>{lockedUtilityText || '모든 기술 해금 운영을 실행할 수 있습니다.'}</small>
           </div>
         </details>
-        <RecentActionResult
-          action={actionFeedback?.action || 'survival'}
-          label={actionFeedback?.label || '이번 행동 결과'}
-          text={recentActionText}
-          tone={actionFeedback?.tone || 'ready'}
-          pinned
-        />
         <details className="primitive-action-forecast-details">
           <summary>행동별 기대수익 {actionForecasts?.length || 0}개 보기</summary>
           <div className="primitive-action-forecast-grid" aria-label="행동별 기대수익">
@@ -231,7 +262,10 @@ export default function PrimitiveArchiveActionWorkspace(props) {
           </div>
         </details>
       </section>
-      <PrimitiveArchiveTurnHorizon milestones={milestones} />
+      <details className="primitive-horizon-details">
+        <summary>다음 날·발전 예고</summary>
+        <PrimitiveArchiveTurnHorizon milestones={milestones} />
+      </details>
     </div>
   );
 }
