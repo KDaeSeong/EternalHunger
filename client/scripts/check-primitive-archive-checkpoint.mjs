@@ -11,6 +11,7 @@ const reactHookStub = `
     const index = harness.stateCursor++;
     if (!(index in harness.stateValues)) harness.stateValues[index] = initial;
     if (!harness.stateSetters[index]) harness.stateSetters[index] = (value) => {
+      if (harness.unmounted) harness.postUnmountStateUpdates.push(index);
       harness.stateValues[index] = typeof value === 'function' ? value(harness.stateValues[index]) : value;
     };
     return [harness.stateValues[index], harness.stateSetters[index]];
@@ -110,24 +111,28 @@ class MemoryStorage {
 
 class MemoryWindow {
   listeners = new Map();
+  removeCalls = 0;
 
   constructor(localStorage) { this.localStorage = localStorage; }
   addEventListener(type, listener) {
     if (!this.listeners.has(type)) this.listeners.set(type, new Set());
     this.listeners.get(type).add(listener);
   }
-  removeEventListener(type, listener) { this.listeners.get(type)?.delete(listener); }
+  removeEventListener(type, listener) {
+    this.removeCalls += 1;
+    this.listeners.get(type)?.delete(listener);
+  }
+  listenerCount() {
+    return [...this.listeners.values()].reduce((total, listeners) => total + listeners.size, 0);
+  }
   dispatch(type, detail = {}, values = {}) {
     const event = { type, detail, ...values };
     for (const listener of [...(this.listeners.get(type) || [])]) listener(event);
     return event;
   }
-  cleanup() {
-    for (const listeners of this.listeners.values()) listeners.clear();
-  }
 }
 
-function hookHarness({ storage = new MemoryStorage(), state = fixture(), hydrated = true, user = null, token = null, latestStateRef = null } = {}) {
+function hookHarness({ storage = new MemoryStorage(), state = fixture(), hydrated = true, user = null, token = null, latestStateRef = null, windowInstance = null, controlMicrotasks = false } = {}) {
   const react = {
     callbackCursor: 0,
     callbackValues: [],
@@ -139,6 +144,8 @@ function hookHarness({ storage = new MemoryStorage(), state = fixture(), hydrate
     stateCursor: 0,
     stateSetters: [],
     stateValues: [],
+    unmounted: false,
+    postUnmountStateUpdates: [],
     beginRender() {
       this.callbackCursor = 0;
       this.effectCursor = 0;
@@ -167,13 +174,20 @@ function hookHarness({ storage = new MemoryStorage(), state = fixture(), hydrate
         && a.every((value, index) => Object.is(value, b[index]));
     },
   };
-  const window = new MemoryWindow(storage);
+  const window = windowInstance || new MemoryWindow(storage);
+  assert.strictEqual(window.localStorage, storage, 'A shared fake window must use the supplied storage object.');
   globalThis.window = window;
   globalThis.__primitiveArchiveHookHarness = react;
+  const pendingMicrotasks = [];
+  const originalQueueMicrotask = globalThis.queueMicrotask;
+  if (controlMicrotasks) globalThis.queueMicrotask = (callback) => pendingMicrotasks.push(callback);
   let currentState = state;
-  const writes = { restored: [], stateCalls: [] };
+  const writes = { restored: [], stateCalls: [], postUnmountRestores: [], postUnmountStateCalls: [] };
   const props = { hydrated, user, token, latestStateRef };
-  const onRestore = (next, context) => writes.restored.push({ state: next, ...context });
+  const onRestore = (next, context) => {
+    if (react.unmounted) writes.postUnmountRestores.push({ state: next, ...context });
+    writes.restored.push({ state: next, ...context });
+  };
   const render = (changes = {}) => {
     Object.assign(props, changes);
     react.beginRender();
@@ -181,6 +195,7 @@ function hookHarness({ storage = new MemoryStorage(), state = fixture(), hydrate
       ...props,
       state: currentState,
       setState: (next) => {
+        if (react.unmounted) writes.postUnmountStateCalls.push(next);
         currentState = next;
         if (props.latestStateRef) props.latestStateRef.current = next;
         writes.stateCalls.push(next);
@@ -191,17 +206,44 @@ function hookHarness({ storage = new MemoryStorage(), state = fixture(), hydrate
     return value;
   };
   return {
+    react,
     get state() { return currentState; },
     get window() { return window; },
     render,
     replayEffects() { react.replayEffects(); },
+    pendingMicrotaskCount() { return pendingMicrotasks.length; },
+    drainMicrotasks({ restoreQueue = false, limit = Infinity } = {}) {
+      let drained = 0;
+      while (pendingMicrotasks.length && drained < limit) {
+        if (drained >= 1000) throw new Error('Controlled hook microtask queue exceeded 1000 callbacks.');
+        const callback = pendingMicrotasks.shift();
+        callback();
+        drained += 1;
+      }
+      if (restoreQueue && controlMicrotasks) globalThis.queueMicrotask = originalQueueMicrotask;
+      return drained;
+    },
+    restoreMicrotaskQueue() {
+      if (controlMicrotasks) globalThis.queueMicrotask = originalQueueMicrotask;
+    },
     updateState(next) {
       currentState = next;
       if (props.latestStateRef) props.latestStateRef.current = next;
     },
     storage,
     writes,
-    unmount() { window.cleanup(); },
+    unmount() {
+      if (react.unmounted) return { listeners: window.listenerCount(), removeCalls: window.removeCalls };
+      react.unmounted = true;
+      react.pendingEffects = [];
+      for (const effect of react.effectValues) {
+        if (!effect) continue;
+        const cleanup = effect.cleanup;
+        effect.cleanup = undefined;
+        cleanup?.();
+      }
+      return { listeners: window.listenerCount(), removeCalls: window.removeCalls };
+    },
   };
 }
 
@@ -240,6 +282,12 @@ function snapshotState(state) {
     research: state.research,
     meta: state.meta,
   };
+}
+
+function fullRunSnapshot(state) {
+  const snapshot = structuredClone(state);
+  delete snapshot.updatedAt;
+  return snapshot;
 }
 
 const ownerA = checkpointApi.checkpointOwner({ user: { id: 'archive-user-a' }, authenticated: true });
@@ -671,6 +719,368 @@ await checkAsync('same-owner auth invalidation keeps the latest in-memory run wh
   assert.equal(checkpointApi.readCheckpoint(storage, account).checkpoint.current.day, 11);
   assert.match(harness.render().message, /저장 상태|저장소를 사용할 수 없어/);
   harness.unmount();
+});
+
+await checkAsync('same-tab route remount restores the latest failed-flush checkpoint without leaking owners or post-unmount writes', async () => {
+  const storage = new MemoryStorage();
+  const userA = { id: 'route-remount-owner-a' };
+  const userB = { id: 'route-remount-owner-b' };
+  const accountA = checkpointApi.checkpointOwner({ user: userA, authenticated: true });
+  const accountB = checkpointApi.checkpointOwner({ user: userB, authenticated: true });
+  const savedA = deepFreeze(fixture('route-remount-run-a', { day: 14, ap: 2, inventory: { berry: 17, wood: 6 } }));
+  const savedB = deepFreeze(fixture('route-remount-run-b', { day: 9, ap: 1, inventory: { berry: 23, wood: 2 } }));
+  const savedGuest = deepFreeze(fixture('route-remount-run-guest', { day: 6, ap: 3, inventory: { berry: 12, wood: 8 } }));
+  const savedSnapshots = [savedA, savedB, savedGuest].map(fullRunSnapshot);
+  expectWrite(storage, accountA, savedA, 0, at(31));
+  expectWrite(storage, accountB, savedB, 0, at(32));
+  expectWrite(storage, guestOwner, savedGuest, 0, at(33));
+  const keyA = checkpointApi.checkpointStorageKey(accountA);
+  const keyB = checkpointApi.checkpointStorageKey(accountB);
+  const keyGuest = checkpointApi.checkpointStorageKey(guestOwner);
+  const originalABytes = storage.getItem(keyA);
+  const originalBBytes = storage.getItem(keyB);
+  const originalGuestBytes = storage.getItem(keyGuest);
+  const startingWrites = storage.writes;
+  const sameTabWindow = new MemoryWindow(storage);
+  const latest = fixture(savedA.runId, {
+    day: 16,
+    ap: 1,
+    inventory: { ...savedA.inventory, berry: 41, obsidian_shard: 3 },
+    camp: { ...savedA.camp, fuel: 1 },
+    exploration: { ...savedA.exploration, visits: { ...savedA.exploration.visits, 'echo-cave': 4 } },
+    projects: { ...savedA.projects, selectedProjectId: 'drying-rack' },
+  });
+
+  const harness = hookHarness({
+    storage,
+    user: userA,
+    token: 'fixture-old-session',
+    state: fixture('stale-route-remount-input'),
+    windowInstance: sameTabWindow,
+    controlMicrotasks: true,
+  });
+  try {
+    harness.render();
+    harness.drainMicrotasks();
+    harness.render();
+    harness.drainMicrotasks();
+    assert.deepEqual(fullRunSnapshot(harness.state), fullRunSnapshot(savedA));
+
+    harness.updateState(fixture(savedA.runId, { day: 15, inventory: { ...savedA.inventory, berry: 29 } }));
+    storage.failSet = true;
+    harness.window.dispatch('fixture-auth-sync', { reason: 'auth-invalidated' });
+    harness.render({ user: null, token: null });
+    harness.drainMicrotasks();
+    assert.equal(harness.state.day, 15, 'A failed auth-expiry flush must retain A latest progress in the mounted hook.');
+    assert.equal(storage.getItem(keyA), originalABytes, 'The failed flush must leave A original checkpoint bytes unchanged.');
+    assert.equal(storage.getItem(keyB), originalBBytes);
+    assert.equal(storage.getItem(keyGuest), originalGuestBytes);
+
+    harness.updateState(latest);
+    harness.render();
+    assert.ok(harness.pendingMicrotaskCount() > 0, 'The scenario must leave a real hook-scheduled flush queued across unmount.');
+    const writesBeforeUnmount = storage.writes;
+    const stateCallsBeforeUnmount = harness.writes.stateCalls.length;
+    const restoresBeforeUnmount = harness.writes.restored.length;
+    const stateUpdatesBeforeUnmount = harness.react?.postUnmountStateUpdates?.length || 0;
+    const listenersBeforeUnmount = harness.window.listenerCount();
+    const removalsBeforeUnmount = harness.window.removeCalls;
+    assert.ok(listenersBeforeUnmount > 0, 'The mounted hook must have registered lifecycle listeners.');
+
+    const unmountResult = harness.unmount();
+    assert.equal(unmountResult.listeners, 0, 'Every installed hook listener must be removed by its real effect cleanup.');
+    assert.equal(unmountResult.removeCalls - removalsBeforeUnmount, listenersBeforeUnmount, 'Each installed listener cleanup must run exactly once.');
+    const removalsAfterUnmount = harness.window.removeCalls;
+    harness.unmount();
+    assert.equal(harness.window.removeCalls, removalsAfterUnmount, 'Calling unmount twice must not run any cleanup twice.');
+    harness.drainMicrotasks({ restoreQueue: true });
+    assert.equal(harness.writes.stateCalls.length, stateCallsBeforeUnmount, 'Queued work must not call the run-state setter after unmount.');
+    assert.equal(harness.writes.restored.length, restoresBeforeUnmount, 'Queued work must not restore state after unmount.');
+    assert.deepEqual(harness.writes.postUnmountStateCalls, []);
+    assert.deepEqual(harness.writes.postUnmountRestores, []);
+    assert.equal(harness.react?.postUnmountStateUpdates?.length || 0, stateUpdatesBeforeUnmount);
+    assert.equal(storage.writes, writesBeforeUnmount, 'A failed unmount flush and stale queued callbacks must not write.');
+    assert.equal(storage.getItem(keyA), originalABytes);
+
+    storage.failSet = false;
+    const otherTabWindow = new MemoryWindow(storage);
+    const otherTab = hookHarness({
+      storage,
+      user: userB,
+      token: 'fixture-account-b-session',
+      state: fixture('other-tab-stale'),
+      windowInstance: otherTabWindow,
+    });
+    otherTab.render();
+    await settleHookEffects();
+    const otherTabView = otherTab.render();
+    await settleHookEffects();
+    assert.equal(otherTabView.ready, true);
+    assert.deepEqual(fullRunSnapshot(otherTab.state), fullRunSnapshot(savedB), 'A other-tab/window mount must restore only B.');
+    assert.equal(storage.getItem(keyA), originalABytes, 'A pending run must not be written by B in another window.');
+    assert.equal(storage.getItem(keyB), originalBBytes);
+    assert.equal(storage.writes, writesBeforeUnmount);
+    assert.equal(otherTab.unmount().listeners, 0);
+
+    const guestTab = hookHarness({
+      storage,
+      state: fixture('same-tab-guest-stale'),
+      windowInstance: sameTabWindow,
+    });
+    guestTab.render();
+    await settleHookEffects();
+    const guestView = guestTab.render();
+    await settleHookEffects();
+    assert.equal(guestView.ready, true);
+    assert.deepEqual(fullRunSnapshot(guestTab.state), fullRunSnapshot(savedGuest), 'A pending account run must not become guest progress.');
+    assert.equal(storage.getItem(keyA), originalABytes);
+    assert.equal(storage.getItem(keyGuest), originalGuestBytes);
+    assert.equal(storage.writes, writesBeforeUnmount);
+    assert.equal(guestTab.unmount().listeners, 0);
+
+    const remount = hookHarness({
+      storage,
+      user: userA,
+      token: 'fixture-new-session',
+      state: fixture('stale-route-remount-input-two'),
+      windowInstance: sameTabWindow,
+      controlMicrotasks: true,
+    });
+    try {
+      assert.strictEqual(remount.window, sameTabWindow, 'The route remount must reuse this tab window.');
+      remount.render();
+      remount.drainMicrotasks();
+      remount.render();
+      remount.drainMicrotasks();
+      const resumed = remount.render();
+      assert.equal(resumed.ready, true);
+      assert.equal(resumed.status, 'ready');
+      assert.deepEqual(fullRunSnapshot(remount.state), fullRunSnapshot(latest), 'Same-tab reauthentication must recover the newest complete in-memory run after the disk flush failed.');
+      assert.equal(storage.writes, writesBeforeUnmount + 1, 'A successful remount recovery must commit exactly one CAS write.');
+      const recovered = checkpointApi.readCheckpoint(storage, accountA);
+      assert.equal(recovered.status, 'ready');
+      assert.deepEqual(fullRunSnapshot(recovered.checkpoint.current), fullRunSnapshot(latest));
+      assert.equal(storage.getItem(keyB), originalBBytes, 'Recovery must leave B bytes unchanged.');
+      assert.equal(storage.getItem(keyGuest), originalGuestBytes, 'Recovery must leave guest bytes unchanged.');
+      assert.deepEqual(storage.snapshot().map(([key]) => key).sort(), [keyA, keyB, keyGuest].sort(), 'No other owner key may be created.');
+      assert.deepEqual(fullRunSnapshot(savedA), savedSnapshots[0], 'The original A fixture must remain immutable.');
+      assert.deepEqual(fullRunSnapshot(savedB), savedSnapshots[1]);
+      assert.deepEqual(fullRunSnapshot(savedGuest), savedSnapshots[2]);
+      assert.equal(remount.pendingMicrotaskCount(), 0, 'The reauthenticated view must have no unobserved queued work.');
+      const stateCallsBeforeFinalUnmount = remount.writes.stateCalls.length;
+      const restoresBeforeFinalUnmount = remount.writes.restored.length;
+      assert.equal(remount.unmount().listeners, 0);
+      remount.drainMicrotasks({ restoreQueue: true });
+      assert.equal(remount.writes.stateCalls.length, stateCallsBeforeFinalUnmount);
+      assert.equal(remount.writes.restored.length, restoresBeforeFinalUnmount);
+      assert.deepEqual(remount.writes.postUnmountStateCalls, []);
+      assert.deepEqual(remount.writes.postUnmountRestores, []);
+    } finally {
+      remount.unmount();
+      remount.drainMicrotasks({ restoreQueue: true });
+    }
+  } finally {
+    const listeners = harness.window.listenerCount();
+    const result = harness.unmount();
+    if (listeners && result.listeners !== 0) throw new Error('Route-remount fixture leaked effect listeners during cleanup.');
+    harness.drainMicrotasks({ restoreQueue: true });
+  }
+});
+
+await checkAsync('dirty latest action is synchronously checkpointed exactly once by immediate unmount cleanup', async () => {
+  const storage = new MemoryStorage();
+  const user = { id: 'immediate-unmount-owner' };
+  const account = checkpointApi.checkpointOwner({ user, authenticated: true });
+  const window = new MemoryWindow(storage);
+  const initial = fixture('immediate-unmount-run', { day: 10, ap: 2 });
+  const latest = fixture(initial.runId, { day: 11, ap: 1, inventory: { ...initial.inventory, berry: 13 } });
+  const latestStateRef = { current: initial };
+  const harness = hookHarness({ storage, user, token: 'immediate-unmount-token', state: initial, latestStateRef, windowInstance: window, controlMicrotasks: true });
+  try {
+    harness.render();
+    harness.drainMicrotasks();
+    harness.render();
+    harness.drainMicrotasks();
+    assert.equal(harness.render().ready, true);
+    const writesBeforeAction = storage.writes;
+    const restoresBeforeAction = harness.writes.restored.length;
+
+    latestStateRef.current = latest;
+    harness.updateState(latest);
+    harness.render();
+    assert.ok(harness.pendingMicrotaskCount() > 0, 'The final action must leave an actual scheduled flush pending at unmount.');
+    const listenersBeforeUnmount = window.listenerCount();
+    assert.ok(listenersBeforeUnmount > 0);
+    assert.equal(harness.unmount().listeners, 0, 'Immediate unmount must run effect cleanup and remove every listener.');
+    assert.equal(storage.writes, writesBeforeAction + 1, 'Cleanup must make one synchronous final CAS write, not zero or duplicate writes.');
+    const saved = checkpointApi.readCheckpoint(storage, account);
+    assert.equal(saved.status, 'ready');
+    assert.deepEqual(fullRunSnapshot(saved.checkpoint.current), fullRunSnapshot(latest));
+    harness.drainMicrotasks({ restoreQueue: true });
+    assert.equal(storage.writes, writesBeforeAction + 1, 'Queued pre-cleanup callbacks must not write a second time.');
+    assert.equal(harness.writes.restored.length, restoresBeforeAction, 'Unmount cleanup must not publish a UI restore.');
+    assert.deepEqual(harness.writes.postUnmountStateCalls, []);
+    assert.deepEqual(harness.writes.postUnmountRestores, []);
+    assert.deepEqual(harness.react.postUnmountStateUpdates, []);
+  } finally {
+    harness.unmount();
+    harness.drainMicrotasks({ restoreQueue: true });
+  }
+});
+
+await checkAsync('StrictMode cleanup replay invalidates old queued flushes while allowing one fresh-generation flush', async () => {
+  const storage = new MemoryStorage();
+  const user = { id: 'strict-old-queue-owner' };
+  const account = checkpointApi.checkpointOwner({ user, authenticated: true });
+  const window = new MemoryWindow(storage);
+  const initial = fixture('strict-old-queue-run', { day: 10 });
+  const latest = fixture(initial.runId, { day: 12, ap: 1, inventory: { ...initial.inventory, berry: 18 } });
+  const harness = hookHarness({ storage, user, token: 'strict-old-queue-token', state: initial, windowInstance: window, controlMicrotasks: true });
+  try {
+    harness.render();
+    harness.drainMicrotasks();
+    harness.render();
+    harness.drainMicrotasks();
+    assert.equal(harness.render().ready, true);
+    const writesBeforeAction = storage.writes;
+
+    harness.updateState(latest);
+    harness.render();
+    const oldGenerationQueueLength = harness.pendingMicrotaskCount();
+    assert.ok(oldGenerationQueueLength > 0, 'The old generation must have queued callbacks before StrictMode cleanup/replay.');
+    harness.replayEffects();
+    assert.ok(harness.pendingMicrotaskCount() > oldGenerationQueueLength, 'Effect replay must schedule a distinct new-generation callback set.');
+    assert.equal(storage.writes, writesBeforeAction + 1, 'StrictMode cleanup must synchronously persist the dirty latest state exactly once.');
+    const writesAfterReplayCleanup = storage.writes;
+    const replayRead = checkpointApi.readCheckpoint(storage, account);
+    assert.deepEqual(fullRunSnapshot(replayRead.checkpoint.current), fullRunSnapshot(latest));
+    assert.equal(replayRead.revision, 2, 'Cleanup must advance the owner revision exactly once.');
+    const stateCallsAfterReplaySetup = harness.writes.stateCalls.length;
+    const restoresAfterReplaySetup = harness.writes.restored.length;
+    harness.drainMicrotasks({ limit: oldGenerationQueueLength });
+    assert.equal(storage.writes, writesAfterReplayCleanup, 'Callbacks from the cleaned-up generation must not persist after replay.');
+    assert.equal(harness.writes.stateCalls.length, stateCallsAfterReplaySetup, 'Old callbacks must not invoke run-state setters after replay setup.');
+    assert.equal(harness.writes.restored.length, restoresAfterReplaySetup, 'Old callbacks must not publish stale restores after replay setup.');
+
+    harness.drainMicrotasks();
+    assert.equal(storage.writes, writesAfterReplayCleanup, 'The replayed generation must not duplicate the cleanup flush.');
+    const saved = checkpointApi.readCheckpoint(storage, account);
+    assert.equal(saved.status, 'ready');
+    assert.deepEqual(fullRunSnapshot(saved.checkpoint.current), fullRunSnapshot(latest));
+    assert.deepEqual(harness.writes.postUnmountStateCalls, []);
+    assert.deepEqual(harness.writes.postUnmountRestores, []);
+    assert.deepEqual(harness.react.postUnmountStateUpdates, []);
+    assert.equal(harness.unmount().listeners, 0);
+  } finally {
+    harness.unmount();
+    harness.drainMicrotasks({ restoreQueue: true });
+  }
+});
+
+await checkAsync('external checkpoint bytes survive bounded same-window A/B/A remounts after revision conflict or corruption', async () => {
+  for (const guard of ['revision-conflict', 'corrupt']) {
+    const storage = new MemoryStorage();
+    const userA = { id: `aba-guard-owner-a-${guard}` };
+    const userB = { id: `aba-guard-owner-b-${guard}` };
+    const accountA = checkpointApi.checkpointOwner({ user: userA, authenticated: true });
+    const accountB = checkpointApi.checkpointOwner({ user: userB, authenticated: true });
+    const savedA = fixture(`aba-guard-run-a-${guard}`, { day: 10, inventory: { berry: 7, wood: 4 } });
+    const savedB = deepFreeze(fixture(`aba-guard-run-b-${guard}`, { day: 9, inventory: { berry: 22, wood: 3 } }));
+    expectWrite(storage, accountA, savedA, 0, at(40));
+    expectWrite(storage, accountB, savedB, 0, at(41));
+    const keyA = checkpointApi.checkpointStorageKey(accountA);
+    const keyB = checkpointApi.checkpointStorageKey(accountB);
+    const window = new MemoryWindow(storage);
+    const latestA = fixture(savedA.runId, { day: 12, ap: 1, inventory: { ...savedA.inventory, berry: 31 } });
+    const pending = hookHarness({ storage, user: userA, token: `aba-token-a-${guard}`, state: fixture(`aba-stale-${guard}`), windowInstance: window, controlMicrotasks: true });
+    try {
+      pending.render();
+      pending.drainMicrotasks();
+      pending.render();
+      pending.drainMicrotasks();
+      assert.equal(pending.render().ready, true);
+      pending.updateState(fixture(savedA.runId, { day: 11, inventory: { ...savedA.inventory, berry: 19 } }));
+      storage.failSet = true;
+      window.dispatch('fixture-auth-sync', { reason: 'auth-invalidated' });
+      pending.render({ user: null, token: null });
+      pending.drainMicrotasks();
+      pending.updateState(latestA);
+      pending.render();
+      pending.drainMicrotasks();
+      assert.equal(pending.state.day, 12);
+      assert.deepEqual(pending.writes.postUnmountStateCalls, []);
+      assert.equal(pending.unmount().listeners, 0);
+      pending.drainMicrotasks({ restoreQueue: true });
+    } finally {
+      pending.unmount();
+      pending.drainMicrotasks({ restoreQueue: true });
+    }
+
+    storage.failSet = false;
+    let protectedABytes;
+    if (guard === 'revision-conflict') {
+      const externalA = fixture(savedA.runId, { day: 20, ap: 3, inventory: { ...savedA.inventory, berry: 99 } });
+      expectWrite(storage, accountA, externalA, 1, at(42));
+      protectedABytes = storage.getItem(keyA);
+      assert.deepEqual(fullRunSnapshot(checkpointApi.readCheckpoint(storage, accountA).checkpoint.current), fullRunSnapshot(externalA));
+    } else {
+      protectedABytes = '{corrupt checkpoint fixture';
+      storage.values.set(keyA, protectedABytes);
+      assert.equal(checkpointApi.readCheckpoint(storage, accountA).status, 'corrupt');
+    }
+    const protectedBBytes = storage.getItem(keyB);
+    const writesAfterExternalChange = storage.writes;
+
+    const remountA = hookHarness({ storage, user: userA, token: `aba-token-a2-${guard}`, state: fixture(`aba-second-stale-${guard}`), windowInstance: window, controlMicrotasks: true });
+    try {
+      remountA.render();
+      remountA.drainMicrotasks();
+      remountA.render();
+      remountA.drainMicrotasks();
+      const viewA = remountA.render();
+      assert.equal(viewA.ready, true);
+      assert.deepEqual(fullRunSnapshot(remountA.state), fullRunSnapshot(latestA), 'A remount must retain its pending latest state while refusing to overwrite changed/corrupt storage.');
+      assert.equal(storage.getItem(keyA), protectedABytes, 'A conflict or corrupt raw checkpoint must remain byte-for-byte intact.');
+      assert.equal(storage.getItem(keyB), protectedBBytes);
+      assert.equal(storage.writes, writesAfterExternalChange, 'Pending recovery may not replace protected external bytes.');
+      assert.ok(/conflict|corrupt|손상|다른 곳에서 변경/.test(viewA.status + viewA.message), 'The guard must remain visible instead of claiming clean persistence.');
+      assert.equal(remountA.unmount().listeners, 0);
+      remountA.drainMicrotasks({ restoreQueue: true });
+    } finally {
+      remountA.unmount();
+      remountA.drainMicrotasks({ restoreQueue: true });
+    }
+
+    const remountB = hookHarness({ storage, user: userB, token: `aba-token-b-${guard}`, state: fixture(`aba-b-stale-${guard}`), windowInstance: window });
+    remountB.render();
+    await settleHookEffects();
+    remountB.render();
+    await settleHookEffects();
+    assert.deepEqual(fullRunSnapshot(remountB.state), fullRunSnapshot(savedB), 'Switching to B must restore B, never A pending data.');
+    assert.equal(storage.getItem(keyA), protectedABytes);
+    assert.equal(storage.getItem(keyB), protectedBBytes);
+    assert.equal(storage.writes, writesAfterExternalChange);
+    assert.equal(remountB.unmount().listeners, 0);
+
+    const remountAAgain = hookHarness({ storage, user: userA, token: `aba-token-a3-${guard}`, state: fixture(`aba-third-stale-${guard}`), windowInstance: window, controlMicrotasks: true });
+    try {
+      remountAAgain.render();
+      remountAAgain.drainMicrotasks();
+      remountAAgain.render();
+      remountAAgain.drainMicrotasks();
+      assert.deepEqual(fullRunSnapshot(remountAAgain.state), fullRunSnapshot(latestA), 'A/B/A must recover only A pending state from the same tab memory.');
+      assert.equal(storage.getItem(keyA), protectedABytes, 'Repeated A/B/A retries must never alter the external/raw A value.');
+      assert.equal(storage.getItem(keyB), protectedBBytes);
+      assert.equal(storage.writes, writesAfterExternalChange);
+      assert.deepEqual(remountAAgain.writes.postUnmountStateCalls, []);
+      assert.deepEqual(remountAAgain.writes.postUnmountRestores, []);
+      assert.equal(remountAAgain.unmount().listeners, 0);
+      remountAAgain.drainMicrotasks({ restoreQueue: true });
+    } finally {
+      remountAAgain.unmount();
+      remountAAgain.drainMicrotasks({ restoreQueue: true });
+    }
+  }
 });
 
 await checkAsync('same-account reauthentication after auth invalidation resumes the latest account checkpoint', async () => {

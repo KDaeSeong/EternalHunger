@@ -11,6 +11,19 @@ import {
 } from '../_lib/primitiveArchiveCheckpoint';
 import { createNewState } from '../_lib/primitiveArchiveEngine';
 
+// Keep failed writes across SPA route mounts, without sharing them with another tab or SSR request.
+const pendingSnapshotsByWindow = new WeakMap();
+
+function windowPendingSnapshots() {
+  if (typeof window === 'undefined') return new Map();
+  let snapshots = pendingSnapshotsByWindow.get(window);
+  if (!snapshots) {
+    snapshots = new Map();
+    pendingSnapshotsByWindow.set(window, snapshots);
+  }
+  return snapshots;
+}
+
 function checkpointMessage(status, error = '') {
   if (status === 'loading') return '이 기기의 진행 기록을 확인하는 중입니다.';
   if (status === 'owner-unknown' || error === 'owner-unknown') {
@@ -74,7 +87,7 @@ export default function usePrimitiveArchiveCheckpoint({
   const latestStateRefRef = useRef(latestStateRef);
   const storageRef = useRef(null);
   const requiredStateRef = useRef(null);
-  const unsavedSnapshotsRef = useRef(new Map());
+  const unsavedSnapshotsRef = useRef(windowPendingSnapshots());
 
   const setStatus = useCallback((nextStatus, error = '') => {
     statusRef.current = nextStatus;
@@ -121,6 +134,7 @@ export default function usePrimitiveArchiveCheckpoint({
     savedAtRef.current = result.savedAt;
     lastSavedStateRef.current = sourceState;
     blockedRef.current = false;
+    unsavedSnapshotsRef.current.delete(activeOwnerRef.current);
     setHasPreviousState(Boolean(result.checkpoint?.previous));
     setStatus('ready');
     return successResult('ready', result.revision, result.savedAt);
@@ -137,7 +151,7 @@ export default function usePrimitiveArchiveCheckpoint({
   const flush = useCallback(() => {
     const owner = activeOwnerRef.current;
     const liveState = getLatestState();
-    if (!hydrated || !readyRef.current || owner === null || owner !== desiredOwnerRef.current) {
+    if (!mountedRef.current || !hydrated || !readyRef.current || owner === null || owner !== desiredOwnerRef.current) {
       return { ok: false, status: 'loading', message: checkpointMessage('loading') };
     }
     if (blockedRef.current || !['ready', 'missing'].includes(statusRef.current)) {
@@ -155,7 +169,7 @@ export default function usePrimitiveArchiveCheckpoint({
 
     const result = writeOwnerState(owner, liveState, revisionRef.current);
     if (!result?.ok || result.status !== 'ready') {
-      if (owner !== 'guest' && result?.status === 'unavailable' && Number.isInteger(revisionRef.current)) {
+      if (result?.status === 'unavailable' && Number.isInteger(revisionRef.current)) {
         unsavedSnapshotsRef.current.set(owner, {
           state: liveState,
           revision: revisionRef.current,
@@ -175,6 +189,17 @@ export default function usePrimitiveArchiveCheckpoint({
     }
     return applyWriteResult(result, liveState);
   }, [applyWriteResult, getLatestState, hydrated, setStatus, writeOwnerState]);
+
+  const queueFlush = useCallback(() => {
+    const generation = ownerUiGenerationRef.current;
+    const owner = activeOwnerRef.current;
+    queueMicrotask(() => {
+      if (!mountedRef.current || !readyRef.current || !owner
+        || ownerUiGenerationRef.current !== generation
+        || activeOwnerRef.current !== owner || desiredOwnerRef.current !== owner) return;
+      flush();
+    });
+  }, [flush]);
 
   useEffect(() => {
     desiredOwnerRef.current = ownerKey;
@@ -204,10 +229,48 @@ export default function usePrimitiveArchiveCheckpoint({
 
   useEffect(() => {
     mountedRef.current = true;
+    const pendingSnapshots = unsavedSnapshotsRef.current;
     return () => {
-      mountedRef.current = false;
+      ownerUiGenerationRef.current += 1;
+      try {
+        const owner = activeOwnerRef.current;
+        if (!initializedRef.current || !readyRef.current || !owner
+          || owner !== desiredOwnerRef.current || !Number.isInteger(revisionRef.current)) return;
+
+        const liveState = getLatestState();
+        const pending = pendingSnapshots.get(owner);
+        if (blockedRef.current || !['ready', 'missing'].includes(statusRef.current)) {
+          if (pending || lastSavedStateRef.current) {
+            pendingSnapshots.set(owner, {
+              state: liveState,
+              revision: pending?.revision ?? revisionRef.current,
+              status: statusRef.current,
+            });
+          }
+          return;
+        }
+        if (statusRef.current === 'ready' && liveState === lastSavedStateRef.current) return;
+
+        // Finish a dirty action synchronously; never call React setters while unmounting.
+        const write = writeOwnerState(owner, liveState, revisionRef.current);
+        if (write?.ok && write.status === 'ready') {
+          revisionRef.current = write.revision;
+          savedAtRef.current = write.savedAt;
+          lastSavedStateRef.current = liveState;
+          pendingSnapshots.delete(owner);
+        } else {
+          pendingSnapshots.set(owner, {
+            state: liveState,
+            revision: revisionRef.current,
+            status: write?.status || 'unavailable',
+          });
+        }
+      } finally {
+        mountedRef.current = false;
+        readyRef.current = false;
+      }
     };
-  }, []);
+  }, [getLatestState, writeOwnerState]);
 
   useEffect(() => {
     const reauthenticated = authenticated && !authenticatedRef.current;
@@ -241,7 +304,7 @@ export default function usePrimitiveArchiveCheckpoint({
         });
         return;
       }
-      queueMicrotask(() => flush());
+      queueFlush();
       return;
     }
 
@@ -255,7 +318,7 @@ export default function usePrimitiveArchiveCheckpoint({
 
     if (ownerChanged) {
       const priorState = getLatestState();
-      if (!blockedRef.current && Number.isInteger(revisionRef.current)) {
+      if (priorOwner && !blockedRef.current && Number.isInteger(revisionRef.current)) {
         const priorWrite = writeOwnerState(priorOwner, priorState, revisionRef.current);
         if (priorWrite?.ok && priorWrite.status === 'ready') {
           lastSavedStateRef.current = priorState;
@@ -270,11 +333,14 @@ export default function usePrimitiveArchiveCheckpoint({
           scheduleUi(() => setTransitionWarningState('이전 계정의 마지막 진행 저장에 실패했습니다. 최신 진행은 이 탭 메모리에 보존되며 새 계정으로 복사되지 않습니다.'));
         }
       } else {
-        unsavedSnapshotsRef.current.set(priorOwner, {
-          state: priorState,
-          revision: revisionRef.current,
-          status: statusRef.current,
-        });
+        if (priorOwner && Number.isInteger(revisionRef.current)) {
+          const pending = unsavedSnapshotsRef.current.get(priorOwner);
+          unsavedSnapshotsRef.current.set(priorOwner, {
+            state: priorState,
+            revision: pending?.revision ?? revisionRef.current,
+            status: statusRef.current,
+          });
+        }
         scheduleUi(() => setTransitionWarningState('이전 계정의 저장 상태를 확인할 수 없습니다. 최신 진행은 이 탭 메모리에 보존되며 새 계정으로 복사되지 않습니다.'));
       }
 
@@ -334,7 +400,8 @@ export default function usePrimitiveArchiveCheckpoint({
         return;
       }
 
-      revisionRef.current = retry?.revision ?? unsavedSnapshot.revision;
+      // A conflicting disk revision was not acknowledged by this in-memory run.
+      revisionRef.current = unsavedSnapshot.revision;
       savedAtRef.current = retry?.savedAt ?? null;
       lastSavedStateRef.current = null;
       requiredStateRef.current = unsavedSnapshot.state;
@@ -393,7 +460,7 @@ export default function usePrimitiveArchiveCheckpoint({
       setReadyState(true);
       setStatus(read.status, read.error || '');
     });
-  }, [applyWriteResult, authenticated, flush, getLatestState, hydrated, ownerKey, resolvedOwner, setStatus, setTrackedState, storage, writeOwnerState]);
+  }, [applyWriteResult, authenticated, getLatestState, hydrated, ownerKey, queueFlush, resolvedOwner, setStatus, setTrackedState, storage, writeOwnerState]);
 
   useEffect(() => {
     if (!hydrated || !readyRef.current || activeOwnerRef.current !== ownerKey || !ownerKey) return undefined;
@@ -418,8 +485,8 @@ export default function usePrimitiveArchiveCheckpoint({
     if (!hydrated || !readyRef.current || activeOwnerRef.current !== ownerKey) return;
     if (requiredStateRef.current && state !== requiredStateRef.current) return;
     if (requiredStateRef.current === state) requiredStateRef.current = null;
-    queueMicrotask(() => flush());
-  }, [flush, hydrated, ownerKey, state]);
+    queueFlush();
+  }, [hydrated, ownerKey, queueFlush, state]);
 
   useEffect(() => {
     if (!hydrated) return undefined;
