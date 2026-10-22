@@ -63,6 +63,7 @@ export default function usePrimitiveArchiveCheckpoint({
   const mountedRef = useRef(false);
   const ownerUiGenerationRef = useRef(0);
   const activeOwnerRef = useRef(null);
+  const authenticatedRef = useRef(authenticated);
   const desiredOwnerRef = useRef(ownerKey);
   const revisionRef = useRef(null);
   const savedAtRef = useRef(null);
@@ -154,6 +155,13 @@ export default function usePrimitiveArchiveCheckpoint({
 
     const result = writeOwnerState(owner, liveState, revisionRef.current);
     if (!result?.ok || result.status !== 'ready') {
+      if (owner !== 'guest' && result?.status === 'unavailable' && Number.isInteger(revisionRef.current)) {
+        unsavedSnapshotsRef.current.set(owner, {
+          state: liveState,
+          revision: revisionRef.current,
+          status: 'unavailable',
+        });
+      }
       blockedRef.current = true;
       setHasPreviousState(false);
       setStatus(result?.status || 'unavailable', result?.error || '');
@@ -202,6 +210,8 @@ export default function usePrimitiveArchiveCheckpoint({
   }, []);
 
   useEffect(() => {
+    const reauthenticated = authenticated && !authenticatedRef.current;
+    authenticatedRef.current = authenticated;
     if (!hydrated) {
       readyRef.current = false;
       return;
@@ -212,6 +222,25 @@ export default function usePrimitiveArchiveCheckpoint({
     const localStorage = storage();
 
     if (!ownerChanged && priorOwner === ownerKey && readyRef.current) {
+      const pending = unsavedSnapshotsRef.current.get(ownerKey);
+      if (reauthenticated && ownerKey && ownerKey !== 'guest' && resolvedOwner === ownerKey
+        && blockedRef.current && statusRef.current === 'unavailable'
+        && pending?.status === 'unavailable' && Number.isInteger(pending.revision)) {
+        const generation = ownerUiGenerationRef.current;
+        queueMicrotask(() => {
+          if (!mountedRef.current || !authenticatedRef.current || !readyRef.current
+            || activeOwnerRef.current !== ownerKey || desiredOwnerRef.current !== ownerKey
+            || ownerUiGenerationRef.current !== generation
+            || !blockedRef.current || statusRef.current !== 'unavailable'
+            || unsavedSnapshotsRef.current.get(ownerKey) !== pending) return;
+          const liveState = getLatestState();
+          const retry = writeOwnerState(ownerKey, liveState, pending.revision);
+          if (retry?.ok && retry.status === 'ready') unsavedSnapshotsRef.current.delete(ownerKey);
+          else if (retry?.status === 'unavailable') pending.state = liveState;
+          applyWriteResult(retry, liveState);
+        });
+        return;
+      }
       queueMicrotask(() => flush());
       return;
     }
@@ -364,7 +393,7 @@ export default function usePrimitiveArchiveCheckpoint({
       setReadyState(true);
       setStatus(read.status, read.error || '');
     });
-  }, [authenticated, flush, getLatestState, hydrated, ownerKey, resolvedOwner, setStatus, setTrackedState, storage, writeOwnerState]);
+  }, [applyWriteResult, authenticated, flush, getLatestState, hydrated, ownerKey, resolvedOwner, setStatus, setTrackedState, storage, writeOwnerState]);
 
   useEffect(() => {
     if (!hydrated || !readyRef.current || activeOwnerRef.current !== ownerKey || !ownerKey) return undefined;

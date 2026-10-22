@@ -673,6 +673,189 @@ await checkAsync('same-owner auth invalidation keeps the latest in-memory run wh
   harness.unmount();
 });
 
+await checkAsync('same-account reauthentication after auth invalidation resumes the latest account checkpoint', async () => {
+  const storage = new MemoryStorage();
+  const user = { id: 'same-account-reauth' };
+  const account = checkpointApi.checkpointOwner({ user, authenticated: true });
+  const saved = deepFreeze(fixture('same-account-reauth-run', { day: 14 }));
+  const savedSnapshot = snapshotState(saved);
+  expectWrite(storage, account, saved, 0, at(26));
+  const harness = hookHarness({ storage, user, token: 'old-fixture-session', state: fixture('stale-reauth-render') });
+  harness.render();
+  await settleHookEffects();
+  harness.render();
+  const latest = fixture(saved.runId, { day: 15, inventory: { ...saved.inventory, berry: 29 } });
+  harness.updateState(latest);
+
+  harness.window.dispatch('fixture-auth-sync', { reason: 'auth-invalidated' });
+  harness.render({ user: null, token: null });
+  await settleHookEffects();
+  assert.equal(harness.state.runId, saved.runId);
+  assert.equal(harness.state.day, 15);
+  assert.deepEqual(snapshotState(checkpointApi.readCheckpoint(storage, account).checkpoint.current), snapshotState(latest));
+  assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'missing');
+  assert.equal(checkpointApi.readCheckpoint(storage, ownerB).status, 'missing');
+
+  harness.window.dispatch('fixture-auth-sync', { reason: 'saveAuth' });
+  harness.render({ user, token: 'new-fixture-session' });
+  await settleHookEffects();
+  const resumed = harness.render();
+  assert.equal(resumed.ready, true);
+  assert.equal(resumed.status, 'ready');
+  assert.equal(harness.state.runId, saved.runId);
+  assert.equal(harness.state.day, 15);
+  assert.doesNotMatch(resumed.message, /로그인이 만료되었습니다/);
+  assert.deepEqual(snapshotState(checkpointApi.readCheckpoint(storage, account).checkpoint.current), snapshotState(latest));
+  assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'missing');
+  assert.equal(checkpointApi.readCheckpoint(storage, ownerB).status, 'missing');
+  assert.deepEqual(snapshotState(saved), savedSnapshot, 'Auth recovery must not mutate the original checkpoint fixture.');
+  harness.unmount();
+});
+
+await checkAsync('same-account reauthentication retries the newest checkpoint after auth-expiry flush recovers', async () => {
+  const storage = new MemoryStorage();
+  const user = { id: 'same-account-flush-recovery' };
+  const account = checkpointApi.checkpointOwner({ user, authenticated: true });
+  const saved = deepFreeze(fixture('same-account-flush-recovery-run', { day: 11 }));
+  const savedSnapshot = snapshotState(saved);
+  expectWrite(storage, account, saved, 0, at(27));
+  const writesBeforeAuthExpiry = storage.writes;
+  const harness = hookHarness({ storage, user, token: 'old-fixture-session', state: fixture('stale-flush-recovery-render') });
+  harness.render();
+  await settleHookEffects();
+  harness.render();
+  const latest = fixture(saved.runId, { day: 16, inventory: { ...saved.inventory, berry: 37 } });
+  harness.updateState(latest);
+  storage.failSet = true;
+
+  harness.window.dispatch('fixture-auth-sync', { reason: 'auth-invalidated' });
+  harness.render({ user: null, token: null });
+  await settleHookEffects();
+  const expiredView = harness.render();
+  assert.equal(harness.state.runId, saved.runId);
+  assert.equal(harness.state.day, 16, 'A failed local flush must not replace the live account run.');
+  assert.match(expiredView.message, /저장 상태|저장소를 사용할 수 없어/);
+  assert.deepEqual(snapshotState(checkpointApi.readCheckpoint(storage, account).checkpoint.current), savedSnapshot);
+  assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'missing');
+  assert.equal(checkpointApi.readCheckpoint(storage, ownerB).status, 'missing');
+
+  const latestAfterFailure = fixture(saved.runId, { day: 17, inventory: { ...saved.inventory, berry: 41 } });
+  harness.updateState(latestAfterFailure);
+  storage.failSet = false;
+  harness.window.dispatch('fixture-auth-sync', { reason: 'saveAuth' });
+  harness.render({ user, token: 'new-fixture-session' });
+  await settleHookEffects();
+  const resumed = harness.render();
+  assert.equal(resumed.ready, true);
+  assert.equal(resumed.status, 'ready');
+  assert.equal(harness.state.runId, saved.runId);
+  assert.equal(harness.state.day, 17);
+  assert.equal(storage.writes, writesBeforeAuthExpiry + 1, 'Successful same-account recovery must persist once.');
+  assert.equal(resumed.flush().ok, true);
+  const stable = harness.render();
+  assert.equal(stable.ready, true);
+  assert.equal(stable.status, 'ready');
+  assert.equal(storage.writes, writesBeforeAuthExpiry + 1, 'A same-state flush and render must not write again.');
+  assert.deepEqual(
+    snapshotState(checkpointApi.readCheckpoint(storage, account).checkpoint.current),
+    snapshotState(latestAfterFailure),
+    'After storage recovers, same-account reauthentication must save the latest in-memory state, not the earlier failed-flush snapshot.',
+  );
+  assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'missing');
+  assert.equal(checkpointApi.readCheckpoint(storage, ownerB).status, 'missing');
+  assert.deepEqual(snapshotState(saved), savedSnapshot, 'Failed-flush recovery must not mutate the original checkpoint fixture.');
+  harness.unmount();
+});
+
+await checkAsync('same-account auth-expiry retries preserve newer disk state and cancel safely across recovery guards', async () => {
+  for (const guard of ['revision-conflict', 'corrupt', 'still-unavailable', 'account-switch']) {
+    const storage = new MemoryStorage();
+    const userA = { id: `reauth-guard-a-${guard}` };
+    const userB = { id: `reauth-guard-b-${guard}` };
+    const accountA = checkpointApi.checkpointOwner({ user: userA, authenticated: true });
+    const accountB = checkpointApi.checkpointOwner({ user: userB, authenticated: true });
+    const savedA = deepFreeze(fixture(`reauth-guard-run-a-${guard}`, { day: 9 }));
+    const savedASnapshot = snapshotState(savedA);
+    const savedB = deepFreeze(fixture(`reauth-guard-run-b-${guard}`, { day: 13 }));
+    const savedBSnapshot = snapshotState(savedB);
+    expectWrite(storage, accountA, savedA, 0, at(28));
+    expectWrite(storage, accountB, savedB, 0, at(29));
+    const keyA = checkpointApi.checkpointStorageKey(accountA);
+    const keyB = checkpointApi.checkpointStorageKey(accountB);
+    const originalABytes = storage.getItem(keyA);
+    const originalBBytes = storage.getItem(keyB);
+    const harness = hookHarness({ storage, user: userA, token: 'old-guard-session', state: fixture(`stale-guard-render-${guard}`) });
+    harness.render();
+    await settleHookEffects();
+    harness.render();
+    const latestA = fixture(savedA.runId, { day: 18, inventory: { ...savedA.inventory, berry: 47 } });
+    harness.updateState(latestA);
+    storage.failSet = true;
+
+    harness.window.dispatch('fixture-auth-sync', { reason: 'auth-invalidated' });
+    harness.render({ user: null, token: null });
+    await settleHookEffects();
+    harness.render();
+    assert.equal(harness.state.runId, savedA.runId, `${guard}: failed flush must retain A's live run.`);
+    assert.equal(harness.state.day, 18, `${guard}: failed flush must retain A's latest day in memory.`);
+    assert.equal(storage.getItem(keyA), originalABytes, `${guard}: a failed flush must leave A's old checkpoint bytes intact.`);
+    assert.equal(storage.getItem(keyB), originalBBytes, `${guard}: A's invalidation must not alter B's bytes.`);
+
+    let protectedBytes = originalABytes;
+    if (guard === 'revision-conflict') {
+      storage.failSet = false;
+      const external = fixture(savedA.runId, { day: 19, inventory: { ...savedA.inventory, berry: 53 } });
+      const externalWrite = checkpointApi.writeCheckpoint(storage, accountA, external, {
+        expectedRevision: checkpointApi.readCheckpoint(storage, accountA).revision,
+        savedAt: at(30),
+      });
+      assert.equal(externalWrite.status, 'ready');
+      protectedBytes = storage.getItem(keyA);
+    } else if (guard === 'corrupt') {
+      storage.failSet = false;
+      storage.values.set(keyA, '{corrupt checkpoint fixture');
+      protectedBytes = storage.getItem(keyA);
+    }
+
+    harness.window.dispatch('fixture-auth-sync', { reason: 'saveAuth' });
+    harness.render({ user: userA, token: 'new-guard-session' });
+
+    if (guard === 'account-switch') {
+      harness.render({ user: userB, token: 'other-guard-session' });
+    }
+    await settleHookEffects();
+    const view = harness.render();
+
+    if (guard === 'account-switch') {
+      assert.equal(view.ready, true);
+      assert.equal(view.status, 'ready');
+      assert.equal(harness.state.runId, savedB.runId, 'A queued retry must not overwrite B or replace B with A progress.');
+      assert.equal(harness.state.day, 13);
+      assert.deepEqual(snapshotState(harness.state), savedBSnapshot, 'B must resume its complete prior checkpoint after A recovery is canceled.');
+      assert.equal(storage.getItem(keyA), originalABytes, 'The queued A retry must be canceled after the active owner switches to B.');
+      assert.equal(storage.getItem(keyB), originalBBytes, 'B checkpoint bytes must stay unchanged by A recovery.');
+      assert.doesNotMatch(view.message, /로그인이 만료되었습니다/);
+    } else {
+      assert.equal(harness.state.runId, savedA.runId, `${guard}: account A's latest run must remain in memory.`);
+      assert.equal(harness.state.day, 18, `${guard}: guarded retry must not replace A's live run.`);
+      assert.equal(storage.getItem(keyA), protectedBytes, `${guard}: retry must not overwrite newer, corrupt, or unavailable disk state.`);
+      assert.equal(storage.getItem(keyB), originalBBytes, `${guard}: retry must not touch account B.`);
+      if (guard === 'revision-conflict') assert.match(view.message, /다른 탭|충돌/);
+      if (guard === 'corrupt') assert.match(view.message, /읽을 수 없어|덮어쓰기를 중단/);
+      if (guard === 'still-unavailable') {
+        assert.match(view.message, /저장 상태|저장소를 사용할 수 없어/);
+        assert.equal(storage.getItem(keyA), originalABytes);
+      }
+      assert.deepEqual(snapshotState(savedA), savedASnapshot, `${guard}: original A fixture must remain immutable.`);
+    }
+
+    assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'missing', `${guard}: recovery must not create guest progress.`);
+    assert.equal(checkpointApi.readCheckpoint(storage, ownerB).status, 'missing', `${guard}: unrelated global owner fixture must remain absent.`);
+    assert.deepEqual(snapshotState(savedB), savedBSnapshot, `${guard}: original B fixture must remain immutable.`);
+    harness.unmount();
+  }
+});
+
 await checkAsync('pagehide flush persists the newest live same-run state without creating a previous-run backup', async () => {
   const storage = new MemoryStorage();
   const current = fixture('pagehide-run', { day: 5 });
