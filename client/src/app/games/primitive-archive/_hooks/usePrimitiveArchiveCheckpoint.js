@@ -5,6 +5,7 @@ import { AUTH_SYNC_EVENT } from '../../../../utils/api';
 import {
   checkpointOwner,
   checkpointStorageKey,
+  discardUnreadableCheckpoint,
   readCheckpoint,
   restorePreviousCheckpoint,
   writeCheckpoint,
@@ -31,7 +32,8 @@ function checkpointMessage(status, error = '') {
   }
   if (status === 'missing') return '이 기기에 저장된 런이 없습니다. 현재 진행은 이 기기에 자동 저장됩니다.';
   if (status === 'ready') return '이 기기 자동 저장이 준비되어 있습니다. 서버 저장과는 별개입니다.';
-  if (status === 'corrupt') return '기기 저장 기록을 읽을 수 없어 덮어쓰기를 중단했습니다. 기존 기록을 보존하고 있습니다.';
+  if (error === 'backup-write-failed') return '손상 기록의 백업을 저장하지 못해 정리를 중단했습니다. 기존 기록은 그대로 보존했습니다. 브라우저 저장 공간과 저장 권한을 확인한 뒤 다시 시도해 주세요.';
+  if (status === 'corrupt') return '기기 저장 기록을 읽을 수 없어 덮어쓰기를 중단했습니다. 기존 기록을 보존하고 있습니다. 기기 기록을 정리하면 지금 화면의 런부터 다시 자동 저장합니다.';
   if (status === 'conflict') return '다른 탭에서 진행 기록이 바뀌어 자동 저장을 멈췄습니다. 이 탭은 기존 기록을 덮어쓰지 않습니다.';
   if (status === 'invalid-state') return '현재 런을 안전하게 저장하지 못해 상태 교체를 중단했습니다.';
   if (status === 'no-previous') return '복구할 이전 런이 없습니다.';
@@ -576,6 +578,33 @@ export default function usePrimitiveArchiveCheckpoint({
     return successResult('ready', result.revision, result.savedAt);
   }, [flush, hydrated, setStatus, setTrackedState, storage]);
 
+  const discardUnreadable = useCallback(() => {
+    const owner = activeOwnerRef.current;
+    if (!hydrated || !readyRef.current || owner === null || owner !== desiredOwnerRef.current) {
+      return { ok: false, status: 'loading', message: checkpointMessage('loading') };
+    }
+    if (statusRef.current !== 'corrupt') {
+      return { ok: false, status: statusRef.current, message: checkpointMessage(statusRef.current) };
+    }
+    const cleared = discardUnreadableCheckpoint(storage(), owner);
+    if (cleared.status !== 'missing') {
+      setStatus(cleared.status, cleared.error || '');
+      return { ok: false, status: cleared.status, message: resultMessage(cleared) };
+    }
+
+    revisionRef.current = 0;
+    savedAtRef.current = null;
+    lastSavedStateRef.current = null;
+    requiredStateRef.current = null;
+    unsavedSnapshotsRef.current.delete(owner);
+    blockedRef.current = false;
+    setHasPreviousState(false);
+    setStatus('missing');
+    const liveState = getLatestState();
+    const saved = applyWriteResult(writeOwnerState(owner, liveState, 0), liveState);
+    return { ...saved, backedUp: Boolean(cleared.backedUp) };
+  }, [applyWriteResult, getLatestState, hydrated, setStatus, storage, writeOwnerState]);
+
   const ownerBootstrapSettled = hydrated && readyState && ownerKey === activeOwnerState;
   const currentOwnerReady = ownerBootstrapSettled && Boolean(ownerKey);
   const authExpiredMessage = !authenticated && expiredOwner
@@ -590,6 +619,7 @@ export default function usePrimitiveArchiveCheckpoint({
     hasPrevious: currentOwnerReady && hasPreviousState,
     replaceRun,
     restorePrevious,
+    discardUnreadable,
     flush,
   };
 }

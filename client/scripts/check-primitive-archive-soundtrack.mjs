@@ -134,7 +134,12 @@ assert.match(playSource, /primitiveArchiveActionMusic/, '기술 해금 운영 �
 assert.match(playSource, /setMusicScene\(actionMusic\.theme\)/, '운영 행동 트랙 전환이 실제 공급자에 전달되어야 합니다.');
 assert.match(playSource, /setMusicScene\(musicTransition\.theme\)/, '이정표 트랙 전환이 실제 공급자에 전달되어야 합니다.');
 assert.match(playSource, /activeTabId=\{activeTabId\}/, '현재 기능 탭이 음악 장면 해석에 공유되어야 합니다.');
-assert.match(tabsSource, /onTabChange=\{setActiveTabId\}/, '문명 아카이브 탭 전환을 상위 상태로 알려야 합니다.');
+assert.match(playSource, /const \[activeTabId, setActiveTabId\] = useState\('actions'\)/, '기능 탭은 플레이 화면의 제어 상태를 사용해야 합니다.');
+assert.match(playSource, /<PrimitiveArchiveFeatureTabs[\s\S]*?activeTabId=\{activeTabId\}[\s\S]*?setActiveTabId=\{setActiveTabId\}/, '플레이 화면은 활성 탭과 상태 변경 함수를 기능 탭에 전달해야 합니다.');
+assert.match(tabsSource, /const selectTab = \(tabId\) => setActiveTabId\?\.\(tabId\)/, '네이티브 탭 버튼은 상위의 활성 탭 상태를 갱신해야 합니다.');
+assert.match(tabsSource, /primaryTabs\.map\(\(tab\) =>[\s\S]*?<button[\s\S]*?type="button"[\s\S]*?aria-current=\{selected \? 'page' : undefined\}[\s\S]*?aria-controls="primitive-archive-feature-panel"[\s\S]*?onClick=\{\(\) => selectTab\(tab\.id\)\}/, '주요 네이티브 탭 버튼은 선택 상태와 패널을 연결하고 클릭 시 활성 탭을 바꿔야 합니다.');
+assert.match(tabsSource, /secondaryTabs\.map\(\(tab\) =>[\s\S]*?<button[\s\S]*?type="button"[\s\S]*?aria-current=\{selected \? 'page' : undefined\}[\s\S]*?aria-controls="primitive-archive-feature-panel"[\s\S]*?selectTab\(tab\.id\)/, '보조 네이티브 탭 버튼은 선택 상태와 패널을 연결하고 클릭 시 활성 탭을 바꿔야 합니다.');
+assert.match(tabsSource, /aria-labelledby=\{`primitive-archive-tab-\$\{activeTab\.id\}`\}/, '선택된 탭은 활성 콘텐츠 패널의 접근성 이름을 제공해야 합니다.');
 assert.match(providerSource, /icon: activeProfile\.icon/, 'BGM 공급자는 현재 곡의 장면 아이콘을 노출해야 합니다.');
 assert.match(soundControlSource, /games-audio-menu__now-playing/, '오디오 메뉴는 현재 곡 정보를 표시해야 합니다.');
 assert.match(soundControlSource, /musicIcon/, '오디오 메뉴는 현재 장면 아이콘을 표시해야 합니다.');

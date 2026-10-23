@@ -91,6 +91,7 @@ class MemoryStorage {
   values = new Map();
   failGet = false;
   failSet = false;
+  failRemove = false;
   writes = 0;
 
   getItem(key) {
@@ -102,6 +103,11 @@ class MemoryStorage {
     if (this.failSet) throw new Error('quota exceeded');
     this.writes += 1;
     this.values.set(key, String(value));
+  }
+
+  removeItem(key) {
+    if (this.failRemove) throw new Error('security removal blocked');
+    this.values.delete(key);
   }
 
   snapshot() {
@@ -479,6 +485,136 @@ check('corrupt, unknown-version and foreign-owner envelopes are never overwritte
     assert.equal(checkpointApi.readCheckpoint(valid, ownerA).status, 'corrupt', name);
     assert.equal(checkpointApi.writeCheckpoint(valid, ownerA, fixture('replacement'), { expectedRevision: original.revision, savedAt: at(13) }).status, 'corrupt', name);
     assert.equal(valid.getItem(key), bytes, `${name} data must remain unchanged.`);
+  }
+});
+
+check('confirmed corrupt recovery backs up exact bytes and starts the next checkpoint at revision one', () => {
+  const storage = new MemoryStorage();
+  const key = checkpointApi.checkpointStorageKey(ownerA);
+  const backupKey = checkpointApi.checkpointBackupKey(ownerA);
+  const raw = '{broken checkpoint\n한글 원문';
+  storage.setItem(key, raw);
+  const cleared = checkpointApi.discardUnreadableCheckpoint(storage, ownerA);
+  assert.equal(cleared.status, 'missing');
+  assert.equal(cleared.backedUp, true);
+  assert.equal(storage.getItem(backupKey), raw);
+  assert.equal(storage.getItem(key), null);
+  const saved = expectWrite(storage, ownerA, fixture('after-corrupt-recovery'), 0, at(14));
+  assert.equal(saved.revision, 1);
+  assert.equal(saved.checkpoint.previous, null);
+  assert.equal(storage.getItem(backupKey), raw);
+});
+
+check('corrupt recovery never deletes the original when backup, read or removal fails', () => {
+  for (const failure of ['failSet', 'failGet', 'failRemove']) {
+    const storage = new MemoryStorage();
+    const key = checkpointApi.checkpointStorageKey(ownerA);
+    const backupKey = checkpointApi.checkpointBackupKey(ownerA);
+    const raw = '{keep these damaged bytes';
+    storage.setItem(key, raw);
+    storage.setItem(backupKey, 'older backup');
+    storage[failure] = true;
+    const cleared = checkpointApi.discardUnreadableCheckpoint(storage, ownerA);
+    assert.equal(cleared.ok, false, failure);
+    storage[failure] = false;
+    assert.equal(storage.getItem(key), raw, failure);
+    assert.equal(storage.getItem(backupKey), failure === 'failRemove' ? raw : 'older backup', failure);
+  }
+});
+
+check('corrupt recovery refuses normal or missing records and unknown owners without writing', () => {
+  const storage = new MemoryStorage();
+  expectWrite(storage, ownerA, fixture('healthy-record'), 0, at(14));
+  const before = storage.snapshot();
+  for (const owner of [ownerA, ownerB, null]) {
+    assert.equal(checkpointApi.discardUnreadableCheckpoint(storage, owner).ok, false);
+    assert.deepEqual(storage.snapshot(), before);
+  }
+});
+
+check('corrupt recovery preserves another tab record changed while the backup is written', () => {
+  const storage = new MemoryStorage();
+  const key = checkpointApi.checkpointStorageKey(ownerA);
+  const backupKey = checkpointApi.checkpointBackupKey(ownerA);
+  const external = new MemoryStorage();
+  expectWrite(external, ownerA, fixture('external-replacement'), 0, at(14));
+  const externalBytes = external.getItem(key);
+  const raw = '{old damaged record';
+  storage.setItem(key, raw);
+  const originalSet = storage.setItem.bind(storage);
+  storage.setItem = (writtenKey, value) => {
+    originalSet(writtenKey, value);
+    if (writtenKey === backupKey) originalSet(key, externalBytes);
+  };
+  assert.equal(checkpointApi.discardUnreadableCheckpoint(storage, ownerA).status, 'conflict');
+  assert.equal(storage.getItem(key), externalBytes);
+  assert.equal(storage.getItem(backupKey), raw);
+});
+
+check('confirmed repeated corrupt recovery uses one backup slot, isolated by owner', () => {
+  const storage = new MemoryStorage();
+  const key = checkpointApi.checkpointStorageKey(ownerA);
+  const backupKey = checkpointApi.checkpointBackupKey(ownerA);
+  storage.setItem(checkpointApi.checkpointBackupKey(ownerB), 'owner B backup');
+  for (const raw of ['{first damaged record', '{second damaged record']) {
+    storage.setItem(key, raw);
+    assert.equal(checkpointApi.discardUnreadableCheckpoint(storage, ownerA).ok, true);
+    assert.equal(storage.getItem(backupKey), raw);
+    assert.equal(storage.getItem(checkpointApi.checkpointBackupKey(ownerB)), 'owner B backup');
+  }
+  assert.equal(storage.snapshot().length, 2);
+});
+
+await checkAsync('the actual hook only recovers a corrupt checkpoint after an explicit call, then saves revision one', async () => {
+  const storage = new MemoryStorage();
+  const key = checkpointApi.checkpointStorageKey(guestOwner);
+  const raw = '{damaged hook record';
+  storage.setItem(key, raw);
+  const current = fixture('hook-recovery-current');
+  const harness = hookHarness({ storage, state: current });
+  try {
+    harness.render();
+    await settleHookEffects();
+    const view = harness.render();
+    assert.equal(view.status, 'corrupt');
+    assert.equal(storage.getItem(key), raw, 'Mounting must not discard unreadable bytes.');
+    assert.equal(storage.getItem(checkpointApi.checkpointBackupKey(guestOwner)), null);
+    const recovered = view.discardUnreadable();
+    assert.equal(recovered.ok, true);
+    assert.equal(recovered.backedUp, true);
+    const saved = checkpointApi.readCheckpoint(storage, guestOwner);
+    assert.equal(saved.revision, 1);
+    assert.equal(saved.checkpoint.current.runId, current.runId);
+    assert.equal(storage.getItem(checkpointApi.checkpointBackupKey(guestOwner)), raw);
+    const bytes = storage.getItem(key);
+    assert.equal(harness.render().discardUnreadable().ok, false);
+    assert.equal(storage.getItem(key), bytes, 'A healthy record must never be discarded.');
+  } finally {
+    harness.unmount();
+  }
+});
+
+await checkAsync('a failed hook backup stays corrupt and can be retried without losing the original', async () => {
+  const storage = new MemoryStorage();
+  const key = checkpointApi.checkpointStorageKey(guestOwner);
+  const raw = '{quota-blocked hook record';
+  storage.setItem(key, raw);
+  const harness = hookHarness({ storage });
+  try {
+    harness.render();
+    await settleHookEffects();
+    storage.failSet = true;
+    const failed = harness.render().discardUnreadable();
+    assert.equal(failed.ok, false);
+    assert.equal(failed.status, 'corrupt');
+    assert.match(failed.message, /백업.*저장하지 못해/);
+    assert.equal(storage.getItem(key), raw);
+    storage.failSet = false;
+    assert.equal(harness.render().discardUnreadable().ok, true);
+    assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).revision, 1);
+  } finally {
+    storage.failSet = false;
+    harness.unmount();
   }
 });
 

@@ -478,8 +478,8 @@ export const GAME_ROADMAP = [
   },
   {
     slug: 'primitive-archive',
-    title: 'Civilization Archive',
-    subtitle: 'Tribe to Civilization',
+    title: '문명 아카이브',
+    subtitle: 'Civilization Archive',
     priority: '1차 완료권',
     scope: '채집, 사냥, 제작, 캠프, 연구, 장비, 자동 운영, 런 정산, 런 리포트, 최종 아카이브 기록서',
     summary: '부족 생존에서 후기 근대 문명 발전까지 이어지는 학생 파티 시뮬레이션을 사이트 플레이 화면으로 이식했고, 저장/전적/아카이브 목표/하루 자동 운영/위험 리포트/최종 기록서까지 연결했습니다.',

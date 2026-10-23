@@ -212,6 +212,7 @@ function tabProps(state, activeTabId) {
     currentDifficulty: difficulty,
     currentLogCapacity: engine.logCapacity(state),
     developerTools: { enabled: false },
+    showDeveloperTools: true,
     exploration: state.exploration,
     gatherChance: 0.5,
     huntChance: 0.5,
@@ -399,6 +400,17 @@ check('actual feature navigation exposes three primary and seven collapsed secon
       assert.match(html, new RegExp(`data-focus-check-stub="${activeTabId}"`), `${activeTabId} body uses the documented child stub while actual FeatureTabs navigation is rendered.`);
     }
   }
+});
+
+check('the developer screen is only offered when the page allows developer tools', () => {
+  const state = freshState('focus-developer-hidden');
+  globalThis.__primitiveArchiveFocusButtons = [];
+  const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveFeatureTabs, { ...tabProps(state, 'developer'), showDeveloperTools: false }));
+  const navHtml = html.match(/<nav aria-label="문명 아카이브 화면 선택">([\s\S]*?)<\/nav>/)?.[1] || '';
+  assert.doesNotMatch(navHtml, /primitive-archive-tab-developer/, 'Players without access must not see the developer screen.');
+  assert.equal((navHtml.match(/<button\b/g) || []).length, 9, 'The other nine screens remain available.');
+  assert.doesNotMatch(html, /data-focus-check-stub="developer"/, 'A saved developer tab id must fall back to a regular screen.');
+  assert.match(html, /aria-labelledby="primitive-archive-tab-actions"/, 'The fallback screen is the action workspace.');
 });
 
 check('actual action-workspace JSX puts the latest result before technology lists and keeps both lists closed by default', () => {

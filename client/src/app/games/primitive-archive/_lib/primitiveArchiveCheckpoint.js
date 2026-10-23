@@ -100,6 +100,10 @@ export function readCheckpoint(storage, ownerKey) {
     return result('unavailable', { error: 'storage-read-failed' });
   }
 
+  return decodeCheckpoint(raw, ownerKey);
+}
+
+function decodeCheckpoint(raw, ownerKey) {
   if (raw === null || raw === undefined) return result('missing');
   if (typeof raw !== 'string') return result('corrupt', { error: 'invalid-envelope' });
 
@@ -243,4 +247,49 @@ export function restorePreviousCheckpoint(storage, ownerKey, { expectedRevision,
     revision: envelope.revision,
     savedAt,
   });
+}
+
+export function checkpointBackupKey(ownerKey) {
+  return `${checkpointStorageKey(ownerKey)}:unreadable-backup`;
+}
+
+// Only called after the player confirms. Unreadable bytes (a damaged record or one
+// written by a different save version) are copied to a single backup key before
+// the live key is cleared, so the next write starts a fresh envelope at revision 1.
+export function discardUnreadableCheckpoint(storage, ownerKey) {
+  if (typeof ownerKey !== 'string' || !ownerKey) {
+    return result('unavailable', { error: 'owner-unknown' });
+  }
+  const key = checkpointStorageKey(ownerKey);
+  let raw;
+  try {
+    raw = storage.getItem(key);
+  } catch {
+    return result('unavailable', { error: 'storage-read-failed' });
+  }
+  const read = decodeCheckpoint(raw, ownerKey);
+  if (read.status !== 'corrupt') {
+    return result('conflict', { revision: read.revision, savedAt: read.savedAt, error: 'not-corrupt' });
+  }
+  if (typeof raw !== 'string') return result('corrupt', { error: 'invalid-envelope' });
+
+  try {
+    storage.setItem(checkpointBackupKey(ownerKey), raw);
+  } catch {
+    // Never discard the only copy when quota or security settings block backup.
+    return result('corrupt', { error: 'backup-write-failed' });
+  }
+  try {
+    // Detect a changed live record before deleting it. localStorage does not
+    // provide an atomic compare-and-delete operation across independent tabs.
+    if (storage.getItem(key) !== raw) return result('conflict', { error: 'revision-conflict', backedUp: true });
+  } catch {
+    return result('unavailable', { error: 'storage-read-failed', backedUp: true });
+  }
+  try {
+    storage.removeItem(key);
+  } catch {
+    return result('unavailable', { error: 'storage-write-failed', backedUp: true });
+  }
+  return result('missing', { backedUp: true });
 }

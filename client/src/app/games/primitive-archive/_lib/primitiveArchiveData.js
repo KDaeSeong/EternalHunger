@@ -2593,17 +2593,20 @@ export function applyOwnedPerks(state, meta) {
   return next;
 }
 
+// Id lookups run for every normalize call, so they use sets instead of tree scans.
+const TECHNOLOGY_ID_SET = new Set(TECHNOLOGY_TREE.map((tech) => tech.id));
+
 export function normalizeResearch(value = {}) {
   const base = initResearchState();
   return {
     ...base,
     ...value,
-    selectedTechId: TECHNOLOGY_TREE.some((tech) => tech.id === value.selectedTechId) ? value.selectedTechId : base.selectedTechId,
+    selectedTechId: TECHNOLOGY_ID_SET.has(value.selectedTechId) ? value.selectedTechId : base.selectedTechId,
     progress: value.progress && typeof value.progress === 'object' ? value.progress : base.progress,
     completed: value.completed && typeof value.completed === 'object' ? value.completed : base.completed,
     eureka: value.eureka && typeof value.eureka === 'object' ? value.eureka : base.eureka,
     inspiration: value.inspiration && typeof value.inspiration === 'object' ? value.inspiration : base.inspiration,
-    lastCompletedTechId: TECHNOLOGY_TREE.some((tech) => tech.id === value.lastCompletedTechId) ? value.lastCompletedTechId : '',
+    lastCompletedTechId: TECHNOLOGY_ID_SET.has(value.lastCompletedTechId) ? value.lastCompletedTechId : '',
     lastCompletedTechName: typeof value.lastCompletedTechName === 'string' ? value.lastCompletedTechName : '',
     lastUnlockText: typeof value.lastUnlockText === 'string' ? value.lastUnlockText : '',
     lastUnlockedActions: Array.isArray(value.lastUnlockedActions)
@@ -2626,24 +2629,27 @@ export function normalizeResearch(value = {}) {
 function civicStateMap(value, legacyValue) {
   const source = value && typeof value === 'object' ? value : {};
   const legacy = legacyValue && typeof legacyValue === 'object' ? legacyValue : {};
-  return Object.fromEntries(CIVIC_TREE.flatMap((civic) => {
-    if (Object.hasOwn(source, civic.id)) return [[civic.id, source[civic.id]]];
-    if (Object.hasOwn(legacy, civic.id)) return [[civic.id, legacy[civic.id]]];
-    return [];
-  }));
+  const result = {};
+  for (const civic of CIVIC_TREE) {
+    if (Object.hasOwn(source, civic.id)) result[civic.id] = source[civic.id];
+    else if (Object.hasOwn(legacy, civic.id)) result[civic.id] = legacy[civic.id];
+  }
+  return result;
 }
+
+const CIVIC_ID_LOOKUP = new Set(CIVIC_TREE.map((civic) => civic.id));
 
 export function normalizeCivics(value = {}, legacyResearch = {}) {
   const base = initCivicState();
-  const legacySelected = CIVIC_TREE.some((civic) => civic.id === legacyResearch?.selectedTechId)
+  const legacySelected = CIVIC_ID_LOOKUP.has(legacyResearch?.selectedTechId)
     ? legacyResearch.selectedTechId
     : '';
-  const selectedCivicId = CIVIC_TREE.some((civic) => civic.id === value.selectedCivicId)
+  const selectedCivicId = CIVIC_ID_LOOKUP.has(value.selectedCivicId)
     ? value.selectedCivicId
     : legacySelected || base.selectedCivicId;
-  const lastCompletedCivicId = CIVIC_TREE.some((civic) => civic.id === value.lastCompletedCivicId)
+  const lastCompletedCivicId = CIVIC_ID_LOOKUP.has(value.lastCompletedCivicId)
     ? value.lastCompletedCivicId
-    : CIVIC_TREE.some((civic) => civic.id === legacyResearch?.lastCompletedTechId)
+    : CIVIC_ID_LOOKUP.has(legacyResearch?.lastCompletedTechId)
       ? legacyResearch.lastCompletedTechId
       : '';
   return {

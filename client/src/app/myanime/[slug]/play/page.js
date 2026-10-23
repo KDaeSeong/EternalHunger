@@ -3,30 +3,31 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import SiteHeader from '../../../../components/SiteHeader';
-import BaVanguardPlayPage from '../../../games/ba-vanguard/play/page';
-import CompanyReportPlayPage from '../../../games/company-report/play/page';
-import DualAcademyTcgPlayPage from '../../../games/dual-academy-tcg/play/page';
-import MyAnimecraftPlayPage from '../../../games/myanimecraft/play/page';
-import PrimitiveArchivePlayPage from '../../../games/primitive-archive/play/page';
-import RacingLogosDemoPlayPage from '../../../games/racing-logos-demo/play/page';
-import Rail3dSimPlayPage from '../../../games/rail3d-sim/play/page';
-import SchaleIdleRpgPlayPage from '../../../games/schale-idle-rpg/play/page';
-import SchoolSimulatorPlayPage from '../../../games/school-simulator/play/page';
-import SiCodingSimPlayPage from '../../../games/si-coding-sim/play/page';
-import TonkatsuTeacherPlayPage from '../../../games/tonkatsu-teacher/play/page';
+import dynamic from 'next/dynamic';
 
+function PlayLoading() {
+  return (
+    <main className="games-page-shell">
+      <SiteHeader />
+      <p className="ui-empty" role="status">게임을 불러오는 중입니다.</p>
+    </main>
+  );
+}
+
+// Each game's code loads only when its own address is opened.
+// Static imports here used to ship all eleven games (about 2MB) with every one of them.
 const MYANIME_PLAY_PAGES = {
-  myanimecraft: MyAnimecraftPlayPage,
-  'dual-academy-tcg': DualAcademyTcgPlayPage,
-  'ba-vanguard': BaVanguardPlayPage,
-  'schale-idle-rpg': SchaleIdleRpgPlayPage,
-  'school-simulator': SchoolSimulatorPlayPage,
-  'tonkatsu-teacher': TonkatsuTeacherPlayPage,
-  'si-coding-sim': SiCodingSimPlayPage,
-  'rail3d-sim': Rail3dSimPlayPage,
-  'company-report': CompanyReportPlayPage,
-  'racing-logos-demo': RacingLogosDemoPlayPage,
-  'primitive-archive': PrimitiveArchivePlayPage,
+  myanimecraft: dynamic(() => import('../../../games/myanimecraft/play/page'), { loading: PlayLoading }),
+  'dual-academy-tcg': dynamic(() => import('../../../games/dual-academy-tcg/play/page'), { loading: PlayLoading }),
+  'ba-vanguard': dynamic(() => import('../../../games/ba-vanguard/play/page'), { loading: PlayLoading }),
+  'schale-idle-rpg': dynamic(() => import('../../../games/schale-idle-rpg/play/page'), { loading: PlayLoading }),
+  'school-simulator': dynamic(() => import('../../../games/school-simulator/play/page'), { loading: PlayLoading }),
+  'tonkatsu-teacher': dynamic(() => import('../../../games/tonkatsu-teacher/play/page'), { loading: PlayLoading }),
+  'si-coding-sim': dynamic(() => import('../../../games/si-coding-sim/play/page'), { loading: PlayLoading }),
+  'rail3d-sim': dynamic(() => import('../../../games/rail3d-sim/play/page'), { loading: PlayLoading }),
+  'company-report': dynamic(() => import('../../../games/company-report/play/page'), { loading: PlayLoading }),
+  'racing-logos-demo': dynamic(() => import('../../../games/racing-logos-demo/play/page'), { loading: PlayLoading }),
+  'primitive-archive': dynamic(() => import('../../../games/primitive-archive/play/page'), { loading: PlayLoading }),
 };
 
 function normalizeRouteId(value) {

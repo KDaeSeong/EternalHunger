@@ -91,8 +91,11 @@ import {
   explorationSummary,
   tribeSummary,
 } from '../_lib/primitiveArchiveEngine';
+import PrimitiveArchiveEraDefs from './PrimitiveArchiveEraDefs';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
 import PrimitiveArchiveFocusPanel from './PrimitiveArchiveFocusPanel';
+import { primitiveArchiveEraTheme } from '../_lib/primitiveArchiveEraTheme';
+import '../../../../styles/PrimitiveArchiveEras.css';
 import { primitiveArchiveFocusPlan } from '../_lib/primitiveArchiveFocus';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
 import usePrimitiveArchiveCheckpoint from '../_hooks/usePrimitiveArchiveCheckpoint';
@@ -128,6 +131,16 @@ function createHydrationSafeState() {
   return createNewState({ rng: () => 0.5 });
 }
 
+const NO_ROWS = [];
+const CHECKPOINT_PROBLEM_STATUSES = ['corrupt', 'conflict', 'unavailable', 'owner-unknown', 'invalid-state'];
+
+function saveStateLabel(status) {
+  if (status === 'ready') return { tone: 'ready', label: '기기에 저장됨' };
+  if (status === 'missing') return { tone: 'ready', label: '자동 저장 준비' };
+  if (status === 'loading') return { tone: 'pending', label: '기록 확인 중' };
+  return { tone: 'error', label: '자동 저장 멈춤' };
+}
+
 export default function PrimitiveArchivePlayContent() {
   const token = useAuthToken();
   const user = useAuthUser();
@@ -146,6 +159,8 @@ export default function PrimitiveArchivePlayContent() {
   const [researchPlannerOpen, setResearchPlannerOpen] = useState(false);
   const [actionResult, setActionResult] = useState('');
   const [actionFeedback, setActionFeedback] = useState({ key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: state.runId, tone: 'ready' });
+  const [arrivingEraId, setArrivingEraId] = useState('');
+  const eraArrivalTimerRef = useRef(null);
   const stateRef = useRef(state);
   const feedbackRef = useRef(primitiveMilestoneSnapshot(state));
   const musicSceneTimerRef = useRef(null);
@@ -227,12 +242,15 @@ export default function PrimitiveArchivePlayContent() {
   const archiveVictory = useMemo(() => archiveVictorySummary(state), [state]);
   const runProgressReport = useMemo(() => getRunProgressReport(state, actorId), [actorId, state]);
   const archiveReport = useMemo(() => archiveCompletionReportForState(state), [state]);
-  const techs = useMemo(() => techRows(state), [state]);
-  const civicAdvancements = useMemo(() => civicRows(state), [state]);
-  const inspirationRows = useMemo(() => researchInspirationRows(state), [state]);
-  const civicInspirationRows = useMemo(() => civicsInspirationRows(state), [state]);
-  const plannerRows = useMemo(() => researchPlannerRows(state), [state]);
-  const civicPlannerRows = useMemo(() => civicsPlannerRows(state), [state]);
+  // The advancement trees and planners are only shown on the growth screen and are
+  // the most expensive rows to build, so other screens skip them.
+  const growthOpen = activeTabId === 'growth';
+  const techs = useMemo(() => (growthOpen ? techRows(state) : NO_ROWS), [growthOpen, state]);
+  const civicAdvancements = useMemo(() => (growthOpen ? civicRows(state) : NO_ROWS), [growthOpen, state]);
+  const inspirationRows = useMemo(() => (growthOpen ? researchInspirationRows(state) : NO_ROWS), [growthOpen, state]);
+  const civicInspirationRows = useMemo(() => (growthOpen ? civicsInspirationRows(state) : NO_ROWS), [growthOpen, state]);
+  const plannerRows = useMemo(() => (growthOpen ? researchPlannerRows(state) : NO_ROWS), [growthOpen, state]);
+  const civicPlannerRows = useMemo(() => (growthOpen ? civicsPlannerRows(state) : NO_ROWS), [growthOpen, state]);
   const selectedPlanner = plannerRows.find((tech) => tech.id === state.research.selectedTechId) || plannerRows[0];
   const selectedCivicPlanner = civicPlannerRows.find((civic) => civic.id === state.civics.selectedCivicId) || civicPlannerRows[0];
   const priorityPlannerRows = plannerRows.filter((tech) => !tech.completed).slice(0, 6);
@@ -272,6 +290,9 @@ export default function PrimitiveArchivePlayContent() {
     () => utilityActionRows(state, actorId),
     [actorId, state],
   );
+  // Success-rate overrides are for testing. Production players only see them with
+  // an admin account; a run that used them is excluded from perks and records.
+  const showDeveloperTools = process.env.NODE_ENV !== 'production' || (hydrated && Boolean(user?.isAdmin));
   const developerTools = useMemo(() => developerToolsSummary(state), [state]);
   const baseMusicScene = resolvePrimitiveArchiveBgmScene({
     activeTabId,
@@ -311,6 +332,34 @@ export default function PrimitiveArchivePlayContent() {
     if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
     setMusicScene('');
   }, [setMusicScene]);
+
+  useEffect(() => () => {
+    if (eraArrivalTimerRef.current) window.clearTimeout(eraArrivalTimerRef.current);
+  }, []);
+
+  // The save menu and the other-screens menu are native <details>; close them on an
+  // outside press or Escape so an open menu never sits over the play area.
+  useEffect(() => {
+    const menuSelector = '.primitive-run-tools[open], .primitive-secondary-navigation[open]';
+    const closeOnOutsidePress = (event) => {
+      document.querySelectorAll(menuSelector).forEach((menu) => {
+        if (!menu.contains(event.target)) menu.open = false;
+      });
+    };
+    const closeOnEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      document.querySelectorAll(menuSelector).forEach((menu) => {
+        menu.open = false;
+        if (menu.contains(document.activeElement)) menu.querySelector('summary')?.focus();
+      });
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePress);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePress);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, []);
 
   const partyView = useMemo(() => {
     const nightForecasts = new Map(nightSurvivalRows(state).map((row) => [row.id, row]));
@@ -409,7 +458,12 @@ export default function PrimitiveArchivePlayContent() {
   const applyAction = (label, updater, fallbackText = '') => {
     if (!checkpoint.ready || busy) return;
     const previousState = stateRef.current;
-    const nextState = updater(previousState);
+    // A run saved while the developer screen was open to everyone keeps its record
+    // mark, but its adjustments stop applying once the screen is hidden.
+    const actingState = !showDeveloperTools && previousState.devTools?.enabled
+      ? updateDeveloperToolsAction(previousState, { enabled: false })
+      : previousState;
+    const nextState = updater(actingState);
     const previousMilestones = civilizationMilestoneRows(previousState);
     const nextMilestones = civilizationMilestoneRows(nextState);
     const latest = primitiveActionResultText(previousState, nextState, label, fallbackText);
@@ -436,6 +490,11 @@ export default function PrimitiveArchivePlayContent() {
     setActionResult(latest);
     setMessage('');
     setActionFeedback({ ...feedback, runId: nextState.runId });
+    if (nextMilestones.eraId !== previousMilestones.eraId) {
+      if (eraArrivalTimerRef.current) window.clearTimeout(eraArrivalTimerRef.current);
+      setArrivingEraId(nextMilestones.eraId);
+      eraArrivalTimerRef.current = window.setTimeout(() => setArrivingEraId(''), 2600);
+    }
   };
 
   const completeRun = () => requestArchiveCompletion({
@@ -627,17 +686,38 @@ export default function PrimitiveArchivePlayContent() {
     );
   };
 
+  const discardUnreadableRecord = () => {
+    if (!hydrated || checkpoint.status !== 'corrupt' || busy) return;
+    if (!window.confirm('이 기기의 읽을 수 없는 저장 기록을 정리하고, 지금 화면의 런부터 다시 자동 저장할까요? 정리한 기록은 이 브라우저에 백업 사본 하나로 남겨 둡니다. 기존 손상 기록 백업이 있다면 이번 기록으로 교체됩니다.')) return;
+    const result = checkpoint.discardUnreadable();
+    if (!result.ok) setMessage(result.message);
+    else setMessage(result.backedUp
+      ? '읽을 수 없던 기기 기록을 백업해 두고 지금 런부터 다시 자동 저장합니다.'
+      : '읽을 수 없던 기기 기록을 정리하고 지금 런부터 다시 자동 저장합니다.');
+  };
+
+  const saveState = saveStateLabel(checkpoint.status);
+  const closeRunTools = (event) => {
+    if (!event.target.closest('button')) return;
+    const menu = event.currentTarget.closest('details');
+    if (menu) menu.open = false;
+  };
   const playActions = (
     <details className="primitive-run-tools">
-      <summary>저장·경기 관리</summary>
-      <div className="primitive-run-tools__items">
+      <summary>
+        저장·경기 관리
+        <span className="primitive-save-state" data-tone={saveState.tone}>{saveState.label}</span>
+      </summary>
+      <div className="primitive-run-tools__items" onClick={closeRunTools}>
       <GameControlButton action="new" cue="off" onClick={startNewRun} disabled={!hydrated || !checkpoint.ready || Boolean(busy)}>{selectedDifficulty.label} 새 런</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || !checkpoint.ready || !token || Boolean(busy)}>{busy === 'save' ? '저장 중...' : '서버 저장'}</GameControlButton>
       <GameControlButton action="load" onClick={loadServerRun} disabled={!hydrated || !checkpoint.ready || !token || Boolean(busy)}>{busy === 'load' ? '불러오는 중...' : '서버 불러오기'}</GameControlButton>
       <GameControlButton action="load" onClick={restorePreviousRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.hasPrevious || Boolean(busy)}>직전 런 복구</GameControlButton>
-      <GameControlButton action="auto" cue="off" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</GameControlButton>
       </div>
     </details>
+  );
+  const autoDayControl = (
+    <GameControlButton action="auto" cue="off" className="primitive-auto-day" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</GameControlButton>
   );
 
   const playMetrics = [
@@ -654,8 +734,19 @@ export default function PrimitiveArchivePlayContent() {
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
+  // Routine save states live in the save menu chip; only problems take a message row.
+  const checkpointProblem = CHECKPOINT_PROBLEM_STATUSES.includes(checkpoint.status);
   const playMessages = [
-    { key: 'checkpoint', text: checkpoint.message, tone: ['corrupt', 'conflict', 'unavailable', 'owner-unknown', 'invalid-state'].includes(checkpoint.status) ? 'error' : undefined },
+    checkpointProblem ? {
+      key: 'checkpoint',
+      tone: 'error',
+      text: checkpoint.status === 'corrupt' ? (
+        <>
+          {checkpoint.message}
+          <button type="button" className="primitive-inline-action" onClick={discardUnreadableRecord} disabled={Boolean(busy)}>기기 기록 정리하고 계속</button>
+        </>
+      ) : checkpoint.message,
+    } : null,
     message ? { key: 'message', text: message } : null,
     archiveVictory.victory ? { key: 'victory', text: '기초 아카이브 완주로 런이 종료되었습니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
     archiveVictory.canComplete ? { key: 'complete-ready', text: '기초 완주 목표를 달성했습니다. 런 관리에서 완성·종료하거나, 종료하지 않고 문명 발전을 계속할 수 있습니다.' } : null,
@@ -716,9 +807,26 @@ export default function PrimitiveArchivePlayContent() {
     busy,
   });
 
+  const eraTheme = primitiveArchiveEraTheme(milestones.eraId);
+  const eraShellClassName = [
+    'primitive-archive-page-shell',
+    'primitive-era',
+    `primitive-era--${eraTheme.key}`,
+    arrivingEraId === milestones.eraId ? 'is-era-arriving' : '',
+  ].filter(Boolean).join(' ');
+  const eraPlate = (
+    <span className="primitive-era-plate">
+      <span className="primitive-era-plate__name">{milestones.eraLabel} 시대</span>
+      <span className="primitive-era-plate__meta">
+        {milestones.season.name} · {state.day}일째<span className="primitive-era-plate__medium"> · {eraTheme.medium}</span>
+      </span>
+    </span>
+  );
+
   return (
     <GamePlayShell
-      className="primitive-archive-page-shell"
+      className={eraShellClassName}
+      kicker={eraPlate}
       title="문명 아카이브"
       summaryLabel="문명 아카이브 요약"
       summaryDensity="micro"
@@ -728,6 +836,7 @@ export default function PrimitiveArchivePlayContent() {
       metrics={playMetrics}
       messages={playMessages}
     >
+      <PrimitiveArchiveEraDefs theme={eraTheme} />
       <PrimitiveArchiveFocusPanel plan={focusPlan} onNavigate={setActiveTabId} />
 
       <PrimitiveArchiveFeatureTabs
@@ -738,6 +847,7 @@ export default function PrimitiveArchivePlayContent() {
         actionForecasts={actionForecasts}
         adjustTribeJob={adjustTribeJob}
         applyAction={applyAction}
+        autoDayControl={autoDayControl}
         archiveReport={archiveReport}
         archiveVictory={archiveVictory}
         autoEquip={autoEquip}
@@ -759,6 +869,7 @@ export default function PrimitiveArchivePlayContent() {
         currentDifficulty={currentDifficulty}
         currentLogCapacity={currentLogCapacity}
         developerTools={developerTools}
+        showDeveloperTools={showDeveloperTools}
         equipmentAdviceMode={equipmentAdviceMode}
         equipmentAdviceRows={equipmentAdviceRows}
         equipmentInventory={equipmentInventory}

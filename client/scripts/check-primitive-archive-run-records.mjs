@@ -615,5 +615,32 @@ await checkAsync('a delayed record of the previous run cannot settle or overwrit
   assert.deepEqual(oldRun, fixture({ ended: true }));
 });
 
+check('developer-adjusted runs earn no perks, add no lifetime score, cannot be recorded, and the flag survives switching the tools off', () => {
+  const adjusted = engine.updateDeveloperToolsAction(fixture(), { enabled: true, guaranteedSuccess: true });
+  assert.equal(adjusted.devTools.used, true, 'Turning on an adjustment must mark the run.');
+  const switchedOff = engine.updateDeveloperToolsAction(adjusted, { enabled: false, guaranteedSuccess: false });
+  assert.equal(switchedOff.devTools.used, true, 'Switching the tools off before settling must not clear the mark.');
+  assert.equal(engine.resetDeveloperToolsAction(switchedOff).devTools.used, true, 'Resetting sliders must not clear the mark.');
+  assert.equal(engine.normalizeState(JSON.parse(JSON.stringify(switchedOff))).devTools.used, true, 'The mark must survive a save round-trip.');
+
+  const settled = engine.settleRunAction(switchedOff);
+  assert.equal(settled.meta.perkPoints, switchedOff.meta.perkPoints);
+  assert.equal(settled.meta.lifetimeScore, switchedOff.meta.lifetimeScore);
+  assert.equal(settled.meta.lastAward, 0);
+  expectStatus(settled, { canRecord: false, result: 'none', label: '기록 제외' });
+
+  const completed = engine.completeArchiveAction(engine.updateDeveloperToolsAction(goalReadyFixture(), { enabled: true, actionBonuses: { gather: 0.2 } }));
+  assert.equal(completed.victory, true);
+  assert.equal(completed.meta.lastAward, 0);
+  expectStatus(completed, { canRecord: false, result: 'clear', label: '기록 제외' });
+
+  const next = engine.startNewRunFromMeta(switchedOff, { difficulty: 'normal' });
+  assert.equal(next.devTools.used, false, 'A new run starts with a clean record mark.');
+  assert.equal(next.devTools.enabled, false, 'A new run starts with the tools off.');
+
+  const untouched = engine.updateDeveloperToolsAction(fixture(), { enabled: true });
+  assert.equal(untouched.devTools.used, false, 'Opening the tools without any adjustment does not mark the run.');
+});
+
 console.log(JSON.stringify({ pass: failures.length === 0, checks: checks.length, failures }, null, 2));
 if (failures.length) process.exitCode = 1;

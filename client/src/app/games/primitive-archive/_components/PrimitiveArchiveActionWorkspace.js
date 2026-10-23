@@ -18,6 +18,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
     actionForecasts,
     actor,
     actorId,
+    autoDayControl,
     canAct,
     craftChance,
     exploration,
@@ -72,7 +73,9 @@ export default function PrimitiveArchiveActionWorkspace(props) {
   return (
     <div className="primitive-workspace-panel" role="tabpanel">
       <section className="games-panel games-action-dock primitive-action-workspace">
-        <PrimitiveArchivePanelTitle action="primitive-day" title="빠른 행동" meta={`AP ${state.ap}/${state.apMax}`} />
+        <PrimitiveArchivePanelTitle action="primitive-day" title="빠른 행동" meta={`AP ${state.ap}/${state.apMax}`}>
+          {autoDayControl || null}
+        </PrimitiveArchivePanelTitle>
         <div className="primitive-acting-status" data-tone={condition.tone}>
           <label>
             <span>행동 캐릭터</span>

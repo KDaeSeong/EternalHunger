@@ -28,6 +28,11 @@ export default function PrimitiveArchiveDeveloperTab({
           title="문명 아카이브 개발자 도구"
           meta={enabled ? '보정 적용 중' : '일반 규칙'}
         />
+        <p className={`primitive-developer-notice${developerTools?.used ? ' is-used' : ''}`}>
+          {developerTools?.used
+            ? '이 런은 보정을 사용해서 특전 포인트와 전적에 남지 않습니다. 새 런부터 다시 반영됩니다.'
+            : '보정을 하나라도 켜면 이 런은 특전 포인트와 전적에서 제외됩니다.'}
+        </p>
         <div className="primitive-developer-toggles">
           <label>
             <input

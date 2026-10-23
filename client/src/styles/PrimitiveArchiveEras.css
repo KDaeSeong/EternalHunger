@@ -1,0 +1,1156 @@
+/*
+  Civilization Archive — era themes (2026-10)
+  The archive is recorded on the medium of its era. The play screen root carries
+  .primitive-era and .primitive-era--<era>; each era sets the tokens below, and the
+  component rules map them onto the existing play-screen classes.
+  Body text stays in the site font; era fonts are used for titles, tabs and the
+  main action labels only. Loaded from PrimitiveArchivePlayContent.js, scoped with
+  two root classes so it wins over AppShell.css without !important.
+*/
+
+.primitive-era {
+  --era-page: #e9edf0;
+  --era-page-art: none;
+  --era-plate: #ffffff;
+  --era-plate-art: none;
+  --era-plate-ink: #15202b;
+  --era-plate-soft: #5a6775;
+  --era-plate-name: #15202b;
+  --era-plate-border: 1px solid #d9e1e9;
+  --era-surface: #ffffff;
+  --era-surface-art: none;
+  --era-sunk: #f6f8fa;
+  --era-line: #d9e1e9;
+  --era-line-strong: #c3ced9;
+  --era-ink: #15202b;
+  --era-ink-soft: #5a6775;
+  --era-accent: #205c74;
+  --era-accent-deep: #1b4f64;
+  --era-accent-ink: #ffffff;
+  --era-accent-soft: #e8f2f6;
+  --era-warning-soft: #fff6e2;
+  --era-danger-soft: #fdebe8;
+  --era-display: var(--ui-font);
+  --era-display-scale: 1;
+  --era-display-weight: 800;
+  --era-display-tracking: 0;
+  --era-panel-radius: 12px;
+  --era-control-radius: 9px;
+  --era-tab-radius: 9px;
+  --era-block-radius: var(--era-control-radius);
+  --era-action-ink: var(--era-accent-deep);
+  --era-tab-active: var(--era-accent);
+  --era-tab-active-ink: var(--era-accent-ink);
+  --era-tab-active-border: var(--era-accent-deep);
+  --era-panel-border: 1px solid var(--era-line);
+  --era-panel-shadow: none;
+  --era-control-border: 1px solid var(--era-line-strong);
+  --era-control-shadow: none;
+  --era-control-shadow-active: none;
+  --era-control-art: none;
+  --era-icon-ink: var(--era-accent);
+  --era-icon-bg: transparent;
+  --era-icon-radius: 0;
+  --era-icon-stroke: 2.2;
+  --era-icon-filter: none;
+  --era-focus: #1b7fa5;
+}
+
+/* ---------- 원시: 동굴 벽화 (charcoal and ochre on limestone) ---------- */
+.primitive-era--primitive {
+  --era-page: #3a2f28;
+  --era-page-art: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .92 0 0 0 0 .82 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.16'/%3E%3C/svg%3E");
+  --era-plate: #2a211c;
+  --era-plate-art: url("/games/primitive-archive/eras/cave-wall.svg") right 140px center / auto 100% no-repeat,
+    radial-gradient(ellipse at 70% 40%, rgba(196, 100, 47, 0.18), transparent 60%);
+  --era-plate-ink: #efe2cf;
+  --era-plate-soft: #c9b49b;
+  --era-plate-name: #eb9a66;
+  --era-plate-border: 0;
+  --era-surface: #ece3d3;
+  --era-surface-art: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .2 0 0 0 0 .14 0 0 0 0 .1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.1'/%3E%3C/svg%3E");
+  --era-sunk: #e3d8c5;
+  --era-line: #c9b79d;
+  --era-line-strong: #9f8a71;
+  --era-ink: #2a211c;
+  --era-ink-soft: #5c4a3d;
+  --era-accent: #9a3f22;
+  --era-accent-deep: #7a2e17;
+  --era-accent-ink: #fbefe3;
+  --era-accent-soft: #f0dccb;
+  --era-warning-soft: #f2e1bd;
+  --era-danger-soft: #f0d0c4;
+  --era-display: 'Dokdo', var(--ui-font);
+  --era-display-scale: 1.45;
+  --era-display-weight: 400;
+  --era-panel-radius: 18px 10px 20px 8px / 10px 18px 9px 16px;
+  --era-control-radius: 14px 7px 15px 6px / 7px 13px 6px 12px;
+  --era-tab-radius: 16px 8px 18px 7px / 9px 15px 7px 14px;
+  --era-panel-border: 2px solid rgba(42, 33, 28, 0.55);
+  --era-panel-shadow: 0 3px 0 rgba(20, 13, 9, 0.45);
+  --era-control-border: 2px solid rgba(42, 33, 28, 0.45);
+  --era-control-shadow: 0 2px 0 rgba(42, 33, 28, 0.25);
+  --era-icon-ink: #2a211c;
+  --era-icon-stroke: 2.7;
+  --era-icon-filter: url(#primitive-era-rough);
+  --era-focus: #eb9a66;
+}
+
+/* ---------- 신석기: 빗살무늬 토기 (incised clay) ---------- */
+.primitive-era--neolithic {
+  --era-page: #c7bcad;
+  --era-page-art: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .25 0 0 0 0 .18 0 0 0 0 .12 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.14'/%3E%3C/svg%3E");
+  --era-plate: #d9ccb9;
+  --era-plate-art: linear-gradient(90deg, #d9ccb9 38%, rgba(217, 204, 185, 0.4) 62%, rgba(217, 204, 185, 0) 80%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='14'%3E%3Cpath d='M1 6.5 L5 1 M6 6.5 L10 1 M11 6.5 L15 1 M16 6.5 L20 1 M1 7.5 L5 13 M6 7.5 L10 13 M11 7.5 L15 13 M16 7.5 L20 13' stroke='%235e4330' stroke-width='1.4' stroke-linecap='round' opacity='.55' fill='none'/%3E%3C/svg%3E") 0 0 / 20px 14px;
+  --era-plate-ink: #34261c;
+  --era-plate-soft: #6b5543;
+  --era-plate-name: #4f321f;
+  --era-plate-border: 0;
+  --era-surface: #efe7db;
+  --era-surface-art: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='9'%3E%3Cpath d='M1 1 L4 8 M5 1 L8 8 M9 1 L12 8 M13 1 L16 8' stroke='%237a5a40' stroke-width='1.2' stroke-linecap='round' opacity='.5' fill='none'/%3E%3C/svg%3E") 0 0 / 16px 9px repeat-x;
+  --era-sunk: #e6dccd;
+  --era-line: #cdbda7;
+  --era-line-strong: #a8957d;
+  --era-ink: #33261c;
+  --era-ink-soft: #65513f;
+  --era-accent: #6b4428;
+  --era-accent-deep: #553419;
+  --era-accent-ink: #f8efe4;
+  --era-accent-soft: #eadbc8;
+  --era-warning-soft: #f1e2c2;
+  --era-danger-soft: #efd5cb;
+  --era-display: 'Gugi', var(--ui-font);
+  --era-display-scale: 1.06;
+  --era-display-weight: 400;
+  --era-panel-radius: 12px 12px 24px 24px;
+  --era-control-radius: 8px 8px 16px 16px;
+  --era-tab-radius: 8px 8px 18px 18px;
+  --era-panel-border: 1px solid #c4b29a;
+  --era-panel-shadow: 0 2px 0 rgba(94, 67, 48, 0.18);
+  --era-control-shadow: inset 0 -2px 0 rgba(94, 67, 48, 0.12);
+  --era-icon-ink: #6b4428;
+  --era-icon-filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.8));
+  --era-focus: #8a5a33;
+}
+
+/* ---------- 고대: 청동 거울과 비석 (verdigris bronze, granite) ---------- */
+.primitive-era--ancient {
+  --era-page: #b5bcb8;
+  --era-page-art: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='turbulence' baseFrequency='.55' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .1 0 0 0 0 .13 0 0 0 0 .12 0 0 0 1.4 -.6'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+  --era-plate: #2c5c54;
+  --era-plate-art: linear-gradient(90deg, #2c5c54 0 30%, rgba(44, 92, 84, 0.6) 42%, rgba(44, 92, 84, 0) 56%),
+    repeating-radial-gradient(circle at 84% 50%, rgba(229, 199, 137, 0.34) 0 1.2px, transparent 1.4px 8px),
+    repeating-linear-gradient(60deg, rgba(229, 199, 137, 0.08) 0 1px, transparent 1px 7px),
+    radial-gradient(circle at 84% 50%, rgba(165, 124, 60, 0.4), transparent 45%);
+  --era-plate-ink: #eef1e9;
+  --era-plate-soft: #bcd0c7;
+  --era-plate-name: #e7c98b;
+  --era-plate-border: 0;
+  --era-surface: #e7e9e6;
+  --era-surface-art: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='turbulence' baseFrequency='.7' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .1 0 0 0 0 .13 0 0 0 0 .12 0 0 0 1.6 -.9'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E");
+  --era-sunk: #dde2df;
+  --era-line: #bdc5c1;
+  --era-line-strong: #95a09b;
+  --era-ink: #1f2624;
+  --era-ink-soft: #4d5955;
+  --era-accent: #2c665b;
+  --era-accent-deep: #214e46;
+  --era-accent-ink: #f3f6f1;
+  --era-accent-soft: #d8e7e1;
+  --era-warning-soft: #efe5cc;
+  --era-danger-soft: #ecd9d4;
+  --era-display: 'Song Myung', var(--ui-font);
+  --era-display-scale: 1.12;
+  --era-display-weight: 400;
+  --era-panel-radius: 26px 26px 4px 4px;
+  --era-control-radius: 16px 16px 3px 3px;
+  --era-tab-radius: 18px 18px 3px 3px;
+  --era-panel-border: 1px solid #a8b2ad;
+  --era-panel-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 0 rgba(31, 38, 36, 0.16);
+  --era-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --era-icon-ink: #8a6427;
+  --era-icon-stroke: 2;
+  --era-focus: #a57c3c;
+}
+
+/* ---------- 고전: 죽간과 먹 (bamboo slips, ink, red seal) ---------- */
+.primitive-era--classical {
+  --era-page: #d4cca5;
+  --era-page-art: repeating-linear-gradient(90deg, transparent 0 46px, rgba(98, 84, 34, 0.12) 46px 47px, rgba(255, 255, 255, 0.22) 47px 48px);
+  --era-plate: #e5ddb6;
+  --era-plate-art: linear-gradient(transparent 5px, rgba(92, 60, 30, 0.6) 5px 7px, transparent 7px calc(100% - 7px), rgba(92, 60, 30, 0.6) calc(100% - 7px) calc(100% - 5px), transparent calc(100% - 5px)),
+    repeating-linear-gradient(90deg, transparent 0 30px, rgba(98, 84, 34, 0.2) 30px 31px, rgba(255, 255, 255, 0.35) 31px 32px);
+  --era-plate-ink: #1c1a15;
+  --era-plate-soft: #5a5236;
+  --era-plate-name: #1c1a15;
+  --era-plate-border: 1px solid #b9ad80;
+  --era-surface: #f0ebd2;
+  --era-surface-art: repeating-linear-gradient(90deg, transparent 0 38px, rgba(98, 84, 34, 0.07) 38px 39px);
+  --era-sunk: #e8e1c3;
+  --era-line: #d0c69e;
+  --era-line-strong: #ad9f6e;
+  --era-ink: #1c1a15;
+  --era-ink-soft: #544c32;
+  --era-accent: #a83228;
+  --era-accent-deep: #87241c;
+  --era-accent-ink: #fff6ec;
+  --era-accent-soft: #f1dccb;
+  --era-warning-soft: #efe0b8;
+  --era-danger-soft: #efd2c8;
+  --era-action-ink: #1c1a15;
+  --era-display: 'Yeon Sung', var(--ui-font);
+  --era-display-scale: 1.12;
+  --era-display-weight: 400;
+  --era-panel-radius: 3px;
+  --era-control-radius: 2px;
+  --era-tab-radius: 2px;
+  --era-panel-border: 1px solid #c2b585;
+  --era-control-shadow: inset 3px 0 0 rgba(98, 84, 34, 0.12);
+  --era-icon-ink: #1c1a15;
+  --era-icon-stroke: 2.4;
+  --era-icon-filter: drop-shadow(0 0 0.5px rgba(0, 0, 0, 0.7));
+  --era-focus: #a83228;
+}
+
+/* ---------- 중세: 고려청자 (celadon glaze, inlaid roundels) ---------- */
+.primitive-era--medieval {
+  --era-page: #a6c0b2;
+  --era-page-art: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.25), transparent 50%);
+  --era-plate: #5b8a7b;
+  --era-plate-art: linear-gradient(90deg, #5b8a7b 0 34%, rgba(91, 138, 123, 0.75) 44%, rgba(91, 138, 123, 0) 60%),
+    radial-gradient(circle, transparent 0 14px, rgba(246, 250, 246, 0.5) 14px 15.5px, transparent 15.5px 19px, rgba(24, 44, 38, 0.38) 19px 20px, transparent 20px) 0 0 / 64px 64px,
+    linear-gradient(115deg, rgba(255, 255, 255, 0.22), transparent 45%);
+  --era-plate-ink: #f4f8f4;
+  --era-plate-soft: #d3e4db;
+  --era-plate-name: #ffffff;
+  --era-plate-border: 0;
+  --era-surface: #e3ede6;
+  --era-surface-art: linear-gradient(160deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 38%);
+  --era-sunk: #d7e5dc;
+  --era-line: #b3cabd;
+  --era-line-strong: #8cab9a;
+  --era-ink: #1b332d;
+  --era-ink-soft: #48625a;
+  --era-accent: #3a6c5d;
+  --era-accent-deep: #2b5448;
+  --era-accent-ink: #f4faf6;
+  --era-accent-soft: #d0e3d8;
+  --era-warning-soft: #ece6c8;
+  --era-danger-soft: #ebd8d1;
+  --era-display: 'Gowun Batang', var(--ui-font);
+  --era-display-scale: 1.04;
+  --era-display-weight: 700;
+  --era-panel-radius: 22px;
+  --era-control-radius: 999px;
+  --era-tab-radius: 999px;
+  --era-block-radius: 26px;
+  --era-panel-border: 1px solid #a9c3b5;
+  --era-panel-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 3px 10px rgba(27, 51, 45, 0.12);
+  --era-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(27, 51, 45, 0.18);
+  --era-icon-ink: #f4faf6;
+  --era-icon-bg: #3a6c5d;
+  --era-icon-radius: 50%;
+  --era-icon-stroke: 2.1;
+  --era-focus: #2b5448;
+}
+
+/* ---------- 근세: 금속활자 책 (indigo cover, hanji, double-ruled frame) ---------- */
+.primitive-era--early-modern {
+  --era-page: #29324d;
+  --era-page-art: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 5px);
+  --era-plate: #1f2740;
+  --era-plate-art: radial-gradient(circle, #0c1120 0 3px, rgba(182, 58, 44, 0.9) 3px 4px, transparent 4.5px) 10px 6% / 16px 22% repeat-y,
+    linear-gradient(90deg, transparent 17px, #b63a2c 17px 19px, transparent 19px),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 5px);
+  --era-plate-ink: #ebe6d6;
+  --era-plate-soft: #b9bccb;
+  --era-plate-name: #1a1a1a;
+  --era-plate-border: 0;
+  --era-surface: #f2eee3;
+  --era-surface-art: none;
+  --era-sunk: #e9e3d4;
+  --era-line: #cfc6b2;
+  --era-line-strong: #2a2420;
+  --era-ink: #1a1a1a;
+  --era-ink-soft: #4b4840;
+  --era-accent: #2b3757;
+  --era-accent-deep: #1f2942;
+  --era-accent-ink: #f2eee3;
+  --era-accent-soft: #e2e0dd;
+  --era-warning-soft: #eee2c4;
+  --era-danger-soft: #edd6cf;
+  --era-display: 'Nanum Myeongjo', var(--ui-font);
+  --era-display-scale: 1.04;
+  --era-display-weight: 800;
+  --era-panel-radius: 0;
+  --era-control-radius: 0;
+  --era-tab-radius: 0;
+  --era-tab-active: #9c3226;
+  --era-tab-active-border: #2a2420;
+  --era-panel-border: 2px solid #2a2420;
+  --era-panel-shadow: inset 0 0 0 3px var(--era-surface), inset 0 0 0 4px rgba(42, 36, 32, 0.8);
+  --era-control-border: 1px solid #2a2420;
+  --era-control-shadow: inset 0 0 0 2px var(--era-surface), inset 0 0 0 3px rgba(42, 36, 32, 0.45);
+  --era-icon-ink: #1a1a1a;
+  --era-icon-stroke: 1.9;
+  --era-focus: #b63a2c;
+}
+
+/* ---------- 전기 근대: 활판 신문 (newsprint, halftone, spot red) ---------- */
+.primitive-era--modern-early {
+  --era-page: #d3d0c7;
+  --era-page-art: radial-gradient(rgba(20, 20, 20, 0.1) 1px, transparent 1.3px) 0 0 / 5px 5px;
+  --era-plate: #ecebe5;
+  --era-plate-art: linear-gradient(90deg, #ecebe5 52%, rgba(236, 235, 229, 0.2) 80%, rgba(236, 235, 229, 0) 100%),
+    radial-gradient(rgba(20, 20, 20, 0.28) 1.2px, transparent 1.5px) 0 0 / 6px 6px;
+  --era-plate-ink: #141414;
+  --era-plate-soft: #4a4844;
+  --era-plate-name: #141414;
+  --era-plate-border: 0;
+  --era-surface: #f1f0eb;
+  --era-surface-art: none;
+  --era-sunk: #e6e4dd;
+  --era-line: #bdb9ae;
+  --era-line-strong: #141414;
+  --era-ink: #141414;
+  --era-ink-soft: #46443f;
+  --era-accent: #c3161c;
+  --era-accent-deep: #9b0f14;
+  --era-accent-ink: #ffffff;
+  --era-accent-soft: #f2dcd8;
+  --era-warning-soft: #efe5c9;
+  --era-danger-soft: #f0d5d1;
+  --era-action-ink: #141414;
+  --era-display: 'Black Han Sans', var(--ui-font);
+  --era-display-scale: 1.04;
+  --era-display-weight: 400;
+  --era-panel-radius: 0;
+  --era-control-radius: 0;
+  --era-tab-radius: 0;
+  --era-panel-border: 1px solid #8e8a80;
+  --era-panel-shadow: inset 0 3px 0 #141414;
+  --era-control-border: 1.5px solid #141414;
+  --era-control-shadow: 3px 3px 0 #141414;
+  --era-control-shadow-active: 1px 1px 0 #141414;
+  --era-icon-ink: #141414;
+  --era-icon-stroke: 2.3;
+  --era-icon-filter: drop-shadow(1.6px 1.1px 0 rgba(195, 22, 28, 0.6));
+  --era-focus: #c3161c;
+}
+
+/* ---------- 후기 근대: 청사진 (blueprint, drafting film) ---------- */
+.primitive-era--modern-late {
+  --era-page: #143a69;
+  --era-page-art: linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px) 0 0 / 64px 64px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px) 0 0 / 64px 64px,
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px) 0 0 / 16px 16px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px) 0 0 / 16px 16px;
+  --era-plate: #0e2d55;
+  --era-plate-art: linear-gradient(rgba(170, 205, 255, 0.16) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, rgba(170, 205, 255, 0.16) 1px, transparent 1px) 0 0 / 32px 32px,
+    radial-gradient(circle at 83% 50%, transparent 0 38px, rgba(230, 240, 255, 0.5) 38px 39px, transparent 39px 54px, rgba(230, 240, 255, 0.3) 54px 55px, transparent 55px),
+    linear-gradient(90deg, transparent calc(83% - 70px), rgba(230, 240, 255, 0.4) calc(83% - 70px) calc(83% + 70px), transparent calc(83% + 70px)) center / 100% 1px no-repeat;
+  --era-plate-ink: #e6f0ff;
+  --era-plate-soft: #a7c0e4;
+  --era-plate-name: #ffffff;
+  --era-plate-border: 1px solid rgba(170, 205, 255, 0.45);
+  --era-surface: #eef4fb;
+  --era-surface-art: linear-gradient(rgba(29, 79, 156, 0.06) 1px, transparent 1px) 0 0 / 16px 16px,
+    linear-gradient(90deg, rgba(29, 79, 156, 0.06) 1px, transparent 1px) 0 0 / 16px 16px;
+  --era-sunk: #e2ebf7;
+  --era-line: #b7cae5;
+  --era-line-strong: #7f9fcc;
+  --era-ink: #0e2747;
+  --era-ink-soft: #3c5576;
+  --era-accent: #1d4f9c;
+  --era-accent-deep: #143c7a;
+  --era-accent-ink: #ffffff;
+  --era-accent-soft: #d9e6f7;
+  --era-warning-soft: #f1ead0;
+  --era-danger-soft: #f3dcdc;
+  --era-display: 'Nanum Gothic Coding', var(--ui-font);
+  --era-display-scale: 1;
+  --era-display-weight: 700;
+  --era-display-tracking: -0.02em;
+  --era-panel-radius: 0;
+  --era-control-radius: 0;
+  --era-tab-radius: 0;
+  --era-panel-border: 1px solid #7f9fcc;
+  --era-control-border: 1px solid #7f9fcc;
+  --era-control-art: linear-gradient(#1d4f9c 0 0) top left / 9px 2px no-repeat,
+    linear-gradient(#1d4f9c 0 0) top left / 2px 9px no-repeat,
+    linear-gradient(#1d4f9c 0 0) bottom right / 9px 2px no-repeat,
+    linear-gradient(#1d4f9c 0 0) bottom right / 2px 9px no-repeat;
+  --era-icon-ink: #1d4f9c;
+  --era-icon-stroke: 1.6;
+  --era-focus: #f0b429;
+}
+
+/* ================= Component mapping ================= */
+
+.primitive-era.primitive-archive-page-shell {
+  background: var(--era-page-art), var(--era-page);
+  color: var(--era-ink);
+  transition: background-color 0.6s ease;
+}
+
+.primitive-era-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* Era plate: the top band carries the era's medium. */
+.primitive-era.primitive-archive-page-shell .games-play-chrome {
+  position: relative;
+  border: var(--era-plate-border);
+  border-radius: var(--era-panel-radius);
+  background: var(--era-plate-art), var(--era-plate);
+  color: var(--era-plate-ink);
+  padding: 10px 14px;
+  overflow: visible;
+}
+
+.primitive-era.primitive-archive-page-shell .games-play-chrome > .games-hero {
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.primitive-era.primitive-archive-page-shell .games-hero > div:first-child {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+}
+
+.primitive-era.primitive-archive-page-shell .games-hero h1 {
+  margin: 0;
+  color: var(--era-plate-soft);
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+.primitive-era.primitive-archive-page-shell .games-hero .games-kicker {
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.primitive-era-plate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+}
+
+.primitive-era-plate__name {
+  color: var(--era-plate-name);
+  font-family: var(--era-display);
+  font-size: calc(1.5rem * var(--era-display-scale));
+  font-weight: var(--era-display-weight);
+  letter-spacing: var(--era-display-tracking);
+  line-height: 1.12;
+  word-break: keep-all;
+}
+
+.primitive-era-plate__meta {
+  color: var(--era-plate-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* 근세: the era name sits on the pasted paper title slip of a bound book. */
+.primitive-era--early-modern.primitive-archive-page-shell .games-play-chrome {
+  padding-left: 38px;
+}
+
+.primitive-era--early-modern .primitive-era-plate__name {
+  padding: 2px 12px 3px;
+  border: 1px solid #2a2420;
+  background: #f2eee3;
+  box-shadow: inset 0 0 0 2px #f2eee3, inset 0 0 0 3px rgba(42, 36, 32, 0.6);
+}
+
+/* 전기 근대: newspaper masthead rules. */
+.primitive-era--modern-early.primitive-archive-page-shell .games-play-chrome {
+  border-top: 5px solid #141414;
+  border-bottom: 4px double #141414;
+}
+
+.primitive-era--modern-early .primitive-era-plate__name {
+  font-size: 1.85rem;
+  letter-spacing: -0.01em;
+}
+
+/* Metric chips and secondary-metrics drawer on the plate. */
+.primitive-era.primitive-archive-page-shell .games-summary--micro .games-metric,
+.primitive-era.primitive-archive-page-shell .games-metric.games-metric--micro {
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-control-radius);
+  background: var(--era-surface);
+  color: var(--era-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .games-metric span {
+  color: var(--era-ink-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .games-metric strong {
+  color: var(--era-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .games-summary-overflow {
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-block-radius);
+  background: var(--era-surface);
+}
+
+.primitive-era.primitive-archive-page-shell .games-summary-overflow summary,
+.primitive-era.primitive-archive-page-shell .games-summary-overflow summary::after {
+  color: var(--era-accent);
+}
+
+.primitive-era.primitive-archive-page-shell .games-summary-overflow summary::after {
+  background: var(--era-accent-soft);
+}
+
+/* Panels and cards. */
+.primitive-era.primitive-archive-page-shell .games-panel,
+.primitive-era.primitive-archive-page-shell .primitive-focus-panel article,
+.primitive-era.primitive-archive-page-shell .games-play-messages .games-empty {
+  border: var(--era-panel-border);
+  border-radius: var(--era-panel-radius);
+  background: var(--era-surface-art), var(--era-surface);
+  box-shadow: var(--era-panel-shadow);
+  color: var(--era-ink);
+}
+
+.primitive-era--neolithic.primitive-archive-page-shell .games-panel {
+  padding-top: 18px;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-focus-night[data-tone="warning"] {
+  background: var(--era-warning-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-focus-night[data-tone="danger"] {
+  background: var(--era-danger-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .games-play-messages .games-empty.games-error {
+  background: var(--era-danger-soft);
+}
+
+/* Titles in the era font. */
+.primitive-era.primitive-archive-page-shell .games-panel-title h2,
+.primitive-era.primitive-archive-page-shell .games-panel-title h3,
+.primitive-era.primitive-archive-page-shell .primitive-focus-panel h2 {
+  color: var(--era-ink);
+  font-family: var(--era-display);
+  font-weight: var(--era-display-weight);
+  letter-spacing: var(--era-display-tracking);
+}
+
+.primitive-era.primitive-archive-page-shell .games-panel-title h2 {
+  font-size: calc(1.02rem * var(--era-display-scale));
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-focus-panel h2 {
+  font-size: calc(1rem * var(--era-display-scale));
+  line-height: 1.3;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-focus-eyebrow,
+.primitive-era.primitive-archive-page-shell .primitive-archive-panel-title__copy > span {
+  color: var(--era-accent);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-focus-panel p,
+.primitive-era.primitive-archive-page-shell .primitive-action-choice__hint,
+.primitive-era.primitive-archive-page-shell .games-muted {
+  color: var(--era-ink-soft);
+}
+
+/* Navigation: primary tabs, other-screens menu, save menu, disclosure rows. */
+.primitive-era.primitive-archive-page-shell .primitive-primary-tabs button,
+.primitive-era.primitive-archive-page-shell .primitive-secondary-navigation__items button {
+  border: var(--era-control-border);
+  border-radius: var(--era-tab-radius);
+  background: var(--era-control-art), var(--era-surface);
+  box-shadow: var(--era-control-shadow);
+  color: var(--era-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-primary-tabs button span {
+  font-family: var(--era-display);
+  font-size: calc(0.95rem * var(--era-display-scale));
+  font-weight: var(--era-display-weight);
+  letter-spacing: var(--era-display-tracking);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-primary-tabs button strong,
+.primitive-era.primitive-archive-page-shell .primitive-secondary-navigation__items button strong {
+  color: var(--era-ink-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-primary-tabs button.is-active,
+.primitive-era.primitive-archive-page-shell .primitive-secondary-navigation__items button.is-active {
+  border-color: var(--era-tab-active-border);
+  background: var(--era-tab-active);
+  box-shadow: var(--era-control-shadow-active);
+  color: var(--era-tab-active-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-primary-tabs button.is-active strong,
+.primitive-era.primitive-archive-page-shell .primitive-secondary-navigation__items button.is-active strong {
+  color: var(--era-tab-active-ink);
+  opacity: 0.85;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-secondary-navigation > summary,
+.primitive-era.primitive-archive-page-shell .primitive-run-tools > summary,
+.primitive-era.primitive-archive-page-shell .primitive-guide-details > summary,
+.primitive-era.primitive-archive-page-shell .primitive-action-settings > summary,
+.primitive-era.primitive-archive-page-shell .primitive-horizon-details > summary,
+.primitive-era.primitive-archive-page-shell .primitive-growth-preview > summary {
+  border: var(--era-control-border);
+  border-radius: var(--era-control-radius);
+  background: var(--era-control-art), var(--era-surface);
+  color: var(--era-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-secondary-navigation > summary span,
+.primitive-era.primitive-archive-page-shell .primitive-action-settings > summary span {
+  color: var(--era-ink-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-secondary-navigation__items,
+.primitive-era.primitive-archive-page-shell .primitive-run-tools__items {
+  border: var(--era-panel-border);
+  border-radius: var(--era-panel-radius);
+  background: var(--era-surface);
+}
+
+/* Technology-unlocked action lists keep their own header row inside one frame. */
+.primitive-era.primitive-archive-page-shell .primitive-specialized-actions {
+  border: var(--era-control-border);
+  border-radius: var(--era-block-radius);
+  background: var(--era-sunk);
+  box-shadow: none;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-specialized-actions > summary {
+  border: 0;
+  background: transparent;
+  color: var(--era-ink);
+}
+
+/* Secondary cards used across the camp, report, party and growth screens. */
+.primitive-era.primitive-archive-page-shell .primitive-action-forecast-details,
+.primitive-era.primitive-archive-page-shell .primitive-facility-details,
+.primitive-era.primitive-archive-page-shell .primitive-equipment-owned {
+  border: var(--era-control-border);
+  border-radius: var(--era-block-radius);
+  background: var(--era-sunk);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-action-forecast-details > summary,
+.primitive-era.primitive-archive-page-shell .primitive-facility-details > summary,
+.primitive-era.primitive-archive-page-shell .primitive-equipment-owned > summary {
+  color: var(--era-accent-deep);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-action-forecast,
+.primitive-era.primitive-archive-page-shell .game-save-row,
+.primitive-era.primitive-archive-page-shell .games-small-stat {
+  border-color: var(--era-line);
+  border-radius: var(--era-block-radius);
+  background: var(--era-surface);
+}
+
+.primitive-era--medieval.primitive-archive-page-shell .primitive-action-forecast,
+.primitive-era--medieval.primitive-archive-page-shell .game-save-row,
+.primitive-era--medieval.primitive-archive-page-shell .games-small-stat {
+  border-radius: 16px;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-action-forecast > div span {
+  background: var(--era-accent-soft);
+  color: var(--era-accent-deep);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-action-forecast strong,
+.primitive-era.primitive-archive-page-shell .primitive-action-forecast p {
+  color: var(--era-ink);
+}
+
+/* Filled primary buttons (new run, research, recruit...) take the era's active colour. */
+.primitive-era.primitive-archive-page-shell .tcg-primary-action {
+  border: 1px solid var(--era-tab-active-border);
+  border-radius: var(--era-control-radius);
+  background: var(--era-tab-active);
+  box-shadow: var(--era-control-shadow);
+  color: var(--era-tab-active-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .tcg-primary-action:disabled {
+  border-color: var(--era-line);
+  background: var(--era-sunk);
+  color: var(--era-ink-soft);
+}
+
+/* Camp builds read as the same action blocks as the basic actions. */
+.primitive-era.primitive-archive-page-shell .primitive-camp-action-grid .game-action-button {
+  border: var(--era-control-border);
+  border-radius: var(--era-block-radius);
+  background: var(--era-control-art), var(--era-sunk);
+  color: var(--era-action-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-camp-action-grid .game-action-button:hover:not(:disabled) {
+  border-color: var(--era-accent);
+  background: var(--era-control-art), var(--era-accent-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-camp-action-grid .game-action-button:disabled {
+  opacity: 0.62;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-camp-action-label {
+  font-family: var(--era-display);
+  font-size: calc(0.92rem * var(--era-display-scale));
+  font-weight: var(--era-display-weight);
+  letter-spacing: var(--era-display-tracking);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-material-status > span {
+  border: 1px solid var(--era-line);
+  background: var(--era-surface);
+  color: var(--era-ink-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-material-status > span.is-missing {
+  border-color: transparent;
+  background: var(--era-danger-soft);
+  color: #a52e2e;
+}
+
+/* Basic actions: each era shapes the action blocks, labels in the era font. */
+.primitive-era.primitive-archive-page-shell .primitive-action-choice {
+  border: var(--era-control-border);
+  border-radius: var(--era-block-radius);
+  background: var(--era-control-art), var(--era-sunk);
+  box-shadow: var(--era-control-shadow);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-action-choice:hover,
+.primitive-era.primitive-archive-page-shell .primitive-action-choice:focus-within {
+  border-color: var(--era-accent);
+  background: var(--era-control-art), var(--era-accent-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-basic-action-grid .game-action-button {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--era-action-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-basic-action-grid .game-action-button__label {
+  font-family: var(--era-display);
+  font-size: calc(0.95rem * var(--era-display-scale));
+  font-weight: var(--era-display-weight);
+  letter-spacing: var(--era-display-tracking);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-basic-action-grid .game-action-button:disabled {
+  color: var(--era-ink-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .game-control-button {
+  border: var(--era-control-border);
+  border-radius: var(--era-control-radius);
+  background: var(--era-control-art), var(--era-surface);
+  box-shadow: var(--era-control-shadow);
+  color: var(--era-accent-deep);
+}
+
+.primitive-era.primitive-archive-page-shell .game-control-button:hover:not(:disabled) {
+  background: var(--era-control-art), var(--era-accent-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .game-control-button:active:not(:disabled),
+.primitive-era.primitive-archive-page-shell .primitive-primary-tabs button:active {
+  box-shadow: var(--era-control-shadow-active);
+}
+
+.primitive-era--modern-early.primitive-archive-page-shell .game-control-button:active:not(:disabled),
+.primitive-era--modern-early.primitive-archive-page-shell .primitive-primary-tabs button:active {
+  transform: translate(2px, 2px);
+}
+
+/* Acting member strip and latest result. */
+.primitive-era.primitive-archive-page-shell .primitive-acting-status {
+  border-color: var(--era-line);
+  background: var(--era-sunk);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-acting-vitals > span {
+  border-color: var(--era-line);
+  border-radius: var(--era-control-radius);
+  background: var(--era-surface);
+  color: var(--era-ink-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-acting-vitals strong,
+.primitive-era.primitive-archive-page-shell .primitive-acting-status__summary strong {
+  color: var(--era-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-acting-status select,
+.primitive-era.primitive-archive-page-shell .games-action-dock__controls select {
+  border-color: var(--era-line-strong);
+  border-radius: var(--era-control-radius);
+  background-color: var(--era-surface);
+  color: var(--era-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-action-result {
+  background: transparent;
+}
+
+.primitive-era.primitive-archive-page-shell .games-action-result {
+  border-color: var(--era-line);
+  border-radius: var(--era-block-radius);
+  background: var(--era-surface);
+}
+
+.primitive-era.primitive-archive-page-shell .games-action-result.is-success,
+.primitive-era.primitive-archive-page-shell .games-action-result.is-highlight {
+  background: var(--era-accent-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .games-action-result.is-warning {
+  background: var(--era-warning-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .games-action-result.is-danger {
+  background: var(--era-danger-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .games-action-result strong {
+  color: var(--era-ink);
+}
+
+/* Icons: stroke weight and treatment follow the medium. */
+.primitive-era.primitive-archive-page-shell .game-action-icon {
+  border-radius: var(--era-icon-radius);
+  background: var(--era-icon-bg);
+  color: var(--era-icon-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .game-action-icon svg {
+  stroke-width: var(--era-icon-stroke);
+  filter: var(--era-icon-filter);
+}
+
+.primitive-era.primitive-archive-page-shell .game-action-button .game-action-icon,
+.primitive-era.primitive-archive-page-shell .game-control-button .game-action-icon {
+  color: var(--era-icon-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .tcg-primary-action .game-action-icon {
+  color: inherit;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-basic-action-grid .game-action-button .game-action-icon,
+.primitive-era.primitive-archive-page-shell .primitive-camp-action-grid .game-action-button .game-action-icon {
+  color: var(--era-icon-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-primary-tabs button.is-active .game-action-icon {
+  color: inherit;
+}
+
+.primitive-era--medieval.primitive-archive-page-shell .primitive-action-choice {
+  padding: 10px 16px;
+}
+
+.primitive-era--medieval.primitive-archive-page-shell .game-action-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+  flex-basis: 1.3rem;
+  padding: 3px;
+  box-sizing: border-box;
+}
+
+.primitive-era--medieval.primitive-archive-page-shell .primitive-archive-icon-row > .game-action-icon {
+  width: 32px;
+  height: 32px;
+  flex-basis: 32px;
+  padding: 7px;
+  border: 0;
+}
+
+.primitive-era--modern-late.primitive-archive-page-shell .primitive-archive-icon-row > .game-action-icon,
+.primitive-era--early-modern.primitive-archive-page-shell .primitive-archive-icon-row > .game-action-icon {
+  border: 1px solid currentColor;
+  border-radius: 0;
+  background: var(--era-surface);
+}
+
+.primitive-era--primitive.primitive-archive-page-shell .primitive-archive-icon-row > .game-action-icon,
+.primitive-era--neolithic.primitive-archive-page-shell .primitive-archive-icon-row > .game-action-icon,
+.primitive-era--ancient.primitive-archive-page-shell .primitive-archive-icon-row > .game-action-icon,
+.primitive-era--classical.primitive-archive-page-shell .primitive-archive-icon-row > .game-action-icon,
+.primitive-era--modern-early.primitive-archive-page-shell .primitive-archive-icon-row > .game-action-icon {
+  border-color: var(--era-line);
+  border-radius: var(--era-control-radius);
+  background: var(--era-sunk);
+  color: var(--era-icon-ink);
+}
+
+/* Focus ring follows the era accent. */
+.primitive-era.primitive-archive-page-shell button:focus-visible,
+.primitive-era.primitive-archive-page-shell summary:focus-visible,
+.primitive-era.primitive-archive-page-shell select:focus-visible {
+  outline: 3px solid var(--era-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Save state chip inside the save menu button ---------- */
+.primitive-save-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  color: var(--era-ink-soft, #5a6775);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.primitive-save-state::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3c8a5c;
+}
+
+.primitive-save-state[data-tone="pending"]::before { background: #b9a35a; }
+.primitive-save-state[data-tone="error"] { color: #b43a3a; }
+.primitive-save-state[data-tone="error"]::before { background: #c0392b; }
+
+.primitive-inline-action {
+  margin-left: 10px;
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid currentColor;
+  border-radius: var(--era-control-radius, 8px);
+  background: #ffffff;
+  color: #a62f36;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primitive-inline-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.primitive-developer-notice {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid #b47712;
+  background: #fff7e6;
+  color: #6b4a12;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.primitive-developer-notice.is-used {
+  border-left-color: #c0392b;
+  background: #fdeeed;
+  color: #8e2a22;
+}
+
+/* ================= Layout: more room for the decision area ================= */
+
+.primitive-era.primitive-archive-page-shell .primitive-archive-panel-title .primitive-auto-day {
+  min-height: 32px;
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-focus-panel {
+  gap: 8px;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-focus-panel article {
+  gap: 3px;
+  padding: 9px 14px 10px;
+}
+
+.primitive-era--neolithic.primitive-archive-page-shell .primitive-focus-panel article {
+  padding-top: 15px;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-focus-panel p {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-focus-panel .game-action-button,
+.primitive-era.primitive-archive-page-shell .primitive-focus-panel .game-control-button {
+  min-height: 30px;
+  margin-top: 0;
+  padding: 4px 11px;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-primary-tabs button {
+  min-height: 40px;
+  padding: 6px 12px;
+}
+
+@media (min-width: 761px) {
+  .primitive-era.primitive-archive-page-shell .games-play-chrome {
+    align-items: center;
+  }
+}
+
+@media (max-width: 1100px) {
+  .primitive-era-plate__medium {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .primitive-era.primitive-archive-page-shell .games-play-chrome {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .primitive-era.primitive-archive-page-shell .games-play-chrome > .games-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .primitive-era.primitive-archive-page-shell .games-hero .games-hero-actions {
+    width: auto;
+  }
+
+  .primitive-era.primitive-archive-page-shell .primitive-run-tools > summary {
+    min-height: 36px;
+    padding: 7px 10px;
+  }
+
+  .primitive-era.primitive-archive-page-shell .primitive-run-tools .primitive-save-state {
+    display: flex;
+    margin: 2px 0 0;
+  }
+
+  .primitive-era-plate__name {
+    font-size: calc(1.3rem * var(--era-display-scale));
+  }
+
+  .primitive-era--primitive.primitive-archive-page-shell {
+    --era-plate-art: radial-gradient(ellipse at 80% 30%, rgba(196, 100, 47, 0.22), transparent 60%);
+  }
+
+  .primitive-era.primitive-archive-page-shell .primitive-focus-night[data-tone="ready"] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
+    padding-block: 8px;
+  }
+
+  .primitive-era.primitive-archive-page-shell .primitive-focus-night[data-tone="ready"] p {
+    display: none;
+  }
+
+  .primitive-era.primitive-archive-page-shell .primitive-action-workspace > .primitive-archive-panel-title {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .primitive-era.primitive-archive-page-shell .primitive-action-workspace .primitive-archive-panel-title__copy {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+  }
+
+  .primitive-era.primitive-archive-page-shell .primitive-acting-status {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .primitive-era.primitive-archive-page-shell .primitive-acting-vitals {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .primitive-era.primitive-archive-page-shell .primitive-acting-vitals > span {
+    display: grid;
+    gap: 1px;
+    padding: 4px 6px;
+  }
+
+  .primitive-era.primitive-archive-page-shell .primitive-archive-panel-title .primitive-auto-day {
+    min-height: 30px;
+    padding: 4px 9px;
+    font-size: 0.8rem;
+  }
+}
+
+/* One deliberate moment: the era name arrives when the archive enters a new era. */
+.primitive-era.is-era-arriving .primitive-era-plate__name {
+  animation: primitive-era-arrive 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.primitive-era.is-era-arriving .games-play-chrome {
+  animation: primitive-era-plate-glow 2.4s ease-out both;
+}
+
+@keyframes primitive-era-arrive {
+  0% { opacity: 0; transform: translateY(8px); letter-spacing: 0.3em; }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: none; letter-spacing: var(--era-display-tracking); }
+}
+
+@keyframes primitive-era-plate-glow {
+  0% { box-shadow: 0 0 0 0 var(--era-focus); }
+  30% { box-shadow: 0 0 0 4px var(--era-focus); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primitive-era.primitive-archive-page-shell { transition: none; }
+  .primitive-era.is-era-arriving .primitive-era-plate__name,
+  .primitive-era.is-era-arriving .games-play-chrome { animation: none; }
+}

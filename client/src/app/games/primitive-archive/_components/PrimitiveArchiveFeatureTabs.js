@@ -84,19 +84,19 @@ export default function PrimitiveArchiveFeatureTabs(props) {
       badge: `${inventoryRows.length}종`,
       children: <PrimitiveArchiveInventoryTab {...props} />,
     },
-    {
+    props.showDeveloperTools ? {
       id: 'developer',
       label: '개발자',
       badge: props.developerTools?.enabled ? 'ON' : 'OFF',
       children: <PrimitiveArchiveDeveloperTab {...props} />,
-    },
+    } : null,
     {
       id: 'run',
       label: '런 관리',
       badge: props.currentDifficulty.label,
       children: <PrimitiveArchiveRunTab {...props} />,
     },
-  ];
+  ].filter(Boolean);
   const primaryTabIds = new Set(['actions', 'camp', 'growth']);
   const primaryTabs = tabs.filter((tab) => primaryTabIds.has(tab.id));
   const secondaryTabs = tabs.filter((tab) => !primaryTabIds.has(tab.id));

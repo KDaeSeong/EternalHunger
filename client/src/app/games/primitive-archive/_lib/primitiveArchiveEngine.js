@@ -93,16 +93,29 @@ function perkLevel(meta, perkId) {
 
 const DEVELOPER_ACTION_IDS = ['gather', 'hunt', 'craft', 'logging', 'herbal', 'trap', 'farm', 'herd', 'fish', 'mine', 'quarry'];
 
+// `used` stays true for the rest of a run once any developer adjustment has been
+// active, so a run cannot switch the tools off just before settling and still
+// earn perk points or a run record.
 function normalizeDeveloperTools(value = {}) {
-  const actionBonuses = value?.actionBonuses && typeof value.actionBonuses === 'object' ? value.actionBonuses : {};
+  const rawBonuses = value?.actionBonuses && typeof value.actionBonuses === 'object' ? value.actionBonuses : {};
+  const actionBonuses = Object.fromEntries(DEVELOPER_ACTION_IDS.map((actionId) => [
+    actionId,
+    clamp(Number(rawBonuses[actionId] || 0), -0.5, 0.5),
+  ]));
+  const enabled = Boolean(value?.enabled);
+  const guaranteedSuccess = Boolean(value?.guaranteedSuccess);
+  const unlockSpecializedActions = Boolean(value?.unlockSpecializedActions);
+  const adjusting = enabled && (
+    guaranteedSuccess
+    || unlockSpecializedActions
+    || Object.values(actionBonuses).some((bonus) => bonus !== 0)
+  );
   return {
-    enabled: Boolean(value?.enabled),
-    guaranteedSuccess: Boolean(value?.guaranteedSuccess),
-    unlockSpecializedActions: Boolean(value?.unlockSpecializedActions),
-    actionBonuses: Object.fromEntries(DEVELOPER_ACTION_IDS.map((actionId) => [
-      actionId,
-      clamp(Number(actionBonuses[actionId] || 0), -0.5, 0.5),
-    ])),
+    enabled,
+    guaranteedSuccess,
+    unlockSpecializedActions,
+    actionBonuses,
+    used: Boolean(value?.used) || adjusting,
   };
 }
 
@@ -289,7 +302,7 @@ export function updateDeveloperToolsAction(state, patch = {}) {
 }
 export function resetDeveloperToolsAction(state) {
   const current = normalizeState(state);
-  return { ...current, devTools: normalizeDeveloperTools() };
+  return { ...current, devTools: normalizeDeveloperTools({ used: current.devTools.used }) };
 }
 
 
@@ -850,8 +863,9 @@ export function researchSystemStatus(state) {
 export function civicsSystemStatus(state) {
   const researchStatus = researchSystemStatus(state);
   const civics = normalizeCivics(state?.civics, state?.research);
+  const research = normalizeResearch(state?.research);
   const available = CIVIC_TREE.filter((civic) => (
-    !civics.completed?.[civic.id] && prereqsMet(normalizeResearch(state?.research), civic)
+    !civics.completed?.[civic.id] && prereqsMet(research, civic)
   )).length;
   return {
     unlocked: researchStatus.unlocked,
@@ -873,7 +887,9 @@ export function civicsSystemStatus(state) {
   };
 }
 
-function breakthroughStatusForTech(state, tech, kind) {
+// Row builders pass `normalized` so a whole tree shares one normalized research
+// (and civics) object instead of rebuilding it for every row.
+function breakthroughStatusForTech(state, tech, kind, normalized = null) {
   const trigger = tech?.[kind];
   const kindLabel = kind === 'inspiration' ? '영감' : '유레카';
   if (!trigger) {
@@ -887,7 +903,7 @@ function breakthroughStatusForTech(state, tech, kind) {
       missingPrereqs: [],
     };
   }
-  const research = normalizeResearch(state.research);
+  const research = normalized?.research || normalizeResearch(state.research);
   const progress = researchTriggerProgress({ ...state, research }, trigger);
   const missingPrereqs = missingPrereqNames(research, tech);
   const completed = Boolean(research.completed?.[tech.id]);
@@ -910,8 +926,8 @@ function breakthroughStatusForTech(state, tech, kind) {
   };
 }
 
-function eurekaStatusForTech(state, tech) {
-  return breakthroughStatusForTech(state, tech, 'eureka');
+function eurekaStatusForTech(state, tech, normalized = null) {
+  return breakthroughStatusForTech(state, tech, 'eureka', normalized);
 }
 
 function nextAvailableTech(research) {
@@ -926,7 +942,7 @@ function nextAvailableCivic(research, civics) {
     .sort((a, b) => Number(a.tier || 1) - Number(b.tier || 1) || a.cost - b.cost)[0] || null;
 }
 
-function civicInspirationStatus(state, civic) {
+function civicInspirationStatus(state, civic, normalized = null) {
   const trigger = civic?.inspiration;
   if (!trigger) {
     return {
@@ -939,8 +955,8 @@ function civicInspirationStatus(state, civic) {
       missingPrereqs: [],
     };
   }
-  const research = normalizeResearch(state.research);
-  const civics = normalizeCivics(state.civics, research);
+  const research = normalized?.research || normalizeResearch(state.research);
+  const civics = normalized?.civics || normalizeCivics(state.civics, research);
   const progress = researchTriggerProgress({ ...state, research }, trigger);
   const missingPrereqs = missingPrereqNames(research, civic);
   const completed = Boolean(civics.completed?.[civic.id]);
@@ -966,12 +982,24 @@ function hasTechPassive(state, passiveId) {
   return passiveStackCount(state, passiveId) > 0;
 }
 
+// passiveId -> ids of every advancement that grants it (TECH_TREE never changes at runtime).
+const PASSIVE_SOURCE_IDS = TECH_TREE.reduce((index, tech) => {
+  for (const passiveId of tech.unlocks?.passives || []) {
+    if (!index.has(passiveId)) index.set(passiveId, []);
+    const sources = index.get(passiveId);
+    if (!sources.includes(tech.id)) sources.push(tech.id);
+  }
+  return index;
+}, new Map());
+
 export function passiveStackCount(state, passiveId) {
-  const research = normalizeResearch(state.research);
-  return TECH_TREE.filter((tech) => (
-    research.completed?.[tech.id]
-    && (tech.unlocks?.passives || []).includes(passiveId)
-  )).length;
+  const sourceIds = PASSIVE_SOURCE_IDS.get(passiveId);
+  if (!sourceIds) return 0;
+  // Same object normalizeResearch would return for `completed`, without copying
+  // the rest of the research state for every passive lookup.
+  const rawCompleted = state?.research?.completed;
+  const completed = rawCompleted && typeof rawCompleted === 'object' ? rawCompleted : {};
+  return sourceIds.reduce((count, techId) => (completed?.[techId] ? count + 1 : count), 0);
 }
 
 function getProject(projectId) {
@@ -3661,23 +3689,28 @@ export function buyPerkAction(state, perkId) {
   }, `${perk.name} 특전을 구매했습니다. 다음 탐험부터 적용됩니다.`);
 }
 
+const DEVELOPER_RUN_SETTLEMENT_NOTE = '개발자 보정을 사용한 런이라 특전과 누적 점수에 반영하지 않았습니다.';
+
 export function settleRunAction(state) {
   const current = normalizeState(state);
   if (current.meta.lastSettledRunId === current.runId) return addLog(current, '이미 정산한 런입니다.');
   const score = scoreState(current);
-  const award = Math.max(1, Math.floor(score / 850));
+  const adjusted = current.devTools.used;
+  const award = adjusted ? 0 : Math.max(1, Math.floor(score / 850));
   return addLog({
     ...current,
     ended: true,
     meta: {
       ...current.meta,
       perkPoints: Number(current.meta.perkPoints || 0) + award,
-      lifetimeScore: Number(current.meta.lifetimeScore || 0) + score,
+      lifetimeScore: Number(current.meta.lifetimeScore || 0) + (adjusted ? 0 : score),
       runsCompleted: Number(current.meta.runsCompleted || 0) + 1,
       lastAward: award,
       lastSettledRunId: current.runId,
     },
-  }, `런 정산 완료. 점수 ${score.toLocaleString('ko-KR')} / 특전 +${award}`);
+  }, adjusted
+    ? `런 정산 완료. 점수 ${score.toLocaleString('ko-KR')} / ${DEVELOPER_RUN_SETTLEMENT_NOTE}`
+    : `런 정산 완료. 점수 ${score.toLocaleString('ko-KR')} / 특전 +${award}`);
 }
 
 export function completeArchiveAction(state) {
@@ -3690,37 +3723,61 @@ export function completeArchiveAction(state) {
   }
   const nextForScore = { ...current, victory: true };
   const score = scoreState(nextForScore);
-  const award = Math.max(3, Math.floor(score / 700));
+  const adjusted = current.devTools.used;
+  const award = adjusted ? 0 : Math.max(3, Math.floor(score / 700));
   return addLog({
     ...nextForScore,
     ended: true,
     meta: {
       ...current.meta,
       perkPoints: Number(current.meta.perkPoints || 0) + award,
-      lifetimeScore: Number(current.meta.lifetimeScore || 0) + score,
+      lifetimeScore: Number(current.meta.lifetimeScore || 0) + (adjusted ? 0 : score),
       runsCompleted: Number(current.meta.runsCompleted || 0) + 1,
       lastAward: award,
       lastSettledRunId: current.runId,
     },
-  }, `아카이브 완성. 점수 ${score.toLocaleString('ko-KR')} / 특전 +${award}`);
+  }, adjusted
+    ? `아카이브 완성. 점수 ${score.toLocaleString('ko-KR')} / ${DEVELOPER_RUN_SETTLEMENT_NOTE}`
+    : `아카이브 완성. 점수 ${score.toLocaleString('ko-KR')} / 특전 +${award}`);
 }
 
 export function startNewRunFromMeta(state, options = {}) {
   const current = normalizeState(state);
-  return createNewState({ ...options, meta: current.meta, devTools: current.devTools });
+  // A new run keeps the developer's slider values for convenience but starts with
+  // the tools off and a clean record flag.
+  return createNewState({
+    ...options,
+    meta: current.meta,
+    devTools: { ...current.devTools, enabled: false, used: false },
+  });
 }
+
+// Which advancements list a given id as a prerequisite, in tree order.
+function followersIn(tree) {
+  const index = new Map();
+  for (const candidate of tree) {
+    for (const prereqId of new Set(candidate.prereqs || [])) {
+      if (!index.has(prereqId)) index.set(prereqId, []);
+      index.get(prereqId).push(candidate);
+    }
+  }
+  return index;
+}
+const TECHNOLOGY_FOLLOWER_ROWS = followersIn(TECHNOLOGY_TREE);
+const TECHNOLOGY_FOLLOWERS = new Map([...TECHNOLOGY_FOLLOWER_ROWS].map(([id, rows]) => [id, rows.map((row) => row.id)]));
+const CIVIC_FOLLOWERS_OF = followersIn(CIVIC_TREE);
 
 export function techRows(state) {
   const current = normalizeState(state);
   const systemStatus = researchSystemStatus(current);
+  const normalized = { research: normalizeResearch(current.research) };
   return TECHNOLOGY_TREE.map((tech) => {
     const progress = Math.min(tech.cost, Number(current.research.progress?.[tech.id] || 0));
     const completed = Boolean(current.research.completed?.[tech.id]);
     const available = systemStatus.unlocked && !completed && prereqsMet(current.research, tech);
-    const eurekaStatus = eurekaStatusForTech(current, tech);
-    const nextTechIds = TECHNOLOGY_TREE.filter((candidate) => candidate.prereqs?.includes(tech.id)).map((candidate) => candidate.id);
-    const nextCrossTrackRows = CIVIC_TREE
-      .filter((candidate) => candidate.prereqs?.includes(tech.id))
+    const eurekaStatus = eurekaStatusForTech(current, tech, normalized);
+    const nextTechIds = TECHNOLOGY_FOLLOWERS.get(tech.id) || [];
+    const nextCrossTrackRows = (CIVIC_FOLLOWERS_OF.get(tech.id) || [])
       .map((candidate) => ({
         id: candidate.id,
         name: candidate.name,
@@ -3756,14 +3813,15 @@ export function civicRows(state) {
   const current = normalizeState(state);
   const systemStatus = civicsSystemStatus(current);
   const civics = normalizeCivics(current.civics, current.research);
+  const inspirationResearch = normalizeResearch(current.research);
+  const normalized = { research: inspirationResearch, civics: normalizeCivics(current.civics, inspirationResearch) };
   return CIVIC_TREE.map((civic) => {
     const progress = Math.min(civic.cost, Number(civics.progress?.[civic.id] || 0));
     const completed = Boolean(civics.completed?.[civic.id]);
     const available = systemStatus.unlocked && !completed && prereqsMet(current.research, civic);
-    const inspirationStatus = civicInspirationStatus(current, civic);
-    const nextTechIds = CIVIC_TREE.filter((candidate) => candidate.prereqs?.includes(civic.id)).map((candidate) => candidate.id);
-    const nextCrossTrackRows = TECHNOLOGY_TREE
-      .filter((candidate) => candidate.prereqs?.includes(civic.id))
+    const inspirationStatus = civicInspirationStatus(current, civic, normalized);
+    const nextTechIds = (CIVIC_FOLLOWERS_OF.get(civic.id) || []).map((candidate) => candidate.id);
+    const nextCrossTrackRows = (TECHNOLOGY_FOLLOWER_ROWS.get(civic.id) || [])
       .map((candidate) => ({
         id: candidate.id,
         name: candidate.name,
@@ -3797,11 +3855,12 @@ export function civicRows(state) {
 
 export function researchInspirationRows(state) {
   const current = normalizeState(state);
+  const normalized = { research: normalizeResearch(current.research) };
   return TECHNOLOGY_TREE
     .flatMap((tech) => ['eureka'].flatMap((kind) => {
       const trigger = tech[kind];
       if (!trigger) return [];
-      const status = breakthroughStatusForTech(current, tech, kind);
+      const status = breakthroughStatusForTech(current, tech, kind, normalized);
       const breakthroughDone = Boolean(current.research[kind]?.[tech.id]);
       return [{
         id: `${kind}-${tech.id}`,
@@ -3993,10 +4052,12 @@ export function researchPlannerRows(state) {
 export function civicsInspirationRows(state) {
   const current = normalizeState(state);
   const civics = normalizeCivics(current.civics, current.research);
+  const inspirationResearch = normalizeResearch(current.research);
+  const normalized = { research: inspirationResearch, civics: normalizeCivics(current.civics, inspirationResearch) };
   return CIVIC_TREE.flatMap((civic) => {
     const trigger = civic.inspiration;
     if (!trigger) return [];
-    const status = civicInspirationStatus(current, civic);
+    const status = civicInspirationStatus(current, civic, normalized);
     const inspirationDone = Boolean(civics.inspiration?.[civic.id]);
     return [{
       id: `inspiration-${civic.id}`,
@@ -4222,6 +4283,15 @@ export function archiveVictorySummary(state) {
 export function runRecordStatus(state) {
   const current = normalizeState(state);
   const survivors = current.party.filter((member) => Number(member.hp || 0) > 0).length;
+
+  if (current.devTools.used) {
+    return {
+      canRecord: false,
+      result: current.ended && current.victory ? 'clear' : survivors === 0 ? 'fail' : 'none',
+      reason: '개발자 보정을 사용한 런은 전적에 남기지 않습니다.',
+      label: '기록 제외',
+    };
+  }
 
   if (current.ended && current.victory) {
     return {
