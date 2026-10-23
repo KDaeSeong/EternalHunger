@@ -58,8 +58,12 @@ Counted only `.local`, `artifacts`, `client/.next`, `client/.verification-runs`,
 and `client/audio-source`, deduplicating file identity and excluding symlinks.
 These are logical bytes, not whole-repository physical disk allocation.
 
-- Before: 954,491,231 bytes.
-- After cleanup: 953,508,595 bytes (982,636 bytes smaller).
+- Initial numeric-file-identity subtotal: 954,491,231 bytes. Rechecking with exact
+  BigInt device/inode identities found six distinct files that numeric identities
+  had incorrectly merged. Do not treat that initial subtotal as an exact baseline.
+- Final cleanup tally with BigInt identities: 11,407 files / 954,068,491 bytes
+  (about 0.89 GiB), below the 2 GiB threshold. An exact before/after delta is not
+  asserted because the initial identity accounting was less precise.
 - Removed only this verification's regenerable `client/.next/cache`: 11 files,
   637,798,390 bytes. SHA-256 of sorted `path<TAB>size<TAB>fileSHA256` rows:
   `59b3f6da150573455b7c6c2b81f9977696d57134e3b47072213d9a969ade93b5`.
