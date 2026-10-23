@@ -427,6 +427,42 @@ check('actual action-workspace JSX puts the latest result before technology list
   for (const openingTag of technologyLists) assert.doesNotMatch(openingTag, /\sopen(?:=|\s|>)/, 'Technology lists must start collapsed.');
 });
 
+check('fresh gather forecast labels the unchanged average in both actual UI surfaces', () => {
+  const state = freshState('focus-harvest-average-label');
+  const actorId = state.party[0].id;
+  const regionId = state.exploration.selectedRegionId || 'whisper-woods';
+  const stateBeforeForecast = structuredClone(state);
+  const forecastRows = engine.actionForecastRows(state, actorId, regionId, 'twine');
+  const gatherForecast = forecastRows.find((row) => row.id === 'gather');
+  assert.ok(gatherForecast, 'The real fresh-state action forecast must include gathering.');
+  assert.match(gatherForecast.outcome, /^1회 평균: /, 'Expected harvest must be labeled as a per-action average.');
+  assert.match(gatherForecast.outcome, /나무 0\.8개/, 'The current fresh-state expected wood amount and one-decimal rounding must remain unchanged.');
+  assert.deepEqual(state, stateBeforeForecast, 'Forecasting must not mutate its source state.');
+
+  const props = { ...tabProps(state, 'actions'), actionForecasts: forecastRows };
+  globalThis.__primitiveArchiveFocusButtons = [];
+  const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, props));
+  assert.ok(html.split(gatherForecast.outcome).length - 1 >= 2, 'Both the basic gather hint and expanded forecast card must render the same labeled estimate.');
+  assert.match(html, /‘1회 평균’은 실패와 자원 출현 확률까지 반영한 예상 수확입니다\./, 'The expanded forecast must explain that average yields include failure and resource chance.');
+  assert.match(html, /실제 수확은 정수 개수이며, 매번 모든 자원을 받는다는 뜻은 아닙니다\./, 'The expanded forecast must distinguish the estimate from actual integer payouts.');
+  assert.deepEqual(state, stateBeforeForecast, 'Rendering the forecast must not mutate its source state.');
+
+  const gathered = engine.runGatherAction(state, actorId, regionId, { rng: () => 0 });
+  assert.equal(gathered.counters.gather, Number(state.counters.gather || 0) + 1);
+  assert.ok(Object.values(gathered.inventory).every(Number.isInteger), 'A real successful gather must still pay whole items.');
+  const resultLog = gathered.log.find((line) => line.includes('채집 성공.'));
+  assert.ok(resultLog, 'The actual paid action must retain its successful gather explanation.');
+  assert.doesNotMatch(resultLog, /1회 평균:/, 'Actual payout logs must not be relabeled as forecasts.');
+
+  const engineSource = readFileSync(new URL('../src/app/games/primitive-archive/_lib/primitiveArchiveEngine.js', import.meta.url), 'utf8');
+  const expectedSource = engineSource.slice(engineSource.indexOf('function expectedZoneGains('), engineSource.indexOf('const SPECIALIZED_ACTION_DEFS', engineSource.indexOf('function expectedZoneGains(')));
+  assert.match(expectedSource, /successChance \* regionWeight \* zoneEntryChance\(state, chance, context\) \* \(Number\(qty \|\| 0\) \+ bonusChance\)/, 'The existing expectation formula must retain its success, drop, and bonus probabilities.');
+  const gatherStart = engineSource.indexOf('export function runGatherAction(');
+  const gatherEnd = engineSource.indexOf('export function runHuntAction(', gatherStart);
+  const gatherSource = engineSource.slice(gatherStart, gatherEnd);
+  assert.match(gatherSource, /rollZoneGains\([\s\S]*?inventory: addItems\(next\.inventory, gains\)[\s\S]*?formatGains\(gains\)/, 'Actual payouts and logs must remain on the existing randomized integer-gain path.');
+});
+
 check('fresh foodless forecast locks personal meal and rendering does not spend AP or mutate state', () => {
   const seeded = freshState('focus-foodless-meal');
   const state = engine.normalizeState({

@@ -250,6 +250,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
         </details>
         <details className="primitive-action-forecast-details">
           <summary>행동별 기대수익 {actionForecasts?.length || 0}개 보기</summary>
+          <p>‘1회 평균’은 실패와 자원 출현 확률까지 반영한 예상 수확입니다. 실제 수확은 정수 개수이며, 매번 모든 자원을 받는다는 뜻은 아닙니다.</p>
           <div className="primitive-action-forecast-grid" aria-label="행동별 기대수익">
             {(actionForecasts || []).map((forecast) => (
               <article className={`primitive-action-forecast${forecast.locked ? ' is-locked' : ''}`} key={forecast.id}>

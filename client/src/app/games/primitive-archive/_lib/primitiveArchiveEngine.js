@@ -4972,7 +4972,7 @@ function expectedZoneGains(state, action, actorId, requestedRegionId) {
 function expectedGainText(rows, detailed = false) {
   if (!rows.length) return '기대 획득 없음';
   const digits = detailed ? 2 : 1;
-  return rows.slice(0, 5).map((row) => `${row.name} ${row.expected.toFixed(digits)}`).join(' · ');
+  return `1회 평균: ${rows.slice(0, 5).map((row) => `${row.name} ${row.expected.toFixed(digits)}개`).join(' · ')}`;
 }
 
 const SPECIALIZED_ACTION_DEFS = [

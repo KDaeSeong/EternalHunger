@@ -75,7 +75,48 @@ These are logical bytes, not whole-repository physical disk allocation.
 
 ## Still unchanged
 
-Fractional expected harvest presentation (for example, wood 0.8), placeholder
-party portraits, and automatic-operation survival balance remain as handed off.
+Placeholder party portraits and automatic-operation survival balance remain as
+handed off. Decimal expected values are retained; the follow-up below now labels
+their meaning rather than round them into fictitious integer payouts.
 Local build verification alone does not establish that a public deployment has
 finished; deployment status must be checked separately after the push.
+
+## Follow-up: expected harvest meaning
+
+- Added `1회 평균:` and item units to the existing expected-harvest formatter.
+  Kept both original rounding precisions, empty-result text, success/drop/bonus
+  probability calculations, actual integer payouts, logs and balance unchanged.
+- The existing collapsed forecast panel explains that failure/drop chance is
+  included and that a single action does not guarantee every listed resource.
+  No additional persistent warning or panel was added to the first view.
+- The focused check now has eleven cases. Its fresh real-state forecast is
+  rendered in the basic hint and expanded card, and the actual successful gather
+  still pays integer items with a normal result log. Source state is unchanged.
+  An initial new test incorrectly called the log field `logs`; it was corrected
+  to the actual `log` field, then the full thirteen-step suite passed again.
+- Changed runtime files and the final checker passed ESLint. Production build
+  `fVDExj3vzybyZpHipLrx0`, including both postbuild checks, passed. In the actual
+  local guest browser the previous Day 2 AP 4/4 checkpoint remained intact; both
+  the basic hint and expanded explanation displayed the new wording. No paid
+  gameplay action or public account write was used in this follow-up smoke.
+- GitHub reported the preceding `70314266` Vercel deployment successful. This
+  observation does not establish the status of this later wording change.
+- Before this follow-up: 954,068,491 logical bytes over the same five roots using
+  exact BigInt file identities. After build and recovery rotation, before cache
+  removal: 1,572,595,085 bytes. Removed only eight regenerable `.next/cache` files,
+  618,423,765 bytes, relative-path/size/file-SHA manifest SHA-256
+  `f4d1bd0a552fc4abd45fbc46b0ea473bf2cab29b6ac2966de86635f2f4839fe9`.
+  The retired oldest successful recovery `_VQ1ZsSoRHfoC8Zgrh-8i` was replaced;
+  its noncache 1,274 files / 27,583,489 bytes had relative manifest SHA-256
+  `4e9a6a4cc5e770e59255eb388e26ad5bcf7956f499bc7068669185b7bc78ad5f`.
+  The previous runtime was moved, not copied, to the fixed recent recovery.
+  Retained recoveries: `QRugHHoM544fA6Z4K44c4` and `5hXGLX0aCkxyeKwFQi08S`.
+  The new runtime's noncache manifest is 1,277 files / 27,686,682 bytes / SHA-256
+  `d7865b2ef6cddc721ddfd8887f413f2452297985dd3f932b5306cd155e22dd33`.
+  Post-cleanup exact-identity recheck confirmed 954,171,320 bytes / 11,408 files
+  (about 0.89 GiB), with the cache absent and all three retained noncache build
+  fingerprints unchanged. Source, saves and paused-work recoveries are retained.
+
+Actual natural account-session expiry/recovery and new human understanding /
+readability feedback remain unverified. The original nine 1/5 scores are not
+overwritten, and this wording change is not human acceptance or a balance fix.
