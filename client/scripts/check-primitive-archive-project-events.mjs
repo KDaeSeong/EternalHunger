@@ -214,6 +214,7 @@ check('controlled RNG cave gather creates a visible obsidian chain and verifies 
   assert.equal(next.counters.gather, initial.counters.gather + 1);
   assert.ok(next.log.some((line) => /채집 성공.*메아리 동굴/.test(line)));
   assert.ok(next.log.some((line) => /검은 유리맥/.test(line)), 'The controlled exploration event should exercise the cave obsidian branch.');
+  assert.ok(next.log.some((line) => /이어지는 단서: 흑요석 광맥 추적\./.test(line)), 'Opening a new chain should announce the follow-up clue in the event log.');
   assert.equal(next.eventChains.length, 1);
   assert.equal(next.eventChains[0].kind, 'obsidian_vein');
   assert.equal(next.eventChains[0].zoneId, 'cave');
@@ -241,6 +242,43 @@ check('controlled RNG cave gather creates a visible obsidian chain and verifies 
   assert.ok(report.activeEventChains.some((entry) => entry.id === next.eventChains[0].id));
   assert.ok(report.recentEvents.some((entry) => /검은 유리맥/.test(entry.summary)));
   assert.deepEqual(initial, original, 'The fresh deterministic fixture must remain unchanged.');
+});
+
+check('new hunt chains announce once, duplicate chains stay quiet, and non-chain events or failures do not claim a clue', () => {
+  const plains = trackingFixture({ plains: true });
+  const huntInitial = engine.normalizeState({ ...plains, eventChains: [] });
+  const hunted = engine.runHuntAction(huntInitial, 'shiroko', 'sun-meadow', { rng: () => 0 });
+  assert.equal(hunted.eventChains.length, 1);
+  assert.equal(hunted.eventChains[0].kind, 'megafauna_tracks');
+  assert.ok(hunted.log.some((line) => /이어지는 단서: 거대동물 이동로 추적\./.test(line)), 'A newly opened plains hunt chain should announce its clue.');
+
+  const alreadyOpen = eventFixture('obsidian_vein');
+  const repeated = engine.runGatherAction(alreadyOpen, 'shiroko', 'echo-cave', { rng: () => 0 });
+  assert.equal(repeated.eventChains.length, 1, 'A same-kind, same-zone active chain must not be duplicated.');
+  assert.ok(!repeated.log.some((line) => /이어지는 단서: 흑요석 광맥 추적\./.test(line)), 'An existing chain must not repeat its opening cue.');
+
+  const forest = engine.normalizeState({
+    ...huntInitial,
+    exploration: { ...huntInitial.exploration, revealed: { ...huntInitial.exploration.revealed, 'whisper-woods': true } },
+  });
+  const ordinaryEvent = engine.runGatherAction(forest, 'shiroko', 'whisper-woods', { rng: () => 0 });
+  assert.ok(ordinaryEvent.log.some((line) => /탐험 사건:/.test(line)), 'The forest fixture should still produce an ordinary exploration event.');
+  assert.equal(ordinaryEvent.eventChains.length, 0);
+  assert.ok(!ordinaryEvent.log.some((line) => /이어지는 단서:/.test(line)), 'A non-chain event must not claim a follow-up clue.');
+
+  const failureFixture = engine.normalizeState({
+    ...forest,
+    research: { ...forest.research, completed: { CARTOGRAPHY: true } },
+    exploration: { ...forest.exploration, selectedRegionId: 'whisper-woods' },
+  });
+  let draws = 0;
+  const failed = engine.runGatherAction(failureFixture, 'shiroko', 'whisper-woods', {
+    rng: () => (++draws === 1 ? 0.999 : 0),
+  });
+  assert.ok(failed.log.some((line) => /채집 실패/.test(line)), 'The controlled primary action must fail.');
+  assert.ok(failed.log.some((line) => /탐험 사건:/.test(line)), 'The failed action must still exercise its ordinary exploration-event branch.');
+  assert.equal(failed.eventChains.length, 0);
+  assert.ok(!failed.log.some((line) => /이어지는 단서:/.test(line)), 'A failed exploration event must not claim a chain clue.');
 });
 
 check('manual project work charges shared materials once, persists its commitment, and grants completion reward once', () => {

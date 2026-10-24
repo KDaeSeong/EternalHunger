@@ -120,3 +120,52 @@ finished; deployment status must be checked separately after the push.
 Actual natural account-session expiry/recovery and new human understanding /
 readability feedback remain unverified. The original nine 1/5 scores are not
 overwritten, and this wording change is not human acceptance or a balance fix.
+
+## Follow-up: opening-clue notification and natural response
+
+The helper already produced a new-chain opening message, but both successful
+gather/hunt exploration-event branches discarded that message. Appended its text
+to the existing event log, without changing probability, reward, AP, RNG calls,
+state schema or camp layout. A duplicate unresolved chain returns empty text and
+is not reannounced. New cave-gather and plains-hunt assertions failed before the
+patch; after the patch all ten project/event cases passed, including duplicate,
+ordinary non-chain event and failed-action negative cases. All thirteen archive
+steps, changed-file ESLint and production build `jcpMhfEOMFvfck4NirBs9` passed,
+including both postbuild checks. Opening-message coverage is controlled engine
+evidence, not a claim that every random branch was observed in a browser.
+
+A real local guest continuation resumed the previously verified Day 2 checkpoint.
+Using normal controls, sixteen automatic-day operations, one workbench action,
+four manual Cartography research actions, two map surveys and eleven targeted
+cave gatherings reached a naturally opened obsidian chain at Day 21 AP 2/4.
+Care days are included in the automatic-day count. Research, discovery, costs,
+weather and RNG were not forced; developer tools and public account writes were
+not used. The first three eras were reached through ordinary play, not injection.
+The chain showed three days left and an enabled `광맥 회수` action. Reload retained
+the same day/AP and pending chain. The new production build restored that state.
+
+The actual response failed: the log reported HP -4 and extra stamina -8, AP
+decreased 2 to 1, rare stock remained 5, and the response button disappeared.
+Reload retained Day 21 AP 1/4 and the resolved state. The recent-result panel then
+showed the later passive completion of Trapping, not the prior failure sentence;
+the browser check therefore does not claim that exact failure text was redisplayed
+after reload. No retry, reward, all-outcome or human-comprehension claim is made.
+Both temporary tabs and the loopback server were closed after the checks.
+
+The user said a new play evaluation is currently difficult and no natural login
+expiry has occurred. Preserve these as missing observations, not acceptance, and
+keep the original completed nine-item 1/5 assessment intact.
+
+Storage before this follow-up was 954,171,320 logical bytes over the same five
+roots. The oldest verified recovery `5hXGLX0aCkxyeKwFQi08S` was retired after path,
+link, BUILD_ID and manifest checks (1,274 noncache files / 27,605,585 bytes /
+SHA-256 `67cbcf52c9870c5b51cd067598913ec965384db236d46ba384ef3c4181c4aea4`).
+The prior runtime was moved, not copied; retained recoveries are now
+`fVDExj3vzybyZpHipLrx0` and `QRugHHoM544fA6Z4K44c4`. After build and rotation,
+before cache removal, the subtotal was 1,572,639,554 bytes. Removed eight
+regenerable `client/.next/cache` files / 618,387,495 bytes / relative manifest
+SHA-256 `dbfa417f436d8025356d877bb9d3cbc05e3f7b01021ad8c14efcda9fbd428f5e`.
+The new runtime noncache manifest has 1,277 files / 27,686,688 bytes / SHA-256
+`07cd0ef46cd03f22d01296beaacd5495c1f7bae69db1c0ca81c38092d06d7cb2`.
+The exact-identity post-cleanup recheck confirmed 954,252,059 bytes / 11,409 files,
+still about 0.89 GiB, with the cache absent and retained runtime manifests intact.

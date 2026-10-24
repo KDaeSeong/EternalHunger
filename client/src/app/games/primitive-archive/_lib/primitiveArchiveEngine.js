@@ -3144,7 +3144,7 @@ function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true,
       }
       const costText = Number(event.staminaLoss || 0) > 0 ? `, 스태미나 -${Number(event.staminaLoss || 0)}` : '';
       const title = event.title || '숨겨진 흔적';
-      return addEventLog(next, `${actor.name} 학생이 ${objectParticle(title)} 발견했습니다. ${event.note || '쓸 만한 단서를 챙겼습니다.'} ${formatGains(rewards)}${costText}.`);
+      return addEventLog(next, `${actor.name} 학생이 ${objectParticle(title)} 발견했습니다. ${event.note || '쓸 만한 단서를 챙겼습니다.'} ${formatGains(rewards)}${costText}.${chainResult.text}`);
     }
     const baseDamage = zoneId === 'cave' ? 4 : zoneId === 'river' ? 2 : 3;
     const damage = eventRiskDamage(next, actorId, baseDamage, 'gather');
@@ -3178,7 +3178,7 @@ function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true,
         staminaLoss > 0 ? `스태미나 -${staminaLoss}` : '',
       ].filter(Boolean).join(', ');
       const title = event.title || '큰 사냥감의 흔적';
-      return addEventLog(next, `${actor.name} 학생이 ${objectParticle(title)} 확보했습니다. ${event.note || '사냥 부산물을 챙겼습니다.'} ${formatGains(rewards)}, ${costText}.`);
+      return addEventLog(next, `${actor.name} 학생이 ${objectParticle(title)} 확보했습니다. ${event.note || '사냥 부산물을 챙겼습니다.'} ${formatGains(rewards)}, ${costText}.${chainResult.text}`);
     }
     const damage = eventRiskDamage(next, actorId, zoneId === 'plains' || zoneId === 'cave' ? 7 : 5, 'hunt');
     const staminaLoss = zoneId === 'plains' || zoneId === 'cave' ? 7 : 6;
