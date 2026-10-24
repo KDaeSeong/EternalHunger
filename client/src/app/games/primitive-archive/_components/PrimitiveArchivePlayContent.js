@@ -94,6 +94,7 @@ import {
 import PrimitiveArchiveEraDefs from './PrimitiveArchiveEraDefs';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
 import PrimitiveArchiveFocusPanel from './PrimitiveArchiveFocusPanel';
+import PrimitiveArchiveInventoryBar from './PrimitiveArchiveInventoryBar';
 import { primitiveArchiveEraTheme } from '../_lib/primitiveArchiveEraTheme';
 import '../../../../styles/PrimitiveArchiveEras.css';
 import { primitiveArchiveFocusPlan } from '../_lib/primitiveArchiveFocus';
@@ -400,7 +401,10 @@ export default function PrimitiveArchivePlayContent() {
     ? actionFeedback
     : { key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: state.runId, tone: 'ready' };
   const recentActionText = message || actionResult || primitiveRestoredResultText(state, '아직 실행한 행동이 없습니다.');
-  const resultPresentation = primitiveTextPresentation(recentActionText, scopedActionFeedback);
+  const resultPresentation = {
+    ...primitiveTextPresentation(recentActionText, scopedActionFeedback),
+    inventoryChange: message ? null : scopedActionFeedback.inventoryChange,
+  };
   const equipmentAdviceMode = Number(state.weather?.cold || 0) >= 5 || Number(actor?.bodyTemp ?? 37) <= 35.5 ? 'weather' : 'role';
   const equipmentAdviceRows = useMemo(() => {
     if (!actor) return [];
@@ -838,6 +842,7 @@ export default function PrimitiveArchivePlayContent() {
     >
       <PrimitiveArchiveEraDefs theme={eraTheme} />
       <PrimitiveArchiveFocusPanel plan={focusPlan} onNavigate={setActiveTabId} />
+      <PrimitiveArchiveInventoryBar inventory={state.inventory} inventoryRows={inventoryRows} />
 
       <PrimitiveArchiveFeatureTabs
         activeTabId={activeTabId}

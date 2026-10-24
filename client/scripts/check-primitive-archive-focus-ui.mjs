@@ -15,11 +15,12 @@ const routeUrl = new URL('../src/app/games/primitive-archive/', import.meta.url)
 const focusPanelUrl = new URL('_components/PrimitiveArchiveFocusPanel.js', routeUrl).href;
 const featureTabsUrl = new URL('_components/PrimitiveArchiveFeatureTabs.js', routeUrl).href;
 const actionWorkspaceUrl = new URL('_components/PrimitiveArchiveActionWorkspace.js', routeUrl).href;
+const inventoryBarUrl = new URL('_components/PrimitiveArchiveInventoryBar.js', routeUrl).href;
 const runTabUrl = new URL('_components/PrimitiveArchiveRunTab.js', routeUrl).href;
 const campWorkspaceUrl = new URL('_components/PrimitiveArchiveCampWorkspace.js', routeUrl);
 const growthTabUrl = new URL('_components/PrimitiveArchiveGrowthTab.js', routeUrl);
 const researchPreviewUrl = new URL('_components/PrimitiveArchiveResearchTreePreview.js', routeUrl);
-const transpiledUrls = new Set([focusPanelUrl, featureTabsUrl, actionWorkspaceUrl, runTabUrl]);
+const transpiledUrls = new Set([focusPanelUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl]);
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 const primitiveUiStub = `
   const jsx = (...args) => globalThis.__primitiveArchiveFocusReact.createElement(...args);
@@ -99,6 +100,7 @@ registerHooks({
 const { default: PrimitiveArchiveFocusPanel } = await import(focusPanelUrl);
 const { default: PrimitiveArchiveFeatureTabs } = await import(featureTabsUrl);
 const { default: PrimitiveArchiveActionWorkspace } = await import(actionWorkspaceUrl);
+const { default: PrimitiveArchiveInventoryBar } = await import(inventoryBarUrl);
 
 const checks = [];
 const failures = [];
@@ -111,6 +113,27 @@ function check(name, run) {
     failures.push({ name, message: error.message });
     console.error(`FAIL ${name}: ${error.message}`);
   }
+}
+
+function inventoryVisibleText(html) {
+  const section = html.match(/<section class="primitive-inventory-change"[^>]*>([\s\S]*?)<\/section>/)?.[1] || '';
+  return section
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function renderedVisibleText(html) {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function inventorySection(html) {
+  return html.match(/<section class="primitive-inventory-change"[^>]*>[\s\S]*?<\/section>/)?.[0] || '';
 }
 
 function deepFreeze(value) {
@@ -427,6 +450,91 @@ check('actual action-workspace JSX puts the latest result before technology list
   for (const openingTag of technologyLists) assert.doesNotMatch(openingTag, /\sopen(?:=|\s|>)/, 'Technology lists must start collapsed.');
 });
 
+check('persistent inventory bar shows core zero counts and reacts to real gathered inventory props', () => {
+  const state = freshState('focus-live-inventory-bar');
+  const toRows = (inventory) => Object.entries(inventory).filter(([, quantity]) => Number(quantity || 0) > 0).sort(([a], [b]) => engine.itemName(a).localeCompare(engine.itemName(b), 'ko-KR'));
+  const render = (inventory) => renderToStaticMarkup(React.createElement(PrimitiveArchiveInventoryBar, { inventory, inventoryRows: toRows(inventory) }));
+  const initialHtml = render(state.inventory);
+  const initialText = renderedVisibleText(initialHtml);
+  for (const [id, quantity] of [['wood', 2], ['stone', 2], ['fiber', 2], ['hide', 0], ['berry', 2], ['meat', 0], ['herb', 0], ['clay', 0]]) {
+    assert.ok(initialText.includes(`${engine.itemName(id)} ${quantity}`), `Core resource ${id} must show its current count, including zero.`);
+  }
+
+  const gathered = engine.runGatherAction(state, state.party[0].id, state.exploration.selectedRegionId || 'whisper-woods', { rng: () => 0 });
+  const gatheredHtml = render(gathered.inventory);
+  const gatheredText = renderedVisibleText(gatheredHtml);
+  for (const id of ['wood', 'stone', 'fiber', 'hide', 'berry', 'meat', 'herb', 'clay']) {
+    assert.ok(gatheredText.includes(`${engine.itemName(id)} ${Number(gathered.inventory[id] || 0)}`), `Rerender after gathering must reflect live ${id} ownership.`);
+  }
+  assert.notDeepEqual(gathered.inventory, state.inventory, 'The deterministic gather must change at least one current inventory count.');
+});
+
+check('persistent inventory bar details list all positive food, equipment, and custom inventory', () => {
+  const inventory = { wood: 2, cooked_meat: 3, metal_tools: 1, custom_relic: 4 };
+  const inventoryRows = Object.entries(inventory).filter(([, quantity]) => quantity > 0);
+  const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveInventoryBar, { inventory, inventoryRows }));
+  const summary = html.match(/<details class="primitive-inventory-bar__all">([\s\S]*?)<\/details>/)?.[1] || '';
+  const summaryText = renderedVisibleText(summary);
+  assert.ok(summaryText.includes('전체 보유품 4종'), 'The native disclosure count must match all positive inventory rows.');
+  for (const label of ['구운 고기', '금속 공구', 'custom_relic']) assert.ok(summaryText.includes(label), `The full inventory disclosure must include ${label}.`);
+  assert.ok(summaryText.includes('3') && summaryText.includes('1') && summaryText.includes('4'), 'The disclosure must include each current quantity.');
+  assert.match(summary, /<summary>전체 보유품 4종<\/summary>/, 'Full inventory remains a native collapsed disclosure without tab navigation.');
+});
+
+check('action result shows exact inventory deltas and omits the strip without a comparison', () => {
+  const state = freshState('focus-inventory-change');
+  const props = tabProps(state, 'actions');
+  props.actionFeedback = { ...props.actionFeedback, inventoryChange: { rows: [{ id: 'wood', before: 2, after: 4, delta: 2 }], dayChanged: false } };
+  globalThis.__primitiveArchiveFocusButtons = [];
+  const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, props));
+  const section = inventorySection(html);
+  const visibleText = inventoryVisibleText(html);
+  assert.ok(section.includes('aria-label="보유 자원 변화"'), 'Inventory summary must have its accessible label.');
+  assert.ok(visibleText.includes('보유 자원 변화'), 'Inventory summary heading must be visible.');
+  assert.ok(visibleText.includes('나무 +2 (2 → 4)'), 'The visible summary must show the exact item, signed delta, and before/after quantities.');
+
+  props.actionFeedback = { ...props.actionFeedback, inventoryChange: null };
+  globalThis.__primitiveArchiveFocusButtons = [];
+  const withoutComparison = renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, props));
+  assert.doesNotMatch(withoutComparison, /primitive-inventory-change/);
+});
+
+check('action result clearly renders zero changes and day-rollover settlement context', () => {
+  const state = freshState('focus-inventory-no-change');
+  const props = tabProps(state, 'actions');
+  props.actionFeedback = { ...props.actionFeedback, inventoryChange: { rows: [], dayChanged: false } };
+  globalThis.__primitiveArchiveFocusButtons = [];
+  const noChange = renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, props));
+  assert.ok(inventoryVisibleText(noChange).includes('변동 없음'), 'An empty comparison must be presented as no change.');
+
+  props.actionFeedback = { ...props.actionFeedback, inventoryChange: { rows: [{ id: 'wood', before: 4, after: 3, delta: -1 }], dayChanged: true, beforeDay: 2, afterDay: 3 } };
+  globalThis.__primitiveArchiveFocusButtons = [];
+  const rolledOver = renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, props));
+  const rolloverText = inventoryVisibleText(rolledOver);
+  assert.ok(rolloverText.includes('나무 -1 (4 → 3)'), 'A negative net change must retain its sign and quantities.');
+  assert.ok(rolloverText.includes('하루 경과·정산 포함'), 'Day rollover must disclose that settlement is included.');
+});
+
+check('action result keeps the first five inventory rows visible and discloses the remainder natively', () => {
+  const state = freshState('focus-inventory-many');
+  const props = tabProps(state, 'actions');
+  const rows = ['wood', 'stone', 'fiber', 'berry', 'hide', 'meat', 'leather_strip'].map((id, index) => ({ id, before: index, after: index + 1, delta: 1 }));
+  props.actionFeedback = { ...props.actionFeedback, inventoryChange: { rows, dayChanged: false } };
+  globalThis.__primitiveArchiveFocusButtons = [];
+  const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, props));
+  const section = inventorySection(html);
+  const firstList = section.match(/<ul class="primitive-inventory-change__list">([\s\S]*?)<\/ul>/)?.[1] || '';
+  const disclosure = section.match(/<details class="primitive-inventory-change__more">([\s\S]*?)<\/details>/)?.[1] || '';
+  const sectionText = inventoryVisibleText(html);
+  const firstListText = firstList.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const disclosureText = disclosure.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  assert.ok(sectionText.includes('나머지 2개 변화 보기'), 'The native disclosure must announce the number of hidden rows.');
+  assert.ok(firstListText.includes('나무 +1 (0 → 1)'), 'The first row must be immediately visible.');
+  assert.ok(firstListText.includes('가죽 +1 (4 → 5)'), 'The fifth row must remain immediately visible.');
+  assert.ok(!firstListText.includes('고기 +1'), 'The sixth row must not clutter the always-visible summary.');
+  assert.ok(disclosureText.includes('고기 +1 (5 → 6)') && disclosureText.includes('가죽끈 +1 (6 → 7)'), 'The disclosure must contain every remaining row.');
+});
+
 check('fresh gather forecast labels the unchanged average in both actual UI surfaces', () => {
   const state = freshState('focus-harvest-average-label');
   const actorId = state.party[0].id;
@@ -506,7 +614,7 @@ check('locked full advancement preview is collapsed without removing searchable 
 
 const playContent = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js', import.meta.url), 'utf8');
 assert.match(playContent, /const focusPlan = primitiveArchiveFocusPlan\(/, 'The live page must use the tested focus plan.');
-assert.match(playContent, /<PrimitiveArchiveFocusPanel plan=\{focusPlan\} onNavigate=\{setActiveTabId\} \/>\s*<PrimitiveArchiveFeatureTabs/s, 'The live focus panel must render immediately before the real feature tabs.');
+assert.match(playContent, /<PrimitiveArchiveFocusPanel plan=\{focusPlan\} onNavigate=\{setActiveTabId\} \/>\s*<PrimitiveArchiveInventoryBar inventory=\{state\.inventory\} inventoryRows=\{inventoryRows\} \/>\s*<PrimitiveArchiveFeatureTabs/s, 'The live focus panel must be followed by the persistent inventory bar before the real feature tabs.');
 assert.match(playContent, /<details className="primitive-guide-details">\s*<summary>상세 생존 안내<\/summary>\s*<GameAdvisorPanel/s, 'Existing detailed survival advice must remain available below the main interface.');
 
 console.log(JSON.stringify({ pass: failures.length === 0, checks: checks.length, failures }, null, 2));

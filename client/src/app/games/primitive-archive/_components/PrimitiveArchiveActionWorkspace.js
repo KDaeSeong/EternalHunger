@@ -1,5 +1,5 @@
 import { ActionButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
-import { formatRequires } from '../_lib/primitiveArchiveEngine';
+import { formatRequires, itemName } from '../_lib/primitiveArchiveEngine';
 import PrimitiveArchiveTurnHorizon from './PrimitiveArchiveTurnHorizon';
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
@@ -69,6 +69,21 @@ export default function PrimitiveArchiveActionWorkspace(props) {
     ...lockedUtilityRows.slice(0, 4).map((row) => `${row.label}: ${row.lockedReason}`),
     lockedUtilityRows.length > 4 ? `외 ${lockedUtilityRows.length - 4}개` : '',
   ].filter(Boolean).join(' · ');
+  const inventoryChange = actionFeedback?.inventoryChange;
+  const inventoryRows = inventoryChange?.rows || [];
+  const visibleInventoryRows = inventoryRows.slice(0, 5);
+  const hiddenInventoryRows = inventoryRows.slice(5);
+  const renderInventoryRow = (row) => {
+    const delta = Number(row.delta || 0);
+    const sign = delta > 0 ? '+' : '';
+    const tone = delta > 0 ? 'positive' : delta < 0 ? 'negative' : 'unchanged';
+    return (
+      <li className={`primitive-inventory-change__row is-${tone}`} key={row.id}>
+        <span>{itemName(row.id)}</span>
+        <strong>{sign}{delta} <span className="primitive-inventory-change__comparison">({row.before} → {row.after})</span></strong>
+      </li>
+    );
+  };
 
   return (
     <div className="primitive-workspace-panel" role="tabpanel">
@@ -104,6 +119,25 @@ export default function PrimitiveArchiveActionWorkspace(props) {
             tone={actionFeedback?.tone || 'ready'}
             pinned
           />
+          {inventoryChange ? (
+            <section className="primitive-inventory-change" aria-label="보유 자원 변화">
+              <div className="primitive-inventory-change__heading">
+                <strong>보유 자원 변화</strong>
+                {inventoryChange.dayChanged ? <span className="primitive-inventory-change__day-note">하루 경과·정산 포함</span> : null}
+              </div>
+              {inventoryRows.length ? (
+                <>
+                  <ul className="primitive-inventory-change__list">{visibleInventoryRows.map(renderInventoryRow)}</ul>
+                  {hiddenInventoryRows.length ? (
+                    <details className="primitive-inventory-change__more">
+                      <summary>나머지 {hiddenInventoryRows.length}개 변화 보기</summary>
+                      <ul className="primitive-inventory-change__list">{hiddenInventoryRows.map(renderInventoryRow)}</ul>
+                    </details>
+                  ) : null}
+                </>
+              ) : <p className="primitive-inventory-change__empty">변동 없음</p>}
+            </section>
+          ) : null}
         </div>
         <div className="primitive-basic-action-grid" aria-label="기본 행동 선택">
           <article className="primitive-action-choice">

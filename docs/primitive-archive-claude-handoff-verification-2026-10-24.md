@@ -169,3 +169,72 @@ The new runtime noncache manifest has 1,277 files / 27,686,688 bytes / SHA-256
 `07cd0ef46cd03f22d01296beaacd5495c1f7bae69db1c0ca81c38092d06d7cb2`.
 The exact-identity post-cleanup recheck confirmed 954,252,059 bytes / 11,409 files,
 still about 0.89 GiB, with the cache absent and retained runtime manifests intact.
+
+## Follow-up: visible current holdings and action inventory changes
+
+The later user screenshots identified a missing basic affordance: the action
+screen showed neither current resource quantities nor useful confirmation of
+resource gains. This is new human defect feedback, not a new scored evaluation.
+
+Added a persistent current-stock bar between the objective/night panel and the
+screen buttons, outside the tab-owned scrolling region. It shows wood, stone,
+fiber, hide, berries, meat, herbs and clay even at zero. An inline disclosure
+lists all positive holdings, including other foods, equipment and custom items.
+Desktop widths of at least 1100px use one eight-resource row; narrower styles
+wrap the row. Era tokens and a bounded full-stock disclosure preserve the theme
+without changing AppShell or camp ordering.
+
+Action feedback now compares the actual previous/current inventories and shows
+signed changes plus before/after quantities. A paid action with no stock change
+says so; a day transition explicitly labels the comparison as including daily
+settlement rather than claiming every increase came from that action's harvest.
+Additional changes collapse after the first five. Unrelated save/auth messages
+do not display an old action's delta, and restored runs do not invent a missing
+before-action snapshot. The old first-matching-log boundary was also replaced:
+repeated identical log strings and capped logs must retain the correct new
+result while an unchanged/no-op state must not repeat an old success.
+
+All thirteen `check:primitive-archive` steps passed, with 254 PASS lines and no
+FAIL lines (captured output SHA-256
+`2efeb9bb8192024a14eaf1b4991d9ac44c5562ad5038bcc92954b89a1dade699`).
+The focused actual-JSX checker now passes sixteen cases. Targeted ESLint and
+`git diff --check` passed. Final production build `3yoQjeFtfuYhQgnfshO2D` passed,
+including the 23 module-resolution checks and isolated ordinary-globals Node VM
+Worker first-phase check (one completion, no failures). Build output SHA-256 is
+`6b185d22d72e7dcfb0537550f54ac6d56b0cdf9956b69d34212be14e45c068a1`.
+The first sandbox build hit an output-directory EPERM; the same source passed
+when built outside that restriction. Worker VM evidence is not browser speed
+or human acceptance evidence.
+
+The final production runtime was exercised in a fresh local guest browser at
+1280px, without account writes or state/RNG injection. Initial holdings were
+wood/stone/fiber/berries 2 each, with the other four core resources zero. The
+first ordinary gather changed stone 2 to 4, clay 0 to 1 and herbs 0 to 1, and
+both the persistent totals and signed comparisons matched. Full holdings opened
+and closed inline; navigating to camp and back retained the stock bar without
+spending AP. Four manual gathers reached Day 2 AP 4/4 naturally. The fourth
+result showed the day-settlement note and a collapsed sixth change. Reload
+retained wood 3, stone 11, fiber 3, hide 0, berries 2, meat 1, herbs 4 and clay 7;
+the obsolete per-action comparison was not presented as a reconstructed delta.
+A screenshot confirmed the desktop placement. The successful test tab and
+owned loopback server were closed afterward; the earlier failed connection tab
+could not be closed through the browser's data-page policy and was not retried.
+
+Engine calculations, balance, developer-tool permission/record exclusion,
+growth-only calculations, checkpoint conflict/corruption safeguards and literal
+dynamic imports are unchanged. A fresh human readability reassessment and
+actual natural account-expiry/recovery observation remain outstanding.
+
+After the final browser check, removed only the retired `fVDExj3vzybyZpHipLrx0`
+runtime (27,686,682 bytes) and sixteen regenerable build-cache files
+(693,243,265 bytes), after exact resolved path, link, build-ID, size and hash
+checks. The immediate previous `jcpMhfEOMFvfck4NirBs9` runtime was moved, not
+copied, into the fixed recovery location. The unique paused map-shift
+reproduction remains an explicit exception. All three retained runtime manifests
+were unchanged after cleanup. The same five disjoint artifact roots decreased
+from 1,233,507,970 to 512,578,023 logical bytes / 4,856 unique files, excluding
+the new small cleanup receipt. These totals use exact BigInt file identities,
+not physical allocation or whole-workspace size. The ignored local receipt is
+`.local/build-recovery/archive-owned-inventory-release.json`; source, saves,
+current desktop runtime, the checkpoint recovery and Git/internal session data
+were not deleted.

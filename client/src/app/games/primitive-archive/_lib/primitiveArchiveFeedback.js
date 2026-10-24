@@ -220,11 +220,67 @@ const TEXT_PRESENTATIONS = [
   { pattern: /런 결과.*전적|전적.*기록|런.*정산/, force: true, value: { key: 'record', action: 'archive', cue: '', label: '생존 기록 정산', outcome: 'success', tone: 'success' } },
 ];
 
-export function primitiveActionResultText(previous, current, label, fallback = '') {
+export function primitiveInventoryChange(previous, current) {
+  const beforeInventory = previous?.inventory;
+  const afterInventory = current?.inventory;
+  if (!beforeInventory || !afterInventory
+    || typeof beforeInventory !== 'object' || typeof afterInventory !== 'object'
+    || Array.isArray(beforeInventory) || Array.isArray(afterInventory)) return null;
+  if (previous.runId && current.runId && previous.runId !== current.runId) return null;
+
+  const ids = [...new Set([...Object.keys(beforeInventory), ...Object.keys(afterInventory)])].sort();
+  const rows = [];
+  for (const id of ids) {
+    const before = Object.hasOwn(beforeInventory, id) ? Number(beforeInventory[id]) : 0;
+    const after = Object.hasOwn(afterInventory, id) ? Number(afterInventory[id]) : 0;
+    if (!Number.isFinite(before) || !Number.isFinite(after) || before < 0 || after < 0) return null;
+    if (before !== after) rows.push({ id, before, after, delta: after - before });
+  }
+  const beforeDay = Number(previous.day || 0);
+  const afterDay = Number(current.day || 0);
+  return { rows, dayChanged: beforeDay !== afterDay, beforeDay, afterDay };
+}
+
+function actionProgressed(previous, current, label) {
+  if (Number(current?.day || 0) > Number(previous?.day || 0)
+    || Number(current?.ap || 0) < Number(previous?.ap || 0)) return true;
+  const counter = ACTION_RULES[String(label || '')]?.counter;
+  return Boolean(counter && Number(current?.counters?.[counter] || 0) > Number(previous?.counters?.[counter] || 0));
+}
+
+function newActionLogs(previous, current, label) {
   const currentLogs = Array.isArray(current?.log) ? current.log : [];
-  const previousTop = Array.isArray(previous?.log) ? previous.log[0] : '';
-  const boundary = previousTop ? currentLogs.indexOf(previousTop) : -1;
-  const newLogs = currentLogs.slice(0, boundary >= 0 ? boundary : Math.min(currentLogs.length, 16));
+  const previousLogs = Array.isArray(previous?.log) ? previous.log : [];
+  if (!previousLogs.length || (previous?.runId && current?.runId && previous.runId !== current.runId)) {
+    return currentLogs.slice(0, 16);
+  }
+
+  // addLog prepends and may trim the oldest entries. Match the entire retained
+  // sequence, not the first occurrence of a line that can legitimately repeat.
+  const minimumAdded = Math.max(0, currentLogs.length - previousLogs.length);
+  for (let added = minimumAdded; added < currentLogs.length; added += 1) {
+    const retained = currentLogs.length - added;
+    let matches = true;
+    for (let index = 0; index < retained; index += 1) {
+      if (currentLogs[added + index] !== previousLogs[index]) {
+        matches = false;
+        break;
+      }
+    }
+    if (!matches) continue;
+    if (added > 0) return currentLogs.slice(0, added);
+
+    // At capacity every retained string can be identical even after a real
+    // action. State progress distinguishes that case from an unchanged/no-op run.
+    const progressed = actionProgressed(previous, current, label)
+      || Boolean(primitiveInventoryChange(previous, current)?.rows.length);
+    return progressed ? currentLogs.slice(0, 16) : [];
+  }
+  return currentLogs.slice(0, 16);
+}
+
+export function primitiveActionResultText(previous, current, label, fallback = '') {
+  const newLogs = newActionLogs(previous, current, label);
   const pattern = ACTION_RESULT_PATTERNS[String(label || '')];
   const matched = pattern ? newLogs.find((line) => pattern.test(String(line || ''))) : '';
   return matched || newLogs[0] || fallback || `${label || '행동'}을 실행했습니다.`;
@@ -295,9 +351,13 @@ export function primitiveActionFeedback(previous, current, label, options = {}) 
 export function primitiveActionResultPresentation(previous, current, label, options = {}) {
   const detail = options.resultText || primitiveActionResultText(previous, current, label, options.fallbackText || '');
   const feedback = primitiveActionFeedback(previous, current, label, { ...options, resultText: detail });
+  const inventoryChange = primitiveInventoryChange(previous, current);
+  const showInventoryChange = inventoryChange
+    && (inventoryChange.rows.length || actionProgressed(previous, current, label));
   return {
     ...feedback,
     detail: feedback.detail || detail,
+    ...(showInventoryChange ? { inventoryChange } : {}),
   };
 }
 

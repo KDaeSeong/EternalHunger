@@ -4,6 +4,7 @@ import './lib/register-simulation-modules.mjs';
 import {
   primitiveActionFeedback,
   primitiveActionResultPresentation,
+  primitiveInventoryChange,
   primitiveMilestoneCue,
   primitiveMilestoneSnapshot,
   primitiveRestoredResultText,
@@ -170,6 +171,149 @@ for (const row of actionRows) {
   assert.equal(presentation.tone, 'success', `${row.label} 성공은 성공 톤이어야 합니다.`);
   assert.equal(presentation.detail, row.log, `${row.label} 결과에는 해당 행동 로그가 표시되어야 합니다.`);
 }
+
+const repeatedGatherLine = 'Day 1: 채집 성공. 나무 2을 얻었습니다.';
+const repeatedGatherPrevious = {
+  ...clone(base),
+  inventory: { wood: 2, berries: 3 },
+  log: [repeatedGatherLine, 'Day 1: 이전 행동'],
+};
+const repeatedGatherCurrent = {
+  ...clone(repeatedGatherPrevious),
+  ap: 3,
+  counters: { ...repeatedGatherPrevious.counters, gather: 1 },
+  log: [repeatedGatherLine, repeatedGatherLine, 'Day 1: 이전 행동'],
+};
+const repeatedGatherResult = primitiveActionResultPresentation(repeatedGatherPrevious, repeatedGatherCurrent, '채집');
+assert.equal(repeatedGatherResult.detail, repeatedGatherLine, '같은 날 같은 성공 로그가 다시 추가되어도 새 행동 결과를 보여야 합니다.');
+assert.equal(repeatedGatherResult.outcome, 'success', '반복된 성공 로그에서도 실제 채집 카운터 증가를 성공으로 판정해야 합니다.');
+
+const cappedPreviousLog = [
+  repeatedGatherLine,
+  ...Array.from({ length: 239 }, (_, index) => `Day 1: 오래된 기록 ${index}`),
+];
+const cappedCurrentLog = [
+  repeatedGatherLine,
+  repeatedGatherLine,
+  ...cappedPreviousLog.slice(1, 239),
+];
+const cappedPrevious = {
+  ...clone(base),
+  inventory: { wood: 2, berries: 3 },
+  log: cappedPreviousLog,
+};
+const cappedCurrent = {
+  ...clone(cappedPrevious),
+  ap: 3,
+  counters: { ...cappedPrevious.counters, gather: 1 },
+  log: cappedCurrentLog,
+};
+assert.equal(cappedPreviousLog.length, 240, '이전 로그는 기본 용량으로 차 있어야 합니다.');
+assert.equal(cappedCurrentLog.length, 240, '새 로그도 기본 용량으로 잘려야 합니다.');
+assert.notEqual(cappedPreviousLog.at(-1), cappedCurrentLog.at(-1), '용량 제한으로 가장 오래된 꼬리가 밀려나야 합니다.');
+assert.equal(
+  primitiveActionResultPresentation(cappedPrevious, cappedCurrent, '채집').detail,
+  repeatedGatherLine,
+  '로그가 가득 차고 이전 최상단과 새 로그가 같아도 새 결과를 유지해야 합니다.',
+);
+
+const identicalCappedLog = Array(240).fill(repeatedGatherLine);
+const identicalCappedPrevious = {
+  ...clone(base),
+  inventory: { wood: 2 },
+  log: identicalCappedLog,
+};
+const identicalCappedCurrent = {
+  ...clone(identicalCappedPrevious),
+  ap: 3,
+  counters: { ...identicalCappedPrevious.counters, gather: 1 },
+  log: [...identicalCappedLog],
+};
+assert.deepEqual(identicalCappedCurrent.log, identicalCappedPrevious.log, '같은 내용의 로그가 용량을 채운 상태를 만들어야 합니다.');
+assert.equal(
+  primitiveActionResultPresentation(identicalCappedPrevious, identicalCappedCurrent, '채집').detail,
+  repeatedGatherLine,
+  'AP가 소모된 뒤 로그 배열이 완전히 같아도 반복된 현재 결과를 보여야 합니다.',
+);
+
+const noOpPrevious = {
+  ...clone(base),
+  inventory: { wood: 2 },
+  log: [repeatedGatherLine, 'Day 1: 다른 과거 기록'],
+};
+const noOpCurrent = clone(noOpPrevious);
+const noOpResult = primitiveActionResultPresentation(noOpPrevious, noOpCurrent, '채집');
+assert.notEqual(noOpResult.outcome, 'success', '상태가 전혀 바뀌지 않은 no-op을 성공으로 판정하면 안 됩니다.');
+assert.notEqual(noOpResult.detail, repeatedGatherLine, '상태 변화 없는 no-op에서 과거 성공 문구를 새 결과처럼 보여주면 안 됩니다.');
+assert.equal(Object.hasOwn(noOpResult, 'inventoryChange'), false, '재고와 지출이 바뀌지 않은 no-op에는 재고 차이를 붙이면 안 됩니다.');
+
+const inventoryBefore = {
+  ...clone(base),
+  inventory: { wood: 2, berries: 3, unchanged: 7, removedItem: 1 },
+  day: 1,
+};
+const inventoryAfter = {
+  ...clone(inventoryBefore),
+  inventory: { wood: 4, berries: 3, unchanged: 7, customRelic: 2 },
+};
+assert.deepEqual(primitiveInventoryChange(inventoryBefore, inventoryAfter), {
+  rows: [
+    { id: 'customRelic', before: 0, after: 2, delta: 2 },
+    { id: 'removedItem', before: 1, after: 0, delta: -1 },
+    { id: 'wood', before: 2, after: 4, delta: 2 },
+  ],
+  dayChanged: false,
+  beforeDay: 1,
+  afterDay: 1,
+}, '재고 차이는 추가·삭제·사용자 정의 항목을 포함하고 변경되지 않은 항목은 제외해야 합니다.');
+assert.equal(primitiveInventoryChange({ ...inventoryBefore, inventory: undefined }, inventoryAfter), null, '한쪽 재고가 없으면 재고 차이를 계산하지 않아야 합니다.');
+assert.equal(primitiveInventoryChange(inventoryBefore, { ...inventoryAfter, runId: 'another-run' }), null, '서로 다른 비어 있지 않은 런의 재고를 비교하지 않아야 합니다.');
+assert.deepEqual(primitiveInventoryChange(inventoryBefore, { ...inventoryBefore, inventory: { ...inventoryBefore.inventory } }), {
+  rows: [],
+  dayChanged: false,
+  beforeDay: 1,
+  afterDay: 1,
+}, '재고가 그대로면 변경 행은 비어 있어야 합니다.');
+
+const paidNoInventoryDelta = {
+  ...clone(inventoryBefore),
+  ap: 3,
+  log: ['Day 1: 연구 +4RP', ...inventoryBefore.log],
+};
+const paidNoInventoryResult = primitiveActionResultPresentation(inventoryBefore, paidNoInventoryDelta, '연구');
+assert.deepEqual(paidNoInventoryResult.inventoryChange?.rows, [], '재고 변화 없는 유료 행동에도 0 변화 상태를 전달해야 합니다.');
+
+const attemptedGatherNoGain = {
+  ...clone(inventoryBefore),
+  ap: 3,
+  log: ['Day 1: 채집 실패', ...inventoryBefore.log],
+};
+const attemptedGatherResult = primitiveActionResultPresentation(inventoryBefore, attemptedGatherNoGain, '채집');
+assert.deepEqual(attemptedGatherResult.inventoryChange?.rows, [], '획득이 없는 채집 시도는 0 재고 변화로 표현할 수 있어야 합니다.');
+
+const midnightFoodBefore = {
+  ...clone(base),
+  inventory: { berries: 2, wood: 4 },
+  day: 1,
+};
+const midnightFoodAfter = {
+  ...clone(midnightFoodBefore),
+  inventory: { berries: 1, wood: 6 },
+  day: 2,
+};
+const midnightNetChange = primitiveInventoryChange(midnightFoodBefore, midnightFoodAfter);
+assert.deepEqual(midnightNetChange, {
+  rows: [
+    { id: 'berries', before: 2, after: 1, delta: -1 },
+    { id: 'wood', before: 4, after: 6, delta: 2 },
+  ],
+  dayChanged: true,
+  beforeDay: 1,
+  afterDay: 2,
+}, '날짜 경계 재고 안내는 야간 소비를 포함한 순변화여야 하며 획득량만 표시하면 안 됩니다.');
+const restoredInventoryBefore = JSON.parse(JSON.stringify(midnightFoodBefore));
+const restoredInventoryAfter = JSON.parse(JSON.stringify(midnightFoodAfter));
+assert.deepEqual(primitiveInventoryChange(restoredInventoryBefore, restoredInventoryAfter), midnightNetChange, 'JSON 복원 상태에서도 재고 순변화를 일관되게 계산해야 합니다.');
 
 const gatherFailure = clone(base);
 gatherFailure.ap = 3;

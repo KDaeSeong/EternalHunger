@@ -833,6 +833,151 @@
   background: transparent;
 }
 
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change {
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-block-radius);
+  background: var(--era-surface);
+  color: var(--era-ink);
+  min-width: 0;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change__heading,
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change__heading {
+  color: var(--era-ink);
+  font-size: 0.9rem;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change__day-note {
+  color: var(--era-ink-soft);
+  font-size: 0.8rem;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change__row {
+  flex: 1 1 10rem;
+  min-width: 0;
+  padding: 0.25rem 0.4rem;
+  border-radius: var(--era-control-radius);
+  background: var(--era-accent-soft);
+  overflow-wrap: anywhere;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change__row.is-negative {
+  background: var(--era-warning-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change__comparison {
+  color: var(--era-ink-soft);
+  font-weight: 400;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change__empty {
+  margin: 0.35rem 0 0;
+  color: var(--era-ink-soft);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change__more {
+  margin-top: 0.35rem;
+  color: var(--era-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-change__more summary {
+  color: var(--era-accent-deep);
+  cursor: pointer;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-bar {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-block-radius);
+  background: var(--era-surface);
+  color: var(--era-ink);
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-bar__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.2rem 0.6rem;
+  font-size: 0.87rem;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-bar__all summary {
+  color: var(--era-accent-deep);
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-bar__core-list,
+.primitive-era.primitive-archive-page-shell .primitive-inventory-bar__all-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 1100px) {
+  .primitive-era.primitive-archive-page-shell .primitive-inventory-bar__core-list {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-bar__core-list li,
+.primitive-era.primitive-archive-page-shell .primitive-inventory-bar__all-list li {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 0.2rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: var(--era-control-radius);
+  background: var(--era-accent-soft);
+  color: var(--era-ink);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-bar__core-list strong,
+.primitive-era.primitive-archive-page-shell .primitive-inventory-bar__all-list strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-inventory-bar__all-list {
+  max-height: 10rem;
+  overflow: auto;
+}
+
+@media (max-width: 520px) {
+  .primitive-era.primitive-archive-page-shell .primitive-inventory-bar__core-list,
+  .primitive-era.primitive-archive-page-shell .primitive-inventory-bar__all-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .primitive-era.primitive-archive-page-shell .games-action-result {
   border-color: var(--era-line);
   border-radius: var(--era-block-radius);
