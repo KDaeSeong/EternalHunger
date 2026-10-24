@@ -238,3 +238,60 @@ not physical allocation or whole-workspace size. The ignored local receipt is
 `.local/build-recovery/archive-owned-inventory-release.json`; source, saves,
 current desktop runtime, the checkpoint recovery and Git/internal session data
 were not deleted.
+
+## Follow-up: three prioritized gameplay and history bugs
+
+1. Ended runs: a vacant party slot previously allowed recruitment after total
+   defeat, changing the result from failure to incomplete settlement and raising
+   the score. Candidate availability, the party button and the engine now reject
+   this action. Live recruitment retains the existing free-action and party-cap
+   rules. A denied action may add a notice/timestamp but changes no gameplay,
+   score, party, inventory, meta rewards or record classification.
+2. Dead actors: research, civics and project work previously accepted a selected
+   HP-zero actor. The engine now requires the specified living actor before
+   progress/cost/RNG processing. The live page passes a living-actor gate to its
+   manual feature controls while the separate automatic-day control retains the
+   run-wide gate. Automatic operation still acts with living companions and does
+   not revive the dead actor. No survival/production balance was changed.
+3. History: the only log view previously sliced at eighteen entries with no way
+   to read older saved entries. It now reveals eighteen more per click, shows the
+   visible/stored count, supports returning to recent entries, handles empty
+   history and resets the expansion when the run ID changes. This is view state
+   only; the stored log, run schema and AP are unchanged.
+
+Added the fresh-fixture `check-primitive-archive-action-guards.mjs` to the main
+chain. Before correction, the ended-recruitment and dead-actor assertions failed;
+the history JSX assertions also failed before its controls existed. The repaired
+chain passes fourteen steps / 263 PASS lines / zero FAIL lines, output SHA-256
+`e9a0984fc0703c11d08485df6ede85bf1b1d306b22d29455ff6c72b0350d2c88`.
+There are five action-guard scenarios and twenty focused UI cases, including
+actual JSX control callbacks for 30/55-entry histories and replacement runs.
+These fixtures do not depend on an old downloaded game log or prior result file.
+Changed-file ESLint and shared feedback-shell, action-vocabulary and viewport
+checks passed. Final production build `lAXKd5Eb9llfo-DmievlT` passed both
+postbuild gates; output SHA-256 is
+`2ad4e36d01d241c9c72c8f16269de3dc4088559938907e993cee012e84d3682c`.
+The Worker first-phase smoke is isolated Node VM evidence, not browser speed
+or human comprehension evidence.
+
+The actual local guest browser restored the prior Day 2 AP 4/4 checkpoint with
+thirteen logs. One normal automatic day produced twenty-seven logs at Day 3
+AP 4/4. The real history controls changed 18/27 to 27/27 and revealed the first
+arrival entry, then returned to 18/27. Day, AP and resource totals remained
+unchanged during history navigation, and a screenshot checked the layout. The
+terminal/dead-state protections were exercised in controlled engine/actual-JSX
+fixtures, not by forcing a death into this live browser state. No public account
+write, save/RNG injection or paid AI call was used. The owned tab and loopback
+server were closed after verification. Natural account-expiry/recovery and a
+new human readability assessment remain separate outstanding observations.
+
+After closing the owned test server, retired only the old `jcpMhfEOMFvfck4NirBs9`
+runtime (27,686,688 bytes) and this build's eight regenerable cache files
+(618,954,349 bytes). The prior `3yoQjeFtfuYhQgnfshO2D` runtime was moved into
+the fixed recovery location, not copied. Exact paths, links, build IDs, sizes
+and SHA-256 manifests were checked; the new runtime, retained previous runtime
+and unique map reproduction retained identical manifests after cleanup. Five
+disjoint artifact roots decreased from 1,159,236,550 to 512,595,513 logical bytes
+/ 4,857 unique files, excluding the new small receipt, with no duplicate
+hardlinks. Receipt: `.local/build-recovery/archive-action-guards-release.json`.
+Originals, saves, current desktop runtime and internal session/Git data remain.

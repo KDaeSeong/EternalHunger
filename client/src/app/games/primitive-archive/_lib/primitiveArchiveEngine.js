@@ -338,7 +338,7 @@ export function recruitablePartyRows(state) {
     .filter((student) => !joinedIds.has(student.id))
     .map((student) => ({
       ...student,
-      canRecruit: current.party.length < partyCap,
+      canRecruit: !current.ended && current.party.length < partyCap,
       partyCap,
       currentPartySize: current.party.length,
     }));
@@ -346,6 +346,7 @@ export function recruitablePartyRows(state) {
 
 export function recruitPartyMemberAction(state, studentId = '') {
   const current = normalizeState(state);
+  if (current.ended) return addLog(current, '종료된 런에는 대원을 합류시킬 수 없습니다. 새 런을 시작해 주세요.');
   const partyCap = getPartyCap(current);
   if (current.party.length >= partyCap) {
     return addLog(current, `파티 인원이 이미 최대입니다. (${current.party.length}/${partyCap})`);
@@ -1534,6 +1535,8 @@ export function projectActionEstimate(state, actorId, projectId = '') {
 export function runProjectAction(state, actorId, projectId = '', options = {}) {
   const current = normalizeState(state);
   if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '프로젝트 작업에 사용할 행동력이 부족합니다.');
+  const actor = livingActorForAction(current, actorId);
+  if (!actor) return addLog(current, '살아 있는 대원을 선택해야 프로젝트 작업을 진행할 수 있습니다.');
   const targetId = projectId || current.projects.selectedProjectId || nextAvailableProjectId(current);
   const row = projectRows(current).find((project) => project.id === targetId);
   if (!row) return addLog(current, '진행할 부족 프로젝트가 없습니다.');
@@ -1543,7 +1546,6 @@ export function runProjectAction(state, actorId, projectId = '', options = {}) {
     return addLog(current, `${row.name} 착수 재료가 부족합니다. 필요: ${row.costText}.`);
   }
 
-  const actor = getActor(current, actorId);
   const estimate = projectActionEstimate(current, actorId, row.id);
   const projectState = normalizeProjectState(current.projects);
   let next = {
@@ -2298,6 +2300,10 @@ export function averageBodyTemp(state) {
 
 export function getActor(state, actorId) {
   return state.party.find((member) => member.id === actorId) || state.party[0];
+}
+
+function livingActorForAction(state, actorId) {
+  return state.party.find((member) => member.id === actorId && Number(member.hp || 0) > 0) || null;
 }
 
 export function updateActor(state, actorId, patch) {
@@ -3603,10 +3609,11 @@ export function researchActionEstimate(state, actorId) {
 export function runResearchAction(state, actorId, options = {}) {
   const current = normalizeState(state);
   if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '연구할 행동력이 부족합니다.');
+  const actor = livingActorForAction(current, actorId);
+  if (!actor) return addLog(current, '살아 있는 대원을 선택해야 연구를 진행할 수 있습니다.');
   const researchStatus = researchSystemStatus(current);
   if (!researchStatus.unlocked) return addLog(current, researchStatus.reason);
   if (!researchStatus.actionUnlocked) return addLog(current, researchStatus.actionReason);
-  const actor = getActor(current, actorId);
   const techId = current.research.selectedTechId || nextAvailableTech(current.research)?.id;
   const tech = getTechnology(techId);
   if (!tech) return addLog(current, '연구 가능한 기술이 없습니다.');
@@ -3656,10 +3663,11 @@ export function civicActionEstimate(state, actorId) {
 export function runCivicAction(state, actorId, options = {}) {
   const current = normalizeState(state);
   if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '부족 회의를 열 행동력이 부족합니다.');
+  const actor = livingActorForAction(current, actorId);
+  if (!actor) return addLog(current, '살아 있는 대원을 선택해야 부족 회의를 진행할 수 있습니다.');
   const systemStatus = civicsSystemStatus(current);
   if (!systemStatus.unlocked) return addLog(current, systemStatus.reason);
   if (!systemStatus.actionUnlocked) return addLog(current, systemStatus.actionReason);
-  const actor = getActor(current, actorId);
   const civic = activeCivicForState(current);
   if (!civic) return addLog(current, '추진 가능한 사회 제도가 없습니다.');
   if (!prereqsMet(current.research, civic)) {

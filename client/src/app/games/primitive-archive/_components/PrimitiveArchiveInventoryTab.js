@@ -35,6 +35,9 @@ export default function PrimitiveArchiveInventoryTab(props) {
     setActorId,
     state,
   } = props;
+  const [logView, setLogView] = useState({ runId: state.runId, count: 18 });
+  const visibleLogCount = logView.runId === state.runId ? logView.count : 18;
+  const hiddenLogCount = Math.max(0, state.log.length - visibleLogCount);
   const tabs = [
     { id: 'items', label: '아이템', icon: 'inventory', badge: `${inventoryRows.length}종` },
     { id: 'equipment', label: '장비', icon: 'equip', badge: `${equipmentInventory.reduce((sum, item) => sum + Number(item.qty || 0), 0)}개` },
@@ -134,9 +137,26 @@ export default function PrimitiveArchiveInventoryTab(props) {
         <section className="games-panel primitive-workspace-panel" role="tabpanel">
           <PrimitiveArchivePanelTitle action="logs" title="로그" meta={`${state.log.length}/${currentLogCapacity}`} />
           <div className="games-activity-list primitive-log-list">
-            {state.log.slice(0, 18).map((line, index) => (
+            {state.log.slice(0, visibleLogCount).map((line, index) => (
               <div key={`${line}-${index}`}><strong>{line}</strong></div>
             ))}
+            {!state.log.length ? <div className="games-empty">아직 기록이 없습니다.</div> : null}
+          </div>
+          <div className="games-chip-row" aria-label="로그 표시 범위">
+            <span aria-live="polite">{Math.min(visibleLogCount, state.log.length)}/{state.log.length}개 표시</span>
+            {hiddenLogCount > 0 ? (
+              <GameControlButton
+                action="logs"
+                cue="off"
+                onClick={() => setLogView((current) => ({
+                  runId: state.runId,
+                  count: (current.runId === state.runId ? current.count : 18) + 18,
+                }))}
+              >{`이전 기록 ${Math.min(18, hiddenLogCount)}개 더 보기`}</GameControlButton>
+            ) : null}
+            {visibleLogCount > 18 ? (
+              <GameControlButton action="logs" cue="off" onClick={() => setLogView({ runId: state.runId, count: 18 })}>최근 기록만 보기</GameControlButton>
+            ) : null}
           </div>
         </section>
       ) : null}

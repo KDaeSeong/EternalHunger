@@ -17,10 +17,14 @@ const featureTabsUrl = new URL('_components/PrimitiveArchiveFeatureTabs.js', rou
 const actionWorkspaceUrl = new URL('_components/PrimitiveArchiveActionWorkspace.js', routeUrl).href;
 const inventoryBarUrl = new URL('_components/PrimitiveArchiveInventoryBar.js', routeUrl).href;
 const runTabUrl = new URL('_components/PrimitiveArchiveRunTab.js', routeUrl).href;
+const inventoryTabUrl = new URL('_components/PrimitiveArchiveInventoryTab.js', routeUrl).href;
+const partyWorkspaceUrl = new URL('_components/PrimitiveArchivePartyWorkspace.js', routeUrl).href;
+const projectsPanelUrl = new URL('_components/PrimitiveArchiveProjectsPanel.js', routeUrl).href;
+const workspaceTabsUrl = new URL('_components/PrimitiveArchiveWorkspaceTabs.js', routeUrl).href;
 const campWorkspaceUrl = new URL('_components/PrimitiveArchiveCampWorkspace.js', routeUrl);
 const growthTabUrl = new URL('_components/PrimitiveArchiveGrowthTab.js', routeUrl);
 const researchPreviewUrl = new URL('_components/PrimitiveArchiveResearchTreePreview.js', routeUrl);
-const transpiledUrls = new Set([focusPanelUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl]);
+const transpiledUrls = new Set([focusPanelUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, projectsPanelUrl, workspaceTabsUrl]);
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 const primitiveUiStub = `
   const jsx = (...args) => globalThis.__primitiveArchiveFocusReact.createElement(...args);
@@ -42,7 +46,19 @@ const primitiveUiStub = `
 const visualStub = `
   const jsx = (...args) => globalThis.__primitiveArchiveFocusReact.createElement(...args);
   export function PrimitiveArchivePanelTitle(props) {
-    return jsx('header', { children: [jsx('h2', { children: props.title, key: 'title' }), props.children] });
+    return jsx('header', { children: [jsx('h2', { children: props.title, key: 'title' }), props.meta, props.children] });
+  }
+  export function PrimitiveArchiveIconRow(props) { return jsx('div', { children: props.children }); }
+  export const primitiveItemAction = () => 'inventory';
+`;
+const inventoryHooksStub = `
+  export function useState(initial) {
+    const harness = globalThis.__primitiveArchiveInventoryHooks;
+    const index = harness.cursor++;
+    if (!(index in harness.values)) harness.values[index] = index === 0 ? 'log' : typeof initial === 'function' ? initial() : initial;
+    return [harness.values[index], (next) => {
+      harness.values[index] = typeof next === 'function' ? next(harness.values[index]) : next;
+    }];
   }
 `;
 const simpleComponentStub = (name) => `
@@ -83,6 +99,12 @@ registerHooks({
     if (context.parentURL === runTabUrl && runTabStubs.has(specifier)) {
       return { url: asDataModule(runTabStubs.get(specifier)), shortCircuit: true };
     }
+    if ([inventoryTabUrl, partyWorkspaceUrl, projectsPanelUrl, workspaceTabsUrl].includes(context.parentURL)) {
+      if (specifier === 'react' && context.parentURL === inventoryTabUrl) return { url: asDataModule(inventoryHooksStub), shortCircuit: true };
+      if (specifier === '../../_components/GamePlayPrimitives') return { url: asDataModule(primitiveUiStub), shortCircuit: true };
+      if (specifier === './PrimitiveArchiveVisuals') return { url: asDataModule(visualStub), shortCircuit: true };
+      if (specifier === 'next/image' || specifier === '../../_components/GameActionIcon') return { url: asDataModule('export default function Icon() { return null; }'), shortCircuit: true };
+    }
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
@@ -101,6 +123,9 @@ const { default: PrimitiveArchiveFocusPanel } = await import(focusPanelUrl);
 const { default: PrimitiveArchiveFeatureTabs } = await import(featureTabsUrl);
 const { default: PrimitiveArchiveActionWorkspace } = await import(actionWorkspaceUrl);
 const { default: PrimitiveArchiveInventoryBar } = await import(inventoryBarUrl);
+const { default: PrimitiveArchiveInventoryTab } = await import(inventoryTabUrl);
+const { default: PrimitiveArchivePartyWorkspace } = await import(partyWorkspaceUrl);
+const { default: PrimitiveArchiveProjectsPanel } = await import(projectsPanelUrl);
 
 const checks = [];
 const failures = [];
@@ -610,6 +635,95 @@ check('locked full advancement preview is collapsed without removing searchable 
   assert.match(previewDetails[1], /<PrimitiveArchiveResearchTreePreview[^>]*researchMap=\{advancementMap\}[^>]*track=\{activeTrack\}/, 'The complete track preview must remain accessible inside the disclosure.');
   assert.match(previewSource, /<input[\s\S]*?value=\{query\}[\s\S]*?onChange=\{\(event\) => setQuery\(event\.target\.value\)\}/, 'The preview must retain its searchable filter.');
   assert.match(previewSource, /researchMap\.nodes\.map\(\(node\) =>/, 'The preview must retain every engine-provided advancement node.');
+});
+
+check('actual party controls reject ended runs while preserving live free recruitment', () => {
+  const state = freshState('recruit-control-guards');
+  state.research.completed.SETTLEMENT = true;
+  for (const ended of [false, true]) {
+    const current = { ...state, ended };
+    const candidates = engine.recruitablePartyRows(current);
+    globalThis.__primitiveArchiveFocusButtons = [];
+    renderToStaticMarkup(React.createElement(PrimitiveArchivePartyWorkspace, {
+      ...tabProps(current, 'party'), hydrated: true, recruitCandidates: candidates, selectedRecruit: candidates[0],
+    }));
+    const button = globalThis.__primitiveArchiveFocusButtons.find((row) => row.action === 'recruit');
+    assert.ok(button);
+    assert.equal(button.disabled, ended);
+  }
+});
+
+check('actual project control receives the selected living-actor gate without disabling the automatic-day gate', () => {
+  const state = freshState('development-control-guards');
+  Object.assign(state.research.completed, { GATHERING: true, HUNTING: true });
+  state.inventory = { ...state.inventory, wood: 30, fiber: 30 };
+  const project = engine.projectRows(state).find((row) => row.canWork);
+  assert.ok(project);
+  for (const hp of [0, 100]) {
+    const actor = { ...state.party[0], hp };
+    const canAct = true;
+    globalThis.__primitiveArchiveFocusButtons = [];
+    renderToStaticMarkup(React.createElement(PrimitiveArchiveProjectsPanel, {
+      canAct: canAct && Number(actor.hp || 0) > 0,
+      projects: [project], selectedProject: project, projectEstimate: engine.projectActionEstimate(state, actor.id, project.id),
+    }));
+    assert.equal(globalThis.__primitiveArchiveFocusButtons.find((row) => row.action === 'project').disabled, hp === 0);
+  }
+  const source = readFileSync(new URL('_components/PrimitiveArchivePlayContent.js', routeUrl), 'utf8');
+  assert.match(source, /const actorCanAct = canAct && Number\(actor\?\.hp \|\| 0\) > 0;/);
+  assert.match(source, /canAct=\{actorCanAct\}/);
+  assert.match(source, /action="auto"[^\n]+disabled=\{!canAct\}/);
+});
+
+function renderInventoryLog(state, harness = { values: [], cursor: 0 }) {
+  harness.cursor = 0;
+  globalThis.__primitiveArchiveInventoryHooks = harness;
+  globalThis.__primitiveArchiveFocusButtons = [];
+  const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveInventoryTab, {
+    ...tabProps(state, 'inventory'), equipmentInventory: [],
+  }));
+  return { html, buttons: globalThis.__primitiveArchiveFocusButtons, harness };
+}
+
+check('actual log controls progressively reveal every stored entry and can return to recent entries', () => {
+  for (const count of [30, 55]) {
+    const state = freshState(`log-history-${count}`);
+    state.log = Array.from({ length: count }, (_, index) => `history-entry-${String(index + 1).padStart(3, '0')}`);
+    const before = structuredClone(state);
+    let rendered = renderInventoryLog(state);
+    assert.equal((rendered.html.match(/history-entry-/g) || []).length, 18);
+    for (let expected = Math.min(count, 36); ; expected = Math.min(count, expected + 18)) {
+      const more = rendered.buttons.find((row) => String(row.children).startsWith('이전 기록'));
+      assert.ok(more, 'Hidden stored entries must remain reachable.');
+      more.onClick();
+      rendered = renderInventoryLog(state, rendered.harness);
+      assert.equal((rendered.html.match(/history-entry-/g) || []).length, expected);
+      if (expected === count) break;
+    }
+    assert.ok(rendered.html.includes(`history-entry-${String(count).padStart(3, '0')}`));
+    assert.ok(!rendered.buttons.some((row) => String(row.children).startsWith('이전 기록')));
+    const recent = rendered.buttons.find((row) => row.children === '최근 기록만 보기');
+    assert.ok(recent);
+    recent.onClick();
+    rendered = renderInventoryLog(state, rendered.harness);
+    assert.equal((rendered.html.match(/history-entry-/g) || []).length, 18);
+    assert.deepEqual(state, before, 'Log navigation must not mutate the run or spend AP.');
+  }
+});
+
+check('log expansion resets for a replacement run and handles an empty history', () => {
+  const state = freshState('log-old-run');
+  state.log = Array.from({ length: 36 }, (_, index) => `old-history-${index}`);
+  let rendered = renderInventoryLog(state);
+  const more = rendered.buttons.find((row) => String(row.children).startsWith('이전 기록'));
+  assert.ok(more);
+  more.onClick();
+  const replacement = { ...state, runId: 'log-replacement-run', log: Array.from({ length: 30 }, (_, index) => `new-history-${index}`) };
+  rendered = renderInventoryLog(replacement, rendered.harness);
+  assert.equal((rendered.html.match(/new-history-/g) || []).length, 18);
+  rendered = renderInventoryLog({ ...replacement, log: [] }, rendered.harness);
+  assert.ok(!rendered.buttons.some((row) => String(row.children).startsWith('이전 기록')));
+  assert.match(rendered.html, /아직 기록이 없습니다/);
 });
 
 const playContent = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js', import.meta.url), 'utf8');

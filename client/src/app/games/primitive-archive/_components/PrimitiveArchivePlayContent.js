@@ -229,6 +229,7 @@ export default function PrimitiveArchivePlayContent() {
   });
   const dead = state.ended || hp <= 0;
   const canAct = checkpoint.ready && !busy && !dead && state.ap > 0;
+  const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const exploration = useMemo(() => explorationSummary(state), [state]);
   const regions = exploration.rows;
   const zoneSelectionUnlocked = canSelectActionZone(state);
@@ -860,7 +861,7 @@ export default function PrimitiveArchivePlayContent() {
         busy={busy || (!checkpoint.ready ? 'checkpoint' : '')}
         campActions={campActions}
         campFacilities={campFacilities}
-        canAct={canAct}
+        canAct={actorCanAct}
         changeEquipmentSlot={changeEquipmentSlot}
         civicAdvancements={civicAdvancements}
         civicInspirationRows={civicInspirationRows}

@@ -50,7 +50,7 @@ export default function PrimitiveArchivePartyWorkspace(props) {
                   <option value={candidate.id} key={candidate.id}>{candidate.name} · {candidate.role}</option>
                 ))}
               </select>
-              <GameControlButton action="recruit" disabled={!selectedRecruit || state.party.length >= partyCap} onClick={recruitMember}>합류</GameControlButton>
+              <GameControlButton action="recruit" disabled={!hydrated || Boolean(busy) || state.ended || !selectedRecruit?.canRecruit || state.party.length >= partyCap} onClick={recruitMember}>합류</GameControlButton>
             </div>
           ) : null}
         </div>
