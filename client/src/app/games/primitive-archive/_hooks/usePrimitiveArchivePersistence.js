@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { isValidRunState } from '../_lib/primitiveArchiveCheckpoint';
 import {
   apiGet, apiPost, apiPut, captureAuthSession, clearApiGetCache, isCurrentAuthSession,
 } from '../../../../utils/api';
@@ -91,10 +92,7 @@ export default function usePrimitiveArchivePersistence({
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
       if (!requestIsCurrent(request)) return;
       const raw = detail?.save?.payload?.state;
-      if (!raw || typeof raw.runId !== 'string' || !raw.runId.trim()
-        || !Number.isInteger(raw.day) || raw.day < 1
-        || !Array.isArray(raw.party) || !raw.party.length
-        || !raw.inventory || typeof raw.inventory !== 'object' || Array.isArray(raw.inventory)
+      if (!isValidRunState(raw)
         || (detail.save.version && detail.save.version !== SAVE_VERSION)) {
         throw new Error('저장된 런의 형식이나 버전을 확인할 수 없습니다. 현재 진행은 유지됩니다.');
       }

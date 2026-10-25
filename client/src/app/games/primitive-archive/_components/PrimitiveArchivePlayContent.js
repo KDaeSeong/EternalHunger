@@ -42,6 +42,7 @@ import {
   getActor,
   getPartyCap,
   getRunProgressReport,
+  hasLivingPartyMember,
   itemName,
   logCapacity,
   nightSurvivalRows,
@@ -227,7 +228,7 @@ export default function PrimitiveArchivePlayContent() {
     state,
     token,
   });
-  const dead = state.ended || hp <= 0;
+  const dead = state.ended || !hasLivingPartyMember(state);
   const canAct = checkpoint.ready && !busy && !dead && state.ap > 0;
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const exploration = useMemo(() => explorationSummary(state), [state]);

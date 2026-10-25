@@ -27,7 +27,14 @@ export function checkpointStorageKey(ownerKey) {
   return `${CHECKPOINT_KEY_PREFIX}${encodeURIComponent(ownerKey)}`;
 }
 
-function isValidRunState(value) {
+function isValidProgressTrack(value, selectedKey) {
+  return isRecord(value)
+    && typeof value[selectedKey] === 'string'
+    && isRecord(value.progress)
+    && isRecord(value.completed);
+}
+
+export function isValidRunState(value) {
   if (!isRecord(value)
     || typeof value.runId !== 'string'
     || !value.runId.trim()
@@ -41,6 +48,11 @@ function isValidRunState(value) {
     || value.party.length < 1
     || !isRecord(value.inventory)
     || !isRecord(value.camp)
+    || !isRecord(value.weather)
+    || !isValidProgressTrack(value.research, 'selectedTechId')
+    || !isValidProgressTrack(value.civics, 'selectedCivicId')
+    || !Array.isArray(value.log)
+    || !value.log.every((line) => typeof line === 'string')
     || typeof value.ended !== 'boolean'
     || typeof value.victory !== 'boolean') return false;
 

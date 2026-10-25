@@ -1578,5 +1578,90 @@ await checkAsync('the actual server-load hook leaves current state and run contr
   assert.equal(calls.toast.length, 0);
 });
 
+check('required runtime fields are validated without replacing malformed checkpoint bytes', () => {
+  const breakState = [
+    (state) => { delete state.log; },
+    (state) => { delete state.research; },
+    (state) => { delete state.civics; },
+    (state) => { delete state.weather; },
+    (state) => { state.log = [null]; },
+    (state) => { state.research = []; },
+    (state) => { state.research.completed = []; },
+    (state) => { state.research.progress = null; },
+    (state) => { state.research.selectedTechId = null; },
+    (state) => { state.civics.completed = null; },
+    (state) => { state.civics.progress = []; },
+    (state) => { state.civics.selectedCivicId = 4; },
+  ];
+  for (const [index, breakOne] of breakState.entries()) {
+    const storage = new MemoryStorage();
+    const healthy = fixture(`required-fields-${index}`);
+    expectWrite(storage, guestOwner, healthy, 0, at(1));
+    const key = checkpointApi.checkpointStorageKey(guestOwner);
+    const original = storage.getItem(key);
+    const broken = structuredClone(healthy);
+    breakOne(broken);
+    assert.equal(checkpointApi.writeCheckpoint(storage, guestOwner, broken, { expectedRevision: 1 }).status, 'invalid-state', `Invalid current state ${index} must not be serialized.`);
+    assert.equal(storage.getItem(key), original);
+    for (const slot of ['current', 'previous']) {
+      const envelope = JSON.parse(original);
+      envelope[slot] = broken;
+      const damagedBytes = JSON.stringify(envelope);
+      storage.setItem(key, damagedBytes);
+      assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'corrupt', `Malformed ${slot} state ${index} must not be restored as ready.`);
+      assert.equal(checkpointApi.writeCheckpoint(storage, guestOwner, healthy, { expectedRevision: 1 }).status, 'corrupt');
+      assert.equal(storage.getItem(key), damagedBytes, 'Rejected bytes must remain available for explicit recovery.');
+    }
+  }
+});
+
+await checkAsync('malformed research and log checkpoints enter the existing corrupt recovery path without restoration or overwrite', async () => {
+  for (const missing of ['research', 'log']) {
+    const storage = new MemoryStorage();
+    expectWrite(storage, guestOwner, fixture(`malformed-hook-${missing}`), 0, at(1));
+    const key = checkpointApi.checkpointStorageKey(guestOwner);
+    const envelope = JSON.parse(storage.getItem(key));
+    delete envelope.current[missing];
+    const bytes = JSON.stringify(envelope);
+    storage.setItem(key, bytes);
+    const safe = fixture(`safe-in-memory-${missing}`);
+    const harness = hookHarness({ storage, state: safe });
+    harness.render();
+    await settleHookEffects();
+    const view = harness.render();
+    assert.equal(view.status, 'corrupt');
+    assert.equal(harness.state.runId, safe.runId);
+    assert.equal(harness.writes.restored.length, 0);
+    assert.equal(view.flush().status, 'corrupt');
+    assert.equal(storage.getItem(key), bytes);
+    harness.unmount();
+  }
+});
+
+await checkAsync('server loads reject missing gameplay data before normalization can invent replacement progress', async () => {
+  for (const missing of ['research', 'log', 'civics']) {
+    const current = fixture(`current-before-invalid-server-${missing}`);
+    const remote = fixture(`invalid-server-${missing}`);
+    delete remote[missing];
+    let requests = 0;
+    const scenario = serverPersistenceHarness({ state: current, get: () => Promise.resolve(++requests === 1 ? saveList : saveDetail(remote)) });
+    await scenario.view.loadRun();
+    assert.equal(scenario.calls.setState.length, 0);
+    assert.equal(scenario.calls.difficulty.length, 0);
+    assert.equal(scenario.calls.actionResult.length, 0);
+    assert.equal(scenario.latestStateRef.current, current);
+  }
+});
+
+check('optional metadata can still be backfilled without rejecting a healthy gameplay checkpoint', () => {
+  const storage = new MemoryStorage();
+  const state = fixture('optional-checkpoint-fields');
+  delete state.devTools;
+  delete state.eventChains;
+  delete state.research.lastUnlockText;
+  expectWrite(storage, guestOwner, state, 0, at(1));
+  assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'ready');
+});
+
 console.log(JSON.stringify({ pass: failures.length === 0, checks: checks.length, failures }, null, 2));
 if (failures.length) process.exitCode = 1;

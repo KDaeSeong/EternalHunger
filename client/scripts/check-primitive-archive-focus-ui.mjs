@@ -55,7 +55,7 @@ const inventoryHooksStub = `
   export function useState(initial) {
     const harness = globalThis.__primitiveArchiveInventoryHooks;
     const index = harness.cursor++;
-    if (!(index in harness.values)) harness.values[index] = index === 0 ? 'log' : typeof initial === 'function' ? initial() : initial;
+    if (!(index in harness.values)) harness.values[index] = index === 0 ? harness.workspace || 'log' : typeof initial === 'function' ? initial() : initial;
     return [harness.values[index], (next) => {
       harness.values[index] = typeof next === 'function' ? next(harness.values[index]) : next;
     }];
@@ -675,15 +675,50 @@ check('actual project control receives the selected living-actor gate without di
   assert.match(source, /action="auto"[^\n]+disabled=\{!canAct\}/);
 });
 
+check('one surviving HP keeps the actual recovery controls enabled while terminal runs remain blocked', () => {
+  const state = freshState('one-hp-recovery-controls');
+  state.party = state.party.map((member, index) => ({ ...member, hp: index === 0 ? 1 : 0 }));
+  for (const ended of [false, true]) {
+    const current = { ...state, ended };
+    const canAct = !current.ended && engine.hasLivingPartyMember(current) && current.ap > 0;
+    globalThis.__primitiveArchiveFocusButtons = [];
+    renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, { ...tabProps(current, 'actions'), canAct }));
+    const rest = globalThis.__primitiveArchiveFocusButtons.find((button) => button.action === 'rest');
+    assert.ok(rest);
+    assert.equal(rest.disabled, ended);
+  }
+  const source = readFileSync(new URL('_components/PrimitiveArchivePlayContent.js', routeUrl), 'utf8');
+  assert.match(source, /const dead = state\.ended \|\| !hasLivingPartyMember\(state\);/);
+});
+
 function renderInventoryLog(state, harness = { values: [], cursor: 0 }) {
   harness.cursor = 0;
   globalThis.__primitiveArchiveInventoryHooks = harness;
   globalThis.__primitiveArchiveFocusButtons = [];
   const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveInventoryTab, {
-    ...tabProps(state, 'inventory'), equipmentInventory: [],
+    ...tabProps(state, 'inventory'), equipmentInventory: [], equipmentAdviceRows: [],
+    currentEquipmentRows: engine.equipmentRows(state, state.party[0].id), busy: harness.busy || '',
   }));
   return { html, buttons: globalThis.__primitiveArchiveFocusButtons, harness };
 }
+
+check('equipment remains inspectable but its actual editing controls lock after the run ends or while busy', () => {
+  const base = freshState('equipment-ui-terminal-guards');
+  base.inventory.hide_coat = 1;
+  for (const [ended, busy] of [[false, ''], [true, ''], [false, 'save']]) {
+    const state = { ...base, ended };
+    const rendered = renderInventoryLog(state, { values: [], cursor: 0, workspace: 'equipment', busy });
+    const locked = Boolean(ended || busy);
+    const controls = rendered.buttons.filter((button) => ['equip', 'reset'].includes(button.action));
+    assert.equal(controls.length, 3);
+    assert.ok(controls.every((button) => button.disabled === locked));
+    const slots = [...rendered.html.matchAll(/<label class="primitive-equipment-slot">([\s\S]*?)<\/label>/g)];
+    assert.ok(slots.length > 0);
+    assert.ok(slots.every(([, html]) => /<select[^>]*\bdisabled/.test(html) === locked));
+    assert.match(rendered.html, /가죽 상의/, 'Owned equipment must remain viewable.');
+    if (ended) assert.match(rendered.html, /열람만 가능합니다/);
+  }
+});
 
 check('actual log controls progressively reveal every stored entry and can return to recent entries', () => {
   for (const count of [30, 55]) {

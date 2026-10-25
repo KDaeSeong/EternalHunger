@@ -2156,6 +2156,7 @@ export function equipmentInventoryRows(state) {
 
 export function setEquipmentSlotAction(state, actorId, slot, nextItemId) {
   const current = normalizeState(state);
+  if (current.ended) return addLog(current, '종료된 런의 장비는 변경할 수 없습니다.');
   const actor = getActor(current, actorId);
   if (!actor) return current;
   if (!EQUIPMENT_SLOTS.includes(slot)) return addLog(current, '장비 슬롯을 찾을 수 없습니다.');
@@ -2256,6 +2257,7 @@ function countEquipmentChanges(before, after, party) {
 
 export function autoEquipAction(state, mode = 'role') {
   const current = normalizeState(state);
+  if (current.ended) return addLog(current, '종료된 런의 장비는 변경할 수 없습니다.');
   const safeMode = mode === 'weather' ? 'weather' : 'role';
   const before = normalizeEquipment(current.equipment, current.party);
   const pool = buildEquipmentPool(current);
@@ -2281,6 +2283,7 @@ export function autoEquipAction(state, mode = 'role') {
 
 export function clearAllEquipmentAction(state) {
   const current = normalizeState(state);
+  if (current.ended) return addLog(current, '종료된 런의 장비는 변경할 수 없습니다.');
   const pool = buildEquipmentPool(current);
   const equipment = Object.fromEntries(current.party.map((member) => [member.id, emptyEquipmentSlots()]));
   const inventory = Object.fromEntries(Object.entries(pool).filter(([, qty]) => Number(qty || 0) > 0));
@@ -2290,6 +2293,10 @@ export function clearAllEquipmentAction(state) {
 export function averageParty(state, key) {
   if (!state.party.length) return 0;
   return Math.round(state.party.reduce((sum, member) => sum + Number(member[key] || 0), 0) / state.party.length);
+}
+
+export function hasLivingPartyMember(state) {
+  return state.party.some((member) => Number(member.hp || 0) > 0);
 }
 
 export function averageBodyTemp(state) {

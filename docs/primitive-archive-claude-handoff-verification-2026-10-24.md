@@ -295,3 +295,58 @@ disjoint artifact roots decreased from 1,159,236,550 to 512,595,513 logical byte
 / 4,857 unique files, excluding the new small receipt, with no duplicate
 hardlinks. Receipt: `.local/build-recovery/archive-action-guards-release.json`.
 Originals, saves, current desktop runtime and internal session/Git data remain.
+
+## 2026-10-25: low-HP survival, malformed saves and post-settlement equipment
+
+Completed the next three repairs in the requested priority order:
+
+1. The page now uses `hasLivingPartyMember` instead of rounded average HP to
+   decide defeat. A party with HP [1, 0, 0] can still perform recovery; a truly
+   defeated or ended run stays blocked. Display averages and balance are unchanged.
+2. The checkpoint validator checks required runtime log/weather/advancement
+   structures. Local writes reject invalid in-memory states, local reads mark
+   invalid current/previous snapshots corrupt without overwriting their bytes,
+   and the existing hook exposes its corrupt warning/recovery path instead of
+   restoring them. Server loads use the same validation before normalization so
+   missing research cannot silently turn into invented default progress. Optional
+   metadata can still be backfilled. No save schema/version bump, silent discard,
+   WeakMap normalization cache or real-storage repair was introduced.
+3. Manual equip, role/weather auto-equip and full unequip reject ended runs in
+   the engine. Editing controls are also disabled with an explanatory read-only
+   notice, while equipment and inventory remain inspectable. Tests cover both
+   bagged and equipped items across settled/failed/clear states, unchanged scores,
+   record classification, rewards and ownership. Ongoing low-HP redistribution
+   retains its free-action and carry-weight rules.
+
+The new malformed-save and ended-equipment assertions failed before the fixes.
+The complete fourteen-step archive chain now passes 272 PASS lines / zero FAIL
+lines; output SHA-256:
+`8c9dbee0633ba7e2da6d3ee32f65f4ea251d19c84506284b1684593cd3376b72`.
+There are 41 checkpoint scenarios, eight action-guard scenarios and 22 focused
+UI cases. New corruption scenarios use only isolated in-memory storage, never
+the user's saved bytes or old downloaded result files. Changed-file ESLint,
+`git diff --check` and shared feedback-shell/action-vocabulary/viewport checks
+passed. Production build `mMsiHQ4I863Dk-bG5DyHN` passed both postbuild gates;
+build output SHA-256:
+`ffbb57fb409a27b714644d7f994150ada9fbf43d12cb386349756d6de0b75660`.
+The isolated Node VM Worker smoke is not browser performance evidence.
+
+The local production game route returned HTTP 200. Actual browser inspection
+could not begin because the browser tool failed to write its kernel assets;
+one documented session reset followed by one fresh initialization had the same
+failure. No browser gameplay was performed or injected in this follow-up. The
+owned loopback server was stopped. Controlled engine/hook/actual-JSX proof is
+kept separate from the unavailable live-browser check, natural account expiry
+and outstanding human readability feedback. No public account write occurred.
+
+Build cleanup after verification removed the superseded `3yoQjeFtfuYhQgnfshO2D`
+build (26,640,617 bytes) and the new regenerable cache (618,967,493 bytes):
+645,608,110 bytes total, about 0.60 GiB. The five disjoint managed artifact roots
+decreased from 1,159,265,542 to 513,657,432 file bytes before the small cleanup
+receipt; this is not a whole-workspace allocation measurement. The current
+`mMsiHQ4I863Dk-bG5DyHN` build, immediate previous `lAXKd5Eb9llfo-DmievlT`
+build and unique `lwp9_vqTI-Ed-Tou0wGgP` map-shift reproduction were rehashed and
+preserved. The previous build was moved into the existing fixed recovery path,
+not copied. Exact paths, byte counts, manifests and processing results are in
+the ignored `.local/build-recovery/archive-survival-release-2026-10-25.json`
+receipt. No source, save, original or unrelated artifact was deleted.

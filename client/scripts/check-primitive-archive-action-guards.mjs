@@ -110,5 +110,57 @@ check('automatic operation still uses living companions when the first companion
   assert.ok(next.party.slice(1).some((member) => member.hp > 0));
 });
 
+check('a living one-HP companion is not defeated by rounded party averages', () => {
+  const state = fixture('last-survivor-one-hp');
+  state.party = state.party.map((member, index) => ({ ...member, hp: index === 0 ? 1 : 0 }));
+  assert.equal(engine.averageParty(state, 'hp'), 0, 'The fixture must reproduce the misleading rounded average.');
+  assert.equal(engine.hasLivingPartyMember(state), true);
+  const rested = engine.runRestAction(state, state.party[0].id, { rng: () => 0.5 });
+  assert.ok(rested.party[0].hp > 1);
+  assert.equal(rested.ap, state.ap - 1);
+  assert.equal(engine.hasLivingPartyMember({ ...state, party: state.party.map((member) => ({ ...member, hp: 0 })) }), false);
+});
+
+check('ended equipment changes preserve score, settled rewards and item ownership', () => {
+  const base = fixture('ended-equipment-guards');
+  base.inventory.hide_coat = 1;
+  const equipped = engine.setEquipmentSlotAction(base, base.party[0].id, 'top', 'hide_coat');
+  for (const source of [base, equipped]) {
+    for (const outcome of ['settled', 'failed', 'clear']) {
+      const state = engine.settleRunAction(source);
+      state.victory = outcome === 'clear';
+      if (outcome === 'failed') state.party = state.party.map((member) => ({ ...member, hp: 0 }));
+      const before = structuredClone(state);
+      for (const next of [
+        engine.setEquipmentSlotAction(state, state.party[0].id, 'top', source === base ? 'hide_coat' : ''),
+        engine.autoEquipAction(state, 'role'),
+        engine.autoEquipAction(state, 'weather'),
+        engine.clearAllEquipmentAction(state),
+      ]) {
+        assert.deepEqual(withoutLog(next), withoutLog(before));
+        assert.equal(engine.scoreState(next), engine.scoreState(before));
+        assert.deepEqual(engine.runRecordStatus(next), engine.runRecordStatus(before));
+      }
+      assert.deepEqual(state, before);
+    }
+  }
+});
+
+check('equipment can still be redistributed freely during an active low-HP run', () => {
+  const state = fixture('live-equipment-control');
+  state.inventory.hide_coat = 1;
+  state.party[0].hp = 1;
+  const equipped = engine.setEquipmentSlotAction(state, state.party[0].id, 'top', 'hide_coat');
+  assert.equal(equipped.equipment[state.party[0].id].top, 'hide_coat');
+  assert.equal(equipped.ap, state.ap);
+  assert.equal(engine.totalCarryWeight(equipped), engine.totalCarryWeight(state));
+  const cleared = engine.clearAllEquipmentAction(equipped);
+  assert.equal(cleared.inventory.hide_coat, 1);
+  assert.equal(cleared.ap, state.ap);
+  const automatic = engine.autoEquipAction(cleared, 'weather');
+  assert.ok(Object.values(automatic.equipment).some((slots) => slots.top === 'hide_coat'));
+  assert.equal(automatic.ap, state.ap);
+});
+
 console.log(JSON.stringify({ pass: failures.length === 0, checks, failures }));
 if (failures.length) process.exitCode = 1;

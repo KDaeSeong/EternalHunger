@@ -23,6 +23,7 @@ export default function PrimitiveArchiveInventoryTab(props) {
     actor,
     actorId,
     autoEquip,
+    busy,
     changeEquipmentSlot,
     clearEquipment,
     currentEquipmentRows,
@@ -35,6 +36,7 @@ export default function PrimitiveArchiveInventoryTab(props) {
     setActorId,
     state,
   } = props;
+  const equipmentLocked = Boolean(state.ended || busy);
   const [logView, setLogView] = useState({ runId: state.runId, count: 18 });
   const visibleLogCount = logView.runId === state.runId ? logView.count : 18;
   const hiddenLogCount = Math.max(0, state.log.length - visibleLogCount);
@@ -87,11 +89,12 @@ export default function PrimitiveArchiveInventoryTab(props) {
               </select>
             </label>
             <div>
-              <GameControlButton action="equip" cue="off" onClick={() => autoEquip('role')}>역할 추천</GameControlButton>
-              <GameControlButton action="equip" cue="off" onClick={() => autoEquip('weather')}>날씨 대응</GameControlButton>
-              <GameControlButton action="reset" cue="off" onClick={clearEquipment}>전체 해제</GameControlButton>
+              <GameControlButton action="equip" cue="off" disabled={equipmentLocked} onClick={() => autoEquip('role')}>역할 추천</GameControlButton>
+              <GameControlButton action="equip" cue="off" disabled={equipmentLocked} onClick={() => autoEquip('weather')}>날씨 대응</GameControlButton>
+              <GameControlButton action="reset" cue="off" disabled={equipmentLocked} onClick={clearEquipment}>전체 해제</GameControlButton>
             </div>
           </div>
+          {state.ended ? <p className="games-muted" role="status">종료된 런의 장비는 열람만 가능합니다. 정산된 점수를 보존하기 위해 장비를 변경할 수 없습니다.</p> : null}
           <RecentActionResult
             action={actionFeedback?.action || 'primitive-equip'}
             label={actionFeedback?.label || '최근 장비 결과'}
@@ -111,7 +114,7 @@ export default function PrimitiveArchiveInventoryTab(props) {
                 <label className="primitive-equipment-slot" key={row.slot}>
                   <span>{row.label}</span>
                   <strong>{row.itemName}</strong>
-                  <select value={row.itemId} onChange={(event) => changeEquipmentSlot(row.slot, event.target.value)}>
+                  <select value={row.itemId} disabled={equipmentLocked} onChange={(event) => changeEquipmentSlot(row.slot, event.target.value)}>
                     {choices.map((choice) => (
                       <option value={choice.itemId} key={`${row.slot}-${choice.itemId || 'none'}`}>
                         {choice.name}{choice.qty ? ` x${choice.qty}` : ''}
