@@ -29,6 +29,7 @@ export default function PrimitiveArchiveTribeTab({
   recentActionText,
   rivals = [],
   runDiplomacy,
+  supplies,
   tribe,
 }) {
   const knownCount = rivals.filter((rival) => rival.known).length;
@@ -72,6 +73,9 @@ export default function PrimitiveArchiveTribeTab({
             <>
               <small>다음 날 부족 배식(현재 인구 {tribe.population}명 기준): 재고 {nextFood.stock} + 생산 {nextFood.produced} → 필요 {nextFood.need}단위 · {nextFood.shortage > 0 ? `부족 ${nextFood.shortage}단위` : `잔여 ${nextFood.reserve}단위`}</small>
               <small>부족 전용 식량 전망(2일): {tribe.foodForecast.totalShortage > 0 ? `부족 ${tribe.foodForecast.totalShortage}단위` : '부족 없음'} · 현재 인구·재고·직업 배치 기준이며, 파티 식사분·인구 증가·추가 행동·사업 보상은 포함하지 않습니다.</small>
+              {supplies ? (
+                <small>파티 저녁 예측(부족 배식 후): 필요 영양 {supplies.partyNeed} · 비축 영양 {supplies.partyNutrition} · 부족 {supplies.foodShortage} 영양 단위</small>
+              ) : null}
             </>
           )}
         </div>
@@ -79,7 +83,7 @@ export default function PrimitiveArchiveTribeTab({
 
       <section className="games-panel primitive-job-panel">
         <PrimitiveArchivePanelTitle action="primitive-job" title="직업 배치" meta={`미배치 ${tribe.unassigned}명 · AP 소모 없음`} />
-        <p>{jobEditBlockedReason || '하루 자동 운영은 자동 배치한 일손과 미배치 인원을 식량·실행 가능한 사업에 맞춰 다시 배분합니다. 직접 조정한 직업의 현재 일손은 유지하며, 이전 저장 기록의 배치도 그대로 보존합니다.'}</p>
+        <p>{jobEditBlockedReason || '하루 자동 운영 또는 정착 이후 다음 정산 때 자동 배치 일손과 미배치 인원을 식량·실행 가능한 사업에 맞춰 다시 배분합니다. 직접 조정한 직업의 일손은 유지하며, 이전 저장 기록의 배치도 보존합니다.'}</p>
         <div className="primitive-job-grid">
           {tribe.jobs.map((job) => (
             <article className={job.unlocked ? '' : 'is-locked'} key={job.id}>

@@ -845,6 +845,9 @@
 }
 
 .primitive-era.primitive-archive-page-shell .primitive-action-result {
+  /* Tall inventory results must not cover the next controls in a short pane. */
+  position: static;
+  z-index: auto;
   background: transparent;
 }
 

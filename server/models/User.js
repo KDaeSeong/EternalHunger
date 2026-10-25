@@ -8,6 +8,8 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   // Raised on password change/reset so every previously issued JWT stops working.
   tokenVersion: { type: Number, default: 0 },
+  // Database-level serialization marker for per-user game-save mutations.
+  gameSaveMutationVersion: { type: Number, default: 0, select: false },
   lp: { type: Number, default: 0 }, 
 
   credits: { type: Number, default: 0 }, // 크레딧(로드맵 5번)

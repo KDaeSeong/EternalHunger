@@ -216,8 +216,8 @@ The completion gate is the game's dedicated regression suite, runtime lint, prod
 | 6 | Clarify beginner controls, labels, and guidance | Three primary tabs, four headline metrics, objective/night panels, collapsed optional content and result-first core actions implemented; camp controls reordered, foodless-meal availability and reload result text corrected; earlier local 390px/1280px checks passed. The Oct 24 report of missing current holdings is addressed by an always-present stock bar, inline full inventory and before/after action deltas, with an actual desktop gather/navigation/day-rollover/reload check | Human readability reassessment after the Oct 22 rejection and Oct 24 inventory-visibility report, including actual urgent states and longer labels |
 | 7 | Run short manual, automatic, and mixed playthroughs | Nine manual engine openings; actual short manual settlement; paid-manual-only natural Day 29 clear (114 paid actions), automatic-only Day 47 clear and mixed Day 47 clear; guest and public-account ended reloads passed | Three natural guest outcomes do not establish universal balance or human comprehension |
 
-Additional shared-server finding (2026-10-25, not fixed by the current client
-patch): the game-save PUT route checks the twenty-slot limit separately from
+Earlier shared-server finding (2026-10-25, before the player-feedback repair):
+the game-save PUT route checked the twenty-slot limit separately from
 insertion. Two concurrent different-slot requests starting at nineteen slots can
 both pass the count check. A controlled actual-handler/in-memory reproduction
 ended with twenty-one slots; this was not an actual database or production-account
@@ -226,6 +226,40 @@ slots and updates, avoid a process-only lock presented as multi-instance safety,
 and validate with an isolated database before deployment. Primitive Archive's
 normal quick-save slot and the existing checkpoint/record acceptance evidence
 do not prove that shared quota invariant.
+
+### Manual-run feedback and survival progression (2026-10-25)
+
+The player manually reached Day 207, 244/244 advancements and six living
+companions, then completed and ended the basic archive. The screenshot also
+reports an already-recorded run; that UI observation alone is not a database
+row audit. Hina and Noa died much earlier, outside the supplied Day 103–145
+history. Hunger is the player's plausible explanation, not a recovered cause.
+This long run establishes natural progression, but does not replace the earlier
+1/5 readability scores with an invented passing score. Repeated hunger/fire
+chores after the classical/medieval eras are a new substantive design rejection.
+
+The player explicitly authorized all three early-survival responses and a
+reduction of mature-settlement maintenance:
+
+| Priority | Implemented response | Verification / remaining boundary |
+| --- | --- | --- |
+| 1 | Safe nearby collection: two berries or one wood, guaranteed for one AP, ST 6 and hunger +1, without ordinary gather successes, rare discovery, dialogue rolls or free actions | Fresh engine cases; normal gather/hunt remains probabilistic; last-AP collection still settles the real night |
+| 2 | New normal/easy/very-easy runs receive four more berries and two more wood; hard/nightmare and existing saved inventories are preserved | Exact new-run presets and old depleted-save normalization are checked; deliberately scarce opening fixtures retain their tradeoff gate |
+| 3 | After Settlement, unassigned/automatic workers are allocated even during manual play, preserving all manual and legacy assignments | Five real-engine cases, including a newly grown resident's next settlement production |
+| 4 | Settlement plus Food Storage unlocks evening pantry/fire care without party AP: real food is used for hungry living companions after reserving a tribe ration, and needed firewood maintains an existing fire | Seven real-engine cases; fifteen manual paid day-ending rests use 36 actual evening food items plus 30 tribe portions, berry 250→184; no medicine, resurrection or future production grant |
+| 5 | Distinguish party nutrition from tribe ration units; expose reserves, evening consumption and shortages before the last action; record new deaths with actual damage causes, explain final-AP cooking consumption, and name party/map in navigation | Actual JSX/feedback/individual-night cases; old deaths receive no invented history; fresh human comprehension/fairness assessment remains open |
+| 6 | Lift notifications above the fixed audio/tutorial dock; keep tall action results in document flow so short play panes cannot hide the next action buttons | Shared CSS parse and production build; actual local layout/interaction verification is tracked in the handoff release section |
+
+The shared save-slot race is now repaired by per-user database serialization in
+the same transaction as lookup/count/upsert/delete. Five fast actual-route
+cases, the 145-case server suite and ten isolated replica-set MongoDB cases
+passed. The Mongo acceptance uses two independent authenticated HTTP worker
+processes, including retries, rollback, full-slot updates, legacy over-limit
+rows and user/game isolation. Generated test databases and the temporary
+211,131,943-byte runtime data were removed after normal shutdown; no public
+account was written. The opt-in command is `npm run test:integration:save-slots`
+with an explicitly identified disposable loopback replica set. Deployment and
+readiness checks remain separate from this isolated database proof.
 
 ## Dual Academy TCG v13 Slice Status
 

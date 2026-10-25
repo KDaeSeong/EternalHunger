@@ -520,3 +520,110 @@ to 513,458,882 afterward, including the small receipt (about 0.48 GiB).
 These are file-identity-deduplicated logical bytes, not whole-workspace physical
 allocation. Receipt:
 `.local/build-recovery/archive-workforce-cost-release-2026-10-25.json`.
+
+## Player feedback, evening maintenance and shared save slots (2026-10-25)
+
+The manual player reached Day 207 / 244 advancements / six living companions
+and ended the basic archive. Earlier screenshots and the supplied Day 103–145
+text history expose sustained hunger/fire chores and late recruitment, not the
+unrecorded early causes of Hina/Noa's deaths. New death records now capture the
+actual night/action damage and date at the HP-positive→zero transition; old
+deaths remain explicitly unclassified. A seven-scenario comparison against
+`e215a8db` established that diagnosis-only changes preserved ordinary states,
+logs and RNG apart from those new records/messages. The later authorized
+survival changes below intentionally change balance and are not covered by
+that equivalence claim.
+
+Safe collection spends one AP, fixed ST 6 and hunger +1 for berries +2 or wood
++1, with none of ordinary gathering's chance, discovery, rare loot, success
+counters or dialogue rolls. Day-end costs still apply. Only newly created
+normal/easy/very-easy runs gain the requested opening buffer; hard/nightmare
+and saved inventory normalization are unchanged. Scarce-stock opening fixtures
+are explicit synthetic states, never references to prior player-result files.
+
+Manual play now uses the existing population allocator after Settlement,
+moving only automatic/unassigned workers and retaining all manual/legacy
+assignments. Settlement plus Food Storage enables an evening pantry/fire plan
+shared by preview and actual settlement. It uses only current real stock,
+reserves the tribe's next ration, feeds living high-hunger companions using
+existing food effects, excludes medicine, and pays wood 1→fuel 2 only when an
+existing fire needs fuel. No party AP, new production, free inventory, healing
+resurrection or additional random roll is granted. Forecast stock is reduced
+by the planned evening consumption before its two-day projection. In fifteen
+manual day-ending rests, 36 evening portions and 30 tribe portions reduced
+berries 250→184 exactly; no meal action was issued. This is a controlled
+engine scenario, not universal era balance or a new human satisfaction score.
+
+The first-view reserve panel separates tribe ration units and party nutrition,
+shows real planned use and points shortages to safe collection without
+displacing urgent death/hunger/health/cold, replacement companions or a ready
+ending. Party/map remain under the existing menu with a discoverable name.
+Cooking results now retain the cooking event even when the last AP advances
+the day and tribe feeding immediately consumes the cooked output; an explicit
+consumption note explains a net-zero cooked-meat inventory. Production and
+consumption themselves were not missing and were not duplicated by this fix.
+
+Notifications now clear the fixed game dock. A real 1280×720 preview also
+exposed a different obstruction: the tall sticky result/inventory wrapper
+covered subsequent action controls inside a short pane. The result remains
+first and keeps all inventory deltas, but now stays in normal flow. Final
+browser observations and retained build/cleanup fingerprints are recorded in
+the local release receipt; the overlap reproduction is retained only until
+the corrected build is verified.
+
+The previously documented save-slot race is repaired with a private User
+mutation marker as the first transaction write, followed by slot lookup,
+limit/count and upsert or deletion in that same session. Success is sent after
+commit; failures abort without a success response or a process-only fallback.
+Five current-source handler cases and 145 server unit cases passed. An opt-in
+integration test against the installed MongoDB 8.2.3 used a disposable loopback
+replica set and two independent HTTP processes with separate connections and
+real authentication/routes/indexes. All ten cases passed, including nineteen
+plus two creates, many creates, same-key writes, full and legacy-overfull
+updates, deletion/retry, ownership isolation, private-marker projection,
+injected rollback and transient retry. A setup-only overlong fixture nickname
+was corrected before the complete successful run.
+
+The installed Mongo executable was reused, not copied or downloaded; its
+Authenticode status was NotSigned. Generated databases were dropped, workers
+exited, normal Mongo shutdown completed, and host PID/listener absence was
+verified before deleting 211,131,943 bytes of owned runtime files. Small logs,
+manifest hash and cleanup proof remain in
+`.local/build-recovery/archive-save-slots-acceptance-2026-10-25.json`.
+No production account write, credential disclosure or new local database was
+needed for the later client release. Real session-expiry timing and a new
+human assessment of the corrected survival/readability remain open.
+
+Final local release verification (finished October 26): all seventeen archive
+checker steps passed, including 29 focused actual-JSX cases, 31 individual-night
+cases and the 6/5/7 safe-collection/manual-workforce/evening-care cases. Targeted
+ESLint, shared feedback/viewport/action-vocabulary gates and production build
+`J0Obe-WfBDKDC4PVJqOBo` passed, including both required postbuild gates. Archive
+log SHA-256 is `bd13aa6049327b1b935b2fb29f4c06c5a6949700ae2c8cd6cd4514afbec1903e`;
+build log SHA-256 is `6c3fe9b1115860863ff135622b36cb57d5bceb7286eae51dc39f5462f10df3fa`.
+
+The final actual 1280×720 guest preview successfully executed wood collection
+and then berry collection while the new inventory-result strip remained
+present; AP fell one per action and stock updated exactly. A hydrated reopened
+tab retained Day 1 / AP 1/4 / wood 5 / berries 10 / ST 82 / hunger 15. A direct
+DOM read immediately after reload briefly saw the prerendered default before
+hydration; that is not evidence of saved progress loss. Notification-region
+placement leaves 12 pixels above the real desktop dock and 6 pixels at a
+390×844 viewport (375 pixels of layout width after its scrollbar), with no
+horizontal overflow. The region was empty: this verifies layout geometry,
+not a newly triggered authenticated duplicate-record message. One final screen
+is retained at `artifacts/primitive-archive-player-feedback-20261025.png`;
+the owned tabs and preview server were closed. No account was written.
+
+After path/link/process/size/hash checks, removed only the new webpack cache,
+retired `KngB9ollY3F3saKRvivmY` recovery and resolved action-overlap build
+`A_GhxfiLOAx3LGIz60p61`: 1,298,295,192 bytes total (about 1.21 GiB). Current
+1,277-file runtime remains 27,834,380 bytes with manifest SHA-256
+`d0d6870f27f371cdf29d7bf583511f6bafb415b51a645f4d146510771c846847`.
+Immediate previous `Je4atF2EbZfcIJ5xVwACu` was moved into the fixed recovery
+location, not copied; its 27,809,361-byte manifest and the separate unique
+map-shift reproduction are unchanged. The five disjoint managed artifact
+roots contain 514,258,968 logical file bytes (about 0.48 GiB), deduplicated by
+file identity; this is not the entire repository or physical allocation.
+Paths, hashes, verification counts and cleanup outcomes are retained in
+`.local/build-recovery/archive-player-feedback-release-2026-10-25.json`.

@@ -629,7 +629,7 @@ const RAW_TECH_TREE = [
   },
   {
     id: 'SETTLEMENT', name: '정착', era: 'NEOLITHIC', tier: 1, cost: 20, prereqs: ['SHELTER'], tags: ['CAMP', 'CIVICS'], archiveRequired: true,
-    description: '캠프를 정착지로 확장하고 파티 정원을 늘립니다.',
+    description: '캠프를 정착지로 확장하고 파티 정원을 늘립니다. 하루가 바뀔 때 남는 일손과 자동 배치한 인원을 생산에 배분하며, 직접 지정한 일손은 보존합니다.',
     unlocks: { actions: ['settlement'], passives: ['CAMP_SCORE_UP', 'PARTY_CAP_UP'] },
     eureka: { type: 'campLevel', key: 'shelterLevel', count: 2, bonusPct: 0.25, desc: '대피소 Lv.2 달성' },
     inspiration: { type: 'campLevel', key: 'workbenchLevel', count: 1, bonusPct: 0.15, desc: '작업대 Lv.1 달성' },
@@ -714,7 +714,7 @@ const RAW_TECH_TREE = [
   },
   {
     id: 'FOOD_STORAGE', name: '식량 저장', era: 'ANCIENT', tier: 6, cost: 28, prereqs: ['HEARTH', 'SETTLEMENT'], tags: ['SURVIVAL', 'CAMP'],
-    description: '보존식 제작과 섭취 효율을 높여 장기 생존을 안정화합니다.',
+    description: '보존식 제작과 섭취 효율을 높입니다. 정착지 주민이 밤마다 부족 배식분을 남긴 실제 식량으로 허기 높은 대원을 먹이고, 필요한 때 나무로 기존 모닥불 연료를 보충합니다. 이 저녁 관리에는 파티 행동력을 쓰지 않습니다.',
     unlocks: { actions: ['preserve'], recipes: ['packed_ration'], passives: ['STORAGE_RATIONS_UP'] },
     eureka: { type: 'haveItem', itemId: 'jerky', count: 2, bonusPct: 0.25, desc: '육포 2개 보유' },
   },
@@ -2183,7 +2183,7 @@ export const DIFFICULTY_PRESETS = {
     actionChanceFloor: 0.9,
     actionChanceCap: 0.99,
     scoreMultiplier: 0.65,
-    startInventory: { berry: 4, wood: 2, fiber: 1, meat: 1 },
+    startInventory: { berry: 8, wood: 4, fiber: 1, meat: 1 },
   },
   easy: {
     key: 'easy',
@@ -2197,7 +2197,7 @@ export const DIFFICULTY_PRESETS = {
     coldMultiplier: 0.65,
     staminaRecoveryMultiplier: 1.15,
     scoreMultiplier: 0.85,
-    startInventory: { berry: 2, wood: 1 },
+    startInventory: { berry: 6, wood: 3 },
   },
   normal: {
     key: 'normal',
@@ -2211,7 +2211,7 @@ export const DIFFICULTY_PRESETS = {
     coldMultiplier: 1,
     staminaRecoveryMultiplier: 1,
     scoreMultiplier: 1,
-    startInventory: {},
+    startInventory: { berry: 4, wood: 2 },
   },
   hard: {
     key: 'hard',

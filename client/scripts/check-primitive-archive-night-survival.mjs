@@ -137,6 +137,69 @@ check('night forecasts are read-only, member-specific and match the next real da
   }
 });
 
+check('night deaths record the exact composite projection and readable member-level causes', () => {
+  const state = fixture({ equipment: {}, weather: { id: 'snow', name: '눈', cold: 12, temp: -8, actionMod: 0 } });
+  state.party = state.party.map((member) => member.id === 'hina'
+    ? { ...member, hp: 20, hunger: 100, bodyTemp: 30 }
+    : { ...member, hp: 0 });
+  const projection = engine.nightSurvivalRows(state).find((row) => row.id === 'hina');
+  const next = engine.advanceDay(state, { rng: noEvents });
+  const hina = next.party.find((member) => member.id === 'hina');
+  assert.equal(hina.hp, 0);
+  assert.deepEqual(hina.deathRecord, {
+    day: state.day,
+    source: 'night',
+    hpBefore: 20,
+    damage: projection.damage,
+    coldDamage: projection.coldDamage,
+    hungerDamage: projection.hungerDamage,
+    hypothermiaDamage: projection.hypothermiaDamage,
+    reason: '저체온·허기·추위',
+  });
+  assert.equal(projection.damage, projection.coldDamage + projection.hungerDamage + projection.hypothermiaDamage);
+  assert.ok(next.log.some((line) => line.includes('사망: 히나 HP 20→0')
+    && line.includes(`저체온 ${projection.hypothermiaDamage}`)
+    && line.includes(`허기 ${projection.hungerDamage}`)
+    && line.includes(`추위 ${projection.coldDamage}`)));
+});
+
+check('survivors stay unmarked and previously dead saves gain neither guessed nor repeated causes', () => {
+  const state = fixture({ equipment: {} });
+  state.party[0] = { ...state.party[0], hp: 0 };
+  state.party[1] = { ...state.party[1], hp: 100 };
+  const first = engine.advanceDay(state, { rng: noEvents });
+  assert.equal(Object.hasOwn(first.party[0], 'deathRecord'), false);
+  assert.equal(Object.hasOwn(first.party[1], 'deathRecord'), false);
+  const second = engine.advanceDay(first, { rng: noEvents });
+  assert.equal(Object.hasOwn(second.party[0], 'deathRecord'), false);
+  assert.equal(Object.hasOwn(second.party[1], 'deathRecord'), false);
+  assert.equal(second.log.filter((line) => line.includes('사망:')).length, 0);
+  const restored = engine.normalizeState(JSON.parse(JSON.stringify(state)));
+  assert.equal(Object.hasOwn(restored.party[0], 'deathRecord'), false);
+});
+
+check('an actual failed hunt crossing HP to zero records only its verified action cause', () => {
+  const state = fixture({ ap: 2 });
+  state.party[0] = { ...state.party[0], hp: 1 };
+  const next = engine.runHuntAction(state, 'shiroko', 'forest', { rng: noEvents });
+  const shiroko = next.party.find((member) => member.id === 'shiroko');
+  assert.equal(shiroko.hp, 0);
+  const damage = engine.huntFailureDamage(state);
+  assert.deepEqual(shiroko.deathRecord, {
+    day: state.day,
+    source: 'action',
+    hpBefore: 1,
+    damage,
+    coldDamage: 0,
+    hungerDamage: 0,
+    hypothermiaDamage: 0,
+    reason: '사냥 반격',
+  });
+  assert.ok(damage > 0);
+  assert.ok(next.log.some((line) => line.includes('사망: 시로코 HP 1→0') && line.includes('사냥 반격')));
+  assert.equal(next.ap, state.ap - 1);
+});
+
 check('forecasts respond immediately to a real equipment change and omit dead members', () => {
   const state = fixture(); state.party[2].hp = 0;
   const first = engine.nightSurvivalRows(state);

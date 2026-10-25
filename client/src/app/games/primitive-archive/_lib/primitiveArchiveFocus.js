@@ -1,11 +1,12 @@
 export function primitiveArchiveFocusPlan({
-  state, nightRows = [], research = {}, campActions = [], archiveVictory = {}, ready, busy,
+  state, nightRows = [], research = {}, campActions = [], archiveVictory = {},
+  recruitCandidates = [], partyCap = 0, supplies = null, ready, busy,
 } = {}) {
   const rows = nightRows.filter((row) => Number(row.currentHp) > 0).map((row) => ({ ...row }));
   const risky = rows.filter((row) => Number(row.damage) > 0);
   const night = {
     title: risky.length ? `${risky.length}명에게 밤 피해 예상` : '현재 상태로는 밤 피해 예상 없음',
-    detail: '현재 상태 기준 예상입니다. 마지막 행동력을 쓰면 밤 정산 뒤 다음 날로 넘어가며, 그 전의 행동에 따라 예상치가 달라집니다.',
+    detail: '남은 행동력을 모두 쓰면 밤 정산 뒤 다음 날이 됩니다. 아래 예측은 현재 상태 기준입니다.',
     tone: risky.some((row) => Number(row.hp) <= 0) ? 'danger' : risky.length ? 'warning' : 'ready',
     rows,
   };
@@ -63,11 +64,54 @@ export function primitiveArchiveFocusPlan({
       detail: cold ? '아래 대원별 예상 피해를 보고 모닥불·연료·대피소의 부족한 준비를 확인하세요.' : '아래 예상 피해를 보고 식량과 식사 대상을 확인하세요.',
       targetTab: cold ? 'camp' : 'actions', actionLabel: cold ? '캠프 열기' : '기본 행동 보기',
     };
+  } else if (living.length < 3 && (state?.party || []).some((member) => Number(member.hp || 0) <= 0)) {
+    const deathNotice = '사망한 대원은 이 런에서 되살아나지 않습니다.';
+    if (recruitCandidates.some((candidate) => candidate?.canRecruit)) {
+      objective = {
+        title: `기초 완주에 생존 대원 ${living.length}/3명 필요`,
+        detail: `${deathNotice} 합류 가능한 후보를 선택해 생존 파티를 보충하세요.`,
+        targetTab: 'party', actionLabel: '합류할 대원 선택',
+      };
+    } else if (recruitCandidates.length > 0 && (state?.party || []).length >= partyCap) {
+      objective = {
+        title: `기초 완주에 생존 대원 ${living.length}/3명 필요`,
+        detail: `${deathNotice} 현재 파티 정원 ${partyCap}명이 가득 찼습니다. 정원을 늘릴 발전을 먼저 확인하세요.`,
+        targetTab: 'growth', actionLabel: '파티 정원 발전 확인',
+      };
+    } else if (recruitCandidates.length > 0) {
+      objective = {
+        title: `기초 완주에 생존 대원 ${living.length}/3명 필요`,
+        detail: `${deathNotice} 현재 합류할 수 있는 후보가 없습니다. 발전 화면에서 정원과 합류 조건을 확인하세요.`,
+        targetTab: 'growth', actionLabel: '합류 조건 확인',
+      };
+    } else {
+      objective = {
+        title: `기초 완주에 생존 대원 ${living.length}/3명 필요`,
+        detail: `${deathNotice} 합류 가능한 후보가 남아 있지 않습니다. 현재 런을 정산하거나 새 런을 시작할 수 있습니다.`,
+        targetTab: 'run', actionLabel: '런 관리 열기',
+      };
+    }
   } else if (archiveVictory.canComplete) {
     objective = {
       title: '기초 완주 목표 달성',
       detail: '경기를 완성·종료할지, 종료하지 않고 문명 발전을 이어갈지 선택할 수 있습니다.',
       targetTab: 'run', actionLabel: '완주 선택 확인',
+    };
+  } else if (Number(supplies?.foodShortage || 0) > 0 || Number(supplies?.rationShortage || 0) > 0 || supplies?.fuelShortage) {
+    const foodShortage = Number(supplies?.foodShortage || 0) > 0 || Number(supplies?.rationShortage || 0) > 0;
+    const fuelShortage = Boolean(supplies?.fuelShortage);
+    const foodDetail = [Number(supplies.rationShortage || 0) > 0 ? `부족 배식 ${supplies.rationShortage}단위` : '',
+      Number(supplies.foodShortage || 0) > 0 ? `대원 저녁 영양 ${supplies.foodShortage}` : ''].filter(Boolean).join(' · ');
+    objective = {
+      title: foodShortage && fuelShortage
+        ? '다음 정산 전 식량·땔감 비축'
+        : foodShortage ? '다음 정산 전 저녁 식량 비축' : '다음 정산 전 땔감 비축',
+      detail: foodShortage && fuelShortage
+        ? `${foodDetail} 부족과 모닥불용 땔감 부족이 예상됩니다. 안전 채집으로 확보하세요.`
+        : foodShortage ? `${foodDetail} 부족이 예상됩니다. 안전하게 베리를 줍고 파티 상태를 다시 확인하세요.`
+          : '모닥불 연료가 부족합니다. 안전하게 땔감을 줍거나 캠프의 연료 준비를 확인하세요.',
+      targetTab: 'actions',
+      actionLabel: '안전 채집 열기',
     };
   } else {
     const missingGate = research.gateRows?.find((gate) => !gate.done);
@@ -89,5 +133,5 @@ export function primitiveArchiveFocusPlan({
       };
     }
   }
-  return { objective, night, blocked: false };
+  return { objective, night, supplies, blocked: false };
 }

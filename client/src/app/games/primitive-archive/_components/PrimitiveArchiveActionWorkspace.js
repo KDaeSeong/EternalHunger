@@ -12,6 +12,12 @@ function actingCondition(actor) {
   return { label: '행동 가능', tone: 'ready' };
 }
 
+function safeGatherLabel(row) {
+  if (row?.id === 'berry') return '안전하게 베리 줍기';
+  if (row?.id === 'wood') return '안전하게 땔감 줍기';
+  return row?.label || '안전 채집';
+}
+
 export default function PrimitiveArchiveActionWorkspace(props) {
   const {
     actionFeedback,
@@ -38,6 +44,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
     runResearch,
     runRecoveryChoice,
     runRest,
+    runSafeGather,
     runSpecialized,
     runUtility,
     selectRegion,
@@ -48,6 +55,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
     specializedActions,
     utilityActions,
     state,
+    safeGatherRows,
     zone,
     zoneId,
     zoneSelectionUnlocked,
@@ -144,6 +152,20 @@ export default function PrimitiveArchiveActionWorkspace(props) {
             <ActionButton action="gather" cue="off" disabled={!actorCanAct} onClick={runGather}>채집 · {Math.round(gatherChance * 100)}%</ActionButton>
             <small className="primitive-action-choice__hint">{forecastById.gather?.outcome || '주변 자원을 확보합니다.'} · {forecastById.gather?.cost || 'AP 1'}</small>
           </article>
+          {(safeGatherRows || []).map((row) => (
+            <article className="primitive-action-choice" key={row.id}>
+              <ActionButton
+                action="gather"
+                cue="off"
+                disabled={!actorCanAct || !row.enabled}
+                title={row.enabled ? `${row.outcome} · ${row.costText}` : `${row.reason || row.outcome} · ${row.costText}`}
+                onClick={() => runSafeGather(row.id)}
+              >{safeGatherLabel(row)}</ActionButton>
+              <small className="primitive-action-choice__hint">
+                {row.enabled ? row.outcome : row.reason || row.outcome} · {row.costText}
+              </small>
+            </article>
+          ))}
           <article className="primitive-action-choice">
             <ActionButton action="combat" cue="off" disabled={!actorCanAct} onClick={runHunt}>사냥 · {Math.round(huntChance * 100)}%</ActionButton>
             <small className="primitive-action-choice__hint">{forecastById.hunt?.outcome || '식량을 노리며 실패 시 피해를 입을 수 있습니다.'} · {forecastById.hunt?.cost || 'AP 1'}</small>

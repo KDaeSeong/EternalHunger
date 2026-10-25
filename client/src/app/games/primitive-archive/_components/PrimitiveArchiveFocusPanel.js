@@ -2,7 +2,7 @@ import { GameControlButton } from '../../_components/GamePlayPrimitives';
 
 export default function PrimitiveArchiveFocusPanel({ plan, onNavigate }) {
   if (!plan) return null;
-  const { objective, night, blocked } = plan;
+  const { objective, night, blocked, supplies } = plan;
   const dangerRows = night.rows.filter((row) => Number(row.damage) > 0);
   return (
     <section className="primitive-focus-panel" aria-label="현재 목표와 밤 대비">
@@ -32,6 +32,12 @@ export default function PrimitiveArchiveFocusPanel({ plan, onNavigate }) {
           </ul>
         ) : null}
         <p>{night.detail}</p>
+        {supplies ? (
+          <small className="primitive-focus-supplies" aria-label="비축과 저녁 관리 안내">
+            <strong>비축</strong> {supplies.reserveText}<br />
+            <strong>저녁 관리</strong> {supplies.careText}
+          </small>
+        ) : null}
       </article>
     </section>
   );

@@ -127,7 +127,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
         </div>
         <details className="primitive-secondary-navigation">
           <summary>
-            다른 화면 <span>현재: {activeTab.label}</span>
+            파티·지도 등 <span>현재: {activeTab.label}</span>
           </summary>
           <div
             className="primitive-secondary-navigation__items"

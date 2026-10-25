@@ -47,7 +47,7 @@ export function actionLabel(action) {
 
 export function vitalBadges(member) {
   const badges = [];
-  if (Number(member.hp || 0) <= 0) badges.push('탈진');
+  if (Number(member.hp || 0) <= 0) badges.push('사망');
   else if (Number(member.hp || 0) <= 35) badges.push('부상');
   if (Number(member.hunger || 0) >= 80) badges.push('허기');
   if (Number(member.bodyTemp ?? 37) <= 34.5) badges.push('저체온');

@@ -60,6 +60,7 @@ import {
   researchSummary,
   regionalActionChance,
   rivalTribeRows,
+  safeGatherActionRows,
   runCampAction,
   runCivicAction,
   runCraftAction,
@@ -75,11 +76,13 @@ import {
   runRecoveryChoiceAction,
   runResearchAction,
   runRestAction,
+  runSafeGatherAction,
   scoreState,
   selectProjectAction,
   selectCivicAction,
   selectRegionAction,
   selectTechAction,
+  survivalSupplySummary,
   setEquipmentSlotAction,
   specializedActionRows,
   utilityActionRows,
@@ -239,6 +242,7 @@ export default function PrimitiveArchivePlayContent() {
   const zone = selectedRegion?.zone || ZONES[0];
   const gatherChance = regionalActionChance(state, actorId, 'gather', activeRegionId);
   const huntChance = regionalActionChance(state, actorId, 'hunt', activeRegionId);
+  const safeGatherRows = useMemo(() => safeGatherActionRows(state, actorId), [actorId, state]);
   const craftChance = recipe?.unlocked ? actionChance(state, actorId, 'craft', recipe.baseChance - 0.18) : 0;
   const research = useMemo(() => researchSummary(state), [state]);
   const civics = useMemo(() => civicsSummary(state), [state]);
@@ -265,6 +269,7 @@ export default function PrimitiveArchivePlayContent() {
   const perks = useMemo(() => perkRows(state), [state]);
   const projects = useMemo(() => projectRows(state), [state]);
   const tribe = useMemo(() => tribeSummary(state), [state]);
+  const supplies = useMemo(() => survivalSupplySummary(state), [state]);
   const rivals = useMemo(() => rivalTribeRows(state, actorId), [actorId, state]);
   const selectedProject = projects.find((project) => project.selected && !project.completed)
     || projects.find((project) => project.available && !project.completed)
@@ -514,6 +519,14 @@ export default function PrimitiveArchivePlayContent() {
   const runGather = () => {
     if (!canAct) return;
     applyAction('채집', (current) => runGatherAction(current, actorId, activeRegionId));
+  };
+
+  const runSafeGather = (resourceId) => {
+    if (!canAct) return;
+    const label = resourceId === 'berry' ? '안전하게 베리 줍기'
+      : resourceId === 'wood' ? '안전하게 땔감 줍기'
+        : safeGatherRows.find((candidate) => candidate.id === resourceId)?.label || '안전 채집';
+    applyAction(label, (current) => runSafeGatherAction(current, actorId, resourceId));
   };
 
   const runHunt = () => {
@@ -809,6 +822,9 @@ export default function PrimitiveArchivePlayContent() {
     research,
     campActions,
     archiveVictory,
+    recruitCandidates,
+    partyCap,
+    supplies,
     ready: checkpoint.ready,
     busy,
   });
@@ -913,6 +929,8 @@ export default function PrimitiveArchivePlayContent() {
         runDiplomacy={runDiplomacy}
         runEat={runEat}
         runGather={runGather}
+        runSafeGather={runSafeGather}
+        safeGatherRows={safeGatherRows}
         runHunt={runHunt}
         runProject={runProject}
         runEventChain={runEventChain}
@@ -949,6 +967,7 @@ export default function PrimitiveArchivePlayContent() {
         techs={techs}
         technologyPlannerRows={plannerRows}
         tribe={tribe}
+        supplies={supplies}
         token={token}
         updateDeveloperTools={updateDeveloperTools}
         hydrated={hydrated}

@@ -192,7 +192,7 @@ const ACTION_RESULT_PATTERNS = {
   '휴식': /휴식했습니다/,
   '연구': /연구/,
   '부족 회의': /부족 회의|사회 제도/,
-  '캠프': /연료|모닥불|대피소|작업대|기록실|필사대|서가|고기를 구웠/,
+  '캠프': /(?:모닥불 연료를 보충했습니다|모닥불을 업그레이드했습니다|대피소를 보강했습니다|작업대를 만들었습니다|기록실을 세웠습니다|필사대를 만들었습니다|서가를 세웠습니다|고기를 구웠|(?:연료 넣기|모닥불 강화|대피소 강화|작업대 제작|고기 굽기):|기록실은 |필사대는 |서가는 )/,
   '부족 프로젝트': /프로젝트|공동 작업/,
   '행동 지역 변경': /행동 지역/,
   '연구 목표 변경': /연구 목표/,
@@ -286,6 +286,27 @@ export function primitiveActionResultText(previous, current, label, fallback = '
   return matched || newLogs[0] || fallback || `${label || '행동'}을 실행했습니다.`;
 }
 
+function cookedMeatSettlementNote(previous, current, label) {
+  if (label !== '캠프' || !previous?.runId || previous.runId !== current?.runId) return '';
+
+  const previousDay = Number(previous.day);
+  const currentDay = Number(current.day);
+  const previousProductionSerial = Number(previous.tribe?.productionSerial);
+  const currentProductionSerial = Number(current.tribe?.productionSerial);
+  const cookedMeatSpent = Number(current.tribe?.lastProduction?.foodSpent?.cooked_meat);
+  const cookedMeatCount = Math.floor(cookedMeatSpent);
+  const cookedMeatWasProduced = newActionLogs(previous, current, label)
+    .some((line) => /고기를 구웠습니다\. 구운 고기 \+1\./.test(line));
+
+  if (!Number.isFinite(previousDay) || !Number.isFinite(currentDay) || currentDay <= previousDay
+    || !Number.isFinite(previousProductionSerial) || !Number.isFinite(currentProductionSerial)
+    || currentProductionSerial <= previousProductionSerial
+    || !Number.isFinite(cookedMeatSpent) || cookedMeatCount <= 0
+    || !cookedMeatWasProduced) return '';
+
+  return `하루 정산에서 구운 고기 ${cookedMeatCount}개를 부족 식량으로 소비했습니다.`;
+}
+
 export function primitiveRestoredResultText(state, fallback = '이 브라우저의 진행을 복구했습니다.') {
   const logs = Array.isArray(state?.log)
     ? state.log.filter((line) => typeof line === 'string' && line.trim())
@@ -354,9 +375,11 @@ export function primitiveActionResultPresentation(previous, current, label, opti
   const inventoryChange = primitiveInventoryChange(previous, current);
   const showInventoryChange = inventoryChange
     && (inventoryChange.rows.length || actionProgressed(previous, current, label));
+  const resultDetail = feedback.detail || detail;
+  const settlementNote = cookedMeatSettlementNote(previous, current, label);
   return {
     ...feedback,
-    detail: feedback.detail || detail,
+    detail: settlementNote ? `${resultDetail} ${settlementNote}` : resultDetail,
     ...(showInventoryChange ? { inventoryChange } : {}),
   };
 }

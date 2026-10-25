@@ -2,11 +2,33 @@ const express = require('express');
 const mongoose = require('mongoose');
 
 const GameSaveSlot = require('../models/GameSaveSlot');
+const User = require('../models/User');
 
 const router = express.Router();
 
 const MAX_SAVE_BYTES = toPositiveInt(process.env.GAME_SAVE_MAX_BYTES, 1024 * 1024);
 const MAX_SLOTS_PER_GAME = toPositiveInt(process.env.GAME_SAVE_MAX_SLOTS_PER_GAME, 20);
+const SAVE_TRANSACTION_OPTIONS = {
+  readPreference: 'primary',
+  readConcern: { level: 'snapshot' },
+  writeConcern: { w: 'majority' },
+};
+
+class GameSaveRouteError extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+async function acquireSaveMutationLock(userId, session) {
+  const result = await User.updateOne(
+    { _id: userId },
+    { $inc: { gameSaveMutationVersion: 1 } },
+    { session }
+  );
+  if (result.matchedCount !== 1) throw new GameSaveRouteError('GAME_SAVE_USER_NOT_FOUND');
+}
 
 function toPositiveInt(value, fallback) {
   const n = Number(value);
@@ -125,14 +147,6 @@ router.put('/:gameSlug/:slotKey', async (req, res) => {
       return res.status(413).json({ error: `저장 데이터는 ${MAX_SAVE_BYTES.toLocaleString('ko-KR')}바이트 이내로 입력해주세요.` });
     }
 
-    const existing = await GameSaveSlot.findOne({ userId, gameSlug, slotKey }).select('_id').lean();
-    if (!existing) {
-      const count = await GameSaveSlot.countDocuments({ userId, gameSlug });
-      if (count >= MAX_SLOTS_PER_GAME) {
-        return res.status(400).json({ error: `게임별 저장 슬롯은 ${MAX_SLOTS_PER_GAME}개까지 만들 수 있습니다.` });
-      }
-    }
-
     const lastPlayedAt = req.body?.lastPlayedAt ? new Date(req.body.lastPlayedAt) : null;
     const patch = {
       userId,
@@ -146,18 +160,40 @@ router.put('/:gameSlug/:slotKey', async (req, res) => {
       lastPlayedAt: lastPlayedAt && !Number.isNaN(lastPlayedAt.getTime()) ? lastPlayedAt : new Date(),
     };
 
-    const row = await GameSaveSlot.findOneAndUpdate(
-      { userId, gameSlug, slotKey },
-      { $set: patch },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    ).lean();
+    const row = await GameSaveSlot.db.transaction(async (session) => {
+      // This write is deliberately the first database operation in the transaction.
+      // MongoDB write-conflict retries serialize save mutations for this account
+      // across every server instance; counts use all existing slot rows.
+      await acquireSaveMutationLock(userId, session);
+
+      const existing = await GameSaveSlot.findOne({ userId, gameSlug, slotKey })
+        .select('_id')
+        .session(session)
+        .lean();
+      if (!existing) {
+        const count = await GameSaveSlot.countDocuments({ userId, gameSlug }).session(session);
+        if (count >= MAX_SLOTS_PER_GAME) throw new GameSaveRouteError('GAME_SAVE_SLOT_LIMIT');
+      }
+
+      return GameSaveSlot.findOneAndUpdate(
+        { userId, gameSlug, slotKey },
+        { $set: patch },
+        { new: true, upsert: true, setDefaultsOnInsert: true, session }
+      ).lean();
+    }, SAVE_TRANSACTION_OPTIONS);
 
     res.json({ message: '저장 슬롯을 저장했습니다.', save: mapSlot(row, { includePayload: true }) });
   } catch (err) {
-    console.error(err);
+    if (err?.code === 'GAME_SAVE_USER_NOT_FOUND') {
+      return res.status(401).json({ error: '로그인이 필요합니다.' });
+    }
+    if (err?.code === 'GAME_SAVE_SLOT_LIMIT') {
+      return res.status(400).json({ error: `게임별 저장 슬롯은 ${MAX_SLOTS_PER_GAME}개까지 만들 수 있습니다.` });
+    }
     if (err?.code === 11000) {
       return res.status(409).json({ error: '저장 슬롯이 충돌했습니다. 다시 시도해주세요.' });
     }
+    console.error(err);
     res.status(500).json({ error: '저장 슬롯 저장에 실패했습니다.' });
   }
 });
@@ -171,11 +207,21 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ error: '저장 슬롯 ID가 올바르지 않습니다.' });
     }
 
-    const result = await GameSaveSlot.deleteOne({ _id: id, userId });
-    if (!result.deletedCount) return res.status(404).json({ error: '저장 슬롯을 찾을 수 없습니다.' });
+    await GameSaveSlot.db.transaction(async (session) => {
+      // Keep deletion in the same per-user serialization order as create/update.
+      await acquireSaveMutationLock(userId, session);
+      const result = await GameSaveSlot.deleteOne({ _id: id, userId }).session(session);
+      if (!result.deletedCount) throw new GameSaveRouteError('GAME_SAVE_NOT_FOUND');
+    }, SAVE_TRANSACTION_OPTIONS);
 
     res.json({ message: '저장 슬롯을 삭제했습니다.' });
   } catch (err) {
+    if (err?.code === 'GAME_SAVE_USER_NOT_FOUND') {
+      return res.status(401).json({ error: '로그인이 필요합니다.' });
+    }
+    if (err?.code === 'GAME_SAVE_NOT_FOUND') {
+      return res.status(404).json({ error: '저장 슬롯을 찾을 수 없습니다.' });
+    }
     console.error(err);
     res.status(500).json({ error: '저장 슬롯 삭제에 실패했습니다.' });
   }

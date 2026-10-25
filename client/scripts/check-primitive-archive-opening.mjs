@@ -15,9 +15,12 @@ function seededRng(seed) {
   };
 }
 
-function openingFixture(seed) {
+function openingFixture(seed, scarceStart = false) {
   const rng = seededRng(seed);
   const base = engine.createNewState({ difficulty: 'normal', rng, runId: `opening-${seed}`, now: '2026-10-21T00:00:00.000Z' });
+  // Keep a deliberately depleted stock case alongside the strengthened new
+  // run supplies. Scarcity tradeoffs must not require hurting every new run.
+  if (scarceStart) base.inventory = { ...base.inventory, wood: 2, berry: 2 };
   return { state: engine.normalizeState(base), rng };
 }
 
@@ -73,8 +76,8 @@ function chooseAction(state, strategy, options) {
   return { label: 'gather', run: () => engine.runGatherAction(state, bestActor(state, 'gather'), '', options) };
 }
 
-function runOpening(strategy, seed, { resumeAfterDayOne = false } = {}) {
-  const { state: initial, rng } = openingFixture(seed);
+function runOpening(strategy, seed, { resumeAfterDayOne = false, scarceStart = false } = {}) {
+  const { state: initial, rng } = openingFixture(seed, scarceStart);
   const options = { rng };
   let state = initial;
   let blocked = 0;
@@ -174,20 +177,25 @@ const differentPairs = pairedRows.flatMap((byStrategy, seedIndex) => {
 assert.ok(differentPairs.filter((pair) => !pair.sameVector).length >= 2,
   'At least two same-seed strategy pairs must differ on measured HP/hunger/food/camp outcomes.');
 const facilityScore = (metrics) => metrics.camp.split('/').reduce((sum, level) => sum + Number(level || 0), 0);
-const tradeoffPair = differentPairs.find((pair) => !pair.sameVector && (
+const scarceRuns = STRATEGIES.flatMap((strategy) => SEEDS.map((seed) => runOpening(strategy, seed, { scarceStart: true })));
+const scarcePairs = SEEDS.flatMap((seed) => {
+  const group = scarceRuns.filter((run) => run.metrics.seed === seed).map((run) => run.metrics);
+  return group.flatMap((left, index) => group.slice(index + 1).map((right) => ({ seed, left, right })));
+});
+const tradeoffPair = scarcePairs.find((pair) => (
   (pair.left.food > pair.right.food && facilityScore(pair.left) < facilityScore(pair.right) && pair.left.hp < pair.right.hp)
   || (pair.right.food > pair.left.food && facilityScore(pair.right) < facilityScore(pair.left) && pair.right.hp < pair.left.hp)
 ));
-assert.ok(tradeoffPair, 'At least one same-seed pair must show food versus camp/HP tradeoffs, without asserting a universal winner.');
+assert.ok(tradeoffPair, 'At least one deliberately scarce same-seed pair must show food versus camp/HP tradeoffs, without asserting a universal winner.');
 const viableOpenings = STRATEGIES.filter((strategy) => runs
   .filter((run) => run.metrics.strategy === strategy)
   .every((run) => run.metrics.survivors > 0 && !run.metrics.ended));
 assert.ok(viableOpenings.length >= 2, 'At least two tested opening priorities must be viable across all three seeds.');
 
-const fuelShortage = runs.flatMap((run) => run.state.log
+const fuelShortage = [...runs, ...scarceRuns].flatMap((run) => run.state.log
   .filter((line) => line.includes('모닥불 연료가 없어 모닥불 보온 없이 밤을 보냈습니다.'))
   .map((line) => `${run.metrics.strategy}/${run.metrics.seed}: ${line}`))[0];
-const explainedHuntFailure = runs.flatMap((run) => run.state.log
+const explainedHuntFailure = [...runs, ...scarceRuns].flatMap((run) => run.state.log
   .filter((line) => line.includes('사냥 실패') && /HP -\d+/.test(line))
   .map((line) => `${run.metrics.strategy}/${run.metrics.seed}: ${line}`))[0];
 assert.ok(fuelShortage, 'A fire without paid fuel must be reported as lacking camp warmth.');

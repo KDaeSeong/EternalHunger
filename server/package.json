@@ -8,6 +8,7 @@
     "dev": "nodemon index.js",
     "test": "node --test tests/*.test.js",
     "test:integration:archive-records": "node --test tests/game-record-mongo.integration.js",
+    "test:integration:save-slots": "node --test tests/game-save-slots-mongo.integration.js",
     "import:er:hash": "node scripts/import_er_openapi.js hash",
     "import:er": "node scripts/import_er_openapi.js import",
     "import:er:auto": "node scripts/import_er_openapi.js import --auto",

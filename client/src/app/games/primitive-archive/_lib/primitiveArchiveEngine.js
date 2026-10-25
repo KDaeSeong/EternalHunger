@@ -1482,7 +1482,8 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
       next = { ...next, inventory: addItems(next.inventory, rewards) };
       outcome = `${rival.name} 약탈 성공: ${formatGains(rewards)} · 관계 ${relationDelta}.`;
     } else {
-      next = updateActor(next, actor.id, { hp: clamp(Number(actor.hp || 0) - 14, 0, 100) });
+      next = updateActorAfterActionDamage(next, actor.id,
+        { hp: clamp(Number(actor.hp || 0) - 14, 0, 100) }, 14, '약탈 반격');
       outcome = `${rival.name} 약탈 실패: ${actor?.name || '대원'} HP -14 · 관계 ${relationDelta}.`;
     }
   }
@@ -2328,6 +2329,28 @@ export function updateActor(state, actorId, patch) {
   };
 }
 
+function updateActorAfterActionDamage(state, actorId, patch, damage, reason) {
+  const before = getActor(state, actorId);
+  const hpBefore = Number(before?.hp || 0);
+  const next = updateActor(state, actorId, patch);
+  const after = getActor(next, actorId);
+  if (hpBefore <= 0 || Number(after?.hp || 0) > 0) return next;
+  const record = {
+    day: Number(state.day || 1),
+    source: 'action',
+    hpBefore,
+    damage: Math.max(0, Number(damage || 0)),
+    coldDamage: 0,
+    hungerDamage: 0,
+    hypothermiaDamage: 0,
+    reason,
+  };
+  return addLog({
+    ...next,
+    party: next.party.map((member) => member.id === actorId ? { ...member, deathRecord: record } : member),
+  }, `사망: ${after?.name || actorId} HP ${hpBefore}→${Number(after?.hp || 0)} · 원인 ${reason} (피해 ${record.damage}).`);
+}
+
 function withEventCounter(state) {
   return {
     ...state,
@@ -2963,10 +2986,10 @@ export function runEventChainAction(state, actorId, chainId, options = {}) {
     const target = getActor(next, actingActorId);
     const damage = eventRiskDamage(next, actingActorId, Number(def.failDamage || 6), action);
     const staminaLoss = Math.max(4, Number(def.failStamina || 8) - (hasEventSupportGear(next, actingActorId, action) ? 2 : 0));
-    next = updateActor(next, actingActorId, {
+    next = updateActorAfterActionDamage(next, actingActorId, {
       hp: clamp(Number(target.hp || 0) - damage, 0, 100),
       stamina: clamp(Number(target.stamina || 0) - staminaLoss, 0, 100),
-    });
+    }, damage, '탐험 중 피해');
     next = addEventLog(next, `${actor?.name || '파티'}가 ${row.title} 대응에 실패했습니다. HP -${damage}, 스태미나 -${staminaLoss}.`);
   }
 
@@ -3169,7 +3192,8 @@ function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true,
     }
     const baseDamage = zoneId === 'cave' ? 4 : zoneId === 'river' ? 2 : 3;
     const damage = eventRiskDamage(next, actorId, baseDamage, 'gather');
-    next = updateActor(next, actorId, { hp: clamp(Number(actor.hp || 0) - damage, 0, 100) });
+    next = updateActorAfterActionDamage(next, actorId,
+      { hp: clamp(Number(actor.hp || 0) - damage, 0, 100) }, damage, '탐험 중 피해');
     const failNote = zoneId === 'cave'
       ? '낙석을 피해 물러났습니다'
       : zoneId === 'river'
@@ -3190,10 +3214,10 @@ function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true,
       };
       const chainResult = openEventChainFromRewards(next, rewards, { action: 'hunt', zoneId });
       next = chainResult.state;
-      next = updateActor(next, actorId, {
+      next = updateActorAfterActionDamage(next, actorId, {
         hp: clamp(Number(actor.hp || 0) - damage, 0, 100),
         stamina: clamp(Number(actor.stamina || 0) - staminaLoss, 0, 100),
-      });
+      }, damage, '사냥 중 피해');
       const costText = [
         `HP -${damage}`,
         staminaLoss > 0 ? `스태미나 -${staminaLoss}` : '',
@@ -3203,10 +3227,10 @@ function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true,
     }
     const damage = eventRiskDamage(next, actorId, zoneId === 'plains' || zoneId === 'cave' ? 7 : 5, 'hunt');
     const staminaLoss = zoneId === 'plains' || zoneId === 'cave' ? 7 : 6;
-    next = updateActor(next, actorId, {
+    next = updateActorAfterActionDamage(next, actorId, {
       hp: clamp(Number(actor.hp || 0) - damage, 0, 100),
       stamina: clamp(Number(actor.stamina || 0) - staminaLoss, 0, 100),
-    });
+    }, damage, '사냥 반격');
     const failName = zoneId === 'plains'
       ? '대형 짐승의 돌진'
       : zoneId === 'cave'
@@ -3510,41 +3534,163 @@ function nightSurvivalProjection(state, member, exposure = nightColdExposure(sta
     damage, coldDamage: exposure.coldDamage, hungerDamage, hypothermiaDamage };
 }
 
+function nightDeathReason(projection) {
+  return [
+    projection.hypothermiaDamage > 0 ? '저체온' : '',
+    projection.hungerDamage > 0 ? '허기' : '',
+    projection.coldDamage > 0 ? '추위' : '',
+  ].filter(Boolean).join('·');
+}
+
+function settlementEveningPlan(state) {
+  const unlocked = Boolean(state.research?.completed?.SETTLEMENT && state.research?.completed?.FOOD_STORAGE);
+  const result = { state, unlocked, meals: [], foodSpent: {}, woodSpent: 0, fuelAdded: 0 };
+  if (!unlocked || state.ended || !livingParty(state).length) return result;
+
+  // Residents maintain existing supplies; neither tomorrow's production nor
+  // free meals/fuel are borrowed. Manual party actions keep their normal cost.
+  let next = state;
+  if (autoNightNeedsFire(next) && Number(next.camp.fuel || 0) <= 0 && Number(next.inventory.wood || 0) >= 1) {
+    next = {
+      ...next,
+      inventory: spendResources(next.inventory, { wood: 1 }),
+      camp: { ...next.camp, fuel: Number(next.camp.fuel || 0) + 2 },
+    };
+    result.woodSpent = 1;
+    result.fuelAdded = 2;
+  }
+
+  const reserve = Math.ceil(Number(next.tribe.population || 0) / 4);
+  const targets = livingParty(next).slice().sort((a, b) => Number(b.hunger || 0) - Number(a.hunger || 0)
+    || Number(a.hp || 0) - Number(b.hp || 0));
+  const updates = new Map();
+  for (const target of targets) {
+    let member = target;
+    if (nightSurvivalProjection(next, member).hunger <= 60) continue;
+    const used = [];
+    while (nightSurvivalProjection(next, member).hunger > 45) {
+      const deficit = nightSurvivalProjection(next, member).hunger - 45;
+      const foods = FOOD_RECOVERY_IDS.filter((foodId) => Number(next.inventory[foodId] || 0) >= 1
+        && foodNutritionValue(next, foodId) > 0
+        && tribeFoodStock(spendResources(next.inventory, { [foodId]: 1 })) >= reserve);
+      // Prefer a small sufficient portion, otherwise the most nutritious real
+      // portion. Keep the next tribe ration intact and medicine out of meals.
+      foods.sort((a, b) => {
+        const aValue = foodNutritionValue(next, a);
+        const bValue = foodNutritionValue(next, b);
+        return (aValue >= deficit ? 0 : 1) - (bValue >= deficit ? 0 : 1)
+          || (aValue >= deficit && bValue >= deficit ? aValue - bValue : bValue - aValue);
+      });
+      const foodId = foods[0];
+      if (!foodId) break;
+      next = { ...next, inventory: spendResources(next.inventory, { [foodId]: 1 }) };
+      member = { ...member, ...mealRecoveryFields(member, {
+        nutrition: foodNutritionValue(next, foodId), heal: foodHealValue(next, foodId),
+        warmth: foodId === 'cooked_meat' ? 0.45 : foodId === 'packed_ration' ? 0.18 : 0,
+      }) };
+      used.push(foodId);
+      result.foodSpent[foodId] = Number(result.foodSpent[foodId] || 0) + 1;
+    }
+    if (used.length) {
+      updates.set(member.id, member);
+      result.meals.push({ id: member.id, name: member.name, items: used });
+    }
+  }
+  if (updates.size || result.woodSpent) {
+    const count = result.meals.reduce((sum, row) => sum + row.items.length, 0);
+    next = { ...next, party: next.party.map((member) => updates.get(member.id) || member),
+      counters: { ...next.counters, meals: Number(next.counters.meals || 0) + count } };
+  }
+  return { ...result, state: next };
+}
+
+export function survivalSupplySummary(state) {
+  const current = normalizeState(state);
+  const plan = settlementEveningPlan(current);
+  const rationNeed = Math.ceil(Number(current.tribe.population || 0) / 4);
+  const afterRation = consumeTribeFood(current.inventory, rationNeed);
+  const partyNeed = livingParty(current).reduce((sum, member) => {
+    const hunger = nightSurvivalProjection(current, member).hunger;
+    return sum + (hunger > 60 ? hunger - 45 : 0);
+  }, 0);
+  const partyNutrition = FOOD_RECOVERY_IDS.reduce((sum, id) => sum
+    + Number(afterRation.inventory[id] || 0) * foodNutritionValue(current, id), 0);
+  const forecast = forecastTribeFood(plan.state, current.tribe.assignments, true);
+  const fuelNeeded = autoNightNeedsFire(current) && Number(current.camp.fuel || 0) <= 0;
+  const foodShortage = Math.max(0, partyNeed - partyNutrition);
+  const rationShortage = Math.max(0, rationNeed - tribeFoodStock(current.inventory));
+  const pendingMeals = livingParty(plan.state).filter((member) => nightSurvivalProjection(plan.state, member).hunger > 60).length;
+  return {
+    rationNeed, rationStock: tribeFoodStock(current.inventory), rationShortage, partyNeed, partyNutrition, foodShortage,
+    forecast, fuelNeeded, fuelShortage: fuelNeeded && Number(current.inventory.wood || 0) < 1,
+    careUnlocked: plan.unlocked, careActive: plan.unlocked && !current.ended,
+    peopleFed: plan.meals.length, foodSpent: plan.foodSpent, fuelAdded: plan.fuelAdded,
+    woodSpent: plan.woodSpent, pendingMeals,
+    reserveText: `부족 배식 하루 ${rationNeed} / 재고 ${tribeFoodStock(current.inventory)}단위 · 대원 저녁 필요 영양 ${partyNeed} / 부족 몫을 뺀 비축 영양 ${partyNutrition}.`,
+    careText: current.ended ? '' : plan.unlocked
+      ? `정착지 관리(AP 0): ${plan.meals.length}명 배식${Object.keys(plan.foodSpent).length ? ` (${Object.entries(plan.foodSpent).map(([id, count]) => `${itemName(id)} ${count}개`).join(', ')} 소비)` : ''} · ${plan.fuelAdded ? `나무 ${plan.woodSpent}개 → 연료 +${plan.fuelAdded}` : '연료 추가 보충 없음'}. 실제 비축분만 사용합니다.${pendingMeals ? ` ${pendingMeals}명은 식량이 부족합니다.` : ''}`
+      : '정착: 남는 일손 자동 배치 · 식량 저장: 비축분으로 저녁 배식·연료 보충(AP 0).',
+  };
+}
+
 export function nightSurvivalRows(state) {
   const current = normalizeState(state);
   if (current.ended) return [];
-  return livingParty(current).map((member) => {
-    const exposure = nightColdExposure(current, member);
+  const prepared = settlementEveningPlan(current).state;
+  return livingParty(prepared).map((member) => {
+    const exposure = nightColdExposure(prepared, member);
     return {
       id: member.id,
       name: member.name,
-      currentHp: Number(member.hp || 0),
-      insulation: actorInsulation(current, member.id),
+      currentHp: Number(getActor(current, member.id).hp || 0),
+      insulation: actorInsulation(prepared, member.id),
       warmth: exposure.warmth,
-      ...nightSurvivalProjection(current, member, exposure),
+      ...nightSurvivalProjection(prepared, member, exposure),
     };
   });
 }
 
 export function advanceDay(state, options = {}) {
+  if (state.ended) return state;
   // Party meals, crafting and discoveries can change the shared stock after
-  // the morning plan. Only automatic play lends its automatic workers again
-  // at closing, using actual remaining items before the next day's production.
-  const current = options.autoWorkforce ? autoAssignTribeWorkers(state) : state;
+  // the morning plan. Re-plan automatic workers and allocate unassigned
+  // settlers after SETTLEMENT, while preserving every explicitly manual job.
+  const settlementWorkforce = Boolean(state.research?.completed?.SETTLEMENT);
+  const assignWorkforce = !state.ended && (options.autoWorkforce || settlementWorkforce);
+  const current = assignWorkforce
+    ? autoAssignTribeWorkers(state, options.autoWorkforce ? 'auto' : 'settlement')
+    : state;
   return settleNextDay(current, options);
 }
 
 function settleNextDay(state, options) {
+  const evening = settlementEveningPlan(state);
+  state = evening.state;
   const preset = difficultyPreset(state);
   const weather = rollWeather(state.day + 1, options.rng || Math.random);
   const fireActive = campFireActive(state);
   const fuelSaverNight = hasTechPassive(state, 'CAMP_FUEL_SAVER') && Number(state.day || 1) % 2 === 1;
   const fuelUsed = fireActive && !fuelSaverNight ? 1 : 0;
+  const nightDeaths = [];
   const party = state.party.map((member) => {
-    const { hp, hunger, bodyTemp } = nightSurvivalProjection(state, member);
+    const projection = nightSurvivalProjection(state, member);
+    const { hp, hunger, bodyTemp } = projection;
+    const hpBefore = Number(member.hp || 0);
+    const deathRecord = hpBefore > 0 && hp <= 0 ? {
+      day: Number(state.day || 1),
+      source: 'night',
+      hpBefore,
+      damage: projection.damage,
+      coldDamage: projection.coldDamage,
+      hungerDamage: projection.hungerDamage,
+      hypothermiaDamage: projection.hypothermiaDamage,
+      reason: nightDeathReason(projection),
+    } : null;
+    if (deathRecord) nightDeaths.push({ name: member.name || member.id, hpBefore, record: deathRecord });
     const shelterRecovery = (34 + Number(state.camp.shelterLevel || 0) * 8) * preset.staminaRecoveryMultiplier;
     return {
       ...member,
+      ...(deathRecord ? { deathRecord } : {}),
       stamina: clamp(Number(member.stamina || 0) + shelterRecovery, 0, 100),
       hunger,
       bodyTemp,
@@ -3570,11 +3716,23 @@ function settleNextDay(state, options) {
     ? '파티가 더 이상 움직일 수 없습니다. 런을 종료하고 기록을 남기세요.'
     : `새로운 날입니다. 날씨: ${weather.name}, ${weather.temp}도 · ${tempNote}`;
   let logged = addLog(next, fuelUsed ? `${note} 모닥불 연료를 1 소비했습니다.` : note);
+  if (evening.meals.length || evening.woodSpent) {
+    const meals = evening.meals.map((row) => `${row.name} ${row.items.map(itemName).join('·')}`).join(', ');
+    logged = addLog(logged, `정착지 저녁 관리: ${meals ? `배식 ${meals}` : '추가 배식 없음'}${evening.woodSpent ? ` · 나무 ${evening.woodSpent} 소비, 연료 +${evening.fuelAdded}` : ''}. 실제 비축분 사용 · AP 소모 없음.`);
+  }
   if (Number(state.camp.fireLevel || 0) > 0 && !fireActive) {
     logged = addLog(logged, '모닥불 연료가 없어 모닥불 보온 없이 밤을 보냈습니다. 대피소와 보온 장비만 추위를 막았습니다.');
   }
   if (seasonPlanCharges(state) > 0) {
     logged = addLog(logged, `계절 대비 계획 적용. 야영 추위 피해 ${Math.round((1 - SEASON_PLAN_WEATHER_MULTIPLIER) * 100)}% 감소 · 남은 대비 ${seasonPlanCharges(state) - 1}/${SEASON_PLAN_MAX_CHARGES}.`);
+  }
+  for (const death of nightDeaths) {
+    const causes = [
+      death.record.hypothermiaDamage > 0 ? `저체온 ${death.record.hypothermiaDamage}` : '',
+      death.record.hungerDamage > 0 ? `허기 ${death.record.hungerDamage}` : '',
+      death.record.coldDamage > 0 ? `추위 ${death.record.coldDamage}` : '',
+    ].filter(Boolean).join(' · ');
+    logged = addLog(logged, `사망: ${death.name} HP ${death.hpBefore}→0 · 원인 ${causes}.`);
   }
   const previousSeason = seasonForDay(state.day);
   const currentSeason = seasonForDay(next.day);
@@ -5820,6 +5978,48 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
   );
 }
 
+export function safeGatherActionRows(state, actorId) {
+  const current = normalizeState(state);
+  const actor = current.party.find((member) => member.id === actorId);
+  const reason = current.ended
+    ? '종료된 런에서는 안전 채집을 할 수 없습니다.'
+    : !actor
+      ? '현재 파티의 대원을 선택해야 합니다.'
+      : Number(actor.hp || 0) <= 0
+        ? '살아 있는 대원을 선택해야 합니다.'
+        : Number(current.ap || 0) <= 0
+          ? '안전 채집에 사용할 AP가 부족합니다.'
+          : '';
+  return [
+    { id: 'berry', label: '안전 채집 · 베리', action: 'safe-gather', outcome: '베리 +2', costText: 'AP 1 · ST 6 · 허기 +1' },
+    { id: 'wood', label: '안전 채집 · 나무', action: 'safe-gather', outcome: '나무 +1', costText: 'AP 1 · ST 6 · 허기 +1' },
+  ].map((row) => ({ ...row, enabled: !reason, reason }));
+}
+
+export function runSafeGatherAction(state, actorId, resourceId, options = {}) {
+  if (state.ended) return state;
+  const current = normalizeState(state);
+  const actor = current.party.find((member) => member.id === actorId);
+  if (current.ended) return addLog(current, '종료된 런에서는 안전 채집을 할 수 없습니다.');
+  if (!actor) return addLog(current, '현재 파티의 대원을 선택해야 합니다.');
+  if (Number(actor.hp || 0) <= 0) return addLog(current, '살아 있는 대원을 선택해야 합니다.');
+  if (Number(current.ap || 0) <= 0) return addLog(current, '안전 채집에 사용할 AP가 부족합니다.');
+  if (!['berry', 'wood'].includes(resourceId)) return addLog(current, '안전 채집은 베리 또는 나무만 선택할 수 있습니다.');
+
+  const gains = { [resourceId]: resourceId === 'berry' ? 2 : 1 };
+  const next = {
+    ...current,
+    inventory: addItems(current.inventory, Object.entries(gains)),
+  };
+  return afterAction(
+    addLog(next, `${actor.name}의 안전 채집. ${formatGains(Object.entries(gains))}.`),
+    actorId,
+    6,
+    1,
+    options,
+  );
+}
+
 export function runGatherAction(state, actorId, regionId, options = {}) {
   const rng = options.rng || Math.random;
   const current = normalizeState(state);
@@ -5872,7 +6072,8 @@ export function runHuntAction(state, actorId, regionId, options = {}) {
   } else {
     const target = getActor(next, actorId);
     const damage = huntFailureDamage(next);
-    next = updateActor(next, actorId, { hp: clamp(Number(target.hp || 0) - damage, 0, 100) });
+    next = updateActorAfterActionDamage(next, actorId,
+      { hp: clamp(Number(target.hp || 0) - damage, 0, 100) }, damage, '사냥 반격');
     next = addLog(next, `${actor.name}의 사냥 실패. ${region.name}에서 반격으로 HP -${damage}.`);
   }
   if (roadApplied) next = addLog(next, `${actor.name}의 사냥 이동에 정비된 도로 효과를 적용했습니다. ST ${ROAD_STAMINA_REDUCTION} 절약 · 남은 도로 ${roadCharges(current) - 1}/${ROAD_MAX_CHARGES}.`);
@@ -6512,7 +6713,7 @@ function pickAutoFoodJob(state, assignments, jobUnlocked) {
       || b.partyGain - a.partyGain || b.firstPartyGain - a.firstPartyGain)[0]?.id || '';
 }
 
-function autoAssignTribeWorkers(state) {
+function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
   const tribe = normalizeTribeState(state.tribe);
   // Only automatic workers and genuinely unassigned newcomers are movable.
   // Re-plan them daily so idle construction and stale production do not keep
@@ -6609,7 +6810,7 @@ function autoAssignTribeWorkers(state) {
       autoAssignments: added,
       assignmentSerial: Number(tribe.assignmentSerial || 0) + 1,
     },
-  }, `\uD558\uB8E8 \uC790\uB3D9 \uC6B4\uC601 \uC9C1\uC5C5 \uBC30\uCE58: ${summary}.${foodNote}${partyNote}${surplusNote}`);
+  }, `${assignmentSource === 'settlement' ? '정착지 직업 배치' : '하루 자동 운영 직업 배치'}: ${summary}.${foodNote}${partyNote}${surplusNote}`);
 }
 function autoActionSignature(state) {
   return [

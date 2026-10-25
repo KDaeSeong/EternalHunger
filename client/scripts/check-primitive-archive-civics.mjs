@@ -46,7 +46,7 @@ assert.deepEqual(
 const veryEasy = engine.createNewState({ difficulty: 'veryeasy', rng: () => 0.5, runId: 'very-easy-check' });
 assert.equal(veryEasy.difficulty, 'veryeasy', '매우 쉬움 난이도 키가 저장 상태에 유지되어야 합니다.');
 assert.equal(veryEasy.apMax, 6, '매우 쉬움은 하루 AP를 6 제공해야 합니다.');
-assert.equal(veryEasy.inventory.berry, 6, '매우 쉬움 시작 보급은 기본 열매 2개에 추가 4개를 제공해야 합니다.');
+assert.equal(veryEasy.inventory.berry, 10, '매우 쉬움 시작 보급은 기본 열매 2개와 기존 4개, 생존 비축 4개를 제공해야 합니다.');
 assert.equal(veryEasy.inventory.meat, 1, '매우 쉬움은 첫 식사 실패를 완화할 고기 1개를 제공해야 합니다.');
 const pressuredVeryEasy = {
   ...veryEasy,

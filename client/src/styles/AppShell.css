@@ -4079,6 +4079,11 @@
   pointer-events: none;
 }
 
+/* Keep notices clear of the fixed game controls without moving them on other screens. */
+body:has(.game-utility-dock) .app-toast-region {
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+}
+
 .app-toast {
   pointer-events: auto;
   display: grid;
@@ -12735,6 +12740,10 @@
     right: 10px;
     bottom: 10px;
     width: calc(100vw - 20px);
+  }
+
+  body:has(.game-utility-dock) .app-toast-region {
+    bottom: calc(62px + env(safe-area-inset-bottom, 0px));
   }
 }
 

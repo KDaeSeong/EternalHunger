@@ -65,6 +65,118 @@ assert.equal(primitiveRestoredResultText(restoredGather), immediatelyDisplayedFa
 assert.equal(JSON.stringify(restoredGather), beforeRestoreDisplay, '복원 문구 계산은 저장된 스냅샷도 바꾸면 안 됩니다.');
 assert.equal(gatherRngCalls, rngCallsAfterAction, 'JSON 복원 결과 표시도 추가 난수 호출을 하면 안 됩니다.');
 
+const cookBase = engine.createNewState({
+  rng: () => 0.5,
+  runId: 'feedback-cook-last-ap',
+  now: '2026-10-25T00:00:00.000Z',
+});
+const cookAssignments = Object.fromEntries(Object.keys(cookBase.tribe.assignments).map((key) => [key, 0]));
+const cookFixture = (ap) => engine.normalizeState({
+  ...cookBase,
+  day: 102,
+  ap,
+  apMax: 4,
+  weather: { id: 'clear', name: '맑음', cold: 0, temp: 20, actionMod: 0 },
+  party: cookBase.party.map((member) => ({
+    ...member,
+    hp: member.id === 'shiroko' ? 97 : 0,
+    hunger: member.id === 'shiroko' ? 51 : 0,
+    stamina: 100,
+    bodyTemp: 39,
+  })),
+  inventory: { meat: 1, cooked_meat: 0 },
+  camp: { ...cookBase.camp, fireLevel: 1, fuel: 2 },
+  tribe: {
+    ...cookBase.tribe,
+    population: 4,
+    assignments: cookAssignments,
+    autoAssignments: cookAssignments,
+  },
+});
+const cookLastApBefore = cookFixture(1);
+const cookLastApAfter = engine.runCampAction(cookLastApBefore, 'shiroko', 'cook', { rng: () => 0.999 });
+const cookLastApResult = primitiveActionResultPresentation(cookLastApBefore, cookLastApAfter, '캠프');
+assert.match(cookLastApResult.detail, /고기를 구웠습니다\. 구운 고기 \+1\./,
+  '마지막 AP 조리 결과는 다음 날의 일반 연료 정산보다 조리 성공을 먼저 보여야 합니다.');
+assert.equal(cookLastApAfter.inventory.cooked_meat, 0, '부족 정산은 조리한 구운 고기를 실제 재고에서 소비해야 합니다.');
+assert.equal(cookLastApAfter.tribe.lastProduction.foodSpent.cooked_meat, 1, '정산이 실제로 소비한 구운 고기 수량을 기록해야 합니다.');
+assert.match(cookLastApResult.detail, /하루 정산에서 구운 고기 1개를 부족 식량으로 소비했습니다\./,
+  '마지막 AP 조리 결과는 실제로 소비된 구운 고기 수량을 밝혀야 합니다.');
+assert.deepEqual(cookLastApResult.inventoryChange.rows.map(({ id, delta }) => [id, delta]), [['meat', -1]],
+  '재고 변화는 조리와 정산 뒤의 기존 순변화만 보여야 합니다.');
+
+const cookSpareApBefore = cookFixture(2);
+const cookSpareApAfter = engine.runCampAction(cookSpareApBefore, 'shiroko', 'cook', { rng: () => 0.999 });
+const cookSpareApResult = primitiveActionResultPresentation(cookSpareApBefore, cookSpareApAfter, '캠프');
+assert.equal(cookSpareApAfter.inventory.cooked_meat, 1, '하루 정산 전 조리는 구운 고기 1개를 남겨야 합니다.');
+assert.deepEqual(cookSpareApResult.inventoryChange.rows.map(({ id, delta }) => [id, delta]), [['cooked_meat', 1], ['meat', -1]],
+  '하루 정산 전 재고 변화는 구운 고기 증가와 생고기 감소를 모두 보여야 합니다.');
+assert.doesNotMatch(cookSpareApResult.detail, /하루 정산에서 구운 고기/,
+  '정산하지 않은 조리에는 과거 정산 소비 안내를 붙이면 안 됩니다.');
+
+const cookNoMeatBefore = cookFixture(2);
+cookNoMeatBefore.inventory.meat = 0;
+const cookNoMeatAfter = engine.runCampAction(cookNoMeatBefore, 'shiroko', 'cook', { rng: () => 0.999 });
+const cookNoMeatResult = primitiveActionResultPresentation(cookNoMeatBefore, cookNoMeatAfter, '캠프');
+assert.equal(cookNoMeatAfter.day, cookNoMeatBefore.day, '생고기가 없으면 날짜가 진행되면 안 됩니다.');
+assert.equal(cookNoMeatAfter.ap, cookNoMeatBefore.ap, '생고기가 없으면 행동력을 소비하면 안 됩니다.');
+assert.match(cookNoMeatResult.detail, /고기 굽기:.*고기.*부족/,
+  '생고기 부족 결과를 다음 날의 일반 정산 안내로 덮으면 안 됩니다.');
+
+const cookNoFuelBefore = cookFixture(2);
+cookNoFuelBefore.camp.fuel = 0;
+const cookNoFuelAfter = engine.runCampAction(cookNoFuelBefore, 'shiroko', 'cook', { rng: () => 0.999 });
+const cookNoFuelResult = primitiveActionResultPresentation(cookNoFuelBefore, cookNoFuelAfter, '캠프');
+assert.equal(cookNoFuelAfter.ap, cookNoFuelBefore.ap, '연료가 없으면 조리 행동력을 소비하면 안 됩니다.');
+assert.match(cookNoFuelResult.detail, /고기 굽기:.*연료.*부족/,
+  '연료 부족 결과를 일반 정산 안내보다 우선 보여야 합니다.');
+
+const fireUpgradeBefore = cookFixture(1);
+fireUpgradeBefore.inventory = { wood: 2, stone: 2 };
+fireUpgradeBefore.camp = { ...fireUpgradeBefore.camp, fireLevel: 0, fuel: 1 };
+const fireUpgradeAfter = engine.runCampAction(fireUpgradeBefore, 'shiroko', 'fire', { rng: () => 0.999 });
+const fireUpgradeResult = primitiveActionResultPresentation(fireUpgradeBefore, fireUpgradeAfter, '캠프');
+assert.match(fireUpgradeResult.detail, /모닥불을 업그레이드했습니다/,
+  '다른 캠프 행동도 새날의 일반 연료 안내보다 실제 행동 결과를 먼저 보여야 합니다.');
+
+const staleCookPrevious = {
+  ...clone(cookBase),
+  runId: 'same-day-cook',
+  day: 102,
+  ap: 3,
+  tribe: { productionSerial: 7, lastProduction: { foodSpent: { cooked_meat: 1 } } },
+};
+const staleCookCurrent = {
+  ...clone(staleCookPrevious),
+  ap: 2,
+  inventory: { meat: 0, cooked_meat: 1 },
+  log: ['Day 102: 시로코가 고기를 구웠습니다. 구운 고기 +1.', ...staleCookPrevious.log],
+};
+assert.doesNotMatch(primitiveActionResultPresentation(staleCookPrevious, staleCookCurrent, '캠프').detail,
+  /하루 정산에서 구운 고기/, '같은 날의 조리는 이전 부족 정산 소비량을 재사용하면 안 됩니다.');
+
+const staleSettlementPrevious = { ...clone(staleCookPrevious), ap: 1 };
+const staleSettlementCurrent = {
+  ...clone(staleSettlementPrevious),
+  day: 103,
+  ap: 4,
+  log: ['Day 103: 새날', 'Day 102: 시로코가 고기를 구웠습니다. 구운 고기 +1.', ...staleSettlementPrevious.log],
+};
+assert.doesNotMatch(primitiveActionResultPresentation(staleSettlementPrevious, staleSettlementCurrent, '캠프').detail,
+  /하루 정산에서 구운 고기/, '정산 serial이 늘지 않았다면 이전 부족 정산 수량을 재사용하면 안 됩니다.');
+
+const otherRunCookPrevious = { ...clone(staleCookPrevious), runId: 'previous-run', ap: 1 };
+const otherRunCookCurrent = {
+  ...clone(staleCookCurrent),
+  runId: 'new-run',
+  day: 103,
+  ap: 4,
+  tribe: { productionSerial: 8, lastProduction: { foodSpent: { cooked_meat: 1 } } },
+  log: ['Day 103: 새날', 'Day 102: 시로코가 고기를 구웠습니다. 구운 고기 +1.'],
+};
+assert.doesNotMatch(primitiveActionResultPresentation(otherRunCookPrevious, otherRunCookCurrent, '캠프').detail,
+  /하루 정산에서 구운 고기/, '다른 런의 재고와 정산 기록을 조리 결과에 합치면 안 됩니다.');
+
 const dialogueLogs = [
   'Day 8: 하루: "큰따옴표 \\"인용\\" 포함 대사"',
   'Day 7: 하루: "이전 대사"',

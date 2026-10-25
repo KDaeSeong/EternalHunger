@@ -7,6 +7,40 @@ import {
 } from '../_lib/primitiveArchivePageRuntime';
 import { PrimitiveArchiveIconRow, PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
+function positiveValue(value) {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && !value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function deathDetails(member) {
+  const record = member?.deathRecord;
+  if (!record || typeof record !== 'object' || Array.isArray(record)) return '사망 원인 기록 없음';
+
+  const parts = [];
+  const day = positiveValue(record.day);
+  const source = record.source === 'night' ? '밤 정산' : record.source === 'action' ? '행동 중' : '';
+  const reason = typeof record.reason === 'string' ? record.reason.trim() : '';
+  const damage = positiveValue(record.damage);
+  const components = [
+    ['추위', positiveValue(record.coldDamage)],
+    ['허기', positiveValue(record.hungerDamage)],
+    ['저체온', positiveValue(record.hypothermiaDamage)],
+  ].filter(([, value]) => value !== null).map(([label, value]) => `${label} ${value}`);
+
+  if (day !== null) parts.push(`${day}일차`);
+  if (source) parts.push(source);
+  if (reason) parts.push(reason);
+  if (damage !== null) {
+    parts.push(`HP 피해 ${damage}${components.length ? ` (${components.join(' · ')})` : ''}`);
+  } else if (components.length) {
+    parts.push(`피해 ${components.join(' · ')}`);
+  }
+  if (!reason) parts.push('사망 원인 기록 없음');
+  return parts.join(' · ') || '사망 원인 기록 없음';
+}
+
 export default function PrimitiveArchivePartyWorkspace(props) {
   const {
     actorId,
@@ -68,8 +102,12 @@ export default function PrimitiveArchivePartyWorkspace(props) {
               <span>
                 <strong>{member.name} · {member.role}</strong>
                 <small>HP {member.hp} · 허기 {member.hunger} · ST {member.stamina} · 체온 {Number(member.bodyTemp ?? 37).toFixed(1)}° · {badges.join(' / ')}</small>
-                <small>추천 {actionLabel(basisAction)} {chanceText(basisChance)} · 채집 {chanceText(chances.gather)} · 사냥 {chanceText(chances.hunt)} · 제작 {chanceText(chances.craft)}</small>
-                {nightSurvival ? (
+                {Number(member.hp || 0) > 0 ? (
+                  <small>추천 {actionLabel(basisAction)} {chanceText(basisChance)} · 채집 {chanceText(chances.gather)} · 사냥 {chanceText(chances.hunt)} · 제작 {chanceText(chances.craft)}</small>
+                ) : (
+                  <small>{deathDetails(member)}</small>
+                )}
+                {Number(member.hp || 0) > 0 && nightSurvival ? (
                   <small className="primitive-night-forecast">
                     <span>밤 예상 HP {nightSurvival.currentHp} → {nightSurvival.hp} · 개인 보온 {nightSurvival.insulation}</span>
                     <span>추위 {nightSurvival.coldDamage} / 허기 {nightSurvival.hungerDamage} / 저체온 {nightSurvival.hypothermiaDamage} 피해</span>

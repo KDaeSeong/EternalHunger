@@ -11,6 +11,7 @@ globalThis.__primitiveArchiveFocusButtons = [];
 
 const engine = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveEngine.js');
 const focus = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveFocus.js');
+const runtime = await import('../src/app/games/primitive-archive/_lib/primitiveArchivePageRuntime.js');
 const routeUrl = new URL('../src/app/games/primitive-archive/', import.meta.url);
 const focusPanelUrl = new URL('_components/PrimitiveArchiveFocusPanel.js', routeUrl).href;
 const featureTabsUrl = new URL('_components/PrimitiveArchiveFeatureTabs.js', routeUrl).href;
@@ -185,6 +186,9 @@ function planInputs(state) {
     research: engine.researchSummary(state),
     campActions: engine.campActionRows(state),
     archiveVictory: engine.archiveVictorySummary(state),
+    recruitCandidates: engine.recruitablePartyRows(state),
+    partyCap: engine.getPartyCap(state),
+    supplies: engine.survivalSupplySummary(state),
   };
 }
 
@@ -297,6 +301,8 @@ function tabProps(state, activeTabId) {
     runDiplomacy() {},
     runEat() {},
     runGather() {},
+    runSafeGather() {},
+    safeGatherRows: engine.safeGatherActionRows(state, actorId),
     runHunt() {},
     runResearch() {},
     runRecoveryChoice() {},
@@ -480,6 +486,14 @@ check('actual action-workspace JSX puts the latest result before technology list
   for (const openingTag of technologyLists) assert.doesNotMatch(openingTag, /\sopen(?:=|\s|>)/, 'Technology lists must start collapsed.');
 });
 
+check('secondary navigation names party and map directly without adding persistent tabs', () => {
+  const html = renderFeatureTabs(freshState('discoverable-party-map'), 'actions').html;
+  const menu = html.match(/<details class="primitive-secondary-navigation">[\s\S]*?<\/details>/)?.[0] || '';
+  assert.ok(menu.includes('파티·지도 등'));
+  assert.ok(menu.includes('primitive-archive-tab-map') && menu.includes('primitive-archive-tab-party'));
+  assert.doesNotMatch(menu.match(/^<details[^>]*>/)?.[0] || '', /\sopen(?:=|\s|>)/, 'Other screens remain in the existing collapsed menu.');
+});
+
 check('specialized livelihoods and utility controls show their real costs before activation', () => {
   const state = freshState('focus-specialized-action-costs');
   for (const row of [...engine.specializedActionRows(state, state.party[0].id), ...engine.utilityActionRows(state, state.party[0].id)]) {
@@ -542,7 +556,7 @@ check('persistent inventory bar shows core zero counts and reacts to real gather
   const render = (inventory) => renderToStaticMarkup(React.createElement(PrimitiveArchiveInventoryBar, { inventory, inventoryRows: toRows(inventory) }));
   const initialHtml = render(state.inventory);
   const initialText = renderedVisibleText(initialHtml);
-  for (const [id, quantity] of [['wood', 2], ['stone', 2], ['fiber', 2], ['hide', 0], ['berry', 2], ['meat', 0], ['herb', 0], ['clay', 0]]) {
+  for (const [id, quantity] of [['wood', 4], ['stone', 2], ['fiber', 2], ['hide', 0], ['berry', 6], ['meat', 0], ['herb', 0], ['clay', 0]]) {
     assert.ok(initialText.includes(`${engine.itemName(id)} ${quantity}`), `Core resource ${id} must show its current count, including zero.`);
   }
 
@@ -698,6 +712,81 @@ check('locked full advancement preview is collapsed without removing searchable 
   assert.match(previewSource, /researchMap\.nodes\.map\(\(node\) =>/, 'The preview must retain every engine-provided advancement node.');
 });
 
+check('fallen-companion guidance uses real recruitment limits after every urgent survival branch', () => {
+  const makeState = () => {
+    const state = freshState('fallen-companion-guidance');
+    state.party = state.party.map((member, index) => ({ ...member, hp: index ? 0 : 97, hunger: 12, bodyTemp: 37 }));
+    state.weather = { ...state.weather, id: 'clear', cold: 0 };
+    state.camp = { ...state.camp, fireLevel: 1, shelterLevel: 1, workbenchLevel: 1, fuel: 3 };
+    return state;
+  };
+  const full = runPlan(planInputs(makeState()));
+  assert.equal(full.objective.targetTab, 'growth');
+  assert.ok(full.objective.title.includes('1/3'));
+  assert.ok(full.objective.detail.includes('정원'));
+
+  const available = makeState();
+  available.research.completed.SETTLEMENT = true;
+  assert.equal(runPlan(planInputs(available)).objective.targetTab, 'party');
+
+  const exhausted = makeState();
+  exhausted.party = engine.STUDENTS.map((student, index) => ({ ...student, hp: index ? 0 : 97, hunger: 12, stamina: 90, bodyTemp: 37 }));
+  assert.equal(runPlan(planInputs(exhausted)).objective.targetTab, 'run');
+
+  for (const [kind, update, expected] of [
+    ['fatal', (state) => { state.party[0].hp = 5; state.party[0].hunger = 100; }, '밤 생존'],
+    ['hunger', (state) => { state.party[0].hunger = 70; }, '허기 확인'],
+    ['weak', (state) => { state.party[0].hp = 20; }, '상태부터 확인'],
+    ['cold', (state) => { state.weather.cold = 12; }, '추위에 대비'],
+  ]) {
+    const state = makeState();
+    state.research.completed.SETTLEMENT = true;
+    update(state);
+    assert.ok(runPlan(planInputs(state)).objective.title.includes(expected), `${kind}: urgent care must precede recruitment guidance.`);
+  }
+  const restoredParty = makeState();
+  restoredParty.party.forEach((member) => { member.hp = 97; });
+  assert.ok(!runPlan(planInputs(restoredParty)).objective.title.includes('/3명 필요'));
+  assert.equal(runPlan(planInputs({ ...makeState(), ended: true })).objective.targetTab, 'run');
+  assert.equal(runPlan(planInputs(makeState()), { ready: false }).blocked, true);
+  assert.equal(runPlan(planInputs(makeState()), { busy: 'save' }).blocked, true);
+});
+
+check('party cards name death explicitly and preserve recorded or unknown causes without invented history', () => {
+  const records = [
+    undefined,
+    { day: 20, source: 'night', reason: '허기·추위·저체온', hpBefore: 20, damage: 33, coldDamage: 5, hungerDamage: 10, hypothermiaDamage: 18 },
+    { day: 15, source: 'action', reason: '사냥 반격', hpBefore: 3, damage: 5 },
+    { day: {}, source: {}, reason: {}, damage: 'NaN', coldDamage: -1 },
+  ];
+  for (const record of records) {
+    const state = freshState('party-death-summary');
+    state.day = 102;
+    const member = { ...state.party[1], hp: 0, deathRecord: record };
+    state.party[1] = member;
+    const badges = runtime.vitalBadges(member);
+    assert.ok(badges.includes('사망') && !badges.includes('탈진'));
+    const before = structuredClone(state);
+    const html = renderToStaticMarkup(React.createElement(PrimitiveArchivePartyWorkspace, {
+      ...tabProps(state, 'party'),
+      partyView: [{ member, badges, chances: { gather: 0.5, hunt: 0.5, craft: 0.5 }, basisAction: 'gather', basisChance: 0.5 }],
+    }));
+    const text = renderedVisibleText(html);
+    assert.ok(text.includes('사망'));
+    assert.ok(!text.includes('추천 채집'), 'A dead companion must not be shown a new action recommendation.');
+    assert.ok(!text.includes('NaN') && !text.includes('[object Object]'));
+    if (record?.source === 'night') {
+      for (const part of ['20일차', '밤 정산', '추위 5', '허기 10', '저체온 18', 'HP 피해 33']) assert.ok(text.includes(part), part);
+    } else if (record?.source === 'action') {
+      for (const part of ['15일차', '행동 중', '사냥 반격', 'HP 피해 5']) assert.ok(text.includes(part), part);
+    } else {
+      assert.ok(text.includes('사망 원인 기록 없음'));
+      assert.ok(!text.includes('102일차'), 'Legacy deaths must not be dated to the current day.');
+    }
+    assert.deepEqual(state, before);
+  }
+});
+
 check('actual party controls reject ended runs while preserving live free recruitment', () => {
   const state = freshState('recruit-control-guards');
   state.research.completed.SETTLEMENT = true;
@@ -820,6 +909,54 @@ check('log expansion resets for a replacement run and handles an empty history',
   rendered = renderInventoryLog({ ...replacement, log: [] }, rendered.harness);
   assert.ok(!rendered.buttons.some((row) => String(row.children).startsWith('이전 기록')));
   assert.match(rendered.html, /아직 기록이 없습니다/);
+});
+
+check('safe collection controls expose fixed rewards and route the selected resource through the real workspace', () => {
+  const state = freshState('focus-safe-gather');
+  const original = structuredClone(state);
+  const calls = [];
+  globalThis.__primitiveArchiveFocusButtons = [];
+  const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, {
+    ...tabProps(state, 'actions'), runSafeGather: (id) => calls.push(id),
+  }));
+  const text = renderedVisibleText(html);
+  for (const [id, label] of [['berry', '안전하게 베리 줍기'], ['wood', '안전하게 땔감 줍기']]) {
+    const button = globalThis.__primitiveArchiveFocusButtons.find((row) => row.children === label);
+    assert.ok(button && !button.disabled);
+    button.onClick();
+    assert.equal(calls.at(-1), id);
+  }
+  assert.match(text, /베리 \+2/);
+  assert.match(text, /나무 \+1/);
+  assert.match(text, /AP 1 · ST 6 · 허기 \+1/);
+  const updated = engine.runSafeGatherAction(state, state.party[0].id, calls[0], { rng: () => { throw new Error('No random roll needed'); } });
+  assert.equal(updated.inventory.berry, state.inventory.berry + 2);
+  assert.equal(updated.ap, state.ap - 1);
+  assert.deepEqual(state, original);
+  globalThis.__primitiveArchiveFocusButtons = [];
+  renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, { ...tabProps(state, 'actions'), canAct: false }));
+  for (const label of ['안전하게 베리 줍기', '안전하게 땔감 줍기']) {
+    assert.equal(globalThis.__primitiveArchiveFocusButtons.find((row) => row.children === label)?.disabled, true);
+  }
+});
+
+check('reserve guidance exposes separate ration and party nutrition units without displacing urgent or ended states', () => {
+  const state = freshState('focus-reserves');
+  const inputs = planInputs(state);
+  const supplies = { ...inputs.supplies, rationShortage: 2, foodShortage: 9, fuelShortage: true };
+  const plan = runPlan({ ...inputs, supplies });
+  assert.match(plan.objective.title, /식량·땔감 비축/);
+  assert.match(plan.objective.detail, /부족 배식 2단위/);
+  assert.match(plan.objective.detail, /대원 저녁 영양 9/);
+  assert.equal(plan.objective.targetTab, 'actions');
+  const text = renderedVisibleText(renderFocus(plan).html);
+  assert.ok(text.includes(supplies.reserveText));
+  assert.ok(text.includes(supplies.careText));
+  const urgent = { ...inputs, supplies, nightRows: [{ id: state.party[0].id, name: '긴급 대원', currentHp: 4, hp: 0, damage: 4, hungerDamage: 4, coldDamage: 0, hypothermiaDamage: 0 }] };
+  assert.match(runPlan(urgent).objective.title, /밤 생존부터/);
+  for (const plan of [runPlan({ ...inputs, supplies }, { ready: false }), runPlan({ ...inputs, supplies }, { busy: 'saving' }), runPlan({ ...inputs, supplies, state: { ...state, ended: true } })]) {
+    assert.ok(!renderedVisibleText(renderFocus(plan).html).includes(supplies.careText));
+  }
 });
 
 const playContent = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js', import.meta.url), 'utf8');
