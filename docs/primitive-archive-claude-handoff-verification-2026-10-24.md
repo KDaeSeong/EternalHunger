@@ -408,3 +408,59 @@ start). These are logical file bytes with BigInt file-identity deduplication, no
 whole-workspace physical allocation. Receipt:
 `.local/build-recovery/archive-numeric-and-progress-release-2026-10-25.json`.
 User originals, saves, unrelated artifacts, Git and internal session data remain.
+
+## 2026-10-25 follow-up: distinct advancement quotations
+
+The 150 technologies and 94 civics shared only 77 distinct quotation texts.
+Added 167 fixed ID-specific quotations, retaining one original per distinct text
+and the existing theme keys. The current 244-row tree has 244 distinct texts,
+including after Unicode normalization and removal of punctuation, symbols and
+whitespace. Selection does not depend on list order, randomness or earlier reads.
+The catalogue and ID resolver remain in the existing standalone lore module so
+data-URL-based verification does not acquire a relative-import dependency.
+
+Three Luna research subtasks supplied original-text passages. The final source
+review corrected reused passages, unsupported summaries, attribution, work and
+chapter mismatches, and a refrigeration mistranslation. All 167 replacement
+anchors matched the checked primary-text caches, representing 65 source URLs;
+no replacement anchor wholly contains another. New records carry a source
+location and `direct translation` marker, displayed alongside the existing
+author/work/source link. Gutenberg links use the stable book page. The existing
+Hippocratic aphorism now links to the original work rather than a secondary
+history of medicine. An actual-JSX render check covers the 167 replacements,
+escaped text, optional metadata on older quotes and the empty-quote case.
+
+The full fourteen-step archive verification chain passed 281 PASS lines with no
+FAIL lines; output SHA-256:
+`5c2babfe6d0855605ec9601ed86ead9f6d685c3f3e81c2654b0f0fb6f7ffec95`.
+Changed-file ESLint and `git diff --check` passed. Comparing every advancement
+with the pre-change commit after excluding its quotation gives the unchanged
+SHA-256 `17c80cee603088429c6ddf7db288776046c66ee9bcd70ff2f9f278371d0cdcc3`.
+No balance, save schema, account data or Claude handoff invariant was changed.
+This is source, engine/data and actual-component evidence, not fresh browser
+gameplay, human readability acceptance or natural account-expiry evidence.
+
+Production build `KngB9ollY3F3saKRvivmY` and both required postbuild gates passed;
+build output SHA-256:
+`a6323c5754b6744678140b5378afa4c34e7e4efef80d581a6a1b5db2924ca961`.
+The initial restricted execution stopped at a build-directory creation denial;
+the same unchanged source passed when rerun with normal build permissions.
+The isolated Node VM Worker smoke is not a browser or performance result.
+
+After all research agents and verification processes finished, removed only
+the retired `mMsiHQ4I863Dk-bG5DyHN` build (27,699,256 bytes), this build's cache
+(620,841,731 bytes) and this task's research workspace (71,822,067 bytes):
+720,363,054 bytes total, about 0.67 GiB. Source locations, original-text anchors
+and source hashes remain in the small ignored source-audit receipt; verification
+and build logs also remain. The focused civics check passed again after deleting
+the research workspace, confirming that production data and verification do not
+depend on those temporary inputs or a historical result file.
+
+The current `KngB9ollY3F3saKRvivmY` build, immediate previous
+`MM4IaHJZm9yKWVTUP7c3a` build (moved into the fixed recovery location) and unique
+`lwp9_vqTI-Ed-Tou0wGgP` map-shift reproduction were rehashed unchanged. The five
+disjoint managed roots measured 1,233,658,707 file bytes before cleanup and
+513,299,212 afterward, including the final receipt (about 0.48 GiB). These are
+logical file bytes with file-identity deduplication, not whole-workspace physical
+allocation. Exact targets, manifests and outcomes:
+`.local/build-recovery/archive-unique-quotes-release-2026-10-25.json`.

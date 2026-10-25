@@ -90,6 +90,13 @@ assert.equal(overlap.length, 0, '기술과 사회 제도 목록이 겹치면 안
 assert.ok(engine.TECHNOLOGY_TREE.length > engine.CIVIC_TREE.length, '기술과 사회 제도 목록이 비어 있으면 안 됩니다.');
 const allAdvancements = [...engine.TECHNOLOGY_TREE, ...engine.CIVIC_TREE];
 const advancementById = Object.fromEntries(engine.TECH_TREE.map((advancement) => [advancement.id, advancement]));
+const normalizedQuoteTexts = allAdvancements.map((advancement) => String(advancement.quote?.text || '')
+  .normalize('NFKC').replace(/[\p{P}\p{S}\s]/gu, '').toLocaleLowerCase('ko-KR'));
+assert.equal(
+  new Set(normalizedQuoteTexts).size,
+  allAdvancements.length,
+  '기술과 사회 제도의 인용문은 공백·문장부호만 바꾼 변형까지 포함해 서로 겹치면 안 됩니다.',
+);
 assert.ok(
   allAdvancements.every((advancement) => (
     advancement.quote?.text
@@ -105,6 +112,16 @@ assert.ok(
 );
 const quoteAssignments = Object.entries(lore.ADVANCEMENT_QUOTE_ASSIGNMENTS)
   .flatMap(([key, ids]) => ids.map((id) => ({ id, key })));
+for (const [id, quote] of Object.entries(lore.ADVANCEMENT_SPECIFIC_QUOTES)) {
+  assert.ok(advancementById[id], `개별 인용문에 존재하지 않는 발전 ID가 있으면 안 됩니다: ${id}`);
+  assert.ok(quote.sourceSection?.trim(), `${id}의 개별 인용문에는 원전의 위치가 필요합니다.`);
+  assert.equal(quote.translation, '직접 번역', `${id}의 새 번역에는 번역 표시가 필요합니다.`);
+  assert.equal(advancementById[id].quote.text, quote.text, `${id}에는 그 항목의 고유 인용문이 적용되어야 합니다.`);
+}
+for (const advancement of [...allAdvancements].reverse()) {
+  assert.deepEqual(lore.withAdvancementLore(advancement).quote, advancement.quote,
+    '개별 인용문은 기술 목록을 읽는 순서나 재호출에 따라 바뀌면 안 됩니다.');
+}
 assert.deepEqual(
   Object.keys(lore.ADVANCEMENT_QUOTE_ASSIGNMENTS)
     .filter((quoteKey) => !Object.hasOwn(lore.ADVANCEMENT_QUOTE_CATALOG, quoteKey)),

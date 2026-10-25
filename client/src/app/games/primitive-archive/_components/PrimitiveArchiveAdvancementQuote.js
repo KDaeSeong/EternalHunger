@@ -6,7 +6,8 @@ export default function PrimitiveArchiveAdvancementQuote({ quote }) {
       <p>“{quote.text}”</p>
       <cite>
         {quote.author} ·{' '}
-        <a href={quote.sourceUrl} target="_blank" rel="noreferrer">{quote.work}</a>
+        <a href={quote.sourceUrl} target="_blank" rel="noreferrer">{quote.work}{quote.sourceSection ? ` · ${quote.sourceSection}` : ''}</a>
+        {quote.translation ? ` · ${quote.translation}` : ''}
       </cite>
     </blockquote>
   );
