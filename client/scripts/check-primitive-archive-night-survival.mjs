@@ -309,5 +309,49 @@ check('the same ordinary seeded runs acquire personal winter protection and stil
   }
 });
 
+function fireHistoryFixture({ pottery = false, fireLevel = 1, fuel = 4 } = {}) {
+  const state = engine.createNewState({ runId: 'fire-history', now: '2026-10-25T00:00:00.000Z', rng: () => 0.5 });
+  state.camp = { ...state.camp, fireLevel, shelterLevel: 1, workbenchLevel: 1, fuel };
+  Object.assign(state.research.completed, {
+    GATHERING: true, HUNTING: true, HERBALISM: true, FIREMAKING: true,
+    SHELTER: true, SETTLEMENT: true, ORAL_RECORDS: true,
+  });
+  if (pottery) state.research.completed.POTTERY = true;
+  state.research.selectedTechId = 'POTTERY';
+  return engine.normalizeState(state);
+}
+
+check('fuel-saving pottery still counts every lit night toward the real archive eureka without using extra fuel', () => {
+  for (const pottery of [false, true]) {
+    let state = fireHistoryFixture({ pottery });
+    const original = structuredClone(state);
+    const input = state;
+    for (let action = 0; action < 8; action += 1) {
+      assert.equal(engine.campFireActive(state), true);
+      state = engine.runRestAction(state, state.party[0].id, { rng: () => 0.5 });
+    }
+    assert.equal(state.day, 3);
+    assert.equal(state.research.counters.campFireDays, 2, `Pottery ${pottery} must count both lit nights.`);
+    assert.equal(state.research.eureka.ARCHIVE, true, 'Two maintained fires must grant the archive eureka.');
+    assert.equal(state.camp.fuel, pottery ? 3 : 2);
+    assert.equal(state.ended, false);
+    assert.deepEqual(input, original);
+  }
+});
+
+check('neither an unbuilt nor an unfueled fire grants a maintained-fire night even when pottery is complete', () => {
+  for (const options of [{ fireLevel: 0, fuel: 4 }, { fireLevel: 1, fuel: 0 }]) {
+    let state = fireHistoryFixture({ ...options, pottery: true });
+    for (let action = 0; action < 8; action += 1) {
+      assert.equal(engine.campFireActive(state), false);
+      state = engine.runRestAction(state, state.party[0].id, { rng: () => 0.5 });
+    }
+    assert.equal(state.day, 3);
+    assert.equal(state.research.counters.campFireDays, 0);
+    assert.equal(Boolean(state.research.eureka.ARCHIVE), false);
+    assert.equal(state.camp.fuel, options.fuel);
+  }
+});
+
 console.log(JSON.stringify({ checks, pass: !failures.length, failures, evidence: 'current real engine, member-specific clothing, paid camp actions; no old result files or accounts' }));
 if (failures.length) process.exitCode = 1;

@@ -1663,5 +1663,100 @@ check('optional metadata can still be backfilled without rejecting a healthy gam
   assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'ready');
 });
 
+const invalidNumericStates = [
+  ['missing-counters', (state) => { delete state.counters; }],
+  ['null-counters', (state) => { state.counters = null; }],
+  ['array-counters', (state) => { state.counters = []; }],
+  ...['fireLevel', 'shelterLevel', 'workbenchLevel', 'fuel'].map((field) => [
+    `missing-${field}`, (state) => { delete state.camp[field]; },
+  ]),
+  ...[null, '1', {}, [], NaN, Infinity, -1].flatMap((value, index) => [
+    [`counter-value-${index}`, (state) => { state.counters.gather = value; }],
+    [`camp-level-${index}`, (state) => { state.camp.fireLevel = value; }],
+    [`camp-fuel-${index}`, (state) => { state.camp.fuel = value; }],
+  ]),
+  ...['archiveRoomLevel', 'scribeDeskLevel', 'libraryShelfLevel'].map((field) => [
+    `invalid-${field}`, (state) => { state.camp[field] = {}; },
+  ]),
+];
+
+check('invalid counters and camp numbers cannot be saved or restored as playable current or previous runs', () => {
+  for (const [name, damage] of invalidNumericStates) {
+    const storage = new MemoryStorage();
+    const healthy = fixture(`numeric-state-${name}`);
+    expectWrite(storage, guestOwner, healthy, 0, at(1));
+    const key = checkpointApi.checkpointStorageKey(guestOwner);
+    const original = storage.getItem(key);
+    const broken = structuredClone(healthy);
+    damage(broken);
+    assert.equal(checkpointApi.writeCheckpoint(storage, guestOwner, broken, { expectedRevision: 1 }).status, 'invalid-state', name);
+    assert.equal(storage.getItem(key), original);
+    for (const slot of ['current', 'previous']) {
+      const envelope = JSON.parse(original);
+      envelope[slot] = broken;
+      const bytes = JSON.stringify(envelope);
+      storage.setItem(key, bytes);
+      assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'corrupt', `${name}: ${slot}`);
+      assert.equal(checkpointApi.writeCheckpoint(storage, guestOwner, healthy, { expectedRevision: 1 }).status, 'corrupt');
+      assert.equal(storage.getItem(key), bytes, 'Damaged bytes must remain available for explicit recovery.');
+    }
+  }
+});
+
+await checkAsync('the actual checkpoint hook blocks missing counters and malformed camp values without exposing a crashing run', async () => {
+  for (const [name, damage] of invalidNumericStates.filter(([name]) => ['missing-counters', 'camp-level-2', 'camp-fuel-1'].includes(name))) {
+    const storage = new MemoryStorage();
+    expectWrite(storage, guestOwner, fixture(`numeric-hook-${name}`), 0, at(1));
+    const key = checkpointApi.checkpointStorageKey(guestOwner);
+    const envelope = JSON.parse(storage.getItem(key));
+    damage(envelope.current);
+    const bytes = JSON.stringify(envelope);
+    storage.setItem(key, bytes);
+    const safe = fixture(`safe-numeric-hook-${name}`);
+    const harness = hookHarness({ storage, state: safe });
+    harness.render();
+    await settleHookEffects();
+    const view = harness.render();
+    assert.equal(view.status, 'corrupt', name);
+    assert.ok(view.message);
+    assert.equal(harness.state.runId, safe.runId);
+    assert.ok(Number.isFinite(engine.scoreState(harness.state)));
+    assert.equal(harness.writes.restored.length, 0);
+    assert.equal(view.flush().status, 'corrupt');
+    assert.equal(storage.getItem(key), bytes);
+    harness.unmount();
+  }
+});
+
+await checkAsync('server loads reject invalid counters and camp numbers before normalization or current-run replacement', async () => {
+  for (const [name, damage] of invalidNumericStates.filter(([name]) => ['missing-counters', 'camp-level-2', 'camp-fuel-1'].includes(name))) {
+    const current = fixture(`numeric-server-current-${name}`);
+    const remote = fixture(`numeric-server-remote-${name}`);
+    damage(remote);
+    let requests = 0;
+    const scenario = serverPersistenceHarness({ state: current, get: () => Promise.resolve(++requests === 1 ? saveList : saveDetail(remote)) });
+    await scenario.view.loadRun();
+    assert.equal(scenario.calls.setState.length, 0, name);
+    assert.equal(scenario.calls.difficulty.length, 0);
+    assert.equal(scenario.calls.actionResult.length, 0);
+    assert.equal(scenario.latestStateRef.current, current);
+  }
+});
+
+check('older healthy counters and camp data can omit later optional additions while keeping finite scores', () => {
+  const storage = new MemoryStorage();
+  const state = fixture('older-optional-core-numbers');
+  state.counters = { gather: 2, hunt: 1, craft: 0 };
+  delete state.camp.archiveRoomLevel;
+  delete state.camp.scribeDeskLevel;
+  delete state.camp.libraryShelfLevel;
+  expectWrite(storage, guestOwner, state, 0, at(1));
+  const read = checkpointApi.readCheckpoint(storage, guestOwner);
+  assert.equal(read.status, 'ready');
+  assert.ok(Number.isFinite(engine.scoreState(read.checkpoint.current)));
+  assert.deepEqual(read.checkpoint.current.counters, state.counters);
+  assert.equal(engine.SAVE_VERSION, 'primitive-archive-v1');
+});
+
 console.log(JSON.stringify({ pass: failures.length === 0, checks: checks.length, failures }, null, 2));
 if (failures.length) process.exitCode = 1;

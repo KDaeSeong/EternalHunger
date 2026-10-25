@@ -104,6 +104,7 @@ assert.equal(previewUtilityRows.every((row) => row.unlocked), true, '개발자 �
 const utilityReady = engine.normalizeState({
   ...base,
   ap: 4,
+  camp: { ...base.camp, fireLevel: 1, shelterLevel: 1, workbenchLevel: 1 },
   inventory: { ...base.inventory, herb: 2, berry: 12, wood: 12, stone: 8, fiber: 8, clay: 6, grain: 6, meat: 3, hide: 2, resin: 2, metal_ore: 4, metal_ingot: 1, pottery: 2, woven_cloth: 0 },
   party: base.party.map((member) => (
     member.id === 'shiroko' ? { ...member, hp: 60, bodyTemp: 36 } : member

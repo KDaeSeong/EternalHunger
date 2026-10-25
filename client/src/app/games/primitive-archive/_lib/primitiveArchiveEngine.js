@@ -2017,6 +2017,11 @@ function activeCivicForState(state) {
   return nextAvailableCivic(research, civics);
 }
 
+function debateTargetsForState(state) {
+  if (!researchSystemStatus(state).unlocked) return { technology: null, civic: null };
+  return { technology: exchangeTechnology(state), civic: activeCivicForState(state) };
+}
+
 function autoCivicsForDay(state) {
   if (!civicsSystemStatus(state).unlocked) return state;
   const civic = activeCivicForState(state);
@@ -3576,7 +3581,7 @@ function settleNextDay(state, options) {
   logged = settleTribeDay(logged);
   return recordResearchEvent(
     autoCivicsForDay(autoResearchForDay(logged)),
-    { kind: 'day', weatherId: weather.id, fireKept: fuelUsed > 0 },
+    { kind: 'day', weatherId: weather.id, fireKept: fireActive },
   );
 }
 
@@ -5328,7 +5333,7 @@ export function utilityActionRows(state, actorId) {
   const activeTradeRouteCharges = tradeRouteCharges(current);
   const settlementLevel = Math.min(SETTLEMENT_MAX_LEVEL, Math.max(0, Number(current.tribe.settlementLevel || 0)));
   const civic = activeCivicForState(current);
-  const selectedTechnology = getTechnology(current.research.selectedTechId);
+  const { technology: selectedTechnology, civic: debateCivic } = debateTargetsForState(current);
   const marketOffer = marketExchangeOffer(current);
 
   return CIVILIZATION_ACTION_DEFS.map((profile) => {
@@ -5419,10 +5424,10 @@ export function utilityActionRows(state, actorId) {
       outcome = `다음 야영 ${SEASON_PLAN_MAX_CHARGES}회 · 추위 피해 ${Math.round((1 - SEASON_PLAN_WEATHER_MULTIPLIER) * 100)}% 감소`;
       materialText = formatRequires(SEASON_PLAN_ACTION_COST);
     } else if (profile.id === 'debate') {
-      requirementMet = Boolean(selectedTechnology || civic);
-      lockedReason = requirementMet ? '' : '진행 중인 기술 또는 사회 제도를 먼저 지정하세요.';
-      context = [selectedTechnology?.name, civic?.name].filter(Boolean).join(' · ') || '연구 목표 없음';
-      outcome = `기술 +${selectedTechnology ? DEBATE_RESEARCH_POINTS : 0}RP · 사회 제도 +${civic ? DEBATE_CIVIC_POINTS : 0}CP`;
+      requirementMet = Boolean(selectedTechnology || debateCivic);
+      lockedReason = requirementMet ? '' : '진행할 기술 또는 사회 제도가 없습니다.';
+      context = [selectedTechnology?.name, debateCivic?.name].filter(Boolean).join(' · ') || '연구 목표 없음';
+      outcome = `기술 +${selectedTechnology ? DEBATE_RESEARCH_POINTS : 0}RP · 사회 제도 +${debateCivic ? DEBATE_CIVIC_POINTS : 0}CP`;
     } else if (profile.id === 'irrigation') {
       const materialsReady = hasResources(current.inventory, IRRIGATION_ACTION_COST);
       requirementMet = activeIrrigationCharges < IRRIGATION_MAX_CHARGES && materialsReady;
@@ -5591,8 +5596,7 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
     };
     next = addLog(next, `${actor.name}의 계절 대비 완료. ${formatRequires(SEASON_PLAN_ACTION_COST)}을 사용해 다음 야영 ${SEASON_PLAN_MAX_CHARGES}회의 추위 피해를 ${Math.round((1 - SEASON_PLAN_WEATHER_MULTIPLIER) * 100)}% 줄입니다.`);
   } else if (profile.id === 'debate') {
-    const selectedTechnology = getTechnology(next.research.selectedTechId);
-    const selectedCivic = activeCivicForState(next);
+    const { technology: selectedTechnology, civic: selectedCivic } = debateTargetsForState(next);
     if (selectedTechnology) next = addResearchProgress(next, selectedTechnology.id, DEBATE_RESEARCH_POINTS, `${actor.name} 학술 토론`);
     if (selectedCivic) next = addCivicProgress(next, selectedCivic.id, DEBATE_CIVIC_POINTS, `${actor.name} 학술 토론`);
     next = addLog(next, `${actor.name}의 학술 토론 완료. ${selectedTechnology ? `${selectedTechnology.name} +${DEBATE_RESEARCH_POINTS}RP` : '기술 목표 없음'} · ${selectedCivic ? `${selectedCivic.name} +${DEBATE_CIVIC_POINTS}CP` : '사회 제도 목표 없음'}.`);

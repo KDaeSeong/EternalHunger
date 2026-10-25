@@ -238,5 +238,72 @@ check('a final-AP rare-chain action keeps its real result after the ordinary nig
   expectUnspent(restored, engine.runEventChainAction(restored, 'noa', 'vein', { rng: () => { throw new Error('Completed overnight chain drew RNG.'); } }));
 });
 
+const prerequisiteIds = new Set([...engine.TECHNOLOGY_TREE, ...engine.CIVIC_TREE].flatMap((row) => row.prereqs || []));
+const debateTechnology = engine.TECHNOLOGY_TREE.findLast((row) => !prerequisiteIds.has(row.id));
+const debateCivic = engine.CIVIC_TREE.findLast((row) => !prerequisiteIds.has(row.id));
+
+function debateFixture({ technology = false, civic = false } = {}) {
+  const state = fixture();
+  for (const row of engine.TECHNOLOGY_TREE) state.research.completed[row.id] = true;
+  for (const row of engine.CIVIC_TREE) state.civics.completed[row.id] = true;
+  if (technology) {
+    delete state.research.completed[debateTechnology.id];
+    state.research.selectedTechId = debateTechnology.id;
+    state.research.progress[debateTechnology.id] = 0;
+  }
+  if (civic) {
+    delete state.civics.completed[debateCivic.id];
+    state.civics.selectedCivicId = debateCivic.id;
+    state.civics.progress[debateCivic.id] = 0;
+  }
+  return engine.normalizeState(state);
+}
+
+check('completed research and civics disable academic debate without spending AP, stamina or RNG', () => {
+  const state = debateFixture();
+  const before = structuredClone(state);
+  const row = engine.utilityActionRows(state, 'shiroko').find((action) => action.id === 'debate');
+  assert.equal(row.available, false);
+  assert.match(row.lockedReason, /진행할.*없/);
+  assert.equal(engine.actionForecastRows(state, 'shiroko', '', 'twine').find((action) => action.id === 'debate').locked, true);
+  const next = engine.runUtilityAction(state, 'shiroko', 'debate', { rng: () => { throw new Error('Blocked debate drew RNG.'); } });
+  expectUnspent(state, next);
+  assert.equal(engine.scoreState(next), engine.scoreState(state));
+  assert.deepEqual(state, before);
+});
+
+check('academic debate cannot spend an action before the camp research system is ready', () => {
+  const state = debateFixture({ technology: true, civic: true });
+  state.camp.workbenchLevel = 0;
+  const row = engine.utilityActionRows(state, 'shiroko').find((action) => action.id === 'debate');
+  assert.equal(row.unlocked, true);
+  assert.equal(row.available, false);
+  expectUnspent(state, engine.runUtilityAction(state, 'shiroko', 'debate', { rng: () => { throw new Error('Locked research drew RNG.'); } }));
+});
+
+check('academic debate advertises and grants only unfinished technology or civic targets at the existing paid cost', () => {
+  for (const [technology, civic] of [[true, false], [false, true], [true, true]]) {
+    const state = debateFixture({ technology, civic });
+    const before = structuredClone(state);
+    const row = engine.utilityActionRows(state, 'shiroko').find((action) => action.id === 'debate');
+    assert.equal(row.available, true);
+    assert.equal(row.outcome, `기술 +${technology ? 5 : 0}RP · 사회 제도 +${civic ? 3 : 0}CP`);
+    const next = engine.runUtilityAction(state, 'shiroko', 'debate', { rng: noEvents });
+    const control = engine.runRestAction(state, 'shiroko', { rng: noEvents });
+    assert.equal(next.ap, state.ap - 1);
+    assert.equal(next.party[0].stamina, state.party[0].stamina - 12);
+    assert.equal(next.counters.debate, Number(state.counters.debate || 0) + 1);
+    if (technology) assert.equal(next.research.progress[debateTechnology.id] - control.research.progress[debateTechnology.id], 5);
+    else assert.deepEqual(next.research.progress, state.research.progress);
+    if (civic) assert.equal(next.civics.progress[debateCivic.id] - control.civics.progress[debateCivic.id], 3);
+    else assert.deepEqual(next.civics.progress, state.civics.progress);
+    const log = next.log.find((line) => line.includes('학술 토론 완료'));
+    assert.ok(log);
+    if (!technology) assert.match(log, /기술 목표 없음/);
+    if (!civic) assert.match(log, /사회 제도 목표 없음/);
+    assert.deepEqual(state, before);
+  }
+});
+
 console.log(JSON.stringify({ checks: results.length, pass: !failures.length, failures, evidence: 'current engine only; real paid actions, independent fixtures, no historical result files or accounts' }));
 if (failures.length) process.exitCode = 1;

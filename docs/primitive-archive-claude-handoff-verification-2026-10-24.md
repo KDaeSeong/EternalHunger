@@ -350,3 +350,61 @@ preserved. The previous build was moved into the existing fixed recovery path,
 not copied. Exact paths, byte counts, manifests and processing results are in
 the ignored `.local/build-recovery/archive-survival-release-2026-10-25.json`
 receipt. No source, save, original or unrelated artifact was deleted.
+
+## 2026-10-25 follow-up: numeric saves, maintained-fire history and academic debate
+
+Fixed the next three audited defects in priority order:
+
+1. The shared save validator now requires an action-counter record containing
+   finite nonnegative numbers and the four core camp values (fire, shelter,
+   workbench and fuel). The later archive-room, scribe-desk and library-shelf
+   values remain optional but must be valid numbers when present. Local reads
+   check both current and previous runs, local writes reject invalid live state,
+   and server loads reject malformed data before normalization. Original corrupt
+   bytes are preserved for the existing explicit recovery flow. Older healthy
+   counter maps and absent later facilities remain readable without a schema or
+   save-version change. This closes the missing-counter crash and nonnumeric
+   camp-score gap left by the preceding structure-only repair.
+2. Maintained-fire research history now uses whether the fire was active that
+   night, independently of fuel payment. Eight ordinary paid rests over two nights
+   count two maintained fires and grant the archive eureka with or without pottery;
+   fuel remains 3 with pottery and 2 without, from an initial 4. Unbuilt and
+   unfueled fires grant zero nights. Fuel use, protection and production balance
+   were not tuned.
+3. Academic debate preview and execution share available unfinished research and
+   civic targets. When both tracks are complete, the action and its forecast are
+   locked and an engine call adds no progress, fatigue, cost or RNG draw. An
+   inactive camp research system also blocks it. Technology-only, civic-only and
+   mixed unfinished targets retain +5 RP / +3 CP for their respective tracks and
+   the existing 1 AP / 12 ST cost. Context and result logs no longer promise points
+   for a completed track. The existing nineteen-action positive balance fixture
+   now includes the actual built camp required for research; its full expected
+   action set is retained, with a separate negative check for an unready camp.
+
+The missing/invalid-save, saved-fuel-night and completed-target assertions failed
+before their corresponding fixes. The fourteen-step `check:primitive-archive`
+chain now passes 281 PASS lines / zero failures; captured output SHA-256:
+`961e3409d7c43438b4984eed463f99bbe7e23da146a1ea335fd343e1a2c1953e`.
+It includes 45 checkpoint cases, 28 night-survival cases, 18 decision cases and
+22 focused UI cases. The new save cases exercise in-memory current/previous
+envelopes, the actual checkpoint hook, server-load rejection and healthy legacy
+controls without reading an old result file or touching real saved data.
+Changed-file ESLint and `git diff --check` passed. Production build
+`MM4IaHJZm9yKWVTUP7c3a` and both required postbuild gates passed; output SHA-256:
+`15ea964ed8a0183e2a3cfb13f8336c5a647b2658a4352187aad84342f5fdeb9e`.
+The shared isolated Node VM Worker smoke is separate from archive browser play.
+No actual browser, account write or fresh human-readability assessment was
+performed for this follow-up. No unrelated gameplay balance or Claude handoff
+invariant was changed.
+
+After build verification, removed only the retired `lAXKd5Eb9llfo-DmievlT` build
+(27,701,404 bytes) and this build's eight regenerable cache files (619,032,000
+bytes). The immediate previous `mMsiHQ4I863Dk-bG5DyHN` build was moved into the
+fixed recovery path. Current, previous and unique map-shift reproduction manifests
+were rehashed and unchanged by cleanup. Five disjoint managed artifact roots
+measured 513,659,949 file bytes before building, peaked at 1,160,391,381 before
+cleanup, and ended at 513,657,977 before the small receipt (1,972 fewer than the
+start). These are logical file bytes with BigInt file-identity deduplication, not
+whole-workspace physical allocation. Receipt:
+`.local/build-recovery/archive-numeric-and-progress-release-2026-10-25.json`.
+User originals, saves, unrelated artifacts, Git and internal session data remain.

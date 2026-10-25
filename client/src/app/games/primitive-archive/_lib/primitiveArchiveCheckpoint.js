@@ -34,6 +34,18 @@ function isValidProgressTrack(value, selectedKey) {
     && isRecord(value.completed);
 }
 
+function isFiniteNonNegative(value) {
+  return Number.isFinite(value) && value >= 0;
+}
+
+function isValidCamp(value) {
+  return isRecord(value)
+    && ['fireLevel', 'shelterLevel', 'workbenchLevel', 'fuel']
+      .every((key) => isFiniteNonNegative(value[key]))
+    && ['archiveRoomLevel', 'scribeDeskLevel', 'libraryShelfLevel']
+      .every((key) => !Object.hasOwn(value, key) || isFiniteNonNegative(value[key]));
+}
+
 export function isValidRunState(value) {
   if (!isRecord(value)
     || typeof value.runId !== 'string'
@@ -47,7 +59,9 @@ export function isValidRunState(value) {
     || !Array.isArray(value.party)
     || value.party.length < 1
     || !isRecord(value.inventory)
-    || !isRecord(value.camp)
+    || !isValidCamp(value.camp)
+    || !isRecord(value.counters)
+    || !Object.values(value.counters).every(isFiniteNonNegative)
     || !isRecord(value.weather)
     || !isValidProgressTrack(value.research, 'selectedTechId')
     || !isValidProgressTrack(value.civics, 'selectedCivicId')
