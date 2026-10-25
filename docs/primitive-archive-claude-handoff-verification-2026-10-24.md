@@ -464,3 +464,59 @@ disjoint managed roots measured 1,233,658,707 file bytes before cleanup and
 logical file bytes with file-identity deduplication, not whole-workspace physical
 allocation. Exact targets, manifests and outcomes:
 `.local/build-recovery/archive-unique-quotes-release-2026-10-25.json`.
+
+## 2026-10-25 follow-up: ended workforce edits and visible action costs
+
+Three Luna subtasks re-audited progression/endings, persistence and the player's
+decision UI against the current acceptance list. The preceding quote release
+was verified state-changing progress, not a completed human acceptance gate.
+
+The ended-run audit reproduced a mutable workforce snapshot: job +/- remained
+available and changed assignments after settlement, failure or completion.
+`adjustTribeJobAction` now exits without a log or state edit for an ended run,
+and `tribeSummary` supplies matching unavailable flags and an explanation.
+Actual tribe-tab controls also disable while persistence is busy, with their
+existing parent action lock retained. Production, food and population remain
+inspectable. Active allocation stays free even at zero AP and only takes manual
+ownership of the edited job's workers. Tests cover all terminal outcomes, using
+the actual `completeArchiveAction` path for a clear, the full terminal snapshot,
+score/record classification and unchanged input, alongside live positive cases.
+
+The decision UI audit found that specialized livelihood costs were computed by
+the engine but never rendered, while utility costs were only in mouse tooltips.
+Both lists now show their existing `row.cost` within the button, underneath its
+unchanged name/status. The same costs remain in the tooltips. CSS is scoped to
+the era shell and inherits button text contrast, permits wrapping and preserves
+the existing collapsed sections. No price, stamina, AP, outcome, unlock or
+execution rule changed. Actual JSX tests inspect the visible button children,
+tooltips, disabled state and original action dispatch using fresh real-engine
+rows rather than historical result files.
+
+Both engine and actual-JSX regression assertions failed before their respective
+fixes. The fourteen-step archive chain passes 285 PASS lines / zero failures,
+including 10 action-guard cases and 24 focused UI cases. Output SHA-256:
+`20e8fbc43a80b6976ea8eddbb494ce030d17a9e66eaa865cd10a669cb1764353`.
+Changed-file ESLint and `git diff --check` passed. No fresh browser or public
+account write was performed for this repair. The independent review suggested
+using the actual completion path in the fixture; this strengthening is included.
+The new human readability assessment and natural session-expiry/recovery
+observation remain open; the user's earlier 1/5 scores remain unchanged.
+
+A separate controlled shared-save-route review found a concurrent slot-limit
+race (nineteen existing slots plus two different creates can become twenty-one).
+It is recorded in the backlog for a separate database-safe repair. This release
+does not modify that route or claim database concurrency acceptance.
+
+Production build `Je4atF2EbZfcIJ5xVwACu` and both postbuild gates passed; output
+SHA-256 `d9607f3478d6934e82cf1136763cdd275ecabc0b5c0698f5ce08733c9d9aae85`.
+The isolated Node VM Worker smoke remains distinct from browser/performance
+acceptance. After process/path/link/size/hash checks, removed the retired
+`MM4IaHJZm9yKWVTUP7c3a` build (27,699,432 bytes) and this build's cache
+(620,952,895 bytes), 648,652,327 bytes total (about 0.60 GiB). Current build,
+immediate previous `KngB9ollY3F3saKRvivmY` and unique map-shift reproduction
+were rehashed unchanged; the previous build was moved, not copied.
+Five disjoint managed roots decreased from 1,162,108,701 bytes before cleanup
+to 513,458,882 afterward, including the small receipt (about 0.48 GiB).
+These are file-identity-deduplicated logical bytes, not whole-workspace physical
+allocation. Receipt:
+`.local/build-recovery/archive-workforce-cost-release-2026-10-25.json`.

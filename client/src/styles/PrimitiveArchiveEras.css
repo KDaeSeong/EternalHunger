@@ -659,6 +659,21 @@
   color: var(--era-ink);
 }
 
+.primitive-era.primitive-archive-page-shell .primitive-specialized-actions__buttons .game-action-button__label {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.primitive-era.primitive-archive-page-shell .primitive-specialized-actions__cost {
+  color: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
 /* Secondary cards used across the camp, report, party and growth screens. */
 .primitive-era.primitive-archive-page-shell .primitive-action-forecast-details,
 .primitive-era.primitive-archive-page-shell .primitive-facility-details,

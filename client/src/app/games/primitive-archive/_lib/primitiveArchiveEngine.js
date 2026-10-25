@@ -1222,6 +1222,7 @@ function forecastTribeFood(state, assignments = state.tribe.assignments, include
 
 export function tribeSummary(state) {
   const current = normalizeState(state);
+  const jobEditBlockedReason = current.ended ? '종료된 런에서는 직업 배치를 변경할 수 없습니다.' : '';
   const tribe = normalizeTribeState(current.tribe);
   const assigned = Object.values(tribe.assignments).reduce((sum, count) => sum + Number(count || 0), 0);
   const unassigned = Math.max(0, tribe.population - assigned);
@@ -1256,8 +1257,8 @@ export function tribeSummary(state) {
       manualCount: count - tribe.autoAssignments[job.id],
       unlocked,
       lockedReason,
-      canAdd: unlocked && unassigned > 0,
-      canRemove: count > 0,
+      canAdd: !current.ended && unlocked && unassigned > 0,
+      canRemove: !current.ended && count > 0,
       dailyText,
     };
   });
@@ -1272,6 +1273,7 @@ export function tribeSummary(state) {
     foodNeed: Math.ceil(tribe.population / 4),
     foodStock: tribeFoodStock(current.inventory),
     foodForecast: forecastTribeFood(current),
+    jobEditBlockedReason,
     jobs,
     nextProduction,
     nextProductionText: formatGains(Object.entries(nextProduction)),
@@ -1283,6 +1285,7 @@ export function tribeSummary(state) {
 
 export function adjustTribeJobAction(state, jobId, delta) {
   const current = normalizeState(state);
+  if (current.ended) return current;
   const job = TRIBE_JOBS.find((row) => row.id === jobId);
   if (!job || !Number.isFinite(Number(delta)) || Number(delta) === 0) return current;
   const unlocked = !job.techId || Boolean(current.research.completed?.[job.techId]);

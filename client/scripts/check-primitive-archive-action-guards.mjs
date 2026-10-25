@@ -146,6 +146,64 @@ check('ended equipment changes preserve score, settled rewards and item ownershi
   }
 });
 
+check('ended workforce changes preserve the complete terminal snapshot and classification', () => {
+  for (const outcome of ['settled', 'failed', 'clear']) {
+    let state = fixture(`ended-workforce-${outcome}`);
+    state.tribe.population = 4;
+    state.tribe.assignments.forager = 1;
+    state.tribe.assignments.hunter = 1;
+    state.tribe.autoAssignments.forager = 1;
+    if (outcome === 'failed') {
+      state = { ...state, ended: true, party: state.party.map((member) => ({ ...member, hp: 0 })) };
+    } else if (outcome === 'clear') {
+      state.day = engine.ARCHIVE_VICTORY_DAY;
+      state.camp = { ...state.camp, archiveRoomLevel: 1, scribeDeskLevel: 1, libraryShelfLevel: 1 };
+      state.inventory = { ...state.inventory, book_craft_guide: 1, book_camp_manual: 1 };
+      state.research.completed = Object.fromEntries(engine.TECH_TREE.map((row) => [row.id, true]));
+      state.civics.completed = Object.fromEntries(engine.CIVIC_TREE.map((row) => [row.id, true]));
+      assert.equal(engine.archiveVictorySummary(state).canComplete, true);
+      state = engine.completeArchiveAction(state);
+      assert.equal(state.victory, true, 'The completed fixture must use the real archive-ending path.');
+    } else {
+      state = engine.settleRunAction(state);
+    }
+    state = engine.normalizeState(state);
+    const before = structuredClone(state);
+    for (const jobId of ['forager', 'hunter', 'logger']) {
+      for (const delta of [-1, 1]) {
+        const next = engine.adjustTribeJobAction(state, jobId, delta);
+        assert.deepEqual(next, before, `${outcome}: ${jobId} ${delta} changed an ended run.`);
+        assert.equal(engine.scoreState(next), engine.scoreState(before));
+        assert.deepEqual(engine.runRecordStatus(next), engine.runRecordStatus(before));
+      }
+    }
+    assert.ok(engine.tribeSummary(state).jobs.every((job) => !job.canAdd && !job.canRemove));
+    assert.deepEqual(state, before, 'Denied workforce edits must not mutate their input.');
+  }
+});
+
+check('active workforce editing stays free and transfers only the edited job to manual control', () => {
+  const state = fixture('active-workforce-control');
+  state.ap = 0;
+  state.tribe.population = 4;
+  state.tribe.assignments.forager = 1;
+  state.tribe.assignments.hunter = 1;
+  state.tribe.autoAssignments.forager = 1;
+  state.tribe.autoAssignments.hunter = 1;
+  const before = structuredClone(state);
+  const added = engine.adjustTribeJobAction(state, 'forager', 1);
+  assert.equal(added.tribe.assignments.forager, 2);
+  assert.equal(added.tribe.autoAssignments.forager, 0);
+  assert.equal(added.tribe.autoAssignments.hunter, 1);
+  assert.equal(added.ap, state.ap);
+  assert.equal(added.day, state.day);
+  assert.deepEqual(added.inventory, state.inventory);
+  const removed = engine.adjustTribeJobAction(added, 'forager', -1);
+  assert.equal(removed.tribe.assignments.forager, 1);
+  assert.equal(removed.ap, state.ap);
+  assert.deepEqual(state, before, 'Active workforce edits must not mutate their input.');
+});
+
 check('equipment can still be redistributed freely during an active low-HP run', () => {
   const state = fixture('live-equipment-control');
   state.inventory.hide_coat = 1;

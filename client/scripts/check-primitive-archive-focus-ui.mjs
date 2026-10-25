@@ -21,10 +21,11 @@ const inventoryTabUrl = new URL('_components/PrimitiveArchiveInventoryTab.js', r
 const partyWorkspaceUrl = new URL('_components/PrimitiveArchivePartyWorkspace.js', routeUrl).href;
 const projectsPanelUrl = new URL('_components/PrimitiveArchiveProjectsPanel.js', routeUrl).href;
 const workspaceTabsUrl = new URL('_components/PrimitiveArchiveWorkspaceTabs.js', routeUrl).href;
+const tribeTabUrl = new URL('_components/PrimitiveArchiveTribeTab.js', routeUrl).href;
 const campWorkspaceUrl = new URL('_components/PrimitiveArchiveCampWorkspace.js', routeUrl);
 const growthTabUrl = new URL('_components/PrimitiveArchiveGrowthTab.js', routeUrl);
 const researchPreviewUrl = new URL('_components/PrimitiveArchiveResearchTreePreview.js', routeUrl);
-const transpiledUrls = new Set([focusPanelUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, projectsPanelUrl, workspaceTabsUrl]);
+const transpiledUrls = new Set([focusPanelUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl]);
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 const primitiveUiStub = `
   const jsx = (...args) => globalThis.__primitiveArchiveFocusReact.createElement(...args);
@@ -41,6 +42,9 @@ const primitiveUiStub = `
       jsx('strong', { children: props.label, key: 'label' }),
       jsx('span', { children: props.text, key: 'text' }),
     ] });
+  }
+  export function SmallStat(props) {
+    return jsx('div', { children: [jsx('span', { children: props.label, key: 'label' }), jsx('strong', { children: props.value, key: 'value' })] });
   }
 `;
 const visualStub = `
@@ -99,7 +103,7 @@ registerHooks({
     if (context.parentURL === runTabUrl && runTabStubs.has(specifier)) {
       return { url: asDataModule(runTabStubs.get(specifier)), shortCircuit: true };
     }
-    if ([inventoryTabUrl, partyWorkspaceUrl, projectsPanelUrl, workspaceTabsUrl].includes(context.parentURL)) {
+    if ([inventoryTabUrl, partyWorkspaceUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl].includes(context.parentURL)) {
       if (specifier === 'react' && context.parentURL === inventoryTabUrl) return { url: asDataModule(inventoryHooksStub), shortCircuit: true };
       if (specifier === '../../_components/GamePlayPrimitives') return { url: asDataModule(primitiveUiStub), shortCircuit: true };
       if (specifier === './PrimitiveArchiveVisuals') return { url: asDataModule(visualStub), shortCircuit: true };
@@ -126,6 +130,7 @@ const { default: PrimitiveArchiveInventoryBar } = await import(inventoryBarUrl);
 const { default: PrimitiveArchiveInventoryTab } = await import(inventoryTabUrl);
 const { default: PrimitiveArchivePartyWorkspace } = await import(partyWorkspaceUrl);
 const { default: PrimitiveArchiveProjectsPanel } = await import(projectsPanelUrl);
+const { default: PrimitiveArchiveTribeTab } = await import(tribeTabUrl);
 
 const checks = [];
 const failures = [];
@@ -473,6 +478,62 @@ check('actual action-workspace JSX puts the latest result before technology list
   const technologyLists = [...html.matchAll(/<details class="primitive-specialized-actions[^\"]*"[^>]*>/g)].map((match) => match[0]);
   assert.equal(technologyLists.length, 2, 'Both technology list sections must remain available.');
   for (const openingTag of technologyLists) assert.doesNotMatch(openingTag, /\sopen(?:=|\s|>)/, 'Technology lists must start collapsed.');
+});
+
+check('specialized livelihoods and utility controls show their real costs before activation', () => {
+  const state = freshState('focus-specialized-action-costs');
+  for (const row of [...engine.specializedActionRows(state, state.party[0].id), ...engine.utilityActionRows(state, state.party[0].id)]) {
+    state.research.completed[row.techId] = true;
+  }
+  for (const region of engine.WORLD_REGIONS) state.exploration.revealed[region.id] = true;
+  const before = structuredClone(state);
+  const actorId = state.party[0].id;
+  const specializedActions = engine.specializedActionRows(state, actorId);
+  const utilityActions = engine.utilityActionRows(state, actorId);
+  assert.ok(specializedActions.some((row) => row.available && row.id === 'mine'));
+  for (const [kind, rows] of [['specialized', specializedActions], ['utility', utilityActions]]) {
+    const calls = [];
+    globalThis.__primitiveArchiveFocusButtons = [];
+    renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, {
+      ...tabProps(state, 'actions'), specializedActions, utilityActions,
+      runSpecialized: (id) => calls.push(['specialized', id]),
+      runUtility: (id) => calls.push(['utility', id]),
+    }));
+    for (const row of rows) {
+      const button = globalThis.__primitiveArchiveFocusButtons.find((entry) => entry.action === row.icon);
+      assert.ok(button, `${row.id}: actual control must exist.`);
+      const visible = renderedVisibleText(renderToStaticMarkup(React.createElement('span', null, button.children)));
+      assert.ok(visible.includes(row.cost), `${row.id}: cost must be visible without hovering.`);
+      assert.ok(button.title.includes(row.cost), `${row.id}: tooltip must retain the same real cost.`);
+      assert.equal(Boolean(button.disabled), !row.available);
+      button.onClick();
+      assert.deepEqual(calls.at(-1), [kind, row.id]);
+    }
+  }
+  assert.deepEqual(state, before, 'Displaying costs must not spend resources or alter the run.');
+});
+
+check('actual workforce controls lock after an ending or during persistence while holdings stay inspectable', () => {
+  const base = freshState('focus-workforce-terminal-guard');
+  base.tribe.population = 4;
+  base.tribe.assignments.forager = 1;
+  base.tribe.autoAssignments.forager = 0;
+  for (const [ended, busy] of [[false, ''], [true, ''], [false, 'save']]) {
+    const state = { ...base, ended };
+    const tribe = engine.tribeSummary(state);
+    const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveTribeTab, { ...tabProps(state, 'tribe'), tribe, busy }));
+    const buttons = [...html.matchAll(/<button\b[^>]*>/g)].map((match) => match[0]).filter((tag) => tag.includes('배치 1명'));
+    assert.equal(buttons.length, tribe.jobs.length * 2);
+    for (const job of tribe.jobs) {
+      for (const [label, enabled] of [['감소', job.canRemove], ['증가', job.canAdd]]) {
+        const tag = buttons.find((entry) => entry.includes(`aria-label="${job.name} 배치 1명 ${label}"`));
+        assert.ok(tag);
+        assert.equal(/\bdisabled(?:=|\s|>)/.test(tag), Boolean(ended || busy || !enabled));
+      }
+    }
+    assert.ok(renderedVisibleText(html).includes('직접 배치 1명'), 'Job assignment counts must stay visible.');
+    if (ended) assert.ok(renderedVisibleText(html).includes('종료된 런에서는 직업 배치를 변경할 수 없습니다'), 'Ended workforce controls need a read-only explanation.');
+  }
 });
 
 check('persistent inventory bar shows core zero counts and reacts to real gathered inventory props', () => {

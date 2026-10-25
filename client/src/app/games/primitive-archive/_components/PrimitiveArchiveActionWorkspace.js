@@ -245,9 +245,12 @@ export default function PrimitiveArchiveActionWorkspace(props) {
                   disabled={!actorCanAct || !row.available}
                   key={row.id}
                   onClick={() => runSpecialized(row.id)}
-                  title={`${row.technologyName} \u00B7 ${row.context} \u00B7 ${row.outcome}`}
+                  title={`${row.technologyName} \u00B7 ${row.context} \u00B7 ${row.outcome} \u00B7 ${row.cost}`}
                 >
-                  {row.label} · {row.available ? `${row.chancePct}%` : '\uC7A0\uAE40'}
+                  <>
+                    <span>{row.label} · {row.available ? `${row.chancePct}%` : '\uC7A0\uAE40'}</span>
+                    <span className="primitive-specialized-actions__cost">{row.cost}</span>
+                  </>
                 </ActionButton>
               ))}
             </div>
@@ -274,7 +277,10 @@ export default function PrimitiveArchiveActionWorkspace(props) {
                   onClick={() => runUtility(row.id)}
                   title={`${row.technologyName} · ${row.context} · ${row.available ? row.outcome : row.lockedReason} · ${row.cost}`}
                 >
-                  {row.label} · {row.available ? '실행' : row.unlocked ? '대기' : '잠김'}
+                  <>
+                    <span>{row.label} · {row.available ? '실행' : row.unlocked ? '대기' : '잠김'}</span>
+                    <span className="primitive-specialized-actions__cost">{row.cost}</span>
+                  </>
                 </ActionButton>
               ))}
             </div>

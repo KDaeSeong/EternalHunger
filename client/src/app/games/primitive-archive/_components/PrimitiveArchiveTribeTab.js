@@ -25,6 +25,7 @@ function diplomacyDisabledText(rival, action) {
 export default function PrimitiveArchiveTribeTab({
   actionFeedback,
   adjustTribeJob,
+  busy,
   recentActionText,
   rivals = [],
   runDiplomacy,
@@ -33,6 +34,7 @@ export default function PrimitiveArchiveTribeTab({
   const knownCount = rivals.filter((rival) => rival.known).length;
   const lastProduction = tribe.lastProduction || {};
   const nextFood = tribe.foodForecast?.days?.[0];
+  const jobEditBlockedReason = tribe.jobEditBlockedReason || (busy ? '저장 작업이 끝난 뒤 직업 배치를 변경할 수 있습니다.' : '');
   const tradeRouteCharges = Number(rivals[0]?.tradeRouteCharges || 0);
   const foodResult = Number(tribe.productionSerial || 0) > 0
     ? `${Number(lastProduction.foodProvided || 0)}/${Number(lastProduction.foodNeed || 0)}`
@@ -77,7 +79,7 @@ export default function PrimitiveArchiveTribeTab({
 
       <section className="games-panel primitive-job-panel">
         <PrimitiveArchivePanelTitle action="primitive-job" title="직업 배치" meta={`미배치 ${tribe.unassigned}명 · AP 소모 없음`} />
-        <p>하루 자동 운영은 자동 배치한 일손과 미배치 인원을 식량·실행 가능한 사업에 맞춰 다시 배분합니다. 직접 조정한 직업의 현재 일손은 유지하며, 이전 저장 기록의 배치도 그대로 보존합니다.</p>
+        <p>{jobEditBlockedReason || '하루 자동 운영은 자동 배치한 일손과 미배치 인원을 식량·실행 가능한 사업에 맞춰 다시 배분합니다. 직접 조정한 직업의 현재 일손은 유지하며, 이전 저장 기록의 배치도 그대로 보존합니다.'}</p>
         <div className="primitive-job-grid">
           {tribe.jobs.map((job) => (
             <article className={job.unlocked ? '' : 'is-locked'} key={job.id}>
@@ -93,10 +95,10 @@ export default function PrimitiveArchiveTribeTab({
                 <button
                   type="button"
                   data-game-sfx="off"
-                  disabled={!job.canRemove}
+                  disabled={Boolean(jobEditBlockedReason) || !job.canRemove}
                   onClick={() => adjustTribeJob(job.id, -1)}
                   aria-label={`${job.name} 배치 1명 감소`}
-                  title={`${job.name} 배치 1명 감소`}
+                  title={jobEditBlockedReason || `${job.name} 배치 1명 감소`}
                 >
                   <Minus size={16} strokeWidth={2.4} />
                 </button>
@@ -104,10 +106,10 @@ export default function PrimitiveArchiveTribeTab({
                 <button
                   type="button"
                   data-game-sfx="off"
-                  disabled={!job.canAdd}
+                  disabled={Boolean(jobEditBlockedReason) || !job.canAdd}
                   onClick={() => adjustTribeJob(job.id, 1)}
                   aria-label={`${job.name} 배치 1명 증가`}
-                  title={job.unlocked ? `${job.name} 배치 1명 증가` : job.lockedReason}
+                  title={jobEditBlockedReason || (job.unlocked ? `${job.name} 배치 1명 증가` : job.lockedReason)}
                 >
                   <Plus size={16} strokeWidth={2.4} />
                 </button>
