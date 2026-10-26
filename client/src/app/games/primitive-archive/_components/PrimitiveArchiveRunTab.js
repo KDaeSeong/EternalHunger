@@ -12,6 +12,7 @@ import {
 } from '../_lib/primitiveArchivePageRuntime';
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 import { archiveProgressionSummary } from '../_lib/primitiveArchiveProgression';
+import { archiveAccountRewardPreview } from '../_lib/primitiveArchiveAccountRewards';
 
 export default function PrimitiveArchiveRunTab(props) {
   const {
@@ -37,6 +38,7 @@ export default function PrimitiveArchiveRunTab(props) {
   const progression = archiveProgressionSummary(state, archiveVictory);
   const advancementCompleted = progression.longTerm.rows.reduce((sum, row) => sum + row.completed, 0);
   const advancementTotal = progression.longTerm.rows.reduce((sum, row) => sum + row.total, 0);
+  const accountReward = archiveAccountRewardPreview(state);
   return (
     <section className="games-panel primitive-run-management" role="tabpanel">
       <PrimitiveArchivePanelTitle
@@ -82,6 +84,25 @@ export default function PrimitiveArchiveRunTab(props) {
         </section>
       </div>
 
+      <section className="primitive-progression-goals" aria-label="완주 보상">
+        <div className="primitive-progression-goal">
+          <h3>기초 완주 보상</h3>
+          <strong>{accountReward.basic.lp.toLocaleString('ko-KR')} LP · {accountReward.basic.credits.toLocaleString('ko-KR')} 크레딧</strong>
+          <p>완주·런 종료 후 로그인하여 ‘런 기록·보상 받기’를 누르면 계정에 지급됩니다. 게임 안의 특전 포인트와는 별개입니다.</p>
+        </div>
+        <div className="primitive-progression-goal">
+          <h3>발전 전체 완료 후 완주</h3>
+          <strong>총 {accountReward.full.lp.toLocaleString('ko-KR')} LP · {accountReward.full.credits.toLocaleString('ko-KR')} 크레딧</strong>
+          <p>기술·사회 제도 {accountReward.completed}/{accountReward.total} 완료. 기초 완주로 런을 종료하기 전에 전체 발전을 마쳐야 합니다. 기초 보상이 포함된 총액입니다.</p>
+        </div>
+        <p className="primitive-run-management__note">
+          {accountReward.excluded
+            ? '개발자 보정을 사용한 런은 특전 포인트·LP·크레딧 보상에서 제외됩니다.'
+            : `같은 런은 한 번만 지급됩니다. 계정당 하루 최대 ${accountReward.dailyLimit.lp.toLocaleString('ko-KR')} LP · ${accountReward.dailyLimit.credits.toLocaleString('ko-KR')} 크레딧이며, 한도에 걸린 기록은 다음 날 다시 청구할 수 있습니다.`}
+          {runSettled ? ` 이번 런의 특전 포인트: +${Number(state.meta?.lastAward || 0).toLocaleString('ko-KR')}.` : ' 특전 포인트는 런 종료·정산 때 이 기기의 다음 런용으로 지급됩니다.'}
+        </p>
+      </section>
+
       <div className="primitive-difficulty-grid">
         {difficultyRows().map((row) => (
           <button
@@ -114,7 +135,7 @@ export default function PrimitiveArchiveRunTab(props) {
           disabled={!hydrated || !token || persistenceBusy || !recordStatus.canRecord}
           title={recordStatus.reason}
         >
-          {busy === 'record' ? '기록 중...' : '런 기록'}
+          {busy === 'record' ? '기록 중...' : '런 기록·보상 받기'}
         </GameControlButton>
         <GameControlButton
           action="complete"

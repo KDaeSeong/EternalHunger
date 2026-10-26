@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { isValidRunState } from '../_lib/primitiveArchiveCheckpoint';
 import {
-  apiGet, apiPost, apiPut, captureAuthSession, clearApiGetCache, isCurrentAuthSession,
+  apiGet, apiPost, apiPut, captureAuthSession, clearApiGetCache, isCurrentAuthSession, updateStoredUser,
 } from '../../../../utils/api';
 import {
   GAME_SLUG,
@@ -15,6 +15,7 @@ import {
   scoreState,
   summaryForState,
 } from '../_lib/primitiveArchiveEngine';
+import { archiveAccountRewardMessage } from '../_lib/primitiveArchiveAccountRewards';
 
 function persistenceErrorMessage(err, fallback) {
   return err?.isAuthError
@@ -149,9 +150,19 @@ export default function usePrimitiveArchivePersistence({
       }, { timeoutMs: 15000 });
       if (!requestIsCurrent(request)) return;
       clearApiGetCache('/game-records');
-      const nextMessage = response?.replayed === true
-        ? '이 런의 전적은 이미 저장되어 있습니다. 중복 기록을 추가하지 않았습니다.'
-        : `${status.label} 결과를 전적에 기록했습니다.`;
+      const progress = response?.userProgress;
+      if (progress && Number.isFinite(progress.lp) && Number.isFinite(progress.credits)) {
+        updateStoredUser({ lp: progress.lp, credits: progress.credits }, { session: request.session });
+        clearApiGetCache('/credits');
+        clearApiGetCache('/perks');
+      }
+      const recordMessage = response?.record === null
+        ? '이 런의 정산 이력을 확인했습니다.'
+        : response?.replayed === true
+          ? '이 런의 전적은 이미 저장되어 있습니다. 중복 기록을 추가하지 않았습니다.'
+          : `${status.label} 결과를 전적에 기록했습니다.`;
+      const rewardMessage = archiveAccountRewardMessage(response?.rewards);
+      const nextMessage = [recordMessage, rewardMessage].filter(Boolean).join(' ');
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
       setActionResult(nextMessage);

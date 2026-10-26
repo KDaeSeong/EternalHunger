@@ -7,6 +7,7 @@ import ts from 'typescript';
 import './lib/register-simulation-modules.mjs';
 globalThis.__primitiveArchiveReact = React;
 const engine = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveEngine.js');
+const { archiveAccountRewardPreview } = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveAccountRewards.js');
 
 const persistenceUrl = new URL('../src/app/games/primitive-archive/_hooks/usePrimitiveArchivePersistence.js', import.meta.url).href;
 const reactStub = `
@@ -33,6 +34,7 @@ const apiStub = `
   export const apiPost = (path, payload, options) => call('POST', path, payload, options);
   export const apiPut = (path, payload, options) => call('PUT', path, payload, options);
   export const clearApiGetCache = (path) => globalThis.__primitiveArchivePersistenceHarness.cacheClears.push(path);
+  export const updateStoredUser = (patch, options) => globalThis.__primitiveArchivePersistenceHarness.userUpdates.push({ patch, options });
   export const captureAuthSession = () => ({ ...globalThis.__primitiveArchivePersistenceHarness.authSession });
   export const isCurrentAuthSession = (session) => {
     const current = globalThis.__primitiveArchivePersistenceHarness.authSession;
@@ -154,6 +156,27 @@ function expectStatus(state, expected) {
   return status;
 }
 
+check('reward preview separates basic and all-advancement totals and excludes developer adjustments', () => {
+  const base = fixture();
+  const basic = goalReadyFixture({
+    research: { ...base.research, completed: Object.fromEntries(engine.TECHNOLOGY_TREE.filter((row) => row.archiveRequired).map((row) => [row.id, true])) },
+    civics: { ...base.civics, completed: Object.fromEntries(engine.CIVIC_TREE.filter((row) => row.archiveRequired).map((row) => [row.id, true])) },
+  });
+  assert.equal(engine.archiveVictorySummary(basic).canComplete, true);
+  assert.equal(archiveAccountRewardPreview(basic).tier, 'basic');
+  assert.equal(archiveAccountRewardPreview(basic).lp, 500);
+  assert.equal(archiveAccountRewardPreview(basic).credits, 1000);
+  const full = goalReadyFixture();
+  const preview = archiveAccountRewardPreview(full);
+  assert.equal(preview.tier, 'full');
+  assert.equal(preview.lp, 1500);
+  assert.equal(preview.credits, 3000);
+  assert.equal(preview.completed, preview.total);
+  const excluded = archiveAccountRewardPreview({ ...full, devTools: { used: true } });
+  assert.equal(excluded.lp, 0);
+  assert.equal(excluded.credits, 0);
+});
+
 check('separate runs started in the same millisecond have distinct identities without extra gameplay RNG draws', () => {
   const originalNow = Date.now;
   let generatedDraws = 0;
@@ -199,6 +222,7 @@ function persistenceHarness(state, options = {}) {
     apiCalls: [],
     authSession: { scope: 'fixture', revision: 0, csrfToken: '' },
     cacheClears: [],
+    userUpdates: [],
     handlers: options.handlers || {},
     refs: [],
     stateInitials: [],
@@ -501,6 +525,54 @@ await checkAsync('a replayed server record reports the existing result without c
   assert.equal(writes.toasts.at(-1).tone, 'success');
   assert.equal(writes.states.length, 0);
   assert.deepEqual(state, original);
+});
+
+await checkAsync('server reward receipts update exact account balances and show the granted currencies without changing local perks', async () => {
+  const state = engine.completeArchiveAction(goalReadyFixture());
+  const before = structuredClone(state);
+  const { controls, harness, writes } = persistenceHarness(state, {
+    handlers: { POST: () => ({ rewards: { status: 'awarded', lp: 500, credits: 1000 }, userProgress: { lp: 517, credits: 1023 } }) },
+  });
+  await controls.recordRun();
+  assert.deepEqual(harness.userUpdates, [{ patch: { lp: 517, credits: 1023 }, options: { session: harness.authSession } }]);
+  assert.match(writes.actionResults.at(-1), /500 LP · 1,000 크레딧을 받았습니다/);
+  assert.deepEqual(state, before);
+  assert.ok(harness.cacheClears.includes('/perks'));
+  assert.ok(harness.cacheClears.includes('/credits'));
+});
+
+await checkAsync('a repeated reward receipt uses the current consumed balance and does not claim another award', async () => {
+  const { controls, harness, writes } = persistenceHarness(fixture({ ended: true }), {
+    handlers: { POST: () => ({ replayed: true, rewards: { status: 'already_awarded', lp: 1500, credits: 3000 }, userProgress: { lp: 100, credits: 40 } }) },
+  });
+  await controls.recordRun();
+  assert.deepEqual(harness.userUpdates[0].patch, { lp: 100, credits: 40 });
+  assert.match(writes.actionResults.at(-1), /이미 지급/);
+  assert.doesNotMatch(writes.actionResults.at(-1), /크레딧을 받았습니다/);
+});
+
+await checkAsync('daily-limit and excluded receipts explain the outcome without inventing a currency grant', async () => {
+  for (const [status, pattern] of [['daily_limit', /내일 같은 런/], ['ineligible', /보상 대상이 아닙니다/]]) {
+    const { controls, harness, writes } = persistenceHarness(fixture({ ended: true }), {
+      handlers: { POST: () => ({ rewards: { status, lp: 0, credits: 0 } }) },
+    });
+    await controls.recordRun();
+    assert.match(writes.actionResults.at(-1), pattern);
+    assert.doesNotMatch(writes.actionResults.at(-1), /크레딧을 받았습니다/);
+    assert.deepEqual(harness.userUpdates, []);
+  }
+});
+
+await checkAsync('an old account reward response cannot change the new account balance or display its award', async () => {
+  const request = deferred();
+  const { controls, harness, writes } = persistenceHarness(fixture({ ended: true }), { handlers: { POST: () => request.promise } });
+  const inFlight = controls.recordRun();
+  harness.authSession = { scope: 'another-account', revision: 1, csrfToken: 'other' };
+  request.resolve({ rewards: { status: 'awarded', lp: 1500, credits: 3000 }, userProgress: { lp: 1500, credits: 3000 } });
+  await inFlight;
+  assert.deepEqual(harness.userUpdates, []);
+  assert.deepEqual(harness.cacheClears, []);
+  assert.deepEqual(writes.toasts, []);
 });
 
 await checkAsync('a successful server save writes the captured run snapshot to the quick-save slot and reports success', async () => {

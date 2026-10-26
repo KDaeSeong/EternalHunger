@@ -1,0 +1,14 @@
+{
+  "basic": {
+    "lp": 500,
+    "credits": 1000
+  },
+  "full": {
+    "lp": 1500,
+    "credits": 3000
+  },
+  "dailyLimit": {
+    "lp": 5000,
+    "credits": 10000
+  }
+}

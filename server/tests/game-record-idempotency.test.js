@@ -37,6 +37,7 @@ function makeFixture() {
   let lookupBarrier = null;
 
   const GamePlayRecord = {
+    db: { async transaction(callback) { return callback({ transaction: true }); } },
     async ensureRunIdentityIndex() {
       events.push('ensure-index');
       if (failNextIndex) {
@@ -56,7 +57,7 @@ function makeFixture() {
       };
       return query;
     },
-    async create(input) {
+    async create(values) {
       events.push('create');
       if (failNextCreate) {
         failNextCreate = false;
@@ -67,6 +68,7 @@ function makeFixture() {
       createQueue = new Promise((resolve) => { release = resolve; });
       await previous;
       try {
+        const input = Array.isArray(values) ? values[0] : values;
         if (input.clientRunId && rows.some((row) => String(row.userId) === String(input.userId)
           && row.gameSlug === input.gameSlug && row.clientRunId === input.clientRunId)) {
           throw Object.assign(new Error('duplicate key'), { code: 11000, keyPattern: { userId: 1, gameSlug: 1, clientRunId: 1 } });
@@ -78,7 +80,7 @@ function makeFixture() {
           updatedAt: new Date(`2026-10-21T00:00:${String(nextId).padStart(2, '0')}.000Z`),
         };
         rows.push(row);
-        return clone(row);
+        return Array.isArray(values) ? [clone(row)] : clone(row);
       } finally {
         release();
       }
@@ -93,6 +95,22 @@ function makeFixture() {
   const routePath = require.resolve('../routes/gameRecords');
   const routeRequire = createRequire(routePath);
   const routeModule = { exports: {} };
+  const rewardRows = [];
+  const rewardModel = {
+    async ensureRewardIdentityIndex() {},
+    findOne(filter) { return Promise.resolve(rewardRows.find((row) => String(row.userId) === String(filter.userId) && row.runId === filter.runId) || null); },
+    async create(values) {
+      const row = { _id: `reward-${rewardRows.length + 1}`, ...(Array.isArray(values) ? values[0] : values) };
+      rewardRows.push(row);
+      return Array.isArray(values) ? [row] : row;
+    },
+    async updateOne() { return { matchedCount: 1 }; },
+  };
+  const dailyModel = { async ensureDailyIdentityIndex() {} };
+  const userModel = {
+    async updateOne() { return { matchedCount: 1 }; },
+    findById() { return { select() { return this; }, lean: async () => null }; },
+  };
   const routeConsole = { error() {} };
   vm.runInNewContext(readFileSync(routePath, 'utf8'), {
     Buffer,
@@ -107,6 +125,9 @@ function makeFixture() {
     require(name) {
       if (name === 'express') return express;
       if (name === '../models/GamePlayRecord') return GamePlayRecord;
+      if (name === '../models/PrimitiveArchiveReward') return rewardModel;
+      if (name === '../models/PrimitiveArchiveDailyReward') return dailyModel;
+      if (name === '../models/User') return userModel;
       return routeRequire(name);
     },
   }, { filename: routePath });
@@ -122,6 +143,7 @@ function makeFixture() {
     ...overrides,
   });
   const postHandler = routes.get('POST /:gameSlug');
+  routeModule.exports.testing.configureDependencies({ GamePlayRecord, PrimitiveArchiveReward: rewardModel, PrimitiveArchiveDailyReward: dailyModel, User: userModel });
   assert.equal(typeof postHandler, 'function', 'The actual route source must register POST /:gameSlug.');
   return {
     rows,

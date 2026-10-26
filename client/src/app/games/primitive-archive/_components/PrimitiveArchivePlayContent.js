@@ -232,7 +232,7 @@ export default function PrimitiveArchivePlayContent() {
     token,
   });
   const dead = state.ended || !hasLivingPartyMember(state);
-  const canAct = checkpoint.ready && !busy && !dead && state.ap > 0;
+  const canAct = checkpoint.ready && checkpoint.exclusive && !busy && !dead && state.ap > 0;
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const exploration = useMemo(() => explorationSummary(state), [state]);
   const regions = exploration.rows;
@@ -467,7 +467,7 @@ export default function PrimitiveArchivePlayContent() {
         : '다음 사회 제도를 선택하면 선행 조건과 영감 진행도를 여기에서 확인할 수 있습니다.';
 
   const applyAction = (label, updater, fallbackText = '') => {
-    if (!checkpoint.ready || busy) return;
+    if (!checkpoint.ready || !checkpoint.exclusive || busy) return;
     const previousState = stateRef.current;
     // A run saved while the developer screen was open to everyone keeps its record
     // mark, but its adjustments stop applying once the screen is hidden.
@@ -510,7 +510,7 @@ export default function PrimitiveArchivePlayContent() {
 
   const completeRun = () => requestArchiveCompletion({
     getState: () => stateRef.current,
-    ready: hydrated && checkpoint.ready,
+    ready: hydrated && checkpoint.ready && checkpoint.exclusive,
     busy: Boolean(busy),
     confirm: (message) => window.confirm(message),
     applyAction,
@@ -548,10 +548,14 @@ export default function PrimitiveArchivePlayContent() {
   };
 
   const updateDeveloperTools = (patch) => {
+    if (!checkpoint.ready || !checkpoint.exclusive || busy) return;
     replaceState((current) => updateDeveloperToolsAction(current, patch));
   };
 
-  const resetDeveloperTools = () => replaceState((current) => resetDeveloperToolsAction(current));
+  const resetDeveloperTools = () => {
+    if (!checkpoint.ready || !checkpoint.exclusive || busy) return;
+    replaceState((current) => resetDeveloperToolsAction(current));
+  };
 
 
   const runCraft = () => {
@@ -632,7 +636,7 @@ export default function PrimitiveArchivePlayContent() {
   };
 
   const startNewRun = () => {
-    if (!hydrated || !checkpoint.ready || busy) return;
+    if (!hydrated || !checkpoint.ready || !checkpoint.exclusive || busy) return;
     if (!window.confirm('현재 진행을 직전 런으로 보관하고 새 런을 시작할까요? 직전 런은 이 브라우저에서 하나만 보관합니다.')) return;
     const nextState = startNewRunFromMeta(stateRef.current, { difficulty: newRunDifficulty });
     const replacement = checkpoint.replaceRun(nextState);
@@ -652,14 +656,14 @@ export default function PrimitiveArchivePlayContent() {
     if (presentation.cue) playGameSfx(presentation.cue);
   };
   const restorePreviousRun = () => {
-    if (!hydrated || !checkpoint.ready || !checkpoint.hasPrevious || busy) return;
+    if (!hydrated || !checkpoint.ready || !checkpoint.exclusive || !checkpoint.hasPrevious || busy) return;
     if (!window.confirm('직전 런을 복구할까요? 현재 런은 직전 런 칸에 보관되어 다시 되돌릴 수 있습니다.')) return;
     const restored = checkpoint.restorePrevious();
     if (!restored.ok) setMessage(restored.message);
     else setMessage('직전 런을 복구했습니다. 바꾸기 전 런도 직전 런 칸에 보관했습니다.');
   };
   const loadServerRun = () => {
-    if (!hydrated || !checkpoint.ready || !token || busy) return;
+    if (!hydrated || !checkpoint.ready || !checkpoint.exclusive || !token || busy) return;
     if (!window.confirm('현재 진행을 직전 런으로 보관한 뒤 서버 저장본을 불러올까요?')) return;
     void loadRun();
   };
@@ -728,10 +732,10 @@ export default function PrimitiveArchivePlayContent() {
         <span className="primitive-save-state" data-tone={saveState.tone}>{saveState.label}</span>
       </summary>
       <div className="primitive-run-tools__items" onClick={closeRunTools}>
-      <GameControlButton action="new" cue="off" onClick={startNewRun} disabled={!hydrated || !checkpoint.ready || Boolean(busy)}>{selectedDifficulty.label} 새 런</GameControlButton>
-      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || !checkpoint.ready || !token || Boolean(busy)}>{busy === 'save' ? '저장 중...' : '서버 저장'}</GameControlButton>
-      <GameControlButton action="load" onClick={loadServerRun} disabled={!hydrated || !checkpoint.ready || !token || Boolean(busy)}>{busy === 'load' ? '불러오는 중...' : '서버 불러오기'}</GameControlButton>
-      <GameControlButton action="load" onClick={restorePreviousRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.hasPrevious || Boolean(busy)}>직전 런 복구</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || Boolean(busy)}>{selectedDifficulty.label} 새 런</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !token || Boolean(busy)}>{busy === 'save' ? '저장 중...' : '서버 저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={loadServerRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !token || Boolean(busy)}>{busy === 'load' ? '불러오는 중...' : '서버 불러오기'}</GameControlButton>
+      <GameControlButton action="load" onClick={restorePreviousRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !checkpoint.hasPrevious || Boolean(busy)}>직전 런 복구</GameControlButton>
       </div>
     </details>
   );
@@ -762,7 +766,7 @@ export default function PrimitiveArchivePlayContent() {
       text: checkpoint.status === 'corrupt' ? (
         <>
           {checkpoint.message}
-          <button type="button" className="primitive-inline-action" onClick={discardUnreadableRecord} disabled={Boolean(busy)}>기기 기록 정리하고 계속</button>
+          <button type="button" className="primitive-inline-action" onClick={discardUnreadableRecord} disabled={Boolean(busy) || !checkpoint.exclusive}>기기 기록 정리하고 계속</button>
         </>
       ) : checkpoint.message,
     } : null,
@@ -787,7 +791,7 @@ export default function PrimitiveArchivePlayContent() {
         ? '런 종료'
         : canAct
           ? coachMessage.urgent ? coachMessage.title : `${actor?.name || '대원'} 행동 가능`
-          : !checkpoint.ready ? '진행 정보 확인 중' : busy ? '서버 작업 중' : 'AP 확인 필요',
+          : !checkpoint.ready ? '진행 정보 확인 중' : !checkpoint.exclusive ? '이 탭은 보기 전용' : busy ? '서버 작업 중' : 'AP 확인 필요',
     primaryText: archiveVictory.victory
       ? '기초 완주로 종료한 런입니다. 이 런은 더 진행할 수 없으며 결과를 기록하거나 새 런을 시작할 수 있습니다.'
       : dead
@@ -796,7 +800,7 @@ export default function PrimitiveArchivePlayContent() {
           : '런 관리에서 보상을 정산할 수 있습니다. 전적 기록은 보상 정산과 별개입니다.'
         : !checkpoint.ready
           ? '이 기기의 진행 정보를 확인한 뒤 행동할 수 있습니다.'
-          : busy
+          : !checkpoint.exclusive ? checkpoint.message : busy
             ? '서버 작업이 끝난 뒤 다음 행동을 고를 수 있습니다.'
             : coachMessage.text,
     focusRows: [
@@ -875,7 +879,7 @@ export default function PrimitiveArchivePlayContent() {
         archiveVictory={archiveVictory}
         autoEquip={autoEquip}
         buyPerk={buyPerk}
-        busy={busy || (!checkpoint.ready ? 'checkpoint' : '')}
+        busy={busy || (!checkpoint.ready || !checkpoint.exclusive ? 'checkpoint' : '')}
         campActions={campActions}
         campFacilities={campFacilities}
         canAct={actorCanAct}

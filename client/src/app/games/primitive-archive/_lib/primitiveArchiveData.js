@@ -2152,10 +2152,10 @@ export const CIVIC_TREE = TECH_TREE
 
 export const PERK_DEFS = [
   { id: 'perk_supply_pack', name: '보급 꾸러미', desc: '새 탐험 시작 시 베리 +3, 나무 +2, 돌 +2.', cost: 2, maxLevel: 1 },
-  { id: 'perk_craft_cache', name: '제작 재료 꾸러미', desc: '새 탐험 시작 시 섬유/가죽/뼈를 추가로 받습니다.', cost: 2, maxLevel: 2 },
-  { id: 'perk_rations', name: '건조 식량', desc: '새 탐험 시작 시 말린 고기를 받습니다.', cost: 1, maxLevel: 3 },
-  { id: 'perk_medicine_pouch', name: '약초 주머니', desc: '새 탐험 시작 시 약초와 약초 물약을 받습니다.', cost: 2, maxLevel: 1 },
-  { id: 'perk_extra_ap', name: '추가 행동력', desc: '새 탐험 시작 시 최대 AP +1.', cost: 3, maxLevel: 1 },
+  { id: 'perk_craft_cache', name: '제작 재료 꾸러미', desc: '새 탐험 시작 시 레벨마다 섬유, 가죽, 뼈를 1개씩 더 받습니다.', cost: 2, maxLevel: 2 },
+  { id: 'perk_rations', name: '건조 식량', desc: '새 탐험 시작 시 레벨마다 구운 고기 1개와 육포 1개를 받습니다.', cost: 1, maxLevel: 3 },
+  { id: 'perk_medicine_pouch', name: '약초 주머니', desc: '새 탐험 시작 시 약초 2개, 베리 1개, 약초 달임 1개를 받습니다.', cost: 2, maxLevel: 1 },
+  { id: 'perk_extra_ap', name: '추가 행동력', desc: '새 탐험 시작 시 현재 AP와 최대 AP가 각각 1 증가합니다.', cost: 3, maxLevel: 1 },
   { id: 'perk_start_fuel', name: '마른 장작', desc: '새 탐험 시작 시 캠프 연료 +6.', cost: 1, maxLevel: 1 },
 ];
 
@@ -2548,12 +2548,27 @@ export function initCivicState() {
 }
 
 export function initMetaState(value = {}) {
+  const normalizeRewardInteger = (raw) => {
+    const number = Number(raw || 0);
+    if (!Number.isFinite(number)) return 0;
+    return Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.floor(number)));
+  };
+  const sourceOwnedPerks = value.ownedPerks && typeof value.ownedPerks === 'object' && !Array.isArray(value.ownedPerks)
+    ? value.ownedPerks
+    : {};
+  const ownedPerks = {};
+  for (const perk of PERK_DEFS) {
+    const level = sourceOwnedPerks[perk.id];
+    if (!Number.isInteger(level) || level < 0) continue;
+    const boundedLevel = Math.min(level, perk.maxLevel);
+    if (boundedLevel > 0) ownedPerks[perk.id] = boundedLevel;
+  }
   return {
-    perkPoints: Math.max(0, Number(value.perkPoints || 0)),
-    ownedPerks: value.ownedPerks && typeof value.ownedPerks === 'object' ? value.ownedPerks : {},
+    perkPoints: normalizeRewardInteger(value.perkPoints),
+    ownedPerks,
     lifetimeScore: Math.max(0, Number(value.lifetimeScore || 0)),
     runsCompleted: Math.max(0, Number(value.runsCompleted || 0)),
-    lastAward: Math.max(0, Number(value.lastAward || 0)),
+    lastAward: normalizeRewardInteger(value.lastAward),
     lastSettledRunId: typeof value.lastSettledRunId === 'string' ? value.lastSettledRunId : '',
   };
 }
@@ -2580,10 +2595,14 @@ export function applyOwnedPerks(state, meta) {
     next.inventory.bone = Number(next.inventory.bone || 0) + craftLevel;
   }
   const rationLevel = perkLevel(meta, 'perk_rations');
-  if (rationLevel > 0) next.inventory.cooked_meat = Number(next.inventory.cooked_meat || 0) + rationLevel;
+  if (rationLevel > 0) {
+    next.inventory.cooked_meat = Number(next.inventory.cooked_meat || 0) + rationLevel;
+    next.inventory.jerky = Number(next.inventory.jerky || 0) + rationLevel;
+  }
   if (perkLevel(meta, 'perk_medicine_pouch') > 0) {
     next.inventory.herb = Number(next.inventory.herb || 0) + 2;
     next.inventory.berry = Number(next.inventory.berry || 0) + 1;
+    next.inventory.herb_tonic = Number(next.inventory.herb_tonic || 0) + 1;
   }
   if (perkLevel(meta, 'perk_extra_ap') > 0) {
     next.apMax += 1;

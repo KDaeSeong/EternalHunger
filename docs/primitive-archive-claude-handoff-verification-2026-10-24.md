@@ -627,3 +627,93 @@ roots contain 514,258,968 logical file bytes (about 0.48 GiB), deduplicated by
 file identity; this is not the entire repository or physical allocation.
 Paths, hashes, verification counts and cleanup outcomes are retained in
 `.local/build-recovery/archive-player-feedback-release-2026-10-25.json`.
+
+## October 26: exclusive checkpoint writer and completion currencies
+
+A controlled interleaving reproduced the old revision check's limitation: two
+writers both read revision 1, both returned success at revision 2, and the second
+write discarded the first acknowledged action. A lifetime, owner-scoped Web Lock
+now gates the production hook's mutations. A second tab restores view-only state;
+missing Web Locks fail closed. Pending cancellation, StrictMode reacquisition,
+outgoing-owner flush before release, spectator unload, failed-writer memory,
+BFCache release/reacquisition and stale callbacks have dedicated actual-hook
+cases. Low-level synchronous storage helpers by themselves remain non-atomic.
+
+Version 2 uses a separate storage namespace so old unlocked code cannot overwrite
+the new checkpoint. Version-1 bytes remain untouched. The new envelope and the
+explicit corrupt-clear marker retain a length/two-hash fingerprint of the legacy
+source; changed legacy bytes block reading/writing/restoring instead of silently
+hiding another tab's progress, including after reload. This is a change detector,
+not a cryptographic signature. Corrupt cleanup first verifies an exact raw backup,
+then writes a revision-zero marker; the next state write starts at revision 1.
+The marker prevents the untouched legacy record from being resurrected. A failed
+full write after the marker retains the pending live state across SPA mounts.
+
+The checkpoint checker now passes 56 cases and the cooperating fake-lock checker
+passes ten. A two-real-tab local library fixture also observed A holding/B busy,
+revision 1 to 2, denied B mutation, and B acquiring/saving revision 3 after A
+closed. A separate actual production-game check restored the existing guest at
+Day 1 AP 1/4, wood 5 and berries 10, blocked the second tab's actions with a visible
+warning, performed one paid wood collection through the first tab, and closed it.
+After the remaining tab reloaded and hydration finished, Day 2 AP 4/4, wood 7,
+berries 10, meat 1 and all three companions remained; actions were enabled.
+Prerender defaults briefly observed before hydration are not progress-loss proof.
+The final run-management view displayed 500 LP/1,000 credits and the all-244-
+advancement total of 1,500 LP/3,000 credits. Both temporary tabs were closed;
+no production-account write or synthetic state injection was used.
+
+The user selected those two account reward amounts. Record submission now settles
+the immutable first snapshot against generated completion rules; raw score,
+caller result and caller currency amounts do not set the payout. A permanent
+user/game/run reward ledger survives history deletion. Its award, the user's
+wallet, the KST-day budget and the first history record are transactional and
+serialized on the user. The 5,000 LP/10,000 credit daily limit leaves over-limit
+claims pending for a later day without consuming budget. A replay returns the
+current wallet rather than restoring a historical pre-spending balance. Client
+updates require the original auth session and live-run identity; local perk
+points are not modified by account receipts. See `primitive-archive-rewards.md`
+for the exact rules, trust limits and unimplemented perk proposals.
+
+Ten actual-engine perk cases checked the six existing definitions, full purchase
+cost 15 points, max levels, one-time settlement, developer exclusion, checkpoint
+round-trip, new-run grants and actual tonic consumption/recovery. Fixed saved
+levels exceeding their definition, non-finite reward points, and missing items
+promised by descriptions. Rations retain cooked meat and add jerky per level;
+the medicine pouch retains herbs/berry and adds one herbal tonic. Perk score
+formulas were preserved; proposed new perks have not been implemented.
+
+Local server unit tests passed 155/155. A dedicated installed MongoDB 8.2.3
+loopback replica set then passed all four real acceptance cases through two
+independent HTTP processes: shared-run one-time payout, different-run cap races,
+transaction-failure rollback, and no repayment after history deletion. Earlier
+test-harness failures (wrong hook argument order, incomplete synthetic terminal
+metadata and a prematurely disconnected read connection) were corrected before
+this pass; they are not claimed as production defects. The unique temporary
+database was dropped and its workers exited. No public wallet was written.
+
+Account rewards remain client-reported gameplay: the server validates snapshot
+conditions, fixed amounts and transactional accounting, not the authenticity of
+the play history. Natural public login expiry/recovery and a new human assessment
+of the corrected survival/readability remain open. Existing rejected human scores
+are preserved.
+
+Final verification for this follow-up: all twenty archive steps passed, including
+56 checkpoint, 10 lock-controller, 10 perk and 32 record/presentation cases;
+targeted ESLint and final production build `_3BGtoAbXf5FsRdGeieqi` passed both
+postbuild gates. The final source change after the actual browser sample only
+corrected the legacy-conflict warning: refresh is not advertised as resolving
+two divergent records, and unsaved in-tab progress must be preserved before exit.
+The focused checkpoint checker was rerun after that wording change. The Worker
+smoke remains isolated Node VM evidence, not browser performance acceptance.
+
+After normal shutdown, zero owned listeners/processes and exact path/link/size/
+hash checks, removed 903,219,525 bytes: this build's cache, the superseded
+`Je4atF2EbZfcIJ5xVwACu` recovery, the disposable Mongo data and the retired local
+lease fixture. Current runtime has 1,277 files/26,801,190 bytes. The released
+`J0Obe-WfBDKDC4PVJqOBo` build was moved into the single fixed previous location,
+not copied, and the unique map-shift reproduction was preserved. Five disjoint
+managed artifact roots fell from 1,416,713,720 to 513,498,011 logical bytes
+(about 0.48 GiB), deduplicated by identity; this excludes the rest of the repo
+and physical allocation. The small receipt/logs and one reward proof image
+remain. Exact targets and hashes are in
+`.local/build-recovery/archive-writer-release-2026-10-26.json`.

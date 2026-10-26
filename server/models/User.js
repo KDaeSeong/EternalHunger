@@ -10,6 +10,8 @@ const UserSchema = new mongoose.Schema({
   tokenVersion: { type: Number, default: 0 },
   // Database-level serialization marker for per-user game-save mutations.
   gameSaveMutationVersion: { type: Number, default: 0, select: false },
+  // Serializes archive reward eligibility and daily-cap mutations per account.
+  primitiveArchiveRewardMutationVersion: { type: Number, default: 0, select: false },
   lp: { type: Number, default: 0 }, 
 
   credits: { type: Number, default: 0 }, // 크레딧(로드맵 5번)

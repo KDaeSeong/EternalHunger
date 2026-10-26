@@ -2,6 +2,10 @@ const express = require('express');
 const mongoose = require('mongoose');
 
 const GamePlayRecord = require('../models/GamePlayRecord');
+const PrimitiveArchiveReward = require('../models/PrimitiveArchiveReward');
+const PrimitiveArchiveDailyReward = require('../models/PrimitiveArchiveDailyReward');
+const User = require('../models/User');
+const ARCHIVE_REWARD_CONTRACT = require('../generated/primitiveArchiveRewardContract.json');
 
 const router = express.Router();
 
@@ -9,6 +13,21 @@ const MAX_RECORD_PAYLOAD_BYTES = toPositiveInt(process.env.GAME_RECORD_MAX_BYTES
 const VALID_RESULTS = new Set(['win', 'loss', 'draw', 'clear', 'fail', 'none']);
 const PRIMITIVE_ARCHIVE_GAME_SLUG = 'primitive-archive';
 const MAX_CLIENT_RUN_ID_LENGTH = 160;
+const ARCHIVE_REWARD_RULES = ARCHIVE_REWARD_CONTRACT.rules;
+const ARCHIVE_REWARD_STATUS = Object.freeze({
+  AWARDED: 'awarded',
+  ALREADY_AWARDED: 'already_awarded',
+  DAILY_LIMIT: 'daily_limit',
+  INELIGIBLE: 'ineligible',
+});
+
+const dependencies = {
+  GamePlayRecord,
+  PrimitiveArchiveReward,
+  PrimitiveArchiveDailyReward,
+  User,
+  now: () => new Date(),
+};
 
 function toPositiveInt(value, fallback) {
   const n = Number(value);
@@ -57,18 +76,22 @@ function getPrimitiveArchiveRunId(payload) {
   return runId;
 }
 
-function findPrimitiveArchiveRecord(userId, clientRunId) {
-  return GamePlayRecord.findOne({
+function findPrimitiveArchiveRecord(userId, clientRunId, { session, model = dependencies.GamePlayRecord } = {}) {
+  let query = model.findOne({
     userId,
     gameSlug: PRIMITIVE_ARCHIVE_GAME_SLUG,
     $or: [
       { clientRunId },
       { 'payload.state.runId': clientRunId },
     ],
-  }).sort({ createdAt: 1, _id: 1 });
+  });
+  if (session && typeof query.session === 'function') query = query.session(session);
+  if (typeof query.sort === 'function') query = query.sort({ createdAt: 1, _id: 1 });
+  if (typeof query.lean === 'function') query = query.lean();
+  return query;
 }
 
-function sendRecordResponse(res, row, { status = 201, replayed } = {}) {
+function sendRecordResponse(res, row, { status = 201, replayed, rewards, userProgress } = {}) {
   const response = {
     message: replayed === true
       ? '이미 저장된 게임 기록입니다. 중복으로 추가하지 않았습니다.'
@@ -76,6 +99,8 @@ function sendRecordResponse(res, row, { status = 201, replayed } = {}) {
     record: mapRecord(row, { includePayload: true }),
   };
   if (typeof replayed === 'boolean') response.replayed = replayed;
+  if (rewards) response.rewards = rewards;
+  if (userProgress) response.userProgress = userProgress;
   return res.status(status).json(response);
 }
 
@@ -108,6 +133,215 @@ function getUserObjectId(req, res) {
   return new mongoose.Types.ObjectId(raw);
 }
 
+function toKstDayKey(date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function isRecord(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function completedIdsMatch(completed, ids) {
+  return isRecord(completed) && ids.every((id) => completed[id] === true);
+}
+
+// Client snapshots are eligibility claims, not server proof of gameplay. Keep
+// payouts fixed and bounded; this check must never be described as anti-cheat.
+function archiveRewardTier(state) {
+  const developerBonuses = isRecord(state?.devTools?.actionBonuses) ? state.devTools.actionBonuses : null;
+  const developerBonusesValid = developerBonuses
+    && Object.values(developerBonuses).every((value) => typeof value === 'number' && Number.isFinite(value));
+  const developerAdjustmentActive = state?.devTools?.enabled === true && (
+    state.devTools.guaranteedSuccess === true
+    || state.devTools.unlockSpecializedActions === true
+    || (developerBonusesValid && Object.values(developerBonuses).some((value) => value !== 0))
+  );
+  if (!isRecord(state)
+    || state.ended !== true
+    || state.victory !== true
+    || !Number.isInteger(state.day)
+    || state.day < ARCHIVE_REWARD_CONTRACT.baseDays
+    || !isRecord(state.devTools)
+    || typeof state.devTools.enabled !== 'boolean'
+    || typeof state.devTools.used !== 'boolean'
+    || state.devTools.used !== false
+    || typeof state.devTools.guaranteedSuccess !== 'boolean'
+    || typeof state.devTools.unlockSpecializedActions !== 'boolean'
+    || !developerBonusesValid
+    || developerAdjustmentActive
+    || !isRecord(state.meta)
+    || state.meta.lastSettledRunId !== state.runId
+    || !isRecord(state.research)
+    || !isRecord(state.civics)
+    || !completedIdsMatch(state.research.completed, ARCHIVE_REWARD_CONTRACT.core.technologies)
+    || !completedIdsMatch(state.civics.completed, ARCHIVE_REWARD_CONTRACT.core.civics)
+    || !isRecord(state.camp)
+    || !Object.entries(ARCHIVE_REWARD_CONTRACT.campRequirements)
+      .every(([id, minimum]) => Number.isFinite(state.camp[id]) && state.camp[id] >= minimum)
+    || !isRecord(state.inventory)
+    || !ARCHIVE_REWARD_CONTRACT.bookRequirements
+      .every((id) => Number.isFinite(state.inventory[id]) && state.inventory[id] >= 1)
+    || !Array.isArray(state.party)
+    || state.party.filter((member) => isRecord(member) && Number.isFinite(member.hp) && member.hp > 0).length
+      < ARCHIVE_REWARD_CONTRACT.survivorCount) return null;
+
+  return completedIdsMatch(state.research.completed, ARCHIVE_REWARD_CONTRACT.full.technologies)
+    && completedIdsMatch(state.civics.completed, ARCHIVE_REWARD_CONTRACT.full.civics)
+    ? 'full'
+    : 'basic';
+}
+
+function archiveRewardReceipt(ledger, { replayed = false, statusOverride } = {}) {
+  return {
+    status: statusOverride || (ledger?.status === 'awarded'
+      ? (replayed ? ARCHIVE_REWARD_STATUS.ALREADY_AWARDED : ARCHIVE_REWARD_STATUS.AWARDED)
+      : ledger?.status === 'daily_limit'
+        ? ARCHIVE_REWARD_STATUS.DAILY_LIMIT
+        : ARCHIVE_REWARD_STATUS.INELIGIBLE),
+    lp: ledger?.status === 'awarded' ? Number(ledger.lp || 0) : 0,
+    credits: ledger?.status === 'awarded' ? Number(ledger.credits || 0) : 0,
+    replayed,
+    tier: ledger?.tier || null,
+  };
+}
+
+function queryOne(model, filter, session) {
+  let query = model.findOne(filter);
+  if (session && typeof query.session === 'function') query = query.session(session);
+  if (typeof query.lean === 'function') query = query.lean();
+  return query;
+}
+
+async function createOne(model, document, session) {
+  const created = await model.create([document], { session });
+  return Array.isArray(created) ? created[0] : created;
+}
+
+async function loadProgress(userId, session) {
+  let query = dependencies.User.findById(userId).select('lp credits');
+  if (session && typeof query.session === 'function') query = query.session(session);
+  const row = typeof query.lean === 'function' ? await query.lean() : await query;
+  return row ? { lp: Number(row.lp || 0), credits: Number(row.credits || 0) } : null;
+}
+
+async function lockArchiveRewardAccount(userId, session) {
+  const updated = await dependencies.User.updateOne(
+    { _id: userId },
+    { $inc: { primitiveArchiveRewardMutationVersion: 1 } },
+    { session },
+  );
+  if (updated.matchedCount !== 1) throw Object.assign(new Error('ARCHIVE_REWARD_USER_NOT_FOUND'), { code: 'ARCHIVE_REWARD_USER_NOT_FOUND' });
+}
+
+async function ensureArchiveRewardIndexes() {
+  await dependencies.GamePlayRecord.ensureRunIdentityIndex();
+  await dependencies.PrimitiveArchiveReward.ensureRewardIdentityIndex();
+  await dependencies.PrimitiveArchiveDailyReward.ensureDailyIdentityIndex();
+}
+
+async function payArchiveRewardIfWithinDailyLimit(ledger, userId, dayKey, session) {
+  const rules = ARCHIVE_REWARD_RULES;
+  let budgetQuery = dependencies.PrimitiveArchiveDailyReward.findOneAndUpdate(
+    { userId, dayKey },
+    { $setOnInsert: { userId, dayKey, lp: 0, credits: 0 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true, session },
+  );
+  if (budgetQuery && typeof budgetQuery.lean === 'function') budgetQuery = budgetQuery.lean();
+  const budget = await budgetQuery;
+  if (!budget) throw new Error('ARCHIVE_REWARD_DAILY_BUDGET_UNAVAILABLE');
+  const nextLp = Number(budget.lp || 0) + Number(ledger.lp || 0);
+  const nextCredits = Number(budget.credits || 0) + Number(ledger.credits || 0);
+  if (nextLp > rules.dailyLimit.lp || nextCredits > rules.dailyLimit.credits) return ledger;
+
+  const dailyUpdated = await dependencies.PrimitiveArchiveDailyReward.updateOne(
+    { userId, dayKey },
+    { $inc: { lp: Number(ledger.lp || 0), credits: Number(ledger.credits || 0) } },
+    { session },
+  );
+  if (dailyUpdated.matchedCount !== 1) throw new Error('ARCHIVE_REWARD_DAILY_BUDGET_CONFLICT');
+  if (typeof dependencies.afterDailyIncrement === 'function') await dependencies.afterDailyIncrement();
+
+  await dependencies.User.updateOne(
+    { _id: userId },
+    { $inc: { lp: Number(ledger.lp || 0), credits: Number(ledger.credits || 0) } },
+    { session },
+  );
+  await dependencies.PrimitiveArchiveReward.updateOne(
+    { _id: ledger._id },
+    { $set: { status: 'awarded', awardedDayKey: dayKey, awardedAt: dependencies.now() } },
+    { session },
+  );
+  return { ...ledger, status: 'awarded', awardedDayKey: dayKey };
+}
+
+async function settleArchiveRecord({ userId, runId, recordData, now }) {
+  return dependencies.GamePlayRecord.db.transaction(async (session) => {
+    await lockArchiveRewardAccount(userId, session);
+    let record = await findPrimitiveArchiveRecord(userId, runId, { session });
+    let ledger = await queryOne(dependencies.PrimitiveArchiveReward, {
+      userId, gameSlug: PRIMITIVE_ARCHIVE_GAME_SLUG, runId,
+    }, session);
+
+    if (!record && ledger) {
+      // A deleted history row cannot be recreated from a changed retry body.
+      const wasAwarded = ledger.status === 'awarded';
+      if (ledger.status === 'daily_limit') {
+        ledger = await payArchiveRewardIfWithinDailyLimit(ledger, userId, toKstDayKey(now), session);
+      }
+      return {
+        record: null,
+        ledger,
+        reward: archiveRewardReceipt(ledger, { replayed: wasAwarded || ledger.status !== 'awarded' }),
+        userProgress: await loadProgress(userId, session),
+        recordReplayed: true,
+      };
+    }
+
+    const recordReplayed = Boolean(record);
+    let firstRecord = record;
+    if (!firstRecord) {
+      firstRecord = await createOne(dependencies.GamePlayRecord, recordData, session);
+      record = firstRecord;
+    }
+
+    const ledgerExistedBeforeThisRequest = Boolean(ledger);
+    if (!ledger) {
+      const tier = archiveRewardTier(firstRecord?.payload?.state);
+      const amount = tier ? ARCHIVE_REWARD_RULES[tier] : { lp: 0, credits: 0 };
+      ledger = await createOne(dependencies.PrimitiveArchiveReward, {
+        userId,
+        gameSlug: PRIMITIVE_ARCHIVE_GAME_SLUG,
+        runId,
+        status: tier ? 'daily_limit' : 'ineligible',
+        tier,
+        lp: amount.lp,
+        credits: amount.credits,
+      }, session);
+    }
+
+    const wasAwarded = ledger.status === 'awarded';
+    if (ledger.status === 'daily_limit') {
+      ledger = await payArchiveRewardIfWithinDailyLimit(ledger, userId, toKstDayKey(now), session);
+    }
+
+    const reward = archiveRewardReceipt(ledger, {
+      replayed: wasAwarded || (ledgerExistedBeforeThisRequest && ledger.status !== 'awarded'),
+      ...(wasAwarded ? { statusOverride: ARCHIVE_REWARD_STATUS.ALREADY_AWARDED } : {}),
+    });
+    return {
+      record,
+      ledger,
+      reward,
+      userProgress: await loadProgress(userId, session),
+      recordReplayed,
+    };
+  });
+}
+
 router.get('/', async (req, res) => {
   try {
     const userId = getUserObjectId(req, res);
@@ -118,7 +352,7 @@ router.get('/', async (req, res) => {
     const query = { userId };
     if (gameSlug) query.gameSlug = gameSlug;
 
-    const rows = await GamePlayRecord.find(query)
+    const rows = await dependencies.GamePlayRecord.find(query)
       .select('-payload')
       .sort({ playedAt: -1, createdAt: -1 })
       .limit(limit)
@@ -161,11 +395,8 @@ router.post('/:gameSlug', async (req, res) => {
         return res.status(400).json({ error: '문명 아카이브 런 식별자가 올바르지 않습니다.' });
       }
 
-      const existing = await findPrimitiveArchiveRecord(userId, clientRunId);
-      if (existing) return sendRecordResponse(res, existing, { status: 200, replayed: true });
-
       try {
-        await GamePlayRecord.ensureRunIdentityIndex();
+        await ensureArchiveRewardIndexes();
       } catch (error) {
         console.error(error);
         return res.status(503).json({ error: '전적 저장을 안전하게 준비하지 못했습니다. 잠시 후 다시 시도해주세요.' });
@@ -190,7 +421,18 @@ router.post('/:gameSlug', async (req, res) => {
     };
     if (clientRunId) recordData.clientRunId = clientRunId;
 
-    const row = await GamePlayRecord.create(recordData);
+    if (isPrimitiveArchiveRun) {
+      const now = dependencies.now();
+      const settled = await settleArchiveRecord({ userId, runId: clientRunId, recordData, now });
+      return sendRecordResponse(res, settled.record, {
+        status: settled.recordReplayed ? 200 : 201,
+        replayed: settled.recordReplayed,
+        rewards: settled.reward,
+        userProgress: settled.userProgress,
+      });
+    }
+
+    const row = await dependencies.GamePlayRecord.create(recordData);
 
     return sendRecordResponse(res, row, {
       status: 201,
@@ -199,10 +441,7 @@ router.post('/:gameSlug', async (req, res) => {
   } catch (err) {
     if (gameSlug === PRIMITIVE_ARCHIVE_GAME_SLUG && clientRunId && err?.code === 11000) {
       try {
-        const existing = await findPrimitiveArchiveRecord(
-          userId,
-          clientRunId,
-        );
+        const existing = await findPrimitiveArchiveRecord(userId, clientRunId);
         if (existing) return sendRecordResponse(res, existing, { status: 200, replayed: true });
       } catch (lookupError) {
         console.error(lookupError);
@@ -222,7 +461,7 @@ router.get('/:id', async (req, res) => {
       return res.status(400).json({ error: '게임 기록 ID가 올바르지 않습니다.' });
     }
 
-    const row = await GamePlayRecord.findOne({ _id: id, userId }).lean();
+    const row = await dependencies.GamePlayRecord.findOne({ _id: id, userId }).lean();
     if (!row) return res.status(404).json({ error: '게임 기록을 찾을 수 없습니다.' });
 
     res.json({ record: mapRecord(row, { includePayload: true }) });
@@ -241,7 +480,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ error: '게임 기록 ID가 올바르지 않습니다.' });
     }
 
-    const result = await GamePlayRecord.deleteOne({ _id: id, userId });
+    const result = await dependencies.GamePlayRecord.deleteOne({ _id: id, userId });
     if (!result.deletedCount) return res.status(404).json({ error: '게임 기록을 찾을 수 없습니다.' });
 
     res.json({ message: '게임 기록을 삭제했습니다.' });
@@ -250,5 +489,23 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: '게임 기록 삭제에 실패했습니다.' });
   }
 });
+
+router.testing = {
+  configureDependencies(overrides = {}) {
+    Object.assign(dependencies, overrides);
+  },
+  resetDependencies() {
+    Object.assign(dependencies, {
+      GamePlayRecord,
+      PrimitiveArchiveReward,
+      PrimitiveArchiveDailyReward,
+      User,
+      now: () => new Date(),
+    });
+  },
+  archiveRewardTier,
+  toKstDayKey,
+  contract: ARCHIVE_REWARD_CONTRACT,
+};
 
 module.exports = router;

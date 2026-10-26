@@ -73,6 +73,7 @@ const serverApiStub = `
   export const apiGet = (path, options) => harness().get(path, options);
   export const apiPut = (path, payload, options) => harness().put(path, payload, options);
   export const apiPost = (path, payload, options) => harness().post(path, payload, options);
+  export const updateStoredUser = () => {};
 `;
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -115,11 +116,38 @@ class MemoryStorage {
   }
 }
 
+const locksByStorage = new WeakMap();
+function memoryLocks(storage) {
+  if (locksByStorage.has(storage)) return locksByStorage.get(storage);
+  const held = new Map();
+  const manager = {
+    request(name, options, callback) {
+      assert.equal(options.mode, 'exclusive');
+      assert.equal(options.ifAvailable, true);
+      if (held.has(name)) return Promise.resolve(callback(null));
+      const token = {};
+      held.set(name, token);
+      let task;
+      try { task = callback({ name, mode: 'exclusive' }); }
+      catch (error) { held.delete(name); return Promise.reject(error); }
+      return Promise.resolve(task).finally(() => {
+        if (held.get(name) === token) held.delete(name);
+      });
+    },
+    heldCount: () => held.size,
+  };
+  locksByStorage.set(storage, manager);
+  return manager;
+}
+
 class MemoryWindow {
   listeners = new Map();
   removeCalls = 0;
 
-  constructor(localStorage) { this.localStorage = localStorage; }
+  constructor(localStorage) {
+    this.localStorage = localStorage;
+    this.navigator = { locks: memoryLocks(localStorage) };
+  }
   addEventListener(type, listener) {
     if (!this.listeners.has(type)) this.listeners.set(type, new Set());
     this.listeners.get(type).add(listener);
@@ -128,7 +156,8 @@ class MemoryWindow {
     this.removeCalls += 1;
     this.listeners.get(type)?.delete(listener);
   }
-  listenerCount() {
+  listenerCount(type = null) {
+    if (type) return this.listeners.get(type)?.size || 0;
     return [...this.listeners.values()].reduce((total, listeners) => total + listeners.size, 0);
   }
   dispatch(type, detail = {}, values = {}) {
@@ -195,6 +224,8 @@ function hookHarness({ storage = new MemoryStorage(), state = fixture(), hydrate
     writes.restored.push({ state: next, ...context });
   };
   const render = (changes = {}) => {
+    globalThis.window = window;
+    globalThis.__primitiveArchiveHookHarness = react;
     Object.assign(props, changes);
     react.beginRender();
     const value = invokeCheckpointHook({
@@ -269,6 +300,19 @@ function fixture(runId = 'checkpoint-run-a', overrides = {}) {
   });
 }
 
+function legacyEnvelope(ownerKey, state, revision = 1, savedAt = at(1)) {
+  return JSON.stringify({
+    schemaVersion: 1,
+    gameSlug: engine.GAME_SLUG,
+    saveVersion: engine.SAVE_VERSION,
+    owner: ownerKey,
+    revision,
+    savedAt,
+    current: state,
+    previous: null,
+  });
+}
+
 function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   Object.freeze(value);
@@ -329,6 +373,17 @@ async function settleHookEffects() {
   await Promise.resolve();
 }
 
+async function settleWriterOwnership(harness) {
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    await settleHookEffects();
+    harness.drainMicrotasks();
+    const view = harness.render();
+    if (view.ready && view.exclusive) return view;
+    assert.notEqual(view.status, 'conflict', 'A released same-context writer must not be mistaken for another live tab.');
+  }
+  assert.fail('Writer acquisition did not settle after bounded effect and lock-release turns.');
+}
+
 function serverPersistenceHarness({ state = fixture('server-current'), latestStateRef = { current: state }, authSession = {}, get } = {}) {
   const calls = { get: [], put: [], post: [], setState: [], difficulty: [], actionResult: [], toast: [], cacheClears: [], messages: [] };
   const harness = {
@@ -372,6 +427,89 @@ check('checkpoint owners separate authenticated users, guests and unknown identi
   assert.notEqual(ownerB, guestOwner);
   assert.equal(checkpointApi.checkpointOwner({ user: { username: '   ' }, authenticated: true }), null);
   assert.equal(checkpointApi.checkpointOwner({ user: { id: 'known-case' }, authenticated: null }), null);
+});
+
+check('v1 records migrate to v2 with an exact non-cryptographic source fingerprint and keep the legacy bytes', () => {
+  const storage = new MemoryStorage();
+  const legacyKey = checkpointApi.legacyCheckpointStorageKey(ownerA);
+  const state = fixture('legacy-source-run', { day: 14 });
+  const originalLegacy = legacyEnvelope(ownerA, state, 3, at(2));
+  storage.setItem(legacyKey, originalLegacy);
+
+  const legacy = checkpointApi.readCheckpoint(storage, ownerA);
+  assert.equal(legacy.status, 'ready');
+  assert.equal(legacy.legacy, true);
+  assert.equal(legacy.legacyFingerprintTracked, true);
+  assert.equal(legacy.legacyFingerprint.length, originalLegacy.length);
+  const migrated = expectWrite(storage, ownerA, fixture('legacy-source-run', { day: 15 }), legacy.revision, at(3));
+  const v2Key = checkpointApi.checkpointStorageKey(ownerA);
+  const v2Raw = storage.getItem(v2Key);
+  const v2Envelope = JSON.parse(v2Raw);
+  assert.equal(v2Envelope.schemaVersion, 2);
+  assert.deepEqual(v2Envelope.legacyFingerprint, legacy.legacyFingerprint);
+  assert.equal(migrated.revision, 4);
+  assert.equal(storage.getItem(legacyKey), originalLegacy, 'Migration must never rewrite or remove the v1 source.');
+  assert.equal(checkpointApi.readCheckpoint(storage, ownerA).status, 'ready');
+});
+
+check('a later v1-tab write conflicts with v2 reads and mutations without overwriting either source', () => {
+  const storage = new MemoryStorage();
+  const legacyKey = checkpointApi.legacyCheckpointStorageKey(ownerA);
+  const v2Key = checkpointApi.checkpointStorageKey(ownerA);
+  const firstLegacy = legacyEnvelope(ownerA, fixture('legacy-concurrent-run'), 1, at(4));
+  storage.setItem(legacyKey, firstLegacy);
+  const source = checkpointApi.readCheckpoint(storage, ownerA);
+  expectWrite(storage, ownerA, fixture('legacy-concurrent-run', { day: 9 }), source.revision, at(5));
+  const v2Bytes = storage.getItem(v2Key);
+  const changedLegacy = legacyEnvelope(ownerA, fixture('old-tab-new-run', { day: 12 }), 2, at(6));
+  storage.setItem(legacyKey, changedLegacy);
+
+  const read = checkpointApi.readCheckpoint(storage, ownerA);
+  assert.equal(read.status, 'conflict');
+  assert.equal(read.error, 'legacy-checkpoint-changed');
+  assert.equal(checkpointApi.writeCheckpoint(storage, ownerA, fixture('must-not-replace'), { expectedRevision: 2 }).status, 'conflict');
+  assert.equal(checkpointApi.restorePreviousCheckpoint(storage, ownerA, { expectedRevision: 2 }).status, 'conflict');
+  assert.equal(storage.getItem(v2Key), v2Bytes, 'A stale or changed legacy source must not replace the v2 bytes.');
+  assert.equal(storage.getItem(legacyKey), changedLegacy, 'The v1 source must remain byte-for-byte untouched.');
+});
+
+check('a corrupt v2 source never falls back to a valid legacy checkpoint', () => {
+  const storage = new MemoryStorage();
+  const legacyKey = checkpointApi.legacyCheckpointStorageKey(ownerA);
+  const v2Key = checkpointApi.checkpointStorageKey(ownerA);
+  const oldRecord = legacyEnvelope(ownerA, fixture('legacy-hidden-run'), 8, at(7));
+  const corruptV2 = '{damaged v2 bytes';
+  storage.setItem(legacyKey, oldRecord);
+  storage.setItem(v2Key, corruptV2);
+  assert.equal(checkpointApi.readCheckpoint(storage, ownerA).status, 'corrupt');
+  assert.equal(checkpointApi.writeCheckpoint(storage, ownerA, fixture('must-not-fallback'), { expectedRevision: 0 }).status, 'corrupt');
+  assert.equal(storage.getItem(v2Key), corruptV2);
+  assert.equal(storage.getItem(legacyKey), oldRecord);
+});
+
+check('a v2 clear marker fingerprints but never changes corrupt legacy source bytes', () => {
+  const storage = new MemoryStorage();
+  const legacyKey = checkpointApi.legacyCheckpointStorageKey(ownerA);
+  const v2Key = checkpointApi.checkpointStorageKey(ownerA);
+  const corruptLegacy = '{damaged v1 bytes';
+  storage.setItem(legacyKey, corruptLegacy);
+  const cleared = checkpointApi.discardUnreadableCheckpoint(storage, ownerA);
+  assert.equal(cleared.status, 'missing');
+  const markerBytes = storage.getItem(v2Key);
+  const marker = JSON.parse(markerBytes);
+  assert.equal(marker.kind, 'cleared');
+  assert.equal(marker.legacyFingerprint.length, corruptLegacy.length);
+  assert.equal(checkpointApi.readCheckpoint(storage, ownerA).status, 'missing');
+  assert.equal(storage.getItem(legacyKey), corruptLegacy);
+
+  const changedLegacy = '{changed old-tab bytes';
+  storage.setItem(legacyKey, changedLegacy);
+  const read = checkpointApi.readCheckpoint(storage, ownerA);
+  assert.equal(read.status, 'conflict');
+  assert.equal(read.error, 'legacy-checkpoint-changed');
+  assert.equal(checkpointApi.writeCheckpoint(storage, ownerA, fixture('must-not-write-after-clear'), { expectedRevision: 0 }).status, 'conflict');
+  assert.equal(storage.getItem(v2Key), markerBytes);
+  assert.equal(storage.getItem(legacyKey), changedLegacy);
 });
 
 check('missing storage starts at revision zero and a fresh write round-trips a real engine state', () => {
@@ -498,27 +636,34 @@ check('confirmed corrupt recovery backs up exact bytes and starts the next check
   assert.equal(cleared.status, 'missing');
   assert.equal(cleared.backedUp, true);
   assert.equal(storage.getItem(backupKey), raw);
-  assert.equal(storage.getItem(key), null);
+  assert.equal(checkpointApi.readCheckpoint(storage, ownerA).status, 'missing');
+  assert.equal(JSON.parse(storage.getItem(key)).kind, 'cleared', 'The primary reset marker must prevent old legacy data from returning.');
   const saved = expectWrite(storage, ownerA, fixture('after-corrupt-recovery'), 0, at(14));
   assert.equal(saved.revision, 1);
   assert.equal(saved.checkpoint.previous, null);
   assert.equal(storage.getItem(backupKey), raw);
 });
 
-check('corrupt recovery never deletes the original when backup, read or removal fails', () => {
-  for (const failure of ['failSet', 'failGet', 'failRemove']) {
+check('corrupt recovery preserves the original when backup, read or reset-marker writes fail', () => {
+  for (const failure of ['failSet', 'failGet', 'failMarker']) {
     const storage = new MemoryStorage();
     const key = checkpointApi.checkpointStorageKey(ownerA);
     const backupKey = checkpointApi.checkpointBackupKey(ownerA);
     const raw = '{keep these damaged bytes';
     storage.setItem(key, raw);
     storage.setItem(backupKey, 'older backup');
-    storage[failure] = true;
+    const originalSet = storage.setItem.bind(storage);
+    if (failure === 'failMarker') storage.setItem = (writtenKey, value) => {
+      if (writtenKey === key) throw new Error('reset marker write blocked');
+      originalSet(writtenKey, value);
+    };
+    else storage[failure] = true;
     const cleared = checkpointApi.discardUnreadableCheckpoint(storage, ownerA);
     assert.equal(cleared.ok, false, failure);
-    storage[failure] = false;
+    if (failure === 'failMarker') storage.setItem = originalSet;
+    else storage[failure] = false;
     assert.equal(storage.getItem(key), raw, failure);
-    assert.equal(storage.getItem(backupKey), failure === 'failRemove' ? raw : 'older backup', failure);
+    assert.equal(storage.getItem(backupKey), failure === 'failMarker' ? raw : 'older backup', failure);
   }
 });
 
@@ -562,7 +707,7 @@ check('confirmed repeated corrupt recovery uses one backup slot, isolated by own
     assert.equal(storage.getItem(backupKey), raw);
     assert.equal(storage.getItem(checkpointApi.checkpointBackupKey(ownerB)), 'owner B backup');
   }
-  assert.equal(storage.snapshot().length, 2);
+  assert.equal(storage.snapshot().length, 3, 'Two owner-isolated backup slots plus one primary reset marker are retained.');
 });
 
 await checkAsync('the actual hook only recovers a corrupt checkpoint after an explicit call, then saves revision one', async () => {
@@ -694,11 +839,7 @@ await checkAsync('controlled StrictMode effect replay keeps a fresh-missing owne
   const harness = hookHarness({ storage, user: { id: 'strict-fresh-owner' }, token: 'fresh-token', state: fixture('strict-fresh-run') });
   harness.render();
   harness.replayEffects();
-  await settleHookEffects();
-  const view = harness.render();
-  assert.equal(view.ready, true);
-  await settleHookEffects();
-  const settled = harness.render();
+  const settled = await settleWriterOwnership(harness);
   assert.equal(settled.ready, true, 'The second owner bootstrap must publish readiness after replay.');
   assert.ok(['missing', 'ready'].includes(settled.status));
   assert.ok(['ready', 'missing'].includes(checkpointApi.readCheckpoint(storage, 'user:id:strict-fresh-owner').status));
@@ -713,10 +854,7 @@ await checkAsync('controlled StrictMode effect replay restores an existing owner
   const harness = hookHarness({ storage, user: { id: 'strict-existing-owner' }, token: 'existing-token', state: fixture('strict-stale-render') });
   harness.render();
   harness.replayEffects();
-  await settleHookEffects();
-  const view = harness.render();
-  await settleHookEffects();
-  const settled = harness.render();
+  const settled = await settleWriterOwnership(harness);
   assert.equal(settled.ready, true, 'The replayed owner bootstrap must publish readiness.');
   assert.equal(harness.state.runId, saved.runId);
   assert.equal(harness.state.day, saved.day);
@@ -756,8 +894,7 @@ await checkAsync('the actual hook never writes for an unknown authenticated owne
 
   const account = hookHarness({ storage, user: { id: 'hook-account-a' }, token: 'token-a', state: fixture('pre-account') });
   account.render();
-  await settleHookEffects();
-  account.render();
+  await settleWriterOwnership(account);
   assert.equal(account.state.runId, 'account-a-run');
   account.render({ user: { id: 'hook-account-b' }, token: 'token-b' });
   await settleHookEffects();
@@ -1170,10 +1307,7 @@ await checkAsync('external checkpoint bytes survive bounded same-window A/B/A re
     const remountA = hookHarness({ storage, user: userA, token: `aba-token-a2-${guard}`, state: fixture(`aba-second-stale-${guard}`), windowInstance: window, controlMicrotasks: true });
     try {
       remountA.render();
-      remountA.drainMicrotasks();
-      remountA.render();
-      remountA.drainMicrotasks();
-      const viewA = remountA.render();
+      const viewA = await settleWriterOwnership(remountA);
       assert.equal(viewA.ready, true);
       assert.deepEqual(fullRunSnapshot(remountA.state), fullRunSnapshot(latestA), 'A remount must retain its pending latest state while refusing to overwrite changed/corrupt storage.');
       assert.equal(storage.getItem(keyA), protectedABytes, 'A conflict or corrupt raw checkpoint must remain byte-for-byte intact.');
@@ -1201,9 +1335,7 @@ await checkAsync('external checkpoint bytes survive bounded same-window A/B/A re
     const remountAAgain = hookHarness({ storage, user: userA, token: `aba-token-a3-${guard}`, state: fixture(`aba-third-stale-${guard}`), windowInstance: window, controlMicrotasks: true });
     try {
       remountAAgain.render();
-      remountAAgain.drainMicrotasks();
-      remountAAgain.render();
-      remountAAgain.drainMicrotasks();
+      await settleWriterOwnership(remountAAgain);
       assert.deepEqual(fullRunSnapshot(remountAAgain.state), fullRunSnapshot(latestA), 'A/B/A must recover only A pending state from the same tab memory.');
       assert.equal(storage.getItem(keyA), protectedABytes, 'Repeated A/B/A retries must never alter the external/raw A value.');
       assert.equal(storage.getItem(keyB), protectedBBytes);
@@ -1756,6 +1888,255 @@ check('older healthy counters and camp data can omit later optional additions wh
   assert.ok(Number.isFinite(engine.scoreState(read.checkpoint.current)));
   assert.deepEqual(read.checkpoint.current.counters, state.counters);
   assert.equal(engine.SAVE_VERSION, 'primitive-archive-v1');
+});
+
+await checkAsync('a reset marker followed by a failed state write preserves current progress for the next same-tab mount', async () => {
+  const storage = new MemoryStorage();
+  const window = new MemoryWindow(storage);
+  const key = checkpointApi.checkpointStorageKey(guestOwner);
+  const raw = '{unreadable old bytes';
+  storage.setItem(key, raw);
+  const latest = fixture('reset-retry-live', { day: 22, ap: 2, inventory: { berry: 77, wood: 6 } });
+  const writer = hookHarness({ storage, windowInstance: window, state: latest });
+  writer.render();
+  const view = await settleWriterOwnership(writer);
+  assert.equal(view.status, 'corrupt');
+  const originalSet = storage.setItem.bind(storage);
+  storage.setItem = (writtenKey, value) => {
+    if (writtenKey === key && JSON.parse(value).kind !== 'cleared') throw new Error('Only the full state write exceeds the temporary quota');
+    originalSet(writtenKey, value);
+  };
+  const failed = view.discardUnreadable();
+  assert.equal(failed.ok, false);
+  assert.equal(failed.status, 'unavailable');
+  assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'missing');
+  assert.equal(storage.getItem(checkpointApi.checkpointBackupKey(guestOwner)), raw);
+  writer.unmount();
+  storage.setItem = originalSet;
+  const remount = hookHarness({ storage, windowInstance: window, state: fixture('stale-after-reset') });
+  try {
+    remount.render();
+    const restored = await settleWriterOwnership(remount);
+    assert.equal(restored.status, 'ready');
+    assert.deepEqual(fullRunSnapshot(remount.state), fullRunSnapshot(latest));
+    assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).revision, 1);
+    assert.equal(storage.getItem(checkpointApi.checkpointBackupKey(guestOwner)), raw);
+  } finally { remount.unmount(); writer.unmount(); }
+});
+
+await checkAsync('two live hooks permit one same-owner writer and a read-only tab cannot replace or clear its bytes', async () => {
+  const storage = new MemoryStorage();
+  const user = { id: 'exclusive-owner' };
+  const owner = checkpointApi.checkpointOwner({ user, authenticated: true });
+  const writer = hookHarness({ storage, user, token: 'writer-token', state: fixture('writer-run') });
+  writer.render();
+  let writerView = await settleWriterOwnership(writer);
+  assert.equal(writerView.flush().ok, true);
+  const key = checkpointApi.checkpointStorageKey(owner);
+  const originalBytes = storage.getItem(key);
+  const readerWindow = new MemoryWindow(storage);
+  const reader = hookHarness({ storage, user, token: 'reader-token', state: fixture('reader-stale'), windowInstance: readerWindow });
+  try {
+    reader.render();
+    await settleHookEffects();
+    const view = reader.render();
+    assert.equal(view.ready, true);
+    assert.equal(view.exclusive, false);
+    assert.equal(view.status, 'conflict');
+    assert.match(view.message, /다른 탭.*보기만/);
+    assert.deepEqual(fullRunSnapshot(reader.state), fullRunSnapshot(writer.state));
+    for (const attempt of [() => view.flush(), () => view.replaceRun(fixture('denied-replacement')), () => view.restorePrevious(), () => view.discardUnreadable()]) {
+      assert.equal(attempt().ok, false);
+      assert.equal(storage.getItem(key), originalBytes);
+    }
+    reader.unmount();
+    const latest = fixture('writer-run', { day: 19, ap: 1, inventory: { berry: 81, wood: 9 } });
+    writer.updateState(latest);
+    writerView = writer.render();
+    assert.equal(writerView.flush().ok, true);
+    writer.unmount();
+    const resumed = hookHarness({ storage, user, token: 'reader-token', state: fixture('reopened-reader'), windowInstance: readerWindow });
+    try {
+      resumed.render();
+      const resumedView = await settleWriterOwnership(resumed);
+      assert.equal(resumedView.status, 'ready');
+      assert.deepEqual(fullRunSnapshot(resumed.state), fullRunSnapshot(latest), 'An old spectator must not manufacture an unsaved snapshot that hides newer acknowledged data.');
+    } finally { resumed.unmount(); }
+  } finally { reader.unmount(); writer.unmount(); }
+});
+
+await checkAsync('read-only spectator can close without a warning while a failed writer retains its pending-change warning', async () => {
+  const storage = new MemoryStorage();
+  const user = { id: 'beforeunload-lease-owner' };
+  const writer = hookHarness({ storage, user, token: 'writer-token', state: fixture('beforeunload-owner') });
+  writer.render();
+  await settleWriterOwnership(writer);
+
+  const spectatorWindow = new MemoryWindow(storage);
+  const spectator = hookHarness({ storage, user, token: 'spectator-token', state: fixture('spectator-render'), windowInstance: spectatorWindow });
+  try {
+    spectator.render();
+    await settleHookEffects();
+    assert.equal(spectator.render().exclusive, false);
+    const closeSpectator = spectatorWindow.dispatch('beforeunload', {}, {
+      prevented: false,
+      preventDefault() { this.prevented = true; },
+    });
+    assert.equal(closeSpectator.prevented, false);
+    assert.equal(closeSpectator.returnValue, undefined);
+  } finally { spectator.unmount(); writer.unmount(); }
+
+  const failedStorage = new MemoryStorage();
+  const failedWriter = hookHarness({ storage: failedStorage, user, token: 'failed-writer-token', state: fixture('failed-beforeunload-owner') });
+  try {
+    failedWriter.render();
+    const view = await settleWriterOwnership(failedWriter);
+    failedStorage.failSet = true;
+    failedWriter.updateState(fixture('failed-beforeunload-owner', { day: 16 }));
+    failedWriter.render();
+    assert.equal(view.flush().status, 'unavailable');
+    const pendingClose = failedWriter.window.dispatch('beforeunload', {}, {
+      prevented: false,
+      preventDefault() { this.prevented = true; },
+    });
+    assert.equal(pendingClose.prevented, true);
+    assert.equal(pendingClose.returnValue, '');
+    assert.equal(failedWriter.react.unmounted, false);
+  } finally { failedStorage.failSet = false; failedWriter.unmount(); }
+});
+
+await checkAsync('legacy storage events are ignored when unchanged and persistent v2 fingerprint conflicts survive reload', async () => {
+  const storage = new MemoryStorage();
+  const legacyKey = checkpointApi.legacyCheckpointStorageKey(guestOwner);
+  const v2Key = checkpointApi.checkpointStorageKey(guestOwner);
+  const legacyState = fixture('legacy-event-run', { day: 11 });
+  const originalLegacy = legacyEnvelope(guestOwner, legacyState, 4, at(8));
+  const changedBeforeMigration = legacyEnvelope(guestOwner, fixture('changed-before-migration', { day: 12 }), 4, at(8));
+  storage.setItem(legacyKey, originalLegacy);
+  const preMigrationWindow = new MemoryWindow(storage);
+  const preMigrationTab = hookHarness({ storage, windowInstance: preMigrationWindow, state: fixture('pre-migration-stale') });
+  try {
+    preMigrationTab.render();
+    const preMigration = await settleWriterOwnership(preMigrationTab);
+    assert.equal(preMigration.status, 'ready');
+    assert.equal(preMigrationTab.state.day, 11);
+    preMigrationWindow.dispatch('storage', {}, { key: legacyKey, oldValue: originalLegacy, newValue: originalLegacy });
+    assert.equal(preMigrationTab.render().status, 'ready', 'The first unchanged v1 event before migration must not be treated as a second writer.');
+    storage.setItem(legacyKey, changedBeforeMigration);
+    preMigrationWindow.dispatch('storage', {}, { key: legacyKey, oldValue: originalLegacy, newValue: changedBeforeMigration });
+    const preMigrationConflict = preMigrationTab.render();
+    assert.equal(preMigrationConflict.status, 'conflict', 'A same-revision v1 content change before migration must still conflict.');
+    assert.match(preMigrationConflict.message, /다른 버전의 게임 탭/);
+  } finally { preMigrationTab.unmount(); }
+
+  const legacySourceAtMigration = storage.getItem(legacyKey);
+  const legacy = checkpointApi.readCheckpoint(storage, guestOwner);
+  expectWrite(storage, guestOwner, fixture('legacy-event-run', { day: 12 }), legacy.revision, at(9));
+  const originalV2 = storage.getItem(v2Key);
+  const changedLegacy = legacyEnvelope(guestOwner, fixture('old-legacy-tab-run', { day: 13 }), 5, at(10));
+  const window = new MemoryWindow(storage);
+  const firstTab = hookHarness({ storage, windowInstance: window, state: fixture('legacy-event-stale') });
+  try {
+    firstTab.render();
+    const initial = await settleWriterOwnership(firstTab);
+    assert.equal(initial.status, 'ready');
+    assert.equal(firstTab.state.day, 12);
+    assert.equal(window.listenerCount('storage'), 1, 'The active owner should observe storage changes.');
+
+    window.dispatch('storage', {}, { key: legacyKey, oldValue: legacySourceAtMigration, newValue: legacySourceAtMigration });
+    assert.equal(firstTab.render().status, 'ready', 'An unchanged legacy event must not create a false conflict.');
+
+    storage.setItem(legacyKey, changedLegacy);
+    window.dispatch('storage', {}, { key: legacyKey, oldValue: legacySourceAtMigration, newValue: changedLegacy });
+    const conflicted = firstTab.render();
+    assert.equal(conflicted.status, 'conflict', 'A changed legacy key event must conflict immediately.');
+    assert.match(conflicted.message, /다른 버전의 게임 탭/);
+    assert.equal(storage.getItem(v2Key), originalV2);
+    assert.equal(storage.getItem(legacyKey), changedLegacy);
+  } finally { firstTab.unmount(); }
+
+  const reopened = hookHarness({ storage, windowInstance: new MemoryWindow(storage), state: fixture('reopened-legacy-owner') });
+  try {
+    reopened.render();
+    const view = await settleWriterOwnership(reopened);
+    assert.equal(view.status, 'conflict', 'The persisted v2 fingerprint must keep the conflict after reload.');
+    assert.match(view.message, /다른 버전의 게임 탭/);
+    assert.equal(reopened.state.runId, 'reopened-legacy-owner', 'A changed legacy source must not silently restore or overwrite either version.');
+    assert.equal(storage.getItem(v2Key), originalV2);
+    assert.equal(storage.getItem(legacyKey), changedLegacy);
+  } finally { reopened.unmount(); }
+});
+
+await checkAsync('a missing lock provider restores saved state for viewing while every checkpoint mutation fails closed', async () => {
+  const storage = new MemoryStorage();
+  const user = { id: 'unsupported-locks-owner' };
+  const owner = checkpointApi.checkpointOwner({ user, authenticated: true });
+  const saved = fixture('unsupported-saved', { day: 17 });
+  expectWrite(storage, owner, saved, 0, at(20));
+  const before = storage.snapshot();
+  const window = new MemoryWindow(storage);
+  window.navigator.locks = null;
+  const harness = hookHarness({ storage, user, token: 'unsupported-token', windowInstance: window, state: fixture('unowned-render') });
+  try {
+    harness.render();
+    await settleHookEffects();
+    const view = harness.render();
+    assert.equal(view.ready, true);
+    assert.equal(view.exclusive, false);
+    assert.equal(view.status, 'unavailable');
+    assert.deepEqual(fullRunSnapshot(harness.state), fullRunSnapshot(saved));
+    for (const attempt of [() => view.flush(), () => view.replaceRun(fixture('cannot-replace')), () => view.restorePrevious(), () => view.discardUnreadable()]) assert.equal(attempt().ok, false);
+    assert.deepEqual(storage.snapshot(), before);
+  } finally { harness.unmount(); }
+});
+
+await checkAsync('a pending writer acquisition cancelled by unmount never restores, writes, or updates a departed owner', async () => {
+  const storage = new MemoryStorage();
+  const window = new MemoryWindow(storage);
+  let grant;
+  let finish;
+  window.navigator.locks = { request(name, _options, callback) { grant = () => { const task = callback({ name, mode: 'exclusive' }); Promise.resolve(task).then(finish); }; return new Promise((resolve) => { finish = resolve; }); } };
+  const harness = hookHarness({ storage, windowInstance: window, state: fixture('late-lease') });
+  harness.render();
+  assert.equal(harness.render().exclusive, false);
+  const before = storage.snapshot();
+  harness.unmount();
+  grant();
+  await settleHookEffects();
+  assert.deepEqual(storage.snapshot(), before);
+  assert.deepEqual(harness.writes.postUnmountStateCalls, []);
+  assert.deepEqual(harness.writes.postUnmountRestores, []);
+  assert.deepEqual(harness.react.postUnmountStateUpdates, []);
+});
+
+await checkAsync('back-forward cache handoff flushes before release and resumes the latest acknowledged same-owner checkpoint', async () => {
+  const storage = new MemoryStorage();
+  const user = { id: 'bfcache-owner' };
+  const owner = checkpointApi.checkpointOwner({ user, authenticated: true });
+  const cached = hookHarness({ storage, user, token: 'cached-token', state: fixture('cache-run') });
+  cached.render();
+  await settleWriterOwnership(cached);
+  const latestBeforeHide = fixture('cache-run', { day: 19, ap: 1 });
+  cached.updateState(latestBeforeHide);
+  cached.render();
+  cached.window.dispatch('pagehide', {}, { persisted: true });
+  assert.deepEqual(fullRunSnapshot(checkpointApi.readCheckpoint(storage, owner).checkpoint.current), fullRunSnapshot(latestBeforeHide));
+  const other = hookHarness({ storage, user, token: 'other-token', state: fixture('other-render') });
+  try {
+    other.render();
+    const view = await settleWriterOwnership(other);
+    assert.equal(view.exclusive, true);
+    const latestElsewhere = fixture('cache-run', { day: 20, ap: 2, inventory: { berry: 28, wood: 5 } });
+    other.updateState(latestElsewhere);
+    assert.equal(other.render().flush().ok, true);
+    other.unmount();
+    const protectedBytes = storage.getItem(checkpointApi.checkpointStorageKey(owner));
+    cached.window.dispatch('pageshow', {}, { persisted: true });
+    const resumed = await settleWriterOwnership(cached);
+    assert.equal(resumed.status, 'ready');
+    assert.deepEqual(fullRunSnapshot(cached.state), fullRunSnapshot(latestElsewhere));
+    assert.equal(storage.getItem(checkpointApi.checkpointStorageKey(owner)), protectedBytes, 'Resuming an acknowledged view must not write a stale checkpoint over the other tab.');
+  } finally { other.unmount(); cached.unmount(); }
 });
 
 console.log(JSON.stringify({ pass: failures.length === 0, checks: checks.length, failures }, null, 2));

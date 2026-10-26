@@ -8,6 +8,7 @@ function presetBonuses(rows, value) {
 
 export default function PrimitiveArchiveDeveloperTab({
   actionForecasts,
+  busy,
   developerTools,
   resetDeveloperTools,
   updateDeveloperTools,
@@ -39,6 +40,7 @@ export default function PrimitiveArchiveDeveloperTab({
               type="checkbox"
               data-game-sfx-change="archiveSwitch"
               checked={enabled}
+              disabled={Boolean(busy)}
               onChange={(event) => updateDeveloperTools({ enabled: event.target.checked })}
             />
             <span>개발자 보정 사용</span>
@@ -48,7 +50,7 @@ export default function PrimitiveArchiveDeveloperTab({
               type="checkbox"
               data-game-sfx-change="archiveSwitch"
               checked={Boolean(developerTools?.guaranteedSuccess)}
-              disabled={!enabled}
+              disabled={Boolean(busy) || !enabled}
               onChange={(event) => updateDeveloperTools({ guaranteedSuccess: event.target.checked })}
             />
             <span>모든 행동 강제 성공</span>
@@ -58,7 +60,7 @@ export default function PrimitiveArchiveDeveloperTab({
               type="checkbox"
               data-game-sfx-change="archiveSwitch"
               checked={Boolean(developerTools?.unlockSpecializedActions)}
-              disabled={!enabled}
+              disabled={Boolean(busy) || !enabled}
               onChange={(event) => updateDeveloperTools({ unlockSpecializedActions: event.target.checked })}
             />
             <span>기술 해금 행동 미리보기</span>
@@ -84,7 +86,7 @@ export default function PrimitiveArchiveDeveloperTab({
                 max="50"
                 step="5"
                 value={row.valuePct}
-                disabled={!enabled}
+                disabled={Boolean(busy) || !enabled}
                 onChange={(event) => updateDeveloperTools({
                   actionBonuses: { [row.id]: Number(event.target.value) / 100 },
                 })}
@@ -96,10 +98,10 @@ export default function PrimitiveArchiveDeveloperTab({
         </div>
 
         <div className="primitive-developer-presets">
-          <GameControlButton action="debuff" cue="archiveTune" onClick={() => applyPreset(-0.2)}>불리한 환경</GameControlButton>
-          <GameControlButton action="reset" cue="archiveTune" onClick={() => applyPreset(0)}>보정 0</GameControlButton>
-          <GameControlButton action="buff" cue="archiveTune" onClick={() => applyPreset(0.2)}>풍요 환경</GameControlButton>
-          <GameControlButton action="reset" cue="archiveSwitch" onClick={resetDeveloperTools}>전체 초기화</GameControlButton>
+          <GameControlButton action="debuff" cue="archiveTune" disabled={Boolean(busy)} onClick={() => applyPreset(-0.2)}>불리한 환경</GameControlButton>
+          <GameControlButton action="reset" cue="archiveTune" disabled={Boolean(busy)} onClick={() => applyPreset(0)}>보정 0</GameControlButton>
+          <GameControlButton action="buff" cue="archiveTune" disabled={Boolean(busy)} onClick={() => applyPreset(0.2)}>풍요 환경</GameControlButton>
+          <GameControlButton action="reset" cue="archiveSwitch" disabled={Boolean(busy)} onClick={resetDeveloperTools}>전체 초기화</GameControlButton>
         </div>
 
         <p className="primitive-developer-note">
