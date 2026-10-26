@@ -747,3 +747,48 @@ the unique map reproduction. The managed roots contain 513,534,800 logical bytes
 (about 0.48 GiB). The nested receipt-repair section of the existing local receipt
 retains the new manifests, test hashes and cleanup proof; no whole project copy,
 public-account write or session/database rewrite was performed.
+
+### Same-account session-sync/receipt sequencing
+
+A controlled combined test using the actual API module and the actual record
+hook reproduced a second way the UI could lose a successful payment response:
+same-account SessionSync called `saveAuth`, incrementing the authentication
+revision before the pending record response arrived. The hook then correctly
+rejected the mismatched revision, but the revision change represented profile
+data refresh rather than an authentication boundary.
+
+The API now separates the authentication revision from a user-snapshot revision.
+Explicit login, logout, identity changes and CSRF checks still retire prior
+requests. Same-identity balance/profile updates and session refresh preserve the
+authentication revision. A snapshot epoch and byte-exact stored-user comparison
+keep a late profile response from overwriting a more recent accepted wallet.
+Every accepted snapshot attempt retires older profile requests, even if the
+serialized balance is unchanged. AUTH_SYNC notifications still require changed
+data; cache invalidation remains in the existing snapshot writer. `/auth/session`
+only reads the current user and does not silently renew authentication cookies.
+
+The existing 15 authentication cases and ten connected API/record-hook cases
+pass, including both response orders, unchanged balances, identity changes,
+same-account explicit relogin, logout, CSRF renewal and a new-run transition.
+Negative cases compare actual API user state and action/toast results after the
+transition, not an unused mock update log. The proxy-session contract, twenty
+archive checks, targeted API lint and production build `aclAkE8x5Zdafm7uWOX2B`
+also pass. The generated simulation engine fingerprint changed because the API
+is part of its dependency graph; that generated source is included with the
+patch. There was no server reward-rule, AP, RNG or gameplay balance change.
+
+These are controlled HTTP/storage fixtures, not a natural public session expiry
+or an observed fix in the reporting user's account. Both browser wrapper and
+direct documented native-window reads failed the Whale window-owner check, so
+no account interaction or private balance claim was made. The software checklist
+is reconciled with current deployment/test receipts; natural expiry, refreshed
+human evaluation and the actual player's receipt remain explicit gates.
+
+After zero owned build/server processes and path/link/size/hash checks, this
+follow-up retired 649,447,386 bytes of new cache and the superseded previous
+runtime. The current `aclAkE8x5Zdafm7uWOX2B`, previous public
+`u3vjqfqDD7npKyUtts8zS` and unique map reproduction are retained. The five
+managed roots contain 514,659,909 logical bytes (about 0.48 GiB), not the whole
+repository or physical allocation. The existing receipt now identifies
+`sessionRaceRepair` as its latest proof section and exposes verified-current/
+verified-previous manifests; older sections remain historical evidence.

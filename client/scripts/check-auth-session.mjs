@@ -267,13 +267,17 @@ await cacheCheck('late session sync cannot restore a logged-out account', async 
 });
 await cacheCheck('session sync refreshes the current account but cannot undo newer progress', async () => {
   api.saveAuth(undefined, author);
+  const currentSession = api.captureAuthSession();
   globalThis.__authTestAxiosImpl = async () => ({ data: { user: { ...author, lp: 50 } }, status: 200, headers: {} });
   assert.equal(await api.refreshStoredAuthSession(), true);
+  assert.equal(api.isCurrentAuthSession(currentSession), true, 'A same-account profile refresh does not retire in-flight account work.');
   assert.equal(api.getUser().lp, 50);
   const old = deferredRequest();
   globalThis.__authTestAxiosImpl = () => old.promise;
   const pending = api.refreshStoredAuthSession();
+  const progressSession = api.captureAuthSession();
   api.updateStoredUser({ lp: 200 });
+  assert.equal(api.isCurrentAuthSession(progressSession), true, 'A same-account balance update is not a new authentication session.');
   old.resolve({ user: { ...author, lp: 50 } });
   assert.equal(await pending, false);
   assert.equal(api.getUser().lp, 200);

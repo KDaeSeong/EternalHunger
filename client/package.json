@@ -16,7 +16,7 @@
     "check:ba-srpg-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-ba-srpg-soundtrack.mjs && node ./scripts/check-ba-srpg-rendered-audio.mjs",
     "check:ba-vanguard-feedback": "node ./scripts/check-ba-vanguard-feedback.mjs",
     "check:ba-vanguard-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-ba-vanguard-soundtrack.mjs && node ./scripts/check-ba-vanguard-rendered-audio.mjs",
-    "check:auth-session": "node ./scripts/check-auth-session.mjs && node ./scripts/check-proxy-session-contract.mjs",
+    "check:auth-session": "node ./scripts/check-auth-session.mjs && node ./scripts/check-record-session-refresh-race.mjs && node ./scripts/check-proxy-session-contract.mjs",
     "check:build:ci": "npm ci --no-audit --no-fund && npm run prebuild && next build --webpack && npm run postbuild",
     "check:company-report-feedback": "node ./scripts/check-company-report-feedback.mjs",
     "check:company-report-cashflow": "node ./scripts/check-company-report-cashflow.mjs",

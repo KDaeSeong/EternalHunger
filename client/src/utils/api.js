@@ -15,6 +15,7 @@ export const INIT_API_TIMEOUT_MS = 45000;
 export const AUTH_SYNC_EVENT = 'eh:auth-sync';
 export const COOKIE_SESSION_MARKER = 'cookie-session';
 let cookieSessionRevision = 0;
+let userSnapshotRevision = 0;
 export const SERVICE_UNAVAILABLE_MESSAGE =
   '서비스 연결이 원활하지 않습니다. 잠시 후 다시 시도해 주세요.';
 export const API_BASE_CONFIG_ERROR = SERVICE_UNAVAILABLE_MESSAGE;
@@ -129,22 +130,42 @@ export function emitAuthSync(detail = {}) {
   } catch {}
 }
 
-export function saveAuth(_token, user) {
+function readStoredUserRaw() {
+  if (typeof window === 'undefined') return null;
+  try { return window.localStorage.getItem('user'); } catch { return null; }
+}
+
+function storedUserIdentity(user) {
+  return String(user?.id || user?._id || user?.username || '').trim();
+}
+
+function persistUserSnapshot(user) {
   if (typeof window === 'undefined') return;
-  cookieSessionRevision += 1;
+  // Any accepted authoritative user snapshot retires older in-flight profile
+  // refreshes, even when its stored JSON is byte-for-byte unchanged or storage
+  // rejects the write.
+  userSnapshotRevision += 1;
   clearLegacyTokenStorage();
   let didChange = false;
   try {
-    if (user !== undefined) {
-      const nextUserRaw = user === null ? null : JSON.stringify(user);
-      const prevUserRaw = window.localStorage.getItem('user');
-      if (nextUserRaw === null) window.localStorage.removeItem('user');
-      else window.localStorage.setItem('user', nextUserRaw);
-      didChange = prevUserRaw !== nextUserRaw;
-    }
+    const nextUserRaw = user === null ? null : JSON.stringify(user);
+    const prevUserRaw = readStoredUserRaw();
+    if (nextUserRaw === null) window.localStorage.removeItem('user');
+    else window.localStorage.setItem('user', nextUserRaw);
+    didChange = prevUserRaw !== nextUserRaw;
   } catch {}
   clearApiGetCache();
   if (didChange) emitAuthSync({ reason: 'saveAuth' });
+}
+
+export function saveAuth(_token, user) {
+  if (typeof window === 'undefined') return;
+  cookieSessionRevision += 1;
+  if (user !== undefined) persistUserSnapshot(user);
+  else {
+    clearLegacyTokenStorage();
+    clearApiGetCache();
+  }
 }
 
 function requestServerLogout() {
@@ -163,6 +184,7 @@ function requestServerLogout() {
 export function clearAuth(detail = {}) {
   if (typeof window === 'undefined') return;
   cookieSessionRevision += 1;
+  userSnapshotRevision += 1;
   requestServerLogout();
   try {
     window.localStorage.removeItem('user');
@@ -179,7 +201,8 @@ export function updateStoredUser(patch, { session } = {}) {
   if (!current || typeof current !== 'object') return null;
   const next = typeof patch === 'function' ? patch(current) : { ...current, ...(patch || {}) };
   if (!next || typeof next !== 'object') return null;
-  saveAuth(undefined, next);
+  if (storedUserIdentity(next) !== storedUserIdentity(current)) saveAuth(undefined, next);
+  else persistUserSnapshot(next);
   return next;
 }
 
@@ -270,11 +293,15 @@ export function isCurrentAuthSession(session) {
 export async function refreshStoredAuthSession(options = {}) {
   const { shouldApply = () => true, ...requestOptions } = options;
   const session = captureAuthSession();
+  const storedUserRaw = readStoredUserRaw();
+  const snapshotRevision = userSnapshotRevision;
   const data = await apiGet('/auth/session', { timeoutMs: 15000, ...requestOptions });
   // A late successful response must be isolated just like a late 401: account
   // changes, logout, cookie renewal and newer progress updates retire it.
-  if (!shouldApply() || !isCurrentAuthSession(session) || !data?.user || typeof data.user !== 'object') return false;
-  saveAuth(undefined, data.user);
+  if (!shouldApply() || !isCurrentAuthSession(session) || !data?.user || typeof data.user !== 'object'
+    || snapshotRevision !== userSnapshotRevision || storedUserRaw !== readStoredUserRaw()) return false;
+  if (storedUserIdentity(data.user) !== storedUserIdentity(getUser())) saveAuth(undefined, data.user);
+  else persistUserSnapshot(data.user);
   return true;
 }
 
