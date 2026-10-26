@@ -63,27 +63,32 @@ router.post('/purchase', async (req, res) => {
     const perk = dedupeScopedPerks(rows, req.user.id)[0];
     if (!perk) return res.status(404).json({ error: 'perk_not_found' });
 
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ error: 'user_not_found' });
-
-    const owned = Array.isArray(user.perks) ? user.perks : [];
-    if (owned.includes(code)) {
-      return res.json({
-        message: '이미 보유한 특전입니다.',
-        lp: user.lp,
-        perks: owned,
-        user: publicUser(user),
-      });
+    const cost = perk.lpCost;
+    if (typeof cost !== 'number' || !Number.isSafeInteger(cost) || cost < 0) {
+      return res.status(500).json({ error: '상품 가격을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.', code: 'PERK_PRICE_INVALID' });
     }
 
-    const cost = Math.max(0, Number(perk.lpCost || 0));
-    if (Number(user.lp || 0) < cost) {
-      return res.status(400).json({ error: 'LP가 부족합니다.' });
-    }
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, lp: { $gte: cost }, perks: { $ne: code } },
+      { $inc: { lp: -cost }, $addToSet: { perks: code } },
+      { new: true },
+    );
+    if (!user) {
+      const current = await User.findById(req.user.id).lean();
+      if (!current) return res.status(404).json({ error: 'user_not_found' });
 
-    user.lp = Math.max(0, Number(user.lp || 0) - cost);
-    user.perks = [...owned, code];
-    await user.save();
+      const owned = Array.isArray(current.perks) ? current.perks : [];
+      if (owned.includes(code)) {
+        return res.json({
+          message: '이미 보유한 특전입니다.',
+          lp: current.lp,
+          perks: owned,
+          user: publicUser(current),
+        });
+      }
+      if (Number(current.lp || 0) < cost) return res.status(400).json({ error: 'LP가 부족합니다.' });
+      return res.status(409).json({ error: '다른 구매가 처리 중입니다. 잠시 후 다시 시도해 주세요.', code: 'PERK_PURCHASE_CONFLICT' });
+    }
 
     res.json({
       message: '특전 구매 완료',
