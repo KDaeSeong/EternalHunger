@@ -152,7 +152,10 @@ function completedIdsMatch(completed, ids) {
 // Client snapshots are eligibility claims, not server proof of gameplay. Keep
 // payouts fixed and bounded; this check must never be described as anti-cheat.
 function archiveRewardTier(state) {
-  const developerBonuses = isRecord(state?.devTools?.actionBonuses) ? state.devTools.actionBonuses : null;
+  const rawDeveloperBonuses = state?.devTools?.actionBonuses;
+  const developerBonuses = rawDeveloperBonuses === undefined
+    ? {}
+    : isRecord(rawDeveloperBonuses) ? rawDeveloperBonuses : null;
   const developerBonusesValid = developerBonuses
     && Object.values(developerBonuses).every((value) => typeof value === 'number' && Number.isFinite(value));
   const developerAdjustmentActive = state?.devTools?.enabled === true && (
@@ -218,7 +221,8 @@ function queryOne(model, filter, session) {
 
 async function createOne(model, document, session) {
   const created = await model.create([document], { session });
-  return Array.isArray(created) ? created[0] : created;
+  const row = Array.isArray(created) ? created[0] : created;
+  return row && typeof row.toObject === 'function' ? row.toObject({ minimize: false }) : row;
 }
 
 async function loadProgress(userId, session) {
@@ -321,6 +325,21 @@ async function settleArchiveRecord({ userId, runId, recordData, now }) {
         lp: amount.lp,
         credits: amount.credits,
       }, session);
+    } else if (ledger.status === 'ineligible' && record) {
+      // A prior minimized Mongoose snapshot may have omitted an empty
+      // actionBonuses object. Recheck only the immutable stored record, never
+      // the retry body, and preserve the existing unique ledger identity.
+      const tier = archiveRewardTier(record.payload?.state);
+      if (tier) {
+        const amount = ARCHIVE_REWARD_RULES[tier];
+        const promoted = await dependencies.PrimitiveArchiveReward.updateOne(
+          { _id: ledger._id, status: 'ineligible' },
+          { $set: { status: 'daily_limit', tier, lp: amount.lp, credits: amount.credits } },
+          { session },
+        );
+        if (promoted.matchedCount !== 1) throw new Error('ARCHIVE_REWARD_LEGACY_RECHECK_CONFLICT');
+        ledger = { ...ledger, status: 'daily_limit', tier, lp: amount.lp, credits: amount.credits };
+      }
     }
 
     const wasAwarded = ledger.status === 'awarded';

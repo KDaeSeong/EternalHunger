@@ -717,3 +717,33 @@ managed artifact roots fell from 1,416,713,720 to 513,498,011 logical bytes
 and physical allocation. The small receipt/logs and one reward proof image
 remain. Exact targets and hashes are in
 `.local/build-recovery/archive-writer-release-2026-10-26.json`.
+
+### Public receipt report follow-up
+
+The player reported an already-recorded/already-awarded notice while their header
+showed 9,780 LP. There is no observed pre-award balance or direct inspection of
+that account's private ledger; do not infer a missing payment or grant a duplicate
+from the screenshot. A separate real-Mongoose regression reproduced first-receipt
+amounts disappearing when a document was spread as a plain object. Normalizing
+created documents with `toObject({minimize:false})` fixes the receipt. Empty
+developer-bonus maps omitted by old Mongoose persistence remain valid no-adjustment
+snapshots. An earlier ineligible ledger can be reconsidered only from its still-
+present immutable first record; changing the retry body cannot upgrade a run.
+
+Actual two-process Mongo acceptance now passes six cases, including exact
+basic/full receipt amounts, legacy first payment and repair of a wrongly excluded
+minimized snapshot. All 164 server tests, 32 actual client persistence/presentation
+cases, targeted lint and final production build `u3vjqfqDD7npKyUtts8zS` passed.
+The frontend now states the historical granted amount and current server balance
+in the same notice and invalidates the account-profile cache. The temporary
+database was dropped and normally shut down. These are isolated tests; the
+player's actual account receipt remains a separate acceptance check.
+
+Receipt-repair cleanup removed a further 862,120,127 bytes of regenerated cache,
+disposable Mongo files and the superseded `J0Obe-WfBDKDC4PVJqOBo` recovery after
+normal shutdown and bounded path/link/size/hash checks. The current build and
+the immediately preceding released `_3BGtoAbXf5FsRdGeieqi` runtime remain, plus
+the unique map reproduction. The managed roots contain 513,534,800 logical bytes
+(about 0.48 GiB). The nested receipt-repair section of the existing local receipt
+retains the new manifests, test hashes and cleanup proof; no whole project copy,
+public-account write or session/database rewrite was performed.

@@ -539,6 +539,8 @@ await checkAsync('server reward receipts update exact account balances and show 
   assert.deepEqual(state, before);
   assert.ok(harness.cacheClears.includes('/perks'));
   assert.ok(harness.cacheClears.includes('/credits'));
+  assert.ok(harness.cacheClears.includes('/public/users'));
+  assert.match(writes.actionResults.at(-1), /현재 계정 잔액: 517 LP · 1,023 크레딧/);
 });
 
 await checkAsync('a repeated reward receipt uses the current consumed balance and does not claim another award', async () => {
@@ -548,6 +550,8 @@ await checkAsync('a repeated reward receipt uses the current consumed balance an
   await controls.recordRun();
   assert.deepEqual(harness.userUpdates[0].patch, { lp: 100, credits: 40 });
   assert.match(writes.actionResults.at(-1), /이미 지급/);
+  assert.match(writes.actionResults.at(-1), /1,500 LP · 3,000 크레딧 보상/);
+  assert.match(writes.actionResults.at(-1), /현재 계정 잔액: 100 LP · 40 크레딧/);
   assert.doesNotMatch(writes.actionResults.at(-1), /크레딧을 받았습니다/);
 });
 

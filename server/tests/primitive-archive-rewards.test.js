@@ -4,6 +4,8 @@ const { createRequire } = require('node:module');
 const { readFileSync } = require('node:fs');
 const vm = require('node:vm');
 const mongoose = require('mongoose');
+const RewardMongooseModel = require('../models/PrimitiveArchiveReward');
+const GamePlayRecordMongooseModel = require('../models/GamePlayRecord');
 
 const USER_A = '64b000000000000000000001';
 const USER_B = '64b000000000000000000002';
@@ -42,7 +44,7 @@ function completedState(runId, tier = 'basic', overrides = {}) {
   };
 }
 
-function makeFixture() {
+function makeFixture({ mongooseRewardDocuments = false, mongooseGamePlayRecordDocuments = false } = {}) {
   let nextId = 1;
   let failBalanceWrite = false;
   let queue = Promise.resolve();
@@ -101,6 +103,14 @@ function makeFixture() {
         && row.gameSlug === input.gameSlug && row.clientRunId === input.clientRunId)) {
         throw Object.assign(new Error('duplicate record'), { code: 11000 });
       }
+      if (mongooseGamePlayRecordDocuments) {
+        const document = new GamePlayRecordMongooseModel(input);
+        const stored = document.toObject();
+        stored.createdAt = stored.createdAt || new Date();
+        stored.updatedAt = stored.updatedAt || stored.createdAt;
+        data.records.push(stored);
+        return Array.isArray(values) ? [document] : document;
+      }
       const row = { _id: `record-${nextId++}`, ...clone({ ...input, userId: String(input.userId) }), createdAt: new Date(), updatedAt: new Date() };
       data.records.push(row);
       return Array.isArray(values) ? [clone(row)] : clone(row);
@@ -124,9 +134,17 @@ function makeFixture() {
         && row.gameSlug === input.gameSlug && row.runId === input.runId)) {
         throw Object.assign(new Error('duplicate reward'), { code: 11000 });
       }
-      const row = { _id: `reward-${nextId++}`, ...clone({ ...input, userId: String(input.userId) }) };
-      data.rewards.push(row);
-      return Array.isArray(values) ? [clone(row)] : clone(row);
+      const plainRow = {
+        _id: mongooseRewardDocuments ? new mongoose.Types.ObjectId() : `reward-${nextId++}`,
+        ...clone({ ...input, userId: String(input.userId) }),
+      };
+      if (mongooseRewardDocuments) {
+        const document = new RewardMongooseModel(plainRow);
+        data.rewards.push(document.toObject({ flattenObjectIds: true }));
+        return Array.isArray(values) ? [document] : document;
+      }
+      data.rewards.push(plainRow);
+      return Array.isArray(values) ? [clone(plainRow)] : clone(plainRow);
     },
     async updateOne(filter, update) {
       const row = data.rewards.find((item) => String(item._id) === String(filter._id));
@@ -235,6 +253,75 @@ test('archive completion receives fixed basic and full totals; client score/resu
   assert.equal(full.body.record.result, 'fail', 'client result remains a record field but does not affect the award');
 });
 
+test('first award receipt preserves amounts from a real Mongoose reward document', async () => {
+  const fixture = makeFixture({ mongooseRewardDocuments: true, mongooseGamePlayRecordDocuments: true });
+  const reply = await fixture.post(fixture.bodyFor('mongoose-receipt'));
+  assert.equal(reply.body.rewards.status, 'awarded');
+  assert.deepEqual({ lp: reply.body.rewards.lp, credits: reply.body.rewards.credits, tier: reply.body.rewards.tier }, {
+    lp: 500, credits: 1000, tier: 'basic',
+  });
+  assert.equal(reply.body.userProgress.lp, 540);
+  assert.equal(reply.body.userProgress.credits, 1070);
+  assert.deepEqual(reply.body.record.payload.state.devTools.actionBonuses, {},
+    'The first response keeps empty developer policy data when createOne materializes the Mongoose document.');
+  assert.equal(Object.hasOwn(fixture.data.records[0].payload.state.devTools, 'actionBonuses'), false,
+    'The fixture stores the same minimized shape returned by Mongoose serialization.');
+});
+
+test('minimized historical Mongoose snapshots treat omitted empty developer bonuses as no adjustment', async () => {
+  const runId = 'minimized-historical-receipt';
+  const stored = new GamePlayRecordMongooseModel({
+    userId: USER_A,
+    gameSlug: CONTRACT.gameSlug,
+    clientRunId: runId,
+    title: 'Historical full completion',
+    mode: 'survival-loop',
+    result: 'clear',
+    payload: { state: completedState(runId, 'full') },
+  }).toObject();
+  assert.equal(Object.hasOwn(stored.payload.state.devTools, 'actionBonuses'), false,
+    'The actual GamePlayRecord default toObject shape minimizes the empty object.');
+  const fixture = makeFixture();
+  assert.equal(fixture.router.testing.archiveRewardTier(stored.payload.state), 'full');
+  fixture.seed({ ...stored, userId: USER_A });
+  const response = await fixture.post(fixture.bodyFor(runId, 'basic', { title: 'changed retry' }));
+  assert.equal(response.body.rewards.status, 'awarded');
+  assert.equal(response.body.rewards.tier, 'full');
+  assert.equal(response.body.rewards.lp, 1500);
+  assert.equal(response.body.rewards.credits, 3000);
+});
+
+test('legacy ineligible ledger can be repaired only from its surviving immutable completed snapshot', async () => {
+  const runId = 'legacy-ineligible-recheck';
+  const stored = new GamePlayRecordMongooseModel({
+    userId: USER_A,
+    gameSlug: CONTRACT.gameSlug,
+    clientRunId: runId,
+    title: 'Original completed run',
+    mode: 'survival-loop',
+    result: 'clear',
+    payload: { state: completedState(runId, 'full') },
+  }).toObject();
+  const fixture = makeFixture();
+  fixture.seed({ ...stored, userId: USER_A });
+  fixture.data.rewards.push({
+    _id: 'old-ineligible-ledger', userId: USER_A, gameSlug: CONTRACT.gameSlug,
+    runId, status: 'ineligible', tier: null, lp: 0, credits: 0,
+  });
+
+  const changedBody = fixture.bodyFor(runId, 'basic', {
+    payload: { state: completedState(runId, 'basic', { victory: false }) },
+  });
+  const response = await fixture.post(changedBody);
+  assert.equal(response.body.record.title, 'Original completed run');
+  assert.equal(response.body.rewards.status, 'awarded');
+  assert.equal(response.body.rewards.tier, 'full');
+  assert.equal(response.body.rewards.lp, 1500);
+  assert.equal(response.body.rewards.credits, 3000);
+  assert.equal(fixture.data.rewards.length, 1, 'Repair updates the durable original ledger identity instead of inserting another.');
+  assert.equal(fixture.data.rewards[0].status, 'awarded');
+});
+
 test('missing completion proofs, developer enabled/used and forged client totals keep record-only semantics', async () => {
   const fixture = makeFixture();
   for (const [runId, overrides] of [
@@ -278,6 +365,11 @@ test('developer panel enabled without any adjustment remains eligible, but adjus
   unsettled.meta.lastSettledRunId = '';
   const rejectedSettlement = await fixture.post(fixture.bodyFor('unsettled', 'basic', { payload: { state: unsettled } }));
   assert.equal(rejectedSettlement.body.rewards.status, 'ineligible');
+
+  const malformedBonuses = completedState('malformed-bonuses');
+  malformedBonuses.devTools.actionBonuses = null;
+  const rejectedMalformed = await fixture.post(fixture.bodyFor('malformed-bonuses', 'basic', { payload: { state: malformedBonuses } }));
+  assert.equal(rejectedMalformed.body.rewards.status, 'ineligible');
 });
 
 test('first record stays immutable across retries and legacy completed rows can claim once from their stored snapshot', async () => {

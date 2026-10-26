@@ -64,7 +64,7 @@ before(async () => {
   assert.deepEqual(await mongoose.connection.db.listCollections({}, { nameOnly: true }).toArray(), []);
   User = require('../models/User'); Record = require('../models/GamePlayRecord');
   Reward = require('../models/PrimitiveArchiveReward'); Daily = require('../models/PrimitiveArchiveDailyReward');
-  fixtureUsers = await User.create(Array.from({ length: 4 }, (_, index) => ({
+  fixtureUsers = await User.create(Array.from({ length: 6 }, (_, index) => ({
     username: `archive_reward_${index}_${randomBytes(5).toString('hex')}`, password: randomBytes(20).toString('hex'),
   })));
   tokens = fixtureUsers.map((row) => require('jsonwebtoken').sign({ id: String(row._id), tokenVersion: row.tokenVersion }, secret));
@@ -92,7 +92,7 @@ after(async () => {
     await mongoose.connection.dropDatabase();
     await mongoose.disconnect();
   }
-  process.stdout.write(`PRIMITIVE_ARCHIVE_REWARDS_MONGO ${JSON.stringify({ pass: checks.length === 4, checks, dbName, databaseDropped: databaseOwned })}\n`);
+  process.stdout.write(`PRIMITIVE_ARCHIVE_REWARDS_MONGO ${JSON.stringify({ pass: checks.length === 6, checks, dbName, databaseDropped: databaseOwned })}\n`);
 });
 
 async function startWorker(label) {
@@ -142,10 +142,12 @@ function completed(runId, tier = 'basic') {
   } }, mode: 'survival-loop', result: 'clear', score: 999999999 };
 }
 
-async function post(worker, runId, tier = 'basic', accountIndex = 0) {
+async function post(worker, runId, tier = 'basic', accountIndex = 0, payloadOverride) {
+  const body = completed(runId, tier);
+  if (payloadOverride !== undefined) body.payload = payloadOverride;
   const response = await fetch(`http://127.0.0.1:${worker.port}/api/game-records/primitive-archive`, {
     method: 'POST', headers: { Authorization: `Bearer ${tokens[accountIndex]}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(completed(runId, tier)),
+    body: JSON.stringify(body),
   });
   return { status: response.status, body: await response.json() };
 }
@@ -155,6 +157,11 @@ check('two independent HTTP processes award one shared run once', async () => {
   const replies = await Promise.all([post(workers[0], runId), post(workers[1], runId)]);
   assert.deepEqual(replies.map((x) => x.status).sort(), [200, 201]);
   assert.deepEqual(replies.map((x) => x.body.rewards.status).sort(), ['already_awarded', 'awarded']);
+  for (const reply of replies) {
+    assert.deepEqual({ lp: reply.body.rewards.lp, credits: reply.body.rewards.credits, tier: reply.body.rewards.tier }, {
+      lp: 500, credits: 1000, tier: 'basic',
+    });
+  }
   const user = fixtureUsers[0];
   assert.equal(await Reward.countDocuments({ userId: user._id, runId }), 1);
   assert.equal(await Record.countDocuments({ userId: user._id, clientRunId: runId }), 1);
@@ -165,7 +172,13 @@ check('two independent HTTP processes award one shared run once', async () => {
 check('different run race respects daily cap without spending excess', async () => {
   const user = fixtureUsers[1];
   const ids = ['f1', 'f2', 'f3'].map((x) => `${x}-${randomBytes(5).toString('hex')}`);
-  for (const id of ids) { const result = await post(workers[0], id, 'full', 1); assert.equal(result.body.rewards.status, 'awarded'); }
+  for (const id of ids) {
+    const result = await post(workers[0], id, 'full', 1);
+    assert.equal(result.body.rewards.status, 'awarded');
+    assert.deepEqual({ lp: result.body.rewards.lp, credits: result.body.rewards.credits, tier: result.body.rewards.tier }, {
+      lp: 1500, credits: 3000, tier: 'full',
+    });
+  }
   const raceIds = [0, 1].map((i) => `cap-${i}-${randomBytes(5).toString('hex')}`);
   const replies = await Promise.all([post(workers[0], raceIds[0], 'basic', 1), post(workers[1], raceIds[1], 'basic', 1)]);
   assert.deepEqual(replies.map((x) => x.body.rewards.status).sort(), ['awarded', 'daily_limit']);
@@ -193,11 +206,92 @@ check('deleting a paid history row and resubmitting cannot pay again', async () 
   const runId = `delete-${randomBytes(6).toString('hex')}`;
   const first = await post(workers[0], runId, 'basic', 3);
   assert.equal(first.body.rewards.status, 'awarded');
+  assert.deepEqual({ lp: first.body.rewards.lp, credits: first.body.rewards.credits, tier: first.body.rewards.tier }, {
+    lp: 500, credits: 1000, tier: 'basic',
+  });
   const prior = await User.findById(user._id).select('lp credits').lean();
   await Record.deleteOne({ userId: user._id, clientRunId: runId });
   const retry = await post(workers[1], runId, 'basic', 3);
   assert.equal(retry.body.record, null);
   assert.equal(retry.body.rewards.status, 'already_awarded');
+  assert.deepEqual({ lp: retry.body.rewards.lp, credits: retry.body.rewards.credits, tier: retry.body.rewards.tier }, {
+    lp: 500, credits: 1000, tier: 'basic',
+  });
   const wallet = await User.findById(user._id).select('lp credits').lean();
   assert.deepEqual({ lp: wallet.lp, credits: wallet.credits }, { lp: prior.lp, credits: prior.credits });
+});
+
+check('an existing completed snapshot can claim its first receipt with exact full amounts', async () => {
+  const user = fixtureUsers[4];
+  const runId = `historic-${randomBytes(6).toString('hex')}`;
+  const stored = completed(runId, 'full');
+  const historicalDocument = new Record({
+    userId: user._id,
+    gameSlug: 'primitive-archive',
+    clientRunId: runId,
+    title: 'Stored historical completion',
+    mode: 'survival-loop',
+    result: 'clear',
+    score: 7,
+    playTimeSec: 90,
+    summary: { day: stored.payload.state.day },
+    payload: stored.payload,
+  });
+  const historicalRow = historicalDocument.toObject();
+  assert.equal(Object.hasOwn(historicalRow.payload.state.devTools, 'actionBonuses'), false,
+    'Legacy fixture must use the actual Mongoose minimized serialization shape.');
+  await Record.collection.insertOne(historicalRow);
+  const response = await post(workers[1], runId, 'basic', 4);
+  assert.equal(response.status, 200);
+  assert.equal(response.body.replayed, true);
+  assert.equal(response.body.rewards.status, 'awarded');
+  assert.deepEqual({ lp: response.body.rewards.lp, credits: response.body.rewards.credits, tier: response.body.rewards.tier }, {
+    lp: 1500, credits: 3000, tier: 'full',
+  });
+  assert.equal(response.body.userProgress.lp, 1500);
+  assert.equal(response.body.userProgress.credits, 3000);
+  assert.equal(await Reward.countDocuments({ userId: user._id, runId }), 1);
+});
+
+check('legacy ineligible ledger is repaired only from its surviving minimized original snapshot', async () => {
+  const user = fixtureUsers[5];
+  const runId = `legacy-ineligible-${randomBytes(6).toString('hex')}`;
+  const original = completed(runId, 'full');
+  const historicalDocument = new Record({
+    userId: user._id,
+    gameSlug: 'primitive-archive',
+    clientRunId: runId,
+    title: 'Original stored completion',
+    mode: 'survival-loop',
+    result: 'clear',
+    payload: original.payload,
+  });
+  const historicalRow = historicalDocument.toObject();
+  assert.equal(Object.hasOwn(historicalRow.payload.state.devTools, 'actionBonuses'), false);
+  await Record.collection.insertOne(historicalRow);
+  await Reward.create({
+    userId: user._id,
+    gameSlug: 'primitive-archive',
+    runId,
+    status: 'ineligible',
+    tier: null,
+    lp: 0,
+    credits: 0,
+  });
+
+  const changedState = completed(runId, 'basic').payload;
+  changedState.state.victory = false;
+  const response = await post(workers[0], runId, 'basic', 5, changedState);
+  assert.equal(response.body.record.title, 'Original stored completion');
+  assert.equal(response.body.replayed, true);
+  assert.equal(response.body.rewards.status, 'awarded');
+  assert.deepEqual({ lp: response.body.rewards.lp, credits: response.body.rewards.credits, tier: response.body.rewards.tier }, {
+    lp: 1500, credits: 3000, tier: 'full',
+  });
+  assert.equal(response.body.userProgress.lp, 1500);
+  assert.equal(response.body.userProgress.credits, 3000);
+  const ledgers = await Reward.find({ userId: user._id, runId }).lean();
+  assert.equal(ledgers.length, 1, 'The original ineligible ledger identity is repaired in place.');
+  assert.equal(ledgers[0].status, 'awarded');
+  assert.equal(ledgers[0].tier, 'full');
 });
