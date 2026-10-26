@@ -792,3 +792,20 @@ managed roots contain 514,659,909 logical bytes (about 0.48 GiB), not the whole
 repository or physical allocation. The existing receipt now identifies
 `sessionRaceRepair` as its latest proof section and exposes verified-current/
 verified-previous manifests; older sections remain historical evidence.
+
+### Reporting-player receipt acceptance
+
+After `7c8108aa` was deployed, the reporting player explicitly confirmed that
+the granted amount and current wallet were visible together. Their supplied
+screenshot showed the ended Day 207 / 244-of-244 run, a stored prior award of
+1,500 LP and 3,000 credits, and both current balances in the notice. This closes
+the reporting-account receipt/display acceptance item. It does not claim a new
+duplicate grant or establish the original award timestamp. Personal balances,
+account identifiers and screenshot paths are omitted from this acceptance note.
+The earlier LP-only screenshot was insufficient on its own; the new receipt and
+explicit user confirmation supply the missing acceptance evidence.
+
+Natural public session expiry/recovery and a fresh human assessment of the
+changed early-survival/readability/ending experience are still pending. The
+receipt confirmation must not be promoted to a new gameplay evaluation or a
+replacement for the nine rejected one-point scores.
