@@ -180,7 +180,7 @@ check('critical party injuries use existing paid first aid, not one-member rest'
   const state = fixture({ inventory: { herb_tonic: 1 } });
   state.party = state.party.map((member) => ({ ...member, hp: 10, hunger: 0 }));
   const next = engine.runAutoDayAction(state, { rng: noEvents });
-  assert.ok(next.log.some((entry) => entry.includes('전원 HP +14')));
+  assert.ok(next.log.some((entry) => /약초 달임 회복량\(행동 비용 전\).*HP 최대 \+14, ST 최대 \+5, 체온 최대 \+0\.3/.test(entry)));
   assert.equal(next.inventory.herb_tonic, 0);
   assert.ok(next.party.every((member) => member.hp > 10));
   expectSameOperation(next, engine.runRecoveryChoiceAction(state, 'shiroko', 'field_tonic', { rng: noEvents }));
@@ -192,7 +192,7 @@ check('field medicine pays unlocked herbs and a berry rather than gifting recove
   state.research.completed.HERBALISM = true;
   const next = engine.runAutoDayAction(state, { rng: noEvents });
   assert.equal(next.inventory.herb, 0);
-  assert.ok(next.log.some((entry) => entry.includes('전원 HP +8')));
+  assert.ok(next.log.some((entry) => /현장 약초 처치 회복량\(행동 비용 전\).*HP 최대 \+8, ST 최대 \+3, 체온 최대 \+0\.18/.test(entry)));
   expectSameOperation(next, engine.runRecoveryChoiceAction(state, 'shiroko', 'field_tonic', { rng: noEvents }));
 });
 

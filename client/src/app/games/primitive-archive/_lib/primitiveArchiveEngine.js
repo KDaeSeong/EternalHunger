@@ -2732,7 +2732,7 @@ function rareTrackingPlan(state, pressure = explorationEventPressure(state)) {
   };
 }
 
-export function recoveryChoiceRows(state) {
+export function recoveryChoiceRows(state, actorId = '') {
   const current = normalizeState(state);
   const eventPressure = explorationEventPressure(current);
   const living = livingParty(current);
@@ -2752,15 +2752,11 @@ export function recoveryChoiceRows(state) {
   const hasTonic = Number(current.inventory.herb_tonic || 0) > 0;
   const canBrewTonic = recipeUnlockInfo(current, 'herb_tonic').unlocked && hasResources(current.inventory, { herb: 2, berry: 1 });
   const canFeed = FOOD_RECOVERY_IDS.some((id) => Number(current.inventory[id] || 0) > 0);
-  const mealTargets = recoveryFoodPlan(current);
+  const mealTargets = recoveryFoodPlan(current, actorId);
   const tonicHeal = hasTonic ? 14 + medicineResearchHealBonus(current) : 8;
   const tonicStamina = hasTonic ? 5 : 3;
   const tonicWarmth = hasTonic ? 0.3 : 0.18;
-  const tonicTargets = living.filter((member) => hasRecoveryBenefit(member, {
-    heal: tonicHeal,
-    stamina: tonicStamina,
-    warmth: tonicWarmth,
-  }));
+  const tonicHasBenefit = tonicActionHasUsefulRecovery(current, actorId, tonicHeal, tonicStamina, tonicWarmth);
   const canWarm = Number(current.inventory.wood || 0) > 0 || Number(current.camp.fuel || 0) > 0;
   const canGear = Boolean(bestRareRecipe) || hasAnyEquipInPool(current);
   const canTrack = Number(current.ap || 0) > 0 && hp >= 45 && stamina >= 30;
@@ -2771,11 +2767,11 @@ export function recoveryChoiceRows(state) {
       tone: recoveryHp < 55 ? 'danger' : 'normal',
       title: hasTonic ? '응급 처치' : '현장 약초 처치',
       detail: hasTonic
-        ? `약초 달임 1개로 생존 대원의 HP를 최대 ${tonicHeal}, ST를 최대 ${tonicStamina} 회복합니다.`
-        : '약초 2개와 베리 1개로 즉석 처치를 진행해 사냥 후 부상 압박을 줄입니다.',
+        ? `약초 달임 1개로 생존 대원의 HP 최대 +${tonicHeal}, ST 최대 +${tonicStamina}, 체온 최대 +${tonicWarmth}을 회복합니다.`
+        : `약초 2개와 베리 1개로 생존 대원의 HP 최대 +${tonicHeal}, ST 최대 +${tonicStamina}, 체온 최대 +${tonicWarmth}을 회복합니다.`,
       costText: hasTonic ? '약초 달임 1' : '약초 2 · 베리 1',
-      enabled: tonicTargets.length > 0 && (recoveryHp < 78 || eventPressure.eventCount > 0) && (hasTonic || canBrewTonic),
-      priority: tonicTargets.length ? Math.max(0, 80 - recoveryHp) + eventPressure.eventCount * 4 + (hasTonic ? 8 : 0) : 0,
+      enabled: tonicHasBenefit && (recoveryHp < 78 || eventPressure.eventCount > 0) && (hasTonic || canBrewTonic),
+      priority: tonicHasBenefit ? Math.max(0, 80 - recoveryHp) + eventPressure.eventCount * 4 + (hasTonic ? 8 : 0) : 0,
     },
     {
       id: 'ration_break',
@@ -2882,6 +2878,38 @@ function hasRecoveryBenefit(member, { nutrition = 0, heal = 0, stamina = 0, warm
     || (Number(member.bodyTemp ?? 37) < 37 && warmth > 0);
 }
 
+function tonicActionHasUsefulRecovery(state, actorId, heal, staminaGain, warmthGain) {
+  const actionActorId = recoveryActionActorId(state, actorId, 'craft');
+  if (!actionActorId) return false;
+  return livingParty(state).some((member) => {
+    const hpBefore = Number(member.hp || 0);
+    const staminaBefore = Number(member.stamina || 0);
+    const bodyTempBefore = Number(member.bodyTemp ?? 37);
+    const hpAfter = clamp(hpBefore + heal, 0, 100);
+    const staminaAfterTonic = clamp(staminaBefore + staminaGain, 0, 100);
+    const isActionActor = member.id === actionActorId;
+    const staminaAfter = isActionActor ? clamp(staminaAfterTonic - 4, 0, 100) : staminaAfterTonic;
+    const bodyTempAfterTonic = clamp(bodyTempBefore + warmthGain, 25, 39);
+    const bodyTempAfter = isActionActor
+      ? clamp(bodyTempAfterTonic + actionBodyTempDelta(state, actionActorId), 25, 39)
+      : bodyTempAfterTonic;
+    return hpAfter > hpBefore
+      || staminaAfter > staminaBefore
+      || (bodyTempBefore < 37 && bodyTempAfter > bodyTempBefore);
+  });
+}
+
+function recoveryFoodHasUsefulEffect(state, member, consumed, actionActorId) {
+  if (hasRecoveryBenefit(member, { nutrition: consumed.nutrition, heal: consumed.heal })) return true;
+  const bodyTempBefore = Number(member.bodyTemp ?? 37);
+  if (bodyTempBefore >= 37) return false;
+  const bodyTempAfterMeal = clamp(bodyTempBefore + consumed.warmth, 25, 39);
+  const bodyTempAfter = member.id === actionActorId
+    ? clamp(bodyTempAfterMeal + actionBodyTempDelta(state, actionActorId), 25, 39)
+    : bodyTempAfterMeal;
+  return bodyTempAfter > bodyTempBefore;
+}
+
 function individualFoodWarmth(foodId) {
   return foodId === 'cooked_meat' ? 1.1 : foodId === 'packed_ration' ? 0.4 : foodId === 'herb_tonic' ? 0.8 : 0;
 }
@@ -2898,11 +2926,8 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
     const heal = hasTonic ? 14 + medicineResearchHealBonus(current) : 8;
     const staminaGain = hasTonic ? 5 : 3;
     const warmthGain = hasTonic ? 0.3 : 0.18;
-    const hasUsefulTarget = livingParty(current).some((member) => hasRecoveryBenefit(member, {
-      heal,
-      stamina: staminaGain,
-      warmth: warmthGain,
-    }));
+    const actionActorId = recoveryActionActorId(current, actorId, 'craft');
+    const hasUsefulTarget = tonicActionHasUsefulRecovery(current, actionActorId, heal, staminaGain, warmthGain);
     if (!hasUsefulTarget) return addLog(current, '응급 처치로 회복할 생존 대원이 없습니다.');
     const inventory = hasTonic
       ? spendResources(current.inventory, { herb_tonic: 1 })
@@ -2913,12 +2938,13 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
       stamina: clamp(Number(member.stamina || 0) + staminaGain, 0, 100),
       bodyTemp: clamp(Number(member.bodyTemp ?? 37) + (hasTonic ? 0.3 : 0.18), 25, 39),
     }));
-    next = addLog(next, `${hasTonic ? '약초 달임' : '현장 약초 처치'}로 전원 HP +${heal}, ST +${staminaGain}.`);
-    return finishRecoveryAction(next, actorId, { action: 'craft', staminaCost: 4, hungerAdd: 1 }, options);
+    next = addLog(next, `${hasTonic ? '약초 달임' : '현장 약초 처치'} 회복량(행동 비용 전): 생존 대원별 HP 최대 +${heal}, ST 최대 +${staminaGain}, 체온 최대 +${warmthGain}.`);
+    return finishRecoveryAction(next, actionActorId, { action: 'craft', staminaCost: 4, hungerAdd: 1 }, options);
   }
 
   if (id === 'ration_break') {
-    const plan = recoveryFoodPlan(current);
+    const actionActorId = recoveryActionActorId(current, actorId, 'camp');
+    const plan = recoveryFoodPlan(current, actionActorId);
     let inventory = { ...current.inventory };
     const updates = {};
     const used = [];
@@ -2942,7 +2968,7 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
     const names = used.map(itemName).join(', ');
     const priority = foodRecoveryPriorityText(plan[0]?.member);
     next = addLog(next, `비상 배식 완료: ${names}. ${priority || '허기가 높은 팀원부터'} ${used.length}명에게 배분했습니다.`);
-    return finishRecoveryAction(next, actorId, { action: 'camp', staminaCost: 3, hungerAdd: 0 }, options);
+    return finishRecoveryAction(next, actionActorId, { action: 'camp', staminaCost: 3, hungerAdd: 0 }, options);
   }
 
   if (id === 'warm_watch') {
@@ -4716,7 +4742,7 @@ export function getRunProgressReport(state, actorId = '') {
     rareResourceLabel: eventPressure.rareLabel,
     rareResourceTotal: eventPressure.rareTotal,
     activeEventChains: eventChainRows(current, actorId),
-    recoveryChoices: recoveryChoiceRows(current),
+    recoveryChoices: recoveryChoiceRows(current, actorId),
     recentEvents: eventPressure.recentEvents,
     weight,
     pendingObjectives: pendingObjectives.map((row) => row.label),
@@ -6305,7 +6331,8 @@ function orderedFoodRecoveryTargets(state) {
   });
 }
 
-function recoveryFoodPlan(state) {
+function recoveryFoodPlan(state, actorId = '') {
+  const actionActorId = recoveryActionActorId(state, actorId, 'camp');
   let inventory = { ...state.inventory };
   const plan = [];
   for (const member of orderedFoodRecoveryTargets(state)) {
@@ -6314,7 +6341,7 @@ function recoveryFoodPlan(state) {
       const nutrition = foodNutritionValue(state, id);
       const heal = foodHealValue(state, id);
       const warmth = id === 'cooked_meat' ? 0.45 : id === 'packed_ration' ? 0.18 : 0;
-      return hasRecoveryBenefit(member, { nutrition, heal, warmth });
+      return recoveryFoodHasUsefulEffect(state, member, { nutrition, heal, warmth }, actionActorId);
     });
     if (!foodId) continue;
     const consumed = consumeRecoveryFood(inventory, state, foodId);
@@ -6599,7 +6626,7 @@ function previewReadyAutoMeal(state, meal) {
   let inventory = { ...state.inventory };
   const updates = {};
   const targets = meal.kind === 'ration_break'
-    ? recoveryFoodPlan(state)
+    ? recoveryFoodPlan(state, meal.actorId)
     : [{ member: getActor(state, meal.actorId), foodId: '' }];
   for (const target of targets) {
     const member = target.member;

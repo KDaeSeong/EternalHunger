@@ -1785,7 +1785,7 @@ await checkAsync('server loads reject missing gameplay data before normalization
   }
 });
 
-await checkAsync('the actual checkpoint hook quarantines null optional structures before a crashing state can reach the game', async () => {
+await checkAsync('the actual checkpoint hook preserves null-structure bytes and blocks adoption before they reach the game', async () => {
   for (const field of ['tribe', 'projects', 'diplomacy', 'exploration', 'meta']) {
     const storage = new MemoryStorage();
     expectWrite(storage, guestOwner, fixture(`structure-hook-${field}`), 0, at(1));
@@ -1884,16 +1884,43 @@ check('nested optional values accepted by engine normalizers remain checkpoint-c
   assert.doesNotThrow(() => engine.archiveVictorySummary(read.checkpoint.current));
 });
 
-check('legacy saves may omit optional run structures and remain usable by the production summary consumer', () => {
+check('v2 saves with all optional run structures omitted remain usable by the production summary consumer', () => {
   const storage = new MemoryStorage();
-  const state = fixture('legacy-missing-optional-structures');
+  const state = fixture('v2-all-optional-structures-omitted');
   for (const field of ['tribe', 'projects', 'diplomacy', 'exploration', 'meta']) delete state[field];
   expectWrite(storage, guestOwner, state, 0, at(1));
   const read = checkpointApi.readCheckpoint(storage, guestOwner);
   assert.equal(read.status, 'ready');
   assert.doesNotThrow(() => engine.archiveVictorySummary(read.checkpoint.current));
   for (const field of ['tribe', 'projects', 'diplomacy', 'exploration', 'meta']) {
-    assert.equal(Object.hasOwn(read.checkpoint.current, field), false, `${field} should remain omitted in the decoded legacy-compatible state`);
+    assert.equal(Object.hasOwn(read.checkpoint.current, field), false, `${field} should remain omitted after reading v2`);
+  }
+});
+
+check('v1 saves may omit each optional run structure and migrate without changing legacy bytes', () => {
+  for (const field of ['tribe', 'projects', 'diplomacy', 'exploration', 'meta']) {
+    const storage = new MemoryStorage();
+    const state = fixture(`v1-missing-optional-${field}`);
+    delete state[field];
+    const rawLegacy = legacyEnvelope(guestOwner, state, 4, at(1));
+    const legacyKey = checkpointApi.legacyCheckpointStorageKey(guestOwner);
+    const v2Key = checkpointApi.checkpointStorageKey(guestOwner);
+    storage.setItem(legacyKey, rawLegacy);
+
+    const read = checkpointApi.readCheckpoint(storage, guestOwner);
+    assert.equal(read.status, 'ready', `${field}: v1 record must remain readable`);
+    assert.equal(read.legacy, true, `${field}: record must be read from v1 storage`);
+    assert.doesNotThrow(() => engine.archiveVictorySummary(read.checkpoint.current), `${field}: production summary must accept the state`);
+    assert.equal(Object.hasOwn(read.checkpoint.current, field), false, `${field}: omission must remain intact after read`);
+
+    const migrated = checkpointApi.writeCheckpoint(storage, guestOwner, read.checkpoint.current, {
+      expectedRevision: read.revision,
+      savedAt: at(2),
+    });
+    assert.equal(migrated.status, 'ready', `${field}: valid v1 state should migrate to v2`);
+    assert.equal(storage.getItem(legacyKey), rawLegacy, `${field}: migration must preserve exact v1 source bytes`);
+    assert.ok(storage.getItem(v2Key), `${field}: migration should create a v2 checkpoint`);
+    assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'ready', `${field}: migrated checkpoint should remain readable`);
   }
 });
 

@@ -62,6 +62,10 @@ function run(name, fn) {
   }
 }
 
+function assertClose(actual, expected) {
+  assert.ok(Math.abs(actual - expected) < 1e-9, `expected ${actual} to be within 1e-9 of ${expected}`);
+}
+
 for (const [passive, bonus] of passiveBonuses) {
   run(`${passive} adds ${bonus} HP to prepared-tonic field treatment`, () => {
     const before = stateWith([passive]);
@@ -71,17 +75,26 @@ for (const [passive, bonus] of passiveBonuses) {
   });
 }
 
-run('all medicine research gives group treatment 42 and individual tonic healing 40', () => {
+run('all medicine research advertises and logs group maxima 42 HP, 5 ST, and 0.3 temperature; individual tonic heals 40', () => {
   const before = stateWith([...passiveBonuses.keys()]);
   const after = engine.runRecoveryChoiceAction(before, before.party[0].id, 'field_tonic', { rng: () => 0.5 });
   assert.ok(after.party.every((member) => member.hp === 82));
   const row = engine.recoveryChoiceRows(before).find((choice) => choice.id === 'field_tonic');
-  assert.match(row.detail, /HP.*42/);
+  assert.match(row.detail, /HP 최대 \+42, ST 최대 \+5, 체온 최대 \+0\.3/);
+  assert.match(after.log[0], /HP 최대 \+42, ST 최대 \+5, 체온 최대 \+0\.3/);
   const individual = engine.runEatAction(engine.normalizeState({
     ...before,
     inventory: { ...before.inventory, berry: 0 },
   }), before.party[0].id, { rng: () => 0.5 });
   assert.equal(individual.party[0].hp, 80);
+});
+
+run('prepared tonic applies actual HP, stamina, and temperature deltas to other living party members', () => {
+  const before = stateWith([...passiveBonuses.keys()]);
+  const after = engine.runRecoveryChoiceAction(before, before.party[0].id, 'field_tonic', { rng: () => 0.5 });
+  assert.equal(after.party[1].hp - before.party[1].hp, 42);
+  assert.equal(after.party[1].stamina - before.party[1].stamina, 5);
+  assertClose(after.party[1].bodyTemp - before.party[1].bodyTemp, 0.3);
 });
 
 run('prepared tonic respects HP cap, leaves deceased members untouched, and preserves action costs', () => {
@@ -99,7 +112,7 @@ run('prepared tonic respects HP cap, leaves deceased members untouched, and pres
   assert.equal(after.party[0].hunger, before.party[0].hunger + 1);
 });
 
-run('raw field herbs keep their base 8 HP and do not receive tonic-specific research', () => {
+run('raw field herbs advertise, log, and apply base HP 8, ST 3, and temperature 0.18 without tonic research', () => {
   const researched = stateWith([...passiveBonuses.keys()], { tonic: 0 });
   const before = engine.normalizeState({
     ...researched,
@@ -107,6 +120,12 @@ run('raw field herbs keep their base 8 HP and do not receive tonic-specific rese
   });
   const after = engine.runRecoveryChoiceAction(before, before.party[0].id, 'field_tonic', { rng: () => 0.5 });
   assert.ok(after.party.every((member) => member.hp === 48));
+  const row = engine.recoveryChoiceRows(before).find((choice) => choice.id === 'field_tonic');
+  assert.match(row.detail, /HP 최대 \+8, ST 최대 \+3, 체온 최대 \+0\.18/);
+  assert.match(after.log[0], /HP 최대 \+8, ST 최대 \+3, 체온 최대 \+0\.18/);
+  assert.equal(after.party[1].hp - before.party[1].hp, 8);
+  assert.equal(after.party[1].stamina - before.party[1].stamina, 3);
+  assertClose(after.party[1].bodyTemp - before.party[1].bodyTemp, 0.18);
   assert.equal(after.inventory.herb, 0);
   assert.equal(after.inventory.berry, 0);
 });

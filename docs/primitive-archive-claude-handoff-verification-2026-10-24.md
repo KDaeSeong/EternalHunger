@@ -846,3 +846,44 @@ replacement for the nine rejected one-point scores.
 These controlled runtime checks do not replace a new human assessment or an
 actual naturally expired public session. Both external acceptance gates remain
 open, and the reporting player's earlier reward-display acceptance remains valid.
+
+### Final cost-aware recovery review
+
+The follow-up found two related no-benefit actions: a tonic could be consumed
+when its clamped stamina gain was canceled by the actor's four-ST cost, and warm
+food could be consumed solely for heat that the same action's cold exposure
+overcame. Choices, direct execution and automatic meal previews now use the same
+selected actor and test useful recovery after those immediate costs. A fallback
+actor is resolved before recovery and remains fixed until payment. Real HP or
+nutrition recovery and useful care for another living companion remain allowed.
+This bounded preview does not simulate the subsequent night or consume RNG.
+
+Treatment text now lists maximum HP, stamina and temperature recovery, with the
+log explicitly labeling those maxima as before action costs. The prepared/raw
+medicine bases, research bonuses, resource charges and AP costs are unchanged.
+Fresh regressions cover a lone survivor, raw-herb cost cancellation, genuine
+one-HP healing, a beneficiary companion, fallback actor stability and attempted
+warmth-option overrides. The checkpoint check also exercises actual v1 records
+with omitted optional fields, migrates them to v2, and preserves exact v1 bytes;
+the all-omitted-v2 case is retained separately. Focused results are 62 checkpoint,
+nine recovery-target and ten medical groups. The existing auto-survival checks
+retain their actual-state/cost assertions and match the corrected maximum-value
+log instead of the former unconditional all-party gain wording.
+
+The complete archive chain, targeted lint and production build passed after
+this follow-up. Final local build `cZz1SlCZb6qqBrWRIUQYq` passed its 23 module
+checks and isolated Worker first-phase smoke. On a separate loopback origin,
+the real production page omitted tonic treatment for a full-health lone
+survivor at ST 96 in cold weather, retaining AP 2 and one tonic. A fresh injured
+fixture could still execute it: HP 30 to 44, AP 2 to 1, tonic 1 to 0, with both
+casualties unchanged. The screenshot and a small private receipt are retained;
+all account API requests were blocked and the temporary tab/server were closed.
+No new human evaluation or naturally expired public session was observed.
+
+This follow-up retired the older 27,863,148-byte build and removed 622,819,058
+bytes of its own regenerable cache and temporary browser helper after exact
+path/size/hash and idle-process checks. Current build `cZz1SlCZb6qqBrWRIUQYq`,
+immediate predecessor `xAmEU-iQSvORGCByIqUWP`, and the unique map reproduction
+retain identical protected manifests across cleanup. The same five managed
+roots measure about 0.48 GiB of logical files, below 2 GiB; this excludes the
+rest of the repository and does not measure physical disk allocation.
