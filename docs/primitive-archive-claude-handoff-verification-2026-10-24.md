@@ -809,3 +809,40 @@ Natural public session expiry/recovery and a fresh human assessment of the
 changed early-survival/readability/ending experience are still pending. The
 receipt confirmation must not be promoted to a new gameplay evaluation or a
 replacement for the nine rejected one-point scores.
+
+## Follow-up checkpoint and recovery repair (2026-10-27)
+
+- Optional top-level `tribe`, `projects`, `diplomacy`, `exploration`, and `meta`
+  values must be records when present. Explicit nulls/arrays enter the existing
+  corrupt-record path instead of reaching a crashing state consumer. Existing
+  bytes are retained; missing legacy fields and inner values that the engine can
+  safely normalize remain supported.
+- Recovery choices and current run/exploration/research advice use living-party
+  vitals. Healthy, fed survivors do not justify spending group food or medicine
+  because of casualty records or past event counts. The group-ration preview and
+  execution share the same useful-recipient/item plan; its cost label counts
+  actual portions. Food demand remains independent of stock, preserving automatic
+  procurement/cooking decisions. Final scoring and historical party averages are
+  unchanged. Medicine is excluded from the current food headline.
+- The six existing tonic research bonuses now share one helper between individual
+  use and prepared-tonic emergency treatment. Existing bases and costs remain:
+  group tonic 14, individual tonic 12, raw field herbs 8. All relevant research
+  gives group 42 and individual 40 before the HP cap.
+- Verification passed: complete archive chain; 61 checkpoint, seven recovery,
+  nine medical, and 30 focus/UI groups; targeted lint; `npm run build` including
+  its module-resolution and isolated production-Worker checks. Fresh fixtures
+  exercise current code without referring to historical result files. A Windows
+  restricted build attempt failed while creating a static-output directory; the
+  permitted run completed without a source workaround.
+- The final local production build `xAmEU-iQSvORGCByIqUWP` was exercised in an
+  isolated browser origin. A null-tribe fixture displayed the existing corruption
+  warning and recovery control while the game still rendered. A healthy survivor
+  with two casualties had shared meals disabled and no false medicine/rest advice;
+  its three berries plus a tonic displayed three food items. A researched tonic
+  action changed HP 30 to 72, AP 3 to 2, and tonic stock 1 to 0, with the displayed
+  maximum heal matching 42. Account API requests were blocked in this fixture;
+  no public account writes were used for this verification.
+
+These controlled runtime checks do not replace a new human assessment or an
+actual naturally expired public session. Both external acceptance gates remain
+open, and the reporting player's earlier reward-display acceptance remains valid.

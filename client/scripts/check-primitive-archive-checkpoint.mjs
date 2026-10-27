@@ -1785,6 +1785,51 @@ await checkAsync('server loads reject missing gameplay data before normalization
   }
 });
 
+await checkAsync('the actual checkpoint hook quarantines null optional structures before a crashing state can reach the game', async () => {
+  for (const field of ['tribe', 'projects', 'diplomacy', 'exploration', 'meta']) {
+    const storage = new MemoryStorage();
+    expectWrite(storage, guestOwner, fixture(`structure-hook-${field}`), 0, at(1));
+    const key = checkpointApi.checkpointStorageKey(guestOwner);
+    const envelope = JSON.parse(storage.getItem(key));
+    envelope.current[field] = null;
+    const bytes = JSON.stringify(envelope);
+    storage.setItem(key, bytes);
+    const safe = fixture(`safe-structure-${field}`);
+    const harness = hookHarness({ storage, state: safe });
+    try {
+      harness.render();
+      await settleHookEffects();
+      const view = harness.render();
+      assert.equal(view.status, 'corrupt', field);
+      assert.ok(view.message);
+      assert.equal(harness.state.runId, safe.runId);
+      assert.doesNotThrow(() => engine.archiveVictorySummary(harness.state));
+      assert.equal(harness.writes.restored.length, 0);
+      assert.equal(view.flush().status, 'corrupt');
+      assert.equal(storage.getItem(key), bytes);
+    } finally {
+      harness.unmount();
+    }
+  }
+});
+
+await checkAsync('server-load hook rejects null optional structures and preserves the current run', async () => {
+  for (const field of ['tribe', 'projects', 'diplomacy', 'exploration', 'meta']) {
+    const current = fixture(`structure-server-current-${field}`);
+    const remote = fixture(`structure-server-remote-${field}`);
+    remote[field] = null;
+    let requests = 0;
+    const scenario = serverPersistenceHarness({ state: current, get: () => Promise.resolve(++requests === 1 ? saveList : saveDetail(remote)) });
+    await scenario.view.loadRun();
+    assert.equal(scenario.calls.setState.length, 0, field);
+    assert.equal(scenario.calls.difficulty.length, 0);
+    assert.equal(scenario.calls.actionResult.length, 0);
+    assert.equal(scenario.latestStateRef.current, current);
+    assert.ok(scenario.calls.toast.some((toast) => toast.tone === 'danger'));
+    assert.doesNotThrow(() => engine.archiveVictorySummary(scenario.latestStateRef.current));
+  }
+});
+
 check('optional metadata can still be backfilled without rejecting a healthy gameplay checkpoint', () => {
   const storage = new MemoryStorage();
   const state = fixture('optional-checkpoint-fields');
@@ -1793,6 +1838,63 @@ check('optional metadata can still be backfilled without rejecting a healthy gam
   delete state.research.lastUnlockText;
   expectWrite(storage, guestOwner, state, 0, at(1));
   assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'ready');
+});
+
+check('null and array optional top-level structures are rejected without changing checkpoint bytes', () => {
+  const invalidStructures = ['tribe', 'projects', 'diplomacy', 'exploration', 'meta']
+    .flatMap((field) => [
+      [`${field}-null`, (state) => { state[field] = null; }],
+      [`${field}-array`, (state) => { state[field] = []; }],
+    ]);
+
+  for (const [name, damage] of invalidStructures) {
+    const storage = new MemoryStorage();
+    const healthy = fixture(`null-structure-existing-${name}`);
+    expectWrite(storage, guestOwner, healthy, 0, at(1));
+    const key = checkpointApi.checkpointStorageKey(guestOwner);
+    const original = storage.getItem(key);
+    const broken = structuredClone(fixture(`null-structure-candidate-${name}`));
+    damage(broken);
+    assert.equal(checkpointApi.writeCheckpoint(storage, guestOwner, broken, { expectedRevision: 1 }).status, 'invalid-state', name);
+    assert.equal(storage.getItem(key), original, `${name}: rejected write must preserve the existing record`);
+
+    const envelope = JSON.parse(original);
+    envelope.current = broken;
+    const corruptBytes = JSON.stringify(envelope);
+    storage.setItem(key, corruptBytes);
+    assert.equal(checkpointApi.readCheckpoint(storage, guestOwner).status, 'corrupt', name);
+    assert.equal(storage.getItem(key), corruptBytes, `${name}: corrupt read must preserve recoverable source bytes`);
+    assert.equal(checkpointApi.writeCheckpoint(storage, guestOwner, healthy, { expectedRevision: 1 }).status, 'corrupt', `${name}: a later write must not overwrite corrupt bytes`);
+    assert.equal(storage.getItem(key), corruptBytes);
+  }
+});
+
+check('nested optional values accepted by engine normalizers remain checkpoint-compatible', () => {
+  const storage = new MemoryStorage();
+  const state = fixture('normalizable-nested-optional-values');
+  state.tribe.assignments = null;
+  state.tribe.lastProduction = null;
+  state.projects.progress = null;
+  state.diplomacy.contacts = { 'river-tribe': null };
+  state.exploration.revealed = null;
+  state.meta.ownedPerks.gathering = null;
+  expectWrite(storage, guestOwner, state, 0, at(1));
+  const read = checkpointApi.readCheckpoint(storage, guestOwner);
+  assert.equal(read.status, 'ready');
+  assert.doesNotThrow(() => engine.archiveVictorySummary(read.checkpoint.current));
+});
+
+check('legacy saves may omit optional run structures and remain usable by the production summary consumer', () => {
+  const storage = new MemoryStorage();
+  const state = fixture('legacy-missing-optional-structures');
+  for (const field of ['tribe', 'projects', 'diplomacy', 'exploration', 'meta']) delete state[field];
+  expectWrite(storage, guestOwner, state, 0, at(1));
+  const read = checkpointApi.readCheckpoint(storage, guestOwner);
+  assert.equal(read.status, 'ready');
+  assert.doesNotThrow(() => engine.archiveVictorySummary(read.checkpoint.current));
+  for (const field of ['tribe', 'projects', 'diplomacy', 'exploration', 'meta']) {
+    assert.equal(Object.hasOwn(read.checkpoint.current, field), false, `${field} should remain omitted in the decoded legacy-compatible state`);
+  }
 });
 
 const invalidNumericStates = [

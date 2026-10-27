@@ -692,6 +692,19 @@ check('fresh foodless forecast locks personal meal and rendering does not spend 
   assert.deepEqual(state, before, 'Rendering a locked meal must not mutate state or spend AP.');
 });
 
+check('unneeded shared meals explain the missing recipient instead of claiming held food is missing', () => {
+  const state = freshState('healthy-shared-meal-label');
+  state.inventory = { berry: 3, herb_tonic: 1 };
+  state.party = state.party.map((member) => ({ ...member, hp: 100, hunger: 0, stamina: 100, bodyTemp: 37 }));
+  const props = { ...tabProps(state, 'actions'), runProgressReport: engine.getRunProgressReport(state, state.party[0].id) };
+  globalThis.__primitiveArchiveFocusButtons = [];
+  const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, props));
+  const button = globalThis.__primitiveArchiveFocusButtons.find((entry) => entry.children === '공동 식사 · 1 AP');
+  assert.equal(button.disabled, true);
+  assert.match(html, /배식할 대원이나 식량이 없습니다/);
+  assert.doesNotMatch(html, /식량 필요/);
+});
+
 check('camp controls are placed before the run report in the real camp workspace source', () => {
   const source = readFileSync(campWorkspaceUrl, 'utf8');
   const campActionsPosition = source.indexOf('className="primitive-camp-action-grid"');

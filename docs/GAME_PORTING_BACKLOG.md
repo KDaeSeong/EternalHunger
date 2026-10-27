@@ -261,6 +261,21 @@ account was written. The opt-in command is `npm run test:integration:save-slots`
 with an explicitly identified disposable loopback replica set. Deployment and
 readiness checks remain separate from this isolated database proof.
 
+### Additional checkpoint and recovery repairs (2026-10-27)
+
+| Priority | Repair | Current evidence |
+| --- | --- | --- |
+| 1 | Reject explicitly malformed optional run containers before restoration, preserving corrupted bytes and the recovery path; omitted legacy fields and safely normalized inner values remain compatible | 61 checkpoint groups, including actual checkpoint/server-load hooks, rejected writes, corrupt reads, and production-summary compatibility |
+| 2 | Base recovery choices and live advice on surviving companions; skip useless group treatment/food, retain critical-recipient priority, and share the exact ration plan with its preview | Seven fresh recovery groups and 30 focus/UI groups; actual isolated production-page fixture disables shared meals and removes false medicine/rest advice for a healthy survivor with two casualty records. Ration cost labels count actual recipients, and medicine is excluded from the food headline |
+| 3 | Apply the existing medicine research bonus to prepared-tonic emergency treatment | Nine actual-engine medicine groups; the prepared group base remains 14, individual tonic base remains 12, and raw-herb treatment remains 8. With all relevant research, group treatment heals 42 and individual tonic use heals 40; an isolated production-page action changed HP 30 to 72 for one tonic and one AP |
+
+The maintained `npm run check:primitive-archive` chain includes the two new
+recovery/medicine scripts. The complete chain, targeted lint, and production
+build passed. Runtime fixtures used a separate loopback origin with all account
+API requests blocked. No reporting-account write or natural session expiry was
+performed. The original human evaluation and the two outstanding human/natural
+session acceptance gates above remain unchanged.
+
 ## Dual Academy TCG v13 Slice Status
 
 - Route: `/games/dual-academy-tcg/play`; deck editor: `/games/dual-academy-tcg/deck`.

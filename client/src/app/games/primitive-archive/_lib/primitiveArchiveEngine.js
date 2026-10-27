@@ -2611,7 +2611,7 @@ function explorationEventPressure(state) {
   if (activeChains.length) {
     advice.push(`활성 탐험 단서 ${activeChains.length}개 대응`);
   }
-  if (averageParty(state, 'hp') < 70 && Number(state?.inventory?.herb_tonic || 0) > 0) {
+  if (livingPartyVitals(state).hp < 70 && Number(state?.inventory?.herb_tonic || 0) > 0) {
     advice.push('약초 달임으로 부상 회복 후 메가파우나를 노리세요');
   }
 
@@ -2641,14 +2641,18 @@ function foodNutritionValue(state, foodId) {
     + (hasCompletedProject(state, 'drying-rack') ? 2 : 0);
 }
 
+function medicineResearchHealBonus(state) {
+  return (hasTechPassive(state, 'MYSTIC_RECOVERY_UP') ? 4 : 0)
+    + (hasTechPassive(state, 'HERBAL_MEDICINE_UP') ? 4 : 0)
+    + (hasTechPassive(state, 'MEDIEVAL_MEDICINE_UP') ? 6 : 0)
+    + (hasTechPassive(state, 'ANATOMY_RECOVERY_UP') ? 3 : 0)
+    + (hasTechPassive(state, 'PHARMACOPOEIA_RECOVERY_UP') ? 6 : 0)
+    + (hasTechPassive(state, 'PUBLIC_HEALTH_RECOVERY_UP') ? 5 : 0);
+}
+
 function foodHealValue(state, foodId) {
   return Number(ITEMS[foodId]?.heal || 0)
-    + (foodId === 'herb_tonic' && hasTechPassive(state, 'MYSTIC_RECOVERY_UP') ? 4 : 0)
-    + (foodId === 'herb_tonic' && hasTechPassive(state, 'HERBAL_MEDICINE_UP') ? 4 : 0)
-    + (foodId === 'herb_tonic' && hasTechPassive(state, 'MEDIEVAL_MEDICINE_UP') ? 6 : 0)
-    + (foodId === 'herb_tonic' && hasTechPassive(state, 'ANATOMY_RECOVERY_UP') ? 3 : 0)
-    + (foodId === 'herb_tonic' && hasTechPassive(state, 'PHARMACOPOEIA_RECOVERY_UP') ? 6 : 0)
-    + (foodId === 'herb_tonic' && hasTechPassive(state, 'PUBLIC_HEALTH_RECOVERY_UP') ? 5 : 0);
+    + (foodId === 'herb_tonic' ? medicineResearchHealBonus(state) : 0);
 }
 
 function restHealValue(state) {
@@ -2731,16 +2735,32 @@ function rareTrackingPlan(state, pressure = explorationEventPressure(state)) {
 export function recoveryChoiceRows(state) {
   const current = normalizeState(state);
   const eventPressure = explorationEventPressure(current);
-  const hp = averageParty(current, 'hp');
-  const hunger = averageParty(current, 'hunger');
-  const stamina = averageParty(current, 'stamina');
-  const bodyTemp = averageBodyTemp(current);
+  const living = livingParty(current);
+  const livingAverage = (key, fallback = 0) => living.length
+    ? living.reduce((sum, member) => sum + Number(member[key] || 0), 0) / living.length
+    : fallback;
+  const hp = livingAverage('hp');
+  const recoveryHp = living.length ? Math.min(...living.map((member) => Number(member.hp || 0))) : 100;
+  const recoveryHunger = living.length ? Math.max(...living.map((member) => Number(member.hunger || 0))) : 0;
+  const stamina = livingAverage('stamina');
+  const bodyTemp = living.length
+    ? living.reduce((sum, member) => sum + Number(member.bodyTemp ?? 37), 0) / living.length
+    : 37;
   const foodUnits = foodUnitCount(current);
-  const partySize = Math.max(1, current.party.filter((member) => Number(member.hp || 0) > 0).length);
+  const partySize = living.length;
   const bestRareRecipe = pickBestRareGearRecipe(current);
   const hasTonic = Number(current.inventory.herb_tonic || 0) > 0;
   const canBrewTonic = recipeUnlockInfo(current, 'herb_tonic').unlocked && hasResources(current.inventory, { herb: 2, berry: 1 });
   const canFeed = FOOD_RECOVERY_IDS.some((id) => Number(current.inventory[id] || 0) > 0);
+  const mealTargets = recoveryFoodPlan(current);
+  const tonicHeal = hasTonic ? 14 + medicineResearchHealBonus(current) : 8;
+  const tonicStamina = hasTonic ? 5 : 3;
+  const tonicWarmth = hasTonic ? 0.3 : 0.18;
+  const tonicTargets = living.filter((member) => hasRecoveryBenefit(member, {
+    heal: tonicHeal,
+    stamina: tonicStamina,
+    warmth: tonicWarmth,
+  }));
   const canWarm = Number(current.inventory.wood || 0) > 0 || Number(current.camp.fuel || 0) > 0;
   const canGear = Boolean(bestRareRecipe) || hasAnyEquipInPool(current);
   const canTrack = Number(current.ap || 0) > 0 && hp >= 45 && stamina >= 30;
@@ -2748,23 +2768,23 @@ export function recoveryChoiceRows(state) {
   const rows = [
     {
       id: 'field_tonic',
-      tone: hp < 55 ? 'danger' : 'normal',
+      tone: recoveryHp < 55 ? 'danger' : 'normal',
       title: hasTonic ? '응급 처치' : '현장 약초 처치',
       detail: hasTonic
-        ? '약초 달임 1개로 메가파우나/동굴 사냥 후 전원 HP를 회복합니다.'
+        ? `약초 달임 1개로 생존 대원의 HP를 최대 ${tonicHeal}, ST를 최대 ${tonicStamina} 회복합니다.`
         : '약초 2개와 베리 1개로 즉석 처치를 진행해 사냥 후 부상 압박을 줄입니다.',
       costText: hasTonic ? '약초 달임 1' : '약초 2 · 베리 1',
-      enabled: (hp < 78 || eventPressure.eventCount > 0) && (hasTonic || canBrewTonic),
-      priority: (80 - hp) + eventPressure.eventCount * 4 + (hasTonic ? 8 : 0),
+      enabled: tonicTargets.length > 0 && (recoveryHp < 78 || eventPressure.eventCount > 0) && (hasTonic || canBrewTonic),
+      priority: tonicTargets.length ? Math.max(0, 80 - recoveryHp) + eventPressure.eventCount * 4 + (hasTonic ? 8 : 0) : 0,
     },
     {
       id: 'ration_break',
-      tone: hunger > 65 ? 'danger' : 'normal',
+      tone: recoveryHunger > 65 ? 'danger' : 'normal',
       title: '비상 배식',
       detail: '굶주린 위독 대원을 먼저, 그 외에는 허기 순으로 배식합니다. 보존식/구운 고기/육포를 우선 사용합니다.',
-      costText: `식량 ${Math.min(foodUnits, partySize)}개`,
-      enabled: (hunger >= 42 || foodUnits <= partySize + 1) && canFeed,
-      priority: hunger + Math.max(0, partySize + 2 - foodUnits) * 10,
+      costText: `식량 ${mealTargets.length}개`,
+      enabled: mealTargets.length > 0 && (recoveryHunger >= 42 || foodUnits <= partySize + 1) && canFeed,
+      priority: mealTargets.length ? recoveryHunger + Math.max(0, partySize + 2 - foodUnits) * 10 : 0,
     },
     {
       id: 'warm_watch',
@@ -2829,9 +2849,11 @@ function finishRecoveryAction(state, actorId, options = {}, actionOptions = {}) 
   );
 }
 
-function consumeRecoveryFood(inventory, state) {
+function consumeRecoveryFood(inventory, state, requestedFoodId = '') {
   const next = { ...inventory };
-  const foodId = FOOD_RECOVERY_IDS.find((id) => Number(next[id] || 0) > 0);
+  const foodId = requestedFoodId
+    ? (Number(next[requestedFoodId] || 0) > 0 ? requestedFoodId : '')
+    : FOOD_RECOVERY_IDS.find((id) => Number(next[id] || 0) > 0);
   if (!foodId) return null;
   next[foodId] = Math.max(0, Number(next[foodId] || 0) - 1);
   const nutrition = foodNutritionValue(state, foodId);
@@ -2853,6 +2875,13 @@ function mealRecoveryFields(member, { nutrition, heal, warmth }) {
   };
 }
 
+function hasRecoveryBenefit(member, { nutrition = 0, heal = 0, stamina = 0, warmth = 0 } = {}) {
+  return (Number(member.hunger || 0) > 0 && nutrition > 0)
+    || (Number(member.hp || 0) < 100 && heal > 0)
+    || (Number(member.stamina || 0) < 100 && stamina > 0)
+    || (Number(member.bodyTemp ?? 37) < 37 && warmth > 0);
+}
+
 function individualFoodWarmth(foodId) {
   return foodId === 'cooked_meat' ? 1.1 : foodId === 'packed_ration' ? 0.4 : foodId === 'herb_tonic' ? 0.8 : 0;
 }
@@ -2866,11 +2895,18 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
     const hasTonic = Number(current.inventory.herb_tonic || 0) > 0;
     const canBrewTonic = recipeUnlockInfo(current, 'herb_tonic').unlocked && hasResources(current.inventory, { herb: 2, berry: 1 });
     if (!hasTonic && !canBrewTonic) return addLog(current, '응급 처치에 필요한 약초 달임이나 약초/베리가 부족합니다.');
+    const heal = hasTonic ? 14 + medicineResearchHealBonus(current) : 8;
+    const staminaGain = hasTonic ? 5 : 3;
+    const warmthGain = hasTonic ? 0.3 : 0.18;
+    const hasUsefulTarget = livingParty(current).some((member) => hasRecoveryBenefit(member, {
+      heal,
+      stamina: staminaGain,
+      warmth: warmthGain,
+    }));
+    if (!hasUsefulTarget) return addLog(current, '응급 처치로 회복할 생존 대원이 없습니다.');
     const inventory = hasTonic
       ? spendResources(current.inventory, { herb_tonic: 1 })
       : spendResources(current.inventory, { herb: 2, berry: 1 });
-    const heal = hasTonic ? 14 : 8;
-    const staminaGain = hasTonic ? 5 : 3;
     let next = updateLivingParty({ ...current, inventory }, (member) => ({
       ...member,
       hp: clamp(Number(member.hp || 0) + heal, 0, 100),
@@ -2882,12 +2918,12 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
   }
 
   if (id === 'ration_break') {
-    const targets = foodRecoveryTargets(current);
+    const plan = recoveryFoodPlan(current);
     let inventory = { ...current.inventory };
     const updates = {};
     const used = [];
-    targets.forEach((member) => {
-      const consumed = consumeRecoveryFood(inventory, current);
+    plan.forEach(({ member, foodId }) => {
+      const consumed = consumeRecoveryFood(inventory, current, foodId);
       if (!consumed) return;
       inventory = consumed.inventory;
       used.push(consumed.foodId);
@@ -2904,7 +2940,7 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
       party: current.party.map((member) => updates[member.id] || member),
     };
     const names = used.map(itemName).join(', ');
-    const priority = foodRecoveryPriorityText(targets[0]);
+    const priority = foodRecoveryPriorityText(plan[0]?.member);
     next = addLog(next, `비상 배식 완료: ${names}. ${priority || '허기가 높은 팀원부터'} ${used.length}명에게 배분했습니다.`);
     return finishRecoveryAction(next, actorId, { action: 'camp', staminaCost: 3, hungerAdd: 0 }, options);
   }
@@ -4098,11 +4134,8 @@ function ancientResearchPressure(state, tech) {
   const reasons = [];
   let bonus = 0;
   const day = Number(current.day || 1);
-  const hp = averageParty(current, 'hp');
-  const hunger = averageParty(current, 'hunger');
-  const bodyTemp = averageBodyTemp(current);
-  const foodUnits = ['berry', 'grain', 'milled_grain', 'milk', 'fish', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
-    .reduce((sum, id) => sum + Number(current.inventory?.[id] || 0), 0);
+  const { hp, hunger, bodyTemp } = livingPartyVitals(current);
+  const foodUnits = foodUnitCount(current);
   const alive = Math.max(1, current.party.filter((member) => Number(member.hp || 0) > 0).length);
   const weatherSeen = Object.values(current.research?.counters?.weatherSeen || {})
     .filter((value) => Number(value || 0) > 0).length;
@@ -4617,12 +4650,8 @@ export function getRunProgressReport(state, actorId = '') {
   const victory = archiveVictorySummary(current);
   const research = researchSummary(current);
   const civics = civicsSummary(current);
-  const hp = averageParty(current, 'hp');
-  const hunger = averageParty(current, 'hunger');
-  const stamina = averageParty(current, 'stamina');
-  const bodyTemp = averageBodyTemp(current);
-  const foodUnits = ['berry', 'grain', 'milled_grain', 'milk', 'fish', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
-    .reduce((sum, id) => sum + Number(current.inventory[id] || 0), 0);
+  const { hp, hunger, stamina, bodyTemp, count: partySize } = livingPartyVitals(current);
+  const foodUnits = foodUnitCount(current);
   const fuel = Number(current.camp.fuel || 0);
   const weight = totalCarryWeight(current);
   const insulation = partyInsulation(current);
@@ -4638,14 +4667,14 @@ export function getRunProgressReport(state, actorId = '') {
   if (stamina < 35) riskScore += 2;
   else if (stamina < 55) riskScore += 1;
   if (bodyTemp < 35.6 || bodyTemp > 38.5) riskScore += 2;
-  if (foodUnits <= current.party.length) riskScore += 2;
+  if (foodUnits <= partySize) riskScore += 2;
   if (fuel <= 1 && current.weather.temp <= 8) riskScore += 2;
   if (current.ap <= 1 && pendingObjectives.length >= 3) riskScore += 1;
 
   const riskLevel = riskScore >= 7 ? '위험' : riskScore >= 4 ? '주의' : '안정';
   const riskTone = riskScore >= 7 ? 'danger' : riskScore >= 4 ? 'warning' : 'stable';
   const blockers = [];
-  if (foodUnits <= current.party.length) blockers.push(`식량 ${foodUnits}개`);
+  if (foodUnits <= partySize) blockers.push(`식량 ${foodUnits}개`);
   if (fuel <= 1) blockers.push(`연료 ${fuel}`);
   if (research.selected && !research.selected.completed) {
     blockers.push(`연구 ${research.selected.name} ${research.selected.progress}/${research.selected.cost}`);
@@ -4662,7 +4691,7 @@ export function getRunProgressReport(state, actorId = '') {
   if (hp < 70 && Number(current.inventory?.herb_tonic || 0) > 0) recommendations.push('약초 달임으로 부상 회복');
   else if (hp < 70 && Number(current.inventory?.herb || 0) >= 2 && Number(current.inventory?.berry || 0) >= 1) recommendations.push('약초 달임 제작 후 회복');
   if (hp < 65 || stamina < 45) recommendations.push('파티 회복을 위해 휴식 우선');
-  if (foodUnits <= current.party.length + 1) recommendations.push('식량 확보를 위해 채집/사냥 우선');
+  if (foodUnits <= partySize + 1) recommendations.push('식량 확보를 위해 채집/사냥 우선');
   if (fuel <= 1 || bodyTemp < 36) recommendations.push('연료 확보 후 모닥불 유지');
   if (research.available && research.selected && !research.selected.completed) recommendations.push(`${research.selected.name} 연구 진행`);
   if (civics.available && civics.selected && !civics.selected.completed) recommendations.push(`${civics.selected.name} 사회 제도 추진`);
@@ -6249,11 +6278,22 @@ function livingParty(state) {
   return state.party.filter((member) => Number(member.hp || 0) > 0);
 }
 
+function livingPartyVitals(state) {
+  const scoped = { party: livingParty(state) };
+  return {
+    hp: averageParty(scoped, 'hp'),
+    hunger: averageParty(scoped, 'hunger'),
+    stamina: averageParty(scoped, 'stamina'),
+    bodyTemp: scoped.party.length ? averageBodyTemp(scoped) : 37,
+    count: scoped.party.length,
+  };
+}
+
 function isCriticalFoodRecipient(member) {
   return Number(member?.hunger || 0) >= 75 && Number(member?.hp || 0) <= 30;
 }
 
-function foodRecoveryTargets(state) {
+function orderedFoodRecoveryTargets(state) {
   // Hunger alone cannot distinguish a healthy hungry survivor from one who
   // is already dying. Keep ordinary hunger order outside that emergency.
   return livingParty(state).sort((a, b) => {
@@ -6263,6 +6303,32 @@ function foodRecoveryTargets(state) {
       || (criticalA ? Number(a.hp || 0) - Number(b.hp || 0) : 0)
       || Number(b.hunger || 0) - Number(a.hunger || 0);
   });
+}
+
+function recoveryFoodPlan(state) {
+  let inventory = { ...state.inventory };
+  const plan = [];
+  for (const member of orderedFoodRecoveryTargets(state)) {
+    const foodId = FOOD_RECOVERY_IDS.find((id) => {
+      if (Number(inventory[id] || 0) <= 0) return false;
+      const nutrition = foodNutritionValue(state, id);
+      const heal = foodHealValue(state, id);
+      const warmth = id === 'cooked_meat' ? 0.45 : id === 'packed_ration' ? 0.18 : 0;
+      return hasRecoveryBenefit(member, { nutrition, heal, warmth });
+    });
+    if (!foodId) continue;
+    const consumed = consumeRecoveryFood(inventory, state, foodId);
+    if (!consumed) continue;
+    inventory = consumed.inventory;
+    plan.push({ member, foodId });
+  }
+  return plan;
+}
+
+function foodRecoveryTargets(state) {
+  return orderedFoodRecoveryTargets(state).filter((member) => Number(member.hunger || 0) > 0
+    || Number(member.hp || 0) < 100
+    || Number(member.bodyTemp ?? 37) < 37);
 }
 
 function foodRecoveryPriorityText(member) {
@@ -6532,9 +6598,12 @@ function previewReadyAutoMeal(state, meal) {
   if (!meal || meal.kind === 'camp') return null;
   let inventory = { ...state.inventory };
   const updates = {};
-  const targets = meal.kind === 'ration_break' ? foodRecoveryTargets(state) : [getActor(state, meal.actorId)];
-  for (const member of targets) {
-    const consumed = consumeRecoveryFood(inventory, state);
+  const targets = meal.kind === 'ration_break'
+    ? recoveryFoodPlan(state)
+    : [{ member: getActor(state, meal.actorId), foodId: '' }];
+  for (const target of targets) {
+    const member = target.member;
+    const consumed = consumeRecoveryFood(inventory, state, target.foodId);
     if (!consumed) break;
     inventory = consumed.inventory;
     const warmth = meal.kind === 'eat' ? individualFoodWarmth(consumed.foodId) : consumed.warmth;

@@ -11,6 +11,18 @@ function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isOptionalRecordField(value, key) {
+  return !Object.hasOwn(value, key) || isRecord(value[key]);
+}
+
+function isValidOptionalRunStructures(value) {
+  return isOptionalRecordField(value, 'tribe')
+    && isOptionalRecordField(value, 'projects')
+    && isOptionalRecordField(value, 'diplomacy')
+    && isOptionalRecordField(value, 'exploration')
+    && isOptionalRecordField(value, 'meta');
+}
+
 function identityPart(value) {
   if (typeof value !== 'string' && typeof value !== 'number') return '';
   return String(value).trim();
@@ -224,7 +236,8 @@ export function isValidRunState(value) {
     || !Array.isArray(value.log)
     || !value.log.every((line) => typeof line === 'string')
     || typeof value.ended !== 'boolean'
-    || typeof value.victory !== 'boolean') return false;
+    || typeof value.victory !== 'boolean'
+    || !isValidOptionalRunStructures(value)) return false;
 
   return value.party.every((member) => (
     isRecord(member)
