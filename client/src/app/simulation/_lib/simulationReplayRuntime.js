@@ -5,6 +5,7 @@ import { buildBaseZoneGraph, buildHyperloopZoneGraph, getHyperloopZoneIds, isHyp
 import { getForbiddenAddedZoneIdsForPhase, getForbiddenZoneIdsForPhase } from './forbiddenZoneRuntime';
 import { buildCraftableItems, buildItemKeyById, buildItemMetaById, buildItemNameById } from './itemOptionsRuntime';
 import { lockPreparedLateGrowthCatalog } from './lateGrowthTargetRuntime.js';
+import { GAMEPLAY_PERK_CODES, normalizeGameplayPerkCodes } from '../../../utils/gameplayPerks';
 
 export const REPLAY_SCHEMA = 'eternal-hunger.replay.v1';
 const SETTINGS_KEYS = ['rulesetId', 'matchMode', 'statWeights', 'suddenDeathTurn', 'forbiddenZoneEnabled',
@@ -43,6 +44,7 @@ export function createSimulationRunInput(state, storage) {
   settings.simulationRuleset = getRuleset(settings.rulesetId, state.settings?.simulationRuleset);
   const input = cloneReplayData({ schema: REPLAY_SCHEMA, engineVersion: SIMULATION_ENGINE_VERSION,
     runSeed: String(state.runSeed || '').trim() || '0', settings,
+    sponsorPerkSnapshot: state.sponsorPerkSnapshot || null,
     map: resolveReplayMap(state.activeMap, storage),
     publicItems: state.publicItems || [], kiosks: state.kiosks || [], droneOffers: state.droneOffers || [],
     initialFrame: { day: 0, phase: 'night', matchSec: 0, survivors: state.survivors || [], dead: state.dead || [],
@@ -64,6 +66,33 @@ export function validateSimulationRunInput(input) {
     || !input.settings?.simulationRuleset || !Array.isArray(input.publicItems)
     || !Array.isArray(input.kiosks) || !Array.isArray(input.droneOffers)) {
     throw new Error('저장된 경기 시작 조건이 손상되었습니다.');
+  }
+  const sponsor = input.sponsorPerkSnapshot;
+  if (sponsor != null) {
+    const ids = sponsor && Array.isArray(sponsor.memberIds) ? sponsor.memberIds : null;
+    const codes = sponsor && Array.isArray(sponsor.codes) ? sponsor.codes : null;
+    const normalizedCodes = codes ? normalizeGameplayPerkCodes(codes, 'eternal-hunger') : [];
+    const hasValidShape = sponsor && typeof sponsor === 'object' && !Array.isArray(sponsor)
+      && sponsor.version === 1 && sponsor.gameSlug === 'eternal-hunger'
+      && typeof sponsor.teamId === 'string' && typeof sponsor.teamName === 'string'
+      && ids && ids.every((id) => typeof id === 'string' && id.trim())
+      && new Set(ids).size === ids.length && codes
+      && JSON.stringify(normalizedCodes) === JSON.stringify(codes);
+    if (!hasValidShape) throw new Error('저장된 경기 후원 특전 정보가 손상되었습니다.');
+    if (!codes.length) {
+      if (sponsor.teamId || sponsor.teamName || ids.length) throw new Error('저장된 경기 후원 특전 정보가 손상되었습니다.');
+    } else {
+      const teamActors = actors.filter((actor) => String(actor.matchTeamId || actor.teamId || '') === sponsor.teamId);
+      const teamActorIds = teamActors.map((actor) => String(actor._id || actor.id || '')).sort();
+      if (!sponsor.teamId || !sponsor.teamName || !ids.length
+        || JSON.stringify(teamActorIds) !== JSON.stringify([...ids].sort())
+        || codes.includes(GAMEPLAY_PERK_CODES.START_SPONSOR)
+          && teamActors.some((actor) => actor._gameplayPerks?.startSponsorCreditGranted !== true)
+        || codes.includes(GAMEPLAY_PERK_CODES.PROCUREMENT_PARTNER)
+          && teamActors.some((actor) => actor._gameplayPerks?.procurementPartnerApplied !== true)) {
+        throw new Error('저장된 경기 후원 특전 정보가 손상되었습니다.');
+      }
+    }
   }
   return input;
 }
@@ -100,7 +129,7 @@ export function prepareSimulationRunInput(input) {
   const loops = getHyperloopZoneIds(owned.map, zones);
   const cache = {};
   const state = { ...owned.initialFrame, activeMap: owned.map, activeMapId: String(owned.map._id || owned.map.id),
-    settings: owned.settings, runSeed: owned.runSeed, publicItems: owned.publicItems,
+    settings: owned.settings, runSeed: owned.runSeed, sponsorPerkSnapshot: owned.sponsorPerkSnapshot || null, publicItems: owned.publicItems,
     kiosks: owned.kiosks, droneOffers: owned.droneOffers, zones,
     zoneGraph: buildHyperloopZoneGraph(baseGraph, zones, loops),
     craftables: buildCraftableItems(owned.publicItems), itemKeyById: buildItemKeyById(owned.publicItems),

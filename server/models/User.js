@@ -47,6 +47,7 @@ const UserSchema = new mongoose.Schema({
     unlockedAt: { type: Date, default: Date.now }
   }],
   perks: [{ type: String }], // 구매/해금한 특전 코드 목록
+  perkLoadouts: { type: mongoose.Schema.Types.Mixed, default: () => ({}) }, // 계정별 게임 장착 특전 코드
   
   personalHistory: [{
     charId: String,       

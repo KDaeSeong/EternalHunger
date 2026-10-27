@@ -28,6 +28,7 @@ export default function PrimitiveArchiveRunTab(props) {
     setActiveTabId,
     setNewRunDifficulty,
     startNewRun,
+    shopPerkSetup,
     state,
     token,
   } = props;
@@ -102,6 +103,8 @@ export default function PrimitiveArchiveRunTab(props) {
           {runSettled ? ` 이번 런의 특전 포인트: +${Number(state.meta?.lastAward || 0).toLocaleString('ko-KR')}.` : ' 특전 포인트는 런 종료·정산 때 이 기기의 다음 런용으로 지급됩니다.'}
         </p>
       </section>
+
+      {shopPerkSetup || null}
 
       <div className="primitive-difficulty-grid">
         {difficultyRows().map((row) => (

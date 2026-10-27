@@ -130,6 +130,83 @@
   font-weight: 800;
 }
 
+.perk-loadouts {
+  max-width: 1180px;
+  margin: 0 auto 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.perk-loadout-card {
+  min-width: 0;
+  padding: 16px 18px;
+  background: #ffffff;
+  border: 1px solid rgba(23, 32, 42, 0.1);
+  box-shadow: 0 8px 24px rgba(23, 32, 42, 0.06);
+}
+
+.perk-loadout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.perk-loadout-eyebrow {
+  color: #64717d;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.perk-loadout-card h2 {
+  margin: 3px 0 0;
+  font-size: 18px;
+}
+
+.perk-loadout-count {
+  display: inline-flex;
+  min-width: 54px;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e8f4fb;
+  color: #175d86;
+  font-size: 15px;
+}
+
+.perk-loadout-card ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.perk-loadout-card li {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eff8f2;
+  color: #28613d;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.perk-loadout-empty,
+.perk-loadout-note {
+  margin: 12px 0 0;
+  color: #64717d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.perk-loadout-note {
+  margin-top: 8px;
+}
+
 .perk-filter-row {
   max-width: 1180px;
   margin: 0 auto 16px;
@@ -254,6 +331,11 @@
   color: #a04b00;
 }
 
+.perk-meta .perk-resource {
+  background: #eef2ff;
+  color: #3c4e8c;
+}
+
 .perk-card-bottom {
   display: flex;
   justify-content: space-between;
@@ -274,6 +356,28 @@
   background: #c7cdd3;
   color: #ffffff;
   cursor: not-allowed;
+}
+
+.perk-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.perk-card-bottom button.perk-equip-button {
+  background: #53677b;
+}
+
+.perk-card-bottom button.perk-equip-button.equipped {
+  background: #26633f;
+}
+
+.perk-equipped-status {
+  margin-top: 10px;
+  color: #526274;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .perk-empty-panel {
@@ -320,7 +424,24 @@
     font-size: 26px;
   }
 
+  .perk-loadouts {
+    grid-template-columns: 1fr;
+  }
+
   .perk-grid {
     grid-template-columns: 1fr;
+  }
+
+  .perk-card-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .perk-card-actions {
+    width: 100%;
+  }
+
+  .perk-card-actions button {
+    flex: 1 1 auto;
   }
 }

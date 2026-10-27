@@ -36,8 +36,10 @@ import { useSimulationSettingsControls } from './useSimulationSettingsControls';
 import { useSimulationMatchState } from './useSimulationMatchState';
 import { buildSimulationPageViewProps } from './simulationPageViewProps';
 import { useSimulationReplay } from './useSimulationReplay';
+import useGameplayPerks from '../../../hooks/useGameplayPerks';
+import { applySponsorPerksToRoster, captureSponsorRunContext, createSponsorPerkSnapshot } from './simulationSponsorPerks';
 import { isGuestSimulationSession } from './guestSimulationBootstrap';
-import { getToken, getUser } from '../../../utils/api';
+import { captureAuthSession, getToken, getUser, isCurrentAuthSession } from '../../../utils/api';
 import { readLocalRulesetOverride } from './localSimulationMapRuntime';
 import { buildRulesetSnapshot, normalizeRulesetId } from '../../../utils/rulesets';
 
@@ -58,9 +60,18 @@ export function useSimulationPageController({
   const replayMode = Boolean(replayRecord);
   const draftMode = Boolean(draftRecord);
   const replay = useSimulationReplay(replayRecord);
+  const gameplayPerks = useGameplayPerks('eternal-hunger');
+  const [sponsorTeamId, setSponsorTeamId] = useState('');
+  const sponsorTeamIdRef = useRef(sponsorTeamId);
+  sponsorTeamIdRef.current = sponsorTeamId;
+  const [sponsorPerksWithoutPerks, setSponsorPerksWithoutPerks] = useState(false);
+  const sponsorPerksWithoutPerksRef = useRef(sponsorPerksWithoutPerks);
+  sponsorPerksWithoutPerksRef.current = sponsorPerksWithoutPerks;
   const guestMode = evaluationMode || isGuestSimulationSession(getToken(), getUser());
   const { runInputRef, runLockedRef, lastFrameRef, prepareRun, completeReplay, retrySaveReplay } = replay;
   const mapPreparationRef = useRef(null);
+  const sponsorCaptureInFlightRef = useRef(null);
+  const sponsorRunContextRef = useRef(null);
   const [mapPreparation, setMapPreparation] = useState(null);
   const hasHydrated = useSyncExternalStore(
     subscribeHydration,
@@ -310,6 +321,21 @@ export function useSimulationPageController({
     setSelectedParticipantPresetId,
   } = participantPresetState;
 
+  sponsorRunContextRef.current = {
+    activeMap: activeMapRef.current || activeMap,
+    activeMapId,
+    assistCounts,
+    dead,
+    droneOffers,
+    killCounts,
+    kiosks,
+    publicItems,
+    runSeed,
+    settings,
+    spawnState,
+    survivors,
+  };
+
   // ✅ (팝업/데스크톱) 시뮬레이션 창: 로그 출력 길이에 맞춰 높이를 유동 조정
       // 일반 브라우저 탭에서는 resizeTo가 기대대로 동작하지 않으므로, 팝업/데스크톱만 적용
   function exportBattleLog(format = 'md') {
@@ -541,7 +567,60 @@ export function useSimulationPageController({
     },
     actions: {
       addLog,
-      prepareRun,
+      prepareRun: async (state) => {
+        if (replayMode || evaluationMode && !draftMode || runInputRef.current || Number(state.day || 0) !== 0) {
+          return prepareRun(state);
+        }
+        if (sponsorCaptureInFlightRef.current) return { blocked: true };
+        const requestToken = {};
+        sponsorCaptureInFlightRef.current = requestToken;
+        // The start guard refreshes this map ref before React publishes maps.
+        // Capture that authoritative map on both sides of the async boundary.
+        const capturedContext = captureSponsorRunContext(sponsorRunContextRef.current, activeMapRef.current || state.activeMap);
+        const selectedTeamId = sponsorTeamIdRef.current;
+        const withoutPerks = sponsorPerksWithoutPerksRef.current;
+        const authSession = withoutPerks ? null : captureAuthSession();
+        try {
+          let equippedCodes;
+          try {
+            equippedCodes = await gameplayPerks.captureForNewRun({ withoutPerks });
+          } catch (error) {
+            throw Object.assign(error instanceof Error ? error : new Error('계정 특전 정보를 확인하지 못했습니다.'), {
+              code: 'SPONSOR_PERK_CAPTURE_FAILED',
+            });
+          }
+          const liveContext = captureSponsorRunContext(sponsorRunContextRef.current, activeMapRef.current);
+          const contextChanged = Object.keys(capturedContext).some((key) => capturedContext[key] !== liveContext[key])
+            || selectedTeamId !== sponsorTeamIdRef.current
+            || withoutPerks !== sponsorPerksWithoutPerksRef.current;
+          if (contextChanged || authSession && !isCurrentAuthSession(authSession)) {
+            throw Object.assign(new Error('경기 조건이나 계정이 바뀌었습니다.'), { code: 'SPONSOR_RUN_CONTEXT_CHANGED' });
+          }
+          const snapshot = createSponsorPerkSnapshot({
+            codes: equippedCodes,
+            sponsorTeamId: selectedTeamId,
+            survivors: state.survivors,
+          });
+          return prepareRun({
+            ...state,
+            sponsorPerkSnapshot: snapshot,
+            survivors: applySponsorPerksToRoster(state.survivors, snapshot),
+          });
+        } catch (error) {
+          if (!runInputRef.current) runLockedRef.current = false;
+          setRunEvents([]);
+          const message = error?.code === 'SPONSOR_RUN_CONTEXT_CHANGED'
+            ? '경기 조건 또는 계정 특전이 준비 중 변경되었습니다. 설정을 확인하고 다시 시작해주세요.'
+            : error?.code === 'SPONSOR_PERK_CAPTURE_FAILED'
+              ? '계정 특전 확인에 실패했습니다. 특전 없이 시작을 선택하거나 다시 불러온 뒤 시작해주세요.'
+              : '경기 시작 조건을 준비하지 못했습니다. 새로고침 후 다시 시작해주세요.';
+          setMarketMessage(message);
+          addLog(`⚠️ ${message}`, 'system');
+          return { blocked: true };
+        } finally {
+          if (sponsorCaptureInFlightRef.current === requestToken) sponsorCaptureInFlightRef.current = null;
+        }
+      },
       completeReplay,
       lockRunInputs: () => { runLockedRef.current = true; },
       applyRunInput: (prepared) => {
@@ -757,6 +836,11 @@ export function useSimulationPageController({
   });
 
   pageViewProps.replayMode = replayMode;
+  pageViewProps.gameplayPerks = gameplayPerks;
+  pageViewProps.sponsorTeamId = sponsorTeamId;
+  pageViewProps.setSponsorTeamId = setSponsorTeamId;
+  pageViewProps.sponsorPerksWithoutPerks = sponsorPerksWithoutPerks;
+  pageViewProps.setSponsorPerksWithoutPerks = setSponsorPerksWithoutPerks;
   pageViewProps.replaySourceId = replayMode ? sourceRecord?.id ?? null : null;
   pageViewProps.setAutoPlay = (next) => { if (!mapPreparationRef.current) setAutoPlay(next); };
   pageViewProps.draftMode = draftMode;

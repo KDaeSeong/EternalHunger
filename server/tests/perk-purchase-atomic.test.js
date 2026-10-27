@@ -3,13 +3,15 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { normalizePerkLoadouts, PERK_LOADOUT_GAME_SLUGS } = require('../utils/defaultPerks');
 
 const routeSource = readFileSync(path.join(__dirname, '../routes/perks.js'), 'utf8');
 
 function makeHarness({ lp = 1000, owned = [], perks = [] } = {}) {
   const user = {
     _id: 'user-1', username: 'test-user', nickname: 'tester', lp, credits: 31,
-    perks: [...owned], isAdmin: false, badges: [], statistics: { totalGames: 0 },
+    perks: [...owned], perkLoadouts: { 'primitive-archive': [], 'eternal-hunger': [] },
+    isAdmin: false, badges: [], statistics: { totalGames: 0 },
   };
   const routes = new Map();
   const atomicWrites = [];
@@ -49,6 +51,8 @@ function makeHarness({ lp = 1000, owned = [], perks = [] } = {}) {
     '../utils/defaultPerks': {
       dedupeScopedPerks: (rows) => rows,
       ensureDefaultPublicPerks: async () => {},
+      normalizePerkLoadouts,
+      PERK_LOADOUT_GAME_SLUGS,
     },
   };
   const module = { exports: {} };
@@ -140,6 +144,15 @@ test('already-owned replay does not charge again', async () => {
   assert.equal(result.payload.lp, 400);
   assert.deepEqual(result.payload.perks, ['TITLE_A']);
   assert.equal(harness.user.lp, 400);
+});
+
+test('buying an equip-required gameplay perk grants ownership without equipping it', async () => {
+  const harness = makeHarness({ perks: [publicPerk('PLAY_ARCHIVE_CAREFUL_GATHER', 250)] });
+  const result = await harness.purchase({ code: 'PLAY_ARCHIVE_CAREFUL_GATHER' });
+  assert.equal(result.status, 200);
+  assert.deepEqual(harness.user.perks, ['PLAY_ARCHIVE_CAREFUL_GATHER']);
+  assert.deepEqual(harness.user.perkLoadouts, { 'primitive-archive': [], 'eternal-hunger': [] });
+  assert.equal(harness.user.lp, 750);
 });
 
 test('invalid server prices are rejected and client prices cannot override catalog price', async () => {

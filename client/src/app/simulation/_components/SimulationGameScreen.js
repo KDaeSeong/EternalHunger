@@ -35,6 +35,7 @@ export default function SimulationGameScreen({
   fireAndReport,
   forbiddenAddedNow,
   forbiddenNow,
+  gameplayPerks,
   guestMode,
   getTeamStateForActor,
   getZoneName,
@@ -79,6 +80,10 @@ export default function SimulationGameScreen({
   saveLocalMap,
   selectLocalMap,
   selectedCharId,
+  sponsorTeamId,
+  setSponsorTeamId,
+  sponsorPerksWithoutPerks,
+  setSponsorPerksWithoutPerks,
   setAutoPlay,
   setHyperloopDestId,
   setRunSeed,
@@ -179,6 +184,7 @@ export default function SimulationGameScreen({
         forbiddenAddedNow={forbiddenAddedNow}
         forbiddenNow={forbiddenNow}
         guestMode={guestMode}
+        gameplayPerks={gameplayPerks}
         getTeamStateForActor={getTeamStateForActor}
         getZoneName={getZoneName}
         handleCharacterSkillsToggle={handleCharacterSkillsToggle}
@@ -212,6 +218,10 @@ export default function SimulationGameScreen({
         recentPings={recentPings}
         removeLocalMap={removeLocalMap}
         selectedCharId={selectedCharId}
+        sponsorTeamId={sponsorTeamId}
+        setSponsorTeamId={setSponsorTeamId}
+        sponsorPerksWithoutPerks={sponsorPerksWithoutPerks}
+        setSponsorPerksWithoutPerks={setSponsorPerksWithoutPerks}
         saveLocalMap={saveLocalMap}
         selectLocalMap={selectLocalMap}
         setAutoPlay={setAutoPlay}

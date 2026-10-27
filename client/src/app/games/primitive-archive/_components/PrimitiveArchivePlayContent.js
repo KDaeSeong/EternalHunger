@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../../utils/client-auth';
+import { captureAuthSession, isCurrentAuthSession } from '../../../../utils/api';
+import useGameplayPerks from '../../../../hooks/useGameplayPerks';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
@@ -87,7 +89,6 @@ import {
   specializedActionRows,
   utilityActionRows,
   updateDeveloperToolsAction,
-  startNewRunFromMeta,
   subjectParticle,
   techRows,
   totalCarryWeight,
@@ -99,6 +100,8 @@ import PrimitiveArchiveEraDefs from './PrimitiveArchiveEraDefs';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
 import PrimitiveArchiveFocusPanel from './PrimitiveArchiveFocusPanel';
 import PrimitiveArchiveInventoryBar from './PrimitiveArchiveInventoryBar';
+import PrimitiveArchiveShopPerks from './PrimitiveArchiveShopPerks';
+import { initialArchiveShopPerks, prepareArchiveShopRun } from '../_lib/primitiveArchiveShopPerks';
 import { primitiveArchiveEraTheme } from '../_lib/primitiveArchiveEraTheme';
 import '../../../../styles/PrimitiveArchiveEras.css';
 import { primitiveArchiveFocusPlan } from '../_lib/primitiveArchiveFocus';
@@ -154,6 +157,11 @@ export default function PrimitiveArchivePlayContent() {
   const playGameSfx = useGameSfx({ theme: 'civilization' });
   const { setMusicScene } = useGameBgm();
   const [state, setState] = useState(createHydrationSafeState);
+  const shopPerks = useGameplayPerks('primitive-archive');
+  const [initialShopRunId, setInitialShopRunId] = useState(state.runId);
+  const [shopStartBusy, setShopStartBusy] = useState(false);
+  const [withoutShopPerks, setWithoutShopPerks] = useState(false);
+  const shopStartRef = useRef(false);
   const [activeTabId, setActiveTabId] = useState('actions');
   const [actorId, setActorId] = useState('shiroko');
   const [zoneId, setZoneId] = useState('whisper-woods');
@@ -183,7 +191,8 @@ export default function PrimitiveArchivePlayContent() {
       return nextState;
     });
   }, []);
-  const handleRestoredRun = useCallback((nextState) => {
+  const handleRestoredRun = useCallback((nextState, details) => {
+    setInitialShopRunId(details?.source === 'owner-reset' ? nextState.runId : null);
     setNewRunDifficulty(nextState.difficulty || 'normal');
     setActorId(nextState.party.find((member) => member.hp > 0)?.id || nextState.party[0]?.id || 'shiroko');
     setZoneId(nextState.exploration?.selectedRegionId || 'whisper-woods');
@@ -231,8 +240,23 @@ export default function PrimitiveArchivePlayContent() {
     state,
     token,
   });
+  const initialShopPending = initialShopRunId === state.runId;
+  const shopControlsBusy = shopStartBusy || initialShopPending;
+  const settleInitialShopPerks = (codes) => {
+    const current = stateRef.current;
+    if (current.runId !== initialShopRunId) return;
+    replaceState(initialArchiveShopPerks(current, codes));
+    setInitialShopRunId(null);
+  };
+  useEffect(() => {
+    if (!hydrated || !checkpoint.ready || !checkpoint.exclusive || !initialShopPending) return;
+    if (shopPerks.status !== 'guest' && shopPerks.status !== 'ready') return;
+    replaceState((current) => current.runId === initialShopRunId
+      ? initialArchiveShopPerks(current, shopPerks.equippedCodes) : current);
+    setInitialShopRunId(null);
+  }, [checkpoint.exclusive, checkpoint.ready, hydrated, initialShopPending, initialShopRunId, replaceState, shopPerks.equippedCodes, shopPerks.status]);
   const dead = state.ended || !hasLivingPartyMember(state);
-  const canAct = checkpoint.ready && checkpoint.exclusive && !busy && !dead && state.ap > 0;
+  const canAct = checkpoint.ready && checkpoint.exclusive && !busy && !shopControlsBusy && !dead && state.ap > 0;
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const exploration = useMemo(() => explorationSummary(state), [state]);
   const regions = exploration.rows;
@@ -467,7 +491,7 @@ export default function PrimitiveArchivePlayContent() {
         : '다음 사회 제도를 선택하면 선행 조건과 영감 진행도를 여기에서 확인할 수 있습니다.';
 
   const applyAction = (label, updater, fallbackText = '') => {
-    if (!checkpoint.ready || !checkpoint.exclusive || busy) return;
+    if (!checkpoint.ready || !checkpoint.exclusive || busy || shopControlsBusy || shopStartRef.current) return;
     const previousState = stateRef.current;
     // A run saved while the developer screen was open to everyone keeps its record
     // mark, but its adjustments stop applying once the screen is hidden.
@@ -548,12 +572,12 @@ export default function PrimitiveArchivePlayContent() {
   };
 
   const updateDeveloperTools = (patch) => {
-    if (!checkpoint.ready || !checkpoint.exclusive || busy) return;
+    if (!checkpoint.ready || !checkpoint.exclusive || busy || shopControlsBusy || shopStartRef.current) return;
     replaceState((current) => updateDeveloperToolsAction(current, patch));
   };
 
   const resetDeveloperTools = () => {
-    if (!checkpoint.ready || !checkpoint.exclusive || busy) return;
+    if (!checkpoint.ready || !checkpoint.exclusive || busy || shopControlsBusy || shopStartRef.current) return;
     replaceState((current) => resetDeveloperToolsAction(current));
   };
 
@@ -635,35 +659,53 @@ export default function PrimitiveArchivePlayContent() {
     );
   };
 
-  const startNewRun = () => {
-    if (!hydrated || !checkpoint.ready || !checkpoint.exclusive || busy) return;
+  const startNewRun = async () => {
+    if (!hydrated || !checkpoint.ready || !checkpoint.exclusive || busy || shopStartRef.current || initialShopPending) return;
     if (!window.confirm('현재 진행을 직전 런으로 보관하고 새 런을 시작할까요? 직전 런은 이 브라우저에서 하나만 보관합니다.')) return;
-    const nextState = startNewRunFromMeta(stateRef.current, { difficulty: newRunDifficulty });
-    const replacement = checkpoint.replaceRun(nextState);
-    if (!replacement.ok) {
-      setMessage(replacement.message);
-      return;
+    shopStartRef.current = true;
+    setShopStartBusy(true);
+    const source = stateRef.current;
+    const session = captureAuthSession();
+    try {
+      const nextState = await prepareArchiveShopRun({
+        source,
+        getCurrent: () => stateRef.current,
+        captureCodes: () => shopPerks.captureForNewRun({ withoutPerks: withoutShopPerks }),
+        sessionIsCurrent: () => isCurrentAuthSession(session),
+        options: { difficulty: newRunDifficulty },
+      });
+      const replacement = checkpoint.replaceRun(nextState);
+      if (!replacement.ok) {
+        setMessage(replacement.message);
+        return;
+      }
+      const nextMessage = `${selectedDifficulty.label} 난이도로 새 문명 아카이브 런을 시작했습니다.`;
+      const presentation = primitiveTextPresentation(nextMessage);
+      setActorId('shiroko');
+      setZoneId('whisper-woods');
+      setRecipeId('twine');
+      setSelectedRecruitId('');
+      setActionResult(nextMessage);
+      setActionFeedback({ ...presentation, runId: nextState.runId });
+      setWithoutShopPerks(false);
+      setMessage('');
+      if (presentation.cue) playGameSfx(presentation.cue);
+    } catch (error) {
+      setMessage(error?.code === 'ARCHIVE_START_CHANGED' ? error.message : '특전 정보를 확인하지 못해 새 런을 시작하지 않았습니다. 다시 확인하거나 런 관리에서 ‘이번 새 런은 LP 특전 없이 시작’을 선택하세요.');
+    } finally {
+      shopStartRef.current = false;
+      setShopStartBusy(false);
     }
-    const nextMessage = `${selectedDifficulty.label} 난이도로 새 문명 아카이브 런을 시작했습니다.`;
-    const presentation = primitiveTextPresentation(nextMessage);
-    setActorId('shiroko');
-    setZoneId('whisper-woods');
-    setRecipeId('twine');
-    setSelectedRecruitId('');
-    setActionResult(nextMessage);
-    setActionFeedback({ ...presentation, runId: nextState.runId });
-    setMessage('');
-    if (presentation.cue) playGameSfx(presentation.cue);
   };
   const restorePreviousRun = () => {
-    if (!hydrated || !checkpoint.ready || !checkpoint.exclusive || !checkpoint.hasPrevious || busy) return;
+    if (!hydrated || !checkpoint.ready || !checkpoint.exclusive || !checkpoint.hasPrevious || busy || shopControlsBusy || shopStartRef.current) return;
     if (!window.confirm('직전 런을 복구할까요? 현재 런은 직전 런 칸에 보관되어 다시 되돌릴 수 있습니다.')) return;
     const restored = checkpoint.restorePrevious();
     if (!restored.ok) setMessage(restored.message);
     else setMessage('직전 런을 복구했습니다. 바꾸기 전 런도 직전 런 칸에 보관했습니다.');
   };
   const loadServerRun = () => {
-    if (!hydrated || !checkpoint.ready || !checkpoint.exclusive || !token || busy) return;
+    if (!hydrated || !checkpoint.ready || !checkpoint.exclusive || !token || busy || shopControlsBusy || shopStartRef.current) return;
     if (!window.confirm('현재 진행을 직전 런으로 보관한 뒤 서버 저장본을 불러올까요?')) return;
     void loadRun();
   };
@@ -732,10 +774,10 @@ export default function PrimitiveArchivePlayContent() {
         <span className="primitive-save-state" data-tone={saveState.tone}>{saveState.label}</span>
       </summary>
       <div className="primitive-run-tools__items" onClick={closeRunTools}>
-      <GameControlButton action="new" cue="off" onClick={startNewRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || Boolean(busy)}>{selectedDifficulty.label} 새 런</GameControlButton>
-      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !token || Boolean(busy)}>{busy === 'save' ? '저장 중...' : '서버 저장'}</GameControlButton>
-      <GameControlButton action="load" onClick={loadServerRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !token || Boolean(busy)}>{busy === 'load' ? '불러오는 중...' : '서버 불러오기'}</GameControlButton>
-      <GameControlButton action="load" onClick={restorePreviousRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !checkpoint.hasPrevious || Boolean(busy)}>직전 런 복구</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || Boolean(busy) || shopControlsBusy}>{shopStartBusy ? '새 런 준비 중...' : `${selectedDifficulty.label} 새 런`}</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !token || Boolean(busy) || shopControlsBusy}>{busy === 'save' ? '저장 중...' : '서버 저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={loadServerRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !token || Boolean(busy) || shopControlsBusy}>{busy === 'load' ? '불러오는 중...' : '서버 불러오기'}</GameControlButton>
+      <GameControlButton action="load" onClick={restorePreviousRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !checkpoint.hasPrevious || Boolean(busy) || shopControlsBusy}>직전 런 복구</GameControlButton>
       </div>
     </details>
   );
@@ -760,6 +802,14 @@ export default function PrimitiveArchivePlayContent() {
   // Routine save states live in the save menu chip; only problems take a message row.
   const checkpointProblem = CHECKPOINT_PROBLEM_STATUSES.includes(checkpoint.status);
   const playMessages = [
+    initialShopPending && checkpoint.ready ? {
+      key: 'shop-perks',
+      text: shopPerks.status === 'error' ? <>
+        LP 특전 정보를 확인하지 못했습니다.
+        <button type="button" className="primitive-inline-action" onClick={() => void shopPerks.refresh().catch(() => {})}>다시 확인</button>
+        <button type="button" className="primitive-inline-action" onClick={() => settleInitialShopPerks([])}>이번 런은 LP 특전 없이 시작</button>
+      </> : '새 런에 적용할 LP 특전을 확인하고 있습니다.',
+    } : null,
     checkpointProblem ? {
       key: 'checkpoint',
       tone: 'error',
@@ -875,11 +925,13 @@ export default function PrimitiveArchivePlayContent() {
         adjustTribeJob={adjustTribeJob}
         applyAction={applyAction}
         autoDayControl={autoDayControl}
+        shopPerkStatus={<PrimitiveArchiveShopPerks state={state} compact />}
+        shopPerkSetup={<PrimitiveArchiveShopPerks state={state} context={shopPerks} withoutPerks={withoutShopPerks} onWithoutPerksChange={setWithoutShopPerks} onRetry={() => void shopPerks.refresh().catch(() => {})} busy={Boolean(busy) || shopControlsBusy} />}
         archiveReport={archiveReport}
         archiveVictory={archiveVictory}
         autoEquip={autoEquip}
         buyPerk={buyPerk}
-        busy={busy || (!checkpoint.ready || !checkpoint.exclusive ? 'checkpoint' : '')}
+        busy={busy || (shopControlsBusy ? 'shop-perks' : '') || (!checkpoint.ready || !checkpoint.exclusive ? 'checkpoint' : '')}
         campActions={campActions}
         campFacilities={campFacilities}
         canAct={actorCanAct}

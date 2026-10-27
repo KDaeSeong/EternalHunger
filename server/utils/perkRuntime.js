@@ -94,7 +94,10 @@ async function getOwnedPerkContext(user, PerkModel) {
   if (!codes.length) return { codes: [], perks: [], effects: { ...DEFAULT_KEYS } };
   const userId = String(user?._id || user?.id || user?.userId || '').trim();
   const perks = await PerkModel.find(scopedFilter(userId, { code: { $in: codes }, isActive: true })).lean();
-  return { codes, perks, effects: mergePerkEffects(perks.map((p) => p?.effects)) };
+  const automaticEffects = perks
+    .filter((perk) => !perk?.effects?.gameSlug && perk?.effects?.requiresEquip !== true)
+    .map((perk) => perk?.effects);
+  return { codes, perks, effects: mergePerkEffects(automaticEffects) };
 }
 
 function applyDiscountedCost(cost, ...pcts) {

@@ -9,8 +9,9 @@ const UserFollow = require('../models/UserFollow');
 const { createNotification } = require('../utils/notifications');
 const { generateRecoveryCode, normalizeRecoveryCode } = require('../utils/recoveryCode');
 const { issueAuthCookies, signSessionToken, validatePassword } = require('../utils/authPolicy');
+const { normalizePerkLoadouts } = require('../utils/defaultPerks');
 
-const PUBLIC_USER_SELECT = 'username nickname profileBio lp credits perks statistics isAdmin badges createdAt passwordRecovery.codeHash passwordRecovery.codeCreatedAt';
+const PUBLIC_USER_SELECT = 'username nickname profileBio lp credits perks perkLoadouts statistics isAdmin badges createdAt passwordRecovery.codeHash passwordRecovery.codeCreatedAt';
 
 function normalizeNickname(raw) {
   return String(raw || '').trim().replace(/\s+/g, ' ');
@@ -66,6 +67,7 @@ function publicUser(user) {
     lp: Number(user.lp || 0),
     credits: Number(user.credits || 0),
     perks: Array.isArray(user.perks) ? user.perks : [],
+    perkLoadouts: normalizePerkLoadouts(user.perkLoadouts),
     statistics: user.statistics,
     isAdmin: Boolean(user.isAdmin),
     badges: Array.isArray(user.badges) ? user.badges : [],
@@ -236,6 +238,7 @@ router.post('/deactivate', async (req, res) => {
     user.lp = 0;
     user.credits = 0;
     user.perks = [];
+    user.perkLoadouts = {};
     user.badges = [];
     user.personalHistory = [];
     user.moderationStatus = 'deactivated';

@@ -15,6 +15,7 @@ import SimulationLogPanel from './SimulationLogPanel';
 import SimulationMatchStatusPanel from './SimulationMatchStatusPanel';
 import SimulationMinimapPanel from './SimulationMinimapPanel';
 import SimulationPregameRosterSetup from './SimulationPregameRosterSetup';
+import SimulationSponsorPerkSetup from './SimulationSponsorPerkSetup';
 import SimulationPregameMapRulesSetup from './SimulationPregameMapRulesSetup';
 import SimulationWorldSpawnToolbar from './SimulationWorldSpawnToolbar';
 
@@ -65,6 +66,9 @@ export default function SimulationMainStage({
   forbiddenAddedNow,
   forbiddenNow,
   guestMode,
+  gameplayPerks,
+  sponsorPerksWithoutPerks,
+  setSponsorPerksWithoutPerks,
   getTeamStateForActor,
   getZoneName,
   handleCharacterSkillsToggle,
@@ -101,6 +105,8 @@ export default function SimulationMainStage({
   recentMoveTrails,
   recentPings,
   selectedCharId,
+  sponsorTeamId,
+  setSponsorTeamId,
   setAutoPlay,
   setHyperloopDestId,
   setUiModal,
@@ -286,6 +292,18 @@ export default function SimulationMainStage({
         matchSec={matchSec}
         participantSelectionMode={participantSelectionMode}
         publicItems={publicItems}
+        survivors={survivors}
+      /> : null}
+
+      {!replayMode && (!evaluationMode || draftMode) && day === 0 && matchSec === 0 ? <SimulationSponsorPerkSetup
+        gameplayPerks={gameplayPerks}
+        withoutPerks={sponsorPerksWithoutPerks}
+        onWithoutPerksChange={setSponsorPerksWithoutPerks}
+        onRefresh={gameplayPerks?.refresh}
+        matchMode={normalizeMatchMode(settings?.matchMode)}
+        selectedTeamId={sponsorTeamId}
+        onTeamChange={setSponsorTeamId}
+        disabled={loading || isAdvancing || isGameOver}
         survivors={survivors}
       /> : null}
 

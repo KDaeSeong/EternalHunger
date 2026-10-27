@@ -47,6 +47,7 @@ import {
   rollWeather,
   seasonForDay,
 } from './primitiveArchiveData';
+import { GAMEPLAY_PERK_CODES, normalizeGameplayPerkCodes } from '../../../../utils/gameplayPerks';
 
 export {
   GAME_SLUG,
@@ -89,6 +90,36 @@ export {
 
 function perkLevel(meta, perkId) {
   return Math.max(0, Number(meta?.ownedPerks?.[perkId] || 0));
+}
+
+const SHOP_PERK_USE_LIMITS = Object.freeze({ carefulGather: 3, researchNotes: 10 });
+const CAREFUL_GATHER_BASIC_RESOURCES = new Set(['wood', 'stone', 'fiber', 'berry', 'clay', 'herb', 'flint']);
+
+function normalizedShopPerkUses(raw = {}) {
+  return Object.fromEntries(Object.entries(SHOP_PERK_USE_LIMITS).map(([key, limit]) => {
+    const value = raw?.[key];
+    return [key, Number.isInteger(value) && value >= 0 && value <= limit ? value : limit];
+  }));
+}
+
+function normalizeShopPerks(raw) {
+  const valid = raw && typeof raw === 'object' && !Array.isArray(raw) && raw.version === 1;
+  return {
+    version: 1,
+    codes: valid ? normalizeGameplayPerkCodes(raw.codes, 'primitive-archive') : [],
+    uses: valid ? normalizedShopPerkUses(raw.uses) : { carefulGather: 0, researchNotes: 0 },
+  };
+}
+
+function shopPerkHas(state, code) {
+  return Array.isArray(state?.shopPerks?.codes) && state.shopPerks.codes.includes(code);
+}
+
+function spendShopPerkUse(state, key) {
+  const uses = normalizedShopPerkUses(state?.shopPerks?.uses);
+  const limit = SHOP_PERK_USE_LIMITS[key];
+  if (!limit || uses[key] >= limit) return state;
+  return { ...state, shopPerks: { ...normalizeShopPerks(state.shopPerks), uses: { ...uses, [key]: uses[key] + 1 } } };
 }
 
 const DEVELOPER_ACTION_IDS = ['gather', 'hunt', 'craft', 'logging', 'herbal', 'trap', 'farm', 'herd', 'fish', 'mine', 'quarry'];
@@ -167,6 +198,7 @@ export function createNewState(options = {}) {
     civics: initCivicState(),
     meta,
     devTools: normalizeDeveloperTools(options.devTools),
+    shopPerks: normalizeShopPerks({ version: 1, codes: options.shopPerkCodes, uses: { carefulGather: 0, researchNotes: 0 } }),
     log: [`Day 1: ${difficultyBrief} 규칙으로 원시 지대에 도착했습니다. 파티의 첫 목표는 식량과 캠프 확보입니다.`],
     ended: false,
     victory: false,
@@ -245,6 +277,7 @@ export function normalizeState(value) {
     civics,
     meta,
     devTools: normalizeDeveloperTools(value.devTools),
+    shopPerks: normalizeShopPerks(value.shopPerks),
     log: Array.isArray(value.log) ? value.log.slice(0, logCapacity({ ...base, ...value, camp })) : base.log,
     victory: Boolean(value.victory),
   };
@@ -3855,7 +3888,15 @@ export function runResearchAction(state, actorId, options = {}) {
   if (current.research.completed[tech.id]) return addLog(current, `${topicParticle(tech.name)} 이미 완료된 연구입니다.`);
   if (!prereqsMet(current.research, tech)) return addLog(current, missingPrereqMessage(current.research, tech));
   const { points, staminaCost } = researchActionEstimate(current, actorId);
-  const researched = addResearchProgress(current, tech.id, points, `${actor.name} 연구`);
+  let researched = addResearchProgress(current, tech.id, points, `${actor.name} 연구`);
+  const notesCanImproveResult = shopPerkHas(current, GAMEPLAY_PERK_CODES.RESEARCH_NOTES)
+    && Number(current.shopPerks?.uses?.researchNotes || 0) < SHOP_PERK_USE_LIMITS.researchNotes
+    && !researched.research.completed?.[tech.id]
+    && Number(researched.research.progress?.[tech.id] || 0) < tech.cost;
+  if (notesCanImproveResult) {
+    researched = spendShopPerkUse(researched, 'researchNotes');
+    researched = addResearchProgress(researched, tech.id, 1, '연구 기록법');
+  }
   const withDialogue = addDialogueLog(researched, actorId, 'research', 'success', options.rng || Math.random);
   return afterAction(withDialogue, actorId, staminaCost, 2, options);
 }
@@ -6086,13 +6127,23 @@ export function runGatherAction(state, actorId, regionId, options = {}) {
   const roadApplied = roadCharges(current) > 0;
   let next = current;
   if (ok) {
-    const gains = rollZoneGains(current, zone.gather, rng, { action: 'gather', zoneId: zone.id, regionId: region.id, region });
+    let gains = rollZoneGains(current, zone.gather, rng, { action: 'gather', zoneId: zone.id, regionId: region.id, region });
+    const carefulGatherAvailable = shopPerkHas(current, GAMEPLAY_PERK_CODES.CAREFUL_GATHER)
+      && Number(current.shopPerks?.uses?.carefulGather || 0) < SHOP_PERK_USE_LIMITS.carefulGather;
+    const bonusIndex = carefulGatherAvailable
+      ? gains.findIndex(([itemId]) => CAREFUL_GATHER_BASIC_RESOURCES.has(itemId))
+      : -1;
+    if (bonusIndex >= 0) {
+      gains = gains.map((entry, index) => (index === bonusIndex ? [entry[0], entry[1] + 1] : entry));
+      next = spendShopPerkUse(next, 'carefulGather');
+    }
     next = {
       ...next,
       inventory: addItems(next.inventory, gains),
       counters: { ...next.counters, gather: Number(next.counters.gather || 0) + 1 },
     };
-    next = addLog(next, `${actor.name}의 채집 성공. ${region.name}에서 ${formatGains(gains)}.`);
+    const bonusText = bonusIndex >= 0 ? ` 꼼꼼한 채집: ${itemName(gains[bonusIndex][0])} +1 포함.` : '';
+    next = addLog(next, `${actor.name}의 채집 성공. ${region.name}에서 ${formatGains(gains)}.${bonusText}`);
   } else {
     next = addLog(next, `${actor.name}의 채집 실패. ${region.name}의 날씨와 지형이 좋지 않았습니다.`);
   }

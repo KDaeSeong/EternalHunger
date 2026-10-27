@@ -1118,6 +1118,32 @@
 .primitive-save-state[data-tone="error"] { color: #b43a3a; }
 .primitive-save-state[data-tone="error"]::before { background: #c0392b; }
 
+.primitive-shop-perks {
+  padding: 12px;
+  margin: 10px 0;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-block-radius);
+  background: var(--era-surface);
+  color: var(--era-ink);
+}
+
+.primitive-shop-perks__heading,
+.primitive-shop-perks__current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.primitive-shop-perks__heading { justify-content: space-between; }
+.primitive-shop-perks h3 { margin: 0; font-size: 0.95rem; }
+.primitive-shop-perks p { margin: 8px 0; }
+.primitive-shop-perks small { display: block; color: var(--era-ink-soft); }
+.primitive-shop-perks a { color: var(--era-accent); }
+.primitive-shop-perks__option { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.primitive-shop-perks__option input { flex: 0 0 auto; width: 16px; height: 16px; }
+.primitive-shop-perks__current { padding: 8px 10px; background: var(--era-sunk); border: 1px solid var(--era-line); border-radius: var(--era-control-radius); font-size: 0.8rem; margin: 0 0 10px; }
+
 .primitive-inline-action {
   margin-left: 10px;
   min-height: 32px;

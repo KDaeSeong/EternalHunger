@@ -1,24 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import './lib/register-simulation-modules.mjs';
 
 const rootUrl = new URL('../src/app/games/primitive-archive/_lib/', import.meta.url);
-const loreSource = await readFile(new URL('primitiveArchiveAdvancementLore.js', rootUrl), 'utf8');
-const loreUrl = `data:text/javascript;base64,${Buffer.from(loreSource).toString('base64')}`;
-const lore = await import(loreUrl);
-const dataSource = (await readFile(new URL('primitiveArchiveData.js', rootUrl), 'utf8'))
-  .replace("from './primitiveArchiveAdvancementLore';", `from '${loreUrl}';`);
-const dataUrl = `data:text/javascript;base64,${Buffer.from(dataSource).toString('base64')}`;
-const engineSource = (await readFile(new URL('primitiveArchiveEngine.js', rootUrl), 'utf8'))
-  .replaceAll("} from './primitiveArchiveData';", `} from '${dataUrl}';`);
-const engineUrl = `data:text/javascript;base64,${Buffer.from(engineSource).toString('base64')}`;
-const engine = await import(engineUrl);
-const runtimeSource = (await readFile(new URL('primitiveArchivePageRuntime.js', rootUrl), 'utf8'))
-  .replace("} from './primitiveArchiveEngine';", `} from '${engineUrl}';`);
-const runtimeUrl = `data:text/javascript;base64,${Buffer.from(runtimeSource).toString('base64')}`;
-const runtime = await import(runtimeUrl);
-const feedbackSource = await readFile(new URL('primitiveArchiveFeedback.js', rootUrl), 'utf8');
-const feedbackUrl = `data:text/javascript;base64,${Buffer.from(feedbackSource).toString('base64')}`;
-const feedback = await import(feedbackUrl);
+const lore = await import(new URL('primitiveArchiveAdvancementLore.js', rootUrl));
+const engineSource = await readFile(new URL('primitiveArchiveEngine.js', rootUrl), 'utf8');
+const engine = await import(new URL('primitiveArchiveEngine.js', rootUrl));
+const runtime = await import(new URL('primitiveArchivePageRuntime.js', rootUrl));
+const feedback = await import(new URL('primitiveArchiveFeedback.js', rootUrl));
 const componentRootUrl = new URL('../src/app/games/primitive-archive/_components/', import.meta.url);
 const actionWorkspaceSource = await readFile(new URL('PrimitiveArchiveActionWorkspace.js', componentRootUrl), 'utf8');
 const campWorkspaceSource = await readFile(new URL('PrimitiveArchiveCampWorkspace.js', componentRootUrl), 'utf8');

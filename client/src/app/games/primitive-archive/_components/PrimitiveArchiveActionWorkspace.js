@@ -25,6 +25,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
     actor,
     actorId,
     autoDayControl,
+    shopPerkStatus,
     canAct,
     craftChance,
     exploration,
@@ -99,6 +100,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
         <PrimitiveArchivePanelTitle action="primitive-day" title="빠른 행동" meta={`AP ${state.ap}/${state.apMax}`}>
           {autoDayControl || null}
         </PrimitiveArchivePanelTitle>
+        {shopPerkStatus || null}
         <div className="primitive-acting-status" data-tone={condition.tone}>
           <label>
             <span>행동 캐릭터</span>

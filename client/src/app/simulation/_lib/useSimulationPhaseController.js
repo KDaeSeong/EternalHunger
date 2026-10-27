@@ -118,7 +118,8 @@ export function useSimulationPhaseController({
   }
 
   async function proceedPhase() {
-    const prepared = actions.prepareRun?.({ ...state, activeMap: refs.activeMapRef?.current || state.activeMap });
+    const prepared = await actions.prepareRun?.({ ...state, activeMap: refs.activeMapRef?.current || state.activeMap });
+    if (prepared?.blocked === true) return { blocked: true };
     if (prepared && day === 0) actions.applyRunInput?.(prepared.state);
     const engineState = prepared ? { ...state, ...prepared.state } : state;
     if (prepared && day > 0) {

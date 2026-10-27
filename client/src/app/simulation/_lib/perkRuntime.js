@@ -1,5 +1,6 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { normalizeErStats } from '../../../utils/erStats.js';
+import { GAMEPLAY_PERK_CODES, getGameplayPerkProduct, isGameplayPerkCode } from '../../../utils/gameplayPerks';
 
 export const PERK_EFFECT_DEFAULTS = {
   hpPlus: 0,
@@ -102,7 +103,12 @@ export function normalizePerkEffects(raw) {
 export function buildPerkRuntimeBundle(codes, perks) {
   const ownedCodes = Array.isArray(codes) ? codes.map((x) => String(x || '').trim()).filter(Boolean) : [];
   const ownedSet = new Set(ownedCodes);
-  const perkDocs = (Array.isArray(perks) ? perks : []).filter((perk) => ownedSet.has(String(perk?.code || '').trim()));
+  const perkDocs = (Array.isArray(perks) ? perks : []).filter((perk) => {
+    const code = String(perk?.code || '').trim();
+    const effects = perk?.effects && typeof perk.effects === 'object' ? perk.effects : {};
+    const requiresEquip = effects.requiresEquip === true && String(effects.gameSlug || '').trim();
+    return ownedSet.has(code) && !isGameplayPerkCode(code) && !requiresEquip;
+  });
   const effects = { ...PERK_EFFECT_DEFAULTS };
   perkDocs.forEach((perk) => {
     const fx = normalizePerkEffects(perk?.effects);
@@ -226,7 +232,17 @@ export function applyPerkBundleToActor(actor, bundle, opts = {}) {
   if (opts.applyCredits !== false && delta > 0) next.simCredits = Math.max(0, perkNumber(next.simCredits || 0) + delta);
   next._perkGrantedCreditsTotal = baseGrant;
 
-  next._perkRuntime = { ...fx };
+  const scopedPerkEffects = next._gameplayPerks?.procurementPartnerApplied
+    ? getGameplayPerkProduct(GAMEPLAY_PERK_CODES.PROCUREMENT_PARTNER)?.effects
+    : null;
+  const scopedDiscount = Math.max(0, Number(scopedPerkEffects?.discountPct || 0));
+  next._perkRuntime = {
+    ...fx,
+    ...(scopedDiscount ? {
+      kioskDiscountPct: Math.min(0.95, perkNumber(fx.kioskDiscountPct) + scopedDiscount),
+      droneDiscountPct: Math.min(0.95, perkNumber(fx.droneDiscountPct) + scopedDiscount),
+    } : {}),
+  };
   next._perkCodes = Array.isArray(perkBundle.codes) ? perkBundle.codes.slice() : [];
   next._perkSummary = String(perkBundle.summary || '');
   return next;

@@ -71,7 +71,87 @@ const DEFAULT_PUBLIC_PERKS = [
     effects: { cosmeticKind: 'victoryEffect', effect: 'spotlight', balanceAffecting: false },
     isActive: true,
   },
+  {
+    code: 'PLAY_ARCHIVE_CAREFUL_GATHER',
+    name: '꼼꼼한 채집',
+    description: '장착하면 한 런에서 처음 성공한 일반 채집 3회에 실제 기본 자원을 1개씩 추가합니다.',
+    lpCost: 250,
+    category: 'buff',
+    effects: {
+      gameSlug: 'primitive-archive',
+      requiresEquip: true,
+      gameplayKind: 'careful_gather',
+      amount: 1,
+      maxUses: 3,
+      balanceAffecting: true,
+    },
+    isActive: true,
+  },
+  {
+    code: 'PLAY_ARCHIVE_RESEARCH_NOTES',
+    name: '연구 기록법',
+    description: '장착하면 직접 연구 행동의 연구 포인트가 1 증가합니다. 한 런에서 최대 10번 적용됩니다.',
+    lpCost: 400,
+    category: 'buff',
+    effects: {
+      gameSlug: 'primitive-archive',
+      requiresEquip: true,
+      gameplayKind: 'research_notes',
+      amount: 1,
+      maxUses: 10,
+      balanceAffecting: true,
+    },
+    isActive: true,
+  },
+  {
+    code: 'PLAY_EH_START_SPONSOR',
+    name: '출발 후원금',
+    description: '장착하면 경기 시작 전에 지정한 후원 팀의 대원마다 경기 크레딧 30을 한 번 지급합니다.',
+    lpCost: 250,
+    category: 'buff',
+    effects: {
+      gameSlug: 'eternal-hunger',
+      requiresEquip: true,
+      gameplayKind: 'start_sponsor',
+      amount: 30,
+      maxUses: 1,
+      balanceAffecting: true,
+    },
+    isActive: true,
+  },
+  {
+    code: 'PLAY_EH_PROCUREMENT_PARTNER',
+    name: '조달 제휴',
+    description: '장착하면 경기 시작 전에 지정한 후원 팀의 경기 내 키오스크·드론 구매 비용을 5% 할인합니다.',
+    lpCost: 400,
+    category: 'buff',
+    effects: {
+      gameSlug: 'eternal-hunger',
+      requiresEquip: true,
+      gameplayKind: 'procurement_partner',
+      discountPct: 0.05,
+      balanceAffecting: true,
+    },
+    isActive: true,
+  },
 ];
+
+const PERK_LOADOUT_GAME_SLUGS = Object.freeze(['primitive-archive', 'eternal-hunger']);
+
+function normalizePerkLoadouts(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return Object.fromEntries(PERK_LOADOUT_GAME_SLUGS.map((gameSlug) => {
+    const raw = Array.isArray(source[gameSlug]) ? source[gameSlug] : [];
+    const codes = [];
+    for (const entry of raw) {
+      const code = typeof entry === 'string' ? entry.trim() : '';
+      if (!code || codes.includes(code)) continue;
+      codes.push(code);
+      if (codes.length === 3) break;
+    }
+    return [gameSlug, codes];
+  }));
+}
 
 let seedPromise = null;
 
@@ -138,6 +218,8 @@ function dedupeScopedPerks(perks, userId) {
 
 module.exports = {
   DEFAULT_PUBLIC_PERKS,
+  PERK_LOADOUT_GAME_SLUGS,
+  normalizePerkLoadouts,
   ensureDefaultPublicPerks,
   dedupeScopedPerks,
 };

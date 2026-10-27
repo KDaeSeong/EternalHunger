@@ -5,7 +5,12 @@ const router = express.Router();
 const User = require('../models/User');
 const Perk = require('../models/Perk');
 const { scopedFilter } = require('../utils/requestScope');
-const { dedupeScopedPerks, ensureDefaultPublicPerks } = require('../utils/defaultPerks');
+const {
+  dedupeScopedPerks,
+  ensureDefaultPublicPerks,
+  normalizePerkLoadouts,
+  PERK_LOADOUT_GAME_SLUGS,
+} = require('../utils/defaultPerks');
 
 function publicUser(user) {
   if (!user) return null;
@@ -17,6 +22,7 @@ function publicUser(user) {
     lp: Number(user.lp || 0),
     credits: Number(user.credits || 0),
     perks: Array.isArray(user.perks) ? user.perks : [],
+    perkLoadouts: normalizePerkLoadouts(user.perkLoadouts),
     isAdmin: Boolean(user.isAdmin),
     badges: Array.isArray(user.badges) ? user.badges : [],
     statistics: user.statistics,
@@ -42,7 +48,7 @@ function decoratePerks(perks, user) {
 router.get('/available', async (req, res) => {
   try {
     await ensureDefaultPublicPerks(Perk);
-    const user = await User.findById(req.user.id).select('username nickname lp credits perks isAdmin badges statistics').lean();
+    const user = await User.findById(req.user.id).select('username nickname lp credits perks perkLoadouts isAdmin badges statistics').lean();
     if (!user) return res.status(404).json({ error: 'user_not_found' });
 
     const rows = await Perk.find(scopedFilter(req, { isActive: true })).sort({ category: 1, lpCost: 1 }).lean();
@@ -50,6 +56,75 @@ router.get('/available', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'perk_load_failed' });
+  }
+});
+
+router.post('/loadout', async (req, res) => {
+  try {
+    await ensureDefaultPublicPerks(Perk);
+    const gameSlug = typeof req.body?.gameSlug === 'string' ? req.body.gameSlug.trim() : '';
+    if (!PERK_LOADOUT_GAME_SLUGS.includes(gameSlug)) {
+      return res.status(400).json({ error: 'game_slug_invalid', code: 'PERK_LOADOUT_GAME_INVALID' });
+    }
+
+    const inputCodes = req.body?.codes;
+    if (!Array.isArray(inputCodes)) {
+      return res.status(400).json({ error: 'codes_must_be_array', code: 'PERK_LOADOUT_CODES_INVALID' });
+    }
+    if (inputCodes.length > 3) {
+      return res.status(400).json({ error: '특전은 게임별로 최대 3개까지 장착할 수 있습니다.', code: 'PERK_LOADOUT_LIMIT' });
+    }
+    const codes = inputCodes.map((value) => typeof value === 'string' ? value.trim() : '');
+    if (codes.some((code) => !code)) {
+      return res.status(400).json({ error: 'perk_code_invalid', code: 'PERK_LOADOUT_CODES_INVALID' });
+    }
+    if (new Set(codes).size !== codes.length) {
+      return res.status(400).json({ error: '중복 특전은 장착할 수 없습니다.', code: 'PERK_LOADOUT_DUPLICATE' });
+    }
+
+    const current = await User.findById(req.user.id).select('perks').lean();
+    if (!current) return res.status(404).json({ error: 'user_not_found' });
+    const ownedCodes = new Set((Array.isArray(current.perks) ? current.perks : [])
+      .map((value) => String(value || '').trim()).filter(Boolean));
+    if (codes.some((code) => !ownedCodes.has(code))) {
+      return res.status(403).json({ error: '보유하지 않은 특전은 장착할 수 없습니다.', code: 'PERK_LOADOUT_NOT_OWNED' });
+    }
+
+    const rows = codes.length
+      ? await Perk.find(scopedFilter(req, { code: { $in: codes }, isActive: true })).lean()
+      : [];
+    const availableByCode = new Map(dedupeScopedPerks(rows, req.user.id).map((perk) => [String(perk.code || '').trim(), perk]));
+    for (const code of codes) {
+      const perk = availableByCode.get(code);
+      const effects = perk?.effects && typeof perk.effects === 'object' ? perk.effects : {};
+      if (!perk || perk.isActive !== true || effects.requiresEquip !== true || effects.gameSlug !== gameSlug) {
+        return res.status(400).json({ error: '이 게임에서 장착할 수 없는 특전이 포함되어 있습니다.', code: 'PERK_LOADOUT_UNAVAILABLE' });
+      }
+    }
+
+    const filter = { _id: req.user.id };
+    if (codes.length) filter.perks = { $all: codes };
+    const updated = await User.findOneAndUpdate(
+      filter,
+      { $set: { [`perkLoadouts.${gameSlug}`]: codes } },
+      { new: true },
+    );
+    if (!updated) {
+      const stillExists = await User.findById(req.user.id).select('_id').lean();
+      if (!stillExists) return res.status(404).json({ error: 'user_not_found' });
+      return res.status(409).json({ error: '보유 특전이 변경되어 장착을 저장하지 못했습니다. 목록을 새로고침해 주세요.', code: 'PERK_LOADOUT_CONFLICT' });
+    }
+
+    const perkLoadouts = normalizePerkLoadouts(updated.perkLoadouts);
+    const user = publicUser(updated);
+    return res.json({
+      user,
+      perkLoadouts,
+      message: codes.length ? '게임 특전 장착을 저장했습니다.' : '게임 특전 장착을 해제했습니다.',
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'perk_loadout_save_failed' });
   }
 });
 
