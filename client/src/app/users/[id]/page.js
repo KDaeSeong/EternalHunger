@@ -8,6 +8,8 @@ import { useToast } from '../../../components/ToastProvider';
 import UserFollowPreview from '../../../components/UserFollowPreview';
 import { apiDelete, apiGetCached, apiPost, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../utils/client-auth';
+import { mergeProfileBadges, resolveCosmeticPerks } from '../../../utils/cosmeticPerks';
+import '../../../styles/PerkCosmetics.css';
 
 const CATEGORY_LABELS = {
   free: '자유',
@@ -195,7 +197,9 @@ export default function UserProfilePage() {
     : 0;
   const displayName = safeText(user?.displayName || user?.nickname || user?.username, '사용자');
   const profileBio = safeText(user?.profileBio, '');
-  const badges = useMemo(() => normalizeList(user?.badges).filter((badge) => safeText(badge?.name)), [user?.badges]);
+  const cosmeticPerks = useMemo(() => resolveCosmeticPerks(user), [user]);
+  const badges = mergeProfileBadges(user?.badges, cosmeticPerks.badges).filter((badge) => safeText(badge?.name));
+  const portraitClass = cosmeticPerks.portraitFrame ? `perk-frame--${cosmeticPerks.portraitFrame.value}` : '';
   const canReport = Boolean(hydrated && token && !viewerFollow.isSelf && user);
 
   const toggleFollow = async () => {
@@ -261,10 +265,11 @@ export default function UserProfilePage() {
         ) : (
           <>
             <section className="profile-hero">
-              <div className="profile-hero-avatar">{displayName.slice(0, 1).toUpperCase()}</div>
+              <div className={`profile-hero-avatar ${portraitClass}`}>{displayName.slice(0, 1).toUpperCase()}</div>
               <div>
                 <p className="profile-kicker">User Profile</p>
                 <h1>{displayName}</h1>
+                {cosmeticPerks.title ? <span className="perk-title">{cosmeticPerks.title.value}</span> : null}
                 <span>가입일 {formatDate(user.createdAt) || '-'}</span>
                 {profileBio ? <p className="profile-bio">{profileBio}</p> : null}
                 <div className="profile-follow-row">
@@ -341,8 +346,8 @@ export default function UserProfilePage() {
             {badges.length ? (
               <section className="profile-panel profile-badges">
                 <div className="profile-panel-title"><h2>배지</h2></div>
-                <div>
-                  {badges.map((badge) => <span key={`${badge.name}-${badge.unlockedAt || ''}`}>{badge.name}</span>)}
+                <div className="perk-badges">
+                  {badges.map((badge) => <span className="perk-badge" key={`${badge.code || badge.name}-${badge.unlockedAt || ''}`}>{badge.name}</span>)}
                 </div>
               </section>
             ) : null}

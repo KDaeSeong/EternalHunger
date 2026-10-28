@@ -118,7 +118,7 @@ router.get('/users/:id', async (req, res) => {
       ? new mongoose.Types.ObjectId(viewerIdRaw)
       : null;
     const user = await User.findOne({ _id: userId, ...VISIBLE_USER_FILTER })
-      .select('username nickname profileBio lp statistics badges createdAt')
+      .select('username nickname profileBio lp statistics badges createdAt perks cosmeticLoadout')
       .lean();
     if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
 

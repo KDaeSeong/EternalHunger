@@ -1,0 +1,199 @@
+.perk-title {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid rgba(40, 116, 166, 0.28);
+  border-radius: 999px;
+  background: #eaf6fc;
+  color: #175d86;
+  font-size: 0.82em;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.perk-frame--skyline,
+.perk-frame--goldline {
+  box-sizing: border-box;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.perk-frame--skyline,
+.account-cosmetic-avatar.perk-frame--skyline,
+.profile-hero-avatar.perk-frame--skyline,
+.result-modal .winner-img.perk-frame--skyline,
+.survivor-board .survivor-card img.perk-frame--skyline,
+.log-window .log-avatar.perk-frame--skyline {
+  border: 3px solid #55c5ef;
+  box-shadow: 0 0 0 2px rgba(15, 91, 132, 0.28), 0 0 14px rgba(74, 205, 255, 0.35);
+}
+
+.perk-frame--goldline,
+.account-cosmetic-avatar.perk-frame--goldline,
+.profile-hero-avatar.perk-frame--goldline,
+.result-modal .winner-img.perk-frame--goldline,
+.survivor-board .survivor-card img.perk-frame--goldline,
+.log-window .log-avatar.perk-frame--goldline {
+  border: 3px solid #e6bc54;
+  box-shadow: 0 0 0 2px rgba(111, 75, 18, 0.28), 0 0 14px rgba(235, 188, 76, 0.34);
+}
+
+.profile-hero-avatar.perk-frame--skyline,
+.profile-hero-avatar.perk-frame--goldline,
+.account-cosmetic-avatar.perk-frame--skyline,
+.account-cosmetic-avatar.perk-frame--goldline {
+  border-radius: 50%;
+}
+
+.account-cosmetic-avatar {
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d8e1ec;
+  border-radius: 50%;
+  background: #e8eef6;
+  color: #0b77b7;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.perk-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.perk-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border: 1px solid rgba(82, 112, 139, 0.2);
+  border-radius: 999px;
+  background: #f2f6f8;
+  color: #34495a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.account-badge-list .perk-badge {
+  min-height: 24px;
+  padding: 3px 9px;
+  border: 1px solid rgba(82, 112, 139, 0.2);
+  background: #f2f6f8;
+  color: #34495a;
+  font-size: 12px;
+}
+
+.profile-badges .perk-badge {
+  min-height: 24px;
+  padding: 3px 9px;
+  border: 1px solid rgba(82, 112, 139, 0.2);
+  border-radius: 999px;
+  background: #f2f6f8;
+  color: #34495a;
+  font-size: 12px;
+}
+
+.perk-log--cyan {
+  border-inline-start: 3px solid #42cbe3 !important;
+  box-shadow: inset 3px 0 rgba(66, 203, 227, 0.08);
+}
+
+.perk-victory--spotlight {
+  background-image: radial-gradient(ellipse at 50% 0%, rgba(255, 218, 112, 0.27), transparent 68%);
+  box-shadow: inset 0 0 36px rgba(255, 205, 83, 0.12);
+  animation: perk-spotlight 2.8s ease-in-out infinite alternate;
+}
+
+.result-viewer-cosmetics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  font-size: 12px;
+}
+
+@keyframes perk-spotlight {
+  from { background-position: 50% 0%; }
+  to { background-position: 50% 30%; }
+}
+
+.perk-cosmetic-preview {
+  max-width: 1180px;
+  margin: 0 auto 16px;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 72px minmax(180px, 1.1fr) minmax(180px, 1.1fr);
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid rgba(23, 32, 42, 0.1);
+  box-shadow: 0 8px 24px rgba(23, 32, 42, 0.06);
+}
+
+.perk-cosmetic-preview h2,
+.perk-cosmetic-preview p {
+  margin: 4px 0 0;
+}
+
+.perk-cosmetic-preview p,
+.perk-cosmetic-preview-victory span,
+.perk-cosmetic-preview-log span {
+  color: #64717d;
+  font-size: 12px;
+}
+
+.perk-cosmetic-preview-avatar {
+  box-sizing: border-box;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e8f4fb;
+  color: #175d86;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.perk-cosmetic-preview-log,
+.perk-cosmetic-preview-victory {
+  min-height: 60px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid rgba(23, 32, 42, 0.1);
+  border-radius: 8px;
+  background-color: #f8fafb;
+}
+
+.perk-cosmetic-preview .perk-badges {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 720px) {
+  .perk-cosmetic-preview {
+    grid-template-columns: 1fr 72px;
+  }
+
+  .perk-cosmetic-preview-log,
+  .perk-cosmetic-preview-victory {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perk-victory--spotlight {
+    animation: none;
+  }
+}

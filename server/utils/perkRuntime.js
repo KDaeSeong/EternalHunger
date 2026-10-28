@@ -82,8 +82,6 @@ function mergePerkEffects(list) {
       out[key] += toFiniteNumber(fx[key]);
     }
   }
-  out.kioskDiscountPct = normalizePct(out.kioskDiscountPct + out.marketDiscountPct);
-  out.droneDiscountPct = normalizePct(out.droneDiscountPct + out.marketDiscountPct);
   out.marketDiscountPct = normalizePct(out.marketDiscountPct);
   out.saleBonusPct = normalizePct(out.saleBonusPct);
   return out;

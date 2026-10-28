@@ -89,8 +89,6 @@ export function normalizePerkEffects(raw) {
       break;
     }
   });
-  out.kioskDiscountPct = normalizePerkPct(out.kioskDiscountPct + out.marketDiscountPct);
-  out.droneDiscountPct = normalizePerkPct(out.droneDiscountPct + out.marketDiscountPct);
   out.marketDiscountPct = normalizePerkPct(out.marketDiscountPct);
   out.saleBonusPct = normalizePerkPct(out.saleBonusPct);
   out.poisonResistPct = normalizePerkPct(out.poisonResistPct);

@@ -232,7 +232,8 @@
     "diagnose:match-distribution": "node ./scripts/analyze-match-distribution.mjs",
     "check:game-porting-progress": "node ./scripts/check-game-porting-progress.mjs",
     "check:gameplay-perks": "node ./scripts/check-gameplay-perk-hook.mjs && node ./scripts/check-perk-shop.mjs && npm run check:primitive-archive:shop-perks && node ./scripts/check-simulation-sponsor-perks.mjs && node ./scripts/check-simulation-sponsor-ui-props.mjs",
-    "check:primitive-archive:shop-perks": "node ./scripts/check-primitive-archive-shop-perks.mjs && node ./scripts/check-primitive-archive-shop-perk-start.mjs"
+    "check:primitive-archive:shop-perks": "node ./scripts/check-primitive-archive-shop-perks.mjs && node ./scripts/check-primitive-archive-shop-perk-start.mjs",
+    "check:cosmetic-perks": "node ./scripts/check-perk-shop.mjs && node ./scripts/check-cosmetic-profiles.mjs && node ./scripts/check-cosmetic-simulation.mjs && node ./scripts/check-perk-discount-runtime.mjs"
   },
   "dependencies": {
     "axios": "^1.13.2",

@@ -77,6 +77,7 @@ function makeHarness({ owned = [], perkRows = [], secondUser = false } = {}) {
         normalizePerkLoadouts,
         PERK_LOADOUT_GAME_SLUGS,
       },
+      '../utils/cosmeticPerks': require('../utils/cosmeticPerks'),
     })[id],
     module,
     exports: module.exports,

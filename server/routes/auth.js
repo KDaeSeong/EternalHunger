@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { normalizePerkLoadouts } = require('../utils/defaultPerks');
+const { normalizeCosmeticLoadout, resolveCosmeticPerks } = require('../utils/cosmeticPerks');
 const { verifyToken } = require('../middleware/authMiddleware');
 const {
   clearAuthCookies,
@@ -51,6 +52,8 @@ function publicUser(user) {
     credits: Number(user.credits || 0),
     perks: Array.isArray(user.perks) ? user.perks : [],
     perkLoadouts: normalizePerkLoadouts(user.perkLoadouts),
+    cosmeticLoadout: normalizeCosmeticLoadout(user.cosmeticLoadout),
+    cosmetics: resolveCosmeticPerks(user),
     statistics: user.statistics,
     isAdmin: Boolean(user.isAdmin),
     moderationStatus: user.moderationStatus || 'active',

@@ -2,6 +2,9 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
+import { useAuthUser } from '../../../utils/client-auth';
+import { resolveCosmeticPerks } from '../../../utils/cosmeticPerks';
+import '../../../styles/PerkCosmetics.css';
 import GameActionIcon from '../../games/_components/GameActionIcon';
 import {
   getCombatDetailLogs,
@@ -17,7 +20,7 @@ const LOG_VIEW = {
   COMBAT: 'combat',
 };
 
-function LogMessage({ log, actorAvatarByName, extractActorNameFromLog, prefix = '' }) {
+function LogMessage({ log, actorAvatarByName, extractActorNameFromLog, frameClass, prefix = '' }) {
   const who = extractActorNameFromLog ? extractActorNameFromLog(log.text) : '';
   const avatar = who ? actorAvatarByName?.[who] : '';
 
@@ -34,7 +37,7 @@ function LogMessage({ log, actorAvatarByName, extractActorNameFromLog, prefix = 
     >
       {avatar ? (
         <Image
-          className="log-avatar"
+          className={`log-avatar ${frameClass}`}
           src={avatar}
           alt=""
           width={44}
@@ -72,6 +75,8 @@ export default function SimulationLogPanel({
   actorAvatarByName,
   extractActorNameFromLog,
 }) {
+  const cosmetics = resolveCosmeticPerks(useAuthUser());
+  const frameClass = cosmetics.portraitFrame ? `perk-frame--${cosmetics.portraitFrame.value}` : '';
   const detailed = !!showDetailedLogs;
   const [logViewMode, setLogViewMode] = useState(() => (detailed ? LOG_VIEW.COMBAT : LOG_VIEW.SUMMARY));
   const isKillView = logViewMode === LOG_VIEW.KILL;
@@ -99,7 +104,7 @@ export default function SimulationLogPanel({
   };
 
   return (
-    <div className={`log-window ${uiModal === 'log' ? 'modal-open' : ''}`} ref={logWindowRef} style={{ minWidth: 0 }}>
+    <div className={`log-window ${uiModal === 'log' ? 'modal-open' : ''} ${cosmetics.logStyle ? `perk-log--${cosmetics.logStyle.value}` : ''}`} ref={logWindowRef} style={{ minWidth: 0 }}>
       {uiModal === 'log' ? (
         <button className="eh-modal-close" type="button" data-game-sfx="click" onClick={closeUiModal} aria-label="닫기" title="닫기">
           <GameActionIcon action="close" label="닫기" />
@@ -205,6 +210,7 @@ export default function SimulationLogPanel({
                   log={log}
                   actorAvatarByName={actorAvatarByName}
                   extractActorNameFromLog={extractActorNameFromLog}
+                  frameClass={frameClass}
                 />
               ))}
               {(isKillView || isCombatView) && !visiblePrevLogs.length ? (
@@ -221,6 +227,7 @@ export default function SimulationLogPanel({
               log={log}
               actorAvatarByName={actorAvatarByName}
               extractActorNameFromLog={extractActorNameFromLog}
+              frameClass={frameClass}
             />
           ))}
           {(isKillView || isCombatView) && !visibleLogs.length ? (

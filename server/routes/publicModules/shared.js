@@ -19,8 +19,9 @@ const { DEFAULT_ZONES, normalizeZoneList } = require('../../utils/defaultZones')
 const { buildDefaultZoneConnections } = require('../../utils/defaultZoneConnections');
 const { getOptionalUserId, scopedFilter } = require('../../utils/requestScope');
 const { publicDisplayName } = require('../../utils/publicIdentity');
+const { resolveCosmeticPerks } = require('../../utils/cosmeticPerks');
 
-const PUBLIC_FOLLOW_USER_SELECT = 'username nickname profileBio lp statistics badges createdAt';
+const PUBLIC_FOLLOW_USER_SELECT = 'username nickname profileBio lp statistics badges createdAt perks cosmeticLoadout';
 const VISIBLE_USER_FILTER = { moderationStatus: { $ne: 'deactivated' } };
 // LP rankings list only accounts that have played or earned LP (no 0전·0 LP rows).
 const RANKED_USER_FILTER = {
@@ -102,6 +103,7 @@ function mapPublicUser(user) {
     nickname: user?.nickname || '',
     profileBio: user?.profileBio || '',
     displayName: displayName(user),
+    cosmetics: resolveCosmeticPerks(user),
     lp: Number(user?.lp || 0),
     badges: Array.isArray(user?.badges) ? user.badges.map((badge) => ({
       name: badge?.name || '',

@@ -10,8 +10,9 @@ const { createNotification } = require('../utils/notifications');
 const { generateRecoveryCode, normalizeRecoveryCode } = require('../utils/recoveryCode');
 const { issueAuthCookies, signSessionToken, validatePassword } = require('../utils/authPolicy');
 const { normalizePerkLoadouts } = require('../utils/defaultPerks');
+const { normalizeCosmeticLoadout, resolveCosmeticPerks } = require('../utils/cosmeticPerks');
 
-const PUBLIC_USER_SELECT = 'username nickname profileBio lp credits perks perkLoadouts statistics isAdmin badges createdAt passwordRecovery.codeHash passwordRecovery.codeCreatedAt';
+const PUBLIC_USER_SELECT = 'username nickname profileBio lp credits perks perkLoadouts cosmeticLoadout statistics isAdmin badges createdAt passwordRecovery.codeHash passwordRecovery.codeCreatedAt';
 
 function normalizeNickname(raw) {
   return String(raw || '').trim().replace(/\s+/g, ' ');
@@ -68,6 +69,8 @@ function publicUser(user) {
     credits: Number(user.credits || 0),
     perks: Array.isArray(user.perks) ? user.perks : [],
     perkLoadouts: normalizePerkLoadouts(user.perkLoadouts),
+    cosmeticLoadout: normalizeCosmeticLoadout(user.cosmeticLoadout),
+    cosmetics: resolveCosmeticPerks(user),
     statistics: user.statistics,
     isAdmin: Boolean(user.isAdmin),
     badges: Array.isArray(user.badges) ? user.badges : [],
@@ -239,6 +242,7 @@ router.post('/deactivate', async (req, res) => {
     user.credits = 0;
     user.perks = [];
     user.perkLoadouts = {};
+    user.cosmeticLoadout = {};
     user.badges = [];
     user.personalHistory = [];
     user.moderationStatus = 'deactivated';

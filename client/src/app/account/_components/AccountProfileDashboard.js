@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { formatNumber, formatRate, getDisplayName } from '../_lib/accountUtils';
+import { mergeProfileBadges, resolveCosmeticPerks } from '../../../utils/cosmeticPerks';
+import '../../../styles/PerkCosmetics.css';
 
 export default function AccountProfileDashboard(props) {
   const {
@@ -22,14 +24,19 @@ export default function AccountProfileDashboard(props) {
     user,
     winRate,
   } = props;
+  const cosmeticPerks = resolveCosmeticPerks(user);
+  const profileBadges = mergeProfileBadges(badges, cosmeticPerks.badges).filter((badge) => badge?.name);
+  const portraitClass = cosmeticPerks.portraitFrame ? `perk-frame--${cosmeticPerks.portraitFrame.value}` : '';
 
   return (
     <>
             <div className="account-dashboard">
               <form className="account-panel account-form" onSubmit={saveProfile}>
                 <div className="account-summary">
+                  <span className={`account-cosmetic-avatar ${portraitClass}`} aria-hidden="true">{getDisplayName(user).slice(0, 1).toUpperCase()}</span>
                   <span>현재 표시명</span>
                   <strong>{getDisplayName(user)}</strong>
+                  {cosmeticPerks.title ? <span className="perk-title">{cosmeticPerks.title.value}</span> : null}
                   <small>아이디: {user.username || '-'}</small>
                 </div>
 
@@ -79,9 +86,9 @@ export default function AccountProfileDashboard(props) {
                   <div><span>전적</span><strong>{formatNumber(totalGames)}전</strong><small>승률 {formatRate(winRate)}</small></div>
                   <div><span>게시글</span><strong>{formatNumber(summary.postCount)}</strong><small>댓글 {formatNumber(summary.commentCount)}</small></div>
                 </div>
-                {badges.length ? (
-                  <div className="account-badge-list">
-                    {badges.slice(0, 8).map((badge) => <span key={`${badge.name}-${badge.unlockedAt || ''}`}>{badge.name}</span>)}
+                {profileBadges.length ? (
+                  <div className="account-badge-list perk-badges">
+                    {profileBadges.slice(0, 8).map((badge) => <span className="perk-badge" key={`${badge.code || badge.name}-${badge.unlockedAt || ''}`}>{badge.name}</span>)}
                   </div>
                 ) : null}
                 <div className="account-quick-actions">

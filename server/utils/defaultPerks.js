@@ -2,7 +2,7 @@ const DEFAULT_PUBLIC_PERKS = [
   {
     code: 'COS_TITLE_ROOKIE',
     name: '루미아 신입 생존자',
-    description: '프로필과 결과 화면에서 사용할 수 있는 기본 칭호입니다. 게임 밸런스에는 영향을 주지 않습니다.',
+    description: '프로필과 이터널 헝거 결과 화면의 관전자 치장에 표시하는 기본 칭호입니다.',
     lpCost: 120,
     category: 'title',
     effects: { cosmeticKind: 'title', title: '루미아 신입 생존자', balanceAffecting: false },
@@ -11,7 +11,7 @@ const DEFAULT_PUBLIC_PERKS = [
   {
     code: 'COS_TITLE_NIGHT_RUNNER',
     name: '야간 루퍼',
-    description: '밤 페이즈를 좋아하는 유저용 칭호입니다. 순수 치장 특전입니다.',
+    description: '프로필과 이터널 헝거 결과 화면의 관전자 치장에 표시하는 칭호입니다.',
     lpCost: 220,
     category: 'title',
     effects: { cosmeticKind: 'title', title: '야간 루퍼', balanceAffecting: false },
@@ -20,7 +20,7 @@ const DEFAULT_PUBLIC_PERKS = [
   {
     code: 'COS_FRAME_SKYLINE',
     name: '스카이라인 초상화 프레임',
-    description: '캐릭터 카드에 어울리는 파란 계열 초상화 프레임 콘셉트입니다.',
+    description: '프로필과 내 이터널 헝거 관전 화면의 캐릭터 초상화에 파란 프레임을 적용합니다.',
     lpCost: 350,
     category: 'portrait_frame',
     effects: { cosmeticKind: 'portraitFrame', frame: 'skyline', balanceAffecting: false },
@@ -29,7 +29,7 @@ const DEFAULT_PUBLIC_PERKS = [
   {
     code: 'COS_FRAME_GOLDLINE',
     name: '골드 라인 초상화 프레임',
-    description: '우승자 화면에 잘 어울리는 금색 프레임 콘셉트입니다.',
+    description: '프로필과 내 이터널 헝거 관전 화면의 캐릭터 초상화에 금색 프레임을 적용합니다.',
     lpCost: 700,
     category: 'portrait_frame',
     effects: { cosmeticKind: 'portraitFrame', frame: 'goldline', balanceAffecting: false },
@@ -56,7 +56,7 @@ const DEFAULT_PUBLIC_PERKS = [
   {
     code: 'COS_LOG_CYAN',
     name: '청록 로그 하이라이트',
-    description: '향후 로그/결과창 꾸미기에 사용할 수 있는 청록색 하이라이트 특전입니다.',
+    description: '내 이터널 헝거 관전 로그에 청록색 강조 테두리를 적용합니다. 처치·오류의 구분 색은 유지합니다.',
     lpCost: 260,
     category: 'log_style',
     effects: { cosmeticKind: 'logStyle', color: 'cyan', balanceAffecting: false },
@@ -65,7 +65,7 @@ const DEFAULT_PUBLIC_PERKS = [
   {
     code: 'COS_VICTORY_SPOTLIGHT',
     name: '승리 스포트라이트',
-    description: '승리 결과창 연출용 스포트라이트 콘셉트입니다. 전투 성능은 변하지 않습니다.',
+    description: '이터널 헝거 우승 결과 화면에 스포트라이트를 적용합니다. 전투 성능은 변하지 않습니다.',
     lpCost: 900,
     category: 'victory_effect',
     effects: { cosmeticKind: 'victoryEffect', effect: 'spotlight', balanceAffecting: false },

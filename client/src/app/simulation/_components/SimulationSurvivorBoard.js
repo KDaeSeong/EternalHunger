@@ -1,6 +1,9 @@
 'use client';
 
 import Image from 'next/image';
+import { useAuthUser } from '../../../utils/client-auth';
+import { resolveCosmeticPerks } from '../../../utils/cosmeticPerks';
+import '../../../styles/PerkCosmetics.css';
 import { DEFAULT_RULESET_ID, getRuleset, normalizeRulesetId } from '../../../utils/rulesets';
 import GameActionIcon from '../../games/_components/GameActionIcon';
 import { itemDisplayName, itemIcon } from '../_lib/simulationCommon';
@@ -163,6 +166,7 @@ function AliveSurvivorCard(props) {
     settings,
     timeOfDay,
     zones,
+    frameClass,
   } = props;
   const equipSummary = getEquipSummary(actor);
   const actionState = getActionStatePresentation(actor);
@@ -175,6 +179,7 @@ function AliveSurvivorCard(props) {
         alt={actor.name}
         width={60}
         height={60}
+        className={frameClass}
         unoptimized
       />}
       <span>{actor.name}</span>
@@ -203,7 +208,7 @@ function AliveSurvivorCard(props) {
   );
 }
 
-function DeadSurvivorCard({ actor, getTeamStateForActor, getZoneName, killCounts }) {
+function DeadSurvivorCard({ actor, getTeamStateForActor, getZoneName, killCounts, frameClass }) {
   return (
     <div className="survivor-card dead">
       <Image
@@ -211,6 +216,7 @@ function DeadSurvivorCard({ actor, getTeamStateForActor, getZoneName, killCounts
         alt={actor.name}
         width={60}
         height={60}
+        className={frameClass}
         unoptimized
       />
       <span>{actor.name}</span>
@@ -223,6 +229,8 @@ function DeadSurvivorCard({ actor, getTeamStateForActor, getZoneName, killCounts
 }
 
 export default function SimulationSurvivorBoard(props) {
+  const cosmetics = resolveCosmeticPerks(useAuthUser());
+  const frameClass = cosmetics.portraitFrame ? `perk-frame--${cosmetics.portraitFrame.value}` : '';
   const {
     activeMap,
     closeUiModal,
@@ -256,6 +264,7 @@ export default function SimulationSurvivorBoard(props) {
           <AliveSurvivorCard
             key={actor._id}
             actor={actor}
+            frameClass={frameClass}
             activeMap={activeMap}
             day={day}
             forbiddenNow={forbiddenNow}
@@ -276,6 +285,7 @@ export default function SimulationSurvivorBoard(props) {
           <DeadSurvivorCard
             key={actor._id}
             actor={actor}
+            frameClass={frameClass}
             getTeamStateForActor={getTeamStateForActor}
             getZoneName={getZoneName}
             killCounts={killCounts}

@@ -54,6 +54,7 @@ function makeHarness({ lp = 1000, owned = [], perks = [] } = {}) {
       normalizePerkLoadouts,
       PERK_LOADOUT_GAME_SLUGS,
     },
+      '../utils/cosmeticPerks': require('../utils/cosmeticPerks'),
   };
   const module = { exports: {} };
   vm.runInNewContext(routeSource, {
@@ -153,6 +154,19 @@ test('buying an equip-required gameplay perk grants ownership without equipping 
   assert.deepEqual(harness.user.perks, ['PLAY_ARCHIVE_CAREFUL_GATHER']);
   assert.deepEqual(harness.user.perkLoadouts, { 'primitive-archive': [], 'eternal-hunger': [] });
   assert.equal(harness.user.lp, 750);
+});
+
+test('purchasing another cosmetic preserves the existing selected cosmetic', async () => {
+  const harness = makeHarness({
+    owned: ['COS_TITLE_ROOKIE'],
+    perks: [publicPerk('COS_TITLE_NIGHT_RUNNER', 120)],
+  });
+  harness.user.cosmeticLoadout = { title: 'COS_TITLE_ROOKIE', portraitFrame: '' };
+  const result = await harness.purchase({ code: 'COS_TITLE_NIGHT_RUNNER' });
+  assert.equal(result.status, 200);
+  assert.deepEqual(harness.user.cosmeticLoadout, { title: 'COS_TITLE_ROOKIE', portraitFrame: '' });
+  assert.deepEqual(result.payload.user.cosmeticLoadout, harness.user.cosmeticLoadout);
+  assert.equal(result.payload.user.cosmetics.title.code, 'COS_TITLE_ROOKIE');
 });
 
 test('invalid server prices are rejected and client prices cannot override catalog price', async () => {

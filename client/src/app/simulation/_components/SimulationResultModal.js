@@ -1,6 +1,9 @@
 'use client';
 
 import Image from 'next/image';
+import { useAuthUser } from '../../../utils/client-auth';
+import { resolveCosmeticPerks } from '../../../utils/cosmeticPerks';
+import '../../../styles/PerkCosmetics.css';
 import { buildErBehaviorModifier } from '../../../utils/erMeta';
 import GameActionIcon from '../../games/_components/GameActionIcon';
 import { formatClock } from '../_lib/simulationFormattingRuntime';
@@ -58,6 +61,8 @@ export default function SimulationResultModal({
   onOpenEvaluation,
   onClose,
 }) {
+  const cosmetics = resolveCosmeticPerks(useAuthUser());
+  const frameClass = cosmetics.portraitFrame ? `perk-frame--${cosmetics.portraitFrame.value}` : '';
   if (!open) return null;
 
   const ranked = Array.isArray(topRankedCharacters) ? topRankedCharacters.slice(0, 3) : [];
@@ -160,7 +165,7 @@ export default function SimulationResultModal({
           <div className="result-alert">개발자 도구 조작 감지: 명예의 전당 기록과 보상 지급에서 제외됩니다.</div>
         ) : null}
 
-        <section className="result-hero">
+        <section className={`result-hero ${winner && cosmetics.victoryEffect ? `perk-victory--${cosmetics.victoryEffect.value}` : ''}`}>
           {winner ? (
             <Image
               src={winner.previewImage || '/Images/default_image.svg'}
@@ -168,13 +173,18 @@ export default function SimulationResultModal({
               width={86}
               height={86}
               aria-hidden="true"
-              className="winner-img"
+              className={`winner-img ${frameClass}`}
               unoptimized
             />
           ) : null}
           <div className="result-hero-copy">
             <div className="result-kicker">게임 종료</div>
             <h1>{winner ? winner.name : '생존자 없음'}</h1>
+            {cosmetics.title || cosmetics.badges.length ? <div className="result-viewer-cosmetics" aria-label="관전자 치장">
+              <span>관전자 치장</span>
+              {cosmetics.title ? <span className="perk-title">{cosmetics.title.name}</span> : null}
+              {cosmetics.badges.length ? <span className="perk-badges">{cosmetics.badges.map((badge) => <span className="perk-badge" key={badge.code}>{badge.name}</span>)}</span> : null}
+            </div> : null}
             <p>{winnerLine}</p>
             {endingLine ? <p>{endingLine}</p> : null}
             {riftEndingLine ? <p>{riftEndingLine}</p> : null}

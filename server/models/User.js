@@ -48,6 +48,7 @@ const UserSchema = new mongoose.Schema({
   }],
   perks: [{ type: String }], // 구매/해금한 특전 코드 목록
   perkLoadouts: { type: mongoose.Schema.Types.Mixed, default: () => ({}) }, // 계정별 게임 장착 특전 코드
+  cosmeticLoadout: { type: mongoose.Schema.Types.Mixed, default: () => ({}) }, // 계정별 치장 장착 코드
   
   personalHistory: [{
     charId: String,       

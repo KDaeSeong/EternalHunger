@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ts from 'typescript';
 import * as gameplayPerks from '../src/utils/gameplayPerks.js';
+import * as cosmeticPerks from '../src/utils/cosmeticPerks.js';
 
 const pagePath = resolve('src/app/perks/page.js');
 const pageSource = readFileSync(pagePath, 'utf8');
@@ -102,6 +103,8 @@ function createHarness({ user, session, getQueue = [], postQueue = [] }) {
     if (specifier === '../../components/ToastProvider') return { useToast: () => ({ showToast: (toast) => harness.toasts.push(toast) }) };
     if (specifier === '../../utils/client-auth') return { useAuthUser: () => harness.authUser };
     if (specifier === '../../utils/gameplayPerks') return gameplayPerks;
+    if (specifier === '../../utils/cosmeticPerks') return cosmeticPerks;
+    if (specifier === '../../styles/PerkCosmetics.css') return {};
     if (specifier === '../../utils/api') return {
       apiGet: async (url) => {
         harness.getCalls.push(url);
@@ -306,4 +309,54 @@ const getResponse = (user) => Promise.resolve({ perks: apiProducts, user });
   assert.equal(harness.storedUpdates.length, updatesBeforeLatePurchase, 'late response must not update another account snapshot');
 }
 
-console.log(JSON.stringify({ pass: true, scenarios: 3 }, null, 2));
+{
+  const categoryByKind = {
+    title: 'title', portraitFrame: 'portrait_frame', badge: 'badge', logStyle: 'log_style', victoryEffect: 'victory_effect',
+  };
+  const cosmeticRows = cosmeticPerks.COSMETIC_PERKS.map((perk) => ({
+    ...perk,
+    category: categoryByKind[perk.kind],
+    lpCost: 100,
+    effects: { cosmeticKind: perk.kind, balanceAffecting: false },
+    isActive: true,
+  }));
+  const owned = ['COS_TITLE_ROOKIE', 'COS_TITLE_NIGHT_RUNNER', 'COS_FRAME_SKYLINE', 'COS_BADGE_ALPHA', 'COS_LOG_CYAN'];
+  const legacy = { ...fixtureUser('cosmetic-owner', 'cosmetic-owner', 500, owned), cosmeticLoadout: undefined, badges: [{ name: '기존 우승 배지', unlockedAt: '2026-01-01' }] };
+  const clearedTitle = { ...legacy, cosmeticLoadout: { title: '' } };
+  const selectedTitle = { ...legacy, cosmeticLoadout: { title: 'COS_TITLE_ROOKIE' } };
+  const harness = createHarness({
+    user: legacy,
+    session: { scope: 'auth:cosmetics', revision: 1, csrfToken: 'cosmetic-token' },
+    getQueue: [Promise.resolve({ perks: cosmeticRows, user: legacy })],
+    postQueue: [
+      Promise.resolve({ user: clearedTitle, message: '칭호 장착을 해제했습니다.' }),
+      Promise.resolve({ user: selectedTitle, message: '칭호를 적용했습니다.' }),
+    ],
+  });
+  harness.render();
+  harness.runEffects();
+  await settle();
+  let tree = harness.render();
+  assert.match(textContent(tree), /야간 루퍼/);
+  assert.match(textContent(tree), /알파 추적자 배지/);
+  assert.match(textContent(findCard(tree, '청록 로그 하이라이트')), /이터널 헝거 전투 로그의 왼쪽 강조선/);
+  assert.match(textContent(findCard(tree, '승리 스포트라이트')), /승자가 있는 경기 결과의 우승 영역/);
+  const frame = findCard(tree, '야간 루퍼');
+  findButton(frame, '장착 해제').props.onClick();
+  await settle();
+  tree = harness.render();
+  assert.deepEqual(harness.postCalls[0], { url: '/perks/cosmetics', body: { kind: 'title', code: '' } });
+  assert.match(textContent(tree), /장착한 칭호 없음/);
+  findButton(findCard(tree, '루미아 신입 생존자'), '장착').props.onClick();
+  await settle();
+  tree = harness.render();
+  assert.deepEqual(harness.postCalls[1], { url: '/perks/cosmetics', body: { kind: 'title', code: 'COS_TITLE_ROOKIE' } });
+  assert.match(textContent(tree), /프로필과 이터널 헝거 관전 결과에 표시되는 칭호/);
+  assert.equal(harness.storedUpdates.length, 3);
+  assert.deepEqual(cosmeticPerks.resolveCosmeticPerks({ ...legacy, cosmeticLoadout: { title: 'NOT_OWNED' } }).title, null);
+  assert.deepEqual(cosmeticPerks.resolveCosmeticPerks({ ...legacy, cosmeticLoadout: { title: '' } }).title, null);
+  assert.deepEqual(cosmeticPerks.resolveCosmeticPerks({ perks: [], cosmetics: { title: { code: 'COS_TITLE_ROOKIE' } } }).title, null);
+  assert.equal(cosmeticPerks.mergeProfileBadges([{ name: '기존 우승 배지' }], [{ name: '알파 추적자 배지' }]).length, 2);
+}
+
+console.log(JSON.stringify({ pass: true, scenarios: 4 }, null, 2));

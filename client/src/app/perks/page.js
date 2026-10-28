@@ -14,6 +14,8 @@ import {
   updateStoredUser,
 } from '../../utils/api';
 import { useAuthUser } from '../../utils/client-auth';
+import { resolveCosmeticPerks } from '../../utils/cosmeticPerks';
+import '../../styles/PerkCosmetics.css';
 import {
   GAMEPLAY_GAME_LABELS,
   GAMEPLAY_PERK_LIMIT,
@@ -79,6 +81,28 @@ function getCosmeticSummary(perk) {
   return isCosmeticPerk(perk) ? '게임 밸런스 영향 없음' : '게임 내 효과 특전';
 }
 
+function getCosmeticDescription(perk) {
+  const code = String(perk?.code || '');
+  const descriptions = {
+    COS_TITLE_ROOKIE: '프로필과 이터널 헝거 관전 결과에 표시되는 칭호입니다. 장착하면 다른 칭호 대신 표시됩니다.',
+    COS_TITLE_NIGHT_RUNNER: '프로필과 이터널 헝거 관전 결과에 표시되는 칭호입니다. 장착하면 다른 칭호 대신 표시됩니다.',
+    COS_FRAME_SKYLINE: '프로필과 이터널 헝거 관전 화면의 캐릭터 초상화에 파란 원형 테두리를 표시합니다.',
+    COS_FRAME_GOLDLINE: '프로필과 이터널 헝거 관전 화면의 캐릭터 초상화에 금색 원형 테두리를 표시합니다.',
+    COS_BADGE_ALPHA: '보유하면 프로필 배지 목록에 표시됩니다.',
+    COS_BADGE_WEAKLINE: '보유하면 프로필 배지 목록에 표시됩니다.',
+    COS_LOG_CYAN: '이터널 헝거 전투 로그의 왼쪽 강조선에 청록색을 적용합니다. 처치·오류 색상은 유지됩니다.',
+    COS_VICTORY_SPOTLIGHT: '이터널 헝거에서 승자가 있는 경기 결과의 우승 영역에 스포트라이트를 적용합니다.',
+  };
+  return descriptions[code] || perk?.description || '특전 설명이 없습니다.';
+}
+
+const COSMETIC_SLOT_LABELS = {
+  title: '칭호',
+  portraitFrame: '초상화 프레임',
+  logStyle: '로그 하이라이트',
+  victoryEffect: '승리 연출',
+};
+
 function currentUserView(shop, contextKey, authUser) {
   if (shop.contextKey === contextKey) return shop;
   return {
@@ -132,6 +156,7 @@ export default function PerkShopPage() {
     () => normalizeGameplayPerkLoadouts(view.user?.perkLoadouts, [...ownedCodes]),
     [view.user?.perkLoadouts, ownedCodes],
   );
+  const equippedCosmetics = useMemo(() => resolveCosmeticPerks(view.user), [view.user]);
   const categories = useMemo(() => {
     const set = new Set((Array.isArray(view.perks) ? view.perks : []).map(getCategory));
     return ['all', ...[...set].sort((a, b) => (CATEGORY_LABELS[a] || a).localeCompare(CATEGORY_LABELS[b] || b))];
@@ -295,6 +320,30 @@ export default function PerkShopPage() {
     equipped ? '게임 특전 장착을 해제했습니다.' : '게임 특전을 장착했습니다. 다음 새 런 또는 경기부터 적용됩니다.');
   };
 
+  const setCosmeticPerk = (perk) => {
+    const slot = String(perk?.effects?.cosmeticKind || '');
+    const code = String(perk?.code || '').trim();
+    const slotKey = slot === 'title' ? 'title'
+      : slot === 'portraitFrame' ? 'portraitFrame'
+        : slot === 'logStyle' ? 'logStyle'
+          : slot === 'victoryEffect' ? 'victoryEffect' : '';
+    if (!slotKey || !ownedCodes.has(code)) return;
+    const equipped = equippedCosmetics[slotKey]?.code === code;
+    const nextCode = equipped ? '' : code;
+    const busyKey = `cosmetic:${slotKey}`;
+    void runAccountAction(busyKey, () => apiPost('/perks/cosmetics', { kind: slotKey, code: nextCode }), (previous, context) => {
+      if (previous.contextKey !== context.contextKey) return previous;
+      return {
+        ...previous,
+        user: context.nextUser || {
+          ...(previous.user || {}),
+          cosmeticLoadout: { ...(previous.user?.cosmeticLoadout || {}), [slotKey]: nextCode },
+        },
+        message: context.message,
+      };
+    }, equipped ? `${COSMETIC_SLOT_LABELS[slotKey]} 장착을 해제했습니다.` : `${COSMETIC_SLOT_LABELS[slotKey]}을 적용했습니다.`);
+  };
+
   const lp = Math.max(0, Number(view.user?.lp || 0));
   const showLogin = !authIdentity;
   const contextLoading = Boolean(authIdentity) && (view.contextKey !== contextKey || view.loading);
@@ -307,7 +356,7 @@ export default function PerkShopPage() {
         <div>
           <p className="perk-shop-eyebrow">LP Perk Shop</p>
           <h1>특전 상점</h1>
-          <p>치장 특전은 계정에 영구 보유하고, 플레이 특전은 게임별로 장착해 다음 새 런 또는 경기부터 적용할 수 있습니다.</p>
+          <p>치장은 프로필과 관전 초상화, 이터널 헝거 로그와 우승 결과에 표시됩니다. 배지는 보유만으로 프로필에 나오며, 나머지는 종류별 한 개씩 장착할 수 있습니다. 플레이 특전은 게임별로 장착해 다음 새 런 또는 경기부터 적용됩니다.</p>
         </div>
         <div className="perk-wallet">
           <span>보유 LP</span>
@@ -350,6 +399,26 @@ export default function PerkShopPage() {
             </section>
           ) : null}
 
+          {authIdentity ? (
+            <section className="perk-cosmetic-preview" aria-label="현재 치장 미리보기">
+              <div>
+                <span className="perk-loadout-eyebrow">현재 적용 중</span>
+                <h2>{equippedCosmetics.title?.name || '장착한 칭호 없음'}</h2>
+                <p>프로필과 이터널 헝거 관전 결과에 표시</p>
+              </div>
+              <div className={`perk-cosmetic-preview-avatar ${equippedCosmetics.portraitFrame ? `perk-frame--${equippedCosmetics.portraitFrame.value}` : ''}`} aria-label={equippedCosmetics.portraitFrame?.name || '기본 초상화'}>
+                {(view.user?.nickname || view.user?.username || '?').slice(0, 1).toUpperCase()}
+              </div>
+              <div className={`perk-cosmetic-preview-log ${equippedCosmetics.logStyle ? `perk-log--${equippedCosmetics.logStyle.value}` : ''}`}>
+                <strong>이터널 헝거 로그</strong><span>생존 기록이 여기에 표시됩니다.</span>
+              </div>
+              <div className={`perk-cosmetic-preview-victory ${equippedCosmetics.victoryEffect ? `perk-victory--${equippedCosmetics.victoryEffect.value}` : ''}`}>
+                <strong>우승 결과 미리보기</strong><span>{equippedCosmetics.victoryEffect?.name || '기본 연출'}</span>
+              </div>
+              {equippedCosmetics.badges.length ? <div className="perk-badges">{equippedCosmetics.badges.map((badge) => <span className="perk-badge" key={`${badge.code || badge.name}-${badge.unlockedAt || ''}`}>{badge.name}</span>)}</div> : null}
+            </section>
+          ) : null}
+
           <div className="perk-filter-row" aria-label="특전 종류 필터">
             {categories.map((category) => (
               <button
@@ -380,6 +449,14 @@ export default function PerkShopPage() {
                 const gameFull = Boolean(product && !isEquipped && (gameplayLoadouts[product.gameSlug]?.length || 0) >= GAMEPLAY_PERK_LIMIT);
                 const canToggle = Boolean(product && owned && !view.busyKey && !contextLoading && (isEquipped || !gameFull));
                 const busy = view.busyKey === `purchase:${code}` || view.busyKey === `loadout:${code}`;
+                const cosmeticSlot = ['title', 'portraitFrame', 'logStyle', 'victoryEffect'].includes(perk?.effects?.cosmeticKind)
+                  ? perk.effects.cosmeticKind : '';
+                const isCosmeticEquipped = Boolean(cosmeticSlot && equippedCosmetics[cosmeticSlot]?.code === code);
+                const cosmeticBusy = view.busyKey === `cosmetic:${cosmeticSlot}`;
+                const cosmeticSurface = cosmeticSlot === 'title' ? '프로필·이터널 헝거 관전 결과 칭호'
+                  : cosmeticSlot === 'portraitFrame' ? '프로필·이터널 헝거 관전 초상화 테두리'
+                    : cosmeticSlot === 'logStyle' ? '이터널 헝거 전투 로그 강조 표시'
+                      : cosmeticSlot === 'victoryEffect' ? '이터널 헝거 우승 결과 연출' : '';
                 return (
                   <article key={perk?._id || code} className={`perk-card ${owned ? 'owned' : ''} ${cosmetic ? 'cosmetic' : 'balance'} ${product ? 'gameplay' : ''}`}>
                     <div className="perk-card-top">
@@ -389,7 +466,7 @@ export default function PerkShopPage() {
                         <h2>{perk?.name || code}</h2>
                       </div>
                     </div>
-                    <p>{product?.description || perk?.description || '특전 설명이 없습니다.'}</p>
+                    <p>{product?.description || (cosmetic ? getCosmeticDescription(perk) : perk?.description) || '특전 설명이 없습니다.'}</p>
                     <div className="perk-meta">
                       {product ? (
                         <>
@@ -404,6 +481,8 @@ export default function PerkShopPage() {
                       ) : (
                         <>
                           <span>{getCosmeticSummary(perk)}</span>
+                          {cosmeticSurface ? <span className="perk-resource">적용: {cosmeticSurface}</span> : null}
+                          {category === 'badge' ? <span className="safe">보유 즉시 프로필에 표시</span> : null}
                           <span className={cosmetic ? 'safe' : 'perk-resource'}>{cosmetic ? '밸런스 영향 없음' : '플레이 효과'}</span>
                           {owned ? <span className="safe">영구 보유</span> : null}
                         </>
@@ -412,6 +491,16 @@ export default function PerkShopPage() {
                     <div className="perk-card-bottom">
                       <strong>{cost.toLocaleString('ko-KR')} LP</strong>
                       <div className="perk-card-actions">
+                        {cosmeticSlot && owned ? (
+                          <button
+                            type="button"
+                            className={isCosmeticEquipped ? 'perk-equip-button equipped' : 'perk-equip-button'}
+                            disabled={Boolean(view.busyKey) || contextLoading}
+                            onClick={() => setCosmeticPerk(perk)}
+                          >
+                            {cosmeticBusy ? '저장 중...' : isCosmeticEquipped ? '장착 해제' : '장착'}
+                          </button>
+                        ) : null}
                         {product && owned ? (
                           <button
                             type="button"
@@ -427,6 +516,7 @@ export default function PerkShopPage() {
                         </button>
                       </div>
                     </div>
+                    {cosmeticSlot && owned ? <div className="perk-equipped-status">{isCosmeticEquipped ? '장착 중' : '미장착'} · {cosmeticSurface}</div> : null}
                     {product && owned ? <div className="perk-equipped-status">{isEquipped ? '장착 중 · 다음 새 런 또는 경기부터 적용' : '미장착 · 장착해야 효과가 적용됩니다.'}</div> : null}
                   </article>
                 );
