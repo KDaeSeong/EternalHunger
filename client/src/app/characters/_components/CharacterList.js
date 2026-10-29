@@ -7,7 +7,6 @@ import { characterId } from '../_lib/characterEditorRuntime';
 
 function CharacterList({
   characters,
-  onAutoSetup,
   onApplyErPreset,
   onEditBasic,
   onOpenConfig,
@@ -60,7 +59,6 @@ function CharacterList({
             </div>
 
             <div className="cl-card__actions">
-              <button type="button" className="ui-button ui-button--primary ui-button--small" onClick={() => onAutoSetup(realId)}>자동 설정</button>
               <button type="button" className="ui-button ui-button--quiet ui-button--small" onClick={() => onEditBasic(realId)}>기본 정보</button>
               <button type="button" className="ui-button ui-button--quiet ui-button--small" onClick={() => onOpenConfig(char)}>전술·스킬</button>
               <OverflowMenu

@@ -2,6 +2,7 @@ import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 const { actor, skill, effect, runCombatScenario } = await import('./lib/run-combat-scenario.mjs');
 const { initializeSpatialPosition, getSpatialPosition, spatialDistance, getSpatialStats, canSeeActor, canObserveActor,
+  filterObservableActors,
   isInBasicAttackRange, isInSpatialSkillRange, planSpatialApproach, planSpatialPatrol, advanceSpatialMovement } = await import('../src/app/simulation/_lib/combatSpatialRuntime.js');
 const { resolveCombatWinnerOutcome } = await import('../src/app/simulation/_lib/phaseCombatDamageRuntime.js');
 const { pickTeamFocusTarget, commitRetreatCover } = await import('../src/app/simulation/_lib/teamCombatRuntime.js');
@@ -9,6 +10,7 @@ const { normalizeRuntimeSurvivor } = await import('../src/app/simulation/_lib/su
 const { normalizeRevivedSurvivor } = await import('../src/app/simulation/_lib/survivorLifecycleRuntime.js');
 const { findCharacterSkillChoice } = await import('../src/app/simulation/_lib/characterCastRuntime.js');
 const { updateEffects, isTargetableByStatus } = await import('../src/utils/statusLogic.js');
+const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
 const { areSameTeam } = await import('../src/app/simulation/_lib/teamRuntime.js');
 const { createPhaseCombatSkillSplashRuntime } = await import('../src/app/simulation/_lib/phaseCombatSkillSplashRuntime.js');
 const { buildTeamObserverModel, describeObserverEvent } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
@@ -62,7 +64,9 @@ await check('reusing one target roster preserves ordered filtering, zero visibil
   const sameTeam = unit('same-team', 5, { teamId: 'blue' });
   const deadEnemy = unit('dead-enemy', 6, { teamId: 'red', hp: 0 });
   const otherZone = unit('other-zone', 5, { teamId: 'red', zoneId: 'other', _spatial: point(5, 4, 'other') });
-  const actors = [watch, scout, visibleEnemy, hiddenEnemy, sameTeam, deadEnemy, otherZone];
+  const otherSpace = unit('other-space', 10, { teamId: 'red', _combatSpaceId: 'dimension_rift:test' });
+  const statusHiddenEnemy = unit('status-hidden-enemy', 10, { teamId: 'red', activeEffects: [{ name: '대상 지정 불가' }] });
+  const actors = [watch, scout, visibleEnemy, hiddenEnemy, sameTeam, deadEnemy, otherZone, otherSpace, statusHiddenEnemy];
   const deepFreeze = (value) => {
     if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
     Object.freeze(value);
@@ -72,29 +76,59 @@ await check('reusing one target roster preserves ordered filtering, zero visibil
   const roster = deepFreeze(actors);
   const actorSnapshot = JSON.stringify(roster);
   const deadIds = ['dead-enemy'];
-  const allowed = (target, sharedRoster) => !!target && !deadIds.includes(target._id)
+  const allowed = (target) => !!target && !deadIds.includes(target._id)
     && Number(target.hp || 0) > 0 && isTargetableByStatus(target)
     && String(target._id || '') !== String(watch._id || '') && !areSameTeam(watch, target)
-    && String(target.zoneId || '') === String(watch.zoneId || '')
-    && canObserveActor(watch, target, sharedRoster);
-  const reference = roster.filter((target) => allowed(target, [...roster]));
-  const reused = roster.filter((target) => allowed(target, roster));
-  assert.deepEqual(reused.map((target) => target._id), reference.map((target) => target._id));
+    && String(target.zoneId || '') === String(watch.zoneId || '');
+  const candidates = roster.filter(allowed);
+  const reference = candidates.filter((target) => canObserveActor(watch, target, roster));
+  let randomDraws = 0;
+  const reused = withSimulationRandom(() => { randomDraws++; return 0.5; }, () => filterObservableActors(watch, candidates, roster));
+  assert.deepEqual(reused, reference);
   assert.deepEqual(reused.map((target) => target._id), ['visible-enemy']);
+  assert.equal(reused[0], visibleEnemy);
+  assert.equal(randomDraws, 0);
   assert.equal(canSeeActor(watch, visibleEnemy), false);
   assert.equal(JSON.stringify(roster), actorSnapshot);
 
   const isolatedWatch = unit('isolated-watch', 4, { teamId: 'green', stats: { attackRange: 3, sightRange: 2 } });
   const isolatedRoster = [isolatedWatch, hiddenEnemy];
-  const noVisibility = isolatedRoster.filter((target) => target !== isolatedWatch
-    && !areSameTeam(isolatedWatch, target) && canObserveActor(isolatedWatch, target, isolatedRoster));
+  assert.deepEqual(filterObservableActors(isolatedWatch, [], isolatedRoster), []);
+  const noVisibility = filterObservableActors(isolatedWatch, [hiddenEnemy], isolatedRoster);
   assert.deepEqual(noVisibility, []);
+  const singleVisible = filterObservableActors(watch, [visibleEnemy], roster);
+  const legacySingleVisible = [visibleEnemy].filter((target) => canObserveActor(watch, target, roster));
+  assert.deepEqual(singleVisible, legacySingleVisible);
+  assert.equal(singleVisible[0], visibleEnemy);
+  assert.deepEqual(filterObservableActors(watch, [hiddenEnemy], roster),
+    [hiddenEnemy].filter((target) => canObserveActor(watch, target, roster)));
 
   const noCandidatesRoster = [sameTeam, deadEnemy, otherZone];
-  assert.deepEqual(noCandidatesRoster.filter((target) => Number(target.hp || 0) > 0
-    && isTargetableByStatus(target) && !areSameTeam(watch, target)
-    && String(target.zoneId || '') === String(watch.zoneId || '')
-    && canObserveActor(watch, target, noCandidatesRoster)), []);
+  assert.deepEqual(filterObservableActors(watch, [], noCandidatesRoster), []);
+});
+await check('observable-filter stats cache is query-local and rereads changed stats, equipment, and status on the next call', () => {
+  const watch = unit('fresh-watch', 4, { teamId: 'blue', stats: { attackRange: 1, sightRange: 2 } });
+  const target = unit('fresh-target', 10, { teamId: 'red' });
+  const roster = [watch, target];
+  const query = () => roster.filter((candidate) => Number(candidate.hp || 0) > 0
+    && isTargetableByStatus(candidate) && !areSameTeam(watch, candidate)
+    && String(candidate.zoneId || '') === String(watch.zoneId || ''));
+
+  assert.deepEqual(filterObservableActors(watch, query(), roster), []);
+  watch.stats.sightRange = 6;
+  assert.deepEqual(filterObservableActors(watch, query(), roster), [target]);
+
+  watch.stats.sightRange = 2;
+  watch.inventory = [{ _id: 'sight-item', equipSlot: 'weapon', stats: { sightRange: 4 } }];
+  watch.equipped = { weapon: 'sight-item' };
+  assert.deepEqual(filterObservableActors(watch, query(), roster), [target]);
+
+  target.activeEffects = [{ name: '대상 지정 불가' }];
+  assert.deepEqual(filterObservableActors(watch, query(), roster), []);
+  target.activeEffects = [];
+  watch.equipped = {};
+  watch.inventory = [];
+  assert.deepEqual(filterObservableActors(watch, query(), roster), []);
 });
 await check('actual hit rejects distance and sight failures before reserving cooldown or tactical damage', () => {
   const a = unit('a', 4); const b = unit('b', 8);

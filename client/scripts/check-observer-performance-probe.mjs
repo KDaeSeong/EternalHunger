@@ -19,13 +19,13 @@ const assertTaskTotals = (actual, expected) => assert.deepEqual({ supported: act
   totalMs: actual.totalMs, maxMs: actual.maxMs, reason: actual.reason }, expected);
 
 function harness({ observeThrows = false, animationFrames = false, animationObserveThrows = false, visibilityEvents = true,
-  longTaskAdvertised = true } = {}) {
+  longTaskAdvertised = true, viewportWidth = 1280, viewportHeight = 720 } = {}) {
   let now = 0, serial = 0;
   const callbacks = new Map(), timers = new Map(), observers = [];
   const performanceRef = { now: () => now, timeOrigin: 1000000,
     memory: { usedJSHeapSize: 100, totalJSHeapSize: 200, jsHeapSizeLimit: 300 } };
   const resizeListeners = new Set();
-  const windowRef = { innerWidth: 1280, innerHeight: 720,
+  const windowRef = { innerWidth: viewportWidth, innerHeight: viewportHeight,
     requestAnimationFrame: (callback) => { callbacks.set(++serial, callback); return serial; },
     cancelAnimationFrame: (id) => callbacks.delete(id),
     setTimeout: (callback) => { timers.set(++serial, callback); return serial; }, clearTimeout: (id) => timers.delete(id),
@@ -44,14 +44,17 @@ function harness({ observeThrows = false, animationFrames = false, animationObse
   }
   const visibilityListeners = new Set();
   const rect = (left, top, width, height) => ({ left, top, right: left + width, bottom: top + height, width, height });
-  const outer = { parentElement: null, computedStyle: { overflow: 'visible', overflowX: 'visible', overflowY: 'visible' },
-    getBoundingClientRect: () => rect(0, 0, 1280, 720), clientLeft: 0, clientTop: 0, clientWidth: 1280, clientHeight: 720,
-    offsetWidth: 1280, offsetHeight: 720 };
-  const mapContent = { isConnected: true, parentElement: null, getBoundingClientRect: () => rect(100, 100, 800, 500) };
+  const outer = { tagName: 'HTML', parentElement: null, computedStyle: { overflow: 'visible', overflowX: 'visible', overflowY: 'visible' },
+    getBoundingClientRect: () => rect(0, 0, viewportWidth, viewportHeight), clientLeft: 0, clientTop: 0,
+    clientWidth: viewportWidth, clientHeight: viewportHeight, offsetWidth: viewportWidth, offsetHeight: viewportHeight };
+  const mapContent = { tagName: 'DIV', className: 'minimap-map-content', isConnected: true, parentElement: null,
+    getBoundingClientRect: () => rect(100, 100, 800, 500) };
   const mapWorld = { isConnected: true, parentElement: mapContent, rect: rect(100, 100, 800, 500),
     getBoundingClientRect() { return this.rect; } };
-  const mapViewport = { isConnected: true, parentElement: outer, clientLeft: 0, clientTop: 0, clientWidth: 800, clientHeight: 500,
+  const mapViewport = { tagName: 'DIV', id: 'minimap-viewport', className: 'minimap-viewport', isConnected: true,
+    parentElement: outer, clientLeft: 0, clientTop: 0, clientWidth: 800, clientHeight: 500,
     offsetWidth: 800, offsetHeight: 500, rect: rect(100, 100, 800, 500),
+    scrollLeft: 0, scrollTop: 0, scrollWidth: 800, scrollHeight: 500,
     computedStyle: { display: 'block', visibility: 'visible', opacity: '1', transform: 'none', rotate: 'none', scale: 'none',
       overflow: 'visible', overflowX: 'visible', overflowY: 'visible' },
     getBoundingClientRect() { return this.rect; },
@@ -133,6 +136,101 @@ check('full-map geometry samples start, every RAF, scroll, resize and stop and r
   assert.equal(result.mapCoverage.lastSample.source, 'end');
   assert.ok(result.mapCoverage.lastSample.offsetMs <= result.elapsedMs);
   assert.equal(h.scrollListeners.size, 0); assert.equal(h.resizeListeners.size, 0);
+});
+
+check('first clipping evidence keeps one bounded fresh geometry and context snapshot after later recovery', () => {
+  const h = harness({ viewportWidth: 1440, viewportHeight: 900 });
+  const startContext = { engineVersion: 'fresh-layout-fixture', speed: 8, seed: 'layout-fixture-a',
+    autoPlay: true, day: 2, matchSec: 91.25, isGameOver: false, replayMode: true,
+    replayId: 'fresh-replay-a', comparisonMatched: null, comparedEvents: null };
+  h.probe.start({ label: 'fresh-clipping-fixture', context: startContext });
+
+  const originalParent = h.mapViewport.parentElement;
+  const clippingParent = {
+    tagName: 'SECTION', id: 'fixture-map-host', className: 'minimap-canvas fixture-clipper',
+    parentElement: originalParent,
+    computedStyle: { overflow: 'hidden', overflowX: 'hidden', overflowY: 'hidden', transform: 'none', rotate: 'none', scale: 'none' },
+    getBoundingClientRect: () => ({ left: 40, top: 260, right: 800, bottom: 920, width: 760, height: 660 }),
+    clientLeft: 0, clientTop: 0, clientWidth: 760, clientHeight: 660, offsetWidth: 760, offsetHeight: 660,
+  };
+  h.mapViewport.parentElement = clippingParent;
+  h.mapViewport.className = 'minimap-viewport is-zoomed';
+  h.mapViewport.rect = { left: 40, top: 260, right: 800, bottom: 960, width: 760, height: 700 };
+  h.mapViewport.clientWidth = 760; h.mapViewport.clientHeight = 700;
+  h.mapViewport.offsetWidth = 760; h.mapViewport.offsetHeight = 700;
+  h.mapViewport.scrollLeft = 23; h.mapViewport.scrollTop = 47;
+  h.mapViewport.scrollWidth = 1520; h.mapViewport.scrollHeight = 1400;
+  h.mapContent.getBoundingClientRect = () => ({ left: 40, top: 260, right: 1560, bottom: 1660, width: 1520, height: 1400 });
+  h.mapWorld.rect = { left: 40, top: 260, right: 1560, bottom: 1660, width: 1520, height: 1400 };
+  const failureContext = { ...startContext, day: 4, matchSec: 145.5, isGameOver: false };
+  h.probe.updateContext(failureContext);
+  h.setNow(24); h.frame(24);
+
+  const firstFailure = h.probe.snapshot().mapCoverage.firstFailure;
+  assert.equal(firstFailure.kind, 'clipped');
+  assert.equal(firstFailure.offsetMs, 24);
+  assert.equal(firstFailure.contextScope, 'latest observer context received before this geometry sample');
+  assert.equal(firstFailure.gameContext.matchSec, 145.5);
+  assert.equal(firstFailure.gameContext.isGameOver, false);
+  assert.equal(firstFailure.gameContext.day, 4);
+  assert.equal(firstFailure.sample.source, 'raf');
+  assert.equal(firstFailure.sample.browserViewport.bottom, 900);
+  assert.equal(firstFailure.sample.viewport.bottom, 960);
+  assert.deepEqual(firstFailure.sample.clipCauses, ['browser-viewport', 'map-viewport', 'clipping-ancestor']);
+  assert.equal(firstFailure.sample.clipChain.length, 1);
+  assert.equal(firstFailure.sample.clipChain[0].tagName, 'section');
+  assert.equal(firstFailure.sample.clipChain[0].id, 'fixture-map-host');
+  assert.equal(firstFailure.sample.clipChain[0].className, 'minimap-canvas fixture-clipper');
+  assert.equal(firstFailure.sample.scroll.left, 23);
+  assert.equal(firstFailure.sample.scroll.top, 47);
+  assert.equal(firstFailure.sample.zoomed, true);
+  assert.ok(JSON.stringify(firstFailure).length < 4096, 'First failure evidence must remain small and bounded.');
+  assert.equal(Object.hasOwn(firstFailure.sample, 'element'), false, 'No DOM node references are retained.');
+
+  h.mapViewport.parentElement = originalParent;
+  h.mapViewport.className = 'minimap-viewport';
+  h.mapViewport.rect = { left: 100, top: 100, right: 900, bottom: 600, width: 800, height: 500 };
+  h.mapViewport.clientWidth = 800; h.mapViewport.clientHeight = 500;
+  h.mapViewport.offsetWidth = 800; h.mapViewport.offsetHeight = 500;
+  h.mapViewport.scrollLeft = 0; h.mapViewport.scrollTop = 0;
+  h.mapViewport.scrollWidth = 800; h.mapViewport.scrollHeight = 500;
+  h.mapContent.getBoundingClientRect = () => ({ left: 100, top: 100, right: 900, bottom: 600, width: 800, height: 500 });
+  h.mapWorld.rect = { left: 100, top: 100, right: 900, bottom: 600, width: 800, height: 500 };
+  h.probe.updateContext({ ...failureContext, matchSec: 300, isGameOver: true });
+  h.setNow(40); h.frame(40);
+  const recoveredSnapshot = h.probe.snapshot().mapCoverage;
+  assert.equal(recoveredSnapshot.lastSample.fullyDisplayed, true);
+  assert.deepEqual(recoveredSnapshot.firstFailure, firstFailure, 'Later geometry and game status cannot overwrite first-failure evidence.');
+  assert.equal(h.probe.stop().mapCoverage.firstFailure.offsetMs, 24);
+});
+
+check('ninth clipping ancestor remains geometry-unavailable with bounded first-failure context', () => {
+  const h = harness();
+  h.probe.start({ context: { engineVersion: 'fresh-ancestor-cap-fixture', matchSec: 12.5, isGameOver: false } });
+  let parent = h.mapViewport.parentElement;
+  for (let index = 1; index <= 9; index += 1) {
+    const ancestor = {
+      tagName: 'DIV', id: `clip-${index}`, className: 'fixture-clipper', parentElement: parent,
+      computedStyle: { overflow: 'hidden', overflowX: 'hidden', overflowY: 'hidden', transform: 'none', rotate: 'none', scale: 'none' },
+      getBoundingClientRect: () => ({ left: 0, top: 0, right: 1280, bottom: 720, width: 1280, height: 720 }),
+      clientLeft: 0, clientTop: 0, clientWidth: 1280, clientHeight: 720, offsetWidth: 1280, offsetHeight: 720,
+    };
+    parent = ancestor;
+  }
+  h.mapViewport.parentElement = parent;
+  h.setNow(18); h.frame(18);
+
+  const result = h.probe.snapshot().mapCoverage;
+  assert.equal(result.supported, false);
+  assert.equal(result.missingSamples, 1);
+  assert.equal(result.clippedSamples, 0);
+  assert.equal(result.firstFailure.kind, 'geometry_unavailable');
+  assert.match(result.reason, /too many clipping ancestors/);
+  assert.equal(result.firstFailure.offsetMs, 18);
+  assert.equal(result.firstFailure.gameContext.matchSec, 12.5);
+  assert.equal(result.firstFailure.sample, null, 'Unsupported geometry must not be misreported as a measured clip sample.');
+  assert.ok(JSON.stringify(result.firstFailure).length < 4096, 'The retained first-failure context remains bounded.');
+  assert.equal(h.probe.stop().mapCoverage.supported, false);
 });
 
 check('final map geometry read is included in the measurement cutoff rather than timestamp-clamped', () => {

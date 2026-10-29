@@ -38,7 +38,7 @@ import { startCharacterCast, finishCharacterCast, reconcileCharacterCasts, findC
 import { resolveRiftKnockbacks } from './riftDisplacementRuntime.js';
 import { getCombatIntentOpponents } from './combatTimingRuntime.js';
 import { getActiveSimulationRandom, runSimulationSteps } from '../../../utils/simulationRandom.js';
-import { canObserveActor, syncSpatialPositions } from './combatSpatialRuntime.js';
+import { filterObservableActors, syncSpatialPositions } from './combatSpatialRuntime.js';
 import { reconcileForcedControls } from './forcedControlRuntime.js';
 import { getCombatSpaceId } from '../../../utils/combatSpaceLogic.js';
 import { getWildlifeMasteryEntries } from '../../../utils/masteryLogic.js';
@@ -473,7 +473,7 @@ function* pvpActionSteps({
 
       const actorRecoveryLocked = isAiRecoveryLocked(actor, currentActionSec());
       const targetRoster = [...survivorMap.values()];
-      const potentialTargets = targetRoster.filter((target) => {
+      const targetCandidates = targetRoster.filter((target) => {
         if (!target || newDeadIds.includes(target._id)) return false;
         if (Number(target.hp || 0) <= 0) return false;
         if (!isTargetableByStatus(target)) return false;
@@ -481,8 +481,9 @@ function* pvpActionSteps({
         if (areSameTeam(actor, target)) return false;
         if (String(target?.zoneId || '') !== String(actor?.zoneId || '')) return false;
         if (actorRecoveryLocked) return false;
-        return canObserveActor(actor, target, targetRoster);
+        return true;
       });
+      const potentialTargets = filterObservableActors(actor, targetCandidates, targetRoster);
       const canDual = potentialTargets.length >= (pvpMinSameZone - 1);
 
       const dangerUntil = Number(actor?._immediateDangerUntilPhaseIdx ?? -1);

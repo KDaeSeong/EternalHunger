@@ -79,9 +79,27 @@ export function canSeeActor(observer, target) {
     && spatialDistance(observer, target) <= getSpatialStats(observer).sightRange + 1e-6;
 }
 
+function canSeeActorWithSpatialStats(observer, target, spatialStatsFor) {
+  return Number(observer?.hp || 0) > 0 && Number(target?.hp || 0) > 0
+    && spatialDistance(observer, target) <= spatialStatsFor(observer).sightRange + 1e-6;
+}
+
 export function canObserveActor(actor, target, roster = [actor]) {
   return shareCombatSpace(actor, target) && (canSeeActor(actor, target)
     || roster.some((ally) => shareCombatSpace(actor, ally) && areSameTeam(actor, ally) && canSeeActor(ally, target)));
+}
+
+export function filterObservableActors(actor, candidates, roster = [actor]) {
+  if (candidates.length < 2) return candidates.filter((target) => canObserveActor(actor, target, roster));
+
+  const spatialStatsByActor = new Map();
+  const spatialStatsFor = (observer) => {
+    if (!spatialStatsByActor.has(observer)) spatialStatsByActor.set(observer, getSpatialStats(observer));
+    return spatialStatsByActor.get(observer);
+  };
+  return candidates.filter((target) => shareCombatSpace(actor, target) && (canSeeActorWithSpatialStats(actor, target, spatialStatsFor)
+    || roster.some((ally) => shareCombatSpace(actor, ally) && areSameTeam(actor, ally)
+      && canSeeActorWithSpatialStats(ally, target, spatialStatsFor))));
 }
 
 export function isInBasicAttackRange(actor, target, roster = [actor]) {

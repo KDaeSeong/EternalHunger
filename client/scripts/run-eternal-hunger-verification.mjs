@@ -35,7 +35,7 @@ const commands = {
   'late-combat-join': 'node scripts/check-late-combat-join.mjs',
   'recovery-combat-resume': 'node scripts/check-recovery-combat-resume.mjs',
   'combat-contact-prefix': 'node scripts/diagnose-combat-contact-prefix.mjs',
-  'initial-weapon-goal-unit': 'npm run check:er-weapons && npm run check:recipe-only-gear && npm run check:growth-plan && npm run check:character-auto-setup && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep',
+  'initial-weapon-goal-unit': 'npm run check:er-weapons && npm run check:recipe-only-gear && npm run check:growth-plan && npm run check:skills && npm run check:team-observer && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'initial-weapon-goal-match': 'node scripts/check-initial-weapon-goals-match.mjs && npm run check:opening-deadline:match && npm run check:growth-scheduling:match',
   'world-step-contact-unit': 'node scripts/check-world-step-contact-diagnostics.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   'recovery-combat-unit': 'node scripts/generate-simulation-version.mjs && node scripts/check-recovery-combat-resume.mjs && node scripts/check-ai-recovery-forced-control.mjs && node scripts/check-forced-control.mjs && node scripts/check-status-protection.mjs && node scripts/check-action-states.mjs && node scripts/check-combat-spatial.mjs && node scripts/check-combat-timing.mjs && node scripts/check-character-casting.mjs && node scripts/check-team-combat.mjs && node scripts/check-late-combat-join.mjs && node scripts/check-combat-participation-observation.mjs && node scripts/check-team-combat-participation-diagnostics.mjs && node scripts/check-team-observer.mjs && node scripts/check-hunt-pvp-interruption.mjs && node scripts/check-hunt-pvp-handoff.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
@@ -67,7 +67,7 @@ const commands = {
   'growth-focus-unit': 'npm run check:growth-plan && npm run check:team-tactics && npm run check:verification-fingerprint && npm run check:runtime:sweep',
   handoff: 'node scripts/check-boss-handoff-match.mjs --lifecycle-regression',
   'handoff-unit': 'node scripts/check-hunt-settlement.mjs && node scripts/check-wildlife-combat.mjs && node scripts/check-boss-team-combat.mjs && node scripts/check-boss-loot-sharing.mjs && node scripts/check-team-observer.mjs && node scripts/check-observer-tail-projection.mjs && node scripts/check-live-frames.mjs && node scripts/check-run-comparison.mjs && node scripts/check-character-casting.mjs && npm run check:verification-fingerprint && npm run check:runtime:sweep',
-  growth: 'npm run check:growth-plan && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:character-auto-setup && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
+  growth: 'npm run check:growth-plan && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:skills && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
   performance: 'npm run check:growth-plan && npm run check:team-observer && npm run check:live-frames && npm run check:display-pacing && npm run check:phase-runtime-performance && npm run check:opening-deadline:match && npm run check:team-purchase-goals && npm run check:procurement && npm run check:growth-scheduling:match && npm run check:simulation-replay && npm run check:runtime:sweep && npm run build',
 };
 const mode = process.argv[2] || 'full';
@@ -246,7 +246,9 @@ function verificationSourceHashes() {
   if (['initial-weapon-goal-unit', 'full'].includes(mode)) paths.push(
     'scripts/check-er-weapons.mjs', 'scripts/check-initial-weapon-goals.mjs',
     'scripts/check-recipe-only-gear.mjs', 'scripts/check-hunt-settlement.mjs',
-    'scripts/check-growth-plan.mjs', 'scripts/check-character-auto-setup.mjs',
+    'scripts/check-growth-plan.mjs', 'scripts/check-character-basic-layout.mjs',
+    'scripts/check-character-skill-compiler.mjs', 'scripts/check-character-skill-authoring.mjs',
+    'scripts/check-er-preset-editor.mjs',
     'scripts/check-team-observer.mjs');
   if (['initial-weapon-goal-match', 'full'].includes(mode)) paths.push(
     'scripts/check-initial-weapon-goals-match.mjs', 'scripts/check-opening-deadline-match.mjs', 'scripts/check-growth-scheduling-match.mjs',

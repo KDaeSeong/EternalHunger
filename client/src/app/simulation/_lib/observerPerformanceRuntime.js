@@ -27,6 +27,61 @@ function rectEvidence(rect) {
     && Math.abs(result.bottom - result.top - result.height) < 1 ? result : null;
 }
 
+function boundedString(value, limit = 120) {
+  return typeof value === 'string' ? value.slice(0, limit) : null;
+}
+
+function elementEvidence(element) {
+  const className = typeof element?.className === 'string' ? element.className
+    : typeof element?.className?.baseVal === 'string' ? element.className.baseVal : null;
+  return {
+    tagName: boundedString(String(element?.tagName || '').toLowerCase(), 32),
+    id: boundedString(element?.id, 80),
+    className: boundedString(className),
+  };
+}
+
+function mapFailureEvidence(sample) {
+  if (!sample) return null;
+  return {
+    source: boundedString(sample.source, 16),
+    viewport: rectEvidence(sample.viewport),
+    content: rectEvidence(sample.content),
+    world: rectEvidence(sample.world),
+    browserViewport: rectEvidence(sample.browserViewport),
+    clipCauses: (Array.isArray(sample.clipCauses) ? sample.clipCauses : []).slice(0, 8)
+      .map((cause) => boundedString(cause, 32)).filter(Boolean),
+    clipChain: (Array.isArray(sample.clipChain) ? sample.clipChain : []).slice(0, 8).map((entry) => ({
+      rect: rectEvidence(entry.rect), clipsX: Boolean(entry.clipsX), clipsY: Boolean(entry.clipsY),
+      tagName: boundedString(entry.tagName, 32), id: boundedString(entry.id, 80),
+      className: boundedString(entry.className), overflowX: boundedString(entry.overflowX, 12),
+      overflowY: boundedString(entry.overflowY, 12),
+    })),
+    scroll: sample.scroll ? {
+      left: finiteNumber(sample.scroll.left), top: finiteNumber(sample.scroll.top),
+      width: finiteNumber(sample.scroll.width), height: finiteNumber(sample.scroll.height),
+      clientWidth: finiteNumber(sample.scroll.clientWidth), clientHeight: finiteNumber(sample.scroll.clientHeight),
+    } : null,
+    viewportClassName: boundedString(sample.viewportClassName),
+    zoomed: sample.zoomed === true,
+    fullyDisplayed: sample.fullyDisplayed === true,
+    hiddenByStyle: sample.hiddenByStyle === true,
+  };
+}
+
+function observerContextEvidence(context) {
+  if (!context || typeof context !== 'object') return null;
+  const keys = ['engineVersion', 'speed', 'seed', 'autoPlay', 'day', 'matchSec', 'isGameOver',
+    'replayMode', 'replayId', 'comparisonMatched', 'comparedEvents', 'phase', 'status'];
+  return Object.fromEntries(keys.filter((key) => Object.hasOwn(context, key)).map((key) => {
+    const value = context[key];
+    if (typeof value === 'string') return [key, value.slice(0, 160)];
+    if (typeof value === 'number') return [key, Number.isFinite(value) ? value : null];
+    if (typeof value === 'boolean' || value == null) return [key, value];
+    return [key, null];
+  }));
+}
+
 function hasSupportedAxisTransform(style) {
   const transform = String(style?.transform || 'none');
   if (transform !== 'none') {
@@ -287,7 +342,13 @@ export function createObserverPerformanceProbe({
       coverage.clippedSamples += kind === 'clipped' ? 1 : 0;
       coverage.fullSamples += 0;
       coverage.reason ||= reason;
-      coverage.firstFailure ||= { kind, offsetMs: round(performanceRef.now() - target.startedAt) };
+      coverage.firstFailure ||= {
+        kind,
+        offsetMs: round(performanceRef.now() - target.startedAt),
+        contextScope: 'latest observer context received before this geometry sample',
+        gameContext: observerContextEvidence(target.context?.final),
+        sample: kind === 'clipped' ? mapFailureEvidence(coverage.lastSample) : null,
+      };
     };
     if (typeof documentRef?.querySelector !== 'function' || typeof windowRef?.getComputedStyle !== 'function') {
       fail('geometry_unavailable', 'DOM map geometry APIs unavailable', false);
@@ -330,8 +391,11 @@ export function createObserverPerformanceProbe({
       }
       const browserBox = { left: 0, top: 0, right: viewportWidth, bottom: viewportHeight,
         width: viewportWidth, height: viewportHeight };
-      let clipped = !containsRect(browserBox, viewportBox) || !containsRect(viewportBox, worldRect)
-        || !containsRect(contentRect, worldRect);
+      const clipCauses = [];
+      let clipped = false;
+      if (!containsRect(browserBox, viewportBox)) { clipped = true; clipCauses.push('browser-viewport'); }
+      if (!containsRect(viewportBox, worldRect)) { clipped = true; clipCauses.push('map-viewport'); }
+      if (!containsRect(contentRect, worldRect)) { clipped = true; clipCauses.push('map-content'); }
       let ancestor = viewport.parentElement;
       while (ancestor) {
         const style = windowRef.getComputedStyle(ancestor);
@@ -347,17 +411,30 @@ export function createObserverPerformanceProbe({
           if (clipChain.length >= 8) { fail('geometry_unavailable', 'too many clipping ancestors to retain bounded evidence', false); return; }
           const box = clientBox(ancestor, style);
           if (!box) { fail('geometry_unavailable', 'clipping ancestor bounds unavailable', false); return; }
-          clipChain.push({ rect: box, clipsX, clipsY });
+          let ancestorClips = false;
           if (clipsX && (worldRect.left < box.left - 0.5 || worldRect.right > box.right + 0.5
-            || viewportBox.left < box.left - 0.5 || viewportBox.right > box.right + 0.5)) clipped = true;
+            || viewportBox.left < box.left - 0.5 || viewportBox.right > box.right + 0.5)) ancestorClips = true;
           if (clipsY && (worldRect.top < box.top - 0.5 || worldRect.bottom > box.bottom + 0.5
-            || viewportBox.top < box.top - 0.5 || viewportBox.bottom > box.bottom + 0.5)) clipped = true;
+            || viewportBox.top < box.top - 0.5 || viewportBox.bottom > box.bottom + 0.5)) ancestorClips = true;
+          if (ancestorClips) {
+            clipped = true;
+            clipCauses.push('clipping-ancestor');
+          }
+          clipChain.push({ rect: box, clipsX, clipsY, ...(ancestorClips ? elementEvidence(ancestor) : {}),
+            overflowX: boundedString(overflowX, 12), overflowY: boundedString(overflowY, 12) });
         }
         ancestor = ancestor.parentElement;
       }
       const fullyDisplayed = !clipped && !hidden;
+      if (hidden) clipCauses.push('hidden-style');
+      const viewportEvidence = elementEvidence(viewport);
       coverage.lastSample = { source, offsetMs: round(performanceRef.now() - target.startedAt), viewport: viewportBox,
-        content: contentRect, world: worldRect, browserViewport: browserBox, clipChain,
+        content: contentRect, world: worldRect, browserViewport: browserBox, clipChain, clipCauses,
+        scroll: { left: finiteNumber(viewport.scrollLeft), top: finiteNumber(viewport.scrollTop),
+          width: finiteNumber(viewport.scrollWidth), height: finiteNumber(viewport.scrollHeight),
+          clientWidth: finiteNumber(viewport.clientWidth), clientHeight: finiteNumber(viewport.clientHeight) },
+        viewportClassName: viewportEvidence.className,
+        zoomed: String(viewportEvidence.className || '').split(/\s+/).includes('is-zoomed'),
         fullyDisplayed, hiddenByStyle: hidden };
       if (fullyDisplayed) coverage.fullSamples += 1;
       else fail('clipped', hidden ? 'map viewport or SVG is hidden by CSS' : 'transformed map world is clipped by a viewport');
@@ -371,7 +448,8 @@ export function createObserverPerformanceProbe({
     return { scope: 'DOM geometry at start, every RAF callback, captured scroll/resize and stop; no native occlusion, paint or human-legibility proof',
       supported: coverage.supported, reason: coverage.reason,
       samples: coverage.samples, fullSamples: coverage.fullSamples, missingSamples: coverage.missingSamples,
-      clippedSamples: coverage.clippedSamples, firstFailure: coverage.firstFailure,
+      clippedSamples: coverage.clippedSamples,
+      firstFailure: coverage.firstFailure ? structuredClone(coverage.firstFailure) : null,
       boundaryNotifications: coverage.boundaryNotifications,
       lifecycleCounts: { ...coverage.lifecycleCounts }, lastSample: coverage.lastSample ? structuredClone(coverage.lastSample) : null,
       nativeOcclusionProven: false, paintProven: false, humanLegibilityProven: false,
