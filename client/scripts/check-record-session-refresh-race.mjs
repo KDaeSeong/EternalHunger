@@ -75,7 +75,7 @@ registerHooks({
 });
 
 const api = await import(apiUrl);
-const { default: usePersistence } = await import(hookPath.href);
+const { default: invokePersistence } = await import(hookPath.href);
 const checks = [];
 
 function deferred() {
@@ -91,7 +91,7 @@ function harness(user = { id: 'account-a', username: 'a', lp: 10, credits: 20 })
   api.saveAuth(undefined, user);
   const latestStateRef = { current: { runId: 'run-original', day: 12, ended: true, victory: true } };
   const writes = { toasts: [], actionResults: [] };
-  const hook = usePersistence({
+  const hook = invokePersistence({
     latestStateRef,
     state: latestStateRef.current,
     token: 'cookie-session',

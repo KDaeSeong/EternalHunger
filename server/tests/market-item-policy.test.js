@@ -4,6 +4,7 @@ const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const policy = require('../../shared/marketItemPolicy.cjs');
+const marketTransaction = require('../utils/marketTransaction');
 
 // Execute the current HTTP handlers with explicit model inputs. These are
 // request/settlement contract tests, not a live Mongo or account round trip.
@@ -12,8 +13,8 @@ const water = { _id: 'water', name: '물', type: '소모품', tags: ['food', 'dr
 const tree = { _id: 'tree', name: '생명의 나무', type: '재료', tier: 4 };
 const items = [food, water, tree];
 function query(value) {
-  return { select() { return this; }, populate() { return this; }, lean() { return this; },
-    then(resolve, reject) { return Promise.resolve(value).then(resolve, reject); } };
+  return { select() { return this; }, populate() { return this; }, lean() { return this; }, session() { return this; },
+    then(resolve, reject) { return Promise.resolve().then(() => typeof value === 'function' ? value() : value).then(resolve, reject); } };
 }
 const scope = { requireUserId: req => req.user.id,
   scopedFilter: (req, extra = {}) => ({ ...extra, ownerAdminUid: req.user.id }),
@@ -27,6 +28,7 @@ function load(relative, dependencies = {}, factory = false) {
     require(specifier) {
       if (specifier === 'express') return { Router: () => router };
       if (specifier.endsWith('shared/marketItemPolicy.cjs')) return policy;
+      if (specifier === '../utils/marketTransaction') return marketTransaction;
       if (specifier.endsWith('/requestScope')) return scope;
       if (Object.hasOwn(dependencies, specifier)) return dependencies[specifier];
       throw new Error(`Unexpected route dependency: ${specifier}`);
@@ -48,9 +50,21 @@ function economy() {
     addToInventory: (inv, row) => inv.push(row), countInInventory: () => 1, removeFromInventory: () => true };
   const perks = { getOwnedPerkContext: async () => ({ effects: {} }),
     applyDiscountedCost: value => value, applySaleBonus: value => value };
-  const dependencies = { '../models/User': { findById: () => query(user) },
+  const userModel = {
+    db: { transaction: callback => callback({}) },
+    findById: () => query(user),
+    findOneAndUpdate(filter, update) {
+      return query(() => {
+        if (filter.credits?.$gte !== undefined && user.credits < filter.credits.$gte) return null;
+        user.credits += update.$inc.credits;
+        saves++;
+        return user;
+      });
+    },
+  };
+  const dependencies = { '../models/User': userModel,
     '../models/Characters': { findOne: () => query(actor) }, '../models/Item': { find: () => query(items) },
-    '../models/Perk': {}, '../utils/inventory': inventory, '../utils/perkRuntime': perks };
+    '../models/Perk': { find: () => query([]) }, '../utils/inventory': inventory, '../utils/perkRuntime': perks };
   return { user, actor, dependencies, saves: () => saves };
 }
 
@@ -106,6 +120,58 @@ test('the original kiosk index still settles the displayed allowed item after pr
   const result = await call(handlers['post /:id/transaction'], { characterId: 'actor', catalogIndex: 2 }, { id: 'shop' });
   assert.equal(result.statusCode, 200); assert.equal(state.user.credits, 33);
   assert.equal(state.actor.inventory[0].itemId, 'tree'); assert.equal(state.saves(), 2);
+});
+
+test('kiosk exchange populates food and water give-items in order before policy validation', async () => {
+  const objectId = { toString: () => '65f000000000000000000001' };
+  for (const forbiddenGiveItem of [
+    { _id: objectId, name: '사과', type: '재료', tags: ['food'] },
+    { _id: objectId, name: '물', type: '소모품', tags: ['drink'] },
+  ]) {
+    const state = economy();
+    const transactionSession = {};
+    let populatePaths;
+    let populateSession;
+    state.dependencies['../models/User'].db.transaction = callback => callback(transactionSession);
+    state.dependencies['../models/Kiosk'] = {
+      findOne() {
+        return {
+          populate(paths) { populatePaths = paths; return this; },
+          session(session) { populateSession = session; return this; },
+          then(resolve, reject) {
+            return Promise.resolve().then(() => {
+              assert.equal(populateSession, transactionSession);
+              assert.equal(populatePaths.length, 2);
+              assert.deepEqual(Array.from(populatePaths, spec => spec.path), [
+                'catalog.itemId', 'catalog.exchange.giveItemId',
+              ]);
+              for (const spec of populatePaths) {
+                assert.equal(spec.ordered, true);
+                assert.equal(spec.options.session, transactionSession);
+              }
+              const entry = {
+                itemId: tree,
+                mode: 'exchange',
+                exchange: { giveItemId: objectId, giveQty: 1 },
+              };
+              const giveItemPath = populatePaths.find(spec => spec.path === 'catalog.exchange.giveItemId');
+              if (giveItemPath && giveItemPath.options.session === transactionSession) {
+                entry.exchange.giveItemId = forbiddenGiveItem;
+              }
+              return { catalog: [entry] };
+            }).then(resolve, reject);
+          },
+        };
+      },
+    };
+    const handlers = load('routes/kiosks.js', state.dependencies);
+    const result = await call(handlers['post /:id/transaction'],
+      { characterId: 'actor', catalogIndex: 0 }, { id: 'shop' });
+    assert.equal(result.statusCode, 400);
+    assert.equal(state.user.credits, 50);
+    assert.deepEqual(state.actor.inventory, []);
+    assert.equal(state.saves(), 0);
+  }
 });
 
 test('administrator drone registration rejects canonical food metadata and accepts water', async () => {

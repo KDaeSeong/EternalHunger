@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { captureSimulationReplayResult, cloneReplayData, compareSimulationReplay, createSimulationRunInput, prepareSimulationRunInput, REPLAY_SCHEMA, validateSimulationReplayRecord } from './simulationReplayRuntime';
+import { captureAndCompareSimulationReplay, captureSimulationReplayResult, cloneReplayData, createSimulationRunInput, prepareSimulationRunInput, REPLAY_SCHEMA, validateSimulationReplayRecord } from './simulationReplayRuntime';
 import { classifySimulationReplayStorageError, saveSimulationReplay } from './simulationReplayStorage';
 import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
 
@@ -32,11 +32,9 @@ export function useSimulationReplay(replayRecord = null) {
     let retryableRecord = null;
     try {
       if (!runInputRef.current || !lastFrameRef.current || !random) throw new Error('경기의 시작 조건 또는 종료 기록이 없습니다.');
-      const actual = measureObserverWork('replay.captureResult', () => captureSimulationReplayResult({
-        events, finalFrame: lastFrameRef.current, random, ending,
-      }));
+      const resultInput = { events, finalFrame: lastFrameRef.current, random, ending };
       if (replayRecord) {
-        const comparison = measureObserverWork('replay.compareResult', () => compareSimulationReplay(replayRecord, actual));
+        const comparison = captureAndCompareSimulationReplay(replayRecord, resultInput);
         savedRecordRef.current = replayRecord;
         setReplayStatus({ kind: comparison.matched ? 'matched' : 'different', comparison,
           text: comparison.matched
@@ -44,6 +42,7 @@ export function useSimulationReplay(replayRecord = null) {
             : `원본과 결과가 다릅니다.${comparison.firstDifference >= 0 ? ` 처음 다른 사건: ${comparison.firstDifference + 1}번째.` : ' 최종 상태·난수 또는 종료 판정 차이가 있습니다.'}` });
         return;
       }
+      const actual = measureObserverWork('replay.captureResult', () => captureSimulationReplayResult(resultInput));
       setReplayStatus({ kind: 'saving', text: '동일 재경기를 위해 시작 조건과 전체 사건을 보관 중입니다.' });
       const record = { schema: REPLAY_SCHEMA, id: globalThis.crypto.randomUUID(), finishedAt: Date.now(),
         input: runInputRef.current, ...actual, summary: {

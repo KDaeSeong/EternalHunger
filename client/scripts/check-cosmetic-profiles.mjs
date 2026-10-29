@@ -32,13 +32,13 @@ function loadComponent(path, dependency, React) {
     module: ts.ModuleKind.CommonJS,
     jsx: ts.JsxEmit.ReactJSX,
   });
-  const module = { exports: {} };
+  const loadedModule = { exports: {} };
   new Function('require', 'module', 'exports', code)((specifier) => {
     if (specifier === 'react/jsx-runtime') return jsxRuntime;
     if (specifier === 'react') return React;
     return dependency(specifier);
-  }, module, module.exports);
-  return module.exports.default;
+  }, loadedModule, loadedModule.exports);
+  return loadedModule.exports.default;
 }
 
 function makeHookHost() {

@@ -8,7 +8,8 @@ const { pickTeamFocusTarget, commitRetreatCover } = await import('../src/app/sim
 const { normalizeRuntimeSurvivor } = await import('../src/app/simulation/_lib/survivorRuntime.js');
 const { normalizeRevivedSurvivor } = await import('../src/app/simulation/_lib/survivorLifecycleRuntime.js');
 const { findCharacterSkillChoice } = await import('../src/app/simulation/_lib/characterCastRuntime.js');
-const { updateEffects } = await import('../src/utils/statusLogic.js');
+const { updateEffects, isTargetableByStatus } = await import('../src/utils/statusLogic.js');
+const { areSameTeam } = await import('../src/app/simulation/_lib/teamRuntime.js');
 const { createPhaseCombatSkillSplashRuntime } = await import('../src/app/simulation/_lib/phaseCombatSkillSplashRuntime.js');
 const { buildTeamObserverModel, describeObserverEvent } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
 const { engageCombatParticipants, findNextCombatAction } = await import('../src/app/simulation/_lib/combatTimingRuntime.js');
@@ -52,6 +53,48 @@ await check('only living allies share sight and shared sight never expands attac
   assert.equal(isInBasicAttackRange(a, b, [a, scout, b]), true);
   a.stats.attackRange = 1.5; assert.equal(isInBasicAttackRange(a, b, [a, scout, b]), false);
   scout.hp = 0; assert.equal(canObserveActor(a, b, [a, scout, b]), false);
+});
+await check('reusing one target roster preserves ordered filtering, zero visibility, mixed actor states, and shared ally sight without mutation', () => {
+  const watch = unit('watch', 4, { teamId: 'blue', stats: { attackRange: 3, sightRange: 2 } });
+  const scout = unit('scout', 9, { teamId: 'blue', stats: { attackRange: 3, sightRange: 12 } });
+  const visibleEnemy = unit('visible-enemy', 10, { teamId: 'red' });
+  const hiddenEnemy = unit('hidden-enemy', 22, { teamId: 'red' });
+  const sameTeam = unit('same-team', 5, { teamId: 'blue' });
+  const deadEnemy = unit('dead-enemy', 6, { teamId: 'red', hp: 0 });
+  const otherZone = unit('other-zone', 5, { teamId: 'red', zoneId: 'other', _spatial: point(5, 4, 'other') });
+  const actors = [watch, scout, visibleEnemy, hiddenEnemy, sameTeam, deadEnemy, otherZone];
+  const deepFreeze = (value) => {
+    if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+    Object.freeze(value);
+    for (const child of Object.values(value)) deepFreeze(child);
+    return value;
+  };
+  const roster = deepFreeze(actors);
+  const actorSnapshot = JSON.stringify(roster);
+  const deadIds = ['dead-enemy'];
+  const allowed = (target, sharedRoster) => !!target && !deadIds.includes(target._id)
+    && Number(target.hp || 0) > 0 && isTargetableByStatus(target)
+    && String(target._id || '') !== String(watch._id || '') && !areSameTeam(watch, target)
+    && String(target.zoneId || '') === String(watch.zoneId || '')
+    && canObserveActor(watch, target, sharedRoster);
+  const reference = roster.filter((target) => allowed(target, [...roster]));
+  const reused = roster.filter((target) => allowed(target, roster));
+  assert.deepEqual(reused.map((target) => target._id), reference.map((target) => target._id));
+  assert.deepEqual(reused.map((target) => target._id), ['visible-enemy']);
+  assert.equal(canSeeActor(watch, visibleEnemy), false);
+  assert.equal(JSON.stringify(roster), actorSnapshot);
+
+  const isolatedWatch = unit('isolated-watch', 4, { teamId: 'green', stats: { attackRange: 3, sightRange: 2 } });
+  const isolatedRoster = [isolatedWatch, hiddenEnemy];
+  const noVisibility = isolatedRoster.filter((target) => target !== isolatedWatch
+    && !areSameTeam(isolatedWatch, target) && canObserveActor(isolatedWatch, target, isolatedRoster));
+  assert.deepEqual(noVisibility, []);
+
+  const noCandidatesRoster = [sameTeam, deadEnemy, otherZone];
+  assert.deepEqual(noCandidatesRoster.filter((target) => Number(target.hp || 0) > 0
+    && isTargetableByStatus(target) && !areSameTeam(watch, target)
+    && String(target.zoneId || '') === String(watch.zoneId || '')
+    && canObserveActor(watch, target, noCandidatesRoster)), []);
 });
 await check('actual hit rejects distance and sight failures before reserving cooldown or tactical damage', () => {
   const a = unit('a', 4); const b = unit('b', 8);

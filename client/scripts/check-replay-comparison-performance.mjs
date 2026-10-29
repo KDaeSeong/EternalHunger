@@ -1,7 +1,8 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-const { captureSimulationReplayResult, cloneReplayData, compareSimulationReplay, semanticRunEvents } = await import('../src/app/simulation/_lib/simulationReplayRuntime.js');
+import { subscribeObserverWorkMeasurements } from '../src/app/simulation/_lib/observerWorkMeasurementRuntime.js';
+const { captureAndCompareSimulationReplay, captureSimulationReplayResult, cloneReplayData, compareSimulationReplay, semanticRunEvents } = await import('../src/app/simulation/_lib/simulationReplayRuntime.js');
 
 let checks = 0;
 const check = (name, run) => { run(); checks += 1; console.log(`PASS ${name}`); };
@@ -118,10 +119,85 @@ check('long journals compare all events, including changes after the 5000-row UI
   assert.equal(compareSimulationReplay(base, changed).firstDifference, 7999);
 });
 
+check('completion normalizes the owned actual journal once and the mutable expected journal once', () => {
+  const events = Array.from({ length: 12000 }, (_, index) => ({ kind: 'action', ts: index, payload: { index } }));
+  const input = { events, finalFrame: { survivors: [], dead: [] }, random: { state: 4 }, ending: { outcome: 'last_team' } };
+  const expected = captureSimulationReplayResult(input);
+  const original = JSON.stringify;
+  let serializations = 0;
+  JSON.stringify = function(value, ...args) {
+    if (Array.isArray(value) && value.length === events.length && value[0]?.kind === 'action') serializations++;
+    return original.call(JSON, value, ...args);
+  };
+  let comparison;
+  try {
+    // The fallback preserves the pre-change product path for the red test.
+    comparison = captureAndCompareSimulationReplay
+      ? captureAndCompareSimulationReplay(expected, input)
+      : compareSimulationReplay(expected, captureSimulationReplayResult(input));
+  } finally { JSON.stringify = original; }
+  assert.equal(comparison.matched, true);
+  assert.equal(comparison.actualEvents, events.length);
+  assert.equal(serializations, 2, 'Completion must not normalize its private, just-captured actual journal again.');
+});
+
+check('private completion capture retains JSON equivalence, ownership and first differences', () => {
+  const values = [null, false, 0, -0, NaN, Infinity, undefined, { missing: undefined }, {},
+    [undefined], new Date('2026-01-01T00:00:00Z'), JSON.parse('{"__proto__":{"hp":1},"constructor":2}')];
+  const makeInput = value => ({ events: [{ kind: 'action', ts: 5, payload: value }],
+    finalFrame: { survivors: [{ hp: 5 }], dead: [] }, random: { state: 7 }, ending: { outcome: 'last_team' } });
+  for (const left of values) for (const right of values) {
+    const expected = captureSimulationReplayResult(makeInput(left));
+    const input = makeInput(right);
+    const before = cloneReplayData(input);
+    assert.deepEqual(captureAndCompareSimulationReplay(expected, input),
+      legacyCompare(expected, captureSimulationReplayResult(input)));
+    assert.deepEqual(cloneReplayData(input), before);
+  }
+  const events = Array.from({ length: 8000 }, (_, index) => ({ kind: 'action', ts: index, payload: { index } }));
+  const input = { ...makeInput(null), events };
+  const expected = captureSimulationReplayResult(input);
+  input.events[7999].payload.index = -1;
+  assert.equal(captureAndCompareSimulationReplay(expected, input).firstDifference, 7999);
+  assert.equal(expected.events[7999].payload.index, 7999);
+  for (const field of ['finalFrame', 'random', 'ending']) {
+    const changed = { ...input, [field]: { changed: true } };
+    assert.deepEqual(captureAndCompareSimulationReplay(expected, changed),
+      legacyCompare(expected, captureSimulationReplayResult(changed)));
+  }
+  for (const ending of [undefined, null, { outcome: 'last_team' }]) {
+    const changed = { ...makeInput(null), ending };
+    for (const summary of [undefined, {}, null, { ending: undefined }, { ending: null }]) {
+      const record = { ...captureSimulationReplayResult(changed), summary };
+      assert.deepEqual(captureAndCompareSimulationReplay(record, changed),
+        legacyCompare(record, captureSimulationReplayResult(changed)));
+    }
+  }
+});
+
+check('completion remains synchronous, preserves diagnostic spans and rejects invalid journals', () => {
+  const names = []; let now = 0;
+  const unsubscribe = subscribeObserverWorkMeasurements(() => ++now, entry => names.push(entry.name));
+  const input = { events: Object.freeze([Object.freeze({ kind: 'action', hp: 5 })]),
+    finalFrame: Object.freeze({ hp: 5 }), random: Object.freeze({ state: 8 }), ending: Object.freeze({ outcome: 'last_team' }) };
+  try {
+    const result = captureAndCompareSimulationReplay(captureSimulationReplayResult(input), Object.freeze(input));
+    assert.equal(result.matched, true); assert.equal(typeof result.then, 'undefined');
+    assert.deepEqual(names, ['replay.captureResult', 'replay.compareResult']);
+  } finally { unsubscribe(); }
+  const circular = {}; circular.self = circular;
+  for (const events of [[null], [{ value: 1n }], [{ value: circular }]]) {
+    assert.throws(() => captureAndCompareSimulationReplay(outcome([]), { ...input, events }));
+  }
+});
+
 check('the product completion path uses one synchronous owned capture and keeps diagnostics separate', () => {
   const source = readFileSync(new URL('../src/app/simulation/_lib/useSimulationReplay.js', import.meta.url), 'utf8');
+  const runtime = readFileSync(new URL('../src/app/simulation/_lib/simulationReplayRuntime.js', import.meta.url), 'utf8');
   assert.match(source, /measureObserverWork\('replay\.captureResult', \(\) => captureSimulationReplayResult/);
-  assert.match(source, /measureObserverWork\('replay\.compareResult', \(\) => compareSimulationReplay/);
+  assert.match(source, /captureAndCompareSimulationReplay\(replayRecord, resultInput\)/);
+  assert.match(runtime, /measureObserverWork\('replay\.captureResult', \(\) => captureSimulationReplayResult/);
+  assert.match(runtime, /measureObserverWork\('replay\.compareResult', \(\) => compareNormalizedReplayResults/);
   assert.doesNotMatch(source, /events:\s*semanticRunEvents\(events\)/);
 });
 

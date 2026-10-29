@@ -129,9 +129,9 @@ function createHarness({ user, session, getQueue = [], postQueue = [] }) {
     };
     throw new Error(`Unexpected component dependency: ${specifier}`);
   };
-  const module = { exports: {} };
-  new Function('require', 'module', 'exports', pageCode)((id) => dependency(id), module, module.exports);
-  globalThis.pageModule = module;
+  const loadedModule = { exports: {} };
+  new Function('require', 'module', 'exports', pageCode)((id) => dependency(id), loadedModule, loadedModule.exports);
+  globalThis.pageModule = loadedModule;
   return harness;
 }
 

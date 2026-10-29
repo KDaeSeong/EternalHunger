@@ -20,6 +20,15 @@ const {
   countInInventory,
 } = require('../utils/inventory');
 const { getOwnedPerkContext, applyDiscountedCost, applySaleBonus } = require('../utils/perkRuntime');
+const {
+  applyCreditDelta,
+  attachSession,
+  marketError,
+  modelWithSession,
+  parsePositiveQuantity,
+  runMarketTransaction,
+  sendMarketError,
+} = require('../utils/marketTransaction');
 
 /**
  * POST /api/kiosks/:id/transaction
@@ -33,71 +42,82 @@ router.post('/:id/transaction', async (req, res) => {
     const kioskId = req.params.id;
     const characterId = req.body?.characterId;
     const idx = Number(req.body?.catalogIndex);
-    const qty = Math.max(1, Number(req.body?.qty || 1));
+    const qty = parsePositiveQuantity(req.body?.qty);
 
     if (!characterId) return res.status(400).json({ error: 'characterId가 필요합니다.' });
     if (!Number.isFinite(idx) || idx < 0) return res.status(400).json({ error: 'catalogIndex가 올바르지 않습니다.' });
+    if (qty === null) return res.status(400).json({ error: 'qty가 올바르지 않습니다.' });
 
-    const [kiosk, user, ch, items] = await Promise.all([
-      Kiosk.findOne(scopedFilter(req, { _id: kioskId })).populate('catalog.itemId').populate('catalog.exchange.giveItemId'),
-      User.findById(userId),
-      Character.findOne({ _id: characterId, userId }),
-      Item.find(scopedFilter(req), '_id name'),
-    ]);
+    const result = await runMarketTransaction(User, async (session) => {
+      const kiosk = await attachSession(
+        Kiosk.findOne(scopedFilter(req, { _id: kioskId }))
+          .populate([
+            { path: 'catalog.itemId', options: { session }, ordered: true },
+            { path: 'catalog.exchange.giveItemId', options: { session }, ordered: true },
+          ]), session
+      );
+      if (!kiosk) throw marketError(404, '키오스크를 찾을 수 없습니다.');
+      const user = await attachSession(User.findById(userId), session);
+      if (!user) throw marketError(404, '유저를 찾을 수 없습니다.');
+      const ch = await attachSession(Character.findOne({ _id: characterId, userId }), session);
+      if (!ch) throw marketError(404, '캐릭터를 찾을 수 없습니다.');
+      const items = await attachSession(Item.find(scopedFilter(req), '_id name'), session);
 
-    if (!kiosk) return res.status(404).json({ error: '키오스크를 찾을 수 없습니다.' });
-    if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
-    if (!ch) return res.status(404).json({ error: '캐릭터를 찾을 수 없습니다.' });
+      const entry = kiosk.catalog?.[idx];
+      if (!entry) throw marketError(404, 'catalog 항목을 찾을 수 없습니다.');
+      if (!isKioskCatalogRowAllowed(entry)) throw marketError(400, '키오스크에서는 음식과 물을 거래할 수 없습니다.');
 
-    const entry = kiosk.catalog?.[idx];
-    if (!entry) return res.status(404).json({ error: 'catalog 항목을 찾을 수 없습니다.' });
-    if (!isKioskCatalogRowAllowed(entry)) return res.status(400).json({ error: '키오스크에서는 음식과 물을 거래할 수 없습니다.' });
+      const itemNameMap = buildItemNameMap(items);
+      ch.inventory = normalizeInventory(ch.inventory, itemNameMap, { merge: true });
+      const perkCtx = await getOwnedPerkContext(user, modelWithSession(Perk, session));
+      const perkFx = perkCtx.effects || {};
+      const mode = entry.mode || 'sell';
+      const basePrice = Number(entry.priceCredits || 0);
+      if (!Number.isFinite(basePrice)) throw marketError(400, '카탈로그 가격이 올바르지 않습니다.');
+      const unitBuyPrice = applyDiscountedCost(Math.max(0, basePrice), perkFx.kioskDiscountPct, perkFx.marketDiscountPct);
+      const unitSellPrice = applySaleBonus(Math.max(0, basePrice), perkFx.saleBonusPct);
+      const totalPrice = (mode === 'buy' ? unitSellPrice : unitBuyPrice) * qty;
+      if (!Number.isFinite(totalPrice) || totalPrice < 0 || totalPrice > Number.MAX_SAFE_INTEGER) {
+        throw marketError(400, '거래 금액이 올바르지 않습니다.');
+      }
+      const entryItemId = entry.itemId?._id || entry.itemId;
+      if (!entryItemId) throw marketError(400, '카탈로그 아이템이 비어 있습니다.');
 
-    const itemNameMap = buildItemNameMap(items);
-    ch.inventory = normalizeInventory(ch.inventory, itemNameMap, { merge: true });
+      let creditDelta = 0;
+      if (mode === 'sell') {
+        creditDelta = -totalPrice;
+        addToInventory(ch.inventory, { itemId: entryItemId, name: entry.itemId?.name, qty });
+      } else if (mode === 'buy') {
+        const have = countInInventory(ch.inventory, entryItemId);
+        if (have < qty) throw marketError(400, '아이템이 부족합니다.');
+        if (!removeFromInventory(ch.inventory, entryItemId, qty)) throw marketError(500, '차감 실패');
+        creditDelta = totalPrice;
+      } else if (mode === 'exchange') {
+        const giveItemId = entry.exchange?.giveItemId?._id || entry.exchange?.giveItemId;
+        const unitGiveQty = Number(entry.exchange?.giveQty || 1);
+        const giveQty = Math.max(1, unitGiveQty) * qty;
+        if (!giveItemId) throw marketError(400, '교환 항목이 올바르지 않습니다.');
+        if (!Number.isFinite(unitGiveQty) || unitGiveQty > Number.MAX_SAFE_INTEGER
+          || !Number.isFinite(giveQty) || giveQty <= 0 || giveQty > Number.MAX_SAFE_INTEGER) {
+          throw marketError(400, '교환 수량이 올바르지 않습니다.');
+        }
+        const have = countInInventory(ch.inventory, giveItemId);
+        if (have < giveQty) throw marketError(400, '교환 재료가 부족합니다.');
+        if (!removeFromInventory(ch.inventory, giveItemId, giveQty)) throw marketError(500, '교환 차감 실패');
+        addToInventory(ch.inventory, { itemId: entryItemId, name: entry.itemId?.name, qty });
+      } else {
+        throw marketError(400, '지원하지 않는 mode 입니다.');
+      }
 
-    const perkCtx = await getOwnedPerkContext(user, Perk);
-    const perkFx = perkCtx.effects || {};
+      const updatedUser = await applyCreditDelta(User, userId, creditDelta, session, '크레딧이 부족합니다.');
+      ch.markModified('inventory');
+      await ch.save({ session });
+      return { message: '거래 완료', credits: updatedUser?.credits ?? user.credits, character: ch, perkEffects: perkFx };
+    });
 
-    const mode = entry.mode || 'sell';
-    const basePrice = Math.max(0, Number(entry.priceCredits || 0));
-    const unitBuyPrice = applyDiscountedCost(basePrice, perkFx.kioskDiscountPct, perkFx.marketDiscountPct);
-    const unitSellPrice = applySaleBonus(basePrice, perkFx.saleBonusPct);
-    const totalPrice = (mode === 'buy' ? unitSellPrice : unitBuyPrice) * qty;
-    const entryItemId = entry.itemId?._id || entry.itemId;
-
-    if (!entryItemId) {
-      return res.status(400).json({ error: '카탈로그 아이템이 비어 있습니다.' });
-    }
-
-    if (mode === 'sell') {
-      if (Number(user.credits || 0) < totalPrice) return res.status(400).json({ error: '크레딧이 부족합니다.' });
-      user.credits -= totalPrice;
-      addToInventory(ch.inventory, { itemId: entryItemId, name: entry.itemId?.name, qty });
-    } else if (mode === 'buy') {
-      const have = countInInventory(ch.inventory, entryItemId);
-      if (have < qty) return res.status(400).json({ error: '아이템이 부족합니다.' });
-      if (!removeFromInventory(ch.inventory, entryItemId, qty)) return res.status(500).json({ error: '차감 실패' });
-      user.credits += totalPrice;
-    } else if (mode === 'exchange') {
-      const giveItemId = entry.exchange?.giveItemId?._id || entry.exchange?.giveItemId;
-      const giveQty = Math.max(1, Number(entry.exchange?.giveQty || 1)) * qty;
-      if (!giveItemId) return res.status(400).json({ error: '교환 항목이 올바르지 않습니다.' });
-      const have = countInInventory(ch.inventory, giveItemId);
-      if (have < giveQty) return res.status(400).json({ error: '교환 재료가 부족합니다.' });
-      if (!removeFromInventory(ch.inventory, giveItemId, giveQty)) return res.status(500).json({ error: '교환 차감 실패' });
-      addToInventory(ch.inventory, { itemId: entryItemId, name: entry.itemId?.name, qty });
-    } else {
-      return res.status(400).json({ error: '지원하지 않는 mode 입니다.' });
-    }
-
-    ch.markModified('inventory');
-    await Promise.all([ch.save(), user.save()]);
-
-    res.json({ message: '거래 완료', credits: user.credits, character: ch, perkEffects: perkFx });
+    res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '키오스크 거래 실패' });
+    sendMarketError(res, err, '키오스크 거래 실패');
   }
 });
 

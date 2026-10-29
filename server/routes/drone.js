@@ -18,6 +18,15 @@ const {
   addToInventory,
 } = require('../utils/inventory');
 const { getOwnedPerkContext, applyDiscountedCost } = require('../utils/perkRuntime');
+const {
+  applyCreditDelta,
+  attachSession,
+  marketError,
+  modelWithSession,
+  parsePositiveQuantity,
+  runMarketTransaction,
+  sendMarketError,
+} = require('../utils/marketTransaction');
 
 /**
  * POST /api/drone/buy
@@ -27,46 +36,50 @@ router.post('/buy', async (req, res) => {
   try {
     const userId = req.user.id;
     const { characterId, offerId } = req.body || {};
-    const qty = Math.max(1, Number(req.body?.qty || 1));
+    const qty = parsePositiveQuantity(req.body?.qty);
 
     if (!characterId || !offerId) return res.status(400).json({ error: 'characterId, offerId가 필요합니다.' });
+    if (qty === null) return res.status(400).json({ error: 'qty가 올바르지 않습니다.' });
 
-    const [user, ch, offer, items] = await Promise.all([
-      User.findById(userId),
-      Character.findOne({ _id: characterId, userId }),
-      DroneOffer.findOne(scopedFilter(req, { _id: offerId })).populate('itemId'),
-      Item.find(scopedFilter(req), '_id name'),
-    ]);
+    const result = await runMarketTransaction(User, async (session) => {
+      const user = await attachSession(User.findById(userId), session);
+      if (!user) throw marketError(404, '유저를 찾을 수 없습니다.');
+      const ch = await attachSession(Character.findOne({ _id: characterId, userId }), session);
+      if (!ch) throw marketError(404, '캐릭터를 찾을 수 없습니다.');
+      const offer = await attachSession(
+        DroneOffer.findOne(scopedFilter(req, { _id: offerId })).populate('itemId'), session
+      );
+      if (!offer || !offer.isActive) throw marketError(404, '판매 항목을 찾을 수 없습니다.');
+      const items = await attachSession(Item.find(scopedFilter(req), '_id name'), session);
 
-    if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
-    if (!ch) return res.status(404).json({ error: '캐릭터를 찾을 수 없습니다.' });
-    if (!offer || !offer.isActive) return res.status(404).json({ error: '판매 항목을 찾을 수 없습니다.' });
+      const item = offer.itemId;
+      if (!item) throw marketError(404, '아이템 정보를 찾을 수 없습니다.');
+      if (!isMarketItemAllowed(item, 'drone')) throw marketError(400, '전송 드론은 물을 제외한 음식을 판매하지 않습니다.');
+      if (Number(item.tier || 1) > Number(offer.maxTier || 1)) throw marketError(400, '티어 제한으로 구매할 수 없습니다.');
 
-    const item = offer.itemId;
-    if (!item) return res.status(404).json({ error: '아이템 정보를 찾을 수 없습니다.' });
-    if (!isMarketItemAllowed(item, 'drone')) return res.status(400).json({ error: '전송 드론은 물을 제외한 음식을 판매하지 않습니다.' });
-    if (Number(item.tier || 1) > Number(offer.maxTier || 1)) return res.status(400).json({ error: '티어 제한으로 구매할 수 없습니다.' });
+      const perkCtx = await getOwnedPerkContext(user, modelWithSession(Perk, session));
+      const perkFx = perkCtx.effects || {};
+      const basePrice = Number(offer.priceCredits || 0);
+      if (!Number.isFinite(basePrice)) throw marketError(400, '판매 가격이 올바르지 않습니다.');
+      const price = applyDiscountedCost(Math.max(0, basePrice), perkFx.droneDiscountPct, perkFx.marketDiscountPct);
+      const total = price * qty;
+      if (!Number.isFinite(total) || total < 0 || total > Number.MAX_SAFE_INTEGER) {
+        throw marketError(400, '구매 금액이 올바르지 않습니다.');
+      }
 
-    const perkCtx = await getOwnedPerkContext(user, Perk);
-    const perkFx = perkCtx.effects || {};
+      const itemNameMap = buildItemNameMap(items);
+      ch.inventory = normalizeInventory(ch.inventory, itemNameMap, { merge: true });
+      addToInventory(ch.inventory, { itemId: item._id, name: item.name, qty });
 
-    const price = applyDiscountedCost(Math.max(0, Number(offer.priceCredits || 0)), perkFx.droneDiscountPct, perkFx.marketDiscountPct);
-    const total = price * qty;
-    if (Number(user.credits || 0) < total) return res.status(400).json({ error: '크레딧이 부족합니다.' });
+      const updatedUser = await applyCreditDelta(User, userId, -total, session, '크레딧이 부족합니다.');
+      ch.markModified('inventory');
+      await ch.save({ session });
+      return { message: '구매 완료', credits: updatedUser?.credits ?? user.credits, character: ch, perkEffects: perkFx };
+    });
 
-    const itemNameMap = buildItemNameMap(items);
-    ch.inventory = normalizeInventory(ch.inventory, itemNameMap, { merge: true });
-
-    user.credits -= total;
-    addToInventory(ch.inventory, { itemId: item._id, name: item.name, qty });
-
-    ch.markModified('inventory');
-    await Promise.all([user.save(), ch.save()]);
-
-    res.json({ message: '구매 완료', credits: user.credits, character: ch, perkEffects: perkFx });
+    res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '드론 구매 실패' });
+    sendMarketError(res, err, '드론 구매 실패');
   }
 });
 

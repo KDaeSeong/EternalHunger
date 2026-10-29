@@ -44,7 +44,9 @@ function normalizeInventory(inventory, itemNameMap, { merge = true } = {}) {
   const idMap = itemNameMap && itemNameMap.__idMap instanceof Map ? itemNameMap.__idMap : null;
 
   const normalized = list.map((raw) => {
-    const it = raw && typeof raw === 'object' ? { ...raw } : { name: String(raw || '') };
+    const it = raw instanceof mongoose.Document
+      ? raw.toObject({ transform: false, depopulate: true, getters: false, virtuals: false })
+      : raw && typeof raw === 'object' ? { ...raw } : { name: String(raw || '') };
 
     // qty
     const q = Number(it.qty ?? it.quantity ?? 1);

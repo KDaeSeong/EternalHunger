@@ -5161,13 +5161,21 @@ function actionChanceForRegion(state, actorId, action, region) {
   );
 }
 
-export function regionalActionChance(state, actorId, action, requestedRegionId = '') {
-  const current = normalizeState(state);
+function regionalActionChanceForNormalizedState(current, actorId, action, requestedRegionId = '') {
   const regions = canSelectActionZone(current)
     ? [resolveActionRegion(current, requestedRegionId, () => 0)]
     : revealedActionRegions(current);
   if (!regions.length) return actionChance(current, actorId, action, action === 'hunt' ? 0.42 : 0.5);
   return regions.reduce((sum, region) => sum + actionChanceForRegion(current, actorId, action, region), 0) / regions.length;
+}
+
+export function regionalActionChance(state, actorId, action, requestedRegionId = '') {
+  return regionalActionChanceForNormalizedState(
+    normalizeState(state),
+    actorId,
+    action,
+    requestedRegionId,
+  );
 }
 
 function discoverRegionAfterAction(state, region, ok, rng = Math.random) {
@@ -5906,8 +5914,8 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
   const zoneSelectionUnlocked = canSelectActionZone(current);
   const region = resolveActionRegion(current, requestedRegionId, () => 0);
   const precise = hasTechPassive(current, 'FORECAST_DETAIL_UP');
-  const gatherChance = regionalActionChance(current, actorId, 'gather', requestedRegionId);
-  const huntChance = regionalActionChance(current, actorId, 'hunt', requestedRegionId);
+  const gatherChance = regionalActionChanceForNormalizedState(current, actorId, 'gather', requestedRegionId);
+  const huntChance = regionalActionChanceForNormalizedState(current, actorId, 'hunt', requestedRegionId);
   const gatherGains = expectedZoneGains(current, 'gather', actorId, requestedRegionId);
   const huntGains = expectedZoneGains(current, 'hunt', actorId, requestedRegionId);
   const recipe = RECIPES.find((row) => row.id === recipeId) || RECIPES[0];

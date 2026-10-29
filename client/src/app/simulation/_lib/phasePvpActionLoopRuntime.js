@@ -472,7 +472,8 @@ function* pvpActionSteps({
       }
 
       const actorRecoveryLocked = isAiRecoveryLocked(actor, currentActionSec());
-      const potentialTargets = [...survivorMap.values()].filter((target) => {
+      const targetRoster = [...survivorMap.values()];
+      const potentialTargets = targetRoster.filter((target) => {
         if (!target || newDeadIds.includes(target._id)) return false;
         if (Number(target.hp || 0) <= 0) return false;
         if (!isTargetableByStatus(target)) return false;
@@ -480,7 +481,7 @@ function* pvpActionSteps({
         if (areSameTeam(actor, target)) return false;
         if (String(target?.zoneId || '') !== String(actor?.zoneId || '')) return false;
         if (actorRecoveryLocked) return false;
-        return canObserveActor(actor, target, [...survivorMap.values()]);
+        return canObserveActor(actor, target, targetRoster);
       });
       const canDual = potentialTargets.length >= (pvpMinSameZone - 1);
 

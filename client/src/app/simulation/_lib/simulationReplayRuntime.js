@@ -6,6 +6,7 @@ import { getForbiddenAddedZoneIdsForPhase, getForbiddenZoneIdsForPhase } from '.
 import { buildCraftableItems, buildItemKeyById, buildItemMetaById, buildItemNameById } from './itemOptionsRuntime';
 import { lockPreparedLateGrowthCatalog } from './lateGrowthTargetRuntime.js';
 import { GAMEPLAY_PERK_CODES, normalizeGameplayPerkCodes } from '../../../utils/gameplayPerks';
+import { measureObserverWork } from './observerWorkMeasurementRuntime.js';
 
 export const REPLAY_SCHEMA = 'eternal-hunger.replay.v1';
 const SETTINGS_KEYS = ['rulesetId', 'matchMode', 'statWeights', 'suddenDeathTurn', 'forbiddenZoneEnabled',
@@ -177,9 +178,7 @@ function equalReplayJson(left, right) {
     && keys.every((key) => Object.hasOwn(right, key) && equalReplayJson(left[key], right[key]));
 }
 
-export function compareSimulationReplay(expected, actual) {
-  const left = semanticRunEvents(expected.events);
-  const right = semanticRunEvents(actual.events);
+function compareNormalizedReplayResults(expected, actual, left, right) {
   let firstDifference = -1;
   for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
     if (!equalReplayJson(left[index], right[index])) { firstDifference = index; break; }
@@ -192,4 +191,18 @@ export function compareSimulationReplay(expected, actual) {
     && (!expectedHasEnding || canonical(expected.summary.ending) === canonical(actual.summary.ending));
   return { matched: firstDifference === -1 && sameFinalState && sameRandom && sameEnding, firstDifference,
     expectedEvents: left.length, actualEvents: right.length, sameFinalState, sameRandom, sameEnding };
+}
+
+export function compareSimulationReplay(expected, actual) {
+  return compareNormalizedReplayResults(expected, actual,
+    semanticRunEvents(expected.events), semanticRunEvents(actual.events));
+}
+
+// The actual snapshot stays private between synchronous capture and comparison.
+// Unlike arbitrary caller-owned outcomes, its journal is already JSON-normalized
+// and cannot be edited by another consumer before the comparison reads it.
+export function captureAndCompareSimulationReplay(expected, input) {
+  const actual = measureObserverWork('replay.captureResult', () => captureSimulationReplayResult(input));
+  return measureObserverWork('replay.compareResult', () => compareNormalizedReplayResults(expected, actual,
+    semanticRunEvents(expected.events), actual.events));
 }

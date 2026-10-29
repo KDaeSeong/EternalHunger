@@ -64,6 +64,14 @@ const Item = require('../models/Item');
 const User = require('../models/User');
 const Character = require('../models/Characters');
 const { ownedFilter, scopedFilter } = require('../utils/requestScope');
+const {
+  applyCreditDelta,
+  attachSession,
+  marketError,
+  parsePositiveQuantity,
+  runMarketTransaction,
+  sendMarketError,
+} = require('../utils/marketTransaction');
 
 const crypto = require('crypto');
 
@@ -255,87 +263,102 @@ router.post('/craft', async (req, res) => {
     const userId = req.user.id;
     const characterId = req.body?.characterId;
     const resultItemId = req.body?.itemId;
-    const qty = Number(req.body?.qty || 1);
+    const qty = parsePositiveQuantity(req.body?.qty, 0);
 
     if (!characterId || !resultItemId) return res.status(400).json({ error: 'characterId, itemId가 필요합니다.' });
-    if (!Number.isFinite(qty) || qty <= 0) return res.status(400).json({ error: 'qty가 올바르지 않습니다.' });
+    if (qty === null) return res.status(400).json({ error: 'qty가 올바르지 않습니다.' });
 
-    const [user, ch, resultItem, items] = await Promise.all([
-      User.findById(userId),
-      Character.findOne({ _id: characterId, userId }),
-      Item.findOne(scopedFilter(req, { _id: resultItemId })),
-      Item.find(scopedFilter(req), '_id name itemKey externalId tags type tier'),
-    ]);
+    const result = await runMarketTransaction(User, async (session) => {
+      const user = await attachSession(User.findById(userId), session);
+      if (!user) throw marketError(404, '유저를 찾을 수 없습니다.');
+      const ch = await attachSession(Character.findOne({ _id: characterId, userId }), session);
+      if (!ch) throw marketError(404, '캐릭터를 찾을 수 없습니다.');
+      const resultItem = await attachSession(Item.findOne(scopedFilter(req, { _id: resultItemId })), session);
+      if (!resultItem) throw marketError(404, '아이템을 찾을 수 없습니다.');
+      const items = await attachSession(
+        Item.find(scopedFilter(req), '_id name itemKey externalId tags type tier'), session
+      );
 
-    if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
-    if (!ch) return res.status(404).json({ error: '캐릭터를 찾을 수 없습니다.' });
-    if (!resultItem) return res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
-
-    const recipe = resultItem.recipe;
-    if (!recipe || !Array.isArray(recipe.ingredients) || recipe.ingredients.length === 0) {
-      return res.status(400).json({ error: '이 아이템은 조합 레시피가 없습니다.' });
-    }
-
-    // inventory 정규화(안전)
-    const itemNameMap = buildItemNameMap(items);
-    const itemMetaMap = {};
-    for (const it of (Array.isArray(items) ? items : [])) {
-      if (!it?._id) continue;
-      itemMetaMap[String(it._id)] = {
-        name: it.name,
-        type: it.type,
-        tags: it.tags,
-        tier: clampTier4(it.tier || 1),
-        itemKey: it.itemKey || it.externalId
-      };
-    }
-    ch.inventory = normalizeInventory(ch.inventory, itemNameMap, { merge: true });
-
-    // 재료 체크
-    for (const ing of recipe.ingredients) {
-      const need = Number(ing.qty || 1) * qty;
-      const have = countInInventory(ch.inventory, ing.itemId);
-      if (have < need) {
-        return res.status(400).json({ error: `재료 부족: ${String(ing.itemId)} (${have}/${need})` });
+      const recipe = resultItem.recipe;
+      if (!recipe || !Array.isArray(recipe.ingredients) || recipe.ingredients.length === 0) {
+        throw marketError(400, '이 아이템은 조합 레시피가 없습니다.');
       }
-    }
 
-    // 크레딧 체크/차감
-    const cost = Number(recipe.creditsCost || 0) * qty;
-    if (cost > 0) {
-      if (Number(user.credits || 0) < cost) return res.status(400).json({ error: '크레딧이 부족합니다.' });
-      user.credits -= cost;
-      await user.save();
-    }
+      const itemNameMap = buildItemNameMap(items);
+      const itemMetaMap = {};
+      for (const it of (Array.isArray(items) ? items : [])) {
+        if (!it?._id) continue;
+        itemMetaMap[String(it._id)] = {
+          name: it.name,
+          type: it.type,
+          tags: it.tags,
+          tier: clampTier4(it.tier || 1),
+          itemKey: it.itemKey || it.externalId
+        };
+      }
+      ch.inventory = normalizeInventory(ch.inventory, itemNameMap, { merge: true });
 
-    // 재료 차감
-    for (const ing of recipe.ingredients) {
-      const need = Number(ing.qty || 1) * qty;
-      const ok = removeFromInventory(ch.inventory, ing.itemId, need);
-      if (!ok) return res.status(500).json({ error: '재료 차감 중 오류' });
-    }
+      const ingredientNeeds = [];
+      for (const ing of recipe.ingredients) {
+        const unitNeed = Number(ing.qty || 1);
+        const need = unitNeed * qty;
+        if (!Number.isFinite(unitNeed) || unitNeed <= 0
+          || !Number.isFinite(need) || need > Number.MAX_SAFE_INTEGER) {
+          throw marketError(400, '레시피 재료 수량이 올바르지 않습니다.');
+        }
+        const have = countInInventory(ch.inventory, ing.itemId);
+        if (have < need) throw marketError(400, `재료 부족: ${String(ing.itemId)} (${have}/${need})`);
+        ingredientNeeds.push({ itemId: ing.itemId, need });
+      }
 
-    // 결과 지급
-    const give = Number(recipe.resultQty || 1) * qty;
-    const ingredientItems = (Array.isArray(recipe?.ingredients) ? recipe.ingredients : [])      .map((ing) => itemMetaMap[String(ing?.itemId || '')])      .filter(Boolean);
+      const unitCost = Number(recipe.creditsCost || 0);
+      const cost = unitCost * qty;
+      if (!Number.isFinite(unitCost) || unitCost < 0 || unitCost > Number.MAX_SAFE_INTEGER
+        || !Number.isFinite(cost) || cost > Number.MAX_SAFE_INTEGER) {
+        throw marketError(400, '조합 비용이 올바르지 않습니다.');
+      }
+      const giveUnit = Number(recipe.resultQty || 1);
+      const give = giveUnit * qty;
+      if (!Number.isFinite(giveUnit) || giveUnit <= 0
+        || !Number.isFinite(give) || give > Number.MAX_SAFE_INTEGER) {
+        throw marketError(400, '조합 결과 수량이 올바르지 않습니다.');
+      }
 
-    const isEquip = isEquipmentItem(resultItem);
-    let craftedTier = clampTier4(resultItem?.tier || 1);
-    let craftedRarity;
-    if (isEquip) {
-      craftedTier = computeCraftTierFromIngredientItems(ingredientItems);
-      craftedRarity = tierLabelKo(craftedTier);
-    }
+      for (const { itemId, need } of ingredientNeeds) {
+        if (!removeFromInventory(ch.inventory, itemId, need)) throw marketError(500, '재료 차감 중 오류');
+      }
 
-    addToInventory(ch.inventory, { itemId: resultItem._id, itemKey: resultItem.itemKey || resultItem.externalId, name: resultItem.name, qty: give, tags: resultItem.tags, type: resultItem.type, tier: craftedTier, rarity: craftedRarity });
+      const ingredientItems = recipe.ingredients
+        .map((ing) => itemMetaMap[String(ing?.itemId || '')])
+        .filter(Boolean);
+      const isEquip = isEquipmentItem(resultItem);
+      let craftedTier = clampTier4(resultItem?.tier || 1);
+      let craftedRarity;
+      if (isEquip) {
+        craftedTier = computeCraftTierFromIngredientItems(ingredientItems);
+        craftedRarity = tierLabelKo(craftedTier);
+      }
 
-    ch.markModified('inventory');
-    await ch.save();
+      addToInventory(ch.inventory, {
+        itemId: resultItem._id,
+        itemKey: resultItem.itemKey || resultItem.externalId,
+        name: resultItem.name,
+        qty: give,
+        tags: resultItem.tags,
+        type: resultItem.type,
+        tier: craftedTier,
+        rarity: craftedRarity
+      });
 
-    res.json({ message: '조합 성공', credits: user.credits, character: ch });
+      const updatedUser = await applyCreditDelta(User, userId, -cost, session, '크레딧이 부족합니다.');
+      ch.markModified('inventory');
+      await ch.save({ session });
+      return { message: '조합 성공', credits: updatedUser?.credits ?? user.credits, character: ch };
+    });
+
+    res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '조합 실패' });
+    sendMarketError(res, err, '조합 실패');
   }
 });
 

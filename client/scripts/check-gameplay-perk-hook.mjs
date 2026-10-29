@@ -33,7 +33,7 @@ registerHooks({
   },
 });
 
-const { default: useGameplayPerks } = await import(hookUrl);
+const { default: invokeGameplayPerks } = await import(hookUrl);
 const {
   CAREFUL_GATHER,
   RESEARCH_NOTES,
@@ -141,7 +141,7 @@ function makeHost(gameSlug = 'primitive-archive') {
       this.effects = [];
       this.dirty = false;
       globalThis.__gameplayPerkReactHost = this;
-      try { result = useGameplayPerks(gameSlug); } finally { globalThis.__gameplayPerkReactHost = null; }
+      try { result = invokeGameplayPerks(gameSlug); } finally { globalThis.__gameplayPerkReactHost = null; }
       this.effects.forEach((effect) => effect());
       return result;
     },
