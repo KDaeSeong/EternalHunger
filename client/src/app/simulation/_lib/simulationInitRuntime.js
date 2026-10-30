@@ -92,6 +92,12 @@ async function loadMarketData() {
     kiosks: getSettledArray(kiosksRes),
     droneOffers: getSettledArray(droneRes),
     publicPerks: getSettledArray(perksRes),
+    failedFields: getRejectedLabels([
+      ['publicItems', itemsRes],
+      ['kiosks', kiosksRes],
+      ['droneOffers', droneRes],
+      ['publicPerks', perksRes],
+    ]),
     failedLabels: getRejectedLabels([
       ['아이템', itemsRes],
       ['키오스크', kiosksRes],

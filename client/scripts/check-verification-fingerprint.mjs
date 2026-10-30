@@ -127,6 +127,24 @@ function verificationSources(mode, mutatePath = '') {
     },
   }, { timeout: 10000 });
 }
+const distributionProofPaths = ['scripts/analyze-match-distribution.mjs',
+  'scripts/lib/run-random-isolation-match.mjs', 'scripts/lib/match-distribution-frame-tracker.mjs',
+  'scripts/lib/match-distribution-diagnostics.mjs', 'scripts/lib/movement-reversal-trace.mjs',
+  'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs',
+  'scripts/check-verification-fingerprint.mjs', 'src/app/simulation/_generated/guestItemCatalog.generated.js',
+  'src/app/simulation/_generated/simulationEngineVersion.js'];
+for (const mode of ['distribution', 'distribution-varied', 'distribution-observer', 'movement-trace']) {
+  const before = verificationSources(mode);
+  const paths = mode === 'movement-trace'
+    ? [...distributionProofPaths, 'scripts/check-movement-reversal-trace.mjs'] : distributionProofPaths;
+  for (const path of paths) {
+    assert.equal(typeof before[path], 'string', `${mode} must fingerprint ${path}.`);
+    const after = verificationSources(mode, fileURLToPath(new URL(path, root)));
+    assert.notEqual(after[path], before[path],
+      'Changing a distribution executor, diagnostic, module hook or generated input must invalidate its receipt.');
+  }
+}
+console.log('PASS distribution executor, diagnostics and generated-input mutations invalidate all distribution modes');
 const growthProofPaths = ['scripts/check-growth-progress-inventory.mjs', 'scripts/check-growth-fulfillment-match.mjs',
   'scripts/lib/run-random-isolation-match.mjs', 'scripts/lib/register-simulation-modules.mjs'];
 for (const mode of ['growth', 'performance', 'growth-focus-unit', 'initial-weapon-goal-unit', 'full']) {
@@ -337,5 +355,5 @@ for (const path of ['scripts/check-eternal-hunger-regressions.mjs', 'scripts/che
   assert.notEqual(after[path], before[path], 'Regression entry and cold local bootstrap changes must invalidate the full receipt.');
 }
 console.log('PASS regression entry, RNG/movement fixtures and cold local bootstrap proofs invalidate the full-chain receipt');
-console.log(JSON.stringify({ pass: true, checks: 21, engine: base.wrapper,
+console.log(JSON.stringify({ pass: true, checks: 22, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));

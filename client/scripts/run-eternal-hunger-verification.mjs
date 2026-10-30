@@ -115,7 +115,15 @@ function fingerprint() {
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json',
     'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs',
-    'scripts/check-simulation-log-retention.mjs', 'scripts/check-evaluation-market-isolation.mjs'];
+    'scripts/check-simulation-log-retention.mjs', 'scripts/check-evaluation-market-isolation.mjs',
+    'scripts/check-market-failure-state.mjs'];
+  if (['distribution', 'distribution-varied', 'distribution-observer', 'movement-trace'].includes(mode)) paths.push(
+    'scripts/analyze-match-distribution.mjs', 'scripts/lib/run-random-isolation-match.mjs',
+    'scripts/lib/match-distribution-frame-tracker.mjs', 'scripts/lib/match-distribution-diagnostics.mjs',
+    'scripts/lib/movement-reversal-trace.mjs', 'scripts/check-verification-fingerprint.mjs',
+    'src/app/simulation/_generated/guestItemCatalog.generated.js',
+    'src/app/simulation/_generated/simulationEngineVersion.js');
+  if (mode === 'movement-trace') paths.push('scripts/check-movement-reversal-trace.mjs');
   if (['observer-evidence-unit', 'build', 'runtime-build', 'performance', 'full'].includes(mode)) paths.push(
     'scripts/generate-simulation-version.mjs', 'scripts/check-verification-fingerprint.mjs',
     'scripts/check-observer-performance-guards.mjs', 'scripts/check-observer-performance-probe.mjs',

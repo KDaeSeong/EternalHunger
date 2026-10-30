@@ -40,10 +40,10 @@ export async function loadMarketIntoState(actions = {}) {
     setMarketMessage('');
     const result = await loadMarketData();
     if (actions.canApply && !actions.canApply()) return;
-    setPublicItems(result.publicItems);
-    setKiosks(result.kiosks);
-    setDroneOffers(result.droneOffers);
-    setPublicPerks(result.publicPerks);
+    if (!result.failedFields?.includes('publicItems')) setPublicItems(result.publicItems);
+    if (!result.failedFields?.includes('kiosks')) setKiosks(result.kiosks);
+    if (!result.failedFields?.includes('droneOffers')) setDroneOffers(result.droneOffers);
+    if (!result.failedFields?.includes('publicPerks')) setPublicPerks(result.publicPerks);
     if (result.failedLabels.length) setMarketMessage(`${result.failedLabels.join(', ')} 로드 실패`);
   } catch (error) {
     setMarketMessage(getApiErrorMessage(error));
