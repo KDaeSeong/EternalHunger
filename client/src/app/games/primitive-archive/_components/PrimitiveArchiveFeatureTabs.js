@@ -1,6 +1,7 @@
 import PrimitiveArchiveActionWorkspace from './PrimitiveArchiveActionWorkspace';
 import PrimitiveArchiveCampWorkspace from './PrimitiveArchiveCampWorkspace';
 import PrimitiveArchiveGrowthTab from './PrimitiveArchiveGrowthTab';
+import PrimitiveArchiveFoundersTab from './PrimitiveArchiveFoundersTab';
 import PrimitiveArchiveDeveloperTab from './PrimitiveArchiveDeveloperTab';
 import PrimitiveArchiveInventoryTab from './PrimitiveArchiveInventoryTab';
 import PrimitiveArchivePartyWorkspace from './PrimitiveArchivePartyWorkspace';
@@ -65,6 +66,12 @@ export default function PrimitiveArchiveFeatureTabs(props) {
       label: '기록서',
       badge: archiveReport.grade,
       children: <PrimitiveArchiveReportTab {...props} />,
+    },
+    {
+      id: 'founders',
+      label: '창건자·전승',
+      badge: `${props.foundersRows?.length || 0}명`,
+      children: <PrimitiveArchiveFoundersTab {...props} />,
     },
     {
       id: 'growth',

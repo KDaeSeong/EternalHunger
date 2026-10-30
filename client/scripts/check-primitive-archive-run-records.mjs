@@ -99,7 +99,7 @@ const { default: PrimitiveArchiveRunTab } = await import(runTabUrl);
 function fixture(overrides = {}) {
   const base = engine.createNewState({
     rng: () => 0.5,
-    runId: 'run-record-check',
+    runId: overrides.runId ?? 'run-record-check',
     now: '2026-10-20T00:00:00.000Z',
   });
   return engine.normalizeState({
@@ -189,7 +189,10 @@ check('separate runs started in the same millisecond have distinct identities wi
     const explicit = engine.createNewState({ ...options, runId: 'legacy-preserved-run', rng: () => { explicitDraws += 1; return 0.5; } });
     assert.notEqual(first.runId, second.runId);
     assert.equal(generatedDraws, explicitDraws * 2);
-    assert.deepEqual({ ...first, runId: explicit.runId }, explicit);
+    assert.equal(first.founderHistory.runId, first.runId);
+    assert.equal(explicit.founderHistory.runId, explicit.runId);
+    assert.deepEqual({ ...first, runId: explicit.runId,
+      founderHistory: { ...first.founderHistory, runId: explicit.runId } }, explicit);
     assert.equal(engine.normalizeState(explicit).runId, explicit.runId);
   } finally {
     Date.now = originalNow;
@@ -209,7 +212,10 @@ check('a crypto-less runtime still separates same-millisecond runs without consu
     const second = engine.createNewState(options);
     assert.notEqual(first.runId, second.runId);
     assert.equal(draws, firstDraws * 2);
-    assert.deepEqual({ ...first, runId: second.runId }, second);
+    assert.equal(first.founderHistory.runId, first.runId);
+    assert.equal(second.founderHistory.runId, second.runId);
+    assert.deepEqual({ ...first, runId: second.runId,
+      founderHistory: { ...first.founderHistory, runId: second.runId } }, second);
   } finally {
     Date.now = originalNow;
     if (cryptoDescriptor) Object.defineProperty(globalThis, 'crypto', cryptoDescriptor);

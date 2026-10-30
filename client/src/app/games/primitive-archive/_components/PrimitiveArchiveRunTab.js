@@ -23,6 +23,9 @@ export default function PrimitiveArchiveRunTab(props) {
     currentDifficulty,
     hydrated,
     newRunDifficulty,
+    founderChoices = [],
+    newRunFounderIds,
+    setNewRunFounderIds,
     recordRun,
     selectedDifficulty,
     setActiveTabId,
@@ -106,6 +109,33 @@ export default function PrimitiveArchiveRunTab(props) {
 
       {shopPerkSetup || null}
 
+      {Array.isArray(newRunFounderIds) && (
+        <fieldset className="primitive-founder-selection" disabled={persistenceBusy}>
+          <legend>다음 런의 창건자 · {newRunFounderIds.length}/3명 선택</legend>
+          <p id="primitive-founder-selection-help">새 런을 함께 시작할 3명을 고르세요. 선택한 순서대로 배치되며 현재 런의 대원과 기록은 바뀌지 않습니다.</p>
+          <div className="primitive-founder-selection__choices">
+            {founderChoices.map(member => (
+              <label key={member.id}>
+                <input
+                  type="checkbox"
+                  checked={newRunFounderIds.includes(member.id)}
+                  disabled={!newRunFounderIds.includes(member.id) && newRunFounderIds.length >= 3}
+                  aria-describedby="primitive-founder-selection-help"
+                  onChange={event => {
+                    const selected = event.target.checked;
+                    setNewRunFounderIds(current => selected
+                      ? current.includes(member.id) || current.length >= 3 ? current : [...current, member.id]
+                      : current.filter(id => id !== member.id));
+                  }}
+                />
+                <span><strong>{member.name}</strong><small>{member.role} · {member.trait}</small></span>
+              </label>
+            ))}
+          </div>
+          <p role="status">{newRunFounderIds.length === 3 ? '선택한 3명으로 새 런을 시작할 수 있습니다.' : '창건자 3명을 선택해야 새 런을 시작할 수 있습니다.'}</p>
+        </fieldset>
+      )}
+
       <div className="primitive-difficulty-grid">
         {difficultyRows().map((row) => (
           <button
@@ -131,7 +161,7 @@ export default function PrimitiveArchiveRunTab(props) {
       </div>
 
       <div className="primitive-run-management__actions">
-        <ActionButton action="new" onClick={startNewRun} disabled={persistenceBusy}>{selectedDifficulty.label}으로 새 런</ActionButton>
+        <ActionButton action="new" onClick={startNewRun} disabled={persistenceBusy || (Array.isArray(newRunFounderIds) && newRunFounderIds.length !== 3)}>{selectedDifficulty.label}으로 새 런</ActionButton>
         <GameControlButton
           action="archive"
           onClick={() => void recordRun()}

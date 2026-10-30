@@ -2304,8 +2304,20 @@ export function rollWeather(day = 1, rng = Math.random) {
   return WEATHER[0];
 }
 
-export function makeParty() {
-  return STUDENTS.slice(0, 3).map((student) => ({
+export function makeParty(founderIds) {
+  let selected = STUDENTS.slice(0, 3);
+  if (founderIds !== undefined) {
+    if (!Array.isArray(founderIds) || founderIds.length !== 3
+      || new Set(founderIds).size !== 3
+      || !Array.from(founderIds).every((id) => typeof id === 'string'
+        && STUDENTS.some((student) => student.id === id))) {
+      const error = new RangeError('초대 인물은 목록에서 서로 다른 3명을 선택해야 합니다.');
+      error.code = 'ARCHIVE_FOUNDER_SELECTION';
+      throw error;
+    }
+    selected = founderIds.map((id) => STUDENTS.find((student) => student.id === id));
+  }
+  return selected.map((student) => ({
     ...student,
     hp: 100,
     hunger: 12,

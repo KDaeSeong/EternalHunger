@@ -190,8 +190,9 @@ check('all six maximum perks serialize, restore, and apply to the next run', () 
   const first = checkpointApi.writeCheckpoint(storage, owner, saved, { expectedRevision: 0, savedAt: now });
   assert.equal(first.status, 'ready');
   const noPerks = engine.normalizeState({
-    ...saved,
-    runId: 'perk-checkpoint-other',
+    ...engine.createNewState({
+      runId: 'perk-checkpoint-other', now, rng: () => 0.5, difficulty: 'normal', meta: saved.meta,
+    }),
     meta: { ...saved.meta, ownedPerks: {}, perkPoints: 3 },
   });
   const second = checkpointApi.writeCheckpoint(storage, owner, noPerks, {
@@ -286,7 +287,9 @@ check('restored perk points and award survive serialization and support a later 
   });
   const first = checkpointApi.writeCheckpoint(storage, owner, saved, { expectedRevision: 0, savedAt: now });
   assert.equal(first.status, 'ready');
-  const replacement = engine.normalizeState({ ...saved, runId: 'perk-reward-restore-replacement' });
+  const replacement = engine.normalizeState(engine.createNewState({
+    runId: 'perk-reward-restore-replacement', now, rng: () => 0.5, meta: saved.meta,
+  }));
   const second = checkpointApi.writeCheckpoint(storage, owner, replacement, {
     expectedRevision: 1, forcePrevious: true, savedAt: '2026-10-26T00:01:00.000Z',
   });

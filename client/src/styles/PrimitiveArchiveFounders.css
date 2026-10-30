@@ -1,0 +1,132 @@
+.primitive-era .primitive-founders {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  color: var(--era-ink);
+  overflow-wrap: anywhere;
+}
+
+.primitive-era .primitive-founders .games-panel {
+  min-width: 0;
+  margin: 0;
+  color: var(--era-ink);
+  background: var(--era-surface);
+  border: var(--era-panel-border);
+  border-radius: var(--era-panel-radius);
+}
+
+.primitive-era .primitive-founders h2,
+.primitive-era .primitive-founders h3,
+.primitive-era .primitive-founders p {
+  margin: 0;
+}
+
+.primitive-era .primitive-founders h2,
+.primitive-era .primitive-founders h3 {
+  color: var(--era-ink);
+  font-family: var(--era-display);
+}
+
+.primitive-era .primitive-founders h2 { font-size: 1.35rem; }
+.primitive-era .primitive-founders h3 { margin-bottom: 8px; font-size: 1rem; }
+.primitive-era .primitive-founders p { line-height: 1.65; }
+.primitive-era .primitive-founders__intro,
+.primitive-era .primitive-founders__future { display: grid; gap: 10px; padding: 18px; }
+.primitive-era .primitive-founders__eyebrow,
+.primitive-era .primitive-founders__muted { color: var(--era-ink-soft); font-size: 0.9rem; }
+.primitive-era .primitive-founders__overview,
+.primitive-era .primitive-founders__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(135px, 100%), 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.primitive-era .primitive-founders__overview > div,
+.primitive-era .primitive-founders__fields > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-control-radius);
+  background: var(--era-sunk);
+}
+
+.primitive-era .primitive-founders dt { color: var(--era-ink-soft); font-size: 0.8rem; }
+.primitive-era .primitive-founders dd { margin: 4px 0 0; font-weight: 750; }
+.primitive-era .primitive-founders__notice { padding: 12px; background: var(--era-warning-soft); border-radius: var(--era-control-radius); }
+.primitive-era .primitive-founders__list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.primitive-era .primitive-founders__person { padding: 0; }
+.primitive-era .primitive-founders__person > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--era-panel-radius);
+}
+
+.primitive-era .primitive-founders__person > summary::-webkit-details-marker { display: none; }
+.primitive-era .primitive-founders__person > summary:focus-visible {
+  outline: 3px solid var(--era-focus);
+  outline-offset: 2px;
+}
+
+.primitive-era .primitive-founders__identity { display: flex; min-width: 0; flex: 1; gap: 12px; align-items: center; }
+.primitive-era .primitive-founders__portrait { width: 56px; height: 56px; flex: 0 0 56px; object-fit: cover; border-radius: var(--era-control-radius); background: var(--era-accent-soft); }
+.primitive-era .primitive-founders__portrait--empty { display: grid; place-items: center; color: var(--era-accent-deep); font-size: 1.6rem; }
+.primitive-era .primitive-founders__identity-copy { display: grid; gap: 4px; min-width: 0; }
+.primitive-era .primitive-founders__identity-copy strong { font-size: 1.05rem; }
+.primitive-era .primitive-founders__identity-copy span,
+.primitive-era .primitive-founders__identity-copy small { color: var(--era-ink-soft); line-height: 1.45; }
+.primitive-era .primitive-founders__toggle { flex: 0 0 auto; color: var(--era-accent-deep); font-size: 1.5rem; }
+.primitive-era .primitive-founders__person[open] > summary .primitive-founders__toggle { transform: rotate(180deg); }
+.primitive-era .primitive-founders__record { display: grid; gap: 18px; padding: 0 16px 18px; }
+.primitive-era .primitive-founders__deeds { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.primitive-era .primitive-founders__deeds li { display: grid; grid-template-columns: minmax(0, 72px) minmax(0, 1fr); gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--era-line); }
+.primitive-era .primitive-founders__deeds li > span { color: var(--era-ink-soft); font-size: 0.85rem; }
+.primitive-era .primitive-founders__death { padding: 12px; border: 1px solid var(--era-line); border-radius: var(--era-control-radius); background: var(--era-sunk); }
+.primitive-era .primitive-founders__future { border-style: dashed; }
+.primitive-era .primitive-founders__empty { padding: 20px; }
+
+.primitive-era .primitive-founder-selection {
+  min-width: 0;
+  margin: 16px 0;
+  padding: 14px;
+  color: var(--era-ink);
+  background: var(--era-surface);
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-block-radius);
+}
+.primitive-era .primitive-founder-selection legend { padding: 0 6px; font-weight: 750; }
+.primitive-era .primitive-founder-selection p { line-height: 1.6; }
+.primitive-era .primitive-founder-selection__choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
+  gap: 8px;
+}
+.primitive-era .primitive-founder-selection__choices label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-control-radius);
+  background: var(--era-sunk);
+  overflow-wrap: anywhere;
+}
+.primitive-era .primitive-founder-selection__choices input { flex: 0 0 auto; width: 20px; height: 20px; }
+.primitive-era .primitive-founder-selection__choices span { display: grid; gap: 4px; min-width: 0; }
+.primitive-era .primitive-founder-selection__choices small { color: var(--era-ink-soft); }
+.primitive-era .primitive-founder-selection__choices label:focus-within { outline: 2px solid var(--era-accent); outline-offset: 2px; }
+
+@media (max-width: 480px) {
+  .primitive-era .primitive-founders__intro,
+  .primitive-era .primitive-founders__future { padding: 14px; }
+  .primitive-era .primitive-founders__person > summary { padding: 12px; gap: 8px; }
+  .primitive-era .primitive-founders__identity { gap: 9px; }
+  .primitive-era .primitive-founders__record { padding: 0 12px 14px; }
+  .primitive-era .primitive-founders__deeds li { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+}

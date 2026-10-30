@@ -48,6 +48,8 @@ import {
   seasonForDay,
 } from './primitiveArchiveData';
 import { GAMEPLAY_PERK_CODES, normalizeGameplayPerkCodes } from '../../../../utils/gameplayPerks';
+import { createFounderHistory, normalizeFounderHistory, recordFounderDeed, recordFounderDeath } from './primitiveArchiveFounders.js';
+export { founderHistoryRows } from './primitiveArchiveFounders.js';
 
 export {
   GAME_SLUG,
@@ -170,7 +172,7 @@ export function createNewState(options = {}) {
   const difficulty = difficultyKey(options.difficulty);
   const preset = difficultyPreset(difficulty);
   const difficultyBrief = `난이도 ${preset.label} · AP ${preset.apMax} · 허기 ${Math.round(Number(preset.hungerMultiplier || 1) * 100)}% · 추위 ${Math.round(Number(preset.coldMultiplier || 1) * 100)}%${Number(preset.actionChanceBonus || 0) > 0 ? ` · 성공 +${Math.round(Number(preset.actionChanceBonus) * 100)}%p` : ''}`;
-  const party = makeParty();
+  const party = makeParty(options.founderIds);
   const inventory = Object.entries(preset.startInventory || {}).reduce((acc, [itemId, qty]) => ({
     ...acc,
     [itemId]: Math.max(0, Number(acc[itemId] || 0) + Number(qty || 0)),
@@ -203,6 +205,7 @@ export function createNewState(options = {}) {
     ended: false,
     victory: false,
   };
+  base.founderHistory = createFounderHistory({ party, day: base.day, runId: base.runId });
   return applyOwnedPerks(base, meta);
 }
 
@@ -264,6 +267,7 @@ export function normalizeState(value) {
     apMax: Math.max(1, Number(value.apMax || preset.apMax)),
     weather: value.weather && typeof value.weather === 'object' ? value.weather : base.weather,
     party,
+    founderHistory: normalizeFounderHistory(value.founderHistory, { party, day: value.day || base.day, runId: value.runId || base.runId }),
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
     equipment: normalizeEquipment(value.equipment, party),
     camp,
@@ -1462,6 +1466,7 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
   let tradesDelta = 0;
   let staminaCost = 7;
   let outcome = '';
+  let deedSucceeded = actionId !== 'raid';
 
   if (actionId === 'trade') {
     if (!hasResources(next.inventory, tradeCost)) return addLog(next, `교역 자원이 부족합니다. 필요: ${formatRequires(tradeCost)}.`);
@@ -1511,6 +1516,7 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
     trustDelta = success ? -12 : -8;
     staminaCost = success ? 14 : 18;
     if (success) {
+      deedSucceeded = true;
       const rewards = Object.entries(rival.raidReward);
       next = { ...next, inventory: addItems(next.inventory, rewards) };
       outcome = `${rival.name} 약탈 성공: ${formatGains(rewards)} · 관계 ${relationDelta}.`;
@@ -1539,6 +1545,7 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
       lastOutcome: outcome,
     },
   };
+  next = recordFounderDeed(next, { actorId: actor.id, kind: 'diplomacy', success: deedSucceeded, target: `${rival.id}:${actionId}` });
   next = addLog(next, outcome);
   return afterAction(next, actor.id, staminaCost, 2, options);
 }
@@ -1603,6 +1610,7 @@ export function runProjectAction(state, actorId, projectId = '', options = {}) {
   if (!row.committed) next = addLog(next, `${row.name} 착수. ${objectParticle(row.costText)} 공동 자재로 투입했습니다.`);
   next = addLog(next, `${actor.name}의 프로젝트 작업: ${row.name} +${estimate.work} (${progress}/${row.work}).`);
 
+  next = recordFounderDeed(next, { actorId, kind: 'project', success: true, target: row.id });
   if (progress >= row.work) next = completeProjectIfReady(next, row);
 
   next = recordResearchEvent(next, { kind: 'camp', campKind: 'project' });
@@ -2378,10 +2386,10 @@ function updateActorAfterActionDamage(state, actorId, patch, damage, reason) {
     hypothermiaDamage: 0,
     reason,
   };
-  return addLog({
+  return recordFounderDeath(addLog({
     ...next,
     party: next.party.map((member) => member.id === actorId ? { ...member, deathRecord: record } : member),
-  }, `사망: ${after?.name || actorId} HP ${hpBefore}→${Number(after?.hp || 0)} · 원인 ${reason} (피해 ${record.damage}).`);
+  }, `사망: ${after?.name || actorId} HP ${hpBefore}→${Number(after?.hp || 0)} · 원인 ${reason} (피해 ${record.damage}).`), actorId, record);
 }
 
 function withEventCounter(state) {
@@ -2972,6 +2980,7 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
       bodyTemp: clamp(Number(member.bodyTemp ?? 37) + (hasTonic ? 0.3 : 0.18), 25, 39),
     }));
     next = addLog(next, `${hasTonic ? '약초 달임' : '현장 약초 처치'} 회복량(행동 비용 전): 생존 대원별 HP 최대 +${heal}, ST 최대 +${staminaGain}, 체온 최대 +${warmthGain}.`);
+    next = recordFounderDeed(next, { actorId: actionActorId, kind: 'recovery', success: true, target: id });
     return finishRecoveryAction(next, actionActorId, { action: 'craft', staminaCost: 4, hungerAdd: 1 }, options);
   }
 
@@ -3001,6 +3010,7 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
     const names = used.map(itemName).join(', ');
     const priority = foodRecoveryPriorityText(plan[0]?.member);
     next = addLog(next, `비상 배식 완료: ${names}. ${priority || '허기가 높은 팀원부터'} ${used.length}명에게 배분했습니다.`);
+    next = recordFounderDeed(next, { actorId: actionActorId, kind: 'recovery', success: true, target: id });
     return finishRecoveryAction(next, actionActorId, { action: 'camp', staminaCost: 3, hungerAdd: 0 }, options);
   }
 
@@ -3026,6 +3036,7 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
       bodyTemp: clamp(Number(member.bodyTemp ?? 37) + tempGain, 25, 39),
     }));
     next = addLog(next, `${hasWood ? '나무 1개를 쪼개 연료를 보강' : '비축 연료 1개를 사용'}했습니다. 전원 체온 +${tempGain.toFixed(1)}, ST +${staminaGain}.`);
+    next = recordFounderDeed(next, { actorId: recoveryActionActorId(next, actorId, 'camp'), kind: 'recovery', success: true, target: id });
     return finishRecoveryAction(next, actorId, { action: 'camp', staminaCost: 2, hungerAdd: 1, warmthAdd: 0.15 }, options);
   }
 
@@ -3076,6 +3087,7 @@ export function runEventChainAction(state, actorId, chainId, options = {}) {
       ...next,
       inventory: addItems(next.inventory, def.rewards || []),
     };
+    next = recordFounderDeed(next, { actorId: actingActorId, kind: ['gather', 'hunt', 'craft'].includes(action) ? action : 'specialized', success: true, target: row.kind, gains: def.rewards || [] });
     next = addEventLog(next, `${actor?.name || '파티'}가 ${row.title} 대응에 성공했습니다. ${formatGains(def.rewards || [])}.`);
   } else {
     const target = getActor(next, actingActorId);
@@ -3747,6 +3759,7 @@ export function nightSurvivalRows(state) {
 
 export function advanceDay(state, options = {}) {
   if (state.ended) return state;
+  state = { ...state, founderHistory: normalizeFounderHistory(state.founderHistory, state) };
   // Party meals, crafting and discoveries can change the shared stock after
   // the morning plan. Re-plan automatic workers and allocate unassigned
   // settlers after SETTLEMENT, while preserving every explicitly manual job.
@@ -3781,7 +3794,7 @@ function settleNextDay(state, options) {
       hypothermiaDamage: projection.hypothermiaDamage,
       reason: nightDeathReason(projection),
     } : null;
-    if (deathRecord) nightDeaths.push({ name: member.name || member.id, hpBefore, record: deathRecord });
+    if (deathRecord) nightDeaths.push({ id: member.id, name: member.name || member.id, hpBefore, record: deathRecord });
     const shelterRecovery = (34 + Number(state.camp.shelterLevel || 0) * 8) * preset.staminaRecoveryMultiplier;
     return {
       ...member,
@@ -3810,7 +3823,9 @@ function settleNextDay(state, options) {
   const note = ended
     ? '파티가 더 이상 움직일 수 없습니다. 런을 종료하고 기록을 남기세요.'
     : `새로운 날입니다. 날씨: ${weather.name}, ${weather.temp}도 · ${tempNote}`;
-  let logged = addLog(next, fuelUsed ? `${note} 모닥불 연료를 1 소비했습니다.` : note);
+  let logged = next;
+  for (const death of nightDeaths) logged = recordFounderDeath(logged, death.id, death.record);
+  logged = addLog(logged, fuelUsed ? `${note} 모닥불 연료를 1 소비했습니다.` : note);
   if (evening.meals.length || evening.woodSpent) {
     const meals = evening.meals.map((row) => `${row.name} ${row.items.map(itemName).join('·')}`).join(', ');
     logged = addLog(logged, `정착지 저녁 관리: ${meals ? `배식 ${meals}` : '추가 배식 없음'}${evening.woodSpent ? ` · 나무 ${evening.woodSpent} 소비, 연료 +${evening.fuelAdded}` : ''}. 실제 비축분 사용 · AP 소모 없음.`);
@@ -3897,6 +3912,7 @@ export function runResearchAction(state, actorId, options = {}) {
     researched = spendShopPerkUse(researched, 'researchNotes');
     researched = addResearchProgress(researched, tech.id, 1, '연구 기록법');
   }
+  researched = recordFounderDeed(researched, { actorId, kind: 'research_contribution', success: true, target: tech.id });
   const withDialogue = addDialogueLog(researched, actorId, 'research', 'success', options.rng || Math.random);
   return afterAction(withDialogue, actorId, staminaCost, 2, options);
 }
@@ -3951,7 +3967,8 @@ export function runCivicAction(state, actorId, options = {}) {
     return addLog(current, `${civic.name} 제도의 선행 발전이 필요합니다: ${missing.join(', ') || '없음'}.`);
   }
   const { points, staminaCost } = civicActionEstimate(current, actorId);
-  const advanced = addCivicProgress(current, civic.id, points, `${actor.name} 부족 회의`);
+  const advanced = recordFounderDeed(addCivicProgress(current, civic.id, points, `${actor.name} 부족 회의`),
+    { actorId, kind: 'civic_contribution', success: true, target: civic.id });
   const withDialogue = addDialogueLog(advanced, actorId, 'research', 'success', options.rng || Math.random);
   return afterAction(withDialogue, actorId, staminaCost, 2, options);
 }
@@ -5905,6 +5922,7 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
     ...next,
     counters: { ...next.counters, [profile.id]: Number(next.counters[profile.id] || 0) + 1 },
   };
+  next = recordFounderDeed(next, { actorId, kind: 'utility', success: true, target: profile.id });
   next = recordResearchEvent(next, { kind: 'action', action: profile.id, ok: true });
   return afterAction(next, actorId, profile.staminaCost, profile.hungerAdd, options);
 }
@@ -6054,6 +6072,7 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
       inventory: addItems(next.inventory, gains),
       counters: { ...next.counters, [profile.id]: Number(next.counters[profile.id] || 0) + 1 },
     };
+    next = recordFounderDeed(next, { actorId, kind: 'specialized', success: true, target: profile.id, gains });
     next = addLog(next, `${actor.name}\uC758 ${profile.label} \uC131\uACF5. ${row.context}\uC5D0\uC11C ${formatGains(gains)}.${irrigationApplied ? ' 관개 효과를 1회 사용했습니다.' : ''}`);
   } else {
     next = addLog(next, `${actor.name}\uC758 ${profile.label} \uC2E4\uD328. ${row.context}\uC758 \uC870\uAC74\uC744 \uB2E4\uC2DC \uC810\uAC80\uD574\uC57C \uD569\uB2C8\uB2E4.${irrigationApplied ? ' 관개 효과는 1회 소모됐습니다.' : ''}`);
@@ -6116,7 +6135,7 @@ export function runSafeGatherAction(state, actorId, resourceId, options = {}) {
     inventory: addItems(current.inventory, Object.entries(gains)),
   };
   return afterAction(
-    addLog(next, `${actor.name}의 안전 채집. ${formatGains(Object.entries(gains))}.`),
+    recordFounderDeed(addLog(next, `${actor.name}의 안전 채집. ${formatGains(Object.entries(gains))}.`), { actorId, kind: 'gather', success: true, target: resourceId, gains: Object.entries(gains) }),
     actorId,
     6,
     1,
@@ -6150,6 +6169,7 @@ export function runGatherAction(state, actorId, regionId, options = {}) {
       inventory: addItems(next.inventory, gains),
       counters: { ...next.counters, gather: Number(next.counters.gather || 0) + 1 },
     };
+    next = recordFounderDeed(next, { actorId, kind: 'gather', success: true, target: region.id, gains });
     const bonusText = bonusIndex >= 0 ? ` 꼼꼼한 채집: ${itemName(gains[bonusIndex][0])} +1 포함.` : '';
     next = addLog(next, `${actor.name}의 채집 성공. ${region.name}에서 ${formatGains(gains)}.${bonusText}`);
   } else {
@@ -6182,6 +6202,7 @@ export function runHuntAction(state, actorId, regionId, options = {}) {
       inventory: addItems(next.inventory, gains),
       counters: { ...next.counters, hunt: Number(next.counters.hunt || 0) + 1 },
     };
+    next = recordFounderDeed(next, { actorId, kind: 'hunt', success: true, target: region.id, gains });
     next = addLog(next, `${actor.name}의 사냥 성공. ${region.name}에서 ${formatGains(gains)}.`);
   } else {
     const target = getActor(next, actorId);
@@ -6218,6 +6239,7 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
       inventory: addItems(next.inventory, Object.entries(recipe.reward)),
       counters: { ...next.counters, craft: Number(next.counters.craft || 0) + 1 },
     };
+    next = recordFounderDeed(next, { actorId, kind: 'craft', success: true, target: recipe.id, gains: Object.entries(recipe.reward) });
     next = addLog(next, `${actor.name}의 제작 성공. ${objectParticle(recipe.name)} 만들었습니다.`);
     next = recordResearchEvent(next, { kind: 'recipe', recipeId: recipe.id, ok: true });
   } else {
@@ -6345,6 +6367,7 @@ export function runCampAction(state, actorId, kind, options = {}) {
     next = addLog(next, '부족 발전 단계 달성: 모닥불, 대피소, 작업대가 갖춰져 연구 체계가 해금되었습니다.');
     next = applyResearchBreakthroughs(next);
   }
+  if (baseAction && next.camp !== state.camp) next = recordFounderDeed(next, { actorId, kind: 'camp', success: true, target: kind });
   next = addDialogueLog(next, actorId, 'camp', 'success', options.rng || Math.random);
   next = applyExplorationEvent(next, { actorId, action: 'camp', ok: true, rng: options.rng || Math.random });
   next.counters = { ...next.counters, camp: Number(next.counters.camp || 0) + 1 };

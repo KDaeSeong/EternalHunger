@@ -15,6 +15,7 @@ import {
 import {
   EQUIPMENT_SLOT_LABELS,
   ITEMS,
+  STUDENTS,
   ZONES,
   actionChance,
   actionForecastRows,
@@ -103,7 +104,9 @@ import PrimitiveArchiveInventoryBar from './PrimitiveArchiveInventoryBar';
 import PrimitiveArchiveShopPerks from './PrimitiveArchiveShopPerks';
 import { initialArchiveShopPerks, prepareArchiveShopRun } from '../_lib/primitiveArchiveShopPerks';
 import { primitiveArchiveEraTheme } from '../_lib/primitiveArchiveEraTheme';
+import { founderHistoryRows } from '../_lib/primitiveArchiveFounders';
 import '../../../../styles/PrimitiveArchiveEras.css';
+import '../../../../styles/PrimitiveArchiveFounders.css';
 import { primitiveArchiveFocusPlan } from '../_lib/primitiveArchiveFocus';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
 import usePrimitiveArchiveCheckpoint from '../_hooks/usePrimitiveArchiveCheckpoint';
@@ -169,6 +172,7 @@ export default function PrimitiveArchivePlayContent() {
   const [partySort, setPartySort] = useState('default');
   const [selectedRecruitId, setSelectedRecruitId] = useState('');
   const [newRunDifficulty, setNewRunDifficulty] = useState('normal');
+  const [newRunFounderIds, setNewRunFounderIds] = useState(() => STUDENTS.slice(0, 3).map(member => member.id));
   const [researchPlannerOpen, setResearchPlannerOpen] = useState(false);
   const [actionResult, setActionResult] = useState('');
   const [actionFeedback, setActionFeedback] = useState({ key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: state.runId, tone: 'ready' });
@@ -661,6 +665,10 @@ export default function PrimitiveArchivePlayContent() {
 
   const startNewRun = async () => {
     if (!hydrated || !checkpoint.ready || !checkpoint.exclusive || busy || shopStartRef.current || initialShopPending) return;
+    if (newRunFounderIds.length !== 3) {
+      setMessage('런 관리에서 다음 런의 창건자 3명을 선택하세요.');
+      return;
+    }
     if (!window.confirm('현재 진행을 직전 런으로 보관하고 새 런을 시작할까요? 직전 런은 이 브라우저에서 하나만 보관합니다.')) return;
     shopStartRef.current = true;
     setShopStartBusy(true);
@@ -672,7 +680,7 @@ export default function PrimitiveArchivePlayContent() {
         getCurrent: () => stateRef.current,
         captureCodes: () => shopPerks.captureForNewRun({ withoutPerks: withoutShopPerks }),
         sessionIsCurrent: () => isCurrentAuthSession(session),
-        options: { difficulty: newRunDifficulty },
+        options: { difficulty: newRunDifficulty, founderIds: [...newRunFounderIds] },
       });
       const replacement = checkpoint.replaceRun(nextState);
       if (!replacement.ok) {
@@ -681,7 +689,7 @@ export default function PrimitiveArchivePlayContent() {
       }
       const nextMessage = `${selectedDifficulty.label} 난이도로 새 문명 아카이브 런을 시작했습니다.`;
       const presentation = primitiveTextPresentation(nextMessage);
-      setActorId('shiroko');
+      setActorId(nextState.party[0].id);
       setZoneId('whisper-woods');
       setRecipeId('twine');
       setSelectedRecruitId('');
@@ -774,7 +782,7 @@ export default function PrimitiveArchivePlayContent() {
         <span className="primitive-save-state" data-tone={saveState.tone}>{saveState.label}</span>
       </summary>
       <div className="primitive-run-tools__items" onClick={closeRunTools}>
-      <GameControlButton action="new" cue="off" onClick={startNewRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || Boolean(busy) || shopControlsBusy}>{shopStartBusy ? '새 런 준비 중...' : `${selectedDifficulty.label} 새 런`}</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || Boolean(busy) || shopControlsBusy || newRunFounderIds.length !== 3}>{shopStartBusy ? '새 런 준비 중...' : `${selectedDifficulty.label} 새 런`}</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !token || Boolean(busy) || shopControlsBusy}>{busy === 'save' ? '저장 중...' : '서버 저장'}</GameControlButton>
       <GameControlButton action="load" onClick={loadServerRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !token || Boolean(busy) || shopControlsBusy}>{busy === 'load' ? '불러오는 중...' : '서버 불러오기'}</GameControlButton>
       <GameControlButton action="load" onClick={restorePreviousRun} disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || !checkpoint.hasPrevious || Boolean(busy) || shopControlsBusy}>직전 런 복구</GameControlButton>
@@ -957,6 +965,10 @@ export default function PrimitiveArchivePlayContent() {
         inspirationRows={inspirationRows}
         inventoryRows={inventoryRows}
         exploration={exploration}
+        foundersRows={founderHistoryRows(state)}
+        founderChoices={STUDENTS}
+        newRunFounderIds={newRunFounderIds}
+        setNewRunFounderIds={setNewRunFounderIds}
         milestones={milestones}
         newRunDifficulty={newRunDifficulty}
         partyCap={partyCap}

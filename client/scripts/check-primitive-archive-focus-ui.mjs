@@ -80,6 +80,7 @@ const featureTabStubs = new Map([
   ['./PrimitiveArchiveReportTab', 'archive-report'],
   ['./PrimitiveArchiveTribeTab', 'tribe'],
   ['./PrimitiveArchiveWorldMap', 'map'],
+  ['./PrimitiveArchiveFoundersTab', 'founders'],
 ]);
 const runTabStubs = new Map([
   ['next/link', `export default function Link(props) { return globalThis.__primitiveArchiveFocusReact.createElement('a', props); }`],
@@ -414,10 +415,10 @@ check('loading and busy plans block navigation, while ended runs remain navigabl
   assert.doesNotMatch(renderFocus(ended).html, /disabled/);
 });
 
-check('actual feature navigation exposes three primary and seven collapsed secondary buttons with one linked current region for every screen', () => {
+check('actual feature navigation exposes three primary and eight collapsed secondary buttons with one linked current region for every screen', () => {
   const state = freshState('focus-tab-navigation');
-  const tabIds = ['actions', 'map', 'party', 'camp', 'archive-report', 'growth', 'tribe', 'inventory', 'developer', 'run'];
-  const expectedLabels = ['행동', '지도', '파티', '캠프', '기록서', '발전', '부족', '장비', '개발자', '런 관리'];
+  const tabIds = ['actions', 'map', 'party', 'camp', 'archive-report', 'growth', 'tribe', 'inventory', 'founders', 'developer', 'run'];
+  const expectedLabels = ['행동', '지도', '파티', '캠프', '기록서', '발전', '부족', '장비', '창건자·전승', '개발자', '런 관리'];
   for (const activeTabId of tabIds) {
     const rendered = renderFeatureTabs(state, activeTabId);
     const { html } = rendered;
@@ -430,12 +431,12 @@ check('actual feature navigation exposes three primary and seven collapsed secon
     const secondaryGroup = navHtml.match(/<div[^>]*role="group" aria-label="다른 화면"[^>]*>([\s\S]*?)<\/div>/)?.[1];
     assert.ok(primaryGroup && secondaryGroup, 'Both primary and secondary navigation groups must remain available.');
     assert.equal((primaryGroup.match(/<button\b/g) || []).length, 3, 'Three primary navigation buttons must remain directly available.');
-    assert.equal((secondaryGroup.match(/<button\b/g) || []).length, 7, 'All seven secondary screens must remain available inside the disclosure.');
+    assert.equal((secondaryGroup.match(/<button\b/g) || []).length, 8, 'All eight secondary screens must remain available inside the disclosure.');
     assert.deepEqual([...primaryGroup.matchAll(/<span>([^<]+)<\/span>/g)].map(([, label]) => label), ['행동', '캠프', '발전']);
     const currentButtons = buttonTags.filter((tag) => /\baria-current="page"/.test(tag));
     assert.equal(currentButtons.length, 1, `${activeTabId} must have exactly one current navigation button.`);
     assert.match(currentButtons[0], new RegExp(`\\bid="${expectedId}"`));
-    assert.equal(buttonTags.length, 10, 'All three primary and seven secondary navigation buttons must remain rendered.');
+    assert.equal(buttonTags.length, 11, 'All three primary and eight secondary navigation buttons must remain rendered.');
     assert.ok(buttonTags.every((tag) => /\baria-controls="primitive-archive-feature-panel"/.test(tag)), 'Every navigation button must retain its controlled-panel link.');
     assert.ok(buttonTags.every((tag) => /\bid="primitive-archive-tab-[^"]+"/.test(tag)), 'Every navigation button must retain a stable id.');
     assert.equal((navHtml.match(/role="group"/g) || []).length, 2, 'Primary and secondary native button groups must be exposed as groups.');
@@ -467,7 +468,7 @@ check('the developer screen is only offered when the page allows developer tools
   const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveFeatureTabs, { ...tabProps(state, 'developer'), showDeveloperTools: false }));
   const navHtml = html.match(/<nav aria-label="문명 아카이브 화면 선택">([\s\S]*?)<\/nav>/)?.[1] || '';
   assert.doesNotMatch(navHtml, /primitive-archive-tab-developer/, 'Players without access must not see the developer screen.');
-  assert.equal((navHtml.match(/<button\b/g) || []).length, 9, 'The other nine screens remain available.');
+  assert.equal((navHtml.match(/<button\b/g) || []).length, 10, 'The other ten screens remain available.');
   assert.doesNotMatch(html, /data-focus-check-stub="developer"/, 'A saved developer tab id must fall back to a regular screen.');
   assert.match(html, /aria-labelledby="primitive-archive-tab-actions"/, 'The fallback screen is the action workspace.');
 });
@@ -916,7 +917,9 @@ check('log expansion resets for a replacement run and handles an empty history',
   const more = rendered.buttons.find((row) => String(row.children).startsWith('이전 기록'));
   assert.ok(more);
   more.onClick();
-  const replacement = { ...state, runId: 'log-replacement-run', log: Array.from({ length: 30 }, (_, index) => `new-history-${index}`) };
+  const replacement = { ...state, runId: 'log-replacement-run',
+    founderHistory: { ...state.founderHistory, runId: 'log-replacement-run' },
+    log: Array.from({ length: 30 }, (_, index) => `new-history-${index}`) };
   rendered = renderInventoryLog(replacement, rendered.harness);
   assert.equal((rendered.html.match(/new-history-/g) || []).length, 18);
   rendered = renderInventoryLog({ ...replacement, log: [] }, rendered.harness);

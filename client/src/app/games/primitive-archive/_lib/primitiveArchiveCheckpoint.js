@@ -1,4 +1,5 @@
 import { GAME_SLUG, SAVE_VERSION } from './primitiveArchiveData';
+import { isValidFounderHistory } from './primitiveArchiveFounders';
 
 const CHECKPOINT_SCHEMA_VERSION = 2;
 const CHECKPOINT_KEY_PREFIX = 'primitive-archive:checkpoint:v2:';
@@ -237,7 +238,8 @@ export function isValidRunState(value) {
     || !value.log.every((line) => typeof line === 'string')
     || typeof value.ended !== 'boolean'
     || typeof value.victory !== 'boolean'
-    || !isValidOptionalRunStructures(value)) return false;
+    || !isValidOptionalRunStructures(value)
+    || !isValidFounderHistory(value.founderHistory, { runId: value.runId, day: value.day })) return false;
 
   return value.party.every((member) => (
     isRecord(member)
