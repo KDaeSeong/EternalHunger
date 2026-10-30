@@ -201,6 +201,8 @@ export function useSimulationLogs({
   }
 
   function resetPhaseLogs() {
+    // Death-log deduplication only reads entries from the current phase.
+    fullLogEntriesRef.current = [];
     pendingVisibleLogsRef.current = [];
     if (!pendingVisibleRunEventsRef.current.length) cancelVisiblePublication();
     setPrevPhaseLogs([]);

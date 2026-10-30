@@ -52,6 +52,7 @@ function resolveSelectedChar(survivors, selectedCharId) {
 
 export function useSimulationMarketState({
   replayMode = false,
+  evaluationMode = false,
   runLockedRef,
   devEventPreviewLimit,
   devSelectRenderLimit,
@@ -74,8 +75,8 @@ export function useSimulationMarketState({
   const [droneOffers, setDroneOffers] = useState([]);
   const [publicPerks, setPublicPerks] = useState([]);
   const [tradeOffers, setTradeOffers] = useState([]);
-  const [viewerLp, setViewerLp] = useState(() => Number(getUser()?.lp || 0));
-  const [viewerPerks, setViewerPerks] = useState(getInitialViewerPerks);
+  const [viewerLp, setViewerLp] = useState(() => evaluationMode ? 0 : Number(getUser()?.lp || 0));
+  const [viewerPerks, setViewerPerks] = useState(() => evaluationMode ? [] : getInitialViewerPerks());
   const [myTradeOffers, setMyTradeOffers] = useState([]);
   const [qtyMap, setQtyMap] = useState({});
   const [marketMessage, setMarketMessage] = useState('');
@@ -175,7 +176,7 @@ export function useSimulationMarketState({
   }, [fireAndReport]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
+    if (evaluationMode || typeof window === 'undefined') return undefined;
     const syncViewerProgress = () => {
       const user = getUser();
       setViewerLp(Math.max(0, Number(user?.lp || 0)));
@@ -185,9 +186,10 @@ export function useSimulationMarketState({
     syncViewerProgress();
     window.addEventListener(AUTH_SYNC_EVENT, syncViewerProgress);
     return () => window.removeEventListener(AUTH_SYNC_EVENT, syncViewerProgress);
-  }, []);
+  }, [evaluationMode]);
 
   useEffect(() => {
+    if (evaluationMode) return undefined;
     const id = window.setTimeout(() => {
       if (replayMode || runLockedRef?.current) return;
       setSurvivors((prev) => {
@@ -202,10 +204,10 @@ export function useSimulationMarketState({
       });
     }, 0);
     return () => window.clearTimeout(id);
-  }, [activeViewerPerkBundle, setDead, setSurvivors, replayMode, runLockedRef]);
+  }, [activeViewerPerkBundle, setDead, setSurvivors, replayMode, evaluationMode, runLockedRef]);
 
   useEffect(() => {
-    if (replayMode || runLockedRef?.current || !getToken()) return;
+    if (evaluationMode || replayMode || runLockedRef?.current || !getToken()) return;
     const report = typeof fireAndReportRef.current === 'function'
       ? fireAndReportRef.current
       : (_label, job) => job();
@@ -218,7 +220,7 @@ export function useSimulationMarketState({
     }
     if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') {
       void report('marketTab.loadMarket', () => loadMarketIntoState({
-        canApply: () => !replayMode && !runLockedRef?.current,
+        canApply: () => !evaluationMode && !replayMode && !runLockedRef?.current,
         setDroneOffers,
         setKiosks,
         setMarketMessage,
@@ -226,7 +228,7 @@ export function useSimulationMarketState({
         setPublicPerks,
       }));
     }
-  }, [marketTab, replayMode, runLockedRef]);
+  }, [marketTab, replayMode, evaluationMode, runLockedRef]);
 
   return {
     activeViewerPerkBundle,

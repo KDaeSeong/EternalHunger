@@ -8,6 +8,7 @@ export function applyUserEconomyProgressToState(patch = {}, actions = {}) {
     setCredits = () => {},
     setViewerLp = () => {},
     setViewerPerks = () => {},
+    persistUser = true,
   } = actions;
 
   const hasCredits = Number.isFinite(Number(patch?.credits));
@@ -18,7 +19,7 @@ export function applyUserEconomyProgressToState(patch = {}, actions = {}) {
   if (hasLp) setViewerLp(Math.max(0, Number(patch.lp || 0)));
   if (hasPerks) setViewerPerks((patch.perks || []).map((x) => String(x || '')).filter(Boolean));
 
-  updateStoredUser((currentUser) => ({
+  if (persistUser) updateStoredUser((currentUser) => ({
     ...(currentUser || {}),
     ...(hasCredits ? { credits: Math.max(0, Number(patch.credits || 0)) } : {}),
     ...(hasLp ? { lp: Math.max(0, Number(patch.lp || 0)) } : {}),

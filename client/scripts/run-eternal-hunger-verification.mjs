@@ -114,7 +114,8 @@ function fingerprint() {
 }
 function verificationSourceHashes() {
   const paths = ['scripts/run-eternal-hunger-verification.mjs', 'package.json',
-    'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs'];
+    'scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs',
+    'scripts/check-simulation-log-retention.mjs', 'scripts/check-evaluation-market-isolation.mjs'];
   if (['observer-evidence-unit', 'build', 'runtime-build', 'performance', 'full'].includes(mode)) paths.push(
     'scripts/generate-simulation-version.mjs', 'scripts/check-verification-fingerprint.mjs',
     'scripts/check-observer-performance-guards.mjs', 'scripts/check-observer-performance-probe.mjs',

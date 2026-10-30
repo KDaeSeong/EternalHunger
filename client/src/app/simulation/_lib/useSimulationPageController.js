@@ -171,6 +171,7 @@ export function useSimulationPageController({
   // ✅ 상점/조합/교환 패널
   const marketState = useSimulationMarketState({
     replayMode,
+    evaluationMode,
     runLockedRef,
     devEventPreviewLimit: DEV_EVENT_PREVIEW_LIMIT,
     devSelectRenderLimit: DEV_SELECT_RENDER_LIMIT,

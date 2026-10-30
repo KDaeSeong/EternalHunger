@@ -303,6 +303,7 @@ export function useSimulationInitialData({
           setCredits,
           setViewerLp,
           setViewerPerks,
+          persistUser: !guestMode,
         });
 
         mapsRef.current = mapsList;
