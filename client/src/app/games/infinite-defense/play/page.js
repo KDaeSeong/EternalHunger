@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
+import OfficialStudentIcon from '../../_components/OfficialStudentIcon';
 import DefenseBoard from '../_components/DefenseBoard';
 import useInfiniteDefenseSession from '../_hooks/useInfiniteDefenseSession';
 import { ENEMY_TYPES, STAT_DEFS, STUDENTS } from '../_lib/infiniteDefenseData';
@@ -133,7 +134,7 @@ export default function InfiniteDefensePlayPage() {
                     return <button type="button" key={student.id} className={'defense-student' + (selectedId === student.id ? ' is-selected' : '')}
                       style={{ '--unit-color': student.color }} aria-label={student.name + ' 선택'} aria-pressed={selectedId === student.id}
                       onClick={() => setSelectedId(student.id)}>
-                      <span className="defense-student-initial" aria-hidden="true">{student.name.slice(0, 1)}</span>
+                      <span className="defense-student-portrait"><OfficialStudentIcon id={student.id} /></span>
                       <span><strong>{student.name}</strong><small>{row.mode === 'defend' ? row.padId.slice(1) + '번 거점' : row.mode === 'mine' ? '채굴 중' : '대기 중'}</small></span>
                     </button>;
                   })}
@@ -187,6 +188,7 @@ export default function InfiniteDefensePlayPage() {
         </section>
       </div>
       <p className="defense-footer">20웨이브 보스 격파 후 무한 모드로 계속 도전할 수 있습니다. 학생은 한 번에 방어·채굴·대기 중 한 역할만 맡습니다.</p>
+      <p className="defense-art-credit">학생 일러스트 © NEXON Games · NEXON · Yostar · <a href="/games/shared/blue-archive/sources.json" target="_blank" rel="noreferrer">이미지 출처</a></p>
     </GamePlayShell>
   );
 }

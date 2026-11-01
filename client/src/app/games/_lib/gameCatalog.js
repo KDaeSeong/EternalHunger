@@ -14,6 +14,7 @@ export const GAME_INTEGRATION_DEFAULTS = {
 };
 
 export const MYANIME_GAME_SLUGS = [
+  'kivotos-autochess',
   'infinite-defense',
   'myanimecraft',
   'dual-academy-tcg',
@@ -96,6 +97,11 @@ export function getGameRouteFamily(slugOrGame) {
 }
 
 export const GAME_ADAPTER_PRESETS = [
+  {
+    adapter: 'auto-battler', label: '자동 전투', roomSystem: 'none', resultMode: 'last-team-standing',
+    supportsStateSync: false, supportsRecords: true, supportsSaves: true,
+    description: '기물 모집과 편성을 반복하며 최종 생존 순위를 기록하는 구조입니다.',
+  },
   { adapter: 'tower-defense', label: '채굴 디펜스', roomSystem: 'none', resultMode: 'wave-clear', supportsStateSync: false, supportsRecords: true, supportsSaves: true, description: '채굴, 학생 배치와 웨이브 방어를 기록하는 단독 디펜스입니다.' },
   {
     adapter: 'discussion',
@@ -255,6 +261,7 @@ export function findGameAdapterPreset(adapter) {
 }
 
 const GAME_INTEGRATIONS = {
+  'kivotos-autochess': { stage: 'playable', stageLabel: '플레이 가능', adapter: 'auto-battler', supportsRecords: true, supportsSaves: true, resultMode: 'last-team-standing', maxPlayers: 1 },
   'infinite-defense': { stage: 'playable', stageLabel: '플레이 가능', adapter: 'tower-defense', supportsRecords: true, supportsSaves: true, resultMode: 'wave-clear', maxPlayers: 1 },
   'hunger-games': {
     stage: 'playable', stageLabel: '플레이 가능', adapter: 'simulation', supportsSaves: true,
@@ -461,6 +468,12 @@ export const GAME_CATALOG = [
 ];
 
 export const GAME_ROADMAP = [
+  {
+    slug: 'kivotos-autochess', title: '키보토스 오토체스', subtitle: 'Auto Battler', priority: '신규 제작',
+    scope: '학생 20명, 공식 일러스트 아이콘, AI 7명, 공용 상점, 3명 합성, 학원/역할 시너지, 지능/행운 성장, 정찰, 자동 전투, 순위, 다시보기, 기기/계정 저장',
+    summary: '학생을 구매하고 학원 시너지와 배치를 조합해 AI 7팀 중 마지막 생존팀에 도전합니다. 지능은 이자와 리롤 환급, 행운은 고등급 모집 확률에 반영됩니다.',
+    nextStep: '실시간 다인 대전과 추가 학생은 후속 확장 범위입니다.',
+  },
   {
     slug: 'infinite-defense', title: '무한 디펜스', subtitle: 'Mining Defense', priority: '신규 제작',
     scope: '고정 경로 맵, 학생 6명, 채굴, 배치, 스탯 훈련, 일반 적 4종, 20웨이브 보스, 무한 모드, 기기/계정 저장, JSON 교환, 전적',

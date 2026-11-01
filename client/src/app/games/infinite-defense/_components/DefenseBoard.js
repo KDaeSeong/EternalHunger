@@ -1,5 +1,6 @@
 'use client';
 
+import OfficialStudentIcon from '../../_components/OfficialStudentIcon';
 import { ENEMY_TYPES, MAP, PADS, ROUTE, STUDENTS } from '../_lib/infiniteDefenseData.js';
 import { pointAt, studentStats } from '../_lib/infiniteDefenseEngine.js';
 
@@ -57,6 +58,7 @@ export default function DefenseBoard({ state, selectedId, onPad, disabled }) {
             aria-label={occupant ? (i + 1) + '번 거점 ' + occupant.name + ' 선택' : (i + 1) + '번 거점에 ' + selected.name + ' 배치'}
             disabled={disabled || (!occupant && !state.assignments[selectedId].paid && state.coins < selected.cost)}
             onClick={() => onPad(pad.id, occupant?.id)}>
+            {occupant ? <span className="defense-pad-portrait"><OfficialStudentIcon id={occupant.id} /></span> : null}
             <span aria-hidden="true">{occupant ? occupant.name : '+'}</span>
             <small>{occupant ? '화력 +' + state.assignments[occupant.id].power : i + 1}</small>
           </button>

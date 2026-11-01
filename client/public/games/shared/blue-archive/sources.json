@@ -1,0 +1,432 @@
+{
+  "version": 1,
+  "sourceKind": "Official Blue Archive game-art icons distributed by the community SchaleDB mirror",
+  "publisher": "NEXON Games / NEXON / Yostar",
+  "publisherReference": "https://bluearchive.nexon.com/",
+  "mirror": "https://github.com/SchaleDB/SchaleDB",
+  "revision": "70a2c4b8982ca860687898e61848847a60ffe3b8",
+  "rosterUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/data/kr/students.min.json",
+  "retrievedAt": "2026-11-01T07:50:52.973Z",
+  "icons": [
+    {
+      "id": "serika",
+      "name": "세리카",
+      "studentId": 13008,
+      "file": "serika.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/13008.webp",
+      "sourceSha256": "3c9387e9a995c6a3cf8b478f2a7ca6567c5500c2ad7fbf52254dfa0765e660cb",
+      "sourceBytes": 7438,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "baf680557bad3a0d4b7ef82d8a46a05f5ad568f530dd0c7863a04509233b96f1",
+      "bytes": 7120,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "ayane",
+      "name": "아야네",
+      "studentId": 23005,
+      "file": "ayane.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/23005.webp",
+      "sourceSha256": "48f17991868b5d287d65ecca1df6d76c446c965763b327d3509d0367fd593304",
+      "sourceBytes": 6436,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "4926e09c420b371c0fc193c1a1404c729b55daec92ce1a3438e1d44ae715f5e5",
+      "bytes": 6396,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "nonomi",
+      "name": "노노미",
+      "studentId": 13004,
+      "file": "nonomi.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/13004.webp",
+      "sourceSha256": "16bcbefac0dd683abb32d2cc3456ddb542deffd6861b9ed2f8089273ffc8091a",
+      "sourceBytes": 6534,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "f133dbfe2a1fb05a29df7cbf77f1f7947085ed65e05b70b4f4a3f3592c03241b",
+      "bytes": 6192,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "shiroko",
+      "name": "시로코",
+      "studentId": 10010,
+      "file": "shiroko.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10010.webp",
+      "sourceSha256": "af49f45cf8e54ce0be6ff050714d602faa7f4ddf855b8d3a3dedc7489eac459c",
+      "sourceBytes": 7308,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "475c1cd9c0429129bfbe85b2c20e823f325db268e37d38782f0e29a45cdafbcf",
+      "bytes": 7288,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "hoshino",
+      "name": "호시노",
+      "studentId": 10005,
+      "file": "hoshino.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10005.webp",
+      "sourceSha256": "b7c857db9de4243f59043e4f7f801867affe978cb8bd274a64f641f3981a7dc1",
+      "sourceBytes": 6206,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "2ec4f1a3743c910aba5b9d6a9d544a9c3535affa00ea0721b16ec9b8c87210d7",
+      "bytes": 5894,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "haruka",
+      "name": "하루카",
+      "studentId": 16000,
+      "file": "haruka.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/16000.webp",
+      "sourceSha256": "0ba609c9914e0c6a48fb67112596ad061da95b78bdbba55417e8118eb05442b1",
+      "sourceBytes": 6634,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "cb5949cf74588ecbe880893299cd6ea8634a73aea5f1ecc62499baa418179d3c",
+      "bytes": 6152,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "mutsuki",
+      "name": "무츠키",
+      "studentId": 13006,
+      "file": "mutsuki.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/13006.webp",
+      "sourceSha256": "a452fa109ecec5debaff48156b9e94baf6c249dccb937149edaaf791f29bd08c",
+      "sourceBytes": 6782,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "6adbc52d4f6cb012fbe5d954d99fd739b571911edec6172de650fc3d8cd98745",
+      "bytes": 6278,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "iori",
+      "name": "이오리",
+      "studentId": 10006,
+      "file": "iori.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10006.webp",
+      "sourceSha256": "5c8a4eb9b1bd9d0ecda06ce3f2774bc964a477869b45be986b53ef6f7af15dac",
+      "sourceBytes": 8600,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "9ede58fa9b6d59d221330423015cb8779863c6813608d6095b8aaf5b33cb82d6",
+      "bytes": 8298,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "ako",
+      "name": "아코",
+      "studentId": 20008,
+      "file": "ako.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/20008.webp",
+      "sourceSha256": "b6fad30632b03280201313bcf717545e9310a6ef4506d12cf17488e721f24e96",
+      "sourceBytes": 6966,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "3cf759571aee17dfaec3c8614494085af56abec65592cf585199686a1b89e94a",
+      "bytes": 6442,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "hina",
+      "name": "히나",
+      "studentId": 10004,
+      "file": "hina.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10004.webp",
+      "sourceSha256": "f05100825dfccbdf66a5cab91a48d55048061f2cc2bd20d8a04be2fcf63c4f60",
+      "sourceBytes": 7944,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "6aec0d922aab0c29e1edfec04383bb7cc0200ba8b501fa407e3783510ae2c282",
+      "bytes": 7908,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "yuuka",
+      "name": "유우카",
+      "studentId": 13010,
+      "file": "yuuka.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/13010.webp",
+      "sourceSha256": "1259a0e870c7bf5a2a722f3a2892b58a6c0a843999eb6faad7849eac9f4f59a6",
+      "sourceBytes": 7476,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "ac154d0a7c6196c5600df502a90d3502da8cd5f5f5c80c99fb2818660493b0d9",
+      "bytes": 7030,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "momoi",
+      "name": "모모이",
+      "studentId": 13011,
+      "file": "momoi.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/13011.webp",
+      "sourceSha256": "d0362c3c62c8151c99bb7023bad2549e43afaee2e28365c52717815e3e8a181a",
+      "sourceBytes": 7254,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "b79f9a346ebdf980bdfd394943be65fbba733393733445229278c546c7c5b57b",
+      "bytes": 6944,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "midori",
+      "name": "미도리",
+      "studentId": 10016,
+      "file": "midori.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10016.webp",
+      "sourceSha256": "7fa70790fe3eb51266a19b9da0d7d6e7c4622c6c9e8c5135d1485c8fbdb6cc1b",
+      "sourceBytes": 7372,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "836d5d0fae884938429f8e01ffb1d079ac3789514dcca229771d70d559d78488",
+      "bytes": 7036,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "noa",
+      "name": "노아",
+      "studentId": 10052,
+      "file": "noa.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10052.webp",
+      "sourceSha256": "b0c0701770d41eb09e04c297ae8f02da33bc23ec005fb4bb8c8e6f0378f7c32a",
+      "sourceBytes": 6078,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "82c86b07a4052c6f6555e8b23b892e067c9324c3741fb4fdbdb261e925838d31",
+      "bytes": 5560,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "aris",
+      "name": "아리스",
+      "studentId": 10015,
+      "file": "aris.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10015.webp",
+      "sourceSha256": "ea4202af541fedab5d6a7c1a9aa4de72b89d5d62616be7aa7eebe81b02e39dd2",
+      "sourceBytes": 7248,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "b9133d9000fa4ca490f27c4fb99444b73a627fcf7636ea331eeb026da27e7521",
+      "bytes": 6718,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "hanako",
+      "name": "하나코",
+      "studentId": 23007,
+      "file": "hanako.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/23007.webp",
+      "sourceSha256": "53de9f2f401ae5211a09bfd2bcc76ff46daa8d7a92543d9c3983bd2012d8a843",
+      "sourceBytes": 6804,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "ad3c90219c290468f896d7977f455be6e58d05760492b0b12a78a5ad565ddd49",
+      "bytes": 6362,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "koharu",
+      "name": "코하루",
+      "studentId": 10020,
+      "file": "koharu.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10020.webp",
+      "sourceSha256": "e7d3edbc6b858a8c9341e7d37b56c6f215311d2d6fd3f3f724355c552f0725a4",
+      "sourceBytes": 6516,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "a383dc6e678d5cae8967ee47343651757d3dde8516a6f83d0d0b299ac458d1af",
+      "bytes": 5844,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "azusa",
+      "name": "아즈사",
+      "studentId": 10019,
+      "file": "azusa.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10019.webp",
+      "sourceSha256": "b8dc4339dcdcf06c5d2b9dae74461b4d15cc1dcd8cccc3747e349f063d6c90ec",
+      "sourceBytes": 7772,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "67a9deedbecdfe037ca9ab5610f4e2d56a647e874bac92d57cd332ed97a34763",
+      "bytes": 7732,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "tsurugi",
+      "name": "츠루기",
+      "studentId": 10013,
+      "file": "tsurugi.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10013.webp",
+      "sourceSha256": "611f69c2576d1c14a7b144980734e32c9c3c2b74776e21dd9796e084f9f89670",
+      "sourceBytes": 7794,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "700ddfb3ce11effb9dc1979f400db154eb9686e70e996fe8ae12d0f5dec9ef50",
+      "bytes": 7502,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "mika",
+      "name": "미카",
+      "studentId": 10059,
+      "file": "mika.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10059.webp",
+      "sourceSha256": "c59d8ec158457b48687343f99fbb8ce5e225111c1e9404403d064f236e1f336a",
+      "sourceBytes": 7422,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "3fd227a26559f66acf076e37f49868781656f8a1c2a87cf333227a17ced3aabf",
+      "bytes": 6868,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    },
+    {
+      "id": "yuzu",
+      "name": "유즈",
+      "studentId": 10018,
+      "file": "yuzu.webp",
+      "sourceUrl": "https://raw.githubusercontent.com/SchaleDB/SchaleDB/70a2c4b8982ca860687898e61848847a60ffe3b8/images/student/icon/10018.webp",
+      "sourceSha256": "5b0df7ac3481af1fef9bce9cd008b2fb61463738440c8cdc45bc2cae6b744fe7",
+      "sourceBytes": 7576,
+      "sourceDimensions": [
+        120,
+        120
+      ],
+      "sha256": "71d25a45f4be17d59aed6928539798f16e1eb8108702c6622b1ecb9203e6a56e",
+      "bytes": 7228,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait crop resized to 160×160 WebP; no generated artwork."
+    }
+  ]
+}

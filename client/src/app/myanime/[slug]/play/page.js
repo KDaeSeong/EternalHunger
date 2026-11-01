@@ -17,6 +17,7 @@ function PlayLoading() {
 // Each game's code loads only when its own address is opened.
 // Static imports here used to ship all eleven games (about 2MB) with every one of them.
 const MYANIME_PLAY_PAGES = {
+  'kivotos-autochess': dynamic(() => import('../../../games/kivotos-autochess/play/page'), { loading: PlayLoading }),
   'infinite-defense': dynamic(() => import('../../../games/infinite-defense/play/page'), { loading: PlayLoading }),
   myanimecraft: dynamic(() => import('../../../games/myanimecraft/play/page'), { loading: PlayLoading }),
   'dual-academy-tcg': dynamic(() => import('../../../games/dual-academy-tcg/play/page'), { loading: PlayLoading }),

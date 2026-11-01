@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "check:kivotos-autochess": "node ./scripts/check-kivotos-autochess.mjs",
+    "check:official-student-icons": "node ./scripts/sync-official-student-icons.mjs --check",
     "check:infinite-defense": "node ./scripts/check-infinite-defense.mjs",
     "dev": "next dev",
     "build": "next build --webpack",

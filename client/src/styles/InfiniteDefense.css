@@ -124,3 +124,12 @@
 @media (prefers-reduced-motion: reduce) {
   .defense-page *, .defense-page *::before, .defense-page *::after { animation: none !important; transition: none !important; }
 }
+
+/* Official game-art portraits share the local asset set with Autochess. */
+.defense-student-portrait { flex:0 0 32px; width:32px; height:32px; overflow:hidden; border-radius:8px; }
+.defense-pad.is-occupied { height:56px; width:46px; }
+.defense-pad .defense-pad-portrait { display:block; width:27px; height:27px; border-radius:6px; overflow:hidden; margin-bottom:1px; }
+.defense-pad.is-occupied > span:not(.defense-pad-portrait) { font-size:9px; }
+.defense-pad.is-occupied small { font-size:8px; }
+.defense-art-credit { margin:18px 0 0; text-align:center; color:#91a4b0; font-size:.62rem; line-height:1.8; }
+.defense-art-credit a { color:#6e8f9d; text-decoration:underline; }

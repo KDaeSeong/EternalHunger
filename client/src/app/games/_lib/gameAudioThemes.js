@@ -9,6 +9,7 @@ export const GAME_AUDIO_PATH_THEMES = Object.freeze([
   ['schale-idle-rpg', 'idle'],
   ['ba-srpg', 'tactical'],
   ['infinite-defense', 'tactical'],
+  ['kivotos-autochess', 'tactical'],
   ['myanimecraft', 'starleague'],
   ['school-simulator', 'school'],
   ['si-coding-sim', 'coding'],
