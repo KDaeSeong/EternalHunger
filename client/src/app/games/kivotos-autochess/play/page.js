@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
+import { CHARACTER_ORIGINS } from '../../_lib/crossoverCharacters.js';
 import OfficialStudentIcon from '../../_components/OfficialStudentIcon';
 import AutochessBoard from '../_components/AutochessBoard';
 import useAutochessSession from '../_hooks/useAutochessSession';
@@ -24,6 +25,7 @@ export default function KivotosAutochessPlayPage() {
   const userId = user?.id || user?._id, owner = token ? userId ? 'account:' + userId : '' : 'guest';
   const [speed, setSpeed] = useState(2), [selectedUid, setSelectedUid] = useState(''), [scoutId, setScoutId] = useState('');
   const [replay, setReplay] = useState(false), [replayIndex, setReplayIndex] = useState(0), [tab, setTab] = useState('command'), [confirmNew, setConfirmNew] = useState(false);
+  const [rosterOrigin, setRosterOrigin] = useState('nte');
   const fileRef = useRef(null);
   const session = useAutochessSession({ owner, hydrated, token, speed });
   const { state, ready, message, busy, halted, recorded, act, newMatch, recover, exportRun, importRun, serverAction } = session;
@@ -50,7 +52,7 @@ export default function KivotosAutochessPlayPage() {
   };
   return (
     <GamePlayShell className="autochess-page" kicker="KIVOTOS · AUTO CHESS" title="키보토스 오토체스"
-      description="학생을 모으고, 학원 시너지를 완성하고, 마지막 한 팀으로 살아남으세요."
+      description="캐릭터를 모으고, 세력 시너지를 완성하고, 마지막 한 팀으로 살아남으세요."
       viewport={false} heroLayout="compact"
       actions={<><Link href="/games">게임 목록</Link><GameControlButton action="save" disabled={fileDisabled} onClick={() => void serverAction('save')}>계정 저장</GameControlButton><GameControlButton action="load" disabled={fileDisabled} onClick={() => void serverAction('load')}>계정 불러오기</GameControlButton></>}
       metrics={[
@@ -101,12 +103,12 @@ export default function KivotosAutochessPlayPage() {
                 </button>;
               })}
             </div>
-            {selected && student ? <div className="ac-selected-detail"><div><strong>{student.name} {'★'.repeat(selected.star)}</strong><span>{ACADEMIES[student.academy].name} · {ROLES[student.role].name} · {student.skillName}</span></div><button type="button" className="ac-button ac-sell" disabled={!editable} onClick={() => act(s => sellUnit(s, selected.uid))}>판매 · {student.cost * copiesOf(selected)}골드</button></div> : <p className="ac-muted">학생을 선택한 뒤 아군 칸이나 대기석을 누르면 배치·교환할 수 있습니다.</p>}
+            {selected && student ? <div className="ac-selected-detail"><div><strong>{student.name} {'★'.repeat(selected.star)}</strong><span>{ACADEMIES[student.academy].name} · {ROLES[student.role].name} · {student.skillName}</span></div><button type="button" className="ac-button ac-sell" disabled={!editable} onClick={() => act(s => sellUnit(s, selected.uid))}>판매 · {student.cost * copiesOf(selected)}골드</button></div> : <p className="ac-muted">캐릭터를 선택한 뒤 아군 칸이나 대기석을 누르면 배치·교환할 수 있습니다.</p>}
           </div>
 
           <div className="ac-shop-panel">
-            <div className="ac-shop-heading"><div><span className="ac-eyebrow">STUDENT SHOP</span><h3>학생 모집</h3></div><div><button type="button" className="ac-button" aria-pressed={human.locked} disabled={!planning || disabled} onClick={() => act(toggleShopLock)}>{human.locked ? '상점 잠금 해제' : '상점 잠금'}</button><button type="button" className="ac-button" disabled={!planning || disabled || human.gold < 2} onClick={() => act(rerollShop)}>리롤 · 2골드</button></div></div>
-            <div className="ac-shop" role="group" aria-label="학생 상점">
+            <div className="ac-shop-heading"><div><span className="ac-eyebrow">STUDENT SHOP</span><h3>캐릭터 모집</h3></div><div><button type="button" className="ac-button" aria-pressed={human.locked} disabled={!planning || disabled} onClick={() => act(toggleShopLock)}>{human.locked ? '상점 잠금 해제' : '상점 잠금'}</button><button type="button" className="ac-button" disabled={!planning || disabled || human.gold < 2} onClick={() => act(rerollShop)}>리롤 · 2골드</button></div></div>
+            <div className="ac-shop" role="group" aria-label="캐릭터 상점">
               {human.shop.map((id, index) => {
                 const s = STUDENT_BY_ID[id], owned = id ? human.units.filter(u => u.studentId === id && u.star === 1).length : 0;
                 return s ? <button key={index} type="button" className={'ac-offer is-cost-' + s.cost} style={{ '--academy-color': ACADEMIES[s.academy].color }}
@@ -120,7 +122,7 @@ export default function KivotosAutochessPlayPage() {
             <p className="ac-muted">기물은 8팀이 공용으로 사용합니다. 소진된 등급은 남은 등급에 확률을 재분배합니다. 잠근 상점은 다음 라운드에도 유지됩니다.</p>
           </div>
 
-          <div className="ac-synergy-panel"><div className="ac-small-heading"><h3>아군 시너지</h3><span>같은 학생의 중복 배치는 1명으로 계산</span></div><div className="ac-traits">{traits.academy.map(trait => <div key={trait.id} className={trait.tier ? 'is-active' : ''} style={{ '--academy-color': trait.color }} title={trait.description}><span>{trait.name}</span><strong>{trait.count}<small> / 2·4</small></strong><p>{trait.label}</p></div>)}</div><div className="ac-role-traits">{traits.roles.map(trait => <span key={trait.id} className={trait.tier ? 'is-active' : ''} title={trait.description}>{trait.name} {trait.count} / 2·4</span>)}</div></div>
+          <div className="ac-synergy-panel"><div className="ac-small-heading"><h3>아군 시너지</h3><span>같은 캐릭터의 중복 배치는 1명으로 계산</span></div><div className="ac-traits">{traits.academy.map(trait => <div key={trait.id} className={trait.tier ? 'is-active' : ''} style={{ '--academy-color': trait.color }} title={trait.description}><span>{trait.name}</span><strong>{trait.count}<small> / 2·4</small></strong><p>{trait.label}</p></div>)}</div><div className="ac-role-traits">{traits.roles.map(trait => <span key={trait.id} className={trait.tier ? 'is-active' : ''} title={trait.description}>{trait.name} {trait.count} / 2·4</span>)}</div></div>
         </section>
 
         <aside className="ac-sidebar" aria-label="순위와 대전 관리">
@@ -128,7 +130,7 @@ export default function KivotosAutochessPlayPage() {
             aria-label={p.name + ' 정찰'} aria-pressed={scouted?.id === p.id} disabled={p.id === 'p0' || !p.hp || state.phase === 'battle'} onClick={() => { setScoutId(p.id); setReplay(false); }}>
             <span className="ac-player-mark">{p.rank || '·'}</span><div><strong>{p.name}</strong><span className="ac-player-hp"><i style={{ width: p.hp / 40 * 100 + '%' }} /></span></div><b>{p.hp || p.rank + '위'}</b>
           </button>)}<p className="ac-muted">상대를 누르면 현재 편성을 정찰합니다. 전투는 전장 위의 다음 대진을 따릅니다.</p></div>
-          <div className="ac-side-tabs" role="tablist" aria-label="대전 관리 화면">{[['command', '지휘 성장'], ['history', '전투 기록'], ['save', '저장·복구']].map(([id, label]) => <button type="button" role="tab" key={id} aria-selected={tab === id} aria-controls={'ac-panel-' + id} id={'ac-tab-' + id} onClick={() => setTab(id)}>{label}</button>)}</div>
+          <div className="ac-side-tabs" role="tablist" aria-label="대전 관리 화면">{[['command', '지휘 성장'], ['history', '전투 기록'], ['roster', '도감'], ['save', '저장·복구']].map(([id, label]) => <button type="button" role="tab" key={id} aria-selected={tab === id} aria-controls={'ac-panel-' + id} id={'ac-tab-' + id} onClick={() => setTab(id)}>{label}</button>)}</div>
           <section className="ac-side-panel" role="tabpanel" id={'ac-panel-' + tab} aria-labelledby={'ac-tab-' + tab}>
             {tab === 'command' ? <>
               <div className="ac-level"><div className="ac-small-heading"><h3>레벨 {human.level}</h3><span>{human.level < 8 ? human.xp + ' / ' + XP_THRESHOLDS[human.level] + ' XP' : '최고 레벨'}</span></div><progress max={human.level < 8 ? XP_THRESHOLDS[human.level] : 1} value={human.level < 8 ? human.xp : 1} /><button type="button" className="ac-button ac-wide" disabled={!planning || disabled || human.gold < 4 || human.level >= 8} onClick={() => act(buyExperience)}>경험치 +4 · 4골드</button><p className="ac-muted">레벨만큼 편성할 수 있으며 라운드 종료마다 경험치 +2를 얻습니다.</p></div>
@@ -139,6 +141,20 @@ export default function KivotosAutochessPlayPage() {
             </> : tab === 'history' ? <>
               <h3>최근 라운드</h3>{state.resultHistory.length ? <div className="ac-history">{state.resultHistory.map(row => <div key={row.round}><strong>{row.round}R · {row.won === null ? '관전' : row.won ? '승리' : '패배'}</strong><span>수입 +{row.gold}</span>{row.eliminated.length ? <small>탈락 · {row.eliminated.join(', ')}</small> : null}</div>)}</div> : <p className="ac-muted">첫 전투가 끝나면 라운드 결과가 표시됩니다.</p>}
               <ol className="ac-log">{state.log.map(row => <li key={row.id}>{row.text}</li>)}</ol>
+            </> : tab === 'roster' ? <>
+              <h3>캐릭터 도감 <small>{STUDENTS.length}명</small></h3>
+              <div className="ac-origin-tabs" role="group" aria-label="도감 작품 선택">
+                {Object.entries(CHARACTER_ORIGINS).map(([id, origin]) => <button key={id} type="button" aria-pressed={rosterOrigin === id}
+                  onClick={() => setRosterOrigin(id)}>{origin.name}</button>)}
+              </div>
+              <div className="ac-collection" aria-label={CHARACTER_ORIGINS[rosterOrigin].name + ' 도감'}>
+                {STUDENTS.filter(character => character.origin === rosterOrigin).map(character => <article className="ac-collection-card" key={character.id}>
+                  <div className="ac-collection-portrait"><OfficialStudentIcon id={character.id} /></div>
+                  <div><strong>{character.name}</strong><span>{character.cost}골드 · {ROLES[character.role].name}</span></div>
+                  <p>{character.skillName}<br />체력 {character.hp} · 공격 {character.atk}<br />사거리 {character.range} · 간격 {character.interval}초</p>
+                </article>)}
+              </div>
+              <p className="ac-muted">1성 기준의 기본 수치입니다. 전투에서는 성급과 시너지가 반영됩니다.</p>
             </> : <>
               <h3>{token ? '계정별 기기 자동 저장' : '손님 기기 자동 저장'}</h3><p className="ac-muted">변경된 대전을 5초마다 보관합니다. 전투 중 저장은 같은 결과와 장면으로 복원됩니다. 오프라인 골드 보상은 없습니다.</p>
               <div className="ac-save-buttons"><button type="button" className="ac-button" disabled={fileDisabled} onClick={exportRun}>JSON 내보내기</button><button type="button" className="ac-button" disabled={fileDisabled} onClick={() => fileRef.current?.click()}>JSON 가져오기</button><button type="button" className="ac-button" disabled={fileDisabled} onClick={recover}>이전 대전 복구</button><button type="button" className="ac-button" disabled={fileDisabled || recorded || state.phase !== 'finished'} onClick={() => void serverAction('record')}>{recorded ? '전적 기록 완료' : '최종 순위 기록'}</button><button type="button" className="ac-button" disabled={fileDisabled} onClick={() => setConfirmNew(true)}>새 대전</button></div>
@@ -148,8 +164,8 @@ export default function KivotosAutochessPlayPage() {
           </section>
         </aside>
       </div>
-      <p className="ac-footer">학생 {STUDENTS.length}명 · 학원 4종 · 플레이어 1명과 AI 7명의 대전 · 같은 학생 3명 합성 · 최후의 1팀이 우승합니다.</p>
-      <p className="ac-art-credit">학생 일러스트 © NEXON Games · NEXON · Yostar · <a href="/games/shared/blue-archive/sources.json" target="_blank" rel="noreferrer">이미지 출처</a></p>
+      <p className="ac-footer">캐릭터 {STUDENTS.length}명 · 세력 {Object.keys(ACADEMIES).length}종 · 플레이어 1명과 AI 7명의 대전 · 같은 캐릭터 3명 합성 · 최후의 1팀이 우승합니다.</p>
+      <p className="ac-art-credit">일러스트 © 각 권리자 · <a href="/games/shared/blue-archive/sources.json" target="_blank" rel="noreferrer">블루 아카이브 출처</a> · <a href="/games/shared/crossover/sources.json" target="_blank" rel="noreferrer">이환·원신 출처</a></p>
     </GamePlayShell>
   );
 }

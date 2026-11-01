@@ -27,7 +27,7 @@ function ready(s=fresh()){
 }
 const memory=()=>{const data=new Map();return {data,getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};};
 check('seeded initialization gives legal shared-pool markets and seven funded AI teams',()=>{
- const a=fresh();assert.deepEqual(a,fresh());valid(a);assert.equal(a.players.length,8);assert.equal(STUDENTS.length,20);
+ const a=fresh();assert.deepEqual(a,fresh());valid(a);assert.equal(a.players.length,8);assert.equal(STUDENTS.length,32);
  for(const p of a.players){assert.equal(p.shop.length,5);assert(p.gold>=0&&p.gold<=12);assert(M.fieldUnits(p).length<=3);}
  assert(a.players.slice(1).every(p=>p.units.length>0));assert.equal(E.beginCombat(a).phase,'planning');
 });
@@ -204,9 +204,18 @@ check('round limit resolves remaining survivors into a unique final ranking',()=
  let s=ready();s.round=30;s=E.finishBattle(E.beginCombat(s));valid(s);assert.equal(s.phase,'finished');assert.equal(new Set(s.players.map(p=>p.rank)).size,8);
 });
 check('official portraits cover every Autochess and Defense student with verified local hashes',()=>{
- const dir=new URL('../public/games/shared/blue-archive/',import.meta.url),manifest=JSON.parse(fs.readFileSync(new URL('sources.json',dir),'utf8'));
- const required=new Set([...STUDENTS.map(s=>s.id),'yuzu']);assert.equal(manifest.icons.length,required.size);assert(/Official.*game-art/i.test(manifest.sourceKind));
- for(const icon of manifest.icons){assert(required.has(icon.id));const data=fs.readFileSync(new URL(icon.file,dir));assert.equal(crypto.createHash('sha256').update(data).digest('hex'),icon.sha256);assert.deepEqual(icon.dimensions,[160,160]);required.delete(icon.id);}
- assert.equal(required.size,0);
+ const required=new Set([...STUDENTS.map(student=>student.id),'yuzu']);
+ let count=0;
+ for(const directory of ['blue-archive','crossover']){
+  const dir=new URL('../public/games/shared/'+directory+'/',import.meta.url);
+  const manifest=JSON.parse(fs.readFileSync(new URL('sources.json',dir),'utf8'));
+  assert(/Official/i.test(manifest.sourceKind));
+  for(const icon of manifest.icons){
+   assert(required.has(icon.id));const data=fs.readFileSync(new URL(icon.file,dir));
+   assert.equal(crypto.createHash('sha256').update(data).digest('hex'),icon.sha256);
+   assert.deepEqual(icon.dimensions,[160,160]);required.delete(icon.id);count++;
+  }
+ }
+ assert.equal(count,33);assert.equal(required.size,0);
 });
 console.log(JSON.stringify({passed,matches,totalRounds,ghostMatches,maxSaveBytes}));

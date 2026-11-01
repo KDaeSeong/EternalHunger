@@ -1,4 +1,4 @@
-import { SAVE_VERSION, STEP_SECONDS, OFFLINE_CAP_SECONDS, ROUTE, PADS, STAT_DEFS, STUDENTS, ENEMY_TYPES } from './infiniteDefenseData.js';
+import { SAVE_VERSION, LEGACY_SAVE_VERSION, LEGACY_STUDENT_IDS, MAX_MINERS, STEP_SECONDS, OFFLINE_CAP_SECONDS, ROUTE, PADS, STAT_DEFS, STUDENTS, ENEMY_TYPES } from './infiniteDefenseData.js';
 
 const MAX_LOG = 36;
 const MAX_FX = 24;
@@ -17,7 +17,7 @@ function createNewState(options = {}) {
     coins: 230, baseHp: 25, maxBaseHp: 25, mineLevel: 0, elapsed: 0, kills: 0, score: 0,
     nextEnemyId: 1, spawnIndex: 0, waveTime: 0, enemies: [], effects: [], upgrades: {},
     assignments: Object.fromEntries(STUDENTS.map(s => [s.id, { mode: 'reserve', padId: '', paid: false, power: 0, cooldown: 0 }])),
-    log: [{ id: 0, text: '학생을 방어 거점과 채굴장에 배치한 뒤 첫 웨이브를 시작하세요.' }], logId: 1,
+    log: [{ id: 0, text: '캐릭터를 방어 거점과 채굴장에 배치한 뒤 첫 웨이브를 시작하세요.' }], logId: 1,
   };
 }
 function addLog(state, text) {
@@ -65,6 +65,7 @@ function assignStudent(state, id, mode, padId = '') {
   const student = getStudent(id);
   if (!student || !['reserve', 'mine', 'defend'].includes(mode) || !canManage(state)) return state;
   const old = state.assignments[id];
+  if (mode === 'mine' && old.mode !== 'mine' && STUDENTS.filter(s => state.assignments[s.id].mode === 'mine').length >= MAX_MINERS) return state;
   if (mode === 'defend' && (!PADS.some(p => p.id === padId)
       || STUDENTS.some(s => s.id !== id && state.assignments[s.id].mode === 'defend' && state.assignments[s.id].padId === padId))) return state;
   if (old.mode === mode && (mode !== 'defend' || old.padId === padId)) return state;
@@ -223,7 +224,24 @@ function applyOfflineMining(state, now = Date.now()) {
 function serializeState(state, now = Date.now()) {
   return { ...state, savedAt: finite(now, Date.now()), effects: [], paused: Boolean(state.paused) };
 }
+function migrateSave(value) {
+  if (value?.version === SAVE_VERSION) return value;
+  if (value?.version !== LEGACY_SAVE_VERSION) return null;
+  try {
+    const allowed = new Set(LEGACY_STUDENT_IDS);
+    if (!value.assignments || Array.isArray(value.assignments) || Object.keys(value.assignments).length !== allowed.size ||
+        Object.keys(value.assignments).some(id => !allowed.has(id)) || !value.upgrades || Array.isArray(value.upgrades) ||
+        Object.keys(value.upgrades).some(id => !allowed.has(id))) return null;
+    const state = JSON.parse(JSON.stringify(value));
+    state.version = SAVE_VERSION;
+    for (const student of STUDENTS) if (!allowed.has(student.id)) {
+      state.assignments[student.id] = { mode: 'reserve', padId: '', paid: false, power: 0, cooldown: 0 };
+    }
+    return state;
+  } catch { return null; }
+}
 function isValidSave(value) {
+  if (value?.version === LEGACY_SAVE_VERSION) return isValidSave(migrateSave(value));
   if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== SAVE_VERSION) return false;
   if (typeof value.runId !== 'string' || !value.runId || value.runId.length > 160) return false;
   const numeric = ['createdAt', 'savedAt', 'coins', 'baseHp', 'maxBaseHp', 'mineLevel', 'wave', 'clearedWave', 'elapsed', 'kills', 'score', 'nextEnemyId', 'spawnIndex', 'waveTime'];
@@ -234,6 +252,9 @@ function isValidSave(value) {
   if (value.phase === 'defeat' ? value.baseHp !== 0 : value.baseHp <= 0) return false;
   if (typeof value.firstClear !== 'boolean' || !value.assignments || !value.upgrades) return false;
   if (value.firstClear !== (value.clearedWave >= 20)) return false;
+  if (Array.isArray(value.assignments) || Array.isArray(value.upgrades) || Object.keys(value.assignments).length !== STUDENTS.length ||
+      Object.keys(value.assignments).some(id => !getStudent(id)) || Object.keys(value.upgrades).some(id => !getStudent(id))) return false;
+  if (STUDENTS.filter(student => value.assignments[student.id]?.mode === 'mine').length > MAX_MINERS) return false;
   if (value.phase === 'build' && (value.wave !== 0 || value.clearedWave !== 0)) return false;
   if (value.phase === 'victory' && (value.wave !== 20 || value.clearedWave !== 20)) return false;
   if (value.phase === 'intermission' && value.wave !== value.clearedWave) return false;
@@ -264,8 +285,9 @@ function isValidSave(value) {
   return true;
 }
 function restoreState(value, now = Date.now()) {
-  if (!isValidSave(value)) throw new Error('저장 형식이나 버전이 맞지 않아 불러오기를 중단했습니다. 현재 진행은 유지됩니다.');
-  const copy = JSON.parse(JSON.stringify(value));
+  const migrated = migrateSave(value);
+  if (!isValidSave(migrated)) throw new Error('저장 형식이나 버전이 맞지 않아 불러오기를 중단했습니다. 현재 진행은 유지됩니다.');
+  const copy = JSON.parse(JSON.stringify(migrated));
   const base = createNewState({ now: copy.createdAt, runId: copy.runId });
   const state = { ...base, ...copy, effects: [], paused: false, logId: Math.max(finite(copy.logId, 0), ...copy.log.map(row => row.id + 1), 1) };
   return { ...applyOfflineMining(state, now), paused: state.phase === 'wave' || Boolean(copy.paused) };
@@ -276,4 +298,4 @@ function summaryForState(state) {
     miningPerSecond: miningRate(state), firstClear: state.firstClear, phase: state.phase, score: scoreState(state) };
 }
 
-export { ROUTE_LENGTH, MAX_LOG, MAX_FX, MAX_ENEMIES, createNewState, getStudent, studentStats, miningRate, trainingCost, powerCost, mineCost, assignStudent, trainStudent, upgradePower, upgradeMine, repairBase, wavePlan, pointAt, startWave, setPaused, advanceTime, applyOfflineMining, serializeState, isValidSave, restoreState, scoreState, summaryForState };
+export { ROUTE_LENGTH, MAX_LOG, MAX_FX, MAX_ENEMIES, createNewState, getStudent, studentStats, miningRate, trainingCost, powerCost, mineCost, assignStudent, trainStudent, upgradePower, upgradeMine, repairBase, wavePlan, pointAt, startWave, setPaused, advanceTime, applyOfflineMining, serializeState, migrateSave, isValidSave, restoreState, scoreState, summaryForState };

@@ -38,13 +38,13 @@ function createNewState(options = {}) {
     nextUnitId: 1, nextLogId: 1, pool: Object.fromEntries(STUDENTS.map(s => [s.id, COPIES_BY_COST[s.cost]])),
     players: Array.from({ length: 8 }, (_, i) => ({
       id: 'p' + i, name: i === 0 ? '선생님' : BOT_NAMES[i - 1], hp: 40, gold: 12, level: 3, xp: 0,
-      streak: 0, rank: 0, focus: i === 0 ? 'balanced' : academyKeys[(i - 1 + 4) % 4],
+      streak: 0, rank: 0, focus: i === 0 ? 'balanced' : academyKeys[(i - 1) % academyKeys.length],
       commander: { intelligence: 0, luck: 0 }, shop: Array(5).fill(null), locked: false, units: [],
     })),
     pairings: [], pending: null, lastBattle: null, frameIndex: 0, lastIncome: null, resultHistory: [], log: [],
   };
   preparePlanning(state);
-  appendLog(state, '학생을 구매하고 전장에 편성한 뒤 전투를 시작하세요. AI 7명과 같은 기물 풀을 사용합니다.');
+  appendLog(state, '캐릭터를 구매하고 전장에 편성한 뒤 전투를 시작하세요. AI 7명과 같은 기물 풀을 사용합니다.');
   return state;
 }
 function canPlan(state) { return state.phase === 'planning' && getPlayer(state).hp > 0; }
@@ -110,9 +110,9 @@ function moveUnit(state, uid, target) {
 }
 function autoFormation(state) {
   return planAction(state, (_, player) => {
-    if (!player.units.length) return '먼저 상점에서 학생을 구매하세요.';
+    if (!player.units.length) return '먼저 상점에서 캐릭터를 구매하세요.';
     autoArrange(player);
-    return '보유 학생 중 전투력이 높은 학생을 자동 편성했습니다. 골드를 사용하지 않습니다.';
+    return '보유 캐릭터 중 전투력이 높은 캐릭터를 자동 편성했습니다. 골드를 사용하지 않습니다.';
   });
 }
 function sellUnit(state, uid) {
@@ -127,7 +127,7 @@ function sellUnit(state, uid) {
 function beginCombat(state) {
   if (!['planning', 'spectate'].includes(state.phase)) return state;
   if (getPlayer(state).hp > 0 && !fieldUnits(getPlayer(state)).length) {
-    const next = cloneState(state); appendLog(next, '전장에 학생을 한 명 이상 편성하세요.'); return next;
+    const next = cloneState(state); appendLog(next, '전장에 캐릭터를 한 명 이상 편성하세요.'); return next;
   }
   const next = cloneState(state), results = [];
   let watch = null;

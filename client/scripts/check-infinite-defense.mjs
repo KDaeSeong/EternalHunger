@@ -17,7 +17,7 @@ check('initial state validates and cannot start without defenders', () => {
   const state = fresh();
   assert(engine.isValidSave(state));
   assert.equal(engine.startWave(state), state);
-  assert.equal(STUDENTS.length, 6);
+  assert.equal(STUDENTS.length, 18);
   assert.equal(Object.keys(ENEMY_TYPES).filter(k => k !== 'boss').length, 4);
   assert.equal(new Set(PADS.map(p => p.id)).size, PADS.length);
 });

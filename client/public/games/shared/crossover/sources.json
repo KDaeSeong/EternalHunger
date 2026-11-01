@@ -1,0 +1,305 @@
+{
+  "version": 1,
+  "retrievedAt": "2026-11-01T08:46:17.604Z",
+  "sourceKind": "Official publisher-hosted character illustrations and game-art portrait icons",
+  "publishers": {
+    "nte": "Hotta Studio / Perfect World Games",
+    "genshin": "HoYoverse"
+  },
+  "icons": [
+    {
+      "id": "nte-nanally",
+      "name": "나나리",
+      "origin": "nte",
+      "sourceUrl": "https://nte.perfectworld.com/public/m/images/main260402/role-poster-nanally.png",
+      "sourceReference": "https://nte.perfectworld.com/kr/main.html",
+      "sourceSha256": "ce147ea0ef4c69551a07a7a7dfe8409d4c8844bf278b191ea2c2fd2226bd18be",
+      "sourceBytes": 188333,
+      "sourceDimensions": [
+        750,
+        836
+      ],
+      "file": "nte-nanally.webp",
+      "crop": {
+        "left": 245,
+        "top": 160,
+        "width": 270,
+        "height": 270
+      },
+      "sha256": "94d863a6b62c689532a2d8face0a2d0856866329586ca1733ae50ee9ae9fcaa0",
+      "bytes": 12012,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Face cropped from official character illustration; resized to 160×160 WebP."
+    },
+    {
+      "id": "nte-sakiri",
+      "name": "사키리",
+      "origin": "nte",
+      "sourceUrl": "https://nte.perfectworld.com/public/m/images/main260402/role-poster-zaowu.png",
+      "sourceReference": "https://nte.perfectworld.com/kr/main.html",
+      "sourceSha256": "17d2835be5bdc7bba5627257c5409c67138182b8d468ab4b5ccd3b6288413968",
+      "sourceBytes": 178422,
+      "sourceDimensions": [
+        750,
+        836
+      ],
+      "file": "nte-sakiri.webp",
+      "crop": {
+        "left": 245,
+        "top": 205,
+        "width": 260,
+        "height": 260
+      },
+      "sha256": "b64875803d317a082653bc86a9c8704a2ac0640f914bab3c6a427e1545c6cfc4",
+      "bytes": 12154,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Face cropped from official character illustration; resized to 160×160 WebP."
+    },
+    {
+      "id": "nte-hathor",
+      "name": "하토르",
+      "origin": "nte",
+      "sourceUrl": "https://nte.perfectworld.com/public/m/images/main260402/role-poster-hasuoer.png",
+      "sourceReference": "https://nte.perfectworld.com/kr/main.html",
+      "sourceSha256": "b31cc9bd2f6c838b2764e82fb3636c08c7ee9ac1de571cccce3aaa925ba286cf",
+      "sourceBytes": 195740,
+      "sourceDimensions": [
+        750,
+        836
+      ],
+      "file": "nte-hathor.webp",
+      "crop": {
+        "left": 300,
+        "top": 150,
+        "width": 260,
+        "height": 260
+      },
+      "sha256": "f5e487264dfe968aa4c53c41dcafd715e19c67ac1d3a871487e0374996077301",
+      "bytes": 11576,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Face cropped from official character illustration; resized to 160×160 WebP."
+    },
+    {
+      "id": "nte-fadia",
+      "name": "파디아",
+      "origin": "nte",
+      "sourceUrl": "https://nte.perfectworld.com/public/m/images/main260402/role-poster-fadiya.png",
+      "sourceReference": "https://nte.perfectworld.com/kr/main.html",
+      "sourceSha256": "605997d7b86931e7a35148138f1ccbe09228da46a64b8bf332a02854eb4ee0f2",
+      "sourceBytes": 178764,
+      "sourceDimensions": [
+        750,
+        836
+      ],
+      "file": "nte-fadia.webp",
+      "crop": {
+        "left": 270,
+        "top": 145,
+        "width": 270,
+        "height": 270
+      },
+      "sha256": "80294d4e64fe0e79735b036f105050acc8e9f61632cf9d70cd476549516c3855",
+      "bytes": 11136,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Face cropped from official character illustration; resized to 160×160 WebP."
+    },
+    {
+      "id": "nte-daffodil",
+      "name": "다포딜",
+      "origin": "nte",
+      "sourceUrl": "https://nte.perfectworld.com/public/m/images/main260402/role-poster-dfde.png",
+      "sourceReference": "https://nte.perfectworld.com/kr/main.html",
+      "sourceSha256": "18912ac408252f70d01e068cb3adfa68a0ef1e0ba3ee4ae5a37b424e8da329c0",
+      "sourceBytes": 165962,
+      "sourceDimensions": [
+        750,
+        836
+      ],
+      "file": "nte-daffodil.webp",
+      "crop": {
+        "left": 275,
+        "top": 140,
+        "width": 260,
+        "height": 260
+      },
+      "sha256": "9f0011f949261e014dcd64c6ce3a1b00d27cdafdb7cded9e064a1e977565060e",
+      "bytes": 10198,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Face cropped from official character illustration; resized to 160×160 WebP."
+    },
+    {
+      "id": "nte-jiuyuan",
+      "name": "구원",
+      "origin": "nte",
+      "sourceUrl": "https://nte.perfectworld.com/public/m/images/main260402/role-poster-jiuyuan.png",
+      "sourceReference": "https://nte.perfectworld.com/kr/main.html",
+      "sourceSha256": "a5ba1c445ba7b7a8cb6c3a75d0dab150d3d0bfb79e215178bdaeac074476ef16",
+      "sourceBytes": 179515,
+      "sourceDimensions": [
+        750,
+        836
+      ],
+      "file": "nte-jiuyuan.webp",
+      "crop": {
+        "left": 250,
+        "top": 160,
+        "width": 280,
+        "height": 280
+      },
+      "sha256": "61e31bb4a855d7121a24a6e07b88374c9d2873c072b4fb6f3f5a69e854e61323",
+      "bytes": 11648,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Face cropped from official character illustration; resized to 160×160 WebP."
+    },
+    {
+      "id": "gi-lisa",
+      "name": "리사",
+      "origin": "genshin",
+      "sourceUrl": "https://upload-os-bbs.hoyolab.com/game_record/genshin/character_icon/UI_AvatarIcon_Lisa.png",
+      "sourceReference": "https://genshin.hoyoverse.com/ko/",
+      "sourceSha256": "a4aef00697055c63b213f984ffc89aa19daba22c34e43621108a6e03b2e9d886",
+      "sourceBytes": 106305,
+      "sourceDimensions": [
+        256,
+        256
+      ],
+      "file": "gi-lisa.webp",
+      "crop": null,
+      "sha256": "50a05566ee3c9baa0a6aa996172ebcb503f6e5fa5bf75bc2b709fdd49660ee6b",
+      "bytes": 12474,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait resized to 160×160 WebP."
+    },
+    {
+      "id": "gi-jean",
+      "name": "진",
+      "origin": "genshin",
+      "sourceUrl": "https://upload-os-bbs.hoyolab.com/game_record/genshin/character_icon/UI_AvatarIcon_Qin.png",
+      "sourceReference": "https://genshin.hoyoverse.com/ko/",
+      "sourceSha256": "97470a704479e99e59c10cff9bc6a4ea9d33e7911897a45f7a57eb80989eafe5",
+      "sourceBytes": 82384,
+      "sourceDimensions": [
+        256,
+        256
+      ],
+      "file": "gi-jean.webp",
+      "crop": null,
+      "sha256": "ead66623ef72c0de3d054421d09d67ab042895f0c44fd278ec1f7b9b478a23e3",
+      "bytes": 10132,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait resized to 160×160 WebP."
+    },
+    {
+      "id": "gi-diluc",
+      "name": "다이루크",
+      "origin": "genshin",
+      "sourceUrl": "https://upload-os-bbs.hoyolab.com/game_record/genshin/character_icon/UI_AvatarIcon_Diluc.png",
+      "sourceReference": "https://genshin.hoyoverse.com/ko/",
+      "sourceSha256": "87870285f7c5d5488a3be42d03d40cb36b3b3fa80f91ffaa4a74f7260c57e8ca",
+      "sourceBytes": 92811,
+      "sourceDimensions": [
+        256,
+        256
+      ],
+      "file": "gi-diluc.webp",
+      "crop": null,
+      "sha256": "f930f51b29efc5f10c8b800b091ebbbd2ee07fbd582c110133444fd18b3a4e57",
+      "bytes": 11922,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait resized to 160×160 WebP."
+    },
+    {
+      "id": "gi-ningguang",
+      "name": "응광",
+      "origin": "genshin",
+      "sourceUrl": "https://upload-os-bbs.hoyolab.com/game_record/genshin/character_icon/UI_AvatarIcon_Ningguang.png",
+      "sourceReference": "https://genshin.hoyoverse.com/ko/",
+      "sourceSha256": "4665778752457f5a75c5faca84eabdab60ab290fb783a5aa0f791c53c0c7e10b",
+      "sourceBytes": 94193,
+      "sourceDimensions": [
+        256,
+        256
+      ],
+      "file": "gi-ningguang.webp",
+      "crop": null,
+      "sha256": "0d4b0e0a3d9857ac27993e07197291363d696ff27c3f1beea7e81b10698e2926",
+      "bytes": 12696,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait resized to 160×160 WebP."
+    },
+    {
+      "id": "gi-keqing",
+      "name": "각청",
+      "origin": "genshin",
+      "sourceUrl": "https://upload-os-bbs.hoyolab.com/game_record/genshin/character_icon/UI_AvatarIcon_Keqing.png",
+      "sourceReference": "https://genshin.hoyoverse.com/ko/",
+      "sourceSha256": "964536a902ecddeee14691ec6f0046fc77972c36554fd6b2d4da8daa50c8116d",
+      "sourceBytes": 91882,
+      "sourceDimensions": [
+        256,
+        256
+      ],
+      "file": "gi-keqing.webp",
+      "crop": null,
+      "sha256": "3dbaed921a9b9096bd05f2c506024b12c0d3c902a2dc3b42d62d06a5646abe4c",
+      "bytes": 13326,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait resized to 160×160 WebP."
+    },
+    {
+      "id": "gi-zhongli",
+      "name": "종려",
+      "origin": "genshin",
+      "sourceUrl": "https://upload-os-bbs.hoyolab.com/game_record/genshin/character_icon/UI_AvatarIcon_Zhongli.png",
+      "sourceReference": "https://genshin.hoyoverse.com/ko/",
+      "sourceSha256": "e7050612488291042494663c3058e2c405ecb021d4c46babf8b015b1e820e51d",
+      "sourceBytes": 82680,
+      "sourceDimensions": [
+        256,
+        256
+      ],
+      "file": "gi-zhongli.webp",
+      "crop": null,
+      "sha256": "fd9f4d04c38b363335d4f7c107ce44186bc3a5d40990e191272c2cc8c655f490",
+      "bytes": 10652,
+      "dimensions": [
+        160,
+        160
+      ],
+      "processing": "Official in-game portrait resized to 160×160 WebP."
+    }
+  ]
+}

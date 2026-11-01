@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiGet, apiPost, apiPut, captureAuthSession, clearApiGetCache, isCurrentAuthSession } from '../../../../utils/api';
-import { GAME_SLUG, QUICK_SAVE_SLOT, SAVE_VERSION } from '../_lib/infiniteDefenseData.js';
+import { GAME_SLUG, QUICK_SAVE_SLOT, SAVE_VERSION, SUPPORTED_SAVE_VERSIONS } from '../_lib/infiniteDefenseData.js';
 import { advanceTime, createNewState, restoreState, scoreState, serializeState, setPaused, summaryForState } from '../_lib/infiniteDefenseEngine.js';
 import { localSaveKey, readLocalRun, writeLocalRun } from '../_lib/infiniteDefenseStorage.js';
 
@@ -231,7 +231,7 @@ export default function useInfiniteDefenseSession({ owner, hydrated, token, spee
         if (!slot?.id) { setMessage('계정에 저장된 무한 디펜스 작전이 없습니다.'); return; }
         const detail = await apiGet('/game-saves/' + slot.id, { timeoutMs: 12000 });
         if (!currentRequest()) return;
-        if (detail.save?.version !== SAVE_VERSION) throw new Error('저장 버전이 맞지 않습니다.');
+        if (!SUPPORTED_SAVE_VERSIONS.includes(detail?.save?.version) || detail.save.version !== detail.save.payload?.state?.version) throw new Error('저장 버전이 맞지 않습니다.');
         if (replaceProtected(restoreState(detail.save?.payload?.state))) setMessage('계정 작전을 불러왔습니다. 직전 작전은 복구본으로 보관했습니다.');
       } else if (kind === 'record') {
         await apiPost('/game-records/' + GAME_SLUG, {

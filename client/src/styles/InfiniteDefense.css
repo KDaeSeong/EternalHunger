@@ -133,3 +133,8 @@
 .defense-pad.is-occupied small { font-size:8px; }
 .defense-art-credit { margin:18px 0 0; text-align:center; color:#91a4b0; font-size:.62rem; line-height:1.8; }
 .defense-art-credit a { color:#6e8f9d; text-decoration:underline; }
+
+.defense-origin-tabs { display:flex; gap:5px; margin-bottom:12px; background:#edf3f7; padding:4px; border-radius:10px; }
+.defense-origin-tabs button { flex:1; border:0; border-radius:7px; padding:10px 4px; background:transparent; color:#8a9fac; font-family:inherit; font-size:.68rem; cursor:pointer; min-height:40px; }
+.defense-origin-tabs button[aria-pressed=true] { background:#fff; color:#3a7d88; box-shadow:0 1px 4px #244e5a12; }
+.defense-mining-count { color:#5f8a99!important; font-weight:600; }

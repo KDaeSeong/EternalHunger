@@ -5,10 +5,11 @@ import { useRef, useState } from 'react';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
+import { CHARACTER_ORIGINS } from '../../_lib/crossoverCharacters.js';
 import OfficialStudentIcon from '../../_components/OfficialStudentIcon';
 import DefenseBoard from '../_components/DefenseBoard';
 import useInfiniteDefenseSession from '../_hooks/useInfiniteDefenseSession';
-import { ENEMY_TYPES, STAT_DEFS, STUDENTS } from '../_lib/infiniteDefenseData';
+import { ENEMY_TYPES, STAT_DEFS, STUDENTS, MAX_MINERS } from '../_lib/infiniteDefenseData';
 import {
   assignStudent, mineCost, miningRate, powerCost, repairBase, setPaused, startWave, studentStats,
   trainingCost, trainStudent, upgradeMine, upgradePower, wavePlan,
@@ -52,7 +53,7 @@ export default function InfiniteDefensePlayPage() {
   );
   return (
     <GamePlayShell className="defense-page" kicker="SCHALE · MINING DEFENSE" title="무한 디펜스"
-      description="광산을 돌리고, 학생을 배치하고, 몰려오는 적으로부터 거점을 지키세요."
+      description="광산을 돌리고, 캐릭터를 배치하고, 몰려오는 적으로부터 거점을 지키세요."
       actions={primary} heroLayout="compact" viewport={false}
       metrics={[
         { label: '웨이브', value: state.wave + (state.wave > 20 ? ' · 무한' : ' / 20') },
@@ -85,7 +86,7 @@ export default function InfiniteDefensePlayPage() {
             {ended ? (
               <div className="defense-overlay is-defeat">
                 <span className="defense-eyebrow">DEFENSE ENDED</span>
-                <h2>{state.clearedWave}웨이브 방어 완료</h2><p>거점이 함락되었습니다. 생산 투자와 학생의 위치를 바꿔 다시 도전해 보세요.</p>
+                <h2>{state.clearedWave}웨이브 방어 완료</h2><p>거점이 함락되었습니다. 생산 투자와 캐릭터의 위치를 바꿔 다시 도전해 보세요.</p>
                 <button type="button" className="defense-primary" disabled={disabled} onClick={newRun}>새 작전 시작</button>
               </div>
             ) : null}
@@ -107,7 +108,7 @@ export default function InfiniteDefensePlayPage() {
           </div>
           <div className="defense-hint" role="status">
             {state.phase === 'wave' ? '남은 적 ' + (state.enemies.length + wavePlan(state.wave).length - state.spawnIndex) + ' · 전투 중에도 재배치와 훈련이 가능합니다.'
-              : !defenseCount ? '오른쪽에서 학생을 고르고 지도 위 + 거점에 배치하면 웨이브를 시작할 수 있습니다.'
+              : !defenseCount ? '오른쪽에서 캐릭터를 고르고 지도 위 + 거점에 배치하면 웨이브를 시작할 수 있습니다.'
               : state.paused ? '진행 재개를 누르면 채굴과 전투를 이어갑니다.'
               : '재정비 중에도 채굴이 진행됩니다. 자동 웨이브는 방어 성공 후 4초 뒤 시작합니다.'}
           </div>
@@ -118,9 +119,9 @@ export default function InfiniteDefensePlayPage() {
           <div className="defense-message" role="status" aria-live="polite">{message}</div>
         </section>
 
-        <section className="defense-management" aria-label="학생과 채굴 관리">
+        <section className="defense-management" aria-label="캐릭터와 채굴 관리">
           <div className="defense-tabs" role="tablist" aria-label="관리 화면">
-            {[['students', '학생 배치'], ['growth', '성장·채굴'], ['records', '기록·저장']].map(([id, label]) => (
+            {[['students', '캐릭터 배치'], ['growth', '성장·채굴'], ['records', '기록·저장']].map(([id, label]) => (
               <button key={id} type="button" id={'defense-tab-' + id} role="tab" aria-selected={tab === id}
                 aria-controls={'defense-panel-' + id} onClick={() => setTab(id)}>{label}</button>
             ))}
@@ -128,8 +129,12 @@ export default function InfiniteDefensePlayPage() {
           <div role="tabpanel" id={'defense-panel-' + tab} aria-labelledby={'defense-tab-' + tab}>
             {tab !== 'records' ? (
               <>
-                <div className="defense-roster" role="group" aria-label="학생 선택">
-                  {STUDENTS.map(student => {
+                <div className="defense-origin-tabs" role="group" aria-label="캐릭터 작품 선택">
+                  {Object.entries(CHARACTER_ORIGINS).map(([id, origin]) => <button key={id} type="button"
+                    aria-pressed={selected.origin === id} onClick={() => setSelectedId(STUDENTS.find(character => character.origin === id).id)}>{origin.name}</button>)}
+                </div>
+                <div className="defense-roster" role="group" aria-label="캐릭터 선택">
+                  {STUDENTS.filter(student => student.origin === selected.origin).map(student => {
                     const row = state.assignments[student.id];
                     return <button type="button" key={student.id} className={'defense-student' + (selectedId === student.id ? ' is-selected' : '')}
                       style={{ '--unit-color': student.color }} aria-label={student.name + ' 선택'} aria-pressed={selectedId === student.id}
@@ -145,7 +150,7 @@ export default function InfiniteDefensePlayPage() {
                   <div className="defense-stat-strip"><span>화력 <b>{selected.damage}</b></span><span>사거리 <b>{selected.range.toFixed(2)}</b></span><span>간격 <b>{selected.interval.toFixed(2)}초</b></span></div>
                   {tab === 'students' ? <>
                     <div className="defense-assignment">
-                      <button type="button" className="defense-button" disabled={disabled || ended || assignment.mode === 'mine'} onClick={() => act(current => assignStudent(current, selectedId, 'mine'))}>채굴 배치 · {selected.miningRate.toFixed(1)}/초</button>
+                      <button type="button" className="defense-button" disabled={disabled || ended || assignment.mode === 'mine' || workers.length >= MAX_MINERS} onClick={() => act(current => assignStudent(current, selectedId, 'mine'))}>채굴 배치 · {selected.miningRate.toFixed(1)}/초</button>
                       <button type="button" className="defense-button" disabled={disabled || ended || assignment.mode === 'reserve'} onClick={() => act(current => assignStudent(current, selectedId, 'reserve'))}>대기 전환</button>
                     </div>
                     <p className="defense-placement-note">지도 위 +를 누르면 방어 배치 · {fmt(placeCost)} 크레딧<br />첫 방어 배치만 비용이 들며, 이후 재배치는 무료입니다.</p>
@@ -163,7 +168,8 @@ export default function InfiniteDefensePlayPage() {
                 </div>
                 <div className="defense-mine">
                   <div className="defense-selected-title"><h3>채굴장 <small>Lv.{state.mineLevel}</small></h3><strong>{miningRate(state).toFixed(1)}<small> /초</small></strong></div>
-                  <p>{workers.length ? workers.map(s => s.name).join(' · ') + ' 채굴 중' : '채굴 학생을 배치하면 생산량이 증가합니다.'}</p>
+                  <p className="defense-mining-count">채굴 배치 {workers.length} / {MAX_MINERS}명</p>
+                  <p>{workers.length ? workers.map(s => s.name).join(' · ') + ' 채굴 중' : '채굴 캐릭터를 배치하면 생산량이 증가합니다.'}</p>
                   <button type="button" className="defense-button defense-wide" disabled={disabled || ended || state.coins < mineCost(state)}
                     onClick={() => act(upgradeMine)}>채굴 설비 강화 · {fmt(mineCost(state))}</button>
                   <small className="defense-muted">기본 생산 0.6/초 · 복귀 시 최대 8시간 채굴 정산<br />화면을 벗어나면 전투는 멈추고, 돌아온 뒤 직접 재개합니다.</small>
@@ -187,8 +193,8 @@ export default function InfiniteDefensePlayPage() {
           </div>
         </section>
       </div>
-      <p className="defense-footer">20웨이브 보스 격파 후 무한 모드로 계속 도전할 수 있습니다. 학생은 한 번에 방어·채굴·대기 중 한 역할만 맡습니다.</p>
-      <p className="defense-art-credit">학생 일러스트 © NEXON Games · NEXON · Yostar · <a href="/games/shared/blue-archive/sources.json" target="_blank" rel="noreferrer">이미지 출처</a></p>
+      <p className="defense-footer">20웨이브 보스 격파 후 무한 모드로 계속 도전할 수 있습니다. 캐릭터는 한 번에 방어·채굴·대기 중 한 역할만 맡습니다.</p>
+      <p className="defense-art-credit">캐릭터 {STUDENTS.length}명 · 일러스트 © 각 권리자 · <a href="/games/shared/blue-archive/sources.json" target="_blank" rel="noreferrer">블루 아카이브 출처</a> · <a href="/games/shared/crossover/sources.json" target="_blank" rel="noreferrer">이환·원신 출처</a></p>
     </GamePlayShell>
   );
 }

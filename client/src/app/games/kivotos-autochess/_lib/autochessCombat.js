@@ -6,6 +6,7 @@ function battleTeam(player, side) {
   const trait = (type, id) => traits[type].find(t => t.id === id).tier;
   const abydos = trait('academy', 'abydos'), gehenna = trait('academy', 'gehenna');
   const millennium = trait('academy', 'millennium'), trinity = trait('academy', 'trinity');
+  const nte = trait('academy', 'nte'), genshin = trait('academy', 'genshin');
   return fieldUnits(player).map(unit => {
     const student = STUDENT_BY_ID[unit.studentId], starHp = [0, 1, 1.8, 3.3][unit.star], starAtk = [0, 1, 1.7, 2.9][unit.star];
     const guard = student.role === 'guard' ? trait('roles', 'guard') : 0;
@@ -20,7 +21,8 @@ function battleTeam(player, side) {
       armor: student.role === 'guard' ? 28 : 8, range: student.range,
       interval: student.interval / (1 + shooter * .15), cooldown: 0,
       mp: Math.min(100, millennium * 15 + (student.role === 'support' ? 20 : 0)),
-      manaMul: 1 + millennium * .2, skillMul: 1 + support * .2,
+      manaMul: 1 + millennium * .2, skillMul: (1 + support * .2) * [1, 1.15, 1.3][genshin],
+      firstSkillShield: [0, .12, .24][nte], skillUsed: false,
       shield: Math.round(maxHp * [0, .15, .28][abydos]), lifesteal: [0, .1, .22][trinity],
       skill: student.skill, moveCooldown: 0, buffUntil: 0, buffPower: 1,
     };
@@ -92,6 +94,11 @@ function simulateBattle(left, right, seed, trace = true) {
       const power = actor.atk * (actor.buffUntil > time ? actor.buffPower : 1);
       if (actor.mp >= 100) {
         actor.mp = 0;
+        if (!actor.skillUsed && actor.firstSkillShield > 0) {
+          const amount = Math.round(actor.maxHp * actor.firstSkillShield);
+          actor.shield += amount; effects.push([actor.uid, actor.uid, 'shield', amount]);
+        }
+        actor.skillUsed = true;
         const allies = actors.filter(a => a.side === actor.side && a.hp > 0);
         if (actor.skill === 'heal') {
           const injured = [...allies].sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp).slice(0, 3);

@@ -9,7 +9,7 @@ export default function DefenseBoard({ state, selectedId, onPad, disabled }) {
   const selectedPad = PADS.find(p => p.id === state.assignments[selectedId].padId);
   return (
     <div className="defense-map" aria-label="방어 지도">
-      <svg viewBox="0 0 12 8" role="img" aria-label="적 진입로와 학생 방어 범위">
+      <svg viewBox="0 0 12 8" role="img" aria-label="적 진입로와 캐릭터 방어 범위">
         <defs>
           <pattern id="defense-grid" width="1" height="1" patternUnits="userSpaceOnUse">
             <path d="M 1 0 L 0 0 0 1" fill="none" stroke="#ffffff" strokeOpacity=".055" strokeWidth=".025" />
@@ -64,7 +64,7 @@ export default function DefenseBoard({ state, selectedId, onPad, disabled }) {
           </button>
         );
       })}
-      <div className="defense-map-key"><span><i />방어 거점</span><span>선택한 학생의 사거리가 지도에 표시됩니다.</span></div>
+      <div className="defense-map-key"><span><i />방어 거점</span><span>선택한 캐릭터의 사거리가 지도에 표시됩니다.</span></div>
     </div>
   );
 }

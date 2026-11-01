@@ -1,4 +1,4 @@
-import { SAVE_VERSION, STUDENTS, STUDENT_BY_ID, COPIES_BY_COST, ACADEMIES, MAX_LEVEL, MAX_ROUNDS, MAX_FRAMES, BENCH_SIZE, BOARD } from './autochessData.js';
+import { SAVE_VERSION, LEGACY_SAVE_VERSION, LEGACY_STUDENT_IDS, STUDENTS, STUDENT_BY_ID, COPIES_BY_COST, ACADEMIES, MAX_LEVEL, MAX_ROUNDS, MAX_FRAMES, BENCH_SIZE, BOARD } from './autochessData.js';
 import { getPlayer, copiesOf, fieldUnits } from './autochessMarket.js';
 function int(n, min, max) { return Number.isInteger(n) && n >= min && n <= max; }
 function number(n, min, max) { return Number.isFinite(n) && n >= min && n <= max; }
@@ -6,8 +6,8 @@ function poolConserved(state) {
   const counts = Object.fromEntries(STUDENTS.map(s => [s.id, state.pool?.[s.id]]));
   if (Object.keys(state.pool || {}).length !== STUDENTS.length || Object.values(counts).some(n => !int(n, 0, 100))) return false;
   for (const player of state.players || []) {
-    for (const id of player.shop || []) if (id) { if (!(id in counts)) return false; counts[id]++; }
-    for (const unit of player.units || []) { if (!(unit.studentId in counts) || !int(unit.star, 1, 3)) return false; counts[unit.studentId] += copiesOf(unit); }
+    for (const id of player.shop || []) if (id) { if (!Object.hasOwn(counts, id)) return false; counts[id]++; }
+    for (const unit of player.units || []) { if (!Object.hasOwn(counts, unit.studentId) || !int(unit.star, 1, 3)) return false; counts[unit.studentId] += copiesOf(unit); }
   }
   return STUDENTS.every(s => counts[s.id] === COPIES_BY_COST[s.cost]);
 }
@@ -37,8 +37,25 @@ function validTrace(watch) {
   }
   return true;
 }
+function migrateSave(value) {
+  if (value?.version === SAVE_VERSION) return value;
+  if (value?.version !== LEGACY_SAVE_VERSION) return null;
+  try {
+    const allowed = new Set(LEGACY_STUDENT_IDS);
+    if (!value.pool || Object.keys(value.pool).length !== allowed.size || Object.keys(value.pool).some(id => !allowed.has(id))) return null;
+    if (!Array.isArray(value.players) || value.players.some(player =>
+      !['abydos', 'gehenna', 'millennium', 'trinity', 'balanced'].includes(player.focus) ||
+      !Array.isArray(player.units) || player.units.some(unit => !allowed.has(unit.studentId)) ||
+      !Array.isArray(player.shop) || player.shop.some(id => id !== null && !allowed.has(id)))) return null;
+    const state = JSON.parse(JSON.stringify(value));
+    state.version = SAVE_VERSION;
+    for (const student of STUDENTS) if (!allowed.has(student.id)) state.pool[student.id] = COPIES_BY_COST[student.cost];
+    return state;
+  } catch { return null; }
+}
 function isValidSave(state) {
   try {
+    if (state?.version === LEGACY_SAVE_VERSION) return isValidSave(migrateSave(state));
     if (!state || state.version !== SAVE_VERSION || typeof state.runId !== 'string' || !state.runId || state.runId.length > 160 || /[\u0000-\u001f]/.test(state.runId)) return false;
     if (!number(state.createdAt, 0, 1e15) || !number(state.savedAt, 0, 1e15) || !int(state.rng, 1, 4294967295) || !int(state.round, 1, MAX_ROUNDS) || !int(state.nextUnitId, 1, 1000000) || !int(state.nextLogId, 1, 1000000)) return false;
     if (!['planning', 'battle', 'spectate', 'finished'].includes(state.phase) || typeof state.paused !== 'boolean' || !Array.isArray(state.players) || state.players.length !== 8) return false;
@@ -107,11 +124,12 @@ function isValidSave(state) {
 }
 function serializeState(state, now = Date.now()) { return { ...state, savedAt: now }; }
 function restoreState(value, now = Date.now()) {
-  if (!isValidSave(value)) throw new Error('대전 저장 형식이나 버전이 맞지 않습니다. 현재 진행은 유지됩니다.');
-  const state = JSON.parse(JSON.stringify(value));
+  const migrated = migrateSave(value);
+  if (!isValidSave(migrated)) throw new Error('대전 저장 형식이나 버전이 맞지 않습니다. 현재 진행은 유지됩니다.');
+  const state = JSON.parse(JSON.stringify(migrated));
   state.paused = state.phase === 'battle';
   state.savedAt = now;
   return state;
 }
 
-export { poolConserved, validTrace, isValidSave, serializeState, restoreState };
+export { migrateSave, poolConserved, validTrace, isValidSave, serializeState, restoreState };

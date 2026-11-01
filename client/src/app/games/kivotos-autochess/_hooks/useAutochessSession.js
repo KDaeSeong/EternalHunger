@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiGet, apiPut, apiPost, captureAuthSession, clearApiGetCache, isCurrentAuthSession } from '../../../../utils/api';
-import { GAME_SLUG, SAVE_VERSION, QUICK_SAVE_SLOT } from '../_lib/autochessData.js';
+import { GAME_SLUG, SAVE_VERSION, SUPPORTED_SAVE_VERSIONS, QUICK_SAVE_SLOT } from '../_lib/autochessData.js';
 import { createNewState, advancePlayback, setPaused, scoreState, summaryForState } from '../_lib/autochessEngine.js';
 import { restoreState, serializeState } from '../_lib/autochessSave.js';
 import { localSaveKey, readLocalRun, writeLocalRun } from '../_lib/autochessStorage.js';
@@ -44,7 +44,7 @@ export default function useAutochessSession({ owner, hydrated, token, speed }) {
         const next = restored || createNewState();
         replace(next); setReadyOwner(owner); setHalted(false); setBusy('');
         setRecorded(window.localStorage.getItem(localSaveKey(owner) + ':recorded') === next.runId);
-        setMessage(restored ? '대전을 복원했습니다. 진행 중 전투는 일시정지 상태입니다.' : '상점에서 학생을 구매하고 자동 편성 또는 직접 배치 후 전투를 시작하세요.');
+        setMessage(restored ? '대전을 복원했습니다. 진행 중 전투는 일시정지 상태입니다.' : '상점에서 캐릭터를 구매하고 자동 편성 또는 직접 배치 후 전투를 시작하세요.');
       } catch {
         if (cancelled) return;
         blocked.current = true; setHalted(true); setReadyOwner(owner); setBusy('');
@@ -150,7 +150,7 @@ export default function useAutochessSession({ owner, hydrated, token, speed }) {
         if (!slot?.id) { setMessage('계정에 저장된 키보토스 오토체스 대전이 없습니다.'); return; }
         const detail = await apiGet('/game-saves/' + slot.id, { timeoutMs: 12000 });
         if (!current()) return;
-        if (detail?.save?.version !== SAVE_VERSION) throw new Error('저장 버전이 맞지 않습니다.');
+        if (!SUPPORTED_SAVE_VERSIONS.includes(detail?.save?.version) || detail.save.version !== detail.save.payload?.state?.version) throw new Error('저장 버전이 맞지 않습니다.');
         if (replaceProtected(restoreState(detail.save.payload.state))) setMessage('계정 대전을 불러왔습니다. 직전 진행은 복구본으로 보관했습니다.');
       } else if (kind === 'record') {
         const rank = snapshot.players.find(p => p.id === 'p0').rank;
