@@ -213,4 +213,4 @@ check('portrait styles keep compact square thumbnails, wrapping and the existing
 });
 delete globalThis.__officialPortraitReact; delete globalThis.__officialPortraitImage;
 console.log(JSON.stringify({ pass: true, checks,
-  scope: 'Actual Party/RunTab/Founders and Next Image SSR with real portrait helper; native selection handlers and immutable fixture checks. Presentation title/button/link wrappers only substituted. Not image provenance, face-crop visual QA, browser layout or live-game acceptance.' }));
+  scope: 'Actual Party/RunTab/Founders and Next Image SSR with real portrait helper; native selection handlers and immutable fixture checks. Presentation title/button/link wrappers only substituted. Not image provenance, portrait-framing visual QA, browser layout or live-game acceptance.' }));

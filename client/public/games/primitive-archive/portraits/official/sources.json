@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "copyright": "Blue Archive © NEXON Games Co., Ltd. / Yostar, Inc. All Rights Reserved.",
-  "processing": "Original official published bytes; no AI regeneration or bitmap editing. The game applies a CSS-only face crop.",
+  "processing": "Original official published bytes; no AI regeneration or bitmap editing. The game applies CSS-only upper-body portrait framing.",
   "rows": [
     {
       "id": "shiroko",
