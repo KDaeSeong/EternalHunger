@@ -1,6 +1,7 @@
 import { normalizeHungerConfig, normalizeHungerEvent } from './hungerGameContract.js';
 import { LEGACY_HUNGER_EVENTS, legacyHungerConfig } from './hungerGameLegacyPresets.js';
 import { STORY_HUNGER_EVENTS } from './hungerGameStoryPresets.js';
+import { RELATIONSHIP_HUNGER_EVENTS } from './hungerGameRelationshipPresets.js';
 
 const role = (key = 'actor', options = {}) => ({ key, label: ({ actor: '참가자', attacker: '공격자', victim: '피해자', rescuer: '구조자', partner: '상대' })[key] || key, ...options });
 const effect = (type, target = 'actor', extras = {}) => ({ type, target, ...extras });
@@ -118,7 +119,10 @@ export const PREVIOUS_HUNGER_EVENTS = [
   event('scavenge-rope', '쓸 만한 보급품', [outcome('밧줄 획득', '{actor}은 버려진 보급품에서 쓸 만한 밧줄을 챙긴다.', [effect('gain_item', 'actor', { item: '밧줄' })])], { roles: [role('actor', { noneTraits: ['elemental_body'] })], phases: ['day', 'feast'], weight: 2 }),
 ];
 
-export const DEFAULT_HUNGER_EVENTS = [...PREVIOUS_HUNGER_EVENTS, ...STORY_HUNGER_EVENTS];
+// Preserve the exact pre-relationship bundle for next-match migration. Running
+// matches keep their original event snapshot and existing rule version.
+export const PRE_RELATIONSHIP_HUNGER_EVENTS = [...PREVIOUS_HUNGER_EVENTS, ...STORY_HUNGER_EVENTS];
+export const DEFAULT_HUNGER_EVENTS = [...PRE_RELATIONSHIP_HUNGER_EVENTS, ...RELATIONSHIP_HUNGER_EVENTS];
 
 export function createHungerDraft(id) {
   return event(id, '새 이벤트', [outcome('기본 결과', '{actor}은 주변을 살핀다.')], { phases: ['day', 'night'] });
@@ -144,7 +148,8 @@ function upgradeSampleRoster(roster) {
 }
 
 export function upgradeUntouchedHungerPresets(config) {
-  if (![LEGACY_HUNGER_EVENTS, PREVIOUS_HUNGER_EVENTS].some((events) => JSON.stringify(config.events) === JSON.stringify(events))) return { config, upgraded: false };
+  if (![LEGACY_HUNGER_EVENTS, PREVIOUS_HUNGER_EVENTS, PRE_RELATIONSHIP_HUNGER_EVENTS]
+    .some((events) => JSON.stringify(config.events) === JSON.stringify(events))) return { config, upgraded: false };
   return { config: normalizeHungerConfig({ ...config, events: DEFAULT_HUNGER_EVENTS, roster: upgradeSampleRoster(config.roster) }), upgraded: true };
 }
 

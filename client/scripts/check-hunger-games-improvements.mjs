@@ -23,7 +23,7 @@ await check('v2 replays preserve the released match fingerprint while only next-
     relationships: run.relationships, winnerId: run.winnerId, history: run.history.map(phase => ({ ...phase, rows: phase.rows.map(({ text, ...row }) => row) })) };
   assert.equal(createHash('sha256').update(JSON.stringify(fingerprint)).digest('hex'), '082170c80fec73cbe8410f422e925dd10656bd68ee5edded2ee20ea51b839f1f');
   const restored = restoreHungerPack(createHungerPack(config, run));
-  assert.equal(restored.upgraded, true); assert.equal(restored.config.events.length, 55);
+  assert.equal(restored.upgraded, true); assert.equal(restored.config.events.length, 59);
   assert.deepEqual(restored.run, run); assert.equal(restored.run.input.events.length, 43);
 });
 

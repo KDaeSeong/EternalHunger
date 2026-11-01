@@ -3,6 +3,7 @@ import { HUNGER_LABELS } from '../_lib/hungerGameContract.js';
 import { hungerTraitLabel } from '../../../utils/hungerTraits.js';
 import { hungerEffectLabel } from '../_lib/hungerGameText.js';
 import { getHungerHistoryView } from '../_lib/hungerGameRuntime.js';
+import { getHungerRelationshipView } from '../_lib/hungerGameRelationshipView.js';
 import styles from '../HungerGames.module.css';
 
 function Portrait({ actor, size = 48 }) {
@@ -13,7 +14,8 @@ export default function HungerRunViewer({ run, viewIndex, onViewIndex, followAct
   if (!run) return <div className={styles.empty}><h2>누가 끝까지 살아남을까요?</h2><p>참가자를 고르고 경기 시작을 누르면 사건을 한 페이즈씩 읽을 수 있습니다.</p><p>샘플의 라이덴 쇼군에는 자연 번개 면역이 지정되어 있습니다. 참가자 탭에서 설정을 바꿀 수 있습니다.</p></div>;
   const history = run.history;
   const view = getHungerHistoryView(run, viewIndex);
-  const { index, phase, actors, relationships } = view;
+  const { index, phase, actors } = view;
+  const { effectsByRow, relationships } = getHungerRelationshipView(history, index);
   const alive = actors.filter((actor) => actor.alive);
   const winner = actors.find((actor) => actor.id === view.winnerId);
   const actorById = new Map(actors.map((actor) => [actor.id, actor]));
@@ -65,7 +67,12 @@ export default function HungerRunViewer({ run, viewIndex, onViewIndex, followAct
           {visibleRows.map((row) => <article className={row.effects.some((effect) => effect.type === 'death') ? styles.deathEvent : styles.storyEvent} key={row.id}>
             <div className={styles.portraits}>{row.participants.map((participant) => <div key={participant.id}><Portrait actor={actorById.get(participant.id)} /><small>{participant.name}</small></div>)}</div>
             <p>{row.text}</p>
-            <div className={styles.badges}><span>{row.title}</span>{row.effects.map((effect, effectIndex) => <span key={effectIndex}>{effect.actorName} · {hungerEffectLabel(actorById.get(effect.actorId), effect.type)}{effect.item ? ' (' + effect.item + ')' : ''}</span>)}</div>
+            <div className={styles.badges}><span>{row.title}</span>{row.outcome ? <span>결과: {row.outcome}</span> : null}{row.effects.map((effect, effectIndex) => {
+              const relation = effectsByRow.get(row)?.get(effectIndex);
+              return <span key={effectIndex}>{relation
+                ? `${actorById.get(relation.actorId)?.name || relation.actorId} · ${actorById.get(relation.otherId)?.name || relation.otherId} · ${relation.label}`
+                : `${effect.actorName} · ${hungerEffectLabel(actorById.get(effect.actorId), effect.type)}${effect.item ? ' (' + effect.item + ')' : ''}`}</span>;
+            })}</div>
           </article>)}
           {!visibleRows.length ? <p className={styles.filteredEmpty}>{!phase ? '아직 진행한 사건이 없습니다. 다음 페이즈를 눌러 시작하세요.' : followedActor ? '이 페이즈에는 선택한 참가자의 등장 사건이 없습니다. 이전 기록을 보거나 전체 사건으로 바꿔 확인하세요.' : '이 페이즈에는 발생한 사건이 없습니다.'}</p> : null}
         </div>
@@ -81,7 +88,22 @@ export default function HungerRunViewer({ run, viewIndex, onViewIndex, followAct
           <p>아이템: {actor.items.join(', ') || '없음'}</p>
           {actor.death ? <p>탈락 원인: {HUNGER_LABELS[actor.death.cause]}</p> : null}
         </details>)}</div>
-        {relationships.length ? <details className={styles.group}><summary>동맹·적대 관계</summary>{relationships.map((relation, relationIndex) => <p key={relationIndex}>{actorById.get(relation.leftId)?.name} · {HUNGER_LABELS[relation.kind]} · {actorById.get(relation.rightId)?.name}</p>)}</details> : null}
+        {relationships.length ? <details className={styles.group}><summary>동맹·적대 관계</summary>
+          <p className={styles.note}>전체 참가자의 표시 시점 관계입니다. 반복된 같은 관계 효과는 유지로 표시하며, 아래 근거는 마지막 실제 변경 기록입니다.</p>
+          <div className={styles.relationshipList}>{relationships.map((relation) => {
+            const left = actorById.get(relation.leftId), right = actorById.get(relation.rightId);
+            const change = relation.lastChange;
+            const canVisit = typeof onViewIndex === 'function' && change.historyIndex >= 0 && change.historyIndex < index;
+            const eliminated = left?.alive === false || right?.alive === false;
+            return <div className={styles.relationshipEntry} key={relation.key}>
+              <p><strong>{left?.name || relation.leftId} · {right?.name || relation.rightId}</strong> · {HUNGER_LABELS[relation.kind]}</p>
+              {eliminated ? <p className={styles.relationshipStatus}>탈락자 포함 기록 · {[left, right].filter(Boolean).map((actor) => `${actor.name}: ${actor.alive ? '생존' : hungerEffectLabel(actor, 'death')}`).join(' · ')}</p> : null}
+              <p className={styles.relationshipEvidence}>마지막 변화: {change.phase === 'opening' ? '시작' : `${change.day}일차 ${HUNGER_LABELS[change.phase]}`} · {change.title}{change.outcome ? ` · ${change.outcome}` : ''} · {change.label}</p>
+              <button type="button" disabled={!canVisit} onClick={() => { if (canVisit) onViewIndex(change.historyIndex); }}
+                aria-label={`${left?.name || relation.leftId}·${right?.name || relation.rightId} 마지막 관계 변화 기록 보기`}>관계 변화 기록 보기</button>
+            </div>;
+          })}</div>
+        </details> : null}
       </aside>
     </div>
   );

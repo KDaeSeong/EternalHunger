@@ -460,7 +460,7 @@ await check('v1 replay preserves the exact pre-change winner, RNG and receipt fi
 await check('old checkpoints upgrade only the next match while preserving old progress and re-save rules', async () => {
   const old={version:'hunger-games.v1',config:legacyHungerConfig(),run:{phases:10}};
   const restored=restoreHungerPack(old); assert.equal(restored.upgraded,true);
-  assert.equal(restored.config.events.length,55); assert.equal(restored.run.input.events.length,22); assert.equal(restored.run.rulesVersion,1); assert.equal(restored.run.winnerId,'demo-robot');
+  assert.equal(restored.config.events.length,59); assert.equal(restored.run.input.events.length,22); assert.equal(restored.run.rulesVersion,1); assert.equal(restored.run.winnerId,'demo-robot');
   assert.ok(restored.run.history.flatMap(phase=>phase.rows).some(row=>row.text.includes('야전 의사는')));
   assert.deepEqual((await restoreHungerPackAsync(old,async()=>{})).run,restored.run);
   const saved=createHungerPack(restored.config,restored.run); assert.equal(saved.run.rulesVersion,1); assert.equal(saved.run.config.events.length,22);

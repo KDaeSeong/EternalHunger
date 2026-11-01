@@ -26,6 +26,7 @@ export default function HungerEventEditor({ events, roster, matchMode, onChange,
   const [preview, writePreview] = useState(null);
   const [casting, writeCasting] = useState({});
   const [previewInjured, writePreviewInjured] = useState({});
+  const [previewRelationships, writePreviewRelationships] = useState([]);
   const [previewSurvivors, writePreviewSurvivors] = useState('');
   const [previewDuelPhases, writePreviewDuelPhases] = useState(0);
   const [context, writeContext] = useState({ day: 1, phase: 'day', weather: 'storm', location: 'forest' });
@@ -42,6 +43,7 @@ export default function HungerEventEditor({ events, roster, matchMode, onChange,
   const protect = setter => value => { if (isCurrent()) setter(value); };
   const setPreview = protect(writePreview), setCasting = protect(writeCasting);
   const setPreviewInjured = protect(writePreviewInjured), setPreviewSurvivors = protect(writePreviewSurvivors);
+  const setPreviewRelationships = protect(writePreviewRelationships);
   const setPreviewDuelPhases = protect(writePreviewDuelPhases), setContext = protect(writeContext);
   const setPreviewIndex = protect(writePreviewIndex), setJsonText = protect(writeJsonText);
   const setDraft = (next, origin = originId) => {
@@ -54,9 +56,9 @@ export default function HungerEventEditor({ events, roster, matchMode, onChange,
   const dirty = JSON.stringify(savedOrigin) !== JSON.stringify(draft);
   const newId = () => 'custom-' + crypto.randomUUID();
   const resetPreviewSetup = () => {
-    setPreview(null); setCasting({}); setPreviewInjured({}); setPreviewSurvivors(''); setPreviewDuelPhases(0); setJsonText('');
+    setPreview(null); setCasting({}); setPreviewInjured({}); setPreviewRelationships([]); setPreviewSurvivors(''); setPreviewDuelPhases(0); setJsonText('');
   };
-  const update = (patch) => { setDraft({ ...draft, ...patch }); setPreview(null); };
+  const update = (patch) => { setDraft({ ...draft, ...patch }); setPreview(null); if (patch.roles) setPreviewRelationships([]); };
   const updateRole = (index, patch) => update({ roles: draft.roles.map((role, offset) => offset === index ? { ...role, ...patch } : role) });
   const updateOutcome = (index, patch) => update({ outcomes: draft.outcomes.map((outcome, offset) => offset === index ? { ...outcome, ...patch } : outcome) });
   const updateEffect = (outcomeIndex, effectIndex, patch) => updateOutcome(outcomeIndex, { effects: draft.outcomes[outcomeIndex].effects.map((effect, offset) => offset === effectIndex ? { ...effect, ...patch } : effect) });
@@ -91,12 +93,17 @@ export default function HungerEventEditor({ events, roster, matchMode, onChange,
     } catch (error) { notice(error.message); }
   };
   const roleOptions = draft.roles.map((role) => ({ value: role.key, label: role.label + ' {' + role.key + '}' }));
+  const previewActor = (key) => {
+    const index = draft.roles.findIndex((role) => role.key === key);
+    return roster.find((actor) => actor.id === (casting[key] || roster[index]?.id));
+  };
+  const previewPairs = draft.roles.flatMap((left, index) => draft.roles.slice(index + 1).map((right) => ({ left, right })));
   const testEvent = () => {
     if (!isCurrent()) return;
     try {
       const normalized = normalizeHungerEvent(draft);
       const { state, assigned } = createHungerPreview({ roster, matchMode, event: normalized, casting, context, injuredByRole: previewInjured,
-        survivors: previewSurvivors === '' ? roster.length : previewSurvivors, duelPhases: previewDuelPhases, seed: 'preview-' + previewIndex });
+        relationships: previewRelationships, survivors: previewSurvivors === '' ? roster.length : previewSurvivors, duelPhases: previewDuelPhases, seed: 'preview-' + previewIndex });
       const inspection = inspectHungerEvent(state, normalized, assigned);
       const result = resolveHungerEvent(state, normalized, assigned);
       setPreview({ ...inspection, row: result.row }); setPreviewIndex((index) => index + 1);
@@ -112,7 +119,7 @@ export default function HungerEventEditor({ events, roster, matchMode, onChange,
     <div className={styles.editorLayout}>
       <aside className={styles.panel}>
         <div className={styles.toolbar}><h2>이벤트 {events.length}개</h2><button type="button" disabled={events.length >= HUNGER_LIMITS.events} onClick={add}>추가</button></div>
-        <button type="button" disabled={typeof onPresetsReset !== 'function'} onClick={() => { if (!isCurrent()) return; if (onPresetsReset()) { setPreview(null); setCasting({}); setPreviewInjured({}); setPreviewSurvivors(''); setPreviewDuelPhases(0); setJsonText(''); } }}>기본 사건 업데이트</button>
+        <button type="button" disabled={typeof onPresetsReset !== 'function'} onClick={() => { if (!isCurrent()) return; if (onPresetsReset()) resetPreviewSetup(); }}>기본 사건 업데이트</button>
         <div className={styles.eventList}>
           {events.map((event) => <button type="button" aria-pressed={draft.id === event.id} className={draft.id === event.id ? styles.selected : ''} key={event.id} onClick={() => choose(event)}>{event.enabled ? '● ' : '○ '}{event.title}<small>{event.roles.length}명 · 분기 {event.outcomes.length}개</small></button>)}
         </div>
@@ -124,7 +131,7 @@ export default function HungerEventEditor({ events, roster, matchMode, onChange,
           {savedOrigin && originId === draft.id ? <button type="button" onClick={() => {
             if (!isCurrent() || !window.confirm('이 이벤트를 삭제할까요?') || !isCurrent()) return;
             const next = events.filter((event) => event.id !== originId); onChange(next);
-            setDraft(structuredClone(next[0] || createNewHungerEventDraft(next, newId)), next[0]?.id || null); setPreview(null);
+            setDraft(structuredClone(next[0] || createNewHungerEventDraft(next, newId)), next[0]?.id || null); resetPreviewSetup();
           }}>삭제</button> : null}
         </div></div>
         <p className={styles.note}>편집 후 이벤트 저장을 눌러 적용합니다. 문구의 {'{역할키}'}에는 해당 참가자의 이름이 들어갑니다.</p>
@@ -215,7 +222,7 @@ export default function HungerEventEditor({ events, roster, matchMode, onChange,
         <fieldset className={styles.group}><legend>시험 판정</legend>
           <p>실제 경기에는 반영하지 않고, 지정한 참가자와 상황으로 결과를 확인합니다.</p>
           <div className={styles.fields}>
-            {draft.roles.map((role, index) => <div className={styles.field} key={role.key}><label>{role.label}<Select value={casting[role.key] || roster[index]?.id || ''} options={roster.map((actor) => ({ value: actor.id, label: actor.name }))} onChange={(id) => setCasting((previous) => ({ ...previous, [role.key]: id }))} /></label><label className={styles.inline}><input type="checkbox" checked={Boolean(previewInjured[role.key])} onChange={(event) => setPreviewInjured((previous) => ({ ...previous, [role.key]: event.target.checked }))} />부상 상태로 시험</label></div>)}
+            {draft.roles.map((role, index) => <div className={styles.field} key={role.key}><label>{role.label}<Select value={casting[role.key] || roster[index]?.id || ''} options={roster.map((actor) => ({ value: actor.id, label: actor.name }))} onChange={(id) => { setCasting((previous) => ({ ...previous, [role.key]: id })); setPreviewRelationships([]); setPreview(null); }} /></label><label className={styles.inline}><input type="checkbox" checked={Boolean(previewInjured[role.key])} onChange={(event) => setPreviewInjured((previous) => ({ ...previous, [role.key]: event.target.checked }))} />부상 상태로 시험</label></div>)}
             <label className={styles.field}>일차<input type="number" min="0" max="60" value={context.day} onChange={(event) => setContext({ ...context, day: Number(event.target.value) })} /></label>
             <label className={styles.field}>시점<Select value={context.phase} options={HUNGER_PHASES} onChange={(phase) => setContext({ ...context, phase })} /></label>
             <label className={styles.field}>날씨<Select value={context.weather} options={HUNGER_WEATHER} onChange={(weather) => setContext({ ...context, weather })} /></label>
@@ -223,6 +230,22 @@ export default function HungerEventEditor({ events, roster, matchMode, onChange,
             <label className={styles.field}>시험 생존자 수<input type="number" min="2" max={roster.length} value={previewSurvivors === '' ? roster.length : previewSurvivors} onChange={(event) => setPreviewSurvivors(event.target.value)} /></label>
             <label className={styles.field}>최종 2인 대치 경과 페이즈<input type="number" min="0" max="120" value={previewDuelPhases} onChange={(event) => setPreviewDuelPhases(event.target.value)} /></label>
           </div>
+          {previewPairs.length ? <fieldset className={styles.group}><legend>시험할 참가자 관계</legend>
+            <p className={styles.note}>선택한 참가자 사이의 관계를 이번 시험에만 지정합니다. 실제 경기·이벤트 조건·저장 파일에는 반영하지 않으며, 배역이나 이벤트를 바꾸면 초기화됩니다.</p>
+            {previewPairs.map(({ left, right }) => {
+              const a = previewActor(left.key), b = previewActor(right.key);
+              const selected = previewRelationships.find((row) => row.left === left.key && row.right === right.key)?.kind || 'none';
+              return <label className={styles.field} key={left.key + ':' + right.key}>
+                {a?.name || '참가자 미지정'} ({left.label}) · {b?.name || '참가자 미지정'} ({right.label})
+                <Select aria-label={'시험 관계 ' + left.key + ' ' + right.key} value={selected}
+                  disabled={!a || !b || a.id === b.id} options={[{ value: 'none', label: '관계 없음' }, { value: 'ally', label: '동맹' }, { value: 'enemy', label: '적대' }]}
+                  onChange={(kind) => {
+                    if (!a || !b || a.id === b.id || !['none', 'ally', 'enemy'].includes(kind)) return;
+                    setPreviewRelationships((previous) => [...previous.filter((row) => row.left !== left.key || row.right !== right.key), { left: left.key, right: right.key, kind }]); setPreview(null);
+                  }} />
+              </label>;
+            })}
+          </fieldset> : null}
           <button type="button" onClick={testEvent}>시험 판정</button>
           {preview ? <div className={styles.preview} role="status">
             {preview.row ? <><p>{preview.row.text}</p><small>가능한 분기: {preview.outcomes.map((row) => row.label + ' (' + row.weight + ')').join(', ')}</small><p>{preview.row.effects.length ? preview.row.effects.map((effect) => effect.actorName + ': ' + hungerEffectLabel(roster.find((actor) => actor.id === effect.actorId), effect.type) + (effect.cause ? ' · ' + label(effect.cause) : '')).join(' / ') : '상태 변화 없이 생존'}</p></> : preview.reason}
@@ -234,7 +257,7 @@ export default function HungerEventEditor({ events, roster, matchMode, onChange,
           <button type="button" onClick={() => {
             if (!isCurrent()) return;
             try {
-              const event = parseHungerEventDraftJson(jsonText); setDraft(event); setPreview(null);
+              const event = parseHungerEventDraftJson(jsonText); setDraft(event); setPreview(null); setPreviewRelationships([]);
               notice('JSON을 편집기에 적용했습니다. 원래 편집 대상은 유지하며, 다른 저장된 이벤트의 ID로는 덮어쓸 수 없습니다. 이벤트 저장 또는 새 ID로 복제를 선택해 주세요.');
             } catch (error) { notice(error.message); }
           }}>편집기에 적용</button>
