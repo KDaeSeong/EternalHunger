@@ -69,6 +69,7 @@ function legacyFixture(state) {
   const snapshot = { ...state };
   delete snapshot.lineage;
   delete snapshot.ancestralFaith;
+  delete snapshot.projectTradition;
   return engine.normalizeState(snapshot);
 }
 

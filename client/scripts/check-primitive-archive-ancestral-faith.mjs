@@ -34,6 +34,7 @@ check('new-run faith is explicitly enabled while missing and observed legacy fai
   assert.equal(source.ancestralFaith.origin, 'new_run');
   const legacy = clone(source);
   delete legacy.ancestralFaith;
+  delete legacy.projectTradition;
   const before = JSON.stringify(legacy);
   const restored = engine.normalizeState(legacy);
   assert.equal(restored.ancestralFaith.origin, 'legacy_disabled');

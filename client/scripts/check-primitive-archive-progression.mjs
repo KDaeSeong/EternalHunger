@@ -294,6 +294,7 @@ check('settled unfinished survivor and total-loss states keep their distinct run
   const defeatInput = fixture({ ended: true, party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
   delete defeatInput.lineage;
   delete defeatInput.ancestralFaith;
+  delete defeatInput.projectTradition;
   const defeat = engine.settleRunAction(defeatInput);
   assert.equal(summarize(unfinished).basic.ended, true);
   assert.equal(summarize(unfinished).basic.victory, false);

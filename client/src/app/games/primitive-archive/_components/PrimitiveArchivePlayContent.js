@@ -56,6 +56,7 @@ import {
   perkRows,
   projectActionEstimate,
   projectRows,
+  projectTraditionSummary,
   prepareSuccessorAction,
   recipeRows,
   recruitPartyMemberAction,
@@ -80,6 +81,7 @@ import {
   runSpecializedAction,
   runUtilityAction,
   runProjectAction,
+  reserveProjectTraditionAction,
   runEventChainAction,
   runRecoveryChoiceAction,
   runResearchAction,
@@ -306,6 +308,7 @@ export default function PrimitiveArchivePlayContent() {
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
   const perks = useMemo(() => perkRows(state), [state]);
   const projects = useMemo(() => projectRows(state), [state]);
+  const projectTradition = useMemo(() => projectTraditionSummary(state, actorId), [state, actorId]);
   const tribe = useMemo(() => tribeSummary(state), [state]);
   const supplies = useMemo(() => survivalSupplySummary(state), [state]);
   const operations = useMemo(() => settlementOperationsSummary(state), [state]);
@@ -669,6 +672,16 @@ export default function PrimitiveArchivePlayContent() {
     applyAction('부족 프로젝트', (current) => runProjectAction(current, actorId, selectedProject.id));
   };
 
+  const reserveProjectTradition = () => {
+    if (!projectTradition.canReserve) return;
+    const matchesDisplayedPlan = (current) => current.runId === state.runId && current.day === state.day
+      && current.projects.selectedProjectId === projectTradition.selectedProjectId
+      && current.ancestralFaith?.active?.founderId === projectTradition.founderId;
+    if (!matchesDisplayedPlan(stateRef.current)) return;
+    applyAction('전승 공동 작업 예약', (current) => matchesDisplayedPlan(current)
+      ? reserveProjectTraditionAction(current, actorId) : current);
+  };
+
   const adjustTribeJob = (jobId, delta) => {
     applyAction('직업 배치', (current) => adjustTribeJobAction(current, jobId, delta));
   };
@@ -1028,6 +1041,8 @@ export default function PrimitiveArchivePlayContent() {
         perks={perks}
         projectEstimate={projectEstimate}
         projects={projects}
+        projectTradition={projectTradition}
+        reserveProjectTradition={reserveProjectTradition}
         priorityPlannerRows={priorityPlannerRows}
         priorityCivicRows={priorityCivicRows}
         recentActionText={recentActionText}

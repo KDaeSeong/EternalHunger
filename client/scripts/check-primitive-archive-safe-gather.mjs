@@ -21,6 +21,7 @@ function fixture(runId, overrides = {}) {
     // A synthetic prior casualty is an old save, not a fresh active lineage.
     delete base.lineage;
     delete base.ancestralFaith;
+    delete base.projectTradition;
   }
   return engine.normalizeState({
     ...base,

@@ -19,6 +19,7 @@ function stateWith(passives = [], { tonic = 1, hp = 40, dead = false } = {}) {
     // This synthetic old casualty has no recorded lifetime or verified cause.
     delete base.lineage;
     delete base.ancestralFaith;
+    delete base.projectTradition;
   }
   const completed = {};
   for (const passive of passives) {

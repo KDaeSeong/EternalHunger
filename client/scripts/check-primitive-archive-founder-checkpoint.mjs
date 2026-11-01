@@ -50,6 +50,7 @@ delete legacy.founderHistory;
 // Old saves have none of the later lifecycle or faith fields.
 delete legacy.lineage;
 delete legacy.ancestralFaith;
+delete legacy.projectTradition;
 const legacyStorage = new Storage();
 assert.equal(checkpoint.writeCheckpoint(legacyStorage, owner, legacy, { expectedRevision: 0, savedAt: at }).status, 'ready');
 const legacyRestored = engine.normalizeState(checkpoint.readCheckpoint(legacyStorage, owner).checkpoint.current);

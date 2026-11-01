@@ -79,6 +79,7 @@ check('absent pre-feature fields remain inactive and do not invent ages or deeds
     raw.day = 70;
     delete raw.lineage;
     delete raw.ancestralFaith;
+    delete raw.projectTradition;
     if (!withObservedHistory) delete raw.founderHistory;
     const storage = new Storage();
     assert.equal(checkpoint.writeCheckpoint(storage, owner, raw, { expectedRevision: 0, savedAt: at }).status, 'ready');

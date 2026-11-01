@@ -103,6 +103,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
   const {
     actionFeedback,
     buyPerk,
+    busy,
     canAct,
     civicAdvancements,
     civicInspirationRows,
@@ -110,15 +111,18 @@ export default function PrimitiveArchiveGrowthTab(props) {
     civicPlannerRows,
     civics,
     inspirationRows,
+    hydrated,
     perks,
     priorityCivicRows,
     priorityPlannerRows,
     projectEstimate,
+    projectTradition,
     projects,
     recentActionText,
     research,
     researchMap,
     researchPlannerOpen,
+    reserveProjectTradition,
     runCivic,
     runProject,
     runResearch,
@@ -218,11 +222,16 @@ export default function PrimitiveArchiveGrowthTab(props) {
         </details>
 
         <PrimitiveArchiveProjectsPanel
+          busy={busy}
           canAct={canAct}
+          ended={Boolean(state.ended)}
+          hydrated={hydrated}
           projectEstimate={projectEstimate}
+          projectTradition={projectTradition}
           projects={projects}
           actionFeedback={actionFeedback}
           recentActionText={recentActionText}
+          reserveProjectTradition={reserveProjectTradition}
           runProject={runProject}
           selectProject={selectProject}
           selectedProject={selectedProject}
@@ -379,10 +388,15 @@ export default function PrimitiveArchiveGrowthTab(props) {
 
         <PrimitiveArchiveProjectsPanel
           actionFeedback={actionFeedback}
+          busy={busy}
           canAct={canAct}
+          ended={Boolean(state.ended)}
+          hydrated={hydrated}
           projectEstimate={projectEstimate}
+          projectTradition={projectTradition}
           projects={projects}
           recentActionText={recentActionText}
+          reserveProjectTradition={reserveProjectTradition}
           runProject={runProject}
           selectProject={selectProject}
           selectedProject={selectedProject}

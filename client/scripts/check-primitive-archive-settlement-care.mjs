@@ -13,6 +13,7 @@ function fixture(overrides = {}) {
     // Preserve the old cause-free casualty fixture without inventing life events.
     delete source.lineage;
     delete source.ancestralFaith;
+    delete source.projectTradition;
   }
   return engine.normalizeState({
     ...source,

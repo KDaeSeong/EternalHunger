@@ -56,7 +56,7 @@
     "check:eternal-hunger:regressions": "npm run check:verification-fingerprint && npm run check:battle-log-regressions && npm run check:healing-craft-recovery && node ./scripts/check-eternal-hunger-regressions.mjs && npm run check:simulation-evaluation && npm run check:market-failure-state && node ./scripts/check-kiosk-movement-quote-cache.mjs --fixtures-only && node ./scripts/check-simulation-sponsor-perks.mjs && node ./scripts/check-simulation-sponsor-ui-props.mjs",
     "check:verification-fingerprint": "node ./scripts/check-verification-fingerprint.mjs",
     "check:battle-log-regressions": "node ./scripts/check-battle-log-regressions.mjs",
-    "check:hunger-games": "node ./scripts/check-hunger-games.mjs && node ./scripts/check-hunger-games-improvements.mjs",
+    "check:hunger-games": "node ./scripts/check-hunger-games.mjs && node ./scripts/check-hunger-games-improvements.mjs && node ./scripts/check-hunger-games-playback.mjs && node ./scripts/check-hunger-games-observer-ui.mjs",
     "check:phase-highlights": "node ./scripts/check-phase-highlights.mjs",
     "check:healing-craft-recovery": "node ./scripts/check-healing-craft-recovery.mjs && npm run check:low-hp-recovery",
     "check:healing-craft-recovery:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-healing-craft-recovery-match.mjs && npm run check:low-hp-recovery:match",
@@ -240,7 +240,8 @@
     "check:primitive-archive:shop-perks": "node ./scripts/check-primitive-archive-shop-perks.mjs && node ./scripts/check-primitive-archive-shop-perk-start.mjs",
     "check:cosmetic-perks": "node ./scripts/check-perk-shop.mjs && node ./scripts/check-cosmetic-profiles.mjs && node ./scripts/check-cosmetic-simulation.mjs && node ./scripts/check-perk-discount-runtime.mjs",
     "check:primitive-archive:founders": "node ./scripts/check-primitive-archive-founders.mjs && node ./scripts/check-primitive-archive-founder-selection.mjs && node ./scripts/check-primitive-archive-founder-checkpoint.mjs && node ./scripts/check-primitive-archive-founders-ui.mjs && npm run check:primitive-archive:lineage && npm run check:primitive-archive:portraits",
-    "check:primitive-archive:lineage": "node ./scripts/check-primitive-archive-lineage.mjs && node ./scripts/check-primitive-archive-ancestral-faith.mjs && node ./scripts/check-primitive-archive-lineage-checkpoint.mjs && node ./scripts/check-primitive-archive-lineage-ui.mjs",
+    "check:primitive-archive:lineage": "node ./scripts/check-primitive-archive-lineage.mjs && node ./scripts/check-primitive-archive-ancestral-faith.mjs && node ./scripts/check-primitive-archive-lineage-checkpoint.mjs && node ./scripts/check-primitive-archive-lineage-ui.mjs && npm run check:primitive-archive:project-tradition",
+    "check:primitive-archive:project-tradition": "node ./scripts/check-primitive-archive-project-tradition.mjs && node ./scripts/check-primitive-archive-project-tradition-checkpoint.mjs && node ./scripts/check-primitive-archive-project-tradition-ui.mjs",
     "check:primitive-archive:portraits": "node ./scripts/check-primitive-archive-official-portraits.mjs && node ./scripts/check-primitive-archive-official-portraits-ui.mjs"
   },
   "dependencies": {

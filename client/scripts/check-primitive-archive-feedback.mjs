@@ -73,6 +73,7 @@ const cookBase = engine.createNewState({
 // The last-AP cooking fixture restores a pre-existing, cause-free casualty save.
 delete cookBase.lineage;
 delete cookBase.ancestralFaith;
+delete cookBase.projectTradition;
 const cookAssignments = Object.fromEntries(Object.keys(cookBase.tribe.assignments).map((key) => [key, 0]));
 const cookFixture = (ap) => engine.normalizeState({
   ...cookBase,

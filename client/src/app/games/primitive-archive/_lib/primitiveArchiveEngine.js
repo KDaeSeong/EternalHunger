@@ -51,9 +51,11 @@ import { GAMEPLAY_PERK_CODES, normalizeGameplayPerkCodes } from '../../../../uti
 import { createFounderHistory, normalizeFounderHistory, recordFounderDeed, recordFounderDeath } from './primitiveArchiveFounders.js';
 export { founderHistoryRows } from './primitiveArchiveFounders.js';
 import { LINEAGE_RULES, createLineage, normalizeLineage, lineageSummary, prepareLineageSuccessor, retireLineageActor, tickLineageDay, lineageHousehold, settleLineageHousehold, observeLineageArrival, observeLineageDeaths } from './primitiveArchiveLineage.js';
-import { createAncestralFaith, normalizeAncestralFaith, runAncestralRite, ancestralActionChanceBonus, ancestralStudyBonus, ancestralCareBonus, consumeAncestralFavor } from './primitiveArchiveAncestralFaith.js';
+import { createAncestralFaith, normalizeAncestralFaith, runAncestralRite, ancestralActionChanceBonus, ancestralStudyBonus, ancestralCareBonus, consumeAncestralFavor, ancestralFaithRows } from './primitiveArchiveAncestralFaith.js';
 export { lineageSummary } from './primitiveArchiveLineage.js';
 export { ancestralFaithRows, ancestralFaithSummary } from './primitiveArchiveAncestralFaith.js';
+import { createProjectTradition, normalizeProjectTradition, reserveProjectTradition, projectTraditionBonus,
+  settleProjectTradition, markProjectTraditionCompleted, projectTraditionReason } from './primitiveArchiveProjectTradition.js';
 
 export {
   GAME_SLUG,
@@ -213,6 +215,7 @@ export function createNewState(options = {}) {
   base.lineage = createLineage({ party, day: base.day, runId: base.runId, mode: options.lineageMode || 'hybrid' });
   base.ancestralFaith = options.lineageMode === 'legacy'
     ? normalizeAncestralFaith(undefined, base) : createAncestralFaith(base);
+  base.projectTradition = createProjectTradition(base);
   return applyOwnedPerks(base, meta);
 }
 
@@ -269,6 +272,8 @@ export function normalizeState(value) {
   const founderHistory = normalizeFounderHistory(value.founderHistory, { party, day: value.day || base.day, runId: value.runId || base.runId });
   const lineage = normalizeLineage(value.lineage, { party, day: value.day || base.day, runId: value.runId || base.runId });
   const ancestralFaith = normalizeAncestralFaith(value.ancestralFaith, { ...value, party, founderHistory, lineage, day: value.day || base.day, runId: value.runId || base.runId });
+  const projectTradition = normalizeProjectTradition(value.projectTradition, { ...value, party, founderHistory, lineage, ancestralFaith,
+    day: value.day || base.day, runId: value.runId || base.runId });
   return {
     ...base,
     ...value,
@@ -280,6 +285,7 @@ export function normalizeState(value) {
     founderHistory,
     lineage,
     ancestralFaith,
+    projectTradition,
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
     equipment: normalizeEquipment(value.equipment, party),
     camp,
@@ -1116,7 +1122,7 @@ function completeProjectIfReady(state, project, source = '') {
     },
   };
   return addLog(
-    next,
+    markProjectTraditionCompleted(next, project.id),
     `부족 프로젝트 완성${source ? ` (${source})` : ''}: ${project.name}. ${project.effectText}${rewardEntries.length ? ` · ${formatGains(rewardEntries)}` : ''}.`,
   );
 }
@@ -1601,6 +1607,69 @@ export function selectProjectAction(state, projectId) {
     ...current,
     projects: { ...current.projects, selectedProjectId: row.id },
   }, `부족 프로젝트 목표를 ${directionParticle(row.name)} 지정했습니다.`);
+}
+
+export function projectTraditionSummary(state, actorId = '') {
+  const tradition = normalizeProjectTradition(state.projectTradition, state);
+  const faith = normalizeAncestralFaith(state.ancestralFaith, state);
+  const projects = normalizeProjectState(state.projects);
+  const tribe = normalizeTribeState(state.tribe);
+  const project = TRIBE_PROJECTS.find(row => row.id === projects.selectedProjectId);
+  const actor = actorId ? livingActorForAction(state, actorId) : state.party.find(row => Number(row.hp || 0) > 0);
+  const sourceId = faith.active?.founderId || tradition.pending?.founderId || '';
+  const source = sourceId ? ancestralFaithRows(state).find(row => row.founderId === sourceId) : null;
+  const builders = Number(tribe.assignments.builder || 0);
+  const progress = Number(projects.progress?.[project?.id] || 0);
+  const remainingWork = Math.max(0, Number(project?.work || 0) - progress);
+  const baseWork = Math.min(builders, remainingWork);
+  const enabled = tradition.origin === 'new_run';
+  const reason = state.ended ? '종료된 런에서는 전승 사업을 예약할 수 없습니다.'
+    : !enabled ? '이전 저장은 전승 사업을 새로 활성화하지 않습니다. 기존 진행과 사업은 유지합니다.'
+      : !actor ? '현재 활동 중인 생존 대원을 선택해야 합니다.'
+        : Number(state.ap || 0) < 1 ? '예약에 AP를 소비하지 않지만, 활동할 행동력 1 이상이 남아 있어야 합니다.'
+          : tradition.pending ? '이미 다음 아침의 전승 사업이 예약되어 있습니다. 선택을 바꿔도 예약을 옮기거나 환급하지 않습니다.'
+            : tradition.lastReservedDay === state.day ? '전승 사업은 하루 한 건만 예약할 수 있습니다.'
+              : faith.origin !== 'new_run' || faith.active?.domain !== 'craft' || !(faith.active.remaining >= 1)
+                ? '오늘 유효한 제작·건설 가르침 또는 가호의 남은 사용권 1회가 필요합니다.'
+                : !source || source.status === 'unconfirmed' ? '전승 제공자의 실제 생애와 기여를 확인할 수 없습니다.'
+                  : !project ? '현재 선택된 공동 사업이 없습니다.'
+                    : projects.completed?.[project.id] ? '현재 선택한 사업은 이미 완성되었습니다.'
+                      : !projectPrereqsMet(state, project) ? '현재 선택한 사업의 선행 연구가 필요합니다.'
+                        : builders < 1 ? '현재 배치에 실제 건설대 일손이 1명 이상 필요합니다.'
+                          : !projects.resourceCommitted?.[project.id] && !hasResources(state.inventory, project.cost || {})
+                            ? '현재 선택한 사업에 투입할 실제 착수 자재가 부족합니다.'
+                            : remainingWork <= baseWork ? '남은 작업을 기본 건설대 작업만으로 채울 수 있어 추가 전승 작업을 예약하지 않습니다.' : '';
+  const nameOf = id => state.founderHistory?.members?.find(row => row.actorId === id)?.name || id;
+  const projectNameOf = id => TRIBE_PROJECTS.find(row => row.id === id)?.name || '선택된 사업 없음';
+  const pending = tradition.pending;
+  const receipt = tradition.lastSettlement;
+  return { enabled, canReserve: !reason, reason,
+    costText: '제작·건설 전승 사용권 1회 · AP/ST 소모 0 · 보유 AP 1 이상 필요 · 기존 사업 자재와 실제 건설대 일손 별도',
+    effectText: '바로 다음 아침, 같은 사업의 실제 기본 건설 작업이 있을 때만 남은 필요량 안에서 작업 최대 +1. 하루 한 건이며 선택 변경·일손 0·자재 부족·완성 시 만료합니다. 이월·환급·추가 완성 보상은 없습니다.',
+    summaryText: state.ended ? '런이 종료되어 예약된 추가 전승 작업은 실행되지 않습니다.'
+      : pending ? `${nameOf(pending.founderId)}의 전승을 ${projectNameOf(pending.projectId)}의 ${pending.dueDay}일차 아침 공동 작업에 예약했습니다.`
+      : reason || `${source.name}의 제작·건설 사용권 1회를 ${project.name}의 다음 아침 공동 작업에 맡길 수 있습니다.`,
+    evidenceText: source ? `${source.name}의 실제 제작 ${Number(source.tallies.craft || 0)}회 · 캠프 관리 ${Number(source.tallies.camp || 0)}회 · 공동 사업 ${Number(source.tallies.project || 0)}회가 제작·건설 전승의 근거입니다. 살아 있는 인물은 가르침, 확인된 사망자는 가호로 이어집니다.`
+      : '실제 제작·캠프 관리·공동 사업 기여가 합계 3회 이상인 창건자의 당일 제작·건설 전승이 필요합니다.',
+    pending: pending ? { ...pending } : null,
+    pendingText: pending ? `${state.ended ? '런 종료로 추가 작업은 실행되지 않습니다. ' : ''}${pending.reservedDay}일차 예약 · ${pending.dueDay}일차 아침 · ${projectNameOf(pending.projectId)} · ${nameOf(pending.founderId)} · 추가 작업 최대 1. 현재 사업 선택을 바꿔도 예약 대상은 바뀌지 않습니다.` : '',
+    lastSettlement: receipt ? { ...receipt } : null,
+    lastSettlementText: receipt ? `${receipt.day}일차 아침 · 예약 ${projectNameOf(receipt.reservedProjectId)} · 실제 정산 ${projectNameOf(receipt.projectId)} · ${nameOf(receipt.founderId)} · 기본 작업 ${receipt.baseWork} + 전승 ${receipt.bonusWork} · 진행 ${receipt.progressBefore} → ${receipt.progressAfter}. ${projectTraditionReason(receipt.reason)}` : '',
+    records: tradition.records.map(row => ({ ...row, projectName: projectNameOf(row.projectId), founderName: nameOf(row.founderId),
+      text: `${projectNameOf(row.projectId)} · ${nameOf(row.founderId)}의 실제 공동 작업 전승 ${row.appliedWork} · ${row.firstDay}~${row.lastDay}일차 적용${row.completedDay ? ` · ${row.completedDay}일차 완성` : ' · 사업 진행 중'}` })),
+    selectedProjectId: project?.id || '', selectedProjectName: project?.name || '',
+    founderId: source?.founderId || '', founderName: source?.name || '',
+    availableCharges: faith.active?.domain === 'craft' ? faith.active.remaining : 0,
+    baseWork, remainingWork, bonusWork: reason ? 0 : 1 };
+}
+
+export function reserveProjectTraditionAction(state, actorId) {
+  const summary = projectTraditionSummary(state, actorId || '');
+  if (!livingActorForAction(state, actorId)) return addLog(state, '현재 활동 중인 생존 대원을 선택해야 합니다.');
+  if (!summary.canReserve) return addLog(state, summary.reason);
+  const reserved = reserveProjectTradition(consumeAncestralFavor(state, 'craft', { attempted: true }),
+    { projectId: summary.selectedProjectId, founderId: summary.founderId });
+  return addLog(reserved, `${summary.founderName}의 제작·건설 전승 1회를 ${summary.selectedProjectName}의 ${state.day + 1}일차 아침 실제 공동 작업에 예약했습니다. AP·ST·시간은 소비하지 않습니다.`);
 }
 
 export function projectActionEstimate(state, actorId, projectId = '') {
@@ -3529,10 +3598,15 @@ function settleTribeDay(state) {
   const gains = tribeProductionForDay(tribe.assignments, state.day, state);
   let next = { ...state, inventory: addItems(state.inventory, Object.entries(gains)) };
   let projectWork = 0;
+  let projectBaseWork = 0;
+  let projectTraditionWork = 0;
   let projectName = '';
   let projectStarted = false;
   const builders = Number(tribe.assignments.builder || 0);
-  const selectedProject = projectRows(next).find((project) => project.selected && !project.completed);
+  const selectedAtStart = projectRows(next).find((project) => project.selected);
+  const selectedProject = selectedAtStart && !selectedAtStart.completed ? selectedAtStart : null;
+  const progressBefore = Number(selectedAtStart?.progress || 0);
+  let committedAtSettlement = Boolean(selectedAtStart?.committed);
   if (builders > 0 && selectedProject?.available) {
     const projectState = normalizeProjectState(next.projects);
     let committed = Boolean(projectState.resourceCommitted?.[selectedProject.id]);
@@ -3546,15 +3620,19 @@ function settleTribeDay(state) {
         },
       };
       committed = true;
+      committedAtSettlement = true;
       projectStarted = true;
       next = addLog(next, `건설대가 ${selectedProject.name} 자재를 자동 투입했습니다. ${selectedProject.costText}.`);
     }
     if (committed) {
       const currentProjects = normalizeProjectState(next.projects);
-      projectWork = Math.min(
+      projectBaseWork = Math.min(
         builders,
         Math.max(0, Number(selectedProject.work || 0) - Number(currentProjects.progress?.[selectedProject.id] || 0)),
       );
+      projectTraditionWork = projectTraditionBonus(next, { projectId: selectedProject.id, baseWork: projectBaseWork,
+        progressBefore, work: selectedProject.work });
+      projectWork = projectBaseWork + projectTraditionWork;
       projectName = selectedProject.name;
       next = {
         ...next,
@@ -3569,9 +3647,16 @@ function settleTribeDay(state) {
           },
         },
       };
+      next = settleProjectTradition(next, { projectId: selectedProject.id, completed: false, available: true,
+        builders, committed, baseWork: projectBaseWork, bonusWork: projectTraditionWork,
+        progressBefore, progressAfter: Number(next.projects.progress[selectedProject.id] || 0) });
       next = completeProjectIfReady(next, selectedProject, '건설대');
     }
   }
+  next = settleProjectTradition(next, { projectId: selectedAtStart?.id || '', completed: Boolean(selectedAtStart?.completed),
+    available: Boolean(selectedAtStart?.available), builders, committed: committedAtSettlement,
+    baseWork: projectBaseWork, bonusWork: projectTraditionWork, progressBefore,
+    progressAfter: Number(next.projects.progress?.[selectedAtStart?.id] || 0) });
 
   const scholars = Number(tribe.assignments.scholar || 0);
   let researchPoints = 0;
@@ -3623,6 +3708,8 @@ function settleTribeDay(state) {
       foodSpent: food.spent,
       shortage: food.shortage,
       projectWork,
+      projectBaseWork,
+      projectTraditionWork,
       projectName,
       projectStarted,
       researchPoints,

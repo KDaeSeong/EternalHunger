@@ -105,6 +105,7 @@ await check('save round trips preserve the chosen party and legacy restoration n
   delete legacy.founderHistory;
   delete legacy.lineage;
   delete legacy.ancestralFaith;
+  delete legacy.projectTradition;
   legacy.founderIds = selected;
   legacy.party[0].hp = 54;
   const before = JSON.stringify(legacy);

@@ -734,7 +734,7 @@ check('locked full advancement preview is collapsed without removing searchable 
 check('fallen-companion guidance uses real recruitment limits after every urgent survival branch', () => {
   const makeState = () => {
     // These HP-only imported results predate lifecycle/death provenance.
-    const state = freshState('fallen-companion-guidance', { lineage: undefined, ancestralFaith: undefined });
+    const state = freshState('fallen-companion-guidance', { lineage: undefined, ancestralFaith: undefined, projectTradition: undefined });
     state.party = state.party.map((member, index) => ({ ...member, hp: index ? 0 : 97, hunger: 12, bodyTemp: 37 }));
     state.weather = { ...state.weather, id: 'clear', cold: 0 };
     state.camp = { ...state.camp, fireLevel: 1, shelterLevel: 1, workbenchLevel: 1, fuel: 3 };
@@ -781,7 +781,7 @@ check('party cards name death explicitly and preserve recorded or unknown causes
   ];
   for (const record of records) {
     // These UI records intentionally include unknown and malformed old death causes.
-    const state = freshState('party-death-summary', { lineage: undefined, ancestralFaith: undefined });
+    const state = freshState('party-death-summary', { lineage: undefined, ancestralFaith: undefined, projectTradition: undefined });
     state.day = 102;
     const member = { ...state.party[1], hp: 0, deathRecord: record };
     state.party[1] = member;
@@ -847,7 +847,7 @@ check('actual project control receives the selected living-actor gate without di
 });
 
 check('one surviving HP keeps the actual recovery controls enabled while terminal runs remain blocked', () => {
-  const state = freshState('one-hp-recovery-controls', { lineage: undefined, ancestralFaith: undefined });
+  const state = freshState('one-hp-recovery-controls', { lineage: undefined, ancestralFaith: undefined, projectTradition: undefined });
   state.party = state.party.map((member, index) => ({ ...member, hp: index === 0 ? 1 : 0 }));
   for (const ended of [false, true]) {
     const current = { ...state, ended };
@@ -924,10 +924,7 @@ check('log expansion resets for a replacement run and handles an empty history',
   const more = rendered.buttons.find((row) => String(row.children).startsWith('이전 기록'));
   assert.ok(more);
   more.onClick();
-  const replacement = { ...state, runId: 'log-replacement-run',
-    founderHistory: { ...state.founderHistory, runId: 'log-replacement-run' },
-    lineage: { ...state.lineage, runId: 'log-replacement-run' },
-    ancestralFaith: { ...state.ancestralFaith, runId: 'log-replacement-run' },
+  const replacement = { ...freshState('log-replacement-run'),
     log: Array.from({ length: 30 }, (_, index) => `new-history-${index}`) };
   rendered = renderInventoryLog(replacement, rendered.harness);
   assert.equal((rendered.html.match(/new-history-/g) || []).length, 18);

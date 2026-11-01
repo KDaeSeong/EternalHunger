@@ -20,6 +20,34 @@
   overflow-wrap: anywhere;
 }
 
+.primitive-era .primitive-project-tradition {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: var(--era-control-border);
+  border-radius: var(--era-block-radius);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+  overflow-wrap: anywhere;
+}
+.primitive-era .primitive-project-tradition__details { min-width: 0; font-size: 0.8rem; }
+.primitive-era .primitive-project-tradition__details > summary { display: flex; gap: 6px; min-width: 0; cursor: pointer; list-style: none; color: var(--era-accent-deep); font-weight: 700; }
+.primitive-era .primitive-project-tradition__details > summary::-webkit-details-marker { display: none; }
+.primitive-era .primitive-project-tradition__details > summary::before { content: '▸'; }
+.primitive-era .primitive-project-tradition__details[open] > summary::before { content: '▾'; }
+.primitive-era .primitive-project-tradition__details > summary > strong { flex: 0 0 auto; }
+.primitive-era .primitive-project-tradition__details > summary > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; color: var(--era-ink-soft); }
+.primitive-era .primitive-project-tradition__body { display: grid; gap: 7px; padding-top: 7px; }
+.primitive-era .primitive-project-tradition__body dl { display: grid; gap: 6px; margin: 0; }
+.primitive-era .primitive-project-tradition__body dt { font-weight: 700; }
+.primitive-era .primitive-project-tradition__body dd { margin: 1px 0 0; color: var(--era-ink-soft); }
+.primitive-era .primitive-project-tradition__reserve { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 9px; min-width: 0; }
+.primitive-era .primitive-project-tradition__reserve small { color: var(--era-ink-soft); }
+.primitive-era .primitive-project-tradition__warning { padding: 6px 8px; border-radius: var(--era-block-radius); background: var(--era-warning-soft); }
+.primitive-era .primitive-project-tradition-records { display: grid; gap: 3px; margin: 4px 0 0; padding: 0; list-style: none; min-width: 0; font-size: 0.77rem; color: var(--era-ink-soft); overflow-wrap: anywhere; }
+.primitive-era .primitive-project-tradition__details > summary:focus-visible { outline: 2px solid var(--era-focus); outline-offset: 2px; }
+
 .primitive-era .primitive-founders .games-panel {
   min-width: 0;
   margin: 0;

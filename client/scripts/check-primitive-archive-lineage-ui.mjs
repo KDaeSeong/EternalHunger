@@ -261,7 +261,7 @@ check('active effects display exact getter output and remaining uses for chance,
   }
 });
 check('legacy states stay disabled and all display/action paths leave source state unchanged', () => {
-  const legacy = copy(ready); delete legacy.lineage; delete legacy.ancestralFaith;
+  const legacy = copy(ready); delete legacy.lineage; delete legacy.ancestralFaith; delete legacy.projectTradition;
   const before = JSON.stringify(legacy);
   const props = propsFor(legacy);
   const html = render(props);

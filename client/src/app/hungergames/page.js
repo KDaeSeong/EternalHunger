@@ -8,6 +8,7 @@ import { HUNGER_LIMITS, HUNGER_VERSION, normalizeHungerRoster } from './_lib/hun
 import { defaultHungerConfig, refreshHungerPresets } from './_lib/hungerGamePresets.js';
 import { advanceHungerRun, createHungerRun, hungerFinalDuelPressure } from './_lib/hungerGameRuntime.js';
 import { createHungerPack, restoreHungerPackAsync, HUNGER_STORAGE_KEY } from './_lib/hungerGamePersistence.js';
+import { createHungerPlaybackTimer, HUNGER_PLAYBACK_SPEEDS, recreateHungerRunSnapshot } from './_lib/hungerGamePlayback.js';
 import HungerRosterEditor from './_components/HungerRosterEditor';
 import HungerEventEditor from './_components/HungerEventEditor';
 import HungerRunViewer from './_components/HungerRunViewer';
@@ -22,10 +23,15 @@ export default function HungerGamesPage() {
   const [saveBlocked, setSaveBlocked] = useState(false);
   const [saveStatus, setSaveStatus] = useState('저장 확인 중');
   const [playing, setPlaying] = useState(false);
+  const [playbackDelay, setPlaybackDelay] = useState(1800);
+  const [followActorId, setFollowActorId] = useState('');
   const [busy, setBusy] = useState(false);
   const [viewIndex, setViewIndex] = useState(-1);
   const [eventDraft, setEventDraft] = useState(null);
   const fileInput = useRef(null);
+  const playback = useRef(null);
+  if (!playback.current) playback.current = createHungerPlaybackTimer();
+  const stopPlayback = () => { playback.current.cancel(); setPlaying(false); };
 
   useEffect(() => {
     let cancelled = false;
@@ -62,26 +68,37 @@ export default function HungerGamesPage() {
   }, [config, run, ready, saveBlocked]);
 
   useEffect(() => {
-    if (!playing || !run || run.finished) return;
-    const timer = window.setInterval(() => setRun((previous) => advanceHungerRun(previous)), 1800);
-    return () => window.clearInterval(timer);
-  }, [playing, run]);
+    if (!ready || busy || !playing || !run || run.finished) return;
+    return playback.current.schedule((isCurrent) => {
+      setRun((previous) => isCurrent() && previous && !previous.finished ? advanceHungerRun(previous) : previous);
+    }, playbackDelay);
+  }, [playing, run, ready, busy, playbackDelay]);
 
   const updateRoster = (value) => setConfig((previous) => ({ ...previous, roster: typeof value === 'function' ? value(previous.roster) : value }));
   const applyPack = (restored) => {
-    setPlaying(false); setConfig(restored.config); setRun(restored.run); setViewIndex(-1); setEventDraft(null); setSaveBlocked(false); setTab('play');
+    stopPlayback(); setConfig(restored.config); setRun(restored.run); setViewIndex(-1); setEventDraft(null); setSaveBlocked(false); setTab('play');
   };
   const start = () => {
+    if (!ready || busy) return;
     try {
       if (run && !window.confirm('현재 경기를 끝내고 새 경기를 시작할까요?')) return;
-      const next = createHungerRun(config); setRun(next); setPlaying(false); setViewIndex(-1); setSaveBlocked(false); setNotice('새 경기를 시작했습니다. 다음 페이즈를 눌러 진행합니다.');
+      const next = createHungerRun(config); stopPlayback(); setRun(next); setViewIndex(-1); setSaveBlocked(false); setNotice('새 경기를 시작했습니다. 다음 페이즈를 눌러 진행합니다.');
+    } catch (error) { setNotice(error.message); }
+  };
+  const replay = () => {
+    if (!ready || busy || !run) return;
+    if (!window.confirm('현재 진행을 바꾸고, 이 경기의 원래 참가자·사건·시드·판정 규칙으로 처음부터 다시 볼까요? 다음 경기용 편집 설정은 유지됩니다.')) return;
+    try {
+      const next = recreateHungerRunSnapshot(run);
+      stopPlayback(); setRun(next); setViewIndex(-1); setSaveBlocked(false);
+      setNotice('원래 경기 조건과 판정 규칙으로 다시 시작했습니다. 다음 경기용 편집 설정은 유지됩니다.');
     } catch (error) { setNotice(error.message); }
   };
   const resetPresets = () => {
     if (!window.confirm('기본 사건을 최신 구성으로 바꿀까요? 기본 사건과 같은 ID의 사건 및 저장 전 초안은 초기화됩니다. 나머지 추가 사건과 수정한 참가자는 보존하고, 변경은 다음 경기에 적용합니다.')) return false;
     try {
       const next = refreshHungerPresets(config);
-      setConfig(next); setEventDraft(null); setPlaying(false);
+      setConfig(next); setEventDraft(null); stopPlayback();
       setNotice('기본 사건과 수정하지 않은 샘플 특성을 업데이트했습니다. 새 경기부터 적용됩니다.');
       return true;
     } catch (error) { setNotice(error.message); return false; }
@@ -96,7 +113,7 @@ export default function HungerGamesPage() {
   };
   const importFile = async (file) => {
     if (!file) return;
-    setBusy(true); setPlaying(false);
+    setBusy(true); stopPlayback();
     try {
       if (file.size > HUNGER_LIMITS.packBytes) throw new Error('저장 파일은 6MB 이내여야 합니다.');
       const raw = await file.text();
@@ -109,7 +126,7 @@ export default function HungerGamesPage() {
   };
   const accountAction = async (action) => {
     if (!getToken()) { setNotice('계정 저장과 내 캐릭터 불러오기는 로그인이 필요합니다.'); return; }
-    setBusy(true); setPlaying(false);
+    setBusy(true); stopPlayback();
     try {
       if (action === 'roster') {
         const actors = await apiGet('/characters?view=editor');
@@ -146,7 +163,7 @@ export default function HungerGamesPage() {
           <span role="status">{saveStatus}</span>
           <div className={styles.actions}>
             <button type="button" disabled={!ready || busy} onClick={download}>JSON 내보내기</button>
-            <button type="button" disabled={!ready || busy} onClick={() => fileInput.current?.click()}>JSON 가져오기</button>
+            <button type="button" disabled={!ready || busy} onClick={() => { stopPlayback(); fileInput.current?.click(); }}>JSON 가져오기</button>
             <button type="button" disabled={!ready || busy} onClick={() => void accountAction('save')}>계정에 저장</button>
             <button type="button" disabled={!ready || busy} onClick={() => void accountAction('load')}>계정 저장 불러오기</button>
             <input className={styles.hidden} type="file" ref={fileInput} accept="application/json,.json" aria-label="헝거게임 저장 파일" onChange={(event) => void importFile(event.target.files?.[0])} />
@@ -154,16 +171,28 @@ export default function HungerGamesPage() {
         </div>
         {notice ? <div className={styles.notice} role="status"><span>{notice}</span><button type="button" aria-label="알림 닫기" onClick={() => setNotice('')}>×</button></div> : null}
         {hasUnsavedEvent ? <p className={styles.note}>저장하지 않은 이벤트 편집 내용이 있습니다. 이벤트 탭에서 이벤트 저장을 눌러 경기와 저장 파일에 반영하세요.</p> : null}
-        <div className={styles.tabs} role="tablist" aria-label="헝거게임 기능">{[{ id: 'play', label: '경기' }, { id: 'roster', label: '참가자' }, { id: 'events', label: '이벤트' }].map((entry) => <button type="button" disabled={!ready || busy} key={entry.id} id={'hg-tab-' + entry.id} role="tab" aria-selected={tab === entry.id} aria-controls={'hg-panel-' + entry.id} onClick={() => { setPlaying(false); setTab(entry.id); }}>{entry.label}</button>)}</div>
+        <div className={styles.tabs} role="tablist" aria-label="헝거게임 기능">{[{ id: 'play', label: '경기' }, { id: 'roster', label: '참가자' }, { id: 'events', label: '이벤트' }].map((entry) => <button type="button" disabled={!ready || busy} key={entry.id} id={'hg-tab-' + entry.id} role="tab" aria-selected={tab === entry.id} aria-controls={'hg-panel-' + entry.id} onClick={() => { stopPlayback(); setTab(entry.id); }}>{entry.label}</button>)}</div>
         <section role="tabpanel" id={'hg-panel-' + tab} aria-labelledby={'hg-tab-' + tab}>
           {tab === 'play' ? <>
             <div className={styles.playControls}>
               <div className={styles.actions}>
                 <button type="button" className={styles.primary} disabled={!ready || busy || config.roster.length < 2} onClick={start}>{run ? '새 경기' : '경기 시작'}</button>
-                <button type="button" disabled={busy || !run || run.finished || currentRunActive} onClick={() => { setRun((previous) => advanceHungerRun(previous)); setViewIndex(-1); }}>다음 페이즈</button>
-                <button type="button" disabled={busy || !run || run.finished} onClick={() => { setPlaying(!currentRunActive); setViewIndex(-1); }}>{currentRunActive ? '자동 진행 중지' : '자동 진행'}</button>
+                <button type="button" disabled={!ready || busy || !run} onClick={replay}>원래 경기 조건으로 다시 보기</button>
+                <button type="button" disabled={!ready || busy || !run || run.finished || currentRunActive} onClick={() => {
+                  if (!ready || busy || !run || run.finished || currentRunActive) return;
+                  playback.current.cancel(); setRun((previous) => previous && !previous.finished ? advanceHungerRun(previous) : previous); setViewIndex(-1);
+                }}>다음 페이즈</button>
+                <button type="button" disabled={!ready || busy || !run || run.finished} onClick={() => {
+                  if (!ready || busy || !run || run.finished) return;
+                  playback.current.cancel(); setPlaying(!currentRunActive); setViewIndex(-1);
+                }}>{currentRunActive ? '자동 진행 중지' : '자동 진행'}</button>
               </div>
               <div className={styles.fields}>
+                <label className={styles.field}>자동 진행 간격<select disabled={!ready || busy} value={playbackDelay} onChange={(event) => {
+                  const delay = Number(event.target.value);
+                  if (delay === playbackDelay || !HUNGER_PLAYBACK_SPEEDS.some((speed) => speed.delay === delay)) return;
+                  playback.current.cancel(); setPlaybackDelay(delay);
+                }}>{HUNGER_PLAYBACK_SPEEDS.map((speed) => <option value={speed.delay} key={speed.delay}>{speed.label}</option>)}</select></label>
                 <label className={styles.field}>경기 방식<select disabled={!ready || busy} value={config.matchMode || 'solo'} onChange={(event) => setConfig((previous) => ({ ...previous, matchMode: event.target.value }))}>
                   <option value="solo">개인전 · 최후의 1명</option><option value="team">팀전 · 최후의 1팀</option>
                 </select></label>
@@ -174,7 +203,8 @@ export default function HungerGamesPage() {
             <p className={styles.note}>설정 변경은 다음 경기에 적용됩니다. 개인전은 출신 구역·팀 표시와 관계없이 최후의 1명이 우승합니다. 팀전은 같은 팀끼리 기본 공격을 하지 않고 최후의 1팀이 우승하며, 팀을 비워 둔 참가자는 각자 별도 팀입니다. 진행 한도에서는 남은 참가자가 공동 생존합니다. {run ? '현재 경기: ' + (run.rulesVersion < 3 ? '이전 종료 규칙' : run.input.matchMode === 'team' ? '팀전' : '개인전') + ' · 시드 ' + run.input.seed : '같은 참가자·이벤트·시드·경기 방식으로 같은 경기를 다시 볼 수 있습니다.'}</p>
             {run && run.rulesVersion < 3 ? <p className={styles.note}>이 경기는 저장 당시 규칙으로 진행해 기록과 승패를 보존합니다. 개선된 종료 규칙과 사건 선택은 새 경기부터 적용됩니다.</p> : null}
             {run && !run.finished && hungerFinalDuelPressure(run) > 0 ? <p className={styles.note}>최종 2인 대치 {hungerFinalDuelPressure(run)}페이즈 경과 · 대치가 길어질수록 결전과 결정타의 비중이 높아집니다.</p> : null}
-            <HungerRunViewer run={run} viewIndex={viewIndex} onViewIndex={(index) => { setPlaying(false); setViewIndex(index); }} />
+            <HungerRunViewer run={run} viewIndex={viewIndex} followActorId={followActorId} onFollowActor={setFollowActorId}
+              onViewIndex={(index) => { stopPlayback(); setViewIndex(index); }} />
           </> : tab === 'roster' ? <HungerRosterEditor roster={config.roster} matchMode={config.matchMode} onChange={updateRoster} busy={busy} onLoadAccount={() => void accountAction('roster')} onNotice={setNotice} />
             : <HungerEventEditor events={config.events} roster={config.roster} matchMode={config.matchMode} onChange={(events) => setConfig((previous) => ({ ...previous, events }))} onNotice={setNotice} draft={eventDraft} onDraftChange={setEventDraft} onPresetsReset={resetPresets} />}
         </section>

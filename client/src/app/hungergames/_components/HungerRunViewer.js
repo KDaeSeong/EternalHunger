@@ -9,7 +9,7 @@ function Portrait({ actor, size = 48 }) {
   return actor?.previewImage ? <Image unoptimized src={actor.previewImage} alt={actor.name} width={size} height={size} /> : <span className={styles.avatar} style={{ width: size, height: size }}>{actor?.name?.slice(0, 1) || '?'}</span>;
 }
 
-export default function HungerRunViewer({ run, viewIndex, onViewIndex }) {
+export default function HungerRunViewer({ run, viewIndex, onViewIndex, followActorId = '', onFollowActor }) {
   if (!run) return <div className={styles.empty}><h2>누가 끝까지 살아남을까요?</h2><p>참가자를 고르고 경기 시작을 누르면 사건을 한 페이즈씩 읽을 수 있습니다.</p><p>샘플의 라이덴 쇼군에는 자연 번개 면역이 지정되어 있습니다. 참가자 탭에서 설정을 바꿀 수 있습니다.</p></div>;
   const history = run.history;
   const view = getHungerHistoryView(run, viewIndex);
@@ -17,6 +17,20 @@ export default function HungerRunViewer({ run, viewIndex, onViewIndex }) {
   const alive = actors.filter((actor) => actor.alive);
   const winner = actors.find((actor) => actor.id === view.winnerId);
   const actorById = new Map(actors.map((actor) => [actor.id, actor]));
+  const followedActor = actorById.get(followActorId);
+  const phaseRows = phase?.rows || [];
+  const visibleRows = followedActor
+    ? phaseRows.filter((row) => row.participants.some((participant) => participant.id === followedActor.id))
+    : phaseRows;
+  let lastAppearance = -1;
+  if (followedActor) {
+    for (let at = index; at >= 0; at -= 1) {
+      if (history[at].rows.some((row) => row.participants.some((participant) => participant.id === followedActor.id))) {
+        lastAppearance = at;
+        break;
+      }
+    }
+  }
   const teamWin = view.endReason === 'last_team';
   return (
     <div className={styles.runLayout}>
@@ -32,12 +46,28 @@ export default function HungerRunViewer({ run, viewIndex, onViewIndex }) {
             <button type="button" disabled={!history.length || viewIndex < 0} onClick={() => onViewIndex(-1)}>최신 기록</button>
           </div>
         </div>
+        <div className={styles.observerFilter}>
+          <label className={styles.field}>따라볼 참가자
+            <select value={followedActor?.id || ''} disabled={typeof onFollowActor !== 'function'}
+              onChange={(event) => onFollowActor?.(event.target.value)}>
+              <option value="">전체 사건</option>
+              {actors.map((actor) => <option value={actor.id} key={actor.id}>{actor.name}{actor.teamId ? ' · 팀 ' + actor.teamId : ''}</option>)}
+            </select>
+          </label>
+          <div className={styles.actions}>
+            <span>{followedActor ? `${followedActor.name} 등장 ${visibleRows.length}건 / 전체 ${phaseRows.length}건` : `전체 사건 ${phaseRows.length}건`}</span>
+            {followedActor ? <button type="button" disabled={lastAppearance < 0 || lastAppearance === index}
+              onClick={() => { if (lastAppearance >= 0 && lastAppearance < index) onViewIndex?.(lastAppearance); }}>최근 등장 기록</button> : null}
+          </div>
+        </div>
+        {followedActor ? <p className={styles.note}>표시 시점의 {followedActor.name}: {followedActor.alive ? followedActor.injured ? hungerEffectLabel(followedActor, 'injure') : '생존' : hungerEffectLabel(followedActor, 'death')} · 이 참가자가 등장하는 사건만 표시합니다. 생존자 수와 경기 결과는 전체 참가자 기준입니다.</p> : null}
         <div className={styles.story} aria-live="polite">
-          {phase?.rows.map((row) => <article className={row.effects.some((effect) => effect.type === 'death') ? styles.deathEvent : styles.storyEvent} key={row.id}>
+          {visibleRows.map((row) => <article className={row.effects.some((effect) => effect.type === 'death') ? styles.deathEvent : styles.storyEvent} key={row.id}>
             <div className={styles.portraits}>{row.participants.map((participant) => <div key={participant.id}><Portrait actor={actorById.get(participant.id)} /><small>{participant.name}</small></div>)}</div>
             <p>{row.text}</p>
             <div className={styles.badges}><span>{row.title}</span>{row.effects.map((effect, effectIndex) => <span key={effectIndex}>{effect.actorName} · {hungerEffectLabel(actorById.get(effect.actorId), effect.type)}{effect.item ? ' (' + effect.item + ')' : ''}</span>)}</div>
           </article>)}
+          {!visibleRows.length ? <p className={styles.filteredEmpty}>{!phase ? '아직 진행한 사건이 없습니다. 다음 페이즈를 눌러 시작하세요.' : followedActor ? '이 페이즈에는 선택한 참가자의 등장 사건이 없습니다. 이전 기록을 보거나 전체 사건으로 바꿔 확인하세요.' : '이 페이즈에는 발생한 사건이 없습니다.'}</p> : null}
         </div>
       </section>
       <aside className={styles.panel}>

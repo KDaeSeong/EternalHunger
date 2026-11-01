@@ -45,6 +45,7 @@ check('unsettled, ended and pre-lineage saves remain readable without inventing 
   delete legacy.lineage;
   delete legacy.founderHistory;
   delete legacy.ancestralFaith;
+  delete legacy.projectTradition;
   assert.match(row(summary(legacy), 'stock').text, /생존 은퇴자 0명/);
   legacy.ended = true;
   const ended = summary(legacy);

@@ -23,6 +23,7 @@ check('new-run identities and legacy observation never reconstruct old deeds', (
   // This is a pre-lifecycle save, not a hybrid save with contradictory old deaths.
   delete legacy.lineage;
   delete legacy.ancestralFaith;
+  delete legacy.projectTradition;
   legacy.day = 27;
   legacy.counters.gather = 999;
   legacy.party[0].hp = 0;
@@ -173,6 +174,7 @@ check('long existing identities survive observation and keep living/deed ownersh
   // This is a pre-lifecycle save, not a hybrid save with contradictory old deaths.
   delete legacy.lineage;
   delete legacy.ancestralFaith;
+  delete legacy.projectTradition;
   legacy.runId = `legacy-${'문명'.repeat(90)}`;
   legacy.party[0].id = `actor-${'창건자'.repeat(90)}`;
   const actorId = legacy.party[0].id;
@@ -192,6 +194,7 @@ check('deaths outside the observation window leave legacy history unchanged', ()
   // This is a pre-lifecycle save, not a hybrid save with contradictory old deaths.
   delete legacy.lineage;
   delete legacy.ancestralFaith;
+  delete legacy.projectTradition;
   legacy.day = 27;
   legacy.party[0].hp = 0;
   const state = engine.normalizeState(legacy);

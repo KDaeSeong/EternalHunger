@@ -32,6 +32,7 @@ check('new runs are hybrid, old saves and explicit legacy never retroactively ag
   const legacy = clone(state);
   delete legacy.lineage;
   delete legacy.ancestralFaith;
+  delete legacy.projectTradition;
   legacy.day = 30;
   const restored = engine.normalizeState(legacy);
   assert.equal(restored.lineage.mode, 'legacy');

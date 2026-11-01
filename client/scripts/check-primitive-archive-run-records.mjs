@@ -195,10 +195,13 @@ check('separate runs started in the same millisecond have distinct identities wi
     assert.equal(generatedDraws, explicitDraws * 2);
     assert.equal(first.founderHistory.runId, first.runId);
     assert.equal(explicit.founderHistory.runId, explicit.runId);
+    assert.equal(first.projectTradition.runId, first.runId);
+    assert.equal(explicit.projectTradition.runId, explicit.runId);
     assert.deepEqual({ ...first, runId: explicit.runId,
       founderHistory: { ...first.founderHistory, runId: explicit.runId },
       lineage: { ...first.lineage, runId: explicit.runId },
-      ancestralFaith: { ...first.ancestralFaith, runId: explicit.runId } }, explicit);
+      ancestralFaith: { ...first.ancestralFaith, runId: explicit.runId },
+      projectTradition: { ...first.projectTradition, runId: explicit.runId } }, explicit);
     assert.equal(engine.normalizeState(explicit).runId, explicit.runId);
   } finally {
     Date.now = originalNow;
@@ -220,10 +223,13 @@ check('a crypto-less runtime still separates same-millisecond runs without consu
     assert.equal(draws, firstDraws * 2);
     assert.equal(first.founderHistory.runId, first.runId);
     assert.equal(second.founderHistory.runId, second.runId);
+    assert.equal(first.projectTradition.runId, first.runId);
+    assert.equal(second.projectTradition.runId, second.runId);
     assert.deepEqual({ ...first, runId: second.runId,
       founderHistory: { ...first.founderHistory, runId: second.runId },
       lineage: { ...first.lineage, runId: second.runId },
-      ancestralFaith: { ...first.ancestralFaith, runId: second.runId } }, second);
+      ancestralFaith: { ...first.ancestralFaith, runId: second.runId },
+      projectTradition: { ...first.projectTradition, runId: second.runId } }, second);
   } finally {
     Date.now = originalNow;
     if (cryptoDescriptor) Object.defineProperty(globalThis, 'crypto', cryptoDescriptor);
@@ -293,7 +299,7 @@ check('an ended victorious run is recordable as a clear', () => {
 });
 
 check('an ended run with every companion dead is recordable as a failure', () => {
-  const state = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined,
+  const state = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined, projectTradition: undefined,
     party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
   expectStatus(state, { canRecord: true, result: 'fail', label: '실패' });
 });
@@ -304,14 +310,14 @@ check('an ended unfinished run with survivors is recordable as an uncompleted se
 });
 
 check('a stale active flag cannot hide a total party loss', () => {
-  const state = fixture({ ended: false, lineage: undefined, ancestralFaith: undefined,
+  const state = fixture({ ended: false, lineage: undefined, ancestralFaith: undefined, projectTradition: undefined,
     party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
   expectStatus(state, { canRecord: true, result: 'fail', label: '실패' });
 });
 
 check('one or more living companions prevent an active run from being classified as failure', () => {
   // HP-only legacy result: do not invent a lifecycle death to classify it.
-  const state = fixture({ lineage: undefined, ancestralFaith: undefined });
+  const state = fixture({ lineage: undefined, ancestralFaith: undefined, projectTradition: undefined });
   state.party[0].hp = 0;
   expectStatus(state, { canRecord: false, result: 'none', label: '진행 중' });
 });
@@ -358,7 +364,7 @@ check('ordinary settlement records a living unfinished run once and remains unco
 });
 
 check('failure reward settlement is explicit, one-time and keeps the run classified as a failure', () => {
-  const state = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined,
+  const state = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined, projectTradition: undefined,
     party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
   const original = structuredClone(state);
   expectStatus(state, { canRecord: true, result: 'fail' });
@@ -422,7 +428,7 @@ check('the actual run-management panel disables recording until completion or se
   assert.match(actionButton(clear, 'complete'), /disabled/);
   assert.match(actionButton(clear, 'settle'), /disabled/);
 
-  const failed = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined,
+  const failed = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined, projectTradition: undefined,
     party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
   const failureHtml = renderRunTab(failed);
   assert.doesNotMatch(actionButton(failureHtml, 'archive'), /disabled/);
@@ -454,7 +460,7 @@ check('the actual run-management panel keeps record disabled until hydration and
 });
 
 check('the actual run-management panel offers explicit reward settlement after failure until that run has been settled', () => {
-  const failed = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined,
+  const failed = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined, projectTradition: undefined,
     party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
   const failedHtml = renderRunTab(failed);
   assert.doesNotMatch(actionButton(failedHtml, 'settle'), /disabled/);
@@ -487,7 +493,7 @@ await checkAsync('the real persistence hook blocks both active-run record paths 
 await checkAsync('the real persistence hook sends the actual clear, failure and unfinished results with engine scores', async () => {
   const cases = [
     ['clear', engine.completeArchiveAction(goalReadyFixture())],
-    ['fail', fixture({ ended: true, lineage: undefined, ancestralFaith: undefined,
+    ['fail', fixture({ ended: true, lineage: undefined, ancestralFaith: undefined, projectTradition: undefined,
     party: fixture().party.map((member) => ({ ...member, hp: 0 })) })],
     ['none', fixture({ ended: true })],
   ];
