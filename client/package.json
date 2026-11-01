@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "check:infinite-defense": "node ./scripts/check-infinite-defense.mjs",
     "dev": "next dev",
     "build": "next build --webpack",
     "postbuild": "node ./scripts/check-simulation-module-resolution.mjs && node ./scripts/check-phase-worker-build-entry.mjs",

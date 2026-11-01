@@ -14,6 +14,7 @@ export const GAME_INTEGRATION_DEFAULTS = {
 };
 
 export const MYANIME_GAME_SLUGS = [
+  'infinite-defense',
   'myanimecraft',
   'dual-academy-tcg',
   'ba-vanguard',
@@ -95,6 +96,7 @@ export function getGameRouteFamily(slugOrGame) {
 }
 
 export const GAME_ADAPTER_PRESETS = [
+  { adapter: 'tower-defense', label: '채굴 디펜스', roomSystem: 'none', resultMode: 'wave-clear', supportsStateSync: false, supportsRecords: true, supportsSaves: true, description: '채굴, 학생 배치와 웨이브 방어를 기록하는 단독 디펜스입니다.' },
   {
     adapter: 'discussion',
     label: '논의/기획',
@@ -253,6 +255,7 @@ export function findGameAdapterPreset(adapter) {
 }
 
 const GAME_INTEGRATIONS = {
+  'infinite-defense': { stage: 'playable', stageLabel: '플레이 가능', adapter: 'tower-defense', supportsRecords: true, supportsSaves: true, resultMode: 'wave-clear', maxPlayers: 1 },
   'hunger-games': {
     stage: 'playable', stageLabel: '플레이 가능', adapter: 'simulation', supportsSaves: true,
     supportsRecords: false, resultMode: 'narrative-survival', maxPlayers: 1,
@@ -458,6 +461,12 @@ export const GAME_CATALOG = [
 ];
 
 export const GAME_ROADMAP = [
+  {
+    slug: 'infinite-defense', title: '무한 디펜스', subtitle: 'Mining Defense', priority: '신규 제작',
+    scope: '고정 경로 맵, 학생 6명, 채굴, 배치, 스탯 훈련, 일반 적 4종, 20웨이브 보스, 무한 모드, 기기/계정 저장, JSON 교환, 전적',
+    summary: '채굴 수익을 학생 훈련과 화력에 투자해 20웨이브를 방어하고 무한 모드에 도전하는 2D 디펜스입니다.',
+    nextStep: '추가 맵과 학생, 장기 무한 모드 밸런스는 후속 확장 범위입니다.',
+  },
   {
     slug: 'dual-academy-tcg',
     title: '듀얼 아카데미 TCG',

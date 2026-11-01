@@ -8,6 +8,7 @@ export const GAME_AUDIO_PATH_THEMES = Object.freeze([
   ['tonkatsu-teacher', 'kitchen'],
   ['schale-idle-rpg', 'idle'],
   ['ba-srpg', 'tactical'],
+  ['infinite-defense', 'tactical'],
   ['myanimecraft', 'starleague'],
   ['school-simulator', 'school'],
   ['si-coding-sim', 'coding'],

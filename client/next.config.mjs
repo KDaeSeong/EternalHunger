@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Independent local verification keeps the default build available to other sessions.
+  distDir: process.env.EH_NEXT_DIST_DIR || '.next',
   experimental: {
     cpus: 2,
   },
