@@ -14,6 +14,7 @@ const focus = await import('../src/app/games/primitive-archive/_lib/primitiveArc
 const runtime = await import('../src/app/games/primitive-archive/_lib/primitiveArchivePageRuntime.js');
 const routeUrl = new URL('../src/app/games/primitive-archive/', import.meta.url);
 const focusPanelUrl = new URL('_components/PrimitiveArchiveFocusPanel.js', routeUrl).href;
+const operationsUrl = new URL('_components/PrimitiveArchiveOperationsSummary.js', routeUrl).href;
 const featureTabsUrl = new URL('_components/PrimitiveArchiveFeatureTabs.js', routeUrl).href;
 const actionWorkspaceUrl = new URL('_components/PrimitiveArchiveActionWorkspace.js', routeUrl).href;
 const inventoryBarUrl = new URL('_components/PrimitiveArchiveInventoryBar.js', routeUrl).href;
@@ -27,7 +28,7 @@ const tribeTabUrl = new URL('_components/PrimitiveArchiveTribeTab.js', routeUrl)
 const campWorkspaceUrl = new URL('_components/PrimitiveArchiveCampWorkspace.js', routeUrl);
 const growthTabUrl = new URL('_components/PrimitiveArchiveGrowthTab.js', routeUrl);
 const researchPreviewUrl = new URL('_components/PrimitiveArchiveResearchTreePreview.js', routeUrl);
-const transpiledUrls = new Set([focusPanelUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, portraitUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl]);
+const transpiledUrls = new Set([focusPanelUrl, operationsUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, portraitUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl]);
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 const primitiveUiStub = `
   const jsx = (...args) => globalThis.__primitiveArchiveFocusReact.createElement(...args);
@@ -98,7 +99,7 @@ registerHooks({
     if (context.parentURL === featureTabsUrl && featureTabStubs.has(specifier)) {
       return { url: asDataModule(simpleComponentStub(featureTabStubs.get(specifier))), shortCircuit: true };
     }
-    if (context.parentURL === focusPanelUrl && specifier === '../../_components/GamePlayPrimitives') {
+    if ([focusPanelUrl, operationsUrl].includes(context.parentURL) && specifier === '../../_components/GamePlayPrimitives') {
       return { url: asDataModule(primitiveUiStub), shortCircuit: true };
     }
     if (context.parentURL === actionWorkspaceUrl) {
@@ -228,10 +229,10 @@ function assertPlanShape(plan, { blocked } = {}) {
   assert.ok(Array.isArray(plan.night.rows));
 }
 
-function renderFocus(plan, onNavigate = () => {}) {
+function renderFocus(plan, onNavigate = () => {}, operations) {
   globalThis.__primitiveArchiveFocusButtons = [];
   return {
-    html: renderToStaticMarkup(React.createElement(PrimitiveArchiveFocusPanel, { plan, onNavigate })),
+    html: renderToStaticMarkup(React.createElement(PrimitiveArchiveFocusPanel, { plan, onNavigate, operations })),
     buttons: globalThis.__primitiveArchiveFocusButtons,
   };
 }
@@ -967,7 +968,9 @@ check('safe collection controls expose fixed rewards and route the selected reso
 check('reserve guidance exposes separate ration and party nutrition units without displacing urgent or ended states', () => {
   const state = freshState('focus-reserves');
   const inputs = planInputs(state);
-  const supplies = { ...inputs.supplies, rationShortage: 2, foodShortage: 9, fuelShortage: true };
+  const supplies = { ...inputs.supplies, rationShortage: 2, foodShortage: 9, fuelShortage: true,
+    forecast: { ...inputs.supplies.forecast, days: inputs.supplies.forecast.days.map((day, index) =>
+      index === 0 ? { ...day, shortage: 2 } : day) } };
   const plan = runPlan({ ...inputs, supplies });
   assert.match(plan.objective.title, /식량·땔감 비축/);
   assert.match(plan.objective.detail, /부족 배식 2단위/);
@@ -983,9 +986,111 @@ check('reserve guidance exposes separate ration and party nutrition units withou
   }
 });
 
+function settlementFocusFixture(id, berries = 30) {
+  const state = freshState(id);
+  state.research.completed.SETTLEMENT = true;
+  state.research.completed.FOOD_STORAGE = true;
+  state.camp = { ...state.camp, fireLevel: 1, shelterLevel: 1, workbenchLevel: 1, fuel: 4 };
+  state.tribe.population = 4;
+  state.inventory = { berry: berries, wood: 10 };
+  state.weather = { id: 'clear', name: '맑음', cold: 0, temp: 15, actionMod: 0 };
+  state.party = state.party.map((member) => ({ ...member, hp: 100, hunger: 75, bodyTemp: 37 }));
+  return state;
+}
+
+check('settlement care already covering hunger leaves the next decision available without spending an action', () => {
+  const state = settlementFocusFixture('focus-automatic-evening');
+  const before = structuredClone(state);
+  const inputs = planInputs(state);
+  assert.equal(inputs.supplies.careActive, true);
+  assert.equal(inputs.supplies.peopleFed, 3);
+  assert.ok(inputs.nightRows.every((row) => row.hunger <= 60 && row.damage === 0));
+  const plan = runPlan(inputs);
+  assert.doesNotMatch(plan.objective.title, /허기 확인|밤 생존|식량 비축/);
+  assert.equal(plan.objective.targetTab, 'growth');
+  assert.deepEqual(state, before);
+});
+
+check('safe real evening care does not keep ideal-45 nutrition shortage ahead of the next development decision', () => {
+  const state = settlementFocusFixture('focus-real-bundled-meal');
+  state.difficulty = 'normal';
+  state.inventory = { packed_ration: 1, berry: 2, wood: 10 };
+  state.party = state.party.map((member, index) => ({ ...member, hunger: index === 0 ? 90 : 12 }));
+  const before = structuredClone(state);
+  const inputs = planInputs(state);
+  assert.equal(inputs.supplies.foodShortage, 5, 'The ideal-45 nutrition estimate must remain visible as its own calculation.');
+  assert.equal(inputs.supplies.pendingMeals, 0);
+  assert.deepEqual(inputs.supplies.foodSpent, { packed_ration: 1, berry: 1 });
+  assert.equal(inputs.nightRows[0].hunger, 50);
+  assert.ok(inputs.nightRows.every(row => row.damage === 0));
+  const plan = runPlan(inputs);
+  assert.equal(plan.objective.targetTab, 'growth');
+  assert.doesNotMatch(plan.objective.title, /허기 확인|밤 생존|식량 비축/);
+  assert.deepEqual(state, before);
+});
+
+check('morning production covers a real empty pantry while actual and legacy ration warnings stay protected', () => {
+  const state = settlementFocusFixture('focus-real-next-morning-production', 0);
+  state.difficulty = 'normal';
+  state.party = state.party.map(member => ({ ...member, hunger: 12 }));
+  state.tribe.assignments = Object.fromEntries(engine.TRIBE_JOBS.map(job => [job.id, job.id === 'forager' ? 4 : 0]));
+  state.tribe.autoAssignments = Object.fromEntries(engine.TRIBE_JOBS.map(job => [job.id, 0]));
+  const inputs = planInputs(state);
+  assert.equal(inputs.supplies.rationShortage, 1, 'Current pantry shortage is separate from tomorrow morning after production.');
+  assert.equal(inputs.supplies.forecast.days[0].produced, 2);
+  assert.equal(inputs.supplies.forecast.days[0].shortage, 0);
+  assert.equal(inputs.supplies.forecast.days[0].reserve, 1);
+  const plan = runPlan(inputs);
+  assert.equal(plan.objective.targetTab, 'growth');
+  assert.doesNotMatch(plan.objective.title, /식량 비축/);
+  const starving = structuredClone(state);
+  starving.tribe.assignments = Object.fromEntries(engine.TRIBE_JOBS.map(job => [job.id, job.id === 'builder' ? 4 : 0]));
+  const shortageInputs = planInputs(starving);
+  assert.equal(shortageInputs.supplies.forecast.days[0].shortage, 1);
+  const shortagePlan = runPlan(shortageInputs);
+  assert.match(shortagePlan.objective.title, /저녁 식량 비축/);
+  assert.match(shortagePlan.objective.detail, /부족 배식 1단위.*다음 아침 생산 포함·현재 배치 고정/);
+  const legacySupplies = { ...inputs.supplies };
+  delete legacySupplies.forecast;
+  const legacyPlan = runPlan({ ...inputs, supplies: legacySupplies });
+  assert.match(legacyPlan.objective.title, /저녁 식량 비축/);
+  assert.match(legacyPlan.objective.detail, /부족 배식 1단위.*현재 비축 기준·다음 아침 전망 없음/);
+});
+
+check('partial evening care points at the still-hungry member rather than the already-fed first member', () => {
+  const state = settlementFocusFixture('focus-partial-evening', 4);
+  state.party[1].hunger = 71;
+  state.party[2].hunger = 0;
+  const inputs = planInputs(state);
+  assert.ok(inputs.nightRows.find((row) => row.id === state.party[0].id).hunger <= 60);
+  const pending = inputs.nightRows.find((row) => row.id === state.party[1].id);
+  assert.ok(pending.hunger >= 65 && pending.hp > 0);
+  const plan = runPlan(inputs);
+  assert.equal(plan.objective.title, `${state.party[1].name}의 허기 확인`);
+  assert.match(plan.objective.detail, new RegExp(`현재 허기 71, 저녁 관리 뒤 예상 허기 ${pending.hunger}`));
+});
+
+check('the live focus panel hosts the real operations summary without bypassing hydration or busy guards', () => {
+  const state = settlementFocusFixture('focus-operation-integration');
+  const inputs = planInputs(state);
+  const operations = engine.settlementOperationsSummary(state);
+  const calls = [];
+  const rendered = renderFocus(runPlan(inputs), (id) => calls.push(id), operations);
+  assert.match(rendered.html, /aria-label="정착 운영 요약"/);
+  assert.match(rendered.html, /오늘 저녁\(예상\)/);
+  assert.match(rendered.html, /다음 아침\(현재 배치 고정 전망\)/);
+  const button = rendered.buttons.find((row) => row.children === '직업 배치 열기');
+  assert.ok(button && !button.disabled);
+  button.onClick();
+  assert.deepEqual(calls, ['tribe']);
+  for (const status of [{ ready: false }, { busy: 'saving' }]) {
+    assert.doesNotMatch(renderFocus(runPlan(inputs, status), () => {}, operations).html, /aria-label="정착 운영 요약"/);
+  }
+});
+
 const playContent = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js', import.meta.url), 'utf8');
 assert.match(playContent, /const focusPlan = primitiveArchiveFocusPlan\(/, 'The live page must use the tested focus plan.');
-assert.match(playContent, /<PrimitiveArchiveFocusPanel plan=\{focusPlan\} onNavigate=\{setActiveTabId\} \/>\s*<PrimitiveArchiveInventoryBar inventory=\{state\.inventory\} inventoryRows=\{inventoryRows\} \/>\s*<PrimitiveArchiveFeatureTabs/s, 'The live focus panel must be followed by the persistent inventory bar before the real feature tabs.');
+assert.match(playContent, /<PrimitiveArchiveFocusPanel plan=\{focusPlan\} operations=\{operations\} onNavigate=\{setActiveTabId\} \/>\s*<PrimitiveArchiveInventoryBar inventory=\{state\.inventory\} inventoryRows=\{inventoryRows\} \/>\s*<PrimitiveArchiveFeatureTabs/s, 'The live focus panel must be followed by the persistent inventory bar before the real feature tabs.');
 assert.match(playContent, /<details className="primitive-guide-details">\s*<summary>상세 생존 안내<\/summary>\s*<GameAdvisorPanel/s, 'Existing detailed survival advice must remain available below the main interface.');
 
 console.log(JSON.stringify({ pass: failures.length === 0, checks: checks.length, failures }, null, 2));

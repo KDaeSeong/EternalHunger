@@ -49,7 +49,7 @@ export default function PrimitiveArchiveTribeTab({
         <PrimitiveArchivePanelTitle
           action="primitive-growth"
           title="부족 운영"
-          meta={`Day ${tribe.productionSerial}회 정산 · 접촉 ${knownCount}/${rivals.length}`}
+          meta={`일일 정산 ${tribe.productionSerial}회 · 접촉 ${knownCount}/${rivals.length}`}
         >
           <strong>{tribe.population}/{tribe.capacity}명</strong>
         </PrimitiveArchivePanelTitle>
@@ -74,7 +74,7 @@ export default function PrimitiveArchiveTribeTab({
               <small>다음 날 부족 배식(현재 인구 {tribe.population}명 기준): 재고 {nextFood.stock} + 생산 {nextFood.produced} → 필요 {nextFood.need}단위 · {nextFood.shortage > 0 ? `부족 ${nextFood.shortage}단위` : `잔여 ${nextFood.reserve}단위`}</small>
               <small>부족 전용 식량 전망(2일): {tribe.foodForecast.totalShortage > 0 ? `부족 ${tribe.foodForecast.totalShortage}단위` : '부족 없음'} · 현재 인구·재고·직업 배치 기준이며, 파티 식사분·인구 증가·추가 행동·사업 보상은 포함하지 않습니다.</small>
               {supplies ? (
-                <small>파티 저녁 예측(부족 배식 후): 필요 영양 {supplies.partyNeed} · 비축 영양 {supplies.partyNutrition} · 부족 {supplies.foodShortage} 영양 단위</small>
+                <small>오늘 저녁 비축 점검(공동 배식 몫 제외): 필요 영양 {supplies.partyNeed} · 비축 영양 {supplies.partyNutrition} · 부족 {supplies.foodShortage} 영양 단위</small>
               ) : null}
             </>
           )}
@@ -125,7 +125,7 @@ export default function PrimitiveArchiveTribeTab({
           <div><span>최근 생산</span><strong>{tribe.lastProductionText}</strong></div>
           <div><span>최근 배식</span><strong>{foodResult}</strong></div>
           <div><span>자동 건설</span><strong>{lastProduction.projectWork ? `${lastProduction.projectName} +${lastProduction.projectWork}` : '진행 없음'}</strong></div>
-          <div><span>자동 연구</span><strong>{lastProduction.researchPoints ? `+${lastProduction.researchPoints}RP` : '진행 없음'}</strong></div>
+          <div><span>기록대 실제 연구</span><strong>{Object.hasOwn(lastProduction, 'researchRequested') ? `+${Number(lastProduction.researchPoints || 0)}RP` : Number(tribe.productionSerial || 0) > 0 ? '이전 영수증: 적용량 미기록' : '정산 전'}</strong></div>
         </div>
       </section>
 

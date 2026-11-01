@@ -36,8 +36,22 @@ export function primitiveArchiveFocusPlan({
 
   let objective;
   const fatal = risky.find((row) => Number(row.hp) <= 0);
-  const hungry = living.find((member) => Number(member.hunger) >= 65);
+  const hungerAtNight = (member) => {
+    const projected = rows.find((row) => row.id === member.id);
+    return supplies?.careActive && Number.isFinite(projected?.hunger)
+      ? projected.hunger : Number(member.hunger);
+  };
+  const hungry = living.find((member) => hungerAtNight(member) >= 65);
   const weak = living.find((member) => Number(member.hp) <= 35);
+  const careCoversParty = supplies?.careActive && supplies.pendingMeals === 0 && living.every((member) => {
+    const projected = rows.find((row) => row.id === member.id);
+    return Number.isFinite(projected?.hunger) && projected.hunger <= 60
+      && Number.isFinite(projected.damage) && projected.damage <= 0;
+  });
+  const partyFoodShortage = careCoversParty ? 0 : Math.max(0, Number(supplies?.foodShortage || 0));
+  const nextRationShortage = supplies?.forecast?.days?.[0]?.shortage;
+  const hasRationForecast = Number.isFinite(nextRationShortage);
+  const rationShortage = Math.max(0, hasRationForecast ? nextRationShortage : Number(supplies?.rationShortage || 0));
   if (fatal) {
     const hungerRisk = Number(fatal.hungerDamage) > 0;
     objective = {
@@ -48,7 +62,7 @@ export function primitiveArchiveFocusPlan({
   } else if (hungry) {
     objective = {
       title: `${hungry.name}의 허기 확인`,
-      detail: `허기 ${hungry.hunger}입니다. 식량이 있으면 식사, 부족하면 채집·사냥의 효과와 위험을 비교하세요.`,
+      detail: `${supplies?.careActive ? `현재 허기 ${hungry.hunger}, 저녁 관리 뒤 예상 허기 ${hungerAtNight(hungry)}입니다.` : `허기 ${hungry.hunger}입니다.`} 식량이 있으면 식사, 부족하면 채집·사냥의 효과와 위험을 비교하세요.`,
       targetTab: 'actions', actionLabel: '기본 행동 보기',
     };
   } else if (weak) {
@@ -97,11 +111,13 @@ export function primitiveArchiveFocusPlan({
       detail: '경기를 완성·종료할지, 종료하지 않고 문명 발전을 이어갈지 선택할 수 있습니다.',
       targetTab: 'run', actionLabel: '완주 선택 확인',
     };
-  } else if (Number(supplies?.foodShortage || 0) > 0 || Number(supplies?.rationShortage || 0) > 0 || supplies?.fuelShortage) {
-    const foodShortage = Number(supplies?.foodShortage || 0) > 0 || Number(supplies?.rationShortage || 0) > 0;
+  } else if (partyFoodShortage > 0 || rationShortage > 0 || supplies?.fuelShortage) {
+    const foodShortage = partyFoodShortage > 0 || rationShortage > 0;
     const fuelShortage = Boolean(supplies?.fuelShortage);
-    const foodDetail = [Number(supplies.rationShortage || 0) > 0 ? `부족 배식 ${supplies.rationShortage}단위` : '',
-      Number(supplies.foodShortage || 0) > 0 ? `대원 저녁 영양 ${supplies.foodShortage}` : ''].filter(Boolean).join(' · ');
+    const rationTiming = hasRationForecast ? '오늘 저녁 관리 뒤 비축과 다음 아침 생산 포함·현재 배치 고정'
+      : '현재 비축 기준·다음 아침 전망 없음';
+    const foodDetail = [rationShortage > 0 ? `부족 배식 ${rationShortage}단위(${rationTiming})` : '',
+      partyFoodShortage > 0 ? `대원 저녁 영양 ${partyFoodShortage}(현재 비축 기준)` : ''].filter(Boolean).join(' · ');
     objective = {
       title: foodShortage && fuelShortage
         ? '다음 정산 전 식량·땔감 비축'

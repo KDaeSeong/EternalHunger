@@ -62,6 +62,7 @@ import {
   recruitablePartyRows,
   resetDeveloperToolsAction,
   retireFounderAction,
+  settlementOperationsSummary,
   researchInspirationRows,
   researchPlannerRows,
   researchSummary,
@@ -113,6 +114,7 @@ import { ancestralFaithRows, ancestralFaithSummary } from '../_lib/primitiveArch
 import { LINEAGE_RULES } from '../_lib/primitiveArchiveLineage';
 import '../../../../styles/PrimitiveArchiveEras.css';
 import '../../../../styles/PrimitiveArchiveFounders.css';
+import '../../../../styles/PrimitiveArchiveOperations.css';
 import { primitiveArchiveFocusPlan } from '../_lib/primitiveArchiveFocus';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
 import usePrimitiveArchiveCheckpoint from '../_hooks/usePrimitiveArchiveCheckpoint';
@@ -306,6 +308,7 @@ export default function PrimitiveArchivePlayContent() {
   const projects = useMemo(() => projectRows(state), [state]);
   const tribe = useMemo(() => tribeSummary(state), [state]);
   const supplies = useMemo(() => survivalSupplySummary(state), [state]);
+  const operations = useMemo(() => settlementOperationsSummary(state), [state]);
   const rivals = useMemo(() => rivalTribeRows(state, actorId), [actorId, state]);
   const selectedProject = projects.find((project) => project.selected && !project.completed)
     || projects.find((project) => project.available && !project.completed)
@@ -384,7 +387,7 @@ export default function PrimitiveArchivePlayContent() {
   // The save menu and the other-screens menu are native <details>; close them on an
   // outside press or Escape so an open menu never sits over the play area.
   useEffect(() => {
-    const menuSelector = '.primitive-run-tools[open], .primitive-secondary-navigation[open]';
+    const menuSelector = '.primitive-run-tools[open], .primitive-secondary-navigation[open], .primitive-operations__details[open]';
     const closeOnOutsidePress = (event) => {
       document.querySelectorAll(menuSelector).forEach((menu) => {
         if (!menu.contains(event.target)) menu.open = false;
@@ -963,7 +966,7 @@ export default function PrimitiveArchivePlayContent() {
       messages={playMessages}
     >
       <PrimitiveArchiveEraDefs theme={eraTheme} />
-      <PrimitiveArchiveFocusPanel plan={focusPlan} onNavigate={setActiveTabId} />
+      <PrimitiveArchiveFocusPanel plan={focusPlan} operations={operations} onNavigate={setActiveTabId} />
       <PrimitiveArchiveInventoryBar inventory={state.inventory} inventoryRows={inventoryRows} />
 
       <PrimitiveArchiveFeatureTabs

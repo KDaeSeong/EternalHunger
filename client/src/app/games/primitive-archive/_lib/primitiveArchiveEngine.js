@@ -3575,6 +3575,7 @@ function settleTribeDay(state) {
 
   const scholars = Number(tribe.assignments.scholar || 0);
   let researchPoints = 0;
+  let researchRequested = 0;
   if (scholars > 0 && researchSystemStatus(next).unlocked) {
     const research = normalizeResearch(next.research);
     const selected = getTechnology(research.selectedTechId);
@@ -3582,8 +3583,10 @@ function settleTribeDay(state) {
       ? selected
       : nextAvailableTech(research);
     if (tech) {
-      researchPoints = scholars;
-      next = addResearchProgress(next, tech.id, researchPoints, '기록대 연구', { silent: true });
+      researchRequested = scholars;
+      const progressBefore = Number(research.progress?.[tech.id] || 0);
+      next = addResearchProgress(next, tech.id, researchRequested, '기록대 연구', { silent: true });
+      researchPoints = Math.max(0, Number(next.research.progress?.[tech.id] || 0) - progressBefore);
     }
   }
 
@@ -3613,6 +3616,7 @@ function settleTribeDay(state) {
     growthProgress,
     lastGrowthDay: grew ? Number(next.day || 1) : tribe.lastGrowthDay,
     lastProduction: {
+      day: Number(next.day || 1),
       gains,
       foodNeed,
       foodProvided: food.provided,
@@ -3622,6 +3626,7 @@ function settleTribeDay(state) {
       projectName,
       projectStarted,
       researchPoints,
+      researchRequested,
     },
     productionSerial: Number(tribe.productionSerial || 0) + 1,
     growthSerial: Number(tribe.growthSerial || 0) + (grew ? 1 : 0),
@@ -3780,6 +3785,81 @@ export function survivalSupplySummary(state) {
       ? `정착지 관리(AP 0): ${plan.meals.length}명 배식${Object.keys(plan.foodSpent).length ? ` (${Object.entries(plan.foodSpent).map(([id, count]) => `${itemName(id)} ${count}개`).join(', ')} 소비)` : ''} · ${plan.fuelAdded ? `나무 ${plan.woodSpent}개 → 연료 +${plan.fuelAdded}` : '연료 추가 보충 없음'}. 실제 비축분만 사용합니다.${pendingMeals ? ` ${pendingMeals}명은 식량이 부족합니다.` : ''}`
       : '정착: 남는 일손 자동 배치 · 식량 저장: 비축분으로 저녁 배식·연료 보충(AP 0).',
   };
+}
+
+export function settlementOperationsSummary(state) {
+  // Use the existing pure settlement calculations without creating a new run
+  // through normalizeState, which would draw weather randomness on every read.
+  const current = { ...state, day: Math.max(1, Number(state.day || 1)),
+    tribe: normalizeTribeState(state.tribe), research: normalizeResearch(state.research),
+    projects: normalizeProjectState(state.projects), inventory: state.inventory || {},
+    party: state.party || [], camp: { fireLevel: 0, shelterLevel: 0, fuel: 0, ...state.camp },
+    weather: state.weather || { cold: 0, temp: 15 } };
+  const enabled = Boolean(current.research.completed?.SETTLEMENT);
+  const ended = Boolean(current.ended);
+  const household = lineageHousehold(current);
+  const need = Math.ceil(current.tribe.population / 4) + household.extraRations;
+  const stock = tribeFoodStock(current.inventory);
+  const evening = settlementEveningPlan(current);
+  const afterEvening = evening.state;
+  const fuelUsed = !ended && campFireActive(afterEvening)
+    && !(hasTechPassive(afterEvening, 'CAMP_FUEL_SAVER') && current.day % 2 === 1) ? 1 : 0;
+  const gains = tribeProductionForDay(current.tribe.assignments, current.day + 1, current);
+  const nextFood = consumeTribeFood(addItems(afterEvening.inventory, Object.entries(gains)), need);
+  const pending = livingParty(afterEvening).filter(member => nightSurvivalProjection(afterEvening, member).hunger > 60).length;
+  const issues = [];
+  if (ended) issues.push({ id: 'ended', text: '종료된 런이므로 다음 저녁 관리와 아침 정산은 실행되지 않습니다.', tabId: 'actions' });
+  else {
+    if (!enabled) issues.push({ id: 'settlement', text: '정착 연구가 완료되면 남는 일손을 자동으로 배치할 수 있습니다.', tabId: 'tribe' });
+    else if (!evening.unlocked) issues.push({ id: 'food-storage', text: '식량 저장 연구가 필요하여 저녁 자동 배식·연료 보충을 사용할 수 없습니다.', tabId: 'tribe' });
+    if (pending) issues.push({ id: 'party-food', text: `저녁 관리 뒤에도 ${pending}명의 밤 허기가 60을 넘을 전망입니다. 실제 식량과 개인 식사를 확인하세요.`, tabId: 'actions' });
+    if (nextFood.shortage > 0) issues.push({ id: 'ration', text: `현재 배치를 고정하면 다음 아침 부족·가구 배식이 ${nextFood.shortage}단위 부족합니다.`, tabId: 'tribe' });
+    if (autoNightNeedsFire(afterEvening) && !campFireActive(afterEvening)) issues.push({ id: 'fuel', text: '현재 저녁 관리로 밤에 필요한 모닥불 연료를 확보하지 못합니다.', tabId: 'camp' });
+  }
+  const receipt = current.tribe.lastProduction;
+  const consumptionText = spent => Object.entries(spent || {}).filter(([, count]) => Number(count) > 0)
+    .map(([id, count]) => `${itemName(id)} ${count}개`).join(' · ') || '없음';
+  const actualText = current.tribe.productionSerial > 0
+    ? `${Number.isInteger(receipt.day) && receipt.day >= 1 ? `${receipt.day}일차` : '정산 일차 미기록'} · 생산 ${formatGains(Object.entries(receipt.gains || {}))} · 부족·가구 배식 ${Number(receipt.foodProvided || 0)}/${Number(receipt.foodNeed || 0)}단위 (소비 ${consumptionText(receipt.foodSpent)}, 부족 ${Number(receipt.shortage || 0)}단위) · 건설 ${receipt.projectWork ? `${receipt.projectName} +${receipt.projectWork}` : '없음'} · ${Object.hasOwn(receipt, 'researchRequested') ? `기록대 실제 적용 +${Number(receipt.researchPoints || 0)}RP` : '기록대 실제 적용 RP 미기록(이전 영수증)'}. 시설 자동 연구·회의와 저녁 관리 내역은 이 영수증에 포함되지 않습니다.`
+    : '아직 실제 아침 정산 영수증이 없습니다.';
+  const rows = [
+    { id: 'stock', title: '현재 부족·가구 비축', text: `일손 ${current.tribe.population}명 · 준비 후계·생존 은퇴자 ${household.count}명 · 공동 배식 필요 ${need}단위 · 현재 식량 ${stock}단위 · 나무 ${Number(current.inventory.wood || 0)}개 · 연료 ${Number(current.camp.fuel || 0)}. 식량 단위와 대원 허기를 줄이는 영양은 다른 값입니다.` },
+    { id: 'evening', title: '오늘 저녁(예상)', text: ended ? '런 종료로 실행되지 않습니다.'
+      : `${evening.unlocked ? `대원 ${evening.meals.length}명 배식 · 음식 소비 ${consumptionText(evening.foodSpent)} · 나무 ${evening.woodSpent}개 소비 → 연료 +${evening.fuelAdded}` : '정착·식량 저장이 필요하여 자동 배식·연료 보충 없음'} · 관리 뒤 식량 ${tribeFoodStock(afterEvening.inventory)}단위 · 나무 ${Number(afterEvening.inventory.wood || 0)}개 · 연료 ${Number(afterEvening.camp.fuel || 0)} → 야영 소비 ${fuelUsed} 후 ${Math.max(0, Number(afterEvening.camp.fuel || 0) - fuelUsed)}. 현재 비축분만 사용하며 공동 배식 필요량 ${need}단위 아래로 줄이는 추가 배식은 하지 않습니다.` },
+    { id: 'morning', title: '다음 아침(현재 배치 고정 전망)', text: ended ? '런 종료로 실행되지 않습니다.'
+      : `${current.day + 1}일차 · 저녁 관리 뒤 식량 ${tribeFoodStock(afterEvening.inventory)} + 직업 생산 ${tribeFoodStock(gains)}단위 (${formatGains(Object.entries(gains))}) · 부족·가구 필요 ${need} / 제공 ${nextFood.provided} / 부족 ${nextFood.shortage}단위 · 배식 후 공동 비축 ${tribeFoodStock(nextFood.inventory)}단위. 파티의 다음 저녁 식사까지 마친 잔여량은 아닙니다. 자동 재배치·인구 성장·생애 전환·사업 자재와 완성 보상은 포함하지 않습니다.` },
+    { id: 'receipt', title: '최근 아침(실제)', text: actualText },
+  ];
+  const assigned = Object.values(current.tribe.assignments).reduce((sum, count) => sum + Number(count || 0), 0);
+  const unassigned = Math.max(0, current.tribe.population - assigned);
+  const source = unassigned > 0 ? null : TRIBE_JOBS.find(job => Number(current.tribe.assignments[job.id] || 0) > 0
+    && tribeFoodStock(tribeProductionForDay({ [job.id]: current.tribe.assignments[job.id] }, current.day + 1, current)) > 0);
+  const workerReason = !unassigned && !source ? '이동할 미배치 일손이나 내일 식량을 실제 생산하는 직업의 일손이 없습니다.' : '';
+  const project = TRIBE_PROJECTS.find(row => row.id === current.projects.selectedProjectId && !current.projects.completed?.[row.id]);
+  const projectReason = !project ? '선택한 미완성 공동 프로젝트가 없습니다.'
+    : !projectPrereqsMet(current, project) ? '선택한 공동 프로젝트의 선행 연구가 필요합니다.'
+      : !current.projects.resourceCommitted?.[project.id] && !hasResources(current.inventory, project.cost || {}) ? '선택한 공동 프로젝트의 실제 착수 자재가 부족합니다.' : '';
+  const research = current.research;
+  const selected = getTechnology(research.selectedTechId);
+  const tech = selected && !research.completed?.[selected.id] && prereqsMet(research, selected) ? selected : nextAvailableTech(research);
+  const investments = ['builder', 'scholar'].map(id => {
+    const targetReason = id === 'builder' ? projectReason : !researchSystemStatus(current).unlocked
+      ? '모닥불·대피소·작업대를 갖춰 연구 체계를 먼저 열어야 합니다.' : !tech ? '진행할 수 있는 미완료 목표 기술이 없습니다.' : '';
+    const reason = ended ? '종료된 런입니다.' : !enabled ? '정착 연구가 필요합니다.' : targetReason || workerReason;
+    const assignments = { ...current.tribe.assignments };
+    if (source) assignments[source.id] -= 1;
+    if (unassigned || source) assignments[id] += 1;
+    const changed = tribeFoodStock(tribeProductionForDay(assignments, current.day + 1, current));
+    const effect = id === 'builder' ? project ? `${project.name} 작업 최대 +1` : '공동 프로젝트 작업 +1'
+      : tech ? `${tech.name} 연구 최대 +1RP(남은 필요량까지)` : '목표 기술 연구 +1RP';
+    return { id, title: id === 'builder' ? '건설대에 일손 1명 투자' : '기록대에 일손 1명 투자', available: !reason, reason,
+      text: workerReason ? workerReason : `${unassigned ? '실제 미배치 일손' : source.name} 1명을 옮기는 가정 · 다음 아침 식량 생산 ${tribeFoodStock(gains)} → ${changed}단위 · ${effect}. 홀짝 주기와 인원 반올림을 반영하며 실제 배치는 바꾸지 않습니다.` };
+  });
+  return { enabled, ended, day: current.day, tone: issues.length ? 'warning' : 'ready',
+    summaryText: ended ? '종료된 문명의 마지막 정산 기록입니다.' : !enabled ? '정착 연구가 완료되면 남는 일손을 자동으로 배치할 수 있습니다.'
+      : `현재 배치 · 다음 식량 생산 ${tribeFoodStock(gains)} / 공동 배식 ${need}단위${evening.meals.length ? ` · 저녁 추가 배식 ${evening.meals.length}명` : ''}${evening.fuelAdded ? ` · 연료 보충 +${evening.fuelAdded}` : ''}`,
+    timingText: '현재 비축 → 오늘 저녁 관리 → 밤 생존·연료 소비 → 다음 아침 직업 생산·건설·연구 → 부족·가구 배식 순서입니다.',
+    issues, rows, investments };
 }
 
 export function nightSurvivalRows(state) {
