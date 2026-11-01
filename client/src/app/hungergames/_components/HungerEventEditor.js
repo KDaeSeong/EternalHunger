@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import HungerTraitFields from '../../../components/HungerTraitFields';
-import { HUNGER_CAUSES, HUNGER_EFFECTS, HUNGER_LABELS, HUNGER_LOCATIONS, HUNGER_PHASES, HUNGER_RELATIONS, HUNGER_WEATHER, normalizeHungerEvent } from '../_lib/hungerGameContract.js';
+import { HUNGER_CAUSES, HUNGER_EFFECTS, HUNGER_LABELS, HUNGER_LIMITS, HUNGER_LOCATIONS, HUNGER_PHASES, HUNGER_RELATIONS, HUNGER_WEATHER, normalizeHungerEvent } from '../_lib/hungerGameContract.js';
 import { createHungerDraft } from '../_lib/hungerGamePresets.js';
+import { copyHungerEventDraft, createNewHungerEventDraft, hungerEventDraftDestination,
+  parseHungerEventDraftJson, prepareHungerEventSave } from '../_lib/hungerGameEventEditor.js';
 import { inspectHungerEvent, resolveHungerEvent } from '../_lib/hungerGameRuntime.js';
 import { createHungerPreview } from '../_lib/hungerGamePreview.js';
 import { hungerEffectLabel } from '../_lib/hungerGameText.js';
@@ -17,37 +19,80 @@ function Select({ value, onChange, options, ...props }) {
   return <select {...props} value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option.value ?? option} value={option.value ?? option}>{option.label ?? label(option)}</option>)}</select>;
 }
 
-export default function HungerEventEditor({ events, roster, matchMode, onChange, onNotice, draft: controlledDraft, onDraftChange, onPresetsReset }) {
+export default function HungerEventEditor({ events, roster, matchMode, onChange, onNotice, draft: controlledDraft,
+  onDraftChange, draftOriginId = null, onDraftOriginIdChange, onPresetsReset, ready = false, busy = false }) {
   const draft = controlledDraft || events[0] || createHungerDraft('custom-first');
-  const setDraft = onDraftChange;
-  const [preview, setPreview] = useState(null);
-  const [casting, setCasting] = useState({});
-  const [previewInjured, setPreviewInjured] = useState({});
-  const [previewSurvivors, setPreviewSurvivors] = useState('');
-  const [previewDuelPhases, setPreviewDuelPhases] = useState(0);
-  const [context, setContext] = useState({ day: 1, phase: 'day', weather: 'storm', location: 'forest' });
-  const [previewIndex, setPreviewIndex] = useState(0);
-  const [jsonText, setJsonText] = useState('');
+  const originId = controlledDraft ? draftOriginId : events[0]?.id || null;
+  const [preview, writePreview] = useState(null);
+  const [casting, writeCasting] = useState({});
+  const [previewInjured, writePreviewInjured] = useState({});
+  const [previewSurvivors, writePreviewSurvivors] = useState('');
+  const [previewDuelPhases, writePreviewDuelPhases] = useState(0);
+  const [context, writeContext] = useState({ day: 1, phase: 'day', weather: 'storm', location: 'forest' });
+  const [previewIndex, writePreviewIndex] = useState(0);
+  const [jsonText, writeJsonText] = useState('');
+  const snapshot = { canEdit: Boolean(ready && !busy && typeof onChange === 'function'
+    && typeof onDraftChange === 'function' && typeof onDraftOriginIdChange === 'function') };
+  const live = useRef(snapshot);
+  useLayoutEffect(() => {
+    live.current = snapshot;
+    return () => { if (live.current === snapshot) live.current = null; };
+  });
+  const isCurrent = () => live.current === snapshot && snapshot.canEdit;
+  const protect = setter => value => { if (isCurrent()) setter(value); };
+  const setPreview = protect(writePreview), setCasting = protect(writeCasting);
+  const setPreviewInjured = protect(writePreviewInjured), setPreviewSurvivors = protect(writePreviewSurvivors);
+  const setPreviewDuelPhases = protect(writePreviewDuelPhases), setContext = protect(writeContext);
+  const setPreviewIndex = protect(writePreviewIndex), setJsonText = protect(writeJsonText);
+  const setDraft = (next, origin = originId) => {
+    if (!isCurrent()) return;
+    onDraftOriginIdChange(origin); onDraftChange(next);
+  };
+  const notice = text => { if (isCurrent()) onNotice?.(text); };
+  const destination = hungerEventDraftDestination(events, draft, originId);
+  const savedOrigin = events.find(event => event.id === originId);
+  const dirty = JSON.stringify(savedOrigin) !== JSON.stringify(draft);
+  const newId = () => 'custom-' + crypto.randomUUID();
+  const resetPreviewSetup = () => {
+    setPreview(null); setCasting({}); setPreviewInjured({}); setPreviewSurvivors(''); setPreviewDuelPhases(0); setJsonText('');
+  };
   const update = (patch) => { setDraft({ ...draft, ...patch }); setPreview(null); };
   const updateRole = (index, patch) => update({ roles: draft.roles.map((role, offset) => offset === index ? { ...role, ...patch } : role) });
   const updateOutcome = (index, patch) => update({ outcomes: draft.outcomes.map((outcome, offset) => offset === index ? { ...outcome, ...patch } : outcome) });
   const updateEffect = (outcomeIndex, effectIndex, patch) => updateOutcome(outcomeIndex, { effects: draft.outcomes[outcomeIndex].effects.map((effect, offset) => offset === effectIndex ? { ...effect, ...patch } : effect) });
   const updateRequirement = (outcomeIndex, requirementIndex, patch) => updateOutcome(outcomeIndex, { requirements: draft.outcomes[outcomeIndex].requirements.map((requirement, offset) => offset === requirementIndex ? { ...requirement, ...patch } : requirement) });
   const choose = (event) => {
-    const saved = events.find((row) => row.id === draft.id);
-    if (JSON.stringify(saved) !== JSON.stringify(draft) && !window.confirm('편집 중인 내용을 버리고 다른 이벤트를 열까요?')) return;
-    setDraft(structuredClone(event)); setPreview(null); setCasting({}); setPreviewInjured({}); setPreviewSurvivors(''); setPreviewDuelPhases(0); setJsonText('');
+    if (!isCurrent()) return;
+    if (dirty && !window.confirm('편집 중인 내용을 버리고 다른 이벤트를 열까요?')) return;
+    if (!isCurrent()) return;
+    setDraft(structuredClone(event), event.id); resetPreviewSetup();
+  };
+  const add = () => {
+    if (!isCurrent() || events.length >= HUNGER_LIMITS.events) return;
+    if (dirty && !window.confirm('편집 중인 내용을 버리고 다른 이벤트를 열까요?')) return;
+    if (!isCurrent()) return;
+    try {
+      setDraft(createNewHungerEventDraft(events, newId), null); resetPreviewSetup();
+    } catch (error) { notice(error.message); }
+  };
+  const duplicate = () => {
+    if (!isCurrent()) return;
+    try {
+      setDraft(copyHungerEventDraft(events, draft, newId), null); resetPreviewSetup();
+      notice('새 ID의 복제 초안을 만들었습니다. 원본은 유지되며 이벤트 저장을 눌러야 목록과 다음 경기에 추가됩니다.');
+    } catch (error) { notice(error.message); }
   };
   const save = () => {
+    if (!isCurrent()) return;
     try {
-      const normalized = normalizeHungerEvent(draft);
-      if (!events.some((event) => event.id === normalized.id) && events.length >= 200) throw new Error('이벤트는 200개까지 등록할 수 있습니다.');
-      onChange(events.some((event) => event.id === normalized.id) ? events.map((event) => event.id === normalized.id ? normalized : event) : [...events, normalized]);
-      setDraft(normalized); onNotice('이벤트를 저장했습니다. 다음 경기부터 적용됩니다.');
-    } catch (error) { onNotice(error.message); }
+      const result = prepareHungerEventSave(events, draft, originId);
+      onChange(result.events); setDraft(result.event, result.event.id);
+      notice(originId && originId !== result.event.id ? '새 ID의 별도 이벤트를 저장했습니다. 원래 이벤트는 유지되며 다음 경기부터 적용됩니다.' : '이벤트를 저장했습니다. 다음 경기부터 적용됩니다.');
+    } catch (error) { notice(error.message); }
   };
   const roleOptions = draft.roles.map((role) => ({ value: role.key, label: role.label + ' {' + role.key + '}' }));
   const testEvent = () => {
+    if (!isCurrent()) return;
     try {
       const normalized = normalizeHungerEvent(draft);
       const { state, assigned } = createHungerPreview({ roster, matchMode, event: normalized, casting, context, injuredByRole: previewInjured,
@@ -59,27 +104,32 @@ export default function HungerEventEditor({ events, roster, matchMode, onChange,
   };
   const removeRole = (key) => {
     const referenced = draft.relations.some((row) => row.left === key || row.right === key) || draft.outcomes.some((row) => row.when?.role === key || row.text.includes('{' + key + '}') || row.requirements?.some((requirement) => requirement.role === key) || row.effects.some((effect) => [effect.target, effect.other, effect.source].includes(key)));
-    if (referenced) { onNotice('이 역할을 사용하는 문구·효과·관계 조건을 먼저 수정해 주세요.'); return; }
+    if (referenced) { notice('이 역할을 사용하는 문구·효과·관계 조건을 먼저 수정해 주세요.'); return; }
     update({ roles: draft.roles.filter((role) => role.key !== key) });
   };
   return (
+    <fieldset disabled={!snapshot.canEdit} aria-busy={Boolean(busy)} aria-label="이벤트 편집 작업" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
     <div className={styles.editorLayout}>
       <aside className={styles.panel}>
-        <div className={styles.toolbar}><h2>이벤트 {events.length}개</h2><button type="button" disabled={events.length >= 200} onClick={() => choose(createHungerDraft('custom-' + crypto.randomUUID()))}>추가</button></div>
-        <button type="button" onClick={() => { if (onPresetsReset()) { setPreview(null); setCasting({}); setPreviewInjured({}); setPreviewSurvivors(''); setPreviewDuelPhases(0); setJsonText(''); } }}>기본 사건 업데이트</button>
+        <div className={styles.toolbar}><h2>이벤트 {events.length}개</h2><button type="button" disabled={events.length >= HUNGER_LIMITS.events} onClick={add}>추가</button></div>
+        <button type="button" disabled={typeof onPresetsReset !== 'function'} onClick={() => { if (!isCurrent()) return; if (onPresetsReset()) { setPreview(null); setCasting({}); setPreviewInjured({}); setPreviewSurvivors(''); setPreviewDuelPhases(0); setJsonText(''); } }}>기본 사건 업데이트</button>
         <div className={styles.eventList}>
           {events.map((event) => <button type="button" aria-pressed={draft.id === event.id} className={draft.id === event.id ? styles.selected : ''} key={event.id} onClick={() => choose(event)}>{event.enabled ? '● ' : '○ '}{event.title}<small>{event.roles.length}명 · 분기 {event.outcomes.length}개</small></button>)}
         </div>
       </aside>
       <section className={styles.panel}>
         <div className={styles.toolbar}><h2>이벤트 편집</h2><div className={styles.actions}>
-          <button type="button" className={styles.primary} onClick={save}>이벤트 저장</button>
-          {events.some((event) => event.id === draft.id) ? <button type="button" onClick={() => {
-            if (!window.confirm('이 이벤트를 삭제할까요?')) return;
-            const next = events.filter((event) => event.id !== draft.id); onChange(next); setDraft(structuredClone(next[0] || createHungerDraft('custom-' + crypto.randomUUID()))); setPreview(null);
+          <button type="button" className={styles.primary} disabled={Boolean(destination.reason)} onClick={save}>이벤트 저장</button>
+          <button type="button" disabled={events.length >= HUNGER_LIMITS.events} onClick={duplicate}>새 ID로 복제</button>
+          {savedOrigin && originId === draft.id ? <button type="button" onClick={() => {
+            if (!isCurrent() || !window.confirm('이 이벤트를 삭제할까요?') || !isCurrent()) return;
+            const next = events.filter((event) => event.id !== originId); onChange(next);
+            setDraft(structuredClone(next[0] || createNewHungerEventDraft(next, newId)), next[0]?.id || null); setPreview(null);
           }}>삭제</button> : null}
         </div></div>
         <p className={styles.note}>편집 후 이벤트 저장을 눌러 적용합니다. 문구의 {'{역할키}'}에는 해당 참가자의 이름이 들어갑니다.</p>
+        {destination.reason ? <p className={styles.note} role="alert">{destination.reason}</p> : null}
+        {originId && originId !== draft.id && !destination.collision ? <p className={styles.note}>새 ID로 저장하면 원래 이벤트는 그대로 두고 별도 이벤트를 추가합니다. 원래 이벤트를 없애려면 해당 이벤트를 선택하고 삭제를 확인해야 합니다.</p> : null}
         <p className={styles.note}>이름 바로 뒤의 은/는, 이/가, 을/를, 과/와, 으로/로, 이랑/랑, 아/야는 받침에 맞게 바뀝니다. {'{actor}은(는)'}처럼 쓸 수도 있습니다. 복합 조사에는 {'{actor}으로(로)부터'}처럼 쌍을 표시하세요.</p>
         <div className={styles.fields}>
           <label className={styles.field}>이벤트 이름<input value={draft.title} maxLength={120} onChange={(event) => update({ title: event.target.value })} /></label>
@@ -181,9 +231,16 @@ export default function HungerEventEditor({ events, roster, matchMode, onChange,
         <details className={styles.group}><summary>고급 JSON 편집</summary>
           <button type="button" onClick={() => setJsonText(JSON.stringify(draft, null, 2))}>현재 편집 내용 가져오기</button>
           <textarea className={styles.json} aria-label="이벤트 JSON" rows={12} value={jsonText} onChange={(event) => setJsonText(event.target.value)} />
-          <button type="button" onClick={() => { try { const event = normalizeHungerEvent(JSON.parse(jsonText)); setDraft(event); setPreview(null); onNotice('JSON을 편집기에 적용했습니다. 이벤트 저장을 눌러 등록해 주세요.'); } catch (error) { onNotice(error.message); } }}>편집기에 적용</button>
+          <button type="button" onClick={() => {
+            if (!isCurrent()) return;
+            try {
+              const event = parseHungerEventDraftJson(jsonText); setDraft(event); setPreview(null);
+              notice('JSON을 편집기에 적용했습니다. 원래 편집 대상은 유지하며, 다른 저장된 이벤트의 ID로는 덮어쓸 수 없습니다. 이벤트 저장 또는 새 ID로 복제를 선택해 주세요.');
+            } catch (error) { notice(error.message); }
+          }}>편집기에 적용</button>
         </details>
       </section>
     </div>
+    </fieldset>
   );
 }

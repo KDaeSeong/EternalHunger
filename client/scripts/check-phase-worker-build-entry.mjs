@@ -8,9 +8,10 @@ import { performance } from 'node:perf_hooks';
 import { TextDecoder, TextEncoder } from 'node:util';
 
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const buildRoot = path.join(clientRoot, '.next');
+const buildDirectory = process.env.EH_NEXT_DIST_DIR || '.next';
+const buildRoot = path.resolve(clientRoot, buildDirectory);
 const chunksRoot = path.join(buildRoot, 'static', 'chunks');
-assert.ok(statSync(buildRoot).isDirectory(), 'A completed client/.next build is required.');
+assert.ok(statSync(buildRoot).isDirectory(), `A completed build at ${buildDirectory} is required.`);
 const buildId = readFileSync(path.join(buildRoot, 'BUILD_ID'), 'utf8').trim();
 assert.ok(buildId, 'The production build must have a BUILD_ID.');
 
@@ -179,7 +180,7 @@ async function runFirstPhaseSmoke({ ordinaryGlobals = true } = {}) {
       const sharedSource = readFileSync(resolved, 'utf8');
       workerDependencySources.set(name, sharedSource);
       vm.runInContext(sharedSource, context, {
-        filename: path.join('.next', 'static', 'chunks', name), timeout: 5000,
+        filename: path.join(buildDirectory, 'static', 'chunks', name), timeout: 5000,
       });
     },
     setTimeout(callback, delay, ...args) {
@@ -226,7 +227,7 @@ async function runFirstPhaseSmoke({ ordinaryGlobals = true } = {}) {
   try {
     process.on('unhandledRejection', onUnhandledRejection);
     vm.runInContext(workerSource, context, {
-      filename: path.join('.next', 'static', 'chunks', workerName), timeout: 10000,
+      filename: path.join(buildDirectory, 'static', 'chunks', workerName), timeout: 10000,
     });
     // Webpack's entry waits for Promise.all(sharedChunks) before running the
     // worker module. Let that native microtask chain reach its startup message.

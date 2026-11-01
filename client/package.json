@@ -56,7 +56,7 @@
     "check:eternal-hunger:regressions": "npm run check:verification-fingerprint && npm run check:battle-log-regressions && npm run check:healing-craft-recovery && node ./scripts/check-eternal-hunger-regressions.mjs && npm run check:simulation-evaluation && npm run check:market-failure-state && node ./scripts/check-kiosk-movement-quote-cache.mjs --fixtures-only && node ./scripts/check-simulation-sponsor-perks.mjs && node ./scripts/check-simulation-sponsor-ui-props.mjs",
     "check:verification-fingerprint": "node ./scripts/check-verification-fingerprint.mjs",
     "check:battle-log-regressions": "node ./scripts/check-battle-log-regressions.mjs",
-    "check:hunger-games": "node ./scripts/check-hunger-games.mjs && node ./scripts/check-hunger-games-improvements.mjs && node ./scripts/check-hunger-games-playback.mjs && node ./scripts/check-hunger-games-observer-ui.mjs",
+    "check:hunger-games": "node ./scripts/check-hunger-games.mjs && node ./scripts/check-hunger-games-improvements.mjs && node ./scripts/check-hunger-games-playback.mjs && node ./scripts/check-hunger-games-observer-ui.mjs && node ./scripts/check-hunger-games-editor-ownership.mjs && node ./scripts/check-hunger-games-roster-editor.mjs && node ./scripts/check-hunger-games-event-editor.mjs",
     "check:phase-highlights": "node ./scripts/check-phase-highlights.mjs",
     "check:healing-craft-recovery": "node ./scripts/check-healing-craft-recovery.mjs && npm run check:low-hp-recovery",
     "check:healing-craft-recovery:match": "node ./scripts/generate-simulation-version.mjs && node ./scripts/check-healing-craft-recovery-match.mjs && npm run check:low-hp-recovery:match",

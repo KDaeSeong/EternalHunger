@@ -67,6 +67,9 @@ registerHooks({
       if (specifier.endsWith('/HungerEventEditor')) return moduleSource('export default globalThis.__hgPlaybackTest.eventsType;');
       if (specifier.endsWith('/utils/api')) return moduleSource(`
         export function getToken() { return 'fixture-token'; }
+        export const AUTH_SYNC_EVENT = 'eh:auth-sync';
+        export function captureAuthSession() { return { scope: 'fixture-owner', revision: 0 }; }
+        export function isCurrentAuthSession(session) { return session.scope === 'fixture-owner' && session.revision === 0; }
         export function apiGet(...args) { return globalThis.__hgPlaybackTest.apiGet(...args); }
         export function apiPut() { throw new Error('Account writes are forbidden in this fixture.'); }`);
     }
