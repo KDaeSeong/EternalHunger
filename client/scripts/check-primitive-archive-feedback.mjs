@@ -70,6 +70,9 @@ const cookBase = engine.createNewState({
   runId: 'feedback-cook-last-ap',
   now: '2026-10-25T00:00:00.000Z',
 });
+// The last-AP cooking fixture restores a pre-existing, cause-free casualty save.
+delete cookBase.lineage;
+delete cookBase.ancestralFaith;
 const cookAssignments = Object.fromEntries(Object.keys(cookBase.tribe.assignments).map((key) => [key, 0]));
 const cookFixture = (ap) => engine.normalizeState({
   ...cookBase,

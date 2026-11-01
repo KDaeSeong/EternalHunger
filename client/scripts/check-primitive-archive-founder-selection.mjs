@@ -62,7 +62,10 @@ await check('selection consumes no extra randomness and does not change world, i
   const original = createNewState({ ...options, rng: () => { defaultDraws += 1; return 0.5; } });
   const chosen = createNewState({ ...options, founderIds: selected, rng: () => { selectedDraws += 1; return 0.5; } });
   assert.equal(defaultDraws, selectedDraws);
-  const omitIdentity = ({ party, equipment, founderHistory, ...world }) => world;
+  assert.deepEqual(chosen.lineage.members.map((member) => member.actorId), selected);
+  assert.deepEqual(chosen.lineage.members.map((member) => member.founderId), selected);
+  const omitIdentity = ({ party, equipment, founderHistory, lineage, ...world }) => ({ ...world,
+    lineage: { ...lineage, members: lineage.members.map(({ actorId, founderId, ...life }) => life) } });
   assert.deepEqual(omitIdentity(chosen), omitIdentity(original));
 });
 
@@ -100,6 +103,8 @@ await check('save round trips preserve the chosen party and legacy restoration n
   assert.deepEqual(restored.founderHistory, raw.founderHistory);
   const legacy = createNewState(options);
   delete legacy.founderHistory;
+  delete legacy.lineage;
+  delete legacy.ancestralFaith;
   legacy.founderIds = selected;
   legacy.party[0].hp = 54;
   const before = JSON.stringify(legacy);

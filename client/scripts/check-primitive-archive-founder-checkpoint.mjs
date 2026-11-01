@@ -47,6 +47,9 @@ console.log('PASS malformed or cross-run present history is corrupt and original
 const legacy = fresh('founder-checkpoint-legacy');
 legacy.day = 40;
 delete legacy.founderHistory;
+// Old saves have none of the later lifecycle or faith fields.
+delete legacy.lineage;
+delete legacy.ancestralFaith;
 const legacyStorage = new Storage();
 assert.equal(checkpoint.writeCheckpoint(legacyStorage, owner, legacy, { expectedRevision: 0, savedAt: at }).status, 'ready');
 const legacyRestored = engine.normalizeState(checkpoint.readCheckpoint(legacyStorage, owner).checkpoint.current);

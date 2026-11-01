@@ -15,6 +15,11 @@ let passed = 0;
 
 function stateWith(passives = [], { tonic = 1, hp = 40, dead = false } = {}) {
   const base = engine.createNewState({ runId: `medical-recovery-${passed}`, now, rng: () => 0.5 });
+  if (dead) {
+    // This synthetic old casualty has no recorded lifetime or verified cause.
+    delete base.lineage;
+    delete base.ancestralFaith;
+  }
   const completed = {};
   for (const passive of passives) {
     const source = engine.TECH_TREE.find((tech) => tech.unlocks?.passives?.includes(passive));

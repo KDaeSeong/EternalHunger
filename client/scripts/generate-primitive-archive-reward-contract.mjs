@@ -1,13 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
+import './lib/register-simulation-modules.mjs';
 
-const rootUrl = new URL('../src/app/games/primitive-archive/_lib/', import.meta.url);
-const loreSource = await readFile(new URL('primitiveArchiveAdvancementLore.js', rootUrl), 'utf8');
-const loreUrl = `data:text/javascript;base64,${Buffer.from(loreSource).toString('base64')}`;
-const dataSource = (await readFile(new URL('primitiveArchiveData.js', rootUrl), 'utf8'))
-  .replace("from './primitiveArchiveAdvancementLore';", `from '${loreUrl}';`);
-const dataUrl = `data:text/javascript;base64,${Buffer.from(dataSource).toString('base64')}`;
-const data = await import(dataUrl);
+// Load the current module graph with the same local-import resolution as the
+// runtime checks. Added catalog dependencies must not be copied into data URLs.
+const data = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveData.js');
 
 const rules = {
   basic: { lp: 500, credits: 1000 },

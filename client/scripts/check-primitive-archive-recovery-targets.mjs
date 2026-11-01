@@ -20,6 +20,14 @@ function noLog(state) {
   return copy;
 }
 
+// Synthetic old casualty saves have no lifetime/faith state or inferred causes.
+function legacyFixture(state) {
+  const snapshot = { ...state };
+  delete snapshot.lineage;
+  delete snapshot.ancestralFaith;
+  return engine.normalizeState(snapshot);
+}
+
 function choice(state, id, actorId = '') {
   return engine.recoveryChoiceRows(state, actorId).find((row) => row.id === id);
 }
@@ -32,7 +40,7 @@ function check(name, run) {
 }
 
 check('healthy fed survivor is not selected for casualties diluted care', () => {
-  const state = fixture('recovery-healthy-survivor-casualties');
+  const state = legacyFixture(fixture('recovery-healthy-survivor-casualties'));
   state.party = state.party.map((member, index) => ({
     ...member,
     hp: index === 0 ? 100 : 0,
@@ -86,7 +94,7 @@ check('one injured and starving survivor keeps both real treatments visible desp
 });
 
 check('valid group ration feeds hungry living members, skips a dead member, and charges actual meal and AP costs', () => {
-  const state = fixture('recovery-live-group-ration');
+  const state = legacyFixture(fixture('recovery-live-group-ration'));
   state.inventory = { berry: 2 };
   state.party = state.party.map((member, index) => ({
     ...member,
@@ -105,7 +113,7 @@ check('valid group ration feeds hungry living members, skips a dead member, and 
 });
 
 check('valid group tonic heals survivors, skips casualties, and charges existing supply and AP costs', () => {
-  const state = fixture('recovery-live-group-tonic');
+  const state = legacyFixture(fixture('recovery-live-group-tonic'));
   state.party = state.party.map((member, index) => ({
     ...member,
     hp: index === 2 ? 0 : index === 0 ? 20 : 45,
@@ -121,7 +129,7 @@ check('valid group tonic heals survivors, skips casualties, and charges existing
 });
 
 check('tonic decisions reject clamped actor recovery after fixed action and cold costs, but keep genuine group benefit', () => {
-  const state = fixture('tonic-actor-cost-boundary');
+  const state = legacyFixture(fixture('tonic-actor-cost-boundary'));
   state.inventory = { herb_tonic: 1 };
   state.counters.events = 1;
   state.weather = { ...state.weather, id: 'snow', cold: 20, temp: -10 };
@@ -177,7 +185,7 @@ check('tonic decisions reject clamped actor recovery after fixed action and cold
   assert.equal(hpTreated.party[0].hp, 100, 'A real +1 HP gain remains valid despite the actor stamina cost and cold.');
   assert.equal(hpTreated.inventory.herb_tonic, 0);
 
-  const fallback = fixture('tonic-fallback-actor-lock');
+  const fallback = legacyFixture(fixture('tonic-fallback-actor-lock'));
   fallback.inventory = { herb_tonic: 1 };
   fallback.counters.events = 1;
   fallback.party = fallback.party.map((member, index) => ({
@@ -197,7 +205,7 @@ check('tonic decisions reject clamped actor recovery after fixed action and cold
 });
 
 check('ration plans account for actor-specific cold cost while preserving warming for another survivor', () => {
-  const state = fixture('ration-actor-cost-boundary');
+  const state = legacyFixture(fixture('ration-actor-cost-boundary'));
   state.inventory = { cooked_meat: 1 };
   state.weather = { ...state.weather, id: 'snow', cold: 20, temp: -10 };
   state.party = state.party.map((member, index) => ({
@@ -255,7 +263,7 @@ check('ration preview counts actual useful recipients and matches consumed stock
 });
 
 check('live run guidance ignores casualties and never counts medicine as nourishing food', () => {
-  const state = fixture('live-report-casualty-guidance');
+  const state = legacyFixture(fixture('live-report-casualty-guidance'));
   state.inventory = { berry: 20, herb_tonic: 5 };
   state.weather = { id: 'clear', cold: 0, temp: 22, actionMod: 0 };
   state.party = state.party.map((member, index) => ({

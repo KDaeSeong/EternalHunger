@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "copyright": "Blue Archive © NEXON Games Co., Ltd. / Yostar, Inc. All Rights Reserved.",
+  "processing": "Original official published bytes; no AI regeneration or bitmap editing. The game applies a CSS-only face crop.",
+  "rows": [
+    {
+      "id": "shiroko",
+      "name": "시로코",
+      "variant": "수영복",
+      "sourceUrl": "https://dszw1qtcnsa5e.cloudfront.net/community/20240105/62816fdf-af1c-4f2a-86b2-ebbd3bec50d0/BA%EC%83%81%EC%84%B8%EC%A0%95%EB%B3%B4%EC%88%98%EC%98%81%EB%B3%B5%EC%8B%9C%EB%A1%9C%EC%BD%94%ED%8A%B8%EC%9C%84%ED%84%B01280x720KR.png",
+      "officialPublication": "https://forum.nexon.com/bluearchive/board_view?thread=2462780",
+      "artType": "official-character-introduction-card",
+      "publisher": "Nexon / 블루 아카이브 공식 포럼",
+      "additionalSources": [
+        "https://forum.nexon.com/api/v1/thread/2462780?alias=bluearchive"
+      ],
+      "file": "shiroko-swimsuit.png",
+      "bytes": 723750,
+      "sha256": "1165aeafff873eb06c79d7de48307a014c4b9e81ee16725f49729085ddaf732c",
+      "width": 1280,
+      "height": 720,
+      "format": "png"
+    },
+    {
+      "id": "hina",
+      "name": "히나",
+      "variant": "드레스",
+      "sourceUrl": "https://pbs.twimg.com/media/GFEMHFvbgAAE9SR.jpg?name=orig",
+      "officialPublication": "https://x.com/Blue_ArchiveJP/status/1752195049893544270",
+      "artType": "official-character-introduction-card",
+      "publisher": "Yostar / 블루 아카이브 일본 공식 (@Blue_ArchiveJP)",
+      "additionalSources": [
+        "https://cdn.syndication.twimg.com/tweet-result?id=1752195049893544270&lang=ja&token=1"
+      ],
+      "file": "hina-dress.jpg",
+      "bytes": 185416,
+      "sha256": "9a2acb720d0a814eb89d6ee05c24227fb4273ef5edcf2afcf443db2a7ce0ce5b",
+      "width": 908,
+      "height": 1210,
+      "format": "jpeg"
+    },
+    {
+      "id": "noa",
+      "name": "노아",
+      "variant": "파자마",
+      "sourceUrl": "https://dszw1qtcnsa5e.cloudfront.net/community/20250609/7822f4b6-e780-4682-a6a2-d97a60130621/image.png",
+      "officialPublication": "https://forum.nexon.com/bluearchive/board_view?thread=2914376",
+      "artType": "official-character-introduction-card",
+      "publisher": "Nexon / 블루 아카이브 공식 포럼",
+      "additionalSources": [
+        "https://forum.nexon.com/api/v1/thread/2914376?alias=bluearchive"
+      ],
+      "file": "noa-pajamas.png",
+      "bytes": 959511,
+      "sha256": "297be17cfe013753cdd8969f11112d853781e80e6f207ba2dc9299fc51ac4a62",
+      "width": 1219,
+      "height": 686,
+      "format": "png"
+    },
+    {
+      "id": "hoshino",
+      "name": "호시노",
+      "variant": "무장",
+      "sourceUrl": "https://dszw1qtcnsa5e.cloudfront.net/community/20250122/f0096076-1651-4e58-bbff-30c840798122/image202501221304104.png",
+      "officialPublication": "https://forum.nexon.com/bluearchive/board_view?thread=2715951",
+      "artType": "official-character-introduction-card",
+      "publisher": "Nexon / 블루 아카이브 공식 포럼",
+      "additionalSources": [
+        "https://forum.nexon.com/api/v1/thread/2715951?alias=bluearchive"
+      ],
+      "file": "hoshino-armed.png",
+      "bytes": 800717,
+      "sha256": "6342b65bc34fcaf3e325154143926aa4a5dff4dcdcff66fb635956133a777b01",
+      "width": 1280,
+      "height": 720,
+      "format": "png"
+    },
+    {
+      "id": "nonomi",
+      "name": "노노미",
+      "variant": "수영복",
+      "sourceUrl": "https://dszw1qtcnsa5e.cloudfront.net/community/20230116/ff005e4b-87cc-4070-a478-08467bfd92b5/BA%EC%95%84%EB%B9%84%EB%8F%84%EC%8A%A4%EC%83%81%EC%84%B8%EC%A0%95%EB%B3%B4%EB%85%B8%EB%85%B8%EB%AF%B8%EC%88%98%EC%98%81%EB%B3%B5%ED%8A%B8%EC%9C%84%ED%84%B0780KR.png",
+      "officialPublication": "https://forum.nexon.com/bluearchive/board_view?thread=1986626",
+      "artType": "official-character-introduction-card",
+      "publisher": "Nexon / 블루 아카이브 공식 포럼",
+      "additionalSources": [
+        "https://forum.nexon.com/api/v1/thread/1986626?alias=bluearchive"
+      ],
+      "file": "nonomi-swimsuit.png",
+      "bytes": 579005,
+      "sha256": "d2d23110f727d8088769f0d8b367100ad1de39be1e82d91dec36fef041ed60c4",
+      "width": 780,
+      "height": 438,
+      "format": "png"
+    },
+    {
+      "id": "ako",
+      "name": "아코",
+      "variant": "드레스",
+      "sourceUrl": "https://pbs.twimg.com/media/GEa_dvobQAA59Cq.jpg?name=orig",
+      "officialPublication": "https://x.com/Blue_ArchiveJP/status/1749296025461039378",
+      "artType": "official-character-introduction-card",
+      "publisher": "Yostar / 블루 아카이브 일본 공식 (@Blue_ArchiveJP)",
+      "additionalSources": [
+        "https://cdn.syndication.twimg.com/tweet-result?id=1749296025461039378&lang=ja&token=1"
+      ],
+      "file": "ako-dress.jpg",
+      "bytes": 174991,
+      "sha256": "93c53d66856b062de3d94ed5cc3b2b071371abde89ae6c8d37973791e76e93a0",
+      "width": 908,
+      "height": 1210,
+      "format": "jpeg"
+    },
+    {
+      "id": "fuuka",
+      "name": "후우카",
+      "variant": "새해",
+      "sourceUrl": "https://pbs.twimg.com/media/Fkthdd8aEAEunzM.jpg?name=orig",
+      "officialPublication": "https://x.com/Blue_ArchiveJP/status/1606484856858611714",
+      "artType": "official-character-introduction-card",
+      "publisher": "Yostar official Blue_ArchiveJP",
+      "additionalSources": [
+        "https://bluearchive.jp/news/newsJump/534"
+      ],
+      "retrievalNote": "Original official-post photo URL and publisher identity were read through public syndicated metadata; the official event notice independently identifies the New Year variant.",
+      "file": "fuuka-newyear.jpg",
+      "bytes": 281472,
+      "sha256": "68347c0ff3116dc94d9ba333cb8e607a0cfab695e02bf1d332d6217e26b024cb",
+      "width": 1175,
+      "height": 1565,
+      "format": "jpeg"
+    },
+    {
+      "id": "yuuka",
+      "name": "유우카",
+      "variant": "파자마",
+      "sourceUrl": "https://dszw1qtcnsa5e.cloudfront.net/community/20250609/8fda83dd-c73f-4662-a8d4-8d073177ec38/image.png",
+      "officialPublication": "https://forum.nexon.com/bluearchive/board_view?thread=2914376",
+      "artType": "official-character-introduction-card",
+      "publisher": "Nexon / 블루 아카이브 공식 포럼",
+      "additionalSources": [
+        "https://forum.nexon.com/api/v1/thread/2914376?alias=bluearchive"
+      ],
+      "file": "yuuka-pajamas.png",
+      "bytes": 1179020,
+      "sha256": "dd27d027492cf1c9ca976667057e3cae6a6350272e1b14253443405b26201700",
+      "width": 1219,
+      "height": 686,
+      "format": "png"
+    }
+  ]
+}

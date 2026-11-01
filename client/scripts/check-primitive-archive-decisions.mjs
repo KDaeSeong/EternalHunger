@@ -20,6 +20,14 @@ function fixture() {
   });
 }
 
+// Only synthetic snapshots with pre-existing casualties use legacy restoration.
+function legacyFixture(state) {
+  const snapshot = { ...state };
+  delete snapshot.lineage;
+  delete snapshot.ancestralFaith;
+  return engine.normalizeState(snapshot);
+}
+
 const fields = ['day', 'ap', 'party', 'inventory', 'camp', 'research', 'civics', 'diplomacy', 'eventChains', 'counters', 'ended', 'victory'];
 function expectUnspent(before, after) {
   for (const field of fields) assert.deepEqual(after[field], before[field], `Blocked action changed ${field}.`);
@@ -35,7 +43,7 @@ function check(name, run) {
 check('a dead or missing diplomat cannot spend resources, AP, knowledge or route charges', () => {
   for (const actorId of ['shiroko', 'missing']) {
     for (const action of ['trade', 'gift', 'exchange', 'raid']) {
-      const state = fixture();
+      const state = legacyFixture(fixture());
       state.party[0].hp = 0;
       state.diplomacy.tradeRouteCharges = 3;
       state.research.completed.HUNTING = true;
@@ -62,7 +70,7 @@ check('knowledge exchange is unavailable when every technology is complete', () 
 });
 
 check('an omitted diplomat delegates to a real living member and charges that member rather than a dead leader', () => {
-  const state = fixture(); state.party[0].hp = 0;
+  const state = legacyFixture(fixture()); state.party[0].hp = 0;
   const row = engine.rivalTribeRows(state).find((rival) => rival.id === 'ember-grove');
   assert.equal(row.actorId, 'hina');
   assert.equal(row.canTrade, true);
@@ -76,7 +84,7 @@ check('an omitted diplomat delegates to a real living member and charges that me
 
 check('no living party, no AP or an ended run disables decisions without rewards, fatigue or RNG', () => {
   for (const condition of ['dead', 'no-ap', 'ended']) {
-    const state = fixture();
+    const state = condition === 'dead' ? legacyFixture(fixture()) : fixture();
     if (condition === 'dead') state.party = state.party.map((member) => ({ ...member, hp: 0 }));
     if (condition === 'no-ap') state.ap = 0;
     if (condition === 'ended') state.ended = true;
@@ -203,7 +211,7 @@ check('hunt-chain skill and failure risk belong to the actual selected hunter to
 
 check('unavailable or omitted explorer selection consistently delegates preview and execution to one real living companion', () => {
   for (const actorId of ['', 'missing', 'shiroko']) {
-    const state = fixture(); state.party[0].hp = 0;
+    const state = legacyFixture(fixture()); state.party[0].hp = 0;
     assert.equal(engine.eventChainRows(state, actorId)[0].actorId, 'noa');
     const next = engine.runEventChainAction(state, actorId, 'vein', { rng: () => 0.6 });
     assert.equal(next.eventChains[0].ok, true);

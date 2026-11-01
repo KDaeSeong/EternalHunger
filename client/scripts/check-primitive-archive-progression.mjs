@@ -20,6 +20,7 @@ const failures = [];
 
 const runTabUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveRunTab.js', import.meta.url).href;
 const partyWorkspaceUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePartyWorkspace.js', import.meta.url).href;
+const portraitUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePortrait.js', import.meta.url).href;
 const tribeTabUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveTribeTab.js', import.meta.url).href;
 const advisorPanelUrl = new URL('../src/app/games/_components/GameAdvisorPanel.js', import.meta.url).href;
 const runTabModules = new Map([
@@ -70,6 +71,9 @@ const tribeTabModules = new Map([
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (context.parentURL === portraitUrl && specifier === 'next/image') {
+      return { url: asDataModule(partyWorkspaceModules.get('next/image')), shortCircuit: true };
+    }
     if (context.parentURL === runTabUrl && runTabModules.has(specifier)) {
       return { url: asDataModule(runTabModules.get(specifier)), shortCircuit: true };
     }
@@ -82,7 +86,7 @@ registerHooks({
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if (url !== runTabUrl && url !== tribeTabUrl && url !== partyWorkspaceUrl && url !== advisorPanelUrl) return nextLoad(url, context);
+    if (url !== runTabUrl && url !== tribeTabUrl && url !== partyWorkspaceUrl && url !== advisorPanelUrl && url !== portraitUrl) return nextLoad(url, context);
     return {
       format: 'module',
       shortCircuit: true,
@@ -286,7 +290,11 @@ check('a fully completed era reports entry and completion separately', () => {
 
 check('settled unfinished survivor and total-loss states keep their distinct run-record results', () => {
   const unfinished = engine.settleRunAction(fixture());
-  const defeat = engine.settleRunAction(fixture({ ended: true, party: fixture().party.map((member) => ({ ...member, hp: 0 })) }));
+  // A pre-lifecycle total-loss snapshot has HP only, without an invented cause.
+  const defeatInput = fixture({ ended: true, party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
+  delete defeatInput.lineage;
+  delete defeatInput.ancestralFaith;
+  const defeat = engine.settleRunAction(defeatInput);
   assert.equal(summarize(unfinished).basic.ended, true);
   assert.equal(summarize(unfinished).basic.victory, false);
   assert.equal(engine.runRecordStatus(unfinished).result, 'none');

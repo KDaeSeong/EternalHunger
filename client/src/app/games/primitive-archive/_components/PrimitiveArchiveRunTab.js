@@ -13,6 +13,8 @@ import {
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 import { archiveProgressionSummary } from '../_lib/primitiveArchiveProgression';
 import { archiveAccountRewardPreview } from '../_lib/primitiveArchiveAccountRewards';
+import { LINEAGE_RULES } from '../_lib/primitiveArchiveLineage';
+import PrimitiveArchivePortrait from './PrimitiveArchivePortrait';
 
 export default function PrimitiveArchiveRunTab(props) {
   const {
@@ -128,11 +130,18 @@ export default function PrimitiveArchiveRunTab(props) {
                       : current.filter(id => id !== member.id));
                   }}
                 />
+                <PrimitiveArchivePortrait className="primitive-founder-selection__portrait" member={member} size={40} />
                 <span><strong>{member.name}</strong><small>{member.role} · {member.trait}</small></span>
               </label>
             ))}
           </div>
           <p role="status">{newRunFounderIds.length === 3 ? '선택한 3명으로 새 런을 시작할 수 있습니다.' : '창건자 3명을 선택해야 새 런을 시작할 수 있습니다.'}</p>
+          <p><a href="https://bluearchive.nexon.com/" target="_blank" rel="noreferrer">블루 아카이브 공식 일러스트</a> · © NEXON Games / Yostar</p>
+          <p>새 런에서는 정착 기반을 갖춘 뒤 생애와 후계가 이어집니다. 정착 활동기 {LINEAGE_RULES.warningCycle}기부터 은퇴를 예고하며, {LINEAGE_RULES.naturalEndCycle}기에 생애가 끝나기 전에 후계를 준비해야 합니다.</p>
+          <details>
+            <summary>새 런의 세대 전환 규칙</summary>
+            <p>준비된 후계는 직접 인계하거나 활동기 {LINEAGE_RULES.handoverCycle}기부터 자동 인계합니다. 시대가 발전해도 충분한 활동기와 준비된 후계가 필요합니다. 실제 기록을 남긴 창건자의 가르침은 사후 시조신의 가호로 이어지며, 기존 런에 노화를 소급 적용하지 않습니다.</p>
+          </details>
         </fieldset>
       )}
 

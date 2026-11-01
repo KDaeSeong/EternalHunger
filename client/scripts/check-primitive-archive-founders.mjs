@@ -20,6 +20,9 @@ check('new-run identities and legacy observation never reconstruct old deeds', (
   assert.ok(founderHistoryRows(state).every(member => member.isFounder && member.portrait && member.role));
   const legacy = clone(state);
   delete legacy.founderHistory;
+  // This is a pre-lifecycle save, not a hybrid save with contradictory old deaths.
+  delete legacy.lineage;
+  delete legacy.ancestralFaith;
   legacy.day = 27;
   legacy.counters.gather = 999;
   legacy.party[0].hp = 0;
@@ -167,6 +170,9 @@ check('present malformed history is rejected, not silently erased on restore', (
 check('long existing identities survive observation and keep living/deed ownership', () => {
   const legacy = fresh();
   delete legacy.founderHistory;
+  // This is a pre-lifecycle save, not a hybrid save with contradictory old deaths.
+  delete legacy.lineage;
+  delete legacy.ancestralFaith;
   legacy.runId = `legacy-${'문명'.repeat(90)}`;
   legacy.party[0].id = `actor-${'창건자'.repeat(90)}`;
   const actorId = legacy.party[0].id;
@@ -183,6 +189,9 @@ check('long existing identities survive observation and keep living/deed ownersh
 check('deaths outside the observation window leave legacy history unchanged', () => {
   const legacy = fresh();
   delete legacy.founderHistory;
+  // This is a pre-lifecycle save, not a hybrid save with contradictory old deaths.
+  delete legacy.lineage;
+  delete legacy.ancestralFaith;
   legacy.day = 27;
   legacy.party[0].hp = 0;
   const state = engine.normalizeState(legacy);

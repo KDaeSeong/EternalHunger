@@ -49,7 +49,7 @@ export function isValidFounderHistory(raw, { runId, day = 1 } = {}) {
     }
     const death = member.deathRecord;
     if (death !== null && (!shape(death, ['day', 'source', 'reason', 'hpBefore', 'damage', 'hungerDamage', 'coldDamage', 'hypothermiaDamage'])
-      || !validDay(death.day) || death.day < member.firstObservedDay || !['action', 'night'].includes(death.source)
+      || !validDay(death.day) || death.day < member.firstObservedDay || !['action', 'night', 'natural'].includes(death.source)
       || !string(death.reason, 120)
       || ['hpBefore', 'damage', 'hungerDamage', 'coldDamage', 'hypothermiaDamage'].some(key => !number(death[key])))) return false;
   }
@@ -57,7 +57,7 @@ export function isValidFounderHistory(raw, { runId, day = 1 } = {}) {
 }
 
 function deathOf(raw) {
-  if (!raw || !['action', 'night'].includes(raw.source)) return null;
+  if (!raw || !['action', 'night', 'natural'].includes(raw.source)) return null;
   return { day: dayOf(raw.day), source: raw.source, reason: text(raw.reason, 120),
     hpBefore: amount(raw.hpBefore), damage: amount(raw.damage), hungerDamage: amount(raw.hungerDamage),
     coldDamage: amount(raw.coldDamage), hypothermiaDamage: amount(raw.hypothermiaDamage) };
@@ -130,7 +130,8 @@ export function recordFounderDeed(state, { actorId, kind, success = false, targe
 }
 
 export function recordFounderDeath(state, actorId, deathRecord) {
-  const actor = list(state?.party).find(member => member.id === actorId);
+  const actor = list(state?.party).find(member => member.id === actorId)
+    || list(state?.lineage?.members).find(member => member.actorId === actorId)?.retiredSnapshot;
   const death = deathOf(deathRecord);
   if (!actor || Number(actor.hp || 0) > 0 || !death || !Number.isInteger(deathRecord.day)) return state;
   const history = normalizeFounderHistory(state.founderHistory, state);
@@ -145,7 +146,10 @@ export function recordFounderDeath(state, actorId, deathRecord) {
 export function founderHistoryRows(state) {
   const history = normalizeFounderHistory(state?.founderHistory, state || {});
   return history.members.map(member => ({ ...member,
-    living: list(state?.party).some(actor => actor.id === member.actorId && Number(actor.hp || 0) > 0),
+    living: list(state?.party).some(actor => actor.id === member.actorId && Number(actor.hp || 0) > 0)
+      || list(state?.lineage?.members).some(actor => actor.actorId === member.actorId
+        && actor.stage === 'retired' && Number(actor.retiredSnapshot?.hp || 0) > 0),
+    retired: list(state?.lineage?.members).some(actor => actor.actorId === member.actorId && actor.stage === 'retired'),
     origin: history.origin, observedFromDay: history.observedFromDay, foundersKnown: history.foundersKnown,
   }));
 }

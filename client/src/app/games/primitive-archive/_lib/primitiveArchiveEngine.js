@@ -50,6 +50,10 @@ import {
 import { GAMEPLAY_PERK_CODES, normalizeGameplayPerkCodes } from '../../../../utils/gameplayPerks';
 import { createFounderHistory, normalizeFounderHistory, recordFounderDeed, recordFounderDeath } from './primitiveArchiveFounders.js';
 export { founderHistoryRows } from './primitiveArchiveFounders.js';
+import { LINEAGE_RULES, createLineage, normalizeLineage, lineageSummary, prepareLineageSuccessor, retireLineageActor, tickLineageDay, lineageHousehold, settleLineageHousehold, observeLineageArrival, observeLineageDeaths } from './primitiveArchiveLineage.js';
+import { createAncestralFaith, normalizeAncestralFaith, runAncestralRite, ancestralActionChanceBonus, ancestralStudyBonus, ancestralCareBonus, consumeAncestralFavor } from './primitiveArchiveAncestralFaith.js';
+export { lineageSummary } from './primitiveArchiveLineage.js';
+export { ancestralFaithRows, ancestralFaithSummary } from './primitiveArchiveAncestralFaith.js';
 
 export {
   GAME_SLUG,
@@ -206,6 +210,9 @@ export function createNewState(options = {}) {
     victory: false,
   };
   base.founderHistory = createFounderHistory({ party, day: base.day, runId: base.runId });
+  base.lineage = createLineage({ party, day: base.day, runId: base.runId, mode: options.lineageMode || 'hybrid' });
+  base.ancestralFaith = options.lineageMode === 'legacy'
+    ? normalizeAncestralFaith(undefined, base) : createAncestralFaith(base);
   return applyOwnedPerks(base, meta);
 }
 
@@ -259,6 +266,9 @@ export function normalizeState(value) {
       libraryShelfLevel: clamp(Number(value.camp.libraryShelfLevel || 0), 0, 1),
     }
     : base.camp;
+  const founderHistory = normalizeFounderHistory(value.founderHistory, { party, day: value.day || base.day, runId: value.runId || base.runId });
+  const lineage = normalizeLineage(value.lineage, { party, day: value.day || base.day, runId: value.runId || base.runId });
+  const ancestralFaith = normalizeAncestralFaith(value.ancestralFaith, { ...value, party, founderHistory, lineage, day: value.day || base.day, runId: value.runId || base.runId });
   return {
     ...base,
     ...value,
@@ -267,7 +277,9 @@ export function normalizeState(value) {
     apMax: Math.max(1, Number(value.apMax || preset.apMax)),
     weather: value.weather && typeof value.weather === 'object' ? value.weather : base.weather,
     party,
-    founderHistory: normalizeFounderHistory(value.founderHistory, { party, day: value.day || base.day, runId: value.runId || base.runId }),
+    founderHistory,
+    lineage,
+    ancestralFaith,
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
     equipment: normalizeEquipment(value.equipment, party),
     camp,
@@ -369,13 +381,15 @@ function makePartyMember(student) {
 
 export function recruitablePartyRows(state) {
   const current = normalizeState(state);
-  const joinedIds = new Set(current.party.map((member) => member.id));
+  const joinedIds = new Set([...current.party.map((member) => member.id),
+    ...(current.lineage?.mode === 'hybrid' ? current.lineage.members.map(member => member.actorId) : [])]);
   const partyCap = getPartyCap(current);
   return STUDENTS
     .filter((student) => !joinedIds.has(student.id))
     .map((student) => ({
       ...student,
-      canRecruit: !current.ended && current.party.length < partyCap,
+      canRecruit: !current.ended && current.party.length < partyCap
+        && (current.lineage.mode !== 'hybrid' || current.lineage.members.length + current.lineage.prepared.length < LINEAGE_RULES.memberLimit),
       partyCap,
       currentPartySize: current.party.length,
     }));
@@ -388,8 +402,12 @@ export function recruitPartyMemberAction(state, studentId = '') {
   if (current.party.length >= partyCap) {
     return addLog(current, `파티 인원이 이미 최대입니다. (${current.party.length}/${partyCap})`);
   }
+  if (current.lineage.mode === 'hybrid' && current.lineage.members.length + current.lineage.prepared.length >= LINEAGE_RULES.memberLimit) {
+    return addLog(current, '생애 기록 정원에 도달하여 새 대원을 합류시킬 수 없습니다.');
+  }
 
-  const joinedIds = new Set(current.party.map((member) => member.id));
+  const joinedIds = new Set([...current.party.map((member) => member.id),
+    ...(current.lineage?.mode === 'hybrid' ? current.lineage.members.map(member => member.actorId) : [])]);
   const student = studentId
     ? STUDENTS.find((entry) => entry.id === studentId)
     : STUDENTS.find((entry) => !joinedIds.has(entry.id));
@@ -398,11 +416,34 @@ export function recruitPartyMemberAction(state, studentId = '') {
 
   const member = makePartyMember(student);
   const party = [...current.party, member];
-  return addLog({
+  const next = observeLineageArrival({
     ...current,
     party,
     equipment: normalizeEquipment(current.equipment, party),
-  }, `${member.name} 파티 합류. (파티 ${party.length}/${partyCap})`);
+  }, member);
+  return addLog({ ...next, founderHistory: normalizeFounderHistory(next.founderHistory, next) },
+    `${member.name} 파티 합류. (파티 ${party.length}/${partyCap})`);
+}
+
+export function prepareSuccessorAction(state, actorId, options = {}) {
+  const current = state;
+  const result = prepareLineageSuccessor(current, actorId);
+  if (!result.ok) return addLog(current, result.reason);
+  const recorded = recordFounderDeed(result.state, { actorId, kind: 'project', success: true, target: 'successor_preparation' });
+  return afterAction(addLog(recorded, result.message), actorId, 4, 1, options);
+}
+
+export function retireFounderAction(state, actorId) {
+  const current = state;
+  const result = retireLineageActor(current, actorId);
+  return addLog(result.ok ? result.state : current, result.ok ? result.message : result.reason);
+}
+
+export function ancestralRiteAction(state, actorId, founderId) {
+  const current = state;
+  const result = runAncestralRite(current, { actorId, founderId });
+  // The offering consumes real stock; it is not a free research/action turn.
+  return addLog(result.ok ? result.state : current, result.ok ? result.message : result.reason);
 }
 
 export function itemName(id) {
@@ -1215,7 +1256,7 @@ export function tribeCapacity(state) {
 function forecastTribeFood(state, assignments = state.tribe.assignments, includeParty = false) {
   // Current stock and job yields only: future actions, population/technology
   // changes and unearned project rewards are not promised in this forecast.
-  const need = Math.ceil(Number(state.tribe.population || 0) / 4);
+  const need = Math.ceil(Number(state.tribe.population || 0) / 4) + lineageHousehold(state).extraRations;
   const party = includeParty ? livingParty(state) : [];
   const nightlyHunger = Math.round(8 * difficultyPreset(state).hungerMultiplier);
   let inventory = { ...state.inventory };
@@ -1307,7 +1348,7 @@ export function tribeSummary(state) {
     atCapacity: tribe.population >= capacity,
     growthTarget,
     growthPct: Math.min(100, Math.round((tribe.growthProgress / Math.max(1, growthTarget)) * 100)),
-    foodNeed: Math.ceil(tribe.population / 4),
+    foodNeed: Math.ceil(tribe.population / 4) + lineageHousehold(current).extraRations,
     foodStock: tribeFoodStock(current.inventory),
     foodForecast: forecastTribeFood(current),
     jobEditBlockedReason,
@@ -2386,10 +2427,10 @@ function updateActorAfterActionDamage(state, actorId, patch, damage, reason) {
     hypothermiaDamage: 0,
     reason,
   };
-  return recordFounderDeath(addLog({
+  return observeLineageDeaths(recordFounderDeath(addLog({
     ...next,
     party: next.party.map((member) => member.id === actorId ? { ...member, deathRecord: record } : member),
-  }, `사망: ${after?.name || actorId} HP ${hpBefore}→${Number(after?.hp || 0)} · 원인 ${reason} (피해 ${record.damage}).`), actorId, record);
+  }, `사망: ${after?.name || actorId} HP ${hpBefore}→${Number(after?.hp || 0)} · 원인 ${reason} (피해 ${record.damage}).`), actorId, record));
 }
 
 function withEventCounter(state) {
@@ -3080,7 +3121,7 @@ export function runEventChainAction(state, actorId, chainId, options = {}) {
   const actor = getActor(current, actingActorId);
   const rng = options.rng || Math.random;
   const ok = rng() < Number(row.chance || 0);
-  let next = resolveEventChain(current, row.id, ok);
+  let next = consumeAncestralFavor(resolveEventChain(current, row.id, ok), action, { attempted: true });
 
   if (ok) {
     next = {
@@ -3440,7 +3481,8 @@ export function actionChance(state, actorId, action, base = 0.55, options = {}) 
       + passiveStackCount(state, 'MODERN_ENGINEERING_CIVIC_STACK')
     ) * 0.01 : 0);
   return clamp(
-    base + stat * 0.025 + weather + camp + book + equipment + seasonBonus + projectBonus + researchBonus + difficultyBonus + developerBonus,
+    base + stat * 0.025 + weather + camp + book + equipment + seasonBonus + projectBonus + researchBonus + difficultyBonus + developerBonus
+      + ancestralActionChanceBonus(state, action),
     Number(preset.actionChanceFloor ?? 0.08),
     Number(preset.actionChanceCap ?? 0.95),
   );
@@ -3545,7 +3587,7 @@ function settleTribeDay(state) {
     }
   }
 
-  const foodNeed = Math.ceil(tribe.population / 4);
+  const foodNeed = Math.ceil(tribe.population / 4) + lineageHousehold(next).extraRations;
   const food = consumeTribeFood(next.inventory, foodNeed);
   const fullyFed = food.shortage <= 0;
   const moraleDelta = fullyFed ? (tribeFoodStock(food.inventory) >= foodNeed ? 2 : 1) : -10;
@@ -3584,7 +3626,7 @@ function settleTribeDay(state) {
     productionSerial: Number(tribe.productionSerial || 0) + 1,
     growthSerial: Number(tribe.growthSerial || 0) + (grew ? 1 : 0),
   };
-  next = { ...next, inventory: food.inventory, tribe: nextTribe };
+  next = settleLineageHousehold({ ...next, inventory: food.inventory, tribe: nextTribe }, food.shortage);
   const projectText = projectWork > 0 ? ` · 건설 ${projectName} +${projectWork}` : '';
   const researchText = researchPoints > 0 ? ` · 연구 +${researchPoints}RP` : '';
   next = addLog(
@@ -3667,7 +3709,7 @@ function settlementEveningPlan(state) {
     result.fuelAdded = 2;
   }
 
-  const reserve = Math.ceil(Number(next.tribe.population || 0) / 4);
+  const reserve = Math.ceil(Number(next.tribe.population || 0) / 4) + lineageHousehold(next).extraRations;
   const targets = livingParty(next).slice().sort((a, b) => Number(b.hunger || 0) - Number(a.hunger || 0)
     || Number(a.hp || 0) - Number(b.hp || 0));
   const updates = new Map();
@@ -3714,7 +3756,7 @@ function settlementEveningPlan(state) {
 export function survivalSupplySummary(state) {
   const current = normalizeState(state);
   const plan = settlementEveningPlan(current);
-  const rationNeed = Math.ceil(Number(current.tribe.population || 0) / 4);
+  const rationNeed = Math.ceil(Number(current.tribe.population || 0) / 4) + lineageHousehold(current).extraRations;
   const afterRation = consumeTribeFood(current.inventory, rationNeed);
   const partyNeed = livingParty(current).reduce((sum, member) => {
     const hunger = nightSurvivalProjection(current, member).hunger;
@@ -3759,7 +3801,8 @@ export function nightSurvivalRows(state) {
 
 export function advanceDay(state, options = {}) {
   if (state.ended) return state;
-  state = { ...state, founderHistory: normalizeFounderHistory(state.founderHistory, state) };
+  state = { ...state, founderHistory: normalizeFounderHistory(state.founderHistory, state),
+    lineage: normalizeLineage(state.lineage, state) };
   // Party meals, crafting and discoveries can change the shared stock after
   // the morning plan. Re-plan automatic workers and allocate unassigned
   // settlers after SETTLEMENT, while preserving every explicitly manual job.
@@ -3806,7 +3849,7 @@ function settleNextDay(state, options) {
     };
   });
   const ended = party.every((member) => Number(member.hp || 0) <= 0);
-  const next = {
+  let next = {
     ...state,
     day: state.day + 1,
     ap: state.apMax,
@@ -3819,13 +3862,14 @@ function settleNextDay(state, options) {
     },
     ended,
   };
+  for (const death of nightDeaths) next = recordFounderDeath(next, death.id, death.record);
+  next = observeLineageDeaths(next);
+  next = tickLineageDay(next);
   const tempNote = `평균 체온 ${averageBodyTemp(next).toFixed(1)}도`;
-  const note = ended
+  const note = next.ended
     ? '파티가 더 이상 움직일 수 없습니다. 런을 종료하고 기록을 남기세요.'
     : `새로운 날입니다. 날씨: ${weather.name}, ${weather.temp}도 · ${tempNote}`;
-  let logged = next;
-  for (const death of nightDeaths) logged = recordFounderDeath(logged, death.id, death.record);
-  logged = addLog(logged, fuelUsed ? `${note} 모닥불 연료를 1 소비했습니다.` : note);
+  let logged = addLog(next, fuelUsed ? `${note} 모닥불 연료를 1 소비했습니다.` : note);
   if (evening.meals.length || evening.woodSpent) {
     const meals = evening.meals.map((row) => `${row.name} ${row.items.map(itemName).join('·')}`).join(', ');
     logged = addLog(logged, `정착지 저녁 관리: ${meals ? `배식 ${meals}` : '추가 배식 없음'}${evening.woodSpent ? ` · 나무 ${evening.woodSpent} 소비, 연료 +${evening.fuelAdded}` : ''}. 실제 비축분 사용 · AP 소모 없음.`);
@@ -3912,6 +3956,12 @@ export function runResearchAction(state, actorId, options = {}) {
     researched = spendShopPerkUse(researched, 'researchNotes');
     researched = addResearchProgress(researched, tech.id, 1, '연구 기록법');
   }
+  const remainingNeed = Math.max(0, tech.cost - Number(current.research.progress?.[tech.id] || 0));
+  const baseContribution = Math.max(0, Number(researched.research.progress?.[tech.id] || 0) - Number(current.research.progress?.[tech.id] || 0));
+  const ancestralBonus = ancestralStudyBonus(current, baseContribution, remainingNeed);
+  if (ancestralBonus > 0) {
+    researched = consumeAncestralFavor(addResearchProgress(researched, tech.id, ancestralBonus, '선조의 연구 전승'), 'study', { attempted: true });
+  }
   researched = recordFounderDeed(researched, { actorId, kind: 'research_contribution', success: true, target: tech.id });
   const withDialogue = addDialogueLog(researched, actorId, 'research', 'success', options.rng || Math.random);
   return afterAction(withDialogue, actorId, staminaCost, 2, options);
@@ -3967,8 +4017,14 @@ export function runCivicAction(state, actorId, options = {}) {
     return addLog(current, `${civic.name} 제도의 선행 발전이 필요합니다: ${missing.join(', ') || '없음'}.`);
   }
   const { points, staminaCost } = civicActionEstimate(current, actorId);
-  const advanced = recordFounderDeed(addCivicProgress(current, civic.id, points, `${actor.name} 부족 회의`),
-    { actorId, kind: 'civic_contribution', success: true, target: civic.id });
+  let advanced = addCivicProgress(current, civic.id, points, `${actor.name} 부족 회의`);
+  const remainingNeed = Math.max(0, civic.cost - Number(current.civics.progress?.[civic.id] || 0));
+  const baseContribution = Math.max(0, Number(advanced.civics.progress?.[civic.id] || 0) - Number(current.civics.progress?.[civic.id] || 0));
+  const ancestralBonus = ancestralStudyBonus(current, baseContribution, remainingNeed);
+  if (ancestralBonus > 0) {
+    advanced = consumeAncestralFavor(addCivicProgress(advanced, civic.id, ancestralBonus, '선조의 제도 전승'), 'study', { attempted: true });
+  }
+  advanced = recordFounderDeed(advanced, { actorId, kind: 'civic_contribution', success: true, target: civic.id });
   const withDialogue = addDialogueLog(advanced, actorId, 'research', 'success', options.rng || Math.random);
   return afterAction(withDialogue, actorId, staminaCost, 2, options);
 }
@@ -5776,6 +5832,9 @@ export function utilityActionRows(state, actorId) {
 }
 
 export function runUtilityAction(state, actorId, actionId, options = {}) {
+  if (!livingActorForAction(state, actorId)) {
+    return addLog(state, '활동 중인 생존 대원만 문명 운영 행동을 할 수 있습니다.');
+  }
   const current = normalizeState(state);
   if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '행동할 AP가 부족합니다.');
   const profile = CIVILIZATION_ACTION_DEFS.find((row) => row.id === actionId);
@@ -6045,6 +6104,9 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
 }
 
 export function runSpecializedAction(state, actorId, actionId, requestedRegionId = '', options = {}) {
+  if (state.ended || Number(state.ap || 0) <= 0 || !state.party.some(actor => actor.id === actorId && Number(actor.hp || 0) > 0)) {
+    return addLog(state, '활동 중인 생존 대원과 행동력이 있어야 특화 행동을 할 수 있습니다.');
+  }
   const current = normalizeState(state);
   if (current.ended || Number(current.ap || 0) <= 0) {
     return addLog(current, '\uD589\uB3D9\uD560 AP\uAC00 \uBD80\uC871\uD569\uB2C8\uB2E4.');
@@ -6064,7 +6126,7 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
   const drillApplied = profile.skill === 'hunt' && drillCharges(current) > 0;
   const roadApplied = profile.zoneIds.length > 0 && roadCharges(current) > 0;
   const context = { action: profile.skill, zoneId: region.zoneId || profile.zoneId, regionId: region.id, region };
-  let next = current;
+  let next = consumeAncestralFavor(current, profile.skill, { attempted: true });
   if (ok) {
     const gains = rollZoneGains(current, actionGains, rng, context);
     next = {
@@ -6144,6 +6206,9 @@ export function runSafeGatherAction(state, actorId, resourceId, options = {}) {
 }
 
 export function runGatherAction(state, actorId, regionId, options = {}) {
+  if (state.ended || Number(state.ap || 0) <= 0 || !state.party.some(actor => actor.id === actorId && Number(actor.hp || 0) > 0)) {
+    return addLog(state, '활동 중인 생존 대원과 행동력이 있어야 채집할 수 있습니다.');
+  }
   const rng = options.rng || Math.random;
   const current = normalizeState(state);
   const region = resolveActionRegion(current, regionId, rng);
@@ -6152,7 +6217,7 @@ export function runGatherAction(state, actorId, regionId, options = {}) {
   const chance = actionChanceForRegion(current, actorId, 'gather', region);
   const ok = rng() < chance;
   const roadApplied = roadCharges(current) > 0;
-  let next = current;
+  let next = consumeAncestralFavor(current, 'gather', { attempted: true });
   if (ok) {
     let gains = rollZoneGains(current, zone.gather, rng, { action: 'gather', zoneId: zone.id, regionId: region.id, region });
     const carefulGatherAvailable = shopPerkHas(current, GAMEPLAY_PERK_CODES.CAREFUL_GATHER)
@@ -6185,6 +6250,9 @@ export function runGatherAction(state, actorId, regionId, options = {}) {
 }
 
 export function runHuntAction(state, actorId, regionId, options = {}) {
+  if (state.ended || Number(state.ap || 0) <= 0 || !state.party.some(actor => actor.id === actorId && Number(actor.hp || 0) > 0)) {
+    return addLog(state, '활동 중인 생존 대원과 행동력이 있어야 사냥할 수 있습니다.');
+  }
   const rng = options.rng || Math.random;
   const current = normalizeState(state);
   const region = resolveActionRegion(current, regionId, rng);
@@ -6194,7 +6262,7 @@ export function runHuntAction(state, actorId, regionId, options = {}) {
   const ok = rng() < chance;
   const roadApplied = roadCharges(current) > 0;
   const drillApplied = drillCharges(current) > 0;
-  let next = current;
+  let next = consumeAncestralFavor(current, 'hunt', { attempted: true });
   if (ok) {
     const gains = rollZoneGains(current, zone.hunt, rng, { action: 'hunt', zoneId: zone.id, regionId: region.id, region });
     next = {
@@ -6223,6 +6291,9 @@ export function runHuntAction(state, actorId, regionId, options = {}) {
 }
 
 export function runCraftAction(state, actorId, recipeId, options = {}) {
+  if (state.ended || Number(state.ap || 0) <= 0 || !state.party.some(actor => actor.id === actorId && Number(actor.hp || 0) > 0)) {
+    return addLog(state, '활동 중인 생존 대원과 행동력이 있어야 제작할 수 있습니다.');
+  }
   const recipe = RECIPES.find((row) => row.id === recipeId) || RECIPES[0];
   const actor = getActor(state, actorId);
   const unlock = recipeUnlockInfo(state, recipe.id);
@@ -6232,7 +6303,7 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
   }
   const chance = actionChance(state, actorId, 'craft', recipe.baseChance - 0.18);
   const ok = (options.rng || Math.random)() < chance;
-  let next = { ...state, inventory: spendResources(state.inventory, recipe.requires) };
+  let next = consumeAncestralFavor({ ...state, inventory: spendResources(state.inventory, recipe.requires) }, 'craft', { attempted: true });
   if (ok) {
     next = {
       ...next,
@@ -6251,6 +6322,9 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
 }
 
 export function runEatAction(state, actorId, options = {}) {
+  if (state.lineage?.mode === 'hybrid' && (!state.party.some(member => member.id === actorId && Number(member.hp || 0) > 0))) {
+    return addLog(state, '현재 활동 중인 생존 대원만 식사할 수 있습니다.');
+  }
   const actor = getActor(state, actorId);
   const foodId = ['packed_ration', 'milled_grain', 'cooked_meat', 'jerky', 'fish', 'meat', 'grain', 'milk', 'berry', 'herb_tonic']
     .find((id) => ITEMS[id]?.type === 'food' && Number(state.inventory[id] || 0) > 0) || '';
@@ -6281,8 +6355,17 @@ function restRecoveryFields(state, member) {
 }
 
 export function runRestAction(state, actorId, options = {}) {
+  if (state.lineage?.mode === 'hybrid' && (!state.party.some(member => member.id === actorId && Number(member.hp || 0) > 0))) {
+    return addLog(state, '현재 활동 중인 생존 대원만 휴식할 수 있습니다.');
+  }
   const actor = getActor(state, actorId);
   let next = updateActor(state, actorId, restRecoveryFields(state, actor));
+  const careBonus = !state.ended && Number(state.ap || 0) > 0
+    ? ancestralCareBonus(state, Number(actor.hp || 0), Math.max(0, Number(getActor(next, actorId).hp) - Number(actor.hp))) : 0;
+  if (careBonus > 0) {
+    next = consumeAncestralFavor(updateActor(next, actorId, { hp: Math.min(100, Number(getActor(next, actorId).hp) + careBonus) }), 'care', { attempted: true });
+    next = addLog(next, `선조의 돌봄 전승: ${actor.name} HP +${careBonus}.`);
+  }
   next = addLog(next, `${subjectParticle(actor.name)} 휴식했습니다. 스태미나와 HP를 회복하고 체온을 안정시켰습니다.`);
   next = addDialogueLog(next, actorId, 'rest', 'success', options.rng || Math.random);
   next.ap = Math.max(0, Number(next.ap || 0) - 1);
@@ -6919,7 +7002,7 @@ function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
   // Cover both living companions and two tribe settlements, with two more
   // tribe portions in reserve, before expanding material and knowledge work.
   const storedFood = forecastTribeFood(state, Object.fromEntries(TRIBE_JOBS.map((job) => [job.id, 0])), true);
-  const reserveNeed = Math.ceil(population / 4) * 2;
+  const reserveNeed = (Math.ceil(population / 4) + lineageHousehold(state).extraRations) * 2;
   const canDiversify = storedFood.totalShortage <= 0 && storedFood.partyShortage <= 0
     && storedFood.days[1].reserve >= reserveNeed;
   const targets = {
@@ -6952,7 +7035,7 @@ function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
     // Keep the existing low-stock reserve priority beyond the current hunger
     // forecast, which cannot promise future expedition gains or meal actions.
     const foodPressure = forecastTribeFood(state, assignments).totalShortage > 0
-      || tribeFoodStock(state.inventory) < Math.ceil(population / 4) * 2;
+      || tribeFoodStock(state.inventory) < (Math.ceil(population / 4) + lineageHousehold(state).extraRations) * 2;
     if (!jobId && foodPressure && jobUnlocked('farmer')) jobId = 'farmer';
     if (!jobId && foodPressure) jobId = 'forager';
     if (!jobId && canStudy) jobId = 'scholar';
@@ -7147,6 +7230,12 @@ function runNextAutoArchiveAction(state, options = {}) {
       return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
     }
   }
+
+  const survivalEmergency = living.some(member => Number(member.hunger || 0) >= 75
+    || Number(member.hp || 0) <= 30 || Number(member.bodyTemp ?? 37) <= 34.4)
+    || autoNightHasHypothermiaRisk(state);
+  const heirCandidate = !survivalEmergency && lineageSummary(state).rows.find(row => row.warning && row.canPrepare);
+  if (heirCandidate) return prepareSuccessorAction(state, heirCandidate.actorId, options);
 
   const studyThreshold = Math.max(1, Math.floor(Number(state.apMax || state.ap || 1) / 2));
   const developmentWindow = Number(state.ap || 0) > studyThreshold;

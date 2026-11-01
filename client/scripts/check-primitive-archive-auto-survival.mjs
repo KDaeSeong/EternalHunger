@@ -64,6 +64,14 @@ check('one hungry member does not waste food on the healthy members', () => {
   assert.ok(!next.log.some((entry) => entry.includes('비상 배식 완료')));
 });
 
+// Only fabricated pre-existing casualties restore without lifetime/faith records.
+function legacyFixture(state) {
+  const snapshot = { ...state };
+  delete snapshot.lineage;
+  delete snapshot.ancestralFaith;
+  return engine.normalizeState(snapshot);
+}
+
 function rationPriorityFixture(overrides = {}) {
   const state = fixture({ inventory: { cooked_meat: 1 }, ...overrides });
   state.weather = { ...state.weather, cold: 0, id: 'clear' };
@@ -121,7 +129,7 @@ check('low HP alone does not divert a scarce meal from someone actually starving
 });
 
 check('scarce food priority is derived again after ordinary JSON restoration without reviving dead members', () => {
-  const state = rationPriorityFixture();
+  const state = legacyFixture(rationPriorityFixture());
   state.party[2].hp = 0;
   state.party[2].hunger = 100;
   const loaded = engine.normalizeState(JSON.parse(JSON.stringify(state)));
@@ -197,7 +205,7 @@ check('field medicine pays unlocked herbs and a berry rather than gifting recove
 });
 
 check('dead members are neither fed nor resurrected by collective care', () => {
-  const state = fixture();
+  const state = legacyFixture(fixture());
   state.party[0].hp = 0;
   const next = engine.runAutoDayAction(state, { rng: noEvents });
   assert.equal(next.counters.meals, 2);
@@ -206,7 +214,7 @@ check('dead members are neither fed nor resurrected by collective care', () => {
 });
 
 function survivingDemandFixture({ hunger = 10, deadHunger = 100, inventory = { berry: 9 }, ap = 1 } = {}) {
-  const state = fixture({ day: 9, ap, inventory });
+  const state = legacyFixture(fixture({ day: 9, ap, inventory }));
   state.weather = { id: 'clear', name: '맑음', cold: 0, temp: 16, actionMod: 0 };
   state.party = state.party.map((member) => ({
     ...member, hp: member.id === 'hina' ? 100 : 0,
@@ -951,7 +959,7 @@ check('automatic closing replans real tribe food after the party eats its mornin
 });
 
 check('automatic food demand excludes dead companions and does not treat medicine as nutrition', () => {
-  const healthy = sharedRationFixture();
+  const healthy = legacyFixture(sharedRationFixture());
   healthy.inventory = {};
   healthy.party = healthy.party.map((member, index) => ({ ...member, hp: index ? 0 : 100, hunger: index ? 100 : 0 }));
   const healthyNext = engine.runAutoDayAction(healthy, { rng: noEvents });
@@ -1081,7 +1089,7 @@ check('map-unlocked food procurement leaves a selected foodless cave for an actu
 });
 
 check('a last-AP starving hunter takes a paid lifesaving rest instead of a lethal night or counterattack', () => {
-  const state = foodSupplyFixture();
+  const state = legacyFixture(foodSupplyFixture());
   state.party = state.party.map((member) => ({ ...member, hp: member.id === 'hina' ? 9 : 0 }));
   const next = engine.runAutoDayAction(state, { rng: noEvents });
   assert.ok(next.log.some((line) => line.includes('히나가 휴식했습니다')));
@@ -1233,7 +1241,7 @@ check('ordinary JSON restoration regenerates emergency care without saving forec
 });
 
 check('before map unlock food planning preserves the actual random region and exact paid RNG sequence', () => {
-  const state = foodSupplyFixture();
+  const state = legacyFixture(foodSupplyFixture());
   state.party = state.party.map((member) => ({ ...member, hp: member.id === 'hina' ? 100 : 0 }));
   assert.equal(engine.canSelectActionZone(state), false);
   const randomSequence = () => {

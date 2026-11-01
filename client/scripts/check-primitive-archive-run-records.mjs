@@ -58,6 +58,7 @@ registerHooks({
 const { default: invokePersistenceHook } = await import(persistenceUrl);
 
 const runTabUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveRunTab.js', import.meta.url).href;
+const portraitUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePortrait.js', import.meta.url).href;
 const runTabModules = new Map([
   ['next/link', `const jsx = (...args) => globalThis.__primitiveArchiveReact.createElement(...args); export default function Link(props) { return jsx('a', props); }`],
   ['../../_components/GamePlayPrimitives', `
@@ -77,13 +78,16 @@ const runTabModules = new Map([
 ]);
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (context.parentURL === portraitUrl && specifier === 'next/image') {
+      return { url: asDataModule(`export default function Image(props) { return globalThis.__primitiveArchiveReact.createElement('img', props); }`), shortCircuit: true };
+    }
     if (context.parentURL === runTabUrl && runTabModules.has(specifier)) {
       return { url: asDataModule(runTabModules.get(specifier)), shortCircuit: true };
     }
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if (url !== runTabUrl) return nextLoad(url, context);
+    if (url !== runTabUrl && url !== portraitUrl) return nextLoad(url, context);
     const source = readFileSync(new URL(url), 'utf8');
     return {
       format: 'module',
@@ -192,7 +196,9 @@ check('separate runs started in the same millisecond have distinct identities wi
     assert.equal(first.founderHistory.runId, first.runId);
     assert.equal(explicit.founderHistory.runId, explicit.runId);
     assert.deepEqual({ ...first, runId: explicit.runId,
-      founderHistory: { ...first.founderHistory, runId: explicit.runId } }, explicit);
+      founderHistory: { ...first.founderHistory, runId: explicit.runId },
+      lineage: { ...first.lineage, runId: explicit.runId },
+      ancestralFaith: { ...first.ancestralFaith, runId: explicit.runId } }, explicit);
     assert.equal(engine.normalizeState(explicit).runId, explicit.runId);
   } finally {
     Date.now = originalNow;
@@ -215,7 +221,9 @@ check('a crypto-less runtime still separates same-millisecond runs without consu
     assert.equal(first.founderHistory.runId, first.runId);
     assert.equal(second.founderHistory.runId, second.runId);
     assert.deepEqual({ ...first, runId: second.runId,
-      founderHistory: { ...first.founderHistory, runId: second.runId } }, second);
+      founderHistory: { ...first.founderHistory, runId: second.runId },
+      lineage: { ...first.lineage, runId: second.runId },
+      ancestralFaith: { ...first.ancestralFaith, runId: second.runId } }, second);
   } finally {
     Date.now = originalNow;
     if (cryptoDescriptor) Object.defineProperty(globalThis, 'crypto', cryptoDescriptor);
@@ -285,7 +293,8 @@ check('an ended victorious run is recordable as a clear', () => {
 });
 
 check('an ended run with every companion dead is recordable as a failure', () => {
-  const state = fixture({ ended: true, party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
+  const state = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined,
+    party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
   expectStatus(state, { canRecord: true, result: 'fail', label: '실패' });
 });
 
@@ -295,12 +304,14 @@ check('an ended unfinished run with survivors is recordable as an uncompleted se
 });
 
 check('a stale active flag cannot hide a total party loss', () => {
-  const state = fixture({ ended: false, party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
+  const state = fixture({ ended: false, lineage: undefined, ancestralFaith: undefined,
+    party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
   expectStatus(state, { canRecord: true, result: 'fail', label: '실패' });
 });
 
 check('one or more living companions prevent an active run from being classified as failure', () => {
-  const state = fixture();
+  // HP-only legacy result: do not invent a lifecycle death to classify it.
+  const state = fixture({ lineage: undefined, ancestralFaith: undefined });
   state.party[0].hp = 0;
   expectStatus(state, { canRecord: false, result: 'none', label: '진행 중' });
 });
@@ -347,7 +358,8 @@ check('ordinary settlement records a living unfinished run once and remains unco
 });
 
 check('failure reward settlement is explicit, one-time and keeps the run classified as a failure', () => {
-  const state = fixture({ ended: true, party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
+  const state = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined,
+    party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
   const original = structuredClone(state);
   expectStatus(state, { canRecord: true, result: 'fail' });
 
@@ -410,7 +422,8 @@ check('the actual run-management panel disables recording until completion or se
   assert.match(actionButton(clear, 'complete'), /disabled/);
   assert.match(actionButton(clear, 'settle'), /disabled/);
 
-  const failed = fixture({ ended: true, party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
+  const failed = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined,
+    party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
   const failureHtml = renderRunTab(failed);
   assert.doesNotMatch(actionButton(failureHtml, 'archive'), /disabled/);
 });
@@ -441,7 +454,8 @@ check('the actual run-management panel keeps record disabled until hydration and
 });
 
 check('the actual run-management panel offers explicit reward settlement after failure until that run has been settled', () => {
-  const failed = fixture({ ended: true, party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
+  const failed = fixture({ ended: true, lineage: undefined, ancestralFaith: undefined,
+    party: fixture().party.map((member) => ({ ...member, hp: 0 })) });
   const failedHtml = renderRunTab(failed);
   assert.doesNotMatch(actionButton(failedHtml, 'settle'), /disabled/);
   assert.match(failedHtml, /런 보상 정산/);
@@ -473,7 +487,8 @@ await checkAsync('the real persistence hook blocks both active-run record paths 
 await checkAsync('the real persistence hook sends the actual clear, failure and unfinished results with engine scores', async () => {
   const cases = [
     ['clear', engine.completeArchiveAction(goalReadyFixture())],
-    ['fail', fixture({ ended: true, party: fixture().party.map((member) => ({ ...member, hp: 0 })) })],
+    ['fail', fixture({ ended: true, lineage: undefined, ancestralFaith: undefined,
+    party: fixture().party.map((member) => ({ ...member, hp: 0 })) })],
     ['none', fixture({ ended: true })],
   ];
   for (const [result, state] of cases) {

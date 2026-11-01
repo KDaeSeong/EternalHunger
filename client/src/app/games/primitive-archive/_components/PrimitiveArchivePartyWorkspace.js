@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import PrimitiveArchivePortrait from './PrimitiveArchivePortrait';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import {
   PARTY_SORT_OPTIONS,
@@ -98,7 +98,7 @@ export default function PrimitiveArchivePartyWorkspace(props) {
               onClick={() => setActorId(member.id)}
               className={`primitive-party-member${actorId === member.id ? ' is-active' : ''}`}
             >
-              <Image src={member.portrait} alt={member.name} width={44} height={44} />
+              <PrimitiveArchivePortrait member={member} size={44} alt={member.name} />
               <span>
                 <strong>{member.name} · {member.role}</strong>
                 <small>HP {member.hp} · 허기 {member.hunger} · ST {member.stamina} · 체온 {Number(member.bodyTemp ?? 37).toFixed(1)}° · {badges.join(' / ')}</small>

@@ -17,6 +17,11 @@ function check(name, run) {
 
 function fixture(runId, overrides = {}) {
   const base = engine.createNewState({ runId, difficulty: 'normal', rng: () => 0.5 });
+  if (overrides.party?.some((member) => member.hp <= 0)) {
+    // A synthetic prior casualty is an old save, not a fresh active lineage.
+    delete base.lineage;
+    delete base.ancestralFaith;
+  }
   return engine.normalizeState({
     ...base,
     ap: 2,

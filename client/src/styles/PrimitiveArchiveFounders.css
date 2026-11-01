@@ -1,3 +1,17 @@
+.primitive-era .primitive-archive-portrait {
+  display: block;
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: var(--era-control-radius);
+  background: var(--era-accent-soft);
+}
+.primitive-era .primitive-archive-portrait > img { position: absolute; max-width: none; }
+
+@media (min-width: 1180px) {
+  .primitive-era .primitive-party-member > .primitive-archive-portrait { --archive-portrait-frame-size: 38px; }
+}
+
 .primitive-era .primitive-founders {
   display: grid;
   gap: 14px;
@@ -75,6 +89,9 @@
 .primitive-era .primitive-founders__identity { display: flex; min-width: 0; flex: 1; gap: 12px; align-items: center; }
 .primitive-era .primitive-founders__portrait { width: 56px; height: 56px; flex: 0 0 56px; object-fit: cover; border-radius: var(--era-control-radius); background: var(--era-accent-soft); }
 .primitive-era .primitive-founders__portrait--empty { display: grid; place-items: center; color: var(--era-accent-deep); font-size: 1.6rem; }
+.primitive-era .primitive-founders__portrait--compact { width: 32px; height: 32px; flex: 0 0 32px; }
+.primitive-era .primitive-founders__life-head > .primitive-founders__actor:first-child { display: flex; align-items: center; gap: 9px; }
+.primitive-era .primitive-founders__actor-copy { display: grid; gap: 3px; min-width: 0; }
 .primitive-era .primitive-founders__identity-copy { display: grid; gap: 4px; min-width: 0; }
 .primitive-era .primitive-founders__identity-copy strong { font-size: 1.05rem; }
 .primitive-era .primitive-founders__identity-copy span,
@@ -88,6 +105,43 @@
 .primitive-era .primitive-founders__death { padding: 12px; border: 1px solid var(--era-line); border-radius: var(--era-control-radius); background: var(--era-sunk); }
 .primitive-era .primitive-founders__future { border-style: dashed; }
 .primitive-era .primitive-founders__empty { padding: 20px; }
+
+.primitive-era .primitive-founders { gap: 10px; }
+.primitive-era .primitive-founders__intro { padding: 10px 12px; gap: 3px; }
+.primitive-era .primitive-founders__intro h2 { font-size: 1.15rem; }
+.primitive-era .primitive-founders__decisions { display: grid; gap: 8px; padding: 12px; }
+.primitive-era .primitive-founders__section-head { display: flex; align-items: baseline; gap: 8px 16px; flex-wrap: wrap; }
+.primitive-era .primitive-founders__section-head h3 { margin: 0; }
+.primitive-era .primitive-founders__rules { min-width: 0; font-size: 0.85rem; }
+.primitive-era .primitive-founders__rules summary,
+.primitive-era .primitive-founders__past > summary,
+.primitive-era .primitive-founders__archive > summary { cursor: pointer; color: var(--era-accent-deep); font-weight: 700; }
+.primitive-era .primitive-founders__rules p { margin: 6px 0 0; }
+.primitive-era .primitive-founders__life-list,
+.primitive-era .primitive-founders__faith-list { display: grid; gap: 8px; min-width: 0; }
+.primitive-era .primitive-founders__life,
+.primitive-era .primitive-founders__faith { display: grid; gap: 5px; min-width: 0; padding: 10px; background: var(--era-sunk); border: 1px solid var(--era-line); border-radius: var(--era-control-radius); }
+.primitive-era .primitive-founders__life.is-warning { border-color: var(--era-accent); background: var(--era-warning-soft); }
+.primitive-era .primitive-founders__life-head { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; flex-wrap: wrap; min-width: 0; }
+.primitive-era .primitive-founders__life-head > div:first-child { display: grid; flex: 1 1 180px; min-width: 0; gap: 3px; }
+.primitive-era .primitive-founders__life-head small { color: var(--era-ink-soft); line-height: 1.5; }
+.primitive-era .primitive-founders__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.primitive-era .primitive-founders button { min-height: 36px; max-width: 100%; padding: 7px 10px; border: 1px solid var(--era-line-strong); border-radius: var(--era-control-radius); color: var(--era-action-ink); background: var(--era-surface); font: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; overflow-wrap: anywhere; }
+.primitive-era .primitive-founders button:disabled { opacity: 0.6; cursor: default; }
+.primitive-era .primitive-founders button:focus-visible,
+.primitive-era .primitive-founders__rules > summary:focus-visible,
+.primitive-era .primitive-founders__past > summary:focus-visible,
+.primitive-era .primitive-founders__archive > summary:focus-visible { outline: 3px solid var(--era-focus); outline-offset: 2px; }
+.primitive-era .primitive-founders__confirmation { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--era-accent); border-radius: var(--era-control-radius); background: var(--era-warning-soft); }
+.primitive-era .primitive-founders__confirmation h4 { margin: 0; font-size: 0.95rem; }
+.primitive-era .primitive-founders__confirmation p { font-size: 0.88rem; }
+.primitive-era .primitive-founders__active { padding: 8px 10px; background: var(--era-accent-soft); border-radius: var(--era-control-radius); font-weight: 700; }
+.primitive-era .primitive-founders__response { color: var(--era-ink-soft); font-size: 0.9rem; }
+.primitive-era .primitive-founders__past { padding-top: 6px; }
+.primitive-era .primitive-founders__past p { margin: 7px 0 0; font-size: 0.88rem; }
+.primitive-era .primitive-founders__archive { padding: 12px; }
+.primitive-era .primitive-founders__archive > .primitive-founders__list { margin-top: 8px; }
+.primitive-era .primitive-founders__archive > .primitive-founders__muted { margin-top: 8px; }
 
 .primitive-era .primitive-founder-selection {
   min-width: 0;
@@ -118,6 +172,7 @@
   overflow-wrap: anywhere;
 }
 .primitive-era .primitive-founder-selection__choices input { flex: 0 0 auto; width: 20px; height: 20px; }
+.primitive-era .primitive-founder-selection__portrait { width: 40px; height: 40px; flex: 0 0 40px; object-fit: cover; border-radius: var(--era-control-radius); background: var(--era-accent-soft); }
 .primitive-era .primitive-founder-selection__choices span { display: grid; gap: 4px; min-width: 0; }
 .primitive-era .primitive-founder-selection__choices small { color: var(--era-ink-soft); }
 .primitive-era .primitive-founder-selection__choices label:focus-within { outline: 2px solid var(--era-accent); outline-offset: 2px; }
@@ -129,4 +184,8 @@
   .primitive-era .primitive-founders__identity { gap: 9px; }
   .primitive-era .primitive-founders__record { padding: 0 12px 14px; }
   .primitive-era .primitive-founders__deeds li { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+  .primitive-era .primitive-founders__intro { padding: 10px 12px; }
+  .primitive-era .primitive-founders__life-head > div:first-child { flex-basis: 100%; }
+  .primitive-era .primitive-founders__decisions,
+  .primitive-era .primitive-founders__archive { padding: 10px; }
 }

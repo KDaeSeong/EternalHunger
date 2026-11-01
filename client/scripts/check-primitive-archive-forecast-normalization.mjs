@@ -36,9 +36,10 @@ try {
   ]);
 
   const firstActorId = (state) => state.party[0]?.id || '';
-  const normalState = (runId, difficulty = 'normal') => engine.createNewState({
+  const normalState = (runId, difficulty = 'normal', lineageMode = 'hybrid') => engine.createNewState({
     runId,
     difficulty,
+    lineageMode,
     now: '2026-10-29T00:00:00.000Z',
     rng: () => 0.5,
   });
@@ -61,7 +62,10 @@ try {
   mutateUnlocked(unlocked);
   cases.push({ name: 'cartography and late research/civic with selected region', state: unlocked, region: data.WORLD_REGIONS.at(-1)?.id || '', recipe: data.RECIPES.at(-1)?.id || '' });
 
-  const normalizedDirectMutation = engine.normalizeState(normalState('forecast-direct-mutation'));
+  // These intentionally incomplete old snapshots predate lifecycle history.
+  // Keep their in-place mutation/fallback checks without fabricating a valid
+  // hybrid death or silently accepting contradictory present lineage data.
+  const normalizedDirectMutation = engine.normalizeState(normalState('forecast-direct-mutation', 'normal', 'legacy'));
   normalizedDirectMutation.difficulty = 'hard';
   normalizedDirectMutation.party[0].hp = 0;
   normalizedDirectMutation.party[0].stamina = 4;
@@ -69,11 +73,11 @@ try {
   mutateUnlocked(normalizedDirectMutation);
   cases.push({ name: 'already-normalized input mutated in place', state: normalizedDirectMutation, region: data.WORLD_REGIONS[0]?.id || '', recipe: data.RECIPES[0]?.id || '' });
 
-  const noParty = normalState('forecast-empty-party');
+  const noParty = normalState('forecast-empty-party', 'normal', 'legacy');
   noParty.party = [];
   cases.push({ name: 'empty party input falls back through normalizer', state: noParty, region: '', recipe: '' });
 
-  const allDead = normalState('forecast-all-dead');
+  const allDead = normalState('forecast-all-dead', 'normal', 'legacy');
   allDead.party = allDead.party.map((member) => ({ ...member, hp: 0 }));
   cases.push({ name: 'all members dead', state: allDead, region: '', recipe: '' });
 

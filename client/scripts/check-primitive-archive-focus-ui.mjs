@@ -20,13 +20,14 @@ const inventoryBarUrl = new URL('_components/PrimitiveArchiveInventoryBar.js', r
 const runTabUrl = new URL('_components/PrimitiveArchiveRunTab.js', routeUrl).href;
 const inventoryTabUrl = new URL('_components/PrimitiveArchiveInventoryTab.js', routeUrl).href;
 const partyWorkspaceUrl = new URL('_components/PrimitiveArchivePartyWorkspace.js', routeUrl).href;
+const portraitUrl = new URL('_components/PrimitiveArchivePortrait.js', routeUrl).href;
 const projectsPanelUrl = new URL('_components/PrimitiveArchiveProjectsPanel.js', routeUrl).href;
 const workspaceTabsUrl = new URL('_components/PrimitiveArchiveWorkspaceTabs.js', routeUrl).href;
 const tribeTabUrl = new URL('_components/PrimitiveArchiveTribeTab.js', routeUrl).href;
 const campWorkspaceUrl = new URL('_components/PrimitiveArchiveCampWorkspace.js', routeUrl);
 const growthTabUrl = new URL('_components/PrimitiveArchiveGrowthTab.js', routeUrl);
 const researchPreviewUrl = new URL('_components/PrimitiveArchiveResearchTreePreview.js', routeUrl);
-const transpiledUrls = new Set([focusPanelUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl]);
+const transpiledUrls = new Set([focusPanelUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, portraitUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl]);
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 const primitiveUiStub = `
   const jsx = (...args) => globalThis.__primitiveArchiveFocusReact.createElement(...args);
@@ -91,6 +92,9 @@ const runTabStubs = new Map([
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (context.parentURL === portraitUrl && specifier === 'next/image') {
+      return { url: asDataModule(`export default function Image(props) { return globalThis.__primitiveArchiveFocusReact.createElement('img', props); }`), shortCircuit: true };
+    }
     if (context.parentURL === featureTabsUrl && featureTabStubs.has(specifier)) {
       return { url: asDataModule(simpleComponentStub(featureTabStubs.get(specifier))), shortCircuit: true };
     }
@@ -728,7 +732,8 @@ check('locked full advancement preview is collapsed without removing searchable 
 
 check('fallen-companion guidance uses real recruitment limits after every urgent survival branch', () => {
   const makeState = () => {
-    const state = freshState('fallen-companion-guidance');
+    // These HP-only imported results predate lifecycle/death provenance.
+    const state = freshState('fallen-companion-guidance', { lineage: undefined, ancestralFaith: undefined });
     state.party = state.party.map((member, index) => ({ ...member, hp: index ? 0 : 97, hunger: 12, bodyTemp: 37 }));
     state.weather = { ...state.weather, id: 'clear', cold: 0 };
     state.camp = { ...state.camp, fireLevel: 1, shelterLevel: 1, workbenchLevel: 1, fuel: 3 };
@@ -774,7 +779,8 @@ check('party cards name death explicitly and preserve recorded or unknown causes
     { day: {}, source: {}, reason: {}, damage: 'NaN', coldDamage: -1 },
   ];
   for (const record of records) {
-    const state = freshState('party-death-summary');
+    // These UI records intentionally include unknown and malformed old death causes.
+    const state = freshState('party-death-summary', { lineage: undefined, ancestralFaith: undefined });
     state.day = 102;
     const member = { ...state.party[1], hp: 0, deathRecord: record };
     state.party[1] = member;
@@ -840,7 +846,7 @@ check('actual project control receives the selected living-actor gate without di
 });
 
 check('one surviving HP keeps the actual recovery controls enabled while terminal runs remain blocked', () => {
-  const state = freshState('one-hp-recovery-controls');
+  const state = freshState('one-hp-recovery-controls', { lineage: undefined, ancestralFaith: undefined });
   state.party = state.party.map((member, index) => ({ ...member, hp: index === 0 ? 1 : 0 }));
   for (const ended of [false, true]) {
     const current = { ...state, ended };
@@ -919,6 +925,8 @@ check('log expansion resets for a replacement run and handles an empty history',
   more.onClick();
   const replacement = { ...state, runId: 'log-replacement-run',
     founderHistory: { ...state.founderHistory, runId: 'log-replacement-run' },
+    lineage: { ...state.lineage, runId: 'log-replacement-run' },
+    ancestralFaith: { ...state.ancestralFaith, runId: 'log-replacement-run' },
     log: Array.from({ length: 30 }, (_, index) => `new-history-${index}`) };
   rendered = renderInventoryLog(replacement, rendered.harness);
   assert.equal((rendered.html.match(/new-history-/g) || []).length, 18);

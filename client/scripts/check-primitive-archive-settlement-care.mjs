@@ -8,8 +8,14 @@ const builderAssignments = Object.fromEntries(engine.TRIBE_JOBS.map((job) => [jo
 const noAutomaticWorkers = Object.fromEntries(engine.TRIBE_JOBS.map((job) => [job.id, 0]));
 
 function fixture(overrides = {}) {
+  const source = { ...base };
+  if (overrides.party?.some((member) => member.hp <= 0)) {
+    // Preserve the old cause-free casualty fixture without inventing life events.
+    delete source.lineage;
+    delete source.ancestralFaith;
+  }
   return engine.normalizeState({
-    ...base,
+    ...source,
     day: 20,
     ap: 2,
     camp: { ...base.camp, fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, fuel: 0 },

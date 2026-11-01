@@ -19,6 +19,7 @@ import {
   ZONES,
   actionChance,
   actionForecastRows,
+  ancestralRiteAction,
   adjustTribeJobAction,
   averageBodyTemp,
   averageParty,
@@ -48,16 +49,19 @@ import {
   hasLivingPartyMember,
   itemName,
   logCapacity,
+  lineageSummary,
   nightSurvivalRows,
   objectParticle,
   partyInsulation,
   perkRows,
   projectActionEstimate,
   projectRows,
+  prepareSuccessorAction,
   recipeRows,
   recruitPartyMemberAction,
   recruitablePartyRows,
   resetDeveloperToolsAction,
+  retireFounderAction,
   researchInspirationRows,
   researchPlannerRows,
   researchSummary,
@@ -105,6 +109,8 @@ import PrimitiveArchiveShopPerks from './PrimitiveArchiveShopPerks';
 import { initialArchiveShopPerks, prepareArchiveShopRun } from '../_lib/primitiveArchiveShopPerks';
 import { primitiveArchiveEraTheme } from '../_lib/primitiveArchiveEraTheme';
 import { founderHistoryRows } from '../_lib/primitiveArchiveFounders';
+import { ancestralFaithRows, ancestralFaithSummary } from '../_lib/primitiveArchiveAncestralFaith';
+import { LINEAGE_RULES } from '../_lib/primitiveArchiveLineage';
 import '../../../../styles/PrimitiveArchiveEras.css';
 import '../../../../styles/PrimitiveArchiveFounders.css';
 import { primitiveArchiveFocusPlan } from '../_lib/primitiveArchiveFocus';
@@ -216,6 +222,8 @@ export default function PrimitiveArchivePlayContent() {
   });
 
   const actor = getActor(state, actorId);
+  const lineage = lineageSummary(state);
+  const successionWarnings = state.ended ? NO_ROWS : lineage.rows.filter((member) => member.warning && !member.successorId);
   const recipes = useMemo(() => recipeRows(state), [state]);
   const recipe = recipes.find((row) => row.id === recipeId) || recipes.find((row) => row.unlocked) || recipes[0];
   const hp = averageParty(state, 'hp');
@@ -526,6 +534,11 @@ export default function PrimitiveArchivePlayContent() {
     }
     stateRef.current = nextState;
     setState(nextState);
+    if (!nextState.party.some((member) => member.id === actorId)) {
+      const successorId = nextState.lineage?.members?.find((member) => member.actorId === actorId)?.successorId;
+      const successor = nextState.party.find((member) => member.id === successorId && member.hp > 0);
+      setActorId(successor?.id || nextState.party.find((member) => member.hp > 0)?.id || nextState.party[0]?.id || '');
+    }
     setActionResult(latest);
     setMessage('');
     setActionFeedback({ ...feedback, runId: nextState.runId });
@@ -547,6 +560,27 @@ export default function PrimitiveArchivePlayContent() {
   const runGather = () => {
     if (!canAct) return;
     applyAction('채집', (current) => runGatherAction(current, actorId, activeRegionId));
+  };
+
+  const prepareSuccessor = (memberId) => {
+    if (stateRef.current.runId !== state.runId) return;
+    applyAction('후계 준비', (current) => current.runId === state.runId
+      ? prepareSuccessorAction(current, memberId) : current);
+  };
+
+  const retireFounder = (memberId) => {
+    const successorId = state.lineage?.prepared?.find((candidate) => candidate.mentorId === memberId)?.actor.id;
+    if (stateRef.current.runId !== state.runId || stateRef.current.day !== state.day
+      || !stateRef.current.lineage?.prepared?.some((candidate) => candidate.mentorId === memberId && candidate.actor.id === successorId)) return;
+    applyAction('은퇴 인계', (current) => current.runId === state.runId && current.day === state.day
+      && current.lineage?.prepared?.some((candidate) => candidate.mentorId === memberId && candidate.actor.id === successorId)
+      ? retireFounderAction(current, memberId) : current);
+  };
+
+  const runAncestralRite = (founderId) => {
+    if (stateRef.current.runId !== state.runId) return;
+    applyAction('가르침·가호', (current) => current.runId === state.runId
+      ? ancestralRiteAction(current, actor.id, founderId) : current);
   };
 
   const runSafeGather = (resourceId) => {
@@ -669,7 +703,7 @@ export default function PrimitiveArchivePlayContent() {
       setMessage('런 관리에서 다음 런의 창건자 3명을 선택하세요.');
       return;
     }
-    if (!window.confirm('현재 진행을 직전 런으로 보관하고 새 런을 시작할까요? 직전 런은 이 브라우저에서 하나만 보관합니다.')) return;
+    if (!window.confirm(`현재 진행을 직전 런으로 보관하고 새 런을 시작할까요? 직전 런은 이 브라우저에서 하나만 보관합니다.\n\n새 런에서는 정착 기반이 갖춰진 뒤 생애 활동기가 시작됩니다. 정착 활동기 ${LINEAGE_RULES.warningCycle}기부터 은퇴를 예고하고 ${LINEAGE_RULES.naturalEndCycle}기에 생애가 끝나므로 후계를 준비해야 합니다. 실제 원작 나이를 뜻하지 않습니다.`)) return;
     shopStartRef.current = true;
     setShopStartBusy(true);
     const source = stateRef.current;
@@ -828,6 +862,14 @@ export default function PrimitiveArchivePlayContent() {
         </>
       ) : checkpoint.message,
     } : null,
+    successionWarnings.length ? {
+      key: 'succession-warning',
+      tone: 'warning',
+      text: <>
+        생애 인계 예고: {successionWarnings.map((member) => member.name).join(' · ')}. 정착 활동기 {LINEAGE_RULES.naturalEndCycle}기 전에 후계를 준비하세요.
+        <button type="button" className="primitive-inline-action" onClick={() => setActiveTabId('founders')}>후계 준비 열기</button>
+      </>,
+    } : null,
     message ? { key: 'message', text: message } : null,
     archiveVictory.victory ? { key: 'victory', text: '기초 아카이브 완주로 런이 종료되었습니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
     archiveVictory.canComplete ? { key: 'complete-ready', text: '기초 완주 목표를 달성했습니다. 런 관리에서 완성·종료하거나, 종료하지 않고 문명 발전을 계속할 수 있습니다.' } : null,
@@ -966,6 +1008,12 @@ export default function PrimitiveArchivePlayContent() {
         inventoryRows={inventoryRows}
         exploration={exploration}
         foundersRows={founderHistoryRows(state)}
+        lineage={lineage}
+        ancestralFaith={ancestralFaithSummary(state)}
+        ancestralRows={ancestralFaithRows(state, actor.id)}
+        prepareSuccessor={prepareSuccessor}
+        retireFounder={retireFounder}
+        runAncestralRite={runAncestralRite}
         founderChoices={STUDENTS}
         newRunFounderIds={newRunFounderIds}
         setNewRunFounderIds={setNewRunFounderIds}

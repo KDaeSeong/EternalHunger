@@ -1,5 +1,7 @@
 import { GAME_SLUG, SAVE_VERSION } from './primitiveArchiveData';
 import { isValidFounderHistory } from './primitiveArchiveFounders';
+import { isValidLineage } from './primitiveArchiveLineage';
+import { isValidAncestralFaith } from './primitiveArchiveAncestralFaith';
 
 const CHECKPOINT_SCHEMA_VERSION = 2;
 const CHECKPOINT_KEY_PREFIX = 'primitive-archive:checkpoint:v2:';
@@ -239,7 +241,9 @@ export function isValidRunState(value) {
     || typeof value.ended !== 'boolean'
     || typeof value.victory !== 'boolean'
     || !isValidOptionalRunStructures(value)
-    || !isValidFounderHistory(value.founderHistory, { runId: value.runId, day: value.day })) return false;
+    || !isValidFounderHistory(value.founderHistory, { runId: value.runId, day: value.day })
+    || !isValidLineage(value.lineage, value)
+    || !isValidAncestralFaith(value.ancestralFaith, value)) return false;
 
   return value.party.every((member) => (
     isRecord(member)

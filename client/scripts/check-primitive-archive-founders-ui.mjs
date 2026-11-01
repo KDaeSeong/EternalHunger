@@ -12,9 +12,10 @@ import { createFounderHistory, founderHistoryRows, isValidFounderHistory } from 
 const root = new URL('../', import.meta.url);
 const components = new URL('src/app/games/primitive-archive/_components/', root);
 const foundersUrl = new URL('PrimitiveArchiveFoundersTab.js', components).href;
+const portraitUrl = new URL('PrimitiveArchivePortrait.js', components).href;
 const tabsUrl = new URL('PrimitiveArchiveFeatureTabs.js', components).href;
 const runTabUrl = new URL('PrimitiveArchiveRunTab.js', components).href;
-const transformed = new Set([foundersUrl, tabsUrl, runTabUrl]);
+const transformed = new Set([foundersUrl, portraitUrl, tabsUrl, runTabUrl]);
 const dataModule = (source) => ({ url: `data:text/javascript,${encodeURIComponent(source)}`, shortCircuit: true });
 globalThis.__primitiveFoundersReact = React;
 globalThis.__primitiveFoundersImage = nextImageModule.default;
@@ -24,7 +25,7 @@ registerHooks({
       && specifier !== './PrimitiveArchiveFoundersTab') {
       return { url: `data:text/javascript,${encodeURIComponent(`export default function Stub() { return globalThis.__primitiveFoundersReact.createElement('div', {'data-other-workspace': true}); }`)}`, shortCircuit: true };
     }
-    if (context.parentURL === foundersUrl && specifier === 'next/image') {
+    if (context.parentURL === portraitUrl && specifier === 'next/image') {
       return { url: 'data:text/javascript,export default globalThis.__primitiveFoundersImage;', shortCircuit: true };
     }
     if (context.parentURL === runTabUrl) {
@@ -102,20 +103,24 @@ check('real SSR retains at most eight recent deeds, translated gains and confirm
   assert.ok(!html.includes('unknown-internal-target'));
   assert.ok(!html.includes('berry'));
   assert.match(html, /9일차 · 밤 정산 · 허기와 추위 · HP 피해 10/);
-  assert.equal((html.match(/<details /g) || []).length, 2);
+  assert.equal((html.match(/<details /g) || []).length, 5);
   assert.equal((html.match(/ open=""/g) || []).length, 1);
-  assert.equal((html.match(/<summary>/g) || []).length, 2);
+  assert.equal((html.match(/<summary>/g) || []).length, 5);
+  assert.match(html, /<details class="games-panel primitive-founders__archive"><summary>/);
 });
 check('legacy records admit unknown founders and do not invent a death or inherited power', () => {
   const legacyState = { runId: 'legacy-ui', day: 30, party: [{ id: 'old', name: '옛 인물', hp: 0 }] };
   const legacyRows = founderHistoryRows(legacyState);
-  const legacyHtml = render({ foundersRows: legacyRows });
+  const legacyHtml = render({ foundersRows: legacyRows,
+    lineage: { mode: 'legacy', enabled: false, rows: [] },
+    ancestralFaith: { enabled: false }, ancestralRows: [] });
   assert.match(legacyHtml, /30일차/);
   assert.match(legacyHtml, /과거 창건 명단과 기록되지 않은 업적은 추정하지 않습니다/);
-  assert.match(legacyHtml, /<dt>창건 명단<\/dt><dd>미상<\/dd>/);
+  assert.match(legacyHtml, /창건 명단 미상/);
   assert.match(legacyHtml, /생존 미확인/);
   assert.ok(!legacyHtml.includes('사망 기록'));
-  assert.match(legacyHtml, /조상신 숭배·가호·후대 계승 기능은 아직 제공하지 않습니다/);
+  assert.match(legacyHtml, /이전 런의 생애 전환은 비활성 상태/);
+  assert.match(legacyHtml, /이전 런에서는 조상신 효과를 새로 활성화하지 않습니다/);
   assert.ok(!legacyHtml.includes('<button'));
   assert.ok(!legacyHtml.includes('계승 완료'));
 });

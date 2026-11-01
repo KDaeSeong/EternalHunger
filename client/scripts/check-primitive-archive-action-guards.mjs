@@ -30,9 +30,17 @@ function withoutLog(state) {
   return gameplay;
 }
 
+// These casualty snapshots predate lifetime and faith records; do not invent causes.
+function legacyFixture(state) {
+  const snapshot = { ...state };
+  delete snapshot.lineage;
+  delete snapshot.ancestralFaith;
+  return engine.normalizeState(snapshot);
+}
+
 check('ended runs cannot recruit or change their score and record classification', () => {
   for (const victory of [false, true]) {
-    const state = fixture(`ended-recruit-${victory}`);
+    const state = victory ? fixture(`ended-recruit-${victory}`) : legacyFixture(fixture(`ended-recruit-${victory}`));
     state.ended = true;
     state.victory = victory;
     if (!victory) state.party = state.party.map((member) => ({ ...member, hp: 0 }));
@@ -63,7 +71,7 @@ check('live runs can still recruit once and still enforce the party cap', () => 
 });
 
 check('dead and missing actors cannot spend AP or progress research, civics or projects', () => {
-  const base = fixture('manual-development-dead-actor');
+  const base = legacyFixture(fixture('manual-development-dead-actor'));
   base.party[0].hp = 0;
   const research = engine.techRows(base).find((row) => row.available && !row.completed);
   const civic = engine.civicRows(base).find((row) => row.available && !row.completed);
@@ -102,7 +110,7 @@ check('living actors can still perform each paid development action', () => {
 });
 
 check('automatic operation still uses living companions when the first companion has died', () => {
-  const state = fixture('auto-with-dead-first-companion');
+  const state = legacyFixture(fixture('auto-with-dead-first-companion'));
   state.party[0].hp = 0;
   const next = engine.runAutoDayAction(state, { rng: () => 0.5 });
   assert.equal(next.day, state.day + 1);
@@ -111,7 +119,7 @@ check('automatic operation still uses living companions when the first companion
 });
 
 check('a living one-HP companion is not defeated by rounded party averages', () => {
-  const state = fixture('last-survivor-one-hp');
+  const state = legacyFixture(fixture('last-survivor-one-hp'));
   state.party = state.party.map((member, index) => ({ ...member, hp: index === 0 ? 1 : 0 }));
   assert.equal(engine.averageParty(state, 'hp'), 0, 'The fixture must reproduce the misleading rounded average.');
   assert.equal(engine.hasLivingPartyMember(state), true);
@@ -127,7 +135,7 @@ check('ended equipment changes preserve score, settled rewards and item ownershi
   const equipped = engine.setEquipmentSlotAction(base, base.party[0].id, 'top', 'hide_coat');
   for (const source of [base, equipped]) {
     for (const outcome of ['settled', 'failed', 'clear']) {
-      const state = engine.settleRunAction(source);
+      const state = outcome === 'failed' ? legacyFixture(engine.settleRunAction(source)) : engine.settleRunAction(source);
       state.victory = outcome === 'clear';
       if (outcome === 'failed') state.party = state.party.map((member) => ({ ...member, hp: 0 }));
       const before = structuredClone(state);
@@ -154,7 +162,7 @@ check('ended workforce changes preserve the complete terminal snapshot and class
     state.tribe.assignments.hunter = 1;
     state.tribe.autoAssignments.forager = 1;
     if (outcome === 'failed') {
-      state = { ...state, ended: true, party: state.party.map((member) => ({ ...member, hp: 0 })) };
+      state = { ...legacyFixture(state), ended: true, party: state.party.map((member) => ({ ...member, hp: 0 })) };
     } else if (outcome === 'clear') {
       state.day = engine.ARCHIVE_VICTORY_DAY;
       state.camp = { ...state.camp, archiveRoomLevel: 1, scribeDeskLevel: 1, libraryShelfLevel: 1 };

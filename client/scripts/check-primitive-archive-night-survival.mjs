@@ -15,6 +15,14 @@ function fixture(overrides = {}) {
   });
 }
 
+// Keep cause-free historical casualties separate from real new-run deaths.
+function legacyFixture(state) {
+  const snapshot = { ...state };
+  delete snapshot.lineage;
+  delete snapshot.ancestralFaith;
+  return engine.normalizeState(snapshot);
+}
+
 const noEvents = () => 0.999;
 const failures = [];
 let checks = 0;
@@ -50,7 +58,7 @@ check('identically dressed companions retain the existing uniform-party cold and
 });
 
 check('clothing worn by a dead companion cannot shelter the living or revive its wearer', () => {
-  const state = fixture(); state.party[0].hp = 0;
+  const state = legacyFixture(fixture()); state.party[0].hp = 0;
   const withoutCoat = { ...state, equipment: {} };
   const first = engine.advanceDay(state, { rng: noEvents });
   const second = engine.advanceDay(withoutCoat, { rng: noEvents });
@@ -138,7 +146,7 @@ check('night forecasts are read-only, member-specific and match the next real da
 });
 
 check('night deaths record the exact composite projection and readable member-level causes', () => {
-  const state = fixture({ equipment: {}, weather: { id: 'snow', name: '눈', cold: 12, temp: -8, actionMod: 0 } });
+  const state = legacyFixture(fixture({ equipment: {}, weather: { id: 'snow', name: '눈', cold: 12, temp: -8, actionMod: 0 } }));
   state.party = state.party.map((member) => member.id === 'hina'
     ? { ...member, hp: 20, hunger: 100, bodyTemp: 30 }
     : { ...member, hp: 0 });
@@ -164,7 +172,7 @@ check('night deaths record the exact composite projection and readable member-le
 });
 
 check('survivors stay unmarked and previously dead saves gain neither guessed nor repeated causes', () => {
-  const state = fixture({ equipment: {} });
+  const state = legacyFixture(fixture({ equipment: {} }));
   state.party[0] = { ...state.party[0], hp: 0 };
   state.party[1] = { ...state.party[1], hp: 100 };
   const first = engine.advanceDay(state, { rng: noEvents });
@@ -201,7 +209,7 @@ check('an actual failed hunt crossing HP to zero records only its verified actio
 });
 
 check('forecasts respond immediately to a real equipment change and omit dead members', () => {
-  const state = fixture(); state.party[2].hp = 0;
+  const state = legacyFixture(fixture()); state.party[2].hp = 0;
   const first = engine.nightSurvivalRows(state);
   state.equipment = { hina: { top: 'fur_coat' } };
   const second = engine.nightSurvivalRows(state);
@@ -336,7 +344,7 @@ check('basic coverage completes through paid bounded crafting without endlessly 
 });
 
 check('automatic equipment redistribution protects living companions rather than leaving scarce clothing on a dead first member', () => {
-  const state = clothingFixture(); state.party[0].hp = 0;
+  const state = legacyFixture(clothingFixture()); state.party[0].hp = 0;
   state.equipment = { shiroko: { top: 'fur_coat' } }; state.inventory.hide_pants = 1;
   const next = engine.autoEquipAction(state, 'weather');
   assert.ok(Object.values(next.equipment.shiroko).every((id) => !id));
