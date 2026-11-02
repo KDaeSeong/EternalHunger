@@ -6,6 +6,7 @@ dist/
 build/
 Project-Arena.zip
 client/src/app/app.zip
+artifacts/gemini-source/
 
 # transient local verification outputs
 *.log

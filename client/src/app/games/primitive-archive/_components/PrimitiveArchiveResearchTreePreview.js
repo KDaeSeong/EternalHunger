@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import GameActionIcon from '../../_components/GameActionIcon';
 import {
   RESEARCH_BRANCH_LABELS,
@@ -11,13 +11,15 @@ import {
 import PrimitiveArchiveAdvancementQuote from './PrimitiveArchiveAdvancementQuote';
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 
-export default function PrimitiveArchiveResearchTreePreview({ researchMap, track = 'technology' }) {
+export default function PrimitiveArchiveResearchTreePreview({ researchMap, track = 'technology', initialFocusId = '' }) {
   const isCivics = track === 'civics';
   const trackLabel = isCivics ? '사회 제도' : '기술';
   const pointLabel = isCivics ? 'CP' : 'RP';
   const breakthroughLabel = isCivics ? '영감' : '유레카';
   const directActionSubject = isCivics ? '추진이' : '연구가';
-  const [focusId, setFocusId] = useState(researchMap.nodes[0]?.id || '');
+  const [requestedFocusId] = useState(() => researchMap.nodes.some((node) => node.id === initialFocusId) ? initialFocusId : '');
+  const [focusId, setFocusId] = useState(requestedFocusId || researchMap.nodes[0]?.id || '');
+  const helpHeadingRef = useRef(null);
   const [query, setQuery] = useState('');
   const [era, setEra] = useState('ALL');
   const nodeById = useMemo(
@@ -31,6 +33,15 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
     if (!normalizedQuery) return false;
     return !`${node.name} ${node.id} ${RESEARCH_BRANCH_LABELS[node.branch] || ''} ${(node.tags || []).join(' ')}`.toLowerCase().includes(normalizedQuery);
   };
+
+  useEffect(() => {
+    if (!requestedFocusId) return;
+    const heading = helpHeadingRef.current;
+    const disclosure = heading?.closest('details');
+    if (disclosure) disclosure.open = true;
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView({ block: 'center' });
+  }, [requestedFocusId]);
 
   return (
     <section
@@ -157,7 +168,7 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
               <div className="primitive-research-inspector__head">
                 <div>
                   <span>{focusedNode.tierLabel} · {RESEARCH_ERA_LABELS[focusedNode.era] || focusedNode.era}</span>
-                  <h3>
+                  <h3 ref={helpHeadingRef} tabIndex={-1}>
                     <GameActionIcon action={advancementAction(focusedNode.tags, track, focusedNode.branch)} label={focusedNode.name} />
                     {focusedNode.name}
                   </h3>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import GameActionIcon from '../../_components/GameActionIcon';
 import {
   ActionButton,
@@ -121,6 +121,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
     recentActionText,
     research,
     researchMap,
+    researchHelpRequest,
     researchPlannerOpen,
     reserveProjectTradition,
     runCivic,
@@ -139,9 +140,15 @@ export default function PrimitiveArchiveGrowthTab(props) {
     techs,
     technologyPlannerRows,
   } = props;
+  const [helpTechnologyId] = useState(() => (
+    researchHelpRequest?.runId === state.runId
+      && researchMap.nodes.some((node) => node.id === researchHelpRequest?.technologyId)
+      ? researchHelpRequest.technologyId : ''
+  ));
+  const helpHeadingRef = useRef(null);
   const [activeTrack, setActiveTrack] = useState('technology');
   const [treeFocusByTrack, setTreeFocusByTrack] = useState({
-    technology: state.research.selectedTechId,
+    technology: helpTechnologyId || state.research.selectedTechId,
     civics: state.civics.selectedCivicId,
   });
   const [treeQuery, setTreeQuery] = useState('');
@@ -194,6 +201,12 @@ export default function PrimitiveArchiveGrowthTab(props) {
   const openPlanner = () => setResearchPlannerOpen?.(true);
   const closePlanner = () => setResearchPlannerOpen?.(false);
 
+  useEffect(() => {
+    if (!helpTechnologyId || !research.unlocked) return;
+    helpHeadingRef.current?.focus({ preventScroll: true });
+    helpHeadingRef.current?.scrollIntoView({ block: 'center' });
+  }, [helpTechnologyId, research.unlocked]);
+
   if (!research.unlocked) {
     return (
       <>
@@ -218,7 +231,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
 
         <details className="primitive-growth-preview" key={activeTrack}>
           <summary>전체 {trackLabel} 트리 미리보기</summary>
-          <PrimitiveArchiveResearchTreePreview researchMap={advancementMap} track={activeTrack} />
+          <PrimitiveArchiveResearchTreePreview researchMap={advancementMap} track={activeTrack} initialFocusId={activeTrack === 'technology' ? helpTechnologyId : ''} />
         </details>
 
         <PrimitiveArchiveProjectsPanel
@@ -512,7 +525,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                   <div className="primitive-research-inspector__head">
                     <div>
                       <span>{focusedTreeNode.tierLabel} · {advancementMap.tierHeaders.find((tier) => tier.tier === focusedTreeNode.tier)?.name || '발전 단계'} · {RESEARCH_ERA_LABELS[focusedTreeNode.era] || focusedTreeNode.era}</span>
-                      <h3>
+                      <h3 ref={helpHeadingRef} tabIndex={-1}>
                         <GameActionIcon action={advancementAction(focusedTreeNode.tags, activeTrack, focusedTreeNode.branch)} label={focusedTreeNode.name} />
                         {focusedTreeNode.name}
                       </h3>

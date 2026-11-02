@@ -7,6 +7,7 @@ import {
 import GameActionIcon from '../../_components/GameActionIcon';
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 import { campFireActive } from '../_lib/primitiveArchiveEngine';
+import { campRequirementGuide } from '../_lib/primitiveArchiveCampRequirementGuide';
 
 function MaterialStatus({ rows = [] }) {
   return (
@@ -20,20 +21,62 @@ function MaterialStatus({ rows = [] }) {
   );
 }
 
-function CampActionControl({ action, canAct, label, onClick }) {
+function CampRequirementGuide({ action, regions, onOpenRequirementHelp }) {
+  const guide = campRequirementGuide({ action, regions });
+  if (!guide.hasHelp) return null;
+  const canNavigate = typeof onOpenRequirementHelp === 'function';
+  return (
+    <details className="primitive-requirement-guide">
+      <summary>{labelForAction(action)} · 획득 방법·선행 연구</summary>
+      <div className="primitive-requirement-guide__body">
+        <p>안내를 열거나 다른 화면을 보는 것은 행동력을 쓰지 않습니다. 지역 지정·채집·사냥·연구는 해당 화면에서 직접 선택합니다.</p>
+        {guide.materials.map((material) => (
+          <div className="primitive-requirement-guide__material" key={material.resourceId}>
+            <strong>{material.name} {material.current}/{material.required} · {material.missing}개 부족</strong>
+            {!material.supported ? <p>이 재료의 획득 경로는 이 안내에서 제공하지 않습니다.</p>
+              : !material.sources.length ? <p>현재 발견한 행동 지역에서 확인된 채집·사냥 경로가 없습니다.</p>
+                : <ul>{material.sources.map((source) => (
+                  <li key={`${source.regionId}-${source.action}`}>
+                    <span>{source.regionName} · {source.actionLabel} · {source.dangerLabel}</span>
+                    <button type="button" disabled={!canNavigate} onClick={() => onOpenRequirementHelp?.({ kind: 'map', resourceId: material.resourceId, regionId: source.regionId })}>지도에서 확인</button>
+                  </li>
+                ))}</ul>}
+          </div>
+        ))}
+        {guide.materials.some((material) => material.sources.length) ? <p>발견한 지역의 자원표에 있는 경로입니다. 행동 성공이나 재료 획득을 보장하지 않습니다. 지도 제작 전에는 행동 지역을 지정할 수 없습니다.</p> : null}
+        {guide.research.map((technology) => (
+          <div className="primitive-requirement-guide__research" key={technology.technologyId}>
+            <span>시설 해금 연구: {technology.name}</span>
+            <button type="button" disabled={!canNavigate} onClick={() => onOpenRequirementHelp?.({ kind: 'research', technologyId: technology.technologyId })}>선행 연구 보기</button>
+          </div>
+        ))}
+        {action.unlocked === false && !guide.research.length ? <p>{action.reason || '시설의 선행 조건을 확인해 주세요.'} 연결할 해금 연구는 확인되지 않았습니다.</p> : null}
+      </div>
+    </details>
+  );
+}
+
+function labelForAction(action) {
+  return action.name || action.label || '캠프';
+}
+
+function CampActionControl({ action, canAct, label, onClick, regions, onOpenRequirementHelp }) {
   const enabled = canAct && action.enabled;
   return (
-    <ActionButton
-      action={action.action || 'camp'}
-      cue="off"
-      className={action.enabled ? '' : 'is-unavailable'}
-      disabled={!enabled}
-      title={action.reason}
-      onClick={onClick}
-    >
-      <span className="primitive-camp-action-label">{label}</span>
-      <MaterialStatus rows={action.materialRows} />
-    </ActionButton>
+    <div className="primitive-camp-action-entry">
+      <ActionButton
+        action={action.action || 'camp'}
+        cue="off"
+        className={action.enabled ? '' : 'is-unavailable'}
+        disabled={!enabled}
+        title={action.reason}
+        onClick={onClick}
+      >
+        <span className="primitive-camp-action-label">{label}</span>
+        <MaterialStatus rows={action.materialRows} />
+      </ActionButton>
+      <CampRequirementGuide action={action} regions={regions} onOpenRequirementHelp={onOpenRequirementHelp} />
+    </div>
   );
 }
 
@@ -44,13 +87,17 @@ export default function PrimitiveArchiveCampWorkspace(props) {
     campActions,
     campFacilities,
     canAct,
+    exploration,
+    onOpenRequirementHelp,
     recentActionText,
+    regions,
     runCamp,
     runEventChain,
     runProgressReport,
     runRecoveryChoice,
     state,
   } = props;
+  const guideRegions = exploration?.rows || regions || [];
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const fireStatus = Number(state.camp.fireLevel || 0) <= 0
     ? '미설치' : campFireActive(state) ? '불 켜짐' : '불 꺼짐';
@@ -76,6 +123,8 @@ export default function PrimitiveArchiveCampWorkspace(props) {
               key={action.id}
               label={action.label}
               onClick={() => runCamp(action.id)}
+              regions={guideRegions}
+              onOpenRequirementHelp={onOpenRequirementHelp}
             />
           ))}
           {campFacilities.map((facility) => (
@@ -85,6 +134,8 @@ export default function PrimitiveArchiveCampWorkspace(props) {
               key={facility.id}
               label={facility.buttonLabel}
               onClick={() => runCamp(facility.action)}
+              regions={guideRegions}
+              onOpenRequirementHelp={onOpenRequirementHelp}
             />
           ))}
         </div>

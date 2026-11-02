@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const profilePath = path.join(clientRoot, 'src', 'app', 'games', '_lib', 'gameBgmProfiles.js');
@@ -135,7 +136,21 @@ assert.match(playSource, /setMusicScene\(actionMusic\.theme\)/, '운영 행동 �
 assert.match(playSource, /setMusicScene\(musicTransition\.theme\)/, '이정표 트랙 전환이 실제 공급자에 전달되어야 합니다.');
 assert.match(playSource, /activeTabId=\{activeTabId\}/, '현재 기능 탭이 음악 장면 해석에 공유되어야 합니다.');
 assert.match(playSource, /const \[activeTabId, setActiveTabId\] = useState\('actions'\)/, '기능 탭은 플레이 화면의 제어 상태를 사용해야 합니다.');
-assert.match(playSource, /<PrimitiveArchiveFeatureTabs[\s\S]*?activeTabId=\{activeTabId\}[\s\S]*?setActiveTabId=\{setActiveTabId\}/, '플레이 화면은 활성 탭과 상태 변경 함수를 기능 탭에 전달해야 합니다.');
+assert.match(playSource, /<PrimitiveArchiveFeatureTabs[\s\S]*?activeTabId=\{activeTabId\}[\s\S]*?setActiveTabId=\{selectArchiveTab\}/, '플레이 화면은 활성 탭과 안내 초기화용 탭 변경 함수를 기능 탭에 전달해야 합니다.');
+{
+  const source = ts.createSourceFile('PrimitiveArchivePlayContent.js', playSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
+  let initializer;
+  const visit = node => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'selectArchiveTab') initializer = node.initializer;
+    ts.forEachChild(node, visit);
+  };
+  visit(source); assert.ok(initializer, '실제 탭 변경 연결 함수가 있어야 합니다.');
+  const calls = [];
+  const navigate = new Function('setRequirementHelpRequest', 'setActiveTabId', `return (${initializer.getText(source)});`)(
+    value => calls.push(['help', value]), value => calls.push(['tab', value]));
+  navigate('growth'); navigate('map');
+  assert.deepEqual(calls, [['help', null], ['tab', 'growth'], ['help', null], ['tab', 'map']], '안내 상태만 먼저 비운 다음 원래 활성 탭 상태를 갱신하여 음악 장면과 UI 선택이 계속 같은 탭을 사용해야 합니다.');
+}
 assert.match(tabsSource, /const selectTab = \(tabId\) => setActiveTabId\?\.\(tabId\)/, '네이티브 탭 버튼은 상위의 활성 탭 상태를 갱신해야 합니다.');
 assert.match(tabsSource, /primaryTabs\.map\(\(tab\) =>[\s\S]*?<button[\s\S]*?type="button"[\s\S]*?aria-current=\{selected \? 'page' : undefined\}[\s\S]*?aria-controls="primitive-archive-feature-panel"[\s\S]*?onClick=\{\(\) => selectTab\(tab\.id\)\}/, '주요 네이티브 탭 버튼은 선택 상태와 패널을 연결하고 클릭 시 활성 탭을 바꿔야 합니다.');
 assert.match(tabsSource, /secondaryTabs\.map\(\(tab\) =>[\s\S]*?<button[\s\S]*?type="button"[\s\S]*?aria-current=\{selected \? 'page' : undefined\}[\s\S]*?aria-controls="primitive-archive-feature-panel"[\s\S]*?selectTab\(tab\.id\)/, '보조 네이티브 탭 버튼은 선택 상태와 패널을 연결하고 클릭 시 활성 탭을 바꿔야 합니다.');

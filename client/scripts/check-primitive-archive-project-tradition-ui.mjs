@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import postcss from 'postcss';
 import ts from 'typescript';
 import './lib/register-simulation-modules.mjs';
+import { createHandlerHarness } from './lib/hook-handler-harness.mjs';
 
 const root = new URL('../', import.meta.url);
 const componentDirectory = new URL('src/app/games/primitive-archive/_components/', root);
@@ -15,12 +16,11 @@ const primitivesUrl = new URL('src/app/games/_components/GamePlayPrimitives.js',
 const transformed = new Set([panelUrl, growthUrl, primitivesUrl,
   new URL('src/app/games/_components/GameActionIcon.js', root).href,
   ...['Visuals', 'ResearchTreePreview', 'AdvancementQuote'].map((name) => new URL(`PrimitiveArchive${name}.js`, componentDirectory).href)]);
-const hooksSource = `export function useState(initial) { return [typeof initial === 'function' ? initial() : initial, () => {}]; }
-  export function useMemo(factory) { return factory(); }`;
+const hooksUrl = new URL('./lib/hook-handler-harness.mjs', import.meta.url).href;
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (context.parentURL === growthUrl && specifier === 'react') {
-      return { url: `data:text/javascript,${encodeURIComponent(hooksSource)}`, shortCircuit: true };
+      return { url: hooksUrl, shortCircuit: true };
     }
     return nextResolve(specifier, context);
   },
@@ -178,7 +178,7 @@ check('both actual growth branches forward reservation, summary and guard props 
     research: { unlocked, gateRows: [] }, civics: {}, researchMap: emptyMap, civicMap: emptyMap,
     technologyPlannerRows: [], civicPlannerRows: [], priorityPlannerRows: [], priorityCivicRows: [],
     inspirationRows: [], civicInspirationRows: [], techs: [], civicAdvancements: [], perks: [] };
-    const panels = nodes(Growth(props), (node) => node.type === Projects);
+    const panels = nodes(createHandlerHarness(Growth, props).render(), (node) => node.type === Projects);
     assert.equal(panels.length, 1);
     const forwarded = panels[0].props;
     assert.equal(forwarded.projectTradition, props.projectTradition);
@@ -198,4 +198,4 @@ check('project targeting and ordinary paid-work handlers remain separate from re
 });
 
 console.log(JSON.stringify({ pass: true, checks,
-  scope: 'Actual project/shared control SSR, getter/reservation/morning fixture, record display and both actual Growth initial render branches with memory React hooks. No browser, build, full lifecycle balance or save acceptance.' }));
+  scope: 'Actual project/shared control SSR, getter/reservation/morning fixture, record display and both actual Growth initial render branches with the shared state/ref/effect hook harness. No browser, build, full lifecycle balance or save acceptance.' }));

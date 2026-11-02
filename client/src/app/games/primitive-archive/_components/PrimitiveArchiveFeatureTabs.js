@@ -17,6 +17,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
     civics,
     exploration,
     inventoryRows,
+    mapHelpRequest,
     partyCap,
     regions,
     research,
@@ -46,6 +47,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
           regions={regions}
           selectedRegion={selectedRegion}
           selectionUnlocked={zoneSelectionUnlocked}
+          mapHelpRequest={mapHelpRequest?.runId === state.runId ? mapHelpRequest : null}
         />
       ),
     },
@@ -77,7 +79,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
       id: 'growth',
       label: '발전',
       badge: research.unlocked ? `${research.completed + civics.completed}/${research.total + civics.total}` : '잠김',
-      children: <PrimitiveArchiveGrowthTab {...props} />,
+      children: <PrimitiveArchiveGrowthTab key={state.runId} {...props} />,
     },
     {
       id: 'tribe',

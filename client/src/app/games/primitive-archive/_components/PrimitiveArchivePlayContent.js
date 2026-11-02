@@ -115,10 +115,12 @@ import { primitiveArchiveEraTheme } from '../_lib/primitiveArchiveEraTheme';
 import { founderHistoryRows } from '../_lib/primitiveArchiveFounders';
 import { ancestralFaithRows, ancestralFaithSummary } from '../_lib/primitiveArchiveAncestralFaith';
 import { LINEAGE_RULES } from '../_lib/primitiveArchiveLineage';
+import { campRequirementGuide } from '../_lib/primitiveArchiveCampRequirementGuide';
 import '../../../../styles/PrimitiveArchiveEras.css';
 import '../../../../styles/PrimitiveArchiveFounders.css';
 import '../../../../styles/PrimitiveArchiveOperations.css';
 import '../../../../styles/PrimitiveArchiveWorkPolicy.css';
+import '../../../../styles/PrimitiveArchiveRequirementGuide.css';
 import { primitiveArchiveFocusPlan } from '../_lib/primitiveArchiveFocus';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
 import usePrimitiveArchiveCheckpoint from '../_hooks/usePrimitiveArchiveCheckpoint';
@@ -178,6 +180,7 @@ export default function PrimitiveArchivePlayContent() {
   const [withoutShopPerks, setWithoutShopPerks] = useState(false);
   const shopStartRef = useRef(false);
   const [activeTabId, setActiveTabId] = useState('actions');
+  const [requirementHelpRequest, setRequirementHelpRequest] = useState(null);
   const [actorId, setActorId] = useState('shiroko');
   const [zoneId, setZoneId] = useState('whisper-woods');
   const [recipeId, setRecipeId] = useState('twine');
@@ -208,6 +211,7 @@ export default function PrimitiveArchivePlayContent() {
     });
   }, []);
   const handleRestoredRun = useCallback((nextState, details) => {
+    setRequirementHelpRequest(null);
     setInitialShopRunId(details?.source === 'owner-reset' ? nextState.runId : null);
     setNewRunDifficulty(nextState.difficulty || 'normal');
     setActorId(nextState.party.find((member) => member.hp > 0)?.id || nextState.party[0]?.id || 'shiroko');
@@ -308,6 +312,30 @@ export default function PrimitiveArchivePlayContent() {
   const civicMap = useMemo(() => buildResearchMap(civicAdvancements), [civicAdvancements]);
   const campActions = useMemo(() => campActionRows(state), [state]);
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
+  const selectArchiveTab = (tabId) => {
+    setRequirementHelpRequest(null);
+    setActiveTabId(tabId);
+  };
+  const openRequirementHelp = (request) => {
+    // Help navigates only. Do not reuse the paid/recorded region or research actions.
+    if (!request || typeof request !== 'object' || stateRef.current !== state) return;
+    const guides = [...campActions, ...campFacilities].map((action) => campRequirementGuide({ action, regions }));
+    if (request.kind === 'research') {
+      const technology = guides.flatMap((guide) => guide.research)
+        .find((row) => row.technologyId === request.technologyId);
+      if (!technology) return;
+      setRequirementHelpRequest({ kind: 'research', runId: state.runId, technologyId: technology.technologyId });
+      setActiveTabId('growth');
+    } else if (request.kind === 'map') {
+      const material = guides.flatMap((guide) => guide.materials)
+        .find((row) => row.resourceId === request.resourceId
+          && row.sources.some((source) => source.regionId === request.regionId));
+      if (!material) return;
+      setRequirementHelpRequest({ kind: 'map', runId: state.runId, resourceId: material.resourceId,
+        regionId: request.regionId, resourceName: material.name });
+      setActiveTabId('map');
+    }
+  };
   const perks = useMemo(() => perkRows(state), [state]);
   const projects = useMemo(() => projectRows(state), [state]);
   const projectTradition = useMemo(() => projectTraditionSummary(state, actorId), [state, actorId]);
@@ -895,7 +923,7 @@ export default function PrimitiveArchivePlayContent() {
       tone: 'warning',
       text: <>
         생애 인계 예고: {successionWarnings.map((member) => member.name).join(' · ')}. 정착 활동기 {LINEAGE_RULES.naturalEndCycle}기 전에 후계를 준비하세요.
-        <button type="button" className="primitive-inline-action" onClick={() => setActiveTabId('founders')}>후계 준비 열기</button>
+        <button type="button" className="primitive-inline-action" onClick={() => selectArchiveTab('founders')}>후계 준비 열기</button>
       </>,
     } : null,
     message ? { key: 'message', text: message } : null,
@@ -991,7 +1019,7 @@ export default function PrimitiveArchivePlayContent() {
       messages={playMessages}
     >
       <PrimitiveArchiveEraDefs theme={eraTheme} />
-      <PrimitiveArchiveFocusPanel plan={focusPlan} operations={operations} onNavigate={setActiveTabId} />
+      <PrimitiveArchiveFocusPanel plan={focusPlan} operations={operations} onNavigate={selectArchiveTab} />
       <PrimitiveArchiveInventoryBar inventory={state.inventory} inventoryRows={inventoryRows} />
 
       <PrimitiveArchiveFeatureTabs
@@ -1013,6 +1041,9 @@ export default function PrimitiveArchivePlayContent() {
         busy={busy || (shopControlsBusy ? 'shop-perks' : '') || (!checkpoint.ready || !checkpoint.exclusive ? 'checkpoint' : '')}
         campActions={campActions}
         campFacilities={campFacilities}
+        onOpenRequirementHelp={openRequirementHelp}
+        researchHelpRequest={requirementHelpRequest?.kind === 'research' && requirementHelpRequest.runId === state.runId ? requirementHelpRequest : null}
+        mapHelpRequest={requirementHelpRequest?.kind === 'map' && requirementHelpRequest.runId === state.runId ? requirementHelpRequest : null}
         canAct={actorCanAct}
         changeEquipmentSlot={changeEquipmentSlot}
         civicAdvancements={civicAdvancements}
@@ -1100,7 +1131,7 @@ export default function PrimitiveArchivePlayContent() {
         selectedCivicHelp={selectedCivicHelp}
         selectedDifficulty={selectedDifficulty}
         setActorId={setActorId}
-        setActiveTabId={setActiveTabId}
+        setActiveTabId={selectArchiveTab}
         setPartySort={setPartySort}
         setRecipeId={setRecipeId}
         setNewRunDifficulty={setNewRunDifficulty}

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import {
   CircleHelp,
   LockKeyhole,
@@ -26,7 +27,20 @@ export default function PrimitiveArchiveWorldMap({
   regions = [],
   selectedRegion,
   selectionUnlocked,
+  mapHelpRequest,
 }) {
+  const helpHeadingRef = useRef(null);
+  const helpRegion = mapHelpRequest && regions.find((region) => (
+    region.id === mapHelpRequest.regionId && region.revealed === true && !region.safe
+      && ['gather', 'hunt'].some((action) => region.zone?.[action]?.some((gain) => gain[0] === mapHelpRequest.resourceId && Number(gain[1]) > 0))
+  ));
+  const helpRegionId = helpRegion?.id || '';
+  const helpResourceId = helpRegion ? mapHelpRequest.resourceId : '';
+  useEffect(() => {
+    if (!helpRegionId || !helpResourceId) return;
+    helpHeadingRef.current?.focus({ preventScroll: true });
+    helpHeadingRef.current?.scrollIntoView({ block: 'center' });
+  }, [helpRegionId, helpResourceId]);
   const byId = Object.fromEntries(regions.map((region) => [region.id, region]));
   const visibleRegions = regions.filter((region) => visibleRegion(region, regions));
   const visibleEdges = regions.flatMap((region) => region.neighbors
@@ -43,6 +57,11 @@ export default function PrimitiveArchiveWorldMap({
       >
         <strong>{selectionUnlocked ? '지도 제작 완료' : '행동 지역 무작위'}</strong>
       </PrimitiveArchivePanelTitle>
+      {helpRegion ? <div className="primitive-map-requirement-help" role="note">
+        <h3 ref={helpHeadingRef} tabIndex={-1}>{mapHelpRequest.resourceName || '재료'} 획득 안내 · {helpRegion.name}</h3>
+        <p>{helpRegion.yieldHint} · {helpRegion.dangerLabel}. 이 지역의 기대 자원과 위험도를 확인한 뒤 행동을 선택할 수 있습니다. 재료 획득은 행동 결과에 따라 달라집니다.</p>
+        {!selectionUnlocked ? <p>지도 제작 연구 전에는 행동 지역을 지정할 수 없습니다. 탐사된 지역 중 무작위로 행동합니다.</p> : <p>이 지역에서 행동하려면 지역을 직접 지정한 뒤 행동 화면에서 채집·사냥을 선택합니다.</p>}
+      </div> : null}
       <div className="primitive-world-map-scroll" tabIndex={0} aria-label="가로로 스크롤 가능한 탐사 지도">
         <div className="primitive-world-map-canvas">
           <svg className="primitive-world-map-edges" viewBox="0 0 1000 650" aria-hidden="true">
@@ -64,6 +83,7 @@ export default function PrimitiveArchiveWorldMap({
               region.revealed ? 'is-revealed' : 'is-hidden',
               region.safe ? 'is-camp' : '',
               region.selected ? 'is-selected' : '',
+              helpRegionId === region.id ? 'is-requirement-help' : '',
               region.recentlyDiscovered ? 'is-discovered' : '',
             ].filter(Boolean).join(' ');
             return (

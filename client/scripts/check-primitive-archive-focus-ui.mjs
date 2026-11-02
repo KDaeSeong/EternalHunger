@@ -1087,8 +1087,23 @@ check('the live focus panel hosts the real operations summary without bypassing 
 
 const playContent = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js', import.meta.url), 'utf8');
 assert.match(playContent, /const focusPlan = primitiveArchiveFocusPlan\(/, 'The live page must use the tested focus plan.');
-assert.match(playContent, /<PrimitiveArchiveFocusPanel plan=\{focusPlan\} operations=\{operations\} onNavigate=\{setActiveTabId\} \/>\s*<PrimitiveArchiveInventoryBar inventory=\{state\.inventory\} inventoryRows=\{inventoryRows\} \/>\s*<PrimitiveArchiveFeatureTabs/s, 'The live focus panel must be followed by the persistent inventory bar before the real feature tabs.');
+assert.match(playContent, /<PrimitiveArchiveFocusPanel plan=\{focusPlan\} operations=\{operations\} onNavigate=\{selectArchiveTab\} \/>\s*<PrimitiveArchiveInventoryBar inventory=\{state\.inventory\} inventoryRows=\{inventoryRows\} \/>\s*<PrimitiveArchiveFeatureTabs/s, 'The live focus panel must use help-clearing navigation and be followed by the persistent inventory bar before the real feature tabs.');
 assert.match(playContent, /<details className="primitive-guide-details">\s*<summary>상세 생존 안내<\/summary>\s*<GameAdvisorPanel/s, 'Existing detailed survival advice must remain available below the main interface.');
+
+check('the actual navigation adapter clears requirement help before forwarding each requested tab to the original state setter', () => {
+  const source = ts.createSourceFile('PrimitiveArchivePlayContent.js', playContent, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
+  let initializer;
+  const visit = node => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'selectArchiveTab') initializer = node.initializer;
+    ts.forEachChild(node, visit);
+  };
+  visit(source); assert.ok(initializer, 'The actual selectArchiveTab adapter must exist.');
+  const calls = [];
+  const navigate = new Function('setRequirementHelpRequest', 'setActiveTabId', `return (${initializer.getText(source)});`)(
+    value => calls.push(['help', value]), value => calls.push(['tab', value]));
+  navigate('tribe'); navigate('actions');
+  assert.deepEqual(calls, [['help', null], ['tab', 'tribe'], ['help', null], ['tab', 'actions']]);
+});
 
 console.log(JSON.stringify({ pass: failures.length === 0, checks: checks.length, failures }, null, 2));
 if (failures.length) process.exitCode = 1;
