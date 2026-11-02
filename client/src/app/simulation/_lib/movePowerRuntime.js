@@ -1,8 +1,7 @@
 import { buildErBehaviorModifier } from '../../../utils/erMeta';
-import { normalizeErStats } from '../../../utils/erStats';
-import { getRegenValue, getShieldValue } from '../../../utils/statusLogic';
 import { getPerkAggressionBias } from './perkRuntime';
 import { getCombatEquipment } from '../../../utils/battleEquipmentLogic.js';
+import { getCombatPowerBreakdown } from './combatPowerEstimateRuntime.js';
 
 // Brand only functions created here. External estimators may mutate their
 // inputs, so route planners must not reuse their roster-derived facts.
@@ -11,23 +10,8 @@ export function isPlanningMovePowerSnapshot(estimatePower) {
   return planningPowerSnapshots.has(estimatePower);
 }
 
-function combatScoreForMovePower(actor) {
-  const stats = normalizeErStats(actor?.stats || {});
-  const maxHp = Math.max(1, Number(actor?.maxHp || stats.maxHp || 100));
-  const hp = Math.max(1, Math.min(maxHp, Number(actor?.hp ?? maxHp)));
-  const base =
-    Number(stats.attackPower || 0) +
-    Number(stats.skillAmp || 0) * 0.35 +
-    Number(stats.defense || 0) * 0.85 +
-    Number(stats.attackSpeed || 0) * 10 +
-    Number(stats.attackRange || 0) * 1.5 +
-    Number(stats.sightRange || 0) * 0.4 +
-    Number(stats.maxHp || 0) * 0.08;
-  const shield = Math.max(0, getShieldValue(actor));
-  const regen = Math.max(0, getRegenValue(actor));
-  const sustain = Math.min(28, shield * 0.65 + regen * 1.35);
-
-  return (base * (0.5 + hp / Math.max(1, maxHp * 2))) + sustain;
+function combatScoreForMovePower(actor, context = {}) {
+  return getCombatPowerBreakdown(actor, context.battleSettings || {}).total;
 }
 
 function summarizeEquipTierForMovePower(actor) {
@@ -48,14 +32,10 @@ function summarizeEquipTierForMovePower(actor) {
 }
 
 function estimateMovePower(actor, context = {}) {
-  const base = combatScoreForMovePower(actor);
-  const { weaponTier, armorTierSum } = summarizeEquipTierForMovePower(actor);
-  const ruleset = context?.ruleset || {};
+  const base = combatScoreForMovePower(actor, context);
   const battleSettings = context?.battleSettings || {};
-  const weaponPower = Number(ruleset?.ai?.powerWeaponPerTier ?? 3);
-  const armorPower = Number(ruleset?.ai?.powerArmorPerTier ?? 1.5);
   const er = buildErBehaviorModifier(actor, battleSettings);
-  return base + weaponTier * weaponPower + armorTierSum * armorPower + Number(er?.powerScore || 0);
+  return base + Number(er?.powerScore || 0);
 }
 
 // Sort one local candidate list without recomputing the pure internal score

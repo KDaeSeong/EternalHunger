@@ -214,7 +214,9 @@ check('invalid or unprepared goal saves are atomic; valid pregame changes replan
   assert.equal(saved.ok, true); assert.deepEqual(rng.getState(), before);
   for (const updated of [candidates[0], current[0]]) {
     assert.equal(updated.teamId, live.teamId); assert.equal(updated.zoneId, live.zoneId);
-    assert.equal(updated.hp, live.hp); assert.equal(updated.maxHp, live.maxHp);
+    const removedPassiveHp = Number(live._passiveMaxHpApplied || 0);
+    assert.equal(updated.maxHp, live.maxHp - removedPassiveHp);
+    assert.equal(updated.hp, Math.max(0, live.hp - removedPassiveHp));
     assert.deepEqual(updated.inventory, live.inventory); assert.equal(updated.simCredits, live.simCredits);
     for (const key of ['_growthPlan', '_growthFocusId', '_growthFallbackTargets', '_openingAcquiredItemIds', '_lateAcquiredItemIds']) {
       assert.equal(Object.hasOwn(updated, key), false, `${key} must be invalidated after route changes.`);

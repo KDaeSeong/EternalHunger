@@ -105,6 +105,8 @@ function normalizeRatioNumber(v, def = 0) {
 function normalizeStats(raw) {
   const s = raw && typeof raw === 'object' ? raw : {};
   return {
+    ...Object.fromEntries(['atkPerLevel', 'defPerLevel', 'hpPerLevel', 'skillAmpPerLevel', 'omnisyphon', 'moveSpeedFlat', 'armorPenFlat']
+      .filter(key => Object.hasOwn(s, key)).map(key => [key, normalizeNumber(s[key], 0)])),
     atk: normalizeNumber(s.atk, 0),
     def: normalizeNumber(s.def, 0),
     hp: normalizeNumber(s.hp, 0),
@@ -174,7 +176,8 @@ function normalizeSimEquipmentToItemDoc(raw, userId) {
   const rawType = String(src.type || '').trim().toLowerCase();
   const type = (equipSlot === 'weapon' || rawType === 'weapon' || rawType === '무기') ? '무기' : '방어구';
 
-  const stats = normalizeStats(src.stats);
+  const canonical = require('../../shared/equipmentStatContract.cjs').normalizeEquipmentItem(src);
+  const stats = normalizeStats(canonical.stats);
   const value = computeEstimatedValue(stats, tier);
 
   // description은 간단히(검색/디버그용)
@@ -196,6 +199,7 @@ function normalizeSimEquipmentToItemDoc(raw, userId) {
     value,
     baseCreditValue: value,
     stats,
+    equipmentStatVersion: canonical.equipmentStatVersion || 0,
     equipSlot,
     weaponType,
     archetype,

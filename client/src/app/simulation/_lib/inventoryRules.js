@@ -352,6 +352,7 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     ...(item?.weaponType ? { weaponType: item.weaponType } : {}),
     ...(item?.itemSubType ? { itemSubType: item.itemSubType } : {}),
     ...(item?.stats && typeof item.stats === 'object' ? { stats: { ...item.stats } } : {}),
+    ...(item?.equipmentStatVersion != null ? { equipmentStatVersion: Number(item.equipmentStatVersion) } : {}),
     ...(item && Object.hasOwn(item, 'consumeEffect') ? { consumeEffect: structuredClone(item.consumeEffect) } : {}),
     ...(item && Object.hasOwn(item, 'equipmentEffects') ? { equipmentEffects: structuredClone(item.equipmentEffects) } : {}),
     ...(item?.baseCreditValue !== undefined ? { baseCreditValue: item.baseCreditValue } : {}),

@@ -37,7 +37,7 @@ assert.equal(metadata.schemaVersion, GUEST_ITEM_CATALOG_SCHEMA_VERSION, 'Catalog
 assert.deepEqual(metadata, expected.metadata, 'Generated metadata must match the current server source.');
 assert.deepEqual(items, expected.items, 'Generated catalog data must be a deterministic source transformation.');
 assert.equal(items.length, metadata.itemCount, 'Catalog item count metadata must be exact.');
-assert.equal(items.length, 774, 'Version 1.1.0 pins the server-effective 774-item seed.');
+assert.equal(items.length, 774, 'Version 1.2.0 preserves the server-effective 774-item seed.');
 assert.equal(items.filter((item) => item.recipe.ingredients.length).length, 639);
 assert.ok(items.every((item) => item.itemKey.startsWith('namu:')), 'Legacy core rows must not leak into guest matches.');
 assert.equal(sha256(Buffer.from(JSON.stringify(items), 'utf8')), metadata.catalogSha256, 'Catalog content hash must match.');

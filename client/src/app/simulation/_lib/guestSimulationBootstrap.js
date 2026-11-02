@@ -12,6 +12,7 @@ import {
 } from './localSimulationMapRuntime.js';
 import { buildRulesetSnapshot, normalizeRulesetId } from '../../../utils/rulesets.js';
 import { mergeGuestItemCatalog } from './guestItemProfileRuntime.js';
+import { buildGuestSampleSkills } from './guestSampleSkills.js';
 
 export const GUEST_SIMULATION_MAP_ID = 'guest-lumia-island';
 export const GUEST_SIMULATION_ROSTER_SIZE = 24;
@@ -140,6 +141,7 @@ export function buildGuestSimulationRoster() {
       tacticalSkillLevel: 1,
       goalGearTier: 6,
       stats,
+      characterSkills: buildGuestSampleSkills(archetype.role, stats.attackRange),
       inventory: [],
       records: { games: 0, wins: 0, kills: 0, assists: 0 },
       guestDefault: true,

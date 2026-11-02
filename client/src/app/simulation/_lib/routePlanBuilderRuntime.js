@@ -8,6 +8,7 @@ import { getRegionZoneWeightsForItem } from './lumiaRegionData';
 import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
+import { createEquipmentSuitabilityEvaluator } from './equipmentSuitabilityRuntime.js';
 
 function normId(v) {
   return String(v?._id || v?.itemId || v?.id || v || '').trim();
@@ -92,6 +93,7 @@ function zoneTie(actor, zoneId) {
 }
 
 function pickFallbackRouteTargets(actor, publicItems) {
+  const suitability = createEquipmentSuitabilityEvaluator(actor);
   const actorWeaponType = normalizeWeaponType(String(actor?.weaponType || '').trim());
   const bySlot = new Map();
 
@@ -124,6 +126,8 @@ function pickFallbackRouteTargets(actor, publicItems) {
     list.sort((a, b) => {
       const tierDelta = Number(b?.tier || 1) - Number(a?.tier || 1);
       if (tierDelta) return tierDelta;
+      const fit = suitability(b) - suitability(a);
+      if (Math.abs(fit) > 1e-9) return fit;
       const ha = hash32(`${actorKey}:${slot}:${normId(a)}`);
       const hb = hash32(`${actorKey}:${slot}:${normId(b)}`);
       return ha - hb;
@@ -339,6 +343,7 @@ function addRequirementsToState(baseReqs, addList) {
 }
 
 function buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, opts = {}) {
+  const suitability = createEquipmentSuitabilityEvaluator(actor);
   const actorWeaponType = normalizeWeaponType(String(actor?.weaponType || '').trim());
   const heroGoalBySlot = pickHeroGoalLoadoutBySlot(actor);
   const candidateLimit = Math.max(3, Math.floor(Number(opts.candidateLimit ?? 8)));
@@ -364,6 +369,7 @@ function buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, op
           item: goalItem,
           requirements,
           goal: true,
+          combatValue: suitability(goalItem),
         }]);
         continue;
       }
@@ -389,8 +395,10 @@ function buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, op
       const highTierCount = requirements.filter((r) => Number(r.tier || 0) >= 5).length;
       const totalQty = requirements.reduce((sum, r) => sum + Math.max(1, Number(r.qty || 1)), 0);
       const zoneCount = new Set(requirements.flatMap((r) => Array.isArray(r.zones) ? r.zones : [])).size;
-      const score = highTierCount * 10000 + noZoneCount * 1000 + totalQty * 4 + Math.max(0, zoneCount - 2) * 3;
-      candidates.push({ item: it, requirements, goal: false, score });
+      const combatValue = suitability(it);
+      const score = highTierCount * 10000 + noZoneCount * 1000 + totalQty * 4
+        + Math.max(0, zoneCount - 2) * 3 - combatValue * 4;
+      candidates.push({ item: it, requirements, goal: false, score, combatValue });
     }
 
     candidates.sort((a, b) => Number(a.score || 0) - Number(b.score || 0) || String(a.item?.name || '').localeCompare(String(b.item?.name || ''), 'ko'));
@@ -473,6 +481,7 @@ function prepareRouteRequirementSearch(candidatesBySlot, droneMaxTier) {
         }
       }
       return { quantities, ids, picks: [...state.picks, candidate],
+        combatValue: Number(state.combatValue || 0) + Number(candidate.combatValue || 0),
         invalid, stats: { totalQty, missingQty, coveredQty, missingCount, droneBlockedMissing, droneMissingQty, invalid } };
     },
   };

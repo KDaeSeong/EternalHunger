@@ -4,9 +4,10 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import seedNormalization from '../../server/utils/defaultItemTreeNormalization.js';
+import equipmentStatContract from '../../shared/equipmentStatContract.cjs';
 
 export const GUEST_ITEM_CATALOG_SCHEMA_VERSION = 1;
-export const GUEST_ITEM_CATALOG_GENERATOR_VERSION = '1.1.0';
+export const GUEST_ITEM_CATALOG_GENERATOR_VERSION = '1.2.0';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 export const CLIENT_ROOT = resolve(SCRIPT_DIR, '..');
@@ -22,20 +23,6 @@ export const OUTPUT_PATH = resolve(
   '_generated',
   'guestItemCatalog.generated.js',
 );
-
-const STAT_KEYS = [
-  'atk',
-  'def',
-  'hp',
-  'skillAmp',
-  'atkSpeed',
-  'critChance',
-  'cdr',
-  'lifesteal',
-  'moveSpeed',
-  'armorPen',
-  'adaptiveForce',
-];
 
 function cleanString(value) {
   return String(value ?? '').trim();
@@ -64,7 +51,7 @@ function sha256(value) {
 
 function normalizeStats(stats) {
   const source = stats && typeof stats === 'object' ? stats : {};
-  return Object.fromEntries(STAT_KEYS.map((key) => [key, finiteNumber(source[key], 0)]));
+  return Object.fromEntries(equipmentStatContract.EQUIPMENT_STAT_KEYS.map((key) => [key, finiteNumber(source[key], 0)]));
 }
 
 function sourceItemKey(item) {
@@ -139,6 +126,7 @@ function normalizeGuestItem(sourceItem) {
       resultQty: positiveInteger(sourceItem?.recipeResultQty, 1),
     },
     stats: normalizeStats(sourceItem?.stats),
+    ...(sourceItem?.equipmentStatVersion != null ? { equipmentStatVersion: sourceItem.equipmentStatVersion } : {}),
     equipSlot: cleanString(sourceItem?.equipSlot),
     weaponType: cleanString(sourceItem?.weaponType),
     archetype: cleanString(sourceItem?.archetype),

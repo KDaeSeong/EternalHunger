@@ -1,4 +1,9 @@
 import { isErRangedWeaponType, normalizeErWeaponType } from './erMeta.js';
+import equipmentStatContract from '../../../shared/equipmentStatContract.cjs';
+import { getStatGrowthLevel } from './erStats.js';
+
+export const getEquipmentStatValues = (item, level = 1) => equipmentStatContract.equipmentStatsAtLevel(item, level);
+export const normalizeEquipmentItem = equipmentStatContract.normalizeEquipmentItem;
 
 // 내부 유틸 (legacy/normalized 아이템 혼용 대응)
 const norm = (v) => String(v ?? '').trim().toLowerCase();
@@ -24,8 +29,8 @@ const normalizeRatioStat = (value, max = 0.75) => {
 // Only equipmentCatalog's reserved generated ids use hundredths (0.5 = 50).
 // Persisted generated items keep that identity in itemKey/externalId. Resolve
 // at read time without migrating saves or guessing units from the value size.
-export const getEquipmentSkillAmp = (item) => {
-  const value = Number(item?.stats?.skillAmp ?? 0);
+export const getEquipmentSkillAmp = (item, level = 1, resolvedStats = null) => {
+  const value = Number((resolvedStats || getEquipmentStatValues(item, level)).skillAmp ?? 0);
   if (!Number.isFinite(value)) return 0;
   const legacyGenerated = [item?.itemKey, item?.externalId, item?.itemId, item?.id, item?._id]
     .some((id) => /^(wpn|eq)_/.test(String(id || '').trim()));
@@ -117,14 +122,14 @@ export const getEquipDeltas = (character, settings = {}) => {
 export const getEquipStatTotals = (character) => {
   const totals = { atk: 0, def: 0, hp: 0, skillAmp: 0, atkSpeed: 0, critChance: 0, cdr: 0, lifesteal: 0, moveSpeed: 0, armorPen: 0, adaptiveForce: 0, weaponType: '', weaponIsRanged: false };
   const add = (item) => {
-    const src = item?.stats;
+    const src = getEquipmentStatValues(item, getStatGrowthLevel(character));
     const s = src && typeof src === 'object' ? src : {};
     totals.atk += Number(s.atk || 0);
     totals.def += Number(s.def || 0);
     totals.hp += Number(s.hp || 0);
     // This legacy score API still exposes hundredths; actual damage uses
     // getEquipmentSkillAmp directly and never inherits its score-only cap.
-    totals.skillAmp += getEquipmentSkillAmp(item) / 100;
+    totals.skillAmp += getEquipmentSkillAmp(item, getStatGrowthLevel(character)) / 100;
     totals.atkSpeed += Number(s.atkSpeed || 0);
     totals.critChance += Number(s.critChance || 0);
     totals.cdr += normalizeRatioStat(s.cdr);

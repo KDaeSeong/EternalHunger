@@ -2,6 +2,7 @@ import { areEquipmentWeaponTypesCompatible, normalizeWeaponType } from '../../..
 import { getInvItemId, inferEquipSlot, inferItemCategory } from './inventoryRules.js';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 import { getActorEquipmentTier } from './growthEquipmentRuntime.js';
+import { createEquipmentSuitabilityEvaluator } from './equipmentSuitabilityRuntime.js';
 
 const slots = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
 const keyOf = (item) => String(item?.itemKey || item?.externalId || item?._id || '').trim();
@@ -172,6 +173,7 @@ export function getLateGrowthDecision(actor, items, { authoredOnly = false, incl
   // during this synchronous call, but its score must be rebuilt on the next
   // action after a pickup, craft, death or resource allocation.
   const ingredientScores = new Map();
+  const suitability = createEquipmentSuitabilityEvaluator(actor);
   const ownedIngredients = (item) => {
     if (!ingredientScores.has(item)) ingredientScores.set(item, termsByItem.get(item).ingredients
       .reduce((sum, row) => sum + Math.min(row.qty, quantities.get(row.itemId) || 0), 0));
@@ -179,6 +181,7 @@ export function getLateGrowthDecision(actor, items, { authoredOnly = false, incl
   };
   candidates.sort((a, b) => Number(b.authored) - Number(a.authored) || a.tier - b.tier
     || ownedIngredients(b.target) - ownedIngredients(a.target)
+    || (a.authored || b.authored ? 0 : suitability(b.target) - suitability(a.target))
     || slots.indexOf(a.slot) - slots.indexOf(b.slot) || String(a.target._id).localeCompare(String(b.target._id)));
   return { targets: candidates.map((row) => row.target), issues,
     authoredTargets: candidates.filter((row) => row.authored).map((row) => row.target) };

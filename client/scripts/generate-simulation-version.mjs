@@ -3,7 +3,9 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const root = new URL('../', import.meta.url);
-const paths = ['src/app/simulation/tacticalSkillTable.js', '../shared/marketItemPolicy.cjs'];
+const paths = ['src/app/simulation/tacticalSkillTable.js', '../shared/marketItemPolicy.cjs',
+  '../shared/equipmentStatContract.cjs', '../shared/importedEquipmentStats.generated.json',
+  'src/app/simulation/_generated/guestItemCatalog.generated.js'];
 for (const dir of ['src/app/simulation/_lib', 'src/utils']) {
   for (const file of readdirSync(new URL(`${dir}/`, root))) if (file.endsWith('.js')) paths.push(`${dir}/${file}`);
 }

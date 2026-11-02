@@ -80,7 +80,7 @@ check('zero/one-item sorts avoid estimating and batched scoring reduces repeated
   assert.ok(batchedReads < comparatorReads, `Expected fewer stat reads (${batchedReads} < ${comparatorReads}).`);
 });
 
-check('finite and nonfinite estimated scores retain historical ordering semantics', () => {
+check('unused tier coefficients cannot create infinite or NaN combat strength', () => {
   const plainA = actor('plain-a', 'one', 'a');
   const plainB = actor('plain-b', 'one', 'a');
   const equipped = actor('equipped', 'one', 'a', { inventory: [{ itemId: 'w', equipSlot: 'weapon', type: '무기', tier: 2 }],
@@ -89,12 +89,12 @@ check('finite and nonfinite estimated scores retain historical ordering semantic
   const infiniteContext = { ...context, ruleset: { ...ruleset, ai: { ...ruleset.ai, powerWeaponPerTier: Infinity } } };
   const legacyInfinite = rows.slice().sort((left, right) =>
     Number(estimateMovePower(right, infiniteContext) || 0) - Number(estimateMovePower(left, infiniteContext) || 0));
-  assert.equal(estimateMovePower(equipped, infiniteContext), Infinity);
+  assert.ok(Number.isFinite(estimateMovePower(equipped, infiniteContext)));
   assert.deepEqual(sortActorsByMovePowerDescending(rows, infiniteContext), legacyInfinite);
   const nanContext = { ...context, ruleset: { ...ruleset, ai: { ...ruleset.ai, powerWeaponPerTier: NaN } } };
   const legacyNan = rows.slice().sort((left, right) =>
     Number(estimateMovePower(right, nanContext) || 0) - Number(estimateMovePower(left, nanContext) || 0));
-  assert.ok(rows.every(row => Number.isNaN(estimateMovePower(row, nanContext))));
+  assert.ok(rows.every(row => Number.isFinite(estimateMovePower(row, nanContext))));
   assert.deepEqual(sortActorsByMovePowerDescending(rows, nanContext), legacyNan);
 });
 
@@ -128,7 +128,7 @@ check('a new action boundary recomputes changed HP, equipment, effects and maste
   const variants = [
     { ...row, hp: 20 },
     { ...row, stats: { ...row.stats, attackPower: 80 } },
-    { ...row, inventory: [{ itemId: 'new-weapon', equipSlot: 'weapon', type: '무기', tier: 6 }],
+    { ...row, inventory: [{ itemId: 'new-weapon', equipSlot: 'weapon', type: '무기', tier: 6, stats: { atk: 30 } }],
       equipped: { weapon: 'new-weapon' } },
     { ...row, activeEffects: [makeShieldEffect(10, 5), makeRegenEffect(4, 5)] },
     { ...row, erRole: 'assassin' },

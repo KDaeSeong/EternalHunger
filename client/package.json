@@ -243,7 +243,9 @@
     "check:primitive-archive:founders": "node ./scripts/check-primitive-archive-founders.mjs && node ./scripts/check-primitive-archive-founder-selection.mjs && node ./scripts/check-primitive-archive-founder-checkpoint.mjs && node ./scripts/check-primitive-archive-founders-ui.mjs && npm run check:primitive-archive:lineage && npm run check:primitive-archive:portraits",
     "check:primitive-archive:lineage": "node ./scripts/check-primitive-archive-lineage.mjs && node ./scripts/check-primitive-archive-ancestral-faith.mjs && node ./scripts/check-primitive-archive-lineage-checkpoint.mjs && node ./scripts/check-primitive-archive-lineage-ui.mjs && npm run check:primitive-archive:project-tradition",
     "check:primitive-archive:project-tradition": "node ./scripts/check-primitive-archive-project-tradition.mjs && node ./scripts/check-primitive-archive-project-tradition-checkpoint.mjs && node ./scripts/check-primitive-archive-project-tradition-ui.mjs",
-    "check:primitive-archive:portraits": "node ./scripts/check-primitive-archive-official-portraits.mjs && node ./scripts/check-primitive-archive-official-portraits-ui.mjs"
+    "check:primitive-archive:portraits": "node ./scripts/check-primitive-archive-official-portraits.mjs && node ./scripts/check-primitive-archive-official-portraits-ui.mjs",
+    "check:equipment-balance": "node scripts/check-equipment-balance.mjs",
+    "check:equipment-stat-sources": "node ../server/scripts/generate-equipment-stat-backfill.cjs --check"
   },
   "dependencies": {
     "axios": "^1.13.2",

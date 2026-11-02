@@ -1,5 +1,5 @@
-import { getCombatEquipment, getEquipmentSkillAmp } from '../../../utils/battleEquipmentLogic.js';
-import { getEffectiveErStats } from '../../../utils/erStats.js';
+import { getCombatEquipment, getEquipmentSkillAmp, getEquipmentStatValues } from '../../../utils/battleEquipmentLogic.js';
+import { getEffectiveErStats, getStatGrowthLevel } from '../../../utils/erStats.js';
 import { getEffectiveStats, getLifestealPercent, applyHealingModifier, getDamageBlockReason } from '../../../utils/statusLogic.js';
 import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { restoreRuntimeHp, describeHpRecovery } from './healthRecoveryRuntime.js';
@@ -15,12 +15,13 @@ export function getCombatStats(actor) {
   const base = getEffectiveErStats(actor);
   let bonusAttack = Math.max(0, stats.attackPower - base.attackPower);
   for (const item of getCombatEquipment(actor)) {
-    const gear = item.stats || {};
+    const gear = getEquipmentStatValues(item, getStatGrowthLevel(actor));
     const attack = finite(gear.atk ?? gear.attackPower);
     bonusAttack += attack;
     stats.attackPower += attack;
     stats.defense += finite(gear.def ?? gear.defense);
-    stats.skillAmp += getEquipmentSkillAmp(item);
+    stats.maxHp += finite(gear.hp);
+    stats.skillAmp += getEquipmentSkillAmp(item, getStatGrowthLevel(actor), gear);
     stats.attackSpeed += finite(gear.atkSpeed ?? gear.attackSpeed);
     for (const key of RATIO_STATS) stats[key] += ratio(gear[key]);
     for (const key of ['armorPenFlat', 'adaptiveForce', 'finalDamageFlat']) stats[key] += finite(gear[key]);

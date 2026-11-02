@@ -1,5 +1,6 @@
 const { normalizeConsumeEffect, consumeEffectErrorText } = require('./consumeEffectContract');
 const { normalizeEquipmentEffects, equipmentEffectErrorText } = require('./equipmentEffectContract');
+const { normalizeEquipmentItem } = require('../../shared/equipmentStatContract.cjs');
 
 // Both item write routes use plain field patches. Reject database operators and
 // dotted paths so a partial Mixed-field update cannot bypass effect validation.
@@ -14,7 +15,9 @@ function prepareItemEffectWritePayload(body) {
   if (!equipment.ok) return { ok: false, error: equipmentEffectErrorText(equipment) };
   if (equipment.effects.length && Object.hasOwn(body, 'type') && !['무기', '방어구'].includes(body.type))
     return { ok: false, error: '장비 발동 효과는 무기 또는 방어구에 지정해 주세요.' };
-  return { ok: true, payload: { ...body,
+  const normalized = Object.hasOwn(body, 'stats')
+    ? normalizeEquipmentItem({ ...body, equipmentStatVersion: body.equipmentStatVersion ?? 2 }) : body;
+  return { ok: true, payload: { ...normalized,
     ...(Object.hasOwn(body, 'consumeEffect') ? { consumeEffect: result.explicit ? result.effect : null } : {}),
     ...(Object.hasOwn(body, 'equipmentEffects') ? { equipmentEffects: equipment.effects } : {}),
   } };
