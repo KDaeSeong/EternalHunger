@@ -1,5 +1,6 @@
 import { withAdvancementLore } from './primitiveArchiveAdvancementLore';
 import { ARCHIVE_OFFICIAL_PORTRAITS } from './primitiveArchivePortraits';
+import { isValidTribeProductionReceipt, normalizeTribeWorkPolicy } from './primitiveArchiveWorkPolicy.js';
 
 export const GAME_SLUG = 'primitive-archive';
 export const QUICK_SAVE_SLOT = 'primitive-archive-main';
@@ -2441,11 +2442,15 @@ export function initTribeState() {
     growthSerial: 0,
     assignmentSerial: 0,
     settlementLevel: 0,
+    workPolicy: 'balanced',
   };
 }
 
 export function normalizeTribeState(value = {}) {
   const base = initTribeState();
+  if (!isValidTribeProductionReceipt(value.lastProduction, TRIBE_JOBS.map(job => job.id))) {
+    throw new RangeError('Invalid tribe production receipt');
+  }
   const population = Math.min(24, Math.max(1, Math.floor(Number(value.population || base.population))));
   const assignments = Object.fromEntries(TRIBE_JOBS.map((job) => [
     job.id,
@@ -2478,6 +2483,7 @@ export function normalizeTribeState(value = {}) {
     growthSerial: Math.max(0, Math.floor(Number(value.growthSerial || 0))),
     assignmentSerial: Math.max(0, Math.floor(Number(value.assignmentSerial || 0))),
     settlementLevel: Math.min(3, Math.max(0, Math.floor(Number(value.settlementLevel || 0)))),
+    workPolicy: normalizeTribeWorkPolicy(value.workPolicy),
   };
 }
 

@@ -25,11 +25,13 @@ function diplomacyDisabledText(rival, action) {
 export default function PrimitiveArchiveTribeTab({
   actionFeedback,
   adjustTribeJob,
+  changeTribeWorkPolicy,
   busy,
   recentActionText,
   rivals = [],
   runDiplomacy,
   supplies,
+  projectTradition,
   tribe,
 }) {
   const knownCount = rivals.filter((rival) => rival.known).length;
@@ -39,6 +41,21 @@ export default function PrimitiveArchiveTribeTab({
   const tradeRouteCharges = Number(rivals[0]?.tradeRouteCharges || 0);
   const foodResult = Number(tribe.productionSerial || 0) > 0
     ? `${Number(lastProduction.foodProvided || 0)}/${Number(lastProduction.foodNeed || 0)}`
+    : '정산 전';
+  const workPolicy = tribe.workPolicy;
+  const policyControlsBlockedReason = busy ? '저장 작업이 끝난 뒤 운영 방침을 변경할 수 있습니다.'
+    : tribe.jobEditBlockedReason || '';
+  const policyStatusReason = policyControlsBlockedReason || workPolicy?.blockedReason || '';
+  const completedTraditions = (projectTradition?.records || []).filter((row) => row.completedDay > 0 && row.appliedWork > 0)
+    .slice().sort((a, b) => b.completedDay - a.completedDay).slice(0, 3);
+  const recordedPolicy = workPolicy?.options?.find((option) => option.id === lastProduction.workPolicy);
+  const recordedAssignments = lastProduction.assignments;
+  const hasRecordedWorkforce = recordedAssignments && ['builder', 'scholar'].every((id) =>
+    Number.isSafeInteger(recordedAssignments[id]) && recordedAssignments[id] >= 0);
+  const workPolicyReceipt = Number(tribe.productionSerial || 0) > 0
+    ? recordedPolicy && hasRecordedWorkforce
+      ? `직전 정산 당시 선택: ${recordedPolicy.label} · 실제 건설 ${recordedAssignments.builder}명/기록 ${recordedAssignments.scholar}명`
+      : '방침·배치 미기록'
     : '정산 전';
 
   return (
@@ -84,6 +101,32 @@ export default function PrimitiveArchiveTribeTab({
       <section className="games-panel primitive-job-panel">
         <PrimitiveArchivePanelTitle action="primitive-job" title="직업 배치" meta={`미배치 ${tribe.unassigned}명 · AP 소모 없음`} />
         <p>{jobEditBlockedReason || '하루 자동 운영 또는 정착 이후 다음 정산 때 자동 배치 일손과 미배치 인원을 식량·실행 가능한 사업에 맞춰 다시 배분합니다. 직접 조정한 직업의 일손은 유지하며, 이전 저장 기록의 배치도 보존합니다.'}</p>
+        {workPolicy ? <div className="primitive-work-policy" role="group" aria-label="자동 일손 운영 방침">
+          <h3>자동 일손 운영 방침 · {workPolicy.label}</h3>
+          <p>{workPolicy.costText || '방침 설정은 AP를 쓰지 않습니다.'}</p>
+          <p>{workPolicy.timingText || '다음 하루 자동 운영 또는 정산 때 자동·미배치 일손에 적용합니다.'} 방침을 선택해도 지금 배치는 바뀌지 않으며, 직접 고정한 일손과 식량 확보를 먼저 지킵니다.</p>
+          {policyStatusReason ? <p className="primitive-work-policy__reason">{policyStatusReason}</p> : null}
+          <div className="primitive-work-policy__options">
+            {(workPolicy.options || []).map((option) => {
+              const selected = option.id === workPolicy.id;
+              const blocked = Boolean(policyControlsBlockedReason) || !option.canSelect || selected
+                || typeof changeTribeWorkPolicy !== 'function';
+              const reason = policyControlsBlockedReason || option.blockedReason || (selected ? '현재 선택한 방침입니다.' : '');
+              return <button type="button" key={option.id} data-game-sfx="off" aria-pressed={selected} disabled={blocked}
+                aria-describedby={'primitive-work-policy-' + option.id} title={reason || option.description}
+                onClick={() => { if (!blocked) changeTribeWorkPolicy(option.id); }}>
+                <strong>{option.label}{selected ? ' · 선택 중' : ''}</strong>
+                <span id={'primitive-work-policy-' + option.id}>{option.description}</span>
+                {reason ? <small>{reason}</small> : null}
+              </button>;
+            })}
+          </div>
+          {completedTraditions.length ? <details className="primitive-work-policy__history">
+            <summary>최근 완공에 남은 전승 기록</summary>
+            <ul>{completedTraditions.map((row) => <li key={row.projectId + ':' + row.founderId}>{row.text || `${row.projectName || '사업명 미기록'} · ${row.founderName || '창건자 미기록'} · ${row.completedDay}일차 완공 · 실제 전승 작업 ${row.appliedWork}`}</li>)}</ul>
+            <p>이 기록은 운영 방침의 해금 조건이나 추가 효과가 아닙니다.</p>
+          </details> : null}
+        </div> : null}
         <div className="primitive-job-grid">
           {tribe.jobs.map((job) => (
             <article className={job.unlocked ? '' : 'is-locked'} key={job.id}>
@@ -122,6 +165,7 @@ export default function PrimitiveArchiveTribeTab({
           ))}
         </div>
         <div className="primitive-tribe-ledger">
+          <div className="primitive-work-policy__receipt"><span>직전 운영 방침·배치</span><strong>{workPolicyReceipt}</strong></div>
           <div><span>최근 생산</span><strong>{tribe.lastProductionText}</strong></div>
           <div><span>최근 배식</span><strong>{foodResult}</strong></div>
           <div><span>자동 건설</span><strong>{lastProduction.projectWork ? `${lastProduction.projectName} +${lastProduction.projectWork}` : '진행 없음'}</strong></div>

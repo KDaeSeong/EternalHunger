@@ -36,6 +36,7 @@ import {
   civicsSummary,
   civilizationMilestoneRows,
   clearAllEquipmentAction,
+  changeTribeWorkPolicyAction,
   createNewState,
   difficultyRows,
   developerToolsSummary,
@@ -117,6 +118,7 @@ import { LINEAGE_RULES } from '../_lib/primitiveArchiveLineage';
 import '../../../../styles/PrimitiveArchiveEras.css';
 import '../../../../styles/PrimitiveArchiveFounders.css';
 import '../../../../styles/PrimitiveArchiveOperations.css';
+import '../../../../styles/PrimitiveArchiveWorkPolicy.css';
 import { primitiveArchiveFocusPlan } from '../_lib/primitiveArchiveFocus';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
 import usePrimitiveArchiveCheckpoint from '../_hooks/usePrimitiveArchiveCheckpoint';
@@ -686,6 +688,16 @@ export default function PrimitiveArchivePlayContent() {
     applyAction('직업 배치', (current) => adjustTribeJobAction(current, jobId, delta));
   };
 
+  const changeTribeWorkPolicy = (policyId) => {
+    const option = tribe.workPolicy?.options.find((row) => row.id === policyId);
+    if (!option?.canSelect || policyId === tribe.workPolicy.id) return;
+    const matchesDisplayedPolicy = (current) => current.runId === state.runId && !current.ended
+      && tribeSummary(current).workPolicy?.id === tribe.workPolicy.id;
+    if (!matchesDisplayedPolicy(stateRef.current)) return;
+    applyAction('운영 방침 변경', (current) => matchesDisplayedPolicy(current)
+      ? changeTribeWorkPolicyAction(current, policyId) : current);
+  };
+
   const runDiplomacy = (rivalId, actionId) => {
     applyAction(
       '외교',
@@ -989,6 +1001,7 @@ export default function PrimitiveArchivePlayContent() {
         actionFeedback={resultPresentation}
         actionForecasts={actionForecasts}
         adjustTribeJob={adjustTribeJob}
+        changeTribeWorkPolicy={changeTribeWorkPolicy}
         applyAction={applyAction}
         autoDayControl={autoDayControl}
         shopPerkStatus={<PrimitiveArchiveShopPerks state={state} compact />}

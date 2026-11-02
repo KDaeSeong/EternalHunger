@@ -1,0 +1,42 @@
+.primitive-era.primitive-archive-page-shell .primitive-work-policy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: var(--era-control-border);
+  border-radius: var(--era-block-radius);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+  overflow-wrap: anywhere;
+}
+.primitive-work-policy h3,
+.primitive-work-policy p { margin: 0; font-size: inherit; }
+.primitive-work-policy p { color: var(--era-ink-soft); }
+.primitive-work-policy__options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 7px;
+  min-width: 0;
+}
+.primitive-era.primitive-archive-page-shell .primitive-work-policy__options > button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding: 9px;
+  border: var(--era-control-border);
+  border-radius: var(--era-control-radius);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.primitive-work-policy__options > button[aria-pressed="true"] { outline: 2px solid var(--era-accent); outline-offset: -2px; }
+.primitive-work-policy__options > button:focus-visible { outline: 2px solid var(--era-focus); outline-offset: 2px; }
+.primitive-work-policy__options span,
+.primitive-work-policy__options small { color: var(--era-ink-soft); font: inherit; }
+.primitive-work-policy__history { min-width: 0; }
+.primitive-work-policy__history summary { cursor: pointer; color: var(--era-accent-deep); }
+.primitive-work-policy__history ul { margin: 6px 0; padding-inline-start: 20px; }
+.primitive-tribe-ledger > .primitive-work-policy__receipt { grid-column: 1 / -1; }

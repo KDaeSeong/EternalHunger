@@ -56,6 +56,8 @@ export { lineageSummary } from './primitiveArchiveLineage.js';
 export { ancestralFaithRows, ancestralFaithSummary } from './primitiveArchiveAncestralFaith.js';
 import { createProjectTradition, normalizeProjectTradition, reserveProjectTradition, projectTraditionBonus,
   settleProjectTradition, markProjectTraditionCompleted, projectTraditionReason } from './primitiveArchiveProjectTradition.js';
+import { isValidTribeWorkPolicy, normalizeTribeWorkPolicy, tribeWorkPolicyDetails,
+  prioritizeTribeWorkPolicy } from './primitiveArchiveWorkPolicy.js';
 
 export {
   GAME_SLUG,
@@ -1348,6 +1350,7 @@ export function tribeSummary(state) {
   });
   return {
     ...tribe,
+    workPolicy: tribeWorkPolicySummary(current, tribe),
     assigned,
     unassigned,
     capacity,
@@ -1365,6 +1368,59 @@ export function tribeSummary(state) {
       ? formatGains(Object.entries(tribe.lastProduction?.gains || {}))
       : '아직 일일 정산 전',
   };
+}
+
+function tribeWorkPolicyUnlocked(state) {
+  // STATE_WORKFORCE is a civic. Old saves may still carry its authoritative
+  // completion in the legacy research map, which normalizeCivics already reads.
+  return Boolean(normalizeCivics(state.civics, state.research).completed?.STATE_WORKFORCE);
+}
+
+function tribeWorkPolicyTargets(state) {
+  const projects = normalizeProjectState(state.projects);
+  const project = TRIBE_PROJECTS.find(row => row.id === projects.selectedProjectId);
+  const canBuild = project && !projects.completed?.[project.id] && projectPrereqsMet(state, project)
+    && (projects.resourceCommitted?.[project.id] || hasResources(state.inventory, project.cost || {}));
+  const research = normalizeResearch(state.research);
+  const selected = getTechnology(research.selectedTechId);
+  const tech = researchSystemStatus(state).unlocked
+    ? selected && !research.completed?.[selected.id] && prereqsMet(research, selected) ? selected : nextAvailableTech(research)
+    : null;
+  return { projectRemaining: canBuild ? Math.max(0, project.work - Number(projects.progress?.[project.id] || 0)) : 0,
+    researchRemaining: tech ? Math.max(0, tech.cost - Number(research.progress?.[tech.id] || 0)) : 0 };
+}
+
+function tribeWorkPolicySummary(state, tribe) {
+  const id = normalizeTribeWorkPolicy(tribe.workPolicy);
+  const unlocked = tribeWorkPolicyUnlocked(state);
+  let applicationBlockedReason = '';
+  if (unlocked && !state.ended && id !== 'balanced') {
+    const assigned = Object.values(tribe.assignments).reduce((sum, count) => sum + Number(count || 0), 0);
+    const movable = Math.max(0, tribe.population - assigned)
+      + Object.values(tribe.autoAssignments).reduce((sum, count) => sum + Number(count || 0), 0);
+    const stored = forecastTribeFood(state, Object.fromEntries(TRIBE_JOBS.map(job => [job.id, 0])), true);
+    const reserveNeed = (Math.ceil(tribe.population / 4) + lineageHousehold(state).extraRations) * 2;
+    const targets = tribeWorkPolicyTargets(state);
+    applicationBlockedReason = !movable ? '이동할 자동·미배치 일손이 없어 현재 수동 배치를 유지합니다.'
+      : stored.totalShortage > 0 || stored.partyShortage > 0 || stored.days[1].reserve < reserveNeed
+        ? '기존 비축의 식량 안전이 부족하여 기존 식량 우선 배치를 적용합니다.'
+        : id === 'construction' && targets.projectRemaining <= 0 ? '실제 자재와 남은 작업이 있는 유효한 선택 사업이 없어 기존 배치를 적용합니다.'
+          : id === 'research' && targets.researchRemaining <= 0 ? '남은 RP가 있는 유효한 목표 기술이 없어 기존 배치를 적용합니다.' : '';
+  }
+  return tribeWorkPolicyDetails({ id, unlocked, ended: state.ended, applicationBlockedReason });
+}
+
+export function changeTribeWorkPolicyAction(state, policyId) {
+  if (state.ended) return addLog(state, '종료된 런에서는 운영 방침을 변경할 수 없습니다.');
+  if (typeof policyId !== 'string' || !isValidTribeWorkPolicy(policyId)) return addLog(state, '지원하지 않는 운영 방침입니다.');
+  const currentId = normalizeTribeWorkPolicy(state.tribe?.workPolicy);
+  if (currentId === policyId) return addLog(state, '현재 선택한 운영 방침입니다.');
+  if (policyId !== 'balanced' && !tribeWorkPolicyUnlocked(state)) {
+    return addLog(state, '사회 제도 「국가 노동력」을 먼저 확립해야 합니다.');
+  }
+  const details = tribeWorkPolicyDetails({ id: policyId, unlocked: true, ended: false });
+  return addLog({ ...state, tribe: { ...state.tribe, workPolicy: policyId } },
+    `공동체 운영 방침: ${details.label}. 다음 자동 운영 또는 다음 아침 재배치부터 적용하며, 실제 일손·식량 안전·자재·남은 필요량을 사용합니다.`);
 }
 
 export function adjustTribeJobAction(state, jobId, delta) {
@@ -3702,6 +3758,8 @@ function settleTribeDay(state) {
     lastGrowthDay: grew ? Number(next.day || 1) : tribe.lastGrowthDay,
     lastProduction: {
       day: Number(next.day || 1),
+      workPolicy: tribe.workPolicy,
+      assignments: { ...tribe.assignments },
       gains,
       foodNeed,
       foodProvided: food.provided,
@@ -7191,12 +7249,16 @@ function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
   const priority = canDiversify
     ? ['forager', 'hunter', 'builder', 'logger', 'herbalist', 'miner', 'quarryman', 'scholar', 'farmer', 'fisher', 'herder', 'trapper']
     : ['forager', 'hunter', 'builder', 'logger', 'herbalist', 'farmer', 'fisher', 'herder', 'trapper', 'miner', 'quarryman', 'scholar'];
+  const policyId = normalizeTribeWorkPolicy(tribe.workPolicy);
+  const policyPlan = policyId === 'balanced' ? { priority, targets, applied: 'balanced' }
+    : prioritizeTribeWorkPolicy({ id: policyId, unlocked: tribeWorkPolicyUnlocked(state), safeReserve: canDiversify,
+      population, priority, targets, ...tribeWorkPolicyTargets(state) });
 
   while (unassigned > 0) {
     // Feed both the tribe and living companions before development jobs.
     const foodJobId = pickAutoFoodJob(state, assignments, jobUnlocked);
-    let jobId = foodJobId || priority.find((candidate) => (
-      jobUnlocked(candidate) && Number(assignments[candidate] || 0) < Number(targets[candidate] || 0)
+    let jobId = foodJobId || policyPlan.priority.find((candidate) => (
+      jobUnlocked(candidate) && Number(assignments[candidate] || 0) < Number(policyPlan.targets[candidate] || 0)
     ));
     // Daily tribe rations also share this inventory with the student party.
     // Keep the existing low-stock reserve priority beyond the current hunger
@@ -7205,7 +7267,7 @@ function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
       || tribeFoodStock(state.inventory) < (Math.ceil(population / 4) + lineageHousehold(state).extraRations) * 2;
     if (!jobId && foodPressure && jobUnlocked('farmer')) jobId = 'farmer';
     if (!jobId && foodPressure) jobId = 'forager';
-    if (!jobId && canStudy) jobId = 'scholar';
+    if (!jobId && canStudy && policyPlan.applied !== 'research') jobId = 'scholar';
     if (!jobId) jobId = 'hunter';
     assignments[jobId] = Number(assignments[jobId] || 0) + 1;
     added[jobId] = Number(added[jobId] || 0) + 1;
@@ -7238,7 +7300,7 @@ function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
       autoAssignments: added,
       assignmentSerial: Number(tribe.assignmentSerial || 0) + 1,
     },
-  }, `${assignmentSource === 'settlement' ? '정착지 직업 배치' : '하루 자동 운영 직업 배치'}: ${summary}.${foodNote}${partyNote}${surplusNote}`);
+  }, `${assignmentSource === 'settlement' ? '정착지 직업 배치' : '하루 자동 운영 직업 배치'}: ${summary}.${foodNote}${partyNote}${surplusNote}${policyPlan.applied === 'balanced' ? '' : ` ${policyPlan.applied === 'construction' ? '건설' : '기록'} 우선: 남은 필요량 안에서 실제 자동 일손을 집중했습니다.`}`);
 }
 function autoActionSignature(state) {
   return [

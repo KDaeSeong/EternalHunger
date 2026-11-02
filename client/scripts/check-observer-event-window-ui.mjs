@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { createHandlerHarness, useMemo, useRef, useState } from './lib/hook-handler-harness.mjs';
 
 const mainStageUrl = new URL('../src/app/simulation/_components/SimulationMainStage.js', import.meta.url).href;
+const sourceRootUrl = new URL('../src/', import.meta.url).href;
 const harnessUrl = new URL('./lib/hook-handler-harness.mjs', import.meta.url).href;
 const childNames = ['SimulationTeamObserverPanel', 'SimulationPhaseHighlights', 'SimulationControlPanel',
   'SimulationLogPanel', 'SimulationMatchStatusPanel', 'SimulationMinimapPanel', 'SimulationPregameRosterSetup',
@@ -24,19 +25,24 @@ registerHooks({ load(url, context, nextLoad) {
     return { format: 'module', shortCircuit: true,
       source: `export default function ${name}(props) { ${capture} return null; }` };
   }
-  if (url !== mainStageUrl) return nextLoad(url, context);
+  // Node parses every imported child, including JSX behind inactive UI branches.
+  // Compile the real local import graph while keeping hook instrumentation local to MainStage.
+  if (!url.startsWith(sourceRootUrl) || !/\.jsx?$/.test(url)) return nextLoad(url, context);
   let source = readFileSync(new URL(url), 'utf8');
-  source = source.replace("import { useId, useMemo, useRef, useState } from 'react';",
-    `import { useMemo, useRef, useState } from '${harnessUrl}';\nconst useId = () => 'observer-window-test';`);
-  source = source.replace("import { buildTeamObserverEventWindow, buildTeamObserverModel } from '../_lib/teamObserverRuntime';",
-    `import { buildTeamObserverEventWindow as actualBuildTeamObserverEventWindow, buildTeamObserverModel as actualBuildTeamObserverModel } from '../_lib/teamObserverRuntime';\n` +
-    `const buildTeamObserverEventWindow = (...args) => { globalThis.__observerWindowBuilds++; return actualBuildTeamObserverEventWindow(...args); };\n` +
-    `const buildTeamObserverModel = (...args) => { globalThis.__observerModelBuilds++; return actualBuildTeamObserverModel(...args); };`);
-  source = `const React = { Fragment: Symbol.for('observer-test.fragment'), createElement(type, props, ...children) {\n` +
-    `  const nextProps = { ...(props || {}), children: children.length === 1 ? children[0] : children };\n` +
-    `  return typeof type === 'function' ? type(nextProps) : { type, props: nextProps };\n} };\n` + source;
+  if (url === mainStageUrl) {
+    source = source.replace("import { useId, useMemo, useRef, useState } from 'react';",
+      `import { useMemo, useRef, useState } from '${harnessUrl}';\nconst useId = () => 'observer-window-test';`);
+    source = source.replace("import { buildTeamObserverEventWindow, buildTeamObserverModel } from '../_lib/teamObserverRuntime';",
+      `import { buildTeamObserverEventWindow as actualBuildTeamObserverEventWindow, buildTeamObserverModel as actualBuildTeamObserverModel } from '../_lib/teamObserverRuntime';\n` +
+      `const buildTeamObserverEventWindow = (...args) => { globalThis.__observerWindowBuilds++; return actualBuildTeamObserverEventWindow(...args); };\n` +
+      `const buildTeamObserverModel = (...args) => { globalThis.__observerModelBuilds++; return actualBuildTeamObserverModel(...args); };`);
+    source = `const React = { Fragment: Symbol.for('observer-test.fragment'), createElement(type, props, ...children) {\n` +
+      `  const nextProps = { ...(props || {}), children: children.length === 1 ? children[0] : children };\n` +
+      `  return typeof type === 'function' ? type(nextProps) : { type, props: nextProps };\n} };\n` + source;
+  }
   const transpiled = ts.transpileModule(source, { compilerOptions: {
-    jsx: ts.JsxEmit.React, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022,
+    jsx: url === mainStageUrl ? ts.JsxEmit.React : ts.JsxEmit.ReactJSX,
+    module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022,
   } }).outputText;
   return { format: 'module', shortCircuit: true, source: transpiled };
 } });

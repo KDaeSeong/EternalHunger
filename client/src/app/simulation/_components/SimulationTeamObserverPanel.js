@@ -1,5 +1,7 @@
 'use client';
 
+import { presentGrowthSupplyNote } from './simulationGrowthSupplyPresentation.js';
+
 function CombatExchange({ exchange }) {
   return <article>
     <header><time>{exchange.clock}</time><span>{exchange.zone} · {exchange.attack}</span></header>
@@ -59,7 +61,7 @@ export default function SimulationTeamObserverPanel({ model, onTeamChange, isGam
                 <strong>{actor.growth.label}</strong>
                 {actor.growth.materials ? <p>{actor.growth.materials}</p> : null}
                 {actor.growth.destination ? <small>선택한 재료 지역: {actor.growth.destination}</small> : null}
-                {actor.growth.note ? <small>{actor.growth.note}</small> : null}
+                {actor.growth.note ? <small>{presentGrowthSupplyNote(actor.growth.note)}</small> : null}
               </div> : null}
               {!isGameOver && actor.coordination ? <p className="team-observer-reason" aria-label={`${actor.name} 합류 판단`}><time>{actor.coordination.clock}</time> 합류 판단: {actor.coordination.text}</p> : null}
               {actor.decision ? <p className="team-observer-reason"><time>{actor.decision.clock}</time> 최근 판단: {actor.decision.text}</p> : <p className="team-observer-reason">아직 판단 기록이 없습니다.</p>}
