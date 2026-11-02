@@ -5,6 +5,7 @@ import ConsumeEffectFields from './ConsumeEffectFields';
 import EquipmentEffectFields from './EquipmentEffectFields';
 import { createEquipmentEffectDraft, prepareEquipmentEffectDraft } from '../../../../utils/equipmentEffectAuthoring.js';
 import { createConsumeEffectDraft, prepareConsumeEffectDraft } from '../../../../utils/consumeEffectAuthoring.js';
+import { buildItemStatFields, ITEM_STAT_FIELDS } from '../../../../utils/itemStatAuthoring.js';
 import { createItemRecipeDraft, prepareItemRecipeDraft } from '../../../../utils/itemRecipeAuthoring.js';
 import {
   ARMOR_SLOT_VALUES,
@@ -38,19 +39,7 @@ function buildDraftFromItem(item) {
     equipmentDraft: createEquipmentEffectDraft(base.equipmentEffects),
     lockedByAdmin: Boolean(base.lockedByAdmin ?? (sim ? true : false)),
     recipe: createItemRecipeDraft(base.recipe),
-    stats: {
-      atk: toNum(base.stats?.atk, 0),
-      def: toNum(base.stats?.def, 0),
-      hp: toNum(base.stats?.hp, 0),
-      skillAmp: toNum(base.stats?.skillAmp, 0),
-      atkSpeed: toNum(base.stats?.atkSpeed, 0),
-      critChance: toNum(base.stats?.critChance, 0),
-      cdr: toNum(base.stats?.cdr, 0),
-      lifesteal: toNum(base.stats?.lifesteal, 0),
-      moveSpeed: toNum(base.stats?.moveSpeed, 0),
-      armorPen: toNum(base.stats?.armorPen, 0),
-      adaptiveForce: toNum(base.stats?.adaptiveForce, 0),
-    },
+    ...buildItemStatFields(base),
   };
 }
 
@@ -168,180 +157,7 @@ function ItemEditorModalBody({ mode, item, allItems, onClose, onSave, localMode 
   function setStat(key, value) {
     setDraft((prev) => ({
       ...(prev || {}),
-      stats: { ...(prev?.stats || {}), [key]: value },
-    }));
-  }
-
-  function setRecipeField(key, value) {
-    setDraft((prev) => ({
-      ...(prev || {}),
-      recipe: { ...(prev?.recipe || {}), [key]: value },
-    }));
-  }
-
-  function setIngredient(idx, patch) {
-    setDraft((prev) => {
-      const cur = Array.isArray(prev?.recipe?.ingredients) ? prev.recipe.ingredients : [];
-      const next = cur.map((x, i) => (i === idx ? { ...(x || {}), ...(patch || {}) } : x));
-      return {
-        ...(prev || {}),
-        recipe: { ...(prev?.recipe || {}), ingredients: next },
-      };
-    });
-  }
-
-  function addIngredientRow() {
-    setDraft((prev) => {
-      const cur = Array.isArray(prev?.recipe?.ingredients) ? prev.recipe.ingredients : [];
-      return {
-        ...(prev || {}),
-        recipe: { ...(prev?.recipe || {}), ingredients: [...cur, { itemId: '', qty: 1 }] },
-      };
-    });
-  }
-
-  function removeIngredientRow(idx) {
-    setDraft((prev) => {
-      const cur = Array.isArray(prev?.recipe?.ingredients) ? prev.recipe.ingredients : [];
-      const next = cur.filter((_, i) => i !== idx);
-      return {
-        ...(prev || {}),
-        recipe: { ...(prev?.recipe || {}), ingredients: next },
-      };
-    });
-  }
-
-  function findFirstIdByName(names = []) {
-    const list = Array.isArray(names) ? names : [names];
-    for (const nm of list) {
-      const hit = itemOptions.find((x) => x.name === nm);
-      if (hit) return hit.id;
-    }
-    for (const nm of list) {
-      const hit = itemOptions.find((x) => x.name.includes(String(nm)));
-      if (hit) return hit.id;
-    }
-    return '';
-  }
-
-  function pickLowMaterialId() {
-    const hit = itemOptions.find((x) => x.type === '재료' && (x.tier <= 1 || x.name.includes('조각') || x.name.includes('가죽') || x.name.includes('나뭇')));
-    return hit?.id || '';
-  }
-
-  function pickEquipmentIdByRarity(targetRarity) {
-    const r = String(targetRarity || '').toLowerCase();
-    const hit = itemOptions.find((x) => (x.type === '무기' || x.type === '방어구') && String(x.rarity || '').toLowerCase() === r);
-    return hit?.id || '';
-  }
-
-  function applyRuleTemplate() {
-    if (!draft) return;
-    setErr('');
-
-    const r = String(draft.rarity || '').toLowerCase();
-    const low = pickLowMaterialId();
-    const low2 = pickLowMaterialId();
-    const vf = findFirstIdByName(['VF 혈액 샘플', 'VF Blood Sample']);
-    const meteor = findFirstIdByName(['운석', 'Meteorite', 'Meteor']);
-    const tree = findFirstIdByName(['생명의 나무', 'Tree of Life']);
-    const force = findFirstIdByName(['포스 코어', 'Force Core']);
-    const mithril = findFirstIdByName(['미스릴', 'Mithril']);
-
-    if (r === 'common' || r === 'normal' || r === '일반') {
-      setRecipeField('ingredients', [
-        { itemId: low || '', qty: 1 },
-        { itemId: low2 || low || '', qty: 1 },
-      ].filter((x) => x.itemId));
-      return;
-    }
-
-    if (r === 'rare' || r === '희귀') {
-      const base = pickEquipmentIdByRarity('common');
-      setRecipeField('ingredients', [
-        { itemId: base || '', qty: 1 },
-        { itemId: low || '', qty: 1 },
-      ].filter((x) => x.itemId));
-      return;
-    }
-
-    if (r === 'hero' || r === '영웅') {
-      const base = pickEquipmentIdByRarity('rare');
-      setRecipeField('ingredients', [
-        { itemId: base || '', qty: 1 },
-        { itemId: low || '', qty: 1 },
-      ].filter((x) => x.itemId));
-      return;
-    }
-
-    if (r === 'legendary' || r === '전설') {
-      const special = meteor || tree || force || mithril || '';
-      setRecipeField('ingredients', [
-        { itemId: low || '', qty: 1 },
-        { itemId: special, qty: 1 },
-      ].filter((x) => x.itemId));
-      return;
-    }
-
-    if (r === 'transcendent' || r === 'mythic' || r === '초월') {
-      setRecipeField('ingredients', [
-        { itemId: low || '', qty: 1 },
-        { itemId: vf || '', qty: 1 },
-      ].filter((x) => x.itemId));
-      return;
-    }
-
-    setErr('이 희귀도에는 규칙 템플릿이 정의되어 있지 않아. (common/rare/hero/legendary/transcendent)');
-  }
-
-  async function handleSave() {
-    if (!draft) return;
-    setErr('');
-
-    const name = String(draft.name || '').trim();
-    if (!name) {
-      setErr('아이템 이름을 입력해 주세요.');
-      return;
-    }
-
-    const type = String(draft.type || '기타');
-    const equipSlot = type === '무기' ? 'weapon' : normalizeEquipSlot(draft.equipSlot);
-    if (type === '방어구' && !ARMOR_SLOT_VALUES.has(equipSlot)) {
-      setErr('방어구는 장착 부위를 머리·옷·팔·신발 중 하나로 선택해 주세요.');
-      return;
-    }
-
-    const recipe = prepareItemRecipeDraft(draft.recipe);
-    if (!recipe.ok) { setErr(recipe.error); return; }
-
-    const payload = {
-      externalId: String(draft.externalId || '').trim() || undefined,
-      name,
-      type,
-      rarity: String(draft.rarity || 'common'),
-      tier: Math.max(1, Math.floor(toNum(draft.tier, 1))),
-      stackMax: Math.max(1, Math.floor(toNum(draft.stackMax, 1))),
-      value: Math.max(0, Math.floor(toNum(draft.value, 0))),
-      tags: parseTags(draft.tagsText),
-      equipSlot: type === '무기' || type === '방어구' ? equipSlot : '',
-      weaponType: type === '무기' ? String(draft.weaponType || '') : '',
-      archetype: String(draft.archetype || ''),
-      description: String(draft.description || ''),
-      lockedByAdmin: Boolean(draft.lockedByAdmin),
-      recipe: recipe.recipe,
-      stats: {
-        atk: toNum(draft.stats?.atk, 0),
-        def: toNum(draft.stats?.def, 0),
-        hp: toNum(draft.stats?.hp, 0),
-        skillAmp: toNum(draft.stats?.skillAmp, 0),
-        atkSpeed: toNum(draft.stats?.atkSpeed, 0),
-        critChance: toNum(draft.stats?.critChance, 0),
-        cdr: toNum(draft.stats?.cdr, 0),
-        lifesteal: toNum(draft.stats?.lifesteal, 0),
-        moveSpeed: toNum(draft.stats?.moveSpeed, 0),
-        armorPen: toNum(draft.stats?.armorPen, 0),
-        adaptiveForce: toNum(draft.stats?.adaptiveForce, 0),
-      },
+      ...buildItemStatFields(draft),
     };
 
     const consume = prepareConsumeEffectDraft(draft.consumeDraft);
@@ -450,23 +266,12 @@ function ItemEditorModalBody({ mode, item, allItems, onClose, onSave, localMode 
 
         {(!localMode || ['무기', '방어구'].includes(draft.type)) && <div style={{ marginTop: 12 }}>
           <div style={{ fontWeight: 900, marginBottom: 8 }}>장착 능력치</div>
+          <p style={{ fontSize: 12, opacity: 0.8 }}>공속은 초당 추가 공격 횟수입니다. 치명·쿨감·흡혈·이속 비율·방어 관통 비율은 0.1이 10%입니다.</p>
           <div style={grid}>
-            {[
-              ['atk', '공격'],
-              ['def', '방어'],
-              ['hp', '체력'],
-              ['skillAmp', '스킬증폭'],
-              ['atkSpeed', '공속'],
-              ['critChance', '치명'],
-              ['cdr', '쿨감'],
-              ['lifesteal', '흡혈'],
-              ['moveSpeed', '이속'],
-              ['armorPen', '방어 관통'],
-              ['adaptiveForce', '맞춤형 능력치'],
-            ].map(([k, labelKo]) => (
+            {ITEM_STAT_FIELDS.map(([k, labelKo]) => (
               <div key={k}>
                 <div style={label}>{labelKo}{localMode ? '' : ` (${k})`}</div>
-                <input aria-label={labelKo} type="number" value={draft?.stats?.[k] ?? 0} onChange={(e) => setStat(k, safeJsonParse(e.target.value, e.target.value))} style={{ ...input, width: '100%' }} />
+                <input aria-label={labelKo} type="number" step="any" value={draft?.stats?.[k] ?? 0} onChange={(e) => setStat(k, safeJsonParse(e.target.value, e.target.value))} style={{ ...input, width: '100%' }} />
               </div>
             ))}
           </div>

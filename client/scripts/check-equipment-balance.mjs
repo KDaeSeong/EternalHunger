@@ -7,6 +7,8 @@ import { calculateCombatDamage, getCombatStats } from '../src/app/simulation/_li
 import { getBasicAttackIntervalSec } from '../src/app/simulation/_lib/combatTimingRuntime.js';
 import { getSpatialStats } from '../src/app/simulation/_lib/combatSpatialRuntime.js';
 import { synchronizeEquipmentHealth } from '../src/utils/equipmentHealth.js';
+import { buildItemStatFields, ITEM_STAT_FIELDS } from '../src/utils/itemStatAuthoring.js';
+import itemWritePayload from '../../server/utils/itemEffectWritePayload.js';
 import { normalizeRuntimeSurvivor } from '../src/app/simulation/_lib/survivorRuntime.js';
 import { buildGuestSimulationRoster, loadGuestSimulationItemCatalog } from '../src/app/simulation/_lib/guestSimulationBootstrap.js';
 import { getCharacterSkillDef } from '../src/app/simulation/_lib/characterSkillDefinitionRuntime.js';
@@ -113,6 +115,25 @@ await check('unusable skill amplification cannot inflate combat power or gear pr
   assert.ok(getCombatPowerBreakdown({ ...caster, stats: { ...caster.stats, skillAmp: 100 } }).total
     > getCombatPowerBreakdown(caster).total);
   assert.ok(createEquipmentSuitabilityEvaluator(caster)(amp) > createEquipmentSuitabilityEvaluator(caster)(attack));
+});
+await check('fresh route planning counts equipment health once before and after runtime initialization', () => {
+  const gear = { itemId: 'health', equipSlot: 'head', equipmentStatVersion: 2, stats: { hp: 200 } };
+  const fresh = { _id: 'fresh', level: 1, stats: { maxHp: 100, hpGrowth: 0 }, inventory: [gear], equipped: { head: 'health' } };
+  assert.equal(getCombatPowerBreakdown(fresh).maxHp, 300);
+  const runtime = synchronizeEquipmentHealth({ ...fresh, maxHp: 100, hp: 100 });
+  assert.equal(runtime.maxHp, 300);
+  close(getCombatPowerBreakdown(fresh).total, getCombatPowerBreakdown(runtime).total);
+});
+await check('name-only editor round trips retain every growth, percent and flat stat through server writes', () => {
+  assert.deepEqual(ITEM_STAT_FIELDS.map(([key]) => key).sort(), [...statContract.EQUIPMENT_STAT_KEYS].sort());
+  const item = { ...agni, stats: Object.fromEntries(statContract.EQUIPMENT_STAT_KEYS.map((key, index) => [key, (index + 1) / 10])) };
+  const draft = { name: '이름 변경', ...buildItemStatFields(item) };
+  const payload = itemWritePayload.prepareItemEffectWritePayload({ ...draft, ...buildItemStatFields(draft) });
+  assert.equal(payload.ok, true); assert.equal(payload.payload.equipmentStatVersion, 2);
+  assert.deepEqual(payload.payload.stats, item.stats);
+  const old = buildItemStatFields({ itemKey: 'namu:돌격소총:아그니', stats: { atk: 69, atkSpeed: 35 } });
+  assert.equal(old.stats.atkSpeed, 0.35);
+  assert.deepEqual(buildItemStatFields(old), old);
 });
 await check('sample melee entry is scheduled outside basic range and actually closes the gap', async () => {
   const roster = buildGuestSimulationRoster();

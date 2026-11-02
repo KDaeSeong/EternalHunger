@@ -43,11 +43,14 @@ export function getCombatPowerBreakdown(actor, settings = {}, preparedSkills = n
     control += (def.statusEffects?.length || 0) / cooldown;
   }
   const appliedEquipmentHp = positive(actor?._equipmentMaxHpApplied);
-  const actualMax = Math.max(1, Number(actor?.maxHp || stats.maxHp) || 1);
+  const runtimeMax = Number(actor?.maxHp);
+  const hasRuntimeMax = Number.isFinite(runtimeMax) && runtimeMax > 0;
+  const actualMax = hasRuntimeMax ? runtimeMax : Math.max(1, stats.maxHp);
   // 아직 런타임 정규화를 거치지 않은 장비 후보도 현재 장착 체력까지 비교한다.
   const equipmentHp = getCombatEquipment(actor).reduce((sum, item) => sum
     + positive(getEquipmentStatValues(item, getStatGrowthLevel(actor)).hp), 0);
-  const maxHp = Math.max(stats.maxHp, actualMax - appliedEquipmentHp + equipmentHp);
+  const maxHp = hasRuntimeMax ? Math.max(stats.maxHp, actualMax - appliedEquipmentHp + equipmentHp)
+    : Math.max(1, stats.maxHp);
   const hpRatio = Math.max(0, Math.min(1, Number(actor?.hp ?? actualMax) / actualMax));
   const durability = maxHp * (1 + positive(stats.defense) / 100) * (0.5 + hpRatio * 0.5);
   const sustain = Math.min(28, positive(getShieldValue(actor)) * 0.35 + positive(getRegenValue(actor)));
