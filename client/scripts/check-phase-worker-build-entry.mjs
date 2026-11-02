@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { TextDecoder, TextEncoder } from 'node:util';
+import { getSimulationEngineSourcePaths } from './lib/simulation-engine-source-paths.mjs';
 
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const buildDirectory = process.env.EH_NEXT_DIST_DIR || '.next';
@@ -19,14 +20,9 @@ const engineModulePath = path.join(clientRoot, 'src', 'app', 'simulation', '_gen
 const engineModule = readFileSync(engineModulePath, 'utf8');
 const sourceEngineVersion = engineModule.match(/SIMULATION_ENGINE_VERSION\s*=\s*'([a-f0-9]{64})'/)?.[1];
 assert.ok(sourceEngineVersion, 'Could not read generated simulation engine version.');
-const engineSourcePaths = ['src/app/simulation/tacticalSkillTable.js', '../shared/marketItemPolicy.cjs'];
-for (const directory of ['src/app/simulation/_lib', 'src/utils']) {
-  for (const name of readdirSync(path.join(clientRoot, directory))) {
-    if (name.endsWith('.js')) engineSourcePaths.push(`${directory}/${name}`);
-  }
-}
+const engineSourcePaths = getSimulationEngineSourcePaths(clientRoot);
 const sourceHash = createHash('sha256');
-for (const relativePath of engineSourcePaths.sort()) {
+for (const relativePath of engineSourcePaths) {
   const absolutePath = path.resolve(clientRoot, relativePath);
   const source = readFileSync(absolutePath, 'utf8').replaceAll('\r\n', '\n');
   sourceHash.update(relativePath).update('\0').update(source).update('\0');
