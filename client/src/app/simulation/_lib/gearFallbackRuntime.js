@@ -6,6 +6,8 @@ import {
   inferItemCategory,
 } from './inventoryRules';
 import { ensureEquipped } from './survivorRuntime';
+import { createEquipmentSuitabilityEvaluator } from './equipmentSuitabilityRuntime.js';
+import { synchronizeEquipmentHealth } from '../../../utils/equipmentHealth.js';
 import {
   classifySpecialByName,
   pickBestEquipBySlot,
@@ -93,6 +95,7 @@ function autoEquipBest(actor, itemMetaById) {
 
   const kmap = (actor?._itemKeyById && typeof actor._itemKeyById === 'object') ? actor._itemKeyById : {};
   const goal = pickGoalLoadoutBySlot(actor);
+  const suitability = createEquipmentSuitabilityEvaluator(actor);
 
   function keyOfInv(x) {
     const id = String(getInvItemId(x) || '');
@@ -100,7 +103,9 @@ function autoEquipBest(actor, itemMetaById) {
   }
 
   for (const s of EQUIP_SLOTS) {
-    const best = pickBestEquipBySlot(inv, s);
+    const best = inv.filter(item => inferEquipSlot(item) === s)
+      .sort((a, b) => getInvTier(b, itemMetaById) - getInvTier(a, itemMetaById)
+        || suitability(b) - suitability(a))[0] || null;
     const goalKey = String(goal?.[s] || '').trim();
     if (goalKey) {
       const hit = inv.find((x) => String(x?.equipSlot || inferEquipSlot(x) || '').toLowerCase() === s && keyOfInv(x) === goalKey);
@@ -114,6 +119,7 @@ function autoEquipBest(actor, itemMetaById) {
     else nextEq[s] = null;
   }
   actor.equipped = nextEq;
+  synchronizeEquipmentHealth(actor);
 }
 
 function allowAbstractGearFallback(ruleset, opts = {}) {

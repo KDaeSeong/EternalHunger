@@ -9,6 +9,7 @@ const DroneOffer = require('../../models/DroneOffer');
 const { requireUserId, ownedFilter, withOwner } = require('../../utils/requestScope');
 const { upsertDefaultItemTree, upsertDefaultItemTreeBatch } = require('../../utils/defaultItemTree');
 const { prepareItemEffectWritePayload, equipmentEffectWriteGuard } = require('../../utils/itemEffectWritePayload');
+const { normalizeEquipmentItem } = require('../../../shared/equipmentStatContract.cjs');
 
 function scope(req, res, extra = {}) {
   const userId = requireUserId(req, res);
@@ -21,7 +22,7 @@ router.get('/items', async (req, res) => {
         const filter = scope(req, res);
         if (!filter) return;
         const items = await Item.find(filter).sort({ createdAt: -1 }).lean();
-        res.json(items);
+        res.json(items.map(normalizeEquipmentItem));
     } catch (err) { 
         res.status(500).json({ error: "아이템 로드 실패" }); 
     }

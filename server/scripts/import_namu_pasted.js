@@ -9,6 +9,8 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const Item = require('../models/Item');
 const ErMeta = require('../models/ErMeta');
 const { EXPECT_WEAPON_TYPES, normalizeWeaponType } = require('../config/item_taxonomy');
+const { parseNamuItemStats } = require('../utils/namuItemStats');
+const { EQUIPMENT_STAT_VERSION } = require('../../shared/equipmentStatContract.cjs');
 
 const rarityToTier = {
   '일반': { rarity: 'common', tier: 1 },
@@ -915,16 +917,8 @@ function extractItemsAndRecipes(text) {
       spawnCrateTypes,
       droneCreditsCost,
       upperItemNames,
-      stats: {
-        atk: toNum(a['공격력']),
-        def: toNum(a['방어력']),
-        skillAmp: toNum(a['스킬 증폭']),
-        atkSpeed: toNum(a['공격 속도']),
-        cdr: toNum(a['쿨다운 감소']),
-        lifesteal: toNum(a['모든 피해 흡혈']),
-        armorPen: toNum(a['방어 관통']),
-        adaptiveForce: toNum(a['맞춤형 능력치'])
-      }
+      equipmentStatVersion: EQUIPMENT_STAT_VERSION,
+      stats: parseNamuItemStats(a)
     });
   }
 
@@ -1191,6 +1185,7 @@ async function importItemsAndRecipesFromText(text) {
       stackMax: Math.max(1, Number(it.stackMax || (it.type === '재료' ? 3 : 1))),
       tags: it.tags,
       stats: it.stats,
+      equipmentStatVersion: it.equipmentStatVersion,
       equipSlot: it.equipSlot,
       weaponType: it.weaponType,
       spawnZones: Array.isArray(it.spawnZones) ? it.spawnZones : [],

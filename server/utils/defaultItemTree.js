@@ -73,6 +73,7 @@ function toBaseDoc(def, ownerUserId) {
     value: def.baseCreditValue,
     baseCreditValue: def.baseCreditValue,
     stats: def.stats,
+    equipmentStatVersion: def.equipmentStatVersion,
     equipSlot: def.equipSlot,
     weaponType: def.weaponType,
     archetype: def.archetype,

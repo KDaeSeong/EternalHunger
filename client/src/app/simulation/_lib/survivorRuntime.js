@@ -16,6 +16,8 @@ import { normalizeRuntimeEffect } from './runtimeStatus';
 import { normalizeSupportedTacSkill } from '../tacticalSkillTable';
 import { getWeaponMasteryLevel } from '../../../utils/erMeta';
 import { normalizeErStats } from '../../../utils/erStats';
+import { normalizeEquipmentItem, getEquipmentStatValues } from '../../../utils/battleEquipmentLogic.js';
+import { synchronizeEquipmentHealth } from '../../../utils/equipmentHealth.js';
 import { normalizeMasteryState } from '../../../utils/masteryLogic';
 import { initializeSpatialPosition, getSpatialPosition, getSpatialLastSeen } from './combatSpatialRuntime.js';
 import {
@@ -89,7 +91,7 @@ function normalizeRuntimeInventory(list) {
     .filter((it) => it.qty === undefined || (typeof it.qty === 'number' || typeof it.qty === 'string' && it.qty.trim())
       && Number.isSafeInteger(Number(it.qty)) && Number(it.qty) > 0)
     .map((it) => {
-      const next = { ...it };
+      const next = { ...normalizeEquipmentItem(it) };
       const qty = Number(next?.qty ?? 1);
       next.qty = qty;
       if (Object.hasOwn(next, 'consumeEffect')) next.consumeEffect = structuredClone(next.consumeEffect);
@@ -161,7 +163,7 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
   const weaponType = runWeaponType || normalizeWeaponType(base?.weaponType);
   const inventory = normalizeRuntimeInventory(base?.inventory);
 
-  return {
+  return synchronizeEquipmentHealth({
     ...base,
     stats: normalizedStats,
     inventory,
@@ -243,7 +245,7 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
     detonationMaxSec: Number.isFinite(Number(base?.detonationMaxSec)) ? Number(base.detonationMaxSec) : undefined,
     statusImmunities: Array.from(statusImmunities),
     statusResists,
-  };
+  });
 }
 
 function getEquipMoveSpeed(actor) {
@@ -254,8 +256,8 @@ function getEquipMoveSpeed(actor) {
 
   function sumFromItem(it) {
     if (!it || typeof it !== 'object') return 0;
-    const st = it.stats && typeof it.stats === 'object' ? it.stats : {};
-    const v = Number(st.moveSpeed || 0);
+    const st = getEquipmentStatValues(it, actor.level || 1);
+    const v = Number(st.moveSpeed || 0) + Number(st.moveSpeedFlat || 0) / Math.max(0.1, Number(actor.stats?.moveSpeed || 3.5));
     return Number.isFinite(v) ? v : 0;
   };
 

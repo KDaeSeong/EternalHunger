@@ -67,6 +67,7 @@ export function* buildDay1HeroRoutePlanSteps(actor, mapObj, publicItems, opts = 
         return (Number(a.invalid === true) - Number(b.invalid === true))
           || (sa.missingCount - sb.missingCount)
           || (sa.missingQty - sb.missingQty)
+          || (Number(b.combatValue || 0) - Number(a.combatValue || 0))
           || (sa.totalQty - sb.totalQty);
       });
       states = next.slice(0, beamLimit);
@@ -84,6 +85,7 @@ export function* buildDay1HeroRoutePlanSteps(actor, mapObj, publicItems, opts = 
         penalty,
         totalQty: stats.totalQty,
         coveredQty: stats.coveredQty,
+        combatValue: Number(state.combatValue || 0),
       };
       const row = { route, state, stats, score };
       if (!best) {
@@ -97,6 +99,7 @@ export function* buildDay1HeroRoutePlanSteps(actor, mapObj, publicItems, opts = 
         || (a.missingCount - b.missingCount)
         || (a.missingQty - b.missingQty)
         || (a.penalty - b.penalty)
+        || (b.combatValue - a.combatValue)
         || (b.coveredQty - a.coveredQty)
         || (a.totalQty - b.totalQty)
         || (zoneTie(actor, row.route.join('>')) - zoneTie(actor, best.route.join('>')));

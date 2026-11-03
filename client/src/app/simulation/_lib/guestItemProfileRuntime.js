@@ -1,6 +1,7 @@
 import { normalizeConsumeEffect, consumeEffectErrorText } from '../../../utils/consumeEffectContract.js';
 import { prepareItemRecipeDraft } from '../../../utils/itemRecipeAuthoring.js';
 import { normalizeEquipmentEffects, equipmentEffectErrorText } from '../../../utils/equipmentEffectContract.js';
+import { normalizeEquipmentItem } from '../../../utils/battleEquipmentLogic.js';
 
 export const GUEST_ITEM_PROFILE_KEY = 'eh_guest_item_profiles_v1';
 const MAX_BYTES = 512 * 1024;
@@ -58,7 +59,8 @@ export function normalizeGuestItem(raw, catalog = []) {
   copy.consumeEffect = consume.effect;
   if (Object.hasOwn(raw, 'equipmentEffects')) copy.equipmentEffects = equipment.effects;
   copy.localItemProfile = true;
-  return { ok: true, item: copy };
+  return { ok: true, item: normalizeEquipmentItem({ ...copy,
+    equipmentStatVersion: raw.equipmentStatVersion ?? (raw.localItemProfile ? 0 : 2) }) };
 }
 
 function validateProfiles(items, builtin) {

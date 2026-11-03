@@ -1,14 +1,16 @@
 import { absorbShieldDamage, canonicalizeEffectName, getActiveStatusEffects, getDamageBlockReason } from '../../../utils/statusLogic.js';
 import { commitRuntimeHpDamage } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { recordEquipmentSkillImpact } from './equipmentEffectRuntime.js';
+import { synchronizeEquipmentHealth } from '../../../utils/equipmentHealth.js';
 
 // Commit one landed damage packet, not a damage preview. The first positive
 // direct hit wakes sleep even when an existing shield absorbs all damage.
 // DOT/environmental ticking is not a direct attack in this project's rules.
 export function applyCombatHit(attacker, defender, packet, { shieldBlock, emitRunEvent = () => {}, addLog = () => {}, at = null } = {}) {
+  const blockedReason = packet.blockedReason || getDamageBlockReason(attacker, defender, { type: packet.type });
+  if (!blockedReason) synchronizeEquipmentHealth(defender);
   const hpBefore = Number(defender.hp);
   const maxHpBefore = Number(defender.maxHp);
-  const blockedReason = packet.blockedReason || getDamageBlockReason(attacker, defender, { type: packet.type });
   const incoming = Math.max(0, Number(packet.damage) || 0);
   const sleeping = !blockedReason && incoming > 0 && Number(defender.hp) > 0
     ? getActiveStatusEffects(defender).filter((effect) => effect.tags.includes('wake_on_hit')) : [];

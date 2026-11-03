@@ -88,6 +88,7 @@ const ItemSchema = new mongoose.Schema({
   },
 
   // 전투/효과 스탯(선택)
+  equipmentStatVersion: { type: Number, default: 0 },
   stats: {
     atk: { type: Number, default: 0 },
     def: { type: Number, default: 0 },
@@ -100,7 +101,14 @@ const ItemSchema = new mongoose.Schema({
     lifesteal: { type: Number, default: 0 },
     moveSpeed: { type: Number, default: 0 },
     armorPen: { type: Number, default: 0 },
-    adaptiveForce: { type: Number, default: 0 }
+    adaptiveForce: { type: Number, default: 0 },
+    atkPerLevel: { type: Number, default: 0 },
+    defPerLevel: { type: Number, default: 0 },
+    hpPerLevel: { type: Number, default: 0 },
+    skillAmpPerLevel: { type: Number, default: 0 },
+    omnisyphon: { type: Number, default: 0 },
+    moveSpeedFlat: { type: Number, default: 0 },
+    armorPenFlat: { type: Number, default: 0 },
   },
 
   // ✅ 장비 메타(시뮬/드랍/조합 등에서 사용)

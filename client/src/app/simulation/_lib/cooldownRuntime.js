@@ -99,11 +99,11 @@ export function getActorCooldownReductions(actor) {
   };
 }
 
-export function resolveCharacterSkillCooldownSec(actor, def, settings = {}) {
+export function resolveCharacterSkillCooldownSec(actor, def, settings = {}, preparedReductions = null) {
   const base = Math.max(0.25, Number(def?.cooldownSec || 1));
   let scale = settingsCooldownScale(settings);
   if (def?.cooldownFixed !== true) {
-    const reductions = getActorCooldownReductions(actor);
+    const reductions = preparedReductions || getActorCooldownReductions(actor);
     scale *= 1 - reductions.skill;
     if (String(def?.slot || '').toLowerCase() === 'r') scale *= 1 - reductions.ultimate;
   }

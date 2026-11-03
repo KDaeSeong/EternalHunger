@@ -5,6 +5,7 @@ import ConsumeEffectFields from './ConsumeEffectFields';
 import EquipmentEffectFields from './EquipmentEffectFields';
 import { createEquipmentEffectDraft, prepareEquipmentEffectDraft } from '../../../../utils/equipmentEffectAuthoring.js';
 import { createConsumeEffectDraft, prepareConsumeEffectDraft } from '../../../../utils/consumeEffectAuthoring.js';
+import { buildItemStatFields, ITEM_STAT_FIELDS } from '../../../../utils/itemStatAuthoring.js';
 import { createItemRecipeDraft, prepareItemRecipeDraft } from '../../../../utils/itemRecipeAuthoring.js';
 import {
   ARMOR_SLOT_VALUES,
@@ -38,19 +39,7 @@ function buildDraftFromItem(item) {
     equipmentDraft: createEquipmentEffectDraft(base.equipmentEffects),
     lockedByAdmin: Boolean(base.lockedByAdmin ?? (sim ? true : false)),
     recipe: createItemRecipeDraft(base.recipe),
-    stats: {
-      atk: toNum(base.stats?.atk, 0),
-      def: toNum(base.stats?.def, 0),
-      hp: toNum(base.stats?.hp, 0),
-      skillAmp: toNum(base.stats?.skillAmp, 0),
-      atkSpeed: toNum(base.stats?.atkSpeed, 0),
-      critChance: toNum(base.stats?.critChance, 0),
-      cdr: toNum(base.stats?.cdr, 0),
-      lifesteal: toNum(base.stats?.lifesteal, 0),
-      moveSpeed: toNum(base.stats?.moveSpeed, 0),
-      armorPen: toNum(base.stats?.armorPen, 0),
-      adaptiveForce: toNum(base.stats?.adaptiveForce, 0),
-    },
+    ...buildItemStatFields(base),
   };
 }
 
@@ -329,19 +318,7 @@ function ItemEditorModalBody({ mode, item, allItems, onClose, onSave, localMode 
       description: String(draft.description || ''),
       lockedByAdmin: Boolean(draft.lockedByAdmin),
       recipe: recipe.recipe,
-      stats: {
-        atk: toNum(draft.stats?.atk, 0),
-        def: toNum(draft.stats?.def, 0),
-        hp: toNum(draft.stats?.hp, 0),
-        skillAmp: toNum(draft.stats?.skillAmp, 0),
-        atkSpeed: toNum(draft.stats?.atkSpeed, 0),
-        critChance: toNum(draft.stats?.critChance, 0),
-        cdr: toNum(draft.stats?.cdr, 0),
-        lifesteal: toNum(draft.stats?.lifesteal, 0),
-        moveSpeed: toNum(draft.stats?.moveSpeed, 0),
-        armorPen: toNum(draft.stats?.armorPen, 0),
-        adaptiveForce: toNum(draft.stats?.adaptiveForce, 0),
-      },
+      ...buildItemStatFields(draft),
     };
 
     const consume = prepareConsumeEffectDraft(draft.consumeDraft);
@@ -450,23 +427,12 @@ function ItemEditorModalBody({ mode, item, allItems, onClose, onSave, localMode 
 
         {(!localMode || ['무기', '방어구'].includes(draft.type)) && <div style={{ marginTop: 12 }}>
           <div style={{ fontWeight: 900, marginBottom: 8 }}>장착 능력치</div>
+          <p style={{ fontSize: 12, opacity: 0.8 }}>공속은 초당 추가 공격 횟수입니다. 치명·쿨감·흡혈·이속 비율·방어 관통 비율은 0.1이 10%입니다.</p>
           <div style={grid}>
-            {[
-              ['atk', '공격'],
-              ['def', '방어'],
-              ['hp', '체력'],
-              ['skillAmp', '스킬증폭'],
-              ['atkSpeed', '공속'],
-              ['critChance', '치명'],
-              ['cdr', '쿨감'],
-              ['lifesteal', '흡혈'],
-              ['moveSpeed', '이속'],
-              ['armorPen', '방어 관통'],
-              ['adaptiveForce', '맞춤형 능력치'],
-            ].map(([k, labelKo]) => (
+            {ITEM_STAT_FIELDS.map(([k, labelKo]) => (
               <div key={k}>
                 <div style={label}>{labelKo}{localMode ? '' : ` (${k})`}</div>
-                <input aria-label={labelKo} type="number" value={draft?.stats?.[k] ?? 0} onChange={(e) => setStat(k, safeJsonParse(e.target.value, e.target.value))} style={{ ...input, width: '100%' }} />
+                <input aria-label={labelKo} type="number" step="any" value={draft?.stats?.[k] ?? 0} onChange={(e) => setStat(k, safeJsonParse(e.target.value, e.target.value))} style={{ ...input, width: '100%' }} />
               </div>
             ))}
           </div>

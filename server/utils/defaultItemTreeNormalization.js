@@ -1,5 +1,6 @@
 // Pure seed normalization shared by the server and the guest catalog generator.
 // No database or server runtime dependencies; never imported by the browser.
+const { normalizeEquipmentItem, EQUIPMENT_STAT_KEYS, EQUIPMENT_STAT_VERSION } = require('../../shared/equipmentStatContract.cjs');
 
 const CRIMSON_SHARD_KEY = 'namu:material:진홍의 샤드';
 const DAWN_SHARD_KEY = 'namu:material:새벽빛 샤드';
@@ -50,6 +51,7 @@ function uniqStrings(list) {
 function normalizeStats(stats) {
   const s = stats && typeof stats === 'object' ? stats : {};
   return {
+    ...Object.fromEntries(EQUIPMENT_STAT_KEYS.map(key => [key, toNumber(s[key], 0)])),
     atk: toNumber(s.atk, 0),
     def: toNumber(s.def, 0),
     hp: toNumber(s.hp, 0),
@@ -78,6 +80,7 @@ function fallbackTreeKey(def) {
 }
 
 function normalizeTreeDef(def) {
+  def = normalizeEquipmentItem(def);
   const key = treeKey(def) || fallbackTreeKey(def);
   const name = cleanString(def?.name);
   if (!key || !name) return null;
@@ -95,6 +98,7 @@ function normalizeTreeDef(def) {
     stackMax: Math.max(1, Math.floor(toNumber(def?.stackMax, 1))),
     baseCreditValue: Math.max(0, Math.floor(toNumber(def?.baseCreditValue ?? def?.value, 0))),
     stats: normalizeStats(def?.stats),
+    equipmentStatVersion: def?.equipmentStatVersion ?? EQUIPMENT_STAT_VERSION,
     equipSlot: cleanString(def?.equipSlot),
     weaponType: cleanString(def?.weaponType),
     archetype: cleanString(def?.archetype),

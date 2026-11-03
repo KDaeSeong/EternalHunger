@@ -1,6 +1,7 @@
 import { getEffectiveStats, getActiveStatusEffects, getStoredActiveStatusEffects, getMoveSpeedStatusBonus, isTargetableByStatus,
   getForcedControlEffect, isForcedControlEffect, canMoveByStatus, hasMovementInterruptStatus } from '../../../utils/statusLogic.js';
-import { getCombatEquipment } from '../../../utils/battleEquipmentLogic.js';
+import { getCombatEquipment, getEquipmentStatValues } from '../../../utils/battleEquipmentLogic.js';
+import { getStatGrowthLevel } from '../../../utils/erStats.js';
 import { areSameTeam } from './teamRuntime.js';
 import { getActorPerkEffects, perkNumber } from './perkRuntime.js';
 import { getCombatSpaceId, shareCombatSpace, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
@@ -63,15 +64,18 @@ export function spatialDistance(a, b) {
 
 export function getSpatialStats(actor) {
   const stats = { ...getEffectiveStats(actor) };
+  let flatSpeed = 0;
   let speedRatio = getMoveSpeedStatusBonus(actor) + Number(actor?.permanentMoveSpeed || actor?.itemPermanentBonuses?.moveSpeed || 0)
     + perkNumber(getActorPerkEffects(actor)?.moveSpeedPlus || 0);
   for (const item of getCombatEquipment(actor)) {
-    stats.attackRange += Number(item.stats?.attackRange || 0);
-    stats.sightRange += Number(item.stats?.sightRange || 0);
-    speedRatio += Number(item.stats?.moveSpeed || 0);
+    const gear = getEquipmentStatValues(item, getStatGrowthLevel(actor));
+    stats.attackRange += Number(gear.attackRange || 0);
+    stats.sightRange += Number(gear.sightRange || 0);
+    speedRatio += Number(gear.moveSpeed || 0);
+    flatSpeed += Number(gear.moveSpeedFlat || 0);
   }
   return { attackRange: Math.max(0.5, stats.attackRange), sightRange: Math.max(1, stats.sightRange),
-    moveSpeed: Math.max(0.1, stats.moveSpeed * Math.max(0.25, 1 + speedRatio)) };
+    moveSpeed: Math.max(0.1, (stats.moveSpeed + flatSpeed) * Math.max(0.25, 1 + speedRatio)) };
 }
 
 export function canSeeActor(observer, target) {

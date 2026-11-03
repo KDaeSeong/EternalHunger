@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
+const { normalizeEquipmentItem } = require('../../shared/equipmentStatContract.cjs');
 
 // This script intentionally does not print MONGO_URI or any credentials.
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
@@ -39,7 +40,7 @@ function itemSeedKey(doc) {
 function sanitizeStats(stats) {
   const s = stats && typeof stats === 'object' ? stats : {};
   const out = {};
-  for (const key of ['atk', 'def', 'hp', 'skillAmp', 'atkSpeed', 'critChance', 'cdr', 'lifesteal', 'moveSpeed', 'armorPen', 'adaptiveForce']) {
+  for (const key of require('../../shared/equipmentStatContract.cjs').EQUIPMENT_STAT_KEYS) {
     const value = toNumber(s[key], 0);
     if (value !== 0) out[key] = value;
   }
@@ -70,6 +71,7 @@ function sanitizeRecipe(doc, byId) {
 }
 
 function sanitizeItem(doc, byId) {
+  doc = normalizeEquipmentItem(doc);
   const recipe = sanitizeRecipe(doc, byId);
   const out = {
     key: itemSeedKey(doc),
@@ -84,6 +86,7 @@ function sanitizeItem(doc, byId) {
     stackMax: Math.max(1, Math.floor(toNumber(doc.stackMax, 1))),
     baseCreditValue: Math.max(0, Math.floor(toNumber(doc.baseCreditValue ?? doc.value, 0))),
     stats: sanitizeStats(doc.stats),
+    equipmentStatVersion: Number(doc.equipmentStatVersion || 0),
     equipSlot: cleanString(doc.equipSlot),
     weaponType: cleanString(doc.weaponType),
     archetype: cleanString(doc.archetype),

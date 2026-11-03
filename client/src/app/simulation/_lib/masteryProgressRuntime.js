@@ -8,6 +8,7 @@ import {
   getPvpMasteryEntries,
 } from '../../../utils/masteryLogic';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
+import { synchronizeEquipmentHealth } from '../../../utils/equipmentHealth.js';
 
 export function applyLevelGrowth(actor, result) {
   if (!actor || !result?.characterLeveledUp) return;
@@ -31,6 +32,8 @@ export function applyLevelGrowth(actor, result) {
   } else {
     actor.maxHp = Math.max(effectiveMaxHp, Number(actor.maxHp || stats.maxHp || 100));
   }
+  if (Number.isFinite(actor._perkBaseMaxHp)) actor._perkBaseMaxHp += hpGain;
+  synchronizeEquipmentHealth(actor);
 }
 
 export function logMasteryResult(actor, result, reason = '', addLog = null) {
