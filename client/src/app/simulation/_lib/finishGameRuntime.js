@@ -1,4 +1,5 @@
-import { apiPost, captureAuthSession, getUser, isCurrentAuthSession, refreshStoredAuthSession, updateStoredUser } from '../../../utils/api';
+import { apiPost, captureAuthSession, captureStoredUserSnapshot, getUser, isCurrentAuthSession,
+  isCurrentStoredUserSnapshot, refreshStoredAuthSession, updateStoredUser } from '../../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../../utils/hallOfFame';
 import { getMatchConfig, normalizeMatchMode } from './matchRosterRuntime';
 import { buildLpRewardSummary, formatLpRewardBreakdown } from './lpRewardRuntime';
@@ -207,6 +208,7 @@ export async function finishSimulationGame(opts = {}) {
   const currentUser = getUser();
   const hasAuthenticatedUser = Boolean(currentUser?.username || currentUser?.id || currentUser?._id);
   const resultSession = captureAuthSession();
+  const resultUserSnapshot = captureStoredUserSnapshot();
   try {
     const username = currentUser?.username || currentUser?.id || currentUser?._id || 'guest';
     saveLocalHallOfFameBackup(winner, finalKills, finalAssists, participants);
@@ -325,7 +327,9 @@ export async function finishSimulationGame(opts = {}) {
         const lpApplied = Math.max(0, Number(res?.lpEarnedApplied || 0));
         const breakdown = res?.lpBreakdown || {};
         if (res?.user && typeof res.user === 'object') {
-          const applied = updateStoredUser((storedUser) => mergeStoredUserProgress(storedUser, res.user), { session: resultSession });
+          const applied = isCurrentStoredUserSnapshot(resultUserSnapshot)
+            ? updateStoredUser((storedUser) => mergeStoredUserProgress(storedUser, res.user), { session: resultSession })
+            : null;
           // A concurrent session refresh or another receipt may retire this
           // snapshot without changing accounts. Fetch fresh progress rather
           // than leave the header stale or apply an older account's receipt.

@@ -6,6 +6,7 @@ import {
   inferItemCategory,
 } from './inventoryRules';
 import { ensureEquipped } from './survivorRuntime';
+import { synchronizeEquipmentHealth } from '../../../utils/equipmentHealth.js';
 import {
   classifySpecialByName,
   pickBestEquipBySlot,
@@ -114,6 +115,7 @@ function autoEquipBest(actor, itemMetaById) {
     else nextEq[s] = null;
   }
   actor.equipped = nextEq;
+  synchronizeEquipmentHealth(actor);
 }
 
 function allowAbstractGearFallback(ruleset, opts = {}) {

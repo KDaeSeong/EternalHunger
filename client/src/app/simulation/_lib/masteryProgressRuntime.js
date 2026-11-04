@@ -8,6 +8,7 @@ import {
   getPvpMasteryEntries,
 } from '../../../utils/masteryLogic';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
+import { synchronizeEquipmentHealth, getEquipmentMaxHpAtBase } from '../../../utils/equipmentHealth.js';
 
 export function applyLevelGrowth(actor, result) {
   if (!actor || !result?.characterLeveledUp) return;
@@ -17,10 +18,18 @@ export function applyLevelGrowth(actor, result) {
   if (steps <= 0) return;
   const stats = normalizeErStats(actor?.stats);
   const hpGain = Math.max(0, Math.round(Number(stats?.hpGrowth || 0) * steps));
+  synchronizeEquipmentHealth(actor);
   const hpBefore = Math.max(0, Number(actor.hp) || 0);
+  const maxHpBefore = Number(actor.maxHp || stats.maxHp || 100);
   const effectiveMaxHp = Math.max(1, Math.round(Number(getEffectiveErStats(actor)?.maxHp || stats.maxHp || 100)));
+  const appliedEquipmentHp = Number(actor._equipmentMaxHpApplied || 0);
+  const baseMaxHp = Math.max(1, maxHpBefore - appliedEquipmentHp);
+  const nextBaseMaxHp = Math.max(effectiveMaxHp, baseMaxHp + hpGain);
+  const nextMaxHp = getEquipmentMaxHpAtBase(actor, nextBaseMaxHp);
+  if (!Number.isFinite(nextMaxHp)) return;
+  actor.maxHp = nextMaxHp;
+  if (Object.hasOwn(actor, '_equipmentMaxHpApplied')) actor._equipmentMaxHpApplied = nextMaxHp - nextBaseMaxHp;
   if (hpGain > 0) {
-    actor.maxHp = Math.max(effectiveMaxHp, Number(actor.maxHp || stats.maxHp || 100) + hpGain);
     // Experience earned by a lethal encounter may grow maximum HP, but only
     // the explicit revival lifecycle may restore a zero-HP participant. An
     // arena-defeated participant likewise keeps the exact committed HP until
@@ -29,8 +38,9 @@ export function applyLevelGrowth(actor, result) {
       ? Math.min(Number(actor.maxHp || 1), hpBefore + hpGain)
       : hpBefore;
   } else {
-    actor.maxHp = Math.max(effectiveMaxHp, Number(actor.maxHp || stats.maxHp || 100));
+    actor.hp = Math.min(nextMaxHp, hpBefore);
   }
+  if (Number.isFinite(actor._perkBaseMaxHp)) actor._perkBaseMaxHp += actor.maxHp - maxHpBefore;
 }
 
 export function logMasteryResult(actor, result, reason = '', addLog = null) {

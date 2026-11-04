@@ -16,6 +16,7 @@ import { normalizeRuntimeEffect } from './runtimeStatus';
 import { normalizeSupportedTacSkill } from '../tacticalSkillTable';
 import { getWeaponMasteryLevel } from '../../../utils/erMeta';
 import { normalizeErStats } from '../../../utils/erStats';
+import { synchronizeEquipmentHealth } from '../../../utils/equipmentHealth.js';
 import { normalizeMasteryState } from '../../../utils/masteryLogic';
 import { initializeSpatialPosition, getSpatialPosition, getSpatialLastSeen } from './combatSpatialRuntime.js';
 import {
@@ -161,7 +162,7 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
   const weaponType = runWeaponType || normalizeWeaponType(base?.weaponType);
   const inventory = normalizeRuntimeInventory(base?.inventory);
 
-  return {
+  return synchronizeEquipmentHealth({
     ...base,
     stats: normalizedStats,
     inventory,
@@ -243,7 +244,7 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
     detonationMaxSec: Number.isFinite(Number(base?.detonationMaxSec)) ? Number(base.detonationMaxSec) : undefined,
     statusImmunities: Array.from(statusImmunities),
     statusResists,
-  };
+  });
 }
 
 function getEquipMoveSpeed(actor) {

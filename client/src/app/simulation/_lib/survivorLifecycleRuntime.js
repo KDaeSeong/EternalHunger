@@ -6,6 +6,7 @@ import {
 import { EQUIP_SLOTS } from './simulationConstants';
 import { initializeSpatialPosition } from './combatSpatialRuntime.js';
 import { WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
+import { synchronizeEquipmentHealth } from '../../../utils/equipmentHealth.js';
 import {
   addItemToInventory,
   getInvItemId,
@@ -115,7 +116,7 @@ function pruneEquippedAgainstInventory(actor) {
     if (curId && !invIds.has(curId)) nextEq[slot] = null;
   }
   actor.equipped = nextEq;
-  return actor;
+  return synchronizeEquipmentHealth(actor);
 }
 
 function clearRuntimeCombatFields(actor) {

@@ -3,6 +3,7 @@ import { getEffectiveErStats } from '../../../utils/erStats.js';
 import { getEffectiveStats, getLifestealPercent, applyHealingModifier, getDamageBlockReason } from '../../../utils/statusLogic.js';
 import { simulationRandom } from '../../../utils/simulationRandom.js';
 import { restoreRuntimeHp, describeHpRecovery } from './healthRecoveryRuntime.js';
+import { getEquipmentHealthBonus } from '../../../utils/equipmentHealth.js';
 
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, finite(value)));
@@ -12,6 +13,7 @@ const RATIO_STATS = ['critChance', 'critDamageIncrease', 'basicAttackAmp', 'dama
 
 export function getCombatStats(actor) {
   const stats = { ...getEffectiveStats(actor) };
+  stats.maxHp = Math.max(1, stats.maxHp + getEquipmentHealthBonus(actor));
   const base = getEffectiveErStats(actor);
   let bonusAttack = Math.max(0, stats.attackPower - base.attackPower);
   for (const item of getCombatEquipment(actor)) {

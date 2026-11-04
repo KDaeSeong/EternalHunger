@@ -1,6 +1,10 @@
+import { gameBgmAudioUrl } from './gameBgmAudioAssets.js';
+
 function renderedTrack(folder, file, options = {}) {
+  const assetKey = `audio/${folder}/${file}.wav`;
   return Object.freeze({
-    src: `/audio/${folder}/${file}.wav`,
+    assetKey,
+    src: gameBgmAudioUrl(assetKey),
     gain: 1.2,
     loop: true,
     loopStartSeconds: 0.85,

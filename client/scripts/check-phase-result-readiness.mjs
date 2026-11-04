@@ -7,7 +7,8 @@ const hookUrl = new URL('../src/app/simulation/_lib/useSimulationPhaseController
 const executorUrl = new URL('../src/app/simulation/_lib/useSimulationPhaseExecutor.js', import.meta.url).href;
 const finishUrl = new URL('../src/app/simulation/_lib/finishGameRuntime.js', import.meta.url).href;
 const harnessUrl = new URL('./lib/hook-handler-harness.mjs', import.meta.url).href;
-const probe = { apiCalls: [], gates: [], storedUserUpdates: 0, refreshes: 0 };
+const probe = { apiCalls: [], gates: [], storedUserUpdates: 0, refreshes: 0,
+  userSnapshotRevision: 0, storedUser: { id: 'test-user', username: 'test-user' } };
 
 function stub(source) { return `data:text/javascript,${encodeURIComponent(source)}`; }
 
@@ -21,10 +22,25 @@ registerHooks({ resolve(specifier, context, nextResolve) {
         return probe.gates[probe.apiCalls.length - 1].promise;
       }
       export const captureAuthSession = () => ({ testSession: true });
-      export const getUser = () => ({ id: 'test-user', username: 'test-user' });
+      export const getUser = () => ({ ...globalThis.__phaseResultReadinessProbe.storedUser });
       export const isCurrentAuthSession = () => true;
+      export function captureStoredUserSnapshot() {
+        const probe = globalThis.__phaseResultReadinessProbe;
+        return { revision: probe.userSnapshotRevision, raw: JSON.stringify(probe.storedUser) };
+      }
+      export function isCurrentStoredUserSnapshot(snapshot) {
+        const current = captureStoredUserSnapshot();
+        return Boolean(snapshot) && snapshot.revision === current.revision && snapshot.raw === current.raw;
+      }
       export const refreshStoredAuthSession = async () => { globalThis.__phaseResultReadinessProbe.refreshes += 1; };
-      export const updateStoredUser = () => { globalThis.__phaseResultReadinessProbe.storedUserUpdates += 1; return true; };
+      export function updateStoredUser(patch) {
+        const probe = globalThis.__phaseResultReadinessProbe;
+        const current = getUser();
+        probe.storedUser = typeof patch === 'function' ? patch(current) : { ...current, ...patch };
+        probe.storedUserUpdates += 1;
+        probe.userSnapshotRevision += 1;
+        return probe.storedUser;
+      }
     `), shortCircuit: true };
   }
   if (context.parentURL === finishUrl && specifier === '../../../utils/hallOfFame') {
@@ -262,6 +278,23 @@ try {
   assert.equal(ui.resultSummary.saveStatus.userStats, 'success');
   assert.ok(refs.fullLogsRef.current.some((line) => line.includes('LP +42')), 'same-run response should append its receipt log');
   assert.equal(refs.fullRunEventsRef.current, liveJournal, 'same-run receipt must not replace the journal');
+
+  // A same-account profile update retires the receipt snapshot without blocking result readiness.
+  const profileGate = deferred();
+  await runDeferredFinish(profileGate, { ...savedInput, staleGuard: 'updated-profile' });
+  const storedUpdatesBefore = probe.storedUserUpdates;
+  const refreshesBefore = probe.refreshes;
+  probe.storedUser = { ...probe.storedUser, nickname: 'newer-profile', lp: 1200 };
+  probe.userSnapshotRevision += 1;
+  profileGate.resolve({ rewardStatus: 'saved', lpEarnedApplied: 50, lpBreakdown: { base: 50 },
+    user: { id: 'test-user', username: 'test-user', nickname: 'older-profile', lp: 950 } });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(probe.storedUserUpdates, storedUpdatesBefore, 'late receipt must not overwrite the newer profile');
+  assert.equal(probe.storedUser.nickname, 'newer-profile');
+  assert.equal(probe.storedUser.lp, 1200);
+  assert.equal(probe.refreshes, refreshesBefore + 1, 'retired snapshot should request fresh account progress');
+  assert.equal(ui.resultSummary.rewardLP, 50, 'current result should still receive its own reward receipt');
+  assert.equal(ui.resultSummary.saveStatus.userStats, 'success');
 
   // Network rejection is consumed by finish runtime and must not become an unhandled rejection.
   const rejectedGate = deferred();

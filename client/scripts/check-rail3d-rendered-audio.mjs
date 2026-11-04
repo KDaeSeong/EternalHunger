@@ -1,3 +1,4 @@
+import { renderedAudioAssetPath, renderedAudioLocalFile } from './lib/rendered-audio-local-assets.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -51,7 +52,7 @@ for (const soundtrackRow of RAIL3D_SOUNDTRACK) {
   assert.equal(renderedTrack.renderer, 'sampled-orchestra-v3-vsco2-ce');
   assert.equal(renderedTrack.loop, true);
   assert.equal(renderedTrack.loopStartSeconds, 0.85);
-  assert.match(renderedTrack.src, /^\/audio\/rail3d-sim\/[a-z-]+\.wav$/);
+  assert.match(renderedAudioAssetPath(renderedTrack), /^\/audio\/rail3d-sim\/[a-z-]+\.wav$/);
   assert.equal(manifestTrack.channels, 2, `스테레오 manifest 오류: ${soundtrackRow.theme}`);
   assert.equal(manifestTrack.sampleRate, 22_050, `샘플레이트 오류: ${soundtrackRow.theme}`);
   assert.equal(
@@ -67,7 +68,7 @@ for (const soundtrackRow of RAIL3D_SOUNDTRACK) {
   for (const file of Object.keys(manifestTrack.sampleUsage.files)) sampledSourceFiles.add(file);
   sampledEvents += manifestTrack.sampleUsage.events;
 
-  const filePath = path.join(publicRoot, ...renderedTrack.src.split('/').filter(Boolean));
+  const filePath = renderedAudioLocalFile(publicRoot, renderedTrack);
   const wave = await readFile(filePath);
   assert.equal(wave.toString('ascii', 0, 4), 'RIFF');
   assert.equal(wave.toString('ascii', 8, 12), 'WAVE');

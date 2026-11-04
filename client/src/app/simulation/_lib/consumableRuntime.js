@@ -43,6 +43,7 @@ export function applyPermanentConsumableBoostToActor(actor, effect, item) {
     const prevMax = Math.max(1, Number(actor.maxHp || 100));
     const prevHp = Math.max(0, Number(actor.hp || 0));
     actor.maxHp = prevMax + maxHpPlus;
+    if (Number.isFinite(actor._perkBaseMaxHp)) actor._perkBaseMaxHp += maxHpPlus;
     actor.hp = Math.min(actor.maxHp, prevHp + maxHpPlus);
     actor.itemPermanentBonuses.maxHp = Number(actor.itemPermanentBonuses.maxHp || 0) + maxHpPlus;
     parts.push(`최대 체력 +${maxHpPlus}`);

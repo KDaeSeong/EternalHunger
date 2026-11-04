@@ -246,6 +246,7 @@ export function buildInitialSimulationRoster({
       tacticalSkillLevel: Math.max(1, Math.min(2, Number(erSeed?.tacticalSkillLevel || 1))),
       hp: seedMaxHp,
       maxHp: seedMaxHp,
+      _equipmentMaxHpApplied: 0,
       zoneId: startZoneId,
       inventory: [],
       equipped: ensureEquipped({ inventory: [], equipped: {} }),
@@ -268,6 +269,7 @@ export function buildInitialSimulationRoster({
       safeZoneUntil: 0,
     }, routePlan, 'fast_start');
     delete seededBase._passiveMaxHpApplied;
+    delete seededBase._equipmentMaxHpApplied;
     delete seededBase._perkBaseMaxHp;
     delete seededBase._spatial;
     delete seededBase._spatialMotion;

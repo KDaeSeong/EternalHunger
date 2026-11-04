@@ -1,3 +1,4 @@
+import { renderedAudioAssetPath, renderedAudioLocalFile } from './lib/rendered-audio-local-assets.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -51,7 +52,7 @@ for (const soundtrackRow of ETERNAL_HUNGER_SOUNDTRACK) {
   assert.equal(renderedTrack.renderer, 'sampled-orchestra-v3-vsco2-ce');
   assert.equal(renderedTrack.loop, true);
   assert.equal(renderedTrack.loopStartSeconds, 0.85);
-  assert.match(renderedTrack.src, /^\/audio\/eternal-hunger\/[a-z-]+\.wav$/);
+  assert.match(renderedAudioAssetPath(renderedTrack), /^\/audio\/eternal-hunger\/[a-z-]+\.wav$/);
   assert.equal(manifestTrack.channels, 2, `manifest 채널 오류: ${soundtrackRow.theme}`);
   assert.equal(manifestTrack.sampleRate, 22_050, `manifest 샘플레이트 오류: ${soundtrackRow.theme}`);
   assert.equal(manifestTrack.instruments.length >= 14, true, `오케스트라 편성이 부족합니다: ${soundtrackRow.theme}`);
@@ -77,7 +78,7 @@ for (const soundtrackRow of ETERNAL_HUNGER_SOUNDTRACK) {
   totalSampleEvents += manifestTrack.sampleUsage.events;
   for (const instrument of manifestTrack.instruments) manifestInstruments.add(instrument);
 
-  const filePath = path.join(publicRoot, ...renderedTrack.src.split('/').filter(Boolean));
+  const filePath = renderedAudioLocalFile(publicRoot, renderedTrack);
   const wave = await readFile(filePath);
   assert.equal(wave.toString('ascii', 0, 4), 'RIFF', `RIFF 헤더 누락: ${renderedTrack.src}`);
   assert.equal(wave.toString('ascii', 8, 12), 'WAVE', `WAVE 헤더 누락: ${renderedTrack.src}`);

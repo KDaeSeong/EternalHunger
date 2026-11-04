@@ -135,6 +135,15 @@ function readStoredUserRaw() {
   try { return window.localStorage.getItem('user'); } catch { return null; }
 }
 
+export function captureStoredUserSnapshot() {
+  return { revision: userSnapshotRevision, raw: readStoredUserRaw() };
+}
+
+export function isCurrentStoredUserSnapshot(snapshot) {
+  return Boolean(snapshot) && snapshot.revision === userSnapshotRevision
+    && snapshot.raw === readStoredUserRaw();
+}
+
 function storedUserIdentity(user) {
   return String(user?.id || user?._id || user?.username || '').trim();
 }

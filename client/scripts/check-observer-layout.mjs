@@ -12,9 +12,12 @@ const components = new Set([
   '../src/app/simulation/_components/SimulationSurvivorBoard.js',
   '../src/app/games/_components/GameActionIcon.js',
 ].map((path) => new URL(path, import.meta.url).href));
+const cosmeticStylesUrl = new URL('../src/styles/PerkCosmetics.css', import.meta.url).href;
 registerHooks({ resolve(specifier, context, nextResolve) {
   return nextResolve(specifier === 'next/image' ? 'next/image.js' : specifier, context);
 }, load(url, context, nextLoad) {
+  // SSR checks retain real component markup; CSS has no executable Node module.
+  if (url === cosmeticStylesUrl) return { format: 'module', shortCircuit: true, source: '' };
   if (!components.has(url)) return nextLoad(url, context);
   // Next's bundler unwraps this CJS default; native Node ESM does not. Keep
   // the real Next Image component rather than replacing it with a test mock.

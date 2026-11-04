@@ -1,4 +1,5 @@
 import { simulationRandom } from '../../../utils/simulationRandom.js';
+import { synchronizeEquipmentHealth } from '../../../utils/equipmentHealth.js';
 import { resetDetonationTimer } from './detonationTimerRuntime.js';
 import { isEndgamePhase } from './suddenDeathRuntime.js';
 import {
@@ -167,6 +168,7 @@ export function runPhaseRevival({
         && teamCreditPool >= paidCost;
 
       if (sameZoneReviver || autoEligible || paidEligible) {
+        synchronizeEquipmentHealth(deadActor);
         const maxHp = Number(deadActor?.maxHp ?? 100);
         const revivedHp = Math.max(1, Math.floor(maxHp * reviveHpRatio));
         const zoneId = safeZonePool.length
