@@ -14,6 +14,9 @@
 /coverage
 /.verification-runs/
 
+# Original audio stays local; public playback uses the verified MP3 CDN.
+/public/audio/*/*.wav
+
 # next.js
 /.next/
 /out/
