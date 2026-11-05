@@ -1,7 +1,7 @@
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import PrimitiveArchiveOperationsSummary from './PrimitiveArchiveOperationsSummary';
 
-export default function PrimitiveArchiveFocusPanel({ plan, operations, onNavigate }) {
+export default function PrimitiveArchiveFocusPanel({ plan, operations, dayControl, onNavigate }) {
   if (!plan) return null;
   const { objective, night, blocked, supplies } = plan;
   const dangerRows = night.rows.filter((row) => Number(row.damage) > 0);
@@ -34,7 +34,7 @@ export default function PrimitiveArchiveFocusPanel({ plan, operations, onNavigat
         ) : null}
         <p>{night.detail}</p>
         {operations && !blocked ? (
-          <PrimitiveArchiveOperationsSummary operations={operations} onNavigate={onNavigate} blocked={blocked} />
+          <PrimitiveArchiveOperationsSummary operations={operations} dayControl={dayControl} onNavigate={onNavigate} blocked={blocked} />
         ) : supplies ? (
           <small className="primitive-focus-supplies" aria-label="비축과 저녁 관리 안내">
             <strong>비축</strong> {supplies.reserveText}<br />

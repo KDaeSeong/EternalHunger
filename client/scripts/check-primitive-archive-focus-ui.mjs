@@ -1087,7 +1087,7 @@ check('the live focus panel hosts the real operations summary without bypassing 
 
 const playContent = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js', import.meta.url), 'utf8');
 assert.match(playContent, /const focusPlan = primitiveArchiveFocusPlan\(/, 'The live page must use the tested focus plan.');
-assert.match(playContent, /<PrimitiveArchiveFocusPanel plan=\{focusPlan\} operations=\{operations\} onNavigate=\{selectArchiveTab\} \/>\s*<PrimitiveArchiveInventoryBar inventory=\{state\.inventory\} inventoryRows=\{inventoryRows\} \/>\s*<PrimitiveArchiveFeatureTabs/s, 'The live focus panel must use help-clearing navigation and be followed by the persistent inventory bar before the real feature tabs.');
+assert.match(playContent, /<PrimitiveArchiveFocusPanel plan=\{focusPlan\} operations=\{operations\}\s+dayControl=\{settlementDayControl\} onNavigate=\{selectArchiveTab\} \/>\s*<PrimitiveArchiveInventoryBar inventory=\{state\.inventory\} inventoryRows=\{inventoryRows\} \/>\s*<PrimitiveArchiveFeatureTabs/s, 'The live focus panel must host the settlement day control, use help-clearing navigation, and be followed by the persistent inventory bar before the real feature tabs.');
 assert.match(playContent, /<details className="primitive-guide-details">\s*<summary>상세 생존 안내<\/summary>\s*<GameAdvisorPanel/s, 'Existing detailed survival advice must remain available below the main interface.');
 
 check('the actual navigation adapter clears requirement help before forwarding each requested tab to the original state setter', () => {

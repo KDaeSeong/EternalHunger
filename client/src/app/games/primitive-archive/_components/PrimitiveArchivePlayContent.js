@@ -76,6 +76,8 @@ import {
   runCraftAction,
   runDiplomacyAction,
   runAutoDayAction,
+  runSettlementDayAction,
+  settlementDayStatus,
   runEatAction,
   runGatherAction,
   runHuntAction,
@@ -879,6 +881,17 @@ export default function PrimitiveArchivePlayContent() {
       </div>
     </details>
   );
+  const settlementDay = settlementDayStatus(state);
+  const settlementDayExpected = { runId: state.runId, day: state.day, ap: state.ap, updatedAt: state.updatedAt };
+  const settlementDayControl = settlementDay.enabled ? (
+    <GameControlButton action="auto" cue="off" className="primitive-settlement-day"
+      aria-label={`정착 운영: 남은 개인 행동력 ${state.ap} 포기하고 하루 진행`}
+      aria-describedby="primitive-settlement-day-risk"
+      onClick={() => applyAction('정착 운영으로 하루 진행', (current) => runSettlementDayAction(current, settlementDayExpected))}
+      disabled={!hydrated || !checkpoint.ready || !checkpoint.exclusive || Boolean(busy) || shopControlsBusy || Boolean(shopStartRef.current)}>
+      정착 운영 · AP {state.ap} 포기하고 하루 진행
+    </GameControlButton>
+  ) : null;
   const autoDayControl = (
     <GameControlButton action="auto" cue="off" className="primitive-auto-day" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</GameControlButton>
   );
@@ -1019,7 +1032,8 @@ export default function PrimitiveArchivePlayContent() {
       messages={playMessages}
     >
       <PrimitiveArchiveEraDefs theme={eraTheme} />
-      <PrimitiveArchiveFocusPanel plan={focusPlan} operations={operations} onNavigate={selectArchiveTab} />
+      <PrimitiveArchiveFocusPanel plan={focusPlan} operations={operations}
+        dayControl={settlementDayControl} onNavigate={selectArchiveTab} />
       <PrimitiveArchiveInventoryBar inventory={state.inventory} inventoryRows={inventoryRows} />
 
       <PrimitiveArchiveFeatureTabs

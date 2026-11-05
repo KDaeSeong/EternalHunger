@@ -9,7 +9,7 @@ const destinations = {
   tribe: { action: 'primitive-job', label: '직업 배치 확인' },
 };
 
-export default function PrimitiveArchiveOperationsSummary({ operations, onNavigate, blocked = false }) {
+export default function PrimitiveArchiveOperationsSummary({ operations, dayControl, onNavigate, blocked = false }) {
   const [expanded, setExpanded] = useState(false);
   if (!operations) return null;
   const ended = Boolean(operations.ended);
@@ -71,6 +71,15 @@ export default function PrimitiveArchiveOperationsSummary({ operations, onNaviga
           ) : null}
         </div>
       </details>
+      {!ended && !blocked && dayControl ? (
+        <div className="primitive-operations__day-control">
+          <p id="primitive-settlement-day-risk" className="primitive-operations__day-risk">
+            개인 행동 없이 현재 비축으로 밤을 정산합니다. 다음 날 생산을 미리 쓰지 않으며,
+            식량·연료·보온이 부족하면 피해나 사망이 생길 수 있습니다.
+          </p>
+          {dayControl}
+        </div>
+      ) : null}
       {issues.length ? (
         <ul className="primitive-operations__issues" aria-label="현재 운영 주의사항">
           {issues.map((issue) => {

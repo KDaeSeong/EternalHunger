@@ -4024,6 +4024,27 @@ export function nightSurvivalRows(state) {
   });
 }
 
+// Advance the existing settlement boundary without inventing personal actions.
+export function settlementDayStatus(state) {
+  const reason = state.ended ? '종료된 런입니다.'
+    : !livingParty(state).length ? '운영을 이어갈 생존 대원이 없습니다.'
+      : !state.research?.completed?.SETTLEMENT || !state.research?.completed?.FOOD_STORAGE
+        ? '정착과 식량 저장 연구가 필요합니다.'
+        : Number(state.camp?.shelterLevel || 0) < 1 || Number(state.tribe?.population || 0) < 1
+          || Number(state.tribe?.morale || 0) <= 0 ? '거처와 활동 가능한 공동체가 필요합니다.'
+          : !Number.isFinite(state.ap) || state.ap <= 0 ? '포기할 개인 행동력이 없습니다.' : '';
+  return { enabled: !reason, reason };
+}
+
+export function runSettlementDayAction(state, expected, options = {}) {
+  if (!expected || expected.runId !== state.runId || expected.day !== state.day
+    || expected.ap !== state.ap || expected.updatedAt !== state.updatedAt
+    || !settlementDayStatus(state).enabled) return state;
+  const current = state;
+  return advanceDay(addLog({ ...current, ap: 0 },
+    `정착 운영으로 하루 진행: 남은 개인 AP ${current.ap} 포기. 개인 행동 없이 실제 비축으로 밤을 정산합니다.`), options);
+}
+
 export function advanceDay(state, options = {}) {
   if (state.ended) return state;
   state = { ...state, founderHistory: normalizeFounderHistory(state.founderHistory, state),
