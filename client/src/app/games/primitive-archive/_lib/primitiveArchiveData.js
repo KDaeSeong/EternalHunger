@@ -1,6 +1,7 @@
 import { withAdvancementLore } from './primitiveArchiveAdvancementLore';
 import { ARCHIVE_OFFICIAL_PORTRAITS } from './primitiveArchivePortraits';
 import { isValidTribeProductionReceipt, normalizeTribeWorkPolicy } from './primitiveArchiveWorkPolicy.js';
+import { DEFAULT_TRIBE_PROCESSING_PLAN, isValidOptionalTribeProcessing, normalizeTribeProcessingPlan } from './primitiveArchiveProcessing.js';
 
 export const GAME_SLUG = 'primitive-archive';
 export const QUICK_SAVE_SLOT = 'primitive-archive-main';
@@ -313,6 +314,11 @@ export const TRIBE_JOBS = [
     id: 'scholar', name: '기록대', action: 'research',
     description: '현재 목표 기술에 매일 연구 포인트를 투입합니다.',
     outputText: '1명당 목표 기술 +1RP',
+  },
+  {
+    id: 'artisan', name: '가공대', action: 'primitive-kiln', techId: 'SETTLEMENT',
+    description: '수동 배치한 일손으로 선택한 가공 계획에 따라 실제 재료를 가공합니다.',
+    outputText: '1명당 최대 1회 가공 · 실제 재료 소비',
   },
 ];
 
@@ -2429,7 +2435,7 @@ export function normalizeProjectState(value = {}) {
 }
 
 export function initTribeState() {
-  const assignments = { forager: 2, hunter: 1, logger: 0, herbalist: 0, trapper: 0, farmer: 0, herder: 0, fisher: 0, miner: 0, quarryman: 0, builder: 1, scholar: 0 };
+  const assignments = { forager: 2, hunter: 1, logger: 0, herbalist: 0, trapper: 0, farmer: 0, herder: 0, fisher: 0, miner: 0, quarryman: 0, builder: 1, scholar: 0, artisan: 0 };
   return {
     population: 4,
     assignments,
@@ -2443,11 +2449,13 @@ export function initTribeState() {
     assignmentSerial: 0,
     settlementLevel: 0,
     workPolicy: 'balanced',
+    processingPlan: { ...DEFAULT_TRIBE_PROCESSING_PLAN },
   };
 }
 
 export function normalizeTribeState(value = {}) {
   const base = initTribeState();
+  if (!isValidOptionalTribeProcessing(value)) throw new RangeError('Invalid tribe processing state');
   if (!isValidTribeProductionReceipt(value.lastProduction, TRIBE_JOBS.map(job => job.id))) {
     throw new RangeError('Invalid tribe production receipt');
   }
@@ -2484,6 +2492,8 @@ export function normalizeTribeState(value = {}) {
     assignmentSerial: Math.max(0, Math.floor(Number(value.assignmentSerial || 0))),
     settlementLevel: Math.min(3, Math.max(0, Math.floor(Number(value.settlementLevel || 0)))),
     workPolicy: normalizeTribeWorkPolicy(value.workPolicy),
+    processingPlan: Object.hasOwn(value, 'processingPlan')
+      ? normalizeTribeProcessingPlan(value.processingPlan) : { ...DEFAULT_TRIBE_PROCESSING_PLAN },
   };
 }
 

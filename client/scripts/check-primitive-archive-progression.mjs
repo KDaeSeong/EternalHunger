@@ -22,6 +22,7 @@ const runTabUrl = new URL('../src/app/games/primitive-archive/_components/Primit
 const partyWorkspaceUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePartyWorkspace.js', import.meta.url).href;
 const portraitUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePortrait.js', import.meta.url).href;
 const tribeTabUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveTribeTab.js', import.meta.url).href;
+const processingPlanUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveProcessingPlan.js', import.meta.url).href;
 const advisorPanelUrl = new URL('../src/app/games/_components/GameAdvisorPanel.js', import.meta.url).href;
 const runTabModules = new Map([
   ['next/link', `const jsx = (...args) => globalThis.__primitiveArchiveProgressionReact.createElement(...args); export default function Link(props) { return jsx('a', props); }`],
@@ -77,7 +78,7 @@ registerHooks({
     if (context.parentURL === runTabUrl && runTabModules.has(specifier)) {
       return { url: asDataModule(runTabModules.get(specifier)), shortCircuit: true };
     }
-    if (context.parentURL === tribeTabUrl && tribeTabModules.has(specifier)) {
+    if ([tribeTabUrl, processingPlanUrl].includes(context.parentURL) && tribeTabModules.has(specifier)) {
       return { url: asDataModule(tribeTabModules.get(specifier)), shortCircuit: true };
     }
     if (context.parentURL === partyWorkspaceUrl && partyWorkspaceModules.has(specifier)) {
@@ -86,7 +87,7 @@ registerHooks({
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if (url !== runTabUrl && url !== tribeTabUrl && url !== partyWorkspaceUrl && url !== advisorPanelUrl && url !== portraitUrl) return nextLoad(url, context);
+    if (url !== runTabUrl && url !== tribeTabUrl && url !== processingPlanUrl && url !== partyWorkspaceUrl && url !== advisorPanelUrl && url !== portraitUrl) return nextLoad(url, context);
     return {
       format: 'module',
       shortCircuit: true,

@@ -25,10 +25,11 @@ const portraitUrl = new URL('_components/PrimitiveArchivePortrait.js', routeUrl)
 const projectsPanelUrl = new URL('_components/PrimitiveArchiveProjectsPanel.js', routeUrl).href;
 const workspaceTabsUrl = new URL('_components/PrimitiveArchiveWorkspaceTabs.js', routeUrl).href;
 const tribeTabUrl = new URL('_components/PrimitiveArchiveTribeTab.js', routeUrl).href;
+const processingPlanUrl = new URL('_components/PrimitiveArchiveProcessingPlan.js', routeUrl).href;
 const campWorkspaceUrl = new URL('_components/PrimitiveArchiveCampWorkspace.js', routeUrl);
 const growthTabUrl = new URL('_components/PrimitiveArchiveGrowthTab.js', routeUrl);
 const researchPreviewUrl = new URL('_components/PrimitiveArchiveResearchTreePreview.js', routeUrl);
-const transpiledUrls = new Set([focusPanelUrl, operationsUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, portraitUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl]);
+const transpiledUrls = new Set([focusPanelUrl, operationsUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, portraitUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl, processingPlanUrl]);
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 const primitiveUiStub = `
   const jsx = (...args) => globalThis.__primitiveArchiveFocusReact.createElement(...args);
@@ -110,7 +111,7 @@ registerHooks({
     if (context.parentURL === runTabUrl && runTabStubs.has(specifier)) {
       return { url: asDataModule(runTabStubs.get(specifier)), shortCircuit: true };
     }
-    if ([inventoryTabUrl, partyWorkspaceUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl].includes(context.parentURL)) {
+    if ([inventoryTabUrl, partyWorkspaceUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl, processingPlanUrl].includes(context.parentURL)) {
       if (specifier === 'react' && context.parentURL === inventoryTabUrl) return { url: asDataModule(inventoryHooksStub), shortCircuit: true };
       if (specifier === '../../_components/GamePlayPrimitives') return { url: asDataModule(primitiveUiStub), shortCircuit: true };
       if (specifier === './PrimitiveArchiveVisuals') return { url: asDataModule(visualStub), shortCircuit: true };

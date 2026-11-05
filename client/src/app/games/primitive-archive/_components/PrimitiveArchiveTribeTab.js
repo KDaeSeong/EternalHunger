@@ -8,6 +8,7 @@ import {
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
+import PrimitiveArchiveProcessingPlan from './PrimitiveArchiveProcessingPlan';
 
 function diplomacyDisabledText(rival, action) {
   if (rival.actedToday) return '오늘 교섭을 완료했습니다.';
@@ -26,12 +27,14 @@ export default function PrimitiveArchiveTribeTab({
   actionFeedback,
   adjustTribeJob,
   changeTribeWorkPolicy,
+  configureTribeProcess,
   busy,
   recentActionText,
   rivals = [],
   runDiplomacy,
   supplies,
   projectTradition,
+  state,
   tribe,
 }) {
   const knownCount = rivals.filter((rival) => rival.known).length;
@@ -129,14 +132,14 @@ export default function PrimitiveArchiveTribeTab({
         </div> : null}
         <div className="primitive-job-grid">
           {tribe.jobs.map((job) => (
-            <article className={job.unlocked ? '' : 'is-locked'} key={job.id}>
+            <article className={[job.unlocked ? '' : 'is-locked', job.id === 'artisan' ? 'primitive-processing-job' : ''].filter(Boolean).join(' ')} key={job.id}>
               <GameActionIcon action={job.action} className="primitive-job-icon" />
               <div className="primitive-job-copy">
                 <span>{job.unlocked ? job.outputText : '기술 연구 후 해금'}</span>
                 <strong>{job.name}</strong>
                 <small>{job.description}</small>
                 <small>직접 배치 {job.manualCount}명 · 자동 배치 {job.autoCount}명</small>
-                <em>다음 정산 · {job.dailyText}</em>
+                {job.id !== 'artisan' ? <em>다음 정산 · {job.dailyText}</em> : null}
               </div>
               <div className="primitive-job-stepper">
                 <button
@@ -161,12 +164,15 @@ export default function PrimitiveArchiveTribeTab({
                   <Plus size={16} strokeWidth={2.4} />
                 </button>
               </div>
+              {job.id === 'artisan' ? <PrimitiveArchiveProcessingPlan processing={tribe.processing} runId={state?.runId || ''}
+                onConfigure={configureTribeProcess} blockedReason={jobEditBlockedReason} /> : null}
             </article>
           ))}
         </div>
         <div className="primitive-tribe-ledger">
           <div className="primitive-work-policy__receipt"><span>직전 운영 방침·배치</span><strong>{workPolicyReceipt}</strong></div>
           <div><span>최근 생산</span><strong>{tribe.lastProductionText}</strong></div>
+          {tribe.processing ? <div className="primitive-processing-receipt"><span>직전 정산 실제 가공</span><strong>{tribe.processing.receiptText || '가공 영수증 미기록'}</strong></div> : null}
           <div><span>최근 배식</span><strong>{foodResult}</strong></div>
           <div><span>자동 건설</span><strong>{lastProduction.projectWork ? `${lastProduction.projectName} +${lastProduction.projectWork}` : '진행 없음'}</strong></div>
           <div><span>기록대 실제 연구</span><strong>{Object.hasOwn(lastProduction, 'researchRequested') ? `+${Number(lastProduction.researchPoints || 0)}RP` : Number(tribe.productionSerial || 0) > 0 ? '이전 영수증: 적용량 미기록' : '정산 전'}</strong></div>

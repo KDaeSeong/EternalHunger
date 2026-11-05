@@ -4,6 +4,7 @@ import { isValidLineage } from './primitiveArchiveLineage';
 import { isValidAncestralFaith } from './primitiveArchiveAncestralFaith';
 import { isValidProjectTradition } from './primitiveArchiveProjectTradition';
 import { isValidTribeProductionReceipt, isValidTribeWorkPolicy } from './primitiveArchiveWorkPolicy';
+import { isValidOptionalTribeProcessing } from './primitiveArchiveProcessing';
 
 const CHECKPOINT_SCHEMA_VERSION = 2;
 const CHECKPOINT_KEY_PREFIX = 'primitive-archive:checkpoint:v2:';
@@ -244,6 +245,7 @@ export function isValidRunState(value) {
     || typeof value.victory !== 'boolean'
     || !isValidOptionalRunStructures(value)
     || !isValidTribeWorkPolicy(value.tribe?.workPolicy)
+    || !isValidOptionalTribeProcessing(value.tribe)
     || !isValidTribeProductionReceipt(value.tribe?.lastProduction, TRIBE_JOBS.map(job => job.id))
     || !isValidFounderHistory(value.founderHistory, { runId: value.runId, day: value.day })
     || !isValidLineage(value.lineage, value)

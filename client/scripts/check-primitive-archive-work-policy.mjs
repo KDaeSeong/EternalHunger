@@ -219,6 +219,14 @@ check('balanced reproduces the fresh pre-change full-state fingerprints and exac
     assert.deepEqual(source, before);
     assert.equal(draws, expected[mode][1]); assert.equal(weatherDraws, 1);
     const originalShape = clone(next);
+    // Remove only asserted neutral additions; keep the old economy and RNG hash.
+    assert.deepEqual(originalShape.tribe.processingPlan, { actionId: '', targetStock: 0 });
+    assert.equal(originalShape.tribe.assignments.artisan, 0);
+    assert.equal(originalShape.tribe.autoAssignments.artisan, 0);
+    assert.equal(Object.hasOwn(originalShape.tribe.lastProduction, 'processing'), false);
+    delete originalShape.tribe.processingPlan;
+    delete originalShape.tribe.assignments.artisan;
+    delete originalShape.tribe.autoAssignments.artisan;
     delete originalShape.updatedAt;
     delete originalShape.tribe.workPolicy;
     delete originalShape.tribe.lastProduction.workPolicy;

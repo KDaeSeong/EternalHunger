@@ -40,3 +40,88 @@
 .primitive-work-policy__history summary { cursor: pointer; color: var(--era-accent-deep); }
 .primitive-work-policy__history ul { margin: 6px 0; padding-inline-start: 20px; }
 .primitive-tribe-ledger > .primitive-work-policy__receipt { grid-column: 1 / -1; }
+
+.primitive-era.primitive-archive-page-shell .primitive-job-grid .primitive-processing-job {
+  grid-column: 1 / -1;
+  border: var(--era-control-border);
+  border-radius: var(--era-block-radius);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+}
+.primitive-era.primitive-archive-page-shell .primitive-processing-job .primitive-job-icon {
+  border: var(--era-control-border);
+  border-radius: var(--era-control-radius);
+  background: var(--era-sunk);
+  color: var(--era-accent-deep);
+}
+.primitive-era.primitive-archive-page-shell .primitive-processing-job .primitive-job-copy strong,
+.primitive-era.primitive-archive-page-shell .primitive-processing-job .primitive-job-stepper > strong {
+  color: var(--era-ink);
+}
+.primitive-era.primitive-archive-page-shell .primitive-processing-job .primitive-job-copy span,
+.primitive-era.primitive-archive-page-shell .primitive-processing-job .primitive-job-copy small {
+  color: var(--era-ink-soft);
+}
+.primitive-era.primitive-archive-page-shell .primitive-processing-plan {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+  color: var(--era-ink);
+  overflow-wrap: anywhere;
+}
+.primitive-processing-plan label,
+.primitive-processing-plan__preview {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.primitive-era.primitive-archive-page-shell .primitive-processing-plan select,
+.primitive-era.primitive-archive-page-shell .primitive-processing-plan input,
+.primitive-era.primitive-archive-page-shell .primitive-processing-plan .game-control-button {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  border: var(--era-control-border);
+  border-radius: var(--era-control-radius);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+  font: inherit;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.primitive-era.primitive-archive-page-shell .primitive-processing-job .primitive-job-stepper button {
+  border: var(--era-control-border);
+  border-radius: var(--era-control-radius);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+}
+.primitive-processing-plan select:focus-visible,
+.primitive-processing-plan input:focus-visible,
+.primitive-processing-plan .game-control-button:focus-visible,
+.primitive-processing-job .primitive-job-stepper button:focus-visible {
+  outline: 2px solid var(--era-focus);
+  outline-offset: 2px;
+}
+.primitive-processing-plan p,
+.primitive-processing-plan__preview {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: inherit;
+}
+.primitive-processing-plan__help,
+.primitive-processing-plan__selection,
+.primitive-processing-plan__reason,
+.primitive-processing-plan__preview span,
+.primitive-processing-plan__preview small { color: var(--era-ink-soft); font: inherit; }
+.primitive-era.primitive-archive-page-shell .primitive-tribe-ledger > .primitive-processing-receipt {
+  grid-column: 1 / -1;
+  border-color: var(--era-line-strong);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+}
+.primitive-era.primitive-archive-page-shell .primitive-processing-receipt span { color: var(--era-ink-soft); }
+.primitive-era.primitive-archive-page-shell .primitive-processing-receipt strong { color: var(--era-ink); }

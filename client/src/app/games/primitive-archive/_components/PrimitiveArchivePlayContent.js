@@ -37,6 +37,7 @@ import {
   civilizationMilestoneRows,
   clearAllEquipmentAction,
   changeTribeWorkPolicyAction,
+  configureTribeProcessAction,
   createNewState,
   difficultyRows,
   developerToolsSummary,
@@ -107,6 +108,7 @@ import {
   explorationSummary,
   tribeSummary,
 } from '../_lib/primitiveArchiveEngine';
+import { isValidTribeProcessingPlan } from '../_lib/primitiveArchiveProcessing';
 import PrimitiveArchiveEraDefs from './PrimitiveArchiveEraDefs';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
 import PrimitiveArchiveFocusPanel from './PrimitiveArchiveFocusPanel';
@@ -728,6 +730,21 @@ export default function PrimitiveArchivePlayContent() {
       ? changeTribeWorkPolicyAction(current, policyId) : current);
   };
 
+  const configureTribeProcess = (patch) => {
+    if (!hydrated || !tribe.processing?.canConfigure || !isValidTribeProcessingPlan(patch)) return;
+    const displayedPlan = tribe.processing.plan;
+    if (patch.actionId === displayedPlan.actionId && patch.targetStock === displayedPlan.targetStock) return;
+    const matchesDisplayedPlan = (current) => {
+      if (current.runId !== state.runId || current.ended) return false;
+      const livePlan = tribeSummary(current).processing?.plan;
+      return livePlan?.actionId === displayedPlan.actionId && livePlan?.targetStock === displayedPlan.targetStock;
+    };
+    if (!matchesDisplayedPlan(stateRef.current)) return;
+    const plan = { actionId: patch.actionId, targetStock: patch.targetStock };
+    applyAction('가공 계획 변경', (current) => matchesDisplayedPlan(current)
+      ? configureTribeProcessAction(current, plan) : current);
+  };
+
   const runDiplomacy = (rivalId, actionId) => {
     applyAction(
       '외교',
@@ -1044,6 +1061,7 @@ export default function PrimitiveArchivePlayContent() {
         actionForecasts={actionForecasts}
         adjustTribeJob={adjustTribeJob}
         changeTribeWorkPolicy={changeTribeWorkPolicy}
+        configureTribeProcess={configureTribeProcess}
         applyAction={applyAction}
         autoDayControl={autoDayControl}
         shopPerkStatus={<PrimitiveArchiveShopPerks state={state} compact />}

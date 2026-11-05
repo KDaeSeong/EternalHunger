@@ -58,6 +58,8 @@ import { createProjectTradition, normalizeProjectTradition, reserveProjectTradit
   settleProjectTradition, markProjectTraditionCompleted, projectTraditionReason } from './primitiveArchiveProjectTradition.js';
 import { isValidTribeWorkPolicy, normalizeTribeWorkPolicy, tribeWorkPolicyDetails,
   prioritizeTribeWorkPolicy } from './primitiveArchiveWorkPolicy.js';
+import { DEFAULT_TRIBE_PROCESSING_PLAN, isValidTribeProcessingPlan,
+  normalizeTribeProcessingPlan } from './primitiveArchiveProcessing.js';
 
 export {
   GAME_SLUG,
@@ -1310,6 +1312,7 @@ export function tribeSummary(state) {
   const current = normalizeState(state);
   const jobEditBlockedReason = current.ended ? '종료된 런에서는 직업 배치를 변경할 수 없습니다.' : '';
   const tribe = normalizeTribeState(current.tribe);
+  const processing = tribeProcessingSummaryFor(current, tribe);
   const assigned = Object.values(tribe.assignments).reduce((sum, count) => sum + Number(count || 0), 0);
   const unassigned = Math.max(0, tribe.population - assigned);
   const capacity = tribeCapacity(current);
@@ -1320,11 +1323,11 @@ export function tribeSummary(state) {
   const nextProduction = tribeProductionForDay(tribe.assignments, nextDay, current);
   const jobs = TRIBE_JOBS.map((job) => {
     const count = Number(tribe.assignments[job.id] || 0);
-    const unlockTech = job.techId ? getTechnology(job.techId) : null;
+    const unlockTech = job.techId ? getTechnology(job.techId) || getCivic(job.techId) : null;
     const unlocked = !job.techId || Boolean(current.research.completed?.[job.techId]);
     const lockedReason = unlocked ? '' : `${unlockTech?.name || job.techId} 연구 필요`;
     let dailyText = job.outputText;
-    if (!['builder', 'scholar'].includes(job.id) && unlocked) {
+    if (!['builder', 'scholar', 'artisan'].includes(job.id) && unlocked) {
       dailyText = formatGains(Object.entries(tribeProductionForDay({ [job.id]: count }, nextDay, current)));
     }
     if (job.id === 'builder') {
@@ -1335,6 +1338,7 @@ export function tribeSummary(state) {
         : '진행할 프로젝트 없음';
     }
     if (job.id === 'scholar') dailyText = researchStatus.unlocked ? `목표 기술 +${count}RP/일` : '연구 체계 잠김';
+    if (job.id === 'artisan') dailyText = processing.statusText;
     if (!unlocked) dailyText = lockedReason;
     return {
       ...job,
@@ -1351,6 +1355,7 @@ export function tribeSummary(state) {
   return {
     ...tribe,
     workPolicy: tribeWorkPolicySummary(current, tribe),
+    processing,
     assigned,
     unassigned,
     capacity,
@@ -3777,11 +3782,14 @@ function settleTribeDay(state) {
     growthSerial: Number(tribe.growthSerial || 0) + (grew ? 1 : 0),
   };
   next = settleLineageHousehold({ ...next, inventory: food.inventory, tribe: nextTribe }, food.shortage);
+  next = settleTribeProcessing(next);
   const projectText = projectWork > 0 ? ` · 건설 ${projectName} +${projectWork}` : '';
   const researchText = researchPoints > 0 ? ` · 연구 +${researchPoints}RP` : '';
+  const processingReceipt = next.tribe.lastProduction.processing;
+  const processingText = processingReceipt ? ` · 공동체 가공 ${processingReceipt.batches}묶음 (${processingReceipt.reason})` : '';
   next = addLog(
     next,
-    `부족 일일 정산: ${formatGains(Object.entries(gains))} · 식량 ${food.provided}/${foodNeed}${projectText}${researchText} · 사기 ${morale}.`,
+    `부족 일일 정산: ${formatGains(Object.entries(gains))} · 식량 ${food.provided}/${foodNeed}${projectText}${researchText}${processingText} · 사기 ${morale}.`,
   );
   if (!fullyFed) next = addLog(next, `부족 식량 부족: ${food.shortage}단위가 모자라 사기와 성장도가 감소했습니다.`);
   if (grew) next = addLog(next, `부족 성장: 새 부족원이 합류했습니다. 인구 ${population}/${capacity}.`);
@@ -5842,6 +5850,115 @@ const CIVILIZATION_ACTION_DEFS = [
   { id: 'settlement', label: '정착지 확장', icon: 'primitive-settlement', techId: 'SETTLEMENT', staminaCost: 20, hungerAdd: 3 },
   { id: 'voyage', label: '항해 답사', icon: 'primitive-voyage', techId: 'BASIC_SAILING', staminaCost: 20, hungerAdd: 4 },
 ];
+
+function processingPlanFor(state) {
+  return Object.hasOwn(state.tribe || {}, 'processingPlan')
+    ? normalizeTribeProcessingPlan(state.tribe.processingPlan) : DEFAULT_TRIBE_PROCESSING_PLAN;
+}
+
+function processingInventoryQuantity(inventory, itemId) {
+  const quantity = Number(inventory?.[itemId] ?? 0);
+  return Number.isFinite(quantity) && quantity >= 0 && quantity <= Number.MAX_SAFE_INTEGER ? quantity : null;
+}
+
+// Preview current stock only. The same calculation runs on the actual stock
+// remaining after all existing morning work and communal/household meals.
+function tribeProcessingCalculation(state, tribe = normalizeTribeState(state.tribe)) {
+  const plan = processingPlanFor(state);
+  const workers = Number(tribe.assignments.artisan || 0);
+  const recipe = PRODUCTION_ACTION_RECIPES[plan.actionId];
+  const profile = CIVILIZATION_ACTION_DEFS.find(row => row.id === plan.actionId);
+  const outputItemId = recipe?.reward[0]?.[0] || '';
+  const outputQuantity = Number(recipe?.reward[0]?.[1] || 0);
+  const currentStock = processingInventoryQuantity(state.inventory, outputItemId);
+  const materials = recipe ? Object.fromEntries(Object.keys(recipe.cost).map(id =>
+    [id, processingInventoryQuantity(state.inventory, id)])) : {};
+  const invalidMaterial = Object.keys(materials).find(id => materials[id] === null);
+  const blockedReason = state.ended ? '종료된 문명에서는 공동체 가공을 실행하지 않습니다.'
+    : !recipe ? '가공 계획이 꺼져 있습니다.'
+      : currentStock === null ? `${itemName(outputItemId)} 재고 수량을 확인할 수 없어 가공을 중단했습니다.`
+        : invalidMaterial ? `${itemName(invalidMaterial)} 재료 재고 수량이 유효하지 않아 가공을 중단했습니다.`
+      : !state.research?.completed?.SETTLEMENT ? '정착 연구가 필요합니다.'
+        : !state.research?.completed?.[profile.techId] ? `${getTechnology(profile.techId)?.name || profile.techId} 연구가 필요합니다.`
+          : workers <= 0 ? '직접 배치한 가공대 일손이 없습니다.'
+            : currentStock >= plan.targetStock ? '목표 재고에 도달했습니다.' : '';
+  const materialBatches = recipe && !invalidMaterial ? Math.min(...Object.entries(recipe.cost).map(([id, quantity]) =>
+    Math.floor(materials[id] / quantity))) : 0;
+  const neededBatches = outputQuantity > 0 && currentStock !== null ? Math.max(0, Math.ceil((plan.targetStock - currentStock) / outputQuantity)) : 0;
+  const safeStockBatches = outputQuantity > 0 && currentStock !== null ? Math.max(0, Math.floor((Number.MAX_SAFE_INTEGER - currentStock) / outputQuantity)) : 0;
+  const batches = blockedReason ? 0 : Math.max(0, Math.min(workers, materialBatches, neededBatches, safeStockBatches));
+  const stockAfter = currentStock + batches * outputQuantity;
+  let reason = blockedReason;
+  if (!reason && stockAfter >= plan.targetStock) {
+    const rounded = stockAfter > plan.targetStock ? `, 묶음 생산으로 ${stockAfter - plan.targetStock}개 초과` : '';
+    reason = `${batches}묶음 생산. 목표 ${plan.targetStock}개 도달: ${currentStock}→${stockAfter}개${rounded}.`;
+  }
+  if (!reason) {
+    const limits = [];
+    const constrained = Object.entries(recipe.cost).filter(([id, quantity]) =>
+      materials[id] - quantity * batches < quantity);
+    if (constrained.length) limits.push(`재료 부족: ${constrained.map(([id, quantity]) =>
+      `${itemName(id)} 잔여 ${materials[id] - quantity * batches}개(다음 묶음 ${quantity}개 필요)`).join(', ')}`);
+    if (batches === workers) limits.push(`하루 일손 한도: 가공대 ${workers}명 × 1묶음`);
+    if (batches === safeStockBatches) limits.push('안전한 재고 수량 한도로 추가 묶음 중단');
+    reason = `${batches}묶음 생산. ${limits.join(' · ')}.`;
+  }
+  return { plan, workers, recipe, profile, outputItemId, outputQuantity, currentStock, batches, reason };
+}
+
+export function configureTribeProcessAction(state, plan) {
+  if (state.ended || !isValidTribeProcessingPlan(plan)) return state;
+  const current = processingPlanFor(state);
+  if (current.actionId === plan.actionId && current.targetStock === plan.targetStock) return state;
+  const selected = normalizeTribeProcessingPlan(plan);
+  const label = CIVILIZATION_ACTION_DEFS.find(row => row.id === selected.actionId)?.label;
+  return addLog({ ...state, tribe: { ...state.tribe, processingPlan: selected } }, selected.actionId
+    ? `공동체 가공 계획: ${label} · 목표 재고 ${selected.targetStock}개. 직접 배치한 가공대가 다음 아침 실제 재료로 집행합니다.`
+    : '공동체 가공 계획을 껐습니다. 가공대 수동 배치는 그대로 유지합니다.');
+}
+
+export function tribeProcessingSummary(state) {
+  return tribeProcessingSummaryFor(state, normalizeTribeState(state.tribe));
+}
+
+function tribeProcessingSummaryFor(state, tribe) {
+  const calculation = tribeProcessingCalculation(state, tribe);
+  const { plan, workers, recipe, currentStock, batches, outputQuantity, reason } = calculation;
+  const options = CIVILIZATION_ACTION_DEFS.filter(row => PRODUCTION_ACTION_RECIPES[row.id]).map(profile => {
+    const actual = PRODUCTION_ACTION_RECIPES[profile.id];
+    const unlocked = Boolean(state.research?.completed?.SETTLEMENT && state.research?.completed?.[profile.techId]);
+    return { id: profile.id, label: profile.label, unlocked,
+      lockedReason: unlocked ? '' : !state.research?.completed?.SETTLEMENT ? '정착 연구가 필요합니다.'
+        : `${getTechnology(profile.techId)?.name || profile.techId} 연구가 필요합니다.`,
+      costText: formatRequires(actual.cost), outputText: formatGains(actual.reward),
+      outputItemId: actual.reward[0][0], outputQuantity: actual.reward[0][1] };
+  });
+  const receipt = state.tribe?.lastProduction?.processing || null;
+  const receiptProfile = receipt ? CIVILIZATION_ACTION_DEFS.find(row => row.id === receipt.actionId) : null;
+  const receiptText = receipt
+    ? `${state.tribe.lastProduction.day}일차 ${receiptProfile?.label || '공동체 가공'} · 가공대 ${receipt.workers}명 · ${receipt.batches}묶음 · 투입 ${formatRequires(receipt.spent)} · 산출 ${formatGains(Object.entries(receipt.gains))} · ${receipt.reason}`
+    : '이전 가공 정산 미기록';
+  return { plan: { ...plan }, options, workers, currentStock,
+    costText: recipe ? formatRequires(recipe.cost) : '', outputText: recipe ? formatGains(recipe.reward) : '',
+    expectedBatches: batches, expectedOutput: batches * outputQuantity,
+    canConfigure: !state.ended, blockedReason: batches > 0 ? '' : reason, statusText: reason,
+    timingText: '현재 재고만의 미리보기입니다. 다음 아침 원재료 생산·건설·연구·공동체와 가구 배식 후 남은 실제 재료로 집행합니다. 가공대 1명당 하루 최대 1묶음이며, 묶음 생산으로 목표를 조금 넘을 수 있습니다. 개인 AP·ST를 쓰지 않습니다.',
+    receipt, receiptText };
+}
+
+function settleTribeProcessing(state) {
+  const calculation = tribeProcessingCalculation(state);
+  const { plan, workers, recipe, currentStock, batches, outputItemId, reason } = calculation;
+  // Off plans preserve the old economy and do not fabricate historic receipts.
+  if (!plan.actionId) return state;
+  const spent = batches ? Object.fromEntries(Object.entries(recipe.cost).map(([id, count]) => [id, count * batches])) : {};
+  const gains = batches ? Object.fromEntries(recipe.reward.map(([id, count]) => [id, count * batches])) : {};
+  const inventory = batches ? addItems(spendResources(state.inventory, spent), Object.entries(gains)) : state.inventory;
+  const processing = { actionId: plan.actionId, targetStock: plan.targetStock, workers, batches,
+    stockBefore: currentStock, stockAfter: processingInventoryQuantity(inventory, outputItemId), spent, gains, reason };
+  return { ...state, inventory, tribe: { ...state.tribe,
+    lastProduction: { ...state.tribe.lastProduction, processing } } };
+}
 
 function surveyCandidates(state) {
   const exploration = normalizeExplorationState(state.exploration);
