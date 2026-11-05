@@ -236,6 +236,7 @@ function clearRejectedStoredAuth(requestToken, authCode, requestContext) {
   if (requestToken === COOKIE_SESSION_MARKER && (
     requestContext?.scope !== getAuthScope(currentToken)
     || requestContext?.revision !== cookieSessionRevision
+    || requestContext?.csrfToken !== getCookieValue('eh_csrf')
   )) return;
   clearAuth({ reason: 'auth-invalidated', authCode });
 }
@@ -425,7 +426,8 @@ export async function apiRequest(method, url, data, options = {}) {
   const requestToken = normalizeToken(attachStoredAuth
     ? (options.tokenOverride !== undefined ? options.tokenOverride : getAnyToken())
     : null);
-  const requestContext = { scope: getAuthScope(requestToken), revision: cookieSessionRevision };
+  const requestContext = { scope: getAuthScope(requestToken), revision: cookieSessionRevision,
+    csrfToken: getCookieValue('eh_csrf') };
   const headers = { ...buildAuthHeaders(requestToken), ...(options.headers || {}) };
   const upperMethod = String(method || 'GET').toUpperCase();
   if (!['GET', 'HEAD', 'OPTIONS'].includes(upperMethod) && options.csrf !== false) {

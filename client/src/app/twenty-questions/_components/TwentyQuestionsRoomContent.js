@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
-import { apiGet, apiPost, clearApiGetCache } from '../../../utils/api';
-import { useAuthToken, useHydrated } from '../../../utils/client-auth';
+import { apiGet, apiPost, AUTH_SYNC_EVENT, captureAuthSession, clearApiGetCache, isCurrentAuthSession } from '../../../utils/api';
+import { useAuthToken, useAuthUser, useHydrated } from '../../../utils/client-auth';
 import GameActionIcon from '../../games/_components/GameActionIcon';
 import { useGameBgm } from '../../games/_components/GameBgmProvider';
 import { GameFeatureTabs } from '../../games/_components/GamePlayShell';
@@ -137,6 +137,9 @@ function roomVersion(room) {
   if (!room) return '';
   return JSON.stringify({
     status: room.status || '',
+    viewerId: normalizeIdValue(room.viewerId),
+    isHost: Boolean(room.isHost),
+    answer: room.answer || '',
     answerRevealed: Boolean(room.answerRevealed),
     questions: normalizeList(room.questions).map((question) => [
       normalizeIdValue(question),
@@ -179,10 +182,17 @@ export default function TwentyQuestionsRoomContent() {
   const id = normalizeRouteId(params?.id);
   const hydrated = useHydrated();
   const token = useAuthToken();
+  const user = useAuthUser();
+  const [sessionEpoch, setSessionEpoch] = useState(0);
+  const ownerKey = token ? normalizeIdValue(user?._id || user?.id) || safeText(user?.username, 'signed-in') : 'guest';
+  const roomContextKey = JSON.stringify([id, ownerKey, token, sessionEpoch]);
   const { showToast } = useToast();
   const { setMusicScene } = useGameBgm();
 
-  const [room, setRoom] = useState(null);
+  const [storedRoom, setRoom] = useState(null);
+  const [loadedScope, setLoadedScope] = useState(null);
+  // Never render a previous room's or owner's private answer while effects settle.
+  const room = loadedScope?.key === roomContextKey && isCurrentAuthSession(loadedScope.session) ? storedRoom : null;
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [questionText, setQuestionText] = useState('');
@@ -193,6 +203,8 @@ export default function TwentyQuestionsRoomContent() {
   const [activePanel, setActivePanel] = useState('deduction');
   const roomRef = useRef(null);
   const submittingRef = useRef('');
+  const roomRequestRef = useRef({ contextKey: '', ownerKey: '', roomId: '', generation: 0, sequence: 0, revision: 0,
+    active: false, session: null, readRequest: null, loadingRequest: null, mutation: null });
   const musicBaseSceneRef = useRef('');
   const musicSceneTimerRef = useRef(null);
   const loadErrorAnnouncedRef = useRef('');
@@ -202,41 +214,168 @@ export default function TwentyQuestionsRoomContent() {
     playGameSfx,
   } = useGameSfxEventHandlers({ theme: 'twenty' });
 
+  const retireRoomSession = useCallback(() => {
+    const scope = roomRequestRef.current;
+    if (!scope.active) return;
+    scope.active = false;
+    scope.generation += 1;
+    roomRef.current = null;
+    setSessionEpoch(value => value + 1);
+  }, []);
+
+  const isRoomContextCurrent = useCallback(() => {
+    const scope = roomRequestRef.current;
+    if (!scope.active || scope.contextKey !== roomContextKey) return false;
+    if (!isCurrentAuthSession(scope.session)) {
+      retireRoomSession();
+      return false;
+    }
+    return true;
+  }, [retireRoomSession, roomContextKey]);
+
+  const captureRoomRequest = useCallback((kind) => {
+    const scope = roomRequestRef.current;
+    if (!isRoomContextCurrent()
+      || scope.mutation || (kind !== 'load' && kind !== 'mutation' && scope.readRequest)) return null;
+    const request = { contextKey: roomContextKey, generation: scope.generation,
+      sequence: ++scope.sequence, revision: scope.revision, session: captureAuthSession(), kind };
+    if (kind === 'mutation') {
+      request.revision = ++scope.revision;
+      scope.mutation = request;
+      scope.readRequest = null;
+      if (scope.loadingRequest) {
+        scope.loadingRequest = null;
+        setLoading(false);
+      }
+    } else scope.readRequest = request;
+    return request;
+  }, [isRoomContextCurrent, roomContextKey]);
+
+  const isCurrentRoomRequest = useCallback((request) => {
+    const scope = roomRequestRef.current;
+    return Boolean(request) && isRoomContextCurrent() && scope.contextKey === request.contextKey
+      && scope.generation === request.generation && scope.revision === request.revision
+      && isCurrentAuthSession(request.session)
+      && (request.kind === 'mutation' ? scope.mutation === request : scope.readRequest === request);
+  }, [isRoomContextCurrent]);
+
+  const finishRoomRequest = useCallback((request) => {
+    const scope = roomRequestRef.current;
+    if (!request || !scope.active || scope.contextKey !== request.contextKey
+      || scope.generation !== request.generation || !isCurrentAuthSession(request.session)) return;
+    if (scope.readRequest === request) scope.readRequest = null;
+    if (scope.loadingRequest === request) {
+      scope.loadingRequest = null;
+      setLoading(false);
+    }
+  }, []);
+
+  const beginRoomMutation = (label) => {
+    if (!hydrated || !token || submittingRef.current || roomRef.current?._id !== id) return null;
+    const request = captureRoomRequest('mutation');
+    if (!request) return null;
+    submittingRef.current = label;
+    setSubmitting(label);
+    return request;
+  };
+
+  const finishRoomMutation = (request) => {
+    if (!isCurrentRoomRequest(request)) return;
+    roomRequestRef.current.mutation = null;
+    submittingRef.current = '';
+    setSubmitting('');
+  };
+
+  const applyRoomResponse = useCallback((data, request) => {
+    const previousRoom = roomRef.current;
+    if (!isCurrentRoomRequest(request)) return { previousRoom, nextRoom: null };
+    const nextRoom = normalizeRoom(data);
+    if (!nextRoom || nextRoom._id !== id) return { previousRoom, nextRoom: null };
+    roomRef.current = nextRoom;
+    setLoadedScope({ key: request.contextKey, session: request.session });
+    setRoom(nextRoom);
+    return { previousRoom, nextRoom };
+  }, [id, isCurrentRoomRequest]);
+
   const loadRoom = useCallback(async () => {
+    const request = captureRoomRequest('load');
+    if (!request) return;
+    roomRequestRef.current.loadingRequest = request;
     if (!id) {
       const message = '방 주소가 올바르지 않습니다.';
       roomRef.current = null;
       setRoom(null);
       setLoadError(message);
       setLoading(false);
+      finishRoomRequest(request);
       return;
     }
     setLoading(true);
     setLoadError('');
     try {
       const data = await apiGet(`/twenty-questions/${id}`, { timeoutMs: 15000 });
-      const nextRoom = normalizeRoom(data);
+      if (!isCurrentRoomRequest(request)) return;
+      const { nextRoom } = applyRoomResponse(data, request);
       if (!nextRoom) throw new Error('스무고개 방 정보를 확인할 수 없습니다.');
-      roomRef.current = nextRoom;
-      setRoom(nextRoom);
     } catch (err) {
+      if (!isCurrentRoomRequest(request)) return;
       const message = err?.message || '스무고개 방을 불러오지 못했습니다.';
       roomRef.current = null;
       setRoom(null);
       setLoadError(message);
       showToast({ tone: 'danger', message });
     } finally {
-      setLoading(false);
+      finishRoomRequest(request);
     }
-  }, [id, showToast]);
+  }, [applyRoomResponse, captureRoomRequest, finishRoomRequest, id, isCurrentRoomRequest, showToast]);
 
   useEffect(() => {
-    void Promise.resolve().then(loadRoom);
-  }, [loadRoom]);
+    const handleAuthChange = (event) => {
+      if (event?.type === 'storage' && event.key && !['user', 'eh_auth_sync_ts'].includes(event.key)) return;
+      const scope = roomRequestRef.current;
+      if (scope.session && isCurrentAuthSession(scope.session)) return;
+      retireRoomSession();
+    };
+    window.addEventListener(AUTH_SYNC_EVENT, handleAuthChange);
+    window.addEventListener('storage', handleAuthChange);
+    return () => {
+      window.removeEventListener(AUTH_SYNC_EVENT, handleAuthChange);
+      window.removeEventListener('storage', handleAuthChange);
+    };
+  }, [retireRoomSession]);
 
-  useEffect(() => {
-    submittingRef.current = submitting;
-  }, [submitting]);
+  useLayoutEffect(() => {
+    const scope = roomRequestRef.current;
+    if (scope.ownerKey !== ownerKey || scope.roomId !== id) {
+      setQuestionText('');
+      setGuessText('');
+      setHintText('');
+    }
+    scope.contextKey = roomContextKey;
+    scope.ownerKey = ownerKey;
+    scope.roomId = id;
+    scope.generation += 1;
+    scope.revision = 0;
+    scope.active = true;
+    scope.session = captureAuthSession();
+    scope.readRequest = null;
+    scope.loadingRequest = null;
+    scope.mutation = null;
+    roomRef.current = null;
+    submittingRef.current = '';
+    setRoom(null);
+    setLoadedScope(null);
+    setSubmitting('');
+    setActionFeedback(null);
+    const generation = scope.generation;
+    void Promise.resolve().then(() => {
+      if (scope.active && scope.generation === generation) void loadRoom();
+    });
+    return () => {
+      scope.active = false;
+      scope.generation += 1;
+    };
+  }, [id, loadRoom, ownerKey, roomContextKey]);
 
   const pendingQuestions = useMemo(
     () => normalizeList(room?.questions).filter((question) => question?.response === 'pending'),
@@ -416,32 +555,26 @@ export default function TwentyQuestionsRoomContent() {
     }
   }, [announce]);
 
-  const applyRoomResponse = useCallback((data) => {
-    const previousRoom = roomRef.current;
-    const nextRoom = normalizeRoom(data);
-    if (nextRoom) {
-      roomRef.current = nextRoom;
-      setRoom(nextRoom);
-    }
-    return { previousRoom, nextRoom };
-  }, []);
-
   useEffect(() => {
     if (!id || room?.status !== 'active') return undefined;
     let disposed = false;
 
     const refreshRoom = async () => {
       if (disposed || document.visibilityState !== 'visible' || submittingRef.current) return;
+      const request = captureRoomRequest('poll');
+      if (!request) return;
       try {
         const data = await apiGet(`/twenty-questions/${id}`, { timeoutMs: 8000 });
+        if (disposed || !isCurrentRoomRequest(request)) return;
         const nextRoom = normalizeRoom(data);
         const previousRoom = roomRef.current;
-        if (!nextRoom || roomVersion(previousRoom) === roomVersion(nextRoom)) return;
-        roomRef.current = nextRoom;
-        setRoom(nextRoom);
+        if (!nextRoom || nextRoom._id !== id || roomVersion(previousRoom) === roomVersion(nextRoom)) return;
+        applyRoomResponse(data, request);
         announceRemoteRoomChange(previousRoom, nextRoom);
       } catch {
         // Polling is intentionally silent; explicit actions still surface API errors.
+      } finally {
+        finishRoomRequest(request);
       }
     };
 
@@ -456,7 +589,7 @@ export default function TwentyQuestionsRoomContent() {
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [announceRemoteRoomChange, id, room?.status]);
+  }, [announceRemoteRoomChange, applyRoomResponse, captureRoomRequest, finishRoomRequest, id, isCurrentRoomRequest, room?.status]);
 
   useEffect(() => {
     if (!id || !hydrated || !token || room?.status !== 'active') return undefined;
@@ -464,17 +597,20 @@ export default function TwentyQuestionsRoomContent() {
 
     const heartbeat = async () => {
       if (disposed || document.visibilityState !== 'visible') return;
+      const request = captureRoomRequest('presence');
+      if (!request) return;
       try {
         const data = await apiPost(`/twenty-questions/${id}/presence`, {}, { timeoutMs: 8000 });
-        if (disposed) return;
+        if (disposed || !isCurrentRoomRequest(request)) return;
         const previousRoom = roomRef.current;
         const nextRoom = normalizeRoom(data);
-        if (!nextRoom || roomVersion(previousRoom) === roomVersion(nextRoom)) return;
-        roomRef.current = nextRoom;
-        setRoom(nextRoom);
+        if (!nextRoom || nextRoom._id !== id || roomVersion(previousRoom) === roomVersion(nextRoom)) return;
+        applyRoomResponse(data, request);
         announceRemoteRoomChange(previousRoom, nextRoom);
       } catch {
         // Presence updates are silent; the normal room poll remains authoritative.
+      } finally {
+        finishRoomRequest(request);
       }
     };
 
@@ -484,7 +620,7 @@ export default function TwentyQuestionsRoomContent() {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [announceRemoteRoomChange, hydrated, id, room?.status, token]);
+  }, [announceRemoteRoomChange, applyRoomResponse, captureRoomRequest, finishRoomRequest, hydrated, id, isCurrentRoomRequest, room?.status, token]);
 
   const clearRoomCaches = () => {
     clearApiGetCache(`/twenty-questions/${id}`);
@@ -495,6 +631,7 @@ export default function TwentyQuestionsRoomContent() {
   };
 
   const addQuestion = async () => {
+    if (!isRoomContextCurrent()) return;
     const text = questionText.trim();
     if (!text) {
       const message = '질문을 입력해주세요.';
@@ -508,10 +645,13 @@ export default function TwentyQuestionsRoomContent() {
       showToast({ tone: 'warning', message });
       return;
     }
-    setSubmitting('question');
+    const request = beginRoomMutation('question');
+    if (!request) return;
     try {
       const data = await apiPost(`/twenty-questions/${id}/questions`, { text }, { timeoutMs: 15000 });
-      const applied = applyRoomResponse(data);
+      if (!isCurrentRoomRequest(request)) return;
+      const applied = applyRoomResponse(data, request);
+      if (!applied.nextRoom) throw new Error('스무고개 방 정보를 확인할 수 없습니다.');
       clearRoomCaches();
       setQuestionText('');
       const message = data?.message || '질문을 등록했습니다.';
@@ -519,34 +659,40 @@ export default function TwentyQuestionsRoomContent() {
       announce(milestone || 'question', { message: progressFeedbackMessage(milestone, message) });
       showToast({ tone: 'success', message });
     } catch (err) {
+      if (!isCurrentRoomRequest(request)) return;
       const message = err?.message || '질문 등록에 실패했습니다.';
       announce('questionFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
-      setSubmitting('');
+      finishRoomMutation(request);
     }
   };
 
   const answerQuestion = async (questionId, response) => {
+    if (!isRoomContextCurrent()) return;
     if (!questionId || !response) return;
-    setSubmitting(`answer:${questionId}:${response}`);
+    const request = beginRoomMutation(`answer:${questionId}:${response}`);
+    if (!request) return;
     try {
       const data = await apiPost(`/twenty-questions/${id}/questions/${questionId}/answer`, { response }, { timeoutMs: 15000 });
-      applyRoomResponse(data);
+      if (!isCurrentRoomRequest(request)) return;
+      if (!applyRoomResponse(data, request).nextRoom) throw new Error('스무고개 방 정보를 확인할 수 없습니다.');
       clearRoomCaches();
       const message = data?.message || '답변을 저장했습니다.';
       announce(data?.exhausted ? 'limitReveal' : 'answer', { response, message });
       showToast({ tone: 'success', message });
     } catch (err) {
+      if (!isCurrentRoomRequest(request)) return;
       const message = err?.message || '답변 저장에 실패했습니다.';
       announce('answerFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
-      setSubmitting('');
+      finishRoomMutation(request);
     }
   };
 
   const submitGuess = async () => {
+    if (!isRoomContextCurrent()) return;
     const text = guessText.trim();
     if (!text) {
       const message = '정답 도전을 입력해주세요.';
@@ -560,10 +706,13 @@ export default function TwentyQuestionsRoomContent() {
       showToast({ tone: 'warning', message });
       return;
     }
-    setSubmitting('guess');
+    const request = beginRoomMutation('guess');
+    if (!request) return;
     try {
       const data = await apiPost(`/twenty-questions/${id}/guesses`, { text }, { timeoutMs: 15000 });
-      const applied = applyRoomResponse(data);
+      if (!isCurrentRoomRequest(request)) return;
+      const applied = applyRoomResponse(data, request);
+      if (!applied.nextRoom) throw new Error('스무고개 방 정보를 확인할 수 없습니다.');
       clearRoomCaches();
       setGuessText('');
       const message = data?.message || '정답 도전을 기록했습니다.';
@@ -574,15 +723,17 @@ export default function TwentyQuestionsRoomContent() {
       announce(feedbackAction, { correct: data?.correct, message: progressFeedbackMessage(milestone, message) });
       showToast({ tone: data?.correct ? 'success' : 'warning', message });
     } catch (err) {
+      if (!isCurrentRoomRequest(request)) return;
       const message = err?.message || '정답 도전에 실패했습니다.';
       announce('guessFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
-      setSubmitting('');
+      finishRoomMutation(request);
     }
   };
 
   const sendHintMessage = async () => {
+    if (!isRoomContextCurrent()) return;
     const text = hintText.trim();
     if (!text) {
       const message = '힌트를 입력해주세요.';
@@ -596,40 +747,47 @@ export default function TwentyQuestionsRoomContent() {
       showToast({ tone: 'warning', message });
       return;
     }
-    setSubmitting('hint');
+    const request = beginRoomMutation('hint');
+    if (!request) return;
     try {
       const data = await apiPost(`/twenty-questions/${id}/hints`, { text }, { timeoutMs: 15000 });
-      applyRoomResponse(data);
+      if (!isCurrentRoomRequest(request)) return;
+      if (!applyRoomResponse(data, request).nextRoom) throw new Error('스무고개 방 정보를 확인할 수 없습니다.');
       clearRoomCaches();
       setHintText('');
       const message = data?.message || '힌트를 등록했습니다.';
       announce('hint', { message });
       showToast({ tone: 'success', message });
     } catch (err) {
+      if (!isCurrentRoomRequest(request)) return;
       const message = err?.message || '힌트 등록에 실패했습니다.';
       announce('hintFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
-      setSubmitting('');
+      finishRoomMutation(request);
     }
   };
 
   const closeRoom = async () => {
+    if (!isRoomContextCurrent() || !hydrated || !token || submittingRef.current || !room?.isHost || !active) return;
     if (!window.confirm('이 방을 종료할까요?')) return;
-    setSubmitting('close');
+    const request = beginRoomMutation('close');
+    if (!request) return;
     try {
       const data = await apiPost(`/twenty-questions/${id}/close`, {}, { timeoutMs: 15000 });
-      applyRoomResponse(data);
+      if (!isCurrentRoomRequest(request)) return;
+      if (!applyRoomResponse(data, request).nextRoom) throw new Error('스무고개 방 정보를 확인할 수 없습니다.');
       clearRoomCaches();
       const message = data?.message || '방을 종료했습니다.';
       announce('close', { message });
       showToast({ tone: 'success', message });
     } catch (err) {
+      if (!isCurrentRoomRequest(request)) return;
       const message = err?.message || '방 종료에 실패했습니다.';
       announce('closeFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
-      setSubmitting('');
+      finishRoomMutation(request);
     }
   };
 
