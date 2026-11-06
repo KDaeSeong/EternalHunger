@@ -163,14 +163,26 @@ export function buildFormationExposure(events, initialActors, actorIds, comparis
 
   for (const [index, event] of events.entries()) {
     // The round-start side is not a fresh live roster for every later strike.
-    // Revival does not prove a return to that combat space; only a subsequent
+    // Revival or a return move does not prove a return to that combat space; only a subsequent
     // actual engagement snapshot can establish teammate presence again.
+    const presenceBeforeHit = event.kind === 'damage' ? {
+      attacker: presenceInvalidatedAt.get(String(event.who)) ?? -1,
+      target: presenceInvalidatedAt.get(String(event.targetId)) ?? -1,
+    } : null;
     if (event.kind === 'death' || event.kind === 'revive') {
       const actorId = String(event.who);
       if (actors.has(actorId)) presenceInvalidatedAt.set(actorId, index);
     } else if (event.kind === 'damage' && actors.has(String(event.targetId))
       && validHpHit(event) && event.hpAfter === 0) {
       presenceInvalidatedAt.set(String(event.targetId), index);
+    } else if (event.kind === 'move' && event.from && event.to && String(event.from) !== String(event.to)) {
+      if (actors.has(String(event.who))) presenceInvalidatedAt.set(String(event.who), index);
+    } else if (event.kind === 'hyperloop' && event.fromMapId && event.toMapId
+      && String(event.fromMapId) !== String(event.toMapId)) {
+      if (actors.has(String(event.whoId))) presenceInvalidatedAt.set(String(event.whoId), index);
+    } else if (event.kind === 'dimension_rift_space' && ['enter', 'leave'].includes(event.direction)
+      && typeof event.combatSpaceId === 'string' && event.combatSpaceId) {
+      if (actors.has(String(event.who))) presenceInvalidatedAt.set(String(event.who), index);
     }
     if (event.kind === 'damage') {
       const who = String(event.who), target = String(event.targetId);
@@ -186,7 +198,7 @@ export function buildFormationExposure(events, initialActors, actorIds, comparis
       }
       const key = actionKey(event);
       if (!damageByAction.has(key)) damageByAction.set(key, []);
-      damageByAction.get(key).push({ index, event });
+      damageByAction.get(key).push({ index, event, presenceBeforeHit });
     } else if (event.kind === 'team_engagement') {
       if (event.encounterId) engagements.set(event.encounterId, { index, event });
       for (const row of participants) {
@@ -232,6 +244,12 @@ export function buildFormationExposure(events, initialActors, actorIds, comparis
       const changedAllies = changedSideAllies.filter(id => (presenceInvalidatedAt.get(id) ?? -1) < entry.index);
       if (!changedAllies.length) { rejectStrike(row, 'changed_teammates_unavailable', index, event, entry); continue; }
       const packets = (damageByAction.get(actionKey(event)) || []).filter(hit => hit.index > entry.index && hit.index < index);
+      // Check the combatants at the actual HP commit, not after its effects:
+      // a lethal hit or a victim's resulting flee may precede team_strike.
+      if (packets.some(hit => hit.presenceBeforeHit.attacker >= entry.index
+        || hit.presenceBeforeHit.target >= entry.index)) {
+        rejectStrike(row, 'combatants_unavailable', index, event, entry); continue;
+      }
       if (!packets.length || packets.some(hit => !validHpHit(hit.event))
         || packets.some((hit, packetIndex) => packetIndex > 0
           && !near(packets[packetIndex - 1].event.hpAfter, hit.event.hpBefore))
