@@ -59,6 +59,7 @@ import {
   projectActionEstimate,
   projectRows,
   projectTraditionSummary,
+  processingTraditionSummary,
   prepareSuccessorAction,
   recipeRows,
   recruitPartyMemberAction,
@@ -86,6 +87,7 @@ import {
   runUtilityAction,
   runProjectAction,
   reserveProjectTraditionAction,
+  reserveProcessingTraditionAction,
   runEventChainAction,
   runRecoveryChoiceAction,
   runResearchAction,
@@ -185,7 +187,13 @@ export default function PrimitiveArchivePlayContent() {
   const shopStartRef = useRef(false);
   const [activeTabId, setActiveTabId] = useState('actions');
   const [requirementHelpRequest, setRequirementHelpRequest] = useState(null);
-  const [actorId, setActorId] = useState('shiroko');
+  const [actorId, setActorIdValue] = useState('shiroko');
+  const actorSelectionRef = useRef('shiroko');
+  const setActorId = useCallback((value) => {
+    const nextId = typeof value === 'function' ? value(actorSelectionRef.current) : value;
+    actorSelectionRef.current = nextId;
+    setActorIdValue(nextId);
+  }, []);
   const [zoneId, setZoneId] = useState('whisper-woods');
   const [recipeId, setRecipeId] = useState('twine');
   const [partySort, setPartySort] = useState('default');
@@ -224,7 +232,7 @@ export default function PrimitiveArchivePlayContent() {
     setSelectedRecruitId('');
     setActionResult(primitiveRestoredResultText(nextState));
     setActionFeedback({ key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: nextState.runId, tone: 'ready' });
-  }, []);
+  }, [setActorId]);
   const checkpoint = usePrimitiveArchiveCheckpoint({
     state,
     setState: replaceState,
@@ -343,6 +351,7 @@ export default function PrimitiveArchivePlayContent() {
   const perks = useMemo(() => perkRows(state), [state]);
   const projects = useMemo(() => projectRows(state), [state]);
   const projectTradition = useMemo(() => projectTraditionSummary(state, actorId), [state, actorId]);
+  const processingTradition = useMemo(() => processingTraditionSummary(state, actorId), [state, actorId]);
   const tribe = useMemo(() => tribeSummary(state), [state]);
   const supplies = useMemo(() => survivalSupplySummary(state), [state]);
   const operations = useMemo(() => settlementOperationsSummary(state), [state]);
@@ -707,13 +716,30 @@ export default function PrimitiveArchivePlayContent() {
   };
 
   const reserveProjectTradition = () => {
-    if (!projectTradition.canReserve) return;
+    if (!hydrated || !projectTradition.canReserve) return;
     const matchesDisplayedPlan = (current) => current.runId === state.runId && current.day === state.day
+      && actorSelectionRef.current === actorId
       && current.projects.selectedProjectId === projectTradition.selectedProjectId
-      && current.ancestralFaith?.active?.founderId === projectTradition.founderId;
+      && current.ancestralFaith?.active?.founderId === projectTradition.founderId
+      && projectTraditionSummary(current, actorId).canReserve;
     if (!matchesDisplayedPlan(stateRef.current)) return;
     applyAction('전승 공동 작업 예약', (current) => matchesDisplayedPlan(current)
       ? reserveProjectTraditionAction(current, actorId) : current);
+  };
+
+  const reserveProcessingTradition = () => {
+    if (!hydrated || !processingTradition.canReserve) return;
+    const matchesDisplayedPlan = (current) => {
+      if (current.runId !== state.runId || current.day !== state.day || current.ended
+        || actorSelectionRef.current !== actorId) return false;
+      const live = processingTraditionSummary(current, actorId);
+      return live.canReserve && live.selectedActionId === processingTradition.selectedActionId
+        && live.selectedTargetStock === processingTradition.selectedTargetStock
+        && live.founderId === processingTradition.founderId;
+    };
+    if (!matchesDisplayedPlan(stateRef.current)) return;
+    applyAction('가공대 전승 예약', (current) => matchesDisplayedPlan(current)
+      ? reserveProcessingTraditionAction(current, actorId) : current);
   };
 
   const adjustTribeJob = (jobId, delta) => {
@@ -1119,6 +1145,8 @@ export default function PrimitiveArchivePlayContent() {
         projects={projects}
         projectTradition={projectTradition}
         reserveProjectTradition={reserveProjectTradition}
+        processingTradition={processingTradition}
+        reserveProcessingTradition={reserveProcessingTradition}
         priorityPlannerRows={priorityPlannerRows}
         priorityCivicRows={priorityCivicRows}
         recentActionText={recentActionText}

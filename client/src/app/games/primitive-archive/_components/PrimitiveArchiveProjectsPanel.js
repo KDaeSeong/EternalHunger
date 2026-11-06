@@ -23,6 +23,8 @@ export default function PrimitiveArchiveProjectsPanel({
   const completed = projects.filter((project) => project.completed).length;
   const traditionRecords = projectTradition?.records || [];
   const selectedTraditionRecords = traditionRecords.filter((record) => record.projectId === selectedProject?.id);
+  const processingPending = projectTradition?.pending?.kind === 'processing';
+  const processingSettlement = projectTradition?.lastSettlement?.kind === 'processing';
   const canReserveTradition = hydrated && !busy && !ended && projectTradition?.enabled && projectTradition?.canReserve
     && typeof reserveProjectTradition === 'function';
   const traditionBlockedText = !hydrated ? '진행 기록 확인이 끝난 뒤 예약할 수 있습니다.'
@@ -66,10 +68,10 @@ export default function PrimitiveArchiveProjectsPanel({
                     {projectTradition.evidenceText ? <div><dt>전승의 근거</dt><dd>{projectTradition.evidenceText}</dd></div> : null}
                     <div><dt>비용·조건</dt><dd>{projectTradition.costText}</dd></div>
                     <div><dt>예약 효과</dt><dd>{projectTradition.effectText}</dd></div>
-                    <div><dt>현재 예약</dt><dd>{projectTradition.pendingText || '현재 예약 없음'}</dd></div>
-                    <div><dt>최근 실제 정산</dt><dd>{projectTradition.lastSettlementText || '실제 전승 정산 기록 없음'}</dd></div>
+                    <div><dt>{processingPending ? '현재 공유 예약 · 가공대' : '현재 예약'}</dt><dd>{projectTradition.pendingText || '현재 예약 없음'}</dd></div>
+                    <div><dt>{processingSettlement ? '최근 공유 예약 정산 · 가공대' : '최근 실제 정산'}</dt><dd>{projectTradition.lastSettlementText || '실제 전승 정산 기록 없음'}</dd></div>
                   </dl>
-                  {projectTradition.pending && projectTradition.pending.projectId !== projectTradition.selectedProjectId ? (
+                  {projectTradition.pending && !processingPending && projectTradition.pending.projectId !== projectTradition.selectedProjectId ? (
                     <div className="primitive-project-tradition__warning">현재 선택 사업이 예약 대상과 다릅니다. 다음 아침에도 다르면 추가 전승 없이 만료되며 이월·환급되지 않습니다.</div>
                   ) : null}
                   {selectedTraditionRecords.length ? (

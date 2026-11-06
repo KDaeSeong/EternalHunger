@@ -27,10 +27,14 @@ function isValidItemMap(value) {
 }
 
 export function isValidTribeProcessingReceipt(value) {
-  if (!exactKeys(value, ['actionId', 'targetStock', 'workers', 'batches', 'stockBefore', 'stockAfter', 'spent', 'gains', 'reason'])
+  const bonus = isRecord(value) && Object.hasOwn(value, 'bonusBatches') ? value.bonusBatches : 0;
+  const keys = ['actionId', 'targetStock', 'workers', 'batches', 'stockBefore', 'stockAfter', 'spent', 'gains', 'reason'];
+  if (isRecord(value) && Object.hasOwn(value, 'bonusBatches')) keys.push('bonusBatches');
+  if (!exactKeys(value, keys)
     || !isValidTribeProcessingPlan({ actionId: value.actionId, targetStock: value.targetStock })
     || !isCount(value.workers) || value.workers > 24
-    || !isCount(value.batches) || value.batches > value.workers
+    || !isCount(bonus) || bonus > 1 || !isCount(value.batches) || value.batches < bonus
+    || value.batches - bonus > value.workers || (bonus > 0 && value.batches - bonus < 1)
     || !isValidItemMap(value.spent) || !isValidItemMap(value.gains)
     || typeof value.reason !== 'string' || !value.reason.trim() || value.reason.length > 300
     || /[\u0000-\u001f\u007f]/.test(value.reason)) return false;

@@ -55,7 +55,8 @@ import { createAncestralFaith, normalizeAncestralFaith, runAncestralRite, ancest
 export { lineageSummary } from './primitiveArchiveLineage.js';
 export { ancestralFaithRows, ancestralFaithSummary } from './primitiveArchiveAncestralFaith.js';
 import { createProjectTradition, normalizeProjectTradition, reserveProjectTradition, projectTraditionBonus,
-  settleProjectTradition, markProjectTraditionCompleted, projectTraditionReason } from './primitiveArchiveProjectTradition.js';
+  settleProjectTradition, markProjectTraditionCompleted, projectTraditionReason, reserveProcessingTradition,
+  processingTraditionBonus, settleProcessingTradition, processingTraditionReason } from './primitiveArchiveProjectTradition.js';
 import { isValidTribeWorkPolicy, normalizeTribeWorkPolicy, tribeWorkPolicyDetails,
   prioritizeTribeWorkPolicy } from './primitiveArchiveWorkPolicy.js';
 import { DEFAULT_TRIBE_PROCESSING_PLAN, isValidTribeProcessingPlan,
@@ -1688,7 +1689,9 @@ export function projectTraditionSummary(state, actorId = '') {
     : !enabled ? '이전 저장은 전승 사업을 새로 활성화하지 않습니다. 기존 진행과 사업은 유지합니다.'
       : !actor ? '현재 활동 중인 생존 대원을 선택해야 합니다.'
         : Number(state.ap || 0) < 1 ? '예약에 AP를 소비하지 않지만, 활동할 행동력 1 이상이 남아 있어야 합니다.'
-          : tradition.pending ? '이미 다음 아침의 전승 사업이 예약되어 있습니다. 선택을 바꿔도 예약을 옮기거나 환급하지 않습니다.'
+          : tradition.pending ? tradition.pending.kind === 'processing'
+            ? '이미 다음 아침의 가공 전승이 예약되어 있습니다. 사업과 가공은 하루 한 건을 함께 사용합니다.'
+            : '이미 다음 아침의 전승 사업이 예약되어 있습니다. 선택을 바꿔도 예약을 옮기거나 환급하지 않습니다.'
             : tradition.lastReservedDay === state.day ? '전승 사업은 하루 한 건만 예약할 수 있습니다.'
               : faith.origin !== 'new_run' || faith.active?.domain !== 'craft' || !(faith.active.remaining >= 1)
                 ? '오늘 유효한 제작·건설 가르침 또는 가호의 남은 사용권 1회가 필요합니다.'
@@ -1704,18 +1707,24 @@ export function projectTraditionSummary(state, actorId = '') {
   const projectNameOf = id => TRIBE_PROJECTS.find(row => row.id === id)?.name || '선택된 사업 없음';
   const pending = tradition.pending;
   const receipt = tradition.lastSettlement;
+  const processingNameOf = id => CIVILIZATION_ACTION_DEFS.find(row => row.id === id)?.label || '가공 계획 없음';
   return { enabled, canReserve: !reason, reason,
     costText: '제작·건설 전승 사용권 1회 · AP/ST 소모 0 · 보유 AP 1 이상 필요 · 기존 사업 자재와 실제 건설대 일손 별도',
     effectText: '바로 다음 아침, 같은 사업의 실제 기본 건설 작업이 있을 때만 남은 필요량 안에서 작업 최대 +1. 하루 한 건이며 선택 변경·일손 0·자재 부족·완성 시 만료합니다. 이월·환급·추가 완성 보상은 없습니다.',
     summaryText: state.ended ? '런이 종료되어 예약된 추가 전승 작업은 실행되지 않습니다.'
-      : pending ? `${nameOf(pending.founderId)}의 전승을 ${projectNameOf(pending.projectId)}의 ${pending.dueDay}일차 아침 공동 작업에 예약했습니다.`
+      : pending?.kind === 'processing' ? `${nameOf(pending.founderId)}의 전승을 ${processingNameOf(pending.actionId)}의 ${pending.dueDay}일차 아침 가공에 예약했습니다.`
+        : pending ? `${nameOf(pending.founderId)}의 전승을 ${projectNameOf(pending.projectId)}의 ${pending.dueDay}일차 아침 공동 작업에 예약했습니다.`
       : reason || `${source.name}의 제작·건설 사용권 1회를 ${project.name}의 다음 아침 공동 작업에 맡길 수 있습니다.`,
     evidenceText: source ? `${source.name}의 실제 제작 ${Number(source.tallies.craft || 0)}회 · 캠프 관리 ${Number(source.tallies.camp || 0)}회 · 공동 사업 ${Number(source.tallies.project || 0)}회가 제작·건설 전승의 근거입니다. 살아 있는 인물은 가르침, 확인된 사망자는 가호로 이어집니다.`
       : '실제 제작·캠프 관리·공동 사업 기여가 합계 3회 이상인 창건자의 당일 제작·건설 전승이 필요합니다.',
     pending: pending ? { ...pending } : null,
-    pendingText: pending ? `${state.ended ? '런 종료로 추가 작업은 실행되지 않습니다. ' : ''}${pending.reservedDay}일차 예약 · ${pending.dueDay}일차 아침 · ${projectNameOf(pending.projectId)} · ${nameOf(pending.founderId)} · 추가 작업 최대 1. 현재 사업 선택을 바꿔도 예약 대상은 바뀌지 않습니다.` : '',
+    pendingText: pending?.kind === 'processing'
+      ? `${state.ended ? '런 종료로 예약 실행 안 됨. ' : ''}${pending.reservedDay}일차 예약 · ${pending.dueDay}일차 아침 · ${processingNameOf(pending.actionId)} 목표 ${pending.targetStock}개 · ${nameOf(pending.founderId)} · 추가 가공 최대 1묶음. 사업과 가공의 예약은 하루 한 건을 공유합니다.`
+      : pending ? `${state.ended ? '런 종료로 추가 작업은 실행되지 않습니다. ' : ''}${pending.reservedDay}일차 예약 · ${pending.dueDay}일차 아침 · ${projectNameOf(pending.projectId)} · ${nameOf(pending.founderId)} · 추가 작업 최대 1. 현재 사업 선택을 바꿔도 예약 대상은 바뀌지 않습니다.` : '',
     lastSettlement: receipt ? { ...receipt } : null,
-    lastSettlementText: receipt ? `${receipt.day}일차 아침 · 예약 ${projectNameOf(receipt.reservedProjectId)} · 실제 정산 ${projectNameOf(receipt.projectId)} · ${nameOf(receipt.founderId)} · 기본 작업 ${receipt.baseWork} + 전승 ${receipt.bonusWork} · 진행 ${receipt.progressBefore} → ${receipt.progressAfter}. ${projectTraditionReason(receipt.reason)}` : '',
+    lastSettlementText: receipt?.kind === 'processing'
+      ? `${receipt.day}일차 아침 · ${processingNameOf(receipt.actionId)} · ${nameOf(receipt.founderId)} · ${processingTraditionReason(receipt.reason)}`
+      : receipt ? `${receipt.day}일차 아침 · 예약 ${projectNameOf(receipt.reservedProjectId)} · 실제 정산 ${projectNameOf(receipt.projectId)} · ${nameOf(receipt.founderId)} · 기본 작업 ${receipt.baseWork} + 전승 ${receipt.bonusWork} · 진행 ${receipt.progressBefore} → ${receipt.progressAfter}. ${projectTraditionReason(receipt.reason)}` : '',
     records: tradition.records.map(row => ({ ...row, projectName: projectNameOf(row.projectId), founderName: nameOf(row.founderId),
       text: `${projectNameOf(row.projectId)} · ${nameOf(row.founderId)}의 실제 공동 작업 전승 ${row.appliedWork} · ${row.firstDay}~${row.lastDay}일차 적용${row.completedDay ? ` · ${row.completedDay}일차 완성` : ' · 사업 진행 중'}` })),
     selectedProjectId: project?.id || '', selectedProjectName: project?.name || '',
@@ -1731,6 +1740,68 @@ export function reserveProjectTraditionAction(state, actorId) {
   const reserved = reserveProjectTradition(consumeAncestralFavor(state, 'craft', { attempted: true }),
     { projectId: summary.selectedProjectId, founderId: summary.founderId });
   return addLog(reserved, `${summary.founderName}의 제작·건설 전승 1회를 ${summary.selectedProjectName}의 ${state.day + 1}일차 아침 실제 공동 작업에 예약했습니다. AP·ST·시간은 소비하지 않습니다.`);
+}
+
+export function processingTraditionSummary(state, actorId = '') {
+  const tradition = normalizeProjectTradition(state.projectTradition, state);
+  const faith = normalizeAncestralFaith(state.ancestralFaith, state);
+  const calculation = tribeProcessingCalculation(state);
+  const { plan, profile, workers, batches, materialBatches, neededBatches, safeStockBatches } = calculation;
+  const actor = actorId ? livingActorForAction(state, actorId) : state.party.find(row => Number(row.hp || 0) > 0);
+  const pending = tradition.pending;
+  const receipt = tradition.lastSettlement;
+  const sourceId = faith.active?.founderId || pending?.founderId || (receipt?.kind === 'processing' ? receipt.founderId : '') || '';
+  const source = sourceId ? ancestralFaithRows(state).find(row => row.founderId === sourceId) : null;
+  const enabled = tradition.origin === 'new_run';
+  const reason = state.ended ? '종료된 런에서는 가공 전승을 예약할 수 없습니다.'
+    : !enabled ? '이전 저장은 가공 전승을 새로 활성화하지 않습니다. 기존 생산과 기록은 유지합니다.'
+      : !actor ? '현재 활동 중인 생존 대원을 선택해야 합니다.'
+        : Number(state.ap || 0) < 1 ? '예약에 AP를 소비하지 않지만, 활동할 행동력 1 이상이 남아 있어야 합니다.'
+          : pending ? '이미 다음 아침의 전승 투자가 예약되어 있습니다. 사업과 가공은 하루 한 건을 함께 사용합니다.'
+            : tradition.lastReservedDay === state.day ? '사업과 가공 전승은 하루 한 건만 예약할 수 있습니다.'
+              : faith.origin !== 'new_run' || faith.active?.domain !== 'craft' || !(faith.active.remaining >= 1)
+                ? '오늘 유효한 제작·건설 가르침 또는 가호의 남은 사용권 1회가 필요합니다.'
+                : !source || source.status === 'unconfirmed' ? '전승 제공자의 실제 생애와 기여를 확인할 수 없습니다.'
+                  : calculation.blockedReason ? calculation.blockedReason
+                    : batches < 1 || workers < 1 ? '실제 가공대 일손과 기본 가공 1묶음 이상이 필요합니다.'
+                      : neededBatches <= batches ? '기본 가공만으로 목표 재고에 도달하여 추가 전승 묶음을 예약하지 않습니다.'
+                        : materialBatches <= batches ? '기본 가공 뒤 추가 1묶음에 지불할 실제 재료가 부족합니다.'
+                          : safeStockBatches <= batches ? '추가 묶음이 안전한 재고 수량 한도를 넘습니다.' : '';
+  const nameOf = id => state.founderHistory?.members?.find(row => row.actorId === id)?.name || id;
+  const actionNameOf = id => CIVILIZATION_ACTION_DEFS.find(row => row.id === id)?.label || '가공 계획 없음';
+  const processingPending = pending?.kind === 'processing' ? pending : null;
+  const processingReceipt = receipt?.kind === 'processing' ? receipt : null;
+  const pendingText = processingPending
+    ? `${state.ended ? '런 종료로 예약 실행 안 됨. ' : ''}${processingPending.reservedDay}일차 예약 · ${processingPending.dueDay}일차 아침 · ${actionNameOf(processingPending.actionId)} 목표 ${processingPending.targetStock}개 · ${nameOf(processingPending.founderId)} · 실제 기본 가공과 별도 재료 지불이 있을 때 추가 최대 1묶음. 대상 변경 시 이월·환급하지 않습니다.`
+    : pending ? `${pending.dueDay}일차 아침의 ${TRIBE_PROJECTS.find(row => row.id === pending.projectId)?.name || '공동 사업'} 전승이 예약되어 있어 가공 전승을 함께 예약할 수 없습니다.` : '';
+  const lastSettlementText = processingReceipt
+    ? `${processingReceipt.day}일차 아침 · 예약 ${actionNameOf(processingReceipt.reservedActionId)} 목표 ${processingReceipt.reservedTargetStock}개 · ${nameOf(processingReceipt.founderId)} · 기본 ${processingReceipt.baseBatches} + 전승 ${processingReceipt.bonusBatches}묶음 · 재고 ${processingReceipt.stockBefore ?? '확인 불가'} → ${processingReceipt.stockAfter ?? '확인 불가'}. ${processingTraditionReason(processingReceipt.reason)}`
+    : receipt ? '직전 전승 정산은 공동 사업 기록입니다. 가공 실기여로 합산하지 않습니다.' : '';
+  return { enabled, canReserve: !reason, reason,
+    costText: '기존 제작·건설 전승 사용권 1회 · 예약 시 정확히 1회 소모 · AP/ST 소모 0 · 보유 AP 1 이상 · 추가 묶음 재료 전액 별도',
+    effectText: '같은 공정과 목표의 바로 다음 아침 실제 기본 가공이 1묶음 이상일 때만 남은 목표·실제 재료·수량 한도 안에서 추가 최대 1묶음. 사업과 하루 한 건을 공유하며 실패 시 이월·환급하지 않습니다.',
+    evidenceText: source ? `${source.name}의 실제 제작 ${Number(source.tallies.craft || 0)}회 · 캠프 관리 ${Number(source.tallies.camp || 0)}회 · 공동 사업 ${Number(source.tallies.project || 0)}회가 제작·건설 전승의 근거입니다. ${source.status === 'deceased' ? '확인된 사망자의 가호' : '살아 있는 인물의 가르침'}도 같은 1묶음 한도를 사용합니다.`
+      : '실제 제작·캠프 관리·공동 사업 기여가 합계 3회 이상인 창건자의 당일 제작·건설 전승이 필요합니다.',
+    summaryText: state.ended ? '런 종료로 남은 예약은 실행되지 않습니다. 실제 아침 정산이 없으면 새 정산 기록을 만들지 않습니다.'
+      : pendingText || reason || `${source.name}의 사용권 1회를 ${profile.label}의 다음 아침 추가 가공에 투자할 수 있습니다.`,
+    pending: pending ? { ...pending } : null, pendingText, lastSettlement: processingReceipt ? { ...processingReceipt } : null,
+    lastSettlementText, records: (tradition.processingRecords || []).map(row => ({ ...row,
+      text: `${actionNameOf(row.actionId)} · ${nameOf(row.founderId)}의 실제 추가 가공 ${row.appliedBatches}묶음 · ${row.firstDay}~${row.lastDay}일차 적용` })),
+    selectedActionId: plan.actionId, selectedActionName: profile?.label || '가공 계획 없음', selectedTargetStock: plan.targetStock,
+    founderId: source?.founderId || '', founderName: source?.name || '',
+    modeLabel: source ? source.status === 'deceased' ? '시조신의 가호' : source.status === 'unconfirmed' ? '제공 인물 확인 불가' : '생전 가르침' : '',
+    executorName: actor?.name || '',
+    availableCharges: faith.active?.domain === 'craft' ? faith.active.remaining : 0,
+    workers, baseBatches: batches, bonusBatches: reason ? 0 : 1 };
+}
+
+export function reserveProcessingTraditionAction(state, actorId) {
+  const summary = processingTraditionSummary(state, actorId || '');
+  if (!livingActorForAction(state, actorId)) return addLog(state, '현재 활동 중인 생존 대원을 선택해야 합니다.');
+  if (!summary.canReserve) return addLog(state, summary.reason);
+  const reserved = reserveProcessingTradition(consumeAncestralFavor(state, 'craft', { attempted: true }),
+    { actionId: summary.selectedActionId, targetStock: summary.selectedTargetStock, founderId: summary.founderId });
+  return addLog(reserved, `${summary.founderName}의 제작·건설 전승 1회를 ${summary.selectedActionName} 목표 ${summary.selectedTargetStock}개의 ${state.day + 1}일차 아침 가공에 예약했습니다. 추가 묶음의 실제 재료는 별도로 지불합니다.`);
 }
 
 export function projectActionEstimate(state, actorId, projectId = '') {
@@ -5903,7 +5974,9 @@ function tribeProcessingCalculation(state, tribe = normalizeTribeState(state.tri
     if (batches === safeStockBatches) limits.push('안전한 재고 수량 한도로 추가 묶음 중단');
     reason = `${batches}묶음 생산. ${limits.join(' · ')}.`;
   }
-  return { plan, workers, recipe, profile, outputItemId, outputQuantity, currentStock, batches, reason };
+  return { plan, workers, recipe, profile, outputItemId, outputQuantity, currentStock, batches, reason, blockedReason,
+    available: Boolean(recipe && state.research?.completed?.SETTLEMENT && state.research?.completed?.[profile.techId]),
+    quantityValid: currentStock !== null && !invalidMaterial, materialBatches, neededBatches, safeStockBatches };
 }
 
 export function configureTribeProcessAction(state, plan) {
@@ -5936,28 +6009,38 @@ function tribeProcessingSummaryFor(state, tribe) {
   const receipt = state.tribe?.lastProduction?.processing || null;
   const receiptProfile = receipt ? CIVILIZATION_ACTION_DEFS.find(row => row.id === receipt.actionId) : null;
   const receiptText = receipt
-    ? `${state.tribe.lastProduction.day}일차 ${receiptProfile?.label || '공동체 가공'} · 가공대 ${receipt.workers}명 · ${receipt.batches}묶음 · 투입 ${formatRequires(receipt.spent)} · 산출 ${formatGains(Object.entries(receipt.gains))} · ${receipt.reason}`
+    ? `${state.tribe.lastProduction.day}일차 ${receiptProfile?.label || '공동체 가공'} · 가공대 ${receipt.workers}명 · ${receipt.batches}묶음${receipt.bonusBatches ? ` (기본 ${receipt.batches - receipt.bonusBatches} + 전승 ${receipt.bonusBatches})` : ''} · 투입 ${formatRequires(receipt.spent)} · 산출 ${formatGains(Object.entries(receipt.gains))} · ${receipt.reason}`
     : '이전 가공 정산 미기록';
   return { plan: { ...plan }, options, workers, currentStock,
     costText: recipe ? formatRequires(recipe.cost) : '', outputText: recipe ? formatGains(recipe.reward) : '',
     expectedBatches: batches, expectedOutput: batches * outputQuantity,
     canConfigure: !state.ended, blockedReason: batches > 0 ? '' : reason, statusText: reason,
-    timingText: '현재 재고만의 미리보기입니다. 다음 아침 원재료 생산·건설·연구·공동체와 가구 배식 후 남은 실제 재료로 집행합니다. 가공대 1명당 하루 최대 1묶음이며, 묶음 생산으로 목표를 조금 넘을 수 있습니다. 개인 AP·ST를 쓰지 않습니다.',
+    timingText: '현재 재고만의 미리보기입니다. 다음 아침 원재료 생산·건설·연구·공동체와 가구 배식 후 남은 실제 재료로 집행합니다. 가공대 1명당 하루 최대 1묶음이며, 전승 예약은 추가 재료를 전액 지불해 최대 1묶음을 더 생산합니다. 묶음 생산으로 목표를 조금 넘을 수 있습니다. 개인 AP·ST를 쓰지 않습니다.',
     receipt, receiptText };
 }
 
 function settleTribeProcessing(state) {
   const calculation = tribeProcessingCalculation(state);
-  const { plan, workers, recipe, currentStock, batches, outputItemId, reason } = calculation;
+  const { plan, workers, recipe, currentStock, batches: baseBatches, outputItemId } = calculation;
+  const hasProcessingReservation = state.projectTradition?.pending?.kind === 'processing';
+  const traditionArgs = { actionId: plan.actionId, targetStock: plan.targetStock, workers, baseBatches,
+    available: calculation.available, quantityValid: calculation.quantityValid,
+    materialBatches: calculation.materialBatches, neededBatches: calculation.neededBatches, safeStockBatches: calculation.safeStockBatches };
   // Off plans preserve the old economy and do not fabricate historic receipts.
-  if (!plan.actionId) return state;
+  if (!plan.actionId) return hasProcessingReservation ? settleProcessingTradition(state, traditionArgs) : state;
+  const bonusBatches = !hasProcessingReservation || calculation.blockedReason ? 0 : processingTraditionBonus(state, traditionArgs);
+  const batches = baseBatches + bonusBatches;
   const spent = batches ? Object.fromEntries(Object.entries(recipe.cost).map(([id, count]) => [id, count * batches])) : {};
   const gains = batches ? Object.fromEntries(recipe.reward.map(([id, count]) => [id, count * batches])) : {};
   const inventory = batches ? addItems(spendResources(state.inventory, spent), Object.entries(gains)) : state.inventory;
+  const stockAfter = processingInventoryQuantity(inventory, outputItemId);
+  const reason = bonusBatches ? `${batches}묶음 생산: 기본 ${baseBatches} + 전승 1. 추가 재료를 전액 지불했습니다. ${stockAfter >= plan.targetStock ? `목표 ${plan.targetStock}개에 도달했습니다.` : '하루 기본 작업과 예약 전승 1회 한도입니다.'}` : calculation.reason;
   const processing = { actionId: plan.actionId, targetStock: plan.targetStock, workers, batches,
-    stockBefore: currentStock, stockAfter: processingInventoryQuantity(inventory, outputItemId), spent, gains, reason };
-  return { ...state, inventory, tribe: { ...state.tribe,
+    stockBefore: currentStock, stockAfter, spent, gains, reason, ...(bonusBatches ? { bonusBatches } : {}) };
+  const next = { ...state, inventory, tribe: { ...state.tribe,
     lastProduction: { ...state.tribe.lastProduction, processing } } };
+  return hasProcessingReservation ? settleProcessingTradition(next, { ...traditionArgs, bonusBatches, batches,
+    stockBefore: currentStock, stockAfter, spent, gains }) : next;
 }
 
 function surveyCandidates(state) {

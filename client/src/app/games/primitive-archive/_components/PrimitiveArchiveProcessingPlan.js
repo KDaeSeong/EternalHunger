@@ -76,3 +76,47 @@ export default function PrimitiveArchiveProcessingPlan({ processing, runId, onCo
   return <ProcessingPlanForm key={JSON.stringify([runId, plan.actionId, plan.targetStock])}
     processing={processing} onConfigure={onConfigure} blockedReason={blockedReason} />;
 }
+
+export function PrimitiveArchiveProcessingTradition({ tradition, processing, actor, hydrated = false, busy = false,
+  ended = false, onReserve }) {
+  if (!tradition || !processing) return null;
+  const selected = processing.options?.find(option => option.id === tradition.selectedActionId);
+  const canReserve = hydrated && !busy && !ended && tradition.enabled && tradition.canReserve
+    && typeof onReserve === 'function';
+  const reason = !hydrated ? '진행 기록 확인이 끝난 뒤 예약할 수 있습니다.'
+    : busy ? '저장 또는 진행 보호 작업 중에는 예약할 수 없습니다.'
+      : ended ? '종료된 런에서는 전승을 예약할 수 없습니다.' : tradition.reason || '';
+  const processingRecords = (tradition.records || []).filter(record => record.kind === 'processing' || record.actionId);
+  const projectPending = tradition.pending && tradition.pending.kind !== 'processing';
+  const projectSettlement = tradition.lastSettlement && tradition.lastSettlement.kind !== 'processing';
+  const descriptionId = 'primitive-processing-tradition-conditions';
+  return <details className="primitive-processing-tradition-disclosure">
+    <summary><strong>가공대 전승 투자</strong><span>{ended ? '런 종료' : tradition.pending
+      ? tradition.pending.kind === 'processing' ? `${tradition.pending.dueDay}일차 가공 예약` : '공동 사업에 예약됨'
+      : canReserve ? '전승 1회 예약 가능' : `제작·건설 전승 ${tradition.availableCharges}회`}</span></summary>
+    <div className="primitive-processing-tradition" role="group" aria-label="저장된 가공 계획의 전승 예약">
+    <dl>
+      <div><dt>전승 제공자</dt><dd>{tradition.founderName || '활성 제작·건설 전승 없음'}{tradition.modeLabel ? ` · ${tradition.modeLabel}` : ''} · 개인 제작과 공유하는 실제 남은 횟수 {tradition.availableCharges}</dd></div>
+      <div><dt>집행 대원</dt><dd>{tradition.executorName || actor?.name || '활동 대원 없음'}</dd></div>
+      <div><dt>예약 대상 · 적용된 계획</dt><dd>{selected ? `${selected.label} · 목표 비축 ${tradition.selectedTargetStock}개` : '저장된 가공 계획 없음'}</dd></div>
+      <div><dt>실제 일손·재료</dt><dd>가공대 {processing.workers}명 · 1묶음 투입 {processing.costText || '공정 선택 필요'} → 산출 {processing.outputText || '공정 선택 필요'}</dd></div>
+      {tradition.evidenceText ? <div><dt>시조 기여</dt><dd>{tradition.evidenceText}</dd></div> : null}
+      <div><dt>예약 비용·조건</dt><dd>{tradition.costText}</dd></div>
+      <div><dt>실제 추가 효과·유효기간</dt><dd>{tradition.effectText}</dd></div>
+      <div><dt>{projectPending ? '현재 공유 예약 · 공동 프로젝트' : '현재 예약'}</dt><dd>{tradition.pendingText || '현재 예약 없음'}</dd></div>
+      <div><dt>{projectSettlement ? '최근 공유 예약 정산 · 공동 프로젝트' : tradition.lastSettlement ? '최근 실제 가공 전승 정산' : '전승 정산 안내'}</dt><dd>{tradition.lastSettlementText || '가공 전승 정산 미기록'}</dd></div>
+    </dl>
+    <p id={descriptionId}>공동 프로젝트와 가공대 예약은 하루 한 건을 공유합니다. 입력 중인 초안이 아닌 적용된 생산 계획에 사용권 1회를 맡깁니다. 예약한 대상은 나중에 계획을 바꿔도 옮겨지거나 환급되지 않습니다.</p>
+    <GameControlButton action="primitive-kiln" cue="off" type="button" disabled={!canReserve}
+      aria-describedby={descriptionId} title={canReserve ? tradition.costText : reason}
+      onClick={() => { if (canReserve) onReserve(); }}>
+      다음 아침 {selected?.label || '가공대'}에 전승 1회 예약
+    </GameControlButton>
+    <p className="primitive-processing-tradition__status">{reason || tradition.summaryText}</p>
+    {processingRecords.length ? <div className="primitive-processing-tradition__records" aria-label="가공에 남은 실제 시조 기여">
+      <strong>실제 가공에 남은 전승</strong>
+      <ul>{processingRecords.map((record, index) => <li key={`${record.founderId}:${record.actionId}:${index}`}>{record.text}</li>)}</ul>
+    </div> : null}
+    </div>
+  </details>;
+}

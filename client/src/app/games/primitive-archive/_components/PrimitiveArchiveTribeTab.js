@@ -8,7 +8,7 @@ import {
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
-import PrimitiveArchiveProcessingPlan from './PrimitiveArchiveProcessingPlan';
+import PrimitiveArchiveProcessingPlan, { PrimitiveArchiveProcessingTradition } from './PrimitiveArchiveProcessingPlan';
 
 function diplomacyDisabledText(rival, action) {
   if (rival.actedToday) return '오늘 교섭을 완료했습니다.';
@@ -25,6 +25,7 @@ function diplomacyDisabledText(rival, action) {
 
 export default function PrimitiveArchiveTribeTab({
   actionFeedback,
+  actor,
   adjustTribeJob,
   changeTribeWorkPolicy,
   configureTribeProcess,
@@ -34,6 +35,9 @@ export default function PrimitiveArchiveTribeTab({
   runDiplomacy,
   supplies,
   projectTradition,
+  processingTradition,
+  reserveProcessingTradition,
+  hydrated = false,
   state,
   tribe,
 }) {
@@ -166,6 +170,9 @@ export default function PrimitiveArchiveTribeTab({
               </div>
               {job.id === 'artisan' ? <PrimitiveArchiveProcessingPlan processing={tribe.processing} runId={state?.runId || ''}
                 onConfigure={configureTribeProcess} blockedReason={jobEditBlockedReason} /> : null}
+              {job.id === 'artisan' ? <PrimitiveArchiveProcessingTradition tradition={processingTradition}
+                processing={tribe.processing} actor={actor} hydrated={hydrated} busy={busy} ended={Boolean(state?.ended)}
+                onReserve={reserveProcessingTradition} /> : null}
             </article>
           ))}
         </div>
