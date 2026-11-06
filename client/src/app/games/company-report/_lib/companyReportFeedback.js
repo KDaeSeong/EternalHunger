@@ -77,6 +77,7 @@ const FEEDBACK_PROFILES = {
   disclosureFiled: { action: 'disclosure', cue: 'disclosureFiled', label: '공시 대응 완료', tone: 'success' },
   dividendDeclared: { action: 'dividend', cue: 'dividendDeclared', label: '배당 결정', tone: 'highlight' },
   capitalRaised: { action: 'capital', cue: 'capitalRaised', label: '자금 조달 완료', tone: 'success' },
+  debtRepaid: { action: 'finance', cue: 'taxPaid', label: '부채 원금 상환', tone: 'success' },
   capitalClosed: { action: 'finance', cue: 'capitalClosed', label: '자본시장 월마감', tone: 'highlight' },
   monthClosed: { action: 'closing', cue: 'ledgerClose', label: '월말 결산 완료', tone: 'ready' },
   monthClosedProfit: { action: 'company-profit', cue: 'companyProfit', label: '흑자 월마감', tone: 'success' },
@@ -196,6 +197,8 @@ export function companyReportFeedbackSnapshot(state) {
     disclosureCount: safeArray(capital.disclosures).length,
     dividendCount: safeArray(capital.dividends).length,
     financingCount: safeArray(capital.financingPlans).length,
+    debtKrw: Number(capital.debtKrw || 0),
+    debtRepaymentCount: safeArray(capital.debtRepayments).length,
     stockHistoryCount: safeArray(capital.stockHistory).length,
     snapshotCount: safeArray(state?.ledgerSnapshots).length,
     restoreHistoryCount: restoreHistory.length,
@@ -266,6 +269,7 @@ const IMPACT_KEYS_BY_RESULT = Object.freeze({
   disclosureFiled: ['investorTrust', 'disclosureRisk', 'cashKrw'],
   dividendDeclared: ['investorTrust', 'cashKrw'],
   capitalRaised: ['cashKrw', 'investorTrust', 'disclosureRisk'],
+  debtRepaid: ['debtKrw', 'cashKrw'],
   capitalClosed: ['investorTrust', 'disclosureRisk', 'stockHistoryCount'],
   capitalRiskEscalated: ['investorTrust', 'disclosureRisk', 'cashKrw'],
   capitalRiskRecovered: ['investorTrust', 'disclosureRisk', 'cashKrw'],
@@ -299,6 +303,7 @@ function companyReportImpactRows(previous, current, resultKey) {
       ? { action: 'calendar', key: 'period', label: '회계기간', tone: 'highlight', value: current.period }
       : null,
     cashKrw: deltaImpact(previous, current, 'cashKrw', { action: 'finance', label: '현금', money: true }),
+    debtKrw: deltaImpact(previous, current, 'debtKrw', { action: 'finance', label: '부채 원금', money: true, successDirection: -1 }),
     cashRunwayMonths: previous.cashRunwayMonths !== current.cashRunwayMonths
       ? {
         action: current.cashRunwayMonths < LIQUIDITY_RUNWAY_WARNING_MONTHS
@@ -414,6 +419,7 @@ function transitionFromLog(log, snapshot) {
   if (/공시 대응을 진행/.test(log)) return 'disclosureFiled';
   if (/배당을 결정/.test(log)) return 'dividendDeclared';
   if (/조달했습니다/.test(log)) return 'capitalRaised';
+  if (/부채 원금 .*상환 완료/.test(log)) return 'debtRepaid';
   if (/스냅샷.*생성/.test(log)) return 'snapshotSaved';
   if (/북마크했습니다/.test(log)) return 'reportBookmarked';
   if (/내보내기 이력/.test(log)) return 'reportExported';
@@ -498,6 +504,7 @@ export function companyReportFeedbackTransition(previousValue, currentValue) {
   if (current.disclosureCount > previous.disclosureCount) return 'disclosureFiled';
   if (current.dividendCount > previous.dividendCount) return 'dividendDeclared';
   if (current.financingCount > previous.financingCount) return 'capitalRaised';
+  if (current.debtRepaymentCount > previous.debtRepaymentCount) return 'debtRepaid';
   if (current.stockHistoryCount > previous.stockHistoryCount) return 'capitalClosed';
   if (current.snapshotCount > previous.snapshotCount) return 'snapshotSaved';
   if (current.restoreHistoryCount > previous.restoreHistoryCount) {

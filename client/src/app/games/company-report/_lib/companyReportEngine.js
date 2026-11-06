@@ -121,6 +121,8 @@ export function createNewState(options = {}) {
       investorTrust: 64,
       disclosureRisk: 14,
       debtKrw: 0,
+      debtRepayments: [],
+      nextDebtRepaymentNo: 1,
       disclosures: [],
       dividends: [],
       financingPlans: [],
@@ -1016,6 +1018,46 @@ export function raiseCapitalAction(state, financingTypeId) {
   }, `${type.label}으로 ${formatMoney(type.cashKrw)}을 조달했습니다.`);
 }
 
+export function repayDebtAction(state, amountKrw) {
+  const current = normalizeState(state);
+  const amount = ['number', 'string'].includes(typeof amountKrw) ? Number(amountKrw) : NaN;
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    return addLog(current, '상환 금액은 1원 이상의 정수로 입력하세요.');
+  }
+  const debtBeforeKrw = current.capitalMarket.debtKrw;
+  const cashBeforeKrw = Number(current.company.cashKrw);
+  if (!Number.isSafeInteger(debtBeforeKrw) || debtBeforeKrw < amount) {
+    return addLog(current, '상환 금액이 남은 부채 원금을 초과해 처리할 수 없습니다.');
+  }
+  if (!Number.isSafeInteger(cashBeforeKrw) || cashBeforeKrw < amount) {
+    return addLog(current, '현금이 부족해 부채 원금을 상환할 수 없습니다.');
+  }
+  if (!Number.isSafeInteger(current.capitalMarket.nextDebtRepaymentNo) || current.capitalMarket.nextDebtRepaymentNo >= Number.MAX_SAFE_INTEGER) {
+    return addLog(current, '상환 기록 번호가 유효하지 않아 처리할 수 없습니다.');
+  }
+  const repayment = {
+    id: `DEBT-${current.company.year}-${String(current.capitalMarket.nextDebtRepaymentNo).padStart(4, '0')}`,
+    amountKrw: amount,
+    year: current.company.year,
+    month: current.company.month,
+    day: businessDay(current.company),
+    debtBeforeKrw,
+    debtAfterKrw: debtBeforeKrw - amount,
+    cashBeforeKrw,
+    cashAfterKrw: cashBeforeKrw - amount,
+  };
+  return addLog({
+    ...current,
+    company: { ...current.company, cashKrw: repayment.cashAfterKrw },
+    capitalMarket: {
+      ...current.capitalMarket,
+      debtKrw: repayment.debtAfterKrw,
+      debtRepayments: [repayment, ...current.capitalMarket.debtRepayments],
+      nextDebtRepaymentNo: current.capitalMarket.nextDebtRepaymentNo + 1,
+    },
+  }, `부채 원금 ${formatMoney(amount)} 상환 완료. 남은 부채 ${formatMoney(repayment.debtAfterKrw)} / 현금 ${formatMoney(repayment.cashAfterKrw)}.`);
+}
+
 export function closeCapitalMarketAction(state) {
   const current = normalizeState(state);
   const period = `${current.company.year}-${String(current.company.month).padStart(2, '0')}`;
@@ -1125,6 +1167,7 @@ export function createLedgerSnapshotAction(state) {
     checksum,
     manifestChecksum: ledgerManifestChecksum(payload, LEDGER_RESTORE_TABLES),
     operatingExpenseChecksum: simpleChecksum(JSON.stringify(payload.operatingExpensePeriod)),
+    debtStateChecksum: simpleChecksum(JSON.stringify(debtSnapshotPayload(payload.capitalMarket))),
     rowCount: ledgerRowCount(current),
     payload,
   };
@@ -1139,11 +1182,13 @@ export function restoreLatestSnapshotAction(state) {
   const snapshot = current.ledgerSnapshots[0];
   if (!snapshot?.payload) return addLog(current, '복원할 원장 스냅샷이 없습니다.');
   if (!validOperatingExpenseSnapshot(snapshot)) return addLog(current, '복원 차단: 스냅샷의 지급비용 집계가 손상되어 복원할 수 없습니다.');
+  if (!validDebtSnapshot(snapshot)) return addLog(current, '복원 차단: 스냅샷의 부채·원금 상환 기록이 손상되어 복원할 수 없습니다.');
   const restored = normalizeState({
     ...current,
     ...snapshot.payload,
     cashFlowPeriod: snapshot.payload.cashFlowPeriod ?? null,
     operatingExpensePeriod: snapshot.payload.operatingExpensePeriod ?? null,
+    capitalMarket: { ...snapshot.payload.capitalMarket, ...normalizeDebtState(snapshot.payload.capitalMarket) },
     ledgerSnapshots: current.ledgerSnapshots,
     restoreHistory: current.restoreHistory,
   });
@@ -1204,6 +1249,9 @@ export function restoreLedgerSnapshotAction(state, restoreMode = 'FULL_LEDGER', 
     capitalMarket: {
       ...current.capitalMarket,
       ...(restoredPayload.capitalMarket || {}),
+      // Cash and debt must return to the same ledger point. Missing legacy
+      // repayment history is empty, not a reason to retain newer repayments.
+      ...(targetTableNames.has('company_info') ? normalizeDebtState(payload.capitalMarket) : {}),
     },
     ledgerSnapshots: current.ledgerSnapshots,
     restoreHistory: current.restoreHistory,
@@ -1279,6 +1327,8 @@ export function ledgerDiffRows(state) {
   return [
     textDiffRow('월', before.period, after.period),
     moneyDiffRow('현금', before.cashKrw, after.cashKrw),
+    moneyDiffRow('상장 부채', before.debtKrw, after.debtKrw),
+    numberDiffRow('원금 상환', before.debtRepaymentCount, after.debtRepaymentCount, '건'),
     moneyDiffRow('재고 장부', before.inventoryAmount, after.inventoryAmount),
     moneyDiffRow('채권 잔액', before.receivableAmount, after.receivableAmount),
     moneyDiffRow('외화채권', before.foreignReceivableAmount, after.foreignReceivableAmount),
@@ -1333,6 +1383,9 @@ export function ledgerRestorePlan(state, restoreMode = 'FULL_LEDGER', tablesText
   const fullManifestChecksum = ledgerManifestChecksum(snapshot.payload, LEDGER_RESTORE_TABLES);
   const snapshotChecksumValid = snapshot.manifestChecksum ? snapshot.manifestChecksum === fullManifestChecksum : true;
   const operatingExpenseChecksumValid = validOperatingExpenseSnapshot(snapshot);
+  const debtStateChecksumValid = validDebtSnapshot(snapshot);
+  const debtStateChanged = selection.tables.some((table) => table.tableName === 'company_info')
+    && JSON.stringify(debtSnapshotPayload(snapshot.payload.capitalMarket)) !== JSON.stringify(debtSnapshotPayload(current.capitalMarket));
   const operatingExpenseChanged = selection.tables.some((table) => table.tableName === 'company_info')
     && snapshot.payload.operatingExpensePeriod
     && JSON.stringify(snapshot.payload.operatingExpensePeriod) !== JSON.stringify(current.operatingExpensePeriod);
@@ -1345,13 +1398,15 @@ export function ledgerRestorePlan(state, restoreMode = 'FULL_LEDGER', tablesText
     ...selection.warnings,
     ...(!snapshotChecksumValid ? ['스냅샷 manifest checksum이 전체 row JSON 재계산값과 다릅니다.'] : []),
     ...(!operatingExpenseChecksumValid ? ['스냅샷의 지급비용 집계가 손상되어 복원할 수 없습니다.'] : []),
+    ...(!debtStateChecksumValid ? ['스냅샷의 부채·원금 상환 기록이 손상되어 복원할 수 없습니다.'] : []),
+    ...(debtStateChanged ? ['부채 잔액·원금 상환 기록을 현금과 함께 복원합니다.'] : []),
     ...(operatingExpenseChanged ? ['월간 지급비용 집계가 스냅샷과 다릅니다.'] : []),
     ...(restoreOrder.cycleDetected ? ['FK 의존성 그래프에 순환이 감지되어 자동 물리 복원 전 별도 검토가 필요합니다.'] : []),
     ...restoreOrder.missingDependencies.map((entry) => `${entry.tableName} 복원 시 부모 테이블 ${entry.missing.join(', ')}이(가) 선택되지 않았습니다.`),
-    ...(changedCount ? [`현재 원장과 스냅샷 사이에 ${changedCount}개 테이블 차이가 있습니다.`] : operatingExpenseChanged ? [] : ['현재 원장과 선택 스냅샷이 이미 일치합니다.']),
+    ...(changedCount ? [`현재 원장과 스냅샷 사이에 ${changedCount}개 테이블 차이가 있습니다.`] : operatingExpenseChanged || debtStateChanged ? [] : ['현재 원장과 선택 스냅샷이 이미 일치합니다.']),
   ];
-  const blocked = Boolean(selection.blocked || !snapshotChecksumValid || !operatingExpenseChecksumValid || restoreOrder.cycleDetected);
-  const changed = changedCount > 0 || Boolean(operatingExpenseChanged);
+  const blocked = Boolean(selection.blocked || !snapshotChecksumValid || !operatingExpenseChecksumValid || !debtStateChecksumValid || restoreOrder.cycleDetected);
+  const changed = changedCount > 0 || Boolean(operatingExpenseChanged) || debtStateChanged;
   const deletedRowCount = tableDiffs.reduce((sum, row) => sum + row.currentRowCount, 0);
   const insertedRowCount = tableDiffs.reduce((sum, row) => sum + row.snapshotRowCount, 0);
   return {
@@ -1621,6 +1676,10 @@ export function capitalMarketSummary(state) {
   const latestStock = current.capitalMarket.stockHistory[0] || null;
   const previousStock = current.capitalMarket.stockHistory[1] || null;
   const priceDelta = latestStock && previousStock ? Number(latestStock.sharePrice || 0) - Number(previousStock.sharePrice || 0) : 0;
+  const debtKrw = current.capitalMarket.debtKrw;
+  const cashKrw = Number(current.company.cashKrw);
+  const repayableDebtKrw = Number.isSafeInteger(debtKrw) && Number.isSafeInteger(cashKrw)
+    ? Math.max(0, Math.min(debtKrw, cashKrw)) : 0;
   const alerts = [];
   if (Number(current.capitalMarket.disclosureRisk || 0) >= 35) alerts.push('공시위험이 높습니다. 감사 대응이나 정정 공시가 필요합니다.');
   if (Number(current.capitalMarket.investorTrust || 0) < 45) alerts.push('투자자 신뢰가 낮습니다. 실적 발표 또는 배당 정책을 검토하세요.');
@@ -1634,7 +1693,9 @@ export function capitalMarketSummary(state) {
     sharesOutstanding: Number(current.capitalMarket.sharesOutstanding || 0),
     investorTrust: Number(current.capitalMarket.investorTrust || 0),
     disclosureRisk: Number(current.capitalMarket.disclosureRisk || 0),
-    debtKrw: Number(current.capitalMarket.debtKrw || 0),
+    debtKrw,
+    repayableDebtKrw,
+    debtRepaymentCount: current.capitalMarket.debtRepayments.length,
     priceDelta,
     disclosureCount: current.capitalMarket.disclosures.length,
     dividendCount: current.capitalMarket.dividends.length,
@@ -2168,6 +2229,23 @@ function validOperatingExpenseSnapshot(snapshot) {
     && snapshot.operatingExpenseChecksum === simpleChecksum(JSON.stringify(snapshot.payload?.operatingExpensePeriod ?? null));
 }
 
+function debtSnapshotPayload(capitalMarket) {
+  return {
+    debtKrw: capitalMarket?.debtKrw ?? 0,
+    debtRepayments: capitalMarket?.debtRepayments ?? [],
+    nextDebtRepaymentNo: capitalMarket?.nextDebtRepaymentNo ?? 1,
+  };
+}
+
+function validDebtSnapshot(snapshot) {
+  if (!Object.hasOwn(snapshot, 'debtStateChecksum')) {
+    const capital = snapshot.payload?.capitalMarket || {};
+    return !Object.hasOwn(capital, 'debtRepayments') && !Object.hasOwn(capital, 'nextDebtRepaymentNo');
+  }
+  return typeof snapshot.debtStateChecksum === 'string'
+    && snapshot.debtStateChecksum === simpleChecksum(JSON.stringify(debtSnapshotPayload(snapshot.payload?.capitalMarket)));
+}
+
 function snapshotPayload(state) {
   return {
     company: { ...state.company },
@@ -2201,6 +2279,8 @@ function ledgerComparableSummary(payload) {
   return {
     period: `${company.year || '-'}-${String(company.month || 0).padStart(2, '0')}`,
     cashKrw: Number(company.cashKrw || 0),
+    debtKrw: capitalMarket.debtKrw,
+    debtRepaymentCount: capitalMarket.debtRepayments.length,
     inventoryAmount: inventoryEntries.reduce((sum, row) => sum + Number(row.onHand || 0) * Number(row.avgCost || 0), 0),
     receivableAmount: receivableEntries.reduce((sum, row) => sum + Math.max(0, Number(row.amount || 0) - Number(row.collected || 0)), 0),
     foreignReceivableAmount,
@@ -2421,6 +2501,22 @@ function normalizeGlobalState(value, fallback) {
   };
 }
 
+function normalizeDebtState(value, fallback = {}) {
+  const source = value && typeof value === 'object' ? value : {};
+  const debtRepayments = Array.isArray(source.debtRepayments)
+    ? source.debtRepayments.map((row) => ({ ...row })) : [];
+  const lastReceiptNo = debtRepayments.reduce((highest, row) => {
+    const parsed = Number(String(row.id || '').match(/^DEBT-\d+-(\d+)$/)?.[1] || 0);
+    return Number.isSafeInteger(parsed) && parsed >= 0 ? Math.max(highest, parsed) : highest;
+  }, 0);
+  const savedNext = Number(source.nextDebtRepaymentNo);
+  return {
+    debtKrw: Math.max(0, Math.round(Number(source.debtKrw ?? fallback.debtKrw ?? 0))),
+    debtRepayments,
+    nextDebtRepaymentNo: Math.max(lastReceiptNo + 1, Number.isSafeInteger(savedNext) && savedNext > 0 ? savedNext : 1),
+  };
+}
+
 function normalizeCapitalMarketState(value, fallback) {
   const source = value && typeof value === 'object' ? value : {};
   return {
@@ -2430,7 +2526,7 @@ function normalizeCapitalMarketState(value, fallback) {
     sharesOutstanding: Math.max(1, Math.round(Number(source.sharesOutstanding || fallback.sharesOutstanding || 1))),
     investorTrust: clamp(source.investorTrust ?? fallback.investorTrust, 0, 100),
     disclosureRisk: clamp(source.disclosureRisk ?? fallback.disclosureRisk, 0, 100),
-    debtKrw: Math.max(0, Math.round(Number(source.debtKrw || fallback.debtKrw || 0))),
+    ...normalizeDebtState(source, fallback),
     disclosures: Array.isArray(source.disclosures) ? source.disclosures.slice(0, 16) : fallback.disclosures,
     dividends: Array.isArray(source.dividends) ? source.dividends.slice(0, 12) : fallback.dividends,
     financingPlans: Array.isArray(source.financingPlans) ? source.financingPlans.slice(0, 12) : fallback.financingPlans,

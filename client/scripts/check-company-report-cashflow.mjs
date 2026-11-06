@@ -41,6 +41,7 @@ import {
   payVatAction,
   PRODUCTS,
   raiseCapitalAction,
+  repayDebtAction,
   receivableRows,
   reportSummary,
   reportHistoryTrend,
@@ -693,6 +694,36 @@ function renderCapitalPanel(state) {
     recentActionText: state.log[0], resultPresentation: { action: 'closing', label: '자본시장 월마감', tone: 'highlight' },
   }));
 }
+
+check('rendered repayment controls expose actual available cash and disable debt-free or cashless actions', () => {
+  const borrowed = raiseCapitalAction(seed(), 'CORPORATE_BOND');
+  const repaid = repayDebtAction(borrowed, 12000000);
+  const cashless = clone(borrowed);
+  cashless.company.cashKrw = 0;
+  const limitedCash = clone(borrowed);
+  limitedCash.company.cashKrw = 30000000;
+  for (const state of [seed(), borrowed, repaid, cashless, limitedCash]) {
+    const original = clone(state);
+    const html = renderCapitalPanel(state);
+    const summary = capitalMarketSummary(state);
+    const button = [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)]
+      .map(match => match[0]).find(row => row.includes('가용 현금으로 원금 상환'));
+    assert.ok(button);
+    assert.equal(/\sdisabled(?:=|[\s>])/.test(button), summary.repayableDebtKrw <= 0);
+    const input = [...html.matchAll(/<input\b[^>]*>/g)]
+      .map(match => match[0]).find(row => row.includes('placeholder="상환할 금액"'));
+    assert.ok(input?.includes(`max="${summary.repayableDebtKrw}"`));
+    assert.equal(/\sdisabled(?:=|[\s>])/.test(input), summary.repayableDebtKrw <= 0);
+    assert.ok(html.includes('현재 상환 가능'));
+    assert.ok(html.includes(formatMoney(summary.repayableDebtKrw)));
+    if (state === repaid) {
+      assert.ok(html.includes('부채 원금 상환'));
+      assert.ok(html.includes(formatMoney(-12000000)));
+      assert.ok(html.includes(`남은 부채 ${formatMoney(repaid.capitalMarket.debtKrw)}`));
+    }
+    assert.deepEqual(state, original);
+  }
+});
 
 check('rendered market controls show one completed month and reopen only after real month advancement', () => {
   const opened = seed();

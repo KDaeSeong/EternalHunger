@@ -32,6 +32,7 @@ import {
   monthEndCloseAction,
   payVatAction,
   raiseCapitalAction,
+  repayDebtAction,
   restoreLatestSnapshotAction,
   settleGlobalTradeAction,
   shipOrderAction,
@@ -233,6 +234,13 @@ const dividend = decideDividendAction(base);
 expectResult(base, dividend, { key: 'dividendDeclared', action: 'dividend', cue: 'dividendDeclared', tone: 'highlight' });
 const raised = raiseCapitalAction(base, 'RIGHTS_OFFERING');
 expectResult(base, raised, { key: 'capitalRaised', action: 'capital', cue: 'capitalRaised', tone: 'success' });
+const borrowedForRepayment = raiseCapitalAction(base, 'CORPORATE_BOND');
+const debtRepaid = repayDebtAction(borrowedForRepayment, 12000000);
+const repaymentPresentation = expectResult(borrowedForRepayment, debtRepaid,
+  { key: 'debtRepaid', action: 'finance', cue: 'taxPaid', tone: 'success' });
+assert.deepEqual(repaymentPresentation.impacts.map(item => [item.label, item.value, item.tone]),
+  [['부채 원금', '-12,000,000원', 'success'], ['현금', '-12,000,000원', 'warning']],
+  '원금 상환은 감소한 부채와 실제 지급 현금을 함께 보여야 합니다.');
 const capitalClosed = closeCapitalMarketAction(base);
 expectResult(base, capitalClosed, { key: 'capitalClosed', action: 'finance', cue: 'capitalClosed', tone: 'highlight' });
 
@@ -454,7 +462,7 @@ const helperIconRows = visualSources.reduce((sum, source) => sum + [...source.ma
 const directIconRows = visualSources.reduce((sum, source) => sum + [...source.matchAll(/className="game-save-row company-report-icon-row/g)].length, 0);
 const dynamicIconRows = visualSources.reduce((sum, source) => sum + [...source.matchAll(/className=\{`game-save-row company-report-icon-row/g)].length, 0);
 assert.equal(semanticPanelTitles, 48, '회사 리포트의 48개 패널 제목에 의미 아이콘이 있어야 합니다.');
-assert.equal(helperIconRows + directIconRows + dynamicIconRows, 28, '결산 현금행을 포함한 핵심 원장과 판단 행 28곳에 의미 아이콘이 있어야 합니다.');
+assert.equal(helperIconRows + directIconRows + dynamicIconRows, 29, '원금 상환 이력을 포함한 핵심 원장과 판단 행 29곳에 의미 아이콘이 있어야 합니다.');
 assert.ok(visualSources.every((source) => !source.includes('className="games-panel-title"')), '원시 패널 제목 마크업이 남아 있으면 안 됩니다.');
 assert.match(visualsSource, /export function CompanyReportPanelTitle/, '공용 패널 제목 컴포넌트가 필요합니다.');
 assert.match(visualsSource, /export function CompanyReportIconRow/, '공용 의미 아이콘 행 컴포넌트가 필요합니다.');
@@ -476,7 +484,7 @@ assert.match(cssSource, /\.company-report-risk-grid \{[\s\S]*repeat\(2, minmax\(
 assert.match(cssSource, /@media \(max-width: 760px\)[\s\S]*\.company-report-risk-grid \{[\s\S]*grid-template-columns: 1fr/, '모바일 리스크 지표는 1열로 복귀해야 합니다.');
 
 console.log(JSON.stringify({
-  feedbackTransitions: 47,
+  feedbackTransitions: 48,
   resultCues: resultCues.length,
   resultPanels: componentSources.reduce((sum, source) => sum + [...source.matchAll(/<RecentActionResult\b/g)].length, 0) + 1,
   semanticPanelTitles,

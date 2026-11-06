@@ -1,8 +1,18 @@
 # Game Porting Backlog
 
+## 2026-11-06 회사 부채 원금 상환
+
+회사 리포트의 자본시장 화면에 금액 지정·가용 현금 범위의 원금 상환을 연결했다. 실제 현금과 부채를 같은 금액만큼 줄이고, 손익·이익세·월말 고정비에는 넣지 않는다. 원금 초과·현금 부족·잘못된 수량은 잔액과 이력을 보존하며 거절한다. 상환 이력은 저장 시 자르지 않고 화면에서만 최근 내역을 제한한다.
+
+회사 정보만 선택 복원할 때도 현금·기간 현금흐름과 부채·상환 이력·번호를 함께 복원한다. 새 스냅샷의 부채 검증값 누락·변경을 거절하면서, 상환 필드가 없던 실제 구형 저장 형식과 기존 원장 테이블 검증값은 유지한다. 새 15그룹을 포함한 회계·시간·저장·정적 화면 170그룹과 결과 48종 검사가 통과했다. 실제 브라우저 조작·사람 평가는 별도이며 발행 한도·금리·만기·점수 정책을 추가한 것으로 간주하지 않는다.
+
+제품 빌드 `hgLkV8a96MTnN3FBDaliF`와 변경 6파일 린트도 실제 종료 0이다. 빌드 전후 검사 대상 소스 1,226개와 이터널 헝거 엔진 `592a3e57…`는 동일하며, 격리 Node VM 워커 첫 단계 및 컴파일된 상환 화면 표식 3개를 확인했다. 이 결과는 실제 전경·상환 버튼 조작 인수를 대신하지 않는다.
+
 ## 2026-11-06 스무고개 동시 저장과 현행 편성 검증
 
 스무고개 서버는 공유 도전 한도, 대기 답변, 종료 상태와 버전을 저장 시점에 함께 검사하도록 수정했다. 완료 답변·종료 상태 덮어쓰기와 중복 알림을 막고 현재 접속 목록·옛 누락/null 질문을 보존한다. 회귀 20건과 실제 격리 MongoDB·HTTP·JWT의 18그룹을 통과했다. [저장·검증 경계](twenty-questions-async-safety.md)를 따르며 독립 브라우저 두 로그인 인수는 별도로 남는다.
+
+운영 서버 확인: 저장소 `client/vercel.json`이 지정한 주소는 `https://eternalhunger-e7z1.onrender.com`이다. 10월 26일 사용자가 확인했던 My Workspace의 `srv-d5qrtqvpm1nc7390jpjg`를 다시 조회해 `main`의 `52e34e7239bfe66316aeb699a0cee2f75dcde5dc`가 배포 `dep-dbms3jnf3r2c73aouph0`에서 live임을 확인했다(2026-11-06 12:03:08 UTC 완료). 직접·공개 프록시의 readiness는 HTTP 200·DB ready, 공개 스무고개 목록도 200이다. 별도 ERHunger 작업공간의 옛 master 서버는 이 설정 주소와 다르다. 환경변수 복호화·설정 변경·수동 배포·공개 계정 쓰기는 하지 않았으며, 이 결과를 두 로그인 브라우저 인수로 확대하지 않는다.
 
 이터널 헝거의 현행 `592a3e57…` 고정 편성 8경기도 완주·반복 재현은 통과했으나 양쪽 조건 협동 노출이 미달해 실제 자식 종료 2다. [새 원시 결과와 범위](simulation-run-comparison-verification.md#2026-11-06-현행-592a-엔진의-고정-편성-비교)를 보존하며 G5.2를 완료하지 않는다. G4 실제 전경·메모리와 사람 평가·자연 만료 복귀를 포함한 원래 목표는 활성·미완료다.
 
@@ -453,8 +463,9 @@ session acceptance gates above remain unchanged.
 - Feedback: the state classifier covers 47 result profiles, including day advancement, payment waiting, exhausted workdays and the existing ledger/risk transitions. Twelve pinned/tab-local result panels share the same Lucide icon and tone, while state-changing controls suppress the preliminary click sound and emit only the matching synthesized result cue. A latest-state ref prevents rapid consecutive ledger actions from applying to stale state.
 - Site API integration: quick save through `/game-saves/company-report/company-report-main`; ledger-score snapshot through `/game-records/company-report`.
 - Source basis: `C:\2저장고\마이애니메\company-report-stepg6-ledger-physical-restore` Spring Boot ledger/report project, especially company, trade order, inventory, receivable, settlement, report, and ledger snapshot/restore flows.
-- Current automated evidence: `check:company-report` passes 154 accounting/time groups plus 47 result profiles against current actions, in-memory/serialized states, real export helpers and static React markup. The 12-month reference run consolidates production and fits its 22 monthly shipments into the actual calendar while remaining profitable without financing or restore donations. This is not authenticated browser play or human acceptance evidence.
-- Immediate gameplay gaps: financing still lacks credit-based issuance limits and debt servicing, and customer demand/contract budgets are not yet modeled. Address those core management decisions before adding an optional API-backed audit store or more report tooling. Browser/human long-run acceptance and public deployment remain separate verification gates.
+- Principal repayment: the capital panel offers an explicit amount or the current affordable principal. Cash and debt decrease equally; profit, tax and fixed expenses are unchanged. Complete receipts survive JSON saves and log caps. Company-info restore couples cash/period flow with the debt group while keeping unrelated market state; new debt checksums detect missing or damaged metadata without changing legacy ledger manifests.
+- Current automated evidence: `check:company-report` passes 170 accounting/time/repayment groups plus 48 result profiles against current actions, in-memory/serialized states, real export helpers and static React markup. The 12-month reference run consolidates production and fits its 22 monthly shipments into the actual calendar while remaining profitable without financing or restore donations. This is not authenticated browser play or human acceptance evidence.
+- Immediate gameplay gaps: financing still lacks credit-based issuance limits and agreed interest/maturity rules; financing-only score growth and customer demand/contract budgets remain unresolved. Voluntary principal repayment does not close those design gaps. Address those core management decisions before adding an optional API-backed audit store or more report tooling. Browser/human long-run acceptance and public deployment remain separate verification gates.
 
 ## Racing Logos Demo Slice Status
 

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
   CAPITAL_DISCLOSURE_TYPES,
@@ -12,6 +13,8 @@ import {
   decideDividendAction,
   formatMoney,
   raiseCapitalAction,
+  repayDebtAction,
+  capitalMarketSummary,
   settleGlobalTradeAction,
 } from '../_lib/companyReportEngine';
 import { StatusBadge, getMarketName, getProductName } from '../_lib/companyReportPlayHelpers';
@@ -39,6 +42,10 @@ export default function CompanyReportGlobalCapitalPanels({
   setSelectedForeignArId,
   state,
 }) {
+  const [repaymentInput, setRepaymentInput] = useState('');
+  const repaymentAmount = Number(repaymentInput);
+  const canRepayInput = Number.isSafeInteger(repaymentAmount)
+    && repaymentAmount > 0 && repaymentAmount <= capitalSummary.repayableDebtKrw;
   return (
     <>
       <section className="games-detail-grid">
@@ -108,6 +115,20 @@ export default function CompanyReportGlobalCapitalPanels({
             <ActionButton action="capital" cue="off" onClick={() => applyLedgerAction('자금 조달', (current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
             <ActionButton action="closing" cue="off" disabled={capitalSummary.closedThisMonth} onClick={() => applyLedgerAction('자본시장 월마감', (current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
           </div>
+          <label className="game-save-json-field">
+            <span>부채 원금 상환액 (원)</span>
+            <input type="number" min="1" step="1" max={capitalSummary.repayableDebtKrw}
+              value={repaymentInput} onChange={(event) => setRepaymentInput(event.target.value)}
+              placeholder="상환할 금액" disabled={capitalSummary.repayableDebtKrw <= 0} />
+          </label>
+          <div className="games-rank-split">
+            <SmallStat label="현재 상환 가능" value={formatMoney(capitalSummary.repayableDebtKrw)} />
+            <ActionButton action="finance" cue="off" disabled={!canRepayInput}
+              onClick={() => applyLedgerAction('부채 원금 상환', (current) => repayDebtAction(current, repaymentAmount))}>입력 금액 상환</ActionButton>
+            <ActionButton action="finance" cue="off" disabled={capitalSummary.repayableDebtKrw <= 0}
+              onClick={() => applyLedgerAction('부채 원금 상환', (current) => repayDebtAction(current, capitalMarketSummary(current).repayableDebtKrw))}>가용 현금으로 원금 상환</ActionButton>
+          </div>
+          <p className="games-hint">지급한 원금만큼 현금과 부채가 함께 줄어듭니다. 월말 운영비에 쓸 현금을 남겨 둘 수 있도록 상환액을 정하세요.</p>
           <p>{capitalSummary.closedThisMonth
             ? `${capitalSummary.closingPeriod} 자본시장 월마감 완료. 다음 달에 새 실적을 반영할 수 있습니다.`
             : '이번 달 매출과 순손익을 기준으로 한 번만 반영합니다.'}</p>
@@ -174,10 +195,20 @@ export default function CompanyReportGlobalCapitalPanels({
         <section className="games-panel">
           <CompanyReportPanelTitle
             action="disclosure"
-            title="공시 / 조달 이력"
-            meta={`${capitalSummary.disclosureCount + capitalSummary.financingCount + capitalSummary.dividendCount}건`}
+            title="공시 / 조달 / 상환 이력"
+            meta={`${capitalSummary.disclosureCount + capitalSummary.financingCount + capitalSummary.dividendCount + capitalSummary.debtRepaymentCount}건`}
           />
           <div className="game-save-list">
+            {(state.capitalMarket.debtRepayments || []).slice(0, 3).map((row) => (
+              <CompanyReportIconRow action="finance" key={row.id}>
+                <div>
+                  <span>{row.year}-{String(row.month).padStart(2, '0')}-{String(row.day).padStart(2, '0')}</span>
+                  <strong>부채 원금 상환</strong>
+                  <span>남은 부채 {formatMoney(row.debtAfterKrw)}</span>
+                </div>
+                <strong>{formatMoney(-row.amountKrw)}</strong>
+              </CompanyReportIconRow>
+            ))}
             {state.capitalMarket.disclosures.slice(0, 3).map((row) => (
               <CompanyReportIconRow action="disclosure" key={row.id}>
                 <div>
@@ -196,7 +227,7 @@ export default function CompanyReportGlobalCapitalPanels({
                 <strong>{formatMoney(row.cashKrw)}</strong>
               </CompanyReportIconRow>
             ))}
-            {!state.capitalMarket.disclosures.length && !state.capitalMarket.financingPlans.length ? <div className="games-empty">공시 대응이나 자금 조달을 실행하면 이력이 표시됩니다.</div> : null}
+            {!state.capitalMarket.disclosures.length && !state.capitalMarket.financingPlans.length && !capitalSummary.debtRepaymentCount ? <div className="games-empty">공시 대응·자금 조달·원금 상환을 실행하면 이력이 표시됩니다.</div> : null}
           </div>
         </section>
       </section>
