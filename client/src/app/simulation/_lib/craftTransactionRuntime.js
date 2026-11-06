@@ -1,6 +1,7 @@
 import { addItemToInventory, consumeIngredientsFromInv, getInvItemId, inferEquipSlot } from './inventoryRules.js';
 import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 import { areEquipmentWeaponTypesCompatible } from '../../../utils/equipmentCatalog.js';
+import { recordCraftedGrowthAcquisition } from './growthAcquisitionRuntime.js';
 
 const reject = (reason, details = {}) => ({ ok: false, reason, ...details });
 const numeric = (value) => typeof value === 'number' || (typeof value === 'string' && value.trim()) ? Number(value) : NaN;
@@ -67,6 +68,7 @@ export function commitCraftTransaction(actor, prepared) {
   actor.inventory = current.inventory;
   actor.simCredits = current.receipt.afterCredits;
   actor._craftRevision = current.before.revision + 1;
+  recordCraftedGrowthAcquisition(actor, current.item);
   return { ok: true, receipt: current.receipt };
 }
 

@@ -1,6 +1,6 @@
 import { areSameTeam, getActorTeamId } from './teamRuntime';
 import { estimateMovePower, isPlanningMovePowerSnapshot } from './movePowerRuntime';
-import { getCombatSpaceId, shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
+import { getCombatMapId, getCombatSpaceId, shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { captureMovementObjective } from './movementObjectiveRuntime.js';
 import { chooseTeamResourceMove } from './teamResourceGoalRuntime.js';
@@ -202,7 +202,7 @@ export function* buildTeamCoordinationSteps({
   if (isSoloMatch) return result;
   const groups = new Map();
   for (const actor of roster.filter(alive)) {
-    const teamId = `${getCombatSpaceId(actor)}:${getActorTeamId(actor)}`;
+    const teamId = JSON.stringify([getCombatMapId(actor), getCombatSpaceId(actor), getActorTeamId(actor)]);
     if (!groups.has(teamId)) groups.set(teamId, []);
     groups.get(teamId).push(actor);
   }

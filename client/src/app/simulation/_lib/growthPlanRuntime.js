@@ -7,6 +7,7 @@ import { prepareCraftTransaction } from './craftTransactionRuntime.js';
 import { areEquipmentWeaponTypesCompatible } from '../../../utils/equipmentCatalog.js';
 import { GROWTH_EQUIPMENT_SLOTS, getActorEquipmentTier, getGrowthEquipmentCatalog } from './growthEquipmentRuntime.js';
 import { classifySpecialByName } from './craftRuntime.js';
+import { ownsGrowthTarget } from './growthAcquisitionRuntime.js';
 
 const catalogCache = new WeakMap();
 const catalogKeyCache = new WeakMap();
@@ -309,12 +310,24 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
   const openingComplete = progress.openingComplete;
   const late = openingComplete ? getLateGrowthDecision(actor, items, {},
     { quantities: inventoryQuantities, tiers: tierBySlot }) : { targets: [], issues: [], authoredTargets: [] };
+  // Identity receipts also apply when loot legitimately crafts a later direct
+  // goal before opening gear is complete. Resolve declarations without changing
+  // the current stage's target ordering, routes, reservations or issue display.
+  const authoredLate = !openingComplete && GROWTH_EQUIPMENT_SLOTS.some(slot => ['legend', 'transcend']
+    .some(group => String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim()))
+    ? getLateGrowthDecision(actor, items, { authoredOnly: true, includeAcquired: true },
+      { quantities: inventoryQuantities, tiers: tierBySlot }) : late;
   const remaining = openingComplete ? late.targets : [...progress.remaining].sort((a, b) =>
     // Finish a viable recipe before spreading intermediates across empty
     // slots. Blocked/attempted focuses still fall through to real replanning.
     Number(String(b._id) === String(actor._growthFocusId)) - Number(String(a._id) === String(actor._growthFocusId))
     || tierBySlot[inferEquipSlot(a)] - tierBySlot[inferEquipSlot(b)]);
   const base = { targetIds: openingComplete ? [] : progress.targetIds,
+    authoredTargetsByGroup: Object.fromEntries(['hero', 'legend', 'transcend'].map(group => [group,
+      Object.fromEntries((group === 'hero' ? progress.targets.filter(target => isAuthoredOpeningGrowthTarget(actor, target, items))
+        : authoredLate.authoredTargets.filter(target => Number(target.tier) === (group === 'legend' ? 5 : 6)))
+        .map(target => { const slot = inferEquipSlot(target); return [slot, { itemId: String(target._id),
+          key: String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim() }]; }))])),
     exactTargetIds: [...progress.targets.filter(target => isAuthoredOpeningGrowthTarget(actor, target, items)),
       ...late.authoredTargets]
       .map(target => String(target._id)),
@@ -420,13 +433,7 @@ export function refreshActorGrowthPlan(actor, items, options) {
   // A declaration is fulfilled by actual acquisition, not another item's tier.
   // Retain that fact when its item is later consumed in a real upgrade recipe.
   // This producer boundary may record ownership; read-only observation may not.
-  const ownsTarget = (target) => (actor.inventory || []).some(entry => {
-    const raw = entry?.qty === undefined ? 1 : entry.qty;
-    const qty = typeof raw === 'number' || (typeof raw === 'string' && raw.trim()) ? Number(raw) : NaN;
-    return getInvItemId(entry) === String(target._id) && Number.isSafeInteger(qty) && qty > 0
-      && (inferEquipSlot(target) !== 'weapon'
-        || areEquipmentWeaponTypesCompatible(actor.weaponType, { ...target, ...entry }.weaponType));
-  });
+  const ownsTarget = target => ownsGrowthTarget(actor, target);
   const acquisitions = {};
   if (GROWTH_EQUIPMENT_SLOTS.some(slot => String(actor.goalLoadouts?.hero?.[`${slot}Key`] || '').trim())) {
     for (const target of getActorGrowthProgress(actor, items).targets) {
