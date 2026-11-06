@@ -65,10 +65,11 @@ export function canCraftAlongsideGrowth(actor, item) {
     // current item. Let the shared replacement-item guard below decide that.
   }
   // Receiving a same-slot upgrade replaces the current non-component item,
-  // even when that item is absent from the upgrade's ingredient list.
+  // even when that item is absent from the upgrade's ingredient list. The
+  // replaced item can be reserved by a recipe for any other equipment slot.
   const replaced = (actor.inventory || []).find((entry) => !entry.craftComponent
     && inferItemCategory(entry) === 'equipment' && inferEquipSlot(entry) === slot);
-  if (slot === plan.targetSlot && Number(plan.reservedQtyById?.[getInvItemId(replaced)] || 0) > 0) return false;
+  if (Number(plan.reservedQtyById?.[getInvItemId(replaced)] || 0) > 0) return false;
   return (Boolean(plan.blocked) && slot !== plan.targetSlot) || terms.ingredients.every((row) =>
     invQty(actor.inventory, row.itemId) - Number(plan.reservedQtyById?.[row.itemId] || 0) >= row.qty);
 }
