@@ -345,6 +345,15 @@ function* pvpActionSteps({
   const initialPublishYield = requestMainThreadYield();
   if (initialPublishYield) yield initialPublishYield;
   yield publishActionFrame({ survivorMap, newDeadIds, roundKills, roundAssists, wait: false });
+  const observeSelectedBasicGate = (reason, candidate) => {
+    if (typeof observeCombatRuntime !== 'function' || candidate?.scheduler !== 'pvp'
+      || candidate.actionType !== 'basic') return;
+    observeCombatParticipation(observeCombatRuntime, { stage: 'encounter_gate', nowSec: currentActionSec(),
+      roster: [...survivorMap.values()], newDeadIds, scheduled: candidate,
+      encounterGate: { source: 'loop', reason, actionType: candidate.actionType,
+        scheduledActorId: String(candidate.actorId || ''), scheduledTargetId: String(candidate.targetId || ''),
+        teamCombatEnabled: !isSoloMatch && ruleset?.pvp?.teamCombatEnabled !== false } });
+  };
   while (getPhaseRuntimeOffsetSec() < phaseDurationSec) {
     yield* advanceWorldStep();
     syncSpatialPositions(getWildlifeCombatRoster([...survivorMap.values()]));
@@ -383,14 +392,20 @@ function* pvpActionSteps({
           roster: [...survivorMap.values()], newDeadIds, wildlifeAssistIds: assistOwners, scheduled: nextCombat,
           worldStep: { fromSec: actionFromSec, toSec: currentActionSec(), decisionSec: nextDecisionSec } });
       }
-      if (shouldEndMatch()) break;
+      if (shouldEndMatch()) {
+        if (scheduled) observeSelectedBasicGate('loop_match_end', nextCombat);
+        break;
+      }
       // Effects exactly on a phase boundary resolve at that instant, before
       // returning the roster. Later effects remain in the next phase's queue.
       if (scheduled && nextCombat.scheduler === 'equipment' && nextCombat.atSec <= currentActionSec()) {
         runEncounter(survivorMap.get(nextCombat.actorId), survivorMap.get(nextCombat.targetId), 'equipment_effect', null, nextCombat.effectId);
         continue;
       }
-      if (getPhaseRuntimeOffsetSec() >= phaseDurationSec) break;
+      if (getPhaseRuntimeOffsetSec() >= phaseDurationSec) {
+        if (scheduled) observeSelectedBasicGate('loop_phase_end', nextCombat);
+        break;
+      }
       if (scheduled) {
         if (nextCombat.scheduler === 'wildlife') {
           const result = resolveTimedWildlifeAction(nextCombat, {
@@ -416,7 +431,10 @@ function* pvpActionSteps({
         const actor = survivorMap.get(nextCombat.actorId);
         const target = survivorMap.get(nextCombat.targetId);
         // Re-read after elapsed status/death/growth work; never use stale actors.
-        if (actor && nextCombat.combatSpaceId !== getCombatSpaceId(actor)) continue;
+        if (actor && nextCombat.combatSpaceId !== getCombatSpaceId(actor)) {
+          observeSelectedBasicGate('actor_space_changed', nextCombat);
+          continue;
+        }
         if (nextCombat.actionType === 'skill_expire' || nextCombat.actionType === 'approach' || nextCombat.actionType === 'status_boundary') continue;
         if (actor && nextCombat.actionType === 'skill_release') {
           const prepared = finishCharacterCast(actor, currentActionSec(), castActions);
@@ -426,6 +444,7 @@ function* pvpActionSteps({
           const choice = findCharacterSkillChoice(actor, getCombatIntentOpponents(actor, roster, currentActionSec()), roster, currentActionSec(), battleSettings);
           startCharacterCast(actor, choice, currentActionSec(), battleSettings, castActions);
         } else if (actor && target) runEncounter(actor, target, 'basic');
+        else observeSelectedBasicGate('pair_missing', nextCombat);
         continue;
       }
       nextDecisionSec = roundCombatTime(nextDecisionSec + tickSec);

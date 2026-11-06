@@ -52,12 +52,24 @@ export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = []
   const live = [...survivorMap.values()].filter((row) => Number(row?.hp || 0) > 0 && !newDeadIds.includes(idOf(row))
     && shareCombatSpace(actor, row) && String(row.zoneId) === zoneId);
   const sides = [actor, target].map((leader) => live.filter((row) => areSameTeam(leader, row)));
-  if (sides.every((side) => side.length <= 1)) return { handled: false };
+  const observeGate = reason => {
+    if (typeof observeCombatRuntime !== 'function') return;
+    observeCombatParticipation(observeCombatRuntime, { stage: 'encounter_gate', nowSec,
+      roster: [...survivorMap.values()], newDeadIds, actor, target, onlyActorId, sides,
+      encounterGate: { source: 'team', reason, actionType: onlyActorId ? 'basic' : 'exchange',
+        scheduledActorId: idOf(actor), scheduledTargetId: idOf(target),
+        teamCombatEnabled: true, sideSizes: sides.map(side => side.length) } });
+  };
+  if (sides.every((side) => side.length <= 1)) {
+    observeGate('solo_pair_fallback');
+    return { handled: false };
+  }
   const canTakeTurn = (row) => canJoinTeamCombat(row, { nowSec, zoneId, newDeadIds,
     scheduledBasicTargetId: onlyActorId && idOf(row) === onlyActorId ? idOf(target) : '' });
   const eligible = sides.map((side) => side.filter((row) => (!onlyActorId || idOf(row) === onlyActorId) && canTakeTurn(row))
     .sort((a, b) => Number(estimatePower(b)) - Number(estimatePower(a)) || idOf(a).localeCompare(idOf(b))));
   const participants = eligible.flat();
+  observeGate('team_queue_reached');
   if (typeof observeCombatRuntime === 'function') observeCombatParticipation(observeCombatRuntime, {
     stage: 'team_queue', nowSec, roster: [...survivorMap.values()], newDeadIds, actor, target, onlyActorId, sides, participants });
   if (!participants.length) return { handled: true, participants: [], strikes: [] };

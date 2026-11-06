@@ -6,6 +6,23 @@ import { getSpatialPosition, getSpatialStats, getSpatialLastSeen } from './comba
 
 const idOf = actor => String(actor?._id || actor?.id || '');
 const finite = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+const gateReasons = new Set(['loop_match_end', 'loop_phase_end', 'actor_space_changed', 'pair_missing',
+  'pair_space_zone_changed', 'pair_inactive_or_untargetable', 'escaped', 'caught_elimination',
+  'solo_pair_fallback', 'team_disabled', 'team_queue_reached']);
+const gateActions = new Set(['basic', 'discover', 'exchange', 'skill_release', 'skill_start',
+  'equipment_effect', 'skill_expire', 'approach', 'status_boundary']);
+const gateId = value => typeof value === 'string' ? value.slice(0, 256)
+  : typeof value === 'number' && Number.isFinite(value) ? String(value).slice(0, 256) : '';
+const projectEncounterGate = gate => gate && typeof gate === 'object' ? {
+  source: ['loop', 'encounter', 'team'].includes(gate.source) ? gate.source : 'other',
+  reason: gateReasons.has(gate.reason) ? gate.reason : 'other',
+  actionType: gateActions.has(gate.actionType) ? gate.actionType : 'other',
+  scheduledActorId: gateId(gate.scheduledActorId), scheduledTargetId: gateId(gate.scheduledTargetId),
+  teamCombatEnabled: gate.teamCombatEnabled === true,
+  sideSizes: Array.isArray(gate.sideSizes) ? gate.sideSizes.slice(0, 2)
+    .map(value => Number.isSafeInteger(value) && value >= 0 ? Math.min(value, 512) : 0) : [],
+  escaped: gate.escaped === true, caught: gate.caught === true,
+} : null;
 const owned = value => {
   if (value && typeof value === 'object') {
     Object.values(value).forEach(owned);
@@ -19,13 +36,15 @@ const owned = value => {
 // A schedule snapshot is not an executed attack, nor proof of a missed turn.
 export function observeCombatParticipation(observer, { stage, nowSec = 0, roster = [], newDeadIds = [],
   wildlifeAssistIds = new Map(), scheduled = null, actor = null, target = null, onlyActorId = '',
-  sides = [], participants = [], arbitration = null, resolution = null, actorCandidates = [], worldStep = null } = {}) {
+  sides = [], participants = [], arbitration = null, resolution = null, actorCandidates = [], worldStep = null,
+  encounterGate = null } = {}) {
   if (typeof observer !== 'function') return;
   try {
   const deadIds = new Set(newDeadIds.map(String));
   const rows = Array.isArray(roster) ? roster : [];
   const snapshot = {
     stage, nowSec: finite(nowSec),
+    encounterGate: projectEncounterGate(encounterGate),
     scope: 'Read-only candidates, arbitration, shared-world before/after and actual team resolution facts; not missed-turn or survival causality acceptance.',
     truncated: rows.length > 512,
     actorCandidatesTruncated: actorCandidates.length > 512 || stage === 'actor_schedule' && rows.length > 512,

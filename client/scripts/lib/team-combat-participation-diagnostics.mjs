@@ -1,4 +1,8 @@
-const STAGES = Object.freeze(['schedule', 'actor_schedule', 'team_queue', 'arbitration', 'post_world', 'team_execution']);
+const STAGES = Object.freeze(['schedule', 'actor_schedule', 'team_queue', 'arbitration', 'post_world', 'team_execution', 'encounter_gate']);
+const ENCOUNTER_GATE_REASONS = Object.freeze(['loop_match_end', 'loop_phase_end', 'actor_space_changed', 'pair_missing',
+  'pair_space_zone_changed', 'pair_inactive_or_untargetable', 'escaped', 'caught_elimination', 'solo_pair_fallback',
+  'team_disabled', 'team_queue_reached', 'unknown']);
+const ENCOUNTER_GATE_SOURCES = Object.freeze(['loop', 'encounter', 'team', 'unknown']);
 const ABSENCE_REASONS = Object.freeze([
   'absent_runtime_roster', 'team_changed', 'dead', 'different_zone', 'different_space', 'present',
   'actor_absent_runtime_roster', 'truncated_roster',
@@ -165,6 +169,11 @@ export function createTeamCombatParticipationDiagnostics({ roster, actorIds, com
   const pendingPreWorld = new Map();
   const scheduleSignatures = new Map(watchedIds.map(actorId => [actorId, new Set()]));
   const arbitrationSignatures = new Map(watchedIds.map(actorId => [actorId, new Set()]));
+  const encounterGates = new Map(watchedIds.map(actorId => [actorId, {
+    availability: 'unknown', observations: 0, byReason: emptyCounts(ENCOUNTER_GATE_REASONS),
+    bySource: emptyCounts(ENCOUNTER_GATE_SOURCES), byActionType: emptyCounts(ACTOR_CANDIDATE_ACTION_TYPES),
+    basicByReason: emptyCounts(ENCOUNTER_GATE_REASONS), samples: [],
+  }]));
 
   const retainCausalSample = (actorId, sample, slot = '') => {
     const actorSamples = causalSamples.get(actorId);
@@ -210,6 +219,32 @@ export function createTeamCombatParticipationDiagnostics({ roster, actorIds, com
   };
 
   const observe = (snapshot, { eventCursor } = {}) => {
+    // Independent gate evidence must not consume or reset reservation pairing,
+    // existing action counters, or any of the existing sample budgets.
+    if (snapshot?.stage === 'encounter_gate') {
+      const raw = snapshot.encounterGate;
+      if (!raw || typeof raw !== 'object') return;
+      const actorId = cleanId(raw.scheduledActorId);
+      const gate = encounterGates.get(actorId);
+      if (!gate) return;
+      const reason = ENCOUNTER_GATE_REASONS.includes(raw.reason) ? raw.reason : 'unknown';
+      const source = ENCOUNTER_GATE_SOURCES.includes(raw.source) ? raw.source : 'unknown';
+      const actionType = ACTOR_CANDIDATE_ACTION_TYPES.includes(raw.actionType) ? raw.actionType : 'other';
+      gate.availability = 'observed'; gate.observations++;
+      gate.byReason[reason]++; gate.bySource[source]++; gate.byActionType[actionType]++;
+      if (actionType === 'basic') gate.basicByReason[reason]++;
+      if (gate.samples.length < boundedLimit) gate.samples.push({ stage: 'encounter_gate',
+        eventCursor: sampleCursor(eventCursor), eventCursorAvailability: sampleCursor(eventCursor) === null ? 'unknown' : 'observed',
+        nowSec: finite(snapshot.nowSec), encounterGate: {
+          source, reason, actionType, scheduledActorId: actorId, scheduledTargetId: cleanId(raw.scheduledTargetId),
+          teamCombatEnabled: typeof raw.teamCombatEnabled === 'boolean' ? raw.teamCombatEnabled : null,
+          sideSizes: Array.isArray(raw.sideSizes) ? raw.sideSizes.slice(0, 2)
+            .map(value => Number.isSafeInteger(value) && value >= 0 ? value : null) : [],
+          escaped: typeof raw.escaped === 'boolean' ? raw.escaped : null,
+          caught: typeof raw.caught === 'boolean' ? raw.caught : null,
+        } });
+      return;
+    }
     // These observations belong to the separate shared-world collector. They
     // describe the work inside an existing reservation, not a new arbitration.
     if (snapshot?.stage === 'world_step_before' || snapshot?.stage === 'world_step_after') return;
@@ -507,6 +542,7 @@ export function createTeamCombatParticipationDiagnostics({ roster, actorIds, com
       post_world: 'Pairs only an immediately preceding selected PvP reservation with the same actor/target/action/time and exact world interval including post-snapshot time. Fixed before/after movement-reason buckets and movement/visibility-relevant geometry are recorded after time advances, not proof of movement/attack causation or a successful attack; targetMovement.no_target denotes patrol reservations without a target, not a missing target.',
       causalSamples: 'At most three actor_schedule and three post_world samples per watched actor (six total), preserving the latest basic and latest chase/last-seen sample when present. Existing schedule/queue and arbitration/execution sample limits remain unchanged.',
       team_execution: 'Only the watched queued striker is counted at actual recheck/target/resolve points. performed_no_hp is not a positive HP hit; hp_hit does not establish survival causality.',
+      encounter_gate: 'Separate fixed-label actual branch observations for the scheduled actor, not eligibility reevaluation or acceptance. No gate observations means unknown, not zero branch occurrences. Multiple gates may belong to one reservation; counts are not unique attacks. Missing host event cursors remain unknown. This separate sample cap does not change existing sample policies.',
       changedBuddyAbsence: 'Snapshot-level facts accumulated across schedule and relevant queues, not per-encounter absence causes or elapsed seconds. actor_absent_runtime_roster and truncated_roster are unavailable comparisons, not positive evidence of buddy absence.',
     },
     actorIds: [...watchedIds],
@@ -514,6 +550,8 @@ export function createTeamCombatParticipationDiagnostics({ roster, actorIds, com
     executionSampleLimit: boundedLimit,
     causalSampleLimit: 6,
     overallSampleLimit: 18,
+    encounterGateSampleLimit: boundedLimit,
+    encounterGatesByActor: Object.fromEntries(watchedIds.map(actorId => [actorId, cloneSimple(encounterGates.get(actorId))])),
     countsByActor: Object.fromEntries(watchedIds.map(actorId => [actorId, cloneSimple(counts.get(actorId))])),
     samplesByActor: Object.fromEntries(watchedIds.map(actorId => [actorId, cloneSimple(samples.get(actorId))])),
     executionSamplesByActor: Object.fromEntries(watchedIds.map(actorId => [actorId, cloneSimple(executionSamples.get(actorId))])),

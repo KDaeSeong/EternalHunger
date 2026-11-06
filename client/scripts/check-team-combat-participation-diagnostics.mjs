@@ -681,4 +681,94 @@ check('new stages do not alter existing frequency counters or existing 6+6 sampl
   assert.equal(out.causalSamplesByActor.watch.filter(item => item.stage === 'post_world').length, 0);
 });
 
+const gateSnapshot = (extra = {}) => ({ stage: 'encounter_gate', nowSec: 11,
+  encounterGate: { source: 'encounter', reason: 'escaped', actionType: 'basic',
+    scheduledActorId: 'watch', scheduledTargetId: 'other', teamCombatEnabled: true,
+    sideSizes: [2, 1], escaped: true, caught: false, ...extra } });
+
+check('absent historical gate observations remain unknown without asserting a cause', () => {
+  const diagnostics = collector();
+  diagnostics.observe(snapshot('schedule'));
+  const gate = diagnostics.summary().encounterGatesByActor.watch;
+  assert.equal(gate.availability, 'unknown'); assert.equal(gate.observations, 0);
+  assert.ok(Object.values(gate.byReason).every(value => value === 0));
+  assert.deepEqual(gate.samples, []);
+});
+
+check('actual gate labels are counted separately for only their scheduled watched actor', () => {
+  const diagnostics = collector();
+  const reasons = ['loop_match_end', 'loop_phase_end', 'actor_space_changed', 'pair_missing',
+    'pair_space_zone_changed', 'pair_inactive_or_untargetable', 'escaped', 'caught_elimination',
+    'solo_pair_fallback', 'team_disabled', 'team_queue_reached'];
+  for (const reason of reasons) diagnostics.observe(gateSnapshot({ reason }), { eventCursor: 77 });
+  diagnostics.observe(gateSnapshot({ scheduledActorId: 'buddy' }));
+  const out = diagnostics.summary(), gate = out.encounterGatesByActor.watch;
+  assert.equal(gate.availability, 'observed'); assert.equal(gate.observations, reasons.length);
+  for (const reason of reasons) {
+    assert.equal(gate.byReason[reason], 1); assert.equal(gate.basicByReason[reason], 1);
+  }
+  assert.equal(gate.byActionType.basic, reasons.length);
+  assert.equal(gate.bySource.encounter, reasons.length);
+  assert.ok(gate.samples.length <= 6);
+  assert.equal(gate.samples[0].eventCursor, 77);
+  assert.equal(gate.samples[0].eventCursorAvailability, 'observed');
+  assert.equal(out.countsByActor.watch.team_queue.queued, 0);
+  assert.equal(out.countsByActor.watch.arbitration.selected, 0);
+  assert.equal(out.countsByActor.watch.team_execution.hp_hit, 0);
+  assert.deepEqual(out.samplesByActor.watch, []);
+  assert.deepEqual(out.executionSamplesByActor.watch, []);
+  assert.deepEqual(out.causalSamplesByActor.watch, []);
+});
+
+check('gate evidence owns only capped primitive fields and returned summaries are independent', () => {
+  const diagnostics = collector();
+  const input = gateSnapshot({ sideSizes: [2, 1, 999], callerGraph: { recursive: null } });
+  input.encounterGate.callerGraph.recursive = input;
+  diagnostics.observe(input);
+  input.encounterGate.sideSizes[0] = 100; input.encounterGate.reason = 'mutated';
+  const first = diagnostics.summary(), sample = first.encounterGatesByActor.watch.samples[0];
+  assert.deepEqual(sample.encounterGate.sideSizes, [2, 1]);
+  assert.equal(sample.encounterGate.reason, 'escaped');
+  assert.equal(sample.eventCursor, null); assert.equal(sample.eventCursorAvailability, 'unknown');
+  assert.equal(Object.hasOwn(sample.encounterGate, 'callerGraph'), false);
+  sample.encounterGate.sideSizes[0] = -1;
+  assert.deepEqual(diagnostics.summary().encounterGatesByActor.watch.samples[0].encounterGate.sideSizes, [2, 1]);
+  assert.doesNotThrow(() => JSON.stringify(diagnostics.summary()));
+});
+
+check('caller gate labels cannot grow counters or sample budgets', () => {
+  const diagnostics = collector({ sampleLimit: 2 });
+  for (let index = 0; index < 100; index++) diagnostics.observe(gateSnapshot({
+    reason: `unknown-${index}`, source: `source-${index}`, actionType: `action-${index}`,
+    sideSizes: [NaN, -1, 999], escaped: 'yes', caught: 1, teamCombatEnabled: 'yes',
+  }));
+  const out = diagnostics.summary(), gate = out.encounterGatesByActor.watch;
+  assert.equal(gate.observations, 100); assert.equal(gate.byReason.unknown, 100);
+  assert.equal(gate.bySource.unknown, 100); assert.equal(gate.byActionType.other, 100);
+  assert.ok(Object.values(gate.basicByReason).every(value => value === 0));
+  assert.equal(Object.keys(gate.byReason).length, 12); assert.equal(Object.keys(gate.bySource).length, 4);
+  assert.equal(Object.keys(gate.byActionType).length, 8);
+  assert.equal(gate.samples.length, 2); assert.equal(out.encounterGateSampleLimit, 2);
+  assert.deepEqual(gate.samples[0].encounterGate.sideSizes, [null, null]);
+  assert.equal(gate.samples[0].encounterGate.escaped, null);
+  assert.equal(gate.samples[0].encounterGate.caught, null);
+  assert.equal(gate.samples[0].encounterGate.teamCombatEnabled, null);
+  assert.equal(out.overallSampleLimit, 18);
+  const none = collector({ sampleLimit: 0 }); none.observe(gateSnapshot());
+  assert.equal(none.summary().encounterGatesByActor.watch.observations, 1);
+  assert.deepEqual(none.summary().encounterGatesByActor.watch.samples, []);
+});
+
+check('gate observations preserve pending world pairing and all existing outputs', () => {
+  const withGates = collector(), withoutGates = collector();
+  for (const diagnostics of [withGates, withoutGates]) diagnostics.observe(selectedPvp());
+  withGates.observe(gateSnapshot());
+  for (const diagnostics of [withGates, withoutGates]) diagnostics.observe(postWorld());
+  const actual = withGates.summary(), expected = withoutGates.summary();
+  for (const field of ['countsByActor', 'samplesByActor', 'executionSamplesByActor', 'causalSamplesByActor']) {
+    assert.deepEqual(actual[field], expected[field]);
+  }
+  assert.equal(actual.countsByActor.watch.post_world.pairing.matched, 1);
+});
+
 console.log(`PASS ${checks} team combat participation diagnostic checks`);

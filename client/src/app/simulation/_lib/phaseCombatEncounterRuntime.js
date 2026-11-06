@@ -9,6 +9,7 @@ import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { canMoveByStatus, isTargetableByStatus, getForcedControlEffect } from '../../../utils/statusLogic.js';
 import { resolveEquipmentEffectDamage } from './equipmentEffectDamageRuntime.js';
 import { settleEquipmentNotifications } from './equipmentEffectNotificationRuntime.js';
+import { observeCombatParticipation } from './combatParticipationObservationRuntime.js';
 
 export function runPhaseCombatEncounter(options = {}) {
   if (options.state?.actionType !== 'equipment_effect') return resolvePhaseCombatEncounter(options);
@@ -74,11 +75,27 @@ function resolvePhaseCombatEncounter({
   } = actions;
 
   const equipmentAction = actionType === 'equipment_effect';
-  if (!actor || !target && !equipmentAction) return { actor, target, skipRemainingTurn: false };
+  const observeGate = (reason, outcome = null) => {
+    if (typeof observeCombatRuntime !== 'function') return;
+    observeCombatParticipation(observeCombatRuntime, { stage: 'encounter_gate', nowSec: currentActionSec(),
+      roster: [...survivorMap.values()], newDeadIds, actor, target,
+      encounterGate: { source: 'encounter', reason, actionType,
+        scheduledActorId: String(actor?._id || ''), scheduledTargetId: String(target?._id || ''),
+        teamCombatEnabled: !isSoloMatch && ruleset?.pvp?.teamCombatEnabled !== false,
+        escaped: outcome?.escaped === true, caught: outcome?.caught === true } });
+  };
+  if (!actor || !target && !equipmentAction) {
+    observeGate('pair_missing');
+    return { actor, target, skipRemainingTurn: false };
+  }
   actor = survivorMap.get(String(actor._id || '')) || actor;
   target = survivorMap.get(String(target?._id || '')) || target;
-  if (!equipmentAction && (!shareCombatSpace(actor, target) || String(actor.zoneId) !== String(target.zoneId))) return { actor, target, skipRemainingTurn: true };
+  if (!equipmentAction && (!shareCombatSpace(actor, target) || String(actor.zoneId) !== String(target.zoneId))) {
+    observeGate('pair_space_zone_changed');
+    return { actor, target, skipRemainingTurn: true };
+  }
   if (!equipmentAction && (Number(actor.hp || 0) <= 0 || Number(target.hp || 0) <= 0 || !isTargetableByStatus(target) || newDeadIds.includes(String(actor._id)) || newDeadIds.includes(String(target._id)))) {
+    observeGate('pair_inactive_or_untargetable');
     return { actor, target, skipRemainingTurn: true };
   }
 
@@ -258,6 +275,7 @@ function resolvePhaseCombatEncounter({
   if (escapeOutcome && escapeOutcome.escaped && !escapeOutcome.caught) {
     actor = survivorMap.get(actor._id) || actor;
     target = survivorMap.get(target._id) || target;
+    observeGate('escaped', escapeOutcome);
     return { actor, target, skipRemainingTurn: true };
   }
 
@@ -266,6 +284,7 @@ function resolvePhaseCombatEncounter({
     const chaserNow = survivorMap.get(escapeOutcome.chaserId);
     if (fleeNow && Number(fleeNow.hp || 0) <= 0 && chaserNow) {
       applyCombatElimination(chaserNow, fleeNow, { killText: '추격 제압' });
+      observeGate('caught_elimination', escapeOutcome);
       return { actor, target, skipRemainingTurn: true };
     }
   }
@@ -303,7 +322,7 @@ function resolvePhaseCombatEncounter({
     });
     if (round.handled) return { actor: survivorMap.get(String(actor._id)) || actor,
       target: survivorMap.get(String(target._id)) || target, teamRound: round, skipRemainingTurn: false };
-  }
+  } else observeGate('team_disabled');
   const nowSec = currentActionSec();
   const canTakeTurn = (row) => canJoinTeamCombat(row, { nowSec, zoneId: String(actor.zoneId), newDeadIds,
     scheduledBasicTargetId: actionType === 'basic' && String(row._id) === String(actor._id) ? String(target._id) : '' });
