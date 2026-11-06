@@ -38,6 +38,8 @@ import {
   clearAllEquipmentAction,
   changeTribeWorkPolicyAction,
   configureTribeProcessAction,
+  configureTribeEducationAction,
+  tribeEducationSummary,
   createNewState,
   difficultyRows,
   developerToolsSummary,
@@ -771,6 +773,20 @@ export default function PrimitiveArchivePlayContent() {
       ? configureTribeProcessAction(current, plan) : current);
   };
 
+  const configureTribeEducation = (patch) => {
+    const teachers = patch?.teachers;
+    const education = tribe.education;
+    if (!hydrated || !education?.canConfigure || !Number.isSafeInteger(teachers)
+      || teachers < 0 || teachers > 24 || (!education.unlocked && teachers > 0)
+      || teachers === education.plan.teachers) return;
+    const displayedTeachers = education.plan.teachers;
+    const matchesDisplayedPlan = (current) => current.runId === state.runId && !current.ended
+      && tribeEducationSummary(current).plan.teachers === displayedTeachers;
+    if (!matchesDisplayedPlan(stateRef.current)) return;
+    applyAction('공교육 계획 변경', (current) => matchesDisplayedPlan(current)
+      ? configureTribeEducationAction(current, { teachers }) : current);
+  };
+
   const runDiplomacy = (rivalId, actionId) => {
     applyAction(
       '외교',
@@ -1088,6 +1104,7 @@ export default function PrimitiveArchivePlayContent() {
         adjustTribeJob={adjustTribeJob}
         changeTribeWorkPolicy={changeTribeWorkPolicy}
         configureTribeProcess={configureTribeProcess}
+        configureTribeEducation={configureTribeEducation}
         applyAction={applyAction}
         autoDayControl={autoDayControl}
         shopPerkStatus={<PrimitiveArchiveShopPerks state={state} compact />}

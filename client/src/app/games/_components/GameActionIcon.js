@@ -347,6 +347,7 @@ const ACTION_ICONS = {
   'primitive-irrigation': Droplets,
   'primitive-kiln': CookingPot,
   'primitive-weave': Layers3,
+  'primitive-paper': FileText,
   'primitive-smelt': Factory,
   'primitive-forge': Hammer,
   'primitive-mill': Factory,

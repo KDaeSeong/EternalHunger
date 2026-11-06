@@ -12,6 +12,7 @@ const tribeUrl = new URL('src/app/games/primitive-archive/_components/PrimitiveA
 const playUrl = new URL('src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js', root);
 const cssUrl = new URL('src/styles/PrimitiveArchiveWorkPolicy.css', root);
 const transformed = new Set([tribeUrl,
+  new URL('src/app/games/primitive-archive/_components/PrimitiveArchiveEducationPlan.js', root).href,
   new URL('src/app/games/primitive-archive/_components/PrimitiveArchiveProcessingPlan.js', root).href,
   new URL('src/app/games/primitive-archive/_components/PrimitiveArchiveVisuals.js', root).href,
   new URL('src/app/games/_components/GamePlayPrimitives.js', root).href,

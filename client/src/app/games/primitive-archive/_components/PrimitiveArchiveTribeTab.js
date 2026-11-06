@@ -9,6 +9,7 @@ import {
 } from '../../_components/GamePlayPrimitives';
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 import PrimitiveArchiveProcessingPlan, { PrimitiveArchiveProcessingTradition } from './PrimitiveArchiveProcessingPlan';
+import PrimitiveArchiveEducationPlan from './PrimitiveArchiveEducationPlan';
 
 function diplomacyDisabledText(rival, action) {
   if (rival.actedToday) return '오늘 교섭을 완료했습니다.';
@@ -29,6 +30,7 @@ export default function PrimitiveArchiveTribeTab({
   adjustTribeJob,
   changeTribeWorkPolicy,
   configureTribeProcess,
+  configureTribeEducation,
   busy,
   recentActionText,
   rivals = [],
@@ -176,10 +178,14 @@ export default function PrimitiveArchiveTribeTab({
             </article>
           ))}
         </div>
+        <PrimitiveArchiveEducationPlan education={tribe.education} runId={state?.runId || ''}
+          onConfigure={configureTribeEducation}
+          blockedReason={state?.ended ? '종료된 런에서는 공교육 계획을 변경할 수 없습니다.' : !hydrated ? '진행 기록 확인이 끝난 뒤 계획을 변경할 수 있습니다.' : jobEditBlockedReason} />
         <div className="primitive-tribe-ledger">
           <div className="primitive-work-policy__receipt"><span>직전 운영 방침·배치</span><strong>{workPolicyReceipt}</strong></div>
           <div><span>최근 생산</span><strong>{tribe.lastProductionText}</strong></div>
           {tribe.processing ? <div className="primitive-processing-receipt"><span>직전 정산 실제 가공</span><strong>{tribe.processing.receiptText || '가공 영수증 미기록'}</strong></div> : null}
+          {tribe.education ? <div className="primitive-education-receipt"><span>직전 정산 실제 공교육</span><strong>{tribe.education.receiptText || '공교육 영수증 미기록'}</strong></div> : null}
           <div><span>최근 배식</span><strong>{foodResult}</strong></div>
           <div><span>자동 건설</span><strong>{lastProduction.projectWork ? `${lastProduction.projectName} +${lastProduction.projectWork}` : '진행 없음'}</strong></div>
           <div><span>기록대 실제 연구</span><strong>{Object.hasOwn(lastProduction, 'researchRequested') ? `+${Number(lastProduction.researchPoints || 0)}RP` : Number(tribe.productionSerial || 0) > 0 ? '이전 영수증: 적용량 미기록' : '정산 전'}</strong></div>

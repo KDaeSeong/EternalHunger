@@ -224,7 +224,10 @@ check('balanced reproduces the fresh pre-change full-state fingerprints and exac
     assert.equal(originalShape.tribe.assignments.artisan, 0);
     assert.equal(originalShape.tribe.autoAssignments.artisan, 0);
     assert.equal(Object.hasOwn(originalShape.tribe.lastProduction, 'processing'), false);
+    assert.deepEqual(originalShape.tribe.educationPlan, { teachers: 0 });
+    assert.equal(Object.hasOwn(originalShape.tribe.lastProduction, 'education'), false);
     delete originalShape.tribe.processingPlan;
+    delete originalShape.tribe.educationPlan;
     delete originalShape.tribe.assignments.artisan;
     delete originalShape.tribe.autoAssignments.artisan;
     delete originalShape.updatedAt;

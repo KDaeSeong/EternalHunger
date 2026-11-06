@@ -24,7 +24,7 @@ function fixture(assignments = { forager: 2, builder: 2, scholar: 2 }) {
   state.weather = { id: 'clear', name: '검사 맑음', cold: 0, temp: 20, actionMod: 0 };
   state.inventory = { berry: 100, wood: 30, fiber: 30, clay: 10, grain: 30, metal_ore: 20, metal_ingot: 20 };
   for (const id of ['GATHERING', 'HUNTING', 'SETTLEMENT', 'FOOD_STORAGE', 'POTTERY', 'CORDAGE',
-    'BRONZE_WORKING', 'EARLY_IRONWORKING', 'WATERMILL']) state.research.completed[id] = true;
+    'BRONZE_WORKING', 'EARLY_IRONWORKING', 'WATERMILL', 'PAPERMAKING']) state.research.completed[id] = true;
   state.research.selectedTechId = 'STONE_TOOLS';
   state.tribe.population = 6; state.tribe.assignments = jobs(assignments); state.tribe.autoAssignments = jobs({});
   return state;
@@ -58,7 +58,7 @@ check('plan configuration and current-stock preview have no economy, assignment,
     const summary = engine.tribeProcessingSummary(selected);
     assert.equal(summary.workers, 0); assert.equal(summary.currentStock, 0);
     assert.equal(summary.expectedBatches, 0); assert.equal(summary.canConfigure, true);
-    assert.equal(summary.options.length, 5);
+    assert.deepEqual(summary.options.map(row => row.id).sort(), [...contract.TRIBE_PROCESS_ACTION_IDS].sort());
     assert.match(summary.timingText, /현재 재고/);
     assert.deepEqual(state, before);
     for (const invalid of [null, undefined, {}, { actionId: 'missing', targetStock: 3 },
@@ -72,7 +72,7 @@ check('plan configuration and current-stock preview have no economy, assignment,
   assert.deepEqual(reproducible(() => engine.tribeSummary(selected)).state.processing, engine.tribeProcessingSummary(selected));
 });
 
-check('all five community processes reuse the actual manual process inputs, outputs and real technology gates', () => {
+check('all community processes reuse the actual manual process inputs, outputs and real technology gates', () => {
   for (const actionId of contract.TRIBE_PROCESS_ACTION_IDS) {
     const source = fixture({ forager: 4, artisan: 2 });
     const option = engine.tribeProcessingSummary(source).options.find(row => row.id === actionId);

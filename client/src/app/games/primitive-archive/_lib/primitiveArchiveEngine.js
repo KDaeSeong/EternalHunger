@@ -61,6 +61,8 @@ import { isValidTribeWorkPolicy, normalizeTribeWorkPolicy, tribeWorkPolicyDetail
   prioritizeTribeWorkPolicy } from './primitiveArchiveWorkPolicy.js';
 import { DEFAULT_TRIBE_PROCESSING_PLAN, isValidTribeProcessingPlan,
   normalizeTribeProcessingPlan } from './primitiveArchiveProcessing.js';
+import { DEFAULT_TRIBE_EDUCATION_PLAN, isValidTribeEducationPlan,
+  normalizeTribeEducationPlan } from './primitiveArchiveEducation.js';
 
 export {
   GAME_SLUG,
@@ -1314,6 +1316,7 @@ export function tribeSummary(state) {
   const jobEditBlockedReason = current.ended ? '종료된 런에서는 직업 배치를 변경할 수 없습니다.' : '';
   const tribe = normalizeTribeState(current.tribe);
   const processing = tribeProcessingSummaryFor(current, tribe);
+  const education = tribeEducationSummaryFor(current, tribe);
   const assigned = Object.values(tribe.assignments).reduce((sum, count) => sum + Number(count || 0), 0);
   const unassigned = Math.max(0, tribe.population - assigned);
   const capacity = tribeCapacity(current);
@@ -1338,7 +1341,8 @@ export function tribeSummary(state) {
           : `${selectedProject.name} 자재 부족`
         : '진행할 프로젝트 없음';
     }
-    if (job.id === 'scholar') dailyText = researchStatus.unlocked ? `목표 기술 +${count}RP/일` : '연구 체계 잠김';
+    if (job.id === 'scholar') dailyText = researchStatus.unlocked
+      ? `일반 연구 최대 +${education.generalScholars}RP/일${education.teachers ? ` · 교원 ${education.teachers}명 별도 운영` : ''}` : '연구 체계 잠김';
     if (job.id === 'artisan') dailyText = processing.statusText;
     if (!unlocked) dailyText = lockedReason;
     return {
@@ -1357,6 +1361,7 @@ export function tribeSummary(state) {
     ...tribe,
     workPolicy: tribeWorkPolicySummary(current, tribe),
     processing,
+    education,
     assigned,
     unassigned,
     capacity,
@@ -3790,7 +3795,9 @@ function settleTribeDay(state) {
     baseWork: projectBaseWork, bonusWork: projectTraditionWork, progressBefore,
     progressAfter: Number(next.projects.progress?.[selectedAtStart?.id] || 0) });
 
-  const scholars = Number(tribe.assignments.scholar || 0);
+  const educationResult = settleTribeEducation(next, tribe);
+  next = educationResult.state;
+  const scholars = Number(tribe.assignments.scholar || 0) - educationResult.teachers;
   let researchPoints = 0;
   let researchRequested = 0;
   if (scholars > 0 && researchSystemStatus(next).unlocked) {
@@ -3848,6 +3855,7 @@ function settleTribeDay(state) {
       projectStarted,
       researchPoints,
       researchRequested,
+      ...(educationResult.receipt ? { education: educationResult.receipt } : {}),
     },
     productionSerial: Number(tribe.productionSerial || 0) + 1,
     growthSerial: Number(tribe.growthSerial || 0) + (grew ? 1 : 0),
@@ -3856,11 +3864,13 @@ function settleTribeDay(state) {
   next = settleTribeProcessing(next);
   const projectText = projectWork > 0 ? ` · 건설 ${projectName} +${projectWork}` : '';
   const researchText = researchPoints > 0 ? ` · 연구 +${researchPoints}RP` : '';
+  const educationText = educationResult.receipt
+    ? ` · 공교육 ${educationResult.receipt.teachers}명 · 종이 ${educationResult.receipt.spent.paper || 0}장 · 사회 제도 +${educationResult.receipt.appliedPoints}CP` : '';
   const processingReceipt = next.tribe.lastProduction.processing;
   const processingText = processingReceipt ? ` · 공동체 가공 ${processingReceipt.batches}묶음 (${processingReceipt.reason})` : '';
   next = addLog(
     next,
-    `부족 일일 정산: ${formatGains(Object.entries(gains))} · 식량 ${food.provided}/${foodNeed}${projectText}${researchText}${processingText} · 사기 ${morale}.`,
+    `부족 일일 정산: ${formatGains(Object.entries(gains))} · 식량 ${food.provided}/${foodNeed}${projectText}${researchText}${educationText}${processingText} · 사기 ${morale}.`,
   );
   if (!fullyFed) next = addLog(next, `부족 식량 부족: ${food.shortage}단위가 모자라 사기와 성장도가 감소했습니다.`);
   if (grew) next = addLog(next, `부족 성장: 새 부족원이 합류했습니다. 인구 ${population}/${capacity}.`);
@@ -5733,6 +5743,7 @@ const PRODUCTION_ACTION_RECIPES = {
   smelt: { context: '광석을 녹이는 제련로', cost: { metal_ore: 2, wood: 2 }, reward: [['metal_ingot', 1]] },
   forge: { context: '주괴를 두드리는 단조장', cost: { metal_ingot: 1, wood: 1 }, reward: [['metal_tools', 1]] },
   mill: { context: '곡물을 가는 수차 제분소', cost: { grain: 3 }, reward: [['milled_grain', 2]] },
+  paper: { context: '나무와 섬유를 종이로 만드는 제지소', cost: { wood: 1, fiber: 1 }, reward: [['paper', 2]] },
 };
 const MARKET_EXPORTS = [
   { itemId: 'pottery', qty: 2, rewardQty: 3 },
@@ -5914,6 +5925,7 @@ const CIVILIZATION_ACTION_DEFS = [
   { id: 'smelt', label: '제련', icon: 'primitive-smelt', techId: 'BRONZE_WORKING', staminaCost: 18, hungerAdd: 3 },
   { id: 'forge', label: '단조', icon: 'primitive-forge', techId: 'EARLY_IRONWORKING', staminaCost: 18, hungerAdd: 3 },
   { id: 'mill', label: '제분', icon: 'primitive-mill', techId: 'WATERMILL', staminaCost: 12, hungerAdd: 2 },
+  { id: 'paper', label: '제지', icon: 'primitive-paper', techId: 'PAPERMAKING', staminaCost: 12, hungerAdd: 2 },
   { id: 'preserve', label: '식량 보존', icon: 'primitive-preserve', techId: 'FOOD_STORAGE', staminaCost: 14, hungerAdd: 2 },
   { id: 'road', label: '도로 정비', icon: 'primitive-road', techId: 'ROAD_BUILDING', staminaCost: 18, hungerAdd: 3 },
   { id: 'trade_route', label: '교역로 개설', icon: 'primitive-trade-route', techId: 'EARLY_CURRENCY', staminaCost: 14, hungerAdd: 2 },
@@ -5927,9 +5939,100 @@ function processingPlanFor(state) {
     ? normalizeTribeProcessingPlan(state.tribe.processingPlan) : DEFAULT_TRIBE_PROCESSING_PLAN;
 }
 
+function paperInventoryQuantity(inventory) {
+  const quantity = Object.hasOwn(inventory || {}, 'paper') ? inventory.paper : 0;
+  return typeof quantity === 'number' && Number.isFinite(quantity)
+    && quantity >= 0 && quantity <= Number.MAX_SAFE_INTEGER ? quantity : null;
+}
+
 function processingInventoryQuantity(inventory, itemId) {
+  // Paper is a new resource with no legacy string/boolean stock format.
+  if (itemId === 'paper') return paperInventoryQuantity(inventory);
   const quantity = Number(inventory?.[itemId] ?? 0);
   return Number.isFinite(quantity) && quantity >= 0 && quantity <= Number.MAX_SAFE_INTEGER ? quantity : null;
+}
+
+function educationPlanFor(state) {
+  return Object.hasOwn(state.tribe || {}, 'educationPlan')
+    ? normalizeTribeEducationPlan(state.tribe.educationPlan) : DEFAULT_TRIBE_EDUCATION_PLAN;
+}
+
+function tribeEducationUnlocked(state) {
+  return Boolean(normalizeCivics(state.civics, state.research).completed.PUBLIC_EDUCATION);
+}
+
+function tribeEducationCalculation(state, tribe) {
+  const plan = educationPlanFor(state);
+  const scholars = Number(tribe.assignments.scholar || 0);
+  const paperStock = paperInventoryQuantity(state.inventory);
+  const unlocked = tribeEducationUnlocked(state);
+  const civic = civicsSystemStatus(state).unlocked ? activeCivicForState(state) : null;
+  const civics = normalizeCivics(state.civics, state.research);
+  const progressBefore = civic ? Number(civics.progress[civic.id] || 0) : 0;
+  const remaining = civic ? Math.max(0, civic.cost - progressBefore) : 0;
+  const blockedReason = state.ended ? '종료된 문명에서는 공교육을 운영하지 않습니다.'
+    : !plan.teachers ? '공교육 계획이 꺼져 있습니다.'
+      : !unlocked ? '사회 제도 「공교육」을 완료해야 운영할 수 있습니다.'
+        : !scholars ? '직접 배치한 기록대 일손이 없습니다.'
+          : !civic || !remaining ? '진행 가능한 미완료 사회 제도가 없습니다.'
+            : paperStock === null ? '종이 재고 수량을 확인할 수 없어 수업을 중단했습니다.'
+              : paperStock < 1 ? '종이가 부족합니다. 가공대의 제지 계획과 나무·섬유 비축을 확인하세요.' : '';
+  const teachers = blockedReason ? 0
+    : Math.min(plan.teachers, scholars, Math.floor(paperStock), Math.ceil(remaining / 2));
+  const requestedPoints = teachers * 2;
+  const expectedPoints = Math.min(remaining, requestedPoints);
+  const generalScholars = scholars - teachers;
+  const statusText = blockedReason || `교원 ${teachers}명 · 종이 ${teachers}장으로 ${civic.name} 최대 +${expectedPoints}CP. 일반 연구 일손 ${generalScholars}명. 목표 잔여 진척·종이·실제 인원 안에서 운영합니다.`;
+  return { plan, scholars, paperStock, unlocked, civic, progressBefore, teachers, generalScholars,
+    requestedPoints, expectedPoints, blockedReason, statusText };
+}
+
+export function configureTribeEducationAction(state, plan) {
+  if (state.ended || !isValidTribeEducationPlan(plan)
+    || (plan.teachers > 0 && !tribeEducationUnlocked(state))) return state;
+  if (educationPlanFor(state).teachers === plan.teachers) return state;
+  const selected = normalizeTribeEducationPlan(plan);
+  return addLog({ ...state, tribe: { ...state.tribe, educationPlan: selected } }, selected.teachers
+    ? `공교육 계획: 기록대 중 교원 최대 ${selected.teachers}명. 다음 아침 기존 종이를 소비해 사회 제도를 연구하며, 수업에 참여한 인원은 일반 기술 연구에서 제외됩니다.`
+    : '공교육 계획을 껐습니다. 기록대 배치는 그대로 유지합니다.');
+}
+
+export function tribeEducationSummary(state) {
+  return tribeEducationSummaryFor(state, normalizeTribeState(state.tribe));
+}
+
+function tribeEducationSummaryFor(state, tribe) {
+  const calculation = tribeEducationCalculation(state, tribe);
+  const { plan, scholars, paperStock, unlocked, civic, teachers, generalScholars,
+    requestedPoints, expectedPoints, blockedReason, statusText } = calculation;
+  const receipt = tribe.lastProduction?.education || null;
+  const receiptText = receipt
+    ? `${tribe.lastProduction.day}일차 공교육 · 교원 ${receipt.teachers}/${receipt.teachersRequested}명 · 종이 ${receipt.spent.paper || 0}장 소비 · ${getCivic(receipt.civicId)?.name || '대상 없음'} 실제 +${receipt.appliedPoints}CP · 일반 연구 일손 ${receipt.generalScholars}명 · ${receipt.reason}`
+    : '이전 공교육 정산 미기록';
+  return { plan: { ...plan }, unlocked, canConfigure: !state.ended, scholars, teachers, generalScholars,
+    paperStock, requestedPoints, expectedPoints, civicId: civic?.id || '', civicName: civic?.name || '',
+    blockedReason, statusText, receipt, receiptText,
+    timingText: '현재 배치와 기존 종이 비축만으로 계산한 전망입니다. 다음 아침 건설 후, 일반 기록대 연구 전에 실제로 정산합니다. 교원 1명은 종이 1장을 소비해 최대 2CP를 생산하며, 남은 진척만 적용합니다. 같은 아침 뒤에 가공한 종이는 다음 날부터 사용합니다. 개인 AP·ST는 소비하지 않습니다.' };
+}
+
+function settleTribeEducation(state, tribe) {
+  const calculation = tribeEducationCalculation(state, tribe);
+  const { plan, scholars, paperStock, civic, progressBefore, teachers, requestedPoints } = calculation;
+  // Disabled plans preserve the old labor allocation and do not invent history.
+  if (!plan.teachers) return { state, teachers: 0, receipt: null };
+  let next = teachers ? addCivicProgress(state, civic.id, requestedPoints, '공교육', { silent: true }) : state;
+  const progressAfter = civic ? Number(normalizeCivics(next.civics, next.research).progress[civic.id] || 0) : 0;
+  const appliedPoints = Math.max(0, progressAfter - progressBefore);
+  const actualTeachers = appliedPoints > 0 ? teachers : 0;
+  if (actualTeachers) next = { ...next, inventory: { ...next.inventory, paper: paperStock - actualTeachers } };
+  const receipt = { teachersRequested: plan.teachers, scholarsAvailable: scholars,
+    teachers: actualTeachers, generalScholars: scholars - actualTeachers, civicId: civic?.id || '',
+    progressBefore, progressAfter, requestedPoints: actualTeachers ? requestedPoints : 0, appliedPoints,
+    paperBefore: paperStock, paperAfter: actualTeachers ? paperStock - actualTeachers : paperStock,
+    spent: actualTeachers ? { paper: actualTeachers } : {},
+    reason: actualTeachers ? calculation.statusText
+      : calculation.blockedReason || '실제 진척을 적용하지 못해 종이를 소비하지 않고 기록대 일손을 일반 연구로 돌렸습니다.' };
+  return { state: next, teachers: actualTeachers, receipt };
 }
 
 // Preview current stock only. The same calculation runs on the actual stock

@@ -2,6 +2,7 @@ import { withAdvancementLore } from './primitiveArchiveAdvancementLore';
 import { ARCHIVE_OFFICIAL_PORTRAITS } from './primitiveArchivePortraits';
 import { isValidTribeProductionReceipt, normalizeTribeWorkPolicy } from './primitiveArchiveWorkPolicy.js';
 import { DEFAULT_TRIBE_PROCESSING_PLAN, isValidOptionalTribeProcessing, normalizeTribeProcessingPlan } from './primitiveArchiveProcessing.js';
+import { DEFAULT_TRIBE_EDUCATION_PLAN, isValidOptionalTribeEducation, normalizeTribeEducationPlan } from './primitiveArchiveEducation.js';
 
 export const GAME_SLUG = 'primitive-archive';
 export const QUICK_SAVE_SLOT = 'primitive-archive-main';
@@ -415,6 +416,7 @@ export const ITEMS = {
   crafter_amulet: { name: '제작 부적', icon: 'artifact', weight: 1, type: 'equip', slot: 'accessory', successAdd: { craft: 0.06 } },
   gatherer_charm: { name: '채집 부적', icon: 'artifact', weight: 1, type: 'equip', slot: 'accessory', successAdd: { gather: 0.06 } },
   weather_totem: { name: '날씨 토템', icon: 'artifact', weight: 1, type: 'equip', slot: 'accessory', successAdd: { gather: 0.02, hunt: 0.02, craft: 0.02 } },
+  paper: { name: '종이', icon: 'artifact', weight: 1, type: 'material' },
   book_craft_guide: { name: '제작 안내서', icon: 'artifact', weight: 1, type: 'book' },
   book_camp_manual: { name: '캠프 운영서', icon: 'artifact', weight: 1, type: 'book' },
   clay_tablet: { name: '점토 기록판', icon: 'artifact', weight: 1, type: 'book' },
@@ -2450,12 +2452,14 @@ export function initTribeState() {
     settlementLevel: 0,
     workPolicy: 'balanced',
     processingPlan: { ...DEFAULT_TRIBE_PROCESSING_PLAN },
+    educationPlan: { ...DEFAULT_TRIBE_EDUCATION_PLAN },
   };
 }
 
 export function normalizeTribeState(value = {}) {
   const base = initTribeState();
   if (!isValidOptionalTribeProcessing(value)) throw new RangeError('Invalid tribe processing state');
+  if (!isValidOptionalTribeEducation(value)) throw new RangeError('Invalid tribe education state');
   if (!isValidTribeProductionReceipt(value.lastProduction, TRIBE_JOBS.map(job => job.id))) {
     throw new RangeError('Invalid tribe production receipt');
   }
@@ -2494,6 +2498,8 @@ export function normalizeTribeState(value = {}) {
     workPolicy: normalizeTribeWorkPolicy(value.workPolicy),
     processingPlan: Object.hasOwn(value, 'processingPlan')
       ? normalizeTribeProcessingPlan(value.processingPlan) : { ...DEFAULT_TRIBE_PROCESSING_PLAN },
+    educationPlan: Object.hasOwn(value, 'educationPlan')
+      ? normalizeTribeEducationPlan(value.educationPlan) : { ...DEFAULT_TRIBE_EDUCATION_PLAN },
   };
 }
 

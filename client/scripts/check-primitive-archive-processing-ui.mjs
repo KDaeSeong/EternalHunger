@@ -15,6 +15,7 @@ const playUrl = url('src/app/games/primitive-archive/_components/PrimitiveArchiv
 const primitivesUrl = url('src/app/games/_components/GamePlayPrimitives.js').href;
 const cssUrl = url('src/styles/PrimitiveArchiveWorkPolicy.css');
 const transformed = new Set([formUrl, tribeUrl, primitivesUrl,
+  url('src/app/games/primitive-archive/_components/PrimitiveArchiveEducationPlan.js').href,
   url('src/app/games/_components/GameActionIcon.js').href,
   url('src/app/games/primitive-archive/_components/PrimitiveArchiveVisuals.js').href]);
 

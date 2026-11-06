@@ -15,6 +15,7 @@ const projectsUrl = file('src/app/games/primitive-archive/_components/PrimitiveA
 const playUrl = file('src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js');
 const primitivesUrl = file('src/app/games/_components/GamePlayPrimitives.js').href;
 const transformed = new Set([componentUrl, tribeUrl, projectsUrl, primitivesUrl,
+  file('src/app/games/primitive-archive/_components/PrimitiveArchiveEducationPlan.js').href,
   file('src/app/games/_components/GameActionIcon.js').href,
   file('src/app/games/primitive-archive/_components/PrimitiveArchiveVisuals.js').href]);
 globalThis.__processingTraditionReact = React;
@@ -135,7 +136,9 @@ check('one sibling processing reservation group preserves the existing productio
   assert.equal(nodes(plan, node => node.type === Reservation).length, 0);
   assert.equal(reservation.props.processing, plan.props.processing);
   const html = markup(Tribe, tribeProps(state));
-  assert.equal((html.match(/<form\b/g) || []).length, 1);
+  assert.equal((html.match(/<form\b/g) || []).length, 2);
+  assert.equal((html.match(/<form\b[^>]*aria-label="가공대 생산 계획"/g) || []).length, 1);
+  assert.equal((html.match(/<form\b[^>]*aria-label="공교육 교원 계획"/g) || []).length, 1);
   assert.ok(html.indexOf('저장된 가공 계획의 전승 예약') > html.indexOf('</form>'));
   assert.ok(html.includes('직전 정산 실제 가공')); assert.ok(html.includes('직전 운영 방침·배치'));
   const group = Reservation(reservation.props), native = button(group);

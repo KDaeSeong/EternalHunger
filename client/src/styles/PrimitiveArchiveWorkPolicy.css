@@ -1,3 +1,53 @@
+.primitive-era.primitive-archive-page-shell .primitive-education-plan {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: var(--era-control-border);
+  border-radius: var(--era-block-radius);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+  overflow-wrap: anywhere;
+}
+.primitive-education-plan h3,
+.primitive-education-plan p { margin: 0; font-size: inherit; }
+.primitive-education-plan p,
+.primitive-education-plan__preview span,
+.primitive-education-plan__preview small { color: var(--era-ink-soft); font: inherit; }
+.primitive-education-plan__form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+}
+.primitive-education-plan__form label,
+.primitive-education-plan__preview { display: grid; gap: 4px; min-width: 0; }
+.primitive-education-plan__form p { grid-column: 1 / -1; }
+.primitive-era.primitive-archive-page-shell .primitive-education-plan input,
+.primitive-era.primitive-archive-page-shell .primitive-education-plan .game-control-button {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  border: var(--era-control-border);
+  border-radius: var(--era-control-radius);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+  font: inherit;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.primitive-education-plan input:focus-visible,
+.primitive-education-plan .game-control-button:focus-visible { outline: 2px solid var(--era-focus); outline-offset: 2px; }
+.primitive-era.primitive-archive-page-shell .primitive-tribe-ledger > .primitive-education-receipt {
+  grid-column: 1 / -1;
+  border-color: var(--era-line-strong);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+}
+.primitive-era.primitive-archive-page-shell .primitive-education-receipt span { color: var(--era-ink-soft); }
+
 .primitive-era.primitive-archive-page-shell .primitive-work-policy {
   display: grid;
   gap: 8px;
