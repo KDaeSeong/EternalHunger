@@ -7,6 +7,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "test": "node --test tests/*.test.js",
+    "test:twenty-questions": "node --test tests/twenty-questions-concurrency.test.js",
+    "test:integration:twenty-questions": "node tests/integration/twenty-questions-mongo.mjs",
     "check:market-mongo": "node scripts/check-market-transactions-mongo.cjs",
     "test:integration:archive-records": "node --test tests/game-record-mongo.integration.js",
     "test:integration:save-slots": "node --test tests/game-save-slots-mongo.integration.js",

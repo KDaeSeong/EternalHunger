@@ -11,6 +11,7 @@ const { publicDisplayName } = require('../utils/publicIdentity');
 const {
   closeExhaustedRoom,
   getAttemptCounts,
+  isPendingQuestion,
 } = require('../utils/twentyQuestionsRules');
 
 const CATEGORY_LABELS = {
@@ -32,6 +33,62 @@ const CATEGORY_LABELS = {
 const ROOM_CATEGORIES = TwentyQuestionsRoom.ROOM_CATEGORIES || Object.keys(CATEGORY_LABELS);
 const PRESENCE_TTL_MS = 20_000;
 const MAX_ACTIVE_PARTICIPANTS = 24;
+
+function presenceAfterActivity(userId, now) {
+  const cutoff = new Date(now.getTime() - PRESENCE_TTL_MS);
+  const viewerObjectId = new mongoose.Types.ObjectId(userId);
+  return {
+    $slice: [{
+      $concatArrays: [{
+        $filter: {
+          input: { $ifNull: ['$presence', []] },
+          as: 'participant',
+          cond: { $and: [
+            { $gte: ['$$participant.lastSeenAt', cutoff] },
+            { $ne: ['$$participant.userId', viewerObjectId] },
+          ] },
+        },
+      }, [{ userId: viewerObjectId, lastSeenAt: now }]],
+    }, -MAX_ACTIVE_PARTICIPANTS],
+  };
+}
+
+// All game mutations share this revision. Presence heartbeats intentionally do
+// not advance it, and are merged from the persisted array instead of a snapshot.
+async function saveRoomMutation(room, fields, userId, pendingQuestionId = null) {
+  await room.validate();
+  const revision = room.__v == null ? 0 : room.__v;
+  if (!Number.isSafeInteger(revision) || revision < 0 || revision >= Number.MAX_SAFE_INTEGER) {
+    throw new Error('Invalid Twenty Questions room revision');
+  }
+  const filter = {
+    _id: room._id,
+    status: 'active',
+    $expr: { $eq: [{ $ifNull: ['$__v', 0] }, revision] },
+  };
+  if (pendingQuestionId) filter.questions = { $elemMatch: {
+    _id: pendingQuestionId,
+    // Legacy null and missing values are displayed as pending; accept them only
+    // while this exact revision and question are still unanswered.
+    $or: [{ response: 'pending' }, { response: null }, { response: { $exists: false } }],
+  } };
+  const plain = room.toObject();
+  const now = new Date();
+  const changed = Object.fromEntries(fields.map((field) => [field, { $literal: plain[field] }]));
+  return TwentyQuestionsRoom.findOneAndUpdate(filter, [{ $set: {
+    ...changed,
+    __v: { $add: [{ $ifNull: ['$__v', 0] }, 1] },
+    updatedAt: { $literal: now },
+    presence: presenceAfterActivity(userId, now),
+  } }], { new: true, updatePipeline: true });
+}
+
+function roomConflict(res) {
+  return res.status(409).json({
+    error: '방의 상태가 변경되었습니다. 최신 내용을 새로고침한 뒤 다시 시도해주세요.',
+    code: 'TWENTY_QUESTIONS_CONFLICT',
+  });
+}
 
 const RESPONSE_LABELS = {
   pending: '대기',
@@ -148,9 +205,9 @@ function serializeParticipant(entry) {
 
 function serializeRoomSummary(room) {
   const {
-    questions,
     maxQuestions,
     questionCount,
+    pendingCount,
     guessCount,
     attemptCount,
     remainingCount,
@@ -164,7 +221,7 @@ function serializeRoomSummary(room) {
     status: room?.status || 'active',
     maxQuestions,
     questionCount,
-    pendingCount: questions.filter((q) => q?.response === 'pending').length,
+    pendingCount,
     guessCount,
     attemptCount,
     remainingCount,
@@ -209,7 +266,7 @@ function serializeCreatedRoomFallback(room, userId) {
     status: plain.status || 'active',
     maxQuestions: counts.maxQuestions,
     questionCount: counts.questionCount,
-    pendingCount: counts.questions.filter((q) => q?.response === 'pending').length,
+    pendingCount: counts.pendingCount,
     guessCount: counts.guessCount,
     attemptCount: counts.attemptCount,
     remainingCount: counts.remainingCount,
@@ -331,37 +388,14 @@ router.post('/:id/presence', verifyToken, async (req, res) => {
     }
 
     const now = new Date();
-    const cutoff = new Date(now.getTime() - PRESENCE_TTL_MS);
-    const viewerObjectId = new mongoose.Types.ObjectId(req.user.id);
     const updatedRoom = await TwentyQuestionsRoom.findOneAndUpdate(
       { _id: room._id, status: 'active' },
       [{
         $set: {
-          presence: {
-            $slice: [
-              {
-                $concatArrays: [
-                  {
-                    $filter: {
-                      input: { $ifNull: ['$presence', []] },
-                      as: 'participant',
-                      cond: {
-                        $and: [
-                          { $gte: ['$participant.lastSeenAt', cutoff] },
-                          { $ne: ['$participant.userId', viewerObjectId] },
-                        ],
-                      },
-                    },
-                  },
-                  [{ userId: viewerObjectId, lastSeenAt: now }],
-                ],
-              },
-              -MAX_ACTIVE_PARTICIPANTS,
-            ],
-          },
+          presence: presenceAfterActivity(req.user.id, now),
         },
       }],
-      { new: true },
+      { new: true, updatePipeline: true },
     );
     if (!updatedRoom) {
       return res.status(409).json({ error: '종료된 방에는 참가할 수 없습니다.' });
@@ -389,8 +423,9 @@ router.post('/:id/questions', verifyToken, async (req, res) => {
       return res.status(400).json({ error: `질문/정답 도전 ${counts.maxQuestions}회를 모두 사용했습니다.` });
     }
 
-    room.questions.push({ askerId: req.user.id, text });
-    await room.save();
+    const now = new Date();
+    room.questions.push({ askerId: req.user.id, text, createdAt: now, updatedAt: now });
+    if (!await saveRoomMutation(room, ['questions'], req.user.id)) return roomConflict(res);
 
     await createNotification({
       userId: room.hostId,
@@ -420,8 +455,9 @@ router.post('/:id/hints', verifyToken, async (req, res) => {
     if (!isHost(room, req.user.id)) return res.status(403).json({ error: '방장만 힌트를 남길 수 있습니다.' });
     if (room.status !== 'active') return res.status(400).json({ error: '진행 중인 방에만 힌트를 남길 수 있습니다.' });
 
-    room.hintMessages.push({ authorId: req.user.id, text });
-    await room.save();
+    const now = new Date();
+    room.hintMessages.push({ authorId: req.user.id, text, createdAt: now, updatedAt: now });
+    if (!await saveRoomMutation(room, ['hintMessages'], req.user.id)) return roomConflict(res);
 
     const populated = await findRoomWithUsers(room._id);
     res.json({ message: '힌트를 등록했습니다.', room: serializeRoomDetail(populated, req.user.id) });
@@ -445,11 +481,15 @@ router.post('/:id/questions/:questionId/answer', verifyToken, async (req, res) =
 
     const question = room.questions.id(req.params.questionId);
     if (!question) return res.status(404).json({ error: '질문을 찾을 수 없습니다.' });
+    if (!isPendingQuestion(question)) return roomConflict(res);
 
     question.response = response;
     question.answeredAt = new Date();
+    question.updatedAt = question.answeredAt;
     const exhausted = closeExhaustedRoom(room);
-    await room.save();
+    if (!await saveRoomMutation(room, ['questions', ...(exhausted ? ['status'] : [])], req.user.id, question._id)) {
+      return roomConflict(res);
+    }
 
     await createNotification({
       userId: question.askerId,
@@ -490,14 +530,16 @@ router.post('/:id/guesses', verifyToken, async (req, res) => {
     }
 
     const correct = normalizeAnswer(text) === normalizeAnswer(room.answer);
-    room.guesses.push({ guesserId: req.user.id, text, correct });
+    const now = new Date();
+    room.guesses.push({ guesserId: req.user.id, text, correct, createdAt: now, updatedAt: now });
     if (correct) {
       room.status = 'solved';
       room.solvedBy = req.user.id;
       room.solvedAt = new Date();
     }
     const exhausted = !correct && closeExhaustedRoom(room);
-    await room.save();
+    const changed = ['guesses', ...(correct ? ['status', 'solvedBy', 'solvedAt'] : exhausted ? ['status'] : [])];
+    if (!await saveRoomMutation(room, changed, req.user.id)) return roomConflict(res);
 
     if (correct) {
       await createNotification({
@@ -536,7 +578,7 @@ router.post('/:id/close', verifyToken, async (req, res) => {
     if (room.status !== 'active') return res.status(400).json({ error: '이미 종료된 방입니다.' });
 
     room.status = 'closed';
-    await room.save();
+    if (!await saveRoomMutation(room, ['status'], req.user.id)) return roomConflict(res);
 
     const populated = await findRoomWithUsers(room._id);
     res.json({ message: '방을 종료했습니다.', room: serializeRoomDetail(populated, req.user.id) });

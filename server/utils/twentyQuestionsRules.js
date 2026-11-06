@@ -2,6 +2,10 @@ function getMaxAttempts(room) {
   return Math.max(1, Number(room?.maxQuestions || 20));
 }
 
+function isPendingQuestion(question) {
+  return Boolean(question && (question.response == null || question.response === 'pending'));
+}
+
 function getAttemptCounts(room) {
   const questions = Array.isArray(room?.questions) ? room.questions : [];
   const guesses = Array.isArray(room?.guesses) ? room.guesses : [];
@@ -9,7 +13,7 @@ function getAttemptCounts(room) {
   const questionCount = questions.length;
   const guessCount = guesses.length;
   const attemptCount = questionCount + guessCount;
-  const pendingCount = questions.filter((question) => question?.response === 'pending').length;
+  const pendingCount = questions.filter(isPendingQuestion).length;
 
   return {
     questions,
@@ -39,5 +43,6 @@ module.exports = {
   closeExhaustedRoom,
   getAttemptCounts,
   getMaxAttempts,
+  isPendingQuestion,
   shouldCloseExhaustedRoom,
 };
