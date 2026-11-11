@@ -1,3 +1,5 @@
+import { STUDY_BONUS_POINTS } from './primitiveArchiveAncestralFaith.js';
+
 export const DEFAULT_TRIBE_EDUCATION_PLAN = Object.freeze({ teachers: 0 });
 
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -20,7 +22,12 @@ export function normalizeTribeEducationPlan(value) {
 }
 
 export function isValidTribeEducationReceipt(receipt, assignments) {
-  if (!exactKeys(receipt, receiptKeys)) return false;
+  const hasTradition = record(receipt) && ['basePoints', 'traditionPoints', 'traditionFounderId'].some(key => Object.hasOwn(receipt, key));
+  if (!exactKeys(receipt, hasTradition ? [...receiptKeys, 'basePoints', 'traditionPoints', 'traditionFounderId'] : receiptKeys)) return false;
+  if (hasTradition && (!observed(receipt.basePoints) || !observed(receipt.traditionPoints)
+    || receipt.traditionPoints > STUDY_BONUS_POINTS || receipt.appliedPoints !== receipt.basePoints + receipt.traditionPoints
+    || typeof receipt.traditionFounderId !== 'string' || !receipt.traditionFounderId
+    || (receipt.traditionPoints > 0 && !(receipt.basePoints > 0 && receipt.teachers > 0)))) return false;
   if (!['teachersRequested', 'scholarsAvailable', 'teachers', 'generalScholars']
     .every(key => workerCount(receipt[key]))) return false;
   if (receipt.teachers > Math.min(receipt.teachersRequested, receipt.scholarsAvailable)

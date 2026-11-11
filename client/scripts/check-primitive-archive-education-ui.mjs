@@ -36,10 +36,11 @@ registerHooks({
     }).outputText };
   },
 });
-const { default: Form } = await import(formUrl);
+const { default: Form, PrimitiveArchiveEducationTradition: Reservation } = await import(formUrl);
 const { default: Tribe } = await import(tribeUrl);
 const { GameControlButton } = await import(primitivesUrl);
 const engine = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveEngine.js');
+const { recordFounderDeed } = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveFounders.js');
 const processing = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveProcessing.js');
 const feedback = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveFeedback.js');
 const soundtrack = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveSoundtrack.js');
@@ -83,7 +84,8 @@ function declaration(name) {
   const visit = node => { if (ts.isVariableDeclaration(node) && node.name.getText(source) === name) { assert.equal(found, undefined); found = `const ${node.getText(source)};`; } ts.forEachChild(node, visit); };
   visit(source); assert.ok(found, name); return found;
 }
-const compiled = ts.transpileModule(['applyAction', 'configureTribeEducation', 'configureTribeProcess'].map(declaration).join('\n'), {
+const compiled = ts.transpileModule(['applyAction', 'configureTribeEducation', 'configureTribeProcess',
+  'reserveEducationTradition', 'cancelEducationTradition'].map(declaration).join('\n'), {
   compilerOptions: { module: ts.ModuleKind.ESNext },
 }).outputText;
 const configOnly = ts.transpileModule(declaration('configureTribeEducation'), {
@@ -94,13 +96,20 @@ function pageHarness(state = fresh(), overrides = {}) {
   const scope = { ...engine, ...processing, ...feedback, ...soundtrack, state, tribe: engine.tribeSummary(state), stateRef: ref, hydrated: true,
     checkpoint: { ready: true, exclusive: true, status: 'ready' }, busy: '', shopControlsBusy: false,
     shopStartRef: { current: false }, showDeveloperTools: false, actorId: state.party[0].id,
+    actorSelectionRef: { current: state.party[0].id }, educationTradition: engine.educationTraditionSummary(state, state.party[0].id),
     musicSceneTimerRef: { current: null }, eraArrivalTimerRef: { current: null }, baseMusicScene: 'archive-camp',
     playGameSfx() {}, setMusicScene() {}, setActorId() {}, setArrivingEraId() {}, setMessage() {},
     setState: value => calls.state.push(value), setActionResult: value => calls.result.push(value), setActionFeedback: value => calls.feedback.push(value), ...overrides };
-  const bound = new Function(...Object.keys(scope), `${compiled}\nreturn {handler: configureTribeEducation, legacyHandler: configureTribeProcess};`)(...Object.values(scope));
+  const bound = new Function(...Object.keys(scope), `${compiled}\nreturn {handler: configureTribeEducation, legacyHandler: configureTribeProcess, reserveEducationTradition, cancelEducationTradition};`)(...Object.values(scope));
   const directScope = { ...scope, applyAction: (_label, action) => action(ref.current) };
   const directHandler = new Function(...Object.keys(directScope), `${configOnly}\nreturn configureTribeEducation;`)(...Object.values(directScope));
-  return { ref, calls, scope, ...bound, directHandler };
+  const invoke = name => {
+    const previousWindow = globalThis.window;
+    globalThis.window = { clearTimeout() {}, setTimeout() { return 1; } };
+    try { return bound[name](); }
+    finally { if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow; }
+  };
+  return { ref, calls, scope, ...bound, directHandler, invoke };
 }
 function captureDraws(run) {
   const original = Math.random, draws = []; let seed = 0x12345678;
@@ -184,6 +193,121 @@ check('actual page callbacks change only the plan and honor writer, shop, stale 
   }
   for (const replacement of [engine.configureTribeEducationAction(fresh(), { teachers: 1 }), fresh('new-live-run'), { ...fresh(), ended: true }]) {
     const stale = pageHarness(); stale.ref.current = replacement; stale.handler({ teachers: 2 }); assert.equal(stale.ref.current, replacement); assert.equal(stale.calls.state.length, 0);
+  }
+});
+
+function traditionFixture(giverIndex = 0) {
+  let state = fresh('education-tradition-ui');
+  state.research.completed.HERBALISM = true;
+  state.weather = { id: 'clear', name: '검사 맑음', temp: 20, cold: 0, actionMod: 0 };
+  for (let i = 0; i < 3; i++) state = recordFounderDeed(state, {
+    actorId: state.party[giverIndex].id, kind: 'research_contribution', success: true, target: 'ui-lesson-fixture',
+  });
+  state = engine.ancestralRiteAction(state, state.party[2].id, state.party[giverIndex].id);
+  state = engine.configureTribeEducationAction(state, { teachers: 2 });
+  assert.equal(engine.educationTraditionSummary(state, state.party[0].id).canReserve, true);
+  return state;
+}
+const reservationProps = (state, extra = {}) => ({ tradition: engine.educationTraditionSummary(state, state.party[0].id),
+  education: engine.tribeEducationSummary(state), hydrated: true, busy: '', ended: false,
+  onReserve() {}, onCancel() {}, ...extra });
+const reserveButton = tree => one(tree, node => node.type === 'button' && textOf(node).includes('다음 아침 공교육에 전승 1회 예약'));
+const cancelButton = tree => one(tree, node => node.type === 'button' && textOf(node).includes('예약 취소 · 환급 없음'));
+
+check('education tradition is compact below the saved plan and separates forecasts from real receipt CP', () => {
+  const state = traditionFixture(), before = clone(state), props = reservationProps(state);
+  const html = renderToStaticMarkup(React.createElement(Form, { ...formProps(state), ...props }));
+  assert.equal((html.match(/aria-label="공교육 교원 계획"/g) || []).length, 1);
+  assert.equal((html.match(/aria-label="저장된 공교육 계획의 전승 예약"/g) || []).length, 1);
+  assert.ok(html.indexOf('저장된 계획 · 교원 상한') < html.indexOf('공교육 전승 투자'));
+  assert.match(html, /사용권 1회를 즉시 소비/); assert.match(html, /환급하거나 다음 날로 넘기지 않습니다/);
+  assert.match(html, /현재 비축 기준 전망/); assert.match(html, /CP 예상/);
+  const reserved = engine.reserveEducationTraditionAction(state, state.party[0].id);
+  const settled = engine.advanceDay(reserved, { rng: () => 0.5 });
+  const recentProps = reservationProps(settled), actual = recentProps.tradition.lastSettlement;
+  assert.equal(actual.kind, 'education'); assert.ok(actual.basePoints > 0); assert.ok(actual.bonusPoints > 0);
+  const recent = Reservation(recentProps);
+  assert.ok(textOf(recent).includes(`최근 실제 적용 CP기본 수업 ${actual.basePoints}CP / 전승 추가 ${actual.bonusPoints}CP`));
+  assert.deepEqual(state, before);
+});
+
+check('reservation controls reject hydration, busy, ended, disabled and missing callbacks', () => {
+  const state = traditionFixture(); let calls = 0;
+  for (const extra of [{ hydrated: false }, { busy: 'save' }, { busy: 'load' }, { ended: true }, { onReserve: undefined },
+    { tradition: { ...reservationProps(state).tradition, enabled: false, canReserve: false } }]) {
+    const tree = Reservation(reservationProps(state, { onReserve() { calls++; }, ...extra }));
+    assert.equal(reserveButton(tree).props.disabled, true); reserveButton(tree).props.onClick();
+  }
+  assert.equal(calls, 0);
+});
+
+check('actual reserve and cancel callbacks spend once and preserve plan, stock and personal costs', () => {
+  const state = traditionFixture(), before = clone(state), view = pageHarness(state);
+  view.invoke('reserveEducationTradition');
+  const reserved = view.ref.current;
+  assert.equal(reserved.projectTradition.pending.kind, 'education');
+  assert.equal(reserved.ancestralFaith.active.remaining, state.ancestralFaith.active.remaining - 1);
+  assert.deepEqual(reserved.inventory, state.inventory); assert.deepEqual(reserved.party, state.party);
+  assert.equal(reserved.ap, state.ap); assert.deepEqual(reserved.tribe.educationPlan, state.tribe.educationPlan);
+  view.invoke('reserveEducationTradition'); assert.equal(view.ref.current, reserved);
+  const cancel = pageHarness(reserved);
+  const tree = Reservation(reservationProps(reserved, { onCancel: () => cancel.invoke('cancelEducationTradition') }));
+  assert.equal(cancelButton(tree).props.disabled, false); cancelButton(tree).props.onClick();
+  const cancelled = cancel.ref.current;
+  assert.equal(cancelled.projectTradition.pending, null);
+  assert.equal(cancelled.ancestralFaith.active.remaining, reserved.ancestralFaith.active.remaining);
+  assert.equal(engine.educationTraditionSummary(cancelled, state.party[0].id).canReserve, false);
+  cancel.invoke('cancelEducationTradition'); assert.equal(cancel.ref.current, cancelled);
+  assert.deepEqual(state, before);
+});
+
+check('education reservation uses the saved teacher plan without discarding the unsaved draft', () => {
+  const state = traditionFixture(), page = pageHarness(state);
+  const view = harness({ ...formProps(state), ...reservationProps(state), onReserve: () => page.invoke('reserveEducationTradition') });
+  let tree = view.render(); change(tree, '7'); tree = view.render();
+  const reservation = one(tree, node => node.type === Reservation);
+  reserveButton(Reservation(reservation.props)).props.onClick();
+  assert.equal(page.ref.current.projectTradition.pending.teachers, 2);
+  assert.equal(page.ref.current.tribe.educationPlan.teachers, 2);
+  tree = view.render({ ...formProps(page.ref.current), ...reservationProps(page.ref.current) });
+  assert.equal(byType(tree, 'input').props.value, '7');
+});
+
+check('stale run day actor teacher plan civic and provider screens cannot reserve', () => {
+  for (const changeLive of [
+    view => { view.ref.current = { ...view.ref.current, runId: 'different-live-run' }; },
+    view => { view.ref.current = { ...view.ref.current, day: view.ref.current.day + 1 }; },
+    view => { view.scope.actorSelectionRef.current = view.ref.current.party[1].id; },
+    view => { view.ref.current = engine.configureTribeEducationAction(view.ref.current, { teachers: 1 }); },
+    view => { view.ref.current = { ...view.ref.current, civics: { ...view.ref.current.civics,
+      selectedCivicId: view.scope.educationTradition.selectedCivicId === 'ORAL_RECORDS' ? 'MILITARY_TRADITION' : 'ORAL_RECORDS' } }; },
+    view => { view.ref.current = traditionFixture(1); },
+    view => { view.ref.current = { ...view.ref.current, ended: true }; },
+  ]) {
+    const view = pageHarness(traditionFixture()); changeLive(view); const current = view.ref.current;
+    view.invoke('reserveEducationTradition'); assert.equal(view.calls.state.length, 0); assert.equal(view.ref.current, current);
+  }
+});
+
+check('education reservation and cancellation retain writer and save guards and recheck inside applyAction', () => {
+  for (const overrides of [{ hydrated: false }, { checkpoint: { ready: false, exclusive: false } },
+    { checkpoint: { ready: true, exclusive: false } }, { busy: 'save' }, { busy: 'load' },
+    { shopControlsBusy: true }, { shopStartRef: { current: true } }]) {
+    const view = pageHarness(traditionFixture(), overrides), current = view.ref.current;
+    view.invoke('reserveEducationTradition'); assert.equal(view.ref.current, current); assert.equal(view.calls.state.length, 0);
+    const reserved = engine.reserveEducationTraditionAction(traditionFixture(), traditionFixture().party[0].id);
+    const cancel = pageHarness(reserved, overrides), pending = cancel.ref.current;
+    cancel.invoke('cancelEducationTradition'); assert.equal(cancel.ref.current, pending); assert.equal(cancel.calls.state.length, 0);
+  }
+  for (const name of ['reserveEducationTradition', 'cancelEducationTradition']) {
+    let state = traditionFixture();
+    if (name.startsWith('cancel')) state = engine.reserveEducationTraditionAction(state, state.party[0].id);
+    const view = pageHarness(state), next = { ...state, day: state.day + 1 };
+    const compiledHandler = ts.transpileModule(declaration(name), { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
+    let result;
+    const scope = { ...view.scope, applyAction: (_label, updater) => { result = updater(next); } };
+    const handler = new Function(...Object.keys(scope), `${compiledHandler}\nreturn ${name};`)(...Object.values(scope));
+    handler(); assert.equal(result, next);
   }
 });
 

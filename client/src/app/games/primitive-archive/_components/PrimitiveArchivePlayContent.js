@@ -62,6 +62,7 @@ import {
   projectRows,
   projectTraditionSummary,
   processingTraditionSummary,
+  educationTraditionSummary,
   prepareSuccessorAction,
   recipeRows,
   recruitPartyMemberAction,
@@ -90,6 +91,8 @@ import {
   runProjectAction,
   reserveProjectTraditionAction,
   reserveProcessingTraditionAction,
+  reserveEducationTraditionAction,
+  cancelEducationTraditionAction,
   runEventChainAction,
   runRecoveryChoiceAction,
   runResearchAction,
@@ -354,6 +357,7 @@ export default function PrimitiveArchivePlayContent() {
   const projects = useMemo(() => projectRows(state), [state]);
   const projectTradition = useMemo(() => projectTraditionSummary(state, actorId), [state, actorId]);
   const processingTradition = useMemo(() => processingTraditionSummary(state, actorId), [state, actorId]);
+  const educationTradition = useMemo(() => educationTraditionSummary(state, actorId), [state, actorId]);
   const tribe = useMemo(() => tribeSummary(state), [state]);
   const supplies = useMemo(() => survivalSupplySummary(state), [state]);
   const operations = useMemo(() => settlementOperationsSummary(state), [state]);
@@ -742,6 +746,35 @@ export default function PrimitiveArchivePlayContent() {
     if (!matchesDisplayedPlan(stateRef.current)) return;
     applyAction('가공대 전승 예약', (current) => matchesDisplayedPlan(current)
       ? reserveProcessingTraditionAction(current, actorId) : current);
+  };
+
+  const reserveEducationTradition = () => {
+    if (!hydrated || !educationTradition.canReserve) return;
+    const matchesDisplayedPlan = (current) => {
+      if (current.runId !== state.runId || current.day !== state.day || current.ended
+        || actorSelectionRef.current !== actorId) return false;
+      const live = educationTraditionSummary(current, actorId);
+      return live.canReserve && live.selectedTeachers === educationTradition.selectedTeachers
+        && live.selectedCivicId === educationTradition.selectedCivicId
+        && live.founderId === educationTradition.founderId;
+    };
+    if (!matchesDisplayedPlan(stateRef.current)) return;
+    applyAction('공교육 전승 예약', (current) => matchesDisplayedPlan(current)
+      ? reserveEducationTraditionAction(current, actorId) : current);
+  };
+
+  const cancelEducationTradition = () => {
+    if (!hydrated || !educationTradition.canCancel) return;
+    const displayedPending = JSON.stringify(educationTradition.pending);
+    const matchesDisplayedReservation = (current) => {
+      if (current.runId !== state.runId || current.day !== state.day || current.ended
+        || actorSelectionRef.current !== actorId) return false;
+      const live = educationTraditionSummary(current, actorId);
+      return live.canCancel && JSON.stringify(live.pending) === displayedPending;
+    };
+    if (!matchesDisplayedReservation(stateRef.current)) return;
+    applyAction('공교육 전승 예약 취소', (current) => matchesDisplayedReservation(current)
+      ? cancelEducationTraditionAction(current, actorId) : current);
   };
 
   const adjustTribeJob = (jobId, delta) => {
@@ -1164,6 +1197,9 @@ export default function PrimitiveArchivePlayContent() {
         reserveProjectTradition={reserveProjectTradition}
         processingTradition={processingTradition}
         reserveProcessingTradition={reserveProcessingTradition}
+        educationTradition={educationTradition}
+        reserveEducationTradition={reserveEducationTradition}
+        cancelEducationTradition={cancelEducationTradition}
         priorityPlannerRows={priorityPlannerRows}
         priorityCivicRows={priorityCivicRows}
         recentActionText={recentActionText}

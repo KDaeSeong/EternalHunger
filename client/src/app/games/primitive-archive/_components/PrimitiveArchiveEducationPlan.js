@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 
-function EducationPlanForm({ education, onConfigure, blockedReason }) {
+function EducationPlanForm({ education, onConfigure, blockedReason, tradition, onReserve, onCancel, hydrated, busy, ended }) {
   const [teachers, setTeachers] = useState(String(education.plan.teachers));
   const count = Number(teachers);
   const valid = teachers.trim() !== '' && Number.isSafeInteger(count) && count >= 0 && count <= 24;
@@ -44,13 +44,59 @@ function EducationPlanForm({ education, onConfigure, blockedReason }) {
       <span>{education.statusText}</span>
       <small>{education.timingText}</small>
     </div>
+    <PrimitiveArchiveEducationTradition tradition={tradition} education={education} onReserve={onReserve} onCancel={onCancel}
+      hydrated={hydrated} busy={busy} ended={ended} />
     <p>종이·진행할 제도·인원이 부족해 수업에 쓰이지 않은 기록대 일손은 일반 연구로 돌아갑니다. 가공대 제지(나무 1개 + 섬유 1개 → 종이 2장)는 제지 연구와 실제 가공 계획·일손이 필요합니다. 같은 아침 뒤에 생산한 종이는 다음 날 교육부터 사용합니다.</p>
   </div>;
 }
 
-export default function PrimitiveArchiveEducationPlan({ education, runId, onConfigure, blockedReason = '' }) {
+export function PrimitiveArchiveEducationTradition({ tradition, education, onReserve, onCancel, hydrated, busy, ended }) {
+  if (!tradition) return null;
+  const blocked = !hydrated || busy || ended;
+  const canReserve = !blocked && tradition.enabled && tradition.canReserve && typeof onReserve === 'function';
+  const canCancel = !blocked && tradition.canCancel && typeof onCancel === 'function';
+  const reason = !hydrated ? '진행 기록 확인이 끝난 뒤 예약할 수 있습니다.'
+    : busy ? '저장 또는 진행 보호 작업 중에는 예약할 수 없습니다.'
+      : ended ? '종료된 런에서는 전승을 예약할 수 없습니다.' : tradition.reason || '';
+  const settlement = tradition.lastSettlement;
+  const educationSettlement = settlement?.kind === 'education';
+  const descriptionId = 'primitive-education-tradition-conditions';
+  return <details className="primitive-processing-tradition-disclosure">
+    <summary><strong>공교육 전승 투자</strong><span>{ended ? '런 종료' : tradition.pending
+      ? tradition.pending.kind === 'education' ? `${tradition.pending.dueDay}일차 수업 예약` : '다른 공동 작업에 예약됨'
+      : canReserve ? '전승 1회 예약 가능' : `학습 전승 ${tradition.availableCharges}회`}</span></summary>
+    <div className="primitive-processing-tradition" role="group" aria-label="저장된 공교육 계획의 전승 예약">
+      <dl>
+        <div><dt>전승 제공자</dt><dd>{tradition.founderName || '활성 학습 전승 없음'}{tradition.modeLabel ? ` · ${tradition.modeLabel}` : ''} · 개인 학습과 공유하는 남은 사용권 {tradition.availableCharges}회</dd></div>
+        <div><dt>집행 대원</dt><dd>{tradition.executorName || '활동 대원 없음'}</dd></div>
+        <div><dt>다음 아침 대상 · 저장된 계획</dt><dd>{tradition.selectedCivicName || '진행 가능한 제도 없음'} · 교원 상한 {tradition.selectedTeachers}명</dd></div>
+        <div><dt>현재 비축 기준 전망</dt><dd>예상 교원 {tradition.teachers}명 · 종이 {education.paperStock === null ? '확인 불가' : `${education.paperStock}장`} · 기본 {tradition.basePoints}CP / 전승 추가 {tradition.bonusPoints}CP 예상</dd></div>
+        {tradition.evidenceText ? <div><dt>시조 기여</dt><dd>{tradition.evidenceText}</dd></div> : null}
+        <div><dt>예약 비용·조건</dt><dd>{tradition.costText}</dd></div>
+        <div><dt>실제 추가 효과·유효기간</dt><dd>{tradition.effectText}</dd></div>
+        <div><dt>현재 공유 예약</dt><dd>{tradition.pendingText || '현재 예약 없음'}</dd></div>
+        <div><dt>{educationSettlement ? '최근 공교육 전승 정산' : '최근 공유 예약 정산'}</dt><dd>{tradition.lastSettlementText || '전승 정산 미기록'}</dd></div>
+        {educationSettlement ? <div><dt>최근 실제 적용 CP</dt><dd>기본 수업 {settlement.basePoints}CP / 전승 추가 {settlement.bonusPoints}CP</dd></div> : null}
+      </dl>
+      <p id={descriptionId}>입력 중인 초안이 아닌 저장된 교원 계획과 제도에 사용권 1회를 즉시 소비해 예약합니다. 공동 프로젝트·가공대·공교육은 하루 한 건의 예약을 공유합니다. 바로 다음 아침에 같은 계획·제도의 실제 기본 수업이 있어야 전승이 적용됩니다. 계획·대상 변경, 수업 불가, 기한 경과나 취소로 만료되어도 환급하거나 다음 날로 넘기지 않습니다.</p>
+      <GameControlButton action="research" cue="off" type="button" disabled={!canReserve}
+        aria-describedby={descriptionId} title={canReserve ? tradition.costText : reason}
+        onClick={() => { if (canReserve) onReserve(); }}>
+        다음 아침 공교육에 전승 1회 예약
+      </GameControlButton>
+      {tradition.pending?.kind === 'education' ? <GameControlButton action="research" cue="off" type="button" disabled={!canCancel}
+        aria-describedby={descriptionId} title="사용권을 돌려받지 않고 예약을 취소합니다. 오늘의 공유 예약은 다시 할 수 없습니다."
+        onClick={() => { if (canCancel) onCancel(); }}>예약 취소 · 환급 없음</GameControlButton> : null}
+      <p className="primitive-processing-tradition__status">{reason || tradition.summaryText}</p>
+    </div>
+  </details>;
+}
+
+export default function PrimitiveArchiveEducationPlan({ education, runId, onConfigure, blockedReason = '',
+  tradition, onReserve, onCancel, hydrated = false, busy = false, ended = false }) {
   if (!education) return null;
   // Stock and day updates must not discard an unsaved draft.
   return <EducationPlanForm key={JSON.stringify([runId, education.plan.teachers])}
-    education={education} onConfigure={onConfigure} blockedReason={blockedReason} />;
+    education={education} onConfigure={onConfigure} blockedReason={blockedReason} tradition={tradition}
+    onReserve={onReserve} onCancel={onCancel} hydrated={hydrated} busy={busy} ended={ended} />;
 }

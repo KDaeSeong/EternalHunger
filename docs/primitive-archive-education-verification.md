@@ -113,3 +113,57 @@ an unchanged 1,229-file source manifest and the required production Worker
 first-phase check. The Worker executes in Node VM, not a browser or a foreground
 speed test. This client-only change keeps the Eternal Hunger engine identifier
 `4f56ccc77a1cfb80c23f58d0a571f4e14cd0ac19712a3f0a0f3545cfbd577d4f`.
+
+## Paid ancestral education reservation — 2026-11-11
+
+The existing study favor can now be reserved for the saved public-education
+plan. This uses one of the existing two study charges immediately, shares the
+one-reservation-per-day slot with construction and processing, and does not add
+AP, stamina, material, elapsed-time or RNG costs. A living executor with at
+least one AP and an actually qualified founder remain required. Legacy runs do
+not acquire a new ancestral history through normalization.
+
+The reservation pins the civic and saved teacher ceiling for the immediately
+following morning. Actual teachers must first consume existing paper and apply
+positive base CP. Only then can the existing study bonus add up to two CP in
+total, bounded by the same civic's remaining requirement. The bonus is not paid
+per teacher and cannot move to a subsequent civic. Newly processed paper still
+becomes available after that morning's teaching, under the existing order.
+Changed plans or targets, unavailable teaching, a completed target, an expired
+morning, cancellation or an ended run grant no replacement, rollover or refund.
+
+The existing teacher panel contains a collapsible reservation section. It
+separates the saved plan from an unsaved draft, current projections from actual
+base/bonus CP, and reservation costs from the ordinary lesson's paper cost.
+Reserve and cancel callbacks revalidate the latest run, day, actor, teacher
+ceiling, civic and provider through the existing protected action wrapper.
+
+Optional new education records count actual applications separately from CP.
+They preserve bounded recent/previous observed dates and CP rather than
+recalculating historical amounts from current teacher ratios. This allows
+consecutive lessons and reuse after a gap while still checking the latest
+actual lesson after cancellation replaces the shared reservation receipt.
+Old construction, processing and education receipts keep their prior meaning.
+This is consistency validation, not an assertion that locally editable saves
+provide cryptographic anti-cheat protection.
+
+Focused current-source checks pass 18 tradition groups and 11 component groups;
+existing education checks pass 11 groups and processing checkpoint checks pass
+13 groups. The preserved RED observations cover the originally missing APIs
+and an actual second-morning settlement failure. Subsequent regressions cover
+four consecutive lessons, a later reuse after a gap, fractional remaining CP,
+no target spillover, cancellation provenance, and forged receipt dates or CP.
+
+The complete `check:primitive-archive`, shared feedback shell, viewport shell
+and changed-source lint all exit 0 under
+`.local/code-audit/archive-education-tradition-checks-result.json`. All 1,257
+declared source files remain unchanged during that execution. Build and public
+delivery have separate receipts; no browser, natural login-expiry, human
+readability, historical-calendar or general-balance acceptance is inferred.
+
+The new production build also exits 0 with ID `b5PSS_qDtpH4zLOkUU0bS` and the
+same unchanged 1,257-file manifest. Its module-resolution checks pass 23 cases
+and the isolated Node VM Worker completes one fresh first phase. The Eternal
+Hunger engine remains `e8e8b934a677f183d9918e605aa42982cfb627479ce51983b095ab176b6db0a0`.
+The build receipt is `archive-education-tradition-build-result.json`; this does
+not substitute for the separate foreground spectator-performance test.

@@ -39,6 +39,9 @@ export default function PrimitiveArchiveTribeTab({
   projectTradition,
   processingTradition,
   reserveProcessingTradition,
+  educationTradition,
+  reserveEducationTradition,
+  cancelEducationTradition,
   hydrated = false,
   state,
   tribe,
@@ -180,6 +183,8 @@ export default function PrimitiveArchiveTribeTab({
         </div>
         <PrimitiveArchiveEducationPlan education={tribe.education} runId={state?.runId || ''}
           onConfigure={configureTribeEducation}
+          tradition={educationTradition} onReserve={reserveEducationTradition} onCancel={cancelEducationTradition}
+          hydrated={hydrated} busy={busy} ended={Boolean(state?.ended)}
           blockedReason={state?.ended ? '종료된 런에서는 공교육 계획을 변경할 수 없습니다.' : !hydrated ? '진행 기록 확인이 끝난 뒤 계획을 변경할 수 있습니다.' : jobEditBlockedReason} />
         <div className="primitive-tribe-ledger">
           <div className="primitive-work-policy__receipt"><span>직전 운영 방침·배치</span><strong>{workPolicyReceipt}</strong></div>

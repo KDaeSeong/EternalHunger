@@ -51,12 +51,13 @@ import { GAMEPLAY_PERK_CODES, normalizeGameplayPerkCodes } from '../../../../uti
 import { createFounderHistory, normalizeFounderHistory, recordFounderDeed, recordFounderDeath } from './primitiveArchiveFounders.js';
 export { founderHistoryRows } from './primitiveArchiveFounders.js';
 import { LINEAGE_RULES, createLineage, normalizeLineage, lineageSummary, prepareLineageSuccessor, retireLineageActor, tickLineageDay, lineageHousehold, settleLineageHousehold, observeLineageArrival, observeLineageDeaths } from './primitiveArchiveLineage.js';
-import { createAncestralFaith, normalizeAncestralFaith, runAncestralRite, ancestralActionChanceBonus, ancestralStudyBonus, ancestralCareBonus, consumeAncestralFavor, ancestralFaithRows } from './primitiveArchiveAncestralFaith.js';
+import { createAncestralFaith, normalizeAncestralFaith, runAncestralRite, ancestralActionChanceBonus, ancestralStudyBonus, ancestralCareBonus, consumeAncestralFavor, ancestralFaithRows, studyContributionBonus, STUDY_BONUS_POINTS } from './primitiveArchiveAncestralFaith.js';
 export { lineageSummary } from './primitiveArchiveLineage.js';
 export { ancestralFaithRows, ancestralFaithSummary } from './primitiveArchiveAncestralFaith.js';
 import { createProjectTradition, normalizeProjectTradition, reserveProjectTradition, projectTraditionBonus,
   settleProjectTradition, markProjectTraditionCompleted, projectTraditionReason, reserveProcessingTradition,
-  processingTraditionBonus, settleProcessingTradition, processingTraditionReason } from './primitiveArchiveProjectTradition.js';
+  processingTraditionBonus, settleProcessingTradition, processingTraditionReason,
+  reserveEducationTradition, educationTraditionBonus, settleEducationTradition, educationTraditionReason } from './primitiveArchiveProjectTradition.js';
 import { isValidTribeWorkPolicy, normalizeTribeWorkPolicy, tribeWorkPolicyDetails,
   prioritizeTribeWorkPolicy } from './primitiveArchiveWorkPolicy.js';
 import { DEFAULT_TRIBE_PROCESSING_PLAN, isValidTribeProcessingPlan,
@@ -1717,17 +1718,22 @@ export function projectTraditionSummary(state, actorId = '') {
     costText: '제작·건설 전승 사용권 1회 · AP/ST 소모 0 · 보유 AP 1 이상 필요 · 기존 사업 자재와 실제 건설대 일손 별도',
     effectText: '바로 다음 아침, 같은 사업의 실제 기본 건설 작업이 있을 때만 남은 필요량 안에서 작업 최대 +1. 하루 한 건이며 선택 변경·일손 0·자재 부족·완성 시 만료합니다. 이월·환급·추가 완성 보상은 없습니다.',
     summaryText: state.ended ? '런이 종료되어 예약된 추가 전승 작업은 실행되지 않습니다.'
-      : pending?.kind === 'processing' ? `${nameOf(pending.founderId)}의 전승을 ${processingNameOf(pending.actionId)}의 ${pending.dueDay}일차 아침 가공에 예약했습니다.`
+      : pending?.kind === 'education' ? `${nameOf(pending.founderId)}의 전승을 ${getCivic(pending.civicId)?.name || '공교육'}의 ${pending.dueDay}일차 아침 교육에 예약했습니다.`
+        : pending?.kind === 'processing' ? `${nameOf(pending.founderId)}의 전승을 ${processingNameOf(pending.actionId)}의 ${pending.dueDay}일차 아침 가공에 예약했습니다.`
         : pending ? `${nameOf(pending.founderId)}의 전승을 ${projectNameOf(pending.projectId)}의 ${pending.dueDay}일차 아침 공동 작업에 예약했습니다.`
       : reason || `${source.name}의 제작·건설 사용권 1회를 ${project.name}의 다음 아침 공동 작업에 맡길 수 있습니다.`,
     evidenceText: source ? `${source.name}의 실제 제작 ${Number(source.tallies.craft || 0)}회 · 캠프 관리 ${Number(source.tallies.camp || 0)}회 · 공동 사업 ${Number(source.tallies.project || 0)}회가 제작·건설 전승의 근거입니다. 살아 있는 인물은 가르침, 확인된 사망자는 가호로 이어집니다.`
       : '실제 제작·캠프 관리·공동 사업 기여가 합계 3회 이상인 창건자의 당일 제작·건설 전승이 필요합니다.',
     pending: pending ? { ...pending } : null,
-    pendingText: pending?.kind === 'processing'
+    pendingText: pending?.kind === 'education'
+      ? `${pending.dueDay}일차 아침 공교육 전승이 예약되어 있어 사업 전승을 함께 예약할 수 없습니다.`
+      : pending?.kind === 'processing'
       ? `${state.ended ? '런 종료로 예약 실행 안 됨. ' : ''}${pending.reservedDay}일차 예약 · ${pending.dueDay}일차 아침 · ${processingNameOf(pending.actionId)} 목표 ${pending.targetStock}개 · ${nameOf(pending.founderId)} · 추가 가공 최대 1묶음. 사업과 가공의 예약은 하루 한 건을 공유합니다.`
       : pending ? `${state.ended ? '런 종료로 추가 작업은 실행되지 않습니다. ' : ''}${pending.reservedDay}일차 예약 · ${pending.dueDay}일차 아침 · ${projectNameOf(pending.projectId)} · ${nameOf(pending.founderId)} · 추가 작업 최대 1. 현재 사업 선택을 바꿔도 예약 대상은 바뀌지 않습니다.` : '',
     lastSettlement: receipt ? { ...receipt } : null,
-    lastSettlementText: receipt?.kind === 'processing'
+    lastSettlementText: receipt?.kind === 'education'
+      ? `${receipt.day}일차 공교육 · ${nameOf(receipt.founderId)} · ${educationTraditionReason(receipt.reason)}`
+      : receipt?.kind === 'processing'
       ? `${receipt.day}일차 아침 · ${processingNameOf(receipt.actionId)} · ${nameOf(receipt.founderId)} · ${processingTraditionReason(receipt.reason)}`
       : receipt ? `${receipt.day}일차 아침 · 예약 ${projectNameOf(receipt.reservedProjectId)} · 실제 정산 ${projectNameOf(receipt.projectId)} · ${nameOf(receipt.founderId)} · 기본 작업 ${receipt.baseWork} + 전승 ${receipt.bonusWork} · 진행 ${receipt.progressBefore} → ${receipt.progressAfter}. ${projectTraditionReason(receipt.reason)}` : '',
     records: tradition.records.map(row => ({ ...row, projectName: projectNameOf(row.projectId), founderName: nameOf(row.founderId),
@@ -1778,10 +1784,12 @@ export function processingTraditionSummary(state, actorId = '') {
   const processingReceipt = receipt?.kind === 'processing' ? receipt : null;
   const pendingText = processingPending
     ? `${state.ended ? '런 종료로 예약 실행 안 됨. ' : ''}${processingPending.reservedDay}일차 예약 · ${processingPending.dueDay}일차 아침 · ${actionNameOf(processingPending.actionId)} 목표 ${processingPending.targetStock}개 · ${nameOf(processingPending.founderId)} · 실제 기본 가공과 별도 재료 지불이 있을 때 추가 최대 1묶음. 대상 변경 시 이월·환급하지 않습니다.`
-    : pending ? `${pending.dueDay}일차 아침의 ${TRIBE_PROJECTS.find(row => row.id === pending.projectId)?.name || '공동 사업'} 전승이 예약되어 있어 가공 전승을 함께 예약할 수 없습니다.` : '';
+    : pending?.kind === 'education' ? `${pending.dueDay}일차 아침 공교육 전승이 예약되어 있어 가공 전승을 함께 예약할 수 없습니다.`
+      : pending ? `${pending.dueDay}일차 아침의 ${TRIBE_PROJECTS.find(row => row.id === pending.projectId)?.name || '공동 사업'} 전승이 예약되어 있어 가공 전승을 함께 예약할 수 없습니다.` : '';
   const lastSettlementText = processingReceipt
     ? `${processingReceipt.day}일차 아침 · 예약 ${actionNameOf(processingReceipt.reservedActionId)} 목표 ${processingReceipt.reservedTargetStock}개 · ${nameOf(processingReceipt.founderId)} · 기본 ${processingReceipt.baseBatches} + 전승 ${processingReceipt.bonusBatches}묶음 · 재고 ${processingReceipt.stockBefore ?? '확인 불가'} → ${processingReceipt.stockAfter ?? '확인 불가'}. ${processingTraditionReason(processingReceipt.reason)}`
-    : receipt ? '직전 전승 정산은 공동 사업 기록입니다. 가공 실기여로 합산하지 않습니다.' : '';
+    : receipt?.kind === 'education' ? '직전 전승 정산은 공교육 기록입니다. 가공 실기여로 합산하지 않습니다.'
+      : receipt ? '직전 전승 정산은 공동 사업 기록입니다. 가공 실기여로 합산하지 않습니다.' : '';
   return { enabled, canReserve: !reason, reason,
     costText: '기존 제작·건설 전승 사용권 1회 · 예약 시 정확히 1회 소모 · AP/ST 소모 0 · 보유 AP 1 이상 · 추가 묶음 재료 전액 별도',
     effectText: '같은 공정과 목표의 바로 다음 아침 실제 기본 가공이 1묶음 이상일 때만 남은 목표·실제 재료·수량 한도 안에서 추가 최대 1묶음. 사업과 하루 한 건을 공유하며 실패 시 이월·환급하지 않습니다.',
@@ -6001,6 +6009,74 @@ export function tribeEducationSummary(state) {
   return tribeEducationSummaryFor(state, normalizeTribeState(state.tribe));
 }
 
+export function educationTraditionSummary(state, actorId = '') {
+  const tradition = normalizeProjectTradition(state.projectTradition, state);
+  const faith = normalizeAncestralFaith(state.ancestralFaith, state);
+  const calculation = tribeEducationCalculation(state, normalizeTribeState(state.tribe));
+  const { plan, civic, teachers, progressBefore, expectedPoints } = calculation;
+  const actor = actorId ? livingActorForAction(state, actorId) : state.party.find(row => Number(row.hp || 0) > 0);
+  const pending = tradition.pending;
+  const receipt = tradition.lastSettlement;
+  const sourceId = faith.active?.founderId || pending?.founderId || (receipt?.kind === 'education' ? receipt.founderId : '') || '';
+  const source = sourceId ? ancestralFaithRows(state).find(row => row.founderId === sourceId) : null;
+  const enabled = tradition.origin === 'new_run';
+  const bonusPoints = civic ? studyContributionBonus(expectedPoints, Math.max(0, civic.cost - progressBefore)) : 0;
+  const reason = state.ended ? '종료된 런에서는 교육 전승을 예약할 수 없습니다.'
+    : !enabled ? '이전 저장은 교육 전승을 새로 활성화하지 않습니다. 기존 교육과 기록은 유지합니다.'
+      : !actor ? '현재 활동 중인 생존 대원을 선택해야 합니다.'
+        : Number(state.ap || 0) < 1 ? '예약은 AP를 소비하지 않지만 활동할 행동력 1 이상이 필요합니다.'
+          : pending ? '이미 다음 아침의 전승이 예약되어 있습니다. 사업·가공·교육은 하루 한 건을 공유합니다.'
+            : tradition.lastReservedDay === state.day ? '사업·가공·교육 전승은 하루 한 건만 예약할 수 있습니다.'
+              : faith.origin !== 'new_run' || faith.active?.domain !== 'study' || !(faith.active.remaining >= 1)
+                ? '오늘 유효한 연구·회의 가르침 또는 가호의 남은 사용권 1회가 필요합니다.'
+                : !source || source.status === 'unconfirmed' ? '전승 제공자의 실제 생애와 기여를 확인할 수 없습니다.'
+                  : calculation.blockedReason ? calculation.blockedReason
+                    : teachers < 1 || expectedPoints <= 0 ? '실제 교원·기존 종이와 기본 수업 진척이 필요합니다.'
+                      : bonusPoints <= 0 ? '기본 수업만으로 대상 제도가 완성되어 추가 전승을 예약하지 않습니다.' : '';
+  const nameOf = id => state.founderHistory?.members?.find(row => row.actorId === id)?.name || id;
+  const educationPending = pending?.kind === 'education' ? pending : null;
+  const educationReceipt = receipt?.kind === 'education' ? receipt : null;
+  const pendingText = educationPending
+    ? `${educationPending.reservedDay}일차 예약 · ${educationPending.dueDay}일차 아침 · ${getCivic(educationPending.civicId)?.name || educationPending.civicId} · 교원 상한 ${educationPending.teachers}명 · ${nameOf(educationPending.founderId)}. 사용권은 이미 소비했으며 실제 기본 수업 뒤에만 남은 필요량 안에서 전승을 적용합니다. 취소·조건 변경·미실행은 이월·환급하지 않습니다.`
+    : pending ? `${pending.dueDay}일차 아침의 다른 전승이 예약되어 있어 교육 전승을 함께 예약할 수 없습니다.` : '';
+  const lastSettlementText = educationReceipt
+    ? `${educationReceipt.day}일차 교육 전승 · ${getCivic(educationReceipt.civicId || educationReceipt.reservedCivicId)?.name || '대상 없음'} · ${nameOf(educationReceipt.founderId)} · 실제 교원 ${educationReceipt.teachers}명 · 종이 ${educationReceipt.paperSpent}장 · 기본 ${educationReceipt.basePoints} + 전승 ${educationReceipt.bonusPoints}CP. ${educationTraditionReason(educationReceipt.reason)}`
+    : receipt ? '직전 전승 정산은 다른 공동 작업입니다. 교육 실기여로 합산하지 않습니다.' : '';
+  return { enabled, canReserve: !reason, canCancel: Boolean(!state.ended && actor && state.ap >= 1
+      && educationPending && educationPending.reservedDay === state.day), reason,
+    costText: '기존 연구·회의 전승 사용권 1회 · 예약 시 선소비 · AP/ST·재료·시간 소모 0 · 보유 AP 1 이상',
+    effectText: '바로 다음 아침 같은 교원 상한·같은 제도의 실제 기본 수업 뒤에만 기존 전승 최대 +2CP. 교원마다 지급하지 않으며 다른 제도로 넘기지 않습니다. 사업·가공과 하루 한 건을 공유하고 취소·만료는 무환급입니다.',
+    evidenceText: source ? `${source.name}의 실제 연구·회의·외교·공동 운영 기여가 전승의 근거입니다. ${source.status === 'deceased' ? '확인된 사망자의 가호' : '살아 있는 인물의 가르침'}도 같은 한도를 사용합니다.`
+      : '실제 연구·회의·외교·공동 운영 공로를 가진 창건자의 당일 연구·회의 전승이 필요합니다.',
+    summaryText: state.ended ? '런 종료로 예약을 실행하지 않습니다. 실제 정산 없이 성과를 만들지 않습니다.' : pendingText || reason || '기존 사용권 1회를 다음 아침의 실제 공교육에 예약할 수 있습니다.',
+    pending: pending ? { ...pending } : null, pendingText, lastSettlement: educationReceipt ? { ...educationReceipt } : null,
+    lastSettlementText, records: (tradition.educationRecords || []).map(row => ({ ...row,
+      text: `${getCivic(row.civicId)?.name || row.civicId} · ${nameOf(row.founderId)} · 실제 적용 ${row.applications}회 / 전승 ${row.appliedPoints}CP · ${row.firstDay}~${row.lastDay}일차` })),
+    selectedCivicId: civic?.id || '', selectedCivicName: civic?.name || '', selectedTeachers: plan.teachers,
+    founderId: source?.founderId || '', founderName: source?.name || '',
+    modeLabel: source ? source.status === 'deceased' ? '시조신의 가호' : source.status === 'unconfirmed' ? '제공 인물 확인 불가' : '생전 가르침' : '',
+    executorName: actor?.name || '', availableCharges: faith.active?.domain === 'study' ? faith.active.remaining : 0,
+    teachers, basePoints: expectedPoints, bonusPoints: reason ? 0 : bonusPoints };
+}
+
+export function reserveEducationTraditionAction(state, actorId) {
+  const summary = educationTraditionSummary(state, actorId || '');
+  if (!livingActorForAction(state, actorId)) return addLog(state, '현재 활동 중인 생존 대원을 선택해야 합니다.');
+  if (!summary.canReserve) return addLog(state, summary.reason);
+  const paid = consumeAncestralFavor(state, 'study', { attempted: true });
+  const reserved = reserveEducationTradition(paid,
+    { civicId: summary.selectedCivicId, teachers: summary.selectedTeachers, founderId: summary.founderId });
+  if (reserved === paid) return state;
+  return addLog(reserved, `${summary.founderName}의 연구·회의 전승 1회를 ${summary.selectedCivicName} 공교육의 ${state.day + 1}일차 아침에 예약했습니다. 사용권은 선소비하며 실제 기본 수업에만 전승을 적용합니다. 취소·만료는 무환급입니다.`);
+}
+
+export function cancelEducationTraditionAction(state, actorId) {
+  const summary = educationTraditionSummary(state, actorId || '');
+  if (!livingActorForAction(state, actorId) || !summary.canCancel) return state;
+  return addLog(settleEducationTradition(state, { cancelled: true }),
+    '교육 전승 예약을 취소했습니다. 사용권과 오늘의 예약 기회는 환급하지 않습니다. AP·ST·재료·시간은 추가 소비하지 않습니다.');
+}
+
 function tribeEducationSummaryFor(state, tribe) {
   const calculation = tribeEducationCalculation(state, tribe);
   const { plan, scholars, paperStock, unlocked, civic, teachers, generalScholars,
@@ -6019,19 +6095,29 @@ function settleTribeEducation(state, tribe) {
   const calculation = tribeEducationCalculation(state, tribe);
   const { plan, scholars, paperStock, civic, progressBefore, teachers, requestedPoints } = calculation;
   // Disabled plans preserve the old labor allocation and do not invent history.
-  if (!plan.teachers) return { state, teachers: 0, receipt: null };
+  const pending = state.projectTradition?.pending?.kind === 'education' ? state.projectTradition.pending : null;
+  if (!plan.teachers) return { state: pending ? settleEducationTradition(state) : state, teachers: 0, receipt: null };
   let next = teachers ? addCivicProgress(state, civic.id, requestedPoints, '공교육', { silent: true }) : state;
-  const progressAfter = civic ? Number(normalizeCivics(next.civics, next.research).progress[civic.id] || 0) : 0;
-  const appliedPoints = Math.max(0, progressAfter - progressBefore);
-  const actualTeachers = appliedPoints > 0 ? teachers : 0;
+  const baseAfter = civic ? Number(normalizeCivics(next.civics, next.research).progress[civic.id] || 0) : 0;
+  const basePoints = Math.max(0, baseAfter - progressBefore);
+  const actualTeachers = basePoints > 0 ? teachers : 0;
   if (actualTeachers) next = { ...next, inventory: { ...next.inventory, paper: paperStock - actualTeachers } };
+  const traditionArgs = { civicId: civic?.id || '', teachersRequested: plan.teachers, teachers: actualTeachers,
+    paperSpent: actualTeachers, basePoints, progressBefore, remainingNeed: civic ? Math.max(0, civic.cost - progressBefore) : 0 };
+  const eligibleBonus = pending ? educationTraditionBonus(next, traditionArgs) : 0;
+  if (eligibleBonus > 0) next = addCivicProgress(next, civic.id, STUDY_BONUS_POINTS, '선조의 공교육 전승', { silent: true });
+  const progressAfter = civic ? Number(normalizeCivics(next.civics, next.research).progress[civic.id] || 0) : 0;
+  const bonusPoints = Math.max(0, progressAfter - baseAfter);
+  const appliedPoints = Math.max(0, progressAfter - progressBefore);
+  if (pending) next = settleEducationTradition(next, { ...traditionArgs, bonusPoints, progressAfter });
   const receipt = { teachersRequested: plan.teachers, scholarsAvailable: scholars,
     teachers: actualTeachers, generalScholars: scholars - actualTeachers, civicId: civic?.id || '',
-    progressBefore, progressAfter, requestedPoints: actualTeachers ? requestedPoints : 0, appliedPoints,
+    progressBefore, progressAfter, requestedPoints: actualTeachers ? requestedPoints + bonusPoints : 0, appliedPoints,
     paperBefore: paperStock, paperAfter: actualTeachers ? paperStock - actualTeachers : paperStock,
     spent: actualTeachers ? { paper: actualTeachers } : {},
     reason: actualTeachers ? calculation.statusText
-      : calculation.blockedReason || '실제 진척을 적용하지 못해 종이를 소비하지 않고 기록대 일손을 일반 연구로 돌렸습니다.' };
+      : calculation.blockedReason || '실제 진척을 적용하지 못해 종이를 소비하지 않고 기록대 일손을 일반 연구로 돌렸습니다.',
+    ...(pending ? { basePoints, traditionPoints: bonusPoints, traditionFounderId: pending.founderId } : {}) };
   return { state: next, teachers: actualTeachers, receipt };
 }
 

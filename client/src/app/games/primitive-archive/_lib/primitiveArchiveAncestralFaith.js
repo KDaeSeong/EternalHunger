@@ -28,6 +28,7 @@ const RESPONSES = {
 const BONUS = 0.15;
 const USES = 2;
 const MIN_CONTRIBUTIONS = 3;
+export const STUDY_BONUS_POINTS = 2;
 const isRecord = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const hasShape = (value, keys) => isRecord(value) && Object.keys(value).length === keys.length
   && keys.every(key => Object.hasOwn(value, key));
@@ -166,9 +167,19 @@ function activeFor(state, domain) {
 }
 
 export function ancestralStudyBonus(state, baseContribution, remainingNeed) {
-  if (!activeFor(state, 'study') || !Number.isFinite(baseContribution) || baseContribution <= 0
+  if (!activeFor(state, 'study')) return 0;
+  return studyContributionBonus(baseContribution, remainingNeed);
+}
+
+export function hasAncestralDomainContributions(member, domain) {
+  return Boolean(member?.isFounder && CONTRIBUTIONS[domain]
+    && CONTRIBUTIONS[domain].reduce((sum, kind) => sum + Number(member.tallies?.[kind] || 0), 0) >= MIN_CONTRIBUTIONS);
+}
+
+export function studyContributionBonus(baseContribution, remainingNeed) {
+  if (!Number.isFinite(baseContribution) || baseContribution <= 0
     || !Number.isFinite(remainingNeed) || remainingNeed <= 0) return 0;
-  return Math.min(2, Math.max(0, remainingNeed - baseContribution));
+  return Math.min(STUDY_BONUS_POINTS, Math.max(0, remainingNeed - baseContribution));
 }
 
 export function ancestralCareBonus(state, hpBefore, baseHealing) {

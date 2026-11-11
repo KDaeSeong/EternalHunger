@@ -220,7 +220,7 @@
     "check:primitive-archive:settlement-day": "node ./scripts/check-primitive-archive-settlement-day.mjs && node ./scripts/check-primitive-archive-settlement-day-ui.mjs",
     "check:primitive-archive:processing": "node ./scripts/check-primitive-archive-processing.mjs && node ./scripts/check-primitive-archive-processing-checkpoint.mjs && node ./scripts/check-primitive-archive-processing-ui.mjs && npm run check:primitive-archive:processing-tradition",
     "check:primitive-archive:processing-tradition": "node ./scripts/check-primitive-archive-processing-tradition.mjs && node ./scripts/check-primitive-archive-processing-tradition-checkpoint.mjs && node ./scripts/check-primitive-archive-processing-tradition-ui.mjs",
-    "check:primitive-archive:education": "node ./scripts/check-primitive-archive-education.mjs && node ./scripts/check-primitive-archive-education-ui.mjs",
+    "check:primitive-archive:education": "node ./scripts/check-primitive-archive-education.mjs && node ./scripts/check-primitive-archive-education-tradition.mjs && node ./scripts/check-primitive-archive-education-ui.mjs",
     "check:primitive-archive:checkpoint": "node ./scripts/check-primitive-archive-checkpoint.mjs",
     "check:primitive-archive:run-records": "node ./scripts/check-primitive-archive-run-records.mjs",
     "check:primitive-archive:progression": "node ./scripts/check-primitive-archive-progression.mjs",
