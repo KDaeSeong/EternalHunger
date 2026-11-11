@@ -3,6 +3,8 @@ import './lib/register-simulation-modules.mjs';
 const engine = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveEngine.js');
 const checkpoint = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveCheckpoint.js');
 const tradition = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveProjectTradition.js');
+const lifecycle = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveLineage.js');
+const faith = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveAncestralFaith.js');
 const { recordFounderDeed } = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveFounders.js');
 const clone = value => structuredClone(value);
 const jobs = values => Object.fromEntries(engine.TRIBE_JOBS.map(job => [job.id, values[job.id] || 0]));
@@ -11,7 +13,7 @@ class Storage {
   values = new Map(); getItem(key) { return this.values.get(key) ?? null; }
   setItem(key, value) { this.values.set(key, String(value)); } removeItem(key) { this.values.delete(key); }
 }
-function fixture() {
+function fixture(withRite = true) {
   let state = engine.createNewState({ runId: 'education-tradition-contract', difficulty: 'easy',
     now: '2026-11-11T00:00:00.000Z', rng: () => 0.5 });
   state.camp = { ...state.camp, fireLevel: 1, shelterLevel: 3, workbenchLevel: 1, fuel: 20 };
@@ -30,8 +32,10 @@ function fixture() {
   state = engine.normalizeState(state);
   for (let i = 0; i < 3; i++) state = recordFounderDeed(state, {
     actorId: state.party[0].id, kind: 'research_contribution', success: true, target: 'bounded-fixture' });
-  state = engine.ancestralRiteAction(state, state.party[1].id, state.party[0].id);
-  assert.equal(state.ancestralFaith.active?.domain, 'study');
+  if (withRite) {
+    state = engine.ancestralRiteAction(state, state.party[1].id, state.party[0].id);
+    assert.equal(state.ancestralFaith.active?.domain, 'study');
+  }
   return engine.configureTribeEducationAction(state, { teachers: 2 });
 }
 const reserve = state => engine.reserveEducationTraditionAction(state, state.party[1].id);
@@ -273,6 +277,86 @@ check('corrupt current and previous education provenance blocks checkpoint rewri
     assert.equal(checkpoint.writeCheckpoint(storage, 'guest', source, { expectedRevision: 2, savedAt }).status, 'corrupt');
     assert.equal(checkpoint.restorePreviousCheckpoint(storage, 'guest', { expectedRevision: 2, savedAt }).status, 'corrupt');
     assert.equal(storage.getItem(key), corrupt);
+  }
+});
+function retiredProvider() {
+  const source = fixture(false), founderId = source.party[0].id, executorId = source.party[1].id;
+  const prepared = engine.prepareSuccessorAction(source, founderId, { rng: () => 0.5 });
+  assert.ok(prepared.lineage.prepared.some(row => row.mentorId === founderId));
+  const state = engine.retireFounderAction(prepared, founderId);
+  assert.equal(state.lineage.members.find(row => row.actorId === founderId).stage, 'retired');
+  assert.equal(state.party.some(row => row.id === founderId), false);
+  return { state, founderId, executorId };
+}
+function confirmHouseholdDeath(source, founderId) {
+  const injured = clone(source), member = injured.lineage.members.find(row => row.actorId === founderId);
+  member.retiredSnapshot.hp = 10; member.retiredSnapshot.hunger = 80;
+  const before = clone(injured), dead = lifecycle.settleLineageHousehold(injured, 1);
+  assert.deepEqual(injured, before, 'Actual household death must preserve its input');
+  assert.equal(dead.lineage.members.find(row => row.actorId === founderId).stage, 'deceased');
+  assert.ok(dead.founderHistory.members.find(row => row.actorId === founderId).deathRecord);
+  for (const field of ['meta', 'inventory', 'counters', 'ancestralFaith', 'projectTradition'])
+    assert.deepEqual(dead[field], before[field], `Death cannot grant ${field}`);
+  assert.deepEqual(dead.founderHistory.members.map(row => row.tallies), before.founderHistory.members.map(row => row.tallies));
+  return dead;
+}
+check('living, actually retired and confirmed deceased study providers share real education costs and capped power', () => {
+  const living = fixture(false), retired = retiredProvider();
+  const dead = { ...retired, state: confirmHouseholdDeath(retired.state, retired.founderId) };
+  for (const [entry, status] of [[{ state: living, founderId: living.party[0].id, executorId: living.party[1].id }, 'living'],
+    [retired, 'retired'], [dead, 'deceased']]) {
+    const { state, founderId, executorId } = entry, before = clone(state);
+    assert.equal(faith.ancestralFaithRows(state).find(row => row.founderId === founderId).status, status);
+    const invoked = engine.ancestralRiteAction(state, executorId, founderId);
+    assert.equal(invoked.ancestralFaith.active?.domain, 'study'); assert.equal(balance(invoked), 2);
+    assert.equal(invoked.inventory.berry, state.inventory.berry - 1);
+    assert.equal(invoked.ap, state.ap); assert.deepEqual(invoked.party, state.party);
+    const selected = engine.reserveEducationTraditionAction(invoked, executorId);
+    assert.equal(balance(selected), 1); assert.equal(selected.projectTradition.pending.founderId, founderId);
+    assert.equal(engine.educationTraditionSummary(selected, executorId).modeLabel,
+      status === 'deceased' ? '시조신의 가호' : '생전 가르침');
+    const restored = roundTrip(selected), plain = morning(invoked), next = morning(restored);
+    assert.equal(receipt(next).traditionPoints, 2); assert.equal(receipt(next).traditionFounderId, founderId);
+    assert.equal(receipt(next).basePoints, receipt(plain).appliedPoints);
+    assert.deepEqual(receipt(next).spent, receipt(plain).spent);
+    assert.equal(next.projectTradition.educationRecords[0].applications, 1);
+    assert.equal(next.projectTradition.educationRecords[0].appliedPoints, 2);
+    assert.deepEqual(roundTrip(next).projectTradition, next.projectTradition);
+    assert.deepEqual(state, before);
+  }
+});
+check('confirmed death after payment preserves the paid reservation without renewing rights or inventing contribution', () => {
+  const retired = retiredProvider(), { founderId, executorId } = retired;
+  const invoked = engine.ancestralRiteAction(retired.state, executorId, founderId);
+  const selected = engine.reserveEducationTraditionAction(invoked, executorId);
+  const dead = confirmHouseholdDeath(selected, founderId);
+  assert.equal(balance(dead), 1); assert.deepEqual(dead.projectTradition, selected.projectTradition);
+  const duplicate = engine.ancestralRiteAction(dead, executorId, founderId);
+  assert.deepEqual(duplicate.ancestralFaith, dead.ancestralFaith);
+  assert.deepEqual(duplicate.inventory, dead.inventory);
+  const next = morning(roundTrip(dead));
+  assert.equal(receipt(next).traditionPoints, 2);
+  assert.equal(next.projectTradition.educationRecords[0].applications, 1);
+  assert.equal(morning(next).projectTradition.educationRecords[0].applications, 1);
+});
+check('unconfirmed and contradicted provider lives cannot authorize a rite or education reservation', () => {
+  const source = fixture(false), founderId = source.party[0].id, executorId = source.party[1].id;
+  const unknown = clone(source); unknown.party = unknown.party.filter(row => row.id !== founderId);
+  delete unknown.equipment[founderId];
+  const contradicted = clone(source);
+  contradicted.founderHistory.members.find(row => row.actorId === founderId).deathRecord = {
+    day: source.day, source: 'night', reason: 'contradicted test evidence', hpBefore: 10,
+    damage: 10, hungerDamage: 10, coldDamage: 0, hypothermiaDamage: 0 };
+  for (const state of [unknown, contradicted]) {
+    assert.equal(faith.ancestralFaithRows(state).find(row => row.founderId === founderId).status, 'unconfirmed');
+    const invoked = engine.ancestralRiteAction(state, executorId, founderId);
+    assert.deepEqual(invoked.ancestralFaith, state.ancestralFaith);
+    assert.deepEqual(invoked.inventory, state.inventory);
+    assert.equal(engine.educationTraditionSummary(invoked, executorId).canReserve, false);
+    const rejected = engine.reserveEducationTraditionAction(invoked, executorId);
+    assert.deepEqual(rejected.projectTradition, state.projectTradition);
+    assert.deepEqual(rejected.inventory, state.inventory);
+    assert.equal(balance(rejected), 0);
   }
 });
 console.log(JSON.stringify({ checks, pass: failures.length === 0, failures }));

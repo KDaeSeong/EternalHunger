@@ -22,7 +22,8 @@ function fixture(assignments = { forager: 2, builder: 2, scholar: 2 }) {
     now: '2026-11-05T00:00:00.000Z', rng })).state;
   state.camp = { ...state.camp, fireLevel: 1, shelterLevel: 3, workbenchLevel: 1, fuel: 20 };
   state.weather = { id: 'clear', name: '검사 맑음', cold: 0, temp: 20, actionMod: 0 };
-  state.inventory = { berry: 100, wood: 30, fiber: 30, clay: 10, grain: 30, metal_ore: 20, metal_ingot: 20 };
+  state.inventory = { berry: 100, wood: 30, fiber: 30, clay: 10, grain: 30, metal_ore: 20, metal_ingot: 20,
+    meat: 20, resin: 20, herb: 20 };
   for (const id of ['GATHERING', 'HUNTING', 'SETTLEMENT', 'FOOD_STORAGE', 'POTTERY', 'CORDAGE',
     'BRONZE_WORKING', 'EARLY_IRONWORKING', 'WATERMILL', 'PAPERMAKING']) state.research.completed[id] = true;
   state.research.selectedTechId = 'STONE_TOOLS';

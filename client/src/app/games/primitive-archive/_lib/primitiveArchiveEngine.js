@@ -5745,6 +5745,8 @@ const DEBATE_CIVIC_POINTS = 3;
 const IRRIGATION_MAX_CHARGES = 3;
 const IRRIGATION_CHANCE_BONUS = 0.12;
 const IRRIGATION_ACTION_COST = { wood: 2, clay: 1 };
+const FOOD_PRESERVATION_COST = { meat: 2, resin: 1, berry: 1, herb: 1 };
+const FOOD_PRESERVATION_REWARD = [['packed_ration', 1]];
 const PRODUCTION_ACTION_RECIPES = {
   kiln: { context: '점토를 굽는 가마', cost: { clay: 2, wood: 1 }, reward: [['pottery', 2]] },
   weave: { context: '섬유를 엮는 베틀', cost: { fiber: 3 }, reward: [['woven_cloth', 1]] },
@@ -5752,6 +5754,7 @@ const PRODUCTION_ACTION_RECIPES = {
   forge: { context: '주괴를 두드리는 단조장', cost: { metal_ingot: 1, wood: 1 }, reward: [['metal_tools', 1]] },
   mill: { context: '곡물을 가는 수차 제분소', cost: { grain: 3 }, reward: [['milled_grain', 2]] },
   paper: { context: '나무와 섬유를 종이로 만드는 제지소', cost: { wood: 1, fiber: 1 }, reward: [['paper', 2]] },
+  preserve: { context: '식량을 보존하는 가공대', cost: FOOD_PRESERVATION_COST, reward: FOOD_PRESERVATION_REWARD },
 };
 const MARKET_EXPORTS = [
   { itemId: 'pottery', qty: 2, rewardQty: 3 },
@@ -5762,8 +5765,6 @@ const MARKET_EXPORTS = [
   { itemId: 'hide', qty: 2, rewardQty: 3 },
 ];
 const MARKET_IMPORTS = ['wood', 'stone', 'fiber', 'clay', 'grain', 'herb'];
-const FOOD_PRESERVATION_COST = { meat: 2, resin: 1, berry: 1, herb: 1 };
-const FOOD_PRESERVATION_REWARD = [['packed_ration', 1]];
 const ROAD_MAX_CHARGES = 4;
 const ROAD_STAMINA_REDUCTION = 4;
 const ROAD_ACTION_COST = { stone: 3, wood: 2 };
@@ -6319,7 +6320,8 @@ export function utilityActionRows(state, actorId) {
     let outcome = '';
     let materialText = '';
 
-    const productionRecipe = PRODUCTION_ACTION_RECIPES[profile.id];
+    // 수동 식량 보존은 기존 표시와 전용 행동 경로를 유지한다.
+    const productionRecipe = profile.id === 'preserve' ? null : PRODUCTION_ACTION_RECIPES[profile.id];
     if (productionRecipe) {
       const materialsReady = hasResources(current.inventory, productionRecipe.cost);
       const outputItemId = productionRecipe.reward[0]?.[0] || '';
@@ -6480,7 +6482,8 @@ export function runUtilityAction(state, actorId, actionId, options = {}) {
   const rng = options.rng || Math.random;
   const actor = getActor(current, actorId);
   let next = current;
-  const productionRecipe = PRODUCTION_ACTION_RECIPES[profile.id];
+  // 공동 가공은 같은 재료 정의를 공유하되 수동 행동의 기존 처리를 대체하지 않는다.
+  const productionRecipe = profile.id === 'preserve' ? null : PRODUCTION_ACTION_RECIPES[profile.id];
   if (productionRecipe) {
     next = {
       ...next,

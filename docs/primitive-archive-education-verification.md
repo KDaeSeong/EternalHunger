@@ -147,12 +147,22 @@ Old construction, processing and education receipts keep their prior meaning.
 This is consistency validation, not an assertion that locally editable saves
 provide cryptographic anti-cheat protection.
 
-Focused current-source checks pass 18 tradition groups and 11 component groups;
+Focused current-source checks pass 21 tradition groups and 11 component groups;
 existing education checks pass 11 groups and processing checkpoint checks pass
 13 groups. The preserved RED observations cover the originally missing APIs
 and an actual second-morning settlement failure. Subsequent regressions cover
 four consecutive lessons, a later reuse after a gap, fractional remaining CP,
 no target spillover, cancellation provenance, and forged receipt dates or CP.
+
+The three added lifecycle groups use the actual successor preparation,
+retirement and confirmed-death helpers before study rites, reservation, morning
+teaching and checkpoint restoration. Living, retired and confirmed-deceased
+providers keep the same payment and effect limits. A provider dying after
+reservation does not reset the paid use or daily rite; an unconfirmed or
+contradictory provider does not gain permission. These are controlled function
+and save tests, not a natural browser aging or human-evaluation result. The
+review receipt is `archive-education-provider-lifecycle-review.json`; the earlier
+18-group feature evidence remains historical evidence for its original scope.
 
 The complete `check:primitive-archive`, shared feedback shell, viewport shell
 and changed-source lint all exit 0 under
@@ -167,3 +177,10 @@ and the isolated Node VM Worker completes one fresh first phase. The Eternal
 Hunger engine remains `e8e8b934a677f183d9918e605aa42982cfb627479ce51983b095ab176b6db0a0`.
 The build receipt is `archive-education-tradition-build-result.json`; this does
 not substitute for the separate foreground spectator-performance test.
+
+The lifecycle extension subsequently passes the full primitive archive chain,
+shared feedback/viewport checks and changed-source lint in the 1,258-file
+`archive-preserve-checks-result.json` manifest. Its separate build receipt is
+`archive-preserve-build-result.json`, build `j11B4RtvJfuw-XOhnjZZ_`, exit 0 and
+unchanged source/engine. This later evidence includes the 21-group extension;
+the 1,257-file original feature receipts above retain their original scope.
