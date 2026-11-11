@@ -1,6 +1,6 @@
 import { updateEffects, canBasicAttackByStatus, canMoveByStatus, getStoredActiveStatusEffects,
   hasActionBlockStatus, isTargetableByStatus } from '../../../utils/statusLogic.js';
-import { getActorDimensionRiftId, getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
+import { getActorDimensionRiftId, getCombatMapId, getCombatSpaceId, shareCombatSpace, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 import { getWildlifeSpeciesSpec, normalizeWildlifeSpeciesKey } from './wildlifeRuntime.js';
 import { resolveCombatWinnerOutcome } from './phaseCombatDamageRuntime.js';
 import { createPhaseCombatTacticalRuntime } from './phaseCombatTacticalRuntime.js';
@@ -68,6 +68,8 @@ export function createTimedWildlifeEncounter(actor, hunt, {
     _id: targetId,
     id: targetId,
     name: `${spec.icon || '🦌'} ${spec.label || '야생동물'}`,
+    mapId: getCombatMapId(actor),
+    _combatSpaceId: getCombatSpaceId(actor),
     zoneId: String(actor.zoneId || ''),
     teamId: `wildlife:${encounterId}`,
     matchTeamId: `wildlife:${encounterId}`,
@@ -97,6 +99,8 @@ export function createTimedWildlifeEncounter(actor, hunt, {
     version: 1,
     id: encounterId,
     actionKey,
+    mapId: getCombatMapId(actor),
+    _combatSpaceId: getCombatSpaceId(actor),
     zoneId: String(actor.zoneId || ''),
     phaseIdx: Number(phaseIdxNow || 0),
     startedAtSec: roundCombatTime(nowSec),
@@ -117,6 +121,29 @@ function claimMatches(row, claim) {
   if (!row || !claim) return false;
   if (claim.engagementId && String(row.engagementId || '') !== String(claim.engagementId)) return false;
   return !claim.claimantId || String(row.engagedBy || '') === String(claim.claimantId);
+}
+
+// Old pending encounters omitted target map identity. Repair only that missing
+// identity on the live restored encounter with consistent owner/claim/zone;
+// explicit foreign identities remain isolated, never silently rebound.
+function getTimedWildlifeTarget(owner) {
+  const encounter = owner?._wildlifeHunt, target = encounter?.target;
+  if (!target) return null;
+  if (getCombatMapId(target) && getCombatMapId(target) !== getCombatMapId(owner)
+    || target._combatSpaceId && getCombatSpaceId(target) !== getCombatSpaceId(owner)) return null;
+  const missingMap = !getCombatMapId(target) && Boolean(getCombatMapId(owner));
+  const missingSpace = !target._combatSpaceId && getCombatSpaceId(owner) !== WORLD_COMBAT_SPACE;
+  if (missingMap || missingSpace) {
+    if (!idOf(owner) || String(target._wildlifeOwnerId || '') !== idOf(owner)
+      || String(encounter.claim?.claimantId || '') !== idOf(owner)
+      || encounter.mapId != null && String(encounter.mapId) !== getCombatMapId(owner)
+      || encounter._combatSpaceId && getCombatSpaceId(encounter) !== getCombatSpaceId(owner)
+      || String(encounter.zoneId || '') !== String(owner.zoneId || '')
+      || String(target.zoneId || '') !== String(owner.zoneId || '')) return null;
+    if (missingMap) target.mapId = getCombatMapId(owner);
+    if (missingSpace) target._combatSpaceId = getCombatSpaceId(owner);
+  }
+  return shareCombatSpace(owner, target) ? target : null;
 }
 
 export function settleWildlifeClaim(nextSpawn, encounter, {
@@ -183,7 +210,7 @@ export function releaseTimedWildlifeEncounter(actor, nextSpawn, reason, actions 
 
 export function completeTimedWildlifeEncounter(actor, nextSpawn, actions = {}) {
   const encounter = actor?._wildlifeHunt;
-  if (!encounter) return null;
+  if (!encounter || !getTimedWildlifeTarget(actor)) return null;
   const settled = settleWildlifeClaim(nextSpawn, encounter, { defeated: true, actor, at: actions.atNow?.() });
   if (!settled) {
     actor._wildlifeHunt = null;
@@ -201,7 +228,7 @@ export function getActiveWildlifeTargets(roster) {
   const targets = new Map();
   for (const actor of Array.isArray(roster) ? roster : []) {
     const encounter = actor?._wildlifeHunt;
-    if (!encounter?.id || !encounter?.target?._id) continue;
+    if (!encounter?.id || !getTimedWildlifeTarget(actor)?._id) continue;
     targets.set(String(encounter.target._id), encounter.target);
   }
   return [...targets.values()];
@@ -225,6 +252,12 @@ export function transferTimedBossEncounter(owner, nextSpawn, roster, {
   nowSec = 0, phaseIdxNow = 0, reason = '', actions = {}, ...options
 } = {}) {
   const encounter = owner?._wildlifeHunt;
+  // A departing owner may already be in another space. The live target keeps
+  // the encounter's original identity; successors must match that target.
+  if (!encounter?.target || !getCombatMapId(encounter.target) && getCombatMapId(owner)
+    && !getTimedWildlifeTarget(owner)) return null;
+  if (getCombatMapId(encounter.target) !== String(encounter.mapId ?? getCombatMapId(owner))
+    || getCombatSpaceId(encounter.target) !== getCombatSpaceId(encounter)) return null;
   const claim = encounter?.claim;
   const row = claim?.source === 'boss' ? nextSpawn?.bosses?.[String(claim.key || '')] : null;
   if (!row?.alive || !claimMatches(row, claim) || String(claim.claimantId || '') !== idOf(owner)
@@ -296,7 +329,7 @@ export function advanceTimedWildlifeEffects(roster, { elapsedSec = 0, startSec =
   let changed = 0;
   for (const actor of Array.isArray(roster) ? roster : []) {
     const encounter = actor?._wildlifeHunt;
-    const target = encounter?.target;
+    const target = getTimedWildlifeTarget(actor);
     if (!target || Number(target.hp || 0) <= 0) continue;
     const before = Number(target.hp || 0);
     const result = updateEffects(target, { returnMeta: true, elapsedSec, startSec });
@@ -322,9 +355,11 @@ export function collectTimedWildlifeOutcomes(roster) {
     const encounter = actor?._wildlifeHunt;
     if (!encounter) continue;
     if (Number(actor.hp || 0) <= 0) outcomes.push({ type: 'hunter_defeated', actor, encounter });
-    else if (Number(encounter.target?.hp || 0) <= 0) outcomes.push({ type: 'target_defeated', actor, encounter });
     else if (getActorDimensionRiftId(actor) || getCombatSpaceId(actor) !== WORLD_COMBAT_SPACE
+      || encounter.mapId != null && getCombatMapId(actor) !== String(encounter.mapId)
       || String(actor.zoneId || '') !== String(encounter.zoneId || '')) outcomes.push({ type: 'cancel', reason: '전장 또는 지역 이탈', actor, encounter });
+    else if (!getTimedWildlifeTarget(actor)) outcomes.push({ type: 'cancel', reason: '전장 정보 불일치', actor, encounter });
+    else if (Number(encounter.target?.hp || 0) <= 0) outcomes.push({ type: 'target_defeated', actor, encounter });
     // A real hostile HP hit interrupts even when AI recovery prevents assigning
     // a combat intent. Claim release still pays its normal action delay; this
     // marker never grants a hit, refunds a cast, or bypasses status/recovery.
@@ -357,7 +392,7 @@ export function findNextWildlifeAction(survivorMap, nowSec, newDeadIds = [], set
   let next = null;
   for (const owner of roster) {
     const encounter = owner?._wildlifeHunt;
-    const target = encounter?.target;
+    const target = getTimedWildlifeTarget(owner);
     if (!encounter?.id || !target || Number(target.hp || 0) <= 0 || owner._combatIntent) continue;
     const base = { encounterId: encounter.id, ownerId: idOf(owner), combatSpaceId: getCombatSpaceId(owner) };
     const targetStatus = finiteDuration(getStoredActiveStatusEffects(target));
@@ -421,7 +456,7 @@ export function resolveTimedWildlifeAction(candidate, {
   const owner = survivorMap?.get(String(candidate?.ownerId || ''));
   const encounter = owner?._wildlifeHunt;
   if (!owner || !encounter || String(encounter.id) !== String(candidate?.encounterId)) return { performed: false };
-  const target = encounter.target;
+  const target = getTimedWildlifeTarget(owner);
   if (!target || Number(owner.hp || 0) <= 0 || Number(target.hp || 0) <= 0 || owner._combatIntent) return { performed: false };
   const roster = [...survivorMap.values()];
   const actor = candidate.actorId === idOf(target) ? owner : survivorMap.get(String(candidate.actorId || ''));

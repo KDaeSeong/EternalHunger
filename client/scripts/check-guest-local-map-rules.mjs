@@ -4,7 +4,10 @@ import { readFileSync } from 'node:fs';
 
 const { createSimulationRunInput } = await import('../src/app/simulation/_lib/simulationReplayRuntime.js');
 const { buildGuestSimulationMap, resolveSimulationBootstrapData } = await import('../src/app/simulation/_lib/guestSimulationBootstrap.js');
-const { rebaseSurvivorsForMap } = await import('../src/app/simulation/_lib/mapActionRuntime.js');
+const { rebaseSurvivorsForMap, createMapActionRuntime } = await import('../src/app/simulation/_lib/mapActionRuntime.js');
+const { buildBaseZoneGraph, buildHyperloopZoneGraph, getHyperloopZoneIds, isHyperloopTransit } = await import('../src/app/simulation/_lib/mapGraphRuntime.js');
+const { runActorMovementDecisionPhase } = await import('../src/app/simulation/_lib/phaseActorMovementRuntime.js');
+const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
 const {
   deleteLocalSimulationMap,
   getLocalSimulationStorageKeys,
@@ -144,7 +147,6 @@ check('local map/rule panel has an explicit stylesheet contract', () => {
 check('simulation core call sites consume the captured rules snapshot', () => {
   const files = [
     '../src/app/simulation/_lib/devToolActionRuntime.js',
-    '../src/app/simulation/_lib/mapActionRuntime.js',
     '../src/app/simulation/_lib/marketActionRuntime.js',
     '../src/app/simulation/_lib/simulationInitialRosterRuntime.js',
     '../src/app/simulation/_components/SimulationSurvivorBoard.js',
@@ -155,5 +157,49 @@ check('simulation core call sites consume the captured rules snapshot', () => {
     assert.match(source, /getRuleset\([^\n]+simulationRuleset/, file);
   }
 });
+
+check('captured forbidden escape rules and local graph drive regional hyperloop without changing maps', () => {
+  const map = { _id: 'regional-map', zones: [{ zoneId: 'pad', hasHyperloop: true }, { zoneId: 'safe' }],
+    zoneConnections: [{ fromZoneId: 'safe', toZoneId: 'pad', bidirectional: false }] };
+  const base = buildBaseZoneGraph(map, map.zones), pads = getHyperloopZoneIds(map, map.zones);
+  const graph = buildHyperloopZoneGraph(base, map.zones, pads);
+  assert.equal(base.pad.includes('safe'), false);
+  assert.equal(graph.pad.includes('safe'), true);
+  const movement = chance => {
+    const actor = { _id: 'regional', mapId: map._id, zoneId: 'pad', hp: 100, maxHp: 100,
+      stats: { attackPower: 20, defense: 10 }, inventory: [] }, events = [];
+    const ruleset = getRuleset('ER_S11', { ...getRuleset('ER_S11'), forbidden: { escapeMoveChance: chance } });
+    const result = withSimulationRandom(() => 0.5, () => runActorMovementDecisionPhase({ state: {
+      actor, phaseSurvivors: [actor], craftables: [], itemKeyById: {}, itemMetaById: {}, itemNameById: {},
+      kiosks: [], mapObj: map, nextDay: 3, nextPhase: 'morning', phaseIdxNow: 4,
+      forbiddenIds: new Set(['pad']), ruleset, zoneGraph: graph, zones: map.zones,
+    }, actions: { atNow: () => ({ day: 3, phase: 'morning', sec: 100 }),
+      isHyperloopTransit: (from, to) => isHyperloopTransit(base, pads, from, to),
+      emitRunEvent: (kind, payload) => events.push({ kind, ...payload }) } }));
+    return { result, events };
+  };
+  const blocked = movement(0), allowed = movement(1);
+  assert.equal(blocked.result.nextZoneId, 'pad');
+  assert.equal(blocked.events.some(event => event.kind === 'move'), false);
+  assert.equal(allowed.result.nextZoneId, 'safe');
+  assert.equal(allowed.result.actor.mapId, map._id);
+  assert.equal(allowed.result.usedHyperloopMove, true);
+  assert.ok(allowed.events.some(event => event.kind === 'move' && event.transport === 'hyperloop'));
+});
+
+check('running matches reject cross-map calls and pregame map changes without publishing writes', () => {
+  const writes = [], state = { day: 1, activeMapId: fallback._id, maps: [fallback], survivors: [] };
+  const runtime = createMapActionRuntime({ state, actions: Object.fromEntries(
+    ['applyActiveMapId', 'setMaps', 'setSurvivors', 'emitRunEvent'].map(key => [key, value => writes.push([key, value])])) });
+  assert.equal(runtime.doHyperloopJump('remote', 'a'), false);
+  assert.deepEqual(writes, []);
+});
+
+const lockedMapRuntime = createMapActionRuntime({ state: { day: 1 }, actions: {
+  setMaps: () => assert.fail('running match cannot replace maps'),
+  applyActiveMapId: () => assert.fail('running match cannot select another map'),
+} });
+assert.equal(await lockedMapRuntime.selectLocalMap(fallback._id), false);
+assert.equal(await lockedMapRuntime.refreshMapSettingsFromServer(), false);
 
 console.log(`GUEST_LOCAL_MAP_RULE_CHECKS ${checks}/${checks}`);

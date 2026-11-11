@@ -1,5 +1,7 @@
 import { getInvItemId, inferEquipSlot, inferItemCategory } from './inventoryRules.js';
 import { areEquipmentWeaponTypesCompatible } from '../../../utils/equipmentCatalog.js';
+import { getOpeningGrowthTargetByKey } from './growthTargetIdentityRuntime.js';
+import { getLateGrowthTargets } from './lateGrowthTargetRuntime.js';
 
 export function ownsGrowthTarget(actor, target) {
   return (actor.inventory || []).some(entry => {
@@ -12,19 +14,20 @@ export function ownsGrowthTarget(actor, target) {
 }
 
 // Record only an actual received result matching a current direct declaration.
-// Use the planner's already resolved group-specific identity, never reinterpret
-// aliases without its complete catalog. Planning prunes changed declarations.
-export function recordCraftedGrowthAcquisition(actor, item) {
+// Resolve current declarations against the complete ordered catalogue at the
+// successful commit boundary. An old or absent plan is not an acquisition gate.
+export function recordCraftedGrowthAcquisition(actor, item, items) {
   const id = String(item?._id || ''), slot = inferEquipSlot(item);
   if (!id || inferItemCategory(item) !== 'equipment'
-    || !['weapon', 'head', 'clothes', 'arm', 'shoes'].includes(slot) || !ownsGrowthTarget(actor, item)) return;
-  const matches = group => {
-    const key = String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim();
-    const planned = actor._growthPlan?.authoredTargetsByGroup?.[group]?.[slot];
-    return key && planned?.key === key && planned.itemId === id;
-  };
-  if (matches('hero')) actor._openingAcquiredItemIds = { ...actor._openingAcquiredItemIds, [slot]: id };
+    || !['weapon', 'head', 'clothes', 'arm', 'shoes'].includes(slot) || !ownsGrowthTarget(actor, item)
+    || !Array.isArray(items)) return;
+  const heroKey = String(actor.goalLoadouts?.hero?.[`${slot}Key`] || '').trim();
+  if (heroKey && String(getOpeningGrowthTargetByKey(items, heroKey)?._id || '') === id) {
+    actor._openingAcquiredItemIds = { ...actor._openingAcquiredItemIds, [slot]: id };
+  }
   const group = Number(item.tier) === 5 ? 'legend' : Number(item.tier) === 6 ? 'transcend' : '';
-  if (group && matches(group)) actor._lateAcquiredItemIds = { ...actor._lateAcquiredItemIds,
+  const matchesLate = group && getLateGrowthTargets(actor, items, { authoredOnly: true, includeAcquired: true }).targets
+    .some(target => String(target._id) === id && inferEquipSlot(target) === slot && Number(target.tier) === Number(item.tier));
+  if (matchesLate) actor._lateAcquiredItemIds = { ...actor._lateAcquiredItemIds,
     [group]: { ...actor._lateAcquiredItemIds?.[group], [slot]: id } };
 }

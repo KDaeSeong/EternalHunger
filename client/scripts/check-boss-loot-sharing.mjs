@@ -36,7 +36,7 @@ const fixture = (kind = 'alpha', material = mithril) => {
   ruleset.worldSpawns.bosses[kind] = { dropKeywords: [material.name], dmg: { min: 0, base: 0, scaleDiv: 1 },
     reward: { credits: { min: 7, max: 7 }, bonusDropChance: 0 } };
   ruleset.worldSpawns.specialResourceDrops = { [kind]: [{ key: kind === 'alpha' ? 'mithril' : kind === 'omega' ? 'force_core' : 'vf_blood_sample', chance: 1 }] };
-  const make = (_id, teamSlot) => ({ _id, name: _id, teamId: 'team:1', teamSlot, zoneId: 'z', hp: 1000, maxHp: 1000,
+  const make = (_id, teamSlot) => ({ _id, name: _id, teamId: 'team:1', teamSlot, mapId: 'hunt-map', zoneId: 'z', hp: 1000, maxHp: 1000,
     stats: { maxHp: 1000, attackPower: 100, defense: 30, attackSpeed: 1, moveSpeed: 3.5, attackRange: 2, sightRange: 10 },
     inventory: [held(base)], equipped: { head: base._id }, simCredits: 20, activeEffects: [],
     routePlanTargetItemIds: [base._id], goalLoadouts: { legend: { headKey: recipe(cloth)._id } }, _actionCycleKey: '6:600' });
@@ -310,11 +310,12 @@ await check('the legacy actor batch preserves transfers to both already processe
 });
 
 await check('real timed alpha combat settles into the live teammate, not a stale planning copy', async () => {
-  for (const scenario of ['present', 'left', 'goal_changed']) {
+  for (const scenario of ['present', 'left', 'remote_map', 'goal_changed']) {
     const input = fixture();
     assert.equal(invQty(input.crafter.inventory, mithril._id), 0);
     const result = await settleTimedHunt(input, { onFirstAdvance: (survivorMap) => {
       if (scenario === 'left') survivorMap.get('crafter').zoneId = 'away';
+      if (scenario === 'remote_map') survivorMap.get('crafter').mapId = 'remote-map';
       if (scenario === 'goal_changed') survivorMap.get('crafter').inventory.push(held(mithril));
     } });
     const recipient = result.survivorMap.get('crafter');

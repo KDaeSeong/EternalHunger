@@ -20,17 +20,11 @@ const row = (id, teamId, extra = {}) => ({ _id: id, name: id, mapId: 'main', tea
   stats: { maxHp: 1000, attackPower: 20, defense: 10, attackRange: 5, sightRange: 24, moveSpeed: 3.5, attackSpeed: 1 },
   inventory: [], activeEffects: [], power: 100, tacticalSkill: 'none', _tacNextAbsSec: 9999, ...extra });
 const fresh = () => [row('a', 'a'), row('buddy', 'a'), row('enemy', 'b', { hp: 400 }), row('other', 'b')];
-function jump(rows, id) {
-  const events = [], originalMaps = Object.fromEntries(rows.map(actor => [actor._id, actor.mapId]));
-  createMapActionRuntime({ state: { activeMapId: 'main', activeMapName: 'main', day: 3,
-    hyperloopPadZoneId: 'zone', survivors: rows, maps: [{ _id: 'remote', name: 'remote', zones: [{ zoneId: 'zone' }] }] },
-    actions: { setSurvivors: update => { rows = update(rows); }, emitRunEvent: (kind, payload) => events.push({ kind, ...clone(payload) }) },
-  }).doHyperloopJump('remote', id);
-  assert.equal(rows.find(actor => actor._id === id).mapId, 'remote');
-  for (const actor of rows.filter(actor => actor._id !== id)) assert.equal(actor.mapId, originalMaps[actor._id]);
-  assert.equal(events[0].kind, 'hyperloop'); assert.equal(events[0].whoId, id);
-  return rows;
+function legacySnapshot(rows, id) {
+  // Explicit inconsistent/legacy snapshot; this is not an official travel API.
+  return rows.map(actor => actor._id === id ? { ...actor, mapId: 'remote' } : actor);
 }
+
 function exchange(rows) {
   rows = normalizeRuntimeSurvivorList(buildStarterLoadoutSurvivorsForPhase({
     state: { nextDay: 3, nextPhase: 'morning', survivors: rows, publicItems: [] },
@@ -52,6 +46,15 @@ function exchange(rows) {
 let checks = 0; const failures = [];
 function check(name, run) { try { run(); checks++; console.log('PASS ' + name); }
   catch (error) { failures.push({ name, error: String(error.stack || error).slice(0, 1500) }); console.error('FAIL ' + name + ': ' + error.message); } }
+
+check('official cross-map request is rejected without actor, active-map or event mutation', () => {
+  const rows = fresh(), before = clone(rows); let writes = 0;
+  const result = createMapActionRuntime({ state: { day: 3, activeMapId: 'main', survivors: rows,
+    hyperloopPadZoneId: 'zone', maps: [{ _id: 'remote', zones: [{ zoneId: 'zone' }] }] },
+    actions: { applyActiveMapId: () => writes++, setSurvivors: () => writes++, emitRunEvent: () => writes++ },
+  }).doHyperloopJump('remote', 'enemy');
+  assert.equal(result, false); assert.equal(writes, 0); assert.deepEqual(rows, before);
+});
 
 check('map equality follows survivor string normalization while preserving world and rift IDs', () => {
   const a = row('a', 'a'), b = row('b', 'b');
@@ -80,8 +83,8 @@ check('both unknown maps retain legacy combat but one unknown map is never a wil
   }
 });
 
-check('official cross-map transport survives phase roster helpers but cannot damage the old map', () => {
-  const result = exchange(jump(fresh(), 'enemy'));
+check('legacy mixed-map snapshot survives roster helpers but cannot damage the other map', () => {
+  const result = exchange(legacySnapshot(fresh(), 'enemy'));
   assert.equal(result.initial.find(actor => actor._id === 'enemy').mapId, 'remote');
   assert.equal(result.initial.find(actor => actor._id === 'a').mapId, 'main');
   assert.equal(result.events.filter(event => event.kind === 'damage').length, 0);
@@ -89,7 +92,7 @@ check('official cross-map transport survives phase roster helpers but cannot dam
 });
 
 check('remote allies cannot join the local round or contribute hits or retreat cover', () => {
-  const result = exchange(jump(fresh(), 'buddy'));
+  const result = exchange(legacySnapshot(fresh(), 'buddy'));
   const engagement = result.events.find(event => event.kind === 'team_engagement'); assert.ok(engagement);
   assert.equal(engagement.teams.flat().includes('buddy'), false);
   assert.equal(result.events.some(event => event.kind === 'damage' && event.who === 'buddy'), false);
@@ -159,7 +162,7 @@ check('coordination isolates transported or unknown-map members without changing
   for (const [, decision] of local.decisions) { assert.equal(decision.memberCount, 2); assert.equal(decision.atTargetCount, 2); }
   const legacy = clone(rows); legacy.forEach(actor => { delete actor.mapId; });
   assert.deepEqual(coordinate(legacy), local, 'Single-map and legacy plans, values and iteration order must remain equal.');
-  assert.deepEqual(coordinate(jump(clone(rows), 'buddy')), { decisions: [], plans: [] });
+  assert.deepEqual(coordinate(legacySnapshot(clone(rows), 'buddy')), { decisions: [], plans: [] });
   const unknown = clone(rows); delete unknown[1].mapId;
   assert.deepEqual(coordinate(unknown), { decisions: [], plans: [] });
   const otherSpace = clone(rows); otherSpace[1]._combatSpaceId = 'dimension_rift:r';

@@ -44,7 +44,7 @@ export function runCraftAction({
 
   const invCraft = recoveryPlan?.readyCraftId
     ? craftActorRecoveryItem(updated, recoveryPlan, publicItems, nextDay, phaseIdxNow, ruleset)
-    : tryAutoCraftFromInventory(updated, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset);
+    : tryAutoCraftFromInventory(updated, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset, publicItems);
   if (invCraft?.changed) {
     addLog(String(invCraft.log), 'highlight');
     emitCraftRunEvent(updated?._id, invCraft, atNow(), updated?.zoneId);

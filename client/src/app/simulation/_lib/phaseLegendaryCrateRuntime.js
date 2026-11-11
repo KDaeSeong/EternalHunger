@@ -121,12 +121,12 @@ export function openLegendaryCrateForActor({
       updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
     }
     if (gotB > 0 && !immediateBonus?.changed) {
-      const craftedB = tryAutoCraftFromLoot(updated.inventory, bonusDrop.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+      const craftedB = tryAutoCraftFromLoot(updated.inventory, bonusDrop.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated, publicItems));
       applyLootCraftResult(updated, craftedB, itemMetaById, atNow(), updated?.zoneId);
     }
   }
 
-  const crafted = immediate?.changed ? null : tryAutoCraftFromLoot(updated.inventory, legendary.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+  const crafted = immediate?.changed ? null : tryAutoCraftFromLoot(updated.inventory, legendary.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated, publicItems));
   applyLootCraftResult(updated, crafted, itemMetaById, atNow(), updated?.zoneId);
 
   return {

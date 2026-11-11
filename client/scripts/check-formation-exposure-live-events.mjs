@@ -43,16 +43,22 @@ function run(rows, { randomValue = 0, actionType = 'exchange', actorId = 'change
 }
 const exposure = (runtime, ids = ['changed-a']) => buildFormationExposure(runtime.events, runtime.initial, ids, runtime.comparison);
 const watched = runtime => exposure(runtime).participants[0];
-function hyperloopEvents(actorId) {
-  let survivors = fresh(); const events = [];
+function rejectedCrossMapAction(actorId) {
+  let survivors = fresh(); const before = clone(survivors), events = [], mapWrites = [];
   const runtime = createMapActionRuntime({ state: { activeMapId: 'main', activeMapName: 'main', day: 3,
     hyperloopPadZoneId: 'zone', survivors, maps: [{ _id: 'remote', name: 'remote', zones: [{ zoneId: 'zone' }] }] },
-    actions: { setSurvivors: update => { survivors = update(survivors); },
+    actions: { applyActiveMapId: id => mapWrites.push(id), setSurvivors: update => { survivors = update(survivors); },
       emitRunEvent: (kind, payload) => events.push(clone({ ...payload, kind, at: { sec: 100 } })) } });
-  runtime.doHyperloopJump('remote', actorId);
-  assert.equal(survivors.find(actor => actor._id === actorId).mapId, 'remote');
-  assert.equal(events.length, 1); assert.equal(events[0].whoId, actorId);
-  return events;
+  assert.equal(runtime.doHyperloopJump('remote', actorId), false);
+  assert.deepEqual(survivors, before);
+  assert.deepEqual(mapWrites, []);
+  assert.deepEqual(events, []);
+}
+function legacyMapTransitionEvents(actorId) {
+  // Fresh schema-stream composition represents a legacy/inconsistent state;
+  // the current product action rejects this transition and emits no event.
+  return [{ kind: 'hyperloop', whoId: actorId, fromMapId: 'main', toMapId: 'remote',
+    toZoneId: 'zone', at: { sec: 100 } }];
 }
 function spaceEvents(actorId) {
   const actor = fresh().find(current => current._id === actorId), rift = { id: 'controlled', zoneId: 'zone' }, events = [];
@@ -153,8 +159,12 @@ check('a real hit that causes target critical flee remains valid for its live at
   assert.equal(actor.ready, true); assert.ok(actor.teamActions > 0);
 });
 
-check('actual cross-map and combat-space transition receipts invalidate stale teammate presence even after return', () => {
-  for (const transitions of [hyperloopEvents('buddy-a'), spaceEvents('buddy-a')]) {
+check('official cross-map actions reject without changing actors, map or event stream', () => {
+  for (const actorId of ['buddy-a', 'changed-a', 'enemy-b']) rejectedCrossMapAction(actorId);
+});
+
+check('legacy map schema and current combat-space receipt composition invalidate stale teammate presence', () => {
+  for (const transitions of [legacyMapTransitionEvents('buddy-a'), spaceEvents('buddy-a')]) {
     const runtime = atEngagementBoundary(run(fresh()), transitions), actor = watched(runtime);
     assert.ok(actor.diagnostics.outgoingHpHits > 0); assert.equal(actor.teamActions, 0); assert.equal(actor.ready, false);
     const freshRound = run(fresh());
@@ -177,15 +187,15 @@ check('schema boundaries preserve same-zone and spatial movement but require a f
   assert.equal(watched({ ...roundTrip, events: [...roundTrip.events, ...run(fresh()).events] }).ready, true);
 });
 
-check('combatants who depart before the real HP commit cannot reuse their old engagement', () => {
+check('legacy map-departure schema before a real HP commit invalidates the combatants old engagement', () => {
   const base = run(fresh()), target = base.events.find(event => event.kind === 'team_strike' && event.who === 'changed-a').targetId;
   for (const actorId of ['changed-a', target]) {
-    const runtime = atEngagementBoundary(base, hyperloopEvents(actorId)), actor = watched(runtime);
+    const runtime = atEngagementBoundary(base, legacyMapTransitionEvents(actorId)), actor = watched(runtime);
     assert.ok(actor.diagnostics.outgoingHpHits > 0); assert.equal(actor.teamActions, 0); assert.equal(actor.ready, false);
     assert.ok(actor.diagnostics.rejectedStrikes.combatants_unavailable > 0);
   }
 });
 
 console.log(JSON.stringify({ engineVersion: SIMULATION_ENGINE_VERSION, checks, pass: failures.length === 0, failures,
-  scope: 'Fresh current-source production encounter/team/damage/flee events; one bounded round per fixture, no match history input, no seed search. Controlled coverage does not replace fixed formation runs or G5 acceptance.' }));
+  scope: 'Fresh current-source production encounter/team/damage/flee events and rejected cross-map action; explicit legacy map schema-stream and combat-space receipt composition test analyzer invalidation. One bounded round per fixture, no match history input, no seed search. Controlled coverage does not replace fixed formation runs or G5 acceptance.' }));
 if (failures.length) process.exitCode = 1;

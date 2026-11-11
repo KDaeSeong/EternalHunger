@@ -127,7 +127,7 @@ export function runProcurementAction({
       (immediateK?.logs || []).forEach((message) => addLog(String(message), immediateK.changed ? 'highlight' : 'system'));
       applyImmediateDanger(updated, immediateK, phaseIdxNow);
 
-      const craftedK = immediateK?.changed ? null : tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+      const craftedK = immediateK?.changed ? null : tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated, publicItems));
       applyLootCraftResult(updated, craftedK, itemMetaById, atNow(), updated?.zoneId);
     }
 
@@ -154,7 +154,7 @@ export function runProcurementAction({
       (immediateE?.logs || []).forEach((message) => addLog(String(message), immediateE.changed ? 'highlight' : 'system'));
       applyImmediateDanger(updated, immediateE, phaseIdxNow);
 
-      const craftedE = immediateE?.changed ? null : tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+      const craftedE = immediateE?.changed ? null : tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated, publicItems));
       applyLootCraftResult(updated, craftedE, itemMetaById, atNow(), updated?.zoneId);
     }
 
@@ -180,7 +180,7 @@ export function runProcurementAction({
         if (got > 0) autoEquipBest(updated, itemMetaById);
         didProcure = true;
 
-        const craftedD = tryAutoCraftFromLoot(updated.inventory, itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+        const craftedD = tryAutoCraftFromLoot(updated.inventory, itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated, publicItems));
         applyLootCraftResult(updated, craftedD, itemMetaById, atNow(), updated?.zoneId, 'highlight');
       }
     }

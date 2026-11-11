@@ -6,7 +6,10 @@ const { runActorQueuedActionStep } = await import('../src/app/simulation/_lib/ph
 const { runPvpActionLoop } = await import('../src/app/simulation/_lib/phasePvpActionLoopRuntime.js');
 const { advanceSpatialMovement } = await import('../src/app/simulation/_lib/combatSpatialRuntime.js');
 const { advanceTimedWildlifeEffects, completeTimedWildlifeEncounter, getWildlifeCombatRoster, releaseTimedWildlifeEncounter,
-  getTimedWildlifeCombatSummary, resolveTimedWildlifeAction } = await import('../src/app/simulation/_lib/wildlifeCombatRuntime.js');
+  getTimedWildlifeCombatSummary, resolveTimedWildlifeAction, createTimedWildlifeEncounter,
+  collectTimedWildlifeOutcomes, findNextWildlifeAction, transferTimedBossEncounter } = await import('../src/app/simulation/_lib/wildlifeCombatRuntime.js');
+const { getBossAssistOwner, getBossHuntSuccessor } = await import('../src/app/simulation/_lib/bossAssistRuntime.js');
+const { shareCombatSpace } = await import('../src/utils/combatSpaceLogic.js');
 const { findCharacterSkillChoice, startCharacterCast, finishCharacterCast } = await import('../src/app/simulation/_lib/characterCastRuntime.js');
 const { normalizeSkillState } = await import('../src/app/simulation/_lib/characterSkillDefinitionRuntime.js');
 const { runCombatScenario } = await import('./lib/run-combat-scenario.mjs');
@@ -38,7 +41,7 @@ const rules = {
   pvp: { ...baseRules.pvp, criticalFleeHpBelow: 0, criticalFleeChance: 0, teamCombatEnabled: false },
 };
 const actor = (extra = {}) => ({
-  _id: 'hunter', name: '사냥자', teamId: 'team:1', zoneId: 'z', hp: 320, maxHp: 320,
+  _id: 'hunter', name: '사냥자', teamId: 'team:1', mapId: 'hunt-map', zoneId: 'z', hp: 320, maxHp: 320,
   stats: { maxHp: 320, attackPower: 80, defense: 12, skillAmp: 0, attackSpeed: 1,
     moveSpeed: 3.2, attackRange: 1.4, sightRange: 10 },
   inventory: [], equipped: {}, activeEffects: [], tacticalSkill: 'none', simCredits: 0,
@@ -329,6 +332,89 @@ await check('an available ultimate recast is reserved in a hunt but remains avai
   assert.equal(choice.def.slot, 'r');
   assert.equal(choice.stage, 2);
   assert.equal(choice.targetId, opponent._id, 'Even a mixed roster must not redirect R onto wildlife.');
+});
+
+await check('explicit selected-map wildlife target permits real timed basic damage', () => {
+  const subject = actor({ mapId: 'hunt-map' });
+  begin(subject, spawn(), capture());
+  const target = subject._wildlifeHunt.target;
+  target._spatial = { ...subject._spatial };
+  const before = target.hp;
+  const result = withSimulationRandom(() => 0, () => resolveTimedWildlifeAction({ ownerId: subject._id,
+    encounterId: subject._wildlifeHunt.id, actorId: subject._id, targetId: target._id, actionType: 'hunt_basic' },
+  { survivorMap: new Map([[subject._id, subject]]), nowSec: 100.5, battleSettings: {}, ruleset: rules, actions: capture().actions }));
+  assert.equal(result.performed, true);
+  assert.ok(target.hp < before);
+  assert.equal(target.mapId, subject.mapId);
+});
+
+await check('target identity inherits normalized owner context without mutating the reward input or reading RNG', () => {
+  const subject = actor({ _combatSpaceId: 'world' }), world = spawn();
+  begin(subject, world, capture());
+  const reward = structuredClone(subject._wildlifeHunt.reward);
+  reward.pending = true;
+  const original = structuredClone(reward), originalSubject = structuredClone(subject);
+  const created = withSimulationRandom(() => { throw new Error('Target identity must not roll randomness.'); }, () =>
+    createTimedWildlifeEncounter(subject, reward, { nowSec: 100, phaseIdxNow: 2, nextDay: 2 }));
+  assert.equal(created.target.mapId, 'hunt-map'); assert.equal(created.target._combatSpaceId, 'world');
+  assert.equal(shareCombatSpace(subject, created.target), true);
+  assert.deepEqual(reward, original); assert.deepEqual(subject, originalSubject);
+});
+
+await check('legacy absent or blank target identity repairs only a consistent restored owner encounter', () => {
+  for (const targetMap of [undefined, '', 'foreign-map']) for (const validOwner of [true, false]) for (const foreignSpace of [false, true]) {
+    const original = actor(); begin(original, spawn(), capture());
+    const subject = JSON.parse(JSON.stringify(original)), target = subject._wildlifeHunt.target;
+    delete subject._wildlifeHunt.mapId;
+    delete subject._wildlifeHunt._combatSpaceId;
+    if (targetMap === undefined) delete target.mapId; else target.mapId = targetMap;
+    delete target._combatSpaceId;
+    if (foreignSpace) target._combatSpaceId = 'foreign-space';
+    if (!validOwner) subject._wildlifeHunt.claim.claimantId = 'different-owner';
+    const beforeOriginal = JSON.stringify(original);
+    const roster = withSimulationRandom(() => { throw new Error('Restoration must not reroll.'); }, () => getWildlifeCombatRoster([subject]));
+    const allowed = validOwner && targetMap !== 'foreign-map' && !foreignSpace;
+    assert.equal(roster.includes(target), allowed);
+    assert.equal(target.mapId, allowed ? 'hunt-map' : targetMap);
+    if (!allowed) {
+      assert.equal(findNextWildlifeAction(new Map([[subject._id, subject]]), 100, [], {}, rules), null);
+      assert.equal(collectTimedWildlifeOutcomes([subject])[0].type, 'cancel');
+      const hp = target.hp;
+      for (const actionType of ['hunt_basic', 'hunt_skill_start', 'hunt_skill_release', 'wildlife_basic']) {
+        assert.equal(resolveTimedWildlifeAction({ ownerId: subject._id, encounterId: subject._wildlifeHunt.id,
+          actorId: subject._id, actionType }, { survivorMap: new Map([[subject._id, subject]]), ruleset: rules }).performed, false);
+      }
+      assert.equal(target.hp, hp);
+    }
+    assert.equal(JSON.stringify(original), beforeOriginal);
+  }
+  for (const missing of [false, true]) {
+    const blank = actor({ mapId: '' }); begin(blank, spawn(), capture());
+    if (missing) delete blank._wildlifeHunt.target.mapId;
+    assert.equal(getWildlifeCombatRoster([blank]).includes(blank._wildlifeHunt.target), true);
+    assert.equal(shareCombatSpace(blank, blank._wildlifeHunt.target), true);
+  }
+});
+
+await check('same-map boss helper hits the real target while a remote teammate cannot join, inherit or hit', () => {
+  const owner = actor(), world = beginUltimateHunt(owner, 'alpha');
+  const target = owner._wildlifeHunt.target;
+  const local = actor({ _id: 'local' }), remote = actor({ _id: 'remote', mapId: 'remote-map' });
+  target._spatial = { ...owner._spatial };
+  const roster = [owner, local, remote], options = { nowSec: 100.5, ruleset: rules };
+  assert.equal(getBossAssistOwner(local, roster, options), owner);
+  assert.equal(getBossAssistOwner(remote, roster, options), null);
+  assert.equal(getBossHuntSuccessor(owner, [owner, remote], options), null);
+  const action = who => withSimulationRandom(() => 0, () => resolveTimedWildlifeAction({ ownerId: owner._id,
+    encounterId: owner._wildlifeHunt.id, actorId: who._id, targetId: target._id, actionType: 'hunt_basic' },
+  { survivorMap: new Map(roster.map(row => [row._id, row])), nowSec: 100.5, ruleset: rules, actions: capture().actions }));
+  const hp = target.hp;
+  assert.equal(action(remote).performed, false); assert.equal(target.hp, hp);
+  assert.equal(action(local).performed, true); assert.ok(target.hp < hp);
+  target.mapId = 'remote-map';
+  const snapshot = JSON.stringify({ owner, world, local, remote });
+  assert.equal(transferTimedBossEncounter(owner, world, roster, options), null);
+  assert.equal(JSON.stringify({ owner, world, local, remote }), snapshot);
 });
 
 await check('ordinary and boss timed hunts preserve wildlife lifesteal in real weapon follow-ups', () => {

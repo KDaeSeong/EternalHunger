@@ -83,7 +83,7 @@ export function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, 
     `${itemNameById?.[specialId] || specialId}을 사용하는 유효한 T${targetTier} 제작법이 없어 즉시 제작 불가`, specialId);
 
   const preview = structuredClone(actor);
-  const result = tryAutoCraftFromInventory(preview, candidates, itemNameById, itemMetaById, curDay, phaseIdxNow, ruleset);
+  const result = tryAutoCraftFromInventory(preview, candidates, itemNameById, itemMetaById, curDay, phaseIdxNow, ruleset, publicItems);
   if (!result?.changed) return unchanged('recipe_requirements_not_met');
   Object.assign(actor, preview);
   actor._specialCraftDay = dayKey;

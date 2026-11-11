@@ -123,7 +123,7 @@ export function runRouteFarmAction({
         itemMetaById,
         nextDay,
         ruleset,
-        getLootCraftOptions(updated)
+        getLootCraftOptions(updated, publicItems)
       );
       applyLootCraftResult(updated, craftedR, itemMetaById, atNow(), updated?.zoneId);
 

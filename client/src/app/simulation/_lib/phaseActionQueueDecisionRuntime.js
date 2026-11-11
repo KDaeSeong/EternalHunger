@@ -104,7 +104,7 @@ export function prepareActorPhaseActionQueue({
     ? null
     : { ...structuredClone(updated), _itemKeyById: itemKeyById };
   const craftPreview = craftProbeActor
-    ? tryAutoCraftFromInventory(craftProbeActor, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset)
+    ? tryAutoCraftFromInventory(craftProbeActor, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset, publicItems)
     : null;
   const teamBossAtTarget = !earlyRouteActionActive && movementObjective?.type === 'boss'
     && movementObjective.beneficiary && String(movementObjective.targetZoneId) === String(updated.zoneId);

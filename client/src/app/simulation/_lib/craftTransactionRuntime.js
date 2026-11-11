@@ -5,6 +5,9 @@ import { recordCraftedGrowthAcquisition } from './growthAcquisitionRuntime.js';
 
 const reject = (reason, details = {}) => ({ ok: false, reason, ...details });
 const numeric = (value) => typeof value === 'number' || (typeof value === 'string' && value.trim()) ? Number(value) : NaN;
+// Ephemeral transaction context must never enter a receipt, actor or JSON save.
+// Copies/JSON-restored previews intentionally lose acquisition authority.
+const acquisitionCatalogs = new WeakMap();
 
 function getCraftState(actor) {
   const credits = numeric(actor?.simCredits === undefined ? 0 : actor.simCredits);
@@ -18,7 +21,7 @@ function getCraftState(actor) {
 
 // Preview uses owned copies. In particular, a partial output receipt cannot
 // discard ingredients, auto-dropped materials, or the previous equipped item.
-export function prepareCraftTransaction(actor, item, day = 1, ruleset = {}) {
+export function prepareCraftTransaction(actor, item, day = 1, ruleset = {}, publicItems = null) {
   if (!actor || !Number.isFinite(numeric(actor.hp)) || numeric(actor.hp) <= 0) return reject('actor_inactive');
   const terms = getCraftRecipeTerms(item);
   if (!terms) return reject('invalid_recipe');
@@ -51,8 +54,10 @@ export function prepareCraftTransaction(actor, item, day = 1, ruleset = {}) {
     itemId: String(item._id), qty: terms.resultQty, receivedQty: terms.resultQty,
     paidCost: terms.creditsCost, beforeCredits: before.credits, afterCredits: before.credits - terms.creditsCost,
     consumed: terms.ingredients.map((row) => ({ ...row })) };
-  return { ok: true, before, inventory, receipt, item: structuredClone(item), day,
+  const prepared = { ok: true, before, inventory, receipt, item: structuredClone(item), day,
     ruleset: structuredClone({ inventory: ruleset?.inventory, equipment: ruleset?.equipment }) };
+  if (Array.isArray(publicItems)) acquisitionCatalogs.set(prepared, publicItems);
+  return prepared;
 }
 
 // The revision travels with the actor in snapshots. Replaying an already
@@ -68,7 +73,7 @@ export function commitCraftTransaction(actor, prepared) {
   actor.inventory = current.inventory;
   actor.simCredits = current.receipt.afterCredits;
   actor._craftRevision = current.before.revision + 1;
-  recordCraftedGrowthAcquisition(actor, current.item);
+  recordCraftedGrowthAcquisition(actor, current.item, acquisitionCatalogs.get(prepared));
   return { ok: true, receipt: current.receipt };
 }
 

@@ -1,13 +1,10 @@
 import { apiGet, getToken } from '../../../utils/api';
-import { getRuleset } from '../../../utils/rulesets';
 import { buildGuestSimulationMap } from './guestSimulationBootstrap';
 import {
   prepareLocalSimulationMapChange,
 } from './localSimulationMapRuntime';
 import {
   createInitialSpawnState,
-  getEligibleSpawnZoneIds,
-  getHyperloopDeviceZoneId,
 } from './simulationEngine';
 import { buildInitialFastRoutePlanSteps, mergeInitialRoutePlanFields } from './simulationInitialRosterRuntime';
 import { runMapPreparationSteps } from './mapPreparationRuntime';
@@ -73,18 +70,8 @@ export function createMapActionRuntime(context = {}) {
 
   const {
     activeMapId,
-    activeMapName,
     candidateSurvivors,
-    day,
-    hyperloopPadName,
-    hyperloopPadZoneId,
-    isAdvancing,
-    isGameOver,
-    loading,
-    maps,
-    matchPhase,
     publicItems,
-    settings,
     survivors,
   } = state;
 
@@ -101,8 +88,6 @@ export function createMapActionRuntime(context = {}) {
   const {
     addLog = () => {},
     applyActiveMapId = () => {},
-    emitRunEvent = () => {},
-    getForbiddenZoneIdsForPhase = () => [],
     onLocalRulesChanged = () => {},
     setMapPreparation = () => {},
     setIsRefreshingMapSettings = () => {},
@@ -112,57 +97,20 @@ export function createMapActionRuntime(context = {}) {
     showMapRefreshToast = () => {},
   } = actions;
 
-  function doHyperloopJump(toMapId, whoId) {
-    const toId = String(toMapId || '').trim();
-    const who = String(whoId || '').trim();
-    if (!who) {
-      addLog('🌀 하이퍼루프: 이동할 캐릭터를 선택하세요.', 'system');
-      return;
-    }
-    if (!toId) return;
-    if (loading || isAdvancing || isGameOver) return;
-    if (day <= 0) {
-      addLog('🌀 하이퍼루프: 게임 시작 후(1일차부터) 사용할 수 있습니다.', 'system');
-      return;
-    }
+  function canChangeMap() {
+    const latest = actions.getCurrentMapInputs?.() || state;
+    return !(latest.day > 0 || latest.isGameOver || latest.loading || latest.isAdvancing
+      || latest.replayMode || latest.evaluationMode || isAdvancingRef?.current || runLockedRef?.current);
+  }
 
-    const padZid = String(hyperloopPadZoneId || '').trim();
-    const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
-    const actorZid = String(actor?.zoneId || '').trim();
-    if (!padZid || actorZid !== padZid) {
-      const padNm = String(hyperloopPadName || padZid || '하이퍼루프 구역');
-      addLog(`🌀 하이퍼루프 장치: [${padNm}]에서만 사용할 수 있습니다.`, 'system');
-      return;
-    }
-
-    const toMap = (Array.isArray(maps) ? maps : []).find((m) => String(m?._id) === toId) || null;
-    if (!toMap) return;
-
-    const ruleset = getRuleset(settings?.rulesetId, settings?.simulationRuleset);
-    const forbiddenZoneIds = new Set(getForbiddenZoneIdsForPhase(toMap, day, matchPhase, ruleset));
-    const toZones = Array.isArray(toMap?.zones) ? toMap.zones : [];
-    const eligible = getEligibleSpawnZoneIds(toZones, forbiddenZoneIds);
-
-    const destPad = String(getHyperloopDeviceZoneId(toId) || '').trim();
-    const destPadOk = !!destPad
-      && toZones.some((zone) => String(zone?.zoneId || '') === destPad)
-      && !forbiddenZoneIds.has(destPad);
-    const entryZoneId = String((destPadOk ? destPad : (eligible?.[0] || toZones?.[0]?.zoneId)) || '__default__');
-
-    const fromName = String(activeMapName || '현재맵');
-    const toName = String(toMap?.name || '목적지');
-    applyActiveMapId(toId);
-    setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((character) => (
-      String(character?._id) === who ? { ...character, mapId: toId, zoneId: entryZoneId } : character
-    )));
-    const whoName = actor?.name || '선택 캐릭터';
-    addLog(`🌀 하이퍼루프 이동: ${fromName} → ${toName} (${whoName})`, 'highlight');
-    emitRunEvent('hyperloop', { whoId: who, who: whoName, fromMapId: String(activeMapId || ''), toMapId: toId, toZoneId: entryZoneId });
+  function doHyperloopJump() {
+    // Regional hyperloop movement is handled by the phase movement runtime.
+    addLog('한 경기에서는 하나의 지도를 사용합니다. 지도는 경기 시작 전에 선택할 수 있습니다.', 'system');
+    return false;
   }
 
   async function changeLocalMap(operation, input) {
-    if (getToken() || day > 0 || isGameOver || loading || isAdvancing
-      || isAdvancingRef?.current || runLockedRef?.current || mapPreparationRef.current) {
+    if (getToken() || !canChangeMap() || mapPreparationRef.current) {
       return { ok: false, errors: ['다른 준비 작업이 끝난 뒤 새 경기 설정에서 변경해 주세요.'] };
     }
     const job = { cancelled: false };
@@ -170,9 +118,9 @@ export function createMapActionRuntime(context = {}) {
     setMapPreparation({ name: '지도와 참가자 경로를 준비하고 있습니다.' });
     const isCurrent = () => {
       if (job.cancelled || mapPreparationRef.current !== job || getToken()
-        || isAdvancingRef?.current || runLockedRef?.current) return false;
+        || !canChangeMap()) return false;
       const latest = actions.getCurrentMapInputs?.() || state;
-      return ['survivors', 'candidateSurvivors', 'publicItems', 'settings', 'activeMapId', 'maps', 'day', 'loading', 'isGameOver']
+      return ['survivors', 'candidateSurvivors', 'publicItems', 'settings', 'activeMapId', 'maps', 'day', 'loading', 'isGameOver', 'isAdvancing', 'replayMode', 'evaluationMode']
         .every((key) => latest[key] === state[key]);
     };
     try {
@@ -235,6 +183,7 @@ export function createMapActionRuntime(context = {}) {
   }
 
   async function refreshMapSettingsFromServer(reason = 'manual') {
+    if (!canChangeMap() || mapPreparationRef.current) return false;
     if (!getToken()) {
       // Starting captures the prepared, visible conditions. An implicit reload
       // here could combine another tab's map with the old roster closure.
@@ -251,11 +200,20 @@ export function createMapActionRuntime(context = {}) {
       }
       return true;
     }
+    const refreshInputs = actions.getCurrentMapInputs?.() || state;
+    const refreshMap = activeMapRef?.current;
+    const refreshMaps = mapsRef?.current;
     if (isRefreshingMapsRef?.current) return false;
     if (isRefreshingMapsRef) isRefreshingMapsRef.current = true;
     setIsRefreshingMapSettings(true);
     try {
       const mapsRes = await apiGet('/public/maps', { timeoutMs: 8000 });
+      const latest = actions.getCurrentMapInputs?.() || state;
+      const inputsUnchanged = ['survivors', 'candidateSurvivors', 'publicItems', 'settings', 'activeMapId',
+        'maps', 'day', 'loading', 'isGameOver', 'isAdvancing', 'replayMode', 'evaluationMode']
+        .every((key) => latest[key] === refreshInputs[key]);
+      if (!canChangeMap() || mapPreparationRef.current || !inputsUnchanged
+        || activeMapRef?.current !== refreshMap || mapsRef?.current !== refreshMaps) return false;
       const mapsList = Array.isArray(mapsRes) ? mapsRes : [];
       if (!mapsList.length) {
         addLog('⚠️ 맵 설정 새로고침 실패(맵 목록 없음)', 'death');

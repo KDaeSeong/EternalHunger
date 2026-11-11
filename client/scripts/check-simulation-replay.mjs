@@ -258,6 +258,31 @@ await check('input owns all starting actors, inventories, rules, catalogs, map a
   assert.notEqual(input.publicItems[0].name, 'changed after start');
 });
 
+await check('new matches own one selected map while foreign archived map IDs fail without mutation', () => {
+  const source = { ...fixture, activeMap: fixture.map, publicItems: input.publicItems,
+    survivors: input.initialFrame.survivors.map((actor) => ({ ...actor, mapId: 'old-map' })),
+    dead: [{ ...input.initialFrame.survivors[0], _id: 'waiting', hp: 0, mapId: 'old-map' }] };
+  const before = cloneReplayData(source);
+  const captured = createSimulationRunInput(source);
+  const mapId = String(captured.map._id || captured.map.id);
+  assert.deepEqual(source, before);
+  assert.ok([...captured.initialFrame.survivors, ...captured.initialFrame.dead].every((actor) => actor.mapId === mapId));
+  for (const list of ['survivors', 'dead']) {
+    const foreign = cloneReplayData(captured);
+    foreign.initialFrame[list][0].mapId = 'foreign';
+    const saved = cloneReplayData(foreign);
+    assert.throws(() => prepareSimulationRunInput(foreign), /지도/);
+    assert.deepEqual(foreign, saved);
+  }
+  const legacy = cloneReplayData(captured);
+  for (const actor of [...legacy.initialFrame.survivors, ...legacy.initialFrame.dead]) delete actor.mapId;
+  const saved = cloneReplayData(legacy);
+  const prepared = prepareSimulationRunInput(JSON.parse(JSON.stringify(legacy))).state;
+  assert.deepEqual(legacy, saved);
+  assert.deepEqual(prepared.survivors, captured.initialFrame.survivors);
+  assert.deepEqual(prepared.dead, captured.initialFrame.dead);
+});
+
 await check('legacy map and local rule overrides resolve once, then survive external changes', () => {
   const map = { ...input.map };
   delete map.crateAllowDeny;
@@ -293,7 +318,7 @@ await check('custom map geometry, directed topology and rules survive an archive
     crateAllowDeny: { beta: ['transcend_pick'] },
   };
   customInput.initialFrame.survivors = customInput.initialFrame.survivors.slice(0, 2).map((actor, index) => ({
-    ...actor, zoneId: index ? 'beta' : 'alpha', route: [index ? 'beta' : 'alpha'], routeIndex: 0,
+    ...actor, mapId: 'custom-triangle', zoneId: index ? 'beta' : 'alpha', route: [index ? 'beta' : 'alpha'], routeIndex: 0,
   }));
   customInput.initialFrame.dead = [];
   customInput.settings.simulationRuleset = { ...customInput.settings.simulationRuleset, tickSec: 13, customRuleMarker: 'kept' };

@@ -191,7 +191,7 @@ export function createPhaseCombatEliminationRuntime({
         if (got > 0) {
           emitRunEvent('gain', { who: winnerId, itemId: lootId, qty: got, source: 'pvp', from: loserId, zoneId: String(combatWinner?.zoneId || '') }, atNow());
           lootLines.push(`${itemIcon(stub)} ${stub?.name || fallbackName} x${got}`);
-          const crafted = tryAutoCraftFromLoot(combatWinner.inventory, lootId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(combatWinner));
+          const crafted = tryAutoCraftFromLoot(combatWinner.inventory, lootId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(combatWinner, publicItems));
           if (crafted?.transaction && commitCraftTransaction(combatWinner, crafted.transaction).ok) {
             craftLogs.push(crafted.log);
             emitCraftRunEvent(emitRunEvent, winnerId, crafted, atNow(), combatWinner.zoneId);
@@ -200,7 +200,7 @@ export function createPhaseCombatEliminationRuntime({
       }
     }
 
-    const invCraft = tryAutoCraftFromInventory(combatWinner, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset);
+    const invCraft = tryAutoCraftFromInventory(combatWinner, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset, publicItems);
     if (invCraft?.log) {
       craftLogs.push(invCraft.log);
       emitCraftRunEvent(emitRunEvent, winnerId, invCraft, atNow(), combatWinner.zoneId);

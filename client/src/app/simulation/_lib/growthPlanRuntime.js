@@ -8,26 +8,12 @@ import { areEquipmentWeaponTypesCompatible } from '../../../utils/equipmentCatal
 import { GROWTH_EQUIPMENT_SLOTS, getActorEquipmentTier, getGrowthEquipmentCatalog } from './growthEquipmentRuntime.js';
 import { classifySpecialByName } from './craftRuntime.js';
 import { ownsGrowthTarget } from './growthAcquisitionRuntime.js';
+import { getOpeningGrowthTargetByKey } from './growthTargetIdentityRuntime.js';
 
 const catalogCache = new WeakMap();
-const catalogKeyCache = new WeakMap();
 function indexCatalog(items) {
   if (!catalogCache.has(items)) catalogCache.set(items, new Map(items.map((item) => [String(item._id), item])));
   return catalogCache.get(items);
-}
-
-function indexCatalogKeys(items) {
-  if (!catalogKeyCache.has(items)) {
-    const byKey = new Map();
-    for (const item of items) {
-      for (const key of [item.itemKey, item.externalId, item._id]) {
-        const value = String(key ?? '').trim();
-        if (value && !byKey.has(value)) byKey.set(value, item);
-      }
-    }
-    catalogKeyCache.set(items, byKey);
-  }
-  return catalogKeyCache.get(items);
 }
 
 function indexInventoryQuantities(inventory) {
@@ -47,7 +33,7 @@ export function isAuthoredOpeningGrowthTarget(actor, target, items = null) {
   const id = String(target?._id || '');
   const key = String(actor?.goalLoadouts?.hero?.[`${inferEquipSlot(target)}Key`] || '').trim();
   if (!id || !key) return false;
-  if (Array.isArray(items)) return String(indexCatalogKeys(items).get(key)?._id || '') === id;
+  if (Array.isArray(items)) return String(getOpeningGrowthTargetByKey(items, key)?._id || '') === id;
   return [target._id, target.itemKey, target.externalId].some(value => String(value ?? '').trim() === key);
 }
 
@@ -87,7 +73,7 @@ function getActorGrowthProgressWithQuantities(actor, items = [], providedInvento
   for (const slot of GROWTH_EQUIPMENT_SLOTS) {
     const key = String(actor.goalLoadouts?.hero?.[`${slot}Key`] || '').trim();
     if (!key) continue;
-    const item = indexCatalogKeys(items).get(key);
+    const item = getOpeningGrowthTargetByKey(items, key);
     requested = requested.filter((row) => row.slot || (row.id !== key && row.id !== String(item?._id || '')
       && (!row.item || inferEquipSlot(row.item) !== slot)));
     requested.push({ id: item ? String(item._id) : key, key, item, slot });
@@ -310,24 +296,12 @@ export function buildActorGrowthPlan(actor, items, { mapObj, forbiddenIds = new 
   const openingComplete = progress.openingComplete;
   const late = openingComplete ? getLateGrowthDecision(actor, items, {},
     { quantities: inventoryQuantities, tiers: tierBySlot }) : { targets: [], issues: [], authoredTargets: [] };
-  // Identity receipts also apply when loot legitimately crafts a later direct
-  // goal before opening gear is complete. Resolve declarations without changing
-  // the current stage's target ordering, routes, reservations or issue display.
-  const authoredLate = !openingComplete && GROWTH_EQUIPMENT_SLOTS.some(slot => ['legend', 'transcend']
-    .some(group => String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim()))
-    ? getLateGrowthDecision(actor, items, { authoredOnly: true, includeAcquired: true },
-      { quantities: inventoryQuantities, tiers: tierBySlot }) : late;
   const remaining = openingComplete ? late.targets : [...progress.remaining].sort((a, b) =>
     // Finish a viable recipe before spreading intermediates across empty
     // slots. Blocked/attempted focuses still fall through to real replanning.
     Number(String(b._id) === String(actor._growthFocusId)) - Number(String(a._id) === String(actor._growthFocusId))
     || tierBySlot[inferEquipSlot(a)] - tierBySlot[inferEquipSlot(b)]);
   const base = { targetIds: openingComplete ? [] : progress.targetIds,
-    authoredTargetsByGroup: Object.fromEntries(['hero', 'legend', 'transcend'].map(group => [group,
-      Object.fromEntries((group === 'hero' ? progress.targets.filter(target => isAuthoredOpeningGrowthTarget(actor, target, items))
-        : authoredLate.authoredTargets.filter(target => Number(target.tier) === (group === 'legend' ? 5 : 6)))
-        .map(target => { const slot = inferEquipSlot(target); return [slot, { itemId: String(target._id),
-          key: String(actor.goalLoadouts?.[group]?.[`${slot}Key`] || '').trim() }]; }))])),
     exactTargetIds: [...progress.targets.filter(target => isAuthoredOpeningGrowthTarget(actor, target, items)),
       ...late.authoredTargets]
       .map(target => String(target._id)),

@@ -244,7 +244,7 @@ export function runHuntAction({
         recipient._immediateDangerUntilPhaseIdx = phaseIdxNow;
       }
 
-      const crafted = immediate?.changed ? null : tryAutoCraftFromLoot(recipient.inventory, drop.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(recipient));
+      const crafted = immediate?.changed ? null : tryAutoCraftFromLoot(recipient.inventory, drop.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(recipient, publicItems));
       applyLootCraftResult(recipient, crafted, itemMetaById, atNow(), recipient?.zoneId);
     }
   }

@@ -9,6 +9,9 @@ const { getLootCraftOptions } = await import('../src/app/simulation/_lib/runEven
 const { openLegendaryCrateForActor } = await import('../src/app/simulation/_lib/phaseLegendaryCrateRuntime.js');
 const { withSimulationRandom } = await import('../src/utils/simulationRandom.js');
 const { getRuleset } = await import('../src/utils/rulesets.js');
+const { runHuntAction } = await import('../src/app/simulation/_lib/phaseHuntActionRuntime.js');
+const { tryImmediateCraftFromSpecial } = await import('../src/app/simulation/_lib/gearImmediateSpecialCraftRuntime.js');
+const { tryAutoCraftFromInventory } = await import('../src/app/simulation/_lib/gearInventoryCraftRuntime.js');
 const types = { head: '머리', weapon: '무기', clothes: '옷', arm: '팔', shoes: '신발' };
 const gear = (id, slot, tier, ingredients = []) => ({ _id: id, itemKey: `${id}-key`, name: id,
   category: 'equipment', type: types[slot], equipSlot: slot, tier, weaponType: slot === 'weapon' ? '검' : '',
@@ -34,11 +37,115 @@ function fixture({ supplies = true, direct = true } = {}) {
 }
 function loot(actor, id) {
   const result = withSimulationRandom(() => 0, () => tryAutoCraftFromLoot(actor.inventory, id, items,
-    names, meta, 3, ruleset, getLootCraftOptions(actor)));
+    names, meta, 3, ruleset, getLootCraftOptions(actor, items)));
   assert.ok(result); assert.equal(applyLootCraftResult(actor, result, meta), true); return result;
 }
 let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log(`PASS ${name}`); };
+
+check('JSON-restored legacy plan records consecutive real receipts without replanning', () => {
+  const actor = JSON.parse(JSON.stringify(fixture()));
+  assert.equal(Object.hasOwn(actor._growthPlan ?? {}, 'authoredTargetsByGroup'), false);
+  // An old snapshot may still carry obsolete identity data. Neither commit
+  // nor normal refresh uses it as authority for a new acquisition.
+  actor._growthPlan.authoredTargetsByGroup = { legend: { head: { key: legend.itemKey, itemId: 'wrong-old-id' } } };
+  loot(actor, 'raw1'); loot(actor, 'raw2');
+  assert.deepEqual(actor._lateAcquiredItemIds, { legend: { head: 'legend' }, transcend: { head: 'trans' } });
+  assert.equal(refreshActorGrowthPlan(actor, items, world)?.targetId || '', '');
+  assert.equal(Object.hasOwn(actor._growthPlan ?? {}, 'authoredTargetsByGroup'), false);
+});
+
+check('real held hunt settlement and shared boss recipient retain legacy-plan acquisitions', () => {
+  for (const shared of [false, true]) {
+    const recipient = JSON.parse(JSON.stringify(fixture({ supplies: false })));
+    delete recipient._growthPlan.authoredTargetsByGroup;
+    recipient.teamId = 'team:1'; recipient.teamSlot = 1;
+    const hunter = shared ? { ...fixture({ supplies: false, direct: false }), _id: 'hunter', teamId: 'team:1', teamSlot: 2 } : recipient;
+    if (!shared) hunter._wildlifeHunt = { id: 'held-hunt' };
+    const events = [];
+    const result = withSimulationRandom(() => 0, () => runHuntAction({ state: {
+      actor: hunter, publicItems: items, craftables: [legend, trans], itemNameById: names, itemMetaById: meta,
+      ruleset, mapObj: world.mapObj, nextDay: 1, nextPhase: 'morning', phaseIdxNow: 1,
+      preparedHunt: { defeated: true, damage: 0, kind: 'bear', log: 'test hunt',
+        drops: materials.map(item => ({ itemId: item._id, qty: 1, item })) },
+      preparedHuntRole: shared ? 'boss' : 'wildlife', rewardRoster: [hunter, recipient], isSoloMatch: !shared,
+      damageAlreadyApplied: true, encounterId: `legacy-${shared}`, actualDamageTaken: 0,
+    }, actions: {
+      applyLootCraftResult: (who, crafted, metadata) => applyLootCraftResult(who, crafted, metadata),
+      emitRunEvent: (type, payload) => events.push({ type, ...payload }),
+    } }));
+    assert.equal(result.died, false);
+    assert.deepEqual(recipient._lateAcquiredItemIds, { legend: { head: 'legend' }, transcend: { head: 'trans' } });
+    assert.equal(recipient.simCredits, 25); assert.equal(recipient.inventory.some(row => row.itemId === 'legend'), false);
+    assert.equal(refreshActorGrowthPlan(JSON.parse(JSON.stringify(recipient)), items, world)?.targetId || '', '');
+    if (shared) assert.deepEqual(events.find(event => event.type === 'hunt_settlement').sharedDrops.map(row => row.who), ['actor', 'actor']);
+  }
+});
+
+check('transaction context is absent from enumerable payloads and lost copies fail closed', () => {
+  for (const [copy, retainsContext] of [[value => value, true], [structuredClone, false], [value => JSON.parse(JSON.stringify(value)), false]]) {
+    const actor = fixture(); delete actor._growthPlan.authoredTargetsByGroup;
+    const catalog = [...items, { _id: 'catalog-only-sentinel', name: 'not a receipt' }];
+    const prepared = prepareCraftTransaction(actor, legend, 3, ruleset, catalog);
+    assert.equal(JSON.stringify(prepared).includes('catalog-only-sentinel'), false);
+    assert.equal(Object.values(prepared).includes(catalog), false);
+    assert.equal(commitCraftTransaction(actor, copy(prepared)).ok, true);
+    assert.equal(actor._lateAcquiredItemIds?.legend?.head, retainsContext ? 'legend' : undefined);
+    assert.equal(JSON.stringify(actor).includes('catalog-only-sentinel'), false);
+    assert.equal(JSON.stringify(prepared.receipt).includes('catalog-only-sentinel'), false);
+  }
+  const actor = fixture(), prepared = prepareCraftTransaction(actor, legend, 3, ruleset);
+  assert.equal(commitCraftTransaction(actor, prepared).ok, true);
+  assert.equal(actor._lateAcquiredItemIds, undefined);
+});
+
+check('commit resolves the actual recipient current declarations rather than preparation or old plan', () => {
+  const actor = fixture({ direct: false });
+  const prepared = prepareCraftTransaction(actor, legend, 3, ruleset, items);
+  actor.goalLoadouts = { legend: { headKey: legend.itemKey } };
+  assert.equal(commitCraftTransaction(actor, prepared).ok, true);
+  assert.equal(actor._lateAcquiredItemIds.legend.head, legend._id);
+  const changed = fixture(), staleGoal = prepareCraftTransaction(changed, legend, 3, ruleset, items);
+  changed.goalLoadouts.legend.headKey = 'different-goal';
+  assert.equal(commitCraftTransaction(changed, staleGoal).ok, true);
+  assert.equal(changed._lateAcquiredItemIds, undefined);
+});
+
+check('filtered inventory and immediate-special candidates preserve the full ordered hero alias winner', () => {
+  const blocker = { ...raw('alias-blocker', 'unrelated material'), itemKey: 'shared-hero' };
+  const target = { ...legend, itemKey: 'shared-hero' };
+  for (const immediate of [false, true]) for (const reversed of [false, true]) {
+    const catalog = [...materials, ...basics, ...(reversed ? [target, blocker] : [blocker, target])];
+    const actor = fixture(); actor.goalLoadouts = { hero: { headKey: 'shared-hero' } };
+    delete actor._growthPlan;
+    const result = immediate
+      ? tryImmediateCraftFromSpecial(actor, 'mithril', 'raw1', catalog, buildItemNameById(catalog), buildItemMetaById(catalog), 3, 'morning', 4, ruleset)
+      : tryAutoCraftFromInventory(actor, [target], buildItemNameById(catalog), buildItemMetaById(catalog), 3, 4, ruleset, catalog);
+    assert.equal(result.changed, true);
+    assert.equal(actor._openingAcquiredItemIds?.head, reversed ? legend._id : undefined);
+    assert.equal(actor.simCredits, 28);
+  }
+});
+
+check('late acquisition retains first-valid global tier-slot and primary-key alias semantics', () => {
+  const target = { ...legend, itemKey: 'late-shared', externalId: 'secondary-alias' };
+  for (const [first, acquired] of [
+    [{ ...gear('invalid-first', 'head', 5), itemKey: 'late-shared', recipe: null }, true],
+    [{ ...gear('tier-first', 'head', 6, [{ itemId: 'raw1', qty: 1 }]), itemKey: 'late-shared' }, false],
+    [{ ...gear('slot-first', 'arm', 5, [{ itemId: 'raw1', qty: 1 }]), itemKey: 'late-shared' }, false],
+  ]) {
+    const actor = fixture(); delete actor._growthPlan;
+    actor.goalLoadouts = { legend: { headKey: 'late-shared' } };
+    const catalog = [...materials, ...basics, first, target];
+    assert.equal(commitCraftTransaction(actor, prepareCraftTransaction(actor, target, 3, ruleset, catalog)).ok, true);
+    assert.equal(actor._lateAcquiredItemIds?.legend?.head, acquired ? target._id : undefined);
+  }
+  const actor = fixture(); actor.goalLoadouts = { hero: { headKey: 'secondary-alias' }, legend: { headKey: 'secondary-alias' } };
+  const catalog = [...materials, ...basics, target];
+  assert.equal(commitCraftTransaction(actor, prepareCraftTransaction(actor, target, 3, ruleset, catalog)).ok, true);
+  assert.equal(actor._openingAcquiredItemIds.head, target._id);
+  assert.equal(actor._lateAcquiredItemIds, undefined);
+});
 
 check('consecutive real loot crafts retain both authored acquisitions before planner refresh', () => {
   const actor = fixture(), first = loot(actor, 'raw1');
@@ -71,15 +178,15 @@ check('actual legendary crate bonus then main crafting does not lose a consumed 
 
 check('failed, stale and repeated transactions cannot create acquisitions or spend twice', () => {
   const actor = fixture({ supplies: false }), before = JSON.stringify(actor);
-  const missing = prepareCraftTransaction(actor, legend, 3, ruleset);
+  const missing = prepareCraftTransaction(actor, legend, 3, ruleset, items);
   assert.equal(missing.ok, false); assert.equal(commitCraftTransaction(actor, missing).ok, false);
   assert.equal(JSON.stringify(actor), before);
-  const funded = fixture(), prepared = prepareCraftTransaction(funded, legend, 3, ruleset);
+  const funded = fixture(), prepared = prepareCraftTransaction(funded, legend, 3, ruleset, items);
   assert.equal(prepared.ok, true); assert.equal(funded._lateAcquiredItemIds, undefined);
   funded.simCredits--;
   assert.equal(commitCraftTransaction(funded, prepared).reason, 'stale_transaction');
   assert.equal(funded._lateAcquiredItemIds, undefined);
-  const live = prepareCraftTransaction(funded, legend, 3, ruleset);
+  const live = prepareCraftTransaction(funded, legend, 3, ruleset, items);
   assert.equal(commitCraftTransaction(funded, live).ok, true);
   const saved = JSON.stringify(funded);
   assert.equal(commitCraftTransaction(funded, live).ok, false); assert.equal(JSON.stringify(funded), saved);
@@ -119,7 +226,7 @@ check('a full bag rejects the whole result without payment or authored acquisiti
   actor.equipped = { head: 'trans' };
   const smallBag = { ...ruleset, inventory: { ...ruleset.inventory, maxSlots: 2, autoDropLowValue: false } };
   const before = JSON.stringify(actor);
-  const rejected = prepareCraftTransaction(actor, { ...legend, craftComponent: true }, 3, smallBag);
+  const rejected = prepareCraftTransaction(actor, { ...legend, craftComponent: true }, 3, smallBag, items);
   assert.equal(rejected.reason, 'inventory_full');
   assert.equal(commitCraftTransaction(actor, rejected).ok, false);
   assert.equal(JSON.stringify(actor), before);
@@ -136,10 +243,10 @@ check('duplicate and cross-field aliases follow catalog first-wins in both catal
       const actor = fixture(); actor.goalLoadouts = { hero: { headKey: 'shared' } };
       refreshActorGrowthPlan(actor, catalog, world);
       const canonical = reversed ? second._id : first._id;
-      assert.equal(actor._growthPlan.authoredTargetsByGroup.hero.head.itemId, canonical);
+      assert.equal(Object.hasOwn(actor._growthPlan, 'authoredTargetsByGroup'), false);
       for (const rawId of ['raw1', 'raw2']) {
         const crafted = withSimulationRandom(() => 0, () => tryAutoCraftFromLoot(actor.inventory, rawId, catalog,
-          buildItemNameById(catalog), buildItemMetaById(catalog), 3, ruleset, getLootCraftOptions(actor)));
+          buildItemNameById(catalog), buildItemMetaById(catalog), 3, ruleset, getLootCraftOptions(actor, catalog)));
         assert.ok(crafted); assert.equal(applyLootCraftResult(actor, crafted, buildItemMetaById(catalog)), true);
       }
       assert.equal(actor._openingAcquiredItemIds.head, canonical);
@@ -157,7 +264,7 @@ check('a resolved later goal cannot overwrite another group through a colliding 
   refreshActorGrowthPlan(actor, catalog, world);
   const craft = rawId => {
     const result = withSimulationRandom(() => 0, () => tryAutoCraftFromLoot(actor.inventory, rawId, catalog,
-      buildItemNameById(catalog), buildItemMetaById(catalog), 3, ruleset, getLootCraftOptions(actor)));
+      buildItemNameById(catalog), buildItemMetaById(catalog), 3, ruleset, getLootCraftOptions(actor, catalog)));
     assert.ok(result); assert.equal(applyLootCraftResult(actor, result, buildItemMetaById(catalog)), true);
   };
   craft('raw1'); refreshActorGrowthPlan(actor, catalog, world); craft('raw2');
@@ -170,7 +277,7 @@ check('a resolved later goal cannot overwrite another group through a colliding 
 check('successful non-equipment output cannot create a direct equipment acquisition', () => {
   const actor = fixture();
   const consumable = { ...legend, category: 'consumable', type: '소모품' };
-  const prepared = prepareCraftTransaction(actor, consumable, 3, ruleset);
+  const prepared = prepareCraftTransaction(actor, consumable, 3, ruleset, items);
   assert.equal(prepared.ok, true); assert.equal(commitCraftTransaction(actor, prepared).ok, true);
   assert.equal(actor._openingAcquiredItemIds, undefined); assert.equal(actor._lateAcquiredItemIds, undefined);
 });
@@ -185,12 +292,12 @@ check('later direct acquisitions survive consecutive loot crafts while another o
   actor.goalLoadouts.hero = { clothesKey: opening._id };
   const plan = refreshActorGrowthPlan(actor, catalog, world);
   assert.equal(plan.openingComplete, false); assert.equal(plan.targetId, opening._id);
-  assert.equal(plan.authoredTargetsByGroup.legend.head.itemId, legend._id);
-  assert.equal(plan.authoredTargetsByGroup.transcend.head.itemId, trans._id);
+  assert.equal(Object.hasOwn(plan, 'authoredTargetsByGroup'), false);
+  assert.equal(JSON.stringify(plan).includes('authoredTargetsByGroup'), false);
   const receipts = [];
   for (const rawId of ['raw1', 'raw2']) {
     const crafted = withSimulationRandom(() => 0, () => tryAutoCraftFromLoot(actor.inventory, rawId, catalog,
-      buildItemNameById(catalog), buildItemMetaById(catalog), 3, ruleset, getLootCraftOptions(actor)));
+      buildItemNameById(catalog), buildItemMetaById(catalog), 3, ruleset, getLootCraftOptions(actor, catalog)));
     assert.ok(crafted); assert.equal(applyLootCraftResult(actor, crafted, buildItemMetaById(catalog)), true);
     receipts.push(crafted.receipt);
   }

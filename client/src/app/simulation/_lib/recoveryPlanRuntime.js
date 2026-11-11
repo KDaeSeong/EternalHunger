@@ -101,7 +101,7 @@ export function craftActorRecoveryItem(actor, plan, items, day, phaseIdx, rulese
   const actionKey = actor._actionCycleKey ?? `phase:${Number(phaseIdx || 0)}`;
   if (actor._invCraftActionKey === actionKey) return null;
   const item = items.find(row => String(row._id) === plan.readyCraftId);
-  const prepared = prepareCraftTransaction(actor, markGrowthComponent(item, { _growthPlan: plan }), day, ruleset);
+  const prepared = prepareCraftTransaction(actor, markGrowthComponent(item, { _growthPlan: plan }), day, ruleset, items);
   const result = prepared.ok ? commitCraftTransaction(actor, prepared) : prepared;
   if (!result.ok) return null;
   actor._invCraftActionKey = actionKey;

@@ -136,7 +136,7 @@ export function runFieldLootPhase({
   }
 
   if (!recoveryPlan && loot && String(loot?.crateType || '').toLowerCase() !== 'transcend_pick' && loot.itemId) {
-    const crafted = tryAutoCraftFromLoot(updated.inventory, loot.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+    const crafted = tryAutoCraftFromLoot(updated.inventory, loot.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated, publicItems));
     applyLootCraftResult(updated, crafted, itemMetaById, atNow(), updated?.zoneId);
   }
 

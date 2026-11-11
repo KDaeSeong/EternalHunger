@@ -315,7 +315,7 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
 
     // Standalone callers may preview legacy free recipes without an actor.
     // Product callers always supply the real actor context; commit verifies it.
-    const transaction = prepareCraftTransaction({ hp: 1, ...opts.craftActor, inventory }, craftedItem, day, ruleset);
+    const transaction = prepareCraftTransaction({ hp: 1, ...opts.craftActor, inventory }, craftedItem, day, ruleset, opts.publicItems);
     if (!transaction.ok) continue;
     const receipt = transaction.receipt;
 

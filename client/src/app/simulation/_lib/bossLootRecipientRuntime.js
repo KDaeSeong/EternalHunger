@@ -3,7 +3,7 @@ import { getGrowthRecipeWork } from './growthPlanRuntime.js';
 import { getActorResourceRecipeTargets } from './lateGrowthTargetRuntime.js';
 import { canReceiveItem, inferItemCategory, markInventoryGoalItem } from './inventoryRules.js';
 import { classifySpecialByName } from './craftRuntime.js';
-import { getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
+import { getCombatSpaceId, shareCombatSpace, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 
 const idOf = (actor) => String(actor?._id || actor?.id || '');
@@ -19,7 +19,7 @@ export function chooseBossLootRecipient({ hunter, roster = [], drop, remaining, 
   const candidates = [];
   for (const actor of actors.values()) {
     if (!idOf(actor) || excluded.has(idOf(actor)) || !(Number(actor.hp) > 0) || isDimensionRiftDefeated(actor)
-      || !areSameTeam(hunter, actor) || getCombatSpaceId(actor) !== WORLD_COMBAT_SPACE
+      || !areSameTeam(hunter, actor) || !shareCombatSpace(hunter, actor) || getCombatSpaceId(actor) !== WORLD_COMBAT_SPACE
       || String(actor.zoneId || '') !== String(hunter.zoneId || '')) continue;
     for (const [targetRank, target] of getActorResourceRecipeTargets(actor, publicItems).entries()) {
       const work = getGrowthRecipeWork(actor, publicItems, target._id);

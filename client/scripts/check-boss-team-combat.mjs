@@ -21,7 +21,7 @@ const items = [{ _id: 'mithril', name: '미스릴', type: 'material', tier: 4 },
   { _id: 'meat', name: '고기', type: 'material', tier: 1 }];
 const meta = Object.fromEntries(items.map((item) => [item._id, item]));
 const names = Object.fromEntries(items.map((item) => [item._id, item.name]));
-const makeActor = (id, attackSpeed = 1) => ({ _id: id, name: id, teamId: 'team:1', zoneId: 'z', hp: 1000, maxHp: 1000,
+const makeActor = (id, attackSpeed = 1) => ({ _id: id, name: id, teamId: 'team:1', mapId: 'hunt-map', zoneId: 'z', hp: 1000, maxHp: 1000,
   stats: { maxHp: 1000, attackPower: 45, defense: 20, attackSpeed, moveSpeed: 3.5, attackRange: 2, sightRange: 12 },
   inventory: [], equipped: {}, activeEffects: [], simCredits: 0, tacticalSkill: 'none',
   _spatial: { zoneId: 'z', x: 8, y: 8 }, _actionCycleKey: '2:100' });
@@ -474,7 +474,8 @@ await check('an actual lethal boss strike records one death, retargets a living 
 });
 
 await check('region and combat-space departure preserve the encounter at its original location', async () => {
-  for (const leave of [(owner) => { owner.zoneId = 'away'; }, (owner) => { owner._combatSpaceId = 'dimension_rift:test'; }]) {
+  for (const leave of [(owner) => { owner.zoneId = 'away'; }, (owner) => { owner._combatSpaceId = 'dimension_rift:test'; },
+    (owner) => { owner.mapId = 'remote-map'; }]) {
     const input = fixture(); let departed = false;
     await fight(input, { onAdvance: (map, now) => {
       if (!departed && now >= 102) { departed = true; leave(map.get('owner')); }

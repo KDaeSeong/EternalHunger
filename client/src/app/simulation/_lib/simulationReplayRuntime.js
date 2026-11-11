@@ -39,6 +39,12 @@ export function resolveReplayMap(map, storage) {
   return result;
 }
 
+function getCapturedMapId(map) {
+  const id = String(map?._id || map?.id || '');
+  if (!id.trim()) throw new Error('경기에 사용할 지도를 확인할 수 없습니다. 시작 지도를 다시 선택해 주세요.');
+  return id;
+}
+
 export function createSimulationRunInput(state, storage) {
   const settings = Object.fromEntries(SETTINGS_KEYS.filter((key) => state.settings?.[key] !== undefined)
     .map((key) => [key, state.settings[key]]));
@@ -51,6 +57,10 @@ export function createSimulationRunInput(state, storage) {
     initialFrame: { day: 0, phase: 'night', matchSec: 0, survivors: state.survivors || [], dead: state.dead || [],
       killCounts: state.killCounts || {}, assistCounts: state.assistCounts || {}, spawnState: state.spawnState || null },
   });
+  const mapId = getCapturedMapId(input.map);
+  for (const list of ['survivors', 'dead']) {
+    input.initialFrame[list] = input.initialFrame[list].map((actor) => ({ ...actor, mapId }));
+  }
   validateSimulationRunInput(input);
   return input;
 }
@@ -58,6 +68,7 @@ export function createSimulationRunInput(state, storage) {
 export function validateSimulationRunInput(input) {
   if (input?.schema !== REPLAY_SCHEMA) throw new Error('시작 조건이 없는 이전 기록입니다.');
   if (input.engineVersion !== SIMULATION_ENGINE_VERSION) throw new Error('경기 규칙이 업데이트되어 이 기록의 동일 재경기를 실행할 수 없습니다.');
+  const mapId = getCapturedMapId(input.map);
   const actors = input.initialFrame?.survivors;
   if (!Array.isArray(actors) || actors.length < 2 || actors.length > 24
     || new Set(actors.map((actor) => String(actor?._id || actor?.id || ''))).size !== actors.length
@@ -68,6 +79,11 @@ export function validateSimulationRunInput(input) {
     || !Array.isArray(input.kiosks) || !Array.isArray(input.droneOffers)) {
     throw new Error('저장된 경기 시작 조건이 손상되었습니다.');
   }
+  const dead = input.initialFrame?.dead;
+  if (!Array.isArray(dead) || [...actors, ...dead].some((actor) => {
+    const actorMapId = String(actor?.mapId || '');
+    return actorMapId && actorMapId !== mapId;
+  })) throw new Error('참가자의 지도가 경기 지도와 다릅니다. 새 경기 설정에서 지도를 다시 선택해 주세요.');
   const sponsor = input.sponsorPerkSnapshot;
   if (sponsor != null) {
     const ids = sponsor && Array.isArray(sponsor.memberIds) ? sponsor.memberIds : null;
@@ -124,12 +140,16 @@ export function validateSimulationReplayRecord(record) {
 export function prepareSimulationRunInput(input) {
   validateSimulationRunInput(input);
   const owned = cloneReplayData(input);
+  const mapId = getCapturedMapId(owned.map);
+  for (const actor of [...owned.initialFrame.survivors, ...owned.initialFrame.dead]) {
+    if (!String(actor.mapId || '')) actor.mapId = mapId;
+  }
   lockPreparedLateGrowthCatalog(owned.publicItems);
   const zones = applyRegionDataToZones(owned.map.zones);
   const baseGraph = buildBaseZoneGraph(owned.map, zones);
   const loops = getHyperloopZoneIds(owned.map, zones);
   const cache = {};
-  const state = { ...owned.initialFrame, activeMap: owned.map, activeMapId: String(owned.map._id || owned.map.id),
+  const state = { ...owned.initialFrame, activeMap: owned.map, activeMapId: mapId,
     settings: owned.settings, runSeed: owned.runSeed, sponsorPerkSnapshot: owned.sponsorPerkSnapshot || null, publicItems: owned.publicItems,
     kiosks: owned.kiosks, droneOffers: owned.droneOffers, zones,
     zoneGraph: buildHyperloopZoneGraph(baseGraph, zones, loops),

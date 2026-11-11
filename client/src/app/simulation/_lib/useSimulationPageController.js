@@ -438,6 +438,8 @@ export function useSimulationPageController({
       loading,
       maps,
       matchPhase: phase,
+      replayMode,
+      evaluationMode,
       publicItems,
       settings,
       survivors,

@@ -1,4 +1,4 @@
-import { getActorDimensionRiftId, getCombatSpaceId, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
+import { getActorDimensionRiftId, getCombatSpaceId, shareCombatSpace, WORLD_COMBAT_SPACE } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
 import { getForcedControlEffect } from '../../../utils/statusLogic.js';
 import { areSameTeam } from './teamRuntime.js';
@@ -36,7 +36,7 @@ export function getBossAssistOwner(actor, roster, options = {}) {
   return roster.filter((owner) => {
     const hunt = owner?._wildlifeHunt;
     return idOf(owner) !== idOf(actor) && isWorldActor(owner) && !owner._combatIntent
-      && areSameTeam(actor, owner) && String(owner.zoneId) === String(actor.zoneId)
+      && areSameTeam(actor, owner) && shareCombatSpace(actor, owner) && String(owner.zoneId) === String(actor.zoneId)
       && hunt?.isBossReward && Number(hunt.target?.hp || 0) > 0 && String(hunt.zoneId) === String(actor.zoneId)
       && (!cast || cast.bossAssistEncounterId === hunt.id);
   }).sort((a, b) => idOf(a).localeCompare(idOf(b)))[0] || null;
@@ -45,7 +45,7 @@ export function getBossAssistOwner(actor, roster, options = {}) {
 export function getBossHuntSuccessor(owner, roster, options = {}) {
   const hunt = owner?._wildlifeHunt;
   if (!hunt?.isBossReward || Number(hunt.target?.hp || 0) <= 0) return null;
-  return roster.filter((actor) => idOf(actor) !== idOf(owner) && areSameTeam(actor, owner)
+  return roster.filter((actor) => idOf(actor) !== idOf(owner) && areSameTeam(actor, owner) && shareCombatSpace(actor, hunt.target)
     && String(actor.zoneId || '') === String(hunt.zoneId || '') && !actor._combatIntent
     && canJoinBossHunt(actor, roster, options)
     && (!actor._pendingCharacterCast || actor._pendingCharacterCast.bossAssistEncounterId === hunt.id))

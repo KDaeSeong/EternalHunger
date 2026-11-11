@@ -24,7 +24,7 @@ import { getCraftRecipeTerms } from './gearRecipeGuardRuntime.js';
 import { prepareCraftTransaction, commitCraftTransaction, craftFailureText } from './craftTransactionRuntime.js';
 import { canCraftAlongsideGrowth, getActorEquipmentTier } from './growthEquipmentRuntime.js';
 
-export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById, day, phaseIdxNow, ruleset) {
+export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById, day, phaseIdxNow, ruleset, publicItems = null) {
   if (!actor || !Number.isFinite(Number(actor.hp)) || Number(actor.hp) <= 0) return null;
   const actionKey = actor._actionCycleKey ?? `phase:${Number(phaseIdxNow || 0)}`;
   if (actor._invCraftActionKey === actionKey) return null;
@@ -131,7 +131,7 @@ export function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemM
       }
     }
 
-    const prepared = prepareCraftTransaction(actor, craftedItem, day, ruleset);
+    const prepared = prepareCraftTransaction(actor, craftedItem, day, ruleset, publicItems);
     const committed = prepared.ok ? commitCraftTransaction(actor, prepared) : prepared;
     if (!committed.ok) { failure ??= { ...committed, targetName: String(target.name || '') }; continue; }
     const receipt = committed.receipt;

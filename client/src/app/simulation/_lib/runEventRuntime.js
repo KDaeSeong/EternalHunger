@@ -47,8 +47,9 @@ export function emitObjectiveRunEvent(emitRunEvent, actor, objective, payload = 
   }, at);
 }
 
-export function getLootCraftOptions(actor) {
+export function getLootCraftOptions(actor, publicItems = null) {
   return {
+    publicItems,
     goalItemKeys: pickGoalLoadoutKeys(actor),
     weaponType: actor?.weaponType,
     growthPlan: actor?._growthPlan,

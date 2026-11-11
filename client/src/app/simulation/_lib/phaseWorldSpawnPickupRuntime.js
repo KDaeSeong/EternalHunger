@@ -71,7 +71,7 @@ export function runWorldSpawnPickupPhase({
     emitItemGainIfAny(gotF, { who: String(updated?._id || ''), itemId: String(foodCrate.itemId || ''), source: 'foodcrate', zoneId: String(updated?.zoneId || '') }, atNow());
     if (gotF > 0) {
       grantMastery(updated, 'search', 70, '음식 상자');
-      const craftedF = tryAutoCraftFromLoot(updated.inventory, foodCrate.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+      const craftedF = tryAutoCraftFromLoot(updated.inventory, foodCrate.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated, publicItems));
       applyLootCraftResult(updated, craftedF, itemMetaById, atNow(), updated?.zoneId);
     }
 
@@ -148,7 +148,7 @@ export function runWorldSpawnPickupPhase({
       danger: Math.max(0, Number(immediateCore?.pvpBonus || 0)),
     }, atNow());
 
-    const craftedN = immediateCore?.changed ? null : tryAutoCraftFromLoot(updated.inventory, corePickup.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+    const craftedN = immediateCore?.changed ? null : tryAutoCraftFromLoot(updated.inventory, corePickup.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated, publicItems));
     applyLootCraftResult(updated, craftedN, itemMetaById, atNow(), updated?.zoneId);
   }
 
