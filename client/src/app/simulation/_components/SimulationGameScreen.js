@@ -111,6 +111,8 @@ export default function SimulationGameScreen({
   const timeOfDay = getTimeOfDayFromPhase(phase);
   const aliveTeamCount = getAliveTeams(survivors).length;
   const actionDisabled = loading || isAdvancing || startBlocked || (showMarketPanel && !!pendingTranscendPick);
+  const hasForbiddenStatus = Boolean(detonationRiskSummary?.visible);
+  const hasEventFeedback = Boolean(eventFeedback);
 
   return (
     <section className={`game-screen ${phase === 'morning' ? 'morning-mode' : 'night-mode'}`}>
@@ -135,13 +137,23 @@ export default function SimulationGameScreen({
         timeOfDay={timeOfDay}
       />
 
-      <SimulationForbiddenStatusBar
-        detonationRiskSummary={detonationRiskSummary}
-        forbiddenAddedNow={forbiddenAddedNow}
-        getZoneName={getZoneName}
-      />
+      <div className="simulation-observer-hud-slot simulation-observer-hud-slot--forbidden"
+        data-observer-hud-slot="forbidden" role={hasForbiddenStatus ? 'region' : undefined}
+        aria-label={hasForbiddenStatus ? '금지구역 상태' : undefined}
+        aria-hidden={hasForbiddenStatus ? undefined : true} tabIndex={hasForbiddenStatus ? 0 : -1}>
+        <SimulationForbiddenStatusBar
+          detonationRiskSummary={detonationRiskSummary}
+          forbiddenAddedNow={forbiddenAddedNow}
+          getZoneName={getZoneName}
+        />
+      </div>
 
-      <SimulationEventFeedbackBar feedback={eventFeedback} />
+      <div className="simulation-observer-hud-slot simulation-observer-hud-slot--feedback"
+        data-observer-hud-slot="feedback" role={hasEventFeedback ? 'region' : undefined}
+        aria-label={hasEventFeedback ? '행동 피드백' : undefined}
+        aria-hidden={hasEventFeedback ? undefined : true} tabIndex={hasEventFeedback ? 0 : -1}>
+        <SimulationEventFeedbackBar feedback={eventFeedback} />
+      </div>
 
       {mapPreparation ? <div className="simulation-map-preparation" role="status" aria-live="polite">
         <strong>지도 준비 중</strong> · {mapPreparation.name} 완료되면 경기 시작과 설정 변경을 다시 사용할 수 있습니다.

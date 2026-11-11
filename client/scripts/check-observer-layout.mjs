@@ -5,6 +5,7 @@ import { registerHooks } from 'node:module';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
+import postcss from 'postcss';
 
 const components = new Set([
   '../src/app/simulation/_components/SimulationControlPanel.js',
@@ -14,11 +15,11 @@ const components = new Set([
 ].map((path) => new URL(path, import.meta.url).href));
 const cosmeticStylesUrl = new URL('../src/styles/PerkCosmetics.css', import.meta.url).href;
 registerHooks({ resolve(specifier, context, nextResolve) {
-  return nextResolve(specifier === 'next/image' ? 'next/image.js' : specifier, context);
+  return nextResolve(['next/image', 'next/link'].includes(specifier) ? `${specifier}.js` : specifier, context);
 }, load(url, context, nextLoad) {
   // SSR checks retain real component markup; CSS has no executable Node module.
   if (url === cosmeticStylesUrl) return { format: 'module', shortCircuit: true, source: '' };
-  if (!components.has(url)) return nextLoad(url, context);
+  if ((!components.has(url) && !url.includes('/_components/')) || !url.endsWith('.js')) return nextLoad(url, context);
   // Next's bundler unwraps this CJS default; native Node ESM does not. Keep
   // the real Next Image component rather than replacing it with a test mock.
   const source = readFileSync(new URL(url), 'utf8').replace("import Image from 'next/image';",
@@ -30,6 +31,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
 const { default: Control } = await import('../src/app/simulation/_components/SimulationControlPanel.js');
 const { default: Seed } = await import('../src/app/simulation/_components/SimulationMarketSeedCard.js');
 const { default: SurvivorBoard } = await import('../src/app/simulation/_components/SimulationSurvivorBoard.js');
+const { default: GameScreen } = await import('../src/app/simulation/_components/SimulationGameScreen.js');
 const { buildActorTeamState } = await import('../src/app/simulation/_lib/simulationPageRuntime.js');
 const readComponent = (name) => readFileSync(new URL(`../src/app/simulation/_components/${name}.js`, import.meta.url), 'utf8');
 const seedProps = { day: 0, matchSec: 0, runSeed: 'observer-layout-1', seedDraft: 'observer-layout-1' };
@@ -40,6 +42,52 @@ const render = (props = {}) => renderToStaticMarkup(React.createElement(Control,
 const normal = render();
 let passed = 0;
 const check = (name, run) => { run(); passed += 1; console.log(`PASS ${name}`); };
+check('ready and active screens retain both observer HUD slots before the map', () => {
+  const screen = readComponent('SimulationGameScreen');
+  assert.match(screen, /data-observer-hud-slot="forbidden"/,
+    'The forbidden HUD slot must exist even when its status bar returns null.');
+  assert.match(screen, /data-observer-hud-slot="feedback"/,
+    'The event HUD slot must exist even when no event feedback is present.');
+});
+check('actual screen HUD regions survive ready, forbidden, event, combined, long, closed and ended states', () => {
+  const forbidden = { visible: true, forbiddenCnt: 4, total: 21, safeLeft: 17, riskyCount: 2 };
+  const feedback = { label: '교전', text: '같은 지역에서 실제 교전이 발생했습니다.', tone: 'warning' };
+  const variants = [
+    { day: 0 }, { day: 4, detonationRiskSummary: forbidden }, { day: 4, eventFeedback: feedback },
+    { day: 4, detonationRiskSummary: forbidden, eventFeedback: feedback },
+    { day: 4, detonationRiskSummary: forbidden, forbiddenAddedNow: ['긴 지역 이름'.repeat(8)],
+      eventFeedback: { ...feedback, text: '긴 실제 사건 설명 '.repeat(40) } },
+    { day: 6, detonationRiskSummary: { ...forbidden, allZonesClosed: true, safeLeft: 0 } },
+    { day: 6, isGameOver: true, detonationRiskSummary: forbidden, eventFeedback: feedback },
+  ];
+  for (const variant of variants) {
+    const screen = GameScreen({ survivors: [], phase: 'night', forbiddenAddedNow: [], getZoneName: id => id, ...variant });
+    const children = React.Children.toArray(screen.props.children);
+    const slots = children.filter(child => child.props?.['data-observer-hud-slot']);
+    assert.deepEqual(slots.map(slot => slot.props['data-observer-hud-slot']), ['forbidden', 'feedback']);
+    assert.ok(children.indexOf(slots[1]) < children.findIndex(child => child.type?.name === 'SimulationMainStage'));
+    for (const slot of slots) {
+      const active = slot.props['data-observer-hud-slot'] === 'forbidden'
+        ? Boolean(variant.detonationRiskSummary?.visible) : Boolean(variant.eventFeedback);
+      assert.equal(slot.props.tabIndex, active ? 0 : -1);
+      assert.equal(slot.props.role, active ? 'region' : undefined);
+      assert.equal(slot.props['aria-hidden'], active ? undefined : true);
+      assert.equal(Boolean(slot.props['aria-label']), active);
+      const html = renderToStaticMarkup(slot);
+      if (active) { assert.match(html, /tabindex="0"/); assert.match(html, /role="region"/); }
+      else { assert.match(html, /aria-hidden="true"/); assert.match(html, /tabindex="-1"/); }
+      if (slot.props['data-observer-hud-slot'] === 'feedback' && variant.eventFeedback) {
+        assert.ok(html.includes(variant.eventFeedback.text), 'Preserve the complete event text rather than shortening it for fit.');
+      }
+      if (slot.props['data-observer-hud-slot'] === 'forbidden' && variant.detonationRiskSummary?.allZonesClosed) {
+        assert.ok(html.includes('전지역 폐쇄'));
+      }
+      if (slot.props['data-observer-hud-slot'] === 'forbidden' && variant.forbiddenAddedNow?.length) {
+        assert.ok(html.includes(variant.forbiddenAddedNow[0]));
+      }
+    }
+  }
+});
 check('map preparation locks manual and auto start with a distinct readying label', () => {
   const html = render({ mapPreparation: { name: 'Preparing' }, isAdvancing: true, actionDisabled: true, autoDisabled: true, speedDisabled: true });
   assert.match(html, /지도 준비 중/);
@@ -143,6 +191,62 @@ check('log heading and limit notice have separate wrapping space', () => {
 });
 
 const styles = readFileSync(new URL('../src/styles/ERSimulation.css', import.meta.url), 'utf8');
+const stylesheet = postcss.parse(styles);
+// Evaluate the actual matching class rules and width media cascade for these
+// specific HUD elements. This is a source contract, not a browser layout model.
+function hudStyle(classes, width, observer = true, tag = '') {
+  const available = new Set([...classes, ...(observer ? ['simulation-page', 'simulation-page--observer'] : [])]);
+  const result = {}, priorities = {};
+  stylesheet.walkRules(rule => {
+    for (let parent = rule.parent; parent?.type !== 'root'; parent = parent?.parent) {
+      if (!parent) return;
+      if (parent.type !== 'atrule') continue;
+      if (parent.name !== 'media') return;
+      const min = parent.params.match(/min-width:\s*(\d+)px/), max = parent.params.match(/max-width:\s*(\d+)px/);
+      if (min && width < Number(min[1]) || max && width > Number(max[1])) return;
+      if (/height|prefers|print|orientation/.test(parent.params)) return;
+    }
+    const matching = rule.selectors.filter(selector => {
+      if (selector.endsWith(' > span')) {
+        if (tag !== 'span') return false;
+        selector = selector.slice(0, -7);
+      }
+      if (!/^\.[\w.-]+(?:\s+\.[\w.-]+)*$/.test(selector.trim())) return false;
+      const names = [...selector.matchAll(/\.([\w-]+)/g)].map(match => match[1]);
+      const terminal = [...selector.trim().split(/\s+/).at(-1).matchAll(/\.([\w-]+)/g)].map(match => match[1]);
+      return terminal.every(name => classes.includes(name)) && names.length > 0 && names.every(name => available.has(name));
+    });
+    if (!matching.length) return;
+    const specificity = Math.max(...matching.map(selector => (selector.match(/\./g) || []).length));
+    rule.walkDecls(declaration => {
+      const rank = specificity + (declaration.important ? 1000 : 0);
+      if (rank < (priorities[declaration.prop] ?? -1)) return;
+      priorities[declaration.prop] = rank; result[declaration.prop] = declaration.value;
+    });
+  });
+  return Object.fromEntries(Object.entries(result).map(([key, value]) => [key,
+    value.replace(/var\((--[\w-]+)\)/g, (_match, name) => result[name] ?? `var(${name})`)]));
+}
+check('the final 785px and desktop cascade fixes HUD allocation while retaining full accessible content', () => {
+  for (const width of [785, 999, 1000, 1280]) {
+    for (const kind of ['forbidden', 'feedback']) {
+      const style = hudStyle(['simulation-observer-hud-slot', `simulation-observer-hud-slot--${kind}`], width);
+      const expected = width <= 999 ? kind === 'forbidden' ? '64px' : '56px' : kind === 'forbidden' ? '36px' : '34px';
+      assert.equal(style.display, 'block');
+      assert.equal(style['block-size'], expected); assert.equal(style['min-block-size'], expected);
+      assert.equal(style['max-block-size'], expected); assert.equal(style.flex, `0 0 ${expected}`);
+      assert.equal(style.overflow, 'auto'); assert.equal(style['box-sizing'], 'border-box');
+    }
+    const placeholder = hudStyle(['simulation-field-details', 'simulation-field-details--placeholder'], width);
+    assert.equal(placeholder.display, 'block'); assert.equal(placeholder['block-size'], '24px');
+    assert.equal(placeholder['min-block-size'], '24px'); assert.equal(placeholder['max-block-size'], '24px');
+  }
+  assert.equal(hudStyle(['simulation-observer-hud-slot'], 785, false).display, 'contents');
+  assert.equal(hudStyle(['simulation-field-details--placeholder'], 785, false).display, 'none');
+  const copyText = hudStyle(['simulation-observer-hud-slot', 'simulation-event-feedback__copy'], 785, true, 'span');
+  assert.equal(copyText.overflow, 'visible'); assert.equal(copyText['white-space'], 'normal');
+  assert.equal(copyText['text-overflow'], 'clip');
+});
 const mediaBlock = (query) => {
   const start = styles.indexOf(`@media ${query} {`);
   if (start < 0) return '';
@@ -178,10 +282,10 @@ check('desktop ready and active game-screen states reserve the same top rows and
     'Leave the native summary list-item marker intact.');
   assert.doesNotMatch(styles, /\.simulation-field-details > summary \{[^}]*display: flex;/);
   assert.ok(/\.simulation-page--observer \.simulation-field-details,\s*\.simulation-page--observer \.simulation-field-details--placeholder \{ min-height: 24px; box-sizing: border-box; \}/.test(desktop),
-    'Constrain the shared field-summary slot to the desktop observer layout only.');
+    'The desktop observer retains the shared 24px field-summary slot.');
   assert.match(desktop, /\.simulation-page--observer \.simulation-field-details > summary \{ min-height: 24px; box-sizing: border-box; \}/);
   assert.match(styles, /\.simulation-field-details--placeholder \{ display: none; \}/,
-    'The preparation placeholder stays hidden on mobile and non-observer layouts.');
+    'Non-observer layouts keep the preparation placeholder hidden.');
   assert.match(desktop, /\.simulation-page--observer \.simulation-field-details--placeholder \{ display: block; padding: 3px 6px; \}/,
     'Show the same-height preparation text only for desktop observer sessions.');
   assert.match(styles, /\.simulation-field-details \.worldspawn-toolbar \{ position: absolute; top: 100%; left: 0; right: 0;/,
@@ -189,7 +293,8 @@ check('desktop ready and active game-screen states reserve the same top rows and
   const narrow = mediaBlock('(max-width: 999px)');
   assert.match(narrow, /\.simulation-container\.modal-layout \.game-screen \{ display: flex;/,
     'Keep the existing narrow-screen conditional layout instead of imposing desktop grid rows.');
-  assert.doesNotMatch(narrow, /simulation-field-details--placeholder\s*\{[^}]*display:\s*block/);
+  assert.equal(hudStyle(['simulation-field-details', 'simulation-field-details--placeholder'], 785).display, 'block',
+    'Observer field readiness space must also be reserved on the narrow flex layout.');
 });
 check('desktop page can scroll while controls and observation remain bounded', () => {
   const desktop = mediaBlock('(min-width: 1000px)');
