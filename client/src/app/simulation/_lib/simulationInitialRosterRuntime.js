@@ -237,6 +237,8 @@ export function buildInitialSimulationRoster({
     const seededBase = mergeInitialRoutePlanFields({
       ...erSeed,
       stats: seedStats,
+      uniqueResourceValue: undefined,
+      _uniqueResourceRegen: undefined,
       level: 1,
       erLevel: 1,
       masteryXp: 0,

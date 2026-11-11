@@ -149,6 +149,7 @@ export function applyGuestCharacterProfiles(roster, profiles = []) {
       ...actor,
       ...definition,
       uniqueResourceValue: definition.uniqueResource?.enabled ? definition.uniqueResource.startValue : 0,
+      _uniqueResourceRegen: undefined,
       localProfile: true,
       characterSkillCode: '',
       erSubject: '',

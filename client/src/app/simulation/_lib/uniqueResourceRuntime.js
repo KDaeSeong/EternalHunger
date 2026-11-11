@@ -48,6 +48,37 @@ export function getUniqueResourceSnapshot(actor) {
   return { resource, value };
 }
 
+// Keep sub-display recovery across copied/serialized actors. A receipt belongs
+// only to its exact definition and visible balance; legacy or edited state has
+// no implicit credit. The signed residue compensates display rounding.
+function regenerationRemainder(actor, resource, value) {
+  const state = actor?._uniqueResourceRegen;
+  const remainder = state?.remainder;
+  return resource.enabled && value < resource.maxValue
+    && state?.definition === JSON.stringify(resource) && state?.value === value
+    && Number(actor?.uniqueResourceValue) === value
+    && typeof remainder === 'number' && Number.isFinite(remainder) && Math.abs(remainder) <= 0.000500000001
+    && value + remainder >= 0 ? remainder : 0;
+}
+
+export function normalizeUniqueResourceRegeneration(actor) {
+  if (!actor?._uniqueResourceRegen) return undefined;
+  const { resource, value } = getUniqueResourceSnapshot(actor);
+  const remainder = regenerationRemainder(actor, resource, value);
+  return remainder ? { definition: JSON.stringify(resource), value, remainder } : undefined;
+}
+
+function commitResourceValue(actor, resource, exact) {
+  const bounded = Math.max(0, Math.min(resource.maxValue, Math.round(exact * 1e12) / 1e12));
+  const after = roundResource(bounded);
+  const remainder = after >= resource.maxValue || bounded <= 0 ? 0 : Math.round((bounded - after) * 1e12) / 1e12;
+  actor.uniqueResource = resource;
+  actor.uniqueResourceValue = after;
+  if (remainder) actor._uniqueResourceRegen = { definition: JSON.stringify(resource), value: after, remainder };
+  else delete actor._uniqueResourceRegen;
+  return after;
+}
+
 export function canPaySkillResource(actor, skill) {
   const cost = normalizeSkillResourceAmount(skill?.resourceCost);
   if (cost <= 0) return true;
@@ -60,9 +91,7 @@ export function spendSkillResource(actor, skill) {
   const { resource, value: before } = getUniqueResourceSnapshot(actor);
   if (cost <= 0) return { paid: true, changed: false, cost: 0, before, after: before, resource };
   if (!resource.enabled || before < cost) return { paid: false, changed: false, cost, before, after: before, resource };
-  const after = roundResource(before - cost);
-  actor.uniqueResource = resource;
-  actor.uniqueResourceValue = after;
+  const after = commitResourceValue(actor, resource, before - cost + regenerationRemainder(actor, resource, before));
   return { paid: true, changed: true, cost, before, after, resource };
 }
 
@@ -70,9 +99,7 @@ export function gainSkillResource(actor, skill) {
   const gain = normalizeSkillResourceAmount(skill?.resourceGain);
   const { resource, value: before } = getUniqueResourceSnapshot(actor);
   if (!resource.enabled || gain <= 0) return { changed: false, gain: 0, before, after: before, resource };
-  const after = roundResource(Math.min(resource.maxValue, before + gain));
-  actor.uniqueResource = resource;
-  actor.uniqueResourceValue = after;
+  const after = commitResourceValue(actor, resource, before + gain + regenerationRemainder(actor, resource, before));
   return { changed: after > before, gain: roundResource(after - before), before, after, resource };
 }
 
@@ -82,9 +109,8 @@ export function advanceUniqueResource(actor, elapsedSec) {
   if (!resource.enabled || resource.regenPerSec <= 0 || elapsed <= 0) {
     return { changed: false, gained: 0, before, after: before, resource };
   }
-  const after = roundResource(Math.min(resource.maxValue, before + resource.regenPerSec * elapsed));
-  actor.uniqueResource = resource;
-  actor.uniqueResourceValue = after;
+  const after = commitResourceValue(actor, resource,
+    before + regenerationRemainder(actor, resource, before) + resource.regenPerSec * elapsed);
   return { changed: after > before, gained: roundResource(after - before), before, after, resource };
 }
 

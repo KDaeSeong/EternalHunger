@@ -22,6 +22,7 @@ import { initializeSpatialPosition, getSpatialPosition, getSpatialLastSeen } fro
 import {
   normalizeUniqueResourceDefinition,
   normalizeUniqueResourceValue,
+  normalizeUniqueResourceRegeneration,
 } from './uniqueResourceRuntime.js';
 
 function ensureEquipped(obj) {
@@ -177,6 +178,7 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
     skillState: base?.skillState && typeof base.skillState === 'object' ? { ...base.skillState } : {},
     uniqueResource,
     uniqueResourceValue: normalizeUniqueResourceValue(uniqueResource, base?.uniqueResourceValue),
+    _uniqueResourceRegen: normalizeUniqueResourceRegeneration(base),
     hp: Math.max(0, Math.min(maxHp, hp)),
     maxHp,
     satiety: Math.max(0, Math.min(100, Number.isFinite(Number(base?.satiety)) ? Number(base.satiety) : 70)),
