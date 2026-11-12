@@ -180,6 +180,10 @@ function freshRunId() {
 }
 
 export function createNewState(options = {}) {
+  return createInitialState(options);
+}
+
+function createInitialState(options = {}, weather) {
   const now = options.now || new Date().toISOString();
   const rng = options.rng || Math.random;
   const meta = initMetaState(options.meta);
@@ -199,7 +203,7 @@ export function createNewState(options = {}) {
     day: 1,
     ap: preset.apMax,
     apMax: preset.apMax,
-    weather: rollWeather(1, rng),
+    weather: weather || rollWeather(1, rng),
     party,
     inventory,
     equipment: initEquipmentForParty(party),
@@ -228,7 +232,9 @@ export function createNewState(options = {}) {
 }
 
 export function normalizeState(value) {
-  const base = createNewState();
+  const weather = value && typeof value === 'object' && value.weather && typeof value.weather === 'object'
+    ? value.weather : undefined;
+  const base = createInitialState({}, weather);
   if (!value || typeof value !== 'object') return base;
   let civics = normalizeCivics(value.civics, value.research);
   const normalizedResearch = normalizeResearch(value.research);
@@ -4030,8 +4036,8 @@ export function survivalSupplySummary(state) {
 }
 
 export function settlementOperationsSummary(state) {
-  // Use the existing pure settlement calculations without creating a new run
-  // through normalizeState, which would draw weather randomness on every read.
+  // Use the existing pure settlement calculations without constructing the
+  // full normalized run for this read.
   const current = { ...state, day: Math.max(1, Number(state.day || 1)),
     tribe: normalizeTribeState(state.tribe), research: normalizeResearch(state.research),
     projects: normalizeProjectState(state.projects), inventory: state.inventory || {},

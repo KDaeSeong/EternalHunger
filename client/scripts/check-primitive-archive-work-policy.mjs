@@ -201,12 +201,13 @@ check('manual and legacy workers remain fixed while explicitly automatic workers
   assert.equal(research.tribe.assignments.scholar, 4);
 });
 
-check('balanced reproduces the fresh pre-change full-state fingerprints and exact normalization/weather draw counts', () => {
-  // Captured from these same fresh inputs before policy code was introduced.
+check('balanced preserves pre-policy state fingerprints with one actual weather draw and zero query draws', () => {
+  // State fingerprints were captured from these fresh inputs before policy code.
+  // Saved-weather normalization now consumes no discarded ambient weather draws.
   const expected = {
-    surplus: ['2c8f0be2d5cbef49545ad7f18ccd1f753502c58b95e81b9d7dc8ce9855679cf7', 2],
-    scarce: ['46fc1664d00226b8a8d6f24b7986fadae7e6e9951d43d397100facef01eaf341', 2],
-    manual: ['cdf66b35ca06439690b3dc16b8b4cda63ea2e755cb2789a73fc767d9be9d1a4a', 1],
+    surplus: ['2c8f0be2d5cbef49545ad7f18ccd1f753502c58b95e81b9d7dc8ce9855679cf7', 0],
+    scarce: ['46fc1664d00226b8a8d6f24b7986fadae7e6e9951d43d397100facef01eaf341', 0],
+    manual: ['cdf66b35ca06439690b3dc16b8b4cda63ea2e755cb2789a73fc767d9be9d1a4a', 0],
   };
   for (const mode of Object.keys(expected)) {
     const source = fixture(mode); delete source.tribe.workPolicy;
@@ -219,7 +220,7 @@ check('balanced reproduces the fresh pre-change full-state fingerprints and exac
     assert.deepEqual(source, before);
     assert.equal(draws, expected[mode][1]); assert.equal(weatherDraws, 1);
     const originalShape = clone(next);
-    // Remove only asserted neutral additions; keep the old economy and RNG hash.
+    // Remove only asserted neutral additions; keep the old economy/weather hash.
     assert.deepEqual(originalShape.tribe.processingPlan, { actionId: '', targetStock: 0 });
     assert.equal(originalShape.tribe.assignments.artisan, 0);
     assert.equal(originalShape.tribe.autoAssignments.artisan, 0);
