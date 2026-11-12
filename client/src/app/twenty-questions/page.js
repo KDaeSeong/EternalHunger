@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
-import { apiGetCached, apiPost, clearApiGetCache } from '../../utils/api';
+import { apiGetCached, apiPost, AUTH_SYNC_EVENT, captureAuthSession, clearApiGetCache, isCurrentAuthSession } from '../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../utils/client-auth';
 import GameActionIcon from '../games/_components/GameActionIcon';
 import { useGameBgm } from '../games/_components/GameBgmProvider';
@@ -126,10 +126,173 @@ export default function TwentyQuestionsPage() {
     handleGameSfxPointerDownCapture,
     playGameSfx,
   } = useGameSfxEventHandlers({ theme: 'twenty' });
+  const [sessionEpoch, setSessionEpoch] = useState(0);
+  const ownerKey = token ? safeText(user?._id || user?.id || user?.username, 'signed-in') : 'guest';
+  const ownerContextKey = JSON.stringify([ownerKey, token, sessionEpoch]);
+  const filterKey = JSON.stringify([statusFilter, categoryFilter]);
+  const lobbyRef = useRef({ active: false, contextKey: '', ownerKey: '', generation: 0, session: null,
+    filterKey: '', listGeneration: 0, listRequest: null, createRequest: null,
+    formRevision: 0, writerRevision: 0, musicRevision: 0 });
+  const formRef = useRef(form);
+  const writerRef = useRef(writerOpen);
+  const filtersRef = useRef({ status: statusFilter, category: categoryFilter });
+  const loadRoomsRef = useRef(null);
+  const initialLocationReadRef = useRef(false);
+  const formRevision = lobbyRef.current.formRevision;
+  const writerRevision = lobbyRef.current.writerRevision;
+
+  const cancelResultMusic = useCallback(() => {
+    lobbyRef.current.musicRevision += 1;
+    if (musicSceneTimerRef.current) {
+      window.clearTimeout(musicSceneTimerRef.current);
+      musicSceneTimerRef.current = null;
+      setMusicScene(musicBaseSceneRef.current);
+    }
+  }, [setMusicScene]);
+
+  const retireLobbySession = useCallback(() => {
+    const scope = lobbyRef.current;
+    if (!scope.active) return;
+    scope.active = false;
+    scope.generation += 1;
+    scope.listGeneration += 1;
+    scope.listRequest = null;
+    scope.createRequest = null;
+    cancelResultMusic();
+    setSessionEpoch(value => value + 1);
+  }, [cancelResultMusic]);
+
+  const isLobbyContextCurrent = useCallback(() => {
+    const scope = lobbyRef.current;
+    if (!scope.active || scope.contextKey !== ownerContextKey) return false;
+    if (!isCurrentAuthSession(scope.session)) {
+      retireLobbySession();
+      return false;
+    }
+    return true;
+  }, [ownerContextKey, retireLobbySession]);
+
+  const isCurrentListRequest = useCallback(request => {
+    const scope = lobbyRef.current;
+    return Boolean(request) && isLobbyContextCurrent() && scope.listRequest === request
+      && scope.generation === request.generation && scope.listGeneration === request.listGeneration
+      && scope.filterKey === request.filterKey && isCurrentAuthSession(request.session);
+  }, [isLobbyContextCurrent]);
+
+  const isCurrentCreateRequest = useCallback(request => {
+    const scope = lobbyRef.current;
+    return Boolean(request) && isLobbyContextCurrent() && scope.createRequest === request
+      && scope.generation === request.generation && scope.formRevision === request.formRevision
+      && scope.writerRevision === request.writerRevision && isCurrentAuthSession(request.session);
+  }, [isLobbyContextCurrent]);
+
+  const retireCreateIntent = useCallback(() => {
+    const scope = lobbyRef.current;
+    scope.createRequest = null;
+    setCreating(false);
+    cancelResultMusic();
+  }, [cancelResultMusic]);
+  const updateForm = useCallback(value => {
+    if (!isLobbyContextCurrent()) return;
+    const next = typeof value === 'function' ? value(formRef.current) : value;
+    lobbyRef.current.formRevision += 1;
+    retireCreateIntent();
+    formRef.current = next;
+    setForm(next);
+  }, [isLobbyContextCurrent, retireCreateIntent]);
+  const updateWriterOpen = useCallback(value => {
+    if (!isLobbyContextCurrent()) return;
+    const next = typeof value === 'function' ? value(writerRef.current) : value;
+    if (next === writerRef.current) return;
+    lobbyRef.current.writerRevision += 1;
+    retireCreateIntent();
+    writerRef.current = next;
+    setWriterOpen(next);
+  }, [isLobbyContextCurrent, retireCreateIntent]);
+  const updateFilter = useCallback((kind, value) => {
+    if (!isLobbyContextCurrent()) return;
+    const next = typeof value === 'function' ? value(filtersRef.current[kind]) : value;
+    if (next === filtersRef.current[kind]) return;
+    filtersRef.current = { ...filtersRef.current, [kind]: next };
+    const scope = lobbyRef.current;
+    scope.filterKey = JSON.stringify([filtersRef.current.status, filtersRef.current.category]);
+    scope.listGeneration += 1;
+    scope.listRequest = null;
+    if (scope.createRequest?.recovering) retireCreateIntent();
+    else cancelResultMusic();
+    if (kind === 'status') setStatusFilter(next);
+    else setCategoryFilter(next);
+  }, [cancelResultMusic, isLobbyContextCurrent, retireCreateIntent]);
+  const updateStatusFilter = useCallback(value => updateFilter('status', value), [updateFilter]);
+  const updateCategoryFilter = useCallback(value => updateFilter('category', value), [updateFilter]);
+  const writerVisible = writerOpen && lobbyRef.current.active
+    && lobbyRef.current.contextKey === ownerContextKey && isCurrentAuthSession(lobbyRef.current.session);
+
+  useLayoutEffect(() => {
+    const scope = lobbyRef.current;
+    const ownerChanged = scope.ownerKey !== ownerKey;
+    scope.contextKey = ownerContextKey;
+    scope.ownerKey = ownerKey;
+    scope.generation += 1;
+    scope.listGeneration += 1;
+    scope.session = captureAuthSession();
+    scope.active = true;
+    scope.listRequest = null;
+    scope.createRequest = null;
+    scope.formRevision += 1;
+    scope.writerRevision += 1;
+    setCreating(false);
+    setLoadError('');
+    setActionFeedback(null);
+    setRooms([]);
+    cancelResultMusic();
+    if (ownerChanged) {
+      const empty = { title: '', category: 'free', hint: '', answer: '' };
+      formRef.current = empty;
+      writerRef.current = false;
+      setForm(empty);
+      setWriterOpen(false);
+    }
+    return () => {
+      scope.active = false;
+      scope.generation += 1;
+      scope.listGeneration += 1;
+      scope.listRequest = null;
+      scope.createRequest = null;
+      scope.musicRevision += 1;
+    };
+  }, [cancelResultMusic, ownerContextKey, ownerKey]);
+
+  useLayoutEffect(() => {
+    const scope = lobbyRef.current;
+    scope.filterKey = filterKey;
+    scope.listGeneration += 1;
+    scope.listRequest = null;
+    filtersRef.current = { status: statusFilter, category: categoryFilter };
+    return () => {
+      scope.listGeneration += 1;
+      scope.listRequest = null;
+    };
+  }, [categoryFilter, filterKey, ownerContextKey, statusFilter]);
+
+  useEffect(() => {
+    const handleAuthChange = event => {
+      if (event?.type === 'storage' && event.key && !['user', 'eh_auth_sync_ts'].includes(event.key)) return;
+      const scope = lobbyRef.current;
+      if (scope.session && !isCurrentAuthSession(scope.session)) retireLobbySession();
+    };
+    window.addEventListener(AUTH_SYNC_EVENT, handleAuthChange);
+    window.addEventListener('storage', handleAuthChange);
+    return () => {
+      window.removeEventListener(AUTH_SYNC_EVENT, handleAuthChange);
+      window.removeEventListener('storage', handleAuthChange);
+    };
+  }, [retireLobbySession]);
+
   const baseMusicScene = useMemo(() => resolveTwentyQuestionsLobbyBgmScene({
-    writerOpen,
+    writerOpen: writerVisible,
     loadError,
-  }), [loadError, writerOpen]);
+  }), [loadError, writerVisible]);
 
   useEffect(() => {
     musicBaseSceneRef.current = baseMusicScene;
@@ -143,14 +306,20 @@ export default function TwentyQuestionsPage() {
   }, [setMusicScene]);
 
   const announce = (action, result = {}) => {
+    if (!isLobbyContextCurrent()) return null;
     const feedback = twentyQuestionsFeedback(action, result);
     setActionFeedback(feedback);
     playGameSfx(feedback.cue);
     const transition = twentyQuestionsResultMusic(feedback);
     if (transition) {
+      const generation = lobbyRef.current.generation;
+      const musicRevision = ++lobbyRef.current.musicRevision;
+      const session = captureAuthSession();
       if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
       setMusicScene(transition.theme);
       musicSceneTimerRef.current = window.setTimeout(() => {
+        if (!isLobbyContextCurrent() || lobbyRef.current.generation !== generation
+          || lobbyRef.current.musicRevision !== musicRevision || !isCurrentAuthSession(session)) return;
         setMusicScene(musicBaseSceneRef.current);
         musicSceneTimerRef.current = null;
       }, transition.durationMs);
@@ -158,7 +327,12 @@ export default function TwentyQuestionsPage() {
     return feedback;
   };
 
-  const loadRooms = useCallback(async () => {
+  const loadRooms = useCallback(async ({ force = false } = {}) => {
+    const scope = lobbyRef.current;
+    if (!isLobbyContextCurrent() || scope.filterKey !== filterKey) return null;
+    const request = { generation: scope.generation, listGeneration: scope.listGeneration,
+      filterKey, session: captureAuthSession() };
+    scope.listRequest = request;
     setLoading(true);
     setLoadError('');
     try {
@@ -167,21 +341,23 @@ export default function TwentyQuestionsPage() {
       if (categoryFilter) params.set('category', categoryFilter);
       const suffix = params.toString() ? `?${params.toString()}` : '';
       const data = await apiGetCached(`/twenty-questions${suffix}`, {
-        ttlMs: 5000,
-        timeoutMs: 15000,
-        storage: 'session',
+        ttlMs: 5000, timeoutMs: 15000, storage: 'session', force,
       });
+      if (!isCurrentListRequest(request)) return null;
       setRooms(unwrapRooms(data));
       return true;
     } catch (err) {
+      if (!isCurrentListRequest(request)) return null;
       const message = err?.message || '스무고개 방을 불러오지 못했습니다.';
       setLoadError(message);
       showToast({ tone: 'danger', message });
       return false;
     } finally {
-      setLoading(false);
+      if (isCurrentListRequest(request)) setLoading(false);
     }
-  }, [categoryFilter, showToast, statusFilter]);
+  }, [categoryFilter, filterKey, isCurrentListRequest, isLobbyContextCurrent, showToast, statusFilter]);
+
+  useLayoutEffect(() => { loadRoomsRef.current = loadRooms; }, [loadRooms]);
 
   useEffect(() => {
     void loadRooms();
@@ -189,18 +365,19 @@ export default function TwentyQuestionsPage() {
 
   useEffect(() => {
     if (!mounted || token) return;
-    setWriterOpen(false);
-  }, [mounted, token]);
+    updateWriterOpen(false);
+  }, [mounted, token, updateWriterOpen]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || initialLocationReadRef.current || !isLobbyContextCurrent()) return;
+    initialLocationReadRef.current = true;
     const params = new URLSearchParams(window.location.search);
     const nextStatus = safeText(params.get('status'), '');
     const nextCategory = safeText(params.get('category'), '');
-    if (STATUS_FILTERS.some((item) => item.value === nextStatus)) setStatusFilter(nextStatus);
-    if (CATEGORIES.some((item) => item.value === nextCategory)) setCategoryFilter(nextCategory);
-    if (params.get('create') === '1') setWriterOpen(true);
-  }, []);
+    if (STATUS_FILTERS.some((item) => item.value === nextStatus)) updateStatusFilter(nextStatus);
+    if (CATEGORIES.some((item) => item.value === nextCategory)) updateCategoryFilter(nextCategory);
+    if (params.get('create') === '1') updateWriterOpen(true);
+  }, [isLobbyContextCurrent, updateCategoryFilter, updateStatusFilter, updateWriterOpen]);
 
   const filteredRooms = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -217,7 +394,10 @@ export default function TwentyQuestionsPage() {
   const activeCount = useMemo(() => rooms.filter((room) => room.status === 'active').length, [rooms]);
 
   const refreshRooms = async () => {
-    const ok = await loadRooms();
+    const pending = loadRooms({ force: true });
+    const request = lobbyRef.current.listRequest;
+    const ok = await pending;
+    if (ok === null || !isCurrentListRequest(request)) return;
     announce(ok ? 'refresh' : 'roomLoadFailure', {
       ok,
       message: ok ? '최신 스무고개 방 목록을 불러왔습니다.' : '스무고개 방 목록을 불러오지 못했습니다.',
@@ -225,11 +405,12 @@ export default function TwentyQuestionsPage() {
   };
 
   const createRoom = async () => {
+    const scope = lobbyRef.current;
+    if (!mounted || !token || !isLobbyContextCurrent() || scope.createRequest
+      || scope.formRevision !== formRevision || scope.writerRevision !== writerRevision
+      || formRef.current !== form) return;
     const payload = {
-      title: form.title.trim(),
-      category: form.category,
-      hint: form.hint.trim(),
-      answer: form.answer.trim(),
+      title: form.title.trim(), category: form.category, hint: form.hint.trim(), answer: form.answer.trim(),
     };
     if (!payload.title || !payload.answer) {
       const message = '방 제목과 정답을 입력해주세요.';
@@ -238,9 +419,13 @@ export default function TwentyQuestionsPage() {
       return;
     }
 
+    const request = { generation: scope.generation, formRevision, writerRevision,
+      session: captureAuthSession(), recovering: false };
+    scope.createRequest = request;
     setCreating(true);
     try {
       const data = await apiPost('/twenty-questions', payload, { timeoutMs: 15000 });
+      if (!isCurrentCreateRequest(request)) return;
       const roomId = data?.room?._id || data?.room?.id;
       const message = data?.message || '스무고개 방을 만들었습니다.';
       announce('roomCreate', { message });
@@ -248,20 +433,32 @@ export default function TwentyQuestionsPage() {
       clearApiGetCache('/twenty-questions');
       clearApiGetCache('/public/home-hub');
       clearApiGetCache('/public/search');
-      setForm({ title: '', category: 'free', hint: '', answer: '' });
+      const empty = { title: '', category: 'free', hint: '', answer: '' };
+      formRef.current = empty;
+      writerRef.current = false;
+      setForm(empty);
       setWriterOpen(false);
       if (roomId) router.push(`/twenty-questions/${roomId}`);
-      else await loadRooms();
+      else {
+        request.recovering = true;
+        await loadRoomsRef.current?.({ force: true });
+      }
     } catch (err) {
+      if (!isCurrentCreateRequest(request)) return;
       clearApiGetCache('/twenty-questions');
       clearApiGetCache('/public/home-hub');
       clearApiGetCache('/public/search');
-      await loadRooms();
+      request.recovering = true;
+      const reloaded = await loadRoomsRef.current?.({ force: true });
+      if (reloaded === null || !isCurrentCreateRequest(request)) return;
       const message = err?.message || '스무고개 방 생성에 실패했습니다.';
       announce('roomCreateFailure', { ok: false, message });
       showToast({ tone: 'danger', message });
     } finally {
-      setCreating(false);
+      if (isCurrentCreateRequest(request)) {
+        lobbyRef.current.createRequest = null;
+        setCreating(false);
+      }
     }
   };
 
@@ -281,14 +478,14 @@ export default function TwentyQuestionsPage() {
           <div className="twenty-head-actions">
             {mounted && token ? (
               <GameControlButton
-                action={writerOpen ? 'close' : 'room'}
-                cue={writerOpen ? 'twentyWriterClose' : 'twentyWriterOpen'}
+                action={writerVisible ? 'close' : 'room'}
+                cue={writerVisible ? 'twentyWriterClose' : 'twentyWriterOpen'}
                 className="twenty-button"
-                onClick={() => setWriterOpen((value) => !value)}
-                aria-expanded={writerOpen}
+                onClick={() => updateWriterOpen((value) => !value)}
+                aria-expanded={writerVisible}
                 aria-controls="twenty-create-panel"
               >
-                {writerOpen ? '닫기' : '방 만들기'}
+                {writerVisible ? '닫기' : '방 만들기'}
               </GameControlButton>
             ) : (
               <Link href="/login" className="twenty-button game-control-button" data-game-sfx="nav">
@@ -312,12 +509,12 @@ export default function TwentyQuestionsPage() {
             <span><GameActionIcon action="search" label="검색 결과" />검색 {filteredRooms.length}</span>
           </div>
           <div className="twenty-filters">
-            <select data-game-sfx-change="twentyFilter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="상태">
+            <select data-game-sfx-change="twentyFilter" value={statusFilter} onChange={(event) => updateStatusFilter(event.target.value)} aria-label="상태">
               {STATUS_FILTERS.map((option) => (
                 <option value={option.value} key={option.value}>{option.label}</option>
               ))}
             </select>
-            <select data-game-sfx-change="twentyFilter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} aria-label="카테고리">
+            <select data-game-sfx-change="twentyFilter" value={categoryFilter} onChange={(event) => updateCategoryFilter(event.target.value)} aria-label="카테고리">
               <option value="">모든 주제</option>
               {CATEGORIES.map((option) => (
                 <option value={option.value} key={option.value}>{option.label}</option>
@@ -332,7 +529,7 @@ export default function TwentyQuestionsPage() {
           </div>
         </section>
 
-        {mounted && token && writerOpen ? (
+        {mounted && token && writerVisible ? (
           <section className="twenty-create-panel" id="twenty-create-panel">
             <div className="twenty-create-title">
               <strong><GameActionIcon action="room" label="새 방" />새 방</strong>
@@ -341,18 +538,18 @@ export default function TwentyQuestionsPage() {
             <div className="twenty-create-grid">
               <input
                 value={form.title}
-                onChange={(event) => setForm({ ...form, title: event.target.value })}
+                onChange={(event) => updateForm({ ...form, title: event.target.value })}
                 placeholder="방 제목"
                 maxLength={80}
               />
-              <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
+              <select value={form.category} onChange={(event) => updateForm({ ...form, category: event.target.value })}>
                 {CATEGORIES.map((option) => (
                   <option value={option.value} key={option.value}>{option.label}</option>
                 ))}
               </select>
               <input
                 value={form.answer}
-                onChange={(event) => setForm({ ...form, answer: event.target.value })}
+                onChange={(event) => updateForm({ ...form, answer: event.target.value })}
                 placeholder="정답"
                 maxLength={120}
               />
@@ -362,7 +559,7 @@ export default function TwentyQuestionsPage() {
             </div>
             <textarea
               value={form.hint}
-              onChange={(event) => setForm({ ...form, hint: event.target.value })}
+              onChange={(event) => updateForm({ ...form, hint: event.target.value })}
               placeholder="첫 힌트"
               rows={3}
               maxLength={180}

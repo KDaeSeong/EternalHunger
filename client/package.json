@@ -247,7 +247,7 @@
     "check:school-simulator-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-school-simulator-soundtrack.mjs && node ./scripts/check-school-simulator-rendered-audio.mjs",
     "check:si-coding-feedback": "node ./scripts/check-si-coding-feedback.mjs",
     "check:si-coding-soundtrack": "npm run check:sampled-orchestra && node ./scripts/check-si-coding-soundtrack.mjs && node ./scripts/check-si-coding-rendered-audio.mjs",
-    "check:twenty-questions": "npm run check:twenty-questions-rules && npm run check:twenty-questions-feedback && npm run check:twenty-questions-async-room",
+    "check:twenty-questions": "npm run check:twenty-questions-rules && npm run check:twenty-questions-feedback && npm run check:twenty-questions-async-room && npm run check:twenty-questions-lobby-races",
     "check:twenty-questions-async-room": "node ./scripts/check-twenty-questions-async-room.mjs",
     "check:twenty-questions-rules": "node ./scripts/check-twenty-questions-rules.mjs",
     "check:twenty-questions-feedback": "node ./scripts/check-twenty-questions-feedback.mjs",
@@ -262,7 +262,8 @@
     "check:primitive-archive:lineage": "node ./scripts/check-primitive-archive-lineage.mjs && node ./scripts/check-primitive-archive-ancestral-faith.mjs && node ./scripts/check-primitive-archive-lineage-checkpoint.mjs && node ./scripts/check-primitive-archive-lineage-ui.mjs && npm run check:primitive-archive:project-tradition",
     "check:primitive-archive:project-tradition": "node ./scripts/check-primitive-archive-project-tradition.mjs && node ./scripts/check-primitive-archive-project-tradition-checkpoint.mjs && node ./scripts/check-primitive-archive-project-tradition-ui.mjs",
     "check:primitive-archive:portraits": "node ./scripts/check-primitive-archive-official-portraits.mjs && node ./scripts/check-primitive-archive-official-portraits-ui.mjs",
-    "check:primitive-archive:annual": "node ./scripts/check-primitive-archive-annual-calendar.mjs && node ./scripts/check-primitive-archive-annual-operation.mjs && node ./scripts/check-primitive-archive-annual-ui.mjs && node ./scripts/check-primitive-archive-annual-production-guide.mjs"
+    "check:primitive-archive:annual": "node ./scripts/check-primitive-archive-annual-calendar.mjs && node ./scripts/check-primitive-archive-annual-operation.mjs && node ./scripts/check-primitive-archive-annual-ui.mjs && node ./scripts/check-primitive-archive-annual-production-guide.mjs",
+    "check:twenty-questions-lobby-races": "node ./scripts/check-twenty-questions-lobby-races.mjs"
   },
   "dependencies": {
     "axios": "^1.13.2",

@@ -70,7 +70,7 @@ assert.ok(lobbySource.includes('data-game-sfx="twentyRoomEnter"'), '방 카드 �
 const navigationCues = ['twentyWriterOpen', 'twentyWriterClose', 'twentyFilter', 'twentyTabDeduction', 'twentyTabHints', 'twentyTabHistory'];
 for (const cue of navigationCues) assert.ok(sfxSource.includes(`${cue}: [`), `${cue} 전용 UI 효과음 프로필이 있어야 합니다.`);
 assert.ok(shellSource.includes("data-game-sfx={tab.cue || 'tab'}"), '공통 기능 탭은 게임별 전용 효과음을 받을 수 있어야 합니다.');
-assert.ok(lobbySource.includes("cue={writerOpen ? 'twentyWriterClose' : 'twentyWriterOpen'}"), '방 만들기 패널 열기와 닫기는 서로 다른 전용음을 사용해야 합니다.');
+assert.ok(lobbySource.includes("cue={writerVisible ? 'twentyWriterClose' : 'twentyWriterOpen'}"), '방 만들기 패널의 실제 표시 상태에 따라 열기와 닫기의 전용음을 구분해야 합니다.');
 assert.equal((lobbySource.match(/data-game-sfx-change="twentyFilter"/g) || []).length, 2, '상태와 카테고리 필터는 전용 필터음을 사용해야 합니다.');
 for (const cue of ['twentyTabDeduction', 'twentyTabHints', 'twentyTabHistory']) assert.ok(roomSource.includes(`cue: '${cue}'`), `${cue}가 해당 기능 탭에 연결되어야 합니다.`);
 assert.ok(lobbySource.includes('action="room" cue="off" onClick={createRoom}'), '방 생성은 선행 클릭음 없이 서버 결과음만 재생해야 합니다.');
