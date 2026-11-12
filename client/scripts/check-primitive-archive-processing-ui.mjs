@@ -15,6 +15,7 @@ const playUrl = url('src/app/games/primitive-archive/_components/PrimitiveArchiv
 const primitivesUrl = url('src/app/games/_components/GamePlayPrimitives.js').href;
 const cssUrl = url('src/styles/PrimitiveArchiveWorkPolicy.css');
 const transformed = new Set([formUrl, tribeUrl, primitivesUrl,
+  url('src/app/games/primitive-archive/_components/PrimitiveArchiveProductionRequirementGuide.js').href,
   url('src/app/games/primitive-archive/_components/PrimitiveArchiveEducationPlan.js').href,
   url('src/app/games/_components/GameActionIcon.js').href,
   url('src/app/games/primitive-archive/_components/PrimitiveArchiveVisuals.js').href]);
@@ -101,7 +102,10 @@ function formHarness(initialProps) {
   return {
     render(nextProps = props) {
       props = nextProps;
-      const element = ProcessingPlan(props);
+      const wrapper = ProcessingPlan(props);
+      const element = wrapper?.type === React.Fragment
+        ? React.Children.toArray(wrapper.props.children).find(child => typeof child.type === 'function' && child.props.processing === props.processing)
+        : wrapper;
       assert.ok(element);
       if (element.key !== key) { key = element.key; hooks = { cursor: 0, values: [] }; }
       hooks.cursor = 0;

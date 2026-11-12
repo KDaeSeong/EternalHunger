@@ -24,6 +24,7 @@ const portraitUrl = new URL('../src/app/games/primitive-archive/_components/Prim
 const tribeTabUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveTribeTab.js', import.meta.url).href;
 const processingPlanUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveProcessingPlan.js', import.meta.url).href;
 const educationPlanUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveEducationPlan.js', import.meta.url).href;
+const productionRequirementGuideUrl = new URL('../src/app/games/primitive-archive/_components/PrimitiveArchiveProductionRequirementGuide.js', import.meta.url).href;
 const advisorPanelUrl = new URL('../src/app/games/_components/GameAdvisorPanel.js', import.meta.url).href;
 const runTabModules = new Map([
   ['next/link', `const jsx = (...args) => globalThis.__primitiveArchiveProgressionReact.createElement(...args); export default function Link(props) { return jsx('a', props); }`],
@@ -88,7 +89,7 @@ registerHooks({
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if (url !== runTabUrl && url !== tribeTabUrl && url !== processingPlanUrl && url !== educationPlanUrl && url !== partyWorkspaceUrl && url !== advisorPanelUrl && url !== portraitUrl) return nextLoad(url, context);
+    if (url !== runTabUrl && url !== tribeTabUrl && url !== processingPlanUrl && url !== educationPlanUrl && url !== productionRequirementGuideUrl && url !== partyWorkspaceUrl && url !== advisorPanelUrl && url !== portraitUrl) return nextLoad(url, context);
     return {
       format: 'module',
       shortCircuit: true,

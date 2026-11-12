@@ -5961,6 +5961,25 @@ function processingInventoryQuantity(inventory, itemId) {
   return Number.isFinite(quantity) && quantity >= 0 && quantity <= Number.MAX_SAFE_INTEGER ? quantity : null;
 }
 
+function productionGuideInventoryQuantity(inventory, itemId) {
+  const quantity = Object.hasOwn(inventory || {}, itemId) ? inventory[itemId] : 0;
+  return typeof quantity === 'number' && Number.isFinite(quantity)
+    && quantity >= 0 && quantity <= Number.MAX_SAFE_INTEGER ? quantity : null;
+}
+
+function productionGuideMaterialRows(state, cost) {
+  return Object.entries(cost).map(([id, required]) => {
+    const current = productionGuideInventoryQuantity(state.inventory, id);
+    return { id, name: itemName(id), current, required, met: current !== null && current >= required };
+  });
+}
+
+function productionGuideResearchRequirements(state, technologyIds) {
+  return [...new Set(technologyIds)].map(technologyId => ({ technologyId,
+    name: getTechnology(technologyId)?.name || technologyId,
+    completed: Boolean(state.research?.completed?.[technologyId]) }));
+}
+
 function educationPlanFor(state) {
   return Object.hasOwn(state.tribe || {}, 'educationPlan')
     ? normalizeTribeEducationPlan(state.tribe.educationPlan) : DEFAULT_TRIBE_EDUCATION_PLAN;
@@ -6088,6 +6107,8 @@ function tribeEducationSummaryFor(state, tribe) {
     : '이전 공교육 정산 미기록';
   return { plan: { ...plan }, unlocked, canConfigure: !state.ended, scholars, teachers, generalScholars,
     paperStock, requestedPoints, expectedPoints, civicId: civic?.id || '', civicName: civic?.name || '',
+    materialRows: [{ id: 'paper', name: itemName('paper'), current: productionGuideInventoryQuantity(state.inventory, 'paper'),
+      required: null, supplyOnly: true }], researchRequirements: [],
     blockedReason, statusText, receipt, receiptText,
     timingText: '현재 배치와 기존 종이 비축만으로 계산한 전망입니다. 다음 아침 건설 후, 일반 기록대 연구 전에 실제로 정산합니다. 교원 1명은 종이 1장을 소비해 최대 2CP를 생산하며, 남은 진척만 적용합니다. 같은 아침 뒤에 가공한 종이는 다음 날부터 사용합니다. 개인 AP·ST는 소비하지 않습니다.' };
 }
@@ -6194,14 +6215,21 @@ function tribeProcessingSummaryFor(state, tribe) {
       lockedReason: unlocked ? '' : !state.research?.completed?.SETTLEMENT ? '정착 연구가 필요합니다.'
         : `${getTechnology(profile.techId)?.name || profile.techId} 연구가 필요합니다.`,
       costText: formatRequires(actual.cost), outputText: formatGains(actual.reward),
+      materialRows: productionGuideMaterialRows(state, actual.cost),
+      researchRequirements: productionGuideResearchRequirements(state, ['SETTLEMENT', profile.techId]),
       outputItemId: actual.reward[0][0], outputQuantity: actual.reward[0][1] };
   });
+  const selected = options.find(option => option.id === plan.actionId);
+  const acquisitionActions = SPECIALIZED_ACTION_DEFS.map(profile => ({ id: profile.id, label: profile.label,
+    zoneIds: [...profile.zoneIds], gains: profile.gains.map(gain => [...gain]),
+    researchRequirements: productionGuideResearchRequirements(state, [profile.techId]) }));
   const receipt = state.tribe?.lastProduction?.processing || null;
   const receiptProfile = receipt ? CIVILIZATION_ACTION_DEFS.find(row => row.id === receipt.actionId) : null;
   const receiptText = receipt
     ? `${state.tribe.lastProduction.day}일차 ${receiptProfile?.label || '공동체 가공'} · 가공대 ${receipt.workers}명 · ${receipt.batches}묶음${receipt.bonusBatches ? ` (기본 ${receipt.batches - receipt.bonusBatches} + 전승 ${receipt.bonusBatches})` : ''} · 투입 ${formatRequires(receipt.spent)} · 산출 ${formatGains(Object.entries(receipt.gains))} · ${receipt.reason}`
     : '이전 가공 정산 미기록';
   return { plan: { ...plan }, options, workers, currentStock,
+    materialRows: selected?.materialRows || [], researchRequirements: selected?.researchRequirements || [], acquisitionActions,
     costText: recipe ? formatRequires(recipe.cost) : '', outputText: recipe ? formatGains(recipe.reward) : '',
     expectedBatches: batches, expectedOutput: batches * outputQuantity,
     canConfigure: !state.ended, blockedReason: batches > 0 ? '' : reason, statusText: reason,

@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
+import PrimitiveArchiveProductionRequirementGuide from './PrimitiveArchiveProductionRequirementGuide';
 
-function EducationPlanForm({ education, onConfigure, blockedReason, tradition, onReserve, onCancel, hydrated, busy, ended }) {
+function EducationPlanForm({ education, onConfigure, blockedReason, tradition, onReserve, onCancel, hydrated, busy, ended, requirementGuide, onOpenRequirementHelp }) {
   const [teachers, setTeachers] = useState(String(education.plan.teachers));
   const count = Number(teachers);
   const valid = teachers.trim() !== '' && Number.isSafeInteger(count) && count >= 0 && count <= 24;
@@ -44,6 +45,7 @@ function EducationPlanForm({ education, onConfigure, blockedReason, tradition, o
       <span>{education.statusText}</span>
       <small>{education.timingText}</small>
     </div>
+    <PrimitiveArchiveProductionRequirementGuide guide={requirementGuide} scope="education" onOpenRequirementHelp={onOpenRequirementHelp} />
     <PrimitiveArchiveEducationTradition tradition={tradition} education={education} onReserve={onReserve} onCancel={onCancel}
       hydrated={hydrated} busy={busy} ended={ended} />
     <p>종이·진행할 제도·인원이 부족해 수업에 쓰이지 않은 기록대 일손은 일반 연구로 돌아갑니다. 가공대 제지(나무 1개 + 섬유 1개 → 종이 2장)는 제지 연구와 실제 가공 계획·일손이 필요합니다. 같은 아침 뒤에 생산한 종이는 다음 날 교육부터 사용합니다.</p>
@@ -93,10 +95,11 @@ export function PrimitiveArchiveEducationTradition({ tradition, education, onRes
 }
 
 export default function PrimitiveArchiveEducationPlan({ education, runId, onConfigure, blockedReason = '',
-  tradition, onReserve, onCancel, hydrated = false, busy = false, ended = false }) {
+  tradition, onReserve, onCancel, hydrated = false, busy = false, ended = false, requirementGuide, onOpenRequirementHelp }) {
   if (!education) return null;
   // Stock and day updates must not discard an unsaved draft.
   return <EducationPlanForm key={JSON.stringify([runId, education.plan.teachers])}
     education={education} onConfigure={onConfigure} blockedReason={blockedReason} tradition={tradition}
-    onReserve={onReserve} onCancel={onCancel} hydrated={hydrated} busy={busy} ended={ended} />;
+    onReserve={onReserve} onCancel={onCancel} hydrated={hydrated} busy={busy} ended={ended}
+    requirementGuide={requirementGuide} onOpenRequirementHelp={onOpenRequirementHelp} />;
 }

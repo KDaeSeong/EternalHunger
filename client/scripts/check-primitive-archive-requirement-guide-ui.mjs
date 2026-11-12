@@ -31,6 +31,7 @@ const [{ default: Camp }, { default: Growth }, engine, runtime] = await Promise.
 ]);
 const [{ default: Preview }, { default: WorldMap }] = await Promise.all([import(previewUrl), import(mapUrl)]);
 const { campRequirementGuide } = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveCampRequirementGuide.js');
+const { productionRequirementGuide } = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveProductionRequirementGuide.js');
 const fresh = () => engine.createNewState({ runId: 'requirement-guide-ui-fresh', now: '2026-11-02T00:00:00.000Z', rng: () => 0.5 });
 const freeze = value => {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.freeze(value); Object.values(value).forEach(freeze); }
@@ -138,7 +139,9 @@ check('actual page help handler opens only currently offered research or resourc
     const state = Object.assign(fresh(), changes), before = JSON.stringify(state), stateRef = { current: state };
     const campActions = engine.campActionRows(state), campFacilities = engine.campFacilityRows(state), regions = engine.regionRows(state);
     let request = null, tab = 'camp', writes = 0;
-    const handler = pageHandler('openRequirementHelp', { state, stateRef, campActions, campFacilities, regions, campRequirementGuide,
+    const handler = pageHandler('openRequirementHelp', { ...engine, state, stateRef, campActions, campFacilities, regions, campRequirementGuide,
+      productionRequirementGuide, tribe: engine.tribeSummary(state), actorId: state.party[0].id,
+      actorSelectionRef: { current: state.party[0].id },
       setRequirementHelpRequest: value => { request = value; writes++; }, setActiveTabId: value => { tab = value; },
       applyAction: () => { throw new Error('Help called a gameplay action'); }, setState: () => { throw new Error('Help replaced state'); } });
     const shelf = campRequirementGuide({ action: campFacilities.find(row => row.id === 'library_shelf'), regions });

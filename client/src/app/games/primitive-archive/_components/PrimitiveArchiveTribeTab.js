@@ -10,6 +10,7 @@ import {
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
 import PrimitiveArchiveProcessingPlan, { PrimitiveArchiveProcessingTradition } from './PrimitiveArchiveProcessingPlan';
 import PrimitiveArchiveEducationPlan from './PrimitiveArchiveEducationPlan';
+import { productionRequirementGuide } from '../_lib/primitiveArchiveProductionRequirementGuide';
 
 function diplomacyDisabledText(rival, action) {
   if (rival.actedToday) return '오늘 교섭을 완료했습니다.';
@@ -45,7 +46,10 @@ export default function PrimitiveArchiveTribeTab({
   hydrated = false,
   state,
   tribe,
+  regions = [],
+  onOpenRequirementHelp,
 }) {
+  const requirements = productionRequirementGuide({ processing: tribe.processing, education: tribe.education, regions });
   const knownCount = rivals.filter((rival) => rival.known).length;
   const lastProduction = tribe.lastProduction || {};
   const nextFood = tribe.foodForecast?.days?.[0];
@@ -174,7 +178,8 @@ export default function PrimitiveArchiveTribeTab({
                 </button>
               </div>
               {job.id === 'artisan' ? <PrimitiveArchiveProcessingPlan processing={tribe.processing} runId={state?.runId || ''}
-                onConfigure={configureTribeProcess} blockedReason={jobEditBlockedReason} /> : null}
+                onConfigure={configureTribeProcess} blockedReason={jobEditBlockedReason}
+                requirementGuide={requirements.processing} onOpenRequirementHelp={onOpenRequirementHelp} /> : null}
               {job.id === 'artisan' ? <PrimitiveArchiveProcessingTradition tradition={processingTradition}
                 processing={tribe.processing} actor={actor} hydrated={hydrated} busy={busy} ended={Boolean(state?.ended)}
                 onReserve={reserveProcessingTradition} /> : null}
@@ -183,6 +188,7 @@ export default function PrimitiveArchiveTribeTab({
         </div>
         <PrimitiveArchiveEducationPlan education={tribe.education} runId={state?.runId || ''}
           onConfigure={configureTribeEducation}
+          requirementGuide={requirements.education} onOpenRequirementHelp={onOpenRequirementHelp}
           tradition={educationTradition} onReserve={reserveEducationTradition} onCancel={cancelEducationTradition}
           hydrated={hydrated} busy={busy} ended={Boolean(state?.ended)}
           blockedReason={state?.ended ? '종료된 런에서는 공교육 계획을 변경할 수 없습니다.' : !hydrated ? '진행 기록 확인이 끝난 뒤 계획을 변경할 수 있습니다.' : jobEditBlockedReason} />

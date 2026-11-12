@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { isValidTribeProcessingPlan } from '../_lib/primitiveArchiveProcessing';
+import PrimitiveArchiveProductionRequirementGuide from './PrimitiveArchiveProductionRequirementGuide';
 
 function ProcessingPlanForm({ processing, onConfigure, blockedReason }) {
   const { plan, options = [] } = processing;
@@ -69,12 +70,15 @@ function ProcessingPlanForm({ processing, onConfigure, blockedReason }) {
   );
 }
 
-export default function PrimitiveArchiveProcessingPlan({ processing, runId, onConfigure, blockedReason = '' }) {
+export default function PrimitiveArchiveProcessingPlan({ processing, runId, onConfigure, blockedReason = '', requirementGuide, onOpenRequirementHelp }) {
   if (!processing) return null;
   const { plan } = processing;
   // Reset drafts only when the saved plan or run changes, not on stock/day updates.
-  return <ProcessingPlanForm key={JSON.stringify([runId, plan.actionId, plan.targetStock])}
-    processing={processing} onConfigure={onConfigure} blockedReason={blockedReason} />;
+  return <>
+    <ProcessingPlanForm key={JSON.stringify([runId, plan.actionId, plan.targetStock])}
+      processing={processing} onConfigure={onConfigure} blockedReason={blockedReason} />
+    <PrimitiveArchiveProductionRequirementGuide guide={requirementGuide} scope="processing" onOpenRequirementHelp={onOpenRequirementHelp} />
+  </>;
 }
 
 export function PrimitiveArchiveProcessingTradition({ tradition, processing, actor, hydrated = false, busy = false,

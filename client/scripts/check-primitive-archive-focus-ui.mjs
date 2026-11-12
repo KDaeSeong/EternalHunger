@@ -27,10 +27,11 @@ const workspaceTabsUrl = new URL('_components/PrimitiveArchiveWorkspaceTabs.js',
 const tribeTabUrl = new URL('_components/PrimitiveArchiveTribeTab.js', routeUrl).href;
 const processingPlanUrl = new URL('_components/PrimitiveArchiveProcessingPlan.js', routeUrl).href;
 const educationPlanUrl = new URL('_components/PrimitiveArchiveEducationPlan.js', routeUrl).href;
+const productionRequirementGuideUrl = new URL('_components/PrimitiveArchiveProductionRequirementGuide.js', routeUrl).href;
 const campWorkspaceUrl = new URL('_components/PrimitiveArchiveCampWorkspace.js', routeUrl);
 const growthTabUrl = new URL('_components/PrimitiveArchiveGrowthTab.js', routeUrl);
 const researchPreviewUrl = new URL('_components/PrimitiveArchiveResearchTreePreview.js', routeUrl);
-const transpiledUrls = new Set([focusPanelUrl, operationsUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, portraitUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl, processingPlanUrl, educationPlanUrl]);
+const transpiledUrls = new Set([focusPanelUrl, operationsUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, portraitUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl, processingPlanUrl, educationPlanUrl, productionRequirementGuideUrl]);
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 const primitiveUiStub = `
   const jsx = (...args) => globalThis.__primitiveArchiveFocusReact.createElement(...args);

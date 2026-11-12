@@ -48,6 +48,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
           selectedRegion={selectedRegion}
           selectionUnlocked={zoneSelectionUnlocked}
           mapHelpRequest={mapHelpRequest?.runId === state.runId ? mapHelpRequest : null}
+          tribe={tribe}
         />
       ),
     },

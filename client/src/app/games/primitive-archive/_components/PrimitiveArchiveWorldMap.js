@@ -9,6 +9,7 @@ import {
   Wheat,
 } from 'lucide-react';
 import { PrimitiveArchivePanelTitle } from './PrimitiveArchiveVisuals';
+import { productionRequirementGuide } from '../_lib/primitiveArchiveProductionRequirementGuide';
 
 const REGION_ICONS = {
   forest: Trees,
@@ -28,11 +29,31 @@ export default function PrimitiveArchiveWorldMap({
   selectedRegion,
   selectionUnlocked,
   mapHelpRequest,
+  tribe,
 }) {
   const helpHeadingRef = useRef(null);
+  let helpSource = null;
+  if (mapHelpRequest?.scope === 'processing' || mapHelpRequest?.scope === 'education') {
+    const guide = productionRequirementGuide({ processing: tribe?.processing, education: tribe?.education, regions })[mapHelpRequest.scope];
+    const findSource = (rows = []) => {
+      for (const material of rows) {
+        for (const source of material.sources || []) {
+          if (material.resourceId === mapHelpRequest.resourceId && source.regionId
+            && source.regionId === mapHelpRequest.regionId && source.kind === mapHelpRequest.sourceKind
+            && source.actionId === mapHelpRequest.actionId) return source;
+          const nested = findSource(source.materialRows);
+          if (nested) return nested;
+        }
+      }
+      return null;
+    };
+    helpSource = findSource(guide?.materials);
+  }
   const helpRegion = mapHelpRequest && regions.find((region) => (
     region.id === mapHelpRequest.regionId && region.revealed === true && !region.safe
-      && ['gather', 'hunt'].some((action) => region.zone?.[action]?.some((gain) => gain[0] === mapHelpRequest.resourceId && Number(gain[1]) > 0))
+      && (mapHelpRequest.scope === undefined
+        ? ['gather', 'hunt'].some((action) => region.zone?.[action]?.some((gain) => gain[0] === mapHelpRequest.resourceId && Number(gain[1]) > 0))
+        : Boolean(helpSource))
   ));
   const helpRegionId = helpRegion?.id || '';
   const helpResourceId = helpRegion ? mapHelpRequest.resourceId : '';
@@ -60,7 +81,12 @@ export default function PrimitiveArchiveWorldMap({
       {helpRegion ? <div className="primitive-map-requirement-help" role="note">
         <h3 ref={helpHeadingRef} tabIndex={-1}>{mapHelpRequest.resourceName || '재료'} 획득 안내 · {helpRegion.name}</h3>
         <p>{helpRegion.yieldHint} · {helpRegion.dangerLabel}. 이 지역의 기대 자원과 위험도를 확인한 뒤 행동을 선택할 수 있습니다. 재료 획득은 행동 결과에 따라 달라집니다.</p>
-        {!selectionUnlocked ? <p>지도 제작 연구 전에는 행동 지역을 지정할 수 없습니다. 탐사된 지역 중 무작위로 행동합니다.</p> : <p>이 지역에서 행동하려면 지역을 직접 지정한 뒤 행동 화면에서 채집·사냥을 선택합니다.</p>}
+        {helpSource ? <p>획득 행동: {helpSource.actionLabel}{helpSource.research?.some(row => !row.completed)
+          ? ` · 선행 연구 필요: ${helpSource.research.filter(row => !row.completed).map(row => row.name).join(', ')}` : ''}. 안내를 확인한 뒤 행동 화면에서 직접 선택합니다.</p> : null}
+        {!selectionUnlocked ? <p>{helpSource?.kind === 'specialized'
+          ? '지도 제작 연구 전에는 행동 지역을 지정할 수 없습니다. 이 행동은 지형에 맞는 발견 지역을 기존 규칙에 따라 사용합니다. 행동 화면에서 실제 대상 지역을 확인하세요.'
+          : '지도 제작 연구 전에는 행동 지역을 지정할 수 없습니다. 탐사된 지역 중 무작위로 행동합니다.'}</p>
+          : <p>이 지역에서 행동하려면 지역을 직접 지정한 뒤 행동 화면에서 {helpSource?.actionLabel || '채집·사냥'} 행동을 선택합니다.</p>}
       </div> : null}
       <div className="primitive-world-map-scroll" tabIndex={0} aria-label="가로로 스크롤 가능한 탐사 지도">
         <div className="primitive-world-map-canvas">

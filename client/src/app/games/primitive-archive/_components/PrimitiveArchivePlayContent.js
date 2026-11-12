@@ -127,6 +127,7 @@ import { founderHistoryRows } from '../_lib/primitiveArchiveFounders';
 import { ancestralFaithRows, ancestralFaithSummary } from '../_lib/primitiveArchiveAncestralFaith';
 import { LINEAGE_RULES } from '../_lib/primitiveArchiveLineage';
 import { campRequirementGuide } from '../_lib/primitiveArchiveCampRequirementGuide';
+import { productionRequirementGuide } from '../_lib/primitiveArchiveProductionRequirementGuide';
 import '../../../../styles/PrimitiveArchiveEras.css';
 import '../../../../styles/PrimitiveArchiveFounders.css';
 import '../../../../styles/PrimitiveArchiveOperations.css';
@@ -335,21 +336,59 @@ export default function PrimitiveArchivePlayContent() {
   };
   const openRequirementHelp = (request) => {
     // Help navigates only. Do not reuse the paid/recorded region or research actions.
-    if (!request || typeof request !== 'object' || stateRef.current !== state) return;
-    const guides = [...campActions, ...campFacilities].map((action) => campRequirementGuide({ action, regions }));
+    const current = stateRef.current;
+    if (!request || typeof request !== 'object' || current !== state || current.runId !== state.runId
+      || actorSelectionRef.current !== actorId) return;
+    // State identity makes the rendered summaries current. Rebuilding engine
+    // summaries here would normalize a run and consume random weather draws.
+    const liveRegions = regions;
+    let guides;
+    if (request.scope === undefined) {
+      guides = [...campActions, ...campFacilities]
+        .map((action) => campRequirementGuide({ action, regions: liveRegions }));
+    } else {
+      if (request.scope !== 'processing' && request.scope !== 'education') return;
+      const displayedPlan = tribe[request.scope]?.plan;
+      const livePlan = request.scope === 'processing'
+        ? current.tribe?.processingPlan || { actionId: '', targetStock: 0 }
+        : current.tribe?.educationPlan || { teachers: 0 };
+      if (!displayedPlan || !livePlan || (request.scope === 'processing'
+        ? displayedPlan.actionId !== livePlan.actionId || displayedPlan.targetStock !== livePlan.targetStock
+        : displayedPlan.teachers !== livePlan.teachers)) return;
+      const liveGuide = productionRequirementGuide({ processing: tribe.processing,
+        education: tribe.education, regions: liveRegions })[request.scope];
+      if (!liveGuide?.hasHelp) return;
+      guides = [liveGuide];
+    }
+    const materials = [];
+    const research = [];
+    const collectMaterials = (rows = []) => rows.forEach((material) => {
+      materials.push(material);
+      (material.sources || []).forEach((source) => {
+        research.push(...(source.research || []).filter((row) => !row.completed));
+        collectMaterials(source.materialRows);
+      });
+    });
+    guides.forEach((guide) => {
+      research.push(...guide.research.filter((row) => !row.completed));
+      collectMaterials(guide.materials);
+    });
     if (request.kind === 'research') {
-      const technology = guides.flatMap((guide) => guide.research)
-        .find((row) => row.technologyId === request.technologyId);
+      const technology = research.find((row) => row.technologyId === request.technologyId);
       if (!technology) return;
       setRequirementHelpRequest({ kind: 'research', runId: state.runId, technologyId: technology.technologyId });
       setActiveTabId('growth');
     } else if (request.kind === 'map') {
-      const material = guides.flatMap((guide) => guide.materials)
+      const material = materials
         .find((row) => row.resourceId === request.resourceId
-          && row.sources.some((source) => source.regionId === request.regionId));
+          && row.sources.some((source) => source.regionId && source.regionId === request.regionId
+            && (request.scope === undefined || (source.kind === request.sourceKind && source.actionId === request.actionId))));
       if (!material) return;
+      const source = material.sources.find((row) => row.regionId === request.regionId
+        && (request.scope === undefined || (row.kind === request.sourceKind && row.actionId === request.actionId)));
       setRequirementHelpRequest({ kind: 'map', runId: state.runId, resourceId: material.resourceId,
-        regionId: request.regionId, resourceName: material.name });
+        regionId: source.regionId, resourceName: material.name,
+        ...(request.scope === undefined ? {} : { scope: request.scope, sourceKind: source.kind, actionId: source.actionId }) });
       setActiveTabId('map');
     }
   };

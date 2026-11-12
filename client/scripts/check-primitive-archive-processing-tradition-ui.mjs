@@ -15,6 +15,7 @@ const projectsUrl = file('src/app/games/primitive-archive/_components/PrimitiveA
 const playUrl = file('src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js');
 const primitivesUrl = file('src/app/games/_components/GamePlayPrimitives.js').href;
 const transformed = new Set([componentUrl, tribeUrl, projectsUrl, primitivesUrl,
+  file('src/app/games/primitive-archive/_components/PrimitiveArchiveProductionRequirementGuide.js').href,
   file('src/app/games/primitive-archive/_components/PrimitiveArchiveEducationPlan.js').href,
   file('src/app/games/_components/GameActionIcon.js').href,
   file('src/app/games/primitive-archive/_components/PrimitiveArchiveVisuals.js').href]);
@@ -176,8 +177,12 @@ check('actual provider executor shared uses paid materials timing and one-batch 
 });
 check('unsaved process drafts cannot silently become a reservation target or submit configuration', () => {
   const state = fresh(), view = page(state); let configureCalls = 0;
-  const planElement = ProcessingPlan({ processing: engine.tribeSummary(state).processing, runId: state.runId,
+  const planWrapper = ProcessingPlan({ processing: engine.tribeSummary(state).processing, runId: state.runId,
     onConfigure() { configureCalls++; } });
+  const planElement = planWrapper?.type === React.Fragment
+    ? React.Children.toArray(planWrapper.props.children).find(child => typeof child.type === 'function' && child.props.processing)
+    : planWrapper;
+  assert.ok(planElement);
   const draft = { cursor: 0, values: [] };
   const renderDraft = () => {
     draft.cursor = 0; globalThis.__processingTraditionDraft = draft;
