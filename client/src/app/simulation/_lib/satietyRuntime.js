@@ -6,7 +6,7 @@ export const SATIETY_MAX = 100;
 export function normalizeSatiety(value, fallback = SATIETY_DEFAULT) {
   const n = Number(value);
   const base = Number.isFinite(n) ? n : fallback;
-  return Math.max(0, Math.min(SATIETY_MAX, Math.round(base)));
+  return Math.max(0, Math.min(SATIETY_MAX, base));
 }
 
 export function applySatietyGain(actor, amount) {

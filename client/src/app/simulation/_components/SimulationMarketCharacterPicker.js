@@ -20,7 +20,7 @@ export default function SimulationMarketCharacterPicker({
       {selectedChar ? (
         <div className="market-small" style={{ marginTop: 4 }}>
           HP {Math.round(Number(selectedChar.hp || 0))}/{Math.round(Number(selectedChar.maxHp || 100))}
-          {' · '}포만감 {normalizeSatiety(selectedChar.satiety)}/100
+          {' · '}포만감 {Number(normalizeSatiety(selectedChar.satiety).toFixed(2))}/100
         </div>
       ) : null}
     </div>

@@ -1,9 +1,9 @@
 import './lib/register-simulation-modules.mjs';
 import assert from 'node:assert/strict';
-import { GUEST_ITEM_PROFILE_KEY, saveGuestItem, removeGuestItem, readGuestItems, mergeGuestItemCatalog } from '../src/app/simulation/_lib/guestItemProfileRuntime.js';
-import { loadGuestSimulationItemCatalog } from '../src/app/simulation/_lib/guestSimulationBootstrap.js';
-import { createConsumeEffectDraft, prepareConsumeEffectDraft } from '../src/utils/consumeEffectAuthoring.js';
-import { createItemRecipeDraft, prepareItemRecipeDraft } from '../src/utils/itemRecipeAuthoring.js';
+const { GUEST_ITEM_PROFILE_KEY, saveGuestItem, removeGuestItem, readGuestItems, mergeGuestItemCatalog } = await import('../src/app/simulation/_lib/guestItemProfileRuntime.js');
+const { loadGuestSimulationItemCatalog } = await import('../src/app/simulation/_lib/guestSimulationBootstrap.js');
+const { createConsumeEffectDraft, prepareConsumeEffectDraft } = await import('../src/utils/consumeEffectAuthoring.js');
+const { createItemRecipeDraft, prepareItemRecipeDraft } = await import('../src/utils/itemRecipeAuthoring.js');
 const builtin = await loadGuestSimulationItemCatalog({ includeLocal: false });
 const beforeBuiltin = JSON.stringify(builtin);
 const memory = () => { const map = new Map(); return { getItem: key => map.get(key) ?? null, setItem: (key, value) => map.set(key, value) }; };

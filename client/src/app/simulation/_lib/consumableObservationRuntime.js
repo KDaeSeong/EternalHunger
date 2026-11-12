@@ -4,7 +4,7 @@ export function describeConsumableReceipt(event) {
   if (event?.kind !== 'use') return '';
   const parts = [];
   if (Number(event.heal) > 0) parts.push(`체력 +${event.heal}`);
-  if (Number(event.satiety) > 0) parts.push(`포만감 +${event.satiety}`);
+  if (Number(event.satiety) > 0) parts.push(`포만감 +${Number(Number(event.satiety).toFixed(2))}`);
   for (const row of Array.isArray(event.effects) ? event.effects : []) {
     const values = [];
     if (row.shield > 0) values.push(`보호막 ${row.shield}`);

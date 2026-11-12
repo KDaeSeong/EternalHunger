@@ -144,7 +144,7 @@ function commitConsumableAtIndex(actor, invIndex, opts = {}) {
   opts.emitEffectRunEvents?.(actor, runtime.results, {
     source: 'consumable', itemId: String(item._id || item.itemId || ''), reason: meta.reason,
   }, at);
-  const gains = [heal > 0 ? `체력 +${heal}` : '', satiety > 0 ? `포만감 +${satiety}` : ''].filter(Boolean);
+  const gains = [heal > 0 ? `체력 +${heal}` : '', satiety > 0 ? `포만감 +${Number(satiety.toFixed(2))}` : ''].filter(Boolean);
   opts.addLog?.(`💊 [${actor.name}] ${itemDisplayName(item)} 사용${gains.length ? ` · ${gains.join(', ')}` : ''} · 남은 수량 ${qty - 1}개`, 'highlight');
   if (permanent.log) opts.addLog?.(permanent.log, 'highlight');
   runtime.results.forEach(row => {
