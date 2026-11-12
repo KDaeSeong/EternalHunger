@@ -82,6 +82,9 @@ import {
   runDiplomacyAction,
   runAutoDayAction,
   runSettlementDayAction,
+  startAnnualSettlementAction,
+  runSettlementYearAction,
+  annualSettlementSummary,
   settlementDayStatus,
   runEatAction,
   runGatherAction,
@@ -126,6 +129,7 @@ import { primitiveArchiveEraTheme } from '../_lib/primitiveArchiveEraTheme';
 import { founderHistoryRows } from '../_lib/primitiveArchiveFounders';
 import { ancestralFaithRows, ancestralFaithSummary } from '../_lib/primitiveArchiveAncestralFaith';
 import { LINEAGE_RULES } from '../_lib/primitiveArchiveLineage';
+import { annualPersonSummary } from '../_lib/primitiveArchiveCalendar';
 import { campRequirementGuide } from '../_lib/primitiveArchiveCampRequirementGuide';
 import { productionRequirementGuide } from '../_lib/primitiveArchiveProductionRequirementGuide';
 import '../../../../styles/PrimitiveArchiveEras.css';
@@ -212,10 +216,13 @@ export default function PrimitiveArchivePlayContent() {
   const [arrivingEraId, setArrivingEraId] = useState('');
   const eraArrivalTimerRef = useRef(null);
   const stateRef = useRef(state);
+  const actionVersionRef = useRef(0);
+  const annualUiGuardRef = useRef(null);
   const feedbackRef = useRef(primitiveMilestoneSnapshot(state));
   const musicSceneTimerRef = useRef(null);
   const replaceState = useCallback((nextValue) => {
     if (typeof nextValue !== 'function') {
+      actionVersionRef.current += 1;
       stateRef.current = nextValue;
       feedbackRef.current = primitiveMilestoneSnapshot(nextValue);
       setState(nextValue);
@@ -223,6 +230,7 @@ export default function PrimitiveArchivePlayContent() {
     }
     setState((current) => {
       const nextState = nextValue(current);
+      actionVersionRef.current += 1;
       stateRef.current = nextState;
       feedbackRef.current = primitiveMilestoneSnapshot(nextState);
       return nextState;
@@ -236,6 +244,7 @@ export default function PrimitiveArchivePlayContent() {
     setZoneId(nextState.exploration?.selectedRegionId || 'whisper-woods');
     setRecipeId('twine');
     setSelectedRecruitId('');
+    setActiveTabId(nextState.calendar?.mode === 'annual' ? 'tribe' : 'actions');
     setActionResult(primitiveRestoredResultText(nextState));
     setActionFeedback({ key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: nextState.runId, tone: 'ready' });
   }, [setActorId]);
@@ -250,8 +259,12 @@ export default function PrimitiveArchivePlayContent() {
   });
 
   const actor = getActor(state, actorId);
-  const lineage = lineageSummary(state);
-  const successionWarnings = state.ended ? NO_ROWS : lineage.rows.filter((member) => member.warning && !member.successorId);
+  const rawLineage = lineageSummary(state);
+  const lineage = state.calendar?.mode === 'annual'
+    ? { ...rawLineage, rows: rawLineage.rows.map(row => ({ ...row, annual: annualPersonSummary(state, row.actorId) })) }
+    : rawLineage;
+  const successionWarnings = state.ended ? NO_ROWS : lineage.rows.filter((member) =>
+    (state.calendar?.mode === 'annual' ? lineage.mode !== 'legacy' && member.annual?.warning : member.warning) && !member.successorId);
   const recipes = useMemo(() => recipeRows(state), [state]);
   const recipe = recipes.find((row) => row.id === recipeId) || recipes.find((row) => row.unlocked) || recipes[0];
   const hp = averageParty(state, 'hp');
@@ -282,6 +295,7 @@ export default function PrimitiveArchivePlayContent() {
   });
   const initialShopPending = initialShopRunId === state.runId;
   const shopControlsBusy = shopStartBusy || initialShopPending;
+  annualUiGuardRef.current = { hydrated, busy: Boolean(busy), shopControlsBusy, checkpoint };
   const settleInitialShopPerks = (codes) => {
     const current = stateRef.current;
     if (current.runId !== initialShopRunId) return;
@@ -296,6 +310,8 @@ export default function PrimitiveArchivePlayContent() {
     setInitialShopRunId(null);
   }, [checkpoint.exclusive, checkpoint.ready, hydrated, initialShopPending, initialShopRunId, replaceState, shopPerks.equippedCodes, shopPerks.status]);
   const dead = state.ended || !hasLivingPartyMember(state);
+  const annual = useMemo(() => ({ ...annualSettlementSummary(state), lineageMode: state.lineage?.mode }), [state]);
+  const annualMode = annual.annualMode;
   const canAct = checkpoint.ready && checkpoint.exclusive && !busy && !shopControlsBusy && !dead && state.ap > 0;
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const exploration = useMemo(() => explorationSummary(state), [state]);
@@ -596,8 +612,9 @@ export default function PrimitiveArchivePlayContent() {
           : `${civics.selected.name}에 매 행동 턴과 하루 시작 자동 CP가 누적됩니다. ${civics.actionReason}`
         : '다음 사회 제도를 선택하면 선행 조건과 영감 진행도를 여기에서 확인할 수 있습니다.';
 
+  const actionOwnerSession = captureAuthSession();
   const applyAction = (label, updater, fallbackText = '') => {
-    if (!checkpoint.ready || !checkpoint.exclusive || busy || shopControlsBusy || shopStartRef.current) return;
+    if (!isCurrentAuthSession(actionOwnerSession) || !checkpoint.ready || !checkpoint.exclusive || !checkpoint.canMutate() || busy || shopControlsBusy || shopStartRef.current) return;
     const previousState = stateRef.current;
     // A run saved while the developer screen was open to everyone keeps its record
     // mark, but its adjustments stop applying once the screen is hidden.
@@ -605,6 +622,7 @@ export default function PrimitiveArchivePlayContent() {
       ? updateDeveloperToolsAction(previousState, { enabled: false })
       : previousState;
     const nextState = updater(actingState);
+    actionVersionRef.current += 1;
     const previousMilestones = civilizationMilestoneRows(previousState);
     const nextMilestones = civilizationMilestoneRows(nextState);
     const latest = primitiveActionResultText(previousState, nextState, label, fallbackText);
@@ -628,7 +646,8 @@ export default function PrimitiveArchivePlayContent() {
     }
     stateRef.current = nextState;
     setState(nextState);
-    if (!nextState.party.some((member) => member.id === actorId)) {
+    if (!nextState.party.some((member) => member.id === actorId)
+      || (nextState.calendar?.mode === 'annual' && !nextState.party.some(member => member.id === actorId && member.hp > 0))) {
       const successorId = nextState.lineage?.members?.find((member) => member.actorId === actorId)?.successorId;
       const successor = nextState.party.find((member) => member.id === successorId && member.hp > 0);
       setActorId(successor?.id || nextState.party.find((member) => member.hp > 0)?.id || nextState.party[0]?.id || '');
@@ -1027,7 +1046,55 @@ export default function PrimitiveArchivePlayContent() {
     <GameControlButton action="auto" cue="off" className="primitive-auto-day" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</GameControlButton>
   );
 
-  const playMetrics = [
+  const annualExpected = { runId: state.runId, day: state.day, ap: state.ap, updatedAt: state.updatedAt,
+    completedYears: state.calendar?.completedYears ?? null };
+  const annualExpectedState = state;
+  const annualExpectedVersion = actionVersionRef.current;
+  const annualExpectedSession = captureAuthSession();
+  const annualRequestIsCurrent = () => {
+    const live = annualUiGuardRef.current;
+    const current = stateRef.current;
+    return Boolean(live?.hydrated && live.checkpoint.ready && live.checkpoint.exclusive && live.checkpoint.canMutate())
+      && !live.busy && !live.shopControlsBusy && !shopStartRef.current
+      && isCurrentAuthSession(annualExpectedSession)
+      && actionVersionRef.current === annualExpectedVersion && current === annualExpectedState
+      && current.runId === annualExpected.runId && current.day === annualExpected.day
+      && current.ap === annualExpected.ap && current.updatedAt === annualExpected.updatedAt
+      && (current.calendar?.completedYears ?? null) === annualExpected.completedYears
+      && (current.calendar?.mode === 'annual') === annualMode;
+  };
+  const startAnnualSettlement = () => {
+    if (!annualRequestIsCurrent() || !annual.canStart) return;
+    applyAction('공동체 연간 운영 전환', current => startAnnualSettlementAction(current, annualExpected, { observedLifetimeYears: 60 }));
+    if (stateRef.current.calendar?.mode === 'annual') setActiveTabId('tribe');
+  };
+  const runSettlementYear = () => {
+    if (!annualRequestIsCurrent() || !annual.canAdvance) return;
+    applyAction('공동체 1년 운영', current => runSettlementYearAction(current, annualExpected));
+  };
+  const annualControlsBlocked = !hydrated || !checkpoint.ready || !checkpoint.exclusive
+    || Boolean(busy) || shopControlsBusy || Boolean(shopStartRef.current);
+  const annualStartControl = !annualMode && annual.canStart ? (
+    <GameControlButton action="auto" cue="off" className="primitive-settlement-day"
+      disabled={annualControlsBlocked} onClick={startAnnualSettlement}>공동체 연간 운영으로 전환</GameControlButton>
+  ) : null;
+  const annualYearControl = annualMode && !state.ended ? (
+    <GameControlButton action="auto" cue="off" className="primitive-settlement-day"
+      disabled={annualControlsBlocked || !annual.canAdvance} onClick={runSettlementYear}
+      aria-label={`정착 ${annual.year}년 공동체 1년 운영`}>정착 {annual.year}년 · 1년 운영</GameControlButton>
+  ) : null;
+
+  const playMetrics = annualMode ? [
+    { label: '정착 연차', value: annual.canAdvance ? `${annual.year}년 · ${annual.completedYears}년 정산 완료` : `${annual.completedYears}년 정산 완료 · 운영 종료` },
+    { label: '공동 배식 인구', value: `${annual.census.total}명 · 필요 ${annual.census.foodNeed}단위` },
+    { label: '식량 비축', value: `${tribe.foodStock}단위` },
+    { label: '관리 행동력', value: `${state.ap}/${state.apMax}` },
+    { label: '공동체 일손', value: `${tribe.population}/${tribe.capacity}명` },
+    { label: '사기', value: Math.round(tribe.morale) },
+    { label: '핵심 발전', value: `${research.archiveCompleted + civics.archiveCompleted}/${research.archiveTotal + civics.archiveTotal}` },
+    { label: '기록서', value: `${archiveReport.grade} · ${archiveReport.archiveScore}%` },
+    { label: '점수', value: score.toLocaleString('ko-KR') },
+  ] : [
     { label: '일차 · 행동력', value: `${state.day}일 · ${state.ap}/${state.apMax}` },
     { label: '식량', value: `${runProgressReport.foodUnits}단위` },
     { label: '모닥불 연료', value: Number(state.camp.fuel || 0) },
@@ -1066,7 +1133,7 @@ export default function PrimitiveArchivePlayContent() {
       key: 'succession-warning',
       tone: 'warning',
       text: <>
-        생애 인계 예고: {successionWarnings.map((member) => member.name).join(' · ')}. 정착 활동기 {LINEAGE_RULES.naturalEndCycle}기 전에 후계를 준비하세요.
+        생애 인계 예고: {successionWarnings.map((member) => member.name).join(' · ')}. {annualMode ? `활동 25년 인계를 위해 후계를 준비하세요. ${annual.observedLifetimeYears === null ? '자동 생애 종료는 없습니다.' : `관찰 생애 ${annual.observedLifetimeYears}년에 생애를 마칩니다.`}` : `정착 활동기 ${LINEAGE_RULES.naturalEndCycle}기 전에 후계를 준비하세요.`}
         <button type="button" className="primitive-inline-action" onClick={() => selectArchiveTab('founders')}>후계 준비 열기</button>
       </>,
     } : null,
@@ -1144,7 +1211,7 @@ export default function PrimitiveArchivePlayContent() {
     <span className="primitive-era-plate">
       <span className="primitive-era-plate__name">{milestones.eraLabel} 시대</span>
       <span className="primitive-era-plate__meta">
-        {milestones.season.name} · {state.day}일째<span className="primitive-era-plate__medium"> · {eraTheme.medium}</span>
+        {annualMode ? annual.canAdvance ? `정착 ${annual.year}년 · ${annual.completedYears}년 정산 완료` : `정착 ${annual.completedYears}년 정산 완료 · 운영 종료` : `${milestones.season.name} · ${state.day}일째`}<span className="primitive-era-plate__medium"> · {eraTheme.medium}</span>
       </span>
     </span>
   );
@@ -1164,10 +1231,12 @@ export default function PrimitiveArchivePlayContent() {
     >
       <PrimitiveArchiveEraDefs theme={eraTheme} />
       <PrimitiveArchiveFocusPanel plan={focusPlan} operations={operations}
-        dayControl={settlementDayControl} onNavigate={selectArchiveTab} />
+        dayControl={annualMode ? null : settlementDayControl} onNavigate={selectArchiveTab}
+        annual={annual} annualStartControl={annualStartControl} annualYearControl={annualYearControl} />
       <PrimitiveArchiveInventoryBar inventory={state.inventory} inventoryRows={inventoryRows} />
 
       <PrimitiveArchiveFeatureTabs
+        annual={annual}
         activeTabId={activeTabId}
         actor={actor}
         actorId={actorId}
@@ -1191,7 +1260,7 @@ export default function PrimitiveArchivePlayContent() {
         onOpenRequirementHelp={openRequirementHelp}
         researchHelpRequest={requirementHelpRequest?.kind === 'research' && requirementHelpRequest.runId === state.runId ? requirementHelpRequest : null}
         mapHelpRequest={requirementHelpRequest?.kind === 'map' && requirementHelpRequest.runId === state.runId ? requirementHelpRequest : null}
-        canAct={actorCanAct}
+        canAct={annualMode ? canAct : actorCanAct}
         changeEquipmentSlot={changeEquipmentSlot}
         civicAdvancements={civicAdvancements}
         civicInspirationRows={civicInspirationRows}
@@ -1305,10 +1374,10 @@ export default function PrimitiveArchivePlayContent() {
         zoneId={activeRegionId}
         zoneSelectionUnlocked={zoneSelectionUnlocked}
       />
-      <details className="primitive-guide-details">
+      {!annualMode ? <details className="primitive-guide-details">
         <summary>상세 생존 안내</summary>
         <GameAdvisorPanel {...guide} compact minimal storageKey="primitive-archive-survival-coach" />
-      </details>
+      </details> : null}
     </GamePlayShell>
   );
 }

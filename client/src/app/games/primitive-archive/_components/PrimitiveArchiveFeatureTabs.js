@@ -13,6 +13,7 @@ import PrimitiveArchiveWorldMap from './PrimitiveArchiveWorldMap';
 export default function PrimitiveArchiveFeatureTabs(props) {
   const {
     activeTabId,
+    annual,
     archiveReport,
     civics,
     exploration,
@@ -60,8 +61,8 @@ export default function PrimitiveArchiveFeatureTabs(props) {
     },
     {
       id: 'camp',
-      label: '캠프',
-      badge: `연료 ${state.camp.fuel}`,
+      label: annual?.annualMode ? '시설 투자' : '캠프',
+      badge: annual?.annualMode ? `작업대 ${state.camp.workbenchLevel || 0}` : `연료 ${state.camp.fuel}`,
       children: <PrimitiveArchiveCampWorkspace {...props} />,
     },
     {
@@ -72,7 +73,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
     },
     {
       id: 'founders',
-      label: '창건자·전승',
+      label: annual?.annualMode ? '세대·계승' : '창건자·전승',
       badge: `${props.foundersRows?.length || 0}명`,
       children: <PrimitiveArchiveFoundersTab {...props} />,
     },
@@ -84,7 +85,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
     },
     {
       id: 'tribe',
-      label: '부족',
+      label: annual?.annualMode ? '공동체 운영' : '부족',
       badge: `${tribe.population}명`,
       children: <PrimitiveArchiveTribeTab {...props} />,
     },
@@ -106,10 +107,10 @@ export default function PrimitiveArchiveFeatureTabs(props) {
       badge: props.currentDifficulty.label,
       children: <PrimitiveArchiveRunTab {...props} />,
     },
-  ].filter(Boolean);
-  const primaryTabIds = new Set(['actions', 'camp', 'growth']);
-  const primaryTabs = tabs.filter((tab) => primaryTabIds.has(tab.id));
-  const secondaryTabs = tabs.filter((tab) => !primaryTabIds.has(tab.id));
+  ].filter(tab => tab && (!annual?.annualMode || !['actions', 'party', 'inventory'].includes(tab.id)));
+  const primaryTabIds = annual?.annualMode ? ['tribe', 'growth', 'founders'] : ['actions', 'camp', 'growth'];
+  const primaryTabs = primaryTabIds.map(id => tabs.find(tab => tab.id === id)).filter(Boolean);
+  const secondaryTabs = tabs.filter((tab) => !primaryTabIds.includes(tab.id));
   const activeTab = tabs.find((tab) => tab.id === activeTabId) || primaryTabs[0];
   const selectTab = (tabId) => setActiveTabId?.(tabId);
 

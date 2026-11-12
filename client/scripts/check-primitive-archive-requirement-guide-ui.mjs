@@ -174,7 +174,7 @@ check('normal tab navigation and restored-run handler clear help and restored re
   pageHandler('selectArchiveTab', { setRequirementHelpRequest: value => { request = value; }, setActiveTabId: value => { tab = value; } })('actions');
   assert.equal(request, null); assert.equal(tab, 'actions');
   const state = fresh(), setters = {};
-  for (const name of ['setInitialShopRunId', 'setNewRunDifficulty', 'setActorId', 'setZoneId', 'setRecipeId', 'setSelectedRecruitId', 'setActionResult', 'setActionFeedback']) setters[name] = () => {};
+  for (const name of ['setInitialShopRunId', 'setNewRunDifficulty', 'setActorId', 'setZoneId', 'setRecipeId', 'setSelectedRecruitId', 'setActionResult', 'setActionFeedback', 'setActiveTabId']) setters[name] = () => {};
   request = { kind: 'map', runId: state.runId };
   pageHandler('handleRestoredRun', { ...setters, setRequirementHelpRequest: value => { request = value; }, primitiveRestoredResultText: () => 'restored' })({ ...state, runId: 'restored-other-run' }, { source: 'slot' });
   assert.equal(request, null);

@@ -34,7 +34,8 @@ export default function PrimitiveArchiveReportTab(props) {
                 <SmallStat icon="target" label="목표" value={`${archiveReport.objectivePct}%`} />
                 <SmallStat icon="title" label="점수" value={archiveReport.score.toLocaleString('ko-KR')} />
                 <SmallStat icon="status" label="상태" value={archiveReport.status === 'complete' ? '완성' : archiveReport.status === 'ready' ? '완성 가능' : archiveReport.status === 'settled' ? '정산' : '진행'} />
-                <SmallStat icon="calendar" label="생존일" value={`Day ${state.day}`} />
+                <SmallStat icon="calendar" label={state.calendar?.mode === 'annual' ? '정착 운영' : '생존일'}
+                  value={state.calendar?.mode === 'annual' ? `${state.calendar.completedYears}년 정산 완료` : `Day ${state.day}`} />
                 <SmallStat icon="event" label="탐험 사건" value={`${archiveReport.recordSummary.eventCount || 0}회`} />
                 <SmallStat icon="discover" label="희귀 소재" value={`${archiveReport.recordSummary.rareResourceTotal || 0}개`} />
               </div>

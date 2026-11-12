@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { ITEMS, TECH_TREE, TRIBE_PROJECTS, WORLD_REGIONS, ZONES } from '../_lib/primitiveArchiveData';
 import PrimitiveArchivePortrait from './PrimitiveArchivePortrait';
+import { annualPersonSummary } from '../_lib/primitiveArchiveCalendar';
 
 const FIELD_LABELS = {
   gather: '채집', hunt: '사냥', craft: '제작', camp: '캠프 관리', project: '공동 사업',
@@ -15,12 +16,17 @@ const TARGET_NAMES = new Map([
 ]);
 const positiveCount = (value) => Number.isFinite(Number(value)) && Number(value) > 0
   ? Math.floor(Number(value)) : 0;
-const dayText = (value) => positiveCount(value) ? `${positiveCount(value)}일차` : '날짜 미상';
+const dayText = (value, calendar) => {
+  const day = positiveCount(value);
+  if (!day) return '날짜 미상';
+  return calendar?.mode === 'annual' && day > calendar.startedDay
+    ? `정착 ${day - calendar.startedDay}년차` : `${day}일차`;
+};
 
-function deathText(record) {
+function deathText(record, calendar) {
   if (!record) return '';
   const source = record.source === 'night' ? '밤 정산' : record.source === 'action' ? '행동 중' : '';
-  const parts = [dayText(record.day), source, record.reason || '사망 원인 미상'];
+  const parts = [dayText(record.day, calendar), source, record.reason || '사망 원인 미상'];
   if (positiveCount(record.damage)) parts.push(`HP 피해 ${positiveCount(record.damage)}`);
   return parts.filter(Boolean).join(' · ');
 }
@@ -42,13 +48,18 @@ function FounderPortrait({ member, compact = false }) {
   return <PrimitiveArchivePortrait className={className} member={member} size={compact ? 32 : 56} />;
 }
 
-export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, lineage,
+export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, lineage, annual,
   ancestralFaith, ancestralRows = [], prepareSuccessor, retireFounder, runAncestralRite, busy = false }) {
   const [retirement, setRetirement] = useState(null);
   const retirementToken = useRef(null);
   const retirementButtons = useRef({});
   const rows = Array.isArray(foundersRows) ? foundersRows : [];
-  const lifeRows = Array.isArray(lineage?.rows) ? lineage.rows : [];
+  const annualMode = Boolean(annual?.annualMode);
+  const recordedLife = Array.isArray(lineage?.rows) ? lineage.rows : [];
+  const lifeRows = annualMode && !recordedLife.length ? (state?.party || []).map(member => ({
+    actorId: member.id, name: member.name, role: member.role, stage: member.hp > 0 ? 'active' : 'deceased',
+    annual: annualPersonSummary(state, member.id), canPrepare: false, canRetire: false,
+  })) : recordedLife;
   const faithRows = Array.isArray(ancestralRows) ? ancestralRows : [];
   const activeLife = lifeRows.filter((row) => row.stage === 'active' || row.stage === 'elder');
   const previousLife = lifeRows.filter((row) => row.stage === 'retired' || row.stage === 'deceased');
@@ -56,15 +67,20 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
   const foundersKnown = history?.foundersKnown === true;
   const foundingCount = rows.filter((row) => row.isFounder === true).length;
   const retirementKey = (row) => JSON.stringify([state?.runId, state?.day, row.actorId, row.generation,
-    row.cycle, row.stage, row.successorId, row.successorName]);
+    row.cycle, row.stage, row.successorId, row.successorName, state?.calendar?.completedYears ?? null,
+    row.annual?.serviceYears ?? null, row.annual?.observedYears ?? null]);
   const selectedRetirement = activeLife.find((row) => row.canRetire && retirement?.key === retirementKey(row));
   const controlsBusy = Boolean(busy);
+  const lifetimeText = annual?.observedLifetimeYears === null ? '자동 생애 종료 없음' : `관찰 생애 ${annual?.observedLifetimeYears ?? 60}년에 생애 종료`;
+  const lifeText = row => annualMode ? row.annual?.observed
+    ? `관찰 ${row.annual.observedYears}년 · ${row.annual.serviceYears === null ? '현장 활동 전' : `활동 ${row.annual.serviceYears}년`}`
+    : '연간 관찰 전 기록' : `게임상 활동기 ${row.cycle}기`;
 
   return (
     <section className="primitive-founders" aria-labelledby="primitive-founders-title">
       <header className="games-panel primitive-founders__intro">
         <h2 id="primitive-founders-title">창건자·전승</h2>
-        <p className="primitive-founders__muted">창건 명단 {foundersKnown ? `${foundingCount}명 확정` : '미상'} · {history ? `${dayText(history.observedFromDay)}부터 관찰` : '관찰 전'} · 인물 기록 {rows.length}명</p>
+        <p className="primitive-founders__muted">창건 명단 {foundersKnown ? `${foundingCount}명 확정` : '미상'} · {history ? `${dayText(history.observedFromDay, state?.calendar)}부터 관찰` : '관찰 전'} · 인물 기록 {rows.length}명</p>
         {history?.origin === 'observed_legacy' ? (
           <p className="primitive-founders__notice">이전 저장은 관찰을 시작한 날부터 기록합니다. 과거 창건 명단과 기록되지 않은 업적은 추정하지 않습니다.</p>
         ) : null}
@@ -74,17 +90,17 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
         <div className="primitive-founders__section-head">
           <h3 id="primitive-lineage-title">생애와 후계</h3>
           <details className="primitive-founders__rules">
-            <summary>활동기·인계 규칙</summary>
-            <p>{lineage?.ruleText || '생애 정보를 불러오면 게임상 활동기와 인계 조건을 확인할 수 있습니다.'}</p>
+            <summary>{annualMode ? '연간 생애·인계 규칙' : '활동기·인계 규칙'}</summary>
+            <p>{annualMode && lineage?.mode !== 'legacy' ? `1회 운영은 1년입니다. 활동 20년부터 인계를 안내하고 25년에는 준비된 후계에게 생전에 인계합니다. ${lifetimeText}. 실제 나이는 추정하지 않습니다.` : lineage?.ruleText || '생애 정보를 불러오면 게임상 활동기와 인계 조건을 확인할 수 있습니다.'}</p>
             {lineage?.prepareCostText ? <p>후계 준비: {lineage.prepareCostText}</p> : null}
             {lineage?.retireCostText ? <p>은퇴 인계: {lineage.retireCostText}</p> : null}
-            <p>활동기는 정착 기반을 갖춘 뒤의 생애 흐름이며 원작 캐릭터의 나이가 아닙니다. 후계 준비는 공동체 일손 1명을 전환하며 준비된 후계와 은퇴자도 공동 식량을 소비합니다.</p>
+            <p>{annualMode ? '관찰 연수는 연간 운영을 시작한 뒤에만 쌓입니다. 이전 활동기를 년으로 환산하지 않습니다.' : '활동기는 정착 기반을 갖춘 뒤의 생애 흐름이며 원작 캐릭터의 나이가 아닙니다.'} 후계 준비는 공동체 일손 1명을 전환하며 준비된 후계와 은퇴자도 공동 식량을 소비합니다.</p>
           </details>
         </div>
         {!lineage?.enabled ? <p className="primitive-founders__muted">{lineage?.mode === 'legacy'
           ? '이전 런의 생애 전환은 비활성 상태입니다. 기존 대원과 진행을 유지합니다.'
           : '생애 상태를 불러오는 중입니다.'}</p> : null}
-        {lineage?.enabled && !lineage.clockStarted ? <p className="primitive-founders__muted">정착 활동기 시작 전입니다. 정착·식량 저장·거처와 후계를 준비할 실제 일손·식량을 먼저 마련하세요.</p> : null}
+        {!annualMode && lineage?.enabled && !lineage.clockStarted ? <p className="primitive-founders__muted">정착 활동기 시작 전입니다. 정착·식량 저장·거처와 후계를 준비할 실제 일손·식량을 먼저 마련하세요.</p> : null}
         <div className="primitive-founders__life-list">
           {activeLife.map((row) => {
             const canPrepare = !controlsBusy && lineage?.enabled && row.canPrepare && typeof prepareSuccessor === 'function';
@@ -95,7 +111,7 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
               || rows.find((member) => member.actorId === row.actorId) || row;
             return <article className={`primitive-founders__life${row.warning ? ' is-warning' : ''}`} key={row.actorId}>
               <div className="primitive-founders__life-head">
-                <div className="primitive-founders__actor"><FounderPortrait member={person} compact /><div className="primitive-founders__actor-copy"><strong>{row.name}</strong><small>{row.role} · 게임상 활동기 {row.cycle}기 · {STAGE_LABELS[row.stage] || '상태 미확인'}</small></div></div>
+                <div className="primitive-founders__actor"><FounderPortrait member={person} compact /><div className="primitive-founders__actor-copy"><strong>{row.name}</strong><small>{row.role} · {lifeText(row)} · {STAGE_LABELS[row.stage] || '상태 미확인'}</small></div></div>
                 <div className="primitive-founders__actions">
                   <button type="button" disabled={!canPrepare} aria-label={`${row.name}의 후계 준비`} title={controlsBusy ? '저장 작업 중입니다.' : row.prepareReason || lineage.prepareCostText || '준비 비용 확인 필요'}
                     onClick={() => { if (canPrepare) prepareSuccessor(row.actorId); }}>후계 준비</button>
@@ -130,8 +146,16 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
             </article>;
           })}
         </div>
+        {annualMode && state?.lineage?.prepared?.length ? <section className="primitive-founders__prepared" aria-label="준비된 후계">
+          <h4>준비된 후계 · {state.lineage.prepared.length}명</h4>
+          {state.lineage.prepared.map(candidate => {
+            const observed = annualPersonSummary(state, candidate.actor.id);
+            const mentor = lifeRows.find(row => row.actorId === candidate.mentorId);
+            return <p key={candidate.actor.id}><strong>{candidate.actor.name}</strong> · {candidate.actor.role} · 지도자 {mentor?.name || '기록 확인 필요'} · {observed.observed ? `관찰 ${observed.observedYears}년` : '연간 관찰 전 기록'} · 공동 배식에 포함</p>;
+          })}
+        </section> : null}
         {previousLife.length ? <details className="primitive-founders__past"><summary>은퇴·사망한 인물 {previousLife.length}명</summary>
-          {previousLife.map((row) => <p key={row.actorId}><strong>{row.name}</strong> · {STAGE_LABELS[row.stage]} · 게임상 활동기 {row.cycle}기{row.successorName ? ` · 후계 ${row.successorName}` : ''}</p>)}
+          {previousLife.map((row) => <p key={row.actorId}><strong>{row.name}</strong> · {STAGE_LABELS[row.stage]} · {lifeText(row)}{row.successorName ? ` · 후계 ${row.successorName}` : ''}</p>)}
         </details> : null}
       </section>
 
@@ -180,7 +204,7 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
                     <span className="primitive-founders__identity-copy">
                       <strong>{row.name || '이름 미상'}</strong>
                       <span>{row.role || '역할 기록 없음'} · {origin}</span>
-                      <small>{dayText(row.firstObservedDay)}부터 관찰 · {status}</small>
+                      <small>{dayText(row.firstObservedDay, state?.calendar)}부터 관찰 · {status}</small>
                     </span>
                   </span>
                   <span className="primitive-founders__toggle" aria-hidden="true">⌄</span>
@@ -195,11 +219,11 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
                   <section aria-label={`${row.name || '이름 미상'}의 최근 주요 기록`}>
                     <h3>최근 주요 기록</h3>
                     {deeds.length ? <ol className="primitive-founders__deeds">{deeds.map((deed, deedIndex) => (
-                      <li key={`${deed.day}-${deed.kind}-${deedIndex}`}><span>{dayText(deed.day)}</span><p>{deedText(deed)}</p></li>
+                      <li key={`${deed.day}-${deed.kind}-${deedIndex}`}><span>{dayText(deed.day, state?.calendar)}</span><p>{deedText(deed)}</p></li>
                     ))}</ol> : <p className="primitive-founders__muted">남겨진 주요 기록이 없습니다.</p>}
                   </section>
                   {row.deathRecord ? <section className="primitive-founders__death" aria-label={`${row.name || '이름 미상'}의 사망 기록`}>
-                    <h3>사망 기록</h3><p>{deathText(row.deathRecord)}</p>
+                    <h3>사망 기록</h3><p>{deathText(row.deathRecord, state?.calendar)}</p>
                   </section> : null}
                 </div>
               </details>

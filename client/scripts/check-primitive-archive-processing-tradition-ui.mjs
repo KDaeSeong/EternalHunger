@@ -118,6 +118,10 @@ function page(state = fresh(), overrides = {}) {
     setState: value => calls.state.push(value), setActionFeedback: value => calls.feedback.push(value),
     setActorIdValue: value => calls.actor.push(value), ...overrides,
   };
+  scope.actionOwnerSession = null;
+  scope.isCurrentAuthSession = () => true;
+  scope.actionVersionRef = { current: 0 };
+  scope.checkpoint = { ...scope.checkpoint, canMutate: () => scope.checkpoint.ready && scope.checkpoint.exclusive };
   const result = new Function(...Object.keys(scope), `${compiled}\nreturn {reserveProjectTradition,reserveProcessingTradition,setActorId};`)(...Object.values(scope));
   const invoke = name => {
     const previousWindow = globalThis.window;

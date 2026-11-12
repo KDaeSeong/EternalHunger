@@ -15,6 +15,7 @@ const runtime = await import('../src/app/games/primitive-archive/_lib/primitiveA
 const routeUrl = new URL('../src/app/games/primitive-archive/', import.meta.url);
 const focusPanelUrl = new URL('_components/PrimitiveArchiveFocusPanel.js', routeUrl).href;
 const operationsUrl = new URL('_components/PrimitiveArchiveOperationsSummary.js', routeUrl).href;
+const annualOperationsUrl = new URL('_components/PrimitiveArchiveAnnualOperations.js', routeUrl).href;
 const featureTabsUrl = new URL('_components/PrimitiveArchiveFeatureTabs.js', routeUrl).href;
 const actionWorkspaceUrl = new URL('_components/PrimitiveArchiveActionWorkspace.js', routeUrl).href;
 const inventoryBarUrl = new URL('_components/PrimitiveArchiveInventoryBar.js', routeUrl).href;
@@ -31,7 +32,7 @@ const productionRequirementGuideUrl = new URL('_components/PrimitiveArchiveProdu
 const campWorkspaceUrl = new URL('_components/PrimitiveArchiveCampWorkspace.js', routeUrl);
 const growthTabUrl = new URL('_components/PrimitiveArchiveGrowthTab.js', routeUrl);
 const researchPreviewUrl = new URL('_components/PrimitiveArchiveResearchTreePreview.js', routeUrl);
-const transpiledUrls = new Set([focusPanelUrl, operationsUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, portraitUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl, processingPlanUrl, educationPlanUrl, productionRequirementGuideUrl]);
+const transpiledUrls = new Set([focusPanelUrl, operationsUrl, annualOperationsUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, portraitUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl, processingPlanUrl, educationPlanUrl, productionRequirementGuideUrl]);
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 const primitiveUiStub = `
   const jsx = (...args) => globalThis.__primitiveArchiveFocusReact.createElement(...args);
@@ -102,7 +103,7 @@ registerHooks({
     if (context.parentURL === featureTabsUrl && featureTabStubs.has(specifier)) {
       return { url: asDataModule(simpleComponentStub(featureTabStubs.get(specifier))), shortCircuit: true };
     }
-    if ([focusPanelUrl, operationsUrl].includes(context.parentURL) && specifier === '../../_components/GamePlayPrimitives') {
+    if ([focusPanelUrl, operationsUrl, annualOperationsUrl].includes(context.parentURL) && specifier === '../../_components/GamePlayPrimitives') {
       return { url: asDataModule(primitiveUiStub), shortCircuit: true };
     }
     if (context.parentURL === actionWorkspaceUrl) {
@@ -845,7 +846,7 @@ check('actual project control receives the selected living-actor gate without di
   }
   const source = readFileSync(new URL('_components/PrimitiveArchivePlayContent.js', routeUrl), 'utf8');
   assert.match(source, /const actorCanAct = canAct && Number\(actor\?\.hp \|\| 0\) > 0;/);
-  assert.match(source, /canAct=\{actorCanAct\}/);
+  assert.match(source, /canAct=\{annualMode \? canAct : actorCanAct\}/);
   assert.match(source, /action="auto"[^\n]+disabled=\{!canAct\}/);
 });
 
@@ -1090,7 +1091,7 @@ check('the live focus panel hosts the real operations summary without bypassing 
 
 const playContent = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js', import.meta.url), 'utf8');
 assert.match(playContent, /const focusPlan = primitiveArchiveFocusPlan\(/, 'The live page must use the tested focus plan.');
-assert.match(playContent, /<PrimitiveArchiveFocusPanel plan=\{focusPlan\} operations=\{operations\}\s+dayControl=\{settlementDayControl\} onNavigate=\{selectArchiveTab\} \/>\s*<PrimitiveArchiveInventoryBar inventory=\{state\.inventory\} inventoryRows=\{inventoryRows\} \/>\s*<PrimitiveArchiveFeatureTabs/s, 'The live focus panel must host the settlement day control, use help-clearing navigation, and be followed by the persistent inventory bar before the real feature tabs.');
+assert.match(playContent, /<PrimitiveArchiveFocusPanel plan=\{focusPlan\} operations=\{operations\}\s+dayControl=\{annualMode \? null : settlementDayControl\} onNavigate=\{selectArchiveTab\}\s+annual=\{annual\} annualStartControl=\{annualStartControl\} annualYearControl=\{annualYearControl\} \/>\s*<PrimitiveArchiveInventoryBar inventory=\{state\.inventory\} inventoryRows=\{inventoryRows\} \/>\s*<PrimitiveArchiveFeatureTabs/s, 'The live focus panel must host the daily or annual control, use help-clearing navigation, and be followed by the persistent inventory bar before the real feature tabs.');
 assert.match(playContent, /<details className="primitive-guide-details">\s*<summary>상세 생존 안내<\/summary>\s*<GameAdvisorPanel/s, 'Existing detailed survival advice must remain available below the main interface.');
 
 check('the actual navigation adapter clears requirement help before forwarding each requested tab to the original state setter', () => {

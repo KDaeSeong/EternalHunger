@@ -146,6 +146,12 @@ export default function usePrimitiveArchiveCheckpoint({
     writerLeasesRef.current.get(owner)?.status === 'held'
   ), []);
 
+  const canMutate = useCallback(() => {
+    const owner = activeOwnerRef.current;
+    return mountedRef.current && readyRef.current && owner !== null
+      && owner === desiredOwnerRef.current && hasWriterLease(owner);
+  }, [hasWriterLease]);
+
   const writerFailure = useCallback((owner) => {
     const leaseStatus = writerLeasesRef.current.get(owner)?.status;
     const status = leaseStatus === 'pending' ? 'loading' : leaseStatus === 'busy' ? 'conflict' : 'unavailable';
@@ -791,6 +797,7 @@ export default function usePrimitiveArchiveCheckpoint({
   return {
     ready: currentOwnerReady,
     exclusive: currentOwnerReady && hasWriterLease(ownerKey),
+    canMutate,
     status: ownerBootstrapSettled ? statusState : 'loading',
     message: ownerBootstrapSettled
       ? [messageState, transitionWarningState, authExpiredMessage].filter(Boolean).join(' ')

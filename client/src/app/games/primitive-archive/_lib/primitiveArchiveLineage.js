@@ -1,5 +1,6 @@
 import { TECH_TREE } from './primitiveArchiveData';
 import { normalizeFounderHistory, recordFounderDeath } from './primitiveArchiveFounders.js';
+import { annualPersonSummary, isAnnualMode, isValidAnnualCalendar, syncAnnualCalendarPeople } from './primitiveArchiveCalendar.js';
 
 export const LINEAGE_RULES = Object.freeze({ warningCycle: 12, handoverCycle: 18, naturalEndCycle: 24, memberLimit: 64 });
 const copy = value => JSON.parse(JSON.stringify(value));
@@ -20,7 +21,7 @@ export function createLineage({ party = [], day = 1, runId = '', mode = 'hybrid'
     prepared: [], transitions: [] };
 }
 
-export function isValidLineage(raw, { runId, day = 1, party = [] } = {}) {
+export function isValidLineage(raw, { runId, day = 1, party = [], calendar } = {}) {
   if (raw === undefined) return true;
   if (!record(raw) || raw.version !== 1 || raw.runId !== runId || !['legacy', 'hybrid'].includes(raw.mode)
     || !integer(raw.lastTickDay) || raw.lastTickDay < 1 || raw.lastTickDay > day || !eraOrder.includes(raw.lastEra)
@@ -28,6 +29,11 @@ export function isValidLineage(raw, { runId, day = 1, party = [] } = {}) {
     || !integer(raw.serial) || !Number.isSafeInteger(raw.serial) || !Array.isArray(raw.members) || raw.members.length > LINEAGE_RULES.memberLimit
     || !Array.isArray(raw.prepared) || raw.prepared.length > 16
     || !Array.isArray(raw.transitions) || raw.transitions.length > 12) return false;
+  if (Object.hasOwn(raw, 'lastAnnualTickYear') && (!Number.isSafeInteger(raw.lastAnnualTickYear)
+    || raw.lastAnnualTickYear < 0
+    || (calendar?.mode === 'annual' ? !Number.isSafeInteger(calendar.completedYears)
+      || calendar.completedYears < 0 || raw.lastAnnualTickYear > calendar.completedYears : raw.lastAnnualTickYear !== 0)
+    || (raw.mode === 'legacy' && raw.lastAnnualTickYear !== 0))) return false;
   if (raw.mode === 'legacy') return raw.communityStartedDay === 0 && !raw.members.length && !raw.prepared.length && !raw.transitions.length;
   if (new Set(party.map(actor => actor.id)).size !== party.length) return false;
   const ids = new Set();
@@ -94,29 +100,29 @@ export function isValidLineage(raw, { runId, day = 1, party = [] } = {}) {
     && typeof event.actorId === 'string' && ['prepared', 'retired', 'inherited', 'death'].includes(event.kind));
 }
 
-export function normalizeLineage(raw, { party = [], day = 1, runId = '' } = {}) {
+export function normalizeLineage(raw, { party = [], day = 1, runId = '', calendar } = {}) {
   if (raw === undefined) return createLineage({ party, day, runId, mode: 'legacy' });
-  if (!isValidLineage(raw, { runId, day, party })) throw new RangeError('Invalid lineage history');
+  if (!isValidLineage(raw, { runId, day, party, calendar })) throw new RangeError('Invalid lineage history');
   const next = copy(raw);
   return next;
 }
 
 export function observeLineageArrival(state, actor) {
-  if (state.lineage?.mode !== 'hybrid' || state.lineage.members.some(member => member.actorId === actor.id)) return state;
+  if (state.lineage?.mode !== 'hybrid' || state.lineage.members.some(member => member.actorId === actor.id)) return syncAnnualCalendarPeople(state);
   if (state.lineage.members.length + state.lineage.prepared.length >= LINEAGE_RULES.memberLimit) {
     throw new RangeError('Lineage history capacity reached');
   }
-  return { ...state, lineage: { ...state.lineage,
-    members: [...state.lineage.members, memberOf(actor, state.day)] } };
+  return syncAnnualCalendarPeople({ ...state, lineage: { ...state.lineage,
+    members: [...state.lineage.members, memberOf(actor, state.day)] } });
 }
 
 export function observeLineageDeaths(state) {
-  if (state.lineage?.mode !== 'hybrid') return state;
-  return { ...state, lineage: { ...state.lineage, members: state.lineage.members.map(member => {
+  if (state.lineage?.mode !== 'hybrid') return syncAnnualCalendarPeople(state);
+  return syncAnnualCalendarPeople({ ...state, lineage: { ...state.lineage, members: state.lineage.members.map(member => {
     const actor = state.party.find(actor => actor.id === member.actorId);
     return ['active', 'elder'].includes(member.stage) && actor?.hp <= 0 && actor.deathRecord
       ? { ...member, stage: 'deceased', deathRecord: copy(actor.deathRecord) } : member;
-  }) } };
+  }) } });
 }
 
 const event = (lineage, day, kind, actorId, detail = '') => ({ ...lineage,
@@ -124,10 +130,15 @@ const event = (lineage, day, kind, actorId, detail = '') => ({ ...lineage,
 const foodStock = state => ['berry', 'meat', 'cooked_meat', 'jerky', 'fish', 'grain', 'milk', 'packed_ration', 'milled_grain']
   .reduce((sum, key) => sum + Math.max(0, Number(state.inventory?.[key] || 0)), 0);
 function communityReady(state) {
+  const annual = isAnnualMode(state) && state.calendar.completedYears > 0;
+  const receipt = state.tribe?.lastProduction;
+  const supplied = annual
+    ? receipt?.day === state.calendar.lastSettledDay && Number.isFinite(receipt.foodNeed) && receipt.foodNeed > 0
+      && receipt.shortage === 0 && Number.isFinite(receipt.foodProvided) && receipt.foodProvided >= receipt.foodNeed
+    : foodStock(state) >= Math.ceil(Number(state.tribe.population) / 4) + lineageHousehold(state).extraRations;
   return Boolean(state.research?.completed?.SETTLEMENT && state.research?.completed?.FOOD_STORAGE)
     && Number(state.camp?.shelterLevel || 0) >= 1 && Number(state.tribe?.population || 0) >= 1
-    && Number(state.tribe?.morale || 0) > 0 && foodStock(state) >= Math.ceil(Number(state.tribe.population) / 4)
-      + lineageHousehold(state).extraRations;
+    && Number(state.tribe?.morale || 0) > 0 && supplied;
 }
 
 export function lineageSummary(state) {
@@ -147,16 +158,21 @@ export function lineageSummary(state) {
       : state.ended ? '종료된 런입니다.' : !prepared ? '실제 공동체 일손으로 후계를 먼저 준비해야 합니다.'
         : !ready ? '후대를 유지할 정착 기반과 식량이 필요합니다.'
           : Number(state.ap || 0) < 1 ? '활동 가능한 차례에 은퇴를 선택해야 합니다.' : '';
-    return { ...copy(member), name: actor?.name || member.actorId, role: actor?.role || '계승자',
-      warning: active && member.cycle >= LINEAGE_RULES.warningCycle,
+    const annual = isAnnualMode(state) ? annualPersonSummary(state, member.actorId) : null;
+    return { ...copy(member), name: actor?.name || member.actorId, role: actor?.role || '계승자', ...(annual ? { annual } : {}),
+      warning: active && (isAnnualMode(state) ? annual.warning : member.cycle >= LINEAGE_RULES.warningCycle),
       canPrepare: !prepareReason, prepareReason, canRetire: !retireReason, retireReason,
       successorName: prepared?.actor.name || '', successorId: prepared?.actor.id || member.successorId };
   });
   return { mode: lineage.mode, enabled: lineage.mode === 'hybrid', communityStartedDay: lineage.communityStartedDay,
-    clockStarted: lineage.communityStartedDay > 0, rows, prepared: copy(lineage.prepared),
-    prepareCostText: 'AP 1 · ST 4 · 허기 +1 · 실제 공동체 일손 1명 전환',
+    clockStarted: isAnnualMode(state) || lineage.communityStartedDay > 0, rows, prepared: copy(lineage.prepared),
+    prepareCostText: isAnnualMode(state) ? 'AP 1 · 실제 공동체 일손 1명 전환' : 'AP 1 · ST 4 · 허기 +1 · 실제 공동체 일손 1명 전환',
     retireCostText: 'AP 소모 없음 · 준비된 후계와 활동 인물 교체 · 생존 원본 보존',
-    transitions: copy(lineage.transitions), ruleText: `생애 활동기는 정착·식량 저장·거처·공동체 일손과 식량이 갖춰져 실제 후계 준비가 가능해진 뒤의 정착 활동기입니다. ${lineage.communityStartedDay ? `${lineage.communityStartedDay}일차에 정착 활동기 시작.` : '현재 정착 활동기 시작 전입니다.'} 12기 은퇴 예고·18기 준비 후 자동 인계·24기 수명 종료. 실제 역사 나이가 아니며 시작 후 기반이 악화돼도 멈추거나 초기화되지 않습니다. 한 문명의 생애 기록 정원은 예비 후계를 포함해 64명이며 도달하면 새 후계 준비·영입이 중단됩니다. 기존 기록은 삭제하지 않습니다.` };
+    transitions: copy(lineage.transitions), ruleText: isAnnualMode(state)
+      ? lineage.mode === 'legacy'
+        ? '기존 생애 정책을 유지하는 연간 운영입니다. 과거 인물의 가계나 새 후계를 생성하지 않으며 관찰 연수에 따른 새 자동 인계·자연사를 추가하지 않습니다.'
+        : `정착 후 관찰한 활동 20년에 인계를 안내하고 25년에 준비된 후계에게 생전 인계합니다. ${state.calendar.observedLifetimeYears === null ? '관찰 연수만으로 자연사를 만들지 않습니다.' : `관찰 ${state.calendar.observedLifetimeYears}년이 지나면 정착 후 관찰 생애를 종료합니다.`} 관찰 이전 나이·생년·활동기를 연도로 환산하지 않습니다. 생애 기록 정원은 예비 후계를 포함해 64명입니다.`
+      : `생애 활동기는 정착·식량 저장·거처·공동체 일손과 식량이 갖춰져 실제 후계 준비가 가능해진 뒤의 정착 활동기입니다. ${lineage.communityStartedDay ? `${lineage.communityStartedDay}일차에 정착 활동기 시작.` : '현재 정착 활동기 시작 전입니다.'} 12기 은퇴 예고·18기 준비 후 자동 인계·24기 수명 종료. 실제 역사 나이가 아니며 시작 후 기반이 악화돼도 멈추거나 초기화되지 않습니다. 한 문명의 생애 기록 정원은 예비 후계를 포함해 64명이며 도달하면 새 후계 준비·영입이 중단됩니다. 기존 기록은 삭제하지 않습니다.` };
 }
 
 export function prepareLineageSuccessor(state, actorId) {
@@ -192,7 +208,7 @@ export function prepareLineageSuccessor(state, actorId) {
   }
   tribe.population -= 1;
   const prepared = [...lineage.prepared, { mentorId: actorId, actor, preparedDay: state.day }];
-  const next = { ...state, tribe, lineage: event({ ...lineage, serial, prepared }, state.day, 'prepared', actorId, id) };
+  const next = syncAnnualCalendarPeople({ ...state, tribe, lineage: event({ ...lineage, serial, prepared }, state.day, 'prepared', actorId, id) });
   return { state: next, ok: true, reason: '', message: `${mentor.name}의 후계 ${actor.name} 준비. 공동체 일손 1명을 활동 준비로 전환했습니다.` };
 }
 
@@ -216,7 +232,7 @@ function handover(state, actorId, reason) {
     state.day, dead ? 'inherited' : 'retired', actorId, reason);
   const next = { ...state, party: state.party.map(actor => actor.id === actorId ? successor : actor), equipment, lineage: updated };
   // The heir is observed at the actual handover, not invented by a later load.
-  return { ...next, founderHistory: normalizeFounderHistory(next.founderHistory, next) };
+  return syncAnnualCalendarPeople({ ...next, founderHistory: normalizeFounderHistory(next.founderHistory, next) });
 }
 
 export function retireLineageActor(state, actorId) {
@@ -227,6 +243,7 @@ export function retireLineageActor(state, actorId) {
 }
 
 export function tickLineageDay(state) {
+  if (isAnnualMode(state)) return state;
   const lineage = normalizeLineage(state.lineage, state);
   if (lineage.mode !== 'hybrid' || lineage.lastTickDay >= state.day) return state;
   const era = lineageEra(state);
@@ -275,6 +292,62 @@ export function tickLineageDay(state) {
   return { ...next, ended: next.party.every(actor => Number(actor.hp || 0) <= 0) };
 }
 
+// Annual service is observed after an explicit mode transition. Historical
+// daily cycles and the last daily tick remain untouched, including for retirees.
+export function tickLineageYear(state) {
+  if (!isAnnualMode(state) || state.lineage?.mode !== 'hybrid') return state;
+  if (!isValidAnnualCalendar(state.calendar, state)) throw new RangeError('Invalid annual calendar');
+  const lineage = normalizeLineage(state.lineage, state);
+  const completed = state.calendar.completedYears;
+  if (completed < 1 || Number(lineage.lastAnnualTickYear || 0) >= completed) return state;
+  let next = syncAnnualCalendarPeople(state);
+  const lifetime = next.calendar.observedLifetimeYears;
+  if (lifetime !== null) {
+    for (const person of [...next.calendar.people]) {
+      const annual = annualPersonSummary(next, person.actorId);
+      if (annual.observedYears < lifetime) continue;
+      const active = next.party.find(actor => actor.id === person.actorId);
+      const member = next.lineage.members.find(row => row.actorId === person.actorId);
+      const prepared = next.lineage.prepared.find(row => row.actor.id === person.actorId);
+      const actor = active || member?.retiredSnapshot || prepared?.actor;
+      if (!actor || Number(actor.hp || 0) <= 0) continue;
+      const death = { day: next.day, source: 'natural', reason: '정착 후 관찰 생애 종료',
+        hpBefore: Number(actor.hp), damage: 0, hungerDamage: 0, coldDamage: 0, hypothermiaDamage: 0 };
+      const deadActor = { ...copy(actor), hp: 0, deathRecord: death };
+      let members = next.lineage.members.map(row => row.actorId === person.actorId
+        ? { ...row, stage: 'deceased', deathRecord: death,
+          retiredSnapshot: row.retiredSnapshot ? deadActor : null } : row);
+      if (prepared) {
+        const mentor = members.find(row => row.actorId === prepared.mentorId);
+        members = [...members, { ...memberOf(deadActor, prepared.preparedDay, mentor.founderId, mentor.generation + 1),
+          stage: 'deceased', retiredSnapshot: deadActor, deathRecord: death }];
+      }
+      next = { ...next,
+        party: next.party.map(row => row.id === person.actorId ? deadActor : row),
+        lineage: event({ ...next.lineage, members,
+          prepared: next.lineage.prepared.filter(row => row.actor.id !== person.actorId) },
+        next.day, 'death', person.actorId, death.reason) };
+      // A prepared person can be observed dying before ever taking an active
+      // party slot. Observe that actual boundary without fabricating old deeds.
+      const observedContext = prepared ? { ...next, party: [...next.party, deadActor] } : next;
+      next = syncAnnualCalendarPeople({ ...next, founderHistory: normalizeFounderHistory(next.founderHistory, observedContext) });
+      next = recordFounderDeath(next, person.actorId, death);
+    }
+  }
+  for (const member of [...next.lineage.members]) {
+    if (member.stage === 'deceased') {
+      next = handover(next, member.actorId, '확인된 사망 뒤 준비된 후계 인계');
+      continue;
+    }
+    const annual = annualPersonSummary(next, member.actorId);
+    if (member.stage !== 'retired' && annual.serviceYears !== null && annual.serviceYears >= 25) {
+      next = handover(next, member.actorId, '정착 후 활동 25년과 준비된 후계의 생전 인계');
+    }
+  }
+  next = syncAnnualCalendarPeople({ ...next, lineage: { ...next.lineage, lastAnnualTickYear: completed } });
+  return { ...next, ended: next.party.every(actor => Number(actor.hp || 0) <= 0) };
+}
+
 // Prepared people and living retirees still consume the same communal ration
 // accounting. Moving a worker is not free food or duplicate production.
 export function lineageHousehold(state) {
@@ -287,6 +360,7 @@ export function lineageHousehold(state) {
 }
 
 export function settleLineageHousehold(state, shortage) {
+  if (isAnnualMode(state)) return state;
   const lineage = normalizeLineage(state.lineage, state);
   if (lineage.mode !== 'hybrid' || !lineageHousehold(state).count) return state;
   const meal = actor => {

@@ -101,6 +101,10 @@ function pageHarness(state = fresh(), overrides = {}) {
     musicSceneTimerRef: { current: null }, eraArrivalTimerRef: { current: null }, baseMusicScene: 'archive-camp',
     playGameSfx() {}, setMusicScene() {}, setActorId() {}, setArrivingEraId() {}, setMessage() {},
     setState: value => calls.state.push(value), setActionResult: value => calls.result.push(value), setActionFeedback: value => calls.feedback.push(value), ...overrides };
+  scope.actionOwnerSession = null;
+  scope.isCurrentAuthSession = () => true;
+  scope.actionVersionRef = { current: 0 };
+  scope.checkpoint = { ...scope.checkpoint, canMutate: () => scope.checkpoint.ready && scope.checkpoint.exclusive };
   const bound = new Function(...Object.keys(scope), `${compiled}\nreturn {handler: configureTribeEducation, legacyHandler: configureTribeProcess, reserveEducationTradition, cancelEducationTradition};`)(...Object.values(scope));
   const directScope = { ...scope, applyAction: (_label, action) => action(ref.current) };
   const directHandler = new Function(...Object.keys(directScope), `${configOnly}\nreturn configureTribeEducation;`)(...Object.values(directScope));

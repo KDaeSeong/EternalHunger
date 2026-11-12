@@ -21,7 +21,7 @@ function MaterialStatus({ rows = [] }) {
   );
 }
 
-function CampRequirementGuide({ action, regions, onOpenRequirementHelp }) {
+function CampRequirementGuide({ action, regions, onOpenRequirementHelp, annualMode = false }) {
   const guide = campRequirementGuide({ action, regions });
   if (!guide.hasHelp) return null;
   const canNavigate = typeof onOpenRequirementHelp === 'function';
@@ -29,11 +29,11 @@ function CampRequirementGuide({ action, regions, onOpenRequirementHelp }) {
     <details className="primitive-requirement-guide">
       <summary>{labelForAction(action)} · 획득 방법·선행 연구</summary>
       <div className="primitive-requirement-guide__body">
-        <p>안내를 열거나 다른 화면을 보는 것은 행동력을 쓰지 않습니다. 지역 지정·채집·사냥·연구는 해당 화면에서 직접 선택합니다.</p>
+        <p>{annualMode ? '시설은 실제 비축 자재와 관리 행동력을 사용합니다. 부족한 자재는 공동체의 직업 생산·가공·교역과 발전 조건을 확인하세요.' : '안내를 열거나 다른 화면을 보는 것은 행동력을 쓰지 않습니다. 지역 지정·채집·사냥·연구는 해당 화면에서 직접 선택합니다.'}</p>
         {guide.materials.map((material) => (
           <div className="primitive-requirement-guide__material" key={material.resourceId}>
             <strong>{material.name} {material.current}/{material.required} · {material.missing}개 부족</strong>
-            {!material.supported ? <p>이 재료의 획득 경로는 이 안내에서 제공하지 않습니다.</p>
+            {annualMode ? null : !material.supported ? <p>이 재료의 획득 경로는 이 안내에서 제공하지 않습니다.</p>
               : !material.sources.length ? <p>현재 발견한 행동 지역에서 확인된 채집·사냥 경로가 없습니다.</p>
                 : <ul>{material.sources.map((source) => (
                   <li key={`${source.regionId}-${source.action}`}>
@@ -43,7 +43,7 @@ function CampRequirementGuide({ action, regions, onOpenRequirementHelp }) {
                 ))}</ul>}
           </div>
         ))}
-        {guide.materials.some((material) => material.sources.length) ? <p>발견한 지역의 자원표에 있는 경로입니다. 행동 성공이나 재료 획득을 보장하지 않습니다. 지도 제작 전에는 행동 지역을 지정할 수 없습니다.</p> : null}
+        {!annualMode && guide.materials.some((material) => material.sources.length) ? <p>발견한 지역의 자원표에 있는 경로입니다. 행동 성공이나 재료 획득을 보장하지 않습니다. 지도 제작 전에는 행동 지역을 지정할 수 없습니다.</p> : null}
         {guide.research.map((technology) => (
           <div className="primitive-requirement-guide__research" key={technology.technologyId}>
             <span>시설 해금 연구: {technology.name}</span>
@@ -60,7 +60,7 @@ function labelForAction(action) {
   return action.name || action.label || '캠프';
 }
 
-function CampActionControl({ action, canAct, label, onClick, regions, onOpenRequirementHelp }) {
+function CampActionControl({ action, canAct, label, onClick, regions, onOpenRequirementHelp, annualMode }) {
   const enabled = canAct && action.enabled;
   return (
     <div className="primitive-camp-action-entry">
@@ -75,7 +75,7 @@ function CampActionControl({ action, canAct, label, onClick, regions, onOpenRequ
         <span className="primitive-camp-action-label">{label}</span>
         <MaterialStatus rows={action.materialRows} />
       </ActionButton>
-      <CampRequirementGuide action={action} regions={regions} onOpenRequirementHelp={onOpenRequirementHelp} />
+      <CampRequirementGuide action={action} regions={regions} onOpenRequirementHelp={onOpenRequirementHelp} annualMode={annualMode} />
     </div>
   );
 }
@@ -83,6 +83,7 @@ function CampActionControl({ action, canAct, label, onClick, regions, onOpenRequ
 export default function PrimitiveArchiveCampWorkspace(props) {
   const {
     actionFeedback,
+    annual,
     actor,
     campActions,
     campFacilities,
@@ -98,25 +99,27 @@ export default function PrimitiveArchiveCampWorkspace(props) {
     state,
   } = props;
   const guideRegions = exploration?.rows || regions || [];
-  const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
+  const annualMode = Boolean(annual?.annualMode);
+  const actorCanAct = canAct && (annualMode || Number(actor?.hp || 0) > 0);
+  const visibleCampActions = annualMode ? (campActions || []).filter(row => !['fire', 'fuel', 'cook'].includes(row.id)) : campActions || [];
   const fireStatus = Number(state.camp.fireLevel || 0) <= 0
     ? '미설치' : campFireActive(state) ? '불 켜짐' : '불 꺼짐';
 
   return (
     <section className="games-detail-grid primitive-workspace-panel" role="tabpanel">
       <section className="games-panel">
-        <PrimitiveArchivePanelTitle action="primitive-camp" title="캠프" meta={`연료 ${state.camp.fuel}`} />
+        <PrimitiveArchivePanelTitle action="primitive-camp" title={annualMode ? '공동체 시설 투자' : '캠프'} meta={annualMode ? `관리 AP ${state.ap}/${state.apMax}` : `연료 ${state.camp.fuel}`} />
         <div className="games-rank-split games-rank-split--compact primitive-camp-stat-grid">
-          <SmallStat icon="fuel" label={`모닥불 Lv.${state.camp.fireLevel}`} value={fireStatus} />
+          {!annualMode ? <SmallStat icon="fuel" label={`모닥불 Lv.${state.camp.fireLevel}`} value={fireStatus} /> : null}
           <SmallStat icon="camp" label="대피소" value={`Lv.${state.camp.shelterLevel}`} />
           <SmallStat icon="craft" label="작업대" value={`Lv.${state.camp.workbenchLevel}`} />
           <SmallStat icon="archive" label="기록실" value={`Lv.${state.camp.archiveRoomLevel || 0}`} />
           <SmallStat icon="scribe" label="필사대" value={`Lv.${state.camp.scribeDeskLevel || 0}`} />
           <SmallStat icon="library" label="서가" value={`Lv.${state.camp.libraryShelfLevel || 0}`} />
         </div>
-        <p className="games-muted">연료가 있어야 모닥불이 추위를 막아 줍니다. 대피소와 보온 장비는 연료 없이도 보호하며, 요리와 밤을 지내는 데 쓸 연료를 각각 준비해야 합니다.</p>
+        <p className="games-muted">{annualMode ? '작업대와 기록·교육 시설은 실제 자재와 관리 행동력으로 투자합니다. 시설의 선행 연구와 현재 재료를 확인하세요.' : '연료가 있어야 모닥불이 추위를 막아 줍니다. 대피소와 보온 장비는 연료 없이도 보호하며, 요리와 밤을 지내는 데 쓸 연료를 각각 준비해야 합니다.'}</p>
         <div className="primitive-camp-action-grid">
-          {(campActions || []).map((action) => (
+          {visibleCampActions.map((action) => (
             <CampActionControl
               action={action}
               canAct={actorCanAct}
@@ -125,6 +128,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
               onClick={() => runCamp(action.id)}
               regions={guideRegions}
               onOpenRequirementHelp={onOpenRequirementHelp}
+              annualMode={annualMode}
             />
           ))}
           {campFacilities.map((facility) => (
@@ -136,6 +140,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
               onClick={() => runCamp(facility.action)}
               regions={guideRegions}
               onOpenRequirementHelp={onOpenRequirementHelp}
+              annualMode={annualMode}
             />
           ))}
         </div>
@@ -156,7 +161,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
         </details>
       </section>
 
-      <section className="games-panel">
+      {!annualMode ? <section className="games-panel">
         <PrimitiveArchivePanelTitle
           action={runProgressReport.riskTone === 'danger' ? 'primitive-survival-fail' : 'status'}
           title="런 리포트"
@@ -206,7 +211,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
             </article>
           ))}
         </div>
-      </section>
+      </section> : null}
     </section>
   );
 }

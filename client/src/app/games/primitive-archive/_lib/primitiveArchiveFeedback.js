@@ -319,6 +319,9 @@ export function primitiveActionFeedback(previous, current, label, options = {}) 
   const resultText = options.resultText || primitiveActionResultText(previous, current, label);
   const previousMilestone = primitiveMilestoneSnapshot(previous, options.previousSeasonId, options.previousEraId);
   const currentMilestone = primitiveMilestoneSnapshot(current, options.currentSeasonId, options.currentEraId);
+  if (previous?.calendar?.mode === 'annual' || current?.calendar?.mode === 'annual') {
+    currentMilestone.seasonId = previousMilestone.seasonId;
+  }
   const milestoneCue = primitiveMilestoneCue(previousMilestone, currentMilestone);
   if (milestoneCue) {
     const milestone = milestonePresentation(previousMilestone, currentMilestone, milestoneCue);

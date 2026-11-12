@@ -50,7 +50,7 @@ import {
 import { GAMEPLAY_PERK_CODES, normalizeGameplayPerkCodes } from '../../../../utils/gameplayPerks';
 import { createFounderHistory, normalizeFounderHistory, recordFounderDeed, recordFounderDeath } from './primitiveArchiveFounders.js';
 export { founderHistoryRows } from './primitiveArchiveFounders.js';
-import { LINEAGE_RULES, createLineage, normalizeLineage, lineageSummary, prepareLineageSuccessor, retireLineageActor, tickLineageDay, lineageHousehold, settleLineageHousehold, observeLineageArrival, observeLineageDeaths } from './primitiveArchiveLineage.js';
+import { LINEAGE_RULES, createLineage, normalizeLineage, lineageSummary, prepareLineageSuccessor, retireLineageActor, tickLineageDay, tickLineageYear, lineageHousehold, settleLineageHousehold, observeLineageArrival, observeLineageDeaths } from './primitiveArchiveLineage.js';
 import { createAncestralFaith, normalizeAncestralFaith, runAncestralRite, ancestralActionChanceBonus, ancestralStudyBonus, ancestralCareBonus, consumeAncestralFavor, ancestralFaithRows, studyContributionBonus, STUDY_BONUS_POINTS } from './primitiveArchiveAncestralFaith.js';
 export { lineageSummary } from './primitiveArchiveLineage.js';
 export { ancestralFaithRows, ancestralFaithSummary } from './primitiveArchiveAncestralFaith.js';
@@ -60,6 +60,7 @@ import { createProjectTradition, normalizeProjectTradition, reserveProjectTradit
   reserveEducationTradition, educationTraditionBonus, settleEducationTradition, educationTraditionReason } from './primitiveArchiveProjectTradition.js';
 import { isValidTribeWorkPolicy, normalizeTribeWorkPolicy, tribeWorkPolicyDetails,
   prioritizeTribeWorkPolicy } from './primitiveArchiveWorkPolicy.js';
+import { isAnnualMode, isValidAnnualCalendar, createAnnualCalendar, advanceAnnualCalendar, syncAnnualCalendarPeople, annualCensus, annualCalendarSummary } from './primitiveArchiveCalendar.js';
 import { DEFAULT_TRIBE_PROCESSING_PLAN, isValidTribeProcessingPlan,
   normalizeTribeProcessingPlan } from './primitiveArchiveProcessing.js';
 import { DEFAULT_TRIBE_EDUCATION_PLAN, isValidTribeEducationPlan,
@@ -232,6 +233,7 @@ function createInitialState(options = {}, weather) {
 }
 
 export function normalizeState(value) {
+  if (value && Object.hasOwn(value, 'calendar') && !isValidAnnualCalendar(value.calendar, value)) throw new RangeError('Invalid annual calendar');
   const weather = value && typeof value === 'object' && value.weather && typeof value.weather === 'object'
     ? value.weather : undefined;
   const base = createInitialState({}, weather);
@@ -284,7 +286,7 @@ export function normalizeState(value) {
     }
     : base.camp;
   const founderHistory = normalizeFounderHistory(value.founderHistory, { party, day: value.day || base.day, runId: value.runId || base.runId });
-  const lineage = normalizeLineage(value.lineage, { party, day: value.day || base.day, runId: value.runId || base.runId });
+  const lineage = normalizeLineage(value.lineage, { party, day: value.day || base.day, runId: value.runId || base.runId, calendar: value.calendar });
   const ancestralFaith = normalizeAncestralFaith(value.ancestralFaith, { ...value, party, founderHistory, lineage, day: value.day || base.day, runId: value.runId || base.runId });
   const projectTradition = normalizeProjectTradition(value.projectTradition, { ...value, party, founderHistory, lineage, ancestralFaith,
     day: value.day || base.day, runId: value.runId || base.runId });
@@ -484,7 +486,7 @@ export function logCapacity(state) {
 export function addLog(state, message) {
   return {
     ...state,
-    log: [`Day ${state.day}: ${message}`, ...state.log].slice(0, logCapacity(state)),
+    log: [`${isAnnualMode(state) ? `Year ${state.calendar.completedYears}` : `Day ${state.day}`}: ${message}`, ...state.log].slice(0, logCapacity(state)),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -1248,12 +1250,25 @@ function tribeProductionForDay(assignments, day, state = null) {
       + (herders >= 2 && today % 3 === 0 ? Math.floor(herders / 2) : 0),
     sinew: trappers >= 2 && today % 3 === 0 ? Math.floor(trappers / 2) : 0,
     stone: Math.ceil(miners / 2) + quarrymen,
+    metal_ore: isAnnualMode(state) ? miners : 0,
     clay: quarrymen > 0 && today % 2 === 0 ? Math.ceil(quarrymen / 2) : 0,
     flint: (miners >= 2 && today % 2 === 0 ? Math.floor(miners / 2) : 0)
       + (quarrymen >= 2 && today % 3 === 0 ? Math.floor(quarrymen / 2) : 0),
     obsidian_shard: miners >= 3 && today % 4 === 0 ? 1 : 0,
   };
   return Object.fromEntries(Object.entries(entries).filter(([, qty]) => qty > 0));
+}
+
+function annualCommunitySupplySources(state) {
+  return TRIBE_JOBS.flatMap(job => {
+    const completed = job.techId ? { ...state.research.completed, [job.techId]: true } : state.research.completed;
+    // Three workers at the common 12-period boundary expose every existing
+    // periodic job output. Only resource IDs are advertised, never these quantities.
+    const resourceIds = Object.keys(tribeProductionForDay({ [job.id]: 3 }, 12,
+      { ...state, research: { ...state.research, completed } }));
+    return resourceIds.length ? [{ id: job.id, label: job.name, resourceIds,
+      researchRequirements: productionGuideResearchRequirements(state, ['SETTLEMENT', job.techId].filter(Boolean)) }] : [];
+  });
 }
 
 function growthTargetForPopulation(population) {
@@ -1273,16 +1288,31 @@ export function tribeCapacity(state) {
   );
 }
 
-function forecastTribeFood(state, assignments = state.tribe.assignments, includeParty = false) {
+function productionPeriod(state, offset = 0) {
+  return (isAnnualMode(state) ? state.calendar.completedYears : Number(state.day || 1)) + offset;
+}
+
+function productionReceiptPeriod(state) {
+  return isAnnualMode(state) && state.calendar.completedYears > 0
+    && state.tribe?.lastProduction?.day === state.calendar.lastSettledDay
+    ? `${state.calendar.completedYears}년차` : `${state.tribe?.lastProduction?.day}일차`;
+}
+
+function communityFoodNeed(state) {
+  return isAnnualMode(state) ? annualCensus(state).foodNeed
+    : Math.ceil(Number(state.tribe.population || 0) / 4) + lineageHousehold(state).extraRations;
+}
+
+function forecastTribeFood(state, assignments = state.tribe.assignments, includeParty = false, firstOffset = 1) {
   // Current stock and job yields only: future actions, population/technology
   // changes and unearned project rewards are not promised in this forecast.
-  const need = Math.ceil(Number(state.tribe.population || 0) / 4) + lineageHousehold(state).extraRations;
-  const party = includeParty ? livingParty(state) : [];
-  const nightlyHunger = Math.round(8 * difficultyPreset(state).hungerMultiplier);
+  const need = communityFoodNeed(state);
+  const party = includeParty && !isAnnualMode(state) ? livingParty(state) : [];
+  const nightlyHunger = isAnnualMode(state) ? 0 : Math.round(8 * difficultyPreset(state).hungerMultiplier);
   let inventory = { ...state.inventory };
   const days = [];
   for (let offset = 1; offset <= 2; offset += 1) {
-    const day = Number(state.day || 1) + offset;
+    const day = productionPeriod(state, offset + firstOffset - 1);
     const gains = tribeProductionForDay(assignments, day, state);
     const stock = tribeFoodStock(inventory);
     const produced = tribeFoodStock(gains);
@@ -1295,7 +1325,7 @@ function forecastTribeFood(state, assignments = state.tribe.assignments, include
     const partyNeed = party.reduce((sum, member) => sum + Math.max(
       0, Number(member.hunger || 0) + nightlyHunger * offset - 45,
     ), 0);
-    const partyNutrition = includeParty ? FOOD_RECOVERY_IDS.reduce((sum, itemId) => (
+    const partyNutrition = includeParty && !isAnnualMode(state) ? FOOD_RECOVERY_IDS.reduce((sum, itemId) => (
       sum + Number(inventory[itemId] || 0) * foodNutritionValue(state, itemId)
     ), 0) : 0;
     days.push({
@@ -1330,7 +1360,7 @@ export function tribeSummary(state) {
   const growthTarget = growthTargetForPopulation(tribe.population);
   const selectedProject = projectRows(current).find((project) => project.selected && !project.completed);
   const researchStatus = researchSystemStatus(current);
-  const nextDay = Number(current.day || 1) + 1;
+  const nextDay = productionPeriod(current, 1);
   const nextProduction = tribeProductionForDay(tribe.assignments, nextDay, current);
   const jobs = TRIBE_JOBS.map((job) => {
     const count = Number(tribe.assignments[job.id] || 0);
@@ -1344,12 +1374,12 @@ export function tribeSummary(state) {
     if (job.id === 'builder') {
       dailyText = selectedProject
         ? selectedProject.committed || selectedProject.hasCost
-          ? `${selectedProject.name} +${count} 작업/일`
+          ? `${selectedProject.name} +${count} 작업/${isAnnualMode(current) ? '년' : '일'}`
           : `${selectedProject.name} 자재 부족`
         : '진행할 프로젝트 없음';
     }
     if (job.id === 'scholar') dailyText = researchStatus.unlocked
-      ? `일반 연구 최대 +${education.generalScholars}RP/일${education.teachers ? ` · 교원 ${education.teachers}명 별도 운영` : ''}` : '연구 체계 잠김';
+      ? `일반 연구 최대 +${education.generalScholars}RP/${isAnnualMode(current) ? '년' : '일'}${education.teachers ? ` · 교원 ${education.teachers}명 별도 운영` : ''}` : '연구 체계 잠김';
     if (job.id === 'artisan') dailyText = processing.statusText;
     if (!unlocked) dailyText = lockedReason;
     return {
@@ -1362,6 +1392,7 @@ export function tribeSummary(state) {
       canAdd: !current.ended && unlocked && unassigned > 0,
       canRemove: !current.ended && count > 0,
       dailyText,
+      outputText: isAnnualMode(current) ? dailyText : job.outputText,
     };
   });
   return {
@@ -1375,7 +1406,7 @@ export function tribeSummary(state) {
     atCapacity: tribe.population >= capacity,
     growthTarget,
     growthPct: Math.min(100, Math.round((tribe.growthProgress / Math.max(1, growthTarget)) * 100)),
-    foodNeed: Math.ceil(tribe.population / 4) + lineageHousehold(current).extraRations,
+    foodNeed: communityFoodNeed(current),
     foodStock: tribeFoodStock(current.inventory),
     foodForecast: forecastTribeFood(current),
     jobEditBlockedReason,
@@ -1384,7 +1415,7 @@ export function tribeSummary(state) {
     nextProductionText: formatGains(Object.entries(nextProduction)),
     lastProductionText: Number(tribe.productionSerial || 0) > 0
       ? formatGains(Object.entries(tribe.lastProduction?.gains || {}))
-      : '아직 일일 정산 전',
+      : isAnnualMode(current) ? '아직 연간 정산 전' : '아직 일일 정산 전',
   };
 }
 
@@ -1540,7 +1571,8 @@ export function rivalTribeRows(state, actorId = '') {
         && researchStatus.unlocked
         && Boolean(exchangeTech)
         && hasResources(current.inventory, rival.exchangeCost),
-      canRaid: commonReady && Boolean(current.research.completed?.HUNTING),
+      canRaid: !isAnnualMode(current) && commonReady && Boolean(current.research.completed?.HUNTING),
+      raidBlockedReason: isAnnualMode(current) ? '개인 원정 전투는 일일 운영에서만 실행합니다.' : '',
     };
   });
 }
@@ -1566,6 +1598,7 @@ export function contactRivalTribeForRegion(state, regionId) {
 }
 
 export function runDiplomacyAction(state, actorId, rivalId, actionId, options = {}) {
+  if (isAnnualMode(state) && actionId === 'raid') return state;
   const current = normalizeState(state);
   if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '외교 행동에 사용할 행동력이 부족합니다.');
   const rival = RIVAL_TRIBES.find((row) => row.id === rivalId);
@@ -1829,7 +1862,7 @@ export function projectActionEstimate(state, actorId, projectId = '') {
   const project = getProject(projectId || current.projects.selectedProjectId);
   const campSkill = Number(actor?.stats?.camp || 5);
   const work = clamp(1 + Math.floor(campSkill / 5) + Number(current.camp.workbenchLevel || 0), 1, 4);
-  const staminaCost = Math.max(6, 18 - Math.floor(campSkill / 2) - Number(current.camp.workbenchLevel || 0) * 2);
+  const staminaCost = isAnnualMode(current) ? 0 : Math.max(6, 18 - Math.floor(campSkill / 2) - Number(current.camp.workbenchLevel || 0) * 2);
   return {
     project,
     work,
@@ -1879,6 +1912,7 @@ export function runProjectAction(state, actorId, projectId = '', options = {}) {
 }
 
 export function canSelectActionZone(state) {
+  if (isAnnualMode(state)) return false;
   return hasTechPassive(state, 'ZONE_SELECTION');
 }
 
@@ -1939,7 +1973,9 @@ export function selectRegionAction(state, regionId) {
 
 export function civilizationMilestoneRows(state) {
   const current = normalizeState(state);
-  const season = seasonForDay(current.day);
+  const season = isAnnualMode(current)
+    ? { id: 'annual', name: '연간 공동체 운영', note: '기후·개인 야영을 재계산하지 않고 공동체 생산과 배식을 한 해씩 정산합니다.' }
+    : seasonForDay(current.day);
   const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL', 'EARLY_MODERN', 'MODERN_EARLY', 'MODERN_LATE'];
   const eraLabels = { PRIMITIVE: '원시', NEOLITHIC: '신석기', ANCIENT: '고대', CLASSICAL: '고전', MEDIEVAL: '중세', EARLY_MODERN: '근세', MODERN_EARLY: '전기 근대', MODERN_LATE: '후기 근대' };
   const completedEras = TECH_TREE
@@ -2291,7 +2327,7 @@ function autoResearchForDay(state) {
     2,
     36
   );
-  return addResearchProgress({ ...state, research }, techId, points, '일일 연구');
+  return addResearchProgress({ ...state, research }, techId, points, isAnnualMode(state) ? '연간 시설 연구' : '일일 연구');
 }
 
 function autoResearchForTurn(state) {
@@ -2825,6 +2861,7 @@ function resolveEventChain(state, chainId, ok) {
 }
 
 export function eventChainRows(state, actorId = '') {
+  if (isAnnualMode(state)) return [];
   const current = normalizeState(state);
   return activeEventChains(current).map((chain) => {
     const def = EVENT_CHAIN_DEFS[chain.kind] || {};
@@ -3035,6 +3072,7 @@ function rareTrackingPlan(state, pressure = explorationEventPressure(state)) {
 }
 
 export function recoveryChoiceRows(state, actorId = '') {
+  if (isAnnualMode(state)) return [];
   const current = normalizeState(state);
   const eventPressure = explorationEventPressure(current);
   const living = livingParty(current);
@@ -3217,6 +3255,7 @@ function individualFoodWarmth(foodId) {
 }
 
 export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) {
+  if (isAnnualMode(state)) return state;
   const current = normalizeState(state);
   if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '대응 행동을 실행할 AP가 부족합니다.');
   const id = String(choiceId || '');
@@ -3328,6 +3367,7 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
 }
 
 export function runEventChainAction(state, actorId, chainId, options = {}) {
+  if (isAnnualMode(state)) return state;
   const current = normalizeState(state);
   if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '대응을 실행할 AP가 부족합니다.');
 
@@ -3726,6 +3766,7 @@ function actionBodyTempDelta(state, actorId, warmthAdd = 0) {
 }
 
 export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options = {}) {
+  if (isAnnualMode(state)) return { ...state, ap: Math.max(0, Number(state.ap || 0) - 1) };
   const actor = getActor(state, actorId);
   const bodyTemp = clamp(
     Number(actor.bodyTemp ?? 37) + actionBodyTempDelta(state, actorId, Number(options.warmthAdd || 0)),
@@ -3746,7 +3787,7 @@ export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options 
 
 function settleTribeDay(state) {
   const tribe = normalizeTribeState(state.tribe);
-  const gains = tribeProductionForDay(tribe.assignments, state.day, state);
+  const gains = tribeProductionForDay(tribe.assignments, productionPeriod(state), state);
   let next = { ...state, inventory: addItems(state.inventory, Object.entries(gains)) };
   let projectWork = 0;
   let projectBaseWork = 0;
@@ -3828,7 +3869,8 @@ function settleTribeDay(state) {
     }
   }
 
-  const foodNeed = Math.ceil(tribe.population / 4) + lineageHousehold(next).extraRations;
+  const foodNeed = isAnnualMode(state) ? state.calendar.lastCensus.foodNeed
+    : Math.ceil(tribe.population / 4) + lineageHousehold(next).extraRations;
   const food = consumeTribeFood(next.inventory, foodNeed);
   const fullyFed = food.shortage <= 0;
   const moraleDelta = fullyFed ? (tribeFoodStock(food.inventory) >= foodNeed ? 2 : 1) : -10;
@@ -3874,7 +3916,8 @@ function settleTribeDay(state) {
     productionSerial: Number(tribe.productionSerial || 0) + 1,
     growthSerial: Number(tribe.growthSerial || 0) + (grew ? 1 : 0),
   };
-  next = settleLineageHousehold({ ...next, inventory: food.inventory, tribe: nextTribe }, food.shortage);
+  next = { ...next, inventory: food.inventory, tribe: nextTribe };
+  if (!isAnnualMode(next)) next = settleLineageHousehold(next, food.shortage);
   next = settleTribeProcessing(next);
   const projectText = projectWork > 0 ? ` · 건설 ${projectName} +${projectWork}` : '';
   const researchText = researchPoints > 0 ? ` · 연구 +${researchPoints}RP` : '';
@@ -3884,7 +3927,7 @@ function settleTribeDay(state) {
   const processingText = processingReceipt ? ` · 공동체 가공 ${processingReceipt.batches}묶음 (${processingReceipt.reason})` : '';
   next = addLog(
     next,
-    `부족 일일 정산: ${formatGains(Object.entries(gains))} · 식량 ${food.provided}/${foodNeed}${projectText}${researchText}${educationText}${processingText} · 사기 ${morale}.`,
+    `${isAnnualMode(state) ? '공동체 연간' : '부족 일일'} 정산: ${formatGains(Object.entries(gains))} · 식량 ${food.provided}/${foodNeed}${projectText}${researchText}${educationText}${processingText} · 사기 ${morale}.`,
   );
   if (!fullyFed) next = addLog(next, `부족 식량 부족: ${food.shortage}단위가 모자라 사기와 성장도가 감소했습니다.`);
   if (grew) next = addLog(next, `부족 성장: 새 부족원이 합류했습니다. 인구 ${population}/${capacity}.`);
@@ -4007,6 +4050,7 @@ function settlementEveningPlan(state) {
 }
 
 export function survivalSupplySummary(state) {
+  if (isAnnualMode(state)) return annualOperationsSummary(state);
   const current = normalizeState(state);
   const plan = settlementEveningPlan(current);
   const rationNeed = Math.ceil(Number(current.tribe.population || 0) / 4) + lineageHousehold(current).extraRations;
@@ -4036,6 +4080,7 @@ export function survivalSupplySummary(state) {
 }
 
 export function settlementOperationsSummary(state) {
+  if (isAnnualMode(state)) return annualOperationsSummary(state);
   // Use the existing pure settlement calculations without constructing the
   // full normalized run for this read.
   const current = { ...state, day: Math.max(1, Number(state.day || 1)),
@@ -4111,6 +4156,7 @@ export function settlementOperationsSummary(state) {
 }
 
 export function nightSurvivalRows(state) {
+  if (isAnnualMode(state)) return [];
   const current = normalizeState(state);
   if (current.ended) return [];
   const prepared = settlementEveningPlan(current).state;
@@ -4127,6 +4173,92 @@ export function nightSurvivalRows(state) {
   });
 }
 
+function annualActionStamp(state) {
+  return { runId: state.runId, day: state.day, ap: state.ap, updatedAt: state.updatedAt,
+    completedYears: state.calendar?.completedYears ?? null };
+}
+
+function annualStampMatches(state, expected) {
+  return Boolean(expected) && ['runId', 'day', 'ap', 'updatedAt', 'completedYears']
+    .every(key => Object.hasOwn(expected, key) && expected[key] === annualActionStamp(state)[key]);
+}
+
+function annualStartReason(state) {
+  return state.ended ? '종료된 문명입니다.'
+    : !livingParty(state).length ? '문명을 운영할 활동 인물이 없습니다.'
+      : !state.research?.completed?.SETTLEMENT || !state.research?.completed?.FOOD_STORAGE
+        ? '정착과 식량 저장 연구가 필요합니다.'
+        : Number(state.camp?.shelterLevel || 0) < 1 || Number(state.tribe?.population || 0) < 1
+          ? '거처와 공동체 일손이 필요합니다.' : '';
+}
+
+function annualPlan(state) {
+  const planned = autoAssignTribeWorkers(state, 'settlement');
+  const census = annualCensus(planned);
+  const production = tribeProductionForDay(planned.tribe.assignments, productionPeriod(planned, 1), planned);
+  const food = consumeTribeFood(addItems(planned.inventory, Object.entries(production)), census.foodNeed);
+  const education = tribeEducationCalculation(planned, normalizeTribeState(planned.tribe));
+  const builders = Number(planned.tribe.assignments.builder || 0);
+  const scholars = Number(planned.tribe.assignments.scholar || 0);
+  const lineage = lineageSummary(planned);
+  return { census, assignments: { ...planned.tribe.assignments }, production,
+    productionText: formatGains(Object.entries(production)), foodNeed: census.foodNeed,
+    foodStock: tribeFoodStock(planned.inventory), producedFood: tribeFoodStock(production),
+    provided: food.provided, shortage: food.shortage, remainingFood: tribeFoodStock(food.inventory),
+    educationText: education.statusText || education.blockedReason || '설정한 공교육이 없습니다.',
+    investmentText: `건설대 ${builders}명 · 기록대 ${scholars}명. 실제 착수 자재·종이와 남은 연구량 안에서 집행합니다.`,
+    successionText: lineage.rows.filter(row => row.warning).length
+      ? '활동 20년 이상인 인물이 있습니다. 후계 준비와 실제 인계를 확인하세요.' : '후계 준비·은퇴와 관찰 생애는 연간 기록을 따릅니다.',
+    note: '자동 일손 배치 뒤의 다음 한 해 직업 생산과 현재 인구 배식 전망입니다. 사업 착수 자재·완성 보상·새 인구는 포함하지 않습니다.' };
+}
+
+export function annualSettlementSummary(state) {
+  const annualMode = isAnnualMode(state);
+  const calendar = annualCalendarSummary(state);
+  const startReason = annualMode ? '이미 연간 운영 중입니다.' : annualStartReason(state);
+  const advanceReason = !annualMode ? '먼저 연간 운영으로 전환해야 합니다.'
+    : state.ended ? '종료된 문명입니다.' : !livingParty(state).length ? '문명을 운영할 활동 인물이 없습니다.' : '';
+  const receipt = annualMode && state.calendar.completedYears > 0
+    && state.tribe?.lastProduction?.day === state.calendar.lastSettledDay ? state.tribe.lastProduction : null;
+  return { ...calendar, mode: annualMode ? 'annual' : 'daily', annualMode,
+    canStart: !startReason, startReason, canAdvance: !advanceReason, advanceReason,
+    plan: annualMode ? annualPlan(state) : null, lastReceipt: receipt,
+    timingText: '직업 생산 → 건설·전승 → 공교육 → 기록대 연구 → 전체 인구 배식 → 가공 → 시설 자동 연구·사회 제도 → 세대 인계 순서로 한 해를 정산합니다.' };
+}
+
+function annualOperationsSummary(state) {
+  const summary = annualSettlementSummary(state);
+  const { plan, lastReceipt } = summary;
+  const issues = plan.shortage > 0 ? [{ id: 'ration', tabId: 'tribe',
+    text: `다음 연간 배식이 ${plan.shortage}단위 부족할 전망입니다. 부족해도 해는 진행되며 기존 사기·성장 감소를 적용합니다.` }] : [];
+  return { enabled: true, ended: state.ended, day: state.day, tone: issues.length ? 'warning' : 'ready',
+    summaryText: `다음 한 해 생산 ${plan.producedFood} / 전체 인구 배식 ${plan.foodNeed}단위`,
+    timingText: summary.timingText, issues, investments: [],
+    rows: [{ id: 'stock', title: '전체 공동체 비축', text: `작업자 ${plan.census.workers}명 · 준비 후계 ${plan.census.prepared}명 · 은퇴자 ${plan.census.retired}명 · 활동 인물 ${plan.census.active}명 · 식량 ${plan.foodStock}단위` },
+      { id: 'annual', title: '다음 한 해 전망', text: `${plan.productionText} · 배식 ${plan.provided}/${plan.foodNeed} · 부족 ${plan.shortage}. ${plan.note}` },
+      { id: 'receipt', title: '최근 연간 정산', text: lastReceipt
+        ? `${state.calendar.completedYears}년차 · ${formatGains(Object.entries(lastReceipt.gains || {}))} · 배식 ${lastReceipt.foodProvided}/${lastReceipt.foodNeed} · 부족 ${lastReceipt.shortage}` : '아직 연간 정산 기록이 없습니다.' }] };
+}
+
+export function startAnnualSettlementAction(state, expected, { observedLifetimeYears = 60 } = {}) {
+  if (!annualStampMatches(state, expected) || state.calendar !== undefined || annualStartReason(state)
+    || ![60, 80, null].includes(observedLifetimeYears)) return state;
+  return addLog({ ...state, calendar: createAnnualCalendar(state, { observedLifetimeYears }) },
+    '연간 공동체 운영으로 전환했습니다. 한 번의 운영은 한 해이며 기존 일일 기록과 인물의 신체 상태를 보존합니다.');
+}
+
+export function runSettlementYearAction(state, expected, options = {}) {
+  if (!isAnnualMode(state) || !annualStampMatches(state, expected) || state.ended || !livingParty(state).length) return state;
+  if (!isValidAnnualCalendar(state.calendar, state)) throw new RangeError('Invalid annual calendar');
+  let next = { ...state, day: state.day + 1, calendar: advanceAnnualCalendar(state) };
+  next = autoAssignTribeWorkers(next, options.autoWorkforce ? 'auto' : 'settlement', 0);
+  next = settleTribeDay(next);
+  next = autoCivicsForDay(autoResearchForDay(next));
+  next = tickLineageYear(next);
+  next = syncAnnualCalendarPeople({ ...next, ap: next.apMax });
+  return addLog(next, `공동체 ${next.calendar.completedYears}년차 운영 완료. 실제 생산·건설·교육·연구·배식·가공과 세대 기록을 정산했습니다.`);
+}
+
 // Advance the existing settlement boundary without inventing personal actions.
 export function settlementDayStatus(state) {
   const reason = state.ended ? '종료된 런입니다.'
@@ -4140,6 +4272,7 @@ export function settlementDayStatus(state) {
 }
 
 export function runSettlementDayAction(state, expected, options = {}) {
+  if (isAnnualMode(state)) return runSettlementYearAction(state, expected, options);
   if (!expected || expected.runId !== state.runId || expected.day !== state.day
     || expected.ap !== state.ap || expected.updatedAt !== state.updatedAt
     || !settlementDayStatus(state).enabled) return state;
@@ -4149,6 +4282,7 @@ export function runSettlementDayAction(state, expected, options = {}) {
 }
 
 export function advanceDay(state, options = {}) {
+  if (isAnnualMode(state)) return runSettlementYearAction(state, annualActionStamp(state), options);
   if (state.ended) return state;
   state = { ...state, founderHistory: normalizeFounderHistory(state.founderHistory, state),
     lineage: normalizeLineage(state.lineage, state) };
@@ -4278,7 +4412,7 @@ export function researchActionEstimate(state, actorId) {
       + Number(current.camp.workbenchLevel || 0)
       + archiveStudy
       + (hasTechPassive(current, 'STATE_RESEARCH_UP') ? 1 : 0),
-    staminaCost: Math.max(5, 14 - Number(current.camp.workbenchLevel || 0) * 2 - Number(current.camp.scribeDeskLevel || 0)),
+    staminaCost: isAnnualMode(current) ? 0 : Math.max(5, 14 - Number(current.camp.workbenchLevel || 0) * 2 - Number(current.camp.scribeDeskLevel || 0)),
   };
 }
 
@@ -4347,7 +4481,7 @@ export function civicActionEstimate(state, actorId) {
       + Number(current.camp.scribeDeskLevel || 0)
       + (morale >= 60 ? 1 : 0)
       + (hasCompletedProject(current, 'council-fire') ? 1 : 0),
-    staminaCost: Math.max(5, 12 - Number(current.camp.shelterLevel || 0) - Number(current.camp.scribeDeskLevel || 0)),
+    staminaCost: isAnnualMode(current) ? 0 : Math.max(5, 12 - Number(current.camp.shelterLevel || 0) - Number(current.camp.scribeDeskLevel || 0)),
   };
 }
 
@@ -5357,7 +5491,7 @@ const BASE_CAMP_ACTION_DEFS = [
 
 export function campActionRows(state) {
   const current = normalizeState(state);
-  return BASE_CAMP_ACTION_DEFS.map((definition) => {
+  return BASE_CAMP_ACTION_DEFS.filter(definition => !isAnnualMode(current) || !['fuel', 'fire', 'cook'].includes(definition.id)).map((definition) => {
     const materialRows = materialRequirementRows(current.inventory, definition.cost);
     if (definition.fuelCost) {
       const fuel = Number(current.camp.fuel || 0);
@@ -5389,7 +5523,7 @@ export function campActionRows(state) {
       materialRows,
       materialText: materialRequirementText(materialRows),
       materialsReady,
-      enabled: !maxed && fireReady && materialsReady,
+      enabled: !maxed && fireReady && materialsReady && (!isAnnualMode(current) || (!current.ended && current.ap > 0)),
       reason,
     };
   });
@@ -5444,12 +5578,13 @@ export function campFacilityRows(state) {
     const materialsReady = materialRows.every((row) => row.met);
     return {
       ...facility,
+      desc: isAnnualMode(current) ? facility.desc.replace('일일', '연간') : facility.desc,
       maxed,
       materialRows,
       materialsReady,
       materialText: materialRequirementText(materialRows),
       costText: formatRequires(facility.cost),
-      enabled: facility.unlocked && !maxed && materialsReady,
+      enabled: facility.unlocked && !maxed && materialsReady && (!isAnnualMode(current) || (!current.ended && current.ap > 0)),
       reason: maxed
         ? facility.maxedLabel
         : !facility.unlocked
@@ -5887,6 +6022,7 @@ function specializedExpectedGains(state, profile, chance, region) {
 }
 
 export function specializedActionRows(state, actorId, requestedRegionId = '') {
+  if (isAnnualMode(state)) return [];
   const current = normalizeState(state);
   const devTools = normalizeDeveloperTools(current.devTools);
   const previewUnlocked = devTools.enabled && devTools.unlockSpecializedActions;
@@ -5925,6 +6061,8 @@ export function specializedActionRows(state, actorId, requestedRegionId = '') {
     };
   });
 }
+
+const ANNUAL_INACTIVE_UTILITY_ACTIONS = new Set(['patrol', 'drill', 'treatment', 'season_plan', 'irrigation', 'road']);
 
 const CIVILIZATION_ACTION_DEFS = [
   { id: 'survey', label: '지도 답사', icon: 'primitive-survey', techId: 'CARTOGRAPHY', staminaCost: 18, hungerAdd: 3 },
@@ -6109,14 +6247,16 @@ function tribeEducationSummaryFor(state, tribe) {
     requestedPoints, expectedPoints, blockedReason, statusText } = calculation;
   const receipt = tribe.lastProduction?.education || null;
   const receiptText = receipt
-    ? `${tribe.lastProduction.day}일차 공교육 · 교원 ${receipt.teachers}/${receipt.teachersRequested}명 · 종이 ${receipt.spent.paper || 0}장 소비 · ${getCivic(receipt.civicId)?.name || '대상 없음'} 실제 +${receipt.appliedPoints}CP · 일반 연구 일손 ${receipt.generalScholars}명 · ${receipt.reason}`
+    ? `${productionReceiptPeriod(state)} 공교육 · 교원 ${receipt.teachers}/${receipt.teachersRequested}명 · 종이 ${receipt.spent.paper || 0}장 소비 · ${getCivic(receipt.civicId)?.name || '대상 없음'} 실제 +${receipt.appliedPoints}CP · 일반 연구 일손 ${receipt.generalScholars}명 · ${receipt.reason}`
     : '이전 공교육 정산 미기록';
   return { plan: { ...plan }, unlocked, canConfigure: !state.ended, scholars, teachers, generalScholars,
     paperStock, requestedPoints, expectedPoints, civicId: civic?.id || '', civicName: civic?.name || '',
     materialRows: [{ id: 'paper', name: itemName('paper'), current: productionGuideInventoryQuantity(state.inventory, 'paper'),
       required: null, supplyOnly: true }], researchRequirements: [],
     blockedReason, statusText, receipt, receiptText,
-    timingText: '현재 배치와 기존 종이 비축만으로 계산한 전망입니다. 다음 아침 건설 후, 일반 기록대 연구 전에 실제로 정산합니다. 교원 1명은 종이 1장을 소비해 최대 2CP를 생산하며, 남은 진척만 적용합니다. 같은 아침 뒤에 가공한 종이는 다음 날부터 사용합니다. 개인 AP·ST는 소비하지 않습니다.' };
+    timingText: isAnnualMode(state)
+      ? '현재 배치와 기존 종이만의 연간 전망입니다. 다음 연간 정산의 건설 후 일반 기록대 연구 전에, 실제 교원 1명이 종이 1장을 소비해 최대 2CP를 생산합니다. 뒤에 가공한 종이는 다음 연간 운영부터 쓰며 개인 AP·ST는 소비하지 않습니다.'
+      : '현재 배치와 기존 종이 비축만으로 계산한 전망입니다. 다음 아침 건설 후, 일반 기록대 연구 전에 실제로 정산합니다. 교원 1명은 종이 1장을 소비해 최대 2CP를 생산하며, 남은 진척만 적용합니다. 같은 아침 뒤에 가공한 종이는 다음 날부터 사용합니다. 개인 AP·ST는 소비하지 않습니다.' };
 }
 
 function settleTribeEducation(state, tribe) {
@@ -6187,7 +6327,7 @@ function tribeProcessingCalculation(state, tribe = normalizeTribeState(state.tri
       materials[id] - quantity * batches < quantity);
     if (constrained.length) limits.push(`재료 부족: ${constrained.map(([id, quantity]) =>
       `${itemName(id)} 잔여 ${materials[id] - quantity * batches}개(다음 묶음 ${quantity}개 필요)`).join(', ')}`);
-    if (batches === workers) limits.push(`하루 일손 한도: 가공대 ${workers}명 × 1묶음`);
+    if (batches === workers) limits.push(`${isAnnualMode(state) ? '연간' : '하루'} 일손 한도: 가공대 ${workers}명 × 1묶음`);
     if (batches === safeStockBatches) limits.push('안전한 재고 수량 한도로 추가 묶음 중단');
     reason = `${batches}묶음 생산. ${limits.join(' · ')}.`;
   }
@@ -6226,21 +6366,24 @@ function tribeProcessingSummaryFor(state, tribe) {
       outputItemId: actual.reward[0][0], outputQuantity: actual.reward[0][1] };
   });
   const selected = options.find(option => option.id === plan.actionId);
-  const acquisitionActions = SPECIALIZED_ACTION_DEFS.map(profile => ({ id: profile.id, label: profile.label,
+  const acquisitionActions = isAnnualMode(state) ? [] : SPECIALIZED_ACTION_DEFS.map(profile => ({ id: profile.id, label: profile.label,
     zoneIds: [...profile.zoneIds], gains: profile.gains.map(gain => [...gain]),
     researchRequirements: productionGuideResearchRequirements(state, [profile.techId]) }));
   const receipt = state.tribe?.lastProduction?.processing || null;
   const receiptProfile = receipt ? CIVILIZATION_ACTION_DEFS.find(row => row.id === receipt.actionId) : null;
   const receiptText = receipt
-    ? `${state.tribe.lastProduction.day}일차 ${receiptProfile?.label || '공동체 가공'} · 가공대 ${receipt.workers}명 · ${receipt.batches}묶음${receipt.bonusBatches ? ` (기본 ${receipt.batches - receipt.bonusBatches} + 전승 ${receipt.bonusBatches})` : ''} · 투입 ${formatRequires(receipt.spent)} · 산출 ${formatGains(Object.entries(receipt.gains))} · ${receipt.reason}`
+    ? `${productionReceiptPeriod(state)} ${receiptProfile?.label || '공동체 가공'} · 가공대 ${receipt.workers}명 · ${receipt.batches}묶음${receipt.bonusBatches ? ` (기본 ${receipt.batches - receipt.bonusBatches} + 전승 ${receipt.bonusBatches})` : ''} · 투입 ${formatRequires(receipt.spent)} · 산출 ${formatGains(Object.entries(receipt.gains))} · ${receipt.reason}`
     : '이전 가공 정산 미기록';
   return { plan: { ...plan }, options, workers, currentStock,
     materialRows: selected?.materialRows || [], researchRequirements: selected?.researchRequirements || [], acquisitionActions,
     costText: recipe ? formatRequires(recipe.cost) : '', outputText: recipe ? formatGains(recipe.reward) : '',
     expectedBatches: batches, expectedOutput: batches * outputQuantity,
     canConfigure: !state.ended, blockedReason: batches > 0 ? '' : reason, statusText: reason,
-    timingText: '현재 재고만의 미리보기입니다. 다음 아침 원재료 생산·건설·연구·공동체와 가구 배식 후 남은 실제 재료로 집행합니다. 가공대 1명당 하루 최대 1묶음이며, 전승 예약은 추가 재료를 전액 지불해 최대 1묶음을 더 생산합니다. 묶음 생산으로 목표를 조금 넘을 수 있습니다. 개인 AP·ST를 쓰지 않습니다.',
-    receipt, receiptText };
+    timingText: isAnnualMode(state)
+      ? '현재 실제 재고만의 연간 가공 전망입니다. 다음 연간 생산·건설·교육·연구·전체 인구 배식 뒤 가공대 1명당 최대 1묶음을 집행합니다. 전승 추가 1묶음도 재료 전액을 소비하며 개인 AP·ST는 쓰지 않습니다.'
+      : '현재 재고만의 미리보기입니다. 다음 아침 원재료 생산·건설·연구·공동체와 가구 배식 후 남은 실제 재료로 집행합니다. 가공대 1명당 하루 최대 1묶음이며, 전승 예약은 추가 재료를 전액 지불해 최대 1묶음을 더 생산합니다. 묶음 생산으로 목표를 조금 넘을 수 있습니다. 개인 AP·ST를 쓰지 않습니다.',
+    receipt, receiptText,
+    ...(isAnnualMode(state) ? { annualMode: true, communitySources: annualCommunitySupplySources(state) } : {}) };
 }
 
 function settleTribeProcessing(state) {
@@ -6258,7 +6401,7 @@ function settleTribeProcessing(state) {
   const gains = batches ? Object.fromEntries(recipe.reward.map(([id, count]) => [id, count * batches])) : {};
   const inventory = batches ? addItems(spendResources(state.inventory, spent), Object.entries(gains)) : state.inventory;
   const stockAfter = processingInventoryQuantity(inventory, outputItemId);
-  const reason = bonusBatches ? `${batches}묶음 생산: 기본 ${baseBatches} + 전승 1. 추가 재료를 전액 지불했습니다. ${stockAfter >= plan.targetStock ? `목표 ${plan.targetStock}개에 도달했습니다.` : '하루 기본 작업과 예약 전승 1회 한도입니다.'}` : calculation.reason;
+  const reason = bonusBatches ? `${batches}묶음 생산: 기본 ${baseBatches} + 전승 1. 추가 재료를 전액 지불했습니다. ${stockAfter >= plan.targetStock ? `목표 ${plan.targetStock}개에 도달했습니다.` : isAnnualMode(state) ? '연간 기본 작업과 예약 전승 1회 한도입니다.' : '하루 기본 작업과 예약 전승 1회 한도입니다.'}` : calculation.reason;
   const processing = { actionId: plan.actionId, targetStock: plan.targetStock, workers, batches,
     stockBefore: currentStock, stockAfter, spent, gains, reason, ...(bonusBatches ? { bonusBatches } : {}) };
   const next = { ...state, inventory, tribe: { ...state.tribe,
@@ -6344,7 +6487,7 @@ export function utilityActionRows(state, actorId) {
   const { technology: selectedTechnology, civic: debateCivic } = debateTargetsForState(current);
   const marketOffer = marketExchangeOffer(current);
 
-  return CIVILIZATION_ACTION_DEFS.map((profile) => {
+  return CIVILIZATION_ACTION_DEFS.filter(profile => !isAnnualMode(current) || !ANNUAL_INACTIVE_UTILITY_ACTIONS.has(profile.id)).map((profile) => {
     const technology = getTechnology(profile.techId) || getCivic(profile.techId);
     const technologyComplete = Boolean(current.research.completed?.[profile.techId]);
     const unlocked = technologyComplete || previewUnlocked;
@@ -6490,9 +6633,11 @@ export function utilityActionRows(state, actorId) {
     if (!unlocked) lockedReason = `${technology?.name || profile.techId} 연구 필요`;
     return {
       ...profile,
-      available: unlocked && requirementMet,
+      available: unlocked && requirementMet && (!isAnnualMode(current) || (!current.ended && current.ap > 0)),
       context,
-      cost: `AP 1 · ST ${profile.staminaCost}${materialText ? ` · ${materialText}` : ''}`,
+      staminaCost: isAnnualMode(current) ? 0 : profile.staminaCost,
+      hungerAdd: isAnnualMode(current) ? 0 : profile.hungerAdd,
+      cost: `AP 1 · ST ${isAnnualMode(current) ? 0 : profile.staminaCost}${materialText ? ` · ${materialText}` : ''}`,
       lockedReason,
       outcome,
       technologyComplete,
@@ -6503,6 +6648,7 @@ export function utilityActionRows(state, actorId) {
 }
 
 export function runUtilityAction(state, actorId, actionId, options = {}) {
+  if (isAnnualMode(state) && ANNUAL_INACTIVE_UTILITY_ACTIONS.has(actionId)) return state;
   if (!livingActorForAction(state, actorId)) {
     return addLog(state, '활동 중인 생존 대원만 문명 운영 행동을 할 수 있습니다.');
   }
@@ -6776,6 +6922,7 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
 }
 
 export function runSpecializedAction(state, actorId, actionId, requestedRegionId = '', options = {}) {
+  if (isAnnualMode(state)) return state;
   if (state.ended || Number(state.ap || 0) <= 0 || !state.party.some(actor => actor.id === actorId && Number(actor.hp || 0) > 0)) {
     return addLog(state, '활동 중인 생존 대원과 행동력이 있어야 특화 행동을 할 수 있습니다.');
   }
@@ -6836,6 +6983,7 @@ export function runSpecializedAction(state, actorId, actionId, requestedRegionId
 }
 
 export function safeGatherActionRows(state, actorId) {
+  if (isAnnualMode(state)) return [];
   const current = normalizeState(state);
   const actor = current.party.find((member) => member.id === actorId);
   const reason = current.ended
@@ -6854,6 +7002,7 @@ export function safeGatherActionRows(state, actorId) {
 }
 
 export function runSafeGatherAction(state, actorId, resourceId, options = {}) {
+  if (isAnnualMode(state)) return state;
   if (state.ended) return state;
   const current = normalizeState(state);
   const actor = current.party.find((member) => member.id === actorId);
@@ -6878,6 +7027,7 @@ export function runSafeGatherAction(state, actorId, resourceId, options = {}) {
 }
 
 export function runGatherAction(state, actorId, regionId, options = {}) {
+  if (isAnnualMode(state)) return state;
   if (state.ended || Number(state.ap || 0) <= 0 || !state.party.some(actor => actor.id === actorId && Number(actor.hp || 0) > 0)) {
     return addLog(state, '활동 중인 생존 대원과 행동력이 있어야 채집할 수 있습니다.');
   }
@@ -6922,6 +7072,7 @@ export function runGatherAction(state, actorId, regionId, options = {}) {
 }
 
 export function runHuntAction(state, actorId, regionId, options = {}) {
+  if (isAnnualMode(state)) return state;
   if (state.ended || Number(state.ap || 0) <= 0 || !state.party.some(actor => actor.id === actorId && Number(actor.hp || 0) > 0)) {
     return addLog(state, '활동 중인 생존 대원과 행동력이 있어야 사냥할 수 있습니다.');
   }
@@ -6963,6 +7114,7 @@ export function runHuntAction(state, actorId, regionId, options = {}) {
 }
 
 export function runCraftAction(state, actorId, recipeId, options = {}) {
+  if (isAnnualMode(state)) return state;
   if (state.ended || Number(state.ap || 0) <= 0 || !state.party.some(actor => actor.id === actorId && Number(actor.hp || 0) > 0)) {
     return addLog(state, '활동 중인 생존 대원과 행동력이 있어야 제작할 수 있습니다.');
   }
@@ -6994,6 +7146,7 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
 }
 
 export function runEatAction(state, actorId, options = {}) {
+  if (isAnnualMode(state)) return state;
   if (state.lineage?.mode === 'hybrid' && (!state.party.some(member => member.id === actorId && Number(member.hp || 0) > 0))) {
     return addLog(state, '현재 활동 중인 생존 대원만 식사할 수 있습니다.');
   }
@@ -7027,6 +7180,7 @@ function restRecoveryFields(state, member) {
 }
 
 export function runRestAction(state, actorId, options = {}) {
+  if (isAnnualMode(state)) return state;
   if (state.lineage?.mode === 'hybrid' && (!state.party.some(member => member.id === actorId && Number(member.hp || 0) > 0))) {
     return addLog(state, '현재 활동 중인 생존 대원만 휴식할 수 있습니다.');
   }
@@ -7048,6 +7202,8 @@ export function runRestAction(state, actorId, options = {}) {
 }
 
 export function runCampAction(state, actorId, kind, options = {}) {
+  if (isAnnualMode(state) && (state.ended || Number(state.ap || 0) <= 0
+    || !['shelter', 'workbench', 'archive', 'scribe', 'library'].includes(kind) || !livingActorForAction(state, actorId))) return state;
   const actor = getActor(state, actorId);
   const baseAction = campActionRows(state).find((action) => action.id === kind);
   if (baseAction && !baseAction.enabled) {
@@ -7124,7 +7280,7 @@ export function runCampAction(state, actorId, kind, options = {}) {
   }
   if (baseAction && next.camp !== state.camp) next = recordFounderDeed(next, { actorId, kind: 'camp', success: true, target: kind });
   next = addDialogueLog(next, actorId, 'camp', 'success', options.rng || Math.random);
-  next = applyExplorationEvent(next, { actorId, action: 'camp', ok: true, rng: options.rng || Math.random });
+  if (!isAnnualMode(state)) next = applyExplorationEvent(next, { actorId, action: 'camp', ok: true, rng: options.rng || Math.random });
   next.counters = { ...next.counters, camp: Number(next.counters.camp || 0) + 1 };
   const campStaminaCost = Math.max(
     4,
@@ -7315,6 +7471,7 @@ function pickAutoRecipe(state) {
 }
 
 export function autoWarmClothingPlan(state) {
+  if (isAnnualMode(state)) return null;
   const current = normalizeState(state);
   const living = livingParty(current);
   const studyThreshold = Math.max(1, Math.floor(Number(current.apMax || 1) / 2));
@@ -7626,13 +7783,13 @@ function pickAutoProductionAction(state) {
   return null;
 }
 
-function pickAutoFoodJob(state, assignments, jobUnlocked) {
-  const before = forecastTribeFood(state, assignments, true);
+function pickAutoFoodJob(state, assignments, jobUnlocked, firstOffset = 1) {
+  const before = forecastTribeFood(state, assignments, true, firstOffset);
   if (before.totalShortage <= 0 && before.partyShortage <= 0) return '';
   return ['farmer', 'forager', 'fisher', 'herder', 'trapper', 'hunter', 'herbalist']
     .filter(jobUnlocked)
     .map((id) => {
-      const after = forecastTribeFood(state, { ...assignments, [id]: Number(assignments[id] || 0) + 1 }, true);
+      const after = forecastTribeFood(state, { ...assignments, [id]: Number(assignments[id] || 0) + 1 }, true, firstOffset);
       return {
         id,
         shortageGain: before.totalShortage - after.totalShortage,
@@ -7646,7 +7803,8 @@ function pickAutoFoodJob(state, assignments, jobUnlocked) {
       || b.partyGain - a.partyGain || b.firstPartyGain - a.firstPartyGain)[0]?.id || '';
 }
 
-function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
+function autoAssignTribeWorkers(state, assignmentSource = 'auto', forecastOffset = 1) {
+  const forecast = (assignments, includeParty = false) => forecastTribeFood(state, assignments, includeParty, forecastOffset);
   const tribe = normalizeTribeState(state.tribe);
   // Only automatic workers and genuinely unassigned newcomers are movable.
   // Re-plan them daily so idle construction and stale production do not keep
@@ -7660,7 +7818,7 @@ function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
 
   const added = Object.fromEntries(TRIBE_JOBS.map((job) => [job.id, 0]));
   const population = Number(tribe.population || 1);
-  const foodBefore = forecastTribeFood(state, tribe.assignments, true);
+  const foodBefore = forecast(tribe.assignments, true);
   const foodShortageBefore = foodBefore.totalShortage;
   let foodWorkers = 0;
   const canStudy = researchSystemStatus(state).unlocked
@@ -7673,8 +7831,8 @@ function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
   // being allocated, a future expedition, or a meal that has not been paid.
   // Cover both living companions and two tribe settlements, with two more
   // tribe portions in reserve, before expanding material and knowledge work.
-  const storedFood = forecastTribeFood(state, Object.fromEntries(TRIBE_JOBS.map((job) => [job.id, 0])), true);
-  const reserveNeed = (Math.ceil(population / 4) + lineageHousehold(state).extraRations) * 2;
+  const storedFood = forecast(Object.fromEntries(TRIBE_JOBS.map((job) => [job.id, 0])), true);
+  const reserveNeed = communityFoodNeed(state) * 2;
   const canDiversify = storedFood.totalShortage <= 0 && storedFood.partyShortage <= 0
     && storedFood.days[1].reserve >= reserveNeed;
   const targets = {
@@ -7703,15 +7861,15 @@ function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
 
   while (unassigned > 0) {
     // Feed both the tribe and living companions before development jobs.
-    const foodJobId = pickAutoFoodJob(state, assignments, jobUnlocked);
+    const foodJobId = pickAutoFoodJob(state, assignments, jobUnlocked, forecastOffset);
     let jobId = foodJobId || policyPlan.priority.find((candidate) => (
       jobUnlocked(candidate) && Number(assignments[candidate] || 0) < Number(policyPlan.targets[candidate] || 0)
     ));
     // Daily tribe rations also share this inventory with the student party.
     // Keep the existing low-stock reserve priority beyond the current hunger
     // forecast, which cannot promise future expedition gains or meal actions.
-    const foodPressure = forecastTribeFood(state, assignments).totalShortage > 0
-      || tribeFoodStock(state.inventory) < (Math.ceil(population / 4) + lineageHousehold(state).extraRations) * 2;
+    const foodPressure = forecast(assignments).totalShortage > 0
+      || tribeFoodStock(state.inventory) < communityFoodNeed(state) * 2;
     if (!jobId && foodPressure && jobUnlocked('farmer')) jobId = 'farmer';
     if (!jobId && foodPressure) jobId = 'forager';
     if (!jobId && canStudy && policyPlan.applied !== 'research') jobId = 'scholar';
@@ -7731,13 +7889,13 @@ function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
     .map(([jobId, count]) => `${labels[jobId]} ${count > 0 ? '+' : ''}${count}`)
     .join(' \u00B7 ');
   const foodNote = foodWorkers > 0 && foodShortageBefore > 0
-    ? ` 식량 부족 예방: 현재 재고·배치 기준 2일 부족 ${foodShortageBefore} → ${forecastTribeFood(state, assignments).totalShortage}단위.`
-    : foodWorkers > 0 ? ' 식량 공급 우선: 자동 일손으로 앞으로 이틀의 부족 식사를 먼저 확보합니다.' : '';
+    ? ` 식량 부족 예방: 현재 재고·배치 기준 ${isAnnualMode(state) ? '2년' : '2일'} 부족 ${foodShortageBefore} → ${forecast(assignments).totalShortage}단위.`
+    : foodWorkers > 0 ? isAnnualMode(state) ? ' 식량 공급 우선: 자동 일손으로 앞으로 두 해의 전체 인구 배식을 먼저 확보합니다.' : ' 식량 공급 우선: 자동 일손으로 앞으로 이틀의 부족 식사를 먼저 확보합니다.' : '';
   const partyNote = foodWorkers > 0 && foodBefore.partyShortage > 0
-    ? ` 파티 식량 대비: 앞으로 이틀의 허기 회복 부족 ${Math.max(...foodBefore.days.map((row) => row.partyShortage))} → ${Math.max(...forecastTribeFood(state, assignments, true).days.map((row) => row.partyShortage))}. 부족 식사 뒤 남는 실제 음식만 계산합니다.`
+    ? ` 파티 식량 대비: 앞으로 이틀의 허기 회복 부족 ${Math.max(...foodBefore.days.map((row) => row.partyShortage))} → ${Math.max(...forecast(assignments, true).days.map((row) => row.partyShortage))}. 부족 식사 뒤 남는 실제 음식만 계산합니다.`
     : '';
   const surplusNote = canDiversify
-    ? ` 비축 식량 기반 분업: 현재 비축분으로 이틀의 부족·파티 식량과 부족 예비식 ${reserveNeed}단위를 확보하여 자재·기록 작업을 우선합니다.`
+    ? ` 비축 식량 기반 분업: 현재 비축분으로 ${isAnnualMode(state) ? '두 해의 전체 인구 배식과' : '이틀의 부족·파티 식량과'} 부족 예비식 ${reserveNeed}단위를 확보하여 자재·기록 작업을 우선합니다.`
     : '';
   return addLog({
     ...state,
@@ -7747,7 +7905,7 @@ function autoAssignTribeWorkers(state, assignmentSource = 'auto') {
       autoAssignments: added,
       assignmentSerial: Number(tribe.assignmentSerial || 0) + 1,
     },
-  }, `${assignmentSource === 'settlement' ? '정착지 직업 배치' : '하루 자동 운영 직업 배치'}: ${summary}.${foodNote}${partyNote}${surplusNote}${policyPlan.applied === 'balanced' ? '' : ` ${policyPlan.applied === 'construction' ? '건설' : '기록'} 우선: 남은 필요량 안에서 실제 자동 일손을 집중했습니다.`}`);
+  }, `${isAnnualMode(state) ? '연간 공동체 일손 배치' : assignmentSource === 'settlement' ? '정착지 직업 배치' : '하루 자동 운영 직업 배치'}: ${summary}.${foodNote}${partyNote}${surplusNote}${policyPlan.applied === 'balanced' ? '' : ` ${policyPlan.applied === 'construction' ? '건설' : '기록'} 우선: 남은 필요량 안에서 실제 자동 일손을 집중했습니다.`}`);
 }
 function autoActionSignature(state) {
   return [
@@ -7986,6 +8144,7 @@ function runNextAutoArchiveAction(state, options = {}) {
 }
 
 export function runAutoDayAction(state, options = {}) {
+  if (isAnnualMode(state)) return runSettlementYearAction(state, annualActionStamp(state), options);
   let next = normalizeState(state);
   if (next.ended || Number(next.ap || 0) <= 0) return next;
   const autoOptions = { ...options, autoWorkforce: true };

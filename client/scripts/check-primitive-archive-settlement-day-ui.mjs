@@ -23,9 +23,10 @@ const primitivesUrl = pathToFileURL(path.join(client, 'src/app/games/_components
 const iconUrl = pathToFileURL(path.join(client, 'src/app/games/_components/GameActionIcon.js')).href;
 const focusUrl = pathToFileURL(path.join(client, 'src/app/games/primitive-archive/_components/PrimitiveArchiveFocusPanel.js')).href;
 const operationsUrl = pathToFileURL(path.join(client, 'src/app/games/primitive-archive/_components/PrimitiveArchiveOperationsSummary.js')).href;
+const annualOperationsUrl = pathToFileURL(path.join(client, 'src/app/games/primitive-archive/_components/PrimitiveArchiveAnnualOperations.js')).href;
 registerHooks({
   load(url, context, nextLoad) {
-    if (![primitivesUrl, iconUrl, focusUrl, operationsUrl].includes(url)) return nextLoad(url, context);
+    if (![primitivesUrl, iconUrl, focusUrl, operationsUrl, annualOperationsUrl].includes(url)) return nextLoad(url, context);
     const source = read(new URL(url));
     return { format: 'module', shortCircuit: true, source: ts.transpileModule(source, {
       compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext },
@@ -82,6 +83,10 @@ function renderHandler(state = fresh(), overrides = {}) {
     setState: value => calls.state.push(value), setActionResult: value => calls.result.push(value),
     setMessage: () => {}, setActionFeedback: value => calls.feedback.push(value), ...overrides,
   };
+  scope.actionOwnerSession = null;
+  scope.isCurrentAuthSession = () => true;
+  scope.actionVersionRef = { current: 0 };
+  scope.checkpoint = { ...scope.checkpoint, canMutate: () => scope.checkpoint.ready && scope.checkpoint.exclusive };
   const factory = new Function(...Object.keys(scope), `${compiled}\nreturn { autoDayControl, settlementDayControl, applyAction };`);
   const result = factory(...Object.values(scope));
   const control = result.settlementDayControl;
@@ -156,7 +161,12 @@ check('actual global FocusPanel forwards the command before tab content rather t
   };
   visit(source); assert.ok(focus && tabs); assert.equal(focus.parent, tabs.parent);
   assert.ok(focus.pos < tabs.pos);
-  assert.match(focus.getText(source), /dayControl=\{settlementDayControl\}/);
+  const dayControl = focus.attributes.properties.find(attribute => attribute.name?.getText(source) === 'dayControl');
+  assert.ok(dayControl?.initializer && ts.isJsxExpression(dayControl.initializer));
+  const forwardDayControl = new Function('annualMode', 'settlementDayControl', `return ${dayControl.initializer.expression.getText(source)};`);
+  const dailyControl = {};
+  assert.equal(forwardDayControl(false, dailyControl), dailyControl);
+  assert.equal(forwardDayControl(true, dailyControl), null);
   assert.match(tabs.getText(source), /autoDayControl=\{autoDayControl\}/);
   assert.doesNotMatch(tabs.getText(source), /dayControl=\{settlementDayControl\}/);
   const workspaceSource = read(path.join(client, 'src/app/games/primitive-archive/_components/PrimitiveArchiveActionWorkspace.js'));

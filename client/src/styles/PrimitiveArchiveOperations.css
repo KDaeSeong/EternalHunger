@@ -100,3 +100,49 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+.primitive-era .primitive-annual-transition,
+.primitive-era .primitive-annual-operations {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.primitive-era .primitive-annual-transition {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: var(--era-control-border);
+  color: var(--era-ink);
+}
+.primitive-era.primitive-archive-page-shell .primitive-focus-panel .primitive-annual-transition p,
+.primitive-era.primitive-archive-page-shell .primitive-focus-panel .primitive-annual-operations p {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  margin: 4px 0;
+  white-space: normal;
+  color: var(--era-ink-soft);
+}
+.primitive-era .primitive-annual-operations .primitive-operations__rows {
+  font-size: inherit;
+  color: var(--era-ink);
+}
+.primitive-era .primitive-annual-receipt {
+  margin-top: 8px;
+  padding: 6px;
+  border: var(--era-control-border);
+  border-radius: var(--era-block-radius);
+  background: var(--era-sunk);
+}
+.primitive-era .primitive-annual-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.primitive-era .primitive-annual-operations .primitive-settlement-day,
+.primitive-era .primitive-annual-transition .primitive-settlement-day {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

@@ -148,6 +148,10 @@ function pageHarness(state = fresh(), overrides = {}) {
     setState: value => calls.state.push(value), setActionResult: value => calls.result.push(value),
     setActionFeedback: value => calls.feedback.push(value), ...overrides,
   };
+  scope.actionOwnerSession = null;
+  scope.isCurrentAuthSession = () => true;
+  scope.actionVersionRef = { current: 0 };
+  scope.checkpoint = { ...scope.checkpoint, canMutate: () => scope.checkpoint.ready && scope.checkpoint.exclusive };
   const handler = new Function(...Object.keys(scope), `${compiled}\nreturn configureTribeProcess;`)(...Object.values(scope));
   return { handler, ref, calls, scope };
 }
