@@ -30,6 +30,7 @@ export function buildCompanyReportMetrics({
 }
 
 export function buildCompanyReportMessages({
+  scoreNotice,
   capitalSummary,
   hydrated,
   message,
@@ -37,6 +38,7 @@ export function buildCompanyReportMessages({
   token,
 }) {
   return [
+    scoreNotice ? { key: 'score-policy', text: scoreNotice } : null,
     message ? { key: 'message', text: message } : null,
     !token && hydrated ? { key: 'auth', text: '로그인하지 않아도 플레이는 가능하지만 저장, 불러오기, 전적 기록은 로그인 후 사용할 수 있습니다.' } : null,
     report.openReceivables >= 3 ? { key: 'ar-risk', tone: 'error', text: '미수 채권이 많습니다. 결제일이 지난 채권을 회수하고, 아직 기한이 남은 대금은 현금 계획에 반영하세요.' } : null,

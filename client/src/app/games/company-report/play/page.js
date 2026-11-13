@@ -140,6 +140,7 @@ export default function CompanyReportPlayPage() {
     reportTrend,
     restorePlan,
     score,
+    scoreNotice,
     selectedForeignAr,
     selectedOrder,
     selectedReceivable,
@@ -337,6 +338,7 @@ export default function CompanyReportPlayPage() {
   });
 
   const messages = buildCompanyReportMessages({
+    scoreNotice,
     capitalSummary,
     hydrated,
     message,

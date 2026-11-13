@@ -8,7 +8,9 @@ import ts from 'typescript';
 import {
   CAPITAL_DISCLOSURE_TYPES,
   CAPITAL_FINANCING_TYPES,
+  COMPANY_SCORE_VERSION,
   advanceBusinessDayAction,
+  bookmarkCurrentReportAction,
   calendarSummary,
   capitalMarketSummary,
   closeCapitalMarketAction,
@@ -48,6 +50,8 @@ import {
   restoreLatestSnapshotAction,
   restoreLedgerSnapshotAction,
   SAVE_VERSION,
+  scoreState,
+  summaryForState,
   settleGlobalTradeAction,
   shipOrderAction,
   vatScheduleRows,
@@ -351,6 +355,95 @@ check('VAT, campaigns, disclosure, dividend and funding enter the real period fl
   assert.equal(expectClosing(state).settlements[0].netCashflow, expected - fixedExpenses);
 });
 
+function operatingScoreOracle(state) {
+  const report = reportSummary(state);
+  const management = managementReport(state);
+  return Math.max(0, Math.round(
+    state.company.reputation * 18 + state.company.fanBase / 300
+    + management.global.exportProfitKrw / 350000 + report.shippedOrders * 120
+    + (report.latestSettlement ? Number(report.latestSettlement.netProfit || 0) / 250000 : 0)
+    - report.openReceivables * 80 - Number(report.vatPayableAmount || 0) / 900000
+    - Number(report.inventoryWriteDownBalance || 0) / 500000
+  ));
+}
+
+check('operating score excludes financing across all products and capped financing history', () => {
+  const original = seed();
+  const expected = operatingScoreOracle(original);
+  assert.ok(expected > 0, 'Exercise score neutrality above the zero floor.');
+  assert.equal(scoreState(original), expected);
+  for (const product of CAPITAL_FINANCING_TYPES) {
+    const next = raiseCapitalAction(original, product.id);
+    assert.equal(scoreState(next), expected, product.id);
+    assert.equal(scoreState(normalizeState(clone(next))), expected);
+    assert.equal(scoreState(next), operatingScoreOracle(next));
+  }
+  let state = original;
+  for (let index = 0; index < 15; index++) {
+    state = raiseCapitalAction(state, CAPITAL_FINANCING_TYPES[index % 3].id);
+    assert.equal(scoreState(state), expected);
+  }
+  assert.equal(state.capitalMarket.financingPlans.length, 12);
+  assert.equal(state.capitalMarket.nextFinancingNo, original.capitalMarket.nextFinancingNo + 15);
+});
+
+check('financing does not alter scores for identical real operating actions or closing', () => {
+  const original = seed();
+  const operate = state => {
+    const marketed = marketingCampaignAction(state, PRODUCTS[0].id);
+    const ordered = createOrderAction(marketed, 'future-book', 'book-akashi', 10);
+    return shipOrderAction(ordered, ordered.orders[0].id);
+  };
+  const unfinanced = operate(original);
+  const financed = operate(raiseCapitalAction(original, 'CORPORATE_BOND'));
+  assert.equal(scoreState(financed), scoreState(unfinanced));
+  const plainClose = expectClosing(unfinanced);
+  const financedClose = expectClosing(financed);
+  assert.equal(plainClose.settlements[0].netProfit, financedClose.settlements[0].netProfit);
+  assert.equal(scoreState(plainClose), scoreState(financedClose));
+  assert.equal(scoreState(plainClose), operatingScoreOracle(plainClose));
+});
+
+check('real marketing and shipment improve operating score while an actual losing close reduces it', () => {
+  const original = seed();
+  const marketed = marketingCampaignAction(original, PRODUCTS[0].id);
+  assert.ok(scoreState(marketed) > scoreState(original));
+  const ordered = createOrderAction(original, 'future-book', 'book-akashi', 10);
+  const shipped = shipOrderAction(ordered, ordered.orders[0].id);
+  assert.ok(reportSummary(shipped).shippedOrders > reportSummary(ordered).shippedOrders);
+  assert.ok(scoreState(shipped) > scoreState(ordered));
+  const closed = expectClosing(marketed);
+  assert.ok(closed.settlements[0].netProfit < 0);
+  assert.ok(scoreState(closed) > 0, 'A loss must be measured above the zero floor.');
+  assert.ok(scoreState(closed) < scoreState(marketed));
+  for (const state of [original, marketed, ordered, shipped, closed]) {
+    assert.equal(scoreState(state), operatingScoreOracle(state));
+  }
+});
+
+check('normalization and later financing preserve unversioned bookmark scores as recorded', () => {
+  const state = bookmarkCurrentReportAction(seed());
+  const bookmark = state.reportBookmarks[0];
+  delete bookmark.scoreVersion;
+  const recorded = clone(bookmark);
+  const reloaded = normalizeState(clone(state));
+  assert.deepEqual(reloaded.reportBookmarks[0], recorded);
+  const financed = raiseCapitalAction(reloaded, 'CORPORATE_BOND');
+  assert.deepEqual(financed.reportBookmarks[0], recorded);
+  assert.equal(Object.hasOwn(financed.reportBookmarks[0], 'scoreVersion'), false);
+});
+
+check('full ledger snapshot restore recovers the actual operating score rather than financing cash', () => {
+  const snapshotState = createLedgerSnapshotAction(seed());
+  const expected = scoreState(snapshotState);
+  const changed = marketingCampaignAction(raiseCapitalAction(snapshotState, 'CORPORATE_BOND'), PRODUCTS[0].id);
+  assert.ok(scoreState(changed) > expected);
+  const restored = restoreLedgerSnapshotAction(changed, 'FULL_LEDGER');
+  assert.equal(restored.restoreHistory[0].status, 'SUCCESS');
+  assert.equal(scoreState(restored), expected);
+  assert.equal(scoreState(normalizeState(clone(restored))), expected);
+});
+
 check('invalid financing identifiers cannot mutate the ledger or consume financing serials', () => {
   const invalidIds = ['UNKNOWN_FINANCING', undefined, null, '', 0, false,
     ['RIGHTS_OFFERING'], { toString: () => 'RIGHTS_OFFERING' }, Object('RIGHTS_OFFERING')];
@@ -649,6 +742,61 @@ const { buildCompanyReportGuidance } = await import('../src/app/games/company-re
 const { buildCompanyReportPlayViewModel } = await import('../src/app/games/company-report/_lib/companyReportPlayViewModel.js');
 const { buildCompanyReportExportPayload, buildCompanyReportExportCsv } = await import('../src/app/games/company-report/_lib/companyReportExportRuntime.js');
 const { actionFeedbackText } = await import('../src/app/games/company-report/_lib/companyReportPlayHelpers.js');
+
+check('live view summary bookmarks and actual JSON CSV text exports share the operating score version', () => {
+  assert.equal(COMPANY_SCORE_VERSION, 'operating-performance-v1');
+  const original = marketingCampaignAction(seed(), PRODUCTS[0].id);
+  const financed = raiseCapitalAction(original, 'CONVERTIBLE_BOND');
+  const state = repayDebtAction(financed, 10000000);
+  const expected = operatingScoreOracle(state);
+  const view = buildCompanyReportPlayViewModel({ state });
+  assert.equal(view.score, expected);
+  assert.match(view.scoreNotice, /조달.*원금 상환.*반영하지 않음/);
+  const summary = summaryForState(state);
+  assert.equal(summary.score, expected);
+  assert.equal(summary.scoreVersion, COMPANY_SCORE_VERSION);
+  const payload = buildCompanyReportExportPayload({ state, restoreMode: 'FULL_LEDGER', selectedRestoreTables: '' });
+  const json = JSON.parse(JSON.stringify(payload));
+  assert.equal(json.score, expected);
+  assert.equal(json.scoreVersion, COMPANY_SCORE_VERSION);
+  assert.equal(json.summary.score, expected);
+  assert.equal(json.summary.scoreVersion, COMPANY_SCORE_VERSION);
+  const csv = buildCompanyReportExportCsv(json);
+  assert.ok(csv.includes(`"company","score","${expected}"`));
+  assert.ok(csv.includes(`"company","scoreVersion","${COMPANY_SCORE_VERSION}"`));
+  const exported = createProgressExportAction(state);
+  const lines = exported.exportHistory[0].content.split('\n');
+  assert.ok(lines.includes(`Score: ${expected}`));
+  assert.ok(lines.includes(`Score Rule: ${COMPANY_SCORE_VERSION}`));
+  const bookmarked = bookmarkCurrentReportAction(state);
+  const bookmark = bookmarked.reportBookmarks[0];
+  assert.equal(bookmark.score, expected);
+  assert.equal(bookmark.scoreVersion, COMPANY_SCORE_VERSION);
+  const row = reportHistoryTrend(bookmarked).bookmarkRows.find(item => item.id === bookmark.id);
+  assert.equal(row.score, expected);
+  assert.equal(row.scoreVersion, COMPANY_SCORE_VERSION);
+});
+
+check('old unversioned bookmark score remains unchanged in normalization history projection and live export', () => {
+  const oldState = bookmarkCurrentReportAction(seed());
+  // Model an old-format record from a fresh action, never from archived results.
+  const oldBookmark = oldState.reportBookmarks[0];
+  delete oldBookmark.scoreVersion;
+  oldBookmark.score = 765432;
+  const recorded = clone(oldBookmark);
+  const state = normalizeState(clone(raiseCapitalAction(oldState, 'RIGHTS_OFFERING')));
+  assert.deepEqual(state.reportBookmarks[0], recorded);
+  assert.notEqual(scoreState(state), recorded.score);
+  const projected = reportHistoryTrend(state).bookmarkRows.find(row => row.id === recorded.id);
+  assert.equal(projected.score, recorded.score);
+  assert.equal(Object.hasOwn(projected, 'scoreVersion'), false);
+  const viewRow = buildCompanyReportPlayViewModel({ state }).reportTrend.bookmarkRows.find(row => row.id === recorded.id);
+  assert.deepEqual(viewRow, projected);
+  const payload = buildCompanyReportExportPayload({ state, restoreMode: 'FULL_LEDGER', selectedRestoreTables: '' });
+  assert.equal(payload.score, scoreState(state));
+  assert.equal(payload.scoreVersion, COMPANY_SCORE_VERSION);
+  assert.deepEqual(state.reportBookmarks[0], recorded, 'Reading or exporting live score must not rewrite old bookmark values.');
+});
 
 check('real action text preserves a repeated rejection after the log cap at the same timestamp', () => {
   const originalDate = globalThis.Date;

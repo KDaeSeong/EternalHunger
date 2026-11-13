@@ -15,6 +15,7 @@ const HEDGE_PREMIUM_RATE = 0.012;
 // Fictional, deterministic monthly quotes, not live investment market data.
 const FX_MONTHLY_MOVES = [0.025, -0.018, 0.035, -0.026, 0.012, -0.031];
 const WORK_UNITS_PER_EMPLOYEE_PER_DAY = 125;
+export const COMPANY_SCORE_VERSION = 'operating-performance-v1';
 // Presentation-only provenance for a freshly written action notice. It must
 // not survive serialization or object spreads into a later state.
 const ACTION_LOG_EVENT = Symbol('company-report-action-log');
@@ -1312,6 +1313,7 @@ export function bookmarkCurrentReportAction(state) {
     receivableAmount: hasClosingBalance ? latest.closingReceivableKrw : summary.receivableAmount,
     balanceScope: hasClosingBalance ? 'closing' : 'bookmark-time',
     score: scoreState(current),
+    scoreVersion: COMPANY_SCORE_VERSION,
     note: latest && !hasClosingBalance
       ? '손익은 결산 기준이며, 현금·자산·채권은 북마크 시점 기준입니다.'
       : management.recommendations[0] || '특이사항 없음',
@@ -1459,6 +1461,7 @@ export function createProgressExportAction(state) {
     `Collectible Invoices: ${calendar.collectibleCount}`,
     `Next Collection Date: ${calendar.nextCollectionDate || 'none'}`,
     `Score: ${scoreState(current)}`,
+    `Score Rule: ${COMPANY_SCORE_VERSION}`,
     `Cash: ${formatMoney(current.company.cashKrw)}`,
     `Period Cash Change: ${formatMoney(management.cashFlow.periodNetCashflow)}`,
     `Cash Flow Coverage: ${management.cashFlow.cashflowCoverage}`,
@@ -1979,6 +1982,7 @@ export function reportHistoryTrend(state) {
     label: bookmark.label,
     note: bookmark.note,
     score: Number(bookmark.score || 0),
+    ...(typeof bookmark.scoreVersion === 'string' ? { scoreVersion: bookmark.scoreVersion } : {}),
     assets: Number(bookmark.assets || 0),
     receivableAmount: Number(bookmark.receivableAmount || 0),
     favorite: Boolean(bookmark.favorite),
@@ -2025,17 +2029,14 @@ export function scoreState(state) {
   const management = managementReport(current);
   const latest = report.latestSettlement;
   return Math.max(0, Math.round(
-    Number(current.company.cashKrw || 0) / 1000000
-    + Number(current.company.reputation || 0) * 18
+    Number(current.company.reputation || 0) * 18
     + Number(current.company.fanBase || 0) / 300
     + management.global.exportProfitKrw / 350000
-    + management.capital.investorTrust * 12
     + report.shippedOrders * 120
     + (latest ? Number(latest.netProfit || 0) / 250000 : 0)
     - report.openReceivables * 80
     - Number(report.vatPayableAmount || 0) / 900000
     - Number(report.inventoryWriteDownBalance || 0) / 500000
-    - management.capital.disclosureRisk * 15
   ));
 }
 
@@ -2071,6 +2072,7 @@ export function summaryForState(state) {
     investorTrust: current.capitalMarket.investorTrust,
     disclosureRisk: current.capitalMarket.disclosureRisk,
     score: scoreState(current),
+    scoreVersion: COMPANY_SCORE_VERSION,
   };
 }
 

@@ -1,6 +1,7 @@
 import {
   GAME_SLUG,
   SAVE_VERSION,
+  COMPANY_SCORE_VERSION,
   capitalMarketSummary,
   calendarSummary,
   globalTradeSummary,
@@ -31,6 +32,7 @@ export function buildCompanyReportExportPayload({
     period: `${state.company.year}-${String(state.company.month).padStart(2, '0')}`,
     calendar: calendarSummary(state),
     score: scoreState(state),
+    scoreVersion: COMPANY_SCORE_VERSION,
     summary: summaryForState(state),
     report: exportedReport,
     management: exportedManagement,
@@ -53,6 +55,7 @@ export function buildCompanyReportExportCsv(payload) {
     ['company', 'collectibleCount', payload.calendar.collectibleCount, '', '', ''],
     ['company', 'nextCollectionDate', payload.calendar.nextCollectionDate, '', '', ''],
     ['company', 'score', payload.score, '', '', ''],
+    ['company', 'scoreVersion', payload.scoreVersion, '', '', ''],
     ['finance', 'cash', payload.management.cashFlow.cash, '', '', ''],
     ['finance', 'periodOpeningCashKrw', payload.management.cashFlow.openingCashKrw, '', '', ''],
     ['finance', 'periodNetCashflow', payload.management.cashFlow.periodNetCashflow, '', '', ''],

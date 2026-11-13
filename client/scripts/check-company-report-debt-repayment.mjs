@@ -106,6 +106,28 @@ check('full repayment reaches zero once and cannot create a negative principal b
   rejectUnchanged(next, 1);
 });
 
+check('partial full and cash-recovery repayments preserve operating score through JSON reload', () => {
+  const original = seed();
+  const borrowed = engine.raiseCapitalAction(original, 'CORPORATE_BOND');
+  const partial = engine.repayDebtAction(borrowed, 30000000);
+  const full = engine.repayDebtAction(partial, partial.capitalMarket.debtKrw);
+  const expected = engine.scoreState(original);
+  assert.ok(expected > 0);
+  for (const state of [borrowed, partial, full]) {
+    assert.equal(engine.scoreState(state), expected);
+    assert.equal(engine.scoreState(engine.normalizeState(clone(state))), expected);
+  }
+  assert.equal(full.capitalMarket.debtKrw, 0);
+  const negative = seed();
+  negative.company.cashKrw = -1000000;
+  const recovered = engine.raiseCapitalAction(negative, 'CORPORATE_BOND');
+  assert.ok(recovered.company.cashKrw > 0);
+  const paid = engine.repayDebtAction(recovered, engine.capitalMarketSummary(recovered).repayableDebtKrw);
+  assert.equal(engine.scoreState(recovered), engine.scoreState(negative));
+  assert.equal(engine.scoreState(paid), engine.scoreState(negative));
+  assert.equal(engine.scoreState(engine.normalizeState(clone(paid))), engine.scoreState(negative));
+});
+
 check('invalid, fractional, unsafe, over-debt and unaffordable payments change only messages', () => {
   const state = financed();
   for (const amount of [undefined, null, NaN, Infinity, -Infinity, 0, -1, 0.5,

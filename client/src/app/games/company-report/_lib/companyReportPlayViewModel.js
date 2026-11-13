@@ -30,6 +30,7 @@ export function buildCompanyReportPlayViewModel({
   vatPaymentAmount,
 }) {
   const score = scoreState(state);
+  const scoreNotice = '경영 성과 기준 · 조달과 원금 상환은 점수에 반영하지 않음';
   const report = reportSummary(state);
   const management = managementReport(state);
   const reportTrend = reportHistoryTrend(state);
@@ -83,6 +84,7 @@ export function buildCompanyReportPlayViewModel({
     reportTrend,
     restorePlan,
     score,
+    scoreNotice,
     selectedForeignAr,
     selectedOrder,
     selectedReceivable,
