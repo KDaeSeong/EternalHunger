@@ -160,12 +160,11 @@ export default function CompanyReportPlayPage() {
   } = useCompanyReportPersistence({
     guidanceLevel,
     onLoaded: handleLoadedRun,
-    score,
     setActionResult,
     setGuidanceLevel,
     setState,
     showToast,
-    state,
+    stateRef,
     token,
   });
   const guidance = buildCompanyReportGuidance({
