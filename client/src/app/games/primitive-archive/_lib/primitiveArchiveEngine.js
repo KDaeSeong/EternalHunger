@@ -5889,6 +5889,11 @@ const IRRIGATION_ACTION_COST = { wood: 2, clay: 1 };
 const FOOD_PRESERVATION_COST = { meat: 2, resin: 1, berry: 1, herb: 1 };
 const FOOD_PRESERVATION_REWARD = [['packed_ration', 1]];
 const PRODUCTION_ACTION_RECIPES = {
+  ...Object.fromEntries(['twine', 'book_craft_guide', 'book_camp_manual'].map(id => {
+    const recipe = RECIPES.find(row => row.id === id);
+    return [`annual_${id}`, { context: recipe.name, cost: recipe.requires,
+      reward: Object.entries(recipe.reward) }];
+  })),
   kiln: { context: '점토를 굽는 가마', cost: { clay: 2, wood: 1 }, reward: [['pottery', 2]] },
   weave: { context: '섬유를 엮는 베틀', cost: { fiber: 3 }, reward: [['woven_cloth', 1]] },
   smelt: { context: '광석을 녹이는 제련로', cost: { metal_ore: 2, wood: 2 }, reward: [['metal_ingot', 1]] },
@@ -6065,6 +6070,9 @@ export function specializedActionRows(state, actorId, requestedRegionId = '') {
 const ANNUAL_INACTIVE_UTILITY_ACTIONS = new Set(['patrol', 'drill', 'treatment', 'season_plan', 'irrigation', 'road']);
 
 const CIVILIZATION_ACTION_DEFS = [
+  { id: 'annual_twine', label: '끈 공동 제작', icon: 'primitive-weave', techId: 'CORDAGE', annualOnly: true, processingOnly: true },
+  { id: 'annual_book_craft_guide', label: '제작 안내서 공동 제작', icon: 'primitive-paper', techId: 'BOOKCRAFT', annualOnly: true, processingOnly: true },
+  { id: 'annual_book_camp_manual', label: '캠프 운영서 공동 제작', icon: 'primitive-paper', techId: 'BOOKCRAFT', annualOnly: true, processingOnly: true },
   { id: 'survey', label: '지도 답사', icon: 'primitive-survey', techId: 'CARTOGRAPHY', staminaCost: 18, hungerAdd: 3 },
   { id: 'patrol', label: '순찰', icon: 'primitive-patrol', techId: 'MILITARY_TRADITION', staminaCost: 14, hungerAdd: 3 },
   { id: 'drill', label: '훈련 태세', icon: 'primitive-drill', techId: 'MILITARY_TRAINING', staminaCost: 18, hungerAdd: 3 },
@@ -6304,6 +6312,7 @@ function tribeProcessingCalculation(state, tribe = normalizeTribeState(state.tri
   const invalidMaterial = Object.keys(materials).find(id => materials[id] === null);
   const blockedReason = state.ended ? '종료된 문명에서는 공동체 가공을 실행하지 않습니다.'
     : !recipe ? '가공 계획이 꺼져 있습니다.'
+      : profile?.annualOnly && !isAnnualMode(state) ? '연간 공동체 운영에서만 실행할 수 있는 가공입니다.'
       : currentStock === null ? `${itemName(outputItemId)} 재고 수량을 확인할 수 없어 가공을 중단했습니다.`
         : invalidMaterial ? `${itemName(invalidMaterial)} 재료 재고 수량이 유효하지 않아 가공을 중단했습니다.`
       : !state.research?.completed?.SETTLEMENT ? '정착 연구가 필요합니다.'
@@ -6332,7 +6341,8 @@ function tribeProcessingCalculation(state, tribe = normalizeTribeState(state.tri
     reason = `${batches}묶음 생산. ${limits.join(' · ')}.`;
   }
   return { plan, workers, recipe, profile, outputItemId, outputQuantity, currentStock, batches, reason, blockedReason,
-    available: Boolean(recipe && state.research?.completed?.SETTLEMENT && state.research?.completed?.[profile.techId]),
+    available: Boolean(recipe && (!profile?.annualOnly || isAnnualMode(state))
+      && state.research?.completed?.SETTLEMENT && state.research?.completed?.[profile.techId]),
     quantityValid: currentStock !== null && !invalidMaterial, materialBatches, neededBatches, safeStockBatches };
 }
 
@@ -6354,7 +6364,8 @@ export function tribeProcessingSummary(state) {
 function tribeProcessingSummaryFor(state, tribe) {
   const calculation = tribeProcessingCalculation(state, tribe);
   const { plan, workers, recipe, currentStock, batches, outputQuantity, reason } = calculation;
-  const options = CIVILIZATION_ACTION_DEFS.filter(row => PRODUCTION_ACTION_RECIPES[row.id]).map(profile => {
+  const options = CIVILIZATION_ACTION_DEFS.filter(row => PRODUCTION_ACTION_RECIPES[row.id]
+    && (!row.annualOnly || isAnnualMode(state))).map(profile => {
     const actual = PRODUCTION_ACTION_RECIPES[profile.id];
     const unlocked = Boolean(state.research?.completed?.SETTLEMENT && state.research?.completed?.[profile.techId]);
     return { id: profile.id, label: profile.label, unlocked,
@@ -6487,7 +6498,8 @@ export function utilityActionRows(state, actorId) {
   const { technology: selectedTechnology, civic: debateCivic } = debateTargetsForState(current);
   const marketOffer = marketExchangeOffer(current);
 
-  return CIVILIZATION_ACTION_DEFS.filter(profile => !isAnnualMode(current) || !ANNUAL_INACTIVE_UTILITY_ACTIONS.has(profile.id)).map((profile) => {
+  return CIVILIZATION_ACTION_DEFS.filter(profile => !profile.processingOnly
+    && (!isAnnualMode(current) || !ANNUAL_INACTIVE_UTILITY_ACTIONS.has(profile.id))).map((profile) => {
     const technology = getTechnology(profile.techId) || getCivic(profile.techId);
     const technologyComplete = Boolean(current.research.completed?.[profile.techId]);
     const unlocked = technologyComplete || previewUnlocked;

@@ -1,6 +1,6 @@
 export function primitiveArchiveFocusPlan({
   state, nightRows = [], research = {}, campActions = [], archiveVictory = {},
-  recruitCandidates = [], partyCap = 0, supplies = null, ready, busy,
+  recruitCandidates = [], partyCap = 0, supplies = null, completionGuide = null, ready, busy,
 } = {}) {
   const rows = nightRows.filter((row) => Number(row.currentHp) > 0).map((row) => ({ ...row }));
   const risky = rows.filter((row) => Number(row.damage) > 0);
@@ -139,6 +139,8 @@ export function primitiveArchiveFocusPlan({
         targetTab: camp?.enabled ? 'camp' : 'actions',
         actionLabel: camp?.enabled ? '캠프 열기' : '기본 행동 보기',
       };
+    } else if (completionGuide?.objective) {
+      objective = completionGuide.objective;
     } else {
       objective = {
         title: research.selected?.name ? `다음 발전: ${research.selected.name}` : '다음 발전 목표 선택',
@@ -149,5 +151,5 @@ export function primitiveArchiveFocusPlan({
       };
     }
   }
-  return { objective, night, supplies, blocked: false };
+  return { objective, night, supplies, blocked: false, ...(completionGuide ? { completion: completionGuide } : {}) };
 }

@@ -262,10 +262,11 @@
     "check:primitive-archive:lineage": "node ./scripts/check-primitive-archive-lineage.mjs && node ./scripts/check-primitive-archive-ancestral-faith.mjs && node ./scripts/check-primitive-archive-lineage-checkpoint.mjs && node ./scripts/check-primitive-archive-lineage-ui.mjs && npm run check:primitive-archive:project-tradition",
     "check:primitive-archive:project-tradition": "node ./scripts/check-primitive-archive-project-tradition.mjs && node ./scripts/check-primitive-archive-project-tradition-checkpoint.mjs && node ./scripts/check-primitive-archive-project-tradition-ui.mjs",
     "check:primitive-archive:portraits": "node ./scripts/check-primitive-archive-official-portraits.mjs && node ./scripts/check-primitive-archive-official-portraits-ui.mjs",
-    "check:primitive-archive:annual": "node ./scripts/check-primitive-archive-annual-calendar.mjs && node ./scripts/check-primitive-archive-annual-operation.mjs && node ./scripts/check-primitive-archive-annual-ui.mjs && node ./scripts/check-primitive-archive-annual-production-guide.mjs && node ./scripts/check-primitive-archive-natural-annual.mjs && node ./scripts/check-primitive-archive-national-operation.mjs",
+    "check:primitive-archive:annual": "node ./scripts/check-primitive-archive-annual-calendar.mjs && node ./scripts/check-primitive-archive-annual-operation.mjs && node ./scripts/check-primitive-archive-annual-ui.mjs && node ./scripts/check-primitive-archive-annual-production-guide.mjs && node ./scripts/check-primitive-archive-natural-annual.mjs && node ./scripts/check-primitive-archive-national-operation.mjs && node ./scripts/check-primitive-archive-annual-book-production.mjs && node ./scripts/check-primitive-archive-completion-guide.mjs",
     "check:twenty-questions-lobby-races": "node ./scripts/check-twenty-questions-lobby-races.mjs",
     "check:company-report-persistence-races": "node ./scripts/check-company-report-persistence-races.mjs",
-    "check:primitive-archive:national": "node ./scripts/check-primitive-archive-national-operation.mjs"
+    "check:primitive-archive:national": "node ./scripts/check-primitive-archive-national-operation.mjs",
+    "check:primitive-archive:completion": "node ./scripts/check-primitive-archive-annual-book-production.mjs && node ./scripts/check-primitive-archive-completion-guide.mjs"
   },
   "dependencies": {
     "axios": "^1.13.2",

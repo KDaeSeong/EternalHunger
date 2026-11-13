@@ -1091,7 +1091,43 @@ check('the live focus panel hosts the real operations summary without bypassing 
 
 const playContent = readFileSync(new URL('../src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js', import.meta.url), 'utf8');
 assert.match(playContent, /const focusPlan = primitiveArchiveFocusPlan\(/, 'The live page must use the tested focus plan.');
-assert.match(playContent, /<PrimitiveArchiveFocusPanel plan=\{focusPlan\} operations=\{operations\}\s+dayControl=\{annualMode \? null : settlementDayControl\} onNavigate=\{selectArchiveTab\}\s+annual=\{annual\} annualStartControl=\{annualStartControl\} annualYearControl=\{annualYearControl\} \/>\s*<PrimitiveArchiveInventoryBar inventory=\{state\.inventory\} inventoryRows=\{inventoryRows\} \/>\s*<PrimitiveArchiveFeatureTabs/s, 'The live focus panel must host the daily or annual control, use help-clearing navigation, and be followed by the persistent inventory bar before the real feature tabs.');
+const layoutSource = ts.createSourceFile('PrimitiveArchivePlayContent.js', playContent, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
+const shells = [];
+const tagOf = node => ts.isJsxElement(node) ? node.openingElement.tagName.getText(layoutSource)
+  : ts.isJsxSelfClosingElement(node) ? node.tagName.getText(layoutSource) : '';
+const visitLayout = node => {
+  if (ts.isJsxElement(node) && tagOf(node) === 'GamePlayShell') shells.push(node);
+  ts.forEachChild(node, visitLayout);
+};
+visitLayout(layoutSource);
+assert.equal(shells.length, 1, 'The current page has one real play shell.');
+const layoutChildren = shells[0].children.filter(node => !(ts.isJsxText(node) && !node.text.trim())
+  && !(ts.isJsxExpression(node) && !node.expression));
+const layoutIndex = name => {
+  const matches = layoutChildren.map((node, index) => ({ node, index })).filter(row => tagOf(row.node) === name);
+  assert.equal(matches.length, 1, `One direct ${name} must remain outside tab-owned scrolling content.`);
+  return matches[0].index;
+};
+const focusIndex = layoutIndex('PrimitiveArchiveFocusPanel');
+assert.equal(layoutIndex('PrimitiveArchiveInventoryBar'), focusIndex + 1, 'Live stock immediately follows the focus panel.');
+assert.equal(layoutIndex('PrimitiveArchiveFeatureTabs'), focusIndex + 2, 'The real feature tabs follow persistent stock.');
+const attributesOf = node => ts.isJsxElement(node) ? node.openingElement.attributes : node.attributes;
+const expressionOf = (node, name) => {
+  const attribute = attributesOf(node).properties.find(row => ts.isJsxAttribute(row) && row.name.getText(layoutSource) === name);
+  assert.ok(attribute && ts.isJsxExpression(attribute.initializer), `Actual ${name} binding is required.`);
+  return attribute.initializer.expression;
+};
+for (const [name, binding] of Object.entries({ plan: 'focusPlan', operations: 'operations', onNavigate: 'selectArchiveTab',
+  annual: 'annual', annualStartControl: 'annualStartControl', annualYearControl: 'annualYearControl' })) {
+  assert.equal(expressionOf(layoutChildren[focusIndex], name)?.getText(layoutSource), binding);
+}
+const dayControlExpression = expressionOf(layoutChildren[focusIndex], 'dayControl');
+assert.ok(ts.isConditionalExpression(dayControlExpression));
+assert.equal(dayControlExpression.condition.getText(layoutSource), 'annualMode');
+assert.equal(dayControlExpression.whenTrue.kind, ts.SyntaxKind.NullKeyword);
+assert.equal(dayControlExpression.whenFalse.getText(layoutSource), 'settlementDayControl');
+assert.equal(expressionOf(layoutChildren[focusIndex + 1], 'inventory').getText(layoutSource), 'state.inventory');
+assert.equal(expressionOf(layoutChildren[focusIndex + 1], 'inventoryRows').getText(layoutSource), 'inventoryRows');
 assert.match(playContent, /<details className="primitive-guide-details">\s*<summary>상세 생존 안내<\/summary>\s*<GameAdvisorPanel/s, 'Existing detailed survival advice must remain available below the main interface.');
 
 check('the actual navigation adapter clears requirement help before forwarding each requested tab to the original state setter', () => {

@@ -1,4 +1,5 @@
-export const TRIBE_PROCESS_ACTION_IDS = Object.freeze(['kiln', 'weave', 'smelt', 'forge', 'mill', 'paper', 'preserve']);
+export const TRIBE_PROCESS_ACTION_IDS = Object.freeze(['kiln', 'weave', 'smelt', 'forge', 'mill', 'paper', 'preserve',
+  'annual_twine', 'annual_book_craft_guide', 'annual_book_camp_manual']);
 export const DEFAULT_TRIBE_PROCESSING_PLAN = Object.freeze({ actionId: '', targetStock: 0 });
 
 const isRecord = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value)

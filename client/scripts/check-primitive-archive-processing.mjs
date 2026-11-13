@@ -4,6 +4,10 @@ import './lib/register-simulation-modules.mjs';
 const engine = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveEngine.js');
 const contract = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveProcessing.js');
 const checkpoint = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveCheckpoint.js');
+// Annual-only manufacturing uses personal recipe definitions, not daily utility
+// actions. Its costs, gates and receipts have a separate annual-book regression.
+const annualProcessIds = new Set(['annual_twine', 'annual_book_craft_guide', 'annual_book_camp_manual']);
+const dailyProcessIds = contract.TRIBE_PROCESS_ACTION_IDS.filter(id => !annualProcessIds.has(id));
 const clone = value => structuredClone(value);
 const jobs = values => Object.fromEntries(engine.TRIBE_JOBS.map(job => [job.id, values[job.id] || 0]));
 const observable = state => { const result = clone(state); delete result.updatedAt; delete result.log; return result; };
@@ -59,7 +63,7 @@ check('plan configuration and current-stock preview have no economy, assignment,
     const summary = engine.tribeProcessingSummary(selected);
     assert.equal(summary.workers, 0); assert.equal(summary.currentStock, 0);
     assert.equal(summary.expectedBatches, 0); assert.equal(summary.canConfigure, true);
-    assert.deepEqual(summary.options.map(row => row.id).sort(), [...contract.TRIBE_PROCESS_ACTION_IDS].sort());
+    assert.deepEqual(summary.options.map(row => row.id).sort(), [...dailyProcessIds].sort());
     assert.match(summary.timingText, /현재 재고/);
     assert.deepEqual(state, before);
     for (const invalid of [null, undefined, {}, { actionId: 'missing', targetStock: 3 },
@@ -73,8 +77,8 @@ check('plan configuration and current-stock preview have no economy, assignment,
   assert.deepEqual(reproducible(() => engine.tribeSummary(selected)).state.processing, engine.tribeProcessingSummary(selected));
 });
 
-check('all community processes reuse the actual manual process inputs, outputs and real technology gates', () => {
-  for (const actionId of contract.TRIBE_PROCESS_ACTION_IDS) {
+check('all daily community processes reuse the actual manual process inputs, outputs and real technology gates', () => {
+  for (const actionId of dailyProcessIds) {
     const source = fixture({ forager: 4, artisan: 2 });
     const option = engine.tribeProcessingSummary(source).options.find(row => row.id === actionId);
     assert.ok(option.unlocked);

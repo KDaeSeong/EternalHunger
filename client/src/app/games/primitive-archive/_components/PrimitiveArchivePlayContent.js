@@ -138,6 +138,7 @@ import '../../../../styles/PrimitiveArchiveOperations.css';
 import '../../../../styles/PrimitiveArchiveWorkPolicy.css';
 import '../../../../styles/PrimitiveArchiveRequirementGuide.css';
 import { primitiveArchiveFocusPlan } from '../_lib/primitiveArchiveFocus';
+import { primitiveArchiveCompletionGuide } from '../_lib/primitiveArchiveCompletionGuide';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
 import usePrimitiveArchiveCheckpoint from '../_hooks/usePrimitiveArchiveCheckpoint';
 import { requestArchiveCompletion } from '../_lib/primitiveArchiveCompletion';
@@ -346,6 +347,59 @@ export default function PrimitiveArchivePlayContent() {
   const civicMap = useMemo(() => buildResearchMap(civicAdvancements), [civicAdvancements]);
   const campActions = useMemo(() => campActionRows(state), [state]);
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
+  const completionHelpVersion = actionVersionRef.current;
+  const completionHelpSession = captureAuthSession();
+  const completionHelpBlocked = !hydrated || !checkpoint.ready || !checkpoint.exclusive
+    || Boolean(busy) || shopControlsBusy || Boolean(shopStartRef.current);
+  const openCompletionHelp = (request) => {
+    const live = annualUiGuardRef.current;
+    const current = stateRef.current;
+    if (!request || typeof request !== 'object' || request.scope !== 'completion'
+      || current !== state || current.runId !== state.runId || current.ended
+      || actorSelectionRef.current !== actorId || actionVersionRef.current !== completionHelpVersion
+      || !isCurrentAuthSession(completionHelpSession) || !live?.hydrated
+      || !live.checkpoint.ready || !live.checkpoint.exclusive || !live.checkpoint.canMutate()
+      || live.busy || live.shopControlsBusy || shopStartRef.current) return;
+    // Navigation changes view state only; it never selects a paid world action.
+    const candidates = completionGuide.candidates;
+    const materials = candidates.flatMap(candidate => candidate.materials);
+    if (request.kind === 'target') {
+      if (request.candidateKind === 'complete' && completionGuide.status === 'complete') {
+        setRequirementHelpRequest(null); setActiveTabId('run'); return;
+      }
+      const candidate = candidates.find(row => row.kind === request.candidateKind && row.id === request.id);
+      if (!candidate || !['camp', 'actions', 'growth', 'tribe'].includes(candidate.targetTab)) return;
+      setRequirementHelpRequest(null);
+      if (candidate.kind === 'book' && current.calendar?.mode !== 'annual') setRecipeId(candidate.recipeId || candidate.id);
+      setActiveTabId(candidate.targetTab);
+    } else if (request.kind === 'recipe') {
+      const recipe = materials.flatMap(material => material.crafting).find(row => row.recipeId === request.recipeId);
+      if (!recipe) return;
+      setRequirementHelpRequest(null);
+      if (current.calendar?.mode !== 'annual') setRecipeId(recipe.recipeId);
+      setActiveTabId(current.calendar?.mode === 'annual' ? 'tribe' : 'actions');
+    } else if (request.kind === 'research') {
+      if (!candidates.some(candidate => candidate.helpRequests.some(row => row.kind === 'research'
+        && row.technologyId === request.technologyId))) return;
+      setRequirementHelpRequest({ kind: 'research', runId: current.runId, technologyId: request.technologyId });
+      setActiveTabId('growth');
+    } else if (request.kind === 'community') {
+      if (current.calendar?.mode !== 'annual' || typeof request.actionId !== 'string' || !request.actionId) return;
+      const material = materials.find(row => row.resourceId === request.resourceId
+        && row.sources.some(source => source.kind === 'community' && source.actionId === request.actionId));
+      if (!material) return;
+      setRequirementHelpRequest(null);
+      setActiveTabId('tribe');
+    } else if (request.kind === 'map') {
+      if (current.calendar?.mode === 'annual' || typeof request.regionId !== 'string' || !request.regionId) return;
+      const material = materials.find(row => row.resourceId === request.resourceId
+        && row.sources.some(source => source.regionId && source.regionId === request.regionId));
+      if (!material) return;
+      setRequirementHelpRequest({ kind: 'map', runId: current.runId, resourceId: material.resourceId,
+        regionId: request.regionId, resourceName: material.name });
+      setActiveTabId('map');
+    }
+  };
   const selectArchiveTab = (tabId) => {
     setRequirementHelpRequest(null);
     setActiveTabId(tabId);
@@ -414,6 +468,9 @@ export default function PrimitiveArchivePlayContent() {
   const processingTradition = useMemo(() => processingTraditionSummary(state, actorId), [state, actorId]);
   const educationTradition = useMemo(() => educationTraditionSummary(state, actorId), [state, actorId]);
   const tribe = useMemo(() => tribeSummary(state), [state]);
+  const completionGuide = useMemo(() => primitiveArchiveCompletionGuide({
+    state, archiveVictory, facilities: campFacilities, recipes, regions, processing: tribe.processing,
+  }), [state, archiveVictory, campFacilities, recipes, regions, tribe.processing]);
   const supplies = useMemo(() => survivalSupplySummary(state), [state]);
   const operations = useMemo(() => settlementOperationsSummary(state), [state]);
   const rivals = useMemo(() => rivalTribeRows(state, actorId), [actorId, state]);
@@ -1223,6 +1280,7 @@ export default function PrimitiveArchivePlayContent() {
     recruitCandidates,
     partyCap,
     supplies,
+    completionGuide,
     ready: checkpoint.ready,
     busy,
   });
@@ -1259,6 +1317,7 @@ export default function PrimitiveArchivePlayContent() {
       <PrimitiveArchiveEraDefs theme={eraTheme} />
       <PrimitiveArchiveFocusPanel plan={focusPlan} operations={operations}
         dayControl={annualMode ? null : settlementDayControl} onNavigate={selectArchiveTab}
+        onCompletionHelp={openCompletionHelp} completionHelpBlocked={completionHelpBlocked}
         annual={annual} annualStartControl={annualStartControl} annualYearControl={annualYearControl} />
       <PrimitiveArchiveInventoryBar inventory={state.inventory} inventoryRows={inventoryRows} />
 

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 
 const engine = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveEngine.js');
+const { RECIPES } = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveData.js');
 const fresh = () => engine.createNewState({ runId: 'production-requirement-guide-fresh',
   now: '2026-11-12T00:00:00.000Z', rng: () => 0.5 });
 const state = fresh();
@@ -25,8 +26,10 @@ for (const statement of ast.statements) if (ts.isVariableStatement(statement)) {
   for (const declaration of statement.declarationList.declarations) declarations.set(declaration.name.getText(ast), declaration.initializer?.getText(ast));
 }
 const constants = ['FOOD_PRESERVATION_COST', 'FOOD_PRESERVATION_REWARD', 'PRODUCTION_ACTION_RECIPES', 'SPECIALIZED_ACTION_DEFS', 'CIVILIZATION_ACTION_DEFS'];
-const actual = new Function(constants.map(name => `const ${name} = ${declarations.get(name)};`).join('\n')
-  + '\nreturn { PRODUCTION_ACTION_RECIPES, SPECIALIZED_ACTION_DEFS, CIVILIZATION_ACTION_DEFS };')();
+const actual = new Function('RECIPES', constants.map(name => `const ${name} = ${declarations.get(name)};`).join('\n')
+  + '\nreturn { PRODUCTION_ACTION_RECIPES, SPECIALIZED_ACTION_DEFS, CIVILIZATION_ACTION_DEFS };')(RECIPES);
+const dailyRecipeIds = Object.keys(actual.PRODUCTION_ACTION_RECIPES)
+  .filter(id => !actual.CIVILIZATION_ACTION_DEFS.find(profile => profile.id === id)?.annualOnly);
 const freeze = value => {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.freeze(value); Object.values(value).forEach(freeze); }
   return value;
@@ -44,8 +47,8 @@ const materialInputs = rows => rows.map(row => [row.id, row.required]).sort(([a]
 const nestedMaterials = guide => [...guide.processing.materials, ...guide.education.materials].flatMap(row =>
   [row, ...row.sources.flatMap(route => route.materialRows || [])]);
 
-check('every actual recipe exposes exact one-batch inputs, outputs and real settlement plus recipe technology gates', () => {
-  assert.deepEqual(processing.options.map(row => row.id).sort(), Object.keys(actual.PRODUCTION_ACTION_RECIPES).sort());
+check('every actual daily recipe exposes exact one-batch inputs, outputs and real settlement plus recipe technology gates', () => {
+  assert.deepEqual(processing.options.map(row => row.id).sort(), [...dailyRecipeIds].sort());
   for (const option of processing.options) {
     const recipe = actual.PRODUCTION_ACTION_RECIPES[option.id];
     assert.deepEqual(materialInputs(option.materialRows), expectedInputs(recipe));
@@ -88,7 +91,7 @@ check('missing stock is zero, malformed or unsafe stock stays unknown, valid fra
 });
 
 check('revealed real gather/hunt and specialized sources match their actual yields, zones and technology', () => {
-  for (const actionId of Object.keys(actual.PRODUCTION_ACTION_RECIPES)) {
+  for (const actionId of dailyRecipeIds) {
     const state = selected(reveal(fresh()), actionId), regions = engine.regionRows(state);
     const guide = guideFor(state);
     for (const material of nestedMaterials(guide)) for (const route of material.sources) {

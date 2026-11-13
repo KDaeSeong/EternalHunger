@@ -34,7 +34,7 @@ function fieldSources(resourceId, regions, actions) {
   return [...direct, ...specialized];
 }
 
-function communitySources(resourceId, sources) {
+export function communitySources(resourceId, sources) {
   return sources.flatMap(source => {
     const job = TRIBE_JOBS.find(row => row.id === source?.id);
     if (!job || !Array.isArray(source.resourceIds) || !source.resourceIds.includes(resourceId)) return [];

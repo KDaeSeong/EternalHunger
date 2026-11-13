@@ -175,7 +175,8 @@ check('one native process form belongs to the existing artisan card with no extr
   assert.doesNotMatch(readFileSync(new URL(formUrl), 'utf8'), /showDeveloperTools|devTools/);
 });
 check('native labels select integer input and submit forwarding expose keyboard and description semantics', () => {
-  const harness = formHarness(formProps(fresh())), tree = harness.render();
+  const props = formProps(fresh());
+  const harness = formHarness(props), tree = harness.render();
   const select = byType(tree, 'select'), input = byType(tree, 'input'), button = submitButton(tree);
   assert.equal(nodes(tree, node => node.type === 'label').length, 2);
   assert.equal(input.props.type, 'number'); assert.equal(input.props.inputMode, 'numeric');
@@ -186,7 +187,9 @@ check('native labels select integer input and submit forwarding expose keyboard 
   assert.equal(nodes(tree, node => node.props.id === describedBy).length, 1);
   assert.equal(nodes(tree, node => node.type === 'details').length, 0);
   const options = nodes(select, node => node.type === 'option');
-  assert.deepEqual(options.map(option => option.props.value), ['', ...processing.TRIBE_PROCESS_ACTION_IDS]);
+  const expectedOptions = props.processing.options.map(row => row.id);
+  assert.ok(expectedOptions.every(id => processing.TRIBE_PROCESS_ACTION_IDS.includes(id)));
+  assert.deepEqual(options.map(option => option.props.value), ['', ...expectedOptions]);
   assert.ok(options.every(option => !option.props.disabled));
   assert.equal(select.props.role, undefined); assert.equal(input.props.role, undefined);
 });

@@ -1343,3 +1343,46 @@
   .primitive-era.is-era-arriving .primitive-era-plate__name,
   .primitive-era.is-era-arriving .games-play-chrome { animation: none; }
 }
+.primitive-completion-guide {
+  margin-top: .65rem;
+  padding-top: .65rem;
+  border-top: 1px solid var(--era-line);
+  color: var(--era-ink);
+  overflow-wrap: anywhere;
+}
+.primitive-completion-guide__summary,
+.primitive-completion-guide__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem .65rem;
+}
+.primitive-completion-guide__conditions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: .3rem;
+  padding: 0;
+  margin: .5rem 0;
+  list-style: none;
+}
+.primitive-completion-guide__conditions li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .2rem .5rem;
+  justify-content: space-between;
+  padding: .35rem .45rem;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-control-radius);
+  background: var(--era-sunk);
+  font-size: .78rem;
+}
+.primitive-completion-guide__details > article {
+  margin-top: .6rem;
+  padding: .5rem;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-block-radius);
+  background: var(--era-surface);
+}
+.primitive-completion-guide__details h3 { font-size: .9rem; }
+.primitive-completion-guide__details p { font-size: .8rem; }
+.primitive-completion-guide__links > button { max-width: 100%; white-space: normal; }
