@@ -351,6 +351,75 @@ check('VAT, campaigns, disclosure, dividend and funding enter the real period fl
   assert.equal(expectClosing(state).settlements[0].netCashflow, expected - fixedExpenses);
 });
 
+check('invalid financing identifiers cannot mutate the ledger or consume financing serials', () => {
+  const invalidIds = ['UNKNOWN_FINANCING', undefined, null, '', 0, false,
+    ['RIGHTS_OFFERING'], { toString: () => 'RIGHTS_OFFERING' }, Object('RIGHTS_OFFERING')];
+  const withoutNotice = value => {
+    const ledger = { ...value };
+    delete ledger.log;
+    delete ledger.updatedAt;
+    return ledger;
+  };
+  let state = seed();
+  for (const invalidId of invalidIds) {
+    for (const original of [state, normalizeState(JSON.parse(JSON.stringify(state)))]) {
+      const before = clone(original);
+      const next = raiseCapitalAction(original, invalidId);
+      assert.deepEqual(original, before, 'Rejected financing must preserve its input.');
+      assert.deepEqual(withoutNotice(next), withoutNotice(before),
+        'Rejected financing changes only its notice and update timestamp, not any ledger or business date.');
+      assert.match(next.log[0], /없습니다|차단|불가|할 수 없습니다|실패/);
+      assert.deepEqual(next.log, [next.log[0], ...before.log].slice(0, 120));
+      assert.notEqual(next.log[0], before.log[0]);
+    }
+    const serial = state.capitalMarket.nextFinancingNo;
+    const before = clone(state);
+    state = raiseCapitalAction(state, 'CORPORATE_BOND');
+    assert.equal(state.capitalMarket.nextFinancingNo, serial + 1);
+    assert.equal(state.capitalMarket.financingPlans[0].id,
+      `FIN-${before.company.year}-${String(serial).padStart(4, '0')}`);
+  }
+});
+
+check('all existing financing products retain fixed cash debt shares and capped history', () => {
+  const products = [
+    { id: 'RIGHTS_OFFERING', cash: 240000000, debt: 0, shares: 18000, trust: -3, risk: 2 },
+    { id: 'CORPORATE_BOND', cash: 180000000, debt: 180000000, shares: 0, trust: -1, risk: 4 },
+    { id: 'CONVERTIBLE_BOND', cash: 160000000, debt: 120000000, shares: 6000, trust: 1, risk: 3 },
+  ];
+  assert.deepEqual(CAPITAL_FINANCING_TYPES.map(row => row.id), products.map(row => row.id));
+  let state = seed();
+  for (let index = 0; index < 15; index++) {
+    const product = products[index % products.length];
+    const original = state;
+    const before = clone(state);
+    state = raiseCapitalAction(state, product.id);
+    assert.deepEqual(original, before);
+    assert.equal(state.company.cashKrw, before.company.cashKrw + product.cash);
+    assert.equal(state.capitalMarket.debtKrw, before.capitalMarket.debtKrw + product.debt);
+    assert.equal(state.capitalMarket.sharesOutstanding, before.capitalMarket.sharesOutstanding + product.shares);
+    assert.equal(state.capitalMarket.investorTrust, Math.max(0, Math.min(100, before.capitalMarket.investorTrust + product.trust)));
+    assert.equal(state.capitalMarket.disclosureRisk, Math.max(0, Math.min(100, before.capitalMarket.disclosureRisk + product.risk)));
+    assert.equal(state.capitalMarket.nextFinancingNo, before.capitalMarket.nextFinancingNo + 1);
+    const plan = state.capitalMarket.financingPlans[0];
+    assert.equal(plan.id, `FIN-${before.company.year}-${String(before.capitalMarket.nextFinancingNo).padStart(4, '0')}`);
+    assert.equal(plan.type, product.id);
+    assert.equal(plan.cashKrw, product.cash);
+    assert.equal(plan.debtKrw, product.debt);
+    assert.equal(plan.shareDelta, product.shares);
+    assert.equal(plan.year, before.company.year);
+    assert.equal(plan.month, before.company.month);
+    assert.deepEqual(state.capitalMarket.financingPlans.slice(1), before.capitalMarket.financingPlans.slice(0, 11));
+    assert.equal(state.capitalMarket.financingPlans.length, Math.min(index + 1, 12));
+    assert.equal(state.company.year, before.company.year);
+    assert.equal(state.company.month, before.company.month);
+    assert.equal(state.company.day, before.company.day);
+    assert.match(state.log[0], /조달했습니다/);
+    assert.deepEqual(state.log, [state.log[0], ...before.log].slice(0, 120));
+    assert.equal(managementReport(state).cashFlow.periodNetCashflow - managementReport(before).cashFlow.periodNetCashflow, product.cash);
+  }
+});
+
 check('global trading, hedge payment and foreign collection use actual cash changes', () => {
   const original = seed();
   const market = GLOBAL_MARKETS[0];
@@ -579,6 +648,32 @@ const { default: ManagementPanels } = await import('../src/app/games/company-rep
 const { buildCompanyReportGuidance } = await import('../src/app/games/company-report/_components/CompanyReportGuidancePanel.js');
 const { buildCompanyReportPlayViewModel } = await import('../src/app/games/company-report/_lib/companyReportPlayViewModel.js');
 const { buildCompanyReportExportPayload, buildCompanyReportExportCsv } = await import('../src/app/games/company-report/_lib/companyReportExportRuntime.js');
+const { actionFeedbackText } = await import('../src/app/games/company-report/_lib/companyReportPlayHelpers.js');
+
+check('real action text preserves a repeated rejection after the log cap at the same timestamp', () => {
+  const originalDate = globalThis.Date;
+  try {
+    globalThis.Date = class extends originalDate {
+      constructor(...args) { super(...(args.length ? args : ['2026-10-03T01:00:00.000Z'])); }
+      static now() { return originalDate.parse('2026-10-03T01:00:00.000Z'); }
+    };
+    let state = seed();
+    for (let index = 0; index < 120; index++) state = raiseCapitalAction(state, 'UNKNOWN_FINANCING');
+    const before = clone(state);
+    const next = raiseCapitalAction(state, 'UNKNOWN_FINANCING');
+    assert.equal(state.log.length, 120);
+    assert.equal(next.updatedAt, state.updatedAt);
+    assert.deepEqual(next.log, state.log);
+    assert.deepEqual(state, before);
+    assert.deepEqual(clone(next), before);
+    assert.equal(actionFeedbackText(state, next, '자금 조달'), next.log[0]);
+    assert.equal(actionFeedbackText(state, next, '자금 조달', '기본 안내'), next.log[0]);
+    assert.match(actionFeedbackText(state, next, '자금 조달'), /없습니다|차단|불가|할 수 없습니다|실패/);
+    assert.doesNotMatch(actionFeedbackText(state, next, '자금 조달'), /처리했습니다|조달했습니다/);
+  } finally {
+    globalThis.Date = originalDate;
+  }
+});
 
 function renderLedger(state, overrides = {}) {
   return renderToStaticMarkup(React.createElement(LedgerPanel, {

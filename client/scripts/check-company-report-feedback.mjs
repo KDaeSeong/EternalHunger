@@ -30,6 +30,7 @@ import {
   marketingCampaignAction,
   managementReport,
   monthEndCloseAction,
+  normalizeState,
   payVatAction,
   raiseCapitalAction,
   repayDebtAction,
@@ -234,6 +235,47 @@ const dividend = decideDividendAction(base);
 expectResult(base, dividend, { key: 'dividendDeclared', action: 'dividend', cue: 'dividendDeclared', tone: 'highlight' });
 const raised = raiseCapitalAction(base, 'RIGHTS_OFFERING');
 expectResult(base, raised, { key: 'capitalRaised', action: 'capital', cue: 'capitalRaised', tone: 'success' });
+for (const invalidId of ['UNKNOWN_FINANCING', undefined, null, '', 0, false,
+  ['RIGHTS_OFFERING'], { toString: () => 'RIGHTS_OFFERING' }, Object('RIGHTS_OFFERING')]) {
+  const before = JSON.parse(JSON.stringify(base));
+  const rejected = raiseCapitalAction(base, invalidId);
+  assert.deepEqual(base, before, '잘못된 조달 선택도 입력 원장을 바꾸면 안 됩니다.');
+  const rejectedPresentation = expectResult(base, rejected,
+    { key: 'blocked', action: 'warning', cue: 'warning', tone: 'warning' });
+  assert.notEqual(rejectedPresentation.key, 'capitalRaised');
+  assert.deepEqual(rejectedPresentation.impacts, [], '거부된 조달에는 실제 자금 변동이 없어야 합니다.');
+  const rejectedText = companyReportTextPresentation(rejected.log[0], rejectedPresentation);
+  assert.equal(rejectedText.key, 'blocked');
+  assert.equal(rejectedText.tone, 'warning');
+  assert.equal(rejectedText.detail, rejected.log[0], '실패 안내는 성공 문구로 대체되면 안 됩니다.');
+}
+const originalDate = globalThis.Date;
+try {
+  globalThis.Date = class extends originalDate {
+    constructor(...args) { super(...(args.length ? args : ['2026-07-12T01:00:00.000Z'])); }
+    static now() { return originalDate.parse('2026-07-12T01:00:00.000Z'); }
+  };
+  let repeated = seed('company-repeated-financing-block');
+  for (let index = 0; index < 120; index++) repeated = raiseCapitalAction(repeated, 'UNKNOWN_FINANCING');
+  const before = JSON.parse(JSON.stringify(repeated));
+  const again = raiseCapitalAction(repeated, 'UNKNOWN_FINANCING');
+  assert.equal(repeated.log.length, 120);
+  assert.deepEqual(repeated, before, '반복 거부도 이전 상태를 바꾸면 안 됩니다.');
+  assert.equal(again.updatedAt, repeated.updatedAt);
+  assert.deepEqual(again.log, repeated.log, '로그 상한에서는 동일 실패 문구와 길이가 유지됩니다.');
+  assert.deepEqual(JSON.parse(JSON.stringify(again)), before, '반복 거부는 저장되는 원장을 바꾸면 안 됩니다.');
+  expectResult(repeated, again, { key: 'blocked', action: 'warning', cue: 'warning', tone: 'warning' });
+  const snapshotBefore = companyReportFeedbackSnapshot(again);
+  for (const passive of [again, JSON.parse(JSON.stringify(again)), normalizeState(again),
+    JSON.parse(JSON.stringify(snapshotBefore))]) {
+    const passiveBefore = JSON.stringify(passive);
+    assert.equal(companyReportFeedbackTransition(again, passive), 'idle', '새 행동 없는 복사·정규화는 경고를 재생하면 안 됩니다.');
+    assert.equal(companyReportFeedbackCue(again, passive), '');
+    assert.equal(JSON.stringify(passive), passiveBefore);
+  }
+} finally {
+  globalThis.Date = originalDate;
+}
 const borrowedForRepayment = raiseCapitalAction(base, 'CORPORATE_BOND');
 const debtRepaid = repayDebtAction(borrowedForRepayment, 12000000);
 const repaymentPresentation = expectResult(borrowedForRepayment, debtRepaid,

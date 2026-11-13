@@ -1,4 +1,4 @@
-import { GLOBAL_MARKETS, PRODUCTS, formatMoney, reportSummary } from './companyReportEngine';
+import { GLOBAL_MARKETS, PRODUCTS, formatMoney, newCompanyReportLogMessage, reportSummary } from './companyReportEngine';
 
 export function StatusBadge({ value }) {
   const tone = value === 'COLLECTED' || value === 'COMPLETED' || value === 'PAID' || value === 'NO_TAX' ? '통과' : value === 'OVERDUE' ? '위험' : '진행';
@@ -40,6 +40,8 @@ export function csvRows(rows) {
 }
 
 export function actionFeedbackText(previous, next, label, fallback = '') {
+  const actionMessage = newCompanyReportLogMessage(previous, next);
+  if (actionMessage) return actionMessage;
   const latestLog = next.log?.[0];
   if (latestLog && latestLog !== previous.log?.[0]) return latestLog;
 

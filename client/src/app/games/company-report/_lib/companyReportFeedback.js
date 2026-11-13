@@ -1,5 +1,5 @@
 import { FIXED_EXPENSES } from './companyReportData.js';
-import { calendarSummary, globalTradeSummary } from './companyReportEngine.js';
+import { calendarSummary, globalTradeSummary, newCompanyReportLogMessage } from './companyReportEngine.js';
 
 const FIXED_EXPENSE_TOTAL = FIXED_EXPENSES.reduce(
   (sum, row) => sum + Math.max(0, Number(row?.amount || 0)),
@@ -451,7 +451,8 @@ export function companyReportFeedbackTransition(previousValue, currentValue) {
   if (!previousValue || !currentValue) return 'idle';
   const previous = asSnapshot(previousValue);
   const current = asSnapshot(currentValue);
-  const logChanged = current.latestLog !== previous.latestLog || current.logCount > previous.logCount;
+  const logChanged = Boolean(newCompanyReportLogMessage(previousValue, currentValue))
+    || current.latestLog !== previous.latestLog || current.logCount > previous.logCount;
   if (previous.runId !== current.runId) return 'newRun';
   if (current.latestLog && logChanged) {
     const blockedKey = blockedResultKey(current.latestLog);
@@ -519,7 +520,7 @@ export function companyReportFeedbackTransition(previousValue, currentValue) {
 export function companyReportResultPresentation(previousValue, currentValue) {
   const previous = asSnapshot(previousValue);
   const current = asSnapshot(currentValue);
-  const key = companyReportFeedbackTransition(previous, current);
+  const key = companyReportFeedbackTransition(previousValue, currentValue);
   const profile = { key, ...FEEDBACK_PROFILES[key] };
   const impacts = companyReportImpactRows(previous, current, key);
   if (key === 'newRun') return { ...profile, detail: `${current.period} 경영 원장을 시작했습니다.`, impacts: [] };

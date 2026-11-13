@@ -15,6 +15,9 @@ const HEDGE_PREMIUM_RATE = 0.012;
 // Fictional, deterministic monthly quotes, not live investment market data.
 const FX_MONTHLY_MOVES = [0.025, -0.018, 0.035, -0.026, 0.012, -0.031];
 const WORK_UNITS_PER_EMPLOYEE_PER_DAY = 125;
+// Presentation-only provenance for a freshly written action notice. It must
+// not survive serialization or object spreads into a later state.
+const ACTION_LOG_EVENT = Symbol('company-report-action-log');
 
 export {
   GAME_SLUG,
@@ -992,7 +995,8 @@ export function decideDividendAction(state) {
 
 export function raiseCapitalAction(state, financingTypeId) {
   const current = normalizeState(state);
-  const type = CAPITAL_FINANCING_TYPES.find((item) => item.id === financingTypeId) || CAPITAL_FINANCING_TYPES[0];
+  const type = CAPITAL_FINANCING_TYPES.find((item) => item.id === financingTypeId);
+  if (!type) return addLog(current, '선택한 자금 조달 상품을 찾을 수 없어 처리할 수 없습니다. 상품을 다시 선택하세요.');
   const plan = {
     id: `FIN-${current.company.year}-${String(current.capitalMarket.nextFinancingNo).padStart(4, '0')}`,
     type: type.id,
@@ -2578,12 +2582,20 @@ function simpleChecksum(text) {
   return Math.abs(hash).toString(16).padStart(8, '0');
 }
 
+export function newCompanyReportLogMessage(previous, current) {
+  const event = current?.[ACTION_LOG_EVENT];
+  return current !== previous && event && event !== previous?.[ACTION_LOG_EVENT]
+    && event.message === current?.log?.[0] ? event.message : '';
+}
+
 function addLog(state, message) {
-  return {
+  const next = {
     ...state,
     updatedAt: new Date().toISOString(),
     log: [message, ...state.log].slice(0, 120),
   };
+  Object.defineProperty(next, ACTION_LOG_EVENT, { value: Object.freeze({ message }) });
+  return next;
 }
 
 function clamp(value, min, max) {
