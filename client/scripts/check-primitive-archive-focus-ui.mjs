@@ -16,6 +16,7 @@ const routeUrl = new URL('../src/app/games/primitive-archive/', import.meta.url)
 const focusPanelUrl = new URL('_components/PrimitiveArchiveFocusPanel.js', routeUrl).href;
 const operationsUrl = new URL('_components/PrimitiveArchiveOperationsSummary.js', routeUrl).href;
 const annualOperationsUrl = new URL('_components/PrimitiveArchiveAnnualOperations.js', routeUrl).href;
+const foodOutlookUrl = new URL('_components/PrimitiveArchiveFoodOutlook.js', routeUrl).href;
 const featureTabsUrl = new URL('_components/PrimitiveArchiveFeatureTabs.js', routeUrl).href;
 const actionWorkspaceUrl = new URL('_components/PrimitiveArchiveActionWorkspace.js', routeUrl).href;
 const inventoryBarUrl = new URL('_components/PrimitiveArchiveInventoryBar.js', routeUrl).href;
@@ -32,7 +33,7 @@ const productionRequirementGuideUrl = new URL('_components/PrimitiveArchiveProdu
 const campWorkspaceUrl = new URL('_components/PrimitiveArchiveCampWorkspace.js', routeUrl);
 const growthTabUrl = new URL('_components/PrimitiveArchiveGrowthTab.js', routeUrl);
 const researchPreviewUrl = new URL('_components/PrimitiveArchiveResearchTreePreview.js', routeUrl);
-const transpiledUrls = new Set([focusPanelUrl, operationsUrl, annualOperationsUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, portraitUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl, processingPlanUrl, educationPlanUrl, productionRequirementGuideUrl]);
+const transpiledUrls = new Set([focusPanelUrl, operationsUrl, annualOperationsUrl, foodOutlookUrl, featureTabsUrl, actionWorkspaceUrl, inventoryBarUrl, runTabUrl, inventoryTabUrl, partyWorkspaceUrl, portraitUrl, projectsPanelUrl, workspaceTabsUrl, tribeTabUrl, processingPlanUrl, educationPlanUrl, productionRequirementGuideUrl]);
 const asDataModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 const primitiveUiStub = `
   const jsx = (...args) => globalThis.__primitiveArchiveFocusReact.createElement(...args);

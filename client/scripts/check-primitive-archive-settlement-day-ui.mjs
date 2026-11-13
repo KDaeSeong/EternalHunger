@@ -24,9 +24,10 @@ const iconUrl = pathToFileURL(path.join(client, 'src/app/games/_components/GameA
 const focusUrl = pathToFileURL(path.join(client, 'src/app/games/primitive-archive/_components/PrimitiveArchiveFocusPanel.js')).href;
 const operationsUrl = pathToFileURL(path.join(client, 'src/app/games/primitive-archive/_components/PrimitiveArchiveOperationsSummary.js')).href;
 const annualOperationsUrl = pathToFileURL(path.join(client, 'src/app/games/primitive-archive/_components/PrimitiveArchiveAnnualOperations.js')).href;
+const foodOutlookUrl = pathToFileURL(path.join(client, 'src/app/games/primitive-archive/_components/PrimitiveArchiveFoodOutlook.js')).href;
 registerHooks({
   load(url, context, nextLoad) {
-    if (![primitivesUrl, iconUrl, focusUrl, operationsUrl, annualOperationsUrl].includes(url)) return nextLoad(url, context);
+    if (![primitivesUrl, iconUrl, focusUrl, operationsUrl, annualOperationsUrl, foodOutlookUrl].includes(url)) return nextLoad(url, context);
     const source = read(new URL(url));
     return { format: 'module', shortCircuit: true, source: ts.transpileModule(source, {
       compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext },

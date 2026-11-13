@@ -1386,3 +1386,33 @@
 .primitive-completion-guide__details h3 { font-size: .9rem; }
 .primitive-completion-guide__details p { font-size: .8rem; }
 .primitive-completion-guide__links > button { max-width: 100%; white-space: normal; }
+
+.primitive-food-outlook {
+  margin: .55rem 0;
+  color: var(--era-ink);
+  overflow-wrap: anywhere;
+}
+.primitive-food-outlook__rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: .4rem;
+  margin: 0;
+}
+.primitive-food-outlook__rows > div {
+  min-width: 0;
+  padding: .45rem .55rem;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-block-radius);
+  background: var(--era-sunk);
+}
+.primitive-food-outlook__rows > div:last-child { grid-column: 1 / -1; }
+.primitive-food-outlook__rows dt { font-size: .78rem; font-weight: 700; }
+.primitive-food-outlook__rows dd { margin: .25rem 0 0; font-size: .76rem; line-height: 1.5; }
+.primitive-food-outlook__notice { margin: .4rem 0; font-size: .72rem; line-height: 1.5; }
+.primitive-food-outlook__items { margin-top: .4rem; font-size: .76rem; }
+.primitive-food-outlook__items ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .2rem .75rem;
+  padding-left: 1rem;
+}

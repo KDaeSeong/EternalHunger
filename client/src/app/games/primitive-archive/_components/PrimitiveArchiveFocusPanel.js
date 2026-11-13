@@ -1,6 +1,8 @@
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import PrimitiveArchiveOperationsSummary from './PrimitiveArchiveOperationsSummary';
 import PrimitiveArchiveAnnualOperations, { PrimitiveArchiveAnnualTransition } from './PrimitiveArchiveAnnualOperations';
+import PrimitiveArchiveFoodOutlook from './PrimitiveArchiveFoodOutlook';
+import { primitiveArchiveFoodOutlook } from '../_lib/primitiveArchiveFoodOutlook';
 
 function CompletionProgress({ guide, onHelp, blocked, annualMode }) {
   if (!guide?.rows?.length || guide.status === 'ended') return null;
@@ -56,7 +58,7 @@ function CompletionProgress({ guide, onHelp, blocked, annualMode }) {
 }
 
 export default function PrimitiveArchiveFocusPanel({ plan, operations, dayControl, onNavigate, annual, annualStartControl, annualYearControl,
-  onCompletionHelp, completionHelpBlocked = false }) {
+  onCompletionHelp, completionHelpBlocked = false, inventoryRows, ready = true, ended = false }) {
   if (!plan) return null;
   const { objective, night, blocked, supplies } = plan;
   const completionObjective = (plan.completion?.candidates || []).some(candidate => candidate.kind === objective.kind && candidate.id === objective.id);
@@ -77,6 +79,8 @@ export default function PrimitiveArchiveFocusPanel({ plan, operations, dayContro
       <PrimitiveArchiveAnnualOperations annual={annual} yearControl={annualYearControl} onNavigate={onNavigate} blocked={blocked} />
     </section>
   );
+  const foodOutlook = primitiveArchiveFoodOutlook({ supplies, inventoryRows, ready: ready && !blocked,
+    ended, annualMode: Boolean(annual?.annualMode) });
   const dangerRows = night.rows.filter((row) => Number(row.damage) > 0);
   return (
     <section className="primitive-focus-panel" aria-label="현재 목표와 밤 대비">
@@ -102,6 +106,7 @@ export default function PrimitiveArchiveFocusPanel({ plan, operations, dayContro
       <article className="primitive-focus-night" data-tone={night.tone}>
         <span className="primitive-focus-eyebrow">이번 밤</span>
         <h2>{night.title}</h2>
+        {foodOutlook ? <PrimitiveArchiveFoodOutlook outlook={foodOutlook} /> : null}
         {dangerRows.length ? (
           <ul>
             {dangerRows.map((row) => (

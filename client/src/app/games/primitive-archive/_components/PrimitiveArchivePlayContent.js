@@ -1316,6 +1316,7 @@ export default function PrimitiveArchivePlayContent() {
     >
       <PrimitiveArchiveEraDefs theme={eraTheme} />
       <PrimitiveArchiveFocusPanel plan={focusPlan} operations={operations}
+        inventoryRows={inventoryRows} ready={checkpoint.ready} ended={state.ended}
         dayControl={annualMode ? null : settlementDayControl} onNavigate={selectArchiveTab}
         onCompletionHelp={openCompletionHelp} completionHelpBlocked={completionHelpBlocked}
         annual={annual} annualStartControl={annualStartControl} annualYearControl={annualYearControl} />
