@@ -28,6 +28,13 @@ function diplomacyDisabledText(rival, action, annualMode = false) {
 export default function PrimitiveArchiveTribeTab({
   actionFeedback,
   annual,
+  annualYearControl,
+  nationalControlsBlocked = false,
+  projects = [],
+  selectNationalProject,
+  runNationalDiplomacy,
+  adjustNationalTribeJob,
+  changeNationalTribeWorkPolicy,
   actor,
   actorId,
   setActorId,
@@ -56,6 +63,11 @@ export default function PrimitiveArchiveTribeTab({
   canAct,
 }) {
   const annualMode = Boolean(annual?.annualMode);
+  const annualBlocked = nationalControlsBlocked || Boolean(busy) || !hydrated || Boolean(state?.ended);
+  const nationalUnlocked = Boolean(tribe.workPolicy?.unlocked);
+  const executeDiplomacy = annualMode ? runNationalDiplomacy : runDiplomacy;
+  const executeJobAdjustment = annualMode ? adjustNationalTribeJob : adjustTribeJob;
+  const executeWorkPolicy = annualMode ? changeNationalTribeWorkPolicy : changeTribeWorkPolicy;
   const annualManagement = utilityActions.filter(row => !['patrol', 'drill', 'treatment', 'season_plan', 'irrigation', 'road'].includes(row.id));
   const requirements = productionRequirementGuide({ processing: tribe.processing, education: tribe.education, regions });
   const knownCount = rivals.filter((rival) => rival.known).length;
@@ -89,7 +101,7 @@ export default function PrimitiveArchiveTribeTab({
       <section className="games-panel primitive-tribe-overview">
         <PrimitiveArchivePanelTitle
           action="primitive-growth"
-          title={annualMode ? '공동체 운영' : '부족 운영'}
+          title={annualMode ? nationalUnlocked ? '국가 운영 · 노동력과 공공사업' : '공동체 운영' : '부족 운영'}
           meta={annualMode ? `정착 ${annual.year}년 · ${annual.completedYears}년 정산 완료` : `일일 정산 ${tribe.productionSerial}회 · 접촉 ${knownCount}/${rivals.length}`}
         >
           <strong>{tribe.population}/{tribe.capacity}명</strong>
@@ -134,11 +146,11 @@ export default function PrimitiveArchiveTribeTab({
             {(workPolicy.options || []).map((option) => {
               const selected = option.id === workPolicy.id;
               const blocked = Boolean(policyControlsBlockedReason) || !option.canSelect || selected
-                || typeof changeTribeWorkPolicy !== 'function';
+                || typeof executeWorkPolicy !== 'function' || (annualMode && annualBlocked);
               const reason = policyControlsBlockedReason || option.blockedReason || (selected ? '현재 선택한 방침입니다.' : '');
               return <button type="button" key={option.id} data-game-sfx="off" aria-pressed={selected} disabled={blocked}
                 aria-describedby={'primitive-work-policy-' + option.id} title={reason || option.description}
-                onClick={() => { if (!blocked) changeTribeWorkPolicy(option.id); }}>
+                onClick={() => { if (!blocked && !(annualMode && annualBlocked)) executeWorkPolicy?.(option.id); }}>
                 <strong>{option.label}{selected ? ' · 선택 중' : ''}</strong>
                 <span id={'primitive-work-policy-' + option.id}>{option.description}</span>
                 {reason ? <small>{reason}</small> : null}
@@ -166,8 +178,8 @@ export default function PrimitiveArchiveTribeTab({
                 <button
                   type="button"
                   data-game-sfx="off"
-                  disabled={Boolean(jobEditBlockedReason) || !job.canRemove}
-                  onClick={() => adjustTribeJob(job.id, -1)}
+                  disabled={Boolean(jobEditBlockedReason) || !job.canRemove || (annualMode && annualBlocked)}
+                  onClick={() => { if (!(annualMode && annualBlocked)) executeJobAdjustment?.(job.id, -1); }}
                   aria-label={`${job.name} 배치 1명 감소`}
                   title={jobEditBlockedReason || `${job.name} 배치 1명 감소`}
                 >
@@ -177,8 +189,8 @@ export default function PrimitiveArchiveTribeTab({
                 <button
                   type="button"
                   data-game-sfx="off"
-                  disabled={Boolean(jobEditBlockedReason) || !job.canAdd}
-                  onClick={() => adjustTribeJob(job.id, 1)}
+                  disabled={Boolean(jobEditBlockedReason) || !job.canAdd || (annualMode && annualBlocked)}
+                  onClick={() => { if (!(annualMode && annualBlocked)) executeJobAdjustment?.(job.id, 1); }}
                   aria-label={`${job.name} 배치 1명 증가`}
                   title={jobEditBlockedReason || (job.unlocked ? `${job.name} 배치 1명 증가` : job.lockedReason)}
                 >
@@ -212,6 +224,21 @@ export default function PrimitiveArchiveTribeTab({
       </section>
 
       {annualMode ? <section className="games-panel primitive-annual-management">
+        <PrimitiveArchivePanelTitle action="target" title="공공사업 우선 목표" meta="목표 지정 → 연간 건설" />
+        <p>목표 지정은 시간·행동력·재료를 쓰지 않습니다. 연간 운영 때 실제 건설대와 자재가 있으면 착수하며, 직접 고정한 일손과 식량 확보를 먼저 지킵니다.</p>
+        {projects.map(project => <div key={project.id} className="primitive-work-policy__receipt">
+          <span>{project.name} · {project.progress}/{project.work} · {project.statusLabel}<br />
+            {project.committed ? '착수 자재 투입 완료' : `착수 재료: ${project.costText}`}<br />
+            {!project.available && !project.completed ? `필요 연구: ${project.missingPrereqs.join(' · ')}` : !project.hasCost && !project.committed ? '현재 자재 부족 · 목표 지정 후 확보 가능' : project.effectText}</span>
+          <GameControlButton action="target" cue="off"
+            disabled={annualBlocked || project.completed || !project.available || project.selected}
+            onClick={() => selectNationalProject?.(project.id)}>
+            {project.completed ? '완성' : project.selected ? '현재 목표' : !project.available ? '잠김' : '목표 지정'}
+          </GameControlButton>
+        </div>)}
+      </section> : null}
+
+      {annualMode ? <section className="games-panel primitive-annual-management">
         <PrimitiveArchivePanelTitle action="primitive-job" title="공동체 관리" meta={`관리 AP ${state.ap}/${state.apMax}`} />
         <label className="game-save-json-field"><span>관리 담당</span><select value={actorId} onChange={event => setActorId?.(event.target.value)}>
           {state.party.filter(member => member.hp > 0).map(member => <option key={member.id} value={member.id}>{member.name} · {member.role}</option>)}
@@ -226,6 +253,7 @@ export default function PrimitiveArchiveTribeTab({
 
       <section className="games-panel primitive-diplomacy-panel">
         <PrimitiveArchivePanelTitle action="primitive-diplomacy" title="경쟁 부족 외교" meta={`접촉 ${knownCount}/${rivals.length} · 교역로 ${tradeRouteCharges}/3`} />
+        {annualMode ? <p>교역·선물·지식 교류는 다음 해 예약이 아니라 현재 관리 AP와 실제 재고로 즉시 실행합니다. 상대별 올해 교섭 제한을 적용하며, 실행 뒤 바뀐 재고로 연간 운영을 정산합니다.</p> : null}
         <div className="primitive-rival-list">
           {rivals.map((rival) => (
             <article className={`${rival.known ? `is-${rival.relationTone}` : 'is-unknown'}`} key={rival.id}>
@@ -254,23 +282,23 @@ export default function PrimitiveArchiveTribeTab({
                     <GameControlButton
                       action="trade"
                       cue="off"
-                      disabled={!rival.canTrade}
+                      disabled={!rival.canTrade || (annualMode && annualBlocked)}
                       title={rival.canTrade ? `교역 실행${rival.tradeRouteActive ? ` · 교역로 ${rival.tradeRouteCharges}회 남음` : ''}` : diplomacyDisabledText(rival, 'trade', annualMode)}
-                      onClick={() => runDiplomacy(rival.id, 'trade')}
+                      onClick={() => executeDiplomacy?.(rival.id, 'trade')}
                     >교역</GameControlButton>
                     <GameControlButton
                       action="claim"
                       cue="off"
-                      disabled={!rival.canGift}
+                      disabled={!rival.canGift || (annualMode && annualBlocked)}
                       title={rival.canGift ? '선물 전달' : diplomacyDisabledText(rival, 'gift', annualMode)}
-                      onClick={() => runDiplomacy(rival.id, 'gift')}
+                      onClick={() => executeDiplomacy?.(rival.id, 'gift')}
                     >선물</GameControlButton>
                     <GameControlButton
                       action="research"
                       cue="off"
-                      disabled={!rival.canExchange}
+                      disabled={!rival.canExchange || (annualMode && annualBlocked)}
                       title={rival.canExchange ? '지식 교류 실행' : diplomacyDisabledText(rival, 'exchange', annualMode)}
-                      onClick={() => runDiplomacy(rival.id, 'exchange')}
+                      onClick={() => executeDiplomacy?.(rival.id, 'exchange')}
                     >지식 교류</GameControlButton>
                     {!annualMode ? <GameControlButton
                       action="combat"
@@ -289,6 +317,16 @@ export default function PrimitiveArchiveTribeTab({
           ))}
         </div>
       </section>
+      {annualMode ? <section className="games-panel primitive-annual-management">
+        <PrimitiveArchivePanelTitle action="primitive-job" title="선택 후 연간 운영" />
+        <p>노동 방침·공공사업·즉시 교섭 후의 실제 재고로 한 해를 정산합니다. 관리 AP가 0이어도 1년 운영은 가능합니다.</p>
+        {annualYearControl}
+        {!annual.canAdvance ? <p>{annual.advanceReason}</p> : null}
+        {annual.lastReceipt ? <div className="primitive-tribe-ledger">
+          <div><span>실제 연간 정산</span><strong>{annual.completedYears}년 · {annual.lastCensus?.total}명 · 배식 {lastProduction.foodProvided}/{lastProduction.foodNeed} · 부족 {lastProduction.shortage}</strong></div>
+          <div><span>공공사업 실제 작업</span><strong>{lastProduction.projectName || '진행 없음'} +{lastProduction.projectWork || 0}</strong></div>
+        </div> : <p>아직 연간 정산 기록이 없습니다.</p>}
+      </section> : null}
     </>
   );
 }

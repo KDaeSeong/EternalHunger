@@ -1074,6 +1074,33 @@ export default function PrimitiveArchivePlayContent() {
   };
   const annualControlsBlocked = !hydrated || !checkpoint.ready || !checkpoint.exclusive
     || Boolean(busy) || shopControlsBusy || Boolean(shopStartRef.current);
+  const nationalRequestIsCurrent = () => annualMode && annualRequestIsCurrent()
+    && !stateRef.current.ended && actorSelectionRef.current === actorId;
+  const selectNationalProject = (projectId) => {
+    if (!nationalRequestIsCurrent()) return;
+    const row = projectRows(stateRef.current).find(project => project.id === projectId);
+    if (!row?.available || row.selected || row.completed) return;
+    applyAction('공공사업 목표 지정', current => nationalRequestIsCurrent()
+      ? selectProjectAction(current, projectId) : current);
+  };
+  const adjustNationalTribeJob = (jobId, delta) => {
+    if (!nationalRequestIsCurrent()) return;
+    applyAction('연간 직업 배치', current => nationalRequestIsCurrent()
+      ? adjustTribeJobAction(current, jobId, delta) : current);
+  };
+  const changeNationalTribeWorkPolicy = (policyId) => {
+    if (!nationalRequestIsCurrent()) return;
+    const policy = tribeSummary(stateRef.current).workPolicy;
+    if (!policy?.options.some(option => option.id === policyId && option.canSelect)
+      || policy.id === policyId) return;
+    applyAction('연간 운영 방침 변경', current => nationalRequestIsCurrent()
+      ? changeTribeWorkPolicyAction(current, policyId) : current);
+  };
+  const runNationalDiplomacy = (rivalId, actionId) => {
+    if (!nationalRequestIsCurrent() || !['trade', 'gift', 'exchange'].includes(actionId)) return;
+    applyAction('연간 교섭', current => nationalRequestIsCurrent()
+      ? runDiplomacyAction(current, actorId, rivalId, actionId) : current);
+  };
   const annualStartControl = !annualMode && annual.canStart ? (
     <GameControlButton action="auto" cue="off" className="primitive-settlement-day"
       disabled={annualControlsBlocked} onClick={startAnnualSettlement}>공동체 연간 운영으로 전환</GameControlButton>
@@ -1237,6 +1264,12 @@ export default function PrimitiveArchivePlayContent() {
 
       <PrimitiveArchiveFeatureTabs
         annual={annual}
+        annualYearControl={annualYearControl}
+        nationalControlsBlocked={annualControlsBlocked}
+        selectNationalProject={selectNationalProject}
+        runNationalDiplomacy={runNationalDiplomacy}
+        adjustNationalTribeJob={adjustNationalTribeJob}
+        changeNationalTribeWorkPolicy={changeNationalTribeWorkPolicy}
         activeTabId={activeTabId}
         actor={actor}
         actorId={actorId}

@@ -621,7 +621,7 @@ const semanticSources = [
 ].join('\n');
 const semanticPanelTitles = [...semanticSources.matchAll(/<PrimitiveArchivePanelTitle\b/g)].length;
 const semanticIconRows = [...semanticSources.matchAll(/<PrimitiveArchiveIconRow\b/g)].length;
-assert.equal(semanticPanelTitles, 28, '연간 운영을 포함한 문명 아카이브 패널 제목 28개가 의미 아이콘을 사용해야 합니다.');
+assert.equal(semanticPanelTitles, 30, '공공사업 목표와 연간 정산을 포함한 문명 아카이브 패널 제목 30개가 의미 아이콘을 사용해야 합니다.');
 assert.equal(semanticIconRows, 6, '문명 아카이브 핵심 정보 행 6개가 의미 아이콘을 사용해야 합니다.');
 assert.doesNotMatch(semanticSources, /className="games-panel-title"/, '아이콘 없는 원시 패널 제목을 남기면 안 됩니다.');
 assert.doesNotMatch(semanticSources, /className="game-save-row"/, '아이콘 없는 원시 핵심 정보 행을 남기면 안 됩니다.');
