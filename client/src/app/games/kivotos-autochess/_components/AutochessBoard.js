@@ -16,7 +16,7 @@ export default function AutochessBoard({ player, opponent, watch, frameIndex, se
           const x = index % BOARD.cols, y = Math.floor(index / BOARD.cols), unit = y >= 4 ? ownedAt(x, y) : null;
           return y >= 4 && !watch ? (
             <button key={index} type="button" className={'ac-cell is-home' + (selectedUid && selectedUid === unit?.uid ? ' is-selected' : '')}
-              disabled={!editable} aria-label={'아군 전장 ' + (y - 3) + '행 ' + (x + 1) + '열' + (unit ? ' · ' + STUDENT_BY_ID[unit.studentId].name : ' · 빈칸')}
+              disabled={!editable} aria-pressed={Boolean(unit && selectedUid === unit.uid)} aria-label={'아군 전장 ' + (y - 3) + '행 ' + (x + 1) + '열' + (unit ? ' · ' + STUDENT_BY_ID[unit.studentId].name : ' · 빈칸')}
               onClick={() => onCell(x, y - 4, unit?.uid)} />
           ) : <div key={index} className={'ac-cell' + (y >= 4 ? ' is-home' : ' is-away')} />;
         })}

@@ -28,7 +28,7 @@ export default function useAutochessSession({ owner, hydrated, token, speed }) {
   }, [replace]);
   const act = useCallback(fn => {
     if (!activeOwner.current || busyRef.current || blocked.current) return;
-    apply(fn);
+    return apply(fn);
   }, [apply]);
   const invalidateRequests = useCallback(() => { operation.current++; busyRef.current = ''; }, []);
   const ready = hydrated && Boolean(owner) && readyOwner === owner;

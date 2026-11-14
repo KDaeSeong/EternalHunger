@@ -41,13 +41,25 @@ export default function KivotosAutochessPlayPage() {
   const frameIndex = state.phase === 'battle' ? state.frameIndex : replayIndex;
   const watchedFrame = watch?.frames[Math.min(frameIndex, watch.frames.length - 1)];
   const costTrainInt = trainingPrice(human, 'intelligence'), costTrainLuck = trainingPrice(human, 'luck');
+  const moveSelectedTo = target => {
+    if (!editable || !selected) return;
+    const before = selected.position;
+    const next = act(current => moveUnit(current, selected.uid, target));
+    const after = next && getPlayer(next).units.find(unit => unit.uid === selected.uid)?.position;
+    if (after && (after.kind !== before.kind || after.x !== before.x || after.y !== before.y || after.slot !== before.slot)) {
+      setSelectedUid('');
+    }
+  };
   const place = (x, y, occupiedUid) => {
-    if (selected && selected.uid !== occupiedUid) act(s => moveUnit(s, selected.uid, { kind: 'field', x, y }));
+    if (!editable) return;
+    if (selected?.uid === occupiedUid) setSelectedUid('');
+    else if (selected) moveSelectedTo({ kind: 'field', x, y });
     else if (occupiedUid) setSelectedUid(occupiedUid);
   };
   const benchClick = (slot, unit) => {
-    if (selected && selected.position.kind === 'field') act(s => moveUnit(s, selected.uid, { kind: 'bench', slot }));
-    else if (!unit && selected) act(s => moveUnit(s, selected.uid, { kind: 'bench', slot }));
+    if (!editable) return;
+    if (unit && selected?.uid === unit.uid) setSelectedUid('');
+    else if (selected && (selected.position.kind === 'field' || !unit)) moveSelectedTo({ kind: 'bench', slot });
     else if (unit) setSelectedUid(unit.uid);
   };
   return (
@@ -62,7 +74,7 @@ export default function KivotosAutochessPlayPage() {
         { label: '레벨', value: human.level + ' · 편성 ' + fieldUnits(human).length + '/' + human.level },
         { label: '생존', value: state.players.filter(p => p.hp > 0).length + ' / 8' },
       ]}>
-      <div className="ac-layout">
+      <div className="ac-layout" onKeyDown={event => { if (event.key === 'Escape') setSelectedUid(''); }}>
         <section className="ac-play-column" aria-label="전장과 상점">
           <div className="ac-battle-card">
             <div className="ac-section-heading"><div><span className="ac-eyebrow">1인 대전 · AI 7명</span><h2>{watch ? watch.left.name + ' vs ' + watch.right.name : state.phase === 'finished' ? '대전 종료' : '편성이 승부를 결정합니다'}</h2></div><span className="ac-phase">{state.paused && state.phase === 'battle' ? '일시정지' : replay ? '전투 다시보기' : phaseNames[state.phase]}</span></div>
@@ -83,7 +95,7 @@ export default function KivotosAutochessPlayPage() {
                 <div className="ac-speed" role="group" aria-label="전투 재생 속도">{[1, 2, 4].map(n => <button key={n} type="button" aria-pressed={speed === n} onClick={() => setSpeed(n)}>{n}배</button>)}</div>
               </> : <>
                 <button type="button" className="ac-primary" disabled={disabled || !['planning', 'spectate'].includes(state.phase) || planning && !fieldUnits(human).length || replay} onClick={() => { setReplay(false); act(beginCombat); }}>{state.phase === 'spectate' ? '다음 전투 관전' : state.round + '라운드 전투 시작'}</button>
-                <button type="button" className="ac-button" disabled={!editable || !human.units.length} onClick={() => act(autoFormation)}>자동 편성</button>
+                <button type="button" className="ac-button" disabled={!editable || !human.units.length} onClick={() => { act(autoFormation); setSelectedUid(''); }}>자동 편성</button>
                 <button type="button" className="ac-button" disabled={disabled || !state.lastBattle} onClick={() => { setReplay(!replay); setReplayIndex(0); }}>{replay ? '다시보기 닫기' : '최근 전투 다시보기'}</button>
                 {state.phase === 'spectate' ? <button type="button" className="ac-button" disabled={disabled || replay} onClick={() => act(finishSpectating)}>남은 대전 결과 보기</button> : null}
               </>}
@@ -98,12 +110,12 @@ export default function KivotosAutochessPlayPage() {
               {Array.from({ length: 9 }, (_, slot) => {
                 const unit = human.units.find(u => u.position.kind === 'bench' && u.position.slot === slot), s = unit ? STUDENT_BY_ID[unit.studentId] : null;
                 return <button key={slot} type="button" disabled={!editable} className={'ac-bench-slot' + (unit?.uid === selectedUid ? ' is-selected' : '')}
-                  aria-label={'대기석 ' + (slot + 1) + '번' + (s ? ' · ' + s.name + ' ' + unit.star + '성' : ' · 빈칸')} onClick={() => benchClick(slot, unit)}>
+                  aria-pressed={Boolean(unit && unit.uid === selectedUid)} aria-label={'대기석 ' + (slot + 1) + '번' + (s ? ' · ' + s.name + ' ' + unit.star + '성' : ' · 빈칸')} onClick={() => benchClick(slot, unit)}>
                   {s ? <><div className="ac-bench-portrait"><OfficialStudentIcon id={s.id} /></div><strong>{s.name}</strong><span>{'★'.repeat(unit.star)}</span></> : <span>{slot + 1}</span>}
                 </button>;
               })}
             </div>
-            {selected && student ? <div className="ac-selected-detail"><div><strong>{student.name} {'★'.repeat(selected.star)}</strong><span>{ACADEMIES[student.academy].name} · {ROLES[student.role].name} · {student.skillName}</span></div><button type="button" className="ac-button ac-sell" disabled={!editable} onClick={() => act(s => sellUnit(s, selected.uid))}>판매 · {student.cost * copiesOf(selected)}골드</button></div> : <p className="ac-muted">캐릭터를 선택한 뒤 아군 칸이나 대기석을 누르면 배치·교환할 수 있습니다.</p>}
+            {selected && student ? <div className="ac-selected-detail"><div><strong>{student.name} {'★'.repeat(selected.star)}</strong><span>{ACADEMIES[student.academy].name} · {ROLES[student.role].name} · {student.skillName}</span></div><div className="ac-selection-actions"><button type="button" className="ac-button" onClick={() => setSelectedUid('')}>선택 해제</button><button type="button" className="ac-button ac-sell" disabled={!editable} onClick={() => { act(s => sellUnit(s, selected.uid)); setSelectedUid(''); }}>판매 · {student.cost * copiesOf(selected)}골드</button></div></div> : <p className="ac-muted">캐릭터를 선택한 뒤 아군 칸이나 대기석을 누르면 배치·교환하고 선택이 해제됩니다. 같은 캐릭터를 다시 누르거나 Esc로 선택을 취소할 수 있습니다.</p>}
           </div>
 
           <div className="ac-shop-panel">
