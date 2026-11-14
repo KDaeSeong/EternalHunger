@@ -65,6 +65,7 @@ import { DEFAULT_TRIBE_PROCESSING_PLAN, isValidTribeProcessingPlan,
   normalizeTribeProcessingPlan } from './primitiveArchiveProcessing.js';
 import { DEFAULT_TRIBE_EDUCATION_PLAN, isValidTribeEducationPlan,
   normalizeTribeEducationPlan } from './primitiveArchiveEducation.js';
+import { normalizeAutoDayGoal } from './primitiveArchiveAutoDayGoals.js';
 
 export {
   GAME_SLUG,
@@ -7999,6 +8000,60 @@ function runAutoFoodSupplyAction(state, options) {
   return runGatherAction(planned, plan.actorId, plan.regionId, options);
 }
 
+function runAutoGoalPriorityAction(state, goal, options) {
+  if (goal === 'completion') {
+    const plan = autoArchiveDevelopmentPlan(state);
+    if (!plan) return null;
+    const planned = addLog(state, `기초 완주 우선: ${plan.reason}`);
+    if (plan.kind === 'craft') return runCraftAction(planned, pickActorForAuto(state, 'craft'), plan.id, options);
+    if (plan.kind === 'camp') return runCampAction(planned, pickActorForAuto(state, 'craft'), plan.id, options);
+    if (plan.kind === 'hunt') return runHuntAction(planned, plan.actorId, plan.regionId, options);
+    return runGatherAction(planned, plan.actorId, plan.regionId, options);
+  }
+
+  const actorId = pickActorForAuto(state, 'craft');
+  const actor = getActor(state, actorId);
+  const canPayStamina = (cost) => Number(actor?.stamina || 0) >= Number(cost || 0);
+  if (goal === 'exploration') {
+    const survey = utilityActionRows(state, actorId).find((row) => row.id === 'survey');
+    if (!survey?.available || !canPayStamina(survey.staminaCost)) return null;
+    return runUtilityAction(addLog(state, '탐사 우선: 실제 지도 답사로 미답 지역을 조사합니다.'), actorId, 'survey', options);
+  }
+
+  if (goal !== 'development') return null;
+  const project = projectRows(state).find((row) => row.selected && row.canWork && row.progress < row.work);
+  if (project && canPayStamina(projectActionEstimate(state, actorId, project.id).staminaCost)) {
+    return runProjectAction(addLog(state, `장기 발전 우선: 선택한 ${project.name} 공동 사업을 진행합니다.`), actorId, project.id, options);
+  }
+  if (Number(state.day || 1) >= 2) {
+    const tech = getTechnology(state.research.selectedTechId);
+    const civic = getCivic(state.civics.selectedCivicId);
+    const researchEstimate = researchActionEstimate(state, actorId);
+    const civicEstimate = civicActionEstimate(state, actorId);
+    const canResearch = tech && !state.research.completed?.[tech.id]
+      && Number(state.research.progress?.[tech.id] || 0) < tech.cost
+      && prereqsMet(state.research, tech) && researchEstimate.unlocked
+      && canPayStamina(researchEstimate.staminaCost);
+    const canAdvanceCivic = civic && !state.civics.completed?.[civic.id]
+      && Number(state.civics.progress?.[civic.id] || 0) < civic.cost
+      && prereqsMet(state.research, civic) && civicEstimate.unlocked
+      && canPayStamina(civicEstimate.staminaCost);
+    // Alternate paid study priorities when both selected targets can progress.
+    if (canAdvanceCivic && (!canResearch || Number(state.ap || 0) % 2 === 0)) {
+      return runCivicAction(addLog(state, `장기 발전 우선: 선택한 ${civic.name} 제도를 진행합니다.`), actorId, options);
+    }
+    if (canResearch) {
+      return runResearchAction(addLog(state, `장기 발전 우선: 선택한 ${tech.name} 기술을 연구합니다.`), actorId, options);
+    }
+  }
+  const production = pickAutoProductionAction(state);
+  if (!production) return null;
+  const productionRow = utilityActionRows(state, production.actorId).find((row) => row.id === production.actionId);
+  if (!productionRow?.available
+    || Number(getActor(state, production.actorId)?.stamina || 0) < Number(productionRow.staminaCost || 0)) return null;
+  return runUtilityAction(addLog(state, `장기 발전 우선: ${productionRow.label} 생산을 진행합니다.`), production.actorId, production.actionId, options);
+}
+
 function runNextAutoArchiveAction(state, options = {}) {
   const living = livingParty(state);
   const careActorId = pickAutoCareActor(state);
@@ -8094,6 +8149,12 @@ function runNextAutoArchiveAction(state, options = {}) {
     // and failure result rather than being hidden by a no-op equipment log.
     return Number(crafted.inventory[clothingPlan.itemId] || 0) > Number(state.inventory[clothingPlan.itemId] || 0)
       ? autoEquipAction(crafted, 'weather') : crafted;
+  }
+  const autoGoal = normalizeAutoDayGoal(options.autoGoal);
+  if (autoGoal !== 'default') {
+    if (foodStock < living.length + 1) return runAutoFoodSupplyAction(state, options);
+    const goalAction = runAutoGoalPriorityAction(state, autoGoal, options);
+    if (goalAction) return goalAction;
   }
   const archivePlan = developmentWindow ? autoArchiveDevelopmentPlan(state) : null;
   if (archivePlan) {

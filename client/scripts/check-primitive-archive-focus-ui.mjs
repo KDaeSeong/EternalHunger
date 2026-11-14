@@ -848,7 +848,21 @@ check('actual project control receives the selected living-actor gate without di
   const source = readFileSync(new URL('_components/PrimitiveArchivePlayContent.js', routeUrl), 'utf8');
   assert.match(source, /const actorCanAct = canAct && Number\(actor\?\.hp \|\| 0\) > 0;/);
   assert.match(source, /canAct=\{annualMode \? canAct : actorCanAct\}/);
-  assert.match(source, /action="auto"[^\n]+disabled=\{!canAct\}/);
+  const pageAst = ts.createSourceFile('PrimitiveArchivePlayContent.js', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
+  const autoControls = [];
+  function visitAutoControl(node) {
+    if (ts.isJsxElement(node) && node.openingElement.tagName.getText(pageAst) === 'GameControlButton'
+      && node.openingElement.attributes.properties.some(attribute => attribute.name?.getText(pageAst) === 'className'
+        && attribute.initializer?.text === 'primitive-auto-day')) autoControls.push(node.openingElement);
+    ts.forEachChild(node, visitAutoControl);
+  }
+  visitAutoControl(pageAst); assert.equal(autoControls.length, 1);
+  const disabled = autoControls[0].attributes.properties.find(attribute => attribute.name?.getText(pageAst) === 'disabled');
+  assert.ok(disabled?.initializer && ts.isJsxExpression(disabled.initializer));
+  const evaluateDisabled = new Function('canAct', 'autoDayControlsBlocked', `return ${disabled.initializer.expression.getText(pageAst)};`);
+  for (const [canAct, controlsBlocked] of [[true, false], [false, false], [true, true], [false, true]]) {
+    assert.equal(evaluateDisabled(canAct, controlsBlocked), !canAct || controlsBlocked);
+  }
 });
 
 check('one surviving HP keeps the actual recovery controls enabled while terminal runs remain blocked', () => {

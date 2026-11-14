@@ -121,6 +121,9 @@ import {
 import { isValidTribeProcessingPlan } from '../_lib/primitiveArchiveProcessing';
 import PrimitiveArchiveEraDefs from './PrimitiveArchiveEraDefs';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
+import PrimitiveArchiveAutoDayGoalPanel from './PrimitiveArchiveAutoDayGoalPanel';
+import { AUTO_DAY_GOALS, normalizeAutoDayGoal } from '../_lib/primitiveArchiveAutoDayGoals';
+import { autoDayExecutionReport } from '../_lib/primitiveArchiveAutoDayReport';
 import PrimitiveArchiveFocusPanel from './PrimitiveArchiveFocusPanel';
 import PrimitiveArchiveInventoryBar from './PrimitiveArchiveInventoryBar';
 import PrimitiveArchiveShopPerks from './PrimitiveArchiveShopPerks';
@@ -212,6 +215,22 @@ export default function PrimitiveArchivePlayContent() {
   const [newRunDifficulty, setNewRunDifficulty] = useState('normal');
   const [newRunFounderIds, setNewRunFounderIds] = useState(() => STUDENTS.slice(0, 3).map(member => member.id));
   const [researchPlannerOpen, setResearchPlannerOpen] = useState(false);
+  const [autoDayGoalId, setAutoDayGoalId] = useState('default');
+  const [autoDayGoalEpoch, setAutoDayGoalEpoch] = useState(0);
+  const [autoDayReport, setAutoDayReport] = useState(null);
+  const autoDayGoalRef = useRef({ id: 'default', epoch: 0, runId: state.runId, session: captureAuthSession() });
+  const resetAutoDayGoal = useCallback((runId) => {
+    autoDayGoalRef.current = { id: 'default', epoch: autoDayGoalRef.current.epoch + 1,
+      runId, session: captureAuthSession() };
+    setAutoDayGoalEpoch(autoDayGoalRef.current.epoch);
+    setAutoDayGoalId('default');
+    setAutoDayReport(null);
+  }, []);
+  useEffect(() => {
+    if (autoDayGoalRef.current.runId !== state.runId || !isCurrentAuthSession(autoDayGoalRef.current.session)) {
+      resetAutoDayGoal(state.runId);
+    }
+  });
   const [actionResult, setActionResult] = useState('');
   const [actionFeedback, setActionFeedback] = useState({ key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: state.runId, tone: 'ready' });
   const [arrivingEraId, setArrivingEraId] = useState('');
@@ -238,6 +257,7 @@ export default function PrimitiveArchivePlayContent() {
     });
   }, []);
   const handleRestoredRun = useCallback((nextState, details) => {
+    resetAutoDayGoal(nextState.runId);
     setRequirementHelpRequest(null);
     setInitialShopRunId(details?.source === 'owner-reset' ? nextState.runId : null);
     setNewRunDifficulty(nextState.difficulty || 'normal');
@@ -248,7 +268,7 @@ export default function PrimitiveArchivePlayContent() {
     setActiveTabId(nextState.calendar?.mode === 'annual' ? 'tribe' : 'actions');
     setActionResult(primitiveRestoredResultText(nextState));
     setActionFeedback({ key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: nextState.runId, tone: 'ready' });
-  }, [setActorId]);
+  }, [resetAutoDayGoal, setActorId]);
   const checkpoint = usePrimitiveArchiveCheckpoint({
     state,
     setState: replaceState,
@@ -1099,9 +1119,64 @@ export default function PrimitiveArchivePlayContent() {
       정착 운영 · AP {state.ap} 포기하고 하루 진행
     </GameControlButton>
   ) : null;
-  const autoDayControl = (
-    <GameControlButton action="auto" cue="off" className="primitive-auto-day" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</GameControlButton>
-  );
+  const autoDayExpectedState = state;
+  const autoDayExpectedVersion = actionVersionRef.current;
+  const autoDayExpectedSession = captureAuthSession();
+  const autoDayExpectedGoal = autoDayGoalRef.current;
+  const autoDayRequestIsCurrent = (input = stateRef.current) => {
+    const live = annualUiGuardRef.current;
+    const current = stateRef.current;
+    return Boolean(live?.hydrated && live.checkpoint.ready && live.checkpoint.exclusive && live.checkpoint.canMutate())
+      && !live.busy && !live.shopControlsBusy && !shopStartRef.current
+      && isCurrentAuthSession(autoDayExpectedSession) && isCurrentAuthSession(autoDayExpectedGoal.session)
+      && actionVersionRef.current === autoDayExpectedVersion && current === autoDayExpectedState
+      && autoDayGoalRef.current === autoDayExpectedGoal
+      && autoDayGoalRef.current.id === autoDayGoalId
+      && autoDayGoalRef.current.epoch === autoDayExpectedGoal.epoch
+      && autoDayGoalRef.current.epoch === autoDayGoalEpoch
+      && autoDayGoalRef.current.runId === current.runId
+      && current.runId === state.runId && current.day === state.day && current.ap === state.ap
+      && current.updatedAt === state.updatedAt && !current.ended && !annualMode
+      && current.calendar?.mode !== 'annual'
+      && input.runId === current.runId && input.day === current.day && input.ap === current.ap
+      && input.updatedAt === current.updatedAt && !input.ended && input.calendar?.mode !== 'annual';
+  };
+  const changeAutoDayGoal = (value) => {
+    if (!AUTO_DAY_GOALS.some(goal => goal.id === value) || !autoDayRequestIsCurrent()) return;
+    const id = normalizeAutoDayGoal(value);
+    if (id === autoDayGoalRef.current.id) return;
+    autoDayGoalRef.current = { ...autoDayGoalRef.current, id, epoch: autoDayGoalRef.current.epoch + 1 };
+    setAutoDayGoalEpoch(autoDayGoalRef.current.epoch);
+    setAutoDayGoalId(id);
+  };
+  const runAutoDay = () => {
+    if (!canAct || !autoDayRequestIsCurrent()) return;
+    let executedState = null;
+    let previousState = null;
+    applyAction('하루 자동 운영', (current) => {
+      if (!autoDayRequestIsCurrent(current) || current.ap <= 0 || !hasLivingPartyMember(current)) return current;
+      previousState = current;
+      executedState = runAutoDayAction(current, { autoGoal: autoDayExpectedGoal.id });
+      return executedState;
+    });
+    if (executedState && stateRef.current === executedState && isCurrentAuthSession(autoDayExpectedSession)
+      && autoDayGoalRef.current === autoDayExpectedGoal) {
+      const report = autoDayExecutionReport(previousState, executedState, autoDayExpectedGoal.id);
+      if (report) setAutoDayReport({ ...report, session: autoDayExpectedSession });
+    }
+  };
+  const autoDayControlsBlocked = !hydrated || !checkpoint.ready || !checkpoint.exclusive || !checkpoint.canMutate()
+    || Boolean(busy) || shopControlsBusy || Boolean(shopStartRef.current) || state.ended || annualMode
+    || autoDayGoalRef.current.runId !== state.runId || !isCurrentAuthSession(autoDayGoalRef.current.session)
+    || autoDayGoalRef.current.epoch !== autoDayGoalEpoch;
+  const autoDayControl = !annualMode ? (
+    <GameControlButton action="auto" cue="off" className="primitive-auto-day" onClick={runAutoDay} disabled={!canAct || autoDayControlsBlocked}>하루 자동 운영</GameControlButton>
+  ) : null;
+  const autoDayGoalControl = !annualMode ? (
+    <PrimitiveArchiveAutoDayGoalPanel goalId={autoDayGoalId} onChange={changeAutoDayGoal}
+      disabled={autoDayControlsBlocked}
+      report={autoDayReport?.runId === state.runId && isCurrentAuthSession(autoDayReport.session) ? autoDayReport : null} />
+  ) : null;
 
   const annualExpected = { runId: state.runId, day: state.day, ap: state.ap, updatedAt: state.updatedAt,
     completedYears: state.calendar?.completedYears ?? null };
@@ -1341,6 +1416,7 @@ export default function PrimitiveArchivePlayContent() {
         configureTribeEducation={configureTribeEducation}
         applyAction={applyAction}
         autoDayControl={autoDayControl}
+        autoDayGoalControl={autoDayGoalControl}
         shopPerkStatus={<PrimitiveArchiveShopPerks state={state} compact />}
         shopPerkSetup={<PrimitiveArchiveShopPerks state={state} context={shopPerks} withoutPerks={withoutShopPerks} onWithoutPerksChange={setWithoutShopPerks} onRetry={() => void shopPerks.refresh().catch(() => {})} busy={Boolean(busy) || shopControlsBusy} />}
         archiveReport={archiveReport}

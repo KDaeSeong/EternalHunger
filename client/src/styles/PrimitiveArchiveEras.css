@@ -1416,3 +1416,33 @@
   gap: .2rem .75rem;
   padding-left: 1rem;
 }
+
+.primitive-auto-day-goal {
+  margin: .65rem 0;
+  padding: .6rem;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-block-radius);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+  overflow-wrap: anywhere;
+}
+.primitive-auto-day-goal > label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem .65rem;
+}
+.primitive-auto-day-goal select {
+  max-width: 100%;
+  min-width: 0;
+  padding: .35rem .5rem;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-control-radius);
+  background: var(--era-surface);
+  color: var(--era-ink);
+  font: inherit;
+}
+.primitive-auto-day-goal p,
+.primitive-auto-day-goal details { font-size: .8rem; line-height: 1.5; }
+.primitive-auto-day-goal p { margin: .4rem 0; }
+.primitive-auto-day-goal ul { margin: .4rem 0; padding-left: 1.2rem; }

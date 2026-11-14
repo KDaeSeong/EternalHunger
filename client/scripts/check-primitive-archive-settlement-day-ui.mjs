@@ -37,6 +37,7 @@ registerHooks({
 const engine = await import(pathToFileURL(enginePath).href);
 const feedback = await import(pathToFileURL(path.join(client, 'src/app/games/primitive-archive/_lib/primitiveArchiveFeedback.js')).href);
 const soundtrack = await import(pathToFileURL(path.join(client, 'src/app/games/primitive-archive/_lib/primitiveArchiveSoundtrack.js')).href);
+const autoReports = await import(pathToFileURL(path.join(client, 'src/app/games/primitive-archive/_lib/primitiveArchiveAutoDayReport.js')).href);
 const { GameControlButton } = await import(primitivesUrl);
 const { default: Focus } = await import(focusUrl);
 const { default: Operations } = await import(operationsUrl);
@@ -57,7 +58,9 @@ function declaration(sourceText, name) {
 // Execute declarations extracted from the current page. Hook-return values and
 // UI setters below are controlled inputs, not mounted React/checkpoint lifecycle.
 // Engine, feedback, music selection and native button are actual product modules.
-const selectedSource = ['applyAction', 'settlementDay', 'settlementDayExpected', 'settlementDayControl', 'autoDayControl']
+const selectedSource = ['applyAction', 'settlementDay', 'settlementDayExpected', 'settlementDayControl',
+  'autoDayExpectedState', 'autoDayExpectedVersion', 'autoDayExpectedSession', 'autoDayExpectedGoal',
+  'autoDayRequestIsCurrent', 'runAutoDay', 'autoDayControlsBlocked', 'autoDayControl']
   .map(name => declaration(playSource, name)).join('\n');
 const compiled = ts.transpileModule(selectedSource, {
   compilerOptions: { jsx: ts.JsxEmit.React, module: ts.ModuleKind.ESNext },
@@ -75,7 +78,7 @@ function renderHandler(state = fresh(), overrides = {}) {
   const calls = { state: [], feedback: [], result: [], sounds: [] };
   const ref = { current: state };
   const scope = {
-    ...engine, ...feedback, ...soundtrack, React, GameControlButton,
+    ...engine, ...feedback, ...soundtrack, ...autoReports, React, GameControlButton,
     state, stateRef: ref, hydrated: true, checkpoint: { ready: true, exclusive: true, status: 'ready' },
     busy: '', shopControlsBusy: false, shopStartRef: { current: false }, canAct: true,
     showDeveloperTools: false, actorId: state.party[0].id,
@@ -88,6 +91,14 @@ function renderHandler(state = fresh(), overrides = {}) {
   scope.isCurrentAuthSession = () => true;
   scope.actionVersionRef = { current: 0 };
   scope.checkpoint = { ...scope.checkpoint, canMutate: () => scope.checkpoint.ready && scope.checkpoint.exclusive };
+  scope.annualMode = false;
+  scope.captureAuthSession = () => null;
+  scope.autoDayGoalId = 'default';
+  scope.autoDayGoalEpoch = 0;
+  scope.autoDayGoalRef = { current: { id: 'default', epoch: 0, runId: state.runId, session: null } };
+  scope.setAutoDayReport = () => {};
+  scope.annualUiGuardRef = { current: { hydrated: scope.hydrated, checkpoint: scope.checkpoint,
+    busy: scope.busy, shopControlsBusy: scope.shopControlsBusy } };
   const factory = new Function(...Object.keys(scope), `${compiled}\nreturn { autoDayControl, settlementDayControl, applyAction };`);
   const result = factory(...Object.values(scope));
   const control = result.settlementDayControl;

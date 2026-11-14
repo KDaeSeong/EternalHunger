@@ -176,8 +176,21 @@ check('normal tab navigation and restored-run handler clear help and restored re
   const state = fresh(), setters = {};
   for (const name of ['setInitialShopRunId', 'setNewRunDifficulty', 'setActorId', 'setZoneId', 'setRecipeId', 'setSelectedRecruitId', 'setActionResult', 'setActionFeedback', 'setActiveTabId']) setters[name] = () => {};
   request = { kind: 'map', runId: state.runId };
-  pageHandler('handleRestoredRun', { ...setters, setRequirementHelpRequest: value => { request = value; }, primitiveRestoredResultText: () => 'restored' })({ ...state, runId: 'restored-other-run' }, { source: 'slot' });
+  const session = { owner: 'restored-owner' }, autoDayGoalRef = {
+    current: { id: 'exploration', epoch: 7, runId: state.runId, session: { owner: 'old-owner' } },
+  };
+  let goalId = 'exploration', goalEpoch = 7, report = { goalId: 'exploration', runId: state.runId };
+  const resetAutoDayGoal = pageHandler('resetAutoDayGoal', {
+    autoDayGoalRef, captureAuthSession: () => session,
+    setAutoDayGoalId: value => { goalId = value; }, setAutoDayReport: value => { report = value; },
+    setAutoDayGoalEpoch: value => { goalEpoch = value; },
+  });
+  pageHandler('handleRestoredRun', { ...setters, resetAutoDayGoal,
+    setRequirementHelpRequest: value => { request = value; }, primitiveRestoredResultText: () => 'restored' })({ ...state, runId: 'restored-other-run' }, { source: 'slot' });
   assert.equal(request, null);
+  assert.equal(goalId, 'default'); assert.equal(report, null);
+  assert.equal(goalEpoch, 8);
+  assert.deepEqual(autoDayGoalRef.current, { id: 'default', epoch: 8, runId: 'restored-other-run', session });
   const source = currentPage();
   const expressions = {};
   const visit = node => {
@@ -207,6 +220,34 @@ check('normal tab navigation and restored-run handler clear help and restored re
   const filterMap = new Function('mapHelpRequest', 'state', `return (${mapRequestExpression});`);
   assert.equal(filterMap({ runId: 'old-run' }, state), null);
   const validMap = { runId: state.runId }; assert.equal(filterMap(validMap, state), validMap);
+});
+
+check('actual goal scope effect resets a replacement run or owner session while preserving the current selection', () => {
+  const source = currentPage(), effects = [];
+  function visit(node) {
+    if (ts.isCallExpression(node) && node.expression.getText(source) === 'useEffect'
+      && node.arguments[0]?.getText(source).includes('resetAutoDayGoal(state.runId)')) effects.push(node.arguments[0].getText(source));
+    ts.forEachChild(node, visit);
+  }
+  visit(source); assert.equal(effects.length, 1);
+  const state = fresh(), session = { revision: 1 };
+  const autoDayGoalRef = { current: { id: 'development', epoch: 3, runId: state.runId, session } };
+  let goalId = 'development', goalEpoch = 3, report = { runId: state.runId };
+  const resetAutoDayGoal = pageHandler('resetAutoDayGoal', { autoDayGoalRef, captureAuthSession: () => session,
+    setAutoDayGoalId: value => { goalId = value; }, setAutoDayReport: value => { report = value; },
+    setAutoDayGoalEpoch: value => { goalEpoch = value; } });
+  const effect = new Function('autoDayGoalRef', 'state', 'isCurrentAuthSession', 'resetAutoDayGoal', `return (${effects[0]});`)(
+    autoDayGoalRef, state, value => value === session, resetAutoDayGoal);
+  effect(); assert.equal(goalId, 'development'); assert.equal(autoDayGoalRef.current.epoch, 3); assert.ok(report);
+  state.runId = 'replacement-run'; effect();
+  assert.equal(goalId, 'default'); assert.equal(report, null);
+  assert.deepEqual(autoDayGoalRef.current, { id: 'default', epoch: 4, runId: state.runId, session });
+  assert.equal(goalEpoch, 4);
+  autoDayGoalRef.current = { ...autoDayGoalRef.current, id: 'exploration', session: { revision: 0 } };
+  report = { runId: state.runId }; effect();
+  assert.equal(goalId, 'default'); assert.equal(report, null);
+  assert.deepEqual(autoDayGoalRef.current, { id: 'default', epoch: 5, runId: state.runId, session });
+  assert.equal(goalEpoch, 5);
 });
 
 check('locked Growth opens the real preview on the requested shelf research without selecting or researching it', () => {
