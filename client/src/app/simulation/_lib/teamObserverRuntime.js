@@ -31,6 +31,7 @@ importantKinds.add('hunt_participant_end');
 importantKinds.add('equipment_effect');
 const observerArrayActorKeys = ['assistIds', 'participants', 'helpers'];
 const observerEventWindows = new WeakSet();
+const observerWindowHistory = new WeakMap();
 
 export function observerEventActorIds(event) {
   return [...new Set([event.who, event.a, event.b, event.by, event.targetId, event.target, event.victimId, event.chaserId, event.sourceActorId, event.opponentId, event.strikerId, event.previousOwnerId, event.continuedBy,
@@ -80,7 +81,58 @@ export function buildTeamObserverEventWindow(events, memberIds = []) {
   });
   const window = Object.freeze({ eventsRef: events, memberKey: observerMemberKey(members), rows: Object.freeze(rows) });
   observerEventWindows.add(window);
+  let ordered = true;
+  for (let index = 1; index < rows.length; index += 1) {
+    if (rows[index].sec < rows[index - 1].sec) { ordered = false; break; }
+  }
+  const timeRows = ordered ? window.rows : Object.freeze([...rows].sort((a, b) => a.sec - b.sec || a.index - b.index));
+  observerWindowHistory.set(window, { timeRows, last: null });
   return window;
+}
+
+function foldObserverHistory(timed, memberIds) {
+  const previousDecisionRows = new Map();
+  const previousDecision = new Map();
+  const lastDecisionByActor = new Map();
+  const lastRegroupByActor = new Map();
+  const lastProcurementByActor = new Map();
+  for (const row of timed) {
+    const whoId = String(row.event.who || '');
+    if (whoId && memberIds.has(whoId) && ['queue', 'procurement'].includes(row.event.kind)) {
+      const receipt = updateProcurementObservation(lastProcurementByActor.get(whoId), row.event, formatClock(row.sec));
+      if (receipt) lastProcurementByActor.set(whoId, receipt);
+    }
+    if (row.event.kind === 'revive' && whoId) { lastDecisionByActor.delete(whoId); lastRegroupByActor.delete(whoId); }
+    if (row.event.kind === 'dimension_rift_space' && whoId) lastRegroupByActor.delete(whoId);
+    if (row.event.kind === 'team_regroup' && whoId) {
+      if (row.event.cleared) lastRegroupByActor.delete(whoId);
+      else if (row.event.regroupEvidence?.version === 1) lastRegroupByActor.set(whoId, row);
+    }
+    if (decisionKinds.has(row.event.kind) && whoId) lastDecisionByActor.set(whoId, row);
+    if (row.event.kind === 'hunt_transfer' && row.event.previousOwnerId) lastDecisionByActor.set(String(row.event.previousOwnerId), row);
+    if (['team_decision', 'growth_plan'].includes(row.event.kind)) {
+      const key = `${row.event.kind}:${row.event.who}`;
+      previousDecision.set(row, previousDecisionRows.get(key));
+      previousDecisionRows.set(key, row);
+    }
+  }
+  return { timed, previousDecision, lastDecisionByActor, lastRegroupByActor, lastProcurementByActor };
+}
+
+function numericObserverHistory(metadata, matchSec, memberIds) {
+  const rows = metadata.timeRows;
+  let low = 0, high = rows.length;
+  // NaN retains the existing comparison behavior: no finite row is future.
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (rows[middle].sec > matchSec) high = middle;
+    else low = middle + 1;
+  }
+  if (metadata.last?.end === low) return metadata.last.history;
+  const timed = low === rows.length ? rows : rows.slice(0, low);
+  const history = foldObserverHistory(timed, memberIds);
+  metadata.last = { end: low, history };
+  return history;
 }
 
 export function getObserverVisibleActors(actors, trackedIds = [], limit = 12) {
@@ -297,7 +349,7 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
     competingTeams: new Set(objectiveHolders.filter((actor) => !memberIds.has(idOf(actor))
       && movementObjectivesOverlap(group.objective, actor._movementObjective)).map(getActorTeamId)).size,
   }));
-  const timed = [];
+  let timed = [];
   let ordered = true;
   let previousSec = -Infinity;
   const appendTimed = (event, index, sec) => {
@@ -306,8 +358,14 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
     // Decision links are query-local. Do not attach them to cached rows/events.
     timed.push({ event, index, sec });
   };
-  if (observerEventWindows.has(eventWindow) && eventWindow.eventsRef === events
-    && eventWindow.memberKey === observerMemberKey(memberIds)) {
+  let history = null;
+  const validWindow = observerEventWindows.has(eventWindow) && eventWindow.eventsRef === events
+    && eventWindow.memberKey === observerMemberKey(memberIds);
+  if (validWindow && typeof matchSec === 'number') {
+    history = numericObserverHistory(observerWindowHistory.get(eventWindow), matchSec, memberIds);
+    timed = history.timed;
+  } else if (validWindow) {
+    observerWindowHistory.get(eventWindow).last = null;
     for (const row of eventWindow.rows) {
       if (row.sec > matchSec) continue;
       appendTimed(row.event, row.index, row.sec);
@@ -320,38 +378,13 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
       appendTimed(event, index, sec);
     });
   }
-  if (!ordered) timed.sort((a, b) => a.sec - b.sec || a.index - b.index);
+  if (!history && !ordered) timed.sort((a, b) => a.sec - b.sec || a.index - b.index);
 
   const recent = [];
   const combat = [];
   const turningPoints = [];
-  const previousDecisionRows = new Map();
-  const lastDecisionByActor = new Map();
-  const lastRegroupByActor = new Map();
-  const lastProcurementByActor = new Map();
-  // Scan the entire ordered window for current member state, but do not format
-  // every historical event just to discard all but the newest visible rows.
-  // Links belong to temporary rows, never to the caller's events or actors.
-  for (const row of timed) {
-    const whoId = String(row.event.who || '');
-    if (whoId && memberIds.has(whoId) && ['queue', 'procurement'].includes(row.event.kind)) {
-      const receipt = updateProcurementObservation(lastProcurementByActor.get(whoId), row.event, formatClock(row.sec));
-      if (receipt) lastProcurementByActor.set(whoId, receipt);
-    }
-    if (row.event.kind === 'revive' && whoId) { lastDecisionByActor.delete(whoId); lastRegroupByActor.delete(whoId); }
-    if (row.event.kind === 'dimension_rift_space' && whoId) lastRegroupByActor.delete(whoId);
-    if (row.event.kind === 'team_regroup' && whoId) {
-      if (row.event.cleared) lastRegroupByActor.delete(whoId);
-      else if (row.event.regroupEvidence?.version === 1) lastRegroupByActor.set(whoId, row);
-    }
-    if (decisionKinds.has(row.event.kind) && whoId) lastDecisionByActor.set(whoId, row);
-    if (row.event.kind === 'hunt_transfer' && row.event.previousOwnerId) lastDecisionByActor.set(String(row.event.previousOwnerId), row);
-    if (['team_decision', 'growth_plan'].includes(row.event.kind)) {
-      const key = `${row.event.kind}:${row.event.who}`;
-      row.previousDecision = previousDecisionRows.get(key);
-      previousDecisionRows.set(key, row);
-    }
-  }
+  history ||= foldObserverHistory(timed, memberIds);
+  const { previousDecision, lastDecisionByActor, lastRegroupByActor, lastProcurementByActor } = history;
   const eventText = new Map();
   const textOf = (row) => {
     if (!eventText.has(row)) eventText.set(row, describeObserverEvent(row.event, { nameOf, zoneName }));
@@ -366,7 +399,8 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
     const needsCombat = combat.length < 3 && row.event.kind === 'battle';
     if (!needsRecent && !needsTurningPoint && !needsCombat) continue;
     const text = textOf(row);
-    if (!text || (row.previousDecision && textOf(row.previousDecision) === text)) continue;
+    const preceding = previousDecision.get(row);
+    if (!text || (preceding && textOf(preceding) === text)) continue;
     const formatted = { key: `${row.sec}:${row.index}`, sec: row.sec, clock: formatClock(row.sec), text, kind: row.event.kind };
     if (needsRecent) recent.push(formatted);
     if (needsCombat) {
@@ -397,7 +431,8 @@ export function buildTeamObserverModel({ survivors = [], dead = [], events = [],
       hp: Math.max(0, Math.floor(num(actor.hp))), maxHp: Math.max(1, Math.floor(num(actor.maxHp))),
       progress: `${progress.completedSlots}/${progress.totalSlots}`, hasGoals: progress.totalSlots > 0,
       growth: getActorGrowthObservation(actor, publicItems, { progress, forbiddenIds, fieldResources: spawnState?.fieldResources, zoneName, isGameOver, ruleset: observerRuleset }),
-      procurement: lastProcurementByActor.get(id) || null,
+      procurement: lastProcurementByActor.has(id)
+        ? (validWindow && typeof matchSec === 'number' ? { ...lastProcurementByActor.get(id) } : lastProcurementByActor.get(id)) : null,
       equipment: getEquipSummary(actor).full, goal: progress.remaining[0]?.name || '', readyIn,
       spatial: position ? `지역 내 (${position.x.toFixed(1)}, ${position.y.toFixed(1)})m · 평타 ${spatialStats.attackRange.toFixed(1)}m / 시야 ${spatialStats.sightRange.toFixed(1)}m / 이속 ${spatialStats.moveSpeed.toFixed(1)}m/s` : '',
       motion: [getActionStatePresentation(actor).text, forcedText || (motion && position && motion.zoneId === position.zoneId
