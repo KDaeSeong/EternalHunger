@@ -6,10 +6,10 @@ function EffectSymbol({ kind }) {
   return <span aria-hidden="true">{kind === 'heal' ? '+' : kind === 'shield' ? '◇' : kind === 'buff' ? '↑' : '✦'}</span>;
 }
 
-export default function AutochessCombatEffects({ presentation, frameKey, duration }) {
+export default function AutochessCombatEffects({ presentation, frameKey, duration, cols = 6, rows = 8 }) {
   const { effects, casts, fallen } = presentation;
   return <>
-    <svg className="ac-shots" viewBox="0 0 600 800" preserveAspectRatio="none" aria-hidden="true" style={{ '--fx-duration': duration + 'ms' }}>
+    <svg className="ac-shots" viewBox={'0 0 ' + cols * 100 + ' ' + rows * 100} preserveAspectRatio="none" aria-hidden="true" style={{ '--fx-duration': duration + 'ms' }}>
       {effects.filter(fx => fx.link).map(fx => <g key={frameKey + ':' + fx.id}
         className={'ac-shot is-' + fx.kind + ' is-' + fx.from.tone} style={{ '--fx-color': fx.color, '--fx-accent': fx.profile.accent, '--fx-team': fx.teamColor }}
         data-ac-from={fx.from.uid} data-ac-to={fx.to.uid} data-ac-effect={fx.kind} data-ac-character={fx.from.studentId} data-ac-motif={fx.profile.motif}>
@@ -23,23 +23,23 @@ export default function AutochessCombatEffects({ presentation, frameKey, duratio
       </g>)}
     </svg>
     <div className="ac-fx-layer" aria-hidden="true" style={{ '--fx-duration': duration + 'ms' }}>
-      {effects.map(fx => <div key={frameKey + ':' + fx.id} className={'ac-impact-point is-' + fx.kind + ' is-' + fx.variant + (fx.to.point.y === 50 ? ' is-edge' : '')}
+      {effects.map(fx => <div key={frameKey + ':' + fx.id} className={'ac-impact-point is-' + fx.kind + ' is-' + fx.variant + (fx.numberBelow || fx.to.point.y === 50 ? ' is-edge' : '')}
         style={{ left: fx.x + '%', top: fx.y + '%', '--fx-color': fx.color, '--fx-stack': fx.stack, '--fx-accent': fx.profile.accent, '--sigil-size': fx.profile.size + 'px' }}
         data-ac-from={fx.from.uid} data-ac-to={fx.to.uid} data-ac-effect={fx.kind} data-ac-character={fx.from.studentId} data-ac-motif={fx.profile.motif}>
         <span className="ac-impact-ring" /><span className="ac-impact-spark"><EffectSymbol kind={fx.kind} /></span>
         <svg className="ac-character-sigil" viewBox="0 0 48 48"><path d={fx.profile.sigil} /></svg>
-        <strong className="ac-damage-number">{fx.amountLabel}</strong>
+        {fx.amountLabel ? <strong className="ac-damage-number">{fx.amountLabel}</strong> : null}
       </div>)}
       {fallen.map(target => <span key={frameKey + ':fallen:' + target.uid} className="ac-defeat-label"
-        style={{ left: target.point.x / 6 + '%', top: target.point.y / 8 + '%' }}>격파 · {target.badge} {target.name}</span>)}
+        style={{ left: target.point.x / cols + '%', top: target.point.y / rows + '%' }}>격파 · {target.badge} {target.name}</span>)}
       {casts.map(cast => <div key={frameKey + ':cast:' + cast.uid} className={'ac-cast-label is-' + cast.kind + (cast.point.y === 50 ? ' is-edge' : '')}
-        style={{ '--fx-x': cast.point.x / 6 + '%', top: cast.point.y / 8 + '%', '--fx-color': cast.color, '--fx-accent': cast.profile.accent }}
+        style={{ '--fx-x': cast.point.x / cols + '%', top: cast.point.y / rows + '%', '--fx-color': cast.color, '--fx-accent': cast.profile.accent }}
         data-ac-caster={cast.uid} data-ac-character={cast.studentId} data-ac-motif={cast.profile.motif}>
         <EffectSymbol kind={cast.kind} />{cast.label}
       </div>)}
       {effects.filter((fx, index) => effects.findIndex(row => row.from.uid === fx.from.uid) === index).map(fx =>
         <div key={frameKey + ':source:' + fx.from.uid} className={'ac-source-ring is-' + fx.kind}
-          style={{ left: fx.from.point.x / 6 + '%', top: fx.from.point.y / 8 + '%', '--fx-color': fx.color }} />)}
+          style={{ left: fx.from.point.x / cols + '%', top: fx.from.point.y / rows + '%', '--fx-color': fx.color }} />)}
     </div>
   </>;
 }

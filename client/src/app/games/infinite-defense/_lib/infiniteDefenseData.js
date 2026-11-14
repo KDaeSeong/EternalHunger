@@ -9,6 +9,7 @@ const QUICK_SAVE_SLOT = 'infinite-defense-main';
 const STEP_SECONDS = 0.1;
 const OFFLINE_CAP_SECONDS = 8 * 60 * 60;
 const MAP = { width: 12, height: 8 };
+const MINING_ANCHOR = { x: 1.3, y: 6.85 };
 const ROUTE = [
   { x: -0.5, y: 1.5 }, { x: 3.5, y: 1.5 }, { x: 3.5, y: 5.5 },
   { x: 7.5, y: 5.5 }, { x: 7.5, y: 2.5 }, { x: 12.5, y: 2.5 },
@@ -284,4 +285,4 @@ const ENEMY_TYPES = {
   boss: { name: '거점 파괴자', hp: 1000, speed: 0.34, armor: 8, reward: 250, leak: 25, color: '#f16b86', shape: 'boss' },
 };
 
-export { GAME_SLUG, SAVE_VERSION, LEGACY_SAVE_VERSION, SUPPORTED_SAVE_VERSIONS, LEGACY_STUDENT_IDS, MAX_MINERS, QUICK_SAVE_SLOT, STEP_SECONDS, OFFLINE_CAP_SECONDS, MAP, ROUTE, PADS, STAT_DEFS, STUDENTS, ENEMY_TYPES };
+export { GAME_SLUG, SAVE_VERSION, LEGACY_SAVE_VERSION, SUPPORTED_SAVE_VERSIONS, LEGACY_STUDENT_IDS, MAX_MINERS, QUICK_SAVE_SLOT, STEP_SECONDS, OFFLINE_CAP_SECONDS, MAP, MINING_ANCHOR, ROUTE, PADS, STAT_DEFS, STUDENTS, ENEMY_TYPES };

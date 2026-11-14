@@ -1,4 +1,4 @@
-import { SAVE_VERSION, LEGACY_SAVE_VERSION, LEGACY_STUDENT_IDS, MAX_MINERS, STEP_SECONDS, OFFLINE_CAP_SECONDS, ROUTE, PADS, STAT_DEFS, STUDENTS, ENEMY_TYPES } from './infiniteDefenseData.js';
+import { SAVE_VERSION, LEGACY_SAVE_VERSION, LEGACY_STUDENT_IDS, MAX_MINERS, STEP_SECONDS, OFFLINE_CAP_SECONDS, MINING_ANCHOR, ROUTE, PADS, STAT_DEFS, STUDENTS, ENEMY_TYPES } from './infiniteDefenseData.js';
 
 const MAX_LOG = 36;
 const MAX_FX = 24;
@@ -146,6 +146,11 @@ function step(state, dt) {
       const row = state.assignments[s.id];
       return [s.id, { ...row, cooldown: Math.max(0, round(row.cooldown - dt)) }];
     })) };
+  if (next.assignments.noa.mode === 'mine' && Math.floor(elapsed / 2) > Math.floor(state.elapsed / 2)) {
+    next.effects.push({ id: 'noa-mine-' + elapsed, studentId: 'noa', kind: 'mine', abilityName: '생산 지원',
+      from: { ...MINING_ANCHOR }, to: { ...MINING_ANCHOR }, color: getStudent('noa').color, hits: [], traits: [], until: elapsed + .22 });
+    next.effects = next.effects.slice(-MAX_FX);
+  }
   if (state.phase !== 'wave') return next;
   next.waveTime = round(state.waveTime + dt);
   const plan = wavePlan(state.wave);
@@ -170,15 +175,21 @@ function step(state, dt) {
       const p = pointAt(e.distance);
       return Math.hypot(p.x - targetPoint.x, p.y - targetPoint.y) <= stats.splash;
     })()) : [target];
+    const hits = [];
     for (const victim of victims) {
+      const beforeHp = victim.hp;
       victim.hp = round(victim.hp - Math.max(1, stats.damage - victim.armor * (1 - stats.pierce)));
       if (stats.slow && victim.type !== 'boss') {
         victim.slowUntil = elapsed + 1.5;
         victim.slowFactor = stats.slow;
       }
+      hits.push({ id: victim.id, type: victim.type, point: pointAt(victim.distance), damage: round(Math.min(beforeHp, beforeHp - victim.hp)),
+        killed: victim.hp <= 0, slowed: Boolean(stats.slow && victim.type !== 'boss') });
     }
     row.cooldown = stats.interval;
-    next.effects.push({ id: student.id + '-' + elapsed, from: { x: pad.x, y: pad.y }, to: targetPoint, color: student.color, until: elapsed + 0.22 });
+    next.effects.push({ id: student.id + '-' + elapsed, studentId: student.id, kind: 'attack', abilityName: student.id === 'noa' ? '지원 사격' : student.role,
+      from: { x: pad.x, y: pad.y }, to: targetPoint, color: student.color, until: elapsed + 0.22, hits, radius: stats.splash,
+      traits: [stats.splash > 0 ? 'splash' : '', stats.pierce > 0 ? 'pierce' : '', hits.some(hit => hit.slowed) ? 'slow' : '', student.id === 'shiroko' ? 'precision' : ''].filter(Boolean) });
   }
   let leaks = 0, killed = 0, bounty = 0;
   next.enemies = next.enemies.filter(e => {

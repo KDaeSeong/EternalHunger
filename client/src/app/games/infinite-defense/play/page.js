@@ -8,12 +8,18 @@ import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { CHARACTER_ORIGINS } from '../../_lib/crossoverCharacters.js';
 import OfficialStudentIcon from '../../_components/OfficialStudentIcon';
 import DefenseBoard from '../_components/DefenseBoard';
+import DefenseEffectPreview from '../_components/DefenseEffectPreview';
+import DefenseCombatFeed from '../_components/DefenseCombatFeed';
+import useDefenseCombatAudio from '../_hooks/useDefenseCombatAudio';
+import { defensePresentation } from '../_lib/infiniteDefenseEffects';
+import { useGameSfxPreference } from '../../_lib/useGameSfx';
 import useInfiniteDefenseSession from '../_hooks/useInfiniteDefenseSession';
 import { ENEMY_TYPES, STAT_DEFS, STUDENTS, MAX_MINERS } from '../_lib/infiniteDefenseData';
 import {
   assignStudent, mineCost, miningRate, powerCost, repairBase, setPaused, startWave, studentStats,
   trainingCost, trainStudent, upgradeMine, upgradePower, wavePlan,
 } from '../_lib/infiniteDefenseEngine';
+import '../../../../styles/KivotosAutochess.css';
 import '../../../../styles/InfiniteDefense.css';
 
 const fmt = value => Number.isFinite(value) ? Math.floor(value).toLocaleString('ko-KR') : '최대';
@@ -28,9 +34,13 @@ export default function InfiniteDefensePlayPage() {
   const [speed, setSpeed] = useState(1);
   const [autoWave, setAutoWave] = useState(false);
   const [confirmNew, setConfirmNew] = useState(false);
+  const [effectVolume, setEffectVolume] = useState(.7), [previewStudentId, setPreviewStudentId] = useState('');
+  const { enabled: sfxEnabled, toggle: toggleSfx } = useGameSfxPreference({ theme: 'tactical' });
   const inputRef = useRef(null);
   const session = useInfiniteDefenseSession({ owner, hydrated, token, speed, autoWave, startWave });
   const { state, ready, message, busy, recorded, act, newRun, recover, exportRun, importRun, serverAction } = session;
+  useDefenseCombatAudio({ state, active: ready && !busy && !previewStudentId, volume: effectVolume });
+  const combat = defensePresentation(state);
   const selected = studentStats(state, selectedId);
   const assignment = state.assignments[selectedId];
   const disabled = !ready || Boolean(busy);
@@ -74,7 +84,7 @@ export default function InfiniteDefensePlayPage() {
             <span>01 채굴 배치</span><b aria-hidden="true">→</b><span>02 방어·훈련</span><b aria-hidden="true">→</b><span>03 보스 격파</span>
           </div>
           <div className="defense-board-wrap">
-            <DefenseBoard state={state} selectedId={selectedId} onPad={onPad} disabled={disabled || ended} />
+            <DefenseBoard state={state} selectedId={selectedId} onPad={onPad} disabled={disabled || ended} effectDuration={220 / speed} />
             {!ready ? <div className="defense-overlay"><h2>작전을 준비하고 있습니다</h2><p>저장된 진행을 확인하는 중입니다.</p></div> : null}
             {state.phase === 'victory' ? (
               <div className="defense-overlay is-victory">
@@ -91,6 +101,7 @@ export default function InfiniteDefensePlayPage() {
               </div>
             ) : null}
           </div>
+          <DefenseCombatFeed presentation={combat} />
           <div className="defense-battle-controls">
             <button type="button" className="defense-primary"
               disabled={disabled || ended || state.paused || state.phase === 'wave' || !defenseCount}
@@ -105,6 +116,10 @@ export default function InfiniteDefensePlayPage() {
               {[1, 2, 3].map(value => <button key={value} type="button" aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}배</button>)}
             </div>
             <label className="defense-auto"><input type="checkbox" checked={autoWave} onChange={event => setAutoWave(event.target.checked)} />자동 웨이브</label>
+          </div>
+          <div className="defense-combat-audio" role="group" aria-label="전투 효과음 설정">
+            <button type="button" className="defense-button" data-game-sfx="off" aria-pressed={sfxEnabled} onClick={toggleSfx}>{sfxEnabled ? '효과음 켜짐' : '효과음 꺼짐'}</button>
+            <label className="defense-combat-volume">전투 효과음<input type="range" aria-label="전투 효과음 볼륨" aria-valuetext={Math.round(effectVolume * 100) + '%'} min="0" max="1" step=".05" data-game-sfx="off" value={effectVolume} disabled={!sfxEnabled} onChange={event => setEffectVolume(Number(event.target.value))} /><output>{Math.round(effectVolume * 100)}%</output></label>
           </div>
           <div className="defense-hint" role="status">
             {state.phase === 'wave' ? '남은 적 ' + (state.enemies.length + wavePlan(state.wave).length - state.spawnIndex) + ' · 전투 중에도 재배치와 훈련이 가능합니다.'
@@ -147,6 +162,7 @@ export default function InfiniteDefensePlayPage() {
                 <div className="defense-selected" style={{ '--unit-color': selected.color }}>
                   <div className="defense-selected-title"><h3>{selected.name}</h3><span>{selected.role}</span></div>
                   <p>{selected.note}</p>
+                  <button type="button" className="defense-button defense-wide defense-effect-preview-button" aria-label={selected.name + ' 공격·스킬 미리보기'} disabled={state.phase === 'wave' && !state.paused} onClick={() => setPreviewStudentId(selectedId)}>공격·스킬 미리보기</button>
                   <div className="defense-stat-strip"><span>화력 <b>{selected.damage}</b></span><span>사거리 <b>{selected.range.toFixed(2)}</b></span><span>간격 <b>{selected.interval.toFixed(2)}초</b></span></div>
                   {tab === 'students' ? <>
                     <div className="defense-assignment">
@@ -193,6 +209,7 @@ export default function InfiniteDefensePlayPage() {
           </div>
         </section>
       </div>
+      {previewStudentId ? <DefenseEffectPreview studentId={previewStudentId} onStudentChange={setPreviewStudentId} onClose={() => setPreviewStudentId('')} volume={effectVolume} soundEnabled={sfxEnabled} /> : null}
       <p className="defense-footer">20웨이브 보스 격파 후 무한 모드로 계속 도전할 수 있습니다. 캐릭터는 한 번에 방어·채굴·대기 중 한 역할만 맡습니다.</p>
       <p className="defense-art-credit">캐릭터 {STUDENTS.length}명 · 일러스트 © 각 권리자 · <a href="/games/shared/blue-archive/sources.json" target="_blank" rel="noreferrer">블루 아카이브 출처</a> · <a href="/games/shared/crossover/sources.json" target="_blank" rel="noreferrer">이환·원신 출처</a></p>
     </GamePlayShell>

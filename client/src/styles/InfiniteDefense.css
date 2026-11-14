@@ -138,3 +138,37 @@
 .defense-origin-tabs button { flex:1; border:0; border-radius:7px; padding:10px 4px; background:transparent; color:#8a9fac; font-family:inherit; font-size:.68rem; cursor:pointer; min-height:40px; }
 .defense-origin-tabs button[aria-pressed=true] { background:#fff; color:#3a7d88; box-shadow:0 1px 4px #244e5a12; }
 .defense-mining-count { color:#5f8a99!important; font-weight:600; }
+
+.defense-map>.ac-shots { position:absolute; inset:0; z-index:2; }
+.defense-map>.defense-skill-areas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1; }
+.defense-pad { z-index:3; }
+.defense-map .ac-impact-point.is-slow .ac-impact-ring { border-color:#a2e6ff; border-style:dashed; box-shadow:0 0 12px #82c9ff99; }
+.defense-map .ac-impact-point.is-buff .ac-damage-number { font-size:10px; }
+.defense-miner-marker { position:absolute; display:flex; flex-direction:column; align-items:center; gap:2px; transform:translate(-50%,-50%); pointer-events:none; z-index:3; }
+.defense-miner-marker>span { width:28px; height:28px; overflow:hidden; border:2px solid #dfb8ee; border-radius:8px; background:#244958; }
+.defense-miner-marker small { padding:2px 4px; border-radius:4px; background:#112b3de8; color:#edd6ff; font-size:8px; white-space:nowrap; }
+.defense-map .ac-source-ring { width:42px; height:42px; }
+.defense-overlay { z-index:6; }
+.defense-combat-audio { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:4px 20px 12px; }
+.defense-combat-audio>button { padding:6px 9px; font-size:.65rem; }
+.defense-combat-volume { display:flex; flex:1; align-items:center; gap:7px; font-size:.65rem; color:#678095; min-width:180px; }
+.defense-combat-volume input { width:110px; max-width:35vw; accent-color:#247d92; }.defense-combat-volume output { font-variant-numeric:tabular-nums; }
+.defense-combat-feed { margin:10px 16px 0; padding:10px 11px; border:1px solid #deE7ef; border-radius:9px; background:#f5f9fc; font-size:.65rem; }
+.defense-combat-feed>div { display:flex; justify-content:space-between; gap:8px; }.defense-combat-feed>div>span { color:#7c91a2; font-size:.59rem; }
+.defense-combat-feed ol { list-style:none; padding:0; margin:7px 0 0; display:grid; gap:4px; }
+.defense-combat-feed li { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 7px; padding:5px 6px; border:1px solid #e0e9f0; border-radius:5px; background:#fff; line-height:1.7; }
+.defense-combat-feed li>b { color:#2b7096; }.defense-combat-feed li>strong { color:#aa6650; }.defense-combat-feed li>small { margin-left:auto; color:#748298; font-size:.58rem; }
+.defense-combat-feed p { color:#8296a6; line-height:1.7; margin:6px 0 0; }
+.defense-effect-preview { position:fixed; inset:0; margin:auto; height:fit-content; width:min(560px,calc(100vw - 28px)); max-height:calc(100dvh - 30px); padding:18px; border:1px solid #c9dbe8; border-radius:16px; background:#fff; color:#284254; box-shadow:0 15px 80px #08172c66; overflow:auto; }
+.defense-effect-preview::backdrop { background:#071627aa; }
+.defense-preview-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }.defense-preview-heading h2 { font-size:1.1rem; margin:3px 0 0; }.defense-preview-heading small { font-size:.62rem; color:#5a8c9c; }
+.defense-preview-heading>button { font-size:.65rem; padding:7px 9px; }
+.defense-preview-select { display:flex; align-items:center; gap:9px; margin-top:12px; font-size:.7rem; }.defense-preview-select select { flex:1; min-width:0; padding:7px; border:1px solid #d3e0ea; border-radius:7px; background:#f5f9fc; color:#36576b; }
+.defense-preview-description { color:#73899b; font-size:.67rem; line-height:1.7; margin:9px 0; }
+.defense-preview-stage { border-radius:10px; overflow:hidden; }.defense-preview-stage .defense-map { aspect-ratio:12/8; }
+.defense-preview-stage .defense-pad:disabled { opacity:1; }.defense-preview-stage .defense-map-key { display:none; }
+.defense-preview-controls { display:flex; gap:8px; margin-top:10px; }.defense-preview-controls>button { flex:1; }
+.defense-preview-note { color:#7b8e9f; font-size:.6rem; margin:8px 0 0; line-height:1.7; }
+.defense-selected .defense-effect-preview-button { margin-top:10px; padding:8px 10px; }
+@media(max-width:520px) { .defense-effect-preview { padding:12px; }.defense-preview-stage .defense-map { aspect-ratio:12/9; }.defense-preview-heading h2 { font-size:.95rem; }.defense-combat-feed li>small { flex-basis:100%; margin-left:0; } }
+@media(prefers-reduced-motion:reduce) { .defense-page .ac-shots *,.defense-page .ac-fx-layer * { animation:none!important; transition:none!important; } }

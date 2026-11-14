@@ -7,12 +7,12 @@ const tone = (frequency, endFrequency, duration, gain, type = 'triangle', start 
 const noise = (frequency, duration, gain, filterType = 'bandpass', start = 0) =>
   ({ source: 'noise', frequency, duration, gain, filterType, start, q: 1.4, reverb: .03 });
 
-export function characterSoundVoices(studentId, kind) {
-  const profile = CHARACTER_EFFECTS[studentId];
+export function characterSoundVoices(studentId, kind, profileOverride) {
+  const profile = profileOverride || CHARACTER_EFFECTS[studentId];
   if (!profile || !Object.hasOwn(PRIORITY, kind)) return [];
   const p = profile.pitch, skill = kind !== 'attack';
   let voices;
-  if (kind === 'shield' && STUDENT_BY_ID[studentId].skill !== 'shield') {
+  if (kind === 'shield' && STUDENT_BY_ID[studentId]?.skill !== 'shield') {
     voices = [tone(p, p * 1.5, .09, .2, 'sine'), tone(p * 2, p * 2.4, .12, .15, 'sine', .04)];
   } else if (profile.timbre === 'rifle') {
     voices = [noise(2600 + p, .035, .34, 'highpass'), tone(p * 2, p * .6, .065, .25)];
