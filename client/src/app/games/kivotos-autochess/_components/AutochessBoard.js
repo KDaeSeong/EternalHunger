@@ -4,12 +4,16 @@ import OfficialStudentIcon from '../../_components/OfficialStudentIcon';
 import { ACADEMIES, BOARD, STUDENT_BY_ID } from '../_lib/autochessData.js';
 import { battleTeam, compactFrame } from '../_lib/autochessCombat.js';
 import { boardTeamsFor } from '../_lib/autochessBoardTeams.js';
+import { combatPresentation } from '../_lib/autochessCombatEffects.js';
+import AutochessCombatEffects, { AutochessCombatFeed } from './AutochessCombatEffects';
 
-export default function AutochessBoard({ player, opponent, watch, frameIndex, selectedUid, onCell, editable, onUnitPointerDown, draggingUid, dropKey }) {
+export default function AutochessBoard({ player, opponent, watch, frameIndex, selectedUid, onCell, editable, onUnitPointerDown, draggingUid, dropKey, effectDuration = 400 }) {
   const teams = boardTeamsFor(player, opponent, watch);
   const preview = watch ? null : compactFrame(0, [...battleTeam(player, 0), ...(opponent ? battleTeam(opponent, 1) : [])], []);
   const frame = watch ? watch.frames[Math.min(frameIndex, watch.frames.length - 1)] : preview;
-  const units = frame?.[1] || [], effects = frame?.[2] || [];
+  const units = frame?.[1] || [];
+  const combat = watch ? combatPresentation(frame, teams) : null;
+  const frameKey = watch ? watch.round + ':' + watch.left.id + ':' + watch.right.id + ':' + frameIndex : '';
   const ownedAt = (x, y) => player.units.find(u => u.position.kind === 'field' && u.position.x === x && u.position.y === y - 4);
   return (
     <div className="ac-arena">
@@ -50,16 +54,10 @@ export default function AutochessBoard({ player, opponent, watch, frameIndex, se
           </div>
         );
       })}
-      {watch ? <svg className="ac-shots" viewBox="0 0 6 8" preserveAspectRatio="none" aria-hidden="true">
-        {effects.map((fx, i) => {
-          const from = units.find(a => a[0] === fx[0]), to = units.find(a => a[0] === fx[1]);
-          if (!from || !to) return null;
-          return <line key={i} x1={from[3] + .5} y1={from[4] + .5} x2={to[3] + .5} y2={to[4] + .5}
-            stroke={fx[2] === 'heal' ? '#5ccba8' : fx[2] === 'shield' ? '#83adff' : fx[2] === 'skill' ? '#efb357' : '#a7bcc7'} strokeWidth={fx[2] === 'skill' ? '.055' : '.025'} opacity=".9" />;
-        })}
-      </svg> : null}
+      {combat ? <AutochessCombatEffects presentation={combat} frameKey={frameKey} duration={effectDuration} /> : null}
       <span className={'ac-board-side is-away is-' + teams[1].tone} aria-hidden="true">{teams[1].label}</span><span className={'ac-board-side is-home is-' + teams[0].tone} aria-hidden="true">{teams[0].label}</span>
       </div>
+      {combat ? <AutochessCombatFeed presentation={combat} /> : null}
     </div>
   );
 }

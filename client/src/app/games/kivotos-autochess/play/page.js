@@ -99,7 +99,7 @@ export default function KivotosAutochessPlayPage() {
             <div className="ac-round-info"><span>{watch ? '전투 ' + watchedFrame?.[0].toFixed(1) + ' / ' + watch.duration.toFixed(1) + '초' : scouted ? '정찰 · ' + scouted.name + (opponent?.ghost && scouted.id === opponent.player.id ? '의 고스트' : '') : '최종 순위를 확인하세요'}</span><span>{planning ? '다음 대진 · ' + (opponent ? opponent.player.name + (opponent.ghost ? '의 고스트' : '') : '대진 없음') : watch ? '체력과 마나에 따라 자동으로 공격·스킬 사용' : '체력 0이면 탈락'}</span></div>
             <p className="ac-placement-help" id="ac-placement-help" aria-live="polite">{draggingStudent ? draggingStudent.name + ' 이동 중 · 아군 칸이나 대기석에 놓으세요.' : '캐릭터를 드래그해 배치하거나, 클릭해서 선택 후 원하는 칸을 누르세요.'}</p>
             <div className="ac-board-wrap">
-              <AutochessBoard player={human} opponent={scouted} watch={watch} frameIndex={frameIndex} selectedUid={selectedUid} onCell={place} editable={editable} onUnitPointerDown={drag.onPointerDown} draggingUid={drag.view?.uid} dropKey={drag.view?.dropKey} />
+              <AutochessBoard player={human} opponent={scouted} watch={watch} frameIndex={frameIndex} effectDuration={replay ? 400 : 400 / speed} selectedUid={selectedUid} onCell={place} editable={editable} onUnitPointerDown={drag.onPointerDown} draggingUid={drag.view?.uid} dropKey={drag.view?.dropKey} />
               {!ready ? <div className="ac-overlay"><h2>대전을 준비하고 있습니다</h2><p>저장된 진행을 확인하는 중입니다.</p></div> : null}
               {state.phase === 'finished' && !replay ? <div className="ac-overlay">
                 <span className="ac-eyebrow">FINAL RESULT</span><h2>{human.rank === 1 ? '최후의 승자!' : '최종 ' + human.rank + '위'}</h2>
