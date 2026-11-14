@@ -1188,6 +1188,10 @@
 
 .primitive-era.primitive-archive-page-shell .primitive-focus-panel {
   gap: 8px;
+  min-height: 0;
+  max-height: 42vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .primitive-era.primitive-archive-page-shell .primitive-focus-panel article {

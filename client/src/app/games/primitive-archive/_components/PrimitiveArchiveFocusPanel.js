@@ -7,6 +7,11 @@ import { primitiveArchiveFoodOutlook } from '../_lib/primitiveArchiveFoodOutlook
 function CompletionProgress({ guide, onHelp, blocked, annualMode }) {
   if (!guide?.rows?.length || guide.status === 'ended') return null;
   const disabled = blocked || typeof onHelp !== 'function';
+  const requestHelp = (event, request) => {
+    onHelp?.(request);
+    const disclosure = event?.currentTarget?.closest?.('.primitive-completion-guide__details');
+    if (disclosure) disclosure.open = false;
+  };
   return <div className="primitive-completion-guide" aria-label="기초 완주 준비">
     <div className="primitive-completion-guide__summary">
       <strong>기초 완주 {guide.rows.filter(row => row.done).length}/{guide.rows.length}</strong>
@@ -20,19 +25,19 @@ function CompletionProgress({ guide, onHelp, blocked, annualMode }) {
     {annualMode && guide.objective ? <p>
       <strong>{guide.objective.title}</strong> · {guide.objective.detail}
       <GameControlButton action="target" disabled={disabled}
-        onClick={() => onHelp?.({ scope: 'completion', kind: 'target', candidateKind: guide.objective.kind, id: guide.objective.id })}>{guide.objective.actionLabel}</GameControlButton>
+        onClick={(event) => requestHelp(event, { scope: 'completion', kind: 'target', candidateKind: guide.objective.kind, id: guide.objective.id })}>{guide.objective.actionLabel}</GameControlButton>
     </p> : null}
     {guide.status === 'complete' ? <GameControlButton action="target" disabled={disabled}
-      onClick={() => onHelp?.({ scope: 'completion', kind: 'target', candidateKind: 'complete' })}>완주 선택 확인</GameControlButton>
+      onClick={(event) => requestHelp(event, { scope: 'completion', kind: 'target', candidateKind: 'complete' })}>완주 선택 확인</GameControlButton>
       : <details className="primitive-completion-guide__details">
         <summary>남은 완주 준비와 재료 확인</summary>
         {guide.candidates.map(candidate => <article key={`${candidate.kind}:${candidate.id}`}>
           <h3>{candidate.title}</h3><p>{candidate.detail}</p>
           <div className="primitive-completion-guide__links">
             <GameControlButton action="target" disabled={disabled}
-              onClick={() => onHelp?.({ scope: 'completion', kind: 'target', candidateKind: candidate.kind, id: candidate.id })}>{candidate.actionLabel}</GameControlButton>
+              onClick={(event) => requestHelp(event, { scope: 'completion', kind: 'target', candidateKind: candidate.kind, id: candidate.id })}>{candidate.actionLabel}</GameControlButton>
             {candidate.research.map(technology => <GameControlButton key={technology.technologyId} action="research" disabled={disabled}
-              onClick={() => onHelp?.({ scope: 'completion', kind: 'research', technologyId: technology.technologyId })}>{technology.name} 조건 보기</GameControlButton>)}
+              onClick={(event) => requestHelp(event, { scope: 'completion', kind: 'research', technologyId: technology.technologyId })}>{technology.name} 조건 보기</GameControlButton>)}
           </div>
           {candidate.materials.map(material => <div key={material.resourceId}>
             <p>{material.name} {material.current}/{material.required} · {material.missing}개 부족</p>
@@ -40,12 +45,12 @@ function CompletionProgress({ guide, onHelp, blocked, annualMode }) {
               {material.sources.map(source => source.kind === 'community'
                 ? <GameControlButton key={`community:${source.actionId}`} action="target" disabled={disabled}
                   title={`${source.actionLabel}의 생산 가능 자원입니다. ${(source.research || []).filter(row => !row.completed).map(row => row.name).join(' · ')}${(source.research || []).some(row => !row.completed) ? ' 연구를 마친 뒤 ' : ''}일손을 직접 배치하고 다음 1년 정산을 확인하세요. 현재 배치의 생산량을 보장하지는 않습니다.`}
-                  onClick={() => onHelp?.({ scope: 'completion', kind: 'community', resourceId: material.resourceId, actionId: source.actionId })}>{source.actionLabel} · 공동체 생산 확인</GameControlButton>
+                  onClick={(event) => requestHelp(event, { scope: 'completion', kind: 'community', resourceId: material.resourceId, actionId: source.actionId })}>{source.actionLabel} · 공동체 생산 확인</GameControlButton>
                 : <GameControlButton key={`${source.regionId}:${source.action}`} action="map" disabled={disabled}
                   title={`${source.actionLabel} · ${source.dangerLabel} · 획득 성공을 보장하지 않습니다.`}
-                  onClick={() => onHelp?.({ scope: 'completion', kind: 'map', resourceId: material.resourceId, regionId: source.regionId })}>{source.regionName} · {source.actionLabel} 공급처 보기</GameControlButton>)}
+                  onClick={(event) => requestHelp(event, { scope: 'completion', kind: 'map', resourceId: material.resourceId, regionId: source.regionId })}>{source.regionName} · {source.actionLabel} 공급처 보기</GameControlButton>)}
               {material.crafting.map(recipe => <GameControlButton key={recipe.recipeId} action="craft" disabled={disabled}
-                onClick={() => onHelp?.({ scope: 'completion', kind: 'recipe', recipeId: recipe.recipeId })}>{recipe.name} · {annualMode ? '공동체 가공 확인' : '제작법 확인'}</GameControlButton>)}
+                onClick={(event) => requestHelp(event, { scope: 'completion', kind: 'recipe', recipeId: recipe.recipeId })}>{recipe.name} · {annualMode ? '공동체 가공 확인' : '제작법 확인'}</GameControlButton>)}
             </div>
             {!material.sources.length && !material.crafting.length ? <small>{annualMode
               ? '현재 확인된 공급처가 없습니다. 공동체 생산·가공과 발전 조건을 확인하세요.'
