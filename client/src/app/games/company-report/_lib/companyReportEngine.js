@@ -449,9 +449,9 @@ export function createOrderAction(state, partnerId, productId, quantity) {
   const current = normalizeState(state);
   const partner = getPartner(partnerId);
   const product = getProduct(productId);
-  const qty = Math.max(1, Math.round(Number(quantity || 1)));
+  const qty = Number(quantity);
   if (!partner || !product) return current;
-  if (!Number.isSafeInteger(qty)) return addLog(current, '주문 수량을 확인하세요. 유효한 정수가 필요합니다.');
+  if (!Number.isSafeInteger(qty) || qty < 1) return addLog(current, '주문 수량을 확인하세요. 1 이상의 정수가 필요합니다.');
   const availableCredit = partner.creditLimit - outstandingByPartner(current, partner.id);
   const receivableAmount = Math.round(product.unitPrice * qty * 1.1);
   if (receivableAmount > availableCredit) return addLog(current, `${partner.name} 여신 한도가 부족해 주문을 받을 수 없습니다.`);
@@ -552,9 +552,9 @@ export function collectReceivableAction(state, receivableId) {
 export function inboundInventoryAction(state, productId, quantity) {
   const current = normalizeState(state);
   const product = getProduct(productId);
-  const qty = Math.max(1, Math.round(Number(quantity || 1)));
+  const qty = Number(quantity);
   if (!product) return current;
-  if (!Number.isSafeInteger(qty)) return addLog(current, '생산 수량을 확인하세요. 유효한 정수가 필요합니다.');
+  if (!Number.isSafeInteger(qty) || qty < 1) return addLog(current, '생산 수량을 확인하세요. 1 이상의 정수가 필요합니다.');
   const cost = product.unitCost * qty;
   if (Number(current.company.cashKrw || 0) < cost) return addLog(current, '현금이 부족해 생산 입고를 진행할 수 없습니다.');
   const days = workDaysForUnits(current.company, qty);

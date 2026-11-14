@@ -25,6 +25,35 @@ function assertOnlyLogChanged(before, after) {
   assert.deepEqual(copy, before);
 }
 
+const invalidQuantities = [0, -1, '0', '-2', '', ' ', 1.5, '1.5', NaN, Infinity, undefined, null, Number.MAX_SAFE_INTEGER + 1];
+for (const [action, run] of [
+  ['production', (state, quantity) => inboundInventoryAction(state, 'book-akashi', quantity)],
+  ['order', (state, quantity) => createOrderAction(state, 'future-book', 'book-akashi', quantity)],
+]) {
+  check(`invalid ${action} quantity cannot become one unit or consume cash/time`, () => {
+    const state = seed();
+    const original = clone(state);
+    for (const quantity of invalidQuantities) {
+      const next = run(state, quantity);
+      assertOnlyLogChanged(state, next);
+      assert.match(next.log[0], /수량.*1.*이상.*정수/);
+      assert.deepEqual(state, original);
+    }
+  });
+}
+
+check('valid numeric-string quantity preserves exact production cost, workday and order units', () => {
+  const state = seed();
+  const produced = inboundInventoryAction(state, 'book-akashi', '3');
+  assert.equal(produced.company.cashKrw, state.company.cashKrw - 27000);
+  assert.equal(produced.company.day, state.company.day + 1);
+  assert.equal(produced.inventory['book-akashi'].onHand, state.inventory['book-akashi'].onHand + 3);
+  const ordered = createOrderAction(produced, 'future-book', 'book-akashi', '3');
+  assert.equal(ordered.orders[0].quantity, 3);
+  assert.equal(ordered.orders.length, produced.orders.length + 1);
+  assert.equal(ordered.company.day, produced.company.day);
+});
+
 check('60-day customer cannot pay immediately or release shipment credit early', () => {
   const state = shipment('globe-media');
   const row = state.receivables[0];
