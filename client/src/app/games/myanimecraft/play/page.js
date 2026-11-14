@@ -107,30 +107,30 @@ export default function MyAnimeCraftPlayPage() {
   const seriesReplayReport = useMemo(() => getSeriesReplayReport(selectedArchiveMatch), [selectedArchiveMatch]);
   const selectedTeam = getTeam(state, selectedTeamId);
   const selectedPlayer = selectedTeam.roster.find((member) => member.id === selectedPlayerId) || selectedTeam.roster[0];
-  const tradeTeams = tradeCandidateRows(state, selectedTeam.id);
+  const tradeTeams = useMemo(() => tradeCandidateRows(state, selectedTeam.id), [state, selectedTeam.id]);
   const tradeTargetTeam = tradeTeams.find((team) => team.teamId === tradeTargetTeamId) || tradeTeams[0];
   const tradeTargetPlayer = tradeTargetTeam?.roster.find((member) => member.playerId === tradeTargetPlayerId) || tradeTargetTeam?.roster[0];
-  const tradeInfo = tradeTargetTeam && selectedPlayer && tradeTargetPlayer
+  const tradeInfo = useMemo(() => tradeTargetTeam && selectedPlayer && tradeTargetPlayer
     ? tradePreview(state, selectedTeam.id, selectedPlayer.id, tradeTargetTeam.teamId, tradeTargetPlayer.playerId, tradeCash)
-    : null;
+    : null, [state, selectedTeam.id, selectedPlayer, tradeTargetTeam, tradeTargetPlayer, tradeCash]);
   const marketOfficeReport = useMemo(() => (
     tradeTargetTeam && selectedPlayer && tradeTargetPlayer
       ? getMarketOfficeReport(state, selectedTeam.id, selectedPlayer.id, tradeTargetTeam.teamId, tradeTargetPlayer.playerId, tradeCash)
       : getMarketOfficeReport(state, selectedTeam.id, selectedPlayer?.id || '', '', '', tradeCash)
   ), [state, selectedTeam.id, selectedPlayer, tradeTargetTeam, tradeTargetPlayer, tradeCash]);
   const selectedStanding = standings.find((row) => row.teamId === selectedTeam.id);
-  const selectedCareer = careerSummary(state, selectedTeam.id);
-  const freeAgentPreview = getFreeAgentPreview(state, selectedTeam.id);
+  const selectedCareer = useMemo(() => careerSummary(state, selectedTeam.id), [state, selectedTeam.id]);
+  const freeAgentPreview = useMemo(() => getFreeAgentPreview(state, selectedTeam.id), [state, selectedTeam.id]);
   const selectedEconomy = econSummary(state, selectedTeam.id);
-  const selectedContracts = getTeamContractRows(state, selectedTeam.id);
+  const selectedContracts = useMemo(() => getTeamContractRows(state, selectedTeam.id), [state, selectedTeam.id]);
   const shopRows = useMemo(() => getSeasonShopRows(state), [state]);
-  const inventoryRows = inventoryRowsForTeam(state, selectedTeam.id);
-  const equipmentRows = selectedPlayer ? equipmentRowsForPlayer(state, selectedTeam.id, selectedPlayer.id) : [];
-  const teamActions = selectedPlayer ? teamActionRows(state, selectedTeam.id, selectedPlayer.id) : [];
+  const inventoryRows = useMemo(() => inventoryRowsForTeam(state, selectedTeam.id), [state, selectedTeam.id]);
+  const equipmentRows = useMemo(() => selectedPlayer ? equipmentRowsForPlayer(state, selectedTeam.id, selectedPlayer.id) : [], [state, selectedTeam.id, selectedPlayer]);
+  const teamActions = useMemo(() => selectedPlayer ? teamActionRows(state, selectedTeam.id, selectedPlayer.id) : [], [state, selectedTeam.id, selectedPlayer]);
   const sourceSummary = getSourceSummary();
-  const played = getPlayedCount(state);
-  const total = getTotalFixtureCount(state);
-  const score = scoreState(state);
+  const played = useMemo(() => getPlayedCount(state), [state]);
+  const total = useMemo(() => getTotalFixtureCount(state), [state]);
+  const score = useMemo(() => scoreState(state), [state]);
   const leader = standings[0];
   const ended = Boolean(state.ended);
   const recentActionText = actionResult || state.log?.[0] || '아직 진행한 행동이 없습니다.';
