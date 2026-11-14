@@ -41,6 +41,7 @@ app.use('/api/tcg', optionalAuth, require('./routes/tcg'));                     
 app.use('/api/records', verifyToken, require('./routes/records'));       // 기록소
 app.use('/api/analytics', verifyToken, require('./routes/analytics'));   // 분석실
 app.use('/api/user', verifyToken, require('./middleware/passwordPolicyGuard'), require('./routes/user')); // 유저
+app.get('/api/achievements/catalog', require('./routes/achievements').publicCatalog);
 app.use('/api/achievements', verifyToken, require('./routes/achievements')); // 업적/시즌
 app.use('/api/credits', verifyToken, require('./routes/credits'));         // 크레딧
 app.use('/api/perks', verifyToken, require('./routes/perks'));             // 특전 구매/관리

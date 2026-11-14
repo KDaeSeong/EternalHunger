@@ -274,7 +274,8 @@
     "check:primitive-archive:food-outlook": "node ./scripts/check-primitive-archive-food-outlook.mjs",
     "check:primitive-archive:auto-goals": "node ./scripts/check-primitive-archive-auto-goals.mjs && node ./scripts/check-primitive-archive-auto-goals-ui.mjs",
     "check:primitive-archive:worker-allocation": "node ./scripts/check-primitive-archive-worker-allocation.mjs && node ./scripts/check-primitive-archive-worker-allocation-ui.mjs",
-    "check:primitive-archive:identity": "node ./scripts/check-primitive-archive-identity.mjs && node ./scripts/check-primitive-archive-identity-ui.mjs"
+    "check:primitive-archive:identity": "node ./scripts/check-primitive-archive-identity.mjs && node ./scripts/check-primitive-archive-identity-ui.mjs",
+    "check:site-achievements": "node ./scripts/check-site-achievements.mjs"
   },
   "dependencies": {
     "axios": "^1.13.2",

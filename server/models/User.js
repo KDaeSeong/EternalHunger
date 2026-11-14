@@ -12,6 +12,8 @@ const UserSchema = new mongoose.Schema({
   gameSaveMutationVersion: { type: Number, default: 0, select: false },
   // Serializes archive reward eligibility and daily-cap mutations per account.
   primitiveArchiveRewardMutationVersion: { type: Number, default: 0, select: false },
+  // Serializes achievement claims against the same account balance.
+  achievementMutationVersion: { type: Number, default: 0, select: false },
   lp: { type: Number, default: 0 }, 
 
   credits: { type: Number, default: 0 }, // 크레딧(로드맵 5번)

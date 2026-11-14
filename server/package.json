@@ -35,7 +35,9 @@
     "migrate:claim-admin-scope": "node scripts/claim_legacy_admin_scope.js",
     "seed:bihyung": "node scripts/upsert_bihyung_character.js",
     "report:coverage": "node scripts/report_item_coverage.js",
-    "test:integration:security": "node tests/integration/security-live-mongo.mjs"
+    "test:integration:security": "node tests/integration/security-live-mongo.mjs",
+    "test:achievements": "node --test tests/achievements.test.js",
+    "test:integration:achievements": "node tests/achievements-mongo.integration.js"
   },
   "keywords": [],
   "author": "",
