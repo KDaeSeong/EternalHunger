@@ -1,4 +1,7 @@
+import { useMemo } from 'react';
 import PrimitiveArchivePortrait from './PrimitiveArchivePortrait';
+import PrimitiveArchivePersonIdentity from './PrimitiveArchivePersonIdentity';
+import { archiveIdentityIndex } from '../_lib/primitiveArchiveIdentity';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import {
   PARTY_SORT_OPTIONS,
@@ -59,6 +62,7 @@ export default function PrimitiveArchivePartyWorkspace(props) {
     setSelectedRecruitId,
     state,
   } = props;
+  const identities = useMemo(() => archiveIdentityIndex(state), [state]);
 
   return (
     <section className="games-detail-grid primitive-workspace-panel" role="tabpanel">
@@ -101,6 +105,7 @@ export default function PrimitiveArchivePartyWorkspace(props) {
               <PrimitiveArchivePortrait member={member} size={44} alt={member.name} />
               <span>
                 <strong>{member.name} · {member.role}</strong>
+                <PrimitiveArchivePersonIdentity identity={identities[member.id]} />
                 <small>HP {member.hp} · 허기 {member.hunger} · ST {member.stamina} · 체온 {Number(member.bodyTemp ?? 37).toFixed(1)}° · {badges.join(' / ')}</small>
                 {Number(member.hp || 0) > 0 ? (
                   <small>추천 {actionLabel(basisAction)} {chanceText(basisChance)} · 채집 {chanceText(chances.gather)} · 사냥 {chanceText(chances.hunt)} · 제작 {chanceText(chances.craft)}</small>

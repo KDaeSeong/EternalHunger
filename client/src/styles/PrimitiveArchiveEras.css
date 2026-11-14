@@ -1506,3 +1506,92 @@
   outline: 2px solid var(--era-focus);
   outline-offset: 2px;
 }
+
+.primitive-person-identity {
+  --identity-role-surface: var(--era-sunk);
+  --identity-role-line: var(--era-line);
+  display: grid;
+  min-width: 0;
+  gap: .3rem;
+  margin-top: .35rem;
+  color: var(--era-ink);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.primitive-person-identity[data-role-key="scout"] {
+  --identity-role-surface: var(--era-accent-soft);
+  --identity-role-line: var(--era-accent);
+}
+.primitive-person-identity[data-role-key="hunt"] {
+  --identity-role-surface: var(--era-warning-soft);
+  --identity-role-line: var(--era-line-strong);
+}
+.primitive-person-identity[data-role-key="craft"] {
+  --identity-role-surface: color-mix(in srgb, var(--era-accent) 12%, var(--era-surface));
+  --identity-role-line: var(--era-accent-deep);
+}
+.primitive-person-identity[data-role-key="support"] {
+  --identity-role-surface: color-mix(in srgb, var(--era-focus) 12%, var(--era-surface));
+  --identity-role-line: var(--era-focus);
+}
+.primitive-person-identity__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .2rem .3rem;
+  min-width: 0;
+}
+.primitive-person-identity__badges > span {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  max-width: 100%;
+  padding: .15rem .35rem;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-control-radius);
+  background: var(--era-surface);
+  font-size: .72rem;
+  line-height: 1.4;
+}
+.primitive-person-identity__badges > span:nth-child(3) {
+  border-color: var(--identity-role-line);
+  background: var(--identity-role-surface);
+}
+.primitive-person-identity__badges svg { width: 14px; height: 14px; flex: 0 0 14px; }
+.primitive-person-identity__lineage,
+.primitive-person-identity__trait,
+.primitive-person-identity__notice { display: block; font-size: .72rem; line-height: 1.5; }
+.primitive-person-identity__notice { color: var(--era-ink-soft); }
+.primitive-person-identity__reference {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: .2rem .35rem;
+  border-left: 2px solid var(--era-accent);
+  background: var(--era-sunk);
+  font-size: .72rem;
+  line-height: 1.5;
+}
+.primitive-person-identity__reference > .primitive-archive-portrait {
+  --archive-portrait-frame-size: 24px;
+  flex: 0 0 24px;
+}
+.primitive-person-identity__reference > span:last-child { min-width: 0; }
+.primitive-era .primitive-founders__prepared > article,
+.primitive-era .primitive-founders__past > article {
+  min-width: 0;
+  margin: .45rem 0;
+  padding: .55rem;
+  border: 1px solid var(--era-line);
+  border-radius: var(--era-block-radius);
+  background: var(--era-surface);
+  overflow-wrap: anywhere;
+}
+.primitive-era .primitive-founders__prepared .primitive-founders__actor,
+.primitive-era .primitive-founders__past .primitive-founders__actor {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  min-width: 0;
+}

@@ -11,6 +11,8 @@ import './lib/register-simulation-modules.mjs';
 const root = new URL('../', import.meta.url);
 const componentUrl = new URL('src/app/games/primitive-archive/_components/PrimitiveArchiveFoundersTab.js', root).href;
 const portraitUrl = new URL('src/app/games/primitive-archive/_components/PrimitiveArchivePortrait.js', root).href;
+const identityUrl = new URL('src/app/games/primitive-archive/_components/PrimitiveArchivePersonIdentity.js', root).href;
+const actionIconUrl = new URL('src/app/games/_components/GameActionIcon.js', root).href;
 globalThis.__lineageUiReact = React;
 globalThis.__lineageUiImage = nextImageModule.default;
 const hooksSource = `
@@ -30,6 +32,16 @@ const hooksSource = `
     if (!(index in harness.values)) harness.values[index] = { current: initial };
     return harness.values[index];
   }
+  export function useMemo(factory, deps) {
+    const harness = globalThis.__lineageUiHooks;
+    if (!harness) return globalThis.__lineageUiReact.useMemo(factory, deps);
+    const index = harness.cursor++;
+    const previous = harness.values[index];
+    if (!previous || previous.deps.length !== deps.length || !deps.every((value, i) => Object.is(value, previous.deps[i]))) {
+      harness.values[index] = { deps, value: factory() };
+    }
+    return harness.values[index].value;
+  }
 `;
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -42,7 +54,7 @@ registerHooks({
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if (url !== componentUrl && url !== portraitUrl) return nextLoad(url, context);
+    if (![componentUrl, portraitUrl, identityUrl, actionIconUrl].includes(url)) return nextLoad(url, context);
     return { format: 'module', shortCircuit: true, source: ts.transpileModule(readFileSync(new URL(url), 'utf8'), {
       compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext },
     }).outputText };

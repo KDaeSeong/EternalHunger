@@ -1,8 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ITEMS, TECH_TREE, TRIBE_PROJECTS, WORLD_REGIONS, ZONES } from '../_lib/primitiveArchiveData';
 import PrimitiveArchivePortrait from './PrimitiveArchivePortrait';
+import PrimitiveArchivePersonIdentity from './PrimitiveArchivePersonIdentity';
+import { archiveIdentityIndex } from '../_lib/primitiveArchiveIdentity';
 import { annualPersonSummary } from '../_lib/primitiveArchiveCalendar';
 
 const FIELD_LABELS = {
@@ -53,6 +55,7 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
   const [retirement, setRetirement] = useState(null);
   const retirementToken = useRef(null);
   const retirementButtons = useRef({});
+  const identities = useMemo(() => archiveIdentityIndex(state), [state]);
   const rows = Array.isArray(foundersRows) ? foundersRows : [];
   const annualMode = Boolean(annual?.annualMode);
   const recordedLife = Array.isArray(lineage?.rows) ? lineage.rows : [];
@@ -126,6 +129,7 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
                     }}>은퇴 인계</button>
                 </div>
               </div>
+              <PrimitiveArchivePersonIdentity identity={identities[row.actorId]} />
               <p className="primitive-founders__muted">{row.successorName ? `후계: ${row.successorName}` : row.prepareReason || lineage.prepareCostText || '준비 비용 확인 필요'}{row.retireReason ? ` · ${row.retireReason}` : ''}</p>
               {confirming ? <div className="primitive-founders__confirmation" id={confirmId} role="group" aria-labelledby={`${confirmId}-title`}>
                 <h4 id={`${confirmId}-title`}>{row.name}의 은퇴를 확정할까요?</h4>
@@ -146,16 +150,31 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
             </article>;
           })}
         </div>
-        {annualMode && state?.lineage?.prepared?.length ? <section className="primitive-founders__prepared" aria-label="준비된 후계">
+        {state?.lineage?.prepared?.length ? <section className="primitive-founders__prepared" aria-label="준비된 후계">
           <h4>준비된 후계 · {state.lineage.prepared.length}명</h4>
           {state.lineage.prepared.map(candidate => {
-            const observed = annualPersonSummary(state, candidate.actor.id);
+            const observed = annualMode ? annualPersonSummary(state, candidate.actor.id) : null;
             const mentor = lifeRows.find(row => row.actorId === candidate.mentorId);
-            return <p key={candidate.actor.id}><strong>{candidate.actor.name}</strong> · {candidate.actor.role} · 지도자 {mentor?.name || '기록 확인 필요'} · {observed.observed ? `관찰 ${observed.observedYears}년` : '연간 관찰 전 기록'} · 공동 배식에 포함</p>;
+            return <article key={candidate.actor.id}>
+              <div className="primitive-founders__actor"><FounderPortrait member={candidate.actor} compact />
+                <strong>{candidate.actor.name}</strong></div>
+              <PrimitiveArchivePersonIdentity identity={identities[candidate.actor.id]} />
+              <p>{candidate.actor.role} · 지도자 {mentor?.name || '기록 확인 필요'} · {annualMode
+                ? observed.observed ? `관찰 ${observed.observedYears}년` : '연간 관찰 전 기록'
+                : `${candidate.preparedDay}일차 준비`} · 공동 배식에 포함</p>
+            </article>;
           })}
         </section> : null}
         {previousLife.length ? <details className="primitive-founders__past"><summary>은퇴·사망한 인물 {previousLife.length}명</summary>
-          {previousLife.map((row) => <p key={row.actorId}><strong>{row.name}</strong> · {STAGE_LABELS[row.stage]} · {lifeText(row)}{row.successorName ? ` · 후계 ${row.successorName}` : ''}</p>)}
+          {previousLife.map((row) => {
+            const person = row.retiredSnapshot || state?.party?.find(member => member.id === row.actorId)
+              || rows.find(member => member.actorId === row.actorId) || row;
+            return <article key={row.actorId}>
+              <div className="primitive-founders__actor"><FounderPortrait member={person} compact /><strong>{row.name}</strong></div>
+              <PrimitiveArchivePersonIdentity identity={identities[row.actorId]} />
+              <p>{STAGE_LABELS[row.stage]} · {lifeText(row)}{row.successorName ? ` · 후계 ${row.successorName}` : ''}</p>
+            </article>;
+          })}
         </details> : null}
       </section>
 

@@ -10,9 +10,10 @@ import './lib/register-simulation-modules.mjs';
 
 const root = new URL('../', import.meta.url);
 const directory = new URL('src/app/games/primitive-archive/_components/', root);
-const urls = Object.fromEntries(['FoundersTab', 'PartyWorkspace', 'RunTab', 'Portrait'].map((name) =>
+const urls = Object.fromEntries(['FoundersTab', 'PartyWorkspace', 'RunTab', 'Portrait', 'PersonIdentity'].map((name) =>
   [name, new URL(`PrimitiveArchive${name}.js`, directory).href]));
 const transformed = new Set(Object.values(urls));
+transformed.add(new URL('src/app/games/_components/GameActionIcon.js', root).href);
 globalThis.__officialPortraitReact = React;
 globalThis.__officialPortraitImage = nextImageModule.default;
 const dataModule = (source) => ({ url: `data:text/javascript,${encodeURIComponent(source)}`, shortCircuit: true });
@@ -127,7 +128,10 @@ check('saved built-in party portraits display official artwork without changing 
   const props = { ...partyProps(legacyActors), setActorId: (id) => { selected = id; } };
   const html = render(Party, props);
   assertOfficialImages(html, legacyActors);
-  const memberButtons = findNodes(Party(props), (node) => node.type === 'button' && node.props['data-game-sfx'] === 'select');
+  let partyTree;
+  function CaptureCurrentParty() { partyTree = Party(props); return partyTree; }
+  renderToStaticMarkup(React.createElement(CaptureCurrentParty));
+  const memberButtons = findNodes(partyTree, (node) => node.type === 'button' && node.props['data-game-sfx'] === 'select');
   assert.equal(memberButtons.length, 8);
   memberButtons[5].props.onClick();
   assert.equal(selected, legacyActors[5].id);
