@@ -1146,6 +1146,10 @@ function completeProjectIfReady(state, project, source = '') {
 
 export function projectRows(state) {
   const current = normalizeState(state);
+  return projectRowsForNormalizedState(current);
+}
+
+function projectRowsForNormalizedState(current) {
   const projects = normalizeProjectState(current.projects);
   return TRIBE_PROJECTS.map((project) => {
     const completed = Boolean(projects.completed?.[project.id]);
@@ -1473,6 +1477,13 @@ export function changeTribeWorkPolicyAction(state, policyId) {
     `공동체 운영 방침: ${details.label}. 다음 자동 운영 또는 다음 아침 재배치부터 적용하며, 실제 일손·식량 안전·자재·남은 필요량을 사용합니다.`);
 }
 
+function adjustedTribeJob(tribe, jobId, direction) {
+  return { ...tribe,
+    assignments: { ...tribe.assignments, [jobId]: Math.max(0, Number(tribe.assignments[jobId] || 0) + direction) },
+    autoAssignments: { ...tribe.autoAssignments, [jobId]: 0 },
+    assignmentSerial: Number(tribe.assignmentSerial || 0) + 1 };
+}
+
 export function adjustTribeJobAction(state, jobId, delta) {
   const current = normalizeState(state);
   if (current.ended) return current;
@@ -1488,14 +1499,130 @@ export function adjustTribeJobAction(state, jobId, delta) {
   const nextCount = Math.max(0, Number(tribe.assignments[job.id] || 0) + direction);
   return addLog({
     ...current,
-    tribe: {
-      ...tribe,
-      assignments: { ...tribe.assignments, [job.id]: nextCount },
-      // An explicit job edit takes control of the workers in that job.
-      autoAssignments: { ...tribe.autoAssignments, [job.id]: 0 },
-      assignmentSerial: Number(tribe.assignmentSerial || 0) + 1,
-    },
+    tribe: adjustedTribeJob(tribe, job.id, direction),
   }, `${job.name} 배치 ${direction > 0 ? '+' : '-'}1. 현재 ${nextCount}명입니다.`);
+}
+
+function workerTransferReason(state, fromJobId, toJobId) {
+  if (!state || typeof state !== 'object' || state.ended) return '종료되었거나 유효하지 않은 공동체입니다.';
+  if (!Array.isArray(state.party) || !state.party.some(actor => Number.isFinite(actor?.hp) && actor.hp > 0)) return '운영할 생존 대원이 없습니다.';
+  if (!Number.isSafeInteger(state.day) || state.day < 1 || !Number.isFinite(state.ap)
+    || !Number.isSafeInteger(state.day + 1)) return '현재 공동체 시각이나 행동력이 유효하지 않습니다.';
+  if (Object.hasOwn(state, 'calendar') && (!isValidAnnualCalendar(state.calendar, state)
+    || !Number.isSafeInteger(state.calendar?.completedYears + 1))) return '현재 연간 달력이 유효하지 않습니다.';
+  if (!state.inventory || typeof state.inventory !== 'object'
+    || Object.values(state.inventory).some(value => !Number.isFinite(value) || value < 0)) return '현재 자원 재고가 유효하지 않습니다.';
+  const tribe = state.tribe;
+  if (!Number.isSafeInteger(tribe?.population) || tribe.population < 1 || tribe.population > 24) return '일손 인구가 유효하지 않습니다.';
+  let assigned = 0;
+  for (const job of TRIBE_JOBS) {
+    const count = tribe.assignments?.[job.id];
+    const auto = tribe.autoAssignments?.[job.id] ?? 0;
+    if (!Number.isSafeInteger(count) || count < 0 || !Number.isSafeInteger(auto) || auto < 0 || auto > count) return '현재 일손 배치 수량이 유효하지 않습니다.';
+    assigned += count;
+  }
+  if (assigned > tribe.population) return '현재 일손 배치가 인구를 초과합니다.';
+  const target = TRIBE_JOBS.find(job => job.id === toJobId);
+  if (!target || (fromJobId !== 'unassigned' && !TRIBE_JOBS.some(job => job.id === fromJobId))) return '지원하지 않는 직업입니다.';
+  if (fromJobId === toJobId) return '서로 다른 출발지와 도착지를 선택하세요.';
+  if (target.techId && !state.research?.completed?.[target.techId]) return '도착 직업의 선행 연구가 필요합니다.';
+  if (fromJobId === 'unassigned' ? assigned >= tribe.population : tribe.assignments[fromJobId] < 1) return '옮길 실제 일손이 없습니다.';
+  return '';
+}
+
+function transferredTribeWorker(state, fromJobId, toJobId) {
+  const original = state.tribe;
+  let tribe = fromJobId === 'unassigned' ? original : adjustedTribeJob(original, fromJobId, -1);
+  tribe = adjustedTribeJob(tribe, toJobId, 1);
+  return { ...state, tribe: { ...tribe, assignmentSerial: Number(original.assignmentSerial || 0) + 1 } };
+}
+
+export function transferTribeWorkerAction(state, fromJobId, toJobId) {
+  if (workerTransferReason(state, fromJobId, toJobId)) return state;
+  const next = transferredTribeWorker(state, fromJobId, toJobId);
+  const source = TRIBE_JOBS.find(job => job.id === fromJobId)?.name || '미배치 일손';
+  const target = TRIBE_JOBS.find(job => job.id === toJobId).name;
+  return addLog(next, `일손 이동: ${source} 1명 → ${target}. 편집한 직업의 배치를 수동으로 유지합니다.`);
+}
+
+export function workerAllocationComparison(state, options = {}) {
+  const validOptions = options !== null && typeof options === 'object' && !Array.isArray(options);
+  const { fromJobId = 'unassigned', toJobId = '' } = validOptions ? options : {};
+  const mode = isAnnualMode(state) ? 'annual' : 'daily';
+  const periodLabel = mode === 'annual' ? `${Number(state?.calendar?.completedYears || 0) + 1}년차` : `${Number(state?.day || 1) + 1}일차`;
+  const jobs = TRIBE_JOBS.map(job => ({ id: job.id, name: job.name,
+    count: Number.isSafeInteger(state?.tribe?.assignments?.[job.id]) ? state.tribe.assignments[job.id] : 0,
+    unlocked: !job.techId || Boolean(state?.research?.completed?.[job.techId]) }));
+  const assumptions = mode === 'annual'
+    ? ['다음 연간 달력과 전체 인구 조사 후 실제 자동 일손 재배치를 반영합니다.', '생산·사업 자재와 완성 보상·교육·연구·배식·성장·가공을 같은 순서로 비교합니다. 시설 자동 연구·제도와 연간 세대 인계는 제외합니다.']
+    : ['현재 생존자와 후계·은퇴 가구를 고정하고 실제 자동 배치와 현재 비축의 저녁 배식·연료 보충 뒤 다음 아침 경제를 비교합니다.', '미래 밤 피해·사망·새 날씨·후계 인계·시설 자동 연구와 제도는 제외합니다. 공동 정산 안의 성장과 가구 배식 결과는 포함합니다.'];
+  const reason = !validOptions ? '일손 비교 요청이 유효하지 않습니다.' : workerTransferReason(state, fromJobId, toJobId);
+  const base = { available: !reason, reason, mode, periodLabel, assumptions, jobs, fromJobId, toJobId, before: null, after: null, rows: [], warnings: [] };
+  if (reason) return base;
+  const prepare = (input) => {
+    if (mode === 'annual') {
+      const advanced = { ...input, day: input.day + 1, calendar: advanceAnnualCalendar(input) };
+      return autoAssignTribeWorkers(advanced, 'settlement', 0, true);
+    }
+    const assigned = autoAssignTribeWorkers(input, 'settlement', 1, true);
+    return { ...settlementEveningPlan(assigned).state, day: input.day + 1 };
+  };
+  const project = (input) => {
+    const prepared = prepare(input);
+    const next = settleTribeDay(prepared, true);
+    const receipt = next.tribe.lastProduction;
+    const selectedProject = TRIBE_PROJECTS.find(row => row.id === prepared.projects.selectedProjectId);
+    const projectSpent = receipt.projectStarted ? { ...selectedProject?.cost } : {};
+    const projectReward = selectedProject && !prepared.projects.completed?.[selectedProject.id]
+      && next.projects.completed?.[selectedProject.id] ? { ...selectedProject.reward } : {};
+    return { assignments: { ...prepared.tribe.assignments }, inventory: { ...next.inventory },
+      population: next.tribe.population, morale: next.tribe.morale, growthProgress: next.tribe.growthProgress,
+      projectProgress: { ...next.projects.progress }, researchProgress: { ...next.research.progress },
+      civicsProgress: { ...next.civics.progress }, projectSpent, projectReward,
+      receipt, foodStock: tribeFoodStock(next.inventory) };
+  };
+  const before = project(state);
+  const after = project(transferredTribeWorker(state, fromJobId, toJobId));
+  const rows = [];
+  const append = (id, group, label, unit, beforeValue, afterValue, always = false) => {
+    const first = Number(beforeValue ?? 0);
+    const second = Number(afterValue ?? 0);
+    if (!Number.isFinite(first) || !Number.isFinite(second) || !Number.isFinite(second - first)) return;
+    if (always || first || second) rows.push({ id, group, label, unit, before: first, after: second, delta: second - first });
+  };
+  for (const id of new Set([...Object.keys(before.receipt.gains), ...Object.keys(after.receipt.gains)])) {
+    append(`production:${id}`, 'production', itemName(id), '개', before.receipt.gains[id], after.receipt.gains[id]);
+  }
+  for (const id of new Set([...Object.keys(before.inventory), ...Object.keys(after.inventory)])) {
+    append(`resource:${id}`, 'resources', itemName(id), '개', before.inventory[id], after.inventory[id]);
+  }
+  for (const [field, label] of [['projectSpent', '사업 착수 소비'], ['projectReward', '사업 완성 보상']]) {
+    for (const id of new Set([...Object.keys(before[field]), ...Object.keys(after[field])])) {
+      append(`${field}:${id}`, 'operations', `${label} · ${itemName(id)}`, '개', before[field][id], after[field][id]);
+    }
+  }
+  for (const [field, label] of [['spent', '가공 소비'], ['gains', '가공 산출']]) {
+    const first = before.receipt.processing?.[field] || {};
+    const second = after.receipt.processing?.[field] || {};
+    for (const id of new Set([...Object.keys(first), ...Object.keys(second)])) {
+      append(`processing:${field}:${id}`, 'operations', `${label} · ${itemName(id)}`, '개', first[id], second[id]);
+    }
+  }
+  const metrics = [
+    ['foodNeed', '공동 배식 필요', '단위'], ['foodProvided', '실제 공동 배식', '단위'], ['shortage', '공동 배식 부족', '단위'],
+    ['projectBaseWork', '사업 기본 작업', '작업'], ['projectTraditionWork', '사업 전승 작업', '작업'], ['projectWork', '사업 실제 작업', '작업'],
+    ['researchRequested', '기록대 요청 연구', 'RP'], ['researchPoints', '기록대 실제 연구', 'RP'],
+  ];
+  for (const [id, label, unit] of metrics) append(id, 'operations', label, unit, before.receipt[id], after.receipt[id], true);
+  append('foodStock', 'operations', '정산 후 식량 비축', '단위', before.foodStock, after.foodStock, true);
+  append('teachers', 'operations', '실제 교원', '명', before.receipt.education?.teachers, after.receipt.education?.teachers, true);
+  append('paperSpent', 'operations', '교육 종이 소비', '장', before.receipt.education?.spent?.paper, after.receipt.education?.spent?.paper, true);
+  append('educationPoints', 'operations', '공교육 실제 진척', 'CP', before.receipt.education?.appliedPoints, after.receipt.education?.appliedPoints, true);
+  append('processingBatches', 'operations', '실제 가공', '묶음', before.receipt.processing?.batches, after.receipt.processing?.batches, true);
+  for (const key of ['population', 'morale', 'growthProgress']) append(key, 'operations', { population: '정산 후 일손 인구', morale: '정산 후 사기', growthProgress: '정산 후 성장 진척' }[key], key === 'population' ? '명' : '점', before[key], after[key], true);
+  const warnings = [];
+  if (before.receipt.shortage || after.receipt.shortage) warnings.push('공동 배식 부족이 있는 비교안은 실제 사기·성장·가구에 불이익을 줍니다.');
+  return { ...base, before, after, rows, warnings };
 }
 
 function relationStatus(value) {
@@ -3786,7 +3913,7 @@ export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options 
   return next;
 }
 
-function settleTribeDay(state) {
+function settleTribeDay(state, preview = false) {
   const tribe = normalizeTribeState(state.tribe);
   const gains = tribeProductionForDay(tribe.assignments, productionPeriod(state), state);
   let next = { ...state, inventory: addItems(state.inventory, Object.entries(gains)) };
@@ -3796,7 +3923,7 @@ function settleTribeDay(state) {
   let projectName = '';
   let projectStarted = false;
   const builders = Number(tribe.assignments.builder || 0);
-  const selectedAtStart = projectRows(next).find((project) => project.selected);
+  const selectedAtStart = (preview ? projectRowsForNormalizedState(next) : projectRows(next)).find((project) => project.selected);
   const selectedProject = selectedAtStart && !selectedAtStart.completed ? selectedAtStart : null;
   const progressBefore = Number(selectedAtStart?.progress || 0);
   let committedAtSettlement = Boolean(selectedAtStart?.committed);
@@ -7816,7 +7943,7 @@ function pickAutoFoodJob(state, assignments, jobUnlocked, firstOffset = 1) {
       || b.partyGain - a.partyGain || b.firstPartyGain - a.firstPartyGain)[0]?.id || '';
 }
 
-function autoAssignTribeWorkers(state, assignmentSource = 'auto', forecastOffset = 1) {
+function autoAssignTribeWorkers(state, assignmentSource = 'auto', forecastOffset = 1, preview = false) {
   const forecast = (assignments, includeParty = false) => forecastTribeFood(state, assignments, includeParty, forecastOffset);
   const tribe = normalizeTribeState(state.tribe);
   // Only automatic workers and genuinely unassigned newcomers are movable.
@@ -7862,7 +7989,7 @@ function autoAssignTribeWorkers(state, assignmentSource = 'auto', forecastOffset
     scholar: canStudy ? Math.max(1, Math.floor(population * 0.2)) : 0,
     builder: 0,
   };
-  const selectedProject = projectRows(state).find((project) => project.selected && project.canWork);
+  const selectedProject = (preview ? projectRowsForNormalizedState(state) : projectRows(state)).find((project) => project.selected && project.canWork);
   if (selectedProject) targets.builder = Math.max(1, Math.ceil(population / 5));
   const priority = canDiversify
     ? ['forager', 'hunter', 'builder', 'logger', 'herbalist', 'miner', 'quarryman', 'scholar', 'farmer', 'fisher', 'herder', 'trapper']

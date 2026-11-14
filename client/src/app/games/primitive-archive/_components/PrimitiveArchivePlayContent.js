@@ -117,10 +117,13 @@ import {
   topicParticle,
   explorationSummary,
   tribeSummary,
+  workerAllocationComparison,
+  transferTribeWorkerAction,
 } from '../_lib/primitiveArchiveEngine';
 import { isValidTribeProcessingPlan } from '../_lib/primitiveArchiveProcessing';
 import PrimitiveArchiveEraDefs from './PrimitiveArchiveEraDefs';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
+import PrimitiveArchiveWorkerComparison from './PrimitiveArchiveWorkerComparison';
 import PrimitiveArchiveAutoDayGoalPanel from './PrimitiveArchiveAutoDayGoalPanel';
 import { AUTO_DAY_GOALS, normalizeAutoDayGoal } from '../_lib/primitiveArchiveAutoDayGoals';
 import { autoDayExecutionReport } from '../_lib/primitiveArchiveAutoDayReport';
@@ -215,6 +218,20 @@ export default function PrimitiveArchivePlayContent() {
   const [newRunDifficulty, setNewRunDifficulty] = useState('normal');
   const [newRunFounderIds, setNewRunFounderIds] = useState(() => STUDENTS.slice(0, 3).map(member => member.id));
   const [researchPlannerOpen, setResearchPlannerOpen] = useState(false);
+  const [workerChoice, setWorkerChoice] = useState({ fromJobId: 'unassigned', toJobId: '' });
+  const [workerChoiceEpoch, setWorkerChoiceEpoch] = useState(0);
+  const workerChoiceRef = useRef({ fromJobId: 'unassigned', toJobId: '', epoch: 0,
+    runId: state.runId, mode: state.calendar?.mode === 'annual' ? 'annual' : 'daily',
+    actorId, session: captureAuthSession() });
+  const workerComparisonUiGuardRef = useRef(null);
+  const resetWorkerComparison = useCallback((nextState, nextActorId) => {
+    workerChoiceRef.current = { fromJobId: 'unassigned', toJobId: '',
+      epoch: workerChoiceRef.current.epoch + 1, runId: nextState.runId,
+      mode: nextState.calendar?.mode === 'annual' ? 'annual' : 'daily',
+      actorId: nextActorId, session: captureAuthSession() };
+    setWorkerChoice({ fromJobId: 'unassigned', toJobId: '' });
+    setWorkerChoiceEpoch(workerChoiceRef.current.epoch);
+  }, []);
   const [autoDayGoalId, setAutoDayGoalId] = useState('default');
   const [autoDayGoalEpoch, setAutoDayGoalEpoch] = useState(0);
   const [autoDayReport, setAutoDayReport] = useState(null);
@@ -257,6 +274,7 @@ export default function PrimitiveArchivePlayContent() {
     });
   }, []);
   const handleRestoredRun = useCallback((nextState, details) => {
+    resetWorkerComparison(nextState, nextState.party.find((member) => member.hp > 0)?.id || nextState.party[0]?.id || 'shiroko');
     resetAutoDayGoal(nextState.runId);
     setRequirementHelpRequest(null);
     setInitialShopRunId(details?.source === 'owner-reset' ? nextState.runId : null);
@@ -268,7 +286,7 @@ export default function PrimitiveArchivePlayContent() {
     setActiveTabId(nextState.calendar?.mode === 'annual' ? 'tribe' : 'actions');
     setActionResult(primitiveRestoredResultText(nextState));
     setActionFeedback({ key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: nextState.runId, tone: 'ready' });
-  }, [resetAutoDayGoal, setActorId]);
+  }, [resetAutoDayGoal, resetWorkerComparison, setActorId]);
   const checkpoint = usePrimitiveArchiveCheckpoint({
     state,
     setState: replaceState,
@@ -333,6 +351,15 @@ export default function PrimitiveArchivePlayContent() {
   const dead = state.ended || !hasLivingPartyMember(state);
   const annual = useMemo(() => ({ ...annualSettlementSummary(state), lineageMode: state.lineage?.mode }), [state]);
   const annualMode = annual.annualMode;
+  workerComparisonUiGuardRef.current = { hydrated, busy: Boolean(busy), shopControlsBusy,
+    checkpoint, activeTabId, actorId, annualMode };
+  useEffect(() => {
+    const scope = workerChoiceRef.current;
+    if (scope.runId !== state.runId || scope.mode !== (annualMode ? 'annual' : 'daily')
+      || scope.actorId !== actorId || !isCurrentAuthSession(scope.session)) {
+      resetWorkerComparison(state, actorId);
+    }
+  });
   const canAct = checkpoint.ready && checkpoint.exclusive && !busy && !shopControlsBusy && !dead && state.ap > 0;
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
   const exploration = useMemo(() => explorationSummary(state), [state]);
@@ -488,6 +515,9 @@ export default function PrimitiveArchivePlayContent() {
   const processingTradition = useMemo(() => processingTraditionSummary(state, actorId), [state, actorId]);
   const educationTradition = useMemo(() => educationTraditionSummary(state, actorId), [state, actorId]);
   const tribe = useMemo(() => tribeSummary(state), [state]);
+  const workerComparison = useMemo(() => activeTabId === 'tribe'
+    ? workerAllocationComparison(state, workerChoice) : null,
+  [activeTabId, state, workerChoice]);
   const completionGuide = useMemo(() => primitiveArchiveCompletionGuide({
     state, archiveVictory, facilities: campFacilities, recipes, regions, processing: tribe.processing,
   }), [state, archiveVictory, campFacilities, recipes, regions, tribe.processing]);
@@ -911,6 +941,66 @@ export default function PrimitiveArchivePlayContent() {
     applyAction('공교육 전승 예약 취소', (current) => matchesDisplayedReservation(current)
       ? cancelEducationTraditionAction(current, actorId) : current);
   };
+
+  const workerExpectedState = state;
+  const workerExpectedVersion = actionVersionRef.current;
+  const workerExpectedSession = captureAuthSession();
+  const workerExpectedChoice = workerChoiceRef.current;
+  const workerRequestIsCurrent = (requireWriter = false, input = stateRef.current) => {
+    const live = workerComparisonUiGuardRef.current;
+    const current = stateRef.current;
+    return Boolean(live?.hydrated && live.checkpoint.ready)
+      && (!requireWriter || Boolean(live.checkpoint.exclusive && live.checkpoint.canMutate()))
+      && !live.busy && !live.shopControlsBusy && !shopStartRef.current
+      && live.activeTabId === 'tribe' && activeTabId === 'tribe'
+      && live.actorId === actorId && actorSelectionRef.current === actorId
+      && live.annualMode === annualMode
+      && isCurrentAuthSession(workerExpectedSession) && isCurrentAuthSession(workerExpectedChoice.session)
+      && current === workerExpectedState && actionVersionRef.current === workerExpectedVersion
+      && workerChoiceRef.current === workerExpectedChoice && workerChoiceRef.current.epoch === workerChoiceEpoch
+      && workerChoiceRef.current.fromJobId === workerChoice.fromJobId && workerChoiceRef.current.toJobId === workerChoice.toJobId
+      && workerExpectedChoice.runId === current.runId && workerExpectedChoice.actorId === actorId
+      && workerExpectedChoice.mode === (annualMode ? 'annual' : 'daily')
+      && !current.ended && current.runId === state.runId && current.day === state.day
+      && current.ap === state.ap && current.updatedAt === state.updatedAt
+      && (current.calendar?.mode === 'annual') === annualMode
+      && input.runId === current.runId && input.day === current.day && input.ap === current.ap
+      && input.updatedAt === current.updatedAt && !input.ended
+      && (input.calendar?.mode === 'annual') === annualMode
+      && input.tribe?.assignmentSerial === current.tribe?.assignmentSerial
+      && input.tribe?.productionSerial === current.tribe?.productionSerial;
+  };
+  const chooseWorkerComparison = (field, value) => {
+    if (!['fromJobId', 'toJobId'].includes(field) || typeof value !== 'string' || !workerRequestIsCurrent()) return;
+    const job = workerComparison?.jobs.find(row => row.id === value);
+    const valid = field === 'fromJobId' ? value === 'unassigned' || Boolean(job && job.count > 0)
+      : value === '' || Boolean(job?.unlocked && value !== workerChoice.fromJobId && value !== 'unassigned');
+    if (!valid || workerChoice[field] === value) return;
+    const choice = { ...workerChoice, [field]: value };
+    if (choice.fromJobId === choice.toJobId) choice.toJobId = '';
+    workerChoiceRef.current = { ...workerChoiceRef.current, ...choice, epoch: workerChoiceRef.current.epoch + 1 };
+    setWorkerChoice(choice);
+    setWorkerChoiceEpoch(workerChoiceRef.current.epoch);
+  };
+  const applyWorkerComparison = () => {
+    if (!workerComparison?.available || !workerRequestIsCurrent(true)) return;
+    applyAction('일손 1명 이동', current => workerRequestIsCurrent(true, current)
+      ? transferTribeWorkerAction(current, workerExpectedChoice.fromJobId, workerExpectedChoice.toJobId) : current);
+  };
+  const workerSelectionBlocked = !hydrated || !checkpoint.ready || Boolean(busy) || shopControlsBusy
+    || Boolean(shopStartRef.current) || state.ended || activeTabId !== 'tribe'
+    || !isCurrentAuthSession(workerChoiceRef.current.session)
+    || workerChoiceRef.current.runId !== state.runId || workerChoiceRef.current.actorId !== actorId
+    || workerChoiceRef.current.mode !== (annualMode ? 'annual' : 'daily')
+    || workerChoiceRef.current.epoch !== workerChoiceEpoch;
+  const workerApplyBlocked = workerSelectionBlocked || !checkpoint.exclusive || !checkpoint.canMutate();
+  const workerComparisonControl = activeTabId === 'tribe' ? (
+    <PrimitiveArchiveWorkerComparison comparison={workerComparison} choice={workerChoice}
+      onChoose={chooseWorkerComparison} onApply={applyWorkerComparison}
+      selectionBlocked={workerSelectionBlocked} applyBlocked={workerApplyBlocked}
+      applyBlockedReason={!checkpoint.exclusive ? '다른 탭에서 진행 중이므로 이 탭에서는 비교만 할 수 있습니다.'
+        : workerApplyBlocked ? '진행 정보와 저장 상태를 확인한 뒤 배치를 바꿀 수 있습니다.' : ''} />
+  ) : null;
 
   const adjustTribeJob = (jobId, delta) => {
     applyAction('직업 배치', (current) => adjustTribeJobAction(current, jobId, delta));
@@ -1535,6 +1625,7 @@ export default function PrimitiveArchivePlayContent() {
         techs={techs}
         technologyPlannerRows={plannerRows}
         tribe={tribe}
+        workerComparisonControl={workerComparisonControl}
         supplies={supplies}
         token={token}
         updateDeveloperTools={updateDeveloperTools}

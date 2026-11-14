@@ -185,12 +185,23 @@ check('normal tab navigation and restored-run handler clear help and restored re
     setAutoDayGoalId: value => { goalId = value; }, setAutoDayReport: value => { report = value; },
     setAutoDayGoalEpoch: value => { goalEpoch = value; },
   });
-  pageHandler('handleRestoredRun', { ...setters, resetAutoDayGoal,
+  const workerChoiceRef = { current: { fromJobId: 'builder', toJobId: 'scholar', epoch: 11,
+    runId: state.runId, mode: 'annual', actorId: state.party[1].id, session: { owner: 'old-owner' } } };
+  let workerChoice = { fromJobId: 'builder', toJobId: 'scholar' }, workerEpoch = 11;
+  const resetWorkerComparison = pageHandler('resetWorkerComparison', {
+    workerChoiceRef, captureAuthSession: () => session,
+    setWorkerChoice: value => { workerChoice = value; }, setWorkerChoiceEpoch: value => { workerEpoch = value; },
+  });
+  pageHandler('handleRestoredRun', { ...setters, resetAutoDayGoal, resetWorkerComparison,
     setRequirementHelpRequest: value => { request = value; }, primitiveRestoredResultText: () => 'restored' })({ ...state, runId: 'restored-other-run' }, { source: 'slot' });
   assert.equal(request, null);
   assert.equal(goalId, 'default'); assert.equal(report, null);
   assert.equal(goalEpoch, 8);
   assert.deepEqual(autoDayGoalRef.current, { id: 'default', epoch: 8, runId: 'restored-other-run', session });
+  assert.deepEqual(workerChoice, { fromJobId: 'unassigned', toJobId: '' });
+  assert.equal(workerEpoch, 12);
+  assert.deepEqual(workerChoiceRef.current, { fromJobId: 'unassigned', toJobId: '', epoch: 12,
+    runId: 'restored-other-run', mode: 'daily', actorId: state.party.find(member => member.hp > 0)?.id || state.party[0]?.id || 'shiroko', session });
   const source = currentPage();
   const expressions = {};
   const visit = node => {

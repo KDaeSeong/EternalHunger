@@ -61,6 +61,7 @@ export default function PrimitiveArchiveTribeTab({
   utilityActions = [],
   runUtility,
   canAct,
+  workerComparisonControl,
 }) {
   const annualMode = Boolean(annual?.annualMode);
   const annualBlocked = nationalControlsBlocked || Boolean(busy) || !hydrated || Boolean(state?.ended);
@@ -163,6 +164,7 @@ export default function PrimitiveArchiveTribeTab({
             <p>이 기록은 운영 방침의 해금 조건이나 추가 효과가 아닙니다.</p>
           </details> : null}
         </div> : null}
+        {workerComparisonControl || null}
         <div className="primitive-job-grid">
           {tribe.jobs.map((job) => (
             <article className={[job.unlocked ? '' : 'is-locked', job.id === 'artisan' ? 'primitive-processing-job' : ''].filter(Boolean).join(' ')} key={job.id}>

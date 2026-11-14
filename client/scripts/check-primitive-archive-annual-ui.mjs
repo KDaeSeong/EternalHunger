@@ -49,7 +49,7 @@ function declaration(source, name) {
 }
 const names = ['actionOwnerSession', 'applyAction', 'annualExpected', 'annualExpectedState', 'annualExpectedVersion',
   'annualExpectedSession', 'annualRequestIsCurrent', 'startAnnualSettlement', 'runSettlementYear',
-  'annualControlsBlocked', 'annualStartControl', 'annualYearControl', 'resetAutoDayGoal', 'replaceState', 'handleRestoredRun'];
+  'annualControlsBlocked', 'annualStartControl', 'annualYearControl', 'resetAutoDayGoal', 'resetWorkerComparison', 'replaceState', 'handleRestoredRun'];
 names.push('runCamp', 'runUtility', 'prepareSuccessor');
 const compiled = ts.transpileModule(names.map(name => declaration(playSource, name)).join('\n'), {
   compilerOptions: { jsx: ts.JsxEmit.React, module: ts.ModuleKind.ESNext },
@@ -68,7 +68,7 @@ const fresh = (id = 'annual-ui-fresh', legacy = false) => {
 const annualState = (id, legacy = false) => { const state = fresh(id, legacy); return engine.startAnnualSettlementAction(state, stamp(state), { observedLifetimeYears: 60 }); };
 const annualSummary = state => ({ ...engine.annualSettlementSummary(state), lineageMode: state.lineage.mode });
 function harness(state = fresh(), overrides = {}) {
-  const calls = { states: [], feedback: [], tabs: [], texts: [], actors: [], goals: [], reports: [], epochs: [] };
+  const calls = { states: [], feedback: [], tabs: [], texts: [], actors: [], goals: [], reports: [], epochs: [], workerChoices: [], workerEpochs: [] };
   const stateRef = { current: state }, actionVersionRef = { current: 0 };
   const session = { current: 1 };
   let held = true;
@@ -80,6 +80,9 @@ function harness(state = fresh(), overrides = {}) {
     autoDayGoalRef: { current: { id: 'exploration', epoch: 7, runId: state.runId, session: { revision: 0 } } },
     setAutoDayGoalId: value => calls.goals.push(value), setAutoDayReport: value => calls.reports.push(value),
     setAutoDayGoalEpoch: value => calls.epochs.push(value),
+    workerChoiceRef: { current: { fromJobId: 'builder', toJobId: 'scholar', epoch: 11,
+      runId: state.runId, mode: 'daily', actorId: state.party[0].id, session: { revision: 0 } } },
+    setWorkerChoice: value => calls.workerChoices.push(value), setWorkerChoiceEpoch: value => calls.workerEpochs.push(value),
     hydrated: true, checkpoint, busy: '', shopControlsBusy: false, shopStartRef: { current: false },
     annualUiGuardRef: { current: { hydrated: true, checkpoint, busy: false, shopControlsBusy: false } },
     showDeveloperTools: false, actorId: state.party[0].id, musicSceneTimerRef: { current: null },
@@ -171,10 +174,18 @@ try {
     assert.deepEqual(view.scope.autoDayGoalRef.current, { id: 'default', epoch: 8, runId: 'restore', session: { revision: 1 } });
     assert.deepEqual(view.calls.goals, ['default']); assert.deepEqual(view.calls.reports, [null]);
     assert.deepEqual(view.calls.epochs, [8]);
+    assert.deepEqual(view.calls.workerChoices, [{ fromJobId: 'unassigned', toJobId: '' }]);
+    assert.deepEqual(view.calls.workerEpochs, [12]);
+    assert.deepEqual(view.scope.workerChoiceRef.current, { fromJobId: 'unassigned', toJobId: '', epoch: 12,
+      runId: 'restore', mode: 'annual', actorId: view.calls.actors[0], session: { revision: 1 } });
     view.handleRestoredRun(fresh('daily'), { source: 'previous' }); assert.deepEqual(view.calls.tabs, ['tribe', 'actions']);
     assert.deepEqual(view.scope.autoDayGoalRef.current, { id: 'default', epoch: 9, runId: 'daily', session: { revision: 1 } });
     assert.deepEqual(view.calls.goals, ['default', 'default']); assert.deepEqual(view.calls.reports, [null, null]);
     assert.deepEqual(view.calls.epochs, [8, 9]);
+    assert.deepEqual(view.calls.workerChoices, [{ fromJobId: 'unassigned', toJobId: '' }, { fromJobId: 'unassigned', toJobId: '' }]);
+    assert.deepEqual(view.calls.workerEpochs, [12, 13]);
+    assert.deepEqual(view.scope.workerChoiceRef.current, { fromJobId: 'unassigned', toJobId: '', epoch: 13,
+      runId: 'daily', mode: 'daily', actorId: view.calls.actors[1], session: { revision: 1 } });
   });
   await check('actual Focus replaces the night column with total census annual plan receipt and one year command', () => {
     const state = annualState('focus'), view = harness(state), annual = annualSummary(state);
