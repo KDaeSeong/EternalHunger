@@ -8,6 +8,7 @@ const { createPhaseCombatFleeRuntime } = await import('../src/app/simulation/_li
 const { normalizeRevivedSurvivor } = await import('../src/app/simulation/_lib/survivorLifecycleRuntime.js');
 const { getRuleset } = await import('../src/utils/rulesets.js');
 const { buildRunActionSummary } = await import('../src/app/simulation/_lib/runActionSummary.js');
+const { applyLevelGrowth } = await import('../src/app/simulation/_lib/masteryProgressRuntime.js');
 const originalRules = getRuleset('ER_S11');
 const ruleset = { ...originalRules, ai: { ...originalRules.ai, escapeHpBelow: 0 },
   pvp: { ...originalRules.pvp, criticalFleeHpBelow: 0, earlyLethalFinishMax: 0, postBattleMoveChance: 0, restHealMax: 0, postBattleRestExtraHealMax: 0 } };
@@ -26,6 +27,52 @@ const fixture = (rows, extra = {}) => {
 };
 let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log(`PASS ${name}`); };
+
+check('actual hit damage excludes the HP recovered by post-hit level growth', () => {
+  const f = fixture([row('a1'), row('a2'), row('b1', 'b', { stats: { attackPower: 20, defense: 10, hpGrowth: 4 } })], { actionType: 'basic' });
+  f.actions.grantPvpDamageMastery = (actor, payload) => {
+    if (payload.damageTaken > 0) applyLevelGrowth(actor, { characterLeveledUp: true, beforeCharacterLevel: 1, afterCharacterLevel: 2 });
+  };
+  const result = f.run();
+  const packet = f.events.find(event => event.kind === 'damage' && event.who === 'a1' && event.targetId === 'b1');
+  const strike = result.teamRound.strikes.find(hit => hit.who === 'a1');
+  assert.ok(packet.hpDamage > 0);
+  assert.equal(f.survivorMap.get('b1').maxHp, 504);
+  assert.equal(500 - f.survivorMap.get('b1').hp, packet.hpDamage - 4);
+  assert.equal(strike.damage, packet.hpDamage, 'Team damage must describe the actual hit, not subtract later growth healing');
+});
+
+check('a follow-up chase in another zone is not charged to the original team hit', () => {
+  const actors = [row('a1'), row('a2'), row('b1', 'b')];
+  const survivorMap = new Map(actors.map(actor => [actor._id, actor]));
+  const result = runTeamCombatRound({ actor: actors[0], target: actors[2], survivorMap, nowSec: 100, onlyActorId: 'a1',
+    resolveStrike: (actor, target) => {
+      target.hp -= 12;
+      actor.zoneId = 'next-zone'; target.zoneId = 'next-zone';
+      target.hp -= 5;
+      return { performed: true, damageDealt: 12 };
+    },
+  });
+  assert.equal(actors[2].hp, 483);
+  assert.equal(result.strikes[0].zoneId, 'zone');
+  assert.equal(result.strikes[0].damage, 12);
+});
+
+check('zero committed hit damage stays zero even if a follow-up changes HP', () => {
+  const actors = [row('a1'), row('a2'), row('b1', 'b')];
+  const result = runTeamCombatRound({ actor: actors[0], target: actors[2], survivorMap: new Map(actors.map(actor => [actor._id, actor])),
+    nowSec: 100, onlyActorId: 'a1', resolveStrike: (actor, target) => { target.hp -= 5; return { performed: true, damageDealt: 0 }; },
+  });
+  assert.equal(result.strikes[0].damage, 0);
+});
+
+check('callbacks without committed-hit metadata retain the existing HP-delta contract', () => {
+  const actors = [row('a1'), row('a2'), row('b1', 'b')];
+  const result = runTeamCombatRound({ actor: actors[0], target: actors[2], survivorMap: new Map(actors.map(actor => [actor._id, actor])),
+    nowSec: 100, onlyActorId: 'a1', resolveStrike: (actor, target) => { target.hp -= 7; },
+  });
+  assert.equal(result.strikes[0].damage, 7);
+});
 const withRandom = (value, fn) => { const original = Math.random; Math.random = () => value; try { return fn(); } finally { Math.random = original; } };
 
 check('same-region three-versus-three spends six real actions and focuses targets', () => withRandom(0, () => {

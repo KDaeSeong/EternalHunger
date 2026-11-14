@@ -29,7 +29,7 @@ export function resolveCombatWinnerOutcome({ actions = {}, combatElimination = {
   const { applyCharacterSkillSplashDamage = () => 0, getCharacterSkillSplashTargets = () => [] } = skillSplash;
   const { resolveFleeSequence = () => null } = flee;
   const { applyCombatElimination = () => null } = combatElimination;
-  const result = { actor, target, battleLog: '', handled: true, performed: false, skipRemainingTurn: false };
+  const result = { actor, target, battleLog: '', handled: true, performed: false, damageDealt: 0, skipRemainingTurn: false };
   if (!actor || !target || Number(actor.hp || 0) <= 0 || Number(target.hp || 0) <= 0 || hasActionBlockStatus(actor) || !isTargetableByStatus(target)) return result;
   if (preparedSkill && !canUseSkillByStatus(actor, preparedSkill.def)) return result;
   if (!preparedSkill && !canBasicAttackByStatus(actor, target)) return result;
@@ -87,6 +87,7 @@ export function resolveCombatWinnerOutcome({ actions = {}, combatElimination = {
     allowTarget: !['blind', 'evade', 'untargetable'].includes(skillResult.packet?.blockedReason),
   });
   const totalDamage = Math.min(hpBefore, directDamage + weaponDamage);
+  result.damageDealt = totalDamage;
   if (totalDamage > 0) {
     recordCombatContribution(target, actor, totalDamage, phaseIdxNow, currentActionSec());
     target.lastDamagedBy = String(actor._id);

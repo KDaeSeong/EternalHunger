@@ -120,11 +120,16 @@ export function runTeamCombatRound({ actor, target, survivorMap, newDeadIds = []
       continue;
     }
     const after = survivorMap.get(idOf(victim)) || victim;
+    const netHpDamage = Math.max(0, beforeHp - Number(after.hp));
+    // Level growth and pursuit can change HP after the directional hit.
+    // Only that hit's committed damage belongs to this team engagement.
+    const committedDamage = Number.isFinite(result?.damageDealt) && result.damageDealt >= 0
+      ? result.damageDealt : netHpDamage;
     const hit = { who: turn.id, targetId: idOf(victim), teamId: getActorTeamId(striker), encounterId,
-      damage: Math.max(0, beforeHp - Number(after.hp)), reason: getForcedControlEffect(striker) ? 'taunted_target' : heldFocus ? 'focus_fire' : 'vulnerable_target', zoneId };
+      damage: committedDamage, reason: getForcedControlEffect(striker) ? 'taunted_target' : heldFocus ? 'focus_fire' : 'vulnerable_target', zoneId };
     strikes.push(hit);
     emitRunEvent('team_strike', hit, at);
-    observeResolution(turn.id, idOf(victim), hit.damage > 0 ? 'hp_hit' : 'performed_no_hp', beforeHp, Number(after.hp), hit.damage);
+    observeResolution(turn.id, idOf(victim), netHpDamage > 0 ? 'hp_hit' : 'performed_no_hp', beforeHp, Number(after.hp), netHpDamage);
   }
   return { handled: true, participants: participants.map(idOf), strikes, encounterId };
 }
