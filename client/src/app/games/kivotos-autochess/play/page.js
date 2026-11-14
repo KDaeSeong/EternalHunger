@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
@@ -9,6 +10,8 @@ import { CHARACTER_ORIGINS } from '../../_lib/crossoverCharacters.js';
 import OfficialStudentIcon from '../../_components/OfficialStudentIcon';
 import AutochessBoard from '../_components/AutochessBoard';
 import useAutochessSession from '../_hooks/useAutochessSession';
+import useAutochessDrag from '../_hooks/useAutochessDrag';
+import { moveDraggedUnit, samePosition } from '../_lib/autochessDrag.js';
 import { ACADEMIES, ROLES, STUDENTS, STUDENT_BY_ID, XP_THRESHOLDS } from '../_lib/autochessData';
 import { getPlayer, fieldUnits, benchUnits, oddsFor, nextInterest, trainingPrice, synergiesFor, copiesOf } from '../_lib/autochessMarket';
 import {
@@ -26,7 +29,7 @@ export default function KivotosAutochessPlayPage() {
   const [speed, setSpeed] = useState(2), [selectedUid, setSelectedUid] = useState(''), [scoutId, setScoutId] = useState('');
   const [replay, setReplay] = useState(false), [replayIndex, setReplayIndex] = useState(0), [tab, setTab] = useState('command'), [confirmNew, setConfirmNew] = useState(false);
   const [rosterOrigin, setRosterOrigin] = useState('nte');
-  const fileRef = useRef(null);
+  const fileRef = useRef(null), placementRef = useRef(null);
   const session = useAutochessSession({ owner, hydrated, token, speed });
   const { state, ready, message, busy, halted, recorded, act, newMatch, recover, exportRun, importRun, serverAction } = session;
   const human = getPlayer(state), opponent = nextOpponent(state);
@@ -62,25 +65,41 @@ export default function KivotosAutochessPlayPage() {
     else if (selected && (selected.position.kind === 'field' || !unit)) moveSelectedTo({ kind: 'bench', slot });
     else if (unit) setSelectedUid(unit.uid);
   };
+  const drag = useAutochessDrag({
+    enabled: editable, owner, runId: state.runId, round: state.round, scopeRef: placementRef,
+    onStart: setSelectedUid, onCancel: () => setSelectedUid(''),
+    onDrop: (record, target) => {
+      const next = act(current => moveDraggedUnit(current, record, target, owner));
+      const unit = next && getPlayer(next).units.find(candidate => candidate.uid === record.uid);
+      setSelectedUid(unit && !samePosition(unit.position, target) ? record.uid : '');
+    },
+  });
+  const draggingStudent = drag.view ? STUDENT_BY_ID[drag.view.studentId] : null;
   return (
     <GamePlayShell className="autochess-page" kicker="KIVOTOS · AUTO CHESS" title="키보토스 오토체스"
       description="캐릭터를 모으고, 세력 시너지를 완성하고, 마지막 한 팀으로 살아남으세요."
       viewport={false} heroLayout="compact"
       actions={<><Link href="/games">게임 목록</Link><GameControlButton action="save" disabled={fileDisabled} onClick={() => void serverAction('save')}>계정 저장</GameControlButton><GameControlButton action="load" disabled={fileDisabled} onClick={() => void serverAction('load')}>계정 불러오기</GameControlButton></>}
-      metrics={[
-        { label: '라운드', value: state.round },
-        { label: '체력', value: human.hp + ' / 40' },
-        { label: '골드', value: human.gold },
-        { label: '레벨', value: human.level + ' · 편성 ' + fieldUnits(human).length + '/' + human.level },
-        { label: '생존', value: state.players.filter(p => p.hp > 0).length + ' / 8' },
-      ]}>
-      <div className="ac-layout" onKeyDown={event => { if (event.key === 'Escape') setSelectedUid(''); }}>
+      >
+      <div className="ac-layout" ref={placementRef}
+        onPointerDownCapture={drag.onPointerDownCapture} onPointerMove={drag.onPointerMove}
+        onPointerUp={drag.onPointerUp} onPointerCancel={drag.onPointerCancel}
+        onLostPointerCapture={drag.onLostPointerCapture} onClickCapture={drag.onClickCapture}
+        onKeyDown={event => { if (event.key === 'Escape') { drag.cancel(); setSelectedUid(''); } }}>
         <section className="ac-play-column" aria-label="전장과 상점">
           <div className="ac-battle-card">
             <div className="ac-section-heading"><div><span className="ac-eyebrow">1인 대전 · AI 7명</span><h2>{watch ? watch.left.name + ' vs ' + watch.right.name : state.phase === 'finished' ? '대전 종료' : '편성이 승부를 결정합니다'}</h2></div><span className="ac-phase">{state.paused && state.phase === 'battle' ? '일시정지' : replay ? '전투 다시보기' : phaseNames[state.phase]}</span></div>
+            <dl className="ac-board-metrics" aria-label="전장 현황">
+              <div><dt>라운드</dt><dd>{state.round}</dd></div>
+              <div><dt>체력</dt><dd>{human.hp}<small> / 40</small></dd></div>
+              <div className="is-gold"><dt>골드</dt><dd>{fmt(human.gold)}<small> G</small></dd></div>
+              <div><dt>레벨</dt><dd>{human.level}<small> · 편성 {fieldUnits(human).length}/{human.level}</small></dd></div>
+              <div><dt>생존</dt><dd>{state.players.filter(p => p.hp > 0).length}<small> / 8</small></dd></div>
+            </dl>
             <div className="ac-round-info"><span>{watch ? '전투 ' + watchedFrame?.[0].toFixed(1) + ' / ' + watch.duration.toFixed(1) + '초' : scouted ? '정찰 · ' + scouted.name + (opponent?.ghost && scouted.id === opponent.player.id ? '의 고스트' : '') : '최종 순위를 확인하세요'}</span><span>{planning ? '다음 대진 · ' + (opponent ? opponent.player.name + (opponent.ghost ? '의 고스트' : '') : '대진 없음') : watch ? '체력과 마나에 따라 자동으로 공격·스킬 사용' : '체력 0이면 탈락'}</span></div>
+            <p className="ac-placement-help" id="ac-placement-help" aria-live="polite">{draggingStudent ? draggingStudent.name + ' 이동 중 · 아군 칸이나 대기석에 놓으세요.' : '캐릭터를 드래그해 배치하거나, 클릭해서 선택 후 원하는 칸을 누르세요.'}</p>
             <div className="ac-board-wrap">
-              <AutochessBoard player={human} opponent={scouted} watch={watch} frameIndex={frameIndex} selectedUid={selectedUid} onCell={place} editable={editable} />
+              <AutochessBoard player={human} opponent={scouted} watch={watch} frameIndex={frameIndex} selectedUid={selectedUid} onCell={place} editable={editable} onUnitPointerDown={drag.onPointerDown} draggingUid={drag.view?.uid} dropKey={drag.view?.dropKey} />
               {!ready ? <div className="ac-overlay"><h2>대전을 준비하고 있습니다</h2><p>저장된 진행을 확인하는 중입니다.</p></div> : null}
               {state.phase === 'finished' && !replay ? <div className="ac-overlay">
                 <span className="ac-eyebrow">FINAL RESULT</span><h2>{human.rank === 1 ? '최후의 승자!' : '최종 ' + human.rank + '위'}</h2>
@@ -109,13 +128,15 @@ export default function KivotosAutochessPlayPage() {
             <div className="ac-bench" role="group" aria-label="대기석">
               {Array.from({ length: 9 }, (_, slot) => {
                 const unit = human.units.find(u => u.position.kind === 'bench' && u.position.slot === slot), s = unit ? STUDENT_BY_ID[unit.studentId] : null;
-                return <button key={slot} type="button" disabled={!editable} className={'ac-bench-slot' + (unit?.uid === selectedUid ? ' is-selected' : '')}
+                return <button key={slot} type="button" disabled={!editable} className={'ac-bench-slot' + (unit?.uid === selectedUid ? ' is-selected' : '') + (drag.view?.uid === unit?.uid && unit ? ' is-drag-source' : '') + (drag.view?.dropKey === 'bench:' + slot ? ' is-drop-target' : '')}
+                  data-ac-drop={editable ? 'bench:' + slot : undefined} data-ac-unit={editable ? unit?.uid : undefined}
+                  onPointerDown={event => drag.onPointerDown(event, unit)} draggable={false} aria-describedby="ac-placement-help"
                   aria-pressed={Boolean(unit && unit.uid === selectedUid)} aria-label={'대기석 ' + (slot + 1) + '번' + (s ? ' · ' + s.name + ' ' + unit.star + '성' : ' · 빈칸')} onClick={() => benchClick(slot, unit)}>
                   {s ? <><div className="ac-bench-portrait"><OfficialStudentIcon id={s.id} /></div><strong>{s.name}</strong><span>{'★'.repeat(unit.star)}</span></> : <span>{slot + 1}</span>}
                 </button>;
               })}
             </div>
-            {selected && student ? <div className="ac-selected-detail"><div><strong>{student.name} {'★'.repeat(selected.star)}</strong><span>{ACADEMIES[student.academy].name} · {ROLES[student.role].name} · {student.skillName}</span></div><div className="ac-selection-actions"><button type="button" className="ac-button" onClick={() => setSelectedUid('')}>선택 해제</button><button type="button" className="ac-button ac-sell" disabled={!editable} onClick={() => { act(s => sellUnit(s, selected.uid)); setSelectedUid(''); }}>판매 · {student.cost * copiesOf(selected)}골드</button></div></div> : <p className="ac-muted">캐릭터를 선택한 뒤 아군 칸이나 대기석을 누르면 배치·교환하고 선택이 해제됩니다. 같은 캐릭터를 다시 누르거나 Esc로 선택을 취소할 수 있습니다.</p>}
+            {selected && student ? <div className="ac-selected-detail"><div><strong>{student.name} {'★'.repeat(selected.star)}</strong><span>{ACADEMIES[student.academy].name} · {ROLES[student.role].name} · {student.skillName}</span></div><div className="ac-selection-actions"><button type="button" className="ac-button" onClick={() => setSelectedUid('')}>선택 해제</button><button type="button" className="ac-button ac-sell" disabled={!editable} onClick={() => { act(s => sellUnit(s, selected.uid)); setSelectedUid(''); }}>판매 · {student.cost * copiesOf(selected)}골드</button></div></div> : <p className="ac-muted">캐릭터를 드래그해 아군 칸이나 대기석에 놓으면 배치·교환됩니다. 클릭 배치도 가능하며, 배치 후에는 선택이 해제됩니다. Esc로 이동·선택을 취소할 수 있습니다.</p>}
           </div>
 
           <div className="ac-shop-panel">
@@ -137,6 +158,13 @@ export default function KivotosAutochessPlayPage() {
           <div className="ac-synergy-panel"><div className="ac-small-heading"><h3>아군 시너지</h3><span>같은 캐릭터의 중복 배치는 1명으로 계산</span></div><div className="ac-traits">{traits.academy.map(trait => <div key={trait.id} className={trait.tier ? 'is-active' : ''} style={{ '--academy-color': trait.color }} title={trait.description}><span>{trait.name}</span><strong>{trait.count}<small> / 2·4</small></strong><p>{trait.label}</p></div>)}</div><div className="ac-role-traits">{traits.roles.map(trait => <span key={trait.id} className={trait.tier ? 'is-active' : ''} title={trait.description}>{trait.name} {trait.count} / 2·4</span>)}</div></div>
         </section>
 
+        {drag.view && draggingStudent ? createPortal(
+          <div className={'ac-drag-preview' + (!drag.view.dropKey ? ' is-invalid' : '')}
+            style={{ left: drag.view.x, top: drag.view.y, '--academy-color': ACADEMIES[draggingStudent.academy].color }} aria-hidden="true">
+            <div className="ac-drag-portrait"><OfficialStudentIcon id={draggingStudent.id} /></div>
+            <strong>{draggingStudent.name}</strong><span>{drag.view.dropKey ? '여기에 배치' : '아군 칸 · 대기석'}</span>
+          </div>, document.body
+        ) : null}
         <aside className="ac-sidebar" aria-label="순위와 대전 관리">
           <div className="ac-standings"><div className="ac-small-heading"><h3>대전 현황</h3><span>체력 0 → 탈락</span></div>{roster.map(p => <button key={p.id} type="button" className={'ac-player-row' + (p.id === 'p0' ? ' is-human' : '') + (!p.hp ? ' is-out' : '')}
             aria-label={p.name + ' 정찰'} aria-pressed={scouted?.id === p.id} disabled={p.id === 'p0' || !p.hp || state.phase === 'battle'} onClick={() => { setScoutId(p.id); setReplay(false); }}>

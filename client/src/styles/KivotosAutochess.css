@@ -71,3 +71,30 @@ button.ac-cell:not(:disabled):hover { background:#3f747a; outline:2px solid #72c
 .ac-collection-card p { grid-column:span 2; margin:0; font-size:.6rem; line-height:1.8; color:#7f96a3; }
 .ac-side-panel h3>small { margin-left:5px; font-size:.65rem; font-weight:400; color:#8c9faa; }
 @media(min-width:521px) { .ac-traits { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+
+/* Keep the match indicators with the main board. */
+.games-page-shell.autochess-page .games-play-chrome { display:block; }
+.ac-board-metrics { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; margin:16px 0 0; padding:0; }
+.ac-board-metrics>div { min-width:0; padding:9px 10px; border:1px solid #e1eaf0; border-radius:9px; background:#f5f9fb; }
+.ac-board-metrics dt { color:#8297a5; font-size:.62rem; }
+.ac-board-metrics dd { margin:5px 0 0; color:#345565; font-size:1rem; font-weight:800; line-height:1.25; }
+.ac-board-metrics dd small { font-size:.61rem; font-weight:500; white-space:nowrap; }
+.ac-board-metrics .is-gold { background:#fff9ec; border-color:#f1e2b9; }
+.ac-board-metrics .is-gold dd { color:#a27a24; }
+.ac-placement-help { min-height:18px; margin:0 0 9px; color:#72949e; font-size:.65rem; line-height:1.6; }
+.ac-cell[data-ac-unit],.ac-bench-slot[data-ac-unit] { cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; }
+.ac-cell.is-drag-source { cursor:grabbing; }
+.ac-fighter.is-drag-source,.ac-bench-slot.is-drag-source { opacity:.4; }
+.ac-cell.is-drop-target,.ac-bench-slot.is-drop-target { outline:3px solid #89efcf; outline-offset:-3px; background:#43847d; }
+.ac-bench-slot.is-drop-target { background:#e0f6ed; border-color:#4caa91; }
+.ac-drag-preview { position:fixed; z-index:10000; transform:translate(-50%,-75%); width:94px; padding:7px; border:2px solid #57bba4; border-radius:12px; background:#fffffff5; color:#284254; box-shadow:0 7px 25px #102b4a40; text-align:center; pointer-events:none; user-select:none; }
+.ac-drag-preview * { pointer-events:none; }
+.ac-drag-preview.is-invalid { border-color:#a8b9c4; }
+.ac-drag-portrait { width:40px; height:40px; margin:0 auto 4px; border:2px solid var(--academy-color); border-radius:9px; overflow:hidden; }
+.ac-drag-preview strong { display:block; font-size:.72rem; }
+.ac-drag-preview>span { display:block; margin-top:3px; font-size:.56rem; color:#6f8994; }
+@media(max-width:520px) {
+  .ac-board-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+  .ac-board-metrics>div { padding:8px; }
+  .ac-board-metrics dd { font-size:.93rem; }
+}
