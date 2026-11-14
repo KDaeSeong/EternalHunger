@@ -24,9 +24,11 @@ function buildItemIndexes(publicItems) {
     const id = normId(it);
     if (!id) continue;
     byId.set(id, it);
-    const key = normKey(it);
-    if (key && !byKey.has(key)) byKey.set(key, it);
-    if (!byKey.has(id)) byKey.set(id, it);
+    // Initial routing and opening progress share first-alias catalog order.
+    for (const alias of [it?.itemKey, it?.externalId, id]) {
+      const key = String(alias ?? '').trim();
+      if (key && !byKey.has(key)) byKey.set(key, it);
+    }
   }
   return { byId, byKey };
 }

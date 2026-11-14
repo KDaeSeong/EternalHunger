@@ -24,11 +24,26 @@ const medicine = { _id: '111111111111111111111111', name: '맞춤 회복약', ty
 const encoded = new Item(medicine).toObject();
 const food = { ...medicine, _id: 'custom:food', name: '맞춤 음식', type: 'food', tags: ['food'] };
 const received = addItemToInventory([], food, food._id, 1, 1, rules)[0];
-const unsupported = { ...medicine, itemId: medicine._id, type: 'consumable', qty: 1 };
-const forcedActor = actor({ inventory: [structuredClone(unsupported)] });
+const supportedMedicine = { ...medicine, itemId: medicine._id, type: 'consumable', qty: 1 };
+const forcedActor = actor({ inventory: [structuredClone(supportedMedicine)] });
 const forced = forceUseConsumableAtIndex(forcedActor, 0);
-const autoActor = actor({ inventory: [structuredClone(unsupported)] });
+const autoActor = actor({ inventory: [structuredClone(supportedMedicine)] });
 const automatic = createPhaseConsumableRuntime({ phaseIdxNow: 0 }).tryUseConsumable(autoActor, 'turn');
+const rejectedEffectChecks = [
+  { version: 1, unknownEffect: 25 },
+  { version: 1, heal: 25, unknownEffect: 1 },
+  { version: 1, heal: -1 },
+].map(consumeEffect => {
+  const item = { ...supportedMedicine, consumeEffect };
+  const manualActor = actor({ inventory: [structuredClone(item)] });
+  const automaticActor = actor({ inventory: [structuredClone(item)] });
+  const manualBefore = JSON.stringify(manualActor), automaticBefore = JSON.stringify(automaticActor);
+  const usedManually = forceUseConsumableAtIndex(manualActor, 0).used;
+  const usedAutomatically = createPhaseConsumableRuntime({ phaseIdxNow: 0 }).tryUseConsumable(automaticActor, 'turn');
+  return { consumeEffect, schemaRejected: Boolean(new Item({ ...item, type: medicine.type }).validateSync()?.errors?.consumeEffect), usedManually, usedAutomatically,
+    manualPreserved: JSON.stringify(manualActor) === manualBefore,
+    automaticPreserved: JSON.stringify(automaticActor) === automaticBefore };
+});
 
 const material = { _id: 'custom:leaf', itemId: 'custom:leaf', name: '약초', type: '재료', qty: 2, tier: 1 };
 const recipe = { ...food, recipe: { ingredients: [{ itemId: material._id, qty: 2 }], resultQty: 3, creditsCost: 7 } };
@@ -46,14 +61,18 @@ const findings = [
     evidence: { authoredHeal: 25, schemaHeal: encoded.consumeEffect?.heal ?? null, schemaResultQty: encoded.recipe.resultQty, schemaCreditsCost: encoded.recipe.creditsCost } },
   { id: 'HF6-CATEGORY', requirement: 'Editor consumable type is recognized without a special name or tag',
     supported: inferItemCategory(medicine) === 'consumable',
-    evidence: { editorType: medicine.type, runtimeCategory: inferItemCategory(medicine), automaticRecoveryCandidate: isFoodRecoveryItem(medicine) } },
+    evidence: { editorType: medicine.type, runtimeCategory: inferItemCategory(medicine), recognizedAsFood: isFoodRecoveryItem(medicine), automaticHealingUsed: automatic } },
   { id: 'HF6-RECEIPT', requirement: 'Received items retain explicit consumable effects',
     supported: applyItemEffect(actor(), received).recovery === 25,
     evidence: { beforeInventoryHeal: applyItemEffect(actor(), food).recovery, afterInventoryHeal: applyItemEffect(actor(), received).recovery,
       retainedEffect: received.consumeEffect ?? null } },
-  { id: 'HF6-USE', requirement: 'Unsupported effects must not silently consume an item',
-    supported: forced.used !== true && forcedActor.inventory.length === 1,
+  { id: 'HF6-USE', requirement: 'Supported explicit recovery heals and consumes exactly one item',
+    supported: forced.used === true && forced.heal === 25 && forcedActor.hp === 35 && forcedActor.inventory.length === 0
+      && automatic === true && autoActor.hp === 35 && autoActor.inventory.length === 0,
     evidence: { used: forced.used, heal: forced.heal ?? 0, remainingItems: forcedActor.inventory.length, automaticUse: automatic, automaticHp: autoActor.hp } },
+  { id: 'HF6-UNSUPPORTED', requirement: 'Unknown and malformed explicit effects reject use and preserve the whole actor',
+    supported: rejectedEffectChecks.every(row => row.schemaRejected && !row.usedManually && !row.usedAutomatically
+      && row.manualPreserved && row.automaticPreserved), evidence: rejectedEffectChecks },
   { id: 'HF6-CRAFT', requirement: 'Crafting honors authored yield and pays the authored cost atomically',
     supported: craft?.changed === true && invQty(crafter.inventory, recipe._id) === 3 && crafter.simCredits === 13 && !poorCraft?.changed
       && lootCommit.ok && invQty(lootCrafter.inventory, recipe._id) === 3 && lootCrafter.simCredits === 13,
@@ -69,5 +88,5 @@ console.log(JSON.stringify({ audit: 'HF6 actual in-memory support audit', implem
   findings, missingSupport: findings.filter((row) => !row.supported).map((row) => row.id),
   emptySlotBoundary: { incompleteCatalogReturnsNoStarter: missingStarter === null,
     originalEvaluatorCatalogAvailable: false, originalEmptySlotCauseProven: false },
-  limitations: ['No database or account UI write', 'No guest custom-item editor yet', 'No item proc/rupture combat acceptance',
+  limitations: ['No database or account UI write', 'Guest profile editor UI and real browser persistence not exercised', 'No item proc/rupture combat acceptance',
     'No original evaluator roster/catalog replay; empty-slot causation remains open', 'A successful audit command is not feature completion'] }, null, 2));
