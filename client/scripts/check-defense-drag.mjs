@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { PADS, STUDENTS, STAT_DEFS } from '../src/app/games/infinite-defense/_lib/infiniteDefenseData.js';
-import { assignStudent, createNewState, isValidSave, serializeState, startWave, swapDefenders, replaceDefender, restoreState } from '../src/app/games/infinite-defense/_lib/infiniteDefenseEngine.js';
+import { PADS, STUDENTS, STAT_DEFS, MAX_MINERS } from '../src/app/games/infinite-defense/_lib/infiniteDefenseData.js';
+import { assignStudent, createNewState, isValidSave, serializeState, startWave, swapDefenders, replaceDefender, restoreState, miningRate, advanceTime } from '../src/app/games/infinite-defense/_lib/infiniteDefenseEngine.js';
 import { crossedDragThreshold, defenseDropStatus, edgeScrollDelta, moveDraggedDefender, parseDefenseDropTarget } from '../src/app/games/infinite-defense/_lib/infiniteDefenseDrag.js';
 
 let passed = 0;
@@ -50,11 +50,13 @@ check('an unpaid miner pays once and leaves mining without duplication', () => {
   assert.equal(next.coins,state.coins-STUDENTS.find(s=>s.id==='noa').cost);
   assert.equal(next.assignments.noa.mode,'defend'); assert(isValidSave(next));
 });
-check('a mining character cannot replace an occupied pad before returning to reserve', () => {
+check('a mining character can replace an occupied pad directly', () => {
   const state=deploy(fresh(),'shiroko','p1');
   assert.equal(defenseDropStatus(state,'yuuka','p1').kind,'replace');
   const miner=assignStudent(state,'noa','mine');
-  assert.equal(deploy(miner,'noa','p1'),miner);
+  const next=deploy(miner,'noa','p1');
+  assert.equal(next.assignments.noa.padId,'p1');assert.equal(next.assignments.shiroko.mode,'reserve');
+  assert(isValidSave(next));
 });
 check('the current pad and an outside release leave the full state unchanged', () => {
   const state=deploy(fresh(),'shiroko','p1');
@@ -231,11 +233,11 @@ check('a live replacement preserves each character investment and the current co
     assert.deepEqual(next[field],state[field],field);
   assert(isValidSave(next));
 });
-check('replacement rejects mining, deployed sources, unknown IDs, same-character and ended requests', () => {
+check('replacement rejects deployed sources, non-defender targets, unknown IDs, same-character and ended requests', () => {
   const state=replacementPair();
   for(const [a,b]of [['shiroko','shiroko'],['missing','shiroko'],['hina','missing'],['hina','noa']])
     assert.equal(replaceDefender(state,a,b),state);
-  const miner=assignStudent(state,'hina','mine');assert.equal(replaceDefender(miner,'hina','shiroko'),miner);
+  const nonDefender=assignStudent(state,'shiroko','mine');assert.equal(replaceDefender(nonDefender,'hina','shiroko'),nonDefender);
   const deployed=assignStudent(state,'hina','defend','p2');assert.equal(replaceDefender(deployed,'hina','shiroko'),deployed);
   const ended={...state,phase:'defeat',baseHp:0};assert.equal(replaceDefender(ended,'hina','shiroko'),ended);
 });
@@ -255,10 +257,11 @@ check('drop-time replacement returns the current occupant to reserve and leaves 
   assert.equal(next.assignments.yuuka.padId,'');assert.equal(next.assignments.shiroko.padId,'p3');
   assert(isValidSave(next));
 });
-check('every reserve character can replace across origins and round-trip the resulting save', () => {
-  for(const student of STUDENTS) {
+check('reserve and mining replacements across every origin round-trip their saves', () => {
+  for(const mode of ['reserve','mine']) for(const student of STUDENTS) {
     const outgoing=student.id==='shiroko'?'yuuka':'shiroko';
     let state={...fresh(),coins:10000};state=assignStudent(state,outgoing,'defend','p1');
+    if(mode==='mine')state=assignStudent(state,student.id,'mine');
     state=deploy(state,student.id,'p1');
     assert.equal(state.assignments[student.id].padId,'p1');
     assert.equal(state.assignments[outgoing].mode,'reserve');
@@ -268,6 +271,69 @@ check('every reserve character can replace across origins and round-trip the res
 });
 check('replaying the same reserve gesture cannot charge or log a second replacement', () => {
   const state=replacementPair(),drag=gesture(state,'hina'),next=moveDraggedDefender(state,drag,'p1',owner);
+  assert.equal(moveDraggedDefender(next,drag,'p1',owner),next);
+});
+
+
+const miningReplacementPair = () => assignStudent(replacementPair(),'noa','mine');
+const minerCount = state => STUDENTS.filter(s=>state.assignments[s.id].mode==='mine').length;
+check('an unpaid miner replaces atomically, pays once, and leaves no worker in its former mining role', () => {
+  const state=miningReplacementPair(),before=structuredClone(state),next=deploy(state,'noa','p1');
+  const cost=STUDENTS.find(s=>s.id==='noa').cost;
+  assert.equal(defenseDropStatus(state,'noa','p1').kind,'replace');
+  assert.equal(next.coins,state.coins-cost);assert.equal(next.logId,state.logId+1);
+  assert.deepEqual(next.assignments.noa,{...state.assignments.noa,mode:'defend',padId:'p1',paid:true});
+  assert.deepEqual(next.assignments.shiroko,{...state.assignments.shiroko,mode:'reserve',padId:''});
+  assert.equal(minerCount(state),1);assert.equal(minerCount(next),0);
+  assert(miningRate(state)>.6);assert.equal(miningRate(next),.6);
+  assert.deepEqual(state,before);assert(isValidSave(next));
+});
+check('a paid miner replaces for free at full mining capacity and frees one worker slot', () => {
+  let state=assignStudent(replacementPair(),'noa','defend','p2');
+  state=assignStudent(state,'noa','mine');
+  const others=STUDENTS.filter(s=>!['shiroko','noa'].includes(s.id)).slice(0,MAX_MINERS-1);
+  for(const student of others)state=assignStudent(state,student.id,'mine');
+  state={...state,coins:0};assert.equal(minerCount(state),MAX_MINERS);
+  const next=deploy(state,'noa','p1');assert.equal(next.coins,0);
+  assert.equal(minerCount(next),MAX_MINERS-1);assert.equal(next.assignments.shiroko.mode,'reserve');
+  for(const student of others)assert.deepEqual(next.assignments[student.id],state.assignments[student.id]);
+  const refilled=assignStudent(next,'shiroko','mine');assert.equal(minerCount(refilled),MAX_MINERS);
+  assert(miningRate(next)<miningRate(state));assert(isValidSave(next));
+});
+check('insufficient or depleted credits preserve the miner, defender, mining income, and full state', () => {
+  const cost=STUDENTS.find(s=>s.id==='noa').cost,state={...miningReplacementPair(),coins:cost-1};
+  assert.equal(defenseDropStatus(state,'noa','p1').kind,'funds');
+  assert.equal(deploy(state,'noa','p1'),state);
+  const funded={...state,coins:cost},depleted={...funded,coins:0};
+  assert.equal(moveDraggedDefender(depleted,gesture(funded,'noa'),'p1',owner),depleted);
+  assert.equal(minerCount(depleted),1);assert.equal(miningRate(depleted),miningRate(funded));
+});
+check('future build-phase income uses the reduced workforce immediately after replacement', () => {
+  const state=miningReplacementPair(),next=deploy(state,'noa','p1');
+  const tick=advanceTime(next,1);
+  assert(Math.abs(tick.coins-next.coins-.6)<.001);
+  assert.equal(tick.elapsed,next.elapsed+1);assert.equal(minerCount(tick),0);
+  assert.equal(tick.assignments.shiroko.mode,'reserve');
+});
+check('a live mining replacement preserves both character investments and the combat timeline', () => {
+  let state=startWave(miningReplacementPair());
+  state.assignments.shiroko={...state.assignments.shiroko,power:3,cooldown:.47};
+  state.assignments.noa={...state.assignments.noa,power:5,cooldown:.81};
+  state.upgrades={shiroko:Object.fromEntries(STAT_DEFS.map(s=>[s.id,s.id==='agility'?2:0])),
+    noa:Object.fromEntries(STAT_DEFS.map(s=>[s.id,s.id==='shooting'?4:0]))};
+  const next=deploy(state,'noa','p1');
+  assert.deepEqual(next.assignments.noa,{...state.assignments.noa,mode:'defend',padId:'p1',paid:true});
+  assert.deepEqual(next.assignments.shiroko,{...state.assignments.shiroko,mode:'reserve',padId:''});
+  for(const field of ['upgrades','enemies','effects','wave','waveTime','elapsed','spawnIndex','kills','baseHp'])
+    assert.deepEqual(next[field],state[field],field);
+  assert.equal(minerCount(next),0);assert(isValidSave(next));
+});
+check('stale mining gestures, account changes, and replays cannot perform another replacement', () => {
+  const state=miningReplacementPair(),drag=gesture(state,'noa'),reserve=assignStudent(state,'noa','reserve');
+  assert.equal(moveDraggedDefender(reserve,drag,'p1',owner),reserve);
+  for(const patch of [{owner:'account:other'},{runId:'different'},{wave:2},{phase:'wave'}])
+    assert.equal(moveDraggedDefender(state,{...drag,...patch},'p1',owner),state);
+  const next=moveDraggedDefender(state,drag,'p1',owner);
   assert.equal(moveDraggedDefender(next,drag,'p1',owner),next);
 });
 

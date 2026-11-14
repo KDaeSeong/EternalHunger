@@ -23,7 +23,7 @@ export function defenseDropStatus(state, studentId, padId) {
   const student = STUDENTS.find(candidate => candidate.id === studentId);
   const row = state.assignments[studentId];
   const reject = (kind, text) => ({ allowed: false, kind, text });
-  if (!student || !row || !parseDefenseDropTarget(padId)) return reject('outside', '거점에 놓기 · 방어 캐릭터 교환·대기 캐릭터 교체 · Esc 취소');
+  if (!student || !row || !parseDefenseDropTarget(padId)) return reject('outside', '거점에 놓기 · 방어 캐릭터 교환·대기·채굴 캐릭터 교체 · Esc 취소');
   if (state.phase === 'defeat') return reject('ended', '종료된 작전에서는 배치할 수 없습니다.');
   if (row.mode === 'defend' && row.padId === padId) return reject('same', '현재 거점 · 위치 유지');
   const occupant = STUDENTS.find(candidate => candidate.id !== studentId &&
@@ -32,13 +32,13 @@ export function defenseDropStatus(state, studentId, padId) {
     if (row.mode === 'defend' && parseDefenseDropTarget(row.padId))
       return { allowed: true, kind: 'swap', cost: 0, targetId: occupant.id,
         text: padId.slice(1) + '번 거점 · ' + occupant.name + '와 위치 교환 · 무료' };
-    if (row.mode === 'reserve') {
+    if (row.mode === 'reserve' || row.mode === 'mine') {
       const cost = row.paid ? 0 : student.cost;
       if (state.coins < cost) return reject('funds', '크레딧 부족 · ' + cost + ' 필요');
       return { allowed: true, kind: 'replace', cost, targetId: occupant.id,
         text: padId.slice(1) + '번 거점 교체 · ' + occupant.name + ' 대기 전환 · ' + (cost ? cost + ' 크레딧' : '무료') };
     }
-    return reject('occupied', occupant.name + ' 배치 중 · 채굴 캐릭터는 먼저 대기로 전환');
+    return reject('occupied', '배치 상태가 변경되어 교체할 수 없습니다.');
   }
   const cost = row.paid ? 0 : student.cost;
   if (state.coins < cost) return reject('funds', '크레딧 부족 · ' + cost + ' 필요');

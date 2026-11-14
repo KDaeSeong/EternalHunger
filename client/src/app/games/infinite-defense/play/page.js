@@ -112,7 +112,7 @@ export default function InfiniteDefensePlayPage() {
             <span>01 채굴 배치</span><b aria-hidden="true">→</b><span>02 방어·훈련</span><b aria-hidden="true">→</b><span>03 보스 격파</span>
           </div>
           <div className="defense-drag-help" role="status" aria-live="polite" data-defense-drag-status>
-            {dropStatus ? draggedStudent.name + ' · ' + dropStatus.text : dragNotice || '끌어서 배치·이동 · 방어 캐릭터끼리 교환 · 대기 캐릭터로 교체 · Esc 취소'}
+            {dropStatus ? draggedStudent.name + ' · ' + dropStatus.text : dragNotice || '끌어서 배치·이동 · 방어 캐릭터끼리 교환 · 대기·채굴 캐릭터로 교체 · Esc 취소'}
           </div>
           <div className="defense-board-wrap">
             <DefenseBoard state={state} selectedId={selectedId} onPad={onPad} disabled={disabled || ended} effectDuration={220 / speed} dragView={drag.view} onStudentPointerDown={onStudentPointerDown} />
@@ -202,7 +202,7 @@ export default function InfiniteDefensePlayPage() {
                       <button type="button" className="defense-button" disabled={disabled || ended || assignment.mode === 'mine' || workers.length >= MAX_MINERS} onClick={() => act(current => assignStudent(current, selectedId, 'mine'))}>채굴 배치 · {selected.miningRate.toFixed(1)}/초</button>
                       <button type="button" className="defense-button" disabled={disabled || ended || assignment.mode === 'reserve'} onClick={() => act(current => assignStudent(current, selectedId, 'reserve'))}>대기 전환</button>
                     </div>
-                    <p className="defense-placement-note">캐릭터를 끌어 놓거나 지도 위 +를 눌러 방어 배치 · {fmt(placeCost)} 크레딧<br />첫 방어 배치만 비용이 들며, 이후 재배치는 무료입니다.<br />배치된 캐릭터를 다른 캐릭터의 거점에 놓으면 위치를 교환합니다.<br />대기 캐릭터로 교체하면 기존 캐릭터는 대기로 돌아갑니다.</p>
+                    <p className="defense-placement-note">캐릭터를 끌어 놓거나 지도 위 +를 눌러 방어 배치 · {fmt(placeCost)} 크레딧<br />첫 방어 배치만 비용이 들며, 이후 재배치는 무료입니다.<br />배치된 캐릭터를 다른 캐릭터의 거점에 놓으면 위치를 교환합니다.<br />대기·채굴 캐릭터로 교체하면 기존 캐릭터는 대기로 돌아갑니다.</p>
                     <button type="button" className="defense-button defense-wide" disabled={disabled || ended || state.coins < powerCost(state, selectedId)}
                       onClick={() => act(current => upgradePower(current, selectedId))}>화력 강화 +{assignment.power + 1} · {fmt(powerCost(state, selectedId))}</button>
                   </> : (

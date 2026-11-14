@@ -93,7 +93,7 @@ function replaceDefender(state, id, otherId) {
   const student = getStudent(id);
   if (!canManage(state) || id === otherId || !student || !getStudent(otherId)) return state;
   const incoming = state.assignments[id], outgoing = state.assignments[otherId];
-  if (incoming?.mode !== 'reserve' || outgoing?.mode !== 'defend' ||
+  if (!['reserve', 'mine'].includes(incoming?.mode) || outgoing?.mode !== 'defend' ||
       !PADS.some(p => p.id === outgoing.padId)) return state;
   const cost = incoming.paid ? 0 : student.cost;
   if (state.coins < cost) return state;

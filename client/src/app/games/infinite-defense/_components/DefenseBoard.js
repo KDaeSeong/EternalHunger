@@ -75,7 +75,7 @@ export default function DefenseBoard({ state, selectedId, onPad, disabled, effec
             data-defense-drop={pad.id} data-defense-source={occupant?.id || undefined}
             data-defense-draggable={Boolean(occupant && onStudentPointerDown && !disabled)}
             data-defense-drop-state={drop ? (drop.kind === 'valid' ? 'available' : drop.kind) : undefined}
-            title={drop?.text || (occupant ? '끌어서 위치 교환 · 대기 캐릭터로 교체' : '클릭 또는 드래그로 배치')}
+            title={drop?.text || (occupant ? '끌어서 위치 교환 · 대기·채굴 캐릭터로 교체' : '클릭 또는 드래그로 배치')}
             disabled={disabled || (!occupant && !state.assignments[placingId].paid && state.coins < placing.cost)}
             onPointerDown={occupant && onStudentPointerDown ? event => onStudentPointerDown(event, occupant.id) : undefined}
             onDragStart={event => event.preventDefault()}
