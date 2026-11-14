@@ -3,16 +3,18 @@
 import { useId } from 'react';
 import AutochessCombatEffects from '../../kivotos-autochess/_components/AutochessCombatEffects';
 import { defensePresentation } from '../_lib/infiniteDefenseEffects.js';
+import { defenseDropStatus } from '../_lib/infiniteDefenseDrag.js';
 
 import OfficialStudentIcon from '../../_components/OfficialStudentIcon';
 import { ENEMY_TYPES, MAP, MINING_ANCHOR, PADS, ROUTE, STUDENTS } from '../_lib/infiniteDefenseData.js';
 import { pointAt, studentStats } from '../_lib/infiniteDefenseEngine.js';
 
-export default function DefenseBoard({ state, selectedId, onPad, disabled, effectDuration = 220, effectScope, effectStage = '' }) {
+export default function DefenseBoard({ state, selectedId, onPad, disabled, effectDuration = 220, effectScope, effectStage = '', dragView = null, onStudentPointerDown }) {
   const sceneId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const gridId = sceneId + '-grid', groundId = sceneId + '-ground';
   const combat = defensePresentation(state, effectStage);
   const selected = studentStats(state, selectedId);
+  const placingId = dragView?.studentId || selectedId, placing = studentStats(state, placingId);
   const selectedPad = PADS.find(p => p.id === state.assignments[selectedId].padId);
   return (
     <div className="defense-map" aria-label="방어 지도">
@@ -63,12 +65,20 @@ export default function DefenseBoard({ state, selectedId, onPad, disabled, effec
       {state.assignments.noa.mode === 'mine' ? <div className="defense-miner-marker" style={{ left: MINING_ANCHOR.x / MAP.width * 100 + '%', top: MINING_ANCHOR.y / MAP.height * 100 + '%' }} aria-label="노아 생산 지원"><span><OfficialStudentIcon id="noa" /></span><small>노아 · 생산 지원</small></div> : null}
       {PADS.map((pad, i) => {
         const occupant = STUDENTS.find(s => state.assignments[s.id].mode === 'defend' && state.assignments[s.id].padId === pad.id);
+        const drop = dragView ? defenseDropStatus(state, dragView.studentId, pad.id) : null;
+        const hovered = dragView?.dropKey === pad.id;
         return (
           <button key={pad.id} type="button"
-            className={'defense-pad' + (occupant ? ' is-occupied' : '') + (occupant?.id === selectedId ? ' is-selected' : '')}
+            className={'defense-pad' + (occupant ? ' is-occupied' : '') + (occupant?.id === selectedId ? ' is-selected' : '') + (dragView && occupant?.id === dragView.studentId ? ' is-drag-source' : '') + (drop?.allowed ? ' is-drop-available' : '') + (hovered ? drop.allowed ? ' is-drop-valid' : ' is-drop-blocked' : '')}
             style={{ left: pad.x / MAP.width * 100 + '%', top: pad.y / MAP.height * 100 + '%', '--unit-color': occupant?.color || '#77c6c8' }}
             aria-label={occupant ? (i + 1) + '번 거점 ' + occupant.name + ' 선택' : (i + 1) + '번 거점에 ' + selected.name + ' 배치'}
-            disabled={disabled || (!occupant && !state.assignments[selectedId].paid && state.coins < selected.cost)}
+            data-defense-drop={pad.id} data-defense-source={occupant?.id || undefined}
+            data-defense-draggable={Boolean(occupant && onStudentPointerDown && !disabled)}
+            data-defense-drop-state={drop ? (drop.allowed ? 'available' : drop.kind) : undefined}
+            title={drop?.text || (occupant ? '끌어서 빈 거점으로 이동' : '클릭 또는 드래그로 배치')}
+            disabled={disabled || (!occupant && !state.assignments[placingId].paid && state.coins < placing.cost)}
+            onPointerDown={occupant && onStudentPointerDown ? event => onStudentPointerDown(event, occupant.id) : undefined}
+            onDragStart={event => event.preventDefault()}
             onClick={() => onPad(pad.id, occupant?.id)}>
             {occupant ? <span className="defense-pad-portrait"><OfficialStudentIcon id={occupant.id} /></span> : null}
             <span aria-hidden="true">{occupant ? occupant.name : '+'}</span>

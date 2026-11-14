@@ -2,6 +2,9 @@
 
 import Link from 'next/link';
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import useDefenseDrag from '../_hooks/useDefenseDrag';
+import { defenseDropStatus, moveDraggedDefender } from '../_lib/infiniteDefenseDrag';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
@@ -36,7 +39,8 @@ export default function InfiniteDefensePlayPage() {
   const [confirmNew, setConfirmNew] = useState(false);
   const [effectVolume, setEffectVolume] = useState(.7), [previewStudentId, setPreviewStudentId] = useState('');
   const { enabled: sfxEnabled, toggle: toggleSfx } = useGameSfxPreference({ theme: 'tactical' });
-  const inputRef = useRef(null);
+  const inputRef = useRef(null), dragScopeRef = useRef(null);
+  const [dragNotice, setDragNotice] = useState('');
   const session = useInfiniteDefenseSession({ owner, hydrated, token, speed, autoWave, startWave });
   const { state, ready, message, busy, recorded, act, newRun, recover, exportRun, importRun, serverAction } = session;
   useDefenseCombatAudio({ state, active: ready && !busy && !previewStudentId, volume: effectVolume });
@@ -51,9 +55,30 @@ export default function InfiniteDefensePlayPage() {
   const waveKinds = [...new Set(nextWave.map(e => e.type))];
   const placeCost = assignment.paid ? 0 : selected.cost;
   const onPad = (padId, occupantId) => {
+    setDragNotice('');
     if (occupantId) { setSelectedId(occupantId); return; }
     act(current => assignStudent(current, selectedId, 'defend', padId));
   };
+  const drag = useDefenseDrag({
+    enabled: !disabled && !ended && !previewStudentId && tab !== 'records', owner,
+    runId: state.runId, phase: state.phase, wave: state.wave, scopeRef: dragScopeRef,
+    onStart: id => { setSelectedId(id); setDragNotice(''); },
+    onDrop: (record, padId) => {
+      const status = defenseDropStatus(state, record.studentId, padId);
+      let moved = false;
+      act(current => {
+        const next = moveDraggedDefender(current, record, padId, owner);
+        moved = next !== current;
+        return next;
+      });
+      setDragNotice(moved ? studentStats(state, record.studentId).name + ' · ' + status.text
+        : status.allowed ? '배치 상태가 변경되어 이동을 취소했습니다.' : status.text);
+    },
+    onCancel: () => setDragNotice('이동 취소 · 원래 배치를 유지합니다.'),
+  });
+  const onStudentPointerDown = (event, id) => drag.onPointerDown(event, id, state.assignments[id]);
+  const draggedStudent = drag.view ? studentStats(state, drag.view.studentId) : null;
+  const dropStatus = drag.view ? defenseDropStatus(state, drag.view.studentId, drag.view.dropKey) : null;
   const primary = (
     <div className="defense-top-actions">
       <Link href="/games">게임 목록</Link>
@@ -72,7 +97,10 @@ export default function InfiniteDefensePlayPage() {
         { label: '채굴 생산', value: miningRate(state).toFixed(1) + ' /초' },
         { label: '처치', value: fmt(state.kills) },
       ]}>
-      <div className="defense-layout">
+      <div className={'defense-layout' + (drag.view ? ' is-dragging' : '')} ref={dragScopeRef}
+        onPointerMove={drag.onPointerMove} onPointerUp={drag.onPointerUp} onPointerCancel={drag.onPointerCancel}
+        onLostPointerCapture={drag.onLostPointerCapture} onClickCapture={drag.onClickCapture}
+        onPointerDownCapture={drag.onPointerDownCapture}>
         <section className="defense-battle-card" aria-label="전투와 배치">
           <div className="defense-section-heading">
             <div><span className="defense-eyebrow">SECTOR 01 · 채굴 전초기지</span><h2>전선을 설계하세요</h2></div>
@@ -83,8 +111,11 @@ export default function InfiniteDefensePlayPage() {
           <div className="defense-objective">
             <span>01 채굴 배치</span><b aria-hidden="true">→</b><span>02 방어·훈련</span><b aria-hidden="true">→</b><span>03 보스 격파</span>
           </div>
+          <div className="defense-drag-help" role="status" aria-live="polite" data-defense-drag-status>
+            {dropStatus ? draggedStudent.name + ' · ' + dropStatus.text : dragNotice || '캐릭터를 끌어 빈 거점에 놓기 · Esc 취소'}
+          </div>
           <div className="defense-board-wrap">
-            <DefenseBoard state={state} selectedId={selectedId} onPad={onPad} disabled={disabled || ended} effectDuration={220 / speed} />
+            <DefenseBoard state={state} selectedId={selectedId} onPad={onPad} disabled={disabled || ended} effectDuration={220 / speed} dragView={drag.view} onStudentPointerDown={onStudentPointerDown} />
             {!ready ? <div className="defense-overlay"><h2>작전을 준비하고 있습니다</h2><p>저장된 진행을 확인하는 중입니다.</p></div> : null}
             {state.phase === 'victory' ? (
               <div className="defense-overlay is-victory">
@@ -151,9 +182,11 @@ export default function InfiniteDefensePlayPage() {
                 <div className="defense-roster" role="group" aria-label="캐릭터 선택">
                   {STUDENTS.filter(student => student.origin === selected.origin).map(student => {
                     const row = state.assignments[student.id];
-                    return <button type="button" key={student.id} className={'defense-student' + (selectedId === student.id ? ' is-selected' : '')}
+                    return <button type="button" key={student.id} className={'defense-student' + (selectedId === student.id ? ' is-selected' : '') + (drag.view?.studentId === student.id ? ' is-drag-source' : '')}
                       style={{ '--unit-color': student.color }} aria-label={student.name + ' 선택'} aria-pressed={selectedId === student.id}
-                      onClick={() => setSelectedId(student.id)}>
+                      data-defense-source={student.id} data-defense-draggable={!disabled && !ended && !previewStudentId}
+                      onPointerDown={event => onStudentPointerDown(event, student.id)}
+                      onDragStart={event => event.preventDefault()} onClick={() => { setSelectedId(student.id); setDragNotice(''); }}>
                       <span className="defense-student-portrait"><OfficialStudentIcon id={student.id} /></span>
                       <span><strong>{student.name}</strong><small>{row.mode === 'defend' ? row.padId.slice(1) + '번 거점' : row.mode === 'mine' ? '채굴 중' : '대기 중'}</small></span>
                     </button>;
@@ -169,7 +202,7 @@ export default function InfiniteDefensePlayPage() {
                       <button type="button" className="defense-button" disabled={disabled || ended || assignment.mode === 'mine' || workers.length >= MAX_MINERS} onClick={() => act(current => assignStudent(current, selectedId, 'mine'))}>채굴 배치 · {selected.miningRate.toFixed(1)}/초</button>
                       <button type="button" className="defense-button" disabled={disabled || ended || assignment.mode === 'reserve'} onClick={() => act(current => assignStudent(current, selectedId, 'reserve'))}>대기 전환</button>
                     </div>
-                    <p className="defense-placement-note">지도 위 +를 누르면 방어 배치 · {fmt(placeCost)} 크레딧<br />첫 방어 배치만 비용이 들며, 이후 재배치는 무료입니다.</p>
+                    <p className="defense-placement-note">캐릭터를 끌어 놓거나 지도 위 +를 눌러 방어 배치 · {fmt(placeCost)} 크레딧<br />첫 방어 배치만 비용이 들며, 이후 재배치는 무료입니다.</p>
                     <button type="button" className="defense-button defense-wide" disabled={disabled || ended || state.coins < powerCost(state, selectedId)}
                       onClick={() => act(current => upgradePower(current, selectedId))}>화력 강화 +{assignment.power + 1} · {fmt(powerCost(state, selectedId))}</button>
                   </> : (
@@ -209,6 +242,12 @@ export default function InfiniteDefensePlayPage() {
           </div>
         </section>
       </div>
+      {draggedStudent ? createPortal(
+        <div className={'defense-drag-preview' + (dropStatus.allowed ? ' is-valid' : '')}
+          style={{ left: drag.view.x, top: drag.view.y, '--unit-color': draggedStudent.color }} aria-hidden="true">
+          <span><OfficialStudentIcon id={draggedStudent.id} /></span>
+          <div><strong>{draggedStudent.name}</strong><small>{dropStatus.text}</small></div>
+        </div>, document.body) : null}
       {previewStudentId ? <DefenseEffectPreview studentId={previewStudentId} onStudentChange={setPreviewStudentId} onClose={() => setPreviewStudentId('')} volume={effectVolume} soundEnabled={sfxEnabled} /> : null}
       <p className="defense-footer">20웨이브 보스 격파 후 무한 모드로 계속 도전할 수 있습니다. 캐릭터는 한 번에 방어·채굴·대기 중 한 역할만 맡습니다.</p>
       <p className="defense-art-credit">캐릭터 {STUDENTS.length}명 · 일러스트 © 각 권리자 · <a href="/games/shared/blue-archive/sources.json" target="_blank" rel="noreferrer">블루 아카이브 출처</a> · <a href="/games/shared/crossover/sources.json" target="_blank" rel="noreferrer">이환·원신 출처</a></p>

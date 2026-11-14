@@ -172,3 +172,23 @@
 .defense-selected .defense-effect-preview-button { margin-top:10px; padding:8px 10px; }
 @media(max-width:520px) { .defense-effect-preview { padding:12px; }.defense-preview-stage .defense-map { aspect-ratio:12/9; }.defense-preview-heading h2 { font-size:.95rem; }.defense-combat-feed li>small { flex-basis:100%; margin-left:0; } }
 @media(prefers-reduced-motion:reduce) { .defense-page .ac-shots *,.defense-page .ac-fx-layer * { animation:none!important; transition:none!important; } }
+
+/* Pointer placement uses the same costs and occupied-pad rules as click placement. */
+.defense-drag-help { min-height: 29px; padding: 0 22px 10px; color: #497d8b; font-size: .72rem; line-height: 1.5; }
+.defense-page [data-defense-draggable="true"] { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.defense-page [data-defense-draggable="true"] img { pointer-events: none; -webkit-user-drag: none; }
+.defense-layout.is-dragging, .defense-layout.is-dragging button { cursor: grabbing; }
+.defense-student.is-drag-source, .defense-pad.is-drag-source { opacity: .45; }
+.defense-pad.is-drop-available { border: 2px dashed #75e2cc; }
+.defense-pad.is-drop-valid { outline: 3px solid #8dffe1; outline-offset: 4px; background: #247b6d; box-shadow: 0 0 22px #75e2cc66; }
+.defense-pad.is-drop-blocked { outline: 3px solid #ff9f9f; outline-offset: 4px; background: #7b3f49; }
+.defense-drag-preview { position: fixed; z-index: 10050; transform: translate(16px, -50%); pointer-events: none; display: flex; align-items: center; gap: 10px; max-width: 250px; padding: 10px 13px; border: 2px solid var(--unit-color); border-radius: 13px; background: #15313df5; color: white; box-shadow: 0 10px 32px #0b263b55; }
+.defense-drag-preview.is-valid { border-color: #8dffe1; }
+.defense-drag-preview > span { display: block; flex: 0 0 42px; width: 42px; height: 42px; overflow: hidden; border-radius: 10px; }
+.defense-drag-preview img { width: 100%; height: 100%; object-fit: cover; }
+.defense-drag-preview strong { display: block; font-size: 13px; }
+.defense-drag-preview small { display: block; margin-top: 4px; font-size: 11px; color: #c2e2e4; line-height: 1.4; }
+@media (max-width: 760px) {
+  .defense-drag-help { padding-inline: 16px; font-size: .68rem; }
+  .defense-drag-preview { transform: translate(-50%, calc(-100% - 20px)); max-width: 210px; padding: 8px; }
+}
