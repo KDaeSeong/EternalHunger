@@ -60,7 +60,7 @@ export default function InfiniteDefensePlayPage() {
     act(current => assignStudent(current, selectedId, 'defend', padId));
   };
   const drag = useDefenseDrag({
-    enabled: !disabled && !ended && !previewStudentId && tab !== 'records', owner,
+    enabled: !disabled && !ended && !previewStudentId, owner,
     runId: state.runId, phase: state.phase, wave: state.wave, scopeRef: dragScopeRef,
     onStart: id => { setSelectedId(id); setDragNotice(''); },
     onDrop: (record, padId) => {
