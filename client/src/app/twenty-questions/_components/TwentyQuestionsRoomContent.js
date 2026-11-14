@@ -286,10 +286,10 @@ export default function TwentyQuestionsRoomContent() {
     setSubmitting('');
   };
 
-  const applyRoomResponse = useCallback((data, request) => {
+  const applyRoomResponse = useCallback((data, request, preparedRoom) => {
     const previousRoom = roomRef.current;
     if (!isCurrentRoomRequest(request)) return { previousRoom, nextRoom: null };
-    const nextRoom = normalizeRoom(data);
+    const nextRoom = preparedRoom === undefined ? normalizeRoom(data) : preparedRoom;
     if (!nextRoom || nextRoom._id !== id) return { previousRoom, nextRoom: null };
     roomRef.current = nextRoom;
     setLoadedScope({ key: request.contextKey, session: request.session });
@@ -569,7 +569,7 @@ export default function TwentyQuestionsRoomContent() {
         const nextRoom = normalizeRoom(data);
         const previousRoom = roomRef.current;
         if (!nextRoom || nextRoom._id !== id || roomVersion(previousRoom) === roomVersion(nextRoom)) return;
-        applyRoomResponse(data, request);
+        applyRoomResponse(data, request, nextRoom);
         announceRemoteRoomChange(previousRoom, nextRoom);
       } catch {
         // Polling is intentionally silent; explicit actions still surface API errors.
@@ -605,7 +605,7 @@ export default function TwentyQuestionsRoomContent() {
         const previousRoom = roomRef.current;
         const nextRoom = normalizeRoom(data);
         if (!nextRoom || nextRoom._id !== id || roomVersion(previousRoom) === roomVersion(nextRoom)) return;
-        applyRoomResponse(data, request);
+        applyRoomResponse(data, request, nextRoom);
         announceRemoteRoomChange(previousRoom, nextRoom);
       } catch {
         // Presence updates are silent; the normal room poll remains authoritative.

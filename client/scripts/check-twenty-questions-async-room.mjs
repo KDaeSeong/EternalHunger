@@ -20,7 +20,11 @@ function effect(fragment) {
   return `{callback:${node.expression.arguments[0].getText(ast)},deps:${node.expression.arguments[1].getText(ast)}}`;
 }
 const pure = source.slice(source.indexOf('const RESPONSE_OPTIONS'), source.indexOf('export default function TwentyQuestionsRoomContent'));
-const factorySource = `${pure}\n${names.map(n => declarations.get(n)).join('\n')}\nreturn {
+// Count calls around the unchanged product normalizer, including its exact
+// returned object. No replacement normalization or payload-shape shortcut.
+const normalizationProbe = `const actualNormalizeRoom = normalizeRoom;
+normalizeRoom = payload => observeRoomNormalization(payload, actualNormalizeRoom);`;
+const factorySource = `${pure}\n${normalizationProbe}\n${names.map(n => declarations.get(n)).join('\n')}\nreturn {
   ${names.filter(n => n !== 'roomRequestRef').join(',')},roomVersion,effects:{
   layout:${effect('scope.ownerKey !== ownerKey')},auth:${effect('const handleAuthChange')},
   poll:${effect('const timer = window.setInterval(refreshRoom, ROOM_POLL_INTERVAL_MS)')},
@@ -35,7 +39,7 @@ const same = (a, b) => a?.length === b?.length && a.every((v, i) => Object.is(v,
 // Product declarations/effect bodies are extracted from the current component.
 // Hook scheduling and API are controlled; this is not mounted React or browser proof.
 function harness() {
-  const calls = { rooms: [], errors: [], loading: [], toasts: [], intervals: [], reads: [], posts: [], feedback: [], remote: [], caches: [], drafts: [], busy: [], confirms: [] };
+  const calls = { rooms: [], errors: [], loading: [], toasts: [], intervals: [], reads: [], posts: [], feedback: [], remote: [], caches: [], drafts: [], busy: [], confirms: [], normalizations: [], trace: [] };
   const state = { storedRoom: null, loadedScope: null, loading: true, sessionEpoch: 0, questionText: '', guessText: '', hintText: '', submitting: '' };
   let current = { id: 'A', user: { id: 'owner-A' }, token: 'cookie-session', canUseAttempt: true };
   let session = { owner: 'owner-A', revision: 0 };
@@ -45,7 +49,7 @@ function harness() {
   const listen = (type, fn) => { if (!listeners.has(type)) listeners.set(type, new Set()); listeners.get(type).add(fn); };
   const unlisten = (type, fn) => listeners.get(type)?.delete(fn);
   const setters = {
-    setRoom: v => { state.storedRoom = v; calls.rooms.push(v); }, setLoadedScope: v => { state.loadedScope = v; },
+    setRoom: v => { state.storedRoom = v; calls.rooms.push(v); calls.trace.push({ kind: 'commit', room: v, ref: roomRef.current }); }, setLoadedScope: v => { state.loadedScope = v; },
     setLoading: v => { state.loading = v; calls.loading.push(v); }, setLoadError: v => calls.errors.push(v),
     setQuestionText: v => { state.questionText = v; calls.drafts.push(['question', v]); },
     setGuessText: v => { state.guessText = v; calls.drafts.push(['guess', v]); },
@@ -54,13 +58,17 @@ function harness() {
     setSessionEpoch: v => { state.sessionEpoch = typeof v === 'function' ? v(state.sessionEpoch) : v; },
   };
   const fixed = { ...setters, roomRef, submittingRef, hydrated: true, AUTH_SYNC_EVENT: 'auth-sync',
+    observeRoomNormalization: (data, actual) => {
+      const observed = { payload: data, output: undefined }; calls.normalizations.push(observed);
+      calls.trace.push({ kind: 'normalize', observed }); observed.output = actual(data); return observed.output;
+    },
     captureAuthSession: () => ({ ...session }), isCurrentAuthSession: v => Boolean(v) && v.owner === session.owner && v.revision === session.revision,
     useRef: initial => { scopeRef.current ??= initial; return scopeRef; },
     useCallback: (fn, deps) => { const i = cursor++; if (!callbacks[i] || !same(callbacks[i].deps, deps)) callbacks[i] = { fn, deps }; return callbacks[i].fn; },
     apiGet: url => { const r = { ...deferred(), url }; calls.reads.push(r); return r.promise; },
     apiPost: (url, body) => { const r = { ...deferred(), url, body }; calls.posts.push(r); return r.promise; },
     clearApiGetCache: v => calls.caches.push(v), announce: (...args) => calls.feedback.push(args),
-    announceRemoteRoomChange: (...args) => calls.remote.push(args), showToast: v => calls.toasts.push(v), twentyQuestionsProgressTransition,
+    announceRemoteRoomChange: (...args) => { calls.remote.push(args); calls.trace.push({ kind: 'remote', args }); }, showToast: v => calls.toasts.push(v), twentyQuestionsProgressTransition,
     document: { visibilityState: 'visible', addEventListener: listen, removeEventListener: unlisten },
     window: { addEventListener: listen, removeEventListener: unlisten, clearInterval() {},
       setInterval: fn => { calls.intervals.push(fn); return calls.intervals.length; },
@@ -95,7 +103,7 @@ async function check(name, run) {
   catch (error) { failures.push(name); console.error('FAIL ' + name + ': ' + String(error.stack || error).slice(0, 1200)); }
 }
 const sideEffects = h => [h.calls.rooms.length, h.calls.errors.length, h.calls.toasts.length, h.calls.loading.length,
-  h.calls.feedback.length, h.calls.caches.length, h.calls.drafts.length, h.calls.busy.length];
+  h.calls.feedback.length, h.calls.caches.length, h.calls.drafts.length, h.calls.busy.length, h.calls.normalizations.length, h.calls.trace.length];
 
 await check('late A load success/error/finally cannot replace or clear newer B', async () => {
   for (const reject of [false, true]) {
@@ -202,6 +210,148 @@ await check('real snapshot comparison includes viewer identity, host permissions
   const h = harness(), view = await h.loaded(), a = payload('A').room;
   for (const patch of [{ viewerId: 'other' }, { isHost: true }, { answer: 'answer' }]) assert.notEqual(view.roomVersion(a), view.roomVersion({ ...a, ...patch })); h.unmount();
 });
+const freeze = value => { if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+  Object.values(value).forEach(freeze); Object.freeze(value); } return value; };
+function background(h, view, kind) {
+  const cleanup = view.start(kind);
+  const task = kind === 'poll' ? h.calls.intervals.at(-1)() : null;
+  return { cleanup, task, pending: kind === 'poll' ? h.calls.reads.at(-1) : h.calls.posts.at(-1) };
+}
+async function resolveBackground(h, pending, data) { pending.pending.resolve(data); await pending.task; await h.flush(); }
+
+await check('changed poll and presence normalize frozen room/data/plain envelopes once and commit the inspected object before announcing', async () => {
+  for (const kind of ['poll', 'presence']) for (const envelope of ['room', 'data', 'plain']) {
+    const h = harness(), view = await h.loaded();
+    const row = { ...payload('A', 1).room, guesses: [{ _id: 'guess-1', correct: false }],
+      hintMessages: [{ _id: 'hint-1', text: 'hint' }], participants: [
+        { user: { _id: { $oid: 'participant-1' }, nickname: '  새 참가자  ' } }, { name: '식별자 없음' },
+      ] };
+    const raw = freeze(envelope === 'plain' ? row : { [envelope]: row }), before = structuredClone(raw);
+    const count = h.calls.normalizations.length, trace = h.calls.trace.length, commits = h.calls.rooms.length;
+    const pending = background(h, view, kind); await resolveBackground(h, pending, raw);
+    assert.equal(h.calls.normalizations.length - count, 1, kind + '/' + envelope);
+    const observed = h.calls.normalizations[count]; assert.equal(observed.payload, raw);
+    assert.equal(h.roomRef.current, observed.output); assert.equal(h.state.storedRoom, observed.output);
+    assert.equal(h.calls.rooms.length - commits, 1);
+    assert.deepEqual(h.calls.trace.slice(trace).map(entry => entry.kind), ['normalize', 'commit', 'remote']);
+    const committed = h.calls.trace[trace + 1]; assert.equal(committed.room, observed.output); assert.equal(committed.ref, observed.output);
+    assert.equal(h.calls.remote.at(-1)[1], observed.output);
+    assert.equal(observed.output.questions, row.questions); assert.equal(observed.output.guesses, row.guesses); assert.equal(observed.output.hintMessages, row.hintMessages);
+    assert.notEqual(observed.output.participants, row.participants);
+    assert.equal(observed.output.participants.length, 1); assert.equal(observed.output.participants[0]._id, 'participant-1');
+    assert.equal(observed.output.participants[0].name, '새 참가자'); assert.deepEqual(raw, before);
+    h.unmount();
+  }
+});
+await check('unchanged or wrong-room background replies normalize once without commit or remote announcement', async () => {
+  for (const kind of ['poll', 'presence']) for (const wrongRoom of [false, true]) {
+    const h = harness(), view = await h.loaded(), original = h.roomRef.current;
+    const count = h.calls.normalizations.length, commits = h.calls.rooms.length, remote = h.calls.remote.length;
+    const pending = background(h, view, kind); await resolveBackground(h, pending, freeze(payload(wrongRoom ? 'B' : 'A')));
+    assert.equal(h.calls.normalizations.length - count, 1); assert.equal(h.calls.rooms.length, commits);
+    assert.equal(h.calls.remote.length, remote); assert.equal(h.roomRef.current, original);
+    assert.equal(h.calls.toasts.length, 0);
+    h.unmount();
+  }
+});
+await check('disposed unmounted owner room session and superseded background replies never normalize retired data', async () => {
+  for (const kind of ['poll', 'presence']) for (const retirement of ['disposed', 'unmounted', 'owner', 'room', 'session', 'superseded']) {
+    const h = harness(), view = await h.loaded(), pending = background(h, view, kind);
+    if (retirement === 'disposed') pending.cleanup();
+    if (retirement === 'unmounted') h.unmount();
+    if (retirement === 'owner') { h.changeSession('owner-B'); await h.loaded({ user: { id: 'owner-B' } }); }
+    if (retirement === 'room') await h.loaded({ id: 'B' });
+    if (retirement === 'session') h.changeSession();
+    if (retirement === 'superseded') {
+      const task = h.render().loadRoom(); h.calls.reads.at(-1).resolve(payload('A', 2)); await task;
+    }
+    const counts = sideEffects(h), previousEpoch = h.state.sessionEpoch;
+    await resolveBackground(h, pending, freeze(payload('A', 3, { isHost: true, answer: 'retired private answer' })));
+    assert.deepEqual(sideEffects(h), counts, kind + '/' + retirement);
+    if (retirement === 'session') {
+      assert.equal(h.state.sessionEpoch, previousEpoch + 1, 'Existing security retirement still invalidates the session scope');
+      assert.equal(h.render({}, false).room, null, 'Private room stays hidden before replacement effects');
+    }
+    h.unmount();
+  }
+});
+await check('raw load and all five mutations retain one normalization cache drafts feedback and finally ownership', async () => {
+  const actions = {
+    load: view => view.loadRoom(), question: view => view.addQuestion(), answer: view => view.answerQuestion('q0', 'yes'),
+    guess: view => view.submitGuess(), hint: view => view.sendHintMessage(), close: view => view.closeRoom(),
+  };
+  const cacheKeys = ['/twenty-questions/A', '/twenty-questions', '/public/home-hub', '/public/search', '/public/users'];
+  for (const [name, action] of Object.entries(actions)) for (const wrongRoom of [false, true]) {
+    const h = harness(); await h.loaded({}, 1, { isHost: ['answer', 'hint', 'close'].includes(name) });
+    Object.assign(h.state, { questionText: 'question draft', guessText: 'guess draft', hintText: 'hint draft' });
+    const count = h.calls.normalizations.length, caches = h.calls.caches.length, rooms = h.calls.rooms.length;
+    const task = action(h.render()), pending = name === 'load' ? h.calls.reads.at(-1) : h.calls.posts.at(-1);
+    assert.ok(pending);
+    const raw = freeze({ ...payload(wrongRoom ? 'B' : 'A', 2, { isHost: ['answer', 'hint', 'close'].includes(name),
+      ...(name === 'close' ? { status: 'closed' } : {}) }), message: 'raw-' + name, correct: false, exhausted: false });
+    const before = structuredClone(raw); pending.resolve(raw); await task;
+    assert.equal(h.calls.normalizations.length - count, 1, name + '/' + wrongRoom); assert.deepEqual(raw, before);
+    assert.equal(h.state.submitting, ''); assert.equal(h.submittingRef.current, '');
+    if (wrongRoom) {
+      assert.equal(h.calls.caches.length, caches);
+      assert.deepEqual([h.state.questionText, h.state.guessText, h.state.hintText], ['question draft', 'guess draft', 'hint draft']);
+      if (name === 'load') { assert.equal(h.roomRef.current, null); assert.equal(h.state.loading, false); }
+      else { assert.equal(h.calls.rooms.length, rooms); assert.equal(h.calls.feedback.at(-1)[0], name + 'Failure'); }
+      assert.equal(h.calls.toasts.at(-1).tone, 'danger');
+    } else {
+      assert.equal(h.roomRef.current, h.calls.normalizations[count].output); assert.equal(h.calls.rooms.length, rooms + 1);
+      if (name === 'load') { assert.equal(h.calls.caches.length, caches); assert.equal(h.state.loading, false); }
+      else {
+        assert.deepEqual(h.calls.caches.slice(caches), cacheKeys); assert.equal(h.calls.feedback.at(-1)[0], name);
+        assert.equal(h.calls.toasts.at(-1).message, 'raw-' + name);
+      }
+      assert.equal(h.state.questionText, name === 'question' ? '' : 'question draft');
+      assert.equal(h.state.guessText, name === 'guess' ? '' : 'guess draft');
+      assert.equal(h.state.hintText, name === 'hint' ? '' : 'hint draft');
+    }
+    h.unmount();
+  }
+});
+await check('viewer permission and private-answer-only changes still pass version comparison and commit once', async () => {
+  for (const patch of [{ viewerId: 'viewer-new' }, { isHost: true }, { answer: 'current private answer' }, { answerRevealed: true }]) {
+    const h = harness(), view = await h.loaded(), count = h.calls.normalizations.length, rooms = h.calls.rooms.length;
+    const pending = background(h, view, 'poll'); await resolveBackground(h, pending, freeze(payload('A', 0, patch)));
+    assert.equal(h.calls.normalizations.length - count, 1); assert.equal(h.calls.rooms.length, rooms + 1);
+    for (const [key, value] of Object.entries(patch)) assert.equal(h.roomRef.current[key], value);
+    h.unmount();
+  }
+});
+await check('actual remote announcement callback preserves status answer hint milestone and membership precedence', () => {
+  assert.ok(declarations.has('announceRemoteRoomChange'));
+  const notifications = [];
+  const announceRemote = new Function('useCallback', 'announce', 'twentyQuestionsProgressTransition',
+    `${pure}\n${declarations.get('announceRemoteRoomChange')}\nreturn announceRemoteRoomChange;`)(
+    callback => callback, (...args) => notifications.push(args), twentyQuestionsProgressTransition);
+  const base = { ...payload('A').room, viewerId: 'self', attemptCount: 0, maxQuestions: 20,
+    guesses: [], hintMessages: [], participants: [{ _id: 'self', name: '본인' }, { _id: 'left', name: '이전 참가자' }] };
+  const cases = [
+    [base, { ...base, status: 'solved', solvedByName: '정답자', hintMessages: [{ _id: 'h' }] }, 'remoteSolved'],
+    [base, { ...base, status: 'closed', attemptCount: 20 }, 'limitReveal'],
+    [base, { ...base, status: 'closed', attemptCount: 1 }, 'close'],
+    [{ ...base, questions: [{ _id: 'q', response: 'pending' }] }, { ...base, questions: [{ _id: 'q', response: 'yes', responseLabel: '예' }], hintMessages: [{ _id: 'h' }] }, 'answer'],
+    [base, { ...base, hintMessages: [{ _id: 'h' }], attemptCount: 10 }, 'remoteHint'],
+    [{ ...base, attemptCount: 9 }, { ...base, attemptCount: 10, questions: [{ _id: 'q' }] }, 'phaseNarrow'],
+    [{ ...base, attemptCount: 14 }, { ...base, attemptCount: 15 }, 'phaseFinal'],
+    [{ ...base, attemptCount: 19 }, { ...base, attemptCount: 20, pendingCount: 1 }, 'phasePending'],
+    [base, { ...base, questions: [{ _id: 'q' }], attemptCount: 1 }, 'remoteQuestion'],
+    [base, { ...base, guesses: [{ _id: 'g', correct: false, guesserName: '참가자' }], attemptCount: 1 }, 'remoteWrong'],
+    [base, { ...base, participants: [{ _id: 'self' }, { _id: 'joined', name: '새 참가자' }] }, 'participantJoin'],
+    [base, { ...base, participants: [{ _id: 'self' }] }, 'participantLeave'],
+  ];
+  for (const [previous, next, action] of cases) {
+    freeze(previous); freeze(next); const count = notifications.length;
+    announceRemote(previous, next); assert.equal(notifications.length, count + 1); assert.equal(notifications.at(-1)[0], action);
+  }
+  const count = notifications.length;
+  announceRemote(null, base); announceRemote(base, base);
+  announceRemote({ ...base, participants: [] }, { ...base, participants: [{ _id: 'self' }] });
+  assert.equal(notifications.length, count, 'Missing previous state, unchanged room and own presence do not announce');
+});
 console.log(JSON.stringify({ passed: failures.length === 0, checks, failures,
-  scope: 'Actual current-source declarations/lifecycle/poll/presence/mutation callbacks with deferred API and controlled hooks. No network, account writes, mounted React, independent authenticated actors or real browser acceptance.' }));
+  scope: 'Actual current-source declarations/lifecycle/poll/presence/mutation callbacks and separate actual remote announcement with deferred API and controlled hooks. The unchanged normalizer is instrumented for calls and returned-object identity. No network, account writes, mounted React, independent authenticated actors or real browser acceptance.' }));
 if (failures.length) process.exitCode = 1;
