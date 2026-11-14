@@ -69,13 +69,13 @@ export default function DefenseBoard({ state, selectedId, onPad, disabled, effec
         const hovered = dragView?.dropKey === pad.id;
         return (
           <button key={pad.id} type="button"
-            className={'defense-pad' + (occupant ? ' is-occupied' : '') + (occupant?.id === selectedId ? ' is-selected' : '') + (dragView && occupant?.id === dragView.studentId ? ' is-drag-source' : '') + (drop?.allowed ? ' is-drop-available' : '') + (drop?.kind === 'swap' ? ' is-drop-swap' : '') + (hovered ? drop.allowed ? ' is-drop-valid' : ' is-drop-blocked' : '')}
+            className={'defense-pad' + (occupant ? ' is-occupied' : '') + (occupant?.id === selectedId ? ' is-selected' : '') + (dragView && occupant?.id === dragView.studentId ? ' is-drag-source' : '') + (drop?.allowed ? ' is-drop-available' : '') + (drop?.kind === 'swap' ? ' is-drop-swap' : '') + (drop?.kind === 'replace' ? ' is-drop-replace' : '') + (hovered ? drop.allowed ? ' is-drop-valid' : ' is-drop-blocked' : '')}
             style={{ left: pad.x / MAP.width * 100 + '%', top: pad.y / MAP.height * 100 + '%', '--unit-color': occupant?.color || '#77c6c8' }}
             aria-label={occupant ? (i + 1) + '번 거점 ' + occupant.name + ' 선택' : (i + 1) + '번 거점에 ' + selected.name + ' 배치'}
             data-defense-drop={pad.id} data-defense-source={occupant?.id || undefined}
             data-defense-draggable={Boolean(occupant && onStudentPointerDown && !disabled)}
-            data-defense-drop-state={drop ? (drop.kind === 'swap' ? 'swap' : drop.allowed ? 'available' : drop.kind) : undefined}
-            title={drop?.text || (occupant ? '끌어서 이동 · 배치된 캐릭터끼리 위치 교환' : '클릭 또는 드래그로 배치')}
+            data-defense-drop-state={drop ? (drop.kind === 'valid' ? 'available' : drop.kind) : undefined}
+            title={drop?.text || (occupant ? '끌어서 위치 교환 · 대기 캐릭터로 교체' : '클릭 또는 드래그로 배치')}
             disabled={disabled || (!occupant && !state.assignments[placingId].paid && state.coins < placing.cost)}
             onPointerDown={occupant && onStudentPointerDown ? event => onStudentPointerDown(event, occupant.id) : undefined}
             onDragStart={event => event.preventDefault()}

@@ -89,6 +89,22 @@ function swapDefenders(state, id, otherId) {
     },
   }, getStudent(id).name + ' ↔ ' + getStudent(otherId).name + ': 거점 위치 교환');
 }
+function replaceDefender(state, id, otherId) {
+  const student = getStudent(id);
+  if (!canManage(state) || id === otherId || !student || !getStudent(otherId)) return state;
+  const incoming = state.assignments[id], outgoing = state.assignments[otherId];
+  if (incoming?.mode !== 'reserve' || outgoing?.mode !== 'defend' ||
+      !PADS.some(p => p.id === outgoing.padId)) return state;
+  const cost = incoming.paid ? 0 : student.cost;
+  if (state.coins < cost) return state;
+  return addLog({
+    ...state, coins: round(state.coins - cost),
+    assignments: { ...state.assignments,
+      [id]: { ...incoming, mode: 'defend', padId: outgoing.padId, paid: true },
+      [otherId]: { ...outgoing, mode: 'reserve', padId: '' },
+    },
+  }, student.name + ': ' + outgoing.padId.slice(1) + '번 거점 교체 · ' + getStudent(otherId).name + ' 대기 전환');
+}
 function trainStudent(state, id, stat) {
   const cost = trainingCost(state, id, stat);
   if (!canManage(state) || !Number.isFinite(cost) || state.coins < cost) return state;
@@ -322,4 +338,4 @@ function summaryForState(state) {
     miningPerSecond: miningRate(state), firstClear: state.firstClear, phase: state.phase, score: scoreState(state) };
 }
 
-export { ROUTE_LENGTH, MAX_LOG, MAX_FX, MAX_ENEMIES, createNewState, getStudent, studentStats, miningRate, trainingCost, powerCost, mineCost, assignStudent, swapDefenders, trainStudent, upgradePower, upgradeMine, repairBase, wavePlan, pointAt, startWave, setPaused, advanceTime, applyOfflineMining, serializeState, migrateSave, isValidSave, restoreState, scoreState, summaryForState };
+export { ROUTE_LENGTH, MAX_LOG, MAX_FX, MAX_ENEMIES, createNewState, getStudent, studentStats, miningRate, trainingCost, powerCost, mineCost, assignStudent, swapDefenders, replaceDefender, trainStudent, upgradePower, upgradeMine, repairBase, wavePlan, pointAt, startWave, setPaused, advanceTime, applyOfflineMining, serializeState, migrateSave, isValidSave, restoreState, scoreState, summaryForState };

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { PADS, STUDENTS, STAT_DEFS } from '../src/app/games/infinite-defense/_lib/infiniteDefenseData.js';
-import { assignStudent, createNewState, isValidSave, serializeState, startWave, swapDefenders, restoreState } from '../src/app/games/infinite-defense/_lib/infiniteDefenseEngine.js';
+import { assignStudent, createNewState, isValidSave, serializeState, startWave, swapDefenders, replaceDefender, restoreState } from '../src/app/games/infinite-defense/_lib/infiniteDefenseEngine.js';
 import { crossedDragThreshold, defenseDropStatus, edgeScrollDelta, moveDraggedDefender, parseDefenseDropTarget } from '../src/app/games/infinite-defense/_lib/infiniteDefenseDrag.js';
 
 let passed = 0;
@@ -50,10 +50,9 @@ check('an unpaid miner pays once and leaves mining without duplication', () => {
   assert.equal(next.coins,state.coins-STUDENTS.find(s=>s.id==='noa').cost);
   assert.equal(next.assignments.noa.mode,'defend'); assert(isValidSave(next));
 });
-check('an unplaced character still needs an empty pad', () => {
+check('a mining character cannot replace an occupied pad before returning to reserve', () => {
   const state=deploy(fresh(),'shiroko','p1');
-  assert.equal(defenseDropStatus(state,'yuuka','p1').kind,'occupied');
-  assert.equal(deploy(state,'yuuka','p1'),state);
+  assert.equal(defenseDropStatus(state,'yuuka','p1').kind,'replace');
   const miner=assignStudent(state,'noa','mine');
   assert.equal(deploy(miner,'noa','p1'),miner);
 });
@@ -92,9 +91,11 @@ check('a source reassigned while dragging cannot be moved by the stale gesture',
   const mined=assignStudent(state,'shiroko','mine');
   assert.equal(moveDraggedDefender(mined,drag,'p3',owner),mined);
 });
-check('the latest occupied target is checked again when applying a drop', () => {
+check('the latest occupied target is replaced at drop time', () => {
   const state={...fresh(),coins:1000}, drag=gesture(state,'shiroko'), occupied=assignStudent(state,'yuuka','defend','p1');
-  assert.equal(moveDraggedDefender(occupied,drag,'p1',owner),occupied);
+  const next=moveDraggedDefender(occupied,drag,'p1',owner);
+  assert.equal(next.assignments.shiroko.padId,'p1');assert.equal(next.assignments.yuuka.mode,'reserve');
+  assert(isValidSave(next));
 });
 check('unknown sources and incomplete gestures fail without mutation', () => {
   const state=fresh();
@@ -183,6 +184,91 @@ check('cross-origin swaps preserve unique occupied pads and valid saves', () => 
     const save=serializeState(state,1000);assert(isValidSave(save));
     assert.deepEqual(restoreState(save,1000).assignments,state.assignments);
   }
+});
+
+
+const replacementPair = () => {
+  let state={...fresh(),coins:1000};
+  state=assignStudent(state,'shiroko','defend','p1');
+  return state;
+};
+check('a reserve replaces the occupant atomically and pays the first deployment cost once', () => {
+  const state=replacementPair(),before=structuredClone(state),next=deploy(state,'hina','p1');
+  const cost=STUDENTS.find(s=>s.id==='hina').cost,drop=defenseDropStatus(state,'hina','p1');
+  assert.equal(drop.kind,'replace'); assert.equal(drop.cost,cost);
+  assert.deepEqual(next.assignments.hina,{...state.assignments.hina,mode:'defend',padId:'p1',paid:true});
+  assert.deepEqual(next.assignments.shiroko,{...state.assignments.shiroko,mode:'reserve',padId:''});
+  assert.equal(next.coins,state.coins-cost); assert.equal(next.logId,state.logId+1);
+  assert.deepEqual(state,before); assert(isValidSave(next));
+});
+check('a previously paid reserve replaces for free and the outgoing character retains its paid status', () => {
+  let state=assignStudent(replacementPair(),'hina','defend','p2');
+  state=assignStudent(state,'hina','reserve');state={...state,coins:0};
+  const next=deploy(state,'hina','p1'),returned=deploy(next,'shiroko','p1');
+  assert.equal(next.coins,0); assert.equal(returned.coins,0);
+  assert.equal(next.assignments.shiroko.paid,true);assert.equal(next.assignments.hina.paid,true);
+  assert.deepEqual(returned.assignments,state.assignments);assert(isValidSave(returned));
+});
+check('insufficient credits keep both assignments untouched and the exact cost is accepted', () => {
+  const cost=STUDENTS.find(s=>s.id==='hina').cost,state={...replacementPair(),coins:cost-1};
+  assert.equal(defenseDropStatus(state,'hina','p1').kind,'funds');
+  assert.equal(deploy(state,'hina','p1'),state);
+  const funded={...state,coins:cost},next=deploy(funded,'hina','p1');
+  assert.equal(next.coins,0);assert.equal(next.assignments.shiroko.mode,'reserve');
+  const depleted={...funded,coins:0};
+  assert.equal(moveDraggedDefender(depleted,gesture(funded,'hina'),'p1',owner),depleted);
+});
+check('a live replacement preserves each character investment and the current combat timeline', () => {
+  let state=startWave(replacementPair());
+  state.assignments.shiroko={...state.assignments.shiroko,power:3,cooldown:.47};
+  state.assignments.hina={...state.assignments.hina,power:5,cooldown:.81};
+  state.upgrades={shiroko:Object.fromEntries(STAT_DEFS.map(s=>[s.id,s.id==='agility'?2:0])),
+    hina:Object.fromEntries(STAT_DEFS.map(s=>[s.id,s.id==='shooting'?4:0]))};
+  const next=deploy(state,'hina','p1');
+  assert.deepEqual(next.assignments.shiroko,{...state.assignments.shiroko,mode:'reserve',padId:''});
+  assert.deepEqual(next.assignments.hina,{...state.assignments.hina,mode:'defend',padId:'p1',paid:true});
+  for(const field of ['upgrades','enemies','effects','wave','waveTime','elapsed','spawnIndex','kills','baseHp'])
+    assert.deepEqual(next[field],state[field],field);
+  assert(isValidSave(next));
+});
+check('replacement rejects mining, deployed sources, unknown IDs, same-character and ended requests', () => {
+  const state=replacementPair();
+  for(const [a,b]of [['shiroko','shiroko'],['missing','shiroko'],['hina','missing'],['hina','noa']])
+    assert.equal(replaceDefender(state,a,b),state);
+  const miner=assignStudent(state,'hina','mine');assert.equal(replaceDefender(miner,'hina','shiroko'),miner);
+  const deployed=assignStudent(state,'hina','defend','p2');assert.equal(replaceDefender(deployed,'hina','shiroko'),deployed);
+  const ended={...state,phase:'defeat',baseHp:0};assert.equal(replaceDefender(ended,'hina','shiroko'),ended);
+});
+check('stale reserve gestures and account or phase changes cannot replace an occupant', () => {
+  const state=replacementPair(),drag=gesture(state,'hina'),changed=assignStudent(state,'hina','mine');
+  assert.equal(moveDraggedDefender(changed,drag,'p1',owner),changed);
+  let paid=assignStudent(state,'hina','defend','p2');paid=assignStudent(paid,'hina','reserve');
+  assert.equal(moveDraggedDefender(paid,drag,'p1',owner),paid);
+  for(const patch of [{owner:'account:other'},{runId:'different'},{wave:2},{phase:'wave'}])
+    assert.equal(moveDraggedDefender(state,{...drag,...patch},'p1',owner),state);
+});
+check('drop-time replacement returns the current occupant to reserve and leaves a former one alone', () => {
+  let state=replacementPair();const drag=gesture(state,'hina');
+  state=assignStudent(state,'shiroko','defend','p3');state=assignStudent(state,'yuuka','defend','p1');
+  const next=moveDraggedDefender(state,drag,'p1',owner);
+  assert.equal(next.assignments.hina.padId,'p1');assert.equal(next.assignments.yuuka.mode,'reserve');
+  assert.equal(next.assignments.yuuka.padId,'');assert.equal(next.assignments.shiroko.padId,'p3');
+  assert(isValidSave(next));
+});
+check('every reserve character can replace across origins and round-trip the resulting save', () => {
+  for(const student of STUDENTS) {
+    const outgoing=student.id==='shiroko'?'yuuka':'shiroko';
+    let state={...fresh(),coins:10000};state=assignStudent(state,outgoing,'defend','p1');
+    state=deploy(state,student.id,'p1');
+    assert.equal(state.assignments[student.id].padId,'p1');
+    assert.equal(state.assignments[outgoing].mode,'reserve');
+    const save=serializeState(state,1000);assert(isValidSave(save));
+    assert.deepEqual(restoreState(save,1000).assignments,state.assignments);
+  }
+});
+check('replaying the same reserve gesture cannot charge or log a second replacement', () => {
+  const state=replacementPair(),drag=gesture(state,'hina'),next=moveDraggedDefender(state,drag,'p1',owner);
+  assert.equal(moveDraggedDefender(next,drag,'p1',owner),next);
 });
 
 console.log(JSON.stringify({passed,characters:STUDENTS.length,pads:PADS.length}));
