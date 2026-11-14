@@ -1,5 +1,5 @@
 import { PADS, STUDENTS } from './infiniteDefenseData.js';
-import { assignStudent } from './infiniteDefenseEngine.js';
+import { assignStudent, swapDefenders } from './infiniteDefenseEngine.js';
 
 export const DRAG_THRESHOLD = 6;
 export function crossedDragThreshold(start, point) {
@@ -23,12 +23,17 @@ export function defenseDropStatus(state, studentId, padId) {
   const student = STUDENTS.find(candidate => candidate.id === studentId);
   const row = state.assignments[studentId];
   const reject = (kind, text) => ({ allowed: false, kind, text });
-  if (!student || !row || !parseDefenseDropTarget(padId)) return reject('outside', '빈 거점에 놓기 · Esc 취소');
+  if (!student || !row || !parseDefenseDropTarget(padId)) return reject('outside', '거점에 놓기 · 배치된 캐릭터끼리 교환 · Esc 취소');
   if (state.phase === 'defeat') return reject('ended', '종료된 작전에서는 배치할 수 없습니다.');
   if (row.mode === 'defend' && row.padId === padId) return reject('same', '현재 거점 · 위치 유지');
   const occupant = STUDENTS.find(candidate => candidate.id !== studentId &&
     state.assignments[candidate.id].mode === 'defend' && state.assignments[candidate.id].padId === padId);
-  if (occupant) return reject('occupied', occupant.name + ' 배치 중 · 빈 거점에 놓기');
+  if (occupant) {
+    if (row.mode === 'defend' && parseDefenseDropTarget(row.padId))
+      return { allowed: true, kind: 'swap', cost: 0, targetId: occupant.id,
+        text: padId.slice(1) + '번 거점 · ' + occupant.name + '와 위치 교환 · 무료' };
+    return reject('occupied', occupant.name + ' 배치 중 · 거점에 배치된 캐릭터끼리 교환 가능');
+  }
   const cost = row.paid ? 0 : student.cost;
   if (state.coins < cost) return reject('funds', '크레딧 부족 · ' + cost + ' 필요');
   return { allowed: true, kind: 'valid', cost,
@@ -39,7 +44,9 @@ export function defenseDropStatus(state, studentId, padId) {
 export function moveDraggedDefender(state, drag, padId, owner) {
   if (!drag || !owner || drag.owner !== owner || state.runId !== drag.runId ||
       state.wave !== drag.wave || state.phase !== drag.phase ||
-      !sameAssignment(state.assignments[drag.studentId], drag.sourceAssignment) ||
-      !defenseDropStatus(state, drag.studentId, padId).allowed) return state;
-  return assignStudent(state, drag.studentId, 'defend', padId);
+      !sameAssignment(state.assignments[drag.studentId], drag.sourceAssignment)) return state;
+  const drop = defenseDropStatus(state, drag.studentId, padId);
+  if (!drop.allowed) return state;
+  return drop.kind === 'swap' ? swapDefenders(state, drag.studentId, drop.targetId)
+    : assignStudent(state, drag.studentId, 'defend', padId);
 }

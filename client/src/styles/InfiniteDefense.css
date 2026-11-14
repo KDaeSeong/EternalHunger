@@ -173,7 +173,7 @@
 @media(max-width:520px) { .defense-effect-preview { padding:12px; }.defense-preview-stage .defense-map { aspect-ratio:12/9; }.defense-preview-heading h2 { font-size:.95rem; }.defense-combat-feed li>small { flex-basis:100%; margin-left:0; } }
 @media(prefers-reduced-motion:reduce) { .defense-page .ac-shots *,.defense-page .ac-fx-layer * { animation:none!important; transition:none!important; } }
 
-/* Pointer placement uses the same costs and occupied-pad rules as click placement. */
+/* Pointer placement retains placement costs and supports atomic defender swaps. */
 .defense-drag-help { min-height: 29px; padding: 0 22px 10px; color: #497d8b; font-size: .72rem; line-height: 1.5; }
 .defense-page [data-defense-draggable="true"] { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .defense-page [data-defense-draggable="true"] img { pointer-events: none; -webkit-user-drag: none; }
@@ -181,6 +181,8 @@
 .defense-student.is-drag-source, .defense-pad.is-drag-source { opacity: .45; }
 .defense-pad.is-drop-available { border: 2px dashed #75e2cc; }
 .defense-pad.is-drop-valid { outline: 3px solid #8dffe1; outline-offset: 4px; background: #247b6d; box-shadow: 0 0 22px #75e2cc66; }
+.defense-pad.is-drop-swap { border-style: solid; border-color: #bca6ff; }
+.defense-pad.is-drop-swap.is-drop-valid { outline-color: #d6c7ff; background: #564a7d; box-shadow: 0 0 22px #bca6ff66; }
 .defense-pad.is-drop-blocked { outline: 3px solid #ff9f9f; outline-offset: 4px; background: #7b3f49; }
 .defense-drag-preview { position: fixed; z-index: 10050; transform: translate(16px, -50%); pointer-events: none; display: flex; align-items: center; gap: 10px; max-width: 250px; padding: 10px 13px; border: 2px solid var(--unit-color); border-radius: 13px; background: #15313df5; color: white; box-shadow: 0 10px 32px #0b263b55; }
 .defense-drag-preview.is-valid { border-color: #8dffe1; }

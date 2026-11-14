@@ -76,6 +76,19 @@ function assignStudent(state, id, mode, padId = '') {
     assignments: { ...state.assignments, [id]: { ...old, mode, padId: mode === 'defend' ? padId : '', paid: old.paid || mode === 'defend' } },
   }, student.name + ': ' + (mode === 'defend' ? padId.slice(1) + '번 거점 배치' : mode === 'mine' ? '채굴 시작' : '대기 전환'));
 }
+function swapDefenders(state, id, otherId) {
+  if (!canManage(state) || id === otherId || !getStudent(id) || !getStudent(otherId)) return state;
+  const first = state.assignments[id], second = state.assignments[otherId];
+  if (first?.mode !== 'defend' || second?.mode !== 'defend' || first.padId === second.padId ||
+      !PADS.some(p => p.id === first.padId) || !PADS.some(p => p.id === second.padId)) return state;
+  return addLog({
+    ...state,
+    assignments: { ...state.assignments,
+      [id]: { ...first, padId: second.padId },
+      [otherId]: { ...second, padId: first.padId },
+    },
+  }, getStudent(id).name + ' ↔ ' + getStudent(otherId).name + ': 거점 위치 교환');
+}
 function trainStudent(state, id, stat) {
   const cost = trainingCost(state, id, stat);
   if (!canManage(state) || !Number.isFinite(cost) || state.coins < cost) return state;
@@ -309,4 +322,4 @@ function summaryForState(state) {
     miningPerSecond: miningRate(state), firstClear: state.firstClear, phase: state.phase, score: scoreState(state) };
 }
 
-export { ROUTE_LENGTH, MAX_LOG, MAX_FX, MAX_ENEMIES, createNewState, getStudent, studentStats, miningRate, trainingCost, powerCost, mineCost, assignStudent, trainStudent, upgradePower, upgradeMine, repairBase, wavePlan, pointAt, startWave, setPaused, advanceTime, applyOfflineMining, serializeState, migrateSave, isValidSave, restoreState, scoreState, summaryForState };
+export { ROUTE_LENGTH, MAX_LOG, MAX_FX, MAX_ENEMIES, createNewState, getStudent, studentStats, miningRate, trainingCost, powerCost, mineCost, assignStudent, swapDefenders, trainStudent, upgradePower, upgradeMine, repairBase, wavePlan, pointAt, startWave, setPaused, advanceTime, applyOfflineMining, serializeState, migrateSave, isValidSave, restoreState, scoreState, summaryForState };
