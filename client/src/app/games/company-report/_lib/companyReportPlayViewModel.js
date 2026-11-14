@@ -19,16 +19,7 @@ import {
   vatScheduleRows,
 } from './companyReportEngine';
 
-export function buildCompanyReportPlayViewModel({
-  restoreMode,
-  selectedForeignArId,
-  selectedOrderId,
-  selectedReceivableId,
-  selectedRestoreTables,
-  selectedVatKey,
-  state,
-  vatPaymentAmount,
-}) {
+export function buildCompanyReportStateViewModel(state) {
   const score = scoreState(state);
   const scoreNotice = '경영 성과 기준 · 조달과 원금 상환은 점수에 반영하지 않음';
   const report = reportSummary(state);
@@ -47,7 +38,58 @@ export function buildCompanyReportPlayViewModel({
   const vatPayments = vatPaymentRows(state);
   const foreignReceivables = globalReceivableRows(state);
   const ledgerDiff = ledgerDiffRows(state);
-  const restorePlan = ledgerRestorePlan(state, restoreMode, selectedRestoreTables);
+  return {
+    capitalSummary,
+    calendar,
+    foreignReceivables,
+    globalSummary,
+    inventoryValuations,
+    inventoryWriteDowns,
+    ledgerDiff,
+    management,
+    markets,
+    orders,
+    receivables,
+    report,
+    reportTrend,
+    score,
+    scoreNotice,
+    stocks,
+    vatPayments,
+    vatSchedule,
+  };
+}
+
+export function buildCompanyReportSelectionViewModel({
+  state,
+  stateViewModel,
+  restorePlan,
+  selectedForeignArId,
+  selectedOrderId,
+  selectedReceivableId,
+  selectedVatKey,
+  vatPaymentAmount,
+}) {
+  const {
+    capitalSummary,
+    calendar,
+    foreignReceivables,
+    globalSummary,
+    inventoryValuations,
+    inventoryWriteDowns,
+    ledgerDiff,
+    management,
+    markets,
+    orders,
+    receivables,
+    report,
+    reportTrend,
+    score,
+    scoreNotice,
+    stocks,
+    vatPayments,
+    vatSchedule,
+  } = stateViewModel;
   const selectedOrder = orders.find((order) => order.id === selectedOrderId)
     || orders.find((order) => order.status === 'CONFIRMED')
     || orders[0];
@@ -94,4 +136,11 @@ export function buildCompanyReportPlayViewModel({
     vatPayments,
     vatSchedule,
   };
+}
+
+export function buildCompanyReportPlayViewModel(options) {
+  const { state, restoreMode, selectedRestoreTables } = options;
+  const stateViewModel = buildCompanyReportStateViewModel(state);
+  const restorePlan = ledgerRestorePlan(state, restoreMode, selectedRestoreTables);
+  return buildCompanyReportSelectionViewModel({ ...options, stateViewModel, restorePlan });
 }

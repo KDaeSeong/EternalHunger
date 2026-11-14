@@ -16,6 +16,7 @@ import {
   calendarSummary,
   createNewState,
   createProgressExportAction,
+  ledgerRestorePlan,
   payVatAction,
 } from '../_lib/companyReportEngine';
 import {
@@ -27,7 +28,10 @@ import {
   buildCompanyReportMessages,
   buildCompanyReportMetrics,
 } from '../_lib/companyReportPageRuntime';
-import { buildCompanyReportPlayViewModel } from '../_lib/companyReportPlayViewModel';
+import {
+  buildCompanyReportSelectionViewModel,
+  buildCompanyReportStateViewModel,
+} from '../_lib/companyReportPlayViewModel';
 import CompanyReportDetailPanels from '../_components/CompanyReportDetailPanels';
 import CompanyReportFeatureTabs from '../_components/CompanyReportFeatureTabs';
 import { CompanyReportImpactStrip } from '../_components/CompanyReportVisuals';
@@ -100,23 +104,27 @@ export default function CompanyReportPlayPage() {
     setActionPresentation(companyReportResultPresentation(nextState, nextState));
   };
 
-  const viewModel = useMemo(() => buildCompanyReportPlayViewModel({
-    restoreMode,
+  const stateViewModel = useMemo(() => buildCompanyReportStateViewModel(state), [state]);
+  const restoreModel = useMemo(() => ledgerRestorePlan(state, restoreMode, selectedRestoreTables), [
+    state, restoreMode, selectedRestoreTables,
+  ]);
+  const viewModel = useMemo(() => buildCompanyReportSelectionViewModel({
+    state,
+    stateViewModel,
+    restorePlan: restoreModel,
     selectedForeignArId,
     selectedOrderId,
     selectedReceivableId,
-    selectedRestoreTables,
     selectedVatKey,
-    state,
     vatPaymentAmount,
   }), [
-    restoreMode,
+    state,
+    stateViewModel,
+    restoreModel,
     selectedForeignArId,
     selectedOrderId,
     selectedReceivableId,
-    selectedRestoreTables,
     selectedVatKey,
-    state,
     vatPaymentAmount,
   ]);
   const {
