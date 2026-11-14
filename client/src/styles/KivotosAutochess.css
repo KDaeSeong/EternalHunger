@@ -12,23 +12,38 @@
 .ac-board { width:100%; aspect-ratio:6/4.3; position:relative; border-radius:12px; overflow:hidden; background:#152e3d; }
 .ac-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); grid-template-rows:repeat(8,minmax(0,1fr)); position:absolute; inset:0; }
 .ac-cell { border:1px solid #ffffff08; border-radius:0; padding:0; min-width:0; background:#28404c; }
-.ac-cell:nth-child(12n+1),.ac-cell:nth-child(12n+3),.ac-cell:nth-child(12n+5),.ac-cell:nth-child(12n+8),.ac-cell:nth-child(12n+10),.ac-cell:nth-child(12n+12) { background:#223c49; }
-.ac-cell.is-home { background:#244954; }
-.ac-cell.is-home:nth-child(even) { background:#20424f; }
+.ac-cell.is-blue { background:#1c455f; border-color:#8acfff22; }
+.ac-cell.is-blue:nth-child(even) { background:#163b55; }
+.ac-cell.is-red { background-color:#4b2a39; background-image:repeating-linear-gradient(135deg,#ffc4d00b 0px,#ffc4d00b 2px,transparent 2px,transparent 12px); border-color:#ffa5b525; }
+.ac-cell.is-red:nth-child(even) { background-color:#402433; }
 button.ac-cell:not(:disabled):hover { background:#3f747a; outline:2px solid #72cac8; outline-offset:-2px; }
 .ac-cell.is-selected { outline:2px solid #a6fff2; outline-offset:-3px; background:#3a6970; }
-.ac-midline { position:absolute; left:0; right:0; top:50%; border-top:1px dashed #74979f66; pointer-events:none; text-align:right; }
-.ac-midline span { position:absolute; right:6px; top:-11px; color:#80abb6; letter-spacing:.12em; font-size:7px; }
-.ac-board-side { position:absolute; font-size:8px; letter-spacing:.12em; color:#8aa5b1; pointer-events:none; }
-.ac-board-side.is-away { top:5px; left:7px; }.ac-board-side.is-home { bottom:5px; left:7px; }
+.ac-team-legend { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-bottom:9px; }
+.ac-team-legend>div { display:flex; align-items:center; gap:8px; min-width:0; padding:8px 11px; border:1px solid; border-radius:9px; }
+.ac-team-legend .is-blue { color:#1f608a; background:#edf8ff; border-color:#a6d5f0; }
+.ac-team-legend .is-red { color:#a23f54; background:#fff0f3; border-color:#edb7c2; }
+.ac-team-legend b { font-size:19px; line-height:1; }
+.ac-team-legend span { min-width:0; }
+.ac-team-legend strong { display:block; font-size:.72rem; }
+.ac-team-legend small { display:block; margin-top:3px; font-size:.62rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ac-midline { position:absolute; left:0; right:0; top:50%; border-top:3px solid #ddc99b; box-shadow:0 1px #142a3d; pointer-events:none; z-index:1; text-align:center; }
+.ac-midline span { position:absolute; left:50%; top:-12px; transform:translateX(-50%); padding:3px 12px; border:1px solid #b7a57d; border-radius:20px; background:#172d40; color:#fff0c9; letter-spacing:.12em; font-size:9px; font-weight:800; }
+.ac-board-side { position:absolute; max-width:calc(100% - 18px); padding:5px 8px; border-left:3px solid; border-radius:4px; pointer-events:none; z-index:1; font-size:10px; letter-spacing:.03em; background:#102131b8; }
+.ac-board-side.is-away { top:8px; left:8px; }.ac-board-side.is-home { bottom:8px; left:8px; }
+.ac-board-side.is-blue { color:#b8e7ff; border-color:#69ceff; }.ac-board-side.is-red { color:#ffd0d9; border-color:#ff8ca5; }
 .ac-fighter { position:absolute; transform:translate(-50%,-50%); width:12%; max-width:64px; pointer-events:none; text-align:center; transition:left .17s linear,top .17s linear; z-index:2; }
 .ac-fighter-portrait { width:clamp(25px,4.1vw,42px); aspect-ratio:1; margin:0 auto; border:2px solid var(--academy-color); border-radius:10px; overflow:hidden; box-shadow:0 2px 7px #081b2caa; background:#d7e9ef; }
-.ac-fighter.is-enemy .ac-fighter-portrait { border-color:#ef969b; }
+.ac-fighter.is-blue .ac-fighter-portrait { border-color:#70cfff; }
+.ac-fighter.is-red .ac-fighter-portrait { border-color:#ff8fa4; }
+.ac-team-badge { display:inline-block; margin-right:2px; padding:0 2px; border-radius:3px; font-size:7px; line-height:1.4; font-weight:800; text-shadow:none; vertical-align:1px; }
+.ac-fighter.is-blue .ac-team-badge { color:#e1f6ff; background:#1a638e; }
+.ac-fighter.is-red .ac-team-badge { color:#fff0f4; background:#a43a55; }
+.ac-fighter.is-red .ac-fighter-hp i { background:#ff8fa4; }
 .ac-fighter.is-selected .ac-fighter-portrait { outline:2px solid #b0fff3; outline-offset:2px; }
 .ac-stars { position:absolute; top:-5px; left:0; right:0; color:#ffe5a0; text-shadow:0 1px 3px #081b2c; font-size:9px; letter-spacing:1px; }
 .ac-fighter strong { display:block; font-size:9px; color:#fff; line-height:1.3; text-shadow:0 1px 2px #071b25; white-space:nowrap; }
 .ac-fighter-hp,.ac-fighter-mana { height:3px; background:#122733; border-radius:3px; overflow:hidden; margin:2px auto 0; max-width:48px; }
-.ac-fighter-hp i,.ac-fighter-mana i { height:100%; display:block; background:#70dcbd; }.is-enemy .ac-fighter-hp i { background:#ed8e9e; }.ac-fighter-mana { height:2px; margin-top:1px; }.ac-fighter-mana i { background:#8eb9ff; }
+.ac-fighter-hp i,.ac-fighter-mana i { height:100%; display:block; background:#70dcbd; }.ac-fighter-mana { height:2px; margin-top:1px; }.ac-fighter-mana i { background:#8eb9ff; }
 .ac-shield-mark { position:absolute; right:0; top:6px; color:#a4c5ff; }
 .ac-shots { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:3; }
 .ac-overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; background:#122d3deb; color:#e7f6fa; border-radius:12px; z-index:4; backdrop-filter:blur(3px); }
