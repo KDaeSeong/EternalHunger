@@ -1,4 +1,5 @@
 import { BOARD, STUDENT_BY_ID } from './autochessData.js';
+import { characterEffectFor } from './autochessCharacterEffects.js';
 
 const COLORS = { blue: '#75d9ff', red: '#ff8fa8', skill: '#ffda79', heal: '#80f0b1', shield: '#a8c7ff', buff: '#e1aeff' };
 const KINDS = new Set(['attack', 'skill', 'heal', 'shield', 'buff']);
@@ -11,7 +12,7 @@ export function combatPresentation(frame, teams) {
   const effects = [], actions = new Map(), casts = new Map(), stacks = new Map(), fallen = new Map();
   const describe = actor => {
     const student = STUDENT_BY_ID[actor[1]], team = teams[actor[2]];
-    return { uid: actor[0], name: student.name, skill: student.skill, skillName: student.skillName,
+    return { uid: actor[0], studentId: student.id, name: student.name, skill: student.skill, skillName: student.skillName,
       tone: team.tone, badge: team.badge, point: point(actor) };
   };
   for (const [index, row] of rows.slice(-12).entries()) {
@@ -26,6 +27,7 @@ export function combatPresentation(frame, teams) {
     const stack = stacks.get(to.uid) || 0;
     stacks.set(to.uid, stack + 1);
     const fx = { id: index, from, to, kind, variant, amount, amountLabel, label, color, harmful, stack,
+      teamColor: COLORS[from.tone], profile: characterEffectFor(from.studentId, kind),
       x: to.point.x / (BOARD.cols * 100) * 100, y: to.point.y / (BOARD.rows * 100) * 100 };
     const dx = to.point.x - from.point.x, dy = to.point.y - from.point.y, length = Math.hypot(dx, dy);
     if (length > 0) {
@@ -41,7 +43,7 @@ export function combatPresentation(frame, teams) {
     if (!actions.has(actionKey)) actions.set(actionKey, { id: actionKey, from, kind, label, targets: [] });
     actions.get(actionKey).targets.push({ ...to, amountLabel });
     if (kind !== 'attack' && (!casts.has(from.uid) || kind !== 'shield')) {
-      casts.set(from.uid, { ...from, label, kind, color });
+      casts.set(from.uid, { ...from, label, kind, color, profile: fx.profile });
     }
   }
   return { effects, actions: [...actions.values()].reverse(), casts: [...casts.values()], fallen: [...fallen.values()] };

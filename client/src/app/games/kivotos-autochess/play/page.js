@@ -9,6 +9,9 @@ import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { CHARACTER_ORIGINS } from '../../_lib/crossoverCharacters.js';
 import OfficialStudentIcon from '../../_components/OfficialStudentIcon';
 import AutochessBoard from '../_components/AutochessBoard';
+import AutochessEffectPreview from '../_components/AutochessEffectPreview';
+import useAutochessCombatAudio from '../_hooks/useAutochessCombatAudio';
+import { useGameSfxPreference } from '../../_lib/useGameSfx';
 import useAutochessSession from '../_hooks/useAutochessSession';
 import useAutochessDrag from '../_hooks/useAutochessDrag';
 import { moveDraggedUnit, samePosition } from '../_lib/autochessDrag.js';
@@ -29,6 +32,8 @@ export default function KivotosAutochessPlayPage() {
   const [speed, setSpeed] = useState(2), [selectedUid, setSelectedUid] = useState(''), [scoutId, setScoutId] = useState('');
   const [replay, setReplay] = useState(false), [replayIndex, setReplayIndex] = useState(0), [tab, setTab] = useState('command'), [confirmNew, setConfirmNew] = useState(false);
   const [rosterOrigin, setRosterOrigin] = useState('nte');
+  const [effectVolume, setEffectVolume] = useState(.7), [previewStudent, setPreviewStudent] = useState('');
+  const { enabled: sfxEnabled, toggle: toggleSfx } = useGameSfxPreference({ theme: 'tactical' });
   const fileRef = useRef(null), placementRef = useRef(null);
   const session = useAutochessSession({ owner, hydrated, token, speed });
   const { state, ready, message, busy, halted, recorded, act, newMatch, recover, exportRun, importRun, serverAction } = session;
@@ -43,6 +48,8 @@ export default function KivotosAutochessPlayPage() {
   const watch = state.phase === 'battle' ? state.pending?.watch : replay ? state.lastBattle : null;
   const frameIndex = state.phase === 'battle' ? state.frameIndex : replayIndex;
   const watchedFrame = watch?.frames[Math.min(frameIndex, watch.frames.length - 1)];
+  useAutochessCombatAudio({ watch, frameIndex, runId: state.runId, active: ready && !halted && !busy && !previewStudent,
+    paused: state.phase === 'battle' && state.paused, volume: effectVolume });
   const costTrainInt = trainingPrice(human, 'intelligence'), costTrainLuck = trainingPrice(human, 'luck');
   const moveSelectedTo = target => {
     if (!editable || !selected) return;
@@ -119,7 +126,11 @@ export default function KivotosAutochessPlayPage() {
                 {state.phase === 'spectate' ? <button type="button" className="ac-button" disabled={disabled || replay} onClick={() => act(finishSpectating)}>남은 대전 결과 보기</button> : null}
               </>}
             </div>
-            {replay && watch ? <div className="ac-replay-controls"><label>전투 장면<input type="range" aria-label="전투 다시보기 위치" min="0" max={watch.frames.length - 1} value={replayIndex} onChange={event => setReplayIndex(Number(event.target.value))} /></label><span>{replayIndex + 1} / {watch.frames.length}</span></div> : null}
+            <div className="ac-combat-audio" role="group" aria-label="전투 효과음 설정">
+              <button type="button" className="ac-button" data-game-sfx="off" aria-pressed={sfxEnabled} onClick={toggleSfx}>{sfxEnabled ? '효과음 켜짐' : '효과음 꺼짐'}</button>
+              <label className="ac-combat-volume">전투 효과음<input type="range" aria-label="전투 효과음 볼륨" aria-valuetext={Math.round(effectVolume * 100) + '%'} data-game-sfx="off" min="0" max="1" step=".05" value={effectVolume} disabled={!sfxEnabled} onChange={event => setEffectVolume(Number(event.target.value))} /><output>{Math.round(effectVolume * 100)}%</output></label>
+            </div>
+            {replay && watch ? <div className="ac-replay-controls"><label>전투 장면<input type="range" aria-label="전투 다시보기 위치" data-game-sfx="off" min="0" max={watch.frames.length - 1} value={replayIndex} onChange={event => setReplayIndex(Number(event.target.value))} /></label><span>{replayIndex + 1} / {watch.frames.length}</span></div> : null}
             <div className="ac-message" role="status" aria-live="polite">{message}</div>
           </div>
 
@@ -192,6 +203,7 @@ export default function KivotosAutochessPlayPage() {
                   <div className="ac-collection-portrait"><OfficialStudentIcon id={character.id} /></div>
                   <div><strong>{character.name}</strong><span>{character.cost}골드 · {ROLES[character.role].name}</span></div>
                   <p>{character.skillName}<br />체력 {character.hp} · 공격 {character.atk}<br />사거리 {character.range} · 간격 {character.interval}초</p>
+                  <button type="button" className="ac-button ac-effect-preview-button" aria-label={character.name + ' 공격·스킬 미리보기'} disabled={state.phase === 'battle'} onClick={() => setPreviewStudent(character.id)}>공격·스킬 미리보기</button>
                 </article>)}
               </div>
               <p className="ac-muted">1성 기준의 기본 수치입니다. 전투에서는 성급과 시너지가 반영됩니다.</p>
@@ -204,6 +216,7 @@ export default function KivotosAutochessPlayPage() {
           </section>
         </aside>
       </div>
+      {previewStudent ? <AutochessEffectPreview studentId={previewStudent} onStudentChange={setPreviewStudent} onClose={() => setPreviewStudent('')} volume={effectVolume} soundEnabled={sfxEnabled} /> : null}
       <p className="ac-footer">캐릭터 {STUDENTS.length}명 · 세력 {Object.keys(ACADEMIES).length}종 · 플레이어 1명과 AI 7명의 대전 · 같은 캐릭터 3명 합성 · 최후의 1팀이 우승합니다.</p>
       <p className="ac-art-credit">일러스트 © 각 권리자 · <a href="/games/shared/blue-archive/sources.json" target="_blank" rel="noreferrer">블루 아카이브 출처</a> · <a href="/games/shared/crossover/sources.json" target="_blank" rel="noreferrer">이환·원신 출처</a></p>
     </GamePlayShell>

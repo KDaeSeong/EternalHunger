@@ -1,5 +1,7 @@
 'use client';
 
+import { characterTrails } from '../_lib/autochessCharacterEffects.js';
+
 function EffectSymbol({ kind }) {
   return <span aria-hidden="true">{kind === 'heal' ? '+' : kind === 'shield' ? '◇' : kind === 'buff' ? '↑' : '✦'}</span>;
 }
@@ -9,26 +11,30 @@ export default function AutochessCombatEffects({ presentation, frameKey, duratio
   return <>
     <svg className="ac-shots" viewBox="0 0 600 800" preserveAspectRatio="none" aria-hidden="true" style={{ '--fx-duration': duration + 'ms' }}>
       {effects.filter(fx => fx.link).map(fx => <g key={frameKey + ':' + fx.id}
-        className={'ac-shot is-' + fx.kind + ' is-' + fx.from.tone} style={{ '--fx-color': fx.color }}
-        data-ac-from={fx.from.uid} data-ac-to={fx.to.uid} data-ac-effect={fx.kind}>
+        className={'ac-shot is-' + fx.kind + ' is-' + fx.from.tone} style={{ '--fx-color': fx.color, '--fx-accent': fx.profile.accent, '--fx-team': fx.teamColor }}
+        data-ac-from={fx.from.uid} data-ac-to={fx.to.uid} data-ac-effect={fx.kind} data-ac-character={fx.from.studentId} data-ac-motif={fx.profile.motif}>
         <line {...{ x1: fx.link.x1, y1: fx.link.y1, x2: fx.link.x2, y2: fx.link.y2 }} className="ac-shot-outline" vectorEffect="non-scaling-stroke" />
         <line {...{ x1: fx.link.x1, y1: fx.link.y1, x2: fx.link.x2, y2: fx.link.y2 }} className="ac-shot-path" vectorEffect="non-scaling-stroke" />
         <line {...{ x1: fx.link.x1, y1: fx.link.y1, x2: fx.link.x2, y2: fx.link.y2 }} className="ac-shot-tracer" pathLength="100" vectorEffect="non-scaling-stroke" />
+        {characterTrails(fx).map((trail, index) => <path key={index} d={trail.d} pathLength="100" vectorEffect="non-scaling-stroke"
+          className={'ac-character-trail is-' + fx.profile.trail} strokeWidth={trail.width}
+          style={{ animationDelay: 'calc(var(--fx-duration) * ' + trail.delay + ')' }} />)}
         <polygon points={fx.link.arrow} className="ac-shot-arrow" />
       </g>)}
     </svg>
     <div className="ac-fx-layer" aria-hidden="true" style={{ '--fx-duration': duration + 'ms' }}>
       {effects.map(fx => <div key={frameKey + ':' + fx.id} className={'ac-impact-point is-' + fx.kind + ' is-' + fx.variant + (fx.to.point.y === 50 ? ' is-edge' : '')}
-        style={{ left: fx.x + '%', top: fx.y + '%', '--fx-color': fx.color, '--fx-stack': fx.stack }}
-        data-ac-from={fx.from.uid} data-ac-to={fx.to.uid} data-ac-effect={fx.kind}>
+        style={{ left: fx.x + '%', top: fx.y + '%', '--fx-color': fx.color, '--fx-stack': fx.stack, '--fx-accent': fx.profile.accent, '--sigil-size': fx.profile.size + 'px' }}
+        data-ac-from={fx.from.uid} data-ac-to={fx.to.uid} data-ac-effect={fx.kind} data-ac-character={fx.from.studentId} data-ac-motif={fx.profile.motif}>
         <span className="ac-impact-ring" /><span className="ac-impact-spark"><EffectSymbol kind={fx.kind} /></span>
+        <svg className="ac-character-sigil" viewBox="0 0 48 48"><path d={fx.profile.sigil} /></svg>
         <strong className="ac-damage-number">{fx.amountLabel}</strong>
       </div>)}
       {fallen.map(target => <span key={frameKey + ':fallen:' + target.uid} className="ac-defeat-label"
         style={{ left: target.point.x / 6 + '%', top: target.point.y / 8 + '%' }}>격파 · {target.badge} {target.name}</span>)}
       {casts.map(cast => <div key={frameKey + ':cast:' + cast.uid} className={'ac-cast-label is-' + cast.kind + (cast.point.y === 50 ? ' is-edge' : '')}
-        style={{ '--fx-x': cast.point.x / 6 + '%', top: cast.point.y / 8 + '%', '--fx-color': cast.color }}
-        data-ac-caster={cast.uid}>
+        style={{ '--fx-x': cast.point.x / 6 + '%', top: cast.point.y / 8 + '%', '--fx-color': cast.color, '--fx-accent': cast.profile.accent }}
+        data-ac-caster={cast.uid} data-ac-character={cast.studentId} data-ac-motif={cast.profile.motif}>
         <EffectSymbol kind={cast.kind} />{cast.label}
       </div>)}
       {effects.filter((fx, index) => effects.findIndex(row => row.from.uid === fx.from.uid) === index).map(fx =>

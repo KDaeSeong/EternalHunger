@@ -4496,8 +4496,10 @@ function sfxSpatialMix(theme, voiceCount) {
 function connectSfxVoice(session, output, spec, mix, voiceIndex, voiceCount, start) {
   const { ctx } = session;
   let spatialOutput = output;
+  const connections = [output];
   if (typeof ctx.createStereoPanner === 'function') {
     const panner = ctx.createStereoPanner();
+    connections.push(panner);
     const normalizedIndex = voiceCount > 1 ? (voiceIndex / (voiceCount - 1)) * 2 - 1 : 0;
     const pan = Number.isFinite(Number(spec.pan))
       ? Math.max(-1, Math.min(1, Number(spec.pan)))
@@ -4508,6 +4510,7 @@ function connectSfxVoice(session, output, spec, mix, voiceIndex, voiceCount, sta
   }
 
   const reverbSend = ctx.createGain();
+  connections.push(reverbSend);
   reverbSend.gain.setValueAtTime(
     Math.max(0, Math.min(0.34, Number(spec.reverb ?? mix.reverb))),
     start,
@@ -4515,6 +4518,7 @@ function connectSfxVoice(session, output, spec, mix, voiceIndex, voiceCount, sta
   spatialOutput.connect(session.dryGain);
   spatialOutput.connect(reverbSend);
   reverbSend.connect(session.convolver);
+  return () => connections.forEach(node => node.disconnect());
 }
 
 function playNoiseVoice(session, spec, volume, spatial) {
@@ -4542,7 +4546,8 @@ function playNoiseVoice(session, spec, volume, spatial) {
   gain.gain.exponentialRampToValueAtTime(0.0001, end);
   source.connect(filter);
   filter.connect(gain);
-  connectSfxVoice(session, gain, spec, spatial.mix, spatial.index, spatial.count, start);
+  const disconnect = connectSfxVoice(session, gain, spec, spatial.mix, spatial.index, spatial.count, start);
+  source.onended = () => { source.disconnect(); filter.disconnect(); disconnect(); };
   source.start(start);
   source.stop(end + 0.01);
 }
@@ -4571,18 +4576,19 @@ function playVoice(session, spec, volume, spatial) {
   gain.gain.exponentialRampToValueAtTime(0.0001, end);
 
   oscillator.connect(gain);
-  connectSfxVoice(session, gain, spec, spatial.mix, spatial.index, spatial.count, start);
+  const disconnect = connectSfxVoice(session, gain, spec, spatial.mix, spatial.index, spatial.count, start);
+  oscillator.onended = () => { oscillator.disconnect(); disconnect(); };
   oscillator.start(start);
   oscillator.stop(end + 0.025);
 }
 
-export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.16 } = {}) {
+export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.16, resolveProfile } = {}) {
   const pathname = usePathname();
   const lastPlayedAtRef = useRef(0);
   const resolvedTheme = useMemo(() => resolveGameAudioTheme(theme, pathname), [pathname, theme]);
 
   return useCallback((cue = 'click') => {
-    if (!enabled || !readGameSfxPreference(resolvedTheme)) return;
+    if (!enabled || !readGameSfxPreference(resolvedTheme) || !(volume > 0)) return;
     const nowMs = Date.now();
     if (nowMs - lastPlayedAtRef.current < 28) return;
     lastPlayedAtRef.current = nowMs;
@@ -4594,12 +4600,17 @@ export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.
     try {
       const session = getSharedSfxSession();
       if (!session) return;
-      if (session.ctx.state === 'suspended') void session.ctx.resume();
-      const profile = cueProfile(cue, resolvedTheme);
+      if (session.ctx.state === 'suspended') void session.ctx.resume().then(() => {
+        if (typeof document !== 'undefined') document.documentElement.dataset.gameSfxState = session.ctx.state;
+      }).catch(() => {});
+      const profile = resolveProfile?.(cue) ?? cueProfile(cue, resolvedTheme);
+      if (!profile.length) return;
       const spatialMix = sfxSpatialMix(resolvedTheme, profile.length);
       if (typeof document !== 'undefined') {
         document.documentElement.dataset.gameSfxMix = 'stereo-reverb';
         document.documentElement.dataset.gameSfxVoices = String(profile.length);
+        document.documentElement.dataset.gameSfxState = session.ctx.state;
+        document.documentElement.dataset.gameSfxSerial = String(Number(document.documentElement.dataset.gameSfxSerial || 0) + 1);
       }
       window.dispatchEvent(new CustomEvent(GAME_BGM_DUCK_EVENT, {
         detail: cueDuckEnvelope(profile),
@@ -4612,7 +4623,7 @@ export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.
     } catch {
       // Audio failures should never block gameplay.
     }
-  }, [enabled, resolvedTheme, volume]);
+  }, [enabled, resolvedTheme, volume, resolveProfile]);
 }
 
 export function useGameSfxPreference({ theme = 'auto' } = {}) {
@@ -4704,6 +4715,7 @@ export function useGameSfxEventHandlers(options) {
     const control = target?.closest('select, input[type="checkbox"], input[type="radio"], input[type="range"], [data-game-sfx-change]');
     if (!control || !event.currentTarget.contains(control) || isDisabledGameSfxControl(control)) return;
     const explicitCue = String(control.getAttribute('data-game-sfx-change') || '').trim();
+    if (explicitCue === 'off' || control.getAttribute('data-game-sfx') === 'off') return;
     playGameSfx(explicitCue || 'select');
   }, [playGameSfx]);
 

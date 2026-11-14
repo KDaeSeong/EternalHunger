@@ -181,3 +181,40 @@ button.ac-cell:not(:disabled):hover { background:#3f747a; outline:2px solid #72c
 .ac-cast-label.is-edge { margin-top:43px; }
 .ac-impact-point.is-edge .ac-damage-number { top:calc(42px + var(--fx-stack) * 17px); }
 @media(max-width:520px) { .ac-cast-label { left:clamp(50px,var(--fx-x),calc(100% - 50px)); }.ac-cast-label.is-edge { margin-top:38px; } }
+
+/* Team arrows stay consistent while the inner projectile and target sigil identify the character. */
+.ac-character-trail { fill:none; stroke:var(--fx-accent); stroke-linecap:round; opacity:.9; animation:ac-character-flow calc(var(--fx-duration) * .85) linear both; }
+.ac-character-trail.is-rounds { stroke-dasharray:3 9; }
+.ac-character-trail.is-pixels { stroke-dasharray:2 6; stroke-linecap:square; }
+.ac-character-trail.is-gems { stroke-dasharray:1 11; stroke-linecap:square; }
+.ac-character-trail.is-ray { filter:drop-shadow(0 0 3px var(--fx-accent)); }
+.ac-character-trail.is-slash { opacity:.8; filter:drop-shadow(0 0 2px var(--fx-accent)); }
+.ac-shot .ac-shot-arrow { fill:var(--fx-team); }
+.ac-character-sigil { position:absolute; left:50%; top:50%; width:var(--sigil-size); height:var(--sigil-size); transform:translate(-50%,-50%); overflow:visible; color:var(--fx-accent); opacity:.85; filter:drop-shadow(0 0 3px #101c30); animation:ac-sigil-bloom calc(var(--fx-duration) * .85) ease-out both; }
+.ac-character-sigil path { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.ac-impact-point.is-attack .ac-character-sigil { translate:15px 13px; }
+.ac-cast-label[data-ac-character] { border-color:var(--fx-accent); }
+.ac-combat-audio { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin-top:12px; padding-top:10px; border-top:1px solid #e3eaf1; }
+.ac-combat-volume { display:flex; align-items:center; gap:7px; flex:1; min-width:180px; font-size:.64rem; color:#607c91; }
+.ac-combat-volume input { width:110px; max-width:35vw; accent-color:#468ba5; }
+.ac-combat-volume output { font-variant-numeric:tabular-nums; min-width:32px; }
+.ac-combat-audio>button { min-height:32px; padding:5px 9px; }
+.ac-collection-card .ac-effect-preview-button { width:100%; margin-top:7px; min-height:32px; padding:5px; font-size:.6rem; }
+.ac-effect-preview { width:min(560px,calc(100vw - 28px)); max-height:calc(100dvh - 30px); padding:18px; border:1px solid #cadbea; border-radius:16px; color:#284254; box-shadow:0 15px 80px #08172c66; overflow:auto; }
+.ac-effect-preview::backdrop { background:#071627aa; }
+.ac-preview-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.ac-preview-heading small { color:#5a8c9c; font-size:.62rem; }.ac-preview-heading h2 { margin:3px 0 0; font-size:1.1rem; }
+.ac-preview-select { display:flex; align-items:center; gap:10px; margin-top:14px; font-size:.7rem; }
+.ac-preview-select select { flex:1; min-width:0; padding:8px; border:1px solid #d3e0ea; border-radius:7px; background:#f5f9fc; color:#36576b; }
+.ac-preview-description { font-size:.69rem; color:#687f93; line-height:1.7; }
+.ac-preview-stage .ac-team-legend,.ac-preview-stage .ac-combat-feed { display:none; }
+.ac-preview-stage .ac-board { aspect-ratio:6/4; }
+.ac-preview-stage .ac-board-side { display:none; }
+.ac-preview-stage .ac-fighter-portrait { width:40px; }
+.ac-preview-controls { display:flex; gap:8px; margin-top:12px; }.ac-preview-controls>button { flex:1; }
+@keyframes ac-character-flow { from { stroke-dashoffset:100; opacity:.45; } to { stroke-dashoffset:0; opacity:.95; } }
+@keyframes ac-sigil-bloom { from { scale:.75; opacity:1; } to { scale:1.08; opacity:.75; } }
+@media(max-width:520px) { .ac-effect-preview { padding:12px; }.ac-preview-stage .ac-board { aspect-ratio:6/6; }.ac-preview-stage .ac-fighter-portrait { width:32px; }.ac-preview-heading h2 { font-size:.95rem; } }
+
+.ac-effect-preview { margin:auto; inset:0; height:fit-content; }
+.ac-collection-card .ac-effect-preview-button { grid-column:1 / -1; }
