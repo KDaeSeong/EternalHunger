@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import './lib/register-simulation-modules.mjs';
 const engine = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveEngine.js');
 const data = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveData.js');
+const checkpoint = await import('../src/app/games/primitive-archive/_lib/primitiveArchiveCheckpoint.js');
 const clone = value => structuredClone(value);
 const jobs = values => Object.fromEntries(engine.TRIBE_JOBS.map(job => [job.id, values[job.id] || 0]));
 const observable = state => { const result = clone(state); delete result.log; delete result.updatedAt; return result; };
@@ -201,7 +202,7 @@ check('manual and legacy workers remain fixed while explicitly automatic workers
   assert.equal(research.tribe.assignments.scholar, 4);
 });
 
-check('balanced preserves pre-policy state fingerprints with one actual weather draw and zero query draws', () => {
+check('balanced preserves historical economy fingerprints with canonical selection, strict readback and unchanged RNG', () => {
   // State fingerprints were captured from these fresh inputs before policy code.
   // Saved-weather normalization now consumes no discarded ambient weather draws.
   const expected = {
@@ -213,13 +214,39 @@ check('balanced preserves pre-policy state fingerprints with one actual weather 
     const source = fixture(mode); delete source.tribe.workPolicy;
     const before = clone(source);
     let draws = 0, weatherDraws = 0;
-    const random = Math.random; let next;
+    const random = Math.random; let next, restored, restoredAgain, validCheckpoint;
     Math.random = () => { draws++; return 0.5; };
-    try { next = engine.advanceDay(source, { rng: () => { weatherDraws++; return 0.5; } }); }
+    try {
+      next = engine.advanceDay(source, { rng: () => { weatherDraws++; return 0.5; } });
+      validCheckpoint = checkpoint.isValidRunState(next);
+      restored = engine.normalizeState(JSON.parse(JSON.stringify(next)));
+      restoredAgain = engine.normalizeState(JSON.parse(JSON.stringify(restored)));
+    }
     finally { Math.random = random; }
     assert.deepEqual(source, before);
     assert.equal(draws, expected[mode][1]); assert.equal(weatherDraws, 1);
+    assert.equal(validCheckpoint, true);
+    // Both old and current mornings retain this fixture's sparse visit map.
+    // Loading expands absent visits to explicit zeroes for every known region;
+    // assert that exact historical exception, then compare the complete state.
+    assert.deepEqual(source.exploration.visits, {});
+    assert.deepEqual(next.exploration.visits, {});
+    const canonicalReadback = clone(next);
+    canonicalReadback.exploration.visits = Object.fromEntries(engine.WORLD_REGIONS.map(region => [region.id, 0]));
+    assert.deepEqual(restored, canonicalReadback, 'Strict readback changes only the explicitly asserted sparse visit representation');
+    assert.deepEqual(restoredAgain, restored, 'The complete canonical saved state is stable on repeated JSON readback');
     const originalShape = clone(next);
+    // These unchanged historical fixtures select ORAL_RECORDS without its
+    // HERBALISM/SHELTER prerequisites. Assert the current eligible selection
+    // before projecting only that metadata back to its historical value.
+    assert.equal(originalShape.research.selectedTechId, 'STONE_TOOLS');
+    assert.equal(originalShape.civics.selectedCivicId, 'MILITARY_TRADITION');
+    const currentCivic = engine.CIVIC_TREE.find(row => row.id === originalShape.civics.selectedCivicId);
+    const historicalCivic = engine.CIVIC_TREE.find(row => row.id === 'ORAL_RECORDS');
+    assert.ok(!originalShape.civics.completed[currentCivic.id]);
+    assert.ok(currentCivic.prereqs.every(id => originalShape.research.completed[id]));
+    assert.ok(historicalCivic.prereqs.some(id => !originalShape.research.completed[id]));
+    originalShape.civics.selectedCivicId = historicalCivic.id;
     // Remove only asserted neutral additions; keep the old economy/weather hash.
     assert.deepEqual(originalShape.tribe.processingPlan, { actionId: '', targetStock: 0 });
     assert.equal(originalShape.tribe.assignments.artisan, 0);

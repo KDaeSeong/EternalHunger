@@ -245,17 +245,7 @@ export function normalizeState(value) {
     ...normalizedResearch,
     completed: { ...normalizedResearch.completed, ...civics.completed },
   };
-  if (research.completed?.[research.selectedTechId]) {
-    research = { ...research, selectedTechId: nextAvailableTech(research)?.id || research.selectedTechId };
-  }
-  if (civics.completed?.[civics.selectedCivicId]) {
-    civics = { ...civics, selectedCivicId: nextAvailableCivic(research, civics)?.id || civics.selectedCivicId };
-  }
-  const selectedCivic = getCivic(civics.selectedCivicId);
-  if (selectedCivic && !prereqsMet(research, selectedCivic)) {
-    const availableCivic = nextAvailableCivic(research, civics);
-    if (availableCivic) civics = { ...civics, selectedCivicId: availableCivic.id };
-  }
+  ({ research, civics } = normalizeAcademicSelections(research, civics));
   const exploration = normalizeExplorationState(value.exploration);
   const projects = normalizeProjectState(value.projects);
   const tribe = normalizeTribeState(value.tribe);
@@ -1042,6 +1032,28 @@ function nextAvailableCivic(research, civics) {
   return CIVIC_TREE
     .filter((civic) => !civics.completed?.[civic.id] && prereqsMet(research, civic))
     .sort((a, b) => Number(a.tier || 1) - Number(b.tier || 1) || a.cost - b.cost)[0] || null;
+}
+
+function normalizeAcademicSelections(research, civics) {
+  if (research.completed?.[research.selectedTechId]) {
+    research = { ...research, selectedTechId: nextAvailableTech(research)?.id || research.selectedTechId };
+  }
+  if (civics.completed?.[civics.selectedCivicId]) {
+    civics = { ...civics, selectedCivicId: nextAvailableCivic(research, civics)?.id || civics.selectedCivicId };
+  }
+  const selectedCivic = getCivic(civics.selectedCivicId);
+  if (selectedCivic && !prereqsMet(research, selectedCivic)) {
+    const availableCivic = nextAvailableCivic(research, civics);
+    if (availableCivic) civics = { ...civics, selectedCivicId: availableCivic.id };
+  }
+  return { research, civics };
+}
+
+function withNormalizedAcademicSelections(state) {
+  // Reconcile only after the existing academic stages. Earlier selection would
+  // change which target receives later RP/CP within this same action.
+  const { research, civics } = normalizeAcademicSelections(state.research, state.civics);
+  return research === state.research && civics === state.civics ? state : { ...state, research, civics };
 }
 
 function civicInspirationStatus(state, civic, normalized = null) {
@@ -3894,7 +3906,7 @@ function actionBodyTempDelta(state, actorId, warmthAdd = 0) {
 }
 
 export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options = {}) {
-  if (isAnnualMode(state)) return { ...state, ap: Math.max(0, Number(state.ap || 0) - 1) };
+  if (isAnnualMode(state)) return withNormalizedAcademicSelections({ ...state, ap: Math.max(0, Number(state.ap || 0) - 1) });
   const actor = getActor(state, actorId);
   const bodyTemp = clamp(
     Number(actor.bodyTemp ?? 37) + actionBodyTempDelta(state, actorId, Number(options.warmthAdd || 0)),
@@ -3910,7 +3922,7 @@ export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options 
   next = autoResearchForTurn(next);
   next = autoCivicsForTurn(next);
   if (next.ap <= 0 && !next.ended) next = advanceDay(next, options);
-  return next;
+  return withNormalizedAcademicSelections(next);
 }
 
 function settleTribeDay(state, preview = false) {
@@ -4384,6 +4396,7 @@ export function runSettlementYearAction(state, expected, options = {}) {
   next = autoCivicsForDay(autoResearchForDay(next));
   next = tickLineageYear(next);
   next = syncAnnualCalendarPeople({ ...next, ap: next.apMax });
+  next = withNormalizedAcademicSelections(next);
   return addLog(next, `공동체 ${next.calendar.completedYears}년차 운영 완료. 실제 생산·건설·교육·연구·배식·가공과 세대 기록을 정산했습니다.`);
 }
 
@@ -4505,10 +4518,10 @@ function settleNextDay(state, options) {
     logged = addLog(logged, `계절 전환: ${currentSeason.name}. ${currentSeason.note}`);
   }
   logged = settleTribeDay(logged);
-  return recordResearchEvent(
+  return withNormalizedAcademicSelections(recordResearchEvent(
     autoCivicsForDay(autoResearchForDay(logged)),
     { kind: 'day', weatherId: weather.id, fireKept: fireActive },
-  );
+  ));
 }
 
 export function selectTechAction(state, techId) {
@@ -7338,7 +7351,7 @@ export function runRestAction(state, actorId, options = {}) {
   next = autoResearchForTurn(next);
   next = autoCivicsForTurn(next);
   if (next.ap <= 0 && !next.ended) next = advanceDay(next, options);
-  return next;
+  return withNormalizedAcademicSelections(next);
 }
 
 export function runCampAction(state, actorId, kind, options = {}) {

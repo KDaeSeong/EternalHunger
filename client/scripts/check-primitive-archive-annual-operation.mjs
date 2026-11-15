@@ -130,10 +130,29 @@ check('an exhausted management action never advances time or spends personal sur
   const active = start(fixture()); active.ap = 1;
   const actor = active.party[0]; actor.stamina = 0; actor.hunger = 95; actor.bodyTemp = 25;
   const before = clone(active);
-  const next = engine.afterAction(active, actor.id, 99, 90, { warmthAdd: -20 });
+  let next;
+  Math.random = () => { throw new Error('Exhausted annual management must not draw randomness'); };
+  try { next = engine.afterAction(active, actor.id, 99, 90, { warmthAdd: -20 }); }
+  finally { Math.random = originalRandom; }
   assert.equal(next.ap, 0); assert.equal(next.day, before.day); assert.equal(next.calendar.completedYears, 0);
-  assert.deepEqual(bodies(next), bodies(before)); assert.deepEqual(next.research, before.research);
-  assert.deepEqual(next.civics, before.civics);
+  assert.deepEqual(active, before);
+  assert.deepEqual(bodies(next), bodies(before));
+  // The historical capability fixture leaves a completed technology and a
+  // prerequisite-blocked civic selected. Canonical selection changes neither
+  // research/culture progress nor personal survival fields on this AP boundary.
+  assert.equal(before.research.selectedTechId, 'GATHERING');
+  assert.equal(before.research.completed.GATHERING, true);
+  assert.equal(before.civics.selectedCivicId, 'ORAL_RECORDS');
+  assert.ok(engine.CIVIC_TREE.find(row => row.id === 'ORAL_RECORDS').prereqs.some(id => !before.research.completed[id]));
+  assert.ok(!before.research.completed.HUNTING);
+  assert.ok(!before.civics.completed.SETTLEMENT);
+  assert.ok(engine.TECHNOLOGY_TREE.find(row => row.id === 'HUNTING').prereqs.every(id => before.research.completed[id]));
+  assert.ok(engine.CIVIC_TREE.find(row => row.id === 'SETTLEMENT').prereqs.every(id => before.research.completed[id]));
+  const expected = clone(before);
+  expected.ap = 0;
+  expected.research.selectedTechId = 'HUNTING';
+  expected.civics.selectedCivicId = 'SETTLEMENT';
+  assert.deepEqual(next, expected, 'Only management AP and the two exact canonical selections change; all progress, eureka, stock, clocks and physical state remain identical');
 });
 check('obsolete annual stamps cannot settle a second year or overwrite a newer period', () => {
   const active = start(fixture()); const oldStamp = stamp(active); const next = year(active);

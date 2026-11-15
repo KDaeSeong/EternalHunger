@@ -164,7 +164,7 @@ export function lineageSummary(state) {
       canPrepare: !prepareReason, prepareReason, canRetire: !retireReason, retireReason,
       successorName: prepared?.actor.name || '', successorId: prepared?.actor.id || member.successorId };
   });
-  return { mode: lineage.mode, enabled: lineage.mode === 'hybrid', communityStartedDay: lineage.communityStartedDay,
+  return { mode: lineage.mode, enabled: lineage.mode === 'hybrid', communityReady: ready, communityStartedDay: lineage.communityStartedDay,
     clockStarted: isAnnualMode(state) || lineage.communityStartedDay > 0, rows, prepared: copy(lineage.prepared),
     prepareCostText: isAnnualMode(state) ? 'AP 1 · 실제 공동체 일손 1명 전환' : 'AP 1 · ST 4 · 허기 +1 · 실제 공동체 일손 1명 전환',
     retireCostText: 'AP 소모 없음 · 준비된 후계와 활동 인물 교체 · 생존 원본 보존',

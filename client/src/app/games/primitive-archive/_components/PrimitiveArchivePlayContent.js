@@ -136,6 +136,7 @@ import { founderHistoryRows } from '../_lib/primitiveArchiveFounders';
 import { ancestralFaithRows, ancestralFaithSummary } from '../_lib/primitiveArchiveAncestralFaith';
 import { LINEAGE_RULES } from '../_lib/primitiveArchiveLineage';
 import { annualPersonSummary } from '../_lib/primitiveArchiveCalendar';
+import { primitiveArchiveSuccessionGuidance } from '../_lib/primitiveArchiveSuccessionGuidance';
 import { campRequirementGuide } from '../_lib/primitiveArchiveCampRequirementGuide';
 import { productionRequirementGuide } from '../_lib/primitiveArchiveProductionRequirementGuide';
 import '../../../../styles/PrimitiveArchiveEras.css';
@@ -302,8 +303,7 @@ export default function PrimitiveArchivePlayContent() {
   const lineage = state.calendar?.mode === 'annual'
     ? { ...rawLineage, rows: rawLineage.rows.map(row => ({ ...row, annual: annualPersonSummary(state, row.actorId) })) }
     : rawLineage;
-  const successionWarnings = state.ended ? NO_ROWS : lineage.rows.filter((member) =>
-    (state.calendar?.mode === 'annual' ? lineage.mode !== 'legacy' && member.annual?.warning : member.warning) && !member.successorId);
+  const successionGuidance = primitiveArchiveSuccessionGuidance({ state, lineage });
   const recipes = useMemo(() => recipeRows(state), [state]);
   const recipe = recipes.find((row) => row.id === recipeId) || recipes.find((row) => row.unlocked) || recipes[0];
   const hp = averageParty(state, 'hp');
@@ -1378,12 +1378,20 @@ export default function PrimitiveArchivePlayContent() {
         </>
       ) : checkpoint.message,
     } : null,
-    successionWarnings.length ? {
+    successionGuidance.needsPreparation.length ? {
       key: 'succession-warning',
       tone: 'warning',
       text: <>
-        생애 인계 예고: {successionWarnings.map((member) => member.name).join(' · ')}. {annualMode ? `활동 25년 인계를 위해 후계를 준비하세요. ${annual.observedLifetimeYears === null ? '자동 생애 종료는 없습니다.' : `관찰 생애 ${annual.observedLifetimeYears}년에 생애를 마칩니다.`}` : `정착 활동기 ${LINEAGE_RULES.naturalEndCycle}기 전에 후계를 준비하세요.`}
+        생애 인계 예고: {successionGuidance.needsPreparation.map((member) => member.name).join(' · ')}. {annualMode ? `활동 25년 인계를 위해 후계를 준비하세요. ${annual.observedLifetimeYears === null ? '자동 생애 종료는 없습니다.' : `관찰 생애 ${annual.observedLifetimeYears}년에 생애를 마칩니다.`}` : `정착 활동기 ${LINEAGE_RULES.naturalEndCycle}기 전에 후계를 준비하세요.`}
         <button type="button" className="primitive-inline-action" onClick={() => selectArchiveTab('founders')}>후계 준비 열기</button>
+      </>,
+    } : null,
+    successionGuidance.blockedHandover.length ? {
+      key: 'succession-blocked',
+      tone: 'warning',
+      text: <>
+        후계 인계 대기: {successionGuidance.blockedHandover.map((member) => member.name).join(' · ')}. 후계는 준비되었지만 공동체 조건이 충족되지 않아 인계할 수 없습니다. 정착 기반·공동 배식·사기를 확인하세요.
+        <button type="button" className="primitive-inline-action" onClick={() => selectArchiveTab('tribe')}>공동체 일손 보기</button>
       </>,
     } : null,
     message ? { key: 'message', text: message } : null,
