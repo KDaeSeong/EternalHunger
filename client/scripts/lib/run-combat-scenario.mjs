@@ -17,7 +17,7 @@ export const skill = (extra = {}) => ({ enabled: true, name: 'test skill', type:
   cooldownSec: 10, castDelaySec: 1.25, recoveryDelaySec: 0.25, ...extra });
 
 export async function runCombatScenario(rows, { duration = 4, startSec = 100, settings = {}, onElapsed = () => {},
-  engage = true, nextDay = 1, onFrame = () => {}, observeCombatRuntime, seed = 'cast-scenario' } = {}) {
+  engage = true, nextDay = 1, nextPhase = 'morning', onFrame = () => {}, observeCombatRuntime, seed = 'cast-scenario' } = {}) {
   let offset = 0; let live; const events = []; const frames = [];
   const timeline = createPhaseActionTimeline({ durationSec: duration, onElapsed: (from, elapsed) => {
     advanceSpatialMovement([...live.values()], startSec + from, elapsed);
@@ -29,7 +29,7 @@ export async function runCombatScenario(rows, { duration = 4, startSec = 100, se
   withSimulationRandom(random, () => {
     if (engage) engageCombatParticipants(rows[0], rows[1], rows, startSec);
     promise = runPvpActionLoop({ state: { updatedSurvivors: rows, phaseSurvivors: rows, phaseDurationSec: duration,
-      nextDay, nextPhase: 'morning', currentActionSec: () => roundCombatTime(startSec + offset),
+      nextDay, nextPhase, currentActionSec: () => roundCombatTime(startSec + offset),
       getPhaseRuntimeOffsetSec: () => offset, battleSettings: settings,
       ruleset: { ai: { escapeHpBelow: 0 }, pvp: { criticalFleeHpBelow: 0, teamCombatEnabled: true } } },
       actions: { reserveActionSecond: (seconds) => { offset = Math.min(duration, roundCombatTime(offset + seconds)); },
@@ -40,7 +40,7 @@ export async function runCombatScenario(rows, { duration = 4, startSec = 100, se
         // Wall-clock metadata is not part of deterministic match evidence.
         emitRunEvent: (kind, payload, at) => emitSimulationRunEvent({ kind, payload, at,
           actions: { enqueueRunEvent: ({ ts: _ts, ...event }) => events.push(structuredClone(event)) } }),
-        atNow: () => ({ sec: roundCombatTime(startSec + offset), day: 1, phase: 'morning' }),
+        atNow: () => ({ sec: roundCombatTime(startSec + offset), day: nextDay, phase: nextPhase }),
         publishActionFrame: async ({ survivorMap }) => {
           assert.ok(frames.length < 1000, 'Combat must not stall at the same time.');
           const frame = { sec: roundCombatTime(startSec + offset), roster: structuredClone([...survivorMap.values()]) };

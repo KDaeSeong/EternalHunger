@@ -2,7 +2,7 @@ import { areSameTeam, getActorTeamId } from './teamRuntime';
 import { estimateMovePower, isPlanningMovePowerSnapshot } from './movePowerRuntime';
 import { getCombatMapId, getCombatSpaceId, shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
-import { captureMovementObjective } from './movementObjectiveRuntime.js';
+import { captureMovementObjective, isMovementObjectiveAvailable } from './movementObjectiveRuntime.js';
 import { chooseTeamResourceMove } from './teamResourceGoalRuntime.js';
 import { chooseTeamPurchaseMove } from './teamPurchaseGoalRuntime.js';
 
@@ -140,18 +140,23 @@ function createTeamRecipeRouteQuery(actor, roster, zoneGraph, forbiddenIds, opti
 
 // A known rally is a destination, not a search for a nearby retreat. Search
 // the finite map for its safe route, but execute only the next adjacent step.
-function regroupPathBlockReason(actor, target, zoneGraph, forbiddenIds) {
-  const reachable = (forbidden) => {
+function regroupPathBlockReason(actor, target, zoneGraph, forbiddenIds, maxDepth = Infinity) {
+  const reachable = (forbidden, depthLimit = Infinity) => {
     const queue = [String(actor.zoneId || '')], seen = new Set(queue);
+    const distances = new Map([[queue[0], 0]]);
     for (let i = 0; i < queue.length; i += 1) {
       if (queue[i] === target && !forbidden.has(target)) return true;
+      if (distances.get(queue[i]) >= depthLimit) continue;
       for (const next of (zoneGraph[queue[i]] || []).map(String)) {
-        if (!seen.has(next) && !forbidden.has(next)) { seen.add(next); queue.push(next); }
+        if (!seen.has(next) && !forbidden.has(next)) {
+          seen.add(next); distances.set(next, distances.get(queue[i]) + 1); queue.push(next);
+        }
       }
     }
     return false;
   };
-  return reachable(forbiddenIds) ? 'enemy_path' : reachable(new Set()) ? 'forbidden_path' : 'disconnected';
+  if (!reachable(forbiddenIds)) return reachable(new Set()) ? 'forbidden_path' : 'disconnected';
+  return Number.isFinite(maxDepth) && !reachable(forbiddenIds, maxDepth) ? 'replanned' : 'enemy_path';
 }
 
 // Enemy-free join routes can be checked with one bounded graph traversal per
@@ -280,9 +285,47 @@ export function* buildTeamCoordinationSteps({
         forbiddenIds, routeForZone: createTeamRecipeRouteQuery(leader, roster, zoneGraph, forbiddenIds,
           { estimatePower, maxDepth: destinationDepth, travelParty: members }) }) : null;
     const proposed = grouped && !rotationWaiting ? teamResource || teamPurchase || chooseLeaderMove(leader) : null;
-    const target = grouped && !rotationWaiting ? (proposed?.targets || []).find((zone) => !forbiddenIds.has(String(zone))) : rallyZone;
+    let target = grouped && !rotationWaiting ? '' : rallyZone;
+    let objective = null, sharedRoutes = null, sharedTargetBlocked = '';
+    if (grouped && !rotationWaiting) {
+      const candidates = [...new Set((proposed?.targets || []).map(zone => String(zone || '')).filter(Boolean))];
+      const requiresSource = !!spawnState && ['natural_core', 'boss', 'legendary_crate', 'transcend_crate', 'dimension_rift']
+        .includes(String(proposed?.objectiveType || ''));
+      const queriesByActor = new Map();
+      let rejectedReason = '';
+      // Keep the leader's order, but a rejected first destination must not
+      // discard its safe alternatives or restore individual unsafe targets.
+      for (const candidate of candidates) {
+        if (forbiddenIds.has(candidate)) { rejectedReason ||= 'forbidden_path'; continue; }
+        const captured = captureMovementObjective(proposed, candidate, { spawnState, ruleset, publicItems });
+        if ((requiresSource && !captured) || (captured && !members.every(actor =>
+          isMovementObjectiveAvailable(captured, { spawnState, forbiddenIds, actor, roster, publicItems,
+            teamId: getActorTeamId(actor) })))) {
+          rejectedReason ||= 'replanned'; continue;
+        }
+        // A captured world source is a known finite-map destination, like a
+        // recipe or rally. Generic nearby roaming keeps its configured depth.
+        const depth = captured || teamResource || teamPurchase ? destinationDepth : maxDepth;
+        const routes = new Map();
+        for (const actor of members) {
+          if (!queriesByActor.has(actor)) queriesByActor.set(actor, new Map());
+          const queries = queriesByActor.get(actor);
+          if (!queries.has(depth)) queries.set(depth, createTeamRecipeRouteQuery(actor, roster,
+            zoneGraph, forbiddenIds, { estimatePower, maxDepth: depth, travelParty: members }));
+          const route = queries.get(depth)(candidate);
+          if (!route) break;
+          routes.set(actor, route);
+        }
+        if (routes.size !== members.length) {
+          rejectedReason ||= regroupPathBlockReason(leader, candidate, zoneGraph, forbiddenIds, depth); continue;
+        }
+        target = candidate; objective = captured; sharedRoutes = routes; break;
+      }
+      if (!target && candidates.length) {
+        target = candidates[0]; sharedTargetBlocked = rejectedReason || 'replanned';
+      }
+    }
     if (!target) continue;
-    const objective = grouped ? captureMovementObjective(proposed, target, { spawnState, ruleset, publicItems }) : null;
     // Sharing a region does not mean the squad has selected a common goal.
     // Keep the active farmer and its ready companions' real wait distinct.
     const growthWaitingFor = !separated && !grouped ? ordered.filter(stillGrowing).map(row => ({
@@ -293,9 +336,10 @@ export function* buildTeamCoordinationSteps({
     })) : [];
     for (const actor of members) {
       const decision = { version: 1, teamId: getActorTeamId(actor), memberCount: members.length,
-        targetZoneId: rallyZone, atTargetCount: members.filter((row) => String(row.zoneId) === rallyZone).length,
-        nextStep: '', distance: null, stage: rotationWaiting ? 'rotation_wait' : separated ? 'joining'
-          : growthWaitingFor.length ? 'growth_wait' : 'together', blocked: '',
+        targetZoneId: sharedTargetBlocked ? target : rallyZone,
+        atTargetCount: members.filter((row) => String(row.zoneId) === (sharedTargetBlocked ? target : rallyZone)).length,
+        nextStep: '', distance: null, stage: sharedTargetBlocked ? 'path_blocked' : rotationWaiting ? 'rotation_wait' : separated ? 'joining'
+          : growthWaitingFor.length ? 'growth_wait' : 'together', blocked: sharedTargetBlocked,
         ...(rotationWaiting ? { waitingFor: waitingFor.map((row) => ({ ...row })) } : {}),
         ...(growthWaitingFor.length ? { waitingFor: growthWaitingFor.map(row => ({ ...row })) } : {}),
         ...(rallySelection ? { rallySelection: { ...rallySelection } } : {}) };
@@ -310,8 +354,14 @@ export function* buildTeamCoordinationSteps({
         regroupDecisions.set(idOf(actor), decision);
         continue;
       }
+      if (sharedTargetBlocked) {
+        // The movement phase already implements an explicit path-blocked hold.
+        // Publish that contract instead of allowing an individual fallback.
+        regroupDecisions.set(idOf(actor), decision);
+        continue;
+      }
       // Recovery/forbidden-area escape are higher priorities at execution time.
-      const route = pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds, {
+      const route = sharedRoutes?.get(actor) || pickTeamSafeZone(actor, roster, zoneGraph, forbiddenIds, {
         // A concrete spawned recipe source, like a rally, is a known destination.
         // Nearby retreat/wandering searches retain their configured depth.
         estimatePower, maxDepth: !grouped || teamResource || teamPurchase ? destinationDepth : maxDepth,

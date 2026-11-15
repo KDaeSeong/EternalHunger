@@ -344,6 +344,18 @@ for (const mode of ['safe-route-unit', 'safe-route-match', 'growth', 'performanc
     'Changing growth movement checks must invalidate applicable chained verification receipts.');
 }
 console.log('PASS growth movement proof mutations invalidate applicable chained verification modes');
+const coordinationProofPaths = ['scripts/check-team-shared-safe-targets.mjs',
+  'scripts/check-combat-scenario-clock.mjs', 'scripts/lib/run-combat-scenario.mjs'];
+for (const mode of ['team-survival', 'team-participation-unit', 'safe-route-unit', 'growth', 'full']) {
+  const before = verificationSources(mode);
+  for (const path of coordinationProofPaths) {
+    const after = verificationSources(mode, fileURLToPath(new URL(path, root)));
+    assert.equal(typeof before[path], 'string', `${mode} must fingerprint ${path}.`);
+    assert.notEqual(after[path], before[path],
+      'Changing coordination or combat clock proofs must invalidate applicable verification receipts.');
+  }
+}
+console.log('PASS shared target and combat clock proof mutations invalidate applicable verification modes');
 for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module-resolution-compat']) {
   const sourceHashes = verificationSources(mode);
   for (const path of ['scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs']) {
@@ -373,5 +385,5 @@ for (const path of ['scripts/check-eternal-hunger-regressions.mjs', 'scripts/che
   assert.notEqual(after[path], before[path], 'Regression entry and cold local bootstrap changes must invalidate the full receipt.');
 }
 console.log('PASS regression entry, RNG/movement fixtures and cold local bootstrap proofs invalidate the full-chain receipt');
-console.log(JSON.stringify({ pass: true, checks: 24, engine: base.wrapper,
+console.log(JSON.stringify({ pass: true, checks: 25, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));

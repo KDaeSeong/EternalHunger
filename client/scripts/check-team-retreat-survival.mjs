@@ -55,7 +55,7 @@ async function runCase(hasExit) {
   const movementActor = movementResult.updatedSurvivors.find((row) => row._id === 'a-retreater');
   const combatRoster = ['a-retreater', 'z-enemy', 'b-ally'].map((id) => movementResult.updatedSurvivors.find((row) => row._id === id));
   const attackWindow = getLumiaWalkEtaSec('gas_station', 'alley') + 0.5;
-  const combat = await runCombatScenario(combatRoster, { duration: attackWindow, startSec, nextDay: 2, seed });
+  const combat = await runCombatScenario(combatRoster, { duration: attackWindow, startSec, nextDay: 2, nextPhase: 'night', seed });
   assert.deepEqual(input, inputBefore, 'Each complete case must leave the original fixture untouched.');
   return { inputBefore, movementActor, movementResult, events, eta, attackWindow, combat,
     movementRandomState: movementSeed.getState() };
@@ -71,6 +71,18 @@ async function checkAsync(name, run) {
 
 const safe = await runCase(true);
 const blocked = await runCase(false);
+
+check('movement and subsequent combat events retain the same actual second-night clock', () => {
+  for (const result of [safe, blocked]) {
+    assert.ok(result.events.length > 0 && result.combat.events.length > 0);
+    for (const event of [...result.events, ...result.combat.events]) {
+      assert.ok(event.at);
+      assert.equal(event.at.day, 2);
+      assert.equal(event.at.phase, 'night');
+      assert.ok(event.at.sec >= startSec && event.at.sec <= startSec + result.attackWindow);
+    }
+  }
+});
 
 check('same local team threat is assessed from the same actors and stats in both topologies', () => {
   for (const result of [safe, blocked]) {
