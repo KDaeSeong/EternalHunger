@@ -48,6 +48,11 @@ export function getInvRules(ruleset) {
   };
 }
 
+function isAuthoredUnslottedMaterial(item, type) {
+  return item?.localItemProfile === true && (type === '재료' || type === 'material')
+    && !String(item?.equipSlot || '').trim();
+}
+
 export function inferItemCategory(it) {
   const type = String(it?.type || '').toLowerCase();
 
@@ -55,6 +60,9 @@ export function inferItemCategory(it) {
   // Most runtime entries already carry a slot. Do not read/normalize display
   // text or tags unless classification actually needs those legacy fallbacks.
   if (type === '소모품' || type === 'consumable') return 'consumable';
+  // Authored materials may have equipment/food words in their display names.
+  // Preserve legacy catalogue inference and explicitly assigned slots.
+  if (isAuthoredUnslottedMaterial(it, type)) return 'material';
 
   if (it && typeof it === 'object') {
     const slot = String(it?.equipSlot || '').trim().toLowerCase();
@@ -110,6 +118,7 @@ export function inferItemCategory(it) {
 export function inferEquipSlot(it) {
   const type = String(it?.type || '').toLowerCase();
   if (type === '소모품' || type === 'consumable') return '';
+  if (isAuthoredUnslottedMaterial(it, type)) return '';
 
   if (it && typeof it === 'object') {
     const s = String(it?.equipSlot || '').trim().toLowerCase();

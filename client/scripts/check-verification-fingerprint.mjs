@@ -356,6 +356,15 @@ for (const mode of ['team-survival', 'team-participation-unit', 'safe-route-unit
   }
 }
 console.log('PASS shared target and combat clock proof mutations invalidate applicable verification modes');
+const authoredMaterialProofPath = 'scripts/check-authored-material-classification.mjs';
+for (const mode of ['growth', 'build', 'runtime-build', 'performance', 'full']) {
+  const before = verificationSources(mode);
+  const after = verificationSources(mode, fileURLToPath(new URL(authoredMaterialProofPath, root)));
+  assert.equal(typeof before[authoredMaterialProofPath], 'string', `${mode} must fingerprint authored material classification proof.`);
+  assert.notEqual(after[authoredMaterialProofPath], before[authoredMaterialProofPath],
+    'Changing the actual authored-material crafting proof must invalidate applicable verification receipts.');
+}
+console.log('PASS authored material proof mutations invalidate applicable verification modes');
 for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module-resolution-compat']) {
   const sourceHashes = verificationSources(mode);
   for (const path of ['scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs']) {

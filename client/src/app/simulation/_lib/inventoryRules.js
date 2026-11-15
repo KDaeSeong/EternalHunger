@@ -288,6 +288,7 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     const dropped = Math.max(0, (cur + want) - next);
     const nextTier = clampInventoryTier(item?.tier || list[i]?.tier || 1, category);
     list[i] = { ...list[i], qty: next, category, tier: nextTier,
+      ...(item?.localItemProfile === true ? { localItemProfile: true } : {}),
       ...(Object.hasOwn(list[i], 'consumeEffect') ? { consumeEffect: structuredClone(list[i].consumeEffect) } : {}),
       ...(Object.hasOwn(list[i], 'equipmentEffects') ? { equipmentEffects: structuredClone(list[i].equipmentEffects) } : {}),
       ...(category === 'equipment' ? { rarity: tierLabelKo(nextTier) } : {}), ...(equipSlot ? { equipSlot } : {}) };
@@ -351,6 +352,7 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     ...(item?.erCode ? { erCode: item.erCode } : {}),
     ...(item?.weaponType ? { weaponType: item.weaponType } : {}),
     ...(item?.itemSubType ? { itemSubType: item.itemSubType } : {}),
+    ...(item?.localItemProfile === true ? { localItemProfile: true } : {}),
     ...(item?.stats && typeof item.stats === 'object' ? { stats: { ...item.stats } } : {}),
     ...(item && Object.hasOwn(item, 'consumeEffect') ? { consumeEffect: structuredClone(item.consumeEffect) } : {}),
     ...(item && Object.hasOwn(item, 'equipmentEffects') ? { equipmentEffects: structuredClone(item.equipmentEffects) } : {}),

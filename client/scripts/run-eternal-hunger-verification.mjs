@@ -118,7 +118,8 @@ function verificationSourceHashes() {
     'scripts/check-simulation-log-retention.mjs', 'scripts/check-evaluation-market-isolation.mjs',
     'scripts/check-market-failure-state.mjs', 'scripts/check-kiosk-growth-reservation.mjs',
     'scripts/check-growth-safe-movement.mjs', 'scripts/check-team-shared-safe-targets.mjs',
-    'scripts/check-combat-scenario-clock.mjs', 'scripts/lib/run-combat-scenario.mjs'];
+    'scripts/check-combat-scenario-clock.mjs', 'scripts/lib/run-combat-scenario.mjs',
+    'scripts/check-authored-material-classification.mjs'];
   if (['distribution', 'distribution-varied', 'distribution-observer', 'movement-trace'].includes(mode)) paths.push(
     'scripts/analyze-match-distribution.mjs', 'scripts/lib/run-random-isolation-match.mjs',
     'scripts/lib/match-distribution-frame-tracker.mjs', 'scripts/lib/match-distribution-diagnostics.mjs',
