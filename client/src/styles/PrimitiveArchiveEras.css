@@ -1242,6 +1242,44 @@
     padding: 10px 12px;
   }
 
+  /* Give the disclosure its own row and each metric label its full chip width. */
+  .primitive-era.primitive-archive-page-shell .games-play-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .primitive-era.primitive-archive-page-shell .games-play-summary > .games-summary--micro {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .primitive-era.primitive-archive-page-shell .games-play-summary > .games-summary-overflow {
+    min-width: 0;
+  }
+
+  .primitive-era.primitive-archive-page-shell .games-play-summary .games-metric--micro {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-self: stretch;
+    align-items: start;
+    gap: 2px;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .primitive-era.primitive-archive-page-shell .games-play-summary .games-metric--micro > span {
+    white-space: normal;
+    word-break: keep-all;
+  }
+
+  .primitive-era.primitive-archive-page-shell .games-play-summary .games-metric--micro > strong {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .primitive-era.primitive-archive-page-shell .games-play-chrome > .games-hero {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
