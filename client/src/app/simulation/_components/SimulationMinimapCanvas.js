@@ -21,9 +21,16 @@ import {
 import { buildCustomMapRenderGeometry } from '../_lib/customMapRenderGeometryRuntime.js';
 import { LUMIA_REFERENCE_ZONES, LUMIA_REFERENCE_POSITIONS, LUMIA_REFERENCE_POLYGONS, LUMIA_REFERENCE_LABEL_RECTS } from '../_lib/lumiaReferenceMapGeometry.js';
 import { buildMinimapRegionPresentation, placeMinimapRegionLayout } from '../_lib/minimapRegionLayoutRuntime.js';
+import { LUMIA_REFERENCE_ALERT_COVERAGE_POLYGONS } from './minimapReferenceAlertCoverage.js';
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function referenceGeometryId(zoneId) {
+  if (zoneId === 'pond') return 'park';
+  if (zoneId === 'residential') return 'apartment';
+  return zoneId;
 }
 
 function actorIdentity(actor) {
@@ -85,6 +92,13 @@ function polygonPoints(points) {
     .map(([x, y]) => `${Number(x || 0)},${Number(y || 0)}`)
     .join(' ');
 }
+
+// Coverage is render-only and built once. The simulation's area geometry and
+// marker-placement polygons remain separate from this native-image stencil.
+const LUMIA_REFERENCE_ALERT_POINTS = Object.freeze(Object.fromEntries(
+  Object.entries(LUMIA_REFERENCE_ALERT_COVERAGE_POLYGONS)
+    .map(([id, polygon]) => [id, polygonPoints(polygon)])
+));
 
 function shrinkPolygon(points, center, ratio = 0.6) {
   const cx = Number(center?.x);
@@ -159,6 +173,9 @@ export default function SimulationMinimapCanvas({
   }, [useViewport, zoomed]);
   const rawClipId = useId();
   const islandClipId = `simulation-minimap-boundary-${String(rawClipId).replace(/:/g, '')}`;
+  const restrictedClipId = `${islandClipId}-restricted`;
+  const restrictedTintId = `${islandClipId}-restricted-tint`;
+  const referenceLabelMaskId = `${islandClipId}-reference-labels`;
   const sourcePositions = zonePos && typeof zonePos === 'object' ? zonePos : EMPTY_ZONE_POSITIONS;
   const usesCustomGeometry = String(activeMapId || '').startsWith('local-map-');
   const customGeometry = useMemo(
@@ -205,17 +222,24 @@ export default function SimulationMinimapCanvas({
     () => new Set(zoneList.map((zone) => String(zone?.zoneId || '')).filter(Boolean)),
     [zoneList]
   );
+  // Resolve display geometry while retaining the actual map/forbidden IDs.
+  // Custom maps own their polygons even when a zone uses a legacy Lumia ID.
+  const displayedZonePolygons = useMemo(() => Object.fromEntries(Array.from(availableZoneIds).flatMap((id) => {
+    const geometryId = customGeometry ? id : referenceGeometryId(id);
+    return Object.hasOwn(zonePolygons, geometryId) ? [[id, zonePolygons[geometryId]]] : [];
+  })), [availableZoneIds, customGeometry, zonePolygons]);
   const mapOutlinePoints = useMemo(() => polygonPoints(mapOutline), [mapOutline]);
-  const baseZonePolygonRows = useMemo(() => Object.entries(zonePolygons).map(([id, polygon]) => ({
+  const baseZonePolygonRows = useMemo(() => Object.entries(displayedZonePolygons).map(([id, polygon]) => ({
     id,
     zoneName: String(getZoneName?.(id) || id),
     points: polygonPoints(shrinkPolygon(polygon, positions?.[id], 0.78)),
-  })), [getZoneName, positions, zonePolygons]);
-  const forbiddenZonePolygonRows = useMemo(() => Object.entries(zonePolygons).map(([id, polygon]) => ({
+  })), [displayedZonePolygons, getZoneName, positions]);
+  const forbiddenZonePolygonRows = useMemo(() => Object.entries(displayedZonePolygons).map(([id, polygon]) => ({
     id,
     zoneName: String(getZoneName?.(id) || id),
-    points: polygonPoints(customGeometry ? shrinkPolygon(polygon, positions?.[id], 0.82) : polygon),
-  })), [customGeometry, getZoneName, positions, zonePolygons]);
+    points: (!customGeometry && LUMIA_REFERENCE_ALERT_POINTS[referenceGeometryId(id)])
+      || polygonPoints(customGeometry ? shrinkPolygon(polygon, positions?.[id], 0.82) : polygon),
+  })), [customGeometry, displayedZonePolygons, getZoneName, positions]);
   const renderedPassages = useMemo(() => [
     ...passageSegments.map((segment) => ({
       segment: { ...segment, pointsText: polygonPoints(segment.points) },
@@ -232,6 +256,38 @@ export default function SimulationMinimapCanvas({
         <clipPath id={islandClipId}>
           {customGeometry ? <polygon points={mapOutlinePoints} /> : Object.entries(LUMIA_REFERENCE_POLYGONS).map(([id, polygon]) => <polygon key={id} points={polygonPoints(polygon)} />)}
         </clipPath>
+        {!customGeometry ? <>
+          <filter id={restrictedTintId} colorInterpolationFilters="sRGB"
+            filterUnits="userSpaceOnUse" x={LUMIA_REFERENCE_IMAGE_FRAME.x} y={LUMIA_REFERENCE_IMAGE_FRAME.y}
+            width={LUMIA_REFERENCE_IMAGE_FRAME.width} height={LUMIA_REFERENCE_IMAGE_FRAME.height}>
+            {/* Select blue terrain in source-image sRGB: B-R > 24 and
+                R-3G+2B > 0. Neutral labels, yellow kiosks and cyan glyphs
+                are not turned into new terrain by the tint. */}
+            <feColorMatrix in="SourceGraphic" result="blueContrast"
+              values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -1 0 1 0 0" />
+            <feComponentTransfer in="blueContrast" result="blueContrastMask">
+              <feFuncA type="linear" slope="255" intercept="-24" />
+            </feComponentTransfer>
+            <feColorMatrix in="SourceGraphic" result="blueHue"
+              values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  1 -3 2 0 0" />
+            <feComponentTransfer in="blueHue" result="blueHueMask">
+              <feFuncA type="linear" slope="255" intercept="0" />
+            </feComponentTransfer>
+            <feComposite in="blueContrastMask" in2="blueHueMask" operator="in" result="terrainMask" />
+            <feColorMatrix in="SourceGraphic" result="redTerrain"
+              values="0 0 1 0 0  0 0.7 0 0 0  1 0 0 0 0  0 0 0 1 0" />
+            <feComposite in="redTerrain" in2="terrainMask" operator="in" />
+          </filter>
+          <mask id={referenceLabelMaskId} maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse"
+            x={LUMIA_REFERENCE_IMAGE_FRAME.x} y={LUMIA_REFERENCE_IMAGE_FRAME.y}
+            width={LUMIA_REFERENCE_IMAGE_FRAME.width} height={LUMIA_REFERENCE_IMAGE_FRAME.height}
+            style={{ maskType: 'luminance' }}>
+            <rect {...LUMIA_REFERENCE_IMAGE_FRAME} fill="white" />
+            {LUMIA_REFERENCE_LABEL_RECTS.map((box, index) => <rect key={index}
+              x={box.min.x} y={box.min.y} width={box.max.x - box.min.x} height={box.max.y - box.min.y}
+              fill="black" />)}
+          </mask>
+        </> : null}
       </defs>
 
       {customGeometry ? <>
@@ -264,7 +320,7 @@ export default function SimulationMinimapCanvas({
         preserveAspectRatio="none"
       />}
     </>
-  ), [availableZoneIds, baseZonePolygonRows, customGeometry, islandClipId, mapOutlinePoints]);
+  ), [availableZoneIds, baseZonePolygonRows, customGeometry, islandClipId, mapOutlinePoints, referenceLabelMaskId, restrictedTintId]);
   const staticPassageLayer = useMemo(() => (
     <g clipPath={`url(#${islandClipId})`}>
       {renderedPassages.map(({ segment, supplemental }) => {
@@ -290,6 +346,9 @@ export default function SimulationMinimapCanvas({
     [zoneList]
   );
   const forbiddenSet = useMemo(() => asSet(forbiddenNow), [forbiddenNow]);
+  const activeForbiddenPolygons = useMemo(() => forbiddenZonePolygonRows.filter(
+    row => availableZoneIds.has(row.id) && forbiddenSet.has(row.id)
+  ), [availableZoneIds, forbiddenSet, forbiddenZonePolygonRows]);
   const hyperloopSet = useMemo(() => asSet(hyperloopZoneSet), [hyperloopZoneSet]);
   const aliveByZone = useMemo(() => groupActorsByZone(survivors, activeMapId), [survivors, activeMapId]);
   const deadByZone = useMemo(() => groupActorsByZone(dead, activeMapId), [dead, activeMapId]);
@@ -297,7 +356,7 @@ export default function SimulationMinimapCanvas({
   const zoneMarkerLayouts = useMemo(() => Object.fromEntries(Object.entries(aliveByZone).map(([id, actors]) => {
     const visible = getObserverVisibleActors(actors, trackedSet, 24);
     const layout = layoutMinimapZoneActors(visible, trackedSet);
-    const geometry = !customGeometry && LUMIA_REFERENCE_ZONES[id];
+    const geometry = !customGeometry && LUMIA_REFERENCE_ZONES[referenceGeometryId(id)];
     if (!geometry) return [id, layout.map((row) => ({ ...row, x: Number(positions[id]?.x || 0) + row.dx, y: Number(positions[id]?.y || 0) + row.dy, scale: 1 }))];
     // A crowded region remains a correctly located, labelled region marker.
     // Its roster is one click away; do not shrink portraits to unreadable dots
@@ -335,10 +394,8 @@ export default function SimulationMinimapCanvas({
       >
         {staticMapFrame}
 
-        <g className="minimap-zone-alert-layer" clipPath={`url(#${islandClipId})`}>
-          {forbiddenZonePolygonRows.map((row) => {
-            if (!availableZoneIds.has(row.id) || !forbiddenSet.has(row.id)) return null;
-            return (
+        <g className="minimap-zone-alert-layer" clipPath={customGeometry ? `url(#${islandClipId})` : undefined}>
+          {customGeometry ? activeForbiddenPolygons.map((row) => (
               <polygon
                 key={`area-${row.id}`}
                 data-zone-id={row.id}
@@ -347,14 +404,25 @@ export default function SimulationMinimapCanvas({
               >
                 <title>{row.zoneName}</title>
               </polygon>
-            );
-          })}
+          )) : activeForbiddenPolygons.length ? <>
+            <defs><clipPath id={restrictedClipId}>
+              {activeForbiddenPolygons.map(row => <polygon key={`area-${row.id}`} data-zone-id={row.id}
+                points={row.points} className="minimap-zone-area forbidden"><title>{row.zoneName}</title></polygon>)}
+            </clipPath></defs>
+            <image className="minimap-reference-map minimap-restricted-map" data-native-forbidden-image="true"
+              href={LUMIA_MINIMAP_REFERENCE_IMAGE.src}
+              {...LUMIA_REFERENCE_IMAGE_FRAME} preserveAspectRatio="none"
+              clipPath={`url(#${restrictedClipId})`} filter={`url(#${restrictedTintId})`}
+              mask={`url(#${referenceLabelMaskId})`}>
+              <title>{`금지구역: ${activeForbiddenPolygons.map(row => row.zoneName).join(', ')}`}</title>
+            </image>
+          </> : null}
         </g>
 
         {zoneList.map((zone) => {
           const id = String(zone?.zoneId || '');
           const p = positions?.[id];
-          if (!id || !p || zonePolygons[id]) return null;
+          if (!id || !p || displayedZonePolygons[id]) return null;
           const isForbidden = forbiddenSet.has(id);
           return (
             <circle
@@ -448,7 +516,7 @@ export default function SimulationMinimapCanvas({
                 const offset = OFF[(idx + 2) % OFF.length];
                 const local = getSpatialPosition(actor);
                 const isTracked = trackedSet.has(actorId);
-                const referenceZone = !customGeometry && LUMIA_REFERENCE_ZONES[id];
+                const referenceZone = !customGeometry && LUMIA_REFERENCE_ZONES[referenceGeometryId(id)];
                 const deadPosition = referenceZone ? placeMinimapRegionLayout([{ dx: offset[0] * .55, dy: offset[1] * .55, aggregate: true }], referenceZone, LUMIA_REFERENCE_LABEL_RECTS)?.[0] : null;
                 return (
                   <circle
