@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import SiteHeader from '../../../../components/SiteHeader';
 import dynamic from 'next/dynamic';
+import RetiredStarleaguePage from '../../../games/_components/RetiredStarleaguePage';
+import { isRetiredWebGame } from '../../../games/_lib/gameCatalog';
 
 function PlayLoading() {
   return (
@@ -15,11 +17,10 @@ function PlayLoading() {
 }
 
 // Each game's code loads only when its own address is opened.
-// Static imports here used to ship all eleven games (about 2MB) with every one of them.
+// Static imports here used to ship all games with every one of them.
 const MYANIME_PLAY_PAGES = {
   'kivotos-autochess': dynamic(() => import('../../../games/kivotos-autochess/play/page'), { loading: PlayLoading }),
   'infinite-defense': dynamic(() => import('../../../games/infinite-defense/play/page'), { loading: PlayLoading }),
-  myanimecraft: dynamic(() => import('../../../games/myanimecraft/play/page'), { loading: PlayLoading }),
   'dual-academy-tcg': dynamic(() => import('../../../games/dual-academy-tcg/play/page'), { loading: PlayLoading }),
   'ba-vanguard': dynamic(() => import('../../../games/ba-vanguard/play/page'), { loading: PlayLoading }),
   'schale-idle-rpg': dynamic(() => import('../../../games/schale-idle-rpg/play/page'), { loading: PlayLoading }),
@@ -61,6 +62,7 @@ function UnknownGame({ slug }) {
 export default function MyAnimePlayAliasPage() {
   const params = useParams();
   const slug = normalizeRouteId(params?.slug);
+  if (isRetiredWebGame(slug)) return <RetiredStarleaguePage />;
   const Page = MYANIME_PLAY_PAGES[slug];
   return Page ? <Page /> : <UnknownGame slug={slug} />;
 }

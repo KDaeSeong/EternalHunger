@@ -62,7 +62,6 @@ const sharedShellConsumers = [
   'app/games/ba-srpg/play/page.js',
   'app/games/ba-vanguard/_components/BaVanguardPlayContent.js',
   'app/games/company-report/play/page.js',
-  'app/games/myanimecraft/play/page.js',
   'app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js',
   'app/games/racing-logos-demo/play/page.js',
   'app/games/rail3d-sim/play/page.js',

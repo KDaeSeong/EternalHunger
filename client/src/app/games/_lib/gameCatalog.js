@@ -13,10 +13,13 @@ export const GAME_INTEGRATION_DEFAULTS = {
   completionPct: null,
 };
 
+export function isRetiredWebGame(slug) {
+  return String(slug || '').trim().toLowerCase() === 'myanimecraft';
+}
+
 export const MYANIME_GAME_SLUGS = [
   'kivotos-autochess',
   'infinite-defense',
-  'myanimecraft',
   'dual-academy-tcg',
   'ba-vanguard',
   'schale-idle-rpg',
@@ -350,15 +353,6 @@ const GAME_INTEGRATIONS = {
     resultMode: 'mission-clear',
     completionPct: 100,
   },
-  myanimecraft: {
-    stage: 'playable',
-    stageLabel: '플레이 가능',
-    adapter: 'league-sim',
-    supportsRecords: true,
-    supportsSaves: true,
-    resultMode: 'league-standing',
-    completionPct: 100,
-  },
   'school-simulator': {
     stage: 'playable',
     stageLabel: '플레이 가능',
@@ -535,15 +529,6 @@ export const GAME_ROADMAP = [
     nextStep: '완성 이후에는 실제 캐릭터 컷신 자산, 사운드, 장기 챕터 추가 같은 선택형 확장만 남았습니다.',
   },
   {
-    slug: 'myanimecraft',
-    title: 'Starleague Sim',
-    subtitle: 'League Sim',
-    priority: '1차 완료권',
-    scope: '팀리그, 포스트시즌, 개인리그, 위너스리그, 팀 운영, 시장/장비, 경기 아카이브, 내부 메타 기반 빌드/해설, 시즌 메타 리포트, 시즌 결산 보드, 기능별 탭 UI',
-    summary: '팀 리그와 포스트시즌을 한 시즌 단위로 진행하고, 정규리그/컵/팀 운영/시장/기록 탭에서 누적 경기 데이터가 빌드 선택·해설·시즌 메타 리포트와 시즌 결산 보드에 반영되는 리그 시뮬레이터입니다.',
-    nextStep: '외부 경기 메타 데이터 연동, 장기 시즌 밸런스 튜닝, 리플레이 내보내기 같은 확장 작업만 남았습니다.',
-  },
-  {
     slug: 'school-simulator',
     title: '학교 운영 시뮬레이터',
     subtitle: 'School Sim',
@@ -685,7 +670,7 @@ export function getGamePortingProgress(gameOrSlug) {
 export function dynamicGameCandidateToGame(candidate) {
   if (!candidate || typeof candidate !== 'object') return null;
   const slug = String(candidate.slug || '').trim();
-  if (!slug) return null;
+  if (!slug || isRetiredWebGame(slug)) return null;
   const adapter = candidate.adapter || 'discussion';
   const adapterPreset = findGameAdapterPreset(adapter);
   const roomSystem = candidate.roomSystem || adapterPreset?.roomSystem || 'none';

@@ -172,7 +172,6 @@ const expectedRouteThemes = [
   'tonkatsu-teacher',
   'schale-idle-rpg',
   'ba-srpg',
-  'myanimecraft',
   'school-simulator',
   'si-coding-sim',
   'rail3d-sim',

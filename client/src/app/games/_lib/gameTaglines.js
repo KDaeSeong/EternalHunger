@@ -10,7 +10,6 @@ export const GAME_TAGLINES = Object.freeze({
   'tonkatsu-teacher': '재료를 사고 메뉴를 만들어 돈까스 가게를 키우는 경영 게임입니다.',
   'schale-idle-rpg': '자리를 비워도 성장하는 방치형 RPG입니다.',
   'ba-srpg': '격자 위에서 엄폐와 사거리를 따져 싸우는 전술 SRPG입니다.',
-  myanimecraft: '팀 리그와 포스트시즌을 한 시즌씩 운영하는 리그 시뮬레이터입니다.',
   'school-simulator': '학생과 교사, 시설을 관리하며 한 학기를 꾸리는 학교 경영 게임입니다.',
   'si-coding-sim': '과제를 받아 코드를 고치고 보고서를 내는 SI 개발자 시뮬레이션입니다.',
   'rail3d-sim': '노선과 시간표를 짜고 열차 지연을 잡는 철도 운행 시뮬레이션입니다.',

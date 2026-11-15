@@ -1,12 +1,13 @@
 import Link from 'next/link';
 
-import { gameDetailHref } from '../_lib/gameCatalog';
+import { gameDetailHref, isRetiredWebGame } from '../_lib/gameCatalog';
 import { gameDisplayTitle, gameTagline } from '../_lib/gameTaglines';
 import GameIcon from './GameIcon';
 import GameKeyArt, { gameKeyArtSrc } from './GameKeyArt';
 
 // Where "플레이" goes. 스무고개 starts from its room list rather than the create form.
 export function gamePlayHref(game) {
+  if (isRetiredWebGame(game?.slug)) return '';
   if (game?.slug === 'twenty-questions') return '/twenty-questions';
   const href = String(game?.primaryHref || '');
   return href && !href.startsWith('/board') ? href : '';

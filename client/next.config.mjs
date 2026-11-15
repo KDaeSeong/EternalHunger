@@ -34,11 +34,6 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: '/games/myanimecraft/play',
-        destination: '/myanime',
-        permanent: false,
-      },
-      {
         source: '/games/ba-srpg/play',
         destination: '/srpg',
         permanent: false,
