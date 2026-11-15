@@ -15,7 +15,9 @@ const food = { _id: 'custom:budget-food', name: '맞춤 예산 회복약', type:
   recipe: { ingredients: [{ itemId: raw._id, qty: 2 }], resultQty: 3, creditsCost: 7 } };
 const head = { _id: 'custom:budget-head', name: '맞춤 예산 모자', type: '방어구', equipSlot: 'head', tier: 4, stats: { def: 5 },
   recipe: { ingredients: [{ itemId: raw._id, qty: 2 }, { itemId: dye._id, qty: 1 }], resultQty: 1, creditsCost: 20 } };
-fixture.items.push(raw, dye, food, head);
+const shoes = { _id: 'custom:budget-shoes', name: '별도 예산 신발', type: '신발', equipSlot: 'shoes', tier: 4, stats: { def: 3 },
+  recipe: { ingredients: [{ itemId: raw._id, qty: 2 }], resultQty: 1, creditsCost: 7 } };
+fixture.items.push(raw, dye, food, head, shoes);
 fixture.map.fieldResourceStock = { ...fixture.map.fieldResourceStock,
   school: { ...fixture.map.fieldResourceStock?.school, [raw._id]: 0, [dye._id]: 3 } };
 const authors = fixture.survivors.slice(0, 3);
@@ -47,7 +49,9 @@ try {
     equipped: [...equippedActors], receipts: receipts.map(event => ({ who: event.who, atSec: event.at.sec,
       paidCost: event.paidCost, beforeCredits: event.beforeCredits, afterCredits: event.afterCredits })),
     crafts: receipts.length, customFoodCrafts: original.events.filter(event =>
-      authoredIds.has(event.who) && event.kind === 'craft' && event.itemId === food._id).length, evidence: original.evidence })}`);
+      authoredIds.has(event.who) && event.kind === 'craft' && event.itemId === food._id).length,
+    customSideEquipmentCrafts: original.events.filter(event =>
+      authoredIds.has(event.who) && event.kind === 'craft' && event.itemId === shoes._id).length, evidence: original.evidence })}`);
   assert.equal(equippedActors.size, 3, 'This authored opening must gather and pay for all three real target hats.');
   assert.equal(receipts.length, 3);
   for (const event of receipts) {
@@ -56,7 +60,7 @@ try {
     assert.equal(event.beforeCredits - event.afterCredits, 20);
     assert.deepEqual(event.consumed.map(row => [row.itemId, row.qty]).sort(), [[raw._id, 2], [dye._id, 1]].sort());
     const firstCustomCraft = original.events.find(row => row.who === event.who && row.kind === 'craft'
-      && [head._id, food._id].includes(row.itemId));
+      && [head._id, food._id, shoes._id].includes(row.itemId));
     assert.equal(firstCustomCraft.itemId, head._id);
   }
   const stock = original.finalFrame.spawnState.fieldResources.byZone.school[dye._id];

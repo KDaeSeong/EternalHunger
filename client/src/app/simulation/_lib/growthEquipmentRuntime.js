@@ -64,6 +64,9 @@ export function canCraftAlongsideGrowth(actor, item) {
     // Surplus is necessary, but a same-slot auto-equip also replaces the
     // current item. Let the shared replacement-item guard below decide that.
   }
+  // Unrelated slots must also leave the focus's remaining recipe fees intact.
+  const sideCraftCredits = Math.max(0, Number(actor?.simCredits ?? 0) - Number(plan.plannedCredits ?? 0));
+  if (!(terms.creditsCost <= sideCraftCredits)) return false;
   // Receiving a same-slot upgrade replaces the current non-component item,
   // even when that item is absent from the upgrade's ingredient list. The
   // replaced item can be reserved by a recipe for any other equipment slot.

@@ -5,6 +5,7 @@ const { buildActorGrowthPlan, getActorGrowthProgress, refreshActorGrowthPlan } =
 const { tryAutoCraftFromInventory } = await import('../src/app/simulation/_lib/gearInventoryCraftRuntime.js');
 const { applyLootCraftResult } = await import('../src/app/simulation/_lib/lootCraftResultRuntime.js');
 const { tryAutoCraftFromLoot } = await import('../src/app/simulation/_lib/craftRuntime.js');
+const { getLootCraftOptions } = await import('../src/app/simulation/_lib/runEventRuntime.js');
 const { buildItemMetaById, buildItemNameById } = await import('../src/app/simulation/_lib/itemOptionsRuntime.js');
 const { getLateGrowthTargets } = await import('../src/app/simulation/_lib/lateGrowthTargetRuntime.js');
 const { createFieldResources } = await import('../src/app/simulation/_lib/fieldResourceRuntime.js');
@@ -48,9 +49,8 @@ function makePlan(state) { return refreshActorGrowthPlan(state.actor, items, sta
 function lootCraft(state, itemId, catalog = items, meta = itemMeta, names = itemNames) {
   const plan = state.actor._growthPlan;
   const preview = withSimulationRandom(() => 0, () => tryAutoCraftFromLoot(state.actor.inventory, itemId, catalog,
-    names, meta, 1, ruleset, { goalItemKeys: [], weaponType: state.actor.weaponType, growthPlan: plan,
-      craftActor: { _id: state.actor._id, hp: state.actor.hp, simCredits: state.actor.simCredits,
-        equipped: state.actor.equipped } }));
+    names, meta, 1, ruleset, { ...getLootCraftOptions(state.actor, catalog),
+      goalItemKeys: [], weaponType: state.actor.weaponType, growthPlan: plan }));
   if (!preview) return null;
   assert.equal(applyLootCraftResult(state.actor, preview, meta), true);
   return preview;
@@ -112,17 +112,19 @@ for (const [name, craft] of [
   });
 }
 
-function crossSlotReservedFixture(replacedSlot, targetSlot, { reserveWorn = true, includeFar = false } = {}) {
+function crossSlotReservedFixture(replacedSlot, targetSlot, {
+  reserveWorn = true, includeFar = false, credits = 30, goalCost = 2, upgradeCost = 7,
+} = {}) {
   const types = { weapon: '무기', head: '머리', clothes: '옷', arm: '팔', shoes: '신발' };
   const gear = (id, slot, tier) => ({ _id: id, name: id, category: 'equipment', type: types[slot],
     equipSlot: slot, tier, ...(slot === 'weapon' ? { weaponType: '검' } : {}) });
   const worn = { ...gear(`cross-worn-${replacedSlot}`, replacedSlot, 2), recipe: { ingredients: [] } };
   const goal = { ...gear(`cross-goal-${targetSlot}`, targetSlot, 4), recipe: {
-    ingredients: [...(reserveWorn ? [{ itemId: worn._id, qty: 1 }] : []), { itemId: far._id, qty: 1 }], creditsCost: 2 } };
+    ingredients: [...(reserveWorn ? [{ itemId: worn._id, qty: 1 }] : []), { itemId: far._id, qty: 1 }], creditsCost: goalCost } };
   const upgrade = { ...gear(`cross-upgrade-${replacedSlot}`, replacedSlot, 5),
-    recipe: { ingredients: [{ itemId: raw._id, qty: 1 }], creditsCost: 7 } };
+    recipe: { ingredients: [{ itemId: raw._id, qty: 1 }], creditsCost: upgradeCost } };
   const catalog = [raw, far, worn, goal, upgrade];
-  const actor = { _id: 'cross-slot-actor', hp: 100, maxHp: 100, weaponType: '검', simCredits: 30,
+  const actor = { _id: 'cross-slot-actor', hp: 100, maxHp: 100, weaponType: '검', simCredits: credits,
     zoneId: 'a', inventory: [worn, raw, ...(includeFar ? [far] : [])]
       .map(entry => ({ ...entry, itemId: entry._id, qty: 1 })),
     equipped: { [replacedSlot]: worn._id }, routePlanTargetItemIds: [goal._id],
@@ -182,6 +184,67 @@ for (const [replacedSlot, targetSlot] of crossSlotPairs) {
       assert.equal(fixture.state.actor.inventory.some(entry => entry.itemId === fixture.worn._id), false);
       assert.equal(fixture.state.actor.equipped[replacedSlot], fixture.upgrade._id);
       assert.equal(getActorGrowthProgress(fixture.state.actor, fixture.catalog).openingComplete, false);
+    });
+    check(`${name} preserves ${targetSlot} craft fees from unrelated ${replacedSlot} upgrades`, () => {
+      for (const credits of [20, 25]) {
+        const fixture = crossSlotReservedFixture(replacedSlot, targetSlot,
+          { reserveWorn: false, credits, goalCost: 20 });
+        assert.equal(fixture.growth.plannedCredits, 20);
+        const actor = fixture.state.actor, before = structuredClone(actor);
+        assert.equal(craft(fixture, raw._id), null, 'Unrelated equipment must use credit surplus');
+        assert.equal(actor.simCredits, credits);
+        assert.deepEqual(actor.inventory, before.inventory);
+        assert.deepEqual(actor.equipped, before.equipped);
+        assert.equal(actor._craftRevision, before._craftRevision);
+        actor.inventory.push({ ...far, itemId: far._id, qty: 1 });
+        actor._actionCycleKey = 'budget:goal';
+        refreshActorGrowthPlan(actor, fixture.catalog, fixture.state.world);
+        const goalCraft = craft(fixture, far._id);
+        assert.equal(goalCraft?.craftedId, fixture.goal._id);
+        assert.equal(goalCraft.receipt.paidCost, 20);
+        assert.equal(actor.simCredits, credits - 20);
+        assert.equal(actor.equipped[targetSlot], fixture.goal._id);
+        assert.equal(getActorGrowthProgress(actor, fixture.catalog).openingComplete, true);
+      }
+    });
+    for (const [label, credits, upgradeCost] of [['exact credit surplus', 27, 7], ['free upgrade', 20, 0]]) {
+      check(`${name} allows ${label} in ${replacedSlot} while reserving ${targetSlot} fees`, () => {
+        const fixture = crossSlotReservedFixture(replacedSlot, targetSlot,
+          { reserveWorn: false, credits, goalCost: 20, upgradeCost });
+        assert.equal(fixture.growth.plannedCredits, 20);
+        const crafted = craft(fixture, raw._id);
+        assert.equal(crafted?.craftedId, fixture.upgrade._id);
+        assert.equal(crafted.receipt.paidCost, upgradeCost);
+        assert.equal(fixture.state.actor.simCredits, 20);
+        assert.equal(fixture.state.actor.equipped[replacedSlot], fixture.upgrade._id);
+        assert.equal(getActorGrowthProgress(fixture.state.actor, fixture.catalog).openingComplete, false);
+      });
+    }
+    check(`${name} reserves the whole ${targetSlot} recipe chain across a ${replacedSlot} upgrade`, () => {
+      const fixture = crossSlotReservedFixture(replacedSlot, targetSlot,
+        { reserveWorn: false, credits: 20, goalCost: 12 });
+      const part = { _id: 'budget-part', name: '유료 중간 재료', type: '재료', tier: 2,
+        recipe: { ingredients: [{ itemId: far._id, qty: 1 }], creditsCost: 8 } };
+      fixture.goal = { ...fixture.goal,
+        recipe: { ingredients: [{ itemId: part._id, qty: 1 }], creditsCost: 12 } };
+      fixture.catalog = [...fixture.catalog.map(item => item._id === fixture.goal._id ? fixture.goal : item), part];
+      fixture.meta = buildItemMetaById(fixture.catalog); fixture.names = buildItemNameById(fixture.catalog);
+      fixture.state.world.fieldResources = createFieldResources(mapObj, fixture.catalog, ruleset);
+      const actor = fixture.state.actor;
+      const plan = refreshActorGrowthPlan(actor, fixture.catalog, fixture.state.world);
+      assert.equal(plan.targetId, fixture.goal._id); assert.equal(plan.plannedCredits, 20);
+      assert.equal(craft(fixture, raw._id), null);
+      assert.equal(actor.simCredits, 20);
+      actor.inventory.push({ ...far, itemId: far._id, qty: 1 });
+      for (const [step, sourceId, resultId, cost] of [[1, far._id, part._id, 8], [2, part._id, fixture.goal._id, 12]]) {
+        actor._actionCycleKey = `budget:chain:${step}`;
+        refreshActorGrowthPlan(actor, fixture.catalog, fixture.state.world);
+        const crafted = craft(fixture, sourceId);
+        assert.equal(crafted?.craftedId, resultId); assert.equal(crafted.receipt.paidCost, cost);
+      }
+      assert.equal(actor.simCredits, 0);
+      assert.equal(actor.equipped[targetSlot], fixture.goal._id);
+      assert.equal(getActorGrowthProgress(actor, fixture.catalog).openingComplete, true);
     });
   }
 }
