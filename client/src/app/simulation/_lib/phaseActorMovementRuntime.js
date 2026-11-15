@@ -26,6 +26,7 @@ import { getLumiaWalkEtaSec } from './lumiaMapGeometryRuntime';
 import { assessTeamCombat, pickTeamSafeZone } from './teamTacticsRuntime';
 import { getActorTeamId } from './teamRuntime';
 import { refreshActorGrowthPlan, getActorGrowthCraftGoal } from './growthPlanRuntime';
+import { getGrowthSafeRoute } from './growthSafeRouteRuntime.js';
 import { pickEndgameMove } from './suddenDeathRuntime';
 import { shareCombatSpace } from '../../../utils/combatSpaceLogic.js';
 import { isDimensionRiftDefeated } from '../../../utils/dimensionRiftDefeatLogic.js';
@@ -244,8 +245,15 @@ export function runActorMovementDecisionPhase({
   if (!mustEscape && !recovering && !fleeInterruptReason && growthPlan?.targetId && !growthPlan.blocked && !activeTeamPlan
     && !(growthPlan.openingComplete && moveObjectiveType === 'dimension_rift')) {
     updated = clearActorMoveTargetMemory(updated);
+    if (pvpEnabled) {
+      const safeRoute = getGrowthSafeRoute({ actor: updated, growthPlan, roster: phaseSurvivors,
+        zoneGraph, forbiddenIds, fieldResources: nextSpawn?.fieldResources, estimatePower });
+      if (safeRoute) Object.assign(growthPlan, safeRoute);
+    }
+    // Send only the safe adjacent step to the ordinary movement resolver; a
+    // final destination could otherwise be reached through an unsafe shortcut.
     moveTargets = [growthPlan.nextStep || currentZone];
-    moveReason = growthPlan.readyCraftId ? 'growth_craft' : 'growth_farm';
+    moveReason = growthPlan.blocked ? 'growth_blocked' : growthPlan.readyCraftId ? 'growth_craft' : 'growth_farm';
     moveObjectiveType = '';
     moveObjectiveSubkind = '';
     moveContestPressure = 0;

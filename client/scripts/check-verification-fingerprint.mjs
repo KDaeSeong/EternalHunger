@@ -335,6 +335,15 @@ for (const mode of ['kiosk-quote-unit', 'kiosk-quote-match', 'safe-route-unit', 
     'Changing the kiosk reservation proof must invalidate every applicable chained verification receipt.');
 }
 console.log('PASS kiosk reservation proof mutations invalidate all applicable chained verification modes');
+const growthMovementPath = 'scripts/check-growth-safe-movement.mjs';
+for (const mode of ['safe-route-unit', 'safe-route-match', 'growth', 'performance', 'full']) {
+  const before = verificationSources(mode);
+  const after = verificationSources(mode, fileURLToPath(new URL(growthMovementPath, root)));
+  assert.equal(typeof before[growthMovementPath], 'string', `${mode} must fingerprint the growth movement proof.`);
+  assert.notEqual(after[growthMovementPath], before[growthMovementPath],
+    'Changing growth movement checks must invalidate applicable chained verification receipts.');
+}
+console.log('PASS growth movement proof mutations invalidate applicable chained verification modes');
 for (const mode of ['build', 'phase-worker-release', 'formation-paired', 'module-resolution-compat']) {
   const sourceHashes = verificationSources(mode);
   for (const path of ['scripts/lib/register-simulation-modules.mjs', 'scripts/lib/simulation-module-resolution.mjs']) {
@@ -364,5 +373,5 @@ for (const path of ['scripts/check-eternal-hunger-regressions.mjs', 'scripts/che
   assert.notEqual(after[path], before[path], 'Regression entry and cold local bootstrap changes must invalidate the full receipt.');
 }
 console.log('PASS regression entry, RNG/movement fixtures and cold local bootstrap proofs invalidate the full-chain receipt');
-console.log(JSON.stringify({ pass: true, checks: 23, engine: base.wrapper,
+console.log(JSON.stringify({ pass: true, checks: 24, engine: base.wrapper,
   scope: 'source-only verification/version fingerprint and read-only mutations; not a full gate or browser timing' }));
