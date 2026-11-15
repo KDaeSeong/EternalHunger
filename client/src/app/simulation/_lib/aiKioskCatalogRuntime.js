@@ -87,7 +87,7 @@ export function pickKioskCatalogAction({
     targetId, publicItems, ruleset, day });
   if (exact) return exact;
   // An exact goal order rejected above cannot reappear as a random trade.
-  // Keep unrelated idle purchases/refunds and callers without recipe input.
+  // Unrelated trades below still preserve the active recipe's stock and funds.
   if (targetId && ruleset) {
     const missIds = new Set((Array.isArray(miss) ? miss : []).map(row => String(row?.itemId || '')));
     catalog = catalog.filter(row => String(row?.mode || 'sell') === 'buy'
@@ -95,6 +95,8 @@ export function pickKioskCatalogAction({
   }
   const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
   const credits = Math.max(0, Number(actor?.simCredits || 0));
+  const usableForRecipe = createKioskRecipeOfferValidator({ actor, targetId, publicItems, ruleset, day,
+    validateWithoutRecipe: false, reserveAvailableCredits: true });
 
   // 2) 교환 우선: 가진 재료로 가능한 exchange를 실행(경제 안정화 위해 확률 게이트)
   const exchanges = catalog.filter((row) => String(row?.mode) === 'exchange');
@@ -105,7 +107,8 @@ export function pickKioskCatalogAction({
       const giveQty = Math.max(1, Number(row?.exchange?.giveQty || 1));
       if (!itemId || !giveId) continue;
       if (invQty(inv, giveId) >= giveQty) {
-        return { kind: 'exchange', item: catalogItem(findById, itemId, row), itemId, qty: 1, consume: [{ itemId: giveId, qty: giveQty }], label: '카탈로그 교환' };
+        const offer = { kind: 'exchange', item: catalogItem(findById, itemId, row), itemId, qty: 1, consume: [{ itemId: giveId, qty: giveQty }], label: '카탈로그 교환' };
+        if (usableForRecipe(offer)) return offer;
       }
     }
   }
@@ -118,7 +121,8 @@ export function pickKioskCatalogAction({
       const gain = Math.max(0, Number(row?.priceCredits || 0));
       if (!itemId || gain <= 0) continue;
       if (invQty(inv, itemId) >= 1) {
-        return { kind: 'sell', item: catalogItem(findById, itemId, row), itemId, qty: 1, credits: gain, label: '카탈로그 환급' };
+        const offer = { kind: 'sell', item: catalogItem(findById, itemId, row), itemId, qty: 1, credits: gain, label: '카탈로그 환급' };
+        if (usableForRecipe(offer)) return offer;
       }
     }
   }
@@ -137,7 +141,8 @@ export function pickKioskCatalogAction({
       const item = catalogItem(findById, itemId, row);
       if (isLevelModeMax && isTacSkillModuleItem(item)) continue;
       if (cost <= 0 || credits >= cost) {
-        return { kind: 'buy', item, itemId, qty: 1, cost, label: '카탈로그 구매' };
+        const offer = { kind: 'buy', item, itemId, qty: 1, cost, label: '카탈로그 구매' };
+        if (usableForRecipe(offer)) return offer;
       }
     }
   }

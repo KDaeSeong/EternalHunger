@@ -1,5 +1,6 @@
 import { getGrowthRecipeWork } from './growthPlanRuntime.js';
 import { commitProcurementTransaction } from './procurementTransactionRuntime.js';
+import { invQty } from './inventoryRules.js';
 import { classifySpecialByName, isSpecialCoreKind } from './craftRuntime.js';
 import { isDefaultKioskItem } from '../../../utils/marketItemPolicy.js';
 import { isAtOrAfterWorldTime } from './worldTime.js';
@@ -12,26 +13,49 @@ import { pickKioskSurplusBuyAction } from './aiKioskSurplusRuntime.js';
 // Preview the same atomic receipt as settlement, then account for every
 // remaining recipe step. Quotes never pay, reserve, consume or draw randomness.
 export function createKioskRecipeOfferValidator({ actor, targetId = '', publicItems = [],
-  ruleset, day = 1, requireComplete = false, validateWithoutRecipe = true } = {}) {
+  ruleset, day = 1, requireComplete = false, validateWithoutRecipe = true, reserveAvailableCredits = false } = {}) {
+  // A validator belongs to one synchronous quote decision, before actor changes.
   let beforeWork;
+  const isBlocked = work => work.blocked && !(reserveAvailableCredits && work.blocked === 'insufficient_credits');
   return (offer, followingOffer = null) => {
     if (!ruleset || (!targetId && !validateWithoutRecipe)) return true;
     if (targetId) {
       beforeWork ??= getGrowthRecipeWork(actor, publicItems, targetId, { ruleset });
-      if (beforeWork.blocked) return false;
+      // A surplus refund may release a slot that currently blocks crafting.
+      // Capacity must recover in the settled preview below.
+      if (isBlocked(beforeWork) && !(reserveAvailableCredits && beforeWork.blocked === 'inventory_full')) return false;
     }
     const preview = { ...actor, _procurementActionKey: undefined };
-    for (const step of followingOffer ? [offer, followingOffer] : [offer]) {
+    const steps = followingOffer ? [offer, followingOffer] : [offer];
+    for (const step of steps) {
       // These are separate future actions; only the preview's dedup key resets.
       preview._procurementActionKey = undefined;
       const receipt = commitProcurementTransaction({ actor: preview, offer: step, day, ruleset,
-        actionType: step.kind === 'exchange' ? 'kioskExchange' : 'kioskBuy' });
+        actionType: step.kind === 'exchange' ? 'kioskExchange' : step.kind === 'sell' ? 'kioskSell' : 'kioskBuy' });
       if (!receipt.ok) return false;
     }
     if (!targetId) return true;
     const afterWork = getGrowthRecipeWork(preview, publicItems, targetId, { ruleset });
     const outstanding = new Map(beforeWork.missing.map(row => [row.itemId, row.need]));
-    return !afterWork.blocked && afterWork.plannedCredits <= preview.simCredits
+    // Side trades preserve any funds already available for fees. Fundraising
+    // and direct component/target purchases may improve an existing shortfall.
+    const feesCovered = reserveAvailableCredits
+      ? Math.max(0, afterWork.plannedCredits - preview.simCredits)
+        <= Math.max(0, beforeWork.plannedCredits - Number(actor.simCredits || 0))
+      : afterWork.plannedCredits <= preview.simCredits;
+    // Only acquiring outstanding crafted work can replace its reserved inputs.
+    // A raw component output must not excuse reversing a held recipe branch,
+    // even when that extra crafting happens to have a zero-credit fee.
+    const replacesRecipeWork = steps.some(step => step.kind !== 'sell'
+      && (step.itemId === targetId || beforeWork.craftIds.includes(step.itemId)))
+      && afterWork.plannedCredits <= beforeWork.plannedCredits
+      && afterWork.craftIds.every(id => beforeWork.craftIds.includes(id))
+      && Object.entries(afterWork.reservedQtyById).every(([id, qty]) =>
+        qty <= (beforeWork.reservedQtyById[id] || 0));
+    const keepsReservedStock = !reserveAvailableCredits || replacesRecipeWork
+      || Object.entries(beforeWork.reservedQtyById).every(([id, qty]) =>
+        invQty(preview.inventory, id) >= Math.min(qty, invQty(actor.inventory, id)));
+    return !isBlocked(afterWork) && feesCovered && keepsReservedStock
       && afterWork.missing.every(row => row.need <= (outstanding.get(row.itemId) || 0))
       && (!requireComplete || (!afterWork.missing.length && !!afterWork.readyCraftId));
   };
