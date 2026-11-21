@@ -48,6 +48,8 @@ registerHooks({ load(url, context, nextLoad) {
 } });
 
 const { default: SimulationMainStage } = await import(mainStageUrl);
+const { appendVisibleRunEvents, RUN_EVENT_VIEW_LIMIT } = await import('../src/app/simulation/_lib/logActionRuntime.js');
+const { buildTeamObserverModel } = await import('../src/app/simulation/_lib/teamObserverRuntime.js');
 const { subscribeObserverWorkMeasurements } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
 const actor = (id, teamId, hp = 100) => ({ _id: id, name: id, teamId, hp, maxHp: 100, zoneId: 'a', inventory: [], equipped: {} });
 const event = (kind, sec, who, itemName) => ({ kind, at: { sec, day: 1, phase: 'morning' }, who, itemName });
@@ -129,8 +131,34 @@ try {
   assert.deepEqual(beforeBuilds(), { window: 5, model: 25 }, 'new-match source replacement resets the indexed window');
   assert.ok(globalThis.__observerPanelProps.model.recent.some((row) => /새 경기 기록/.test(row.text)));
   assert.ok(globalThis.__observerPanelProps.model.recent.every((row) => !/이전 경기 제작|교체 기록/.test(row.text)));
+
+  const otherTeamEvent = event('craft', 3, 'a', '다른 팀 기록');
+  let membershipReads = 0;
+  Object.defineProperty(otherTeamEvent, 'who', { get() { membershipReads++; return 'a'; } });
+  const filler = Array.from({ length: RUN_EVENT_VIEW_LIMIT - 3 }, () => event('craft', 4, 'c', '다른 팀 작업'));
+  props.runEvents = [event('craft', 1, 'b', '잘려 나가는 기록'), ...filler, otherTeamEvent,
+    event('craft', 9, 'b', '최근 기록')];
+  props.matchSec = 10;
+  harness.dirty = true; harness.flush();
+  assert.equal(membershipReads, 1);
+  assert.equal(globalThis.__observerPanelProps.model.recent.length, 2);
+
+  const late = { ...event('craft', 8, 'a', '늦게 들어온 지원'), helpers: ['b'] };
+  props.runEvents = appendVisibleRunEvents(props.runEvents, [late, late]);
+  assert.equal(props.runEvents.length, RUN_EVENT_VIEW_LIMIT);
+  harness.dirty = true; harness.flush();
+  assert.equal(membershipReads, 1, 'an unchanged event is classified once across publications');
+  const baseline = buildTeamObserverModel({ ...props, events: props.runEvents, teamId: 'team:2', zoneName: props.getZoneName });
+  assert.deepEqual(globalThis.__observerPanelProps.model, baseline, 'rollover and late same-time rows retain their full model and original indices');
+  assert.deepEqual(baseline.recent.map(row => row.key), ['9:4997', '8:4999', '8:4998']);
+
+  globalThis.__observerPanelProps.onTeamChange('team:1');
+  harness.flush();
+  assert.deepEqual(globalThis.__observerPanelProps.model,
+    buildTeamObserverModel({ ...props, events: props.runEvents, teamId: 'team:1', zoneName: props.getZoneName }),
+    'changing teams reclassifies retained snapshots');
   console.log(JSON.stringify({ scope: 'synthetic MainStage hook lifecycle', builderCalls: beforeBuilds(), measuredCallbacks: counts(), frames: 20 }));
-  console.log('OBSERVER_EVENT_WINDOW_UI 6/6');
+  console.log('OBSERVER_EVENT_WINDOW_UI 8/8');
 } finally {
   stopProbe();
   harness.unmount();

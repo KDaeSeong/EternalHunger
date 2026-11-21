@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useRef, useState } from 'react';
 import { buildTeamObserverEventWindow, buildTeamObserverModel } from '../_lib/teamObserverRuntime';
+import { createTeamObserverEventProjection } from './teamObserverEventProjection';
 import { measureObserverWork } from '../_lib/observerWorkMeasurementRuntime';
 import { getActorTeamId } from '../_lib/teamRuntime';
 import SimulationTeamObserverPanel from './SimulationTeamObserverPanel';
@@ -32,7 +33,7 @@ function buildObserverTrackedActorIds(survivors, dead, selectedTeamId) {
     const id = getObserverActorId(actor);
     if (id) actors.set(id, actor);
   }
-  const teamIds = [...new Set([...actors.values()].map(getActorTeamId).filter(Boolean))]
+  const teamIds = [...new Set([...actors.values()].map(getActorTeamId))]
     .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
   const teamId = teamIds.includes(selectedTeamId) ? selectedTeamId : teamIds[0] || '';
   return [...actors.values()]
@@ -150,19 +151,23 @@ export default function SimulationMainStage({
     [survivors, dead, observedTeamId]
   );
   const observerMemberKey = JSON.stringify([...observerTrackedActorIds].sort());
+  const observerEventProjection = useMemo(
+    () => createTeamObserverEventProjection(JSON.parse(observerMemberKey)),
+    [observerMemberKey],
+  );
   const observerEventWindow = useMemo(() => {
     if (observerTab !== 'team') return null;
     return measureObserverWork('observer.eventWindow', () =>
-      buildTeamObserverEventWindow(runEvents, JSON.parse(observerMemberKey)));
-  }, [observerTab, runEvents, observerMemberKey]);
+      buildTeamObserverEventWindow(observerEventProjection.project(runEvents), observerEventProjection.memberIds));
+  }, [observerTab, runEvents, observerEventProjection]);
   const observerModel = useMemo(() => {
     if (observerTab !== 'team') return null;
     return measureObserverWork('observer.teamModel', () => buildTeamObserverModel({
-      survivors, dead, events: runEvents, eventWindow: observerEventWindow, teamId: observedTeamId, matchSec,
+      survivors, dead, events: observerEventWindow.eventsRef, eventWindow: observerEventWindow, teamId: observedTeamId, matchSec,
       publicItems, killCounts, assistCounts, isGameOver, zoneName: getZoneName,
       spawnState, forbiddenIds: forbiddenNow, settings, day, phase,
     }));
-  }, [observerTab, survivors, dead, runEvents, observerEventWindow, observedTeamId, matchSec, publicItems, killCounts, assistCounts, isGameOver, getZoneName, spawnState, forbiddenNow, settings, day, phase]);
+  }, [observerTab, survivors, dead, observerEventWindow, observedTeamId, matchSec, publicItems, killCounts, assistCounts, isGameOver, getZoneName, spawnState, forbiddenNow, settings, day, phase]);
   const battlefield = (
       <div className="simulation-stage">
         <div className="simulation-battlefield-column">
