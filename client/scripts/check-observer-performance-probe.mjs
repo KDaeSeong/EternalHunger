@@ -649,7 +649,7 @@ check('diagnostic JSON is collapsed by default and bounded so it cannot push the
   assert.match(panelSource, /<aside className="sim-observer-performance"/);
   assert.match(panelSource, /<details className="sim-observer-performance-result">/);
   assert.match(panelSource, /<summary>측정 JSON 보기<\/summary>/);
-  assert.match(styles, /\.sim-observer-performance \{[^}]*flex: 0 0 auto;[^}]*max-height: 25dvh;[^}]*overflow: auto;/);
+  assert.match(styles, /\.sim-observer-performance \{[^}]*flex: 0 0 100%;[^}]*max-height: 25dvh;[^}]*overflow: auto;/);
   assert.match(styles, /\.sim-observer-performance-result pre \{[^}]*max-height: 160px;[^}]*overflow: auto;/);
 });
 

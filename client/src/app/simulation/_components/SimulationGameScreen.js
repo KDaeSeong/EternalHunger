@@ -61,6 +61,7 @@ export default function SimulationGameScreen({
   mapPreparation,
   maps,
   matchSec,
+  observerPerformancePanel,
   onLocalRulesChanged,
   onToggleSfx,
   onToggleDevTools = () => {},
@@ -161,6 +162,7 @@ export default function SimulationGameScreen({
 
       <SimulationMainStage
         mapPreparation={mapPreparation}
+        observerPerformancePanel={observerPerformancePanel}
         seedControl={!evaluationMode || draftMode ? <SimulationMarketSeedCard
           day={day}
           isAdvancing={isAdvancing}

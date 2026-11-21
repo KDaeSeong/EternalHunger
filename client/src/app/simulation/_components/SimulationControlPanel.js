@@ -46,6 +46,7 @@ function getPredictionLabel(actor, matchMode) {
 
 export default function SimulationControlPanel({
   settingsContent,
+  observerPerformancePanel,
   replayMode,
   draftMode,
   evaluationMode,
@@ -197,6 +198,7 @@ export default function SimulationControlPanel({
         {settingsContent}
         </div>
       </details> : null}
+      {observerPerformancePanel}
     </div>
   );
 }

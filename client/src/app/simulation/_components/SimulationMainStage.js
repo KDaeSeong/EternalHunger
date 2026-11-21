@@ -43,6 +43,7 @@ function buildObserverTrackedActorIds(survivors, dead, selectedTeamId) {
 
 export default function SimulationMainStage({
   seedControl,
+  observerPerformancePanel,
   replayMode,
   draftMode,
   evaluationMode,
@@ -333,6 +334,7 @@ export default function SimulationMainStage({
       <SimulationControlPanel
         mapPreparation={mapPreparation}
         settingsContent={pregameSettings}
+        observerPerformancePanel={observerPerformancePanel}
         replayMode={replayMode}
         draftMode={draftMode}
         evaluationMode={evaluationMode}

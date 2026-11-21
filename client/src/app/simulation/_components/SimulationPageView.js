@@ -216,13 +216,6 @@ export default function SimulationPageView(props) {
         onReplay={props.onReplay} onVariant={props.onVariant} replayMode={props.replayMode} draftMode={props.draftMode}
         evaluationMode={evaluationMode} evaluationCode={evaluationCode}
         evaluationRunRecord={props.currentReplayRecord} evaluationOpenRequest={evaluationOpenRequest} />
-      <SimulationObserverPerformancePanel
-        speed={props.autoSpeed} seed={props.runSeed} autoPlay={autoPlay}
-        day={day} matchSec={props.matchSec} isGameOver={isGameOver}
-        replayMode={props.replayMode} replayId={props.replaySourceId} replayStatus={props.replayStatus}
-        observerReportTarget={observerReportTarget}
-      />
-
       {uiModal ? (
         <div
           className="eh-modal-backdrop"
@@ -253,6 +246,12 @@ export default function SimulationPageView(props) {
         <SimulationGameScreen
           {...props}
           eventFeedback={eventFeedback}
+          observerPerformancePanel={<SimulationObserverPerformancePanel
+            speed={props.autoSpeed} seed={props.runSeed} autoPlay={autoPlay}
+            day={day} matchSec={props.matchSec} isGameOver={isGameOver}
+            replayMode={props.replayMode} replayId={props.replaySourceId} replayStatus={props.replayStatus}
+            observerReportTarget={observerReportTarget}
+          />}
           onToggleSfx={toggleSfx}
           sfxEnabled={sfxEnabled}
         />
