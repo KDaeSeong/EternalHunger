@@ -8,6 +8,28 @@ const validRect = rect => rect && ['left', 'top', 'right', 'bottom', 'width', 'h
 const contains = (outer, inner) => validRect(outer) && validRect(inner)
   && inner.left >= outer.left - 0.5 && inner.top >= outer.top - 0.5
   && inner.right <= outer.right + 0.5 && inner.bottom <= outer.bottom + 0.5;
+const validSpeedFloor = value => finite(value) && value > 0 && value <= 1;
+
+function effectiveSpeedVerdict(gameSeconds, speed, activeDurationMs, clockResolutionMs, minRatio) {
+  if (!validSpeedFloor(minRatio)) return verdict('unverified', 'predeclared effective speed fraction missing or invalid');
+  const gameDurationMs = gameSeconds * 1000;
+  if (!finite(gameDurationMs) || gameDurationMs <= 0 || !finite(activeDurationMs)
+    || !nonnegative(clockResolutionMs) || activeDurationMs <= clockResolutionMs) {
+    return verdict('unverified', 'effective speed requires a complete replay and a measurable active interval');
+  }
+  // Each active-clock endpoint was rounded independently, so the span can
+  // differ by one full unit of the exported millisecond precision.
+  const multiplier = gameDurationMs / activeDurationMs;
+  const lowerFraction = gameDurationMs / (activeDurationMs + clockResolutionMs) / speed;
+  const upperFraction = gameDurationMs / (activeDurationMs - clockResolutionMs) / speed;
+  if (![multiplier, lowerFraction, upperFraction].every(finite)) {
+    return verdict('unverified', 'effective speed is not finite within reported clock precision');
+  }
+  const value = { multiplier, activeDurationMs, fractionOfRequested: multiplier / speed, lowerFraction, upperFraction };
+  if (lowerFraction >= minRatio) return verdict('pass', 'effective speed meets the declared fraction of actual selected speed', value);
+  if (upperFraction < minRatio) return verdict('fail', 'effective speed falls below the declared fraction of actual selected speed', value);
+  return verdict('unverified', 'clock rounding spans the declared effective speed boundary', value);
+}
 
 // These are evidence gates, not a claim about painted FPS, INP, other machines
 // or absence of leaks. Only the repository's existing strict <200ms Long Task
@@ -16,9 +38,10 @@ const contains = (outer, inner) => validRect(outer) && validRect(inner)
 // cannot establish continuous sampling or a meaningful baseline comparison.
 export function analyzeObserverPerformanceRuns(runs, {
   expectedEngine, maxLongTaskMs = 200, maxRafP95Ms, maxRafGapMs, maxBaselineHeapGrowthBytes,
-  maxInterRunGapMs,
+  maxInterRunGapMs, minEffectiveSpeedRatio,
 } = {}) {
   const issues = [];
+  const checkEffectiveSpeed = minEffectiveSpeedRatio !== undefined;
   if (!Array.isArray(runs)) runs = [];
   if (!/^[a-f0-9]{64}$/.test(expectedEngine ?? '')) issues.push('expected engine must be an explicit 64-character hash');
   if (runs.length !== 9) issues.push('require exactly nine runs: three consecutive replays at each of x1, x8 and x32');
@@ -69,17 +92,26 @@ export function analyzeObserverPerformanceRuns(runs, {
       && contains(sample.browserViewport, sample.viewport) && contains(sample.viewport, sample.world)
       && contains(sample.content, sample.world) && clipChainContains;
     if (!validMap) gaps.push('continuous full-map DOM geometry unproven (no proof of native occlusion or paint)');
-    if (![1, 8, 32].includes(speed) || final?.speed !== speed || context?.speedChanges !== 0) gaps.push('actual speed missing or changed; free-text labels are not evidence');
+    const validSpeed = [1, 8, 32].includes(speed) && final?.speed === speed && context?.speedChanges === 0;
+    if (!validSpeed) gaps.push('actual speed missing or changed; free-text labels are not evidence');
     if (initial?.replayMode !== true || final?.replayMode !== true || !initial?.replayId
       || initial.replayId !== final?.replayId || !initial?.seed || initial.seed !== final?.seed
       || context?.identityChanges !== 0) gaps.push('identical replay source/seed unproven');
-    if (initial?.day !== 0 || initial?.matchSec !== 0 || initial?.autoPlay !== false || initial?.isGameOver !== false
-      || initial?.comparisonMatched !== null || initial?.comparedEvents !== null
-      || final?.isGameOver !== true || !finite(final?.matchSec) || final.matchSec <= 0
-      || final?.comparisonMatched !== true || !Number.isInteger(final?.comparedEvents) || final.comparedEvents <= 0) gaps.push('measurement must precede start and include a completed matching replay');
-    if (context?.pauses !== 0 || !nonnegative(context?.activeStartOffsetMs) || context.activeStartOffsetMs > 5000
-      || !finite(context?.activeEndOffsetMs) || context.activeEndOffsetMs <= context.activeStartOffsetMs
-      || !nonnegative(run?.elapsedMs - context.activeEndOffsetMs) || run.elapsedMs - context.activeEndOffsetMs > 1000) gaps.push('paused run, excessive setup/result idle, or missing active run boundaries');
+    const completeReplay = initial?.day === 0 && initial.matchSec === 0 && initial.autoPlay === false && initial.isGameOver === false
+      && initial.comparisonMatched === null && initial.comparedEvents === null
+      && final?.isGameOver === true && finite(final.matchSec) && final.matchSec > 0
+      && final.comparisonMatched === true && Number.isInteger(final.comparedEvents) && final.comparedEvents > 0;
+    if (!completeReplay) gaps.push('measurement must precede start and include a completed matching replay');
+    const activeStart = context?.activeStartOffsetMs, activeEnd = context?.activeEndOffsetMs;
+    const resultIdleMs = run?.elapsedMs - activeEnd;
+    const activeWindow = context?.pauses === 0 && nonnegative(activeStart) && activeStart <= 5000
+      && finite(activeEnd) && activeEnd > activeStart && nonnegative(resultIdleMs) && resultIdleMs <= 1000;
+    if (!activeWindow) gaps.push('paused run, excessive setup/result idle, or missing active run boundaries');
+    const effectiveSpeed = checkEffectiveSpeed
+      ? effectiveSpeedVerdict(final?.matchSec, speed,
+        validSpeed && completeReplay && activeWindow ? activeEnd - activeStart : null,
+        clockResolutionMs, minEffectiveSpeedRatio)
+      : null;
     const environment = run?.environment;
     if (!finite(run?.timeOriginMs) || run.timeOriginMs <= 0 || !environment?.userAgent
       || !finite(environment?.viewportWidth) || environment.viewportWidth <= 0
@@ -118,7 +150,7 @@ export function analyzeObserverPerformanceRuns(runs, {
     return { index: index + 1, speed: speed ?? null, label: run?.label ?? null,
       millisecondResolutionMs: nonnegative(clockResolutionMs) ? clockResolutionMs : null,
       validity: verdict(gaps.length ? 'unverified' : 'pass', gaps),
-      longTasks, rafP95, rafGap,
+      longTasks, rafP95, rafGap, ...(effectiveSpeed && { effectiveSpeed }),
       heap: verdict(validHeap ? 'measured' : 'unverified', 'performance.memory sample; GC-sensitive, not leak proof',
         validHeap ? { baselineBytes: heap.baselineUsedBytes, endBytes: heap.usedBytes, deltaBytes: heap.deltaUsedBytes } : null),
       longAnimationFrames: { supported: run?.longAnimationFrames?.supported === true,
@@ -178,13 +210,15 @@ export function analyzeObserverPerformanceRuns(runs, {
     return { speed, runIndices: indices.map(index => index + 1), continuity, interRunGapRangesMs, baselineBytes: baselines, memory };
   });
   const valid = !issues.length && rows.every(row => row.validity.status === 'pass');
-  const gates = rows.flatMap(row => [row.longTasks, row.rafP95, row.rafGap]).concat(groups.map(group => group.memory));
+  const gates = rows.flatMap(row => [row.longTasks, row.rafP95, row.rafGap, ...(checkEffectiveSpeed ? [row.effectiveSpeed] : [])])
+    .concat(groups.map(group => group.memory));
   const status = !valid ? 'unverified' : gates.some(gate => gate.status === 'fail') ? 'fail'
     : gates.every(gate => gate.status === 'pass') ? 'pass' : 'unverified';
   return { schema: 'eh-observer-browser-verification.v1', status,
     scope: 'observed_nine_run_gates_with_DOM_map_geometry_not_native_occlusion_painted_FPS_INP_or_absence_of_leaks',
     policy: { expectedEngine: expectedEngine ?? null, maxLongTaskMs, maxRafP95Ms: maxRafP95Ms ?? null,
       maxRafGapMs: maxRafGapMs ?? null, maxBaselineHeapGrowthBytes: maxBaselineHeapGrowthBytes ?? null,
-      maxInterRunGapMs: nonnegative(maxInterRunGapMs) ? maxInterRunGapMs : null },
+      maxInterRunGapMs: nonnegative(maxInterRunGapMs) ? maxInterRunGapMs : null,
+      ...(checkEffectiveSpeed && { minEffectiveSpeedRatio: validSpeedFloor(minEffectiveSpeedRatio) ? minEffectiveSpeedRatio : null }) },
     issues, runs: rows, groups };
 }

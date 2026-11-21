@@ -15,7 +15,7 @@ for (const path of args.filter(arg => !arg.startsWith('--'))) {
 const result = analyzeObserverPerformanceRuns(runs, { expectedEngine: option('expected-engine'),
   maxLongTaskMs: numeric('max-long-task-ms'), maxRafP95Ms: numeric('max-raf-p95-ms'),
   maxRafGapMs: numeric('max-raf-gap-ms'), maxBaselineHeapGrowthBytes: numeric('max-baseline-heap-growth-bytes'),
-  maxInterRunGapMs: numeric('max-inter-run-gap-ms') });
+  maxInterRunGapMs: numeric('max-inter-run-gap-ms'), minEffectiveSpeedRatio: numeric('min-effective-speed-ratio') });
 const output = `${JSON.stringify(result, null, 2)}\n`;
 if (option('output')) writeFileSync(option('output'), output);
 else process.stdout.write(output);

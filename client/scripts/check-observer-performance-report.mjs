@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -41,6 +41,23 @@ function fixture() {
       percentiles: { scope: 'entire_measurement', resolutionMs: 0.1, p95RangeMs: null } },
     heap: { supported: true, baselineUsedBytes: 10000, usedBytes: 10100, deltaUsedBytes: 100 },
   }));
+}
+function speedFixture(x32ActiveMs = 2812.5) {
+  let startedAtMs = 0;
+  const runs = fixture();
+  for (const [index, run] of runs.entries()) {
+    const speed = run.context.initial.speed;
+    const activeMs = index === 7 ? x32ActiveMs : 90000 / speed;
+    run.context.final.matchSec = 90;
+    run.context.activeEndOffsetMs = run.context.activeStartOffsetMs + activeMs;
+    run.elapsedMs = run.context.activeEndOffsetMs + 50;
+    run.startedAtMs = startedAtMs;
+    run.endedAtMs = startedAtMs + run.elapsedMs;
+    run.mapCoverage.lastSample.offsetMs = run.elapsedMs;
+    run.visibility.durationMs.visible = run.elapsedMs;
+    startedAtMs = run.endedAtMs + 200;
+  }
+  return runs;
 }
 let checks = 0;
 const check = (name, run) => { run(); checks++; console.log(`PASS ${name}`); };
@@ -136,6 +153,45 @@ check('label text cannot substitute for measured speed', () => {
   delete runs[0].context.initial.speed;
   assert.equal(analyzeObserverPerformanceRuns(runs, policy).status, 'unverified');
 });
+check('a declared effective-speed floor rejects a slow replay even if the configured speed and other gates pass', () => {
+  const speedPolicy = { ...policy, minEffectiveSpeedRatio: 0.9 };
+  const passing = analyzeObserverPerformanceRuns(speedFixture(), speedPolicy);
+  assert.equal(passing.status, 'pass');
+  assert.equal(passing.policy.minEffectiveSpeedRatio, 0.9);
+  assert.equal(passing.runs[7].effectiveSpeed.value.multiplier, 32);
+
+  const slow = speedFixture(3300);
+  assert.equal(analyzeObserverPerformanceRuns(slow, policy).status, 'pass');
+  const before = structuredClone(slow);
+  const report = analyzeObserverPerformanceRuns(slow, speedPolicy);
+  assert.equal(report.status, 'fail');
+  assert.equal(report.runs[7].validity.status, 'pass');
+  assert.equal(report.runs[7].effectiveSpeed.status, 'fail');
+  assert.equal(report.runs[7].effectiveSpeed.value.activeDurationMs, 3300);
+  assert.ok(report.runs[7].effectiveSpeed.value.fractionOfRequested < 0.9);
+  assert.deepEqual(slow, before);
+});
+check('effective speed uses active time and leaves a rounding-straddled or unavailable clock unverified', () => {
+  const speedPolicy = { ...policy, minEffectiveSpeedRatio: 0.9 };
+  const boundary = speedFixture(3125);
+  assert.equal(analyzeObserverPerformanceRuns(boundary, speedPolicy).runs[7].effectiveSpeed.status, 'pass');
+  boundary[7].numericPrecision.roundedMillisecondsResolutionMs = 0.001;
+  const rounded = analyzeObserverPerformanceRuns(boundary, speedPolicy);
+  assert.equal(rounded.status, 'unverified');
+  assert.equal(rounded.runs[7].effectiveSpeed.status, 'unverified');
+  assert.ok(rounded.runs[7].effectiveSpeed.value.lowerFraction < 0.9);
+  assert.ok(rounded.runs[7].effectiveSpeed.value.upperFraction > 0.9);
+
+  for (const change of [run => delete run.context.activeEndOffsetMs, run => run.context.activeEndOffsetMs = run.elapsedMs + 1]) {
+    const runs = speedFixture(); change(runs[7]);
+    const report = analyzeObserverPerformanceRuns(runs, speedPolicy);
+    assert.equal(report.status, 'unverified');
+    assert.equal(report.runs[7].effectiveSpeed.status, 'unverified');
+  }
+  for (const floor of [0, -1, 1.01, NaN, Infinity, null]) {
+    assert.equal(analyzeObserverPerformanceRuns(speedFixture(), { ...policy, minEffectiveSpeedRatio: floor }).status, 'unverified');
+  }
+});
 check('first and trailing RAF stalls fail even when interval p95 is healthy', () => {
   for (const key of ['firstRafDelay', 'trailingRafGap']) {
     const runs = fixture(); runs[0].raf.boundaryGapsMs[key] = 284;
@@ -229,8 +285,9 @@ check('three increasing baselines remain unresolved even below a generous budget
 });
 check('CLI exit codes distinguish passing observational gates, failures and missing evidence', () => {
   const directory = mkdtempSync(join(tmpdir(), 'observer-report-'));
+  const path = join(directory, 'synthetic.json');
   try {
-    const path = join(directory, 'synthetic.json'); writeFileSync(path, JSON.stringify(fixture()));
+    writeFileSync(path, JSON.stringify(fixture()));
     const cli = fileURLToPath(new URL('./analyze-observer-performance.mjs', import.meta.url));
     const args = [cli, path, `--expected-engine=${engine}`, '--max-raf-p95-ms=50',
       '--max-raf-gap-ms=200', '--max-baseline-heap-growth-bytes=1000', '--max-inter-run-gap-ms=60000'];
@@ -240,6 +297,11 @@ check('CLI exit codes distinguish passing observational gates, failures and miss
     assert.equal(spawnSync(process.execPath, args.map(arg => arg.startsWith('--max-inter-run-gap-ms=') ? '--max-inter-run-gap-ms=' : arg)).status, 2);
     assert.equal(spawnSync(process.execPath, args.map(arg => arg.startsWith('--max-baseline-heap-growth-bytes=') ? '--max-baseline-heap-growth-bytes= ' : arg)).status, 2);
     assert.equal(spawnSync(process.execPath, [cli]).status, 2);
-  } finally { rmSync(directory, { recursive: true }); }
+    writeFileSync(path, JSON.stringify(speedFixture()));
+    assert.equal(spawnSync(process.execPath, [...args, '--min-effective-speed-ratio=0.9']).status, 0);
+    assert.equal(spawnSync(process.execPath, [...args, '--min-effective-speed-ratio= ']).status, 2);
+    writeFileSync(path, JSON.stringify(speedFixture(3300)));
+    assert.equal(spawnSync(process.execPath, [...args, '--min-effective-speed-ratio=0.9']).status, 1);
+  } finally { rmSync(path, { force: true }); rmdirSync(directory); }
 });
 console.log(JSON.stringify({ checks, pass: true, scope: 'synthetic report rejection and CLI contracts; not actual browser measurements' }));
