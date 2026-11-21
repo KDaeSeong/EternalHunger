@@ -51,6 +51,7 @@ export default function SimulationResultModal({
   assistCounts,
   onExportBattleLog,
   replayStatus,
+  onObserverReportTargetChange,
   onRetryReplaySave,
   canReplayCurrent,
   onReplayCurrent,
@@ -193,6 +194,9 @@ export default function SimulationResultModal({
 
         {replayStatus ? <section className="sim-replay-result" aria-label="동일 재경기 결과">
           <p role="status">{replayStatus.text}</p>
+          {onObserverReportTargetChange ? (
+            <div ref={onObserverReportTargetChange} className="result-observer-performance-slot" data-testid="observer-performance-result-slot" />
+          ) : null}
           {replayStatus.canRetrySave ? <button type="button" onClick={onRetryReplaySave}>보관 다시 시도</button> : null}
           {canReplayCurrent ? <button type="button" onClick={onReplayCurrent}>동일 조건으로 재경기</button> : null}
           {canVariantCurrent ? <button type="button" onClick={onVariantCurrent}>편성·전략 바꿔 새 경기</button> : null}

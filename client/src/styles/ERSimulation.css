@@ -4574,6 +4574,8 @@
 }
 .sim-replay-result { padding: 12px; margin: 16px 0; border: 1px solid #527aa0; border-radius: 8px; background: #152b40; color: #e4edfa; }
 .sim-replay-result p { margin: 0 0 10px; }
+.result-observer-performance-slot:not(:empty) { margin: 0 0 10px; }
+.result-observer-performance-slot p:last-child { margin-bottom: 0; }
 .sim-replay-evaluation-status { width: fit-content; padding: 3px 7px; border-radius: 999px; font-size: 12px; font-weight: 700; }
 .sim-replay-evaluation-status--complete { color: #bff2cb !important; background: #17462b; }
 .sim-replay-evaluation-status--in-progress { color: #ffe1a1 !important; background: #4a3817; }

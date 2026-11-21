@@ -21,6 +21,7 @@ import SimulationResultModal from './SimulationResultModal';
 import SimulationSurvivorBoard from './SimulationSurvivorBoard';
 import SimulationReplayHistory from './SimulationReplayHistory';
 import SimulationObserverPerformancePanel from './SimulationObserverPerformancePanel';
+import { observerMemoryEnabled } from './observerMemoryLifetime';
 
 const SIMULATION_SFX_STORAGE_KEY = 'eternal-hunger:simulation-sfx';
 
@@ -112,6 +113,8 @@ export default function SimulationPageView(props) {
   const timeOfDay = getTimeOfDayFromPhase(phase);
   const [sfxEnabled, setSfxEnabled] = useState(initialSfxEnabled);
   const [evaluationOpenRequest, setEvaluationOpenRequest] = useState(0);
+  const [observerReportTarget, setObserverReportTarget] = useState(null);
+  const observerReportEnabled = useMemo(() => observerMemoryEnabled(), []);
   const previousFeedbackRef = useRef(null);
   const combatMusicTimerRef = useRef(null);
   const { setMusicScene } = useGameBgm();
@@ -217,6 +220,7 @@ export default function SimulationPageView(props) {
         speed={props.autoSpeed} seed={props.runSeed} autoPlay={autoPlay}
         day={day} matchSec={props.matchSec} isGameOver={isGameOver}
         replayMode={props.replayMode} replayId={props.replaySourceId} replayStatus={props.replayStatus}
+        observerReportTarget={observerReportTarget}
       />
 
       {uiModal ? (
@@ -274,6 +278,7 @@ export default function SimulationPageView(props) {
         assistCounts={assistCounts}
         onExportBattleLog={exportBattleLog}
         replayStatus={props.replayStatus}
+        onObserverReportTargetChange={observerReportEnabled && props.replayMode ? setObserverReportTarget : undefined}
         canReplayCurrent={props.canReplayCurrent}
         onReplayCurrent={props.onReplayCurrent}
         onRetryReplaySave={props.onRetryReplaySave}

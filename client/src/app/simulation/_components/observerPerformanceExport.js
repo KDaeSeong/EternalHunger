@@ -7,6 +7,19 @@ export function canExportObserverPerformanceReport(report) {
     && typeof report.endedAtMs === 'number' && Number.isFinite(report.endedAtMs));
 }
 
+export function canExportObserverPerformanceForReplayResult(report, context) {
+  if (!canExportObserverPerformanceReport(report) || report.boundary.stopReason !== 'replay-complete'
+    || context?.isGameOver !== true || context.replayMode !== true
+    || typeof context.replayId !== 'string' || !context.replayId.trim()
+    || !Number.isFinite(context.matchSec) || typeof context.comparisonMatched !== 'boolean') return false;
+
+  const final = report.context?.final;
+  return final?.isGameOver === true && final.replayMode === true
+    && final.replayId === context.replayId && final.seed === context.seed
+    && final.engineVersion === context.engineVersion && final.matchSec === context.matchSec
+    && final.comparisonMatched === context.comparisonMatched && final.comparedEvents === context.comparedEvents;
+}
+
 function filenamePart(value, limit, fallback) {
   const safe = String(value ?? '').replace(/[^\p{L}\p{N}._-]+/gu, '-')
     .slice(0, limit).replace(/^[._-]+|[._-]+$/g, '');

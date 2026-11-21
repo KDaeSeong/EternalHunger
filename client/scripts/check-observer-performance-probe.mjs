@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const { createObserverPerformanceProbe } = await import('../src/app/simulation/_lib/observerPerformanceRuntime.js');
-const { canExportObserverPerformanceReport, buildObserverPerformanceReportDownload,
+const { canExportObserverPerformanceReport, canExportObserverPerformanceForReplayResult, buildObserverPerformanceReportDownload,
   OBSERVER_REPORT_MAX_BYTES } = await import('../src/app/simulation/_components/observerPerformanceExport.js');
 const { measureObserverWork, subscribeObserverWorkMeasurements, captureObserverWorkerMeasurementToken,
   publishObserverWorkerMeasurement } = await import('../src/app/simulation/_lib/observerWorkMeasurementRuntime.js');
@@ -11,6 +11,7 @@ const panelSource = readFileSync(new URL('../src/app/simulation/_components/Simu
 const exportSource = readFileSync(new URL('../src/app/simulation/_components/observerPerformanceExport.js', import.meta.url), 'utf8');
 const mainStageSource = readFileSync(new URL('../src/app/simulation/_components/SimulationMainStage.js', import.meta.url), 'utf8');
 const pageViewSource = readFileSync(new URL('../src/app/simulation/_components/SimulationPageView.js', import.meta.url), 'utf8');
+const resultModalSource = readFileSync(new URL('../src/app/simulation/_components/SimulationResultModal.js', import.meta.url), 'utf8');
 const minimapCanvasSource = readFileSync(new URL('../src/app/simulation/_components/SimulationMinimapCanvas.js', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../src/styles/ERSimulation.css', import.meta.url), 'utf8');
 let checks = 0;
@@ -948,6 +949,7 @@ check('observer report export is an owned raw-v3 round trip and only sanitizes b
   const exported = buildObserverPerformanceReportDownload(source, exportNow);
   assert.equal(exported.ok, true);
   assert.equal(exported.mimeType, 'application/json;charset=utf-8');
+  assert.equal(exported.text, JSON.stringify(before, null, 2), 'Display/export memoization must preserve the exact raw JSON bytes.');
   assert.deepEqual(JSON.parse(exported.text), before, 'No analysis wrapper, field stripping, or normalization is permitted.');
   assert.deepEqual(source, before, 'Serialization must not mutate the caller-owned result.');
   assert.match(exported.filename, /^eternal-hunger-observer-v3-[\p{L}\p{N}._-]+\.json$/u);
@@ -982,6 +984,96 @@ check('observer report export enforces the exact UTF-8 byte ceiling and rejects 
   assert.deepEqual(buildObserverPerformanceReportDownload(circular, exportNow), { ok: false, reason: 'serialization-failed' });
 });
 
+const completedReplayContext = (overrides = {}) => ({ engineVersion: 'a'.repeat(64), seed: '1789192220412',
+  isGameOver: true, replayMode: true, replayId: 'same-source-replay', matchSec: 1102.25,
+  comparisonMatched: true, comparedEvents: 13198, ...overrides });
+const completedReplayReport = (context = completedReplayContext(), overrides = {}) => reportFixture({
+  engineVersion: context.engineVersion,
+  context: { initial: { ...context, isGameOver: false, matchSec: 0, comparisonMatched: null, comparedEvents: null },
+    final: { ...context } },
+  boundary: { status: 'settled', stopReason: 'replay-complete' }, ...overrides,
+});
+
+check('result-modal eligibility preserves successful, mismatched and barrier-incomplete native replay reports', () => {
+  for (const comparisonMatched of [true, false]) {
+    for (const status of ['settled', 'incomplete']) {
+      const context = completedReplayContext({ comparisonMatched });
+      const report = completedReplayReport(context, { label: 'diagnostic label is not acceptance',
+        boundary: { status, stopReason: 'replay-complete', reason: status === 'incomplete' ? 'post-stop frame timed out' : null } });
+      const before = structuredClone({ context, report });
+      assert.equal(canExportObserverPerformanceForReplayResult(report, context), true);
+      const exported = buildObserverPerformanceReportDownload(report, exportNow);
+      assert.equal(exported.ok, true);
+      assert.equal(exported.text, JSON.stringify(report, null, 2));
+      assert.deepEqual({ context, report }, before, 'Eligibility and download must not edit failure evidence.');
+    }
+  }
+});
+
+check('result-modal eligibility rejects ready, manual, active and non-finalized samples without restricting raw export', () => {
+  const context = completedReplayContext();
+  for (const reason of ['manual', 'immediate', 'duration', null, undefined]) {
+    const report = completedReplayReport(context, { boundary: { status: 'settled', stopReason: reason } });
+    assert.equal(canExportObserverPerformanceReport(report), true);
+    assert.equal(canExportObserverPerformanceForReplayResult(report, context), false, String(reason));
+  }
+  for (const status of ['recording', 'draining', null, undefined]) {
+    assert.equal(canExportObserverPerformanceForReplayResult(completedReplayReport(context,
+      { boundary: { status, stopReason: 'replay-complete' } }), context), false);
+  }
+  for (const report of [null, undefined, {}, [], completedReplayReport(context, { schema: 'eh-observer-performance.v2' }),
+    completedReplayReport(context, { endedAtMs: null }), completedReplayReport(context, { endedAtMs: Infinity }),
+    completedReplayReport(context, { context: null }), completedReplayReport(context, { context: { final: null } })]) {
+    assert.equal(canExportObserverPerformanceForReplayResult(report, context), false);
+  }
+  const ready = completedReplayContext({ isGameOver: false, matchSec: 0, comparisonMatched: null, comparedEvents: null });
+  const readyReport = completedReplayReport(ready, { boundary: { status: 'settled', stopReason: 'manual' } });
+  assert.equal(canExportObserverPerformanceReport(readyReport), true, 'The paused preflight remains downloadable in the panel.');
+  assert.equal(canExportObserverPerformanceForReplayResult(readyReport, context), false);
+  assert.equal(canExportObserverPerformanceForReplayResult(readyReport, ready), false);
+});
+
+check('result-modal eligibility requires actual terminal replay context and strict scalar types', () => {
+  for (const overrides of [
+    { isGameOver: false }, { isGameOver: 1 }, { replayMode: false }, { replayMode: 'true' },
+    { replayId: '' }, { replayId: '   ' }, { replayId: null }, { replayId: 123 },
+    { matchSec: NaN }, { matchSec: Infinity }, { matchSec: -Infinity }, { matchSec: '1102.25' },
+    { comparisonMatched: null }, { comparisonMatched: undefined }, { comparisonMatched: 1 }, { comparisonMatched: 'false' },
+  ]) {
+    const context = completedReplayContext(overrides);
+    assert.equal(canExportObserverPerformanceForReplayResult(completedReplayReport(context), context), false,
+      `Invalid current context ${JSON.stringify(overrides)}`);
+  }
+  for (const context of [null, undefined, {}]) {
+    assert.equal(canExportObserverPerformanceForReplayResult(completedReplayReport(), context), false);
+  }
+  const context = completedReplayContext();
+  for (const overrides of [{ isGameOver: false }, { isGameOver: 1 }, { replayMode: false }, { replayMode: 'true' }]) {
+    const report = completedReplayReport(context, { context: { final: { ...context, ...overrides } } });
+    assert.equal(canExportObserverPerformanceForReplayResult(report, context), false);
+  }
+});
+
+check('result-modal eligibility rejects stale engine, seed, record, completion clock and comparison scalars independently', () => {
+  const context = completedReplayContext();
+  const changes = { engineVersion: 'b'.repeat(64), seed: 'different-seed', replayId: 'another-replay',
+    matchSec: context.matchSec + 0.25, comparisonMatched: false, comparedEvents: context.comparedEvents - 1 };
+  for (const [key, value] of Object.entries(changes)) {
+    const report = completedReplayReport(context);
+    const before = structuredClone(report);
+    assert.equal(canExportObserverPerformanceForReplayResult(report, { ...context, [key]: value }), false, `Current ${key}`);
+    report.context.final[key] = value;
+    assert.equal(canExportObserverPerformanceForReplayResult(report, context), false, `Final ${key}`);
+    assert.deepEqual({ ...report, context: before.context }, before, 'Only the fixture field was changed.');
+    delete report.context.final[key];
+    assert.equal(canExportObserverPerformanceForReplayResult(report, context), false, `Missing final ${key}`);
+  }
+  const readyFinal = { ...context, isGameOver: false, autoPlay: false, matchSec: 0,
+    comparisonMatched: null, comparedEvents: null };
+  assert.equal(canExportObserverPerformanceForReplayResult(completedReplayReport(context,
+    { context: { final: readyFinal } }), context), false, 'A ready-only result cannot attach to the completed match modal.');
+});
+
 check('observer report UI is query-gated, guards download readiness, and uses the existing download helper', () => {
   assert.match(panelSource, /get\('perfProbe'\) === '1'/);
   assert.match(panelSource, /data-testid="observer-performance-download"/);
@@ -989,6 +1081,16 @@ check('observer report UI is query-gated, guards download readiness, and uses th
   assert.match(panelSource, /disabled=\{running \|\| stopping \|\| !canExportObserverPerformanceReport\(result\)\}/);
   assert.match(panelSource, /downloadTextFile\(file\.filename, file\.text, file\.mimeType\)/);
   assert.match(exportSource, /application\/json;charset=utf-8/);
+});
+
+check('result modal receives the existing probe export through one portal target without a second collector', () => {
+  assert.match(pageViewSource, /observerReportTarget=\{observerReportTarget\}/);
+  assert.match(pageViewSource, /onObserverReportTargetChange=\{[^}]*\bsetObserverReportTarget\b[^}]*\}/);
+  assert.match(resultModalSource, /onObserverReportTargetChange/);
+  assert.doesNotMatch(resultModalSource, /createObserverPerformanceProbe|buildObserverPerformanceReportDownload/);
+  assert.match(panelSource, /createPortal/);
+  assert.match(panelSource, /canExportObserverPerformanceForReplayResult/);
+  assert.match(panelSource, /data-testid="observer-performance-result-download"/);
 });
 
 console.log(`OBSERVER_PERFORMANCE_PROBE_CHECKS ${checks}/${checks}`);
