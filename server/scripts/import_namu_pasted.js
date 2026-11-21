@@ -862,7 +862,7 @@ function extractItemsAndRecipes(text) {
   while ((im = itemRe.exec(text))) {
     itemBlocks.push({ blk: im[0], start: im.index, end: itemRe.lastIndex });
   }
-  const recipeBlocks = text.match(/\[include\(틀:이터널 리턴\/제작 트리\s*,[\s\S]*?\)\]/g) || [];
+  const recipeBlocks = [...text.matchAll(/\[include\(틀:이터널 리턴\/제작 트리\s*,[\s\S]*?\)\]/g)];
 
   const extractUpperItemNames = (seg) => {
     const upperBlocks = seg.match(/\[include\(틀:이터널 리턴\/아이템\/[\s\S]*?\)\]/g) || [];
@@ -929,8 +929,11 @@ function extractItemsAndRecipes(text) {
   }
 
   const recipes = [];
-  for (const blk of recipeBlocks) {
-    const a = parseArgs(blk);
+  const diagnostics = [];
+  const recipesByResult = new Map();
+  let itemIndex = -1;
+  for (const match of recipeBlocks) {
+    const a = parseArgs(match[0]);
     const result = normalizeName(a['완성']);
     if (!result || isExcludedNamuItemName(result)) continue;
     const ingredients = [];
@@ -939,10 +942,33 @@ function extractItemsAndRecipes(text) {
       const ingredient = normalizeName(a[k]);
       if (ingredient && !isExcludedNamuItemName(ingredient)) ingredients.push(ingredient);
     }
-    if (ingredients.length >= 1) recipes.push({ result, ingredients });
+    if (!ingredients.length) continue;
+    const line = text.slice(0, match.index).split('\n').length;
+    while (itemIndex + 1 < itemBlocks.length && itemBlocks[itemIndex + 1].end <= match.index) itemIndex++;
+    const sectionItem = itemIndex >= 0 ? normalizeName(parseArgs(itemBlocks[itemIndex].blk)['아이템명']) : '';
+    if (sectionItem && sectionItem !== result) {
+      diagnostics.push({ code: 'recipe_result_mismatch', line, result, sectionItem });
+    }
+    // Preserve alternative recipes in parse output. Item.recipe can store only
+    // one recipe, so importing a conflicting set must require a decision.
+    const signature = JSON.stringify([...ingredients].sort());
+    const previous = recipesByResult.get(result);
+    if (previous && previous.signature !== signature) {
+      diagnostics.push({ code: 'conflicting_recipes', line, result,
+        previousLine: previous.line, previousIngredients: previous.ingredients, ingredients });
+    } else if (!previous) recipesByResult.set(result, { signature, line, ingredients });
+    recipes.push({ result, ingredients });
   }
 
-  return { items, recipes };
+  return { items, recipes, diagnostics };
+}
+
+function assertSafeRecipeImport(parsed) {
+  if (!parsed.diagnostics.length) return;
+  const error = new Error(`아이템 제작법 확인 필요: ${parsed.diagnostics.length}건. parse 모드의 diagnostics를 확인해 주세요. DB 쓰기는 시작하지 않았습니다.`);
+  error.code = 'NAMU_RECIPE_REVIEW_REQUIRED';
+  error.diagnostics = parsed.diagnostics;
+  throw error;
 }
 
 async function upsertItemByName(name, patch) {
@@ -1146,10 +1172,9 @@ async function pruneRemovedNamuMetaSources(entries, rows) {
 
 async function runParse(filePath) {
   const text = readSourceText(filePath);
-  const { items, recipes } = extractItemsAndRecipes(text);
+  const { items, recipes, diagnostics } = extractItemsAndRecipes(text);
   const uniqItems = [...new Map(items.map(i => [i.name, i])).values()];
-  const uniqRecipes = [...new Map(recipes.map(r => [r.result, r])).values()];
-  console.log(JSON.stringify({ items: uniqItems, recipes: uniqRecipes }, null, 2));
+  console.log(JSON.stringify({ items: uniqItems, recipes, diagnostics }, null, 2));
 }
 
 async function runParseSubjects(filePath) {
@@ -1165,16 +1190,17 @@ async function runParseMeta(filePath) {
 async function runParseAll(filePath) {
   const entries = readSourceEntries(filePath);
   const text = combineItemSourceText(entries);
-  const { items, recipes } = extractItemsAndRecipes(text);
+  const { items, recipes, diagnostics } = extractItemsAndRecipes(text);
   const subjects = extractSubjectsFromEntries(entries);
   const meta = extractNamuMetaRows(entries);
   const uniqItems = [...new Map(items.map(i => [i.name, i])).values()];
-  const uniqRecipes = [...new Map(recipes.map(r => [r.result, r])).values()];
-  console.log(JSON.stringify({ items: uniqItems, recipes: uniqRecipes, subjects, meta }, null, 2));
+  console.log(JSON.stringify({ items: uniqItems, recipes, diagnostics, subjects, meta }, null, 2));
 }
 
 async function importItemsAndRecipesFromText(text) {
-  const { items, recipes } = extractItemsAndRecipes(text);
+  const parsed = extractItemsAndRecipes(text);
+  assertSafeRecipeImport(parsed);
+  const { items, recipes } = parsed;
 
   const byName = new Map();
   const excludedPruned = await pruneExcludedNamuItems();
@@ -1271,12 +1297,15 @@ async function importMetaFromEntries(entries, options = {}) {
 
 async function runImport(filePath) {
   if (!process.env.MONGO_URI) throw new Error('MONGO_URI가 필요합니다(.env)');
-  await mongoose.connect(process.env.MONGO_URI);
-
-  const result = await importItemsAndRecipesFromText(readSourceText(filePath));
-
-  await mongoose.disconnect();
-  console.log(`OK: items=${result.items}, recipes=${result.recipes}, aliasesPruned=${result.aliasesPruned}, excludedPruned=${result.excludedPruned}`);
+  const text = readSourceText(filePath);
+  assertSafeRecipeImport(extractItemsAndRecipes(text));
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    const result = await importItemsAndRecipesFromText(text);
+    console.log(`OK: items=${result.items}, recipes=${result.recipes}, aliasesPruned=${result.aliasesPruned}, excludedPruned=${result.excludedPruned}`);
+  } finally {
+    await mongoose.disconnect();
+  }
 }
 
 async function runImportSubjects(filePath) {
@@ -1301,16 +1330,18 @@ async function runImportMeta(filePath) {
 
 async function runImportAll(filePath) {
   if (!process.env.MONGO_URI) throw new Error('MONGO_URI가 필요합니다(.env)');
-  await mongoose.connect(process.env.MONGO_URI);
-
   const entries = readSourceEntries(filePath);
   const text = combineItemSourceText(entries);
-  const itemResult = await importItemsAndRecipesFromText(text);
-  const subjectResult = await importSubjectsFromEntries(entries);
-  const metaResult = await importMetaFromEntries(entries, { pruneMissingSources: fs.statSync(filePath).isDirectory() });
-
-  await mongoose.disconnect();
-  console.log(`OK: items=${itemResult.items}, recipes=${itemResult.recipes}, aliasesPruned=${itemResult.aliasesPruned}, excludedPruned=${itemResult.excludedPruned}, subjects=${subjectResult.subjects}, meta=${metaResult.meta}, pruned=${metaResult.pruned}`);
+  assertSafeRecipeImport(extractItemsAndRecipes(text));
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    const itemResult = await importItemsAndRecipesFromText(text);
+    const subjectResult = await importSubjectsFromEntries(entries);
+    const metaResult = await importMetaFromEntries(entries, { pruneMissingSources: fs.statSync(filePath).isDirectory() });
+    console.log(`OK: items=${itemResult.items}, recipes=${itemResult.recipes}, aliasesPruned=${itemResult.aliasesPruned}, excludedPruned=${itemResult.excludedPruned}, subjects=${subjectResult.subjects}, meta=${metaResult.meta}, pruned=${metaResult.pruned}`);
+  } finally {
+    await mongoose.disconnect();
+  }
 }
 
 async function main() {
@@ -1331,7 +1362,12 @@ async function main() {
   throw new Error('mode는 parse/import/parse-subjects/import-subjects/parse-meta/import-meta/parse-all/import-all 중 하나여야 합니다');
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+module.exports = { extractItemsAndRecipes, assertSafeRecipeImport, importItemsAndRecipesFromText,
+  readSourceEntries, combineItemSourceText, runImport, runImportAll };
+
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}

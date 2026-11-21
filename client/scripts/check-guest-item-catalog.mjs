@@ -38,7 +38,18 @@ assert.deepEqual(metadata, expected.metadata, 'Generated metadata must match the
 assert.deepEqual(items, expected.items, 'Generated catalog data must be a deterministic source transformation.');
 assert.equal(items.length, metadata.itemCount, 'Catalog item count metadata must be exact.');
 assert.equal(items.length, 774, 'Version 1.1.0 pins the server-effective 774-item seed.');
-assert.equal(items.filter((item) => item.recipe.ingredients.length).length, 639);
+assert.equal(items.filter((item) => item.recipe.ingredients.length).length, 641);
+const restoredRecipes = {
+  'namu:창:죽창': ['namu:창:단창', 'namu:material:나뭇가지'],
+  'namu:창:파이크': ['namu:창:단창', 'namu:material:고철'],
+  'namu:석궁:저격궁': ['namu:석궁:크로스보우', 'namu:material:레이저 포인터'],
+  'namu:석궁:헤비 크로스보우': ['namu:석궁:쇠뇌', 'namu:material:고철'],
+};
+for (const [key, ingredientKeys] of Object.entries(restoredRecipes)) {
+  const recipe = items.find((item) => item._id === key)?.recipe;
+  assert.deepEqual(recipe?.ingredients.map(({ itemId, qty }) => [itemId, qty]).sort(),
+    ingredientKeys.map((itemId) => [itemId, 1]).sort(), `Restored recipe must remain obtainable: ${key}`);
+}
 assert.ok(items.every((item) => item.itemKey.startsWith('namu:')), 'Legacy core rows must not leak into guest matches.');
 assert.equal(sha256(Buffer.from(JSON.stringify(items), 'utf8')), metadata.catalogSha256, 'Catalog content hash must match.');
 

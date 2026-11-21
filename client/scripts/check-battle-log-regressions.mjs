@@ -180,27 +180,59 @@ await check('scheduled 3v3 displays local rosters but spends only the scheduled 
   assert.ok(actors.filter((actor) => actor._id !== 'b1' && actor._id !== 'dead').every((actor) => actor.hp === 500));
 });
 
-await check('crossbow normalization preserves recipe, identity, stats and unrelated equipment', () => {
-  const root = { key: 'namu:석궁:석궁', name: '석궁', weaponType: '석궁', tier: 2, rarity: 'rare', stats: { atk: 8 } };
-  const other = { ...root, key: 'namu:석궁:other', name: 'other' };
-  const items = seedNormalization.normalizeDefaultItemTree([root, other]);
-  const normalized = items.find((item) => item.key === root.key);
-  assert.equal(normalized.tier, 1); assert.equal(normalized.rarity, 'common'); assert.equal(normalized.stats.atk, 8);
-  assert.equal(items.find((item) => item.key === other.key).tier, 2);
-  assert.deepEqual(root, { key: 'namu:석궁:석궁', name: '석궁', weaponType: '석궁', tier: 2, rarity: 'rare', stats: { atk: 8 } });
-  assert.equal(seedNormalization.getStarterCatalogCorrection({ ...root, recipeKeys: [{ key: other.key, qty: 1 }] }), null);
-  assert.equal(seedNormalization.getStarterCatalogCorrection({ ...root, tier: 4 }), null);
-});
+// Reproduce the exported default.seed.actual documents without reading a user
+// download or loading an Item model/database in this standalone regression.
+const legacyStarters = [
+  ['6a364ca77a09d9edd1d7a7d1', 'namu:석궁:석궁', '석궁', '석궁', 8],
+  ['6a364cb37a09d9edd1d7a8d1', 'namu:채찍:채찍', '채찍', '채찍', 7],
+  ['6a364ca47a09d9edd1d7a78c', 'namu:도끼:손도끼', '손도끼', '도끼', 8],
+].map(([_id, itemKey, name, weaponType, atk]) => ({ _id, itemKey, externalId: itemKey,
+  name, weaponType, type: '무기', tier: 2, rarity: 'rare', equipSlot: '',
+  stats: { atk, def: 0, hp: 0 }, recipe: { creditsCost: 0, ingredients: [], resultQty: 1 }, source: 'default.seed.actual' }));
+const starterMetadata = { tier: 1, rarity: 'common', equipSlot: 'weapon' };
+for (const root of legacyStarters) {
+  await check(`${root.itemKey} normalization corrects only starter metadata and preserves input`, () => {
+    const before = structuredClone(root);
+    assert.deepEqual(seedNormalization.getStarterCatalogCorrection(root), starterMetadata);
+    assert.deepEqual({ ...root, ...seedNormalization.getStarterCatalogCorrection(root) }, { ...before, ...starterMetadata });
+    assert.deepEqual(root, before);
+    const seedDef = { ...root, key: root.itemKey, recipeKeys: [], recipeCreditsCost: 0, recipeResultQty: 1 };
+    const normalized = seedNormalization.normalizeDefaultItemTree([seedDef]).find((item) => item.key === root.itemKey);
+    const alreadyCorrected = seedNormalization.normalizeDefaultItemTree([{ ...seedDef, ...starterMetadata }])
+      .find((item) => item.key === root.itemKey);
+    assert.deepEqual(normalized, alreadyCorrected);
+    assert.equal(normalized.externalId, root.externalId);
+    assert.equal(normalized.source, root.source);
+    assert.deepEqual(normalized.recipeKeys, []);
+    for (const [key, value] of Object.entries(root.stats)) assert.equal(normalized.stats[key], value);
+    assert.deepEqual(root, before);
+  });
+  await check(`${root.itemKey} correction protects recipes, unrelated same-name keys and higher tiers`, () => {
+    const protectedItems = [
+      { ...root, recipe: { ...root.recipe, ingredients: [{ itemId: 'preserved-material', qty: 2 }] } },
+      { ...root, recipeKeys: [{ key: 'namu:material:preserved-material', qty: 2 }] },
+      { ...root, itemKey: `unrelated:${root.itemKey}`, externalId: root.itemKey },
+      ...[3, 4, 5, 6].map((tier) => ({ ...root, tier })),
+    ];
+    const before = structuredClone(protectedItems);
+    for (const item of protectedItems) assert.equal(seedNormalization.getStarterCatalogCorrection(item), null);
+    assert.deepEqual(protectedItems, before);
+    const recipeDef = { ...root, key: root.itemKey, recipeKeys: [{ key: 'namu:material:preserved-material', qty: 2 }] };
+    const normalized = seedNormalization.normalizeDefaultItemTree([recipeDef]).find((item) => item.key === root.itemKey);
+    assert.equal(normalized.tier, 2); assert.equal(normalized.rarity, 'rare'); assert.equal(normalized.equipSlot, '');
+    assert.deepEqual(normalized.recipeKeys, recipeDef.recipeKeys);
+  });
+}
 
-await check('missing-mode seeding repairs only starter metadata through both server entry points', async () => {
-  const existing = { _id: 'existing-crossbow', itemKey: 'namu:석궁:석궁', externalId: 'namu:석궁:석궁',
-    name: '석궁', tier: 2, rarity: 'rare', equipSlot: '', stats: { atk: 99 }, recipe: { ingredients: [] } };
-  const calls = [];
-  const fakeItem = { find: async () => [existing], bulkWrite: async (ops) => { calls.push(...ops); } };
+let seed;
+let fakeExisting = [];
+const seedCalls = [];
+await check('seed entrypoints load only the fake Item model without a database', async () => {
+  const fakeItem = { find: async () => fakeExisting, bulkWrite: async (ops) => { seedCalls.push(...ops); } };
   const require = createRequire(import.meta.url);
   const seedPath = require.resolve('../../server/utils/defaultItemTree.js');
   const originalLoad = Module._load;
-  let seed, modelStubLoads = 0;
+  let modelStubLoads = 0;
   try {
     Module._load = function (request, parent, isMain) {
       if (request === '../models/Item' && parent?.filename === seedPath) {
@@ -212,16 +244,32 @@ await check('missing-mode seeding repairs only starter metadata through both ser
     seed = require(seedPath);
   } finally { Module._load = originalLoad; }
   assert.equal(modelStubLoads, 1, 'The seed regression must use its fake Item model, never a real database.');
-  const offset = seed.DEFAULT_ITEM_TREE.findIndex((item) => item.key === existing.itemKey);
-  await seed.upsertDefaultItemTreeBatch({ mode: 'missing', offset, limit: 1 });
-  assert.deepEqual(calls[0], { updateOne: { filter: { _id: existing._id },
-    update: { $set: { tier: 1, rarity: 'common', equipSlot: 'weapon' } } } });
-  calls.length = 0;
-  await seed.upsertDefaultItemTree({ mode: 'missing' });
-  const repair = calls.find((op) => op.updateOne?.filter._id === existing._id);
-  assert.deepEqual(repair.updateOne.update.$set, { tier: 1, rarity: 'common', equipSlot: 'weapon' });
-  assert.equal(existing.stats.atk, 99);
 });
+for (const root of legacyStarters) {
+  for (const entrypoint of ['upsertDefaultItemTreeBatch', 'upsertDefaultItemTree']) {
+    await check(`${entrypoint} missing-mode repairs only ${root.itemKey} metadata and protects existing data`, async () => {
+      assert.ok(seed);
+      const offset = seed.DEFAULT_ITEM_TREE.findIndex((item) => item.key === root.itemKey);
+      assert.ok(offset >= 0, `Missing bundled starter ${root.itemKey}`);
+      for (const [kind, existing] of [
+        ['legacy', structuredClone(root)],
+        ['already-correct', { ...structuredClone(root), ...starterMetadata }],
+        ['recipe', { ...structuredClone(root), recipe: { creditsCost: 29, resultQty: 3,
+          ingredients: [{ itemId: 'preserved-material', qty: 2 }] } }],
+        ['unrelated-key', { ...structuredClone(root), itemKey: `unrelated:${root.itemKey}` }],
+        ['higher-tier', { ...structuredClone(root), tier: 4 }],
+      ]) {
+        const before = structuredClone(existing);
+        fakeExisting = [existing]; seedCalls.length = 0;
+        await seed[entrypoint]({ mode: 'missing', offset, limit: 1 });
+        const repairs = seedCalls.filter((op) => op.updateOne?.filter._id === existing._id);
+        assert.deepEqual(repairs, kind === 'legacy' ? [{ updateOne: { filter: { _id: existing._id },
+          update: { $set: starterMetadata } } }] : [], `${entrypoint}: ${kind}`);
+        assert.deepEqual(existing, before, 'Seeding must not mutate the existing ID, stats, source or recipe.');
+      }
+    });
+  }
+}
 
 console.log(`BATTLE_LOG_REGRESSION_CHECKS ${passed}/${passed + failed}`);
 if (failed) process.exitCode = 1;

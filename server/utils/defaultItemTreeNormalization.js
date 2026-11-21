@@ -3,6 +3,7 @@
 
 const CRIMSON_SHARD_KEY = 'namu:material:진홍의 샤드';
 const DAWN_SHARD_KEY = 'namu:material:새벽빛 샤드';
+const STARTER_WEAPON_KEYS = new Set(['namu:석궁:석궁', 'namu:채찍:채찍', 'namu:도끼:손도끼']);
 const SHARD_ITEM_DEFS = [
   {
     key: CRIMSON_SHARD_KEY,
@@ -129,13 +130,48 @@ function normalizeDefaultItemTree(list = []) {
   return applyShardVariantRecipes([...byKey.values()]);
 }
 
-// The exported coverage root was marked T2 although it has no recipe. Keep
-// its identity/stats, and share the same correction with missing-mode seeding.
+// Legacy coverage roots were marked T2 although they are common starters.
+// Preserve identity/stats and share the correction with missing-mode seeding.
 function getStarterCatalogCorrection(def) {
   const key = treeKey(def);
   const ingredients = def?.recipeKeys || def?.recipe?.ingredients || [];
-  if (key !== 'namu:석궁:석궁' || ingredients.length || toNumber(def?.tier, 1) > 2) return null;
+  if (!STARTER_WEAPON_KEYS.has(key) || ingredients.length || toNumber(def?.tier, 1) > 2) return null;
   return { tier: 1, rarity: 'common', equipSlot: 'weapon' };
+}
+
+const LEGACY_RECIPE_CORRECTIONS = {
+  'namu:창:죽창': {
+    previous: ['namu:창:단창', 'namu:material:고철'],
+    current: ['namu:창:단창', 'namu:material:나뭇가지'],
+  },
+  'namu:석궁:저격궁': {
+    previous: ['namu:석궁:쇠뇌', 'namu:material:고철'],
+    current: ['namu:석궁:크로스보우', 'namu:material:레이저 포인터'],
+  },
+};
+
+function getLegacyRecipeIngredientKeys(def) {
+  return Object.hasOwn(LEGACY_RECIPE_CORRECTIONS, def?.key)
+    ? [...LEGACY_RECIPE_CORRECTIONS[def.key].previous] : [];
+}
+
+function matchesRecipeKeys(rows, keys) {
+  if (!Array.isArray(rows) || rows.length !== keys.length
+    || rows.some((row) => !row || row.qty !== 1)) return false;
+  const actual = rows.map((row) => row.key).sort();
+  return [...keys].sort().every((key, index) => actual[index] === key);
+}
+
+// Accept only the two observed legacy recipes, never a name-based fallback or
+// an edited/custom recipe. IDs are resolved to exact itemKeys by the caller.
+function shouldRepairLegacyRecipe(existing, def, existingRecipeKeys) {
+  const correction = Object.hasOwn(LEGACY_RECIPE_CORRECTIONS, def?.key)
+    ? LEGACY_RECIPE_CORRECTIONS[def.key] : null;
+  return Boolean(correction && existing?.source === 'namu' && existing.itemKey === def.key
+    && existing.recipe?.creditsCost === 0 && existing.recipe?.resultQty === 1
+    && def.recipeCreditsCost === 0 && def.recipeResultQty === 1
+    && matchesRecipeKeys(existingRecipeKeys, correction.previous)
+    && matchesRecipeKeys(def.recipeKeys, correction.current));
 }
 
 function isTranscendentDef(def) {
@@ -212,4 +248,6 @@ module.exports = {
   getShardVariantInfo,
   shouldRefreshOnMissing,
   getStarterCatalogCorrection,
+  getLegacyRecipeIngredientKeys,
+  shouldRepairLegacyRecipe,
 };

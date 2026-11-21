@@ -13,6 +13,8 @@ const {
   getShardVariantInfo,
   shouldRefreshOnMissing,
   getStarterCatalogCorrection,
+  getLegacyRecipeIngredientKeys,
+  shouldRepairLegacyRecipe,
 } = require('./defaultItemTreeNormalization');
 
 function normalizeTree(list = DEFAULT_ITEM_TREE) {
@@ -47,15 +49,47 @@ function indexItems(items) {
   const byItemKey = new Map();
   const byExternalId = new Map();
   const byName = new Map();
+  const byId = new Map();
   for (const item of Array.isArray(items) ? items : []) {
     const itemKey = cleanString(item?.itemKey);
     const externalId = cleanString(item?.externalId);
     const name = cleanString(item?.name);
+    const id = cleanString(item?._id);
     if (itemKey && !byItemKey.has(itemKey)) byItemKey.set(itemKey, item);
     if (externalId && !byExternalId.has(externalId)) byExternalId.set(externalId, item);
     if (name && !byName.has(name)) byName.set(name, item);
+    if (id && !byId.has(id)) byId.set(id, item);
   }
-  return { byItemKey, byExternalId, byName };
+  return { byItemKey, byExternalId, byName, byId };
+}
+
+function buildRecipeOperation(def, target, indexes, mode) {
+  if (!Array.isArray(def.recipeKeys) || !def.recipeKeys.length || !target?._id) return null;
+  const existingIngredients = target.recipe?.ingredients;
+  const existingRecipeKeys = Array.isArray(existingIngredients)
+    ? existingIngredients.map((row) => ({ key: indexes.byId.get(cleanString(row?.itemId))?.itemKey, qty: row?.qty }))
+    : [];
+  const repairLegacy = mode === 'missing' && shouldRepairLegacyRecipe(target, def, existingRecipeKeys);
+  if (mode === 'missing' && !getShardVariantInfo(def)
+    && Array.isArray(existingIngredients) && existingIngredients.length && !repairLegacy) return null;
+
+  const ingredients = [];
+  for (const row of def.recipeKeys) {
+    const ingredient = indexes.byItemKey.get(row.key);
+    // Never persist a partial recipe, even when the caller requested force.
+    if (!ingredient?._id) return null;
+    ingredients.push({ itemId: ingredient._id, qty: Math.max(1, Math.floor(toNumber(row.qty, 1))) });
+  }
+  if (repairLegacy) {
+    return { updateOne: {
+      filter: { _id: target._id, source: 'namu', itemKey: def.key,
+        'recipe.creditsCost': 0, 'recipe.resultQty': 1, 'recipe.ingredients': existingIngredients },
+      update: { $set: { 'recipe.ingredients': ingredients } },
+    } };
+  }
+  return { updateOne: { filter: { _id: target._id }, update: { $set: { recipe: {
+    ingredients, creditsCost: def.recipeCreditsCost, resultQty: def.recipeResultQty,
+  } } } } };
 }
 
 function toBaseDoc(def, ownerUserId) {
@@ -183,6 +217,7 @@ async function upsertDefaultItemTreeBatch(opts = {}) {
   if (phase === 'recipes') {
     const neededKeys = new Set(slice.map((def) => def.key).filter(Boolean));
     for (const def of slice) {
+      for (const key of getLegacyRecipeIngredientKeys(def)) neededKeys.add(key);
       for (const row of (Array.isArray(def.recipeKeys) ? def.recipeKeys : [])) {
         if (row?.key) neededKeys.add(row.key);
       }
@@ -193,36 +228,10 @@ async function upsertDefaultItemTreeBatch(opts = {}) {
     const recipeOps = [];
 
     for (const def of slice) {
-      if (!Array.isArray(def.recipeKeys) || def.recipeKeys.length === 0) continue;
       const target = indexes.byItemKey.get(def.key);
-      if (!target) continue;
-      if (mode !== 'force' && mode !== 'replace' && !getShardVariantInfo(def)) {
-        const existingIngredients = target?.recipe?.ingredients;
-        if (Array.isArray(existingIngredients) && existingIngredients.length > 0) continue;
-      }
-
-      const ingredients = [];
-      for (const row of def.recipeKeys) {
-        const ingredient = indexes.byItemKey.get(row.key);
-        if (!ingredient?._id) continue;
-        ingredients.push({ itemId: ingredient._id, qty: Math.max(1, Math.floor(toNumber(row.qty, 1))) });
-      }
-      if (!ingredients.length) continue;
-
-      recipeOps.push({
-        updateOne: {
-          filter: { _id: target._id },
-          update: {
-            $set: {
-              recipe: {
-                ingredients,
-                creditsCost: def.recipeCreditsCost,
-                resultQty: def.recipeResultQty,
-              },
-            },
-          },
-        },
-      });
+      const operation = buildRecipeOperation(def, target, indexes, mode);
+      if (!operation) continue;
+      recipeOps.push(operation);
       recipeUpdated.push({ key: def.key, name: def.name, id: String(target._id) });
     }
 
@@ -342,42 +351,16 @@ async function upsertDefaultItemTree(opts = {}) {
     await Item.bulkWrite(itemOps, { ordered: false, runValidators: true });
   }
 
-  const nextIndexes = indexItems(await Item.find(scopeQuery(ownerUserId, { itemKey: { $in: keys } })));
+  const recipeLookupKeys = [...new Set([...keys, ...tree.flatMap(getLegacyRecipeIngredientKeys)])];
+  const nextIndexes = indexItems(await Item.find(scopeQuery(ownerUserId, { itemKey: { $in: recipeLookupKeys } })));
 
   const recipeUpdated = [];
   const recipeOps = [];
   for (const def of tree) {
-    if (!Array.isArray(def.recipeKeys) || def.recipeKeys.length === 0) continue;
     const target = nextIndexes.byItemKey.get(def.key);
-    if (!target) continue;
-
-    if (mode !== 'force' && mode !== 'replace' && !getShardVariantInfo(def)) {
-      const existingIngredients = target?.recipe?.ingredients;
-      if (Array.isArray(existingIngredients) && existingIngredients.length > 0) continue;
-    }
-
-    const ingredients = [];
-    for (const row of def.recipeKeys) {
-      const ingredient = nextIndexes.byItemKey.get(row.key);
-      if (!ingredient?._id) continue;
-      ingredients.push({ itemId: ingredient._id, qty: Math.max(1, Math.floor(toNumber(row.qty, 1))) });
-    }
-    if (!ingredients.length) continue;
-
-    recipeOps.push({
-      updateOne: {
-        filter: { _id: target._id },
-        update: {
-          $set: {
-            recipe: {
-              ingredients,
-              creditsCost: def.recipeCreditsCost,
-              resultQty: def.recipeResultQty,
-            },
-          },
-        },
-      },
-    });
+    const operation = buildRecipeOperation(def, target, nextIndexes, mode);
+    if (!operation) continue;
+    recipeOps.push(operation);
     recipeUpdated.push({ key: def.key, name: def.name, id: String(target._id) });
   }
 

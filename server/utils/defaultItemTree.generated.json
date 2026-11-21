@@ -2514,7 +2514,7 @@
         "qty": 1
       },
       {
-        "key": "namu:material:고철",
+        "key": "namu:material:나뭇가지",
         "qty": 1
       }
     ]
@@ -2652,7 +2652,17 @@
       "namu:창:장팔사모"
     ],
     "source": "namu",
-    "lockedByAdmin": true
+    "lockedByAdmin": true,
+    "recipeKeys": [
+      {
+        "key": "namu:창:단창",
+        "qty": 1
+      },
+      {
+        "key": "namu:material:고철",
+        "qty": 1
+      }
+    ]
   },
   {
     "key": "namu:암기:표창",
@@ -4394,11 +4404,11 @@
     "description": "저격에 특화되어 있는 궁이다. 언제나 그렇듯 조준이 필요하다.",
     "recipeKeys": [
       {
-        "key": "namu:석궁:쇠뇌",
+        "key": "namu:석궁:크로스보우",
         "qty": 1
       },
       {
-        "key": "namu:material:고철",
+        "key": "namu:material:레이저 포인터",
         "qty": 1
       }
     ]
@@ -4781,7 +4791,17 @@
     ],
     "source": "namu",
     "lockedByAdmin": true,
-    "description": "크로스보우와 비교해 무겁지만 그 만큼 공격력이 더 좋다. 간단한 조작법 덕분에 중세 유럽에서 인기가 많았던 무기."
+    "description": "크로스보우와 비교해 무겁지만 그 만큼 공격력이 더 좋다. 간단한 조작법 덕분에 중세 유럽에서 인기가 많았던 무기.",
+    "recipeKeys": [
+      {
+        "key": "namu:석궁:쇠뇌",
+        "qty": 1
+      },
+      {
+        "key": "namu:material:고철",
+        "qty": 1
+      }
+    ]
   },
   {
     "key": "namu:글러브:회단 장갑",

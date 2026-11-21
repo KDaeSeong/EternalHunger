@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import ts from 'typescript';
-import { createHandlerHarness } from './lib/hook-handler-harness.mjs';
+import { createHandlerHarness, textOf } from './lib/hook-handler-harness.mjs';
 import { ER_WEAPON_TYPES_KO } from '../src/utils/erMeta.js';
 
 const componentUrl = new URL('../src/app/simulation/_components/SimulationGuestEquipmentGoals.js', import.meta.url).href;
+const rosterComponentUrl = new URL('../src/app/simulation/_components/SimulationPregameRosterSetup.js', import.meta.url).href;
 const helperUrl = new URL('../src/app/simulation/_lib/guestEquipmentGoalRuntime.js', import.meta.url).href;
 const participantHookUrl = new URL('../src/app/simulation/_lib/useSimulationParticipantPresets.js', import.meta.url).href;
 const harnessUrl = new URL('./lib/hook-handler-harness.mjs', import.meta.url).href;
@@ -15,8 +16,15 @@ registerHooks({ load(url, context, nextLoad) {
     const source = readFileSync(new URL(url), 'utf8').replace("from 'react';", `from '${harnessUrl}';`);
     return { format: 'module', shortCircuit: true, source };
   }
-  if (url !== componentUrl) return nextLoad(url, context);
-  const source = readFileSync(new URL(url), 'utf8');
+  if (![componentUrl, rosterComponentUrl].includes(url)) return nextLoad(url, context);
+  let source = readFileSync(new URL(url), 'utf8');
+  if (url === rosterComponentUrl) {
+    source = source.replace("from 'react';", `from '${harnessUrl}';`)
+      .replace("import Image from 'next/image';", "const Image = 'img';")
+      .replace("import GameActionIcon from '../../games/_components/GameActionIcon';", "const GameActionIcon = 'span';")
+      .replace("import SimulationLocalCharacterEditor from './SimulationLocalCharacterEditor';",
+        'function SimulationLocalCharacterEditor() { return null; }');
+  }
   const transpiled = ts.transpileModule(source, { compilerOptions: {
     jsx: ts.JsxEmit.React, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022,
   } }).outputText;
@@ -164,6 +172,74 @@ walk(tree, (node) => node.type === 'button' && node.props?.className === 'simula
   .props.onClick();
 assert.deepEqual(patches, [{ goalLoadouts: normalizeGuestGoalLoadouts({}) }], 'Only explicit reset clears malformed goals.');
 
+// Exercise the actual pregame component and its modal handoff. Only visual leaf
+// components are stubbed; the goal validator and roster selection remain real.
+const { default: SimulationPregameRosterSetup } = await import(rosterComponentUrl);
+const missingGuest = { ...actor, name: '목표 확인 대상', goalLoadouts: {
+  hero: { clothesKey: 'core:방어구:clothes::4:제복' } } };
+const missingAccount = { _id: 'account-character', name: '계정 참가자', weaponType: '권총',
+  goalLoadouts: { hero: { shoesKey: 'core:방어구:shoes::4:검은 가죽 부츠' } } };
+const validGuest = { ...actor, _id: 'guest-valid', name: '정상 목표',
+  goalLoadouts: { hero: { headKey: 'key:hero-head' } } };
+const pregameActors = [missingGuest, missingAccount, validGuest];
+const pregameBefore = deepCopy(pregameActors);
+let pregameWrites = 0;
+const pregameProps = { day: 0, matchSec: 0, matchMode: 'solo', publicItems: items,
+  survivors: pregameActors, candidateSurvivors: pregameActors,
+  saveLocalCharacter: () => { pregameWrites++; },
+  applyCustomParticipantRoster: () => { pregameWrites++; },
+  applyParticipantPresetToCurrent: () => { pregameWrites++; } };
+const pregameHarness = createHandlerHarness(SimulationPregameRosterSetup, pregameProps);
+let pregameTree = pregameHarness.render();
+const warningNodes = (value) => walk(value, (node) => node.props?.className === 'simulation-pregame-roster__goal-warnings');
+assert.equal(warningNodes(pregameTree).length, 1, 'Missing configured goals are visible before opening any editor.');
+const warningText = textOf(warningNodes(pregameTree)[0]);
+assert.ok(warningText.includes('목표 확인 대상') && warningText.includes('영웅 옷 목표')
+  && warningText.includes('계정 참가자') && warningText.includes('영웅 신발 목표'),
+  'All affected participants have a name, slot and actual validation message.');
+assert.ok(!warningText.includes('core:') && !warningText.includes('정상 목표'),
+  'Warnings expose readable validation text and exclude valid participants.');
+const reselectButtons = walk(pregameTree, (node) => node.type === 'button'
+  && node.props?.['aria-label']?.endsWith('장비 목표 다시 선택'));
+assert.equal(reselectButtons.length, 1, 'Account characters receive warnings without a local edit action.');
+reselectButtons[0].props.onClick();
+pregameTree = pregameHarness.flush();
+const rosterModal = walk(pregameTree, (node) => typeof node.type === 'function'
+  && node.type.name === 'RosterSetupModal')[0];
+assert.equal(rosterModal?.props.initialEditingId, missingGuest._id, 'Reselection opens the existing modal on the affected participant.');
+const pregameWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+Object.defineProperty(globalThis, 'window', { configurable: true,
+  value: { addEventListener() {}, removeEventListener() {} } });
+try {
+  const modalHarness = createHandlerHarness(rosterModal.type, rosterModal.props);
+  const editorTree = modalHarness.render();
+  assert.equal(editorTree.props.actor, missingGuest, 'The actual roster modal directly renders the affected actor editor.');
+  assert.equal(editorTree.props.items, items, 'Reselection uses the same current item catalogue.');
+  assert.equal(editorTree.props.onSave, pregameProps.saveLocalCharacter, 'Reselection reuses the existing local save path.');
+  modalHarness.unmount();
+} finally {
+  if (pregameWindowDescriptor) Object.defineProperty(globalThis, 'window', pregameWindowDescriptor);
+  else delete globalThis.window;
+}
+assert.deepEqual(pregameActors, pregameBefore, 'Rendering and opening reselection preserve all actors and their raw target keys.');
+assert.equal(pregameWrites, 0, 'Warning display and navigation do not save or apply any roster changes.');
+const renderPregame = (overrides) => createHandlerHarness(SimulationPregameRosterSetup,
+  { ...pregameProps, ...overrides }).render();
+assert.equal(warningNodes(renderPregame({ survivors: [validGuest] })).length, 0, 'Valid configured goals show no warning.');
+assert.equal(warningNodes(renderPregame({ publicItems: [] })).length, 0, 'A catalogue still loading is not classified as missing goals.');
+for (const survivors of [undefined, null, {}]) {
+  const missingRosterTree = renderPregame({ survivors });
+  assert.equal(warningNodes(missingRosterTree).length, 0, 'An unavailable participant list does not produce goal warnings.');
+  assert.ok(textOf(missingRosterTree).includes('0/24명'), 'An unavailable participant list safely displays an empty roster.');
+}
+const disabledPregame = renderPregame({ disabled: true });
+assert.equal(warningNodes(disabledPregame).length, 1, 'Warnings remain visible when editing is unavailable.');
+assert.equal(walk(disabledPregame, (node) => node.type === 'button'
+  && node.props?.['aria-label']?.endsWith('장비 목표 다시 선택')).length, 0,
+  'Unavailable editing offers no active reselect action.');
+assert.equal(renderPregame({ day: 1, matchSec: 30 }), null, 'Pregame warnings and editing remain confined to before the match.');
+pregameHarness.unmount();
+
 const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
 const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
 const localRows = new Map();
@@ -232,5 +308,7 @@ try {
   else delete globalThis.window;
 }
 
-console.log(JSON.stringify({ pass: true, checks: 28, scope: 'synthetic React-element tree, component handlers, and actual preset-hook path; not DOM/browser proof' }));
+console.log(JSON.stringify({ pass: true, checks: 28, pregameWarningCases: 11,
+  scope: 'synthetic React-element tree, pregame warning/modal handlers, and actual preset-hook path; not DOM/browser proof' }));
 console.log('GUEST_EQUIPMENT_GOALS_UI 28/28');
+console.log('PREGAME_EQUIPMENT_WARNINGS 11/11');

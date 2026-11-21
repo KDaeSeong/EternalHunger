@@ -7,6 +7,7 @@ import { RANDOM_PARTICIPANT_PRESET_ID } from '../_lib/participantPresetRuntime';
 import { validateCustomRosterDraft } from '../_lib/customRosterRuntime';
 import SimulationLocalCharacterEditor from './SimulationLocalCharacterEditor';
 import { getCharacterSkillDef } from '../_lib/characterSkillDefinitionRuntime';
+import { getGuestEquipmentGoalErrors } from '../_lib/guestEquipmentGoalRuntime';
 
 function actorId(actor) {
   return String(actor?._id || actor?.id || actor?.name || '').trim();
@@ -57,6 +58,7 @@ function RosterSetupModal({
   onClose,
   publicItems,
   survivors,
+  initialEditingId = '',
 }) {
   const squadMode = matchMode === 'squad';
   const [initialRoster] = useState(() => initialRosterState(survivors, squadMode));
@@ -65,7 +67,7 @@ function RosterSetupModal({
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
   const [teamAssignments, setTeamAssignments] = useState(initialRoster.teamAssignments);
   const [validationMessage, setValidationMessage] = useState('');
-  const [editingId, setEditingId] = useState('');
+  const [editingId, setEditingId] = useState(initialEditingId);
 
   const candidateById = useMemo(() => new Map(
     (Array.isArray(candidateSurvivors) ? candidateSurvivors : [])
@@ -355,10 +357,16 @@ export default function SimulationPregameRosterSetup({
   survivors,
 }) {
   const [open, setOpen] = useState(false);
+  const [initialEditingId, setInitialEditingId] = useState('');
   if (Number(day || 0) !== 0 || Number(matchSec || 0) !== 0) return null;
 
   const squadMode = matchMode === 'squad';
   const mode = participantSelectionMode || 'random';
+  const currentSurvivors = Array.isArray(survivors) ? survivors : [];
+  const goalWarnings = Array.isArray(publicItems) && publicItems.length > 0
+    ? currentSurvivors.map((actor) => ({ actor, errors: getGuestEquipmentGoalErrors(actor, publicItems) }))
+      .filter(({ errors }) => errors.length > 0)
+    : [];
 
   return (
     <>
@@ -366,7 +374,7 @@ export default function SimulationPregameRosterSetup({
         <div className="simulation-pregame-roster__status">
           <GameActionIcon action="assign" label="참가자 편성" />
           <span><small>참가자 편성</small><strong>{modeLabel(mode)}</strong></span>
-          <span><small>인원</small><strong>{survivors.length}/24명</strong></span>
+          <span><small>인원</small><strong>{currentSurvivors.length}/24명</strong></span>
           <span><small>경기 구성</small><strong>{squadMode ? '8팀 · 3명' : '24인 솔로'}</strong></span>
         </div>
         <div className="simulation-pregame-roster__actions">
@@ -385,13 +393,30 @@ export default function SimulationPregameRosterSetup({
             className={mode !== 'random' ? 'is-active' : ''}
             data-game-sfx="open"
             disabled={disabled}
-            onClick={() => setOpen(true)}
+            onClick={() => { setInitialEditingId(''); setOpen(true); }}
           >
             <GameActionIcon action="draft" label="사용자 지정 24명" />
             24인 직접 편성
           </button>
         </div>
       </section>
+
+      {goalWarnings.length > 0 ? <div className="simulation-pregame-roster__goal-warnings" role="status">
+        <p>현재 사용할 수 없는 지정 장비 목표가 있습니다. 기존 목표는 유지되며, 편집 가능한 캐릭터는 목표를 다시 선택할 수 있습니다.</p>
+        <ul>
+          {goalWarnings.map(({ actor, errors }) => {
+            const id = actorId(actor);
+            const canEdit = !disabled && actor.guestDefault === true && Boolean(saveLocalCharacter)
+              && candidateSurvivors?.some((candidate) => actorId(candidate) === id && candidate.guestDefault === true);
+            return <li key={id}>
+              <strong>{actorName(actor)}</strong>
+              <ul>{errors.map((error, index) => <li key={index}>{error}</li>)}</ul>
+              {canEdit ? <button type="button" aria-label={`${actorName(actor)} 장비 목표 다시 선택`}
+                onClick={() => { setInitialEditingId(id); setOpen(true); }}>장비 목표 다시 선택</button> : null}
+            </li>;
+          })}
+        </ul>
+      </div> : null}
 
       {open ? (
         <RosterSetupModal
@@ -401,7 +426,8 @@ export default function SimulationPregameRosterSetup({
           matchMode={matchMode}
           onClose={() => setOpen(false)}
           publicItems={publicItems}
-          survivors={survivors}
+          survivors={currentSurvivors}
+          initialEditingId={initialEditingId}
         />
       ) : null}
     </>
