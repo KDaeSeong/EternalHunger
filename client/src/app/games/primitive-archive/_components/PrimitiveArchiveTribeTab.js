@@ -135,7 +135,7 @@ export default function PrimitiveArchiveTribeTab({
         </div>
       </section>
 
-      <section className="games-panel primitive-job-panel">
+      <section className="games-panel primitive-job-panel" id="primitive-archive-workforce" tabIndex={-1} aria-label="직업 배치">
         <PrimitiveArchivePanelTitle action="primitive-job" title="직업 배치" meta={`미배치 ${tribe.unassigned}명 · AP 소모 없음`} />
         <p>{jobEditBlockedReason || (annualMode ? '1년 운영 때 자동·미배치 일손을 생산과 실행 가능한 사업에 맞춰 배분합니다. 직접 고정한 일손은 유지하며 활동 대원·준비 후계·생존 은퇴자도 공동 배식에 포함합니다.' : '하루 자동 운영 또는 정착 이후 다음 정산 때 자동 배치 일손과 미배치 인원을 식량·실행 가능한 사업에 맞춰 다시 배분합니다. 직접 조정한 직업의 일손은 유지하며, 이전 저장 기록의 배치도 보존합니다.')}</p>
         {workPolicy ? <div className="primitive-work-policy" role="group" aria-label="자동 일손 운영 방침">

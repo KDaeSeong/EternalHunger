@@ -52,31 +52,45 @@ export function primitiveArchiveFocusPlan({
   const nextRationShortage = supplies?.forecast?.days?.[0]?.shortage;
   const hasRationForecast = Number.isFinite(nextRationShortage);
   const rationShortage = Math.max(0, hasRationForecast ? nextRationShortage : Number(supplies?.rationShortage || 0));
+  const personalHelp = (member, actionId, actionLabel) => ({
+    targetTab: 'actions', actionLabel,
+    destination: { elementId: `primitive-archive-action-${actionId}`, actorId: member.id },
+  });
+  const coldHelp = (member) => {
+    const id = Number(state?.camp?.fireLevel || 0) <= 0 ? 'fire'
+      : Number(state?.camp?.fuel || 0) <= 0 ? 'fuel' : 'shelter';
+    const action = campActions.find(row => row.id === id && !row.maxed);
+    if (!action) return { targetTab: 'camp', actionLabel: '캠프 열기' };
+    return { targetTab: 'camp', actionLabel: `${action.label} 확인`,
+      destination: { elementId: `primitive-archive-camp-action-${id}`, actorId: member.id } };
+  };
   if (fatal) {
     const hungerRisk = Number(fatal.hungerDamage) > 0;
+    const coldRisk = Number(fatal.coldDamage) + Number(fatal.hypothermiaDamage) > 0;
     objective = {
       title: `${fatal.name}의 밤 생존부터 확보`,
-      detail: `지금 밤을 보내면 HP ${fatal.currentHp} → ${fatal.hp} 예상입니다. ${hungerRisk ? '식량과 식사 가능 여부' : '캠프 보온과 연료'}를 먼저 확인하세요.`,
-      targetTab: hungerRisk ? 'actions' : 'camp', actionLabel: hungerRisk ? '기본 행동 보기' : '캠프 열기',
+      detail: `지금 밤을 보내면 HP ${fatal.currentHp} → ${fatal.hp} 예상입니다. ${hungerRisk ? '식량과 식사 가능 여부' : coldRisk ? '캠프 보온과 연료' : '개인 휴식과 회복 가능 여부'}를 먼저 확인하세요.`,
+      ...(hungerRisk ? personalHelp(fatal, 'consume', '개인 식사 확인')
+        : coldRisk ? coldHelp(fatal) : personalHelp(fatal, 'rest', '개인 휴식 확인')),
     };
   } else if (hungry) {
     objective = {
       title: `${hungry.name}의 허기 확인`,
       detail: `${supplies?.careActive ? `현재 허기 ${hungry.hunger}, 저녁 관리 뒤 예상 허기 ${hungerAtNight(hungry)}입니다.` : `허기 ${hungry.hunger}입니다.`} 식량이 있으면 식사, 부족하면 채집·사냥의 효과와 위험을 비교하세요.`,
-      targetTab: 'actions', actionLabel: '기본 행동 보기',
+      ...personalHelp(hungry, 'consume', '개인 식사 확인'),
     };
   } else if (weak) {
     objective = {
       title: `${weak.name}의 상태부터 확인`,
-      detail: `HP ${weak.hp}입니다. 파티에서 원인을 확인하고 위험한 행동 전 회복 수단을 검토하세요.`,
-      targetTab: 'party', actionLabel: '파티 상태 열기',
+      detail: `HP ${weak.hp}입니다. 위험한 행동 전에 개인 휴식의 회복 효과를 확인하세요.`,
+      ...personalHelp(weak, 'rest', '개인 휴식 확인'),
     };
   } else if (risky.length) {
-    const cold = risky.some((row) => Number(row.coldDamage) + Number(row.hypothermiaDamage) > 0);
+    const cold = risky.find((row) => Number(row.coldDamage) + Number(row.hypothermiaDamage) > 0);
     objective = {
       title: cold ? '이번 밤의 추위에 대비' : '이번 밤의 허기에 대비',
       detail: cold ? '아래 대원별 예상 피해를 보고 모닥불·연료·대피소의 부족한 준비를 확인하세요.' : '아래 예상 피해를 보고 식량과 식사 대상을 확인하세요.',
-      targetTab: cold ? 'camp' : 'actions', actionLabel: cold ? '캠프 열기' : '기본 행동 보기',
+      ...(cold ? coldHelp(cold) : personalHelp(risky[0], 'consume', '개인 식사 확인')),
     };
   } else if (living.length < 3 && (state?.party || []).some((member) => Number(member.hp || 0) <= 0)) {
     const deathNotice = '사망한 대원은 이 런에서 되살아나지 않습니다.';

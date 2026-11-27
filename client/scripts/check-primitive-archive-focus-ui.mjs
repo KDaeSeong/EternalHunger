@@ -400,12 +400,39 @@ check('engine night forecast preserves individual damage causes and renders the 
   assertPlanShape(plan, { blocked: false });
   assert.ok(plan.night.rows.some((row) => row.id === riskyRow.id && row.name === riskyMember.name));
   assert.match(plan.objective.title, /야간위험 대원/);
-  const rendered = renderFocus(plan);
+  const calls = [];
+  const rendered = renderFocus(plan, (...args) => calls.push(args));
   assert.match(rendered.html, /야간위험 대원/);
   assert.match(rendered.html, new RegExp(`HP ${riskyRow.currentHp} → ${riskyRow.hp}`));
   for (const [cause, damage] of [['추위', riskyRow.coldDamage], ['허기', riskyRow.hungerDamage], ['저체온', riskyRow.hypothermiaDamage]]) {
     if (damage > 0) assert.match(rendered.html, new RegExp(`${cause} ${damage}`));
   }
+  const meal = rendered.buttons.find(button => button.children === '개인 식사 확인');
+  assert.ok(meal);
+  meal.onClick();
+  assert.deepEqual(calls, [['actions', { elementId: 'primitive-archive-action-consume', actorId: riskyMember.id }]]);
+});
+
+check('cold and injured survivors open the matching camp or rest control without an action', () => {
+  const state = freshState('focus-survival-destinations');
+  const affected = state.party[1];
+  const coldRows = [{ id: affected.id, name: affected.name, currentHp: 8, hp: 0, damage: 8, coldDamage: 8, hungerDamage: 0, hypothermiaDamage: 0 }];
+  for (const [fireLevel, id, buttonLabel] of [[1, 'fuel', '연료 넣기 확인'], [0, 'fire', '모닥불 강화 확인']]) {
+    const cold = { ...state, camp: { ...state.camp, fireLevel, fuel: 0 } };
+    const plan = runPlan({ ...planInputs(cold), nightRows: coldRows });
+    const calls = [];
+    const button = renderFocus(plan, (...args) => calls.push(args)).buttons.find(entry => entry.children === buttonLabel);
+    assert.ok(button);
+    button.onClick();
+    assert.deepEqual(calls, [['camp', { elementId: `primitive-archive-camp-action-${id}`, actorId: affected.id }]]);
+  }
+  const injured = { ...state, party: state.party.map(member => member.id === affected.id ? { ...member, hp: 30 } : member) };
+  const plan = runPlan({ ...planInputs(injured), nightRows: [] });
+  const calls = [];
+  const rest = renderFocus(plan, (...args) => calls.push(args)).buttons.find(entry => entry.children === '개인 휴식 확인');
+  assert.ok(rest);
+  rest.onClick();
+  assert.deepEqual(calls, [['actions', { elementId: 'primitive-archive-action-rest', actorId: affected.id }]]);
 });
 
 check('loading and busy plans block navigation, while ended runs remain navigable to run management', () => {
@@ -699,10 +726,17 @@ check('fresh foodless forecast locks personal meal and rendering does not spend 
 
   const props = { ...tabProps(state, 'actions'), actionForecasts: forecastRows };
   globalThis.__primitiveArchiveFocusButtons = [];
-  renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, props));
+  const html = renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, props));
   const mealButton = globalThis.__primitiveArchiveFocusButtons.find((button) => button.action === 'consume' && button.children === '개인 식사');
   assert.ok(mealButton, 'The real action workspace must render the personal meal button.');
   assert.equal(mealButton.disabled, true, 'The rendered personal meal button must match the locked engine forecast.');
+  assert.match(html, /id="primitive-archive-action-consume" tabindex="-1"/);
+  assert.match(html, /id="primitive-archive-action-rest" tabindex="-1"/);
+  assert.match(html, /식량 부족 · 보유 음식 없음/);
+  const exhaustedHtml = renderToStaticMarkup(React.createElement(PrimitiveArchiveActionWorkspace, {
+    ...props, canAct: false, state: { ...state, ap: 0 },
+  }));
+  assert.match(exhaustedHtml, /행동력 부족 · 남은 AP 0 \/ 필요 AP 1/);
   assert.deepEqual(state, before, 'Rendering a locked meal must not mutate state or spend AP.');
 });
 
@@ -1148,7 +1182,7 @@ assert.equal(expressionOf(layoutChildren[focusIndex + 1], 'inventory').getText(l
 assert.equal(expressionOf(layoutChildren[focusIndex + 1], 'inventoryRows').getText(layoutSource), 'inventoryRows');
 assert.match(playContent, /<details className="primitive-guide-details">\s*<summary>상세 생존 안내<\/summary>\s*<GameAdvisorPanel/s, 'Existing detailed survival advice must remain available below the main interface.');
 
-check('the actual navigation adapter clears requirement help before forwarding each requested tab to the original state setter', () => {
+check('the actual navigation adapter focuses exact guides and selects a live survivor without mutating gameplay state', () => {
   const source = ts.createSourceFile('PrimitiveArchivePlayContent.js', playContent, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
   let initializer;
   const visit = node => {
@@ -1156,11 +1190,34 @@ check('the actual navigation adapter clears requirement help before forwarding e
     ts.forEachChild(node, visit);
   };
   visit(source); assert.ok(initializer, 'The actual selectArchiveTab adapter must exist.');
+  const state = freshState('focus-guided-navigation');
+  state.party[0].hp = 0;
+  const before = structuredClone(state);
+  const stateRef = { current: state };
   const calls = [];
-  const navigate = new Function('setRequirementHelpRequest', 'setActiveTabId', `return (${initializer.getText(source)});`)(
-    value => calls.push(['help', value]), value => calls.push(['tab', value]));
+  let help = null;
+  const navigate = new Function('stateRef', 'state', 'setRequirementHelpRequest', 'setActiveTabId', 'setGuidanceFocus', 'setActorId',
+    `return (${initializer.getText(source)});`)(
+    stateRef, state, value => {
+      help = typeof value === 'function' ? value(help) : value;
+      calls.push(['help', help]);
+    }, value => calls.push(['tab', value]),
+    value => calls.push(['focus', value]), value => calls.push(['actor', value]));
   navigate('tribe'); navigate('actions');
-  assert.deepEqual(calls, [['help', null], ['tab', 'tribe'], ['help', null], ['tab', 'actions']]);
+  assert.deepEqual(calls, [['help', null], ['tab', 'tribe'], ['focus', null], ['help', null], ['tab', 'actions'], ['focus', null]]);
+  calls.length = 0;
+  navigate('growth', { technologyId: 'FOOD_STORAGE' });
+  navigate('growth', { technologyId: 'FOOD_STORAGE' });
+  navigate('actions', { actorId: state.party[1].id, elementId: 'primitive-archive-action-consume' });
+  navigate('actions', { actorId: state.party[0].id, elementId: 'primitive-archive-action-rest' });
+  stateRef.current = { ...state };
+  navigate('tribe', { elementId: 'primitive-archive-workforce' });
+  assert.deepEqual(calls, [
+    ['help', { kind: 'research', runId: state.runId, technologyId: 'FOOD_STORAGE', revision: 1 }], ['tab', 'growth'], ['focus', null],
+    ['help', { kind: 'research', runId: state.runId, technologyId: 'FOOD_STORAGE', revision: 2 }], ['tab', 'growth'], ['focus', null],
+    ['actor', state.party[1].id], ['help', null], ['tab', 'actions'], ['focus', { elementId: 'primitive-archive-action-consume' }],
+  ]);
+  assert.deepEqual(state, before);
 });
 
 console.log(JSON.stringify({ pass: failures.length === 0, checks: checks.length, failures }, null, 2));

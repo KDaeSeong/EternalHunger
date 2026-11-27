@@ -205,6 +205,7 @@ export default function PrimitiveArchivePlayContent() {
   const shopStartRef = useRef(false);
   const [activeTabId, setActiveTabId] = useState('actions');
   const [requirementHelpRequest, setRequirementHelpRequest] = useState(null);
+  const [guidanceFocus, setGuidanceFocus] = useState(null);
   const [actorId, setActorIdValue] = useState('shiroko');
   const actorSelectionRef = useRef('shiroko');
   const setActorId = useCallback((value) => {
@@ -447,9 +448,18 @@ export default function PrimitiveArchivePlayContent() {
       setActiveTabId('map');
     }
   };
-  const selectArchiveTab = (tabId) => {
-    setRequirementHelpRequest(null);
+  const selectArchiveTab = (tabId, destination) => {
+    if (destination && (stateRef.current !== state || state.ended)) return;
+    if (destination?.actorId) {
+      if (!state.party.some(member => member.id === destination.actorId && member.hp > 0)) return;
+      setActorId(destination.actorId);
+    }
+    setRequirementHelpRequest(destination?.technologyId
+      ? previous => ({ kind: 'research', runId: state.runId, technologyId: destination.technologyId,
+        revision: (previous?.revision || 0) + 1 })
+      : null);
     setActiveTabId(tabId);
+    setGuidanceFocus(destination?.elementId ? { elementId: destination.elementId } : null);
   };
   const openRequirementHelp = (request) => {
     // Help navigates only. Do not reuse the paid/recorded region or research actions.
@@ -597,6 +607,15 @@ export default function PrimitiveArchivePlayContent() {
   useEffect(() => () => {
     if (eraArrivalTimerRef.current) window.clearTimeout(eraArrivalTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!guidanceFocus) return;
+    const element = document.getElementById(guidanceFocus.elementId);
+    const featurePanel = document.getElementById('primitive-archive-feature-panel');
+    if (!element || !featurePanel?.contains(element)) return;
+    element.focus({ preventScroll: true });
+    element.scrollIntoView({ block: 'nearest' });
+  }, [guidanceFocus]);
 
   // The save menu and the other-screens menu are native <details>; close them on an
   // outside press or Escape so an open menu never sits over the play area.

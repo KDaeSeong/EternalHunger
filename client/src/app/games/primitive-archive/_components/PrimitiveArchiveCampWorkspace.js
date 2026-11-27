@@ -60,10 +60,10 @@ function labelForAction(action) {
   return action.name || action.label || '캠프';
 }
 
-function CampActionControl({ action, canAct, label, onClick, regions, onOpenRequirementHelp, annualMode }) {
+function CampActionControl({ action, canAct, blockedActionReason, label, onClick, regions, onOpenRequirementHelp, annualMode }) {
   const enabled = canAct && action.enabled;
   return (
-    <div className="primitive-camp-action-entry">
+    <div id={`primitive-archive-camp-action-${action.id}`} tabIndex={-1} aria-label={label} className="primitive-camp-action-entry">
       <ActionButton
         action={action.action || 'camp'}
         cue="off"
@@ -75,6 +75,8 @@ function CampActionControl({ action, canAct, label, onClick, regions, onOpenRequ
         <span className="primitive-camp-action-label">{label}</span>
         <MaterialStatus rows={action.materialRows} />
       </ActionButton>
+      {!action.enabled && action.reason && action.reason !== '제작 가능' ? <small className="primitive-camp-action__reason">{action.reason}</small> : null}
+      {blockedActionReason ? <small className="primitive-camp-action__reason">{blockedActionReason}</small> : null}
       <CampRequirementGuide action={action} regions={regions} onOpenRequirementHelp={onOpenRequirementHelp} annualMode={annualMode} />
     </div>
   );
@@ -101,6 +103,9 @@ export default function PrimitiveArchiveCampWorkspace(props) {
   const guideRegions = exploration?.rows || regions || [];
   const annualMode = Boolean(annual?.annualMode);
   const actorCanAct = canAct && (annualMode || Number(actor?.hp || 0) > 0);
+  const blockedActionReason = actorCanAct ? '' : !annualMode && Number(actor?.hp || 0) <= 0
+    ? '생존 대원을 선택해야 합니다.'
+    : state.ap < 1 ? `행동력 부족 · 남은 AP ${state.ap} / 필요 AP 1` : '현재 진행 상태에서 시설 작업을 할 수 없습니다.';
   const visibleCampActions = annualMode ? (campActions || []).filter(row => !['fire', 'fuel', 'cook'].includes(row.id)) : campActions || [];
   const fireStatus = Number(state.camp.fireLevel || 0) <= 0
     ? '미설치' : campFireActive(state) ? '불 켜짐' : '불 꺼짐';
@@ -123,6 +128,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
             <CampActionControl
               action={action}
               canAct={actorCanAct}
+              blockedActionReason={blockedActionReason}
               key={action.id}
               label={action.label}
               onClick={() => runCamp(action.id)}
@@ -135,6 +141,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
             <CampActionControl
               action={{ ...facility, action: 'camp' }}
               canAct={actorCanAct}
+              blockedActionReason={blockedActionReason}
               key={facility.id}
               label={facility.buttonLabel}
               onClick={() => runCamp(facility.action)}

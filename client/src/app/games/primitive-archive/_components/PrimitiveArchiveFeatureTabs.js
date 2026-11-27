@@ -81,7 +81,8 @@ export default function PrimitiveArchiveFeatureTabs(props) {
       id: 'growth',
       label: '발전',
       badge: research.unlocked ? `${research.completed + civics.completed}/${research.total + civics.total}` : '잠김',
-      children: <PrimitiveArchiveGrowthTab key={state.runId} {...props} />,
+      children: <PrimitiveArchiveGrowthTab
+        key={`${state.runId}:${props.researchHelpRequest?.technologyId || ''}:${props.researchHelpRequest?.revision || 0}`} {...props} />,
     },
     {
       id: 'tribe',
@@ -138,7 +139,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
         </div>
         <details className="primitive-secondary-navigation">
           <summary>
-            파티·지도 등 <span>현재: {activeTab.label}</span>
+            {annual?.annualMode ? '시설·지도 등' : '파티·지도 등'} <span>현재: {activeTab.label}</span>
           </summary>
           <div
             className="primitive-secondary-navigation__items"

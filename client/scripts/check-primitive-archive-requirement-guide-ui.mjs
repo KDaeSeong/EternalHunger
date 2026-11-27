@@ -171,7 +171,8 @@ check('actual page help handler opens only currently offered research or resourc
 
 check('normal tab navigation and restored-run handler clear help and restored requests are filtered by the actual JSX', () => {
   let request = { kind: 'research' }, tab;
-  pageHandler('selectArchiveTab', { setRequirementHelpRequest: value => { request = value; }, setActiveTabId: value => { tab = value; } })('actions');
+  pageHandler('selectArchiveTab', { setRequirementHelpRequest: value => { request = value; },
+    setActiveTabId: value => { tab = value; }, setGuidanceFocus: value => assert.equal(value, null) })('actions');
   assert.equal(request, null); assert.equal(tab, 'actions');
   const state = fresh(), setters = {};
   for (const name of ['setInitialShopRunId', 'setNewRunDifficulty', 'setActorId', 'setZoneId', 'setRecipeId', 'setSelectedRecruitId', 'setActionResult', 'setActionFeedback', 'setActiveTabId']) setters[name] = () => {};
@@ -227,7 +228,13 @@ check('normal tab navigation and restored-run handler clear help and restored re
     }
     ts.forEachChild(node, inspectFeature);
   };
-  inspectFeature(feature); assert.ok(mapRequestExpression); assert.equal(growthKey, 'state.runId');
+  inspectFeature(feature); assert.ok(mapRequestExpression); assert.ok(growthKey);
+  const growthViewKey = new Function('state', 'props', `return (${growthKey});`);
+  assert.notEqual(growthViewKey(state, {}), growthViewKey({ ...state, runId: 'new-run' }, {}));
+  const guidance = { researchHelpRequest: { technologyId: 'FOOD_STORAGE', revision: 1 } };
+  assert.notEqual(growthViewKey(state, {}), growthViewKey(state, guidance));
+  assert.notEqual(growthViewKey(state, guidance),
+    growthViewKey(state, { researchHelpRequest: { ...guidance.researchHelpRequest, revision: 2 } }));
   const filterMap = new Function('mapHelpRequest', 'state', `return (${mapRequestExpression});`);
   assert.equal(filterMap({ runId: 'old-run' }, state), null);
   const validMap = { runId: state.runId }; assert.equal(filterMap(validMap, state), validMap);

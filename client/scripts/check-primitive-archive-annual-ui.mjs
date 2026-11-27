@@ -29,6 +29,7 @@ const feedback = await import(new URL('_lib/primitiveArchiveFeedback.js', base))
 const soundtrack = await import(new URL('_lib/primitiveArchiveSoundtrack.js', base));
 const { founderHistoryRows } = await import(new URL('_lib/primitiveArchiveFounders.js', base));
 const { default: Focus } = await import(new URL('_components/PrimitiveArchiveFocusPanel.js', base));
+const { default: AnnualOperations, PrimitiveArchiveAnnualTransition: AnnualTransition } = await import(new URL('_components/PrimitiveArchiveAnnualOperations.js', base));
 const { default: Tabs } = await import(new URL('_components/PrimitiveArchiveFeatureTabs.js', base));
 const { default: Camp } = await import(new URL('_components/PrimitiveArchiveCampWorkspace.js', base));
 const { default: Founders } = await import(new URL('_components/PrimitiveArchiveFoundersTab.js', base));
@@ -195,7 +196,7 @@ try {
     assert.doesNotMatch(html, /이번 밤|밤 피해|개인 허기 위험/);
     assert.equal((html.match(/aria-label="정착 1년 공동체 1년 운영"/g) || []).length, 1);
     const completed = engine.runSettlementYearAction(state, stamp(state));
-    assert.match(render(Focus, { plan: focusPlan, annual: annualSummary(completed) }), /최근 실제 정산 · 정착 1년/);
+    assert.match(render(Focus, { plan: focusPlan, annual: annualSummary(completed) }), /첫해 실제 정산 · 정착 1년/);
     const legacy = annualState('legacy', true); const legacyHtml = render(Focus, { plan: focusPlan, annual: annualSummary(legacy) });
     assert.match(legacyHtml, /기존 생애 정책/); assert.doesNotMatch(legacyHtml, /관찰 생애 60년/);
   });
@@ -206,23 +207,91 @@ try {
     const notReady = engine.createNewState({ rng: () => 0.5 });
     assert.doesNotMatch(render(Focus, { plan: focusPlan, annual: annualSummary(notReady) }), /공동체 연간 운영으로 전환/);
   });
+  await check('locked transition exposes four real prerequisites and pure exact navigation targets', () => {
+    const state = engine.createNewState({ runId: 'locked-checklist', rng: () => 0.5 });
+    const before = structuredClone(state), calls = [], annual = annualSummary(state);
+    const expected = [
+      ['SETTLEMENT', 'growth', { technologyId: 'SETTLEMENT' }],
+      ['FOOD_STORAGE', 'growth', { technologyId: 'FOOD_STORAGE' }],
+      ['shelter', 'camp', { elementId: 'primitive-archive-camp-action-shelter' }],
+      ['workforce', 'tribe', { elementId: 'primitive-archive-workforce' }],
+    ];
+    assert.deepEqual(annual.startRequirements.map(row => row.id), expected.map(row => row[0]));
+    for (const [id, tab, target] of expected) {
+      const ready = fresh('missing-' + id);
+      if (id === 'SETTLEMENT' || id === 'FOOD_STORAGE') delete ready.research.completed[id];
+      if (id === 'shelter') ready.camp.shelterLevel = 0;
+      if (id === 'workforce') ready.tribe.population = 0;
+      const unchanged = structuredClone(ready);
+      const summary = annualSummary(ready);
+      assert.equal(summary.canStart, false, id);
+      assert.deepEqual(summary.startRequirements.filter(row => !row.done).map(row => row.id), [id]);
+      const props = { annual: summary, control: React.createElement('button', null, 'transition-sentinel'), onNavigate: (...args) => calls.push(args) };
+      const html = render(AnnualTransition, props);
+      assert.match(html, /준비 완료 3\/4/); assert.doesNotMatch(html, /transition-sentinel/);
+      const button = nodes(AnnualTransition(props), node => node.type === 'button'
+        && node.props['aria-label'] === `${summary.startRequirements.find(row => row.id === id).label} 확인`)[0];
+      assert.ok(button, id); assert.equal(button.props.disabled, false); button.props.onClick();
+      assert.deepEqual(calls.at(-1), [tab, target]);
+      assert.deepEqual(ready, unchanged, 'prerequisite navigation cannot pay costs or advance the run');
+    }
+    const props = { annual, onNavigate: (...args) => calls.push(args) };
+    assert.match(render(AnnualTransition, props), /공동체 연간 운영을 위한 준비/);
+    for (const guard of [{ blocked: true }, { ended: true }, { annual: annualSummary(annualState('already-annual')) }]) {
+      assert.equal(render(AnnualTransition, { ...props, ...guard }), '');
+    }
+    assert.deepEqual(state, before);
+  });
+  await check('first-year guide navigates without mutation and first actual receipt stays visible before later collapsed receipts', () => {
+    const state = annualState('first-year-guide'), before = structuredClone(state), calls = [];
+    const props = { annual: annualSummary(state), onNavigate: (...args) => calls.push(args) };
+    const tree = AnnualOperations(props), html = render(AnnualOperations, props);
+    assert.match(html, /첫해 운영 순서/); assert.match(html, /연간 실제 정산 전/);
+    const button = nodes(tree, node => node.type === 'button' && text(node) === '일손 배치 확인')[0];
+    assert.ok(button); button.props.onClick();
+    assert.deepEqual(calls, [['tribe', { elementId: 'primitive-archive-workforce' }]]); assert.deepEqual(state, before);
+    const first = engine.runSettlementYearAction(state, stamp(state));
+    const firstTree = AnnualOperations({ annual: annualSummary(first) });
+    const receipt = nodes(firstTree, node => node.type === 'section' && node.props['aria-label'] === '첫해 실제 정산')[0];
+    assert.ok(receipt); assert.match(text(receipt), /실제 생산/); assert.match(text(receipt), /실제 배식/);
+    const firstHtml = render(AnnualOperations, { annual: annualSummary(first) });
+    assert.doesNotMatch(firstHtml, /첫해 운영 순서/);
+    assert.ok(firstHtml.indexOf('첫해 실제 정산') < firstHtml.indexOf('올해 생산·배식 전망'));
+    const second = engine.runSettlementYearAction(first, stamp(first));
+    assert.match(render(AnnualOperations, { annual: annualSummary(second) }), /최근 실제 정산 · 정착 2년/);
+    assert.equal(nodes(AnnualOperations({ annual: annualSummary(second) }), node => node.type === 'section' && node.props['aria-label'] === '첫해 실제 정산').length, 0);
+  });
   await check('ended annual JSX retains completed receipts without offering a future year or projection', () => {
     let state = annualState('ended-ui'); state = engine.runSettlementYearAction(state, stamp(state)); state = { ...state, ended: true };
     const view = harness(state); assert.equal(view.annualYearControl, null);
     const html = render(Focus, { plan: focusPlan, annual: annualSummary(state), annualYearControl: view.annualYearControl });
-    assert.match(html, /정착 1년 정산 완료 · 운영 종료/); assert.match(html, /최근 실제 정산 · 정착 1년/);
+    assert.match(html, /정착 1년 정산 완료 · 운영 종료/); assert.match(html, /첫해 실제 정산 · 정착 1년/);
     assert.doesNotMatch(html, /정착 2년|올해 생산·배식 전망|공동체 1년 운영/);
   });
   await check('actual tabs expose tribe growth founders and facilities while hiding personal action weather screens', () => {
     const state = annualState('tabs'), calls = [];
     const tree = Tabs({ annual: annualSummary(state), state, activeTabId: 'actions', archiveReport: { grade: '기록' }, research: { unlocked: false }, civics: {}, tribe: engine.tribeSummary(state), inventoryRows: [], partyCap: 3, currentDifficulty: {}, setActiveTabId: id => calls.push(id) });
     const buttons = nodes(tree, node => node.type === 'button');
+    const menu = nodes(tree, node => node.type === 'summary')[0];
+    assert.match(text(menu), /시설·지도 등/);
+    assert.doesNotMatch(text(menu), /파티/);
     const ids = buttons.map(node => node.props.id);
     assert.ok(ids.includes('primitive-archive-tab-camp')); assert.ok(ids.includes('primitive-archive-tab-tribe'));
     for (const id of ['actions', 'party', 'inventory']) assert.ok(!ids.includes('primitive-archive-tab-' + id));
     assert.deepEqual(ids.slice(0, 3), ['primitive-archive-tab-tribe', 'primitive-archive-tab-growth', 'primitive-archive-tab-founders']);
     const facility = buttons.find(node => node.props.id === 'primitive-archive-tab-camp'); assert.match(text(facility), /시설 투자/);
     facility.props.onClick({ currentTarget: { closest: () => null } }); assert.deepEqual(calls, ['camp']);
+  });
+  await check('daily navigation keeps party and map wording and secondary selection closes and restores menu focus', () => {
+    const state = fresh('daily-tabs'), calls = [];
+    const tree = Tabs({ annual: annualSummary(state), state, activeTabId: 'actions', archiveReport: { grade: '기록' }, research: { unlocked: false }, civics: {}, tribe: engine.tribeSummary(state), inventoryRows: [], partyCap: 3, currentDifficulty: {}, setActiveTabId: id => calls.push(id) });
+    assert.match(text(nodes(tree, node => node.type === 'summary')[0]), /파티·지도 등/);
+    const map = nodes(tree, node => node.type === 'button' && node.props.id === 'primitive-archive-tab-map')[0];
+    const menu = { open: true, querySelector: selector => { assert.equal(selector, 'summary'); return { focus: () => calls.push('focus') }; } };
+    const before = structuredClone(state);
+    map.props.onClick({ currentTarget: { closest: selector => { assert.equal(selector, 'details'); return menu; } } });
+    assert.deepEqual(calls, ['map', 'focus']); assert.equal(menu.open, false);
+    assert.deepEqual(state, before, 'navigation does not change game state');
   });
   await check('actual facilities preserve workbench access without personal fire cooking or overnight reports', () => {
     const state = annualState('facilities'), annual = annualSummary(state), calls = [];

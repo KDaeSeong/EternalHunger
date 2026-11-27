@@ -64,6 +64,9 @@ export default function PrimitiveArchiveActionWorkspace(props) {
   } = props;
   const condition = actingCondition(actor);
   const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
+  const blockedActionReason = actorCanAct ? '' : Number(actor?.hp || 0) <= 0
+    ? '생존 대원을 선택해야 합니다.'
+    : state.ap < 1 ? `행동력 부족 · 남은 AP ${state.ap} / 필요 AP 1` : '현재 진행 상태에서 행동할 수 없습니다.';
   const recipeMaterialsReady = Boolean(recipe?.materialsReady);
   const rationChoice = runProgressReport?.recoveryChoices?.find((choice) => choice.id === 'ration_break');
   const forecastById = Object.fromEntries((actionForecasts || []).map((row) => [row.id, row]));
@@ -174,9 +177,11 @@ export default function PrimitiveArchiveActionWorkspace(props) {
             <ActionButton action="combat" cue="off" disabled={!actorCanAct} onClick={runHunt}>사냥 · {Math.round(huntChance * 100)}%</ActionButton>
             <small className="primitive-action-choice__hint">{forecastById.hunt?.outcome || '식량을 노리며 실패 시 피해를 입을 수 있습니다.'} · {forecastById.hunt?.cost || 'AP 1'}</small>
           </article>
-          <article className="primitive-action-choice">
+          <article id="primitive-archive-action-consume" tabIndex={-1} className="primitive-action-choice" aria-label="개인 식사">
             <ActionButton action="consume" cue="off" disabled={!actorCanAct || forecastById.consume?.locked} onClick={runEat}>개인 식사</ActionButton>
             <small className="primitive-action-choice__hint">{forecastById.consume?.outcome || '허기와 체력을 회복합니다.'} · {forecastById.consume?.cost || '음식 1개 · AP 1'}</small>
+            {forecastById.consume?.locked ? <small className="primitive-action-choice__hint">식량 부족 · {forecastById.consume.context || '보유 음식 없음'}</small> : null}
+            {blockedActionReason ? <small className="primitive-action-choice__hint">{blockedActionReason}</small> : null}
           </article>
           <article className="primitive-action-choice">
             <ActionButton
@@ -188,9 +193,10 @@ export default function PrimitiveArchiveActionWorkspace(props) {
             >공동 식사 · 1 AP</ActionButton>
             <small className="primitive-action-choice__hint">{rationChoice?.costText || '배식할 대원이나 식량이 없습니다'} · 대원별 허기에 따라 배식</small>
           </article>
-          <article className="primitive-action-choice">
+          <article id="primitive-archive-action-rest" tabIndex={-1} className="primitive-action-choice" aria-label="개인 휴식">
             <ActionButton action="rest" cue="off" disabled={!actorCanAct} onClick={runRest}>휴식</ActionButton>
             <small className="primitive-action-choice__hint">{forecastById.rest?.outcome || '체력과 기력을 회복합니다.'} · {forecastById.rest?.cost || 'AP 1'}</small>
+            {blockedActionReason ? <small className="primitive-action-choice__hint">{blockedActionReason}</small> : null}
           </article>
           {recipe?.unlocked ? (
             <article className="primitive-action-choice">

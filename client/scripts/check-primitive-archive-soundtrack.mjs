@@ -146,8 +146,8 @@ assert.match(playSource, /<PrimitiveArchiveFeatureTabs[\s\S]*?activeTabId=\{acti
   };
   visit(source); assert.ok(initializer, '실제 탭 변경 연결 함수가 있어야 합니다.');
   const calls = [];
-  const navigate = new Function('setRequirementHelpRequest', 'setActiveTabId', `return (${initializer.getText(source)});`)(
-    value => calls.push(['help', value]), value => calls.push(['tab', value]));
+  const navigate = new Function('setRequirementHelpRequest', 'setActiveTabId', 'setGuidanceFocus', `return (${initializer.getText(source)});`)(
+    value => calls.push(['help', value]), value => calls.push(['tab', value]), value => assert.equal(value, null));
   navigate('growth'); navigate('map');
   assert.deepEqual(calls, [['help', null], ['tab', 'growth'], ['help', null], ['tab', 'map']], '안내 상태만 먼저 비운 다음 원래 활성 탭 상태를 갱신하여 음악 장면과 UI 선택이 계속 같은 탭을 사용해야 합니다.');
 }

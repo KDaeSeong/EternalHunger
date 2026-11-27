@@ -123,6 +123,39 @@
   white-space: normal;
   color: var(--era-ink-soft);
 }
+.primitive-era .primitive-annual-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.primitive-era .primitive-annual-checklist .game-control-button {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.primitive-era .primitive-annual-checklist [data-ready="true"] .game-control-button {
+  background: var(--era-accent-soft);
+}
+.primitive-era .primitive-annual-first-year {
+  padding: 6px 8px;
+  border: var(--era-control-border);
+  border-radius: var(--era-block-radius);
+  background: var(--era-sunk);
+}
+.primitive-era .primitive-annual-first-year ol {
+  margin: 4px 0 0;
+  padding-inline-start: 1.3rem;
+  line-height: 1.5;
+}
+.primitive-era .primitive-annual-first-year li + li {
+  margin-top: 4px;
+}
 .primitive-era .primitive-annual-operations .primitive-operations__rows {
   font-size: inherit;
   color: var(--era-ink);
@@ -145,4 +178,16 @@
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.primitive-era :is(.primitive-action-choice, .primitive-camp-action-entry, .primitive-job-panel)[tabindex="-1"] {
+  scroll-margin-block: 0.5rem;
+}
+.primitive-era :is(.primitive-action-choice, .primitive-camp-action-entry, .primitive-job-panel)[tabindex="-1"]:focus {
+  outline: 2px solid var(--era-focus);
+  outline-offset: 2px;
+}
+.primitive-era .primitive-camp-action__reason {
+  display: block;
+  color: var(--era-ink-soft);
 }

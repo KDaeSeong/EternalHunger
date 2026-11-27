@@ -4323,13 +4323,21 @@ function annualStampMatches(state, expected) {
     .every(key => Object.hasOwn(expected, key) && expected[key] === annualActionStamp(state)[key]);
 }
 
-function annualStartReason(state) {
+function annualStartRequirements(state) {
+  return [
+    { id: 'SETTLEMENT', kind: 'research', label: '정착 연구', done: Boolean(state.research?.completed?.SETTLEMENT) },
+    { id: 'FOOD_STORAGE', kind: 'research', label: '식량 저장 연구', done: Boolean(state.research?.completed?.FOOD_STORAGE) },
+    { id: 'shelter', kind: 'camp', label: '대피소 Lv.1', done: Number(state.camp?.shelterLevel || 0) >= 1 },
+    { id: 'workforce', kind: 'tribe', label: '공동체 일손 1명', done: Number(state.tribe?.population || 0) >= 1 },
+  ];
+}
+
+function annualStartReason(state, requirements = annualStartRequirements(state)) {
   return state.ended ? '종료된 문명입니다.'
     : !livingParty(state).length ? '문명을 운영할 활동 인물이 없습니다.'
-      : !state.research?.completed?.SETTLEMENT || !state.research?.completed?.FOOD_STORAGE
+      : requirements.some((row) => row.kind === 'research' && !row.done)
         ? '정착과 식량 저장 연구가 필요합니다.'
-        : Number(state.camp?.shelterLevel || 0) < 1 || Number(state.tribe?.population || 0) < 1
-          ? '거처와 공동체 일손이 필요합니다.' : '';
+        : requirements.some((row) => !row.done) ? '거처와 공동체 일손이 필요합니다.' : '';
 }
 
 function annualPlan(state) {
@@ -4355,12 +4363,14 @@ function annualPlan(state) {
 export function annualSettlementSummary(state) {
   const annualMode = isAnnualMode(state);
   const calendar = annualCalendarSummary(state);
-  const startReason = annualMode ? '이미 연간 운영 중입니다.' : annualStartReason(state);
+  const startRequirements = annualMode ? [] : annualStartRequirements(state);
+  const startReason = annualMode ? '이미 연간 운영 중입니다.' : annualStartReason(state, startRequirements);
   const advanceReason = !annualMode ? '먼저 연간 운영으로 전환해야 합니다.'
     : state.ended ? '종료된 문명입니다.' : !livingParty(state).length ? '문명을 운영할 활동 인물이 없습니다.' : '';
   const receipt = annualMode && state.calendar.completedYears > 0
     && state.tribe?.lastProduction?.day === state.calendar.lastSettledDay ? state.tribe.lastProduction : null;
   return { ...calendar, mode: annualMode ? 'annual' : 'daily', annualMode,
+    startRequirements,
     canStart: !startReason, startReason, canAdvance: !advanceReason, advanceReason,
     plan: annualMode ? annualPlan(state) : null, lastReceipt: receipt,
     timingText: '직업 생산 → 건설·전승 → 공교육 → 기록대 연구 → 전체 인구 배식 → 가공 → 시설 자동 연구·사회 제도 → 세대 인계 순서로 한 해를 정산합니다.' };

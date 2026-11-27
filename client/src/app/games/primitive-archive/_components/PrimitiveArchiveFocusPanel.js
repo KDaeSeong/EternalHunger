@@ -99,14 +99,15 @@ export default function PrimitiveArchiveFocusPanel({ plan, operations, dayContro
                 ? onCompletionHelp?.({ scope: 'completion', kind: 'target', candidateKind: 'complete' })
                 : completionObjective
                 ? onCompletionHelp?.({ scope: 'completion', kind: 'target', candidateKind: objective.kind, id: objective.id })
-                : onNavigate?.(objective.targetTab)}>
+                : onNavigate?.(objective.targetTab, objective.destination)}>
               {objective.actionLabel}
             </GameControlButton>
           ) : null}
         </div>
         <p>{objective.detail}</p>
+        <PrimitiveArchiveAnnualTransition annual={annual} control={annualStartControl} onNavigate={onNavigate}
+          blocked={blocked} ended={ended} />
         <CompletionProgress guide={plan.completion} onHelp={onCompletionHelp} blocked={blocked || completionHelpBlocked} annualMode={false} />
-        <PrimitiveArchiveAnnualTransition annual={annual} control={annualStartControl} />
       </article>
       <article className="primitive-focus-night" data-tone={night.tone}>
         <span className="primitive-focus-eyebrow">이번 밤</span>
