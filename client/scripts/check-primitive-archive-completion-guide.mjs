@@ -107,7 +107,7 @@ function harness(state = fixture()) {
     `${declaration('hasWriterLease', checkpointSource)}\n${declaration('canMutate', checkpointSource)}\nreturn canMutate;`)(...Object.values(storageRefs));
   const checkpointView = { ready: true, exclusive: true, canMutate };
   const annualUiGuardRef = { current: { hydrated: true, checkpoint: checkpointView, busy: false, shopControlsBusy: false } };
-  const calls = { tabs: [], recipes: [], help: [], forbidden: [] };
+  const calls = { tabs: [], recipes: [], help: [], focus: [], forbidden: [] };
   const scope = { ...engine, primitiveArchiveCompletionGuide, state, stateRef, actorSelectionRef, actionVersionRef,
     actorId: state.party[0].id, archiveVictory: engine.archiveVictorySummary(state),
     campFacilities: engine.campFacilityRows(state), recipes: engine.recipeRows(state), regions: engine.regionRows(state),
@@ -116,10 +116,11 @@ function harness(state = fixture()) {
       && ['scope', 'revision', 'csrfToken'].every(key => value[key] === session[key]),
     checkpoint: checkpointView, annualUiGuardRef, hydrated: true, busy: '', shopControlsBusy: false,
     shopStartRef: { current: false }, setActiveTabId: value => calls.tabs.push(value),
-    setRecipeId: value => calls.recipes.push(value), setRequirementHelpRequest: value => calls.help.push(value),
+    setRecipeId: value => calls.recipes.push(value), setGuidanceFocus: value => calls.focus.push(value),
+    setRequirementHelpRequest: value => calls.help.push(typeof value === 'function' ? value(calls.help.at(-1)) : value),
     setState: () => calls.forbidden.push('state'), setZoneId: () => calls.forbidden.push('zone'),
     setMessage: () => calls.forbidden.push('message'), playGameSfx: () => calls.forbidden.push('sound') };
-  const names = ['completionGuide', 'completionHelpVersion', 'completionHelpSession', 'completionHelpBlocked', 'openCompletionHelp'];
+  const names = ['completionGuide', 'completionHelpVersion', 'completionHelpSession', 'completionHelpBlocked', 'openCompletionHelp', 'selectArchiveTab'];
   const compiled = ts.transpileModule(names.map(name => declaration(name)).join('\n'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
   }).outputText;
@@ -266,6 +267,7 @@ try {
     assert.ok(target); assert.equal(Boolean(target.props.disabled), false);
     freeCall(view, () => target.props.onClick()); assert.deepEqual(view.calls.tabs, ['camp']);
     assert.deepEqual(view.calls.help, [null]);
+    assert.deepEqual(view.calls.focus, [{ elementId: 'primitive-archive-camp-action-archive_room' }]);
     const source = view.completionGuide.objective.materials.find(row => row.resourceId === 'stone').sources[0];
     const mapButton = nodes(tree, node => node.type === GameControlButton && text(node).includes(source.regionName)
       && text(node).includes('공급처 보기'))[0];
@@ -282,6 +284,7 @@ try {
     const target = nodes(tree, node => node.type === GameControlButton && text(node) === '책 제작 확인')[0];
     assert.ok(target); freeCall(view, () => target.props.onClick());
     assert.equal(view.calls.tabs.at(-1), 'actions'); assert.equal(view.calls.recipes.at(-1), 'book_craft_guide');
+    assert.deepEqual(view.calls.focus.at(-1), { elementId: 'primitive-archive-action-recipe' });
     const crafting = nodes(tree, node => node.type === GameControlButton && text(node) === `${engine.itemName('twine')} · 제작법 확인`)[0];
     assert.ok(crafting); freeCall(view, () => crafting.props.onClick());
     assert.equal(view.calls.recipes.at(-1), 'twine');
@@ -296,13 +299,20 @@ try {
   });
   check('actual JSX annual completion and complete-choice targets preserve production plans and ongoing play', () => {
     let state = fixture('annual-help'); state.camp.archiveRoomLevel = 1;
-    state.inventory.book_craft_guide = 0; state.inventory.book_camp_manual = 0;
+    state.inventory.book_craft_guide = 0; state.inventory.book_camp_manual = 0; state.inventory.twine = 0;
     state = engine.startAnnualSettlementAction(state, { runId: state.runId, day: state.day, ap: state.ap,
       updatedAt: state.updatedAt, completedYears: null }, { observedLifetimeYears: 60 });
     const annual = harness(state);
     const button = nodes(panel(annual), node => node.type === GameControlButton && text(node) === '공동체 책 가공 확인')[0];
     assert.ok(button); freeCall(annual, () => button.props.onClick());
     assert.equal(annual.calls.tabs.at(-1), 'tribe'); assert.deepEqual(annual.calls.recipes, []);
+    assert.deepEqual(annual.calls.focus.at(-1), { elementId: 'primitive-archive-processing' });
+    assert.deepEqual(annual.calls.help.at(-1), { kind: 'processing', runId: state.runId, actionId: 'annual_book_craft_guide' });
+    const twineOption = engine.tribeProcessingSummary(state).options.find(row => row.id === 'annual_twine');
+    const craft = nodes(panel(annual), node => node.type === GameControlButton
+      && text(node) === `${twineOption.label} · 공동체 가공 확인`)[0];
+    assert.ok(craft); freeCall(annual, () => craft.props.onClick());
+    assert.deepEqual(annual.calls.help.at(-1), { kind: 'processing', runId: state.runId, actionId: 'annual_twine' });
     const completeState = fixture('complete-navigation'); completeState.camp.archiveRoomLevel = 1;
     completeState.research.completed = Object.fromEntries(data.TECH_TREE.map(row => [row.id, true]));
     assert.equal(engine.archiveVictorySummary(completeState).canComplete, true);
@@ -415,6 +425,7 @@ try {
     assert.match(button.props.title, /보장하지|보장 아님|보장.*[X×]/);
     freeCall(view, () => button.props.onClick());
     assert.deepEqual(view.calls.tabs, ['tribe']); assert.deepEqual(view.calls.recipes, []);
+    assert.deepEqual(view.calls.focus.at(-1), { elementId: 'primitive-archive-workforce' });
     const requests = [
       { scope: 'completion', kind: 'community', actionId: 'unknown-job', resourceId: 'stone' },
       { scope: 'completion', kind: 'community', actionId: source.actionId, resourceId: 'unknown-resource' },

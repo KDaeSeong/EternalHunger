@@ -209,6 +209,28 @@ check('draft edits commit one valid process and target together without costs or
   let activeTree = active.render(); change(activeTree, 'select', ''); activeTree = active.render(); submit(activeTree);
   assert.deepEqual(offRequests, [patch('', 0)]);
 });
+check('guided annual book processing opens the exact operation and keeps draft selection separate from applying it', () => {
+  let state = fresh('annual-book-help');
+  state = engine.startAnnualSettlementAction(state, { runId: state.runId, day: state.day,
+    ap: state.ap, updatedAt: state.updatedAt, completedYears: null });
+  assert.equal(state.calendar?.mode, 'annual');
+  const before = clone(state), received = [];
+  const props = formProps(state, { onConfigure: plan => received.push(plan), helpRequest: { actionId: 'annual_book_camp_manual' } });
+  const option = props.processing.options.find(row => row.id === props.helpRequest.actionId);
+  const harness = formHarness(props), tree = harness.render();
+  assert.equal(tree.props.id, 'primitive-archive-processing'); assert.equal(tree.props.tabIndex, -1);
+  assert.ok(textOf(tree).includes(`완주에 필요한 공정 · ${option.label}`));
+  assert.ok(textOf(tree).includes(option.costText));
+  assert.ok(textOf(tree).includes(option.lockedReason));
+  assert.equal(byType(tree, 'select').props.value, '');
+  const choose = one(tree, node => node.type === 'button' && textOf(node) === '이 공정 선택');
+  choose.props.onClick();
+  const draft = harness.render();
+  assert.equal(byType(draft, 'select').props.value, option.id);
+  assert.deepEqual(received, []);
+  submit(draft); assert.deepEqual(received, [patch(option.id, 1)]);
+  assert.deepEqual(state, before);
+});
 check('invalid same ended busy or missing-callback form submissions cannot request any change', () => {
   for (const value of ['', '0', '-1', '1.5', '9007199254740992', 'Infinity', 'bad']) {
     let calls = 0;

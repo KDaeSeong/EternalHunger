@@ -1,5 +1,7 @@
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
+import { RIVAL_TRIBES } from '../_lib/primitiveArchiveData';
 import { itemName } from '../_lib/primitiveArchiveEngine';
+import { ANNUAL_TRADE_JOBS } from '../_lib/primitiveArchiveTradeRoute';
 
 const gainsText = gains => Object.entries(gains || {}).filter(([, qty]) => Number(qty) > 0)
   .map(([id, qty]) => `${itemName(id)} ${qty}개`).join(' · ') || '생산 없음';
@@ -39,6 +41,9 @@ export default function PrimitiveArchiveAnnualOperations({ annual, yearControl, 
   const plan = annual.plan || {};
   const census = annual.census || {};
   const receipt = annual.lastReceipt;
+  const trade = receipt?.tradeRoute;
+  const tradeRival = trade && RIVAL_TRIBES.find(row => row.id === trade.rivalId)?.name;
+  const tradeJob = trade && ANNUAL_TRADE_JOBS.find(row => row.id === trade.fromJobId)?.name;
   const firstReceipt = receipt && annual.completedYears === 1;
   const counted = annual.lastCensus;
   const finished = !annual.canAdvance;
@@ -47,6 +52,9 @@ export default function PrimitiveArchiveAnnualOperations({ annual, yearControl, 
     <div><dt>실제 생산</dt><dd>{gainsText(receipt.gains)}</dd></div>
     <div><dt>실제 배식</dt><dd>제공 {receipt.foodProvided ?? 0} / 필요 {receipt.foodNeed ?? 0} · 부족 {receipt.shortage ?? 0}단위</dd></div>
     <div><dt>실제 투자·교육</dt><dd>사업 작업 +{receipt.projectWork || 0} · 연구 +{receipt.researchPoints || 0}RP{receipt.education ? ` · 공교육 +${receipt.education.appliedPoints}CP` : ' · 공교육 영수증 없음'}</dd></div>
+    {trade ? <div><dt>실제 연간 교역</dt><dd>{tradeRival} · {trade.status === 'applied'
+      ? `${tradeJob} ${trade.workers}명 전용 · 제공 ${gainsText(trade.spent)} → 받음 ${gainsText(trade.received)}`
+      : `교역 건너뜀 · ${trade.reason}`}</dd></div> : null}
   </dl> : <p>정착 전의 일일 영수증을 연간 실적으로 바꾸지 않습니다. 1년 운영 뒤 실제 결과를 표시합니다.</p>;
   const successionText = annual.lineageMode === 'legacy' ? '기존 생애 정책 유지 · 새 후계·자연사 추가 없음'
     : `20년 활동 뒤 인계 안내 · 25년 활동 시 준비된 후계 인계 · ${annual.observedLifetimeYears === null ? '자동 생애 종료 없음' : `관찰 생애 ${annual.observedLifetimeYears}년`}`;
@@ -82,8 +90,13 @@ export default function PrimitiveArchiveAnnualOperations({ annual, yearControl, 
       {receiptContent}
     </details> : null}
     <div className="primitive-annual-links">
-      {[['tribe', 'primitive-job', '생산·배식·교육'], ['camp', 'camp', '시설 투자'], ['founders', 'archive', '세대·계승']].map(([tab, icon, label]) =>
-        <GameControlButton key={tab} action={icon} cue="off" disabled={blocked} onClick={() => onNavigate?.(tab)}>{label}</GameControlButton>)}
+      <GameControlButton action="map" cue="off" disabled={blocked} onClick={() => onNavigate?.('map')}>지도 보기</GameControlButton>
+      <GameControlButton action="archive" cue="off" disabled={blocked} onClick={() => {
+        if (finished) onNavigate?.('founders');
+        else onNavigate?.('founders', { elementId: 'primitive-archive-active-people' });
+      }}>현역 대원 보기</GameControlButton>
+      <GameControlButton action="primitive-job" cue="off" disabled={blocked} onClick={() => onNavigate?.('tribe')}>생산·배식·교육</GameControlButton>
+      <GameControlButton action="camp" cue="off" disabled={blocked} onClick={() => onNavigate?.('camp')}>시설 투자</GameControlButton>
     </div>
   </article>;
 }

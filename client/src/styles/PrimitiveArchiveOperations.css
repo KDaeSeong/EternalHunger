@@ -180,12 +180,37 @@
   overflow-wrap: anywhere;
 }
 
-.primitive-era :is(.primitive-action-choice, .primitive-camp-action-entry, .primitive-job-panel)[tabindex="-1"] {
+.primitive-era :is(.primitive-action-choice, .primitive-camp-action-entry, .primitive-job-panel, #primitive-archive-action-recipe, #primitive-archive-processing, #primitive-archive-active-people)[tabindex="-1"] {
   scroll-margin-block: 0.5rem;
 }
-.primitive-era :is(.primitive-action-choice, .primitive-camp-action-entry, .primitive-job-panel)[tabindex="-1"]:focus {
+.primitive-era :is(.primitive-action-choice, .primitive-camp-action-entry, .primitive-job-panel, #primitive-archive-action-recipe, #primitive-archive-processing, #primitive-archive-active-people)[tabindex="-1"]:focus {
   outline: 2px solid var(--era-focus);
   outline-offset: 2px;
+}
+.primitive-era :is(.primitive-work-policy-comparison, .primitive-annual-trade-route, .primitive-processing-plan__objective) {
+  margin-block: 8px;
+  padding: 8px;
+  border: var(--era-control-border);
+  border-radius: var(--era-block-radius);
+  background: var(--era-sunk);
+  color: var(--era-ink);
+}
+.primitive-era .primitive-processing-plan__objective {
+  grid-column: 1 / -1;
+}
+.primitive-era .primitive-work-policy-comparison table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.primitive-era .primitive-work-policy-comparison :is(th, td) {
+  padding: 5px 8px;
+  border-block-end: 1px solid var(--era-line);
+  text-align: start;
+}
+.primitive-era .primitive-annual-trade-route .primitive-annual-links > div {
+  min-width: min(100%, 16rem);
+  flex: 1;
 }
 .primitive-era .primitive-camp-action__reason {
   display: block;

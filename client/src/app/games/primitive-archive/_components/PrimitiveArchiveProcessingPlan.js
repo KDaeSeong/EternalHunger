@@ -5,7 +5,7 @@ import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { isValidTribeProcessingPlan } from '../_lib/primitiveArchiveProcessing';
 import PrimitiveArchiveProductionRequirementGuide from './PrimitiveArchiveProductionRequirementGuide';
 
-function ProcessingPlanForm({ processing, onConfigure, blockedReason }) {
+function ProcessingPlanForm({ processing, onConfigure, blockedReason, requestedOption }) {
   const { plan, options = [] } = processing;
   const [actionId, setActionId] = useState(plan.actionId);
   const [targetStock, setTargetStock] = useState(String(plan.targetStock));
@@ -16,22 +16,33 @@ function ProcessingPlanForm({ processing, onConfigure, blockedReason }) {
   const controlsBlocked = Boolean(blockedReason) || !processing.canConfigure || typeof onConfigure !== 'function';
   const submitBlocked = controlsBlocked || !valid || unchanged;
   const reason = blockedReason || (!processing.canConfigure ? processing.blockedReason : '') || '';
+  const selectAction = (nextActionId) => {
+    setActionId(nextActionId);
+    if (!nextActionId) setTargetStock('0');
+    else if (!Number.isSafeInteger(Number(targetStock)) || Number(targetStock) <= 0) setTargetStock('1');
+  };
 
   return (
-    <form className="primitive-processing-plan" aria-label="가공대 생산 계획"
+    <form className="primitive-processing-plan" id="primitive-archive-processing" tabIndex={-1} aria-label="가공대 생산 계획"
       onSubmit={(event) => {
         event.preventDefault();
         if (!submitBlocked) onConfigure(patch);
       }}>
+      {requestedOption ? <div className="primitive-processing-plan__objective">
+        <strong>완주에 필요한 공정 · {requestedOption.label}</strong>
+        <p>투입 {requestedOption.costText} → 산출 {requestedOption.outputText}
+          {!requestedOption.unlocked ? ` · ${requestedOption.lockedReason}` : ''}
+          {requestedOption.materialRows?.filter(material => !material.met).map(material => (
+            <span key={material.id}> · {material.name} {material.current ?? '확인 불가'}/{material.required}</span>
+          ))}
+        </p>
+        <GameControlButton action="target" cue="off" type="button" disabled={controlsBlocked || actionId === requestedOption.id}
+          onClick={() => selectAction(requestedOption.id)}>{actionId === requestedOption.id ? '공정 선택 중' : '이 공정 선택'}</GameControlButton>
+      </div> : null}
       <label>
         <span>공정</span>
         <select value={actionId} disabled={controlsBlocked} aria-describedby="primitive-processing-plan-help"
-          onChange={(event) => {
-            const nextActionId = event.target.value;
-            setActionId(nextActionId);
-            if (!nextActionId) setTargetStock('0');
-            else if (!Number.isSafeInteger(Number(targetStock)) || Number(targetStock) <= 0) setTargetStock('1');
-          }}>
+          onChange={(event) => selectAction(event.target.value)}>
           <option value="">가동 안 함</option>
           {options.map(option => (
             <option value={option.id} key={option.id}>{option.label}{option.unlocked ? '' : ' · 연구 필요'}</option>
@@ -70,13 +81,14 @@ function ProcessingPlanForm({ processing, onConfigure, blockedReason }) {
   );
 }
 
-export default function PrimitiveArchiveProcessingPlan({ processing, runId, onConfigure, blockedReason = '', requirementGuide, onOpenRequirementHelp }) {
+export default function PrimitiveArchiveProcessingPlan({ processing, runId, onConfigure, blockedReason = '', requirementGuide, onOpenRequirementHelp, helpRequest }) {
   if (!processing) return null;
   const { plan } = processing;
-  // Reset drafts only when the saved plan or run changes, not on stock/day updates.
+  const requestedOption = processing.options?.find(option => option.id === helpRequest?.actionId);
+  // Keep draft edits when the stock, day, or guided target changes.
   return <>
     <ProcessingPlanForm key={JSON.stringify([runId, plan.actionId, plan.targetStock])}
-      processing={processing} onConfigure={onConfigure} blockedReason={blockedReason} />
+      processing={processing} onConfigure={onConfigure} blockedReason={blockedReason} requestedOption={requestedOption} />
     <PrimitiveArchiveProductionRequirementGuide guide={requirementGuide} scope="processing" onOpenRequirementHelp={onOpenRequirementHelp} />
   </>;
 }

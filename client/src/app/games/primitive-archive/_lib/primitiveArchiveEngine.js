@@ -66,6 +66,7 @@ import { DEFAULT_TRIBE_PROCESSING_PLAN, isValidTribeProcessingPlan,
 import { DEFAULT_TRIBE_EDUCATION_PLAN, isValidTribeEducationPlan,
   normalizeTribeEducationPlan } from './primitiveArchiveEducation.js';
 import { normalizeAutoDayGoal } from './primitiveArchiveAutoDayGoals.js';
+import { ANNUAL_TRADE_JOBS, ANNUAL_TRADE_PROJECT_ID, isValidAnnualTradeRouteState, projectAnnualTradeRoute } from './primitiveArchiveTradeRoute.js';
 
 export {
   GAME_SLUG,
@@ -234,6 +235,7 @@ function createInitialState(options = {}, weather) {
 }
 
 export function normalizeState(value) {
+  if (value && !isValidAnnualTradeRouteState(value)) throw new RangeError('Invalid annual trade route');
   if (value && Object.hasOwn(value, 'calendar') && !isValidAnnualCalendar(value.calendar, value)) throw new RangeError('Invalid annual calendar');
   const weather = value && typeof value === 'object' && value.weather && typeof value.weather === 'object'
     ? value.weather : undefined;
@@ -1125,6 +1127,7 @@ export function hasCompletedProject(state, projectId) {
 }
 
 function projectPrereqsMet(state, project) {
+  if (project?.annualOnly && !isAnnualMode(state)) return false;
   const research = normalizeResearch(state?.research);
   return (project?.prereqs || []).every((techId) => Boolean(research.completed?.[techId]));
 }
@@ -1163,7 +1166,7 @@ export function projectRows(state) {
 
 function projectRowsForNormalizedState(current) {
   const projects = normalizeProjectState(current.projects);
-  return TRIBE_PROJECTS.map((project) => {
+  return TRIBE_PROJECTS.filter(project => !project.annualOnly || isAnnualMode(current)).map((project) => {
     const completed = Boolean(projects.completed?.[project.id]);
     const progress = Math.min(project.work, Math.max(0, Number(projects.progress?.[project.id] || 0)));
     const committed = Boolean(projects.resourceCommitted?.[project.id]);
@@ -1555,6 +1558,55 @@ export function transferTribeWorkerAction(state, fromJobId, toJobId) {
   const source = TRIBE_JOBS.find(job => job.id === fromJobId)?.name || '미배치 일손';
   const target = TRIBE_JOBS.find(job => job.id === toJobId).name;
   return addLog(next, `일손 이동: ${source} 1명 → ${target}. 편집한 직업의 배치를 수동으로 유지합니다.`);
+}
+
+export function annualWorkPolicyComparison(state) {
+  const reason = !isAnnualMode(state) ? '연간 공동체 운영에서 비교할 수 있습니다.'
+    : !isValidAnnualCalendar(state.calendar, state) ? '유효한 연간 달력이 필요합니다.'
+      : state.ended || !livingParty(state).length ? '운영 가능한 생존 공동체가 필요합니다.'
+        : Object.values(state.inventory || {}).some(value => !Number.isFinite(value) || value < 0)
+          ? '비축 수량을 확인해야 합니다.' : '';
+  const result = { available: !reason, reason, periodLabel: `${Number(state?.calendar?.completedYears || 0) + 1}년차`,
+    assumptions: ['같은 비축과 수동 배치를 유지하고 다음 연도의 실제 자동 배치·공동 정산을 비교합니다.',
+      '시설 자동 연구·제도와 세대 인계는 제외합니다. 전망은 실행이나 장기 성과 보장이 아닙니다.'], policies: [], warnings: [] };
+  if (reason) return result;
+  for (const [id, label] of [['balanced', '균형 운영'], ['construction', '건설 우선'], ['research', '기록 우선']]) {
+    const input = { ...state, tribe: { ...state.tribe, workPolicy: id }, day: state.day + 1, calendar: advanceAnnualCalendar(state) };
+    const prepared = autoAssignTribeWorkers(input, 'settlement', 0, true);
+    const next = settleTribeDay(prepared, true);
+    const receipt = next.tribe.lastProduction;
+    const values = [
+      ['foodProduction', '생산 식량', '단위', tribeFoodStock(receipt.gains)],
+      ['foodAvailable', '시작 비축 + 직업 생산 식량', '단위', tribeFoodStock(prepared.inventory) + tribeFoodStock(receipt.gains)],
+      ['foodStock', '정산 후 식량', '단위', tribeFoodStock(next.inventory)],
+      ['shortage', '배식 부족', '단위', receipt.shortage],
+      ['projectWork', '실제 사업 작업', '작업', receipt.projectWork],
+      ['researchPoints', '실제 기록대 연구', 'RP', receipt.researchPoints],
+    ];
+    if (state.annualTradeRoute) values.push(['tradeWorkers', '연간 교역에 쓴 일손', '명', receipt.tradeRoute?.workers || 0]);
+    for (const [resourceId, quantity] of Object.entries(receipt.gains || {})) {
+      values.push([`production:${resourceId}`, `${itemName(resourceId)} 생산`, '개', quantity]);
+    }
+    for (const [resourceId, quantity] of Object.entries(next.inventory || {})) {
+      values.push([`stock:${resourceId}`, `${itemName(resourceId)} 정산 후`, '개', quantity]);
+    }
+    result.policies.push({ id, label, assignments: { ...receipt.assignments }, receipt,
+      inventory: { ...next.inventory }, rows: values.map(([key, name, unit, value]) => ({ id: key, label: name, unit, value: Number(value || 0) })) });
+  }
+  const keys = new Map(result.policies.flatMap(policy => policy.rows.map(row => [row.id, row])));
+  const baseline = new Map(result.policies[0].rows.map(row => [row.id, row.value]));
+  for (const policy of result.policies) {
+    const own = new Map(policy.rows.map(row => [row.id, row.value]));
+    policy.rows = [...keys.values()].map(row => {
+      const value = own.get(row.id) || 0;
+      return { ...row, value, delta: value - (baseline.get(row.id) || 0) };
+    });
+  }
+  if (!tribeWorkPolicyUnlocked(state)) result.warnings.push('국가 노동력 미확립: 전문 방침은 균형 운영으로 적용됩니다.');
+  if (result.policies.slice(1).every(policy => policy.rows.every(row => row.delta === 0))) {
+    result.warnings.push('이번 정산의 산출은 같습니다. 안전 비축·고정 수동 배치·해금과 목표의 남은 작업 조건 때문에 자동 일손을 바꿀 여지가 없을 수 있습니다.');
+  }
+  return result;
 }
 
 export function workerAllocationComparison(state, options = {}) {
@@ -3926,7 +3978,10 @@ export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options 
 }
 
 function settleTribeDay(state, preview = false) {
-  const tribe = normalizeTribeState(state.tribe);
+  const configuredTribe = normalizeTribeState(state.tribe);
+  const trade = isAnnualMode(state) && state.annualTradeRoute ? projectAnnualTradeRoute({ ...state, tribe: configuredTribe }) : null;
+  const tribe = trade?.canOperate ? { ...configuredTribe, assignments: trade.assignments } : configuredTribe;
+  if (trade?.canOperate) state = { ...state, inventory: trade.inventory };
   const gains = tribeProductionForDay(tribe.assignments, productionPeriod(state), state);
   let next = { ...state, inventory: addItems(state.inventory, Object.entries(gains)) };
   let projectWork = 0;
@@ -4031,6 +4086,7 @@ function settleTribeDay(state, preview = false) {
 
   const nextTribe = {
     ...tribe,
+    assignments: configuredTribe.assignments,
     population,
     morale,
     growthProgress,
@@ -4039,6 +4095,7 @@ function settleTribeDay(state, preview = false) {
       day: Number(next.day || 1),
       workPolicy: tribe.workPolicy,
       assignments: { ...tribe.assignments },
+      ...(trade?.receipt ? { tradeRoute: trade.receipt } : {}),
       gains,
       foodNeed,
       foodProvided: food.provided,
@@ -4341,7 +4398,9 @@ function annualStartReason(state, requirements = annualStartRequirements(state))
 }
 
 function annualPlan(state) {
-  const planned = autoAssignTribeWorkers(state, 'settlement');
+  let planned = autoAssignTribeWorkers(state, 'settlement', 1, true);
+  const trade = planned.annualTradeRoute ? projectAnnualTradeRoute(planned) : null;
+  if (trade?.canOperate) planned = { ...planned, inventory: trade.inventory, tribe: { ...planned.tribe, assignments: trade.assignments } };
   const census = annualCensus(planned);
   const production = tribeProductionForDay(planned.tribe.assignments, productionPeriod(planned, 1), planned);
   const food = consumeTribeFood(addItems(planned.inventory, Object.entries(production)), census.foodNeed);
@@ -4360,6 +4419,39 @@ function annualPlan(state) {
     note: '자동 일손 배치 뒤의 다음 한 해 직업 생산과 현재 인구 배식 전망입니다. 사업 착수 자재·완성 보상·새 인구는 포함하지 않습니다.' };
 }
 
+export function annualTradeRouteSummary(state) {
+  const workforce = isAnnualMode(state) && !state.ended && state.projects?.completed?.[ANNUAL_TRADE_PROJECT_ID]
+    ? autoAssignTribeWorkers(state, 'settlement', 1, true) : state;
+  const projection = projectAnnualTradeRoute(workforce);
+  return { unlocked: projection.unlocked, configured: projection.configured,
+    rivalId: state.annualTradeRoute?.rivalId || '', fromJobId: state.annualTradeRoute?.fromJobId || 'builder',
+    canOperate: projection.canOperate, reason: projection.reason,
+    rivals: RIVAL_TRIBES.filter(row => state.diplomacy?.contacts?.[row.id]?.known).map(row => ({ id: row.id, name: row.name,
+      costText: formatRequires(row.tradeCost), rewardText: formatGains(Object.entries(row.tradeReward)) })),
+    jobs: ANNUAL_TRADE_JOBS.map(row => ({ ...row, workers: Number(workforce.tribe?.assignments?.[row.id] || 0) })),
+    costText: projection.rival ? formatRequires(projection.rival.tradeCost) : '',
+    rewardText: projection.rival ? formatGains(Object.entries(projection.rival.tradeReward)) : '',
+    lastReceipt: state.tribe?.lastProduction?.tradeRoute || null,
+    lastReceiptRivalName: RIVAL_TRIBES.find(row => row.id === state.tribe?.lastProduction?.tradeRoute?.rivalId)?.name || '',
+    lastReceiptJobName: ANNUAL_TRADE_JOBS.find(row => row.id === state.tribe?.lastProduction?.tradeRoute?.fromJobId)?.name || '',
+    lastReceiptCostText: formatRequires(state.tribe?.lastProduction?.tradeRoute?.spent || {}),
+    lastReceiptRewardText: formatGains(Object.entries(state.tribe?.lastProduction?.tradeRoute?.received || {})) };
+}
+
+export function configureAnnualTradeRouteAction(state, { rivalId, fromJobId } = {}) {
+  if (state.ended || !isAnnualMode(state)) return state;
+  if (rivalId === '') {
+    if (!state.annualTradeRoute) return state;
+    const next = { ...state }; delete next.annualTradeRoute;
+    return addLog(next, '연간 교역로 운영을 해제했습니다.');
+  }
+  if (!projectAnnualTradeRoute(state).unlocked || !ANNUAL_TRADE_JOBS.some(row => row.id === fromJobId)
+    || !RIVAL_TRIBES.some(row => row.id === rivalId) || !state.diplomacy?.contacts?.[rivalId]?.known) return state;
+  if (state.annualTradeRoute?.rivalId === rivalId && state.annualTradeRoute?.fromJobId === fromJobId) return state;
+  return addLog({ ...state, annualTradeRoute: { version: 1, rivalId, fromJobId } },
+    '연간 교역로를 설정했습니다. 다음 1년 운영에서 실제 자재와 일손이 있을 때만 교역합니다.');
+}
+
 export function annualSettlementSummary(state) {
   const annualMode = isAnnualMode(state);
   const calendar = annualCalendarSummary(state);
@@ -4373,7 +4465,7 @@ export function annualSettlementSummary(state) {
     startRequirements,
     canStart: !startReason, startReason, canAdvance: !advanceReason, advanceReason,
     plan: annualMode ? annualPlan(state) : null, lastReceipt: receipt,
-    timingText: '직업 생산 → 건설·전승 → 공교육 → 기록대 연구 → 전체 인구 배식 → 가공 → 시설 자동 연구·사회 제도 → 세대 인계 순서로 한 해를 정산합니다.' };
+    timingText: `${state.annualTradeRoute ? '시작 비축과 일손 확인 → 가능한 연간 교역 및 일손 1명 전용 → ' : ''}직업 생산 → 건설·전승 → 공교육 → 기록대 연구 → 전체 인구 배식 → 가공 → 시설 자동 연구·사회 제도 → 세대 인계 순서로 한 해를 정산합니다.` };
 }
 
 function annualOperationsSummary(state) {

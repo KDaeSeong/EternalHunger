@@ -37,6 +37,7 @@ import {
   civilizationMilestoneRows,
   clearAllEquipmentAction,
   changeTribeWorkPolicyAction,
+  configureAnnualTradeRouteAction,
   configureTribeProcessAction,
   configureTribeEducationAction,
   tribeEducationSummary,
@@ -85,6 +86,8 @@ import {
   startAnnualSettlementAction,
   runSettlementYearAction,
   annualSettlementSummary,
+  annualTradeRouteSummary,
+  annualWorkPolicyComparison,
   settlementDayStatus,
   runEatAction,
   runGatherAction,
@@ -123,7 +126,9 @@ import {
 import { isValidTribeProcessingPlan } from '../_lib/primitiveArchiveProcessing';
 import PrimitiveArchiveEraDefs from './PrimitiveArchiveEraDefs';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
+import PrimitiveArchiveTradeRoute from './PrimitiveArchiveTradeRoute';
 import PrimitiveArchiveWorkerComparison from './PrimitiveArchiveWorkerComparison';
+import PrimitiveArchiveWorkPolicyComparison from './PrimitiveArchiveWorkPolicyComparison';
 import PrimitiveArchiveAutoDayGoalPanel from './PrimitiveArchiveAutoDayGoalPanel';
 import { AUTO_DAY_GOALS, normalizeAutoDayGoal } from '../_lib/primitiveArchiveAutoDayGoals';
 import { autoDayExecutionReport } from '../_lib/primitiveArchiveAutoDayReport';
@@ -411,21 +416,32 @@ export default function PrimitiveArchivePlayContent() {
     // Navigation changes view state only; it never selects a paid world action.
     const candidates = completionGuide.candidates;
     const materials = candidates.flatMap(candidate => candidate.materials);
+    const openCrafting = (recipeId, processingActionId) => {
+      if (current.calendar?.mode === 'annual') {
+        if (!processingActionId) {
+          selectArchiveTab('tribe', { elementId: 'primitive-archive-workforce' });
+          return;
+        }
+        selectArchiveTab('tribe', { elementId: 'primitive-archive-processing', processingActionId });
+        return;
+      }
+      setRecipeId(recipeId);
+      selectArchiveTab('actions', { elementId: 'primitive-archive-action-recipe' });
+    };
     if (request.kind === 'target') {
       if (request.candidateKind === 'complete' && completionGuide.status === 'complete') {
-        setRequirementHelpRequest(null); setActiveTabId('run'); return;
+        selectArchiveTab('run');
+        return;
       }
       const candidate = candidates.find(row => row.kind === request.candidateKind && row.id === request.id);
       if (!candidate || !['camp', 'actions', 'growth', 'tribe'].includes(candidate.targetTab)) return;
-      setRequirementHelpRequest(null);
-      if (candidate.kind === 'book' && current.calendar?.mode !== 'annual') setRecipeId(candidate.recipeId || candidate.id);
-      setActiveTabId(candidate.targetTab);
+      if (candidate.kind === 'book') openCrafting(candidate.recipeId, candidate.processingActionId);
+      else if (candidate.kind === 'facility') selectArchiveTab('camp', { elementId: `primitive-archive-camp-action-${candidate.id}` });
+      else selectArchiveTab(candidate.targetTab);
     } else if (request.kind === 'recipe') {
       const recipe = materials.flatMap(material => material.crafting).find(row => row.recipeId === request.recipeId);
       if (!recipe) return;
-      setRequirementHelpRequest(null);
-      if (current.calendar?.mode !== 'annual') setRecipeId(recipe.recipeId);
-      setActiveTabId(current.calendar?.mode === 'annual' ? 'tribe' : 'actions');
+      openCrafting(recipe.recipeId, recipe.processingActionId);
     } else if (request.kind === 'research') {
       if (!candidates.some(candidate => candidate.helpRequests.some(row => row.kind === 'research'
         && row.technologyId === request.technologyId))) return;
@@ -436,8 +452,7 @@ export default function PrimitiveArchivePlayContent() {
       const material = materials.find(row => row.resourceId === request.resourceId
         && row.sources.some(source => source.kind === 'community' && source.actionId === request.actionId));
       if (!material) return;
-      setRequirementHelpRequest(null);
-      setActiveTabId('tribe');
+      selectArchiveTab('tribe', { elementId: 'primitive-archive-workforce' });
     } else if (request.kind === 'map') {
       if (current.calendar?.mode === 'annual' || typeof request.regionId !== 'string' || !request.regionId) return;
       const material = materials.find(row => row.resourceId === request.resourceId
@@ -454,10 +469,14 @@ export default function PrimitiveArchivePlayContent() {
       if (!state.party.some(member => member.id === destination.actorId && member.hp > 0)) return;
       setActorId(destination.actorId);
     }
-    setRequirementHelpRequest(destination?.technologyId
-      ? previous => ({ kind: 'research', runId: state.runId, technologyId: destination.technologyId,
-        revision: (previous?.revision || 0) + 1 })
-      : null);
+    if (destination?.technologyId) {
+      setRequirementHelpRequest(previous => ({ kind: 'research', runId: state.runId,
+        technologyId: destination.technologyId, revision: (previous?.revision || 0) + 1 }));
+    } else if (destination?.processingActionId) {
+      setRequirementHelpRequest({ kind: 'processing', runId: state.runId, actionId: destination.processingActionId });
+    } else {
+      setRequirementHelpRequest(null);
+    }
     setActiveTabId(tabId);
     setGuidanceFocus(destination?.elementId ? { elementId: destination.elementId } : null);
   };
@@ -528,6 +547,10 @@ export default function PrimitiveArchivePlayContent() {
   const workerComparison = useMemo(() => activeTabId === 'tribe'
     ? workerAllocationComparison(state, workerChoice) : null,
   [activeTabId, state, workerChoice]);
+  const annualPolicyComparison = useMemo(() => annualMode && activeTabId === 'tribe'
+    ? annualWorkPolicyComparison(state) : null, [activeTabId, annualMode, state]);
+  const annualTradeRoute = useMemo(() => annualMode && activeTabId === 'tribe'
+    ? annualTradeRouteSummary(state) : null, [activeTabId, annualMode, state]);
   const completionGuide = useMemo(() => primitiveArchiveCompletionGuide({
     state, archiveVictory, facilities: campFacilities, recipes, regions, processing: tribe.processing,
   }), [state, archiveVictory, campFacilities, recipes, regions, tribe.processing]);
@@ -613,6 +636,8 @@ export default function PrimitiveArchivePlayContent() {
     const element = document.getElementById(guidanceFocus.elementId);
     const featurePanel = document.getElementById('primitive-archive-feature-panel');
     if (!element || !featurePanel?.contains(element)) return;
+    const disclosure = element.closest('details');
+    if (disclosure) disclosure.open = true;
     element.focus({ preventScroll: true });
     element.scrollIntoView({ block: 'nearest' });
   }, [guidanceFocus]);
@@ -1342,6 +1367,11 @@ export default function PrimitiveArchivePlayContent() {
     applyAction('연간 교섭', current => nationalRequestIsCurrent()
       ? runDiplomacyAction(current, actorId, rivalId, actionId) : current);
   };
+  const configureAnnualTradeRoute = (configuration) => {
+    if (!nationalRequestIsCurrent()) return;
+    applyAction('연간 교역로 설정', current => nationalRequestIsCurrent()
+      ? configureAnnualTradeRouteAction(current, configuration) : current);
+  };
   const annualStartControl = !annualMode && annual.canStart ? (
     <GameControlButton action="auto" cue="off" className="primitive-settlement-day"
       disabled={annualControlsBlocked} onClick={startAnnualSettlement}>공동체 연간 운영으로 전환</GameControlButton>
@@ -1517,6 +1547,9 @@ export default function PrimitiveArchivePlayContent() {
       <PrimitiveArchiveFeatureTabs
         annual={annual}
         annualYearControl={annualYearControl}
+        annualPolicyComparisonControl={<PrimitiveArchiveWorkPolicyComparison comparison={annualPolicyComparison} />}
+        annualTradeRouteControl={<PrimitiveArchiveTradeRoute tradeRoute={annualTradeRoute}
+          onConfigure={configureAnnualTradeRoute} blocked={annualControlsBlocked || state.ended} />}
         nationalControlsBlocked={annualControlsBlocked}
         selectNationalProject={selectNationalProject}
         runNationalDiplomacy={runNationalDiplomacy}
@@ -1545,6 +1578,7 @@ export default function PrimitiveArchivePlayContent() {
         campFacilities={campFacilities}
         onOpenRequirementHelp={openRequirementHelp}
         researchHelpRequest={requirementHelpRequest?.kind === 'research' && requirementHelpRequest.runId === state.runId ? requirementHelpRequest : null}
+        processingHelpRequest={requirementHelpRequest?.kind === 'processing' && requirementHelpRequest.runId === state.runId ? requirementHelpRequest : null}
         mapHelpRequest={requirementHelpRequest?.kind === 'map' && requirementHelpRequest.runId === state.runId ? requirementHelpRequest : null}
         canAct={annualMode ? canAct : actorCanAct}
         changeEquipmentSlot={changeEquipmentSlot}

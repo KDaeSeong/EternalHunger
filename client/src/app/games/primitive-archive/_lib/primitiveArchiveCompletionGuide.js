@@ -26,8 +26,12 @@ export function primitiveArchiveCompletionGuide({ state, archiveVictory = {}, fa
     const materials = guide.materials.map(material => ({ ...material,
       sources: annualMode ? communitySources(material.resourceId,
         Array.isArray(processing?.communitySources) ? processing.communitySources : []) : material.sources,
-      crafting: recipes.filter(recipe => Number(recipe.reward?.[material.resourceId] || 0) > 0)
-        .map(recipe => ({ recipeId: recipe.id, name: recipe.name, unlocked: recipe.unlocked !== false, materialText: recipe.materialText || '' })) }));
+      crafting: annualMode
+        ? (processing?.options || []).filter(option => option.outputItemId === material.resourceId)
+          .map(option => ({ recipeId: option.id.replace(/^annual_/, ''), processingActionId: option.id,
+            name: option.label, unlocked: option.unlocked, materialText: option.costText }))
+        : recipes.filter(recipe => Number(recipe.reward?.[material.resourceId] || 0) > 0)
+          .map(recipe => ({ recipeId: recipe.id, name: recipe.name, unlocked: recipe.unlocked !== false, materialText: recipe.materialText || '' })) }));
     const research = [...new Map([...guide.research, ...materials.flatMap(material => material.sources
       .flatMap(source => source.research || []).filter(row => row.completed !== true))]
       .filter(row => row.completed !== true).map(row => [row.technologyId, { ...row }])).values()];
@@ -44,7 +48,7 @@ export function primitiveArchiveCompletionGuide({ state, archiveVictory = {}, fa
       !unlocked && !research.length ? row.lockedReason || row.reason || row.lockedLabel || '해금 조건 확인 필요' : '',
     ].filter(Boolean).join(' · ') || '재료 준비 완료 · 실행 대상과 관리 행동력을 확인하세요.';
     const annualBook = kind === 'book' && state?.calendar?.mode === 'annual';
-    const processingActionId = annualBook ? `annual_${row.id}` : '';
+    const processingActionId = annualBook ? processing?.options?.find(option => option.outputItemId === row.id)?.id || '' : '';
     candidates.push({ kind, id: row.id, title: `기초 완주 준비: ${row.name}`,
       detail: annualBook ? `${detail} · 공동체 가공 계획에 지정하면 실제 일손과 재료로 다음 1년 운영 때 생산합니다. 끈이 부족하면 끈 가공부터 준비하세요.` : detail,
       targetTab: kind === 'facility' ? 'camp' : annualBook ? 'tribe' : 'actions',

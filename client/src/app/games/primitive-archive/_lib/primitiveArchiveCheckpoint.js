@@ -7,6 +7,7 @@ import { isValidTribeProductionReceipt, isValidTribeWorkPolicy } from './primiti
 import { isValidOptionalTribeProcessing } from './primitiveArchiveProcessing';
 import { isValidOptionalTribeEducation } from './primitiveArchiveEducation';
 import { isValidAnnualCalendar } from './primitiveArchiveCalendar.js';
+import { isValidAnnualTradeRouteState } from './primitiveArchiveTradeRoute.js';
 
 const CHECKPOINT_SCHEMA_VERSION = 2;
 const CHECKPOINT_KEY_PREFIX = 'primitive-archive:checkpoint:v2:';
@@ -246,6 +247,7 @@ export function isValidRunState(value) {
     || typeof value.ended !== 'boolean'
     || typeof value.victory !== 'boolean'
     || !isValidOptionalRunStructures(value)
+    || !isValidAnnualTradeRouteState(value)
     || !isValidTribeWorkPolicy(value.tribe?.workPolicy)
     || !isValidOptionalTribeProcessing(value.tribe)
     || !isValidOptionalTribeEducation(value.tribe)

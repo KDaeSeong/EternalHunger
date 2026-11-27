@@ -29,6 +29,8 @@ export default function PrimitiveArchiveTribeTab({
   actionFeedback,
   annual,
   annualYearControl,
+  annualPolicyComparisonControl,
+  annualTradeRouteControl,
   nationalControlsBlocked = false,
   projects = [],
   selectNationalProject,
@@ -49,6 +51,7 @@ export default function PrimitiveArchiveTribeTab({
   supplies,
   projectTradition,
   processingTradition,
+  processingHelpRequest,
   reserveProcessingTradition,
   educationTradition,
   reserveEducationTradition,
@@ -164,6 +167,7 @@ export default function PrimitiveArchiveTribeTab({
             <p>이 기록은 운영 방침의 해금 조건이나 추가 효과가 아닙니다.</p>
           </details> : null}
         </div> : null}
+        {annualMode ? annualPolicyComparisonControl : null}
         {workerComparisonControl || null}
         <div className="primitive-job-grid">
           {tribe.jobs.map((job) => (
@@ -201,6 +205,7 @@ export default function PrimitiveArchiveTribeTab({
               </div>
               {job.id === 'artisan' ? <PrimitiveArchiveProcessingPlan processing={tribe.processing} runId={state?.runId || ''}
                 onConfigure={configureTribeProcess} blockedReason={jobEditBlockedReason}
+                helpRequest={processingHelpRequest}
                 requirementGuide={requirements.processing} onOpenRequirementHelp={onOpenRequirementHelp} /> : null}
               {job.id === 'artisan' ? <PrimitiveArchiveProcessingTradition tradition={processingTradition}
                 processing={tribe.processing} actor={actor} hydrated={hydrated} busy={busy} ended={Boolean(state?.ended)}
@@ -238,6 +243,7 @@ export default function PrimitiveArchiveTribeTab({
             {project.completed ? '완성' : project.selected ? '현재 목표' : !project.available ? '잠김' : '목표 지정'}
           </GameControlButton>
         </div>)}
+        {annualTradeRouteControl}
       </section> : null}
 
       {annualMode ? <section className="games-panel primitive-annual-management">

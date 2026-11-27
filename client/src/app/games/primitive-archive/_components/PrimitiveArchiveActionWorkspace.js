@@ -236,7 +236,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
               </select>
               <small>{zoneSelectionUnlocked ? '지도 제작 완료 · 구역 지정 가능' : `지도 제작 연구 후 지정 가능 · 발견 ${exploration?.revealed || 0}곳`}</small>
             </label>
-            <label className="game-save-json-field">
+            <label id="primitive-archive-action-recipe" tabIndex={-1} className="game-save-json-field">
               <span>제작</span>
               <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
                 {(recipeRows || []).map((row) => (

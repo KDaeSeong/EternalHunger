@@ -24,6 +24,8 @@ registerHooks({ resolve(specifier, context, next) {
   }).outputText };
 } });
 const engine = await import(new URL('_lib/primitiveArchiveEngine.js', base));
+const { RIVAL_TRIBES } = await import(new URL('_lib/primitiveArchiveData.js', base));
+const { ANNUAL_TRADE_PROJECT_ID } = await import(new URL('_lib/primitiveArchiveTradeRoute.js', base));
 const calendar = await import(new URL('_lib/primitiveArchiveCalendar.js', base));
 const feedback = await import(new URL('_lib/primitiveArchiveFeedback.js', base));
 const soundtrack = await import(new URL('_lib/primitiveArchiveSoundtrack.js', base));
@@ -51,7 +53,7 @@ function declaration(source, name) {
 const names = ['actionOwnerSession', 'applyAction', 'annualExpected', 'annualExpectedState', 'annualExpectedVersion',
   'annualExpectedSession', 'annualRequestIsCurrent', 'startAnnualSettlement', 'runSettlementYear',
   'annualControlsBlocked', 'annualStartControl', 'annualYearControl', 'resetAutoDayGoal', 'resetWorkerComparison', 'replaceState', 'handleRestoredRun'];
-names.push('runCamp', 'runUtility', 'prepareSuccessor');
+names.push('runCamp', 'runUtility', 'prepareSuccessor', 'nationalRequestIsCurrent', 'configureAnnualTradeRoute');
 const compiled = ts.transpileModule(names.map(name => declaration(playSource, name)).join('\n'), {
   compilerOptions: { jsx: ts.JsxEmit.React, module: ts.ModuleKind.ESNext },
 }).outputText;
@@ -77,6 +79,7 @@ function harness(state = fresh(), overrides = {}) {
   const annual = annualSummary(state);
   const scope = { ...engine, ...feedback, ...soundtrack, React, GameControlButton,
     useCallback: fn => fn, state, stateRef, actionVersionRef, annual, annualMode: annual.annualMode,
+    actorSelectionRef: { current: state.party[0].id },
     captureAuthSession: () => ({ revision: session.current }), isCurrentAuthSession: value => value?.revision === session.current,
     autoDayGoalRef: { current: { id: 'exploration', epoch: 7, runId: state.runId, session: { revision: 0 } } },
     setAutoDayGoalId: value => calls.goals.push(value), setAutoDayReport: value => calls.reports.push(value),
@@ -94,7 +97,7 @@ function harness(state = fresh(), overrides = {}) {
     setActionFeedback: value => calls.feedback.push(value), setActiveTabId: value => calls.tabs.push(value),
     setActorId: value => calls.actors.push(value), setRequirementHelpRequest() {}, setInitialShopRunId() {},
     setNewRunDifficulty() {}, setZoneId() {}, setRecipeId() {}, setSelectedRecruitId() {}, ...overrides };
-  const view = new Function(...Object.keys(scope), `${compiled}\nreturn {${names.filter(name => ['applyAction', 'startAnnualSettlement', 'runSettlementYear', 'annualStartControl', 'annualYearControl', 'replaceState', 'handleRestoredRun', 'runCamp', 'runUtility', 'prepareSuccessor'].includes(name)).join(',')}};`)(...Object.values(scope));
+  const view = new Function(...Object.keys(scope), `${compiled}\nreturn {${names.filter(name => ['applyAction', 'startAnnualSettlement', 'runSettlementYear', 'annualStartControl', 'annualYearControl', 'replaceState', 'handleRestoredRun', 'runCamp', 'runUtility', 'prepareSuccessor', 'configureAnnualTradeRoute'].includes(name)).join(',')}};`)(...Object.values(scope));
   return { ...view, calls, scope, stateRef, actionVersionRef, session, lease: value => { held = value; } };
 }
 const priorWindow = globalThis.window;
@@ -250,6 +253,12 @@ try {
     const button = nodes(tree, node => node.type === 'button' && text(node) === '일손 배치 확인')[0];
     assert.ok(button); button.props.onClick();
     assert.deepEqual(calls, [['tribe', { elementId: 'primitive-archive-workforce' }]]); assert.deepEqual(state, before);
+    for (const label of ['지도 보기', '현역 대원 보기']) {
+      const shortcut = nodes(tree, node => node.type === 'button' && text(node) === label)[0];
+      assert.ok(shortcut); assert.equal(shortcut.props.disabled, false); shortcut.props.onClick();
+    }
+    assert.deepEqual(calls.slice(1), [['map'], ['founders', { elementId: 'primitive-archive-active-people' }]]);
+    assert.deepEqual(state, before);
     const first = engine.runSettlementYearAction(state, stamp(state));
     const firstTree = AnnualOperations({ annual: annualSummary(first) });
     const receipt = nodes(firstTree, node => node.type === 'section' && node.props['aria-label'] === '첫해 실제 정산')[0];
@@ -260,6 +269,36 @@ try {
     const second = engine.runSettlementYearAction(first, stamp(first));
     assert.match(render(AnnualOperations, { annual: annualSummary(second) }), /최근 실제 정산 · 정착 2년/);
     assert.equal(nodes(AnnualOperations({ annual: annualSummary(second) }), node => node.type === 'section' && node.props['aria-label'] === '첫해 실제 정산').length, 0);
+  });
+  await check('annual route form applies only to the current writer and the yearly overview shows the actual exchange', () => {
+    const state = annualState('annual-trade-ui');
+    const rival = RIVAL_TRIBES[0];
+    state.research.completed.OCEANIC_CARTOGRAPHY = true;
+    state.projects.completed[ANNUAL_TRADE_PROJECT_ID] = true;
+    state.projects.resourceCommitted[ANNUAL_TRADE_PROJECT_ID] = true;
+    state.projects.progress[ANNUAL_TRADE_PROJECT_ID] = 12;
+    state.tribe.assignments.builder = 2;
+    state.diplomacy.contacts[rival.id].known = true;
+    const choice = { rivalId: rival.id, fromJobId: 'builder' };
+    const blocked = harness(state); blocked.session.current += 1; blocked.configureAnnualTradeRoute(choice);
+    assert.equal(blocked.stateRef.current, state);
+    const owner = harness(state); owner.lease(false); owner.configureAnnualTradeRoute(choice);
+    assert.equal(owner.stateRef.current, state);
+    const current = harness(state); current.configureAnnualTradeRoute(choice);
+    const configured = current.stateRef.current;
+    assert.deepEqual(configured.annualTradeRoute, { version: 1, ...choice });
+    assert.equal(configured.ap, state.ap); assert.equal(configured.day, state.day);
+    assert.deepEqual(configured.inventory, state.inventory);
+    const result = engine.runSettlementYearAction(configured, stamp(configured));
+    assert.equal(result.tribe.lastProduction.tradeRoute.status, 'applied');
+    const html = render(AnnualOperations, { annual: annualSummary(result) });
+    assert.ok(html.includes(rival.name)); assert.match(html, /실제 연간 교역.*건설대 1명 전용/);
+    assert.match(html, /제공 .* → 받음 /);
+    const scarce = { ...configured, inventory: { ...configured.inventory,
+      ...Object.fromEntries(Object.keys(rival.tradeCost).map(id => [id, 0])) } };
+    const skipped = engine.runSettlementYearAction(scarce, stamp(scarce));
+    assert.equal(skipped.tribe.lastProduction.tradeRoute.status, 'skipped');
+    assert.match(render(AnnualOperations, { annual: annualSummary(skipped) }), /교역 건너뜀.*교역 자재가 부족/);
   });
   await check('ended annual JSX retains completed receipts without offering a future year or projection', () => {
     let state = annualState('ended-ui'); state = engine.runSettlementYearAction(state, stamp(state)); state = { ...state, ended: true };

@@ -6,6 +6,8 @@ import PrimitiveArchivePortrait from './PrimitiveArchivePortrait';
 import PrimitiveArchivePersonIdentity from './PrimitiveArchivePersonIdentity';
 import { archiveIdentityIndex } from '../_lib/primitiveArchiveIdentity';
 import { annualPersonSummary } from '../_lib/primitiveArchiveCalendar';
+import { isValidLineage } from '../_lib/primitiveArchiveLineage';
+import { isValidProjectTradition } from '../_lib/primitiveArchiveProjectTradition';
 
 const FIELD_LABELS = {
   gather: '채집', hunt: '사냥', craft: '제작', camp: '캠프 관리', project: '공동 사업',
@@ -45,6 +47,21 @@ const STAGE_LABELS = { active: '활동 중', elder: '후계 인계 예고', reti
 const FAITH_STATUS_LABELS = { living: '생존 인물의 가르침', retired: '은퇴한 인물의 가르침',
   deceased: '사후 시조신의 가호', unconfirmed: '생애 상태 미확인' };
 
+const personRecordId = actorId => `primitive-archive-person-${encodeURIComponent(actorId)}`;
+function openPersonRecord(event, actorId) {
+  const target = event.currentTarget.ownerDocument?.getElementById(personRecordId(actorId));
+  if (!target) return;
+  event.preventDefault();
+  for (let parent = target; parent; parent = parent.parentElement) {
+    if (parent.tagName === 'DETAILS') parent.open = true;
+  }
+  target.focus();
+  target.scrollIntoView?.({ block: 'nearest' });
+}
+function PersonRecordLink({ person, children }) {
+  return <a href={`#${personRecordId(person.actorId)}`} onClick={event => openPersonRecord(event, person.actorId)}>{children || person.name}</a>;
+}
+
 function FounderPortrait({ member, compact = false }) {
   const className = `primitive-founders__portrait${compact ? ' primitive-founders__portrait--compact' : ''}`;
   return <PrimitiveArchivePortrait className={className} member={member} size={compact ? 32 : 56} />;
@@ -69,6 +86,21 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
   const history = state?.founderHistory || rows[0];
   const foundersKnown = history?.foundersKnown === true;
   const foundingCount = rows.filter((row) => row.isFounder === true).length;
+  const validLineage = state && isValidLineage(state.lineage, state) ? state.lineage : null;
+  const tradition = state?.projectTradition && isValidProjectTradition(state.projectTradition, state) ? state.projectTradition : null;
+  const linkedRecord = person => person && rows.some(row => row.actorId === person.actorId);
+  const personConnections = (actorId, includeOwnRecord = true) => {
+    const identity = identities[actorId];
+    const member = validLineage?.members?.find(row => row.actorId === actorId);
+    const successor = member?.successorId ? identities[member.successorId] : null;
+    return <>
+      {identity?.mentor && linkedRecord(identity.mentor) ? <p>인계한 지도자: <PersonRecordLink person={identity.mentor} /></p> : null}
+      {identity?.rootReference && linkedRecord(identity.rootReference) ? <p>{identity.rootReference.isFounder ? '계보의 창건 인물' : '계보의 기준 인물'}: <PersonRecordLink person={identity.rootReference} /></p> : null}
+      {successor?.mentor?.actorId === actorId && linkedRecord(successor) ? <p>인계받은 후계: <PersonRecordLink person={successor} /></p> : null}
+      {identity?.kind === 'successor' && member ? <p>현장 인계 기록: {dayText(member.enteredDay, state?.calendar)} · {identity.generationLabel}</p> : null}
+      {includeOwnRecord && rows.some(row => row.actorId === actorId) ? <PersonRecordLink person={{ actorId }}>이 인물의 활동·전승 기록</PersonRecordLink> : null}
+    </>;
+  };
   const retirementKey = (row) => JSON.stringify([state?.runId, state?.day, row.actorId, row.generation,
     row.cycle, row.stage, row.successorId, row.successorName, state?.calendar?.completedYears ?? null,
     row.annual?.serviceYears ?? null, row.annual?.observedYears ?? null]);
@@ -104,7 +136,9 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
           ? '이전 런의 생애 전환은 비활성 상태입니다. 기존 대원과 진행을 유지합니다.'
           : '생애 상태를 불러오는 중입니다.'}</p> : null}
         {!annualMode && lineage?.enabled && !lineage.clockStarted ? <p className="primitive-founders__muted">정착 활동기 시작 전입니다. 정착·식량 저장·거처와 후계를 준비할 실제 일손·식량을 먼저 마련하세요.</p> : null}
-        <div className="primitive-founders__life-list">
+        <div className="primitive-founders__life-list" id="primitive-archive-active-people" tabIndex={-1} aria-label="현역 대원">
+          <h4>현역 대원 · {activeLife.length}명</h4>
+          {annualMode ? <p>현재 보존 상태입니다. 연간 운영은 개인 허기·체력을 하루씩 소모하지 않으며 공동 배식은 전체 인구로 정산합니다.</p> : null}
           {activeLife.map((row) => {
             const canPrepare = !controlsBusy && lineage?.enabled && row.canPrepare && typeof prepareSuccessor === 'function';
             const canRetire = !controlsBusy && lineage?.enabled && row.canRetire && typeof retireFounder === 'function';
@@ -130,6 +164,8 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
                 </div>
               </div>
               <PrimitiveArchivePersonIdentity identity={identities[row.actorId]} />
+              <p>현재 {STAGE_LABELS[row.stage] || '상태 미확인'}{Number.isFinite(person.hp) ? ` · HP ${person.hp}` : ''}{Number.isFinite(person.stamina) ? ` · ST ${person.stamina}` : ''}{!annualMode && Number.isFinite(person.hunger) ? ` · 허기 ${person.hunger}` : ''}</p>
+              {personConnections(row.actorId)}
               <p className="primitive-founders__muted">{row.successorName ? `후계: ${row.successorName}` : row.prepareReason || lineage.prepareCostText || '준비 비용 확인 필요'}{row.retireReason ? ` · ${row.retireReason}` : ''}</p>
               {confirming ? <div className="primitive-founders__confirmation" id={confirmId} role="group" aria-labelledby={`${confirmId}-title`}>
                 <h4 id={`${confirmId}-title`}>{row.name}의 은퇴를 확정할까요?</h4>
@@ -159,6 +195,7 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
               <div className="primitive-founders__actor"><FounderPortrait member={candidate.actor} compact />
                 <strong>{candidate.actor.name}</strong></div>
               <PrimitiveArchivePersonIdentity identity={identities[candidate.actor.id]} />
+              {personConnections(candidate.actor.id)}
               <p>{candidate.actor.role} · 지도자 {mentor?.name || '기록 확인 필요'} · {annualMode
                 ? observed.observed ? `관찰 ${observed.observedYears}년` : '연간 관찰 전 기록'
                 : `${candidate.preparedDay}일차 준비`} · 공동 배식에 포함</p>
@@ -172,6 +209,7 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
             return <article key={row.actorId}>
               <div className="primitive-founders__actor"><FounderPortrait member={person} compact /><strong>{row.name}</strong></div>
               <PrimitiveArchivePersonIdentity identity={identities[row.actorId]} />
+              {personConnections(row.actorId)}
               <p>{STAGE_LABELS[row.stage]} · {lifeText(row)}{row.successorName ? ` · 후계 ${row.successorName}` : ''}</p>
             </article>;
           })}
@@ -198,6 +236,7 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
                   onClick={() => { if (canUse) runAncestralRite(row.founderId); }}>{label}</button>
               </div>
               {row.message ? <p className="primitive-founders__muted">{row.message}</p> : null}
+              {linkedRecord({ actorId: row.founderId }) ? <PersonRecordLink person={{ actorId: row.founderId }}>이 인물의 생전 활동·전승 기록</PersonRecordLink> : null}
               <details className="primitive-founders__rules"><summary>전승의 근거·효과·인물의 말</summary><p>{row.legend}</p>{row.effectText ? <p>{row.effectText}</p> : null}{row.response ? <p>{row.name}: “{row.response}”</p> : null}</details>
             </article>;
           })}
@@ -216,7 +255,7 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
             const status = row.deathRecord || life?.stage === 'deceased' ? '사망 기록' : life?.stage === 'retired' ? '은퇴·생존' : row.living ? '생존' : '생존 미확인';
             const origin = row.isFounder === true ? '창건 인물' : row.foundersKnown ? '합류 인물' : '관찰된 인물';
             return (
-              <details className="games-panel primitive-founders__person" key={row.actorId || index} open={index === 0}>
+              <details className="games-panel primitive-founders__person" id={personRecordId(row.actorId)} tabIndex={-1} key={row.actorId || index} open={index === 0}>
                 <summary>
                   <span className="primitive-founders__identity">
                     <FounderPortrait member={row} />
@@ -229,6 +268,22 @@ export default function PrimitiveArchiveFoundersTab({ foundersRows = [], state, 
                   <span className="primitive-founders__toggle" aria-hidden="true">⌄</span>
                 </summary>
                 <div className="primitive-founders__record">
+                  {personConnections(row.actorId, false)}
+                  {tradition && [...(tradition.records || []), ...(tradition.processingRecords || []), ...(tradition.educationRecords || [])].some(record => record.founderId === row.actorId) ? <section aria-label={`${row.name || '이름 미상'}의 실제 전승 기여`}>
+                    <h3>실제 정산에 남은 전승 기여</h3>
+                    <p>이 인물의 기록된 전승 효과입니다. 후계 본인이 수행한 활동으로 바꾸어 세지 않습니다.</p>
+                    <ul>
+                      {(tradition.records || []).filter(record => record.founderId === row.actorId && record.appliedWork > 0).map(record => <li key={`project-${record.projectId}`}>
+                        {TARGET_NAMES.get(record.projectId) || '공동 사업'} · 실제 전승 작업 +{record.appliedWork} · {dayText(record.firstDay, state?.calendar)}~{dayText(record.lastDay, state?.calendar)}{record.completedDay > 0 ? ` · 완공 ${dayText(record.completedDay, state?.calendar)}` : ''}
+                      </li>)}
+                      {(tradition.processingRecords || []).filter(record => record.founderId === row.actorId && record.appliedBatches > 0).map(record => <li key={`processing-${record.actionId}`}>
+                        공동체 가공 · 실제 전승 추가 {record.appliedBatches}묶음 · {dayText(record.firstDay, state?.calendar)}~{dayText(record.lastDay, state?.calendar)}
+                      </li>)}
+                      {(tradition.educationRecords || []).filter(record => record.founderId === row.actorId && record.appliedPoints > 0).map(record => <li key={`education-${record.civicId}`}>
+                        공교육 · 실제 전승 기여 +{record.appliedPoints}CP · {record.applications}회 · {dayText(record.firstDay, state?.calendar)}~{dayText(record.lastDay, state?.calendar)}
+                      </li>)}
+                    </ul>
+                  </section> : null}
                   <section aria-label={`${row.name || '이름 미상'}의 분야별 활동`}>
                     <h3>분야별 활동 기록</h3>
                     {fields.length ? <dl className="primitive-founders__fields">{fields.map(([kind, label]) => (

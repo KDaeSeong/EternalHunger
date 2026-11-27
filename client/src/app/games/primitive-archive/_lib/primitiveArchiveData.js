@@ -253,6 +253,13 @@ export const TRIBE_PROJECTS = [
     cost: { stone: 10, clay: 5, rune_shard: 1 }, effectId: 'PROJECT_ARCHIVE_SCORE', reward: { rune_shard: 1 },
     description: '부족의 역사와 지식을 돌에 새기는 장기 사업입니다.', effectText: '기록 점수 +400',
   },
+  {
+    id: 'early-modern-trade-route', name: '근세 교역로', era: 'EARLY_MODERN', annualOnly: true,
+    prereqs: ['OCEANIC_CARTOGRAPHY'], work: 12,
+    cost: { wood: 8, fiber: 4, hide: 2 }, effectId: 'ANNUAL_TRADE_ROUTE', reward: {},
+    description: '접촉한 이웃과 매년 실제 물자를 교환하는 교역로를 정비합니다.',
+    effectText: '연간 교역로 1개 개설 · 건설대 또는 기록대 일손 1명 전용',
+  },
 ];
 
 export const TRIBE_JOBS = [
@@ -2412,6 +2419,8 @@ export function initProjectState() {
 export function normalizeProjectState(value = {}) {
   const base = initProjectState();
   const validProjectIds = new Set(TRIBE_PROJECTS.map((project) => project.id));
+  // Annual projects acquire save entries only as their actual progress is recorded.
+  const recordedProjects = entries => TRIBE_PROJECTS.filter(project => !project.annualOnly || Object.hasOwn(entries || {}, project.id));
   const selectedProjectId = typeof value.selectedProjectId === 'string'
     ? validProjectIds.has(value.selectedProjectId) ? value.selectedProjectId : ''
     : base.selectedProjectId;
@@ -2419,15 +2428,15 @@ export function normalizeProjectState(value = {}) {
     ...base,
     ...value,
     selectedProjectId,
-    progress: Object.fromEntries(TRIBE_PROJECTS.map((project) => [
+    progress: Object.fromEntries(recordedProjects(value.progress).map((project) => [
       project.id,
       Math.min(project.work, Math.max(0, Number(value.progress?.[project.id] || 0))),
     ])),
-    resourceCommitted: Object.fromEntries(TRIBE_PROJECTS.map((project) => [
+    resourceCommitted: Object.fromEntries(recordedProjects(value.resourceCommitted).map((project) => [
       project.id,
       Boolean(value.resourceCommitted?.[project.id]),
     ])),
-    completed: Object.fromEntries(TRIBE_PROJECTS.map((project) => [
+    completed: Object.fromEntries(recordedProjects(value.completed).map((project) => [
       project.id,
       Boolean(value.completed?.[project.id]),
     ])),
