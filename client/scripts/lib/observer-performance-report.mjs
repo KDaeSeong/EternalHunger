@@ -165,6 +165,7 @@ export function analyzeObserverPerformanceRuns(runs, {
     issues.push('require ordered speed blocks: three x1, then three x8, then three x32');
   }
   const first = runs[0];
+  const firstFinal = first?.context?.final;
   for (let index = 1; index < runs.length; index++) {
     const run = runs[index], previous = runs[index - 1];
     if (run?.timeOriginMs !== first?.timeOriginMs || JSON.stringify(run?.environment) !== JSON.stringify(first?.environment)) issues.push(`run ${index + 1}: document reload or environment changed`);
@@ -174,6 +175,10 @@ export function analyzeObserverPerformanceRuns(runs, {
       || run.startedAtMs - previous.endedAtMs - clockUncertainty < 0) issues.push(`run ${index + 1}: chronological sequence overlaps or is unknown within export rounding`);
     if (run?.context?.initial?.replayId !== first?.context?.initial?.replayId
       || run?.context?.initial?.seed !== first?.context?.initial?.seed) issues.push(`run ${index + 1}: different replay input identity`);
+    const final = run?.context?.final;
+    if (final?.comparedEvents !== firstFinal?.comparedEvents || final?.matchSec !== firstFinal?.matchSec) {
+      issues.push(`run ${index + 1}: replay event count or finish time differs from run 1`);
+    }
   }
   const groups = [1, 8, 32].map(speed => {
     const indices = rows.flatMap((row, index) => row.speed === speed ? [index] : []);

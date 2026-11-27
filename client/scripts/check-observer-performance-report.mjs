@@ -100,6 +100,15 @@ check('all nine samples are required; missing runs and best-of duplicates cannot
   const duplicates = fixture(); duplicates[1] = structuredClone(duplicates[0]);
   assert.equal(analyzeObserverPerformanceRuns(duplicates, policy).status, 'unverified');
 });
+check('matching replays of the same record must report the same event count and finish time at every speed', () => {
+  for (const [field, value] of [['comparedEvents', 101], ['matchSec', 900.25]]) {
+    const runs = fixture();
+    runs[7].context.final[field] = value;
+    const report = analyzeObserverPerformanceRuns(runs, policy);
+    assert.equal(report.status, 'unverified', `a different ${field} must prevent a cohort pass`);
+    assert.ok(report.issues.includes('run 8: replay event count or finish time differs from run 1'));
+  }
+});
 check('old engine, v2, live snapshots and immediate stops cannot inherit the current browser verdict', () => {
   for (const change of [run => run.engineVersion = 'b'.repeat(64), run => run.schema = 'eh-observer-performance.v2',
     run => run.boundary.status = 'recording', run => run.boundary.status = 'draining',
